@@ -2,8 +2,8 @@ using CScore;
 using CSmath;
 
 using Microsoft.Data.Sqlite;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using System.Collections.ObjectModel;
 using System.IO;
@@ -19,11 +19,10 @@ namespace OpenCS.Utilites
    {
       private SqliteConnection _connection;
       private string _dataSource;
-      private static readonly JsonSerializerSettings _jsonSettings = new()
+      private static readonly JsonSerializerOptions _jsonSettings = new()
       {
-         NullValueHandling = NullValueHandling.Ignore,
-         DefaultValueHandling = DefaultValueHandling.Ignore,
-         ContractResolver = new DatabaseContractResolver()
+         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+         WriteIndented = false
       };
 
       public string DataSource => _dataSource;
@@ -184,7 +183,7 @@ namespace OpenCS.Utilites
                E = reader.GetDouble(4)
             };
             var charsJson = reader.GetString(5);
-            var chars = JsonConvert.DeserializeObject<List<MaterialChars>>(charsJson, _jsonSettings);
+             var chars = JsonSerializer.Deserialize<List<MaterialChars>>(charsJson, _jsonSettings);
             if (chars != null && chars.Count == 4)
                m.MaterialChars = chars;
             Materials.Add(m);
@@ -231,7 +230,7 @@ namespace OpenCS.Utilites
             c.Type = (ContourType)reader.GetInt32(3);
             if (!reader.IsDBNull(4)) c.GeometrySet = reader.GetString(4);
             var pointsJson = reader.GetString(5);
-            var points = JsonConvert.DeserializeObject<List<StressPoint>>(pointsJson, _jsonSettings);
+             var points = JsonSerializer.Deserialize<List<StressPoint>>(pointsJson, _jsonSettings);
             if (points != null)
                foreach (var p in points) { p.Contour = c; c.Points.Add(p); }
             Contours.Add(c);
@@ -249,7 +248,7 @@ namespace OpenCS.Utilites
             var id = reader.GetInt32(0);
             var tag = reader.GetString(1);
             var dataJson = reader.GetString(2);
-            var data = JsonConvert.DeserializeObject<RcfrData>(dataJson, _jsonSettings);
+             var data = JsonSerializer.Deserialize<RcfrData>(dataJson, _jsonSettings);
             if (data == null) continue;
 
             var r = new RCFiberRegion
@@ -348,7 +347,7 @@ namespace OpenCS.Utilites
          {
             var contourId = reader.GetInt32(0);
             var regionsJson = reader.GetString(1);
-            var regionIds = JsonConvert.DeserializeObject<List<int>>(regionsJson);
+             var regionIds = JsonSerializer.Deserialize<List<int>>(regionsJson);
             var contour = Contours.FirstOrDefault(c => c.Id == contourId);
             if (contour == null || regionIds == null) continue;
 
@@ -378,7 +377,7 @@ namespace OpenCS.Utilites
             var calcType = (CalcType)reader.GetInt32(4);
             var materialId = reader.GetInt32(5);
             var splineJson = reader.GetString(6);
-            var sd = JsonConvert.DeserializeObject<SplineDataJson>(splineJson);
+             var sd = JsonSerializer.Deserialize<SplineDataJson>(splineJson, _jsonSettings);
             var d = new Diagramm
             {
                Id = id,
@@ -413,7 +412,7 @@ namespace OpenCS.Utilites
             Compression = ExtractSpline(d.Ic),
             Tension = ExtractSpline(d.It)
          };
-         var splineJson = JsonConvert.SerializeObject(sd, _jsonSettings);
+          var splineJson = JsonSerializer.Serialize(sd, _jsonSettings);
          var cmd = _connection.CreateCommand();
          if (d.Id == 0)
          {
@@ -478,7 +477,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("$tag", m.Tag ?? "");
          cmd.Parameters.AddWithValue("$desc", m.Description ?? "");
          cmd.Parameters.AddWithValue("$e", m.E);
-         cmd.Parameters.AddWithValue("$chars", JsonConvert.SerializeObject(m.MaterialChars, _jsonSettings));
+          cmd.Parameters.AddWithValue("$chars", JsonSerializer.Serialize(m.MaterialChars, _jsonSettings));
          if (m.Id == 0)
             m.Id = Convert.ToInt32(cmd.ExecuteScalar());
          else
@@ -496,9 +495,9 @@ namespace OpenCS.Utilites
       public void SaveContour(Contour c)
       {
          var cmd = _connection.CreateCommand();
-         var pointsJson = JsonConvert.SerializeObject(c.Points.ToList(), _jsonSettings);
+          var pointsJson = JsonSerializer.Serialize(c.Points.ToList(), _jsonSettings);
          var regionIds = c.Regions.Select(r => r.Id).ToList();
-         var regionsJson = JsonConvert.SerializeObject(regionIds);
+          var regionsJson = JsonSerializer.Serialize(regionIds);
 
          if (c.Id == 0)
          {
@@ -617,7 +616,7 @@ namespace OpenCS.Utilites
             }).ToList()
          };
 
-         var dataJson = JsonConvert.SerializeObject(data, _jsonSettings);
+          var dataJson = JsonSerializer.Serialize(data, _jsonSettings);
          var cmd = _connection.CreateCommand();
          if (r.Id == 0)
          {
@@ -773,23 +772,6 @@ namespace OpenCS.Utilites
          public SplineBranchJson? Tension { get; set; }
       }
 
-      /// <summary>
-      /// Контракт сериализации: включает Id даже для [JsonIgnore] свойств.
-      /// </summary>
-      class DatabaseContractResolver : DefaultContractResolver
-      {
-         protected override IList<JsonProperty> CreateProperties(Type type, MemberSerialization memberSerialization)
-         {
-            var props = base.CreateProperties(type, memberSerialization);
-            foreach (var prop in props)
-            {
-               if (prop.PropertyName == "Id")
-                  prop.Ignored = false;
-            }
-            return props;
-         }
-      }
-
       #endregion
 
       #region Settings
@@ -800,13 +782,13 @@ namespace OpenCS.Utilites
          cmd.CommandText = "SELECT value_json FROM settings WHERE key='csv'";
          var json = cmd.ExecuteScalar() as string;
          if (json == null) return CsvExportSettings.Default;
-         return JsonConvert.DeserializeObject<CsvExportSettings>(json) ?? CsvExportSettings.Default;
+         return JsonSerializer.Deserialize<CsvExportSettings>(json) ?? CsvExportSettings.Default;
       }
 
       public void SaveCsvSettings(CsvExportSettings s)
       {
-         var json = JsonConvert.SerializeObject(s);
-         var cmd = _connection.CreateCommand();
+          var json = JsonSerializer.Serialize(s);
+          var cmd = _connection.CreateCommand();
          cmd.CommandText = @"INSERT OR REPLACE INTO settings (key, value_json)
                              VALUES ('csv', $json)";
          cmd.Parameters.AddWithValue("$json", json);
@@ -819,13 +801,13 @@ namespace OpenCS.Utilites
          cmd.CommandText = "SELECT value_json FROM settings WHERE key='plot'";
          var json = cmd.ExecuteScalar() as string;
          if (json == null) return PlotSettings.Default;
-         return JsonConvert.DeserializeObject<PlotSettings>(json) ?? PlotSettings.Default;
+         return JsonSerializer.Deserialize<PlotSettings>(json) ?? PlotSettings.Default;
       }
 
       public void SavePlotSettings(PlotSettings s)
       {
-         var json = JsonConvert.SerializeObject(s);
-         var cmd = _connection.CreateCommand();
+          var json = JsonSerializer.Serialize(s);
+          var cmd = _connection.CreateCommand();
          cmd.CommandText = @"INSERT OR REPLACE INTO settings (key, value_json)
                              VALUES ('plot', $json)";
          cmd.Parameters.AddWithValue("$json", json);

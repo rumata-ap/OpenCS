@@ -28,12 +28,12 @@
 
                <StackPanel.ContextMenu>
                   <ContextMenu>
-                     <MenuItem Header="Добавить" Click="ConcreteAdd_Click">
+                     <MenuItem Header="{DynamicResource Add}" Click="ConcreteAdd_Click">
                         <MenuItem.Icon>
                            <Image Source="/Images/add__32.png"/>
                         </MenuItem.Icon>
                      </MenuItem>
-                     <MenuItem Header="Удалить" Click="ConcreteDel_Click">
+                     <MenuItem Header="{DynamicResource Delete}" Click="ConcreteDel_Click">
                         <MenuItem.Icon>
                            <Image Source="/Images/delete--32.png"/>
                         </MenuItem.Icon>
@@ -58,7 +58,7 @@
               <StackPanel Orientation="Horizontal" Margin="1">
                  <StackPanel.ContextMenu>
                     <ContextMenu>
-                       <MenuItem Header="Удалить" Click="DeleteDiagram_Click">
+                       <MenuItem Header="{DynamicResource Delete}" Click="DeleteDiagram_Click">
                           <MenuItem.Icon>
                              <Image Source="/Images/delete--32.png"/>
                           </MenuItem.Icon>
@@ -122,20 +122,25 @@
 
 
       <Menu Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="4" FontSize="14" >
-         <MenuItem Header="Файл" Margin="3">
-            <MenuItem Header="Новый" Command="{Binding NewProjectCommand}" />
-            <MenuItem Header="Открыть" Command="{Binding OpenProjectCommand}" />
+         <MenuItem Header="{DynamicResource File}" Margin="3">
+            <MenuItem Header="{DynamicResource New}" Command="{Binding NewProjectCommand}" />
+            <MenuItem Header="{DynamicResource Open}" Command="{Binding OpenProjectCommand}" />
             <Separator />
-            <MenuItem Header="Сохранить" Command="{Binding SaveProjectCommand}" />
-            <MenuItem Header="Сохранить как..." Command="{Binding SaveAsProjectCommand}" />
+            <MenuItem Header="{DynamicResource Save}" Command="{Binding SaveProjectCommand}" />
+            <MenuItem Header="{DynamicResource SaveAs}" Command="{Binding SaveAsProjectCommand}" />
             <Separator />
-            <MenuItem Header="Выход" Command="{Binding ExitCommand}" />
+            <MenuItem Header="{DynamicResource Exit}" Command="{Binding ExitCommand}" />
          </MenuItem>
-         <MenuItem Header="Изменить" ></MenuItem>
-         <MenuItem Header="Вид" ></MenuItem>
-         <MenuItem Header="Настройки" >
-            <MenuItem Header="Графики..." Command="{Binding OpenPlotSettingsCommand}" />
-            <MenuItem Header="Экспорт в CSV..." Command="{Binding OpenCsvSettingsCommand}" />
+         <MenuItem Header="{DynamicResource Edit}" ></MenuItem>
+         <MenuItem Header="{DynamicResource View}" ></MenuItem>
+         <MenuItem Header="{DynamicResource Settings}" >
+            <MenuItem Header="{DynamicResource Plots}" Command="{Binding OpenPlotSettingsCommand}" />
+            <MenuItem Header="{DynamicResource CsvExport}" Command="{Binding OpenCsvSettingsCommand}" />
+            <Separator />
+            <MenuItem Header="{DynamicResource Language}">
+               <MenuItem Header="{DynamicResource Russian}" Command="{Binding SetLanguageCommand}" CommandParameter="0" />
+               <MenuItem Header="{DynamicResource English}" Command="{Binding SetLanguageCommand}" CommandParameter="1" />
+            </MenuItem>
          </MenuItem>
       </Menu>
 
@@ -153,7 +158,7 @@
             <Separator />
             <Button>
             </Button>
-            <TextBox Foreground="LightGray" Width="100">Поиск...</TextBox>
+            <TextBox Foreground="LightGray" Width="100" Text="{DynamicResource Search}"/>
          </ToolBar>
       </ToolBarTray>
 
@@ -170,12 +175,12 @@
             <Separator />
             <Button>
             </Button>
-            <TextBox Foreground="LightGray" Width="100">Поиск...</TextBox>
+            <TextBox Foreground="LightGray" Width="100" Text="{DynamicResource Search}"/>
          </ToolBar>
       </ToolBarTray>
 
       <TabControl x:Name="dataTabs" Grid.Column="0" Grid.Row="2" Grid.RowSpan="3">
-         <TabItem x:Name="structureTab" Header="Структура проекта">
+         <TabItem x:Name="structureTab" Header="{DynamicResource ProjectStructure}">
 
             <TreeView x:Name="structureTree" Margin="10" BorderThickness="0" SelectedItemChanged="structureTree_SelectedItemChanged">
 
@@ -183,13 +188,13 @@
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Image Source="/Images/geometry__32.png"/>
-                        <TextBlock Text="Геометрия" Margin="5,0,0,0" FontWeight="Bold"/>
+                        <TextBlock Text="{DynamicResource Geometry}" Margin="5,0,0,0" FontWeight="Bold"/>
                      </StackPanel>
                   </TreeViewItem.Header>
 
                   <TreeViewItem.ContextMenu>
                      <ContextMenu>
-                        <MenuItem Header="Из DXF" Command="{Binding FromDxfCommand}">
+                        <MenuItem Header="{DynamicResource FromDxf}" Command="{Binding FromDxfCommand}">
                            <MenuItem.Icon>
                               <Image Source="{StaticResource di_dxf_file_xaml}" />
                            </MenuItem.Icon>
@@ -201,7 +206,7 @@
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
                            <Image Source="/Images/circles__32.png"/>
-                           <TextBlock Text="Окружности" Margin="5,0,0,0"/>
+                           <TextBlock Text="{DynamicResource Circles}" Margin="5,0,0,0"/>
                         </StackPanel>
                      </TreeViewItem.Header>
 
@@ -211,23 +216,23 @@
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
                            <Image Source="/Images/contours__32.png"/>
-                           <TextBlock Text="Контуры" Margin="5,0,0,0"/>
+                           <TextBlock Text="{DynamicResource Contours}" Margin="5,0,0,0"/>
                         </StackPanel>
                      </TreeViewItem.Header>
 
                      <TreeViewItem.ContextMenu>
                         <ContextMenu>
-                           <MenuItem Header="Из DXF" Command="{Binding FromDxfCommand}">
+                           <MenuItem Header="{DynamicResource FromDxf}" Command="{Binding FromDxfCommand}">
                               <MenuItem.Icon>
                                  <Image Source="{StaticResource di_dxf_file_xaml}" />
                               </MenuItem.Icon>
                            </MenuItem>
-                           <MenuItem Header="Создать" Command="{Binding NewContourCommand}">
+                           <MenuItem Header="{DynamicResource Create}" Command="{Binding NewContourCommand}">
                               <MenuItem.Icon>
                                  <Image Source="{StaticResource addDrawingImage}" />
                               </MenuItem.Icon>
                            </MenuItem>
-                           <MenuItem Header="Удалить" Command="{Binding DelContourCommand}">
+                           <MenuItem Header="{DynamicResource Delete}" Command="{Binding DelContourCommand}">
                               <MenuItem.Icon>
                                  <Image Source="{StaticResource deleteDrawingImage}" />
                               </MenuItem.Icon>
@@ -243,13 +248,13 @@
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Image Source="/Images/material1__32.png"/>
-                        <TextBlock Text="Материалы" Margin="5,0,0,0" FontWeight="Bold"/>
+                        <TextBlock Text="{DynamicResource Materials}" Margin="5,0,0,0" FontWeight="Bold"/>
                      </StackPanel>
                   </TreeViewItem.Header>
 
                   <TreeViewItem.ContextMenu>
                      <ContextMenu>
-                        <MenuItem Header="Добавить" Command="{Binding NewMaterialCommand}">
+                        <MenuItem Header="{DynamicResource Add}" Command="{Binding NewMaterialCommand}">
                            <MenuItem.Icon>
                               <Image Source="/Images/add__32.png" />
                            </MenuItem.Icon>
@@ -261,7 +266,7 @@
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
                            <Image Source="/Images/kamni_wouahfq6r5gi__32.png"/>
-                           <TextBlock Text="Бетон" Margin="5,0,0,0"/>
+                           <TextBlock Text="{DynamicResource Concrete}" Margin="5,0,0,0"/>
                         </StackPanel>
                      </TreeViewItem.Header>
                   </TreeViewItem>
@@ -270,7 +275,7 @@
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
                            <Image Source="/Images/armarura__32.png"/>
-                           <TextBlock Text="Арматура" Margin="5,0,0,0"/>
+                           <TextBlock Text="{DynamicResource Reinforcement}" Margin="5,0,0,0"/>
                         </StackPanel>
                      </TreeViewItem.Header>
                   </TreeViewItem>
@@ -279,7 +284,7 @@
                       <TreeViewItem.Header>
                          <StackPanel Orientation="Horizontal" Margin="2">
                             <Image Source="/Images/steel_3rbuwfklgl3w__32.png"/>
-                            <TextBlock Text="Конструкционная сталь" Margin="5,0,0,0"/>
+                            <TextBlock Text="{DynamicResource StructuralSteel}" Margin="5,0,0,0"/>
                          </StackPanel>
                       </TreeViewItem.Header>
                    </TreeViewItem>
@@ -288,12 +293,12 @@
                       <TreeViewItem.Header>
                          <StackPanel Orientation="Horizontal" Margin="2">
                             <Image Source="/Images/diagramma--32.png"/>
-                            <TextBlock Text="Диаграммы" Margin="5,0,0,0" FontWeight="Bold"/>
+                            <TextBlock Text="{DynamicResource Diagrams}" Margin="5,0,0,0" FontWeight="Bold"/>
                          </StackPanel>
                       </TreeViewItem.Header>
                       <TreeViewItem.ContextMenu>
                          <ContextMenu>
-                            <MenuItem Header="Удалить все" Click="DeleteAllDiagrams_Click">
+                            <MenuItem Header="{DynamicResource DeleteAll}" Click="DeleteAllDiagrams_Click">
                                <MenuItem.Icon>
                                   <Image Source="/Images/delete--32.png"/>
                                </MenuItem.Icon>
@@ -307,7 +312,7 @@
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Image Source="/Images/shape-design--32.png" Stretch="None"/>
-                        <TextBlock Text="Области материалов" Margin="5,0,0,0" FontWeight="Bold"/>
+                        <TextBlock Text="{DynamicResource MaterialRegions}" Margin="5,0,0,0" FontWeight="Bold"/>
                      </StackPanel>
                   </TreeViewItem.Header>
 
@@ -316,18 +321,18 @@
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
                            <Image Source="/Images/rconcrete--32.png"/>
-                           <TextBlock Text="Армированные" Margin="5,0,0,0"/>
+                           <TextBlock Text="{DynamicResource Reinforced}" Margin="5,0,0,0"/>
                         </StackPanel>
                      </TreeViewItem.Header>
 
                      <TreeViewItem.ContextMenu>
                         <ContextMenu>
-                           <MenuItem Header="Новый" Command="{Binding NewRCFiberRegionCommand}">
+                           <MenuItem Header="{DynamicResource New}" Command="{Binding NewRCFiberRegionCommand}">
                               <MenuItem.Icon>
                                  <Image Source="/Images/add__32.png"/>
                               </MenuItem.Icon>
                            </MenuItem>
-                           <MenuItem Header="Удалить" Command="{Binding DeleteRCFiberRegionCommand}">
+                           <MenuItem Header="{DynamicResource Delete}" Command="{Binding DeleteRCFiberRegionCommand}">
                               <MenuItem.Icon>
                                  <Image Source="/Images/delete__32.png"/>
                               </MenuItem.Icon>
@@ -358,10 +363,11 @@
                                     <TreeViewItem.Header>
                                        <StackPanel Orientation="Horizontal" Margin="1">
                                           <Image Source="/Images/contours__32.png"/>
-                                          <TextBlock Text="Контуры" Margin="5,0,0,0"/>
+                                          <TextBlock Text="{DynamicResource Contours}" Margin="5,0,0,0"/>
                                           <TextBlock Text="(" Margin="3,0,0,0"/>
                                           <TextBlock Text="{Binding Contours.Count}"/>
-                                          <TextBlock Text="шт.)"/>
+                                          <TextBlock Text="{DynamicResource Pcs}"/>
+                                          <TextBlock Text=")"/>
                                        </StackPanel>
                                     </TreeViewItem.Header>
 
@@ -371,10 +377,11 @@
                                     <TreeViewItem.Header>
                                        <StackPanel Orientation="Horizontal" Margin="1">
                                           <Image Source="/Images/rebar_group__32(1).png"/>
-                                          <TextBlock Text="Группы арматурных стержней" Margin="5,0,0,0"/>
+                                          <TextBlock Text="{DynamicResource RebarGroups}" Margin="5,0,0,0"/>
                                           <TextBlock Text="(" Margin="3,0,0,0"/>
                                           <TextBlock Text="{Binding ReBarGroups.Count}"/>
-                                          <TextBlock Text="шт.)"/>
+                                          <TextBlock Text="{DynamicResource Pcs}"/>
+                                          <TextBlock Text=")"/>
                                        </StackPanel>
                                     </TreeViewItem.Header>
 
@@ -390,7 +397,7 @@
                                              <TextBlock Text="[" Margin="3,0,0,0"/>
                                              <TextBlock Text="{Binding Material.Tag}"/>
                                              <TextBlock Text="]"/>
-                                             <TextBlock Text="(Стержней: " Margin="3,0,0,0"/>
+                                             <TextBlock Text="{DynamicResource BarsOf}" Margin="3,0,0,0"/>
                                              <TextBlock Text="{Binding ReBars.Count}"/>
                                              <TextBlock Text=")"/>
                                           </StackPanel>
@@ -404,15 +411,16 @@
                                     </TreeViewItem.ItemTemplate>
 
                                  </TreeViewItem>
-                                 
+                                  
                                  <TreeViewItem ItemsSource="{Binding Fibers}">
                                     <TreeViewItem.Header>
                                        <StackPanel Orientation="Horizontal" Margin="2">
                                           <Image Source="/Images/fibers--32.png" Stretch="None"/>
-                                          <TextBlock Text="Фибры" Margin="5,0,0,0"/>
+                                          <TextBlock Text="{DynamicResource Fibers}" Margin="5,0,0,0"/>
                                           <TextBlock Text="(" Margin="3,0,0,0"/>
                                           <TextBlock Text="{Binding Fibers.Count}"/>
-                                          <TextBlock Text="шт.)"/>
+                                          <TextBlock Text="{DynamicResource Pcs}"/>
+                                          <TextBlock Text=")"/>
                                        </StackPanel>
                                     </TreeViewItem.Header>
 
@@ -424,14 +432,14 @@
                         </HierarchicalDataTemplate>
                                                 
                      </TreeViewItem.ItemTemplate>
-                     
+                      
                   </TreeViewItem>
 
                   <TreeViewItem>
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
                            <Image Source="/Images/setka--32.png"/>
-                           <TextBlock Text="Фибровые" Margin="5,0,0,0"/>
+                           <TextBlock Text="{DynamicResource Fibrous}" Margin="5,0,0,0"/>
                         </StackPanel>
                      </TreeViewItem.Header>
 
@@ -441,7 +449,7 @@
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
                            <Image Source="/Images/poligon--32.png"/>
-                           <TextBlock Text="Сплошные" Margin="5,0,0,0"/>
+                           <TextBlock Text="{DynamicResource Solid}" Margin="5,0,0,0"/>
                         </StackPanel>
                      </TreeViewItem.Header>
 
@@ -451,7 +459,7 @@
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
                            <Image Source="/Images/rebar_group--32.png" Stretch="None"/>
-                           <TextBlock Text="Группы арматурных стержней" Margin="5,0,0,0"/>
+                           <TextBlock Text="{DynamicResource RebarGroups}" Margin="5,0,0,0"/>
                         </StackPanel>
                      </TreeViewItem.Header>
 
@@ -467,27 +475,27 @@
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Image Source="/Images/crossect--32.png"/>
-                        <TextBlock Text="Поперечные сечения" Margin="5,0,0,0" FontWeight="Bold"/>
+                        <TextBlock Text="{DynamicResource CrossSections}" Margin="5,0,0,0" FontWeight="Bold"/>
                      </StackPanel>
                   </TreeViewItem.Header>
 
-                  <TreeViewItem x:Name="rconcreteNode" Header="Железобетонные"/>
-                  <TreeViewItem x:Name="fibersectNode" Header="Фибровые"/>
-                  <TreeViewItem x:Name="redionsectNode" Header="Контурные"/>
+                  <TreeViewItem x:Name="rconcreteNode" Header="{DynamicResource RCSections}"/>
+                  <TreeViewItem x:Name="fibersectNode" Header="{DynamicResource FiberSections}"/>
+                  <TreeViewItem x:Name="redionsectNode" Header="{DynamicResource ContourSections}"/>
 
                </TreeViewItem>
-               <TreeViewItem x:Name="feNode" Header="Конечные элементы">
-                  <TreeViewItem x:Name="barNode" Header="Стержни"/>
-                  <TreeViewItem x:Name="plateNode" Header="Пластины"/>
+               <TreeViewItem x:Name="feNode" Header="{DynamicResource FiniteElements}">
+                  <TreeViewItem x:Name="barNode" Header="{DynamicResource Bars}"/>
+                  <TreeViewItem x:Name="plateNode" Header="{DynamicResource Plates}"/>
                </TreeViewItem>
-               <TreeViewItem x:Name="elementNode" Header="Конструктивные элементы">
-                  <TreeViewItem x:Name="barelNode" Header="Стержни"/>
-                  <TreeViewItem x:Name="plateelNode" Header="Пластины"/>
+               <TreeViewItem x:Name="elementNode" Header="{DynamicResource StructuralElements}">
+                  <TreeViewItem x:Name="barelNode" Header="{DynamicResource Bars}"/>
+                  <TreeViewItem x:Name="plateelNode" Header="{DynamicResource Plates}"/>
                </TreeViewItem>
             </TreeView>
 
          </TabItem>
-         <TabItem x:Name="dataGridTab" Header="Выборка данных">
+         <TabItem x:Name="dataGridTab" Header="{DynamicResource DataSelection}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                <Canvas x:Name="dataGridCanvas" Margin="5">
 
@@ -502,7 +510,7 @@
                       HorizontalScrollBarVisibility="Auto" 
                       VerticalScrollBarVisibility="Auto">
 
-         
+          
 
       </ScrollViewer>-->
 

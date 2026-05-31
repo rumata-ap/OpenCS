@@ -21,14 +21,14 @@
       <Slider Grid.Column="1" Margin="5"
               Minimum="1" Maximum="60"
               TickPlacement="BottomRight"
-              TickFrequency="1" ToolTip="Число участков деления по ширине области"
+              TickFrequency="1" ToolTip="{DynamicResource ToolTip_nX}"
               Value="{Binding Dx}"/>
 
       <Slider Grid.Row="1" Margin="5"
               Orientation="Vertical"
               Minimum="1" Maximum="60"
               TickPlacement="BottomRight"
-              TickFrequency="2" ToolTip="Число участков деления по высоте области"
+              TickFrequency="2" ToolTip="{DynamicResource ToolTip_nY}"
               Value="{Binding Dy}"/>
 
       <Slider Grid.Row="1" Grid.Column="2"

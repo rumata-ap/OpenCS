@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 
 using CScore;
 using OpenCS.Services;
@@ -141,8 +142,8 @@ namespace OpenCS
       {
          get
          {
-            var name = string.IsNullOrEmpty(CurrentProjectPath) ? "Без имени" : Path.GetFileName(CurrentProjectPath);
-            return $"OpenCS — {name}";
+             var name = string.IsNullOrEmpty(CurrentProjectPath) ? Loc.S("Untitled") : Path.GetFileName(CurrentProjectPath);
+             return string.Format(Loc.S("TitleFormat"), name);
          }
       }
 
@@ -386,6 +387,47 @@ namespace OpenCS
       /// </summary>
       public ICommand OpenCsvSettingsCommand { get; set; }
 
+      private int langID = 0;
+      /// <summary>
+      /// Идентификатор текущего языка: 0 — русский, 1 — английский.
+      /// </summary>
+      public int LangID { get => langID; set { langID = value; OnPropertyChanged(); } }
+
+      /// <summary>
+      /// Команда переключения языка интерфейса.
+      /// Параметр: 0 — русский, 1 — английский.
+      /// </summary>
+      public ICommand SetLanguageCommand { get; set; }
+
+      /// <summary>
+      /// Переключает словарь ресурсов приложения на указанный язык.
+      /// Удаляет все языковые словари из MergedDictionaries и добавляет нужный.
+      /// </summary>
+      void SetLanguageDictionary(int lang)
+      {
+         var dicts = Application.Current.Resources.MergedDictionaries
+             .Where(d => d.Source != null &&
+                        (d.Source.OriginalString.Contains("Strings.en-US") ||
+                         d.Source.OriginalString.Contains("Strings.ru-RU")))
+             .ToList();
+
+         foreach (var d in dicts)
+            Application.Current.Resources.MergedDictionaries.Remove(d);
+
+         ResourceDictionary dict = new();
+         switch (lang)
+         {
+            case 0:
+               dict.Source = new Uri("Resources/Strings.ru-RU.xaml", UriKind.Relative);
+               break;
+            case 1:
+               dict.Source = new Uri("Resources/Strings.en-US.xaml", UriKind.Relative);
+               break;
+         }
+         Application.Current.Resources.MergedDictionaries.Add(dict);
+         LangID = lang;
+      }
+
       /// <summary>
       /// Инициализирует экземпляр <see cref="AppViewModel"/>, загружает все коллекции
       /// из базы данных, настраивает обработчики изменения коллекций
@@ -451,6 +493,13 @@ namespace OpenCS
          ExitCommand = new RelayCommand(Exit);
          OpenPlotSettingsCommand = new RelayCommand(_ => new Views.SettingsWindow(this).ShowDialog());
          OpenCsvSettingsCommand = new RelayCommand(_ => new Views.CsvSettingsWindow(this).ShowDialog());
+         SetLanguageCommand = new RelayCommand(SetLanguage);
+      }
+
+      void SetLanguage(object? param)
+      {
+         if (param != null && int.TryParse(param.ToString(), out int lang))
+            SetLanguageDictionary(lang);
       }
 
       /// <summary>
@@ -509,13 +558,13 @@ namespace OpenCS
          if (CurrentMaterial == null) return;
          System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
          System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
-         var res = System.Windows.MessageBox.Show("Удалить безвозвратно выбранный материал?", "WARNING", mbb, ic);
-         if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
+          var res = System.Windows.MessageBox.Show(Loc.S("ConfirmDeleteMaterial"), Loc.S("Warning"), mbb, ic);
+          if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
 
-         string t = currentMaterial.Tag;
-         db.DeleteMaterial(CurrentMaterial);
+          string t = currentMaterial.Tag;
+          db.DeleteMaterial(CurrentMaterial);
 
-         LogService.Info($"Материал '{t}' удален");
+          LogService.Info(string.Format(Loc.S("MaterialDeleted"), t));
       }
 
       /// <summary>
@@ -529,9 +578,8 @@ namespace OpenCS
          if (CurrentContour == null) return;
          System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
          System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
-         var res = System.Windows.MessageBox.Show("Удалить безвозвратно выбранный контур и все " +
-            "связанные с ним области материалов?", "WARNING", mbb, ic);
-         if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
+          var res = System.Windows.MessageBox.Show(Loc.S("ConfirmDeleteContour"), Loc.S("Warning"), mbb, ic);
+          if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
 
          string t = currentContour.Tag;
          if(currentContour.Regions.Count > 0)
@@ -547,7 +595,7 @@ namespace OpenCS
          this.FiberRegionsRenumber();
          this.RegionsRenumber();
 
-         LogService.Info($"Контур '{t}' удален");
+          LogService.Info(string.Format(Loc.S("ContourDeleted"), t));
       }
 
       /// <summary>
@@ -580,7 +628,7 @@ namespace OpenCS
          if (currentRCfiberRegion == null) return;
          System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
          System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
-         var res = System.Windows.MessageBox.Show("Удалить безвозвратно выбранную армированную область?", "WARNING", mbb, ic);
+          var res = System.Windows.MessageBox.Show(Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"), mbb, ic);
          if (res == System.Windows.MessageBoxResult.Yes)
          {
             CurrentPage = null;
@@ -594,7 +642,7 @@ namespace OpenCS
             }
             db.DeleteRCFiberRegion(CurrentRCfiberRegion);
 
-            LogService.Info($"Область '{t}' удалена");
+            LogService.Info(string.Format(Loc.S("RegionDeleted"), t));
             this.RCFiberRegionsRenumber();
          }
       }
@@ -637,11 +685,11 @@ namespace OpenCS
             RefreshAfterLoad();
             CurrentProjectPath = null;
             OnPropertyChanged(nameof(ProjectTitle));
-            LogService.Info("Новый проект создан");
-         }
-         catch (Exception ex)
-         {
-            LogService.Error($"Ошибка при создании нового проекта: {ex.Message}");
+            LogService.Info(Loc.S("ProjectCreated"));
+          }
+          catch (Exception ex)
+          {
+             LogService.Error(string.Format(Loc.S("ProjectCreatedError"), ex.Message));
          }
       }
 
@@ -651,9 +699,9 @@ namespace OpenCS
       /// </summary>
       private void OpenProject(object? o = null)
       {
-         var path = FileDialogService.OpenFile(
-            "SQLite база данных (*.db)|*.db|Все файлы (*.*)|*.*",
-            "Открыть проект");
+          var path = FileDialogService.OpenFile(
+             Loc.S("SqliteDbFilter"),
+             Loc.S("OpenProject"));
          if (path == null) return;
          try
          {
@@ -664,11 +712,11 @@ namespace OpenCS
             RefreshAfterLoad();
             CurrentProjectPath = path;
             OnPropertyChanged(nameof(ProjectTitle));
-            LogService.Info($"Проект открыт: {path}");
-         }
-         catch (Exception ex)
-         {
-            LogService.Error($"Ошибка при открытии проекта: {ex.Message}");
+            LogService.Info(string.Format(Loc.S("ProjectOpened"), path));
+          }
+          catch (Exception ex)
+          {
+             LogService.Error(string.Format(Loc.S("ProjectOpenError"), ex.Message));
          }
       }
 
@@ -686,11 +734,11 @@ namespace OpenCS
          try
          {
             db.SaveAll();
-            LogService.Info("Проект сохранен");
-         }
-         catch (Exception ex)
-         {
-            LogService.Error($"Ошибка при сохранении проекта: {ex.Message}");
+             LogService.Info(Loc.S("ProjectSaved"));
+          }
+          catch (Exception ex)
+          {
+             LogService.Error(string.Format(Loc.S("ProjectSaveError"), ex.Message));
          }
       }
 
@@ -700,21 +748,21 @@ namespace OpenCS
       /// </summary>
       private void SaveAsProject(object? o = null)
       {
-         var path = FileDialogService.SaveFile(
-            "SQLite база данных (*.db)|*.db|Все файлы (*.*)|*.*",
-            ".db",
-            "Сохранить проект как");
+          var path = FileDialogService.SaveFile(
+             Loc.S("SqliteDbFilter"),
+             ".db",
+             Loc.S("SaveProjectAs"));
          if (path == null) return;
          try
          {
             db.SaveAs(path);
             CurrentProjectPath = path;
             OnPropertyChanged(nameof(ProjectTitle));
-            LogService.Info($"Проект сохранен: {path}");
-         }
-         catch (Exception ex)
-         {
-            LogService.Error($"Ошибка при сохранении проекта: {ex.Message}");
+            LogService.Info(string.Format(Loc.S("ProjectSavedPath"), path));
+          }
+          catch (Exception ex)
+          {
+             LogService.Error(string.Format(Loc.S("ProjectSaveError"), ex.Message));
          }
       }
 

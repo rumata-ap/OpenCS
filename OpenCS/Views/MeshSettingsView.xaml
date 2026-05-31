@@ -6,7 +6,7 @@
              mc:Ignorable="d"
              d:DesignHeight="200" d:DesignWidth="200">
    <StackPanel>
-      <GroupBox Header="Ортогональное деление" Margin="3">
+      <GroupBox Header="{DynamicResource OrthogonalDivision}" Margin="3">
          <Grid>
             <Grid.RowDefinitions>
                <RowDefinition Height="auto"/>
@@ -14,34 +14,45 @@
             </Grid.RowDefinitions>
 
             <DockPanel Grid.Row="0" Margin="2"
-                       ToolTip="Число участков деления по высоте области">
+                       ToolTip="{DynamicResource ToolTip_nY}">
                <TextBlock Text="nY: " />
                <TextBox Text="{Binding Dy}"/>
             </DockPanel>
 
             <DockPanel Grid.Row="1" Margin="2"
-                       ToolTip="Число участков деления по ширине области">
+                       ToolTip="{DynamicResource ToolTip_nX}">
                <TextBlock Text="nX: " />
                <TextBox Text="{Binding Dx}"/>
             </DockPanel>
          </Grid>
       </GroupBox>
 
-      <GroupBox Header="Триагруляция" Margin="3">
+      <GroupBox Header="{DynamicResource Triangulation}" Margin="3">
          <Grid>
             <Grid.RowDefinitions>
+               <RowDefinition Height="auto"/>
                <RowDefinition Height="auto"/>
                <RowDefinition Height="auto"/>
             </Grid.RowDefinitions>
 
             <DockPanel Grid.Row="0" Margin="2"
-                       ToolTip="Максимальная относительная площадь треугольника">
+                       ToolTip="{DynamicResource ToolTip_triangulationMethod}">
+               <TextBlock Text="{DynamicResource Method}" />
+               <ComboBox SelectedIndex="{Binding TriangulationMethodIndex}"
+                         HorizontalAlignment="Stretch" Margin="4,0,0,0">
+                  <ComboBoxItem Content="{DynamicResource TriangulationMethod_AdvancingFront}" />
+                  <ComboBoxItem Content="{DynamicResource TriangulationMethod_Ruppert}" />
+               </ComboBox>
+            </DockPanel>
+
+            <DockPanel Grid.Row="1" Margin="2"
+                       ToolTip="{DynamicResource ToolTip_maxArea}">
                <TextBlock Text="area:   " />
                <TextBox Text="{Binding Atr, StringFormat={}{0:F2}}"/>
             </DockPanel>
 
-            <DockPanel Grid.Row="1" Margin="2"
-                       ToolTip="Минимальный угол треугольника">
+            <DockPanel Grid.Row="2" Margin="2"
+                       ToolTip="{DynamicResource ToolTip_minAngle}">
                <TextBlock Text="angle: " />
                <TextBox Text="{Binding Antr, StringFormat={}{0:F1}}"/>
             </DockPanel>

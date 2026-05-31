@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
 using System;
@@ -28,7 +29,7 @@ namespace OpenCS.Views
             parentMaterial.SetJson();
             mvm.db.SaveMaterial(parentMaterial);
             mvm.MaterialsSort();
-            mvm.LogService.Info($"Характеристики '{charsVM.Tag}' ({charsVM.TypeCalc}) сохранены");
+             mvm.LogService.Info(string.Format(Loc.S("CharsSaved"), charsVM.Tag, charsVM.TypeCalc));
          }
       }
 
@@ -41,8 +42,8 @@ namespace OpenCS.Views
          var available = GetAvailableDiagramTypes(materialChars.Type);
          if (available.Count == 0)
          {
-            MessageBox.Show("Для данного типа материала нет доступных типов диаграмм.",
-               "Нет совместимых диаграмм", MessageBoxButton.OK, MessageBoxImage.Information);
+             MessageBox.Show(Loc.S("NoDiagramTypes"),
+                Loc.S("NoCompatibleDiagrams"), MessageBoxButton.OK, MessageBoxImage.Information);
             return;
          }
 
@@ -58,13 +59,13 @@ namespace OpenCS.Views
                DiagrammType.L2 => materialChars.D2L(),
                DiagrammType.L3 => materialChars.D3L(),
                DiagrammType.SP63 => materialChars.DCL(),
-               _ => throw new ArgumentException($"Тип диаграммы {dialog.SelectedType} не поддерживается")
+                _ => throw new ArgumentException(string.Format(Loc.S("DiagramTypeNotSupported"), dialog.SelectedType))
             };
          }
          catch (Exception ex)
          {
-            MessageBox.Show($"Ошибка создания диаграммы: {ex.Message}",
-               "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+             MessageBox.Show(string.Format(Loc.S("DiagramCreateError"), ex.Message),
+                Loc.S("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
             return;
          }
 
@@ -88,7 +89,7 @@ namespace OpenCS.Views
           mvm.db.SaveDiagram(diagram);
           mvm.Diagrams.Add(diagram);
           mvm.DiagramsLive.Add(diagram);
-          mvm.LogService.Info($"Диаграмма '{diagram.Tag}' построена");
+           mvm.LogService.Info(string.Format(Loc.S("DiagramBuilt"), diagram.Tag));
           mvm.CurrentDiagram = diagram;
       }
 
@@ -97,20 +98,20 @@ namespace OpenCS.Views
          var list = new List<DiagramSelectWindow.TypeOption>();
          switch (matType)
          {
-            case MatType.Concrete:
-               list.Add(new(DiagrammType.L2, "Двухлинейная (L2) — СП63.13330"));
-               list.Add(new(DiagrammType.L3, "Трёхлинейная (L3) — СП63.13330"));
-               list.Add(new(DiagrammType.SP63, "Криволинейная (СП63) — Приложение Г"));
-               break;
-            case MatType.ReSteelF:
-               list.Add(new(DiagrammType.L2, "Двухлинейная (L2) — арматура с физическим пределом"));
-               break;
-            case MatType.ReSteelU:
-               list.Add(new(DiagrammType.L3, "Трёхлинейная (L3) — арматура с условным пределом"));
-               break;
-            case MatType.Steel:
-               list.Add(new(DiagrammType.L2, "Двухлинейная (L2) — сталь конструкционная"));
-               break;
+             case MatType.Concrete:
+                list.Add(new(DiagrammType.L2, Loc.S("DiagL2_Concrete")));
+                list.Add(new(DiagrammType.L3, Loc.S("DiagL3_Concrete")));
+                list.Add(new(DiagrammType.SP63, Loc.S("DiagSP63")));
+                break;
+             case MatType.ReSteelF:
+                list.Add(new(DiagrammType.L2, Loc.S("DiagL2_ReSteelF")));
+                break;
+             case MatType.ReSteelU:
+                list.Add(new(DiagrammType.L3, Loc.S("DiagL3_ReSteelU")));
+                break;
+             case MatType.Steel:
+                list.Add(new(DiagrammType.L2, Loc.S("DiagL2_Steel")));
+                break;
          }
          return list;
       }

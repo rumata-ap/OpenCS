@@ -29,16 +29,16 @@ namespace OpenCS.ViewModels
       {
          get
          {
-            var calcName = TypeCalc switch
-            {
-               CalcType.C => "C — первая группа, непродолжительное",
-               CalcType.CL => "CL — первая группа, продолжительное",
-               CalcType.N => "N — вторая группа, непродолжительное",
-               CalcType.NL => "NL — вторая группа, продолжительное",
-               _ => TypeCalc.ToString()
-            };
-            var tag = string.IsNullOrEmpty(materialTag) ? "?" : materialTag;
-            return $"Материал: {tag} | Тип расчёта: {calcName}";
+             var calcName = TypeCalc switch
+             {
+                CalcType.C => "C — 1st group, short-term",
+                CalcType.CL => "CL — 1st group, long-term",
+                CalcType.N => "N — 2nd group, short-term",
+                CalcType.NL => "NL — 2nd group, long-term",
+                _ => TypeCalc.ToString()
+             };
+             var tag = string.IsNullOrEmpty(materialTag) ? "?" : materialTag;
+             return string.Format(Utilites.Loc.S("MaterialHeader"), tag, calcName);
          }
       }
 

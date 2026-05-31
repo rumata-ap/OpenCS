@@ -49,7 +49,7 @@
                    TextDecorations="Underline" 
                    FontFamily="Segoe UI Semibold">
          <TextBlock.Text>
-            Определение параметров материала
+            <DynamicResource ResourceKey="MaterialParams"/>
          </TextBlock.Text>
       </TextBlock>
 
@@ -63,17 +63,13 @@
          <DockPanel Grid.Column="0">
             <Button Height="25"
                         Margin="5,0,5,5"
-                        Command="{Binding EditCommand}">
-               Изменить
-            </Button>
+                        Command="{Binding EditCommand}" Content="{DynamicResource Change}"/>
          </DockPanel>
 
          <DockPanel Grid.Column="1">
             <Button Height="25"
                         Margin="0,0,5,5"
-                        Command="{Binding AddCommand}">
-               Сохранить
-            </Button>
+                        Command="{Binding AddCommand}" Content="{DynamicResource Save}"/>
          </DockPanel>
 
          <DockPanel Grid.Column="2">
@@ -90,7 +86,7 @@
       <DockPanel Grid.Row="1" Grid.Column="0" 
                    Margin="5,10,5,10" 
                    VerticalAlignment="Center">
-         <TextBlock Text="Имя:" Foreground="#FF2813EB"/>
+         <TextBlock Text="{DynamicResource Name}" Foreground="#FF2813EB"/>
          <TextBox Margin="5,0,0,0" 
                      Text="{Binding Tag}"
                      HorizontalContentAlignment="Left"/>
@@ -103,7 +99,7 @@
       <DockPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="5" 
                    Margin="5,10,5,10" 
                    VerticalAlignment="Center">
-         <TextBlock Text="Описание:" 
+         <TextBlock Text="{DynamicResource DescriptionLabel}" 
                        Foreground="#FF2813EB"/>
          <TextBox Margin="5,0,0,0" 
                      HorizontalContentAlignment="Left"
@@ -196,68 +192,68 @@
             <TextBlock Grid.Row="0" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
-                           Text="Обозначение" 
+                           Text="{DynamicResource Designation}" 
                            Foreground="#FF2813EB"/>
 
             <TextBlock Grid.Row="1" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
-                           Text="Класс" Foreground="#FF2813EB"/>
+                           Text="{DynamicResource Class}" Foreground="#FF2813EB"/>
 
             <TextBlock Grid.Row="2" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            Foreground="#FF2813EB"
-                           Text="Прочность при сжатии Rc, МПа"/>
+                           Text="{DynamicResource CompressiveStrength}"/>
 
             <TextBlock Grid.Row="3" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            Foreground="#FF2813EB"
-                           Text="Прочность при растяжении Rt, МПа"/>
+                           Text="{DynamicResource TensileStrength}"/>
 
             <TextBlock Grid.Row="4" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            Foreground="#FF2813EB"
-                           Text="Предел текучести Ry, МПа"/>
+                           Text="{DynamicResource YieldStrength}"/>
 
             <TextBlock Grid.Row="5" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            Foreground="#FF2813EB"
-                           Text="Предел прочности Ru, МПа"/>
+                           Text="{DynamicResource UltimateStrength}"/>
 
             <TextBlock Grid.Row="6" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            Foreground="#FF2813EB"
-                           Text="Начальный модуль упругости, ГПа"/>
+                           Text="{DynamicResource ElasticModulus}"/>
 
             <TextBlock Grid.Row="7" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center"
                            Foreground="#FF2813EB"
-                           Text="Деформация при достижении Rc (eps_c0)"/>
+                           Text="{DynamicResource Eps_c0}"/>
 
             <TextBlock Grid.Row="8" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            Foreground="#FF2813EB"
-                           Text="Деформация при достижении 0.6*Rc (eps_c1)"/>
+                           Text="{DynamicResource Eps_c1}"/>
 
             <TextBlock Grid.Row="9" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            Foreground="#FF2813EB"
-                           Text="Предельная деформация сжатия (eps_c2)"/>
+                           Text="{DynamicResource Eps_c2}"/>
 
             <TextBlock Grid.Row="10" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            TextTrimming="CharacterEllipsis"
                            Foreground="#FF2813EB"
-                           Text="Приведенная по Rc деформация (eps_c1_red)" 
+                           Text="{DynamicResource Eps_c1_red}" 
                            TextWrapping="WrapWithOverflow"/>
 
             <TextBlock Grid.Row="11" Grid.Column="0" 
@@ -265,38 +261,38 @@
                            TextAlignment="Center" 
                            TextTrimming="CharacterEllipsis"
                            Foreground="#FF2813EB"
-                           Text="Приведенная по Rt деформация (eps_t1_red)" 
+                           Text="{DynamicResource Eps_t1_red}" 
                            TextWrapping="WrapWithOverflow"/>
 
             <TextBlock Grid.Row="12" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            Foreground="#FF2813EB"
-                           Text="Деформация при достижении Rt (eps_t0)"/>
+                           Text="{DynamicResource Eps_t0}"/>
 
             <TextBlock Grid.Row="13" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            Foreground="#FF2813EB"
-                           Text="Деформация при достижении 0.6*Rt (eps_t1)"/>
+                           Text="{DynamicResource Eps_t1}"/>
 
             <TextBlock Grid.Row="14" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            Foreground="#FF2813EB"
-                           Text="Предельная деформация по Rt (eps_t2)"/>
+                           Text="{DynamicResource Eps_t2}"/>
 
             <TextBlock Grid.Row="15" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center" 
                            Foreground="#FF2813EB"
-                           Text="Тип материала"/>
+                           Text="{DynamicResource MaterialType}"/>
 
             <TextBlock Grid.Row="16" Grid.Column="0" 
                            Margin="2"  
                            TextAlignment="Center"
                            Foreground="#FF2813EB"
-                           Text="Влажность среды"/>
+                           Text="{DynamicResource Humidity}"/>
 
             <DockPanel Grid.Row="0" Grid.Column="1">
                <TextBox Margin="2" 

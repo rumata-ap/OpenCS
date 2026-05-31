@@ -1,0 +1,287 @@
+<ResourceDictionary
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:system="clr-namespace:System;assembly=mscorlib">
+
+   <!-- Language switcher -->
+   <system:String x:Key="Lang_Label">EN</system:String>
+
+   <!-- Main Menu -->
+   <system:String x:Key="File">File</system:String>
+   <system:String x:Key="New">New</system:String>
+   <system:String x:Key="Open">Open</system:String>
+   <system:String x:Key="Save">Save</system:String>
+   <system:String x:Key="SaveAs">Save as...</system:String>
+   <system:String x:Key="Exit">Exit</system:String>
+   <system:String x:Key="Edit">Edit</system:String>
+   <system:String x:Key="View">View</system:String>
+   <system:String x:Key="Settings">Settings</system:String>
+   <system:String x:Key="Language">Language</system:String>
+   <system:String x:Key="Russian">Русский</system:String>
+   <system:String x:Key="English">English</system:String>
+   <system:String x:Key="Plots">Plots...</system:String>
+   <system:String x:Key="CsvExport">Export to CSV...</system:String>
+
+   <!-- Search -->
+   <system:String x:Key="Search">Search...</system:String>
+
+   <!-- Tab headers -->
+   <system:String x:Key="ProjectStructure">Project Structure</system:String>
+   <system:String x:Key="DataSelection">Data Selection</system:String>
+
+   <!-- Tree view nodes -->
+   <system:String x:Key="Geometry">Geometry</system:String>
+   <system:String x:Key="Circles">Circles</system:String>
+   <system:String x:Key="Contours">Contours</system:String>
+   <system:String x:Key="FromDxf">From DXF</system:String>
+   <system:String x:Key="Create">Create</system:String>
+   <system:String x:Key="Delete">Delete</system:String>
+   <system:String x:Key="Add">Add</system:String>
+   <system:String x:Key="Materials">Materials</system:String>
+   <system:String x:Key="Concrete">Concrete</system:String>
+   <system:String x:Key="Reinforcement">Reinforcement</system:String>
+   <system:String x:Key="StructuralSteel">Structural Steel</system:String>
+   <system:String x:Key="Diagrams">Diagrams</system:String>
+   <system:String x:Key="DeleteAll">Delete All</system:String>
+   <system:String x:Key="MaterialRegions">Material Regions</system:String>
+   <system:String x:Key="Reinforced">Reinforced</system:String>
+   <system:String x:Key="Fibrous">Fibrous</system:String>
+   <system:String x:Key="Solid">Solid</system:String>
+   <system:String x:Key="RebarGroups">Rebar Groups</system:String>
+   <system:String x:Key="CrossSections">Cross Sections</system:String>
+   <system:String x:Key="RCSections">Reinforced Concrete</system:String>
+   <system:String x:Key="FiberSections">Fiber</system:String>
+   <system:String x:Key="ContourSections">Contour</system:String>
+   <system:String x:Key="FiniteElements">Finite Elements</system:String>
+   <system:String x:Key="Bars">Bars</system:String>
+   <system:String x:Key="Plates">Plates</system:String>
+   <system:String x:Key="StructuralElements">Structural Elements</system:String>
+
+   <!-- Counts -->
+   <system:String x:Key="Pcs">pcs.</system:String>
+   <system:String x:Key="BarsOf">Bars:</system:String>
+   <system:String x:Key="Unit_m">m</system:String>
+   <system:String x:Key="Unit_mm">mm</system:String>
+   <system:String x:Key="Unit_cm2">cm</system:String>
+   <system:String x:Key="Superscript2">2</system:String>
+
+   <!-- Context menu in App.xaml -->
+   <system:String x:Key="Change">Edit</system:String>
+
+   <!-- CsvSettings window -->
+   <system:String x:Key="CsvExportTitle">Export to CSV</system:String>
+   <system:String x:Key="ColumnDelimiter">Column Delimiter</system:String>
+   <system:String x:Key="Semicolon">Semicolon ( ; )</system:String>
+   <system:String x:Key="Comma">Comma ( , )</system:String>
+   <system:String x:Key="Encoding">Encoding</system:String>
+   <system:String x:Key="Cancel">Cancel</system:String>
+
+   <!-- Settings window -->
+   <system:String x:Key="SettingsTitle">Settings</system:String>
+   <system:String x:Key="PlotsTab">Plots</system:String>
+   <system:String x:Key="ColorsAndSizes">Colors and Sizes</system:String>
+   <system:String x:Key="Background">Background</system:String>
+   <system:String x:Key="Grid">Grid</system:String>
+   <system:String x:Key="Curves">Curves</system:String>
+   <system:String x:Key="Fill">Fill</system:String>
+   <system:String x:Key="Markers">Markers</system:String>
+   <system:String x:Key="Text">Text</system:String>
+   <system:String x:Key="Highlight">Highlight</system:String>
+   <system:String x:Key="Axes">Axes</system:String>
+   <system:String x:Key="ThicknessPx">Thickness, px</system:String>
+   <system:String x:Key="SizePx">Size, px</system:String>
+   <system:String x:Key="FontSizeLabels">Label font size</system:String>
+   <system:String x:Key="FontSize">Font size</system:String>
+   <system:String x:Key="Palette">Palette</system:String>
+   <system:String x:Key="Display">Display</system:String>
+   <system:String x:Key="ShowGrid">Grid</system:String>
+   <system:String x:Key="Thickness">Thickness</system:String>
+   <system:String x:Key="Ticks">Ticks</system:String>
+   <system:String x:Key="PointLabels">Point Labels</system:String>
+   <system:String x:Key="ClickHighlight">Click Highlight</system:String>
+   <system:String x:Key="AxisValueLabels">Axis Value Labels</system:String>
+   <system:String x:Key="AxesThroughOrigin">Axes through origin</system:String>
+   <system:String x:Key="ScaleX">Scale X</system:String>
+   <system:String x:Key="ScaleY">Scale Y</system:String>
+   <system:String x:Key="Defaults">Defaults</system:String>
+   <system:String x:Key="Apply">Apply</system:String>
+
+   <!-- DiagramPage -->
+   <system:String x:Key="Chart">Chart</system:String>
+   <system:String x:Key="Data">Data</system:String>
+   <system:String x:Key="ExportCsv">Export to CSV...</system:String>
+   <system:String x:Key="Close">Close</system:String>
+
+   <!-- DiagramSelectWindow -->
+   <system:String x:Key="SelectDiagramType">Select Diagram Type</system:String>
+   <system:String x:Key="AvailableDiagramTypes">Available diagram types:</system:String>
+   <system:String x:Key="Ok">OK</system:String>
+
+    <!-- RCFiberRegionView -->
+    <system:String x:Key="ViewTab">View</system:String>
+   <system:String x:Key="EditAndSave">Edit and Save</system:String>
+   <system:String x:Key="ContoursGroup">Contours</system:String>
+   <system:String x:Key="Points">Points</system:String>
+   <system:String x:Key="RebarGroupsFull">Rebar Groups</system:String>
+   <system:String x:Key="Groups">Groups</system:String>
+   <system:String x:Key="Designation">Designation</system:String>
+   <system:String x:Key="Material">Material</system:String>
+   <system:String x:Key="ReinforcementBars">Reinforcement Bars</system:String>
+   <system:String x:Key="Fibers">Fibers</system:String>
+   <system:String x:Key="FibersElementary">Fibers (elementary areas)</system:String>
+   <system:String x:Key="ElementaryAreas">Elementary Areas</system:String>
+   <system:String x:Key="Update">Update</system:String>
+   <system:String x:Key="Shape">Shape</system:String>
+   <system:String x:Key="WKT">Fiber contour WKT text representation</system:String>
+   <system:String x:Key="Area">Area, </system:String>
+   <system:String x:Key="Stress_MPa">Stress, MPa</system:String>
+   <system:String x:Key="Number">#</system:String>
+   <system:String x:Key="X_m">X, m</system:String>
+   <system:String x:Key="Y_m">Y, m</system:String>
+   <system:String x:Key="D_mm">d, mm</system:String>
+   <system:String x:Key="PreStrain">PreStrain</system:String>
+
+   <!-- RCFiberRegionPage -->
+   <system:String x:Key="RegionTab">Region</system:String>
+   <system:String x:Key="OuterContour">Outer Contour</system:String>
+   <system:String x:Key="Tag">Tag</system:String>
+   <system:String x:Key="Description">Description</system:String>
+   <system:String x:Key="Holes">Holes</system:String>
+   <system:String x:Key="ConcreteLabel">Concrete</system:String>
+   <system:String x:Key="ContoursLabel">Contours</system:String>
+   <system:String x:Key="ReinforcementTab">Reinforcement</system:String>
+   <system:String x:Key="MaterialsLabel">Materials</system:String>
+   <system:String x:Key="GroupTag">Group Tag</system:String>
+   <system:String x:Key="GroupDescription">Group Description</system:String>
+   <system:String x:Key="RebarGroupBars">Rebar Group Bars</system:String>
+   <system:String x:Key="FromCircles">From Circles</system:String>
+    <system:String x:Key="MeshTab">Mesh</system:String>
+
+   <!-- MaterialPage -->
+   <system:String x:Key="MaterialParams">Material Parameters</system:String>
+   <system:String x:Key="Name">Name:</system:String>
+   <system:String x:Key="DescriptionLabel">Description:</system:String>
+   <system:String x:Key="CompressiveStrength">Compressive Strength Rc, MPa</system:String>
+   <system:String x:Key="TensileStrength">Tensile Strength Rt, MPa</system:String>
+   <system:String x:Key="YieldStrength">Yield Strength Ry, MPa</system:String>
+   <system:String x:Key="UltimateStrength">Ultimate Strength Ru, MPa</system:String>
+   <system:String x:Key="ElasticModulus">Initial Elastic Modulus, GPa</system:String>
+   <system:String x:Key="Eps_c0">Strain at Rc (eps_c0)</system:String>
+   <system:String x:Key="Eps_c1">Strain at 0.6*Rc (eps_c1)</system:String>
+   <system:String x:Key="Eps_c2">Ultimate compressive strain (eps_c2)</system:String>
+   <system:String x:Key="Eps_c1_red">Reduced by Rc strain (eps_c1_red)</system:String>
+   <system:String x:Key="Eps_t1_red">Reduced by Rt strain (eps_t1_red)</system:String>
+   <system:String x:Key="Eps_t0">Strain at Rt (eps_t0)</system:String>
+   <system:String x:Key="Eps_t1">Strain at 0.6*Rt (eps_t1)</system:String>
+   <system:String x:Key="Eps_t2">Ultimate tensile strain by Rt (eps_t2)</system:String>
+   <system:String x:Key="MaterialType">Material Type</system:String>
+   <system:String x:Key="Humidity">Humidity</system:String>
+   <system:String x:Key="BuildDiagram">Build Diagram</system:String>
+   <system:String x:Key="EditMaterial">Edit Material</system:String>
+
+    <!-- MaterialCharsPage -->
+    <system:String x:Key="MaterialHeader">Material: {0} | Calc type: {1}</system:String>
+
+    <!-- RebarsPage -->
+    <system:String x:Key="BarsTab">Bars</system:String>
+    <system:String x:Key="GeometricSet">Geometric set:</system:String>
+    <system:String x:Key="X_m_colon">X, m:</system:String>
+    <system:String x:Key="Y_m_colon">Y, m:</system:String>
+    <system:String x:Key="D_mm_colon">D, mm:</system:String>
+    <system:String x:Key="AddCaps">ADD</system:String>
+    <system:String x:Key="DeleteAllCaps">DELETE ALL</system:String>
+    <system:String x:Key="DeleteCaps">DELETE</system:String>
+
+    <!-- FromDxfPage -->
+    <system:String x:Key="FromDxfTab">DXF Selection</system:String>
+    <system:String x:Key="DesignationSet">Set designation:</system:String>
+    <system:String x:Key="DxfUnits">DXF units:</system:String>
+    <system:String x:Key="ContourSelection">Contour Selection</system:String>
+    <system:String x:Key="CircleSelection">Circle Selection</system:String>
+    <system:String x:Key="Project">Project</system:String>
+    <system:String x:Key="DXF">DXF</system:String>
+
+    <!-- GeoPropsView -->
+    <system:String x:Key="GeoPropsHeader">Geometric Properties</system:String>
+    <system:String x:Key="Unit_kN">kN</system:String>
+    <system:String x:Key="Unit_kNm">kN·m</system:String>
+    <system:String x:Key="Unit_m2">m²</system:String>
+    <system:String x:Key="Unit_kNm2">kN·m²</system:String>
+
+    <!-- MeshSettingsView / MeshSlidersView -->
+    <system:String x:Key="OrthogonalDivision">Orthogonal Division</system:String>
+    <system:String x:Key="Triangulation">Triangulation</system:String>
+    <system:String x:Key="ToolTip_nY">Number of divisions by region height</system:String>
+    <system:String x:Key="ToolTip_nX">Number of divisions by region width</system:String>
+    <system:String x:Key="ToolTip_maxArea">Maximum relative area of triangle</system:String>
+    <system:String x:Key="ToolTip_minAngle">Minimum angle of triangle</system:String>
+    <system:String x:Key="Method">Method</system:String>
+    <system:String x:Key="TriangulationMethod_Ruppert">Ruppert</system:String>
+    <system:String x:Key="TriangulationMethod_AdvancingFront">Advancing Front</system:String>
+    <system:String x:Key="ToolTip_triangulationMethod">Triangulation method: Ruppert (CDT + refinement) or Advancing Front</system:String>
+
+    <!-- FromDataSourceWindow -->
+    <system:String x:Key="DataSourceTitle">Material Storage</system:String>
+    <system:String x:Key="ConcreteType">Concrete type:</system:String>
+    <system:String x:Key="ConstructionType">Construction:</system:String>
+    <system:String x:Key="HeightOver15m">Concrete placement layer height over 1.5 m</system:String>
+    <system:String x:Key="HeatTreatment">Heat treatment at atmospheric pressure</system:String>
+    <system:String x:Key="RfSteelType">Reinforcement type:</system:String>
+    <system:String x:Key="SteelLabel">Steel</system:String>
+    <system:String x:Key="Strain">Strain</system:String>
+
+    <!-- C# code-behind strings -->
+    <system:String x:Key="Untitled">Untitled</system:String>
+    <system:String x:Key="TitleFormat">OpenCS — {0}</system:String>
+    <system:String x:Key="ConfirmDeleteMaterial">Delete the selected material permanently?</system:String>
+    <system:String x:Key="MaterialDeleted">Material '{0}' deleted</system:String>
+    <system:String x:Key="ConfirmDeleteContour">Delete the selected contour and all related material regions permanently?</system:String>
+    <system:String x:Key="ContourDeleted">Contour '{0}' deleted</system:String>
+    <system:String x:Key="ConfirmDeleteRegion">Delete the selected reinforced region permanently?</system:String>
+    <system:String x:Key="RegionDeleted">Region '{0}' deleted</system:String>
+    <system:String x:Key="ConfirmDeleteDiagram">Delete the diagram?</system:String>
+    <system:String x:Key="ConfirmDeleteAllDiagrams">Delete all diagrams?</system:String>
+    <system:String x:Key="DiagramDeleted">Diagram '{0}' deleted</system:String>
+    <system:String x:Key="AllDiagramsDeleted">All diagrams deleted</system:String>
+    <system:String x:Key="Confirmation">Confirmation</system:String>
+    <system:String x:Key="Warning">WARNING</system:String>
+    <system:String x:Key="ProjectCreated">New project created</system:String>
+    <system:String x:Key="ProjectCreatedError">Error creating new project: {0}</system:String>
+    <system:String x:Key="OpenProject">Open Project</system:String>
+    <system:String x:Key="ProjectOpened">Project opened: {0}</system:String>
+    <system:String x:Key="ProjectOpenError">Error opening project: {0}</system:String>
+    <system:String x:Key="ProjectSaved">Project saved</system:String>
+    <system:String x:Key="ProjectSaveError">Error saving project: {0}</system:String>
+    <system:String x:Key="SaveProjectAs">Save Project As</system:String>
+    <system:String x:Key="ProjectSavedPath">Project saved: {0}</system:String>
+    <system:String x:Key="SqliteDbFilter">SQLite database (*.db)|*.db|All files (*.*)|*.*</system:String>
+
+    <!-- DiagramPage / MaterialCharsPage code-behind -->
+    <system:String x:Key="MaterialColon">Material:</system:String>
+    <system:String x:Key="CalcTypeColon">Calc type:</system:String>
+    <system:String x:Key="DiagramTitle">Material diagram — {0}</system:String>
+    <system:String x:Key="Compression">Compression</system:String>
+    <system:String x:Key="Tension">Tension</system:String>
+    <system:String x:Key="Nodes">(nodes)</system:String>
+    <system:String x:Key="Sigma_MPa">σ, MPa</system:String>
+    <system:String x:Key="ExportDiagramCsv">Export diagram to CSV</system:String>
+    <system:String x:Key="CsvFilter">CSV files (*.csv)|*.csv</system:String>
+    <system:String x:Key="ErrorSave">Save error: {0}</system:String>
+    <system:String x:Key="Error">Error</system:String>
+    <system:String x:Key="NoDiagramTypes">No diagram types available for this material type.</system:String>
+    <system:String x:Key="NoCompatibleDiagrams">No compatible diagrams</system:String>
+    <system:String x:Key="DiagramCreateError">Error creating diagram: {0}</system:String>
+    <system:String x:Key="DiagramTypeNotSupported">Diagram type {0} is not supported</system:String>
+    <system:String x:Key="DiagramBuilt">Diagram '{0}' built</system:String>
+    <system:String x:Key="CharsSaved">Characteristics '{0}' ({1}) saved</system:String>
+    <system:String x:Key="DiagramDeletedCode">Diagram '{0}' deleted</system:String>
+
+    <!-- Diagram type names -->
+    <system:String x:Key="DiagL2_Concrete">Bi-linear (L2) — SP63.13330</system:String>
+    <system:String x:Key="DiagL3_Concrete">Tri-linear (L3) — SP63.13330</system:String>
+    <system:String x:Key="DiagSP63">Curvilinear (SP63) — Appendix G</system:String>
+    <system:String x:Key="DiagL2_ReSteelF">Bi-linear (L2) — reinforcement with physical yield</system:String>
+    <system:String x:Key="DiagL3_ReSteelU">Tri-linear (L3) — reinforcement with conditional yield</system:String>
+    <system:String x:Key="DiagL2_Steel">Bi-linear (L2) — structural steel</system:String>
+
+ </ResourceDictionary>

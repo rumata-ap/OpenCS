@@ -9,229 +9,229 @@
              xmlns:core="clr-namespace:CScore;assembly=CScore"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
-   <UserControl.DataContext>
-      <vm:RCFiberRegionVM/>
-   </UserControl.DataContext>
+    <UserControl.DataContext>
+       <vm:RCFiberRegionVM/>
+    </UserControl.DataContext>
 
-   <UserControl.Resources>
-      <ResourceDictionary Source="/Images/svg.xaml"/>
-   </UserControl.Resources>
+    <UserControl.Resources>
+       <ResourceDictionary Source="/Images/svg.xaml"/>
+    </UserControl.Resources>
 
-   <Grid>
+    <Grid>
 
-      <TabControl>
+       <TabControl>
 
-         <TabItem Name="ViewTab">
-            <TabItem.Header>
-               <StackPanel Orientation="Horizontal">
-                  <Image Source="/Images/drawing__32.png"/>
-                  <TextBlock Text="Вид" Margin="5,0,0,0" FontWeight="Bold"/>
-               </StackPanel>
-            </TabItem.Header>
+          <TabItem Name="ViewTab">
+             <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                   <Image Source="/Images/drawing__32.png"/>
+                   <TextBlock Text="{DynamicResource ViewTab}" Margin="5,0,0,0" FontWeight="Bold"/>
+                </StackPanel>
+             </TabItem.Header>
 
-            <Grid>
-               <Grid.RowDefinitions>
-                  <RowDefinition Height="auto"/>
-                  <RowDefinition/>
-                  <RowDefinition Height="auto"/>
-               </Grid.RowDefinitions>
-               <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="auto"/>
-                  <ColumnDefinition/>
-                  <ColumnDefinition Width="auto"/>
-                  <ColumnDefinition Width="auto"/>
-               </Grid.ColumnDefinitions>
+             <Grid>
+                <Grid.RowDefinitions>
+                   <RowDefinition Height="auto"/>
+                   <RowDefinition/>
+                   <RowDefinition Height="auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                   <ColumnDefinition Width="auto"/>
+                   <ColumnDefinition/>
+                   <ColumnDefinition Width="auto"/>
+                   <ColumnDefinition Width="auto"/>
+                </Grid.ColumnDefinitions>
 
-               <Grid Grid.Column="3" Grid.Row="0" Grid.RowSpan="4">
-                  <Grid.RowDefinitions>
-                     <RowDefinition Height="auto"/>
-                     <RowDefinition />
-                     <RowDefinition Height="auto"/>
-                  </Grid.RowDefinitions>
+                <Grid Grid.Column="3" Grid.Row="0" Grid.RowSpan="4">
+                   <Grid.RowDefinitions>
+                      <RowDefinition Height="auto"/>
+                      <RowDefinition />
+                      <RowDefinition Height="auto"/>
+                   </Grid.RowDefinitions>
 
-                  <local:MeshSettingsView Grid.Row="0" DataContext="{Binding}"/>
+                   <local:MeshSettingsView Grid.Row="0" DataContext="{Binding}"/>
 
-                  <local:GeoPropsView Grid.Row="1" GeoProps="{Binding GeoProps}"/>
+                   <local:GeoPropsView Grid.Row="1" GeoProps="{Binding GeoProps}"/>
 
-                  <local:MeshSlidersView Grid.Row="2" DataContext="{Binding}"/>
+                   <local:MeshSlidersView Grid.Row="2" DataContext="{Binding}"/>
 
-               </Grid>
+                </Grid>
 
-               <Button Grid.Row="3" Grid.Column="0" Height="30"
-                       Style="{StaticResource IconButton25}"
-                       ToolTip="Изменить и сохранить"
-                       Command="{Binding UpdateCommand}">
-                  <Button.Content>
-                     <Image Source="{StaticResource di_edit_xaml}"/>
-                  </Button.Content>
-               </Button>
+                <Button Grid.Row="3" Grid.Column="0" Height="30"
+                        Style="{StaticResource IconButton25}"
+                        ToolTip="{DynamicResource EditAndSave}"
+                        Command="{Binding UpdateCommand}">
+                   <Button.Content>
+                      <Image Source="{StaticResource di_edit_xaml}"/>
+                   </Button.Content>
+                </Button>
 
-               <Grid Grid.Row="1" Grid.Column="1">
-                  <Grid.ColumnDefinitions>
-                     <ColumnDefinition/>
-                     <ColumnDefinition Width="Auto"/>
-                  </Grid.ColumnDefinitions>
+                <Grid Grid.Row="1" Grid.Column="1">
+                   <Grid.ColumnDefinitions>
+                      <ColumnDefinition/>
+                      <ColumnDefinition Width="Auto"/>
+                   </Grid.ColumnDefinitions>
 
-                  <Border BorderThickness="1" BorderBrush="LightGray" CornerRadius="3"  Margin="3">
-                     <local:PlotCanvas x:Name="plot" Margin="5" />
-                  </Border>
+                   <Border BorderThickness="1" BorderBrush="LightGray" CornerRadius="3"  Margin="3">
+                      <local:PlotCanvas x:Name="plot" Margin="5" />
+                   </Border>
 
-               </Grid>
+                </Grid>
 
 
-            </Grid>
+             </Grid>
 
-         </TabItem>
+          </TabItem>
 
-         <TabItem Name="DataTab">
-            <TabItem.Header>
-               <StackPanel Orientation="Horizontal">
-                  <Image Source="/Images/database_icon_174569.png"/>
-                  <TextBlock Text="Данные" Margin="5,0,0,0" FontWeight="Bold"/>
-               </StackPanel>
-            </TabItem.Header>
+          <TabItem Name="DataTab">
+             <TabItem.Header>
+                <StackPanel Orientation="Horizontal">
+                   <Image Source="/Images/database_icon_174569.png"/>
+                   <TextBlock Text="{DynamicResource Data}" Margin="5,0,0,0" FontWeight="Bold"/>
+                </StackPanel>
+             </TabItem.Header>
 
-            <Grid Margin="5">
-               <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-               </Grid.RowDefinitions>
+             <Grid Margin="5">
+                <Grid.RowDefinitions>
+                   <RowDefinition Height="Auto"/>
+                   <RowDefinition Height="Auto"/>
+                   <RowDefinition Height="Auto"/>
+                   <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-               <Expander Grid.Row="0">
-                  <Expander.Header>
-                     <StackPanel Orientation ="Horizontal">
-                        <Image Source="/Images/contours__32.png"/>
-                        <TextBlock Text="Контуры" Margin="5,0,0,0" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding Region.Contours.Count}" Margin="5,0,0,0" FontWeight="Bold"/>
-                        <TextBlock Text="шт." Margin="5,0,0,0" FontWeight="Bold"/>
-                     </StackPanel>
-                  </Expander.Header>
+                <Expander Grid.Row="0">
+                   <Expander.Header>
+                      <StackPanel Orientation ="Horizontal">
+                         <Image Source="/Images/contours__32.png"/>
+                         <TextBlock Text="{DynamicResource Contours}" Margin="5,0,0,0" FontWeight="Bold"/>
+                         <TextBlock Text="{Binding Region.Contours.Count}" Margin="5,0,0,0" FontWeight="Bold"/>
+                         <TextBlock Text="{DynamicResource Pcs}" Margin="5,0,0,0" FontWeight="Bold"/>
+                      </StackPanel>
+                   </Expander.Header>
 
-                  <Grid >
-                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                     </Grid.ColumnDefinitions>
+                   <Grid >
+                      <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="auto" />
+                         <ColumnDefinition Width="Auto" />
+                         <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
 
-                     <GroupBox Header="Контуры" Grid.Column="0"  MaxHeight="450">
-                        <ListBox ItemsSource="{Binding ContourVMs}" SelectedItem="{Binding SelectedContourVM}" BorderThickness="0"/>
-                     </GroupBox>
+                      <GroupBox Header="{DynamicResource ContoursGroup}" Grid.Column="0"  MaxHeight="450">
+                         <ListBox ItemsSource="{Binding ContourVMs}" SelectedItem="{Binding SelectedContourVM}" BorderThickness="0"/>
+                      </GroupBox>
 
-                     <GridSplitter Grid.Column="1" Width="3" Background="WhiteSmoke" ShowsPreview="True" HorizontalAlignment="Center"/>
+                      <GridSplitter Grid.Column="1" Width="3" Background="WhiteSmoke" ShowsPreview="True" HorizontalAlignment="Center"/>
 
-                     <GroupBox Header="Точки" Grid.Column="2"  MaxHeight="450">
-                        <DataGrid Margin="2" ItemsSource="{Binding SelectedContour.Points}" AutoGenerateColumns="False">
-                           <DataGrid.Columns>
-                              <DataGridTextColumn Header="№" Binding="{Binding Path=Num}" Width="40"/>
-                              <DataGridTextColumn Header="X, м" Binding="{Binding Path=X, StringFormat={}{0:F4}}" Width="70"/>
-                              <DataGridTextColumn Header="Y, м" Binding="{Binding Path=Y, StringFormat={}{0:F4}}" Width="70"/>
-                              <DataGridTextColumn Header="Strain" Binding="{Binding Eps, StringFormat={}{0:F5}}" Width="70"/>
-                              <DataGridTextColumn Header="Stress, МПа" Binding="{Binding Sig, StringFormat={}{0:F2}}" Width="80"/>
-                           </DataGrid.Columns>
-                        </DataGrid>
-                     </GroupBox>
+                      <GroupBox Header="{DynamicResource Points}" Grid.Column="2"  MaxHeight="450">
+                         <DataGrid Margin="2" ItemsSource="{Binding SelectedContour.Points}" AutoGenerateColumns="False">
+                            <DataGrid.Columns>
+                               <DataGridTextColumn Header="{DynamicResource Number}" Binding="{Binding Path=Num}" Width="40"/>
+                               <DataGridTextColumn Header="{DynamicResource X_m}" Binding="{Binding Path=X, StringFormat={}{0:F4}}" Width="70"/>
+                               <DataGridTextColumn Header="{DynamicResource Y_m}" Binding="{Binding Path=Y, StringFormat={}{0:F4}}" Width="70"/>
+                               <DataGridTextColumn Header="Strain" Binding="{Binding Eps, StringFormat={}{0:F5}}" Width="70"/>
+                               <DataGridTextColumn Header="{DynamicResource Stress_MPa}" Binding="{Binding Sig, StringFormat={}{0:F2}}" Width="80"/>
+                            </DataGrid.Columns>
+                         </DataGrid>
+                      </GroupBox>
 
-                  </Grid>
-               </Expander>
+                   </Grid>
+                </Expander>
 
-               <Expander Grid.Row="1">
-                  <Expander.Header>
-                     <StackPanel Orientation ="Horizontal">
-                        <Image Source="/Images/rebar_group__32(1).png"/>
-                        <TextBlock Text="Группы арматурных стержней" Margin="5,0,0,0" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding Region.ReBarGroups.Count}" Margin="5,0,0,0" FontWeight="Bold"/>
-                        <TextBlock Text="шт." Margin="5,0,0,0" FontWeight="Bold"/>
-                     </StackPanel>
-                  </Expander.Header>
+                <Expander Grid.Row="1">
+                   <Expander.Header>
+                      <StackPanel Orientation ="Horizontal">
+                         <Image Source="/Images/rebar_group__32(1).png"/>
+                         <TextBlock Text="{DynamicResource RebarGroupsFull}" Margin="5,0,0,0" FontWeight="Bold"/>
+                         <TextBlock Text="{Binding Region.ReBarGroups.Count}" Margin="5,0,0,0" FontWeight="Bold"/>
+                         <TextBlock Text="{DynamicResource Pcs}" Margin="5,0,0,0" FontWeight="Bold"/>
+                      </StackPanel>
+                   </Expander.Header>
 
-                  <Grid>
-                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="auto" />
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="Auto"/>
-                     </Grid.ColumnDefinitions>
+                   <Grid>
+                      <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="auto" />
+                         <ColumnDefinition Width="Auto"/>
+                         <ColumnDefinition Width="Auto"/>
+                      </Grid.ColumnDefinitions>
 
-                     <GroupBox Header="Группы" Grid.Column="0">
-                        <DataGrid Margin="2" ItemsSource="{Binding Region.ReBarGroups}" SelectedItem="{Binding SelectedRebarGroup}" AutoGenerateColumns="False">
-                           <DataGrid.Columns>
-                              <DataGridTextColumn Header="№" Binding="{Binding Path=Num}" Width="40"/>
-                              <DataGridTextColumn Header="Обозначение" Binding="{Binding Path=Tag, StringFormat={}{0:F4}}"/>
-                              <DataGridTextColumn Header="Материал" Binding="{Binding Material}"/>
-                           </DataGrid.Columns>
-                        </DataGrid>
-                     </GroupBox>
+                      <GroupBox Header="{DynamicResource Groups}" Grid.Column="0">
+                         <DataGrid Margin="2" ItemsSource="{Binding Region.ReBarGroups}" SelectedItem="{Binding SelectedRebarGroup}" AutoGenerateColumns="False">
+                            <DataGrid.Columns>
+                               <DataGridTextColumn Header="{DynamicResource Number}" Binding="{Binding Path=Num}" Width="40"/>
+                               <DataGridTextColumn Header="{DynamicResource Designation}" Binding="{Binding Path=Tag, StringFormat={}{0:F4}}"/>
+                               <DataGridTextColumn Header="{DynamicResource Material}" Binding="{Binding Material}"/>
+                            </DataGrid.Columns>
+                         </DataGrid>
+                      </GroupBox>
 
-                     <GridSplitter Grid.Column="1" Width="3" Background="WhiteSmoke" HorizontalAlignment="Center"/>
+                      <GridSplitter Grid.Column="1" Width="3" Background="WhiteSmoke" HorizontalAlignment="Center"/>
 
-                     <GroupBox Header="Арматурные стержни" Grid.Column="2"  MaxHeight="450">
-                        <DataGrid Margin="2" ItemsSource="{Binding SelectedRebarGroup.ReBars}" AutoGenerateColumns="False">
-                           <DataGrid.Columns>
-                              <DataGridTextColumn Header="№" Binding="{Binding Path=Num}" Width="40"/>
-                              <DataGridTextColumn Header="X, м" Binding="{Binding Path=X, StringFormat={}{0:F4}}" Width="70"/>
-                              <DataGridTextColumn Header="Y, м" Binding="{Binding Path=Y, StringFormat={}{0:F4}}" Width="70"/>
-                              <DataGridTextColumn Header="d, мм" Binding="{Binding Dstr}" Width="70"/>
-                              <DataGridTextColumn Binding="{Binding Astr}" Width="70">
-                                 <DataGridTextColumn.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                       <TextBlock Text="Area, "/>
-                                       <TextBlock Text="см"/>
-                                       <TextBlock Text="2" FontSize="8"/>
-                                    </StackPanel>
-                                 </DataGridTextColumn.Header>
-                              </DataGridTextColumn>
-                              <DataGridTextColumn Header="PreStrain" Binding="{Binding Eps_p, StringFormat={}{0:F5}}" Width="70"/>
-                           </DataGrid.Columns>
-                        </DataGrid>
-                     </GroupBox>
+                      <GroupBox Header="{DynamicResource ReinforcementBars}" Grid.Column="2"  MaxHeight="450">
+                         <DataGrid Margin="2" ItemsSource="{Binding SelectedRebarGroup.ReBars}" AutoGenerateColumns="False">
+                            <DataGrid.Columns>
+                               <DataGridTextColumn Header="{DynamicResource Number}" Binding="{Binding Path=Num}" Width="40"/>
+                               <DataGridTextColumn Header="{DynamicResource X_m}" Binding="{Binding Path=X, StringFormat={}{0:F4}}" Width="70"/>
+                               <DataGridTextColumn Header="{DynamicResource Y_m}" Binding="{Binding Path=Y, StringFormat={}{0:F4}}" Width="70"/>
+                               <DataGridTextColumn Header="{DynamicResource D_mm}" Binding="{Binding Dstr}" Width="70"/>
+                               <DataGridTextColumn Binding="{Binding Astr}" Width="70">
+                                  <DataGridTextColumn.Header>
+                                     <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{DynamicResource Area}"/>
+                                        <TextBlock Text="{DynamicResource Unit_cm2}"/>
+                                        <TextBlock Text="{DynamicResource Superscript2}" FontSize="8"/>
+                                     </StackPanel>
+                                  </DataGridTextColumn.Header>
+                               </DataGridTextColumn>
+                               <DataGridTextColumn Header="{DynamicResource PreStrain}" Binding="{Binding Eps_p, StringFormat={}{0:F5}}" Width="70"/>
+                            </DataGrid.Columns>
+                         </DataGrid>
+                      </GroupBox>
 
-                  </Grid>
-               </Expander>
+                   </Grid>
+                </Expander>
 
-               <Expander Grid.Row="2">
-                  <Expander.Header>
-                     <StackPanel Orientation ="Horizontal">
-                        <Image Source="/Images/fibers--32.png"/>
-                        <TextBlock Text="Фибры (элементарные площадки)" Margin="5,0,0,0" FontWeight="Bold"/>
-                        <TextBlock Text="{Binding Region.Fibers.Count}" Margin="5,0,0,0" FontWeight="Bold"/>
-                        <TextBlock Text="шт." Margin="5,0,0,0" FontWeight="Bold"/>
-                     </StackPanel>
-                  </Expander.Header>
+                <Expander Grid.Row="2">
+                   <Expander.Header>
+                      <StackPanel Orientation ="Horizontal">
+                         <Image Source="/Images/fibers--32.png"/>
+                         <TextBlock Text="{DynamicResource FibersElementary}" Margin="5,0,0,0" FontWeight="Bold"/>
+                         <TextBlock Text="{Binding Region.Fibers.Count}" Margin="5,0,0,0" FontWeight="Bold"/>
+                         <TextBlock Text="{DynamicResource Pcs}" Margin="5,0,0,0" FontWeight="Bold"/>
+                      </StackPanel>
+                   </Expander.Header>
 
-                  <GroupBox Header="Элементарные площадки"  MaxHeight="450">
-                     <Grid>
-                        <DataGrid Margin="2" ItemsSource="{Binding Fibers}" AutoGenerateColumns="False">
+                   <GroupBox Header="{DynamicResource ElementaryAreas}"  MaxHeight="450">
+                      <Grid>
+                         <DataGrid Margin="2" ItemsSource="{Binding Fibers}" AutoGenerateColumns="False">
 
-                           <DataGrid.Columns>
-                              <DataGridTextColumn Header="№" Binding="{Binding Path=Num}" Width="40"/>
-                              <DataGridTextColumn Header="X, м" Binding="{Binding Path=X, StringFormat={}{0:F4}}" Width="80"/>
-                              <DataGridTextColumn Header="Y, м" Binding="{Binding Path=Y, StringFormat={}{0:F4}}" Width="80"/>
-                              <DataGridTextColumn Binding="{Binding Path=Astr}" Width="80">
-                                 <DataGridTextColumn.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                       <TextBlock Text="Area, "/>
-                                       <TextBlock Text="см"/>
-                                       <TextBlock Text="2" FontSize="8"/>
-                                    </StackPanel>
-                                 </DataGridTextColumn.Header>
-                              </DataGridTextColumn>
-                              <DataGridTextColumn Header="Форма" Binding="{Binding Path=TypeFiber}" Width="60"/>
-                              <DataGridTextColumn Header="Текстовое представление контура фибры в формате WKT" Binding="{Binding Path=WKT}" MaxWidth="640"/>
+                            <DataGrid.Columns>
+                               <DataGridTextColumn Header="{DynamicResource Number}" Binding="{Binding Path=Num}" Width="40"/>
+                               <DataGridTextColumn Header="{DynamicResource X_m}" Binding="{Binding Path=X, StringFormat={}{0:F4}}" Width="80"/>
+                               <DataGridTextColumn Header="{DynamicResource Y_m}" Binding="{Binding Path=Y, StringFormat={}{0:F4}}" Width="80"/>
+                               <DataGridTextColumn Binding="{Binding Path=Astr}" Width="80">
+                                  <DataGridTextColumn.Header>
+                                     <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{DynamicResource Area}"/>
+                                        <TextBlock Text="{DynamicResource Unit_cm2}"/>
+                                        <TextBlock Text="{DynamicResource Superscript2}" FontSize="8"/>
+                                     </StackPanel>
+                                  </DataGridTextColumn.Header>
+                               </DataGridTextColumn>
+                               <DataGridTextColumn Header="{DynamicResource Shape}" Binding="{Binding Path=TypeFiber}" Width="60"/>
+                               <DataGridTextColumn Header="{DynamicResource WKT}" Binding="{Binding Path=WKT}" MaxWidth="640"/>
 
-                           </DataGrid.Columns>
-                        </DataGrid>
-                     </Grid>
-                  </GroupBox>
+                            </DataGrid.Columns>
+                         </DataGrid>
+                      </Grid>
+                   </GroupBox>
 
-               </Expander>
+                </Expander>
 
-            </Grid>
+             </Grid>
 
-         </TabItem>
+          </TabItem>
 
-      </TabControl>
+       </TabControl>
 
-   </Grid>
+    </Grid>
 </UserControl>

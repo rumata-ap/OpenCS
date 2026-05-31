@@ -20,7 +20,7 @@
 
         <TabControl>
 
-            <TabItem Header="Материал">
+            <TabItem Header="{DynamicResource Material}">
 
                 <Grid>
                     <Grid.RowDefinitions>
@@ -38,7 +38,7 @@
                 
             </TabItem>
             
-            <TabItem Header="Стержни">
+            <TabItem Header="{DynamicResource BarsTab}">
                 
                 <Grid>
                     <Grid.RowDefinitions>
@@ -53,7 +53,7 @@
 
                     <GroupBox Grid.Column="0" 
               Grid.Row="0" 
-              Header="Арматурные стержни группы" 
+              Header="{DynamicResource ReinforcementBars}" 
               Margin="5">
 
                         <Grid>
@@ -69,30 +69,14 @@
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition/>
-                                    <!--<ColumnDefinition/>-->
                                     <ColumnDefinition/>
                                 </Grid.ColumnDefinitions>
 
-                                <!--<Button Grid.Column="2" Height="25" Margin="2" VerticalContentAlignment="Center"
-                        Command="{Binding AddCommand}">
-                                    <Button.Content>
-                                        ДОБАВИТЬ
-                                    </Button.Content>
-                                </Button>-->
-
                                 <Button Grid.Column="0" Height="25" Margin="2" VerticalContentAlignment="Center"
-                        Command="{Binding DeleteAllCommand}">
-                                    <Button.Content>
-                                        УДАЛИТЬ ВСЕ
-                                    </Button.Content>
-                                </Button>
+                        Command="{Binding DeleteAllCommand}" Content="{DynamicResource DeleteAllCaps}"/>
 
                                 <Button Grid.Column="1" Height="25" Margin="2" VerticalContentAlignment="Center"
-                        Command="{Binding DeleteCommand}">
-                                    <Button.Content>
-                                        УДАЛИТЬ
-                                    </Button.Content>
-                                </Button>
+                        Command="{Binding DeleteCommand}" Content="{DynamicResource DeleteCaps}"/>
 
                             </Grid>
 
@@ -100,7 +84,7 @@
 
                     </GroupBox>
 
-                    <GroupBox Grid.Column="2" Grid.Row="0" Header="Окружности" Margin="5">
+                    <GroupBox Grid.Column="2" Grid.Row="0" Header="{DynamicResource Circles}" Margin="5">
 
                         <Grid>
                             <Grid.RowDefinitions>
@@ -118,7 +102,7 @@
                             <Grid Grid.Row="1">
 
                                 <DockPanel Margin="2">
-                                    <TextBlock Text="Геометрический набор:"/>
+                                    <TextBlock Text="{DynamicResource GeometricSet}"/>
                                     <TextBox Margin="5,0,0,0" HorizontalContentAlignment="Center" Text="{Binding Set}"/>
                                 </DockPanel>
 
@@ -133,21 +117,21 @@
                                 </Grid.ColumnDefinitions>
 
                                 <DockPanel Margin="2">
-                                    <TextBlock Text="X, м:"/>
+                                    <TextBlock Text="{DynamicResource X_m_colon}"/>
                                     <TextBox Margin="5,0,0,0" HorizontalContentAlignment="Center" Text="{Binding X}"/>
                                 </DockPanel>
 
                                 <DockPanel Grid.Column="1" Margin="2">
-                                    <TextBlock Text="Y, м:"/>
+                                    <TextBlock Text="{DynamicResource Y_m_colon}"/>
                                     <TextBox Margin="5,0,0,0" HorizontalContentAlignment="Center" Text="{Binding Y}"/>
                                 </DockPanel>
 
                                 <DockPanel Grid.Column="2" Margin="2">
-                                    <TextBlock Text="D, мм:"/>
+                                    <TextBlock Text="{DynamicResource D_mm_colon}"/>
                                     <TextBox Margin="5,0,0,0" HorizontalContentAlignment="Center" Text="{Binding D, Converter={StaticResource mm}}"/>
                                 </DockPanel>
 
-                                <Button Grid.Column="3" Margin="2" Content="ДОБАВИТЬ" Command="{Binding AddCircleCommand}"/>
+                                <Button Grid.Column="3" Margin="2" Content="{DynamicResource AddCaps}" Command="{Binding AddCircleCommand}"/>
 
                             </Grid>
 

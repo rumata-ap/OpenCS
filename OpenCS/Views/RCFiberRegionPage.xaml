@@ -9,304 +9,304 @@
              xmlns:core="clr-namespace:CScore;assembly=CScore"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
-   <UserControl.DataContext>
-      <vm:RCFiberRegionVM/>
-   </UserControl.DataContext>
+    <UserControl.DataContext>
+       <vm:RCFiberRegionVM/>
+    </UserControl.DataContext>
 
-   <UserControl.Resources>
-      <ResourceDictionary Source="/Images/svg.xaml"/>
-   </UserControl.Resources>
+    <UserControl.Resources>
+       <ResourceDictionary Source="/Images/svg.xaml"/>
+    </UserControl.Resources>
 
-   <Grid>
+    <Grid>
 
-      <TabControl>
+       <TabControl>
 
-         <TabItem Header="Область">
+          <TabItem Header="{DynamicResource RegionTab}">
 
-            <Grid>
-               <Grid.RowDefinitions>
-                  <RowDefinition Height="auto"/>
-                  <RowDefinition Height="auto"/>
-                  <RowDefinition />
-               </Grid.RowDefinitions>
-               <Grid.ColumnDefinitions>
-                  <ColumnDefinition/>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition/>
-               </Grid.ColumnDefinitions>
+             <Grid>
+                <Grid.RowDefinitions>
+                   <RowDefinition Height="auto"/>
+                   <RowDefinition Height="auto"/>
+                   <RowDefinition />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                   <ColumnDefinition/>
+                   <ColumnDefinition Width="Auto"/>
+                   <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
 
-               <GroupBox Header="Внешний контур" Margin="5,0,5,0" Grid.Row="1">
-                  <ComboBox ItemsSource="{Binding Contours}"
-                            SelectedItem="{Binding Out}"
-                            VerticalContentAlignment="Center"
-                            HorizontalContentAlignment="Center"
-                            Height="25"/>
-               </GroupBox>
+                <GroupBox Header="{DynamicResource OuterContour}" Margin="5,0,5,0" Grid.Row="1">
+                   <ComboBox ItemsSource="{Binding Contours}"
+                             SelectedItem="{Binding Out}"
+                             VerticalContentAlignment="Center"
+                             HorizontalContentAlignment="Center"
+                             Height="25"/>
+                </GroupBox>
 
-               <GroupBox Header="Обозначение" Grid.Column="2" Margin="5">
-                  <TextBox Text="{Binding Tag}" TextAlignment="Center" VerticalContentAlignment="Center"/>
-               </GroupBox>
+                <GroupBox Header="{DynamicResource Tag}" Grid.Column="2" Margin="5">
+                   <TextBox Text="{Binding Tag}" TextAlignment="Center" VerticalContentAlignment="Center"/>
+                </GroupBox>
 
-               <GroupBox Header="Описание" Grid.Row="1" Grid.Column="2" Margin="5,0,5,5">
-                  <TextBox Text="{Binding Description}"
-                           TextAlignment="Center" VerticalContentAlignment="Center"
-                           TextWrapping="WrapWithOverflow" IsEnabled="False"/>
-               </GroupBox>
+                <GroupBox Header="{DynamicResource Description}" Grid.Row="1" Grid.Column="2" Margin="5,0,5,5">
+                   <TextBox Text="{Binding Description}"
+                            TextAlignment="Center" VerticalContentAlignment="Center"
+                            TextWrapping="WrapWithOverflow" IsEnabled="False"/>
+                </GroupBox>
 
-               <GroupBox Grid.Row="2" Margin="5,0,5,5" Header="Отверстия">
-                  <ListBox Margin="5" BorderThickness="0"
-                           ItemsSource="{Binding Holes}"
-                           SelectedItem="{Binding SelectedContour}">
+                <GroupBox Grid.Row="2" Margin="5,0,5,5" Header="{DynamicResource Holes}">
+                   <ListBox Margin="5" BorderThickness="0"
+                            ItemsSource="{Binding Holes}"
+                            SelectedItem="{Binding SelectedContour}">
 
-                  </ListBox>
-               </GroupBox>
+                   </ListBox>
+                </GroupBox>
 
-               <GroupBox Header="Бетон" Grid.Row="0" Margin="5">
-                  <ComboBox ItemsSource="{Binding Concretes}"
-                            SelectedItem="{Binding Concrete}"
-                            VerticalContentAlignment="Center"
-                            HorizontalContentAlignment="Center"
-                            Height="25"/>
-               </GroupBox>
+                <GroupBox Header="{DynamicResource ConcreteLabel}" Grid.Row="0" Margin="5">
+                   <ComboBox ItemsSource="{Binding Concretes}"
+                             SelectedItem="{Binding Concrete}"
+                             VerticalContentAlignment="Center"
+                             HorizontalContentAlignment="Center"
+                             Height="25"/>
+                </GroupBox>
 
-               <GroupBox Header="Контуры" Grid.Row="2" Grid.Column="2"
-                         Margin="5,0,5,5" Grid.RowSpan="3">
-                  <ListBox ItemsSource="{Binding Contours}"
-                             SelectedItem="{Binding SelectedContour}"
-                             Margin="5" BorderThickness="0">
-                     <ListBox.ContextMenu>
-                        <ContextMenu>
-                           <MenuItem Header="Обновить" Command="{Binding ContoursUpdCommand}">
-                              <MenuItem.Icon>
-                                 <Image Source="/Images/update--32.png" />
-                              </MenuItem.Icon>
-                           </MenuItem>
-                        </ContextMenu>
-                     </ListBox.ContextMenu>
+                <GroupBox Header="{DynamicResource ContoursLabel}" Grid.Row="2" Grid.Column="2"
+                          Margin="5,0,5,5" Grid.RowSpan="3">
+                   <ListBox ItemsSource="{Binding Contours}"
+                              SelectedItem="{Binding SelectedContour}"
+                              Margin="5" BorderThickness="0">
+                      <ListBox.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource Update}" Command="{Binding ContoursUpdCommand}">
+                               <MenuItem.Icon>
+                                  <Image Source="/Images/update--32.png" />
+                               </MenuItem.Icon>
+                            </MenuItem>
+                         </ContextMenu>
+                      </ListBox.ContextMenu>
 
-                  </ListBox>
-               </GroupBox>
+                   </ListBox>
+                </GroupBox>
 
-               <Button Grid.Column="1" Grid.Row="1"
-                       Style="{StaticResource IconButton}" Margin="0,21,0,10"
-                       Command="{Binding FromDxfCommand}">
-                  <Image Source="{StaticResource di_dxf_file_xaml}"/>
-               </Button>
-
-               <Button Grid.Row="0" Grid.Column="1"
-                       Style="{StaticResource IconButton}" Margin="0,17,0,10"
-                       Command="{Binding AddMaterialCommand}">
-                  <Image Source="{StaticResource addDrawingImage}"/>
-               </Button>
-
-               <Grid Grid.Row="2" Grid.Column="1" Grid.RowSpan="3" Margin="0,5,0,5">
-                  <Grid.RowDefinitions>
-                     <RowDefinition/>
-                     <RowDefinition Height="auto"/>
-                  </Grid.RowDefinitions>
-
-                  <local:TransferPanel Grid.Row="0"
-                        InCommand="{Binding HoleInCommand}"
-                        OutCommand="{Binding HoleOutCommand}"/>
-
-                  <Button Grid.Row="1" Style="{StaticResource IconButton}" Margin="0,0,0,3"
+                <Button Grid.Column="1" Grid.Row="1"
+                        Style="{StaticResource IconButton}" Margin="0,21,0,10"
                         Command="{Binding FromDxfCommand}">
-                     <Image Source="/Images/interfaceDXF__32.png"/>
-                  </Button>
-               </Grid>
+                   <Image Source="{StaticResource di_dxf_file_xaml}"/>
+                </Button>
 
-            </Grid>
-         </TabItem>
+                <Button Grid.Row="0" Grid.Column="1"
+                        Style="{StaticResource IconButton}" Margin="0,17,0,10"
+                        Command="{Binding AddMaterialCommand}">
+                   <Image Source="{StaticResource addDrawingImage}"/>
+                </Button>
 
-         <TabItem Header="Армирование">
+                <Grid Grid.Row="2" Grid.Column="1" Grid.RowSpan="3" Margin="0,5,0,5">
+                   <Grid.RowDefinitions>
+                      <RowDefinition/>
+                      <RowDefinition Height="auto"/>
+                   </Grid.RowDefinitions>
 
-            <Grid>
-               <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition/>
-               </Grid.RowDefinitions>
-               <Grid.ColumnDefinitions>
-                  <ColumnDefinition/>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition/>
-               </Grid.ColumnDefinitions>
+                   <local:TransferPanel Grid.Row="0"
+                         InCommand="{Binding HoleInCommand}"
+                         OutCommand="{Binding HoleOutCommand}"/>
 
-               <GroupBox Header="Группы арматурных стержней" Margin="5,0,5,0" Grid.Row="1">
-                  <Grid>
-                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition/>
-                     </Grid.ColumnDefinitions>
-                     <Button Grid.Row="0" Grid.Column="0"
-                             Command="{Binding AddRebarGroupCommand}"
-                             Height="22" Width="28"
-                             Background="Transparent"
-                             BorderThickness="0">
-                        <Image Source="{StaticResource addDrawingImage}"/>
-                     </Button>
+                   <Button Grid.Row="1" Style="{StaticResource IconButton}" Margin="0,0,0,3"
+                         Command="{Binding FromDxfCommand}">
+                      <Image Source="/Images/interfaceDXF__32.png"/>
+                   </Button>
+                </Grid>
 
-                     <ComboBox Grid.Row="0" Grid.Column="1" Height="25" Margin="2" HorizontalContentAlignment="Center"
-                            ItemsSource="{Binding RebarGroups}"
-                            SelectedItem="{Binding SelectedRebarGroup}"/>
+             </Grid>
+          </TabItem>
 
-                  </Grid>
-               </GroupBox>
+          <TabItem Header="{DynamicResource ReinforcementTab}">
 
-               <GroupBox Header="Материалы" Grid.Row="1" Grid.Column="2" Margin="5,0,5,0">
-                  <Grid>
-                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition/>
-                        <ColumnDefinition Width="Auto"/>
-                     </Grid.ColumnDefinitions>
-                     <ComboBox Height="25" Margin="2" HorizontalContentAlignment="Center"
-                               ItemsSource="{Binding RFsteels}"
-                               SelectedItem="{Binding RFsteel}"/>
+             <Grid>
+                <Grid.RowDefinitions>
+                   <RowDefinition Height="Auto"/>
+                   <RowDefinition Height="Auto"/>
+                   <RowDefinition/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                   <ColumnDefinition/>
+                   <ColumnDefinition Width="Auto"/>
+                   <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
 
-                     <Button Grid.Row="0"  Grid.Column="1"
-                             Command="{Binding AddMaterialCommand}"
-                             Height="22" Width="28"
-                             Background="Transparent"
-                             BorderThickness="0">
-                        <Image Source="{StaticResource addDrawingImage}"/>
-                     </Button>
+                <GroupBox Header="{DynamicResource RebarGroupsFull}" Margin="5,0,5,0" Grid.Row="1">
+                   <Grid>
+                      <Grid.ColumnDefinitions>
+                         <ColumnDefinition Width="Auto"/>
+                         <ColumnDefinition/>
+                      </Grid.ColumnDefinitions>
+                      <Button Grid.Row="0" Grid.Column="0"
+                              Command="{Binding AddRebarGroupCommand}"
+                              Height="22" Width="28"
+                              Background="Transparent"
+                              BorderThickness="0">
+                         <Image Source="{StaticResource addDrawingImage}"/>
+                      </Button>
 
-                  </Grid>
-               </GroupBox>
+                      <ComboBox Grid.Row="0" Grid.Column="1" Height="25" Margin="2" HorizontalContentAlignment="Center"
+                             ItemsSource="{Binding RebarGroups}"
+                             SelectedItem="{Binding SelectedRebarGroup}"/>
 
-               <GroupBox Header="Обозначение группы" Grid.Column="0" Margin="5">
-                  <TextBox Text="{Binding TagGroup}" Height="25" TextAlignment="Center" VerticalContentAlignment="Center"  Margin="2"/>
-               </GroupBox>
+                   </Grid>
+                </GroupBox>
 
-               <GroupBox Header="Описание группы" Grid.Row="0" Grid.Column="2" Margin="5">
-                  <TextBox Text="{Binding DescriptionGroup}" VerticalContentAlignment="Center"
-                           TextAlignment="Center" Margin="2" Height="25"
-                           TextWrapping="WrapWithOverflow" IsEnabled="False"/>
-               </GroupBox>
+                <GroupBox Header="{DynamicResource MaterialsLabel}" Grid.Row="1" Grid.Column="2" Margin="5,0,5,0">
+                   <Grid>
+                      <Grid.ColumnDefinitions>
+                         <ColumnDefinition/>
+                         <ColumnDefinition Width="Auto"/>
+                      </Grid.ColumnDefinitions>
+                      <ComboBox Height="25" Margin="2" HorizontalContentAlignment="Center"
+                                ItemsSource="{Binding RFsteels}"
+                                SelectedItem="{Binding RFsteel}"/>
 
-               <GroupBox Grid.Row="2"
-                         Header="Арматурные стержни группы"
-                         Margin="5,0,5,5">
+                      <Button Grid.Row="0"  Grid.Column="1"
+                              Command="{Binding AddMaterialCommand}"
+                              Height="22" Width="28"
+                              Background="Transparent"
+                              BorderThickness="0">
+                         <Image Source="{StaticResource addDrawingImage}"/>
+                      </Button>
 
-                  <ListBox x:Name="RebarsListBox" Margin="5" BorderThickness="0"
-                               ItemsSource="{Binding Rebars}"
-                               SelectedItem="{Binding Rebar}" SelectionMode="Extended"/>
+                   </Grid>
+                </GroupBox>
 
-               </GroupBox>
+                <GroupBox Header="{DynamicResource GroupTag}" Grid.Column="0" Margin="5">
+                   <TextBox Text="{Binding TagGroup}" Height="25" TextAlignment="Center" VerticalContentAlignment="Center"  Margin="2"/>
+                </GroupBox>
 
-               <GroupBox Header="Из окружностей" Grid.Column="2" Grid.Row="2" Margin="5,0,5,5">
+                <GroupBox Header="{DynamicResource GroupDescription}" Grid.Row="0" Grid.Column="2" Margin="5">
+                   <TextBox Text="{Binding DescriptionGroup}" VerticalContentAlignment="Center"
+                            TextAlignment="Center" Margin="2" Height="25"
+                            TextWrapping="WrapWithOverflow" IsEnabled="False"/>
+                </GroupBox>
 
-                  <ListBox x:Name="CirclesListBox"
-                            ItemsSource="{Binding AllRebars}"
-                            SelectedItem="{Binding Rebar}"
-                            BorderThickness="0" Grid.Row="0"
-                            Margin="5" SelectionMode="Extended">
-                     <ListBox.ContextMenu>
-                        <ContextMenu>
-                           <MenuItem Header="Обновить" Command="{Binding RebarsUpdCommand}">
-                              <MenuItem.Icon>
-                                 <Image Source="/Images/update--32.png" />
-                              </MenuItem.Icon>
-                           </MenuItem>
-                        </ContextMenu>
-                     </ListBox.ContextMenu>
-                  </ListBox>
+                <GroupBox Grid.Row="2"
+                          Header="{DynamicResource RebarGroupBars}"
+                          Margin="5,0,5,5">
 
-               </GroupBox>
+                   <ListBox x:Name="RebarsListBox" Margin="5" BorderThickness="0"
+                                ItemsSource="{Binding Rebars}"
+                                SelectedItem="{Binding Rebar}" SelectionMode="Extended"/>
 
-               <Button Grid.Row="1" Grid.Column="1"
-                           Style="{StaticResource IconButton}" Margin="0,10,0,0"
-                           Command="{Binding RFsteelInCommand}">
-                  <Image Source="/Images/strelka_vlevo_32.png"/>
-               </Button>
+                </GroupBox>
 
-               <Grid Grid.Row="2" Grid.Column="1" Margin="0,5,0,5">
-                  <Grid.RowDefinitions>
-                     <RowDefinition/>
-                     <RowDefinition Height="auto"/>
-                  </Grid.RowDefinitions>
+                <GroupBox Header="{DynamicResource FromCircles}" Grid.Column="2" Grid.Row="2" Margin="5,0,5,5">
 
-                  <local:TransferPanel Grid.Row="0"
-                           InCommand="{Binding RebarInCommand}"
-                           InAllCommand="{Binding RebarsInCommand}"
-                           OutCommand="{Binding RebarOutCommand}"/>
+                   <ListBox x:Name="CirclesListBox"
+                             ItemsSource="{Binding AllRebars}"
+                             SelectedItem="{Binding Rebar}"
+                             BorderThickness="0" Grid.Row="0"
+                             Margin="5" SelectionMode="Extended">
+                      <ListBox.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource Update}" Command="{Binding RebarsUpdCommand}">
+                               <MenuItem.Icon>
+                                  <Image Source="/Images/update--32.png" />
+                               </MenuItem.Icon>
+                            </MenuItem>
+                         </ContextMenu>
+                      </ListBox.ContextMenu>
+                   </ListBox>
 
-                  <Button Grid.Row="1" Style="{StaticResource IconButton}" Margin="0,0,0,3"
-                        Command="{Binding FromDxfCommand}">
-                     <Image Source="/Images/interfaceDXF__32.png"/>
-                  </Button>
-               </Grid>
+                </GroupBox>
 
-            </Grid>
+                <Button Grid.Row="1" Grid.Column="1"
+                            Style="{StaticResource IconButton}" Margin="0,10,0,0"
+                            Command="{Binding RFsteelInCommand}">
+                   <Image Source="/Images/strelka_vlevo_32.png"/>
+                </Button>
 
-         </TabItem>
+                <Grid Grid.Row="2" Grid.Column="1" Margin="0,5,0,5">
+                   <Grid.RowDefinitions>
+                      <RowDefinition/>
+                      <RowDefinition Height="auto"/>
+                   </Grid.RowDefinitions>
 
-         <TabItem Header="Деление" IsSelected="{Binding IsDraw}">
+                   <local:TransferPanel Grid.Row="0"
+                            InCommand="{Binding RebarInCommand}"
+                            InAllCommand="{Binding RebarsInCommand}"
+                            OutCommand="{Binding RebarOutCommand}"/>
 
-            <Grid>
-               <Grid.RowDefinitions>
-                  <RowDefinition Height="auto"/>
-                  <RowDefinition/>
-                  <RowDefinition Height="auto"/>
-               </Grid.RowDefinitions>
-               <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="auto"/>
-                  <ColumnDefinition/>
-                  <ColumnDefinition Width="auto"/>
-                  <ColumnDefinition Width="auto"/>
-               </Grid.ColumnDefinitions>
+                   <Button Grid.Row="1" Style="{StaticResource IconButton}" Margin="0,0,0,3"
+                         Command="{Binding FromDxfCommand}">
+                      <Image Source="/Images/interfaceDXF__32.png"/>
+                   </Button>
+                </Grid>
 
-               <Grid Grid.Column="3" Grid.Row="0" Grid.RowSpan="4">
-                  <Grid.RowDefinitions>
-                     <RowDefinition Height="auto"/>
-                     <RowDefinition />
-                     <RowDefinition Height="auto"/>
-                  </Grid.RowDefinitions>
+             </Grid>
 
-                  <local:MeshSettingsView Grid.Row="0" DataContext="{Binding}"/>
+          </TabItem>
 
-                  <local:GeoPropsView Grid.Row="1" GeoProps="{Binding GeoProps}"/>
+          <TabItem Header="{DynamicResource MeshTab}" IsSelected="{Binding IsDraw}">
 
-                  <local:MeshSlidersView Grid.Row="2" DataContext="{Binding}"/>
+             <Grid>
+                <Grid.RowDefinitions>
+                   <RowDefinition Height="auto"/>
+                   <RowDefinition/>
+                   <RowDefinition Height="auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                   <ColumnDefinition Width="auto"/>
+                   <ColumnDefinition/>
+                   <ColumnDefinition Width="auto"/>
+                   <ColumnDefinition Width="auto"/>
+                </Grid.ColumnDefinitions>
 
-               </Grid>
+                <Grid Grid.Column="3" Grid.Row="0" Grid.RowSpan="4">
+                   <Grid.RowDefinitions>
+                      <RowDefinition Height="auto"/>
+                      <RowDefinition />
+                      <RowDefinition Height="auto"/>
+                   </Grid.RowDefinitions>
 
-               <Button Grid.Row="3" Grid.Column="0" Height="30"
-                       Style="{StaticResource IconButton25}"
-                       ToolTip="Изменить и сохранить"
-                       Command="{Binding UpdateCommand}">
-                  <Button.Content>
-                     <Image Source="{StaticResource di_edit_xaml}"/>
-                  </Button.Content>
-               </Button>
+                   <local:MeshSettingsView Grid.Row="0" DataContext="{Binding}"/>
 
-               <Button Grid.Row="3" Grid.Column="2" Height="30"
-                       Style="{StaticResource IconButton25}"
-                       ToolTip="Изменить и сохранить"
-                       Command="{Binding SaveCommand}">
-                  <Button.Content>
-                     <Image Source="{StaticResource di_save_xaml}"/>
-                  </Button.Content>
-               </Button>
+                   <local:GeoPropsView Grid.Row="1" GeoProps="{Binding GeoProps}"/>
 
-               <Grid Grid.Row="1" Grid.Column="1">
-                  <Grid.ColumnDefinitions>
-                     <ColumnDefinition/>
-                     <ColumnDefinition Width="Auto"/>
-                  </Grid.ColumnDefinitions>
+                   <local:MeshSlidersView Grid.Row="2" DataContext="{Binding}"/>
 
-                  <Border BorderThickness="1" BorderBrush="LightGray" CornerRadius="3"  Margin="3">
-                     <local:PlotCanvas x:Name="plot" Margin="5" />
-                  </Border>
+                </Grid>
 
-               </Grid>
+                <Button Grid.Row="3" Grid.Column="0" Height="30"
+                        Style="{StaticResource IconButton25}"
+                        ToolTip="{DynamicResource EditAndSave}"
+                        Command="{Binding UpdateCommand}">
+                   <Button.Content>
+                      <Image Source="{StaticResource di_edit_xaml}"/>
+                   </Button.Content>
+                </Button>
+
+                <Button Grid.Row="3" Grid.Column="2" Height="30"
+                        Style="{StaticResource IconButton25}"
+                        ToolTip="{DynamicResource Save}"
+                        Command="{Binding SaveCommand}">
+                   <Button.Content>
+                      <Image Source="{StaticResource di_save_xaml}"/>
+                   </Button.Content>
+                </Button>
+
+                <Grid Grid.Row="1" Grid.Column="1">
+                   <Grid.ColumnDefinitions>
+                      <ColumnDefinition/>
+                      <ColumnDefinition Width="Auto"/>
+                   </Grid.ColumnDefinitions>
+
+                   <Border BorderThickness="1" BorderBrush="LightGray" CornerRadius="3"  Margin="3">
+                      <local:PlotCanvas x:Name="plot" Margin="5" />
+                   </Border>
+
+                </Grid>
 
 
-            </Grid>
+             </Grid>
 
-         </TabItem>
+          </TabItem>
 
-      </TabControl>
+       </TabControl>
 
-   </Grid>
+    </Grid>
 </UserControl>

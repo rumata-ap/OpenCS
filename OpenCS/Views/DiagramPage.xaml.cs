@@ -30,7 +30,7 @@ namespace OpenCS.Views
          this.diagram = diagram;
 
          titleText.Text = diagram.Tag;
-         infoText.Text = $"Материал: {(diagram.MaterialId > 0 ? $"id={diagram.MaterialId}" : "—")}  |  Тип расчёта: {diagram.CalcType}";
+          infoText.Text = $"{Loc.S("MaterialColon")} {(diagram.MaterialId > 0 ? $"id={diagram.MaterialId}" : "—")}  |  {Loc.S("CalcTypeColon")} {diagram.CalcType}";
 
          _plotService = new WpfPlotService(plot);
          _plotService.ApplySettings(mvm.PlotSettings);
@@ -42,12 +42,12 @@ namespace OpenCS.Views
       {
          if (_plotService == null) return;
          _plotService.Clear();
-         _plotService.SetTitle($"Диаграмма работы материала — {diagram.Tag}");
-         _plotService.SetXLabel("ε");
-         _plotService.SetYLabel("σ, МПа");
+          _plotService.SetTitle(string.Format(Loc.S("DiagramTitle"), diagram.Tag));
+          _plotService.SetXLabel("ε");
+          _plotService.SetYLabel(Loc.S("Sigma_MPa"));
 
-         PlotBranch(diagram.Ic, "Сжатие", "#0000C8");
-         PlotBranch(diagram.It, "Растяжение", "#C80000");
+          PlotBranch(diagram.Ic, Loc.S("Compression"), "#0000C8");
+          PlotBranch(diagram.It, Loc.S("Tension"), "#C80000");
 
          _plotService.ShowLegend();
          _plotService.AutoScale();
@@ -61,7 +61,7 @@ namespace OpenCS.Views
          bool hasInvalidNodes = spline.X.Any(double.IsNaN) || spline.Y.Any(double.IsNaN);
          if (hasInvalidNodes)
          {
-            _plotService?.AddMarkers(spline.X, spline.Y, 5, colorHex, label + " (узлы)");
+             _plotService?.AddMarkers(spline.X, spline.Y, 5, colorHex, label + " " + Loc.S("Nodes"));
             return;
          }
 
@@ -87,7 +87,7 @@ namespace OpenCS.Views
 
          if (realCount < 2)
          {
-            _plotService?.AddMarkers(spline.X, spline.Y, 4, colorHex, label + " (узлы)");
+             _plotService?.AddMarkers(spline.X, spline.Y, 4, colorHex, label + " " + Loc.S("Nodes"));
             return;
          }
 
@@ -96,8 +96,8 @@ namespace OpenCS.Views
          Array.Copy(xs, trimXs, realCount);
          Array.Copy(ys, trimYs, realCount);
 
-         _plotService?.AddScatter(trimXs, trimYs, 2, colorHex, label);
-         _plotService?.AddMarkers(spline.X, spline.Y, 4, colorHex, label + " (узлы)");
+          _plotService?.AddScatter(trimXs, trimYs, 2, colorHex, label);
+          _plotService?.AddMarkers(spline.X, spline.Y, 4, colorHex, label + " " + Loc.S("Nodes"));
       }
 
       void PopulateData()
@@ -132,7 +132,7 @@ namespace OpenCS.Views
 
          var epsCol = new DataGridTextColumn { Header = "ε", Binding = new System.Windows.Data.Binding("Eps"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) };
          epsCol.Binding.StringFormat = "F6";
-         var sigCol = new DataGridTextColumn { Header = "σ, МПа", Binding = new System.Windows.Data.Binding("Sig"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) };
+          var sigCol = new DataGridTextColumn { Header = Loc.S("Sigma_MPa"), Binding = new System.Windows.Data.Binding("Sig"), Width = new DataGridLength(1, DataGridLengthUnitType.Star) };
          sigCol.Binding.StringFormat = "F2";
 
          dataGrid.Columns.Add(epsCol);
@@ -162,8 +162,8 @@ namespace OpenCS.Views
       {
          var dlg = new SaveFileDialog
          {
-            Title = "Экспорт диаграммы в CSV",
-            Filter = "CSV files (*.csv)|*.csv",
+             Title = Loc.S("ExportDiagramCsv"),
+             Filter = Loc.S("CsvFilter"),
             FileName = $"{diagram.Tag ?? "diagram"}.csv"
          };
          if (dlg.ShowDialog() != true) return;
@@ -187,7 +187,7 @@ namespace OpenCS.Views
          AppendBranchCsv(sb, diagram.It, delim, ref seenZero);
 
          try { File.WriteAllText(dlg.FileName, sb.ToString(), enc); }
-         catch (Exception ex) { MessageBox.Show($"Ошибка сохранения: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error); }
+          catch (Exception ex) { MessageBox.Show(string.Format(Loc.S("ErrorSave"), ex.Message), Loc.S("Error"), MessageBoxButton.OK, MessageBoxImage.Error); }
       }
 
       void AppendBranchCsv(StringBuilder sb, ISpline? spline, string delim, ref bool seenZero)
@@ -207,14 +207,14 @@ namespace OpenCS.Views
 
       void Delete_Click(object sender, RoutedEventArgs e)
       {
-         var res = MessageBox.Show("Удалить диаграмму?", "Подтверждение",
-            MessageBoxButton.YesNo, MessageBoxImage.Warning);
-         if (res != MessageBoxResult.Yes) return;
+          var res = MessageBox.Show(Loc.S("ConfirmDeleteDiagram"), Loc.S("Confirmation"),
+             MessageBoxButton.YesNo, MessageBoxImage.Warning);
+          if (res != MessageBoxResult.Yes) return;
 
-         mvm.db.DeleteDiagram(diagram);
-         mvm.db.Diagrams.Remove(diagram);
-         mvm.CurrentPage = null;
-         mvm.LogService.Info($"Диаграмма '{diagram.Tag}' удалена");
+          mvm.db.DeleteDiagram(diagram);
+          mvm.db.Diagrams.Remove(diagram);
+          mvm.CurrentPage = null;
+          mvm.LogService.Info(string.Format(Loc.S("DiagramDeletedCode"), diagram.Tag));
       }
 
       void Close_Click(object sender, RoutedEventArgs e)

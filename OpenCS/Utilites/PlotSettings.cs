@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace OpenCS.Utilites
 {
@@ -7,67 +7,67 @@ namespace OpenCS.Utilites
    /// </summary>
    public class PlotSettings
    {
-      [JsonProperty("bg")]
+      [JsonPropertyName("bg")]
       public string Background { get; set; } = "#FFFFFF";
 
-      [JsonProperty("grid")]
+      [JsonPropertyName("grid")]
       public string Grid { get; set; } = "#D3D3D3";
 
-      [JsonProperty("curve")]
+      [JsonPropertyName("curve")]
       public string Curve { get; set; } = "#003A6C";
 
-      [JsonProperty("fill")]
+      [JsonPropertyName("fill")]
       public string Fill { get; set; } = "#F0EACD50";
 
-      [JsonProperty("marker")]
+      [JsonPropertyName("marker")]
       public string MarkerFill { get; set; } = "#003A6C";
 
-      [JsonProperty("text")]
+      [JsonPropertyName("text")]
       public string Text { get; set; } = "#333333";
 
-      [JsonProperty("highlight")]
+      [JsonPropertyName("highlight")]
       public string Highlight { get; set; } = "#FF0000";
 
-      [JsonProperty("curveThk")]
+      [JsonPropertyName("curveThk")]
       public double CurveThickness { get; set; } = 1.5;
 
-      [JsonProperty("markerSize")]
+      [JsonPropertyName("markerSize")]
       public double MarkerSize { get; set; } = 4;
 
-      [JsonProperty("fontSize")]
+      [JsonPropertyName("fontSize")]
       public double FontSize { get; set; } = 9;
 
-      [JsonProperty("showGrid")]
+      [JsonPropertyName("showGrid")]
       public bool ShowGrid { get; set; } = true;
 
-      [JsonProperty("showLabels")]
+      [JsonPropertyName("showLabels")]
       public bool ShowPointLabels { get; set; }
 
-      [JsonProperty("showTooltips")]
+      [JsonPropertyName("showTooltips")]
       public bool ShowTooltips { get; set; } = true;
 
-      [JsonProperty("showAxesVals")]
+      [JsonPropertyName("showAxesVals")]
       public bool ShowAxesValues { get; set; } = true;
 
-      [JsonProperty("axesOrigin")]
+      [JsonPropertyName("axesOrigin")]
       public bool AxesAtOrigin { get; set; }
 
-      [JsonProperty("axesColor")]
+      [JsonPropertyName("axesColor")]
       public string AxesColor { get; set; } = "#000000";
 
-      [JsonProperty("axesFontSize")]
+      [JsonPropertyName("axesFontSize")]
       public double AxesFontSize { get; set; } = 10;
 
-      [JsonProperty("gridThk")]
+      [JsonPropertyName("gridThk")]
       public double GridThickness { get; set; } = 0.3;
 
-      [JsonProperty("tickCount")]
+      [JsonPropertyName("tickCount")]
       public int TickCount { get; set; } = 6;
 
-      [JsonProperty("scaleY")]
+      [JsonPropertyName("scaleY")]
       public double ScaleY { get; set; } = 1.0;
 
-      [JsonProperty("scaleX")]
+      [JsonPropertyName("scaleX")]
       public double ScaleX { get; set; } = 1.0;
 
       public static PlotSettings Default => new();

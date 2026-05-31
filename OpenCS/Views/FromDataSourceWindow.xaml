@@ -7,7 +7,7 @@
         xmlns:local="clr-namespace:OpenCS.Views"
         xmlns:vm="clr-namespace:OpenCS.ViewModels"
         mc:Ignorable="d"
-        Title="Хранилище материалов" 
+        Title="{DynamicResource DataSourceTitle}"
         Height="500" Width="500" 
         WindowStartupLocation="CenterScreen" 
         SizeToContent="Height" 
@@ -28,7 +28,7 @@
                                 Margin="2">
 
                         <Image Source="/Images/kamni_wouahfq6r5gi__32.png" Stretch="None"/>
-                        <TextBlock Text="Бетон" Margin="5,0,0,0"/>
+                        <TextBlock Text="{DynamicResource Concrete}" Margin="5,0,0,0"/>
 
                     </StackPanel>
                 </TabItem.Header>
@@ -48,7 +48,7 @@
                         </Grid.ColumnDefinitions>
 
                         <DockPanel Margin="5" Grid.Column="0">
-                            <TextBlock Text="Тип бетона:" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource ConcreteType}" VerticalAlignment="Center"/>
                             <ComboBox Margin="5,0,0,0" 
                                       ItemsSource="{Binding ConcreteTypes}"
                                       VerticalContentAlignment="Center"
@@ -56,7 +56,7 @@
                         </DockPanel>
 
                         <DockPanel Margin="5" Grid.Column="1">
-                            <TextBlock Text="Конструкция:" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource ConstructionType}" VerticalAlignment="Center"/>
                             <ComboBox Margin="5,0,0,0" 
                                       ItemsSource="{Binding ConstructionTypes}"
                                       SelectedIndex="{Binding IsRC}"
@@ -67,27 +67,20 @@
                     <CheckBox Grid.Row="1" 
                               Margin="5"
                               IsChecked="{Binding IsH1_5}"
-                              Content="Высота слоя бетонирования больше 1.5 метра">
+                              Content="{DynamicResource HeightOver15m}"/>
                         
-                    </CheckBox>
-
                     <CheckBox Grid.Row="2" 
                               Margin="5"
                               IsChecked="{Binding IsTerm}"
                               IsEnabled="{Binding IsTermEnable}"
-                              Content="Тепловая обработка при атмосферном давлении">
+                              Content="{DynamicResource HeatTreatment}"/>
                         
-                    </CheckBox>
-
                     <ListBox Grid.Row="3"
                              x:Name="concreteListBox" 
                              SelectedItem="{Binding SelectedMaterial}"
-                             ItemsSource="{Binding N}">
+                             ItemsSource="{Binding N}"/>
 
-                    </ListBox>
-                         
-
-                </Grid>
+                    </Grid>
 
             </TabItem>
 
@@ -98,7 +91,7 @@
                                 Margin="2">
 
                         <Image Source="/Images/beton_9z1hl7dg9744__32.png" Stretch="None"/>
-                        <TextBlock Text="Арматура" Margin="5,0,0,0"/>
+                        <TextBlock Text="{DynamicResource Reinforcement}" Margin="5,0,0,0"/>
 
                     </StackPanel>
                 </TabItem.Header>
@@ -110,7 +103,7 @@
                     </Grid.RowDefinitions>
 
                     <DockPanel Margin="5" Grid.Column="0">
-                        <TextBlock Text="Тип арматуры:" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource RfSteelType}" VerticalAlignment="Center"/>
                         <ComboBox Margin="5,0,0,0" 
                                       ItemsSource="{Binding RfSteelTypes}"
                                       VerticalContentAlignment="Center"
@@ -120,10 +113,7 @@
                     <ListBox Grid.Row="2"
                              x:Name="rfsteelListBox" 
                              SelectedItem="{Binding SelectedMaterial}"
-                             ItemsSource="{Binding N}">
-                        
-                    </ListBox>
-
+                             ItemsSource="{Binding N}"/>
 
                 </Grid>
 
@@ -136,7 +126,7 @@
                                 Margin="2">
 
                         <Image Source="/Images/steel_3rbuwfklgl3w__32.png" Stretch="None"/>
-                        <TextBlock Text="Сталь" Margin="5,0,0,0"/>
+                        <TextBlock Text="{DynamicResource SteelLabel}" Margin="5,0,0,0"/>
 
                     </StackPanel>
                 </TabItem.Header>

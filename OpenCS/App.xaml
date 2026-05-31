@@ -7,195 +7,195 @@
              xmlns:sys="clr-namespace:System;assembly=mscorlib"
              StartupUri="MainWindow.xaml">
    <Application.Resources>
-      <!--<local:AppViewModel x:Key="AppViewModel" />-->
+      <ResourceDictionary>
+         <ResourceDictionary.MergedDictionaries>
+             <ResourceDictionary Source="Resources/Strings.en-US.xaml"/>
+             <ResourceDictionary Source="Resources/Strings.ru-RU.xaml"/>
+         </ResourceDictionary.MergedDictionaries>
 
-      <DataTemplate x:Key="RebarDataTemplate"  DataType="{x:Type core:ReBar}">
-         <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-            <Image Source="/Images/rebar--32.png"/>
-            <TextBlock Text="{Binding Nstr}" Margin="3,0,3,0"/>
-            <TextBlock Text="| X:"/>
-            <TextBlock Text="{Binding Xstr}"/>
-            <TextBlock Text="м Y:"/>
-            <TextBlock Text="{Binding Ystr}"/>
-            <TextBlock Text="м D:"/>
-            <TextBlock Text="{Binding Dstr}"/>
-            <TextBlock Text="мм S:"/>
-            <TextBlock Text="{Binding Astr}"/>
-            <TextBlock Text="см"/>
-            <TextBlock Text="2" FontSize="8" VerticalAlignment="Top"/>
-         </StackPanel>
-      </DataTemplate>
-      
-      <DataTemplate DataType="{x:Type core:Fiber}">
-         <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-            <Image Source="/Images/volokno--32.png"/>
-            <TextBlock Text="{Binding Num, StringFormat={}{0:D3}}" Margin="3,0,3,0"/>
-            <TextBlock Text="| X:"/>
-            <TextBlock Text="{Binding X, StringFormat={}{0:F4}}" />
-            <TextBlock Text="м Y:"/>
-            <TextBlock Text="{Binding Y, StringFormat={}{0:F4}}" />
-            <TextBlock Text="м S:"/>
-            <TextBlock Text="{Binding Astr}"/>
-            <TextBlock Text="см"/>
-            <TextBlock Text="2" FontSize="8" VerticalAlignment="Top"/>
-
-         </StackPanel>
-      </DataTemplate>
-      
-      <DataTemplate DataType="{x:Type core:CircleP}">
-         <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-            <!-- Иконка -->
-            <Image Source="/Images/circle__32.png" Stretch="UniformToFill"/>
-            <!-- Свойства -->
-            <TextBlock Text="{Binding Num, StringFormat={}{0:D2}}" Margin="3,0,3,0"/>
-            <TextBlock Text="| X:"/>
-            <TextBlock Text="{Binding X, StringFormat={}{0:F4}}" Margin="3,0,3,0"/>
-            <TextBlock Text="Y:"/>
-            <TextBlock Text="{Binding Y, StringFormat={}{0:F4}}" Margin="3,0,3,0" />
-            <TextBlock Text="d:"/>
-            <TextBlock Text="{Binding Dstr}" Margin="3,0,3,0" />
-            <TextBlock Text="м"/>
-         </StackPanel>
-      </DataTemplate>
-
-      <DataTemplate DataType="{x:Type core:StressPoint}">
-         <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-            <Image Source="/Images/point--32.png"/>
-            <TextBlock Text="{Binding Num, StringFormat={}{0:D3}}" Margin="3,0,3,0"/>
-            <TextBlock Text="| X:"/>
-            <TextBlock Text="{Binding X, StringFormat={}{0:F4}}" Margin="3,0,3,0"/>
-            <TextBlock Text="Y:"/>
-            <TextBlock Text="{Binding Y, StringFormat={}{0:F4}}" Margin="3,0,3,0"/>
-            <TextBlock Text="м"/>
-         </StackPanel>
-      </DataTemplate>
-
-      <DataTemplate  x:Key="ContourBig" DataType="{x:Type vm:ContourVM}">
-         <Border BorderBrush="#BFC1C2" CornerRadius="7" BorderThickness="1">
-            <StackPanel Margin="3">
-               <Image Source="{Binding DI}" Margin="3" Width="70" Height="70"/>
-               <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                  <TextBlock Text="{Binding Contour.Num, StringFormat={}{0:D2}}"/>
-                  <TextBlock Text="  |  "/>
-                  <TextBlock Text="{Binding Contour.Tag}" Foreground="Blue"/>
-                  <TextBlock Text="  '"/>
-                  <TextBlock Text="{Binding Contour.GeometrySet}" Foreground="DarkGreen"/>
-                  <TextBlock Text="'"/>
-               </StackPanel>
+         <DataTemplate x:Key="RebarDataTemplate"  DataType="{x:Type core:ReBar}">
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+               <Image Source="/Images/rebar--32.png"/>
+               <TextBlock Text="{Binding Nstr}" Margin="3,0,3,0"/>
+               <TextBlock Text="| X:"/>
+               <TextBlock Text="{Binding Xstr}"/>
+               <TextBlock Text="{DynamicResource Unit_m}" Margin="0,0,3,0"/>
+               <TextBlock Text="Y:"/>
+               <TextBlock Text="{Binding Ystr}"/>
+               <TextBlock Text="{DynamicResource Unit_m}" Margin="0,0,3,0"/>
+               <TextBlock Text="{DynamicResource D_mm}"/>
+               <TextBlock Text="{Binding Dstr}" Margin="3,0,0,0"/>
+               <TextBlock Text="{DynamicResource Area}" Margin="3,0,0,0"/>
+               <TextBlock Text="{Binding Astr}"/>
+               <TextBlock Text="{DynamicResource Unit_cm2}"/>
+               <TextBlock Text="{DynamicResource Superscript2}" FontSize="8" VerticalAlignment="Top"/>
             </StackPanel>
-         </Border>
-      </DataTemplate>
+         </DataTemplate>
+         
+         <DataTemplate DataType="{x:Type core:Fiber}">
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+               <Image Source="/Images/volokno--32.png"/>
+               <TextBlock Text="{Binding Num, StringFormat={}{0:D3}}" Margin="3,0,3,0"/>
+               <TextBlock Text="| X:"/>
+               <TextBlock Text="{Binding X, StringFormat={}{0:F4}}" />
+               <TextBlock Text="{DynamicResource Unit_m}" Margin="0,0,3,0"/>
+               <TextBlock Text="Y:"/>
+               <TextBlock Text="{Binding Y, StringFormat={}{0:F4}}" />
+               <TextBlock Text="{DynamicResource Unit_m}" Margin="0,0,3,0"/>
+               <TextBlock Text="{DynamicResource Area}"/>
+               <TextBlock Text="{Binding Astr}"/>
+               <TextBlock Text="{DynamicResource Unit_cm2}"/>
+               <TextBlock Text="{DynamicResource Superscript2}" FontSize="8" VerticalAlignment="Top"/>
 
-      <HierarchicalDataTemplate x:Key="ContourSmall" DataType="{x:Type vm:ContourVM}" ItemsSource="{Binding Points}">
-         <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-            <Image Source="/Images/contours__32.png"/>
-            <TextBlock Text="{Binding Num, StringFormat={}{0:D2}}" Margin="5,0,0,0"/>
-            <TextBlock Text="  |  "/>
-            <TextBlock Text="{Binding Tag}" Foreground="Blue"/>
-            <TextBlock Text="  '"/>
-            <TextBlock Text="{Binding Contour.GeometrySet}" Foreground="DarkGreen"/>
-            <TextBlock Text="'"/>
-         </StackPanel>
+            </StackPanel>
+         </DataTemplate>
+         
+         <DataTemplate DataType="{x:Type core:CircleP}">
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+               <Image Source="/Images/circle__32.png" Stretch="UniformToFill"/>
+               <TextBlock Text="{Binding Num, StringFormat={}{0:D2}}" Margin="3,0,3,0"/>
+               <TextBlock Text="| X:"/>
+               <TextBlock Text="{Binding X, StringFormat={}{0:F4}}" Margin="3,0,3,0"/>
+               <TextBlock Text="Y:"/>
+               <TextBlock Text="{Binding Y, StringFormat={}{0:F4}}" Margin="3,0,3,0" />
+               <TextBlock Text="{DynamicResource D_mm}"/>
+               <TextBlock Text="{Binding Dstr}" Margin="3,0,3,0" />
+               <TextBlock Text="{DynamicResource Unit_m}"/>
+            </StackPanel>
+         </DataTemplate>
 
-         <HierarchicalDataTemplate.ItemTemplate>
-            <DataTemplate DataType="{x:Type core:StressPoint}">
-               <ContentControl Content="{Binding}"/>
-            </DataTemplate>
-         </HierarchicalDataTemplate.ItemTemplate>
-      </HierarchicalDataTemplate>
+         <DataTemplate DataType="{x:Type core:StressPoint}">
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+               <Image Source="/Images/point--32.png"/>
+               <TextBlock Text="{Binding Num, StringFormat={}{0:D3}}" Margin="3,0,3,0"/>
+               <TextBlock Text="| X:"/>
+               <TextBlock Text="{Binding X, StringFormat={}{0:F4}}" Margin="3,0,3,0"/>
+               <TextBlock Text="Y:"/>
+               <TextBlock Text="{Binding Y, StringFormat={}{0:F4}}" Margin="3,0,3,0"/>
+               <TextBlock Text="{DynamicResource Unit_m}"/>
+            </StackPanel>
+         </DataTemplate>
 
-      <ContextMenu x:Key="RCRegionContextMenu">
+         <DataTemplate  x:Key="ContourBig" DataType="{x:Type vm:ContourVM}">
+            <Border BorderBrush="#BFC1C2" CornerRadius="7" BorderThickness="1">
+               <StackPanel Margin="3">
+                  <Image Source="{Binding DI}" Margin="3" Width="70" Height="70"/>
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                     <TextBlock Text="{Binding Contour.Num, StringFormat={}{0:D2}}"/>
+                     <TextBlock Text="  |  "/>
+                     <TextBlock Text="{Binding Contour.Tag}" Foreground="Blue"/>
+                     <TextBlock Text="  '"/>
+                     <TextBlock Text="{Binding Contour.GeometrySet}" Foreground="DarkGreen"/>
+                     <TextBlock Text="'"/>
+                  </StackPanel>
+               </StackPanel>
+            </Border>
+         </DataTemplate>
 
-         <MenuItem Header="Изменить" Command="{Binding EditRCFiberRegionCommand}">
-            <MenuItem.Icon>
-               <Image Source="/Images/edit--32.png"/>
-            </MenuItem.Icon>
-         </MenuItem>
+         <HierarchicalDataTemplate x:Key="ContourSmall" DataType="{x:Type vm:ContourVM}" ItemsSource="{Binding Points}">
+            <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+               <Image Source="/Images/contours__32.png"/>
+               <TextBlock Text="{Binding Num, StringFormat={}{0:D2}}" Margin="5,0,0,0"/>
+               <TextBlock Text="  |  "/>
+               <TextBlock Text="{Binding Tag}" Foreground="Blue"/>
+               <TextBlock Text="  '"/>
+               <TextBlock Text="{Binding Contour.GeometrySet}" Foreground="DarkGreen"/>
+               <TextBlock Text="'"/>
+            </StackPanel>
 
-         <MenuItem Header="Удалить" Command="{Binding DeleteRCFiberRegionCommand}">
-            <MenuItem.Icon>
-               <Image Source="/Images/delete__32.png"/>
-            </MenuItem.Icon>
-         </MenuItem>
+            <HierarchicalDataTemplate.ItemTemplate>
+               <DataTemplate DataType="{x:Type core:StressPoint}">
+                  <ContentControl Content="{Binding}"/>
+               </DataTemplate>
+            </HierarchicalDataTemplate.ItemTemplate>
+         </HierarchicalDataTemplate>
 
-      </ContextMenu>
+         <ContextMenu x:Key="RCRegionContextMenu">
+
+            <MenuItem Header="{DynamicResource Change}" Command="{Binding EditRCFiberRegionCommand}">
+               <MenuItem.Icon>
+                  <Image Source="/Images/edit--32.png"/>
+               </MenuItem.Icon>
+            </MenuItem>
+
+            <MenuItem Header="{DynamicResource Delete}" Command="{Binding DeleteRCFiberRegionCommand}">
+               <MenuItem.Icon>
+                  <Image Source="/Images/delete__32.png"/>
+               </MenuItem.Icon>
+            </MenuItem>
+
+         </ContextMenu>
 
 
-      <sys:Double x:Key="AppFontSize">13</sys:Double>
+         <sys:Double x:Key="AppFontSize">13</sys:Double>
 
-      <Style x:Key="IconButton" TargetType="Button">
-         <Setter Property="Height" Value="22"/>
-         <Setter Property="Width" Value="22"/>
-         <Setter Property="BorderThickness" Value="0"/>
-         <Setter Property="Background" Value="Transparent"/>
-      </Style>
+         <Style x:Key="IconButton" TargetType="Button">
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+         </Style>
 
-      <Style x:Key="IconButton25" TargetType="Button">
-         <Setter Property="Height" Value="25"/>
-         <Setter Property="Width" Value="25"/>
-         <Setter Property="BorderThickness" Value="0"/>
-         <Setter Property="Background" Value="Transparent"/>
-      </Style>
+         <Style x:Key="IconButton25" TargetType="Button">
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="Width" Value="25"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+         </Style>
 
-      <Style TargetType="DataGridColumnHeader">
-         <Setter Property="HorizontalContentAlignment" Value="Center" />
-      </Style>
+         <Style TargetType="DataGridColumnHeader">
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+         </Style>
 
-      <Style TargetType="DataGridCell">
-         <Setter Property="TextBlock.TextAlignment" Value="Center" />
-      </Style>
+         <Style TargetType="DataGridCell">
+            <Setter Property="TextBlock.TextAlignment" Value="Center" />
+         </Style>
 
-      <Style TargetType="MenuItem">
-         <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
-      </Style>
+         <Style TargetType="MenuItem">
+            <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
+         </Style>
 
-      <Style TargetType="UserControl">
-         <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
-      </Style>
+         <Style TargetType="UserControl">
+            <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
+         </Style>
 
-      <Style TargetType="Window">
-         <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
-      </Style>
+         <Style TargetType="Window">
+            <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
+         </Style>
 
-      <Style TargetType="TreeView">
-         <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
-      </Style>
+         <Style TargetType="TreeView">
+            <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
+         </Style>
 
-      <Style TargetType="TextBlock">
-         <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
-         <Setter Property="VerticalAlignment" Value="Center"/>
-      </Style>
+         <Style TargetType="TextBlock">
+            <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+         </Style>
 
-      <Style TargetType="TextBox">
-         <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
-         <Setter Property="Height" Value="22"/>
-         <Setter Property="VerticalContentAlignment" Value="Center"/>
-         <Setter Property="HorizontalContentAlignment" Value="Center"/>
-      </Style>
+         <Style TargetType="TextBox">
+            <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+         </Style>
 
-      <Style TargetType="TreeViewItem">
-         <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
-         <Style.Resources>
-            <!-- Отключаем системные ресурсы выделения -->
-            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="FloralWhite"/>
-            <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="LightBlue"/>
-            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="Black"/>
-         </Style.Resources>
-         <Style.Triggers>
-            <!-- Триггер для выделенного элемента -->
-            <Trigger Property="IsSelected" Value="True">
-               <Setter Property="Background" Value="FloralWhite"/>
-               <Setter Property="Foreground" Value="Black"/>
-               <Setter Property="BorderBrush" Value="LightGray"/>
-               <Setter Property="BorderThickness" Value="1"/>
-            </Trigger>
-            <!-- Триггер для элемента в фокусе -->
-            <!--
-                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                           <Setter Property="Background" Value="LightCyan"/>
-                        </Trigger>-->
-         </Style.Triggers>
-      </Style>
+         <Style TargetType="TreeViewItem">
+            <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
+            <Style.Resources>
+               <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="FloralWhite"/>
+               <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="LightBlue"/>
+               <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="Black"/>
+            </Style.Resources>
+            <Style.Triggers>
+               <Trigger Property="IsSelected" Value="True">
+                  <Setter Property="Background" Value="FloralWhite"/>
+                  <Setter Property="Foreground" Value="Black"/>
+                  <Setter Property="BorderBrush" Value="LightGray"/>
+                  <Setter Property="BorderThickness" Value="1"/>
+               </Trigger>
+            </Style.Triggers>
+         </Style>
 
+      </ResourceDictionary>
    </Application.Resources>
 </Application>

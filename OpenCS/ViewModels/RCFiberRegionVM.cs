@@ -1,4 +1,5 @@
 using CScore;
+using CSTriangulation;
 
 
 using OpenCS.Services;
@@ -165,6 +166,9 @@ namespace OpenCS.ViewModels
       /// <summary>Флаг: используется ли метод триангуляции (Delaney).</summary>
       bool isTriagulate = false;
 
+      /// <summary>Метод триангуляции: Рупперт (по умолчанию) или продвижение фронта.</summary>
+      TriangulationMethod triangulationMethod = TriangulationMethod.Ruppert;
+
       /// <summary>Флаг: нужно ли перерисовать график при изменении данных.</summary>
       bool isDraw;
 
@@ -269,6 +273,26 @@ namespace OpenCS.ViewModels
       {
          get { return isTriagulate; }
          set { isTriagulate = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Метод триангуляции. По умолчанию — Рупперт (CDT + рефайнмент).
+      /// Используется в привязке для выбора метода в ComboBox.
+      /// </summary>
+      public TriangulationMethod TriangulationMethod
+      {
+         get { return triangulationMethod; }
+         set { triangulationMethod = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Целочисленный индекс метода триангуляции для привязки в XAML.
+      /// 0 = AdvancingFront, 1 = Ruppert (по умолчанию).
+      /// </summary>
+      public int TriangulationMethodIndex
+      {
+         get { return (int)triangulationMethod; }
+         set { triangulationMethod = (TriangulationMethod)value; OnPropertyChanged(); OnPropertyChanged(nameof(TriangulationMethod)); }
       }
 
       /// <summary>
@@ -986,7 +1010,7 @@ namespace OpenCS.ViewModels
             return;
          }
          IsPerpendicular = false; IsTriagulate = true;
-         Fiber[] res = Geo.Triangulation(region, Atr, Antr);
+          Fiber[] res = Geo.Triangulation(region, Atr, Antr, method: triangulationMethod);
          Fibers = [.. res];
 
          if (IsEdit)

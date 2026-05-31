@@ -1,4 +1,5 @@
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using System;
 using System.Collections.Generic;
@@ -320,7 +321,7 @@ namespace CScore
       /// </summary>
       public void SetJson()
       {
-         Json = JsonConvert.SerializeObject(this, Formatting.Indented);
+         Json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
       }
 
    }

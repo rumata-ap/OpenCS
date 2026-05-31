@@ -18,7 +18,7 @@
    <Grid>
       <TabControl>
 
-         <TabItem Header="Выбор DXF">
+         <TabItem Header="{DynamicResource FromDxfTab}">
 
             <Grid>
                <Grid.ColumnDefinitions>
@@ -34,7 +34,7 @@
                <DockPanel Margin="5" 
                                Grid.Column="0" 
                                Grid.Row="0">
-                  <TextBlock Text="Обозначение набора:" 
+                  <TextBlock Text="{DynamicResource DesignationSet}" 
                                    VerticalAlignment="Center" 
                                    Margin="0,0,10,0"/>
                   <TextBox VerticalContentAlignment="Center"
@@ -45,7 +45,7 @@
                <DockPanel Margin="5" 
                                Grid.Column="1" 
                                Grid.Row="0">
-                  <TextBlock Text="Единицы измерения DXF:" 
+                  <TextBlock Text="{DynamicResource DxfUnits}" 
                                    VerticalAlignment="Center" 
                                    Margin="0,0,10,0"/>
                   <ComboBox ItemsSource="{Binding Units}" 
@@ -73,7 +73,7 @@
 
          </TabItem>
 
-         <TabItem Header="Отбор контуров">
+         <TabItem Header="{DynamicResource ContourSelection}">
 
             <Grid>
                <Grid.RowDefinitions>
@@ -88,7 +88,7 @@
 
                <GroupBox Grid.Column="0" 
                               Grid.Row="0" 
-                              Header="Проект" 
+                              Header="{DynamicResource Project}" 
                               Margin="5">
 
                   <Grid>
@@ -102,17 +102,13 @@
                                      SelectedItem="{Binding SelectedContour}"/>
 
                      <Button Grid.Row="1" Height="25" Margin="2" VerticalContentAlignment="Center"
-                                    Command="{Binding SaveContoursCommand}">
-                        <Button.Content>
-                           ДОБАВИТЬ
-                        </Button.Content>
-                     </Button>
+                                    Command="{Binding SaveContoursCommand}" Content="{DynamicResource AddCaps}"/>
 
                   </Grid>
 
                </GroupBox>
 
-               <GroupBox Grid.Column="2" Grid.Row="0" Header="DXF" Margin="5">
+               <GroupBox Grid.Column="2" Grid.Row="0" Header="{DynamicResource DXF}" Margin="5">
 
                   <ListBox x:Name="ContoursDxfListBox"
                                  ItemsSource="{Binding Contours}" 
@@ -131,7 +127,7 @@
 
          </TabItem>
 
-         <TabItem Header="Отбор окружностей">
+         <TabItem Header="{DynamicResource CircleSelection}">
 
             <Grid>
                <Grid.RowDefinitions>
@@ -146,7 +142,7 @@
 
                <GroupBox Grid.Column="0" 
                               Grid.Row="0" 
-                              Header="Проект" 
+                              Header="{DynamicResource Project}" 
                               Margin="5">
 
                   <Grid>
@@ -160,17 +156,13 @@
                                      SelectedItem="{Binding SelectedCircle}"/>
 
                      <Button Grid.Row="1" Height="25" Margin="2" VerticalContentAlignment="Center"
-                                    Command="{Binding SaveCirclesCommand}">
-                        <Button.Content>
-                           ДОБАВИТЬ
-                        </Button.Content>
-                     </Button>
+                                    Command="{Binding SaveCirclesCommand}" Content="{DynamicResource AddCaps}"/>
 
                   </Grid>
 
                </GroupBox>
 
-               <GroupBox Grid.Column="2" Grid.Row="0" Header="DXF" Margin="5">
+               <GroupBox Grid.Column="2" Grid.Row="0" Header="{DynamicResource DXF}" Margin="5">
 
                   <ListBox x:Name="CirclesDxfListBox" 
                                  ItemsSource="{Binding Circles}" 

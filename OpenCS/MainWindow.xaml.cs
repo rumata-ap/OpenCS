@@ -1,6 +1,7 @@
 using CScore;
 
 using OpenCS.Services;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using OpenCS.Views;
 
@@ -91,18 +92,18 @@ namespace OpenCS
          var target = (item.Parent as ContextMenu)?.PlacementTarget as FrameworkElement;
          var ctx = item.CommandParameter as Diagramm ?? target?.DataContext as Diagramm;
          if (ctx == null) return;
-         var res = MessageBox.Show("Удалить диаграмму?", "Подтверждение",
+         var res = MessageBox.Show(Loc.S("ConfirmDeleteDiagram"), Loc.S("Confirmation"),
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
          if (res != MessageBoxResult.Yes) return;
          vm.db.DeleteDiagram(ctx);
          vm.Diagrams.Remove(ctx);
          vm.DiagramsLive.Remove(ctx);
-         vm.LogService.Info($"Диаграмма '{ctx.Tag}' удалена");
+         vm.LogService.Info(string.Format(Loc.S("DiagramDeleted"), ctx.Tag));
       }
 
       void DeleteAllDiagrams_Click(object sender, RoutedEventArgs e)
       {
-         var res = MessageBox.Show("Удалить все диаграммы?", "Подтверждение",
+         var res = MessageBox.Show(Loc.S("ConfirmDeleteAllDiagrams"), Loc.S("Confirmation"),
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
          if (res != MessageBoxResult.Yes) return;
 
@@ -112,7 +113,7 @@ namespace OpenCS
             vm.Diagrams.Remove(d);
          }
          vm.DiagramsLive.Clear();
-         vm.LogService.Info("Все диаграммы удалены");
+         vm.LogService.Info(Loc.S("AllDiagramsDeleted"));
       }
    }
 }

@@ -27,17 +27,17 @@
 
       <Border Grid.Row="0" Background="#FF2813EB" CornerRadius="4" Padding="8" Margin="0,0,0,10">
          <StackPanel>
-            <TextBlock Text="{Binding Header, FallbackValue='Материал: B25 | Тип расчёта: C'}"
+            <TextBlock Text="{Binding Header, FallbackValue='Material'}"
                        Foreground="White" FontSize="16" FontWeight="SemiBold"
                        HorizontalAlignment="Center"/>
-            <TextBlock Text="{Binding MaterialTag, FallbackValue='B25'}"
+            <TextBlock Text="{Binding MaterialTag, FallbackValue=''}"
                        Visibility="Collapsed"/>
          </StackPanel>
       </Border>
 
       <Border Grid.Row="1" BorderBrush="Gray" BorderThickness="0,0,0,1" Margin="0,0,0,5">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,5">
-             <Button Content="Построить диаграмму"
+             <Button Content="{DynamicResource BuildDiagram}"
                      Click="BuildDiagram_Click"
                      Margin="0,0,5,0" Height="28"
                      Cursor="Hand"
@@ -61,7 +61,7 @@
                    </Style>
                 </Button.Style>
              </Button>
-             <Button Content="Редактировать материал" 
+             <Button Content="{DynamicResource EditMaterial}" 
                      Click="EditParentMaterial_Click"
                      Margin="0,0,5,0" Height="28"
                      Cursor="Hand"
@@ -114,98 +114,98 @@
                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock Grid.Row="0" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Обозначение" Foreground="#FF2813EB"/>
-            <DockPanel Grid.Row="0" Grid.Column="1">
-               <TextBox Margin="2" Text="{Binding Tag}" TextAlignment="Center"/>
-            </DockPanel>
+             <TextBlock Grid.Row="0" Grid.Column="0" Margin="2" TextAlignment="Center"
+                        Text="{DynamicResource Designation}" Foreground="#FF2813EB"/>
+             <DockPanel Grid.Row="0" Grid.Column="1">
+                <TextBox Margin="2" Text="{Binding Tag}" TextAlignment="Center"/>
+             </DockPanel>
 
-            <TextBlock Grid.Row="1" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Класс" Foreground="#FF2813EB"/>
+             <TextBlock Grid.Row="1" Grid.Column="0" Margin="2" TextAlignment="Center"
+                        Text="{DynamicResource Class}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="1" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Class}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="2" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Прочность при сжатии Rc, МПа" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource CompressiveStrength}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="2" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Fc, Converter={StaticResource mpa_}, StringFormat={}{0:F2}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="3" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Прочность при растяжении Rt, МПа" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource TensileStrength}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="3" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Ft, Converter={StaticResource mpa}, StringFormat={}{0:F2}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="4" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Предел текучести Ry, МПа" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource YieldStrength}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="4" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Ry, Converter={StaticResource mpa}, StringFormat={}{0:F2}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="5" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Предел прочности Ru, МПа" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource UltimateStrength}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="5" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Ru, Converter={StaticResource mpa}, StringFormat={}{0:F2}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="6" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Начальный модуль упругости, ГПа" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource ElasticModulus}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="6" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding E, Converter={StaticResource gpa}, StringFormat={}{0:F2}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="7" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Деформация при достижении Rc (eps_c0)" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource Eps_c0}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="7" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Ec0, Converter={StaticResource inv}, StringFormat={}{0:F5}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="8" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Деформация при достижении 0.6*Rc (eps_c1)" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource Eps_c1}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="8" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Ec1, Converter={StaticResource inv}, StringFormat={}{0:F5}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="9" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Предельная деформация сжатия (eps_c2)" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource Eps_c2}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="9" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Ec2, Converter={StaticResource inv}, StringFormat={}{0:F6}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="10" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Приведенная по Rc деформация (eps_c1_red)" Foreground="#FF2813EB" TextWrapping="Wrap"/>
+                       Text="{DynamicResource Eps_c1_red}" Foreground="#FF2813EB" TextWrapping="Wrap"/>
             <DockPanel Grid.Row="10" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Ec1Red, Converter={StaticResource inv}, StringFormat={}{0:F6}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="11" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Приведенная по Rt деформация (eps_t1_red)" Foreground="#FF2813EB" TextWrapping="Wrap"/>
+                       Text="{DynamicResource Eps_t1_red}" Foreground="#FF2813EB" TextWrapping="Wrap"/>
             <DockPanel Grid.Row="11" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Et1Red, StringFormat={}{0:F6}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="12" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Деформация при достижении Rt (eps_t0)" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource Eps_t0}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="12" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Et0, StringFormat={}{0:F6}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="13" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Деформация при достижении 0.6*Rt (eps_t1)" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource Eps_t1}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="13" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Et1, StringFormat={}{0:F6}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="14" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Предельная деформация по Rt (eps_t2)" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource Eps_t2}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="14" Grid.Column="1">
                <TextBox Margin="2" Text="{Binding Et2, StringFormat={}{0:F6}}" TextAlignment="Center"/>
             </DockPanel>
 
             <TextBlock Grid.Row="15" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Тип материала" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource MaterialType}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="15" Grid.Column="1">
                <ComboBox Margin="2" HorizontalContentAlignment="Center"
                          SelectedItem="{Binding Type}" SelectedIndex="0">
@@ -218,7 +218,7 @@
             </DockPanel>
 
             <TextBlock Grid.Row="16" Grid.Column="0" Margin="2" TextAlignment="Center"
-                       Text="Влажность среды" Foreground="#FF2813EB"/>
+                       Text="{DynamicResource Humidity}" Foreground="#FF2813EB"/>
             <DockPanel Grid.Row="16" Grid.Column="1">
                <ComboBox Margin="2" HorizontalContentAlignment="Center"
                          SelectedItem="{Binding Dampness}" SelectedIndex="1">
@@ -231,7 +231,7 @@
       </ScrollViewer>
 
       <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-         <Button Content="Сохранить" Click="Save_Click" Height="32" Width="120"
+         <Button Content="{DynamicResource Save}" Click="Save_Click" Height="32" Width="120"
                  FontWeight="SemiBold"
                  Background="#FF2813EB" Foreground="White"
                  BorderThickness="0"/>

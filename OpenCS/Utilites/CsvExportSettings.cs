@@ -1,13 +1,13 @@
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace OpenCS.Utilites
 {
    public class CsvExportSettings
    {
-      [JsonProperty("delim")]
+      [JsonPropertyName("delim")]
       public string Delimiter { get; set; } = ";";
 
-      [JsonProperty("enc")]
+      [JsonPropertyName("enc")]
       public string Encoding { get; set; } = "windows-1251";
 
       public static CsvExportSettings Default => new();

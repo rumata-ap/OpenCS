@@ -7,16 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\CSmath\CSmath.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="Triangle">
-      <HintPath>..\..\SlicePlugin\SlicePlugin\bin\Debug\Triangle.dll</HintPath>
-    </Reference>
+    <ProjectReference Include="..\CSTriangulation\CSTriangulation.csproj" />
   </ItemGroup>
 
 </Project>
