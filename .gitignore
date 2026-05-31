@@ -480,3 +480,9 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# OpenCS-specific
+docs/
+.superpawers/
+AGENTS.md
+CLAUDE.md
