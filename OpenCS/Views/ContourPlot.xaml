@@ -1,0 +1,142 @@
+﻿<UserControl x:Class="OpenCS.Views.ContourPlot"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:OpenCS.Views"
+             xmlns:vm="clr-namespace:OpenCS.ViewModels"
+             xmlns:core="clr-namespace:CScore;assembly=CScore"
+
+             mc:Ignorable="d" 
+             d:DesignHeight="450" d:DesignWidth="800">
+   
+   <UserControl.DataContext>
+      <vm:ContourVM/>
+   </UserControl.DataContext>
+
+   <UserControl.Resources>
+      <ResourceDictionary Source="/Images/svg.xaml"/>
+   </UserControl.Resources>
+
+   <Grid>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="Auto"/>
+         <ColumnDefinition/>
+      </Grid.ColumnDefinitions>
+
+      <Grid Grid.Column="0" Margin="5">
+         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition/>
+         </Grid.RowDefinitions>
+
+         <GroupBox Header="Обозначение (слой DXF)" Grid.Row="0">
+            <TextBox Text="{Binding Tag}" Height="25" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+         </GroupBox>
+                  
+         <GroupBox Header="Набор (файл DXF)" Grid.Row="1">
+            <TextBox Text="{Binding Set}" Height="25" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+         </GroupBox>
+                  
+         <GroupBox Header="Области" Grid.Row="2">
+            <Grid>
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="auto"/>
+                  <ColumnDefinition/>
+                  <ColumnDefinition Width="Auto"/>
+               </Grid.ColumnDefinitions>
+               
+               <ComboBox Grid.Column="1" ItemsSource="{Binding Regions}" HorizontalContentAlignment="Center" SelectedIndex="0"/>
+               
+            </Grid>
+         </GroupBox>
+
+         <GroupBox Header="Координаты" Grid.Row="3">
+            <Grid>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+               </Grid.RowDefinitions>
+
+               <Grid>
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="auto"/>
+                     <ColumnDefinition Width="auto"/>
+                     <ColumnDefinition Width="auto"/>
+                     <ColumnDefinition Width="auto"/>
+                     <ColumnDefinition />
+                  </Grid.ColumnDefinitions>
+
+                  <Button Grid.Column="0" Height="26" Width="26"  Margin="1" Background="Transparent" BorderThickness="0"
+                          IsEnabled="{Binding IsEdit}" Command="{Binding RenumPointCommand}"
+                          ToolTip="Перенумерация координат контура">
+                     <Image Source="{StaticResource di_list_xaml}"/>
+                  </Button>
+                  
+                  <Button Grid.Column="1" Height="26" Width="26"  Margin="1" Background="Transparent" BorderThickness="0"
+                          IsEnabled="{Binding IsEdit}" Command="{Binding ExportCsvCommand}"
+                          ToolTip="Экспорт координат контура в файл *.csv">
+                     <Image Source="{StaticResource di_from_csv_xaml}"/>
+                  </Button>
+
+                  <Button Grid.Column="2" Height="26" Width="26"  Margin="1" Background="Transparent" BorderThickness="0"
+                          IsEnabled="{Binding IsEdit}" Command="{Binding ImportCsvCommand}"
+                          ToolTip="Импорт координат контура из файла *.csv">
+                     <Image Source="{StaticResource di_to_csv_xaml}"/>
+                  </Button>
+
+                  <ToggleButton Name="EditTB" Grid.Column="4" Width="25" Margin="1" Background="Transparent" BorderThickness="0" 
+                                Command="{Binding SaveChangesCommand}" HorizontalAlignment="Right" IsChecked="{Binding IsEdit}"
+                                ToolTip="Включение/отключение режима редактирования">
+                     <Image Source="{StaticResource di_edit_xaml}"/>
+                  </ToggleButton>
+
+                  <Button Grid.Column="3" Width="25" Margin="1" Background="Transparent" BorderThickness="0" 
+                          Command="{Binding SaveCommand}" IsEnabled="{Binding IsEdit}"
+                          ToolTip="Сохранение контура или внесенных изменений">
+                     <Image Source="{StaticResource di_save_xaml}"/>
+                  </Button>
+
+               </Grid>
+
+               <DataGrid Grid.Row="1" ItemsSource="{Binding Points}" SelectedItem="{Binding Point}" AutoGenerateColumns="False" MaxHeight="400">
+                  <DataGrid.Columns>
+                     <DataGridTextColumn Header="№" Binding="{Binding Path=Num}" Width="40"/>
+                     <DataGridTextColumn Header="X, м" Binding="{Binding Path=X, StringFormat={}{0:F4}}" Width="100"/>
+                     <DataGridTextColumn Header="Y, м" Binding="{Binding Path=Y, StringFormat={}{0:F4}}" Width="100"/>
+                  </DataGrid.Columns>
+                  <!--<DataGrid.ContextMenu>
+                     <ContextMenu IsEnabled="{Binding ElementName=EditTB, Path=IsChecked}">
+                        <MenuItem Header="Перенумеровать" Command="{Binding RenumPointCommand}">
+                           <MenuItem.Icon>
+                              <Image Source="{StaticResource di_list_xaml}"/>
+                           </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Импорт из csv" Command="{Binding ImportCsvCommand}">
+                           <MenuItem.Icon>
+                              <Image Source="{StaticResource di_to_csv_xaml}"/>
+                           </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="Экспорт в csv" Command="{Binding ExportCsvCommand}">
+                           <MenuItem.Icon>
+                              <Image Source="{StaticResource di_from_csv_xaml}"/>
+                           </MenuItem.Icon>
+                        </MenuItem>
+                     </ContextMenu>
+                  </DataGrid.ContextMenu>-->
+               </DataGrid>
+               
+            </Grid>
+         </GroupBox>
+         
+      </Grid>
+
+      <local:PlotCanvas x:Name="ViewPl" Margin="5,10,5,5"  Grid.Column="1"/>
+      
+      <TextBlock Grid.Column="1" Text="{Binding Description}" Margin="5"  IsEnabled="False" 
+                        VerticalAlignment="Top" HorizontalAlignment="Center"/>
+
+   </Grid>
+</UserControl>

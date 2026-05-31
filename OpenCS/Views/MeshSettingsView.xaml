@@ -1,0 +1,51 @@
+<UserControl x:Class="OpenCS.Views.MeshSettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="200" d:DesignWidth="200">
+   <StackPanel>
+      <GroupBox Header="Ортогональное деление" Margin="3">
+         <Grid>
+            <Grid.RowDefinitions>
+               <RowDefinition Height="auto"/>
+               <RowDefinition Height="auto"/>
+            </Grid.RowDefinitions>
+
+            <DockPanel Grid.Row="0" Margin="2"
+                       ToolTip="Число участков деления по высоте области">
+               <TextBlock Text="nY: " />
+               <TextBox Text="{Binding Dy}"/>
+            </DockPanel>
+
+            <DockPanel Grid.Row="1" Margin="2"
+                       ToolTip="Число участков деления по ширине области">
+               <TextBlock Text="nX: " />
+               <TextBox Text="{Binding Dx}"/>
+            </DockPanel>
+         </Grid>
+      </GroupBox>
+
+      <GroupBox Header="Триагруляция" Margin="3">
+         <Grid>
+            <Grid.RowDefinitions>
+               <RowDefinition Height="auto"/>
+               <RowDefinition Height="auto"/>
+            </Grid.RowDefinitions>
+
+            <DockPanel Grid.Row="0" Margin="2"
+                       ToolTip="Максимальная относительная площадь треугольника">
+               <TextBlock Text="area:   " />
+               <TextBox Text="{Binding Atr, StringFormat={}{0:F2}}"/>
+            </DockPanel>
+
+            <DockPanel Grid.Row="1" Margin="2"
+                       ToolTip="Минимальный угол треугольника">
+               <TextBlock Text="angle: " />
+               <TextBox Text="{Binding Antr, StringFormat={}{0:F1}}"/>
+            </DockPanel>
+         </Grid>
+      </GroupBox>
+   </StackPanel>
+</UserControl>

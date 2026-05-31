@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "XpzRlxMCdJQ=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\ponomarev\\Documents\\devel\\OpenCS\\CScore\\CScore.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\ponomarev\\.nuget\\packages\\nettopologysuite\\2.5.0\\nettopologysuite.2.5.0.nupkg.sha512",
+    "C:\\Users\\ponomarev\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
+    "C:\\Users\\ponomarev\\.nuget\\packages\\system.memory\\4.5.4\\system.memory.4.5.4.nupkg.sha512"
+  ],
+  "logs": []
+}

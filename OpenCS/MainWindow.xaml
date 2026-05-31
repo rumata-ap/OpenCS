@@ -1,0 +1,518 @@
+﻿<Window x:Class="OpenCS.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:local="clr-namespace:OpenCS"
+        xmlns:core="clr-namespace:CScore;assembly=CScore"
+        xmlns:col="clr-namespace:System.Collections;assembly=mscorlib"
+        mc:Ignorable="d"
+        Title="{Binding ProjectTitle}" WindowStartupLocation="CenterScreen" Height="850" Width="1500">
+
+
+   <Window.Resources>
+      <ResourceDictionary>
+         <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="/Images/svg.xaml"/>
+         </ResourceDictionary.MergedDictionaries>
+
+         <HierarchicalDataTemplate DataType="{x:Type core:Material}" ItemsSource="{Binding MaterialChars}">
+            <StackPanel Orientation="Horizontal" Margin="1">
+               <Image Source="/Images/material1__32.png" Margin="0,0,5,0" Stretch="None"/>
+               <TextBlock Text="{Binding Num}"/>
+               <TextBlock Text=":"/>
+               <TextBlock Text="{Binding Tag}" Margin="5,0,5,0"/>
+               <TextBlock Text="|"/>
+               <TextBlock Text="{Binding Description}" Margin="5,0,0,0" Foreground="Gray" />
+
+               <StackPanel.ContextMenu>
+                  <ContextMenu>
+                     <MenuItem Header="Добавить" Click="ConcreteAdd_Click">
+                        <MenuItem.Icon>
+                           <Image Source="/Images/add__32.png"/>
+                        </MenuItem.Icon>
+                     </MenuItem>
+                     <MenuItem Header="Удалить" Click="ConcreteDel_Click">
+                        <MenuItem.Icon>
+                           <Image Source="/Images/delete--32.png"/>
+                        </MenuItem.Icon>
+                     </MenuItem>
+                  </ContextMenu>
+               </StackPanel.ContextMenu>
+            </StackPanel>
+
+            <HierarchicalDataTemplate.ItemTemplate>
+               <DataTemplate>
+                  <StackPanel Orientation="Horizontal" Margin="1">
+                     <Image Source="/Images/diagramma--32.png"/>
+                     <TextBlock Text=" ' "/>
+                     <TextBlock Text="{Binding TypeCalc}"/>
+                     <TextBlock Text=" '"/>
+                  </StackPanel>
+               </DataTemplate>
+            </HierarchicalDataTemplate.ItemTemplate>
+          </HierarchicalDataTemplate>
+
+           <HierarchicalDataTemplate DataType="{x:Type core:Diagramm}">
+              <StackPanel Orientation="Horizontal" Margin="1">
+                 <StackPanel.ContextMenu>
+                    <ContextMenu>
+                       <MenuItem Header="Удалить" Click="DeleteDiagram_Click">
+                          <MenuItem.Icon>
+                             <Image Source="/Images/delete--32.png"/>
+                          </MenuItem.Icon>
+                       </MenuItem>
+                    </ContextMenu>
+                 </StackPanel.ContextMenu>
+                 <Image Source="/Images/diagramma--32.png"/>
+                 <TextBlock Text="{Binding Tag}" Margin="5,0,0,0"/>
+                 <TextBlock Text="  [" Foreground="Gray"/>
+                 <TextBlock Text="{Binding CalcType}" Foreground="Gray"/>
+                 <TextBlock Text="]" Foreground="Gray"/>
+              </StackPanel>
+           </HierarchicalDataTemplate>
+       </ResourceDictionary>
+    </Window.Resources>
+
+   <Grid x:Name="masterGrid" ShowGridLines="False">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"></RowDefinition>
+         <RowDefinition Height="Auto"></RowDefinition>
+         <RowDefinition Height="*"></RowDefinition>
+         <RowDefinition Height="Auto"></RowDefinition>
+         <RowDefinition Height="0.2*"></RowDefinition>
+         <RowDefinition Height="Auto"></RowDefinition>
+      </Grid.RowDefinitions>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition  Width="0.4*"></ColumnDefinition>
+         <ColumnDefinition Width="Auto"></ColumnDefinition>
+         <ColumnDefinition Width="*"></ColumnDefinition>
+         <ColumnDefinition Width="Auto"></ColumnDefinition>
+      </Grid.ColumnDefinitions>
+
+      <GridSplitter Grid.Column="1" Grid.Row="2" Grid.RowSpan="3"  ShowsPreview="True" Width="4"
+        HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
+
+      <GridSplitter Grid.Column="2" Grid.Row="3"  ShowsPreview="True" Height="4"
+        HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+
+      <ListView x:Name="LoggerListBox" Grid.Column="2" Grid.Row="4" SelectionMode="Single" FontSize="11"
+                 ItemsSource="{Binding LogService.LogEntries}">
+         <ListView.ItemTemplate>
+            <DataTemplate>
+               <TextBlock Text="{Binding FormattedMessage}">
+                  <TextBlock.Style>
+                     <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="Blue"/>
+                        <Style.Triggers>
+                           <DataTrigger Binding="{Binding Level}" Value="Error">
+                              <Setter Property="Foreground" Value="Red"/>
+                           </DataTrigger>
+                           <DataTrigger Binding="{Binding Level}" Value="Warning">
+                              <Setter Property="Foreground" Value="Gray"/>
+                           </DataTrigger>
+                        </Style.Triggers>
+                     </Style>
+                  </TextBlock.Style>
+               </TextBlock>
+            </DataTemplate>
+         </ListView.ItemTemplate>
+      </ListView>
+
+
+      <Menu Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="4" FontSize="14" >
+         <MenuItem Header="Файл" Margin="3">
+            <MenuItem Header="Новый" Command="{Binding NewProjectCommand}" />
+            <MenuItem Header="Открыть" Command="{Binding OpenProjectCommand}" />
+            <Separator />
+            <MenuItem Header="Сохранить" Command="{Binding SaveProjectCommand}" />
+            <MenuItem Header="Сохранить как..." Command="{Binding SaveAsProjectCommand}" />
+            <Separator />
+            <MenuItem Header="Выход" Command="{Binding ExitCommand}" />
+         </MenuItem>
+         <MenuItem Header="Изменить" ></MenuItem>
+         <MenuItem Header="Вид" ></MenuItem>
+         <MenuItem Header="Настройки" >
+            <MenuItem Header="Графики..." Command="{Binding OpenPlotSettingsCommand}" />
+            <MenuItem Header="Экспорт в CSV..." Command="{Binding OpenCsvSettingsCommand}" />
+         </MenuItem>
+      </Menu>
+
+      <ToolBarTray Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3">
+         <ToolBar Height="40" >
+            <ToggleButton>
+            </ToggleButton>
+            <Separator />
+            <Button Command="{Binding FromDxfCommand}" Width="35">
+               <Image Source="{StaticResource di_dxf_file_xaml}"/>
+            </Button>
+            <Separator />
+            <Button>
+            </Button>
+            <Separator />
+            <Button>
+            </Button>
+            <TextBox Foreground="LightGray" Width="100">Поиск...</TextBox>
+         </ToolBar>
+      </ToolBarTray>
+
+      <ToolBarTray Grid.Row="1" Grid.Column="3" Grid.RowSpan="4" Orientation="Vertical">
+         <ToolBar Width="25" >
+            <ToggleButton>
+            </ToggleButton>
+            <Separator />
+            <Button>
+            </Button>
+            <Separator />
+            <Button>
+            </Button>
+            <Separator />
+            <Button>
+            </Button>
+            <TextBox Foreground="LightGray" Width="100">Поиск...</TextBox>
+         </ToolBar>
+      </ToolBarTray>
+
+      <TabControl x:Name="dataTabs" Grid.Column="0" Grid.Row="2" Grid.RowSpan="3">
+         <TabItem x:Name="structureTab" Header="Структура проекта">
+
+            <TreeView x:Name="structureTree" Margin="10" BorderThickness="0" SelectedItemChanged="structureTree_SelectedItemChanged">
+
+               <TreeViewItem x:Name="geometryNode">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Image Source="/Images/geometry__32.png"/>
+                        <TextBlock Text="Геометрия" Margin="5,0,0,0" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+
+                  <TreeViewItem.ContextMenu>
+                     <ContextMenu>
+                        <MenuItem Header="Из DXF" Command="{Binding FromDxfCommand}">
+                           <MenuItem.Icon>
+                              <Image Source="{StaticResource di_dxf_file_xaml}" />
+                           </MenuItem.Icon>
+                        </MenuItem>
+                     </ContextMenu>
+                  </TreeViewItem.ContextMenu>
+
+                  <TreeViewItem ItemsSource="{Binding CirclesLive}">
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Image Source="/Images/circles__32.png"/>
+                           <TextBlock Text="Окружности" Margin="5,0,0,0"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+
+                  </TreeViewItem>
+
+                  <TreeViewItem x:Name="ContoursTreeItem" ItemsSource="{Binding ContoursLive}" ItemTemplate="{StaticResource ContourSmall}">
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Image Source="/Images/contours__32.png"/>
+                           <TextBlock Text="Контуры" Margin="5,0,0,0"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+
+                     <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                           <MenuItem Header="Из DXF" Command="{Binding FromDxfCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="{StaticResource di_dxf_file_xaml}" />
+                              </MenuItem.Icon>
+                           </MenuItem>
+                           <MenuItem Header="Создать" Command="{Binding NewContourCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="{StaticResource addDrawingImage}" />
+                              </MenuItem.Icon>
+                           </MenuItem>
+                           <MenuItem Header="Удалить" Command="{Binding DelContourCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="{StaticResource deleteDrawingImage}" />
+                              </MenuItem.Icon>
+                           </MenuItem>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+
+                  </TreeViewItem>
+
+               </TreeViewItem>
+
+               <TreeViewItem x:Name="materialNode">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Image Source="/Images/material1__32.png"/>
+                        <TextBlock Text="Материалы" Margin="5,0,0,0" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+
+                  <TreeViewItem.ContextMenu>
+                     <ContextMenu>
+                        <MenuItem Header="Добавить" Command="{Binding NewMaterialCommand}">
+                           <MenuItem.Icon>
+                              <Image Source="/Images/add__32.png" />
+                           </MenuItem.Icon>
+                        </MenuItem>
+                     </ContextMenu>
+                  </TreeViewItem.ContextMenu>
+
+                  <TreeViewItem x:Name="concreteNode" ItemsSource="{Binding Concretes}">
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Image Source="/Images/kamni_wouahfq6r5gi__32.png"/>
+                           <TextBlock Text="Бетон" Margin="5,0,0,0"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+                  </TreeViewItem>
+
+                  <TreeViewItem x:Name="rfsteelNode" ItemsSource="{Binding Armatures}">
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Image Source="/Images/armarura__32.png"/>
+                           <TextBlock Text="Арматура" Margin="5,0,0,0"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+                  </TreeViewItem>
+
+                   <TreeViewItem x:Name="steelNode" ItemsSource="{Binding Steels}">
+                      <TreeViewItem.Header>
+                         <StackPanel Orientation="Horizontal" Margin="2">
+                            <Image Source="/Images/steel_3rbuwfklgl3w__32.png"/>
+                            <TextBlock Text="Конструкционная сталь" Margin="5,0,0,0"/>
+                         </StackPanel>
+                      </TreeViewItem.Header>
+                   </TreeViewItem>
+
+                   <TreeViewItem x:Name="diagramNode" ItemsSource="{Binding DiagramsLive}">
+                      <TreeViewItem.Header>
+                         <StackPanel Orientation="Horizontal" Margin="2">
+                            <Image Source="/Images/diagramma--32.png"/>
+                            <TextBlock Text="Диаграммы" Margin="5,0,0,0" FontWeight="Bold"/>
+                         </StackPanel>
+                      </TreeViewItem.Header>
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="Удалить все" Click="DeleteAllDiagrams_Click">
+                               <MenuItem.Icon>
+                                  <Image Source="/Images/delete--32.png"/>
+                               </MenuItem.Icon>
+                            </MenuItem>
+                         </ContextMenu>
+                      </TreeViewItem.ContextMenu>
+                   </TreeViewItem>
+                </TreeViewItem>
+
+               <TreeViewItem x:Name="RegionsNode">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Image Source="/Images/shape-design--32.png" Stretch="None"/>
+                        <TextBlock Text="Области материалов" Margin="5,0,0,0" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+
+                  <TreeViewItem  ItemsSource="{Binding RcFiberRegionsLive}">
+
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Image Source="/Images/rconcrete--32.png"/>
+                           <TextBlock Text="Армированные" Margin="5,0,0,0"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+
+                     <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                           <MenuItem Header="Новый" Command="{Binding NewRCFiberRegionCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="/Images/add__32.png"/>
+                              </MenuItem.Icon>
+                           </MenuItem>
+                           <MenuItem Header="Удалить" Command="{Binding DeleteRCFiberRegionCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="/Images/delete__32.png"/>
+                              </MenuItem.Icon>
+                           </MenuItem>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+
+                     <TreeViewItem.ItemTemplate>
+                        <HierarchicalDataTemplate>
+                           <TreeView x:Name="RCRegionTreeView" BorderThickness="0">
+
+                              <TreeViewItem Margin="1">
+                                 <TreeViewItem.Header>
+                                    <StackPanel Orientation="Horizontal">
+                                       <Image Source="/Images/rconcrete--32.png"/>
+                                       <TextBlock Text="{Binding Num}" Margin="3,0,0,0"/>
+                                       <TextBlock Text="|" Margin="3,0,0,0"/>
+                                       <TextBlock Text="'" Margin="3,0,0,0"/>
+                                       <TextBlock Text="{Binding Tag}"/>
+                                       <TextBlock Text="'"/>
+                                       <TextBlock Text="[" Margin="3,0,0,0"/>
+                                       <TextBlock Text="{Binding Material.Tag}"/>
+                                       <TextBlock Text="]"/>
+                                    </StackPanel>
+                                 </TreeViewItem.Header>
+
+                                 <TreeViewItem ItemsSource="{Binding Contours}">
+                                    <TreeViewItem.Header>
+                                       <StackPanel Orientation="Horizontal" Margin="1">
+                                          <Image Source="/Images/contours__32.png"/>
+                                          <TextBlock Text="Контуры" Margin="5,0,0,0"/>
+                                          <TextBlock Text="(" Margin="3,0,0,0"/>
+                                          <TextBlock Text="{Binding Contours.Count}"/>
+                                          <TextBlock Text="шт.)"/>
+                                       </StackPanel>
+                                    </TreeViewItem.Header>
+
+                                 </TreeViewItem>
+
+                                 <TreeViewItem ItemsSource="{Binding ReBarGroups}">
+                                    <TreeViewItem.Header>
+                                       <StackPanel Orientation="Horizontal" Margin="1">
+                                          <Image Source="/Images/rebar_group__32(1).png"/>
+                                          <TextBlock Text="Группы арматурных стержней" Margin="5,0,0,0"/>
+                                          <TextBlock Text="(" Margin="3,0,0,0"/>
+                                          <TextBlock Text="{Binding ReBarGroups.Count}"/>
+                                          <TextBlock Text="шт.)"/>
+                                       </StackPanel>
+                                    </TreeViewItem.Header>
+
+                                    <TreeViewItem.ItemTemplate>
+                                       <HierarchicalDataTemplate ItemsSource="{Binding ReBars}">
+                                          <StackPanel Orientation="Horizontal" Margin="1">
+                                             <Image Source="/Images/rebar_group__32.png" Stretch="None"/>
+                                             <TextBlock Text="{Binding Num}" Margin="3,0,0,0"/>
+                                             <TextBlock Text="|" Margin="3,0,0,0"/>
+                                             <TextBlock Text="'" Margin="3,0,0,0"/>
+                                             <TextBlock Text="{Binding Tag}"/>
+                                             <TextBlock Text="'"/>
+                                             <TextBlock Text="[" Margin="3,0,0,0"/>
+                                             <TextBlock Text="{Binding Material.Tag}"/>
+                                             <TextBlock Text="]"/>
+                                             <TextBlock Text="(Стержней: " Margin="3,0,0,0"/>
+                                             <TextBlock Text="{Binding ReBars.Count}"/>
+                                             <TextBlock Text=")"/>
+                                          </StackPanel>
+
+                                          <HierarchicalDataTemplate.ItemTemplate>
+                                             <StaticResource ResourceKey="RebarDataTemplate" />
+                                          </HierarchicalDataTemplate.ItemTemplate>
+
+                                       </HierarchicalDataTemplate>
+
+                                    </TreeViewItem.ItemTemplate>
+
+                                 </TreeViewItem>
+                                 
+                                 <TreeViewItem ItemsSource="{Binding Fibers}">
+                                    <TreeViewItem.Header>
+                                       <StackPanel Orientation="Horizontal" Margin="2">
+                                          <Image Source="/Images/fibers--32.png" Stretch="None"/>
+                                          <TextBlock Text="Фибры" Margin="5,0,0,0"/>
+                                          <TextBlock Text="(" Margin="3,0,0,0"/>
+                                          <TextBlock Text="{Binding Fibers.Count}"/>
+                                          <TextBlock Text="шт.)"/>
+                                       </StackPanel>
+                                    </TreeViewItem.Header>
+
+                                 </TreeViewItem>
+
+                              </TreeViewItem>
+
+                           </TreeView>
+                        </HierarchicalDataTemplate>
+                                                
+                     </TreeViewItem.ItemTemplate>
+                     
+                  </TreeViewItem>
+
+                  <TreeViewItem>
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Image Source="/Images/setka--32.png"/>
+                           <TextBlock Text="Фибровые" Margin="5,0,0,0"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+
+                  </TreeViewItem>
+
+                  <TreeViewItem>
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Image Source="/Images/poligon--32.png"/>
+                           <TextBlock Text="Сплошные" Margin="5,0,0,0"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+
+                  </TreeViewItem>
+
+                  <TreeViewItem ItemsSource="{Binding RebarGroupsLive}">
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Image Source="/Images/rebar_group--32.png" Stretch="None"/>
+                           <TextBlock Text="Группы арматурных стержней" Margin="5,0,0,0"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+
+                  </TreeViewItem>
+
+
+
+               </TreeViewItem>
+
+
+
+               <TreeViewItem x:Name="crosssectNode">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Image Source="/Images/crossect--32.png"/>
+                        <TextBlock Text="Поперечные сечения" Margin="5,0,0,0" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+
+                  <TreeViewItem x:Name="rconcreteNode" Header="Железобетонные"/>
+                  <TreeViewItem x:Name="fibersectNode" Header="Фибровые"/>
+                  <TreeViewItem x:Name="redionsectNode" Header="Контурные"/>
+
+               </TreeViewItem>
+               <TreeViewItem x:Name="feNode" Header="Конечные элементы">
+                  <TreeViewItem x:Name="barNode" Header="Стержни"/>
+                  <TreeViewItem x:Name="plateNode" Header="Пластины"/>
+               </TreeViewItem>
+               <TreeViewItem x:Name="elementNode" Header="Конструктивные элементы">
+                  <TreeViewItem x:Name="barelNode" Header="Стержни"/>
+                  <TreeViewItem x:Name="plateelNode" Header="Пластины"/>
+               </TreeViewItem>
+            </TreeView>
+
+         </TabItem>
+         <TabItem x:Name="dataGridTab" Header="Выборка данных">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+               <Canvas x:Name="dataGridCanvas" Margin="5">
+
+               </Canvas>
+            </ScrollViewer>
+         </TabItem>
+      </TabControl>
+
+
+
+      <!--<ScrollViewer Grid.Column="2" Grid.Row="2" 
+                      HorizontalScrollBarVisibility="Auto" 
+                      VerticalScrollBarVisibility="Auto">
+
+         
+
+      </ScrollViewer>-->
+
+      <ContentControl Grid.Column="2" Grid.Row="2"  x:Name="masterFrame" Content="{Binding CurrentPage}"/>
+
+      <StatusBar Height="25" Grid.Column="0" Grid.Row="5" Grid.ColumnSpan="4" >
+         <StatusBarItem>
+
+         </StatusBarItem>
+      </StatusBar>
+
+   </Grid>
+</Window>

@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup />
+  <ItemGroup>
+    <ApplicationDefinition Update="App.xaml">
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Views\ContourPlot.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\ContoursView.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\DxfPlot.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\FiberRegionPage.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\FiberRegionView.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\FromDxfPage.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\FromDxfWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\MaterialWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\RCFiberRegionPage.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\RCFiberRegionView.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\RebarsPage.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\RegionPlot.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Page Update="Images\csv_filetype.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="MainWindow.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\ContourPlot.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\ContoursView.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\DxfPlot.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\FiberRegionPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\FiberRegionView.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\FromDataSourceWindow.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\FromDxfPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\FromDxfWindow.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\MaterialPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\MaterialWindow.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\RCFiberRegionPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\RCFiberRegionView.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\RebarsPage.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Views\RegionPlot.xaml">
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+</Project>

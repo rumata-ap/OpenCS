@@ -1,0 +1,16 @@
+﻿<Window x:Class="OpenCS.Views.FromDxfWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:OpenCS.Views"
+        mc:Ignorable="d"
+        Height="450" Width="800" WindowStartupLocation="CenterScreen" WindowStyle="ToolWindow" Icon="/Images/interfaceDXF.png">
+    <Grid>
+
+      <ContentControl x:Name="contentC" Margin="3">
+         
+      </ContentControl>
+        
+    </Grid>
+</Window>

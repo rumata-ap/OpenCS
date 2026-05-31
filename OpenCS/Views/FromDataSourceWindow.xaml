@@ -1,0 +1,148 @@
+﻿<Window x:Class="OpenCS.Views.FromDataSourceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:OpenCS.Views"
+        xmlns:vm="clr-namespace:OpenCS.ViewModels"
+        mc:Ignorable="d"
+        Title="Хранилище материалов" 
+        Height="500" Width="500" 
+        WindowStartupLocation="CenterScreen" 
+        SizeToContent="Height" 
+        Icon="/Images/database_icon_174569.png">
+
+    <Window.DataContext>
+        <vm:DataSourceVM/>
+    </Window.DataContext>
+
+    <Grid>
+
+        <TabControl Margin="5,5,5,5">
+
+            <TabItem x:Name="concreteTab" 
+                     IsSelected="{Binding ConcreteTabIsSelected}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" 
+                                Margin="2">
+
+                        <Image Source="/Images/kamni_wouahfq6r5gi__32.png" Stretch="None"/>
+                        <TextBlock Text="Бетон" Margin="5,0,0,0"/>
+
+                    </StackPanel>
+                </TabItem.Header>
+                
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.2*"/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+
+                        <DockPanel Margin="5" Grid.Column="0">
+                            <TextBlock Text="Тип бетона:" VerticalAlignment="Center"/>
+                            <ComboBox Margin="5,0,0,0" 
+                                      ItemsSource="{Binding ConcreteTypes}"
+                                      VerticalContentAlignment="Center"
+                                      SelectedIndex="{Binding ConcreteTypeIndex}"/>
+                        </DockPanel>
+
+                        <DockPanel Margin="5" Grid.Column="1">
+                            <TextBlock Text="Конструкция:" VerticalAlignment="Center"/>
+                            <ComboBox Margin="5,0,0,0" 
+                                      ItemsSource="{Binding ConstructionTypes}"
+                                      SelectedIndex="{Binding IsRC}"
+                                      VerticalContentAlignment="Center"/>
+                        </DockPanel>
+                    </Grid>
+
+                    <CheckBox Grid.Row="1" 
+                              Margin="5"
+                              IsChecked="{Binding IsH1_5}"
+                              Content="Высота слоя бетонирования больше 1.5 метра">
+                        
+                    </CheckBox>
+
+                    <CheckBox Grid.Row="2" 
+                              Margin="5"
+                              IsChecked="{Binding IsTerm}"
+                              IsEnabled="{Binding IsTermEnable}"
+                              Content="Тепловая обработка при атмосферном давлении">
+                        
+                    </CheckBox>
+
+                    <ListBox Grid.Row="3"
+                             x:Name="concreteListBox" 
+                             SelectedItem="{Binding SelectedMaterial}"
+                             ItemsSource="{Binding N}">
+
+                    </ListBox>
+                         
+
+                </Grid>
+
+            </TabItem>
+
+            <TabItem x:Name="rfsteelTab" 
+                     IsSelected="{Binding RfsteelTabIsSelected}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" 
+                                Margin="2">
+
+                        <Image Source="/Images/beton_9z1hl7dg9744__32.png" Stretch="None"/>
+                        <TextBlock Text="Арматура" Margin="5,0,0,0"/>
+
+                    </StackPanel>
+                </TabItem.Header>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Margin="5" Grid.Column="0">
+                        <TextBlock Text="Тип арматуры:" VerticalAlignment="Center"/>
+                        <ComboBox Margin="5,0,0,0" 
+                                      ItemsSource="{Binding RfSteelTypes}"
+                                      VerticalContentAlignment="Center"
+                                      SelectedIndex="0"/>
+                    </DockPanel>
+
+                    <ListBox Grid.Row="2"
+                             x:Name="rfsteelListBox" 
+                             SelectedItem="{Binding SelectedMaterial}"
+                             ItemsSource="{Binding N}">
+                        
+                    </ListBox>
+
+
+                </Grid>
+
+            </TabItem>
+
+            <TabItem x:Name="steelTab" 
+                     IsSelected="{Binding SteelTabIsSelected}">
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal" 
+                                Margin="2">
+
+                        <Image Source="/Images/steel_3rbuwfklgl3w__32.png" Stretch="None"/>
+                        <TextBlock Text="Сталь" Margin="5,0,0,0"/>
+
+                    </StackPanel>
+                </TabItem.Header>
+
+            </TabItem>
+
+        </TabControl>
+    </Grid>
+</Window>

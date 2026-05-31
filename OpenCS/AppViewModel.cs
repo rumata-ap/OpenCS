@@ -1,0 +1,899 @@
+using System.Collections.ObjectModel;
+
+using CScore;
+using OpenCS.Services;
+using OpenCS.ViewModels;
+using OpenCS.Utilites;
+using OpenCS.Views;
+
+using System.Collections.Specialized;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.IO;
+
+namespace OpenCS
+{
+   /// <summary>
+   /// Главная модель представления приложения. Центральный узел MVVM-архитектуры,
+   /// обеспечивающий навигацию, управление коллекциями доменных объектов и доступ
+   /// к сервисам логирования и файловых диалогов. Все дочерние ViewModel
+   /// ссылаются на экземпляр данного класса для доступа к базе данных и общим данным.
+   /// </summary>
+   public class AppViewModel : ViewModelBase
+   {
+      /// <summary>
+      /// Сервис работы с базой данных SQLite, используемый для загрузки, сохранения
+      /// и удаления доменных объектов. Доступен внутри сборки для дочерних ViewModel.
+      /// </summary>
+      internal DatabaseService db = new();
+
+      /// <summary>
+      /// Коллекция материалов типа «Бетон», отфильтрованная из <see cref="Materials"/>.
+      /// Используется для привязки в представлениях, где требуется выбор только бетонных материалов.
+      /// </summary>
+      ObservableCollection<Material> concretes = [];
+
+      /// <summary>
+      /// Коллекция материалов типа «Арматурная сталь» (физический или условный предел текучести),
+      /// отфильтрованная из <see cref="Materials"/>.
+      /// Используется для привязки в представлениях выбора арматуры.
+      /// </summary>
+      ObservableCollection<Material> armatures = [];
+
+      /// <summary>
+      /// Коллекция материалов типа «Сталь для строительных конструкций»,
+      /// отфильтрованная из <see cref="Materials"/>.
+      /// </summary>
+      ObservableCollection<Material> steels = [];
+
+      /// <summary>
+      /// Активная (выделенная) коллекция точек контура, отображаемая в текущем представлении.
+      /// </summary>
+      ObservableCollection<StressPoint> pointsLive;
+
+      /// <summary>
+      /// Активная (выделенная) коллекция окружностей, отображаемая в текущем представлении.
+      /// </summary>
+      ObservableCollection<CircleP> circlesLive;
+
+      /// <summary>
+      /// Активная (выделенная) коллекция волокон, отображаемая в текущем представлении.
+      /// </summary>
+      ObservableCollection<Fiber> fibersLive;
+
+      /// <summary>
+      /// Активная (выделенная) коллекция арматурных стержней, отображаемая в текущем представлении.
+      /// </summary>
+      ObservableCollection<ReBar> rebarsLive;
+
+      /// <summary>
+      /// Активная (выделенная) коллекция слоёв арматуры, отображаемая в текущем представлении.
+      /// </summary>
+      ObservableCollection<ReBarLayer> rebarLayersLive;
+
+      /// <summary>
+      /// Активная (выделенная) коллекция групп арматурных стержней, отображаемая в текущем представлении.
+      /// </summary>
+      ObservableCollection<ReBarGroup> rebarGroupsLive;
+
+      /// <summary>
+      /// Активная (выделенная) коллекция контуров, отображаемая в текущем представлении.
+      /// </summary>
+      ObservableCollection<ContourVM> contoursLive;
+
+      /// <summary>
+      /// Активная (выделенная) коллекция областей материалов, отображаемая в текущем представлении.
+      /// </summary>
+      ObservableCollection<Region> regionsLive;
+
+      /// <summary>
+      /// Активная (выделенная) коллекция волоконных областей, отображаемая в текущем представлении.
+      /// </summary>
+      ObservableCollection<FiberRegion> fiberRegionsLive;
+
+      /// <summary>
+      /// Активная (выделенная) коллекция армированных волоконных областей, отображаемая в текущем представлении.
+      /// </summary>
+      ObservableCollection<RCFiberRegion> rcFiberRegionsLive;
+
+      /// <summary>
+      /// Текущая страница (UserControl), отображаемая в области содержимого главного окна.
+      /// Используется для навигации между представлениями.
+      /// </summary>
+      UserControl currentPage;
+
+      /// <summary>
+      /// Текущий выбранный материал. При изменении открывает страницу редактирования материала.
+      /// </summary>
+      Material? currentMaterial;
+
+      /// <summary>
+      /// Текущая выбранная армированная волоконная область. При изменении открывает соответствующую страницу.
+      /// </summary>
+      RCFiberRegion? currentRCfiberRegion;
+
+      /// <summary>
+      /// Текущий выбранный контур (ViewModel). При изменении открывает страницу контура.
+      /// </summary>
+      ContourVM? currentContour;
+
+      /// <summary>
+      /// Элемент дерева навигации, связанный с текущим представлением.
+      /// Используется внутренне для синхронизации выделения в TreeView.
+      /// </summary>
+      internal TreeViewItem treeItem;
+
+      /// <summary>
+      /// Текущая выбранная диаграмма. При установке значения открывает страницу диаграммы.
+      /// </summary>
+      Diagramm? currentDiagram;
+
+      /// <summary>
+      /// Путь к текущему файлу проекта. null если проект ещё не был сохранён.
+      /// </summary>
+      public string? CurrentProjectPath { get; private set; }
+
+      /// <summary>
+      /// Заголовок окна приложения. Содержит имя текущего файла проекта.
+      /// </summary>
+      public string ProjectTitle
+      {
+         get
+         {
+            var name = string.IsNullOrEmpty(CurrentProjectPath) ? "Без имени" : Path.GetFileName(CurrentProjectPath);
+            return $"OpenCS — {name}";
+         }
+      }
+
+      /// <summary>
+      /// Сервис логирования. Предоставляет методы <c>Info</c>, <c>Warning</c>, <c>Error</c>
+      /// для вывода сообщений в журнал приложения. Инжектируется через конструктор.
+      /// </summary>
+      public ILogService LogService { get; }
+
+      /// <summary>
+      /// Сервис файловых диалогов. Предоставляет методы <c>OpenFile</c> и <c>SaveFile</c>
+      /// для выбора файлов пользователем. Инжектируется через конструктор.
+      /// </summary>
+      public IFileDialogService FileDialogService { get; }
+
+      /// <summary>
+      /// Коллекция характеристик материалов (MaterialChars), загруженных из базы данных.
+      /// Используется в привязках для отображения справочных данных по материалам.
+      /// </summary>
+      public ObservableCollection<MaterialChars> MaterialChars { get; set; }
+
+      /// <summary>
+      /// Полная коллекция всех материалов проекта, загруженных из базы данных.
+      /// Включает бетон, арматурную сталь и сталь конструкций.
+      /// Используется для привязки в представлениях списков материалов.
+      /// </summary>
+      public ObservableCollection<Material> Materials { get; set; }
+
+      /// <summary>
+      /// Коллекция всех точек контура проекта, загруженных из базы данных.
+      /// </summary>
+      public ObservableCollection<StressPoint> Points { get; set; }
+
+      /// <summary>
+      /// Коллекция всех окружностей проекта, загруженных из базы данных.
+      /// Используется для привязки в представлениях окружностей (в том числе из DXF).
+      /// </summary>
+      public ObservableCollection<CircleP> Circles { get; set; }
+
+      /// <summary>
+      /// Коллекция всех волокон проекта, загруженных из базы данных.
+      /// </summary>
+      public ObservableCollection<Fiber> Fibers { get; set; }
+
+      /// <summary>
+      /// Коллекция всех арматурных стержней проекта, загруженных из базы данных.
+      /// </summary>
+      public ObservableCollection<ReBar> Rebars { get; set; }
+
+      /// <summary>
+      /// Коллекция всех слоёв арматуры проекта, загруженных из базы данных.
+      /// </summary>
+      public ObservableCollection<ReBarLayer> RebarLayers { get; set; }
+
+      /// <summary>
+      /// Коллекция всех групп арматурных стержней проекта, загруженных из базы данных.
+      /// </summary>
+      public ObservableCollection<ReBarGroup> RebarGroups { get; set; }
+
+      /// <summary>
+      /// Коллекция всех контуров проекта, загруженных из базы данных.
+      /// Используется для привязки в TreeView и представлениях выбора контура.
+      /// </summary>
+      public ObservableCollection<Contour> Contours { get; set; }
+
+      /// <summary>
+      /// Коллекция всех областей материалов проекта, загруженных из базы данных.
+      /// </summary>
+      public ObservableCollection<Region> Regions { get; set; }
+
+      /// <summary>
+      /// Коллекция всех волоконных областей проекта, загруженных из базы данных.
+      /// </summary>
+      public ObservableCollection<FiberRegion> FiberRegions { get; set; }
+
+      /// <summary>
+      /// Коллекция всех армированных волоконных областей проекта, загруженных из базы данных.
+      /// Используется для привязки в TreeView навигации.
+      /// </summary>
+      public ObservableCollection<RCFiberRegion> RcFiberRegions { get; set; }
+
+      /// <summary>
+      /// Коллекция всех диаграмм работы материалов проекта.
+      /// </summary>
+      public ObservableCollection<Diagramm> Diagrams { get; set; }
+
+      /// <summary>
+      /// Отфильтрованная коллекция диаграмм для отображения в TreeView.
+      /// </summary>
+      public ObservableCollection<Diagramm> DiagramsLive { get; set; } = [];
+
+      /// <summary>
+      /// Текущая страница содержимого, отображаемая в главном окне.
+      /// При изменении значения вызывается <c>OnPropertyChanged()</c> для обновления привязки.
+      /// Используется для навигации между представлениями (контур, материал, область и т.д.).
+      /// </summary>
+      public UserControl CurrentPage
+      {
+         get => currentPage;
+         set { currentPage = value; OnPropertyChanged(); }
+      }
+      /// <summary>
+      /// Текущий выбранный материал. При установке значения автоматически открывает
+      /// страницу редактирования материала через <see cref="OnSelectMaterial"/>.
+      /// </summary>
+      public Material? CurrentMaterial
+      {
+         get => currentMaterial;
+         set { currentMaterial = value; OnSelectMaterial(); OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Текущий выбранный контур (ViewModel). При установке значения автоматически
+      /// открывает страницу отображения контура (<see cref="ContourPlot"/>).
+      /// </summary>
+      public ContourVM? CurrentContour
+      {
+         get => currentContour;
+         set { currentContour = value; CurrentPage = new ContourPlot(this); OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Текущая выбранная диаграмма. При установке значения открывает страницу диаграммы.
+      /// </summary>
+      public Diagramm? CurrentDiagram
+      {
+         get => currentDiagram;
+         set
+         {
+            currentDiagram = value;
+            if (value != null)
+               CurrentPage = new DiagramPage(value, this);
+            OnPropertyChanged();
+         }
+      }
+
+      /// <summary>
+      /// Текущая выбранная армированная волоконная область. При установке значения
+      /// автоматически открывает страницу <see cref="RCFiberRegionView"/>.
+      /// </summary>
+      public RCFiberRegion? CurrentRCfiberRegion
+      {
+         get => currentRCfiberRegion;
+         set { currentRCfiberRegion = value; CurrentPage = new RCFiberRegionView(value, this); OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Команда привязки для создания нового контура. Открывает пустую страницу контура.
+      /// </summary>
+      public ICommand NewContourCommand { get; set; }
+
+      /// <summary>
+      /// Команда привязки для создания нового материала. Открывает пустую страницу материала.
+      /// </summary>
+      public ICommand NewMaterialCommand { get; set; }
+
+      /// <summary>
+      /// Команда привязки для создания новой армированной волоконной области.
+      /// Открывает пустую страницу <see cref="RCFiberRegionPage"/>.
+      /// </summary>
+      public ICommand NewRCFiberRegionCommand { get; set; }
+
+      /// <summary>
+      /// Команда привязки для редактирования выбранной армированной волоконной области.
+      /// Открывает страницу редактирования с загруженными данными.
+      /// </summary>
+      public ICommand EditRCFiberRegionCommand { get; set; }
+
+      /// <summary>
+      /// Команда привязки для удаления выбранной армированной волоконной области
+      /// с подтверждением через диалоговое окно.
+      /// </summary>
+      public ICommand DeleteRCFiberRegionCommand { get; set; }
+
+      /// <summary>
+      /// Команда привязки для удаления выбранного материала
+      /// с подтверждением через диалоговое окно.
+      /// </summary>
+      public ICommand DelMaterialCommand { get; set; }
+
+      /// <summary>
+      /// Команда привязки для удаления выбранного контура и всех связанных с ним областей
+      /// с подтверждением через диалоговое окно.
+      /// </summary>
+      public ICommand DelContourCommand { get; set; }
+
+      /// <summary>
+      /// Команда привязки для импорта геометрии из DXF-файла.
+      /// Открывает страницу <see cref="FromDxfPage"/>.
+      /// </summary>
+      public ICommand FromDxfCommand { get; set; }
+
+      /// <summary>
+      /// Команда привязки для добавления арматурных стержней.
+      /// Открывает страницу <see cref="RebarsPage"/>.
+      /// </summary>
+      public ICommand AddRebarsCommand { get; set; }
+
+      /// <summary>
+      /// Команда создания нового проекта. Сбрасывает все данные и создаёт пустую базу данных.
+      /// </summary>
+      public ICommand NewProjectCommand { get; set; }
+
+      /// <summary>
+      /// Команда открытия существующего проекта из файла базы данных SQLite.
+      /// </summary>
+      public ICommand OpenProjectCommand { get; set; }
+
+      /// <summary>
+      /// Команда сохранения проекта в текущий файл. Если файл не задан — выполняет SaveAs.
+      /// </summary>
+      public ICommand SaveProjectCommand { get; set; }
+
+      /// <summary>
+      /// Команда сохранения проекта в новый файл (Save As).
+      /// </summary>
+      public ICommand SaveAsProjectCommand { get; set; }
+
+      /// <summary>
+      /// Команда выхода из приложения.
+      /// </summary>
+      public ICommand ExitCommand { get; set; }
+
+      /// <summary>
+      /// Команда открытия окна настройки отображения графиков.
+      /// </summary>
+      public ICommand OpenPlotSettingsCommand { get; set; }
+
+      /// <summary>
+      /// Глобальные настройки отображения графиков (цвета, сетка, подписи).
+      /// </summary>
+      public Utilites.PlotSettings PlotSettings { get; set; } = Utilites.PlotSettings.Default;
+
+      /// <summary>
+      /// Настройки экспорта CSV (разделитель, кодировка).
+      /// </summary>
+      public Utilites.CsvExportSettings CsvSettings { get; set; } = Utilites.CsvExportSettings.Default;
+
+      /// <summary>
+      /// Команда открытия окна настройки экспорта CSV.
+      /// </summary>
+      public ICommand OpenCsvSettingsCommand { get; set; }
+
+      /// <summary>
+      /// Инициализирует экземпляр <see cref="AppViewModel"/>, загружает все коллекции
+      /// из базы данных, настраивает обработчики изменения коллекций
+      /// и создаёт команды привязки для навигации.
+      /// </summary>
+      /// <param name="logService">Сервис логирования, инжектируемый в ViewModel.</param>
+      /// <param name="fileDialogService">Сервис файловых диалогов, инжектируемый в ViewModel.</param>
+      public AppViewModel(ILogService logService, IFileDialogService fileDialogService)
+      {
+         LogService = logService;
+         FileDialogService = fileDialogService;
+
+         db.LoadAll();
+         PlotSettings = db.LoadPlotSettings() ?? Utilites.PlotSettings.Default;
+         CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
+         InitializeCollections();
+         InitializeCommands();
+      }
+
+      void InitializeCollections()
+      {
+         MaterialChars = db.MaterialChars;
+         Materials = db.Materials;
+         Points = db.Points;
+         Circles = db.Circles;
+         Fibers = db.Fibers;
+         Rebars = db.Rebars;
+         RebarLayers = db.RebarLayers;
+         RebarGroups = db.RebarGroups;
+         Contours = db.Contours;
+         Regions = db.Regions;
+         FiberRegions = db.FiberRegions;
+         RcFiberRegions = db.RcFiberRegions;
+         Diagrams = db.Diagrams;
+
+         Materials.CollectionChanged += Concretes_CollectionChanged;
+         Contours.CollectionChanged += Contours_CollectionChanged;
+         MaterialsSort();
+
+         this.ContoursRenumber();
+         CirclesLive = new(Circles); this.CirclesRenumber();
+         RegionsLive = new(Regions); this.RegionsRenumber();
+         FiberRegionsLive = new(FiberRegions); this.FiberRegionsRenumber();
+         RcFiberRegionsLive = new(RcFiberRegions); this.RCFiberRegionsRenumber();
+         DiagramsLive = [.. Diagrams];
+      }
+
+      void InitializeCommands()
+      {
+         NewContourCommand = new RelayCommand(NewContour);
+         NewMaterialCommand = new RelayCommand(NewMaterial);
+         DelMaterialCommand = new RelayCommand(DelMaterial);
+         NewRCFiberRegionCommand = new RelayCommand(NewRCFiberRegion);
+         EditRCFiberRegionCommand = new RelayCommand(EditRCFiberRegion);
+         FromDxfCommand = new RelayCommand(FromDxf);
+         AddRebarsCommand = new RelayCommand(AddRebars);
+         DeleteRCFiberRegionCommand = new RelayCommand(DeleteRCFiberRegion);
+         DelContourCommand = new RelayCommand(DelContour);
+         NewProjectCommand = new RelayCommand(NewProject);
+         OpenProjectCommand = new RelayCommand(OpenProject);
+         SaveProjectCommand = new RelayCommand(SaveProject);
+         SaveAsProjectCommand = new RelayCommand(SaveAsProject);
+         ExitCommand = new RelayCommand(Exit);
+         OpenPlotSettingsCommand = new RelayCommand(_ => new Views.SettingsWindow(this).ShowDialog());
+         OpenCsvSettingsCommand = new RelayCommand(_ => new Views.CsvSettingsWindow(this).ShowDialog());
+      }
+
+      /// <summary>
+      /// Применяет текущие настройки графиков ко всем активным IPlotService.
+      /// Вызывается при изменении настроек в SettingsWindow.
+      /// </summary>
+      public void ApplyPlotSettings()
+      {
+         if (CurrentPage is Views.RCFiberRegionPage rp && rp.DataContext is ViewModels.RCFiberRegionVM rvm)
+            rvm.PlotService?.ApplySettings(PlotSettings);
+         if (CurrentPage is Views.RCFiberRegionView rv && rv.DataContext is ViewModels.RCFiberRegionVM rrvm)
+            rrvm.PlotService?.ApplySettings(PlotSettings);
+         if (CurrentPage is Views.ContourPlot cp && cp.DataContext is ViewModels.ContourVM cvm)
+            cvm.PlotService?.ApplySettings(PlotSettings);
+         if (CurrentPage is Views.DiagramPage dp)
+         {
+            // DiagramPage uses internal plotService field — expose via interface or skip
+         }
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="AddRebarsCommand"/>. Открывает страницу
+      /// управления арматурными стержнями.
+      /// </summary>
+      void AddRebars(object? o = null)
+      {
+         CurrentPage = new RebarsPage(this);
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="NewMaterialCommand"/>. Создаёт новый
+      /// пустой материал и открывает страницу его редактирования.
+      /// </summary>
+      void NewMaterial(object? o = null)
+      {
+         CurrentPage = new MaterialPage(new Material(0), this);
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="NewContourCommand"/>. Создаёт новую пустую
+      /// ViewModel контура и открывает страницу редактирования контура.
+      /// </summary>
+      void NewContour(object? o = null)
+      {
+         CurrentContour = new ContourVM();
+         CurrentPage = new ContourPlot(this, false);
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="DelMaterialCommand"/>. Запрашивает подтверждение
+      /// удаления и удаляет выбранный материал из базы данных.
+      /// </summary>
+      private void DelMaterial(object? o = null)
+      {
+         CurrentPage = null;
+         if (CurrentMaterial == null) return;
+         System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
+         System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
+         var res = System.Windows.MessageBox.Show("Удалить безвозвратно выбранный материал?", "WARNING", mbb, ic);
+         if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
+
+         string t = currentMaterial.Tag;
+         db.DeleteMaterial(CurrentMaterial);
+
+         LogService.Info($"Материал '{t}' удален");
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="DelContourCommand"/>. Запрашивает подтверждение
+      /// и удаляет выбранный контур вместе со всеми связанными областями материалов
+      /// из базы данных.
+      /// </summary>
+      private void DelContour(object? o = null)
+      {
+         CurrentPage = null;
+         if (CurrentContour == null) return;
+         System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
+         System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
+         var res = System.Windows.MessageBox.Show("Удалить безвозвратно выбранный контур и все " +
+            "связанные с ним области материалов?", "WARNING", mbb, ic);
+         if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
+
+         string t = currentContour.Tag;
+         if(currentContour.Regions.Count > 0)
+         {
+            foreach (var region in currentContour.Regions)
+            {
+               db.DeleteRCFiberRegion(region as RCFiberRegion);
+            }
+         }
+         db.DeleteContour(currentContour.Contour);
+
+         this.RCFiberRegionsRenumber();
+         this.FiberRegionsRenumber();
+         this.RegionsRenumber();
+
+         LogService.Info($"Контур '{t}' удален");
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="NewRCFiberRegionCommand"/>. Открывает пустую
+      /// страницу создания армированной волоконной области.
+      /// </summary>
+      private void NewRCFiberRegion(object? o = null)
+      {
+         CurrentPage = new RCFiberRegionPage(this);
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="EditRCFiberRegionCommand"/>. Открывает
+      /// страницу редактирования выбранной армированной волоконной области.
+      /// </summary>
+      void EditRCFiberRegion(object? o = null)
+      {
+         if (currentRCfiberRegion == null) return;
+         CurrentPage = null;
+         CurrentPage = new RCFiberRegionPage(currentRCfiberRegion, this);
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="DeleteRCFiberRegionCommand"/>. Запрашивает подтверждение
+      /// и удаляет выбранную армированную волоконную область из базы данных,
+      /// очищая все связи с контурами.
+      /// </summary>
+      void DeleteRCFiberRegion(object? o = null)
+      {
+         if (currentRCfiberRegion == null) return;
+         System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
+         System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
+         var res = System.Windows.MessageBox.Show("Удалить безвозвратно выбранную армированную область?", "WARNING", mbb, ic);
+         if (res == System.Windows.MessageBoxResult.Yes)
+         {
+            CurrentPage = null;
+            string t = currentRCfiberRegion.Tag;
+            foreach (var cnt in Contours)
+            {
+               if (cnt.Regions.Contains(currentRCfiberRegion))
+                  cnt.Regions.Remove(currentRCfiberRegion);
+               if (cnt.Regions.Count == 0)
+                  cnt.Type = ContourType.None;
+            }
+            db.DeleteRCFiberRegion(CurrentRCfiberRegion);
+
+            LogService.Info($"Область '{t}' удалена");
+            this.RCFiberRegionsRenumber();
+         }
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="FromDxfCommand"/>. Открывает страницу
+      /// импорта геометрии из DXF-файла.
+      /// </summary>
+      private void FromDxf(object? o = null)
+      {
+         CurrentPage = new FromDxfPage(this);
+      }
+
+      void RefreshAfterLoad()
+      {
+         CurrentPage = null;
+         CurrentMaterial = null;
+         CurrentContour = null;
+         CurrentRCfiberRegion = null;
+         MaterialsSort();
+         this.ContoursRenumber();
+         CirclesLive = new(Circles); this.CirclesRenumber();
+         RegionsLive = new(Regions); this.RegionsRenumber();
+         FiberRegionsLive = new(FiberRegions); this.FiberRegionsRenumber();
+         RcFiberRegionsLive = new(RcFiberRegions); this.RCFiberRegionsRenumber();
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="NewProjectCommand"/>.
+      /// Создаёт новый пустой проект во временном файле.
+      /// </summary>
+      private void NewProject(object? o = null)
+      {
+         var tempPath = Path.Combine(Path.GetTempPath(), "opencs_new.db");
+         try
+         {
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+            db.ChangeDatabase(tempPath);
+            db.ClearCollections();
+            RefreshAfterLoad();
+            CurrentProjectPath = null;
+            OnPropertyChanged(nameof(ProjectTitle));
+            LogService.Info("Новый проект создан");
+         }
+         catch (Exception ex)
+         {
+            LogService.Error($"Ошибка при создании нового проекта: {ex.Message}");
+         }
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="OpenProjectCommand"/>.
+      /// Открывает существующий проект из файла .db.
+      /// </summary>
+      private void OpenProject(object? o = null)
+      {
+         var path = FileDialogService.OpenFile(
+            "SQLite база данных (*.db)|*.db|Все файлы (*.*)|*.*",
+            "Открыть проект");
+         if (path == null) return;
+         try
+         {
+            db.SaveAll();
+            db.ChangeDatabase(path);
+            db.ClearCollections();
+            db.LoadAll();
+            RefreshAfterLoad();
+            CurrentProjectPath = path;
+            OnPropertyChanged(nameof(ProjectTitle));
+            LogService.Info($"Проект открыт: {path}");
+         }
+         catch (Exception ex)
+         {
+            LogService.Error($"Ошибка при открытии проекта: {ex.Message}");
+         }
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="SaveProjectCommand"/>.
+      /// Сохраняет проект в текущий файл. Если файл не задан — вызывает SaveAs.
+      /// </summary>
+      private void SaveProject(object? o = null)
+      {
+         if (CurrentProjectPath == null)
+         {
+            SaveAsProject(o);
+            return;
+         }
+         try
+         {
+            db.SaveAll();
+            LogService.Info("Проект сохранен");
+         }
+         catch (Exception ex)
+         {
+            LogService.Error($"Ошибка при сохранении проекта: {ex.Message}");
+         }
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="SaveAsProjectCommand"/>.
+      /// Сохраняет копию текущей базы данных в новый файл.
+      /// </summary>
+      private void SaveAsProject(object? o = null)
+      {
+         var path = FileDialogService.SaveFile(
+            "SQLite база данных (*.db)|*.db|Все файлы (*.*)|*.*",
+            ".db",
+            "Сохранить проект как");
+         if (path == null) return;
+         try
+         {
+            db.SaveAs(path);
+            CurrentProjectPath = path;
+            OnPropertyChanged(nameof(ProjectTitle));
+            LogService.Info($"Проект сохранен: {path}");
+         }
+         catch (Exception ex)
+         {
+            LogService.Error($"Ошибка при сохранении проекта: {ex.Message}");
+         }
+      }
+
+      /// <summary>
+      /// Обработчик команды <see cref="ExitCommand"/>.
+      /// Завершает работу приложения.
+      /// </summary>
+      private void Exit(object? o = null)
+      {
+         Application.Current.Shutdown();
+      }
+
+      /// <summary>
+      /// Обработчик изменения коллекции <see cref="Materials"/>. Вызывает
+      /// <see cref="MaterialsSort"/> для повторной фильтрации по типам материалов.
+      /// </summary>
+      private void Concretes_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+      {
+         MaterialsSort();
+      }
+
+      /// <summary>
+      /// Обработчик изменения коллекции <see cref="Contours"/>. Вызывает
+      /// метод <c>ContoursRenumber</c> для перенумерации контуров.
+      /// </summary>
+      private void Contours_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+      {
+         this.ContoursRenumber();
+      }
+
+      /// <summary>
+      /// Сортирует и фильтрует <see cref="Materials"/> по типу: заполняет коллекции
+      /// <see cref="Concretes"/>, <see cref="Armatures"/> и <see cref="Steels"/>,
+      /// затем перенумеровывает материалы.
+      /// </summary>
+      internal void MaterialsSort()
+      {
+         var c = from m in Materials where m.Type == MatType.Concrete select m;
+         Concretes.Clear(); Concretes.AddRange(c);
+         var a = from m in Materials
+                 where m.Type == MatType.ReSteelF || m.Type == MatType.ReSteelU
+                 select m;
+         Armatures.Clear(); Armatures.AddRange(a);
+         var s = from m in Materials where m.Type == MatType.Steel select m;
+         Steels.Clear(); Steels.AddRange(s);
+         this.MaterialsRenumber();
+      }
+
+      /// <summary>
+      /// Вызывается при выборе материала в навигации. Открывает страницу
+      /// редактирования выбранного материала и устанавливает флаг <c>IsSaved</c> в true.
+      /// </summary>
+      public void OnSelectMaterial()
+      {
+         if (CurrentMaterial == null) return;
+         CurrentPage = new MaterialPage(CurrentMaterial, this);
+         MaterialVM vm = (MaterialVM)CurrentPage.DataContext;
+         vm.IsSaved = true;
+      }
+
+      /// <summary>
+      /// Активная коллекция точек, привязанная к текущему представлению.
+      /// Обновляется при навигации между контурами.
+      /// </summary>
+      public ObservableCollection<StressPoint> PointsLive
+      {
+         get { return pointsLive; }
+         set { pointsLive = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Активная коллекция окружностей, привязанная к текущему представлению.
+      /// Обновляется при навигации между контурами и DXF-импортом.
+      /// </summary>
+      public ObservableCollection<CircleP> CirclesLive
+      {
+         get { return circlesLive; }
+         set { circlesLive = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Активная коллекция волокон, привязанная к текущему представлению.
+      /// </summary>
+      public ObservableCollection<Fiber> FibersLive
+      {
+         get { return fibersLive; }
+         set { fibersLive = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Активная коллекция арматурных стержней, привязанная к текущему представлению.
+      /// </summary>
+      public ObservableCollection<ReBar> ReBarsLive
+      {
+         get { return rebarsLive; }
+         set { rebarsLive = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Активная коллекция слоёв арматуры, привязанная к текущему представлению.
+      /// </summary>
+      public ObservableCollection<ReBarLayer> RebarLayersLive
+      {
+         get { return rebarLayersLive; }
+         set { rebarLayersLive = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Активная коллекция групп арматурных стержней, привязанная к текущему представлению.
+      /// </summary>
+      public ObservableCollection<ReBarGroup> RebarGroupsLive
+      {
+         get { return rebarGroupsLive; }
+         set { rebarGroupsLive = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Активная коллекция ViewModel контуров, привязанная к текущему представлению.
+      /// </summary>
+      public ObservableCollection<ContourVM> ContoursLive
+      {
+         get { return contoursLive; }
+         set { contoursLive = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Активная коллекция областей материалов, привязанная к текущему представлению.
+      /// </summary>
+      public ObservableCollection<Region> RegionsLive
+      {
+         get { return regionsLive; }
+         set { regionsLive = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Активная коллекция волоконных областей, привязанная к текущему представлению.
+      /// </summary>
+      public ObservableCollection<FiberRegion> FiberRegionsLive
+      {
+         get { return fiberRegionsLive; }
+         set { fiberRegionsLive = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Активная коллекция армированных волоконных областей, привязанная к текущему представлению.
+      /// </summary>
+      public ObservableCollection<RCFiberRegion> RcFiberRegionsLive
+      {
+         get { return rcFiberRegionsLive; }
+         set { rcFiberRegionsLive = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Отфильтрованная коллекция бетонных материалов из <see cref="Materials"/>.
+      /// Используется для привязки в ComboBox выбора бетона.
+      /// </summary>
+      public ObservableCollection<Material> Concretes
+      {
+         get { return concretes; }
+         set { concretes = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Отфильтрованная коллекция арматурных сталей (физический и условный предел текучести)
+      /// из <see cref="Materials"/>. Используется для привязки в ComboBox выбора арматуры.
+      /// </summary>
+      public ObservableCollection<Material> Armatures
+      {
+         get { return armatures; }
+         set { armatures = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Отфильтрованная коллекция сталей для строительных конструкций из <see cref="Materials"/>.
+      /// </summary>
+      public ObservableCollection<Material> Steels
+      {
+         get { return steels; }
+         set { steels = value; OnPropertyChanged(); }
+      }
+   }
+}

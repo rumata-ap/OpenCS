@@ -1,0 +1,182 @@
+using OpenCS.Utilites;
+
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Shapes;
+
+namespace OpenCS.Views
+{
+   public partial class SettingsWindow : Window
+   {
+      readonly AppViewModel _mvm;
+      readonly PlotSettings _settings;
+
+      static readonly string[] _palette =
+      [
+         "#FFFFFF","#F0F0F0","#D3D3D3","#A0A0A0","#606060","#333333","#000000",
+         "#FF0000","#FF8000","#FFC300","#80FF00","#00C800","#00A0FF","#003A6C",
+         "#9000FF","#FF00C0","#F0EACD","#FFFACD","#E0FFE0","#E0F0FF","#F0E0FF"
+      ];
+
+      public SettingsWindow(AppViewModel mvm)
+      {
+         InitializeComponent();
+         _mvm = mvm;
+         _settings = mvm.PlotSettings.Clone();
+         Owner = Application.Current.MainWindow;
+
+         LoadToUi();
+         HookTextBoxes();
+         BuildPalette();
+      }
+
+      void BuildPalette()
+      {
+         foreach (var hex in _palette)
+         {
+            var rect = new Rectangle
+            {
+               Width = 20, Height = 20, Margin = new Thickness(2),
+               Stroke = Brushes.Gray, StrokeThickness = 0.5,
+               RadiusX = 2, RadiusY = 2, Cursor = System.Windows.Input.Cursors.Hand,
+               ToolTip = hex
+            };
+            try { rect.Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)); }
+            catch { rect.Fill = Brushes.Gray; }
+            rect.MouseLeftButtonDown += (_, _) =>
+            {
+               if (Keyboard.FocusedElement is TextBox tb)
+                  tb.Text = hex;
+            };
+            PalettePanel.Children.Add(rect);
+         }
+      }
+
+      void LoadToUi()
+      {
+         BgBox.Text = _settings.Background;
+         GridBox.Text = _settings.Grid;
+         CurveBox.Text = _settings.Curve;
+         FillBox.Text = _settings.Fill;
+         MarkerBox.Text = _settings.MarkerFill;
+         TextBoxField.Text = _settings.Text;
+         HighlightBox.Text = _settings.Highlight;
+         AxesColorBox.Text = _settings.AxesColor;
+         AxesFontSzBox.Text = _settings.AxesFontSize.ToString("F0");
+         ScaleXBox.Text = _settings.ScaleX.ToString("F4");
+         ScaleYBox.Text = _settings.ScaleY.ToString("F4");
+         CurveThBox.Text = _settings.CurveThickness.ToString("F1");
+         MarkerSzBox.Text = _settings.MarkerSize.ToString("F0");
+         FontSzBox.Text = _settings.FontSize.ToString("F0");
+         ShowGridCb.IsChecked = _settings.ShowGrid;
+         GridThBox.Text = _settings.GridThickness.ToString("F2");
+         TickCountBox.Text = _settings.TickCount.ToString();
+         ShowLabelsCb.IsChecked = _settings.ShowPointLabels;
+         ShowTooltipsCb.IsChecked = _settings.ShowTooltips;
+         ShowAxesValsCb.IsChecked = _settings.ShowAxesValues;
+         AxesOriginCb.IsChecked = _settings.AxesAtOrigin;
+         UpdateSwatches();
+      }
+
+      void HookTextBoxes()
+      {
+         BgBox.TextChanged += (_, _) => { _settings.Background = BgBox.Text; UpdateSwatch(BgSwatch, BgBox.Text); };
+         GridBox.TextChanged += (_, _) => { _settings.Grid = GridBox.Text; UpdateSwatch(GridSwatch, GridBox.Text); };
+         CurveBox.TextChanged += (_, _) => { _settings.Curve = CurveBox.Text; UpdateSwatch(CurveSwatch, CurveBox.Text); };
+         FillBox.TextChanged += (_, _) => { _settings.Fill = FillBox.Text; UpdateSwatch(FillSwatch, FillBox.Text); };
+         MarkerBox.TextChanged += (_, _) => { _settings.MarkerFill = MarkerBox.Text; UpdateSwatch(MarkerSwatch, MarkerBox.Text); };
+         TextBoxField.TextChanged += (_, _) => { _settings.Text = TextBoxField.Text; UpdateSwatch(TextSwatch, TextBoxField.Text); };
+         HighlightBox.TextChanged += (_, _) => { _settings.Highlight = HighlightBox.Text; UpdateSwatch(HighlightSwatch, HighlightBox.Text); };
+         AxesColorBox.TextChanged += (_, _) => { _settings.AxesColor = AxesColorBox.Text; UpdateSwatch(AxesColorSwatch, AxesColorBox.Text); };
+         AxesFontSzBox.TextChanged += (_, _) => { if (double.TryParse(AxesFontSzBox.Text, out var v) && v > 0) _settings.AxesFontSize = v; };
+         ScaleXBox.TextChanged += (_, _) => { if (double.TryParse(ScaleXBox.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) _settings.ScaleX = v; };
+         ScaleYBox.TextChanged += (_, _) => { if (double.TryParse(ScaleYBox.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) _settings.ScaleY = v; };
+         CurveThBox.TextChanged += (_, _) => { if (double.TryParse(CurveThBox.Text, out var v) && v > 0) _settings.CurveThickness = v; };
+         MarkerSzBox.TextChanged += (_, _) => { if (double.TryParse(MarkerSzBox.Text, out var v) && v > 0) _settings.MarkerSize = v; };
+         FontSzBox.TextChanged += (_, _) => { if (double.TryParse(FontSzBox.Text, out var v) && v > 0) _settings.FontSize = v; };
+         ShowGridCb.Checked += (_, _) => _settings.ShowGrid = true;
+         ShowGridCb.Unchecked += (_, _) => _settings.ShowGrid = false;
+         GridThBox.TextChanged += (_, _) => { if (double.TryParse(GridThBox.Text, out var v) && v > 0) _settings.GridThickness = v; };
+         TickCountBox.TextChanged += (_, _) => { if (int.TryParse(TickCountBox.Text, out var v) && v > 0) _settings.TickCount = v; };
+         ShowLabelsCb.Checked += (_, _) => _settings.ShowPointLabels = true;
+         ShowLabelsCb.Unchecked += (_, _) => _settings.ShowPointLabels = false;
+         ShowTooltipsCb.Checked += (_, _) => _settings.ShowTooltips = true;
+         ShowTooltipsCb.Unchecked += (_, _) => _settings.ShowTooltips = false;
+         ShowAxesValsCb.Checked += (_, _) => _settings.ShowAxesValues = true;
+         ShowAxesValsCb.Unchecked += (_, _) => _settings.ShowAxesValues = false;
+         AxesOriginCb.Checked += (_, _) => _settings.AxesAtOrigin = true;
+         AxesOriginCb.Unchecked += (_, _) => _settings.AxesAtOrigin = false;
+      }
+
+      void UpdateSwatches()
+      {
+         UpdateSwatch(BgSwatch, BgBox.Text);
+         UpdateSwatch(GridSwatch, GridBox.Text);
+         UpdateSwatch(CurveSwatch, CurveBox.Text);
+         UpdateSwatch(FillSwatch, FillBox.Text);
+         UpdateSwatch(MarkerSwatch, MarkerBox.Text);
+         UpdateSwatch(TextSwatch, TextBoxField.Text);
+         UpdateSwatch(HighlightSwatch, HighlightBox.Text);
+         UpdateSwatch(AxesColorSwatch, AxesColorBox.Text);
+      }
+
+      static void UpdateSwatch(Rectangle rect, string hex)
+      {
+         try { rect.Fill = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)); }
+         catch { rect.Fill = Brushes.Gray; }
+      }
+
+      void Apply_Click(object sender, RoutedEventArgs e)
+      {
+         SaveAndApply();
+      }
+
+      void Ok_Click(object sender, RoutedEventArgs e)
+      {
+         SaveAndApply();
+         Close();
+      }
+
+      void SaveAndApply()
+      {
+         _mvm.PlotSettings = _settings.Clone();
+         _mvm.ApplyPlotSettings();
+         _mvm.db.SavePlotSettings(_mvm.PlotSettings);
+      }
+
+      void Cancel_Click(object sender, RoutedEventArgs e)
+      {
+         Close();
+      }
+
+      void Reset_Click(object sender, RoutedEventArgs e)
+      {
+         var def = PlotSettings.Default;
+         _settings.Background = def.Background;
+         _settings.Grid = def.Grid;
+         _settings.Curve = def.Curve;
+         _settings.Fill = def.Fill;
+         _settings.MarkerFill = def.MarkerFill;
+         _settings.Text = def.Text;
+         _settings.Highlight = def.Highlight;
+         _settings.CurveThickness = def.CurveThickness;
+         _settings.MarkerSize = def.MarkerSize;
+         _settings.FontSize = def.FontSize;
+         _settings.ShowGrid = def.ShowGrid;
+         _settings.ShowPointLabels = def.ShowPointLabels;
+         _settings.ShowTooltips = def.ShowTooltips;
+         _settings.ShowAxesValues = def.ShowAxesValues;
+         _settings.AxesAtOrigin = def.AxesAtOrigin;
+         _settings.AxesColor = def.AxesColor;
+         _settings.AxesFontSize = def.AxesFontSize;
+         _settings.GridThickness = def.GridThickness;
+         _settings.TickCount = def.TickCount;
+         _settings.ScaleX = def.ScaleX;
+         _settings.ScaleY = def.ScaleY;
+         LoadToUi();
+      }
+   }
+}
