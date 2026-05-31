@@ -1,6 +1,4 @@
-using NetTopologySuite.Geometries;
-
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace CScore
 {
@@ -82,13 +80,7 @@ namespace CScore
             Contours = new List<Contour>(holes);
          };
 
-         Polygon poly = holes != null ? new Polygon(Hull.LinearRing) :
-            new Polygon(Hull.LinearRing, (from h in Contours select h.LinearRing).ToArray());
-
-         WKT = poly.ToText();
-         double ymin = poly.Envelope.Coordinates[0].Y;
-         double ymax = poly.Envelope.Coordinates[1].Y;
-         H = ymax - ymin;
+         SetWKT();
       }
 
       /// <summary>

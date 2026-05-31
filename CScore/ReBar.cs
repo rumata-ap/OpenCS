@@ -1,7 +1,5 @@
 using CSmath.Geometry;
 
-using NetTopologySuite.Geometries;
-
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -99,11 +97,6 @@ namespace CScore
       /// Координата Y центра арматурного стержня [м].
       /// </summary>
       public double Y { get; set; }
-
-      /// <summary>
-      /// Координата (X, Y) как объект NetTopologySuite.
-      /// </summary>
-      internal Coordinate Coordinate { get => new(X, Y); }
 
       /// <summary>
       /// Первичный ключ для EF Core.

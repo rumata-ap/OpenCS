@@ -1,7 +1,5 @@
 ﻿using CScore;
 
-using Top = NetTopologySuite.Geometries;
-
 using OpenCS.ViewModels;
 
 using System;

@@ -935,24 +935,14 @@ namespace OpenCS.ViewModels
 
          if (Out == null) return;
 
-         if (fibers.Count > 0)
-         {
-            NetTopologySuite.IO.WKTReader reader = new();
-            foreach (var item in fibers)
-            {
-               NetTopologySuite.Geometries.Polygon p =
-                  (NetTopologySuite.Geometries.Polygon)reader.Read(item.WKT);
-               var crds = p.Coordinates;
-               double[] xs = new double[crds.Length - 1];
-               double[] ys = new double[crds.Length - 1];
-               for (int j = 0; j < crds.Length - 1; j++)
-               {
-                  xs[j] = crds[j].X;
-                  ys[j] = crds[j].Y;
-               }
-               PlotService.AddPolygon(xs, ys, fillColor: "#F0EACD50", lineColor: "#8C92AC");
-            }
-         }
+          if (fibers.Count > 0)
+          {
+             foreach (var item in fibers)
+             {
+                WktHelper.ParseWKTPolygon(item.WKT, out var xs, out var ys, out _, out _);
+                PlotService.AddPolygon(xs.ToArray(), ys.ToArray(), fillColor: "#F0EACD50", lineColor: "#8C92AC");
+             }
+          }
 
          Out.PointsToXYs();
          PlotService.AddScatter(Out.X.ToArray(), Out.Y.ToArray(), lineWidth: 2, color: clrs[0]);

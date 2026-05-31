@@ -1,6 +1,4 @@
-using NetTopologySuite.Geometries;
-using Newtonsoft.Json;
-using NetTopologySuite.IO;
+using System.Text.Json.Serialization;
 using System.Collections.Generic;
 
 namespace CScore
@@ -49,13 +47,6 @@ namespace CScore
       /// Высота сечения (размер по оси Y) [м].
       /// </summary>
       public double H { get; set; }
-
-      /// <summary>
-      /// Полигон NetTopologySuite, восстановленный из WKT.
-      /// Не сохраняется в БД.
-      /// </summary>
-      [JsonIgnore]
-      public Polygon Polygon { get => GetPolygon(); }
 
       /// <summary>
       /// Геометрические характеристики сечения (A, Sx, Sy, Ix, Iy и др.).
@@ -150,50 +141,7 @@ namespace CScore
             Contours.AddRange(holes);
          };
 
-         Polygon? poly = null;
-         if (Contours.Count == 1) poly = new Polygon(Hull.LinearRing);
-         else
-         {
-            var lrs = (from h in Contours where h.Type == ContourType.Hole select h.LinearRing).ToArray();
-            poly = new Polygon(Hull.LinearRing, lrs);
-         }
-
-         WKT = poly.ToText();
-         double ymin = poly.Envelope.Coordinates[0].Y;
-         double ymax = poly.Envelope.Coordinates[1].Y;
-         H = ymax - ymin;
-      }
-
-      /// <summary>
-      /// Создаёт область из полигона NetTopologySuite. Отверстия извлекаются автоматически.
-      /// </summary>
-      /// <param name="tag">Наименование (тег) области.</param>
-      /// <param name="material">Материал области (может быть null).</param>
-      /// <param name="polygon">Полигон NetTopologySuite.</param>
-      public Region(string tag, Material material, Polygon polygon)
-      {
-         Tag = tag;
-         Material = material;
-         Contour c = new(polygon, tag);
-         Contours.Add(c);
-
-         if (polygon.Holes.Length != 0)
-         {
-            Contours = new List<Contour>(polygon.Holes.Length);
-            int j = 0;
-            foreach (var item in polygon.Holes)
-            {
-               double[] x = new double[item.Coordinates.Length];
-               double[] y = new double[item.Coordinates.Length];
-               for (int i = 0; i < item.Coordinates.Length; i++)
-               {
-                  Coordinate crd = item.Coordinates[i];
-                  x[i] = crd.X; y[i] = crd.Y;
-               }
-               Contour hole = new(x, y, $"{j++:D2}#hole");
-               Contours.Add(hole);
-            }
-         }
+         SetWKT();
       }
 
       /// <summary>
@@ -206,33 +154,23 @@ namespace CScore
       {
          Tag = tag;
          Material = material;
-         WKTReader reader = new WKTReader();
-         var polygon = (Polygon)reader.Read(polystring);
-         Contours.Add(new(polygon, "out"));
-         if (polygon.Holes.Length != 0)
-         {
-            Contours = new List<Contour>(polygon.Holes.Length);
-            int j = 0;
-            foreach (var item in polygon.Holes)
-            {
-               double[] x = new double[item.Coordinates.Length];
-               double[] y = new double[item.Coordinates.Length];
-               for (int i = 0; i < item.Coordinates.Length; i++)
-               {
-                  Coordinate crd = item.Coordinates[i];
-                  x[i] = crd.X; y[i] = crd.Y;
-               }
+         WktHelper.ParseWKTPolygon(polystring, out var outerX, out var outerY, out var holeXs, out var holeYs);
+         
+         Contour c = new(outerX, outerY, "out");
+         Contours.Add(c);
 
-               Contour hole = new(x, y, $"{j++:D2}#hole");
+         if (holeXs != null && holeXs.Count > 0)
+         {
+            for (int j = 0; j < holeXs.Count; j++)
+            {
+               Contour hole = new(holeXs[j], holeYs[j], $"{j:D2}#hole");
+               hole.Type = ContourType.Hole;
                Contours.Add(hole);
             }
-
-         };
+         }
 
          WKT = polystring;
-         double ymin = polygon.Envelope.Coordinates[0].Y;
-         double ymax = polygon.Envelope.Coordinates[1].Y;
-         H = ymax - ymin;
+         UpdateH();
       }
 
       /// <summary>
@@ -265,7 +203,7 @@ namespace CScore
          Hull.Points[0].Tag = "bot";
          Hull.Points[3].Tag = "top";
 
-         WKT = new Polygon(Hull.LinearRing).ToText();
+         SetWKT();
       }
 
       /// <inheritdoc/>
@@ -281,18 +219,39 @@ namespace CScore
       /// </summary>
       public void SetWKT()
       {
-         Polygon? poly = null;
          if (Hull == null) return;
-         if (Contours.Count == 1) poly = new Polygon(Hull.LinearRing);
-         else
+         var hullPts = new List<(double X, double Y)>();
+         for (int i = 0; i < Hull.X.Count; i++)
+            hullPts.Add((Hull.X[i], Hull.Y[i]));
+
+         List<List<(double X, double Y)>> holeRings = null;
+         if (Contours != null && Contours.Count > 1)
          {
-            var lrs = (from h in Contours where h.Type == ContourType.Hole select h.LinearRing).ToArray();
-            poly = new Polygon(Hull.LinearRing, lrs);
+            holeRings = [];
+            foreach (var c in Contours)
+            {
+               if (c.Type == ContourType.Hole)
+               {
+                  var hPts = new List<(double X, double Y)>();
+                  for (int i = 0; i < c.X.Count; i++)
+                     hPts.Add((c.X[i], c.Y[i]));
+                  holeRings.Add(hPts);
+               }
+            }
          }
 
-         WKT = poly.ToText();
-         double ymin = poly.Envelope.Coordinates[0].Y;
-         double ymax = poly.Envelope.Coordinates[1].Y;
+         WKT = WktHelper.PolygonToWKT(Hull.X, Hull.Y, holeRings);
+         UpdateH();
+      }
+
+      /// <summary>
+      /// Обновляет высоту сечения по габаритам Hull.
+      /// </summary>
+      void UpdateH()
+      {
+         if (Hull == null || Hull.X == null || Hull.X.Count == 0) return;
+         double ymin = Hull.Y.Min();
+         double ymax = Hull.Y.Max();
          H = ymax - ymin;
       }
 
@@ -350,15 +309,6 @@ namespace CScore
       }
 
       /// <summary>
-      /// Восстанавливает полигон NetTopologySuite из WKT-строки.
-      /// </summary>
-      Polygon GetPolygon()
-      {
-         WKTReader reader = new WKTReader();
-         return (Polygon)reader.Read(WKT);
-      }
-
-      /// <summary>
       /// Разбивает область на волокна методом триангуляции.
       /// </summary>
       /// <param name="maxTrgArea">Максимальная площадь треугольника (доля от площади области, по умолчанию 0.01).</param>
@@ -378,8 +328,7 @@ namespace CScore
       /// <returns>Область волокон <see cref="FiberRegion"/>.</returns>
       public FiberRegion SliceXY(int nx = 40, int ny = 40)
       {
-         Fiber[] res = Geo.SliceXY(this, nx, ny);
-
+         Fiber[] res = GridSplit.SliceXY(this, nx, ny);
          return new FiberRegion(this, res);
       }
 
@@ -390,8 +339,7 @@ namespace CScore
       /// <returns>Область волокон <see cref="FiberRegion"/>.</returns>
       public FiberRegion SliceX(int nx = 40)
       {
-         Fiber[] res = Geo.SliceX(this, nx);
-
+         Fiber[] res = GridSplit.SliceX(this, nx);
          return new FiberRegion(this, res);
       }
 
@@ -402,8 +350,7 @@ namespace CScore
       /// <returns>Область волокон <see cref="FiberRegion"/>.</returns>
       public FiberRegion SliceY(int ny = 40)
       {
-         Fiber[] res = Geo.SliceY(this, ny);
-
+         Fiber[] res = GridSplit.SliceY(this, ny);
          return new FiberRegion(this, res);
       }
 
@@ -512,11 +459,7 @@ namespace CScore
             for (int i = 0; i < r.Contours.Count; i++)
                r.Contours[i] += xy;
 
-         Polygon poly = r.Contours != null ? new Polygon(r.Hull.LinearRing) :
-            new Polygon(r.Hull.LinearRing, (from h in r.Contours select h.LinearRing).ToArray()); ;
-
-         r.WKT = poly.ToText();
-
+         r.SetWKT();
          return r;
       }
 
@@ -531,11 +474,7 @@ namespace CScore
             for (int i = 0; i < r.Contours.Count; i++)
                r.Contours[i] -= xy;
 
-         Polygon poly = r.Contours != null ? new Polygon(r.Hull.LinearRing) :
-            new Polygon(r.Hull.LinearRing, (from h in r.Contours select h.LinearRing).ToArray()); ;
-
-         r.WKT = poly.ToText();
-
+         r.SetWKT();
          return r;
       }
 
@@ -550,11 +489,7 @@ namespace CScore
             for (int i = 0; i < r.Contours.Count; i++)
                r.Contours[i] *= scale;
 
-         Polygon poly = r.Contours != null ? new Polygon(r.Hull.LinearRing) :
-            new Polygon(r.Hull.LinearRing, (from h in r.Contours select h.LinearRing).ToArray()); ;
-
-         r.WKT = poly.ToText();
-
+         r.SetWKT();
          return r;
       }
    }

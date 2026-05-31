@@ -1,6 +1,4 @@
-﻿using NetTopologySuite.Geometries;
-
-using System;
+﻿using System;
 
 namespace CScore
 {
@@ -22,9 +20,8 @@ namespace CScore
          Diameter = d;
          Pos = pos;
          Area = d * d * Math.PI * 0.25 * ns;
-         Polygon poly = beton.Polygon;
-         double ymin = poly.Envelope.Coordinates[0].Y;
-         double ymax = poly.Envelope.Coordinates[1].Y;
+         double ymin = beton.Hull.Y.Min();
+         double ymax = beton.Hull.Y.Max();
          if (pos == ReBarLayerPos.Bot) Y = ymax - a;
          else Y = ymin + a;
       }
@@ -37,9 +34,8 @@ namespace CScore
          Pos = pos;
          this.As = rebarArea;
          Nd = Area / this.As;
-         Polygon poly = beton.Polygon;
-         double ymin = poly.Envelope.Coordinates[0].Y;
-         double ymax = poly.Envelope.Coordinates[1].Y;
+         double ymin = beton.Hull.Y.Min();
+         double ymax = beton.Hull.Y.Max();
          if (pos == ReBarLayerPos.Bot) Y = ymax - a;
          else Y = ymin + a;
       }

@@ -1,6 +1,4 @@
-using NetTopologySuite.Geometries;
-
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 using System.Text.RegularExpressions;
 
@@ -36,10 +34,7 @@ namespace CScore
       /// </summary>
       public PointType Type { get; set; } = PointType.Coordinate;
 
-      /// <summary>
-      /// Координата (X, Y) как объект NetTopologySuite.
-      /// </summary>
-      internal Coordinate Coordinate { get => new(X, Y); }
+
 
       /// <summary>
       /// Первичный ключ для EF Core.

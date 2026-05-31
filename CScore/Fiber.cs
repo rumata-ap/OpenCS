@@ -1,8 +1,6 @@
 using CSmath.Geometry;
 
-using NetTopologySuite.Geometries;
-using NetTopologySuite.IO;
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace CScore
 {
@@ -114,11 +112,6 @@ namespace CScore
       public double Y { get; set; }
 
       /// <summary>
-      /// Координата (X, Y) как объект NetTopologySuite.
-      /// </summary>
-      internal Coordinate Coordinate { get => new(X, Y); }
-
-      /// <summary>
       /// Первичный ключ для EF Core.
       /// </summary>
       [JsonIgnore] public int Id { get; set; }
@@ -189,40 +182,14 @@ namespace CScore
       {
          Num = num;
          Tag = tag;
-         WKTReader reader = new WKTReader();
-         Polygon p;
-         try
-         {
-            p = (Polygon)reader.Read(polygon);
-         }
-         catch
-         {
-            p = new Polygon((LinearRing)reader.Read(polygon));
-         }
-
-         X = p.Centroid.X; Y = p.Centroid.Y;
-         Area = p.Area;
+         WktHelper.ParseWKTPolygon(polygon, out var xs, out var ys, out var holeXs, out var holeYs);
+         
+         var (cx, cy) = WktHelper.PolygonCentroid(xs, ys);
+         X = cx; Y = cy;
+         Area = WktHelper.PolygonArea(xs, ys);
          Nu1 = 1;
          Nu2 = 1;
          WKT = polygon;
-      }
-
-      /// <summary>
-      /// Создаёт волокно из объекта Polygon. Координаты и площадь вычисляются
-      /// как центроид и площадь полигона.
-      /// </summary>
-      /// <param name="num">Порядковый номер волокна.</param>
-      /// <param name="tag">Метка (тег) волокна.</param>
-      /// <param name="polygon">Полигон NetTopologySuite.</param>
-      public Fiber(int num, string tag, Polygon polygon)
-      {
-         Num = num;
-         Tag = tag;
-         X = polygon.Centroid.X; Y = polygon.Centroid.Y;
-         Area = polygon.Area;
-         Nu1 = 1;
-         Nu2 = 1;
-         WKT = polygon.ToText();
       }
 
       /// <summary>
@@ -251,11 +218,23 @@ namespace CScore
       {
          if (fa.WKT != "")
          {
-            WKTReader reader = new WKTReader();
-            Polygon p = (Polygon)reader.Read(fa.WKT);
-            Region r = new Region(fa.Tag, null, p);
-            r += xy;
-            fa.WKT = r.WKT;
+            WktHelper.ParseWKTPolygon(fa.WKT, out var xs, out var ys, out var holeXs, out var holeYs);
+            for (int i = 0; i < xs.Count; i++) { xs[i] += xy.X; ys[i] += xy.Y; }
+            List<List<(double X, double Y)>> holes = null;
+            if (holeXs != null && holeXs.Count > 0)
+            {
+               holes = [];
+               for (int h = 0; h < holeXs.Count; h++)
+               {
+                  var hPts = new List<(double X, double Y)>();
+                  for (int i = 0; i < holeXs[h].Count; i++)
+                     hPts.Add((holeXs[h][i] + xy.X, holeYs[h][i] + xy.Y));
+                  holes.Add(hPts);
+               }
+            }
+            var outerPts = new List<(double X, double Y)>();
+            for (int i = 0; i < xs.Count; i++) outerPts.Add((xs[i], ys[i]));
+            fa.WKT = WktHelper.PolygonToWKT(xs, ys, holes);
          }
          fa.X += xy.X; fa.Y += xy.Y;
 
@@ -273,11 +252,21 @@ namespace CScore
       {
          if (fa.WKT != "")
          {
-            WKTReader reader = new WKTReader();
-            Polygon p = (Polygon)reader.Read(fa.WKT);
-            Region r = new Region(fa.Tag, null, p);
-            r -= xy;
-            fa.WKT = r.WKT;
+            WktHelper.ParseWKTPolygon(fa.WKT, out var xs, out var ys, out var holeXs, out var holeYs);
+            for (int i = 0; i < xs.Count; i++) { xs[i] -= xy.X; ys[i] -= xy.Y; }
+            List<List<(double X, double Y)>> holes = null;
+            if (holeXs != null && holeXs.Count > 0)
+            {
+               holes = [];
+               for (int h = 0; h < holeXs.Count; h++)
+               {
+                  var hPts = new List<(double X, double Y)>();
+                  for (int i = 0; i < holeXs[h].Count; i++)
+                     hPts.Add((holeXs[h][i] - xy.X, holeYs[h][i] - xy.Y));
+                  holes.Add(hPts);
+               }
+            }
+            fa.WKT = WktHelper.PolygonToWKT(xs, ys, holes);
          }
          fa.X -= xy.X; fa.Y -= xy.Y;
 
@@ -295,13 +284,22 @@ namespace CScore
       {
          if (fa.WKT != "")
          {
-            WKTReader reader = new WKTReader();
-            Polygon p = (Polygon)reader.Read(fa.WKT);
-            Region r = new Region(fa.Tag, null, p);
-            r *= scale;
-            fa = new Fiber(fa.Num, fa.Tag, r.WKT)
+            WktHelper.ParseWKTPolygon(fa.WKT, out var xs, out var ys, out var holeXs, out var holeYs);
+            for (int i = 0; i < xs.Count; i++) { xs[i] *= scale; ys[i] *= scale; }
+            List<List<(double X, double Y)>> holes = null;
+            if (holeXs != null && holeXs.Count > 0)
             {
-            };
+               holes = [];
+               for (int h = 0; h < holeXs.Count; h++)
+               {
+                  var hPts = new List<(double X, double Y)>();
+                  for (int i = 0; i < holeXs[h].Count; i++)
+                     hPts.Add((holeXs[h][i] * scale, holeYs[h][i] * scale));
+                  holes.Add(hPts);
+               }
+            }
+            var newWkt = WktHelper.PolygonToWKT(xs, ys, holes);
+            fa = new Fiber(fa.Num, fa.Tag, newWkt) { };
             return fa;
          }
          fa.X *= scale; fa.Y *= scale; fa.Area *= scale;

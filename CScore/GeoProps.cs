@@ -1,7 +1,4 @@
-using NetTopologySuite.Algorithm;
-
 using System;
-using System.Runtime.ConstrainedExecution;
 
 namespace CScore
 {

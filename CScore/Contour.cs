@@ -1,6 +1,4 @@
-﻿using NetTopologySuite.Geometries;
-using Newtonsoft.Json;
-using NetTopologySuite.IO;
+﻿using System.Text.Json.Serialization;
 using System.Collections.ObjectModel;
 
 namespace CScore
@@ -31,8 +29,6 @@ namespace CScore
          set { points = value; PointsToXYs(); } 
       }
       [JsonIgnore]
-      public LinearRing LinearRing { get => GetRing(); }
-      [JsonIgnore]
       public GeoProps Props { get => new(this); }
       [JsonIgnore] public string? Json { get; set; }
       [JsonIgnore] public int Id { get; set; }
@@ -58,9 +54,7 @@ namespace CScore
          X = (from v in vertices select v.X).ToList();
          Y = (from v in vertices select v.Y).ToList();
 
-         Coordinate[] vert = (from v in vertices select v.Coordinate).ToArray();
-         if (vert[0] != vert[^1]) vert[^1] = vert[0];
-         WKT = new LinearRing(vert).ToText();
+         SetWKT();
          Points = [.. vertices];
       }
 
@@ -76,19 +70,22 @@ namespace CScore
          X = x.ToList();
          Y = y.ToList();
          
-         Coordinate[] vert = (from v in Points select v.Coordinate).ToArray();
-         WKT = new LinearRing(vert).ToText();
+         SetWKT();
          Points = XYsToPoints();
       }
 
-      public Contour(Polygon polygon, string tag)
+      /// <summary>
+      /// Создаёт контур из массивов координат (внешнее кольцо полигона WKT).
+      /// Отверстия не извлекаются — используйте Region для этого.
+      /// </summary>
+      public Contour(string wkt, string tag)
       {
          Tag = tag;
-         LinearRing lr = (LinearRing)polygon.ExteriorRing;
-         X = (from c in lr.Coordinates select c.X).ToArray();
-         Y = (from c in lr.Coordinates select c.Y).ToArray();
-
-         XYsToPoints();
+         WktHelper.ParseWKTPolygon(wkt, out var ox, out var oy, out _, out _);
+         X = ox;
+         Y = oy;
+         WKT = wkt;
+         Points = XYsToPoints();
       }
 
       public override string ToString()
@@ -100,8 +97,14 @@ namespace CScore
 
       public void SetWKT()
       {
-         Coordinate[] vert = (from v in Points select v.Coordinate).ToArray();
-         WKT = new LinearRing(vert).ToText();
+         var xs = new List<double>(Points.Count);
+         var ys = new List<double>(Points.Count);
+         for (int i = 0; i < Points.Count; i++)
+         {
+            xs.Add(Points[i].X);
+            ys.Add(Points[i].Y);
+         }
+         WKT = WktHelper.PolygonToWKT(xs, ys, null);
       }
 
       public void Scale(double scale)
@@ -146,12 +149,6 @@ namespace CScore
          return temp;
       }
 
-      LinearRing GetRing()
-      {
-         WKTReader reader = new WKTReader();
-         return (LinearRing)reader.Read(WKT);
-      }
-
       public ObservableCollection<StressPoint> XYsToPoints()
       {
          StressPoint[] res = new StressPoint[X.Count];
@@ -173,8 +170,7 @@ namespace CScore
       {
          c.X = (from x in c.X select x + xy.X).ToList();
          c.Y = (from y in c.Y select y + xy.Y).ToList();
-         Coordinate[] vert = (from v in c.Points select v.Coordinate).ToArray();
-         c.WKT = new LinearRing(vert).ToText();
+         c.SetWKT();
          return c;
       }
 
@@ -182,8 +178,7 @@ namespace CScore
       {
          c.X = (from x in c.X select x - xy.X).ToList();
          c.Y = (from y in c.Y select y - xy.Y).ToList();
-         Coordinate[] vert = (from v in c.Points select v.Coordinate).ToArray();
-         c.WKT = new LinearRing(vert).ToText();
+         c.SetWKT();
          return c;
       }
 
@@ -191,8 +186,7 @@ namespace CScore
       {
          c.X = (from x in c.X select x + xy).ToList();
          c.Y = (from y in c.Y select y + xy).ToList();
-         Coordinate[] vert = (from v in c.Points select v.Coordinate).ToArray();
-         c.WKT = new LinearRing(vert).ToText();
+         c.SetWKT();
          return c;
       }
 
@@ -200,8 +194,7 @@ namespace CScore
       {
          c.X = (from x in c.X select x - xy).ToList();
          c.Y = (from y in c.Y select y - xy).ToList();
-         Coordinate[] vert = (from v in c.Points select v.Coordinate).ToArray();
-         c.WKT = new LinearRing(vert).ToText();
+         c.SetWKT();
          return c;
       }
 
@@ -209,8 +202,7 @@ namespace CScore
       {
          c.X = (from x in c.X select x * scale).ToList();
          c.Y = (from y in c.Y select y * scale).ToList();
-         Coordinate[] vert = (from v in c.Points select v.Coordinate).ToArray();
-         c.WKT = new LinearRing(vert).ToText();
+         c.SetWKT();
          return c;
       }
    }
