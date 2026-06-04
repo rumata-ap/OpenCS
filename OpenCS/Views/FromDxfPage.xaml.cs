@@ -17,6 +17,8 @@ namespace OpenCS.Views
          DataContext = vm;
          vm.CanvasLoader = (prims, layers) => InteractiveCanvas.Load(prims, layers);
          InteractiveCanvas.SelectionChanged = vm.HandleSelectionChanged;
+         InteractiveCanvas.SetBackground(mvm.PlotSettings.DxfCanvasBackground);
+         mvm.DxfBgApplied = bg => InteractiveCanvas.SetBackground(bg);
       }
    }
 }

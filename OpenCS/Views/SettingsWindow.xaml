@@ -30,6 +30,7 @@
                     <RowDefinition Height="26"/>
                     <RowDefinition Height="26"/>
                     <RowDefinition Height="26"/>
+                    <RowDefinition Height="26"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Background}" VerticalAlignment="Center"/>
@@ -86,6 +87,12 @@
                 <TextBox Grid.Row="7" Grid.Column="2" x:Name="AxesFontSzBox" Margin="2" Height="22"
                          VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource FontSize}"/>
                 <Rectangle Grid.Row="7" Grid.Column="3" x:Name="AxesColorSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource DxfBackground}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="8" Grid.Column="1" x:Name="DxfBgBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <Rectangle Grid.Row="8" Grid.Column="3" x:Name="DxfBgSwatch" Margin="2" RadiusX="3" RadiusY="3"
                            Stroke="LightGray" StrokeThickness="1"/>
             </Grid>
         </GroupBox>

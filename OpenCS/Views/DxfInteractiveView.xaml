@@ -6,7 +6,6 @@
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
    <Border x:Name="RootBorder"
-           Background="#1E1E1E"
            ClipToBounds="True"
            MouseWheel="OnMouseWheel"
            MouseRightButtonDown="OnRightButtonDown"

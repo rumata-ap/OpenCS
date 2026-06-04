@@ -36,7 +36,11 @@ namespace OpenCS.Views
       {
          InitializeComponent();
          InnerCanvas.RenderTransform = _mt;
+         RootBorder.Background = ParseBrush("#F5F5F5");
       }
+
+      /// <summary>Устанавливает цвет фона канваса из hex-строки.</summary>
+      public void SetBackground(string hex) => RootBorder.Background = ParseBrush(hex);
 
       /// <summary>
       /// Загружает примитивы и информацию о слоях, строит WPF-фигуры на канвасе

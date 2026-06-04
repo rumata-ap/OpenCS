@@ -66,6 +66,7 @@ namespace OpenCS.Views
          HighlightBox.Text = _settings.Highlight;
          AxesColorBox.Text = _settings.AxesColor;
          AxesFontSzBox.Text = _settings.AxesFontSize.ToString("F0");
+         DxfBgBox.Text = _settings.DxfCanvasBackground;
          ScaleXBox.Text = _settings.ScaleX.ToString("F4");
          ScaleYBox.Text = _settings.ScaleY.ToString("F4");
          CurveThBox.Text = _settings.CurveThickness.ToString("F1");
@@ -91,6 +92,7 @@ namespace OpenCS.Views
          TextBoxField.TextChanged += (_, _) => { _settings.Text = TextBoxField.Text; UpdateSwatch(TextSwatch, TextBoxField.Text); };
          HighlightBox.TextChanged += (_, _) => { _settings.Highlight = HighlightBox.Text; UpdateSwatch(HighlightSwatch, HighlightBox.Text); };
          AxesColorBox.TextChanged += (_, _) => { _settings.AxesColor = AxesColorBox.Text; UpdateSwatch(AxesColorSwatch, AxesColorBox.Text); };
+         DxfBgBox.TextChanged += (_, _) => { _settings.DxfCanvasBackground = DxfBgBox.Text; UpdateSwatch(DxfBgSwatch, DxfBgBox.Text); };
          AxesFontSzBox.TextChanged += (_, _) => { if (double.TryParse(AxesFontSzBox.Text, out var v) && v > 0) _settings.AxesFontSize = v; };
          ScaleXBox.TextChanged += (_, _) => { if (double.TryParse(ScaleXBox.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) _settings.ScaleX = v; };
          ScaleYBox.TextChanged += (_, _) => { if (double.TryParse(ScaleYBox.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) _settings.ScaleY = v; };
@@ -121,6 +123,7 @@ namespace OpenCS.Views
          UpdateSwatch(TextSwatch, TextBoxField.Text);
          UpdateSwatch(HighlightSwatch, HighlightBox.Text);
          UpdateSwatch(AxesColorSwatch, AxesColorBox.Text);
+         UpdateSwatch(DxfBgSwatch, DxfBgBox.Text);
       }
 
       static void UpdateSwatch(Rectangle rect, string hex)
@@ -176,6 +179,7 @@ namespace OpenCS.Views
          _settings.TickCount = def.TickCount;
          _settings.ScaleX = def.ScaleX;
          _settings.ScaleY = def.ScaleY;
+         _settings.DxfCanvasBackground = def.DxfCanvasBackground;
          LoadToUi();
       }
    }

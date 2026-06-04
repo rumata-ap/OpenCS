@@ -389,6 +389,12 @@ namespace OpenCS
       public Utilites.PlotSettings PlotSettings { get; set; } = Utilites.PlotSettings.Default;
 
       /// <summary>
+      /// Вызывается при применении настроек. Передаёт новый цвет фона DXF-канваса.
+      /// Подключается из <see cref="Views.FromDxfPage"/>.
+      /// </summary>
+      public Action<string>? DxfBgApplied { get; set; }
+
+      /// <summary>
       /// Настройки экспорта CSV (разделитель, кодировка).
       /// </summary>
       public Utilites.CsvExportSettings CsvSettings { get; set; } = Utilites.CsvExportSettings.Default;
@@ -612,6 +618,7 @@ namespace OpenCS
          {
             // DiagramPage uses internal plotService field — expose via interface or skip
          }
+         DxfBgApplied?.Invoke(PlotSettings.DxfCanvasBackground);
       }
 
       /// <summary>

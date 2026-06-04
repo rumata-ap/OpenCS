@@ -70,6 +70,9 @@ namespace OpenCS.Utilites
       [JsonPropertyName("scaleX")]
       public double ScaleX { get; set; } = 1.0;
 
+      [JsonPropertyName("dxfCanvasBg")]
+      public string DxfCanvasBackground { get; set; } = "#F5F5F5";
+
       public static PlotSettings Default => new();
 
       public PlotSettings Clone() => new()
@@ -84,7 +87,8 @@ namespace OpenCS.Utilites
          ShowAxesValues = ShowAxesValues, AxesAtOrigin = AxesAtOrigin,
          AxesColor = AxesColor, AxesFontSize = AxesFontSize,
          GridThickness = GridThickness, TickCount = TickCount,
-         ScaleX = ScaleX, ScaleY = ScaleY
+         ScaleX = ScaleX, ScaleY = ScaleY,
+         DxfCanvasBackground = DxfCanvasBackground
       };
    }
 }
