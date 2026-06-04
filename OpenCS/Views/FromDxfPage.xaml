@@ -1,186 +1,102 @@
-﻿<UserControl x:Class="OpenCS.Views.FromDxfPage"
+<UserControl x:Class="OpenCS.Views.FromDxfPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:OpenCS.Views"
-             xmlns:vm="clr-namespace:OpenCS.ViewModels"
-             mc:Ignorable="d" 
+             mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
 
-   <UserControl.DataContext>
-      <vm:FromDxfVM/>
-   </UserControl.DataContext>
    <UserControl.Resources>
       <ResourceDictionary Source="/Images/svg.xaml"/>
    </UserControl.Resources>
 
    <Grid>
-      <TabControl>
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition/>
+      </Grid.RowDefinitions>
 
-         <TabItem Header="{DynamicResource FromDxfTab}">
+      <!-- Toolbar -->
+      <DockPanel Grid.Row="0" Margin="5" LastChildFill="False">
+         <Button Height="25" Width="25" BorderThickness="0" Background="Transparent"
+                 Command="{Binding OpenDXFCommand}" DockPanel.Dock="Left" Margin="0,0,8,0">
+            <Image Source="{StaticResource di_dxf_file_xaml}"/>
+         </Button>
+         <TextBlock Text="{DynamicResource DesignationSet}" VerticalAlignment="Center"
+                    Margin="0,0,4,0" DockPanel.Dock="Left"/>
+         <TextBox Width="120" VerticalContentAlignment="Center"
+                  Text="{Binding GeometrySet}" DockPanel.Dock="Left" Margin="0,0,16,0"/>
+         <TextBlock Text="{DynamicResource DxfUnits}" VerticalAlignment="Center"
+                    Margin="0,0,4,0" DockPanel.Dock="Left"/>
+         <ComboBox ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIdx}"
+                   Width="60" DockPanel.Dock="Left"/>
+      </DockPanel>
 
-            <Grid>
-               <Grid.ColumnDefinitions>
-                  <ColumnDefinition/>
-                  <ColumnDefinition Width="0.5*"/>
-                  <ColumnDefinition Width="Auto"/>
-               </Grid.ColumnDefinitions>
-               <Grid.RowDefinitions>
-                  <RowDefinition Height="auto"/>
-                  <RowDefinition/>
-               </Grid.RowDefinitions>
+      <!-- 3-column main area -->
+      <Grid Grid.Row="1">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="160"/>
+            <ColumnDefinition/>
+            <ColumnDefinition Width="200"/>
+         </Grid.ColumnDefinitions>
 
-               <DockPanel Margin="5" 
-                               Grid.Column="0" 
-                               Grid.Row="0">
-                  <TextBlock Text="{DynamicResource DesignationSet}" 
-                                   VerticalAlignment="Center" 
-                                   Margin="0,0,10,0"/>
-                  <TextBox VerticalContentAlignment="Center"
-                                 HorizontalContentAlignment="Center"
-                                 Text="{Binding GeometrySet}"/>
-               </DockPanel>
+         <!-- Col 0: Layer legend -->
+         <GroupBox Grid.Column="0" Header="{DynamicResource DxfLayers}" Margin="4">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+               <ItemsControl ItemsSource="{Binding Layers}" Margin="4">
+                  <ItemsControl.ItemTemplate>
+                     <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Rectangle Width="14" Height="14" Margin="0,0,6,0"
+                                      Fill="{Binding LayerBrush}"/>
+                           <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                     </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+               </ItemsControl>
+            </ScrollViewer>
+         </GroupBox>
 
-               <DockPanel Margin="5" 
-                               Grid.Column="1" 
-                               Grid.Row="0">
-                  <TextBlock Text="{DynamicResource DxfUnits}" 
-                                   VerticalAlignment="Center" 
-                                   Margin="0,0,10,0"/>
-                  <ComboBox ItemsSource="{Binding Units}" 
-                                  SelectedIndex="{Binding UnitIdx}"/>
-               </DockPanel>
+         <!-- Col 1: Interactive DXF canvas -->
+         <local:DxfInteractiveView x:Name="InteractiveCanvas" Grid.Column="1" Margin="4"/>
 
-               <ContentControl Grid.Row="1"  
-                                    Grid.Column="0" 
-                                    Grid.ColumnSpan="3"
-                                    Content="{Binding CurrentPlot}"/>
+         <!-- Col 2: Selected primitives -->
+         <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+               <RowDefinition/>
+               <RowDefinition/>
+            </Grid.RowDefinitions>
 
-               <Button Height="25" 
-                            Width="25" 
-                            Grid.Row="0" 
-                            Grid.Column="2" 
-                            BorderThickness="0" 
-                            Background="Transparent"
-                            Command="{Binding OpenDXFCommand}">
-                  <Button.Content>
-                     <Image Source="{StaticResource di_dxf_file_xaml}"/>
-                  </Button.Content>
-               </Button>
+            <GroupBox Grid.Row="0" Header="{DynamicResource Contours}" Margin="4">
+               <Grid>
+                  <Grid.RowDefinitions>
+                     <RowDefinition/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <ListBox Grid.Row="0" ItemsSource="{Binding ContoursPrj}"
+                           DisplayMemberPath="Tag" BorderThickness="0" Margin="4"/>
+                  <Button Grid.Row="1" Height="25" Margin="4"
+                          Command="{Binding SaveContoursCommand}"
+                          Content="{DynamicResource AddCaps}"/>
+               </Grid>
+            </GroupBox>
 
-            </Grid>
+            <GroupBox Grid.Row="1" Header="{DynamicResource Circles}" Margin="4">
+               <Grid>
+                  <Grid.RowDefinitions>
+                     <RowDefinition/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <ListBox Grid.Row="0" ItemsSource="{Binding CirclesPrj}"
+                           DisplayMemberPath="Tag" BorderThickness="0" Margin="4"/>
+                  <Button Grid.Row="1" Height="25" Margin="4"
+                          Command="{Binding SaveCirclesCommand}"
+                          Content="{DynamicResource AddCaps}"/>
+               </Grid>
+            </GroupBox>
+         </Grid>
 
-         </TabItem>
-
-         <TabItem Header="{DynamicResource ContourSelection}">
-
-            <Grid>
-               <Grid.RowDefinitions>
-                  <RowDefinition/>
-                  <RowDefinition Height="Auto"/>
-               </Grid.RowDefinitions>
-               <Grid.ColumnDefinitions>
-                  <ColumnDefinition/>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition/>
-               </Grid.ColumnDefinitions>
-
-               <GroupBox Grid.Column="0" 
-                              Grid.Row="0" 
-                              Header="{DynamicResource Project}" 
-                              Margin="5">
-
-                  <Grid>
-                     <Grid.RowDefinitions>
-                        <RowDefinition/>
-                        <RowDefinition Height="Auto"/>
-                     </Grid.RowDefinitions>
-
-                     <ListBox Margin="5" BorderThickness="0"
-                                     ItemsSource="{Binding ContoursPrj}" 
-                                     SelectedItem="{Binding SelectedContour}"/>
-
-                     <Button Grid.Row="1" Height="25" Margin="2" VerticalContentAlignment="Center"
-                                    Command="{Binding SaveContoursCommand}" Content="{DynamicResource AddCaps}"/>
-
-                  </Grid>
-
-               </GroupBox>
-
-               <GroupBox Grid.Column="2" Grid.Row="0" Header="{DynamicResource DXF}" Margin="5">
-
-                  <ListBox x:Name="ContoursDxfListBox"
-                                 ItemsSource="{Binding Contours}" 
-                                 SelectedItem="{Binding SelectedContour}"
-                                 BorderThickness="0"
-                                 Margin="5" SelectionMode="Multiple"/>
-
-               </GroupBox>
-
-               <local:TransferPanel Grid.Row="0" Grid.Column="1" Margin="0,5,0,5"
-                     InCommand="{Binding ContourInCommand}"
-                     InAllCommand="{Binding ContoursInCommand}"
-                     OutCommand="{Binding ContourOutCommand}"/>
-
-            </Grid>
-
-         </TabItem>
-
-         <TabItem Header="{DynamicResource CircleSelection}">
-
-            <Grid>
-               <Grid.RowDefinitions>
-                  <RowDefinition/>
-                  <RowDefinition Height="Auto"/>
-               </Grid.RowDefinitions>
-               <Grid.ColumnDefinitions>
-                  <ColumnDefinition/>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition/>
-               </Grid.ColumnDefinitions>
-
-               <GroupBox Grid.Column="0" 
-                              Grid.Row="0" 
-                              Header="{DynamicResource Project}" 
-                              Margin="5">
-
-                  <Grid>
-                     <Grid.RowDefinitions>
-                        <RowDefinition/>
-                        <RowDefinition Height="Auto"/>
-                     </Grid.RowDefinitions>
-
-                     <ListBox Margin="5" BorderThickness="0"
-                                     ItemsSource="{Binding CirclesPrj}" 
-                                     SelectedItem="{Binding SelectedCircle}"/>
-
-                     <Button Grid.Row="1" Height="25" Margin="2" VerticalContentAlignment="Center"
-                                    Command="{Binding SaveCirclesCommand}" Content="{DynamicResource AddCaps}"/>
-
-                  </Grid>
-
-               </GroupBox>
-
-               <GroupBox Grid.Column="2" Grid.Row="0" Header="{DynamicResource DXF}" Margin="5">
-
-                  <ListBox x:Name="CirclesDxfListBox" 
-                                 ItemsSource="{Binding Circles}" 
-                                 SelectedItem="{Binding SelectedCircle}"
-                                 BorderThickness="0"
-                                 Margin="5,5,5,5" Grid.ColumnSpan="2"/>
-
-               </GroupBox>
-
-               <local:TransferPanel Grid.Row="0" Grid.Column="1" Margin="0,5,0,5"
-                     InCommand="{Binding CircleInCommand}"
-                     InAllCommand="{Binding CirclesInCommand}"
-                     OutCommand="{Binding CircleOutCommand}"/>
-
-            </Grid>
-
-         </TabItem>
-
-      </TabControl>
+      </Grid>
    </Grid>
 </UserControl>

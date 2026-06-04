@@ -1,400 +1,326 @@
 using CScore;
 
-using OpenCS.Services;
 using OpenCS.Utilites;
-using OpenCS.Views;
 
 using netDxf;
 using netDxf.Entities;
 
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Windows.Controls;
+using System.Linq;
 using System.Windows.Input;
 
 namespace OpenCS.ViewModels
 {
    /// <summary>
-   /// Модель представления для импорта геометрии из DXF-файлов. Обеспечивает загрузку
-   /// DXF-документа, выбор контуров и окружностей для добавления в проект,
-   /// а также управление масштабом и единицами измерения. Работает в связке
-   /// с представлением <see cref="FromDxfPage"/>.
+   /// ViewModel импорта геометрии из DXF. Парсит Polyline2D, Circle,
+   /// Arc (аппроксимация 32-точечной ломаной) и Line (сшивка в цепи).
+   /// Взаимодействие с <see cref="Views.DxfInteractiveView"/> — через колбэки
+   /// <see cref="CanvasLoader"/> и <see cref="HandleSelectionChanged"/>.
    /// </summary>
    public class FromDxfVM : ViewModelBase
    {
-      /// <summary>
-      /// Ссылка на главную ViewModel приложения. Используется для доступа
-      /// к базе данных, сервису логирования и коллекциям общих данных.
-      /// </summary>
-      public AppViewModel mvm;
+      private static readonly string[] Palette =
+         ["#318CE7", "#9457EB", "#CC397B", "#F07427", "#F4CA16", "#20B2AA"];
 
-      /// <summary>Масштабный коэффициент для преобразования координат DXF в проектные единицы.</summary>
-      double scale = 0.001;
+      public AppViewModel mvm = null!;
 
-      /// <summary>Индекс выбранной единицы измерения (0=мм, 1=см, 2=м).</summary>
-      int unitIdx = 0;
+      private double _scale = 0.001;
+      private int _unitIdx;
+      private string _geometrySet = "dxf";
+      private ObservableCollection<Contour> _contoursPrj = [];
+      private ObservableCollection<CircleP> _circlesPrj = [];
+      private List<DxfPrimitive> _primitives = [];
 
-      /// <summary>Имя набора геометрии, получаемое из имени DXF-файла.</summary>
-      string geometrySet = "dxf";
+      public List<string> Units { get; } = ["мм", "см", "м"];
 
-      /// <summary>Коллекция контуров, загруженных из DXF-файла.</summary>
-      ObservableCollection<Contour> contours = [];
-
-      /// <summary>Коллекция контуров, выбранных для добавления в проект.</summary>
-      ObservableCollection<Contour> contoursPrj = [];
-
-      /// <summary>Коллекция полилиний, загруженных из DXF-файла.</summary>
-      ObservableCollection<Polyline2D> plines = [];
-
-      /// <summary>Коллекция окружностей, загруженных из DXF-файла.</summary>
-      ObservableCollection<CScore.CircleP> circles = [];
-
-      /// <summary>Коллекция окружностей, выбранных для добавления в проект.</summary>
-      ObservableCollection<CScore.CircleP> circlesPrj = [];
-
-      /// <summary>Коллекция имён слоёв DXF-документа.</summary>
-      ObservableCollection<string> layers = [];
-
-      /// <summary>Коллекция контуров-образцов (не используется в текущей реализации).</summary>
-      ObservableCollection<Contour> master = [];
-
-      /// <summary>Выбранный контур в ListBox контуров DXF.</summary>
-      Contour? selectedContour;
-
-      /// <summary>Выбранная окружность в ListBox окружностей DXF.</summary>
-      CircleP? selectedCircle;
-
-      /// <summary>Текущий элемент управления для отображения DXF-чертежа.</summary>
-      UserControl? currentPlot;
+      /// <summary>Слои DXF — источник для легенды в левой панели.</summary>
+      public ObservableCollection<LayerInfo> Layers { get; } = [];
 
       /// <summary>
-      /// Ссылка на ListBox контуров в представлении. Используется для получения
-      /// выбранных элементов при переносе контуров в проект.
+      /// Устанавливается code-behind страницы. Вызывается после успешного
+      /// разбора DXF для передачи примитивов в <see cref="Views.DxfInteractiveView"/>.
       /// </summary>
-      internal ListBox ContoursListBox {  get; set; }
+      public Action<IReadOnlyList<DxfPrimitive>, IReadOnlyList<LayerInfo>>? CanvasLoader { get; set; }
 
-      /// <summary>
-      /// Ссылка на ListBox окружностей в представлении. Используется для получения
-      /// выбранных элементов при переносе окружностей в проект.
-      /// </summary>
-      internal ListBox CirclesListBox {  get; set; }
-
-      /// <summary>
-      /// Список единиц измерения для ComboBox: мм, см, м.
-      /// Используется для привязки в представлении.
-      /// </summary>
-      public List<string> Units { get; set; } = ["мм", "см", "м"];
-
-      /// <summary>
-      /// Загруженный DXF-документ. Содержит геометрию для импорта.
-      /// </summary>
-      public DxfDocument? Dxf { get; set; }
-
-      /// <summary>
-      /// Индекс выбранной единицы измерения. При изменении автоматически
-      /// пересчитывает масштабный коэффициент (мм=0.001, см=0.01, м=1).
-      /// </summary>
       public int UnitIdx
       {
-         get { return unitIdx; }
+         get => _unitIdx;
          set
          {
-            unitIdx = value;
-            if (value == 0) scale = 0.001;
-            else if (value == 1) scale = 0.01;
-            else scale = 1;
+            _unitIdx = value;
+            _scale = value == 0 ? 0.001 : value == 1 ? 0.01 : 1.0;
             OnPropertyChanged();
          }
       }
 
-      /// <summary>
-      /// Имя набора геометрии, обычно совпадающее с имен DXF-файла.
-      /// Используется для идентификации происхождения контуров и окружностей.
-      /// </summary>
       public string GeometrySet
       {
-         get { return geometrySet; }
-         set { geometrySet = value; OnPropertyChanged(); }
+         get => _geometrySet;
+         set { _geometrySet = value; OnPropertyChanged(); }
       }
 
-      /// <summary>
-      /// Текущий элемент управления для отображения DXF-чертежа.
-      /// Привязан к ContentControl в представлении.
-      /// </summary>
-      public UserControl? CurrentPlot
-      {
-         get { return currentPlot; }
-         set { currentPlot = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>
-      /// Выбранный контур в ListBox. Используется для переноса
-      /// отдельного контура в проект или из проекта.
-      /// </summary>
-      public Contour? SelectedContour
-      {
-         get { return selectedContour; }
-         set { selectedContour = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>
-      /// Выбранная окружность в ListBox. Используется для переноса
-      /// отдельной окружности в проект или из проекта.
-      /// </summary>
-      public CScore.CircleP? SelectedCircle
-      {
-         get { return selectedCircle; }
-         set { selectedCircle = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>
-      /// Коллекция контуров, загруженных из DXF-файла. Привязана к ListBox
-      /// контуров в представлении.
-      /// </summary>
-      public ObservableCollection<Contour> Contours
-      {
-         get { return contours; }
-         set { contours = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>
-      /// Коллекция контуров, выбранных для добавления в проект. Привязана
-      /// к ListBox выбранных контуров в представлении.
-      /// </summary>
       public ObservableCollection<Contour> ContoursPrj
       {
-         get { return contoursPrj; }
-         set { contoursPrj = value; OnPropertyChanged(); }
+         get => _contoursPrj;
+         set { _contoursPrj = value; OnPropertyChanged(); }
       }
 
-      /// <summary>
-      /// Коллекция окружностей, загруженных из DXF-файла. Привязана к ListBox
-      /// окружностей в представлении.
-      /// </summary>
-      public ObservableCollection<CScore.CircleP> Circles
+      public ObservableCollection<CircleP> CirclesPrj
       {
-         get { return circles; }
-         set { circles = value; OnPropertyChanged(); }
+         get => _circlesPrj;
+         set { _circlesPrj = value; OnPropertyChanged(); }
       }
 
-      /// <summary>
-      /// Коллекция окружностей, выбранных для добавления в проект. Привязана
-      /// к ListBox выбранных окружностей в представлении.
-      /// </summary>
-      public ObservableCollection<CScore.CircleP> CirclesPrj
-      {
-         get { return circlesPrj; }
-         set { circlesPrj = value; OnPropertyChanged(); }
-      }
+      public ICommand OpenDXFCommand      { get; }
+      public ICommand SaveContoursCommand { get; }
+      public ICommand SaveCirclesCommand  { get; }
 
-      /// <summary>Команда привязки для открытия DXF-файла через диалог.</summary>
-      public ICommand OpenDXFCommand { get; set; }
-
-      /// <summary>Команда привязки для сохранения выбранных контуров в базу данных проекта.</summary>
-      public ICommand SaveContoursCommand { get; set; }
-
-      /// <summary>Команда привязки для сохранения выбранных окружностей в базу данных проекта.</summary>
-      public ICommand SaveCirclesCommand { get; set; }
-
-      /// <summary>Команда привязки для переноса выбранного контура в список для добавления в проект.</summary>
-      public ICommand ContourInCommand { get; set; }
-
-      /// <summary>Команда привязки для переноса всех контуров в список для добавления в проект.</summary>
-      public ICommand ContoursInCommand { get; set; }
-
-      /// <summary>Команда привязки для возврата выбранного контура из проекта обратно в список DXF.</summary>
-      public ICommand ContourOutCommand { get; set; }
-
-      /// <summary>Команда привязки для переноса выбранной окружности в список для добавления в проект.</summary>
-      public ICommand CircleInCommand { get; set; }
-
-      /// <summary>Команда привязки для переноса всех окружностей в список для добавления в проект.</summary>
-      public ICommand CirclesInCommand { get; set; }
-
-      /// <summary>Команда привязки для возврата выбранной окружности из проекта обратно в список DXF.</summary>
-      public ICommand CircleOutCommand { get; set; }
-
-      /// <summary>
-      /// Инициализирует экземпляр <see cref="FromDxfVM"/> и создаёт все команды привязки.
-      /// </summary>
       public FromDxfVM()
       {
-         OpenDXFCommand = new RelayCommand(OpenDxf);
-         SaveCirclesCommand = new RelayCommand(SaveCircles);
+         OpenDXFCommand      = new RelayCommand(OpenDxf);
          SaveContoursCommand = new RelayCommand(SaveContours);
-         CircleInCommand = new RelayCommand(CircleIn);
-         CirclesInCommand = new RelayCommand(CirclesIn);
-         CircleOutCommand = new RelayCommand(CircleOut);
-         ContourInCommand = new RelayCommand(ContourIn);
-         ContoursInCommand = new RelayCommand(ContoursIn);
-         ContourOutCommand = new RelayCommand(ContourOut);
+         SaveCirclesCommand  = new RelayCommand(SaveCircles);
       }
 
       /// <summary>
-      /// Переносит выбранную окружность из списка DXF в список для добавления в проект.
+      /// Обновляет <see cref="ContoursPrj"/> и <see cref="CirclesPrj"/> по текущему
+      /// выделению канваса. Подключается через <see cref="Views.DxfInteractiveView.SelectionChanged"/>.
       /// </summary>
-      private void CircleIn(object? o = null)
+      public void HandleSelectionChanged(IReadOnlyList<DxfPrimitive> selected)
       {
-         if (selectedCircle == null) return;
-         CirclesPrj.Add(selectedCircle);
-         Circles.Remove(selectedCircle);
+         ContoursPrj = new ObservableCollection<Contour>(
+            selected.Where(p => p.Kind == DxfPrimitiveKind.Contour && p.Contour != null)
+                    .Select(p => p.Contour!));
+         CirclesPrj = new ObservableCollection<CircleP>(
+            selected.Where(p => p.Kind == DxfPrimitiveKind.Circle && p.Circle != null)
+                    .Select(p => p.Circle!));
       }
 
-      /// <summary>
-      /// Переносит все окружности из списка DXF в список для добавления в проект.
-      /// </summary>
-      private void CirclesIn(object? o = null)
+      private void SaveContours(object? _ = null)
       {
-         if (Circles == null) return;
-         CirclesPrj = new(Circles);
-         Circles.Clear();
-      }
-
-      /// <summary>
-      /// Возвращает выбранную окружность из списка проекта обратно в список DXF.
-      /// </summary>
-      private void CircleOut(object? o = null)
-      {
-         if (selectedCircle == null) return;
-         Circles.Add(selectedCircle);
-         CirclesPrj.Remove(selectedCircle);
-      }
-
-      /// <summary>
-      /// Переносит выбранный контур из списка DXF в список для добавления в проект.
-      /// </summary>
-      private void ContourIn(object? o = null)
-      {
-         if (selectedContour == null) return;
-         ContoursPrj.Add(selectedContour);
-         Contours.Remove(selectedContour);
-      }
-
-      /// <summary>
-      /// Переносит все контуры из списка DXF в список для добавления в проект.
-      /// </summary>
-      private void ContoursIn(object? o = null)
-      {
-         if (Contours == null) return;
-         ContoursPrj = new(Contours);
-         Contours.Clear();
-      }
-
-      /// <summary>
-      /// Возвращает выбранный контур из списка проекта обратно в список DXF.
-      /// </summary>
-      private void ContourOut(object? o = null)
-      {
-         if (selectedContour == null) return;
-         Contours.Add(selectedContour);
-         ContoursPrj.Remove(selectedContour);
-      }
-
-      /// <summary>
-      /// Сохраняет выбранные окружности в базу данных проекта и перенумеровывает их.
-      /// </summary>
-      private void SaveCircles(object? o = null)
-      {
-         if (circlesPrj == null || circlesPrj.Count == 0) return;
-         mvm.db.AddRange(circlesPrj);
-         mvm.LogService.Info($"В проект добавлено {circlesPrj.Count} окружностей");
-         CirclesPrj.Clear();
-         mvm.CirclesRenumber();
-      }
-
-      /// <summary>
-      /// Сохраняет выбранные контуры в базу данных проекта и перенумеровывает их.
-      /// </summary>
-      private void SaveContours(object? o = null)
-      {
-         if (contoursPrj == null || contoursPrj.Count == 0) return;
-         mvm.db.AddRange(contoursPrj);
-         mvm.LogService.Info($"В проект добавлено {contoursPrj.Count} контуров");
+         if (_contoursPrj.Count == 0) return;
+         mvm.db.AddRange(_contoursPrj);
+         mvm.LogService.Info($"В проект добавлено {_contoursPrj.Count} контуров");
          ContoursPrj.Clear();
          mvm.ContoursRenumber();
       }
 
-      /// <summary>
-      /// Открывает диалог выбора DXF-файла, загружает документ и заполняет
-      /// коллекции контуров и окружностей из полилиний и кругов DXF.
-      /// </summary>
-      void OpenDxf(object? o = null)
+      private void SaveCircles(object? _ = null)
+      {
+         if (_circlesPrj.Count == 0) return;
+         mvm.db.AddRange(_circlesPrj);
+         mvm.LogService.Info($"В проект добавлено {_circlesPrj.Count} окружностей");
+         CirclesPrj.Clear();
+         mvm.CirclesRenumber();
+      }
+
+      private void OpenDxf(object? _ = null)
       {
          string fileName = mvm.FileDialogService.OpenFile(
             filter: "Файл обмена чертежами (*.dxf)|*.dxf",
             title: "Импорт данных из файла DXF");
-
          if (string.IsNullOrEmpty(fileName)) return;
 
-         Contours.Clear();
          ContoursPrj.Clear();
-         Circles.Clear();
          CirclesPrj.Clear();
 
-         Dxf = DxfDocument.Load(fileName);
-         GeometrySet = Dxf.Name;
-         CurrentPlot = new DxfPlot(Dxf);
+         var dxf = DxfDocument.Load(fileName);
+         GeometrySet = dxf.Name;
 
-         plines = new(Dxf.Entities.Polylines2D);
-         List<Circle> circls = new(Dxf.Entities.Circles);
+         _primitives = ParseDxf(dxf);
 
-         int i = 1;
-         foreach (var c in circls)
-         {
-            Circles.Add(CircleDxfToCircle(c, i));
-            i++;
-         }
-         i = 1;
-         foreach (var p in plines)
-         {
-            Contours.Add(PolylineToContour(p, i));
-            i++;
-         }
+         Layers.Clear();
+         var names = _primitives.Select(p => p.LayerName).Distinct().ToList();
+         for (int i = 0; i < names.Count; i++)
+            Layers.Add(new LayerInfo(names[i], Palette[i % Palette.Length]));
+
+         CanvasLoader?.Invoke(_primitives, Layers);
       }
 
+      // ── Парсинг ────────────────────────────────────────────────────────────
 
-      /// <summary>
-      /// Преобразует полилинию DXF в доменный объект <see cref="Contour"/>.
-      /// Координаты вершин умножаются на масштабный коэффициент.
-      /// </summary>
-      /// <param name="pline">Полилиния DXF для преобразования.</param>
-      /// <param name="i">Порядковый номер контура.</param>
-      /// <returns>Объект <see cref="Contour"/>, созданный из вершин полилинии.</returns>
-      public Contour PolylineToContour(Polyline2D pline, int i)
+      private List<DxfPrimitive> ParseDxf(DxfDocument dxf)
       {
-         List<StressPoint> points = new(pline.Vertexes.Count);
-         int j = 1;
-         foreach (var item in pline.Vertexes)
+         var result = new List<DxfPrimitive>();
+         int num = 1;
+
+         foreach (var p in dxf.Entities.Polylines2D)
+            result.Add(PolylineToPrimitive(p, num++));
+
+         foreach (var c in dxf.Entities.Circles)
+            result.Add(CircleToPrimitive(c, num++));
+
+         foreach (var a in dxf.Entities.Arcs)
+            result.Add(ArcToPrimitive(a, num++));
+
+         foreach (var group in dxf.Entities.Lines.GroupBy(l => l.Layer.Name))
          {
-            points.Add(new StressPoint(item.Position.X * scale, item.Position.Y * scale) { Num = j });
+            var stitched = StitchLines(group, group.Key, num);
+            result.AddRange(stitched);
+            num += stitched.Count;
+         }
+
+         return result;
+      }
+
+      private DxfPrimitive PolylineToPrimitive(Polyline2D pline, int num)
+      {
+         var verts = pline.Vertexes;
+         bool needClose = pline.IsClosed &&
+            !verts.First().Position.Equals(verts.Last().Position, 1e-4);
+         int total = verts.Count + (needClose ? 1 : 0);
+
+         var xs = new double[total];
+         var ys = new double[total];
+         var pts = new List<StressPoint>(total);
+
+         int j = 0;
+         foreach (var v in verts)
+         {
+            xs[j] = v.Position.X * _scale;
+            ys[j] = v.Position.Y * _scale;
+            pts.Add(new StressPoint(xs[j], ys[j]) { Num = j + 1 });
             j++;
          }
-         Vector2 first = pline.Vertexes.First().Position;
-         Vector2 last = pline.Vertexes.Last().Position;
-         if (pline.IsClosed && !first.Equals(last, 1e-4))
-            points.Add(new StressPoint(first.X * scale, first.Y * scale) { Num = j });
+         if (needClose)
+         {
+            xs[j] = verts.First().Position.X * _scale;
+            ys[j] = verts.First().Position.Y * _scale;
+            pts.Add(new StressPoint(xs[j], ys[j]) { Num = j + 1 });
+         }
 
-         var res = new Contour(points, $"{pline.Layer.Name}") { Num = i, GeometrySet = geometrySet };
-         res.SetWKT();
+         var contour = new Contour(pts, pline.Layer.Name) { Num = num, GeometrySet = _geometrySet };
+         contour.SetWKT();
 
-         return res;
+         return new DxfPrimitive
+         {
+            Kind = DxfPrimitiveKind.Contour,
+            LayerName = pline.Layer.Name,
+            Xs = xs, Ys = ys,
+            Contour = contour
+         };
+      }
+
+      private DxfPrimitive CircleToPrimitive(Circle circle, int num)
+      {
+         var cp = new CircleP(circle.Center.X * _scale, circle.Center.Y * _scale, circle.Radius * _scale)
+         {
+            Num = num,
+            Tag = circle.Layer.Name,
+            GeometrySet = _geometrySet
+         };
+         return new DxfPrimitive
+         {
+            Kind = DxfPrimitiveKind.Circle,
+            LayerName = circle.Layer.Name,
+            CenterX = cp.X, CenterY = cp.Y, Radius = cp.Radius,
+            Circle = cp
+         };
+      }
+
+      private DxfPrimitive ArcToPrimitive(Arc arc, int num)
+      {
+         // netDxf: углы в градусах; Math.Cos/Sin — в радианах
+         double startRad = arc.StartAngle * Math.PI / 180;
+         double endRad   = arc.EndAngle   * Math.PI / 180;
+         if (endRad < startRad) endRad += 2 * Math.PI;
+
+         const int N = 32;
+         var xs = new double[N + 1];
+         var ys = new double[N + 1];
+         var pts = new List<StressPoint>(N + 1);
+
+         for (int i = 0; i <= N; i++)
+         {
+            double angle = startRad + i * (endRad - startRad) / N;
+            xs[i] = (arc.Center.X + arc.Radius * Math.Cos(angle)) * _scale;
+            ys[i] = (arc.Center.Y + arc.Radius * Math.Sin(angle)) * _scale;
+            pts.Add(new StressPoint(xs[i], ys[i]) { Num = i + 1 });
+         }
+
+         var contour = new Contour(pts, arc.Layer.Name) { Num = num, GeometrySet = _geometrySet };
+         contour.SetWKT();
+
+         return new DxfPrimitive
+         {
+            Kind = DxfPrimitiveKind.Contour,
+            LayerName = arc.Layer.Name,
+            Xs = xs, Ys = ys,
+            Contour = contour
+         };
       }
 
       /// <summary>
-      /// Преобразует круг DXF в доменный объект <see cref="CircleP"/>.
-      /// Координаты центра и радиус умножаются на масштабный коэффициент.
+      /// Сшивает набор отрезков одного слоя в замкнутые/незамкнутые цепи.
+      /// Алгоритм: граф смежности + жадный DFS.
       /// </summary>
-      /// <param name="circle">Круг DXF для преобразования.</param>
-      /// <param name="i">Порядковый номер окружности.</param>
-      /// <returns>Объект <see cref="CircleP"/>, созданный из круга DXF.</returns>
-      public CircleP CircleDxfToCircle(Circle circle, int i)
+      private List<DxfPrimitive> StitchLines(IEnumerable<Line> lines, string layerName, int startNum)
       {
-         CircleP res = new(circle.Center.X * scale, circle.Center.Y * scale, circle.Radius * scale )
+         const double tol = 1e-6;
+         (double x, double y) Snap(double x, double y) =>
+            (Math.Round(x / tol) * tol, Math.Round(y / tol) * tol);
+
+         var segs = lines.Select(l => (
+            A: Snap(l.StartPoint.X * _scale, l.StartPoint.Y * _scale),
+            B: Snap(l.EndPoint.X * _scale, l.EndPoint.Y * _scale)
+         )).ToList();
+
+         if (segs.Count == 0) return [];
+
+         var adj = new Dictionary<(double, double), List<int>>();
+         for (int i = 0; i < segs.Count; i++)
          {
-            Num = i,
-            Tag = $"{circle.Layer.Name}",
-            GeometrySet = $"{geometrySet}"
-         };
-         return res;
+            if (!adj.TryGetValue(segs[i].A, out var la)) adj[segs[i].A] = la = [];
+            la.Add(i);
+            if (!adj.TryGetValue(segs[i].B, out var lb)) adj[segs[i].B] = lb = [];
+            lb.Add(i);
+         }
+
+         var used = new bool[segs.Count];
+         var result = new List<DxfPrimitive>();
+         int num = startNum;
+
+         for (int start = 0; start < segs.Count; start++)
+         {
+            if (used[start]) continue;
+            used[start] = true;
+
+            var chain = new List<(double x, double y)> { segs[start].A, segs[start].B };
+            var startPt = segs[start].A;
+            var curPt = segs[start].B;
+
+            while (true)
+            {
+               int next = adj[curPt].FirstOrDefault(i => !used[i], -1);
+               if (next == -1) break;
+               used[next] = true;
+               curPt = segs[next].A == curPt ? segs[next].B : segs[next].A;
+               chain.Add(curPt);
+               if (curPt == startPt) break;
+            }
+
+            if (chain.Count < 2) continue;
+
+            var xs = chain.Select(p => p.x).ToArray();
+            var ys = chain.Select(p => p.y).ToArray();
+            var pts = chain.Select((p, i) => new StressPoint(p.x, p.y) { Num = i + 1 }).ToList();
+
+            var contour = new Contour(pts, layerName) { Num = num, GeometrySet = _geometrySet };
+            contour.SetWKT();
+
+            result.Add(new DxfPrimitive
+            {
+               Kind = DxfPrimitiveKind.Contour,
+               LayerName = layerName,
+               Xs = xs, Ys = ys,
+               Contour = contour
+            });
+            num++;
+         }
+
+         return result;
       }
    }
 }
