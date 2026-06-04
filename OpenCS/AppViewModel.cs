@@ -645,7 +645,7 @@ namespace OpenCS
       /// </summary>
       void NewContour(object? o = null)
       {
-         CurrentContour = new ContourVM();
+         CurrentContour = new ContourVM { mvm = this };
          CurrentPage = new ContourPlot(this, false);
       }
 
