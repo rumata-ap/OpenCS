@@ -87,7 +87,7 @@ namespace OpenCS.Utilites
          mvm.ContoursLive = [];
          for (int i = 0; i < mvm.Contours.Count; i++)
          {
-            mvm.ContoursLive.Add(new ContourVM(mvm.Contours[i]));
+            mvm.ContoursLive.Add(new ContourVM(mvm.Contours[i]) { mvm = mvm });
             mvm.ContoursLive[i].Num = i + 1;
          }
 
