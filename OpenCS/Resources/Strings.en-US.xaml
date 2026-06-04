@@ -200,6 +200,7 @@
     <system:String x:Key="CircleSelection">Circle Selection</system:String>
     <system:String x:Key="Project">Project</system:String>
     <system:String x:Key="DXF">DXF</system:String>
+    <system:String x:Key="DxfLayers">Layers</system:String>
 
     <!-- GeoPropsView -->
     <system:String x:Key="GeoPropsHeader">Geometric Properties</system:String>
