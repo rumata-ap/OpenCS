@@ -15,7 +15,8 @@ namespace OpenCS.Views
    /// <summary>
    /// Интерактивный канвас для отображения и выбора DXF-примитивов.
    /// Zoom — колесо мыши, pan — правая кнопка мыши.
-   /// Выбор — ЛКМ / Shift+ЛКМ / Ctrl+ЛКМ на примитиве.
+   /// Выбор — ЛКМ / Shift+ЛКМ / Ctrl+ЛКМ. Для окружностей достаточно кликнуть
+   /// внутри; для контуров — вблизи линии. При совпадении приоритет у окружностей.
    /// </summary>
    public partial class DxfInteractiveView : UserControl
    {
@@ -26,6 +27,9 @@ namespace OpenCS.Views
       private double _xMin, _xMax, _yMin, _yMax;
       private bool _isPanning;
       private Point _panStart;
+
+      // порог выбора в экранных пикселях
+      private const double HitThresholdPx = 10.0;
 
       /// <summary>
       /// Вызывается при изменении выделения. Передаёт текущий список выделенных примитивов.
@@ -83,7 +87,6 @@ namespace OpenCS.Views
             Shape shape = p.Kind == DxfPrimitiveKind.Contour
                ? MakePolyline(p, color)
                : MakeCirclePath(p, color);
-            shape.MouseLeftButtonDown += OnShapeClicked;
             InnerCanvas.Children.Add(shape);
          }
 
@@ -126,10 +129,8 @@ namespace OpenCS.Views
          UpdateStrokes();
       }
 
-      // Возвращает текущий масштаб трансформации (для компенсации толщины линий)
       private double Scale => Math.Abs(_mt.Matrix.M11);
 
-      // Обновляет StrokeThickness всех фигур так, чтобы на экране они были ~1.5px
       private void UpdateStrokes()
       {
          double s = Scale;
@@ -176,38 +177,95 @@ namespace OpenCS.Views
          RootBorder.ReleaseMouseCapture();
       }
 
+      /// <summary>
+      /// Все клики обрабатываются здесь через ручной hit-test по геометрии.
+      /// Это надёжнее WPF shape hit-test при матричном масштабировании.
+      /// </summary>
       private void OnBorderLeftButtonDown(object sender, MouseButtonEventArgs e)
       {
-         if (Keyboard.Modifiers != ModifierKeys.None) return;
-         foreach (var p in _primitives) p.IsSelected = false;
-         foreach (Shape s in InnerCanvas.Children.OfType<Shape>()) UpdateStyle(s);
-         SelectionChanged?.Invoke([]);
-      }
+         // Преобразуем клик из Border-пространства в DXF-пространство
+         var click = e.GetPosition(RootBorder);
+         var m = _mt.Matrix;
+         if (!m.HasInverse) return;
+         var mi = m;
+         mi.Invert();
+         double dx = mi.M11 * click.X + mi.M21 * click.Y + mi.OffsetX;
+         double dy = mi.M12 * click.X + mi.M22 * click.Y + mi.OffsetY;
 
-      private void OnShapeClicked(object sender, MouseButtonEventArgs e)
-      {
-         if (sender is not Shape shape || shape.Tag is not DxfPrimitive clicked) return;
+         double s = Scale;
+         double thr = s > 1e-10 ? HitThresholdPx / s : double.MaxValue;
+
+         DxfPrimitive? best = null;
+         double bestDist = thr;
+
+         foreach (var p in _primitives)
+         {
+            double d = HitDistance(p, dx, dy);
+            if (d < bestDist) { bestDist = d; best = p; }
+         }
+
          var mod = Keyboard.Modifiers;
 
-         if (mod == ModifierKeys.None)
+         if (best != null)
+         {
+            if (mod == ModifierKeys.None)
+            {
+               foreach (var p in _primitives) p.IsSelected = false;
+               best.IsSelected = true;
+            }
+            else if (mod.HasFlag(ModifierKeys.Shift))
+               best.IsSelected = true;
+            else if (mod.HasFlag(ModifierKeys.Control))
+               best.IsSelected = !best.IsSelected;
+         }
+         else if (mod == ModifierKeys.None)
          {
             foreach (var p in _primitives) p.IsSelected = false;
-            foreach (Shape s in InnerCanvas.Children.OfType<Shape>()) UpdateStyle(s);
-            clicked.IsSelected = true;
          }
-         else if (mod.HasFlag(ModifierKeys.Shift))
-            clicked.IsSelected = true;
-         else if (mod.HasFlag(ModifierKeys.Control))
-            clicked.IsSelected = !clicked.IsSelected;
 
-         UpdateStyle(shape);
+         // Обновляем стиль всех фигур
+         for (int i = 0; i < _primitives.Count && i < InnerCanvas.Children.Count; i++)
+            UpdateStyle((Shape)InnerCanvas.Children[i], _primitives[i]);
+
          SelectionChanged?.Invoke(_primitives.Where(p => p.IsSelected).ToList());
-         e.Handled = true;
       }
 
-      private void UpdateStyle(Shape shape)
+      // Расстояние до примитива в DXF-пространстве.
+      // Для окружностей: 0 если клик внутри — окружность всегда побеждает контур.
+      private static double HitDistance(DxfPrimitive p, double dx, double dy)
       {
-         if (shape.Tag is not DxfPrimitive p) return;
+         if (p.Kind == DxfPrimitiveKind.Circle)
+         {
+            double d = Math.Sqrt((dx - p.CenterX) * (dx - p.CenterX) +
+                                 (dy - p.CenterY) * (dy - p.CenterY));
+            return d <= p.Radius ? 0.0 : d - p.Radius;
+         }
+
+         // Контур: минимальное расстояние до сегментов
+         var xs = p.Xs!; var ys = p.Ys!;
+         double min = double.MaxValue;
+         for (int i = 0; i < xs.Length - 1; i++)
+         {
+            double d = DistToSegment(dx, dy, xs[i], ys[i], xs[i + 1], ys[i + 1]);
+            if (d < min) min = d;
+         }
+         return min;
+      }
+
+      private static double DistToSegment(double px, double py,
+                                          double ax, double ay, double bx, double by)
+      {
+         double ddx = bx - ax, ddy = by - ay;
+         double lenSq = ddx * ddx + ddy * ddy;
+         if (lenSq < 1e-20)
+            return Math.Sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+         double t = Math.Max(0, Math.Min(1, ((px - ax) * ddx + (py - ay) * ddy) / lenSq));
+         double projX = ax + t * ddx, projY = ay + t * ddy;
+         return Math.Sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
+      }
+
+      private void UpdateStyle(Shape shape, DxfPrimitive p)
+      {
          double s = Scale;
          if (p.IsSelected)
          {
@@ -231,8 +289,9 @@ namespace OpenCS.Views
          {
             Points = pts,
             Stroke = ParseBrush(color),
-            StrokeThickness = 1.5,   // пересчитается в UpdateStrokes после FitToView
-            Fill = Brushes.Transparent,
+            StrokeThickness = 1.5,
+            Fill = null,
+            IsHitTestVisible = false,   // hit-test только через OnBorderLeftButtonDown
             Tag = p
          };
       }
@@ -243,8 +302,9 @@ namespace OpenCS.Views
          {
             Data = new EllipseGeometry(new Point(p.CenterX, p.CenterY), p.Radius, p.Radius),
             Stroke = ParseBrush(color),
-            StrokeThickness = 1.5,   // пересчитается в UpdateStrokes после FitToView
+            StrokeThickness = 1.5,
             Fill = null,
+            IsHitTestVisible = false,   // hit-test только через OnBorderLeftButtonDown
             Tag = p
          };
       }
