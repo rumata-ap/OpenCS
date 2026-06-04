@@ -8,7 +8,8 @@
         xmlns:core="clr-namespace:CScore;assembly=CScore"
         xmlns:col="clr-namespace:System.Collections;assembly=mscorlib"
         mc:Ignorable="d"
-        Title="{Binding ProjectTitle}" WindowStartupLocation="CenterScreen" Height="850" Width="1500">
+        Title="{Binding ProjectTitle}" WindowStartupLocation="CenterScreen" Height="850" Width="1500"
+        Closing="Window_Closing">
 
 
    <Window.Resources>
@@ -97,28 +98,33 @@
       <GridSplitter Grid.Column="2" Grid.Row="3"  ShowsPreview="True" Height="4"
         HorizontalAlignment="Stretch" VerticalAlignment="Center" />
 
-      <ListView x:Name="LoggerListBox" Grid.Column="2" Grid.Row="4" SelectionMode="Single" FontSize="11"
-                 ItemsSource="{Binding LogService.LogEntries}">
-         <ListView.ItemTemplate>
-            <DataTemplate>
-               <TextBlock Text="{Binding FormattedMessage}">
-                  <TextBlock.Style>
-                     <Style TargetType="TextBlock">
-                        <Setter Property="Foreground" Value="Blue"/>
-                        <Style.Triggers>
-                           <DataTrigger Binding="{Binding Level}" Value="Error">
-                              <Setter Property="Foreground" Value="Red"/>
-                           </DataTrigger>
-                           <DataTrigger Binding="{Binding Level}" Value="Warning">
-                              <Setter Property="Foreground" Value="Gray"/>
-                           </DataTrigger>
-                        </Style.Triggers>
-                     </Style>
-                  </TextBlock.Style>
-               </TextBlock>
-            </DataTemplate>
-         </ListView.ItemTemplate>
-      </ListView>
+       <ListView x:Name="LoggerListBox" Grid.Column="2" Grid.Row="4" SelectionMode="Single" FontSize="11"
+                  ItemsSource="{Binding LogService.LogEntries}">
+          <ListView.ItemTemplate>
+             <DataTemplate>
+                <TextBlock Text="{Binding FormattedMessage}">
+                   <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                         <Setter Property="Foreground" Value="Blue"/>
+                         <Style.Triggers>
+                            <DataTrigger Binding="{Binding Level}" Value="Error">
+                               <Setter Property="Foreground" Value="Red"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Level}" Value="Warning">
+                               <Setter Property="Foreground" Value="Gray"/>
+                            </DataTrigger>
+                         </Style.Triggers>
+                      </Style>
+                   </TextBlock.Style>
+                </TextBlock>
+             </DataTemplate>
+          </ListView.ItemTemplate>
+           <ListView.ContextMenu>
+              <ContextMenu>
+                 <MenuItem Header="{DynamicResource Copy}" Click="CopyLogEntry_Click" />
+              </ContextMenu>
+           </ListView.ContextMenu>
+       </ListView>
 
 
       <Menu Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="4" FontSize="14" >

@@ -19,6 +19,13 @@ namespace CScore
       public int Id { get; set; }
 
       /// <summary>
+      /// Идентификатор материала. Не сериализуется в JSON —
+      /// разрешается через ResolveReferences() после загрузки из БД.
+      /// </summary>
+      [JsonIgnore]
+      public int MaterialId { get; set; }
+
+      /// <summary>
       /// Порядковый номер области в коллекции.
       /// </summary>
       public int Num { get; set; }

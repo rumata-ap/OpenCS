@@ -5,6 +5,7 @@ using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using OpenCS.Views;
 
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -103,17 +104,31 @@ namespace OpenCS
 
       void DeleteAllDiagrams_Click(object sender, RoutedEventArgs e)
       {
-         var res = MessageBox.Show(Loc.S("ConfirmDeleteAllDiagrams"), Loc.S("Confirmation"),
-            MessageBoxButton.YesNo, MessageBoxImage.Warning);
-         if (res != MessageBoxResult.Yes) return;
+          var res = MessageBox.Show(Loc.S("ConfirmDeleteAllDiagrams"), Loc.S("Confirmation"),
+             MessageBoxButton.YesNo, MessageBoxImage.Warning);
+          if (res != MessageBoxResult.Yes) return;
 
-         foreach (var d in vm.Diagrams.ToList())
-         {
-            vm.db.DeleteDiagram(d);
-            vm.Diagrams.Remove(d);
-         }
-         vm.DiagramsLive.Clear();
-         vm.LogService.Info(Loc.S("AllDiagramsDeleted"));
+          foreach (var d in vm.Diagrams.ToList())
+          {
+             vm.db.DeleteDiagram(d);
+             vm.Diagrams.Remove(d);
+          }
+          vm.DiagramsLive.Clear();
+          vm.LogService.Info(Loc.S("AllDiagramsDeleted"));
+      }
+
+      void Window_Closing(object sender, CancelEventArgs e)
+      {
+         if (!vm.ConfirmSaveIfNeeded())
+            e.Cancel = true;
+         else
+            vm.db.Dispose();
+      }
+
+      void CopyLogEntry_Click(object sender, RoutedEventArgs e)
+      {
+         if (LoggerListBox.SelectedItem is LogEntry entry)
+            Clipboard.SetText(entry.FormattedMessage);
       }
    }
 }

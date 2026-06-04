@@ -25,6 +25,15 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
+      const int CurrentSchemaVersion = 1;
+
+      static readonly string[] Migrations =
+      [
+         """
+         -- v1: начальная схема. Пустая миграция — таблицы создаются в EnsureCreated.
+         """
+      ];
+
       public string DataSource => _dataSource;
 
       public ObservableCollection<Material> Materials { get; } = [];
@@ -48,7 +57,16 @@ namespace OpenCS.Utilites
          _dataSource = dataSource;
          _connection = new SqliteConnection($"Data Source={dataSource}");
          _connection.Open();
+         SetDeleteJournalMode();
          EnsureCreated();
+         Migrate();
+      }
+
+      void SetDeleteJournalMode()
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "PRAGMA journal_mode=DELETE";
+         cmd.ExecuteNonQuery();
       }
 
       private void EnsureCreated()
@@ -104,25 +122,117 @@ namespace OpenCS.Utilites
          cmd.ExecuteNonQuery();
       }
 
+      /// <summary>
+      /// Применяет миграции схемы БД, отсутствующие в текущем файле.
+      /// Версия схемы хранится в таблице settings (ключ 'schema_version').
+      /// Новые базы данных создаются с версией CurrentSchemaVersion.
+      /// Старые базы данных последовательно догоняются миграциями.
+      /// </summary>
+      void Migrate()
+      {
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT value_json FROM settings WHERE key = 'schema_version'";
+         var row = cmd.ExecuteScalar() as string;
+
+         int version = 0;
+         if (row != null)
+         {
+            if (int.TryParse(row, out var v)) version = v;
+            else if (int.TryParse(row.Trim('"'), out v)) version = v;
+         }
+
+         if (version >= CurrentSchemaVersion) return;
+
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            for (int i = version; i < CurrentSchemaVersion; i++)
+            {
+               var migCmd = _connection.CreateCommand();
+               migCmd.CommandText = Migrations[i];
+               migCmd.ExecuteNonQuery();
+            }
+
+            var updCmd = _connection.CreateCommand();
+            updCmd.CommandText = "INSERT OR REPLACE INTO settings (key, value_json) VALUES ('schema_version', $ver)";
+            updCmd.Parameters.AddWithValue("$ver", CurrentSchemaVersion.ToString());
+            updCmd.ExecuteNonQuery();
+
+            tx.Commit();
+         }
+         catch
+         {
+            tx.Rollback();
+            throw;
+         }
+      }
+
       public void ChangeDatabase(string dataSource)
       {
+          CheckpointAndClose();
+          DeleteWalShm(_dataSource);
+          _dataSource = dataSource;
+          RepairWal(dataSource);
+          DeleteWalShm(dataSource);
+          _connection = new SqliteConnection($"Data Source={dataSource}");
+          try
+          {
+             _connection.Open();
+          }
+          catch (SqliteException ex) when (ex.SqliteErrorCode == 26)
+          {
+             _connection.Dispose();
+             throw new Exception("File is not a valid SQLite database. It may have been corrupted during a previous save operation.");
+          }
+          SetDeleteJournalMode();
+          EnsureCreated();
+          Migrate();
+      }
+      /// </summary>
+      static void RepairWal(string dbPath)
+      {
+         if (!File.Exists(dbPath)) return;
+         try
+         {
+            using var conn = new SqliteConnection($"Data Source={dbPath}");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "PRAGMA wal_checkpoint(TRUNCATE)";
+            cmd.ExecuteNonQuery();
+            conn.Close();
+         }
+         catch { }
+         DeleteWalShm(dbPath);
+      }
+
+      private void CheckpointAndClose()
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "PRAGMA wal_checkpoint(TRUNCATE)";
+         cmd.ExecuteNonQuery();
          _connection.Close();
          _connection.Dispose();
-         _dataSource = dataSource;
-         _connection = new SqliteConnection($"Data Source={dataSource}");
-         _connection.Open();
-         EnsureCreated();
+      }
+
+      static void DeleteWalShm(string dbPath)
+      {
+         try { if (File.Exists(dbPath + "-wal")) File.Delete(dbPath + "-wal"); } catch { }
+         try { if (File.Exists(dbPath + "-shm")) File.Delete(dbPath + "-shm"); } catch { }
       }
 
       public void SaveAs(string newPath)
       {
          SaveAll();
-         _connection.Close();
-         _connection.Dispose();
+         CheckpointAndClose();
+         DeleteWalShm(_dataSource);
          File.Copy(_dataSource, newPath, overwrite: true);
+         DeleteWalShm(newPath);
          _dataSource = newPath;
          _connection = new SqliteConnection($"Data Source={newPath}");
          _connection.Open();
+         SetDeleteJournalMode();
+         EnsureCreated();
+         Migrate();
       }
 
       public void SaveAll()
@@ -260,7 +370,8 @@ namespace OpenCS.Utilites
                NX = data.Nx,
                NY = data.Ny,
                Atr = data.Atr,
-               Antr = data.Antr
+               Antr = data.Antr,
+               MaterialId = data.MaterialId ?? 0
             };
 
             // Загрузка арматурных групп
@@ -268,11 +379,12 @@ namespace OpenCS.Utilites
             {
                foreach (var rgData in data.RebarGroups)
                {
-                  var rg = new ReBarGroup
-                  {
-                     Tag = rgData.Tag ?? "",
-                     Type = rgData.Type
-                  };
+                   var rg = new ReBarGroup
+                   {
+                      Tag = rgData.Tag ?? "",
+                      Type = rgData.Type,
+                      MaterialId = rgData.MaterialId ?? 0
+                   };
                   if (rgData.Rebars != null)
                   {
                      foreach (var rbData in rgData.Rebars)
@@ -336,8 +448,27 @@ namespace OpenCS.Utilites
       {
          // Material ← MaterialChars уже связаны через Material.MaterialChars setter
 
-         // Разрешаем Material для ReBarGroup
-         // (загрузка material_id из JSON данных будет в следующей итерации)
+         // Разрешаем Material для RCFiberRegion и его ReBarGroup
+         foreach (var r in RcFiberRegions)
+         {
+            if (r.MaterialId > 0)
+            {
+               var mat = Materials.FirstOrDefault(m => m.Id == r.MaterialId);
+               if (mat != null)
+                  r.Material = mat;
+            }
+         }
+
+         // Разрешаем Material для ReBarGroup (загружаются из JSON)
+         foreach (var rg in RebarGroups)
+         {
+            if (rg.MaterialId > 0)
+            {
+               var mat = Materials.FirstOrDefault(m => m.Id == rg.MaterialId);
+               if (mat != null)
+                  rg.Material = mat;
+            }
+         }
 
          // Разрешаем Contour для Region (связь M:N через regions_json)
          var cmd = _connection.CreateCommand();
@@ -366,7 +497,7 @@ namespace OpenCS.Utilites
       void LoadDiagrams()
       {
          var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, tag, type, material_type, calc_type, material_id, spline_data_json FROM diagrams ORDER BY id";
+         cmd.CommandText = "SELECT id, tag, type, material_type, calc_type, spline_data_json FROM diagrams ORDER BY id";
          using var reader = cmd.ExecuteReader();
          while (reader.Read())
          {
@@ -375,8 +506,7 @@ namespace OpenCS.Utilites
             var type = (DiagrammType)reader.GetInt32(2);
             var matType = (MatType)reader.GetInt32(3);
             var calcType = (CalcType)reader.GetInt32(4);
-            var materialId = reader.GetInt32(5);
-            var splineJson = reader.GetString(6);
+            var splineJson = reader.GetString(5);
              var sd = JsonSerializer.Deserialize<SplineDataJson>(splineJson, _jsonSettings);
             var d = new Diagramm
             {
@@ -385,7 +515,6 @@ namespace OpenCS.Utilites
                Type = type,
                MaterialType = matType,
                CalcType = calcType,
-               MaterialId = materialId,
                Ic = RebuildSpline(sd?.Compression),
                It = RebuildSpline(sd?.Tension)
             };
@@ -414,24 +543,23 @@ namespace OpenCS.Utilites
          };
           var splineJson = JsonSerializer.Serialize(sd, _jsonSettings);
          var cmd = _connection.CreateCommand();
-         if (d.Id == 0)
-         {
-            cmd.CommandText = @"INSERT INTO diagrams (tag, type, material_type, calc_type, material_id, spline_data_json)
-                                VALUES ($tag, $type, $mt, $ct, $mid, $spl);
-                                SELECT last_insert_rowid();";
-         }
-         else
-         {
-            cmd.CommandText = @"UPDATE diagrams SET tag=$tag, type=$type, material_type=$mt,
-                                calc_type=$ct, material_id=$mid, spline_data_json=$spl WHERE id=$id";
-            cmd.Parameters.AddWithValue("$id", d.Id);
-         }
-         cmd.Parameters.AddWithValue("$tag", d.Tag ?? "");
-         cmd.Parameters.AddWithValue("$type", (int)d.Type);
-         cmd.Parameters.AddWithValue("$mt", (int)d.MaterialType);
-         cmd.Parameters.AddWithValue("$ct", (int)d.CalcType);
-         cmd.Parameters.AddWithValue("$mid", d.MaterialId);
-         cmd.Parameters.AddWithValue("$spl", splineJson);
+          if (d.Id == 0)
+          {
+             cmd.CommandText = @"INSERT INTO diagrams (tag, type, material_type, calc_type, spline_data_json)
+                                 VALUES ($tag, $type, $mt, $ct, $spl);
+                                 SELECT last_insert_rowid();";
+          }
+          else
+          {
+             cmd.CommandText = @"UPDATE diagrams SET tag=$tag, type=$type, material_type=$mt,
+                                 calc_type=$ct, spline_data_json=$spl WHERE id=$id";
+             cmd.Parameters.AddWithValue("$id", d.Id);
+          }
+          cmd.Parameters.AddWithValue("$tag", d.Tag ?? "");
+          cmd.Parameters.AddWithValue("$type", (int)d.Type);
+          cmd.Parameters.AddWithValue("$mt", (int)d.MaterialType);
+          cmd.Parameters.AddWithValue("$ct", (int)d.CalcType);
+          cmd.Parameters.AddWithValue("$spl", splineJson);
          if (d.Id == 0)
             d.Id = Convert.ToInt32(cmd.ExecuteScalar());
          else
@@ -818,8 +946,7 @@ namespace OpenCS.Utilites
 
       public void Dispose()
       {
-         _connection.Close();
-         _connection.Dispose();
+         CheckpointAndClose();
       }
    }
 }

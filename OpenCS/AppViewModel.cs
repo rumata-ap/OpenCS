@@ -136,6 +136,12 @@ namespace OpenCS
       public string? CurrentProjectPath { get; private set; }
 
       /// <summary>
+      /// Признак наличия несохранённых изменений. Устанавливается при изменении данных,
+      /// сбрасывается при сохранении или после загрузки проекта.
+      /// </summary>
+      public bool IsDirty { get; set; }
+
+      /// <summary>
       /// Заголовок окна приложения. Содержит имя текущего файла проекта.
       /// </summary>
       public string ProjectTitle
@@ -233,7 +239,12 @@ namespace OpenCS
       /// <summary>
       /// Отфильтрованная коллекция диаграмм для отображения в TreeView.
       /// </summary>
-      public ObservableCollection<Diagramm> DiagramsLive { get; set; } = [];
+       public ObservableCollection<Diagramm> DiagramsLive
+       {
+          get => diagramsLive;
+          set { diagramsLive = value; OnPropertyChanged(); }
+       }
+       ObservableCollection<Diagramm> diagramsLive = [];
 
       /// <summary>
       /// Текущая страница содержимого, отображаемая в главном окне.
@@ -262,7 +273,7 @@ namespace OpenCS
       public ContourVM? CurrentContour
       {
          get => currentContour;
-         set { currentContour = value; CurrentPage = new ContourPlot(this); OnPropertyChanged(); }
+         set { currentContour = value; CurrentPage = value != null ? new ContourPlot(this) : null; OnPropertyChanged(); }
       }
 
       /// <summary>
@@ -287,7 +298,7 @@ namespace OpenCS
       public RCFiberRegion? CurrentRCfiberRegion
       {
          get => currentRCfiberRegion;
-         set { currentRCfiberRegion = value; CurrentPage = new RCFiberRegionView(value, this); OnPropertyChanged(); }
+         set { currentRCfiberRegion = value; CurrentPage = value != null ? new RCFiberRegionView(value, this) : null; OnPropertyChanged(); }
       }
 
       /// <summary>
@@ -435,16 +446,94 @@ namespace OpenCS
       /// </summary>
       /// <param name="logService">Сервис логирования, инжектируемый в ViewModel.</param>
       /// <param name="fileDialogService">Сервис файловых диалогов, инжектируемый в ViewModel.</param>
-      public AppViewModel(ILogService logService, IFileDialogService fileDialogService)
-      {
-         LogService = logService;
-         FileDialogService = fileDialogService;
+       public AppViewModel(ILogService logService, IFileDialogService fileDialogService)
+       {
+          LogService = logService;
+          FileDialogService = fileDialogService;
 
-         db.LoadAll();
-         PlotSettings = db.LoadPlotSettings() ?? Utilites.PlotSettings.Default;
-         CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
-         InitializeCollections();
-         InitializeCommands();
+          InitNewDatabase();
+          PlotSettings = db.LoadPlotSettings() ?? Utilites.PlotSettings.Default;
+          CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
+          InitializeCollections();
+           InitializeCommands();
+        }
+
+      /// <summary>
+      /// Создаёт новую временную базу данных и переключается на неё.
+      /// </summary>
+      void InitNewDatabase()
+      {
+         var tempPath = Path.Combine(Path.GetTempPath(), "opencs_new.db");
+         if (File.Exists(tempPath)) File.Delete(tempPath);
+         if (File.Exists(tempPath + "-wal")) File.Delete(tempPath + "-wal");
+         if (File.Exists(tempPath + "-shm")) File.Delete(tempPath + "-shm");
+         db.ChangeDatabase(tempPath);
+      }
+
+      /// <summary>
+      /// Завершает работу приложения.
+      /// </summary>
+      private void Exit(object? o = null)
+      {
+         if (Application.Current.MainWindow != null)
+            Application.Current.MainWindow.Close();
+         else
+            Application.Current.Shutdown();
+      }
+
+      /// <summary>
+      /// Проверяет, нужно ли сохранять проект, и показывает диалог при необходимости.
+      /// Возвращает true, если можно продолжить закрытие; false, если пользователь отменил.
+      /// </summary>
+      public bool ConfirmSaveIfNeeded()
+      {
+         if (CurrentProjectPath != null && !IsDirty)
+            return true;
+
+         if (CurrentProjectPath != null && IsDirty)
+         {
+            try { db.SaveAll(); } catch { }
+            IsDirty = false;
+            return true;
+         }
+
+         var result = MessageBox.Show(
+            Loc.S("ConfirmSaveOnExit"),
+            Loc.S("Confirmation"),
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question);
+
+         if (result == MessageBoxResult.Yes)
+         {
+            SaveProject();
+            return CurrentProjectPath != null;
+         }
+         if (result == MessageBoxResult.No)
+            return true;
+
+         return false;
+      }
+
+      /// <summary>
+      /// Сохраняет проект. Если путь не задан — показывает диалог «Сохранить как».
+      /// </summary>
+      void SaveProject()
+      {
+         if (CurrentProjectPath == null)
+         {
+            SaveAsProject();
+            return;
+         }
+         try
+         {
+            db.SaveAll();
+            IsDirty = false;
+            LogService.Info(Loc.S("ProjectSaved"));
+         }
+         catch (Exception ex)
+         {
+            LogService.Error(string.Format(Loc.S("ProjectSaveError"), ex.Message));
+         }
       }
 
       void InitializeCollections()
@@ -465,6 +554,11 @@ namespace OpenCS
 
          Materials.CollectionChanged += Concretes_CollectionChanged;
          Contours.CollectionChanged += Contours_CollectionChanged;
+         Materials.CollectionChanged += (_, _) => IsDirty = true;
+         Contours.CollectionChanged += (_, _) => IsDirty = true;
+         Circles.CollectionChanged += (_, _) => IsDirty = true;
+         RcFiberRegions.CollectionChanged += (_, _) => IsDirty = true;
+         Diagrams.CollectionChanged += (_, _) => IsDirty = true;
          MaterialsSort();
 
          this.ContoursRenumber();
@@ -490,7 +584,7 @@ namespace OpenCS
          OpenProjectCommand = new RelayCommand(OpenProject);
          SaveProjectCommand = new RelayCommand(SaveProject);
          SaveAsProjectCommand = new RelayCommand(SaveAsProject);
-         ExitCommand = new RelayCommand(Exit);
+          ExitCommand = new RelayCommand(Exit);
          OpenPlotSettingsCommand = new RelayCommand(_ => new Views.SettingsWindow(this).ShowDialog());
          OpenCsvSettingsCommand = new RelayCommand(_ => new Views.CsvSettingsWindow(this).ShowDialog());
          SetLanguageCommand = new RelayCommand(SetLanguage);
@@ -668,6 +762,8 @@ namespace OpenCS
          RegionsLive = new(Regions); this.RegionsRenumber();
          FiberRegionsLive = new(FiberRegions); this.FiberRegionsRenumber();
          RcFiberRegionsLive = new(RcFiberRegions); this.RCFiberRegionsRenumber();
+         DiagramsLive = [.. Diagrams];
+         IsDirty = false;
       }
 
       /// <summary>
@@ -676,20 +772,18 @@ namespace OpenCS
       /// </summary>
       private void NewProject(object? o = null)
       {
-         var tempPath = Path.Combine(Path.GetTempPath(), "opencs_new.db");
          try
          {
-            if (File.Exists(tempPath)) File.Delete(tempPath);
-            db.ChangeDatabase(tempPath);
+            InitNewDatabase();
             db.ClearCollections();
             RefreshAfterLoad();
             CurrentProjectPath = null;
             OnPropertyChanged(nameof(ProjectTitle));
             LogService.Info(Loc.S("ProjectCreated"));
-          }
-          catch (Exception ex)
-          {
-             LogService.Error(string.Format(Loc.S("ProjectCreatedError"), ex.Message));
+         }
+         catch (Exception ex)
+         {
+            LogService.Error(string.Format(Loc.S("ProjectCreatedError"), ex.Message));
          }
       }
 
@@ -705,6 +799,8 @@ namespace OpenCS
          if (path == null) return;
          try
          {
+            if (!IsSqliteDatabase(path))
+               throw new Exception(Loc.S("NotSqliteDatabase"));
             db.SaveAll();
             db.ChangeDatabase(path);
             db.ClearCollections();
@@ -717,7 +813,20 @@ namespace OpenCS
           catch (Exception ex)
           {
              LogService.Error(string.Format(Loc.S("ProjectOpenError"), ex.Message));
+          }
+      }
+
+      static bool IsSqliteDatabase(string path)
+      {
+         try
+         {
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            var buf = new byte[16];
+            if (fs.Read(buf, 0, 16) < 16) return false;
+            var header = System.Text.Encoding.ASCII.GetString(buf, 0, 15);
+            return header == "SQLite format 3";
          }
+         catch { return false; }
       }
 
       /// <summary>
@@ -755,24 +864,16 @@ namespace OpenCS
          if (path == null) return;
          try
          {
-            db.SaveAs(path);
-            CurrentProjectPath = path;
-            OnPropertyChanged(nameof(ProjectTitle));
+             db.SaveAs(path);
+             CurrentProjectPath = path;
+             IsDirty = false;
+             OnPropertyChanged(nameof(ProjectTitle));
             LogService.Info(string.Format(Loc.S("ProjectSavedPath"), path));
           }
           catch (Exception ex)
           {
              LogService.Error(string.Format(Loc.S("ProjectSaveError"), ex.Message));
          }
-      }
-
-      /// <summary>
-      /// Обработчик команды <see cref="ExitCommand"/>.
-      /// Завершает работу приложения.
-      /// </summary>
-      private void Exit(object? o = null)
-      {
-         Application.Current.Shutdown();
       }
 
       /// <summary>

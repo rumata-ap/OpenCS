@@ -10,8 +10,9 @@
    <system:String x:Key="File">Файл</system:String>
    <system:String x:Key="New">Новый</system:String>
    <system:String x:Key="Open">Открыть</system:String>
-   <system:String x:Key="Save">Сохранить</system:String>
-   <system:String x:Key="Exit">Выход</system:String>
+     <system:String x:Key="Save">Сохранить</system:String>
+     <system:String x:Key="SaveAs">Сохранить как...</system:String>
+     <system:String x:Key="Exit">Выход</system:String>
    <system:String x:Key="Edit">Изменить</system:String>
    <system:String x:Key="View">Вид</system:String>
    <system:String x:Key="Settings">Настройки</system:String>
@@ -251,12 +252,15 @@
     <system:String x:Key="ProjectCreatedError">Ошибка при создании нового проекта: {0}</system:String>
     <system:String x:Key="OpenProject">Открыть проект</system:String>
     <system:String x:Key="ProjectOpened">Проект открыт: {0}</system:String>
-    <system:String x:Key="ProjectOpenError">Ошибка при открытии проекта: {0}</system:String>
+     <system:String x:Key="ProjectOpenError">Ошибка при открытии проекта: {0}</system:String>
+     <system:String x:Key="NotSqliteDatabase">Выбранный файл не является базой данных SQLite</system:String>
     <system:String x:Key="ProjectSaved">Проект сохранен</system:String>
     <system:String x:Key="ProjectSaveError">Ошибка при сохранении проекта: {0}</system:String>
     <system:String x:Key="SaveProjectAs">Сохранить проект как</system:String>
     <system:String x:Key="ProjectSavedPath">Проект сохранен: {0}</system:String>
-    <system:String x:Key="SqliteDbFilter">SQLite база данных (*.db)|*.db|Все файлы (*.*)|*.*</system:String>
+     <system:String x:Key="SqliteDbFilter">SQLite база данных (*.db)|*.db|Все файлы (*.*)|*.*</system:String>
+     <system:String x:Key="ConfirmSaveOnExit">Проект не сохранён. Сохранить перед закрытием?</system:String>
+     <system:String x:Key="Copy">Копировать</system:String>
 
     <!-- DiagramPage / MaterialCharsPage code-behind -->
     <system:String x:Key="MaterialColon">Материал:</system:String>

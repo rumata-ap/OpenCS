@@ -30,7 +30,7 @@ namespace OpenCS.Views
          this.diagram = diagram;
 
          titleText.Text = diagram.Tag;
-          infoText.Text = $"{Loc.S("MaterialColon")} {(diagram.MaterialId > 0 ? $"id={diagram.MaterialId}" : "—")}  |  {Loc.S("CalcTypeColon")} {diagram.CalcType}";
+          infoText.Text = $"{Loc.S("MaterialColon")} {diagram.MaterialType}  |  {Loc.S("CalcTypeColon")} {diagram.CalcType}";
 
          _plotService = new WpfPlotService(plot);
          _plotService.ApplySettings(mvm.PlotSettings);

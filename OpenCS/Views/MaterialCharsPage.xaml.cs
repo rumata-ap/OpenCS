@@ -69,8 +69,7 @@ namespace OpenCS.Views
             return;
          }
 
-          diagram.MaterialId = parentMaterial.Id;
-          diagram.CalcType = materialChars.TypeCalc;
+           diagram.CalcType = materialChars.TypeCalc;
           diagram.Tag ??= $"{parentMaterial.Tag} [{dialog.SelectedType}] {materialChars.TypeCalc}";
 
           if (diagram.Ic != null)
