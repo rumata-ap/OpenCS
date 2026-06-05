@@ -289,4 +289,19 @@
     <system:String x:Key="DiagL3_ReSteelU">Tri-linear (L3) — reinforcement with conditional yield</system:String>
     <system:String x:Key="DiagL2_Steel">Bi-linear (L2) — structural steel</system:String>
 
+   <!-- RibbonBar -->
+   <system:String x:Key="RibbonHome">Home</system:String>
+   <system:String x:Key="RibbonGroupGeometry">Geometry</system:String>
+   <system:String x:Key="RibbonGroupMaterials">Materials</system:String>
+   <system:String x:Key="RibbonGroupRegions">Regions</system:String>
+   <system:String x:Key="RibbonGroupSettings">Settings</system:String>
+   <system:String x:Key="TipNewContour">New contour</system:String>
+   <system:String x:Key="TipDelContour">Delete contour</system:String>
+   <system:String x:Key="TipNewMaterial">New material</system:String>
+   <system:String x:Key="TipDelMaterial">Delete material</system:String>
+   <system:String x:Key="TipNewRCRegion">New RC region</system:String>
+   <system:String x:Key="TipDelRCRegion">Delete RC region</system:String>
+   <system:String x:Key="TipPlotSettings">Plot settings</system:String>
+   <system:String x:Key="TipCsvSettings">CSV export settings</system:String>
+
  </ResourceDictionary>
