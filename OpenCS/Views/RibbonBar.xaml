@@ -1,0 +1,96 @@
+<UserControl x:Class="OpenCS.Views.RibbonBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+   <TabControl BorderThickness="0,0,0,1" BorderBrush="#CCCCCC" Background="#F5F5F5" Padding="0">
+      <TabItem Header="{DynamicResource RibbonHome}">
+         <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="4,2">
+
+            <!-- Геометрия -->
+            <Border BorderBrush="#CCCCCC" BorderThickness="0,0,1,0" Padding="4,0,8,0">
+               <StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                     <Button Style="{StaticResource RibbonButton}"
+                             Command="{Binding FromDxfCommand}"
+                             ToolTip="{DynamicResource FromDxf}">
+                        <Image Source="{StaticResource di_dxf_file_xaml}"/>
+                     </Button>
+                     <Button Style="{StaticResource RibbonButton}"
+                             Command="{Binding NewContourCommand}"
+                             ToolTip="{DynamicResource TipNewContour}">
+                        <Image Source="{StaticResource addDrawingImage}"/>
+                     </Button>
+                     <Button Style="{StaticResource RibbonButton}"
+                             Command="{Binding DelContourCommand}"
+                             ToolTip="{DynamicResource TipDelContour}">
+                        <Image Source="{StaticResource deleteDrawingImage}"/>
+                     </Button>
+                  </StackPanel>
+                  <TextBlock Text="{DynamicResource RibbonGroupGeometry}"
+                             FontSize="10" Foreground="Gray" HorizontalAlignment="Center"/>
+               </StackPanel>
+            </Border>
+
+            <!-- Материалы -->
+            <Border BorderBrush="#CCCCCC" BorderThickness="0,0,1,0" Padding="4,0,8,0">
+               <StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                     <Button Style="{StaticResource RibbonButton}"
+                             Command="{Binding NewMaterialCommand}"
+                             ToolTip="{DynamicResource TipNewMaterial}">
+                        <Image Source="/Images/add__32.png"/>
+                     </Button>
+                     <Button Style="{StaticResource RibbonButton}"
+                             Command="{Binding DelMaterialCommand}"
+                             ToolTip="{DynamicResource TipDelMaterial}">
+                        <Image Source="/Images/delete--32.png"/>
+                     </Button>
+                  </StackPanel>
+                  <TextBlock Text="{DynamicResource RibbonGroupMaterials}"
+                             FontSize="10" Foreground="Gray" HorizontalAlignment="Center"/>
+               </StackPanel>
+            </Border>
+
+            <!-- Регионы -->
+            <Border BorderBrush="#CCCCCC" BorderThickness="0,0,1,0" Padding="4,0,8,0">
+               <StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                     <Button Style="{StaticResource RibbonButton}"
+                             Command="{Binding NewRCFiberRegionCommand}"
+                             ToolTip="{DynamicResource TipNewRCRegion}">
+                        <Image Source="/Images/add__32.png"/>
+                     </Button>
+                     <Button Style="{StaticResource RibbonButton}"
+                             Command="{Binding DeleteRCFiberRegionCommand}"
+                             ToolTip="{DynamicResource TipDelRCRegion}">
+                        <Image Source="/Images/delete__32.png"/>
+                     </Button>
+                  </StackPanel>
+                  <TextBlock Text="{DynamicResource RibbonGroupRegions}"
+                             FontSize="10" Foreground="Gray" HorizontalAlignment="Center"/>
+               </StackPanel>
+            </Border>
+
+            <!-- Настройки -->
+            <Border Padding="4,0,8,0">
+               <StackPanel>
+                  <StackPanel Orientation="Horizontal">
+                     <Button Style="{StaticResource RibbonButton}"
+                             Command="{Binding OpenPlotSettingsCommand}"
+                             ToolTip="{DynamicResource TipPlotSettings}">
+                        <Image Source="/Images/diagramma--32.png"/>
+                     </Button>
+                     <Button Style="{StaticResource RibbonButton}"
+                             Command="{Binding OpenCsvSettingsCommand}"
+                             ToolTip="{DynamicResource TipCsvSettings}">
+                        <Image Source="/Images/diagramma--32.png"/>
+                     </Button>
+                  </StackPanel>
+                  <TextBlock Text="{DynamicResource RibbonGroupSettings}"
+                             FontSize="10" Foreground="Gray" HorizontalAlignment="Center"/>
+               </StackPanel>
+            </Border>
+
+         </StackPanel>
+      </TabItem>
+   </TabControl>
+</UserControl>
