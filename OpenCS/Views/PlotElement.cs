@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Media;
+using CScore;
 
 namespace OpenCS.Views
 {
@@ -97,6 +98,53 @@ namespace OpenCS.Views
          {
             var pt = toPixel(Xs[i], Ys[i]);
             dc.DrawEllipse(Fill, null, pt, half, half);
+         }
+      }
+   }
+
+   /// <summary>
+   /// Элемент рендеринга сетки фибр. Все фибры рисуются одним StreamGeometry
+   /// (режим Elements) или как маркеры-точки (режим Centroids).
+   /// </summary>
+   public record FiberMeshElement : PlotElement
+   {
+      public Fiber[] Fibers          { get; init; } = [];
+      public bool ShowCentroids      { get; init; } = false;
+      public Brush Fill              { get; init; } = Brushes.LightSteelBlue;
+      public Brush Stroke            { get; init; } = Brushes.SteelBlue;
+      public double StrokeThickness  { get; init; } = 0.5;
+      public double MarkerSize       { get; init; } = 3;
+
+      public override void Render(DrawingContext dc, Func<double, double, Point> toPixel)
+      {
+         if (Fibers.Length == 0) return;
+
+         if (ShowCentroids)
+         {
+            double half = MarkerSize / 2.0;
+            foreach (var f in Fibers)
+            {
+               var pt = toPixel(f.X, f.Y);
+               dc.DrawEllipse(Fill, null, pt, half, half);
+            }
+         }
+         else
+         {
+            var stream = new StreamGeometry();
+            using (var ctx = stream.Open())
+            {
+               foreach (var f in Fibers)
+               {
+                  if (f.WKT == null) continue;
+                  WktHelper.ParseWKTPolygon(f.WKT, out var xs, out var ys, out _, out _);
+                  if (xs.Count < 3) continue;
+                  ctx.BeginFigure(toPixel(xs[0], ys[0]), isFilled: true, isClosed: true);
+                  for (int i = 1; i < xs.Count; i++)
+                     ctx.LineTo(toPixel(xs[i], ys[i]), isStroked: true, isSmoothJoin: false);
+               }
+            }
+            stream.Freeze();
+            dc.DrawGeometry(Fill, new Pen(Stroke, StrokeThickness), stream);
          }
       }
    }
