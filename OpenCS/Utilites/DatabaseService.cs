@@ -316,6 +316,8 @@ namespace OpenCS.Utilites
          LoadRCFiberRegions();
          LoadDiagrams();
          ResolveReferences();
+         LoadCrossSections();
+         ResolveReferencesForCrossSections();
       }
 
       void LoadMaterials()
@@ -532,6 +534,141 @@ namespace OpenCS.Utilites
                   region.Contours.Add(contour);
                }
             }
+         }
+      }
+
+      void LoadCrossSections()
+      {
+         CrossSections.Clear();
+
+         var sections = new Dictionary<int, CrossSection>();
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = "SELECT id, num, tag, description, type FROM cross_sections ORDER BY num";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               CrossSection cs = r.GetString(4) == "two_stage"
+                  ? new TwoStageSection()
+                  : new CrossSection();
+               cs.Id = r.GetInt32(0);
+               cs.Num = r.GetInt32(1);
+               cs.Tag = r.GetString(2);
+               cs.Description = r.IsDBNull(3) ? null : r.GetString(3);
+               sections[cs.Id] = cs;
+            }
+         }
+
+         var areas = new Dictionary<int, MaterialArea>();
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               SELECT id, section_id, num, tag, description,
+                      material_id, host_area_id, diagramm_type, nx, ny, wkt
+               FROM material_areas ORDER BY section_id, num
+            """;
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               var area = new MaterialArea
+               {
+                  Id = r.GetInt32(0),
+                  SectionId = r.GetInt32(1),
+                  Num = r.GetInt32(2),
+                  Tag = r.GetString(3),
+                  Description = r.IsDBNull(4) ? null : r.GetString(4),
+                  MaterialId = r.IsDBNull(5) ? 0 : r.GetInt32(5),
+                  HostAreaId = r.IsDBNull(6) ? null : r.GetInt32(6),
+                  DiagrammType = Enum.Parse<DiagrammType>(r.GetString(7)),
+                  NX = r.GetInt32(8),
+                  NY = r.GetInt32(9),
+                  WKT = r.IsDBNull(10) ? null : r.GetString(10)
+               };
+               if (area.WKT != null)
+               {
+                  WktHelper.ParseWKTPolygon(area.WKT,
+                     out var outerX, out var outerY,
+                     out var holeXs, out var holeYs);
+                  if (outerX.Count >= 5)
+                  {
+                     var hull = new Contour(outerX, outerY, "hull") { Type = ContourType.Hull };
+                     area.Contours.Add(hull);
+                  }
+                  for (int j = 0; j < holeXs.Count; j++)
+                     if (holeXs[j].Count >= 5)
+                     {
+                        var hole = new Contour(holeXs[j], holeYs[j], $"hole{j}") { Type = ContourType.Hole };
+                        area.Contours.Add(hole);
+                     }
+               }
+               areas[area.Id] = area;
+               if (sections.TryGetValue(area.SectionId, out var sec))
+                  sec.Areas.Add(area);
+            }
+         }
+
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = "SELECT area_id, x, y, area, diameter, eps_p FROM point_fibers";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               int areaId = r.GetInt32(0);
+               if (!areas.TryGetValue(areaId, out var area)) continue;
+               var f = new Fiber(r.GetDouble(1), r.GetDouble(2))
+               {
+                  Area = r.GetDouble(3),
+                  Diameter = r.GetDouble(4),
+                  Eps_p = r.GetDouble(5),
+                  TypeFiber = FiberType.point
+               };
+               area.Fibers.Add(f);
+            }
+         }
+
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = "SELECT section_id, stage1_section_id FROM cross_section_stages";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               int sId = r.GetInt32(0); int s1Id = r.GetInt32(1);
+               if (sections.TryGetValue(sId, out var sec) && sec is TwoStageSection tss
+                  && sections.TryGetValue(s1Id, out var stage1))
+               {
+                  tss.Stage1 = stage1;
+                  tss.Stage1SectionId = s1Id;
+               }
+            }
+         }
+
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = "SELECT section_id, e0, ky, kz FROM cross_section_stage_kurvature";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               int sId = r.GetInt32(0);
+               if (sections.TryGetValue(sId, out var sec) && sec is TwoStageSection tss)
+                  tss.Stage1Kurvature = new Kurvature
+                  { e0 = r.GetDouble(1), ky = r.GetDouble(2), kz = r.GetDouble(3) };
+            }
+         }
+
+         foreach (var sec in sections.Values)
+            CrossSections.Add(sec);
+      }
+
+      void ResolveReferencesForCrossSections()
+      {
+         foreach (var sec in CrossSections)
+         {
+            foreach (var area in sec.Areas)
+               area.Material = Materials.FirstOrDefault(m => m.Id == area.MaterialId);
+            sec.ResolveAndBuildDiagramms();
+            if (sec is TwoStageSection tss)
+               foreach (var area in tss.Stage1.Areas)
+                  area.Material = Materials.FirstOrDefault(m => m.Id == area.MaterialId);
          }
       }
 
