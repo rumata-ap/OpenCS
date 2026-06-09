@@ -97,6 +97,7 @@ namespace OpenCS
 
       CrossSection? currentCrossSection;
       ObservableCollection<CrossSection> crossSectionsLive = [];
+      MaterialArea? currentMaterialArea;
 
       /// <summary>
       /// Путь к текущему файлу проекта. null если проект ещё не был сохранён.
@@ -196,6 +197,49 @@ namespace OpenCS
             OnPropertyChanged();
          }
       }
+
+      /// <summary>Коллекция самостоятельных MaterialArea проекта.</summary>
+      public ObservableCollection<MaterialArea> MaterialAreas { get; set; }
+
+      /// <summary>Области с полигональной геометрией (Category == Region).</summary>
+      public ObservableCollection<MaterialArea> AreasLive { get; set; } = [];
+
+      /// <summary>Группы арматурных стержней (Category == RebarGroup).</summary>
+      public ObservableCollection<MaterialArea> RebarGroupsLive { get; set; } = [];
+
+      /// <summary>Одиночные стержни (Category == SingleBar).</summary>
+      public ObservableCollection<MaterialArea> SingleBarsLive { get; set; } = [];
+
+      /// <summary>Простые фибровые сечения (не TwoStageSection).</summary>
+      public ObservableCollection<CrossSection> FiberSectionsLive { get; set; } = [];
+
+      /// <summary>Двухстадийные сечения (TwoStageSection).</summary>
+      public ObservableCollection<CrossSection> TwoStageSectionsLive { get; set; } = [];
+
+      /// <summary>Текущая выбранная MaterialArea. Открывает MaterialAreaPage.</summary>
+      public MaterialArea? CurrentMaterialArea
+      {
+         get => currentMaterialArea;
+         set
+         {
+            currentMaterialArea = value;
+            if (value != null)
+               CurrentPage = new Views.MaterialAreaPage(value, this);
+            OnPropertyChanged();
+         }
+      }
+
+      /// <summary>Команда создания новой полигональной области.</summary>
+      public ICommand NewAreaCommand { get; set; }
+
+      /// <summary>Команда удаления текущей MaterialArea.</summary>
+      public ICommand DeleteMaterialAreaCommand { get; set; }
+
+      /// <summary>Команда создания новой группы арматуры (реализуется в Блоке 3).</summary>
+      public ICommand NewRebarGroupCommand { get; set; }
+
+      /// <summary>Команда создания одиночного стержня (реализуется в Блоке 3).</summary>
+      public ICommand NewSingleBarCommand { get; set; }
 
       /// <summary>Команда создания нового поперечного сечения.</summary>
       public ICommand NewCrossSectionCommand { get; set; }
@@ -489,6 +533,8 @@ namespace OpenCS
          Diagrams = db.Diagrams;
          CrossSections = db.CrossSections;
          CrossSections.CollectionChanged += (_, _) => IsDirty = true;
+         MaterialAreas = db.MaterialAreas;
+         MaterialAreas.CollectionChanged += (_, _) => { RefreshMaterialAreaLiveCollections(); IsDirty = true; };
 
          Materials.CollectionChanged += Concretes_CollectionChanged;
          Contours.CollectionChanged += Contours_CollectionChanged;
@@ -502,6 +548,8 @@ namespace OpenCS
          CirclesLive = new(Circles); this.CirclesRenumber();
          DiagramsLive = [.. Diagrams];
          CrossSectionsLive = new(CrossSections); CrossSectionsRenumber();
+         RefreshMaterialAreaLiveCollections();
+         RefreshSectionLiveCollections();
       }
 
       void InitializeCommands()
@@ -522,6 +570,10 @@ namespace OpenCS
          NewCrossSectionCommand    = new RelayCommand(_ => NewCrossSection());
          EditCrossSectionCommand   = new RelayCommand(_ => EditCrossSection());
          DeleteCrossSectionCommand = new RelayCommand(_ => DeleteCrossSection());
+         NewAreaCommand            = new RelayCommand(_ => NewArea());
+         DeleteMaterialAreaCommand = new RelayCommand(_ => DeleteMaterialArea());
+         NewRebarGroupCommand      = new RelayCommand(_ => { });  // Блок 3
+         NewSingleBarCommand       = new RelayCommand(_ => { }); // Блок 3
       }
 
       void SetLanguage(object? param)
@@ -618,12 +670,16 @@ namespace OpenCS
          CurrentMaterial = null;
          CurrentContour = null;
          currentCrossSection = null;
+         currentMaterialArea = null;
          OnPropertyChanged(nameof(CurrentCrossSection));
+         OnPropertyChanged(nameof(CurrentMaterialArea));
          MaterialsSort();
          this.ContoursRenumber();
          CirclesLive = new(Circles); this.CirclesRenumber();
          DiagramsLive = [.. Diagrams];
          CrossSectionsLive = new(CrossSections); CrossSectionsRenumber();
+         RefreshMaterialAreaLiveCollections();
+         RefreshSectionLiveCollections();
          IsDirty = false;
       }
 
@@ -892,6 +948,45 @@ namespace OpenCS
          var sec = CrossSections.FirstOrDefault(s => s.Areas.Contains(vm.Model));
          if (sec == null) return;
          sec.Areas.Remove(vm.Model);
+         IsDirty = true;
+      }
+
+      public void RefreshMaterialAreaLiveCollections()
+      {
+         AreasLive       = new(MaterialAreas.Where(a => a.Category == AreaCategory.Region));
+         RebarGroupsLive = new(MaterialAreas.Where(a => a.Category == AreaCategory.RebarGroup));
+         SingleBarsLive  = new(MaterialAreas.Where(a => a.Category == AreaCategory.SingleBar));
+         OnPropertyChanged(nameof(AreasLive));
+         OnPropertyChanged(nameof(RebarGroupsLive));
+         OnPropertyChanged(nameof(SingleBarsLive));
+      }
+
+      public void RefreshSectionLiveCollections()
+      {
+         FiberSectionsLive    = new(CrossSections.Where(s => s is not TwoStageSection));
+         TwoStageSectionsLive = new(CrossSections.OfType<TwoStageSection>());
+         OnPropertyChanged(nameof(FiberSectionsLive));
+         OnPropertyChanged(nameof(TwoStageSectionsLive));
+      }
+
+      void NewArea()
+      {
+         var area = new MaterialArea
+         {
+            Tag = $"Область {MaterialAreas.Count + 1}",
+            Category = AreaCategory.Region
+         };
+         CurrentPage = new Views.MaterialAreaPage(area, this);
+      }
+
+      void DeleteMaterialArea()
+      {
+         if (currentMaterialArea == null) return;
+         db.DeleteMaterialArea(currentMaterialArea);
+         RefreshMaterialAreaLiveCollections();
+         currentMaterialArea = null;
+         CurrentPage = null;
+         OnPropertyChanged(nameof(CurrentMaterialArea));
          IsDirty = true;
       }
    }
