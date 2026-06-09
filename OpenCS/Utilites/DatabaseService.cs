@@ -25,12 +25,34 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 1;
+      const int CurrentSchemaVersion = 2;
 
       static readonly string[] Migrations =
       [
          """
          -- v1: начальная схема. Пустая миграция — таблицы создаются в EnsureCreated.
+         """,
+         """
+         -- v2: material_areas — section_id nullable, добавить колонку category.
+         CREATE TABLE IF NOT EXISTS material_areas_v2 (
+             id             INTEGER PRIMARY KEY AUTOINCREMENT,
+             section_id     INTEGER,
+             num            INTEGER NOT NULL DEFAULT 0,
+             tag            TEXT NOT NULL DEFAULT '',
+             description    TEXT,
+             material_id    INTEGER REFERENCES materials(id),
+             host_area_id   INTEGER REFERENCES material_areas_v2(id),
+             diagramm_type  TEXT NOT NULL DEFAULT 'L2',
+             nx             INTEGER NOT NULL DEFAULT 21,
+             ny             INTEGER NOT NULL DEFAULT 21,
+             wkt            TEXT,
+             category       TEXT NOT NULL DEFAULT 'region'
+         );
+         INSERT INTO material_areas_v2 (id, section_id, num, tag, description, material_id, host_area_id, diagramm_type, nx, ny, wkt, category)
+         SELECT id, section_id, num, tag, description, material_id, host_area_id, diagramm_type, nx, ny, wkt, 'region'
+         FROM material_areas;
+         DROP TABLE material_areas;
+         ALTER TABLE material_areas_v2 RENAME TO material_areas;
          """
       ];
 
@@ -44,6 +66,7 @@ namespace OpenCS.Utilites
       public ObservableCollection<Fiber> Fibers { get; } = [];
       public ObservableCollection<Diagramm> Diagrams { get; } = [];
       public ObservableCollection<CrossSection> CrossSections { get; } = [];
+      public ObservableCollection<MaterialArea> MaterialAreas { get; } = [];
 
       public DatabaseService() : this("dbapp.db") { }
 
@@ -133,7 +156,7 @@ namespace OpenCS.Utilites
             );
             CREATE TABLE IF NOT EXISTS material_areas (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
-                section_id     INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+                section_id     INTEGER,
                 num            INTEGER NOT NULL DEFAULT 0,
                 tag            TEXT NOT NULL DEFAULT '',
                 description    TEXT,
@@ -142,7 +165,8 @@ namespace OpenCS.Utilites
                 diagramm_type  TEXT NOT NULL DEFAULT 'L2',
                 nx             INTEGER NOT NULL DEFAULT 21,
                 ny             INTEGER NOT NULL DEFAULT 21,
-                wkt            TEXT
+                wkt            TEXT,
+                category       TEXT NOT NULL DEFAULT 'region'
             );
             CREATE TABLE IF NOT EXISTS point_fibers (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -304,6 +328,8 @@ namespace OpenCS.Utilites
          LoadDiagrams();
          LoadCrossSections();
          ResolveReferencesForCrossSections();
+         LoadMaterialAreas();
+         ResolveReferencesForStandaloneAreas();
       }
 
       void LoadMaterials()
@@ -510,6 +536,157 @@ namespace OpenCS.Utilites
                foreach (var area in tss.Stage1.Areas)
                   area.Material = Materials.FirstOrDefault(m => m.Id == area.MaterialId);
          }
+      }
+
+      void LoadMaterialAreas()
+      {
+         MaterialAreas.Clear();
+         using var conn = new SqliteConnection($"Data Source={_dataSource}");
+         conn.Open();
+         using var cmd = conn.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, num, tag, description, material_id,
+                   host_area_id, diagramm_type, nx, ny, wkt, category
+            FROM material_areas
+            WHERE section_id IS NULL
+            ORDER BY num
+         """;
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+         {
+            var area = new MaterialArea
+            {
+               Id           = r.GetInt32(0),
+               Num          = r.GetInt32(1),
+               Tag          = r.GetString(2),
+               Description  = r.IsDBNull(3) ? null : r.GetString(3),
+               MaterialId   = r.IsDBNull(4) ? 0 : r.GetInt32(4),
+               HostAreaId   = r.IsDBNull(5) ? null : r.GetInt32(5),
+               DiagrammType = Enum.Parse<DiagrammType>(r.GetString(6)),
+               NX           = r.GetInt32(7),
+               NY           = r.GetInt32(8),
+               WKT          = r.IsDBNull(9) ? null : r.GetString(9),
+               Category     = Enum.TryParse<AreaCategory>(r.GetString(10), ignoreCase: true, out var cat) ? cat : AreaCategory.Region
+            };
+            if (area.WKT != null)
+            {
+               WktHelper.ParseWKTPolygon(area.WKT,
+                  out var outerX, out var outerY, out var holeXs, out var holeYs);
+               area.Contours.Add(new Contour(outerX, outerY, "hull") { Type = ContourType.Hull });
+               if (holeXs != null)
+                  for (int j = 0; j < holeXs.Count; j++)
+                     area.Contours.Add(new Contour(holeXs[j], holeYs[j], $"hole{j}") { Type = ContourType.Hole });
+            }
+            MaterialAreas.Add(area);
+         }
+         LoadPointFibersForAreas(MaterialAreas, conn);
+      }
+
+      void LoadPointFibersForAreas(System.Collections.Generic.IEnumerable<MaterialArea> areas, SqliteConnection conn)
+      {
+         var dict = new System.Collections.Generic.Dictionary<int, MaterialArea>();
+         foreach (var a in areas) dict[a.Id] = a;
+         if (dict.Count == 0) return;
+         using var cmd = conn.CreateCommand();
+         cmd.CommandText = $"SELECT area_id, x, y, area, diameter, eps_p FROM point_fibers WHERE area_id IN ({string.Join(",", dict.Keys)})";
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+         {
+            if (!dict.TryGetValue(r.GetInt32(0), out var area)) continue;
+            area.Fibers.Add(new Fiber(r.GetDouble(1), r.GetDouble(2))
+            {
+               Area = r.GetDouble(3), Diameter = r.GetDouble(4),
+               Eps_p = r.GetDouble(5), TypeFiber = FiberType.point
+            });
+         }
+      }
+
+      void ResolveReferencesForStandaloneAreas()
+      {
+         foreach (var area in MaterialAreas)
+         {
+            area.Material = Materials.FirstOrDefault(m => m.Id == area.MaterialId);
+            if (area.HostAreaId != null)
+               area.HostArea = MaterialAreas.FirstOrDefault(a => a.Id == area.HostAreaId);
+            area.ResolveAndBuildDiagramms();
+         }
+      }
+
+      public void SaveMaterialArea(MaterialArea area)
+      {
+         using var conn = new SqliteConnection($"Data Source={_dataSource}");
+         conn.Open();
+         using var tx = conn.BeginTransaction();
+         bool isNew = area.Id == 0;
+         using (var cmd = conn.CreateCommand())
+         {
+            if (isNew)
+            {
+               cmd.CommandText = """
+                  INSERT INTO material_areas
+                     (num, tag, description, material_id, host_area_id,
+                      diagramm_type, nx, ny, wkt, category)
+                  VALUES (@num,@tag,@desc,@mid,@hid,@dtype,@nx,@ny,@wkt,@cat);
+                  SELECT last_insert_rowid();
+               """;
+            }
+            else
+            {
+               cmd.CommandText = """
+                  UPDATE material_areas SET
+                     num=@num, tag=@tag, description=@desc, material_id=@mid,
+                     host_area_id=@hid, diagramm_type=@dtype, nx=@nx, ny=@ny,
+                     wkt=@wkt, category=@cat
+                  WHERE id=@id;
+               """;
+               cmd.Parameters.AddWithValue("@id", area.Id);
+            }
+            cmd.Parameters.AddWithValue("@num",   area.Num);
+            cmd.Parameters.AddWithValue("@tag",   area.Tag);
+            cmd.Parameters.AddWithValue("@desc",  (object?)area.Description ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@mid",   area.MaterialId == 0 ? DBNull.Value : (object)area.MaterialId);
+            cmd.Parameters.AddWithValue("@hid",   (object?)area.HostAreaId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@dtype", area.DiagrammType.ToString());
+            cmd.Parameters.AddWithValue("@nx",    area.NX);
+            cmd.Parameters.AddWithValue("@ny",    area.NY);
+            cmd.Parameters.AddWithValue("@wkt",   (object?)area.WKT ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@cat",   area.Category.ToString().ToLowerInvariant());
+            if (isNew) area.Id = (int)(long)cmd.ExecuteScalar()!;
+            else cmd.ExecuteNonQuery();
+         }
+         using (var cmd = conn.CreateCommand())
+         {
+            cmd.CommandText = "DELETE FROM point_fibers WHERE area_id = @aid";
+            cmd.Parameters.AddWithValue("@aid", area.Id);
+            cmd.ExecuteNonQuery();
+         }
+         foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
+         {
+            using var fc = conn.CreateCommand();
+            fc.CommandText = "INSERT INTO point_fibers(area_id,x,y,area,diameter,eps_p) VALUES(@aid,@x,@y,@a,@d,@ep)";
+            fc.Parameters.AddWithValue("@aid", area.Id);
+            fc.Parameters.AddWithValue("@x",   f.X);
+            fc.Parameters.AddWithValue("@y",   f.Y);
+            fc.Parameters.AddWithValue("@a",   f.Area);
+            fc.Parameters.AddWithValue("@d",   f.Diameter);
+            fc.Parameters.AddWithValue("@ep",  f.Eps_p);
+            fc.ExecuteNonQuery();
+         }
+         tx.Commit();
+         if (isNew && !MaterialAreas.Contains(area))
+            MaterialAreas.Add(area);
+      }
+
+      public void DeleteMaterialArea(MaterialArea area)
+      {
+         if (area.Id == 0) { MaterialAreas.Remove(area); return; }
+         using var conn = new SqliteConnection($"Data Source={_dataSource}");
+         conn.Open();
+         using var cmd = conn.CreateCommand();
+         cmd.CommandText = "DELETE FROM material_areas WHERE id = @id";
+         cmd.Parameters.AddWithValue("@id", area.Id);
+         cmd.ExecuteNonQuery();
+         MaterialAreas.Remove(area);
       }
 
       void LoadDiagrams()
