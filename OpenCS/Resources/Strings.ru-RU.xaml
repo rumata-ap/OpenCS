@@ -48,10 +48,8 @@
    <system:String x:Key="NewNode">Новый</system:String>
    <system:String x:Key="Fibrous">Фибровые</system:String>
    <system:String x:Key="Solid">Сплошные</system:String>
-   <system:String x:Key="RebarGroups">Группы арматурных стержней</system:String>
    <system:String x:Key="CrossSections">Поперечные сечения</system:String>
    <system:String x:Key="RCSections">Железобетонные</system:String>
-   <system:String x:Key="FiberSections">Фибровые</system:String>
    <system:String x:Key="ContourSections">Контурные</system:String>
    <system:String x:Key="FiniteElements">Конечные элементы</system:String>
    <system:String x:Key="Bars">Стержни</system:String>
@@ -147,7 +145,6 @@
    <system:String x:Key="OuterContour">Внешний контур</system:String>
    <system:String x:Key="Tag">Обозначение</system:String>
    <system:String x:Key="Description">Описание</system:String>
-   <system:String x:Key="Holes">Отверстия</system:String>
    <system:String x:Key="ConcreteLabel">Бетон</system:String>
    <system:String x:Key="ContoursLabel">Контуры</system:String>
    <system:String x:Key="ReinforcementTab">Армирование</system:String>
@@ -338,5 +335,21 @@
    <system:String x:Key="CurrentHull">Текущий: </system:String>
    <system:String x:Key="DiagramType">Тип диаграммы</system:String>
    <system:String x:Key="NewTwoStageSection">Новое усиление</system:String>
+
+   <!-- Mesh generation -->
+   <system:String x:Key="MeshMethod">Метод</system:String>
+   <system:String x:Key="MeshMethod_Grid">Ортогональная сетка</system:String>
+   <system:String x:Key="MeshMethod_Ruppert">Триангуляция Рупперта</system:String>
+   <system:String x:Key="MeshMethod_AdvancingFront">Фронтальная триангуляция</system:String>
+   <system:String x:Key="MeshGenerate">Разбить</system:String>
+   <system:String x:Key="MeshApply">Применить</system:String>
+   <system:String x:Key="MeshClear">Очистить</system:String>
+   <system:String x:Key="MeshConfigure">Настроить...</system:String>
+   <system:String x:Key="MeshFibersCount">Фибр: </system:String>
+   <system:String x:Key="MeshDisplayMode">Отображение</system:String>
+   <system:String x:Key="MeshDisplayCentroids">Центроиды</system:String>
+   <system:String x:Key="MeshDisplayElements">Элементы</system:String>
+   <system:String x:Key="MeshMaxArea">Макс. площадь</system:String>
+   <system:String x:Key="MeshMinAngle">Мин. угол, °</system:String>
 
  </ResourceDictionary>

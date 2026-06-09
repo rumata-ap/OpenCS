@@ -47,10 +47,8 @@
    <system:String x:Key="Reinforced">Reinforced</system:String>
    <system:String x:Key="Fibrous">Fibrous</system:String>
    <system:String x:Key="Solid">Solid</system:String>
-   <system:String x:Key="RebarGroups">Rebar Groups</system:String>
    <system:String x:Key="CrossSections">Cross Sections</system:String>
    <system:String x:Key="RCSections">Reinforced Concrete</system:String>
-   <system:String x:Key="FiberSections">Fiber</system:String>
    <system:String x:Key="ContourSections">Contour</system:String>
    <system:String x:Key="FiniteElements">Finite Elements</system:String>
    <system:String x:Key="Bars">Bars</system:String>
@@ -146,7 +144,6 @@
    <system:String x:Key="OuterContour">Outer Contour</system:String>
    <system:String x:Key="Tag">Tag</system:String>
    <system:String x:Key="Description">Description</system:String>
-   <system:String x:Key="Holes">Holes</system:String>
    <system:String x:Key="ConcreteLabel">Concrete</system:String>
    <system:String x:Key="ContoursLabel">Contours</system:String>
    <system:String x:Key="ReinforcementTab">Reinforcement</system:String>
@@ -335,5 +332,21 @@
    <system:String x:Key="CurrentHull">Current: </system:String>
    <system:String x:Key="DiagramType">Diagram Type</system:String>
    <system:String x:Key="NewTwoStageSection">New Strengthening</system:String>
+
+   <!-- Mesh generation -->
+   <system:String x:Key="MeshMethod">Method</system:String>
+   <system:String x:Key="MeshMethod_Grid">Orthogonal Grid</system:String>
+   <system:String x:Key="MeshMethod_Ruppert">Ruppert Triangulation</system:String>
+   <system:String x:Key="MeshMethod_AdvancingFront">Advancing Front</system:String>
+   <system:String x:Key="MeshGenerate">Generate</system:String>
+   <system:String x:Key="MeshApply">Apply</system:String>
+   <system:String x:Key="MeshClear">Clear Mesh</system:String>
+   <system:String x:Key="MeshConfigure">Configure...</system:String>
+   <system:String x:Key="MeshFibersCount">Fibers: </system:String>
+   <system:String x:Key="MeshDisplayMode">Display</system:String>
+   <system:String x:Key="MeshDisplayCentroids">Centroids</system:String>
+   <system:String x:Key="MeshDisplayElements">Elements</system:String>
+   <system:String x:Key="MeshMaxArea">Max area</system:String>
+   <system:String x:Key="MeshMinAngle">Min angle, °</system:String>
 
  </ResourceDictionary>
