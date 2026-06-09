@@ -11,10 +11,14 @@ using System.Windows.Media;
 
 namespace OpenCS.ViewModels
 {
+   /// <summary>Режим отображения сетки фибр на превью.</summary>
+   public enum FiberDisplayMode { Centroids, Elements }
+
    /// <summary>ViewModel для MaterialArea.</summary>
    public class MaterialAreaVM : ViewModelBase
    {
       readonly MaterialArea _model;
+      FiberDisplayMode _fiberDisplayMode = FiberDisplayMode.Elements;
 
       public MaterialAreaVM(MaterialArea model, AppViewModel app)
       {
@@ -27,6 +31,8 @@ namespace OpenCS.ViewModels
          RemoveHoleCommand       = new RelayCommand(o => RemoveHole(o as Contour));
          SaveCommand             = new RelayCommand(_ => Save());
          DeleteCommand           = new RelayCommand(_ => Delete());
+         OpenMeshDialogCommand   = new RelayCommand(_ => OpenMeshDialog());
+         ClearMeshCommand        = new RelayCommand(_ => ClearMesh());
       }
 
       public AppViewModel App { get; }
@@ -89,6 +95,24 @@ namespace OpenCS.ViewModels
 
       public IReadOnlyList<PlotElement> PlotElements { get; private set; } = [];
 
+      public FiberDisplayMode FiberDisplayMode
+      {
+         get => _fiberDisplayMode;
+         set { _fiberDisplayMode = value; OnPropertyChanged(); RefreshPlot(); }
+      }
+
+      public int FiberDisplayModeIndex
+      {
+         get => (int)_fiberDisplayMode;
+         set => FiberDisplayMode = (FiberDisplayMode)value;
+      }
+
+      public int FibersCount
+         => _model.Fibers.Count(f => f.TypeFiber is FiberType.poly or FiberType.tri);
+
+      public ICommand OpenMeshDialogCommand { get; }
+      public ICommand ClearMeshCommand { get; }
+
       public ICommand RemoveAreaCommand { get; }
       public ICommand SetHullFromPoolCommand { get; }
       public ICommand ClearHullCommand { get; }
@@ -119,6 +143,16 @@ namespace OpenCS.ViewModels
                   Xs = [.. hole.X], Ys = [.. hole.Y],
                   Fill = Brushes.White, Stroke = Brushes.Gray, StrokeThickness = 1
                });
+
+         var meshFibers = _model.Fibers
+            .Where(f => f.TypeFiber is FiberType.poly or FiberType.tri)
+            .ToArray();
+         if (meshFibers.Length > 0)
+            elements.Add(new FiberMeshElement
+            {
+               Fibers = meshFibers,
+               ShowCentroids = (_fiberDisplayMode == FiberDisplayMode.Centroids)
+            });
 
          foreach (var f in _model.Fibers.Where(f => f.TypeFiber == FiberType.point))
             elements.Add(new CircleElement
@@ -202,6 +236,28 @@ namespace OpenCS.ViewModels
          App.db.DeleteMaterialArea(_model);
          App.RefreshMaterialAreaLiveCollections();
          App.CurrentPage = null;
+      }
+
+      void OpenMeshDialog()
+      {
+         if (_model.Id == 0) Save();
+         var dlg = new Views.MeshDialog(_model, App)
+         {
+            Owner = System.Windows.Application.Current.MainWindow
+         };
+         if (dlg.ShowDialog() == true)
+         {
+            OnPropertyChanged(nameof(FibersCount));
+            RefreshPlot();
+         }
+      }
+
+      void ClearMesh()
+      {
+         _model.Fibers.RemoveAll(f => f.TypeFiber is FiberType.poly or FiberType.tri);
+         App.db.SaveMeshFibers(_model);
+         OnPropertyChanged(nameof(FibersCount));
+         RefreshPlot();
       }
    }
 }
