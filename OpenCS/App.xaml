@@ -10,6 +10,7 @@
    <Application.Resources>
       <ResourceDictionary>
          <ResourceDictionary.MergedDictionaries>
+             <ResourceDictionary Source="/Images/svg.xaml"/>
              <ResourceDictionary Source="Resources/Strings.en-US.xaml"/>
              <ResourceDictionary Source="Resources/Strings.ru-RU.xaml"/>
          </ResourceDictionary.MergedDictionaries>
@@ -127,6 +128,14 @@
          <conv:MatTypeToGeometryConverter x:Key="MatTypeToGeometryConverter"/>
 
          <sys:Double x:Key="AppFontSize">13</sys:Double>
+
+         <Style x:Key="RibbonButton" TargetType="Button">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Margin" Value="2,0"/>
+         </Style>
 
          <Style x:Key="IconButton" TargetType="Button">
             <Setter Property="Height" Value="22"/>
