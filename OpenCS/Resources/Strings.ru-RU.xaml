@@ -307,4 +307,17 @@
    <system:String x:Key="TipPlotSettings">Настройки графиков</system:String>
    <system:String x:Key="TipCsvSettings">Настройки экспорта CSV</system:String>
 
+   <!-- CrossSection -->
+   <system:String x:Key="NewCrossSection">Новое сечение</system:String>
+   <system:String x:Key="EditCrossSection">Редактировать сечение</system:String>
+   <system:String x:Key="DeleteCrossSection">Удалить сечение</system:String>
+   <system:String x:Key="CrossSectionStage1">Этап 1</system:String>
+   <system:String x:Key="CrossSectionStage2">Этап 2</system:String>
+   <system:String x:Key="MaterialAreaLabel">Материальная область</system:String>
+   <system:String x:Key="AddConcreteArea">Добавить бетонную область</system:String>
+   <system:String x:Key="AddRebarArea">Добавить арматурную область</system:String>
+   <system:String x:Key="AddSteelArea">Добавить стальную область</system:String>
+   <system:String x:Key="HostArea">Бетонная область-носитель</system:String>
+   <system:String x:Key="DeleteArea">Удалить область</system:String>
+
  </ResourceDictionary>

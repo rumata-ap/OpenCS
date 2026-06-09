@@ -304,4 +304,17 @@
    <system:String x:Key="TipPlotSettings">Plot settings</system:String>
    <system:String x:Key="TipCsvSettings">CSV export settings</system:String>
 
+   <!-- CrossSection -->
+   <system:String x:Key="NewCrossSection">New Section</system:String>
+   <system:String x:Key="EditCrossSection">Edit Section</system:String>
+   <system:String x:Key="DeleteCrossSection">Delete Section</system:String>
+   <system:String x:Key="CrossSectionStage1">Stage 1</system:String>
+   <system:String x:Key="CrossSectionStage2">Stage 2</system:String>
+   <system:String x:Key="MaterialAreaLabel">Material Area</system:String>
+   <system:String x:Key="AddConcreteArea">Add Concrete Area</system:String>
+   <system:String x:Key="AddRebarArea">Add Rebar Area</system:String>
+   <system:String x:Key="AddSteelArea">Add Steel Area</system:String>
+   <system:String x:Key="HostArea">Host Concrete Area</system:String>
+   <system:String x:Key="DeleteArea">Delete Area</system:String>
+
  </ResourceDictionary>

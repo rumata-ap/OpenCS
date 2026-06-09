@@ -4,6 +4,7 @@
              xmlns:local="clr-namespace:OpenCS"
              xmlns:core="clr-namespace:CScore;assembly=CScore"
              xmlns:vm="clr-namespace:OpenCS.ViewModels"
+             xmlns:conv="clr-namespace:OpenCS.Converters"
              xmlns:sys="clr-namespace:System;assembly=mscorlib"
              StartupUri="MainWindow.xaml">
    <Application.Resources>
@@ -127,6 +128,23 @@
          </ContextMenu>
 
 
+         <!-- MaterialArea type brushes -->
+         <SolidColorBrush x:Key="AreaBrush_Concrete" Color="#3B82F6"/>
+         <SolidColorBrush x:Key="AreaBrush_ReSteelF" Color="#F97316"/>
+         <SolidColorBrush x:Key="AreaBrush_ReSteelU" Color="#EAB308"/>
+         <SolidColorBrush x:Key="AreaBrush_Steel"    Color="#22C55E"/>
+         <SolidColorBrush x:Key="AreaBrush_None"     Color="#9CA3AF"/>
+
+         <!-- Area-type icon geometries (16x16) -->
+         <Geometry x:Key="Icon_Concrete">M1,1 H15 V15 H1 Z</Geometry>
+         <Geometry x:Key="Icon_ReSteelF">M3,8 a2,2 0 1,0 0.001,0 Z M8,8 a2,2 0 1,0 0.001,0 Z M13,8 a2,2 0 1,0 0.001,0 Z</Geometry>
+         <Geometry x:Key="Icon_ReSteelU">M3,8 a2,2 0 1,0 0.001,0 Z M8,8 a2,2 0 1,0 0.001,0 Z M13,8 a2,2 0 1,0 0.001,0 Z</Geometry>
+         <Geometry x:Key="Icon_Steel">M1,3 H15 V13 H1 Z M2,4 H14 V12 H2 Z</Geometry>
+
+         <!-- Converters -->
+         <conv:MatTypeToBrushConverter x:Key="MatTypeToBrushConverter"/>
+         <conv:MatTypeToGeometryConverter x:Key="MatTypeToGeometryConverter"/>
+
          <sys:Double x:Key="AppFontSize">13</sys:Double>
 
          <Style x:Key="IconButton" TargetType="Button">
@@ -141,14 +159,6 @@
             <Setter Property="Width" Value="25"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Background" Value="Transparent"/>
-         </Style>
-
-         <Style x:Key="RibbonButton" TargetType="Button">
-            <Setter Property="Height" Value="38"/>
-            <Setter Property="Width" Value="38"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Margin" Value="2,0"/>
          </Style>
 
          <Style TargetType="DataGridColumnHeader">
