@@ -127,24 +127,6 @@ namespace CScore
       }
 
       /// <summary>
-      /// Вычисляет напряжение и усилия для арматурного стержня.
-      /// Задаёт поля Sig, N, My, Mz, E, E2 объекта <see cref="ReBar"/>.
-      /// </summary>
-      /// <param name="finiteArea">Арматурный стержень.</param>
-      /// <param name="tenB">Учитывать работу на растяжение.</param>
-      /// <param name="comprA">Учитывать работу на сжатие.</param>
-      public virtual void Sig(ReBar finiteArea, bool tenB = true, bool comprA = true)
-      {
-         double eps = finiteArea.Eps + finiteArea.Eps_p;
-         finiteArea.Sig = Sig(eps, out double e2, tenB, comprA);
-         finiteArea.N = finiteArea.Sig * finiteArea.Area;
-         finiteArea.My = finiteArea.Sig * finiteArea.Area * finiteArea.Y;
-         finiteArea.Mz = finiteArea.Sig * finiteArea.Area * finiteArea.X;
-         finiteArea.E = (Math.Abs(eps) > 1e-20) ? finiteArea.Sig / eps : 0;
-         finiteArea.E2 = e2;
-      }
-
-      /// <summary>
       /// Вычисляет напряжение и секущий модуль упругости для точки контура
       /// (<see cref="StressPoint"/>).
       /// </summary>
@@ -160,72 +142,16 @@ namespace CScore
       }
 
       /// <summary>
-      /// Вычисляет напряжения для всех волокон в области сечения.
+      /// Вычисляет напряжения для всех волокон материальной области.
       /// Вызывает <see cref="Sig(Fiber, bool, bool)"/> для каждого волокна.
       /// </summary>
-      /// <param name="group">Область волокон.</param>
+      /// <param name="area">Материальная область.</param>
       /// <param name="tenB">Учитывать работу на растяжение.</param>
       /// <param name="comprA">Учитывать работу на сжатие.</param>
-      public virtual void Sig(FiberRegion group, bool tenB = true, bool comprA = true)
+      public virtual void Sig(MaterialArea area, bool tenB = true, bool comprA = true)
       {
-         for (int i = 0; i < group.Fibers.Count; i++)
-         {
-            Sig(group.Fibers[i], tenB, comprA);
-         }
-      }
-
-      /// <summary>
-      /// Вычисляет напряжения для всех волокон в области и возвращает
-      /// векторы напряжений, усилий и модулей упругости.
-      /// </summary>
-      /// <param name="group">Область волокон.</param>
-      /// <param name="sig">Вектор напряжений σ для каждого волокна.</param>
-      /// <param name="n">Вектор продольных усилий N для каждого волокна.</param>
-      /// <param name="my">Вектор моментов M_y для каждого волокна.</param>
-      /// <param name="mz">Вектор моментов M_z для каждого волокна.</param>
-      /// <param name="e">Вектор секущих модулей E для каждого волокна.</param>
-      /// <param name="e2">Вектор касательных модулей E₂ для каждого волокна.</param>
-      /// <param name="tenB">Учитывать работу на растяжение.</param>
-      /// <param name="comprA">Учитывать работу на сжатие.</param>
-      public virtual void Sig(FiberRegion group,
-                              out Vector sig,
-                              out Vector n,
-                              out Vector my,
-                              out Vector mz,
-                              out Vector e,
-                              out Vector e2,
-                              bool tenB = true, bool comprA = true)
-      {
-         sig = new Vector(group.Fibers.Count);
-         n = new Vector(group.Fibers.Count);
-         my = new Vector(group.Fibers.Count);
-         mz = new Vector(group.Fibers.Count);
-         e = new Vector(group.Fibers.Count);
-         e2 = new Vector(group.Fibers.Count);
-         for (int i = 0; i < group.Fibers.Count; i++)
-         {
-            Sig(group.Fibers[i], tenB, comprA);
-            sig[i] = group.Fibers[i].Sig;
-            n[i] = group.Fibers[i].N;
-            my[i] = group.Fibers[i].My;
-            mz[i] = group.Fibers[i].Mz;
-            e[i] = group.Fibers[i].E;
-            e2[i] = group.Fibers[i].E2;
-         }
-      }
-
-      /// <summary>
-      /// Вычисляет напряжения для всех арматурных стержней в группе.
-      /// Вызывает <see cref="Sig(ReBar, bool, bool)"/> для каждого стержня.
-      /// </summary>
-      /// <param name="group">Группа арматурных стержней.</param>
-      /// <param name="compa">Учитывать работу на сжатие.</param>
-      public virtual void Sig(ReBarGroup group, bool compa = true)
-      {
-         for (int i = 0; i < group.ReBars.Count; i++)
-         {
-            Sig(group.ReBars[i], true, compa);
-         }
+         for (int i = 0; i < area.Fibers.Count; i++)
+            Sig(area.Fibers[i], tenB, comprA);
       }
 
       /// <summary>
