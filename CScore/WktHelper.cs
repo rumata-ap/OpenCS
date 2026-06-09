@@ -180,5 +180,33 @@ namespace CScore
          if (Math.Abs(A6) < 1e-14) return (0, 0);
          return (cxN / (3.0 * A6), cyN / (3.0 * A6));
       }
+
+      /// <summary>
+      /// Определяет вхождение точки (px, py) внутрь полигона, заданного WKT-строкой.
+      /// Использует алгоритм трассировки лучей (ray casting).
+      /// Возвращает false если wkt равен null.
+      /// </summary>
+      public static bool PointInPolygon(string wkt, double px, double py)
+      {
+         if (wkt == null) return false;
+         ParseWKTPolygon(wkt, out var xs, out var ys, out _, out _);
+         return PointInPolygon(xs, ys, px, py);
+      }
+
+      /// <summary>
+      /// Определяет вхождение точки (px, py) внутрь полигона по массивам координат.
+      /// </summary>
+      public static bool PointInPolygon(IList<double> xs, IList<double> ys, double px, double py)
+      {
+         int n = xs.Count;
+         bool inside = false;
+         for (int i = 0, j = n - 1; i < n; j = i++)
+         {
+            if ((ys[i] > py) != (ys[j] > py) &&
+                px < (xs[j] - xs[i]) * (py - ys[i]) / (ys[j] - ys[i]) + xs[i])
+               inside = !inside;
+         }
+         return inside;
+      }
    }
 }

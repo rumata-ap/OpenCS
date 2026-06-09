@@ -365,7 +365,7 @@ namespace CScore
       /// <param name="nx">Количество участков деления по оси X (0 — без разрезов по X).</param>
       /// <param name="ny">Количество участков деления по оси Y (0 — без разрезов по Y).</param>
       /// <returns>Массив волокон Fiber.</returns>
-      public static Fiber[] Slice(Region region, int nx = 0, int ny = 0)
+      public static Fiber[] Slice(MaterialArea region, int nx = 0, int ny = 0)
       {
          if (nx == 0 && ny == 0)
             throw new ArgumentException("Необходимо задать хотя бы один из параметров: nx или ny.");
@@ -501,7 +501,7 @@ namespace CScore
       /// Разбивает область на волокна методом нарезки прямоугольной сеткой
       /// по осям X и Y.
       /// </summary>
-      public static Fiber[] SliceXY(Region region, int nx = 40, int ny = 40)
+      public static Fiber[] SliceXY(MaterialArea region, int nx = 40, int ny = 40)
       {
          return Slice(region, nx, ny);
       }
@@ -509,7 +509,7 @@ namespace CScore
       /// <summary>
       /// Разбивает область на волокна методом нарезки горизонтальными полосами (по Y).
       /// </summary>
-      public static Fiber[] SliceY(Region region, int ny = 40)
+      public static Fiber[] SliceY(MaterialArea region, int ny = 40)
       {
          return Slice(region, 0, ny);
       }
@@ -517,7 +517,7 @@ namespace CScore
       /// <summary>
       /// Разбивает область на волокна методом нарезки вертикальными полосами (по X).
       /// </summary>
-      public static Fiber[] SliceX(Region region, int nx = 40)
+      public static Fiber[] SliceX(MaterialArea region, int nx = 40)
       {
          return Slice(region, nx, 0);
       }
@@ -546,5 +546,24 @@ namespace CScore
          sb.Append(')');
          return sb.ToString();
       }
+
+      // Переходные адаптеры — удалить в Phase 5 вместе с Region.cs
+      public static Fiber[] Slice(Region r, int nx = 0, int ny = 0) =>
+         Slice(RegionToMA(r), nx, ny);
+      public static Fiber[] SliceXY(Region r, int nx = 40, int ny = 40) =>
+         SliceXY(RegionToMA(r), nx, ny);
+      public static Fiber[] SliceY(Region r, int ny = 40) =>
+         SliceY(RegionToMA(r), ny);
+      public static Fiber[] SliceX(Region r, int nx = 40) =>
+         SliceX(RegionToMA(r), nx);
+
+      static MaterialArea RegionToMA(Region r) => new MaterialArea
+      {
+         Tag = r.Tag,
+         Contours = r.Contours,
+         WKT = r.WKT,
+         H = r.H,
+         Material = r.Material
+      };
    }
 }

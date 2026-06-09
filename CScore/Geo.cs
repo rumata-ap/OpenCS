@@ -20,7 +20,7 @@ namespace CScore
       /// <param name="ny">Количество участков деления по оси Y (по умолчанию 40).</param>
       /// <returns>Массив волокон <see cref="Fiber"/>, покрывающих область.</returns>
       /// <exception cref="Exception">Выбрасывается, если nx или ny меньше 2.</exception>
-      public static Fiber[] SliceXY(Region region, int nx = 40, int ny = 40)
+      public static Fiber[] SliceXY(MaterialArea region, int nx = 40, int ny = 40)
       {
          return GridSplit.SliceXY(region, nx, ny);
       }
@@ -32,7 +32,7 @@ namespace CScore
       /// <param name="ny">Количество участков деления по оси Y (по умолчанию 40).</param>
       /// <returns>Массив волокон <see cref="Fiber"/>, упорядоченных по Y.</returns>
       /// <exception cref="Exception">Выбрасывается, если ny меньше 2.</exception>
-      public static Fiber[] SliceY(Region region, int ny = 40)
+      public static Fiber[] SliceY(MaterialArea region, int ny = 40)
       {
          return GridSplit.SliceY(region, ny);
       }
@@ -44,7 +44,7 @@ namespace CScore
       /// <param name="nx">Количество участков деления по оси X (по умолчанию 40).</param>
       /// <returns>Массив волокон <see cref="Fiber"/>, упорядоченных по X.</returns>
       /// <exception cref="Exception">Выбрасывается, если nx меньше 2.</exception>
-      public static Fiber[] SliceX(Region region, int nx = 40)
+      public static Fiber[] SliceX(MaterialArea region, int nx = 40)
       {
          return GridSplit.SliceX(region, nx);
       }
@@ -61,7 +61,7 @@ namespace CScore
       /// <param name="scale">Масштабный коэффициент координат для улучшения качества триангуляции (по умолчанию 8).</param>
       /// <param name="method">Метод триангуляции (по умолчанию Ruppert).</param>
       /// <returns>Массив треугольных волокон <see cref="Fiber"/>.</returns>
-      public static Fiber[] Triangulation(Region region, double maxTrgArea = 0.01, double maxAngl = 30, double scale = 8,
+      public static Fiber[] Triangulation(MaterialArea region, double maxTrgArea = 0.01, double maxAngl = 30, double scale = 8,
          TriangulationMethod method = TriangulationMethod.Ruppert)
       {
          if (method == TriangulationMethod.AdvancingFront)
@@ -73,7 +73,7 @@ namespace CScore
       /// <summary>
       /// Триангуляция алгоритмом Рупперта (CDT + рефайнмент).
       /// </summary>
-      static Fiber[] TriangulationRuppert(Region region, double maxTrgArea, double maxAngl, double scale)
+      static Fiber[] TriangulationRuppert(MaterialArea region, double maxTrgArea, double maxAngl, double scale)
       {
          double hullArea = WktHelper.PolygonArea(region.Hull.X, region.Hull.Y);
          double maxArea = hullArea * maxTrgArea * scale * scale;
@@ -150,7 +150,7 @@ namespace CScore
       /// <summary>
       /// Триангуляция методом продвижения фронта (SETKA-4N-2D).
       /// </summary>
-      static Fiber[] TriangulationAdvancingFront(Region region, double maxTrgArea, double scale)
+      static Fiber[] TriangulationAdvancingFront(MaterialArea region, double maxTrgArea, double scale)
       {
          double hullArea = WktHelper.PolygonArea(region.Hull.X, region.Hull.Y);
          double avgH = Math.Sqrt(hullArea * maxTrgArea * 4 / Math.Sqrt(3));
@@ -232,5 +232,26 @@ namespace CScore
 
          return [.. fas];
       }
+
+      // Переходные адаптеры — удалить в Phase 5 вместе с Region.cs
+      public static Fiber[] SliceXY(Region r, int nx = 40, int ny = 40) =>
+         SliceXY(RegionToMA(r), nx, ny);
+      public static Fiber[] SliceY(Region r, int ny = 40) =>
+         SliceY(RegionToMA(r), ny);
+      public static Fiber[] SliceX(Region r, int nx = 40) =>
+         SliceX(RegionToMA(r), nx);
+      public static Fiber[] Triangulation(Region r, double maxTrgArea = 0.01,
+         double maxAngl = 30, double scale = 8,
+         TriangulationMethod method = TriangulationMethod.Ruppert) =>
+         Triangulation(RegionToMA(r), maxTrgArea, maxAngl, scale, method);
+
+      static MaterialArea RegionToMA(Region r) => new MaterialArea
+      {
+         Tag = r.Tag,
+         Contours = r.Contours,
+         WKT = r.WKT,
+         H = r.H,
+         Material = r.Material
+      };
    }
 }

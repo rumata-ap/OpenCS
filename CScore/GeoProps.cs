@@ -279,6 +279,31 @@ namespace CScore
       }
 
       /// <summary>
+      /// Вычисляет геометрические характеристики материальной области
+      /// суммированием по всем волокнам (полигональным и точечным).
+      /// </summary>
+      public GeoProps(MaterialArea area, GeoPropsType propsType = GeoPropsType.First)
+      {
+         double E;
+         foreach (var f in area.Fibers)
+         {
+            E = propsType == GeoPropsType.First ? f.E : f.E2;
+            if (E == 0 && area.Material != null) E = area.Material.E;
+            double a   = f.Area;
+            double sy  = f.Area * f.X;
+            double sx  = f.Area * f.Y;
+            double iy  = sy * f.X;
+            double ix  = sx * f.Y;
+            double ixy = a * f.X * f.Y;
+            A    += a;    Sy   += sy;   Sx   += sx;
+            Iy   += iy;   Ix   += ix;   Ixy  += ixy;
+            EA   += a * E;   ESy  += sy * E;  ESx  += sx * E;
+            EIy  += iy * E;  EIx  += ix * E;  EIxy += ixy * E;
+         }
+         if (EA > 0) Centroid = new XY(ESy / EA, ESx / EA);
+      }
+
+      /// <summary>
       /// Вычисляет геометрические характеристики группы арматурных стержней
       /// путём суммирования вкладов каждого стержня.
       /// </summary>
