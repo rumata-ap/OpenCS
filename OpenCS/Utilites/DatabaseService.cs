@@ -583,7 +583,8 @@ namespace OpenCS.Utilites
          using var cmd = conn.CreateCommand();
          cmd.CommandText = """
             SELECT id, num, tag, description, material_id,
-                   host_area_id, diagramm_type, nx, ny, wkt, category, pool_contour_id
+                   host_area_id, diagramm_type, nx, ny, wkt, category, pool_contour_id,
+                   mesh_method, mesh_max_area, mesh_min_angle
             FROM material_areas
             WHERE section_id IS NULL
             ORDER BY num
@@ -604,7 +605,10 @@ namespace OpenCS.Utilites
                NY           = r.GetInt32(8),
                WKT          = r.IsDBNull(9) ? null : r.GetString(9),
                Category      = Enum.TryParse<AreaCategory>(r.GetString(10), ignoreCase: true, out var cat) ? cat : AreaCategory.Region,
-               PoolContourId = r.IsDBNull(11) ? null : r.GetInt32(11)
+               PoolContourId = r.IsDBNull(11) ? null : r.GetInt32(11),
+               MeshMethod    = Enum.TryParse<CScore.MeshMethod>(r.IsDBNull(12) ? "grid" : r.GetString(12), ignoreCase: true, out var mm) ? mm : CScore.MeshMethod.Grid,
+               MeshMaxArea   = r.IsDBNull(13) ? 0.01 : r.GetDouble(13),
+               MeshMinAngle  = r.IsDBNull(14) ? 30.0 : r.GetDouble(14)
             };
             if (area.WKT != null)
             {
@@ -620,6 +624,7 @@ namespace OpenCS.Utilites
             MaterialAreas.Add(area);
          }
          LoadPointFibersForAreas(MaterialAreas, conn);
+         LoadMeshFibersForAreas(MaterialAreas, conn);
       }
 
       void LoadPointFibersForAreas(System.Collections.Generic.IEnumerable<MaterialArea> areas, SqliteConnection conn)
@@ -638,6 +643,28 @@ namespace OpenCS.Utilites
                Area = r.GetDouble(3), Diameter = r.GetDouble(4),
                Eps_p = r.GetDouble(5), TypeFiber = FiberType.point
             });
+         }
+      }
+
+      void LoadMeshFibersForAreas(System.Collections.Generic.IEnumerable<MaterialArea> areas, SqliteConnection conn)
+      {
+         var dict = new System.Collections.Generic.Dictionary<int, MaterialArea>();
+         foreach (var a in areas) dict[a.Id] = a;
+         if (dict.Count == 0) return;
+         using var cmd = conn.CreateCommand();
+         cmd.CommandText = $"SELECT area_id, type, x, y, area, wkt, eps_p FROM mesh_fibers WHERE area_id IN ({string.Join(",", dict.Keys)})";
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+         {
+            if (!dict.TryGetValue(r.GetInt32(0), out var area)) continue;
+            var fiber = new Fiber(r.GetDouble(2), r.GetDouble(3))
+            {
+               TypeFiber = Enum.TryParse<FiberType>(r.GetString(1), out var ft) ? ft : FiberType.poly,
+               Area      = r.GetDouble(4),
+               WKT       = r.IsDBNull(5) ? null : r.GetString(5),
+               Eps_p     = r.GetDouble(6)
+            };
+            area.Fibers.Add(fiber);
          }
       }
 
@@ -674,8 +701,10 @@ namespace OpenCS.Utilites
                cmd.CommandText = """
                   INSERT INTO material_areas
                      (num, tag, description, material_id, host_area_id,
-                      diagramm_type, nx, ny, wkt, category, pool_contour_id)
-                  VALUES (@num,@tag,@desc,@mid,@hid,@dtype,@nx,@ny,@wkt,@cat,@pcid);
+                      diagramm_type, nx, ny, wkt, category, pool_contour_id,
+                      mesh_method, mesh_max_area, mesh_min_angle)
+                  VALUES (@num,@tag,@desc,@mid,@hid,@dtype,@nx,@ny,@wkt,@cat,@pcid,
+                          @mmethod,@mmaxarea,@mminangle);
                   SELECT last_insert_rowid();
                """;
             }
@@ -685,7 +714,8 @@ namespace OpenCS.Utilites
                   UPDATE material_areas SET
                      num=@num, tag=@tag, description=@desc, material_id=@mid,
                      host_area_id=@hid, diagramm_type=@dtype, nx=@nx, ny=@ny,
-                     wkt=@wkt, category=@cat, pool_contour_id=@pcid
+                     wkt=@wkt, category=@cat, pool_contour_id=@pcid,
+                     mesh_method=@mmethod, mesh_max_area=@mmaxarea, mesh_min_angle=@mminangle
                   WHERE id=@id;
                """;
                cmd.Parameters.AddWithValue("@id", area.Id);
@@ -701,6 +731,9 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@wkt",   (object?)area.WKT ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@cat",   area.Category.ToString().ToLowerInvariant());
             cmd.Parameters.AddWithValue("@pcid",  (object?)area.PoolContourId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@mmethod",    area.MeshMethod.ToString().ToLowerInvariant());
+            cmd.Parameters.AddWithValue("@mmaxarea",   area.MeshMaxArea);
+            cmd.Parameters.AddWithValue("@mminangle",  area.MeshMinAngle);
             if (isNew) area.Id = (int)(long)cmd.ExecuteScalar()!;
             else cmd.ExecuteNonQuery();
          }
@@ -737,6 +770,55 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@id", area.Id);
          cmd.ExecuteNonQuery();
          MaterialAreas.Remove(area);
+      }
+
+      /// <summary>
+      /// Сохраняет сеточные волокна (poly/tri) области: обновляет параметры сетки
+      /// в material_areas, удаляет старые записи mesh_fibers, добавляет новые.
+      /// </summary>
+      public void SaveMeshFibers(MaterialArea area)
+      {
+         if (area.Id == 0) return;
+         using var conn = new SqliteConnection($"Data Source={_dataSource}");
+         conn.Open();
+         using var tx = conn.BeginTransaction();
+
+         using (var cmd = conn.CreateCommand())
+         {
+            cmd.CommandText = """
+               UPDATE material_areas
+               SET mesh_method=@mm, mesh_max_area=@ma, mesh_min_angle=@mi
+               WHERE id=@id
+            """;
+            cmd.Parameters.AddWithValue("@id", area.Id);
+            cmd.Parameters.AddWithValue("@mm", area.MeshMethod.ToString().ToLowerInvariant());
+            cmd.Parameters.AddWithValue("@ma", area.MeshMaxArea);
+            cmd.Parameters.AddWithValue("@mi", area.MeshMinAngle);
+            cmd.ExecuteNonQuery();
+         }
+
+         using (var cmd = conn.CreateCommand())
+         {
+            cmd.CommandText = "DELETE FROM mesh_fibers WHERE area_id=@aid";
+            cmd.Parameters.AddWithValue("@aid", area.Id);
+            cmd.ExecuteNonQuery();
+         }
+
+         foreach (var f in area.Fibers.Where(f => f.TypeFiber is FiberType.poly or FiberType.tri))
+         {
+            using var fc = conn.CreateCommand();
+            fc.CommandText = "INSERT INTO mesh_fibers(area_id,type,x,y,area,wkt,eps_p) VALUES(@aid,@t,@x,@y,@a,@wkt,@ep)";
+            fc.Parameters.AddWithValue("@aid", area.Id);
+            fc.Parameters.AddWithValue("@t",   f.TypeFiber.ToString());
+            fc.Parameters.AddWithValue("@x",   f.X);
+            fc.Parameters.AddWithValue("@y",   f.Y);
+            fc.Parameters.AddWithValue("@a",   f.Area);
+            fc.Parameters.AddWithValue("@wkt", (object?)f.WKT ?? DBNull.Value);
+            fc.Parameters.AddWithValue("@ep",  f.Eps_p);
+            fc.ExecuteNonQuery();
+         }
+
+         tx.Commit();
       }
 
       void LoadDiagrams()
