@@ -73,20 +73,28 @@
 
             <!-- Сетка -->
             <GroupBox Header="{DynamicResource MeshGrid}" Margin="0,0,0,8">
-               <Grid Margin="4">
-                  <Grid.ColumnDefinitions>
-                     <ColumnDefinition Width="Auto"/>
-                     <ColumnDefinition Width="*"/>
-                     <ColumnDefinition Width="Auto"/>
-                     <ColumnDefinition Width="*"/>
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="NX:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                  <TextBox Text="{Binding NX, UpdateSourceTrigger=PropertyChanged}"
-                           Grid.Column="1" Margin="0,0,8,0"/>
-                  <TextBlock Text="NY:" Grid.Column="2" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                  <TextBox Text="{Binding NY, UpdateSourceTrigger=PropertyChanged}"
-                           Grid.Column="3"/>
-               </Grid>
+               <StackPanel Margin="4">
+                  <!-- Режим отображения -->
+                  <TextBlock Text="{DynamicResource MeshDisplayMode}" Margin="0,0,0,2"/>
+                  <ComboBox SelectedIndex="{Binding FiberDisplayModeIndex}" Margin="0,0,0,6">
+                     <ComboBoxItem Content="{DynamicResource MeshDisplayElements}"/>
+                     <ComboBoxItem Content="{DynamicResource MeshDisplayCentroids}"/>
+                  </ComboBox>
+                  <!-- Счётчик фибр -->
+                  <TextBlock Margin="0,0,0,6">
+                     <Run Text="{DynamicResource MeshFibersCount}"/>
+                     <Run Text="{Binding FibersCount}"/>
+                  </TextBlock>
+                  <!-- Кнопки -->
+                  <StackPanel Orientation="Horizontal">
+                     <Button Content="{DynamicResource MeshConfigure}"
+                             Command="{Binding OpenMeshDialogCommand}"
+                             Padding="8,3" Margin="0,0,4,0"/>
+                     <Button Content="{DynamicResource MeshClear}"
+                             Command="{Binding ClearMeshCommand}"
+                             Padding="8,3"/>
+                  </StackPanel>
+               </StackPanel>
             </GroupBox>
 
             <!-- Кнопки -->
