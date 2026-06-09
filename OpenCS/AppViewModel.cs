@@ -236,6 +236,9 @@ namespace OpenCS
       /// </summary>
       public ObservableCollection<Diagramm> Diagrams { get; set; }
 
+      /// <summary>Коллекция поперечных сечений проекта.</summary>
+      public ObservableCollection<CrossSection> CrossSections { get; set; }
+
       /// <summary>
       /// Отфильтрованная коллекция диаграмм для отображения в TreeView.
       /// </summary>
@@ -557,6 +560,7 @@ namespace OpenCS
          FiberRegions = db.FiberRegions;
          RcFiberRegions = db.RcFiberRegions;
          Diagrams = db.Diagrams;
+         CrossSections = db.CrossSections;
 
          Materials.CollectionChanged += Concretes_CollectionChanged;
          Contours.CollectionChanged += Contours_CollectionChanged;
@@ -1050,6 +1054,14 @@ namespace OpenCS
       {
          get { return steels; }
          set { steels = value; OnPropertyChanged(); }
+      }
+
+      public void RemoveMaterialArea(ViewModels.MaterialAreaVM vm)
+      {
+         var sec = CrossSections.FirstOrDefault(s => s.Areas.Contains(vm.Model));
+         if (sec == null) return;
+         sec.Areas.Remove(vm.Model);
+         IsDirty = true;
       }
    }
 }
