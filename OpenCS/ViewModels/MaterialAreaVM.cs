@@ -131,11 +131,23 @@ namespace OpenCS.ViewModels
          OnPropertyChanged(nameof(PlotElements));
       }
 
+      public Contour? PoolContour
+      {
+         get => _model.PoolContour;
+         set
+         {
+            _model.PoolContour = value;
+            _model.PoolContourId = value?.Id;
+            OnPropertyChanged();
+         }
+      }
+
       void SetHullFromPool(Contour? contour)
       {
          if (contour == null) return;
          _model.Hull = contour;
          _model.SetWKT();
+         PoolContour = contour;
          OnPropertyChanged(nameof(Hull));
          RefreshPlot();
       }
@@ -176,7 +188,13 @@ namespace OpenCS.ViewModels
             ? App.MaterialAreas.Max(a => a.Num) + 1 : 1;
          if (_model.Num == 0) _model.Num = newNum;
          App.db.SaveMaterialArea(_model);
-         App.RefreshMaterialAreaLiveCollections();
+         if (!App.MaterialAreas.Contains(_model))
+            App.MaterialAreas.Add(_model); // CollectionChanged → RefreshLive + IsDirty
+         else
+         {
+            App.RefreshMaterialAreaLiveCollections();
+            App.IsDirty = true;
+         }
       }
 
       void Delete()

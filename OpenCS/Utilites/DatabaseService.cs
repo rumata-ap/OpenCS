@@ -25,7 +25,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 2;
+      const int CurrentSchemaVersion = 3;
 
       static readonly string[] Migrations =
       [
@@ -53,6 +53,10 @@ namespace OpenCS.Utilites
          FROM material_areas;
          DROP TABLE material_areas;
          ALTER TABLE material_areas_v2 RENAME TO material_areas;
+         """,
+         """
+         -- v3: добавить pool_contour_id для связи standalone-области с контуром из пула.
+         ALTER TABLE material_areas ADD COLUMN pool_contour_id INTEGER REFERENCES contours(id);
          """
       ];
 
@@ -389,15 +393,22 @@ namespace OpenCS.Utilites
             var c = new Contour
             {
                Id = reader.GetInt32(0),
-               Tag = reader.GetString(1)
+               Tag = reader.IsDBNull(1) ? "" : reader.GetString(1)
             };
-            c.WKT = reader.GetString(2);
+            c.WKT = reader.IsDBNull(2) ? "" : reader.GetString(2);
+            if (!string.IsNullOrEmpty(c.WKT))
+            {
+               WktHelper.ParseWKTPolygon(c.WKT, out var ox, out var oy, out _, out _);
+               c.X = ox; c.Y = oy;
+            }
             c.Type = (ContourType)reader.GetInt32(3);
             if (!reader.IsDBNull(4)) c.GeometrySet = reader.GetString(4);
             var pointsJson = reader.GetString(5);
              var points = JsonSerializer.Deserialize<List<StressPoint>>(pointsJson, _jsonSettings);
             if (points != null)
                foreach (var p in points) { p.Contour = c; c.Points.Add(p); }
+            if (c.X.Count == 0 && c.Points.Count >= 4)
+               c.PointsToXYs();
             Contours.Add(c);
             foreach (var p in c.Points) Points.Add(p);
          }
@@ -431,7 +442,7 @@ namespace OpenCS.Utilites
             cmd.CommandText = """
                SELECT id, section_id, num, tag, description,
                       material_id, host_area_id, diagramm_type, nx, ny, wkt
-               FROM material_areas ORDER BY section_id, num
+               FROM material_areas WHERE section_id IS NOT NULL ORDER BY section_id, num
             """;
             using var r = cmd.ExecuteReader();
             while (r.Read())
@@ -546,7 +557,7 @@ namespace OpenCS.Utilites
          using var cmd = conn.CreateCommand();
          cmd.CommandText = """
             SELECT id, num, tag, description, material_id,
-                   host_area_id, diagramm_type, nx, ny, wkt, category
+                   host_area_id, diagramm_type, nx, ny, wkt, category, pool_contour_id
             FROM material_areas
             WHERE section_id IS NULL
             ORDER BY num
@@ -566,16 +577,19 @@ namespace OpenCS.Utilites
                NX           = r.GetInt32(7),
                NY           = r.GetInt32(8),
                WKT          = r.IsDBNull(9) ? null : r.GetString(9),
-               Category     = Enum.TryParse<AreaCategory>(r.GetString(10), ignoreCase: true, out var cat) ? cat : AreaCategory.Region
+               Category      = Enum.TryParse<AreaCategory>(r.GetString(10), ignoreCase: true, out var cat) ? cat : AreaCategory.Region,
+               PoolContourId = r.IsDBNull(11) ? null : r.GetInt32(11)
             };
             if (area.WKT != null)
             {
                WktHelper.ParseWKTPolygon(area.WKT,
                   out var outerX, out var outerY, out var holeXs, out var holeYs);
-               area.Contours.Add(new Contour(outerX, outerY, "hull") { Type = ContourType.Hull });
+               if (outerX.Count >= 5)
+                  area.Contours.Add(new Contour(outerX, outerY, "hull") { Type = ContourType.Hull });
                if (holeXs != null)
                   for (int j = 0; j < holeXs.Count; j++)
-                     area.Contours.Add(new Contour(holeXs[j], holeYs[j], $"hole{j}") { Type = ContourType.Hole });
+                     if (holeXs[j].Count >= 5)
+                        area.Contours.Add(new Contour(holeXs[j], holeYs[j], $"hole{j}") { Type = ContourType.Hole });
             }
             MaterialAreas.Add(area);
          }
@@ -608,6 +622,15 @@ namespace OpenCS.Utilites
             area.Material = Materials.FirstOrDefault(m => m.Id == area.MaterialId);
             if (area.HostAreaId != null)
                area.HostArea = MaterialAreas.FirstOrDefault(a => a.Id == area.HostAreaId);
+            if (area.PoolContourId != null)
+            {
+               var pc = Contours.FirstOrDefault(c => c.Id == area.PoolContourId);
+               if (pc != null)
+               {
+                  area.PoolContour = pc;
+                  area.Hull = pc;
+               }
+            }
             area.ResolveAndBuildDiagramms();
          }
       }
@@ -625,8 +648,8 @@ namespace OpenCS.Utilites
                cmd.CommandText = """
                   INSERT INTO material_areas
                      (num, tag, description, material_id, host_area_id,
-                      diagramm_type, nx, ny, wkt, category)
-                  VALUES (@num,@tag,@desc,@mid,@hid,@dtype,@nx,@ny,@wkt,@cat);
+                      diagramm_type, nx, ny, wkt, category, pool_contour_id)
+                  VALUES (@num,@tag,@desc,@mid,@hid,@dtype,@nx,@ny,@wkt,@cat,@pcid);
                   SELECT last_insert_rowid();
                """;
             }
@@ -636,7 +659,7 @@ namespace OpenCS.Utilites
                   UPDATE material_areas SET
                      num=@num, tag=@tag, description=@desc, material_id=@mid,
                      host_area_id=@hid, diagramm_type=@dtype, nx=@nx, ny=@ny,
-                     wkt=@wkt, category=@cat
+                     wkt=@wkt, category=@cat, pool_contour_id=@pcid
                   WHERE id=@id;
                """;
                cmd.Parameters.AddWithValue("@id", area.Id);
@@ -651,6 +674,7 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@ny",    area.NY);
             cmd.Parameters.AddWithValue("@wkt",   (object?)area.WKT ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@cat",   area.Category.ToString().ToLowerInvariant());
+            cmd.Parameters.AddWithValue("@pcid",  (object?)area.PoolContourId ?? DBNull.Value);
             if (isNew) area.Id = (int)(long)cmd.ExecuteScalar()!;
             else cmd.ExecuteNonQuery();
          }
@@ -710,8 +734,8 @@ namespace OpenCS.Utilites
                Type = type,
                MaterialType = matType,
                CalcType = calcType,
-               Ic = RebuildSpline(sd?.Compression),
-               It = RebuildSpline(sd?.Tension)
+             Ic = RebuildSpline(sd?.Compression)!,
+                It = RebuildSpline(sd?.Tension)!
             };
             Diagrams.Add(d);
          }

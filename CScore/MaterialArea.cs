@@ -67,6 +67,12 @@ namespace CScore
       /// <summary>Id бетонной области-носителя в БД (null если нет).</summary>
       public int? HostAreaId { get; set; }
 
+      /// <summary>Id контура из пула проекта, назначенного как внешний контур.</summary>
+      public int? PoolContourId { get; set; }
+
+      /// <summary>Ссылка на контур из пула. Не сериализуется — разрешается при загрузке.</summary>
+      [JsonIgnore] public Contour? PoolContour { get; set; }
+
       /// <summary>Тип диаграммы работы материала.</summary>
       public DiagrammType DiagrammType { get; set; } = DiagrammType.L2;
 
@@ -125,7 +131,7 @@ namespace CScore
          Material = material;
          MaterialId = material.Id;
          DiagrammType = diagrammType;
-         Diagramms = material.GetDiagramms(diagrammType);
+         Diagramms = material.GetDiagramms(diagrammType)!;
       }
 
       /// <summary>
@@ -135,7 +141,7 @@ namespace CScore
       public void ResolveAndBuildDiagramms()
       {
          if (Material == null) return;
-         var own = Material.GetDiagramms(DiagrammType);
+         var own = Material.GetDiagramms(DiagrammType)!;
 
          if (HostArea != null && HostArea.Diagramms.Count > 0)
          {
