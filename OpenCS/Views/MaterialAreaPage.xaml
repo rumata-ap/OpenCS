@@ -1,0 +1,110 @@
+<UserControl x:Class="OpenCS.Views.MaterialAreaPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:OpenCS.ViewModels"
+             xmlns:conv="clr-namespace:OpenCS.Converters">
+   <UserControl.Resources>
+      <conv:MatTypeToBrushConverter x:Key="MatTypeToBrush"/>
+      <conv:MatTypeToGeometryConverter x:Key="MatTypeToGeom"/>
+   </UserControl.Resources>
+   <Grid>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="300"/>
+         <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Левая панель: редактор свойств -->
+      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+         <StackPanel Margin="8" >
+
+            <!-- Обозначение -->
+            <TextBlock Text="{DynamicResource Tag}" Margin="0,0,0,2"/>
+            <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+            <!-- Материал -->
+            <TextBlock Text="{DynamicResource Material}" Margin="0,0,0,2"/>
+            <ComboBox ItemsSource="{Binding App.Materials}"
+                      SelectedItem="{Binding Material}"
+                      DisplayMemberPath="Tag"
+                      Margin="0,0,0,8"/>
+
+            <!-- Тип диаграммы -->
+            <TextBlock Text="{DynamicResource DiagramType}" Margin="0,0,0,2"/>
+            <ComboBox SelectedItem="{Binding DiagrammType}" Margin="0,0,0,8"
+                      x:Name="diagramTypeCombo"/>
+
+            <!-- Hull -->
+            <GroupBox Header="{DynamicResource Hull}" Margin="0,0,0,8">
+               <StackPanel Margin="4">
+                  <ComboBox x:Name="hullCombo"
+                            ItemsSource="{Binding ProjectContours}"
+                            DisplayMemberPath="Tag"
+                            Margin="0,0,0,4"/>
+                  <StackPanel Orientation="Horizontal">
+                     <Button Content="{DynamicResource SelectFromPool}"
+                             Command="{Binding SetHullFromPoolCommand}"
+                             CommandParameter="{Binding SelectedItem, ElementName=hullCombo}"
+                             Padding="6,3" Margin="0,0,4,0"/>
+                     <Button Content="{DynamicResource ClearHull}"
+                             Command="{Binding ClearHullCommand}"
+                             Padding="6,3"/>
+                  </StackPanel>
+                  <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="Gray">
+                     <Run Text="{DynamicResource CurrentHull}"/>
+                     <Run Text="{Binding Hull.Tag, FallbackValue='-'}"/>
+                  </TextBlock>
+               </StackPanel>
+            </GroupBox>
+
+            <!-- Holes -->
+            <GroupBox Header="{DynamicResource Holes}" Margin="0,0,0,8">
+               <StackPanel Margin="4">
+                  <ComboBox x:Name="holeCombo"
+                            ItemsSource="{Binding ProjectContours}"
+                            DisplayMemberPath="Tag"
+                            Margin="0,0,0,4"/>
+                  <Button Content="{DynamicResource AddHole}"
+                          Command="{Binding AddHoleCommand}"
+                          CommandParameter="{Binding SelectedItem, ElementName=holeCombo}"
+                          Padding="6,3" HorizontalAlignment="Left"/>
+               </StackPanel>
+            </GroupBox>
+
+            <!-- Сетка -->
+            <GroupBox Header="{DynamicResource MeshGrid}" Margin="0,0,0,8">
+               <Grid Margin="4">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="Auto"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="Auto"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="NX:" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox Text="{Binding NX, UpdateSourceTrigger=PropertyChanged}"
+                           Grid.Column="1" Margin="0,0,8,0"/>
+                  <TextBlock Text="NY:" Grid.Column="2" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox Text="{Binding NY, UpdateSourceTrigger=PropertyChanged}"
+                           Grid.Column="3"/>
+               </Grid>
+            </GroupBox>
+
+            <!-- Кнопки -->
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+               <Button Content="{DynamicResource Save}"
+                       Command="{Binding SaveCommand}"
+                       Padding="12,4" Margin="0,0,8,0"/>
+               <Button Content="{DynamicResource Delete}"
+                       Command="{Binding DeleteCommand}"
+                       Padding="12,4"/>
+            </StackPanel>
+         </StackPanel>
+      </ScrollViewer>
+
+      <!-- Правая панель: превью PlotCanvas -->
+      <Border Grid.Column="1" BorderThickness="1,0,0,0"
+              BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
+         <local:PlotCanvas x:Name="preview"
+                           xmlns:local="clr-namespace:OpenCS.Views"/>
+      </Border>
+   </Grid>
+</UserControl>
