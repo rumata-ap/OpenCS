@@ -73,6 +73,11 @@ namespace OpenCS
              vm.CurrentCrossSection = csItem;
           }
 
+          if (e.NewValue is MaterialArea areaItem)
+          {
+             vm.CurrentMaterialArea = areaItem;
+          }
+
           if(e.NewValue is TreeViewItem treeViewItem)
           {
              if (treeViewItem.Name == "ContoursTreeItem")

@@ -278,171 +278,115 @@
                    </TreeViewItem>
                 </TreeViewItem>
 
-               <TreeViewItem x:Name="RegionsNode">
+               <!-- Материальные области -->
+               <TreeViewItem x:Name="RegionsNode" IsExpanded="True">
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Image Source="/Images/shape-design--32.png" Stretch="None"/>
-                        <TextBlock Text="{DynamicResource MaterialRegions}" Margin="5,0,0,0" FontWeight="Bold"/>
+                        <TextBlock Text="{DynamicResource MaterialAreas}" Margin="5,0,0,0" FontWeight="Bold"/>
                      </StackPanel>
                   </TreeViewItem.Header>
 
-                  <TreeViewItem  ItemsSource="{Binding RcFiberRegionsLive}">
-
+                  <!-- Подузел: Области (Region) -->
+                  <TreeViewItem x:Name="AreasNode" ItemsSource="{Binding AreasLive}" IsExpanded="True">
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
-                           <Image Source="/Images/rconcrete--32.png"/>
-                           <TextBlock Text="{DynamicResource Reinforced}" Margin="5,0,0,0"/>
+                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="#3B82F6" Data="M1,1 H15 V15 H1 Z"/>
+                           <TextBlock Text="{DynamicResource Areas}"/>
                         </StackPanel>
                      </TreeViewItem.Header>
-
                      <TreeViewItem.ContextMenu>
                         <ContextMenu>
-                           <MenuItem Header="{DynamicResource New}" Command="{Binding NewRCFiberRegionCommand}">
-                              <MenuItem.Icon>
-                                 <Image Source="/Images/add__32.png"/>
-                              </MenuItem.Icon>
-                           </MenuItem>
-                           <MenuItem Header="{DynamicResource Delete}" Command="{Binding DeleteRCFiberRegionCommand}">
-                              <MenuItem.Icon>
-                                 <Image Source="/Images/delete__32.png"/>
-                              </MenuItem.Icon>
-                           </MenuItem>
+                           <MenuItem Header="{DynamicResource NewArea}"
+                                     Command="{Binding DataContext.NewAreaCommand,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                           <MenuItem Header="{DynamicResource DeleteArea}"
+                                     Command="{Binding DataContext.DeleteMaterialAreaCommand,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
                         </ContextMenu>
                      </TreeViewItem.ContextMenu>
-
                      <TreeViewItem.ItemTemplate>
-                        <HierarchicalDataTemplate>
-                           <TreeView x:Name="RCRegionTreeView" BorderThickness="0">
-
-                              <TreeViewItem Margin="1">
-                                 <TreeViewItem.Header>
-                                    <StackPanel Orientation="Horizontal">
-                                       <Image Source="/Images/rconcrete--32.png"/>
-                                       <TextBlock Text="{Binding Num}" Margin="3,0,0,0"/>
-                                       <TextBlock Text="|" Margin="3,0,0,0"/>
-                                       <TextBlock Text="'" Margin="3,0,0,0"/>
-                                       <TextBlock Text="{Binding Tag}"/>
-                                       <TextBlock Text="'"/>
-                                       <TextBlock Text="[" Margin="3,0,0,0"/>
-                                       <TextBlock Text="{Binding Material.Tag}"/>
-                                       <TextBlock Text="]"/>
-                                    </StackPanel>
-                                 </TreeViewItem.Header>
-
-                                 <TreeViewItem ItemsSource="{Binding Contours}">
-                                    <TreeViewItem.Header>
-                                       <StackPanel Orientation="Horizontal" Margin="1">
-                                          <Image Source="/Images/contours__32.png"/>
-                                          <TextBlock Text="{DynamicResource Contours}" Margin="5,0,0,0"/>
-                                          <TextBlock Text="(" Margin="3,0,0,0"/>
-                                          <TextBlock Text="{Binding Contours.Count}"/>
-                                          <TextBlock Text="{DynamicResource Pcs}"/>
-                                          <TextBlock Text=")"/>
-                                       </StackPanel>
-                                    </TreeViewItem.Header>
-
-                                 </TreeViewItem>
-
-                                 <TreeViewItem ItemsSource="{Binding ReBarGroups}">
-                                    <TreeViewItem.Header>
-                                       <StackPanel Orientation="Horizontal" Margin="1">
-                                          <Image Source="/Images/rebar_group__32(1).png"/>
-                                          <TextBlock Text="{DynamicResource RebarGroups}" Margin="5,0,0,0"/>
-                                          <TextBlock Text="(" Margin="3,0,0,0"/>
-                                          <TextBlock Text="{Binding ReBarGroups.Count}"/>
-                                          <TextBlock Text="{DynamicResource Pcs}"/>
-                                          <TextBlock Text=")"/>
-                                       </StackPanel>
-                                    </TreeViewItem.Header>
-
-                                    <TreeViewItem.ItemTemplate>
-                                       <HierarchicalDataTemplate ItemsSource="{Binding ReBars}">
-                                          <StackPanel Orientation="Horizontal" Margin="1">
-                                             <Image Source="/Images/rebar_group__32.png" Stretch="None"/>
-                                             <TextBlock Text="{Binding Num}" Margin="3,0,0,0"/>
-                                             <TextBlock Text="|" Margin="3,0,0,0"/>
-                                             <TextBlock Text="'" Margin="3,0,0,0"/>
-                                             <TextBlock Text="{Binding Tag}"/>
-                                             <TextBlock Text="'"/>
-                                             <TextBlock Text="[" Margin="3,0,0,0"/>
-                                             <TextBlock Text="{Binding Material.Tag}"/>
-                                             <TextBlock Text="]"/>
-                                             <TextBlock Text="{DynamicResource BarsOf}" Margin="3,0,0,0"/>
-                                             <TextBlock Text="{Binding ReBars.Count}"/>
-                                             <TextBlock Text=")"/>
-                                          </StackPanel>
-
-                                          <HierarchicalDataTemplate.ItemTemplate>
-                                             <StaticResource ResourceKey="RebarDataTemplate" />
-                                          </HierarchicalDataTemplate.ItemTemplate>
-
-                                       </HierarchicalDataTemplate>
-
-                                    </TreeViewItem.ItemTemplate>
-
-                                 </TreeViewItem>
-                                  
-                                 <TreeViewItem ItemsSource="{Binding Fibers}">
-                                    <TreeViewItem.Header>
-                                       <StackPanel Orientation="Horizontal" Margin="2">
-                                          <Image Source="/Images/fibers--32.png" Stretch="None"/>
-                                          <TextBlock Text="{DynamicResource Fibers}" Margin="5,0,0,0"/>
-                                          <TextBlock Text="(" Margin="3,0,0,0"/>
-                                          <TextBlock Text="{Binding Fibers.Count}"/>
-                                          <TextBlock Text="{DynamicResource Pcs}"/>
-                                          <TextBlock Text=")"/>
-                                       </StackPanel>
-                                    </TreeViewItem.Header>
-
-                                 </TreeViewItem>
-
-                              </TreeViewItem>
-
-                           </TreeView>
-                        </HierarchicalDataTemplate>
-                                                
+                        <DataTemplate DataType="{x:Type core:MaterialArea}">
+                           <StackPanel Orientation="Horizontal" Margin="1">
+                              <Path Width="13" Height="13" Margin="0,0,4,0" Stretch="Uniform"
+                                    Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrushConverter}}"
+                                    Data="{Binding Material.Type, Converter={StaticResource MatTypeToGeometryConverter}}"/>
+                              <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                           </StackPanel>
+                        </DataTemplate>
                      </TreeViewItem.ItemTemplate>
-                      
                   </TreeViewItem>
 
-                  <TreeViewItem>
+                  <!-- Подузел: Группы арматуры (RebarGroup) -->
+                  <TreeViewItem x:Name="RebarGroupsNode" ItemsSource="{Binding RebarGroupsLive}" IsExpanded="True">
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
-                           <Image Source="/Images/setka--32.png"/>
-                           <TextBlock Text="{DynamicResource Fibrous}" Margin="5,0,0,0"/>
+                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="#F97316"
+                                 Data="M3,8 A2,2 0 1,0 3.001,8 Z M8,8 A2,2 0 1,0 8.001,8 Z M13,8 A2,2 0 1,0 13.001,8 Z"/>
+                           <TextBlock Text="{DynamicResource RebarGroups}"/>
                         </StackPanel>
                      </TreeViewItem.Header>
-
+                     <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                           <MenuItem Header="{DynamicResource NewArea}"
+                                     Command="{Binding DataContext.NewRebarGroupCommand,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                           <MenuItem Header="{DynamicResource DeleteArea}"
+                                     Command="{Binding DataContext.DeleteMaterialAreaCommand,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+                     <TreeViewItem.ItemTemplate>
+                        <DataTemplate DataType="{x:Type core:MaterialArea}">
+                           <StackPanel Orientation="Horizontal" Margin="1">
+                              <Path Width="13" Height="13" Margin="0,0,4,0" Stretch="Uniform"
+                                    Fill="#F97316"
+                                    Data="M3,8 A2,2 0 1,0 3.001,8 Z M8,8 A2,2 0 1,0 8.001,8 Z M13,8 A2,2 0 1,0 13.001,8 Z"/>
+                              <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </TreeViewItem.ItemTemplate>
                   </TreeViewItem>
 
-                  <TreeViewItem>
+                  <!-- Подузел: Одиночные стержни (SingleBar) -->
+                  <TreeViewItem x:Name="SingleBarsNode" ItemsSource="{Binding SingleBarsLive}" IsExpanded="True">
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
-                           <Image Source="/Images/poligon--32.png"/>
-                           <TextBlock Text="{DynamicResource Solid}" Margin="5,0,0,0"/>
+                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="#F97316"
+                                 Data="M8,8 A3,3 0 1,0 8.001,8 Z"/>
+                           <TextBlock Text="{DynamicResource SingleBars}"/>
                         </StackPanel>
                      </TreeViewItem.Header>
-
+                     <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                           <MenuItem Header="{DynamicResource NewArea}"
+                                     Command="{Binding DataContext.NewSingleBarCommand,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                           <MenuItem Header="{DynamicResource DeleteArea}"
+                                     Command="{Binding DataContext.DeleteMaterialAreaCommand,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+                     <TreeViewItem.ItemTemplate>
+                        <DataTemplate DataType="{x:Type core:MaterialArea}">
+                           <StackPanel Orientation="Horizontal" Margin="1">
+                              <Path Width="13" Height="13" Margin="0,0,4,0" Stretch="Uniform"
+                                    Fill="#F97316" Data="M8,8 A3,3 0 1,0 8.001,8 Z"/>
+                              <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </TreeViewItem.ItemTemplate>
                   </TreeViewItem>
-
-                  <TreeViewItem ItemsSource="{Binding RebarGroupsLive}">
-                     <TreeViewItem.Header>
-                        <StackPanel Orientation="Horizontal" Margin="2">
-                           <Image Source="/Images/rebar_group--32.png" Stretch="None"/>
-                           <TextBlock Text="{DynamicResource RebarGroups}" Margin="5,0,0,0"/>
-                        </StackPanel>
-                     </TreeViewItem.Header>
-
-                  </TreeViewItem>
-
-
 
                </TreeViewItem>
 
 
 
-               <TreeViewItem x:Name="crosssectNode" ItemsSource="{Binding CrossSectionsLive}"
-                            IsExpanded="True">
+               <!-- Поперечные сечения -->
+               <TreeViewItem x:Name="crosssectNode" IsExpanded="True">
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Image Source="/Images/crossect--32.png"/>
@@ -450,43 +394,81 @@
                      </StackPanel>
                   </TreeViewItem.Header>
 
-                  <TreeViewItem.ContextMenu>
-                     <ContextMenu>
-                        <MenuItem Header="{DynamicResource NewCrossSection}"
-                                  Command="{Binding DataContext.NewCrossSectionCommand,
-                                            RelativeSource={RelativeSource AncestorType=Window}}"/>
-                        <MenuItem Header="{DynamicResource EditCrossSection}"
-                                  Command="{Binding DataContext.EditCrossSectionCommand,
-                                            RelativeSource={RelativeSource AncestorType=Window}}"/>
-                        <MenuItem Header="{DynamicResource DeleteCrossSection}"
-                                  Command="{Binding DataContext.DeleteCrossSectionCommand,
-                                            RelativeSource={RelativeSource AncestorType=Window}}"/>
-                     </ContextMenu>
-                  </TreeViewItem.ContextMenu>
-
-                  <TreeViewItem.ItemTemplate>
-                     <HierarchicalDataTemplate DataType="{x:Type core:CrossSection}"
-                                               ItemsSource="{Binding Areas}">
-                        <StackPanel Orientation="Horizontal">
-                           <Path Width="14" Height="14" Margin="0,0,4,0" Stretch="Uniform"
-                                 Fill="Gray" Data="M1,1 H7 L15,8 L7,15 H1 Z"/>
-                           <TextBlock Text="{Binding Tag}"/>
+                  <!-- Подузел: Фибровые сечения -->
+                  <TreeViewItem x:Name="FiberSectionsNode" ItemsSource="{Binding FiberSectionsLive}"
+                                IsExpanded="True">
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="SteelBlue" Data="M1,1 H7 L15,8 L7,15 H1 Z"/>
+                           <TextBlock Text="{DynamicResource FiberSections}"/>
                         </StackPanel>
+                     </TreeViewItem.Header>
+                     <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                           <MenuItem Header="{DynamicResource NewCrossSection}"
+                                     Command="{Binding DataContext.NewCrossSectionCommand,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                           <MenuItem Header="{DynamicResource EditCrossSection}"
+                                     Command="{Binding DataContext.EditCrossSectionCommand,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                           <MenuItem Header="{DynamicResource DeleteCrossSection}"
+                                     Command="{Binding DataContext.DeleteCrossSectionCommand,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+                     <TreeViewItem.ItemTemplate>
+                        <HierarchicalDataTemplate DataType="{x:Type core:CrossSection}"
+                                                  ItemsSource="{Binding Areas}">
+                           <StackPanel Orientation="Horizontal">
+                              <Path Width="14" Height="14" Margin="0,0,4,0" Stretch="Uniform"
+                                    Fill="SteelBlue" Data="M1,1 H7 L15,8 L7,15 H1 Z"/>
+                              <TextBlock Text="{Binding Tag}"/>
+                           </StackPanel>
+                           <HierarchicalDataTemplate.ItemTemplate>
+                              <DataTemplate DataType="{x:Type core:MaterialArea}">
+                                 <StackPanel Orientation="Horizontal">
+                                    <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
+                                          Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrushConverter}}"
+                                          Data="{Binding Material.Type, Converter={StaticResource MatTypeToGeometryConverter}}"/>
+                                    <TextBlock Text="{Binding Tag}"/>
+                                 </StackPanel>
+                              </DataTemplate>
+                           </HierarchicalDataTemplate.ItemTemplate>
+                        </HierarchicalDataTemplate>
+                     </TreeViewItem.ItemTemplate>
+                  </TreeViewItem>
 
-                        <HierarchicalDataTemplate.ItemTemplate>
-                           <DataTemplate DataType="{x:Type core:MaterialArea}">
-                              <StackPanel Orientation="Horizontal">
-                                 <Path Width="13" Height="13" Margin="0,0,4,0" Stretch="Uniform"
-                                       Fill="{Binding Material.Type,
-                                              Converter={StaticResource MatTypeToBrushConverter}}"
-                                       Data="{Binding Material.Type,
-                                              Converter={StaticResource MatTypeToGeometryConverter}}"/>
-                                 <TextBlock Text="{Binding Tag}"/>
-                              </StackPanel>
-                           </DataTemplate>
-                        </HierarchicalDataTemplate.ItemTemplate>
-                     </HierarchicalDataTemplate>
-                  </TreeViewItem.ItemTemplate>
+                  <!-- Подузел: Двухстадийные (усиление) -->
+                  <TreeViewItem x:Name="TwoStageNode" ItemsSource="{Binding TwoStageSectionsLive}"
+                                IsExpanded="True">
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="DarkSlateBlue" Data="M1,8 H15 M1,4 H15 M1,12 H15"/>
+                           <TextBlock Text="{DynamicResource TwoStageSections}"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+                     <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                           <MenuItem Header="{DynamicResource NewTwoStageSection}"
+                                     Command="{Binding DataContext.NewCrossSectionCommand,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                           <MenuItem Header="{DynamicResource DeleteCrossSection}"
+                                     Command="{Binding DataContext.DeleteCrossSectionCommand,
+                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+                     <TreeViewItem.ItemTemplate>
+                        <DataTemplate DataType="{x:Type core:CrossSection}">
+                           <StackPanel Orientation="Horizontal">
+                              <Path Width="14" Height="14" Margin="0,0,4,0" Stretch="Uniform"
+                                    Fill="DarkSlateBlue" Data="M1,8 H15 M1,4 H15 M1,12 H15"/>
+                              <TextBlock Text="{Binding Tag}"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </TreeViewItem.ItemTemplate>
+                  </TreeViewItem>
 
                </TreeViewItem>
                <TreeViewItem x:Name="feNode" Header="{DynamicResource FiniteElements}">
