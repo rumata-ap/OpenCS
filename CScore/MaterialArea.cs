@@ -2,11 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
+using CSTriangulation;
 
 namespace CScore
 {
    /// <summary>Категория материальной области: полигональная, группа стержней или одиночный стержень.</summary>
    public enum AreaCategory { Region, RebarGroup, SingleBar }
+
+   /// <summary>Метод генерации сетки фибр.</summary>
+   public enum MeshMethod { Grid, Ruppert, AdvancingFront }
 
    /// <summary>
    /// Материальная область поперечного сечения — единая замена для FiberRegion,
@@ -78,6 +82,15 @@ namespace CScore
 
       /// <summary>Категория области: полигон, группа стержней или одиночный стержень.</summary>
       public AreaCategory Category { get; set; } = AreaCategory.Region;
+
+      /// <summary>Метод генерации сетки фибр.</summary>
+      public MeshMethod MeshMethod { get; set; } = MeshMethod.Grid;
+
+      /// <summary>Максимальная площадь треугольника (доля от площади области).</summary>
+      public double MeshMaxArea { get; set; } = 0.01;
+
+      /// <summary>Минимальный угол треугольника для метода Рупперта, градусы.</summary>
+      public double MeshMinAngle { get; set; } = 30.0;
 
       /// <summary>Id родительского CrossSection в БД.</summary>
       [JsonIgnore] public int SectionId { get; set; }
@@ -234,20 +247,26 @@ namespace CScore
          }
       }
 
-      /// <summary>Разбивает область на волокна методом триангуляции.</summary>
-      public void Triangulate(double maxTrgArea = 0.01, double maxAngl = 30)
+      /// <summary>Разбивает область на волокна методом триангуляции, сохраняя точечные волокна.</summary>
+      public void Triangulate(double maxTrgArea = 0.01, double maxAngl = 30,
+         MeshMethod method = MeshMethod.Ruppert)
       {
-         Fiber[] res = Geo.Triangulation(this, maxTrgArea, maxAngl);
-         Fibers = [.. res];
+         var triMethod = method == MeshMethod.AdvancingFront
+            ? TriangulationMethod.AdvancingFront
+            : TriangulationMethod.Ruppert;
+         Fiber[] res = Geo.Triangulation(this, maxTrgArea, maxAngl, method: triMethod);
+         var points = Fibers.Where(f => f.TypeFiber == FiberType.point).ToList();
+         Fibers = [.. res, .. points];
       }
 
-      /// <summary>Разбивает область на волокна прямоугольной сеткой.</summary>
+      /// <summary>Разбивает область на волокна прямоугольной сеткой, сохраняя точечные волокна.</summary>
       public void SliceXY(int nx = 0, int ny = 0)
       {
          int usedNx = nx > 0 ? nx : NX;
          int usedNy = ny > 0 ? ny : NY;
          Fiber[] res = GridSplit.SliceXY(this, usedNx, usedNy);
-         Fibers = [.. res];
+         var points = Fibers.Where(f => f.TypeFiber == FiberType.point).ToList();
+         Fibers = [.. res, .. points];
       }
 
       /// <summary>Начальное приближение кривизны (упругая стадия).</summary>
