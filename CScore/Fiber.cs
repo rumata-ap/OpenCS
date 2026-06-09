@@ -7,7 +7,7 @@ namespace CScore
    /// <summary>
    /// Тип конечного элемента (волокна) сечения.
    /// </summary>
-   public enum FiberType { tri = 2, poly = 1, none = 0 }
+   public enum FiberType { tri = 2, poly = 1, none = 0, point = 3 }
 
    /// <summary>
    /// Конечный элемент (волокно) — дискретная площадка поперечного сечения,
@@ -140,6 +140,11 @@ namespace CScore
       /// Внешний ключ для связи с FiberRegion. Не сериализуется.
       /// </summary>
       [JsonIgnore] public int RegionId { get; set; }
+
+      /// <summary>
+      /// Диаметр стержня [м]. Только для волокон типа <see cref="FiberType.point"/>.
+      /// </summary>
+      public double Diameter { get; set; }
 
       /// <inheritdoc/>
       public override string ToString()
