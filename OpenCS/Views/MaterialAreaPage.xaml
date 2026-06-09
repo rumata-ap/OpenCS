@@ -9,12 +9,12 @@
    </UserControl.Resources>
    <Grid>
       <Grid.ColumnDefinitions>
-         <ColumnDefinition Width="300"/>
          <ColumnDefinition Width="*"/>
+         <ColumnDefinition Width="300"/>
       </Grid.ColumnDefinitions>
 
-      <!-- Левая панель: редактор свойств -->
-      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+      <!-- Правая панель: редактор свойств -->
+      <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
          <StackPanel Margin="8" >
 
             <!-- Обозначение -->
@@ -38,6 +38,7 @@
                <StackPanel Margin="4">
                   <ComboBox x:Name="hullCombo"
                             ItemsSource="{Binding ProjectContours}"
+                            SelectedItem="{Binding PoolContour, Mode=TwoWay}"
                             DisplayMemberPath="Tag"
                             Margin="0,0,0,4"/>
                   <StackPanel Orientation="Horizontal">
@@ -100,8 +101,8 @@
          </StackPanel>
       </ScrollViewer>
 
-      <!-- Правая панель: превью PlotCanvas -->
-      <Border Grid.Column="1" BorderThickness="1,0,0,0"
+      <!-- Центральная панель: превью PlotCanvas -->
+      <Border Grid.Column="0" BorderThickness="0,0,1,0"
               BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
          <local:PlotCanvas x:Name="preview"
                            xmlns:local="clr-namespace:OpenCS.Views"/>
