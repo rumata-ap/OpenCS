@@ -49,6 +49,7 @@ namespace OpenCS.Utilites
       public ObservableCollection<ReBarLayer> RebarLayers { get; } = [];
       public ObservableCollection<ReBarGroup> RebarGroups { get; } = [];
       public ObservableCollection<Diagramm> Diagrams { get; } = [];
+      public ObservableCollection<CrossSection> CrossSections { get; } = [];
 
       public DatabaseService() : this("dbapp.db") { }
 
@@ -118,6 +119,45 @@ namespace OpenCS.Utilites
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
                 value_json TEXT NOT NULL DEFAULT '{}'
+            );
+            CREATE TABLE IF NOT EXISTS cross_sections (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                num         INTEGER NOT NULL DEFAULT 0,
+                tag         TEXT NOT NULL DEFAULT '',
+                description TEXT,
+                type        TEXT NOT NULL DEFAULT 'simple'
+            );
+            CREATE TABLE IF NOT EXISTS cross_section_stages (
+                section_id        INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+                stage1_section_id INTEGER NOT NULL REFERENCES cross_sections(id)
+            );
+            CREATE TABLE IF NOT EXISTS cross_section_stage_kurvature (
+                section_id INTEGER PRIMARY KEY REFERENCES cross_sections(id) ON DELETE CASCADE,
+                e0         REAL NOT NULL DEFAULT 0,
+                ky         REAL NOT NULL DEFAULT 0,
+                kz         REAL NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS material_areas (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                section_id     INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+                num            INTEGER NOT NULL DEFAULT 0,
+                tag            TEXT NOT NULL DEFAULT '',
+                description    TEXT,
+                material_id    INTEGER REFERENCES materials(id),
+                host_area_id   INTEGER REFERENCES material_areas(id),
+                diagramm_type  TEXT NOT NULL DEFAULT 'L2',
+                nx             INTEGER NOT NULL DEFAULT 21,
+                ny             INTEGER NOT NULL DEFAULT 21,
+                wkt            TEXT
+            );
+            CREATE TABLE IF NOT EXISTS point_fibers (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                area_id     INTEGER NOT NULL REFERENCES material_areas(id) ON DELETE CASCADE,
+                x           REAL NOT NULL DEFAULT 0,
+                y           REAL NOT NULL DEFAULT 0,
+                area        REAL NOT NULL DEFAULT 0,
+                diameter    REAL NOT NULL DEFAULT 0,
+                eps_p       REAL NOT NULL DEFAULT 0
             );";
          cmd.ExecuteNonQuery();
       }
@@ -259,6 +299,7 @@ namespace OpenCS.Utilites
          RebarLayers.Clear();
          RebarGroups.Clear();
          Diagrams.Clear();
+         CrossSections.Clear();
       }
 
       #region Load
