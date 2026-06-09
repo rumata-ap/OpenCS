@@ -16,9 +16,20 @@ namespace CScore
    public class Diagramm
    {
       /// <summary>
+      /// Внутренняя ссылка на материал (не сериализуется).
+      /// </summary>
+      [JsonIgnore]
+      internal Material material;
+
+      /// <summary>
       /// Первичный ключ.
       /// </summary>
       public int Id { get; set; }
+
+      /// <summary>
+      /// Идентификатор материала-источника.
+      /// </summary>
+      public int MaterialId { get; set; }
 
       /// <summary>
       /// Вид расчёта, для которого построена диаграмма.

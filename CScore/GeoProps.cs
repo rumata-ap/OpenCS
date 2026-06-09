@@ -304,6 +304,22 @@ namespace CScore
       }
 
       /// <summary>
+      /// Вычисляет геометрические характеристики составного поперечного сечения.
+      /// </summary>
+      public GeoProps(CrossSection section, GeoPropsType propsType = GeoPropsType.First)
+      {
+         foreach (var area in section.Areas)
+         {
+            var ap = new GeoProps(area, propsType);
+            A    += ap.A;    Sy   += ap.Sy;   Sx   += ap.Sx;
+            Iy   += ap.Iy;   Ix   += ap.Ix;   Ixy  += ap.Ixy;
+            EA   += ap.EA;   ESy  += ap.ESy;  ESx  += ap.ESx;
+            EIy  += ap.EIy;  EIx  += ap.EIx;  EIxy += ap.EIxy;
+         }
+         if (EA > 0) Centroid = new XY(ESy / EA, ESx / EA);
+      }
+
+      /// <summary>
       /// Вычисляет геометрические характеристики группы арматурных стержней
       /// путём суммирования вкладов каждого стержня.
       /// </summary>
