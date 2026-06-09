@@ -25,7 +25,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 3;
+      const int CurrentSchemaVersion = 4;
 
       static readonly string[] Migrations =
       [
@@ -57,6 +57,22 @@ namespace OpenCS.Utilites
          """
          -- v3: добавить pool_contour_id для связи standalone-области с контуром из пула.
          ALTER TABLE material_areas ADD COLUMN pool_contour_id INTEGER REFERENCES contours(id);
+         """,
+         """
+         -- v4: поля параметров сетки в material_areas + таблица mesh_fibers.
+         ALTER TABLE material_areas ADD COLUMN mesh_method    TEXT NOT NULL DEFAULT 'grid';
+         ALTER TABLE material_areas ADD COLUMN mesh_max_area  REAL NOT NULL DEFAULT 0.01;
+         ALTER TABLE material_areas ADD COLUMN mesh_min_angle REAL NOT NULL DEFAULT 30.0;
+         CREATE TABLE IF NOT EXISTS mesh_fibers (
+             id      INTEGER PRIMARY KEY AUTOINCREMENT,
+             area_id INTEGER NOT NULL REFERENCES material_areas(id) ON DELETE CASCADE,
+             type    TEXT NOT NULL DEFAULT 'poly',
+             x       REAL NOT NULL DEFAULT 0,
+             y       REAL NOT NULL DEFAULT 0,
+             area    REAL NOT NULL DEFAULT 0,
+             wkt     TEXT,
+             eps_p   REAL NOT NULL DEFAULT 0
+         );
          """
       ];
 
@@ -180,6 +196,16 @@ namespace OpenCS.Utilites
                 area        REAL NOT NULL DEFAULT 0,
                 diameter    REAL NOT NULL DEFAULT 0,
                 eps_p       REAL NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS mesh_fibers (
+                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                area_id INTEGER NOT NULL REFERENCES material_areas(id) ON DELETE CASCADE,
+                type    TEXT NOT NULL DEFAULT 'poly',
+                x       REAL NOT NULL DEFAULT 0,
+                y       REAL NOT NULL DEFAULT 0,
+                area    REAL NOT NULL DEFAULT 0,
+                wkt     TEXT,
+                eps_p   REAL NOT NULL DEFAULT 0
             );";
          cmd.ExecuteNonQuery();
       }
