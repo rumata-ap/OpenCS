@@ -317,4 +317,23 @@
    <system:String x:Key="HostArea">Host Concrete Area</system:String>
    <system:String x:Key="DeleteArea">Delete Area</system:String>
 
+   <!-- Block 1: tree + MaterialAreaPage -->
+   <system:String x:Key="MaterialAreas">Material Areas</system:String>
+   <system:String x:Key="Areas">Areas</system:String>
+   <system:String x:Key="RebarGroups">Rebar Groups</system:String>
+   <system:String x:Key="SingleBars">Single Bars</system:String>
+   <system:String x:Key="FiberSections">Fiber Sections</system:String>
+   <system:String x:Key="TwoStageSections">Strengthening</system:String>
+   <system:String x:Key="NewArea">New Area</system:String>
+   <system:String x:Key="Hull">Outer Contour (Hull)</system:String>
+   <system:String x:Key="Holes">Holes</system:String>
+   <system:String x:Key="SelectFromPool">Select from Pool</system:String>
+   <system:String x:Key="NewContourBtn">New Contour</system:String>
+   <system:String x:Key="ClearHull">Clear</system:String>
+   <system:String x:Key="AddHole">Add Hole</system:String>
+   <system:String x:Key="MeshGrid">Mesh</system:String>
+   <system:String x:Key="CurrentHull">Current: </system:String>
+   <system:String x:Key="DiagramType">Diagram Type</system:String>
+   <system:String x:Key="NewTwoStageSection">New Strengthening</system:String>
+
  </ResourceDictionary>

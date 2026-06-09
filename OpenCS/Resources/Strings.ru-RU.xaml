@@ -320,4 +320,23 @@
    <system:String x:Key="HostArea">Бетонная область-носитель</system:String>
    <system:String x:Key="DeleteArea">Удалить область</system:String>
 
+   <!-- Блок 1: дерево + MaterialAreaPage -->
+   <system:String x:Key="MaterialAreas">Материальные области</system:String>
+   <system:String x:Key="Areas">Области</system:String>
+   <system:String x:Key="RebarGroups">Группы арматуры</system:String>
+   <system:String x:Key="SingleBars">Одиночные стержни</system:String>
+   <system:String x:Key="FiberSections">Фибровые</system:String>
+   <system:String x:Key="TwoStageSections">Усиление</system:String>
+   <system:String x:Key="NewArea">Новая область</system:String>
+   <system:String x:Key="Hull">Внешний контур (Hull)</system:String>
+   <system:String x:Key="Holes">Отверстия</system:String>
+   <system:String x:Key="SelectFromPool">Выбрать из пула</system:String>
+   <system:String x:Key="NewContourBtn">Новый контур</system:String>
+   <system:String x:Key="ClearHull">Очистить</system:String>
+   <system:String x:Key="AddHole">Добавить отверстие</system:String>
+   <system:String x:Key="MeshGrid">Сетка</system:String>
+   <system:String x:Key="CurrentHull">Текущий: </system:String>
+   <system:String x:Key="DiagramType">Тип диаграммы</system:String>
+   <system:String x:Key="NewTwoStageSection">Новое усиление</system:String>
+
  </ResourceDictionary>
