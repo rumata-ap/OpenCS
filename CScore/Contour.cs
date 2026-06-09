@@ -12,14 +12,14 @@ namespace CScore
    /// </summary>
    public class Contour
    {
-      string str;
+      string str = null!;
       ObservableCollection<StressPoint> points = [];
       public int Num { get; set; }
       public string Tag { get; set; } = "";
       public string? GeometrySet { get; set; }
       public string WKT { get; set; } = "";
-      public IList<double> X { get; set; }
-      public IList<double> Y { get; set; }
+      public IList<double> X { get; set; } = [];
+      public IList<double> Y { get; set; } = [];
       public ContourType Type { get; set; } = ContourType.None;
 
       [JsonIgnore]
@@ -96,14 +96,7 @@ namespace CScore
 
       public void SetWKT()
       {
-         var xs = new List<double>(Points.Count);
-         var ys = new List<double>(Points.Count);
-         for (int i = 0; i < Points.Count; i++)
-         {
-            xs.Add(Points[i].X);
-            ys.Add(Points[i].Y);
-         }
-         WKT = WktHelper.PolygonToWKT(xs, ys, null);
+         WKT = WktHelper.PolygonToWKT(X, Y, null);
       }
 
       public void Scale(double scale)
