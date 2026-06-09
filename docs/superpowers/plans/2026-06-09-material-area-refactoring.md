@@ -59,7 +59,21 @@ Expected: `Build succeeded. 0 Error(s)`
 
 ---
 
-## Phase 1 — Core CScore domain
+## Phase 1 — Core CScore domain ✅ ЗАВЕРШЕНА (2026-06-09)
+
+> Все задачи 1–7 выполнены и закоммичены. Сборка чистая (0 ошибок).
+> Последний коммит фазы: `c22a7aa` — feat(CScore): add CrossSection, TwoStageSection; GeoProps(CrossSection); fix Diagramm.Differential
+>
+> **Важно:** `Diagramm.Differential()` пришлось добавить дважды — первый раз правка попала
+> в файл конфликта синхронизации NAS (`Diagramm_DiskStation_Jun-09-1418-2026_DownloadConflict.cs`,
+> удалён). В следующих сессиях проверять наличие `*_DownloadConflict.cs` файлов перед сборкой.
+>
+> **Отклонения от плана:**
+> - `Fiber.ParentArea` / `Fiber.ParentAreaId` / `Fiber.CreatePoint()` — временно НЕ добавлены
+>   (конфликт имён с `double Area`). `ParentArea` и `CreatePoint` нужно добавить в Фазе 5
+>   вместе с удалением `FiberRegion? Region`.
+> - Адаптеры `Geo`/`GridSplit` для `Region` сделаны `public` (не `internal`) —
+>   иначе OpenCS (другая сборка) не видит их.
 
 ### Task 1: Add `DifferentialSpline` to CSmath
 
@@ -884,7 +898,7 @@ git commit -m "feat(CScore): add CrossSection, TwoStageSection; GeoProps(CrossSe
 
 ---
 
-## Phase 2 — Database
+## Phase 2 — Database  ⬅️ СЛЕДУЮЩИЙ СТАРТ
 
 ### Task 8: New database schema in `DatabaseService`
 
