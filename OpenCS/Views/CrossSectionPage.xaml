@@ -1,5 +1,68 @@
 <UserControl x:Class="OpenCS.Views.CrossSectionPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-   <Grid/>
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:OpenCS.ViewModels"
+             xmlns:conv="clr-namespace:OpenCS.Converters">
+   <UserControl.Resources>
+      <conv:MatTypeToBrushConverter x:Key="MatTypeToBrush"/>
+      <conv:MatTypeToGeometryConverter x:Key="MatTypeToGeom"/>
+   </UserControl.Resources>
+   <Grid Margin="8">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- Заголовок: обозначение сечения -->
+      <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+         <TextBlock Text="{DynamicResource MaterialAreaLabel}" FontWeight="SemiBold"
+                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+         <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Width="200"/>
+      </StackPanel>
+
+      <!-- Список областей -->
+      <ListBox Grid.Row="1" ItemsSource="{Binding Areas}" BorderThickness="1" Padding="4">
+         <ListBox.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:MaterialAreaVM}">
+               <Border BorderThickness="0,0,0,1"
+                       BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+                       Padding="4">
+                  <Grid>
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="18"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                     </Grid.ColumnDefinitions>
+                     <Path Grid.Column="0" Width="14" Height="14" Stretch="Uniform"
+                           Fill="{Binding MaterialType, Converter={StaticResource MatTypeToBrush}}"
+                           Data="{Binding MaterialType, Converter={StaticResource MatTypeToGeom}}"/>
+                     <TextBlock Grid.Column="1" Text="{Binding Tag}"
+                                VerticalAlignment="Center" Margin="6,0"/>
+                     <Button Grid.Column="2" Style="{StaticResource IconButton25}"
+                             Command="{Binding RemoveAreaCommand}"
+                             ToolTip="{DynamicResource DeleteArea}">
+                        <Path Data="M4,4 L12,12 M12,4 L4,12" Stroke="Gray"
+                              StrokeThickness="1.5"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                     </Button>
+                  </Grid>
+               </Border>
+            </DataTemplate>
+         </ListBox.ItemTemplate>
+      </ListBox>
+
+      <!-- Кнопки добавления областей -->
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+         <Button Content="{DynamicResource AddConcreteArea}"
+                 Command="{Binding AddConcreteAreaCommand}"
+                 Padding="8,4" Margin="0,0,4,0"/>
+         <Button Content="{DynamicResource AddRebarArea}"
+                 Command="{Binding AddRebarAreaCommand}"
+                 Padding="8,4" Margin="0,0,4,0"/>
+         <Button Content="{DynamicResource AddSteelArea}"
+                 Command="{Binding AddSteelAreaCommand}"
+                 Padding="8,4"/>
+      </StackPanel>
+   </Grid>
 </UserControl>

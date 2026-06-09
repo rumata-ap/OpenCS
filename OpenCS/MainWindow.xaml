@@ -15,10 +15,6 @@
 
    <Window.Resources>
       <ResourceDictionary>
-         <ResourceDictionary.MergedDictionaries>
-            <ResourceDictionary Source="/Images/svg.xaml"/>
-         </ResourceDictionary.MergedDictionaries>
-
          <HierarchicalDataTemplate DataType="{x:Type core:Material}" ItemsSource="{Binding MaterialChars}">
             <StackPanel Orientation="Horizontal" Margin="1">
                <Image Source="/Images/material1__32.png" Margin="0,0,5,0" Stretch="None"/>
@@ -445,7 +441,8 @@
 
 
 
-               <TreeViewItem x:Name="crosssectNode">
+               <TreeViewItem x:Name="crosssectNode" ItemsSource="{Binding CrossSectionsLive}"
+                            IsExpanded="True">
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Image Source="/Images/crossect--32.png"/>
@@ -453,9 +450,43 @@
                      </StackPanel>
                   </TreeViewItem.Header>
 
-                  <TreeViewItem x:Name="rconcreteNode" Header="{DynamicResource RCSections}"/>
-                  <TreeViewItem x:Name="fibersectNode" Header="{DynamicResource FiberSections}"/>
-                  <TreeViewItem x:Name="redionsectNode" Header="{DynamicResource ContourSections}"/>
+                  <TreeViewItem.ContextMenu>
+                     <ContextMenu>
+                        <MenuItem Header="{DynamicResource NewCrossSection}"
+                                  Command="{Binding DataContext.NewCrossSectionCommand,
+                                            RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        <MenuItem Header="{DynamicResource EditCrossSection}"
+                                  Command="{Binding DataContext.EditCrossSectionCommand,
+                                            RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        <MenuItem Header="{DynamicResource DeleteCrossSection}"
+                                  Command="{Binding DataContext.DeleteCrossSectionCommand,
+                                            RelativeSource={RelativeSource AncestorType=Window}}"/>
+                     </ContextMenu>
+                  </TreeViewItem.ContextMenu>
+
+                  <TreeViewItem.ItemTemplate>
+                     <HierarchicalDataTemplate DataType="{x:Type core:CrossSection}"
+                                               ItemsSource="{Binding Areas}">
+                        <StackPanel Orientation="Horizontal">
+                           <Path Width="14" Height="14" Margin="0,0,4,0" Stretch="Uniform"
+                                 Fill="Gray" Data="M1,1 H7 L15,8 L7,15 H1 Z"/>
+                           <TextBlock Text="{Binding Tag}"/>
+                        </StackPanel>
+
+                        <HierarchicalDataTemplate.ItemTemplate>
+                           <DataTemplate DataType="{x:Type core:MaterialArea}">
+                              <StackPanel Orientation="Horizontal">
+                                 <Path Width="13" Height="13" Margin="0,0,4,0" Stretch="Uniform"
+                                       Fill="{Binding Material.Type,
+                                              Converter={StaticResource MatTypeToBrushConverter}}"
+                                       Data="{Binding Material.Type,
+                                              Converter={StaticResource MatTypeToGeometryConverter}}"/>
+                                 <TextBlock Text="{Binding Tag}"/>
+                              </StackPanel>
+                           </DataTemplate>
+                        </HierarchicalDataTemplate.ItemTemplate>
+                     </HierarchicalDataTemplate>
+                  </TreeViewItem.ItemTemplate>
 
                </TreeViewItem>
                <TreeViewItem x:Name="feNode" Header="{DynamicResource FiniteElements}">

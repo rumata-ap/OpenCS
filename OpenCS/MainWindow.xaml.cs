@@ -68,6 +68,11 @@ namespace OpenCS
              vm.CurrentDiagram = diagramItem;
           }
 
+          if (e.NewValue is CrossSection csItem)
+          {
+             vm.CurrentCrossSection = csItem;
+          }
+
           if(e.NewValue is TreeViewItem treeViewItem)
           {
              if (treeViewItem.Name == "ContoursTreeItem")
