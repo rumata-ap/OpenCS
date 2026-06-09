@@ -130,6 +130,9 @@ namespace OpenCS
       /// </summary>
       Diagramm? currentDiagram;
 
+      CrossSection? currentCrossSection;
+      ObservableCollection<CrossSection> crossSectionsLive = [];
+
       /// <summary>
       /// Путь к текущему файлу проекта. null если проект ещё не был сохранён.
       /// </summary>
@@ -238,6 +241,36 @@ namespace OpenCS
 
       /// <summary>Коллекция поперечных сечений проекта.</summary>
       public ObservableCollection<CrossSection> CrossSections { get; set; }
+
+      /// <summary>Отфильтрованная коллекция сечений для отображения в TreeView.</summary>
+      public ObservableCollection<CrossSection> CrossSectionsLive
+      {
+         get => crossSectionsLive;
+         set { crossSectionsLive = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Текущее выбранное поперечное сечение. При установке открывает CrossSectionView.
+      /// </summary>
+      public CrossSection? CurrentCrossSection
+      {
+         get => currentCrossSection;
+         set
+         {
+            currentCrossSection = value;
+            CurrentPage = value != null ? new Views.CrossSectionView(value, this) : null;
+            OnPropertyChanged();
+         }
+      }
+
+      /// <summary>Команда создания нового поперечного сечения.</summary>
+      public ICommand NewCrossSectionCommand { get; set; }
+
+      /// <summary>Команда редактирования выбранного поперечного сечения.</summary>
+      public ICommand EditCrossSectionCommand { get; set; }
+
+      /// <summary>Команда удаления выбранного поперечного сечения.</summary>
+      public ICommand DeleteCrossSectionCommand { get; set; }
 
       /// <summary>
       /// Отфильтрованная коллекция диаграмм для отображения в TreeView.
@@ -561,6 +594,7 @@ namespace OpenCS
          RcFiberRegions = db.RcFiberRegions;
          Diagrams = db.Diagrams;
          CrossSections = db.CrossSections;
+         CrossSections.CollectionChanged += (_, _) => IsDirty = true;
 
          Materials.CollectionChanged += Concretes_CollectionChanged;
          Contours.CollectionChanged += Contours_CollectionChanged;
@@ -577,6 +611,7 @@ namespace OpenCS
          FiberRegionsLive = new(FiberRegions); this.FiberRegionsRenumber();
          RcFiberRegionsLive = new(RcFiberRegions); this.RCFiberRegionsRenumber();
          DiagramsLive = [.. Diagrams];
+         CrossSectionsLive = new(CrossSections); CrossSectionsRenumber();
       }
 
       void InitializeCommands()
@@ -598,6 +633,9 @@ namespace OpenCS
          OpenPlotSettingsCommand = new RelayCommand(_ => new Views.SettingsWindow(this).ShowDialog());
          OpenCsvSettingsCommand = new RelayCommand(_ => new Views.CsvSettingsWindow(this).ShowDialog());
          SetLanguageCommand = new RelayCommand(SetLanguage);
+         NewCrossSectionCommand    = new RelayCommand(_ => NewCrossSection());
+         EditCrossSectionCommand   = new RelayCommand(_ => EditCrossSection());
+         DeleteCrossSectionCommand = new RelayCommand(_ => DeleteCrossSection());
       }
 
       void SetLanguage(object? param)
@@ -767,6 +805,8 @@ namespace OpenCS
          CurrentMaterial = null;
          CurrentContour = null;
          CurrentRCfiberRegion = null;
+         currentCrossSection = null;
+         OnPropertyChanged(nameof(CurrentCrossSection));
          MaterialsSort();
          this.ContoursRenumber();
          CirclesLive = new(Circles); this.CirclesRenumber();
@@ -774,6 +814,7 @@ namespace OpenCS
          FiberRegionsLive = new(FiberRegions); this.FiberRegionsRenumber();
          RcFiberRegionsLive = new(RcFiberRegions); this.RCFiberRegionsRenumber();
          DiagramsLive = [.. Diagrams];
+         CrossSectionsLive = new(CrossSections); CrossSectionsRenumber();
          IsDirty = false;
       }
 
@@ -1054,6 +1095,41 @@ namespace OpenCS
       {
          get { return steels; }
          set { steels = value; OnPropertyChanged(); }
+      }
+
+      void CrossSectionsRenumber()
+      {
+         for (int i = 0; i < CrossSections.Count; i++)
+            CrossSections[i].Num = i + 1;
+      }
+
+      void NewCrossSection()
+      {
+         CurrentPage = new Views.CrossSectionPage(this);
+      }
+
+      void EditCrossSection()
+      {
+         if (currentCrossSection == null) return;
+         CurrentPage = new Views.CrossSectionPage(currentCrossSection, this);
+      }
+
+      void DeleteCrossSection()
+      {
+         if (currentCrossSection == null) return;
+         System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
+         System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
+         var res = System.Windows.MessageBox.Show(
+            Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"), mbb, ic);
+         if (res != System.Windows.MessageBoxResult.Yes) return;
+
+         db.DeleteCrossSection(currentCrossSection);
+         CrossSectionsLive = new(CrossSections);
+         CrossSectionsRenumber();
+         currentCrossSection = null;
+         CurrentPage = null;
+         OnPropertyChanged(nameof(CurrentCrossSection));
+         IsDirty = true;
       }
 
       public void RemoveMaterialArea(ViewModels.MaterialAreaVM vm)
