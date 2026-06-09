@@ -41,13 +41,7 @@ namespace OpenCS.Utilites
       public ObservableCollection<Contour> Contours { get; } = [];
       public ObservableCollection<StressPoint> Points { get; } = [];
       public ObservableCollection<CircleP> Circles { get; } = [];
-      public ObservableCollection<Region> Regions { get; } = [];
-      public ObservableCollection<FiberRegion> FiberRegions { get; } = [];
-      public ObservableCollection<RCFiberRegion> RcFiberRegions { get; } = [];
       public ObservableCollection<Fiber> Fibers { get; } = [];
-      public ObservableCollection<ReBar> Rebars { get; } = [];
-      public ObservableCollection<ReBarLayer> RebarLayers { get; } = [];
-      public ObservableCollection<ReBarGroup> RebarGroups { get; } = [];
       public ObservableCollection<Diagramm> Diagrams { get; } = [];
       public ObservableCollection<CrossSection> CrossSections { get; } = [];
 
@@ -280,7 +274,6 @@ namespace OpenCS.Utilites
          foreach (var m in Materials) SaveMaterial(m);
          foreach (var c in Contours) SaveContour(c);
          foreach (var c in Circles) SaveCircle(c);
-         foreach (var r in RcFiberRegions) SaveRCFiberRegion(r);
          foreach (var d in Diagrams) SaveDiagram(d);
          foreach (var sec in CrossSections) SaveCrossSection(sec);
       }
@@ -292,13 +285,7 @@ namespace OpenCS.Utilites
          Contours.Clear();
          Points.Clear();
          Circles.Clear();
-         Regions.Clear();
-         FiberRegions.Clear();
-         RcFiberRegions.Clear();
          Fibers.Clear();
-         Rebars.Clear();
-         RebarLayers.Clear();
-         RebarGroups.Clear();
          Diagrams.Clear();
          CrossSections.Clear();
       }
@@ -314,9 +301,7 @@ namespace OpenCS.Utilites
          LoadMaterials();
          LoadCircles();
          LoadContours();
-         LoadRCFiberRegions();
          LoadDiagrams();
-         ResolveReferences();
          LoadCrossSections();
          ResolveReferencesForCrossSections();
       }
@@ -389,152 +374,6 @@ namespace OpenCS.Utilites
                foreach (var p in points) { p.Contour = c; c.Points.Add(p); }
             Contours.Add(c);
             foreach (var p in c.Points) Points.Add(p);
-         }
-      }
-
-      void LoadRCFiberRegions()
-      {
-         var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, tag, data_json FROM rc_fiber_regions ORDER BY id";
-         using var reader = cmd.ExecuteReader();
-         while (reader.Read())
-         {
-            var id = reader.GetInt32(0);
-            var tag = reader.GetString(1);
-            var dataJson = reader.GetString(2);
-             var data = JsonSerializer.Deserialize<RcfrData>(dataJson, _jsonSettings);
-            if (data == null) continue;
-
-            var r = new RCFiberRegion
-            {
-               Id = id,
-               Tag = tag,
-               WKT = data.Wkt ?? "",
-               H = data.H,
-               NX = data.Nx,
-               NY = data.Ny,
-               Atr = data.Atr,
-               Antr = data.Antr,
-               MaterialId = data.MaterialId ?? 0
-            };
-
-            // Загрузка арматурных групп
-            if (data.RebarGroups != null)
-            {
-               foreach (var rgData in data.RebarGroups)
-               {
-                   var rg = new ReBarGroup
-                   {
-                      Tag = rgData.Tag ?? "",
-                      Type = rgData.Type,
-                      MaterialId = rgData.MaterialId ?? 0
-                   };
-                  if (rgData.Rebars != null)
-                  {
-                     foreach (var rbData in rgData.Rebars)
-                     {
-                        if (rbData.Discriminator == "ReBarLayer")
-                        {
-                           var rb = new ReBarLayer
-                           {
-                              X = rbData.X, Y = rbData.Y,
-                              E = rbData.E, E2 = rbData.E2,
-                              Sig = rbData.Sig, Eps = rbData.Eps, Eps_p = rbData.Eps_p,
-                              Nu1 = rbData.Nu1, Nu2 = rbData.Nu2,
-                              N = rbData.N, Area = rbData.Area,
-                              My = rbData.My, Mz = rbData.Mz,
-                              Tag = rbData.Tag,
-                              Diameter = rbData.Diameter,
-                              Nd = rbData.Nd,
-                              Pos = rbData.Pos,
-                              As = rbData.As,
-                              Num = rbData.Num
-                           };
-                           rg.ReBars.Add(rb);
-                           RebarLayers.Add(rb);
-                           Rebars.Add(rb);
-                        }
-                        else
-                        {
-                           var rb = new ReBar
-                           {
-                              X = rbData.X, Y = rbData.Y,
-                              E = rbData.E, E2 = rbData.E2,
-                              Sig = rbData.Sig, Eps = rbData.Eps, Eps_p = rbData.Eps_p,
-                              Nu1 = rbData.Nu1, Nu2 = rbData.Nu2,
-                              N = rbData.N, Area = rbData.Area,
-                              My = rbData.My, Mz = rbData.Mz,
-                              Tag = rbData.Tag,
-                              Diameter = rbData.Diameter,
-                              Num = rbData.Num
-                           };
-                           rg.ReBars.Add(rb);
-                           Rebars.Add(rb);
-                        }
-                     }
-                  }
-                  r.ReBarGroups.Add(rg);
-                  RebarGroups.Add(rg);
-               }
-            }
-
-            RcFiberRegions.Add(r);
-            Regions.Add(r);
-            FiberRegions.Add(r);
-         }
-      }
-
-      /// <summary>
-      /// Разрешает навигационные ссылки между объектами после загрузки.
-      /// Связывает Material с MaterialChars, Region с Contour и Material и т.д.
-      /// </summary>
-      void ResolveReferences()
-      {
-         // Material ← MaterialChars уже связаны через Material.MaterialChars setter
-
-         // Разрешаем Material для RCFiberRegion и его ReBarGroup
-         foreach (var r in RcFiberRegions)
-         {
-            if (r.MaterialId > 0)
-            {
-               var mat = Materials.FirstOrDefault(m => m.Id == r.MaterialId);
-               if (mat != null)
-                  r.Material = mat;
-            }
-         }
-
-         // Разрешаем Material для ReBarGroup (загружаются из JSON)
-         foreach (var rg in RebarGroups)
-         {
-            if (rg.MaterialId > 0)
-            {
-               var mat = Materials.FirstOrDefault(m => m.Id == rg.MaterialId);
-               if (mat != null)
-                  rg.Material = mat;
-            }
-         }
-
-         // Разрешаем Contour для Region (связь M:N через regions_json)
-         var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, regions_json FROM contours WHERE regions_json != '[]'";
-         using var reader = cmd.ExecuteReader();
-         while (reader.Read())
-         {
-            var contourId = reader.GetInt32(0);
-            var regionsJson = reader.GetString(1);
-             var regionIds = JsonSerializer.Deserialize<List<int>>(regionsJson);
-            var contour = Contours.FirstOrDefault(c => c.Id == contourId);
-            if (contour == null || regionIds == null) continue;
-
-            foreach (var rid in regionIds)
-            {
-               var region = Regions.FirstOrDefault(r => r.Id == rid);
-               if (region != null)
-               {
-                  contour.Regions.Add(region);
-                  region.Contours.Add(contour);
-               }
-            }
          }
       }
 
@@ -802,20 +641,18 @@ namespace OpenCS.Utilites
       public void SaveContour(Contour c)
       {
          var cmd = _connection.CreateCommand();
-          var pointsJson = JsonSerializer.Serialize(c.Points.ToList(), _jsonSettings);
-         var regionIds = c.Regions.Select(r => r.Id).ToList();
-          var regionsJson = JsonSerializer.Serialize(regionIds);
+         var pointsJson = JsonSerializer.Serialize(c.Points.ToList(), _jsonSettings);
 
          if (c.Id == 0)
          {
             cmd.CommandText = @"INSERT INTO contours (tag, wkt, type, geometry_set, points_json, regions_json)
-                               VALUES ($tag, $wkt, $type, $gset, $pjson, $rjson);
+                               VALUES ($tag, $wkt, $type, $gset, $pjson, '[]');
                                SELECT last_insert_rowid();";
          }
          else
          {
             cmd.CommandText = @"UPDATE contours SET tag=$tag, wkt=$wkt, type=$type, geometry_set=$gset,
-                               points_json=$pjson, regions_json=$rjson WHERE id=$id";
+                               points_json=$pjson WHERE id=$id";
             cmd.Parameters.AddWithValue("$id", c.Id);
          }
          cmd.Parameters.AddWithValue("$tag", c.Tag ?? "");
@@ -823,7 +660,6 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("$type", (int)c.Type);
          cmd.Parameters.AddWithValue("$gset", (object?)c.GeometrySet ?? DBNull.Value);
          cmd.Parameters.AddWithValue("$pjson", pointsJson);
-         cmd.Parameters.AddWithValue("$rjson", regionsJson);
          if (c.Id == 0)
             c.Id = Convert.ToInt32(cmd.ExecuteScalar());
          else
@@ -872,83 +708,6 @@ namespace OpenCS.Utilites
          var cmd = _connection.CreateCommand();
          cmd.CommandText = "DELETE FROM circles WHERE id=$id";
          cmd.Parameters.AddWithValue("$id", c.Id);
-         cmd.ExecuteNonQuery();
-      }
-
-      public void SaveRCFiberRegion(RCFiberRegion r)
-      {
-         var data = new RcfrData
-         {
-            Wkt = r.WKT,
-            H = r.H,
-            Nx = r.NX,
-            Ny = r.NY,
-            Atr = r.Atr,
-            Antr = r.Antr,
-            MaterialId = r.Material?.Id,
-            RebarGroups = r.ReBarGroups.Select(rg => new RebarGroupData
-            {
-               Tag = rg.Tag,
-               Type = rg.Type,
-               MaterialId = rg.Material?.Id,
-               Rebars = rg.ReBars.Select(rb => new RebarData
-               {
-                  Discriminator = rb is ReBarLayer ? "ReBarLayer" : "ReBar",
-                  X = rb.X, Y = rb.Y,
-                  E = rb.E, E2 = rb.E2,
-                  Sig = rb.Sig, Eps = rb.Eps, Eps_p = rb.Eps_p,
-                  Nu1 = rb.Nu1, Nu2 = rb.Nu2,
-                  N = rb.N, Area = rb.Area,
-                  My = rb.My, Mz = rb.Mz,
-                  Tag = rb.Tag,
-                  Diameter = rb.Diameter,
-                  Num = rb.Num,
-                  Nd = rb is ReBarLayer rl ? rl.Nd : 0,
-                  Pos = rb is ReBarLayer rl2 ? rl2.Pos : ReBarLayerPos.Left,
-                  As = rb is ReBarLayer rl3 ? rl3.As : 0
-               }).ToList()
-            }).ToList(),
-            Fibers = r.Fibers?.Select(f => new FiberData
-            {
-               X = f.X, Y = f.Y,
-               E = f.E, E2 = f.E2,
-               Sig = f.Sig, Eps = f.Eps, Eps_p = f.Eps_p,
-               Nu1 = f.Nu1, Nu2 = f.Nu2,
-               Tag = f.Tag,
-               N = f.N, Area = f.Area,
-               My = f.My, Mz = f.Mz,
-               Wkt = f.WKT,
-               TypeFiber = f.TypeFiber,
-               Num = f.Num
-            }).ToList()
-         };
-
-          var dataJson = JsonSerializer.Serialize(data, _jsonSettings);
-         var cmd = _connection.CreateCommand();
-         if (r.Id == 0)
-         {
-            cmd.CommandText = @"INSERT INTO rc_fiber_regions (tag, data_json)
-                               VALUES ($tag, $data);
-                               SELECT last_insert_rowid();";
-         }
-         else
-         {
-            cmd.CommandText = @"UPDATE rc_fiber_regions SET tag=$tag, data_json=$data WHERE id=$id";
-            cmd.Parameters.AddWithValue("$id", r.Id);
-         }
-         cmd.Parameters.AddWithValue("$tag", r.Tag ?? "");
-         cmd.Parameters.AddWithValue("$data", dataJson);
-         if (r.Id == 0)
-            r.Id = Convert.ToInt32(cmd.ExecuteScalar());
-         else
-            cmd.ExecuteNonQuery();
-      }
-
-      public void DeleteRCFiberRegion(RCFiberRegion r)
-      {
-         var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM rc_fiber_regions WHERE id=$id";
-         cmd.Parameters.AddWithValue("$id", r.Id);
          cmd.ExecuteNonQuery();
       }
 
@@ -1087,108 +846,9 @@ namespace OpenCS.Utilites
       public void AddRange(IEnumerable<CircleP> circles) { foreach (var c in circles) AddCircle(c); }
       public void AddRange(IEnumerable<Contour> contours) { foreach (var c in contours) AddContour(c); }
 
-      /// <summary>
-      /// Добавляет арматурный стержень (или слой) и сохраняет родительский RCFiberRegion.
-      /// </summary>
-      public void AddRebar(ReBar rb, RCFiberRegion parent)
-      {
-         Rebars.Add(rb);
-         if (rb is ReBarLayer rl) RebarLayers.Add(rl);
-         SaveRCFiberRegion(parent);
-      }
-
-      /// <summary>
-      /// Добавляет список арматурных стержней и сохраняет родительский RCFiberRegion.
-      /// </summary>
-      public void AddRebars(IEnumerable<ReBar> rebars, RCFiberRegion parent)
-      {
-         foreach (var rb in rebars)
-         {
-            Rebars.Add(rb);
-            if (rb is ReBarLayer rl) RebarLayers.Add(rl);
-         }
-         SaveRCFiberRegion(parent);
-      }
-
-      /// <summary>
-      /// Удаляет волокна из региона и сохраняет родительский RCFiberRegion.
-      /// </summary>
-      public void RemoveFibers(IEnumerable<Fiber> fibers, RCFiberRegion parent)
-      {
-         foreach (var f in fibers)
-            Fibers.Remove(f);
-         SaveRCFiberRegion(parent);
-      }
-
       #endregion
 
       #region DTO classes for JSON serialization
-
-      class RcfrData
-      {
-         public string? Wkt { get; set; }
-         public double H { get; set; }
-         public int Nx { get; set; } = 21;
-         public int Ny { get; set; } = 21;
-         public double Atr { get; set; } = 0.25;
-         public double Antr { get; set; } = 25;
-         public int? MaterialId { get; set; }
-         public List<RebarGroupData>? RebarGroups { get; set; }
-         public List<FiberData>? Fibers { get; set; }
-      }
-
-      class RebarGroupData
-      {
-         public string? Tag { get; set; }
-         public RegionType Type { get; set; }
-         public int? MaterialId { get; set; }
-         public List<RebarData>? Rebars { get; set; }
-      }
-
-      class RebarData
-      {
-         public string Discriminator { get; set; } = "ReBar";
-         public double X { get; set; }
-         public double Y { get; set; }
-         public double E { get; set; }
-         public double E2 { get; set; }
-         public double Sig { get; set; }
-         public double Eps { get; set; }
-         public double Eps_p { get; set; }
-         public double Nu1 { get; set; } = 1;
-         public double Nu2 { get; set; } = 1;
-         public string? Tag { get; set; }
-         public double N { get; set; }
-         public double Area { get; set; }
-         public double My { get; set; }
-         public double Mz { get; set; }
-         public double Diameter { get; set; }
-         public int Num { get; set; }
-         public double Nd { get; set; }
-         public ReBarLayerPos Pos { get; set; }
-         public double As { get; set; }
-      }
-
-      class FiberData
-      {
-         public double X { get; set; }
-         public double Y { get; set; }
-         public double E { get; set; }
-         public double E2 { get; set; }
-         public double Sig { get; set; }
-         public double Eps { get; set; }
-         public double Eps_p { get; set; }
-         public double Nu1 { get; set; } = 1;
-         public double Nu2 { get; set; } = 1;
-         public string? Tag { get; set; }
-         public double N { get; set; }
-         public double Area { get; set; }
-         public double My { get; set; }
-         public double Mz { get; set; }
-         public string? Wkt { get; set; }
-         public FiberType TypeFiber { get; set; }
-         public int Num { get; set; }
-      }
 
       class SplineBranchJson
       {

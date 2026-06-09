@@ -232,26 +232,5 @@ namespace CScore
 
          return [.. fas];
       }
-
-      // Переходные адаптеры — удалить в Phase 5 вместе с Region.cs
-      public static Fiber[] SliceXY(Region r, int nx = 40, int ny = 40) =>
-         SliceXY(RegionToMA(r), nx, ny);
-      public static Fiber[] SliceY(Region r, int ny = 40) =>
-         SliceY(RegionToMA(r), ny);
-      public static Fiber[] SliceX(Region r, int nx = 40) =>
-         SliceX(RegionToMA(r), nx);
-      public static Fiber[] Triangulation(Region r, double maxTrgArea = 0.01,
-         double maxAngl = 30, double scale = 8,
-         TriangulationMethod method = TriangulationMethod.Ruppert) =>
-         Triangulation(RegionToMA(r), maxTrgArea, maxAngl, scale, method);
-
-      static MaterialArea RegionToMA(Region r) => new MaterialArea
-      {
-         Tag = r.Tag,
-         Contours = r.Contours,
-         WKT = r.WKT,
-         H = r.H,
-         Material = r.Material
-      };
    }
 }

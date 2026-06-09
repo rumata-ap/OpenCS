@@ -1,5 +1,5 @@
 using CSmath.Geometry;
-
+using System;
 using System.Text.Json.Serialization;
 
 namespace CScore
@@ -132,26 +132,39 @@ namespace CScore
       public string Astr { get => $"{10000*Area:F2}"; set => str = value; }
 
       /// <summary>
-      /// Ссылка на родительскую область FiberRegion. Не сериализуется.
-      /// </summary>
-      [JsonIgnore] public FiberRegion? Region { get; set; }
-
-      /// <summary>
-      /// Внешний ключ для связи с FiberRegion. Не сериализуется.
-      /// </summary>
-      [JsonIgnore] public int RegionId { get; set; }
-
-      /// <summary>
       /// Диаметр стержня [м]. Только для волокон типа <see cref="FiberType.point"/>.
       /// </summary>
       public double Diameter { get; set; }
 
+      /// <summary>
+      /// Ссылка на родительскую материальную область. Не сериализуется.
+      /// </summary>
+      [JsonIgnore] public MaterialArea? ParentArea { get; set; }
+
+      /// <summary>
+      /// Внешний ключ для связи с MaterialArea. Не сериализуется.
+      /// </summary>
+      [JsonIgnore] public int ParentAreaId { get; set; }
+
       /// <inheritdoc/>
       public override string ToString()
       {
-         if (Region == null)
-            return $"{Num:D3}#fiber : {Tag} | <No Region>";
-         else return $"{Num:D3}#fiber : {Tag} | <{Region}>";
+         if (ParentArea == null)
+            return $"{Num:D3}#fiber : {Tag} | <No Area>";
+         else return $"{Num:D3}#fiber : {Tag} | <{ParentArea.Tag}>";
+      }
+
+      /// <summary>Создаёт точечное волокно (арматурный стержень).</summary>
+      public static Fiber CreatePoint(double diameter, double x, double y, double eps_p = 0)
+      {
+         double r = diameter / 2;
+         return new Fiber(x, y)
+         {
+            Diameter = diameter,
+            Area = Math.PI * r * r,
+            TypeFiber = FiberType.point,
+            Eps_p = eps_p
+         };
       }
 
       /// <summary>

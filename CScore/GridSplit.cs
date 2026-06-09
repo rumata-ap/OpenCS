@@ -546,24 +546,5 @@ namespace CScore
          sb.Append(')');
          return sb.ToString();
       }
-
-      // Переходные адаптеры — удалить в Phase 5 вместе с Region.cs
-      public static Fiber[] Slice(Region r, int nx = 0, int ny = 0) =>
-         Slice(RegionToMA(r), nx, ny);
-      public static Fiber[] SliceXY(Region r, int nx = 40, int ny = 40) =>
-         SliceXY(RegionToMA(r), nx, ny);
-      public static Fiber[] SliceY(Region r, int ny = 40) =>
-         SliceY(RegionToMA(r), ny);
-      public static Fiber[] SliceX(Region r, int nx = 40) =>
-         SliceX(RegionToMA(r), nx);
-
-      static MaterialArea RegionToMA(Region r) => new MaterialArea
-      {
-         Tag = r.Tag,
-         Contours = r.Contours,
-         WKT = r.WKT,
-         H = r.H,
-         Material = r.Material
-      };
    }
 }

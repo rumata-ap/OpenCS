@@ -14,25 +14,6 @@
              <ResourceDictionary Source="Resources/Strings.ru-RU.xaml"/>
          </ResourceDictionary.MergedDictionaries>
 
-         <DataTemplate x:Key="RebarDataTemplate"  DataType="{x:Type core:ReBar}">
-            <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
-               <Image Source="/Images/rebar--32.png"/>
-               <TextBlock Text="{Binding Nstr}" Margin="3,0,3,0"/>
-               <TextBlock Text="| X:"/>
-               <TextBlock Text="{Binding Xstr}"/>
-               <TextBlock Text="{DynamicResource Unit_m}" Margin="0,0,3,0"/>
-               <TextBlock Text="Y:"/>
-               <TextBlock Text="{Binding Ystr}"/>
-               <TextBlock Text="{DynamicResource Unit_m}" Margin="0,0,3,0"/>
-               <TextBlock Text="{DynamicResource D_mm}"/>
-               <TextBlock Text="{Binding Dstr}" Margin="3,0,0,0"/>
-               <TextBlock Text="{DynamicResource Area}" Margin="3,0,0,0"/>
-               <TextBlock Text="{Binding Astr}"/>
-               <TextBlock Text="{DynamicResource Unit_cm2}"/>
-               <TextBlock Text="{DynamicResource Superscript2}" FontSize="8" VerticalAlignment="Top"/>
-            </StackPanel>
-         </DataTemplate>
-         
          <DataTemplate DataType="{x:Type core:Fiber}">
             <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
                <Image Source="/Images/volokno--32.png"/>

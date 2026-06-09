@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 
 namespace CScore
 {
-   public enum RegionType { Contour = 1, Region = 2, Fiber = 3, RC = 4, Rebar = 5 }
+   public enum RegionType { Contour = 1, MaterialArea = 2, Fiber = 3, CrossSection = 4 }
    public enum ContourType { Hull = 1, Hole = 2, None = 0 }
 
    [Serializable]
@@ -32,7 +32,6 @@ namespace CScore
       public GeoProps Props { get => new(this); }
       [JsonIgnore] public string? Json { get; set; }
       [JsonIgnore] public int Id { get; set; }
-      [JsonIgnore] public ObservableCollection<Region> Regions { get; set; } = [];
       public string Description { get => ToString(); set => str = value; }
 
       public Contour() { }
@@ -91,8 +90,8 @@ namespace CScore
       public override string ToString()
       {
          if (GeometrySet == null)
-            return $"{Num:D3}#contour : {Tag} | '{Type}' | No GeometrySet | Regions({Regions.Count})";
-         else return $"{Num:D3}#contour : {Tag} | '{Type}'  | '{GeometrySet}' | Regions({Regions.Count})";
+            return $"{Num:D3}#contour : {Tag} | '{Type}' | No GeometrySet";
+         else return $"{Num:D3}#contour : {Tag} | '{Type}'  | '{GeometrySet}'";
       }
 
       public void SetWKT()

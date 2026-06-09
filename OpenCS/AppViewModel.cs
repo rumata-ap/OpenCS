@@ -64,39 +64,9 @@ namespace OpenCS
       ObservableCollection<Fiber> fibersLive;
 
       /// <summary>
-      /// Активная (выделенная) коллекция арматурных стержней, отображаемая в текущем представлении.
-      /// </summary>
-      ObservableCollection<ReBar> rebarsLive;
-
-      /// <summary>
-      /// Активная (выделенная) коллекция слоёв арматуры, отображаемая в текущем представлении.
-      /// </summary>
-      ObservableCollection<ReBarLayer> rebarLayersLive;
-
-      /// <summary>
-      /// Активная (выделенная) коллекция групп арматурных стержней, отображаемая в текущем представлении.
-      /// </summary>
-      ObservableCollection<ReBarGroup> rebarGroupsLive;
-
-      /// <summary>
       /// Активная (выделенная) коллекция контуров, отображаемая в текущем представлении.
       /// </summary>
       ObservableCollection<ContourVM> contoursLive;
-
-      /// <summary>
-      /// Активная (выделенная) коллекция областей материалов, отображаемая в текущем представлении.
-      /// </summary>
-      ObservableCollection<Region> regionsLive;
-
-      /// <summary>
-      /// Активная (выделенная) коллекция волоконных областей, отображаемая в текущем представлении.
-      /// </summary>
-      ObservableCollection<FiberRegion> fiberRegionsLive;
-
-      /// <summary>
-      /// Активная (выделенная) коллекция армированных волоконных областей, отображаемая в текущем представлении.
-      /// </summary>
-      ObservableCollection<RCFiberRegion> rcFiberRegionsLive;
 
       /// <summary>
       /// Текущая страница (UserControl), отображаемая в области содержимого главного окна.
@@ -108,11 +78,6 @@ namespace OpenCS
       /// Текущий выбранный материал. При изменении открывает страницу редактирования материала.
       /// </summary>
       Material? currentMaterial;
-
-      /// <summary>
-      /// Текущая выбранная армированная волоконная область. При изменении открывает соответствующую страницу.
-      /// </summary>
-      RCFiberRegion? currentRCfiberRegion;
 
       /// <summary>
       /// Текущий выбранный контур (ViewModel). При изменении открывает страницу контура.
@@ -198,41 +163,10 @@ namespace OpenCS
       public ObservableCollection<Fiber> Fibers { get; set; }
 
       /// <summary>
-      /// Коллекция всех арматурных стержней проекта, загруженных из базы данных.
-      /// </summary>
-      public ObservableCollection<ReBar> Rebars { get; set; }
-
-      /// <summary>
-      /// Коллекция всех слоёв арматуры проекта, загруженных из базы данных.
-      /// </summary>
-      public ObservableCollection<ReBarLayer> RebarLayers { get; set; }
-
-      /// <summary>
-      /// Коллекция всех групп арматурных стержней проекта, загруженных из базы данных.
-      /// </summary>
-      public ObservableCollection<ReBarGroup> RebarGroups { get; set; }
-
-      /// <summary>
       /// Коллекция всех контуров проекта, загруженных из базы данных.
       /// Используется для привязки в TreeView и представлениях выбора контура.
       /// </summary>
       public ObservableCollection<Contour> Contours { get; set; }
-
-      /// <summary>
-      /// Коллекция всех областей материалов проекта, загруженных из базы данных.
-      /// </summary>
-      public ObservableCollection<Region> Regions { get; set; }
-
-      /// <summary>
-      /// Коллекция всех волоконных областей проекта, загруженных из базы данных.
-      /// </summary>
-      public ObservableCollection<FiberRegion> FiberRegions { get; set; }
-
-      /// <summary>
-      /// Коллекция всех армированных волоконных областей проекта, загруженных из базы данных.
-      /// Используется для привязки в TreeView навигации.
-      /// </summary>
-      public ObservableCollection<RCFiberRegion> RcFiberRegions { get; set; }
 
       /// <summary>
       /// Коллекция всех диаграмм работы материалов проекта.
@@ -328,16 +262,6 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// Текущая выбранная армированная волоконная область. При установке значения
-      /// автоматически открывает страницу <see cref="RCFiberRegionView"/>.
-      /// </summary>
-      public RCFiberRegion? CurrentRCfiberRegion
-      {
-         get => currentRCfiberRegion;
-         set { currentRCfiberRegion = value; CurrentPage = value != null ? new RCFiberRegionView(value, this) : null; OnPropertyChanged(); }
-      }
-
-      /// <summary>
       /// Команда привязки для создания нового контура. Открывает пустую страницу контура.
       /// </summary>
       public ICommand NewContourCommand { get; set; }
@@ -346,24 +270,6 @@ namespace OpenCS
       /// Команда привязки для создания нового материала. Открывает пустую страницу материала.
       /// </summary>
       public ICommand NewMaterialCommand { get; set; }
-
-      /// <summary>
-      /// Команда привязки для создания новой армированной волоконной области.
-      /// Открывает пустую страницу <see cref="RCFiberRegionPage"/>.
-      /// </summary>
-      public ICommand NewRCFiberRegionCommand { get; set; }
-
-      /// <summary>
-      /// Команда привязки для редактирования выбранной армированной волоконной области.
-      /// Открывает страницу редактирования с загруженными данными.
-      /// </summary>
-      public ICommand EditRCFiberRegionCommand { get; set; }
-
-      /// <summary>
-      /// Команда привязки для удаления выбранной армированной волоконной области
-      /// с подтверждением через диалоговое окно.
-      /// </summary>
-      public ICommand DeleteRCFiberRegionCommand { get; set; }
 
       /// <summary>
       /// Команда привязки для удаления выбранного материала
@@ -382,12 +288,6 @@ namespace OpenCS
       /// Открывает страницу <see cref="FromDxfPage"/>.
       /// </summary>
       public ICommand FromDxfCommand { get; set; }
-
-      /// <summary>
-      /// Команда привязки для добавления арматурных стержней.
-      /// Открывает страницу <see cref="RebarsPage"/>.
-      /// </summary>
-      public ICommand AddRebarsCommand { get; set; }
 
       /// <summary>
       /// Команда создания нового проекта. Сбрасывает все данные и создаёт пустую базу данных.
@@ -585,13 +485,7 @@ namespace OpenCS
          Points = db.Points;
          Circles = db.Circles;
          Fibers = db.Fibers;
-         Rebars = db.Rebars;
-         RebarLayers = db.RebarLayers;
-         RebarGroups = db.RebarGroups;
          Contours = db.Contours;
-         Regions = db.Regions;
-         FiberRegions = db.FiberRegions;
-         RcFiberRegions = db.RcFiberRegions;
          Diagrams = db.Diagrams;
          CrossSections = db.CrossSections;
          CrossSections.CollectionChanged += (_, _) => IsDirty = true;
@@ -601,15 +495,11 @@ namespace OpenCS
          Materials.CollectionChanged += (_, _) => IsDirty = true;
          Contours.CollectionChanged += (_, _) => IsDirty = true;
          Circles.CollectionChanged += (_, _) => IsDirty = true;
-         RcFiberRegions.CollectionChanged += (_, _) => IsDirty = true;
          Diagrams.CollectionChanged += (_, _) => IsDirty = true;
          MaterialsSort();
 
          this.ContoursRenumber();
          CirclesLive = new(Circles); this.CirclesRenumber();
-         RegionsLive = new(Regions); this.RegionsRenumber();
-         FiberRegionsLive = new(FiberRegions); this.FiberRegionsRenumber();
-         RcFiberRegionsLive = new(RcFiberRegions); this.RCFiberRegionsRenumber();
          DiagramsLive = [.. Diagrams];
          CrossSectionsLive = new(CrossSections); CrossSectionsRenumber();
       }
@@ -619,11 +509,7 @@ namespace OpenCS
          NewContourCommand = new RelayCommand(NewContour);
          NewMaterialCommand = new RelayCommand(NewMaterial);
          DelMaterialCommand = new RelayCommand(DelMaterial);
-         NewRCFiberRegionCommand = new RelayCommand(NewRCFiberRegion);
-         EditRCFiberRegionCommand = new RelayCommand(EditRCFiberRegion);
          FromDxfCommand = new RelayCommand(FromDxf);
-         AddRebarsCommand = new RelayCommand(AddRebars);
-         DeleteRCFiberRegionCommand = new RelayCommand(DeleteRCFiberRegion);
          DelContourCommand = new RelayCommand(DelContour);
          NewProjectCommand = new RelayCommand(NewProject);
          OpenProjectCommand = new RelayCommand(OpenProject);
@@ -650,10 +536,6 @@ namespace OpenCS
       /// </summary>
       public void ApplyPlotSettings()
       {
-         if (CurrentPage is Views.RCFiberRegionPage rp && rp.DataContext is ViewModels.RCFiberRegionVM rvm)
-            rvm.PlotService?.ApplySettings(PlotSettings);
-         if (CurrentPage is Views.RCFiberRegionView rv && rv.DataContext is ViewModels.RCFiberRegionVM rrvm)
-            rrvm.PlotService?.ApplySettings(PlotSettings);
          if (CurrentPage is Views.ContourPlot cp && cp.DataContext is ViewModels.ContourVM cvm)
             cvm.PlotService?.ApplySettings(PlotSettings);
          if (CurrentPage is Views.DiagramPage dp)
@@ -661,15 +543,6 @@ namespace OpenCS
             // DiagramPage uses internal plotService field — expose via interface or skip
          }
          DxfBgApplied?.Invoke(PlotSettings.DxfCanvasBackground);
-      }
-
-      /// <summary>
-      /// Обработчик команды <see cref="AddRebarsCommand"/>. Открывает страницу
-      /// управления арматурными стержнями.
-      /// </summary>
-      void AddRebars(object? o = null)
-      {
-         CurrentPage = new RebarsPage(this);
       }
 
       /// <summary>
@@ -725,69 +598,9 @@ namespace OpenCS
           if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
 
          string t = currentContour.Tag;
-         if(currentContour.Regions.Count > 0)
-         {
-            foreach (var region in currentContour.Regions)
-            {
-               db.DeleteRCFiberRegion(region as RCFiberRegion);
-            }
-         }
          db.DeleteContour(currentContour.Contour);
 
-         this.RCFiberRegionsRenumber();
-         this.FiberRegionsRenumber();
-         this.RegionsRenumber();
-
           LogService.Info(string.Format(Loc.S("ContourDeleted"), t));
-      }
-
-      /// <summary>
-      /// Обработчик команды <see cref="NewRCFiberRegionCommand"/>. Открывает пустую
-      /// страницу создания армированной волоконной области.
-      /// </summary>
-      private void NewRCFiberRegion(object? o = null)
-      {
-         CurrentPage = new RCFiberRegionPage(this);
-      }
-
-      /// <summary>
-      /// Обработчик команды <see cref="EditRCFiberRegionCommand"/>. Открывает
-      /// страницу редактирования выбранной армированной волоконной области.
-      /// </summary>
-      void EditRCFiberRegion(object? o = null)
-      {
-         if (currentRCfiberRegion == null) return;
-         CurrentPage = null;
-         CurrentPage = new RCFiberRegionPage(currentRCfiberRegion, this);
-      }
-
-      /// <summary>
-      /// Обработчик команды <see cref="DeleteRCFiberRegionCommand"/>. Запрашивает подтверждение
-      /// и удаляет выбранную армированную волоконную область из базы данных,
-      /// очищая все связи с контурами.
-      /// </summary>
-      void DeleteRCFiberRegion(object? o = null)
-      {
-         if (currentRCfiberRegion == null) return;
-         System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
-         System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
-          var res = System.Windows.MessageBox.Show(Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"), mbb, ic);
-         if (res == System.Windows.MessageBoxResult.Yes)
-         {
-            CurrentPage = null;
-            string t = currentRCfiberRegion.Tag;
-            foreach (var cnt in Contours)
-            {
-               if (cnt.Regions.Contains(currentRCfiberRegion))
-                  cnt.Regions.Remove(currentRCfiberRegion);
-               if (cnt.Regions.Count == 0)
-                  cnt.Type = ContourType.None;
-            }
-            db.DeleteRCFiberRegion(CurrentRCfiberRegion);
-
-            LogService.Info(string.Format(Loc.S("RegionDeleted"), t));
-            this.RCFiberRegionsRenumber();
-         }
       }
 
       /// <summary>
@@ -804,15 +617,11 @@ namespace OpenCS
          CurrentPage = null;
          CurrentMaterial = null;
          CurrentContour = null;
-         CurrentRCfiberRegion = null;
          currentCrossSection = null;
          OnPropertyChanged(nameof(CurrentCrossSection));
          MaterialsSort();
          this.ContoursRenumber();
          CirclesLive = new(Circles); this.CirclesRenumber();
-         RegionsLive = new(Regions); this.RegionsRenumber();
-         FiberRegionsLive = new(FiberRegions); this.FiberRegionsRenumber();
-         RcFiberRegionsLive = new(RcFiberRegions); this.RCFiberRegionsRenumber();
          DiagramsLive = [.. Diagrams];
          CrossSectionsLive = new(CrossSections); CrossSectionsRenumber();
          IsDirty = false;
@@ -1006,66 +815,12 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// Активная коллекция арматурных стержней, привязанная к текущему представлению.
-      /// </summary>
-      public ObservableCollection<ReBar> ReBarsLive
-      {
-         get { return rebarsLive; }
-         set { rebarsLive = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>
-      /// Активная коллекция слоёв арматуры, привязанная к текущему представлению.
-      /// </summary>
-      public ObservableCollection<ReBarLayer> RebarLayersLive
-      {
-         get { return rebarLayersLive; }
-         set { rebarLayersLive = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>
-      /// Активная коллекция групп арматурных стержней, привязанная к текущему представлению.
-      /// </summary>
-      public ObservableCollection<ReBarGroup> RebarGroupsLive
-      {
-         get { return rebarGroupsLive; }
-         set { rebarGroupsLive = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>
       /// Активная коллекция ViewModel контуров, привязанная к текущему представлению.
       /// </summary>
       public ObservableCollection<ContourVM> ContoursLive
       {
          get { return contoursLive; }
          set { contoursLive = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>
-      /// Активная коллекция областей материалов, привязанная к текущему представлению.
-      /// </summary>
-      public ObservableCollection<Region> RegionsLive
-      {
-         get { return regionsLive; }
-         set { regionsLive = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>
-      /// Активная коллекция волоконных областей, привязанная к текущему представлению.
-      /// </summary>
-      public ObservableCollection<FiberRegion> FiberRegionsLive
-      {
-         get { return fiberRegionsLive; }
-         set { fiberRegionsLive = value; OnPropertyChanged(); }
-      }
-
-      /// <summary>
-      /// Активная коллекция армированных волоконных областей, привязанная к текущему представлению.
-      /// </summary>
-      public ObservableCollection<RCFiberRegion> RcFiberRegionsLive
-      {
-         get { return rcFiberRegionsLive; }
-         set { rcFiberRegionsLive = value; OnPropertyChanged(); }
       }
 
       /// <summary>

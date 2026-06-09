@@ -106,16 +106,6 @@ namespace OpenCS.ViewModels
       }
 
       /// <summary>
-      /// Коллекция областей материалов, привязанных к контуру. При изменении
-      /// сбрасывает описание. Используется для привязки в ListBox областей.
-      /// </summary>
-      public ObservableCollection<Region> Regions
-      {
-         get => Contour.Regions;
-         set { Contour.Regions = value; OnPropertyChanged(); Description = ""; }
-      }
-
-      /// <summary>
       /// Имя набора геометрии (GeometrySet), к которому принадлежит контур.
       /// При изменении сбрасывает описание.
       /// </summary>

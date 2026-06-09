@@ -79,13 +79,6 @@ namespace OpenCS
              {
                 vm.CurrentPage = new ContoursView(vm);
              }
-             if(treeViewItem.DataContext is RCFiberRegion region)
-             {
-                if(vm.treeItem!= null && vm.treeItem.IsSelected)
-                   vm.treeItem.IsSelected = false;
-                vm.CurrentRCfiberRegion = region;
-                vm.treeItem = treeViewItem;
-             }
 
           }
 

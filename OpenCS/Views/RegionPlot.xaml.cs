@@ -1,19 +1,12 @@
-﻿using CScore;
-
 using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-   /// <summary>
-   /// Логика взаимодействия для RegionPlot.xaml
-   /// </summary>
    public partial class RegionPlot : UserControl
    {
-      public RCFiberRegion Region { get; set; }
-      public RegionPlot( Region region )
+      public RegionPlot()
       {
          InitializeComponent();
-         Region = (RCFiberRegion)region;
       }
    }
 }
