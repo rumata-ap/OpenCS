@@ -529,6 +529,8 @@ namespace OpenCS.Utilites
             }
          }
 
+         LoadMeshFibersForAreas(areas.Values, _connection);
+
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = "SELECT section_id, stage1_section_id FROM cross_section_stages";

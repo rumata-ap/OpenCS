@@ -77,8 +77,8 @@
                   <!-- Режим отображения -->
                   <TextBlock Text="{DynamicResource MeshDisplayMode}" Margin="0,0,0,2"/>
                   <ComboBox SelectedIndex="{Binding FiberDisplayModeIndex}" Margin="0,0,0,6">
-                     <ComboBoxItem Content="{DynamicResource MeshDisplayElements}"/>
                      <ComboBoxItem Content="{DynamicResource MeshDisplayCentroids}"/>
+                     <ComboBoxItem Content="{DynamicResource MeshDisplayElements}"/>
                   </ComboBox>
                   <!-- Счётчик фибр -->
                   <TextBlock Margin="0,0,0,6">

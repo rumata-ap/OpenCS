@@ -351,5 +351,8 @@
    <system:String x:Key="MeshDisplayElements">Элементы</system:String>
    <system:String x:Key="MeshMaxArea">Макс. площадь</system:String>
    <system:String x:Key="MeshMinAngle">Мин. угол, °</system:String>
+   <system:String x:Key="MeshDialogTitle">Настройка сетки</system:String>
+   <system:String x:Key="MeshNX">NX:</system:String>
+   <system:String x:Key="MeshNY">NY:</system:String>
 
  </ResourceDictionary>

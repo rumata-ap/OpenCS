@@ -132,9 +132,11 @@ namespace OpenCS.ViewModels
 
       void Apply()
       {
-         _area.MeshMethod  = _meshMethod;
-         _area.MeshMaxArea = _maxArea;
+         _area.MeshMethod   = _meshMethod;
+         _area.MeshMaxArea  = _maxArea;
          _area.MeshMinAngle = _minAngle;
+         _area.NX           = _nx;
+         _area.NY           = _ny;
          App.db.SaveMeshFibers(_area);
          _window.DialogResult = true;
       }
