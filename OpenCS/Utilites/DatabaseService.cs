@@ -282,6 +282,7 @@ namespace OpenCS.Utilites
          foreach (var c in Circles) SaveCircle(c);
          foreach (var r in RcFiberRegions) SaveRCFiberRegion(r);
          foreach (var d in Diagrams) SaveDiagram(d);
+         foreach (var sec in CrossSections) SaveCrossSection(sec);
       }
 
       internal void ClearCollections()
@@ -949,6 +950,131 @@ namespace OpenCS.Utilites
          cmd.CommandText = "DELETE FROM rc_fiber_regions WHERE id=$id";
          cmd.Parameters.AddWithValue("$id", r.Id);
          cmd.ExecuteNonQuery();
+      }
+
+      public void SaveCrossSection(CrossSection section)
+      {
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            SaveCrossSectionCore(section);
+            tx.Commit();
+         }
+         catch
+         {
+            tx.Rollback();
+            throw;
+         }
+      }
+
+      void SaveCrossSectionCore(CrossSection section)
+      {
+         using var cmd = _connection.CreateCommand();
+         bool isNew = section.Id == 0;
+         if (isNew)
+         {
+            cmd.CommandText = """
+               INSERT INTO cross_sections (num, tag, description, type)
+               VALUES (@num, @tag, @desc, @type);
+               SELECT last_insert_rowid();
+            """;
+         }
+         else
+         {
+            cmd.CommandText = """
+               UPDATE cross_sections SET num=@num, tag=@tag, description=@desc, type=@type
+               WHERE id=@id;
+            """;
+            cmd.Parameters.AddWithValue("@id", section.Id);
+         }
+         cmd.Parameters.AddWithValue("@num", section.Num);
+         cmd.Parameters.AddWithValue("@tag", section.Tag);
+         cmd.Parameters.AddWithValue("@desc", (object?)section.Description ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@type", section is TwoStageSection ? "two_stage" : "simple");
+         if (isNew) section.Id = (int)(long)cmd.ExecuteScalar()!;
+         else cmd.ExecuteNonQuery();
+
+         // Удаляем старые области (каскадно удалятся point_fibers)
+         using var delCmd = _connection.CreateCommand();
+         delCmd.CommandText = "DELETE FROM material_areas WHERE section_id = @sid";
+         delCmd.Parameters.AddWithValue("@sid", section.Id);
+         delCmd.ExecuteNonQuery();
+
+         foreach (var area in section.Areas)
+            SaveMaterialAreaCore(area, section.Id);
+
+         if (section is TwoStageSection tss)
+         {
+            SaveCrossSectionCore(tss.Stage1);
+
+            foreach (var area in tss.Stage1.Areas)
+               SaveMaterialAreaCore(area, tss.Stage1.Id);
+
+            using var stageCmd = _connection.CreateCommand();
+            stageCmd.CommandText = """
+               DELETE FROM cross_section_stages WHERE section_id = @sid;
+               INSERT INTO cross_section_stages (section_id, stage1_section_id)
+               VALUES (@sid, @s1id);
+               DELETE FROM cross_section_stage_kurvature WHERE section_id = @sid;
+               INSERT INTO cross_section_stage_kurvature (section_id, e0, ky, kz)
+               VALUES (@sid, @e0, @ky, @kz);
+            """;
+            stageCmd.Parameters.AddWithValue("@sid", tss.Id);
+            stageCmd.Parameters.AddWithValue("@s1id", tss.Stage1.Id);
+            stageCmd.Parameters.AddWithValue("@e0", tss.Stage1Kurvature.e0);
+            stageCmd.Parameters.AddWithValue("@ky", tss.Stage1Kurvature.ky);
+            stageCmd.Parameters.AddWithValue("@kz", tss.Stage1Kurvature.kz);
+            stageCmd.ExecuteNonQuery();
+         }
+      }
+
+      void SaveMaterialAreaCore(MaterialArea area, int sectionId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            INSERT INTO material_areas
+               (section_id, num, tag, description, material_id,
+                host_area_id, diagramm_type, nx, ny, wkt)
+            VALUES (@sid, @num, @tag, @desc, @mid, @hid, @dtype, @nx, @ny, @wkt);
+            SELECT last_insert_rowid();
+         """;
+         cmd.Parameters.AddWithValue("@sid", sectionId);
+         cmd.Parameters.AddWithValue("@num", area.Num);
+         cmd.Parameters.AddWithValue("@tag", area.Tag);
+         cmd.Parameters.AddWithValue("@desc", (object?)area.Description ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@mid", area.MaterialId == 0 ? (object)DBNull.Value : area.MaterialId);
+         cmd.Parameters.AddWithValue("@hid", (object?)area.HostAreaId ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@dtype", area.DiagrammType.ToString());
+         cmd.Parameters.AddWithValue("@nx", area.NX);
+         cmd.Parameters.AddWithValue("@ny", area.NY);
+         cmd.Parameters.AddWithValue("@wkt", (object?)area.WKT ?? DBNull.Value);
+         area.Id = (int)(long)cmd.ExecuteScalar()!;
+
+         foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
+         {
+            using var fc = _connection.CreateCommand();
+            fc.CommandText = """
+               INSERT INTO point_fibers (area_id, x, y, area, diameter, eps_p)
+               VALUES (@aid, @x, @y, @a, @d, @ep);
+            """;
+            fc.Parameters.AddWithValue("@aid", area.Id);
+            fc.Parameters.AddWithValue("@x", f.X);
+            fc.Parameters.AddWithValue("@y", f.Y);
+            fc.Parameters.AddWithValue("@a", f.Area);
+            fc.Parameters.AddWithValue("@d", f.Diameter);
+            fc.Parameters.AddWithValue("@ep", f.Eps_p);
+            fc.ExecuteNonQuery();
+         }
+      }
+
+      public void DeleteCrossSection(CrossSection section)
+      {
+         if (section.Id == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM cross_sections WHERE id = @id";
+         cmd.Parameters.AddWithValue("@id", section.Id);
+         cmd.ExecuteNonQuery();
+         CrossSections.Remove(section);
       }
 
       #endregion
