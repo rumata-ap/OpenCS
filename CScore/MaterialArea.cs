@@ -5,6 +5,9 @@ using System.Text.Json.Serialization;
 
 namespace CScore
 {
+   /// <summary>Категория материальной области: полигональная, группа стержней или одиночный стержень.</summary>
+   public enum AreaCategory { Region, RebarGroup, SingleBar }
+
    /// <summary>
    /// Материальная область поперечного сечения — единая замена для FiberRegion,
    /// RCFiberRegion и ReBarGroup. Содержит геометрию контуров, коллекцию волокон
@@ -66,6 +69,9 @@ namespace CScore
 
       /// <summary>Тип диаграммы работы материала.</summary>
       public DiagrammType DiagrammType { get; set; } = DiagrammType.L2;
+
+      /// <summary>Категория области: полигон, группа стержней или одиночный стержень.</summary>
+      public AreaCategory Category { get; set; } = AreaCategory.Region;
 
       /// <summary>Id родительского CrossSection в БД.</summary>
       [JsonIgnore] public int SectionId { get; set; }
