@@ -216,6 +216,21 @@ namespace CScore
             Sig(group.ReBars[i], true, compa);
          }
       }
+
+      /// <summary>
+      /// Создаёт разностную диаграмму: σ_eff(ε) = σ_steel(ε) − σ_concrete(ε).
+      /// Используется для арматурных областей, вложенных в бетонную (брутто-сечение).
+      /// </summary>
+      public static Diagramm Differential(Diagramm steel, Diagramm concrete)
+      {
+         return new Diagramm(
+            new CSmath.DifferentialSpline(steel.Ic, concrete.Ic),
+            new CSmath.DifferentialSpline(steel.It, concrete.It),
+            steel.Type,
+            steel.MaterialType,
+            $"diff({steel.Tag}−{concrete.Tag})"
+         );
+      }
    }
 
    /// <summary>
