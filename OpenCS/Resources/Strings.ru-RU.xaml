@@ -372,6 +372,7 @@
    <system:String x:Key="DxfDiscretizeChord">Длина хорды</system:String>
    <system:String x:Key="DxfDiscretizeN">Число сегментов</system:String>
    <system:String x:Key="DxfDiscretizeValue">Значение</system:String>
+   <system:String x:Key="DxfActiveGroup">Группа:</system:String>
    <system:String x:Key="DxfCreateArea">Создать область</system:String>
    <system:String x:Key="DxfTagLabel">Тег</system:String>
    <system:String x:Key="MenuFromDxfMaterialArea">Из DXF…</system:String>

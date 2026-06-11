@@ -33,6 +33,8 @@ namespace OpenCS.ViewModels
       private double _discretizeValue = 0.020;
       private string _tag = "area";
       private List<DxfPrimitive> _primitives = [];
+      private int _currentGroupIdx = 1;
+      private int _rebarGroupCount = 1;
 
       public List<string> Units { get; } = ["мм", "см", "м"];
 
@@ -97,6 +99,26 @@ namespace OpenCS.ViewModels
       public IReadOnlyList<DxfPrimitive> HolePrimitives =>
          _primitives.Where(p => p.Role == DxfRole.Hole).ToList();
 
+      public int CurrentGroupIdx
+      {
+         get => _currentGroupIdx;
+         set { _currentGroupIdx = value; OnPropertyChanged(); }
+      }
+
+      public int RebarGroupCount
+      {
+         get => _rebarGroupCount;
+         private set
+         {
+            _rebarGroupCount = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(RebarGroupIndices));
+         }
+      }
+
+      public IReadOnlyList<int> RebarGroupIndices =>
+         Enumerable.Range(1, _rebarGroupCount).ToList();
+
       public IReadOnlyList<DxfPrimitive> GroupBarPrimitives =>
          _primitives.Where(p => p.Role == DxfRole.RebarGroup).ToList();
 
@@ -108,12 +130,18 @@ namespace OpenCS.ViewModels
       public ICommand OpenDXFCommand            { get; }
       public ICommand CreateMaterialAreaCommand { get; }
       public ICommand ClearRoleCommand          { get; }
+      public ICommand AddRebarGroupCommand      { get; }
 
       public FromDxfVM()
       {
          OpenDXFCommand            = new RelayCommand(OpenDxf);
          CreateMaterialAreaCommand = new RelayCommand(CreateMaterialArea);
          ClearRoleCommand          = new RelayCommand(p => ClearRole((DxfPrimitive)p!));
+         AddRebarGroupCommand      = new RelayCommand(_ =>
+         {
+            RebarGroupCount++;
+            CurrentGroupIdx = _rebarGroupCount;
+         });
       }
 
       /// <summary>
@@ -135,6 +163,8 @@ namespace OpenCS.ViewModels
                   prev.Role = DxfRole.None;
             }
             p.Role = _selectMode;
+            if (_selectMode == DxfRole.RebarGroup)
+               p.GroupIndex = _currentGroupIdx;
          }
          OnPropertyChanged(nameof(HullPrimitive));
          OnPropertyChanged(nameof(HolePrimitives));
@@ -146,6 +176,7 @@ namespace OpenCS.ViewModels
       public void ClearRole(DxfPrimitive p)
       {
          p.Role = DxfRole.None;
+         p.GroupIndex = 1;
          OnPropertyChanged(nameof(HullPrimitive));
          OnPropertyChanged(nameof(HolePrimitives));
          OnPropertyChanged(nameof(GroupBarPrimitives));
@@ -172,16 +203,16 @@ namespace OpenCS.ViewModels
             mvm.db.SaveMaterialArea(region);
          }
 
-         // ── RebarGroup (все GroupBar) ─────────────────────────────────────
-         if (GroupBarPrimitives.Any())
+         // ── RebarGroups (одна MaterialArea на каждый GroupIndex) ─────────
+         foreach (var grp in GroupBarPrimitives.GroupBy(p => p.GroupIndex).OrderBy(g => g.Key))
          {
             var group = new MaterialArea
             {
-               Tag        = _tag + "_г",
+               Tag        = _tag + "_г" + grp.Key,
                Category   = AreaCategory.RebarGroup,
                HostAreaId = region?.Id
             };
-            foreach (var bar in GroupBarPrimitives)
+            foreach (var bar in grp)
                group.Fibers.Add(Fiber.CreatePoint(bar.Radius * 2, bar.CenterX, bar.CenterY));
             mvm.db.SaveMaterialArea(group);
          }
@@ -199,8 +230,10 @@ namespace OpenCS.ViewModels
             mvm.db.SaveMaterialArea(single);
          }
 
-         // ── Сброс ролей после сохранения ─────────────────────────────────
-         foreach (var p in _primitives) p.Role = DxfRole.None;
+         // ── Сброс ролей и групп после сохранения ─────────────────────────
+         foreach (var p in _primitives) { p.Role = DxfRole.None; p.GroupIndex = 1; }
+         RebarGroupCount = 1;
+         CurrentGroupIdx = 1;
          OnPropertyChanged(nameof(HullPrimitive));
          OnPropertyChanged(nameof(HolePrimitives));
          OnPropertyChanged(nameof(GroupBarPrimitives));
@@ -217,7 +250,9 @@ namespace OpenCS.ViewModels
             title: "Импорт данных из файла DXF");
          if (string.IsNullOrEmpty(fileName)) return;
 
-         foreach (var p in _primitives) p.Role = DxfRole.None;
+         foreach (var p in _primitives) { p.Role = DxfRole.None; p.GroupIndex = 1; }
+         RebarGroupCount = 1;
+         CurrentGroupIdx = 1;
 
          var dxf = DxfDocument.Load(fileName);
          Tag = dxf.Name;

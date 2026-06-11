@@ -369,6 +369,7 @@
    <system:String x:Key="DxfDiscretizeChord">Chord length</system:String>
    <system:String x:Key="DxfDiscretizeN">Segment count</system:String>
    <system:String x:Key="DxfDiscretizeValue">Value</system:String>
+   <system:String x:Key="DxfActiveGroup">Group:</system:String>
    <system:String x:Key="DxfCreateArea">Create area</system:String>
    <system:String x:Key="DxfTagLabel">Tag</system:String>
    <system:String x:Key="MenuFromDxfMaterialArea">From DXF…</system:String>

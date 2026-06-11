@@ -24,9 +24,11 @@ namespace OpenCS.ViewModels
    /// </summary>
    public class DxfPrimitive
    {
-      public DxfPrimitiveKind Kind      { get; init; }
-      public string           LayerName { get; init; } = string.Empty;
-      public DxfRole          Role      { get; set; } = DxfRole.None;
+      public DxfPrimitiveKind Kind       { get; init; }
+      public string           LayerName  { get; init; } = string.Empty;
+      public DxfRole          Role       { get; set; } = DxfRole.None;
+      /// <summary>Номер группы арматуры (1-based). Используется только при Role == RebarGroup.</summary>
+      public int              GroupIndex { get; set; } = 1;
 
       // Заполнено когда Kind == Contour
       public double[]? Xs      { get; init; }

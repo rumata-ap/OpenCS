@@ -128,24 +128,36 @@
 
                <!-- RebarGroup -->
                <GroupBox Header="{DynamicResource DxfRightGroup}" Margin="0,0,0,4">
-                  <ItemsControl ItemsSource="{Binding GroupBarPrimitives}">
-                     <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="{x:Type vm:DxfPrimitive}">
-                           <DockPanel>
-                              <Button DockPanel.Dock="Right" Content="×" Width="20" Height="20"
-                                      Command="{Binding DataContext.ClearRoleCommand,
-                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                      CommandParameter="{Binding}"/>
-                              <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                         Margin="2,0">
-                                 <Run Text="⌀"/>
-                                 <Run Text="{Binding Radius,
-                                      StringFormat='{}{0:F3}', Mode=OneWay}"/>
-                              </TextBlock>
-                           </DockPanel>
-                        </DataTemplate>
-                     </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                  <StackPanel>
+                     <!-- Активная группа: [ComboBox] [+] -->
+                     <DockPanel Margin="0,0,0,4">
+                        <Button DockPanel.Dock="Right" Content="+" Width="22" Height="22" Padding="0"
+                                Command="{Binding AddRebarGroupCommand}"/>
+                        <TextBlock Text="{DynamicResource DxfActiveGroup}" VerticalAlignment="Center"
+                                   Margin="0,0,4,0" DockPanel.Dock="Left"/>
+                        <ComboBox ItemsSource="{Binding RebarGroupIndices}"
+                                  SelectedItem="{Binding CurrentGroupIdx}"/>
+                     </DockPanel>
+                     <!-- Список стержней с номером группы -->
+                     <ItemsControl ItemsSource="{Binding GroupBarPrimitives}">
+                        <ItemsControl.ItemTemplate>
+                           <DataTemplate DataType="{x:Type vm:DxfPrimitive}">
+                              <DockPanel>
+                                 <Button DockPanel.Dock="Right" Content="×" Width="20" Height="20"
+                                         Command="{Binding DataContext.ClearRoleCommand,
+                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                         CommandParameter="{Binding}"/>
+                                 <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                            Margin="2,0">
+                                    <Run Text="{Binding GroupIndex, StringFormat='G{0} ', Mode=OneWay}"/>
+                                    <Run Text="⌀"/>
+                                    <Run Text="{Binding Radius, StringFormat='{}{0:F3}', Mode=OneWay}"/>
+                                 </TextBlock>
+                              </DockPanel>
+                           </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                     </ItemsControl>
+                  </StackPanel>
                </GroupBox>
 
                <!-- SingleBar -->
