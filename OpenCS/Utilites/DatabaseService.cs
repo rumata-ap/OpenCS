@@ -775,9 +775,7 @@ namespace OpenCS.Utilites
       public void DeleteMaterialArea(MaterialArea area)
       {
          if (area.Id == 0) { MaterialAreas.Remove(area); return; }
-         using var conn = new SqliteConnection($"Data Source={_dataSource}");
-         conn.Open();
-         using var cmd = conn.CreateCommand();
+         var cmd = _connection.CreateCommand();
          cmd.CommandText = "DELETE FROM material_areas WHERE id = @id";
          cmd.Parameters.AddWithValue("@id", area.Id);
          cmd.ExecuteNonQuery();
@@ -791,11 +789,9 @@ namespace OpenCS.Utilites
       public void SaveMeshFibers(MaterialArea area)
       {
          if (area.Id == 0) return;
-         using var conn = new SqliteConnection($"Data Source={_dataSource}");
-         conn.Open();
-         using var tx = conn.BeginTransaction();
+         using var tx = _connection.BeginTransaction();
 
-         using (var cmd = conn.CreateCommand())
+         using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
                UPDATE material_areas
@@ -812,7 +808,7 @@ namespace OpenCS.Utilites
             cmd.ExecuteNonQuery();
          }
 
-         using (var cmd = conn.CreateCommand())
+         using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = "DELETE FROM mesh_fibers WHERE area_id=@aid";
             cmd.Parameters.AddWithValue("@aid", area.Id);
@@ -821,7 +817,7 @@ namespace OpenCS.Utilites
 
          foreach (var f in area.Fibers.Where(f => f.TypeFiber is FiberType.poly or FiberType.tri))
          {
-            using var fc = conn.CreateCommand();
+            using var fc = _connection.CreateCommand();
             fc.CommandText = "INSERT INTO mesh_fibers(area_id,type,x,y,area,wkt,eps_p) VALUES(@aid,@t,@x,@y,@a,@wkt,@ep)";
             fc.Parameters.AddWithValue("@aid", area.Id);
             fc.Parameters.AddWithValue("@t",   f.TypeFiber.ToString());
