@@ -322,5 +322,90 @@ namespace OpenCS.ViewModels
 
          return result;
       }
+
+      // ── Дискретизация и ориентация контуров ──────────────────────────────
+
+      /// <summary>Метод дискретизации окружности в полигон.</summary>
+      public enum CircleDiscretizeMethod { ChordLength, SegmentCount }
+
+      /// <summary>
+      /// Вычисляет площадь полигона со знаком по формуле Гаусса.
+      /// Положительная → CCW, отрицательная → CW.
+      /// </summary>
+      internal static double SignedArea(IList<double> x, IList<double> y)
+      {
+         double s = 0;
+         int n = x.Count - 1; // последняя точка = первая (замкнутый контур)
+         for (int i = 0; i < n; i++)
+            s += x[i] * y[i + 1] - x[i + 1] * y[i];
+         return s / 2.0;
+      }
+
+      /// <summary>
+      /// Дискретизирует окружность в замкнутый контур.
+      /// ccw=true → обход против часовой (Hull); ccw=false → по часовой (Hole).
+      /// </summary>
+      internal static CScore.Contour DiscretizeCircle(
+         double cx, double cy, double r,
+         CircleDiscretizeMethod method, double value, bool ccw)
+      {
+         int n = method == CircleDiscretizeMethod.ChordLength
+            ? Math.Max(3, (int)Math.Ceiling(2 * Math.PI * r / Math.Max(value, 1e-9)))
+            : Math.Max(3, (int)value);
+
+         double step = 2 * Math.PI / n;
+         double dir  = ccw ? 1.0 : -1.0;
+
+         var xs = new List<double>(n + 1);
+         var ys = new List<double>(n + 1);
+         for (int i = 0; i <= n; i++) // n+1 точек — последняя = первой
+         {
+            xs.Add(cx + r * Math.Cos(dir * i * step));
+            ys.Add(cy + r * Math.Sin(dir * i * step));
+         }
+         return new CScore.Contour(xs, ys, "circle");
+      }
+
+      /// <summary>
+      /// Возвращает контур с типом Hull (CCW). Если исходный CW — разворачивает.
+      /// </summary>
+      internal static CScore.Contour ToHullContour(DxfPrimitive p,
+         CircleDiscretizeMethod method, double value)
+      {
+         CScore.Contour c;
+         if (p.Kind == DxfPrimitiveKind.Circle)
+         {
+            c = DiscretizeCircle(p.CenterX, p.CenterY, p.Radius, method, value, ccw: true);
+         }
+         else
+         {
+            c = p.Contour!;
+            if (SignedArea(c.X, c.Y) < 0) // CW → reverse
+               c = new CScore.Contour(c.X.Reverse().ToList(), c.Y.Reverse().ToList(), c.Tag);
+         }
+         c.Type = ContourType.Hull;
+         return c;
+      }
+
+      /// <summary>
+      /// Возвращает контур с типом Hole (CW). Если исходный CCW — разворачивает.
+      /// </summary>
+      internal static CScore.Contour ToHoleContour(DxfPrimitive p,
+         CircleDiscretizeMethod method, double value)
+      {
+         CScore.Contour c;
+         if (p.Kind == DxfPrimitiveKind.Circle)
+         {
+            c = DiscretizeCircle(p.CenterX, p.CenterY, p.Radius, method, value, ccw: false);
+         }
+         else
+         {
+            c = p.Contour!;
+            if (SignedArea(c.X, c.Y) > 0) // CCW → reverse to CW
+               c = new CScore.Contour(c.X.Reverse().ToList(), c.Y.Reverse().ToList(), c.Tag);
+         }
+         c.Type = ContourType.Hole;
+         return c;
+      }
    }
 }
