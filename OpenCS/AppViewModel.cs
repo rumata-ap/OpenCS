@@ -185,7 +185,7 @@ namespace OpenCS
       }
 
       /// <summary>
-      /// Текущее выбранное поперечное сечение. При установке открывает CrossSectionView.
+      /// Текущее выбранное поперечное сечение. Открывает редактор в зависимости от типа.
       /// </summary>
       public CrossSection? CurrentCrossSection
       {
@@ -193,7 +193,12 @@ namespace OpenCS
          set
          {
             currentCrossSection = value;
-            CurrentPage = value != null ? new Views.CrossSectionView(value, this) : null!;
+            if (value is TwoStageSection tss)
+               CurrentPage = new Views.TwoStageSectionEditorPage(tss, this);
+            else if (value != null)
+               CurrentPage = new Views.CrossSectionPage(value, this);
+            else
+               CurrentPage = null!;
             OnPropertyChanged();
          }
       }
@@ -251,6 +256,9 @@ namespace OpenCS
 
       /// <summary>Команда удаления выбранного поперечного сечения.</summary>
       public ICommand DeleteCrossSectionCommand { get; set; } = null!;
+
+      /// <summary>Команда создания нового двухстадийного сечения.</summary>
+      public ICommand NewTwoStageSectionCommand { get; set; } = null!;
 
       /// <summary>
       /// Отфильтрованная коллекция диаграмм для отображения в TreeView.
@@ -572,6 +580,7 @@ namespace OpenCS
          NewCrossSectionCommand    = new RelayCommand(_ => NewCrossSection());
          EditCrossSectionCommand   = new RelayCommand(_ => EditCrossSection());
          DeleteCrossSectionCommand = new RelayCommand(_ => DeleteCrossSection());
+         NewTwoStageSectionCommand = new RelayCommand(_ => NewTwoStageSection());
          NewAreaCommand            = new RelayCommand(_ => NewArea());
          DeleteMaterialAreaCommand = new RelayCommand(_ => DeleteMaterialArea());
          NewRebarGroupCommand      = new RelayCommand(_ => NewRebarGroup());
@@ -920,13 +929,22 @@ namespace OpenCS
 
       void NewCrossSection()
       {
+         currentCrossSection = null;
          CurrentPage = new Views.CrossSectionPage(this);
+      }
+
+      void NewTwoStageSection()
+      {
+         currentCrossSection = null;
+         CurrentPage = new Views.TwoStageSectionEditorPage(this);
       }
 
       void EditCrossSection()
       {
          if (currentCrossSection == null) return;
-         CurrentPage = new Views.CrossSectionPage(currentCrossSection, this);
+         CurrentPage = currentCrossSection is TwoStageSection tss
+            ? (System.Windows.Controls.UserControl)new Views.TwoStageSectionEditorPage(tss, this)
+            : new Views.CrossSectionPage(currentCrossSection, this);
       }
 
       void DeleteCrossSection()

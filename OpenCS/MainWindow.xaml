@@ -468,7 +468,7 @@
                      <TreeViewItem.ContextMenu>
                         <ContextMenu>
                            <MenuItem Header="{DynamicResource NewTwoStageSection}"
-                                     Command="{Binding DataContext.NewCrossSectionCommand,
+                                     Command="{Binding DataContext.NewTwoStageSectionCommand,
                                                RelativeSource={RelativeSource AncestorType=Window}}"/>
                            <MenuItem Header="{DynamicResource DeleteCrossSection}"
                                      Command="{Binding DataContext.DeleteCrossSectionCommand,

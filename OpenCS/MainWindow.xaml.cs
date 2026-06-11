@@ -75,7 +75,14 @@ namespace OpenCS
 
           if (e.NewValue is MaterialArea areaItem)
           {
-             vm.CurrentMaterialArea = areaItem;
+             // Если область принадлежит сечению — открываем редактор сечения
+             CrossSection? owner = vm.CrossSections.FirstOrDefault(s =>
+                s.Areas.Contains(areaItem) ||
+                (s is CScore.TwoStageSection tss && tss.Stage1.Areas.Contains(areaItem)));
+             if (owner != null)
+                vm.CurrentCrossSection = owner;
+             else
+                vm.CurrentMaterialArea = areaItem;
           }
 
           if(e.NewValue is TreeViewItem treeViewItem)

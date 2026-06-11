@@ -336,6 +336,15 @@
    <system:String x:Key="CurrentHull">Текущий: </system:String>
    <system:String x:Key="DiagramType">Тип диаграммы</system:String>
    <system:String x:Key="NewTwoStageSection">Новое усиление</system:String>
+   <system:String x:Key="CrossSectionAreas">Области сечения</system:String>
+   <system:String x:Key="CrossSectionSelectArea">Выберите область для редактирования</system:String>
+   <system:String x:Key="AddConcreteAreaShort">Бетон</system:String>
+   <system:String x:Key="AddRebarAreaShort">Арм.</system:String>
+   <system:String x:Key="AddSteelAreaShort">Сталь</system:String>
+   <system:String x:Key="Stage1Kurvature">Кривизна 1-го этапа</system:String>
+   <system:String x:Key="KurvatureE0">ε₀:</system:String>
+   <system:String x:Key="KurvatureKy">κy:</system:String>
+   <system:String x:Key="KurvatureKz">κz:</system:String>
 
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Метод</system:String>

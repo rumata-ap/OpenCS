@@ -4,31 +4,31 @@ using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-   public partial class CrossSectionPage : UserControl
+   public partial class TwoStageSectionEditorPage : UserControl
    {
-      CrossSectionVM _vm = null!;
+      TwoStageSectionVM _vm = null!;
 
-      public CrossSectionPage(AppViewModel app)
+      public TwoStageSectionEditorPage(AppViewModel app)
       {
          InitializeComponent();
-         var section = new CrossSection { Tag = "Новое сечение" };
-         _vm = new CrossSectionVM(section, app);
+         var section = new TwoStageSection { Tag = "Новое усиление" };
+         _vm = new TwoStageSectionVM(section, app);
          DataContext = _vm;
          _vm.PropertyChanged += (_, e) =>
          {
-            if (e.PropertyName == nameof(CrossSectionVM.PlotElements))
+            if (e.PropertyName == nameof(TwoStageSectionVM.PlotElements))
                UpdatePlot();
          };
       }
 
-      public CrossSectionPage(CrossSection section, AppViewModel app)
+      public TwoStageSectionEditorPage(TwoStageSection section, AppViewModel app)
       {
          InitializeComponent();
-         _vm = new CrossSectionVM(section, app);
+         _vm = new TwoStageSectionVM(section, app);
          DataContext = _vm;
          _vm.PropertyChanged += (_, e) =>
          {
-            if (e.PropertyName == nameof(CrossSectionVM.PlotElements))
+            if (e.PropertyName == nameof(TwoStageSectionVM.PlotElements))
                UpdatePlot();
          };
          _vm.RefreshPlot();
