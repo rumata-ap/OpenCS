@@ -352,7 +352,7 @@
                         <DataTemplate DataType="{x:Type core:MaterialArea}">
                            <StackPanel Orientation="Horizontal" Margin="1">
                               <Path Width="13" Height="13" Margin="0,0,4,0" Stretch="Uniform"
-                                    Fill="#F97316"
+                                    Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrushConverter}}"
                                     Data="M3,8 A2,2 0 1,0 3.001,8 Z M8,8 A2,2 0 1,0 8.001,8 Z M13,8 A2,2 0 1,0 13.001,8 Z"/>
                               <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
                            </StackPanel>
@@ -389,7 +389,8 @@
                         <DataTemplate DataType="{x:Type core:MaterialArea}">
                            <StackPanel Orientation="Horizontal" Margin="1">
                               <Path Width="13" Height="13" Margin="0,0,4,0" Stretch="Uniform"
-                                    Fill="#F97316" Data="M8,8 A3,3 0 1,0 8.001,8 Z"/>
+                                    Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrushConverter}}"
+                                    Data="M8,8 A3,3 0 1,0 8.001,8 Z"/>
                               <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
                            </StackPanel>
                         </DataTemplate>
