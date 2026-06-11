@@ -423,14 +423,11 @@
                      <TreeViewItem.ContextMenu>
                         <ContextMenu>
                            <MenuItem Header="{DynamicResource NewCrossSection}"
-                                     Command="{Binding DataContext.NewCrossSectionCommand,
-                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                     Command="{Binding NewCrossSectionCommand}"/>
                            <MenuItem Header="{DynamicResource EditCrossSection}"
-                                     Command="{Binding DataContext.EditCrossSectionCommand,
-                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                     Command="{Binding EditCrossSectionCommand}"/>
                            <MenuItem Header="{DynamicResource DeleteCrossSection}"
-                                     Command="{Binding DataContext.DeleteCrossSectionCommand,
-                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                     Command="{Binding DeleteCrossSectionCommand}"/>
                         </ContextMenu>
                      </TreeViewItem.ContextMenu>
                      <TreeViewItem.ItemTemplate>
@@ -468,11 +465,9 @@
                      <TreeViewItem.ContextMenu>
                         <ContextMenu>
                            <MenuItem Header="{DynamicResource NewTwoStageSection}"
-                                     Command="{Binding DataContext.NewTwoStageSectionCommand,
-                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                     Command="{Binding NewTwoStageSectionCommand}"/>
                            <MenuItem Header="{DynamicResource DeleteCrossSection}"
-                                     Command="{Binding DataContext.DeleteCrossSectionCommand,
-                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                     Command="{Binding DeleteCrossSectionCommand}"/>
                         </ContextMenu>
                      </TreeViewItem.ContextMenu>
                      <TreeViewItem.ItemTemplate>
