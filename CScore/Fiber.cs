@@ -18,7 +18,7 @@ namespace CScore
    [Serializable]
    public class Fiber
    {
-      string str;
+      string str = null!;
       double nu1 = 1;
       double nu2 = 1;
 
@@ -236,9 +236,9 @@ namespace CScore
       {
          if (fa.WKT != "")
          {
-            WktHelper.ParseWKTPolygon(fa.WKT, out var xs, out var ys, out var holeXs, out var holeYs);
-            for (int i = 0; i < xs.Count; i++) { xs[i] += xy.X; ys[i] += xy.Y; }
-            List<List<(double X, double Y)>> holes = null;
+             WktHelper.ParseWKTPolygon(fa.WKT, out var xs, out var ys, out var holeXs, out var holeYs);
+             for (int i = 0; i < xs.Count; i++) { xs[i] += xy.X; ys[i] += xy.Y; }
+             List<List<(double X, double Y)>>? holes = null;
             if (holeXs != null && holeXs.Count > 0)
             {
                holes = [];
@@ -252,9 +252,9 @@ namespace CScore
             }
             var outerPts = new List<(double X, double Y)>();
             for (int i = 0; i < xs.Count; i++) outerPts.Add((xs[i], ys[i]));
-            fa.WKT = WktHelper.PolygonToWKT(xs, ys, holes);
-         }
-         fa.X += xy.X; fa.Y += xy.Y;
+             fa.WKT = WktHelper.PolygonToWKT(xs, ys, holes);
+          }
+          fa.X += xy.X; fa.Y += xy.Y;
 
          return fa;
       }
@@ -270,9 +270,9 @@ namespace CScore
       {
          if (fa.WKT != "")
          {
-            WktHelper.ParseWKTPolygon(fa.WKT, out var xs, out var ys, out var holeXs, out var holeYs);
-            for (int i = 0; i < xs.Count; i++) { xs[i] -= xy.X; ys[i] -= xy.Y; }
-            List<List<(double X, double Y)>> holes = null;
+             WktHelper.ParseWKTPolygon(fa.WKT, out var xs, out var ys, out var holeXs, out var holeYs);
+             for (int i = 0; i < xs.Count; i++) { xs[i] -= xy.X; ys[i] -= xy.Y; }
+             List<List<(double X, double Y)>>? holes = null;
             if (holeXs != null && holeXs.Count > 0)
             {
                holes = [];
@@ -284,9 +284,9 @@ namespace CScore
                   holes.Add(hPts);
                }
             }
-            fa.WKT = WktHelper.PolygonToWKT(xs, ys, holes);
-         }
-         fa.X -= xy.X; fa.Y -= xy.Y;
+             fa.WKT = WktHelper.PolygonToWKT(xs, ys, holes);
+          }
+          fa.X -= xy.X; fa.Y -= xy.Y;
 
          return fa;
       }
@@ -302,9 +302,9 @@ namespace CScore
       {
          if (fa.WKT != "")
          {
-            WktHelper.ParseWKTPolygon(fa.WKT, out var xs, out var ys, out var holeXs, out var holeYs);
-            for (int i = 0; i < xs.Count; i++) { xs[i] *= scale; ys[i] *= scale; }
-            List<List<(double X, double Y)>> holes = null;
+             WktHelper.ParseWKTPolygon(fa.WKT, out var xs, out var ys, out var holeXs, out var holeYs);
+             for (int i = 0; i < xs.Count; i++) { xs[i] *= scale; ys[i] *= scale; }
+             List<List<(double X, double Y)>>? holes = null;
             if (holeXs != null && holeXs.Count > 0)
             {
                holes = [];
@@ -316,7 +316,7 @@ namespace CScore
                   holes.Add(hPts);
                }
             }
-            var newWkt = WktHelper.PolygonToWKT(xs, ys, holes);
+             var newWkt = WktHelper.PolygonToWKT(xs, ys, holes);
             fa = new Fiber(fa.Num, fa.Tag, newWkt) { };
             return fa;
          }

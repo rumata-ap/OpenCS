@@ -67,7 +67,8 @@ namespace CSTriangulation
                validTriangles.Add(triangles[t]);
          }
 
-         WeldCoincidentNodes(nodesList, boundaryFlags, validTriangles);
+         // WeldCoincidentNodes только если есть реально совпадающие узлы
+         // (после fix SplitAtNeedle они не должны возникать)
          var result = CompactNodes(nodesList, boundaryFlags, validTriangles);
 
          return result;
@@ -218,7 +219,10 @@ namespace CSTriangulation
          if (current.Count < 3) return;
          if (current.Count == 3)
          {
-            triangles.Add((current[0], current[1], current[2]));
+            int i3 = current[0], j3 = current[1], k3 = current[2];
+            if (!TriInHole(i3, j3, k3, nodesList, holePolys) &&
+                !CentroidCovered(i3, j3, k3, nodesList, triangles))
+               triangles.Add((i3, j3, k3));
             return;
          }
 
@@ -276,7 +280,11 @@ namespace CSTriangulation
                   {
                      int snapIdx = current[snapPos];
                      if (EdgeClear(current, nodesList, pIdx, snapIdx) &&
-                         EdgeClear(current, nodesList, snapIdx, rIdx))
+                         EdgeClear(current, nodesList, snapIdx, rIdx) &&
+                         CapClear(current, nodesList, pIdx, qIdx, snapIdx) &&
+                         CapClear(current, nodesList, snapIdx, qIdx, rIdx) &&
+                         !CentroidCovered(pIdx, qIdx, snapIdx, nodesList, triangles) &&
+                         !CentroidCovered(snapIdx, qIdx, rIdx, nodesList, triangles))
                      {
                         nodesList.RemoveAt(nodesList.Count - 1);
                         boundaryFlags.RemoveAt(boundaryFlags.Count - 1);
@@ -374,7 +382,8 @@ namespace CSTriangulation
          if (current.Count == 3)
          {
             int i2 = current[0], j2 = current[1], k2 = current[2];
-            if (!TriInHole(i2, j2, k2, nodesList, holePolys))
+            if (!TriInHole(i2, j2, k2, nodesList, holePolys) &&
+                !CentroidCovered(i2, j2, k2, nodesList, triangles))
                triangles.Add((i2, j2, k2));
          }
       }
@@ -498,9 +507,17 @@ namespace CSTriangulation
          if (!EdgeClear(current, nodesList, pIdx, tIdx) || !EdgeClear(current, nodesList, tIdx, rIdx))
             return false;
 
-         if (!TriInHole(pIdx, qIdx, tIdx, nodesList, holePolys))
+         // cap-треугольники не должны быть вырожденными и не должны содержать
+         // вершины контура на своих рёбрах (защита от T-соединений)
+         if (!CapClear(current, nodesList, pIdx, qIdx, tIdx) ||
+             !CapClear(current, nodesList, tIdx, qIdx, rIdx))
+            return false;
+
+         if (!TriInHole(pIdx, qIdx, tIdx, nodesList, holePolys) &&
+             !CentroidCovered(pIdx, qIdx, tIdx, nodesList, triangles))
             triangles.Add((pIdx, qIdx, tIdx));
-         if (!TriInHole(tIdx, qIdx, rIdx, nodesList, holePolys))
+         if (!TriInHole(tIdx, qIdx, rIdx, nodesList, holePolys) &&
+             !CentroidCovered(tIdx, qIdx, rIdx, nodesList, triangles))
             triangles.Add((tIdx, qIdx, rIdx));
 
          int nBefore = current.Count;
@@ -631,9 +648,17 @@ namespace CSTriangulation
       {
          double cx = (nodesList[pIdx][0] + nodesList[qIdx][0] + nodesList[rIdx][0]) / 3.0;
          double cy = (nodesList[pIdx][1] + nodesList[qIdx][1] + nodesList[rIdx][1]) / 3.0;
+         double px = nodesList[pIdx][0], py = nodesList[pIdx][1];
+         double qx = nodesList[qIdx][0], qy = nodesList[qIdx][1];
+         double rx = nodesList[rIdx][0], ry = nodesList[rIdx][1];
          for (int t = 0; t < triangles.Count; t++)
          {
             int i = triangles[t].Item1, j = triangles[t].Item2, k = triangles[t].Item3;
+            double ecx = (nodesList[i][0] + nodesList[j][0] + nodesList[k][0]) / 3.0;
+            double ecy = (nodesList[i][1] + nodesList[j][1] + nodesList[k][1]) / 3.0;
+            // новый треугольник покрывает центроид существующего
+            if (GeometryUtils.PointInTriangle(px, py, qx, qy, rx, ry, ecx, ecy))
+               return true;
             if (GeometryUtils.PointInTriangle(
                nodesList[i][0], nodesList[i][1],
                nodesList[j][0], nodesList[j][1],
@@ -654,6 +679,41 @@ namespace CSTriangulation
             if (GeometryUtils.PointInPolygon(cx, cy, hp)) return true;
          }
          return false;
+      }
+
+      /// <summary>
+      /// Проверяет, что cap-треугольник (a,b,c) не вырожден и не содержит
+      /// вершин текущего контура на своих рёбрах (T-соединения).
+      /// </summary>
+      static bool CapClear(List<int> current, List<double[]> nodes, int aIdx, int bIdx, int cIdx)
+      {
+         double ax = nodes[aIdx][0], ay = nodes[aIdx][1];
+         double bx = nodes[bIdx][0], by = nodes[bIdx][1];
+         double cx = nodes[cIdx][0], cy = nodes[cIdx][1];
+
+         // вырожденный треугольник
+         double area = Math.Abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay));
+         if (area < 1e-10) return false;
+
+         // ни одна вершина контура не должна лежать строго на рёбрах cap
+         foreach (int idx in current)
+         {
+            if (idx == aIdx || idx == bIdx || idx == cIdx) continue;
+            double px = nodes[idx][0], py = nodes[idx][1];
+            if (PointOnSegmentStrict(ax, ay, bx, by, px, py)) return false;
+            if (PointOnSegmentStrict(bx, by, cx, cy, px, py)) return false;
+            if (PointOnSegmentStrict(cx, cy, ax, ay, px, py)) return false;
+         }
+         return true;
+      }
+
+      static bool PointOnSegmentStrict(double ax, double ay, double bx, double by, double px, double py)
+      {
+         double cross = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+         if (Math.Abs(cross) > 1e-8) return false;
+         double dot = (px - ax) * (bx - ax) + (py - ay) * (by - ay);
+         double len2 = (bx - ax) * (bx - ax) + (by - ay) * (by - ay);
+         return dot > 1e-9 && dot < len2 - 1e-9;
       }
 
       static bool EdgeClear(List<int> current, List<double[]> nodes, int aIdx, int bIdx)
@@ -696,6 +756,7 @@ namespace CSTriangulation
          int bestPos = -1;
          double bestDist = threshold;
 
+         // расстояние до узлов
          for (int i2 = 0; i2 < n; i2++)
          {
             if (exclude.Contains(i2)) continue;
@@ -709,7 +770,40 @@ namespace CSTriangulation
                bestPos = i2;
             }
          }
+
+         // расстояние до рёбер (как в Python)
+         for (int i2 = 0; i2 < n; i2++)
+         {
+            int ip1 = (i2 + 1) % n;
+            if (exclude.Contains(i2) || exclude.Contains(ip1)) continue;
+            int aIdx = current[i2], bIdx = current[ip1];
+            double ax = nodesList[aIdx][0], ay = nodesList[aIdx][1];
+            double bx = nodesList[bIdx][0], by = nodesList[bIdx][1];
+            double d = PointToSegmentDist(gx, gy, ax, ay, bx, by);
+            if (d < bestDist)
+            {
+               double da = Math.Sqrt((gx - ax) * (gx - ax) + (gy - ay) * (gy - ay));
+               double db = Math.Sqrt((gx - bx) * (gx - bx) + (gy - by) * (gy - by));
+               int snapPos = da <= db ? i2 : ip1;
+               if (!exclude.Contains(snapPos))
+               {
+                  bestDist = d;
+                  bestPos = snapPos;
+               }
+            }
+         }
+
          return bestPos;
+      }
+
+      static double PointToSegmentDist(double px, double py, double ax, double ay, double bx, double by)
+      {
+         double dx = bx - ax, dy = by - ay;
+         double lenSq = dx * dx + dy * dy;
+         if (lenSq < 1e-20) return Math.Sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+         double t = Math.Max(0, Math.Min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
+         double projX = ax + t * dx, projY = ay + t * dy;
+         return Math.Sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
       }
 
       static void SplitAtNeedle(List<int> current, Stack<List<int>> stack, List<double[]> nodesList,
@@ -719,9 +813,9 @@ namespace CSTriangulation
          int gIdx = current[pos1];
 
          var sub1 = current.GetRange(pos1, pos2 - pos1);
-         var sub2 = new List<int>((current.Count - pos2) + (pos1 + 1));
+         var sub2 = new List<int>((current.Count - pos2) + pos1);
          sub2.AddRange(current.GetRange(pos2, current.Count - pos2));
-         sub2.AddRange(current.GetRange(0, pos1 + 1));
+         sub2.AddRange(current.GetRange(0, pos1));
          if (sub2.Count > 0) sub2[0] = gIdx;
 
          current.Clear();
@@ -766,6 +860,21 @@ namespace CSTriangulation
                      canonical[j] = i;
                }
             }
+         }
+
+         // Разрешаем цепочки до корня
+         for (int i = 0; i < n; i++)
+         {
+            int root = canonical[i];
+            while (canonical[root] != root) root = canonical[root];
+            canonical[i] = root;
+         }
+
+         // Применяем отображение к треугольникам
+         for (int t = 0; t < triangles.Count; t++)
+         {
+            var tri = triangles[t];
+            triangles[t] = (canonical[tri.Item1], canonical[tri.Item2], canonical[tri.Item3]);
          }
       }
 

@@ -19,7 +19,7 @@ namespace CScore
       /// Внутренняя ссылка на материал (не сериализуется).
       /// </summary>
       [JsonIgnore]
-      internal Material material;
+      internal Material material = null!;
 
       /// <summary>
       /// Первичный ключ.
@@ -39,7 +39,7 @@ namespace CScore
       /// <summary>
       /// Наименование диаграммы.
       /// </summary>
-      public string Tag { get; set; }
+      public string Tag { get; set; } = "";
 
       /// <summary>
       /// Тип диаграммы (L2, L3, SP63 и др.).
@@ -55,13 +55,13 @@ namespace CScore
       /// Сплайн для сжатия: вычисляет σ(ε) и dσ/dε при ε &lt; 0.
       /// </summary>
       [JsonIgnore]
-      public ISpline Ic { get; set; }
+      public ISpline Ic { get; set; } = null!;
 
       /// <summary>
       /// Сплайн для растяжения: вычисляет σ(ε) и dσ/dε при ε &gt; 0.
       /// </summary>
       [JsonIgnore]
-      public ISpline It { get; set; }
+      public ISpline It { get; set; } = null!;
 
       /// <summary>
       /// Конструктор по умолчанию.

@@ -167,6 +167,9 @@ namespace CScore
             ((xy1.Qz - xy2.Qz) == 0) && ((xy1.Mx - xy2.Mx) == 0);
       }
 
+      public override bool Equals(object? obj) => obj is Load other && this == other;
+      public override int GetHashCode() => HashCode.Combine(N, My, Mz, Qy, Qz, Mx);
+
    }
 
    public enum LoadType { Load, РСН, РСУ, Case}

@@ -8,7 +8,7 @@ namespace CScore
    [Serializable]
    public class CircleP : XY
    {
-      string str;
+      string str = null!;
 
       /// <summary>
       /// Наименование (тег) круга.

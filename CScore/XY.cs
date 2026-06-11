@@ -17,7 +17,7 @@ namespace CScore
    [Serializable]
    public class XY
    {
-      string str;
+      string str = null!;
 
       /// <summary>
       /// Координата X [м].

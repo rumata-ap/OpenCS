@@ -23,8 +23,8 @@ namespace CScore
 
       public Load[] GetLoadArray()
       {
-         Load[] res = new Load[N.Count];
-         for (int i = 0; i < N.Count; i++)
+         Load[] res = new Load[N!.Count];
+         for (int i = 0; i < N!.Count; i++)
          {
             res[i] = new Load()
             { Calc = Calc,

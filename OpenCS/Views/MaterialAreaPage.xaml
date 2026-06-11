@@ -83,7 +83,7 @@
                   <!-- Счётчик фибр -->
                   <TextBlock Margin="0,0,0,6">
                      <Run Text="{DynamicResource MeshFibersCount}"/>
-                     <Run Text="{Binding FibersCount}"/>
+                     <Run Text="{Binding FibersCount, Mode=OneWay}"/>
                   </TextBlock>
                   <!-- Кнопки -->
                   <StackPanel Orientation="Horizontal">

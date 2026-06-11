@@ -21,8 +21,8 @@ namespace CScore
       public double Mxy {  get; set; }
       public CalcType Calc { get; set; }
       public LoadType Type { get; set; }
-      public string Description { get; set; }
-      public string Loading { get; set; }
+      public string Description { get; set; } = "";
+      public string Loading { get; set; } = "";
       public int NoSect { get; set; }
       public int NoElem { get; set; }
 

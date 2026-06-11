@@ -36,7 +36,7 @@ namespace OpenCS.Services
          _title = _xLabel = _yLabel = null;
       }
 
-      public void AddScatter(double[] xs, double[] ys, double lineWidth = 1, string color = null, string label = null)
+      public void AddScatter(double[] xs, double[] ys, double lineWidth = 1, string? color = null, string? label = null)
       {
          if (xs == null || ys == null || xs.Length < 2) return;
          UpdateBounds(xs, ys);
@@ -49,12 +49,12 @@ namespace OpenCS.Services
          });
       }
 
-      public void AddLine(double[] xs, double[] ys, string label = null)
+      public void AddLine(double[] xs, double[] ys, string? label = null)
       {
          AddScatter(xs, ys, 1, null, label);
       }
 
-      public void AddPolygon(double[] xs, double[] ys, string fillColor = null, string lineColor = null)
+      public void AddPolygon(double[] xs, double[] ys, string? fillColor = null, string? lineColor = null)
       {
          if (xs == null || ys == null || xs.Length < 3) return;
          UpdateBounds(xs, ys);
@@ -67,7 +67,7 @@ namespace OpenCS.Services
          });
       }
 
-      public void AddCircle(double x, double y, double radius, string fillColor = null, string lineColor = null, float lineWidth = 1)
+      public void AddCircle(double x, double y, double radius, string? fillColor = null, string? lineColor = null, float lineWidth = 1)
       {
          UpdateBounds(new[] { x - radius, x + radius }, new[] { y - radius, y + radius });
          _elements.Add(new CircleElement
@@ -79,7 +79,7 @@ namespace OpenCS.Services
          });
       }
 
-      public void AddMarkers(double[] xs, double[] ys, float markerSize = 4, string color = null, string label = null)
+      public void AddMarkers(double[] xs, double[] ys, float markerSize = 4, string? color = null, string? label = null)
       {
          if (xs == null || ys == null || xs.Length == 0) return;
          UpdateBounds(xs, ys);
@@ -133,9 +133,9 @@ namespace OpenCS.Services
          foreach (var y in ys) { if (y < _yMin) _yMin = y; if (y > _yMax) _yMax = y; }
       }
 
-      private static Brush ParseColor(string hex)
+      private static Brush ParseColor(string? hex)
       {
-         try { return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)); }
+         try { return new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex!)); }
          catch { return Brushes.Black; }
       }
    }

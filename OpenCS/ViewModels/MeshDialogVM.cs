@@ -19,7 +19,8 @@ namespace OpenCS.ViewModels
 
       MeshMethod _meshMethod;
       int _nx, _ny;
-      double _maxArea, _minAngle;
+      double _maxArea, _minAngle, _maxEdgeLen;
+      int _smoothIter;
       IReadOnlyList<PlotElement> _plotElements = [];
       int _fibersCount;
 
@@ -33,11 +34,16 @@ namespace OpenCS.ViewModels
          _backup = area.Fibers.ToList();
 
          // Начальные значения из модели
-         _meshMethod = area.MeshMethod;
-         _nx         = area.NX;
-         _ny         = area.NY;
-         _maxArea    = area.MeshMaxArea;
-         _minAngle   = area.MeshMinAngle;
+         _meshMethod  = area.MeshMethod;
+         _nx          = area.NX;
+         _ny          = area.NY;
+         _maxArea     = area.MeshMaxArea;
+         _minAngle    = area.MeshMinAngle;
+         _smoothIter  = area.MeshSmoothIter;
+         // Если длина ребра не задана, вычислить из площади и MaxArea
+         _maxEdgeLen  = area.MeshMaxEdgeLen > 0
+            ? area.MeshMaxEdgeLen
+            : (area.Hull != null ? System.Math.Sqrt(WktHelper.PolygonArea(area.Hull.X, area.Hull.Y) * area.MeshMaxArea * 4 / System.Math.Sqrt(3)) : 0.1);
          _fibersCount = area.Fibers.Count(f => f.TypeFiber is FiberType.poly or FiberType.tri);
 
          GenerateCommand = new RelayCommand(_ => Generate());
@@ -58,6 +64,8 @@ namespace OpenCS.ViewModels
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsGrid));
             OnPropertyChanged(nameof(IsTriangulation));
+            OnPropertyChanged(nameof(IsRuppert));
+            OnPropertyChanged(nameof(IsAdvancingFront));
             OnPropertyChanged(nameof(MeshMethodIndex));
          }
       }
@@ -69,8 +77,10 @@ namespace OpenCS.ViewModels
          set => MeshMethod = (MeshMethod)value;
       }
 
-      public bool IsGrid          => _meshMethod == MeshMethod.Grid;
-      public bool IsTriangulation => _meshMethod != MeshMethod.Grid;
+      public bool IsGrid           => _meshMethod == MeshMethod.Grid;
+      public bool IsTriangulation  => _meshMethod != MeshMethod.Grid;
+      public bool IsRuppert        => _meshMethod == MeshMethod.Ruppert;
+      public bool IsAdvancingFront => _meshMethod == MeshMethod.AdvancingFront;
 
       public int NX
       {
@@ -87,13 +97,43 @@ namespace OpenCS.ViewModels
       public double MaxArea
       {
          get => _maxArea;
-         set { _maxArea = value; OnPropertyChanged(); }
+         set { _maxArea = value; OnPropertyChanged(); OnPropertyChanged(nameof(MaxAreaText)); }
+      }
+
+      public string MaxAreaText
+      {
+         get => _maxArea.ToString(System.Globalization.CultureInfo.InvariantCulture);
+         set { if (TryParsePositive(value, out var v)) MaxArea = v; }
       }
 
       public double MinAngle
       {
          get => _minAngle;
-         set { _minAngle = value; OnPropertyChanged(); }
+         set { _minAngle = value; OnPropertyChanged(); OnPropertyChanged(nameof(MinAngleText)); }
+      }
+
+      public string MinAngleText
+      {
+         get => _minAngle.ToString(System.Globalization.CultureInfo.InvariantCulture);
+         set { if (TryParsePositive(value, out var v)) MinAngle = v; }
+      }
+
+      public double MaxEdgeLen
+      {
+         get => _maxEdgeLen;
+         set { _maxEdgeLen = value; OnPropertyChanged(); OnPropertyChanged(nameof(MaxEdgeLenText)); }
+      }
+
+      public string MaxEdgeLenText
+      {
+         get => _maxEdgeLen.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
+         set { if (TryParsePositive(value, out var v)) MaxEdgeLen = v; }
+      }
+
+      public int SmoothIter
+      {
+         get => _smoothIter;
+         set { _smoothIter = value; OnPropertyChanged(); }
       }
 
       public IReadOnlyList<PlotElement> PlotElements
@@ -120,10 +160,10 @@ namespace OpenCS.ViewModels
                _area.SliceXY(_nx, _ny);
                break;
             case MeshMethod.Ruppert:
-               _area.Triangulate(_maxArea, _minAngle, MeshMethod.Ruppert);
+               _area.Triangulate(_maxArea, _minAngle, MeshMethod.Ruppert, smoothIter: _smoothIter);
                break;
             case MeshMethod.AdvancingFront:
-               _area.Triangulate(_maxArea, _minAngle, MeshMethod.AdvancingFront);
+               _area.Triangulate(_maxArea, 0, MeshMethod.AdvancingFront, maxEdgeLen: _maxEdgeLen, smoothIter: _smoothIter);
                break;
          }
          FibersCount = _area.Fibers.Count(f => f.TypeFiber is FiberType.poly or FiberType.tri);
@@ -132,11 +172,13 @@ namespace OpenCS.ViewModels
 
       void Apply()
       {
-         _area.MeshMethod   = _meshMethod;
-         _area.MeshMaxArea  = _maxArea;
-         _area.MeshMinAngle = _minAngle;
-         _area.NX           = _nx;
-         _area.NY           = _ny;
+         _area.MeshMethod     = _meshMethod;
+         _area.MeshMaxArea    = _maxArea;
+         _area.MeshMinAngle   = _minAngle;
+         _area.MeshMaxEdgeLen = _maxEdgeLen;
+         _area.MeshSmoothIter = _smoothIter;
+         _area.NX             = _nx;
+         _area.NY             = _ny;
          App.db.SaveMeshFibers(_area);
          _window.DialogResult = true;
       }
@@ -180,6 +222,13 @@ namespace OpenCS.ViewModels
             });
 
          PlotElements = elements;
+      }
+
+      static bool TryParsePositive(string? value, out double result)
+      {
+         var s = value?.Replace(',', '.');
+         return double.TryParse(s, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out result) && result > 0;
       }
    }
 }

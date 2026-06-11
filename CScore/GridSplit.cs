@@ -172,8 +172,8 @@ namespace CScore
                var (a2x, a2y) = verts[k2];
                var (b2x, b2y) = verts[k2n];
 
-               string axis1 = null; double bv1 = 0, c1s = 0, c1e = 0;
-               string axis2 = null; double bv2 = 0, c2s = 0, c2e = 0;
+               string? axis1 = null; double bv1 = 0, c1s = 0, c1e = 0;
+               string? axis2 = null; double bv2 = 0, c2s = 0, c2e = 0;
 
                if (Math.Abs(a1x - x0) < Tol && Math.Abs(b1x - x0) < Tol && Math.Abs(a1y - b1y) > Tol)
                { axis1 = "x"; bv1 = x0; c1s = a1y; c1e = b1y; }
@@ -275,7 +275,7 @@ namespace CScore
          return output.Where(p => p.Count >= 3 && SignedArea(p) > 0).ToList();
       }
 
-      static double NetArea(List<(double X, double Y)> outer, List<List<(double X, double Y)>> holes)
+      static double NetArea(List<(double X, double Y)> outer, List<List<(double X, double Y)>>? holes)
       {
          double A6sum = 0;
          double cxNum = 0, cyNum = 0;
@@ -305,7 +305,7 @@ namespace CScore
       }
 
       static (double cx, double cy) NetCentroid(List<(double X, double Y)> outer,
-         List<List<(double X, double Y)>> holes)
+         List<List<(double X, double Y)>>? holes)
       {
          double A6sum = 0;
          double cxNum = 0, cyNum = 0;
@@ -371,7 +371,7 @@ namespace CScore
             throw new ArgumentException("Необходимо задать хотя бы один из параметров: nx или ny.");
 
          var hullPts = new List<(double X, double Y)>();
-         for (int i = 0; i < region.Hull.X.Count - 1; i++)
+         for (int i = 0; i < region.Hull!.X.Count - 1; i++)
             hullPts.Add((region.Hull.X[i], region.Hull.Y[i]));
 
          double xMin = hullPts.Min(p => p.X);
@@ -522,14 +522,14 @@ namespace CScore
          return Slice(region, nx, 0);
       }
 
-      static string PolygonWKT(List<(double X, double Y)> outer, List<List<(double X, double Y)>> holes)
+      static string PolygonWKT(List<(double X, double Y)> outer, List<List<(double X, double Y)>>? holes)
       {
          var sb = new System.Text.StringBuilder();
          sb.Append("POLYGON (");
 
          sb.Append('(');
          for (int i = 0; i < outer.Count; i++)
-            sb.Append($"{outer[i].X} {outer[i].Y}{(i < outer.Count - 1 ? ", " : "")}");
+            sb.Append(FormattableString.Invariant($"{outer[i].X} {outer[i].Y}{(i < outer.Count - 1 ? ", " : "")}"));
          sb.Append(')');
 
          if (holes != null)
@@ -538,7 +538,7 @@ namespace CScore
             {
                sb.Append(", (");
                for (int i = 0; i < hole.Count; i++)
-                  sb.Append($"{hole[i].X} {hole[i].Y}{(i < hole.Count - 1 ? ", " : "")}");
+                  sb.Append(FormattableString.Invariant($"{hole[i].X} {hole[i].Y}{(i < hole.Count - 1 ? ", " : "")}"));
                sb.Append(')');
             }
          }

@@ -213,13 +213,13 @@ namespace OpenCS.Views
 
           mvm.db.DeleteDiagram(diagram);
           mvm.db.Diagrams.Remove(diagram);
-          mvm.CurrentPage = null;
+          mvm.CurrentPage = null!;
           mvm.LogService.Info(string.Format(Loc.S("DiagramDeletedCode"), diagram.Tag));
       }
 
       void Close_Click(object sender, RoutedEventArgs e)
       {
-         mvm.CurrentPage = null;
+         mvm.CurrentPage = null!;
       }
    }
 }

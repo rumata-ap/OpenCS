@@ -14,11 +14,11 @@ namespace CScore
    public class Basis
    {
       [JsonIgnore]
-      public Plane Plane { get; set; }
-      public StressPoint P1;
-      public StressPoint P2;
-      public StressPoint P3;
-      public Diagramm Diagramm;
+      public Plane Plane { get; set; } = null!;
+      public StressPoint P1 = null!;
+      public StressPoint P2 = null!;
+      public StressPoint P3 = null!;
+      public Diagramm Diagramm = null!;
       public Kurvature K;
       public Load I;
       public double eps_ult;

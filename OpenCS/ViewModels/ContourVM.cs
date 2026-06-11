@@ -39,7 +39,7 @@ namespace OpenCS.ViewModels
       StressPoint point;
 
       /// <summary>Кэш отрисованного изображения контура.</summary>
-      DrawingImage dI;
+      DrawingImage dI = null!;
 
       /// <summary>Флаг, указывающий, находится ли контур в режиме редактирования.</summary>
       bool isEdit;
@@ -54,18 +54,18 @@ namespace OpenCS.ViewModels
       /// Ссылка на главную ViewModel приложения. Используется для доступа
       /// к базе данных, сервисам логирования и файловых диалогов.
       /// </summary>
-      public AppViewModel mvm { get; set; }
+      public AppViewModel mvm { get; set; } = null!;
 
       /// <summary>
       /// Список допустимых типов контура (Оболочка, Отверстие, Нет) для привязки в ComboBox.
       /// </summary>
-      public List<ContourType> Types { get; set; }
+      public List<ContourType> Types { get; set; } = null!;
 
       /// <summary>
       /// Сервис построения графиков. Используется для визуализации контура и точек
       /// на плоскости с автоматическим масштабированием.
       /// </summary>
-      public IPlotService PlotService { get; set; }
+      public IPlotService PlotService { get; set; } = null!;
 
       /// <summary>
       /// Флаг, указывающий, сохранён ли контур в базу данных.
@@ -137,37 +137,37 @@ namespace OpenCS.ViewModels
       /// Изображение контура (DrawingImage), получаемое путём вызова
       /// <see cref="Contour.Draw()"/>. Используется для привязки в представлении.
       /// </summary>
-      public DrawingImage DI { get { return Contour.Draw(); } }
+      public DrawingImage? DI { get { return Contour.Draw(); } }
 
       /// <summary>
       /// Команда привязки для перенумерации точек контура.
       /// Вызывает метод <c>RenumPoint</c>.
       /// </summary>
-      public ICommand RenumPointCommand { get; set; }
+      public ICommand RenumPointCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда привязки для импорта координат точек из CSV-файла.
       /// Вызывает метод <c>ImportCsv</c>.
       /// </summary>
-      public ICommand ImportCsvCommand { get; set; }
+      public ICommand ImportCsvCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда привязки для экспорта координат точек в CSV-файл.
       /// Вызывает метод <c>ExportCsv</c>.
       /// </summary>
-      public ICommand ExportCsvCommand { get; set; }
+      public ICommand ExportCsvCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда привязки для переключения режима редактирования контура.
       /// Вызывает метод <c>SaveChanges</c>.
       /// </summary>
-      public ICommand SaveChangesCommand { get; set; }
+      public ICommand SaveChangesCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда привязки для сохранения контура в базу данных.
       /// Вызывает метод <c>Save</c>.
       /// </summary>
-      public ICommand SaveCommand { get; set; }
+      public ICommand SaveCommand { get; set; } = null!;
 
       /// <summary>
       /// Инициализирует экземпляр <see cref="ContourVM"/> с пустым контуром
@@ -224,7 +224,7 @@ namespace OpenCS.ViewModels
          string fileName = mvm.FileDialogService.SaveFile(
             filter: "Текстовый файл (*.csv)|*.csv",
             defaultExt: "*.csv",
-            title: "Экспорт координат в файл csv");
+            title: "Экспорт координат в файл csv")!;
 
          if (string.IsNullOrEmpty(fileName)) return;
 
@@ -256,7 +256,7 @@ namespace OpenCS.ViewModels
       {
          string fileName = mvm.FileDialogService.OpenFile(
             filter: "Текстовый файл (*.csv)|*.csv",
-            title: "Импорт координат из файла csv");
+            title: "Импорт координат из файла csv")!;
 
          if (string.IsNullOrEmpty(fileName)) return;
 

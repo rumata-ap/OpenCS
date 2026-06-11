@@ -25,7 +25,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 4;
+      const int CurrentSchemaVersion = 5;
 
       static readonly string[] Migrations =
       [
@@ -73,6 +73,11 @@ namespace OpenCS.Utilites
              wkt     TEXT,
              eps_p   REAL NOT NULL DEFAULT 0
          );
+         """,
+         """
+         -- v5: длина ребра и число итераций сглаживания для триангуляции.
+         ALTER TABLE material_areas ADD COLUMN mesh_max_edge_len REAL    NOT NULL DEFAULT 0.0;
+         ALTER TABLE material_areas ADD COLUMN mesh_smooth_iter  INTEGER NOT NULL DEFAULT 5;
          """
       ];
 
@@ -586,7 +591,7 @@ namespace OpenCS.Utilites
          cmd.CommandText = """
             SELECT id, num, tag, description, material_id,
                    host_area_id, diagramm_type, nx, ny, wkt, category, pool_contour_id,
-                   mesh_method, mesh_max_area, mesh_min_angle
+                   mesh_method, mesh_max_area, mesh_min_angle, mesh_max_edge_len, mesh_smooth_iter
             FROM material_areas
             WHERE section_id IS NULL
             ORDER BY num
@@ -609,8 +614,10 @@ namespace OpenCS.Utilites
                Category      = Enum.TryParse<AreaCategory>(r.GetString(10), ignoreCase: true, out var cat) ? cat : AreaCategory.Region,
                PoolContourId = r.IsDBNull(11) ? null : r.GetInt32(11),
                MeshMethod    = Enum.TryParse<CScore.MeshMethod>(r.IsDBNull(12) ? "grid" : r.GetString(12), ignoreCase: true, out var mm) ? mm : CScore.MeshMethod.Grid,
-               MeshMaxArea   = r.IsDBNull(13) ? 0.01 : r.GetDouble(13),
-               MeshMinAngle  = r.IsDBNull(14) ? 30.0 : r.GetDouble(14)
+               MeshMaxArea    = r.IsDBNull(13) ? 0.01 : r.GetDouble(13),
+               MeshMinAngle   = r.IsDBNull(14) ? 30.0 : r.GetDouble(14),
+               MeshMaxEdgeLen = r.IsDBNull(15) ? 0.0  : r.GetDouble(15),
+               MeshSmoothIter = r.IsDBNull(16) ? 5    : r.GetInt32(16)
             };
             if (area.WKT != null)
             {
@@ -704,9 +711,9 @@ namespace OpenCS.Utilites
                   INSERT INTO material_areas
                      (num, tag, description, material_id, host_area_id,
                       diagramm_type, nx, ny, wkt, category, pool_contour_id,
-                      mesh_method, mesh_max_area, mesh_min_angle)
+                      mesh_method, mesh_max_area, mesh_min_angle, mesh_max_edge_len, mesh_smooth_iter)
                   VALUES (@num,@tag,@desc,@mid,@hid,@dtype,@nx,@ny,@wkt,@cat,@pcid,
-                          @mmethod,@mmaxarea,@mminangle);
+                          @mmethod,@mmaxarea,@mminangle,@mmaxedge,@msmoothiter);
                   SELECT last_insert_rowid();
                """;
             }
@@ -717,7 +724,8 @@ namespace OpenCS.Utilites
                      num=@num, tag=@tag, description=@desc, material_id=@mid,
                      host_area_id=@hid, diagramm_type=@dtype, nx=@nx, ny=@ny,
                      wkt=@wkt, category=@cat, pool_contour_id=@pcid,
-                     mesh_method=@mmethod, mesh_max_area=@mmaxarea, mesh_min_angle=@mminangle
+                     mesh_method=@mmethod, mesh_max_area=@mmaxarea, mesh_min_angle=@mminangle,
+                     mesh_max_edge_len=@mmaxedge, mesh_smooth_iter=@msmoothiter
                   WHERE id=@id;
                """;
                cmd.Parameters.AddWithValue("@id", area.Id);
@@ -734,8 +742,10 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@cat",   area.Category.ToString().ToLowerInvariant());
             cmd.Parameters.AddWithValue("@pcid",  (object?)area.PoolContourId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@mmethod",    area.MeshMethod.ToString().ToLowerInvariant());
-            cmd.Parameters.AddWithValue("@mmaxarea",   area.MeshMaxArea);
-            cmd.Parameters.AddWithValue("@mminangle",  area.MeshMinAngle);
+            cmd.Parameters.AddWithValue("@mmaxarea",    area.MeshMaxArea);
+            cmd.Parameters.AddWithValue("@mminangle",   area.MeshMinAngle);
+            cmd.Parameters.AddWithValue("@mmaxedge",    area.MeshMaxEdgeLen);
+            cmd.Parameters.AddWithValue("@msmoothiter", area.MeshSmoothIter);
             if (isNew) area.Id = (int)(long)cmd.ExecuteScalar()!;
             else cmd.ExecuteNonQuery();
          }
@@ -789,13 +799,16 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                UPDATE material_areas
-               SET mesh_method=@mm, mesh_max_area=@ma, mesh_min_angle=@mi
+               SET mesh_method=@mm, mesh_max_area=@ma, mesh_min_angle=@mi,
+                   mesh_max_edge_len=@me, mesh_smooth_iter=@ms
                WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@id", area.Id);
             cmd.Parameters.AddWithValue("@mm", area.MeshMethod.ToString().ToLowerInvariant());
             cmd.Parameters.AddWithValue("@ma", area.MeshMaxArea);
             cmd.Parameters.AddWithValue("@mi", area.MeshMinAngle);
+            cmd.Parameters.AddWithValue("@me", area.MeshMaxEdgeLen);
+            cmd.Parameters.AddWithValue("@ms", area.MeshSmoothIter);
             cmd.ExecuteNonQuery();
          }
 

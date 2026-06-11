@@ -79,7 +79,7 @@ namespace CScore
       /// <summary>
       /// Координаты центра тяжести сечения (Xc = ESy/EA, Yc = ESx/EA).
       /// </summary>
-      public XY Centroid { get; set; }
+      public XY Centroid { get; set; } = null!;
 
       /// <summary>
       /// Тип геометрических характеристик (первый или второй модуль упругости).

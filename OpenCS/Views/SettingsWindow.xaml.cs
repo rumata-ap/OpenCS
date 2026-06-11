@@ -67,6 +67,8 @@ namespace OpenCS.Views
          AxesColorBox.Text = _settings.AxesColor;
          AxesFontSzBox.Text = _settings.AxesFontSize.ToString("F0");
          DxfBgBox.Text = _settings.DxfCanvasBackground;
+         CentroidColorBox.Text = _settings.CentroidColor;
+         CentroidSzBox.Text = _settings.CentroidSize.ToString("F0");
          ScaleXBox.Text = _settings.ScaleX.ToString("F4");
          ScaleYBox.Text = _settings.ScaleY.ToString("F4");
          CurveThBox.Text = _settings.CurveThickness.ToString("F1");
@@ -93,6 +95,8 @@ namespace OpenCS.Views
          HighlightBox.TextChanged += (_, _) => { _settings.Highlight = HighlightBox.Text; UpdateSwatch(HighlightSwatch, HighlightBox.Text); };
          AxesColorBox.TextChanged += (_, _) => { _settings.AxesColor = AxesColorBox.Text; UpdateSwatch(AxesColorSwatch, AxesColorBox.Text); };
          DxfBgBox.TextChanged += (_, _) => { _settings.DxfCanvasBackground = DxfBgBox.Text; UpdateSwatch(DxfBgSwatch, DxfBgBox.Text); };
+         CentroidColorBox.TextChanged += (_, _) => { _settings.CentroidColor = CentroidColorBox.Text; UpdateSwatch(CentroidSwatch, CentroidColorBox.Text); };
+         CentroidSzBox.TextChanged += (_, _) => { if (double.TryParse(CentroidSzBox.Text, out var v) && v > 0) _settings.CentroidSize = v; };
          AxesFontSzBox.TextChanged += (_, _) => { if (double.TryParse(AxesFontSzBox.Text, out var v) && v > 0) _settings.AxesFontSize = v; };
          ScaleXBox.TextChanged += (_, _) => { if (double.TryParse(ScaleXBox.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) _settings.ScaleX = v; };
          ScaleYBox.TextChanged += (_, _) => { if (double.TryParse(ScaleYBox.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) _settings.ScaleY = v; };
@@ -124,6 +128,7 @@ namespace OpenCS.Views
          UpdateSwatch(HighlightSwatch, HighlightBox.Text);
          UpdateSwatch(AxesColorSwatch, AxesColorBox.Text);
          UpdateSwatch(DxfBgSwatch, DxfBgBox.Text);
+         UpdateSwatch(CentroidSwatch, CentroidColorBox.Text);
       }
 
       static void UpdateSwatch(Rectangle rect, string hex)
@@ -180,6 +185,8 @@ namespace OpenCS.Views
          _settings.ScaleX = def.ScaleX;
          _settings.ScaleY = def.ScaleY;
          _settings.DxfCanvasBackground = def.DxfCanvasBackground;
+         _settings.CentroidColor = def.CentroidColor;
+         _settings.CentroidSize = def.CentroidSize;
          LoadToUi();
       }
    }

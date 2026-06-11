@@ -20,7 +20,7 @@ namespace OpenCS.ViewModels
       /// Ссылка на главную ViewModel приложения. Используется для доступа
       /// к базе данных и сервису логирования.
       /// </summary>
-      public AppViewModel mvm;
+      public AppViewModel mvm = null!;
 
       /// <summary>
       /// Доменный объект материала, содержащий характеристики по всем видам расчётов.

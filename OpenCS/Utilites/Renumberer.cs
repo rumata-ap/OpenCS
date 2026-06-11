@@ -23,12 +23,12 @@ namespace OpenCS.Utilites
       public static void AddRange<T>(this ObservableCollection<T> oc, IList other)
       {
          for (int i = 0; i < other.Count; i++)
-            oc.Add((T)other[i]);
+            oc.Add((T)other[i]!);
       }
       public static void RemoveRange<T>(this ObservableCollection<T> oc, IList other)
       {
          for (int i = 0; i < other.Count; i++)
-            oc.Remove((T)other[i]);
+            oc.Remove((T)other[i]!);
       }
       public static void ContoursRenumber(this AppViewModel mvm)
       {

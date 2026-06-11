@@ -62,20 +62,21 @@ namespace CScore
       /// <param name="method">Метод триангуляции (по умолчанию Ruppert).</param>
       /// <returns>Массив треугольных волокон <see cref="Fiber"/>.</returns>
       public static Fiber[] Triangulation(MaterialArea region, double maxTrgArea = 0.01, double maxAngl = 30, double scale = 8,
+         double maxEdgeLen = 0, int smoothIter = 5,
          TriangulationMethod method = TriangulationMethod.Ruppert)
       {
          if (method == TriangulationMethod.AdvancingFront)
-            return TriangulationAdvancingFront(region, maxTrgArea, scale);
+            return TriangulationAdvancingFront(region, maxTrgArea, scale, maxEdgeLen, smoothIter);
          else
-            return TriangulationRuppert(region, maxTrgArea, maxAngl, scale);
+            return TriangulationRuppert(region, maxTrgArea, maxAngl, scale, smoothIter);
       }
 
       /// <summary>
       /// Триангуляция алгоритмом Рупперта (CDT + рефайнмент).
       /// </summary>
-      static Fiber[] TriangulationRuppert(MaterialArea region, double maxTrgArea, double maxAngl, double scale)
+      static Fiber[] TriangulationRuppert(MaterialArea region, double maxTrgArea, double maxAngl, double scale, int smoothIter = 5)
       {
-         double hullArea = WktHelper.PolygonArea(region.Hull.X, region.Hull.Y);
+         double hullArea = WktHelper.PolygonArea(region.Hull!.X, region.Hull.Y);
          double maxArea = hullArea * maxTrgArea * scale * scale;
 
          var outerPts = new Rupp.Vec2[region.Hull.Points.Count - 1];
@@ -106,14 +107,17 @@ namespace CScore
          };
          var result = tri.Triangulate(parms);
 
+         var boundarySet = new System.Collections.Generic.HashSet<int>();
+         foreach (var (a, b) in result.ConstrainedEdges) { boundarySet.Add(a); boundarySet.Add(b); }
+
          var optimized = Optimize.OptimizeTriangular(
             new TriangulationResult
             {
                Nodes = result.Vertices.Select(v => new double[] { v.X / scale, v.Y / scale }).ToArray(),
                Triangles = result.Triangles.Select(t => new int[] { t.Item1, t.Item2, t.Item3 }).ToArray(),
-               IsBoundary = new bool[result.Vertices.Length]
+               IsBoundary = result.Vertices.Select((_, i) => boundarySet.Contains(i)).ToArray()
             },
-            nIter: 5,
+            nIter: smoothIter,
             chi: 2.0
          );
 
@@ -130,7 +134,7 @@ namespace CScore
             double cy = (y0 + y1 + y2) / 3.0;
             double area = Math.Abs((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)) / 2.0;
 
-            string wkt = $"POLYGON (({x0} {y0}, {x1} {y1}, {x2} {y2}, {x0} {y0}))";
+            string wkt = FormattableString.Invariant($"POLYGON (({x0} {y0}, {x1} {y1}, {x2} {y2}, {x0} {y0}))");
 
             Fiber fa = new Fiber(idx, $"{region.Tag}", wkt)
             {
@@ -150,24 +154,36 @@ namespace CScore
       /// <summary>
       /// Триангуляция методом продвижения фронта (SETKA-4N-2D).
       /// </summary>
-      static Fiber[] TriangulationAdvancingFront(MaterialArea region, double maxTrgArea, double scale)
+      static Fiber[] TriangulationAdvancingFront(MaterialArea region, double maxTrgArea, double scale, double maxEdgeLen = 0, int smoothIter = 5)
       {
-         double hullArea = WktHelper.PolygonArea(region.Hull.X, region.Hull.Y);
-         double avgH = Math.Sqrt(hullArea * maxTrgArea * 4 / Math.Sqrt(3));
+         double hullArea = WktHelper.PolygonArea(region.Hull!.X, region.Hull!.Y);
+         double avgH = maxEdgeLen > 0
+            ? maxEdgeLen
+            : Math.Sqrt(hullArea * maxTrgArea * 4 / System.Math.Sqrt(3));
+         double avgHScaled = System.Math.Max(avgH * scale, 1e-6);
 
          var hullPts = region.Hull;
          int nOuter = hullPts.Points.Count - 1;
-         var nodes = new List<double[]>(nOuter);
-         var isBoundary = new List<bool>(nOuter);
-         var hValues = new List<double>(nOuter);
-         var outerIdxs = new List<int>(nOuter);
+         var nodes = new List<double[]>();
+         var isBoundary = new List<bool>();
+         var hValues = new List<double>();
+         var outerIdxs = new List<int>();
 
+         // Добавляем промежуточные узлы вдоль рёбер контура с шагом avgHScaled
          for (int j = 0; j < nOuter; j++)
          {
-            nodes.Add([hullPts.X[j] * scale, hullPts.Y[j] * scale]);
-            isBoundary.Add(true);
-            hValues.Add(avgH * scale);
-            outerIdxs.Add(j);
+            double x0 = hullPts.X[j] * scale, y0 = hullPts.Y[j] * scale;
+            double x1 = hullPts.X[(j + 1) % nOuter] * scale, y1 = hullPts.Y[(j + 1) % nOuter] * scale;
+            double edgeLen = System.Math.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+            int nSeg = System.Math.Max(1, (int)System.Math.Round(edgeLen / avgHScaled));
+            for (int s = 0; s < nSeg; s++)
+            {
+               double t = (double)s / nSeg;
+               outerIdxs.Add(nodes.Count);
+               nodes.Add([x0 + t * (x1 - x0), y0 + t * (y1 - y0)]);
+               isBoundary.Add(true);
+               hValues.Add(avgHScaled);
+            }
          }
 
          var holeIdxs = new List<List<int>>();
@@ -178,13 +194,21 @@ namespace CScore
             {
                Contour hole = h[k];
                int nHole = hole.Points.Count - 1;
-               var holeIdxList = new List<int>(nHole);
+               var holeIdxList = new List<int>();
                for (int j = 0; j < nHole; j++)
                {
-                  nodes.Add([hole.X[j] * scale, hole.Y[j] * scale]);
-                  isBoundary.Add(true);
-                  hValues.Add(avgH * scale);
-                  holeIdxList.Add(nodes.Count - 1);
+                  double x0 = hole.X[j] * scale, y0 = hole.Y[j] * scale;
+                  double x1 = hole.X[(j + 1) % nHole] * scale, y1 = hole.Y[(j + 1) % nHole] * scale;
+                  double edgeLen = System.Math.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+                  int nSeg = System.Math.Max(1, (int)System.Math.Round(edgeLen / avgHScaled));
+                  for (int s = 0; s < nSeg; s++)
+                  {
+                     double t = (double)s / nSeg;
+                     holeIdxList.Add(nodes.Count);
+                     nodes.Add([x0 + t * (x1 - x0), y0 + t * (y1 - y0)]);
+                     isBoundary.Add(true);
+                     hValues.Add(avgHScaled);
+                  }
                }
                holeIdxs.Add(holeIdxList);
             }
@@ -201,7 +225,7 @@ namespace CScore
 
          var afResult = AdvancingFront.Triangulate(contour, 90.0);
 
-         var optimized = Optimize.OptimizeTriangular(afResult, nIter: 5, chi: 2.0);
+         var optimized = Optimize.OptimizeTriangular(afResult, nIter: smoothIter, chi: 2.0);
 
          double E = region.Material == null ? 0 : region.Material.E;
          var fas = new List<Fiber>(optimized.Triangles.Length);
@@ -216,7 +240,7 @@ namespace CScore
             double cy = (y0 + y1 + y2) / 3.0;
             double area = Math.Abs((x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)) / 2.0;
 
-            string wkt = $"POLYGON (({x0} {y0}, {x1} {y1}, {x2} {y2}, {x0} {y0}))";
+            string wkt = FormattableString.Invariant($"POLYGON (({x0} {y0}, {x1} {y1}, {x2} {y2}, {x0} {y0}))");
 
             Fiber fa = new Fiber(idx, $"{region.Tag}", wkt)
             {

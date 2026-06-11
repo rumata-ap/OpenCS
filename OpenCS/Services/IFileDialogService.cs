@@ -5,7 +5,7 @@ namespace OpenCS.Services
    /// </summary>
    public interface IFileDialogService
    {
-      string? OpenFile(string filter = null, string title = null);
-      string? SaveFile(string filter = null, string defaultExt = null, string title = null);
+      string? OpenFile(string? filter = null, string? title = null);
+      string? SaveFile(string? filter = null, string? defaultExt = null, string? title = null);
    }
 }

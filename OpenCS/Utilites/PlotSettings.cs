@@ -73,6 +73,12 @@ namespace OpenCS.Utilites
       [JsonPropertyName("dxfCanvasBg")]
       public string DxfCanvasBackground { get; set; } = "#F5F5F5";
 
+      [JsonPropertyName("centroidColor")]
+      public string CentroidColor { get; set; } = "#4169E1";
+
+      [JsonPropertyName("centroidSize")]
+      public double CentroidSize { get; set; } = 4.0;
+
       public static PlotSettings Default => new();
 
       public PlotSettings Clone() => new()
@@ -88,7 +94,8 @@ namespace OpenCS.Utilites
          AxesColor = AxesColor, AxesFontSize = AxesFontSize,
          GridThickness = GridThickness, TickCount = TickCount,
          ScaleX = ScaleX, ScaleY = ScaleY,
-         DxfCanvasBackground = DxfCanvasBackground
+         DxfCanvasBackground = DxfCanvasBackground,
+         CentroidColor = CentroidColor, CentroidSize = CentroidSize
       };
    }
 }

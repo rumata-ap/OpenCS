@@ -1,6 +1,7 @@
 using OpenCS.ViewModels;
 
 using System.Windows.Controls;
+using System.Windows.Threading;
 
 namespace OpenCS.Views
 {
@@ -10,7 +11,7 @@ namespace OpenCS.Views
    /// </summary>
    public partial class FromDxfPage : UserControl
    {
-      public FromDxfPage(AppViewModel mvm)
+      public FromDxfPage(AppViewModel mvm, string fileName)
       {
          InitializeComponent();
          var vm = new FromDxfVM { mvm = mvm };
@@ -19,6 +20,9 @@ namespace OpenCS.Views
          InteractiveCanvas.PrimitiveClicked = vm.HandlePrimitiveClicked;
          InteractiveCanvas.SetBackground(mvm.PlotSettings.DxfCanvasBackground);
          mvm.DxfBgApplied = bg => InteractiveCanvas.SetBackground(bg);
+
+         // Загружаем после первого рендера, чтобы канвас знал свои размеры
+         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () => vm.LoadFile(fileName));
       }
    }
 }

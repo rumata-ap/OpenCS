@@ -248,8 +248,13 @@ namespace OpenCS.ViewModels
          string fileName = mvm.FileDialogService.OpenFile(
             filter: "Файл обмена чертежами (*.dxf)|*.dxf",
             title: "Импорт данных из файла DXF");
-         if (string.IsNullOrEmpty(fileName)) return;
+         if (!string.IsNullOrEmpty(fileName))
+            LoadFile(fileName);
+      }
 
+      /// <summary>Загружает DXF-файл в канвас. Вызывается из code-behind или через <see cref="OpenDxf"/>.</summary>
+      public void LoadFile(string fileName)
+      {
          foreach (var p in _primitives) { p.Role = DxfRole.None; p.GroupIndex = 1; }
          RebarGroupCount = 1;
          CurrentGroupIdx = 1;

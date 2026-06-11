@@ -111,9 +111,10 @@ namespace OpenCS.Views
       public Fiber[] Fibers          { get; init; } = [];
       public bool ShowCentroids      { get; init; } = false;
       public Brush Fill              { get; init; } = Brushes.LightSteelBlue;
+      public Brush CentroidFill      { get; init; } = Brushes.RoyalBlue;
       public Brush Stroke            { get; init; } = Brushes.SteelBlue;
       public double StrokeThickness  { get; init; } = 0.5;
-      public double MarkerSize       { get; init; } = 3;
+      public double MarkerSize       { get; init; } = 4;
 
       public override void Render(DrawingContext dc, Func<double, double, Point> toPixel)
       {
@@ -125,7 +126,7 @@ namespace OpenCS.Views
             foreach (var f in Fibers)
             {
                var pt = toPixel(f.X, f.Y);
-               dc.DrawEllipse(Fill, null, pt, half, half);
+               dc.DrawEllipse(CentroidFill, null, pt, half, half);
             }
          }
          else

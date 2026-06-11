@@ -51,28 +51,28 @@ namespace OpenCS
       /// <summary>
       /// Активная (выделенная) коллекция точек контура, отображаемая в текущем представлении.
       /// </summary>
-      ObservableCollection<StressPoint> pointsLive;
+      ObservableCollection<StressPoint> pointsLive = null!;
 
       /// <summary>
       /// Активная (выделенная) коллекция окружностей, отображаемая в текущем представлении.
       /// </summary>
-      ObservableCollection<CircleP> circlesLive;
+      ObservableCollection<CircleP> circlesLive = null!;
 
       /// <summary>
       /// Активная (выделенная) коллекция волокон, отображаемая в текущем представлении.
       /// </summary>
-      ObservableCollection<Fiber> fibersLive;
+      ObservableCollection<Fiber> fibersLive = null!;
 
       /// <summary>
       /// Активная (выделенная) коллекция контуров, отображаемая в текущем представлении.
       /// </summary>
-      ObservableCollection<ContourVM> contoursLive;
+      ObservableCollection<ContourVM> contoursLive = null!;
 
       /// <summary>
       /// Текущая страница (UserControl), отображаемая в области содержимого главного окна.
       /// Используется для навигации между представлениями.
       /// </summary>
-      UserControl currentPage;
+      UserControl currentPage = null!;
 
       /// <summary>
       /// Текущий выбранный материал. При изменении открывает страницу редактирования материала.
@@ -88,7 +88,7 @@ namespace OpenCS
       /// Элемент дерева навигации, связанный с текущим представлением.
       /// Используется внутренне для синхронизации выделения в TreeView.
       /// </summary>
-      internal TreeViewItem treeItem;
+      internal TreeViewItem treeItem = null!;
 
       /// <summary>
       /// Текущая выбранная диаграмма. При установке значения открывает страницу диаграммы.
@@ -138,44 +138,44 @@ namespace OpenCS
       /// Коллекция характеристик материалов (MaterialChars), загруженных из базы данных.
       /// Используется в привязках для отображения справочных данных по материалам.
       /// </summary>
-      public ObservableCollection<MaterialChars> MaterialChars { get; set; }
+      public ObservableCollection<MaterialChars> MaterialChars { get; set; } = null!;
 
       /// <summary>
       /// Полная коллекция всех материалов проекта, загруженных из базы данных.
       /// Включает бетон, арматурную сталь и сталь конструкций.
       /// Используется для привязки в представлениях списков материалов.
       /// </summary>
-      public ObservableCollection<Material> Materials { get; set; }
+      public ObservableCollection<Material> Materials { get; set; } = null!;
 
       /// <summary>
       /// Коллекция всех точек контура проекта, загруженных из базы данных.
       /// </summary>
-      public ObservableCollection<StressPoint> Points { get; set; }
+      public ObservableCollection<StressPoint> Points { get; set; } = null!;
 
       /// <summary>
       /// Коллекция всех окружностей проекта, загруженных из базы данных.
       /// Используется для привязки в представлениях окружностей (в том числе из DXF).
       /// </summary>
-      public ObservableCollection<CircleP> Circles { get; set; }
+      public ObservableCollection<CircleP> Circles { get; set; } = null!;
 
       /// <summary>
       /// Коллекция всех волокон проекта, загруженных из базы данных.
       /// </summary>
-      public ObservableCollection<Fiber> Fibers { get; set; }
+      public ObservableCollection<Fiber> Fibers { get; set; } = null!;
 
       /// <summary>
       /// Коллекция всех контуров проекта, загруженных из базы данных.
       /// Используется для привязки в TreeView и представлениях выбора контура.
       /// </summary>
-      public ObservableCollection<Contour> Contours { get; set; }
+      public ObservableCollection<Contour> Contours { get; set; } = null!;
 
       /// <summary>
       /// Коллекция всех диаграмм работы материалов проекта.
       /// </summary>
-      public ObservableCollection<Diagramm> Diagrams { get; set; }
+      public ObservableCollection<Diagramm> Diagrams { get; set; } = null!;
 
       /// <summary>Коллекция поперечных сечений проекта.</summary>
-      public ObservableCollection<CrossSection> CrossSections { get; set; }
+      public ObservableCollection<CrossSection> CrossSections { get; set; } = null!;
 
       /// <summary>Отфильтрованная коллекция сечений для отображения в TreeView.</summary>
       public ObservableCollection<CrossSection> CrossSectionsLive
@@ -193,13 +193,13 @@ namespace OpenCS
          set
          {
             currentCrossSection = value;
-            CurrentPage = value != null ? new Views.CrossSectionView(value, this) : null;
+            CurrentPage = value != null ? new Views.CrossSectionView(value, this) : null!;
             OnPropertyChanged();
          }
       }
 
       /// <summary>Коллекция самостоятельных MaterialArea проекта.</summary>
-      public ObservableCollection<MaterialArea> MaterialAreas { get; set; }
+      public ObservableCollection<MaterialArea> MaterialAreas { get; set; } = null!;
 
       /// <summary>Области с полигональной геометрией (Category == Region).</summary>
       public ObservableCollection<MaterialArea> AreasLive { get; set; } = [];
@@ -230,25 +230,25 @@ namespace OpenCS
       }
 
       /// <summary>Команда создания новой полигональной области.</summary>
-      public ICommand NewAreaCommand { get; set; }
+      public ICommand NewAreaCommand { get; set; } = null!;
 
       /// <summary>Команда удаления текущей MaterialArea.</summary>
-      public ICommand DeleteMaterialAreaCommand { get; set; }
+      public ICommand DeleteMaterialAreaCommand { get; set; } = null!;
 
       /// <summary>Команда создания новой группы арматуры (реализуется в Блоке 3).</summary>
-      public ICommand NewRebarGroupCommand { get; set; }
+      public ICommand NewRebarGroupCommand { get; set; } = null!;
 
       /// <summary>Команда создания одиночного стержня (реализуется в Блоке 3).</summary>
-      public ICommand NewSingleBarCommand { get; set; }
+      public ICommand NewSingleBarCommand { get; set; } = null!;
 
       /// <summary>Команда создания нового поперечного сечения.</summary>
-      public ICommand NewCrossSectionCommand { get; set; }
+      public ICommand NewCrossSectionCommand { get; set; } = null!;
 
       /// <summary>Команда редактирования выбранного поперечного сечения.</summary>
-      public ICommand EditCrossSectionCommand { get; set; }
+      public ICommand EditCrossSectionCommand { get; set; } = null!;
 
       /// <summary>Команда удаления выбранного поперечного сечения.</summary>
-      public ICommand DeleteCrossSectionCommand { get; set; }
+      public ICommand DeleteCrossSectionCommand { get; set; } = null!;
 
       /// <summary>
       /// Отфильтрованная коллекция диаграмм для отображения в TreeView.
@@ -287,7 +287,7 @@ namespace OpenCS
       public ContourVM? CurrentContour
       {
          get => currentContour;
-         set { currentContour = value; CurrentPage = value != null ? new ContourPlot(this) : null; OnPropertyChanged(); }
+         set { currentContour = value; CurrentPage = value != null ? new ContourPlot(this) : null!; OnPropertyChanged(); }
       }
 
       /// <summary>
@@ -308,60 +308,60 @@ namespace OpenCS
       /// <summary>
       /// Команда привязки для создания нового контура. Открывает пустую страницу контура.
       /// </summary>
-      public ICommand NewContourCommand { get; set; }
+      public ICommand NewContourCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда привязки для создания нового материала. Открывает пустую страницу материала.
       /// </summary>
-      public ICommand NewMaterialCommand { get; set; }
+      public ICommand NewMaterialCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда привязки для удаления выбранного материала
       /// с подтверждением через диалоговое окно.
       /// </summary>
-      public ICommand DelMaterialCommand { get; set; }
+      public ICommand DelMaterialCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда привязки для удаления выбранного контура и всех связанных с ним областей
       /// с подтверждением через диалоговое окно.
       /// </summary>
-      public ICommand DelContourCommand { get; set; }
+      public ICommand DelContourCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда привязки для импорта геометрии из DXF-файла.
       /// Открывает страницу <see cref="FromDxfPage"/>.
       /// </summary>
-      public ICommand FromDxfCommand { get; set; }
+      public ICommand FromDxfCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда создания нового проекта. Сбрасывает все данные и создаёт пустую базу данных.
       /// </summary>
-      public ICommand NewProjectCommand { get; set; }
+      public ICommand NewProjectCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда открытия существующего проекта из файла базы данных SQLite.
       /// </summary>
-      public ICommand OpenProjectCommand { get; set; }
+      public ICommand OpenProjectCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда сохранения проекта в текущий файл. Если файл не задан — выполняет SaveAs.
       /// </summary>
-      public ICommand SaveProjectCommand { get; set; }
+      public ICommand SaveProjectCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда сохранения проекта в новый файл (Save As).
       /// </summary>
-      public ICommand SaveAsProjectCommand { get; set; }
+      public ICommand SaveAsProjectCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда выхода из приложения.
       /// </summary>
-      public ICommand ExitCommand { get; set; }
+      public ICommand ExitCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда открытия окна настройки отображения графиков.
       /// </summary>
-      public ICommand OpenPlotSettingsCommand { get; set; }
+      public ICommand OpenPlotSettingsCommand { get; set; } = null!;
 
       /// <summary>
       /// Глобальные настройки отображения графиков (цвета, сетка, подписи).
@@ -382,7 +382,7 @@ namespace OpenCS
       /// <summary>
       /// Команда открытия окна настройки экспорта CSV.
       /// </summary>
-      public ICommand OpenCsvSettingsCommand { get; set; }
+      public ICommand OpenCsvSettingsCommand { get; set; } = null!;
 
       private int langID = 0;
       /// <summary>
@@ -394,7 +394,7 @@ namespace OpenCS
       /// Команда переключения языка интерфейса.
       /// Параметр: 0 — русский, 1 — английский.
       /// </summary>
-      public ICommand SetLanguageCommand { get; set; }
+      public ICommand SetLanguageCommand { get; set; } = null!;
 
       /// <summary>
       /// Переключает словарь ресурсов приложения на указанный язык.
@@ -590,10 +590,8 @@ namespace OpenCS
       {
          if (CurrentPage is Views.ContourPlot cp && cp.DataContext is ViewModels.ContourVM cvm)
             cvm.PlotService?.ApplySettings(PlotSettings);
-         if (CurrentPage is Views.DiagramPage dp)
-         {
-            // DiagramPage uses internal plotService field — expose via interface or skip
-         }
+         if (CurrentPage is Views.MaterialAreaPage map && map.DataContext is ViewModels.MaterialAreaVM mavm)
+            mavm.RefreshPlot();
          DxfBgApplied?.Invoke(PlotSettings.DxfCanvasBackground);
       }
 
@@ -622,14 +620,14 @@ namespace OpenCS
       /// </summary>
       private void DelMaterial(object? o = null)
       {
-         CurrentPage = null;
+         CurrentPage = null!;
          if (CurrentMaterial == null) return;
          System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
          System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
           var res = System.Windows.MessageBox.Show(Loc.S("ConfirmDeleteMaterial"), Loc.S("Warning"), mbb, ic);
           if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
 
-          string t = currentMaterial.Tag;
+          string t = currentMaterial!.Tag;
           db.DeleteMaterial(CurrentMaterial);
 
           LogService.Info(string.Format(Loc.S("MaterialDeleted"), t));
@@ -642,14 +640,14 @@ namespace OpenCS
       /// </summary>
       private void DelContour(object? o = null)
       {
-         CurrentPage = null;
+         CurrentPage = null!;
          if (CurrentContour == null) return;
          System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
          System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
           var res = System.Windows.MessageBox.Show(Loc.S("ConfirmDeleteContour"), Loc.S("Warning"), mbb, ic);
           if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
 
-         string t = currentContour.Tag;
+         string t = currentContour!.Tag;
          db.DeleteContour(currentContour.Contour);
 
           LogService.Info(string.Format(Loc.S("ContourDeleted"), t));
@@ -661,12 +659,16 @@ namespace OpenCS
       /// </summary>
       private void FromDxf(object? o = null)
       {
-         CurrentPage = new FromDxfPage(this);
+         string fileName = FileDialogService.OpenFile(
+            filter: "Файл обмена чертежами (*.dxf)|*.dxf",
+            title: "Импорт данных из файла DXF");
+         if (string.IsNullOrEmpty(fileName)) return;
+         CurrentPage = new FromDxfPage(this, fileName);
       }
 
       void RefreshAfterLoad()
       {
-         CurrentPage = null;
+         CurrentPage = null!;
          CurrentMaterial = null;
          CurrentContour = null;
          currentCrossSection = null;
@@ -938,7 +940,7 @@ namespace OpenCS
          CrossSectionsLive = new(CrossSections);
          CrossSectionsRenumber();
          currentCrossSection = null;
-         CurrentPage = null;
+         CurrentPage = null!;
          OnPropertyChanged(nameof(CurrentCrossSection));
          IsDirty = true;
       }
@@ -985,7 +987,7 @@ namespace OpenCS
          db.DeleteMaterialArea(currentMaterialArea);
          RefreshMaterialAreaLiveCollections();
          currentMaterialArea = null;
-         CurrentPage = null;
+         CurrentPage = null!;
          OnPropertyChanged(nameof(CurrentMaterialArea));
          IsDirty = true;
       }

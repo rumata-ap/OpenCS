@@ -11,7 +11,7 @@ namespace CScore
    public static class WktHelper
    {
       public static string PolygonToWKT(IList<double> xs, IList<double> ys,
-         List<List<(double X, double Y)>> holes)
+         List<List<(double X, double Y)>>? holes)
       {
          var sb = new StringBuilder();
          sb.Append("POLYGON (");
@@ -46,7 +46,7 @@ namespace CScore
          return sb.ToString();
       }
 
-      public static void ParseWKTPolygon(string wkt,
+      public static void ParseWKTPolygon(string? wkt,
          out List<double> outerX, out List<double> outerY,
          out List<List<double>> holeXs, out List<List<double>> holeYs)
       {
@@ -65,7 +65,7 @@ namespace CScore
          if (parenStart < 0) throw new FormatException("Invalid WKT: no parentheses");
 
          s = s.Substring(parenStart + 1);
-         s = s.TrimEnd(')');
+         if (s.Length > 0 && s[^1] == ')') s = s[..^1];
 
          var rings = SplitRings(s);
          if (rings.Count == 0) return;

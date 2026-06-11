@@ -7,7 +7,7 @@ namespace OpenCS.Services
    /// </summary>
    public class WpfFileDialogService : IFileDialogService
    {
-      public string? OpenFile(string filter = null, string title = null)
+      public string? OpenFile(string? filter = null, string? title = null)
       {
          var dialog = new OpenFileDialog
          {
@@ -17,7 +17,7 @@ namespace OpenCS.Services
          return dialog.ShowDialog() == true ? dialog.FileName : null;
       }
 
-      public string? SaveFile(string filter = null, string defaultExt = null, string title = null)
+      public string? SaveFile(string? filter = null, string? defaultExt = null, string? title = null)
       {
          var dialog = new SaveFileDialog
          {

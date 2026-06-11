@@ -45,12 +45,24 @@
                <TextBox Text="{Binding NY, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
             </StackPanel>
 
-            <!-- Параметры триангуляции (Ruppert / AdvancingFront) -->
-            <StackPanel Visibility="{Binding IsTriangulation, Converter={StaticResource BoolToVis}}">
+            <!-- Параметры Ruppert -->
+            <StackPanel Visibility="{Binding IsRuppert, Converter={StaticResource BoolToVis}}">
                <TextBlock Text="{DynamicResource MeshMaxArea}" Margin="0,0,0,2"/>
-               <TextBox Text="{Binding MaxArea, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+               <TextBox Text="{Binding MaxAreaText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
                <TextBlock Text="{DynamicResource MeshMinAngle}" Margin="0,0,0,2"/>
-               <TextBox Text="{Binding MinAngle, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+               <TextBox Text="{Binding MinAngleText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+            </StackPanel>
+
+            <!-- Параметры AdvancingFront -->
+            <StackPanel Visibility="{Binding IsAdvancingFront, Converter={StaticResource BoolToVis}}">
+               <TextBlock Text="{DynamicResource MeshMaxEdgeLen}" Margin="0,0,0,2"/>
+               <TextBox Text="{Binding MaxEdgeLenText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+            </StackPanel>
+
+            <!-- Сглаживание — для обоих методов триангуляции -->
+            <StackPanel Visibility="{Binding IsTriangulation, Converter={StaticResource BoolToVis}}">
+               <TextBlock Text="{DynamicResource MeshSmoothIter}" Margin="0,0,0,2"/>
+               <TextBox Text="{Binding SmoothIter, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
             </StackPanel>
 
          </StackPanel>
@@ -72,7 +84,7 @@
 
          <TextBlock Grid.Column="0" VerticalAlignment="Center">
             <Run Text="{DynamicResource MeshFibersCount}"/>
-            <Run Text="{Binding FibersCount}"/>
+            <Run Text="{Binding FibersCount, Mode=OneWay}"/>
          </TextBlock>
 
          <StackPanel Grid.Column="1" Orientation="Horizontal">

@@ -15,48 +15,41 @@
    <Grid>
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
          <RowDefinition/>
       </Grid.RowDefinitions>
 
-      <!-- Row 0: File + units -->
-      <DockPanel Grid.Row="0" Margin="5,5,5,2" LastChildFill="False">
-         <Button Height="25" Width="25" BorderThickness="0" Background="Transparent"
-                 Command="{Binding OpenDXFCommand}" DockPanel.Dock="Left" Margin="0,0,8,0">
-            <Image Source="{StaticResource di_dxf_file_xaml}"/>
-         </Button>
+      <!-- Row 0: Mode selector + units -->
+      <DockPanel Grid.Row="0" Margin="5,5,5,5">
          <TextBlock Text="{DynamicResource DxfUnits}" VerticalAlignment="Center"
-                    Margin="0,0,4,0" DockPanel.Dock="Left"/>
+                    Margin="0,0,4,0" DockPanel.Dock="Right"/>
          <ComboBox ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIdx}"
-                   Width="60" DockPanel.Dock="Left"/>
+                   Width="60" DockPanel.Dock="Right" Margin="0,0,12,0"/>
+         <StackPanel Orientation="Horizontal">
+            <RadioButton Content="{DynamicResource DxfModeHull}"
+                         IsChecked="{Binding SelectMode,
+                            Converter={StaticResource EnumToBoolConverter},
+                            ConverterParameter={x:Static vm:DxfRole.Hull}}"
+                         GroupName="DxfMode" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
+            <RadioButton Content="{DynamicResource DxfModeHole}"
+                         IsChecked="{Binding SelectMode,
+                            Converter={StaticResource EnumToBoolConverter},
+                            ConverterParameter={x:Static vm:DxfRole.Hole}}"
+                         GroupName="DxfMode" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
+            <RadioButton Content="{DynamicResource DxfModeRebarGroup}"
+                         IsChecked="{Binding SelectMode,
+                            Converter={StaticResource EnumToBoolConverter},
+                            ConverterParameter={x:Static vm:DxfRole.RebarGroup}}"
+                         GroupName="DxfMode" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
+            <RadioButton Content="{DynamicResource DxfModeSingleBar}"
+                         IsChecked="{Binding SelectMode,
+                            Converter={StaticResource EnumToBoolConverter},
+                            ConverterParameter={x:Static vm:DxfRole.SingleBar}}"
+                         GroupName="DxfMode" VerticalContentAlignment="Center"/>
+         </StackPanel>
       </DockPanel>
 
-      <!-- Row 1: Mode selector -->
-      <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="5,2,5,5">
-         <RadioButton Content="{DynamicResource DxfModeHull}"
-                      IsChecked="{Binding SelectMode,
-                         Converter={StaticResource EnumToBoolConverter},
-                         ConverterParameter={x:Static vm:DxfRole.Hull}}"
-                      GroupName="DxfMode" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
-         <RadioButton Content="{DynamicResource DxfModeHole}"
-                      IsChecked="{Binding SelectMode,
-                         Converter={StaticResource EnumToBoolConverter},
-                         ConverterParameter={x:Static vm:DxfRole.Hole}}"
-                      GroupName="DxfMode" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
-         <RadioButton Content="{DynamicResource DxfModeRebarGroup}"
-                      IsChecked="{Binding SelectMode,
-                         Converter={StaticResource EnumToBoolConverter},
-                         ConverterParameter={x:Static vm:DxfRole.RebarGroup}}"
-                      GroupName="DxfMode" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
-         <RadioButton Content="{DynamicResource DxfModeSingleBar}"
-                      IsChecked="{Binding SelectMode,
-                         Converter={StaticResource EnumToBoolConverter},
-                         ConverterParameter={x:Static vm:DxfRole.SingleBar}}"
-                      GroupName="DxfMode" VerticalContentAlignment="Center"/>
-      </StackPanel>
-
-      <!-- Row 2: 3-column main area -->
-      <Grid Grid.Row="2">
+      <!-- Row 1: 3-column main area -->
+      <Grid Grid.Row="1">
          <Grid.ColumnDefinitions>
             <ColumnDefinition Width="160"/>
             <ColumnDefinition/>

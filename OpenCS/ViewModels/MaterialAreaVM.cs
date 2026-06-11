@@ -148,11 +148,19 @@ namespace OpenCS.ViewModels
             .Where(f => f.TypeFiber is FiberType.poly or FiberType.tri)
             .ToArray();
          if (meshFibers.Length > 0)
+         {
+            var ps = App.PlotSettings;
+            Brush centroidBrush;
+            try { centroidBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(ps.CentroidColor)); }
+            catch { centroidBrush = Brushes.RoyalBlue; }
             elements.Add(new FiberMeshElement
             {
                Fibers = meshFibers,
-               ShowCentroids = (_fiberDisplayMode == FiberDisplayMode.Centroids)
+               ShowCentroids = (_fiberDisplayMode == FiberDisplayMode.Centroids),
+               CentroidFill = centroidBrush,
+               MarkerSize = ps.CentroidSize
             });
+         }
 
          foreach (var f in _model.Fibers.Where(f => f.TypeFiber == FiberType.point))
             elements.Add(new CircleElement

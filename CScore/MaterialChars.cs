@@ -268,9 +268,9 @@ namespace CScore
       /// <exception cref="ArgumentException">Выбрасывается, если тип материала не совместим с диаграммой.</exception>
       public Diagramm DCL()
       {
-         List<double> xc = null;
-         List<double> yc = null;
-         List<double> dyc = null;
+         List<double> xc = null!;
+         List<double> yc = null!;
+         List<double> dyc = null!;
          double[] xt = new double[4];
          double[] yt = new double[4];
          string tag = "";

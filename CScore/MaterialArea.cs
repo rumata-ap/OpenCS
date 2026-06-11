@@ -92,6 +92,12 @@ namespace CScore
       /// <summary>Минимальный угол треугольника для метода Рупперта, градусы.</summary>
       public double MeshMinAngle { get; set; } = 30.0;
 
+      /// <summary>Целевая длина ребра треугольника для метода продвижения фронта (0 = авто по MeshMaxArea).</summary>
+      public double MeshMaxEdgeLen { get; set; } = 0.0;
+
+      /// <summary>Число итераций сглаживания Лапласа после триангуляции (применяется к обоим методам).</summary>
+      public int MeshSmoothIter { get; set; } = 5;
+
       /// <summary>Id родительского CrossSection в БД.</summary>
       [JsonIgnore] public int SectionId { get; set; }
 
@@ -249,12 +255,12 @@ namespace CScore
 
       /// <summary>Разбивает область на волокна методом триангуляции, сохраняя точечные волокна.</summary>
       public void Triangulate(double maxTrgArea = 0.01, double maxAngl = 30,
-         MeshMethod method = MeshMethod.Ruppert)
+         MeshMethod method = MeshMethod.Ruppert, double maxEdgeLen = 0, int smoothIter = 5)
       {
          var triMethod = method == MeshMethod.AdvancingFront
             ? TriangulationMethod.AdvancingFront
             : TriangulationMethod.Ruppert;
-         Fiber[] res = Geo.Triangulation(this, maxTrgArea, maxAngl, method: triMethod);
+         Fiber[] res = Geo.Triangulation(this, maxTrgArea, maxAngl, maxEdgeLen: maxEdgeLen, smoothIter: smoothIter, method: triMethod);
          var points = Fibers.Where(f => f.TypeFiber == FiberType.point).ToList();
          Fibers = [.. res, .. points];
       }

@@ -6,11 +6,11 @@ namespace OpenCS.Services
    public interface IPlotService
    {
       void Clear();
-      void AddScatter(double[] xs, double[] ys, double lineWidth = 1, string color = null, string label = null);
-      void AddLine(double[] xs, double[] ys, string label = null);
-      void AddPolygon(double[] xs, double[] ys, string fillColor = null, string lineColor = null);
-      void AddCircle(double x, double y, double radius, string fillColor = null, string lineColor = null, float lineWidth = 1);
-      void AddMarkers(double[] xs, double[] ys, float markerSize = 4, string color = null, string label = null);
+      void AddScatter(double[] xs, double[] ys, double lineWidth = 1, string? color = null, string? label = null);
+      void AddLine(double[] xs, double[] ys, string? label = null);
+      void AddPolygon(double[] xs, double[] ys, string? fillColor = null, string? lineColor = null);
+      void AddCircle(double x, double y, double radius, string? fillColor = null, string? lineColor = null, float lineWidth = 1);
+      void AddMarkers(double[] xs, double[] ys, float markerSize = 4, string? color = null, string? label = null);
       void ShowLegend(bool show = true);
       void EnableSquareAxes();
       void AutoScale();

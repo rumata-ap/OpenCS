@@ -31,6 +31,7 @@
                     <RowDefinition Height="26"/>
                     <RowDefinition Height="26"/>
                     <RowDefinition Height="26"/>
+                    <RowDefinition Height="26"/>
                 </Grid.RowDefinitions>
 
                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Background}" VerticalAlignment="Center"/>
@@ -93,6 +94,14 @@
                 <TextBox Grid.Row="8" Grid.Column="1" x:Name="DxfBgBox" Margin="2" Height="22"
                          VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
                 <Rectangle Grid.Row="8" Grid.Column="3" x:Name="DxfBgSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource CentroidsSettings}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="9" Grid.Column="1" x:Name="CentroidColorBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <TextBox Grid.Row="9" Grid.Column="2" x:Name="CentroidSzBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource SizePx}"/>
+                <Rectangle Grid.Row="9" Grid.Column="3" x:Name="CentroidSwatch" Margin="2" RadiusX="3" RadiusY="3"
                            Stroke="LightGray" StrokeThickness="1"/>
             </Grid>
         </GroupBox>

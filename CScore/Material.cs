@@ -96,20 +96,20 @@ namespace CScore
       /// Характеристики материала для расчёта по первому предельному состоянию
       /// (непродолжительное действие нагрузки).
       /// </summary>
-      public MaterialChars C
+      public MaterialChars? C
       {
          get
          {
             foreach (var item in materialChars)
                if (item.TypeCalc == CalcType.C) return item;
-            return null; ;
+            return null;
          }
          set
          {
-            chars[CalcType.C] = value;
-            for (int i = 0; i < materialChars.Count; i++)
-               if (materialChars[i].TypeCalc == CalcType.C)
-                  materialChars[i] = value;
+             chars[CalcType.C] = value!;
+             for (int i = 0; i < materialChars.Count; i++)
+                if (materialChars[i].TypeCalc == CalcType.C)
+                   materialChars[i] = value!;
          }
       }
 
@@ -117,7 +117,7 @@ namespace CScore
       /// Характеристики материала для расчёта по первому предельному состоянию
       /// (продолжительное действие нагрузки).
       /// </summary>
-      public MaterialChars CL
+      public MaterialChars? CL
       {
          get
          {
@@ -127,31 +127,31 @@ namespace CScore
          }
          set
          {
-            chars[CalcType.CL] = value;
-            for (int i = 0; i < materialChars.Count; i++)
-               if (materialChars[i].TypeCalc == CalcType.CL)
-                  materialChars[i] = value;
+             chars[CalcType.CL] = value!;
+             for (int i = 0; i < materialChars.Count; i++)
+                if (materialChars[i].TypeCalc == CalcType.CL)
+                   materialChars[i] = value!;
          }
       }
 
       /// <summary>
       /// Характеристики материала для расчёта по второй группе предельных состояний
-      /// (непродолжительное действие нагрузки).
-      /// </summary>
-      public MaterialChars N
+       /// (непродолжительное действие нагрузки).
+       /// </summary>
+       public MaterialChars? N
       {
          get
          {
             foreach (var item in materialChars)
                if (item.TypeCalc == CalcType.N) return item;
-            return null; ;
-         }
-         set
-         {
-            chars[CalcType.N] = value;
-            for (int i = 0; i < materialChars.Count; i++)
-               if (materialChars[i].TypeCalc == CalcType.N)
-                  materialChars[i] = value;
+         return null;
+          }
+          set
+          {
+              chars[CalcType.N] = value!;
+              for (int i = 0; i < materialChars.Count; i++)
+                 if (materialChars[i].TypeCalc == CalcType.N)
+                    materialChars[i] = value!;
          }
       }
 
@@ -159,7 +159,7 @@ namespace CScore
       /// Характеристики материала для расчёта по второй группе предельных состояний
       /// (продолжительное действие нагрузки).
       /// </summary>
-      public MaterialChars NL
+      public MaterialChars? NL
       {
          get
          {
@@ -169,10 +169,10 @@ namespace CScore
          }
          set
          {
-            chars[CalcType.NL] = value;
-            for (int i = 0; i < materialChars.Count; i++)
-               if (materialChars[i].TypeCalc == CalcType.NL)
-                  materialChars[i] = value;
+             chars[CalcType.NL] = value!;
+             for (int i = 0; i < materialChars.Count; i++)
+                if (materialChars[i].TypeCalc == CalcType.NL)
+                   materialChars[i] = value!;
          }
       }
 
@@ -233,7 +233,7 @@ namespace CScore
       /// </summary>
       /// <param name="type">Тип диаграммы (L2 — двухлинейная, L3 — трёхлинейная, SP63 — криволинейная).</param>
       /// <returns>Словарь: ключ — <see cref="CalcType"/>, значение — <see cref="Diagramm"/>.</returns>
-      public Dictionary<CalcType, Diagramm> GetDiagramms(DiagrammType type)
+      public Dictionary<CalcType, Diagramm>? GetDiagramms(DiagrammType type)
       {
          switch (type)
          {
