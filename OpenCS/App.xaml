@@ -128,6 +128,8 @@
          <conv:MatTypeToGeometryConverter x:Key="MatTypeToGeometryConverter"/>
          <conv:EnumToBoolConverter x:Key="EnumToBoolConverter"/>
          <conv:NullableToListConverter x:Key="NullableToList"/>
+         <conv:InverseBoolConverter x:Key="InverseBool"/>
+         <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
 
          <sys:Double x:Key="AppFontSize">13</sys:Double>
 
