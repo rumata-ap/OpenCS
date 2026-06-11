@@ -168,6 +168,33 @@ namespace CScore
             $"diff({steel.Tag}−{concrete.Tag})"
          );
       }
+
+      /// <summary>
+      /// Возвращает σ(ε) без побочных эффектов (не пишет в Fiber).
+      /// </summary>
+      public double SigValue(double eps, bool ten = true, bool ca = true)
+         => Sig(eps, out _, ten, ca);
+
+      /// <summary>
+      /// Возвращает ε-точки изломов диаграммы для разбиения рёбер в GreenIntegrator.
+      /// Всегда включает 0 (граница Ic/It). Для SP63/EKB — только ветвь растяжения
+      /// (компрессионная кривая гладкая, GL справляется без явных breakpoints).
+      /// </summary>
+      public double[] GetCriticalStrains()
+      {
+         var pts = new System.Collections.Generic.SortedSet<double> { 0.0 };
+
+         // Ветвь растяжения — всегда (interior = все узлы кроме первого и последнего)
+         for (int i = 1; i < It.X.Length - 1; i++)
+            pts.Add(It.X[i]);
+
+         // Ветвь сжатия — только для кусочно-линейных диаграмм
+         if (Type == DiagrammType.L2 || Type == DiagrammType.L3 || Type == DiagrammType.SP35)
+            for (int i = 1; i < Ic.X.Length - 1; i++)
+               pts.Add(Ic.X[i]);
+
+         return pts.ToArray();
+      }
    }
 
    /// <summary>
