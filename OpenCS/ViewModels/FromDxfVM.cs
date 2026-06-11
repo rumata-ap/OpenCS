@@ -28,9 +28,10 @@ namespace OpenCS.ViewModels
 
       private double _scale = 0.001;
       private int _unitIdx;
-      private string _geometrySet = "dxf";
-      private ObservableCollection<Contour> _contoursPrj = [];
-      private ObservableCollection<CircleP> _circlesPrj = [];
+      private DxfRole _selectMode = DxfRole.Hull;
+      private CircleDiscretizeMethod _discretizeMethod = CircleDiscretizeMethod.ChordLength;
+      private double _discretizeValue = 0.020;
+      private string _tag = "area";
       private List<DxfPrimitive> _primitives = [];
 
       public List<string> Units { get; } = ["мм", "см", "м"];
@@ -55,65 +56,91 @@ namespace OpenCS.ViewModels
          }
       }
 
-      public string GeometrySet
+      public DxfRole SelectMode
       {
-         get => _geometrySet;
-         set { _geometrySet = value; OnPropertyChanged(); }
+         get => _selectMode;
+         set { _selectMode = value; OnPropertyChanged(); }
       }
 
-      public ObservableCollection<Contour> ContoursPrj
+      public CircleDiscretizeMethod DiscretizeMethod
       {
-         get => _contoursPrj;
-         set { _contoursPrj = value; OnPropertyChanged(); }
+         get => _discretizeMethod;
+         set { _discretizeMethod = value; OnPropertyChanged(); }
       }
 
-      public ObservableCollection<CircleP> CirclesPrj
+      public double DiscretizeValue
       {
-         get => _circlesPrj;
-         set { _circlesPrj = value; OnPropertyChanged(); }
+         get => _discretizeValue;
+         set { _discretizeValue = value; OnPropertyChanged(); }
       }
 
-      public ICommand OpenDXFCommand      { get; }
-      public ICommand SaveContoursCommand { get; }
-      public ICommand SaveCirclesCommand  { get; }
+      public string Tag
+      {
+         get => _tag;
+         set { _tag = value; OnPropertyChanged(); }
+      }
+
+      // ── Вычисляемые коллекции по ролям ───────────────────────────────────
+
+      public DxfPrimitive? HullPrimitive =>
+         _primitives.FirstOrDefault(p => p.Role == DxfRole.Hull);
+
+      public IReadOnlyList<DxfPrimitive> HolePrimitives =>
+         _primitives.Where(p => p.Role == DxfRole.Hole).ToList();
+
+      public IReadOnlyList<DxfPrimitive> GroupBarPrimitives =>
+         _primitives.Where(p => p.Role == DxfRole.RebarGroup).ToList();
+
+      public IReadOnlyList<DxfPrimitive> SingleBarPrimitives =>
+         _primitives.Where(p => p.Role == DxfRole.SingleBar).ToList();
+
+      // ── Команды ──────────────────────────────────────────────────────────
+
+      public ICommand OpenDXFCommand            { get; }
+      public ICommand CreateMaterialAreaCommand { get; }
+      public ICommand ClearRoleCommand          { get; }
 
       public FromDxfVM()
       {
-         OpenDXFCommand      = new RelayCommand(OpenDxf);
-         SaveContoursCommand = new RelayCommand(SaveContours);
-         SaveCirclesCommand  = new RelayCommand(SaveCircles);
+         OpenDXFCommand            = new RelayCommand(OpenDxf);
+         CreateMaterialAreaCommand = new RelayCommand(CreateMaterialArea);
+         ClearRoleCommand          = new RelayCommand(p => ClearRole((DxfPrimitive)p!));
       }
 
       /// <summary>
-      /// Обновляет <see cref="ContoursPrj"/> и <see cref="CirclesPrj"/> по текущему
-      /// выделению канваса. Подключается через <see cref="Views.DxfInteractiveView.SelectionChanged"/>.
+      /// Вызывается канвасом при клике. Назначает текущий режим как роль примитива.
+      /// Hull: допускает только один объект — предыдущий Hull сбрасывается.
+      /// Повторный клик на тот же режим — сброс в None.
       /// </summary>
-      public void HandleSelectionChanged(IReadOnlyList<DxfPrimitive> selected)
+      public void HandlePrimitiveClicked(DxfPrimitive p)
       {
-         ContoursPrj = new ObservableCollection<Contour>(
-            selected.Where(p => p.Kind == DxfPrimitiveKind.Contour && p.Contour != null)
-                    .Select(p => p.Contour!));
-         CirclesPrj = new ObservableCollection<CircleP>(
-            selected.Where(p => p.Kind == DxfPrimitiveKind.Circle && p.Circle != null)
-                    .Select(p => p.Circle!));
+         if (p.Role == _selectMode)
+         {
+            p.Role = DxfRole.None;
+         }
+         else
+         {
+            if (_selectMode == DxfRole.Hull)
+            {
+               foreach (var prev in _primitives.Where(x => x.Role == DxfRole.Hull))
+                  prev.Role = DxfRole.None;
+            }
+            p.Role = _selectMode;
+         }
+         OnPropertyChanged(nameof(HullPrimitive));
+         OnPropertyChanged(nameof(HolePrimitives));
+         OnPropertyChanged(nameof(GroupBarPrimitives));
+         OnPropertyChanged(nameof(SingleBarPrimitives));
       }
 
-      private void SaveContours(object? _ = null)
+      /// <summary>Сбрасывает роль примитива в None. Вызывается кнопкой [×] в правой панели.</summary>
+      public void ClearRole(DxfPrimitive p)
       {
-         if (_contoursPrj.Count == 0) return;
-         mvm.db.AddRange(_contoursPrj);
-         mvm.LogService.Info($"В проект добавлено {_contoursPrj.Count} контуров");
-         ContoursPrj.Clear();
-         mvm.ContoursRenumber();
-      }
-
-      private void SaveCircles(object? _ = null)
-      {
-         if (_circlesPrj.Count == 0) return;
-         mvm.db.AddRange(_circlesPrj);
-         mvm.LogService.Info($"В проект добавлено {_circlesPrj.Count} окружностей");
-         CirclesPrj.Clear();
-         mvm.CirclesRenumber();
+         p.Role = DxfRole.None;
+         OnPropertyChanged(nameof(HullPrimitive));
+         OnPropertyChanged(nameof(HolePrimitives));
+         OnPropertyChanged(nameof(GroupBarPrimitives));
+         OnPropertyChanged(nameof(SingleBarPrimitives));
       }
 
       private void OpenDxf(object? _ = null)
@@ -123,11 +150,10 @@ namespace OpenCS.ViewModels
             title: "Импорт данных из файла DXF");
          if (string.IsNullOrEmpty(fileName)) return;
 
-         ContoursPrj.Clear();
-         CirclesPrj.Clear();
+         foreach (var p in _primitives) p.Role = DxfRole.None;
 
          var dxf = DxfDocument.Load(fileName);
-         GeometrySet = dxf.Name;
+         Tag = dxf.Name;
 
          _primitives = ParseDxf(dxf);
 
@@ -191,7 +217,7 @@ namespace OpenCS.ViewModels
             pts.Add(new StressPoint(xs[j], ys[j]) { Num = j + 1 });
          }
 
-         var contour = new Contour(pts, pline.Layer.Name) { Num = num, GeometrySet = _geometrySet };
+         var contour = new Contour(pts, pline.Layer.Name) { Num = num, GeometrySet = _tag };
          contour.SetWKT();
 
          return new DxfPrimitive
@@ -209,7 +235,7 @@ namespace OpenCS.ViewModels
          {
             Num = num,
             Tag = circle.Layer.Name,
-            GeometrySet = _geometrySet
+            GeometrySet = _tag
          };
          return new DxfPrimitive
          {
@@ -240,7 +266,7 @@ namespace OpenCS.ViewModels
             pts.Add(new StressPoint(xs[i], ys[i]) { Num = i + 1 });
          }
 
-         var contour = new Contour(pts, arc.Layer.Name) { Num = num, GeometrySet = _geometrySet };
+         var contour = new Contour(pts, arc.Layer.Name) { Num = num, GeometrySet = _tag };
          contour.SetWKT();
 
          return new DxfPrimitive
@@ -307,7 +333,7 @@ namespace OpenCS.ViewModels
             var ys = chain.Select(p => p.y).ToArray();
             var pts = chain.Select((p, i) => new StressPoint(p.x, p.y) { Num = i + 1 }).ToList();
 
-            var contour = new Contour(pts, layerName) { Num = num, GeometrySet = _geometrySet };
+            var contour = new Contour(pts, layerName) { Num = num, GeometrySet = _tag };
             contour.SetWKT();
 
             result.Add(new DxfPrimitive
