@@ -572,8 +572,8 @@ namespace OpenCS
          DeleteCrossSectionCommand = new RelayCommand(_ => DeleteCrossSection());
          NewAreaCommand            = new RelayCommand(_ => NewArea());
          DeleteMaterialAreaCommand = new RelayCommand(_ => DeleteMaterialArea());
-         NewRebarGroupCommand      = new RelayCommand(_ => { });  // Блок 3
-         NewSingleBarCommand       = new RelayCommand(_ => { }); // Блок 3
+         NewRebarGroupCommand      = new RelayCommand(_ => NewRebarGroup());
+         NewSingleBarCommand       = new RelayCommand(_ => NewSingleBar());
       }
 
       void SetLanguage(object? param)
@@ -977,6 +977,26 @@ namespace OpenCS
          {
             Tag = $"Область {MaterialAreas.Count + 1}",
             Category = AreaCategory.Region
+         };
+         CurrentPage = new Views.MaterialAreaPage(area, this);
+      }
+
+      void NewRebarGroup()
+      {
+         var area = new MaterialArea
+         {
+            Tag = $"Группа {RebarGroupsLive.Count + 1}",
+            Category = AreaCategory.RebarGroup
+         };
+         CurrentPage = new Views.MaterialAreaPage(area, this);
+      }
+
+      void NewSingleBar()
+      {
+         var area = new MaterialArea
+         {
+            Tag = $"Стержень {SingleBarsLive.Count + 1}",
+            Category = AreaCategory.SingleBar
          };
          CurrentPage = new Views.MaterialAreaPage(area, this);
       }
