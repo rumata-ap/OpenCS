@@ -143,6 +143,64 @@ namespace OpenCS.ViewModels
          OnPropertyChanged(nameof(SingleBarPrimitives));
       }
 
+      private void CreateMaterialArea(object? _ = null)
+      {
+         if (HullPrimitive == null && !GroupBarPrimitives.Any() && !SingleBarPrimitives.Any())
+         {
+            mvm.LogService.Info("Нет назначенных объектов для создания области");
+            return;
+         }
+
+         // ── Region (если назначен Hull) ───────────────────────────────────
+         MaterialArea? region = null;
+         if (HullPrimitive != null)
+         {
+            region = new MaterialArea { Tag = _tag, Category = AreaCategory.Region };
+            region.Hull = ToHullContour(HullPrimitive, _discretizeMethod, _discretizeValue);
+            foreach (var hp in HolePrimitives)
+               region.Contours.Add(ToHoleContour(hp, _discretizeMethod, _discretizeValue));
+            region.SetWKT();
+            mvm.db.SaveMaterialArea(region);
+         }
+
+         // ── RebarGroup (все GroupBar) ─────────────────────────────────────
+         if (GroupBarPrimitives.Any())
+         {
+            var group = new MaterialArea
+            {
+               Tag        = _tag + "_г",
+               Category   = AreaCategory.RebarGroup,
+               HostAreaId = region?.Id
+            };
+            foreach (var bar in GroupBarPrimitives)
+               group.Fibers.Add(Fiber.CreatePoint(bar.Radius * 2, bar.CenterX, bar.CenterY));
+            mvm.db.SaveMaterialArea(group);
+         }
+
+         // ── SingleBar (каждая → отдельная MaterialArea) ───────────────────
+         foreach (var bar in SingleBarPrimitives)
+         {
+            var single = new MaterialArea
+            {
+               Tag        = _tag + "_с",
+               Category   = AreaCategory.SingleBar,
+               HostAreaId = region?.Id
+            };
+            single.Fibers.Add(Fiber.CreatePoint(bar.Radius * 2, bar.CenterX, bar.CenterY));
+            mvm.db.SaveMaterialArea(single);
+         }
+
+         // ── Сброс ролей после сохранения ─────────────────────────────────
+         foreach (var p in _primitives) p.Role = DxfRole.None;
+         OnPropertyChanged(nameof(HullPrimitive));
+         OnPropertyChanged(nameof(HolePrimitives));
+         OnPropertyChanged(nameof(GroupBarPrimitives));
+         OnPropertyChanged(nameof(SingleBarPrimitives));
+
+         mvm.RefreshMaterialAreaLiveCollections();
+         mvm.LogService.Info($"Создана MaterialArea «{_tag}»");
+      }
+
       private void OpenDxf(object? _ = null)
       {
          string fileName = mvm.FileDialogService.OpenFile(
