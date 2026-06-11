@@ -191,6 +191,8 @@ namespace OpenCS.ViewModels
             return;
          }
 
+         bool circlesAdded = false;
+
          // ── Region (если назначен Hull) ───────────────────────────────────
          MaterialArea? region = null;
          if (HullPrimitive != null)
@@ -201,6 +203,10 @@ namespace OpenCS.ViewModels
                region.Contours.Add(ToHoleContour(hp, _discretizeMethod, _discretizeValue));
             region.SetWKT();
             mvm.db.SaveMaterialArea(region);
+
+            AddPrimitiveToGeometry(HullPrimitive, ref circlesAdded);
+            foreach (var hp in HolePrimitives)
+               AddPrimitiveToGeometry(hp, ref circlesAdded);
          }
 
          // ── RebarGroups (одна MaterialArea на каждый GroupIndex) ─────────
@@ -213,7 +219,10 @@ namespace OpenCS.ViewModels
                HostAreaId = region?.Id
             };
             foreach (var bar in grp)
+            {
                group.Fibers.Add(Fiber.CreatePoint(bar.Radius * 2, bar.CenterX, bar.CenterY));
+               AddPrimitiveToGeometry(bar, ref circlesAdded);
+            }
             mvm.db.SaveMaterialArea(group);
          }
 
@@ -228,7 +237,10 @@ namespace OpenCS.ViewModels
             };
             single.Fibers.Add(Fiber.CreatePoint(bar.Radius * 2, bar.CenterX, bar.CenterY));
             mvm.db.SaveMaterialArea(single);
+            AddPrimitiveToGeometry(bar, ref circlesAdded);
          }
+
+         if (circlesAdded) mvm.CirclesRenumber();
 
          // ── Сброс ролей и групп после сохранения ─────────────────────────
          foreach (var p in _primitives) { p.Role = DxfRole.None; p.GroupIndex = 1; }
@@ -241,6 +253,25 @@ namespace OpenCS.ViewModels
 
          mvm.RefreshMaterialAreaLiveCollections();
          mvm.LogService.Info($"Создана MaterialArea «{_tag}»");
+      }
+
+      private void AddPrimitiveToGeometry(DxfPrimitive p, ref bool circlesAdded)
+      {
+         if (p.Kind == DxfPrimitiveKind.Contour)
+         {
+            var c = p.Contour!;
+            c.GeometrySet = _tag;
+            mvm.db.SaveContour(c);
+            mvm.Contours.Add(c); // triggers ContoursRenumber via CollectionChanged
+         }
+         else
+         {
+            var c = p.Circle!;
+            c.GeometrySet = _tag;
+            mvm.db.SaveCircle(c);
+            mvm.Circles.Add(c);  // CirclesRenumber вызывается после всех добавлений
+            circlesAdded = true;
+         }
       }
 
       private void OpenDxf(object? _ = null)
