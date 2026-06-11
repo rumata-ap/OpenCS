@@ -377,4 +377,24 @@
    <system:String x:Key="DxfTagLabel">Тег</system:String>
    <system:String x:Key="MenuFromDxfMaterialArea">Из DXF…</system:String>
 
+   <!-- Rebar Group Editor -->
+   <system:String x:Key="RgStrategyGroup">Стратегия</system:String>
+   <system:String x:Key="RgStrategyRegion">По области</system:String>
+   <system:String x:Key="RgStrategyContour">По контуру</system:String>
+   <system:String x:Key="RgStrategyFree">Свободная</system:String>
+   <system:String x:Key="RgReference">Опора</system:String>
+   <system:String x:Key="RgCoverOffset">Отступ</system:String>
+   <system:String x:Key="RgOffsetStep">Шаг</system:String>
+   <system:String x:Key="RgResetOffsets">Сбросить все</system:String>
+   <system:String x:Key="RgBarDiameter">Ø</system:String>
+   <system:String x:Key="RgBarDiameterUnit">мм</system:String>
+   <system:String x:Key="RgFillN">N</system:String>
+   <system:String x:Key="RgFillStraight">По прямой</system:String>
+   <system:String x:Key="RgFillArc">По дуге</system:String>
+   <system:String x:Key="RgFillArcR">R, м</system:String>
+   <system:String x:Key="RgFillMode">Режим заполнения</system:String>
+   <system:String x:Key="RgEdgesTable">Рёбра</system:String>
+   <system:String x:Key="RgBarsTable">Стержни</system:String>
+   <system:String x:Key="RgGroupTag">Тег группы</system:String>
+
  </ResourceDictionary>

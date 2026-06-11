@@ -374,4 +374,24 @@
    <system:String x:Key="DxfTagLabel">Tag</system:String>
    <system:String x:Key="MenuFromDxfMaterialArea">From DXF…</system:String>
 
+   <!-- Rebar Group Editor -->
+   <system:String x:Key="RgStrategyGroup">Strategy</system:String>
+   <system:String x:Key="RgStrategyRegion">By region</system:String>
+   <system:String x:Key="RgStrategyContour">By contour</system:String>
+   <system:String x:Key="RgStrategyFree">Free</system:String>
+   <system:String x:Key="RgReference">Reference</system:String>
+   <system:String x:Key="RgCoverOffset">Cover</system:String>
+   <system:String x:Key="RgOffsetStep">Step</system:String>
+   <system:String x:Key="RgResetOffsets">Reset all</system:String>
+   <system:String x:Key="RgBarDiameter">Ø</system:String>
+   <system:String x:Key="RgBarDiameterUnit">mm</system:String>
+   <system:String x:Key="RgFillN">N</system:String>
+   <system:String x:Key="RgFillStraight">Straight</system:String>
+   <system:String x:Key="RgFillArc">By arc</system:String>
+   <system:String x:Key="RgFillArcR">R, m</system:String>
+   <system:String x:Key="RgFillMode">Fill mode</system:String>
+   <system:String x:Key="RgEdgesTable">Edges</system:String>
+   <system:String x:Key="RgBarsTable">Bars</system:String>
+   <system:String x:Key="RgGroupTag">Group tag</system:String>
+
  </ResourceDictionary>
