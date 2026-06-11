@@ -32,9 +32,10 @@ namespace OpenCS.Views
       private const double HitThresholdPx = 10.0;
 
       /// <summary>
-      /// Вызывается при изменении выделения. Передаёт текущий список выделенных примитивов.
+      /// Вызывается при клике на примитив. Передаёт кликнутый примитив.
+      /// VM назначает ему роль и Canvas обновляет цвет в ответ.
       /// </summary>
-      public Action<IReadOnlyList<DxfPrimitive>>? SelectionChanged { get; set; }
+      public Action<DxfPrimitive>? PrimitiveClicked { get; set; }
 
       public DxfInteractiveView()
       {
@@ -133,13 +134,8 @@ namespace OpenCS.Views
 
       private void UpdateStrokes()
       {
-         double s = Scale;
-         if (s < 1e-10) return;
-         foreach (Shape shape in InnerCanvas.Children.OfType<Shape>())
-         {
-            bool sel = shape.Tag is DxfPrimitive p && p.IsSelected;
-            shape.StrokeThickness = sel ? 3.0 / s : 1.5 / s;
-         }
+         for (int i = 0; i < _primitives.Count && i < InnerCanvas.Children.Count; i++)
+            UpdateStyle((Shape)InnerCanvas.Children[i], _primitives[i]);
       }
 
       private void OnMouseWheel(object sender, MouseWheelEventArgs e)
@@ -183,7 +179,6 @@ namespace OpenCS.Views
       /// </summary>
       private void OnBorderLeftButtonDown(object sender, MouseButtonEventArgs e)
       {
-         // Преобразуем клик из Border-пространства в DXF-пространство
          var click = e.GetPosition(RootBorder);
          var m = _mt.Matrix;
          if (!m.HasInverse) return;
@@ -197,37 +192,18 @@ namespace OpenCS.Views
 
          DxfPrimitive? best = null;
          double bestDist = thr;
-
          foreach (var p in _primitives)
          {
             double d = HitDistance(p, dx, dy);
             if (d < bestDist) { bestDist = d; best = p; }
          }
 
-         var mod = Keyboard.Modifiers;
-
+         // Сначала уведомляем VM (она присваивает роль), затем обновляем цвета
          if (best != null)
-         {
-            if (mod == ModifierKeys.None)
-            {
-               foreach (var p in _primitives) p.IsSelected = false;
-               best.IsSelected = true;
-            }
-            else if (mod.HasFlag(ModifierKeys.Shift))
-               best.IsSelected = true;
-            else if (mod.HasFlag(ModifierKeys.Control))
-               best.IsSelected = !best.IsSelected;
-         }
-         else if (mod == ModifierKeys.None)
-         {
-            foreach (var p in _primitives) p.IsSelected = false;
-         }
+            PrimitiveClicked?.Invoke(best);
 
-         // Обновляем стиль всех фигур
          for (int i = 0; i < _primitives.Count && i < InnerCanvas.Children.Count; i++)
             UpdateStyle((Shape)InnerCanvas.Children[i], _primitives[i]);
-
-         SelectionChanged?.Invoke(_primitives.Where(p => p.IsSelected).ToList());
       }
 
       // Расстояние до примитива в DXF-пространстве.
@@ -266,18 +242,19 @@ namespace OpenCS.Views
 
       private void UpdateStyle(Shape shape, DxfPrimitive p)
       {
+         string color = p.Role switch
+         {
+            DxfRole.Hull       => "#4CAF50",
+            DxfRole.Hole       => "#F44336",
+            DxfRole.RebarGroup => "#FF9800",
+            DxfRole.SingleBar  => "#FFC107",
+            _                  => _colorMap.TryGetValue(p.LayerName, out var c) ? c : "#808080"
+         };
          double s = Scale;
-         if (p.IsSelected)
-         {
-            shape.Stroke = Brushes.Yellow;
-            shape.StrokeThickness = s > 1e-10 ? 3.0 / s : 3.0;
-         }
-         else
-         {
-            string color = _colorMap.TryGetValue(p.LayerName, out var c) ? c : "#808080";
-            shape.Stroke = ParseBrush(color);
-            shape.StrokeThickness = s > 1e-10 ? 1.5 / s : 1.5;
-         }
+         shape.Stroke = ParseBrush(color);
+         shape.StrokeThickness = p.Role != DxfRole.None
+            ? (s > 1e-10 ? 3.0 / s : 3.0)
+            : (s > 1e-10 ? 1.5 / s : 1.5);
       }
 
       private static Polyline MakePolyline(DxfPrimitive p, string color)
