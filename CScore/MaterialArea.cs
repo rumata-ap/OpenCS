@@ -306,5 +306,37 @@ namespace CScore
             Fibers = Fibers.Select(f => f.Clone()).ToList()
          };
       }
+
+      /// <summary>
+      /// Вычисляет (N, Mx, My) методом теоремы Грина по контуру области.
+      /// Mx = ∬σ·y dA, My = ∬σ·x dA.
+      /// Точечные фибры (арматура) не учитываются — только полигональная часть.
+      /// Требует: Hull != null, Diagramms содержит ключ calc.
+      /// </summary>
+      public (double N, double Mx, double My) ContourIntegral(
+         Kurvature k, CalcType calc, bool ten = true, bool ca = true)
+      {
+         var dgr = Diagramms[calc];
+
+         Func<double, double, double> epsFunc = (x, y) => k.e0 + k.ky * y + k.kz * x;
+         Func<double, double, double> sigma   = (x, y) => dgr.SigValue(epsFunc(x, y), ten, ca);
+         double[] critEps = dgr.GetCriticalStrains();
+
+         // Внешний контур без замыкающей точки (Contour.X/Y замкнуты: X[0]==X[last])
+         var outer = Hull!.X.Take(Hull.X.Count - 1)
+                           .Zip(Hull.Y.Take(Hull.Y.Count - 1), (x, y) => (X: x, Y: y))
+                           .ToList();
+
+         // Отверстия без замыкающей точки
+         IReadOnlyList<IReadOnlyList<(double X, double Y)>> holes =
+            Holes.Select(h => (IReadOnlyList<(double X, double Y)>)
+                    h.X.Take(h.X.Count - 1)
+                       .Zip(h.Y.Take(h.Y.Count - 1), (x, y) => (X: x, Y: y))
+                       .ToList())
+                 .ToList();
+
+         var gi = new GreenIntegrator(outer, holes);
+         return gi.IntegrateN_Mx_My(sigma, critEps, epsFunc);
+      }
    }
 }
