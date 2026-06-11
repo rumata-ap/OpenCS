@@ -106,6 +106,13 @@
 
             <Separator Margin="0,0,0,6"/>
 
+            <!-- Материал -->
+            <TextBlock Text="{DynamicResource RgMaterial}" Margin="0,0,0,2"/>
+            <ComboBox ItemsSource="{Binding AvailableMaterials}"
+                      SelectedItem="{Binding SelectedMaterial}"
+                      DisplayMemberPath="Tag"
+                      Margin="0,0,0,6"/>
+
             <!-- Тег -->
             <TextBlock Text="{DynamicResource RgGroupTag}" Margin="0,0,0,2"/>
             <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"

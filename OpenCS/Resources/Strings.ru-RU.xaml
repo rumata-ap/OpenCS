@@ -396,5 +396,6 @@
    <system:String x:Key="RgEdgesTable">Рёбра</system:String>
    <system:String x:Key="RgBarsTable">Стержни</system:String>
    <system:String x:Key="RgGroupTag">Тег группы</system:String>
+   <system:String x:Key="RgMaterial">Материал</system:String>
 
  </ResourceDictionary>

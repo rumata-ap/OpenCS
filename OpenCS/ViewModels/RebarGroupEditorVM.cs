@@ -20,6 +20,7 @@ namespace OpenCS.ViewModels
         RebarPlacementStrategy _strategy = RebarPlacementStrategy.Bare;
         MaterialArea? _selectedRegion;
         Contour? _selectedContour;
+        Material? _selectedMaterial;
         double _globalOffset = 0.025;
         double _offsetStep   = 0.001;
         double _activeDiameter = 0.012; // 12 мм
@@ -59,6 +60,7 @@ namespace OpenCS.ViewModels
             if (area != null)
             {
                 _tag = area.Tag;
+                _selectedMaterial = area.Material;
                 foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
                     Bars.Add(new BarItem { X = f.X, Y = f.Y, Diameter = f.Diameter, Index = Bars.Count + 1 });
             }
@@ -82,6 +84,13 @@ namespace OpenCS.ViewModels
 
         public IReadOnlyList<MaterialArea> AvailableRegions  => App.AreasLive;
         public IReadOnlyList<Contour>      AvailableContours => App.Contours;
+        public IReadOnlyList<Material>     AvailableMaterials => App.Materials;
+
+        public Material? SelectedMaterial
+        {
+            get => _selectedMaterial;
+            set { _selectedMaterial = value; OnPropertyChanged(); }
+        }
 
         public MaterialArea? SelectedRegion
         {
@@ -451,6 +460,8 @@ namespace OpenCS.ViewModels
             area.Tag      = _tag;
             area.Category = AreaCategory.RebarGroup;
             area.HostAreaId = _selectedRegion?.Id;
+            area.Material   = _selectedMaterial;
+            area.MaterialId = _selectedMaterial?.Id ?? 0;
             area.Fibers.Clear();
             foreach (var b in Bars)
                 area.Fibers.Add(Fiber.CreatePoint(b.Diameter, b.X, b.Y));

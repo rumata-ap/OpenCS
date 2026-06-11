@@ -393,5 +393,6 @@
    <system:String x:Key="RgEdgesTable">Edges</system:String>
    <system:String x:Key="RgBarsTable">Bars</system:String>
    <system:String x:Key="RgGroupTag">Group tag</system:String>
+   <system:String x:Key="RgMaterial">Material</system:String>
 
  </ResourceDictionary>
