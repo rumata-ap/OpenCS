@@ -7,6 +7,9 @@ namespace OpenCS.ViewModels
    /// <summary>Вид примитива DXF: контур или окружность.</summary>
    public enum DxfPrimitiveKind { Contour, Circle }
 
+   /// <summary>Роль примитива при назначении в MaterialArea.</summary>
+   public enum DxfRole { None, Hull, Hole, RebarGroup, SingleBar }
+
    /// <summary>Информация о слое DXF: имя и цвет для легенды.</summary>
    public record LayerInfo(string Name, string HexColor)
    {
@@ -17,13 +20,13 @@ namespace OpenCS.ViewModels
 
    /// <summary>
    /// Обёртка DXF-примитива: связывает геометрию для рендера с доменным объектом
-   /// (<see cref="Contour"/> или <see cref="CircleP"/>) и состоянием выделения.
+   /// (<see cref="Contour"/> или <see cref="CircleP"/>) и назначенной ролью.
    /// </summary>
    public class DxfPrimitive
    {
-      public DxfPrimitiveKind Kind       { get; init; }
-      public string           LayerName  { get; init; } = string.Empty;
-      public bool             IsSelected { get; set; }
+      public DxfPrimitiveKind Kind      { get; init; }
+      public string           LayerName { get; init; } = string.Empty;
+      public DxfRole          Role      { get; set; } = DxfRole.None;
 
       // Заполнено когда Kind == Contour
       public double[]? Xs      { get; init; }
