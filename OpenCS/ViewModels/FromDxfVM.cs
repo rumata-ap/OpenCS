@@ -68,6 +68,15 @@ namespace OpenCS.ViewModels
          set { _discretizeMethod = value; OnPropertyChanged(); }
       }
 
+      public List<string> DiscretizeMethodDisplayNames { get; } =
+         ["Длина хорды", "Число сегментов"];
+
+      public int DiscretizeMethodIdx
+      {
+         get => (int)_discretizeMethod;
+         set { _discretizeMethod = (CircleDiscretizeMethod)value; OnPropertyChanged(); }
+      }
+
       public double DiscretizeValue
       {
          get => _discretizeValue;

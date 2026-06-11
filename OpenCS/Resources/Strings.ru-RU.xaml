@@ -202,6 +202,7 @@
     <system:String x:Key="DXF">DXF</system:String>
     <system:String x:Key="DxfLayers">Слои</system:String>
     <system:String x:Key="DxfBackground">Фон DXF</system:String>
+   <system:String x:Key="CentroidsSettings">Центроиды фибр</system:String>
 
     <!-- GeoPropsView -->
     <system:String x:Key="GeoPropsHeader">Геометрические характеристики</system:String>
@@ -351,8 +352,28 @@
    <system:String x:Key="MeshDisplayElements">Элементы</system:String>
    <system:String x:Key="MeshMaxArea">Макс. площадь</system:String>
    <system:String x:Key="MeshMinAngle">Мин. угол, °</system:String>
+   <system:String x:Key="MeshMaxEdgeLen">Дл. ребра</system:String>
+   <system:String x:Key="MeshSmoothIter">Итер. сглаж.</system:String>
    <system:String x:Key="MeshDialogTitle">Настройка сетки</system:String>
    <system:String x:Key="MeshNX">NX:</system:String>
    <system:String x:Key="MeshNY">NY:</system:String>
+
+   <!-- DXF MaterialArea import -->
+   <system:String x:Key="DxfModeHull">Hull</system:String>
+   <system:String x:Key="DxfModeHole">Отверстие</system:String>
+   <system:String x:Key="DxfModeRebarGroup">Группа арм.</system:String>
+   <system:String x:Key="DxfModeSingleBar">Стержень</system:String>
+   <system:String x:Key="DxfRightHull">Внешний контур</system:String>
+   <system:String x:Key="DxfRightHoles">Отверстия</system:String>
+   <system:String x:Key="DxfRightGroup">Группа арматуры</system:String>
+   <system:String x:Key="DxfRightSingle">Стержни</system:String>
+   <system:String x:Key="DxfDiscretize">Дискретизация кругов</system:String>
+   <system:String x:Key="DxfDiscretizeMethod">Метод</system:String>
+   <system:String x:Key="DxfDiscretizeChord">Длина хорды</system:String>
+   <system:String x:Key="DxfDiscretizeN">Число сегментов</system:String>
+   <system:String x:Key="DxfDiscretizeValue">Значение</system:String>
+   <system:String x:Key="DxfCreateArea">Создать область</system:String>
+   <system:String x:Key="DxfTagLabel">Тег</system:String>
+   <system:String x:Key="MenuFromDxfMaterialArea">Из DXF…</system:String>
 
  </ResourceDictionary>

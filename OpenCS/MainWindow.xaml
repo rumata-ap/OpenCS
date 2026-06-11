@@ -299,11 +299,16 @@
                      <TreeViewItem.ContextMenu>
                         <ContextMenu>
                            <MenuItem Header="{DynamicResource NewArea}"
-                                     Command="{Binding DataContext.NewAreaCommand,
-                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                     Command="{Binding NewAreaCommand}"/>
                            <MenuItem Header="{DynamicResource DeleteArea}"
-                                     Command="{Binding DataContext.DeleteMaterialAreaCommand,
-                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                     Command="{Binding DeleteMaterialAreaCommand}"/>
+                           <Separator/>
+                           <MenuItem Header="{DynamicResource MenuFromDxfMaterialArea}"
+                                     Command="{Binding FromDxfCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="{StaticResource di_dxf_file_xaml}"/>
+                              </MenuItem.Icon>
+                           </MenuItem>
                         </ContextMenu>
                      </TreeViewItem.ContextMenu>
                      <TreeViewItem.ItemTemplate>
@@ -331,11 +336,16 @@
                      <TreeViewItem.ContextMenu>
                         <ContextMenu>
                            <MenuItem Header="{DynamicResource NewArea}"
-                                     Command="{Binding DataContext.NewRebarGroupCommand,
-                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                     Command="{Binding NewRebarGroupCommand}"/>
                            <MenuItem Header="{DynamicResource DeleteArea}"
-                                     Command="{Binding DataContext.DeleteMaterialAreaCommand,
-                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                     Command="{Binding DeleteMaterialAreaCommand}"/>
+                           <Separator/>
+                           <MenuItem Header="{DynamicResource MenuFromDxfMaterialArea}"
+                                     Command="{Binding FromDxfCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="{StaticResource di_dxf_file_xaml}"/>
+                              </MenuItem.Icon>
+                           </MenuItem>
                         </ContextMenu>
                      </TreeViewItem.ContextMenu>
                      <TreeViewItem.ItemTemplate>
@@ -363,11 +373,16 @@
                      <TreeViewItem.ContextMenu>
                         <ContextMenu>
                            <MenuItem Header="{DynamicResource NewArea}"
-                                     Command="{Binding DataContext.NewSingleBarCommand,
-                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                     Command="{Binding NewSingleBarCommand}"/>
                            <MenuItem Header="{DynamicResource DeleteArea}"
-                                     Command="{Binding DataContext.DeleteMaterialAreaCommand,
-                                               RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                     Command="{Binding DeleteMaterialAreaCommand}"/>
+                           <Separator/>
+                           <MenuItem Header="{DynamicResource MenuFromDxfMaterialArea}"
+                                     Command="{Binding FromDxfCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="{StaticResource di_dxf_file_xaml}"/>
+                              </MenuItem.Icon>
+                           </MenuItem>
                         </ContextMenu>
                      </TreeViewItem.ContextMenu>
                      <TreeViewItem.ItemTemplate>
