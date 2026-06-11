@@ -34,15 +34,39 @@ namespace CScore
 
       /// <summary>
       /// Единый интеграл по всем областям (бетон + арматура с разностными диаграммами).
+      /// Если у области нет сеточных фибр и задан Hull — используется контурный путь (теорема Грина).
+      /// Иначе — фибровое суммирование.
       /// </summary>
       public virtual Load Integral(Kurvature k, CalcType calc = CalcType.C,
                                     bool ten = true, bool ca = true)
       {
-         SetEps(k, calc, ten, ca);
          double N = 0, Mx = 0, My = 0;
          foreach (var area in Areas)
-            foreach (var f in area.Fibers)
-            { N += f.N; Mx += f.My; My += f.Mz; }
+         {
+            bool hasMeshFibers = area.Fibers.Any(f => f.TypeFiber != FiberType.point);
+
+            if (!hasMeshFibers && area.Hull != null && area.Diagramms.ContainsKey(calc))
+            {
+               // Контурный путь для полигонной части
+               var (n, mx, my) = area.ContourIntegral(k, calc, ten, ca);
+               N += n; Mx += mx; My += my;
+
+               // Точечные фибры в этой области (если есть) — через SetEps
+               if (area.Fibers.Count > 0)
+               {
+                  area.SetEps(k, calc, ten, ca);
+                  foreach (var f in area.Fibers)
+                  { N += f.N; Mx += f.My; My += f.Mz; }
+               }
+            }
+            else
+            {
+               // Фибровый путь — SetEps обрабатывает все фибры (mesh + point)
+               area.SetEps(k, calc, ten, ca);
+               foreach (var f in area.Fibers)
+               { N += f.N; Mx += f.My; My += f.Mz; }
+            }
+         }
          return new Load { Calc = calc, N = N, My = Mx, Mz = My };
       }
 
