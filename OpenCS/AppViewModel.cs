@@ -224,7 +224,9 @@ namespace OpenCS
          {
             currentMaterialArea = value;
             if (value != null)
-               CurrentPage = new Views.MaterialAreaPage(value, this);
+               CurrentPage = value.Category == AreaCategory.RebarGroup
+                  ? (System.Windows.Controls.UserControl)new Views.RebarGroupEditorPage(value, this)
+                  : new Views.MaterialAreaPage(value, this);
             OnPropertyChanged();
          }
       }
@@ -988,7 +990,7 @@ namespace OpenCS
             Tag = $"Группа {RebarGroupsLive.Count + 1}",
             Category = AreaCategory.RebarGroup
          };
-         CurrentPage = new Views.MaterialAreaPage(area, this);
+         CurrentPage = new Views.RebarGroupEditorPage(area, this);
       }
 
       void NewSingleBar()
