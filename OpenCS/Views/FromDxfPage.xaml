@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:OpenCS.Views"
+             xmlns:vm="clr-namespace:OpenCS.ViewModels"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
 
@@ -14,31 +15,52 @@
    <Grid>
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
          <RowDefinition/>
       </Grid.RowDefinitions>
 
-      <!-- Toolbar -->
-      <DockPanel Grid.Row="0" Margin="5" LastChildFill="False">
+      <!-- Row 0: File + units -->
+      <DockPanel Grid.Row="0" Margin="5,5,5,2" LastChildFill="False">
          <Button Height="25" Width="25" BorderThickness="0" Background="Transparent"
                  Command="{Binding OpenDXFCommand}" DockPanel.Dock="Left" Margin="0,0,8,0">
             <Image Source="{StaticResource di_dxf_file_xaml}"/>
          </Button>
-         <TextBlock Text="{DynamicResource DesignationSet}" VerticalAlignment="Center"
-                    Margin="0,0,4,0" DockPanel.Dock="Left"/>
-         <TextBox Width="120" VerticalContentAlignment="Center"
-                  Text="{Binding GeometrySet}" DockPanel.Dock="Left" Margin="0,0,16,0"/>
          <TextBlock Text="{DynamicResource DxfUnits}" VerticalAlignment="Center"
                     Margin="0,0,4,0" DockPanel.Dock="Left"/>
          <ComboBox ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIdx}"
                    Width="60" DockPanel.Dock="Left"/>
       </DockPanel>
 
-      <!-- 3-column main area -->
-      <Grid Grid.Row="1">
+      <!-- Row 1: Mode selector -->
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="5,2,5,5">
+         <RadioButton Content="{DynamicResource DxfModeHull}"
+                      IsChecked="{Binding SelectMode,
+                         Converter={StaticResource EnumToBoolConverter},
+                         ConverterParameter={x:Static vm:DxfRole.Hull}}"
+                      GroupName="DxfMode" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
+         <RadioButton Content="{DynamicResource DxfModeHole}"
+                      IsChecked="{Binding SelectMode,
+                         Converter={StaticResource EnumToBoolConverter},
+                         ConverterParameter={x:Static vm:DxfRole.Hole}}"
+                      GroupName="DxfMode" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
+         <RadioButton Content="{DynamicResource DxfModeRebarGroup}"
+                      IsChecked="{Binding SelectMode,
+                         Converter={StaticResource EnumToBoolConverter},
+                         ConverterParameter={x:Static vm:DxfRole.RebarGroup}}"
+                      GroupName="DxfMode" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
+         <RadioButton Content="{DynamicResource DxfModeSingleBar}"
+                      IsChecked="{Binding SelectMode,
+                         Converter={StaticResource EnumToBoolConverter},
+                         ConverterParameter={x:Static vm:DxfRole.SingleBar}}"
+                      GroupName="DxfMode" VerticalContentAlignment="Center"/>
+      </StackPanel>
+
+      <!-- Row 2: 3-column main area -->
+      <Grid Grid.Row="2">
          <Grid.ColumnDefinitions>
             <ColumnDefinition Width="160"/>
             <ColumnDefinition/>
-            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="210"/>
          </Grid.ColumnDefinitions>
 
          <!-- Col 0: Layer legend -->
@@ -61,41 +83,133 @@
          <!-- Col 1: Interactive DXF canvas -->
          <local:DxfInteractiveView x:Name="InteractiveCanvas" Grid.Column="1" Margin="4"/>
 
-         <!-- Col 2: Selected primitives -->
-         <Grid Grid.Column="2">
-            <Grid.RowDefinitions>
-               <RowDefinition/>
-               <RowDefinition/>
-            </Grid.RowDefinitions>
+         <!-- Col 2: Role-based assignment panel -->
+         <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="4">
 
-            <GroupBox Grid.Row="0" Header="{DynamicResource Contours}" Margin="4">
-               <Grid>
-                  <Grid.RowDefinitions>
-                     <RowDefinition/>
-                     <RowDefinition Height="Auto"/>
-                  </Grid.RowDefinitions>
-                  <ListBox Grid.Row="0" ItemsSource="{Binding ContoursPrj}"
-                           DisplayMemberPath="Tag" BorderThickness="0" Margin="4"/>
-                  <Button Grid.Row="1" Height="25" Margin="4"
-                          Command="{Binding SaveContoursCommand}"
-                          Content="{DynamicResource AddCaps}"/>
-               </Grid>
-            </GroupBox>
+               <!-- Hull -->
+               <GroupBox Header="{DynamicResource DxfRightHull}" Margin="0,0,0,4">
+                  <StackPanel>
+                     <ItemsControl ItemsSource="{Binding HullPrimitive,
+                                   Converter={StaticResource NullableToList}}">
+                        <ItemsControl.ItemTemplate>
+                           <DataTemplate DataType="{x:Type vm:DxfPrimitive}">
+                              <DockPanel>
+                                 <Button DockPanel.Dock="Right" Content="×" Width="20" Height="20"
+                                         Command="{Binding DataContext.ClearRoleCommand,
+                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                         CommandParameter="{Binding}"/>
+                                 <TextBlock Text="{Binding LayerName}" VerticalAlignment="Center"
+                                            TextTrimming="CharacterEllipsis" Margin="2,0"/>
+                              </DockPanel>
+                           </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                     </ItemsControl>
+                  </StackPanel>
+               </GroupBox>
 
-            <GroupBox Grid.Row="1" Header="{DynamicResource Circles}" Margin="4">
-               <Grid>
-                  <Grid.RowDefinitions>
-                     <RowDefinition/>
-                     <RowDefinition Height="Auto"/>
-                  </Grid.RowDefinitions>
-                  <ListBox Grid.Row="0" ItemsSource="{Binding CirclesPrj}"
-                           DisplayMemberPath="Tag" BorderThickness="0" Margin="4"/>
-                  <Button Grid.Row="1" Height="25" Margin="4"
-                          Command="{Binding SaveCirclesCommand}"
-                          Content="{DynamicResource AddCaps}"/>
-               </Grid>
-            </GroupBox>
-         </Grid>
+               <!-- Holes -->
+               <GroupBox Header="{DynamicResource DxfRightHoles}" Margin="0,0,0,4">
+                  <ItemsControl ItemsSource="{Binding HolePrimitives}">
+                     <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:DxfPrimitive}">
+                           <DockPanel>
+                              <Button DockPanel.Dock="Right" Content="×" Width="20" Height="20"
+                                      Command="{Binding DataContext.ClearRoleCommand,
+                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      CommandParameter="{Binding}"/>
+                              <TextBlock Text="{Binding LayerName}" VerticalAlignment="Center"
+                                         TextTrimming="CharacterEllipsis" Margin="2,0"/>
+                           </DockPanel>
+                        </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+               </GroupBox>
+
+               <!-- RebarGroup -->
+               <GroupBox Header="{DynamicResource DxfRightGroup}" Margin="0,0,0,4">
+                  <ItemsControl ItemsSource="{Binding GroupBarPrimitives}">
+                     <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:DxfPrimitive}">
+                           <DockPanel>
+                              <Button DockPanel.Dock="Right" Content="×" Width="20" Height="20"
+                                      Command="{Binding DataContext.ClearRoleCommand,
+                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      CommandParameter="{Binding}"/>
+                              <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                         Margin="2,0">
+                                 <Run Text="⌀"/>
+                                 <Run Text="{Binding Radius,
+                                      StringFormat='{}{0:F3}', Mode=OneWay}"/>
+                              </TextBlock>
+                           </DockPanel>
+                        </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+               </GroupBox>
+
+               <!-- SingleBar -->
+               <GroupBox Header="{DynamicResource DxfRightSingle}" Margin="0,0,0,4">
+                  <ItemsControl ItemsSource="{Binding SingleBarPrimitives}">
+                     <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:DxfPrimitive}">
+                           <DockPanel>
+                              <Button DockPanel.Dock="Right" Content="×" Width="20" Height="20"
+                                      Command="{Binding DataContext.ClearRoleCommand,
+                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      CommandParameter="{Binding}"/>
+                              <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                         Margin="2,0">
+                                 <Run Text="⌀"/>
+                                 <Run Text="{Binding Radius,
+                                      StringFormat='{}{0:F3}', Mode=OneWay}"/>
+                              </TextBlock>
+                           </DockPanel>
+                        </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+               </GroupBox>
+
+               <!-- Discretize parameters -->
+               <Expander Header="{DynamicResource DxfDiscretize}" Margin="0,4,0,4"
+                         IsExpanded="False">
+                  <Grid Margin="4">
+                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                     </Grid.RowDefinitions>
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="80"/>
+                     </Grid.ColumnDefinitions>
+                     <TextBlock Grid.Row="0" Grid.Column="0"
+                                Text="{DynamicResource DxfDiscretizeMethod}"
+                                VerticalAlignment="Center" Margin="0,0,4,2"/>
+                     <ComboBox Grid.Row="0" Grid.Column="1"
+                               ItemsSource="{Binding DiscretizeMethodDisplayNames}"
+                               SelectedIndex="{Binding DiscretizeMethodIdx}"/>
+                     <TextBlock Grid.Row="1" Grid.Column="0"
+                                Text="{DynamicResource DxfDiscretizeValue}"
+                                VerticalAlignment="Center" Margin="0,2,4,0"/>
+                     <TextBox Grid.Row="1" Grid.Column="1"
+                              Text="{Binding DiscretizeValue, StringFormat='{}{0:F3}'}"
+                              Margin="0,2,0,0"/>
+                  </Grid>
+               </Expander>
+
+               <!-- Tag -->
+               <DockPanel Margin="0,4,0,4">
+                  <TextBlock Text="{DynamicResource DxfTagLabel}" DockPanel.Dock="Left"
+                             VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"/>
+               </DockPanel>
+
+               <!-- Create button -->
+               <Button Content="{DynamicResource DxfCreateArea}" Height="28"
+                       Command="{Binding CreateMaterialAreaCommand}" Margin="0,4,0,0"/>
+
+            </StackPanel>
+         </ScrollViewer>
 
       </Grid>
    </Grid>

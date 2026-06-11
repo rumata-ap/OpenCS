@@ -126,6 +126,8 @@
          <!-- Converters -->
          <conv:MatTypeToBrushConverter x:Key="MatTypeToBrushConverter"/>
          <conv:MatTypeToGeometryConverter x:Key="MatTypeToGeometryConverter"/>
+         <conv:EnumToBoolConverter x:Key="EnumToBoolConverter"/>
+         <conv:NullableToListConverter x:Key="NullableToList"/>
 
          <sys:Double x:Key="AppFontSize">13</sys:Double>
 
