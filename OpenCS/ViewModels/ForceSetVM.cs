@@ -1,7 +1,6 @@
 using CScore;
 using OpenCS.Utilites;
 
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 
@@ -21,10 +20,10 @@ namespace OpenCS.ViewModels
 
       public int Num => _model.Num;
 
-      public string Tag
+      public string Label
       {
-         get => _model.Tag;
-         set { _model.Tag = value; OnPropertyChanged(); }
+         get => _model.Label;
+         set { _model.Label = value; OnPropertyChanged(); }
       }
 
       public double N
@@ -33,26 +32,35 @@ namespace OpenCS.ViewModels
          set { _model.N = value; OnPropertyChanged(); }
       }
 
+      public double Mx
+      {
+         get => _model.Mx;
+         set { _model.Mx = value; OnPropertyChanged(); }
+      }
+
       public double My
       {
          get => _model.My;
          set { _model.My = value; OnPropertyChanged(); }
       }
 
-      public double Mz
+      public double Vx
       {
-         get => _model.Mz;
-         set { _model.Mz = value; OnPropertyChanged(); }
+         get => _model.Vx;
+         set { _model.Vx = value; OnPropertyChanged(); }
       }
 
-      public CalcType CalcType
+      public double Vy
       {
-         get => _model.CalcType;
-         set { _model.CalcType = value; OnPropertyChanged(); }
+         get => _model.Vy;
+         set { _model.Vy = value; OnPropertyChanged(); }
       }
 
-      public static IEnumerable<CalcType> CalcTypeValues { get; }
-         = (CalcType[])System.Enum.GetValues(typeof(CalcType));
+      public double T
+      {
+         get => _model.T;
+         set { _model.T = value; OnPropertyChanged(); }
+      }
    }
 
    /// <summary>ViewModel для ForceSet.</summary>
@@ -68,10 +76,11 @@ namespace OpenCS.ViewModels
          Items = new ObservableCollection<LoadItemVM>(
             model.Items.ConvertAll(i => new LoadItemVM(i)));
 
-         AddItemCommand    = new RelayCommand(_ => AddItem());
-         DeleteItemCommand = new RelayCommand(_ => DeleteItem());
+         AddItemCommand       = new RelayCommand(_ => AddItem());
+         DeleteItemCommand    = new RelayCommand(_ => DeleteItem());
          DuplicateItemCommand = new RelayCommand(_ => DuplicateItem());
-         SaveCommand       = new RelayCommand(_ => Save());
+         SaveCommand          = new RelayCommand(_ => Save());
+         SP20Command          = new RelayCommand(_ => OpenSP20Dialog());
       }
 
       public AppViewModel App { get; }
@@ -82,6 +91,8 @@ namespace OpenCS.ViewModels
          get => _model.Tag;
          set { _model.Tag = value; OnPropertyChanged(); }
       }
+
+      public string Kind => _model.Kind;
 
       public ObservableCollection<LoadItemVM> Items { get; }
 
@@ -95,10 +106,11 @@ namespace OpenCS.ViewModels
       public ICommand DeleteItemCommand { get; }
       public ICommand DuplicateItemCommand { get; }
       public ICommand SaveCommand { get; }
+      public ICommand SP20Command { get; }
 
       void AddItem()
       {
-         var item = new LoadItem { Tag = $"К{Items.Count + 1}" };
+         var item = new LoadItem { Label = $"{Items.Count + 1}" };
          _model.Items.Add(item);
          var vm = new LoadItemVM(item);
          Items.Add(vm);
@@ -110,17 +122,23 @@ namespace OpenCS.ViewModels
       {
          if (_selectedItem == null) return;
          var src = _selectedItem.Model;
+         // Метка-дублирование по аналогии с GreenSectionPy
+         string newLabel = MakeDuplicateLabel(src.Label, _model.Items);
          var item = new LoadItem
          {
-            Tag      = src.Tag + "'",
-            N        = src.N,
-            My       = src.My,
-            Mz       = src.Mz,
-            CalcType = src.CalcType
+            Label = newLabel,
+            N = src.N, Mx = src.Mx, My = src.My,
+            Vx = src.Vx, Vy = src.Vy, T = src.T
          };
-         _model.Items.Add(item);
+         int idx = _model.Items.IndexOf(src);
+         if (idx >= 0) _model.Items.Insert(idx + 1, item);
+         else _model.Items.Add(item);
+
          var vm = new LoadItemVM(item);
-         Items.Add(vm);
+         int vmIdx = Items.IndexOf(_selectedItem);
+         if (vmIdx >= 0) Items.Insert(vmIdx + 1, vm);
+         else Items.Add(vm);
+
          SelectedItem = vm;
          App.IsDirty = true;
       }
@@ -134,6 +152,15 @@ namespace OpenCS.ViewModels
          App.IsDirty = true;
       }
 
+      void OpenSP20Dialog()
+      {
+         var dlg = new Views.SP20Dialog(App.ForceSets, App)
+         {
+            Owner = System.Windows.Application.Current.MainWindow
+         };
+         dlg.ShowDialog();
+      }
+
       public void Save()
       {
          if (_model.Num == 0)
@@ -143,6 +170,20 @@ namespace OpenCS.ViewModels
          if (!App.ForceSets.Contains(_model))
             App.ForceSets.Add(_model);
          App.IsDirty = true;
+      }
+
+      // Порт _make_duplicate_label из GreenSectionPy
+      static string MakeDuplicateLabel(string src, System.Collections.Generic.List<LoadItem> items)
+      {
+         if (int.TryParse(src, out int srcNum))
+         {
+            int maxNum = srcNum;
+            foreach (var it in items)
+               if (int.TryParse(it.Label, out int n) && n > maxNum)
+                  maxNum = n;
+            return (maxNum + 1).ToString();
+         }
+         return src + " (копия)";
       }
    }
 }

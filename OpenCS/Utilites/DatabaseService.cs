@@ -25,7 +25,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 7;
+      const int CurrentSchemaVersion = 8;
 
       static readonly string[] Migrations =
       [
@@ -109,6 +109,26 @@ namespace OpenCS.Utilites
              mz          REAL NOT NULL DEFAULT 0,
              calc_type   TEXT NOT NULL DEFAULT 'C'
          );
+         """,
+         """
+         -- v8: force_sets добавить kind; force_items переименовать tag→label, добавить mx/vx/vy/t, убрать mz/calc_type.
+         ALTER TABLE force_sets ADD COLUMN kind TEXT NOT NULL DEFAULT 'bar';
+         CREATE TABLE IF NOT EXISTS force_items_v2 (
+             id      INTEGER PRIMARY KEY AUTOINCREMENT,
+             set_id  INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
+             num     INTEGER NOT NULL DEFAULT 0,
+             label   TEXT NOT NULL DEFAULT '',
+             n       REAL NOT NULL DEFAULT 0,
+             mx      REAL NOT NULL DEFAULT 0,
+             my      REAL NOT NULL DEFAULT 0,
+             vx      REAL NOT NULL DEFAULT 0,
+             vy      REAL NOT NULL DEFAULT 0,
+             t       REAL NOT NULL DEFAULT 0
+         );
+         INSERT INTO force_items_v2 (id, set_id, num, label, n, mx, my)
+             SELECT id, set_id, num, tag, n, my, mz FROM force_items;
+         DROP TABLE force_items;
+         ALTER TABLE force_items_v2 RENAME TO force_items;
          """
       ];
 
@@ -221,17 +241,20 @@ namespace OpenCS.Utilites
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 num         INTEGER NOT NULL DEFAULT 0,
                 tag         TEXT NOT NULL DEFAULT '',
-                description TEXT
+                description TEXT,
+                kind        TEXT NOT NULL DEFAULT 'bar'
             );
             CREATE TABLE IF NOT EXISTS force_items (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                set_id      INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
-                num         INTEGER NOT NULL DEFAULT 0,
-                tag         TEXT NOT NULL DEFAULT '',
-                n           REAL NOT NULL DEFAULT 0,
-                my          REAL NOT NULL DEFAULT 0,
-                mz          REAL NOT NULL DEFAULT 0,
-                calc_type   TEXT NOT NULL DEFAULT 'C'
+                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                set_id  INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
+                num     INTEGER NOT NULL DEFAULT 0,
+                label   TEXT NOT NULL DEFAULT '',
+                n       REAL NOT NULL DEFAULT 0,
+                mx      REAL NOT NULL DEFAULT 0,
+                my      REAL NOT NULL DEFAULT 0,
+                vx      REAL NOT NULL DEFAULT 0,
+                vy      REAL NOT NULL DEFAULT 0,
+                t       REAL NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS material_areas (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1145,7 +1168,7 @@ namespace OpenCS.Utilites
          var sets = new Dictionary<int, ForceSet>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, num, tag, description FROM force_sets ORDER BY num";
+            cmd.CommandText = "SELECT id, num, tag, description, kind FROM force_sets ORDER BY num";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -1154,14 +1177,15 @@ namespace OpenCS.Utilites
                   Id          = r.GetInt32(0),
                   Num         = r.GetInt32(1),
                   Tag         = r.GetString(2),
-                  Description = r.IsDBNull(3) ? null : r.GetString(3)
+                  Description = r.IsDBNull(3) ? null : r.GetString(3),
+                  Kind        = r.IsDBNull(4) ? "bar" : r.GetString(4)
                };
                sets[fs.Id] = fs;
             }
          }
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, set_id, num, tag, n, my, mz, calc_type FROM force_items ORDER BY set_id, num";
+            cmd.CommandText = "SELECT id, set_id, num, label, n, mx, my, vx, vy, t FROM force_items ORDER BY set_id, num";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -1169,13 +1193,15 @@ namespace OpenCS.Utilites
                if (!sets.TryGetValue(setId, out var fs)) continue;
                fs.Items.Add(new LoadItem
                {
-                  Id       = r.GetInt32(0),
-                  Num      = r.GetInt32(2),
-                  Tag      = r.GetString(3),
-                  N        = r.GetDouble(4),
-                  My       = r.GetDouble(5),
-                  Mz       = r.GetDouble(6),
-                  CalcType = Enum.TryParse<CalcType>(r.GetString(7), out var ct) ? ct : CalcType.C
+                  Id    = r.GetInt32(0),
+                  Num   = r.GetInt32(2),
+                  Label = r.GetString(3),
+                  N     = r.GetDouble(4),
+                  Mx    = r.GetDouble(5),
+                  My    = r.GetDouble(6),
+                  Vx    = r.GetDouble(7),
+                  Vy    = r.GetDouble(8),
+                  T     = r.GetDouble(9)
                });
             }
          }
@@ -1200,18 +1226,19 @@ namespace OpenCS.Utilites
          if (isNew)
          {
             cmd.CommandText = """
-               INSERT INTO force_sets (num, tag, description) VALUES (@num, @tag, @desc);
+               INSERT INTO force_sets (num, tag, description, kind) VALUES (@num, @tag, @desc, @kind);
                SELECT last_insert_rowid();
             """;
          }
          else
          {
-            cmd.CommandText = "UPDATE force_sets SET num=@num, tag=@tag, description=@desc WHERE id=@id";
+            cmd.CommandText = "UPDATE force_sets SET num=@num, tag=@tag, description=@desc, kind=@kind WHERE id=@id";
             cmd.Parameters.AddWithValue("@id", fs.Id);
          }
-         cmd.Parameters.AddWithValue("@num", fs.Num);
-         cmd.Parameters.AddWithValue("@tag", fs.Tag);
+         cmd.Parameters.AddWithValue("@num",  fs.Num);
+         cmd.Parameters.AddWithValue("@tag",  fs.Tag);
          cmd.Parameters.AddWithValue("@desc", (object?)fs.Description ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@kind", fs.Kind);
          if (isNew) fs.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
 
@@ -1226,17 +1253,19 @@ namespace OpenCS.Utilites
             item.Num = i + 1;
             using var ins = _connection.CreateCommand();
             ins.CommandText = """
-               INSERT INTO force_items (set_id, num, tag, n, my, mz, calc_type)
-               VALUES (@sid, @num, @tag, @n, @my, @mz, @ct);
+               INSERT INTO force_items (set_id, num, label, n, mx, my, vx, vy, t)
+               VALUES (@sid, @num, @lbl, @n, @mx, @my, @vx, @vy, @t);
                SELECT last_insert_rowid();
             """;
             ins.Parameters.AddWithValue("@sid", fs.Id);
             ins.Parameters.AddWithValue("@num", item.Num);
-            ins.Parameters.AddWithValue("@tag", item.Tag);
+            ins.Parameters.AddWithValue("@lbl", item.Label);
             ins.Parameters.AddWithValue("@n",   item.N);
+            ins.Parameters.AddWithValue("@mx",  item.Mx);
             ins.Parameters.AddWithValue("@my",  item.My);
-            ins.Parameters.AddWithValue("@mz",  item.Mz);
-            ins.Parameters.AddWithValue("@ct",  item.CalcType.ToString());
+            ins.Parameters.AddWithValue("@vx",  item.Vx);
+            ins.Parameters.AddWithValue("@vy",  item.Vy);
+            ins.Parameters.AddWithValue("@t",   item.T);
             item.Id = (int)(long)ins.ExecuteScalar()!;
          }
       }

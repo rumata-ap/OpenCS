@@ -347,14 +347,28 @@
    <system:String x:Key="NewForceSet">New Force Set</system:String>
    <system:String x:Key="DeleteForceSet">Delete Set</system:String>
    <system:String x:Key="ForceSetSelectHint">Select a force set to edit</system:String>
-   <system:String x:Key="AddForceItem">Add</system:String>
+   <system:String x:Key="AddForceItem">+ Add</system:String>
    <system:String x:Key="DeleteForceItem">Delete</system:String>
    <system:String x:Key="DuplicateForceItem">Duplicate</system:String>
-   <system:String x:Key="ForceColTag">Label</system:String>
+   <system:String x:Key="ForceColLabel">Label</system:String>
    <system:String x:Key="ForceColN">N, kN</system:String>
+   <system:String x:Key="ForceColMx">Mx, kN·m</system:String>
    <system:String x:Key="ForceColMy">My, kN·m</system:String>
-   <system:String x:Key="ForceColMz">Mz, kN·m</system:String>
-   <system:String x:Key="ForceColCalcType">Calc Type</system:String>
+   <system:String x:Key="ForceColVx">Vx, kN</system:String>
+   <system:String x:Key="ForceColVy">Vy, kN</system:String>
+   <system:String x:Key="ForceColT">T, kN·m</system:String>
+   <system:String x:Key="SP20CombineBtn">SP20 Combinations</system:String>
+   <system:String x:Key="SP20DialogTitle">SP 20.13330 Combinations</system:String>
+   <system:String x:Key="SP20SelectSets">Force Sets:</system:String>
+   <system:String x:Key="SP20ModeLabel">Mode:</system:String>
+   <system:String x:Key="SP20ModeFundamental">Fundamental (Cl. 6.2)</system:String>
+   <system:String x:Key="SP20ModeAccidental">Accidental (Cl. 6.5)</system:String>
+   <system:String x:Key="SP20ModeBoth">Both</system:String>
+   <system:String x:Key="SP20MakeEnvelope">Create Envelope</system:String>
+   <system:String x:Key="SP20MakeCases">Create Combination List</system:String>
+   <system:String x:Key="SP20ResultName">Base Name:</system:String>
+   <system:String x:Key="SP20Preview">Preview:</system:String>
+   <system:String x:Key="SP20Generate">Generate</system:String>
 
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Method</system:String>

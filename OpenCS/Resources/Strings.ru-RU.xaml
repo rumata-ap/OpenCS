@@ -350,14 +350,28 @@
    <system:String x:Key="NewForceSet">Новый набор усилий</system:String>
    <system:String x:Key="DeleteForceSet">Удалить набор</system:String>
    <system:String x:Key="ForceSetSelectHint">Выберите набор усилий для редактирования</system:String>
-   <system:String x:Key="AddForceItem">Добавить</system:String>
+   <system:String x:Key="AddForceItem">+ Добавить</system:String>
    <system:String x:Key="DeleteForceItem">Удалить</system:String>
    <system:String x:Key="DuplicateForceItem">Дублировать</system:String>
-   <system:String x:Key="ForceColTag">Обозначение</system:String>
+   <system:String x:Key="ForceColLabel">Метка</system:String>
    <system:String x:Key="ForceColN">N, кН</system:String>
+   <system:String x:Key="ForceColMx">Mx, кН·м</system:String>
    <system:String x:Key="ForceColMy">My, кН·м</system:String>
-   <system:String x:Key="ForceColMz">Mz, кН·м</system:String>
-   <system:String x:Key="ForceColCalcType">Расчёт</system:String>
+   <system:String x:Key="ForceColVx">Vx, кН</system:String>
+   <system:String x:Key="ForceColVy">Vy, кН</system:String>
+   <system:String x:Key="ForceColT">T, кН·м</system:String>
+   <system:String x:Key="SP20CombineBtn">Сочетания СП20</system:String>
+   <system:String x:Key="SP20DialogTitle">Сочетания по СП 20.13330</system:String>
+   <system:String x:Key="SP20SelectSets">Наборы усилий:</system:String>
+   <system:String x:Key="SP20ModeLabel">Сочетание:</system:String>
+   <system:String x:Key="SP20ModeFundamental">Основное (п. 6.2)</system:String>
+   <system:String x:Key="SP20ModeAccidental">Особое (п. 6.5)</system:String>
+   <system:String x:Key="SP20ModeBoth">Оба</system:String>
+   <system:String x:Key="SP20MakeEnvelope">Создавать огибающую</system:String>
+   <system:String x:Key="SP20MakeCases">Создавать список комбинаций</system:String>
+   <system:String x:Key="SP20ResultName">Базовое имя:</system:String>
+   <system:String x:Key="SP20Preview">Предпросмотр:</system:String>
+   <system:String x:Key="SP20Generate">Сформировать</system:String>
 
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Метод</system:String>
