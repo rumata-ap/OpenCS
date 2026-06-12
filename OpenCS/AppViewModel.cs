@@ -223,7 +223,10 @@ namespace OpenCS
       /// <summary>Двухстадийные сечения (TwoStageSection).</summary>
       public ObservableCollection<CrossSection> TwoStageSectionsLive { get; } = [];
 
-      /// <summary>Объединённая коллекция для дерева сечений: обычные сечения + группа «Усиление».</summary>
+      /// <summary>Плитные сечения для дерева (синхронизируется с PlateSections).</summary>
+      public ObservableCollection<PlateSection> PlateSectionsLive { get; } = [];
+
+      /// <summary>Объединённая коллекция для дерева сечений: обычные + Усиление + Пластины.</summary>
       public System.Windows.Data.CompositeCollection SectionTreeItems { get; }
 
       /// <summary>Наборы расчётных усилий.</summary>
@@ -508,6 +511,7 @@ namespace OpenCS
           {
              new System.Windows.Data.CollectionContainer { Collection = FiberSectionsLive },
              new SectionTreeGroup(TwoStageSectionsLive),
+             new PlateSectionTreeGroup(PlateSectionsLive),
           };
 
           InitNewDatabase();
@@ -609,7 +613,8 @@ namespace OpenCS
          ForceSets = db.ForceSets;
          ForceSets.CollectionChanged += (_, _) => IsDirty = true;
          PlateSections = db.PlateSections;
-         PlateSections.CollectionChanged += (_, _) => IsDirty = true;
+         PlateSections.CollectionChanged += (_, _) => { RefreshPlateSectionsLive(); IsDirty = true; };
+         RefreshPlateSectionsLive();
          MaterialAreas = db.MaterialAreas;
          MaterialAreas.CollectionChanged += (_, _) => { RefreshMaterialAreaLiveCollections(); IsDirty = true; };
 
@@ -771,6 +776,7 @@ namespace OpenCS
          CrossSectionsLive = new(CrossSections); CrossSectionsRenumber();
          RefreshMaterialAreaLiveCollections();
          RefreshSectionLiveCollections();
+         RefreshPlateSectionsLive();
          IsDirty = false;
       }
 
@@ -1133,6 +1139,13 @@ namespace OpenCS
             TwoStageSectionsLive.Add(s);
       }
 
+      void RefreshPlateSectionsLive()
+      {
+         PlateSectionsLive.Clear();
+         foreach (var ps in PlateSections)
+            PlateSectionsLive.Add(ps);
+      }
+
       void NewArea()
       {
          var area = new MaterialArea
@@ -1234,6 +1247,14 @@ namespace OpenCS
    {
       public System.Collections.ObjectModel.ObservableCollection<CScore.CrossSection> Items { get; }
       public SectionTreeGroup(System.Collections.ObjectModel.ObservableCollection<CScore.CrossSection> items)
+         => Items = items;
+   }
+
+   /// <summary>Маркерный объект группы «Пластины» в дереве проекта.</summary>
+   public sealed class PlateSectionTreeGroup
+   {
+      public System.Collections.ObjectModel.ObservableCollection<CScore.PlateSection> Items { get; }
+      public PlateSectionTreeGroup(System.Collections.ObjectModel.ObservableCollection<CScore.PlateSection> items)
          => Items = items;
    }
 }
