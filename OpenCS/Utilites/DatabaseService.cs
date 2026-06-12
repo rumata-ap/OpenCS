@@ -25,7 +25,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 8;
+      const int CurrentSchemaVersion = 9;
 
       static readonly string[] Migrations =
       [
@@ -129,6 +129,23 @@ namespace OpenCS.Utilites
              SELECT id, set_id, num, tag, n, my, mz FROM force_items;
          DROP TABLE force_items;
          ALTER TABLE force_items_v2 RENAME TO force_items;
+         """,
+         """
+         -- v9: плитные сечения.
+         CREATE TABLE IF NOT EXISTS plate_sections (
+             id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+             num                  INTEGER NOT NULL DEFAULT 0,
+             tag                  TEXT NOT NULL DEFAULT '',
+             description          TEXT,
+             h                    REAL NOT NULL DEFAULT 0.2,
+             n_layers             INTEGER NOT NULL DEFAULT 10,
+             concrete_material_id INTEGER NOT NULL DEFAULT 0,
+             rebar_material_id    INTEGER NOT NULL DEFAULT 0,
+             tension_concrete     INTEGER NOT NULL DEFAULT 0,
+             softening_model      TEXT NOT NULL DEFAULT '',
+             softening_eps_c2     REAL NOT NULL DEFAULT 0.002,
+             rebar_layers_json    TEXT NOT NULL DEFAULT '[]'
+         );
          """
       ];
 
@@ -144,6 +161,7 @@ namespace OpenCS.Utilites
       public ObservableCollection<CrossSection> CrossSections { get; } = [];
       public ObservableCollection<MaterialArea> MaterialAreas { get; } = [];
       public ObservableCollection<ForceSet> ForceSets { get; } = [];
+      public ObservableCollection<PlateSection> PlateSections { get; } = [];
 
       public DatabaseService() : this("dbapp.db") { }
 
@@ -256,6 +274,20 @@ namespace OpenCS.Utilites
                 vy      REAL NOT NULL DEFAULT 0,
                 t       REAL NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS plate_sections (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                num                  INTEGER NOT NULL DEFAULT 0,
+                tag                  TEXT NOT NULL DEFAULT '',
+                description          TEXT,
+                h                    REAL NOT NULL DEFAULT 0.2,
+                n_layers             INTEGER NOT NULL DEFAULT 10,
+                concrete_material_id INTEGER NOT NULL DEFAULT 0,
+                rebar_material_id    INTEGER NOT NULL DEFAULT 0,
+                tension_concrete     INTEGER NOT NULL DEFAULT 0,
+                softening_model      TEXT NOT NULL DEFAULT '',
+                softening_eps_c2     REAL NOT NULL DEFAULT 0.002,
+                rebar_layers_json    TEXT NOT NULL DEFAULT '[]'
+            );
             CREATE TABLE IF NOT EXISTS material_areas (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
                 section_id     INTEGER,
@@ -290,6 +322,14 @@ namespace OpenCS.Utilites
                 eps_p   REAL NOT NULL DEFAULT 0
             );";
          cmd.ExecuteNonQuery();
+
+         // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
+         // по таблицам, которые EnsureCreated уже создал в финальном виде.
+         var initVer = _connection.CreateCommand();
+         initVer.CommandText =
+            "INSERT OR IGNORE INTO settings (key, value_json) VALUES ('schema_version', $ver)";
+         initVer.Parameters.AddWithValue("$ver", CurrentSchemaVersion.ToString());
+         initVer.ExecuteNonQuery();
       }
 
       /// <summary>
@@ -318,6 +358,8 @@ namespace OpenCS.Utilites
          {
             for (int i = version; i < CurrentSchemaVersion; i++)
             {
+               if (i == 7) { MigrateV8(); continue; }
+               if (i == 8) { MigrateV9(); continue; }
                var migCmd = _connection.CreateCommand();
                migCmd.CommandText = Migrations[i];
                migCmd.ExecuteNonQuery();
@@ -335,6 +377,87 @@ namespace OpenCS.Utilites
             tx.Rollback();
             throw;
          }
+      }
+
+      // ------------------------------------------------------------------
+      // Вспомогательные методы миграции
+      // ------------------------------------------------------------------
+
+      bool ColumnExists(string table, string column)
+      {
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name='{column}'";
+         return (long)cmd.ExecuteScalar()! > 0;
+      }
+
+      void MigExec(string sql)
+      {
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = sql;
+         cmd.ExecuteNonQuery();
+      }
+
+      /// <summary>
+      /// Миграция v8 как C#-метод — идемпотентна при любом начальном состоянии force_sets/force_items.
+      /// EnsureCreated мог создать эти таблицы в финальном виде (с kind/label) ещё до того
+      /// как Migrate() добрался до v8, поэтому проверяем реальную схему перед ALTER TABLE.
+      /// </summary>
+      void MigrateV8()
+      {
+         // force_sets: kind может уже быть (EnsureCreated создал таблицу заново)
+         if (!ColumnExists("force_sets", "kind"))
+            MigExec("ALTER TABLE force_sets ADD COLUMN kind TEXT NOT NULL DEFAULT 'bar'");
+
+         // force_items: пересоздаём с новой схемой
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS force_items_v2 (
+                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                set_id  INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
+                num     INTEGER NOT NULL DEFAULT 0,
+                label   TEXT NOT NULL DEFAULT '',
+                n       REAL NOT NULL DEFAULT 0,
+                mx      REAL NOT NULL DEFAULT 0,
+                my      REAL NOT NULL DEFAULT 0,
+                vx      REAL NOT NULL DEFAULT 0,
+                vy      REAL NOT NULL DEFAULT 0,
+                t       REAL NOT NULL DEFAULT 0
+            )
+            """);
+
+         if (ColumnExists("force_items", "tag"))
+         {
+            // Старая схема v7: tag, n, my(=сечение-My), mz(=сечение-Mz), calc_type
+            // Переименование: tag→label, my→mx (bar-Mx), mz→my (bar-My)
+            MigExec("INSERT INTO force_items_v2 (id, set_id, num, label, n, mx, my) SELECT id, set_id, num, tag, n, my, mz FROM force_items");
+         }
+         else if (ColumnExists("force_items", "label"))
+         {
+            // Новая схема (EnsureCreated создал таблицу с финальными колонками): просто копируем
+            MigExec("INSERT INTO force_items_v2 (id, set_id, num, label, n, mx, my, vx, vy, t) SELECT id, set_id, num, label, n, mx, my, vx, vy, t FROM force_items");
+         }
+
+         MigExec("DROP TABLE force_items");
+         MigExec("ALTER TABLE force_items_v2 RENAME TO force_items");
+      }
+
+      void MigrateV9()
+      {
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS plate_sections (
+                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+                num                  INTEGER NOT NULL DEFAULT 0,
+                tag                  TEXT NOT NULL DEFAULT '',
+                description          TEXT,
+                h                    REAL NOT NULL DEFAULT 0.2,
+                n_layers             INTEGER NOT NULL DEFAULT 10,
+                concrete_material_id INTEGER NOT NULL DEFAULT 0,
+                rebar_material_id    INTEGER NOT NULL DEFAULT 0,
+                tension_concrete     INTEGER NOT NULL DEFAULT 0,
+                softening_model      TEXT NOT NULL DEFAULT '',
+                softening_eps_c2     REAL NOT NULL DEFAULT 0.002,
+                rebar_layers_json    TEXT NOT NULL DEFAULT '[]'
+            )
+            """);
       }
 
       public void ChangeDatabase(string dataSource)
@@ -413,6 +536,7 @@ namespace OpenCS.Utilites
          foreach (var d in Diagrams) SaveDiagram(d);
          foreach (var sec in CrossSections) SaveCrossSection(sec);
          foreach (var fs in ForceSets) SaveForceSet(fs);
+         foreach (var ps in PlateSections) SavePlateSection(ps);
       }
 
       internal void ClearCollections()
@@ -426,6 +550,7 @@ namespace OpenCS.Utilites
          Diagrams.Clear();
          CrossSections.Clear();
          ForceSets.Clear();
+         PlateSections.Clear();
       }
 
       #region Load
@@ -445,6 +570,7 @@ namespace OpenCS.Utilites
          LoadCrossSections();
          ResolveReferencesForCrossSections();
          LoadForceSets();
+         LoadPlateSections();
       }
 
       void LoadMaterials()
@@ -1278,6 +1404,99 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@id", fs.Id);
          cmd.ExecuteNonQuery();
          ForceSets.Remove(fs);
+      }
+
+      #endregion
+
+      #region PlateSections
+
+      void LoadPlateSections()
+      {
+         PlateSections.Clear();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, num, tag, description, h, n_layers,
+                   concrete_material_id, rebar_material_id,
+                   tension_concrete, softening_model, softening_eps_c2, rebar_layers_json
+            FROM plate_sections ORDER BY num
+         """;
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+         {
+            var ps = new PlateSection
+            {
+               Id                  = r.GetInt32(0),
+               Num                 = r.GetInt32(1),
+               Tag                 = r.GetString(2),
+               H                   = r.GetDouble(4),
+               NLayers             = r.GetInt32(5),
+               ConcreteMaterialId  = r.GetInt32(6),
+               RebarMaterialId     = r.GetInt32(7),
+               TensionConcrete     = r.GetInt32(8) != 0,
+               SofteningModel      = r.GetString(9),
+               SofteningEpsC2      = r.GetDouble(10),
+            };
+            var layersJson = r.GetString(11);
+            var layers = JsonSerializer.Deserialize<List<PlateRebarLayer>>(layersJson, _jsonSettings);
+            if (layers != null) ps.RebarLayers = layers;
+            PlateSections.Add(ps);
+         }
+      }
+
+      public void SavePlateSection(PlateSection ps)
+      {
+         var layersJson = JsonSerializer.Serialize(ps.RebarLayers, _jsonSettings);
+         using var cmd = _connection.CreateCommand();
+         bool isNew = ps.Id == 0;
+         if (isNew)
+         {
+            cmd.CommandText = """
+               INSERT INTO plate_sections
+                  (num, tag, description, h, n_layers,
+                   concrete_material_id, rebar_material_id,
+                   tension_concrete, softening_model, softening_eps_c2, rebar_layers_json)
+               VALUES (@num,@tag,@desc,@h,@nl,@cmid,@rmid,@tc,@sm,@sec2,@rlj);
+               SELECT last_insert_rowid();
+            """;
+         }
+         else
+         {
+            cmd.CommandText = """
+               UPDATE plate_sections SET
+                  num=@num, tag=@tag, description=@desc, h=@h, n_layers=@nl,
+                  concrete_material_id=@cmid, rebar_material_id=@rmid,
+                  tension_concrete=@tc, softening_model=@sm, softening_eps_c2=@sec2,
+                  rebar_layers_json=@rlj
+               WHERE id=@id;
+            """;
+            cmd.Parameters.AddWithValue("@id", ps.Id);
+         }
+         cmd.Parameters.AddWithValue("@num",  ps.Num);
+         cmd.Parameters.AddWithValue("@tag",  ps.Tag);
+         cmd.Parameters.AddWithValue("@desc", (object?)null ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@h",    ps.H);
+         cmd.Parameters.AddWithValue("@nl",   ps.NLayers);
+         cmd.Parameters.AddWithValue("@cmid", ps.ConcreteMaterialId);
+         cmd.Parameters.AddWithValue("@rmid", ps.RebarMaterialId);
+         cmd.Parameters.AddWithValue("@tc",   ps.TensionConcrete ? 1 : 0);
+         cmd.Parameters.AddWithValue("@sm",   ps.SofteningModel);
+         cmd.Parameters.AddWithValue("@sec2", ps.SofteningEpsC2);
+         cmd.Parameters.AddWithValue("@rlj",  layersJson);
+         if (isNew) ps.Id = (int)(long)cmd.ExecuteScalar()!;
+         else cmd.ExecuteNonQuery();
+
+         if (isNew && !PlateSections.Contains(ps))
+            PlateSections.Add(ps);
+      }
+
+      public void DeletePlateSection(PlateSection ps)
+      {
+         if (ps.Id == 0) { PlateSections.Remove(ps); return; }
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM plate_sections WHERE id = @id";
+         cmd.Parameters.AddWithValue("@id", ps.Id);
+         cmd.ExecuteNonQuery();
+         PlateSections.Remove(ps);
       }
 
       #endregion

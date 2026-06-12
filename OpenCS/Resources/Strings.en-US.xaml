@@ -72,6 +72,7 @@
    <system:String x:Key="Semicolon">Semicolon ( ; )</system:String>
    <system:String x:Key="Comma">Comma ( , )</system:String>
    <system:String x:Key="Encoding">Encoding</system:String>
+   <system:String x:Key="OK">OK</system:String>
    <system:String x:Key="Cancel">Cancel</system:String>
 
    <!-- Settings window -->
@@ -347,6 +348,22 @@
    <system:String x:Key="NewForceSet">New Force Set</system:String>
    <system:String x:Key="DeleteForceSet">Delete Set</system:String>
    <system:String x:Key="ForceSetSelectHint">Select a force set to edit</system:String>
+   <system:String x:Key="RenameForceSet">Rename / load type...</system:String>
+   <system:String x:Key="DuplicateForceSet">Duplicate Set</system:String>
+   <system:String x:Key="DeleteForceSetItem">Delete Set</system:String>
+   <system:String x:Key="ForceSetPropsTitle">Load Type (SP20)</system:String>
+   <system:String x:Key="ForceLoadCurrentName">Set:</system:String>
+   <system:String x:Key="ForceLoadTitleLabel">Name:</system:String>
+   <system:String x:Key="ForceLoadKindLabel">Load type:</system:String>
+   <system:String x:Key="ForceLoadGammaLabel">γf (reliability factor):</system:String>
+   <system:String x:Key="ForceLoadGammaHint">(0 or empty = default)</system:String>
+   <system:String x:Key="ForceLoadGroupLabel">Mutual exclusion group:</system:String>
+   <system:String x:Key="ForceLoadGroupHint">e.g. wind, snow, crane</system:String>
+   <system:String x:Key="ForceLoadPreviewLabel">New name:</system:String>
+   <system:String x:Key="ForceLoadKindG">G — permanent</system:String>
+   <system:String x:Key="ForceLoadKindL">L — long-term variable</system:String>
+   <system:String x:Key="ForceLoadKindQ">Q — short-term variable</system:String>
+   <system:String x:Key="ForceLoadKindA">A — accidental</system:String>
    <system:String x:Key="AddForceItem">+ Add</system:String>
    <system:String x:Key="DeleteForceItem">Delete</system:String>
    <system:String x:Key="DuplicateForceItem">Duplicate</system:String>
@@ -357,6 +374,8 @@
    <system:String x:Key="ForceColVx">Vx, kN</system:String>
    <system:String x:Key="ForceColVy">Vy, kN</system:String>
    <system:String x:Key="ForceColT">T, kN·m</system:String>
+   <system:String x:Key="ImportCsvBtn">Import CSV</system:String>
+   <system:String x:Key="ExportCsvBtn">Export CSV</system:String>
    <system:String x:Key="SP20CombineBtn">SP20 Combinations</system:String>
    <system:String x:Key="SP20DialogTitle">SP 20.13330 Combinations</system:String>
    <system:String x:Key="SP20SelectSets">Force Sets:</system:String>
@@ -369,6 +388,26 @@
    <system:String x:Key="SP20ResultName">Base Name:</system:String>
    <system:String x:Key="SP20Preview">Preview:</system:String>
    <system:String x:Key="SP20Generate">Generate</system:String>
+
+   <!-- Plate sections -->
+   <system:String x:Key="PlateSections">Plates</system:String>
+   <system:String x:Key="NewPlateSection">New section</system:String>
+   <system:String x:Key="DeletePlateSection">Delete section</system:String>
+   <system:String x:Key="DuplicatePlateSection">Duplicate</system:String>
+   <system:String x:Key="DeletePlateSectionItem">Delete</system:String>
+   <system:String x:Key="PlateSectionGeometry">Geometry</system:String>
+   <system:String x:Key="PlateSectionMaterials">Materials</system:String>
+   <system:String x:Key="PlateThicknessMm">Thickness h, mm:</system:String>
+   <system:String x:Key="PlateNLayers">Concrete layers:</system:String>
+   <system:String x:Key="PlateTensionConcrete">Concrete tension</system:String>
+   <system:String x:Key="PlateSofteningModel">β-reduction model:</system:String>
+   <system:String x:Key="PlateSofteningNone">None</system:String>
+   <system:String x:Key="PlateSofteningVC">Vecchio–Collins</system:String>
+   <system:String x:Key="PlateRebarLayers">Rebar layers</system:String>
+   <system:String x:Key="PlateLayerName">Name</system:String>
+   <system:String x:Key="PlateLayerMode">Input mode</system:String>
+   <system:String x:Key="AddRebarLayer">Add layer</system:String>
+   <system:String x:Key="DeleteRebarLayer">Delete layer</system:String>
 
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Method</system:String>

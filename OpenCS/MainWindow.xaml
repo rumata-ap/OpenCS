@@ -402,85 +402,76 @@
 
 
                <!-- Поперечные сечения -->
-               <TreeViewItem x:Name="crosssectNode" IsExpanded="True">
+               <TreeViewItem x:Name="crosssectNode"
+                             ItemsSource="{Binding SectionTreeItems}"
+                             IsExpanded="True">
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Image Source="/Images/crossect--32.png"/>
                         <TextBlock Text="{DynamicResource CrossSections}" Margin="5,0,0,0" FontWeight="Bold"/>
                      </StackPanel>
                   </TreeViewItem.Header>
-
-                  <!-- Подузел: Фибровые сечения -->
-                  <TreeViewItem x:Name="FiberSectionsNode" ItemsSource="{Binding FiberSectionsLive}"
-                                IsExpanded="True">
-                     <TreeViewItem.Header>
-                        <StackPanel Orientation="Horizontal" Margin="2">
-                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
+                  <TreeViewItem.ContextMenu>
+                     <ContextMenu>
+                        <MenuItem Header="{DynamicResource NewCrossSection}"
+                                  Command="{Binding NewCrossSectionCommand}"/>
+                        <MenuItem Header="{DynamicResource EditCrossSection}"
+                                  Command="{Binding EditCrossSectionCommand}"/>
+                        <MenuItem Header="{DynamicResource DeleteCrossSection}"
+                                  Command="{Binding DeleteCrossSectionCommand}"/>
+                     </ContextMenu>
+                  </TreeViewItem.ContextMenu>
+                  <TreeViewItem.Resources>
+                     <!-- Обычное сечение: иконка + дочерние области -->
+                     <HierarchicalDataTemplate DataType="{x:Type core:CrossSection}"
+                                               ItemsSource="{Binding Areas}">
+                        <StackPanel Orientation="Horizontal">
+                           <Path Width="14" Height="14" Margin="0,0,4,0" Stretch="Uniform"
                                  Fill="SteelBlue" Data="M1,1 H7 L15,8 L7,15 H1 Z"/>
-                           <TextBlock Text="{DynamicResource FiberSections}"/>
+                           <TextBlock Text="{Binding Tag}"/>
                         </StackPanel>
-                     </TreeViewItem.Header>
-                     <TreeViewItem.ContextMenu>
-                        <ContextMenu>
-                           <MenuItem Header="{DynamicResource NewCrossSection}"
-                                     Command="{Binding NewCrossSectionCommand}"/>
-                           <MenuItem Header="{DynamicResource EditCrossSection}"
-                                     Command="{Binding EditCrossSectionCommand}"/>
-                           <MenuItem Header="{DynamicResource DeleteCrossSection}"
-                                     Command="{Binding DeleteCrossSectionCommand}"/>
-                        </ContextMenu>
-                     </TreeViewItem.ContextMenu>
-                     <TreeViewItem.ItemTemplate>
-                        <HierarchicalDataTemplate DataType="{x:Type core:CrossSection}"
-                                                  ItemsSource="{Binding Areas}">
-                           <StackPanel Orientation="Horizontal">
-                              <Path Width="14" Height="14" Margin="0,0,4,0" Stretch="Uniform"
-                                    Fill="SteelBlue" Data="M1,1 H7 L15,8 L7,15 H1 Z"/>
-                              <TextBlock Text="{Binding Tag}"/>
-                           </StackPanel>
-                           <HierarchicalDataTemplate.ItemTemplate>
-                              <DataTemplate DataType="{x:Type core:MaterialArea}">
-                                 <StackPanel Orientation="Horizontal">
-                                    <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
-                                          Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrushConverter}}"
-                                          Data="{Binding Material.Type, Converter={StaticResource MatTypeToGeometryConverter}}"/>
-                                    <TextBlock Text="{Binding Tag}"/>
-                                 </StackPanel>
-                              </DataTemplate>
-                           </HierarchicalDataTemplate.ItemTemplate>
-                        </HierarchicalDataTemplate>
-                     </TreeViewItem.ItemTemplate>
-                  </TreeViewItem>
+                        <HierarchicalDataTemplate.ItemTemplate>
+                           <DataTemplate DataType="{x:Type core:MaterialArea}">
+                              <StackPanel Orientation="Horizontal">
+                                 <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
+                                       Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrushConverter}}"
+                                       Data="{Binding Material.Type, Converter={StaticResource MatTypeToGeometryConverter}}"/>
+                                 <TextBlock Text="{Binding Tag}"/>
+                              </StackPanel>
+                           </DataTemplate>
+                        </HierarchicalDataTemplate.ItemTemplate>
+                     </HierarchicalDataTemplate>
 
-                  <!-- Подузел: Двухстадийные (усиление) -->
-                  <TreeViewItem x:Name="TwoStageNode" ItemsSource="{Binding TwoStageSectionsLive}"
-                                IsExpanded="True">
-                     <TreeViewItem.Header>
-                        <StackPanel Orientation="Horizontal" Margin="2">
+                     <!-- Группа «Усиление»: папка с двухстадийными сечениями -->
+                     <HierarchicalDataTemplate DataType="{x:Type local:SectionTreeGroup}"
+                                               ItemsSource="{Binding Items}">
+                        <StackPanel Orientation="Horizontal" Margin="2"
+                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                           <StackPanel.ContextMenu>
+                              <ContextMenu>
+                                 <MenuItem Header="{DynamicResource NewTwoStageSection}"
+                                           Command="{Binding PlacementTarget.Tag.NewTwoStageSectionCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource DeleteCrossSection}"
+                                           Command="{Binding PlacementTarget.Tag.DeleteCrossSectionCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              </ContextMenu>
+                           </StackPanel.ContextMenu>
                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
                                  Fill="DarkSlateBlue" Data="M1,8 H15 M1,4 H15 M1,12 H15"/>
                            <TextBlock Text="{DynamicResource TwoStageSections}"/>
                         </StackPanel>
-                     </TreeViewItem.Header>
-                     <TreeViewItem.ContextMenu>
-                        <ContextMenu>
-                           <MenuItem Header="{DynamicResource NewTwoStageSection}"
-                                     Command="{Binding NewTwoStageSectionCommand}"/>
-                           <MenuItem Header="{DynamicResource DeleteCrossSection}"
-                                     Command="{Binding DeleteCrossSectionCommand}"/>
-                        </ContextMenu>
-                     </TreeViewItem.ContextMenu>
-                     <TreeViewItem.ItemTemplate>
-                        <DataTemplate DataType="{x:Type core:CrossSection}">
-                           <StackPanel Orientation="Horizontal">
-                              <Path Width="14" Height="14" Margin="0,0,4,0" Stretch="Uniform"
-                                    Fill="DarkSlateBlue" Data="M1,8 H15 M1,4 H15 M1,12 H15"/>
-                              <TextBlock Text="{Binding Tag}"/>
-                           </StackPanel>
-                        </DataTemplate>
-                     </TreeViewItem.ItemTemplate>
-                  </TreeViewItem>
-
+                        <HierarchicalDataTemplate.ItemTemplate>
+                           <DataTemplate DataType="{x:Type core:TwoStageSection}">
+                              <StackPanel Orientation="Horizontal">
+                                 <Path Width="14" Height="14" Margin="0,0,4,0" Stretch="Uniform"
+                                       Fill="DarkSlateBlue" Data="M1,8 H15 M1,4 H15 M1,12 H15"/>
+                                 <TextBlock Text="{Binding Tag}"/>
+                              </StackPanel>
+                           </DataTemplate>
+                        </HierarchicalDataTemplate.ItemTemplate>
+                     </HierarchicalDataTemplate>
+                  </TreeViewItem.Resources>
                </TreeViewItem>
                <!-- Усилия -->
                <TreeViewItem x:Name="forceSetsNode" ItemsSource="{Binding ForceSets}" IsExpanded="True">
@@ -488,7 +479,7 @@
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0"
                               Fill="Teal"
-                              Data="M2,8 L12,8 M12,8 L8,4 M12,8 L8,12 M13,8 L16,8"/>
+                              Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
                         <TextBlock Text="{DynamicResource ForceSets}" FontWeight="Bold"/>
                      </StackPanel>
                   </TreeViewItem.Header>
@@ -502,14 +493,84 @@
                   </TreeViewItem.ContextMenu>
                   <TreeViewItem.ItemTemplate>
                      <DataTemplate DataType="{x:Type core:ForceSet}">
-                        <StackPanel Orientation="Horizontal" Margin="1">
+                        <StackPanel Orientation="Horizontal" Margin="1"
+                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                           <StackPanel.ContextMenu>
+                              <ContextMenu>
+                                 <MenuItem Header="{DynamicResource RenameForceSet}"
+                                           Command="{Binding PlacementTarget.Tag.SetForceSetLoadTypeCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource DuplicateForceSet}"
+                                           Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <Separator/>
+                                 <MenuItem Header="{DynamicResource DeleteForceSetItem}"
+                                           Command="{Binding PlacementTarget.Tag.DeleteForceSetCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              </ContextMenu>
+                           </StackPanel.ContextMenu>
                            <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
                                  Fill="Teal"
-                                 Data="M2,8 L10,8 M10,8 L6,4 M10,8 L6,12"/>
+                                 Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
                            <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
                            <TextBlock Text=" (" Foreground="Gray"/>
                            <TextBlock Text="{Binding Items.Count}" Foreground="Gray"/>
                            <TextBlock Text=")" Foreground="Gray"/>
+                        </StackPanel>
+                     </DataTemplate>
+                  </TreeViewItem.ItemTemplate>
+               </TreeViewItem>
+
+               <!-- Пластины (PlateSection) -->
+               <TreeViewItem x:Name="plateSectionsNode" ItemsSource="{Binding PlateSections}" IsExpanded="True">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0"
+                              Fill="SlateGray"
+                              Data="M1,3 H23 V21 H1 Z M1,8 H23 M1,13 H23 M1,18 H23"/>
+                        <TextBlock Text="{DynamicResource PlateSections}" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+                  <TreeViewItem.ContextMenu>
+                     <ContextMenu>
+                        <MenuItem Header="{DynamicResource NewPlateSection}"
+                                  Command="{Binding NewPlateSectionCommand}"/>
+                        <MenuItem Header="{DynamicResource DeletePlateSection}"
+                                  Command="{Binding DeletePlateSectionCommand}"/>
+                     </ContextMenu>
+                  </TreeViewItem.ContextMenu>
+                  <TreeViewItem.ItemTemplate>
+                     <DataTemplate DataType="{x:Type core:PlateSection}">
+                        <StackPanel Orientation="Horizontal" Margin="1"
+                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                           <StackPanel.ContextMenu>
+                              <ContextMenu>
+                                 <MenuItem Header="{DynamicResource DuplicatePlateSection}"
+                                           Command="{Binding PlacementTarget.Tag.DuplicatePlateSectionCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <Separator/>
+                                 <MenuItem Header="{DynamicResource DeletePlateSectionItem}"
+                                           Command="{Binding PlacementTarget.Tag.DeletePlateSectionCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              </ContextMenu>
+                           </StackPanel.ContextMenu>
+                           <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="SlateGray"
+                                 Data="M1,3 H23 V21 H1 Z M1,8 H23 M1,13 H23"/>
+                           <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                           <TextBlock Text=" h=" Foreground="Gray"/>
+                           <TextBlock Text="{Binding H, StringFormat={}{0:G3}}" Foreground="Gray"/>
+                           <TextBlock Text=" м" Foreground="Gray"/>
                         </StackPanel>
                      </DataTemplate>
                   </TreeViewItem.ItemTemplate>

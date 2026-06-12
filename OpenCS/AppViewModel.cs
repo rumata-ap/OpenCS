@@ -99,6 +99,7 @@ namespace OpenCS
       ObservableCollection<CrossSection> crossSectionsLive = [];
       MaterialArea? currentMaterialArea;
       ForceSet? currentForceSet;
+      PlateSection? currentPlateSection;
 
       /// <summary>
       /// Путь к текущему файлу проекта. null если проект ещё не был сохранён.
@@ -217,13 +218,40 @@ namespace OpenCS
       public ObservableCollection<MaterialArea> SingleBarsLive { get; set; } = [];
 
       /// <summary>Простые фибровые сечения (не TwoStageSection).</summary>
-      public ObservableCollection<CrossSection> FiberSectionsLive { get; set; } = [];
+      public ObservableCollection<CrossSection> FiberSectionsLive { get; } = [];
 
       /// <summary>Двухстадийные сечения (TwoStageSection).</summary>
-      public ObservableCollection<CrossSection> TwoStageSectionsLive { get; set; } = [];
+      public ObservableCollection<CrossSection> TwoStageSectionsLive { get; } = [];
+
+      /// <summary>Объединённая коллекция для дерева сечений: обычные сечения + группа «Усиление».</summary>
+      public System.Windows.Data.CompositeCollection SectionTreeItems { get; }
 
       /// <summary>Наборы расчётных усилий.</summary>
       public ObservableCollection<ForceSet> ForceSets { get; set; } = null!;
+
+      /// <summary>Плитные сечения.</summary>
+      public ObservableCollection<PlateSection> PlateSections { get; set; } = null!;
+
+      /// <summary>Текущее выбранное плитное сечение. При установке открывает PlateSectionPage.</summary>
+      public PlateSection? CurrentPlateSection
+      {
+         get => currentPlateSection;
+         set
+         {
+            currentPlateSection = value;
+            CurrentPage = value != null
+               ? new Views.PlateSectionPage(value, this)
+               : null!;
+            OnPropertyChanged();
+         }
+      }
+
+      /// <summary>Команда создания нового плитного сечения.</summary>
+      public ICommand NewPlateSectionCommand { get; set; } = null!;
+      /// <summary>Команда удаления плитного сечения (параметр PlateSection или текущее).</summary>
+      public ICommand DeletePlateSectionCommand { get; set; } = null!;
+      /// <summary>Команда дублирования плитного сечения (параметр PlateSection).</summary>
+      public ICommand DuplicatePlateSectionCommand { get; set; } = null!;
 
       /// <summary>Текущий выбранный набор усилий. При установке открывает ForceSetPage.</summary>
       public ForceSet? CurrentForceSet
@@ -281,8 +309,14 @@ namespace OpenCS
       /// <summary>Команда создания нового набора усилий.</summary>
       public ICommand NewForceSetCommand { get; set; } = null!;
 
-      /// <summary>Команда удаления выбранного набора усилий.</summary>
+      /// <summary>Команда удаления набора усилий (параметр ForceSet или текущий).</summary>
       public ICommand DeleteForceSetCommand { get; set; } = null!;
+
+      /// <summary>Команда задания вида загружения / переименования набора усилий (параметр ForceSet).</summary>
+      public ICommand SetForceSetLoadTypeCommand { get; set; } = null!;
+
+      /// <summary>Команда дублирования набора усилий (параметр ForceSet).</summary>
+      public ICommand DuplicateForceSetCommand { get; set; } = null!;
 
       /// <summary>
       /// Отфильтрованная коллекция диаграмм для отображения в TreeView.
@@ -470,6 +504,11 @@ namespace OpenCS
        {
           LogService = logService;
           FileDialogService = fileDialogService;
+          SectionTreeItems = new System.Windows.Data.CompositeCollection
+          {
+             new System.Windows.Data.CollectionContainer { Collection = FiberSectionsLive },
+             new SectionTreeGroup(TwoStageSectionsLive),
+          };
 
           InitNewDatabase();
           PlotSettings = db.LoadPlotSettings() ?? Utilites.PlotSettings.Default;
@@ -569,6 +608,8 @@ namespace OpenCS
          CrossSections.CollectionChanged += (_, _) => IsDirty = true;
          ForceSets = db.ForceSets;
          ForceSets.CollectionChanged += (_, _) => IsDirty = true;
+         PlateSections = db.PlateSections;
+         PlateSections.CollectionChanged += (_, _) => IsDirty = true;
          MaterialAreas = db.MaterialAreas;
          MaterialAreas.CollectionChanged += (_, _) => { RefreshMaterialAreaLiveCollections(); IsDirty = true; };
 
@@ -611,8 +652,13 @@ namespace OpenCS
          DeleteMaterialAreaCommand = new RelayCommand(_ => DeleteMaterialArea());
          NewRebarGroupCommand      = new RelayCommand(_ => NewRebarGroup());
          NewSingleBarCommand       = new RelayCommand(_ => NewSingleBar());
-         NewForceSetCommand        = new RelayCommand(_ => NewForceSet());
-         DeleteForceSetCommand     = new RelayCommand(_ => DeleteForceSet());
+         NewForceSetCommand           = new RelayCommand(_ => NewForceSet());
+         DeleteForceSetCommand        = new RelayCommand(p => DeleteForceSet(p as CScore.ForceSet));
+         SetForceSetLoadTypeCommand   = new RelayCommand(p => SetForceSetLoadType(p as CScore.ForceSet));
+         DuplicateForceSetCommand     = new RelayCommand(p => DuplicateForceSet(p as CScore.ForceSet));
+         NewPlateSectionCommand       = new RelayCommand(_ => NewPlateSection());
+         DeletePlateSectionCommand    = new RelayCommand(p => DeletePlateSection(p as CScore.PlateSection));
+         DuplicatePlateSectionCommand = new RelayCommand(p => DuplicatePlateSection(p as CScore.PlateSection));
       }
 
       void SetLanguage(object? param)
@@ -713,9 +759,11 @@ namespace OpenCS
          currentCrossSection = null;
          currentMaterialArea = null;
          currentForceSet = null;
+         currentPlateSection = null;
          OnPropertyChanged(nameof(CurrentCrossSection));
          OnPropertyChanged(nameof(CurrentMaterialArea));
          OnPropertyChanged(nameof(CurrentForceSet));
+         OnPropertyChanged(nameof(CurrentPlateSection));
          MaterialsSort();
          this.ContoursRenumber();
          CirclesLive = new(Circles); this.CirclesRenumber();
@@ -989,6 +1037,7 @@ namespace OpenCS
          db.DeleteCrossSection(currentCrossSection);
          CrossSectionsLive = new(CrossSections);
          CrossSectionsRenumber();
+         RefreshSectionLiveCollections();
          currentCrossSection = null;
          CurrentPage = null!;
          OnPropertyChanged(nameof(CurrentCrossSection));
@@ -1009,18 +1058,57 @@ namespace OpenCS
          CurrentPage = new Views.ForceSetPage(this);
       }
 
-      void DeleteForceSet()
+      void DeleteForceSet(CScore.ForceSet? target = null)
       {
-         if (currentForceSet == null) return;
+         var fs = target ?? currentForceSet;
+         if (fs == null) return;
          var res = System.Windows.MessageBox.Show(
             Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"),
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Warning);
          if (res != System.Windows.MessageBoxResult.Yes) return;
-         db.DeleteForceSet(currentForceSet);
-         currentForceSet = null;
-         CurrentPage = null!;
-         OnPropertyChanged(nameof(CurrentForceSet));
+         db.DeleteForceSet(fs);
+         if (fs == currentForceSet)
+         {
+            currentForceSet = null;
+            CurrentPage = null!;
+            OnPropertyChanged(nameof(CurrentForceSet));
+         }
+         IsDirty = true;
+      }
+
+      void SetForceSetLoadType(CScore.ForceSet? fs)
+      {
+         if (fs == null) return;
+         var dlg = new Views.ForceSetPropsDialog(fs);
+         if (dlg.ShowDialog() != true) return;
+         var vm = (ForceSetPropsVM)dlg.DataContext;
+         fs.Tag = vm.ResultName;
+         db.SaveForceSet(fs);
+         // ForceSet не INPC — форсируем обновление TreeView через remove+insert
+         int idx = db.ForceSets.IndexOf(fs);
+         if (idx >= 0) { db.ForceSets.RemoveAt(idx); db.ForceSets.Insert(idx, fs); }
+         IsDirty = true;
+      }
+
+      void DuplicateForceSet(CScore.ForceSet? src)
+      {
+         if (src == null) return;
+         var copy = new CScore.ForceSet
+         {
+            Tag         = src.Tag + " (копия)",
+            Description = src.Description,
+            Kind        = src.Kind,
+            Items       = src.Items.ConvertAll(i => new CScore.LoadItem
+            {
+               Label = i.Label, N = i.N, Mx = i.Mx, My = i.My,
+               Vx = i.Vx, Vy = i.Vy, T = i.T
+            })
+         };
+         copy.Num = ForceSets.Count > 0 ? ForceSets.Max(s => s.Num) + 1 : 1;
+         for (int i = 0; i < copy.Items.Count; i++) copy.Items[i].Num = i + 1;
+         db.SaveForceSet(copy);
+         ForceSets.Add(copy);
          IsDirty = true;
       }
 
@@ -1036,10 +1124,13 @@ namespace OpenCS
 
       public void RefreshSectionLiveCollections()
       {
-         FiberSectionsLive    = new(CrossSections.Where(s => s is not TwoStageSection));
-         TwoStageSectionsLive = new(CrossSections.OfType<TwoStageSection>());
-         OnPropertyChanged(nameof(FiberSectionsLive));
-         OnPropertyChanged(nameof(TwoStageSectionsLive));
+         FiberSectionsLive.Clear();
+         foreach (var s in CrossSections.Where(s => s is not TwoStageSection))
+            FiberSectionsLive.Add(s);
+
+         TwoStageSectionsLive.Clear();
+         foreach (var s in CrossSections.OfType<TwoStageSection>())
+            TwoStageSectionsLive.Add(s);
       }
 
       void NewArea()
@@ -1082,5 +1173,67 @@ namespace OpenCS
          OnPropertyChanged(nameof(CurrentMaterialArea));
          IsDirty = true;
       }
+
+      void NewPlateSection()
+      {
+         currentPlateSection = null;
+         CurrentPage = new Views.PlateSectionPage(this);
+      }
+
+      void DeletePlateSection(CScore.PlateSection? target = null)
+      {
+         var ps = target ?? currentPlateSection;
+         if (ps == null) return;
+         var res = System.Windows.MessageBox.Show(
+            Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"),
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+         if (res != System.Windows.MessageBoxResult.Yes) return;
+         db.DeletePlateSection(ps);
+         if (ps == currentPlateSection)
+         {
+            currentPlateSection = null;
+            CurrentPage = null!;
+            OnPropertyChanged(nameof(CurrentPlateSection));
+         }
+         IsDirty = true;
+      }
+
+      void DuplicatePlateSection(CScore.PlateSection? src)
+      {
+         if (src == null) return;
+         var copy = new CScore.PlateSection
+         {
+            Tag                = src.Tag + " (копия)",
+            H                  = src.H,
+            NLayers            = src.NLayers,
+            ConcreteMaterialId = src.ConcreteMaterialId,
+            RebarMaterialId    = src.RebarMaterialId,
+            TensionConcrete    = src.TensionConcrete,
+            SofteningModel     = src.SofteningModel,
+            SofteningEpsC2     = src.SofteningEpsC2,
+            RebarLayers        = src.RebarLayers.ConvertAll(l => new CScore.PlateRebarLayer
+            {
+               Name = l.Name, InputMode = l.InputMode,
+               Asx = l.Asx, Asy = l.Asy, Zsx = l.Zsx, Zsy = l.Zsy,
+               DiameterX = l.DiameterX, DiameterY = l.DiameterY,
+               CountPerMeterX = l.CountPerMeterX, CountPerMeterY = l.CountPerMeterY,
+               SpacingX = l.SpacingX, SpacingY = l.SpacingY,
+               MaterialId = l.MaterialId
+            })
+         };
+         copy.Num = PlateSections.Count > 0 ? PlateSections.Max(s => s.Num) + 1 : 1;
+         db.SavePlateSection(copy);
+         PlateSections.Add(copy);
+         IsDirty = true;
+      }
+   }
+
+   /// <summary>Маркерный объект группы «Усиление» в дереве проекта.</summary>
+   public sealed class SectionTreeGroup
+   {
+      public System.Collections.ObjectModel.ObservableCollection<CScore.CrossSection> Items { get; }
+      public SectionTreeGroup(System.Collections.ObjectModel.ObservableCollection<CScore.CrossSection> items)
+         => Items = items;
    }
 }

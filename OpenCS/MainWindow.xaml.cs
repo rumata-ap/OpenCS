@@ -90,6 +90,11 @@ namespace OpenCS
              vm.CurrentForceSet = forceSetItem;
           }
 
+          if (e.NewValue is CScore.PlateSection plateSectionItem)
+          {
+             vm.CurrentPlateSection = plateSectionItem;
+          }
+
           if(e.NewValue is TreeViewItem treeViewItem)
           {
              if (treeViewItem.Name == "ContoursTreeItem")
