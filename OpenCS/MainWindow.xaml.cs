@@ -85,6 +85,11 @@ namespace OpenCS
                 vm.CurrentMaterialArea = areaItem;
           }
 
+          if (e.NewValue is CScore.ForceSet forceSetItem)
+          {
+             vm.CurrentForceSet = forceSetItem;
+          }
+
           if(e.NewValue is TreeViewItem treeViewItem)
           {
              if (treeViewItem.Name == "ContoursTreeItem")

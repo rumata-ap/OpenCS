@@ -345,6 +345,20 @@
    <system:String x:Key="KurvatureKy">κy:</system:String>
    <system:String x:Key="KurvatureKz">κz:</system:String>
 
+   <!-- Force Sets -->
+   <system:String x:Key="ForceSets">Усилия</system:String>
+   <system:String x:Key="NewForceSet">Новый набор усилий</system:String>
+   <system:String x:Key="DeleteForceSet">Удалить набор</system:String>
+   <system:String x:Key="ForceSetSelectHint">Выберите набор усилий для редактирования</system:String>
+   <system:String x:Key="AddForceItem">Добавить</system:String>
+   <system:String x:Key="DeleteForceItem">Удалить</system:String>
+   <system:String x:Key="DuplicateForceItem">Дублировать</system:String>
+   <system:String x:Key="ForceColTag">Обозначение</system:String>
+   <system:String x:Key="ForceColN">N, кН</system:String>
+   <system:String x:Key="ForceColMy">My, кН·м</system:String>
+   <system:String x:Key="ForceColMz">Mz, кН·м</system:String>
+   <system:String x:Key="ForceColCalcType">Расчёт</system:String>
+
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Метод</system:String>
    <system:String x:Key="MeshMethod_Grid">Ортогональная сетка</system:String>

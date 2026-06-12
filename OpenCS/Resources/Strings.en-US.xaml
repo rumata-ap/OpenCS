@@ -342,6 +342,20 @@
    <system:String x:Key="KurvatureKy">κy:</system:String>
    <system:String x:Key="KurvatureKz">κz:</system:String>
 
+   <!-- Force Sets -->
+   <system:String x:Key="ForceSets">Forces</system:String>
+   <system:String x:Key="NewForceSet">New Force Set</system:String>
+   <system:String x:Key="DeleteForceSet">Delete Set</system:String>
+   <system:String x:Key="ForceSetSelectHint">Select a force set to edit</system:String>
+   <system:String x:Key="AddForceItem">Add</system:String>
+   <system:String x:Key="DeleteForceItem">Delete</system:String>
+   <system:String x:Key="DuplicateForceItem">Duplicate</system:String>
+   <system:String x:Key="ForceColTag">Label</system:String>
+   <system:String x:Key="ForceColN">N, kN</system:String>
+   <system:String x:Key="ForceColMy">My, kN·m</system:String>
+   <system:String x:Key="ForceColMz">Mz, kN·m</system:String>
+   <system:String x:Key="ForceColCalcType">Calc Type</system:String>
+
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Method</system:String>
    <system:String x:Key="MeshMethod_Grid">Orthogonal Grid</system:String>

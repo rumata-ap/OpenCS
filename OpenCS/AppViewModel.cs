@@ -98,6 +98,7 @@ namespace OpenCS
       CrossSection? currentCrossSection;
       ObservableCollection<CrossSection> crossSectionsLive = [];
       MaterialArea? currentMaterialArea;
+      ForceSet? currentForceSet;
 
       /// <summary>
       /// Путь к текущему файлу проекта. null если проект ещё не был сохранён.
@@ -221,6 +222,23 @@ namespace OpenCS
       /// <summary>Двухстадийные сечения (TwoStageSection).</summary>
       public ObservableCollection<CrossSection> TwoStageSectionsLive { get; set; } = [];
 
+      /// <summary>Наборы расчётных усилий.</summary>
+      public ObservableCollection<ForceSet> ForceSets { get; set; } = null!;
+
+      /// <summary>Текущий выбранный набор усилий. При установке открывает ForceSetPage.</summary>
+      public ForceSet? CurrentForceSet
+      {
+         get => currentForceSet;
+         set
+         {
+            currentForceSet = value;
+            CurrentPage = value != null
+               ? new Views.ForceSetPage(value, this)
+               : null!;
+            OnPropertyChanged();
+         }
+      }
+
       /// <summary>Текущая выбранная MaterialArea. Открывает MaterialAreaPage.</summary>
       public MaterialArea? CurrentMaterialArea
       {
@@ -259,6 +277,12 @@ namespace OpenCS
 
       /// <summary>Команда создания нового двухстадийного сечения.</summary>
       public ICommand NewTwoStageSectionCommand { get; set; } = null!;
+
+      /// <summary>Команда создания нового набора усилий.</summary>
+      public ICommand NewForceSetCommand { get; set; } = null!;
+
+      /// <summary>Команда удаления выбранного набора усилий.</summary>
+      public ICommand DeleteForceSetCommand { get; set; } = null!;
 
       /// <summary>
       /// Отфильтрованная коллекция диаграмм для отображения в TreeView.
@@ -543,6 +567,8 @@ namespace OpenCS
          Diagrams = db.Diagrams;
          CrossSections = db.CrossSections;
          CrossSections.CollectionChanged += (_, _) => IsDirty = true;
+         ForceSets = db.ForceSets;
+         ForceSets.CollectionChanged += (_, _) => IsDirty = true;
          MaterialAreas = db.MaterialAreas;
          MaterialAreas.CollectionChanged += (_, _) => { RefreshMaterialAreaLiveCollections(); IsDirty = true; };
 
@@ -585,6 +611,8 @@ namespace OpenCS
          DeleteMaterialAreaCommand = new RelayCommand(_ => DeleteMaterialArea());
          NewRebarGroupCommand      = new RelayCommand(_ => NewRebarGroup());
          NewSingleBarCommand       = new RelayCommand(_ => NewSingleBar());
+         NewForceSetCommand        = new RelayCommand(_ => NewForceSet());
+         DeleteForceSetCommand     = new RelayCommand(_ => DeleteForceSet());
       }
 
       void SetLanguage(object? param)
@@ -684,8 +712,10 @@ namespace OpenCS
          CurrentContour = null;
          currentCrossSection = null;
          currentMaterialArea = null;
+         currentForceSet = null;
          OnPropertyChanged(nameof(CurrentCrossSection));
          OnPropertyChanged(nameof(CurrentMaterialArea));
+         OnPropertyChanged(nameof(CurrentForceSet));
          MaterialsSort();
          this.ContoursRenumber();
          CirclesLive = new(Circles); this.CirclesRenumber();
@@ -970,6 +1000,27 @@ namespace OpenCS
          var sec = CrossSections.FirstOrDefault(s => s.Areas.Contains(vm.Model));
          if (sec == null) return;
          sec.Areas.Remove(vm.Model);
+         IsDirty = true;
+      }
+
+      void NewForceSet()
+      {
+         currentForceSet = null;
+         CurrentPage = new Views.ForceSetPage(this);
+      }
+
+      void DeleteForceSet()
+      {
+         if (currentForceSet == null) return;
+         var res = System.Windows.MessageBox.Show(
+            Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"),
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+         if (res != System.Windows.MessageBoxResult.Yes) return;
+         db.DeleteForceSet(currentForceSet);
+         currentForceSet = null;
+         CurrentPage = null!;
+         OnPropertyChanged(nameof(CurrentForceSet));
          IsDirty = true;
       }
 

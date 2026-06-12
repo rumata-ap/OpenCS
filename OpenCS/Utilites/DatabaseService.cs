@@ -25,7 +25,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 6;
+      const int CurrentSchemaVersion = 7;
 
       static readonly string[] Migrations =
       [
@@ -90,6 +90,25 @@ namespace OpenCS.Utilites
          INSERT OR IGNORE INTO cross_section_areas (section_id, area_id, sort_order)
              SELECT section_id, id, num FROM material_areas WHERE section_id IS NOT NULL;
          UPDATE material_areas SET section_id = NULL WHERE section_id IS NOT NULL;
+         """,
+         """
+         -- v7: наборы расчётных усилий.
+         CREATE TABLE IF NOT EXISTS force_sets (
+             id          INTEGER PRIMARY KEY AUTOINCREMENT,
+             num         INTEGER NOT NULL DEFAULT 0,
+             tag         TEXT NOT NULL DEFAULT '',
+             description TEXT
+         );
+         CREATE TABLE IF NOT EXISTS force_items (
+             id          INTEGER PRIMARY KEY AUTOINCREMENT,
+             set_id      INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
+             num         INTEGER NOT NULL DEFAULT 0,
+             tag         TEXT NOT NULL DEFAULT '',
+             n           REAL NOT NULL DEFAULT 0,
+             my          REAL NOT NULL DEFAULT 0,
+             mz          REAL NOT NULL DEFAULT 0,
+             calc_type   TEXT NOT NULL DEFAULT 'C'
+         );
          """
       ];
 
@@ -104,6 +123,7 @@ namespace OpenCS.Utilites
       public ObservableCollection<Diagramm> Diagrams { get; } = [];
       public ObservableCollection<CrossSection> CrossSections { get; } = [];
       public ObservableCollection<MaterialArea> MaterialAreas { get; } = [];
+      public ObservableCollection<ForceSet> ForceSets { get; } = [];
 
       public DatabaseService() : this("dbapp.db") { }
 
@@ -196,6 +216,22 @@ namespace OpenCS.Utilites
                 area_id     INTEGER NOT NULL REFERENCES material_areas(id),
                 sort_order  INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (section_id, area_id)
+            );
+            CREATE TABLE IF NOT EXISTS force_sets (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                num         INTEGER NOT NULL DEFAULT 0,
+                tag         TEXT NOT NULL DEFAULT '',
+                description TEXT
+            );
+            CREATE TABLE IF NOT EXISTS force_items (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                set_id      INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
+                num         INTEGER NOT NULL DEFAULT 0,
+                tag         TEXT NOT NULL DEFAULT '',
+                n           REAL NOT NULL DEFAULT 0,
+                my          REAL NOT NULL DEFAULT 0,
+                mz          REAL NOT NULL DEFAULT 0,
+                calc_type   TEXT NOT NULL DEFAULT 'C'
             );
             CREATE TABLE IF NOT EXISTS material_areas (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -353,6 +389,7 @@ namespace OpenCS.Utilites
          foreach (var c in Circles) SaveCircle(c);
          foreach (var d in Diagrams) SaveDiagram(d);
          foreach (var sec in CrossSections) SaveCrossSection(sec);
+         foreach (var fs in ForceSets) SaveForceSet(fs);
       }
 
       internal void ClearCollections()
@@ -365,6 +402,7 @@ namespace OpenCS.Utilites
          Fibers.Clear();
          Diagrams.Clear();
          CrossSections.Clear();
+         ForceSets.Clear();
       }
 
       #region Load
@@ -383,6 +421,7 @@ namespace OpenCS.Utilites
          ResolveReferencesForStandaloneAreas();
          LoadCrossSections();
          ResolveReferencesForCrossSections();
+         LoadForceSets();
       }
 
       void LoadMaterials()
@@ -1094,6 +1133,122 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@id", section.Id);
          cmd.ExecuteNonQuery();
          CrossSections.Remove(section);
+      }
+
+      #endregion
+
+      #region ForceSets
+
+      void LoadForceSets()
+      {
+         ForceSets.Clear();
+         var sets = new Dictionary<int, ForceSet>();
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = "SELECT id, num, tag, description FROM force_sets ORDER BY num";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               var fs = new ForceSet
+               {
+                  Id          = r.GetInt32(0),
+                  Num         = r.GetInt32(1),
+                  Tag         = r.GetString(2),
+                  Description = r.IsDBNull(3) ? null : r.GetString(3)
+               };
+               sets[fs.Id] = fs;
+            }
+         }
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = "SELECT id, set_id, num, tag, n, my, mz, calc_type FROM force_items ORDER BY set_id, num";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               int setId = r.GetInt32(1);
+               if (!sets.TryGetValue(setId, out var fs)) continue;
+               fs.Items.Add(new LoadItem
+               {
+                  Id       = r.GetInt32(0),
+                  Num      = r.GetInt32(2),
+                  Tag      = r.GetString(3),
+                  N        = r.GetDouble(4),
+                  My       = r.GetDouble(5),
+                  Mz       = r.GetDouble(6),
+                  CalcType = Enum.TryParse<CalcType>(r.GetString(7), out var ct) ? ct : CalcType.C
+               });
+            }
+         }
+         foreach (var fs in sets.Values) ForceSets.Add(fs);
+      }
+
+      public void SaveForceSet(ForceSet fs)
+      {
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            SaveForceSetCore(fs);
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      void SaveForceSetCore(ForceSet fs)
+      {
+         using var cmd = _connection.CreateCommand();
+         bool isNew = fs.Id == 0;
+         if (isNew)
+         {
+            cmd.CommandText = """
+               INSERT INTO force_sets (num, tag, description) VALUES (@num, @tag, @desc);
+               SELECT last_insert_rowid();
+            """;
+         }
+         else
+         {
+            cmd.CommandText = "UPDATE force_sets SET num=@num, tag=@tag, description=@desc WHERE id=@id";
+            cmd.Parameters.AddWithValue("@id", fs.Id);
+         }
+         cmd.Parameters.AddWithValue("@num", fs.Num);
+         cmd.Parameters.AddWithValue("@tag", fs.Tag);
+         cmd.Parameters.AddWithValue("@desc", (object?)fs.Description ?? DBNull.Value);
+         if (isNew) fs.Id = (int)(long)cmd.ExecuteScalar()!;
+         else cmd.ExecuteNonQuery();
+
+         using var delCmd = _connection.CreateCommand();
+         delCmd.CommandText = "DELETE FROM force_items WHERE set_id = @sid";
+         delCmd.Parameters.AddWithValue("@sid", fs.Id);
+         delCmd.ExecuteNonQuery();
+
+         for (int i = 0; i < fs.Items.Count; i++)
+         {
+            var item = fs.Items[i];
+            item.Num = i + 1;
+            using var ins = _connection.CreateCommand();
+            ins.CommandText = """
+               INSERT INTO force_items (set_id, num, tag, n, my, mz, calc_type)
+               VALUES (@sid, @num, @tag, @n, @my, @mz, @ct);
+               SELECT last_insert_rowid();
+            """;
+            ins.Parameters.AddWithValue("@sid", fs.Id);
+            ins.Parameters.AddWithValue("@num", item.Num);
+            ins.Parameters.AddWithValue("@tag", item.Tag);
+            ins.Parameters.AddWithValue("@n",   item.N);
+            ins.Parameters.AddWithValue("@my",  item.My);
+            ins.Parameters.AddWithValue("@mz",  item.Mz);
+            ins.Parameters.AddWithValue("@ct",  item.CalcType.ToString());
+            item.Id = (int)(long)ins.ExecuteScalar()!;
+         }
+      }
+
+      public void DeleteForceSet(ForceSet fs)
+      {
+         if (fs.Id == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM force_sets WHERE id = @id";
+         cmd.Parameters.AddWithValue("@id", fs.Id);
+         cmd.ExecuteNonQuery();
+         ForceSets.Remove(fs);
       }
 
       #endregion
