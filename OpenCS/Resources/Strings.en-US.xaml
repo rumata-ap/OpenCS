@@ -333,11 +333,10 @@
    <system:String x:Key="CurrentHull">Current: </system:String>
    <system:String x:Key="DiagramType">Diagram Type</system:String>
    <system:String x:Key="NewTwoStageSection">New Strengthening</system:String>
-   <system:String x:Key="CrossSectionAreas">Section Areas</system:String>
+   <system:String x:Key="CrossSectionAreas">In Section</system:String>
+   <system:String x:Key="CrossSectionPool">From Pool</system:String>
    <system:String x:Key="CrossSectionSelectArea">Select area to edit</system:String>
-   <system:String x:Key="AddConcreteAreaShort">Concrete</system:String>
-   <system:String x:Key="AddRebarAreaShort">Rebar</system:String>
-   <system:String x:Key="AddSteelAreaShort">Steel</system:String>
+   <system:String x:Key="AddToSection">+</system:String>
    <system:String x:Key="Stage1Kurvature">Stage 1 Curvature</system:String>
    <system:String x:Key="KurvatureE0">ε₀:</system:String>
    <system:String x:Key="KurvatureKy">κy:</system:String>

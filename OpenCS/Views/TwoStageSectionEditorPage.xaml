@@ -4,18 +4,13 @@
              xmlns:vm="clr-namespace:OpenCS.ViewModels"
              xmlns:core="clr-namespace:CScore;assembly=CScore"
              xmlns:conv="clr-namespace:OpenCS.Converters"
-             xmlns:sys="clr-namespace:System;assembly=mscorlib"
              xmlns:local="clr-namespace:OpenCS.Views">
    <UserControl.Resources>
       <conv:MatTypeToBrushConverter x:Key="MatTypeToBrush"/>
       <conv:MatTypeToGeometryConverter x:Key="MatTypeToGeom"/>
-      <ObjectDataProvider x:Key="DiagramTypes" MethodName="GetValues"
-                          ObjectType="{x:Type sys:Enum}">
-         <ObjectDataProvider.MethodParameters>
-            <x:Type TypeName="core:DiagrammType"/>
-         </ObjectDataProvider.MethodParameters>
-      </ObjectDataProvider>
-      <DataTemplate x:Key="AreaListItemTemplate" DataType="{x:Type vm:MaterialAreaVM}">
+
+      <!-- Шаблон строки области в списке "В сечении" (с кнопкой ×) -->
+      <DataTemplate x:Key="SectionAreaItemTemplate" DataType="{x:Type vm:MaterialAreaVM}">
          <Grid Margin="2,1">
             <Grid.ColumnDefinitions>
                <ColumnDefinition Width="16"/>
@@ -62,9 +57,9 @@
       <!-- Основная область -->
       <Grid Grid.Row="1">
          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="220" MinWidth="140"/>
+            <ColumnDefinition Width="200" MinWidth="140"/>
             <ColumnDefinition Width="4"/>
-            <ColumnDefinition Width="220" MinWidth="140"/>
+            <ColumnDefinition Width="200" MinWidth="140"/>
             <ColumnDefinition Width="4"/>
             <ColumnDefinition Width="*" MinWidth="100"/>
             <ColumnDefinition Width="4"/>
@@ -76,77 +71,152 @@
          <GridSplitter Grid.Column="5" HorizontalAlignment="Stretch" ShowsPreview="True"/>
 
          <!-- Этап 1 -->
-         <DockPanel Grid.Column="0" Margin="4">
-            <TextBlock DockPanel.Dock="Top" Text="{DynamicResource CrossSectionStage1}"
+         <Grid Grid.Column="0" Margin="4">
+            <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="*"/>
+               <RowDefinition Height="4"/>
+               <RowDefinition Height="*"/>
+               <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="{DynamicResource CrossSectionStage1}"
                        FontWeight="SemiBold" Margin="0,0,0,4"/>
-            <StackPanel DockPanel.Dock="Bottom">
-               <!-- Кривизна 1-го этапа -->
-               <GroupBox Header="{DynamicResource Stage1Kurvature}" Margin="0,4,0,4">
-                  <Grid Margin="4">
-                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                     </Grid.ColumnDefinitions>
-                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                     </Grid.RowDefinitions>
-                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource KurvatureE0}"
-                                VerticalAlignment="Center" Margin="0,0,4,4"/>
-                     <TextBox  Grid.Row="0" Grid.Column="1"
-                               Text="{Binding E0, UpdateSourceTrigger=PropertyChanged, StringFormat=G6}"
-                               Margin="0,0,0,4"/>
-                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource KurvatureKy}"
-                                VerticalAlignment="Center" Margin="0,0,4,4"/>
-                     <TextBox  Grid.Row="1" Grid.Column="1"
-                               Text="{Binding Ky, UpdateSourceTrigger=PropertyChanged, StringFormat=G6}"
-                               Margin="0,0,0,4"/>
-                     <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource KurvatureKz}"
-                                VerticalAlignment="Center" Margin="0,0,4,0"/>
-                     <TextBox  Grid.Row="2" Grid.Column="1"
-                               Text="{Binding Kz, UpdateSourceTrigger=PropertyChanged, StringFormat=G6}"/>
-                  </Grid>
-               </GroupBox>
-               <!-- Кнопки добавления Этап 1 -->
-               <StackPanel Orientation="Horizontal">
-                  <Button Content="{DynamicResource AddConcreteAreaShort}"
-                          Command="{Binding AddS1ConcreteCommand}"
-                          Padding="5,3" Margin="0,0,3,0" FontSize="11"/>
-                  <Button Content="{DynamicResource AddRebarAreaShort}"
-                          Command="{Binding AddS1RebarCommand}"
-                          Padding="5,3" Margin="0,0,3,0" FontSize="11"/>
-                  <Button Content="{DynamicResource AddSteelAreaShort}"
-                          Command="{Binding AddS1SteelCommand}"
-                          Padding="5,3" FontSize="11"/>
-               </StackPanel>
-            </StackPanel>
-            <ListBox ItemsSource="{Binding Stage1Areas}"
-                     SelectedItem="{Binding SelectedArea, Mode=TwoWay}"
-                     BorderThickness="1" Padding="2"
-                     ItemTemplate="{StaticResource AreaListItemTemplate}"/>
-         </DockPanel>
+
+            <!-- В этапе 1 -->
+            <DockPanel Grid.Row="1">
+               <TextBlock DockPanel.Dock="Top" Text="{DynamicResource CrossSectionAreas}"
+                          FontSize="11" Foreground="Gray" Margin="0,0,0,2"/>
+               <ListBox ItemsSource="{Binding Stage1Areas}"
+                        SelectedItem="{Binding SelectedArea, Mode=TwoWay}"
+                        BorderThickness="1" Padding="2"
+                        ItemTemplate="{StaticResource SectionAreaItemTemplate}"/>
+            </DockPanel>
+
+            <GridSplitter Grid.Row="2" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                          ShowsPreview="True" Height="4"/>
+
+            <!-- Из пула (Этап 1) -->
+            <DockPanel Grid.Row="3">
+               <TextBlock DockPanel.Dock="Top" Text="{DynamicResource CrossSectionPool}"
+                          FontSize="11" Foreground="Gray" Margin="0,0,0,2"/>
+               <ListBox ItemsSource="{Binding App.MaterialAreas}"
+                        BorderThickness="1" Padding="2">
+                  <ListBox.ItemTemplate>
+                     <DataTemplate DataType="{x:Type core:MaterialArea}">
+                        <Grid Margin="2,1">
+                           <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="16"/>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="22"/>
+                           </Grid.ColumnDefinitions>
+                           <Path Grid.Column="0" Width="12" Height="12" Stretch="Uniform"
+                                 Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrush}, FallbackValue=Gray}"
+                                 Data="{Binding Material.Type, Converter={StaticResource MatTypeToGeom}, FallbackValue={x:Null}}"/>
+                           <TextBlock Grid.Column="1" Text="{Binding Tag}"
+                                      VerticalAlignment="Center" Margin="4,0"/>
+                           <Button Grid.Column="2" Style="{StaticResource IconButton25}"
+                                   ToolTip="{DynamicResource AddToSection}"
+                                   Command="{Binding DataContext.AddToStage1Command,
+                                             RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   CommandParameter="{Binding}">
+                              <Path Data="M8,4 L8,12 M4,8 L12,8" Stroke="Gray"
+                                    StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                           </Button>
+                        </Grid>
+                     </DataTemplate>
+                  </ListBox.ItemTemplate>
+               </ListBox>
+            </DockPanel>
+
+            <!-- Кривизна 1-го этапа -->
+            <GroupBox Grid.Row="4" Header="{DynamicResource Stage1Kurvature}" Margin="0,4,0,0">
+               <Grid Margin="4">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="Auto"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource KurvatureE0}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox  Grid.Row="0" Grid.Column="1"
+                            Text="{Binding E0, UpdateSourceTrigger=PropertyChanged, StringFormat=G6}"
+                            Margin="0,0,0,4"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource KurvatureKy}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox  Grid.Row="1" Grid.Column="1"
+                            Text="{Binding Ky, UpdateSourceTrigger=PropertyChanged, StringFormat=G6}"
+                            Margin="0,0,0,4"/>
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource KurvatureKz}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox  Grid.Row="2" Grid.Column="1"
+                            Text="{Binding Kz, UpdateSourceTrigger=PropertyChanged, StringFormat=G6}"/>
+               </Grid>
+            </GroupBox>
+         </Grid>
 
          <!-- Этап 2 -->
-         <DockPanel Grid.Column="2" Margin="4">
-            <TextBlock DockPanel.Dock="Top" Text="{DynamicResource CrossSectionStage2}"
+         <Grid Grid.Column="2" Margin="4">
+            <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="*"/>
+               <RowDefinition Height="4"/>
+               <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="{DynamicResource CrossSectionStage2}"
                        FontWeight="SemiBold" Margin="0,0,0,4"/>
-            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,4,0,0">
-               <Button Content="{DynamicResource AddConcreteAreaShort}"
-                       Command="{Binding AddS2ConcreteCommand}"
-                       Padding="5,3" Margin="0,0,3,0" FontSize="11"/>
-               <Button Content="{DynamicResource AddRebarAreaShort}"
-                       Command="{Binding AddS2RebarCommand}"
-                       Padding="5,3" Margin="0,0,3,0" FontSize="11"/>
-               <Button Content="{DynamicResource AddSteelAreaShort}"
-                       Command="{Binding AddS2SteelCommand}"
-                       Padding="5,3" FontSize="11"/>
-            </StackPanel>
-            <ListBox ItemsSource="{Binding Stage2Areas}"
-                     SelectedItem="{Binding SelectedArea, Mode=TwoWay}"
-                     BorderThickness="1" Padding="2"
-                     ItemTemplate="{StaticResource AreaListItemTemplate}"/>
-         </DockPanel>
+
+            <!-- В этапе 2 -->
+            <DockPanel Grid.Row="1">
+               <TextBlock DockPanel.Dock="Top" Text="{DynamicResource CrossSectionAreas}"
+                          FontSize="11" Foreground="Gray" Margin="0,0,0,2"/>
+               <ListBox ItemsSource="{Binding Stage2Areas}"
+                        SelectedItem="{Binding SelectedArea, Mode=TwoWay}"
+                        BorderThickness="1" Padding="2"
+                        ItemTemplate="{StaticResource SectionAreaItemTemplate}"/>
+            </DockPanel>
+
+            <GridSplitter Grid.Row="2" VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                          ShowsPreview="True" Height="4"/>
+
+            <!-- Из пула (Этап 2) -->
+            <DockPanel Grid.Row="3">
+               <TextBlock DockPanel.Dock="Top" Text="{DynamicResource CrossSectionPool}"
+                          FontSize="11" Foreground="Gray" Margin="0,0,0,2"/>
+               <ListBox ItemsSource="{Binding App.MaterialAreas}"
+                        BorderThickness="1" Padding="2">
+                  <ListBox.ItemTemplate>
+                     <DataTemplate DataType="{x:Type core:MaterialArea}">
+                        <Grid Margin="2,1">
+                           <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="16"/>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="22"/>
+                           </Grid.ColumnDefinitions>
+                           <Path Grid.Column="0" Width="12" Height="12" Stretch="Uniform"
+                                 Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrush}, FallbackValue=Gray}"
+                                 Data="{Binding Material.Type, Converter={StaticResource MatTypeToGeom}, FallbackValue={x:Null}}"/>
+                           <TextBlock Grid.Column="1" Text="{Binding Tag}"
+                                      VerticalAlignment="Center" Margin="4,0"/>
+                           <Button Grid.Column="2" Style="{StaticResource IconButton25}"
+                                   ToolTip="{DynamicResource AddToSection}"
+                                   Command="{Binding DataContext.AddToStage2Command,
+                                             RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   CommandParameter="{Binding}">
+                              <Path Data="M8,4 L8,12 M4,8 L12,8" Stroke="Gray"
+                                    StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                           </Button>
+                        </Grid>
+                     </DataTemplate>
+                  </ListBox.ItemTemplate>
+               </ListBox>
+            </DockPanel>
+         </Grid>
 
          <!-- Превью сечения -->
          <Border Grid.Column="4" BorderThickness="1,0,1,0"
@@ -187,20 +257,19 @@
                                   DisplayMemberPath="Tag"
                                   Margin="0,0,0,8"/>
                         <TextBlock Text="{DynamicResource DiagramType}" Margin="0,0,0,2"/>
-                        <ComboBox ItemsSource="{StaticResource DiagramTypes}"
+                        <ComboBox ItemsSource="{Binding DiagramTypeValues}"
                                   SelectedItem="{Binding DiagrammType}"
                                   Margin="0,0,0,8"/>
                         <GroupBox Header="{DynamicResource Hull}" Margin="0,0,0,8">
                            <StackPanel Margin="4">
-                              <ComboBox x:Name="hullComboTS"
-                                        ItemsSource="{Binding ProjectContours}"
+                              <ComboBox ItemsSource="{Binding ProjectContours}"
                                         SelectedItem="{Binding PoolContour, Mode=TwoWay}"
                                         DisplayMemberPath="Tag"
                                         Margin="0,0,0,4"/>
                               <StackPanel Orientation="Horizontal">
                                  <Button Content="{DynamicResource SelectFromPool}"
                                          Command="{Binding SetHullFromPoolCommand}"
-                                         CommandParameter="{Binding SelectedItem, ElementName=hullComboTS}"
+                                         CommandParameter="{Binding PoolContour}"
                                          Padding="6,3" Margin="0,0,4,0"/>
                                  <Button Content="{DynamicResource ClearHull}"
                                          Command="{Binding ClearHullCommand}"

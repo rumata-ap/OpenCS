@@ -31,13 +31,8 @@ namespace OpenCS.ViewModels
          foreach (var avm in Stage1Areas.Concat(Stage2Areas))
             avm.PropertyChanged += OnAreaPropertyChanged;
 
-         AddS1ConcreteCommand = new RelayCommand(_ => AddToStage(Stage1Areas, _model.Stage1, MatType.Concrete));
-         AddS1RebarCommand    = new RelayCommand(_ => AddToStage(Stage1Areas, _model.Stage1, MatType.ReSteelF));
-         AddS1SteelCommand    = new RelayCommand(_ => AddToStage(Stage1Areas, _model.Stage1, MatType.Steel));
-         AddS2ConcreteCommand = new RelayCommand(_ => AddToStage(Stage2Areas, _model,        MatType.Concrete));
-         AddS2RebarCommand    = new RelayCommand(_ => AddToStage(Stage2Areas, _model,        MatType.ReSteelF));
-         AddS2SteelCommand    = new RelayCommand(_ => AddToStage(Stage2Areas, _model,        MatType.Steel));
-
+         AddToStage1Command           = new RelayCommand(o => AddToStage(Stage1Areas, _model.Stage1, o as MaterialArea));
+         AddToStage2Command           = new RelayCommand(o => AddToStage(Stage2Areas, _model,        o as MaterialArea));
          RemoveAreaFromSectionCommand = new RelayCommand(o => RemoveArea(o as MaterialAreaVM));
          OpenMeshForAreaCommand       = new RelayCommand(o => OpenMeshForArea(o as MaterialAreaVM));
          SaveCommand                  = new RelayCommand(_ => Save());
@@ -94,12 +89,8 @@ namespace OpenCS.ViewModels
 
       public IReadOnlyList<PlotElement> PlotElements { get; private set; } = [];
 
-      public ICommand AddS1ConcreteCommand { get; }
-      public ICommand AddS1RebarCommand { get; }
-      public ICommand AddS1SteelCommand { get; }
-      public ICommand AddS2ConcreteCommand { get; }
-      public ICommand AddS2RebarCommand { get; }
-      public ICommand AddS2SteelCommand { get; }
+      public ICommand AddToStage1Command { get; }
+      public ICommand AddToStage2Command { get; }
       public ICommand RemoveAreaFromSectionCommand { get; }
       public ICommand OpenMeshForAreaCommand { get; }
       public ICommand SaveCommand { get; }
@@ -119,14 +110,15 @@ namespace OpenCS.ViewModels
          OnPropertyChanged(nameof(PlotElements));
       }
 
-      void AddToStage(ObservableCollection<MaterialAreaVM> collection, CrossSection section, MatType type)
+      void AddToStage(ObservableCollection<MaterialAreaVM> collection, CrossSection section, MaterialArea? area)
       {
-         var area = new MaterialArea { Tag = $"Область {collection.Count + 1}" };
+         if (area == null || section.Areas.Contains(area)) return;
          section.Areas.Add(area);
          var avm = new MaterialAreaVM(area, App);
          avm.PropertyChanged += OnAreaPropertyChanged;
          collection.Add(avm);
          SelectedArea = avm;
+         RefreshPlot();
          App.IsDirty = true;
       }
 
@@ -169,11 +161,6 @@ namespace OpenCS.ViewModels
 
       public void Save()
       {
-         for (int i = 0; i < _model.Stage1.Areas.Count; i++)
-            _model.Stage1.Areas[i].Num = i + 1;
-         for (int i = 0; i < _model.Areas.Count; i++)
-            _model.Areas[i].Num = i + 1;
-
          if (_model.Num == 0)
             _model.Num = App.CrossSections.Count > 0
                ? App.CrossSections.Max(s => s.Num) + 1 : 1;

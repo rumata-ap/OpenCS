@@ -27,9 +27,7 @@ namespace OpenCS.ViewModels
          foreach (var avm in Areas)
             avm.PropertyChanged += OnAreaPropertyChanged;
 
-         AddConcreteAreaCommand       = new RelayCommand(_ => AddArea(MatType.Concrete));
-         AddRebarAreaCommand          = new RelayCommand(_ => AddArea(MatType.ReSteelF));
-         AddSteelAreaCommand          = new RelayCommand(_ => AddArea(MatType.Steel));
+         AddFromPoolCommand           = new RelayCommand(o => AddFromPool(o as MaterialArea));
          SaveCommand                  = new RelayCommand(_ => Save());
          RemoveAreaFromSectionCommand = new RelayCommand(o => RemoveArea(o as MaterialAreaVM));
          OpenMeshForAreaCommand       = new RelayCommand(o => OpenMeshForArea(o as MaterialAreaVM));
@@ -56,9 +54,7 @@ namespace OpenCS.ViewModels
 
       public IReadOnlyList<PlotElement> PlotElements { get; private set; } = [];
 
-      public ICommand AddConcreteAreaCommand { get; }
-      public ICommand AddRebarAreaCommand { get; }
-      public ICommand AddSteelAreaCommand { get; }
+      public ICommand AddFromPoolCommand { get; }
       public ICommand SaveCommand { get; }
       public ICommand RemoveAreaFromSectionCommand { get; }
       public ICommand OpenMeshForAreaCommand { get; }
@@ -104,14 +100,15 @@ namespace OpenCS.ViewModels
             });
       }
 
-      void AddArea(MatType type)
+      void AddFromPool(MaterialArea? area)
       {
-         var area = new MaterialArea { Tag = $"Область {Areas.Count + 1}" };
+         if (area == null || _model.Areas.Contains(area)) return;
          _model.Areas.Add(area);
          var avm = new MaterialAreaVM(area, App);
          avm.PropertyChanged += OnAreaPropertyChanged;
          Areas.Add(avm);
          SelectedArea = avm;
+         RefreshPlot();
          App.IsDirty = true;
       }
 
@@ -143,8 +140,6 @@ namespace OpenCS.ViewModels
 
       public void Save()
       {
-         for (int i = 0; i < _model.Areas.Count; i++)
-            _model.Areas[i].Num = i + 1;
          if (_model.Num == 0)
             _model.Num = App.CrossSections.Count > 0
                ? App.CrossSections.Max(s => s.Num) + 1 : 1;

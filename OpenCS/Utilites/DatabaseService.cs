@@ -25,7 +25,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 5;
+      const int CurrentSchemaVersion = 6;
 
       static readonly string[] Migrations =
       [
@@ -78,6 +78,18 @@ namespace OpenCS.Utilites
          -- v5: длина ребра и число итераций сглаживания для триангуляции.
          ALTER TABLE material_areas ADD COLUMN mesh_max_edge_len REAL    NOT NULL DEFAULT 0.0;
          ALTER TABLE material_areas ADD COLUMN mesh_smooth_iter  INTEGER NOT NULL DEFAULT 5;
+         """,
+         """
+         -- v6: cross_section_areas junction table — переход от section_id на material_areas к отдельной таблице связей.
+         CREATE TABLE IF NOT EXISTS cross_section_areas (
+             section_id  INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+             area_id     INTEGER NOT NULL REFERENCES material_areas(id),
+             sort_order  INTEGER NOT NULL DEFAULT 0,
+             PRIMARY KEY (section_id, area_id)
+         );
+         INSERT OR IGNORE INTO cross_section_areas (section_id, area_id, sort_order)
+             SELECT section_id, id, num FROM material_areas WHERE section_id IS NOT NULL;
+         UPDATE material_areas SET section_id = NULL WHERE section_id IS NOT NULL;
          """
       ];
 
@@ -178,6 +190,12 @@ namespace OpenCS.Utilites
                 e0         REAL NOT NULL DEFAULT 0,
                 ky         REAL NOT NULL DEFAULT 0,
                 kz         REAL NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS cross_section_areas (
+                section_id  INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+                area_id     INTEGER NOT NULL REFERENCES material_areas(id),
+                sort_order  INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (section_id, area_id)
             );
             CREATE TABLE IF NOT EXISTS material_areas (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -361,10 +379,10 @@ namespace OpenCS.Utilites
          LoadCircles();
          LoadContours();
          LoadDiagrams();
-         LoadCrossSections();
-         ResolveReferencesForCrossSections();
          LoadMaterialAreas();
          ResolveReferencesForStandaloneAreas();
+         LoadCrossSections();
+         ResolveReferencesForCrossSections();
       }
 
       void LoadMaterials()
@@ -467,74 +485,22 @@ namespace OpenCS.Utilites
             }
          }
 
-         var areas = new Dictionary<int, MaterialArea>();
+         // Связываем секции с областями из пула через junction-таблицу
+         var poolAreaDict = MaterialAreas.ToDictionary(a => a.Id);
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
-               SELECT id, section_id, num, tag, description,
-                      material_id, host_area_id, diagramm_type, nx, ny, wkt
-               FROM material_areas WHERE section_id IS NOT NULL ORDER BY section_id, num
+               SELECT section_id, area_id FROM cross_section_areas
+               ORDER BY section_id, sort_order
             """;
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
-               var area = new MaterialArea
-               {
-                  Id = r.GetInt32(0),
-                  SectionId = r.GetInt32(1),
-                  Num = r.GetInt32(2),
-                  Tag = r.GetString(3),
-                  Description = r.IsDBNull(4) ? null : r.GetString(4),
-                  MaterialId = r.IsDBNull(5) ? 0 : r.GetInt32(5),
-                  HostAreaId = r.IsDBNull(6) ? null : r.GetInt32(6),
-                  DiagrammType = Enum.Parse<DiagrammType>(r.GetString(7)),
-                  NX = r.GetInt32(8),
-                  NY = r.GetInt32(9),
-                  WKT = r.IsDBNull(10) ? null : r.GetString(10)
-               };
-               if (area.WKT != null)
-               {
-                  WktHelper.ParseWKTPolygon(area.WKT,
-                     out var outerX, out var outerY,
-                     out var holeXs, out var holeYs);
-                  if (outerX.Count >= 5)
-                  {
-                     var hull = new Contour(outerX, outerY, "hull") { Type = ContourType.Hull };
-                     area.Contours.Add(hull);
-                  }
-                  for (int j = 0; j < holeXs.Count; j++)
-                     if (holeXs[j].Count >= 5)
-                     {
-                        var hole = new Contour(holeXs[j], holeYs[j], $"hole{j}") { Type = ContourType.Hole };
-                        area.Contours.Add(hole);
-                     }
-               }
-               areas[area.Id] = area;
-               if (sections.TryGetValue(area.SectionId, out var sec))
+               int sId = r.GetInt32(0), aId = r.GetInt32(1);
+               if (sections.TryGetValue(sId, out var sec) && poolAreaDict.TryGetValue(aId, out var area))
                   sec.Areas.Add(area);
             }
          }
-
-         using (var cmd = _connection.CreateCommand())
-         {
-            cmd.CommandText = "SELECT area_id, x, y, area, diameter, eps_p FROM point_fibers";
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-               int areaId = r.GetInt32(0);
-               if (!areas.TryGetValue(areaId, out var area)) continue;
-               var f = new Fiber(r.GetDouble(1), r.GetDouble(2))
-               {
-                  Area = r.GetDouble(3),
-                  Diameter = r.GetDouble(4),
-                  Eps_p = r.GetDouble(5),
-                  TypeFiber = FiberType.point
-               };
-               area.Fibers.Add(f);
-            }
-         }
-
-         LoadMeshFibersForAreas(areas.Values, _connection);
 
          using (var cmd = _connection.CreateCommand())
          {
@@ -571,14 +537,13 @@ namespace OpenCS.Utilites
 
       void ResolveReferencesForCrossSections()
       {
+         // Материалы и диаграммы областей уже разрешены в пуле (ResolveReferencesForStandaloneAreas).
+         // Вызываем ResolveAndBuildDiagramms для правильной привязки HostArea внутри сечения.
          foreach (var sec in CrossSections)
          {
-            foreach (var area in sec.Areas)
-               area.Material = Materials.FirstOrDefault(m => m.Id == area.MaterialId);
             sec.ResolveAndBuildDiagramms();
             if (sec is TwoStageSection tss)
-               foreach (var area in tss.Stage1.Areas)
-                  area.Material = Materials.FirstOrDefault(m => m.Id == area.MaterialId);
+               tss.Stage1.ResolveAndBuildDiagramms();
          }
       }
 
@@ -1073,21 +1038,12 @@ namespace OpenCS.Utilites
          if (isNew) section.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
 
-         // Удаляем старые области (каскадно удалятся point_fibers)
-         using var delCmd = _connection.CreateCommand();
-         delCmd.CommandText = "DELETE FROM material_areas WHERE section_id = @sid";
-         delCmd.Parameters.AddWithValue("@sid", section.Id);
-         delCmd.ExecuteNonQuery();
-
-         foreach (var area in section.Areas)
-            SaveMaterialAreaCore(area, section.Id);
+         // Сохраняем список ссылок на области через junction-таблицу
+         SaveSectionAreaJunction(section);
 
          if (section is TwoStageSection tss)
          {
             SaveCrossSectionCore(tss.Stage1);
-
-            foreach (var area in tss.Stage1.Areas)
-               SaveMaterialAreaCore(area, tss.Stage1.Id);
 
             using var stageCmd = _connection.CreateCommand();
             stageCmd.CommandText = """
@@ -1107,42 +1063,26 @@ namespace OpenCS.Utilites
          }
       }
 
-      void SaveMaterialAreaCore(MaterialArea area, int sectionId)
+      void SaveSectionAreaJunction(CrossSection section)
       {
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = """
-            INSERT INTO material_areas
-               (section_id, num, tag, description, material_id,
-                host_area_id, diagramm_type, nx, ny, wkt)
-            VALUES (@sid, @num, @tag, @desc, @mid, @hid, @dtype, @nx, @ny, @wkt);
-            SELECT last_insert_rowid();
-         """;
-         cmd.Parameters.AddWithValue("@sid", sectionId);
-         cmd.Parameters.AddWithValue("@num", area.Num);
-         cmd.Parameters.AddWithValue("@tag", area.Tag);
-         cmd.Parameters.AddWithValue("@desc", (object?)area.Description ?? DBNull.Value);
-         cmd.Parameters.AddWithValue("@mid", area.MaterialId == 0 ? (object)DBNull.Value : area.MaterialId);
-         cmd.Parameters.AddWithValue("@hid", (object?)area.HostAreaId ?? DBNull.Value);
-         cmd.Parameters.AddWithValue("@dtype", area.DiagrammType.ToString());
-         cmd.Parameters.AddWithValue("@nx", area.NX);
-         cmd.Parameters.AddWithValue("@ny", area.NY);
-         cmd.Parameters.AddWithValue("@wkt", (object?)area.WKT ?? DBNull.Value);
-         area.Id = (int)(long)cmd.ExecuteScalar()!;
+         using var delCmd = _connection.CreateCommand();
+         delCmd.CommandText = "DELETE FROM cross_section_areas WHERE section_id = @sid";
+         delCmd.Parameters.AddWithValue("@sid", section.Id);
+         delCmd.ExecuteNonQuery();
 
-         foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
+         for (int i = 0; i < section.Areas.Count; i++)
          {
-            using var fc = _connection.CreateCommand();
-            fc.CommandText = """
-               INSERT INTO point_fibers (area_id, x, y, area, diameter, eps_p)
-               VALUES (@aid, @x, @y, @a, @d, @ep);
+            var area = section.Areas[i];
+            if (area.Id == 0) continue; // область не сохранена в пуле — пропускаем
+            using var ins = _connection.CreateCommand();
+            ins.CommandText = """
+               INSERT OR IGNORE INTO cross_section_areas (section_id, area_id, sort_order)
+               VALUES (@sid, @aid, @ord);
             """;
-            fc.Parameters.AddWithValue("@aid", area.Id);
-            fc.Parameters.AddWithValue("@x", f.X);
-            fc.Parameters.AddWithValue("@y", f.Y);
-            fc.Parameters.AddWithValue("@a", f.Area);
-            fc.Parameters.AddWithValue("@d", f.Diameter);
-            fc.Parameters.AddWithValue("@ep", f.Eps_p);
-            fc.ExecuteNonQuery();
+            ins.Parameters.AddWithValue("@sid", section.Id);
+            ins.Parameters.AddWithValue("@aid", area.Id);
+            ins.Parameters.AddWithValue("@ord", i);
+            ins.ExecuteNonQuery();
          }
       }
 
