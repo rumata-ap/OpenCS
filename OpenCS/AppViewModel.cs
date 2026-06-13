@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Globalization;
 
 using CScore;
 using OpenCS.Services;
@@ -12,6 +13,13 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.IO;
+
+using CsvHelper;
+using CsvHelper.Configuration;
+
+using netDxf;
+using netDxf.Entities;
+using netDxf.Tables;
 
 namespace OpenCS
 {
@@ -382,7 +390,15 @@ namespace OpenCS
       public ContourVM? CurrentContour
       {
          get => currentContour;
-         set { currentContour = value; CurrentPage = value != null ? new ContourPlot(this) : null!; OnPropertyChanged(); }
+         set
+         {
+            currentContour = value;
+            if (value != null)
+               CurrentPage = new ContourPlot(this, isSaved: value.Contour.Points.Count >= 4);
+            else
+               CurrentPage = null!;
+            OnPropertyChanged();
+         }
       }
 
       /// <summary>
@@ -427,6 +443,22 @@ namespace OpenCS
       /// Открывает страницу <see cref="FromDxfPage"/>.
       /// </summary>
       public ICommand FromDxfCommand { get; set; } = null!;
+
+      /// <summary>Команда прямого импорта замкнутых контуров из DXF без мастера.</summary>
+      public ICommand ImportContoursFromDxfCommand { get; set; } = null!;
+
+      /// <summary>Команда добавления новой окружности вручную.</summary>
+      public ICommand AddCircleCommand { get; set; } = null!;
+      /// <summary>Команда удаления окружности (параметр CircleP).</summary>
+      public ICommand DeleteCircleCommand { get; set; } = null!;
+      /// <summary>Команда быстрого импорта окружностей из DXF (все объекты, имена по слоям).</summary>
+      public ICommand ImportCirclesFromDxfCommand { get; set; } = null!;
+      /// <summary>Команда экспорта окружностей проекта в DXF-файл.</summary>
+      public ICommand ExportCirclesToDxfCommand { get; set; } = null!;
+      /// <summary>Команда импорта окружностей из CSV-файла.</summary>
+      public ICommand ImportCirclesFromCsvCommand { get; set; } = null!;
+      /// <summary>Команда экспорта окружностей проекта в CSV-файл.</summary>
+      public ICommand ExportCirclesToCsvCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда создания нового проекта. Сбрасывает все данные и создаёт пустую базу данных.
@@ -706,6 +738,13 @@ namespace OpenCS
          NewPlateSectionCommand       = new RelayCommand(_ => NewPlateSection());
          DeletePlateSectionCommand    = new RelayCommand(p => DeletePlateSection(p as CScore.PlateSection));
          DuplicatePlateSectionCommand = new RelayCommand(p => DuplicatePlateSection(p as CScore.PlateSection));
+         ImportContoursFromDxfCommand = new RelayCommand(_ => ImportContoursFromDxf());
+         AddCircleCommand             = new RelayCommand(_ => AddCircle());
+         DeleteCircleCommand          = new RelayCommand(p => DeleteCircle(p as CircleP));
+         ImportCirclesFromDxfCommand  = new RelayCommand(_ => ImportCirclesFromDxf());
+         ExportCirclesToDxfCommand    = new RelayCommand(_ => ExportCirclesToDxf());
+         ImportCirclesFromCsvCommand  = new RelayCommand(_ => ImportCirclesFromCsv());
+         ExportCirclesToCsvCommand    = new RelayCommand(_ => ExportCirclesToCsv());
       }
 
       void SetLanguage(object? param)
@@ -743,7 +782,6 @@ namespace OpenCS
       void NewContour(object? o = null)
       {
          CurrentContour = new ContourVM { mvm = this };
-         CurrentPage = new ContourPlot(this, false);
       }
 
       /// <summary>
@@ -796,6 +834,197 @@ namespace OpenCS
             title: "Импорт данных из файла DXF");
          if (string.IsNullOrEmpty(fileName)) return;
          CurrentPage = new FromDxfPage(this, fileName);
+      }
+
+      private void AddCircle(object? _ = null)
+      {
+         var cp = new CircleP(0, 0, 0.01);
+         db.SaveCircle(cp);
+         Circles.Add(cp);
+         this.CirclesRenumber();
+         LogService.Info(Loc.S("CircleAdded"));
+      }
+
+      private void DeleteCircle(CircleP? cp)
+      {
+         if (cp == null) return;
+         var res = MessageBox.Show(Loc.S("ConfirmDeleteCircle"), Loc.S("Confirmation"),
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+         if (res != MessageBoxResult.Yes) return;
+         db.DeleteCircle(cp);
+         Circles.Remove(cp);
+         this.CirclesRenumber();
+         LogService.Info(string.Format(Loc.S("CircleDeleted"), cp.Tag));
+      }
+
+      private void ImportContoursFromDxf(object? _ = null)
+      {
+         string fileName = FileDialogService.OpenFile(
+            filter: "Файл обмена чертежами (*.dxf)|*.dxf",
+            title: Loc.S("ImportContoursFromDxfTitle"));
+         if (string.IsNullOrEmpty(fileName)) return;
+
+         var dxf = DxfDocument.Load(fileName);
+         const double scale = 0.001; // мм → м
+         string geoSet = Path.GetFileNameWithoutExtension(fileName);
+         int added = 0;
+         int skipped = 0;
+
+         foreach (var pline in dxf.Entities.Polylines2D)
+         {
+            var verts = pline.Vertexes;
+            if (verts.Count < 2) continue;
+
+            bool firstEqualsLast =
+               Math.Abs(verts[0].Position.X - verts[^1].Position.X) < 1e-4 &&
+               Math.Abs(verts[0].Position.Y - verts[^1].Position.Y) < 1e-4;
+
+            bool isClosed = pline.IsClosed || firstEqualsLast;
+            if (!isClosed) { skipped++; continue; }
+
+            var pts = new List<StressPoint>();
+            int j = 1;
+            foreach (var v in verts)
+               pts.Add(new StressPoint(v.Position.X * scale, v.Position.Y * scale) { Num = j++ });
+
+            // IsClosed-флаг без совпадающих вершин → добавляем замыкающую точку
+            if (pline.IsClosed && !firstEqualsLast)
+               pts.Add(new StressPoint(verts[0].Position.X * scale, verts[0].Position.Y * scale) { Num = j });
+
+            if (pts.Count < 4) { skipped++; continue; }
+
+            var contour = new Contour(pts, pline.Layer.Name) { GeometrySet = geoSet };
+            db.SaveContour(contour);
+            Contours.Add(contour); // CollectionChanged → ContoursRenumber
+            added++;
+         }
+
+         if (added > 0)
+            LogService.Info(string.Format(Loc.S("ContoursImportedFromDxf"), added, Path.GetFileName(fileName)));
+         if (skipped > 0)
+            LogService.Warning(string.Format(Loc.S("ContoursSkippedDxf"), skipped));
+         if (added == 0 && skipped == 0)
+            LogService.Warning(string.Format(Loc.S("NoDxfPolylines"), Path.GetFileName(fileName)));
+      }
+
+      private void ImportCirclesFromDxf(object? _ = null)
+      {
+         string fileName = FileDialogService.OpenFile(
+            filter: "Файл обмена чертежами (*.dxf)|*.dxf",
+            title: Loc.S("ImportCirclesFromDxfTitle"));
+         if (string.IsNullOrEmpty(fileName)) return;
+
+         var dxf = DxfDocument.Load(fileName);
+         const double scale = 0.001; // мм → м
+         string geoSet = Path.GetFileNameWithoutExtension(fileName);
+         int added = 0;
+
+         foreach (var c in dxf.Entities.Circles)
+         {
+            var cp = new CircleP(c.Center.X * scale, c.Center.Y * scale, c.Radius * scale)
+            {
+               Tag = c.Layer.Name,
+               GeometrySet = geoSet
+            };
+            db.SaveCircle(cp);
+            Circles.Add(cp);
+            added++;
+         }
+
+         if (added > 0)
+         {
+            this.CirclesRenumber();
+            LogService.Info(string.Format(Loc.S("CirclesImportedFromDxf"), added, Path.GetFileName(fileName)));
+         }
+         else
+         {
+            LogService.Warning(string.Format(Loc.S("NoDxfCircles"), Path.GetFileName(fileName)));
+         }
+      }
+
+      private void ExportCirclesToDxf(object? _ = null)
+      {
+         if (Circles.Count == 0)
+         {
+            LogService.Warning(Loc.S("NoCirclesToExport"));
+            return;
+         }
+
+         string fileName = FileDialogService.SaveFile(
+            filter: "Файл обмена чертежами (*.dxf)|*.dxf",
+            defaultExt: "*.dxf",
+            title: Loc.S("ExportCirclesToDxfTitle"));
+         if (string.IsNullOrEmpty(fileName)) return;
+
+         var dxfDoc = new DxfDocument();
+         const double scale = 1000.0; // м → мм
+
+         foreach (var cp in Circles)
+         {
+            string layerName = string.IsNullOrWhiteSpace(cp.Tag) ? "0" : cp.Tag;
+            if (!dxfDoc.Layers.Contains(layerName))
+               dxfDoc.Layers.Add(new Layer(layerName));
+            var circle = new Circle(
+               new Vector3(cp.X * scale, cp.Y * scale, 0),
+               cp.Radius * scale)
+            {
+               Layer = dxfDoc.Layers[layerName]
+            };
+            dxfDoc.Entities.Add(circle);
+         }
+
+         dxfDoc.Save(fileName);
+         LogService.Info(string.Format(Loc.S("CirclesExportedToDxf"), Circles.Count, Path.GetFileName(fileName)));
+      }
+
+      private void ImportCirclesFromCsv(object? _ = null)
+      {
+         string fileName = FileDialogService.OpenFile(
+            filter: "Текстовый файл (*.csv)|*.csv",
+            title: Loc.S("ImportCirclesFromCsvTitle"));
+         if (string.IsNullOrEmpty(fileName)) return;
+
+         var config = new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";" };
+         using var reader = new StreamReader(fileName);
+         using var csv = new CsvReader(reader, config);
+         var records = csv.GetRecords<CircleCsvRow>().ToList();
+         int added = 0;
+
+         foreach (var r in records)
+         {
+            var cp = new CircleP(r.X, r.Y, r.Radius) { Tag = r.Tag };
+            db.SaveCircle(cp);
+            Circles.Add(cp);
+            added++;
+         }
+
+         if (added > 0)
+         {
+            this.CirclesRenumber();
+            LogService.Info(string.Format(Loc.S("CirclesImportedFromCsv"), added, Path.GetFileName(fileName)));
+         }
+      }
+
+      private void ExportCirclesToCsv(object? _ = null)
+      {
+         if (Circles.Count == 0)
+         {
+            LogService.Warning(Loc.S("NoCirclesToExport"));
+            return;
+         }
+
+         string fileName = FileDialogService.SaveFile(
+            filter: "Текстовый файл (*.csv)|*.csv",
+            defaultExt: "*.csv",
+            title: Loc.S("ExportCirclesToCsvTitle"));
+         if (string.IsNullOrEmpty(fileName)) return;
+
+         var config = new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";" };
+         using var writer = new StreamWriter(fileName);
+         using var csv = new CsvWriter(writer, config);
+         csv.WriteRecords(Circles.Select(c => new CircleCsvRow
+            { Tag = c.Tag, X = c.X, Y = c.Y, Radius = c.Radius }));
+         LogService.Info(string.Format(Loc.S("CirclesExportedToCsv"), Circles.Count, Path.GetFileName(fileName)));
       }
 
       void RefreshAfterLoad()
@@ -1303,6 +1532,14 @@ namespace OpenCS
          db.SavePlateSection(copy);
          PlateSections.Add(copy);
          IsDirty = true;
+      }
+
+      private record CircleCsvRow
+      {
+         public string Tag    { get; init; } = "";
+         public double X      { get; init; }
+         public double Y      { get; init; }
+         public double Radius { get; init; }
       }
    }
 

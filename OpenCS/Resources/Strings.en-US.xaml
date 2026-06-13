@@ -288,6 +288,16 @@
     <system:String x:Key="DiagL3_ReSteelU">Tri-linear (L3) — reinforcement with conditional yield</system:String>
     <system:String x:Key="DiagL2_Steel">Bi-linear (L2) — structural steel</system:String>
 
+   <!-- ContourPlot -->
+   <system:String x:Key="ContourTagHeader">Label (DXF layer)</system:String>
+   <system:String x:Key="ContourSetHeader">Set (DXF file)</system:String>
+   <system:String x:Key="ContourCoordinates">Coordinates</system:String>
+   <system:String x:Key="TipRenumContour">Renumber contour vertices</system:String>
+   <system:String x:Key="TipExportContourCsv">Export contour coordinates to *.csv</system:String>
+   <system:String x:Key="TipImportContourCsv">Import contour coordinates from *.csv</system:String>
+   <system:String x:Key="TipToggleEdit">Toggle edit mode</system:String>
+   <system:String x:Key="TipSaveContour">Save contour or applied changes</system:String>
+
    <!-- RibbonBar -->
    <system:String x:Key="RibbonHome">Home</system:String>
    <system:String x:Key="RibbonGroupGeometry">Geometry</system:String>
@@ -481,5 +491,35 @@
    <system:String x:Key="RgBarsTable">Bars</system:String>
    <system:String x:Key="RgGroupTag">Group tag</system:String>
    <system:String x:Key="RgMaterial">Material</system:String>
+
+   <!-- CirclesView -->
+   <system:String x:Key="R_m">R, m</system:String>
+   <system:String x:Key="D_m">D, m</system:String>
+   <system:String x:Key="CircleSet">Set</system:String>
+   <system:String x:Key="ConfirmDeleteCircle">Delete selected circle permanently?</system:String>
+   <system:String x:Key="CircleDeleted">Circle '{0}' deleted</system:String>
+   <system:String x:Key="CircleAdded">New circle added</system:String>
+
+   <!-- Contours DXF import -->
+   <system:String x:Key="ImportContoursFromDxfTitle">Import contours from DXF</system:String>
+   <system:String x:Key="ContoursImportedFromDxf">Imported {0} contours from '{1}'</system:String>
+   <system:String x:Key="ContoursSkippedDxf">Skipped {0} open polylines</system:String>
+   <system:String x:Key="NoDxfPolylines">No polylines found in '{0}'</system:String>
+
+   <!-- Circles context menu -->
+   <system:String x:Key="ToDxf">To DXF</system:String>
+   <system:String x:Key="FromCsv">From CSV</system:String>
+   <system:String x:Key="ToCsv">To CSV</system:String>
+   <!-- Circles import/export messages -->
+   <system:String x:Key="ImportCirclesFromDxfTitle">Import circles from DXF</system:String>
+   <system:String x:Key="ExportCirclesToDxfTitle">Export circles to DXF</system:String>
+   <system:String x:Key="ImportCirclesFromCsvTitle">Import circles from CSV</system:String>
+   <system:String x:Key="ExportCirclesToCsvTitle">Export circles to CSV</system:String>
+   <system:String x:Key="CirclesImportedFromDxf">Imported {0} circles from '{1}'</system:String>
+   <system:String x:Key="CirclesExportedToDxf">Exported {0} circles to '{1}'</system:String>
+   <system:String x:Key="CirclesImportedFromCsv">Imported {0} circles from '{1}'</system:String>
+   <system:String x:Key="CirclesExportedToCsv">Exported {0} circles to '{1}'</system:String>
+   <system:String x:Key="NoDxfCircles">No circles found in '{0}'</system:String>
+   <system:String x:Key="NoCirclesToExport">No circles to export</system:String>
 
  </ResourceDictionary>

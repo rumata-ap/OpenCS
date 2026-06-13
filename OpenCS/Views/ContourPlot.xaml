@@ -28,32 +28,18 @@
          <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition/>
          </Grid.RowDefinitions>
 
-         <GroupBox Header="Обозначение (слой DXF)" Grid.Row="0">
+         <GroupBox Header="{DynamicResource ContourTagHeader}" Grid.Row="0">
             <TextBox Text="{Binding Tag}" Height="25" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
          </GroupBox>
-                  
-         <GroupBox Header="Набор (файл DXF)" Grid.Row="1">
+
+         <GroupBox Header="{DynamicResource ContourSetHeader}" Grid.Row="1">
             <TextBox Text="{Binding Set}" Height="25" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
          </GroupBox>
-                  
-         <GroupBox Header="Области" Grid.Row="2">
-            <Grid>
-               <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="auto"/>
-                  <ColumnDefinition/>
-                  <ColumnDefinition Width="Auto"/>
-               </Grid.ColumnDefinitions>
-               
-               <ComboBox Grid.Column="1" ItemsSource="{Binding Regions}" HorizontalContentAlignment="Center" SelectedIndex="0"/>
-               
-            </Grid>
-         </GroupBox>
 
-         <GroupBox Header="Координаты" Grid.Row="3">
+         <GroupBox Header="{DynamicResource ContourCoordinates}" Grid.Row="2">
             <Grid>
                <Grid.RowDefinitions>
                   <RowDefinition Height="Auto"/>
@@ -69,33 +55,33 @@
                      <ColumnDefinition />
                   </Grid.ColumnDefinitions>
 
-                  <Button Grid.Column="0" Height="26" Width="26"  Margin="1" Background="Transparent" BorderThickness="0"
+                  <Button Grid.Column="0" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
                           IsEnabled="{Binding IsEdit}" Command="{Binding RenumPointCommand}"
-                          ToolTip="Перенумерация координат контура">
+                          ToolTip="{DynamicResource TipRenumContour}">
                      <Image Source="{StaticResource di_list_xaml}"/>
                   </Button>
-                  
-                  <Button Grid.Column="1" Height="26" Width="26"  Margin="1" Background="Transparent" BorderThickness="0"
+
+                  <Button Grid.Column="1" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
                           IsEnabled="{Binding IsEdit}" Command="{Binding ExportCsvCommand}"
-                          ToolTip="Экспорт координат контура в файл *.csv">
+                          ToolTip="{DynamicResource TipExportContourCsv}">
                      <Image Source="{StaticResource di_from_csv_xaml}"/>
                   </Button>
 
-                  <Button Grid.Column="2" Height="26" Width="26"  Margin="1" Background="Transparent" BorderThickness="0"
+                  <Button Grid.Column="2" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
                           IsEnabled="{Binding IsEdit}" Command="{Binding ImportCsvCommand}"
-                          ToolTip="Импорт координат контура из файла *.csv">
+                          ToolTip="{DynamicResource TipImportContourCsv}">
                      <Image Source="{StaticResource di_to_csv_xaml}"/>
                   </Button>
 
-                  <ToggleButton Name="EditTB" Grid.Column="4" Width="25" Margin="1" Background="Transparent" BorderThickness="0" 
+                  <ToggleButton Name="EditTB" Grid.Column="4" Width="25" Margin="1" Background="Transparent" BorderThickness="0"
                                 Command="{Binding SaveChangesCommand}" HorizontalAlignment="Right" IsChecked="{Binding IsEdit}"
-                                ToolTip="Включение/отключение режима редактирования">
+                                ToolTip="{DynamicResource TipToggleEdit}">
                      <Image Source="{StaticResource di_edit_xaml}"/>
                   </ToggleButton>
 
-                  <Button Grid.Column="3" Width="25" Margin="1" Background="Transparent" BorderThickness="0" 
+                  <Button Grid.Column="3" Width="25" Margin="1" Background="Transparent" BorderThickness="0"
                           Command="{Binding SaveCommand}" IsEnabled="{Binding IsEdit}"
-                          ToolTip="Сохранение контура или внесенных изменений">
+                          ToolTip="{DynamicResource TipSaveContour}">
                      <Image Source="{StaticResource di_save_xaml}"/>
                   </Button>
 
@@ -103,9 +89,9 @@
 
                <DataGrid Grid.Row="1" ItemsSource="{Binding Points}" SelectedItem="{Binding Point}" AutoGenerateColumns="False" MaxHeight="400">
                   <DataGrid.Columns>
-                     <DataGridTextColumn Header="№" Binding="{Binding Path=Num}" Width="40"/>
-                     <DataGridTextColumn Header="X, м" Binding="{Binding Path=X, StringFormat={}{0:F4}}" Width="100"/>
-                     <DataGridTextColumn Header="Y, м" Binding="{Binding Path=Y, StringFormat={}{0:F4}}" Width="100"/>
+                     <DataGridTextColumn Header="{DynamicResource Number}" Binding="{Binding Path=Num}" Width="40"/>
+                     <DataGridTextColumn Header="{DynamicResource X_m}" Binding="{Binding Path=X, StringFormat={}{0:F4}}" Width="100"/>
+                     <DataGridTextColumn Header="{DynamicResource Y_m}" Binding="{Binding Path=Y, StringFormat={}{0:F4}}" Width="100"/>
                   </DataGrid.Columns>
                   <!--<DataGrid.ContextMenu>
                      <ContextMenu IsEnabled="{Binding ElementName=EditTB, Path=IsChecked}">

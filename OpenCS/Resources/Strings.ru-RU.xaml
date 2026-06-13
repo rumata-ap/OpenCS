@@ -291,6 +291,16 @@
     <system:String x:Key="DiagL3_ReSteelU">Трёхлинейная (L3) — арматура с условным пределом</system:String>
     <system:String x:Key="DiagL2_Steel">Двухлинейная (L2) — сталь конструкционная</system:String>
 
+   <!-- ContourPlot -->
+   <system:String x:Key="ContourTagHeader">Обозначение (слой DXF)</system:String>
+   <system:String x:Key="ContourSetHeader">Набор (файл DXF)</system:String>
+   <system:String x:Key="ContourCoordinates">Координаты</system:String>
+   <system:String x:Key="TipRenumContour">Перенумерация координат контура</system:String>
+   <system:String x:Key="TipExportContourCsv">Экспорт координат контура в файл *.csv</system:String>
+   <system:String x:Key="TipImportContourCsv">Импорт координат контура из файла *.csv</system:String>
+   <system:String x:Key="TipToggleEdit">Включение/отключение режима редактирования</system:String>
+   <system:String x:Key="TipSaveContour">Сохранение контура или внесённых изменений</system:String>
+
    <!-- RibbonBar -->
    <system:String x:Key="RibbonHome">Главная</system:String>
    <system:String x:Key="RibbonGroupGeometry">Геометрия</system:String>
@@ -484,5 +494,35 @@
    <system:String x:Key="RgBarsTable">Стержни</system:String>
    <system:String x:Key="RgGroupTag">Тег группы</system:String>
    <system:String x:Key="RgMaterial">Материал</system:String>
+
+   <!-- CirclesView -->
+   <system:String x:Key="R_m">R, м</system:String>
+   <system:String x:Key="D_m">D, м</system:String>
+   <system:String x:Key="CircleSet">Набор</system:String>
+   <system:String x:Key="ConfirmDeleteCircle">Удалить безвозвратно выбранную окружность?</system:String>
+   <system:String x:Key="CircleDeleted">Окружность '{0}' удалена</system:String>
+   <system:String x:Key="CircleAdded">Добавлена новая окружность</system:String>
+
+   <!-- Contours DXF import -->
+   <system:String x:Key="ImportContoursFromDxfTitle">Импорт контуров из DXF</system:String>
+   <system:String x:Key="ContoursImportedFromDxf">Импортировано {0} контуров из «{1}»</system:String>
+   <system:String x:Key="ContoursSkippedDxf">Пропущено {0} незамкнутых полилиний</system:String>
+   <system:String x:Key="NoDxfPolylines">В файле «{0}» нет полилиний</system:String>
+
+   <!-- Circles context menu -->
+   <system:String x:Key="ToDxf">В DXF</system:String>
+   <system:String x:Key="FromCsv">Из CSV</system:String>
+   <system:String x:Key="ToCsv">В CSV</system:String>
+   <!-- Circles import/export messages -->
+   <system:String x:Key="ImportCirclesFromDxfTitle">Импорт окружностей из DXF</system:String>
+   <system:String x:Key="ExportCirclesToDxfTitle">Экспорт окружностей в DXF</system:String>
+   <system:String x:Key="ImportCirclesFromCsvTitle">Импорт окружностей из CSV</system:String>
+   <system:String x:Key="ExportCirclesToCsvTitle">Экспорт окружностей в CSV</system:String>
+   <system:String x:Key="CirclesImportedFromDxf">Импортировано {0} окружностей из «{1}»</system:String>
+   <system:String x:Key="CirclesExportedToDxf">Экспортировано {0} окружностей в «{1}»</system:String>
+   <system:String x:Key="CirclesImportedFromCsv">Импортировано {0} окружностей из «{1}»</system:String>
+   <system:String x:Key="CirclesExportedToCsv">Экспортировано {0} окружностей в «{1}»</system:String>
+   <system:String x:Key="NoDxfCircles">В файле «{0}» нет окружностей</system:String>
+   <system:String x:Key="NoCirclesToExport">Нет окружностей для экспорта</system:String>
 
  </ResourceDictionary>

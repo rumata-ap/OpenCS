@@ -192,6 +192,7 @@ namespace OpenCS.ViewModels
       public ContourVM(Contour contour)
       {
          Contour = contour;
+         IsSaved = true;
          Types = [ContourType.Hull, ContourType.Hole, ContourType.None];
 
          RenumPointCommand = new RelayCommand(RenumPoint);
@@ -312,8 +313,6 @@ namespace OpenCS.ViewModels
          if (IsSaved)
          {
             mvm.db.SaveContour(Contour);
-            mvm.ContoursRenumber();
-
             mvm.LogService.Info($"Изменения контура '{Tag}' сохранены");
          }
          else

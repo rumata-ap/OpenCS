@@ -43,6 +43,9 @@
                <TextBlock Text="{Binding Y, StringFormat={}{0:F4}}" Margin="3,0,3,0" />
                <TextBlock Text="{DynamicResource D_mm}"/>
                <TextBlock Text="{Binding Dstr}" Margin="3,0,3,0" />
+               <TextBlock Text="  '" Foreground="DarkGreen"/>
+               <TextBlock Text="{Binding GeometrySet}" Foreground="DarkGreen"/>
+               <TextBlock Text="'" Foreground="DarkGreen"/>
                <TextBlock Text="{DynamicResource Unit_m}"/>
             </StackPanel>
          </DataTemplate>

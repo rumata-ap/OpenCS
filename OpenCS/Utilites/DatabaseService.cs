@@ -25,7 +25,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 10;
+      const int CurrentSchemaVersion = 11;
 
       static readonly string[] Migrations =
       [
@@ -163,6 +163,10 @@ namespace OpenCS.Utilites
              qx      REAL NOT NULL DEFAULT 0,
              qy      REAL NOT NULL DEFAULT 0
          );
+         """,
+         """
+         -- v11: geometry_set в таблице circles.
+         ALTER TABLE circles ADD COLUMN geometry_set TEXT NULL;
          """
       ];
 
@@ -229,7 +233,8 @@ namespace OpenCS.Utilites
                 radius REAL NOT NULL DEFAULT 0,
                 area REAL NOT NULL DEFAULT 0,
                 type INTEGER NOT NULL DEFAULT 0,
-                num INTEGER NOT NULL DEFAULT 0
+                num INTEGER NOT NULL DEFAULT 0,
+                geometry_set TEXT NULL
             );
             CREATE TABLE IF NOT EXISTS rc_fiber_regions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -632,11 +637,11 @@ namespace OpenCS.Utilites
       void LoadCircles()
       {
          var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, tag, x, y, diameter, radius, area, type, num FROM circles ORDER BY id";
+         cmd.CommandText = "SELECT id, tag, x, y, diameter, radius, area, type, num, geometry_set FROM circles ORDER BY id";
          using var reader = cmd.ExecuteReader();
          while (reader.Read())
          {
-            Circles.Add(new CircleP
+            var cp = new CircleP
             {
                Id = reader.GetInt32(0),
                Tag = reader.GetString(1),
@@ -647,7 +652,9 @@ namespace OpenCS.Utilites
                Area = reader.GetDouble(6),
                Type = (PointType)reader.GetInt32(7),
                Num = reader.GetInt32(8)
-            });
+            };
+            if (!reader.IsDBNull(9)) cp.GeometrySet = reader.GetString(9);
+            Circles.Add(cp);
          }
       }
 
@@ -1183,14 +1190,14 @@ namespace OpenCS.Utilites
          var cmd = _connection.CreateCommand();
          if (c.Id == 0)
          {
-            cmd.CommandText = @"INSERT INTO circles (tag, x, y, diameter, radius, area, type, num)
-                               VALUES ($tag, $x, $y, $dia, $rad, $area, $type, $num);
+            cmd.CommandText = @"INSERT INTO circles (tag, x, y, diameter, radius, area, type, num, geometry_set)
+                               VALUES ($tag, $x, $y, $dia, $rad, $area, $type, $num, $gset);
                                SELECT last_insert_rowid();";
          }
          else
          {
             cmd.CommandText = @"UPDATE circles SET tag=$tag, x=$x, y=$y, diameter=$dia, radius=$rad,
-                               area=$area, type=$type, num=$num WHERE id=$id";
+                               area=$area, type=$type, num=$num, geometry_set=$gset WHERE id=$id";
             cmd.Parameters.AddWithValue("$id", c.Id);
          }
          cmd.Parameters.AddWithValue("$tag", c.Tag ?? "");
@@ -1201,6 +1208,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("$area", c.Area);
          cmd.Parameters.AddWithValue("$type", (int)c.Type);
          cmd.Parameters.AddWithValue("$num", c.Num);
+         cmd.Parameters.AddWithValue("$gset", c.GeometrySet is null ? (object)DBNull.Value : c.GeometrySet);
          if (c.Id == 0)
             c.Id = Convert.ToInt32(cmd.ExecuteScalar());
          else

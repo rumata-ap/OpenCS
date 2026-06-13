@@ -27,6 +27,12 @@ namespace OpenCS
 
          DataContext = new AppViewModel(logService, fileDialogService);
          vm = (AppViewModel)DataContext;
+
+         vm.LogService.LogEntries.CollectionChanged += (_, _) =>
+         {
+            if (LoggerListBox.Items.Count > 0)
+               LoggerListBox.ScrollIntoView(LoggerListBox.Items[^1]);
+         };
       }
 
       private void ContourDel_Click(object sender, RoutedEventArgs e)
@@ -104,7 +110,10 @@ namespace OpenCS
              {
                 vm.CurrentPage = new ContoursView(vm);
              }
-
+             if (treeViewItem.Name == "CirclesTreeItem")
+             {
+                vm.CurrentPage = new CirclesView(vm);
+             }
           }
 
         }

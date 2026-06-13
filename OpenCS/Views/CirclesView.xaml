@@ -1,0 +1,62 @@
+<UserControl x:Class="OpenCS.Views.CirclesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="450" d:DesignWidth="800">
+
+   <Grid>
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <StackPanel Orientation="Horizontal" Margin="5,3">
+
+         <!-- Добавить: Material add_circle -->
+         <Button Height="22" Width="22" Margin="1,1,3,1" Background="Transparent" BorderThickness="0"
+                 Command="{Binding AddCircleCommand}"
+                 ToolTip="{DynamicResource Add}">
+            <Viewbox Width="16" Height="16">
+               <Path Fill="#2563EB"
+                     Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+            </Viewbox>
+         </Button>
+
+         <!-- Удалить: Material delete -->
+         <Button Height="22" Width="22" Margin="1" Background="Transparent" BorderThickness="0"
+                 Command="{Binding DeleteCircleCommand}"
+                 CommandParameter="{Binding ElementName=circlesGrid, Path=SelectedItem}"
+                 ToolTip="{DynamicResource Delete}">
+            <Viewbox Width="16" Height="16">
+               <Path Fill="#DC2626"
+                     Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </Viewbox>
+         </Button>
+
+      </StackPanel>
+
+      <DataGrid x:Name="circlesGrid" Grid.Row="1"
+                ItemsSource="{Binding CirclesLive}"
+                AutoGenerateColumns="False"
+                CanUserAddRows="False"
+                CanUserDeleteRows="False"
+                SelectionMode="Single"
+                GridLinesVisibility="Horizontal"
+                RowHeaderWidth="0"
+                Margin="5,0,5,5"
+                RowEditEnding="CirclesGrid_RowEditEnding">
+         <DataGrid.Columns>
+            <DataGridTextColumn Header="{DynamicResource Number}"    Binding="{Binding Num}"                              IsReadOnly="True" Width="45"/>
+            <DataGridTextColumn Header="{DynamicResource Tag}"       Binding="{Binding Tag}"                              Width="140"/>
+            <DataGridTextColumn Header="{DynamicResource CircleSet}" Binding="{Binding GeometrySet}"                      Width="160"/>
+            <DataGridTextColumn Header="{DynamicResource X_m}"       Binding="{Binding X,        StringFormat={}{0:F4}}"  Width="90"/>
+            <DataGridTextColumn Header="{DynamicResource Y_m}"       Binding="{Binding Y,        StringFormat={}{0:F4}}"  Width="90"/>
+            <DataGridTextColumn Header="{DynamicResource R_m}"       Binding="{Binding Radius,   StringFormat={}{0:F4}}"  Width="90"/>
+            <DataGridTextColumn Header="{DynamicResource D_m}"       Binding="{Binding Diameter, StringFormat={}{0:F4}}"  IsReadOnly="True" Width="90"/>
+         </DataGrid.Columns>
+      </DataGrid>
+   </Grid>
+
+</UserControl>
