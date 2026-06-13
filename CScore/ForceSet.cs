@@ -29,6 +29,26 @@ namespace CScore
    }
 
    /// <summary>
+   /// Строка н��бора усилий для пластин (аналог ShellForces в GreenSectionPy).
+   /// Погонные усилия и моменты на единицу ширины.
+   /// </summary>
+   public class ShellLoadItem
+   {
+      public int    Id    { get; set; }
+      public int    Num   { get; set; }
+      public string Label { get; set; } = "";
+
+      public double Nx  { get; set; }   // нормальное погонное усилие по x, кН/м
+      public double Ny  { get; set; }   // нормальное погонное усилие по y, кН/м
+      public double Nxy { get; set; }   // касательное погонное усилие, кН/м
+      public double Mx  { get; set; }   // изгибающий погонный момент Mx, кН·м/м
+      public double My  { get; set; }   // изгибающий погонный момент My, кН·м/м
+      public double Mxy { get; set; }   // крутящий погонный момент, кН·м/м
+      public double Qx  { get; set; }   // поперечная погонная сила Qx, кН/м
+      public double Qy  { get; set; }   // поперечная погонная сила Qy, кН/м
+   }
+
+   /// <summary>
    /// Именованный набор усилий (аналог ForceSetDef в GreenSectionPy).
    /// Имя набора кодирует вид нагрузки: "G: ...", "L: ...", "Q: ...", "A: ...".
    /// </summary>
@@ -42,7 +62,8 @@ namespace CScore
       /// <summary>Тип набора: "bar" или "shell".</summary>
       public string Kind { get; set; } = "bar";
 
-      public List<LoadItem> Items { get; set; } = [];
+      public List<LoadItem>      Items      { get; set; } = [];
+      public List<ShellLoadItem> ShellItems { get; set; } = [];
 
       public override string ToString() => $"{Num:D3}#ForceSet : {Tag}";
    }
