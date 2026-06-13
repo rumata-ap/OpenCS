@@ -345,6 +345,10 @@
 
    <!-- Force Sets -->
    <system:String x:Key="ForceSets">Forces</system:String>
+   <system:String x:Key="BarForceSets">Bars</system:String>
+   <system:String x:Key="ShellForceSets">Plates</system:String>
+   <system:String x:Key="NewBarForceSet">New Force Set (Bar)</system:String>
+   <system:String x:Key="NewShellForceSet">New Force Set (Plate)</system:String>
    <system:String x:Key="NewForceSet">New Force Set</system:String>
    <system:String x:Key="DeleteForceSet">Delete Set</system:String>
    <system:String x:Key="ForceSetSelectHint">Select a force set to edit</system:String>
@@ -374,6 +378,14 @@
    <system:String x:Key="ForceColVx">Vx, kN</system:String>
    <system:String x:Key="ForceColVy">Vy, kN</system:String>
    <system:String x:Key="ForceColT">T, kN·m</system:String>
+   <system:String x:Key="ShellForceColNx">Nx, kN/m</system:String>
+   <system:String x:Key="ShellForceColNy">Ny, kN/m</system:String>
+   <system:String x:Key="ShellForceColNxy">Nxy, kN/m</system:String>
+   <system:String x:Key="ShellForceColMx">Mx, kN·m/m</system:String>
+   <system:String x:Key="ShellForceColMy">My, kN·m/m</system:String>
+   <system:String x:Key="ShellForceColMxy">Mxy, kN·m/m</system:String>
+   <system:String x:Key="ShellForceColQx">Qx, kN/m</system:String>
+   <system:String x:Key="ShellForceColQy">Qy, kN/m</system:String>
    <system:String x:Key="ImportCsvBtn">Import CSV</system:String>
    <system:String x:Key="ExportCsvBtn">Export CSV</system:String>
    <system:String x:Key="SP20CombineBtn">SP20 Combinations</system:String>

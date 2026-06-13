@@ -348,6 +348,10 @@
 
    <!-- Force Sets -->
    <system:String x:Key="ForceSets">Усилия</system:String>
+   <system:String x:Key="BarForceSets">Стержни</system:String>
+   <system:String x:Key="ShellForceSets">Пластины</system:String>
+   <system:String x:Key="NewBarForceSet">Новый набор усилий (стержень)</system:String>
+   <system:String x:Key="NewShellForceSet">Новый набор усилий (пластина)</system:String>
    <system:String x:Key="NewForceSet">Новый набор усилий</system:String>
    <system:String x:Key="DeleteForceSet">Удалить набор</system:String>
    <system:String x:Key="ForceSetSelectHint">Выберите набор усилий для редактирования</system:String>
@@ -377,6 +381,14 @@
    <system:String x:Key="ForceColVx">Vx, кН</system:String>
    <system:String x:Key="ForceColVy">Vy, кН</system:String>
    <system:String x:Key="ForceColT">T, кН·м</system:String>
+   <system:String x:Key="ShellForceColNx">Nx, кН/м</system:String>
+   <system:String x:Key="ShellForceColNy">Ny, кН/м</system:String>
+   <system:String x:Key="ShellForceColNxy">Nxy, кН/м</system:String>
+   <system:String x:Key="ShellForceColMx">Mx, кН·м/м</system:String>
+   <system:String x:Key="ShellForceColMy">My, кН·м/м</system:String>
+   <system:String x:Key="ShellForceColMxy">Mxy, кН·м/м</system:String>
+   <system:String x:Key="ShellForceColQx">Qx, кН/м</system:String>
+   <system:String x:Key="ShellForceColQy">Qy, кН/м</system:String>
    <system:String x:Key="ImportCsvBtn">Импорт CSV</system:String>
    <system:String x:Key="ExportCsvBtn">Экспорт CSV</system:String>
    <system:String x:Key="SP20CombineBtn">Сочетания СП20</system:String>
