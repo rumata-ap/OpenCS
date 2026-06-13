@@ -26,8 +26,7 @@
    <system:String x:Key="Search">Поиск...</system:String>
 
    <!-- Tab headers -->
-   <system:String x:Key="ProjectStructure">Структура проекта</system:String>
-   <system:String x:Key="DataSelection">Выборка данных</system:String>
+
 
    <!-- Tree view nodes -->
    <system:String x:Key="Geometry">Геометрия</system:String>
@@ -51,10 +50,9 @@
    <system:String x:Key="CrossSections">Поперечные сечения</system:String>
    <system:String x:Key="RCSections">Железобетонные</system:String>
    <system:String x:Key="ContourSections">Контурные</system:String>
-   <system:String x:Key="FiniteElements">Конечные элементы</system:String>
    <system:String x:Key="Bars">Стержни</system:String>
    <system:String x:Key="Plates">Пластины</system:String>
-   <system:String x:Key="StructuralElements">Конструктивные элементы</system:String>
+   <system:String x:Key="Tasks">Задачи</system:String>
 
    <!-- Counts -->
    <system:String x:Key="Pcs">шт.</system:String>
@@ -524,5 +522,19 @@
    <system:String x:Key="CirclesExportedToCsv">Экспортировано {0} окружностей в «{1}»</system:String>
    <system:String x:Key="NoDxfCircles">В файле «{0}» нет окружностей</system:String>
    <system:String x:Key="NoCirclesToExport">Нет окружностей для экспорта</system:String>
+
+   <!-- View titles (GroupBox header in main content area) -->
+   <system:String x:Key="VT_Contour">Контур</system:String>
+   <system:String x:Key="VT_Material">Материал</system:String>
+   <system:String x:Key="VT_MaterialArea">Область</system:String>
+   <system:String x:Key="VT_RebarGroup">Группа арматуры</system:String>
+   <system:String x:Key="VT_CrossSection">Поперечное сечение</system:String>
+   <system:String x:Key="VT_TwoStageSection">Двухстадийное сечение</system:String>
+   <system:String x:Key="VT_PlateSection">Пластина</system:String>
+   <system:String x:Key="VT_BarForceSet">Усилия (стержень)</system:String>
+   <system:String x:Key="VT_ShellForceSet">Усилия (пластина)</system:String>
+   <system:String x:Key="VT_FromDxf">Импорт DXF</system:String>
+   <system:String x:Key="VT_Diagram">Диаграмма</system:String>
+   <system:String x:Key="VT_Circles">Окружности</system:String>
 
  </ResourceDictionary>

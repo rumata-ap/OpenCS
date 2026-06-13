@@ -134,6 +134,14 @@ namespace OpenCS
       }
 
       /// <summary>
+      /// Имя файла проекта для отображения в заголовке дерева.
+      /// </summary>
+      public string ProjectFileName =>
+          string.IsNullOrEmpty(CurrentProjectPath)
+              ? Loc.S("Untitled")
+              : Path.GetFileNameWithoutExtension(CurrentProjectPath);
+
+      /// <summary>
       /// Сервис логирования. Предоставляет методы <c>Info</c>, <c>Warning</c>, <c>Error</c>
       /// для вывода сообщений в журнал приложения. Инжектируется через конструктор.
       /// </summary>
@@ -371,8 +379,28 @@ namespace OpenCS
       public UserControl CurrentPage
       {
          get => currentPage;
-         set { currentPage = value; OnPropertyChanged(); }
+         set { currentPage = value; OnPropertyChanged(); OnPropertyChanged(nameof(CurrentPageTitle)); }
       }
+
+      /// <summary>
+      /// Заголовок текущей вьюхи для отображения в GroupBox центральной области.
+      /// </summary>
+      public string CurrentPageTitle => currentPage switch
+      {
+          Views.ContourPlot               => Loc.S("VT_Contour"),
+          Views.MaterialPage              => Loc.S("VT_Material"),
+          Views.MaterialAreaPage          => Loc.S("VT_MaterialArea"),
+          Views.RebarGroupEditorPage      => Loc.S("VT_RebarGroup"),
+          Views.CrossSectionPage          => Loc.S("VT_CrossSection"),
+          Views.TwoStageSectionEditorPage => Loc.S("VT_TwoStageSection"),
+          Views.PlateSectionPage          => Loc.S("VT_PlateSection"),
+          Views.BarForceSetPage           => Loc.S("VT_BarForceSet"),
+          Views.ShellForceSetPage         => Loc.S("VT_ShellForceSet"),
+          Views.FromDxfPage               => Loc.S("VT_FromDxf"),
+          Views.DiagramPage               => Loc.S("VT_Diagram"),
+          Views.CirclesView               => Loc.S("VT_Circles"),
+          _                               => ""
+      };
       /// <summary>
       /// Текущий выбранный материал. При установке значения автоматически открывает
       /// страницу редактирования материала через <see cref="OnSelectMaterial"/>.
@@ -583,10 +611,7 @@ namespace OpenCS
       void InitNewDatabase()
       {
          var tempPath = Path.Combine(Path.GetTempPath(), "opencs_new.db");
-         if (File.Exists(tempPath)) File.Delete(tempPath);
-         if (File.Exists(tempPath + "-wal")) File.Delete(tempPath + "-wal");
-         if (File.Exists(tempPath + "-shm")) File.Delete(tempPath + "-shm");
-         db.ChangeDatabase(tempPath);
+         db.ReinitializeDatabase(tempPath);
       }
 
       /// <summary>
@@ -672,6 +697,12 @@ namespace OpenCS
          ForceSets.CollectionChanged += (_, e) =>
          {
             IsDirty = true;
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+            {
+               BarForceSets.Clear();
+               ShellForceSets.Clear();
+               return;
+            }
             if (e.NewItems != null)
                foreach (ForceSet fs in e.NewItems)
                {
@@ -1066,6 +1097,7 @@ namespace OpenCS
             RefreshAfterLoad();
             CurrentProjectPath = null;
             OnPropertyChanged(nameof(ProjectTitle));
+            OnPropertyChanged(nameof(ProjectFileName));
             LogService.Info(Loc.S("ProjectCreated"));
          }
          catch (Exception ex)
@@ -1095,6 +1127,7 @@ namespace OpenCS
             RefreshAfterLoad();
             CurrentProjectPath = path;
             OnPropertyChanged(nameof(ProjectTitle));
+            OnPropertyChanged(nameof(ProjectFileName));
             LogService.Info(string.Format(Loc.S("ProjectOpened"), path));
           }
           catch (Exception ex)
@@ -1155,6 +1188,7 @@ namespace OpenCS
              CurrentProjectPath = path;
              IsDirty = false;
              OnPropertyChanged(nameof(ProjectTitle));
+            OnPropertyChanged(nameof(ProjectFileName));
             LogService.Info(string.Format(Loc.S("ProjectSavedPath"), path));
           }
           catch (Exception ex)

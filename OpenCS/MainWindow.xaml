@@ -83,7 +83,7 @@
          <RowDefinition Height="Auto"></RowDefinition>
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
-         <ColumnDefinition Width="0.4*"></ColumnDefinition>
+         <ColumnDefinition Width="0.275*"></ColumnDefinition>
          <ColumnDefinition Width="Auto"></ColumnDefinition>
          <ColumnDefinition Width="*"></ColumnDefinition>
       </Grid.ColumnDefinitions>
@@ -264,10 +264,9 @@
          </ToolBar>
       </ToolBarTray>
 
-      <TabControl x:Name="dataTabs" Grid.Column="0" Grid.Row="2" Grid.RowSpan="3">
-         <TabItem x:Name="structureTab" Header="{DynamicResource ProjectStructure}">
-
-            <TreeView x:Name="structureTree" Margin="10" BorderThickness="0" SelectedItemChanged="structureTree_SelectedItemChanged">
+      <GroupBox Grid.Column="0" Grid.Row="2" Grid.RowSpan="3" Margin="4"
+                Header="{Binding ProjectFileName}">
+      <TreeView x:Name="structureTree" Margin="4,2" BorderThickness="0" SelectedItemChanged="structureTree_SelectedItemChanged">
 
                <TreeViewItem x:Name="geometryNode">
                   <TreeViewItem.Header>
@@ -777,25 +776,20 @@
 
                </TreeViewItem>
 
-               <TreeViewItem x:Name="feNode" Header="{DynamicResource FiniteElements}">
-                  <TreeViewItem x:Name="barNode" Header="{DynamicResource Bars}"/>
-                  <TreeViewItem x:Name="plateNode" Header="{DynamicResource Plates}"/>
+               <!-- Задачи -->
+               <TreeViewItem x:Name="tasksNode">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Viewbox Width="16" Height="16" Margin="0,0,5,0">
+                           <Path Fill="#4F46E5"
+                                 Data="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+                        </Viewbox>
+                        <TextBlock Text="{DynamicResource Tasks}" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
                </TreeViewItem>
-               <TreeViewItem x:Name="elementNode" Header="{DynamicResource StructuralElements}">
-                  <TreeViewItem x:Name="barelNode" Header="{DynamicResource Bars}"/>
-                  <TreeViewItem x:Name="plateelNode" Header="{DynamicResource Plates}"/>
-               </TreeViewItem>
-            </TreeView>
-
-         </TabItem>
-         <TabItem x:Name="dataGridTab" Header="{DynamicResource DataSelection}">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-               <Canvas x:Name="dataGridCanvas" Margin="5">
-
-               </Canvas>
-            </ScrollViewer>
-         </TabItem>
-      </TabControl>
+      </TreeView>
+      </GroupBox>
 
 
 
@@ -807,7 +801,10 @@
 
       </ScrollViewer>-->
 
-      <ContentControl Grid.Column="2" Grid.Row="2"  x:Name="masterFrame" Content="{Binding CurrentPage}"/>
+      <GroupBox Grid.Column="2" Grid.Row="2" Margin="4"
+                Header="{Binding CurrentPageTitle}">
+         <ContentControl x:Name="masterFrame" Content="{Binding CurrentPage}"/>
+      </GroupBox>
 
       <StatusBar Height="25" Grid.Column="0" Grid.Row="5" Grid.ColumnSpan="3" >
          <StatusBarItem>

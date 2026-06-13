@@ -26,8 +26,7 @@
    <system:String x:Key="Search">Search...</system:String>
 
    <!-- Tab headers -->
-   <system:String x:Key="ProjectStructure">Project Structure</system:String>
-   <system:String x:Key="DataSelection">Data Selection</system:String>
+
 
    <!-- Tree view nodes -->
    <system:String x:Key="Geometry">Geometry</system:String>
@@ -50,10 +49,9 @@
    <system:String x:Key="CrossSections">Cross Sections</system:String>
    <system:String x:Key="RCSections">Reinforced Concrete</system:String>
    <system:String x:Key="ContourSections">Contour</system:String>
-   <system:String x:Key="FiniteElements">Finite Elements</system:String>
    <system:String x:Key="Bars">Bars</system:String>
    <system:String x:Key="Plates">Plates</system:String>
-   <system:String x:Key="StructuralElements">Structural Elements</system:String>
+   <system:String x:Key="Tasks">Tasks</system:String>
 
    <!-- Counts -->
    <system:String x:Key="Pcs">pcs.</system:String>
@@ -521,5 +519,19 @@
    <system:String x:Key="CirclesExportedToCsv">Exported {0} circles to '{1}'</system:String>
    <system:String x:Key="NoDxfCircles">No circles found in '{0}'</system:String>
    <system:String x:Key="NoCirclesToExport">No circles to export</system:String>
+
+   <!-- View titles (GroupBox header in main content area) -->
+   <system:String x:Key="VT_Contour">Contour</system:String>
+   <system:String x:Key="VT_Material">Material</system:String>
+   <system:String x:Key="VT_MaterialArea">Area</system:String>
+   <system:String x:Key="VT_RebarGroup">Rebar Group</system:String>
+   <system:String x:Key="VT_CrossSection">Cross Section</system:String>
+   <system:String x:Key="VT_TwoStageSection">Two-Stage Section</system:String>
+   <system:String x:Key="VT_PlateSection">Plate</system:String>
+   <system:String x:Key="VT_BarForceSet">Forces (Bar)</system:String>
+   <system:String x:Key="VT_ShellForceSet">Forces (Shell)</system:String>
+   <system:String x:Key="VT_FromDxf">DXF Import</system:String>
+   <system:String x:Key="VT_Diagram">Diagram</system:String>
+   <system:String x:Key="VT_Circles">Circles</system:String>
 
  </ResourceDictionary>

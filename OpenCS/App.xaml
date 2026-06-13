@@ -182,6 +182,14 @@
             <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
          </Style>
 
+         <Style TargetType="ToolBarTray">
+            <Setter Property="Background" Value="White"/>
+         </Style>
+
+         <Style TargetType="ToolBar">
+            <Setter Property="Background" Value="White"/>
+         </Style>
+
          <Style TargetType="TextBlock">
             <Setter Property="FontSize" Value="{StaticResource AppFontSize}"/>
             <Setter Property="VerticalAlignment" Value="Center"/>

@@ -517,6 +517,24 @@ namespace OpenCS.Utilites
           EnsureCreated();
           Migrate();
       }
+
+      /// <summary>
+      /// Закрывает текущее соединение, удаляет файл newPath и открывает его заново как пустую БД.
+      /// Используется при создании нового проекта, в том числе когда newPath уже открыт.
+      /// </summary>
+      public void ReinitializeDatabase(string newPath)
+      {
+          CheckpointAndClose();
+          DeleteWalShm(_dataSource);
+          if (File.Exists(newPath)) File.Delete(newPath);
+          DeleteWalShm(newPath);
+          _dataSource = newPath;
+          _connection = new SqliteConnection($"Data Source={newPath}");
+          _connection.Open();
+          SetDeleteJournalMode();
+          EnsureCreated();
+          Migrate();
+      }
       /// </summary>
       static void RepairWal(string dbPath)
       {
@@ -540,6 +558,7 @@ namespace OpenCS.Utilites
          cmd.CommandText = "PRAGMA wal_checkpoint(TRUNCATE)";
          cmd.ExecuteNonQuery();
          _connection.Close();
+         SqliteConnection.ClearPool(_connection);
          _connection.Dispose();
       }
 
@@ -587,6 +606,7 @@ namespace OpenCS.Utilites
          CrossSections.Clear();
          ForceSets.Clear();
          PlateSections.Clear();
+         MaterialAreas.Clear();
       }
 
       #region Load
