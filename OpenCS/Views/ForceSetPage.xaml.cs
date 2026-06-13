@@ -3,18 +3,19 @@ using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-   public partial class ForceSetPage : UserControl
+   public partial class BarForceSetPage : UserControl
    {
-      public ForceSetPage(CScore.ForceSet model, AppViewModel app)
+      public BarForceSetPage(CScore.ForceSet model, AppViewModel app)
       {
          InitializeComponent();
-         DataContext = new ForceSetVM(model, app);
+         DataContext = new BarForceSetVM(model, app);
       }
 
-      public ForceSetPage(AppViewModel app)
+      public BarForceSetPage(AppViewModel app)
       {
          InitializeComponent();
-         DataContext = new ForceSetVM(new CScore.ForceSet { Tag = "Новый набор" }, app);
+         DataContext = new BarForceSetVM(
+            new CScore.ForceSet { Tag = "Новый набор", Kind = "bar" }, app);
       }
    }
 }

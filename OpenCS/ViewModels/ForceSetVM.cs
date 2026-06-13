@@ -1,7 +1,12 @@
 using CScore;
+using CsvHelper;
+using CsvHelper.Configuration;
 using OpenCS.Utilites;
 
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
+using System.IO;
 using System.Windows.Input;
 
 namespace OpenCS.ViewModels
@@ -63,13 +68,13 @@ namespace OpenCS.ViewModels
       }
    }
 
-   /// <summary>ViewModel для ForceSet.</summary>
-   public class ForceSetVM : ViewModelBase
+   /// <summary>ViewModel для набора усилий стержня (Kind="bar").</summary>
+   public class BarForceSetVM : ViewModelBase
    {
       readonly ForceSet _model;
       LoadItemVM? _selectedItem;
 
-      public ForceSetVM(ForceSet model, AppViewModel app)
+      public BarForceSetVM(ForceSet model, AppViewModel app)
       {
          _model = model;
          App = app;
@@ -81,6 +86,8 @@ namespace OpenCS.ViewModels
          DuplicateItemCommand = new RelayCommand(_ => DuplicateItem());
          SaveCommand          = new RelayCommand(_ => Save());
          SP20Command          = new RelayCommand(_ => OpenSP20Dialog());
+         ExportCsvCommand     = new RelayCommand(_ => ExportCsv());
+         ImportCsvCommand     = new RelayCommand(_ => ImportCsv());
       }
 
       public AppViewModel App { get; }
@@ -107,6 +114,8 @@ namespace OpenCS.ViewModels
       public ICommand DuplicateItemCommand { get; }
       public ICommand SaveCommand { get; }
       public ICommand SP20Command { get; }
+      public ICommand ExportCsvCommand { get; }
+      public ICommand ImportCsvCommand { get; }
 
       void AddItem()
       {
@@ -152,9 +161,95 @@ namespace OpenCS.ViewModels
          App.IsDirty = true;
       }
 
+      void ExportCsv()
+      {
+         var path = App.FileDialogService.SaveFile(
+            "CSV файлы (*.csv)|*.csv", ".csv", Loc.S("ExportCsvBtn"));
+         if (path == null) return;
+
+         var cfg = new CsvConfiguration(CultureInfo.InvariantCulture) { Delimiter = ";" };
+         using var writer = new StreamWriter(path, false, System.Text.Encoding.UTF8);
+         using var csv = new CsvWriter(writer, cfg);
+
+         foreach (var col in new[] { "Label", "N", "Mx", "My", "Vx", "Vy", "T" })
+            csv.WriteField(col);
+         csv.NextRecord();
+
+         foreach (var item in _model.Items)
+         {
+            csv.WriteField(item.Label);
+            csv.WriteField(item.N);
+            csv.WriteField(item.Mx);
+            csv.WriteField(item.My);
+            csv.WriteField(item.Vx);
+            csv.WriteField(item.Vy);
+            csv.WriteField(item.T);
+            csv.NextRecord();
+         }
+      }
+
+      void ImportCsv()
+      {
+         var path = App.FileDialogService.OpenFile(
+            "CSV файлы (*.csv)|*.csv", Loc.S("ImportCsvBtn"));
+         if (path == null) return;
+
+         try
+         {
+            var cfg = new CsvConfiguration(CultureInfo.InvariantCulture)
+            {
+               Delimiter        = ";",
+               MissingFieldFound = null,
+               HeaderValidated  = null,
+            };
+
+            var rows = new List<LoadItem>();
+            using (var reader = new StreamReader(path, System.Text.Encoding.UTF8))
+            using (var csv = new CsvReader(reader, cfg))
+            {
+               csv.Read();
+               csv.ReadHeader();
+               while (csv.Read())
+               {
+                  rows.Add(new LoadItem
+                  {
+                     Label = csv.GetField("Label") ?? "",
+                     N  = GetDouble(csv, "N"),
+                     Mx = GetDouble(csv, "Mx"),
+                     My = GetDouble(csv, "My"),
+                     Vx = GetDouble(csv, "Vx"),
+                     Vy = GetDouble(csv, "Vy"),
+                     T  = GetDouble(csv, "T"),
+                  });
+               }
+            }
+
+            _model.Items.Clear();
+            Items.Clear();
+            for (int i = 0; i < rows.Count; i++)
+            {
+               rows[i].Num = i + 1;
+               _model.Items.Add(rows[i]);
+               Items.Add(new LoadItemVM(rows[i]));
+            }
+            App.IsDirty = true;
+         }
+         catch (System.Exception ex)
+         {
+            System.Windows.MessageBox.Show(
+               $"Ошибка импорта CSV:\n{ex.Message}",
+               Loc.S("ImportCsvBtn"),
+               System.Windows.MessageBoxButton.OK,
+               System.Windows.MessageBoxImage.Error);
+         }
+      }
+
+      static double GetDouble(CsvReader csv, string field)
+         => csv.TryGetField<double>(field, out var v) ? v : 0.0;
+
       void OpenSP20Dialog()
       {
-         var dlg = new Views.SP20Dialog(App.ForceSets, App)
+         var dlg = new Views.SP20Dialog(App.BarForceSets, App)
          {
             Owner = System.Windows.Application.Current.MainWindow
          };

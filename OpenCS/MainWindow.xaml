@@ -526,7 +526,7 @@
                   </TreeViewItem.Resources>
                </TreeViewItem>
                <!-- Усилия -->
-               <TreeViewItem x:Name="forceSetsNode" ItemsSource="{Binding ForceSets}" IsExpanded="True">
+               <TreeViewItem IsExpanded="True">
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0"
@@ -535,48 +535,101 @@
                         <TextBlock Text="{DynamicResource ForceSets}" FontWeight="Bold"/>
                      </StackPanel>
                   </TreeViewItem.Header>
-                  <TreeViewItem.ContextMenu>
-                     <ContextMenu>
-                        <MenuItem Header="{DynamicResource NewForceSet}"
-                                  Command="{Binding NewForceSetCommand}"/>
-                        <MenuItem Header="{DynamicResource DeleteForceSet}"
-                                  Command="{Binding DeleteForceSetCommand}"/>
-                     </ContextMenu>
-                  </TreeViewItem.ContextMenu>
-                  <TreeViewItem.ItemTemplate>
-                     <DataTemplate DataType="{x:Type core:ForceSet}">
-                        <StackPanel Orientation="Horizontal" Margin="1"
-                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
-                           <StackPanel.ContextMenu>
-                              <ContextMenu>
-                                 <MenuItem Header="{DynamicResource RenameForceSet}"
-                                           Command="{Binding PlacementTarget.Tag.SetForceSetLoadTypeCommand,
-                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                           CommandParameter="{Binding PlacementTarget.DataContext,
-                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <MenuItem Header="{DynamicResource DuplicateForceSet}"
-                                           Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
-                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                           CommandParameter="{Binding PlacementTarget.DataContext,
-                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 <Separator/>
-                                 <MenuItem Header="{DynamicResource DeleteForceSetItem}"
-                                           Command="{Binding PlacementTarget.Tag.DeleteForceSetCommand,
-                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                           CommandParameter="{Binding PlacementTarget.DataContext,
-                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              </ContextMenu>
-                           </StackPanel.ContextMenu>
-                           <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
-                                 Fill="Teal"
-                                 Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
-                           <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
-                           <TextBlock Text=" (" Foreground="Gray"/>
-                           <TextBlock Text="{Binding Items.Count}" Foreground="Gray"/>
-                           <TextBlock Text=")" Foreground="Gray"/>
-                        </StackPanel>
-                     </DataTemplate>
-                  </TreeViewItem.ItemTemplate>
+
+                  <!-- Стержни -->
+                  <TreeViewItem x:Name="barForceSetsNode" ItemsSource="{Binding BarForceSets}" IsExpanded="True">
+                     <TreeViewItem.Header>
+                        <TextBlock Text="{DynamicResource BarForceSets}" FontWeight="SemiBold"/>
+                     </TreeViewItem.Header>
+                     <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                           <MenuItem Header="{DynamicResource NewBarForceSet}"
+                                     Command="{Binding NewBarForceSetCommand}"/>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+                     <TreeViewItem.ItemTemplate>
+                        <DataTemplate DataType="{x:Type core:ForceSet}">
+                           <StackPanel Orientation="Horizontal" Margin="1"
+                                       Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                              <StackPanel.ContextMenu>
+                                 <ContextMenu>
+                                    <MenuItem Header="{DynamicResource RenameForceSet}"
+                                              Command="{Binding PlacementTarget.Tag.SetForceSetLoadTypeCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem Header="{DynamicResource DuplicateForceSet}"
+                                              Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <Separator/>
+                                    <MenuItem Header="{DynamicResource DeleteForceSetItem}"
+                                              Command="{Binding PlacementTarget.Tag.DeleteForceSetCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 </ContextMenu>
+                              </StackPanel.ContextMenu>
+                              <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
+                                    Fill="Teal"
+                                    Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
+                              <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                              <TextBlock Text=" (" Foreground="Gray"/>
+                              <TextBlock Text="{Binding Items.Count}" Foreground="Gray"/>
+                              <TextBlock Text=")" Foreground="Gray"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </TreeViewItem.ItemTemplate>
+                  </TreeViewItem>
+
+                  <!-- Пластины -->
+                  <TreeViewItem x:Name="shellForceSetsNode" ItemsSource="{Binding ShellForceSets}" IsExpanded="True">
+                     <TreeViewItem.Header>
+                        <TextBlock Text="{DynamicResource ShellForceSets}" FontWeight="SemiBold"/>
+                     </TreeViewItem.Header>
+                     <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                           <MenuItem Header="{DynamicResource NewShellForceSet}"
+                                     Command="{Binding NewShellForceSetCommand}"/>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+                     <TreeViewItem.ItemTemplate>
+                        <DataTemplate DataType="{x:Type core:ForceSet}">
+                           <StackPanel Orientation="Horizontal" Margin="1"
+                                       Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                              <StackPanel.ContextMenu>
+                                 <ContextMenu>
+                                    <MenuItem Header="{DynamicResource RenameForceSet}"
+                                              Command="{Binding PlacementTarget.Tag.SetForceSetLoadTypeCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem Header="{DynamicResource DuplicateForceSet}"
+                                              Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <Separator/>
+                                    <MenuItem Header="{DynamicResource DeleteForceSetItem}"
+                                              Command="{Binding PlacementTarget.Tag.DeleteForceSetCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 </ContextMenu>
+                              </StackPanel.ContextMenu>
+                              <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
+                                    Fill="Teal"
+                                    Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
+                              <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                              <TextBlock Text=" (" Foreground="Gray"/>
+                              <TextBlock Text="{Binding ShellItems.Count}" Foreground="Gray"/>
+                              <TextBlock Text=")" Foreground="Gray"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </TreeViewItem.ItemTemplate>
+                  </TreeViewItem>
+
                </TreeViewItem>
 
                <TreeViewItem x:Name="feNode" Header="{DynamicResource FiniteElements}">

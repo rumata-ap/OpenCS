@@ -87,7 +87,10 @@ namespace OpenCS
 
           if (e.NewValue is CScore.ForceSet forceSetItem)
           {
-             vm.CurrentForceSet = forceSetItem;
+             if (forceSetItem.Kind == "shell")
+                vm.CurrentShellForceSet = forceSetItem;
+             else
+                vm.CurrentBarForceSet = forceSetItem;
           }
 
           if (e.NewValue is CScore.PlateSection plateSectionItem)

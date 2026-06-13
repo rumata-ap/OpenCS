@@ -98,7 +98,8 @@ namespace OpenCS
       CrossSection? currentCrossSection;
       ObservableCollection<CrossSection> crossSectionsLive = [];
       MaterialArea? currentMaterialArea;
-      ForceSet? currentForceSet;
+      ForceSet? currentBarForceSet;
+      ForceSet? currentShellForceSet;
       PlateSection? currentPlateSection;
 
       /// <summary>
@@ -232,6 +233,12 @@ namespace OpenCS
       /// <summary>Наборы расчётных усилий.</summary>
       public ObservableCollection<ForceSet> ForceSets { get; set; } = null!;
 
+      /// <summary>Наборы усилий для стержней (Kind="bar").</summary>
+      public ObservableCollection<ForceSet> BarForceSets { get; set; } = null!;
+
+      /// <summary>Наборы усилий для пластин (Kind="shell").</summary>
+      public ObservableCollection<ForceSet> ShellForceSets { get; set; } = null!;
+
       /// <summary>Плитные сечения.</summary>
       public ObservableCollection<PlateSection> PlateSections { get; set; } = null!;
 
@@ -256,15 +263,29 @@ namespace OpenCS
       /// <summary>Команда дублирования плитного сечения (параметр PlateSection).</summary>
       public ICommand DuplicatePlateSectionCommand { get; set; } = null!;
 
-      /// <summary>Текущий выбранный набор усилий. При установке открывает ForceSetPage.</summary>
-      public ForceSet? CurrentForceSet
+      /// <summary>Текущий выбранный набор усилий стержня. При установке открывает BarForceSetPage.</summary>
+      public ForceSet? CurrentBarForceSet
       {
-         get => currentForceSet;
+         get => currentBarForceSet;
          set
          {
-            currentForceSet = value;
+            currentBarForceSet = value;
             CurrentPage = value != null
-               ? new Views.ForceSetPage(value, this)
+               ? new Views.BarForceSetPage(value, this)
+               : null!;
+            OnPropertyChanged();
+         }
+      }
+
+      /// <summary>Текущий выбранный набор усилий пластины. При установке открывает ShellForceSetPage.</summary>
+      public ForceSet? CurrentShellForceSet
+      {
+         get => currentShellForceSet;
+         set
+         {
+            currentShellForceSet = value;
+            CurrentPage = value != null
+               ? new Views.ShellForceSetPage(value, this)
                : null!;
             OnPropertyChanged();
          }
@@ -309,10 +330,13 @@ namespace OpenCS
       /// <summary>Команда создания нового двухстадийного сечения.</summary>
       public ICommand NewTwoStageSectionCommand { get; set; } = null!;
 
-      /// <summary>Команда создания нового набора усилий.</summary>
-      public ICommand NewForceSetCommand { get; set; } = null!;
+      /// <summary>Команда создания нового набора усилий стержня.</summary>
+      public ICommand NewBarForceSetCommand { get; set; } = null!;
 
-      /// <summary>Команда удаления набора усилий (параметр ForceSet или текущий).</summary>
+      /// <summary>Команда создания нового набора усилий пластины.</summary>
+      public ICommand NewShellForceSetCommand { get; set; } = null!;
+
+      /// <summary>Команда удаления набора усилий (параметр ForceSet).</summary>
       public ICommand DeleteForceSetCommand { get; set; } = null!;
 
       /// <summary>Команда задания вида загружения / переименования набора усилий (параметр ForceSet).</summary>
@@ -611,7 +635,24 @@ namespace OpenCS
          CrossSections = db.CrossSections;
          CrossSections.CollectionChanged += (_, _) => IsDirty = true;
          ForceSets = db.ForceSets;
-         ForceSets.CollectionChanged += (_, _) => IsDirty = true;
+         BarForceSets   = new ObservableCollection<ForceSet>(ForceSets.Where(fs => fs.Kind == "bar"));
+         ShellForceSets = new ObservableCollection<ForceSet>(ForceSets.Where(fs => fs.Kind == "shell"));
+         ForceSets.CollectionChanged += (_, e) =>
+         {
+            IsDirty = true;
+            if (e.NewItems != null)
+               foreach (ForceSet fs in e.NewItems)
+               {
+                  if (fs.Kind == "shell") { if (!ShellForceSets.Contains(fs)) ShellForceSets.Add(fs); }
+                  else                    { if (!BarForceSets.Contains(fs))   BarForceSets.Add(fs); }
+               }
+            if (e.OldItems != null)
+               foreach (ForceSet fs in e.OldItems)
+               {
+                  BarForceSets.Remove(fs);
+                  ShellForceSets.Remove(fs);
+               }
+         };
          PlateSections = db.PlateSections;
          PlateSections.CollectionChanged += (_, _) => { RefreshPlateSectionsLive(); IsDirty = true; };
          RefreshPlateSectionsLive();
@@ -657,7 +698,8 @@ namespace OpenCS
          DeleteMaterialAreaCommand = new RelayCommand(_ => DeleteMaterialArea());
          NewRebarGroupCommand      = new RelayCommand(_ => NewRebarGroup());
          NewSingleBarCommand       = new RelayCommand(_ => NewSingleBar());
-         NewForceSetCommand           = new RelayCommand(_ => NewForceSet());
+         NewBarForceSetCommand        = new RelayCommand(_ => NewBarForceSet());
+         NewShellForceSetCommand      = new RelayCommand(_ => NewShellForceSet());
          DeleteForceSetCommand        = new RelayCommand(p => DeleteForceSet(p as CScore.ForceSet));
          SetForceSetLoadTypeCommand   = new RelayCommand(p => SetForceSetLoadType(p as CScore.ForceSet));
          DuplicateForceSetCommand     = new RelayCommand(p => DuplicateForceSet(p as CScore.ForceSet));
@@ -763,11 +805,13 @@ namespace OpenCS
          CurrentContour = null;
          currentCrossSection = null;
          currentMaterialArea = null;
-         currentForceSet = null;
-         currentPlateSection = null;
+         currentBarForceSet   = null;
+         currentShellForceSet = null;
+         currentPlateSection  = null;
          OnPropertyChanged(nameof(CurrentCrossSection));
          OnPropertyChanged(nameof(CurrentMaterialArea));
-         OnPropertyChanged(nameof(CurrentForceSet));
+         OnPropertyChanged(nameof(CurrentBarForceSet));
+         OnPropertyChanged(nameof(CurrentShellForceSet));
          OnPropertyChanged(nameof(CurrentPlateSection));
          MaterialsSort();
          this.ContoursRenumber();
@@ -1058,15 +1102,21 @@ namespace OpenCS
          IsDirty = true;
       }
 
-      void NewForceSet()
+      void NewBarForceSet()
       {
-         currentForceSet = null;
-         CurrentPage = new Views.ForceSetPage(this);
+         currentBarForceSet = null;
+         CurrentPage = new Views.BarForceSetPage(this);
+      }
+
+      void NewShellForceSet()
+      {
+         currentShellForceSet = null;
+         CurrentPage = new Views.ShellForceSetPage(this);
       }
 
       void DeleteForceSet(CScore.ForceSet? target = null)
       {
-         var fs = target ?? currentForceSet;
+         var fs = target ?? currentBarForceSet ?? currentShellForceSet;
          if (fs == null) return;
          var res = System.Windows.MessageBox.Show(
             Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"),
@@ -1074,11 +1124,17 @@ namespace OpenCS
             System.Windows.MessageBoxImage.Warning);
          if (res != System.Windows.MessageBoxResult.Yes) return;
          db.DeleteForceSet(fs);
-         if (fs == currentForceSet)
+         if (fs == currentBarForceSet)
          {
-            currentForceSet = null;
+            currentBarForceSet = null;
             CurrentPage = null!;
-            OnPropertyChanged(nameof(CurrentForceSet));
+            OnPropertyChanged(nameof(CurrentBarForceSet));
+         }
+         else if (fs == currentShellForceSet)
+         {
+            currentShellForceSet = null;
+            CurrentPage = null!;
+            OnPropertyChanged(nameof(CurrentShellForceSet));
          }
          IsDirty = true;
       }
@@ -1092,8 +1148,9 @@ namespace OpenCS
          fs.Tag = vm.ResultName;
          db.SaveForceSet(fs);
          // ForceSet не INPC — форсируем обновление TreeView через remove+insert
-         int idx = db.ForceSets.IndexOf(fs);
-         if (idx >= 0) { db.ForceSets.RemoveAt(idx); db.ForceSets.Insert(idx, fs); }
+         var col = fs.Kind == "shell" ? ShellForceSets : BarForceSets;
+         int idx = col.IndexOf(fs);
+         if (idx >= 0) { col.RemoveAt(idx); col.Insert(idx, fs); }
          IsDirty = true;
       }
 
@@ -1109,10 +1166,17 @@ namespace OpenCS
             {
                Label = i.Label, N = i.N, Mx = i.Mx, My = i.My,
                Vx = i.Vx, Vy = i.Vy, T = i.T
-            })
+            }),
+            ShellItems = src.ShellItems.ConvertAll(i => new CScore.ShellLoadItem
+            {
+               Label = i.Label, Nx = i.Nx, Ny = i.Ny, Nxy = i.Nxy,
+               Mx = i.Mx, My = i.My, Mxy = i.Mxy, Qx = i.Qx, Qy = i.Qy
+            }),
          };
-         copy.Num = ForceSets.Count > 0 ? ForceSets.Max(s => s.Num) + 1 : 1;
-         for (int i = 0; i < copy.Items.Count; i++) copy.Items[i].Num = i + 1;
+         var col = src.Kind == "shell" ? ShellForceSets : BarForceSets;
+         copy.Num = col.Count > 0 ? col.Max(s => s.Num) + 1 : 1;
+         for (int i = 0; i < copy.Items.Count;      i++) copy.Items[i].Num      = i + 1;
+         for (int i = 0; i < copy.ShellItems.Count; i++) copy.ShellItems[i].Num = i + 1;
          db.SaveForceSet(copy);
          ForceSets.Add(copy);
          IsDirty = true;
