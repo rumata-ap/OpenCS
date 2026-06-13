@@ -28,6 +28,7 @@ namespace OpenCS.ViewModels
          DeleteItemCommand    = new RelayCommand(_ => DeleteItem());
          DuplicateItemCommand = new RelayCommand(_ => DuplicateItem());
          SaveCommand          = new RelayCommand(_ => Save());
+         SP20Command          = new RelayCommand(_ => OpenSP20Dialog());
          ExportCsvCommand     = new RelayCommand(_ => ExportCsv());
          ImportCsvCommand     = new RelayCommand(_ => ImportCsv());
       }
@@ -53,6 +54,7 @@ namespace OpenCS.ViewModels
       public ICommand DeleteItemCommand    { get; }
       public ICommand DuplicateItemCommand { get; }
       public ICommand SaveCommand          { get; }
+      public ICommand SP20Command          { get; }
       public ICommand ExportCsvCommand     { get; }
       public ICommand ImportCsvCommand     { get; }
 
@@ -98,6 +100,15 @@ namespace OpenCS.ViewModels
          Items.Remove(_selectedItem);
          SelectedItem = null;
          App.IsDirty = true;
+      }
+
+      void OpenSP20Dialog()
+      {
+         var dlg = new Views.SP20Dialog(App.ShellForceSets, App)
+         {
+            Owner = System.Windows.Application.Current.MainWindow
+         };
+         dlg.ShowDialog();
       }
 
       void ExportCsv()
