@@ -25,7 +25,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 9;
+      const int CurrentSchemaVersion = 10;
 
       static readonly string[] Migrations =
       [
@@ -145,6 +145,23 @@ namespace OpenCS.Utilites
              softening_model      TEXT NOT NULL DEFAULT '',
              softening_eps_c2     REAL NOT NULL DEFAULT 0.002,
              rebar_layers_json    TEXT NOT NULL DEFAULT '[]'
+         );
+         """,
+         """
+         -- v10: пластинчатые усилия.
+         CREATE TABLE IF NOT EXISTS force_shell_items (
+             id      INTEGER PRIMARY KEY AUTOINCREMENT,
+             set_id  INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
+             num     INTEGER NOT NULL DEFAULT 0,
+             label   TEXT NOT NULL DEFAULT '',
+             nx      REAL NOT NULL DEFAULT 0,
+             ny      REAL NOT NULL DEFAULT 0,
+             nxy     REAL NOT NULL DEFAULT 0,
+             mx      REAL NOT NULL DEFAULT 0,
+             my      REAL NOT NULL DEFAULT 0,
+             mxy     REAL NOT NULL DEFAULT 0,
+             qx      REAL NOT NULL DEFAULT 0,
+             qy      REAL NOT NULL DEFAULT 0
          );
          """
       ];
@@ -273,6 +290,20 @@ namespace OpenCS.Utilites
                 vx      REAL NOT NULL DEFAULT 0,
                 vy      REAL NOT NULL DEFAULT 0,
                 t       REAL NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS force_shell_items (
+                id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                set_id  INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
+                num     INTEGER NOT NULL DEFAULT 0,
+                label   TEXT NOT NULL DEFAULT '',
+                nx      REAL NOT NULL DEFAULT 0,
+                ny      REAL NOT NULL DEFAULT 0,
+                nxy     REAL NOT NULL DEFAULT 0,
+                mx      REAL NOT NULL DEFAULT 0,
+                my      REAL NOT NULL DEFAULT 0,
+                mxy     REAL NOT NULL DEFAULT 0,
+                qx      REAL NOT NULL DEFAULT 0,
+                qy      REAL NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS plate_sections (
                 id                   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1331,6 +1362,30 @@ namespace OpenCS.Utilites
                });
             }
          }
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = "SELECT id, set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy FROM force_shell_items ORDER BY set_id, num";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               int setId = r.GetInt32(1);
+               if (!sets.TryGetValue(setId, out var fs)) continue;
+               fs.ShellItems.Add(new ShellLoadItem
+               {
+                  Id    = r.GetInt32(0),
+                  Num   = r.GetInt32(2),
+                  Label = r.GetString(3),
+                  Nx    = r.GetDouble(4),
+                  Ny    = r.GetDouble(5),
+                  Nxy   = r.GetDouble(6),
+                  Mx    = r.GetDouble(7),
+                  My    = r.GetDouble(8),
+                  Mxy   = r.GetDouble(9),
+                  Qx    = r.GetDouble(10),
+                  Qy    = r.GetDouble(11),
+               });
+            }
+         }
          foreach (var fs in sets.Values) ForceSets.Add(fs);
       }
 
@@ -1392,6 +1447,35 @@ namespace OpenCS.Utilites
             ins.Parameters.AddWithValue("@vx",  item.Vx);
             ins.Parameters.AddWithValue("@vy",  item.Vy);
             ins.Parameters.AddWithValue("@t",   item.T);
+            item.Id = (int)(long)ins.ExecuteScalar()!;
+         }
+
+         using var delShell = _connection.CreateCommand();
+         delShell.CommandText = "DELETE FROM force_shell_items WHERE set_id = @sid";
+         delShell.Parameters.AddWithValue("@sid", fs.Id);
+         delShell.ExecuteNonQuery();
+
+         for (int i = 0; i < fs.ShellItems.Count; i++)
+         {
+            var item = fs.ShellItems[i];
+            item.Num = i + 1;
+            using var ins = _connection.CreateCommand();
+            ins.CommandText = """
+               INSERT INTO force_shell_items (set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy)
+               VALUES (@sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy);
+               SELECT last_insert_rowid();
+            """;
+            ins.Parameters.AddWithValue("@sid", fs.Id);
+            ins.Parameters.AddWithValue("@num", item.Num);
+            ins.Parameters.AddWithValue("@lbl", item.Label);
+            ins.Parameters.AddWithValue("@nx",  item.Nx);
+            ins.Parameters.AddWithValue("@ny",  item.Ny);
+            ins.Parameters.AddWithValue("@nxy", item.Nxy);
+            ins.Parameters.AddWithValue("@mx",  item.Mx);
+            ins.Parameters.AddWithValue("@my",  item.My);
+            ins.Parameters.AddWithValue("@mxy", item.Mxy);
+            ins.Parameters.AddWithValue("@qx",  item.Qx);
+            ins.Parameters.AddWithValue("@qy",  item.Qy);
             item.Id = (int)(long)ins.ExecuteScalar()!;
          }
       }
