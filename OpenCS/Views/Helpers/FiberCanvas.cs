@@ -1,0 +1,335 @@
+using OpenCS.ViewModels;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+
+namespace OpenCS.Views.Helpers
+{
+    /// <summary>
+    /// Кастомный FrameworkElement для отрисовки сечения с цветовой картой σ/ε.
+    /// Рисует всё через DrawingContext.OnRender — без WPF-элементов на фибру.
+    /// Поддерживает зум колёсиком, панорамирование ЛКМ, тултип при наведении,
+    /// кнопку FitAll.
+    /// </summary>
+    public class FiberCanvas : FrameworkElement
+    {
+        // ── Transform state ───────────────────────────────────────────
+        double _scale = 1.0;      // пикселей на мм
+        double _tx = 0, _ty = 0; // смещение в пикселях
+        Point  _dragStart;
+        bool   _dragging;
+
+        // ── Tooltip ───────────────────────────────────────────────────
+        readonly ToolTip _tip = new();
+        string? _lastTip;
+
+        // ── DP: ViewModel ─────────────────────────────────────────────
+        public static readonly DependencyProperty ViewModelProperty =
+            DependencyProperty.Register(nameof(ViewModel), typeof(SectionPlotVM),
+                typeof(FiberCanvas),
+                new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender,
+                    OnViewModelChanged));
+
+        public SectionPlotVM? ViewModel
+        {
+            get => (SectionPlotVM?)GetValue(ViewModelProperty);
+            set => SetValue(ViewModelProperty, value);
+        }
+
+        static void OnViewModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var fc = (FiberCanvas)d;
+            if (e.OldValue is SectionPlotVM old)
+            {
+                old.PropertyChanged   -= fc.OnVmPropertyChanged;
+                old.FitAllRequested   -= fc.FitToView;
+            }
+            if (e.NewValue is SectionPlotVM vm)
+            {
+                vm.PropertyChanged   += fc.OnVmPropertyChanged;
+                vm.FitAllRequested   += fc.FitToView;
+                fc._fitted = false;  // сбросить флаг первой подгонки
+            }
+        }
+
+        void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+            => InvalidateVisual();
+
+        bool _fitted;
+
+        public FiberCanvas()
+        {
+            ToolTipService.SetToolTip(this, _tip);
+            ToolTipService.SetInitialShowDelay(this, 300);
+            ClipToBounds = true;
+        }
+
+        // ── Layout ────────────────────────────────────────────────────
+        protected override Size MeasureOverride(Size availableSize) => availableSize;
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            if (!_fitted && ViewModel != null)
+            {
+                FitToView();
+                _fitted = true;
+            }
+            return finalSize;
+        }
+
+        // ── FitToView ─────────────────────────────────────────────────
+        public void FitToView()
+        {
+            var vm = ViewModel;
+            if (vm == null || ActualWidth < 1 || ActualHeight < 1) return;
+
+            double xMin = double.MaxValue, xMax = double.MinValue;
+            double yMin = double.MaxValue, yMax = double.MinValue;
+
+            void Expand(Point p)
+            {
+                if (p.X < xMin) xMin = p.X; if (p.X > xMax) xMax = p.X;
+                if (p.Y < yMin) yMin = p.Y; if (p.Y > yMax) yMax = p.Y;
+            }
+
+            foreach (var f in vm.ConcreteFibers)
+                foreach (var p in f.Vertices) Expand(p);
+            foreach (var a in vm.NoMeshAreas)
+                foreach (var p in a.Hull) Expand(p);
+            foreach (var r in vm.RebarFibers)
+            {
+                Expand(new Point(r.Center.X - r.RadiusMm, r.Center.Y - r.RadiusMm));
+                Expand(new Point(r.Center.X + r.RadiusMm, r.Center.Y + r.RadiusMm));
+            }
+
+            if (xMin > xMax) { _scale = 1; _tx = _ty = 0; InvalidateVisual(); return; }
+
+            double pad = 20;
+            double sw = ActualWidth  - 2 * pad;
+            double sh = ActualHeight - 2 * pad;
+            double mw = xMax - xMin, mh = yMax - yMin;
+            if (mw < 1e-6) mw = 1; if (mh < 1e-6) mh = 1;
+
+            _scale = Math.Min(sw / mw, sh / mh);
+            _tx = pad + (sw - mw * _scale) / 2 - xMin * _scale;
+            _ty = pad + (sh - mh * _scale) / 2 - yMin * _scale;
+
+            InvalidateVisual();
+        }
+
+        // ── Model ↔ Screen ────────────────────────────────────────────
+        Point ToScreen(Point model) =>
+            new(model.X * _scale + _tx, model.Y * _scale + _ty);
+
+        Point ToModel(Point screen) =>
+            new((screen.X - _tx) / _scale, (screen.Y - _ty) / _scale);
+
+        // ── OnRender ──────────────────────────────────────────────────
+        protected override void OnRender(DrawingContext dc)
+        {
+            dc.DrawRectangle(SystemColors.WindowBrush, null,
+                new Rect(0, 0, ActualWidth, ActualHeight));
+
+            var vm = ViewModel;
+            if (vm == null) return;
+
+            var pen = new Pen(Brushes.Transparent, 0);
+
+            // Основной материал (не арматура)
+            if (vm.ShowConcrete)
+            {
+                foreach (var f in vm.ConcreteFibers)
+                {
+                    var brush = new SolidColorBrush(
+                        ColormapHelper.GetColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar));
+                    dc.DrawGeometry(brush, pen, BuildPath(f.Vertices));
+                }
+                foreach (var a in vm.NoMeshAreas)
+                    DrawNoMesh(dc, a, vm);
+            }
+
+            // Арматура
+            if (vm.ShowRebar)
+            {
+                var outlinePen = new Pen(Brushes.Black, 0.5);
+                foreach (var r in vm.RebarFibers)
+                {
+                    var center = ToScreen(r.Center);
+                    double radius = r.RadiusMm * _scale;
+                    var brush = new SolidColorBrush(
+                        ColormapHelper.GetColor(r.Value, vm.RebarMin, vm.RebarMax, true));
+                    dc.DrawEllipse(brush, outlinePen, center, radius, radius);
+                }
+            }
+
+            // Подписи значений
+            if (vm.ShowValues)
+            {
+                var tf = new Typeface("Consolas");
+                foreach (var f in vm.ConcreteFibers)
+                {
+                    if (!vm.ShowConcrete) continue;
+                    var txt = new FormattedText($"{f.Value:G4}", CultureInfo.InvariantCulture,
+                        FlowDirection.LeftToRight, tf, 9, Brushes.Black, 1.0);
+                    var sc = ToScreen(f.Centroid);
+                    dc.DrawText(txt, new Point(sc.X - txt.Width / 2, sc.Y - txt.Height / 2));
+                }
+                foreach (var r in vm.RebarFibers)
+                {
+                    if (!vm.ShowRebar) continue;
+                    var txt = new FormattedText($"{r.Value:G4}", CultureInfo.InvariantCulture,
+                        FlowDirection.LeftToRight, tf, 9, Brushes.Black, 1.0);
+                    var sc = ToScreen(r.Center);
+                    dc.DrawText(txt, new Point(sc.X - txt.Width / 2, sc.Y - txt.Height / 2));
+                }
+            }
+
+            // Маркер максимального сжатия
+            if (vm.ShowMaxCompr)
+            {
+                Point? minCentroid = null;
+                double minVal = double.MaxValue;
+                foreach (var f in vm.ConcreteFibers)
+                    if (f.Value < minVal) { minVal = f.Value; minCentroid = f.Centroid; }
+                foreach (var r in vm.RebarFibers)
+                    if (r.Value < minVal) { minVal = r.Value; minCentroid = r.Center; }
+
+                if (minCentroid.HasValue)
+                {
+                    var sc = ToScreen(minCentroid.Value);
+                    var markerPen = new Pen(Brushes.DarkBlue, 2);
+                    double ms = 6;
+                    dc.DrawLine(markerPen, new Point(sc.X - ms, sc.Y), new Point(sc.X + ms, sc.Y));
+                    dc.DrawLine(markerPen, new Point(sc.X, sc.Y - ms), new Point(sc.X, sc.Y + ms));
+                }
+            }
+        }
+
+        PathGeometry BuildPath(IReadOnlyList<Point> vertices)
+        {
+            var fig = new PathFigure { IsClosed = true, IsFilled = true };
+            fig.StartPoint = ToScreen(vertices[0]);
+            for (int i = 1; i < vertices.Count; i++)
+                fig.Segments.Add(new LineSegment(ToScreen(vertices[i]), true));
+            return new PathGeometry(new[] { fig });
+        }
+
+        void DrawNoMesh(DrawingContext dc, NoMeshAreaDrawData a, SectionPlotVM vm)
+        {
+            var gradBrush = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 1), // MappingMode=RelativeToBoundingBox default
+                EndPoint   = new Point(0, 0),
+                MappingMode = BrushMappingMode.RelativeToBoundingBox
+            };
+            gradBrush.GradientStops.Add(new GradientStop(
+                ColormapHelper.GetColor(a.ValueAtStart, vm.ConcreteMin, vm.ConcreteMax, false), 0));
+            gradBrush.GradientStops.Add(new GradientStop(
+                ColormapHelper.GetColor(a.ValueAtEnd,   vm.ConcreteMin, vm.ConcreteMax, false), 1));
+
+            var hullGeom  = BuildPath(a.Hull);
+            var combined  = new CombinedGeometry(GeometryCombineMode.Exclude, hullGeom,
+                BuildHolesGeometry(a.Holes));
+            dc.DrawGeometry(gradBrush, null, combined);
+        }
+
+        Geometry BuildHolesGeometry(IReadOnlyList<IReadOnlyList<Point>> holes)
+        {
+            if (holes.Count == 0) return Geometry.Empty;
+            var group = new GeometryGroup();
+            foreach (var hole in holes)
+                group.Children.Add(BuildPath(hole));
+            return group;
+        }
+
+        // ── Mouse ─────────────────────────────────────────────────────
+        protected override void OnMouseWheel(MouseWheelEventArgs e)
+        {
+            var pos = e.GetPosition(this);
+            double factor = e.Delta > 0 ? 1.2 : 1.0 / 1.2;
+            _scale *= factor;
+            _tx = pos.X + (_tx - pos.X) * factor;
+            _ty = pos.Y + (_ty - pos.Y) * factor;
+            InvalidateVisual();
+            e.Handled = true;
+        }
+
+        protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+        {
+            _dragging  = true;
+            _dragStart = e.GetPosition(this);
+            CaptureMouse();
+        }
+
+        protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+        {
+            _dragging = false;
+            ReleaseMouseCapture();
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            if (_dragging)
+            {
+                var pos = e.GetPosition(this);
+                _tx += pos.X - _dragStart.X;
+                _ty += pos.Y - _dragStart.Y;
+                _dragStart = pos;
+                InvalidateVisual();
+                return;
+            }
+
+            // HitTest для тултипа
+            var vm = ViewModel;
+            if (vm == null) return;
+            var modelPos = ToModel(e.GetPosition(this));
+            string? found = FindTooltip(vm, modelPos);
+            if (found != _lastTip)
+            {
+                _lastTip = found;
+                _tip.Content = found;
+                _tip.IsOpen  = found != null;
+            }
+        }
+
+        protected override void OnMouseLeave(MouseEventArgs e)
+        {
+            _tip.IsOpen = false;
+            _lastTip = null;
+        }
+
+        string? FindTooltip(SectionPlotVM vm, Point modelPos)
+        {
+            const double threshold = 5.0; // мм в модельных координатах
+
+            if (vm.ShowRebar)
+                foreach (var r in vm.RebarFibers)
+                {
+                    double dx = modelPos.X - r.Center.X;
+                    double dy = modelPos.Y - r.Center.Y;
+                    if (Math.Sqrt(dx*dx + dy*dy) <= r.RadiusMm + 1)
+                        return r.Tooltip;
+                }
+
+            if (vm.ShowConcrete)
+            {
+                FiberDrawData? nearest = null;
+                double nearestDist = threshold;
+                foreach (var f in vm.ConcreteFibers)
+                {
+                    double dx = modelPos.X - f.Centroid.X;
+                    double dy = modelPos.Y - f.Centroid.Y;
+                    double d = Math.Sqrt(dx*dx + dy*dy);
+                    if (d < nearestDist) { nearestDist = d; nearest = f; }
+                }
+                if (nearest != null) return nearest.Tooltip;
+            }
+
+            return null;
+        }
+    }
+}
