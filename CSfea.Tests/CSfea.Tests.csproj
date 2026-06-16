@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>CSfea.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CSfea.Core\CSfea.Core.csproj" />
+    <ProjectReference Include="..\CSfea.Sparse\CSfea.Sparse.csproj" />
+    <ProjectReference Include="..\CSfea.Sparse.CSparse\CSfea.Sparse.CSparse.csproj" />
+  </ItemGroup>
+
+</Project>
