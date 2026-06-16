@@ -136,5 +136,38 @@ namespace CScore
                area.ResolveAndBuildDiagramms();
             }
       }
+
+      /// <summary>
+      /// Прямой расчёт усилий и (опционально) касательной 3×3 по плоскости деформаций.
+      /// Касательная — forward finite differences (4 вызова <see cref="Integral"/>).
+      /// </summary>
+      public SectionResult Compute(Kurvature k, CalcType calc = CalcType.C,
+                                   bool ten = true, bool ca = true,
+                                   bool computeStiffness = true, double fdStep = 1e-7)
+      {
+         var f0 = Integral(k, calc, ten, ca);
+         if (!computeStiffness)
+            return new SectionResult { N = f0.N, Mx = f0.Mx, My = f0.My };
+
+         const int n = 3;
+         var j = new double[n, n];
+         var fBase = new[] { f0.N, f0.Mx, f0.My };
+         double h = fdStep;
+
+         for (int col = 0; col < n; col++)
+         {
+            var kp = k;
+            if (col == 0) kp.e0 += h;
+            else if (col == 1) kp.ky += h;
+            else kp.kz += h;
+
+            var fp = Integral(kp, calc, ten, ca);
+            var fPert = new[] { fp.N, fp.Mx, fp.My };
+            for (int row = 0; row < n; row++)
+               j[row, col] = (fPert[row] - fBase[row]) / h;
+         }
+
+         return new SectionResult { N = f0.N, Mx = f0.Mx, My = f0.My, Tangent = j };
+      }
    }
 }

@@ -155,6 +155,81 @@ namespace CScore
          };
       }
 
+      /// <summary>
+      /// Усилия и полные касательные блоки A/B/D (6×6 по мембране+изгибу) + As.
+      /// Forward FD по [ε₀x, ε₀y, γ₀xy, κx, κy, κxy]; 7 вызовов интегратора.
+      /// </summary>
+      public PlateShellTangentResult ComputeTangent(
+         ShellStrainState state,
+         Diagramm concreteDiagram,
+         Diagramm rebarDiagram,
+         IReadOnlyList<Diagramm?>? layerDiagrams = null,
+         double concreteE_MPa = 30000.0,
+         double nu = 0.2,
+         double kShear = 5.0 / 6.0,
+         double[,]? asOverride = null,
+         double fdStep = 1e-7)
+      {
+         var (nx, ny, nxy, mx, my, mxy, _, _, _, _, _, _, _, _, _, _) =
+            Integrate(state, concreteDiagram, rebarDiagram, layerDiagrams);
+
+         double[] state6 =
+         [
+            state.Eps0x, state.Eps0y, state.Gamma0xy,
+            state.Kx, state.Ky, state.Kxy
+         ];
+         var f0 = new[] { nx, ny, nxy, mx, my, mxy };
+         double h = fdStep * (Norm6(state6) + 1.0);
+
+         var j = new double[6, 6];
+         for (int col = 0; col < 6; col++)
+         {
+            var arr = (double[])state6.Clone();
+            arr[col] += h;
+            var sPert = ShellStrainState.FromArray(arr);
+            var (nx1, ny1, nxy1, mx1, my1, mxy1, _, _, _, _, _, _, _, _, _, _) =
+               Integrate(sPert, concreteDiagram, rebarDiagram, layerDiagrams);
+            var f1 = new[] { nx1, ny1, nxy1, mx1, my1, mxy1 };
+            for (int row = 0; row < 6; row++)
+               j[row, col] = (f1[row] - f0[row]) / h;
+         }
+
+         var a = Submatrix(j, 0, 0);
+         var b = Submatrix(j, 0, 3);
+         var d = Submatrix(j, 3, 3);
+         var asMat = asOverride ?? BuildAs(concreteE_MPa, nu, kShear);
+
+         return new PlateShellTangentResult
+         {
+            Nx = nx, Ny = ny, Nxy = nxy, Mx = mx, My = my, Mxy = mxy,
+            A = a, B = b, D = d, As = asMat,
+         };
+      }
+
+      static double Norm6(double[] v)
+      {
+         double s = 0;
+         foreach (double x in v) s += x * x;
+         return Math.Sqrt(s);
+      }
+
+      static double[,] Submatrix(double[,] m, int row0, int col0)
+      {
+         var r = new double[3, 3];
+         for (int i = 0; i < 3; i++)
+            for (int j = 0; j < 3; j++)
+               r[i, j] = m[row0 + i, col0 + j];
+         return r;
+      }
+
+      /// <summary>Линейная As: k_shear·G·h·1000 (кН/м при γ=1), G в МПа.</summary>
+      public double[,] BuildAs(double concreteE_MPa, double nu = 0.2, double kShear = 5.0 / 6.0)
+      {
+         double g = concreteE_MPa / (2.0 * (1.0 + nu));
+         double v = kShear * g * H * 1000.0;
+         return new[,] { { v, 0.0 }, { 0.0, v } };
+      }
+
       // ── Внутреннее: послойное интегрирование ───────────────────────────────
 
       // Возвращает 16 значений: суммарные + детализация бетон/арматура

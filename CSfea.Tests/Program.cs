@@ -16,6 +16,8 @@ BeamTests.RunCrRollup3D();
 
 SolverTests.RunCrossValidation();
 
+CScoreBridgeTests.RunAll();
+
 BucklingTests.RunSimplySupportedPlate();
 
 return TestHarness.Summary();

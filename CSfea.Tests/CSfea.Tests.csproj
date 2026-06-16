@@ -12,6 +12,8 @@
     <ProjectReference Include="..\CSfea.Core\CSfea.Core.csproj" />
     <ProjectReference Include="..\CSfea.Sparse\CSfea.Sparse.csproj" />
     <ProjectReference Include="..\CSfea.Sparse.CSparse\CSfea.Sparse.CSparse.csproj" />
+    <ProjectReference Include="..\CSfea.CScore\CSfea.CScore.csproj" />
+    <ProjectReference Include="..\CScore\CScore.csproj" />
   </ItemGroup>
 
 </Project>
