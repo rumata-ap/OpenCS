@@ -59,22 +59,22 @@ namespace OpenCS.ViewModels
         public bool ShowConcrete
         {
             get => _showConcrete;
-            set { _showConcrete = value; OnPropertyChanged(); OnPropertyChanged(nameof(NeedRedraw)); }
+            set { _showConcrete = value; OnPropertyChanged(); NeedRedraw++; OnPropertyChanged(nameof(NeedRedraw)); }
         }
         public bool ShowRebar
         {
             get => _showRebar;
-            set { _showRebar = value; OnPropertyChanged(); OnPropertyChanged(nameof(NeedRedraw)); }
+            set { _showRebar = value; OnPropertyChanged(); NeedRedraw++; OnPropertyChanged(nameof(NeedRedraw)); }
         }
         public bool ShowValues
         {
             get => _showValues;
-            set { _showValues = value; OnPropertyChanged(); OnPropertyChanged(nameof(NeedRedraw)); }
+            set { _showValues = value; OnPropertyChanged(); NeedRedraw++; OnPropertyChanged(nameof(NeedRedraw)); }
         }
         public bool ShowMaxCompr
         {
             get => _showMaxCompr;
-            set { _showMaxCompr = value; OnPropertyChanged(); OnPropertyChanged(nameof(NeedRedraw)); }
+            set { _showMaxCompr = value; OnPropertyChanged(); NeedRedraw++; OnPropertyChanged(nameof(NeedRedraw)); }
         }
 
         // Триггер перерисовки для FiberCanvas

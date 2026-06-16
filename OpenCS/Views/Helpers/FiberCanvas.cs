@@ -61,15 +61,23 @@ namespace OpenCS.Views.Helpers
 
         bool _fitted;
 
+        static readonly Pen _transparentPen = new(Brushes.Transparent, 0);
+        static readonly Pen _outlinePen     = new(Brushes.Black, 0.5);
+        static readonly Pen _markerPen      = new(Brushes.DarkBlue, 2);
+
         public FiberCanvas()
         {
             ToolTipService.SetToolTip(this, _tip);
             ToolTipService.SetInitialShowDelay(this, 300);
+            ToolTipService.SetIsEnabled(this, false);
             ClipToBounds = true;
         }
 
         // ── Layout ────────────────────────────────────────────────────
-        protected override Size MeasureOverride(Size availableSize) => availableSize;
+        protected override Size MeasureOverride(Size availableSize)
+            => new(
+                double.IsInfinity(availableSize.Width)  ? 200 : availableSize.Width,
+                double.IsInfinity(availableSize.Height) ? 200 : availableSize.Height);
 
         protected override Size ArrangeOverride(Size finalSize)
         {
@@ -137,8 +145,6 @@ namespace OpenCS.Views.Helpers
             var vm = ViewModel;
             if (vm == null) return;
 
-            var pen = new Pen(Brushes.Transparent, 0);
-
             // Основной материал (не арматура)
             if (vm.ShowConcrete)
             {
@@ -146,7 +152,7 @@ namespace OpenCS.Views.Helpers
                 {
                     var brush = new SolidColorBrush(
                         ColormapHelper.GetColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar));
-                    dc.DrawGeometry(brush, pen, BuildPath(f.Vertices));
+                    dc.DrawGeometry(brush, _transparentPen, BuildPath(f.Vertices));
                 }
                 foreach (var a in vm.NoMeshAreas)
                     DrawNoMesh(dc, a, vm);
@@ -155,14 +161,13 @@ namespace OpenCS.Views.Helpers
             // Арматура
             if (vm.ShowRebar)
             {
-                var outlinePen = new Pen(Brushes.Black, 0.5);
                 foreach (var r in vm.RebarFibers)
                 {
                     var center = ToScreen(r.Center);
                     double radius = r.RadiusMm * _scale;
                     var brush = new SolidColorBrush(
                         ColormapHelper.GetColor(r.Value, vm.RebarMin, vm.RebarMax, true));
-                    dc.DrawEllipse(brush, outlinePen, center, radius, radius);
+                    dc.DrawEllipse(brush, _outlinePen, center, radius, radius);
                 }
             }
 
@@ -201,21 +206,22 @@ namespace OpenCS.Views.Helpers
                 if (minCentroid.HasValue)
                 {
                     var sc = ToScreen(minCentroid.Value);
-                    var markerPen = new Pen(Brushes.DarkBlue, 2);
                     double ms = 6;
-                    dc.DrawLine(markerPen, new Point(sc.X - ms, sc.Y), new Point(sc.X + ms, sc.Y));
-                    dc.DrawLine(markerPen, new Point(sc.X, sc.Y - ms), new Point(sc.X, sc.Y + ms));
+                    dc.DrawLine(_markerPen, new Point(sc.X - ms, sc.Y), new Point(sc.X + ms, sc.Y));
+                    dc.DrawLine(_markerPen, new Point(sc.X, sc.Y - ms), new Point(sc.X, sc.Y + ms));
                 }
             }
         }
 
-        PathGeometry BuildPath(IReadOnlyList<Point> vertices)
+        Geometry BuildPath(IReadOnlyList<Point> vertices)
         {
-            var fig = new PathFigure { IsClosed = true, IsFilled = true };
-            fig.StartPoint = ToScreen(vertices[0]);
+            var geom = new StreamGeometry();
+            using var ctx = geom.Open();
+            ctx.BeginFigure(ToScreen(vertices[0]), true, true);
             for (int i = 1; i < vertices.Count; i++)
-                fig.Segments.Add(new LineSegment(ToScreen(vertices[i]), true));
-            return new PathGeometry(new[] { fig });
+                ctx.LineTo(ToScreen(vertices[i]), true, false);
+            geom.Freeze();
+            return geom;
         }
 
         void DrawNoMesh(DrawingContext dc, NoMeshAreaDrawData a, SectionPlotVM vm)
@@ -291,20 +297,20 @@ namespace OpenCS.Views.Helpers
             if (found != _lastTip)
             {
                 _lastTip = found;
-                _tip.Content = found;
-                _tip.IsOpen  = found != null;
+                _tip.Content = found ?? string.Empty;
+                ToolTipService.SetIsEnabled(this, found != null);
             }
         }
 
         protected override void OnMouseLeave(MouseEventArgs e)
         {
-            _tip.IsOpen = false;
+            ToolTipService.SetIsEnabled(this, false);
             _lastTip = null;
         }
 
         string? FindTooltip(SectionPlotVM vm, Point modelPos)
         {
-            const double threshold = 5.0; // мм в модельных координатах
+            double threshold = 5.0 / _scale; // 5 пикселей → модельные мм
 
             if (vm.ShowRebar)
                 foreach (var r in vm.RebarFibers)
