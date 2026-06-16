@@ -82,7 +82,7 @@ namespace OpenCS.Views
         public string PhiEAText => "—"; public string PhiEIyText => "—";
         public string PhiEIzText => "—";
         public bool   HasRebar => false;
-        public System.Collections.ObjectModel.ObservableCollection<object>
+        public System.Collections.ObjectModel.ObservableCollection<StrainSummaryVM.RebarRow>
             RebarRows { get; } = [];
         public string IterationsText => "—";
         public string ResidualText   => "—";
