@@ -50,7 +50,7 @@ namespace CScore
          {
             area.SetEps(k1, calc, ten, ca);
             foreach (var f in area.Fibers)
-            { N += f.N; Mx += f.My; My += f.Mz; }
+            { N += f.N; Mx += f.Mx; My += f.My; }
          }
 
          // Этап 2: ε_total = ε_current
@@ -58,10 +58,10 @@ namespace CScore
          {
             area.SetEps(k, calc, ten, ca);
             foreach (var f in area.Fibers)
-            { N += f.N; Mx += f.My; My += f.Mz; }
+            { N += f.N; Mx += f.Mx; My += f.My; }
          }
 
-         return new Load { Calc = calc, N = N, My = Mx, Mz = My };
+         return new Load { Calc = calc, N = N, Mx = Mx, My = My };
       }
    }
 }

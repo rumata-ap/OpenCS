@@ -279,11 +279,14 @@ namespace CScore
       public Kurvature Guess(Load load)
       {
          var pr = new GeoProps(this);
+         double ea  = pr.EA  > 1e-10 ? pr.EA  : 1.0;
+         double eix = pr.EIx > 1e-10 ? pr.EIx : 1.0;
+         double eiy = pr.EIy > 1e-10 ? pr.EIy : 1.0;
          return new Kurvature
          {
-            e0 = load.N / pr.EA,
-            ky = load.My / pr.EIy,
-            kz = load.Mz / pr.EIx
+            e0 = load.N  / ea,
+            ky = load.Mx / eix,
+            kz = load.My / eiy
          };
       }
 

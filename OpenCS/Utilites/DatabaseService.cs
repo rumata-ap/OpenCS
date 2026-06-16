@@ -25,7 +25,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 11;
+      const int CurrentSchemaVersion = 12;
 
       static readonly string[] Migrations =
       [
@@ -167,6 +167,28 @@ namespace OpenCS.Utilites
          """
          -- v11: geometry_set в таблице circles.
          ALTER TABLE circles ADD COLUMN geometry_set TEXT NULL;
+         """,
+         """
+         -- v12: расчётные задачи и результаты.
+         CREATE TABLE IF NOT EXISTS calc_tasks (
+             id              INTEGER PRIMARY KEY AUTOINCREMENT,
+             num             INTEGER NOT NULL DEFAULT 0,
+             tag             TEXT NOT NULL DEFAULT '',
+             kind            TEXT NOT NULL DEFAULT 'strain_state',
+             section_id      INTEGER NOT NULL DEFAULT 0,
+             force_set_id    INTEGER NOT NULL DEFAULT 0,
+             force_item_id   INTEGER NOT NULL DEFAULT 0,
+             calc_type       TEXT NOT NULL DEFAULT 'C'
+         );
+         CREATE TABLE IF NOT EXISTS calc_results (
+             id          INTEGER PRIMARY KEY AUTOINCREMENT,
+             task_id     INTEGER NOT NULL REFERENCES calc_tasks(id) ON DELETE CASCADE,
+             task_kind   TEXT NOT NULL DEFAULT '',
+             task_tag    TEXT NOT NULL DEFAULT '',
+             created     TEXT NOT NULL DEFAULT '',
+             status      TEXT NOT NULL DEFAULT 'ok',
+             data_json   TEXT NOT NULL DEFAULT '{}'
+         );
          """
       ];
 
@@ -183,17 +205,39 @@ namespace OpenCS.Utilites
       public ObservableCollection<MaterialArea> MaterialAreas { get; } = [];
       public ObservableCollection<ForceSet> ForceSets { get; } = [];
       public ObservableCollection<PlateSection> PlateSections { get; } = [];
-
-      public DatabaseService() : this("dbapp.db") { }
+      public ObservableCollection<CalcTask> CalcTasks { get; } = [];
+      public ObservableCollection<CalcResult> CalcResults { get; } = [];
 
       public DatabaseService(string dataSource)
       {
          _dataSource = dataSource;
-         _connection = new SqliteConnection($"Data Source={dataSource}");
-         _connection.Open();
+         _connection = OpenOrRecreate(dataSource);
          SetDeleteJournalMode();
          EnsureCreated();
          Migrate();
+      }
+
+      // Открывает файл БД; если он повреждён — удаляет и создаёт заново.
+      static SqliteConnection OpenOrRecreate(string dataSource)
+      {
+         var conn = new SqliteConnection($"Data Source={dataSource}");
+         try
+         {
+            conn.Open();
+            // Быстрая проверка целостности
+            using var chk = conn.CreateCommand();
+            chk.CommandText = "PRAGMA schema_version";
+            chk.ExecuteScalar();
+            return conn;
+         }
+         catch (SqliteException)
+         {
+            conn.Dispose();
+            try { File.Delete(dataSource); } catch { }
+            var fresh = new SqliteConnection($"Data Source={dataSource}");
+            fresh.Open();
+            return fresh;
+         }
       }
 
       void SetDeleteJournalMode()
@@ -325,18 +369,24 @@ namespace OpenCS.Utilites
                 rebar_layers_json    TEXT NOT NULL DEFAULT '[]'
             );
             CREATE TABLE IF NOT EXISTS material_areas (
-                id             INTEGER PRIMARY KEY AUTOINCREMENT,
-                section_id     INTEGER,
-                num            INTEGER NOT NULL DEFAULT 0,
-                tag            TEXT NOT NULL DEFAULT '',
-                description    TEXT,
-                material_id    INTEGER REFERENCES materials(id),
-                host_area_id   INTEGER REFERENCES material_areas(id),
-                diagramm_type  TEXT NOT NULL DEFAULT 'L2',
-                nx             INTEGER NOT NULL DEFAULT 21,
-                ny             INTEGER NOT NULL DEFAULT 21,
-                wkt            TEXT,
-                category       TEXT NOT NULL DEFAULT 'region'
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                section_id       INTEGER,
+                num              INTEGER NOT NULL DEFAULT 0,
+                tag              TEXT NOT NULL DEFAULT '',
+                description      TEXT,
+                material_id      INTEGER REFERENCES materials(id),
+                host_area_id     INTEGER REFERENCES material_areas(id),
+                diagramm_type    TEXT NOT NULL DEFAULT 'L2',
+                nx               INTEGER NOT NULL DEFAULT 21,
+                ny               INTEGER NOT NULL DEFAULT 21,
+                wkt              TEXT,
+                category         TEXT NOT NULL DEFAULT 'region',
+                pool_contour_id  INTEGER REFERENCES contours(id),
+                mesh_method      TEXT NOT NULL DEFAULT 'grid',
+                mesh_max_area    REAL NOT NULL DEFAULT 0.01,
+                mesh_min_angle   REAL NOT NULL DEFAULT 30.0,
+                mesh_max_edge_len REAL NOT NULL DEFAULT 0.0,
+                mesh_smooth_iter  INTEGER NOT NULL DEFAULT 5
             );
             CREATE TABLE IF NOT EXISTS point_fibers (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -356,6 +406,25 @@ namespace OpenCS.Utilites
                 area    REAL NOT NULL DEFAULT 0,
                 wkt     TEXT,
                 eps_p   REAL NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS calc_tasks (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                num             INTEGER NOT NULL DEFAULT 0,
+                tag             TEXT NOT NULL DEFAULT '',
+                kind            TEXT NOT NULL DEFAULT 'strain_state',
+                section_id      INTEGER NOT NULL DEFAULT 0,
+                force_set_id    INTEGER NOT NULL DEFAULT 0,
+                force_item_id   INTEGER NOT NULL DEFAULT 0,
+                calc_type       TEXT NOT NULL DEFAULT 'C'
+            );
+            CREATE TABLE IF NOT EXISTS calc_results (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id     INTEGER NOT NULL REFERENCES calc_tasks(id) ON DELETE CASCADE,
+                task_kind   TEXT NOT NULL DEFAULT '',
+                task_tag    TEXT NOT NULL DEFAULT '',
+                created     TEXT NOT NULL DEFAULT '',
+                status      TEXT NOT NULL DEFAULT 'ok',
+                data_json   TEXT NOT NULL DEFAULT '{}'
             );";
          cmd.ExecuteNonQuery();
 
@@ -592,6 +661,7 @@ namespace OpenCS.Utilites
          foreach (var sec in CrossSections) SaveCrossSection(sec);
          foreach (var fs in ForceSets) SaveForceSet(fs);
          foreach (var ps in PlateSections) SavePlateSection(ps);
+         foreach (var ct in CalcTasks) SaveCalcTask(ct);
       }
 
       internal void ClearCollections()
@@ -607,6 +677,8 @@ namespace OpenCS.Utilites
          ForceSets.Clear();
          PlateSections.Clear();
          MaterialAreas.Clear();
+         CalcTasks.Clear();
+         CalcResults.Clear();
       }
 
       #region Load
@@ -627,6 +699,8 @@ namespace OpenCS.Utilites
          ResolveReferencesForCrossSections();
          LoadForceSets();
          LoadPlateSections();
+         LoadCalcTasks();
+         LoadCalcResults();
       }
 
       void LoadMaterials()
@@ -1609,6 +1683,142 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@id", ps.Id);
          cmd.ExecuteNonQuery();
          PlateSections.Remove(ps);
+      }
+
+      #endregion
+
+      #region CalcTask / CalcResult
+
+      void LoadCalcTasks()
+      {
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT id, num, tag, kind, section_id, force_set_id, force_item_id, calc_type FROM calc_tasks ORDER BY num";
+         using var reader = cmd.ExecuteReader();
+         while (reader.Read())
+         {
+            var ct = new CalcTask
+            {
+               Id          = reader.GetInt32(0),
+               Num         = reader.GetInt32(1),
+               Tag         = reader.GetString(2),
+               Kind        = reader.GetString(3),
+               SectionId   = reader.GetInt32(4),
+               ForceSetId  = reader.GetInt32(5),
+               ForceItemId = reader.GetInt32(6),
+               CalcType    = Enum.TryParse<CalcType>(reader.GetString(7), out var ct2) ? ct2 : CalcType.C
+            };
+            CalcTasks.Add(ct);
+         }
+      }
+
+      void LoadCalcResults()
+      {
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT id, task_id, task_kind, task_tag, created, status, data_json FROM calc_results ORDER BY id";
+         using var reader = cmd.ExecuteReader();
+         while (reader.Read())
+         {
+            CalcResults.Add(new CalcResult
+            {
+               Id       = reader.GetInt32(0),
+               TaskId   = reader.GetInt32(1),
+               TaskKind = reader.GetString(2),
+               TaskTag  = reader.GetString(3),
+               Created  = reader.GetString(4),
+               Status   = reader.GetString(5),
+               DataJson = reader.GetString(6)
+            });
+         }
+      }
+
+      public void SaveCalcTask(CalcTask ct)
+      {
+         bool isNew = ct.Id == 0;
+         var cmd = _connection.CreateCommand();
+         if (isNew)
+         {
+            cmd.CommandText = @"
+               INSERT INTO calc_tasks (num, tag, kind, section_id, force_set_id, force_item_id, calc_type)
+               VALUES (@num, @tag, @kind, @sid, @fsid, @fiid, @ct);
+               SELECT last_insert_rowid();";
+         }
+         else
+         {
+            cmd.CommandText = @"
+               UPDATE calc_tasks SET num=@num, tag=@tag, kind=@kind,
+                  section_id=@sid, force_set_id=@fsid, force_item_id=@fiid, calc_type=@ct
+               WHERE id=@id";
+            cmd.Parameters.AddWithValue("@id", ct.Id);
+         }
+         cmd.Parameters.AddWithValue("@num",  ct.Num);
+         cmd.Parameters.AddWithValue("@tag",  ct.Tag);
+         cmd.Parameters.AddWithValue("@kind", ct.Kind);
+         cmd.Parameters.AddWithValue("@sid",  ct.SectionId);
+         cmd.Parameters.AddWithValue("@fsid", ct.ForceSetId);
+         cmd.Parameters.AddWithValue("@fiid", ct.ForceItemId);
+         cmd.Parameters.AddWithValue("@ct",   ct.CalcType.ToString());
+         if (isNew)
+         {
+            ct.Id = (int)(long)cmd.ExecuteScalar()!;
+            if (!CalcTasks.Contains(ct)) CalcTasks.Add(ct);
+         }
+         else
+            cmd.ExecuteNonQuery();
+      }
+
+      public void DeleteCalcTask(CalcTask ct)
+      {
+         if (ct.Id == 0) { CalcTasks.Remove(ct); return; }
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM calc_tasks WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", ct.Id);
+         cmd.ExecuteNonQuery();
+         CalcTasks.Remove(ct);
+         // Удаляем связанные результаты из коллекции (каскад в БД уже сработал)
+         var toRemove = CalcResults.Where(r => r.TaskId == ct.Id).ToList();
+         foreach (var r in toRemove) CalcResults.Remove(r);
+      }
+
+      public void SaveCalcResult(CalcResult cr)
+      {
+         bool isNew = cr.Id == 0;
+         var cmd = _connection.CreateCommand();
+         if (isNew)
+         {
+            cmd.CommandText = @"
+               INSERT INTO calc_results (task_id, task_kind, task_tag, created, status, data_json)
+               VALUES (@tid, @kind, @ttag, @created, @status, @data);
+               SELECT last_insert_rowid();";
+         }
+         else
+         {
+            cmd.CommandText = @"
+               UPDATE calc_results SET status=@status, data_json=@data WHERE id=@id";
+            cmd.Parameters.AddWithValue("@id", cr.Id);
+         }
+         cmd.Parameters.AddWithValue("@tid",     cr.TaskId);
+         cmd.Parameters.AddWithValue("@kind",    cr.TaskKind);
+         cmd.Parameters.AddWithValue("@ttag",    cr.TaskTag);
+         cmd.Parameters.AddWithValue("@created", cr.Created);
+         cmd.Parameters.AddWithValue("@status",  cr.Status);
+         cmd.Parameters.AddWithValue("@data",    cr.DataJson);
+         if (isNew)
+         {
+            cr.Id = (int)(long)cmd.ExecuteScalar()!;
+            if (!CalcResults.Contains(cr)) CalcResults.Add(cr);
+         }
+         else
+            cmd.ExecuteNonQuery();
+      }
+
+      public void DeleteCalcResult(CalcResult cr)
+      {
+         if (cr.Id == 0) { CalcResults.Remove(cr); return; }
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM calc_results WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", cr.Id);
+         cmd.ExecuteNonQuery();
+         CalcResults.Remove(cr);
       }
 
       #endregion

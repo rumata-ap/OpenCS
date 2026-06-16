@@ -80,15 +80,11 @@ namespace CScore
       /// </summary>
       public double Area { get; set; }
 
-      /// <summary>
-      /// Изгибающий момент относительно оси X (M_y = σ · A · y).
-      /// </summary>
-      public double My { get; set; }
+      /// <summary>Момент относительно оси X: Mx = σ · A · y.</summary>
+      public double Mx { get; set; }
 
-      /// <summary>
-      /// Изгибающий момент относительно оси Y (M_z = σ · A · x).
-      /// </summary>
-      public double Mz { get; set; }
+      /// <summary>Момент относительно оси Y: My = σ · A · x.</summary>
+      public double My { get; set; }
 
       /// <summary>
       /// WKT-представление (Well-Known Text) полигона волокна.

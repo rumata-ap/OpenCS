@@ -10,11 +10,11 @@ namespace CScore
    public struct LoadGroup
    {
       public IList<double> N;
+      public IList<double> Mx;
       public IList<double> My;
-      public IList<double> Mz;
       public IList<double> Qy;
       public IList<double> Qz;
-      public IList<double> Mx;
+      public IList<double> T;
       public CalcType Calc;
       public LoadType Type;
       public string Description;
@@ -32,11 +32,11 @@ namespace CScore
                NoSect = NoSect == null ? 0 : NoSect[i],
                NoElem = NoElem == null ? 0 : NoElem[i],
                N = N == null ? 0 : N[i],
+               Mx = Mx == null ? 0 : Mx[i],
                My = My == null ? 0 : My[i],
-               Mz = Mz == null ? 0 : Mz[i],
                Qy = Qy == null ? 0 : Qy[i],
                Qz = Qz == null ? 0 : Qz[i],
-               Mx = Mx == null ? 0 : Mx[i],
+               T = T == null ? 0 : T[i],
                Type = Type
             };
          }

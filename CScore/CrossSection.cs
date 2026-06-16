@@ -56,7 +56,7 @@ namespace CScore
                {
                   area.SetEps(k, calc, ten, ca);
                   foreach (var f in area.Fibers)
-                  { N += f.N; Mx += f.My; My += f.Mz; }
+                  { N += f.N; Mx += f.Mx; My += f.My; }
                }
             }
             else
@@ -64,10 +64,10 @@ namespace CScore
                // Фибровый путь — SetEps обрабатывает все фибры (mesh + point)
                area.SetEps(k, calc, ten, ca);
                foreach (var f in area.Fibers)
-               { N += f.N; Mx += f.My; My += f.Mz; }
+               { N += f.N; Mx += f.Mx; My += f.My; }
             }
          }
-         return new Load { Calc = calc, N = N, My = Mx, Mz = My };
+         return new Load { Calc = calc, N = N, Mx = Mx, My = My };
       }
 
       /// <summary>Интеграл + геометрические характеристики.</summary>
@@ -80,15 +80,42 @@ namespace CScore
          return load;
       }
 
-      /// <summary>Начальное приближение кривизны (упругая стадия).</summary>
+      /// <summary>
+      /// Начальное приближение кривизны (упругая стадия).
+      /// Для областей без сеточных фибр использует геометрию контура Hull,
+      /// чтобы не занижать жёсткость сечения.
+      /// </summary>
       public Kurvature Guess(Load load)
       {
-         var pr = new GeoProps(this);
+         var pr = new GeoProps();
+         foreach (var area in Areas)
+         {
+            bool hasMeshFibers = area.Fibers.Any(f => f.TypeFiber != FiberType.point);
+            if (!hasMeshFibers && area.Hull != null && area.Material != null)
+            {
+               double E = area.Material.E;
+               // Внешний контур
+               var ap = new GeoProps(area.Hull, E);
+               pr = pr + ap;
+               // Вычесть отверстия
+               foreach (var hole in area.Holes)
+                  pr = pr - new GeoProps(hole, E);
+            }
+            // Фибровый вклад (арматурные точки, сгенерированная сетка)
+            pr = pr + new GeoProps(area);
+         }
+
+         // Load.Mx = ∫σ·y·dA → ky (dε/dy), жёсткость EIx = E·∫y²dA
+         // Load.My = ∫σ·x·dA → kz (dε/dx), жёсткость EIy = E·∫x²dA
+         double ea  = pr.EA  > 1e-10 ? pr.EA  : 1.0;
+         double eix = pr.EIx > 1e-10 ? pr.EIx : 1.0;
+         double eiy = pr.EIy > 1e-10 ? pr.EIy : 1.0;
+
          return new Kurvature
          {
-            e0 = load.N / pr.EA,
-            ky = load.My / pr.EIy,
-            kz = load.Mz / pr.EIx
+            e0 = load.N  / ea,
+            ky = load.Mx / eix,
+            kz = load.My / eiy
          };
       }
 

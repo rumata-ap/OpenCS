@@ -35,7 +35,7 @@ namespace OpenCS
       /// Сервис работы с базой данных SQLite, используемый для загрузки, сохранения
       /// и удаления доменных объектов. Доступен внутри сборки для дочерних ViewModel.
       /// </summary>
-      internal DatabaseService db = new();
+      internal DatabaseService db = null!;
 
       /// <summary>
       /// Коллекция материалов типа «Бетон», отфильтрованная из <see cref="Materials"/>.
@@ -249,6 +249,12 @@ namespace OpenCS
       /// <summary>Наборы расчётных усилий.</summary>
       public ObservableCollection<ForceSet> ForceSets { get; set; } = null!;
 
+      /// <summary>Расчётные задачи проекта.</summary>
+      public ObservableCollection<CalcTask> CalcTasks { get; set; } = null!;
+
+      /// <summary>Результаты расчётных задач.</summary>
+      public ObservableCollection<CalcResult> CalcResults { get; set; } = null!;
+
       /// <summary>Наборы усилий для стержней (Kind="bar").</summary>
       public ObservableCollection<ForceSet> BarForceSets { get; set; } = null!;
 
@@ -278,6 +284,9 @@ namespace OpenCS
       public ICommand DeletePlateSectionCommand { get; set; } = null!;
       /// <summary>Команда дублирования плитного сечения (параметр PlateSection).</summary>
       public ICommand DuplicatePlateSectionCommand { get; set; } = null!;
+
+      /// <summary>Команда открытия страницы расчётных задач.</summary>
+      public ICommand OpenCalcTasksCommand { get; set; } = null!;
 
       /// <summary>Текущий выбранный набор усилий стержня. При установке открывает BarForceSetPage.</summary>
       public ForceSet? CurrentBarForceSet
@@ -399,6 +408,8 @@ namespace OpenCS
           Views.FromDxfPage               => Loc.S("VT_FromDxf"),
           Views.DiagramPage               => Loc.S("VT_Diagram"),
           Views.CirclesView               => Loc.S("VT_Circles"),
+          Views.CalcTasksPage             => Loc.S("VT_CalcTasks"),
+          Views.CalcResultView            => Loc.S("VT_CalcResult"),
           _                               => ""
       };
       /// <summary>
@@ -598,6 +609,7 @@ namespace OpenCS
              new PlateSectionTreeGroup(PlateSectionsLive),
           };
 
+          db = new DatabaseService(GetTempDbPath());
           InitNewDatabase();
           PlotSettings = db.LoadPlotSettings() ?? Utilites.PlotSettings.Default;
           CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
@@ -605,13 +617,15 @@ namespace OpenCS
            InitializeCommands();
         }
 
+      static string GetTempDbPath() =>
+         Path.Combine(Path.GetTempPath(), "opencs_new.db");
+
       /// <summary>
-      /// Создаёт новую временную базу данных и переключается на неё.
+      /// Сбрасывает базу данных до пустого состояния (новый проект).
       /// </summary>
       void InitNewDatabase()
       {
-         var tempPath = Path.Combine(Path.GetTempPath(), "opencs_new.db");
-         db.ReinitializeDatabase(tempPath);
+         db.ReinitializeDatabase(GetTempDbPath());
       }
 
       /// <summary>
@@ -719,6 +733,10 @@ namespace OpenCS
          PlateSections = db.PlateSections;
          PlateSections.CollectionChanged += (_, _) => { RefreshPlateSectionsLive(); IsDirty = true; };
          RefreshPlateSectionsLive();
+         CalcTasks   = db.CalcTasks;
+         CalcResults = db.CalcResults;
+         CalcTasks.CollectionChanged   += (_, _) => IsDirty = true;
+         CalcResults.CollectionChanged += (_, _) => IsDirty = true;
          MaterialAreas = db.MaterialAreas;
          MaterialAreas.CollectionChanged += (_, _) => { RefreshMaterialAreaLiveCollections(); IsDirty = true; };
 
@@ -769,6 +787,7 @@ namespace OpenCS
          NewPlateSectionCommand       = new RelayCommand(_ => NewPlateSection());
          DeletePlateSectionCommand    = new RelayCommand(p => DeletePlateSection(p as CScore.PlateSection));
          DuplicatePlateSectionCommand = new RelayCommand(p => DuplicatePlateSection(p as CScore.PlateSection));
+         OpenCalcTasksCommand         = new RelayCommand(_ => CurrentPage = new Views.CalcTasksPage(this));
          ImportContoursFromDxfCommand = new RelayCommand(_ => ImportContoursFromDxf());
          AddCircleCommand             = new RelayCommand(_ => AddCircle());
          DeleteCircleCommand          = new RelayCommand(p => DeleteCircle(p as CircleP));
@@ -1073,6 +1092,8 @@ namespace OpenCS
          OnPropertyChanged(nameof(CurrentBarForceSet));
          OnPropertyChanged(nameof(CurrentShellForceSet));
          OnPropertyChanged(nameof(CurrentPlateSection));
+         CalcTasks   = db.CalcTasks;
+         CalcResults = db.CalcResults;
          MaterialsSort();
          this.ContoursRenumber();
          CirclesLive = new(Circles); this.CirclesRenumber();

@@ -154,13 +154,13 @@
                <Viewbox Width="18" Height="18">
                   <Grid Width="24" Height="24">
                      <!-- Лист бумаги -->
-                     <Path Fill="#DBEAFE"
+                     <Path Fill="#DBEAFE" Stroke="#2563EB" StrokeThickness="1"
                            Data="M14 2H6C4.89 2 4 2.89 4 4V20C4 21.11 4.89 22 6 22H18C19.11 22 20 21.11 20 20V8L14 2Z"/>
                      <!-- Загнутый уголок -->
-                     <Path Fill="#3B82F6" Opacity="0.55"
+                     <Path Fill="#3B82F6"
                            Data="M13 3.5L18.5 9H13V3.5Z"/>
                      <!-- Горизонтальные строки-декор -->
-                     <Path Fill="#93C5FD"
+                     <Path Fill="#2563EB"
                            Data="M7 12H12V13.5H7ZM7 15H11V16.5H7Z"/>
                      <!-- Зелёный плюс (Новый) -->
                      <Path Fill="#16A34A"
@@ -173,10 +173,10 @@
                <Viewbox Width="18" Height="18">
                   <Grid Width="24" Height="24">
                      <!-- Задняя стенка папки (тёмнее) -->
-                     <Path Fill="#D97706"
+                     <Path Fill="#D97706" Stroke="#92400E" StrokeThickness="1"
                            Data="M10 4H4A2 2 0 0 0 2 6V18A2 2 0 0 0 4 20H20A2 2 0 0 0 22 18V8A2 2 0 0 0 20 6H12L10 4Z"/>
                      <!-- Передняя стенка (светлее) -->
-                     <Path Fill="#FCD34D"
+                     <Path Fill="#FCD34D" Stroke="#92400E" StrokeThickness="1"
                            Data="M2 10V18C2 19.11 2.89 20 4 20H20C21.11 20 22 19.11 22 18V10H2Z"/>
                      <!-- Белые листы внутри -->
                      <Path Fill="White" Opacity="0.75"
@@ -777,7 +777,9 @@
                </TreeViewItem>
 
                <!-- Задачи -->
-               <TreeViewItem x:Name="tasksNode">
+               <TreeViewItem x:Name="tasksNode"
+                             IsExpanded="True"
+                             Selected="TasksNode_Selected">
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Viewbox Width="16" Height="16" Margin="0,0,5,0">
@@ -787,6 +789,15 @@
                         <TextBlock Text="{DynamicResource Tasks}" FontWeight="Bold"/>
                      </StackPanel>
                   </TreeViewItem.Header>
+                  <TreeViewItem.ItemTemplate>
+                     <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                           <TextBlock Text="{Binding Num, StringFormat='{}{0:D3}  '}" Foreground="Gray"/>
+                           <TextBlock Text="{Binding Tag}"/>
+                           <TextBlock Text="{Binding Kind, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                        </StackPanel>
+                     </DataTemplate>
+                  </TreeViewItem.ItemTemplate>
                </TreeViewItem>
       </TreeView>
       </GroupBox>

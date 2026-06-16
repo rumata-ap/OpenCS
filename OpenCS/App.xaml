@@ -183,11 +183,11 @@
          </Style>
 
          <Style TargetType="ToolBarTray">
-            <Setter Property="Background" Value="White"/>
+            <Setter Property="Background" Value="{x:Static SystemColors.MenuBarBrush}"/>
          </Style>
 
          <Style TargetType="ToolBar">
-            <Setter Property="Background" Value="White"/>
+            <Setter Property="Background" Value="{x:Static SystemColors.MenuBarBrush}"/>
          </Style>
 
          <Style TargetType="TextBlock">

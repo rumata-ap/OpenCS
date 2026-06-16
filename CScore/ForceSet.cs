@@ -22,7 +22,7 @@ namespace CScore
       public double T  { get; set; }   // крутящий момент T, кН·м
 
       /// <summary>Преобразует строку в структуру Load для расчёта CrossSection.</summary>
-      public Load ToLoad() => new Load { N = N, My = Mx, Mz = My };
+      public Load ToLoad() => new Load { N = N, Mx = Mx, My = My };
 
       public override string ToString() =>
          $"{Num:D3}: N={N:G4}  Mx={Mx:G4}  My={My:G4}  Vx={Vx:G4}  Vy={Vy:G4}  T={T:G4}";

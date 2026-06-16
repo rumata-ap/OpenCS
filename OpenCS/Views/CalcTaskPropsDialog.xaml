@@ -1,0 +1,86 @@
+<Window x:Class="OpenCS.Views.CalcTaskPropsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource CalcTaskDlgTitle}"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+   <Grid Margin="16">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="16"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="130"/>
+         <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Имя задачи -->
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Tag}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"/>
+      <TextBox   Grid.Row="0" Grid.Column="1"
+                 Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
+                 Margin="0,0,0,8"/>
+
+      <!-- Тип задачи -->
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CalcTaskKind}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"/>
+      <ComboBox  Grid.Row="1" Grid.Column="1"
+                 ItemsSource="{Binding AvailableKinds}"
+                 SelectedItem="{Binding Kind}"
+                 Margin="0,0,0,8"/>
+
+      <!-- Сечение -->
+      <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CalcTaskSection}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"/>
+      <ComboBox  Grid.Row="2" Grid.Column="1"
+                 ItemsSource="{Binding Sections}"
+                 SelectedItem="{Binding SelectedSection}"
+                 DisplayMemberPath="Tag"
+                 Margin="0,0,0,8"/>
+
+      <!-- Набор усилий -->
+      <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CalcTaskForceSet}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"/>
+      <ComboBox  Grid.Row="3" Grid.Column="1"
+                 ItemsSource="{Binding ForceSets}"
+                 SelectedItem="{Binding SelectedForceSet}"
+                 DisplayMemberPath="Tag"
+                 Margin="0,0,0,8"/>
+
+      <!-- Строка усилий -->
+      <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource CalcTaskForceItem}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"/>
+      <ComboBox  Grid.Row="4" Grid.Column="1"
+                 ItemsSource="{Binding ForceItems}"
+                 SelectedItem="{Binding SelectedForceItem}"
+                 DisplayMemberPath="Label"
+                 Margin="0,0,0,8"/>
+
+      <!-- Тип расчёта -->
+      <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource CalcType}"
+                 VerticalAlignment="Center" Margin="0,0,8,0"/>
+      <ComboBox  Grid.Row="5" Grid.Column="1"
+                 ItemsSource="{Binding CalcTypes}"
+                 SelectedItem="{Binding SelectedCalcType}"
+                 Margin="0,0,0,0"/>
+
+      <!-- Кнопки -->
+      <StackPanel Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2"
+                  Orientation="Horizontal" HorizontalAlignment="Right">
+         <Button Content="{DynamicResource OK}"
+                 IsDefault="True"
+                 Command="{Binding OkCommand}"
+                 Width="80" Margin="0,0,8,0"/>
+         <Button Content="{DynamicResource Cancel}"
+                 IsCancel="True"
+                 Width="80"/>
+      </StackPanel>
+   </Grid>
+</Window>

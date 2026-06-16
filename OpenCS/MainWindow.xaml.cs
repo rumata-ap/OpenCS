@@ -33,6 +33,16 @@ namespace OpenCS
             if (LoggerListBox.Items.Count > 0)
                LoggerListBox.ScrollIntoView(LoggerListBox.Items[^1]);
          };
+
+         Loaded += (_, _) =>
+         {
+            tasksNode.ItemsSource = vm.CalcTasks;
+         };
+         vm.PropertyChanged += (_, e2) =>
+         {
+            if (e2.PropertyName == nameof(AppViewModel.CalcTasks))
+               tasksNode.ItemsSource = vm.CalcTasks;
+         };
       }
 
       private void ContourDel_Click(object sender, RoutedEventArgs e)
@@ -114,9 +124,23 @@ namespace OpenCS
              {
                 vm.CurrentPage = new CirclesView(vm);
              }
+             if (treeViewItem.Name == "tasksNode")
+             {
+                vm.CurrentPage = new CalcTasksPage(vm);
+             }
           }
 
+          if (e.NewValue is CalcTask calcTaskItem)
+          {
+             vm.CurrentPage = new CalcTasksPage(vm);
+          }
         }
+
+      void TasksNode_Selected(object sender, RoutedEventArgs e)
+      {
+         vm.CurrentPage = new CalcTasksPage(vm);
+         e.Handled = true;
+      }
 
       void DeleteDiagram_Click(object sender, RoutedEventArgs e)
       {

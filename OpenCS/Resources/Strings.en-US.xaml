@@ -533,5 +533,43 @@
    <system:String x:Key="VT_FromDxf">DXF Import</system:String>
    <system:String x:Key="VT_Diagram">Diagram</system:String>
    <system:String x:Key="VT_Circles">Circles</system:String>
+   <system:String x:Key="VT_CalcTasks">Calc Tasks</system:String>
+   <system:String x:Key="VT_CalcResult">Calc Result</system:String>
+
+   <!-- Calc Tasks -->
+   <system:String x:Key="CalcTaskDlgTitle">Task Properties</system:String>
+   <system:String x:Key="CalcTaskKind">Task type</system:String>
+   <system:String x:Key="CalcTaskSection">Section</system:String>
+   <system:String x:Key="CalcTaskForceSet">Force set</system:String>
+   <system:String x:Key="CalcTaskForceItem">Force row</system:String>
+   <system:String x:Key="CalcType">Calc type</system:String>
+   <system:String x:Key="CalcTaskNew">New task</system:String>
+   <system:String x:Key="CalcTaskRun">Run</system:String>
+   <system:String x:Key="CalcTaskEdit">Edit</system:String>
+   <system:String x:Key="CalcTaskDelete">Delete task</system:String>
+   <system:String x:Key="CalcResults">Results</system:String>
+   <system:String x:Key="CalcResultView">View</system:String>
+   <system:String x:Key="CalcResultDelete">Delete result</system:String>
+   <system:String x:Key="CalcResultCreated">Date/time</system:String>
+   <system:String x:Key="CalcResultStatus">Status</system:String>
+   <system:String x:Key="CalcTaskNeedSection">No section selected.</system:String>
+   <system:String x:Key="CalcTaskNeedForceItem">No force set or force row selected.</system:String>
+   <system:String x:Key="CalcTaskSectionNotFound">Task section not found in project.</system:String>
+   <system:String x:Key="CalcTaskForceItemNotFound">Task force row not found in project.</system:String>
+   <system:String x:Key="ConfirmDeleteCalcTask">Delete task and all its results?</system:String>
+   <system:String x:Key="CalcTaskCreated">Task "{0}" created.</system:String>
+   <system:String x:Key="CalcResultOk">Task "{0}" completed successfully.</system:String>
+   <system:String x:Key="CalcResultNotConverged">Task "{0}" did not converge.</system:String>
+   <system:String x:Key="CalcResultError">Error running task "{0}".</system:String>
+   <system:String x:Key="CalcResultOkLabel">Converged</system:String>
+   <system:String x:Key="CalcResultNotConvergedLabel">Not converged</system:String>
+   <system:String x:Key="CalcResultErrorLabel">Error</system:String>
+   <system:String x:Key="CalcResultErrorMsg">Error message</system:String>
+   <system:String x:Key="CalcResultConverged">Converged</system:String>
+   <system:String x:Key="CalcResultIterations">Iterations</system:String>
+   <system:String x:Key="CalcResultResidual">Residual</system:String>
+   <system:String x:Key="CalcResultRawData">Raw data</system:String>
+   <system:String x:Key="Target">Target</system:String>
+   <system:String x:Key="Result">Result</system:String>
 
  </ResourceDictionary>

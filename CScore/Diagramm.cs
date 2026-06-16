@@ -120,8 +120,8 @@ namespace CScore
          double eps = finiteArea.Eps + finiteArea.Eps_p;
          finiteArea.Sig = Sig(eps, out double e2, tenB, comprA);
          finiteArea.N = finiteArea.Sig * finiteArea.Area;
-         finiteArea.My = finiteArea.Sig * finiteArea.Area * finiteArea.Y;
-         finiteArea.Mz = finiteArea.Sig * finiteArea.Area * finiteArea.X;
+         finiteArea.Mx = finiteArea.Sig * finiteArea.Area * finiteArea.Y;
+         finiteArea.My = finiteArea.Sig * finiteArea.Area * finiteArea.X;
          finiteArea.E = (Math.Abs(eps) > 1e-20) ? finiteArea.Sig / eps : 0;
          finiteArea.E2 = e2;
       }

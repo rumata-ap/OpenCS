@@ -536,5 +536,43 @@
    <system:String x:Key="VT_FromDxf">Импорт DXF</system:String>
    <system:String x:Key="VT_Diagram">Диаграмма</system:String>
    <system:String x:Key="VT_Circles">Окружности</system:String>
+   <system:String x:Key="VT_CalcTasks">Расчётные задачи</system:String>
+   <system:String x:Key="VT_CalcResult">Результат расчёта</system:String>
+
+   <!-- Расчётные задачи -->
+   <system:String x:Key="CalcTaskDlgTitle">Параметры расчётной задачи</system:String>
+   <system:String x:Key="CalcTaskKind">Тип задачи</system:String>
+   <system:String x:Key="CalcTaskSection">Сечение</system:String>
+   <system:String x:Key="CalcTaskForceSet">Набор усилий</system:String>
+   <system:String x:Key="CalcTaskForceItem">Строка усилий</system:String>
+   <system:String x:Key="CalcType">Тип расчёта</system:String>
+   <system:String x:Key="CalcTaskNew">Создать задачу</system:String>
+   <system:String x:Key="CalcTaskRun">Выполнить</system:String>
+   <system:String x:Key="CalcTaskEdit">Редактировать</system:String>
+   <system:String x:Key="CalcTaskDelete">Удалить задачу</system:String>
+   <system:String x:Key="CalcResults">Результаты</system:String>
+   <system:String x:Key="CalcResultView">Просмотр</system:String>
+   <system:String x:Key="CalcResultDelete">Удалить результат</system:String>
+   <system:String x:Key="CalcResultCreated">Дата/время</system:String>
+   <system:String x:Key="CalcResultStatus">Статус</system:String>
+   <system:String x:Key="CalcTaskNeedSection">Не выбрано сечение.</system:String>
+   <system:String x:Key="CalcTaskNeedForceItem">Не выбран набор усилий или строка усилий.</system:String>
+   <system:String x:Key="CalcTaskSectionNotFound">Сечение задачи не найдено в проекте.</system:String>
+   <system:String x:Key="CalcTaskForceItemNotFound">Строка усилий задачи не найдена в проекте.</system:String>
+   <system:String x:Key="ConfirmDeleteCalcTask">Удалить задачу и все её результаты?</system:String>
+   <system:String x:Key="CalcTaskCreated">Задача «{0}» создана.</system:String>
+   <system:String x:Key="CalcResultOk">Задача «{0}» выполнена успешно.</system:String>
+   <system:String x:Key="CalcResultNotConverged">Задача «{0}» завершена без сходимости.</system:String>
+   <system:String x:Key="CalcResultError">Ошибка при выполнении задачи «{0}».</system:String>
+   <system:String x:Key="CalcResultOkLabel">Сходимость достигнута</system:String>
+   <system:String x:Key="CalcResultNotConvergedLabel">Нет сходимости</system:String>
+   <system:String x:Key="CalcResultErrorLabel">Ошибка расчёта</system:String>
+   <system:String x:Key="CalcResultErrorMsg">Сообщение об ошибке</system:String>
+   <system:String x:Key="CalcResultConverged">Сходимость</system:String>
+   <system:String x:Key="CalcResultIterations">Итераций</system:String>
+   <system:String x:Key="CalcResultResidual">Невязка</system:String>
+   <system:String x:Key="CalcResultRawData">Данные</system:String>
+   <system:String x:Key="Target">Задано</system:String>
+   <system:String x:Key="Result">Получено</system:String>
 
  </ResourceDictionary>
