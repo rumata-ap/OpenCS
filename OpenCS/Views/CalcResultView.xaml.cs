@@ -1,6 +1,5 @@
 using CScore;
 using OpenCS.ViewModels;
-using System;
 using System.Linq;
 using System.Text.Json;
 using System.Windows.Controls;
@@ -43,6 +42,7 @@ namespace OpenCS.Views
         {
             try
             {
+                if (string.IsNullOrEmpty(dataJson)) return new Kurvature();
                 var doc  = JsonDocument.Parse(dataJson);
                 var root = doc.RootElement;
                 return new Kurvature
@@ -52,7 +52,7 @@ namespace OpenCS.Views
                     kz = root.TryGetProperty("kz", out v)     ? v.GetDouble() : 0,
                 };
             }
-            catch { return new Kurvature(); }
+            catch { return new Kurvature(); } // защита от повреждённого JSON
         }
     }
 
@@ -82,7 +82,7 @@ namespace OpenCS.Views
         public string PhiEAText => "—"; public string PhiEIyText => "—";
         public string PhiEIzText => "—";
         public bool   HasRebar => false;
-        public System.Collections.ObjectModel.ObservableCollection<StrainSummaryVM.RebarRow>
+        public System.Collections.ObjectModel.ObservableCollection<object>
             RebarRows { get; } = [];
         public string IterationsText => "—";
         public string ResidualText   => "—";
