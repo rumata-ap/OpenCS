@@ -9,6 +9,7 @@
         xmlns:core="clr-namespace:CScore;assembly=CScore"
         xmlns:fire="clr-namespace:CScore.Fire.Entities;assembly=CScore.Fire"
         xmlns:col="clr-namespace:System.Collections;assembly=mscorlib"
+        xmlns:vm="clr-namespace:OpenCS.ViewModels"
         mc:Ignorable="d"
         Title="{Binding ProjectTitle}" WindowStartupLocation="CenterScreen" Height="850" Width="1500"
         Closing="Window_Closing">
@@ -132,14 +133,12 @@
             <MenuItem Header="{DynamicResource Save}" Command="{Binding SaveProjectCommand}" />
             <MenuItem Header="{DynamicResource SaveAs}" Command="{Binding SaveAsProjectCommand}" />
             <Separator />
+            <MenuItem Header="{DynamicResource Settings}" Command="{Binding OpenSettingsCommand}" />
+            <Separator />
             <MenuItem Header="{DynamicResource Exit}" Command="{Binding ExitCommand}" />
          </MenuItem>
          <MenuItem Header="{DynamicResource Edit}" ></MenuItem>
-         <MenuItem Header="{DynamicResource View}" ></MenuItem>
-         <MenuItem Header="{DynamicResource Settings}" >
-            <MenuItem Header="{DynamicResource Plots}" Command="{Binding OpenPlotSettingsCommand}" />
-            <MenuItem Header="{DynamicResource CsvExport}" Command="{Binding OpenCsvSettingsCommand}" />
-            <Separator />
+         <MenuItem Header="{DynamicResource View}" >
             <MenuItem Header="{DynamicResource Language}">
                <MenuItem Header="{DynamicResource Russian}" Command="{Binding SetLanguageCommand}" CommandParameter="0" />
                <MenuItem Header="{DynamicResource English}" Command="{Binding SetLanguageCommand}" CommandParameter="1" />
@@ -252,15 +251,10 @@
             </Button>
             <Separator/>
             <!-- Настройки -->
-            <Button Command="{Binding OpenPlotSettingsCommand}" ToolTip="{DynamicResource TipPlotSettings}" Padding="5,3">
+            <Button Command="{Binding OpenSettingsCommand}" ToolTip="{DynamicResource Settings}" Padding="5,3">
                <Path Width="16" Height="16" Stretch="Uniform"
                      Fill="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"
-                     Data="M19 3H5C3.89 3 3 3.9 3 5V19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3M9 17H7V10H9V17M13 17H11V7H13V17M17 17H15V13H17V17Z"/>
-            </Button>
-            <Button Command="{Binding OpenCsvSettingsCommand}" ToolTip="{DynamicResource TipCsvSettings}" Padding="5,3">
-               <Path Width="16" Height="16" Stretch="Uniform"
-                     Fill="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"
-                     Data="M19 3H5C3.89 3 3 3.9 3 5V19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3M7 7H9V9H7V7M7 11H9V13H7V11M7 15H9V17H7V15M17 17H11V15H17V17M17 13H11V11H17V13M17 9H11V7H17V9Z"/>
+                     Data="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
             </Button>
          </ToolBar>
       </ToolBarTray>
@@ -821,15 +815,64 @@
                         <TextBlock Text="{DynamicResource Tasks}" FontWeight="Bold"/>
                      </StackPanel>
                   </TreeViewItem.Header>
-                  <TreeViewItem.ItemTemplate>
-                     <DataTemplate>
+                  <TreeViewItem.Resources>
+                     <HierarchicalDataTemplate DataType="{x:Type vm:CalcTaskVM}"
+                                               ItemsSource="{Binding Results}">
+                        <StackPanel Orientation="Horizontal"
+                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                           <StackPanel.ContextMenu>
+                              <ContextMenu>
+                                 <MenuItem Header="{DynamicResource CalcTaskNew}"
+                                           Command="{Binding PlacementTarget.Tag.NewCalcTaskCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <Separator/>
+                                 <MenuItem Header="{DynamicResource CalcTaskRun}"
+                                           Command="{Binding PlacementTarget.Tag.RunCalcTaskCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Model,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource CalcTaskEdit}"
+                                           Command="{Binding PlacementTarget.Tag.EditCalcTaskCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Model,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <Separator/>
+                                 <MenuItem Header="{DynamicResource CalcTaskDelete}"
+                                           Command="{Binding PlacementTarget.Tag.DeleteCalcTaskCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Model,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              </ContextMenu>
+                           </StackPanel.ContextMenu>
+                           <TextBlock Text="{Binding Model.Num, StringFormat='{}{0:D3}  '}" Foreground="Gray"/>
+                           <TextBlock Text="{Binding Model.Tag}"/>
+                           <TextBlock Text="{Binding Model.Kind, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                        </StackPanel>
+                     </HierarchicalDataTemplate>
+                     <DataTemplate DataType="{x:Type core:CalcResult}">
                         <StackPanel Orientation="Horizontal">
-                           <TextBlock Text="{Binding Num, StringFormat='{}{0:D3}  '}" Foreground="Gray"/>
-                           <TextBlock Text="{Binding Tag}"/>
-                           <TextBlock Text="{Binding Kind, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                           <TextBlock Text="{Binding Created}" Foreground="Gray" Margin="0,0,6,0"/>
+                           <TextBlock Text="{Binding Status}">
+                              <TextBlock.Style>
+                                 <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="Green"/>
+                                    <Style.Triggers>
+                                       <DataTrigger Binding="{Binding Status}" Value="error">
+                                          <Setter Property="Foreground" Value="Red"/>
+                                       </DataTrigger>
+                                       <DataTrigger Binding="{Binding Status}" Value="not_converged">
+                                          <Setter Property="Foreground" Value="Orange"/>
+                                       </DataTrigger>
+                                       <DataTrigger Binding="{Binding Status}" Value="not_passed">
+                                          <Setter Property="Foreground" Value="OrangeRed"/>
+                                       </DataTrigger>
+                                    </Style.Triggers>
+                                 </Style>
+                              </TextBlock.Style>
+                           </TextBlock>
                         </StackPanel>
                      </DataTemplate>
-                  </TreeViewItem.ItemTemplate>
+                  </TreeViewItem.Resources>
                </TreeViewItem>
       </TreeView>
       </GroupBox>

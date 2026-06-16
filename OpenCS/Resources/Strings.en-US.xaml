@@ -77,6 +77,7 @@
    <system:String x:Key="SettingsTitle">Settings</system:String>
    <system:String x:Key="PlotsTab">Plots</system:String>
    <system:String x:Key="CalcSettingsTab">Calculation</system:String>
+   <system:String x:Key="CsvSettingsTab">CSV</system:String>
    <system:String x:Key="CalcSettingsGridGroup">Post-processor</system:String>
    <system:String x:Key="CalcSettingsGridDensity">Grid density (steps per max(w,h))</system:String>
    <system:String x:Key="CalcSettingsNewtonGroup">Newton iterations</system:String>
@@ -92,6 +93,7 @@
    <system:String x:Key="CalcSettingsNeutralAxisThickness">Neutral axis: thickness</system:String>
    <system:String x:Key="CalcSettingsCentroidNdsLine">NDS centroid: color</system:String>
    <system:String x:Key="CalcSettingsCentroidNdsSize">NDS centroid: size</system:String>
+   <system:String x:Key="CalcSettingsLabelFontSize">Labels σ/ε: font size</system:String>
    <system:String x:Key="ColorsAndSizes">Colors and Sizes</system:String>
    <system:String x:Key="Background">Background</system:String>
    <system:String x:Key="Grid">Grid</system:String>
@@ -615,6 +617,9 @@
    <system:String x:Key="CalcTaskKind_fire_r_check_batch">Fire R-check (batch)</system:String>
    <system:String x:Key="CalcTaskFireSection">Fire section</system:String>
    <system:String x:Key="CalcTaskNeedFireSection">No fire section selected.</system:String>
+   <system:String x:Key="CalcTaskForceN">N, kN</system:String>
+   <system:String x:Key="CalcTaskForceMx">Mx, kN·m</system:String>
+   <system:String x:Key="CalcTaskForceMy">My, kN·m</system:String>
    <system:String x:Key="CalcResultNotPassed">Task "{0}": fire R-check not passed.</system:String>
    <system:String x:Key="CalcResultOk">Task "{0}" completed successfully.</system:String>
    <system:String x:Key="CalcResultNotConverged">Task "{0}" did not converge.</system:String>
@@ -656,5 +661,70 @@
    <system:String x:Key="ColorbarMainMaterial">Main material</system:String>
    <system:String x:Key="ColorbarRebar">Rebar</system:String>
    <system:String x:Key="ColorbarZero">0</system:String>
+
+   <!-- Fire result views (Phase 6) -->
+   <system:String x:Key="FireResult_Phase7Placeholder">Visualization will be added in the next phase (heatmap, T(t) charts, γ and σ maps).</system:String>
+   <system:String x:Key="FireResult_AggregateType">Aggregate type</system:String>
+   <system:String x:Key="FireResult_AggregateSilicate">Silicate</system:String>
+   <system:String x:Key="FireResult_AggregateCarbonate">Carbonate</system:String>
+   <system:String x:Key="FireSection_TabParameters">Parameters</system:String>
+   <system:String x:Key="FireSection_TabThermalResult">Thermal result</system:String>
+   <system:String x:Key="FireThermal_NoResult">No thermal analysis yet. Run it from the Parameters tab.</system:String>
+   <system:String x:Key="FireThermal_ResultId">Result ID:</system:String>
+   <system:String x:Key="FireThermal_TabMetadata">Metadata</system:String>
+   <system:String x:Key="FireThermal_TabField">Temperature field</system:String>
+   <system:String x:Key="FireThermal_TabRebar">Rebar</system:String>
+   <system:String x:Key="FireThermal_TabConvergence">Convergence</system:String>
+   <system:String x:Key="FireThermal_MeshNodes">Mesh nodes</system:String>
+   <system:String x:Key="FireThermal_MeshElements">T3 elements</system:String>
+   <system:String x:Key="FireThermal_Snapshots">Snapshots</system:String>
+   <system:String x:Key="FireThermal_MaxTemp">T_max (final)</system:String>
+   <system:String x:Key="FireThermal_RebarMaxT">Rebar T_max</system:String>
+   <system:String x:Key="FireThermal_NoConvergenceLog">Convergence log is empty.</system:String>
+   <system:String x:Key="FireThermal_ConvergenceFormat">Steps: {0}, max Picard = {1}, max residual = {2:F3} °C</system:String>
+   <system:String x:Key="FireRCheck_VerdictFormat">Criterion R ({1}): {0}</system:String>
+   <system:String x:Key="FireRCheck_Passed">PASSED</system:String>
+   <system:String x:Key="FireRCheck_NotPassed">NOT PASSED</system:String>
+   <system:String x:Key="FireRCheck_PassedShort">Yes</system:String>
+   <system:String x:Key="FireRCheck_NotPassedShort">No</system:String>
+   <system:String x:Key="FireRCheck_MethodFiber">per code (fiber)</system:String>
+   <system:String x:Key="FireRCheck_MethodMvp">MVP</system:String>
+   <system:String x:Key="FireRCheck_LimitLoading">Limit loading</system:String>
+   <system:String x:Key="FireRCheck_Factor">Safety factor k</system:String>
+   <system:String x:Key="FireRCheck_Margin">Margin (k − 1)</system:String>
+   <system:String x:Key="FireRCheck_Utilization">Utilization η</system:String>
+   <system:String x:Key="FireRCheck_Governing">Governing criterion</system:String>
+   <system:String x:Key="FireRCheck_NLimit">N limit, kN</system:String>
+   <system:String x:Key="FireRCheck_MxLimit">Mx limit, kN·m</system:String>
+   <system:String x:Key="FireRCheck_MyLimit">My limit, kN·m</system:String>
+   <system:String x:Key="FireRCheck_EpsLimits">ε_contour_min / ε_cu</system:String>
+   <system:String x:Key="FireRCheck_FireSection">Fire resistance</system:String>
+   <system:String x:Key="FireRCheck_CriticalTime">Critical time, min</system:String>
+   <system:String x:Key="FireRCheck_Method">Method</system:String>
+   <system:String x:Key="FireRCheck_GammaStats">γ coefficients</system:String>
+   <system:String x:Key="FireRCheck_GammaBtStats">γ_bt min / avg / max</system:String>
+   <system:String x:Key="FireRCheck_GammaStCMin">γ_st,c min</system:String>
+   <system:String x:Key="FireRCheck_GammaStTMin">γ_st,t min</system:String>
+   <system:String x:Key="FireRCheck_Elements">Concrete / rebar elements</system:String>
+   <system:String x:Key="FireRCheck_ElementCountsFormat">concrete: {0}, rebar: {1}</system:String>
+   <system:String x:Key="FireRCheck_NewtonIter">Newton iterations</system:String>
+   <system:String x:Key="FireRCheck_GovConcrete">concrete</system:String>
+   <system:String x:Key="FireRCheck_GovRebar">rebar</system:String>
+   <system:String x:Key="FireRCheck_GovBoth">concrete + rebar</system:String>
+   <system:String x:Key="FireRCheck_TabGamma">γ coefficients</system:String>
+   <system:String x:Key="FireRCheckBatch_TabAll">All cases</system:String>
+   <system:String x:Key="FireRCheckBatch_TabFailed">Failed</system:String>
+   <system:String x:Key="FireRCheckBatch_ColLabel">Label</system:String>
+   <system:String x:Key="FireRCheckBatch_ColPassed">Passed</system:String>
+   <system:String x:Key="FireRCheckBatch_SummaryFormat">Total: {0}, passed: {1}, failed: {2}, worst margin: {3}</system:String>
+   <system:String x:Key="FirePlot_TimeLabel">t, min:</system:String>
+   <system:String x:Key="FireThermal_NoRebarHistory">No rebar temperature history.</system:String>
+   <system:String x:Key="FireThermal_ChartRebarTitle">Rebar temperature</system:String>
+   <system:String x:Key="FireThermal_ChartPicardTitle">Picard iterations</system:String>
+   <system:String x:Key="FireThermal_ChartResidTitle">Picard residual</system:String>
+   <system:String x:Key="FireThermal_ChartTimeX">t, min</system:String>
+   <system:String x:Key="FireThermal_ChartTempY">T, °C</system:String>
+   <system:String x:Key="FireThermal_ChartPicardY">iterations</system:String>
+   <system:String x:Key="FireThermal_ChartResidY">max ΔT, °C (log)</system:String>
 
  </ResourceDictionary>

@@ -107,14 +107,14 @@ namespace OpenCS.ViewModels
             {
                 XcText   = $"{stiff.Xc_mm:+0.0;-0.0}  мм";
                 YcText   = $"{stiff.Yc_mm:+0.0;-0.0}  мм";
-                EAText   = $"{stiff.EA_kN:N0}  кН";
-                EIy0Text = $"{stiff.EIy0_kNm2:N2}  кН·м²";
-                EIz0Text = $"{stiff.EIz0_kNm2:N2}  кН·м²";
-                EIycText = $"{stiff.EIyc_kNm2:N2}  кН·м²";
-                EIzcText = $"{stiff.EIzc_kNm2:N2}  кН·м²";
-                EAelText   = $"{stiff.EAel_kN:N0}  кН";
-                EIyelText  = $"{stiff.EIyel_kNm2:N2}  кН·м²";
-                EIzelText  = $"{stiff.EIzel_kNm2:N2}  кН·м²";
+                EAText   = $"{stiff.EA_kN:F0}  кН";
+                EIy0Text = $"{stiff.EIy0_kNm2:F2}  кН·м²";
+                EIz0Text = $"{stiff.EIz0_kNm2:F2}  кН·м²";
+                EIycText = $"{stiff.EIyc_kNm2:F2}  кН·м²";
+                EIzcText = $"{stiff.EIzc_kNm2:F2}  кН·м²";
+                EAelText   = $"{stiff.EAel_kN:F0}  кН";
+                EIyelText  = $"{stiff.EIyel_kNm2:F2}  кН·м²";
+                EIzelText  = $"{stiff.EIzel_kNm2:F2}  кН·м²";
                 PhiEAText  = FmtRatio(stiff.PhiEA);
                 PhiEIyText = FmtRatio(stiff.PhiEIy);
                 PhiEIzText = FmtRatio(stiff.PhiEIz);

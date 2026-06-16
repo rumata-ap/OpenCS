@@ -2,8 +2,10 @@ using OpenCS.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -20,12 +22,26 @@ namespace OpenCS.Views.Helpers
         // ── Transform state ───────────────────────────────────────────
         double _scale = 1.0;      // пикселей на мм
         double _tx = 0, _ty = 0; // смещение в пикселях
-        Point  _dragStart;
-        bool   _dragging;
+        Point  _dragStart;        // экранная точка начала жеста
+        Point  _rubberEnd;        // текущий конец рамки (экранные пиксели)
+        bool   _didDrag;          // мышь сдвинулась > порога
+        bool   _modAtDown;        // Shift/Ctrl был зажат при MouseDown
 
-        // ── Tooltip ───────────────────────────────────────────────────
+        // ── Hover tooltip ─────────────────────────────────────────────
         readonly ToolTip _tip = new();
         string? _lastTip;
+
+        // ── Multi-selection & popup ───────────────────────────────────
+        readonly HashSet<FiberDrawData> _selectedFibers =
+            new(ReferenceEqualityComparer.Instance);
+        readonly HashSet<RebarDrawData> _selectedRebars =
+            new(ReferenceEqualityComparer.Instance);
+        readonly Popup     _selPopup;
+        readonly TextBlock _selPopupText;
+
+        static readonly Pen _selectPen1 = MakeFreezePen(Brushes.White,          3.0);
+        static readonly Pen _selectPen2 = MakeFreezePen(
+            new SolidColorBrush(Color.FromRgb(0xFF, 0xB3, 0x00)), 1.5);  // amber
 
         // ── DP: ViewModel ─────────────────────────────────────────────
         public static readonly DependencyProperty ViewModelProperty =
@@ -45,15 +61,18 @@ namespace OpenCS.Views.Helpers
             var fc = (FiberCanvas)d;
             if (e.OldValue is SectionPlotVM old)
             {
-                old.PropertyChanged   -= fc.OnVmPropertyChanged;
-                old.FitAllRequested   -= fc.FitToView;
+                old.PropertyChanged -= fc.OnVmPropertyChanged;
+                old.FitAllRequested -= fc.FitToView;
             }
             if (e.NewValue is SectionPlotVM vm)
             {
-                vm.PropertyChanged   += fc.OnVmPropertyChanged;
-                vm.FitAllRequested   += fc.FitToView;
-                fc._fitted = false;  // сбросить флаг первой подгонки
+                vm.PropertyChanged += fc.OnVmPropertyChanged;
+                vm.FitAllRequested += fc.FitToView;
+                fc._fitted = false;
             }
+            fc._selectedFibers.Clear();
+            fc._selectedRebars.Clear();
+            fc._selPopup.IsOpen = false;
         }
 
         void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -71,6 +90,35 @@ namespace OpenCS.Views.Helpers
             ToolTipService.SetInitialShowDelay(this, 300);
             ToolTipService.SetIsEnabled(this, false);
             ClipToBounds = true;
+
+            _selPopupText = new TextBlock
+            {
+                FontFamily = new FontFamily("Consolas"),
+                FontSize    = 11,
+                Foreground  = Brushes.Black,
+                Padding     = new Thickness(0),
+            };
+            _selPopup = new Popup
+            {
+                Child = new Border
+                {
+                    Background      = new SolidColorBrush(Color.FromRgb(0xFF, 0xFD, 0xE7)),
+                    BorderBrush     = new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B)),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius    = new CornerRadius(4),
+                    Padding         = new Thickness(8, 5, 8, 5),
+                    Child           = _selPopupText,
+                    Effect          = new System.Windows.Media.Effects.DropShadowEffect
+                    {
+                        ShadowDepth = 2, BlurRadius = 6,
+                        Color = Colors.Black, Opacity = 0.25
+                    }
+                },
+                PlacementTarget  = this,
+                Placement        = PlacementMode.Mouse,
+                AllowsTransparency = true,
+                StaysOpen        = false,
+            };
         }
 
         // ── Layout ────────────────────────────────────────────────────
@@ -155,7 +203,7 @@ namespace OpenCS.Views.Helpers
 
             // Контуры бессеточных областей — ВСЕГДА (независимо от ShowConcrete)
             foreach (var a in vm.NoMeshAreas)
-                DrawNoMesh(dc, a, vm.ShowValues, hullPen, holePen);
+                DrawNoMesh(dc, a, vm.ShowValues, hullPen, holePen, vm.FiberLabelFontSize);
 
             // Основной материал (фибры и псевдофибры)
             bool isStressMode = vm.Mode == SectionPlotMode.Stress;
@@ -184,15 +232,31 @@ namespace OpenCS.Views.Helpers
                 }
             }
 
+            // Подсветка выбранных элементов
+            foreach (var f in _selectedFibers)
+            {
+                var geom = BuildPath(f.Vertices);
+                dc.DrawGeometry(null, _selectPen1, geom);
+                dc.DrawGeometry(null, _selectPen2, geom);
+            }
+            foreach (var r in _selectedRebars)
+            {
+                var sc  = ToScreen(r.Center);
+                double radius = r.RadiusMm * _scale;
+                dc.DrawEllipse(null, _selectPen1, sc, radius + 1.5, radius + 1.5);
+                dc.DrawEllipse(null, _selectPen2, sc, radius + 1.5, radius + 1.5);
+            }
+
             // Подписи значений
             if (vm.ShowValues)
             {
                 var tf = new Typeface("Consolas");
+                double fs = vm.FiberLabelFontSize;
                 if (vm.ShowConcrete)
                     foreach (var f in vm.ConcreteFibers)
                     {
                         var txt = new FormattedText($"{f.Value:G4}", CultureInfo.InvariantCulture,
-                            FlowDirection.LeftToRight, tf, 9, Brushes.Black, 1.0);
+                            FlowDirection.LeftToRight, tf, fs, Brushes.Black, 1.0);
                         var sc = ToScreen(f.Centroid);
                         dc.DrawText(txt, new Point(sc.X - txt.Width / 2, sc.Y - txt.Height / 2));
                     }
@@ -200,7 +264,7 @@ namespace OpenCS.Views.Helpers
                     foreach (var r in vm.RebarFibers)
                     {
                         var txt = new FormattedText($"{r.Value:G4}", CultureInfo.InvariantCulture,
-                            FlowDirection.LeftToRight, tf, 9, Brushes.Black, 1.0);
+                            FlowDirection.LeftToRight, tf, fs, Brushes.Black, 1.0);
                         var sc = ToScreen(r.Center);
                         dc.DrawText(txt, new Point(sc.X - txt.Width / 2, sc.Y - txt.Height / 2));
                     }
@@ -239,6 +303,40 @@ namespace OpenCS.Views.Helpers
                 var sc = ToScreen(vm.NdsCentroid.Value);
                 DrawCentroidMarker(dc, sc, vm.CentroidNdsSize, ParseBrush(vm.CentroidNdsColorHex));
             }
+
+            // Рамка выделения (пока тянется)
+            if (_modAtDown && _didDrag)
+            {
+                double rx1 = Math.Min(_dragStart.X, _rubberEnd.X);
+                double ry1 = Math.Min(_dragStart.Y, _rubberEnd.Y);
+                double rx2 = Math.Max(_dragStart.X, _rubberEnd.X);
+                double ry2 = Math.Max(_dragStart.Y, _rubberEnd.Y);
+                var rubFill = new SolidColorBrush(Color.FromArgb(30, 0xFF, 0xB3, 0x00));
+                var rubPen  = new Pen(new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B)), 1)
+                              { DashStyle = DashStyles.Dash };
+                dc.DrawRectangle(rubFill, rubPen, new Rect(rx1, ry1, rx2 - rx1, ry2 - ry1));
+            }
+
+            // Оверлей агрегата выделенных элементов
+            int selCount = _selectedFibers.Count + _selectedRebars.Count;
+            if (selCount > 0)
+            {
+                double totalA = _selectedFibers.Sum(f => f.AreaMm2) +
+                                _selectedRebars.Sum(r => r.AreaMm2);
+                double totalN = (_selectedFibers.Sum(f => f.Sigma * f.AreaMm2) +
+                                 _selectedRebars.Sum(r => r.Sigma * r.AreaMm2)) / 1000.0; // кН
+                string aggText = $"{selCount} эл.   A = {totalA:F0} мм²   N = {totalN:+0.0;-0.0} кН";
+
+                var tf = new Typeface("Consolas");
+                var ft = new FormattedText(aggText, CultureInfo.InvariantCulture,
+                    FlowDirection.LeftToRight, tf, 11, Brushes.Black, 1.0);
+                double pad = 6, bx = 8, by = ActualHeight - ft.Height - pad * 2 - 8;
+                dc.DrawRoundedRectangle(
+                    new SolidColorBrush(Color.FromArgb(210, 0xFF, 0xFD, 0xE7)),
+                    new Pen(new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B)), 1),
+                    new Rect(bx, by, ft.Width + pad * 2, ft.Height + pad * 2), 4, 4);
+                dc.DrawText(ft, new Point(bx + pad, by + pad));
+            }
         }
 
         Geometry BuildPath(IReadOnlyList<Point> vertices)
@@ -252,7 +350,7 @@ namespace OpenCS.Views.Helpers
             return geom;
         }
 
-        void DrawNoMesh(DrawingContext dc, NoMeshAreaDrawData a, bool showValues, Pen hullPen, Pen holePen)
+        void DrawNoMesh(DrawingContext dc, NoMeshAreaDrawData a, bool showValues, Pen hullPen, Pen holePen, double labelFontSize = 9.0)
         {
             dc.DrawGeometry(null, hullPen, BuildPath(a.Hull));
             foreach (var hole in a.Holes)
@@ -265,7 +363,7 @@ namespace OpenCS.Views.Helpers
                 {
                     var sc = ToScreen(pt);
                     var txt = new FormattedText($"{val:G4}", CultureInfo.InvariantCulture,
-                        FlowDirection.LeftToRight, tf, 8, Brushes.DarkBlue, 1.0);
+                        FlowDirection.LeftToRight, tf, labelFontSize, Brushes.DarkBlue, 1.0);
                     dc.DrawText(txt, new Point(sc.X + 2, sc.Y - txt.Height / 2));
                 }
             }
@@ -294,6 +392,14 @@ namespace OpenCS.Views.Helpers
         static Pen MakePen(string colorHex, double thickness)
         {
             var pen = new Pen(ParseBrush(colorHex), thickness);
+            pen.Freeze();
+            return pen;
+        }
+
+        static Pen MakeFreezePen(Brush brush, double thickness)
+        {
+            brush.Freeze();
+            var pen = new Pen(brush, thickness);
             pen.Freeze();
             return pen;
         }
@@ -328,30 +434,56 @@ namespace OpenCS.Views.Helpers
 
         protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
         {
-            _dragging  = true;
-            _dragStart = e.GetPosition(this);
+            _modAtDown = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ||
+                         Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+            _didDrag   = false;
+            _dragStart = _rubberEnd = e.GetPosition(this);
             CaptureMouse();
         }
 
         protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
         {
-            _dragging = false;
+            bool wasClick  = !_didDrag;
+            bool modWasSet = _modAtDown;
+            _didDrag   = false;
+            _modAtDown = false;
             ReleaseMouseCapture();
+            InvalidateVisual(); // убрать рамку
+
+            if (wasClick)
+                HandleClick(e.GetPosition(this), modWasSet);
+            else if (modWasSet)
+                HandleRubberBand(_dragStart, _rubberEnd, additive: true);
         }
 
         protected override void OnMouseMove(MouseEventArgs e)
         {
-            if (_dragging)
+            if (IsMouseCaptured)
             {
                 var pos = e.GetPosition(this);
-                _tx += pos.X - _dragStart.X;
-                _ty += pos.Y - _dragStart.Y;
-                _dragStart = pos;
-                InvalidateVisual();
+                double dx = pos.X - _dragStart.X;
+                double dy = pos.Y - _dragStart.Y;
+                if (!_didDrag && dx * dx + dy * dy > 9)
+                    _didDrag = true;
+                if (_didDrag)
+                {
+                    if (_modAtDown)
+                    {
+                        _rubberEnd = pos;       // растягиваем рамку
+                        InvalidateVisual();
+                    }
+                    else
+                    {
+                        _tx += dx; _ty += dy;   // панорамирование
+                        _dragStart = pos;
+                        _selPopup.IsOpen = false;
+                        InvalidateVisual();
+                    }
+                }
                 return;
             }
 
-            // HitTest для тултипа
+            // HitTest для тултипа при наведении
             var vm = ViewModel;
             if (vm == null) return;
             var modelPos = ToModel(e.GetPosition(this));
@@ -368,6 +500,131 @@ namespace OpenCS.Views.Helpers
         {
             ToolTipService.SetIsEnabled(this, false);
             _lastTip = null;
+        }
+
+        void HandleClick(Point screenPos, bool additive)
+        {
+            var vm = ViewModel;
+            if (vm == null) return;
+            var mp = ToModel(screenPos);
+
+            RebarDrawData? hitRebar = null;
+            FiberDrawData? hitFiber = null;
+
+            if (vm.ShowRebar)
+                foreach (var r in vm.RebarFibers)
+                {
+                    double dx = mp.X - r.Center.X, dy = mp.Y - r.Center.Y;
+                    double ht = r.RadiusMm + 0.5 / _scale;
+                    if (dx * dx + dy * dy <= ht * ht) { hitRebar = r; break; }
+                }
+
+            if (hitRebar == null && vm.ShowConcrete)
+                foreach (var f in vm.ConcreteFibers)
+                    if (PointInPoly(mp, f.Vertices)) { hitFiber = f; break; }
+
+            if (hitRebar == null && hitFiber == null)
+            {
+                if (!additive)
+                {
+                    _selectedFibers.Clear();
+                    _selectedRebars.Clear();
+                    _selPopup.IsOpen = false;
+                }
+                InvalidateVisual();
+                return;
+            }
+
+            if (!additive)
+            {
+                _selectedFibers.Clear();
+                _selectedRebars.Clear();
+            }
+
+            if (hitRebar != null)
+            {
+                if (additive && _selectedRebars.Contains(hitRebar))
+                    _selectedRebars.Remove(hitRebar);
+                else
+                    _selectedRebars.Add(hitRebar);
+            }
+            else if (hitFiber != null)
+            {
+                if (additive && _selectedFibers.Contains(hitFiber))
+                    _selectedFibers.Remove(hitFiber);
+                else
+                    _selectedFibers.Add(hitFiber);
+            }
+
+            UpdateSelPopup();
+            InvalidateVisual();
+        }
+
+        void HandleRubberBand(Point startScreen, Point endScreen, bool additive)
+        {
+            var vm = ViewModel;
+            if (vm == null) return;
+
+            double x1 = Math.Min(startScreen.X, endScreen.X);
+            double y1 = Math.Min(startScreen.Y, endScreen.Y);
+            double x2 = Math.Max(startScreen.X, endScreen.X);
+            double y2 = Math.Max(startScreen.Y, endScreen.Y);
+
+            if (!additive)
+            {
+                _selectedFibers.Clear();
+                _selectedRebars.Clear();
+            }
+
+            if (vm.ShowConcrete)
+                foreach (var f in vm.ConcreteFibers)
+                {
+                    var sc = ToScreen(f.Centroid);
+                    if (sc.X >= x1 && sc.X <= x2 && sc.Y >= y1 && sc.Y <= y2)
+                        _selectedFibers.Add(f);
+                }
+
+            if (vm.ShowRebar)
+                foreach (var r in vm.RebarFibers)
+                {
+                    var sc = ToScreen(r.Center);
+                    if (sc.X >= x1 && sc.X <= x2 && sc.Y >= y1 && sc.Y <= y2)
+                        _selectedRebars.Add(r);
+                }
+
+            _selPopup.IsOpen = false;
+            InvalidateVisual();
+        }
+
+        void UpdateSelPopup()
+        {
+            int total = _selectedFibers.Count + _selectedRebars.Count;
+            if (total == 1)
+            {
+                string? text = _selectedFibers.Count == 1
+                    ? _selectedFibers.First().Tooltip
+                    : _selectedRebars.First().Tooltip;
+                _selPopupText.Text = text ?? string.Empty;
+                _selPopup.IsOpen = false;
+                _selPopup.IsOpen = true;
+            }
+            else
+            {
+                _selPopup.IsOpen = false;
+            }
+        }
+
+        static bool PointInPoly(Point p, IReadOnlyList<Point> v)
+        {
+            int n = v.Count; bool inside = false;
+            for (int i = 0, j = n - 1; i < n; j = i++)
+            {
+                double xi = v[i].X, yi = v[i].Y, xj = v[j].X, yj = v[j].Y;
+                if (((yi > p.Y) != (yj > p.Y)) &&
+                    p.X < (xj - xi) * (p.Y - yi) / (yj - yi) + xi)
+                    inside = !inside;
+            }
+            return inside;
         }
 
         string? FindTooltip(SectionPlotVM vm, Point modelPos)

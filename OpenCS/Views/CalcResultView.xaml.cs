@@ -8,12 +8,19 @@ namespace OpenCS.Views
 {
     public partial class CalcResultView : UserControl
     {
-        public CalcResultView(CalcResult result, AppViewModel app)
+    public CalcResultView(CalcResult result, AppViewModel app)
+    {
+        var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
+        if (task?.Kind is "fire_r_check" or "fire_r_check_batch")
         {
-            InitializeComponent();
+            Content = task.Kind == "fire_r_check_batch"
+                ? new FireRCheckBatchResultView(result)
+                : new FireRCheckResultView(result, app, task);
+            return;
+        }
 
-            // Найти задачу и сечение
-            var task    = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
+        InitializeComponent();
+
             var section = task != null
                 ? app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId)
                 : null;

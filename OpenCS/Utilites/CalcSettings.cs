@@ -44,6 +44,10 @@ namespace OpenCS.Utilites
       [JsonPropertyName("centroidNdsSize")]
       public double CentroidNdsSize { get; set; } = 8.0;
 
+      /// <summary>Размер шрифта подписей σ/ε на канвасе сечения (пт).</summary>
+      [JsonPropertyName("fiberLabelFontSize")]
+      public double FiberLabelFontSize { get; set; } = 9.0;
+
       public static CalcSettings Default => new();
 
       public CalcSettings Clone() => new()
@@ -60,6 +64,7 @@ namespace OpenCS.Utilites
          NeutralAxisThickness  = NeutralAxisThickness,
          CentroidNdsColor      = CentroidNdsColor,
          CentroidNdsSize       = CentroidNdsSize,
+         FiberLabelFontSize    = FiberLabelFontSize,
       };
    }
 }

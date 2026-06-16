@@ -1,5 +1,6 @@
 using OpenCS.Utilites;
 using CalcSettings = OpenCS.Utilites.CalcSettings;
+using CsvExportSettings = OpenCS.Utilites.CsvExportSettings;
 
 using System.Linq;
 using System.Windows;
@@ -15,6 +16,7 @@ namespace OpenCS.Views
       readonly AppViewModel _mvm;
       readonly PlotSettings _settings;
       readonly CalcSettings _calcSettings;
+      readonly CsvExportSettings _csvSettings;
 
       static readonly string[] _palette =
       [
@@ -29,6 +31,7 @@ namespace OpenCS.Views
          _mvm = mvm;
          _settings = mvm.PlotSettings.Clone();
          _calcSettings = mvm.CalcSettings.Clone();
+         _csvSettings = mvm.CsvSettings.Clone();
          Owner = Application.Current.MainWindow;
 
          LoadToUi();
@@ -36,6 +39,8 @@ namespace OpenCS.Views
          BuildPalette();
          LoadCalcToUi();
          HookCalcBoxes();
+         LoadCsvToUi();
+         HookCsvControls();
       }
 
       void BuildPalette()
@@ -161,6 +166,9 @@ namespace OpenCS.Views
 
          _mvm.CalcSettings = _calcSettings.Clone();
          _mvm.db.SaveCalcSettings(_mvm.CalcSettings);
+
+         _mvm.CsvSettings = _csvSettings.Clone();
+         _mvm.db.SaveCsvSettings(_mvm.CsvSettings);
       }
 
       void Cancel_Click(object sender, RoutedEventArgs e)
@@ -183,6 +191,7 @@ namespace OpenCS.Views
          NeutralAxisThickBox.Text  = _calcSettings.NeutralAxisThickness.ToString("F1");
          CentroidNdsColorBox.Text  = _calcSettings.CentroidNdsColor;
          CentroidNdsSizeBox.Text   = _calcSettings.CentroidNdsSize.ToString("F0");
+         LabelFontSizeBox.Text     = _calcSettings.FiberLabelFontSize.ToString("F0");
          UpdateCalcSwatches();
       }
 
@@ -245,6 +254,26 @@ namespace OpenCS.Views
          {
             if (double.TryParse(CentroidNdsSizeBox.Text, out var v) && v > 0) _calcSettings.CentroidNdsSize = v;
          };
+         LabelFontSizeBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(LabelFontSizeBox.Text, out var v) && v > 0) _calcSettings.FiberLabelFontSize = v;
+         };
+      }
+
+      void LoadCsvToUi()
+      {
+         CsvSemicolon.IsChecked = _csvSettings.Delimiter == ";";
+         CsvComma.IsChecked     = _csvSettings.Delimiter == ",";
+         CsvUtf8.IsChecked      = _csvSettings.Encoding == "utf-8";
+         CsvWin1251.IsChecked   = _csvSettings.Encoding == "windows-1251";
+      }
+
+      void HookCsvControls()
+      {
+         CsvSemicolon.Checked += (_, _) => _csvSettings.Delimiter = ";";
+         CsvComma.Checked     += (_, _) => _csvSettings.Delimiter = ",";
+         CsvUtf8.Checked      += (_, _) => _csvSettings.Encoding = "utf-8";
+         CsvWin1251.Checked   += (_, _) => _csvSettings.Encoding = "windows-1251";
       }
 
       void UpdateCalcSwatches()

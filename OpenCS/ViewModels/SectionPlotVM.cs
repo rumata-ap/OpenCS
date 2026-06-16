@@ -15,9 +15,12 @@ namespace OpenCS.ViewModels
     public record FiberDrawData(
         IReadOnlyList<Point> Vertices,  // координаты в мм
         Point Centroid,
-        double Value,                   // σ [МПа] или ε
+        double Value,      // σ [МПа] или ε (для колормапа)
         bool IsRebar,
-        string Tooltip);
+        string Tooltip,
+        double Sigma,      // σ [МПа], всегда
+        double Eps,        // деформация, всегда
+        double AreaMm2);   // площадь фибры [мм²]
 
     /// <summary>Данные для области без сетки — контур + значения в вершинах.</summary>
     public record NoMeshAreaDrawData(
@@ -31,7 +34,10 @@ namespace OpenCS.ViewModels
         Point Center,
         double RadiusMm,
         double Value,
-        string Tooltip);
+        string Tooltip,
+        double Sigma,      // σ [МПа], всегда
+        double Eps,        // деформация, всегда
+        double AreaMm2);   // площадь стержня [мм²]
 
     /// <summary>Полоса дискретной цветовой шкалы для колорбара.</summary>
     public record ColorBand(System.Windows.Media.Brush Brush, string Label);
@@ -101,6 +107,7 @@ namespace OpenCS.ViewModels
         public double NeutralAxisThickness { get; }
         public string CentroidNdsColorHex  { get; }
         public double CentroidNdsSize      { get; }
+        public double FiberLabelFontSize   { get; }
 
         /// <summary>Центр тяжести по НДС (секущий модуль) в мм; null если не вычислен.</summary>
         public Point? NdsCentroid { get; }
@@ -119,6 +126,7 @@ namespace OpenCS.ViewModels
             NeutralAxisThickness  = cs.NeutralAxisThickness;
             CentroidNdsColorHex   = cs.CentroidNdsColor;
             CentroidNdsSize       = cs.CentroidNdsSize;
+            FiberLabelFontSize    = cs.FiberLabelFontSize;
 
             var concrete   = new List<FiberDrawData>();
             var noMesh     = new List<NoMeshAreaDrawData>();
@@ -142,12 +150,14 @@ namespace OpenCS.ViewModels
                         double val = mode == SectionPlotMode.Stress ? f.Sig / 1000.0 : f.Eps;
                         var pts = ParseWkt(f.WKT);
                         if (pts == null || pts.Count < 3) continue;
-                        var centroid = new Point(f.X * 1000, f.Y * 1000);
+                        var centroid  = new Point(f.X * 1000, f.Y * 1000);
+                        double sigMpa = f.Sig / 1000.0;
+                        double aMm2   = f.Area * 1e6;
                         string tip = $"{area.Tag}\nx={f.X*1000:F1} мм  y={f.Y*1000:F1} мм\n" +
-                                     (mode == SectionPlotMode.Stress
-                                         ? $"σ = {f.Sig / 1000.0:+0.0;-0.0} МПа"
-                                         : $"ε = {f.Eps:+0.00000;-0.00000}");
-                        concrete.Add(new FiberDrawData(pts, centroid, val, isRebar, tip));
+                                     $"σ = {sigMpa:+0.0;-0.0} МПа\n" +
+                                     $"ε = {f.Eps:+0.00000;-0.00000}\n" +
+                                     $"A = {aMm2:F0} мм²";
+                        concrete.Add(new FiberDrawData(pts, centroid, val, isRebar, tip, sigMpa, f.Eps, aMm2));
                         // Центр тяжести НДС
                         double esf = Math.Abs(f.Eps) > 1e-9 ? Math.Abs(f.Sig / 1000.0 / f.Eps) : E0;
                         double amm2f = f.Area * 1e6;
@@ -205,16 +215,16 @@ namespace OpenCS.ViewModels
                             ? dgr.SigValue(eps_c) / 1000.0 : eps_c;
                         var cellPts = (IReadOnlyList<Point>)cell
                             .Select(p => new Point(p.X, p.Y)).ToList();
+                        double cellSigMpa = dgr.SigValue(eps_c) / 1000.0;
+                        double cellAmm2   = PolygonAreaMm2(cell);
                         string cellTip = $"{area.Tag}\nx={cx_mm:F1} мм  y={cy_mm:F1} мм\n" +
-                            (mode == SectionPlotMode.Stress
-                                ? $"σ = {dgr.SigValue(eps_c)/1000.0:+0.0;-0.0} МПа"
-                                : $"ε = {eps_c:+0.00000;-0.00000}");
+                            $"σ = {cellSigMpa:+0.0;-0.0} МПа\n" +
+                            $"ε = {eps_c:+0.00000;-0.00000}\n" +
+                            $"A = {cellAmm2:F0} мм²";
                         concrete.Add(new FiberDrawData(cellPts,
-                            new Point(cx_mm, cy_mm), val, false, cellTip));
+                            new Point(cx_mm, cy_mm), val, false, cellTip, cellSigMpa, eps_c, cellAmm2));
                         // Центр тяжести НДС для псевдофибры
-                        double sig_mpa_c = dgr.SigValue(eps_c) / 1000.0;
-                        double esf_c = Math.Abs(eps_c) > 1e-9 ? Math.Abs(sig_mpa_c / eps_c) : E0;
-                        double cellAmm2 = PolygonAreaMm2(cell);
+                        double esf_c = Math.Abs(eps_c) > 1e-9 ? Math.Abs(cellSigMpa / eps_c) : E0;
                         ea_c  += esf_c * cellAmm2;
                         esy_c += esf_c * cellAmm2 * cx_mm;
                         esz_c += esf_c * cellAmm2 * cy_mm;
@@ -228,16 +238,18 @@ namespace OpenCS.ViewModels
                 foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
                 {
                     // f.Sig в кПа → делим на 1000 для МПа
-                    double val = mode == SectionPlotMode.Stress ? f.Sig / 1000.0 : f.Eps;
+                    double rSigMpa  = f.Sig / 1000.0;
+                    double rAreaMm2 = f.Area * 1e6;
+                    double val = mode == SectionPlotMode.Stress ? rSigMpa : f.Eps;
                     string tip = $"{area.Tag} ⌀{f.Diameter*1000:F0} мм\n" +
                                  $"x={f.X*1000:F1}  y={f.Y*1000:F1} мм\n" +
-                                 (mode == SectionPlotMode.Stress
-                                     ? $"σ = {f.Sig / 1000.0:+0.0;-0.0} МПа"
-                                     : $"ε = {f.Eps:+0.00000;-0.00000}");
+                                 $"σ = {rSigMpa:+0.0;-0.0} МПа\n" +
+                                 $"ε = {f.Eps:+0.00000;-0.00000}\n" +
+                                 $"A = {rAreaMm2:F0} мм²";
                     rebar.Add(new RebarDrawData(
                         new Point(f.X * 1000, f.Y * 1000),
                         f.Diameter / 2.0 * 1000,
-                        val, tip));
+                        val, tip, rSigMpa, f.Eps, rAreaMm2));
                     // Центр тяжести НДС
                     double esf = Math.Abs(f.Eps) > 1e-9 ? Math.Abs(f.Sig / 1000.0 / f.Eps) : E0;
                     double amm2f = f.Area * 1e6;

@@ -41,8 +41,17 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    LoadItem? selectedForceItem;
    FireSectionDef? selectedFireSection;
    CalcType selectedCalcType = CalcType.C;
+   string manualN = "0";
+   string manualMx = "0";
+   string manualMy = "0";
 
    public string Tag { get => tag; set { tag = value; OnPropertyChanged(); } }
+
+   public string ManualN  { get => manualN;  set { manualN  = value; OnPropertyChanged(); } }
+   public string ManualMx { get => manualMx; set { manualMx = value; OnPropertyChanged(); } }
+   public string ManualMy { get => manualMy; set { manualMy = value; OnPropertyChanged(); } }
+
+   public bool ShowManualForces => Kind == "strain_state";
 
    public CalcTaskKindItem? SelectedKind
    {
@@ -54,6 +63,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             Kind = value.Id;
          OnPropertyChanged();
          OnPropertyChanged(nameof(IsFireKind));
+         OnPropertyChanged(nameof(ShowManualForces));
       }
    }
 
@@ -66,6 +76,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged();
          OnPropertyChanged(nameof(SelectedKind));
          OnPropertyChanged(nameof(IsFireKind));
+         OnPropertyChanged(nameof(ShowManualForces));
       }
    }
 
@@ -106,7 +117,17 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public LoadItem? SelectedForceItem
    {
       get => selectedForceItem;
-      set { selectedForceItem = value; OnPropertyChanged(); }
+      set
+      {
+         selectedForceItem = value;
+         if (value != null && ShowManualForces)
+         {
+            ManualN  = value.N .ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
+            ManualMx = value.Mx.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
+            ManualMy = value.My.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
+         }
+         OnPropertyChanged();
+      }
    }
 
    public CalcType SelectedCalcType
@@ -152,6 +173,20 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          var p = FireRCheckParams.Parse(existing.ParamsJson);
          if (p.FireSectionId > 0)
             SelectedFireSection = FireSections.FirstOrDefault(f => f.Id == p.FireSectionId);
+
+         if (existing.Kind == "strain_state" && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
+         {
+            try
+            {
+               using var doc = System.Text.Json.JsonDocument.Parse(existing.ParamsJson);
+               var root = doc.RootElement;
+               var inv = System.Globalization.CultureInfo.InvariantCulture;
+               if (root.TryGetProperty("N",  out var nEl))  ManualN  = nEl.GetDouble().ToString("G6", inv);
+               if (root.TryGetProperty("Mx", out var mxEl)) ManualMx = mxEl.GetDouble().ToString("G6", inv);
+               if (root.TryGetProperty("My", out var myEl)) ManualMy = myEl.GetDouble().ToString("G6", inv);
+            }
+            catch { /* оставить значения по умолчанию */ }
+         }
       }
       else
       {
@@ -184,7 +219,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             MessageBoxButton.OK, MessageBoxImage.Warning);
          return;
       }
-      if (SelectedForceSet == null || SelectedForceItem == null)
+
+      if (!ShowManualForces && (SelectedForceSet == null || SelectedForceItem == null))
       {
          MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
             MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -201,14 +237,22 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             SnapshotIndex = -1
          });
       }
+      else if (ShowManualForces)
+      {
+         var inv = System.Globalization.CultureInfo.InvariantCulture;
+         double n  = double.TryParse(ManualN,  System.Globalization.NumberStyles.Float, inv, out var nv)  ? nv : 0;
+         double mx = double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, inv, out var mxv) ? mxv : 0;
+         double my = double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, inv, out var myv) ? myv : 0;
+         paramsJson = JsonSerializer.Serialize(new { N = n, Mx = mx, My = my });
+      }
 
       Result = new CalcTask
       {
          Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
          Kind = Kind,
          SectionId = SelectedSection.Id,
-         ForceSetId = SelectedForceSet.Id,
-         ForceItemId = SelectedForceItem.Id,
+         ForceSetId  = SelectedForceSet?.Id  ?? 0,
+         ForceItemId = SelectedForceItem?.Id ?? 0,
          CalcType = SelectedCalcType,
          ParamsJson = paramsJson
       };

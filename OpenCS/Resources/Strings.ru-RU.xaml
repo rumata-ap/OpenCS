@@ -78,6 +78,7 @@
    <system:String x:Key="SettingsTitle">Настройки</system:String>
    <system:String x:Key="PlotsTab">Графики</system:String>
    <system:String x:Key="CalcSettingsTab">Расчёт</system:String>
+   <system:String x:Key="CsvSettingsTab">CSV</system:String>
    <system:String x:Key="CalcSettingsGridGroup">Постпроцессор</system:String>
    <system:String x:Key="CalcSettingsGridDensity">Густота сетки (шагов по max(w,h))</system:String>
    <system:String x:Key="CalcSettingsNewtonGroup">Итерации Ньютона</system:String>
@@ -93,6 +94,7 @@
    <system:String x:Key="CalcSettingsNeutralAxisThickness">Нейтр. ось: толщина</system:String>
    <system:String x:Key="CalcSettingsCentroidNdsLine">Ц.т. НДС: цвет</system:String>
    <system:String x:Key="CalcSettingsCentroidNdsSize">Ц.т. НДС: размер</system:String>
+   <system:String x:Key="CalcSettingsLabelFontSize">Подписи σ/ε: размер шрифта</system:String>
    <system:String x:Key="ColorsAndSizes">Цвета и размеры</system:String>
    <system:String x:Key="Background">Фон</system:String>
    <system:String x:Key="Grid">Сетка</system:String>
@@ -472,7 +474,7 @@
    <system:String x:Key="FireSection_Bc2Sided">2 стороны</system:String>
    <system:String x:Key="FireSection_Bc3Sided">3 стороны</system:String>
    <system:String x:Key="FireSection_BcAllSided">Все стороны</system:String>
-   <system:String x:Key="FireSection_RunThermal">Run thermal calc</system:String>
+   <system:String x:Key="FireSection_RunThermal">Тепловой расчёт</system:String>
    <system:String x:Key="FireSection_DefaultTag">Огневое сечение {0}</system:String>
    <system:String x:Key="FireSection_NeedCrossSection">Выберите связанное поперечное сечение.</system:String>
    <system:String x:Key="FireSection_ConfirmDelete">Удалить выбранное огневое сечение?</system:String>
@@ -618,6 +620,9 @@
    <system:String x:Key="CalcTaskKind_fire_r_check_batch">R-проверка (весь набор)</system:String>
    <system:String x:Key="CalcTaskFireSection">Огневое сечение</system:String>
    <system:String x:Key="CalcTaskNeedFireSection">Не выбрано огневое сечение.</system:String>
+   <system:String x:Key="CalcTaskForceN">N, кН</system:String>
+   <system:String x:Key="CalcTaskForceMx">Mx, кН·м</system:String>
+   <system:String x:Key="CalcTaskForceMy">My, кН·м</system:String>
    <system:String x:Key="CalcResultNotPassed">Задача «{0}»: R-проверка не пройдена.</system:String>
    <system:String x:Key="CalcResultOk">Задача «{0}» выполнена успешно.</system:String>
    <system:String x:Key="CalcResultNotConverged">Задача «{0}» завершена без сходимости.</system:String>
@@ -659,5 +664,70 @@
    <system:String x:Key="ColorbarMainMaterial">Осн. материал</system:String>
    <system:String x:Key="ColorbarRebar">Арматура</system:String>
    <system:String x:Key="ColorbarZero">0</system:String>
+
+   <!-- Fire result views (Phase 6) -->
+   <system:String x:Key="FireResult_Phase7Placeholder">Визуализация будет добавлена в следующей фазе (тепловая карта, графики T(t), карты γ и σ).</system:String>
+   <system:String x:Key="FireResult_AggregateType">Тип заполнителя</system:String>
+   <system:String x:Key="FireResult_AggregateSilicate">Силикатный</system:String>
+   <system:String x:Key="FireResult_AggregateCarbonate">Карбонатный</system:String>
+   <system:String x:Key="FireSection_TabParameters">Параметры</system:String>
+   <system:String x:Key="FireSection_TabThermalResult">Тепловой результат</system:String>
+   <system:String x:Key="FireThermal_NoResult">Тепловой расчёт ещё не выполнялся. Нажмите «Тепловой расчёт» на вкладке параметров.</system:String>
+   <system:String x:Key="FireThermal_ResultId">ID результата:</system:String>
+   <system:String x:Key="FireThermal_TabMetadata">Метаданные</system:String>
+   <system:String x:Key="FireThermal_TabField">Температурное поле</system:String>
+   <system:String x:Key="FireThermal_TabRebar">Арматура</system:String>
+   <system:String x:Key="FireThermal_TabConvergence">Сходимость</system:String>
+   <system:String x:Key="FireThermal_MeshNodes">Узлов сетки</system:String>
+   <system:String x:Key="FireThermal_MeshElements">Элементов T3</system:String>
+   <system:String x:Key="FireThermal_Snapshots">Снапшотов</system:String>
+   <system:String x:Key="FireThermal_MaxTemp">T_max (финал)</system:String>
+   <system:String x:Key="FireThermal_RebarMaxT">T_max арматуры</system:String>
+   <system:String x:Key="FireThermal_NoConvergenceLog">Лог сходимости пуст.</system:String>
+   <system:String x:Key="FireThermal_ConvergenceFormat">Шагов: {0}, max Пикар = {1}, max невязка = {2:F3} °C</system:String>
+   <system:String x:Key="FireRCheck_VerdictFormat">Критерий R ({1}): {0}</system:String>
+   <system:String x:Key="FireRCheck_Passed">ПРОЙДЕНА</system:String>
+   <system:String x:Key="FireRCheck_NotPassed">НЕ ПРОЙДЕНА</system:String>
+   <system:String x:Key="FireRCheck_PassedShort">Да</system:String>
+   <system:String x:Key="FireRCheck_NotPassedShort">Нет</system:String>
+   <system:String x:Key="FireRCheck_MethodFiber">по норме (fiber)</system:String>
+   <system:String x:Key="FireRCheck_MethodMvp">MVP</system:String>
+   <system:String x:Key="FireRCheck_LimitLoading">Предельное нагружение</system:String>
+   <system:String x:Key="FireRCheck_Factor">Коэффициент запаса k</system:String>
+   <system:String x:Key="FireRCheck_Margin">Запас (k − 1)</system:String>
+   <system:String x:Key="FireRCheck_Utilization">Коэффициент использования η</system:String>
+   <system:String x:Key="FireRCheck_Governing">Управляющий критерий</system:String>
+   <system:String x:Key="FireRCheck_NLimit">N предельное, кН</system:String>
+   <system:String x:Key="FireRCheck_MxLimit">Mx предельное, кН·м</system:String>
+   <system:String x:Key="FireRCheck_MyLimit">My предельное, кН·м</system:String>
+   <system:String x:Key="FireRCheck_EpsLimits">ε_contour_min / ε_cu</system:String>
+   <system:String x:Key="FireRCheck_FireSection">Огнестойкость</system:String>
+   <system:String x:Key="FireRCheck_CriticalTime">Критическое время, мин</system:String>
+   <system:String x:Key="FireRCheck_Method">Метод</system:String>
+   <system:String x:Key="FireRCheck_GammaStats">Коэффициенты γ</system:String>
+   <system:String x:Key="FireRCheck_GammaBtStats">γ_bt min / avg / max</system:String>
+   <system:String x:Key="FireRCheck_GammaStCMin">γ_st,c min</system:String>
+   <system:String x:Key="FireRCheck_GammaStTMin">γ_st,t min</system:String>
+   <system:String x:Key="FireRCheck_Elements">Элементы бетон / арматура</system:String>
+   <system:String x:Key="FireRCheck_ElementCountsFormat">бетон: {0}, арматура: {1}</system:String>
+   <system:String x:Key="FireRCheck_NewtonIter">Итераций Ньютона</system:String>
+   <system:String x:Key="FireRCheck_GovConcrete">бетон</system:String>
+   <system:String x:Key="FireRCheck_GovRebar">арматура</system:String>
+   <system:String x:Key="FireRCheck_GovBoth">бетон + арматура</system:String>
+   <system:String x:Key="FireRCheck_TabGamma">Коэффициенты γ</system:String>
+   <system:String x:Key="FireRCheckBatch_TabAll">Все случаи</system:String>
+   <system:String x:Key="FireRCheckBatch_TabFailed">Не прошедшие</system:String>
+   <system:String x:Key="FireRCheckBatch_ColLabel">Метка</system:String>
+   <system:String x:Key="FireRCheckBatch_ColPassed">Пройдено</system:String>
+   <system:String x:Key="FireRCheckBatch_SummaryFormat">Всего: {0}, пройдено: {1}, не пройдено: {2}, худший запас: {3}</system:String>
+   <system:String x:Key="FirePlot_TimeLabel">t, мин:</system:String>
+   <system:String x:Key="FireThermal_NoRebarHistory">Нет истории температуры арматуры.</system:String>
+   <system:String x:Key="FireThermal_ChartRebarTitle">Температура арматуры</system:String>
+   <system:String x:Key="FireThermal_ChartPicardTitle">Итерации Пикара</system:String>
+   <system:String x:Key="FireThermal_ChartResidTitle">Невязка Пикара</system:String>
+   <system:String x:Key="FireThermal_ChartTimeX">t, мин</system:String>
+   <system:String x:Key="FireThermal_ChartTempY">T, °C</system:String>
+   <system:String x:Key="FireThermal_ChartPicardY">итераций</system:String>
+   <system:String x:Key="FireThermal_ChartResidY">max ΔT, °C (log)</system:String>
 
  </ResourceDictionary>

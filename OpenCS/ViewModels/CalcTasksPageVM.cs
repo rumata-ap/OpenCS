@@ -4,6 +4,7 @@ using OpenCS.Utilites;
 using OpenCS.Views;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
 
@@ -139,9 +140,32 @@ namespace OpenCS.ViewModels
          var fi = fs?.Items.FirstOrDefault(i => i.Id == ct.ForceItemId);
          if (fi == null)
          {
-            MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-               MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
+            if (ct.Kind == "strain_state")
+            {
+               try
+               {
+                  using var doc = System.Text.Json.JsonDocument.Parse(ct.ParamsJson);
+                  var root = doc.RootElement;
+                  fi = new LoadItem
+                  {
+                     N  = root.TryGetProperty("N",  out var nEl)  ? nEl.GetDouble()  : 0,
+                     Mx = root.TryGetProperty("Mx", out var mxEl) ? mxEl.GetDouble() : 0,
+                     My = root.TryGetProperty("My", out var myEl) ? myEl.GetDouble() : 0,
+                  };
+               }
+               catch
+               {
+                  MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
+                     MessageBoxButton.OK, MessageBoxImage.Error);
+                  return;
+               }
+            }
+            else
+            {
+               MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
+                  MessageBoxButton.OK, MessageBoxImage.Error);
+               return;
+            }
          }
 
          var result = TaskRunner.Run(ct, section, fi, _app.CalcSettings, new TaskRunContext
@@ -165,6 +189,11 @@ namespace OpenCS.ViewModels
          SelectedResult = SelectedTaskResults.LastOrDefault();
          if (SelectedResult != null)
             ViewResult();
+      }
+
+      public void SelectTask(int taskId)
+      {
+         SelectedTask = Tasks.FirstOrDefault(t => t.Model.Id == taskId);
       }
 
       public void ViewResult()

@@ -15,6 +15,9 @@
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
          <RowDefinition Height="16"/>
          <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
@@ -71,14 +74,38 @@
                  DisplayMemberPath="Label"
                  Margin="0,0,0,8"/>
 
-      <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource CalcType}"
+      <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+      <TextBox   Grid.Row="6" Grid.Column="1"
+                 Text="{Binding ManualN, UpdateSourceTrigger=PropertyChanged}"
+                 Margin="0,0,0,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+
+      <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource CalcTaskForceMx}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+      <TextBox   Grid.Row="7" Grid.Column="1"
+                 Text="{Binding ManualMx, UpdateSourceTrigger=PropertyChanged}"
+                 Margin="0,0,0,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+
+      <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource CalcTaskForceMy}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+      <TextBox   Grid.Row="8" Grid.Column="1"
+                 Text="{Binding ManualMy, UpdateSourceTrigger=PropertyChanged}"
+                 Margin="0,0,0,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+
+      <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource CalcType}"
                  VerticalAlignment="Center" Margin="0,0,8,0"/>
-      <ComboBox  Grid.Row="6" Grid.Column="1"
+      <ComboBox  Grid.Row="9" Grid.Column="1"
                  ItemsSource="{Binding CalcTypes}"
                  SelectedItem="{Binding SelectedCalcType}"
                  Margin="0,0,0,0"/>
 
-      <StackPanel Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2"
                   Orientation="Horizontal" HorizontalAlignment="Right">
          <Button Content="{DynamicResource OK}"
                  IsDefault="True"

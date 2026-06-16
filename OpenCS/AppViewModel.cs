@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Globalization;
+using System.Text.Json;
 
 using CScore;
 using CScore.Fire.Entities;
 using OpenCS.Services;
+using OpenCS.Tasks;
 using OpenCS.ViewModels;
 using OpenCS.Utilites;
 using OpenCS.Views;
@@ -306,6 +308,17 @@ namespace OpenCS
 
       /// <summary>Команда открытия страницы расчётных задач.</summary>
       public ICommand OpenCalcTasksCommand { get; set; } = null!;
+      /// <summary>Команда создания новой задачи из контекстного меню дерева.</summary>
+      public ICommand NewCalcTaskCommand    { get; set; } = null!;
+      /// <summary>Команда запуска задачи (параметр CalcTask).</summary>
+      public ICommand RunCalcTaskCommand    { get; set; } = null!;
+      /// <summary>Команда редактирования задачи (параметр CalcTask).</summary>
+      public ICommand EditCalcTaskCommand   { get; set; } = null!;
+      /// <summary>Команда удаления задачи (параметр CalcTask).</summary>
+      public ICommand DeleteCalcTaskCommand { get; set; } = null!;
+
+      /// <summary>Поднимается при изменении свойств существующей задачи (не добавлении/удалении).</summary>
+      public event Action? CalcTaskModified;
 
       /// <summary>Команда создания нового огневого сечения.</summary>
       public ICommand NewFireSectionCommand { get; set; } = null!;
@@ -551,10 +564,8 @@ namespace OpenCS
       /// </summary>
       public ICommand ExitCommand { get; set; } = null!;
 
-      /// <summary>
-      /// Команда открытия окна настройки отображения графиков.
-      /// </summary>
-      public ICommand OpenPlotSettingsCommand { get; set; } = null!;
+      /// <summary>Команда открытия единого окна настроек.</summary>
+      public ICommand OpenSettingsCommand { get; set; } = null!;
 
       /// <summary>
       /// Глобальные настройки отображения графиков (цвета, сетка, подписи).
@@ -574,11 +585,6 @@ namespace OpenCS
 
       /// <summary>Настройки численного расчёта (сетка, Ньютон).</summary>
       public Utilites.CalcSettings CalcSettings { get; set; } = Utilites.CalcSettings.Default;
-
-      /// <summary>
-      /// Команда открытия окна настройки экспорта CSV.
-      /// </summary>
-      public ICommand OpenCsvSettingsCommand { get; set; } = null!;
 
       private int langID = 0;
       /// <summary>
@@ -806,8 +812,7 @@ namespace OpenCS
          SaveProjectCommand = new RelayCommand(SaveProject);
          SaveAsProjectCommand = new RelayCommand(SaveAsProject);
           ExitCommand = new RelayCommand(Exit);
-         OpenPlotSettingsCommand = new RelayCommand(_ => new Views.SettingsWindow(this).ShowDialog());
-         OpenCsvSettingsCommand = new RelayCommand(_ => new Views.CsvSettingsWindow(this).ShowDialog());
+         OpenSettingsCommand = new RelayCommand(_ => new Views.SettingsWindow(this).ShowDialog());
          SetLanguageCommand = new RelayCommand(SetLanguage);
          NewCrossSectionCommand    = new RelayCommand(_ => NewCrossSection());
          EditCrossSectionCommand   = new RelayCommand(_ => EditCrossSection());
@@ -829,6 +834,10 @@ namespace OpenCS
          DeleteFireSectionCommand     = new RelayCommand(_ => DeleteFireSection());
          RenameFireSectionCommand     = new RelayCommand(_ => RenameFireSection());
          OpenCalcTasksCommand         = new RelayCommand(_ => CurrentPage = new Views.CalcTasksPage(this));
+         NewCalcTaskCommand    = new RelayCommand(_ => NewCalcTask());
+         RunCalcTaskCommand    = new RelayCommand(p => RunCalcTask(p as CalcTask),    p => p is CalcTask);
+         EditCalcTaskCommand   = new RelayCommand(p => EditCalcTask(p as CalcTask),   p => p is CalcTask);
+         DeleteCalcTaskCommand = new RelayCommand(p => DeleteCalcTask(p as CalcTask), p => p is CalcTask);
          ImportContoursFromDxfCommand = new RelayCommand(_ => ImportContoursFromDxf());
          AddCircleCommand             = new RelayCommand(_ => AddCircle());
          DeleteCircleCommand          = new RelayCommand(p => DeleteCircle(p as CircleP));
@@ -1694,6 +1703,110 @@ namespace OpenCS
          RenumberFireSections();
          CurrentFireSection = null;
          CurrentPage = null!;
+         IsDirty = true;
+      }
+
+      void NewCalcTask()
+      {
+         var dlg = new CalcTaskPropsDialog(this)
+         {
+            Owner = Application.Current.MainWindow
+         };
+         if (dlg.ShowDialog() != true || dlg.Result == null) return;
+         var ct = dlg.Result;
+         ct.Num = CalcTasks.Count > 0 ? CalcTasks.Max(t => t.Num) + 1 : 1;
+         db.SaveCalcTask(ct);
+         IsDirty = true;
+         LogService.Info(string.Format(Loc.S("CalcTaskCreated"), ct.Tag));
+      }
+
+      void RunCalcTask(CalcTask? ct)
+      {
+         if (ct == null) return;
+         var section = CrossSections.FirstOrDefault(s => s.Id == ct.SectionId);
+         if (section == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
+               MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+         }
+         var fs = BarForceSets.FirstOrDefault(f => f.Id == ct.ForceSetId);
+         var fi = fs?.Items.FirstOrDefault(i => i.Id == ct.ForceItemId);
+         if (fi == null)
+         {
+            if (ct.Kind == "strain_state")
+            {
+               try
+               {
+                  using var doc = JsonDocument.Parse(ct.ParamsJson);
+                  var root = doc.RootElement;
+                  fi = new LoadItem
+                  {
+                     N  = root.TryGetProperty("N",  out var nEl)  ? nEl.GetDouble()  : 0,
+                     Mx = root.TryGetProperty("Mx", out var mxEl) ? mxEl.GetDouble() : 0,
+                     My = root.TryGetProperty("My", out var myEl) ? myEl.GetDouble() : 0,
+                  };
+               }
+               catch
+               {
+                  MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
+                     MessageBoxButton.OK, MessageBoxImage.Error);
+                  return;
+               }
+            }
+            else
+            {
+               MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
+                  MessageBoxButton.OK, MessageBoxImage.Error);
+               return;
+            }
+         }
+         var result = TaskRunner.Run(ct, section, fi, CalcSettings, new TaskRunContext
+         {
+            Database     = db,
+            FireSections = FireSections
+         });
+         db.SaveCalcResult(result);
+         IsDirty = true;
+         var statusKey = result.Status switch
+         {
+            "ok"            => "CalcResultOk",
+            "not_converged" => "CalcResultNotConverged",
+            "not_passed"    => "CalcResultNotPassed",
+            _               => "CalcResultError"
+         };
+         LogService.Info(string.Format(Loc.S(statusKey), ct.Tag));
+         CurrentPage = new CalcResultView(result, this);
+      }
+
+      void EditCalcTask(CalcTask? ct)
+      {
+         if (ct == null) return;
+         var dlg = new CalcTaskPropsDialog(this, ct)
+         {
+            Owner = Application.Current.MainWindow
+         };
+         if (dlg.ShowDialog() != true || dlg.Result == null) return;
+         var src = dlg.Result;
+         ct.Tag         = src.Tag;
+         ct.Kind        = src.Kind;
+         ct.SectionId   = src.SectionId;
+         ct.ForceSetId  = src.ForceSetId;
+         ct.ForceItemId = src.ForceItemId;
+         ct.CalcType    = src.CalcType;
+         ct.ParamsJson  = src.ParamsJson;
+         db.SaveCalcTask(ct);
+         IsDirty = true;
+         CalcTaskModified?.Invoke();
+      }
+
+      void DeleteCalcTask(CalcTask? ct)
+      {
+         if (ct == null) return;
+         var res = MessageBox.Show(Loc.S("ConfirmDeleteCalcTask"), Loc.S("Warning"),
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+         if (res != MessageBoxResult.Yes) return;
+         db.DeleteCalcTask(ct);
          IsDirty = true;
       }
 
