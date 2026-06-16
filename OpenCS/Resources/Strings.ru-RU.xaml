@@ -575,4 +575,30 @@
    <system:String x:Key="Target">Задано</system:String>
    <system:String x:Key="Result">Получено</system:String>
 
+   <!-- CalcResultView tabs -->
+   <system:String x:Key="ResultTabSummary">Сводка</system:String>
+   <system:String x:Key="ResultTabStress">Напряжения σ</system:String>
+   <system:String x:Key="ResultTabStrain">Деформации ε</system:String>
+
+   <!-- Summary sections -->
+   <system:String x:Key="ResultStrainPlane">Плоскость деформаций</system:String>
+   <system:String x:Key="ResultForces">Усилия: задано → найдено</system:String>
+   <system:String x:Key="ResultExtremeStrains">Экстремальные деформации</system:String>
+   <system:String x:Key="ResultStiffness">Жёсткости (секущий модуль)</system:String>
+   <system:String x:Key="ResultElasticStiffness">Упругие жёсткости</system:String>
+   <system:String x:Key="ResultRebarTable">Арматура</system:String>
+   <system:String x:Key="ResultConvergence">Сходимость</system:String>
+   <system:String x:Key="ResultCentroid">Центр тяжести</system:String>
+   <system:String x:Key="ResultConvergedYes">Решение сошлось ✓</system:String>
+   <system:String x:Key="ResultConvergedNo">НЕ СОШЛОСЬ ✗</system:String>
+
+   <!-- Plot controls -->
+   <system:String x:Key="PlotShowMainMat">Осн. материал</system:String>
+   <system:String x:Key="PlotShowRebar">Арматура</system:String>
+   <system:String x:Key="PlotShowValues">Значения</system:String>
+   <system:String x:Key="PlotShowMaxCompr">Макс. сжатие</system:String>
+   <system:String x:Key="PlotFitAll">⊡ Показать всё</system:String>
+   <system:String x:Key="ColorbarMainMaterial">Осн. материал</system:String>
+   <system:String x:Key="ColorbarRebar">Арматура</system:String>
+
  </ResourceDictionary>

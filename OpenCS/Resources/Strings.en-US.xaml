@@ -572,4 +572,30 @@
    <system:String x:Key="Target">Target</system:String>
    <system:String x:Key="Result">Result</system:String>
 
+   <!-- CalcResultView tabs -->
+   <system:String x:Key="ResultTabSummary">Summary</system:String>
+   <system:String x:Key="ResultTabStress">Stresses σ</system:String>
+   <system:String x:Key="ResultTabStrain">Strains ε</system:String>
+
+   <!-- Summary sections -->
+   <system:String x:Key="ResultStrainPlane">Strain plane</system:String>
+   <system:String x:Key="ResultForces">Forces: target → result</system:String>
+   <system:String x:Key="ResultExtremeStrains">Extreme strains</system:String>
+   <system:String x:Key="ResultStiffness">Stiffness (secant modulus)</system:String>
+   <system:String x:Key="ResultElasticStiffness">Elastic stiffness</system:String>
+   <system:String x:Key="ResultRebarTable">Reinforcement</system:String>
+   <system:String x:Key="ResultConvergence">Convergence</system:String>
+   <system:String x:Key="ResultCentroid">Centroid</system:String>
+   <system:String x:Key="ResultConvergedYes">Converged ✓</system:String>
+   <system:String x:Key="ResultConvergedNo">NOT CONVERGED ✗</system:String>
+
+   <!-- Plot controls -->
+   <system:String x:Key="PlotShowMainMat">Main mat.</system:String>
+   <system:String x:Key="PlotShowRebar">Rebar</system:String>
+   <system:String x:Key="PlotShowValues">Values</system:String>
+   <system:String x:Key="PlotShowMaxCompr">Max compr.</system:String>
+   <system:String x:Key="PlotFitAll">⊡ Fit all</system:String>
+   <system:String x:Key="ColorbarMainMaterial">Main material</system:String>
+   <system:String x:Key="ColorbarRebar">Rebar</system:String>
+
  </ResourceDictionary>
