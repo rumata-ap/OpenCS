@@ -64,6 +64,10 @@ namespace OpenCS.Views.Helpers
         static readonly Pen _transparentPen = new(Brushes.Transparent, 0);
         static readonly Pen _outlinePen     = new(Brushes.Black, 0.5);
         static readonly Pen _markerPen      = new(Brushes.DarkBlue, 2);
+        static readonly Pen _hullPen        = new(Brushes.Black, 1.0);
+        static readonly Pen _holePen        = new(Brushes.DarkGray, 0.7);
+        static readonly Brush _comprBrush   = CreateHatchBrush(Color.FromArgb(120, 50, 120, 220));   // синяя штриховка — сжатие
+        static readonly Brush _tensBrush    = CreateHatchBrush(Color.FromArgb(120, 220, 80, 50));    // красная штриховка — растяжение
 
         public FiberCanvas()
         {
@@ -153,11 +157,11 @@ namespace OpenCS.Views.Helpers
                 foreach (var f in vm.ConcreteFibers)
                 {
                     var brush = new SolidColorBrush(
-                        ColormapHelper.GetColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar));
+                        ColormapHelper.GetDiscreteColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar));
                     dc.DrawGeometry(brush, _transparentPen, BuildPath(f.Vertices));
                 }
                 foreach (var a in vm.NoMeshAreas)
-                    DrawNoMesh(dc, a, vm);
+                    DrawNoMesh(dc, a, vm.ShowValues);
             }
 
             // Арматура
@@ -168,7 +172,7 @@ namespace OpenCS.Views.Helpers
                     var center = ToScreen(r.Center);
                     double radius = r.RadiusMm * _scale;
                     var brush = new SolidColorBrush(
-                        ColormapHelper.GetColor(r.Value, vm.RebarMin, vm.RebarMax, true));
+                        ColormapHelper.GetDiscreteColor(r.Value, vm.RebarMin, vm.RebarMax, true));
                     dc.DrawEllipse(brush, _outlinePen, center, radius, radius);
                 }
             }
@@ -226,23 +230,35 @@ namespace OpenCS.Views.Helpers
             return geom;
         }
 
-        void DrawNoMesh(DrawingContext dc, NoMeshAreaDrawData a, SectionPlotVM vm)
+        void DrawNoMesh(DrawingContext dc, NoMeshAreaDrawData a, bool showValues)
         {
-            var gradBrush = new LinearGradientBrush
-            {
-                StartPoint = new Point(0, 1), // MappingMode=RelativeToBoundingBox default
-                EndPoint   = new Point(0, 0),
-                MappingMode = BrushMappingMode.RelativeToBoundingBox
-            };
-            gradBrush.GradientStops.Add(new GradientStop(
-                ColormapHelper.GetColor(a.ValueAtStart, vm.ConcreteMin, vm.ConcreteMax, false), 0));
-            gradBrush.GradientStops.Add(new GradientStop(
-                ColormapHelper.GetColor(a.ValueAtEnd,   vm.ConcreteMin, vm.ConcreteMax, false), 1));
+            // Зона сжатия
+            if (a.CompressionZone != null && a.CompressionZone.Count >= 3)
+                dc.DrawGeometry(_comprBrush, null, BuildPath(a.CompressionZone));
 
-            var hullGeom  = BuildPath(a.Hull);
-            var combined  = new CombinedGeometry(GeometryCombineMode.Exclude, hullGeom,
-                BuildHolesGeometry(a.Holes));
-            dc.DrawGeometry(gradBrush, null, combined);
+            // Зона растяжения
+            if (a.TensionZone != null && a.TensionZone.Count >= 3)
+                dc.DrawGeometry(_tensBrush, null, BuildPath(a.TensionZone));
+
+            // Контур hull
+            dc.DrawGeometry(null, _hullPen, BuildPath(a.Hull));
+
+            // Контуры отверстий
+            foreach (var hole in a.Holes)
+                dc.DrawGeometry(null, _holePen, BuildPath(hole));
+
+            // Значения в вершинах hull
+            if (showValues)
+            {
+                var tf = new Typeface("Consolas");
+                foreach (var (pt, val) in a.HullValues)
+                {
+                    var sc = ToScreen(pt);
+                    var txt = new FormattedText($"{val:G4}", CultureInfo.InvariantCulture,
+                        FlowDirection.LeftToRight, tf, 8, Brushes.DarkBlue, 1.0);
+                    dc.DrawText(txt, new Point(sc.X + 2, sc.Y - txt.Height / 2));
+                }
+            }
         }
 
         Geometry BuildHolesGeometry(IReadOnlyList<IReadOnlyList<Point>> holes)
@@ -252,6 +268,29 @@ namespace OpenCS.Views.Helpers
             foreach (var hole in holes)
                 group.Children.Add(BuildPath(hole));
             return group;
+        }
+
+        static Brush CreateHatchBrush(Color color)
+        {
+            var pen = new Pen(new SolidColorBrush(color), 1.0);
+            pen.Freeze();
+            var dg = new DrawingGroup();
+            using (var ctx = dg.Open())
+            {
+                ctx.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, 8, 8));
+                ctx.DrawLine(pen, new Point(0, 8), new Point(8, 0));
+                ctx.DrawLine(pen, new Point(-4, 8), new Point(4, 0));
+                ctx.DrawLine(pen, new Point(4, 8), new Point(12, 0));
+            }
+            var brush = new DrawingBrush
+            {
+                Drawing      = dg,
+                TileMode     = TileMode.Tile,
+                Viewport     = new Rect(0, 0, 8, 8),
+                ViewportUnits = BrushMappingMode.Absolute
+            };
+            brush.Freeze();
+            return brush;
         }
 
         // ── Mouse ─────────────────────────────────────────────────────

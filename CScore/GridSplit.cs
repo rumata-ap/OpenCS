@@ -23,7 +23,7 @@ namespace CScore
       const double Tol = 1e-9;
       const double MinArea = 1e-14;
 
-      static List<(double X, double Y)> ClipByHalfPlane(
+      public static List<(double X, double Y)> ClipByHalfPlane(
          List<(double X, double Y)> verts, double px, double py, double nx, double ny)
       {
          if (verts.Count == 0)

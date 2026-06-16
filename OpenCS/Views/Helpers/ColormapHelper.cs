@@ -43,5 +43,14 @@ namespace OpenCS.Views.Helpers
 
         public static SolidColorBrush GetBrush(double val, double min, double max, bool isRebar)
             => new(GetColor(val, min, max, isRebar));
+
+        public static Color GetDiscreteColor(double val, double min, double max, bool isRebar, int bands = 8)
+        {
+            double t = Normalize(val, min, max);
+            // Квантование до bands шагов
+            t = (Math.Floor(t * bands) + 0.5) / bands;
+            t = Math.Clamp(t, 0.0, 1.0);
+            return isRebar ? RebarColor(t) : MainColor(t);
+        }
     }
 }

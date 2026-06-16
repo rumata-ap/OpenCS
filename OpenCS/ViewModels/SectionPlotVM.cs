@@ -1,5 +1,6 @@
 using CScore;
 using OpenCS.Utilites;
+using OpenCS.Views.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,15 +19,13 @@ namespace OpenCS.ViewModels
         bool IsRebar,
         string Tooltip);
 
-    /// <summary>Данные для области без сетки (контурный интеграл).</summary>
+    /// <summary>Данные для области без сетки — контур + зоны сжатия/растяжения.</summary>
     public record NoMeshAreaDrawData(
-        IReadOnlyList<Point> Hull,
-        IReadOnlyList<IReadOnlyList<Point>> Holes,
-        Point GradientStart,            // нижняя точка bbox, мм
-        Point GradientEnd,              // верхняя точка bbox, мм
-        double ValueAtStart,
-        double ValueAtEnd,
-        bool IsRebar,
+        IReadOnlyList<Point> Hull,                        // мм, CCW
+        IReadOnlyList<IReadOnlyList<Point>> Holes,        // мм, CW
+        IReadOnlyList<Point>? CompressionZone,            // обрезанный контур зоны ε<0, мм (null если нет)
+        IReadOnlyList<Point>? TensionZone,                // обрезанный контур зоны ε>0, мм (null если нет)
+        IReadOnlyList<(Point pt, double val)> HullValues, // значения в вершинах hull
         string Tooltip);
 
     /// <summary>Данные для отрисовки арматурного стержня.</summary>
@@ -35,6 +34,9 @@ namespace OpenCS.ViewModels
         double RadiusMm,
         double Value,
         string Tooltip);
+
+    /// <summary>Полоса дискретной цветовой шкалы для колорбара.</summary>
+    public record ColorBand(System.Windows.Media.Brush Brush, string Label);
 
     /// <summary>ViewModel вкладок «Напряжения σ» / «Деформации ε».</summary>
     public class SectionPlotVM : ViewModelBase
@@ -51,6 +53,10 @@ namespace OpenCS.ViewModels
         public double RebarMax    { get; }
 
         public bool HasRebar => RebarFibers.Count > 0;
+
+        public const int NumBands = 8;
+        public IReadOnlyList<ColorBand> ConcreteColorBands { get; }
+        public IReadOnlyList<ColorBand> RebarColorBands    { get; }
 
         // ── Чекбоксы ─────────────────────────────────────────────────
         bool _showConcrete = true, _showRebar = true,
@@ -117,28 +123,70 @@ namespace OpenCS.ViewModels
                 }
                 else if (area.Hull != null && !isRebar)
                 {
-                    // NoMesh-область
                     var hullPts = ToPointsMm(area.Hull.X, area.Hull.Y);
                     var holePts = area.Holes
                         .Select(h => (IReadOnlyList<Point>)ToPointsMm(h.X, h.Y))
                         .ToList();
 
-                    double yMin = area.Hull.Y.Min(), yMax = area.Hull.Y.Max();
-                    double xMid = (area.Hull.X.Min() + area.Hull.X.Max()) / 2.0;
-                    double epsStart = k.e0 + k.ky * yMin + k.kz * xMid;
-                    double epsEnd   = k.e0 + k.ky * yMax + k.kz * xMid;
-                    // SigValue возвращает кПа → делим на 1000 для МПа
-                    double valStart = mode == SectionPlotMode.Stress
-                        ? dgr.SigValue(epsStart) / 1000.0 : epsStart;
-                    double valEnd   = mode == SectionPlotMode.Stress
-                        ? dgr.SigValue(epsEnd)   / 1000.0 : epsEnd;
+                    // Значения в вершинах hull
+                    var hullVals = new List<(Point pt, double val)>();
+                    for (int i = 0; i < area.Hull.X.Count; i++)
+                    {
+                        double ex = area.Hull.X[i], ey = area.Hull.Y[i];
+                        double eps = k.e0 + k.ky * ey + k.kz * ex;
+                        double v = mode == SectionPlotMode.Stress
+                            ? dgr.SigValue(eps) / 1000.0 : eps;
+                        hullVals.Add((new Point(ex * 1000, ey * 1000), v));
+                    }
 
-                    string tip = $"{area.Tag} (без сетки)\nГрадиент: {valStart:G4} → {valEnd:G4}";
-                    noMesh.Add(new NoMeshAreaDrawData(
-                        hullPts, holePts,
-                        new Point(xMid * 1000, yMin * 1000),
-                        new Point(xMid * 1000, yMax * 1000),
-                        valStart, valEnd, false, tip));
+                    // Нейтральная ось ε=0: kz*x + ky*y + e0 = 0
+                    // Hull координаты в мм
+                    var hullMm = area.Hull.X
+                        .Zip(area.Hull.Y, (x, y) => (X: x * 1000, Y: y * 1000))
+                        .SkipLast(1)                  // убираем дублирующую последнюю точку
+                        .ToList();
+
+                    bool anyNeg = hullMm.Any(p => k.e0 + k.ky*(p.Y/1000) + k.kz*(p.X/1000) < -1e-9);
+                    bool anyPos = hullMm.Any(p => k.e0 + k.ky*(p.Y/1000) + k.kz*(p.X/1000) >  1e-9);
+
+                    IReadOnlyList<Point>? comprZone = null;
+                    IReadOnlyList<Point>? tensZone  = null;
+
+                    if (!anyNeg && !anyPos)
+                    {
+                        // нулевые деформации — пусто
+                    }
+                    else if (!anyPos)
+                    {
+                        comprZone = hullPts;  // вся область в сжатии
+                    }
+                    else if (!anyNeg)
+                    {
+                        tensZone = hullPts;   // вся область в растяжении
+                    }
+                    else
+                    {
+                        // нейтральная ось пересекает сечение → клиппинг
+                        // Точка на нейтральной оси в мм
+                        double px_mm = 0, py_mm = 0;
+                        if (Math.Abs(k.ky) > 1e-12)
+                            py_mm = -(k.e0 * 1000 + k.kz * px_mm) / k.ky;
+                        else if (Math.Abs(k.kz) > 1e-12)
+                            px_mm = -(k.e0 * 1000 + k.ky * py_mm) / k.kz;
+
+                        // Зона сжатия (ε < 0): нормаль (-kz, -ky)
+                        var clipNeg = GridSplit.ClipByHalfPlane(hullMm, px_mm, py_mm, -k.kz, -k.ky);
+                        if (clipNeg.Count >= 3)
+                            comprZone = clipNeg.Select(p => new Point(p.X, p.Y)).ToList();
+
+                        // Зона растяжения (ε > 0): нормаль (kz, ky)
+                        var clipPos = GridSplit.ClipByHalfPlane(hullMm, px_mm, py_mm, k.kz, k.ky);
+                        if (clipPos.Count >= 3)
+                            tensZone = clipPos.Select(p => new Point(p.X, p.Y)).ToList();
+                    }
+
+                    string tip = $"{area.Tag} (без сетки)";
+                    noMesh.Add(new NoMeshAreaDrawData(hullPts, holePts, comprZone, tensZone, hullVals, tip));
                 }
 
                 // Точечные фибры (арматура) → круги
@@ -164,7 +212,7 @@ namespace OpenCS.ViewModels
 
             // Диапазоны нормировки
             var concreteVals = concrete.Select(f => f.Value)
-                .Concat(noMesh.SelectMany(a => new[] { a.ValueAtStart, a.ValueAtEnd }))
+                .Concat(noMesh.SelectMany(a => a.HullValues.Select(hv => hv.val)))
                 .ToList();
             ConcreteMin = concreteVals.Count > 0 ? concreteVals.Min() : -1;
             ConcreteMax = concreteVals.Count > 0 ? concreteVals.Max() :  1;
@@ -172,6 +220,9 @@ namespace OpenCS.ViewModels
             var rebarVals = rebar.Select(r => r.Value).ToList();
             RebarMin = rebarVals.Count > 0 ? rebarVals.Min() : -1;
             RebarMax = rebarVals.Count > 0 ? rebarVals.Max() :  1;
+
+            ConcreteColorBands = BuildColorBands(ConcreteMin, ConcreteMax, false);
+            RebarColorBands    = BuildColorBands(RebarMin,    RebarMax,    true);
 
             FitAllCommand = new RelayCommand(_ => FitAllRequested?.Invoke());
         }
@@ -193,6 +244,22 @@ namespace OpenCS.ViewModels
             for (int i = 0; i < xs.Count; i++)
                 pts.Add(new Point(xs[i] * 1000, ys[i] * 1000));
             return pts;
+        }
+
+        static IReadOnlyList<ColorBand> BuildColorBands(double min, double max, bool isRebar)
+        {
+            var bands = new List<ColorBand>(NumBands);
+            for (int i = NumBands - 1; i >= 0; i--)  // top (max) to bottom (min)
+            {
+                double t = (i + 0.5) / NumBands;
+                double val = min + t * (max - min);
+                var color = isRebar ? ColormapHelper.RebarColor(t) : ColormapHelper.MainColor(t);
+                var brush = new System.Windows.Media.SolidColorBrush(color);
+                brush.Freeze();
+                string label = $"{val:G4}";
+                bands.Add(new ColorBand(brush, label));
+            }
+            return bands;
         }
     }
 }
