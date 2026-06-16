@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.Utilites;
 
 namespace OpenCS.Tasks
 {
@@ -12,6 +13,6 @@ namespace OpenCS.Tasks
       /// <summary>
       /// Выполняет расчёт и возвращает CalcResult. Никогда не бросает — ошибки кодируются в Status.
       /// </summary>
-      CalcResult Run(CalcTask task, CrossSection section, LoadItem item);
+      CalcResult Run(CalcTask task, CrossSection section, LoadItem item, CalcSettings settings, TaskRunContext? ctx = null);
    }
 }

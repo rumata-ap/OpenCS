@@ -42,12 +42,15 @@
 
          <!-- Colorbar Арматура (слева, скрыт если нет арматуры) -->
          <Border Grid.Column="0" Width="64" Margin="4"
+                 BorderThickness="1"
+                 BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
                  Visibility="{Binding HasRebar, Converter={StaticResource BoolToVisibility}}">
-            <StackPanel>
-               <TextBlock Text="{DynamicResource ColorbarRebar}"
+            <DockPanel>
+               <TextBlock DockPanel.Dock="Top"
+                          Text="{DynamicResource ColorbarRebar}"
                           FontSize="10" TextWrapping="Wrap" TextAlignment="Center"
                           Margin="0,0,0,2"/>
-               <ItemsControl ItemsSource="{Binding RebarColorBands}" MinHeight="120">
+               <ItemsControl ItemsSource="{Binding RebarColorBands}">
                   <ItemsControl.ItemsPanel>
                      <ItemsPanelTemplate>
                         <UniformGrid Columns="1"/>
@@ -55,30 +58,35 @@
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                      <DataTemplate>
-                        <Grid MinHeight="14">
+                        <Grid>
                            <Rectangle Fill="{Binding Brush}"/>
-                           <TextBlock Text="{Binding Label}" FontSize="7"
-                                      HorizontalAlignment="Left"
-                                      VerticalAlignment="Center"
-                                      Margin="2,0"/>
+                           <TextBlock Text="{Binding Label}" FontSize="10"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
                         </Grid>
                      </DataTemplate>
                   </ItemsControl.ItemTemplate>
                </ItemsControl>
-            </StackPanel>
+            </DockPanel>
          </Border>
 
          <!-- FiberCanvas -->
-         <h:FiberCanvas Grid.Column="1" x:Name="FiberCanvasElement"
-                        ViewModel="{Binding}"/>
+         <Border Grid.Column="1" Margin="4"
+                 BorderThickness="1"
+                 BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
+            <h:FiberCanvas x:Name="FiberCanvasElement" ViewModel="{Binding}"/>
+         </Border>
 
          <!-- Colorbar Осн. материал (справа) -->
-         <Border Grid.Column="2" Width="64" Margin="4">
-            <StackPanel>
-               <TextBlock Text="{DynamicResource ColorbarMainMaterial}"
+         <Border Grid.Column="2" Width="64" Margin="4"
+                 BorderThickness="1"
+                 BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
+            <DockPanel>
+               <TextBlock DockPanel.Dock="Top"
+                          Text="{DynamicResource ColorbarMainMaterial}"
                           FontSize="10" TextWrapping="Wrap" TextAlignment="Center"
                           Margin="0,0,0,2"/>
-               <ItemsControl ItemsSource="{Binding ConcreteColorBands}" MinHeight="120">
+               <ItemsControl ItemsSource="{Binding ConcreteColorBands}">
                   <ItemsControl.ItemsPanel>
                      <ItemsPanelTemplate>
                         <UniformGrid Columns="1"/>
@@ -86,17 +94,16 @@
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                      <DataTemplate>
-                        <Grid MinHeight="14">
+                        <Grid>
                            <Rectangle Fill="{Binding Brush}"/>
-                           <TextBlock Text="{Binding Label}" FontSize="7"
-                                      HorizontalAlignment="Right"
-                                      VerticalAlignment="Center"
-                                      Margin="2,0"/>
+                           <TextBlock Text="{Binding Label}" FontSize="10"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
                         </Grid>
                      </DataTemplate>
                   </ItemsControl.ItemTemplate>
                </ItemsControl>
-            </StackPanel>
+            </DockPanel>
          </Border>
       </Grid>
    </Grid>

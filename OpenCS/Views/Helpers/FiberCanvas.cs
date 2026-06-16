@@ -64,10 +64,6 @@ namespace OpenCS.Views.Helpers
         static readonly Pen _transparentPen = new(Brushes.Transparent, 0);
         static readonly Pen _outlinePen     = new(Brushes.Black, 0.5);
         static readonly Pen _markerPen      = new(Brushes.DarkBlue, 2);
-        static readonly Pen _hullPen        = new(Brushes.Black, 1.0);
-        static readonly Pen _holePen        = new(Brushes.DarkGray, 0.7);
-        static readonly Brush _comprBrush   = CreateHatchBrush(Color.FromArgb(120, 50, 120, 220));   // синяя штриховка — сжатие
-        static readonly Brush _tensBrush    = CreateHatchBrush(Color.FromArgb(120, 220, 80, 50));    // красная штриховка — растяжение
 
         public FiberCanvas()
         {
@@ -87,8 +83,9 @@ namespace OpenCS.Views.Helpers
         {
             if (!_fitted && ViewModel != null)
             {
-                FitToView();
                 _fitted = true;
+                // BeginInvoke: ActualWidth/ActualHeight установятся после завершения текущего прохода Arrange
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, FitToView);
             }
             return finalSize;
         }
@@ -151,17 +148,27 @@ namespace OpenCS.Views.Helpers
             var vm = ViewModel;
             if (vm == null) return;
 
-            // Основной материал (не арматура)
+            // Динамические перья из настроек VM
+            var hullPen    = MakePen(vm.HullColorHex,       vm.HullThickness);
+            var holePen    = MakePen(vm.HoleColorHex,       vm.HoleThickness);
+            var neutralPen = MakeDashedPen(ParseBrush(vm.NeutralAxisColorHex), vm.NeutralAxisThickness);
+
+            // Контуры бессеточных областей — ВСЕГДА (независимо от ShowConcrete)
+            foreach (var a in vm.NoMeshAreas)
+                DrawNoMesh(dc, a, vm.ShowValues, hullPen, holePen);
+
+            // Основной материал (фибры и псевдофибры)
+            bool isStressMode = vm.Mode == SectionPlotMode.Stress;
             if (vm.ShowConcrete)
             {
                 foreach (var f in vm.ConcreteFibers)
                 {
-                    var brush = new SolidColorBrush(
-                        ColormapHelper.GetDiscreteColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar));
+                    Brush brush = (isStressMode && Math.Abs(f.Value) < 1e-9)
+                        ? Brushes.White
+                        : new SolidColorBrush(
+                            ColormapHelper.GetDiscreteColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar));
                     dc.DrawGeometry(brush, _transparentPen, BuildPath(f.Vertices));
                 }
-                foreach (var a in vm.NoMeshAreas)
-                    DrawNoMesh(dc, a, vm.ShowValues);
             }
 
             // Арматура
@@ -181,22 +188,22 @@ namespace OpenCS.Views.Helpers
             if (vm.ShowValues)
             {
                 var tf = new Typeface("Consolas");
-                foreach (var f in vm.ConcreteFibers)
-                {
-                    if (!vm.ShowConcrete) continue;
-                    var txt = new FormattedText($"{f.Value:G4}", CultureInfo.InvariantCulture,
-                        FlowDirection.LeftToRight, tf, 9, Brushes.Black, 1.0);
-                    var sc = ToScreen(f.Centroid);
-                    dc.DrawText(txt, new Point(sc.X - txt.Width / 2, sc.Y - txt.Height / 2));
-                }
-                foreach (var r in vm.RebarFibers)
-                {
-                    if (!vm.ShowRebar) continue;
-                    var txt = new FormattedText($"{r.Value:G4}", CultureInfo.InvariantCulture,
-                        FlowDirection.LeftToRight, tf, 9, Brushes.Black, 1.0);
-                    var sc = ToScreen(r.Center);
-                    dc.DrawText(txt, new Point(sc.X - txt.Width / 2, sc.Y - txt.Height / 2));
-                }
+                if (vm.ShowConcrete)
+                    foreach (var f in vm.ConcreteFibers)
+                    {
+                        var txt = new FormattedText($"{f.Value:G4}", CultureInfo.InvariantCulture,
+                            FlowDirection.LeftToRight, tf, 9, Brushes.Black, 1.0);
+                        var sc = ToScreen(f.Centroid);
+                        dc.DrawText(txt, new Point(sc.X - txt.Width / 2, sc.Y - txt.Height / 2));
+                    }
+                if (vm.ShowRebar)
+                    foreach (var r in vm.RebarFibers)
+                    {
+                        var txt = new FormattedText($"{r.Value:G4}", CultureInfo.InvariantCulture,
+                            FlowDirection.LeftToRight, tf, 9, Brushes.Black, 1.0);
+                        var sc = ToScreen(r.Center);
+                        dc.DrawText(txt, new Point(sc.X - txt.Width / 2, sc.Y - txt.Height / 2));
+                    }
             }
 
             // Маркер максимального сжатия
@@ -217,6 +224,21 @@ namespace OpenCS.Views.Helpers
                     dc.DrawLine(_markerPen, new Point(sc.X, sc.Y - ms), new Point(sc.X, sc.Y + ms));
                 }
             }
+
+            // Нейтральная линия деформаций (ε = 0)
+            if (vm.NeutralAxis?.Count == 2)
+            {
+                var p1 = ToScreen(vm.NeutralAxis[0]);
+                var p2 = ToScreen(vm.NeutralAxis[1]);
+                dc.DrawLine(neutralPen, p1, p2);
+            }
+
+            // Центр тяжести НДС
+            if (vm.NdsCentroid.HasValue)
+            {
+                var sc = ToScreen(vm.NdsCentroid.Value);
+                DrawCentroidMarker(dc, sc, vm.CentroidNdsSize, ParseBrush(vm.CentroidNdsColorHex));
+            }
         }
 
         Geometry BuildPath(IReadOnlyList<Point> vertices)
@@ -230,24 +252,12 @@ namespace OpenCS.Views.Helpers
             return geom;
         }
 
-        void DrawNoMesh(DrawingContext dc, NoMeshAreaDrawData a, bool showValues)
+        void DrawNoMesh(DrawingContext dc, NoMeshAreaDrawData a, bool showValues, Pen hullPen, Pen holePen)
         {
-            // Зона сжатия
-            if (a.CompressionZone != null && a.CompressionZone.Count >= 3)
-                dc.DrawGeometry(_comprBrush, null, BuildPath(a.CompressionZone));
-
-            // Зона растяжения
-            if (a.TensionZone != null && a.TensionZone.Count >= 3)
-                dc.DrawGeometry(_tensBrush, null, BuildPath(a.TensionZone));
-
-            // Контур hull
-            dc.DrawGeometry(null, _hullPen, BuildPath(a.Hull));
-
-            // Контуры отверстий
+            dc.DrawGeometry(null, hullPen, BuildPath(a.Hull));
             foreach (var hole in a.Holes)
-                dc.DrawGeometry(null, _holePen, BuildPath(hole));
+                dc.DrawGeometry(null, holePen, BuildPath(hole));
 
-            // Значения в вершинах hull
             if (showValues)
             {
                 var tf = new Typeface("Consolas");
@@ -261,6 +271,33 @@ namespace OpenCS.Views.Helpers
             }
         }
 
+        void DrawCentroidMarker(DrawingContext dc, Point sc, double size, Brush brush)
+        {
+            var pen = new Pen(brush, 2.0);
+            double half = size / 2;
+            dc.DrawLine(pen, new Point(sc.X - half, sc.Y), new Point(sc.X + half, sc.Y));
+            dc.DrawLine(pen, new Point(sc.X, sc.Y - half), new Point(sc.X, sc.Y + half));
+            dc.DrawEllipse(null, pen, sc, half * 0.6, half * 0.6);
+        }
+
+        static Brush ParseBrush(string hex)
+        {
+            try
+            {
+                var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
+                b.Freeze();
+                return b;
+            }
+            catch { return Brushes.Black; }
+        }
+
+        static Pen MakePen(string colorHex, double thickness)
+        {
+            var pen = new Pen(ParseBrush(colorHex), thickness);
+            pen.Freeze();
+            return pen;
+        }
+
         Geometry BuildHolesGeometry(IReadOnlyList<IReadOnlyList<Point>> holes)
         {
             if (holes.Count == 0) return Geometry.Empty;
@@ -270,27 +307,11 @@ namespace OpenCS.Views.Helpers
             return group;
         }
 
-        static Brush CreateHatchBrush(Color color)
+        static Pen MakeDashedPen(Brush brush, double thickness)
         {
-            var pen = new Pen(new SolidColorBrush(color), 1.0);
-            pen.Freeze();
-            var dg = new DrawingGroup();
-            using (var ctx = dg.Open())
-            {
-                ctx.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, 8, 8));
-                ctx.DrawLine(pen, new Point(0, 8), new Point(8, 0));
-                ctx.DrawLine(pen, new Point(-4, 8), new Point(4, 0));
-                ctx.DrawLine(pen, new Point(4, 8), new Point(12, 0));
-            }
-            var brush = new DrawingBrush
-            {
-                Drawing      = dg,
-                TileMode     = TileMode.Tile,
-                Viewport     = new Rect(0, 0, 8, 8),
-                ViewportUnits = BrushMappingMode.Absolute
-            };
-            brush.Freeze();
-            return brush;
+            var p = new Pen(brush, thickness) { DashStyle = DashStyles.Dash };
+            p.Freeze();
+            return p;
         }
 
         // ── Mouse ─────────────────────────────────────────────────────

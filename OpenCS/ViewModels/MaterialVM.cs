@@ -142,7 +142,7 @@ namespace OpenCS.ViewModels
       {
          IsSaved = false;
          Material = new Material(0);
-         Tag = ""; Description = ""; Type = MatType.None;
+         Tag = ""; Description = ""; Type = MatType.None; AggregateType = "silicate";
       }
 
       /// <summary>
@@ -217,7 +217,21 @@ namespace OpenCS.ViewModels
       public MatType Type
       {
          get { return material.Type; }
-         set { material.Type = value; OnPropertyChanged(); }
+         set { material.Type = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsConcrete)); }
+      }
+
+      /// <summary>
+      /// Признак бетона — для отображения полей, специфичных для бетона.
+      /// </summary>
+      public bool IsConcrete => material.Type == MatType.Concrete;
+
+      /// <summary>
+      /// Тип заполнителя бетона для огнестойкости: silicate, carbonate, lightweight.
+      /// </summary>
+      public string AggregateType
+      {
+         get => material.AggregateType;
+         set { material.AggregateType = value; OnPropertyChanged(); }
       }
 
       /// <summary>

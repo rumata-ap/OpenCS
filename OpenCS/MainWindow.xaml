@@ -7,6 +7,7 @@
         xmlns:local="clr-namespace:OpenCS"
         xmlns:views="clr-namespace:OpenCS.Views"
         xmlns:core="clr-namespace:CScore;assembly=CScore"
+        xmlns:fire="clr-namespace:CScore.Fire.Entities;assembly=CScore.Fire"
         xmlns:col="clr-namespace:System.Collections;assembly=mscorlib"
         mc:Ignorable="d"
         Title="{Binding ProjectTitle}" WindowStartupLocation="CenterScreen" Height="850" Width="1500"
@@ -668,6 +669,37 @@
                      </HierarchicalDataTemplate>
 
                   </TreeViewItem.Resources>
+               </TreeViewItem>
+
+               <TreeViewItem x:Name="fireNode" ItemsSource="{Binding FireSections}" IsExpanded="True">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0"
+                              Fill="#B91C1C"
+                              Data="M12 2C8.9 5.6 7 8.3 7 11.2C7 14.4 9.7 17 13 17C16.3 17 19 14.4 19 11.2C19 8.8 17.8 6.7 16 4.6C15.2 6.6 13.7 8.2 12.1 9.1C11.9 6.7 12 4.3 12 2Z"/>
+                        <TextBlock Text="{DynamicResource FireSection_Node}" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+                  <TreeViewItem.ContextMenu>
+                     <ContextMenu>
+                        <MenuItem Header="{DynamicResource FireSection_New}"
+                                  Command="{Binding NewFireSectionCommand}"/>
+                        <MenuItem Header="{DynamicResource FireSection_Rename}"
+                                  Command="{Binding RenameFireSectionCommand}"/>
+                        <MenuItem Header="{DynamicResource FireSection_Delete}"
+                                  Command="{Binding DeleteFireSectionCommand}"/>
+                     </ContextMenu>
+                  </TreeViewItem.ContextMenu>
+                  <TreeViewItem.ItemTemplate>
+                     <DataTemplate DataType="{x:Type fire:FireSectionDef}">
+                        <StackPanel Orientation="Horizontal" Margin="1">
+                           <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="#B91C1C"
+                                 Data="M12 2C8.9 5.6 7 8.3 7 11.2C7 14.4 9.7 17 13 17C16.3 17 19 14.4 19 11.2C19 8.8 17.8 6.7 16 4.6C15.2 6.6 13.7 8.2 12.1 9.1C11.9 6.7 12 4.3 12 2Z"/>
+                           <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                     </DataTemplate>
+                  </TreeViewItem.ItemTemplate>
                </TreeViewItem>
                <!-- Усилия -->
                <TreeViewItem IsExpanded="True">

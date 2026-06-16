@@ -180,6 +180,7 @@
                <RowDefinition Height="Auto"/>
                <RowDefinition Height="Auto"/>
                <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                <ColumnDefinition Width="1.8*"/>
@@ -293,6 +294,13 @@
                            TextAlignment="Center"
                            Foreground="#FF2813EB"
                            Text="{DynamicResource Humidity}"/>
+
+            <TextBlock Grid.Row="17" Grid.Column="0" 
+                           Margin="2"  
+                           TextAlignment="Center"
+                           Foreground="#FF2813EB"
+                           Text="{DynamicResource Material_AggregateType}"
+                           Visibility="{Binding IsConcrete, Converter={StaticResource BoolToVisibility}}"/>
 
             <DockPanel Grid.Row="0" Grid.Column="1">
                <TextBox Margin="2" 
@@ -679,6 +687,18 @@
                   <core:Dampness>1</core:Dampness>
                   <core:Dampness>2</core:Dampness>
                   <core:Dampness>3</core:Dampness>
+               </ComboBox>
+            </DockPanel>
+
+            <DockPanel Grid.Row="17" Grid.Column="4"
+                       Visibility="{Binding IsConcrete, Converter={StaticResource BoolToVisibility}}">
+               <ComboBox Margin="2,0,2,0"
+                         HorizontalContentAlignment="Center"
+                         SelectedValuePath="Tag"
+                         SelectedValue="{Binding AggregateType}">
+                  <ComboBoxItem Tag="silicate" Content="{DynamicResource Material_AggregateType_Silicate}"/>
+                  <ComboBoxItem Tag="carbonate" Content="{DynamicResource Material_AggregateType_Carbonate}"/>
+                  <ComboBoxItem Tag="lightweight" Content="{DynamicResource Material_AggregateType_Lightweight}"/>
                </ComboBox>
             </DockPanel>
 

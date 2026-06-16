@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CScore;
+using OpenCS.Utilites;
 
 namespace OpenCS.Tasks
 {
@@ -10,12 +11,16 @@ namespace OpenCS.Tasks
    {
       static readonly Dictionary<string, ITaskHandler> Handlers = new()
       {
-         ["strain_state"] = new StrainStateHandler()
+         ["strain_state"] = new StrainStateHandler(),
+         ["fire_r_check"] = new FireRCheckHandler(),
+         ["fire_r_check_batch"] = new FireRCheckBatchHandler()
       };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>
-      public static CalcResult Run(CalcTask task, CrossSection section, LoadItem item)
+      public static CalcResult Run(CalcTask task, CrossSection section, LoadItem item,
+                                   CalcSettings? settings = null, TaskRunContext? ctx = null)
       {
+         settings ??= CalcSettings.Default;
          if (!Handlers.TryGetValue(task.Kind, out var handler))
          {
             return new CalcResult
@@ -28,7 +33,7 @@ namespace OpenCS.Tasks
                DataJson = $"{{\"error\":\"Unknown task kind: {task.Kind}\"}}"
             };
          }
-         return handler.Run(task, section, item);
+         return handler.Run(task, section, item, settings, ctx);
       }
 
       /// <summary>Список зарегистрированных видов задач.</summary>

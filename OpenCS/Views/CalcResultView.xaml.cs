@@ -33,9 +33,10 @@ namespace OpenCS.Views
             var k = ParseKurvature(result.DataJson);
             section.SetEps(k, task.CalcType);
 
-            SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType);
-            StressView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress);
-            StrainView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain);
+            SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, app.CalcSettings.GridDensity);
+            var settings = app.CalcSettings;
+            StressView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings);
+            StrainView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings);
         }
 
         static Kurvature ParseKurvature(string dataJson)

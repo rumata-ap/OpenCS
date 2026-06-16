@@ -61,7 +61,7 @@ namespace OpenCS.ViewModels
 
         public record RebarRow(int Num, string X, string Y, string Eps, string Sigma);
 
-        public StrainSummaryVM(CalcResult result, CrossSection section, CalcType calcType)
+        public StrainSummaryVM(CalcResult result, CrossSection section, CalcType calcType, int gridDensity = 20)
         {
             TaskTag     = result.TaskTag;
             CreatedText = result.Created;
@@ -101,7 +101,7 @@ namespace OpenCS.ViewModels
             EpsMaxText  = epsMax.HasValue ? $"{epsMax.Value:+0.000000;-0.000000}" : "—";
 
             // Жёсткости
-            var stiff = ComputeStiffness(section, k, calcType);
+            var stiff = ComputeStiffness(section, k, calcType, gridDensity);
             HasStiffness = stiff != null;
             if (stiff != null)
             {
@@ -172,7 +172,7 @@ namespace OpenCS.ViewModels
             return (vals.Min(), vals.Max());
         }
 
-        static StiffnessResult? ComputeStiffness(CrossSection section, Kurvature k, CalcType calcType)
+        static StiffnessResult? ComputeStiffness(CrossSection section, Kurvature k, CalcType calcType, int gridDensity = 20)
         {
             // Единицы ввода: площадь [м²], координаты [м], E [МПа=Н/мм²]
             // Единицы вывода: EA [кН], EI [кН·м²], ц.т. [мм]
@@ -204,20 +204,35 @@ namespace OpenCS.ViewModels
                 }
                 else if (area.Hull != null && area.Category == AreaCategory.Region)
                 {
-                    var gp = new GeoProps(area.Hull);
-                    if (gp.A < 1e-12) continue;
-                    double cx_m = gp.Sy / gp.A;
-                    double cy_m = gp.Sx / gp.A;
-                    double eps_c = k.e0 + k.ky * cy_m + k.kz * cx_m;
-                    double sig_c = dgr.SigValue(eps_c) / 1000.0; // кПа → МПа
-                    double Es = Math.Abs(eps_c) > 1e-9
-                        ? Math.Abs(sig_c / eps_c) : E0;
-                    double amm2 = gp.A * 1e6;
-                    double xmm  = cx_m * 1000;
-                    double ymm  = cy_m * 1000;
-                    Acc(Es, E0, amm2, xmm, ymm,
-                        ref EA, ref ESy, ref ESz, ref EIy, ref EIz,
-                        ref EAe, ref ESye, ref ESze, ref EIye, ref EIze);
+                    var hullMm = area.Hull.X
+                        .Zip(area.Hull.Y, (x, y) => (X: x * 1000, Y: y * 1000))
+                        .SkipLast(1).ToList();
+                    var holesMm = area.Holes.Select(h =>
+                        h.X.Zip(h.Y, (x, y) => (X: x * 1000, Y: y * 1000))
+                           .SkipLast(1).ToList()).ToList();
+                    double hmXMin = hullMm.Min(p => p.X), hmXMax = hullMm.Max(p => p.X);
+                    double hmYMin = hullMm.Min(p => p.Y), hmYMax = hullMm.Max(p => p.Y);
+                    double nmStep = Math.Max(hmXMax - hmXMin, hmYMax - hmYMin) / Math.Max(gridDensity, 1);
+                    if (nmStep < 1.0) nmStep = 1.0;
+                    var nmXs = BuildSteps(hmXMin, hmXMax, nmStep);
+                    var nmYs = BuildSteps(hmYMin, hmYMax, nmStep);
+                    for (int xi = 0; xi < nmXs.Count - 1; xi++)
+                    for (int yi = 0; yi < nmYs.Count - 1; yi++)
+                    {
+                        var cell = GridSplit.ClipByRect(hullMm,
+                            nmXs[xi], nmXs[xi + 1], nmYs[yi], nmYs[yi + 1]);
+                        if (cell.Count < 3) continue;
+                        double cx_mm = cell.Average(p => p.X);
+                        double cy_mm = cell.Average(p => p.Y);
+                        if (holesMm.Any(h => PointInPolyMm(cx_mm, cy_mm, h))) continue;
+                        double eps_c = k.e0 + k.ky * (cy_mm / 1000) + k.kz * (cx_mm / 1000);
+                        double sig_c = dgr.SigValue(eps_c) / 1000.0;
+                        double Es = Math.Abs(eps_c) > 1e-9 ? Math.Abs(sig_c / eps_c) : E0;
+                        double cellAmm2 = PolygonAreaMm2(cell);
+                        Acc(Es, E0, cellAmm2, cx_mm, cy_mm,
+                            ref EA, ref ESy, ref ESz, ref EIy, ref EIz,
+                            ref EAe, ref ESye, ref ESze, ref EIye, ref EIze);
+                    }
                 }
 
                 foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
@@ -253,12 +268,53 @@ namespace OpenCS.ViewModels
                 EIz0_kNm2:  EIz  / 1e9,
                 EIyc_kNm2:  EIyc / 1e9,
                 EIzc_kNm2:  EIzc / 1e9,
-                EAel_kN:    EAe  / 1e3,
-                EIyel_kNm2: EIye / 1e9,
-                EIzel_kNm2: EIze / 1e9,
+                EAel_kN:    EAe   / 1e3,
+                EIyel_kNm2: EIyec / 1e9,
+                EIzel_kNm2: EIzec / 1e9,
                 PhiEA:      Ratio(EA,   EAe),
                 PhiEIy:     Ratio(EIyc, EIyec),
                 PhiEIz:     Ratio(EIzc, EIzec));
+        }
+
+        static List<double> BuildSteps(double lo, double hi, double step)
+        {
+            var result = new List<double> { lo };
+            int iLo = (int)Math.Ceiling(lo / step);
+            int iHi = (int)Math.Floor(hi / step);
+            for (int i = iLo; i <= iHi; i++)
+            {
+                double v = i * step;
+                if (v > lo + step * 0.01 && v < hi - step * 0.01)
+                    result.Add(v);
+            }
+            result.Add(hi);
+            return result;
+        }
+
+        static double PolygonAreaMm2(List<(double X, double Y)> verts)
+        {
+            double area = 0;
+            int n = verts.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var a = verts[i]; var b = verts[(i + 1) % n];
+                area += (a.X * b.Y - b.X * a.Y);
+            }
+            return Math.Abs(area) * 0.5;
+        }
+
+        static bool PointInPolyMm(double px, double py, List<(double X, double Y)> verts)
+        {
+            int n = verts.Count; bool inside = false;
+            for (int i = 0, j = n - 1; i < n; j = i++)
+            {
+                double xi = verts[i].X, yi = verts[i].Y;
+                double xj = verts[j].X, yj = verts[j].Y;
+                if (((yi > py) != (yj > py)) &&
+                    (px < (xj - xi) * (py - yi) / (yj - yi) + xi))
+                    inside = !inside;
+            }
+            return inside;
         }
 
         static void Acc(double Es, double E0, double amm2, double xmm, double ymm,

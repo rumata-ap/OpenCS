@@ -13,7 +13,15 @@
     <ProjectReference Include="..\CSfea.Sparse\CSfea.Sparse.csproj" />
     <ProjectReference Include="..\CSfea.Sparse.CSparse\CSfea.Sparse.CSparse.csproj" />
     <ProjectReference Include="..\CSfea.CScore\CSfea.CScore.csproj" />
+    <ProjectReference Include="..\CSfea.Thermal\CSfea.Thermal.csproj" />
     <ProjectReference Include="..\CScore\CScore.csproj" />
+    <ProjectReference Include="..\CScore.Fire\CScore.Fire.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\tools\fire-parity\fixtures\*.json"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="fixtures\%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

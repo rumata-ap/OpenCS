@@ -19,12 +19,10 @@ namespace OpenCS.ViewModels
         bool IsRebar,
         string Tooltip);
 
-    /// <summary>Данные для области без сетки — контур + зоны сжатия/растяжения.</summary>
+    /// <summary>Данные для области без сетки — контур + значения в вершинах.</summary>
     public record NoMeshAreaDrawData(
         IReadOnlyList<Point> Hull,                        // мм, CCW
         IReadOnlyList<IReadOnlyList<Point>> Holes,        // мм, CW
-        IReadOnlyList<Point>? CompressionZone,            // обрезанный контур зоны ε<0, мм (null если нет)
-        IReadOnlyList<Point>? TensionZone,                // обрезанный контур зоны ε>0, мм (null если нет)
         IReadOnlyList<(Point pt, double val)> HullValues, // значения в вершинах hull
         string Tooltip);
 
@@ -53,6 +51,9 @@ namespace OpenCS.ViewModels
         public double RebarMax    { get; }
 
         public bool HasRebar => RebarFibers.Count > 0;
+
+        /// <summary>Два конца нейтральной линии ε=0 в мм (null если нет).</summary>
+        public IReadOnlyList<Point>? NeutralAxis { get; }
 
         public const int NumBands = 8;
         public IReadOnlyList<ColorBand> ConcreteColorBands { get; }
@@ -91,19 +92,47 @@ namespace OpenCS.ViewModels
         // Событие для FiberCanvas: сброс к FitToView
         public event Action? FitAllRequested;
 
-        public SectionPlotVM(CrossSection section, Kurvature k, CalcType calcType, SectionPlotMode mode)
+        // ── Стили линий (из CalcSettings) ────────────────────────────────
+        public string HullColorHex         { get; }
+        public double HullThickness        { get; }
+        public string HoleColorHex         { get; }
+        public double HoleThickness        { get; }
+        public string NeutralAxisColorHex  { get; }
+        public double NeutralAxisThickness { get; }
+        public string CentroidNdsColorHex  { get; }
+        public double CentroidNdsSize      { get; }
+
+        /// <summary>Центр тяжести по НДС (секущий модуль) в мм; null если не вычислен.</summary>
+        public Point? NdsCentroid { get; }
+
+        public SectionPlotVM(CrossSection section, Kurvature k, CalcType calcType, SectionPlotMode mode, CalcSettings? settings = null)
         {
             Mode = mode;
+
+            var cs = settings ?? CalcSettings.Default;
+            int gridDensity       = cs.GridDensity;
+            HullColorHex          = cs.HullColor;
+            HullThickness         = cs.HullThickness;
+            HoleColorHex          = cs.HoleColor;
+            HoleThickness         = cs.HoleThickness;
+            NeutralAxisColorHex   = cs.NeutralAxisColor;
+            NeutralAxisThickness  = cs.NeutralAxisThickness;
+            CentroidNdsColorHex   = cs.CentroidNdsColor;
+            CentroidNdsSize       = cs.CentroidNdsSize;
 
             var concrete   = new List<FiberDrawData>();
             var noMesh     = new List<NoMeshAreaDrawData>();
             var rebar      = new List<RebarDrawData>();
+
+            // Накопители для ц.т. по НДС
+            double ea_c = 0, esy_c = 0, esz_c = 0;
 
             foreach (var area in section.Areas)
             {
                 if (!area.Diagramms.TryGetValue(calcType, out var dgr)) continue;
                 bool isRebar = area.Category != AreaCategory.Region;
                 bool hasMesh = area.Fibers.Any(f => f.TypeFiber != FiberType.point);
+                double E0 = Math.Abs(dgr.SigValue(1e-7)) / 1e-7 / 1000.0;
 
                 if (hasMesh)
                 {
@@ -119,6 +148,12 @@ namespace OpenCS.ViewModels
                                          ? $"σ = {f.Sig / 1000.0:+0.0;-0.0} МПа"
                                          : $"ε = {f.Eps:+0.00000;-0.00000}");
                         concrete.Add(new FiberDrawData(pts, centroid, val, isRebar, tip));
+                        // Центр тяжести НДС
+                        double esf = Math.Abs(f.Eps) > 1e-9 ? Math.Abs(f.Sig / 1000.0 / f.Eps) : E0;
+                        double amm2f = f.Area * 1e6;
+                        ea_c  += esf * amm2f;
+                        esy_c += esf * amm2f * f.X * 1000;
+                        esz_c += esf * amm2f * f.Y * 1000;
                     }
                 }
                 else if (area.Hull != null && !isRebar)
@@ -139,54 +174,54 @@ namespace OpenCS.ViewModels
                         hullVals.Add((new Point(ex * 1000, ey * 1000), v));
                     }
 
-                    // Нейтральная ось ε=0: kz*x + ky*y + e0 = 0
-                    // Hull координаты в мм
+                    // Hull и holes в мм (без дублирующей последней точки)
                     var hullMm = area.Hull.X
                         .Zip(area.Hull.Y, (x, y) => (X: x * 1000, Y: y * 1000))
-                        .SkipLast(1)                  // убираем дублирующую последнюю точку
+                        .SkipLast(1)
                         .ToList();
+                    var holesMm = area.Holes.Select(h =>
+                        h.X.Zip(h.Y, (x, y) => (X: x * 1000, Y: y * 1000))
+                           .SkipLast(1).ToList()).ToList();
 
-                    bool anyNeg = hullMm.Any(p => k.e0 + k.ky*(p.Y/1000) + k.kz*(p.X/1000) < -1e-9);
-                    bool anyPos = hullMm.Any(p => k.e0 + k.ky*(p.Y/1000) + k.kz*(p.X/1000) >  1e-9);
+                    // Сетка псевдофибр — клиппинг прямоугольными ячейками
+                    double hmXMin = hullMm.Min(p => p.X), hmXMax = hullMm.Max(p => p.X);
+                    double hmYMin = hullMm.Min(p => p.Y), hmYMax = hullMm.Max(p => p.Y);
+                    double nmStep = Math.Max(hmXMax - hmXMin, hmYMax - hmYMin) / Math.Max(gridDensity, 1);
+                    if (nmStep < 1.0) nmStep = 1.0;
+                    var nmXs = BuildSteps(hmXMin, hmXMax, nmStep);
+                    var nmYs = BuildSteps(hmYMin, hmYMax, nmStep);
 
-                    IReadOnlyList<Point>? comprZone = null;
-                    IReadOnlyList<Point>? tensZone  = null;
-
-                    if (!anyNeg && !anyPos)
+                    for (int xi = 0; xi < nmXs.Count - 1; xi++)
+                    for (int yi = 0; yi < nmYs.Count - 1; yi++)
                     {
-                        // нулевые деформации — пусто
-                    }
-                    else if (!anyPos)
-                    {
-                        comprZone = hullPts;  // вся область в сжатии
-                    }
-                    else if (!anyNeg)
-                    {
-                        tensZone = hullPts;   // вся область в растяжении
-                    }
-                    else
-                    {
-                        // нейтральная ось пересекает сечение → клиппинг
-                        // Точка на нейтральной оси в мм
-                        double px_mm = 0, py_mm = 0;
-                        if (Math.Abs(k.ky) > 1e-12)
-                            py_mm = -(k.e0 * 1000 + k.kz * px_mm) / k.ky;
-                        else if (Math.Abs(k.kz) > 1e-12)
-                            px_mm = -(k.e0 * 1000 + k.ky * py_mm) / k.kz;
-
-                        // Зона сжатия (ε < 0): нормаль (-kz, -ky)
-                        var clipNeg = GridSplit.ClipByHalfPlane(hullMm, px_mm, py_mm, -k.kz, -k.ky);
-                        if (clipNeg.Count >= 3)
-                            comprZone = clipNeg.Select(p => new Point(p.X, p.Y)).ToList();
-
-                        // Зона растяжения (ε > 0): нормаль (kz, ky)
-                        var clipPos = GridSplit.ClipByHalfPlane(hullMm, px_mm, py_mm, k.kz, k.ky);
-                        if (clipPos.Count >= 3)
-                            tensZone = clipPos.Select(p => new Point(p.X, p.Y)).ToList();
+                        var cell = GridSplit.ClipByRect(hullMm,
+                            nmXs[xi], nmXs[xi + 1], nmYs[yi], nmYs[yi + 1]);
+                        if (cell.Count < 3) continue;
+                        double cx_mm = cell.Average(p => p.X);
+                        double cy_mm = cell.Average(p => p.Y);
+                        if (holesMm.Any(h => PointInPolyMm(cx_mm, cy_mm, h))) continue;
+                        double eps_c = k.e0 + k.ky * (cy_mm / 1000) + k.kz * (cx_mm / 1000);
+                        double val = mode == SectionPlotMode.Stress
+                            ? dgr.SigValue(eps_c) / 1000.0 : eps_c;
+                        var cellPts = (IReadOnlyList<Point>)cell
+                            .Select(p => new Point(p.X, p.Y)).ToList();
+                        string cellTip = $"{area.Tag}\nx={cx_mm:F1} мм  y={cy_mm:F1} мм\n" +
+                            (mode == SectionPlotMode.Stress
+                                ? $"σ = {dgr.SigValue(eps_c)/1000.0:+0.0;-0.0} МПа"
+                                : $"ε = {eps_c:+0.00000;-0.00000}");
+                        concrete.Add(new FiberDrawData(cellPts,
+                            new Point(cx_mm, cy_mm), val, false, cellTip));
+                        // Центр тяжести НДС для псевдофибры
+                        double sig_mpa_c = dgr.SigValue(eps_c) / 1000.0;
+                        double esf_c = Math.Abs(eps_c) > 1e-9 ? Math.Abs(sig_mpa_c / eps_c) : E0;
+                        double cellAmm2 = PolygonAreaMm2(cell);
+                        ea_c  += esf_c * cellAmm2;
+                        esy_c += esf_c * cellAmm2 * cx_mm;
+                        esz_c += esf_c * cellAmm2 * cy_mm;
                     }
 
-                    string tip = $"{area.Tag} (без сетки)";
-                    noMesh.Add(new NoMeshAreaDrawData(hullPts, holePts, comprZone, tensZone, hullVals, tip));
+                    string tip = $"{area.Tag} (контур)";
+                    noMesh.Add(new NoMeshAreaDrawData(hullPts, holePts, hullVals, tip));
                 }
 
                 // Точечные фибры (арматура) → круги
@@ -203,12 +238,20 @@ namespace OpenCS.ViewModels
                         new Point(f.X * 1000, f.Y * 1000),
                         f.Diameter / 2.0 * 1000,
                         val, tip));
+                    // Центр тяжести НДС
+                    double esf = Math.Abs(f.Eps) > 1e-9 ? Math.Abs(f.Sig / 1000.0 / f.Eps) : E0;
+                    double amm2f = f.Area * 1e6;
+                    ea_c  += esf * amm2f;
+                    esy_c += esf * amm2f * f.X * 1000;
+                    esz_c += esf * amm2f * f.Y * 1000;
                 }
             }
 
             ConcreteFibers = concrete;
             NoMeshAreas    = noMesh;
             RebarFibers    = rebar;
+
+            NdsCentroid = ea_c > 1e-6 ? new Point(esy_c / ea_c, esz_c / ea_c) : (Point?)null;
 
             // Диапазоны нормировки
             var concreteVals = concrete.Select(f => f.Value)
@@ -223,6 +266,17 @@ namespace OpenCS.ViewModels
 
             ConcreteColorBands = BuildColorBands(ConcreteMin, ConcreteMax, false);
             RebarColorBands    = BuildColorBands(RebarMin,    RebarMax,    true);
+
+            // Нейтральная линия деформаций: найти пересечение ε=0 с bbox сечения
+            var allPts = concrete.SelectMany(f => f.Vertices)
+                .Concat(noMesh.SelectMany(a => a.Hull)).ToList();
+            if (allPts.Count >= 2)
+            {
+                double bxMin = allPts.Min(p => p.X), bxMax = allPts.Max(p => p.X);
+                double byMin = allPts.Min(p => p.Y), byMax = allPts.Max(p => p.Y);
+                NeutralAxis = ComputeNeutralAxisSegment(
+                    k.kz, k.ky, k.e0 * 1000, bxMin, bxMax, byMin, byMax);
+            }
 
             FitAllCommand = new RelayCommand(_ => FitAllRequested?.Invoke());
         }
@@ -244,6 +298,73 @@ namespace OpenCS.ViewModels
             for (int i = 0; i < xs.Count; i++)
                 pts.Add(new Point(xs[i] * 1000, ys[i] * 1000));
             return pts;
+        }
+
+        static List<double> BuildSteps(double lo, double hi, double step)
+        {
+            var result = new List<double> { lo };
+            int iLo = (int)Math.Ceiling(lo / step);
+            int iHi = (int)Math.Floor(hi / step);
+            for (int i = iLo; i <= iHi; i++)
+            {
+                double v = i * step;
+                if (v > lo + step * 0.01 && v < hi - step * 0.01)
+                    result.Add(v);
+            }
+            result.Add(hi);
+            return result;
+        }
+
+        static double PolygonAreaMm2(List<(double X, double Y)> verts)
+        {
+            double area = 0;
+            int n = verts.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var a = verts[i]; var b = verts[(i + 1) % n];
+                area += (a.X * b.Y - b.X * a.Y);
+            }
+            return Math.Abs(area) * 0.5;
+        }
+
+        static bool PointInPolyMm(double px, double py, List<(double X, double Y)> verts)
+        {
+            int n = verts.Count; bool inside = false;
+            for (int i = 0, j = n - 1; i < n; j = i++)
+            {
+                double xi = verts[i].X, yi = verts[i].Y;
+                double xj = verts[j].X, yj = verts[j].Y;
+                if (((yi > py) != (yj > py)) &&
+                    (px < (xj - xi) * (py - yi) / (yj - yi) + xi))
+                    inside = !inside;
+            }
+            return inside;
+        }
+
+        static IReadOnlyList<Point>? ComputeNeutralAxisSegment(
+            double kz, double ky, double e0mm,
+            double xMin, double xMax, double yMin, double yMax)
+        {
+            var pts = new List<Point>();
+            void TryAdd(double x, double y)
+            {
+                if (x < xMin - 1e-3 || x > xMax + 1e-3 ||
+                    y < yMin - 1e-3 || y > yMax + 1e-3) return;
+                foreach (var q in pts)
+                    if (Math.Abs(x - q.X) < 1e-3 && Math.Abs(y - q.Y) < 1e-3) return;
+                pts.Add(new Point(Math.Clamp(x, xMin, xMax), Math.Clamp(y, yMin, yMax)));
+            }
+            if (Math.Abs(ky) > 1e-12)
+            {
+                TryAdd(xMin, -(e0mm + kz * xMin) / ky);
+                TryAdd(xMax, -(e0mm + kz * xMax) / ky);
+            }
+            if (Math.Abs(kz) > 1e-12)
+            {
+                TryAdd(-(e0mm + ky * yMin) / kz, yMin);
+                TryAdd(-(e0mm + ky * yMax) / kz, yMax);
+            }
+            return pts.Count >= 2 ? pts.GetRange(0, 2) : null;
         }
 
         static IReadOnlyList<ColorBand> BuildColorBands(double min, double max, bool isRebar)

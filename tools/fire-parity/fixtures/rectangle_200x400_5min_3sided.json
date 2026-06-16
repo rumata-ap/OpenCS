@@ -1,0 +1,104 @@
+{
+  "name": "rectangle_200x400_5min_3sided",
+  "section": {
+    "outer": [
+      [
+        0.0,
+        0.0
+      ],
+      [
+        0.2,
+        0.0
+      ],
+      [
+        0.2,
+        0.4
+      ],
+      [
+        0.0,
+        0.4
+      ]
+    ],
+    "holes": [],
+    "rebars": []
+  },
+  "fire_section": {
+    "fire_duration_min": 5.0,
+    "fire_curve": "iso834",
+    "mesh_step_m": 0.05,
+    "time_step_s": 15.0,
+    "snapshot_step_min": 1.0,
+    "theta": 1.0,
+    "picard_tol_celsius": 0.5,
+    "picard_max_iter": 20,
+    "bc_preset": "3-sided",
+    "algorithm": "ruppert",
+    "smooth_iter_tri": 2,
+    "edges": [
+      {
+        "original_edge_index": 0,
+        "bc_type": "fire",
+        "alpha_conv": 25.0,
+        "emissivity": 0.7,
+        "fire_curve": "iso834",
+        "t_ambient_celsius": 20.0
+      },
+      {
+        "original_edge_index": 1,
+        "bc_type": "fire",
+        "alpha_conv": 25.0,
+        "emissivity": 0.7,
+        "fire_curve": "iso834",
+        "t_ambient_celsius": 20.0
+      },
+      {
+        "original_edge_index": 2,
+        "bc_type": "adiabatic",
+        "alpha_conv": 0.0,
+        "emissivity": 0.0,
+        "fire_curve": "iso834",
+        "t_ambient_celsius": 20.0
+      },
+      {
+        "original_edge_index": 3,
+        "bc_type": "fire",
+        "alpha_conv": 25.0,
+        "emissivity": 0.7,
+        "fire_curve": "iso834",
+        "t_ambient_celsius": 20.0
+      }
+    ]
+  },
+  "aggregate_type": "silicate",
+  "probes": [
+    {
+      "name": "bottom_center",
+      "x": 0.1,
+      "y": 0.0,
+      "nearest_node_index": 2,
+      "snapshots_c": [
+        20.0,
+        41.39093559994999,
+        78.61909397929037,
+        121.84409406859058,
+        147.19744948011095,
+        162.76359474806586
+      ]
+    }
+  ],
+  "mesh_stats": {
+    "n_nodes": 65,
+    "n_elements": 104
+  },
+  "snapshots_summary": {
+    "times_min": [
+      0.0,
+      1.05,
+      2.05,
+      3.05,
+      4.05,
+      5.0
+    ],
+    "max_t_c": 232.5290980492646
+  }
+}

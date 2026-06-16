@@ -19,6 +19,9 @@ namespace CScore
       /// <summary>Тип расчёта (C/CL/N/NL).</summary>
       public CalcType CalcType    { get; set; } = CalcType.C;
 
+      /// <summary>Дополнительные параметры задачи в JSON-формате.</summary>
+      public string ParamsJson { get; set; } = "{}";
+
       public override string ToString() => $"{Num:D3}#CalcTask : {Tag}";
    }
 }

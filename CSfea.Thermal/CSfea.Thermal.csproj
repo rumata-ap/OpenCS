@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>CSfea.Thermal</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CSfea.Sparse\CSfea.Sparse.csproj" />
+    <ProjectReference Include="..\CSfea.Core\CSfea.Core.csproj" />
+  </ItemGroup>
+
+</Project>

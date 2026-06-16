@@ -77,6 +77,22 @@
    <!-- Settings window -->
    <system:String x:Key="SettingsTitle">Настройки</system:String>
    <system:String x:Key="PlotsTab">Графики</system:String>
+   <system:String x:Key="CalcSettingsTab">Расчёт</system:String>
+   <system:String x:Key="CalcSettingsGridGroup">Постпроцессор</system:String>
+   <system:String x:Key="CalcSettingsGridDensity">Густота сетки (шагов по max(w,h))</system:String>
+   <system:String x:Key="CalcSettingsNewtonGroup">Итерации Ньютона</system:String>
+   <system:String x:Key="CalcSettingsTol">Допуск сходимости, кН</system:String>
+   <system:String x:Key="CalcSettingsMaxIter">Макс. итераций</system:String>
+   <system:String x:Key="CalcSettingsDeltaH">Шаг числ. производной h</system:String>
+   <system:String x:Key="CalcSettingsLineStyleGroup">Стили линий</system:String>
+   <system:String x:Key="CalcSettingsHullLine">Контур: цвет</system:String>
+   <system:String x:Key="CalcSettingsHullThickness">Контур: толщина</system:String>
+   <system:String x:Key="CalcSettingsHoleLine">Отверстие: цвет</system:String>
+   <system:String x:Key="CalcSettingsHoleThickness">Отверстие: толщина</system:String>
+   <system:String x:Key="CalcSettingsNeutralAxisLine">Нейтр. ось: цвет</system:String>
+   <system:String x:Key="CalcSettingsNeutralAxisThickness">Нейтр. ось: толщина</system:String>
+   <system:String x:Key="CalcSettingsCentroidNdsLine">Ц.т. НДС: цвет</system:String>
+   <system:String x:Key="CalcSettingsCentroidNdsSize">Ц.т. НДС: размер</system:String>
    <system:String x:Key="ColorsAndSizes">Цвета и размеры</system:String>
    <system:String x:Key="Background">Фон</system:String>
    <system:String x:Key="Grid">Сетка</system:String>
@@ -175,6 +191,10 @@
    <system:String x:Key="Eps_t2">Предельная деформация по Rt (eps_t2)</system:String>
    <system:String x:Key="MaterialType">Тип материала</system:String>
    <system:String x:Key="Humidity">Влажность среды</system:String>
+   <system:String x:Key="Material_AggregateType">Тип заполнителя</system:String>
+   <system:String x:Key="Material_AggregateType_Silicate">Силикатный</system:String>
+   <system:String x:Key="Material_AggregateType_Carbonate">Карбонатный</system:String>
+   <system:String x:Key="Material_AggregateType_Lightweight">Лёгкий</system:String>
    <system:String x:Key="BuildDiagram">Построить диаграмму</system:String>
    <system:String x:Key="EditMaterial">Редактировать материал</system:String>
 
@@ -432,6 +452,37 @@
    <system:String x:Key="AddRebarLayer">Добавить слой</system:String>
    <system:String x:Key="DeleteRebarLayer">Удалить слой</system:String>
 
+   <!-- Огнестойкость -->
+   <system:String x:Key="FireSection_Node">Огнестойкость</system:String>
+   <system:String x:Key="FireSection_New">Новое огневое сечение</system:String>
+   <system:String x:Key="FireSection_Delete">Удалить огневое сечение</system:String>
+   <system:String x:Key="FireSection_Rename">Переименовать / параметры...</system:String>
+   <system:String x:Key="FireSection_DialogTitle">Параметры огневого сечения</system:String>
+   <system:String x:Key="FireSection_CrossSection">Связанное сечение</system:String>
+   <system:String x:Key="FireSection_Duration">Длительность пожара, мин</system:String>
+   <system:String x:Key="FireSection_Curve">Огневая кривая</system:String>
+   <system:String x:Key="FireSection_CurveIso834">ISO 834</system:String>
+   <system:String x:Key="FireSection_CurveHydrocarbon">Углеводородная</system:String>
+   <system:String x:Key="FireSection_CurveSlow">Медленный нагрев</system:String>
+   <system:String x:Key="FireSection_MeshStep">Шаг сетки, м</system:String>
+   <system:String x:Key="FireSection_TimeStep">Шаг по времени, с</system:String>
+   <system:String x:Key="FireSection_BcPreset">Пресет ГУ</system:String>
+   <system:String x:Key="FireSection_BcManual">Вручную</system:String>
+   <system:String x:Key="FireSection_Bc1Sided">1 сторона</system:String>
+   <system:String x:Key="FireSection_Bc2Sided">2 стороны</system:String>
+   <system:String x:Key="FireSection_Bc3Sided">3 стороны</system:String>
+   <system:String x:Key="FireSection_BcAllSided">Все стороны</system:String>
+   <system:String x:Key="FireSection_RunThermal">Run thermal calc</system:String>
+   <system:String x:Key="FireSection_DefaultTag">Огневое сечение {0}</system:String>
+   <system:String x:Key="FireSection_NeedCrossSection">Выберите связанное поперечное сечение.</system:String>
+   <system:String x:Key="FireSection_ConfirmDelete">Удалить выбранное огневое сечение?</system:String>
+   <system:String x:Key="FireSection_SectionNotFound">Связанное сечение не найдено.</system:String>
+   <system:String x:Key="FireSection_Saved">Параметры сохранены.</system:String>
+   <system:String x:Key="FireSection_SavedLog">Огневое сечение '{0}' сохранено.</system:String>
+   <system:String x:Key="FireSection_RunOk">Тепловой расчёт выполнен. ID результата: {0}</system:String>
+   <system:String x:Key="FireSection_RunOkLog">Огневой расчёт '{0}' выполнен, результат #{1}.</system:String>
+   <system:String x:Key="FireSection_RunError">Ошибка огневого расчёта: {0}</system:String>
+
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Метод</system:String>
    <system:String x:Key="MeshMethod_Grid">Ортогональная сетка</system:String>
@@ -538,6 +589,7 @@
    <system:String x:Key="VT_Circles">Окружности</system:String>
    <system:String x:Key="VT_CalcTasks">Расчётные задачи</system:String>
    <system:String x:Key="VT_CalcResult">Результат расчёта</system:String>
+   <system:String x:Key="VT_FireSection">Огнестойкость</system:String>
 
    <!-- Расчётные задачи -->
    <system:String x:Key="CalcTaskDlgTitle">Параметры расчётной задачи</system:String>
@@ -561,6 +613,12 @@
    <system:String x:Key="CalcTaskForceItemNotFound">Строка усилий задачи не найдена в проекте.</system:String>
    <system:String x:Key="ConfirmDeleteCalcTask">Удалить задачу и все её результаты?</system:String>
    <system:String x:Key="CalcTaskCreated">Задача «{0}» создана.</system:String>
+   <system:String x:Key="CalcTaskKind_strain_state">Состояние деформаций</system:String>
+   <system:String x:Key="CalcTaskKind_fire_r_check">R-проверка (одна комбинация)</system:String>
+   <system:String x:Key="CalcTaskKind_fire_r_check_batch">R-проверка (весь набор)</system:String>
+   <system:String x:Key="CalcTaskFireSection">Огневое сечение</system:String>
+   <system:String x:Key="CalcTaskNeedFireSection">Не выбрано огневое сечение.</system:String>
+   <system:String x:Key="CalcResultNotPassed">Задача «{0}»: R-проверка не пройдена.</system:String>
    <system:String x:Key="CalcResultOk">Задача «{0}» выполнена успешно.</system:String>
    <system:String x:Key="CalcResultNotConverged">Задача «{0}» завершена без сходимости.</system:String>
    <system:String x:Key="CalcResultError">Ошибка при выполнении задачи «{0}».</system:String>

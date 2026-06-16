@@ -1,4 +1,5 @@
 using OpenCS.Utilites;
+using CalcSettings = OpenCS.Utilites.CalcSettings;
 
 using System.Linq;
 using System.Windows;
@@ -13,6 +14,7 @@ namespace OpenCS.Views
    {
       readonly AppViewModel _mvm;
       readonly PlotSettings _settings;
+      readonly CalcSettings _calcSettings;
 
       static readonly string[] _palette =
       [
@@ -26,11 +28,14 @@ namespace OpenCS.Views
          InitializeComponent();
          _mvm = mvm;
          _settings = mvm.PlotSettings.Clone();
+         _calcSettings = mvm.CalcSettings.Clone();
          Owner = Application.Current.MainWindow;
 
          LoadToUi();
          HookTextBoxes();
          BuildPalette();
+         LoadCalcToUi();
+         HookCalcBoxes();
       }
 
       void BuildPalette()
@@ -153,11 +158,101 @@ namespace OpenCS.Views
          _mvm.PlotSettings = _settings.Clone();
          _mvm.ApplyPlotSettings();
          _mvm.db.SavePlotSettings(_mvm.PlotSettings);
+
+         _mvm.CalcSettings = _calcSettings.Clone();
+         _mvm.db.SaveCalcSettings(_mvm.CalcSettings);
       }
 
       void Cancel_Click(object sender, RoutedEventArgs e)
       {
          Close();
+      }
+
+      void LoadCalcToUi()
+      {
+         GridDensityBox.Text   = _calcSettings.GridDensity.ToString();
+         NewtonTolBox.Text     = _calcSettings.NewtonTolerance.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
+         NewtonMaxIterBox.Text = _calcSettings.NewtonMaxIter.ToString();
+         NewtonDeltaHBox.Text  = _calcSettings.NewtonDeltaH.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+
+         HullColorBox.Text         = _calcSettings.HullColor;
+         HullThickBox.Text         = _calcSettings.HullThickness.ToString("F1");
+         HoleColorBox.Text         = _calcSettings.HoleColor;
+         HoleThickBox.Text         = _calcSettings.HoleThickness.ToString("F1");
+         NeutralAxisColorBox.Text  = _calcSettings.NeutralAxisColor;
+         NeutralAxisThickBox.Text  = _calcSettings.NeutralAxisThickness.ToString("F1");
+         CentroidNdsColorBox.Text  = _calcSettings.CentroidNdsColor;
+         CentroidNdsSizeBox.Text   = _calcSettings.CentroidNdsSize.ToString("F0");
+         UpdateCalcSwatches();
+      }
+
+      void HookCalcBoxes()
+      {
+         GridDensityBox.TextChanged += (_, _) =>
+         {
+            if (int.TryParse(GridDensityBox.Text, out var v) && v >= 1) _calcSettings.GridDensity = v;
+         };
+         NewtonTolBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(NewtonTolBox.Text, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+               _calcSettings.NewtonTolerance = v;
+         };
+         NewtonMaxIterBox.TextChanged += (_, _) =>
+         {
+            if (int.TryParse(NewtonMaxIterBox.Text, out var v) && v >= 1) _calcSettings.NewtonMaxIter = v;
+         };
+         NewtonDeltaHBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(NewtonDeltaHBox.Text, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+               _calcSettings.NewtonDeltaH = v;
+         };
+
+         HullColorBox.TextChanged += (_, _) =>
+         {
+            _calcSettings.HullColor = HullColorBox.Text;
+            UpdateSwatch(HullSwatch, HullColorBox.Text);
+         };
+         HullThickBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(HullThickBox.Text, out var v) && v > 0) _calcSettings.HullThickness = v;
+         };
+         HoleColorBox.TextChanged += (_, _) =>
+         {
+            _calcSettings.HoleColor = HoleColorBox.Text;
+            UpdateSwatch(HoleSwatch, HoleColorBox.Text);
+         };
+         HoleThickBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(HoleThickBox.Text, out var v) && v > 0) _calcSettings.HoleThickness = v;
+         };
+         NeutralAxisColorBox.TextChanged += (_, _) =>
+         {
+            _calcSettings.NeutralAxisColor = NeutralAxisColorBox.Text;
+            UpdateSwatch(NeutralAxisSwatch, NeutralAxisColorBox.Text);
+         };
+         NeutralAxisThickBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(NeutralAxisThickBox.Text, out var v) && v > 0) _calcSettings.NeutralAxisThickness = v;
+         };
+         CentroidNdsColorBox.TextChanged += (_, _) =>
+         {
+            _calcSettings.CentroidNdsColor = CentroidNdsColorBox.Text;
+            UpdateSwatch(CentroidNdsSwatch, CentroidNdsColorBox.Text);
+         };
+         CentroidNdsSizeBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(CentroidNdsSizeBox.Text, out var v) && v > 0) _calcSettings.CentroidNdsSize = v;
+         };
+      }
+
+      void UpdateCalcSwatches()
+      {
+         UpdateSwatch(HullSwatch,        HullColorBox.Text);
+         UpdateSwatch(HoleSwatch,        HoleColorBox.Text);
+         UpdateSwatch(NeutralAxisSwatch, NeutralAxisColorBox.Text);
+         UpdateSwatch(CentroidNdsSwatch, CentroidNdsColorBox.Text);
       }
 
       void Reset_Click(object sender, RoutedEventArgs e)

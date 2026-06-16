@@ -76,6 +76,22 @@
    <!-- Settings window -->
    <system:String x:Key="SettingsTitle">Settings</system:String>
    <system:String x:Key="PlotsTab">Plots</system:String>
+   <system:String x:Key="CalcSettingsTab">Calculation</system:String>
+   <system:String x:Key="CalcSettingsGridGroup">Post-processor</system:String>
+   <system:String x:Key="CalcSettingsGridDensity">Grid density (steps per max(w,h))</system:String>
+   <system:String x:Key="CalcSettingsNewtonGroup">Newton iterations</system:String>
+   <system:String x:Key="CalcSettingsTol">Convergence tolerance, kN</system:String>
+   <system:String x:Key="CalcSettingsMaxIter">Max iterations</system:String>
+   <system:String x:Key="CalcSettingsDeltaH">Numerical derivative step h</system:String>
+   <system:String x:Key="CalcSettingsLineStyleGroup">Line Styles</system:String>
+   <system:String x:Key="CalcSettingsHullLine">Hull: color</system:String>
+   <system:String x:Key="CalcSettingsHullThickness">Hull: thickness</system:String>
+   <system:String x:Key="CalcSettingsHoleLine">Hole: color</system:String>
+   <system:String x:Key="CalcSettingsHoleThickness">Hole: thickness</system:String>
+   <system:String x:Key="CalcSettingsNeutralAxisLine">Neutral axis: color</system:String>
+   <system:String x:Key="CalcSettingsNeutralAxisThickness">Neutral axis: thickness</system:String>
+   <system:String x:Key="CalcSettingsCentroidNdsLine">NDS centroid: color</system:String>
+   <system:String x:Key="CalcSettingsCentroidNdsSize">NDS centroid: size</system:String>
    <system:String x:Key="ColorsAndSizes">Colors and Sizes</system:String>
    <system:String x:Key="Background">Background</system:String>
    <system:String x:Key="Grid">Grid</system:String>
@@ -172,6 +188,10 @@
    <system:String x:Key="Eps_t2">Ultimate tensile strain by Rt (eps_t2)</system:String>
    <system:String x:Key="MaterialType">Material Type</system:String>
    <system:String x:Key="Humidity">Humidity</system:String>
+   <system:String x:Key="Material_AggregateType">Aggregate Type</system:String>
+   <system:String x:Key="Material_AggregateType_Silicate">Silicate</system:String>
+   <system:String x:Key="Material_AggregateType_Carbonate">Carbonate</system:String>
+   <system:String x:Key="Material_AggregateType_Lightweight">Lightweight</system:String>
    <system:String x:Key="BuildDiagram">Build Diagram</system:String>
    <system:String x:Key="EditMaterial">Edit Material</system:String>
 
@@ -429,6 +449,37 @@
    <system:String x:Key="AddRebarLayer">Add layer</system:String>
    <system:String x:Key="DeleteRebarLayer">Delete layer</system:String>
 
+   <!-- Fire -->
+   <system:String x:Key="FireSection_Node">Fire</system:String>
+   <system:String x:Key="FireSection_New">New fire section</system:String>
+   <system:String x:Key="FireSection_Delete">Delete fire section</system:String>
+   <system:String x:Key="FireSection_Rename">Rename / parameters...</system:String>
+   <system:String x:Key="FireSection_DialogTitle">Fire section parameters</system:String>
+   <system:String x:Key="FireSection_CrossSection">Linked section</system:String>
+   <system:String x:Key="FireSection_Duration">Fire duration, min</system:String>
+   <system:String x:Key="FireSection_Curve">Fire curve</system:String>
+   <system:String x:Key="FireSection_CurveIso834">ISO 834</system:String>
+   <system:String x:Key="FireSection_CurveHydrocarbon">Hydrocarbon</system:String>
+   <system:String x:Key="FireSection_CurveSlow">Slow heating</system:String>
+   <system:String x:Key="FireSection_MeshStep">Mesh step, m</system:String>
+   <system:String x:Key="FireSection_TimeStep">Time step, s</system:String>
+   <system:String x:Key="FireSection_BcPreset">BC preset</system:String>
+   <system:String x:Key="FireSection_BcManual">Manual</system:String>
+   <system:String x:Key="FireSection_Bc1Sided">1-sided</system:String>
+   <system:String x:Key="FireSection_Bc2Sided">2-sided</system:String>
+   <system:String x:Key="FireSection_Bc3Sided">3-sided</system:String>
+   <system:String x:Key="FireSection_BcAllSided">All-sided</system:String>
+   <system:String x:Key="FireSection_RunThermal">Run thermal calc</system:String>
+   <system:String x:Key="FireSection_DefaultTag">Fire section {0}</system:String>
+   <system:String x:Key="FireSection_NeedCrossSection">Select a linked cross section.</system:String>
+   <system:String x:Key="FireSection_ConfirmDelete">Delete selected fire section?</system:String>
+   <system:String x:Key="FireSection_SectionNotFound">Linked section not found.</system:String>
+   <system:String x:Key="FireSection_Saved">Parameters saved.</system:String>
+   <system:String x:Key="FireSection_SavedLog">Fire section '{0}' saved.</system:String>
+   <system:String x:Key="FireSection_RunOk">Thermal analysis completed. Result ID: {0}</system:String>
+   <system:String x:Key="FireSection_RunOkLog">Fire analysis '{0}' completed, result #{1}.</system:String>
+   <system:String x:Key="FireSection_RunError">Fire analysis error: {0}</system:String>
+
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Method</system:String>
    <system:String x:Key="MeshMethod_Grid">Orthogonal Grid</system:String>
@@ -535,6 +586,7 @@
    <system:String x:Key="VT_Circles">Circles</system:String>
    <system:String x:Key="VT_CalcTasks">Calc Tasks</system:String>
    <system:String x:Key="VT_CalcResult">Calc Result</system:String>
+   <system:String x:Key="VT_FireSection">Fire</system:String>
 
    <!-- Calc Tasks -->
    <system:String x:Key="CalcTaskDlgTitle">Task Properties</system:String>
@@ -558,6 +610,12 @@
    <system:String x:Key="CalcTaskForceItemNotFound">Task force row not found in project.</system:String>
    <system:String x:Key="ConfirmDeleteCalcTask">Delete task and all its results?</system:String>
    <system:String x:Key="CalcTaskCreated">Task "{0}" created.</system:String>
+   <system:String x:Key="CalcTaskKind_strain_state">Strain state</system:String>
+   <system:String x:Key="CalcTaskKind_fire_r_check">Fire R-check (single)</system:String>
+   <system:String x:Key="CalcTaskKind_fire_r_check_batch">Fire R-check (batch)</system:String>
+   <system:String x:Key="CalcTaskFireSection">Fire section</system:String>
+   <system:String x:Key="CalcTaskNeedFireSection">No fire section selected.</system:String>
+   <system:String x:Key="CalcResultNotPassed">Task "{0}": fire R-check not passed.</system:String>
    <system:String x:Key="CalcResultOk">Task "{0}" completed successfully.</system:String>
    <system:String x:Key="CalcResultNotConverged">Task "{0}" did not converge.</system:String>
    <system:String x:Key="CalcResultError">Error running task "{0}".</system:String>

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Globalization;
 
 using CScore;
+using CScore.Fire.Entities;
 using OpenCS.Services;
 using OpenCS.ViewModels;
 using OpenCS.Utilites;
@@ -109,6 +110,7 @@ namespace OpenCS
       ForceSet? currentBarForceSet;
       ForceSet? currentShellForceSet;
       PlateSection? currentPlateSection;
+      FireSectionDef? currentFireSection;
 
       /// <summary>
       /// Путь к текущему файлу проекта. null если проект ещё не был сохранён.
@@ -264,6 +266,9 @@ namespace OpenCS
       /// <summary>Плитные сечения.</summary>
       public ObservableCollection<PlateSection> PlateSections { get; set; } = null!;
 
+      /// <summary>Огневые сечения проекта.</summary>
+      public ObservableCollection<FireSectionDef> FireSections { get; set; } = null!;
+
       /// <summary>Текущее выбранное плитное сечение. При установке открывает PlateSectionPage.</summary>
       public PlateSection? CurrentPlateSection
       {
@@ -278,6 +283,20 @@ namespace OpenCS
          }
       }
 
+      /// <summary>Текущее выбранное огневое сечение. При установке открывает FireSectionView.</summary>
+      public FireSectionDef? CurrentFireSection
+      {
+         get => currentFireSection;
+         set
+         {
+            currentFireSection = value;
+            CurrentPage = value != null
+               ? new Views.FireSectionView(value, this)
+               : null!;
+            OnPropertyChanged();
+         }
+      }
+
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
       /// <summary>Команда удаления плитного сечения (параметр PlateSection или текущее).</summary>
@@ -287,6 +306,13 @@ namespace OpenCS
 
       /// <summary>Команда открытия страницы расчётных задач.</summary>
       public ICommand OpenCalcTasksCommand { get; set; } = null!;
+
+      /// <summary>Команда создания нового огневого сечения.</summary>
+      public ICommand NewFireSectionCommand { get; set; } = null!;
+      /// <summary>Команда удаления выбранного огневого сечения.</summary>
+      public ICommand DeleteFireSectionCommand { get; set; } = null!;
+      /// <summary>Команда переименования/редактирования выбранного огневого сечения.</summary>
+      public ICommand RenameFireSectionCommand { get; set; } = null!;
 
       /// <summary>Текущий выбранный набор усилий стержня. При установке открывает BarForceSetPage.</summary>
       public ForceSet? CurrentBarForceSet
@@ -410,6 +436,7 @@ namespace OpenCS
           Views.CirclesView               => Loc.S("VT_Circles"),
           Views.CalcTasksPage             => Loc.S("VT_CalcTasks"),
           Views.CalcResultView            => Loc.S("VT_CalcResult"),
+          Views.FireSectionView           => Loc.S("VT_FireSection"),
           _                               => ""
       };
       /// <summary>
@@ -545,6 +572,9 @@ namespace OpenCS
       /// </summary>
       public Utilites.CsvExportSettings CsvSettings { get; set; } = Utilites.CsvExportSettings.Default;
 
+      /// <summary>Настройки численного расчёта (сетка, Ньютон).</summary>
+      public Utilites.CalcSettings CalcSettings { get; set; } = Utilites.CalcSettings.Default;
+
       /// <summary>
       /// Команда открытия окна настройки экспорта CSV.
       /// </summary>
@@ -613,6 +643,7 @@ namespace OpenCS
           InitNewDatabase();
           PlotSettings = db.LoadPlotSettings() ?? Utilites.PlotSettings.Default;
           CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
+          CalcSettings = db.LoadCalcSettings() ?? Utilites.CalcSettings.Default;
           InitializeCollections();
            InitializeCommands();
         }
@@ -733,6 +764,13 @@ namespace OpenCS
          PlateSections = db.PlateSections;
          PlateSections.CollectionChanged += (_, _) => { RefreshPlateSectionsLive(); IsDirty = true; };
          RefreshPlateSectionsLive();
+         FireSections = db.FireSections;
+         FireSections.CollectionChanged += (_, _) =>
+         {
+            RenumberFireSections();
+            IsDirty = true;
+         };
+         RenumberFireSections();
          CalcTasks   = db.CalcTasks;
          CalcResults = db.CalcResults;
          CalcTasks.CollectionChanged   += (_, _) => IsDirty = true;
@@ -787,6 +825,9 @@ namespace OpenCS
          NewPlateSectionCommand       = new RelayCommand(_ => NewPlateSection());
          DeletePlateSectionCommand    = new RelayCommand(p => DeletePlateSection(p as CScore.PlateSection));
          DuplicatePlateSectionCommand = new RelayCommand(p => DuplicatePlateSection(p as CScore.PlateSection));
+         NewFireSectionCommand        = new RelayCommand(_ => NewFireSection());
+         DeleteFireSectionCommand     = new RelayCommand(_ => DeleteFireSection());
+         RenameFireSectionCommand     = new RelayCommand(_ => RenameFireSection());
          OpenCalcTasksCommand         = new RelayCommand(_ => CurrentPage = new Views.CalcTasksPage(this));
          ImportContoursFromDxfCommand = new RelayCommand(_ => ImportContoursFromDxf());
          AddCircleCommand             = new RelayCommand(_ => AddCircle());
@@ -1087,11 +1128,13 @@ namespace OpenCS
          currentBarForceSet   = null;
          currentShellForceSet = null;
          currentPlateSection  = null;
+         currentFireSection   = null;
          OnPropertyChanged(nameof(CurrentCrossSection));
          OnPropertyChanged(nameof(CurrentMaterialArea));
          OnPropertyChanged(nameof(CurrentBarForceSet));
          OnPropertyChanged(nameof(CurrentShellForceSet));
          OnPropertyChanged(nameof(CurrentPlateSection));
+         OnPropertyChanged(nameof(CurrentFireSection));
          CalcTasks   = db.CalcTasks;
          CalcResults = db.CalcResults;
          MaterialsSort();
@@ -1494,6 +1537,12 @@ namespace OpenCS
             PlateSectionsLive.Add(ps);
       }
 
+      void RenumberFireSections()
+      {
+         for (int i = 0; i < FireSections.Count; i++)
+            FireSections[i].Num = i + 1;
+      }
+
       void NewArea()
       {
          var area = new MaterialArea
@@ -1586,6 +1635,65 @@ namespace OpenCS
          copy.Num = PlateSections.Count > 0 ? PlateSections.Max(s => s.Num) + 1 : 1;
          db.SavePlateSection(copy);
          PlateSections.Add(copy);
+         IsDirty = true;
+      }
+
+      void NewFireSection()
+      {
+         var dlg = new Views.Dialogs.FireSectionDialog(this)
+         {
+            Owner = Application.Current.MainWindow
+         };
+         if (dlg.ShowDialog() != true || dlg.Result == null) return;
+
+         var section = dlg.Result;
+         section.Num = FireSections.Count > 0 ? FireSections.Max(s => s.Num) + 1 : 1;
+         db.SaveFireSection(section);
+         RenumberFireSections();
+         CurrentFireSection = section;
+         IsDirty = true;
+      }
+
+      void RenameFireSection()
+      {
+         if (CurrentFireSection == null) return;
+         var dlg = new Views.Dialogs.FireSectionDialog(this, CurrentFireSection)
+         {
+            Owner = Application.Current.MainWindow
+         };
+         if (dlg.ShowDialog() != true || dlg.Result == null) return;
+
+         var updated = dlg.Result;
+         CurrentFireSection.Tag = updated.Tag;
+         CurrentFireSection.SectionId = updated.SectionId;
+         CurrentFireSection.FireDurationMin = updated.FireDurationMin;
+         CurrentFireSection.FireCurve = updated.FireCurve;
+         CurrentFireSection.MeshStepM = updated.MeshStepM;
+         CurrentFireSection.TimeStepS = updated.TimeStepS;
+         CurrentFireSection.BcPreset = updated.BcPreset;
+         CurrentFireSection.HoleBcPreset = updated.HoleBcPreset;
+         db.SaveFireSection(CurrentFireSection);
+         OnPropertyChanged(nameof(FireSections));
+         OnPropertyChanged(nameof(CurrentFireSection));
+         CurrentPage = new Views.FireSectionView(CurrentFireSection, this);
+         IsDirty = true;
+      }
+
+      void DeleteFireSection()
+      {
+         if (CurrentFireSection == null) return;
+         var res = MessageBox.Show(
+            Loc.S("FireSection_ConfirmDelete"),
+            Loc.S("Warning"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+         if (res != MessageBoxResult.Yes) return;
+
+         int deletedId = CurrentFireSection.Id;
+         db.DeleteFireSection(deletedId);
+         RenumberFireSections();
+         CurrentFireSection = null;
+         CurrentPage = null!;
          IsDirty = true;
       }
 

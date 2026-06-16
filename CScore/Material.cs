@@ -62,6 +62,9 @@ namespace CScore
       /// </summary>
       public MatType Type { get; set; } = MatType.None;
 
+      /// <summary>Тип заполнителя бетона для огнестойкости: silicate, carbonate, lightweight.</summary>
+      public string AggregateType { get; set; } = "silicate";
+
       /// <summary>
       /// Список характеристик материала по видам расчёта.
       /// При установке заполняет внутренний словарь <see cref="chars"/>.

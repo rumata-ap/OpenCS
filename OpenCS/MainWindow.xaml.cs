@@ -1,4 +1,5 @@
 using CScore;
+using CScore.Fire.Entities;
 
 using OpenCS.Services;
 using OpenCS.Utilites;
@@ -114,6 +115,11 @@ namespace OpenCS
              vm.CurrentPlateSection = plateSectionItem;
           }
 
+          if (e.NewValue is FireSectionDef fireSectionItem)
+          {
+             vm.CurrentFireSection = fireSectionItem;
+          }
+
           if(e.NewValue is TreeViewItem treeViewItem)
           {
              if (treeViewItem.Name == "ContoursTreeItem")
@@ -127,6 +133,10 @@ namespace OpenCS
              if (treeViewItem.Name == "tasksNode")
              {
                 vm.CurrentPage = new CalcTasksPage(vm);
+             }
+             if (treeViewItem.Name == "fireNode")
+             {
+                vm.CurrentPage = null!;
              }
           }
 

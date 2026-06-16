@@ -99,7 +99,11 @@ namespace CScore
       public virtual double Sig(double eps, out double E2, bool tenB = true, bool comprA = true)
       {
          E2 = 0; double sig = 0;
-         if (eps > 0 && tenB && MaterialType == MatType.Concrete) E2 = It.Derivative(eps, out sig);
+         if (eps > 0 && tenB && MaterialType == MatType.Concrete)
+         {
+            if (eps > It.X[^1]) { sig = 0; E2 = 0; }   // разрыв: ε > εbt,ult (трещина)
+            else E2 = It.Derivative(eps, out sig);
+         }
          else if (eps < 0 && MaterialType == MatType.Concrete) E2 = Ic.Derivative(eps, out sig);
          else if (eps < 0 && comprA && (MaterialType == MatType.ReSteelF || MaterialType == MatType.ReSteelU)) E2 = Ic.Derivative(eps, out sig);
          else if (eps > 0 && (MaterialType == MatType.ReSteelF || MaterialType == MatType.ReSteelU)) E2 = It.Derivative(eps, out sig);

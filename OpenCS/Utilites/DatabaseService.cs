@@ -1,4 +1,6 @@
 using CScore;
+using CScore.Fire;
+using CScore.Fire.Entities;
 using CSmath;
 
 using Microsoft.Data.Sqlite;
@@ -25,7 +27,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 12;
+      const int CurrentSchemaVersion = 16;
 
       static readonly string[] Migrations =
       [
@@ -189,6 +191,55 @@ namespace OpenCS.Utilites
              status      TEXT NOT NULL DEFAULT 'ok',
              data_json   TEXT NOT NULL DEFAULT '{}'
          );
+         """,
+         """
+         -- v13: огневые сечения и граничные условия рёбер.
+         CREATE TABLE IF NOT EXISTS fire_sections (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           num INTEGER NOT NULL DEFAULT 0,
+           tag TEXT NOT NULL DEFAULT '',
+           section_id INTEGER NOT NULL DEFAULT 0,
+           fire_duration_min REAL NOT NULL DEFAULT 60,
+           fire_curve TEXT NOT NULL DEFAULT 'iso834',
+           mesh_step_m REAL NOT NULL DEFAULT 0.01,
+           time_step_s REAL NOT NULL DEFAULT 5,
+           theta REAL NOT NULL DEFAULT 1,
+           picard_tol_celsius REAL NOT NULL DEFAULT 0.5,
+           picard_max_iter INTEGER NOT NULL DEFAULT 20,
+           snapshot_step_min REAL NOT NULL DEFAULT 5,
+           bc_preset TEXT NOT NULL DEFAULT 'manual',
+           hole_bc_preset TEXT NOT NULL DEFAULT 'ambient',
+           algorithm TEXT NOT NULL DEFAULT 'ruppert',
+           smooth_iter_tri INTEGER NOT NULL DEFAULT 5
+         );
+         CREATE TABLE IF NOT EXISTS fire_section_edges (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           fire_section_id INTEGER NOT NULL REFERENCES fire_sections(id) ON DELETE CASCADE,
+           edge_index INTEGER NOT NULL,
+           contour_type TEXT NOT NULL DEFAULT 'outer',
+           hole_index INTEGER,
+           bc_type TEXT NOT NULL DEFAULT 'adiabatic',
+           alpha_conv REAL NOT NULL DEFAULT 0,
+           emissivity REAL NOT NULL DEFAULT 0,
+           t_ambient REAL NOT NULL DEFAULT 20
+         );
+         """,
+         """
+         -- v14: бинарные результаты огневого теплового расчёта.
+         CREATE TABLE IF NOT EXISTS fire_thermal_results (
+           id INTEGER PRIMARY KEY AUTOINCREMENT,
+           fire_section_id INTEGER NOT NULL REFERENCES fire_sections(id) ON DELETE CASCADE,
+           created TEXT NOT NULL DEFAULT '',
+           blob BLOB NOT NULL
+         );
+         """,
+         """
+         -- v15: JSON-параметры расчётной задачи.
+         ALTER TABLE calc_tasks ADD COLUMN params_json TEXT NOT NULL DEFAULT '{}';
+         """,
+         """
+         -- v16: тип заполнителя бетона для огнестойкости.
+         ALTER TABLE materials ADD COLUMN aggregate_type TEXT DEFAULT 'silicate';
          """
       ];
 
@@ -205,6 +256,7 @@ namespace OpenCS.Utilites
       public ObservableCollection<MaterialArea> MaterialAreas { get; } = [];
       public ObservableCollection<ForceSet> ForceSets { get; } = [];
       public ObservableCollection<PlateSection> PlateSections { get; } = [];
+      public ObservableCollection<FireSectionDef> FireSections { get; } = [];
       public ObservableCollection<CalcTask> CalcTasks { get; } = [];
       public ObservableCollection<CalcResult> CalcResults { get; } = [];
 
@@ -257,7 +309,8 @@ namespace OpenCS.Utilites
                 tag TEXT NOT NULL DEFAULT '',
                 description TEXT NOT NULL DEFAULT '',
                 e REAL NOT NULL DEFAULT 0,
-                chars_json TEXT NOT NULL DEFAULT '[]'
+                chars_json TEXT NOT NULL DEFAULT '[]',
+                aggregate_type TEXT NOT NULL DEFAULT 'silicate'
             );
             CREATE TABLE IF NOT EXISTS contours (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -415,7 +468,8 @@ namespace OpenCS.Utilites
                 section_id      INTEGER NOT NULL DEFAULT 0,
                 force_set_id    INTEGER NOT NULL DEFAULT 0,
                 force_item_id   INTEGER NOT NULL DEFAULT 0,
-                calc_type       TEXT NOT NULL DEFAULT 'C'
+                calc_type       TEXT NOT NULL DEFAULT 'C',
+                params_json     TEXT NOT NULL DEFAULT '{}'
             );
             CREATE TABLE IF NOT EXISTS calc_results (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -425,6 +479,41 @@ namespace OpenCS.Utilites
                 created     TEXT NOT NULL DEFAULT '',
                 status      TEXT NOT NULL DEFAULT 'ok',
                 data_json   TEXT NOT NULL DEFAULT '{}'
+            );
+            CREATE TABLE IF NOT EXISTS fire_sections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                num INTEGER NOT NULL DEFAULT 0,
+                tag TEXT NOT NULL DEFAULT '',
+                section_id INTEGER NOT NULL DEFAULT 0,
+                fire_duration_min REAL NOT NULL DEFAULT 60,
+                fire_curve TEXT NOT NULL DEFAULT 'iso834',
+                mesh_step_m REAL NOT NULL DEFAULT 0.01,
+                time_step_s REAL NOT NULL DEFAULT 5,
+                theta REAL NOT NULL DEFAULT 1,
+                picard_tol_celsius REAL NOT NULL DEFAULT 0.5,
+                picard_max_iter INTEGER NOT NULL DEFAULT 20,
+                snapshot_step_min REAL NOT NULL DEFAULT 5,
+                bc_preset TEXT NOT NULL DEFAULT 'manual',
+                hole_bc_preset TEXT NOT NULL DEFAULT 'ambient',
+                algorithm TEXT NOT NULL DEFAULT 'ruppert',
+                smooth_iter_tri INTEGER NOT NULL DEFAULT 5
+            );
+            CREATE TABLE IF NOT EXISTS fire_section_edges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fire_section_id INTEGER NOT NULL REFERENCES fire_sections(id) ON DELETE CASCADE,
+                edge_index INTEGER NOT NULL,
+                contour_type TEXT NOT NULL DEFAULT 'outer',
+                hole_index INTEGER,
+                bc_type TEXT NOT NULL DEFAULT 'adiabatic',
+                alpha_conv REAL NOT NULL DEFAULT 0,
+                emissivity REAL NOT NULL DEFAULT 0,
+                t_ambient REAL NOT NULL DEFAULT 20
+            );
+            CREATE TABLE IF NOT EXISTS fire_thermal_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fire_section_id INTEGER NOT NULL REFERENCES fire_sections(id) ON DELETE CASCADE,
+                created TEXT NOT NULL DEFAULT '',
+                blob BLOB NOT NULL
             );";
          cmd.ExecuteNonQuery();
 
@@ -465,6 +554,8 @@ namespace OpenCS.Utilites
             {
                if (i == 7) { MigrateV8(); continue; }
                if (i == 8) { MigrateV9(); continue; }
+               if (i == 14) { MigrateV15(); continue; }
+               if (i == 15) { MigrateV16(); continue; }
                var migCmd = _connection.CreateCommand();
                migCmd.CommandText = Migrations[i];
                migCmd.ExecuteNonQuery();
@@ -565,6 +656,31 @@ namespace OpenCS.Utilites
             """);
       }
 
+      /// <summary>
+      /// Миграция v15: добавляет JSON-параметры в calc_tasks с мягким fallback для SQLite.
+      /// </summary>
+      void MigrateV15()
+      {
+         if (ColumnExists("calc_tasks", "params_json")) return;
+         try
+         {
+            MigExec("ALTER TABLE calc_tasks ADD COLUMN params_json TEXT NOT NULL DEFAULT '{}'");
+         }
+         catch (SqliteException)
+         {
+            MigExec("ALTER TABLE calc_tasks ADD COLUMN params_json TEXT DEFAULT '{}'");
+         }
+      }
+
+      /// <summary>
+      /// Миграция v16: добавляет тип заполнителя бетона в materials.
+      /// </summary>
+      void MigrateV16()
+      {
+         if (ColumnExists("materials", "aggregate_type")) return;
+         MigExec("ALTER TABLE materials ADD COLUMN aggregate_type TEXT DEFAULT 'silicate'");
+      }
+
       public void ChangeDatabase(string dataSource)
       {
           CheckpointAndClose();
@@ -661,6 +777,7 @@ namespace OpenCS.Utilites
          foreach (var sec in CrossSections) SaveCrossSection(sec);
          foreach (var fs in ForceSets) SaveForceSet(fs);
          foreach (var ps in PlateSections) SavePlateSection(ps);
+         foreach (var fire in FireSections) SaveFireSection(fire);
          foreach (var ct in CalcTasks) SaveCalcTask(ct);
       }
 
@@ -676,6 +793,7 @@ namespace OpenCS.Utilites
          CrossSections.Clear();
          ForceSets.Clear();
          PlateSections.Clear();
+         FireSections.Clear();
          MaterialAreas.Clear();
          CalcTasks.Clear();
          CalcResults.Clear();
@@ -699,6 +817,7 @@ namespace OpenCS.Utilites
          ResolveReferencesForCrossSections();
          LoadForceSets();
          LoadPlateSections();
+         LoadFireSections();
          LoadCalcTasks();
          LoadCalcResults();
       }
@@ -706,7 +825,7 @@ namespace OpenCS.Utilites
       void LoadMaterials()
       {
          var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, type, tag, description, e, chars_json FROM materials ORDER BY id";
+         cmd.CommandText = "SELECT id, type, tag, description, e, chars_json, aggregate_type FROM materials ORDER BY id";
          using var reader = cmd.ExecuteReader();
          while (reader.Read())
          {
@@ -716,7 +835,8 @@ namespace OpenCS.Utilites
                Type = (MatType)reader.GetInt32(1),
                Tag = reader.GetString(2),
                Description = reader.GetString(3),
-               E = reader.GetDouble(4)
+               E = reader.GetDouble(4),
+               AggregateType = reader.IsDBNull(6) ? "silicate" : reader.GetString(6)
             };
             var charsJson = reader.GetString(5);
              var chars = JsonSerializer.Deserialize<List<MaterialChars>>(charsJson, _jsonSettings);
@@ -1214,13 +1334,13 @@ namespace OpenCS.Utilites
          var cmd = _connection.CreateCommand();
          if (m.Id == 0)
          {
-            cmd.CommandText = @"INSERT INTO materials (type, tag, description, e, chars_json)
-                               VALUES ($type, $tag, $desc, $e, $chars);
+            cmd.CommandText = @"INSERT INTO materials (type, tag, description, e, chars_json, aggregate_type)
+                               VALUES ($type, $tag, $desc, $e, $chars, $agg);
                                SELECT last_insert_rowid();";
          }
          else
          {
-            cmd.CommandText = @"UPDATE materials SET type=$type, tag=$tag, description=$desc, e=$e, chars_json=$chars
+            cmd.CommandText = @"UPDATE materials SET type=$type, tag=$tag, description=$desc, e=$e, chars_json=$chars, aggregate_type=$agg
                                WHERE id=$id";
             cmd.Parameters.AddWithValue("$id", m.Id);
          }
@@ -1229,6 +1349,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("$desc", m.Description ?? "");
          cmd.Parameters.AddWithValue("$e", m.E);
           cmd.Parameters.AddWithValue("$chars", JsonSerializer.Serialize(m.MaterialChars, _jsonSettings));
+         cmd.Parameters.AddWithValue("$agg", string.IsNullOrWhiteSpace(m.AggregateType) ? "silicate" : m.AggregateType);
          if (m.Id == 0)
             m.Id = Convert.ToInt32(cmd.ExecuteScalar());
          else
@@ -1535,11 +1656,24 @@ namespace OpenCS.Utilites
             var item = fs.Items[i];
             item.Num = i + 1;
             using var ins = _connection.CreateCommand();
-            ins.CommandText = """
-               INSERT INTO force_items (set_id, num, label, n, mx, my, vx, vy, t)
-               VALUES (@sid, @num, @lbl, @n, @mx, @my, @vx, @vy, @t);
-               SELECT last_insert_rowid();
-            """;
+            // Сохраняем существующий id, чтобы CalcTask.ForceItemId оставался валидным
+            if (item.Id != 0)
+            {
+               ins.CommandText = """
+                  INSERT INTO force_items (id, set_id, num, label, n, mx, my, vx, vy, t)
+                  VALUES (@id, @sid, @num, @lbl, @n, @mx, @my, @vx, @vy, @t);
+                  SELECT last_insert_rowid();
+               """;
+               ins.Parameters.AddWithValue("@id", item.Id);
+            }
+            else
+            {
+               ins.CommandText = """
+                  INSERT INTO force_items (set_id, num, label, n, mx, my, vx, vy, t)
+                  VALUES (@sid, @num, @lbl, @n, @mx, @my, @vx, @vy, @t);
+                  SELECT last_insert_rowid();
+               """;
+            }
             ins.Parameters.AddWithValue("@sid", fs.Id);
             ins.Parameters.AddWithValue("@num", item.Num);
             ins.Parameters.AddWithValue("@lbl", item.Label);
@@ -1562,11 +1696,23 @@ namespace OpenCS.Utilites
             var item = fs.ShellItems[i];
             item.Num = i + 1;
             using var ins = _connection.CreateCommand();
-            ins.CommandText = """
-               INSERT INTO force_shell_items (set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy)
-               VALUES (@sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy);
-               SELECT last_insert_rowid();
-            """;
+            if (item.Id != 0)
+            {
+               ins.CommandText = """
+                  INSERT INTO force_shell_items (id, set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy)
+                  VALUES (@id, @sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy);
+                  SELECT last_insert_rowid();
+               """;
+               ins.Parameters.AddWithValue("@id", item.Id);
+            }
+            else
+            {
+               ins.CommandText = """
+                  INSERT INTO force_shell_items (set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy)
+                  VALUES (@sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy);
+                  SELECT last_insert_rowid();
+               """;
+            }
             ins.Parameters.AddWithValue("@sid", fs.Id);
             ins.Parameters.AddWithValue("@num", item.Num);
             ins.Parameters.AddWithValue("@lbl", item.Label);
@@ -1687,12 +1833,248 @@ namespace OpenCS.Utilites
 
       #endregion
 
+      #region FireSections
+
+      void LoadFireSections()
+      {
+         FireSections.Clear();
+         var dict = new Dictionary<int, FireSectionDef>();
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               SELECT id, num, tag, section_id, fire_duration_min, fire_curve,
+                      mesh_step_m, time_step_s, theta, picard_tol_celsius, picard_max_iter,
+                      snapshot_step_min, bc_preset, hole_bc_preset, algorithm, smooth_iter_tri
+               FROM fire_sections
+               ORDER BY num, id
+            """;
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               var fs = new FireSectionDef
+               {
+                  Id = r.GetInt32(0),
+                  Num = r.GetInt32(1),
+                  Tag = r.GetString(2),
+                  SectionId = r.GetInt32(3),
+                  FireDurationMin = r.GetDouble(4),
+                  FireCurve = r.GetString(5),
+                  MeshStepM = r.GetDouble(6),
+                  TimeStepS = r.GetDouble(7),
+                  Theta = r.GetDouble(8),
+                  PicardTolCelsius = r.GetDouble(9),
+                  PicardMaxIter = r.GetInt32(10),
+                  SnapshotStepMin = r.GetDouble(11),
+                  BcPreset = r.GetString(12),
+                  HoleBcPreset = r.GetString(13),
+                  Algorithm = r.GetString(14),
+                  SmoothIterTri = r.GetInt32(15)
+               };
+               dict[fs.Id] = fs;
+            }
+         }
+
+         if (dict.Count > 0)
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               SELECT fire_section_id, edge_index, contour_type, hole_index, bc_type, alpha_conv, emissivity, t_ambient
+               FROM fire_section_edges
+               ORDER BY fire_section_id, contour_type, hole_index, edge_index, id
+            """;
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               int sectionId = r.GetInt32(0);
+               if (!dict.TryGetValue(sectionId, out var fs)) continue;
+               fs.Edges.Add(new FireBoundaryEdgeDef
+               {
+                  EdgeIndex = r.GetInt32(1),
+                  ContourType = r.GetString(2),
+                  HoleIndex = r.IsDBNull(3) ? null : r.GetInt32(3),
+                  BcType = r.GetString(4),
+                  AlphaConv = r.GetDouble(5),
+                  Emissivity = r.GetDouble(6),
+                  TAmbientCelsius = r.GetDouble(7)
+               });
+            }
+         }
+
+         foreach (var fs in dict.Values.OrderBy(x => x.Num).ThenBy(x => x.Id))
+            FireSections.Add(fs);
+      }
+
+      /// <summary>
+      /// Сохраняет огневое сечение в БД (INSERT/UPDATE) и полностью пересохраняет его граничные рёбра.
+      /// </summary>
+      public void SaveFireSection(FireSectionDef fs)
+      {
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            bool isNew = fs.Id == 0;
+            using (var cmd = _connection.CreateCommand())
+            {
+               if (isNew)
+               {
+                  cmd.CommandText = """
+                     INSERT INTO fire_sections
+                        (num, tag, section_id, fire_duration_min, fire_curve, mesh_step_m, time_step_s,
+                         theta, picard_tol_celsius, picard_max_iter, snapshot_step_min, bc_preset,
+                         hole_bc_preset, algorithm, smooth_iter_tri)
+                     VALUES
+                        (@num, @tag, @sid, @dur, @curve, @mesh, @dt, @theta, @ptol, @piter, @snap, @bcp, @hbcp, @algo, @smooth);
+                     SELECT last_insert_rowid();
+                  """;
+               }
+               else
+               {
+                  cmd.CommandText = """
+                     UPDATE fire_sections SET
+                        num=@num, tag=@tag, section_id=@sid, fire_duration_min=@dur, fire_curve=@curve,
+                        mesh_step_m=@mesh, time_step_s=@dt, theta=@theta, picard_tol_celsius=@ptol,
+                        picard_max_iter=@piter, snapshot_step_min=@snap, bc_preset=@bcp,
+                        hole_bc_preset=@hbcp, algorithm=@algo, smooth_iter_tri=@smooth
+                     WHERE id=@id;
+                  """;
+                  cmd.Parameters.AddWithValue("@id", fs.Id);
+               }
+
+               cmd.Parameters.AddWithValue("@num", fs.Num);
+               cmd.Parameters.AddWithValue("@tag", fs.Tag);
+               cmd.Parameters.AddWithValue("@sid", fs.SectionId);
+               cmd.Parameters.AddWithValue("@dur", fs.FireDurationMin);
+               cmd.Parameters.AddWithValue("@curve", fs.FireCurve);
+               cmd.Parameters.AddWithValue("@mesh", fs.MeshStepM);
+               cmd.Parameters.AddWithValue("@dt", fs.TimeStepS);
+               cmd.Parameters.AddWithValue("@theta", fs.Theta);
+               cmd.Parameters.AddWithValue("@ptol", fs.PicardTolCelsius);
+               cmd.Parameters.AddWithValue("@piter", fs.PicardMaxIter);
+               cmd.Parameters.AddWithValue("@snap", fs.SnapshotStepMin);
+               cmd.Parameters.AddWithValue("@bcp", fs.BcPreset);
+               cmd.Parameters.AddWithValue("@hbcp", fs.HoleBcPreset);
+               cmd.Parameters.AddWithValue("@algo", fs.Algorithm);
+               cmd.Parameters.AddWithValue("@smooth", fs.SmoothIterTri);
+
+               if (isNew) fs.Id = (int)(long)cmd.ExecuteScalar()!;
+               else cmd.ExecuteNonQuery();
+            }
+
+            using (var del = _connection.CreateCommand())
+            {
+               del.CommandText = "DELETE FROM fire_section_edges WHERE fire_section_id=@sid";
+               del.Parameters.AddWithValue("@sid", fs.Id);
+               del.ExecuteNonQuery();
+            }
+
+            foreach (var edge in fs.Edges)
+            {
+               using var ins = _connection.CreateCommand();
+               ins.CommandText = """
+                  INSERT INTO fire_section_edges
+                     (fire_section_id, edge_index, contour_type, hole_index, bc_type, alpha_conv, emissivity, t_ambient)
+                  VALUES
+                     (@sid, @edge, @ctype, @hid, @bc, @alpha, @eps, @ta);
+               """;
+               ins.Parameters.AddWithValue("@sid", fs.Id);
+               ins.Parameters.AddWithValue("@edge", edge.EdgeIndex);
+               ins.Parameters.AddWithValue("@ctype", edge.ContourType);
+               ins.Parameters.AddWithValue("@hid", (object?)edge.HoleIndex ?? DBNull.Value);
+               ins.Parameters.AddWithValue("@bc", edge.BcType);
+               ins.Parameters.AddWithValue("@alpha", edge.AlphaConv);
+               ins.Parameters.AddWithValue("@eps", edge.Emissivity);
+               ins.Parameters.AddWithValue("@ta", edge.TAmbientCelsius);
+               ins.ExecuteNonQuery();
+            }
+
+            tx.Commit();
+            if (!FireSections.Contains(fs)) FireSections.Add(fs);
+         }
+         catch
+         {
+            tx.Rollback();
+            throw;
+         }
+      }
+
+      /// <summary>
+      /// Удаляет огневое сечение по идентификатору.
+      /// </summary>
+      public void DeleteFireSection(int id)
+      {
+         if (id == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fire_sections WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", id);
+         cmd.ExecuteNonQuery();
+         var existing = FireSections.FirstOrDefault(x => x.Id == id);
+         if (existing != null) FireSections.Remove(existing);
+      }
+
+      /// <summary>
+      /// Сохраняет результат огневого теплового расчёта в таблицу BLOB и возвращает id записи.
+      /// </summary>
+      public int SaveFireThermalResult(int fireSectionId, FireThermalResult result)
+      {
+         byte[] blob = FireThermalBlobCodec.Pack(result);
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            INSERT INTO fire_thermal_results (fire_section_id, created, blob)
+            VALUES (@sid, @created, @blob);
+            SELECT last_insert_rowid();
+         """;
+         cmd.Parameters.AddWithValue("@sid", fireSectionId);
+         cmd.Parameters.AddWithValue("@created", DateTime.UtcNow.ToString("O"));
+         cmd.Parameters.AddWithValue("@blob", blob);
+         return (int)(long)cmd.ExecuteScalar()!;
+      }
+
+      /// <summary>
+      /// Загружает результат огневого теплового расчёта из таблицы BLOB по идентификатору записи.
+      /// </summary>
+      public FireThermalResult LoadFireThermalResult(int id)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT blob FROM fire_thermal_results WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", id);
+         var payload = cmd.ExecuteScalar() as byte[];
+         if (payload == null)
+            throw new InvalidOperationException($"Результат fire_thermal_results с id={id} не найден.");
+         return FireThermalBlobCodec.Unpack(payload);
+      }
+
+      /// <summary>Последний сохранённый тепловой результат для огневого сечения.</summary>
+      public FireThermalResult? LoadLatestFireThermalResult(int fireSectionId)
+      {
+         int? id = GetLatestFireThermalResultId(fireSectionId);
+         return id.HasValue ? LoadFireThermalResult(id.Value) : null;
+      }
+
+      /// <summary>Идентификатор последнего теплового результата для огневого сечения.</summary>
+      public int? GetLatestFireThermalResultId(int fireSectionId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id FROM fire_thermal_results
+            WHERE fire_section_id=@sid
+            ORDER BY id DESC
+            LIMIT 1
+         """;
+         cmd.Parameters.AddWithValue("@sid", fireSectionId);
+         var scalar = cmd.ExecuteScalar();
+         if (scalar is null or DBNull)
+            return null;
+         return Convert.ToInt32(scalar);
+      }
+
+      #endregion
+
       #region CalcTask / CalcResult
 
       void LoadCalcTasks()
       {
          var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, num, tag, kind, section_id, force_set_id, force_item_id, calc_type FROM calc_tasks ORDER BY num";
+         cmd.CommandText = "SELECT id, num, tag, kind, section_id, force_set_id, force_item_id, calc_type, params_json FROM calc_tasks ORDER BY num";
          using var reader = cmd.ExecuteReader();
          while (reader.Read())
          {
@@ -1705,7 +2087,8 @@ namespace OpenCS.Utilites
                SectionId   = reader.GetInt32(4),
                ForceSetId  = reader.GetInt32(5),
                ForceItemId = reader.GetInt32(6),
-               CalcType    = Enum.TryParse<CalcType>(reader.GetString(7), out var ct2) ? ct2 : CalcType.C
+               CalcType    = Enum.TryParse<CalcType>(reader.GetString(7), out var ct2) ? ct2 : CalcType.C,
+               ParamsJson  = reader.IsDBNull(8) ? "{}" : reader.GetString(8)
             };
             CalcTasks.Add(ct);
          }
@@ -1738,15 +2121,15 @@ namespace OpenCS.Utilites
          if (isNew)
          {
             cmd.CommandText = @"
-               INSERT INTO calc_tasks (num, tag, kind, section_id, force_set_id, force_item_id, calc_type)
-               VALUES (@num, @tag, @kind, @sid, @fsid, @fiid, @ct);
+               INSERT INTO calc_tasks (num, tag, kind, section_id, force_set_id, force_item_id, calc_type, params_json)
+               VALUES (@num, @tag, @kind, @sid, @fsid, @fiid, @ct, @params);
                SELECT last_insert_rowid();";
          }
          else
          {
             cmd.CommandText = @"
                UPDATE calc_tasks SET num=@num, tag=@tag, kind=@kind,
-                  section_id=@sid, force_set_id=@fsid, force_item_id=@fiid, calc_type=@ct
+                  section_id=@sid, force_set_id=@fsid, force_item_id=@fiid, calc_type=@ct, params_json=@params
                WHERE id=@id";
             cmd.Parameters.AddWithValue("@id", ct.Id);
          }
@@ -1757,6 +2140,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@fsid", ct.ForceSetId);
          cmd.Parameters.AddWithValue("@fiid", ct.ForceItemId);
          cmd.Parameters.AddWithValue("@ct",   ct.CalcType.ToString());
+         cmd.Parameters.AddWithValue("@params", ct.ParamsJson ?? "{}");
          if (isNew)
          {
             ct.Id = (int)(long)cmd.ExecuteScalar()!;
@@ -1887,6 +2271,24 @@ namespace OpenCS.Utilites
           var cmd = _connection.CreateCommand();
          cmd.CommandText = @"INSERT OR REPLACE INTO settings (key, value_json)
                              VALUES ('plot', $json)";
+         cmd.Parameters.AddWithValue("$json", json);
+         cmd.ExecuteNonQuery();
+      }
+
+      public CalcSettings LoadCalcSettings()
+      {
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT value_json FROM settings WHERE key='calc'";
+         var json = cmd.ExecuteScalar() as string;
+         if (json == null) return CalcSettings.Default;
+         return JsonSerializer.Deserialize<CalcSettings>(json) ?? CalcSettings.Default;
+      }
+
+      public void SaveCalcSettings(CalcSettings s)
+      {
+         var json = JsonSerializer.Serialize(s);
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "INSERT OR REPLACE INTO settings (key, value_json) VALUES ('calc', $json)";
          cmd.Parameters.AddWithValue("$json", json);
          cmd.ExecuteNonQuery();
       }

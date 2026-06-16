@@ -144,7 +144,11 @@ namespace OpenCS.ViewModels
             return;
          }
 
-         var result = TaskRunner.Run(ct, section, fi);
+         var result = TaskRunner.Run(ct, section, fi, _app.CalcSettings, new TaskRunContext
+         {
+            Database = _app.db,
+            FireSections = _app.FireSections
+         });
          _app.db.SaveCalcResult(result);
          _app.IsDirty = true;
          RefreshResults();
@@ -153,6 +157,7 @@ namespace OpenCS.ViewModels
          {
             "ok"            => "CalcResultOk",
             "not_converged" => "CalcResultNotConverged",
+            "not_passed"    => "CalcResultNotPassed",
             _               => "CalcResultError"
          };
          _app.LogService.Info(string.Format(Loc.S(statusKey), ct.Tag));

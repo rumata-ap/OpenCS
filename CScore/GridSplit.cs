@@ -58,7 +58,7 @@ namespace CScore
          return output;
       }
 
-      static List<(double X, double Y)> ClipByRect(
+      public static List<(double X, double Y)> ClipByRect(
          List<(double X, double Y)> verts, double x0, double x1, double y0, double y1)
       {
          var v = ClipByHalfPlane(verts, x0, 0, 1, 0);

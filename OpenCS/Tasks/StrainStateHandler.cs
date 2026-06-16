@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using CScore;
+using OpenCS.Utilites;
 
 namespace OpenCS.Tasks
 {
@@ -12,7 +13,10 @@ namespace OpenCS.Tasks
    {
       public string Kind => "strain_state";
 
-      public CalcResult Run(CalcTask task, CrossSection section, LoadItem item)
+      public CalcResult Run(CalcTask task, CrossSection section, LoadItem item, CalcSettings settings)
+         => Run(task, section, item, settings, null);
+
+      public CalcResult Run(CalcTask task, CrossSection section, LoadItem item, CalcSettings settings, TaskRunContext? ctx)
       {
          var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
          try
@@ -23,7 +27,10 @@ namespace OpenCS.Tasks
             double mxTarget = item.Mx; // LoadItem.Mx → Load.Mx (∫σ·y·dA, момент относительно X)
             double myTarget = item.My; // LoadItem.My → Load.My (∫σ·x·dA, момент относительно Y)
 
-            var solver = new StrainSolver(section, task.CalcType, tol: 0.5, maxIter: 60);
+            var solver = new StrainSolver(section, task.CalcType,
+                tol: settings.NewtonTolerance,
+                maxIter: settings.NewtonMaxIter,
+                h: settings.NewtonDeltaH);
             var k      = solver.Solve(nTarget, mxTarget, myTarget);
 
             var result = section.Integral(k, task.CalcType);
