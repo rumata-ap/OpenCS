@@ -165,7 +165,7 @@ namespace OpenCS.ViewModels
       public void ViewResult()
       {
          if (SelectedResult == null) return;
-         _app.CurrentPage = new CalcResultView(SelectedResult);
+         _app.CurrentPage = new CalcResultView(SelectedResult, _app);
       }
 
       void DeleteTask()

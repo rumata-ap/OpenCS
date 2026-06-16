@@ -1,97 +1,98 @@
 using CScore;
-using OpenCS.Utilites;
-using System.Collections.Generic;
+using OpenCS.ViewModels;
+using System;
+using System.Linq;
 using System.Text.Json;
 using System.Windows.Controls;
-using System.Windows.Media;
 
 namespace OpenCS.Views
 {
-   public partial class CalcResultView : UserControl
-   {
-      public CalcResultView(CalcResult result)
-      {
-         InitializeComponent();
-         DataContext = new CalcResultViewVM(result);
-      }
-   }
+    public partial class CalcResultView : UserControl
+    {
+        public CalcResultView(CalcResult result, AppViewModel app)
+        {
+            InitializeComponent();
 
-   public class CalcResultViewVM : ViewModelBase
-   {
-      public string  TaskTag    { get; }
-      public string  Created    { get; }
-      public string  StatusText { get; }
-      public Brush   StatusBrush { get; }
-      public List<ResultRow> Rows { get; } = [];
+            // Найти задачу и сечение
+            var task    = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
+            var section = task != null
+                ? app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId)
+                : null;
 
-      public CalcResultViewVM(CalcResult result)
-      {
-         TaskTag = result.TaskTag;
-         Created = result.Created;
-
-         StatusText = result.Status switch
-         {
-            "ok"            => Loc.S("CalcResultOkLabel"),
-            "not_converged" => Loc.S("CalcResultNotConvergedLabel"),
-            _               => Loc.S("CalcResultErrorLabel")
-         };
-         StatusBrush = result.Status switch
-         {
-            "ok"   => Brushes.Green,
-            "error" => Brushes.Red,
-            _      => Brushes.OrangeRed
-         };
-
-         try
-         {
-            var doc = JsonDocument.Parse(result.DataJson);
-            var root = doc.RootElement;
-
-            if (result.Status == "error")
+            if (section == null || task == null)
             {
-               if (root.TryGetProperty("error", out var err))
-                  Rows.Add(new ResultRow(Loc.S("CalcResultErrorMsg"), err.GetString() ?? ""));
-               return;
+                // Fallback: только сводка без графиков
+                SummaryView.DataContext = new FallbackSummaryVM(result);
+                Tabs.Items.RemoveAt(2);
+                Tabs.Items.RemoveAt(1);
+                return;
             }
 
-            AddIfExists(root, "converged",  Loc.S("CalcResultConverged"));
-            AddIfExists(root, "iterations", Loc.S("CalcResultIterations"));
-            AddIfExists(root, "residual",   Loc.S("CalcResultResidual") + ", кН");
-            Rows.Add(new ResultRow("", ""));
+            // Подготовить сечение: диаграммы + SetEps по плоскости из результата
+            section.ResolveAndBuildDiagramms();
 
-            if (root.TryGetProperty("e0", out var e0))
-               Rows.Add(new ResultRow("ε₀", $"{e0.GetDouble():G6}"));
-            if (root.TryGetProperty("ky", out var ky))
-               Rows.Add(new ResultRow("κy, 1/м", $"{ky.GetDouble():G6}"));
-            if (root.TryGetProperty("kz", out var kz))
-               Rows.Add(new ResultRow("κz, 1/м", $"{kz.GetDouble():G6}"));
-            Rows.Add(new ResultRow("", ""));
+            var k = ParseKurvature(result.DataJson);
+            section.SetEps(k, task.CalcType);
 
-            AddPair(root, "N_target",  "N_result",  "N, кН");
-            AddPair(root, "Mx_target", "Mx_result", "Mx (My), кН·м");
-            AddPair(root, "My_target", "My_result", "My (Mz), кН·м");
-         }
-         catch
-         {
-            Rows.Add(new ResultRow(Loc.S("CalcResultRawData"), result.DataJson));
-         }
-      }
+            SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType);
+            StressView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress);
+            StrainView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain);
+        }
 
-      void AddIfExists(JsonElement root, string key, string label)
-      {
-         if (root.TryGetProperty(key, out var v))
-            Rows.Add(new ResultRow(label, v.ToString()));
-      }
+        static Kurvature ParseKurvature(string dataJson)
+        {
+            try
+            {
+                var doc  = JsonDocument.Parse(dataJson);
+                var root = doc.RootElement;
+                return new Kurvature
+                {
+                    e0 = root.TryGetProperty("e0", out var v) ? v.GetDouble() : 0,
+                    ky = root.TryGetProperty("ky", out v)     ? v.GetDouble() : 0,
+                    kz = root.TryGetProperty("kz", out v)     ? v.GetDouble() : 0,
+                };
+            }
+            catch { return new Kurvature(); }
+        }
+    }
 
-      void AddPair(JsonElement root, string keyT, string keyR, string label)
-      {
-         root.TryGetProperty(keyT, out var t);
-         root.TryGetProperty(keyR, out var r);
-         Rows.Add(new ResultRow(
-            label,
-            $"{Loc.S("Target")}: {t.GetDouble():F4}    {Loc.S("Result")}: {r.GetDouble():F4}"));
-      }
+    /// <summary>Минимальный VM для случая когда сечение не найдено.</summary>
+    class FallbackSummaryVM
+    {
+        public string TaskTag     { get; }
+        public string CreatedText { get; }
+        public string StatusText  { get; }
+        public System.Windows.Media.Brush StatusBrush { get; }
+        public string Eps0Text  => "—";
+        public string KyText    => "—";
+        public string KzText    => "—";
+        public string NText     => "—";
+        public string MxText    => "—";
+        public string MyText    => "—";
+        public bool   HasExtremes    => false;
+        public string EpsMinText     => "—";
+        public string EpsMaxText     => "—";
+        public bool   HasStiffness   => false;
+        public string XcText  => "—"; public string YcText  => "—";
+        public string EAText  => "—"; public string EIy0Text => "—";
+        public string EIz0Text => "—"; public string EIycText => "—";
+        public string EIzcText => "—";
+        public string EAelText => "—"; public string EIyelText => "—";
+        public string EIzelText => "—";
+        public string PhiEAText => "—"; public string PhiEIyText => "—";
+        public string PhiEIzText => "—";
+        public bool   HasRebar => false;
+        public System.Collections.ObjectModel.ObservableCollection<StrainSummaryVM.RebarRow>
+            RebarRows { get; } = [];
+        public string IterationsText => "—";
+        public string ResidualText   => "—";
 
-      public record ResultRow(string Label, string Value);
-   }
+        public FallbackSummaryVM(CalcResult r)
+        {
+            TaskTag     = r.TaskTag;
+            CreatedText = r.Created;
+            StatusText  = r.Status;
+            StatusBrush = System.Windows.Media.Brushes.Gray;
+        }
+    }
 }
