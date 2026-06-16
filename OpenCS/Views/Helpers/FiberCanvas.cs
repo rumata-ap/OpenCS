@@ -124,17 +124,19 @@ namespace OpenCS.Views.Helpers
 
             _scale = Math.Min(sw / mw, sh / mh);
             _tx = pad + (sw - mw * _scale) / 2 - xMin * _scale;
-            _ty = pad + (sh - mh * _scale) / 2 - yMin * _scale;
+            // Y инвертирован: screen_y = -model_y * scale + ty → ty = pad + yMax * scale
+            _ty = pad + (sh - mh * _scale) / 2 + yMax * _scale;
 
             InvalidateVisual();
         }
 
         // ── Model ↔ Screen ────────────────────────────────────────────
+        // Y инвертируется: модельная ось Y вверх, экранная — вниз
         Point ToScreen(Point model) =>
-            new(model.X * _scale + _tx, model.Y * _scale + _ty);
+            new(model.X * _scale + _tx, -model.Y * _scale + _ty);
 
         Point ToModel(Point screen) =>
-            new((screen.X - _tx) / _scale, (screen.Y - _ty) / _scale);
+            new((screen.X - _tx) / _scale, -(screen.Y - _ty) / _scale);
 
         // ── OnRender ──────────────────────────────────────────────────
         protected override void OnRender(DrawingContext dc)

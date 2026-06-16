@@ -103,13 +103,14 @@ namespace OpenCS.ViewModels
                 {
                     foreach (var f in area.Fibers.Where(f => f.TypeFiber != FiberType.point))
                     {
-                        double val = mode == SectionPlotMode.Stress ? f.Sig : f.Eps;
+                        // f.Sig в кПа → делим на 1000 для МПа
+                        double val = mode == SectionPlotMode.Stress ? f.Sig / 1000.0 : f.Eps;
                         var pts = ParseWkt(f.WKT);
                         if (pts == null || pts.Count < 3) continue;
                         var centroid = new Point(f.X * 1000, f.Y * 1000);
                         string tip = $"{area.Tag}\nx={f.X*1000:F1} мм  y={f.Y*1000:F1} мм\n" +
                                      (mode == SectionPlotMode.Stress
-                                         ? $"σ = {f.Sig:+0.0;-0.0} МПа"
+                                         ? $"σ = {f.Sig / 1000.0:+0.0;-0.0} МПа"
                                          : $"ε = {f.Eps:+0.00000;-0.00000}");
                         concrete.Add(new FiberDrawData(pts, centroid, val, isRebar, tip));
                     }
@@ -143,11 +144,12 @@ namespace OpenCS.ViewModels
                 // Точечные фибры (арматура) → круги
                 foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
                 {
-                    double val = mode == SectionPlotMode.Stress ? f.Sig : f.Eps;
+                    // f.Sig в кПа → делим на 1000 для МПа
+                    double val = mode == SectionPlotMode.Stress ? f.Sig / 1000.0 : f.Eps;
                     string tip = $"{area.Tag} ⌀{f.Diameter*1000:F0} мм\n" +
                                  $"x={f.X*1000:F1}  y={f.Y*1000:F1} мм\n" +
                                  (mode == SectionPlotMode.Stress
-                                     ? $"σ = {f.Sig:+0.0;-0.0} МПа"
+                                     ? $"σ = {f.Sig / 1000.0:+0.0;-0.0} МПа"
                                      : $"ε = {f.Eps:+0.00000;-0.00000}");
                     rebar.Add(new RebarDrawData(
                         new Point(f.X * 1000, f.Y * 1000),

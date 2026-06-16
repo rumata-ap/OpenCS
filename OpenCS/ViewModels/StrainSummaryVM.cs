@@ -134,7 +134,7 @@ namespace OpenCS.ViewModels
                         $"{f.X * 1000:+0.0;-0.0}",
                         $"{f.Y * 1000:+0.0;-0.0}",
                         $"{f.Eps:+0.00000;-0.00000}",
-                        $"{f.Sig:+0.0;-0.0}"));
+                        $"{f.Sig / 1000.0:+0.0;-0.0}"));
 
             // Сходимость
             int iters = root.TryGetProperty("iterations", out v) ? v.GetInt32() : 0;
@@ -182,7 +182,7 @@ namespace OpenCS.ViewModels
             foreach (var area in section.Areas)
             {
                 if (!area.Diagramms.TryGetValue(calcType, out var dgr)) continue;
-                // SigValue возвращает кПа, делим на 1000 → МПа
+                // SigValue возвращает кПа; E0 = (кПа → МПа) / ε = МПа
                 double E0 = Math.Abs(dgr.SigValue(1e-7)) / 1e-7 / 1000.0;
 
                 bool hasMesh = area.Fibers.Any(f => f.TypeFiber != FiberType.point);
@@ -191,8 +191,9 @@ namespace OpenCS.ViewModels
                 {
                     foreach (var f in area.Fibers.Where(f => f.TypeFiber != FiberType.point))
                     {
+                        // f.Sig в кПа → делим на 1000 для МПа, как и E0
                         double Es = Math.Abs(f.Eps) > 1e-9
-                            ? Math.Abs(f.Sig / f.Eps) : E0;
+                            ? Math.Abs(f.Sig / 1000.0 / f.Eps) : E0;
                         double amm2 = f.Area * 1e6;
                         double xmm  = f.X * 1000;
                         double ymm  = f.Y * 1000;
@@ -222,7 +223,7 @@ namespace OpenCS.ViewModels
                 foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
                 {
                     double Es = Math.Abs(f.Eps) > 1e-9
-                        ? Math.Abs(f.Sig / f.Eps) : E0;
+                        ? Math.Abs(f.Sig / 1000.0 / f.Eps) : E0;
                     double amm2 = f.Area * 1e6;
                     double xmm  = f.X * 1000;
                     double ymm  = f.Y * 1000;
