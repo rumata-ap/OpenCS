@@ -62,7 +62,7 @@
                   <TextBlock Text="{Binding RebarMax, StringFormat='{}{0:G4}'}"
                              FontSize="8" VerticalAlignment="Top"
                              HorizontalAlignment="Left" Margin="0,1"/>
-                  <TextBlock Text="0" FontSize="8" VerticalAlignment="Center"
+                  <TextBlock Text="{DynamicResource ColorbarZero}" FontSize="8" VerticalAlignment="Center"
                              HorizontalAlignment="Left" Margin="0,0"/>
                   <TextBlock Text="{Binding RebarMin, StringFormat='{}{0:G4}'}"
                              FontSize="8" VerticalAlignment="Bottom"
@@ -72,7 +72,7 @@
          </Border>
 
          <!-- FiberCanvas -->
-         <h:FiberCanvas Grid.Column="1" x:Name="Canvas"
+         <h:FiberCanvas Grid.Column="1" x:Name="FiberCanvasElement"
                         ViewModel="{Binding}"/>
 
          <!-- Colorbar Осн. материал (справа) -->
@@ -96,7 +96,7 @@
                   <TextBlock Text="{Binding ConcreteMax, StringFormat='{}{0:G4}'}"
                              FontSize="8" VerticalAlignment="Top"
                              HorizontalAlignment="Right" Margin="0,1"/>
-                  <TextBlock Text="0" FontSize="8" VerticalAlignment="Center"
+                  <TextBlock Text="{DynamicResource ColorbarZero}" FontSize="8" VerticalAlignment="Center"
                              HorizontalAlignment="Right" Margin="0,0"/>
                   <TextBlock Text="{Binding ConcreteMin, StringFormat='{}{0:G4}'}"
                              FontSize="8" VerticalAlignment="Bottom"

@@ -597,5 +597,6 @@
    <system:String x:Key="PlotFitAll">⊡ Fit all</system:String>
    <system:String x:Key="ColorbarMainMaterial">Main material</system:String>
    <system:String x:Key="ColorbarRebar">Rebar</system:String>
+   <system:String x:Key="ColorbarZero">0</system:String>
 
  </ResourceDictionary>

@@ -600,5 +600,6 @@
    <system:String x:Key="PlotFitAll">⊡ Показать всё</system:String>
    <system:String x:Key="ColorbarMainMaterial">Осн. материал</system:String>
    <system:String x:Key="ColorbarRebar">Арматура</system:String>
+   <system:String x:Key="ColorbarZero">0</system:String>
 
  </ResourceDictionary>
