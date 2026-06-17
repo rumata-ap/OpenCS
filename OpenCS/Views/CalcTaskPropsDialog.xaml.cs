@@ -63,6 +63,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             Kind = value.Id;
          OnPropertyChanged();
          OnPropertyChanged(nameof(IsFireKind));
+         OnPropertyChanged(nameof(IsStrainBatch));
+         OnPropertyChanged(nameof(ShowForceItem));
          OnPropertyChanged(nameof(ShowManualForces));
       }
    }
@@ -76,11 +78,15 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged();
          OnPropertyChanged(nameof(SelectedKind));
          OnPropertyChanged(nameof(IsFireKind));
+         OnPropertyChanged(nameof(IsStrainBatch));
+         OnPropertyChanged(nameof(ShowForceItem));
          OnPropertyChanged(nameof(ShowManualForces));
       }
    }
 
-   public bool IsFireKind => Kind.StartsWith("fire_", StringComparison.Ordinal);
+   public bool IsFireKind    => Kind.StartsWith("fire_", StringComparison.Ordinal);
+   public bool IsStrainBatch => Kind == "strain_state_batch";
+   public bool ShowForceItem => !IsStrainBatch && !IsFireKind;
 
    public CrossSection? SelectedSection
    {
@@ -138,9 +144,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    public List<CalcTaskKindItem> AvailableKinds { get; } =
    [
-      new() { Id = "strain_state", Label = Loc.S("CalcTaskKind_strain_state") },
-      new() { Id = "fire_r_check", Label = Loc.S("CalcTaskKind_fire_r_check") },
-      new() { Id = "fire_r_check_batch", Label = Loc.S("CalcTaskKind_fire_r_check_batch") }
+      new() { Id = "strain_state",       Label = Loc.S("CalcTaskKind_strain_state") },
+      new() { Id = "fire_r_check",       Label = Loc.S("CalcTaskKind_fire_r_check") },
+      new() { Id = "fire_r_check_batch", Label = Loc.S("CalcTaskKind_fire_r_check_batch") },
+      new() { Id = "strain_state_batch", Label = Loc.S("CalcTaskKind_strain_state_batch") }
    ];
 
    public ObservableCollection<CrossSection> Sections { get; }
@@ -220,7 +227,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          return;
       }
 
-      if (!ShowManualForces && (SelectedForceSet == null || SelectedForceItem == null))
+      if (!ShowManualForces && ShowForceItem && (SelectedForceSet == null || SelectedForceItem == null))
       {
          MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
             MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -251,8 +258,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
          Kind = Kind,
          SectionId = SelectedSection.Id,
-         ForceSetId  = SelectedForceSet?.Id  ?? 0,
-         ForceItemId = SelectedForceItem?.Id ?? 0,
+         ForceSetId  = SelectedForceSet?.Id ?? 0,
+         ForceItemId = ShowForceItem ? (SelectedForceItem?.Id ?? 0) : 0,
          CalcType = SelectedCalcType,
          ParamsJson = paramsJson
       };
