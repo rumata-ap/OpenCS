@@ -193,6 +193,7 @@ namespace OpenCS.Views
          CentroidNdsSizeBox.Text   = _calcSettings.CentroidNdsSize.ToString("F0");
          LabelFontSizeBox.Text     = _calcSettings.FiberLabelFontSize.ToString("F0");
          Sp63EtaMinBox.Text        = _calcSettings.Sp63DescEtaMin.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         BatchParallelCb.IsChecked = _calcSettings.BatchParallel;
          UpdateCalcSwatches();
       }
 
@@ -265,6 +266,8 @@ namespace OpenCS.Views
                 System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0 && v < 1)
                _calcSettings.Sp63DescEtaMin = v;
          };
+         BatchParallelCb.Checked   += (_, _) => _calcSettings.BatchParallel = true;
+         BatchParallelCb.Unchecked += (_, _) => _calcSettings.BatchParallel = false;
       }
 
       void LoadCsvToUi()

@@ -320,6 +320,39 @@ namespace CScore
       }
 
       /// <summary>
+      /// Создаёт копию области для параллельного расчёта: клонирует мутабельные Contours и Fibers,
+      /// разделяет read-only ссылки (Material, HostArea, PoolContour, Diagramms).
+      /// </summary>
+      public MaterialArea CloneForCalc() => new()
+      {
+         Id             = Id,
+         Num            = Num,
+         Tag            = Tag,
+         Description    = Description,
+         NX             = NX,
+         NY             = NY,
+         WKT            = WKT,
+         H              = H,
+         MaterialId     = MaterialId,
+         HostAreaId     = HostAreaId,
+         PoolContourId  = PoolContourId,
+         DiagrammType   = DiagrammType,
+         Category       = Category,
+         MeshMethod     = MeshMethod,
+         MeshMaxArea    = MeshMaxArea,
+         MeshMinAngle   = MeshMinAngle,
+         MeshMaxEdgeLen = MeshMaxEdgeLen,
+         MeshSmoothIter = MeshSmoothIter,
+         SectionId      = SectionId,
+         Material       = Material,
+         HostArea       = HostArea,
+         PoolContour    = PoolContour,
+         Diagramms      = Diagramms,
+         Contours       = Contours.Select(c => c.CloneForCalc()).ToList(),
+         Fibers         = Fibers.Select(f => f.CloneForCalc()).ToList()
+      };
+
+      /// <summary>
       /// Вычисляет (N, Mx, My) методом теоремы Грина по контуру области.
       /// Mx = ∬σ·y dA, My = ∬σ·x dA.
       /// Точечные фибры (арматура) не учитываются — только полигональная часть.

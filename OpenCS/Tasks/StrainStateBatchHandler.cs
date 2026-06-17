@@ -1,7 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 using CScore;
 using OpenCS.Utilites;
 
@@ -10,6 +10,7 @@ namespace OpenCS.Tasks;
 /// <summary>
 /// Обработчик задачи «Состояние деформаций (весь набор)»: находит плоскость деформаций
 /// для каждой строки ForceSet методом Ньютона-Рафсона. Несходимость строки не прерывает пакет.
+/// При BatchParallel=true каждый поток работает с клоном сечения.
 /// </summary>
 public sealed class StrainStateBatchHandler : ITaskHandler
 {
@@ -32,43 +33,50 @@ public sealed class StrainStateBatchHandler : ITaskHandler
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx.Database.Diagrams);
 
-            var rows = new List<object>();
-            int convergedCount = 0;
+            var items = forceSet.Items;
+            int total = items.Count;
+            var rowResults  = new object[total];
+            var convergedArr = new bool[total];
 
-            foreach (var fi in forceSet.Items)
+            if (settings.BatchParallel && total > 1)
             {
-                var solver = new StrainSolver(section, task.CalcType,
-                    tol:     settings.NewtonTolerance,
-                    maxIter: settings.NewtonMaxIter,
-                    h:       settings.NewtonDeltaH);
-                var k = solver.Solve(fi.N, fi.Mx, fi.My);
-
-                if (solver.Converged) convergedCount++;
-
-                rows.Add(new
+                Parallel.For(0, total, i =>
                 {
-                    label      = fi.Label,
-                    N          = fi.N,
-                    Mx         = fi.Mx,
-                    My         = fi.My,
-                    e0         = Math.Round(k.e0, 8),
-                    ky         = Math.Round(k.ky, 8),
-                    kz         = Math.Round(k.kz, 8),
-                    iterations = solver.Iterations,
-                    residual   = Math.Round(solver.Residual, 6),
-                    status     = solver.Converged ? "ok" : "not_converged"
+                    var fi    = items[i];
+                    var clone = section.CloneForCalc();
+                    var solver = new StrainSolver(clone, task.CalcType,
+                        tol:     settings.NewtonTolerance,
+                        maxIter: settings.NewtonMaxIter,
+                        h:       settings.NewtonDeltaH);
+                    var k = solver.Solve(fi.N, fi.Mx, fi.My);
+                    convergedArr[i] = solver.Converged;
+                    rowResults[i]   = BuildRow(fi, k, solver);
                 });
             }
+            else
+            {
+                for (int i = 0; i < total; i++)
+                {
+                    var fi     = items[i];
+                    var solver = new StrainSolver(section, task.CalcType,
+                        tol:     settings.NewtonTolerance,
+                        maxIter: settings.NewtonMaxIter,
+                        h:       settings.NewtonDeltaH);
+                    var k = solver.Solve(fi.N, fi.Mx, fi.My);
+                    convergedArr[i] = solver.Converged;
+                    rowResults[i]   = BuildRow(fi, k, solver);
+                }
+            }
 
-            int total = rows.Count;
-            bool allConverged = convergedCount == total;
+            int convergedCount = convergedArr.Count(c => c);
+            bool allConverged  = convergedCount == total;
 
             var data = new
             {
                 all_converged   = allConverged,
                 converged_count = convergedCount,
                 total,
-                rows
+                rows = rowResults
             };
 
             return new CalcResult
@@ -94,4 +102,18 @@ public sealed class StrainStateBatchHandler : ITaskHandler
             };
         }
     }
+
+    static object BuildRow(LoadItem fi, Kurvature k, StrainSolver solver) => new
+    {
+        label      = fi.Label,
+        N          = fi.N,
+        Mx         = fi.Mx,
+        My         = fi.My,
+        e0         = Math.Round(k.e0, 8),
+        ky         = Math.Round(k.ky, 8),
+        kz         = Math.Round(k.kz, 8),
+        iterations = solver.Iterations,
+        residual   = Math.Round(solver.Residual, 6),
+        status     = solver.Converged ? "ok" : "not_converged"
+    };
 }

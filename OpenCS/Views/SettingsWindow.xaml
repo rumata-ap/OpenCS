@@ -275,6 +275,12 @@
                                          ToolTip="{DynamicResource CalcSettingsSp63EtaMinTip}"/>
                             </Grid>
                         </GroupBox>
+                        <GroupBox Header="{DynamicResource CalcSettingsBatchGroup}" Margin="0,0,0,10">
+                            <CheckBox x:Name="BatchParallelCb"
+                                      Content="{DynamicResource BatchParallel_Label}"
+                                      ToolTip="{DynamicResource BatchParallel_Tip}"
+                                      Margin="4,6"/>
+                        </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

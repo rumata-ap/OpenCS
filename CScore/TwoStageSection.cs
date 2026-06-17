@@ -63,5 +63,23 @@ namespace CScore
 
          return new Load { Calc = calc, N = N, Mx = Mx, My = My };
       }
+
+      /// <inheritdoc/>
+      public override CrossSection CloneForCalc() => new TwoStageSection
+      {
+         Id               = Id,
+         Num              = Num,
+         Tag              = Tag,
+         Description      = Description,
+         Areas            = Areas.Select(a => a.CloneForCalc()).ToList(),
+         Stage1SectionId  = Stage1SectionId,
+         Stage1Kurvature  = Stage1Kurvature,
+         Stage1           = new CrossSection
+         {
+            Id    = Stage1.Id,
+            Tag   = Stage1.Tag,
+            Areas = Stage1.Areas.Select(a => a.CloneForCalc()).ToList()
+         }
+      };
    }
 }

@@ -86,6 +86,9 @@
    <system:String x:Key="CalcSettingsDeltaH">Numerical derivative step h</system:String>
    <system:String x:Key="CalcSettingsSp63EtaMin">SP63 desc. branch: η_min</system:String>
    <system:String x:Key="CalcSettingsSp63EtaMinTip">Lower bound of SP63 App.G descending branch. Per SP 63.13330 §G.1 — not less than 0.85</system:String>
+   <system:String x:Key="CalcSettingsBatchGroup">Batch Tasks</system:String>
+   <system:String x:Key="BatchParallel_Label">Parallel execution (clone section per thread)</system:String>
+   <system:String x:Key="BatchParallel_Tip">Recommended for force sets with 50+ rows. Applies to all strength/stiffness batch tasks. Fire-resistance tasks are not affected.</system:String>
    <system:String x:Key="CalcSettingsLineStyleGroup">Line Styles</system:String>
    <system:String x:Key="CalcSettingsHullLine">Hull: color</system:String>
    <system:String x:Key="CalcSettingsHullThickness">Hull: thickness</system:String>

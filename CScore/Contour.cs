@@ -197,5 +197,22 @@ namespace CScore
          c.SetWKT();
          return c;
       }
+
+      /// <summary>
+      /// Создаёт копию контура для параллельного расчёта: клонирует Points (Eps/Sig обнуляются),
+      /// что пересчитывает X/Y. WKT и метаданные копируются.
+      /// </summary>
+      public Contour CloneForCalc()
+      {
+         var c = new Contour
+         {
+            Tag  = Tag,
+            Type = Type,
+            Num  = Num,
+            WKT  = WKT
+         };
+         c.Points = new ObservableCollection<StressPoint>(Points.Select(p => p.Clone()));
+         return c;
+      }
    }
 }

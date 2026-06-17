@@ -222,6 +222,21 @@ namespace CScore
       }
 
       /// <summary>
+      /// Создаёт копию волокна для параллельного расчёта: копирует геометрию и параметры,
+      /// мутабельное состояние (Sig, Eps, N, Mx, My, E, E2) обнуляется.
+      /// </summary>
+      public Fiber CloneForCalc() => new(X, Y, Nu1, Nu2)
+      {
+         Area      = Area,
+         WKT       = WKT,
+         Eps_p     = Eps_p,
+         Tag       = Tag,
+         Num       = Num,
+         TypeFiber = TypeFiber,
+         Diameter  = Diameter
+      };
+
+      /// <summary>
       /// Сдвигает волокно на вектор (xy.X, xy.Y). Если у волокна есть WKT-геометрия,
       /// полигон также сдвигается.
       /// </summary>

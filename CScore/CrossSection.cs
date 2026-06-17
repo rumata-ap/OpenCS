@@ -141,6 +141,18 @@ namespace CScore
       }
 
       /// <summary>
+      /// Создаёт копию сечения для параллельного расчёта: клонирует мутабельные Areas.
+      /// </summary>
+      public virtual CrossSection CloneForCalc() => new()
+      {
+         Id          = Id,
+         Num         = Num,
+         Tag         = Tag,
+         Description = Description,
+         Areas       = Areas.Select(a => a.CloneForCalc()).ToList()
+      };
+
+      /// <summary>
       /// Прямой расчёт усилий и (опционально) касательной 3×3 по плоскости деформаций.
       /// Касательная — forward finite differences (4 вызова <see cref="Integral"/>).
       /// </summary>

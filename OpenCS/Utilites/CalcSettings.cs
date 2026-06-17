@@ -9,15 +9,15 @@ namespace OpenCS.Utilites
    {
       /// <summary>Густота постпроцессорной сетки для бессеточных областей (шаг = max(w,h)/GridDensity).</summary>
       [JsonPropertyName("gridDensity")]
-      public int GridDensity { get; set; } = 20;
+      public int GridDensity { get; set; } = 40;
 
       /// <summary>Допуск сходимости итераций Ньютона, кН (норма невязки).</summary>
       [JsonPropertyName("newtonTol")]
-      public double NewtonTolerance { get; set; } = 0.5;
+      public double NewtonTolerance { get; set; } = 0.1;
 
       /// <summary>Максимальное число итераций Ньютона.</summary>
       [JsonPropertyName("newtonMaxIter")]
-      public int NewtonMaxIter { get; set; } = 60;
+      public int NewtonMaxIter { get; set; } = 25;
 
       /// <summary>Шаг приращения при вычислении численных производных Якобиана.</summary>
       [JsonPropertyName("newtonH")]
@@ -55,6 +55,13 @@ namespace OpenCS.Utilites
       [JsonPropertyName("sp63DescEtaMin")]
       public double Sp63DescEtaMin { get; set; } = 0.85;
 
+      /// <summary>
+      /// Параллельное выполнение пакетных задач прочности/жёсткости (Parallel.For).
+      /// Каждый поток работает с клоном сечения. Огнестойкостные задачи не затрагиваются.
+      /// </summary>
+      [JsonPropertyName("batchParallel")]
+      public bool BatchParallel { get; set; } = false;
+
       public static CalcSettings Default => new();
 
       public CalcSettings Clone() => new()
@@ -73,6 +80,7 @@ namespace OpenCS.Utilites
          CentroidNdsSize       = CentroidNdsSize,
          FiberLabelFontSize    = FiberLabelFontSize,
          Sp63DescEtaMin        = Sp63DescEtaMin,
+         BatchParallel         = BatchParallel,
       };
    }
 }
