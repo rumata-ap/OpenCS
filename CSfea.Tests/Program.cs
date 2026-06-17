@@ -35,6 +35,8 @@ FireRCheckTests.RunAll();
 
 FireRParityTests.RunAll();
 
+CustomDiagramTests.RunAll();
+
 HeatMaterialTests.RunAll();
 
 Sp468MaterialsTests.RunAll();

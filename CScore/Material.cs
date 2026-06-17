@@ -65,6 +65,15 @@ namespace CScore
       /// <summary>Тип заполнителя бетона для огнестойкости: silicate, carbonate, lightweight.</summary>
       public string AggregateType { get; set; } = "silicate";
 
+      /// <summary>Базовый тип поведения σ(ε) для Custom-материала (определяет логику ветвления Ic/It).</summary>
+      public MatType BaseType { get; set; } = MatType.None;
+
+      /// <summary>
+      /// Ссылки на Id диаграмм из таблицы diagrams по видам расчёта.
+      /// Используется только если Type == MatType.Custom.
+      /// </summary>
+      public Dictionary<CalcType, int> CustomDiagramIds { get; set; } = [];
+
       /// <summary>
       /// Список характеристик материала по видам расчёта.
       /// При установке заполняет внутренний словарь <see cref="chars"/>.
@@ -343,6 +352,30 @@ namespace CScore
          Json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
       }
 
+      /// <summary>
+      /// Для Type==Custom: строит Dictionary&lt;CalcType,Diagramm&gt; из пула по CustomDiagramIds.
+      /// Создаёт копию каждой диаграммы с MaterialType = BaseType (пул не мутируется).
+      /// Возвращает null если пул пуст или ни один Id не найден.
+      /// </summary>
+      public Dictionary<CalcType, Diagramm>? ResolveCustomDiagramms(IReadOnlyList<Diagramm> pool)
+      {
+         if (pool == null || pool.Count == 0) return null;
+         var result = new Dictionary<CalcType, Diagramm>();
+         foreach (var ct in new[] { CalcType.C, CalcType.CL, CalcType.N, CalcType.NL })
+         {
+            if (!CustomDiagramIds.TryGetValue(ct, out int id)) continue;
+            var src = pool.FirstOrDefault(d => d.Id == id);
+            if (src == null) continue;
+            result[ct] = new Diagramm(src.Ic, src.It, src.Type, BaseType, src.Tag)
+            {
+               Id         = src.Id,
+               MaterialId = Id,
+               CalcType   = ct
+            };
+         }
+         return result.Count > 0 ? result : null;
+      }
+
    }
 
    /// <summary>
@@ -359,6 +392,8 @@ namespace CScore
       ReSteelU = 3,
       /// <summary>Конструкционная сталь.</summary>
       Steel = 4,
+      /// <summary>Произвольный набор диаграмм из пула проекта.</summary>
+      Custom = 5,
       /// <summary>Тип не задан.</summary>
       None = 0
    }
