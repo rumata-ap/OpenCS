@@ -348,7 +348,7 @@ namespace OpenCS.Views.Helpers
                 var tf  = new Typeface("Consolas");
                 var txt = new FormattedText(label, CultureInfo.InvariantCulture,
                     FlowDirection.LeftToRight, tf, vm.FiberLabelFontSize + 1, Brushes.Black, 1.0);
-                dc.DrawText(txt, new Point(sc.X + r + 3, sc.Y - txt.Height / 2));
+                dc.DrawText(txt, new Point(sc.X + r + 2, sc.Y + r + 1));
             }
 
             // Нейтральная линия деформаций (ε = 0) — клипируется контуром сечения
