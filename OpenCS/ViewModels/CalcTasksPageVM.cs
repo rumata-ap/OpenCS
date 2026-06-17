@@ -118,6 +118,7 @@ namespace OpenCS.ViewModels
          ct.ForceSetId  = src.ForceSetId;
          ct.ForceItemId = src.ForceItemId;
          ct.CalcType    = src.CalcType;
+         ct.ParamsJson  = src.ParamsJson;
          _app.db.SaveCalcTask(ct);
          _app.IsDirty = true;
          RebuildTaskVMs();
