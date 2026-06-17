@@ -11,10 +11,16 @@ namespace OpenCS.Tasks
    {
       static readonly Dictionary<string, ITaskHandler> Handlers = new()
       {
-         ["strain_state"]       = new StrainStateHandler(),
-         ["fire_r_check"]       = new FireRCheckHandler(),
-         ["fire_r_check_batch"] = new FireRCheckBatchHandler(),
-         ["strain_state_batch"] = new StrainStateBatchHandler()
+         ["strain_state"]         = new StrainStateHandler(),
+         ["fire_r_check"]         = new FireRCheckHandler(),
+         ["fire_r_check_batch"]   = new FireRCheckBatchHandler(),
+         ["strain_state_batch"]   = new StrainStateBatchHandler(),
+         ["limit_force"]          = new LimitForceHandler(),
+         ["limit_moment"]         = new LimitMomentHandler(),
+         ["limit_axial"]          = new LimitAxialHandler(),
+         ["limit_force_batch"]    = new LimitForceBatchHandler(),
+         ["limit_moment_batch"]   = new LimitMomentBatchHandler(),
+         ["limit_axial_batch"]    = new LimitAxialBatchHandler(),
       };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>

@@ -27,6 +27,12 @@ public class CalcTaskKindItem
    public string Label { get; init; } = "";
 }
 
+public class CalcTaskSolverItem
+{
+   public string Id { get; init; } = "";
+   public string Label { get; init; } = "";
+}
+
 public class CalcTaskPropsDlgVM : ViewModelBase
 {
    readonly AppViewModel _app;
@@ -36,6 +42,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    string tag = "";
    CalcTaskKindItem? selectedKind;
+   CalcTaskSolverItem? selectedSolver;
    CrossSection? selectedSection;
    ForceSet? selectedForceSet;
    LoadItem? selectedForceItem;
@@ -51,7 +58,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ManualMx { get => manualMx; set { manualMx = value; OnPropertyChanged(); } }
    public string ManualMy { get => manualMy; set { manualMy = value; OnPropertyChanged(); } }
 
-   public bool ShowManualForces => Kind == "strain_state";
+   public bool IsLimitSingle  => IsLimitSingleKind(Kind);
+   public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle;
+
+   static bool IsLimitSingleKind(string kind)
+      => kind is "limit_force" or "limit_moment" or "limit_axial";
 
    public CalcTaskKindItem? SelectedKind
    {
@@ -64,8 +75,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged();
          OnPropertyChanged(nameof(IsFireKind));
          OnPropertyChanged(nameof(IsStrainBatch));
+         OnPropertyChanged(nameof(IsLimitBatch));
+         OnPropertyChanged(nameof(IsLimitSingle));
          OnPropertyChanged(nameof(ShowForceItem));
          OnPropertyChanged(nameof(ShowManualForces));
+         OnPropertyChanged(nameof(ShowSolverMethod));
       }
    }
 
@@ -79,14 +93,37 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(SelectedKind));
          OnPropertyChanged(nameof(IsFireKind));
          OnPropertyChanged(nameof(IsStrainBatch));
+         OnPropertyChanged(nameof(IsLimitBatch));
+         OnPropertyChanged(nameof(IsLimitSingle));
          OnPropertyChanged(nameof(ShowForceItem));
          OnPropertyChanged(nameof(ShowManualForces));
+         OnPropertyChanged(nameof(ShowSolverMethod));
       }
    }
 
    public bool IsFireKind    => Kind.StartsWith("fire_", StringComparison.Ordinal);
    public bool IsStrainBatch => Kind == "strain_state_batch";
-   public bool ShowForceItem => !IsStrainBatch && !IsFireKind;
+   public bool IsLimitBatch  => Kind is "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch";
+   public bool IsLimitKind   => Kind.StartsWith("limit_", StringComparison.Ordinal);
+   public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind;
+   public bool ShowSolverMethod => IsLimitKind;
+
+   public CalcTaskSolverItem? SelectedSolver
+   {
+      get => selectedSolver;
+      set { selectedSolver = value; OnPropertyChanged(); }
+   }
+
+   public string SolverId
+   {
+      get => selectedSolver?.Id ?? "bisection";
+      set
+      {
+         selectedSolver = SolverMethods.FirstOrDefault(s => s.Id == value) ?? SolverMethods[0];
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(SelectedSolver));
+      }
+   }
 
    public CrossSection? SelectedSection
    {
@@ -150,10 +187,22 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    public List<CalcTaskKindItem> AvailableKinds { get; } =
    [
-      new() { Id = "strain_state",       Label = Loc.S("CalcTaskKind_strain_state") },
-      new() { Id = "strain_state_batch", Label = Loc.S("CalcTaskKind_strain_state_batch") },
-      new() { Id = "fire_r_check",       Label = Loc.S("CalcTaskKind_fire_r_check") },
-      new() { Id = "fire_r_check_batch", Label = Loc.S("CalcTaskKind_fire_r_check_batch") }
+      new() { Id = "strain_state",         Label = Loc.S("CalcTaskKind_strain_state") },
+      new() { Id = "strain_state_batch",   Label = Loc.S("CalcTaskKind_strain_state_batch") },
+      new() { Id = "limit_force",          Label = Loc.S("CalcTaskKind_limit_force") },
+      new() { Id = "limit_force_batch",    Label = Loc.S("CalcTaskKind_limit_force_batch") },
+      new() { Id = "limit_moment",         Label = Loc.S("CalcTaskKind_limit_moment") },
+      new() { Id = "limit_moment_batch",   Label = Loc.S("CalcTaskKind_limit_moment_batch") },
+      new() { Id = "limit_axial",          Label = Loc.S("CalcTaskKind_limit_axial") },
+      new() { Id = "limit_axial_batch",    Label = Loc.S("CalcTaskKind_limit_axial_batch") },
+      new() { Id = "fire_r_check",         Label = Loc.S("CalcTaskKind_fire_r_check") },
+      new() { Id = "fire_r_check_batch",   Label = Loc.S("CalcTaskKind_fire_r_check_batch") }
+   ];
+
+   public List<CalcTaskSolverItem> SolverMethods { get; } =
+   [
+      new() { Id = "bisection", Label = Loc.S("LimitForceSolver_Bisection") },
+      new() { Id = "fast",      Label = Loc.S("LimitForceSolver_Fast") },
    ];
 
    public ObservableCollection<CrossSection> Sections { get; }
@@ -187,23 +236,39 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          if (p.FireSectionId > 0)
             SelectedFireSection = FireSections.FirstOrDefault(f => f.Id == p.FireSectionId);
 
-         if (existing.Kind == "strain_state" && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
+         if ((existing.Kind == "strain_state" || IsLimitSingleKind(existing.Kind))
+             && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
          {
-            try
+            var lp = LimitForceParams.Parse(existing.ParamsJson);
+            if (existing.Kind != "strain_state")
+               SolverId = lp.Solver;
+
+            if (existing.ForceSetId == 0 || existing.Kind == "strain_state")
             {
-               using var doc = System.Text.Json.JsonDocument.Parse(existing.ParamsJson);
-               var root = doc.RootElement;
                var inv = System.Globalization.CultureInfo.InvariantCulture;
-               if (root.TryGetProperty("N",  out var nEl))  ManualN  = nEl.GetDouble().ToString("G6", inv);
-               if (root.TryGetProperty("Mx", out var mxEl)) ManualMx = mxEl.GetDouble().ToString("G6", inv);
-               if (root.TryGetProperty("My", out var myEl)) ManualMy = myEl.GetDouble().ToString("G6", inv);
+               if (lp.N.HasValue)  ManualN  = lp.N.Value.ToString("G6", inv);
+               if (lp.Mx.HasValue) ManualMx = lp.Mx.Value.ToString("G6", inv);
+               if (lp.My.HasValue) ManualMy = lp.My.Value.ToString("G6", inv);
             }
-            catch { /* оставить значения по умолчанию */ }
+            else if (existing.ForceItemId != 0)
+            {
+               var fi = ForceItems.FirstOrDefault(i => i.Id == existing.ForceItemId);
+               if (fi != null)
+               {
+                  var inv = System.Globalization.CultureInfo.InvariantCulture;
+                  ManualN  = fi.N .ToString("G6", inv);
+                  ManualMx = fi.Mx.ToString("G6", inv);
+                  ManualMy = fi.My.ToString("G6", inv);
+               }
+            }
          }
+         else if (IsLimitKind)
+            SolverId = LimitForceParams.Parse(existing.ParamsJson).Solver;
       }
       else
       {
          SelectedKind = AvailableKinds[0];
+         SelectedSolver = SolverMethods[0];
          SelectedSection = Sections.FirstOrDefault();
          SelectedFireSection = FireSections.FirstOrDefault();
          SelectedForceSet = ForceSets.FirstOrDefault();
@@ -233,7 +298,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          return;
       }
 
-      if (!ShowManualForces && ShowForceItem && (SelectedForceSet == null || SelectedForceItem == null))
+      if (IsLimitBatch && SelectedForceSet == null)
+      {
+         MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
+            MessageBoxButton.OK, MessageBoxImage.Warning);
+         return;
+      }
+
+      if (!ShowManualForces && !IsLimitBatch && ShowForceItem && (SelectedForceSet == null || SelectedForceItem == null))
       {
          MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
             MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -256,7 +328,20 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          double n  = double.TryParse(ManualN,  System.Globalization.NumberStyles.Float, inv, out var nv)  ? nv : 0;
          double mx = double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, inv, out var mxv) ? mxv : 0;
          double my = double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, inv, out var myv) ? myv : 0;
-         paramsJson = JsonSerializer.Serialize(new { N = n, Mx = mx, My = my });
+         if (IsLimitSingle)
+         {
+            paramsJson = new LimitForceParams
+            {
+               Solver = SolverId,
+               N = n, Mx = mx, My = my
+            }.ToJson();
+         }
+         else
+            paramsJson = JsonSerializer.Serialize(new { N = n, Mx = mx, My = my });
+      }
+      else if (IsLimitKind)
+      {
+         paramsJson = new LimitForceParams { Solver = SolverId }.ToJson();
       }
 
       Result = new CalcTask
@@ -264,7 +349,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
          Kind = Kind,
          SectionId = SelectedSection.Id,
-         // Для strain_state силы хранятся в ParamsJson — ForceItemId не используется
+         // Для strain_state и limit_* (одиночных) силы в ParamsJson — ForceItemId не используется
          ForceSetId  = ShowManualForces ? 0 : (SelectedForceSet?.Id ?? 0),
          ForceItemId = ShowManualForces ? 0 : (ShowForceItem ? (SelectedForceItem?.Id ?? 0) : 0),
          CalcType = SelectedCalcType,

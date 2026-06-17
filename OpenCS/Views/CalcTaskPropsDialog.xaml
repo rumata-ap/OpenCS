@@ -18,6 +18,7 @@
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
          <RowDefinition Height="16"/>
          <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
@@ -107,7 +108,17 @@
                  SelectedItem="{Binding SelectedCalcType}"
                  Margin="0,0,0,0"/>
 
-      <StackPanel Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2"
+      <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource LimitForce_SolverMethod}"
+                 VerticalAlignment="Center" Margin="0,8,8,8"
+                 Visibility="{Binding ShowSolverMethod, Converter={StaticResource BoolToVisibility}}"/>
+      <ComboBox  Grid.Row="10" Grid.Column="1"
+                 ItemsSource="{Binding SolverMethods}"
+                 SelectedItem="{Binding SelectedSolver}"
+                 DisplayMemberPath="Label"
+                 Margin="0,8,0,8"
+                 Visibility="{Binding ShowSolverMethod, Converter={StaticResource BoolToVisibility}}"/>
+
+      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
                   Orientation="Horizontal" HorizontalAlignment="Right">
          <Button Content="{DynamicResource OK}"
                  IsDefault="True"

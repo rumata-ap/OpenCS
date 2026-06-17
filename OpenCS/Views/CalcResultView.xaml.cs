@@ -11,14 +11,24 @@ namespace OpenCS.Views
     public CalcResultView(CalcResult result, AppViewModel app)
     {
         var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
-        if (task?.Kind is "fire_r_check" or "fire_r_check_batch" or "strain_state_batch")
+        if (task?.Kind is "fire_r_check" or "fire_r_check_batch"
+            or "strain_state_batch"
+            or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch")
         {
-            if (task.Kind == "fire_r_check_batch")
-                Content = new FireRCheckBatchResultView(result);
-            else if (task.Kind == "strain_state_batch")
-                Content = new StrainStateBatchResultView(result);
-            else
-                Content = new FireRCheckResultView(result, app, task);
+            Content = task.Kind switch
+            {
+                "fire_r_check_batch"   => new FireRCheckBatchResultView(result),
+                "strain_state_batch"   => new StrainStateBatchResultView(result),
+                "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
+                                       => new LimitForceBatchResultView(result),
+                _                      => new FireRCheckResultView(result, app, task)
+            };
+            return;
+        }
+
+        if (task?.Kind is "limit_force" or "limit_moment" or "limit_axial")
+        {
+            Content = new LimitForceResultView(result, app, task);
             return;
         }
 
