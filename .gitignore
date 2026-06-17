@@ -9,6 +9,9 @@
 # SQLite database (рабочий файл, не коммитится)
 dbapp.db
 
+# Спеки и планы (синхронизируются через NAS, не коммитятся)
+docs/
+
 # dotenv files
 .env
 
