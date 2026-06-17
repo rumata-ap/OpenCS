@@ -26,7 +26,6 @@ namespace OpenCS.Views
         BarItem?  _dragBar;
         EdgeItem? _dragEdge;
         double    _dragEdgeMidX, _dragEdgeMidY;
-        bool      _hasDragged;
 
         // Fill-состояние
         BarItem? _fillBar1;
@@ -249,7 +248,6 @@ namespace OpenCS.Views
         {
             if (_vm == null) return;
             var sp = e.GetPosition(this);
-            _hasDragged = false;
 
             // Fill mode: выбор первого/второго стержня
             if (_vm.FillMode)
@@ -317,7 +315,6 @@ namespace OpenCS.Views
 
             if (_dragBar != null && e.LeftButton == MouseButtonState.Pressed)
             {
-                _hasDragged = true;
                 var (mx, my) = ToModel(sp);
                 (mx, my) = TrySnap(mx, my);
                 _vm.MoveBarCommand.Execute((_dragBar, mx, my));
@@ -327,7 +324,6 @@ namespace OpenCS.Views
 
             if (_dragEdge != null && e.LeftButton == MouseButtonState.Pressed)
             {
-                _hasDragged = true;
                 var (mx, my) = ToModel(sp);
                 double proj = (mx - _dragEdgeMidX) * _dragEdge.NormalX
                             + (my - _dragEdgeMidY) * _dragEdge.NormalY;

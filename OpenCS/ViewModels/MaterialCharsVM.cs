@@ -109,7 +109,7 @@ namespace OpenCS.ViewModels
       /// <summary>
       /// Предел прочности.
       /// </summary>
-      public new double Ru
+      public double Ru
       {
          get => chars.Ru;
          set
@@ -122,7 +122,7 @@ namespace OpenCS.ViewModels
       /// <summary>
       /// Модуль упругости.
       /// </summary>
-      public new double E
+      public double E
       {
          get => chars.E;
          set

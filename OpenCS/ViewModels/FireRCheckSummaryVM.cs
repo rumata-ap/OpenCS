@@ -15,7 +15,7 @@ public sealed class FireRCheckSummaryVM : ViewModelBase
     public string ConvergenceText { get; }
     public Brush ConvergenceBrush { get; }
     public bool HasError { get; }
-    public string ErrorText { get; }
+    public string ErrorText { get; } = "";
 
     public string FactorText { get; }
     public string UtilizationText { get; }

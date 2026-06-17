@@ -45,6 +45,7 @@ namespace OpenCS.ViewModels
          material = new Material();
          AddCommand = new RelayCommand(Add);
          EditCommand = new RelayCommand(Edit);
+         DelCommand = new RelayCommand(_ => { });
          DataSourceCommand = new RelayCommand(DataSource);
       }
 
@@ -179,7 +180,7 @@ namespace OpenCS.ViewModels
       /// </summary>
       public MaterialChars C
       {
-         get { return material.C; }
+         get { return material.C!; }
          set { material.C = value; OnPropertyChanged(); }
       }
 
@@ -189,7 +190,7 @@ namespace OpenCS.ViewModels
       /// </summary>
       public MaterialChars CL
       {
-         get { return material.CL; }
+         get { return material.CL!; }
          set { material.CL = value; OnPropertyChanged(); }
       }
       /// <summary>
@@ -198,7 +199,7 @@ namespace OpenCS.ViewModels
       /// </summary>
       public MaterialChars N
       {
-         get { return material.N; }
+         get { return material.N!; }
          set { material.N = value; OnPropertyChanged(); }
       }
       /// <summary>
@@ -207,7 +208,7 @@ namespace OpenCS.ViewModels
       /// </summary>
       public MaterialChars NL
       {
-         get { return material.NL; }
+         get { return material.NL!; }
          set { material.NL = value; OnPropertyChanged(); }
       }
 

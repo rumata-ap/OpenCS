@@ -33,7 +33,7 @@ namespace CSTriangulation
 
          var merged = PremergeHoles(contour.OuterIndices, contour.HoleIndices, nodesList, boundaryFlags, hValues);
 
-         List<List<(double X, double Y)>> holePolys = null;
+         List<List<(double X, double Y)>>? holePolys = null;
          if (contour.HoleIndices != null && contour.HoleIndices.Count > 0)
          {
             holePolys = new List<List<(double X, double Y)>>(contour.HoleIndices.Count);
@@ -190,7 +190,7 @@ namespace CSTriangulation
                int gIdx = nodesList.Count;
                nodesList.Add(new double[] { gx, gy });
                boundaryFlags.Add(false);
-               hValues.Add(avgH);
+               hValues?.Add(avgH);
                bridgeNodes.Add(gIdx);
             }
 
@@ -214,7 +214,7 @@ namespace CSTriangulation
       static void ProcessContour(List<int> current, Stack<List<int>> stack,
          List<double[]> nodesList, List<bool> boundaryFlags,
          List<(int, int, int)> triangles, double alphaRad, List<double> hValues,
-         List<List<(double X, double Y)>> holePolys)
+         List<List<(double X, double Y)>>? holePolys)
       {
          if (current.Count < 3) return;
          if (current.Count == 3)
@@ -502,7 +502,7 @@ namespace CSTriangulation
 
       static bool TryBranchA(List<int> current, Stack<List<int>> stack, List<double[]> nodesList,
          int pIdx, int qIdx, int rIdx, int qPos, int tIdx,
-         List<(int, int, int)> triangles, List<List<(double X, double Y)>> holePolys)
+         List<(int, int, int)> triangles, List<List<(double X, double Y)>>? holePolys)
       {
          if (!EdgeClear(current, nodesList, pIdx, tIdx) || !EdgeClear(current, nodesList, tIdx, rIdx))
             return false;
@@ -669,7 +669,7 @@ namespace CSTriangulation
       }
 
       static bool TriInHole(int i, int j, int k, List<double[]> nodesList,
-         List<List<(double X, double Y)>> holePolys)
+         List<List<(double X, double Y)>>? holePolys)
       {
          if (holePolys == null || holePolys.Count == 0) return false;
          double cx = (nodesList[i][0] + nodesList[j][0] + nodesList[k][0]) / 3.0;
@@ -807,7 +807,7 @@ namespace CSTriangulation
       }
 
       static void SplitAtNeedle(List<int> current, Stack<List<int>> stack, List<double[]> nodesList,
-         int pos1, int pos2, List<List<(double X, double Y)>> holePolys)
+         int pos1, int pos2, List<List<(double X, double Y)>>? holePolys)
       {
          if (pos1 > pos2) { int tmp = pos1; pos1 = pos2; pos2 = tmp; }
          int gIdx = current[pos1];
@@ -824,7 +824,7 @@ namespace CSTriangulation
       }
 
       static void PushSubcontour(List<int> sub, List<double[]> nodesList, Stack<List<int>> stack,
-         List<List<(double X, double Y)>> holePolys)
+         List<List<(double X, double Y)>>? holePolys)
       {
          if (sub.Count < 3) return;
          double area2 = 0;

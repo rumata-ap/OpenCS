@@ -38,7 +38,7 @@ namespace OpenCS.ViewModels
       {
          CurrentName = fs.Tag ?? "";
 
-         var (lt, title, group, gammaF, _) = SP20Combinations.ParseForceSetName(fs.Tag);
+         var (lt, title, group, gammaF, _) = SP20Combinations.ParseForceSetName(fs.Tag ?? "");
          _title       = title;
          _kindIndex   = lt switch
          {

@@ -37,7 +37,7 @@ namespace OpenCS.ViewModels
       List<MaterialChars> nl = new();
 
       /// <summary>Выбранная строка характеристик материала в таблице справочника.</summary>
-      MaterialChars selectedMaterial;
+      MaterialChars? selectedMaterial;
 
       /// <summary>Коэффициент условий работы бетона gb2 (0.9 для железобетонных, 1.0 для бетонных конструкций).</summary>
       double gb2 = 1;
@@ -153,7 +153,7 @@ namespace OpenCS.ViewModels
       /// При изменении вызывает <see cref="SelectMaterial"/> для заполнения
       /// всех видов расчётных характеристик в <see cref="MaterialVM.Material"/>.
       /// </summary>
-      public MaterialChars SelectedMaterial
+      public MaterialChars? SelectedMaterial
       {
          get { return selectedMaterial; }
          set { selectedMaterial = value; SelectMaterial(); OnPropertyChanged(); }
@@ -205,7 +205,7 @@ namespace OpenCS.ViewModels
       /// Ссылка на ViewModel материала, в которую загружаются выбранные
       /// характеристики из справочника.
       /// </summary>
-      public MaterialVM Material { get; set; }
+      public MaterialVM Material { get; set; } = null!;
 
 
 

@@ -36,7 +36,7 @@ namespace CSmath.Geometry
         /// <summary>
         /// Единичный вектор нормали к плоскости.
         /// </summary>
-        public Vector3D Normal { get; private set; }
+        public Vector3D Normal { get; private set; } = null!;
 
         /// <summary>
         /// Первая определяющая точка плоскости. При изменении автоматически пересчитываются коэффициенты.
@@ -67,7 +67,7 @@ namespace CSmath.Geometry
         /// Вектор кривизн: компоненты содержат коэффициенты -A/C, -B/C, -D/C,
         /// позволяющие выразить z через x и y: z = Kurvature.X * x + Kurvature.Y * y + Kurvature.Z.
         /// </summary>
-        public Vector3D Kurvature { get; private set; }
+        public Vector3D Kurvature { get; private set; } = null!;
 
         /// <summary>
         /// Создаёт плоскость, проходящую через три заданные точки.

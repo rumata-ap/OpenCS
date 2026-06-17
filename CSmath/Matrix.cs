@@ -174,10 +174,10 @@ namespace CSmath
       /// </summary>
       public Matrix Inverse()
       {
-         if (M != N) return null;
+         if (M != N) return null!;
 
          double determinant = Determinant();
-         if (Math.Abs(determinant) < 0.0000001) return null;
+         if (Math.Abs(determinant) < 0.0000001) return null!;
 
          Matrix result = new Matrix(N, N);
          ProcessFunctionOverData((i, j) =>
@@ -196,13 +196,13 @@ namespace CSmath
       {
          for (int i = 1; i < args.Length; i++)
          {
-            if (args[i] == null) return null;
+            if (args[i] == null) return null!;
          }
          int n = args[0].N;
          int m = args[0].M;
          for (int i = 1; i < args.Length; i++)
          {
-            if (args[i].N != n) return null;
+            if (args[i].N != n) return null!;
             m += args[i].M;
          }
          Matrix res = new Matrix(n, m);
@@ -228,13 +228,13 @@ namespace CSmath
       {
          for (int i = 1; i < args.Length; i++)
          {
-            if (args[i] == null) return null;
+            if (args[i] == null) return null!;
          }
          int n = args[0].N;
          int m = args[0].M;
          for (int i = 1; i < args.Length; i++)
          {
-            if (args[i].M != m || args[i] == null) return null;
+            if (args[i].M != m || args[i] == null) return null!;
             n += args[i].N;
          }
          Matrix res = new Matrix(n, m);

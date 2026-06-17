@@ -948,7 +948,7 @@ namespace OpenCS
       /// </summary>
       private void FromDxf(object? o = null)
       {
-         string fileName = FileDialogService.OpenFile(
+         string? fileName = FileDialogService.OpenFile(
             filter: "Файл обмена чертежами (*.dxf)|*.dxf",
             title: "Импорт данных из файла DXF");
          if (string.IsNullOrEmpty(fileName)) return;
@@ -978,7 +978,7 @@ namespace OpenCS
 
       private void ImportContoursFromDxf(object? _ = null)
       {
-         string fileName = FileDialogService.OpenFile(
+         string? fileName = FileDialogService.OpenFile(
             filter: "Файл обмена чертежами (*.dxf)|*.dxf",
             title: Loc.S("ImportContoursFromDxfTitle"));
          if (string.IsNullOrEmpty(fileName)) return;
@@ -1028,7 +1028,7 @@ namespace OpenCS
 
       private void ImportCirclesFromDxf(object? _ = null)
       {
-         string fileName = FileDialogService.OpenFile(
+         string? fileName = FileDialogService.OpenFile(
             filter: "Файл обмена чертежами (*.dxf)|*.dxf",
             title: Loc.S("ImportCirclesFromDxfTitle"));
          if (string.IsNullOrEmpty(fileName)) return;
@@ -1069,7 +1069,7 @@ namespace OpenCS
             return;
          }
 
-         string fileName = FileDialogService.SaveFile(
+         string? fileName = FileDialogService.SaveFile(
             filter: "Файл обмена чертежами (*.dxf)|*.dxf",
             defaultExt: "*.dxf",
             title: Loc.S("ExportCirclesToDxfTitle"));
@@ -1098,7 +1098,7 @@ namespace OpenCS
 
       private void ImportCirclesFromCsv(object? _ = null)
       {
-         string fileName = FileDialogService.OpenFile(
+         string? fileName = FileDialogService.OpenFile(
             filter: "Текстовый файл (*.csv)|*.csv",
             title: Loc.S("ImportCirclesFromCsvTitle"));
          if (string.IsNullOrEmpty(fileName)) return;
@@ -1132,7 +1132,7 @@ namespace OpenCS
             return;
          }
 
-         string fileName = FileDialogService.SaveFile(
+         string? fileName = FileDialogService.SaveFile(
             filter: "Текстовый файл (*.csv)|*.csv",
             defaultExt: "*.csv",
             title: Loc.S("ExportCirclesToCsvTitle"));

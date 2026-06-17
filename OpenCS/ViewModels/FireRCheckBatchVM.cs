@@ -14,7 +14,7 @@ public sealed class FireRCheckBatchVM : ViewModelBase
     public string SummaryText { get; }
     public Brush StatusBrush { get; }
     public bool HasError { get; }
-    public string ErrorText { get; }
+    public string ErrorText { get; } = "";
 
     public ObservableCollection<BatchRow> AllRows { get; } = [];
     public ObservableCollection<BatchRow> FailedRows { get; } = [];

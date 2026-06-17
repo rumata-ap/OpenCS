@@ -36,10 +36,7 @@ namespace OpenCS.ViewModels
    public class ContourVM : ViewModelBase
    {
       /// <summary>Выбранная точка контура, используемая для редактирования в представлении.</summary>
-      StressPoint point;
-
-      /// <summary>Кэш отрисованного изображения контура.</summary>
-      DrawingImage dI = null!;
+      StressPoint? point;
 
       /// <summary>Флаг, указывающий, находится ли контур в режиме редактирования.</summary>
       bool isEdit;
@@ -109,7 +106,7 @@ namespace OpenCS.ViewModels
       /// Имя набора геометрии (GeometrySet), к которому принадлежит контур.
       /// При изменении сбрасывает описание.
       /// </summary>
-      public string Set
+      public string? Set
       {
          get => Contour.GeometrySet;
          set { Contour.GeometrySet = value; OnPropertyChanged(); Description = ""; }
@@ -131,7 +128,7 @@ namespace OpenCS.ViewModels
       /// Выбранная точка контура в ListBox. Используется для редактирования
       /// координат отдельной точки.
       /// </summary>
-      public StressPoint Point { get => point; set { point = value; OnPropertyChanged(); } }
+      public StressPoint? Point { get => point; set { point = value; OnPropertyChanged(); } }
 
       /// <summary>
       /// Изображение контура (DrawingImage), получаемое путём вызова

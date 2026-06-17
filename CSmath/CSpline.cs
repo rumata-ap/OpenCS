@@ -10,7 +10,7 @@ namespace CSmath
    {
       public double[] X { get; set; }
       public double[] Y { get; set; }
-      public double[] DY { get; set; }
+      public double[] DY { get; set; } = null!;
       public double[] A { get; set; }
       public double[] B { get; set; }
       public double[] C { get; set; }

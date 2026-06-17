@@ -9,10 +9,10 @@ namespace CSmath.Geometry
    [Serializable]
    public class Line2d
    {
-      protected Vector3D startPoint;
-      protected Vector3D endPoint;
-      protected Vector2D directive;
-      protected Vector2D normal;
+      protected Vector3D startPoint = null!;
+      protected Vector3D endPoint = null!;
+      protected Vector2D directive = null!;
+      protected Vector2D normal = null!;
 
       /// <summary>
       /// Начальная точка отрезка. При изменении пересчитываются параметры прямой.
@@ -27,7 +27,7 @@ namespace CSmath.Geometry
       /// <summary>
       /// Центральная точка отрезка — середина между StartPoint и EndPoint.
       /// </summary>
-      public Vector3D CenterPoint { get; private set; }
+      public Vector3D CenterPoint { get; private set; } = null!;
 
       /// <summary>
       /// Направляющий вектор отрезка (End - Start).

@@ -250,7 +250,7 @@ namespace OpenCS.ViewModels
       {
          App.db.DeleteMaterialArea(_model);
          App.RefreshMaterialAreaLiveCollections();
-         App.CurrentPage = null;
+         App.CurrentPage = null!;
       }
 
       void OpenMeshDialog()
