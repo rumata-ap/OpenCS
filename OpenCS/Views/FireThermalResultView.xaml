@@ -1,0 +1,105 @@
+<UserControl x:Class="OpenCS.Views.FireThermalResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views">
+
+   <Grid>
+      <TextBlock Text="{Binding NoResultText}" Margin="16" Foreground="Gray"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                 Visibility="{Binding HasResult, Converter={StaticResource InverseBoolToVisibility}}"/>
+
+      <TabControl Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+         <TabItem Header="{DynamicResource FireThermal_TabMetadata}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+               <StackPanel Margin="12,8">
+                  <TextBlock Text="{Binding HeaderText}" FontSize="14" FontWeight="Bold" Margin="0,0,0,4"/>
+                  <TextBlock Margin="0,0,0,8">
+                     <Run Text="{DynamicResource FireThermal_ResultId}"/>
+                     <Run Text="{Binding ResultIdText}" FontFamily="Consolas"/>
+                  </TextBlock>
+
+                  <GroupBox Header="{DynamicResource FireThermal_TabMetadata}" Margin="0,0,0,6" Padding="8,4">
+                     <Grid>
+                        <Grid.ColumnDefinitions>
+                           <ColumnDefinition Width="200"/>
+                           <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Tag}" Foreground="Gray"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FireSectionText}"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FireSection_Curve}" Foreground="Gray"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FireCurveText}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FireSection_Duration}" Foreground="Gray"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FireDurationText}"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource FireResult_AggregateType}" Foreground="Gray"/>
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AggregateTypeText}"/>
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource FireThermal_MeshNodes}" Foreground="Gray"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding MeshNodesText}" FontFamily="Consolas"/>
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource FireThermal_MeshElements}" Foreground="Gray"/>
+                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding MeshElementsText}" FontFamily="Consolas"/>
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource FireThermal_Snapshots}" Foreground="Gray"/>
+                        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding SnapshotsText}" FontFamily="Consolas"/>
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource FireThermal_MaxTemp}" Foreground="Gray"/>
+                        <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding MaxTemperatureText}" FontFamily="Consolas"/>
+                     </Grid>
+                  </GroupBox>
+
+                  <GroupBox Header="{DynamicResource FireThermal_RebarMaxT}" Margin="0,0,0,6" Padding="8,4">
+                     <DataGrid ItemsSource="{Binding RebarRows}" AutoGenerateColumns="False"
+                               IsReadOnly="True" CanUserAddRows="False" MaxHeight="160">
+                        <DataGrid.Columns>
+                           <DataGridTextColumn Header="ID" Binding="{Binding IdText}" Width="60"/>
+                           <DataGridTextColumn Header="T_max" Binding="{Binding MaxTempText}" Width="*"/>
+                        </DataGrid.Columns>
+                     </DataGrid>
+                  </GroupBox>
+
+                  <GroupBox Header="{DynamicResource ResultConvergence}" Padding="8,4">
+                     <TextBlock Text="{Binding ConvergenceSummaryText}" TextWrapping="Wrap"/>
+                  </GroupBox>
+               </StackPanel>
+            </ScrollViewer>
+         </TabItem>
+
+         <TabItem Header="{DynamicResource FireThermal_TabField}">
+            <local:FireMeshPlotView DataContext="{Binding TemperaturePlot}"/>
+         </TabItem>
+
+         <TabItem Header="{DynamicResource FireThermal_TabRebar}">
+            <Grid>
+               <local:FireChartView DataContext="{Binding RebarChart}"
+                                    Visibility="{Binding HasRebarChart, Converter={StaticResource BoolToVisibility}}"/>
+               <TextBlock Text="{DynamicResource FireThermal_NoRebarHistory}" Margin="16" Foreground="Gray"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                          Visibility="{Binding HasRebarChart, Converter={StaticResource InverseBoolToVisibility}}"/>
+            </Grid>
+         </TabItem>
+
+         <TabItem Header="{DynamicResource FireThermal_TabConvergence}">
+            <Grid>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="*"/>
+                  <RowDefinition Height="*"/>
+               </Grid.RowDefinitions>
+               <local:FireChartView Grid.Row="0" DataContext="{Binding PicardChart}"
+                                    Visibility="{Binding HasConvergenceCharts, Converter={StaticResource BoolToVisibility}}"/>
+               <local:FireChartView Grid.Row="1" DataContext="{Binding ResidualChart}"
+                                    Visibility="{Binding HasConvergenceCharts, Converter={StaticResource BoolToVisibility}}"/>
+               <TextBlock Grid.Row="0" Grid.RowSpan="2"
+                          Text="{Binding ConvergenceSummaryText}" Margin="16" Foreground="Gray"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                          Visibility="{Binding HasConvergenceCharts, Converter={StaticResource InverseBoolToVisibility}}"/>
+            </Grid>
+         </TabItem>
+      </TabControl>
+   </Grid>
+</UserControl>

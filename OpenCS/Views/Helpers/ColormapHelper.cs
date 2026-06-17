@@ -52,5 +52,25 @@ namespace OpenCS.Views.Helpers
             t = Math.Clamp(t, 0.0, 1.0);
             return isRebar ? RebarColor(t) : MainColor(t);
         }
+
+        /// <summary>Холодный синий → жёлтый → красный (для поля температуры).</summary>
+        public static Color ThermalColor(double t)
+        {
+            t = Math.Clamp(t, 0.0, 1.0);
+            if (t <= 0.5)
+            {
+                double u = t * 2.0;
+                return Color.FromRgb(0, (byte)(u * 200), (byte)(180 + u * 75));
+            }
+            double v = (t - 0.5) * 2.0;
+            return Color.FromRgb((byte)(v * 255), (byte)((1 - v) * 220), 0);
+        }
+
+        public static Color GetThermalDiscreteColor(double val, double min, double max, int bands = 8)
+        {
+            double t = Normalize(val, min, max);
+            t = (Math.Floor(t * bands) + 0.5) / bands;
+            return ThermalColor(Math.Clamp(t, 0.0, 1.0));
+        }
     }
 }

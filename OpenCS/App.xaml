@@ -132,6 +132,7 @@
          <conv:EnumToBoolConverter x:Key="EnumToBoolConverter"/>
          <conv:NullableToListConverter x:Key="NullableToList"/>
          <conv:InverseBoolConverter x:Key="InverseBool"/>
+         <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility"/>
          <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
 
          <sys:Double x:Key="AppFontSize">13</sys:Double>

@@ -1,0 +1,155 @@
+<UserControl x:Class="OpenCS.Views.FireRCheckResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views">
+
+   <TabControl>
+      <TabItem Header="{DynamicResource ResultTabSummary}">
+         <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="12,8" DataContext="{Binding Summary}">
+
+               <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                  <TextBlock Text="{Binding TaskTag}" FontSize="14" FontWeight="Bold"
+                             Margin="0,0,10,0" VerticalAlignment="Center"/>
+               </StackPanel>
+               <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,0,0,8"/>
+
+               <TextBlock Text="{Binding ErrorText}" Foreground="DarkRed" FontWeight="Bold"
+                          Margin="0,0,0,8"
+                          Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
+
+               <TextBlock Text="{Binding VerdictText}" FontSize="13" FontWeight="Bold"
+                          Foreground="{Binding VerdictBrush}" Margin="0,0,0,4"/>
+               <TextBlock Text="{Binding ConvergenceText}" Foreground="{Binding ConvergenceBrush}" Margin="0,0,0,10"/>
+
+               <GroupBox Header="{DynamicResource FireRCheck_LimitLoading}" Margin="0,0,0,6" Padding="8,4"
+                         Visibility="{Binding ShowLimitSection, Converter={StaticResource BoolToVisibility}}">
+                  <Grid>
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                     </Grid.RowDefinitions>
+                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource FireRCheck_Factor}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FactorText}" FontFamily="Consolas" FontWeight="Bold"/>
+                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FireRCheck_Margin}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MarginText}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FireRCheck_Utilization}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UtilizationText}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource FireRCheck_Governing}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding GoverningText}"/>
+                     <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource CalcTaskForceN}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding NTargetText}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource CalcTaskForceMx}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding MxTargetText}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource CalcTaskForceMy}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding MyTargetText}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource FireRCheck_NLimit}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding NLimitText}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource FireRCheck_MxLimit}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding MxLimitText}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource FireRCheck_MyLimit}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding MyLimitText}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource FireRCheck_EpsLimits}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="10" Grid.Column="1" FontFamily="Consolas">
+                        <Run Text="{Binding EpsContourMinText, Mode=OneWay}"/>
+                        <Run Text=" / "/>
+                        <Run Text="{Binding EpsCuText, Mode=OneWay}"/>
+                     </TextBlock>
+                  </Grid>
+               </GroupBox>
+
+               <GroupBox Header="{DynamicResource FireRCheck_FireSection}" Margin="0,0,0,6" Padding="8,4">
+                  <Grid>
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                     </Grid.RowDefinitions>
+                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Tag}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FireSectionNameText}"/>
+                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FireSection_Curve}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FireCurveText}"/>
+                     <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FireSection_Duration}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding FireDurationText}"/>
+                     <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource FireRCheck_CriticalTime}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CriticalTimeText}"/>
+                     <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource FireResult_AggregateType}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding AggregateTypeText}"/>
+                     <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource FireRCheck_Method}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding MethodText}"/>
+                  </Grid>
+               </GroupBox>
+
+               <GroupBox Header="{DynamicResource FireRCheck_GammaStats}" Margin="0,0,0,6" Padding="8,4"
+                         Visibility="{Binding ShowGammaSection, Converter={StaticResource BoolToVisibility}}">
+                  <Grid>
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                     </Grid.RowDefinitions>
+                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource FireRCheck_GammaBtStats}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="0" Grid.Column="1" FontFamily="Consolas">
+                        <Run Text="{Binding GammaBtMinText, Mode=OneWay}"/>
+                        <Run Text=" / "/>
+                        <Run Text="{Binding GammaBtAvgText, Mode=OneWay}"/>
+                        <Run Text=" / "/>
+                        <Run Text="{Binding GammaBtMaxText, Mode=OneWay}"/>
+                     </TextBlock>
+                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FireRCheck_GammaStCMin}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding GammaStCMinText}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FireRCheck_GammaStTMin}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GammaStTMinText}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource FireRCheck_Elements}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding ElementCountsText}"/>
+                     <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource CalcResultIterations}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding IterationsText}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource FireRCheck_NewtonIter}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding NewtonIterationsText}" FontFamily="Consolas"/>
+                  </Grid>
+               </GroupBox>
+            </StackPanel>
+         </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="{DynamicResource ResultTabStress}">
+         <local:FireMeshPlotView DataContext="{Binding Plots.StressPlot}"/>
+      </TabItem>
+      <TabItem Header="{DynamicResource ResultTabStrain}">
+         <local:FireMeshPlotView DataContext="{Binding Plots.StrainPlot}"/>
+      </TabItem>
+      <TabItem Header="{DynamicResource FireRCheck_TabGamma}">
+         <local:FireMeshPlotView DataContext="{Binding Plots.GammaPlot}"/>
+      </TabItem>
+      <TabItem Header="{DynamicResource FireThermal_TabField}">
+         <local:FireMeshPlotView DataContext="{Binding Plots.TemperaturePlot}"/>
+      </TabItem>
+   </TabControl>
+</UserControl>

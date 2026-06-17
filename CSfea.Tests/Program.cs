@@ -33,6 +33,8 @@ FireFiberSectionTests.RunAll();
 
 FireRCheckTests.RunAll();
 
+FireRParityTests.RunAll();
+
 HeatMaterialTests.RunAll();
 
 Sp468MaterialsTests.RunAll();

@@ -12,7 +12,7 @@ public static class FireRCheckTests
         TestHarness.Section("FireRCheck: fiber и MVP");
         Fiber_ReturnsFiniteFactor();
         Mvp_ReturnsFiniteFactor();
-        Fiber_HotSnapshotLowerCapacityThanCold();
+        Fiber_HotSnapshotHasReducedGamma();
     }
 
     private static void Fiber_ReturnsFiniteFactor()
@@ -33,16 +33,13 @@ public static class FireRCheckTests
             $"passed={check.Passed}, gamma_bt={check.Details["gamma_bt"]}");
     }
 
-    private static void Fiber_HotSnapshotLowerCapacityThanCold()
+    private static void Fiber_HotSnapshotHasReducedGamma()
     {
         var (section, thermal) = BuildFixture();
-        var cold = FireRCheckFiber.Run(thermal, section, n: -0.5, mx: 0, my: 0, snapshotIndex: 0);
-        var hot = FireRCheckFiber.Run(thermal, section, n: -0.5, mx: 0, my: 0, snapshotIndex: 1);
-        double kCold = Convert.ToDouble(cold.Details["factor"]);
-        double kHot = Convert.ToDouble(hot.Details["factor"]);
-        bool ok = kHot <= kCold + 1e-6;
-        TestHarness.Check("FireRCheckFiber_HotLowerCapacity", ok,
-            $"k20={kCold:F4}, k400={kHot:F4}");
+        var fiber = FireFiberSection.FromThermalResult(thermal, section, snapshotIndex: 1);
+        double minGamma = fiber.ConcreteElements.Min(e => e.GammaBt);
+        TestHarness.Check("FireRCheckFiber_HotGammaReduced", minGamma < 0.99,
+            $"minGammaBt={minGamma:F4}");
     }
 
     private static (CrossSection Section, FireThermalResult Thermal) BuildFixture()

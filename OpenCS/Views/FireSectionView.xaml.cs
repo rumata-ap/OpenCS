@@ -2,6 +2,7 @@ using CScore;
 using CScore.Fire;
 using CScore.Fire.Entities;
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
 using System.Globalization;
 using System.Linq;
 using System.Windows.Controls;
@@ -91,6 +92,8 @@ namespace OpenCS.Views
          set { lastRunInfo = value; OnPropertyChanged(); }
       }
 
+      public FireThermalResultVM ThermalResult { get; private set; }
+
       public FireSectionViewModel(FireSectionDef model, AppViewModel app)
       {
          _model = model;
@@ -101,8 +104,35 @@ namespace OpenCS.Views
          meshStepMText = model.MeshStepM.ToString("G", CultureInfo.InvariantCulture);
          timeStepSText = model.TimeStepS.ToString("G", CultureInfo.InvariantCulture);
          bcPreset = model.BcPreset;
+         ThermalResult = BuildThermalVm();
          SaveCommand = new RelayCommand(_ => Save());
          RunThermalCommand = new RelayCommand(_ => RunThermal());
+      }
+
+      FireThermalResultVM BuildThermalVm()
+      {
+         if (_model.Id <= 0)
+            return new FireThermalResultVM(_model, null, null);
+
+         int? rid = _app.db.GetLatestFireThermalResultId(_model.Id);
+         if (rid is null)
+            return new FireThermalResultVM(_model, null, null);
+
+         try
+         {
+            var thermal = _app.db.LoadFireThermalResult(rid.Value);
+            return new FireThermalResultVM(_model, thermal, rid);
+         }
+         catch
+         {
+            return new FireThermalResultVM(_model, null, null);
+         }
+      }
+
+      void RefreshThermalResult()
+      {
+         ThermalResult = BuildThermalVm();
+         OnPropertyChanged(nameof(ThermalResult));
       }
 
       void Save()
@@ -133,6 +163,7 @@ namespace OpenCS.Views
             var result = FireThermalService.Run(_model, section, ResolveAggregateType(section));
             int resultId = _app.db.SaveFireThermalResult(_model.Id, result);
             _app.IsDirty = true;
+            RefreshThermalResult();
             LastRunInfo = string.Format(Loc.S("FireSection_RunOk"), resultId);
             _app.LogService.Info(string.Format(Loc.S("FireSection_RunOkLog"), _model.Tag, resultId));
          }
