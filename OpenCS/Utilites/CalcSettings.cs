@@ -35,7 +35,7 @@ namespace OpenCS.Utilites
       public double HoleThickness { get; set; } = 1.0;
 
       [JsonPropertyName("neutralAxisColor")]
-      public string NeutralAxisColor { get; set; } = "#000000";
+      public string NeutralAxisColor { get; set; } = "#808080";
       [JsonPropertyName("neutralAxisThickness")]
       public double NeutralAxisThickness { get; set; } = 2.0;
 
