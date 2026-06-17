@@ -160,6 +160,10 @@ namespace OpenCS.ViewModels
                   return;
                }
             }
+            else if (ct.Kind == "strain_state_batch")
+            {
+               fi = new LoadItem(); // handler игнорирует item, итерирует через ctx.Database.ForceSets
+            }
             else
             {
                MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
@@ -181,6 +185,7 @@ namespace OpenCS.ViewModels
          {
             "ok"            => "CalcResultOk",
             "not_converged" => "CalcResultNotConverged",
+            "partial"       => "CalcResultPartial",
             "not_passed"    => "CalcResultNotPassed",
             _               => "CalcResultError"
          };
