@@ -331,12 +331,21 @@ namespace OpenCS.Views.Helpers
             }
 
             // Маркер максимального сжатия: точка с мин. ε на границе сечения
-            if (vm.ShowMaxCompr && vm.MaxComprPoint.HasValue)
+            if (vm.ShowMaxCompr && vm.MaxComprData.HasValue)
             {
-                var sc = ToScreen(vm.MaxComprPoint.Value);
+                var (mmPt, mcEps, mcSig) = vm.MaxComprData.Value;
+                var sc = ToScreen(mmPt);
                 double ms = 6;
                 dc.DrawLine(_markerPen, new Point(sc.X - ms, sc.Y), new Point(sc.X + ms, sc.Y));
                 dc.DrawLine(_markerPen, new Point(sc.X, sc.Y - ms), new Point(sc.X, sc.Y + ms));
+                // Подпись: σ в режиме напряжений, ε в режиме деформаций
+                string label = vm.Mode == SectionPlotMode.Stress
+                    ? $"{mcSig:+0.0;-0.0} МПа"
+                    : $"{mcEps:+0.00000;-0.00000}";
+                var tf  = new Typeface("Consolas");
+                var txt = new FormattedText(label, CultureInfo.InvariantCulture,
+                    FlowDirection.LeftToRight, tf, vm.FiberLabelFontSize + 1, Brushes.Black, 1.0);
+                dc.DrawText(txt, new Point(sc.X + ms + 3, sc.Y - txt.Height / 2));
             }
 
             // Нейтральная линия деформаций (ε = 0) — клипируется контуром сечения
