@@ -495,6 +495,9 @@ namespace OpenCS
          }
       }
 
+      /// <summary>Команда создания новой пустой диаграммы σ(ε).</summary>
+      public ICommand AddDiagramCommand { get; set; } = null!;
+
       /// <summary>
       /// Команда привязки для создания нового контура. Открывает пустую страницу контура.
       /// </summary>
@@ -802,6 +805,7 @@ namespace OpenCS
 
       void InitializeCommands()
       {
+         AddDiagramCommand = new RelayCommand(_ => AddDiagram());
          NewContourCommand = new RelayCommand(NewContour);
          NewMaterialCommand = new RelayCommand(NewMaterial);
          DelMaterialCommand = new RelayCommand(DelMaterial);
@@ -873,6 +877,21 @@ namespace OpenCS
       void NewMaterial(object? o = null)
       {
          CurrentPage = new MaterialPage(new Material(0), this);
+      }
+
+      /// <summary>
+      /// <summary>Создаёт новую пустую диаграмму σ(ε) и открывает её страницу редактирования.</summary>
+      void AddDiagram()
+      {
+         var d = new CScore.Diagramm
+         {
+            Tag          = Loc.S("NewDiagram"),
+            CalcType     = CScore.CalcType.C,
+            MaterialType = CScore.MatType.Concrete,
+            Ic           = new CSmath.LSpline(new[] { -0.003, 0.0 }, new[] { -30.0, 0.0 }),
+            It           = new CSmath.LSpline(new[] { 0.0, 0.001  }, new[] {   0.0, 15.0 })
+         };
+         CurrentPage = new Views.DiagramPage(d, this, isNew: true);
       }
 
       /// <summary>
