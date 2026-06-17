@@ -330,14 +330,17 @@ namespace OpenCS.Views.Helpers
                     }
             }
 
-            // Маркер максимального сжатия: точка с мин. ε на границе сечения
+            // Маркер максимального сжатия: кружок с цветом колормапа + подпись
             if (vm.ShowMaxCompr && vm.MaxComprData.HasValue)
             {
                 var (mmPt, mcEps, mcSig) = vm.MaxComprData.Value;
                 var sc = ToScreen(mmPt);
-                double ms = 6;
-                dc.DrawLine(_markerPen, new Point(sc.X - ms, sc.Y), new Point(sc.X + ms, sc.Y));
-                dc.DrawLine(_markerPen, new Point(sc.X, sc.Y - ms), new Point(sc.X, sc.Y + ms));
+                double mcVal = vm.Mode == SectionPlotMode.Stress ? mcSig : mcEps;
+                var mcColor = vm.SmoothColormap
+                    ? ColormapHelper.GetColor(mcVal, vm.ConcreteMin, vm.ConcreteMax, false)
+                    : ColormapHelper.GetDiscreteColor(mcVal, vm.ConcreteMin, vm.ConcreteMax, false);
+                double r = vm.FiberLabelFontSize + 1;   // радиус ≈ размер шрифта подписей
+                dc.DrawEllipse(new SolidColorBrush(mcColor), _outlinePen, sc, r, r);
                 // Подпись: σ в режиме напряжений, ε в режиме деформаций
                 string label = vm.Mode == SectionPlotMode.Stress
                     ? $"{mcSig:+0.0;-0.0} МПа"
@@ -345,7 +348,7 @@ namespace OpenCS.Views.Helpers
                 var tf  = new Typeface("Consolas");
                 var txt = new FormattedText(label, CultureInfo.InvariantCulture,
                     FlowDirection.LeftToRight, tf, vm.FiberLabelFontSize + 1, Brushes.Black, 1.0);
-                dc.DrawText(txt, new Point(sc.X + ms + 3, sc.Y - txt.Height / 2));
+                dc.DrawText(txt, new Point(sc.X + r + 3, sc.Y - txt.Height / 2));
             }
 
             // Нейтральная линия деформаций (ε = 0) — клипируется контуром сечения
