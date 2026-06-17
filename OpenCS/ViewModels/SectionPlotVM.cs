@@ -154,6 +154,7 @@ namespace OpenCS.ViewModels
 
             // Накопители для ц.т. по НДС
             double ea_c = 0, esy_c = 0, esz_c = 0;
+            bool anyMesh = false;
 
             foreach (var area in section.Areas)
             {
@@ -164,6 +165,7 @@ namespace OpenCS.ViewModels
 
                 if (hasMesh)
                 {
+                    anyMesh = true;
                     foreach (var f in area.Fibers.Where(f => f.TypeFiber != FiberType.point))
                     {
                         // f.Sig в кПа → делим на 1000 для МПа
@@ -300,9 +302,10 @@ namespace OpenCS.ViewModels
                 }
             }
 
-            ConcreteFibers = concrete;
-            NoMeshAreas    = noMesh;
-            RebarFibers    = rebar;
+            ConcreteFibers  = concrete;
+            NoMeshAreas     = noMesh;
+            RebarFibers     = rebar;
+            _showFiberGrid  = anyMesh;
 
             NdsCentroid = ea_c > 1e-6 ? new Point(esy_c / ea_c, esz_c / ea_c) : (Point?)null;
 

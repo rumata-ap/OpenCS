@@ -64,7 +64,7 @@ namespace OpenCS.Utilites
 
       /// <summary>Плавная (градиентная) цветовая карта напряжений/деформаций по умолчанию.</summary>
       [JsonPropertyName("smoothColormap")]
-      public bool SmoothColormap { get; set; } = false;
+      public bool SmoothColormap { get; set; } = true;
 
       public static CalcSettings Default => new();
 
