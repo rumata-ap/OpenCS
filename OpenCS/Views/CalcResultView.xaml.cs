@@ -11,11 +11,14 @@ namespace OpenCS.Views
     public CalcResultView(CalcResult result, AppViewModel app)
     {
         var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
-        if (task?.Kind is "fire_r_check" or "fire_r_check_batch")
+        if (task?.Kind is "fire_r_check" or "fire_r_check_batch" or "strain_state_batch")
         {
-            Content = task.Kind == "fire_r_check_batch"
-                ? new FireRCheckBatchResultView(result)
-                : new FireRCheckResultView(result, app, task);
+            if (task.Kind == "fire_r_check_batch")
+                Content = new FireRCheckBatchResultView(result);
+            else if (task.Kind == "strain_state_batch")
+                Content = new StrainStateBatchResultView(result);
+            else
+                Content = new FireRCheckResultView(result, app, task);
             return;
         }
 
