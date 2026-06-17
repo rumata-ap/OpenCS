@@ -136,35 +136,37 @@ namespace OpenCS.ViewModels
             return;
          }
 
-         var fs = _app.BarForceSets.FirstOrDefault(f => f.Id == ct.ForceSetId);
-         var fi = fs?.Items.FirstOrDefault(i => i.Id == ct.ForceItemId);
-         if (fi == null)
+         LoadItem? fi;
+         if (ct.Kind == "strain_state")
          {
-            if (ct.Kind == "strain_state")
+            // Силы всегда берутся из ParamsJson — ForceItemId игнорируется
+            try
             {
-               try
+               using var doc = System.Text.Json.JsonDocument.Parse(ct.ParamsJson);
+               var root = doc.RootElement;
+               fi = new LoadItem
                {
-                  using var doc = System.Text.Json.JsonDocument.Parse(ct.ParamsJson);
-                  var root = doc.RootElement;
-                  fi = new LoadItem
-                  {
-                     N  = root.TryGetProperty("N",  out var nEl)  ? nEl.GetDouble()  : 0,
-                     Mx = root.TryGetProperty("Mx", out var mxEl) ? mxEl.GetDouble() : 0,
-                     My = root.TryGetProperty("My", out var myEl) ? myEl.GetDouble() : 0,
-                  };
-               }
-               catch
-               {
-                  MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-                     MessageBoxButton.OK, MessageBoxImage.Error);
-                  return;
-               }
+                  N  = root.TryGetProperty("N",  out var nEl)  ? nEl.GetDouble()  : 0,
+                  Mx = root.TryGetProperty("Mx", out var mxEl) ? mxEl.GetDouble() : 0,
+                  My = root.TryGetProperty("My", out var myEl) ? myEl.GetDouble() : 0,
+               };
             }
-            else if (ct.Kind == "strain_state_batch")
+            catch
             {
-               fi = new LoadItem(); // handler игнорирует item, итерирует через ctx.Database.ForceSets
+               MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
+                  MessageBoxButton.OK, MessageBoxImage.Error);
+               return;
             }
-            else
+         }
+         else if (ct.Kind == "strain_state_batch")
+         {
+            fi = new LoadItem(); // handler итерирует через ctx.Database.ForceSets
+         }
+         else
+         {
+            var fs = _app.BarForceSets.FirstOrDefault(f => f.Id == ct.ForceSetId);
+            fi = fs?.Items.FirstOrDefault(i => i.Id == ct.ForceItemId);
+            if (fi == null)
             {
                MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
                   MessageBoxButton.OK, MessageBoxImage.Error);

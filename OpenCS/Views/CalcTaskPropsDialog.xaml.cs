@@ -125,12 +125,18 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       get => selectedForceItem;
       set
       {
-         selectedForceItem = value;
          if (value != null && ShowManualForces)
          {
-            ManualN  = value.N .ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
-            ManualMx = value.Mx.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
-            ManualMy = value.My.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
+            // Выбранная строка используется только для заполнения полей; выбор сразу сбрасывается
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            ManualN  = value.N .ToString("G6", inv);
+            ManualMx = value.Mx.ToString("G6", inv);
+            ManualMy = value.My.ToString("G6", inv);
+            selectedForceItem = null;
+         }
+         else
+         {
+            selectedForceItem = value;
          }
          OnPropertyChanged();
       }
@@ -258,8 +264,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
          Kind = Kind,
          SectionId = SelectedSection.Id,
-         ForceSetId  = SelectedForceSet?.Id ?? 0,
-         ForceItemId = ShowForceItem ? (SelectedForceItem?.Id ?? 0) : 0,
+         // Для strain_state силы хранятся в ParamsJson — ForceItemId не используется
+         ForceSetId  = ShowManualForces ? 0 : (SelectedForceSet?.Id ?? 0),
+         ForceItemId = ShowManualForces ? 0 : (ShowForceItem ? (SelectedForceItem?.Id ?? 0) : 0),
          CalcType = SelectedCalcType,
          ParamsJson = paramsJson
       };
