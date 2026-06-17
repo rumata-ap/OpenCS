@@ -62,6 +62,10 @@ namespace OpenCS.Utilites
       [JsonPropertyName("batchParallel")]
       public bool BatchParallel { get; set; } = false;
 
+      /// <summary>Плавная (градиентная) цветовая карта напряжений/деформаций по умолчанию.</summary>
+      [JsonPropertyName("smoothColormap")]
+      public bool SmoothColormap { get; set; } = false;
+
       public static CalcSettings Default => new();
 
       public CalcSettings Clone() => new()
@@ -81,6 +85,7 @@ namespace OpenCS.Utilites
          FiberLabelFontSize    = FiberLabelFontSize,
          Sp63DescEtaMin        = Sp63DescEtaMin,
          BatchParallel         = BatchParallel,
+         SmoothColormap        = SmoothColormap,
       };
    }
 }

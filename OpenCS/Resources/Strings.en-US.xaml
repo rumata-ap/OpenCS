@@ -687,6 +687,8 @@
    <system:String x:Key="PlotShowRebar">Rebar</system:String>
    <system:String x:Key="PlotShowValues">Values</system:String>
    <system:String x:Key="PlotShowMaxCompr">Max compr.</system:String>
+   <system:String x:Key="PlotSmoothColormap">Smooth colormap</system:String>
+   <system:String x:Key="PlotShowFiberGrid">Fiber grid</system:String>
    <system:String x:Key="PlotFitAll">⊡ Fit all</system:String>
    <system:String x:Key="ColorbarMainMaterial">Main material</system:String>
    <system:String x:Key="ColorbarRebar">Rebar</system:String>

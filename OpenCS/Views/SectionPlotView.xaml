@@ -24,7 +24,15 @@
                       IsChecked="{Binding ShowValues}"   Margin="0,0,10,0"
                       VerticalAlignment="Center"/>
             <CheckBox Content="{DynamicResource PlotShowMaxCompr}"
-                      IsChecked="{Binding ShowMaxCompr}" Margin="0,0,14,0"
+                      IsChecked="{Binding ShowMaxCompr}" Margin="0,0,10,0"
+                      VerticalAlignment="Center"/>
+            <Separator Margin="0,0,10,0" Style="{x:Null}"
+                       Width="1" Height="16" Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"/>
+            <CheckBox Content="{DynamicResource PlotSmoothColormap}"
+                      IsChecked="{Binding SmoothColormap}" Margin="0,0,10,0"
+                      VerticalAlignment="Center"/>
+            <CheckBox Content="{DynamicResource PlotShowFiberGrid}"
+                      IsChecked="{Binding ShowFiberGrid}" Margin="0,0,14,0"
                       VerticalAlignment="Center"/>
             <Button Content="{DynamicResource PlotFitAll}"
                     Command="{Binding FitAllCommand}"

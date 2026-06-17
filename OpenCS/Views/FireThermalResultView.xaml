@@ -15,7 +15,7 @@
                   <TextBlock Text="{Binding HeaderText}" FontSize="14" FontWeight="Bold" Margin="0,0,0,4"/>
                   <TextBlock Margin="0,0,0,8">
                      <Run Text="{DynamicResource FireThermal_ResultId}"/>
-                     <Run Text="{Binding ResultIdText}" FontFamily="Consolas"/>
+                     <Run Text="{Binding ResultIdText, Mode=OneWay}" FontFamily="Consolas"/>
                   </TextBlock>
 
                   <GroupBox Header="{DynamicResource FireThermal_TabMetadata}" Margin="0,0,0,6" Padding="8,4">
@@ -57,8 +57,8 @@
                      <DataGrid ItemsSource="{Binding RebarRows}" AutoGenerateColumns="False"
                                IsReadOnly="True" CanUserAddRows="False" MaxHeight="160">
                         <DataGrid.Columns>
-                           <DataGridTextColumn Header="ID" Binding="{Binding IdText}" Width="60"/>
-                           <DataGridTextColumn Header="T_max" Binding="{Binding MaxTempText}" Width="*"/>
+                           <DataGridTextColumn Header="ID" Binding="{Binding IdText, Mode=OneWay}" Width="60"/>
+                           <DataGridTextColumn Header="T_max" Binding="{Binding MaxTempText, Mode=OneWay}" Width="*"/>
                         </DataGrid.Columns>
                      </DataGrid>
                   </GroupBox>

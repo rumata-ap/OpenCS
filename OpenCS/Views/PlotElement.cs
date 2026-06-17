@@ -131,17 +131,26 @@ namespace OpenCS.Views
          }
          else
          {
-            var stream = new StreamGeometry();
+            var stream = new StreamGeometry { FillRule = FillRule.EvenOdd };
             using (var ctx = stream.Open())
             {
                foreach (var f in Fibers)
                {
                   if (f.WKT == null) continue;
-                  WktHelper.ParseWKTPolygon(f.WKT, out var xs, out var ys, out _, out _);
+                  WktHelper.ParseWKTPolygon(f.WKT, out var xs, out var ys, out var holeXs, out var holeYs);
                   if (xs.Count < 3) continue;
                   ctx.BeginFigure(toPixel(xs[0], ys[0]), isFilled: true, isClosed: true);
                   for (int i = 1; i < xs.Count; i++)
                      ctx.LineTo(toPixel(xs[i], ys[i]), isStroked: true, isSmoothJoin: false);
+                  // Отверстия добавляются отдельными фигурами; EvenOdd превращает их в вырезы
+                  for (int h = 0; h < holeXs.Count; h++)
+                  {
+                     var hx = holeXs[h]; var hy = holeYs[h];
+                     if (hx.Count < 3) continue;
+                     ctx.BeginFigure(toPixel(hx[0], hy[0]), isFilled: true, isClosed: true);
+                     for (int i = 1; i < hx.Count; i++)
+                        ctx.LineTo(toPixel(hx[i], hy[i]), isStroked: false, isSmoothJoin: false);
+                  }
                }
             }
             stream.Freeze();

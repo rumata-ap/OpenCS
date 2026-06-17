@@ -85,6 +85,11 @@ namespace OpenCS.ViewModels
                Xs = [.. hull.X], Ys = [.. hull.Y],
                Fill = fill, Stroke = brush, StrokeThickness = 1.5
             });
+         var meshFibers = area.Fibers
+            .Where(f => f.TypeFiber is FiberType.poly or FiberType.tri)
+            .ToArray();
+         if (meshFibers.Length > 0)
+            elements.Add(new FiberMeshElement { Fibers = meshFibers, ShowCentroids = false });
          foreach (var hole in area.Holes)
             if (hole.X.Count > 0)
                elements.Add(new PolygonElement
@@ -92,6 +97,7 @@ namespace OpenCS.ViewModels
                   Xs = [.. hole.X], Ys = [.. hole.Y],
                   Fill = Brushes.White, Stroke = Brushes.Gray, StrokeThickness = 1
                });
+
          foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
             elements.Add(new CircleElement
             {

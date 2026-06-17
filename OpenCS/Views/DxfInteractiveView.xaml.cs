@@ -190,12 +190,30 @@ namespace OpenCS.Views
          double s = Scale;
          double thr = s > 1e-10 ? HitThresholdPx / s : double.MaxValue;
 
+         // Среди окружностей, содержащих точку клика, выбираем ту, чья граница
+         // ближайшая (наименьшее R−d). Для кольцевого сечения внутренняя окружность
+         // всегда побеждает внешнюю независимо от порядка в списке примитивов.
          DxfPrimitive? best = null;
-         double bestDist = thr;
+         double bestInsideDist = double.MaxValue;
          foreach (var p in _primitives)
          {
-            double d = HitDistance(p, dx, dy);
-            if (d < bestDist) { bestDist = d; best = p; }
+            if (p.Kind != DxfPrimitiveKind.Circle) continue;
+            double d = Math.Sqrt((dx - p.CenterX) * (dx - p.CenterX) +
+                                 (dy - p.CenterY) * (dy - p.CenterY));
+            if (d > p.Radius) continue;
+            double distToBoundary = p.Radius - d;
+            if (distToBoundary < bestInsideDist) { bestInsideDist = distToBoundary; best = p; }
+         }
+
+         // Если клик не попал внутрь ни одной окружности — стандартный поиск
+         if (best == null)
+         {
+            double bestDist = thr;
+            foreach (var p in _primitives)
+            {
+               double d = HitDistance(p, dx, dy);
+               if (d < bestDist) { bestDist = d; best = p; }
+            }
          }
 
          // Сначала уведомляем VM (она присваивает роль), затем обновляем цвета
@@ -206,8 +224,8 @@ namespace OpenCS.Views
             UpdateStyle((Shape)InnerCanvas.Children[i], _primitives[i]);
       }
 
-      // Расстояние до примитива в DXF-пространстве.
-      // Для окружностей: 0 если клик внутри — окружность всегда побеждает контур.
+      // Расстояние от точки клика до границы примитива (в DXF-пространстве).
+      // Для окружностей: 0 если внутри, d−R если снаружи.
       private static double HitDistance(DxfPrimitive p, double dx, double dy)
       {
          if (p.Kind == DxfPrimitiveKind.Circle)

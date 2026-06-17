@@ -143,14 +143,6 @@ namespace OpenCS.ViewModels
                Fill = fillBrush, Stroke = typeBrush, StrokeThickness = 1.5
             });
 
-         foreach (var hole in _model.Holes)
-            if (hole.X.Count > 0)
-               elements.Add(new PolygonElement
-               {
-                  Xs = [.. hole.X], Ys = [.. hole.Y],
-                  Fill = Brushes.White, Stroke = Brushes.Gray, StrokeThickness = 1
-               });
-
          var meshFibers = _model.Fibers
             .Where(f => f.TypeFiber is FiberType.poly or FiberType.tri)
             .ToArray();
@@ -168,6 +160,14 @@ namespace OpenCS.ViewModels
                MarkerSize = ps.CentroidSize
             });
          }
+
+         foreach (var hole in _model.Holes)
+            if (hole.X.Count > 0)
+               elements.Add(new PolygonElement
+               {
+                  Xs = [.. hole.X], Ys = [.. hole.Y],
+                  Fill = Brushes.White, Stroke = Brushes.Gray, StrokeThickness = 1
+               });
 
          foreach (var f in _model.Fibers.Where(f => f.TypeFiber == FiberType.point))
             elements.Add(new CircleElement

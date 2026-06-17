@@ -20,7 +20,15 @@ namespace OpenCS.ViewModels
         string Tooltip,
         double Sigma,      // σ [МПа], всегда
         double Eps,        // деформация, всегда
-        double AreaMm2);   // площадь фибры [мм²]
+        double AreaMm2)    // площадь фибры [мм²]
+    {
+        /// <summary>Кольца отверстий в координатах мм (пусто для большинства фибр).</summary>
+        public IReadOnlyList<IReadOnlyList<Point>> Holes { get; init; } = [];
+        /// <summary>Вершина с минимальным значением σ/ε для построения градиентной кисти.</summary>
+        public (Point pt, double val) GradientMin { get; init; }
+        /// <summary>Вершина с максимальным значением σ/ε для построения градиентной кисти.</summary>
+        public (Point pt, double val) GradientMax { get; init; }
+    }
 
     /// <summary>Данные для области без сетки — контур + значения в вершинах.</summary>
     public record NoMeshAreaDrawData(
@@ -67,7 +75,8 @@ namespace OpenCS.ViewModels
 
         // ── Чекбоксы ─────────────────────────────────────────────────
         bool _showConcrete = true, _showRebar = true,
-             _showValues   = false, _showMaxCompr = false;
+             _showValues   = false, _showMaxCompr = false,
+             _smoothColormap, _showFiberGrid;
 
         public bool ShowConcrete
         {
@@ -88,6 +97,16 @@ namespace OpenCS.ViewModels
         {
             get => _showMaxCompr;
             set { _showMaxCompr = value; OnPropertyChanged(); NeedRedraw++; OnPropertyChanged(nameof(NeedRedraw)); }
+        }
+        public bool SmoothColormap
+        {
+            get => _smoothColormap;
+            set { _smoothColormap = value; OnPropertyChanged(); NeedRedraw++; OnPropertyChanged(nameof(NeedRedraw)); }
+        }
+        public bool ShowFiberGrid
+        {
+            get => _showFiberGrid;
+            set { _showFiberGrid = value; OnPropertyChanged(); NeedRedraw++; OnPropertyChanged(nameof(NeedRedraw)); }
         }
 
         // Триггер перерисовки для FiberCanvas
@@ -117,6 +136,7 @@ namespace OpenCS.ViewModels
             Mode = mode;
 
             var cs = settings ?? CalcSettings.Default;
+            _smoothColormap       = cs.SmoothColormap;
             int gridDensity       = cs.GridDensity;
             HullColorHex          = cs.HullColor;
             HullThickness         = cs.HullThickness;
@@ -148,7 +168,7 @@ namespace OpenCS.ViewModels
                     {
                         // f.Sig в кПа → делим на 1000 для МПа
                         double val = mode == SectionPlotMode.Stress ? f.Sig / 1000.0 : f.Eps;
-                        var pts = ParseWkt(f.WKT);
+                        var (pts, fiberHoles) = ParseWktFull(f.WKT);
                         if (pts == null || pts.Count < 3) continue;
                         var centroid  = new Point(f.X * 1000, f.Y * 1000);
                         double sigMpa = f.Sig / 1000.0;
@@ -157,13 +177,34 @@ namespace OpenCS.ViewModels
                                      $"σ = {sigMpa:+0.0;-0.0} МПа\n" +
                                      $"ε = {f.Eps:+0.00000;-0.00000}\n" +
                                      $"A = {aMm2:F0} мм²";
-                        concrete.Add(new FiberDrawData(pts, centroid, val, isRebar, tip, sigMpa, f.Eps, aMm2));
+                        // Концы градиентной кисти: вершины с min/max значением σ или ε
+                        var gMin = (pt: pts[0], val: double.MaxValue);
+                        var gMax = (pt: pts[0], val: double.MinValue);
+                        foreach (var v in pts)
+                        {
+                            double eps_v = k.e0 + k.ky * (v.Y / 1000.0) + k.kz * (v.X / 1000.0);
+                            double val_v = mode == SectionPlotMode.Stress
+                                ? dgr.SigValue(eps_v) / 1000.0 : eps_v;
+                            if (val_v < gMin.val) gMin = (v, val_v);
+                            if (val_v > gMax.val) gMax = (v, val_v);
+                        }
+                        concrete.Add(new FiberDrawData(pts, centroid, val, isRebar, tip, sigMpa, f.Eps, aMm2)
+                            { Holes = fiberHoles, GradientMin = gMin, GradientMax = gMax });
                         // Центр тяжести НДС
                         double esf = Math.Abs(f.Eps) > 1e-9 ? Math.Abs(f.Sig / 1000.0 / f.Eps) : E0;
                         double amm2f = f.Area * 1e6;
                         ea_c  += esf * amm2f;
                         esy_c += esf * amm2f * f.X * 1000;
                         esz_c += esf * amm2f * f.Y * 1000;
+                    }
+                    // Контуры hull/holes для сеточных областей — рисуются поверх фибр
+                    if (area.Hull != null && !isRebar)
+                    {
+                        var hullPts = ToPointsMm(area.Hull.X, area.Hull.Y);
+                        var holePts = area.Holes
+                            .Select(h => (IReadOnlyList<Point>)ToPointsMm(h.X, h.Y))
+                            .ToList();
+                        noMesh.Add(new NoMeshAreaDrawData(hullPts, holePts, [], $"{area.Tag} (контур)"));
                     }
                 }
                 else if (area.Hull != null && !isRebar)
@@ -293,15 +334,25 @@ namespace OpenCS.ViewModels
             FitAllCommand = new RelayCommand(_ => FitAllRequested?.Invoke());
         }
 
-        static IReadOnlyList<Point>? ParseWkt(string? wkt)
+        static (IReadOnlyList<Point>? outer, IReadOnlyList<IReadOnlyList<Point>> holes) ParseWktFull(string? wkt)
         {
-            if (string.IsNullOrEmpty(wkt)) return null;
-            WktHelper.ParseWKTPolygon(wkt, out var xs, out var ys, out _, out _);
-            if (xs == null || xs.Count < 3) return null;
+            if (string.IsNullOrEmpty(wkt)) return (null, []);
+            WktHelper.ParseWKTPolygon(wkt, out var xs, out var ys, out var holeXs, out var holeYs);
+            if (xs == null || xs.Count < 3) return (null, []);
             var pts = new List<Point>(xs.Count);
             for (int i = 0; i < xs.Count; i++)
-                pts.Add(new Point(xs[i] * 1000, ys[i] * 1000)); // м → мм
-            return pts;
+                pts.Add(new Point(xs[i] * 1000, ys[i] * 1000));
+            var holes = new List<IReadOnlyList<Point>>(holeXs.Count);
+            for (int h = 0; h < holeXs.Count; h++)
+            {
+                var hx = holeXs[h]; var hy = holeYs[h];
+                if (hx.Count < 3) continue;
+                var hpts = new List<Point>(hx.Count);
+                for (int i = 0; i < hx.Count; i++)
+                    hpts.Add(new Point(hx[i] * 1000, hy[i] * 1000));
+                holes.Add(hpts);
+            }
+            return (pts, holes);
         }
 
         static IReadOnlyList<Point> ToPointsMm(IList<double> xs, IList<double> ys)

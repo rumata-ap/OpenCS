@@ -690,6 +690,8 @@
    <system:String x:Key="PlotShowRebar">Арматура</system:String>
    <system:String x:Key="PlotShowValues">Значения</system:String>
    <system:String x:Key="PlotShowMaxCompr">Макс. сжатие</system:String>
+   <system:String x:Key="PlotSmoothColormap">Плавная карта</system:String>
+   <system:String x:Key="PlotShowFiberGrid">Сетка фибр</system:String>
    <system:String x:Key="PlotFitAll">⊡ Показать всё</system:String>
    <system:String x:Key="ColorbarMainMaterial">Осн. материал</system:String>
    <system:String x:Key="ColorbarRebar">Арматура</system:String>

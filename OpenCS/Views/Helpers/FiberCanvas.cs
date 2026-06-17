@@ -83,6 +83,8 @@ namespace OpenCS.Views.Helpers
         static readonly Pen _transparentPen = new(Brushes.Transparent, 0);
         static readonly Pen _outlinePen     = new(Brushes.Black, 0.5);
         static readonly Pen _markerPen      = new(Brushes.DarkBlue, 2);
+        static readonly Pen _gridPen        = MakeFreezePen(
+            new SolidColorBrush(Color.FromArgb(70, 20, 20, 20)), 0.4);
 
         public FiberCanvas()
         {
@@ -201,23 +203,81 @@ namespace OpenCS.Views.Helpers
             var holePen    = MakePen(vm.HoleColorHex,       vm.HoleThickness);
             var neutralPen = MakeDashedPen(ParseBrush(vm.NeutralAxisColorHex), vm.NeutralAxisThickness);
 
-            // Контуры бессеточных областей — ВСЕГДА (независимо от ShowConcrete)
-            foreach (var a in vm.NoMeshAreas)
-                DrawNoMesh(dc, a, vm.ShowValues, hullPen, holePen, vm.FiberLabelFontSize);
+            // Клип по контурам сечения (hull − holes) — переиспользуется для сетки и нейтральной линии
+            Geometry? sectionClip = null;
+            if (vm.NoMeshAreas.Count > 0)
+            {
+                var clipGeom = new StreamGeometry { FillRule = FillRule.EvenOdd };
+                using (var clipCtx = clipGeom.Open())
+                {
+                    foreach (var a in vm.NoMeshAreas)
+                    {
+                        if (a.Hull.Count >= 3)
+                        {
+                            clipCtx.BeginFigure(ToScreen(a.Hull[0]), isFilled: true, isClosed: true);
+                            for (int i = 1; i < a.Hull.Count; i++)
+                                clipCtx.LineTo(ToScreen(a.Hull[i]), isStroked: false, isSmoothJoin: false);
+                        }
+                        foreach (var hole in a.Holes)
+                        {
+                            if (hole.Count < 3) continue;
+                            clipCtx.BeginFigure(ToScreen(hole[0]), isFilled: true, isClosed: true);
+                            for (int i = 1; i < hole.Count; i++)
+                                clipCtx.LineTo(ToScreen(hole[i]), isStroked: false, isSmoothJoin: false);
+                        }
+                    }
+                }
+                clipGeom.Freeze();
+                sectionClip = clipGeom;
+            }
 
             // Основной материал (фибры и псевдофибры)
-            bool isStressMode = vm.Mode == SectionPlotMode.Stress;
+            bool isStressMode  = vm.Mode == SectionPlotMode.Stress;
+            bool smoothColormap = vm.SmoothColormap;
             if (vm.ShowConcrete)
             {
                 foreach (var f in vm.ConcreteFibers)
                 {
-                    Brush brush = (isStressMode && Math.Abs(f.Value) < 1e-9)
-                        ? Brushes.White
-                        : new SolidColorBrush(
-                            ColormapHelper.GetDiscreteColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar));
-                    dc.DrawGeometry(brush, _transparentPen, BuildPath(f.Vertices));
+                    Brush brush;
+                    if (isStressMode && Math.Abs(f.Value) < 1e-9)
+                    {
+                        brush = Brushes.White;
+                    }
+                    else if (smoothColormap &&
+                             Math.Abs(f.GradientMax.val - f.GradientMin.val) > 1e-10)
+                    {
+                        var c0 = ColormapHelper.GetColor(f.GradientMin.val,
+                            vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
+                        var c1 = ColormapHelper.GetColor(f.GradientMax.val,
+                            vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
+                        var lgb = new LinearGradientBrush(c0, c1,
+                            ToScreen(f.GradientMin.pt), ToScreen(f.GradientMax.pt));
+                        lgb.MappingMode = BrushMappingMode.Absolute;
+                        brush = lgb;
+                    }
+                    else
+                    {
+                        var color = smoothColormap
+                            ? ColormapHelper.GetColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar)
+                            : ColormapHelper.GetDiscreteColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
+                        brush = new SolidColorBrush(color);
+                    }
+                    dc.DrawGeometry(brush, _transparentPen, BuildPathWithHoles(f.Vertices, f.Holes));
                 }
             }
+
+            // Сетка фибр — тонкие полупрозрачные контуры ячеек поверх заливки
+            if (vm.ShowFiberGrid && vm.ShowConcrete && sectionClip != null)
+            {
+                dc.PushClip(sectionClip);
+                foreach (var f in vm.ConcreteFibers)
+                    dc.DrawGeometry(null, _gridPen, BuildPath(f.Vertices));
+                dc.Pop();
+            }
+
+            // Контуры областей — ВСЕГДА и поверх фибр
+            foreach (var a in vm.NoMeshAreas)
+                DrawNoMesh(dc, a, vm.ShowValues, hullPen, holePen, vm.FiberLabelFontSize);
 
             // Арматура
             if (vm.ShowRebar)
@@ -289,12 +349,14 @@ namespace OpenCS.Views.Helpers
                 }
             }
 
-            // Нейтральная линия деформаций (ε = 0)
+            // Нейтральная линия деформаций (ε = 0) — клипируется контуром сечения
             if (vm.NeutralAxis?.Count == 2)
             {
                 var p1 = ToScreen(vm.NeutralAxis[0]);
                 var p2 = ToScreen(vm.NeutralAxis[1]);
+                if (sectionClip != null) dc.PushClip(sectionClip);
                 dc.DrawLine(neutralPen, p1, p2);
+                if (sectionClip != null) dc.Pop();
             }
 
             // Центр тяжести НДС
@@ -346,6 +408,25 @@ namespace OpenCS.Views.Helpers
             ctx.BeginFigure(ToScreen(vertices[0]), true, true);
             for (int i = 1; i < vertices.Count; i++)
                 ctx.LineTo(ToScreen(vertices[i]), true, false);
+            geom.Freeze();
+            return geom;
+        }
+
+        Geometry BuildPathWithHoles(IReadOnlyList<Point> outer, IReadOnlyList<IReadOnlyList<Point>> holes)
+        {
+            if (holes.Count == 0) return BuildPath(outer);
+            var geom = new StreamGeometry { FillRule = FillRule.EvenOdd };
+            using var ctx = geom.Open();
+            ctx.BeginFigure(ToScreen(outer[0]), true, true);
+            for (int i = 1; i < outer.Count; i++)
+                ctx.LineTo(ToScreen(outer[i]), true, false);
+            foreach (var hole in holes)
+            {
+                if (hole.Count < 3) continue;
+                ctx.BeginFigure(ToScreen(hole[0]), true, true);
+                for (int i = 1; i < hole.Count; i++)
+                    ctx.LineTo(ToScreen(hole[i]), false, false);
+            }
             geom.Freeze();
             return geom;
         }
