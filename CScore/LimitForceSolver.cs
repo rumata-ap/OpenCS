@@ -1,22 +1,20 @@
 namespace CScore;
 
 /// <summary>
-/// Поиск предельного коэффициента пропорционального нагружения.
+/// Поиск предельного коэффициента нагружения методом бисекции
+/// с явной проверкой деформаций контура и арматуры.
 /// </summary>
-public sealed class LimitForceSolver
+public sealed class LimitForceSolver : ILimitForceSolver
 {
    readonly ILimitSection _section;
+   readonly CrossSection _guessSection;
    readonly CalcType _calc;
    readonly LimitSectionStrainSolver _solver;
    readonly double _solverTol;
-   readonly bool _ten;
-   readonly bool _ca;
    readonly double _bisectTol;
    readonly int _bisectMaxIter;
 
-   /// <summary>
-   /// Создаёт решатель предельного коэффициента.
-   /// </summary>
+   /// <summary>Создаёт бисекционный решатель предельных усилий.</summary>
    public LimitForceSolver(
       ILimitSection section,
       CrossSection guessSection,
@@ -24,41 +22,53 @@ public sealed class LimitForceSolver
       double solverTol = 0.5,
       int solverMaxIter = 60,
       double solverStep = 1e-7,
-      bool ten = true,
-      bool ca = true,
       double bisectTol = 1e-4,
       int bisectMaxIter = 60)
    {
       _section = section ?? throw new ArgumentNullException(nameof(section));
-      guessSection ??= section is CrossSectionLimitAdapter adapter
+      _guessSection = guessSection ?? (section is CrossSectionLimitAdapter adapter
          ? adapter.Section
          : throw new ArgumentException(
             "Для ILimitSection, отличного от CrossSectionLimitAdapter, требуется guessSection.",
-            nameof(guessSection));
+            nameof(guessSection)));
 
       _calc = calc;
       _solverTol = solverTol;
-      _ten = ten;
-      _ca = ca;
       _bisectTol = bisectTol;
       _bisectMaxIter = bisectMaxIter;
-      _solver = new LimitSectionStrainSolver(section, guessSection, calc, solverTol, solverMaxIter, solverStep);
+      _solver = new LimitSectionStrainSolver(section, _guessSection, calc, solverTol, solverMaxIter, solverStep);
    }
 
    /// <summary>Создаёт решатель для обычного сечения через адаптер.</summary>
-   public static LimitForceSolver ForCrossSection(CrossSection section, CalcType calc = CalcType.C)
-      => new(new CrossSectionLimitAdapter(section, calc), section, calc);
+   public static LimitForceSolver ForCrossSection(
+      CrossSection section,
+      CalcType calc = CalcType.C,
+      double solverTol = 0.5,
+      int solverMaxIter = 60,
+      double bisectTol = 1e-4,
+      int bisectMaxIter = 60)
+      => new(new CrossSectionLimitAdapter(section, calc), section, calc,
+         solverTol, solverMaxIter, bisectTol: bisectTol, bisectMaxIter: bisectMaxIter);
 
-   /// <summary>
-   /// Предельный коэффициент пропорционального нагружения k·(N, Mx, My).
-   /// </summary>
+   /// <inheritdoc/>
    public LimitForceResult AllFactor(double n, double mx, double my)
+      => Bisect(k => k * n, k => k * mx, k => k * my);
+
+   /// <inheritdoc/>
+   public LimitForceResult MomentFactor(double n, double mx, double my)
+      => Bisect(_ => n, k => k * mx, k => k * my);
+
+   /// <inheritdoc/>
+   public LimitForceResult AxialFactor(double n, double mx, double my)
+      => Bisect(k => k * n, _ => mx, _ => my);
+
+   LimitForceResult Bisect(Func<double, double> nFn, Func<double, double> mxFn, Func<double, double> myFn)
    {
       int totalNewton = 0;
 
       (bool Feasible, Kurvature? StrainPlane) FeasibleAt(double k)
       {
-         bool ok = IsFeasible(k * n, k * mx, k * my, out var sp);
+         bool ok = IsFeasible(nFn(k), mxFn(k), myFn(k), out var sp);
          totalNewton += _solver.Iterations;
          return (ok, sp);
       }
@@ -94,25 +104,7 @@ public sealed class LimitForceSolver
       }
 
       if (!feasibleSeen || a is null)
-      {
-         return new LimitForceResult
-         {
-            Factor = 0.0,
-            Utilization = double.PositiveInfinity,
-            Converged = false,
-            Iterations = 0,
-            NewtonIterations = totalNewton,
-            StrainPlane = null,
-            NLimit = 0.0,
-            MxLimit = 0.0,
-            MyLimit = 0.0,
-            EpsContourMin = 0.0,
-            EpsCu = _section.EpsCu,
-            EpsRebarMax = null,
-            EpsSu = null,
-            Governing = "none"
-         };
-      }
+         return EmptyResult(totalNewton, nFn(0), mxFn(0), myFn(0));
 
       if (b is null)
       {
@@ -125,13 +117,11 @@ public sealed class LimitForceSolver
             Iterations = 0,
             NewtonIterations = totalNewton,
             StrainPlane = null,
-            NLimit = ka * n,
-            MxLimit = ka * mx,
-            MyLimit = ka * my,
+            NLimit = nFn(ka),
+            MxLimit = mxFn(ka),
+            MyLimit = myFn(ka),
             EpsContourMin = 0.0,
             EpsCu = _section.EpsCu,
-            EpsRebarMax = null,
-            EpsSu = null,
             Governing = "none"
          };
       }
@@ -159,12 +149,41 @@ public sealed class LimitForceSolver
             break;
       }
 
-      bool converged = (right - left) <= _bisectTol * 10.0;
-      double kFinal = left;
+      return BuildResult(
+         left, nIter, totalNewton, bestSp,
+         (right - left) <= _bisectTol * 10.0,
+         nFn, mxFn, myFn);
+   }
 
+   LimitForceResult EmptyResult(int totalNewton, double n0, double mx0, double my0)
+      => new()
+      {
+         Factor = 0.0,
+         Utilization = double.PositiveInfinity,
+         Converged = false,
+         Iterations = 0,
+         NewtonIterations = totalNewton,
+         NLimit = n0,
+         MxLimit = mx0,
+         MyLimit = my0,
+         EpsCu = _section.EpsCu,
+         Governing = "none"
+      };
+
+   LimitForceResult BuildResult(
+      double k,
+      int nIter,
+      int totalNewton,
+      Kurvature? bestSp,
+      bool converged,
+      Func<double, double> nFn,
+      Func<double, double> mxFn,
+      Func<double, double> myFn)
+   {
       double epsContourMin = 0.0;
       double? epsRebarMax = null;
       double? epsSu = null;
+
       if (bestSp.HasValue)
       {
          var sp = bestSp.Value;
@@ -184,25 +203,21 @@ public sealed class LimitForceSolver
       bool rebarGoverns = epsRebarMax.HasValue && epsSu.HasValue
          && Math.Abs(epsRebarMax.Value - epsSu.Value) < Math.Abs(epsSu.Value) * govTol;
 
-      string governing = concGoverns && rebarGoverns
-         ? "both"
-         : rebarGoverns
-            ? "rebar"
-            : concGoverns
-               ? "concrete"
-               : "none";
+      string governing = concGoverns && rebarGoverns ? "both"
+         : rebarGoverns ? "rebar"
+         : "concrete";
 
       return new LimitForceResult
       {
-         Factor = kFinal,
-         Utilization = kFinal > 1e-15 ? 1.0 / kFinal : double.PositiveInfinity,
+         Factor = k,
+         Utilization = k > 1e-15 ? 1.0 / k : double.PositiveInfinity,
          Converged = converged,
          Iterations = nIter,
          NewtonIterations = totalNewton,
          StrainPlane = bestSp,
-         NLimit = kFinal * n,
-         MxLimit = kFinal * mx,
-         MyLimit = kFinal * my,
+         NLimit = nFn(k),
+         MxLimit = mxFn(k),
+         MyLimit = myFn(k),
          EpsContourMin = epsContourMin,
          EpsCu = _section.EpsCu,
          EpsRebarMax = epsRebarMax,
@@ -216,6 +231,7 @@ public sealed class LimitForceSolver
       strainPlane = null;
 
       Kurvature k = _solver.Solve(n, mx, my);
+
       if (!_solver.Converged || _solver.Residual > _solverTol)
          return false;
 
