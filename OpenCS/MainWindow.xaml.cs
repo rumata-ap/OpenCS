@@ -34,10 +34,11 @@ namespace OpenCS
          vm = (AppViewModel)DataContext;
 
          vm.LogService.LogEntries.CollectionChanged += (_, _) =>
-         {
-            if (LoggerListBox.Items.Count > 0)
-               LoggerListBox.ScrollIntoView(LoggerListBox.Items[^1]);
-         };
+            Dispatcher.BeginInvoke(() =>
+            {
+               if (LoggerListBox.Items.Count > 0)
+                  LoggerListBox.ScrollIntoView(LoggerListBox.Items[^1]);
+            });
 
          Loaded += (_, _) =>
          {
