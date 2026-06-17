@@ -18,7 +18,16 @@ namespace OpenCS.Views
          {
             if (e.PropertyName == nameof(MaterialAreaVM.PlotElements))
                UpdatePlot();
+            if (e.PropertyName is nameof(MaterialAreaVM.IsCustomMaterial)
+                               or nameof(MaterialAreaVM.Material))
+               diagramTypePanel.Visibility = _vm.IsCustomMaterial
+                   ? System.Windows.Visibility.Collapsed
+                   : System.Windows.Visibility.Visible;
          };
+         // Установить начальную видимость
+         diagramTypePanel.Visibility = _vm.IsCustomMaterial
+             ? System.Windows.Visibility.Collapsed
+             : System.Windows.Visibility.Visible;
          _vm.RefreshPlot();
       }
 

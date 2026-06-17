@@ -53,6 +53,37 @@
          </TextBlock.Text>
       </TextBlock>
 
+      <!-- Custom-материал: BaseType + 4 ComboBox диаграмм (перекрывает standardBodyBlock в Row=3) -->
+      <StackPanel x:Name="customBlock"
+                  Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="5"
+                  Margin="8,8,8,0"
+                  Visibility="Collapsed">
+         <TextBlock Text="{DynamicResource BaseType}" Foreground="#FF2813EB" Margin="0,0,0,4"/>
+         <ComboBox x:Name="baseTypeCombo" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+
+         <TextBlock Text="{DynamicResource DiagramsForCalcTypes}" Foreground="#FF2813EB" Margin="0,0,0,4"/>
+         <Grid>
+            <Grid.ColumnDefinitions>
+               <ColumnDefinition Width="35"/>
+               <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="C:"  VerticalAlignment="Center"/>
+            <ComboBox  Grid.Row="0" Grid.Column="1" x:Name="diagramC"  DisplayMemberPath="Tag" Margin="0,2"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="CL:" VerticalAlignment="Center"/>
+            <ComboBox  Grid.Row="1" Grid.Column="1" x:Name="diagramCL" DisplayMemberPath="Tag" Margin="0,2"/>
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="N:"  VerticalAlignment="Center"/>
+            <ComboBox  Grid.Row="2" Grid.Column="1" x:Name="diagramN"  DisplayMemberPath="Tag" Margin="0,2"/>
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="NL:" VerticalAlignment="Center"/>
+            <ComboBox  Grid.Row="3" Grid.Column="1" x:Name="diagramNL" DisplayMemberPath="Tag" Margin="0,2"/>
+         </Grid>
+      </StackPanel>
+
       <Grid Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="5">
          <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
@@ -108,11 +139,12 @@
       </DockPanel>
 
 
-      <Border Margin="5,0,5,0" 
-                BorderBrush="Black" 
-                BorderThickness="1" 
-                Grid.Row="2" Grid.Column="0" 
-                Grid.ColumnSpan="5" 
+      <Border x:Name="standardHeaderBlock"
+                Margin="5,0,5,0"
+                BorderBrush="Black"
+                BorderThickness="1"
+                Grid.Row="2" Grid.Column="0"
+                Grid.ColumnSpan="5"
                 CornerRadius="5,5,0,0">
 
          <Grid ShowGridLines="True">
@@ -155,11 +187,12 @@
 
       </Border>
 
-      <Border Margin="5,0,5,5" 
-                BorderBrush="Black" 
-                BorderThickness="1" 
-                Grid.Row="3" Grid.Column="0" 
-                Grid.ColumnSpan="5" 
+      <Border x:Name="standardBodyBlock"
+                Margin="5,0,5,5"
+                BorderBrush="Black"
+                BorderThickness="1"
+                Grid.Row="3" Grid.Column="0"
+                Grid.ColumnSpan="5"
                 CornerRadius="0,0,5,5">
          <Grid ShowGridLines="True">
             <Grid.RowDefinitions>

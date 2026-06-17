@@ -1,9 +1,8 @@
 using CScore;
-
-
 using OpenCS.Utilites;
 using OpenCS.Views;
 
+using System.Collections.Generic;
 using System.Windows.Input;
 
 namespace OpenCS.ViewModels
@@ -143,6 +142,8 @@ namespace OpenCS.ViewModels
          IsSaved = false;
          Material = new Material(0);
          Tag = ""; Description = ""; Type = MatType.None; AggregateType = "silicate";
+         material.BaseType = MatType.None;
+         material.CustomDiagramIds = [];
       }
 
       /// <summary>
@@ -217,8 +218,27 @@ namespace OpenCS.ViewModels
       public MatType Type
       {
          get { return material.Type; }
-         set { material.Type = value; OnPropertyChanged(); OnPropertyChanged(nameof(IsConcrete)); }
+         set
+         {
+            material.Type = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsConcrete));
+            OnPropertyChanged(nameof(IsCustom));
+         }
       }
+
+      /// <summary>true если материал — Custom-тип.</summary>
+      public bool IsCustom => material.Type == MatType.Custom;
+
+      /// <summary>Базовый тип поведения σ(ε) для Custom-материала.</summary>
+      public MatType BaseType
+      {
+         get => material.BaseType;
+         set { material.BaseType = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>Словарь Id диаграмм по видам расчёта для Custom-материала.</summary>
+      public Dictionary<CScore.CalcType, int> CustomDiagramIds => material.CustomDiagramIds;
 
       /// <summary>
       /// Признак бетона — для отображения полей, специфичных для бетона.

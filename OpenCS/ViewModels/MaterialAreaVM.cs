@@ -51,14 +51,18 @@ namespace OpenCS.ViewModels
          {
             _model.Material = value;
             _model.MaterialId = value?.Id ?? 0;
-            _model.ResolveAndBuildDiagramms();
+            _model.ResolveAndBuildDiagramms(pool: App.db.Diagrams);
             OnPropertyChanged();
             OnPropertyChanged(nameof(MaterialType));
+            OnPropertyChanged(nameof(IsCustomMaterial));
             RefreshPlot();
          }
       }
 
       public MatType MaterialType => _model.Material?.Type ?? MatType.None;
+
+      /// <summary>true если назначенный материал — Custom (для скрытия DiagrammType-комбо в UI).</summary>
+      public bool IsCustomMaterial => _model.Material?.Type == MatType.Custom;
 
       public DiagrammType DiagrammType
       {
@@ -66,7 +70,7 @@ namespace OpenCS.ViewModels
          set
          {
             _model.DiagrammType = value;
-            _model.ResolveAndBuildDiagramms();
+            _model.ResolveAndBuildDiagramms(pool: App.db.Diagrams);
             OnPropertyChanged();
          }
       }
