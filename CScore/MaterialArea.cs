@@ -145,22 +145,24 @@ namespace CScore
       }
 
       /// <summary>Назначает материал и строит диаграммы.</summary>
-      public void SetMaterial(Material material, DiagrammType diagrammType)
+      /// <param name="sp63EtaMin">Нижняя граница нисходящей ветви SP63 (по умолчанию 0.85).</param>
+      public void SetMaterial(Material material, DiagrammType diagrammType, double sp63EtaMin = 0.85)
       {
          Material = material;
          MaterialId = material.Id;
          DiagrammType = diagrammType;
-         Diagramms = material.GetDiagramms(diagrammType)!;
+         Diagramms = material.GetDiagramms(diagrammType, sp63EtaMin)!;
       }
 
       /// <summary>
       /// Пересчитывает диаграммы после загрузки из БД.
       /// Для арматурной области с HostArea строит разностные диаграммы.
       /// </summary>
-      public void ResolveAndBuildDiagramms()
+      /// <param name="sp63EtaMin">Нижняя граница нисходящей ветви SP63 (по умолчанию 0.85).</param>
+      public void ResolveAndBuildDiagramms(double sp63EtaMin = 0.85)
       {
          if (Material == null) return;
-         var own = Material.GetDiagramms(DiagrammType)!;
+         var own = Material.GetDiagramms(DiagrammType, sp63EtaMin)!;
 
          if (HostArea != null && HostArea.Diagramms.Count > 0)
          {

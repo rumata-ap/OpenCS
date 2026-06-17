@@ -236,16 +236,16 @@ namespace CScore
       /// </summary>
       /// <param name="type">Тип диаграммы (L2 — двухлинейная, L3 — трёхлинейная, SP63 — криволинейная).</param>
       /// <returns>Словарь: ключ — <see cref="CalcType"/>, значение — <see cref="Diagramm"/>.</returns>
-      public Dictionary<CalcType, Diagramm>? GetDiagramms(DiagrammType type)
+      /// <param name="sp63EtaMin">Нижняя граница нисходящей ветви для SP63 (η_min, по умолчанию 0.85).</param>
+      public Dictionary<CalcType, Diagramm>? GetDiagramms(DiagrammType type, double sp63EtaMin = 0.85)
       {
          switch (type)
          {
-            case DiagrammType.L2:
-               return GetD2L();
-            case DiagrammType.L3:
-               return GetD3L();
-            case DiagrammType.SP63:
-               return GetDCL();
+            case DiagrammType.L2:   return GetD2L();
+            case DiagrammType.L3:   return GetD3L();
+            case DiagrammType.SP63: return GetDCL(sp63EtaMin);
+            case DiagrammType.EKB:  return GetDEKB();
+            case DiagrammType.SP35: return GetDSP35();
          }
          return null;
       }
@@ -302,18 +302,34 @@ namespace CScore
          return res;
       }
 
+      Dictionary<CalcType, Diagramm> GetDEKB() => new()
+      {
+         { CalcType.C,  chars[CalcType.C ].DEKB() },
+         { CalcType.CL, chars[CalcType.CL].DEKB() },
+         { CalcType.N,  chars[CalcType.N ].DEKB() },
+         { CalcType.NL, chars[CalcType.NL].DEKB() },
+      };
+
+      Dictionary<CalcType, Diagramm> GetDSP35() => new()
+      {
+         { CalcType.C,  chars[CalcType.C ].DSP35() },
+         { CalcType.CL, chars[CalcType.CL].DSP35() },
+         { CalcType.N,  chars[CalcType.N ].DSP35() },
+         { CalcType.NL, chars[CalcType.NL].DSP35() },
+      };
+
       /// <summary>
       /// Создаёт словарь криволинейных диаграмм (по приложению Г СП 63.13330)
       /// для всех видов расчёта.
       /// </summary>
-      Dictionary<CalcType, Diagramm> GetDCL()
+      Dictionary<CalcType, Diagramm> GetDCL(double sp63EtaMin = 0.85)
       {
          var res = new Dictionary<CalcType, Diagramm>
          {
-            { CalcType.C, chars[CalcType.C].DCL() },
-            { CalcType.CL, chars[CalcType.CL].DCL() },
-            { CalcType.N, chars[CalcType.N].DCL() },
-            { CalcType.NL, chars[CalcType.NL].DCL() }
+            { CalcType.C, chars[CalcType.C].DCL(sp63EtaMin) },
+            { CalcType.CL, chars[CalcType.CL].DCL(sp63EtaMin) },
+            { CalcType.N, chars[CalcType.N].DCL(sp63EtaMin) },
+            { CalcType.NL, chars[CalcType.NL].DCL(sp63EtaMin) }
          };
 
          return res;

@@ -85,6 +85,8 @@
    <system:String x:Key="CalcSettingsTol">Допуск сходимости, кН</system:String>
    <system:String x:Key="CalcSettingsMaxIter">Макс. итераций</system:String>
    <system:String x:Key="CalcSettingsDeltaH">Шаг числ. производной h</system:String>
+   <system:String x:Key="CalcSettingsSp63EtaMin">Нисх. ветвь СП63: η_min</system:String>
+   <system:String x:Key="CalcSettingsSp63EtaMinTip">Нижняя граница нисходящей ветви криволинейной диаграммы бетона. По СП 63.13330 п. Г.1 — не менее 0.85</system:String>
    <system:String x:Key="CalcSettingsLineStyleGroup">Стили линий</system:String>
    <system:String x:Key="CalcSettingsHullLine">Контур: цвет</system:String>
    <system:String x:Key="CalcSettingsHullThickness">Контур: толщина</system:String>
@@ -307,6 +309,8 @@
     <system:String x:Key="DiagL2_Concrete">Двухлинейная (L2) — СП63.13330</system:String>
     <system:String x:Key="DiagL3_Concrete">Трёхлинейная (L3) — СП63.13330</system:String>
     <system:String x:Key="DiagSP63">Криволинейная (СП63) — Приложение Г</system:String>
+    <system:String x:Key="DiagEKB">Нелинейная (ЕКБ/EN2 §3.1.5)</system:String>
+    <system:String x:Key="DiagSP35">Параболическо-прямоугольная (EN2 §3.1.7 / СП35)</system:String>
     <system:String x:Key="DiagL2_ReSteelF">Двухлинейная (L2) — арматура с физическим пределом</system:String>
     <system:String x:Key="DiagL3_ReSteelU">Трёхлинейная (L3) — арматура с условным пределом</system:String>
     <system:String x:Key="DiagL2_Steel">Двухлинейная (L2) — сталь конструкционная</system:String>

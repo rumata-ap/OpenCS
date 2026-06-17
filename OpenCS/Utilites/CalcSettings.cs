@@ -48,6 +48,13 @@ namespace OpenCS.Utilites
       [JsonPropertyName("fiberLabelFontSize")]
       public double FiberLabelFontSize { get; set; } = 9.0;
 
+      /// <summary>
+      /// Нижняя граница нисходящей ветви криволинейной диаграммы бетона по Прил. Г СП 63.13330
+      /// (уровень напряжений η = σ/Rb). По норме ≥ 0.85 (п. Г.1).
+      /// </summary>
+      [JsonPropertyName("sp63DescEtaMin")]
+      public double Sp63DescEtaMin { get; set; } = 0.85;
+
       public static CalcSettings Default => new();
 
       public CalcSettings Clone() => new()
@@ -65,6 +72,7 @@ namespace OpenCS.Utilites
          CentroidNdsColor      = CentroidNdsColor,
          CentroidNdsSize       = CentroidNdsSize,
          FiberLabelFontSize    = FiberLabelFontSize,
+         Sp63DescEtaMin        = Sp63DescEtaMin,
       };
    }
 }

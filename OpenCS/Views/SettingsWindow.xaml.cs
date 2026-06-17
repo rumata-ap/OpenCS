@@ -192,6 +192,7 @@ namespace OpenCS.Views
          CentroidNdsColorBox.Text  = _calcSettings.CentroidNdsColor;
          CentroidNdsSizeBox.Text   = _calcSettings.CentroidNdsSize.ToString("F0");
          LabelFontSizeBox.Text     = _calcSettings.FiberLabelFontSize.ToString("F0");
+         Sp63EtaMinBox.Text        = _calcSettings.Sp63DescEtaMin.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          UpdateCalcSwatches();
       }
 
@@ -257,6 +258,12 @@ namespace OpenCS.Views
          LabelFontSizeBox.TextChanged += (_, _) =>
          {
             if (double.TryParse(LabelFontSizeBox.Text, out var v) && v > 0) _calcSettings.FiberLabelFontSize = v;
+         };
+         Sp63EtaMinBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(Sp63EtaMinBox.Text, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0 && v < 1)
+               _calcSettings.Sp63DescEtaMin = v;
          };
       }
 

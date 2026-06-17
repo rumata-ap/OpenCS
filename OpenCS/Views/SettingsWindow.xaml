@@ -245,6 +245,7 @@
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0"
                                            Text="{DynamicResource CalcSettingsTol}"
@@ -264,6 +265,14 @@
                                 <TextBox Grid.Row="2" Grid.Column="1"
                                          x:Name="NewtonDeltaHBox"
                                          VerticalContentAlignment="Center" Margin="0,2"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp63EtaMin}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp63EtaMinTip}"/>
+                                <TextBox Grid.Row="3" Grid.Column="1"
+                                         x:Name="Sp63EtaMinBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp63EtaMinTip}"/>
                             </Grid>
                         </GroupBox>
                     </StackPanel>

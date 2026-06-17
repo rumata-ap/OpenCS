@@ -56,10 +56,12 @@ namespace OpenCS.Views
          {
             diagram = dialog.SelectedType.Value switch
             {
-               DiagrammType.L2 => materialChars.D2L(),
-               DiagrammType.L3 => materialChars.D3L(),
-               DiagrammType.SP63 => materialChars.DCL(),
-                _ => throw new ArgumentException(string.Format(Loc.S("DiagramTypeNotSupported"), dialog.SelectedType))
+               DiagrammType.L2   => materialChars.D2L(),
+               DiagrammType.L3   => materialChars.D3L(),
+               DiagrammType.SP63 => materialChars.DCL(mvm.CalcSettings.Sp63DescEtaMin),
+               DiagrammType.EKB  => materialChars.DEKB(),
+               DiagrammType.SP35 => materialChars.DSP35(),
+               _ => throw new ArgumentException(string.Format(Loc.S("DiagramTypeNotSupported"), dialog.SelectedType))
             };
          }
          catch (Exception ex)
@@ -98,9 +100,11 @@ namespace OpenCS.Views
          switch (matType)
          {
              case MatType.Concrete:
-                list.Add(new(DiagrammType.L2, Loc.S("DiagL2_Concrete")));
-                list.Add(new(DiagrammType.L3, Loc.S("DiagL3_Concrete")));
+                list.Add(new(DiagrammType.L2,   Loc.S("DiagL2_Concrete")));
+                list.Add(new(DiagrammType.L3,   Loc.S("DiagL3_Concrete")));
                 list.Add(new(DiagrammType.SP63, Loc.S("DiagSP63")));
+                list.Add(new(DiagrammType.EKB,  Loc.S("DiagEKB")));
+                list.Add(new(DiagrammType.SP35, Loc.S("DiagSP35")));
                 break;
              case MatType.ReSteelF:
                 list.Add(new(DiagrammType.L2, Loc.S("DiagL2_ReSteelF")));

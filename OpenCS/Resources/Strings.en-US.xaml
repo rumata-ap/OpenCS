@@ -84,6 +84,8 @@
    <system:String x:Key="CalcSettingsTol">Convergence tolerance, kN</system:String>
    <system:String x:Key="CalcSettingsMaxIter">Max iterations</system:String>
    <system:String x:Key="CalcSettingsDeltaH">Numerical derivative step h</system:String>
+   <system:String x:Key="CalcSettingsSp63EtaMin">SP63 desc. branch: η_min</system:String>
+   <system:String x:Key="CalcSettingsSp63EtaMinTip">Lower bound of SP63 App.G descending branch. Per SP 63.13330 §G.1 — not less than 0.85</system:String>
    <system:String x:Key="CalcSettingsLineStyleGroup">Line Styles</system:String>
    <system:String x:Key="CalcSettingsHullLine">Hull: color</system:String>
    <system:String x:Key="CalcSettingsHullThickness">Hull: thickness</system:String>
@@ -304,6 +306,8 @@
     <system:String x:Key="DiagL2_Concrete">Bi-linear (L2) — SP63.13330</system:String>
     <system:String x:Key="DiagL3_Concrete">Tri-linear (L3) — SP63.13330</system:String>
     <system:String x:Key="DiagSP63">Curvilinear (SP63) — Appendix G</system:String>
+    <system:String x:Key="DiagEKB">Nonlinear (EKB/EN2 §3.1.5)</system:String>
+    <system:String x:Key="DiagSP35">Parabolic-rectangular (EN2 §3.1.7 / SP35)</system:String>
     <system:String x:Key="DiagL2_ReSteelF">Bi-linear (L2) — reinforcement with physical yield</system:String>
     <system:String x:Key="DiagL3_ReSteelU">Tri-linear (L3) — reinforcement with conditional yield</system:String>
     <system:String x:Key="DiagL2_Steel">Bi-linear (L2) — structural steel</system:String>

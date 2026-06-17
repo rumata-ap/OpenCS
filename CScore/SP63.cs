@@ -1,92 +1,105 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CScore
 {
-   internal class SP63
+   /// <summary>
+   /// Формулы Приложения Г СП 63.13330 — аналитические ветви диаграммы σ-ε бетона.
+   /// Восходящая ветвь: η ∈ [0, 1], нисходящая: η ∈ [0.85, 1).
+   /// Знаковая конвенция: сжатие ε &lt; 0, σ &lt; 0.
+   /// </summary>
+   internal static class SP63
    {
-      /// <summary>
-      /// Строит восходящую ветвь диаграммы сжатия бетона.
-      /// </summary>
-      /// <param name="beton">Характеристики материала бетона.</param>
-      /// <param name="lambda">Коэффициент, влияющий на форму диаграммы (по умолчанию 1).</param>
-      /// <returns>Массив списков, содержащий значения деформаций, напряжений и касательных модулей деформаций.</returns>
-      /// <remarks>
-      /// Метод рассчитывает значения деформаций, напряжений и жесткостей для восходящей ветви диаграммы сжатия бетона
-      /// на основе характеристик материала и коэффициента lambda. Возвращаемый массив содержит три списка:
-      /// - Список деформаций (e)
-      /// - Список напряжений (s)
-      /// - Список касательных модулей деформаций (d)
-      /// </remarks>
-      internal static List<double>[] UpBranch(MaterialChars beton, double lambda = 1)
+      const int N_ASC  = 50;   // точек на восходящей ветви  (η = 0..1)
+      const int N_DESC = 20;   // точек на нисходящей ветви  (η = 0.85..1, без пика)
+
+      // ε̂_b по формуле Г.2 (единицы B — МПа, E — кПа)
+      static double GetEps0(MaterialChars b, double lam)
       {
-         double E = beton.E; // кПа
-         double Rb = Math.Abs(beton.Fc); // кПа
-         double e0 = Math.Abs(beton.Ec0);
-         if (beton.Class > 0 && beton.TypeCalc != CalcType.NL)
+         double e0 = Math.Abs(b.Ec0);
+         if (b.Class > 0 && b.TypeCalc != CalcType.NL)
          {
-            double B = beton.Class;
-            e0 = (B / (E / 1000.0)) * lambda * ((1 + 0.75 * lambda * B / 60 + 0.2 * lambda / B) / (0.12 + B / 60 + 0.2 / B));
+            double B    = b.Class;
+            double Empa = b.E / 1000.0;
+            e0 = (B / Empa) * lam
+                 * ((1.0 + 0.75 * lam * B / 60.0 + 0.2 * lam / B)
+                    / (0.12 + B / 60.0 + 0.2 / B));
          }
-         double v0 = 1;
-         double vb_ = Rb / (e0 * E);
-         double w1 = 2 - 2.5 * vb_;
-         double w2 = 1 - w1;
-         List<double> s = new List<double>(4);
-         List<double> e = new List<double>(4);
-         List<double> d = new List<double>(4);
-         double[] nu = { 0, 0.25, 0.5, 0.75 };
-         for (int i = 0; i < 4; i++)
-         {
-            double vb = vb_ + (v0 - vb_) * Math.Sqrt(1 - w1 * nu[i] - w2 * Math.Pow(nu[i], 2));
-            double sig = nu[i] * Rb;
-            double eps = sig / (E * vb);
-            double vb_k = 1 / (1 / vb + (sig * (v0 - vb_) * (w1 + 2 * w2 * nu[i])) /
-               (2 * vb * vb * Rb * Math.Sqrt(1 - w1 * nu[i] - w2 * Math.Pow(nu[i], 2))));
-            s.Add(-sig);
-            e.Add(-eps);
-            d.Add(vb_k * E);
-         }
-         s.Add(-Rb);
-         e.Add(-e0);
-         d.Add(0);
-         return new List<double>[] { e, s, d };
+         return e0;
       }
 
-      internal static List<double>[] DownBranch(MaterialChars beton, double lambda = 1)
+      /// <summary>
+      /// Восходящая ветвь сжатия: η от 0 до 1, формулы Г.2, Г.5, Г.6.
+      /// Возвращает три списка: деформации, напряжения, нули (d не используется).
+      /// </summary>
+      internal static List<double>[] UpBranch(MaterialChars beton, double lambda = 1)
       {
-         double E = beton.E; // кПа
-         double Rb = Math.Abs(beton.Fc); // кПа
-         double e0 = Math.Abs(beton.Ec0);
-         if (beton.Class > 0 && beton.TypeCalc != CalcType.NL)
-         {
-            double B = beton.Class;
-            e0 = (B / (E / 1000.0)) * lambda * ((1 + 0.75 * lambda * B / 60 + 0.2 * lambda / B) / (0.12 + B / 60 + 0.2 / B));
-         }
-         double vb_ = Rb / (e0 * E);
-         double v0 = 2.05 * vb_;
-         double w1 = 1.95 * vb_ - 0.138;
-         double w2 = 1 - w1;
-         List<double> s = new List<double>(6);
-         List<double> e = new List<double>(6);
-         List<double> d = new List<double>(6);
-         double[] nu = { 0.95, 0.9, 0.85, 0.8, 0.5, 0.2 };
-         for (int i = 0; i < 6; i++)
-         {
-            double vb = vb_ - (v0 - vb_) * Math.Sqrt(1 - w1 * nu[i] - w2 * Math.Pow(nu[i], 2));
-            double sig = nu[i] * Rb;
-            double eps = sig / (E * vb);
-            double vb_k = 1 / (1 / vb - sig * (v0 - vb_) * (w1 + 2 * w2 * nu[i]) /
-               (2 * vb * vb * Rb * Math.Sqrt(1 - w1 * nu[i] - w2 * Math.Pow(nu[i], 2))));
-            s.Add(-sig);
-            e.Add(-eps);
-            d.Add(vb_k * E);
-         }
+         double E      = beton.E;
+         double Rb     = Math.Abs(beton.Fc);
+         double e0     = GetEps0(beton, lambda);
+         double nu_hat = Rb / (e0 * E);          // ν̂_b
+         double w1     = 2.0 - 2.5 * nu_hat;    // ω₁ (восходящая)
+         double w2     = 1.0 - w1;               // ω₂
 
-         return new List<double>[] { e, s, d };
+         var eps = new List<double>(N_ASC + 1);
+         var sig = new List<double>(N_ASC + 1);
+         var dum = new List<double>(N_ASC + 1);
+
+         for (int i = 0; i <= N_ASC; i++)
+         {
+            double eta = i / (double)N_ASC;
+            if (i == 0) { eps.Add(0); sig.Add(0); dum.Add(0); continue; }
+
+            // inner = (1-η)(1+ω₂·η) — гарантированно ≥ 0 при η∈[0,1]
+            double inner = (1.0 - eta) * (1.0 + w2 * eta);
+            double nu    = nu_hat + (1.0 - nu_hat) * Math.Sqrt(inner);
+            nu = Math.Max(nu, 1e-12);
+
+            double s = eta * Rb;
+            double e = s / (E * nu);
+            eps.Add(-e);
+            sig.Add(-s);
+            dum.Add(0);
+         }
+         return new[] { eps, sig, dum };
+      }
+
+      /// <summary>
+      /// Нисходящая ветвь сжатия: η от <paramref name="etaMin"/> до 1 (без точки η=1 — она есть в восходящей),
+      /// формулы Г.2, Г.5, Г.7. СП 63.13330 п. Г.1: нисходящая ветвь допустима до η ≥ 0.85.
+      /// </summary>
+      /// <param name="etaMin">Нижняя граница нисходящей ветви (0 &lt; etaMin &lt; 1, рекомендуется 0.85 по СП 63).</param>
+      internal static List<double>[] DownBranch(MaterialChars beton, double lambda = 1, double etaMin = 0.85)
+      {
+         double E      = beton.E;
+         double Rb     = Math.Abs(beton.Fc);
+         double e0     = GetEps0(beton, lambda);
+         double nu_hat = Rb / (e0 * E);
+         double nu_0   = 2.05 * nu_hat;          // ν₀ (нисходящая)
+         double w1     = 1.95 * nu_hat - 0.138;  // ω₁ (нисходящая)
+         double w2     = 1.0 - w1;
+
+         etaMin = Math.Max(0.01, Math.Min(0.99, etaMin));
+
+         var eps = new List<double>(N_DESC);
+         var sig = new List<double>(N_DESC);
+         var dum = new List<double>(N_DESC);
+
+         // η от etaMin до (1 - шаг), без η=1 (пик уже в UpBranch)
+         for (int i = 0; i < N_DESC; i++)
+         {
+            double eta   = etaMin + (1.0 - etaMin) * i / N_DESC;
+            double inner = Math.Max(0.0, 1.0 - w1 * eta - w2 * eta * eta);
+            double nu    = nu_hat - (nu_0 - nu_hat) * Math.Sqrt(inner);
+            if (nu < 1e-9) continue;   // ν_m слишком мало
+
+            double s = eta * Rb;
+            double e = s / (E * nu);
+            eps.Add(-e);
+            sig.Add(-s);
+            dum.Add(0);
+         }
+         return new[] { eps, sig, dum };
       }
    }
 }
