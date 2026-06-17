@@ -69,6 +69,9 @@ namespace OpenCS.ViewModels
         /// <summary>Два конца нейтральной линии ε=0 в мм (null если нет).</summary>
         public IReadOnlyList<Point>? NeutralAxis { get; }
 
+        /// <summary>Точка максимального сжатия в мм (вершина с мин. ε, независимо от режима отображения).</summary>
+        public Point? MaxComprPoint { get; }
+
         public const int NumBands = 8;
         public IReadOnlyList<ColorBand> ConcreteColorBands { get; }
         public IReadOnlyList<ColorBand> RebarColorBands    { get; }
@@ -332,6 +335,28 @@ namespace OpenCS.ViewModels
                 double byMin = allPts.Min(p => p.Y), byMax = allPts.Max(p => p.Y);
                 NeutralAxis = ComputeNeutralAxisSegment(
                     k.kz, k.ky, k.e0 * 1000, bxMin, bxMax, byMin, byMax);
+            }
+
+            // Точка максимального сжатия: вершина hull или фибры с мин. ε (линейное поле → всегда на границе)
+            {
+                Point? mcPt = null;
+                double mcEps = double.MaxValue;
+                // Приоритет — вершины контуров областей (hull)
+                foreach (var a in noMesh)
+                    foreach (var v in a.Hull)
+                    {
+                        double eps = k.e0 + k.ky * (v.Y / 1000.0) + k.kz * (v.X / 1000.0);
+                        if (eps < mcEps) { mcEps = eps; mcPt = v; }
+                    }
+                // Запасной вариант — вершины фибр (на случай отсутствия hull)
+                if (mcPt == null)
+                    foreach (var f in concrete)
+                        foreach (var v in f.Vertices)
+                        {
+                            double eps = k.e0 + k.ky * (v.Y / 1000.0) + k.kz * (v.X / 1000.0);
+                            if (eps < mcEps) { mcEps = eps; mcPt = v; }
+                        }
+                MaxComprPoint = mcPt;
             }
 
             FitAllCommand = new RelayCommand(_ => FitAllRequested?.Invoke());

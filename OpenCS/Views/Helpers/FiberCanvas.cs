@@ -330,23 +330,13 @@ namespace OpenCS.Views.Helpers
                     }
             }
 
-            // Маркер максимального сжатия
-            if (vm.ShowMaxCompr)
+            // Маркер максимального сжатия: точка с мин. ε на границе сечения
+            if (vm.ShowMaxCompr && vm.MaxComprPoint.HasValue)
             {
-                Point? minCentroid = null;
-                double minVal = double.MaxValue;
-                foreach (var f in vm.ConcreteFibers)
-                    if (f.Value < minVal) { minVal = f.Value; minCentroid = f.Centroid; }
-                foreach (var r in vm.RebarFibers)
-                    if (r.Value < minVal) { minVal = r.Value; minCentroid = r.Center; }
-
-                if (minCentroid.HasValue)
-                {
-                    var sc = ToScreen(minCentroid.Value);
-                    double ms = 6;
-                    dc.DrawLine(_markerPen, new Point(sc.X - ms, sc.Y), new Point(sc.X + ms, sc.Y));
-                    dc.DrawLine(_markerPen, new Point(sc.X, sc.Y - ms), new Point(sc.X, sc.Y + ms));
-                }
+                var sc = ToScreen(vm.MaxComprPoint.Value);
+                double ms = 6;
+                dc.DrawLine(_markerPen, new Point(sc.X - ms, sc.Y), new Point(sc.X + ms, sc.Y));
+                dc.DrawLine(_markerPen, new Point(sc.X, sc.Y - ms), new Point(sc.X, sc.Y + ms));
             }
 
             // Нейтральная линия деформаций (ε = 0) — клипируется контуром сечения
