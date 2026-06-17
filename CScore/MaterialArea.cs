@@ -159,10 +159,17 @@ namespace CScore
       /// Для арматурной области с HostArea строит разностные диаграммы.
       /// </summary>
       /// <param name="sp63EtaMin">Нижняя граница нисходящей ветви SP63 (по умолчанию 0.85).</param>
-      public void ResolveAndBuildDiagramms(double sp63EtaMin = 0.85)
+      /// <param name="pool">Пул диаграмм проекта — нужен для Custom-материала. null = старый путь.</param>
+      public void ResolveAndBuildDiagramms(double sp63EtaMin = 0.85,
+                                            IReadOnlyList<Diagramm>? pool = null)
       {
          if (Material == null) return;
-         var own = Material.GetDiagramms(DiagrammType, sp63EtaMin)!;
+
+         Dictionary<CalcType, Diagramm> own;
+         if (Material.Type == MatType.Custom && pool != null)
+            own = Material.ResolveCustomDiagramms(pool) ?? [];
+         else
+            own = Material.GetDiagramms(DiagrammType, sp63EtaMin) ?? [];
 
          if (HostArea != null && HostArea.Diagramms.Count > 0)
          {
