@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:OpenCS.Views"
+             xmlns:h="clr-namespace:OpenCS.Views.Helpers"
              mc:Ignorable="d"
              d:DesignHeight="500" d:DesignWidth="700"
              Background="White">
@@ -16,18 +17,32 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- Заголовок -->
         <Border Grid.Row="0" Background="#FF2813EB" CornerRadius="4" Padding="8" Margin="0,0,0,8">
             <TextBlock x:Name="titleText" Foreground="White" FontSize="15" FontWeight="SemiBold"
                        HorizontalAlignment="Center"/>
         </Border>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8">
-            <TextBlock x:Name="infoText" FontSize="13" Foreground="#333"/>
-        </StackPanel>
+        <!-- Метаданные: тег, CalcType, MaterialType -->
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="80"/>
+                <ColumnDefinition Width="110"/>
+            </Grid.ColumnDefinitions>
+            <TextBox Grid.Column="0" x:Name="tagBox" Margin="0,0,8,0"
+                     Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="{DynamicResource DiagramTag}"/>
+            <ComboBox Grid.Column="1" x:Name="calcTypeCombo"
+                      SelectedItem="{Binding CalcType}" Margin="0,0,8,0"/>
+            <ComboBox Grid.Column="2" x:Name="matTypeCombo"
+                      SelectedItem="{Binding MaterialType}"/>
+        </Grid>
 
+        <!-- Вкладки: канвас и таблица -->
         <TabControl Grid.Row="2" Margin="0,0,0,5">
             <TabItem Header="{DynamicResource Chart}">
-                <local:PlotCanvas x:Name="plot" Margin="5" />
+                <h:DiagramCanvas x:Name="diagCanvas" ViewModel="{Binding}" Margin="5"/>
             </TabItem>
             <TabItem Header="{DynamicResource Data}">
                 <Grid Margin="5">
@@ -35,18 +50,44 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <DataGrid x:Name="dataGrid" AutoGenerateColumns="True" IsReadOnly="True"
-                              HorizontalAlignment="Stretch" GridLinesVisibility="All"/>
-                    <Button Grid.Row="1" Content="{DynamicResource ExportCsv}" Click="ExportCsv_Click"
-                            Width="140" Height="28" Margin="0,8,0,0" HorizontalAlignment="Right"/>
+                    <DataGrid x:Name="dataGrid" AutoGenerateColumns="False"
+                              ItemsSource="{Binding Points}"
+                              CanUserAddRows="False"
+                              HorizontalAlignment="Stretch" GridLinesVisibility="All">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="ε"
+                                Binding="{Binding Eps, StringFormat=F6, UpdateSourceTrigger=PropertyChanged}"
+                                Width="*"/>
+                            <DataGridTextColumn Header="σ, МПа"
+                                Binding="{Binding Sig, StringFormat=F2, UpdateSourceTrigger=PropertyChanged}"
+                                Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource Branch}"
+                                Binding="{Binding Branch}" IsReadOnly="True" Width="65"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
+                        <Button Content="{DynamicResource AddRow}"      Click="AddRow_Click"
+                                Width="100" Height="26" Margin="0,0,6,0"/>
+                        <Button Content="{DynamicResource DeleteRow}"   Click="DeleteRow_Click"
+                                Width="100" Height="26" Margin="0,0,6,0"/>
+                        <Button Content="{DynamicResource ImportFromCsv}" Click="ImportCsv_Click"
+                                Width="140" Height="26" Margin="0,0,6,0"/>
+                        <Button Content="{DynamicResource ExportCsv}"  Click="ExportCsv_Click"
+                                Width="140" Height="26"/>
+                    </StackPanel>
                 </Grid>
             </TabItem>
         </TabControl>
 
+        <!-- Кнопки внизу -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="{DynamicResource FitView}"    Click="Fit_Click"
+                    Width="90" Height="30" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource SaveDiagram}" Click="Save_Click"
+                    Width="110" Height="30" Margin="0,0,8,0"/>
             <Button x:Name="deleteButton" Content="{DynamicResource Delete}" Click="Delete_Click"
                     Width="90" Height="30" Margin="0,0,8,0"/>
-            <Button x:Name="closeButton" Content="{DynamicResource Close}" Click="Close_Click"
+            <Button x:Name="closeButton"  Content="{DynamicResource Close}"  Click="Close_Click"
                     Width="90" Height="30"/>
         </StackPanel>
     </Grid>
