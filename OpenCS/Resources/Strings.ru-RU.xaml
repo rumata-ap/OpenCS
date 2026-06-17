@@ -635,6 +635,7 @@
    <system:String x:Key="CalcTaskKind_strain_state">Состояние деформаций</system:String>
    <system:String x:Key="CalcTaskKind_fire_r_check">R-проверка (одна комбинация)</system:String>
    <system:String x:Key="CalcTaskKind_fire_r_check_batch">R-проверка (весь набор)</system:String>
+   <system:String x:Key="CalcTaskKind_strain_state_batch">Состояние деформаций (весь набор)</system:String>
    <system:String x:Key="CalcTaskFireSection">Огневое сечение</system:String>
    <system:String x:Key="CalcTaskNeedFireSection">Не выбрано огневое сечение.</system:String>
    <system:String x:Key="CalcTaskForceN">N, кН</system:String>
@@ -643,7 +644,16 @@
    <system:String x:Key="CalcResultNotPassed">Задача «{0}»: R-проверка не пройдена.</system:String>
    <system:String x:Key="CalcResultOk">Задача «{0}» выполнена успешно.</system:String>
    <system:String x:Key="CalcResultNotConverged">Задача «{0}» завершена без сходимости.</system:String>
+   <system:String x:Key="CalcResultPartial">Задача «{0}»: частичная сходимость.</system:String>
    <system:String x:Key="CalcResultError">Ошибка при выполнении задачи «{0}».</system:String>
+   <system:String x:Key="StrainStateBatch_TabRows">Все случаи</system:String>
+   <system:String x:Key="StrainStateBatch_ColLabel">Метка</system:String>
+   <system:String x:Key="StrainStateBatch_ColIter">Итер.</system:String>
+   <system:String x:Key="StrainStateBatch_ColResidual">Невязка</system:String>
+   <system:String x:Key="StrainStateBatch_ColStatus">Статус</system:String>
+   <system:String x:Key="StrainStateBatch_SummaryFormat">Всего: {0}, сошлось: {1}, не сошлось: {2}</system:String>
+   <system:String x:Key="StrainStateBatch_StatusOk">ОК</system:String>
+   <system:String x:Key="StrainStateBatch_StatusNotConverged">Нет</system:String>
    <system:String x:Key="CalcResultOkLabel">Сходимость достигнута</system:String>
    <system:String x:Key="CalcResultNotConvergedLabel">Нет сходимости</system:String>
    <system:String x:Key="CalcResultErrorLabel">Ошибка расчёта</system:String>

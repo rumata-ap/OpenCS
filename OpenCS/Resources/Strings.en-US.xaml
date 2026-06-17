@@ -632,6 +632,7 @@
    <system:String x:Key="CalcTaskKind_strain_state">Strain state</system:String>
    <system:String x:Key="CalcTaskKind_fire_r_check">Fire R-check (single)</system:String>
    <system:String x:Key="CalcTaskKind_fire_r_check_batch">Fire R-check (batch)</system:String>
+   <system:String x:Key="CalcTaskKind_strain_state_batch">Strain state (full set)</system:String>
    <system:String x:Key="CalcTaskFireSection">Fire section</system:String>
    <system:String x:Key="CalcTaskNeedFireSection">No fire section selected.</system:String>
    <system:String x:Key="CalcTaskForceN">N, kN</system:String>
@@ -640,7 +641,16 @@
    <system:String x:Key="CalcResultNotPassed">Task "{0}": fire R-check not passed.</system:String>
    <system:String x:Key="CalcResultOk">Task "{0}" completed successfully.</system:String>
    <system:String x:Key="CalcResultNotConverged">Task "{0}" did not converge.</system:String>
+   <system:String x:Key="CalcResultPartial">Task "{0}": partial convergence.</system:String>
    <system:String x:Key="CalcResultError">Error running task "{0}".</system:String>
+   <system:String x:Key="StrainStateBatch_TabRows">All cases</system:String>
+   <system:String x:Key="StrainStateBatch_ColLabel">Label</system:String>
+   <system:String x:Key="StrainStateBatch_ColIter">Iter.</system:String>
+   <system:String x:Key="StrainStateBatch_ColResidual">Residual</system:String>
+   <system:String x:Key="StrainStateBatch_ColStatus">Status</system:String>
+   <system:String x:Key="StrainStateBatch_SummaryFormat">Total: {0}, converged: {1}, not converged: {2}</system:String>
+   <system:String x:Key="StrainStateBatch_StatusOk">OK</system:String>
+   <system:String x:Key="StrainStateBatch_StatusNotConverged">No</system:String>
    <system:String x:Key="CalcResultOkLabel">Converged</system:String>
    <system:String x:Key="CalcResultNotConvergedLabel">Not converged</system:String>
    <system:String x:Key="CalcResultErrorLabel">Error</system:String>
