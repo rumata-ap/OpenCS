@@ -17,6 +17,8 @@ namespace OpenCS.Utilites
           Map(m => m.Material!.Json).Ignore();
           Map(m => m.Material!.Description).Ignore();
          Map(m => m.Material!.AggregateType).Ignore();
+         Map(m => m.Material!.BaseType).Ignore();
+         Map(m => m.Material!.CustomDiagramIds).Ignore();
       }
    }
 }

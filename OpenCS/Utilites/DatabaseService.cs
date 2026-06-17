@@ -27,7 +27,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 16;
+      const int CurrentSchemaVersion = 17;
 
       static readonly string[] Migrations =
       [
@@ -315,7 +315,9 @@ namespace OpenCS.Utilites
                 description TEXT NOT NULL DEFAULT '',
                 e REAL NOT NULL DEFAULT 0,
                 chars_json TEXT NOT NULL DEFAULT '[]',
-                aggregate_type TEXT NOT NULL DEFAULT 'silicate'
+                aggregate_type TEXT NOT NULL DEFAULT 'silicate',
+                base_type INTEGER NOT NULL DEFAULT 0,
+                custom_diagram_ids TEXT NOT NULL DEFAULT '{}'
             );
             CREATE TABLE IF NOT EXISTS contours (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -561,6 +563,7 @@ namespace OpenCS.Utilites
                if (i == 8) { MigrateV9(); continue; }
                if (i == 14) { MigrateV15(); continue; }
                if (i == 15) { MigrateV16(); continue; }
+               if (i == 16) { MigrateV17(); continue; }
                var migCmd = _connection.CreateCommand();
                migCmd.CommandText = Migrations[i];
                migCmd.ExecuteNonQuery();
@@ -684,6 +687,17 @@ namespace OpenCS.Utilites
       {
          if (ColumnExists("materials", "aggregate_type")) return;
          MigExec("ALTER TABLE materials ADD COLUMN aggregate_type TEXT DEFAULT 'silicate'");
+      }
+
+      /// <summary>
+      /// Миграция v17: добавляет base_type и custom_diagram_ids для Custom-материалов.
+      /// </summary>
+      void MigrateV17()
+      {
+         if (!ColumnExists("materials", "base_type"))
+            MigExec("ALTER TABLE materials ADD COLUMN base_type INTEGER NOT NULL DEFAULT 0");
+         if (!ColumnExists("materials", "custom_diagram_ids"))
+            MigExec("ALTER TABLE materials ADD COLUMN custom_diagram_ids TEXT NOT NULL DEFAULT '{}'");
       }
 
       public void ChangeDatabase(string dataSource)

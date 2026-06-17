@@ -16,7 +16,11 @@ namespace OpenCS.Views
          var vm = new MaterialVM() { Material = material, mvm = mvm };
          DataContext = vm;
 
-         // Заполнить ComboBox базового типа
+         // Заполнить ComboBox типа материала (в блоке Custom) и базового типа
+         customTypeCombo.ItemsSource = new[]
+         {
+            MatType.None, MatType.Concrete, MatType.ReSteelF, MatType.ReSteelU, MatType.Steel, MatType.Custom
+         };
          baseTypeCombo.ItemsSource = new[]
          {
             MatType.Concrete, MatType.ReSteelF, MatType.ReSteelU, MatType.Steel

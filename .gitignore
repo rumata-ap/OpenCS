@@ -6,6 +6,9 @@
 # Claude Code local settings
 .claude/settings.local.json
 
+# SQLite database (рабочий файл, не коммитится)
+dbapp.db
+
 # dotenv files
 .env
 

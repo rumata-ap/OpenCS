@@ -58,6 +58,10 @@
                   Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="5"
                   Margin="8,8,8,0"
                   Visibility="Collapsed">
+         <TextBlock Text="{DynamicResource MaterialType}" Foreground="#FF2813EB" Margin="0,0,0,4"/>
+         <ComboBox x:Name="customTypeCombo" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12"
+                   SelectedItem="{Binding Type}"/>
+
          <TextBlock Text="{DynamicResource BaseType}" Foreground="#FF2813EB" Margin="0,0,0,4"/>
          <ComboBox x:Name="baseTypeCombo" Width="200" HorizontalAlignment="Left" Margin="0,0,0,12"/>
 
@@ -700,15 +704,16 @@
             </DockPanel>
 
             <DockPanel Grid.Row="15" Grid.Column="4">
-               <ComboBox x:Name="typeMaterial_CB" Margin="2,0,2,0" 
+               <ComboBox x:Name="typeMaterial_CB" Margin="2,0,2,0"
                               HorizontalContentAlignment="Center"
-                              SelectedItem="{Binding Type}" 
+                              SelectedItem="{Binding Type}"
                               SelectedIndex="0">
                   <core:MatType>0</core:MatType>
                   <core:MatType>1</core:MatType>
                   <core:MatType>2</core:MatType>
                   <core:MatType>3</core:MatType>
                   <core:MatType>4</core:MatType>
+                  <core:MatType>5</core:MatType>
                </ComboBox>
             </DockPanel>
 
