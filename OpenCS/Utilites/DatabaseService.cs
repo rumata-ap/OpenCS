@@ -2306,7 +2306,12 @@ namespace OpenCS.Utilites
          var cmd = _connection.CreateCommand();
          cmd.CommandText = "SELECT value_json FROM settings WHERE key='calc'";
          var json = cmd.ExecuteScalar() as string;
-         if (json == null) return CalcSettings.Default;
+         if (json == null)
+         {
+            var def = CalcSettings.Default;
+            SaveCalcSettings(def);
+            return def;
+         }
          return JsonSerializer.Deserialize<CalcSettings>(json) ?? CalcSettings.Default;
       }
 
