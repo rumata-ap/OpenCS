@@ -124,17 +124,19 @@ namespace CScore
       /// Сначала — области без HostArea (бетонные), затем — с HostArea (арматурные).
       /// </summary>
       /// <param name="sp63EtaMin">Нижняя граница нисходящей ветви SP63 (η_min, по умолчанию 0.85).</param>
-      public void ResolveAndBuildDiagramms(double sp63EtaMin = 0.85)
+      /// <param name="pool">Пул диаграмм проекта — пробрасывается в MaterialArea для Custom-материалов.</param>
+      public void ResolveAndBuildDiagramms(double sp63EtaMin = 0.85,
+                                            IReadOnlyList<Diagramm>? pool = null)
       {
          foreach (var area in Areas)
             if (area.HostAreaId == null)
-               area.ResolveAndBuildDiagramms(sp63EtaMin);
+               area.ResolveAndBuildDiagramms(sp63EtaMin, pool);
 
          foreach (var area in Areas)
             if (area.HostAreaId != null)
             {
                area.HostArea = Areas.Find(a => a.Id == area.HostAreaId);
-               area.ResolveAndBuildDiagramms(sp63EtaMin);
+               area.ResolveAndBuildDiagramms(sp63EtaMin, pool);
             }
       }
 
