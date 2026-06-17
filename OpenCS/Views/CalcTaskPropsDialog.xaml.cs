@@ -145,9 +145,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public List<CalcTaskKindItem> AvailableKinds { get; } =
    [
       new() { Id = "strain_state",       Label = Loc.S("CalcTaskKind_strain_state") },
+      new() { Id = "strain_state_batch", Label = Loc.S("CalcTaskKind_strain_state_batch") },
       new() { Id = "fire_r_check",       Label = Loc.S("CalcTaskKind_fire_r_check") },
-      new() { Id = "fire_r_check_batch", Label = Loc.S("CalcTaskKind_fire_r_check_batch") },
-      new() { Id = "strain_state_batch", Label = Loc.S("CalcTaskKind_strain_state_batch") }
+      new() { Id = "fire_r_check_batch", Label = Loc.S("CalcTaskKind_fire_r_check_batch") }
    ];
 
    public ObservableCollection<CrossSection> Sections { get; }
