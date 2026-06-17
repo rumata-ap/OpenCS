@@ -651,6 +651,8 @@
    <system:String x:Key="LimitForce_Utilization">Коэффициент использования η</system:String>
    <system:String x:Key="LimitForce_Governing">Управляющий критерий</system:String>
    <system:String x:Key="LimitForce_SolverMethod">Метод решения</system:String>
+   <system:String x:Key="LimitForce_BisectSteps">Шагов бисекции</system:String>
+   <system:String x:Key="LimitForce_InnerIterSum">Внутренних итераций (сумма)</system:String>
    <system:String x:Key="LimitForceSolver_Bisection">Бисекция</system:String>
    <system:String x:Key="LimitForceSolver_Fast">Ньютон (быстрый)</system:String>
    <system:String x:Key="LimitForceGov_Concrete">бетон</system:String>

@@ -58,6 +58,7 @@ namespace OpenCS.ViewModels
         // ── Сходимость ─────────────────────────────────────────────────
         public string IterationsText { get; }
         public string ResidualText   { get; }
+        public bool   ShowConvergence { get; }
 
         public record RebarRow(int Num, string X, string Y, string Eps, string Sigma);
 
@@ -136,9 +137,10 @@ namespace OpenCS.ViewModels
                         $"{f.Eps:+0.00000;-0.00000}",
                         $"{f.Sig / 1000.0:+0.0;-0.0}"));
 
-            // Сходимость
+            // Сходимость (только для strain_state — у limit_force свои поля в сводке)
             int iters = root.TryGetProperty("iterations", out v) ? v.GetInt32() : 0;
-            double res = root.TryGetProperty("residual",  out v) ? v.GetDouble() : 0;
+            ShowConvergence = root.TryGetProperty("residual", out v);
+            double res = ShowConvergence ? v.GetDouble() : 0;
             IterationsText = iters.ToString();
             ResidualText   = $"{res:0.000e+00}  кН";
         }

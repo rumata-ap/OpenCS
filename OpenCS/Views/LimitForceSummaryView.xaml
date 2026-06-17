@@ -31,6 +31,8 @@
                   <RowDefinition Height="Auto"/>
                   <RowDefinition Height="Auto"/>
                   <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
                </Grid.RowDefinitions>
                <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource LimitForce_Factor}" Foreground="Gray"/>
                <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FactorText}" FontFamily="Consolas" FontWeight="Bold"/>
@@ -54,6 +56,10 @@
                           Visibility="{Binding HasRebarEps, Converter={StaticResource BoolToVisibility}}"/>
                <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource LimitForce_SolverMethod}" Foreground="Gray"/>
                <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding SolverText}"/>
+               <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource LimitForce_BisectSteps}" Foreground="Gray"/>
+               <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding IterationsText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="11" Grid.Column="0" Text="{DynamicResource LimitForce_InnerIterSum}" Foreground="Gray"/>
+               <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding NewtonIterText}" FontFamily="Consolas"/>
             </Grid>
          </GroupBox>
 

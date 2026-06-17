@@ -157,7 +157,8 @@
       </GroupBox>
 
       <!-- Сходимость -->
-      <GroupBox Header="{DynamicResource ResultConvergence}" Margin="0,0,0,6" Padding="8,4">
+      <GroupBox Header="{DynamicResource ResultConvergence}" Margin="0,0,0,6" Padding="8,4"
+                Visibility="{Binding ShowConvergence, Converter={StaticResource BoolToVisibility}}">
          <Grid>
             <Grid.ColumnDefinitions>
                <ColumnDefinition Width="100"/>

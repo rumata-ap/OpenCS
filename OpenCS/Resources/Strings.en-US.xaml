@@ -648,6 +648,8 @@
    <system:String x:Key="LimitForce_Utilization">Utilization η</system:String>
    <system:String x:Key="LimitForce_Governing">Governing criterion</system:String>
    <system:String x:Key="LimitForce_SolverMethod">Solver method</system:String>
+   <system:String x:Key="LimitForce_BisectSteps">Bisection steps</system:String>
+   <system:String x:Key="LimitForce_InnerIterSum">Inner iterations (total)</system:String>
    <system:String x:Key="LimitForceSolver_Bisection">Bisection</system:String>
    <system:String x:Key="LimitForceSolver_Fast">Newton (fast)</system:String>
    <system:String x:Key="LimitForceGov_Concrete">concrete</system:String>
