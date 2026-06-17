@@ -240,6 +240,11 @@ namespace OpenCS.Utilites
          """
          -- v16: тип заполнителя бетона для огнестойкости.
          ALTER TABLE materials ADD COLUMN aggregate_type TEXT DEFAULT 'silicate';
+         """,
+         """
+         -- v17: base_type и custom_diagram_ids для Custom-материалов.
+         ALTER TABLE materials ADD COLUMN base_type          INTEGER NOT NULL DEFAULT 0;
+         ALTER TABLE materials ADD COLUMN custom_diagram_ids TEXT    NOT NULL DEFAULT '{}';
          """
       ];
 
@@ -825,7 +830,7 @@ namespace OpenCS.Utilites
       void LoadMaterials()
       {
          var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, type, tag, description, e, chars_json, aggregate_type FROM materials ORDER BY id";
+         cmd.CommandText = "SELECT id, type, tag, description, e, chars_json, aggregate_type, base_type, custom_diagram_ids FROM materials ORDER BY id";
          using var reader = cmd.ExecuteReader();
          while (reader.Read())
          {
@@ -836,8 +841,12 @@ namespace OpenCS.Utilites
                Tag = reader.GetString(2),
                Description = reader.GetString(3),
                E = reader.GetDouble(4),
-               AggregateType = reader.IsDBNull(6) ? "silicate" : reader.GetString(6)
+               AggregateType    = reader.IsDBNull(6) ? "silicate" : reader.GetString(6),
+               BaseType         = reader.IsDBNull(7) ? MatType.None : (MatType)reader.GetInt32(7)
             };
+            var customIdsJson = reader.IsDBNull(8) ? "{}" : reader.GetString(8);
+            var customIds     = JsonSerializer.Deserialize<Dictionary<CalcType, int>>(customIdsJson, _jsonSettings);
+            if (customIds != null) m.CustomDiagramIds = customIds;
             var charsJson = reader.GetString(5);
              var chars = JsonSerializer.Deserialize<List<MaterialChars>>(charsJson, _jsonSettings);
             if (chars != null && chars.Count == 4)
@@ -981,9 +990,9 @@ namespace OpenCS.Utilites
          // Вызываем ResolveAndBuildDiagramms для правильной привязки HostArea внутри сечения.
          foreach (var sec in CrossSections)
          {
-            sec.ResolveAndBuildDiagramms();
+            sec.ResolveAndBuildDiagramms(pool: Diagrams);
             if (sec is TwoStageSection tss)
-               tss.Stage1.ResolveAndBuildDiagramms();
+               tss.Stage1.ResolveAndBuildDiagramms(pool: Diagrams);
          }
       }
 
@@ -1098,7 +1107,7 @@ namespace OpenCS.Utilites
                   area.Hull = pc;
                }
             }
-            area.ResolveAndBuildDiagramms();
+            area.ResolveAndBuildDiagramms(pool: Diagrams);
          }
       }
 
@@ -1334,13 +1343,14 @@ namespace OpenCS.Utilites
          var cmd = _connection.CreateCommand();
          if (m.Id == 0)
          {
-            cmd.CommandText = @"INSERT INTO materials (type, tag, description, e, chars_json, aggregate_type)
-                               VALUES ($type, $tag, $desc, $e, $chars, $agg);
+            cmd.CommandText = @"INSERT INTO materials (type, tag, description, e, chars_json, aggregate_type, base_type, custom_diagram_ids)
+                               VALUES ($type, $tag, $desc, $e, $chars, $agg, $bt, $cdi);
                                SELECT last_insert_rowid();";
          }
          else
          {
-            cmd.CommandText = @"UPDATE materials SET type=$type, tag=$tag, description=$desc, e=$e, chars_json=$chars, aggregate_type=$agg
+            cmd.CommandText = @"UPDATE materials SET type=$type, tag=$tag, description=$desc, e=$e, chars_json=$chars,
+                               aggregate_type=$agg, base_type=$bt, custom_diagram_ids=$cdi
                                WHERE id=$id";
             cmd.Parameters.AddWithValue("$id", m.Id);
          }
@@ -1350,6 +1360,8 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("$e", m.E);
           cmd.Parameters.AddWithValue("$chars", JsonSerializer.Serialize(m.MaterialChars, _jsonSettings));
          cmd.Parameters.AddWithValue("$agg", string.IsNullOrWhiteSpace(m.AggregateType) ? "silicate" : m.AggregateType);
+         cmd.Parameters.AddWithValue("$bt",  (int)m.BaseType);
+         cmd.Parameters.AddWithValue("$cdi", JsonSerializer.Serialize(m.CustomDiagramIds, _jsonSettings));
          if (m.Id == 0)
             m.Id = Convert.ToInt32(cmd.ExecuteScalar());
          else
