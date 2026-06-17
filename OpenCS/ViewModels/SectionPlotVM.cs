@@ -464,7 +464,7 @@ namespace OpenCS.ViewModels
             {
                 double t = (i + 0.5) / NumBands;
                 double val = min + t * (max - min);
-                var color = isRebar ? ColormapHelper.RebarColor(t) : ColormapHelper.MainColor(t);
+                var color = ColormapHelper.GetColor(val, min, max, isRebar);
                 var brush = new System.Windows.Media.SolidColorBrush(color);
                 brush.Freeze();
                 string label = $"{val:G4}";

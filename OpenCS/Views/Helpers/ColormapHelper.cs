@@ -5,52 +5,56 @@ namespace OpenCS.Views.Helpers
 {
     /// <summary>
     /// Утилиты цветовых карт для графиков напряжений/деформаций.
-    /// Основной материал: синий→белый→красный.
-    /// Арматура: красный→белый→синий (инверсия).
+    /// Дивергирующая карта с белым в нуле:
+    /// Основной материал: сжатие (−) → красный, растяжение (+) → синий.
+    /// Арматура: сжатие (−) → синий, растяжение (+) → красный.
     /// </summary>
     public static class ColormapHelper
     {
-        // Синий→белый→красный
-        public static Color MainColor(double t)
+        static readonly Color s_red   = Color.FromRgb(220,  20,  20);
+        static readonly Color s_blue  = Color.FromRgb( 20,  60, 220);
+        static readonly Color s_white = Colors.White;
+
+        static Color Lerp(Color a, Color b, double t) => Color.FromRgb(
+            (byte)(a.R + (b.R - a.R) * t),
+            (byte)(a.G + (b.G - a.G) * t),
+            (byte)(a.B + (b.B - a.B) * t));
+
+        // 0 → белый; отрицательные → красный (осн.) / синий (арм.);
+        // положительные → синий (осн.) / красный (арм.)
+        static Color DivergingColor(double val, double min, double max, bool isRebar)
         {
-            t = Math.Clamp(t, 0.0, 1.0);
-            if (t <= 0.5)
+            if (val <= 0.0)
             {
-                double u = t * 2.0;
-                return Color.FromRgb((byte)(u * 255), (byte)(u * 255), 255);
+                double t = (min < -1e-10) ? Math.Clamp(val / min, 0.0, 1.0) : 0.0;
+                return isRebar ? Lerp(s_white, s_blue, t) : Lerp(s_white, s_red, t);
             }
             else
             {
-                double u = (t - 0.5) * 2.0;
-                return Color.FromRgb(255, (byte)((1 - u) * 255), (byte)((1 - u) * 255));
+                double t = (max > 1e-10) ? Math.Clamp(val / max, 0.0, 1.0) : 0.0;
+                return isRebar ? Lerp(s_white, s_red, t) : Lerp(s_white, s_blue, t);
             }
         }
 
-        // Красный→белый→синий (инверсия для арматуры)
-        public static Color RebarColor(double t) => MainColor(1.0 - t);
-
-        public static double Normalize(double val, double min, double max)
-        {
-            if (Math.Abs(max - min) < 1e-10) return 0.5;
-            return Math.Clamp((val - min) / (max - min), 0.0, 1.0);
-        }
-
         public static Color GetColor(double val, double min, double max, bool isRebar)
-        {
-            double t = Normalize(val, min, max);
-            return isRebar ? RebarColor(t) : MainColor(t);
-        }
+            => DivergingColor(val, min, max, isRebar);
 
         public static SolidColorBrush GetBrush(double val, double min, double max, bool isRebar)
             => new(GetColor(val, min, max, isRebar));
 
         public static Color GetDiscreteColor(double val, double min, double max, bool isRebar, int bands = 8)
         {
-            double t = Normalize(val, min, max);
-            // Квантование до bands шагов
-            t = (Math.Floor(t * bands) + 0.5) / bands;
-            t = Math.Clamp(t, 0.0, 1.0);
-            return isRebar ? RebarColor(t) : MainColor(t);
+            double range = max - min;
+            if (range < 1e-10) return DivergingColor(val, min, max, isRebar);
+            double step = range / bands;
+            double center = min + (Math.Floor((val - min) / step) + 0.5) * step;
+            return DivergingColor(Math.Clamp(center, min, max), min, max, isRebar);
+        }
+
+        public static double Normalize(double val, double min, double max)
+        {
+            if (Math.Abs(max - min) < 1e-10) return 0.5;
+            return Math.Clamp((val - min) / (max - min), 0.0, 1.0);
         }
 
         /// <summary>Холодный синий → жёлтый → красный (для поля температуры).</summary>
