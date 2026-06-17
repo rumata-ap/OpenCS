@@ -339,7 +339,7 @@ namespace OpenCS.Views.Helpers
                 var mcColor = vm.SmoothColormap
                     ? ColormapHelper.GetColor(mcVal, vm.ConcreteMin, vm.ConcreteMax, false)
                     : ColormapHelper.GetDiscreteColor(mcVal, vm.ConcreteMin, vm.ConcreteMax, false);
-                double r = vm.FiberLabelFontSize + 1;   // радиус ≈ размер шрифта подписей
+                double r = (vm.FiberLabelFontSize + 1) / 2.0;
                 dc.DrawEllipse(new SolidColorBrush(mcColor), _outlinePen, sc, r, r);
                 // Подпись: σ в режиме напряжений, ε в режиме деформаций
                 string label = vm.Mode == SectionPlotMode.Stress
