@@ -2268,7 +2268,12 @@ namespace OpenCS.Utilites
          var cmd = _connection.CreateCommand();
          cmd.CommandText = "SELECT value_json FROM settings WHERE key='csv'";
          var json = cmd.ExecuteScalar() as string;
-         if (json == null) return CsvExportSettings.Default;
+         if (json == null)
+         {
+            var def = CsvExportSettings.Default;
+            SaveCsvSettings(def);
+            return def;
+         }
          return JsonSerializer.Deserialize<CsvExportSettings>(json) ?? CsvExportSettings.Default;
       }
 
@@ -2287,7 +2292,12 @@ namespace OpenCS.Utilites
          var cmd = _connection.CreateCommand();
          cmd.CommandText = "SELECT value_json FROM settings WHERE key='plot'";
          var json = cmd.ExecuteScalar() as string;
-         if (json == null) return PlotSettings.Default;
+         if (json == null)
+         {
+            var def = PlotSettings.Default;
+            SavePlotSettings(def);
+            return def;
+         }
          return JsonSerializer.Deserialize<PlotSettings>(json) ?? PlotSettings.Default;
       }
 
