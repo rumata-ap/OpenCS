@@ -61,7 +61,7 @@ public sealed class FireRCheckHandler : ITaskHandler
                 ? p.ThermalResultId
                 : ctx.Database.GetLatestFireThermalResultId(p.FireSectionId);
 
-            section.ResolveAndBuildDiagramms();
+            section.ResolveAndBuildDiagramms(pool: ctx?.Database?.Diagrams);
             FireCheckResult check = FireRCheck.Run(
                 thermal,
                 section,

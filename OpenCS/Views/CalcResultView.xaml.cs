@@ -35,7 +35,8 @@ namespace OpenCS.Views
             }
 
             // Подготовить сечение: диаграммы + SetEps по плоскости из результата
-            section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin);
+            section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
+                pool: app.Diagrams);
 
             var k = ParseKurvature(result.DataJson);
             section.SetEps(k, task.CalcType);

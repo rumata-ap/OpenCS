@@ -41,7 +41,7 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                 ? p.ThermalResultId
                 : ctx.Database.GetLatestFireThermalResultId(p.FireSectionId);
 
-            section.ResolveAndBuildDiagramms();
+            section.ResolveAndBuildDiagramms(pool: ctx?.Database?.Diagrams);
 
             var rows = new List<object>();
             bool allPassed = true;

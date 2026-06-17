@@ -21,7 +21,8 @@ namespace OpenCS.Tasks
          var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
          try
          {
-            section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin);
+            section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
+                pool: ctx?.Database?.Diagrams);
 
             double nTarget  = item.N;
             double mxTarget = item.Mx; // LoadItem.Mx → Load.Mx (∫σ·y·dA, момент относительно X)
