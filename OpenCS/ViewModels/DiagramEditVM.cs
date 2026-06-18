@@ -28,6 +28,15 @@ namespace OpenCS.ViewModels
          set { _sig = value; OnPropertyChanged(); }
       }
 
+      bool _isCharacteristic;
+
+      /// <summary>Помечена ли точка как характерная (излом) для контурного интеграла.</summary>
+      public bool IsCharacteristic
+      {
+         get => _isCharacteristic;
+         set { _isCharacteristic = value; OnPropertyChanged(); }
+      }
+
       /// <summary>Ic (ε&lt;0), Origin (ε=0), It (ε&gt;0) — только для отображения.</summary>
       public string Branch => _eps < -1e-15 ? "Ic" : _eps > 1e-15 ? "It" : "Origin";
    }
@@ -101,6 +110,13 @@ namespace OpenCS.ViewModels
             _diagram.It = new LSpline(
                itPts.Select(p => p.Eps).ToArray(),
                itPts.Select(p => p.Sig).ToArray());
+
+         // Характерные точки — явно помеченные пользователем деформации
+         _diagram.CharacteristicStrains = Points
+            .Where(p => p.IsCharacteristic)
+            .Select(p => p.Eps)
+            .OrderBy(e => e)
+            .ToList();
       }
 
       /// <summary>Вызвать BuildSplines и сохранить диаграмму в БД. Добавить в пул если новая.</summary>
@@ -168,6 +184,11 @@ namespace OpenCS.ViewModels
 
          AddBranch(d.Ic);
          AddBranch(d.It);
+
+         var cs = d.CharacteristicStrains ?? new List<double>();
+         foreach (var p in list)
+            p.IsCharacteristic = cs.Any(e => Math.Abs(e - p.Eps) < 1e-12);
+
          return new ObservableCollection<DiagramPoint>(list.OrderBy(p => p.Eps));
       }
    }
