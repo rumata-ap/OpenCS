@@ -472,6 +472,23 @@
    <system:String x:Key="PlateRebarLayers">Арматурные слои</system:String>
    <system:String x:Key="PlateLayerName">Название</system:String>
    <system:String x:Key="PlateLayerMode">Способ ввода</system:String>
+   <system:String x:Key="PlateLayerModeSpacing">Ø + шаг</system:String>
+   <system:String x:Key="PlateLayerModeCount">Ø + кол-во/м</system:String>
+   <system:String x:Key="PlateLayerModeDirect">Прямой ввод A</system:String>
+   <system:String x:Key="PlateLayerDiamX">Ø X, мм</system:String>
+   <system:String x:Key="PlateLayerSpacingX">Шаг X, мм</system:String>
+   <system:String x:Key="PlateLayerCountX">Кол-во X, шт/м</system:String>
+   <system:String x:Key="PlateLayerZsx">zsx, мм</system:String>
+   <system:String x:Key="PlateLayerDiamY">Ø Y, мм</system:String>
+   <system:String x:Key="PlateLayerSpacingY">Шаг Y, мм</system:String>
+   <system:String x:Key="PlateLayerCountY">Кол-во Y, шт/м</system:String>
+   <system:String x:Key="PlateLayerZsy">zsy, мм</system:String>
+   <system:String x:Key="PlateLayerAsx">Asx, см²/м</system:String>
+   <system:String x:Key="PlateLayerAsy">Asy, см²/м</system:String>
+   <system:String x:Key="PlateModel">Модель пластины:</system:String>
+   <system:String x:Key="PlateModelLayered">Слоистая</system:String>
+   <system:String x:Key="PlateModelChar1dPrincipal">1D по характ. точкам (по главным)</system:String>
+   <system:String x:Key="PlateModelChar1dAxial">1D по характ. точкам (по осям)</system:String>
    <system:String x:Key="AddRebarLayer">Добавить слой</system:String>
    <system:String x:Key="DeleteRebarLayer">Удалить слой</system:String>
 

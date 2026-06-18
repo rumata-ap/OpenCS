@@ -90,10 +90,33 @@ namespace OpenCS.ViewModels
          set { _model.Zsy = value / 1000.0; OnPropertyChanged(); }
       }
 
-      // Отображаемые площади (вычислены из модели)
-      public double AsxCm2 => _model.Asx * 1e4;
-      public double AsyCm2 => _model.Asy * 1e4;
+      public double CountPerMeterX
+      {
+         get => _model.CountPerMeterX;
+         set { _model.CountPerMeterX = value; OnPropertyChanged(); _model.RecalcArea(); _onChanged(); OnPropertyChanged(nameof(AsxCm2)); }
+      }
+
+      public double CountPerMeterY
+      {
+         get => _model.CountPerMeterY;
+         set { _model.CountPerMeterY = value; OnPropertyChanged(); _model.RecalcArea(); _onChanged(); OnPropertyChanged(nameof(AsyCm2)); }
+      }
+
+      // Отображаемые/вводимые площади (см²/м). В режиме "direct" пишутся напрямую.
+      public double AsxCm2
+      {
+         get => _model.Asx * 1e4;
+         set { _model.Asx = value / 1e4; OnPropertyChanged(); _onChanged(); }
+      }
+      public double AsyCm2
+      {
+         get => _model.Asy * 1e4;
+         set { _model.Asy = value / 1e4; OnPropertyChanged(); _onChanged(); }
+      }
    }
+
+   /// <summary>Опция режима задания арматуры слоя: англ. ключ + локализованная подпись.</summary>
+   public sealed record InputModeOption(string Key, string Display);
 
    /// <summary>ViewModel для PlateSectionPage.</summary>
    public class PlateSectionVM : ViewModelBase
@@ -114,7 +137,19 @@ namespace OpenCS.ViewModels
          SofteningOptions = [Loc.S("PlateSofteningNone"), Loc.S("PlateSofteningVC")];
          SofteningIndex   = model.SofteningModel == "vecchio_collins" ? 1 : 0;
 
-         InputModeOptions = ["diameter_spacing", "diameter_count", "direct"];
+         InputModeOptions =
+         [
+            new InputModeOption("diameter_spacing", Loc.S("PlateLayerModeSpacing")),
+            new InputModeOption("diameter_count",   Loc.S("PlateLayerModeCount")),
+            new InputModeOption("direct",           Loc.S("PlateLayerModeDirect")),
+         ];
+
+         PlateModelOptions =
+         [
+            new InputModeOption("layered",          Loc.S("PlateModelLayered")),
+            new InputModeOption("char1d_principal", Loc.S("PlateModelChar1dPrincipal")),
+            new InputModeOption("char1d_axial",     Loc.S("PlateModelChar1dAxial")),
+         ];
 
          SaveCommand            = new RelayCommand(_ => Save());
          DeleteCommand          = new RelayCommand(_ => Delete());
@@ -174,7 +209,23 @@ namespace OpenCS.ViewModels
       }
 
       public string[] SofteningOptions { get; }
-      public string[] InputModeOptions { get; }
+      public InputModeOption[] InputModeOptions { get; }
+      public InputModeOption[] PlateModelOptions { get; }
+
+      /// <summary>Нелинейная модель пластины (layered | char1d_principal | char1d_axial).</summary>
+      public string PlateModel
+      {
+         get => string.IsNullOrEmpty(_model.PlateModel) ? "layered" : _model.PlateModel;
+         set
+         {
+            _model.PlateModel = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsLayered));
+         }
+      }
+
+      /// <summary>NLayers применим только к слоистой модели.</summary>
+      public bool IsLayered => PlateModel == "layered";
 
       int _softeningIndex;
       public int SofteningIndex

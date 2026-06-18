@@ -54,6 +54,7 @@
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource PlateNLayers}"
                              VerticalAlignment="Center" Margin="0,0,8,4"/>
                   <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,4"
+                           IsEnabled="{Binding IsLayered}"
                            Text="{Binding NLayers, UpdateSourceTrigger=PropertyChanged}"/>
                </Grid>
             </GroupBox>
@@ -66,6 +67,7 @@
                      <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
@@ -97,6 +99,13 @@
                   <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,4"
                             ItemsSource="{Binding SofteningOptions}"
                             SelectedIndex="{Binding SofteningIndex, Mode=TwoWay}"/>
+
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource PlateModel}"
+                             VerticalAlignment="Center" Margin="0,0,8,4"/>
+                  <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,4"
+                            ItemsSource="{Binding PlateModelOptions}"
+                            SelectedValuePath="Key" DisplayMemberPath="Display"
+                            SelectedValue="{Binding PlateModel, Mode=TwoWay}"/>
                </Grid>
             </GroupBox>
 
@@ -121,6 +130,7 @@
                                             Width="100"/>
                         <DataGridComboBoxColumn Header="{DynamicResource PlateLayerMode}"
                                                 SelectedValueBinding="{Binding InputMode, UpdateSourceTrigger=PropertyChanged}"
+                                                SelectedValuePath="Key" DisplayMemberPath="Display"
                                                 Width="140">
                            <DataGridComboBoxColumn.EditingElementStyle>
                               <Style TargetType="ComboBox">
@@ -135,43 +145,183 @@
                               </Style>
                            </DataGridComboBoxColumn.ElementStyle>
                         </DataGridComboBoxColumn>
-                        <DataGridTextColumn Header="Ø X, мм"
+
+                        <DataGridTextColumn Header="{DynamicResource PlateLayerDiamX}"
                                             Binding="{Binding DiameterXMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
-                                            Width="70"/>
-                        <DataGridTextColumn Header="Шаг X, мм"
-                                            Binding="{Binding SpacingXMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
-                                            Width="75"/>
-                        <DataGridTextColumn Header="zsx, мм"
-                                            Binding="{Binding ZsxMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
-                                            Width="70"/>
-                        <DataGridTextColumn Header="Ø Y, мм"
-                                            Binding="{Binding DiameterYMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
-                                            Width="70"/>
-                        <DataGridTextColumn Header="Шаг Y, мм"
-                                            Binding="{Binding SpacingYMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
-                                            Width="75"/>
-                        <DataGridTextColumn Header="zsy, мм"
-                                            Binding="{Binding ZsyMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
-                                            Width="70"/>
-                        <DataGridTextColumn Header="Asx, см²/м"
-                                            Binding="{Binding AsxCm2, Mode=OneWay, StringFormat=F2}"
-                                            IsReadOnly="True" Width="80">
+                                            Width="70">
+                           <DataGridTextColumn.EditingElementStyle>
+                              <Style TargetType="TextBox">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct">
+                                       <Setter Property="IsReadOnly" Value="True"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.EditingElementStyle>
                            <DataGridTextColumn.ElementStyle>
                               <Style TargetType="TextBlock">
-                                 <Setter Property="HorizontalAlignment" Value="Right"/>
-                                 <Setter Property="VerticalAlignment" Value="Center"/>
-                                 <Setter Property="Foreground" Value="Gray"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct">
+                                       <Setter Property="Foreground" Value="Gray"/>
+                                    </DataTrigger>
+                                 </Style.Triggers>
                               </Style>
                            </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
-                        <DataGridTextColumn Header="Asy, см²/м"
-                                            Binding="{Binding AsyCm2, Mode=OneWay, StringFormat=F2}"
-                                            IsReadOnly="True" Width="80">
+
+                        <DataGridTextColumn Header="{DynamicResource PlateLayerSpacingX}"
+                                            Binding="{Binding SpacingXMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Width="75">
+                           <DataGridTextColumn.EditingElementStyle>
+                              <Style TargetType="TextBox">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_count"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.EditingElementStyle>
+                           <DataGridTextColumn.ElementStyle>
+                              <Style TargetType="TextBlock">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_count"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="{DynamicResource PlateLayerCountX}"
+                                            Binding="{Binding CountPerMeterX, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Width="85">
+                           <DataGridTextColumn.EditingElementStyle>
+                              <Style TargetType="TextBox">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_spacing"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.EditingElementStyle>
+                           <DataGridTextColumn.ElementStyle>
+                              <Style TargetType="TextBlock">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_spacing"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="{DynamicResource PlateLayerZsx}"
+                                            Binding="{Binding ZsxMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Width="70"/>
+
+                        <DataGridTextColumn Header="{DynamicResource PlateLayerDiamY}"
+                                            Binding="{Binding DiameterYMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Width="70">
+                           <DataGridTextColumn.EditingElementStyle>
+                              <Style TargetType="TextBox">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.EditingElementStyle>
+                           <DataGridTextColumn.ElementStyle>
+                              <Style TargetType="TextBlock">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="{DynamicResource PlateLayerSpacingY}"
+                                            Binding="{Binding SpacingYMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Width="75">
+                           <DataGridTextColumn.EditingElementStyle>
+                              <Style TargetType="TextBox">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_count"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.EditingElementStyle>
+                           <DataGridTextColumn.ElementStyle>
+                              <Style TargetType="TextBlock">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_count"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="{DynamicResource PlateLayerCountY}"
+                                            Binding="{Binding CountPerMeterY, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Width="85">
+                           <DataGridTextColumn.EditingElementStyle>
+                              <Style TargetType="TextBox">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_spacing"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.EditingElementStyle>
+                           <DataGridTextColumn.ElementStyle>
+                              <Style TargetType="TextBlock">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_spacing"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="direct"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="{DynamicResource PlateLayerZsy}"
+                                            Binding="{Binding ZsyMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                                            Width="70"/>
+
+                        <DataGridTextColumn Header="{DynamicResource PlateLayerAsx}"
+                                            Binding="{Binding AsxCm2, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}"
+                                            Width="80">
+                           <DataGridTextColumn.EditingElementStyle>
+                              <Style TargetType="TextBox">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_spacing"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_count"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.EditingElementStyle>
                            <DataGridTextColumn.ElementStyle>
                               <Style TargetType="TextBlock">
                                  <Setter Property="HorizontalAlignment" Value="Right"/>
                                  <Setter Property="VerticalAlignment" Value="Center"/>
-                                 <Setter Property="Foreground" Value="Gray"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_spacing"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_count"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.ElementStyle>
+                        </DataGridTextColumn>
+
+                        <DataGridTextColumn Header="{DynamicResource PlateLayerAsy}"
+                                            Binding="{Binding AsyCm2, UpdateSourceTrigger=PropertyChanged, StringFormat=F2}"
+                                            Width="80">
+                           <DataGridTextColumn.EditingElementStyle>
+                              <Style TargetType="TextBox">
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_spacing"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_count"><Setter Property="IsReadOnly" Value="True"/></DataTrigger>
+                                 </Style.Triggers>
+                              </Style>
+                           </DataGridTextColumn.EditingElementStyle>
+                           <DataGridTextColumn.ElementStyle>
+                              <Style TargetType="TextBlock">
+                                 <Setter Property="HorizontalAlignment" Value="Right"/>
+                                 <Setter Property="VerticalAlignment" Value="Center"/>
+                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_spacing"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                    <DataTrigger Binding="{Binding InputMode}" Value="diameter_count"><Setter Property="Foreground" Value="Gray"/></DataTrigger>
+                                 </Style.Triggers>
                               </Style>
                            </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>

@@ -469,6 +469,23 @@
    <system:String x:Key="PlateRebarLayers">Rebar layers</system:String>
    <system:String x:Key="PlateLayerName">Name</system:String>
    <system:String x:Key="PlateLayerMode">Input mode</system:String>
+   <system:String x:Key="PlateLayerModeSpacing">Ø + spacing</system:String>
+   <system:String x:Key="PlateLayerModeCount">Ø + count/m</system:String>
+   <system:String x:Key="PlateLayerModeDirect">Direct A input</system:String>
+   <system:String x:Key="PlateLayerDiamX">Ø X, mm</system:String>
+   <system:String x:Key="PlateLayerSpacingX">Spacing X, mm</system:String>
+   <system:String x:Key="PlateLayerCountX">Count X, /m</system:String>
+   <system:String x:Key="PlateLayerZsx">zsx, mm</system:String>
+   <system:String x:Key="PlateLayerDiamY">Ø Y, mm</system:String>
+   <system:String x:Key="PlateLayerSpacingY">Spacing Y, mm</system:String>
+   <system:String x:Key="PlateLayerCountY">Count Y, /m</system:String>
+   <system:String x:Key="PlateLayerZsy">zsy, mm</system:String>
+   <system:String x:Key="PlateLayerAsx">Asx, cm²/m</system:String>
+   <system:String x:Key="PlateLayerAsy">Asy, cm²/m</system:String>
+   <system:String x:Key="PlateModel">Plate model:</system:String>
+   <system:String x:Key="PlateModelLayered">Layered</system:String>
+   <system:String x:Key="PlateModelChar1dPrincipal">1D char. points (principal)</system:String>
+   <system:String x:Key="PlateModelChar1dAxial">1D char. points (axial)</system:String>
    <system:String x:Key="AddRebarLayer">Add layer</system:String>
    <system:String x:Key="DeleteRebarLayer">Delete layer</system:String>
 
