@@ -60,12 +60,14 @@
                  Margin="0,0,0,8"/>
 
       <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource CalcTaskForceSet}"
-                 VerticalAlignment="Center" Margin="0,0,8,8"/>
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding ShowStandardForce, Converter={StaticResource BoolToVisibility}}"/>
       <ComboBox  Grid.Row="4" Grid.Column="1"
                  ItemsSource="{Binding ForceSets}"
                  SelectedItem="{Binding SelectedForceSet}"
                  DisplayMemberPath="Tag"
-                 Margin="0,0,0,8"/>
+                 Margin="0,0,0,8"
+                 Visibility="{Binding ShowStandardForce, Converter={StaticResource BoolToVisibility}}"/>
 
       <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource CalcTaskForceItem}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
@@ -117,6 +119,26 @@
                  DisplayMemberPath="Label"
                  Margin="0,8,0,8"
                  Visibility="{Binding ShowSolverMethod, Converter={StaticResource BoolToVisibility}}"/>
+
+      <StackPanel Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsTwoStage, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource CalcTask_Stage1Force}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <ComboBox ItemsSource="{Binding ForceSets}" SelectedItem="{Binding Stage1Set}"
+                         DisplayMemberPath="Tag" Margin="0,2,0,4"/>
+               <ComboBox ItemsSource="{Binding Stage1Items}" SelectedItem="{Binding Stage1Item}"
+                         DisplayMemberPath="Label" Margin="0,0,0,2"/>
+            </StackPanel>
+         </GroupBox>
+         <GroupBox Header="{DynamicResource CalcTask_Stage2Force}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <ComboBox ItemsSource="{Binding ForceSets}" SelectedItem="{Binding Stage2Set}"
+                         DisplayMemberPath="Tag" Margin="0,2,0,4"/>
+               <ComboBox ItemsSource="{Binding Stage2Items}" SelectedItem="{Binding Stage2Item}"
+                         DisplayMemberPath="Label" Margin="0,0,0,2"/>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
 
       <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
                   Orientation="Horizontal" HorizontalAlignment="Right">

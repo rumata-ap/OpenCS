@@ -642,6 +642,12 @@
    <system:String x:Key="CalcTaskKind_limit_force_batch">Limit load (full set)</system:String>
    <system:String x:Key="CalcTaskKind_limit_moment_batch">Limit moment (full set)</system:String>
    <system:String x:Key="CalcTaskKind_limit_axial_batch">Limit axial force (full set)</system:String>
+   <system:String x:Key="CalcTaskKind_two_stage_strain">Two-stage strain state</system:String>
+   <system:String x:Key="CalcTaskKind_two_stage_strain_batch">Two-stage strain state (set)</system:String>
+   <system:String x:Key="CalcTask_Stage1Force">Stage 1 force</system:String>
+   <system:String x:Key="CalcTask_Stage2Force">Stage 2 force</system:String>
+   <system:String x:Key="CalcTask_WholeSet">— whole set —</system:String>
+   <system:String x:Key="TwoStageNeedEqualRows">Stage 1 and stage 2 force sets must have an equal number of rows.</system:String>
    <system:String x:Key="CalcTaskNeedForceSet">No force set selected.</system:String>
    <system:String x:Key="LimitForce_BlockTitle">Limit loading</system:String>
    <system:String x:Key="LimitForce_Factor">Safety factor k</system:String>

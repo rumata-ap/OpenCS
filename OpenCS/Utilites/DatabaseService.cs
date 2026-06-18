@@ -981,18 +981,7 @@ namespace OpenCS.Utilites
             }
          }
 
-         using (var cmd = _connection.CreateCommand())
-         {
-            cmd.CommandText = "SELECT section_id, e0, ky, kz FROM cross_section_stage_kurvature";
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-               int sId = r.GetInt32(0);
-               if (sections.TryGetValue(sId, out var sec) && sec is TwoStageSection tss)
-                  tss.Stage1Kurvature = new Kurvature
-                  { e0 = r.GetDouble(1), ky = r.GetDouble(2), kz = r.GetDouble(3) };
-            }
-         }
+         // κ1 этапа 1 более не хранится в БД: вычисляется при выполнении расчётной задачи.
 
          foreach (var sec in sections.Values)
             CrossSections.Add(sec);
@@ -1518,15 +1507,10 @@ namespace OpenCS.Utilites
                DELETE FROM cross_section_stages WHERE section_id = @sid;
                INSERT INTO cross_section_stages (section_id, stage1_section_id)
                VALUES (@sid, @s1id);
-               DELETE FROM cross_section_stage_kurvature WHERE section_id = @sid;
-               INSERT INTO cross_section_stage_kurvature (section_id, e0, ky, kz)
-               VALUES (@sid, @e0, @ky, @kz);
             """;
             stageCmd.Parameters.AddWithValue("@sid", tss.Id);
             stageCmd.Parameters.AddWithValue("@s1id", tss.Stage1.Id);
-            stageCmd.Parameters.AddWithValue("@e0", tss.Stage1Kurvature.e0);
-            stageCmd.Parameters.AddWithValue("@ky", tss.Stage1Kurvature.ky);
-            stageCmd.Parameters.AddWithValue("@kz", tss.Stage1Kurvature.kz);
+            // κ1 этапа 1 не сохраняем — она вычисляется при расчёте.
             stageCmd.ExecuteNonQuery();
          }
       }
