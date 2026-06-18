@@ -153,7 +153,7 @@ namespace OpenCS.ViewModels
              or "two_stage_strain" or "two_stage_strain_batch"
              or "shell_simpl_wa_sls" or "shell_simpl_wa_uls"
              or "shell_simpl_capri_sls" or "shell_simpl_capri_uls"
-             or "shell_strain_state"
+             or "shell_strain_state" or "shell_strain_state_batch"
              or "strength_ndm_batch")
          {
             fi = new LoadItem(); // обработчик читает усилия из ParamsJson/ctx.Database.ForceSets
