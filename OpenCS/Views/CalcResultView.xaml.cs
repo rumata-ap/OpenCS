@@ -12,13 +12,14 @@ namespace OpenCS.Views
     {
         var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
         if (task?.Kind is "fire_r_check" or "fire_r_check_batch"
-            or "strain_state_batch"
+            or "strain_state_batch" or "two_stage_strain_batch"
             or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch")
         {
             Content = task.Kind switch
             {
                 "fire_r_check_batch"   => new FireRCheckBatchResultView(result),
-                "strain_state_batch"   => new StrainStateBatchResultView(result),
+                "strain_state_batch" or "two_stage_strain_batch"
+                                       => new StrainStateBatchResultView(result),
                 "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
                                        => new LimitForceBatchResultView(result),
                 _                      => new FireRCheckResultView(result, app, task)
@@ -52,6 +53,8 @@ namespace OpenCS.Views
                 pool: app.Diagrams);
 
             var k = ParseKurvature(result.DataJson);
+            if (section is TwoStageSection tssView)
+                tssView.Stage1Kurvature = ParseStage1Kurvature(result.DataJson);
             section.SetEps(k, task.CalcType);
 
             SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, app.CalcSettings.GridDensity);
@@ -75,6 +78,23 @@ namespace OpenCS.Views
                 };
             }
             catch { return new Kurvature(); } // защита от повреждённого JSON
+        }
+
+        static Kurvature ParseStage1Kurvature(string dataJson)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(dataJson)) return new Kurvature();
+                using var doc = JsonDocument.Parse(dataJson);
+                var root = doc.RootElement;
+                return new Kurvature
+                {
+                    e0 = root.TryGetProperty("stage1_e0", out var v) ? v.GetDouble() : 0,
+                    ky = root.TryGetProperty("stage1_ky", out v)     ? v.GetDouble() : 0,
+                    kz = root.TryGetProperty("stage1_kz", out v)     ? v.GetDouble() : 0,
+                };
+            }
+            catch { return new Kurvature(); }
         }
     }
 
