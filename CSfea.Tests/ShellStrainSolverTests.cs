@@ -33,6 +33,24 @@ public static class ShellStrainSolverTests
         RunSolveRoundTrip();
         RunSolveLinearAnalytic();
         RunForwardVsCentral();
+        RunSolveMany();
+    }
+
+    static void RunSolveMany()
+    {
+        double e = 30_000, h = 0.2;
+        var cd = LinearConcrete(e);
+        var plate = Plate("layered", h, 40);
+        var targets = new List<double[]>
+        {
+            new double[] { 50, -20, 0, 8, -4, 0 },
+            new double[] { 55, -22, 0, 9, -4.5, 0 },
+            new double[] { 60, -24, 0, 10, -5, 0 },
+        };
+        var results = new ShellStrainSolver(plate, cd, cd, null).SolveMany(targets);
+        TestHarness.Check("SolveMany: 3 результата", results.Count == 3);
+        TestHarness.Check("SolveMany: все сошлись",
+            results[0].Converged && results[1].Converged && results[2].Converged);
     }
 
     static void RunSolveRoundTrip()
