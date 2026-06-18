@@ -40,19 +40,22 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    public CalcTask? Result { get; private set; }
 
-   string tag = "";
-   CalcTaskKindItem? selectedKind;
-   CalcTaskSolverItem? selectedSolver;
-   CrossSection? selectedSection;
-   ForceSet? selectedForceSet;
-   LoadItem? selectedForceItem;
-   FireSectionDef? selectedFireSection;
-   CalcType selectedCalcType = CalcType.C;
-   string manualN = "0";
-   string manualMx = "0";
-   string manualMy = "0";
-   ForceSet? stage1Set, stage2Set;
-   LoadItem? stage1Item, stage2Item;
+    string tag = "";
+    CalcTaskKindItem? selectedKind;
+    CalcTaskSolverItem? selectedSolver;
+    CrossSection? selectedSection;
+    ForceSet? selectedForceSet;
+    LoadItem? selectedForceItem;
+    FireSectionDef? selectedFireSection;
+    CalcType selectedCalcType = CalcType.C;
+    string manualN = "0";
+    string manualMx = "0";
+    string manualMy = "0";
+    ForceSet? stage1Set, stage2Set;
+    LoadItem? stage1Item, stage2Item;
+    bool stage1UseManual, stage2UseManual;
+    string stage1ManualN = "0", stage1ManualMx = "0", stage1ManualMy = "0";
+    string stage2ManualN = "0", stage2ManualMx = "0", stage2ManualMy = "0";
 
    public string Tag { get => tag; set { tag = value; OnPropertyChanged(); } }
 
@@ -66,51 +69,59 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    static bool IsLimitSingleKind(string kind)
       => kind is "limit_force" or "limit_moment" or "limit_axial";
 
-   public CalcTaskKindItem? SelectedKind
-   {
-      get => selectedKind;
-      set
-      {
-         selectedKind = value;
-         if (value != null)
-            Kind = value.Id;
-         OnPropertyChanged();
-         OnPropertyChanged(nameof(IsFireKind));
-         OnPropertyChanged(nameof(IsStrainBatch));
-         OnPropertyChanged(nameof(IsLimitBatch));
-         OnPropertyChanged(nameof(IsLimitSingle));
-         OnPropertyChanged(nameof(ShowForceItem));
-         OnPropertyChanged(nameof(ShowManualForces));
-         OnPropertyChanged(nameof(ShowSolverMethod));
-         OnPropertyChanged(nameof(IsTwoStage));
-         OnPropertyChanged(nameof(IsTwoStageBatch));
-         OnPropertyChanged(nameof(ShowStandardForce));
-      }
-   }
+    public CalcTaskKindItem? SelectedKind
+    {
+       get => selectedKind;
+       set
+       {
+          selectedKind = value;
+          if (value != null)
+             Kind = value.Id;
+          OnPropertyChanged();
+          OnPropertyChanged(nameof(IsFireKind));
+          OnPropertyChanged(nameof(IsStrainBatch));
+          OnPropertyChanged(nameof(IsLimitBatch));
+          OnPropertyChanged(nameof(IsLimitSingle));
+          OnPropertyChanged(nameof(ShowForceItem));
+          OnPropertyChanged(nameof(ShowManualForces));
+          OnPropertyChanged(nameof(ShowSolverMethod));
+          OnPropertyChanged(nameof(IsTwoStage));
+          OnPropertyChanged(nameof(IsTwoStageBatch));
+          OnPropertyChanged(nameof(ShowStandardForce));
+          OnPropertyChanged(nameof(Stage1ShowSet));
+          OnPropertyChanged(nameof(Stage1ShowManual));
+          OnPropertyChanged(nameof(Stage2ShowSet));
+          OnPropertyChanged(nameof(Stage2ShowManual));
+       }
+    }
 
-   public string Kind
-   {
-      get => selectedKind?.Id ?? "strain_state";
-      set
-      {
-         selectedKind = AvailableKinds.FirstOrDefault(k => k.Id == value) ?? AvailableKinds[0];
-         OnPropertyChanged();
-         OnPropertyChanged(nameof(SelectedKind));
-         OnPropertyChanged(nameof(IsFireKind));
-         OnPropertyChanged(nameof(IsStrainBatch));
-         OnPropertyChanged(nameof(IsLimitBatch));
-         OnPropertyChanged(nameof(IsLimitSingle));
-         OnPropertyChanged(nameof(ShowForceItem));
-         OnPropertyChanged(nameof(ShowManualForces));
-         OnPropertyChanged(nameof(ShowSolverMethod));
-         OnPropertyChanged(nameof(IsTwoStage));
-         OnPropertyChanged(nameof(IsTwoStageBatch));
-         OnPropertyChanged(nameof(ShowStandardForce));
-      }
-   }
+    public string Kind
+    {
+       get => selectedKind?.Id ?? "strain_state";
+       set
+       {
+          selectedKind = AvailableKinds.FirstOrDefault(k => k.Id == value) ?? AvailableKinds[0];
+          OnPropertyChanged();
+          OnPropertyChanged(nameof(SelectedKind));
+          OnPropertyChanged(nameof(IsFireKind));
+          OnPropertyChanged(nameof(IsStrainBatch));
+          OnPropertyChanged(nameof(IsLimitBatch));
+          OnPropertyChanged(nameof(IsLimitSingle));
+          OnPropertyChanged(nameof(ShowForceItem));
+          OnPropertyChanged(nameof(ShowManualForces));
+          OnPropertyChanged(nameof(ShowSolverMethod));
+          OnPropertyChanged(nameof(IsTwoStage));
+          OnPropertyChanged(nameof(IsTwoStageBatch));
+          OnPropertyChanged(nameof(ShowStandardForce));
+          OnPropertyChanged(nameof(Stage1ShowSet));
+          OnPropertyChanged(nameof(Stage1ShowManual));
+          OnPropertyChanged(nameof(Stage2ShowSet));
+          OnPropertyChanged(nameof(Stage2ShowManual));
+       }
+    }
 
    public bool IsFireKind    => Kind.StartsWith("fire_", StringComparison.Ordinal);
-   public bool IsStrainBatch => Kind == "strain_state_batch";
+   public bool IsStrainBatch => Kind == "strain_state_batch" || Kind == "strength_ndm_batch";
    public bool IsLimitBatch  => Kind is "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch";
    public bool IsLimitKind   => Kind.StartsWith("limit_", StringComparison.Ordinal);
    public bool IsTwoStage      => Kind is "two_stage_strain" or "two_stage_strain_batch";
@@ -203,38 +214,63 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public ObservableCollection<LoadItem> Stage1Items { get; } = [];
    public ObservableCollection<LoadItem> Stage2Items { get; } = [];
 
-   public ForceSet? Stage1Set
-   {
-      get => stage1Set;
-      set
-      {
-         stage1Set = value;
-         Stage1Items.Clear();
-         if (value != null) foreach (var it in value.Items) Stage1Items.Add(it);
-         Stage1Item = Stage1Items.FirstOrDefault();
-         OnPropertyChanged();
-      }
-   }
-   public LoadItem? Stage1Item { get => stage1Item; set { stage1Item = value; OnPropertyChanged(); } }
+    public ForceSet? Stage1Set
+    {
+       get => stage1Set;
+       set
+       {
+          stage1Set = value;
+          Stage1Items.Clear();
+          if (value != null) foreach (var it in value.Items) Stage1Items.Add(it);
+          Stage1Item = Stage1Items.FirstOrDefault();
+          OnPropertyChanged();
+       }
+    }
+    public LoadItem? Stage1Item { get => stage1Item; set { stage1Item = value; OnPropertyChanged(); } }
 
-   public ForceSet? Stage2Set
-   {
-      get => stage2Set;
-      set
-      {
-         stage2Set = value;
-         Stage2Items.Clear();
-         if (value != null) foreach (var it in value.Items) Stage2Items.Add(it);
-         Stage2Item = Stage2Items.FirstOrDefault();
-         OnPropertyChanged();
-      }
-   }
-   public LoadItem? Stage2Item { get => stage2Item; set { stage2Item = value; OnPropertyChanged(); } }
+    public bool Stage1UseManual
+    {
+       get => stage1UseManual;
+       set { stage1UseManual = value; OnPropertyChanged(); OnPropertyChanged(nameof(Stage1ShowSet)); OnPropertyChanged(nameof(Stage1ShowManual)); }
+    }
+    public bool Stage1UseSet { get => !stage1UseManual; set { Stage1UseManual = !value; } }
+    public bool Stage1ShowSet    => IsTwoStage && !stage1UseManual;
+    public bool Stage1ShowManual => IsTwoStage && stage1UseManual;
+    public string Stage1ManualN  { get => stage1ManualN;  set { stage1ManualN  = value; OnPropertyChanged(); } }
+    public string Stage1ManualMx { get => stage1ManualMx; set { stage1ManualMx = value; OnPropertyChanged(); } }
+    public string Stage1ManualMy { get => stage1ManualMy; set { stage1ManualMy = value; OnPropertyChanged(); } }
+
+    public ForceSet? Stage2Set
+    {
+       get => stage2Set;
+       set
+       {
+          stage2Set = value;
+          Stage2Items.Clear();
+          if (value != null) foreach (var it in value.Items) Stage2Items.Add(it);
+          Stage2Item = Stage2Items.FirstOrDefault();
+          OnPropertyChanged();
+       }
+    }
+    public LoadItem? Stage2Item { get => stage2Item; set { stage2Item = value; OnPropertyChanged(); } }
+
+    public bool Stage2UseManual
+    {
+       get => stage2UseManual;
+       set { stage2UseManual = value; OnPropertyChanged(); OnPropertyChanged(nameof(Stage2ShowSet)); OnPropertyChanged(nameof(Stage2ShowManual)); }
+    }
+    public bool Stage2UseSet { get => !stage2UseManual; set { Stage2UseManual = !value; } }
+    public bool Stage2ShowSet    => IsTwoStage && !stage2UseManual;
+    public bool Stage2ShowManual => IsTwoStage && stage2UseManual;
+    public string Stage2ManualN  { get => stage2ManualN;  set { stage2ManualN  = value; OnPropertyChanged(); } }
+    public string Stage2ManualMx { get => stage2ManualMx; set { stage2ManualMx = value; OnPropertyChanged(); } }
+    public string Stage2ManualMy { get => stage2ManualMy; set { stage2ManualMy = value; OnPropertyChanged(); } }
 
    public List<CalcTaskKindItem> AvailableKinds { get; } =
    [
       new() { Id = "strain_state",         Label = Loc.S("CalcTaskKind_strain_state") },
       new() { Id = "strain_state_batch",   Label = Loc.S("CalcTaskKind_strain_state_batch") },
+      new() { Id = "strength_ndm_batch",  Label = Loc.S("CalcTaskKind_strength_ndm_batch") },
       new() { Id = "two_stage_strain",       Label = Loc.S("CalcTaskKind_two_stage_strain") },
       new() { Id = "two_stage_strain_batch", Label = Loc.S("CalcTaskKind_two_stage_strain_batch") },
       new() { Id = "limit_force",          Label = Loc.S("CalcTaskKind_limit_force") },
@@ -316,14 +352,29 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          if (existing.Kind is "two_stage_strain" or "two_stage_strain_batch")
          {
             var tp = TwoStageParams.Parse(existing.ParamsJson);
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            Stage1UseManual = tp.Stage1.Mode == "manual";
             Stage1Set  = ForceSets.FirstOrDefault(f => f.Id == tp.Stage1.ForceSetId);
             Stage1Item = tp.Stage1.Mode == "set"
                ? null
                : Stage1Items.FirstOrDefault(i => i.Id == tp.Stage1.ForceItemId);
+            if (Stage1UseManual)
+            {
+               Stage1ManualN  = tp.Stage1.N .ToString("G6", inv);
+               Stage1ManualMx = tp.Stage1.Mx.ToString("G6", inv);
+               Stage1ManualMy = tp.Stage1.My.ToString("G6", inv);
+            }
+            Stage2UseManual = tp.Stage2.Mode == "manual";
             Stage2Set  = ForceSets.FirstOrDefault(f => f.Id == tp.Stage2.ForceSetId);
             Stage2Item = tp.Stage2.Mode == "set"
                ? null
                : Stage2Items.FirstOrDefault(i => i.Id == tp.Stage2.ForceItemId);
+            if (Stage2UseManual)
+            {
+               Stage2ManualN  = tp.Stage2.N .ToString("G6", inv);
+               Stage2ManualMx = tp.Stage2.Mx.ToString("G6", inv);
+               Stage2ManualMy = tp.Stage2.My.ToString("G6", inv);
+            }
          }
       }
       else
@@ -341,23 +392,25 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       OkCommand = new RelayCommand(_ => Commit());
    }
 
-   static StageForce BuildStageForce(ForceSet set, LoadItem? item, bool allowSet)
-   {
-      if (item == null && allowSet)
-         return new StageForce { Mode = "set", ForceSetId = set.Id };
-      return new StageForce { Mode = "item", ForceSetId = set.Id, ForceItemId = item?.Id ?? 0 };
-   }
+    static StageForce BuildStageForceManual(string n, string mx, string my)
+    {
+       var inv = System.Globalization.CultureInfo.InvariantCulture;
+       double Parse(string s) =>
+          double.TryParse(s, System.Globalization.NumberStyles.Float, inv, out var v) ? v : 0;
+       return new StageForce { Mode = "manual", N = Parse(n), Mx = Parse(mx), My = Parse(my) };
+    }
+
+    static StageForce BuildStageForce(ForceSet set, LoadItem? item, bool allowSet)
+    {
+       if (item == null && allowSet)
+          return new StageForce { Mode = "set", ForceSetId = set.Id };
+       return new StageForce { Mode = "item", ForceSetId = set.Id, ForceItemId = item?.Id ?? 0 };
+    }
 
    void Commit()
    {
       if (IsTwoStage)
       {
-         if (Stage1Set == null || Stage2Set == null)
-         {
-            MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-               MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-         }
          if (SelectedSection == null)
          {
             MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
@@ -365,23 +418,55 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             return;
          }
 
-         var stage1 = BuildStageForce(Stage1Set, Stage1Item, allowSet: IsTwoStageBatch);
-         var stage2 = BuildStageForce(Stage2Set, Stage2Item, allowSet: IsTwoStageBatch);
+         // Этап 1
+         StageForce stage1;
+         if (Stage1UseManual)
+            stage1 = BuildStageForceManual(Stage1ManualN, Stage1ManualMx, Stage1ManualMy);
+         else
+         {
+            if (Stage1Set == null)
+            {
+               MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               return;
+            }
+            stage1 = BuildStageForce(Stage1Set, Stage1Item, allowSet: IsTwoStageBatch);
+         }
+
+         // Этап 2
+         StageForce stage2;
+         if (Stage2UseManual)
+            stage2 = BuildStageForceManual(Stage2ManualN, Stage2ManualMx, Stage2ManualMy);
+         else
+         {
+            if (Stage2Set == null)
+            {
+               MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               return;
+            }
+            stage2 = BuildStageForce(Stage2Set, Stage2Item, allowSet: IsTwoStageBatch);
+         }
 
          if (IsTwoStageBatch)
          {
-            // Этап 2 — всегда весь набор; попарно — равное число строк
-            stage2 = new StageForce { Mode = "set", ForceSetId = Stage2Set.Id };
-            if (stage1.Mode == "set" && Stage1Set.Items.Count != Stage2Set.Items.Count)
+            // Этап 2 — всегда весь набор; попарно — равное число строк.
+            // Ручной ввод этапа 2 в пакетном режиме трактуется как одно усилие
+            // для всех строк (κ1 считается один раз — в Batch-хендлере).
+            if (!Stage2UseManual)
+               stage2 = new StageForce { Mode = "set", ForceSetId = Stage2Set!.Id };
+            if (stage1.Mode == "set" && stage2.Mode == "set"
+                && Stage1Set!.Items.Count != Stage2Set!.Items.Count)
             {
                MessageBox.Show(Loc.S("TwoStageNeedEqualRows"), Loc.S("Warning"),
                   MessageBoxButton.OK, MessageBoxImage.Warning);
                return;
             }
          }
-         else if (Stage1Item == null || Stage2Item == null)
+         else if (!Stage1UseManual && !Stage2UseManual
+                  && (Stage1Item == null || Stage2Item == null))
          {
-            // Детальная: оба этапа — конкретная строка
+            // Детальная: при выборе из набора оба этапа — конкретная строка
             MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
                MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
@@ -389,11 +474,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
          Result = new CalcTask
          {
-            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
-            Kind = Kind,
-            SectionId = SelectedSection.Id,
-            ForceSetId = 0,
-            ForceItemId = 0,
+             Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+             Kind = Kind,
+             SectionId = SelectedSection.Id,
+             ForceSetId = 0,
+             ForceItemId = 0,
             CalcType = SelectedCalcType,
             ParamsJson = new TwoStageParams { Stage1 = stage1, Stage2 = stage2 }.ToJson()
          };

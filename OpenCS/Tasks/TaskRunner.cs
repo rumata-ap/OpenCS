@@ -23,6 +23,7 @@ namespace OpenCS.Tasks
          ["limit_force_batch"]    = new LimitForceBatchHandler(),
          ["limit_moment_batch"]   = new LimitMomentBatchHandler(),
          ["limit_axial_batch"]    = new LimitAxialBatchHandler(),
+         ["strength_ndm_batch"]   = new StrengthNDMBatchHandler(),
       };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>

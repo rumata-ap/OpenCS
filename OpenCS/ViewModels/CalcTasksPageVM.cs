@@ -150,7 +150,8 @@ namespace OpenCS.ViewModels
          }
          else if (ct.Kind is "strain_state_batch"
             or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
-            or "two_stage_strain" or "two_stage_strain_batch")
+            or "two_stage_strain" or "two_stage_strain_batch"
+            or "strength_ndm_batch")
          {
             fi = new LoadItem(); // обработчик читает усилия из ParamsJson/ctx.Database.ForceSets
          }
