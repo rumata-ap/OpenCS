@@ -39,6 +39,13 @@ namespace OpenCS.Views
             return;
         }
 
+        // Поиск плоскости деформаций пластины (одиночный)
+        if (task != null && task.Kind == "shell_strain_state")
+        {
+            Content = new ShellStrainResultView(result, app, task);
+            return;
+        }
+
         // Упрощённый расчёт пластин
         if (task != null && task.Kind.StartsWith("shell_simpl_"))
         {
