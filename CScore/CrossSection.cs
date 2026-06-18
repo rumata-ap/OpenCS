@@ -4,23 +4,38 @@ using System.Text.Json.Serialization;
 
 namespace CScore
 {
-   /// <summary>
-   /// Поперечное сечение — контейнер материальных областей с единым интегралом.
-   /// Заменяет RCFiberRegion как контейнер. Минимум одна MaterialArea.
-   /// </summary>
-   [Serializable]
-   public class CrossSection
-   {
-      public int Id { get; set; }
-      public int Num { get; set; }
-      public string Tag { get; set; } = "";
-      public string? Description { get; set; }
+    /// <summary>
+    /// Поперечное сечение — контейнер материальных областей с единым интегралом.
+    /// Заменяет RCFiberRegion как контейнер. Минимум одна MaterialArea.
+    /// </summary>
+    [Serializable]
+    public class CrossSection
+    {
+       public int Id { get; set; }
+       public int Num { get; set; }
+       public string Tag { get; set; } = "";
+       public string? Description { get; set; }
 
-      public List<MaterialArea> Areas { get; set; } = [];
+       public List<MaterialArea> Areas { get; set; } = [];
 
-      public CrossSection() { }
+       public CrossSection() { }
 
-      public override string ToString() => $"{Num:D3}#CrossSection : {Tag}";
+       public override string ToString() => $"{Num:D3}#CrossSection : {Tag}";
+
+       /// <summary>
+       /// Перечисляет пары (область, эффективная плоскость деформаций) при базовой кривизне
+       /// <paramref name="baseK"/>. Базовая реализация возвращает (area, baseK) для каждой
+       /// области из <see cref="Areas"/>. Производные классы (например, <see cref="TwoStageSection"/>)
+       /// могут переопределять этот метод, чтобы вернуть разные эффективные плоскости
+       /// для разных групп областей (замороженная κ1 для этапа 1 + κ2 для этапа 2).
+       /// Этот метод — единая точка для потребителей (сводка, графики σ/ε, жёсткости),
+       /// чтобы корректно работать с любым типом сечения.
+       /// </summary>
+       public virtual IEnumerable<(MaterialArea area, Kurvature k)> EnumerateAreas(Kurvature baseK)
+       {
+          foreach (var area in Areas)
+             yield return (area, baseK);
+       }
 
       /// <summary>
       /// Вычисляет деформации и напряжения во всех областях по кривизне.
@@ -28,8 +43,8 @@ namespace CScore
       public virtual void SetEps(Kurvature k, CalcType calc,
                                   bool ten = true, bool ca = true)
       {
-         foreach (var area in Areas)
-            area.SetEps(k, calc, ten, ca);
+         foreach (var (area, ka) in EnumerateAreas(k))
+            area.SetEps(ka, calc, ten, ca);
       }
 
       /// <summary>
@@ -41,20 +56,24 @@ namespace CScore
                                     bool ten = true, bool ca = true)
       {
          double N = 0, Mx = 0, My = 0;
-         foreach (var area in Areas)
+         // EnumerateAreas даёт пары (область, эффективная плоскость деформаций ka).
+         // Для базового сечения ka == k; для составного (TwoStageSection) области этапа 1
+         // получают k + κ1, области этапа 2 — k. Так контурный и фибровый пути работают
+         // одинаково для любого производного сечения.
+         foreach (var (area, ka) in EnumerateAreas(k))
          {
             bool hasMeshFibers = area.Fibers.Any(f => f.TypeFiber != FiberType.point);
 
             if (!hasMeshFibers && area.Hull != null && area.Diagramms.ContainsKey(calc))
             {
                // Контурный путь для полигонной части
-               var (n, mx, my) = area.ContourIntegral(k, calc, ten, ca);
+               var (n, mx, my) = area.ContourIntegral(ka, calc, ten, ca);
                N += n; Mx += mx; My += my;
 
                // Точечные фибры в этой области (если есть) — через SetEps
                if (area.Fibers.Count > 0)
                {
-                  area.SetEps(k, calc, ten, ca);
+                  area.SetEps(ka, calc, ten, ca);
                   foreach (var f in area.Fibers)
                   { N += f.N; Mx += f.Mx; My += f.My; }
                }
@@ -62,7 +81,7 @@ namespace CScore
             else
             {
                // Фибровый путь — SetEps обрабатывает все фибры (mesh + point)
-               area.SetEps(k, calc, ten, ca);
+               area.SetEps(ka, calc, ten, ca);
                foreach (var f in area.Fibers)
                { N += f.N; Mx += f.Mx; My += f.My; }
             }
@@ -85,10 +104,20 @@ namespace CScore
       /// Для областей без сеточных фибр использует геометрию контура Hull,
       /// чтобы не занижать жёсткость сечения.
       /// </summary>
-      public Kurvature Guess(Load load)
+      public virtual Kurvature Guess(Load load)
+      {
+         return GuessFromProps(ElasticProps(Areas), load);
+      }
+
+      /// <summary>
+      /// Накапливает упругие геометрические характеристики (EA, EIx, EIy) по набору областей.
+      /// Для областей без сеточных фибр использует геометрию контура Hull, чтобы не занижать
+      /// жёсткость сечения. Используется при построении начального приближения кривизны.
+      /// </summary>
+      protected static GeoProps ElasticProps(IEnumerable<MaterialArea> areas)
       {
          var pr = new GeoProps();
-         foreach (var area in Areas)
+         foreach (var area in areas)
          {
             bool hasMeshFibers = area.Fibers.Any(f => f.TypeFiber != FiberType.point);
             if (!hasMeshFibers && area.Hull != null && area.Material != null)
@@ -104,7 +133,12 @@ namespace CScore
             // Фибровый вклад (арматурные точки, сгенерированная сетка)
             pr = pr + new GeoProps(area);
          }
+         return pr;
+      }
 
+      /// <summary>Упругое приближение кривизны из геометрических характеристик и нагрузки.</summary>
+      protected static Kurvature GuessFromProps(GeoProps pr, Load load)
+      {
          // Load.Mx = ∫σ·y·dA → ky (dε/dy), жёсткость EIx = E·∫y²dA
          // Load.My = ∫σ·x·dA → kz (dε/dx), жёсткость EIy = E·∫x²dA
          double ea  = pr.EA  > 1e-10 ? pr.EA  : 1.0;

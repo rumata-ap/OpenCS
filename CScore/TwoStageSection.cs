@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace CScore
@@ -26,44 +27,38 @@ namespace CScore
       /// </summary>
       public Kurvature Stage1Kurvature { get; set; }
 
-      public TwoStageSection() { }
+       /// <inheritdoc/>
+       /// <remarks>
+       /// Для составного сечения под инкрементом <paramref name="baseK"/> (= κ2) возвращает:
+       /// области этапа 1 с эффективной плоскостью <c>baseK + Stage1Kurvature</c>
+       /// (суммарная деформация ε(κ1) + ε(κ2)) и области этапа 2 с плоскостью <c>baseK</c>.
+       /// </remarks>
+       public override IEnumerable<(MaterialArea area, Kurvature k)> EnumerateAreas(Kurvature baseK)
+       {
+          Kurvature k1Total = baseK + Stage1Kurvature;
+          foreach (var a in Stage1.Areas) yield return (a, k1Total);
+          foreach (var a in Areas)        yield return (a, baseK);
+       }
 
-      /// <inheritdoc/>
-      public override void SetEps(Kurvature k, CalcType calc,
-                                   bool ten = true, bool ca = true)
-      {
-         Kurvature k1 = k + Stage1Kurvature;
-         foreach (var area in Stage1.Areas)
-            area.SetEps(k1, calc, ten, ca);
-         foreach (var area in Areas)
-            area.SetEps(k, calc, ten, ca);
-      }
+       public TwoStageSection() { }
 
-      /// <inheritdoc/>
-      public override Load Integral(Kurvature k, CalcType calc = CalcType.C,
-                                     bool ten = true, bool ca = true)
-      {
-         double N = 0, Mx = 0, My = 0;
+       /// <summary>
+       /// Начальное приближение приращения кривизны κ2 для этапа 2.
+       /// Жёсткость берётся по <b>составному</b> сечению (области этапа 1 + этапа 2),
+       /// а не только по усиливающей части. Иначе деление полного усилия на малую
+       /// жёсткость одной усиливающей области даёт завышенное в разы κ2, и Ньютон
+       /// стартует в нелинейной/разрушенной зоне → расходимость.
+       /// </summary>
+       public override Kurvature Guess(Load load)
+       {
+          var pr = ElasticProps(Stage1.Areas.Concat(Areas));
+          return GuessFromProps(pr, load);
+       }
 
-         // Этап 1: ε_total = ε_current + ε_stage1 (замороженная маска)
-         Kurvature k1 = k + Stage1Kurvature;
-         foreach (var area in Stage1.Areas)
-         {
-            area.SetEps(k1, calc, ten, ca);
-            foreach (var f in area.Fibers)
-            { N += f.N; Mx += f.Mx; My += f.My; }
-         }
-
-         // Этап 2: ε_total = ε_current
-         foreach (var area in Areas)
-         {
-            area.SetEps(k, calc, ten, ca);
-            foreach (var f in area.Fibers)
-            { N += f.N; Mx += f.Mx; My += f.My; }
-         }
-
-         return new Load { Calc = calc, N = N, Mx = Mx, My = My };
-      }
+      // SetEps и Integral НЕ переопределяются: базовая реализация CrossSection
+      // итерирует EnumerateAreas(k) и поддерживает контурный путь (теорема Грина)
+      // для плоских областей без сетки фибр. Наивное суммирование area.Fibers
+      // теряло бетон контурных областей обеих стадий — несходимость этапа 2.
 
       /// <inheritdoc/>
       public override CrossSection CloneForCalc() => new TwoStageSection
