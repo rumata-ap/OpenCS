@@ -886,6 +886,7 @@ namespace OpenCS
          var d = new CScore.Diagramm
          {
             Tag          = Loc.S("NewDiagram"),
+            Type         = CScore.DiagrammType.Custom,
             CalcType     = CScore.CalcType.C,
             MaterialType = CScore.MatType.Concrete,
             Ic           = new CSmath.LSpline(new[] { -0.003, 0.0 }, new[] { -30.0, 0.0 }),
