@@ -42,7 +42,8 @@ public sealed class TwoStageStrainHandler : ITaskHandler
          var s2Solver = new StrainSolver(tss, task.CalcType,
             tol: settings.NewtonTolerance, maxIter: settings.NewtonMaxIter, h: settings.NewtonDeltaH);
          var k = s2Solver.Solve(f2.N, f2.Mx, f2.My);
-         var res = tss.Integral(k, task.CalcType);
+         var res    = tss.Integral(k, task.CalcType);
+         var resS1  = tss.Stage1.Integral(k1, task.CalcType);
 
          var data = new
          {
@@ -52,16 +53,22 @@ public sealed class TwoStageStrainHandler : ITaskHandler
             e0 = Math.Round(k.e0, 8), ky = Math.Round(k.ky, 8), kz = Math.Round(k.kz, 8),
             N_target = f2.N, Mx_target = f2.Mx, My_target = f2.My,
             N_result = Math.Round(res.N, 4), Mx_result = Math.Round(res.Mx, 4), My_result = Math.Round(res.My, 4),
-            stage1_converged = s1Solver.Converged,
-            stage1_e0 = Math.Round(k1.e0, 8), stage1_ky = Math.Round(k1.ky, 8), stage1_kz = Math.Round(k1.kz, 8)
+            stage1_converged  = s1Solver.Converged,
+            stage1_iterations = s1Solver.Iterations,
+            stage1_residual   = Math.Round(s1Solver.Residual, 6),
+            stage1_e0 = Math.Round(k1.e0, 8), stage1_ky = Math.Round(k1.ky, 8), stage1_kz = Math.Round(k1.kz, 8),
+            stage1_N_target  = f1.N, stage1_Mx_target = f1.Mx, stage1_My_target = f1.My,
+            stage1_N_result  = Math.Round(resS1.N, 4),
+            stage1_Mx_result = Math.Round(resS1.Mx, 4),
+            stage1_My_result = Math.Round(resS1.My, 4)
          };
 
-         return new CalcResult
-         {
-            TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag, Created = created,
-            Status = s2Solver.Converged && s1Solver.Converged ? "ok" : "not_converged",
-            DataJson = JsonSerializer.Serialize(data)
-         };
+          return new CalcResult
+          {
+             TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag, Created = created,
+             Status = s2Solver.Converged && s1Solver.Converged ? "ok" : "not_converged",
+             DataJson = JsonSerializer.Serialize(data)
+          };
       }
       catch (Exception ex)
       {

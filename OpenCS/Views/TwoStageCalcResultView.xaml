@@ -1,0 +1,150 @@
+<UserControl x:Class="OpenCS.Views.TwoStageCalcResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views">
+
+   <TabControl>
+      <!-- ╔═══════════════ Сводка ═══════════════╗ -->
+      <TabItem Header="{DynamicResource ResultTabSummary}">
+         <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="12,8">
+
+               <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                  <TextBlock Text="{Binding TaskTag}" FontSize="14" FontWeight="Bold"
+                             Margin="0,0,10,0" VerticalAlignment="Center"/>
+                  <TextBlock Text="{Binding StatusText}" FontSize="13"
+                             Foreground="{Binding StatusBrush}" VerticalAlignment="Center"/>
+               </StackPanel>
+               <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,0,0,10"/>
+
+               <!-- Этап 1 -->
+               <GroupBox Header="{DynamicResource TwoStageSummary_Stage1}" Margin="0,0,0,6" Padding="8,4">
+                  <StackPanel>
+                     <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="{Binding Stage1StatusText}" Foreground="{Binding Stage1StatusBrush}"
+                                   VerticalAlignment="Center"/>
+                     </StackPanel>
+                     <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                           <ColumnDefinition Width="100"/>
+                           <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="ε₀ (κ1)"  Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Stage1Eps0Text}" FontFamily="Consolas" Margin="0,1"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="κy"  Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Stage1KyText}"   FontFamily="Consolas" Margin="0,1"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="κz"  Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Stage1KzText}"   FontFamily="Consolas" Margin="0,1"/>
+                     </Grid>
+                     <Grid>
+                        <Grid.ColumnDefinitions>
+                           <ColumnDefinition Width="40"/>
+                           <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="N"  Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Stage1NText}"  FontFamily="Consolas" Margin="0,1"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Mx" Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Stage1MxText}" FontFamily="Consolas" Margin="0,1"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="My" Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Stage1MyText}" FontFamily="Consolas" Margin="0,1"/>
+                     </Grid>
+                  </StackPanel>
+               </GroupBox>
+
+               <!-- Этап 2 -->
+               <GroupBox Header="{DynamicResource TwoStageSummary_Stage2}" Margin="0,0,0,6" Padding="8,4">
+                  <StackPanel>
+                     <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="{Binding Stage2StatusText}" Foreground="{Binding Stage2StatusBrush}"
+                                   VerticalAlignment="Center"/>
+                     </StackPanel>
+                     <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                           <ColumnDefinition Width="100"/>
+                           <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="ε₀ (κ2)"  Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Stage2Eps0Text}" FontFamily="Consolas" Margin="0,1"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="κy"  Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Stage2KyText}"   FontFamily="Consolas" Margin="0,1"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="κz"  Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Stage2KzText}"   FontFamily="Consolas" Margin="0,1"/>
+                     </Grid>
+                     <Grid>
+                        <Grid.ColumnDefinitions>
+                           <ColumnDefinition Width="40"/>
+                           <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                           <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="N"  Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Stage2NText}"  FontFamily="Consolas" Margin="0,1"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Mx" Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Stage2MxText}" FontFamily="Consolas" Margin="0,1"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="My" Foreground="Gray" Margin="0,1"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Stage2MyText}" FontFamily="Consolas" Margin="0,1"/>
+                     </Grid>
+                  </StackPanel>
+               </GroupBox>
+
+            </StackPanel>
+         </ScrollViewer>
+      </TabItem>
+
+      <!-- ╔═══════════════ Этап 1 ═══════════════╗ -->
+      <TabItem Header="{DynamicResource TwoStageSummary_Stage1}">
+         <TabControl>
+            <TabItem Header="{DynamicResource ResultTabSummary}">
+               <ScrollViewer VerticalScrollBarVisibility="Auto">
+                  <StackPanel Margin="12,8">
+                     <local:StrainSummaryBody DataContext="{Binding Stage1Summary}"/>
+                  </StackPanel>
+               </ScrollViewer>
+            </TabItem>
+            <TabItem Header="{DynamicResource ResultTabStress}">
+               <local:SectionPlotView DataContext="{Binding Stage1Stress}"/>
+            </TabItem>
+            <TabItem Header="{DynamicResource ResultTabStrain}">
+               <local:SectionPlotView DataContext="{Binding Stage1Strain}"/>
+            </TabItem>
+         </TabControl>
+      </TabItem>
+
+      <!-- ╔═══════════════ Этап 2 ═══════════════╗ -->
+      <TabItem Header="{DynamicResource TwoStageSummary_Stage2}">
+         <TabControl>
+            <TabItem Header="{DynamicResource ResultTabSummary}">
+               <ScrollViewer VerticalScrollBarVisibility="Auto">
+                  <StackPanel Margin="12,8">
+                     <local:StrainSummaryBody DataContext="{Binding Stage2Summary}"/>
+                  </StackPanel>
+               </ScrollViewer>
+            </TabItem>
+            <TabItem Header="{DynamicResource ResultTabStress}">
+               <local:SectionPlotView DataContext="{Binding Stage2Stress}"/>
+            </TabItem>
+            <TabItem Header="{DynamicResource ResultTabStrain}">
+               <local:SectionPlotView DataContext="{Binding Stage2Strain}"/>
+            </TabItem>
+         </TabControl>
+      </TabItem>
+   </TabControl>
+</UserControl>

@@ -161,7 +161,7 @@ namespace OpenCS.ViewModels
             // Аккумуляторы точки максимального сжатия
             Point? mcPt = null; double mcEps = double.MaxValue, mcSig = 0;
 
-            foreach (var area in section.Areas)
+            foreach (var (area, ka) in section.EnumerateAreas(k))
             {
                 if (!area.Diagramms.TryGetValue(calcType, out var dgr)) continue;
                 bool isRebar = area.Category != AreaCategory.Region;
@@ -189,7 +189,7 @@ namespace OpenCS.ViewModels
                         var gMax = (pt: pts[0], val: double.MinValue);
                         foreach (var v in pts)
                         {
-                            double eps_v = k.e0 + k.ky * (v.Y / 1000.0) + k.kz * (v.X / 1000.0);
+                            double eps_v = ka.e0 + ka.ky * (v.Y / 1000.0) + ka.kz * (v.X / 1000.0);
                             double val_v = mode == SectionPlotMode.Stress
                                 ? dgr.SigValue(eps_v) / 1000.0 : eps_v;
                             if (val_v < gMin.val) gMin = (v, val_v);
@@ -226,7 +226,7 @@ namespace OpenCS.ViewModels
                     for (int i = 0; i < area.Hull.X.Count; i++)
                     {
                         double ex = area.Hull.X[i], ey = area.Hull.Y[i];
-                        double eps = k.e0 + k.ky * ey + k.kz * ex;
+                        double eps = ka.e0 + ka.ky * ey + ka.kz * ex;
                         double v = mode == SectionPlotMode.Stress
                             ? dgr.SigValue(eps) / 1000.0 : eps;
                         hullVals.Add((new Point(ex * 1000, ey * 1000), v));
@@ -258,7 +258,7 @@ namespace OpenCS.ViewModels
                         double cx_mm = cell.Average(p => p.X);
                         double cy_mm = cell.Average(p => p.Y);
                         if (holesMm.Any(h => PointInPolyMm(cx_mm, cy_mm, h))) continue;
-                        double eps_c = k.e0 + k.ky * (cy_mm / 1000) + k.kz * (cx_mm / 1000);
+                        double eps_c = ka.e0 + ka.ky * (cy_mm / 1000) + ka.kz * (cx_mm / 1000);
                         double val = mode == SectionPlotMode.Stress
                             ? dgr.SigValue(eps_c) / 1000.0 : eps_c;
                         var cellPts = (IReadOnlyList<Point>)cell
@@ -311,7 +311,7 @@ namespace OpenCS.ViewModels
                     for (int i = 0; i < area.Hull.X.Count; i++)
                     {
                         double vx = area.Hull.X[i], vy = area.Hull.Y[i];
-                        double eps = k.e0 + k.ky * vy + k.kz * vx;
+                        double eps = ka.e0 + ka.ky * vy + ka.kz * vx;
                         if (eps < mcEps)
                         {
                             mcEps = eps;

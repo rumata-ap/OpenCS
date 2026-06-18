@@ -13,6 +13,8 @@ namespace OpenCS.Views
         var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
         if (task?.Kind is "fire_r_check" or "fire_r_check_batch"
             or "strain_state_batch" or "two_stage_strain_batch"
+            or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"
+            or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch"
             or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
             or "strength_ndm_batch")
         {
@@ -24,6 +26,8 @@ namespace OpenCS.Views
                 "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
                                        => new LimitForceBatchResultView(result),
                 "strength_ndm_batch"   => new StrengthNDMBatchResultView(result),
+                _ when task.Kind.StartsWith("shell_simpl_") && task.Kind.EndsWith("_batch")
+                                       => new ShellSimplBatchResultView(result, task),
                 _                      => new FireRCheckResultView(result, app, task)
             };
             return;

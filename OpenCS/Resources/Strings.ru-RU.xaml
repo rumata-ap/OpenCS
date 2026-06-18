@@ -828,6 +828,10 @@
     <system:String x:Key="CalcTaskKind_shell_simpl_wa_uls">Пластина: прочность (Wood &amp; Armer)</system:String>
     <system:String x:Key="CalcTaskKind_shell_simpl_capri_sls">Пластина: трещины (Капри-Мори)</system:String>
     <system:String x:Key="CalcTaskKind_shell_simpl_capri_uls">Пластина: прочность (Капри-Мори)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_wa_sls_batch">Пластина: трещины WA (набор)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_wa_uls_batch">Пластина: прочность WA (набор)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_capri_sls_batch">Пластина: трещины Капри-Мори (набор)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_capri_uls_batch">Пластина: прочность Капри-Мори (набор)</system:String>
     <system:String x:Key="ShellSimplSection">Сечение пластины</system:String>
     <system:String x:Key="ShellSimplForceNx">Nx, кН/м</system:String>
     <system:String x:Key="ShellSimplForceNy">Ny, кН/м</system:String>

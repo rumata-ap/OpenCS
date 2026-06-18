@@ -101,6 +101,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsShellSimpl));
            OnPropertyChanged(nameof(IsShellSimplCapri));
            OnPropertyChanged(nameof(IsShellSimplSls));
+           OnPropertyChanged(nameof(IsShellSimplBatch));
            OnPropertyChanged(nameof(ShowStandardForce));
            OnPropertyChanged(nameof(Stage1ShowSet));
            OnPropertyChanged(nameof(Stage1ShowManual));
@@ -109,7 +110,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
         }
      }
 
-     public string Kind
+    public string Kind
      {
         get => selectedKind?.Id ?? "strain_state";
         set
@@ -126,10 +127,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(ShowSolverMethod));
            OnPropertyChanged(nameof(IsTwoStage));
            OnPropertyChanged(nameof(IsTwoStageBatch));
-           OnPropertyChanged(nameof(IsShellSimpl));
-           OnPropertyChanged(nameof(IsShellSimplCapri));
-           OnPropertyChanged(nameof(IsShellSimplSls));
-           OnPropertyChanged(nameof(ShowStandardForce));
+            OnPropertyChanged(nameof(IsShellSimpl));
+            OnPropertyChanged(nameof(IsShellSimplCapri));
+            OnPropertyChanged(nameof(IsShellSimplSls));
+            OnPropertyChanged(nameof(IsShellSimplBatch));
+            OnPropertyChanged(nameof(ShowStandardForce));
            OnPropertyChanged(nameof(Stage1ShowSet));
            OnPropertyChanged(nameof(Stage1ShowManual));
            OnPropertyChanged(nameof(Stage2ShowSet));
@@ -143,8 +145,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsLimitBatch  => Kind is "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch";
    public bool IsLimitKind   => Kind.StartsWith("limit_", StringComparison.Ordinal);
    public bool IsShellSimpl      => Kind.StartsWith("shell_simpl_", StringComparison.Ordinal);
-   public bool IsShellSimplCapri => Kind is "shell_simpl_capri_sls" or "shell_simpl_capri_uls";
-   public bool IsShellSimplSls   => Kind is "shell_simpl_wa_sls" or "shell_simpl_capri_sls";
+   public bool IsShellSimplCapri => Kind is "shell_simpl_capri_sls" or "shell_simpl_capri_uls"
+        or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch";
+   public bool IsShellSimplSls   => Kind is "shell_simpl_wa_sls" or "shell_simpl_capri_sls"
+        or "shell_simpl_wa_sls_batch" or "shell_simpl_capri_sls_batch";
+   public bool IsShellSimplBatch => Kind.EndsWith("_batch", StringComparison.Ordinal);
    public bool IsTwoStage      => Kind is "two_stage_strain" or "two_stage_strain_batch";
    public bool IsTwoStageBatch => Kind == "two_stage_strain_batch";
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage;
@@ -374,6 +379,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shell_simpl_wa_uls",     Label = Loc.S("CalcTaskKind_shell_simpl_wa_uls") },
       new() { Id = "shell_simpl_capri_sls",  Label = Loc.S("CalcTaskKind_shell_simpl_capri_sls") },
       new() { Id = "shell_simpl_capri_uls",  Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls") },
+      new() { Id = "shell_simpl_wa_sls_batch",    Label = Loc.S("CalcTaskKind_shell_simpl_wa_sls_batch") },
+      new() { Id = "shell_simpl_wa_uls_batch",    Label = Loc.S("CalcTaskKind_shell_simpl_wa_uls_batch") },
+      new() { Id = "shell_simpl_capri_sls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_sls_batch") },
+      new() { Id = "shell_simpl_capri_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls_batch") },
       new() { Id = "fire_r_check",         Label = Loc.S("CalcTaskKind_fire_r_check") },
       new() { Id = "fire_r_check_batch",   Label = Loc.S("CalcTaskKind_fire_r_check_batch") }
    ];
@@ -620,16 +629,43 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           }
 
           var inv = System.Globalization.CultureInfo.InvariantCulture;
+          double stepDeg  = double.TryParse(ShellSimplStepDeg, System.Globalization.NumberStyles.Float, inv, out var sdv) ? sdv : 10.0;
+          double acrcLim  = double.TryParse(ShellSimplAcrcLim, System.Globalization.NumberStyles.Float, inv, out var alv) ? alv : 0.3;
+          double phi1     = double.TryParse(ShellSimplPhi1,    System.Globalization.NumberStyles.Float, inv, out var p1v) ? p1v : 1.0;
+          double phi2     = double.TryParse(ShellSimplPhi2,    System.Globalization.NumberStyles.Float, inv, out var p2v) ? p2v : 0.5;
+
+          if (IsShellSimplBatch)
+          {
+              if (SelectedShellForceSet == null)
+              {
+                  MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
+                     MessageBoxButton.OK, MessageBoxImage.Warning);
+                  return;
+              }
+              Result = new CalcTask
+              {
+                  Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+                  Kind = Kind,
+                  SectionId = SelectedShellSimplSection.Id,
+                  ForceSetId  = SelectedShellForceSet.Id,
+                  ForceItemId = 0,
+                  CalcType = SelectedCalcType,
+                  ParamsJson = JsonSerializer.Serialize(new ShellSimplParams
+                  {
+                      StepDeg = stepDeg, AcrcLimMm = acrcLim,
+                      Phi1 = phi1, Phi2 = phi2
+                  })
+              };
+              _window.DialogResult = true;
+              return;
+          }
+
           double nx  = double.TryParse(ShellSimplNx,  System.Globalization.NumberStyles.Float, inv, out var nxv)  ? nxv : 0;
           double ny  = double.TryParse(ShellSimplNy,  System.Globalization.NumberStyles.Float, inv, out var nyv)  ? nyv : 0;
           double nxy = double.TryParse(ShellSimplNxy, System.Globalization.NumberStyles.Float, inv, out var nxyv) ? nxyv : 0;
           double mx  = double.TryParse(ShellSimplMx,  System.Globalization.NumberStyles.Float, inv, out var mxv)  ? mxv : 0;
           double my  = double.TryParse(ShellSimplMy,  System.Globalization.NumberStyles.Float, inv, out var myv)  ? myv : 0;
           double mxy = double.TryParse(ShellSimplMxy, System.Globalization.NumberStyles.Float, inv, out var mxyv) ? mxyv : 0;
-          double stepDeg  = double.TryParse(ShellSimplStepDeg, System.Globalization.NumberStyles.Float, inv, out var sdv) ? sdv : 10.0;
-          double acrcLim  = double.TryParse(ShellSimplAcrcLim, System.Globalization.NumberStyles.Float, inv, out var alv) ? alv : 0.3;
-          double phi1     = double.TryParse(ShellSimplPhi1,    System.Globalization.NumberStyles.Float, inv, out var p1v) ? p1v : 1.0;
-          double phi2     = double.TryParse(ShellSimplPhi2,    System.Globalization.NumberStyles.Float, inv, out var p2v) ? p2v : 0.5;
 
           Result = new CalcTask
           {

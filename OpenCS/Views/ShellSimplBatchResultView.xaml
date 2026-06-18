@@ -1,0 +1,25 @@
+<UserControl x:Class="OpenCS.Views.ShellSimplBatchResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+   <StackPanel Margin="8">
+      <TextBlock FontWeight="Bold" FontSize="14" Text="{Binding Title}" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding Summary}" Margin="0,0,0,8"/>
+      <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True"
+                RowHeaderWidth="0" MaxHeight="500">
+         <DataGrid.RowStyle>
+            <Style TargetType="DataGridRow">
+               <Style.Triggers>
+                  <DataTrigger Binding="{Binding Ok}" Value="False">
+                     <Setter Property="Background" Value="#FFD8D8"/>
+                  </DataTrigger>
+               </Style.Triggers>
+            </Style>
+         </DataGrid.RowStyle>
+         <DataGrid.Columns>
+            <DataGridTextColumn Header="Метка" Binding="{Binding Label}" Width="*"/>
+            <DataGridTextColumn Header="η_max" Binding="{Binding EtaMaxDisplay}"/>
+            <DataGridTextColumn Header="Статус" Binding="{Binding Status}"/>
+         </DataGrid.Columns>
+      </DataGrid>
+   </StackPanel>
+</UserControl>

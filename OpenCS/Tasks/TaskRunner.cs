@@ -28,6 +28,10 @@ namespace OpenCS.Tasks
           ["shell_simpl_wa_uls"]    = new ShellSimplWaUlsHandler(),
           ["shell_simpl_capri_sls"] = new ShellSimplCapriSlsHandler(),
           ["shell_simpl_capri_uls"] = new ShellSimplCapriUlsHandler(),
+          ["shell_simpl_wa_sls_batch"]    = new ShellSimplWaSlsBatchHandler(),
+          ["shell_simpl_wa_uls_batch"]    = new ShellSimplWaUlsBatchHandler(),
+          ["shell_simpl_capri_sls_batch"] = new ShellSimplCapriSlsBatchHandler(),
+          ["shell_simpl_capri_uls_batch"] = new ShellSimplCapriUlsBatchHandler(),
        };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>

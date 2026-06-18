@@ -128,7 +128,7 @@ namespace OpenCS.ViewModels
 
             // Арматура — точечные фибры
             int num = 1;
-            foreach (var area in section.Areas)
+            foreach (var (area, _) in section.EnumerateAreas(k))
                 foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
                     RebarRows.Add(new RebarRow(
                         num++,
@@ -159,16 +159,16 @@ namespace OpenCS.ViewModels
         static (double? min, double? max) ComputeExtremeStrains(CrossSection section, Kurvature k)
         {
             var vals = new List<double>();
-            foreach (var area in section.Areas)
+            foreach (var (area, ka) in section.EnumerateAreas(k))
             {
                 if (area.Hull != null)
                 {
                     var xs = area.Hull.X; var ys = area.Hull.Y;
                     for (int i = 0; i < xs.Count; i++)
-                        vals.Add(k.e0 + k.ky * ys[i] + k.kz * xs[i]);
+                        vals.Add(ka.e0 + ka.ky * ys[i] + ka.kz * xs[i]);
                 }
                 foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
-                    vals.Add(k.e0 + k.ky * f.Y + k.kz * f.X);
+                    vals.Add(ka.e0 + ka.ky * f.Y + ka.kz * f.X);
             }
             if (vals.Count == 0) return (null, null);
             return (vals.Min(), vals.Max());
@@ -181,7 +181,7 @@ namespace OpenCS.ViewModels
             double EA  = 0, ESy = 0, ESz = 0, EIy = 0, EIz = 0;
             double EAe = 0, ESye= 0, ESze= 0, EIye= 0, EIze= 0;
 
-            foreach (var area in section.Areas)
+            foreach (var (area, ka) in section.EnumerateAreas(k))
             {
                 if (!area.Diagramms.TryGetValue(calcType, out var dgr)) continue;
                 // SigValue возвращает кПа; E0 = (кПа → МПа) / ε = МПа
@@ -227,7 +227,7 @@ namespace OpenCS.ViewModels
                         double cx_mm = cell.Average(p => p.X);
                         double cy_mm = cell.Average(p => p.Y);
                         if (holesMm.Any(h => PointInPolyMm(cx_mm, cy_mm, h))) continue;
-                        double eps_c = k.e0 + k.ky * (cy_mm / 1000) + k.kz * (cx_mm / 1000);
+                        double eps_c = ka.e0 + ka.ky * (cy_mm / 1000) + ka.kz * (cx_mm / 1000);
                         double sig_c = dgr.SigValue(eps_c) / 1000.0;
                         double Es = Math.Abs(eps_c) > 1e-9 ? Math.Abs(sig_c / eps_c) : E0;
                         double cellAmm2 = PolygonAreaMm2(cell);

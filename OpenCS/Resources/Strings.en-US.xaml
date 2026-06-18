@@ -825,6 +825,10 @@
     <system:String x:Key="CalcTaskKind_shell_simpl_wa_uls">Plate: strength (Wood &amp; Armer)</system:String>
     <system:String x:Key="CalcTaskKind_shell_simpl_capri_sls">Plate: cracks (Capri-Mori)</system:String>
     <system:String x:Key="CalcTaskKind_shell_simpl_capri_uls">Plate: strength (Capri-Mori)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_wa_sls_batch">Plate: cracks WA (batch)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_wa_uls_batch">Plate: strength WA (batch)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_capri_sls_batch">Plate: cracks Capri-Mori (batch)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_capri_uls_batch">Plate: strength Capri-Mori (batch)</system:String>
     <system:String x:Key="ShellSimplSection">Plate section</system:String>
     <system:String x:Key="ShellSimplForceNx">Nx, kN/m</system:String>
     <system:String x:Key="ShellSimplForceNy">Ny, kN/m</system:String>
