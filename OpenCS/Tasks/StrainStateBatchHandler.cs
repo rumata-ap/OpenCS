@@ -47,7 +47,8 @@ public sealed class StrainStateBatchHandler : ITaskHandler
                     var solver = new StrainSolver(clone, task.CalcType,
                         tol:     settings.NewtonTolerance,
                         maxIter: settings.NewtonMaxIter,
-                        h:       settings.NewtonDeltaH);
+                        h:       settings.NewtonDeltaH,
+                        centralJacobian: settings.NewtonJacobian == "central");
                     var k = solver.Solve(fi.N, fi.Mx, fi.My);
                     convergedArr[i] = solver.Converged;
                     rowResults[i]   = BuildRow(fi, k, solver);
@@ -61,7 +62,8 @@ public sealed class StrainStateBatchHandler : ITaskHandler
                     var solver = new StrainSolver(section, task.CalcType,
                         tol:     settings.NewtonTolerance,
                         maxIter: settings.NewtonMaxIter,
-                        h:       settings.NewtonDeltaH);
+                        h:       settings.NewtonDeltaH,
+                        centralJacobian: settings.NewtonJacobian == "central");
                     var k = solver.Solve(fi.N, fi.Mx, fi.My);
                     convergedArr[i] = solver.Converged;
                     rowResults[i]   = BuildRow(fi, k, solver);

@@ -54,23 +54,23 @@
 
       <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CalcTaskSection}"
                   VerticalAlignment="Center" Margin="0,0,8,8"
-                  Visibility="{Binding IsShellSimpl, Converter={StaticResource InverseBoolToVisibility}}"/>
+                  Visibility="{Binding IsPlatePanel, Converter={StaticResource InverseBoolToVisibility}}"/>
       <ComboBox  Grid.Row="3" Grid.Column="1"
                   ItemsSource="{Binding Sections}"
                   SelectedItem="{Binding SelectedSection}"
                   DisplayMemberPath="Tag"
                   Margin="0,0,0,8"
-                  Visibility="{Binding IsShellSimpl, Converter={StaticResource InverseBoolToVisibility}}"/>
+                  Visibility="{Binding IsPlatePanel, Converter={StaticResource InverseBoolToVisibility}}"/>
 
       <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource ShellSimplSection}"
                   VerticalAlignment="Center" Margin="0,0,8,8"
-                  Visibility="{Binding IsShellSimpl, Converter={StaticResource BoolToVisibility}}"/>
+                  Visibility="{Binding IsPlatePanel, Converter={StaticResource BoolToVisibility}}"/>
       <ComboBox  Grid.Row="3" Grid.Column="1"
                   ItemsSource="{Binding ShellSimplSections}"
                   SelectedItem="{Binding SelectedShellSimplSection}"
                   DisplayMemberPath="Tag"
                   Margin="0,0,0,8"
-                  Visibility="{Binding IsShellSimpl, Converter={StaticResource BoolToVisibility}}"/>
+                  Visibility="{Binding IsPlatePanel, Converter={StaticResource BoolToVisibility}}"/>
 
       <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource CalcTaskForceSet}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
@@ -230,8 +230,8 @@
       </StackPanel>
 
       <StackPanel Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2"
-                  Visibility="{Binding IsShellSimpl, Converter={StaticResource BoolToVisibility}}">
-         <GroupBox Header="Упрощённый расчёт пластины" Margin="0,8,0,0">
+                  Visibility="{Binding IsPlatePanel, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource CalcTaskPlatePanelHeader}" Margin="0,8,0,0">
             <StackPanel Margin="4">
                <ComboBox ItemsSource="{Binding ShellForceSets}"
                          SelectedItem="{Binding SelectedShellForceSet}"
@@ -239,7 +239,7 @@
                <ComboBox ItemsSource="{Binding ShellForceItems}"
                          SelectedItem="{Binding SelectedShellForceItem}"
                          DisplayMemberPath="Label" Margin="0,0,0,4"/>
-               <Grid Visibility="{Binding IsShellSimplBatch, Converter={StaticResource InverseBoolToVisibility}}">
+               <Grid Visibility="{Binding IsPlateBatch, Converter={StaticResource InverseBoolToVisibility}}">
                   <Grid.ColumnDefinitions>
                      <ColumnDefinition Width="60"/>
                      <ColumnDefinition Width="*"/>

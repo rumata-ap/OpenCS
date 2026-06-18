@@ -193,6 +193,7 @@ namespace OpenCS.Views
          CentroidNdsSizeBox.Text   = _calcSettings.CentroidNdsSize.ToString("F0");
          LabelFontSizeBox.Text     = _calcSettings.FiberLabelFontSize.ToString("F0");
          Sp63EtaMinBox.Text        = _calcSettings.Sp63DescEtaMin.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         NewtonJacobianCombo.SelectedIndex = _calcSettings.NewtonJacobian == "central" ? 1 : 0;
          BatchParallelCb.IsChecked = _calcSettings.BatchParallel;
          UpdateCalcSwatches();
       }
@@ -218,6 +219,11 @@ namespace OpenCS.Views
             if (double.TryParse(NewtonDeltaHBox.Text, System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
                _calcSettings.NewtonDeltaH = v;
+         };
+         NewtonJacobianCombo.SelectionChanged += (_, _) =>
+         {
+            _calcSettings.NewtonJacobian =
+               (NewtonJacobianCombo.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag as string ?? "forward";
          };
 
          HullColorBox.TextChanged += (_, _) =>

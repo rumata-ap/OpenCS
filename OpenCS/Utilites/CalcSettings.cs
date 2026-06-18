@@ -23,6 +23,10 @@ namespace OpenCS.Utilites
       [JsonPropertyName("newtonH")]
       public double NewtonDeltaH { get; set; } = 1e-7;
 
+      /// <summary>Схема численного якобиана Ньютона: "forward" | "central".</summary>
+      [JsonPropertyName("newtonJacobian")]
+      public string NewtonJacobian { get; set; } = "forward";
+
       // ── Стили линий ──────────────────────────────────────────────────
       [JsonPropertyName("hullColor")]
       public string HullColor { get; set; } = "#000000";
@@ -74,6 +78,7 @@ namespace OpenCS.Utilites
          NewtonTolerance       = NewtonTolerance,
          NewtonMaxIter         = NewtonMaxIter,
          NewtonDeltaH          = NewtonDeltaH,
+         NewtonJacobian        = NewtonJacobian,
          HullColor             = HullColor,
          HullThickness         = HullThickness,
          HoleColor             = HoleColor,

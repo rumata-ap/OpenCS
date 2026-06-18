@@ -1,0 +1,109 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Threading.Tasks;
+using CScore;
+using OpenCS.Utilites;
+
+namespace OpenCS.Tasks;
+
+/// <summary>
+/// Пакетная задача поиска плоскости деформаций пластины по строкам ForceSet.ShellItems.
+/// BatchParallel=true → независимые решения на глубоких клонах сечения (без тёплого
+/// старта); иначе → последовательный SolveMany с тёплым стартом.
+/// </summary>
+public sealed class ShellStrainBatchHandler : ITaskHandler
+{
+    public string Kind => "shell_strain_state_batch";
+
+    public CalcResult Run(CalcTask task, CrossSection section, LoadItem item,
+                          CalcSettings settings, TaskRunContext? ctx = null)
+    {
+        var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        try
+        {
+            if (ctx?.Database is null)
+                throw new InvalidOperationException("Требуется контекст с DatabaseService.");
+
+            var plate = ctx.Database.PlateSections.FirstOrDefault(s => s.Id == task.SectionId)
+                ?? throw new InvalidOperationException($"Плитное сечение id={task.SectionId} не найдено.");
+            var forceSet = ctx.Database.ForceSets.FirstOrDefault(fs => fs.Id == task.ForceSetId)
+                ?? throw new InvalidOperationException($"Набор усилий id={task.ForceSetId} не найден.");
+            if (forceSet.ShellItems.Count == 0)
+                throw new InvalidOperationException($"Набор усилий «{forceSet.Tag}» не содержит строк для пластин.");
+
+            var (cDiag, rDiag, layerDiags, _) =
+                PlateMaterialResolver.Resolve(plate, ctx.Database.Materials, task.CalcType);
+            bool central = settings.NewtonJacobian == "central";
+
+            var items = forceSet.ShellItems;
+            int total = items.Count;
+            var rows = new object[total];
+            var converged = new bool[total];
+
+            if (settings.BatchParallel && total > 1)
+            {
+                Parallel.For(0, total, i =>
+                {
+                    var clone = plate.CloneForCalc();
+                    var si = items[i];
+                    double[] tgt = { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy };
+                    var r = new ShellStrainSolver(clone, cDiag, rDiag, layerDiags,
+                        centralJacobian: central).Solve(tgt);
+                    converged[i] = r.Converged;
+                    rows[i] = BuildRow(si.Label, r);
+                });
+            }
+            else
+            {
+                var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
+                    centralJacobian: central);
+                var targets = items.Select(si =>
+                    new[] { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy }).ToList();
+                var results = solver.SolveMany(targets);
+                for (int i = 0; i < total; i++)
+                {
+                    converged[i] = results[i].Converged;
+                    rows[i] = BuildRow(items[i].Label, results[i]);
+                }
+            }
+
+            int convergedCount = converged.Count(c => c);
+            bool allOk = convergedCount == total;
+
+            var data = new
+            {
+                all_converged = allOk,
+                converged_count = convergedCount,
+                total,
+                rows,
+            };
+
+            return new CalcResult
+            {
+                TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+                Created = created, Status = allOk ? "ok" : "partial",
+                DataJson = JsonSerializer.Serialize(data),
+            };
+        }
+        catch (Exception ex)
+        {
+            return new CalcResult
+            {
+                TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+                Created = created, Status = "error",
+                DataJson = JsonSerializer.Serialize(new { error = ex.Message }),
+            };
+        }
+    }
+
+    static object BuildRow(string label, ShellStrainSolverResult r) => new
+    {
+        label,
+        converged = r.Converged,
+        iterations = r.Iterations,
+        residual = Math.Round(r.Residual, 6),
+        status = r.Converged ? "ok" : "not_converged",
+    };
+}

@@ -55,6 +55,8 @@ LimitForceSolverTests.RunAll();
 
 PlateModelTests.RunAll();
 
+ShellStrainSolverTests.RunAll();
+
 BucklingTests.RunSimplySupportedPlate();
 
 return TestHarness.Summary();

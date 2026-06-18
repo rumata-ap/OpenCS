@@ -246,6 +246,7 @@
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0"
                                            Text="{DynamicResource CalcSettingsTol}"
@@ -273,6 +274,15 @@
                                          x:Name="Sp63EtaMinBox"
                                          VerticalContentAlignment="Center" Margin="0,2"
                                          ToolTip="{DynamicResource CalcSettingsSp63EtaMinTip}"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsJacobian}"
+                                           VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="4" Grid.Column="1"
+                                          x:Name="NewtonJacobianCombo"
+                                          VerticalContentAlignment="Center" Margin="0,2">
+                                    <ComboBoxItem Tag="forward" Content="{DynamicResource CalcSettingsJacobianForward}"/>
+                                    <ComboBoxItem Tag="central" Content="{DynamicResource CalcSettingsJacobianCentral}"/>
+                                </ComboBox>
                             </Grid>
                         </GroupBox>
                         <GroupBox Header="{DynamicResource CalcSettingsBatchGroup}" Margin="0,0,0,10">

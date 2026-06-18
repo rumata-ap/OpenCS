@@ -31,7 +31,8 @@ namespace OpenCS.Tasks
             var solver = new StrainSolver(section, task.CalcType,
                 tol: settings.NewtonTolerance,
                 maxIter: settings.NewtonMaxIter,
-                h: settings.NewtonDeltaH);
+                h: settings.NewtonDeltaH,
+                centralJacobian: settings.NewtonJacobian == "central");
             var k      = solver.Solve(nTarget, mxTarget, myTarget);
 
             var result = section.Integral(k, task.CalcType);
