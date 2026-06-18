@@ -53,6 +53,8 @@ HeatTransientTests.RunAll();
 
 LimitForceSolverTests.RunAll();
 
+PlateModelTests.RunAll();
+
 BucklingTests.RunSimplySupportedPlate();
 
 return TestHarness.Summary();

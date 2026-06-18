@@ -94,6 +94,15 @@ namespace CScore
       /// <summary>Параметр εc2 для модели Vecchio–Collins.</summary>
       public double SofteningEpsC2 { get; set; } = 0.002;
 
+      /// <summary>
+      /// Нелинейная модель интегрирования по толщине:
+      /// "layered" — слоистая (главные ε₁/ε₂ + softening, разбиение на NLayers);
+      /// "char1d_principal" — 1D по характерным точкам, по главным (+softening);
+      /// "char1d_axial" — 1D по характерным точкам, по осям (σx←εx, σy←εy, без softening/σxy).
+      /// Пустое/неизвестное значение трактуется как "layered".
+      /// </summary>
+      public string PlateModel { get; set; } = "layered";
+
       // ── Расчёт ─────────────────────────────────────────────────────────────
 
       /// <summary>
@@ -230,13 +239,37 @@ namespace CScore
          return new[,] { { v, 0.0 }, { 0.0, v } };
       }
 
-      // ── Внутреннее: послойное интегрирование ───────────────────────────────
+      // ── Узлы/веса квадратуры Гаусса–Лежандра 5-го порядка на [-1,1] ─────────
+      static readonly double[] Gl5Pts =
+         { -0.9061798459386640, -0.5384693101056831, 0.0, 0.5384693101056831, 0.9061798459386640 };
+      static readonly double[] Gl5Wts =
+         {  0.2369268850561891,  0.4786286704993665, 0.5688888888888889, 0.4786286704993665, 0.2369268850561891 };
+
+      // ── Внутреннее: диспетчер интегрирования по модели ─────────────────────
 
       // Возвращает 16 значений: суммарные + детализация бетон/арматура
       private (double nx, double ny, double nxy, double mx, double my, double mxy,
                double nxc, double nyc, double nxyc, double mxc, double myc, double mxyc,
                double nxr, double nyr, double mxr, double myr)
          Integrate(ShellStrainState s, Diagramm cDiag, Diagramm rDiag, IReadOnlyList<Diagramm?>? layerDiags)
+      {
+         var (nxc, nyc, nxyc, mxc, myc, mxyc) = PlateModel switch
+         {
+            "char1d_axial"     => IntegrateConcreteChar1dAxial(s, cDiag),
+            "char1d_principal" => IntegrateConcreteChar1dPrincipal(s, cDiag),
+            _                  => IntegrateConcreteLayered(s, cDiag),
+         };
+
+         var (nxr, nyr, mxr, myr) = IntegrateRebar(s, rDiag, layerDiags);
+
+         return (nxc + nxr, nyc + nyr, nxyc, mxc + mxr, myc + myr, mxyc,
+                 nxc, nyc, nxyc, mxc, myc, mxyc,
+                 nxr, nyr, mxr, myr);
+      }
+
+      // ── Бетон: слоистая модель (разбиение на NLayers, главные + softening) ──
+      private (double nxc, double nyc, double nxyc, double mxc, double myc, double mxyc)
+         IntegrateConcreteLayered(ShellStrainState s, Diagramm cDiag)
       {
          double h  = H;
          int    nl = NLayers < 1 ? 1 : NLayers;
@@ -272,6 +305,23 @@ namespace CScore
             mxyc += txy  * kf * zi;
          }
 
+         return (nxc, nyc, nxyc, mxc, myc, mxyc);
+      }
+
+      // ── Бетон: 1D по характерным точкам, по осям ───────────────────────────
+      private (double,double,double,double,double,double)
+         IntegrateConcreteChar1dAxial(ShellStrainState s, Diagramm cDiag)
+         => IntegrateConcreteLayered(s, cDiag);   // TODO: Task 2
+
+      // ── Бетон: 1D по характерным точкам, по главным ────────────────────────
+      private (double,double,double,double,double,double)
+         IntegrateConcreteChar1dPrincipal(ShellStrainState s, Diagramm cDiag)
+         => IntegrateConcreteLayered(s, cDiag);   // TODO: Task 3
+
+      // ── Арматура: точечные вклады в Zsx/Zsy (общая для всех моделей) ───────
+      private (double nxr, double nyr, double mxr, double myr)
+         IntegrateRebar(ShellStrainState s, Diagramm rDiag, IReadOnlyList<Diagramm?>? layerDiags)
+      {
          double nxr = 0, nyr = 0, mxr = 0, myr = 0;
 
          for (int li = 0; li < RebarLayers.Count; li++)
@@ -299,9 +349,7 @@ namespace CScore
             }
          }
 
-         return (nxc + nxr, nyc + nyr, nxyc, mxc + mxr, myc + myr, mxyc,
-                 nxc, nyc, nxyc, mxc, myc, mxyc,
-                 nxr, nyr, mxr, myr);
+         return (nxr, nyr, mxr, myr);
       }
 
       double GeomCentroid()
