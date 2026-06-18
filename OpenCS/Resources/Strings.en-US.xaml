@@ -275,6 +275,7 @@
     <system:String x:Key="AddRow">Add Row</system:String>
     <system:String x:Key="DeleteRow">Delete Row</system:String>
     <system:String x:Key="Branch">Branch</system:String>
+    <system:String x:Key="Characteristic">Characteristic</system:String>
     <system:String x:Key="FitView">Fit View</system:String>
     <system:String x:Key="DiagramTag">Diagram name</system:String>
     <system:String x:Key="BaseType">Base behavior type</system:String>

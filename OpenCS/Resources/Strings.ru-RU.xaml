@@ -278,6 +278,7 @@
     <system:String x:Key="AddRow">Добавить строку</system:String>
     <system:String x:Key="DeleteRow">Удалить строку</system:String>
     <system:String x:Key="Branch">Ветвь</system:String>
+    <system:String x:Key="Characteristic">Характерная</system:String>
     <system:String x:Key="FitView">По размеру</system:String>
     <system:String x:Key="DiagramTag">Наименование диаграммы</system:String>
     <system:String x:Key="BaseType">Базовый тип поведения</system:String>

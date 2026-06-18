@@ -63,6 +63,9 @@
                                 Width="*"/>
                             <DataGridTextColumn Header="{DynamicResource Branch}"
                                 Binding="{Binding Branch}" IsReadOnly="True" Width="65"/>
+                            <DataGridCheckBoxColumn Header="{DynamicResource Characteristic}"
+                                Binding="{Binding IsCharacteristic, UpdateSourceTrigger=PropertyChanged}"
+                                Width="90"/>
                         </DataGrid.Columns>
                     </DataGrid>
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,0">
