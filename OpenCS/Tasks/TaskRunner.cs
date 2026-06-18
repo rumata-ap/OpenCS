@@ -32,6 +32,7 @@ namespace OpenCS.Tasks
           ["shell_simpl_wa_uls_batch"]    = new ShellSimplWaUlsBatchHandler(),
           ["shell_simpl_capri_sls_batch"] = new ShellSimplCapriSlsBatchHandler(),
           ["shell_simpl_capri_uls_batch"] = new ShellSimplCapriUlsBatchHandler(),
+          ["shell_strain_state"]          = new ShellStrainHandler(),
        };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>
