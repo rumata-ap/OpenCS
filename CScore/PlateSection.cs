@@ -309,9 +309,49 @@ namespace CScore
       }
 
       // ── Бетон: 1D по характерным точкам, по осям ───────────────────────────
-      private (double,double,double,double,double,double)
+      private (double nxc, double nyc, double nxyc, double mxc, double myc, double mxyc)
          IntegrateConcreteChar1dAxial(ShellStrainState s, Diagramm cDiag)
-         => IntegrateConcreteLayered(s, cDiag);   // TODO: Task 2
+      {
+         double h = H, zlo = -h / 2.0, zhi = h / 2.0;
+         double[] crit = cDiag.GetCriticalStrains();
+
+         var zs = new System.Collections.Generic.SortedSet<double> { zlo, zhi };
+         AddAxisBreaks(zs, s.Eps0x, s.Kx, crit, zlo, zhi);
+         AddAxisBreaks(zs, s.Eps0y, s.Ky, crit, zlo, zhi);
+         var nodes = new System.Collections.Generic.List<double>(zs);
+
+         double nxc = 0, nyc = 0, mxc = 0, myc = 0;
+         for (int seg = 0; seg < nodes.Count - 1; seg++)
+         {
+            double a = nodes[seg], b = nodes[seg + 1];
+            double half = 0.5 * (b - a);
+            if (half <= 1e-15) continue;
+            double mid = 0.5 * (a + b);
+            for (int g = 0; g < Gl5Pts.Length; g++)
+            {
+               double z  = mid + half * Gl5Pts[g];
+               double w  = Gl5Wts[g] * half;
+               double sigx = ConcreteStress(cDiag, s.EpsX(z), 1.0);
+               double sigy = ConcreteStress(cDiag, s.EpsY(z), 1.0);
+               double kf = w * 1000.0;          // σ[МПа]·dz[м]·1000 → кН/м
+               nxc += sigx * kf;  mxc += sigx * kf * z;
+               nyc += sigy * kf;  myc += sigy * kf * z;
+            }
+         }
+         return (nxc, nyc, 0.0, mxc, myc, 0.0);
+      }
+
+      // z-точки, где εx(z)=ε0+k·z пересекает характерную деформацию: z=(c−ε0)/k.
+      private static void AddAxisBreaks(System.Collections.Generic.SortedSet<double> zs,
+         double eps0, double k, double[] crit, double zlo, double zhi)
+      {
+         if (Math.Abs(k) < 1e-12) return;       // равномерно по толщине — нет изломов
+         foreach (double c in crit)
+         {
+            double z = (c - eps0) / k;
+            if (z > zlo + 1e-12 && z < zhi - 1e-12) zs.Add(z);
+         }
+      }
 
       // ── Бетон: 1D по характерным точкам, по главным ────────────────────────
       private (double,double,double,double,double,double)

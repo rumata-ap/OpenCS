@@ -30,6 +30,9 @@ public static class PlateModelTests
     {
         TestHarness.Section("Пластина: слоистая модель — аналитика (линейная σ=Eε)");
         RunLayeredAnalytic();
+
+        TestHarness.Section("Пластина: 1D по осям — аналитика и паритет со слоистой");
+        RunAxial();
     }
 
     static void RunLayeredAnalytic()
@@ -51,5 +54,32 @@ public static class PlateModelTests
         var r2 = plate.Compute(s2, cd, cd, null, false);
         double mxRef = e * kx * h * h * h / 12.0 * 1000.0;
         TestHarness.CheckRel("Mx изгиб (layered)", r2.Mx, mxRef, 0.02);
+    }
+
+    static void RunAxial()
+    {
+        double e = 30_000, h = 0.2;
+        var cd = LinearConcrete(e);
+
+        // Аналитика: осевое + изгиб
+        double eps = 1e-4, kx = 1e-3;
+        var sAx = new ShellStrainState(eps, 0, 0, 0, 0, 0);
+        var sBe = new ShellStrainState(0, 0, 0, kx, 0, 0);
+
+        var axial = Plate("char1d_axial", h, 1);  // NLayers не влияет на 1D
+        var rAx = axial.Compute(sAx, cd, cd, null, false);
+        var rBe = axial.Compute(sBe, cd, cd, null, false);
+        TestHarness.CheckRel("Nx осевое (axial)", rAx.Nx, e * eps * h * 1000.0, 1e-6);
+        TestHarness.CheckRel("Mx изгиб (axial)", rBe.Mx, e * kx * h * h * h / 12.0 * 1000.0, 1e-6);
+
+        // Паритет со слоистой (softening off, без сдвига → совпадают)
+        var layered = Plate("layered", h, 200);
+        var rL = layered.Compute(sBe, cd, cd, null, false);
+        TestHarness.CheckRel("Mx axial ≈ layered", rBe.Mx, rL.Mx, 0.01);
+
+        // Независимость 1D от NLayers
+        var axial2 = Plate("char1d_axial", h, 999);
+        var rAx2 = axial2.Compute(sBe, cd, cd, null, false);
+        TestHarness.CheckRel("axial независим от NLayers", rBe.Mx, rAx2.Mx, 1e-9);
     }
 }
