@@ -238,6 +238,63 @@ namespace CScore
          };
       }
 
+      /// <summary>
+      /// Выборка эпюр ε(z) и σ(z) по толщине для визуализации. Не участвует в
+      /// интегрировании. Напряжения бетона согласованы с <see cref="PlateModel"/>:
+      /// "char1d_axial" — по осям (σxy=0); иначе по главным + softening.
+      /// </summary>
+      public PlateThroughThickness SampleThroughThickness(
+         ShellStrainState state, Diagramm cDiag, Diagramm rDiag,
+         IReadOnlyList<Diagramm?>? layerDiags, int nPoints)
+      {
+         int n = nPoints < 2 ? 2 : nPoints;
+         var r = new PlateThroughThickness
+         {
+            Z = new double[n], EpsX = new double[n], EpsY = new double[n],
+            GammaXY = new double[n], SigX = new double[n], SigY = new double[n],
+            TauXY = new double[n],
+         };
+         double zlo = -H / 2.0, dz = H / (n - 1);
+         bool axial = PlateModel == "char1d_axial";
+
+         for (int i = 0; i < n; i++)
+         {
+            double z = zlo + i * dz;
+            double ex = state.EpsX(z), ey = state.EpsY(z), gxy = state.GammaXY(z);
+            r.Z[i] = z; r.EpsX[i] = ex; r.EpsY[i] = ey; r.GammaXY[i] = gxy;
+
+            if (axial)
+            {
+               r.SigX[i] = ConcreteStress(cDiag, ex, 1.0);
+               r.SigY[i] = ConcreteStress(cDiag, ey, 1.0);
+               r.TauXY[i] = 0.0;
+            }
+            else
+            {
+               PrincipalStrains2D(ex, ey, gxy, out double eps1, out double eps2, out double theta);
+               double beta = SofteningModel == "vecchio_collins"
+                  ? VecchioCollinsBeta(eps1, SofteningEpsC2) : 1.0;
+               double sig1 = ConcreteStress(cDiag, eps1, beta);
+               double sig2 = ConcreteStress(cDiag, eps2, beta);
+               RotateStressesToXY(sig1, sig2, theta, out double sx, out double sy, out double txy);
+               r.SigX[i] = sx; r.SigY[i] = sy; r.TauXY[i] = txy;
+            }
+         }
+
+         for (int li = 0; li < RebarLayers.Count; li++)
+         {
+            var rl = RebarLayers[li];
+            var rd = layerDiags != null && li < layerDiags.Count && layerDiags[li] != null
+                     ? layerDiags[li]! : rDiag;
+            if (rd == null) continue;
+            if (rl.Asx > 0.0)
+               r.Rebar.Add(new RebarStressPoint(rl.Zsx, RebarStress(rd, state.EpsX(rl.Zsx)), true));
+            if (rl.Asy > 0.0)
+               r.Rebar.Add(new RebarStressPoint(rl.Zsy, RebarStress(rd, state.EpsY(rl.Zsy)), false));
+         }
+         return r;
+      }
+
       static double Norm6(double[] v)
       {
          double s = 0;

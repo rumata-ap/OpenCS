@@ -34,6 +34,25 @@ public static class ShellStrainSolverTests
         RunSolveLinearAnalytic();
         RunForwardVsCentral();
         RunSolveMany();
+
+        TestHarness.Section("Пластина: выборка эпюр по толщине");
+        RunSample();
+    }
+
+    static void RunSample()
+    {
+        double e = 30_000, h = 0.2;
+        var cd = LinearConcrete(e);
+        var plate = Plate("layered", h, 40);
+        var st = new ShellStrainState(0, 0, 0, 1e-3, 0, 0); // чистый изгиб κx
+        var s = plate.SampleThroughThickness(st, cd, cd, null, 11);
+        TestHarness.Check("выборка: 11 точек", s.Z.Length == 11 && s.SigX.Length == 11);
+        TestHarness.CheckRel("выборка: z[0]=-h/2", s.Z[0], -h / 2.0, 1e-9);
+        TestHarness.CheckRel("выборка: z[10]=+h/2", s.Z[10], h / 2.0, 1e-9);
+        // При κx>0: εx(z)=κx·z → σx меняет знак; на нижней грани сжатие, на верхней растяжение
+        TestHarness.Check("выборка: σx антисимметрична по знаку",
+            s.SigX[0] * s.SigX[10] < 0, $"низ={s.SigX[0]:f3}, верх={s.SigX[10]:f3}");
+        TestHarness.CheckRel("выборка: σx(z=0)≈0", s.SigX[5], 0.0, 1e-6);
     }
 
     static void RunSolveMany()
