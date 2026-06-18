@@ -28,6 +28,59 @@ public static class ShellStrainSolverTests
     {
         TestHarness.Section("Пластина: глубокий клон CloneForCalc");
         RunClone();
+
+        TestHarness.Section("Пластина: обратная задача — round-trip и аналитика");
+        RunSolveRoundTrip();
+        RunSolveLinearAnalytic();
+        RunForwardVsCentral();
+    }
+
+    static void RunSolveRoundTrip()
+    {
+        double e = 30_000, h = 0.2;
+        var cd = LinearConcrete(e);
+        var plate = Plate("layered", h, 40);
+
+        // Эталонное НДС → усилия (прямая задача)
+        var state0 = new ShellStrainState(1.2e-4, -0.6e-4, 0.0, 1.5e-3, -0.8e-3, 0.0);
+        var f0 = plate.Compute(state0, cd, cd, null, false);
+        double[] target = { f0.Nx, f0.Ny, f0.Nxy, f0.Mx, f0.My, f0.Mxy };
+
+        var solver = new ShellStrainSolver(plate, cd, cd, null, tolRes: 1e-4, maxIter: 50);
+        var res = solver.Solve(target);
+
+        TestHarness.Check("round-trip: сошлось", res.Converged, $"iter={res.Iterations}, r={res.Residual:e3}");
+        TestHarness.CheckRel("round-trip: ε₀x", res.StrainState.Eps0x, state0.Eps0x, 1e-3);
+        TestHarness.CheckRel("round-trip: κx", res.StrainState.Kx, state0.Kx, 1e-3);
+        TestHarness.CheckRel("round-trip: κy", res.StrainState.Ky, state0.Ky, 1e-3);
+    }
+
+    static void RunSolveLinearAnalytic()
+    {
+        double e = 30_000, h = 0.2;
+        var cd = LinearConcrete(e);
+        var plate = Plate("char1d_axial", h, 1);
+        // Чистая мембрана по x: Nx = E·ε·h·1000 → ε = Nx/(E·h·1000)
+        double nx = 100.0; // кН/м
+        double[] target = { nx, 0, 0, 0, 0, 0 };
+        var res = new ShellStrainSolver(plate, cd, cd, null, tolRes: 1e-6, maxIter: 60).Solve(target);
+        double epsRef = nx / (e * h * 1000.0);
+        TestHarness.Check("аналитика: сошлось", res.Converged, $"r={res.Residual:e3}");
+        TestHarness.CheckRel("аналитика: ε₀x = Nx/(E·h·1000)", res.StrainState.Eps0x, epsRef, 1e-3);
+    }
+
+    static void RunForwardVsCentral()
+    {
+        double e = 30_000, h = 0.2;
+        var cd = LinearConcrete(e);
+        var plate = Plate("layered", h, 40);
+        double[] target = { 80.0, -30.0, 0.0, 12.0, -6.0, 0.0 };
+        var fwd = new ShellStrainSolver(plate, cd, cd, null, centralJacobian: false).Solve(target);
+        var ctr = new ShellStrainSolver(plate, cd, cd, null, centralJacobian: true).Solve(target);
+        TestHarness.Check("forward сошёлся", fwd.Converged);
+        TestHarness.Check("central сошёлся", ctr.Converged);
+        TestHarness.CheckRel("forward==central: ε₀x", fwd.StrainState.Eps0x, ctr.StrainState.Eps0x, 1e-4);
+        TestHarness.CheckRel("forward==central: κx", fwd.StrainState.Kx, ctr.StrainState.Kx, 1e-4);
     }
 
     static void RunClone()
