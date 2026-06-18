@@ -19,10 +19,12 @@ namespace CScore
       readonly double       _tol;
       readonly int          _maxIter;
       readonly double       _h;
+      readonly bool         _central;
 
       public StrainSolver(CrossSection section, CalcType calc = CalcType.C,
                           bool ten = true, bool ca = true,
-                          double tol = 0.5, int maxIter = 60, double h = 1e-7)
+                          double tol = 0.5, int maxIter = 60, double h = 1e-7,
+                          bool centralJacobian = true)
       {
          _section = section;
          _calc    = calc;
@@ -31,6 +33,7 @@ namespace CScore
          _tol     = tol;
          _maxIter = maxIter;
          _h       = h;
+         _central = centralJacobian;
       }
 
       /// <summary>
@@ -67,10 +70,19 @@ namespace CScore
             for (int j = 0; j < 3; j++)
             {
                var fp = _section.Integral(k + axes[j], _calc, _ten, _ca);
-               var fm = _section.Integral(k - axes[j], _calc, _ten, _ca);
-               J[0, j] = (fp.N  - fm.N)  / (2 * _h);
-               J[1, j] = (fp.Mx - fm.Mx) / (2 * _h);
-               J[2, j] = (fp.My - fm.My) / (2 * _h);
+               if (_central)
+               {
+                  var fm = _section.Integral(k - axes[j], _calc, _ten, _ca);
+                  J[0, j] = (fp.N  - fm.N)  / (2 * _h);
+                  J[1, j] = (fp.Mx - fm.Mx) / (2 * _h);
+                  J[2, j] = (fp.My - fm.My) / (2 * _h);
+               }
+               else
+               {
+                  J[0, j] = (fp.N  - f0.N)  / _h;
+                  J[1, j] = (fp.Mx - f0.Mx) / _h;
+                  J[2, j] = (fp.My - f0.My) / _h;
+               }
             }
 
             // Решение 3×3 системы J·Δk = r методом Гаусса
