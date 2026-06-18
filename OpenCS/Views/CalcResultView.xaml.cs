@@ -35,6 +35,13 @@ namespace OpenCS.Views
             return;
         }
 
+        // Упрощённый расчёт пластин
+        if (task != null && task.Kind.StartsWith("shell_simpl_"))
+        {
+            Content = new ShellSimplResultView(result, task);
+            return;
+        }
+
         // Двухстадийный одиночный расчёт — отдельный view с вкладками по стадиям
         if (task?.Kind == "two_stage_strain")
         {

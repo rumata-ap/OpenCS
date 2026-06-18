@@ -23,8 +23,12 @@ namespace OpenCS.Tasks
          ["limit_force_batch"]    = new LimitForceBatchHandler(),
          ["limit_moment_batch"]   = new LimitMomentBatchHandler(),
          ["limit_axial_batch"]    = new LimitAxialBatchHandler(),
-         ["strength_ndm_batch"]   = new StrengthNDMBatchHandler(),
-      };
+          ["strength_ndm_batch"]   = new StrengthNDMBatchHandler(),
+          ["shell_simpl_wa_sls"]    = new ShellSimplWaSlsHandler(),
+          ["shell_simpl_wa_uls"]    = new ShellSimplWaUlsHandler(),
+          ["shell_simpl_capri_sls"] = new ShellSimplCapriSlsHandler(),
+          ["shell_simpl_capri_uls"] = new ShellSimplCapriUlsHandler(),
+       };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>
       public static CalcResult Run(CalcTask task, CrossSection section, LoadItem item,

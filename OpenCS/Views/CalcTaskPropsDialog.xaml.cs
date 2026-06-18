@@ -52,6 +52,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string manualN = "0";
     string manualMx = "0";
     string manualMy = "0";
+    // Shell simpl
+    PlateSection? selectedShellSimplSection;
+    ForceSet? selectedShellForceSet;
+    ShellLoadItem? selectedShellForceItem;
+    string shellSimplNx = "0", shellSimplNy = "0", shellSimplNxy = "0";
+    string shellSimplMx = "0", shellSimplMy = "0", shellSimplMxy = "0";
+    string shellSimplStepDeg = "10";
+    string shellSimplAcrcLim = "0.3";
+    string shellSimplPhi1 = "1.0";
+    string shellSimplPhi2 = "0.5";
     ForceSet? stage1Set, stage2Set;
     LoadItem? stage1Item, stage2Item;
     bool stage1UseManual, stage2UseManual;
@@ -70,53 +80,59 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    static bool IsLimitSingleKind(string kind)
       => kind is "limit_force" or "limit_moment" or "limit_axial";
 
-    public CalcTaskKindItem? SelectedKind
-    {
-       get => selectedKind;
-       set
-       {
-          selectedKind = value;
-          if (value != null)
-             Kind = value.Id;
-          OnPropertyChanged();
-          OnPropertyChanged(nameof(IsFireKind));
-          OnPropertyChanged(nameof(IsStrainBatch));
-          OnPropertyChanged(nameof(IsLimitBatch));
-          OnPropertyChanged(nameof(IsLimitSingle));
-          OnPropertyChanged(nameof(ShowForceItem));
-          OnPropertyChanged(nameof(ShowManualForces));
-          OnPropertyChanged(nameof(ShowSolverMethod));
-          OnPropertyChanged(nameof(IsTwoStage));
-          OnPropertyChanged(nameof(IsTwoStageBatch));
-          OnPropertyChanged(nameof(ShowStandardForce));
-          OnPropertyChanged(nameof(Stage1ShowSet));
-          OnPropertyChanged(nameof(Stage1ShowManual));
-          OnPropertyChanged(nameof(Stage2ShowSet));
-          OnPropertyChanged(nameof(Stage2ShowManual));
-       }
-    }
+     public CalcTaskKindItem? SelectedKind
+     {
+        get => selectedKind;
+        set
+        {
+           selectedKind = value;
+           if (value != null)
+              Kind = value.Id;
+           OnPropertyChanged();
+           OnPropertyChanged(nameof(IsFireKind));
+           OnPropertyChanged(nameof(IsStrainBatch));
+           OnPropertyChanged(nameof(IsLimitBatch));
+           OnPropertyChanged(nameof(IsLimitSingle));
+           OnPropertyChanged(nameof(ShowForceItem));
+           OnPropertyChanged(nameof(ShowManualForces));
+           OnPropertyChanged(nameof(ShowSolverMethod));
+           OnPropertyChanged(nameof(IsTwoStage));
+           OnPropertyChanged(nameof(IsTwoStageBatch));
+           OnPropertyChanged(nameof(IsShellSimpl));
+           OnPropertyChanged(nameof(IsShellSimplCapri));
+           OnPropertyChanged(nameof(IsShellSimplSls));
+           OnPropertyChanged(nameof(ShowStandardForce));
+           OnPropertyChanged(nameof(Stage1ShowSet));
+           OnPropertyChanged(nameof(Stage1ShowManual));
+           OnPropertyChanged(nameof(Stage2ShowSet));
+           OnPropertyChanged(nameof(Stage2ShowManual));
+        }
+     }
 
-    public string Kind
-    {
-       get => selectedKind?.Id ?? "strain_state";
-       set
-       {
-          selectedKind = AvailableKinds.FirstOrDefault(k => k.Id == value) ?? AvailableKinds[0];
-          OnPropertyChanged();
-          OnPropertyChanged(nameof(SelectedKind));
-          OnPropertyChanged(nameof(IsFireKind));
-          OnPropertyChanged(nameof(IsStrainBatch));
-          OnPropertyChanged(nameof(IsLimitBatch));
-          OnPropertyChanged(nameof(IsLimitSingle));
-          OnPropertyChanged(nameof(ShowForceItem));
-          OnPropertyChanged(nameof(ShowManualForces));
-          OnPropertyChanged(nameof(ShowSolverMethod));
-          OnPropertyChanged(nameof(IsTwoStage));
-          OnPropertyChanged(nameof(IsTwoStageBatch));
-          OnPropertyChanged(nameof(ShowStandardForce));
-          OnPropertyChanged(nameof(Stage1ShowSet));
-          OnPropertyChanged(nameof(Stage1ShowManual));
-          OnPropertyChanged(nameof(Stage2ShowSet));
+     public string Kind
+     {
+        get => selectedKind?.Id ?? "strain_state";
+        set
+        {
+           selectedKind = AvailableKinds.FirstOrDefault(k => k.Id == value) ?? AvailableKinds[0];
+           OnPropertyChanged();
+           OnPropertyChanged(nameof(SelectedKind));
+           OnPropertyChanged(nameof(IsFireKind));
+           OnPropertyChanged(nameof(IsStrainBatch));
+           OnPropertyChanged(nameof(IsLimitBatch));
+           OnPropertyChanged(nameof(IsLimitSingle));
+           OnPropertyChanged(nameof(ShowForceItem));
+           OnPropertyChanged(nameof(ShowManualForces));
+           OnPropertyChanged(nameof(ShowSolverMethod));
+           OnPropertyChanged(nameof(IsTwoStage));
+           OnPropertyChanged(nameof(IsTwoStageBatch));
+           OnPropertyChanged(nameof(IsShellSimpl));
+           OnPropertyChanged(nameof(IsShellSimplCapri));
+           OnPropertyChanged(nameof(IsShellSimplSls));
+           OnPropertyChanged(nameof(ShowStandardForce));
+           OnPropertyChanged(nameof(Stage1ShowSet));
+           OnPropertyChanged(nameof(Stage1ShowManual));
+           OnPropertyChanged(nameof(Stage2ShowSet));
            OnPropertyChanged(nameof(Stage2ShowManual));
            FilterSections();
         }
@@ -126,6 +142,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsStrainBatch => Kind == "strain_state_batch" || Kind == "strength_ndm_batch";
    public bool IsLimitBatch  => Kind is "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch";
    public bool IsLimitKind   => Kind.StartsWith("limit_", StringComparison.Ordinal);
+   public bool IsShellSimpl      => Kind.StartsWith("shell_simpl_", StringComparison.Ordinal);
+   public bool IsShellSimplCapri => Kind is "shell_simpl_capri_sls" or "shell_simpl_capri_uls";
+   public bool IsShellSimplSls   => Kind is "shell_simpl_wa_sls" or "shell_simpl_capri_sls";
    public bool IsTwoStage      => Kind is "two_stage_strain" or "two_stage_strain_batch";
    public bool IsTwoStageBatch => Kind == "two_stage_strain_batch";
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage;
@@ -173,17 +192,71 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       set { selectedSection = value; OnPropertyChanged(); }
    }
 
-   public FireSectionDef? SelectedFireSection
+    public FireSectionDef? SelectedFireSection
+    {
+        get => selectedFireSection;
+        set
+        {
+           selectedFireSection = value;
+           if (value != null)
+              SelectedSection = _allSections.FirstOrDefault(s => s.Id == value.SectionId);
+           OnPropertyChanged();
+        }
+    }
+
+   public ObservableCollection<PlateSection> ShellSimplSections { get; }
+   public PlateSection? SelectedShellSimplSection
    {
-       get => selectedFireSection;
+       get => selectedShellSimplSection;
+       set { selectedShellSimplSection = value; OnPropertyChanged(); }
+   }
+
+   public ForceSet? SelectedShellForceSet
+   {
+       get => selectedShellForceSet;
        set
        {
-          selectedFireSection = value;
-          if (value != null)
-             SelectedSection = _allSections.FirstOrDefault(s => s.Id == value.SectionId);
-          OnPropertyChanged();
+           selectedShellForceSet = value;
+           ShellForceItems.Clear();
+           if (value != null)
+               foreach (var item in value.ShellItems) ShellForceItems.Add(item);
+           SelectedShellForceItem = ShellForceItems.FirstOrDefault();
+           OnPropertyChanged();
        }
    }
+   public ShellLoadItem? SelectedShellForceItem
+   {
+       get => selectedShellForceItem;
+       set
+       {
+           selectedShellForceItem = value;
+           if (value != null)
+           {
+               var inv = System.Globalization.CultureInfo.InvariantCulture;
+               ShellSimplNx  = value.Nx.ToString("G6", inv);
+               ShellSimplNy  = value.Ny.ToString("G6", inv);
+               ShellSimplNxy = value.Nxy.ToString("G6", inv);
+               ShellSimplMx  = value.Mx.ToString("G6", inv);
+               ShellSimplMy  = value.My.ToString("G6", inv);
+               ShellSimplMxy = value.Mxy.ToString("G6", inv);
+           }
+           OnPropertyChanged();
+       }
+   }
+
+   public ObservableCollection<ShellLoadItem> ShellForceItems { get; } = [];
+   public ObservableCollection<ForceSet> ShellForceSets { get; }
+
+   public string ShellSimplNx  { get => shellSimplNx;  set { shellSimplNx  = value; OnPropertyChanged(); } }
+   public string ShellSimplNy  { get => shellSimplNy;  set { shellSimplNy  = value; OnPropertyChanged(); } }
+   public string ShellSimplNxy { get => shellSimplNxy; set { shellSimplNxy = value; OnPropertyChanged(); } }
+   public string ShellSimplMx  { get => shellSimplMx;  set { shellSimplMx  = value; OnPropertyChanged(); } }
+   public string ShellSimplMy  { get => shellSimplMy;  set { shellSimplMy  = value; OnPropertyChanged(); } }
+   public string ShellSimplMxy { get => shellSimplMxy; set { shellSimplMxy = value; OnPropertyChanged(); } }
+   public string ShellSimplStepDeg  { get => shellSimplStepDeg;  set { shellSimplStepDeg  = value; OnPropertyChanged(); } }
+   public string ShellSimplAcrcLim  { get => shellSimplAcrcLim;  set { shellSimplAcrcLim  = value; OnPropertyChanged(); } }
+   public string ShellSimplPhi1     { get => shellSimplPhi1;     set { shellSimplPhi1     = value; OnPropertyChanged(); } }
+   public string ShellSimplPhi2     { get => shellSimplPhi2;     set { shellSimplPhi2     = value; OnPropertyChanged(); } }
 
    public ForceSet? SelectedForceSet
    {
@@ -297,6 +370,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "limit_moment_batch",   Label = Loc.S("CalcTaskKind_limit_moment_batch") },
       new() { Id = "limit_axial",          Label = Loc.S("CalcTaskKind_limit_axial") },
       new() { Id = "limit_axial_batch",    Label = Loc.S("CalcTaskKind_limit_axial_batch") },
+      new() { Id = "shell_simpl_wa_sls",     Label = Loc.S("CalcTaskKind_shell_simpl_wa_sls") },
+      new() { Id = "shell_simpl_wa_uls",     Label = Loc.S("CalcTaskKind_shell_simpl_wa_uls") },
+      new() { Id = "shell_simpl_capri_sls",  Label = Loc.S("CalcTaskKind_shell_simpl_capri_sls") },
+      new() { Id = "shell_simpl_capri_uls",  Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls") },
       new() { Id = "fire_r_check",         Label = Loc.S("CalcTaskKind_fire_r_check") },
       new() { Id = "fire_r_check_batch",   Label = Loc.S("CalcTaskKind_fire_r_check_batch") }
    ];
@@ -325,6 +402,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       FireSections = new ObservableCollection<FireSectionDef>(app.FireSections);
       ForceSets = new ObservableCollection<ForceSet>(app.BarForceSets);
       Sections = new ObservableCollection<CrossSection>();
+      ShellSimplSections = new ObservableCollection<PlateSection>(app.PlateSections);
+      ShellForceSets = new ObservableCollection<ForceSet>(app.ShellForceSets);
       FilterSections();
 
       if (existing != null)
@@ -369,45 +448,70 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          else if (IsLimitKind)
             SolverId = LimitForceParams.Parse(existing.ParamsJson).Solver;
 
-         if (existing.Kind is "two_stage_strain" or "two_stage_strain_batch")
-         {
-            var tp = TwoStageParams.Parse(existing.ParamsJson);
-            var inv = System.Globalization.CultureInfo.InvariantCulture;
-            Stage1UseManual = tp.Stage1.Mode == "manual";
-            Stage1Set  = ForceSets.FirstOrDefault(f => f.Id == tp.Stage1.ForceSetId);
-            Stage1Item = tp.Stage1.Mode == "set"
-               ? null
-               : Stage1Items.FirstOrDefault(i => i.Id == tp.Stage1.ForceItemId);
-            if (Stage1UseManual)
-            {
-               Stage1ManualN  = tp.Stage1.N .ToString("G6", inv);
-               Stage1ManualMx = tp.Stage1.Mx.ToString("G6", inv);
-               Stage1ManualMy = tp.Stage1.My.ToString("G6", inv);
-            }
-            Stage2UseManual = tp.Stage2.Mode == "manual";
-            Stage2Set  = ForceSets.FirstOrDefault(f => f.Id == tp.Stage2.ForceSetId);
-            Stage2Item = tp.Stage2.Mode == "set"
-               ? null
-               : Stage2Items.FirstOrDefault(i => i.Id == tp.Stage2.ForceItemId);
-            if (Stage2UseManual)
-            {
-               Stage2ManualN  = tp.Stage2.N .ToString("G6", inv);
-               Stage2ManualMx = tp.Stage2.Mx.ToString("G6", inv);
-               Stage2ManualMy = tp.Stage2.My.ToString("G6", inv);
-            }
-         }
-      }
-      else
-      {
-         SelectedKind = AvailableKinds[0];
-         SelectedSolver = SolverMethods[0];
-         SelectedSection = Sections.FirstOrDefault();
-         SelectedFireSection = FireSections.FirstOrDefault();
-         SelectedForceSet = ForceSets.FirstOrDefault();
-         SelectedCalcType = CalcType.C;
-         Stage1Set = ForceSets.FirstOrDefault();
-         Stage2Set = ForceSets.FirstOrDefault();
-      }
+          if (existing.Kind is "two_stage_strain" or "two_stage_strain_batch")
+          {
+             var tp = TwoStageParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             Stage1UseManual = tp.Stage1.Mode == "manual";
+             Stage1Set  = ForceSets.FirstOrDefault(f => f.Id == tp.Stage1.ForceSetId);
+             Stage1Item = tp.Stage1.Mode == "set"
+                ? null
+                : Stage1Items.FirstOrDefault(i => i.Id == tp.Stage1.ForceItemId);
+             if (Stage1UseManual)
+             {
+                Stage1ManualN  = tp.Stage1.N .ToString("G6", inv);
+                Stage1ManualMx = tp.Stage1.Mx.ToString("G6", inv);
+                Stage1ManualMy = tp.Stage1.My.ToString("G6", inv);
+             }
+             Stage2UseManual = tp.Stage2.Mode == "manual";
+             Stage2Set  = ForceSets.FirstOrDefault(f => f.Id == tp.Stage2.ForceSetId);
+             Stage2Item = tp.Stage2.Mode == "set"
+                ? null
+                : Stage2Items.FirstOrDefault(i => i.Id == tp.Stage2.ForceItemId);
+             if (Stage2UseManual)
+             {
+                Stage2ManualN  = tp.Stage2.N .ToString("G6", inv);
+                Stage2ManualMx = tp.Stage2.Mx.ToString("G6", inv);
+                Stage2ManualMy = tp.Stage2.My.ToString("G6", inv);
+             }
+          }
+
+          if (existing.Kind.StartsWith("shell_simpl_"))
+          {
+             var sp = ShellSimplParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             ShellSimplNx  = sp.Nx.ToString("G6", inv);
+             ShellSimplNy  = sp.Ny.ToString("G6", inv);
+             ShellSimplNxy = sp.Nxy.ToString("G6", inv);
+             ShellSimplMx  = sp.Mx.ToString("G6", inv);
+             ShellSimplMy  = sp.My.ToString("G6", inv);
+             ShellSimplMxy = sp.Mxy.ToString("G6", inv);
+             ShellSimplStepDeg = sp.StepDeg.ToString("G6", inv);
+             ShellSimplAcrcLim = sp.AcrcLimMm.ToString("G6", inv);
+             ShellSimplPhi1 = sp.Phi1.ToString("G6", inv);
+             ShellSimplPhi2 = sp.Phi2.ToString("G6", inv);
+             SelectedShellSimplSection = ShellSimplSections.FirstOrDefault(s => s.Id == existing.SectionId);
+             if (existing.ForceSetId != 0)
+             {
+                 SelectedShellForceSet = ShellForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
+                 if (existing.ForceItemId != 0)
+                     SelectedShellForceItem = ShellForceItems.FirstOrDefault(i => i.Id == existing.ForceItemId);
+             }
+          }
+       }
+       else
+       {
+          SelectedKind = AvailableKinds[0];
+          SelectedSolver = SolverMethods[0];
+          SelectedSection = Sections.FirstOrDefault();
+          SelectedFireSection = FireSections.FirstOrDefault();
+          SelectedForceSet = ForceSets.FirstOrDefault();
+          SelectedCalcType = CalcType.C;
+          SelectedShellSimplSection = ShellSimplSections.FirstOrDefault();
+          SelectedShellForceSet = ShellForceSets.FirstOrDefault();
+          Stage1Set = ForceSets.FirstOrDefault();
+          Stage2Set = ForceSets.FirstOrDefault();
+       }
 
       OkCommand = new RelayCommand(_ => Commit());
    }
@@ -506,6 +610,47 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          return;
       }
 
+      if (IsShellSimpl)
+      {
+          if (SelectedShellSimplSection == null)
+          {
+             MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+             return;
+          }
+
+          var inv = System.Globalization.CultureInfo.InvariantCulture;
+          double nx  = double.TryParse(ShellSimplNx,  System.Globalization.NumberStyles.Float, inv, out var nxv)  ? nxv : 0;
+          double ny  = double.TryParse(ShellSimplNy,  System.Globalization.NumberStyles.Float, inv, out var nyv)  ? nyv : 0;
+          double nxy = double.TryParse(ShellSimplNxy, System.Globalization.NumberStyles.Float, inv, out var nxyv) ? nxyv : 0;
+          double mx  = double.TryParse(ShellSimplMx,  System.Globalization.NumberStyles.Float, inv, out var mxv)  ? mxv : 0;
+          double my  = double.TryParse(ShellSimplMy,  System.Globalization.NumberStyles.Float, inv, out var myv)  ? myv : 0;
+          double mxy = double.TryParse(ShellSimplMxy, System.Globalization.NumberStyles.Float, inv, out var mxyv) ? mxyv : 0;
+          double stepDeg  = double.TryParse(ShellSimplStepDeg, System.Globalization.NumberStyles.Float, inv, out var sdv) ? sdv : 10.0;
+          double acrcLim  = double.TryParse(ShellSimplAcrcLim, System.Globalization.NumberStyles.Float, inv, out var alv) ? alv : 0.3;
+          double phi1     = double.TryParse(ShellSimplPhi1,    System.Globalization.NumberStyles.Float, inv, out var p1v) ? p1v : 1.0;
+          double phi2     = double.TryParse(ShellSimplPhi2,    System.Globalization.NumberStyles.Float, inv, out var p2v) ? p2v : 0.5;
+
+          Result = new CalcTask
+          {
+              Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+              Kind = Kind,
+              SectionId = SelectedShellSimplSection.Id,
+              ForceSetId  = SelectedShellForceSet?.Id ?? 0,
+              ForceItemId = SelectedShellForceItem?.Id ?? 0,
+              CalcType = SelectedCalcType,
+              ParamsJson = JsonSerializer.Serialize(new ShellSimplParams
+              {
+                  Nx = nx, Ny = ny, Nxy = nxy,
+                  Mx = mx, My = my, Mxy = mxy,
+                  StepDeg = stepDeg, AcrcLimMm = acrcLim,
+                  Phi1 = phi1, Phi2 = phi2
+              })
+          };
+          _window.DialogResult = true;
+          return;
+      }
+
       if (IsFireKind)
       {
          if (SelectedFireSection == null)
@@ -518,57 +663,57 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        }
 
        if (SelectedSection == null)
-      {
-         MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
-            MessageBoxButton.OK, MessageBoxImage.Warning);
-         return;
-      }
+       {
+          MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+             MessageBoxButton.OK, MessageBoxImage.Warning);
+          return;
+       }
 
-      if (IsLimitBatch && SelectedForceSet == null)
-      {
-         MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
-            MessageBoxButton.OK, MessageBoxImage.Warning);
-         return;
-      }
+       if (IsLimitBatch && SelectedForceSet == null)
+       {
+          MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
+             MessageBoxButton.OK, MessageBoxImage.Warning);
+          return;
+       }
 
-      if (!ShowManualForces && !IsLimitBatch && ShowForceItem && (SelectedForceSet == null || SelectedForceItem == null))
-      {
-         MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
-            MessageBoxButton.OK, MessageBoxImage.Warning);
-         return;
-      }
+       if (!ShowManualForces && !IsLimitBatch && ShowForceItem && (SelectedForceSet == null || SelectedForceItem == null))
+       {
+          MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
+             MessageBoxButton.OK, MessageBoxImage.Warning);
+          return;
+       }
 
-      string paramsJson = "{}";
-      if (IsFireKind && SelectedFireSection != null)
-      {
-         paramsJson = JsonSerializer.Serialize(new FireRCheckParams
-         {
-            FireSectionId = SelectedFireSection.Id,
-            Method = "fiber",
-            SnapshotIndex = -1
-         });
-      }
-      else if (ShowManualForces)
-      {
-         var inv = System.Globalization.CultureInfo.InvariantCulture;
-         double n  = double.TryParse(ManualN,  System.Globalization.NumberStyles.Float, inv, out var nv)  ? nv : 0;
-         double mx = double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, inv, out var mxv) ? mxv : 0;
-         double my = double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, inv, out var myv) ? myv : 0;
-         if (IsLimitSingle)
-         {
-            paramsJson = new LimitForceParams
-            {
-               Solver = SolverId,
-               N = n, Mx = mx, My = my
-            }.ToJson();
-         }
-         else
-            paramsJson = JsonSerializer.Serialize(new { N = n, Mx = mx, My = my });
-      }
-      else if (IsLimitKind)
-      {
-         paramsJson = new LimitForceParams { Solver = SolverId }.ToJson();
-      }
+       string paramsJson = "{}";
+       if (IsFireKind && SelectedFireSection != null)
+       {
+          paramsJson = JsonSerializer.Serialize(new FireRCheckParams
+          {
+             FireSectionId = SelectedFireSection.Id,
+             Method = "fiber",
+             SnapshotIndex = -1
+          });
+       }
+       else if (ShowManualForces)
+       {
+          var inv = System.Globalization.CultureInfo.InvariantCulture;
+          double n  = double.TryParse(ManualN,  System.Globalization.NumberStyles.Float, inv, out var nv)  ? nv : 0;
+          double mx = double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, inv, out var mxv) ? mxv : 0;
+          double my = double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, inv, out var myv) ? myv : 0;
+          if (IsLimitSingle)
+          {
+             paramsJson = new LimitForceParams
+             {
+                Solver = SolverId,
+                N = n, Mx = mx, My = my
+             }.ToJson();
+          }
+          else
+             paramsJson = JsonSerializer.Serialize(new { N = n, Mx = mx, My = my });
+       }
+       else if (IsLimitKind)
+       {
+          paramsJson = new LimitForceParams { Solver = SolverId }.ToJson();
+       }
 
       Result = new CalcTask
       {

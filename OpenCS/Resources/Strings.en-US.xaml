@@ -818,6 +818,23 @@
    <system:String x:Key="FireThermal_ChartTimeX">t, min</system:String>
    <system:String x:Key="FireThermal_ChartTempY">T, °C</system:String>
    <system:String x:Key="FireThermal_ChartPicardY">iterations</system:String>
-   <system:String x:Key="FireThermal_ChartResidY">max ΔT, °C (log)</system:String>
+    <system:String x:Key="FireThermal_ChartResidY">max ΔT, °C (log)</system:String>
+
+    <!-- Shell simpl -->
+    <system:String x:Key="CalcTaskKind_shell_simpl_wa_sls">Plate: cracks (Wood &amp; Armer)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_wa_uls">Plate: strength (Wood &amp; Armer)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_capri_sls">Plate: cracks (Capri-Mori)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_capri_uls">Plate: strength (Capri-Mori)</system:String>
+    <system:String x:Key="ShellSimplSection">Plate section</system:String>
+    <system:String x:Key="ShellSimplForceNx">Nx, kN/m</system:String>
+    <system:String x:Key="ShellSimplForceNy">Ny, kN/m</system:String>
+    <system:String x:Key="ShellSimplForceNxy">Nxy, kN/m</system:String>
+    <system:String x:Key="ShellSimplForceMx">Mx, kN·m/m</system:String>
+    <system:String x:Key="ShellSimplForceMy">My, kN·m/m</system:String>
+    <system:String x:Key="ShellSimplForceMxy">Mxy, kN·m/m</system:String>
+    <system:String x:Key="ShellSimplStepDeg">Scan step, °</system:String>
+    <system:String x:Key="ShellSimplAcrcLim">acrc,lim, mm</system:String>
+    <system:String x:Key="ShellSimplPhi1">φ1 (long-term: 1.0/1.4)</system:String>
+    <system:String x:Key="ShellSimplPhi2">φ2 (profile: 0.5/0.8)</system:String>
 
  </ResourceDictionary>
