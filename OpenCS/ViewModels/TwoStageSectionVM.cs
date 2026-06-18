@@ -49,35 +49,6 @@ namespace OpenCS.ViewModels
          set { _model.Tag = value; OnPropertyChanged(); }
       }
 
-      // Кривизна 1-го этапа
-      public double E0
-      {
-         get => _model.Stage1Kurvature.e0;
-         set
-         {
-            var k = _model.Stage1Kurvature; k.e0 = value;
-            _model.Stage1Kurvature = k; OnPropertyChanged();
-         }
-      }
-      public double Ky
-      {
-         get => _model.Stage1Kurvature.ky;
-         set
-         {
-            var k = _model.Stage1Kurvature; k.ky = value;
-            _model.Stage1Kurvature = k; OnPropertyChanged();
-         }
-      }
-      public double Kz
-      {
-         get => _model.Stage1Kurvature.kz;
-         set
-         {
-            var k = _model.Stage1Kurvature; k.kz = value;
-            _model.Stage1Kurvature = k; OnPropertyChanged();
-         }
-      }
-
       public ObservableCollection<MaterialAreaVM> Stage1Areas { get; }
       public ObservableCollection<MaterialAreaVM> Stage2Areas { get; }
 

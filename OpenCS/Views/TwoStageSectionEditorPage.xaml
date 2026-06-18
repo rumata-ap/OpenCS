@@ -77,7 +77,6 @@
                <RowDefinition Height="*"/>
                <RowDefinition Height="4"/>
                <RowDefinition Height="*"/>
-               <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" Text="{DynamicResource CrossSectionStage1}"
@@ -129,34 +128,6 @@
                </ListBox>
             </DockPanel>
 
-            <!-- Кривизна 1-го этапа -->
-            <GroupBox Grid.Row="4" Header="{DynamicResource Stage1Kurvature}" Margin="0,4,0,0">
-               <Grid Margin="4">
-                  <Grid.ColumnDefinitions>
-                     <ColumnDefinition Width="Auto"/>
-                     <ColumnDefinition Width="*"/>
-                  </Grid.ColumnDefinitions>
-                  <Grid.RowDefinitions>
-                     <RowDefinition Height="Auto"/>
-                     <RowDefinition Height="Auto"/>
-                     <RowDefinition Height="Auto"/>
-                  </Grid.RowDefinitions>
-                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource KurvatureE0}"
-                             VerticalAlignment="Center" Margin="0,0,4,4"/>
-                  <TextBox  Grid.Row="0" Grid.Column="1"
-                            Text="{Binding E0, UpdateSourceTrigger=PropertyChanged, StringFormat=G6}"
-                            Margin="0,0,0,4"/>
-                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource KurvatureKy}"
-                             VerticalAlignment="Center" Margin="0,0,4,4"/>
-                  <TextBox  Grid.Row="1" Grid.Column="1"
-                            Text="{Binding Ky, UpdateSourceTrigger=PropertyChanged, StringFormat=G6}"
-                            Margin="0,0,0,4"/>
-                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource KurvatureKz}"
-                             VerticalAlignment="Center" Margin="0,0,4,0"/>
-                  <TextBox  Grid.Row="2" Grid.Column="1"
-                            Text="{Binding Kz, UpdateSourceTrigger=PropertyChanged, StringFormat=G6}"/>
-               </Grid>
-            </GroupBox>
          </Grid>
 
          <!-- Этап 2 -->
