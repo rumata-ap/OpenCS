@@ -16,6 +16,7 @@ namespace OpenCS.Tasks
          ["fire_r_check_batch"]   = new FireRCheckBatchHandler(),
          ["strain_state_batch"]   = new StrainStateBatchHandler(),
          ["two_stage_strain"]     = new TwoStageStrainHandler(),
+         ["two_stage_strain_batch"] = new TwoStageStrainBatchHandler(),
          ["limit_force"]          = new LimitForceHandler(),
          ["limit_moment"]         = new LimitMomentHandler(),
          ["limit_axial"]          = new LimitAxialHandler(),
