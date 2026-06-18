@@ -27,7 +27,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 17;
+      const int CurrentSchemaVersion = 18;
 
       static readonly string[] Migrations =
       [
@@ -146,6 +146,7 @@ namespace OpenCS.Utilites
              tension_concrete     INTEGER NOT NULL DEFAULT 0,
              softening_model      TEXT NOT NULL DEFAULT '',
              softening_eps_c2     REAL NOT NULL DEFAULT 0.002,
+             plate_model          TEXT NOT NULL DEFAULT 'layered',
              rebar_layers_json    TEXT NOT NULL DEFAULT '[]'
          );
          """,
@@ -245,6 +246,10 @@ namespace OpenCS.Utilites
          -- v17: base_type и custom_diagram_ids для Custom-материалов.
          ALTER TABLE materials ADD COLUMN base_type          INTEGER NOT NULL DEFAULT 0;
          ALTER TABLE materials ADD COLUMN custom_diagram_ids TEXT    NOT NULL DEFAULT '{}';
+         """,
+         """
+         -- v18: модель интегрирования пластины.
+         ALTER TABLE plate_sections ADD COLUMN plate_model TEXT NOT NULL DEFAULT 'layered';
          """
       ];
 
@@ -426,6 +431,7 @@ namespace OpenCS.Utilites
                 tension_concrete     INTEGER NOT NULL DEFAULT 0,
                 softening_model      TEXT NOT NULL DEFAULT '',
                 softening_eps_c2     REAL NOT NULL DEFAULT 0.002,
+                plate_model          TEXT NOT NULL DEFAULT 'layered',
                 rebar_layers_json    TEXT NOT NULL DEFAULT '[]'
             );
             CREATE TABLE IF NOT EXISTS material_areas (
@@ -564,6 +570,7 @@ namespace OpenCS.Utilites
                if (i == 14) { MigrateV15(); continue; }
                if (i == 15) { MigrateV16(); continue; }
                if (i == 16) { MigrateV17(); continue; }
+               if (i == 17) { EnsurePlateModelColumn(); continue; }
                var migCmd = _connection.CreateCommand();
                migCmd.CommandText = Migrations[i];
                migCmd.ExecuteNonQuery();
@@ -659,6 +666,7 @@ namespace OpenCS.Utilites
                 tension_concrete     INTEGER NOT NULL DEFAULT 0,
                 softening_model      TEXT NOT NULL DEFAULT '',
                 softening_eps_c2     REAL NOT NULL DEFAULT 0.002,
+                plate_model          TEXT NOT NULL DEFAULT 'layered',
                 rebar_layers_json    TEXT NOT NULL DEFAULT '[]'
             )
             """);
@@ -698,6 +706,13 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE materials ADD COLUMN base_type INTEGER NOT NULL DEFAULT 0");
          if (!ColumnExists("materials", "custom_diagram_ids"))
             MigExec("ALTER TABLE materials ADD COLUMN custom_diagram_ids TEXT NOT NULL DEFAULT '{}'");
+      }
+
+      /// <summary>Миграция v18: столбец plate_model в plate_sections (идемпотентно).</summary>
+      void EnsurePlateModelColumn()
+      {
+         if (ColumnExists("plate_sections", "plate_model")) return;
+         MigExec("ALTER TABLE plate_sections ADD COLUMN plate_model TEXT NOT NULL DEFAULT 'layered'");
       }
 
       public void ChangeDatabase(string dataSource)
@@ -1761,7 +1776,8 @@ namespace OpenCS.Utilites
          cmd.CommandText = """
             SELECT id, num, tag, description, h, n_layers,
                    concrete_material_id, rebar_material_id,
-                   tension_concrete, softening_model, softening_eps_c2, rebar_layers_json
+                   tension_concrete, softening_model, softening_eps_c2,
+                   plate_model, rebar_layers_json
             FROM plate_sections ORDER BY num
          """;
          using var r = cmd.ExecuteReader();
@@ -1779,8 +1795,9 @@ namespace OpenCS.Utilites
                TensionConcrete     = r.GetInt32(8) != 0,
                SofteningModel      = r.GetString(9),
                SofteningEpsC2      = r.GetDouble(10),
+               PlateModel          = r.GetString(11),
             };
-            var layersJson = r.GetString(11);
+            var layersJson = r.GetString(12);
             var layers = JsonSerializer.Deserialize<List<PlateRebarLayer>>(layersJson, _jsonSettings);
             if (layers != null) ps.RebarLayers = layers;
             PlateSections.Add(ps);
@@ -1798,8 +1815,9 @@ namespace OpenCS.Utilites
                INSERT INTO plate_sections
                   (num, tag, description, h, n_layers,
                    concrete_material_id, rebar_material_id,
-                   tension_concrete, softening_model, softening_eps_c2, rebar_layers_json)
-               VALUES (@num,@tag,@desc,@h,@nl,@cmid,@rmid,@tc,@sm,@sec2,@rlj);
+                   tension_concrete, softening_model, softening_eps_c2,
+                   plate_model, rebar_layers_json)
+               VALUES (@num,@tag,@desc,@h,@nl,@cmid,@rmid,@tc,@sm,@sec2,@pm,@rlj);
                SELECT last_insert_rowid();
             """;
          }
@@ -1810,7 +1828,7 @@ namespace OpenCS.Utilites
                   num=@num, tag=@tag, description=@desc, h=@h, n_layers=@nl,
                   concrete_material_id=@cmid, rebar_material_id=@rmid,
                   tension_concrete=@tc, softening_model=@sm, softening_eps_c2=@sec2,
-                  rebar_layers_json=@rlj
+                  plate_model=@pm, rebar_layers_json=@rlj
                WHERE id=@id;
             """;
             cmd.Parameters.AddWithValue("@id", ps.Id);
@@ -1825,6 +1843,8 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@tc",   ps.TensionConcrete ? 1 : 0);
          cmd.Parameters.AddWithValue("@sm",   ps.SofteningModel);
          cmd.Parameters.AddWithValue("@sec2", ps.SofteningEpsC2);
+         cmd.Parameters.AddWithValue("@pm",
+            string.IsNullOrEmpty(ps.PlateModel) ? "layered" : ps.PlateModel);
          cmd.Parameters.AddWithValue("@rlj",  layersJson);
          if (isNew) ps.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
