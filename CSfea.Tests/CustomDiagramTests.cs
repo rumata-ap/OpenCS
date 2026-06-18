@@ -1,5 +1,6 @@
 using CScore;
 using CSmath;
+using System.Linq;
 
 namespace CSfea.Tests;
 
@@ -13,6 +14,59 @@ public static class CustomDiagramTests
         ResolveCustomDiagramms_ReturnsNull_WhenPoolEmpty();
         ResolveCustomDiagramms_SetsBaseType();
         BuildSplines_LSpline_Correct();
+        GetCriticalStrains_Custom_AllKnots_BothBranches();
+        GetCriticalStrains_Custom_ExplicitOverride();
+        GetCriticalStrains_Standard_Unchanged();
+    }
+
+    static void GetCriticalStrains_Custom_AllKnots_BothBranches()
+    {
+        var ic = new LSpline(new[] { -0.003, -0.0015, 0.0 }, new[] { -30.0, -25.0, 0.0 });
+        var it = new LSpline(new[] { 0.0, 0.0005, 0.001 }, new[] { 0.0, 10.0, 15.0 });
+        var d  = new Diagramm(ic, it, DiagrammType.Custom, MatType.Concrete);
+
+        var cs = d.GetCriticalStrains();
+
+        // {0} ∪ внутренний узел Ic (-0.0015) ∪ внутренний узел It (0.0005)
+        bool ok = cs.Length == 3
+               && cs.Any(e => Math.Abs(e) < 1e-12)
+               && cs.Any(e => Math.Abs(e - (-0.0015)) < 1e-12)
+               && cs.Any(e => Math.Abs(e - 0.0005) < 1e-12);
+        TestHarness.Check("GetCriticalStrains_Custom_AllKnots_BothBranches", ok,
+            $"[{string.Join(", ", cs)}]");
+    }
+
+    static void GetCriticalStrains_Custom_ExplicitOverride()
+    {
+        var ic = new LSpline(new[] { -0.003, -0.0015, 0.0 }, new[] { -30.0, -25.0, 0.0 });
+        var it = new LSpline(new[] { 0.0, 0.0005, 0.001 }, new[] { 0.0, 10.0, 15.0 });
+        var d  = new Diagramm(ic, it, DiagrammType.Custom, MatType.Concrete);
+        d.CharacteristicStrains = new List<double> { -0.0015 };   // помечена только одна точка
+
+        var cs = d.GetCriticalStrains();
+
+        // ровно {0, -0.0015}; внутренний узел It (0.0005) НЕ включён
+        bool ok = cs.Length == 2
+               && cs.Any(e => Math.Abs(e) < 1e-12)
+               && cs.Any(e => Math.Abs(e - (-0.0015)) < 1e-12)
+               && !cs.Any(e => Math.Abs(e - 0.0005) < 1e-12);
+        TestHarness.Check("GetCriticalStrains_Custom_ExplicitOverride", ok,
+            $"[{string.Join(", ", cs)}]");
+    }
+
+    static void GetCriticalStrains_Standard_Unchanged()
+    {
+        var ic = new LSpline(new[] { -0.003, -0.0015, 0.0 }, new[] { -30.0, -25.0, 0.0 });
+        var it = new LSpline(new[] { 0.0, 0.001 }, new[] { 0.0, 15.0 });
+
+        var dL2   = new Diagramm(ic, it, DiagrammType.L2,   MatType.Concrete);
+        var dSp63 = new Diagramm(ic, it, DiagrammType.SP63, MatType.Concrete);
+
+        bool okL2   = dL2.GetCriticalStrains().Any(e => Math.Abs(e - (-0.0015)) < 1e-12);   // L2 включает Ic
+        bool okSp63 = !dSp63.GetCriticalStrains().Any(e => Math.Abs(e - (-0.0015)) < 1e-12); // SP63 не включает Ic
+
+        TestHarness.Check("GetCriticalStrains_Standard_Unchanged", okL2 && okSp63,
+            $"L2 incl Ic={okL2}, SP63 excl Ic={okSp63}");
     }
 
     static void ResolveCustomDiagramms_ReturnsCorrectDict()

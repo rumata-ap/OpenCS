@@ -52,6 +52,13 @@ namespace CScore
       public MatType MaterialType { get; set; }
 
       /// <summary>
+      /// Деформации, явно помеченные пользователем как характерные (изломы σ(ε)).
+      /// Передаются в GreenIntegrator для дробления квадратуры. Применимо к Custom-диаграммам.
+      /// Пусто → используются все внутренние узлы кусочно-линейных ветвей (поведение по умолчанию).
+      /// </summary>
+      public List<double> CharacteristicStrains { get; set; } = new();
+
+      /// <summary>
       /// Сплайн для сжатия: вычисляет σ(ε) и dσ/dε при ε &lt; 0.
       /// </summary>
       [JsonIgnore]
@@ -181,18 +188,34 @@ namespace CScore
 
       /// <summary>
       /// Возвращает ε-точки изломов диаграммы для разбиения рёбер в GreenIntegrator.
-      /// Всегда включает 0 (граница Ic/It). Для SP63/EKB — только ветвь растяжения
-      /// (компрессионная кривая гладкая, GL справляется без явных breakpoints).
+      /// Всегда включает 0 (граница Ic/It).
+      /// Приоритет — явно помеченные пользователем точки (CharacteristicStrains).
+      /// Иначе для Custom — все внутренние узлы обеих кусочно-линейных ветвей;
+      /// для стандартных типов — изломы определяются автоматически по типу
+      /// (SP63/EKB — только ветвь растяжения, компрессионная кривая гладкая).
       /// </summary>
       public double[] GetCriticalStrains()
       {
          var pts = new System.Collections.Generic.SortedSet<double> { 0.0 };
 
-         // Ветвь растяжения — всегда (interior = все узлы кроме первого и последнего)
+         // 1. Явно помеченные пользователем характерные деформации имеют приоритет
+         if (CharacteristicStrains is { Count: > 0 })
+         {
+            foreach (var s in CharacteristicStrains) pts.Add(s);
+            return pts.ToArray();
+         }
+
+         // 2. Custom без пометок — все внутренние узлы обеих кусочно-линейных ветвей
+         if (Type == DiagrammType.Custom)
+         {
+            for (int i = 1; i < It.X.Length - 1; i++) pts.Add(It.X[i]);
+            for (int i = 1; i < Ic.X.Length - 1; i++) pts.Add(Ic.X[i]);
+            return pts.ToArray();
+         }
+
+         // 3. Стандартные типы — изломы определяются автоматически по типу
          for (int i = 1; i < It.X.Length - 1; i++)
             pts.Add(It.X[i]);
-
-         // Ветвь сжатия — только для кусочно-линейных диаграмм
          if (Type == DiagrammType.L2 || Type == DiagrammType.L3 || Type == DiagrammType.SP35)
             for (int i = 1; i < Ic.X.Length - 1; i++)
                pts.Add(Ic.X[i]);
@@ -206,5 +229,5 @@ namespace CScore
    /// L2 — двухлинейная, L3 — трёхлинейная, SP63 — криволинейная по СП 63.13330,
    /// EKB — по Единым каталогам, SP35 — по СП 35.
    /// </summary>
-   public enum DiagrammType { L2, L3, EKB, SP63, SP35 }
+   public enum DiagrammType { L2, L3, EKB, SP63, SP35, Custom }
 }
