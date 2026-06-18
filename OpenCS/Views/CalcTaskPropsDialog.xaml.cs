@@ -40,6 +40,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    public CalcTask? Result { get; private set; }
 
+    readonly List<CrossSection> _allSections;
     string tag = "";
     CalcTaskKindItem? selectedKind;
     CalcTaskSolverItem? selectedSolver;
@@ -116,11 +117,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           OnPropertyChanged(nameof(Stage1ShowSet));
           OnPropertyChanged(nameof(Stage1ShowManual));
           OnPropertyChanged(nameof(Stage2ShowSet));
-          OnPropertyChanged(nameof(Stage2ShowManual));
-       }
-    }
+           OnPropertyChanged(nameof(Stage2ShowManual));
+           FilterSections();
+        }
+     }
 
-   public bool IsFireKind    => Kind.StartsWith("fire_", StringComparison.Ordinal);
+    public bool IsFireKind    => Kind.StartsWith("fire_", StringComparison.Ordinal);
    public bool IsStrainBatch => Kind == "strain_state_batch" || Kind == "strength_ndm_batch";
    public bool IsLimitBatch  => Kind is "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch";
    public bool IsLimitKind   => Kind.StartsWith("limit_", StringComparison.Ordinal);
@@ -131,6 +133,22 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage).</summary>
    public bool ShowStandardForce => !IsTwoStage;
+
+   void FilterSections()
+   {
+      Sections.Clear();
+      IEnumerable<CrossSection> filtered;
+      if (IsTwoStage)
+         filtered = _allSections.Where(s => s is TwoStageSection);
+      else
+         filtered = _allSections.Where(s => s is not TwoStageSection);
+
+      foreach (var s in filtered)
+         Sections.Add(s);
+
+      if (SelectedSection != null && !Sections.Contains(SelectedSection))
+         SelectedSection = Sections.FirstOrDefault();
+   }
 
    public CalcTaskSolverItem? SelectedSolver
    {
@@ -157,14 +175,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    public FireSectionDef? SelectedFireSection
    {
-      get => selectedFireSection;
-      set
-      {
-         selectedFireSection = value;
-         if (value != null)
-            SelectedSection = Sections.FirstOrDefault(s => s.Id == value.SectionId);
-         OnPropertyChanged();
-      }
+       get => selectedFireSection;
+       set
+       {
+          selectedFireSection = value;
+          if (value != null)
+             SelectedSection = _allSections.FirstOrDefault(s => s.Id == value.SectionId);
+          OnPropertyChanged();
+       }
    }
 
    public ForceSet? SelectedForceSet
@@ -303,15 +321,17 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       _app = app;
       _window = window;
 
-      Sections = new ObservableCollection<CrossSection>(app.CrossSections);
+      _allSections = [..app.CrossSections];
       FireSections = new ObservableCollection<FireSectionDef>(app.FireSections);
       ForceSets = new ObservableCollection<ForceSet>(app.BarForceSets);
+      Sections = new ObservableCollection<CrossSection>();
+      FilterSections();
 
       if (existing != null)
       {
          Tag = existing.Tag;
          Kind = existing.Kind;
-         SelectedSection = Sections.FirstOrDefault(s => s.Id == existing.SectionId);
+         SelectedSection = _allSections.FirstOrDefault(s => s.Id == existing.SectionId);
          SelectedForceSet = ForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
          SelectedForceItem = ForceItems.FirstOrDefault(fi => fi.Id == existing.ForceItemId);
          SelectedCalcType = existing.CalcType;
@@ -494,10 +514,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
          }
-         SelectedSection = Sections.FirstOrDefault(s => s.Id == SelectedFireSection.SectionId);
-      }
+          SelectedSection = _allSections.FirstOrDefault(s => s.Id == SelectedFireSection.SectionId);
+       }
 
-      if (SelectedSection == null)
+       if (SelectedSection == null)
       {
          MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
             MessageBoxButton.OK, MessageBoxImage.Warning);
