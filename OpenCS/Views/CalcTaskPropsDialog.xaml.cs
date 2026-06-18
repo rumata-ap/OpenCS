@@ -102,11 +102,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsShellSimplCapri));
            OnPropertyChanged(nameof(IsShellSimplSls));
            OnPropertyChanged(nameof(IsShellSimplBatch));
+           OnPropertyChanged(nameof(FilteredCalcTypes));
            OnPropertyChanged(nameof(ShowStandardForce));
            OnPropertyChanged(nameof(Stage1ShowSet));
            OnPropertyChanged(nameof(Stage1ShowManual));
            OnPropertyChanged(nameof(Stage2ShowSet));
            OnPropertyChanged(nameof(Stage2ShowManual));
+           if (!FilteredCalcTypes.Contains(SelectedCalcType))
+               SelectedCalcType = FilteredCalcTypes[0];
         }
      }
 
@@ -130,12 +133,15 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsShellSimpl));
             OnPropertyChanged(nameof(IsShellSimplCapri));
             OnPropertyChanged(nameof(IsShellSimplSls));
-            OnPropertyChanged(nameof(IsShellSimplBatch));
-            OnPropertyChanged(nameof(ShowStandardForce));
+           OnPropertyChanged(nameof(IsShellSimplBatch));
+           OnPropertyChanged(nameof(FilteredCalcTypes));
+           OnPropertyChanged(nameof(ShowStandardForce));
            OnPropertyChanged(nameof(Stage1ShowSet));
            OnPropertyChanged(nameof(Stage1ShowManual));
            OnPropertyChanged(nameof(Stage2ShowSet));
            OnPropertyChanged(nameof(Stage2ShowManual));
+           if (!FilteredCalcTypes.Contains(SelectedCalcType))
+               SelectedCalcType = FilteredCalcTypes[0];
            FilterSections();
         }
      }
@@ -399,6 +405,17 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public ObservableCollection<LoadItem> ForceItems { get; } = [];
 
    public List<CalcType> CalcTypes { get; } = [CalcType.C, CalcType.CL, CalcType.N, CalcType.NL];
+   public List<CalcType> FilteredCalcTypes
+   {
+       get
+       {
+           if (IsShellSimpl)
+               return IsShellSimplSls
+                   ? [CalcType.N, CalcType.NL]
+                   : [CalcType.C, CalcType.CL];
+           return CalcTypes;
+       }
+   }
 
    public ICommand OkCommand { get; }
 

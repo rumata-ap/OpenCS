@@ -119,8 +119,8 @@
       <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource CalcType}"
                  VerticalAlignment="Center" Margin="0,0,8,0"/>
       <ComboBox  Grid.Row="9" Grid.Column="1"
-                 ItemsSource="{Binding CalcTypes}"
-                 SelectedItem="{Binding SelectedCalcType}"
+                  ItemsSource="{Binding FilteredCalcTypes}"
+                  SelectedItem="{Binding SelectedCalcType}"
                  Margin="0,0,0,0"/>
 
       <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource LimitForce_SolverMethod}"
