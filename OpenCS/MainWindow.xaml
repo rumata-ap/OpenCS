@@ -602,15 +602,27 @@
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </ContextMenu>
                            </StackPanel.ContextMenu>
-                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
-                                 Fill="DarkSlateBlue" Data="M1,8 H15 M1,4 H15 M1,12 H15"/>
+                           <!-- Иконка «Усиление»: две зеркальные копии иконки простого
+                                сечения в двух цветах (исходное + усиливающее сечение) -->
+                           <Viewbox Width="14" Height="14" Margin="0,0,4,0">
+                              <Canvas Width="16" Height="16">
+                                 <Path Fill="SteelBlue"  Data="M0.5,1 H3.5 L7.5,8 L3.5,15 H0.5 Z"/>
+                                 <Path Fill="DarkOrange" Data="M15.5,1 H12.5 L8.5,8 L12.5,15 H15.5 Z"/>
+                              </Canvas>
+                           </Viewbox>
                            <TextBlock Text="{DynamicResource TwoStageSections}"/>
                         </StackPanel>
                         <HierarchicalDataTemplate.ItemTemplate>
                            <DataTemplate DataType="{x:Type core:TwoStageSection}">
                               <StackPanel Orientation="Horizontal">
-                                 <Path Width="14" Height="14" Margin="0,0,4,0" Stretch="Uniform"
-                                       Fill="DarkSlateBlue" Data="M1,8 H15 M1,4 H15 M1,12 H15"/>
+                                 <!-- Иконка двухстадийного сечения: две зеркальные копии
+                                      иконки простого сечения в двух цветах -->
+                                 <Viewbox Width="14" Height="14" Margin="0,0,4,0">
+                                    <Canvas Width="16" Height="16">
+                                       <Path Fill="SteelBlue"  Data="M0.5,1 H3.5 L7.5,8 L3.5,15 H0.5 Z"/>
+                                       <Path Fill="DarkOrange" Data="M15.5,1 H12.5 L8.5,8 L12.5,15 H15.5 Z"/>
+                                    </Canvas>
+                                 </Viewbox>
                                  <TextBlock Text="{Binding Tag}"/>
                               </StackPanel>
                            </DataTemplate>
