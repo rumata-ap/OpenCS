@@ -353,10 +353,83 @@ namespace CScore
          }
       }
 
-      // ── Бетон: 1D по характерным точкам, по главным ────────────────────────
-      private (double,double,double,double,double,double)
+      // ── Бетон: 1D по характерным точкам, по главным (+softening) ───────────
+      private (double nxc, double nyc, double nxyc, double mxc, double myc, double mxyc)
          IntegrateConcreteChar1dPrincipal(ShellStrainState s, Diagramm cDiag)
-         => IntegrateConcreteLayered(s, cDiag);   // TODO: Task 3
+      {
+         double h = H, zlo = -h / 2.0, zhi = h / 2.0;
+         double[] crit = cDiag.GetCriticalStrains();
+
+         var zs = new System.Collections.Generic.SortedSet<double> { zlo, zhi };
+         AddPrincipalBreaks(zs, s, crit, zlo, zhi);
+         var nodes = new System.Collections.Generic.List<double>(zs);
+
+         double nxc = 0, nyc = 0, nxyc = 0, mxc = 0, myc = 0, mxyc = 0;
+         for (int seg = 0; seg < nodes.Count - 1; seg++)
+         {
+            double a = nodes[seg], b = nodes[seg + 1];
+            double half = 0.5 * (b - a);
+            if (half <= 1e-15) continue;
+            double mid = 0.5 * (a + b);
+            for (int g = 0; g < Gl5Pts.Length; g++)
+            {
+               double z  = mid + half * Gl5Pts[g];
+               double w  = Gl5Wts[g] * half;
+               PrincipalStrains2D(s.EpsX(z), s.EpsY(z), s.GammaXY(z),
+                  out double eps1, out double eps2, out double theta);
+               double beta = SofteningModel == "vecchio_collins"
+                  ? VecchioCollinsBeta(eps1, SofteningEpsC2) : 1.0;
+               double sig1 = ConcreteStress(cDiag, eps1, beta);
+               double sig2 = ConcreteStress(cDiag, eps2, beta);
+               RotateStressesToXY(sig1, sig2, theta, out double sigx, out double sigy, out double txy);
+               double kf = w * 1000.0;
+               nxc += sigx * kf;  mxc += sigx * kf * z;
+               nyc += sigy * kf;  myc += sigy * kf * z;
+               nxyc += txy * kf;  mxyc += txy * kf * z;
+            }
+         }
+         return (nxc, nyc, nxyc, mxc, myc, mxyc);
+      }
+
+      // z-точки, где ε₁(z) или ε₂(z) пересекает характерную деформацию.
+      // ε_{1,2}(z)=A(z)±√B(z); A линейна, B квадратична. Уравнение сводится к
+      // B(z)=(c−A(z))² — квадратному относительно z (корни в замкнутой форме).
+      private static void AddPrincipalBreaks(System.Collections.Generic.SortedSet<double> zs,
+         ShellStrainState s, double[] crit, double zlo, double zhi)
+      {
+         // A(z)=a0+a1 z ; p(z)=0.5(εx−εy)=p0+p1 z ; q(z)=0.5 γxy=q0+q1 z ; B=p²+q²
+         double a0 = 0.5 * (s.Eps0x + s.Eps0y), a1 = 0.5 * (s.Kx + s.Ky);
+         double p0 = 0.5 * (s.Eps0x - s.Eps0y), p1 = 0.5 * (s.Kx - s.Ky);
+         double q0 = 0.5 * s.Gamma0xy,           q1 = 0.5 * s.Kxy;
+
+         var roots = new System.Collections.Generic.List<double>();
+         foreach (double c in crit)
+         {
+            // B(z) − (c−A(z))² = 0
+            double A = p1 * p1 + q1 * q1 - a1 * a1;
+            double B = 2.0 * (p0 * p1 + q0 * q1 + a1 * (c - a0));
+            double C = p0 * p0 + q0 * q0 - (c - a0) * (c - a0);
+            SolveQuadratic(A, B, C, roots);
+         }
+         foreach (double z in roots)
+            if (z > zlo + 1e-12 && z < zhi - 1e-12) zs.Add(z);
+      }
+
+      // Вещественные корни A z² + B z + C = 0 (линейный случай при A≈0).
+      private static void SolveQuadratic(double A, double B, double C,
+         System.Collections.Generic.List<double> roots)
+      {
+         if (Math.Abs(A) < 1e-18)
+         {
+            if (Math.Abs(B) > 1e-18) roots.Add(-C / B);
+            return;
+         }
+         double disc = B * B - 4.0 * A * C;
+         if (disc < 0.0) return;
+         double sq = Math.Sqrt(disc);
+         roots.Add((-B + sq) / (2.0 * A));
+         roots.Add((-B - sq) / (2.0 * A));
+      }
 
       // ── Арматура: точечные вклады в Zsx/Zsy (общая для всех моделей) ───────
       private (double nxr, double nyr, double mxr, double myr)

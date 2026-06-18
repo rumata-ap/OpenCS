@@ -33,6 +33,9 @@ public static class PlateModelTests
 
         TestHarness.Section("Пластина: 1D по осям — аналитика и паритет со слоистой");
         RunAxial();
+
+        TestHarness.Section("Пластина: 1D по главным — паритет со слоистой без сдвига");
+        RunPrincipal();
     }
 
     static void RunLayeredAnalytic()
@@ -81,5 +84,31 @@ public static class PlateModelTests
         var axial2 = Plate("char1d_axial", h, 999);
         var rAx2 = axial2.Compute(sBe, cd, cd, null, false);
         TestHarness.CheckRel("axial независим от NLayers", rBe.Mx, rAx2.Mx, 1e-9);
+    }
+
+    static void RunPrincipal()
+    {
+        double e = 30_000, h = 0.2, kx = 1e-3;
+        var cd = LinearConcrete(e);
+        var sBe = new ShellStrainState(0, 0, 0, kx, 0, 0);
+
+        // Без сдвига и softening: по главным == по осям == слоистая
+        var prin = Plate("char1d_principal", h, 1);
+        var rP = prin.Compute(sBe, cd, cd, null, false);
+        TestHarness.CheckRel("Mx изгиб (principal)", rP.Mx, e * kx * h * h * h / 12.0 * 1000.0, 1e-6);
+
+        var layered = Plate("layered", h, 200);
+        var rL = layered.Compute(sBe, cd, cd, null, false);
+        TestHarness.CheckRel("Mx principal ≈ layered", rP.Mx, rL.Mx, 0.01);
+
+        var prin2 = Plate("char1d_principal", h, 999);
+        var rP2 = prin2.Compute(sBe, cd, cd, null, false);
+        TestHarness.CheckRel("principal независим от NLayers", rP.Mx, rP2.Mx, 1e-9);
+
+        // Сдвиг присутствует — интегратор не падает, Mxy конечно
+        var sSh = new ShellStrainState(1e-4, 0, 5e-4, kx, 0, 1e-3);
+        var rS = prin.Compute(sSh, cd, cd, null, false);
+        TestHarness.Check("principal со сдвигом конечен",
+            !double.IsNaN(rS.Mxy) && !double.IsInfinity(rS.Mxy), $"Mxy={rS.Mxy:e3}");
     }
 }
