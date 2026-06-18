@@ -85,6 +85,9 @@
    <system:String x:Key="CalcSettingsTol">Допуск сходимости, кН</system:String>
    <system:String x:Key="CalcSettingsMaxIter">Макс. итераций</system:String>
    <system:String x:Key="CalcSettingsDeltaH">Шаг числ. производной h</system:String>
+   <system:String x:Key="CalcSettingsJacobian">Схема якобиана</system:String>
+   <system:String x:Key="CalcSettingsJacobianForward">Прямая (forward)</system:String>
+   <system:String x:Key="CalcSettingsJacobianCentral">Центральная (central)</system:String>
    <system:String x:Key="CalcSettingsSp63EtaMin">Нисх. ветвь СП63: η_min</system:String>
    <system:String x:Key="CalcSettingsSp63EtaMinTip">Нижняя граница нисходящей ветви криволинейной диаграммы бетона. По СП 63.13330 п. Г.1 — не менее 0.85</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Пакетные задачи</system:String>
