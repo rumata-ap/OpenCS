@@ -56,6 +56,15 @@ namespace CScore
          }
          // "direct" — Asx/Asy задаются напрямую
       }
+
+      /// <summary>Глубокая копия слоя (для потокобезопасного клонирования сечения).</summary>
+      public PlateRebarLayer Clone() => new()
+      {
+         Name = Name, Asx = Asx, Asy = Asy, Zsx = Zsx, Zsy = Zsy,
+         InputMode = InputMode, DiameterX = DiameterX, DiameterY = DiameterY,
+         CountPerMeterX = CountPerMeterX, CountPerMeterY = CountPerMeterY,
+         SpacingX = SpacingX, SpacingY = SpacingY, MaterialId = MaterialId,
+      };
    }
 
    /// <summary>
@@ -102,6 +111,20 @@ namespace CScore
       /// Пустое/неизвестное значение трактуется как "layered".
       /// </summary>
       public string PlateModel { get; set; } = "layered";
+
+      /// <summary>
+      /// Глубокий клон сечения для потокобезопасности пакетных задач
+      /// (симметрично <see cref="CrossSection.CloneForCalc"/>). Диаграммы не входят —
+      /// строятся отдельно и используются только на чтение.
+      /// </summary>
+      public PlateSection CloneForCalc() => new()
+      {
+         Id = Id, Num = Num, Tag = Tag, H = H, NLayers = NLayers,
+         ConcreteMaterialId = ConcreteMaterialId, RebarMaterialId = RebarMaterialId,
+         TensionConcrete = TensionConcrete, SofteningModel = SofteningModel,
+         SofteningEpsC2 = SofteningEpsC2, PlateModel = PlateModel,
+         RebarLayers = RebarLayers.Select(l => l.Clone()).ToList(),
+      };
 
       // ── Расчёт ─────────────────────────────────────────────────────────────
 
