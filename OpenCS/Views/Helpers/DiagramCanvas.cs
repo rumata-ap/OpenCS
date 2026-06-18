@@ -29,6 +29,7 @@ public sealed class DiagramCanvas : FrameworkElement
     static readonly Pen   _axisPen       = new(Brushes.LightGray, 0.8);
     static readonly Pen   _blueMarkerPen = new(new SolidColorBrush(Color.FromRgb(0, 0, 160)), 1.0);
     static readonly Pen   _redMarkerPen  = new(new SolidColorBrush(Color.FromRgb(160, 0, 0)), 1.0);
+    static readonly Pen   _charMarkerPen = new(Brushes.Black, 2.0);
     static readonly Brush _blueFill      = new SolidColorBrush(Color.FromRgb(120, 120, 255));
     static readonly Brush _redFill       = new SolidColorBrush(Color.FromRgb(255, 120, 120));
 
@@ -40,6 +41,7 @@ public sealed class DiagramCanvas : FrameworkElement
     {
         _bluePen.Freeze(); _redPen.Freeze(); _axisPen.Freeze();
         _blueMarkerPen.Freeze(); _redMarkerPen.Freeze();
+        _charMarkerPen.Freeze();
         _blueFill.Freeze(); _redFill.Freeze();
     }
 
@@ -180,7 +182,10 @@ public sealed class DiagramCanvas : FrameworkElement
         foreach (var p in pts)
         {
             var sc = ToScreen(p.Eps, p.Sig);
-            dc.DrawEllipse(fill, markerPen, sc, MarkerR, MarkerR);
+            if (p.IsCharacteristic)
+                dc.DrawEllipse(fill, _charMarkerPen, sc, MarkerR + 2, MarkerR + 2);
+            else
+                dc.DrawEllipse(fill, markerPen, sc, MarkerR, MarkerR);
         }
     }
 

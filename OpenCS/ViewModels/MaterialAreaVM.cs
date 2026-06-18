@@ -115,7 +115,9 @@ namespace OpenCS.ViewModels
          => _model.Fibers.Count(f => f.TypeFiber is FiberType.poly or FiberType.tri);
 
       public static IEnumerable<DiagrammType> DiagramTypeValues { get; }
-         = (DiagrammType[])Enum.GetValues(typeof(DiagrammType));
+         = ((DiagrammType[])Enum.GetValues(typeof(DiagrammType)))
+              .Where(t => t != DiagrammType.Custom)
+              .ToArray();
 
       public ICommand OpenMeshDialogCommand { get; }
       public ICommand ClearMeshCommand { get; }

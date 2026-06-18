@@ -1271,7 +1271,8 @@ namespace OpenCS.Utilites
                MaterialType = matType,
                CalcType = calcType,
              Ic = RebuildSpline(sd?.Compression)!,
-                It = RebuildSpline(sd?.Tension)!
+                It = RebuildSpline(sd?.Tension)!,
+               CharacteristicStrains = sd?.CharacteristicStrains ?? new List<double>()
             };
             Diagrams.Add(d);
          }
@@ -1294,7 +1295,8 @@ namespace OpenCS.Utilites
          var sd = new SplineDataJson
          {
             Compression = ExtractSpline(d.Ic),
-            Tension = ExtractSpline(d.It)
+            Tension = ExtractSpline(d.It),
+            CharacteristicStrains = d.CharacteristicStrains
          };
           var splineJson = JsonSerializer.Serialize(sd, _jsonSettings);
          var cmd = _connection.CreateCommand();
@@ -2241,6 +2243,7 @@ namespace OpenCS.Utilites
       {
          public SplineBranchJson? Compression { get; set; }
          public SplineBranchJson? Tension { get; set; }
+         public List<double>? CharacteristicStrains { get; set; }
       }
 
       #endregion
