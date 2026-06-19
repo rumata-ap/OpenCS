@@ -67,9 +67,10 @@ public static class TransientHeatSolver
                 dtCurrent = Math.Min(dt, duration_s - t_s);
 
             var TNext = (double[])T.Clone();
-            var TOldIter = (double[])T.Clone();
             int nIter = 0;
             double maxResid = 0.0;
+            double prevDelta = double.PositiveInfinity;
+            bool factoredThisStep = false;
 
             for (int k = 0; k < options.PicardMaxIter; k++)
             {
@@ -89,35 +90,56 @@ public static class TransientHeatSolver
 
                 double[] cTimesT = CCsc.Multiply(T);
                 double[] kTimesT = KCsc.Multiply(T);
-                var rhs = new double[n];
+                double[] aTimesTNext = A.Multiply(TNext);
                 double kFactor = 1.0 - options.Theta;
-                for (int i = 0; i < n; i++)
-                    rhs[i] = cTimesT[i] / dtCurrent - kFactor * kTimesT[i] + F[i];
 
-                double[] TNew;
+                // Остаток: r = rhs - A·TNext, где rhs = C·T/dt - (1-θ)K·T + F.
+                var r = new double[n];
+                for (int i = 0; i < n; i++)
+                    r[i] = (cTimesT[i] / dtCurrent - kFactor * kTimesT[i] + F[i]) - aTimesTNext[i];
+
+                bool needRefactor = !factoredThisStep
+                                    || (k % options.RefactorEveryNIter == 0)
+                                    || (maxResid > 0.5 * prevDelta); // стагнация
+
                 if (!useDirectFallback)
                 {
                     chol ??= AnalyzeOnce(A, out useDirectFallback);
                 }
-                if (chol != null && !useDirectFallback)
-                {
-                    chol.Factorize(A);
-                    if (!chol.LastFactorizationSpd)
-                        useDirectFallback = true;
-                }
+
+                double[] delta;
                 if (useDirectFallback)
                 {
                     lu.Factorize(A);
-                    TNew = lu.Solve(rhs);
+                    delta = lu.Solve(r);
                 }
                 else
                 {
-                    TNew = chol!.Solve(rhs);
+                    if (needRefactor)
+                    {
+                        chol!.Factorize(A);
+                        if (!chol.LastFactorizationSpd)
+                        {
+                            useDirectFallback = true;
+                            lu.Factorize(A);
+                            delta = lu.Solve(r);
+                        }
+                        else
+                        {
+                            delta = chol.Solve(r);
+                        }
+                    }
+                    else
+                    {
+                        delta = chol!.Solve(r);
+                    }
                 }
+                factoredThisStep = true;
 
-                maxResid = MaxAbsDiff(TNew, TOldIter);
-                TNext = TNew;
-                TOldIter = (double[])TNew.Clone();
+                for (int i = 0; i < n; i++) TNext[i] += delta[i];
+
+                prevDelta = maxResid;
+                maxResid = MaxAbs(delta);
                 nIter = k + 1;
                 if (maxResid < options.PicardTolCelsius)
                     break;
@@ -222,6 +244,17 @@ public static class TransientHeatSolver
         for (int i = 0; i < left.Length; i++)
             result[i] = 0.5 * (left[i] + right[i]);
         return result;
+    }
+
+    private static double MaxAbs(double[] a)
+    {
+        double m = 0.0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            double v = Math.Abs(a[i]);
+            if (v > m) m = v;
+        }
+        return m;
     }
 
     private static double MaxAbsDiff(double[] a, double[] b)
