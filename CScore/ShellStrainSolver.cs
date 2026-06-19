@@ -76,6 +76,7 @@ namespace CScore
       {
          double[] S = (double[])target.Clone();
          double[] e = guess != null ? (double[])guess.Clone() : ElasticGuess(S);
+         double thr = _tolRes * (1.0 + Norm(S));
 
          ShellResult shellRes = new();
          for (int it = 1; it <= _maxIter; it++)
@@ -84,7 +85,7 @@ namespace CScore
             double[] f = Sub(Rv, S);
             double res = Norm(f);
 
-            if (res < _tolRes)
+            if (res < thr)
                return Finalize(e, true, it, res);
 
             // Численный якобиан 6×6
@@ -128,13 +129,13 @@ namespace CScore
             {
                double[] Rf = Eval(e, out shellRes);
                double rf = Norm(Sub(Rf, S));
-               return Finalize(e, rf < _tolRes, it, rf);
+               return Finalize(e, rf < thr, it, rf);
             }
          }
 
          double[] Rend = Eval(e, out shellRes);
          double rend = Norm(Sub(Rend, S));
-         return Finalize(e, false, _maxIter, rend);
+         return Finalize(e, rend < thr, _maxIter, rend);
       }
 
       /// <summary>
