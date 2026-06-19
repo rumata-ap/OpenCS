@@ -27,8 +27,52 @@ public static class ThermalBenchmark
         }
 
         TestHarness.Section("ThermalBenchmark");
-        Run("rect_300x500_R15", BuildRectSection(0.30, 0.50), durationMin: 15.0, meshStepM: 0.012);
-        Run("rect_300x500_R15_fine", BuildRectSection(0.30, 0.50), durationMin: 15.0, meshStepM: 0.008);
+        Run("rect_200x300_R5", BuildRectSection(0.20, 0.30), durationMin: 5.0, meshStepM: 0.02);
+        Run("rect_200x300_R5_fine", BuildRectSection(0.20, 0.30), durationMin: 5.0, meshStepM: 0.014);
+
+        Console.WriteLine("  -- T3-fine vs T6-coarse --");
+        RunVariant("T3_fine", BuildRectSection(0.20, 0.30), durationMin: 5.0, meshStepM: 0.014, elementType: "linear");
+        RunVariant("T6_coarse", BuildRectSection(0.20, 0.30), durationMin: 5.0, meshStepM: 0.028, elementType: "quadratic");
+    }
+
+    static void RunVariant(string name, CrossSection section, double durationMin, double meshStepM, string elementType)
+    {
+        var def = new FireSectionDef
+        {
+            FireDurationMin = durationMin,
+            FireCurve = "iso834",
+            MeshStepM = meshStepM,
+            TimeStepS = 30.0,
+            SnapshotStepMin = 5.0,
+            Theta = 1.0,
+            PicardTolCelsius = 0.5,
+            PicardMaxIter = 20,
+            BcPreset = "3-sided",
+            HoleBcPreset = "adiabatic",
+            Algorithm = "ruppert",
+            SmoothIterTri = 2,
+            MeshElementType = elementType,
+            Edges = []
+        };
+
+        var sw = Stopwatch.StartNew();
+        var result = FireThermalService.Run(def, section, "silicate");
+        sw.Stop();
+
+        // Контрольная точка — ближайший к центру узел.
+        var mesh = result.MeshInfo.Mesh;
+        double cx = 0.15, cy = 0.25;
+        int nearest = 0; double best = double.MaxValue;
+        for (int i = 0; i < mesh.X.Length; i++)
+        {
+            double dx = mesh.X[i] - cx, dy = mesh.Y[i] - cy;
+            double d2 = dx * dx + dy * dy;
+            if (d2 < best) { best = d2; nearest = i; }
+        }
+        double centerT = result.Snapshots[^1][nearest];
+        int factorizations = result.ConvergenceLog.Sum(r => r.NPicardIter);
+        Console.WriteLine($"  BENCH {name}: nodes={mesh.X.Length} factorizations={factorizations} " +
+                          $"total_ms={sw.ElapsedMilliseconds} centerT={centerT:F2}");
     }
 
     static void Run(string name, CrossSection section, double durationMin, double meshStepM)
