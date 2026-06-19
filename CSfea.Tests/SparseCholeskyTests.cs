@@ -10,6 +10,7 @@ public static class SparseCholeskyTests
         TestHarness.Section("SparseCholesky");
         Cholesky_MatchesLu_OnSpdFemLikeMatrix();
         Cholesky_RefactorizeReusesPattern();
+        Cholesky_LargeGrid_NoException();
     }
 
     // SPD-матрица: 2D-лапласиан на сетке gx×gy + диагональный сдвиг.
@@ -74,5 +75,25 @@ public static class SparseCholeskyTests
         double maxDiff = 0.0;
         for (int i = 0; i < n; i++) maxDiff = Math.Max(maxDiff, Math.Abs(x[i] - xRef[i]));
         TestHarness.Check("Cholesky_RefactorizeReusesPattern", maxDiff < 1e-9, $"maxDiff={maxDiff:E3}");
+    }
+
+    // Проверка на большой матрице (~4900 узлов), воспроизводящей краш на крупной сетке.
+    static void Cholesky_LargeGrid_NoException()
+    {
+        var a = BuildSpd(70, 70, 0.5); // n=4900, ~4 ненулевых на строку
+        int n = a.Cols;
+        var b = new double[n];
+        for (int i = 0; i < n; i++) b[i] = 1.0;
+
+        var chol = new SparseCholeskySolver();
+        chol.AnalyzePattern(a);
+        chol.Factorize(a);
+        double[] x = chol.Solve(b);
+        double[] xRef = SparseLuSolver.SolveOnce(a, b);
+
+        double maxDiff = 0.0;
+        for (int i = 0; i < n; i++) maxDiff = Math.Max(maxDiff, Math.Abs(x[i] - xRef[i]));
+        TestHarness.Check("Cholesky_LargeGrid: SPD", chol.LastFactorizationSpd, "");
+        TestHarness.Check("Cholesky_LargeGrid: matches LU", maxDiff < 1e-6, $"maxDiff={maxDiff:E3}");
     }
 }
