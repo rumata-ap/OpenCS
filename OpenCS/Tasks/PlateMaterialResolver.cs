@@ -21,7 +21,7 @@ public static class PlateMaterialResolver
         var rebar = matList.FirstOrDefault(m => m.Id == section.RebarMaterialId)
             ?? throw new InvalidOperationException($"Материал арматуры id={section.RebarMaterialId} не найден.");
 
-        var cDiag = concrete.GetDiagramms(DiagrammType.SP63)?[calc]
+        var cDiag = concrete.GetDiagramms(section.ConcreteDiagramType)?[calc]
             ?? throw new InvalidOperationException("Диаграмма бетона не построена.");
         var rDiag = rebar.GetDiagramms(DiagrammType.L2)?[calc]
             ?? throw new InvalidOperationException("Диаграмма арматуры не построена.");

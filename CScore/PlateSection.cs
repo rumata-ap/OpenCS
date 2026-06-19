@@ -112,6 +112,9 @@ namespace CScore
       /// </summary>
       public string PlateModel { get; set; } = "layered";
 
+      /// <summary>Тип диаграммы бетона при расчёте по толщине.</summary>
+      public DiagrammType ConcreteDiagramType { get; set; } = DiagrammType.L3;
+
       /// <summary>
       /// Глубокий клон сечения для потокобезопасности пакетных задач
       /// (симметрично <see cref="CrossSection.CloneForCalc"/>). Диаграммы не входят —
@@ -123,6 +126,7 @@ namespace CScore
          ConcreteMaterialId = ConcreteMaterialId, RebarMaterialId = RebarMaterialId,
          TensionConcrete = TensionConcrete, SofteningModel = SofteningModel,
          SofteningEpsC2 = SofteningEpsC2, PlateModel = PlateModel,
+         ConcreteDiagramType = ConcreteDiagramType,
          RebarLayers = RebarLayers.Select(l => l.Clone()).ToList(),
       };
 
