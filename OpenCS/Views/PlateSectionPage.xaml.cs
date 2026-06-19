@@ -151,6 +151,15 @@ namespace OpenCS.ViewModels
             new InputModeOption("char1d_axial",     Loc.S("PlateModelChar1dAxial")),
          ];
 
+         ConcreteDiagramTypeOptions =
+         [
+            new InputModeOption("L2",   Loc.S("DiagramTypeL2")),
+            new InputModeOption("L3",   Loc.S("DiagramTypeL3")),
+            new InputModeOption("SP63", Loc.S("DiagramTypeSP63")),
+            new InputModeOption("EKB",  Loc.S("DiagramTypeEKB")),
+            new InputModeOption("SP35", Loc.S("DiagramTypeSP35")),
+         ];
+
          SaveCommand            = new RelayCommand(_ => Save());
          DeleteCommand          = new RelayCommand(_ => Delete());
          AddRebarLayerCommand   = new RelayCommand(_ => AddRebarLayer());
@@ -211,6 +220,7 @@ namespace OpenCS.ViewModels
       public string[] SofteningOptions { get; }
       public InputModeOption[] InputModeOptions { get; }
       public InputModeOption[] PlateModelOptions { get; }
+      public InputModeOption[] ConcreteDiagramTypeOptions { get; }
 
       /// <summary>Нелинейная модель пластины (layered | char1d_principal | char1d_axial).</summary>
       public string PlateModel
@@ -226,6 +236,18 @@ namespace OpenCS.ViewModels
 
       /// <summary>NLayers применим только к слоистой модели.</summary>
       public bool IsLayered => PlateModel == "layered";
+
+      /// <summary>Тип диаграммы бетона (строковый ключ enum DiagrammType).</summary>
+      public string ConcreteDiagramType
+      {
+         get => _model.ConcreteDiagramType.ToString();
+         set
+         {
+            if (Enum.TryParse<DiagrammType>(value, out var dt))
+               _model.ConcreteDiagramType = dt;
+            OnPropertyChanged();
+         }
+      }
 
       int _softeningIndex;
       public int SofteningIndex

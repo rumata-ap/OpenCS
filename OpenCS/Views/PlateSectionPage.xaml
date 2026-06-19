@@ -72,6 +72,7 @@
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
 
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Concrete}"
@@ -88,21 +89,28 @@
                             SelectedItem="{Binding RebarMaterial, Mode=TwoWay}"
                             DisplayMemberPath="Tag"/>
 
-                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource PlateTensionConcrete}"
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource PlateConcreteDiagramType}"
                              VerticalAlignment="Center" Margin="0,0,8,4"/>
-                  <CheckBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,4"
+                  <ComboBox  Grid.Row="2" Grid.Column="1" Margin="0,0,0,4"
+                             ItemsSource="{Binding ConcreteDiagramTypeOptions}"
+                             SelectedValuePath="Key" DisplayMemberPath="Display"
+                             SelectedValue="{Binding ConcreteDiagramType, Mode=TwoWay}"/>
+
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource PlateTensionConcrete}"
+                             VerticalAlignment="Center" Margin="0,0,8,4"/>
+                  <CheckBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,4"
                             IsChecked="{Binding TensionConcrete, Mode=TwoWay}"
                             VerticalAlignment="Center"/>
 
-                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource PlateSofteningModel}"
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource PlateSofteningModel}"
                              VerticalAlignment="Center" Margin="0,0,8,4"/>
-                  <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,4"
+                  <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,4"
                             ItemsSource="{Binding SofteningOptions}"
                             SelectedIndex="{Binding SofteningIndex, Mode=TwoWay}"/>
 
-                  <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource PlateModel}"
+                  <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource PlateModel}"
                              VerticalAlignment="Center" Margin="0,0,8,4"/>
-                  <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,4"
+                  <ComboBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,4"
                             ItemsSource="{Binding PlateModelOptions}"
                             SelectedValuePath="Key" DisplayMemberPath="Display"
                             SelectedValue="{Binding PlateModel, Mode=TwoWay}"/>
