@@ -63,4 +63,10 @@ ShellStrainSolverTests.RunAll();
 
 BucklingTests.RunSimplySupportedPlate();
 
+SparseOrderingTests.RunAll();
+
+SparseCholeskyTests.RunAll();
+
+ThermalBenchmark.RunAll();
+
 return TestHarness.Summary();
