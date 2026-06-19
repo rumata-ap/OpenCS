@@ -904,6 +904,7 @@
     <system:String x:Key="ShellStrainTabPrincipal">Principal axes</system:String>
     <system:String x:Key="ShellStrainEpsXPlot">εx(z)</system:String>
     <system:String x:Key="ShellStrainEpsYPlot">εy(z)</system:String>
+    <system:String x:Key="ShellStrainEpsGammaPlot">γxy(z)</system:String>
     <system:String x:Key="ShellStrainSigXPlot">σx(z), MPa</system:String>
     <system:String x:Key="ShellStrainSigYPlot">σy(z), MPa</system:String>
     <system:String x:Key="ShellStrainPrEpsPlot">ε₁, ε₂(z)</system:String>

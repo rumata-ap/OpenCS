@@ -90,9 +90,11 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <helpers:ThroughThicknessCanvas x:Name="EpsXCanvas" Grid.Column="0" Margin="0,0,3,0"/>
-                <helpers:ThroughThicknessCanvas x:Name="EpsYCanvas" Grid.Column="1" Margin="3,0,0,0"/>
+                <helpers:ThroughThicknessCanvas x:Name="EpsXCanvas"     Grid.Column="0" Margin="0,0,2,0"/>
+                <helpers:ThroughThicknessCanvas x:Name="EpsYCanvas"     Grid.Column="1" Margin="2,0,2,0"/>
+                <helpers:ThroughThicknessCanvas x:Name="EpsGammaCanvas" Grid.Column="2" Margin="2,0,0,0"/>
             </Grid>
         </TabItem>
 
