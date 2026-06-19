@@ -379,8 +379,8 @@ namespace CScore
 
             RotateStressesToXY(sig1, sig2, theta, out double sigx, out double sigy, out double txy);
 
-            // σ [МПа] · dz [м] · 1000 → кН/м; · zi → кН·м/м
-            double kf = dz * 1000.0;
+            // σ [кПа = кН/м²] · dz [м] → кН/м; · zi → кН·м/м
+            double kf = dz;
             nxc  += sigx * kf;
             nyc  += sigy * kf;
             nxyc += txy  * kf;
@@ -417,7 +417,7 @@ namespace CScore
                double w  = Gl5Wts[g] * half;
                double sigx = ConcreteStress(cDiag, s.EpsX(z), 1.0);
                double sigy = ConcreteStress(cDiag, s.EpsY(z), 1.0);
-               double kf = w * 1000.0;          // σ[МПа]·dz[м]·1000 → кН/м
+               double kf = w;          // σ[кПа=кН/м²]·dz[м] → кН/м
                nxc += sigx * kf;  mxc += sigx * kf * z;
                nyc += sigy * kf;  myc += sigy * kf * z;
             }
@@ -466,7 +466,7 @@ namespace CScore
                double sig1 = ConcreteStress(cDiag, eps1, beta);
                double sig2 = ConcreteStress(cDiag, eps2, beta);
                RotateStressesToXY(sig1, sig2, theta, out double sigx, out double sigy, out double txy);
-               double kf = w * 1000.0;
+               double kf = w;
                nxc += sigx * kf;  mxc += sigx * kf * z;
                nyc += sigy * kf;  myc += sigy * kf * z;
                nxyc += txy * kf;  mxyc += txy * kf * z;
@@ -532,17 +532,17 @@ namespace CScore
             {
                double esx = s.EpsX(rl.Zsx);
                double ssx = RebarStress(rd, esx);
-               // σ [МПа] · A [м²/м] · 1000 → кН/м; · z → кН·м/м
-               nxr += ssx * rl.Asx * 1000.0;
-               mxr += ssx * rl.Asx * rl.Zsx * 1000.0;
+               // σ [кПа = кН/м²] · A [м²/м] → кН/м; · z → кН·м/м
+               nxr += ssx * rl.Asx;
+               mxr += ssx * rl.Asx * rl.Zsx;
             }
 
             if (rl.Asy > 0.0)
             {
                double esy = s.EpsY(rl.Zsy);
                double ssy = RebarStress(rd, esy);
-               nyr += ssy * rl.Asy * 1000.0;
-               myr += ssy * rl.Asy * rl.Zsy * 1000.0;
+               nyr += ssy * rl.Asy;
+               myr += ssy * rl.Asy * rl.Zsy;
             }
          }
 
