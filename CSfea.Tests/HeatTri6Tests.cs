@@ -21,6 +21,7 @@ public static class HeatTri6Tests
         HeatTri6_ConstantK_IsSymmetricPositiveDiagonal();
         HeatTri6_ConstantK_RowSumsNearZero();
         HeatTri6_ConstantM_TotalCapacityMatchesArea();
+        HeatTri6_ConsistentMass_MatchesAnalytic();
         HeatTri6_EnergyLinearField();
         HeatTri6_InterpolatesLinearField();
         HeatTri6_PatchTest_LinearField_Mesh();
@@ -80,6 +81,35 @@ public static class HeatTri6Tests
                 sum += me[i, j];
         double expected = rhocp * HeatTri6.AreaFromCorners(UnitTri6);
         TestHarness.CheckRel("HeatTri6_ConstantM_TotalCapacityMatchesArea", sum, expected, 1e-6);
+    }
+
+    /// <summary>
+    /// Согласованная матрица массы T6 для прямого треугольника площади A:
+    /// M = (ρc·A/180)·[[6,-1,-1,0,-4,0],[-1,6,-1,0,0,-4],[-1,-1,6,-4,0,0],
+    ///                  [0,0,-4,32,16,16],[-4,0,0,16,32,16],[0,-4,0,16,16,32]].
+    /// Порядок узлов [v0,v1,v2,m01,m12,m20].
+    /// </summary>
+    static void HeatTri6_ConsistentMass_MatchesAnalytic()
+    {
+        const double rhocp = 2.4e6;
+        var me = HeatTri6.ElementM(rhocp, UnitTri6);
+        double area = HeatTri6.AreaFromCorners(UnitTri6);
+        double f = rhocp * area / 180.0;
+        double[,] pattern =
+        {
+            { 6, -1, -1, 0, -4, 0 },
+            { -1, 6, -1, 0, 0, -4 },
+            { -1, -1, 6, -4, 0, 0 },
+            { 0, 0, -4, 32, 16, 16 },
+            { -4, 0, 0, 16, 32, 16 },
+            { 0, -4, 0, 16, 16, 32 },
+        };
+        double maxErr = 0.0;
+        for (int i = 0; i < 6; i++)
+            for (int j = 0; j < 6; j++)
+                maxErr = Math.Max(maxErr, Math.Abs(me[i, j] - f * pattern[i, j]));
+        TestHarness.Check("HeatTri6_ConsistentMass_MatchesAnalytic", maxErr < 1e-6 * rhocp * area,
+            $"maxErr={maxErr:E3}");
     }
 
     /// <summary>
