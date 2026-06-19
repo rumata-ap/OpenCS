@@ -18,6 +18,7 @@ public partial class ShellSimplBatchResultView : System.Windows.Controls.UserCon
 
 public class ShellSimplBatchRow : ViewModelBase
 {
+    public int Num { get; set; }
     public string Label { get; set; } = "";
     public double EtaMax { get; set; }
     public string EtaMaxDisplay => EtaMax >= 1e9 ? "∞" : Math.Round(EtaMax, 2).ToString("F2");
@@ -39,10 +40,14 @@ public class ShellSimplBatchResultVM : ViewModelBase
         int total = doc.GetProperty("total").GetInt32();
         int okCount = doc.GetProperty("converged_count").GetInt32();
 
+        int idx = 0;
         foreach (var r in doc.GetProperty("rows").EnumerateArray())
         {
+            idx++;
             var row = new ShellSimplBatchRow
             {
+                Num = r.TryGetProperty("num", out var nv) && nv.ValueKind == JsonValueKind.Number
+                    ? nv.GetInt32() : idx,
                 Label = r.GetProperty("label").GetString() ?? "",
                 Status = r.GetProperty("status").GetString() == "ok" ? "Выполняется" : "Не выполняется",
                 Ok = r.GetProperty("status").GetString() == "ok",

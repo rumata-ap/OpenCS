@@ -1,6 +1,7 @@
 using OpenCS.Utilites;
 using CalcSettings = OpenCS.Utilites.CalcSettings;
 using CsvExportSettings = OpenCS.Utilites.CsvExportSettings;
+using LiraImportSettings = OpenCS.Utilites.LiraImportSettings;
 
 using System.Linq;
 using System.Windows;
@@ -17,6 +18,7 @@ namespace OpenCS.Views
       readonly PlotSettings _settings;
       readonly CalcSettings _calcSettings;
       readonly CsvExportSettings _csvSettings;
+      readonly LiraImportSettings _liraSettings;
 
       static readonly string[] _palette =
       [
@@ -32,6 +34,7 @@ namespace OpenCS.Views
          _settings = mvm.PlotSettings.Clone();
          _calcSettings = mvm.CalcSettings.Clone();
          _csvSettings = mvm.CsvSettings.Clone();
+         _liraSettings = mvm.LiraImportSettings.Clone();
          Owner = Application.Current.MainWindow;
 
          LoadToUi();
@@ -41,6 +44,8 @@ namespace OpenCS.Views
          HookCalcBoxes();
          LoadCsvToUi();
          HookCsvControls();
+         LoadLiraToUi();
+         HookLiraControls();
       }
 
       void BuildPalette()
@@ -169,6 +174,9 @@ namespace OpenCS.Views
 
          _mvm.CsvSettings = _csvSettings.Clone();
          _mvm.db.SaveCsvSettings(_mvm.CsvSettings);
+
+         _mvm.LiraImportSettings = _liraSettings.Clone();
+         _mvm.db.SaveLiraImportSettings(_mvm.LiraImportSettings);
       }
 
       void Cancel_Click(object sender, RoutedEventArgs e)
@@ -290,6 +298,22 @@ namespace OpenCS.Views
          CsvComma.Checked     += (_, _) => _csvSettings.Delimiter = ",";
          CsvUtf8.Checked      += (_, _) => _csvSettings.Encoding = "utf-8";
          CsvWin1251.Checked   += (_, _) => _csvSettings.Encoding = "windows-1251";
+      }
+
+      void LoadLiraToUi()
+      {
+         const double ten = 10.0;
+         LiraTon981.IsChecked = Math.Abs(_liraSettings.TonToKnFactor - ten) > 0.01;
+         LiraTon10.IsChecked  = Math.Abs(_liraSettings.TonToKnFactor - ten) <= 0.01;
+         LiraInvertBarMxMyCb.IsChecked = _liraSettings.InvertBarBendingMoments;
+      }
+
+      void HookLiraControls()
+      {
+         LiraTon981.Checked += (_, _) => _liraSettings.TonToKnFactor = 9.80665;
+         LiraTon10.Checked  += (_, _) => _liraSettings.TonToKnFactor = 10.0;
+         LiraInvertBarMxMyCb.Checked   += (_, _) => _liraSettings.InvertBarBendingMoments = true;
+         LiraInvertBarMxMyCb.Unchecked += (_, _) => _liraSettings.InvertBarBendingMoments = false;
       }
 
       void UpdateCalcSwatches()

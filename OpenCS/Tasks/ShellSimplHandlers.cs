@@ -150,6 +150,7 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
 
                 rows.Add(new
                 {
+                    num = si.Num,
                     label = si.Label,
                     status = rowStatus,
                     eta_max = etaMax,

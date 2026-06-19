@@ -158,7 +158,12 @@ namespace OpenCS.Views
       public string MeshElementType
       {
          get => meshElementType;
-         set { meshElementType = value; OnPropertyChanged(); }
+         set
+         {
+            meshElementType = value;
+            OnPropertyChanged();
+            RefreshPreview();
+         }
       }
 
       public string LastRunInfo

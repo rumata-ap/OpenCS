@@ -78,7 +78,8 @@ public static class FireThermalService
         };
     }
 
-    static bool IsQuadraticMesh(FireSectionDef def) => false;
+    static bool IsQuadraticMesh(FireSectionDef def)
+        => string.Equals(def.MeshElementType?.Trim(), "quadratic", StringComparison.OrdinalIgnoreCase);
 
     private static Dictionary<int, double[]> BuildRebarHistory(FireMeshBuildResult meshResult, IReadOnlyList<double[]> snapshots)
     {

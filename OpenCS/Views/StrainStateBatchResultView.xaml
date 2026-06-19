@@ -32,6 +32,8 @@
                </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>
+               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}"
+                                   Binding="{Binding Num}" Width="40"/>
                <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColLabel}"
                                    Binding="{Binding Label}"     Width="*"/>
                <DataGridTextColumn Header="N, кН"

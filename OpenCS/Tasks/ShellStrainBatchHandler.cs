@@ -52,7 +52,7 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                     var r = new ShellStrainSolver(clone, cDiag, rDiag, layerDiags,
                         centralJacobian: central).Solve(tgt);
                     converged[i] = r.Converged;
-                    rows[i] = BuildRow(si.Label, r);
+                    rows[i] = BuildRow(si.Num, si.Label, r);
                 });
             }
             else
@@ -65,7 +65,7 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                 for (int i = 0; i < total; i++)
                 {
                     converged[i] = results[i].Converged;
-                    rows[i] = BuildRow(items[i].Label, results[i]);
+                    rows[i] = BuildRow(items[i].Num, items[i].Label, results[i]);
                 }
             }
 
@@ -98,8 +98,9 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
         }
     }
 
-    static object BuildRow(string label, ShellStrainSolverResult r) => new
+    static object BuildRow(int num, string label, ShellStrainSolverResult r) => new
     {
+        num,
         label,
         converged = r.Converged,
         iterations = r.Iterations,

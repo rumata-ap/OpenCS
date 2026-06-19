@@ -49,6 +49,8 @@ HeatMeshTests.RunAll();
 
 HeatMeshQuadraticTests.RunAll();
 
+FireT6ParityTests.RunAll();
+
 HeatSteadyTests.RunAll();
 
 HeatBoundaryTests.RunAll();
@@ -62,5 +64,13 @@ PlateModelTests.RunAll();
 ShellStrainSolverTests.RunAll();
 
 BucklingTests.RunSimplySupportedPlate();
+
+SparseOrderingTests.RunAll();
+
+SparseCholeskyTests.RunAll();
+
+HeatAssemblyTests.RunAll();
+
+ThermalBenchmark.RunAll();
 
 return TestHarness.Summary();

@@ -28,4 +28,10 @@ public sealed class TransientHeatOptions
 
     /// <summary>Использовать адаптивный sub-stepping в первую минуту.</summary>
     public bool AdaptiveFirstMinute { get; init; } = true;
+
+    /// <summary>
+    /// Принудительная численная рефакторизация оператора каждые N Пикар-итераций
+    /// (помимо рефакторизации по стагнации невязки). Большое значение ≈ один раз на шаг.
+    /// </summary>
+    public int RefactorEveryNIter { get; init; } = 1000;
 }

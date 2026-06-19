@@ -46,6 +46,19 @@ public static class TransientHeatSolver
         double dtCurrent = subStepping ? 0.5 : dt;
         int subStepsDone = 0;
 
+        // Прямые решатели: один экземпляр на весь расчёт. Холецкий (SPD) с однократным
+        // символическим анализом; LU — fallback при неположительном пивоте.
+        var lu = new SparseLuSolver();
+        SparseCholeskySolver? chol = null;
+        bool useDirectFallback = false;
+
+        // Постоянный CSC-паттерн сборки: один раз на расчёт, буферы значений переиспользуются.
+        var assembly = HeatAssembly.Build(mesh, robinEdges);
+        int nnz = assembly.ColPtr[n];
+        var valuesK = new double[nnz];
+        var valuesC = new double[nnz];
+        var valuesA = new double[nnz];
+
         while (t_s < duration_s - 1e-9)
         {
             if (subStepping && t_s < 60.0)
@@ -54,37 +67,79 @@ public static class TransientHeatSolver
                 dtCurrent = Math.Min(dt, duration_s - t_s);
 
             var TNext = (double[])T.Clone();
-            var TOldIter = (double[])T.Clone();
             int nIter = 0;
             double maxResid = 0.0;
+            double prevDelta = double.PositiveInfinity;
+            bool factoredThisStep = false;
 
-            var lu = new SparseLuSolver();
             for (int k = 0; k < options.PicardMaxIter; k++)
             {
                 double[] midpointT = ComputeMidpointNodalTemperature(T, TNext);
-                CooMatrix K = mesh.AssembleConductivity(material, midpointT);
-                CooMatrix C = mesh.AssembleCapacity(material, midpointT);
+                assembly.AssembleK(material, midpointT, valuesK);
+                assembly.AssembleC(material, midpointT, valuesC);
 
                 var F = new double[n];
-                RobinBoundaryModel.ApplyRobin(mesh, robinEdges, t_s + dtCurrent, TNext, K, F, fireCurve);
+                RobinBoundaryModel.ApplyRobin(mesh, robinEdges, t_s + dtCurrent, TNext,
+                    assembly.SinkFor(valuesK), F, fireCurve);
 
-                CscMatrix KCsc = K.ToCsc();
-                CscMatrix CCsc = C.ToCsc();
-                CscMatrix A = CombineScaled(CCsc, 1.0 / dtCurrent, KCsc, options.Theta).ToCsc();
+                CscMatrix KCsc = assembly.ToCsc(valuesK);
+                CscMatrix CCsc = assembly.ToCsc(valuesC);
+                for (int i = 0; i < nnz; i++)
+                    valuesA[i] = valuesC[i] / dtCurrent + options.Theta * valuesK[i];
+                CscMatrix A = assembly.ToCsc(valuesA);
 
                 double[] cTimesT = CCsc.Multiply(T);
                 double[] kTimesT = KCsc.Multiply(T);
-                var rhs = new double[n];
+                double[] aTimesTNext = A.Multiply(TNext);
                 double kFactor = 1.0 - options.Theta;
+
+                // Остаток: r = rhs - A·TNext, где rhs = C·T/dt - (1-θ)K·T + F.
+                var r = new double[n];
                 for (int i = 0; i < n; i++)
-                    rhs[i] = cTimesT[i] / dtCurrent - kFactor * kTimesT[i] + F[i];
+                    r[i] = (cTimesT[i] / dtCurrent - kFactor * kTimesT[i] + F[i]) - aTimesTNext[i];
 
-                lu.Factorize(A);
-                double[] TNew = lu.Solve(rhs);
+                bool needRefactor = !factoredThisStep
+                                    || (k % options.RefactorEveryNIter == 0)
+                                    || (maxResid > 0.5 * prevDelta); // стагнация
 
-                maxResid = MaxAbsDiff(TNew, TOldIter);
-                TNext = TNew;
-                TOldIter = (double[])TNew.Clone();
+                if (!useDirectFallback)
+                {
+                    chol ??= AnalyzeOnce(A, out useDirectFallback);
+                }
+
+                double[] delta;
+                if (useDirectFallback)
+                {
+                    lu.Factorize(A);
+                    delta = lu.Solve(r);
+                }
+                else
+                {
+                    if (needRefactor)
+                    {
+                        chol!.Factorize(A);
+                        if (!chol.LastFactorizationSpd)
+                        {
+                            useDirectFallback = true;
+                            lu.Factorize(A);
+                            delta = lu.Solve(r);
+                        }
+                        else
+                        {
+                            delta = chol.Solve(r);
+                        }
+                    }
+                    else
+                    {
+                        delta = chol!.Solve(r);
+                    }
+                }
+                factoredThisStep = true;
+
+                for (int i = 0; i < n; i++) TNext[i] += delta[i];
+
+                prevDelta = maxResid;
+                maxResid = MaxAbs(delta);
                 nIter = k + 1;
                 if (maxResid < options.PicardTolCelsius)
                     break;
@@ -139,6 +194,22 @@ public static class TransientHeatSolver
             throw new ArgumentOutOfRangeException(nameof(options.PicardTolCelsius), "PicardTolCelsius должен быть > 0.");
     }
 
+    private static SparseCholeskySolver AnalyzeOnce(CscMatrix patternA, out bool fallback)
+    {
+        var chol = new SparseCholeskySolver();
+        try
+        {
+            chol.AnalyzePattern(patternA);
+            fallback = false;
+            return chol;
+        }
+        catch
+        {
+            fallback = true;
+            return chol;
+        }
+    }
+
     private static CooMatrix CombineScaled(CscMatrix a, double aScale, CscMatrix b, double bScale)
     {
         if (a.Rows != b.Rows || a.Cols != b.Cols)
@@ -173,6 +244,17 @@ public static class TransientHeatSolver
         for (int i = 0; i < left.Length; i++)
             result[i] = 0.5 * (left[i] + right[i]);
         return result;
+    }
+
+    private static double MaxAbs(double[] a)
+    {
+        double m = 0.0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            double v = Math.Abs(a[i]);
+            if (v > m) m = v;
+        }
+        return m;
     }
 
     private static double MaxAbsDiff(double[] a, double[] b)

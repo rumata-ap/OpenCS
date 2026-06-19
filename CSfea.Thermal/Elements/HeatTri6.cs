@@ -74,7 +74,7 @@ public static class HeatTri6
         Span<double> dNdx = stackalloc double[NodesPerElement];
         Span<double> dNdy = stackalloc double[NodesPerElement];
 
-        foreach (var (l1, l2, w) in QuadraturePoints)
+        foreach (var (l1, l2, w) in MassQuadraturePoints)
         {
             ShapeFunctions(l1, l2, n);
             ShapeFunctionDerivatives(l1, l2, dNdL1, dNdL2);
@@ -155,5 +155,16 @@ public static class HeatTri6
         (0.5, 0.5, 1.0 / 6.0),
         (0.0, 0.5, 1.0 / 6.0),
         (0.5, 0.0, 1.0 / 6.0),
+    ];
+
+    /// <summary>6-точечная квадратура степени 4 на эталонном треугольнике (точно для матрицы массы T6).</summary>
+    static readonly (double L1, double L2, double Weight)[] MassQuadraturePoints =
+    [
+        (0.108103018168070, 0.445948490915965, 0.223381589678011 / 2.0),
+        (0.445948490915965, 0.108103018168070, 0.223381589678011 / 2.0),
+        (0.445948490915965, 0.445948490915965, 0.223381589678011 / 2.0),
+        (0.816847572980459, 0.091576213509771, 0.109951743655322 / 2.0),
+        (0.091576213509771, 0.816847572980459, 0.109951743655322 / 2.0),
+        (0.091576213509771, 0.091576213509771, 0.109951743655322 / 2.0),
     ];
 }

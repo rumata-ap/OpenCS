@@ -11,6 +11,20 @@ internal static class CalcTaskForceHelper
    internal static bool UsesManualForces(CalcTask task)
       => task.Kind == "strain_state" || IsLimitSingleKind(task.Kind);
 
+   /// <summary>Задачи, для которых не нужна строка стержневого набора усилий (batch / ParamsJson / оболочки).</summary>
+   internal static bool UsesDummyForceItem(CalcTask task) => task.Kind switch
+   {
+      "strain_state_batch" or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
+         or "two_stage_strain" or "two_stage_strain_batch"
+         or "shell_simpl_wa_sls" or "shell_simpl_wa_uls"
+         or "shell_simpl_capri_sls" or "shell_simpl_capri_uls"
+         or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"
+         or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch"
+         or "shell_strain_state" or "shell_strain_state_batch"
+         or "strength_ndm_batch" => true,
+      _ => false
+   };
+
    /// <summary>
    /// Получить усилия для одиночной задачи с ручным вводом или из набора (устаревшие limit_*).
    /// </summary>

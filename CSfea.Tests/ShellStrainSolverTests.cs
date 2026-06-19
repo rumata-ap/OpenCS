@@ -37,6 +37,49 @@ public static class ShellStrainSolverTests
 
         TestHarness.Section("Пластина: выборка эпюр по толщине");
         RunSample();
+
+        TestHarness.Section("Пластина: сходимость при негладком отклике (растяжение бетона off)");
+        RunNonSmoothBending();
+    }
+
+    // Криволинейная диаграмма бетона СП63 (как в реальном проекте).
+    static Diagramm Sp63Concrete()
+    {
+        MaterialChars Ch(CalcType ct) => new(ct)
+        {
+            Type = MatType.Concrete, E = 30_000, Fc = 30, Ft = 2.0, Ry = 2.0, Ru = 30,
+            Ec0 = -0.002, Ec2 = -0.0035, Ec1Red = -0.0035 * 0.6, Et2 = 0.00015, Et1Red = 0.00015 * 0.6,
+        };
+        var m = new Material { Id = 5, E = 30_000, Type = MatType.Concrete, Tag = "c30" };
+        m.MaterialChars = [Ch(CalcType.C), Ch(CalcType.CL), Ch(CalcType.N), Ch(CalcType.NL)];
+        return m.GetDiagramms(DiagrammType.SP63)![CalcType.C];
+    }
+
+    // Воспроизведение бага задачи 5 тестового проекта: криволинейный бетон СП63
+    // только на сжатие (TensionConcrete=false), асимметричная арматура, чистый
+    // изгиб. Усилия совпадают, но абсолютный критерий 1e-3 не засчитывал сходимость.
+    static void RunNonSmoothBending()
+    {
+        var cd = Sp63Concrete();           // бетон СП63 (криволинейный)
+        var rd = LinearConcrete(200_000);  // арматура (сталь)
+        var plate = new PlateSection
+        {
+            H = 0.2, NLayers = 10, TensionConcrete = false,
+            SofteningModel = "vecchio_collins", SofteningEpsC2 = 0.002,
+            PlateModel = "layered",
+        };
+        plate.RebarLayers.Add(new PlateRebarLayer { Asx = 5.65e-4, Asy = 5.65e-4, Zsx = -0.07, Zsy = -0.06 });
+        plate.RebarLayers.Add(new PlateRebarLayer { Asx = 5.65e-4, Asy = 5.65e-4, Zsx = 0.07, Zsy = 0.06 });
+
+        double[] target = { 0, 0, 0, 15, 10, 0 };  // кН·м/м
+        var res = new ShellStrainSolver(plate, cd, rd, null).Solve(target);
+        var f = res.Forces;
+
+        TestHarness.Check("негладкий: сошлось", res.Converged,
+            $"iter={res.Iterations}, residual={res.Residual:e3}");
+        TestHarness.CheckRel("негладкий: Mx совпал", f.Mx, 15.0, 1e-2);
+        TestHarness.CheckRel("негладкий: My совпал", f.My, 10.0, 1e-2);
+        TestHarness.Check("негладкий: Nx≈0", Math.Abs(f.Nx) < 0.1, $"Nx={f.Nx:f4}");
     }
 
     static void RunSample()

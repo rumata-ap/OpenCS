@@ -40,7 +40,7 @@ public sealed class RobinBoundaryModel : IHeatBoundaryModel
         IList<HeatBoundaryEdge> edges,
         double time_s,
         double[] nodalT,
-        CooMatrix K,
+        IMatrixSink K,
         double[] F,
         Func<double, double>? fireCurve)
     {
@@ -82,7 +82,7 @@ public sealed class RobinBoundaryModel : IHeatBoundaryModel
     static void ApplyQuadraticRobinEdge(
         int a, int mid, int b, double L,
         HeatBoundaryEdge edge, double T_inf,
-        double[] nodalT, CooMatrix K, double[] F)
+        double[] nodalT, IMatrixSink K, double[] F)
     {
         double T_surf = (nodalT[a] + 4.0 * nodalT[mid] + nodalT[b]) / 6.0;
         double alpha_lin = RobinHeatFlux.ComputeAlphaLin(
