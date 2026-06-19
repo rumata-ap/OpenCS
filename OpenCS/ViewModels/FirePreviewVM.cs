@@ -131,7 +131,7 @@ public sealed class FirePreviewVM : ViewModelBase
         _meshStepM = meshStepM;
         _algorithm = algorithm;
         _smoothIterTri = smoothIterTri;
-        _useQuadratic = false;
+        _useQuadratic = string.Equals(meshElementType?.Trim(), "quadratic", StringComparison.OrdinalIgnoreCase);
         RebuildGeometry();
         if (ShowMesh)
             RebuildMeshAsync();

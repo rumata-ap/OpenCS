@@ -49,6 +49,8 @@ HeatMeshTests.RunAll();
 
 HeatMeshQuadraticTests.RunAll();
 
+FireT6ParityTests.RunAll();
+
 HeatSteadyTests.RunAll();
 
 HeatBoundaryTests.RunAll();
