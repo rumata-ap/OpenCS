@@ -67,6 +67,8 @@ SparseOrderingTests.RunAll();
 
 SparseCholeskyTests.RunAll();
 
+HeatAssemblyTests.RunAll();
+
 ThermalBenchmark.RunAll();
 
 return TestHarness.Summary();

@@ -52,6 +52,13 @@ public static class TransientHeatSolver
         SparseCholeskySolver? chol = null;
         bool useDirectFallback = false;
 
+        // Постоянный CSC-паттерн сборки: один раз на расчёт, буферы значений переиспользуются.
+        var assembly = HeatAssembly.Build(mesh, robinEdges);
+        int nnz = assembly.ColPtr[n];
+        var valuesK = new double[nnz];
+        var valuesC = new double[nnz];
+        var valuesA = new double[nnz];
+
         while (t_s < duration_s - 1e-9)
         {
             if (subStepping && t_s < 60.0)
@@ -67,15 +74,18 @@ public static class TransientHeatSolver
             for (int k = 0; k < options.PicardMaxIter; k++)
             {
                 double[] midpointT = ComputeMidpointNodalTemperature(T, TNext);
-                CooMatrix K = mesh.AssembleConductivity(material, midpointT);
-                CooMatrix C = mesh.AssembleCapacity(material, midpointT);
+                assembly.AssembleK(material, midpointT, valuesK);
+                assembly.AssembleC(material, midpointT, valuesC);
 
                 var F = new double[n];
-                RobinBoundaryModel.ApplyRobin(mesh, robinEdges, t_s + dtCurrent, TNext, K, F, fireCurve);
+                RobinBoundaryModel.ApplyRobin(mesh, robinEdges, t_s + dtCurrent, TNext,
+                    assembly.SinkFor(valuesK), F, fireCurve);
 
-                CscMatrix KCsc = K.ToCsc();
-                CscMatrix CCsc = C.ToCsc();
-                CscMatrix A = CombineScaled(CCsc, 1.0 / dtCurrent, KCsc, options.Theta).ToCsc();
+                CscMatrix KCsc = assembly.ToCsc(valuesK);
+                CscMatrix CCsc = assembly.ToCsc(valuesC);
+                for (int i = 0; i < nnz; i++)
+                    valuesA[i] = valuesC[i] / dtCurrent + options.Theta * valuesK[i];
+                CscMatrix A = assembly.ToCsc(valuesA);
 
                 double[] cTimesT = CCsc.Multiply(T);
                 double[] kTimesT = KCsc.Multiply(T);

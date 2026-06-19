@@ -5,7 +5,7 @@ namespace CSfea.Sparse;
 /// сборки FEM-матриц (см. конспект: COO-триплеты → CSR/CSC). Дубликаты
 /// (i, j) суммируются при конвертации. Аналог <c>scipy.sparse.coo_matrix</c>.
 /// </summary>
-public sealed class CooMatrix
+public sealed class CooMatrix : IMatrixSink
 {
     private readonly List<int> _i;
     private readonly List<int> _j;
