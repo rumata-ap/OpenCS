@@ -10,8 +10,10 @@ namespace OpenCS.Tasks;
 
 /// <summary>
 /// Пакетная задача поиска плоскости деформаций пластины по строкам ForceSet.ShellItems.
-/// BatchParallel=true → независимые решения на глубоких клонах сечения (без тёплого
-/// старта); иначе → последовательный SolveMany с тёплым стартом.
+/// Режим определяется настройками CalcSettings:
+///   BatchParallel=true  → параллельный Parallel.For, каждый поток на клоне сечения, без тёплого старта;
+///   ShellWarmStart=true → последовательный SolveMany, результат строки N → начало строки N+1;
+///   (оба false, по умолчанию) → последовательный, каждая строка стартует от упругого приближения.
 /// </summary>
 public sealed class ShellStrainBatchHandler : ITaskHandler
 {
