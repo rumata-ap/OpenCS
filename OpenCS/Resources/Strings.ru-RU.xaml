@@ -511,6 +511,12 @@
    <system:String x:Key="PlateModelLayered">Слоистая</system:String>
    <system:String x:Key="PlateModelChar1dPrincipal">1D по характ. точкам (по главным)</system:String>
    <system:String x:Key="PlateModelChar1dAxial">1D по характ. точкам (по осям)</system:String>
+   <system:String x:Key="PlateConcreteDiagramType">Диаграмма бетона:</system:String>
+   <system:String x:Key="DiagramTypeL2">Двухлинейная (L2)</system:String>
+   <system:String x:Key="DiagramTypeL3">Трёхлинейная (L3)</system:String>
+   <system:String x:Key="DiagramTypeSP63">Криволинейная СП 63 (SP63)</system:String>
+   <system:String x:Key="DiagramTypeEKB">Нелинейная EN 1992 / ЕКБ (EKB)</system:String>
+   <system:String x:Key="DiagramTypeSP35">Параболическо-прямоугольная EN 1992 / СП 35 (SP35)</system:String>
    <system:String x:Key="AddRebarLayer">Добавить слой</system:String>
    <system:String x:Key="DeleteRebarLayer">Удалить слой</system:String>
 

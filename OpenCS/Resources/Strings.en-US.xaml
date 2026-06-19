@@ -508,6 +508,12 @@
    <system:String x:Key="PlateModelLayered">Layered</system:String>
    <system:String x:Key="PlateModelChar1dPrincipal">1D char. points (principal)</system:String>
    <system:String x:Key="PlateModelChar1dAxial">1D char. points (axial)</system:String>
+   <system:String x:Key="PlateConcreteDiagramType">Concrete diagram:</system:String>
+   <system:String x:Key="DiagramTypeL2">Bilinear (L2)</system:String>
+   <system:String x:Key="DiagramTypeL3">Trilinear (L3)</system:String>
+   <system:String x:Key="DiagramTypeSP63">Curvilinear SP63</system:String>
+   <system:String x:Key="DiagramTypeEKB">Nonlinear EN 1992 / CEB (EKB)</system:String>
+   <system:String x:Key="DiagramTypeSP35">Parabolic-rectangular EN 1992 / SP35</system:String>
    <system:String x:Key="AddRebarLayer">Add layer</system:String>
    <system:String x:Key="DeleteRebarLayer">Delete layer</system:String>
 
