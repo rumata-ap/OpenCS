@@ -20,6 +20,7 @@ public sealed class StrengthNDMBatchVM : ViewModelBase
     public ObservableCollection<BatchRow> Rows { get; } = [];
 
     public sealed record BatchRow(
+        int Num,
         string Label,
         string NText,
         string MxText,
@@ -72,8 +73,10 @@ public sealed class StrengthNDMBatchVM : ViewModelBase
 
             if (root.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
             {
+                int idx = 0;
                 foreach (var row in rows.EnumerateArray())
                 {
+                    idx++;
                     string st     = row.TryGetProperty("status",        out var sv)  ? sv.GetString() ?? ""  : "";
                     bool   conv   = st == "ok";
                     bool   passedRow = row.TryGetProperty("strength_ok", out var sk) && sk.GetBoolean();
@@ -81,6 +84,7 @@ public sealed class StrengthNDMBatchVM : ViewModelBase
                     bool   rOk    = row.TryGetProperty("rebar_ok",      out var rk) && rk.GetBoolean();
 
                     Rows.Add(new BatchRow(
+                        Num:              BatchResultRowHelper.RowNum(row, idx),
                         Label:            Str(row, "label"),
                         NText:            Num(row, "N", 4),
                         MxText:           Num(row, "Mx", 4),

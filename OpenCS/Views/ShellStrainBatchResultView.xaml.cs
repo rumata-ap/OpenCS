@@ -9,7 +9,7 @@ namespace OpenCS.Views
 {
     public partial class ShellStrainBatchResultView : UserControl
     {
-        public sealed record Row(string Label, string Status, int Iterations, string Residual);
+        public sealed record Row(int Num, string Label, string Status, int Iterations, string Residual);
 
         public ShellStrainBatchResultView(CalcResult result)
         {
@@ -26,9 +26,13 @@ namespace OpenCS.Views
                 int cc = root.GetProperty("converged_count").GetInt32();
                 int total = root.GetProperty("total").GetInt32();
                 SummaryText.Text = string.Format(Loc.S("ShellStrainBatchSummary"), cc, total);
+                int idx = 0;
                 foreach (var r in root.GetProperty("rows").EnumerateArray())
                 {
+                    idx++;
                     rows.Add(new Row(
+                        r.TryGetProperty("num", out var nv) && nv.ValueKind == JsonValueKind.Number
+                            ? nv.GetInt32() : idx,
                         r.GetProperty("label").GetString() ?? "",
                         r.GetProperty("status").GetString() ?? "",
                         r.GetProperty("iterations").GetInt32(),

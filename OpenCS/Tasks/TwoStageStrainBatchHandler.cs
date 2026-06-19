@@ -80,6 +80,7 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
             rows[i] = new
             {
                label = f2.Label,
+               num = f2.Num,
                N = f2.N, Mx = f2.Mx, My = f2.My,
                e0 = Math.Round(k.e0, 8), ky = Math.Round(k.ky, 8), kz = Math.Round(k.kz, 8),
                iterations = s2Solver.Iterations,

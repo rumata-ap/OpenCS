@@ -148,13 +148,7 @@ namespace OpenCS.ViewModels
                return;
             }
          }
-          else if (ct.Kind is "strain_state_batch"
-             or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
-             or "two_stage_strain" or "two_stage_strain_batch"
-             or "shell_simpl_wa_sls" or "shell_simpl_wa_uls"
-             or "shell_simpl_capri_sls" or "shell_simpl_capri_uls"
-             or "shell_strain_state" or "shell_strain_state_batch"
-             or "strength_ndm_batch")
+         else if (CalcTaskForceHelper.UsesDummyForceItem(ct))
          {
             fi = new LoadItem(); // обработчик читает усилия из ParamsJson/ctx.Database.ForceSets
          }

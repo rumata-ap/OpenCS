@@ -16,7 +16,8 @@
             </Style>
          </DataGrid.RowStyle>
          <DataGrid.Columns>
-            <DataGridTextColumn Header="Метка" Binding="{Binding Label}" Width="*"/>
+            <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
+            <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColLabel}" Binding="{Binding Label}" Width="*"/>
             <DataGridTextColumn Header="η_max" Binding="{Binding EtaMaxDisplay}"/>
             <DataGridTextColumn Header="Статус" Binding="{Binding Status}"/>
          </DataGrid.Columns>

@@ -21,6 +21,7 @@ public sealed class LimitForceBatchVM : ViewModelBase
     public ObservableCollection<BatchRow> Rows { get; } = [];
 
     public sealed record BatchRow(
+        int Num,
         string Label,
         string NText,
         string MxText,
@@ -70,8 +71,10 @@ public sealed class LimitForceBatchVM : ViewModelBase
 
             if (root.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
             {
+                int idx = 0;
                 foreach (var row in rows.EnumerateArray())
                 {
+                    idx++;
                     string st   = row.TryGetProperty("status", out var sv2) ? sv2.GetString() ?? "" : "";
                     bool   conv = st == "ok";
                     string gov  = row.TryGetProperty("governing", out var gv) ? gv.GetString() ?? "" : "";
@@ -84,6 +87,7 @@ public sealed class LimitForceBatchVM : ViewModelBase
                     };
 
                     Rows.Add(new BatchRow(
+                        Num:        BatchResultRowHelper.RowNum(row, idx),
                         Label:      Str(row, "label"),
                         NText:      Num(row, "N", 4),
                         MxText:     Num(row, "Mx", 4),

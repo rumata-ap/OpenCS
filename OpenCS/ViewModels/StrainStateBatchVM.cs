@@ -20,6 +20,7 @@ public sealed class StrainStateBatchVM : ViewModelBase
     public ObservableCollection<BatchRow> Rows { get; } = [];
 
     public sealed record BatchRow(
+        int Num,
         string Label,
         string NText,
         string MxText,
@@ -67,13 +68,16 @@ public sealed class StrainStateBatchVM : ViewModelBase
 
             if (root.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
             {
+                int idx = 0;
                 foreach (var row in rows.EnumerateArray())
                 {
+                    idx++;
                     string st   = row.TryGetProperty("status", out var sv) ? sv.GetString() ?? "" : "";
                     bool   conv = st == "ok";
                     int    iter = row.TryGetProperty("iterations", out var iv) ? iv.GetInt32() : 0;
 
                     Rows.Add(new BatchRow(
+                        Num:        BatchResultRowHelper.RowNum(row, idx),
                         Label:      Str(row, "label"),
                         NText:      Num(row, "N",        4),
                         MxText:     Num(row, "Mx",       4),

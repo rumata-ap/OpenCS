@@ -108,6 +108,7 @@ public sealed class StrainStateBatchHandler : ITaskHandler
     static object BuildRow(LoadItem fi, Kurvature k, StrainSolver solver) => new
     {
         label      = fi.Label,
+        num        = fi.Num,
         N          = fi.N,
         Mx         = fi.Mx,
         My         = fi.My,

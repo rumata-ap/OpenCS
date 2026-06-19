@@ -199,6 +199,7 @@ static class LimitForceTaskHelper
       return new
       {
          label             = fi.Label,
+         num               = fi.Num,
          N                 = fi.N,
          Mx                = fi.Mx,
          My                = fi.My,

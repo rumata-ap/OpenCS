@@ -133,6 +133,7 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
         bool concreteOk, bool rebarOk, bool strengthOk) => new
     {
         label = fi.Label,
+        num = fi.Num,
         N = fi.N,
         Mx = fi.Mx,
         My = fi.My,
