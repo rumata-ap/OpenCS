@@ -20,4 +20,19 @@ namespace CScore
       public double[] TauXY = [];
       public List<RebarStressPoint> Rebar = [];
    }
+
+   /// <summary>
+   /// Профили главных деформаций/напряжений по толщине пластины (вкладка «Главные оси»).
+   /// Напряжения σ₁, σ₂ — в кПа; угол θ — в градусах.
+   /// </summary>
+   public sealed class PlatePrincipalAxes
+   {
+      public double[] Z        = [];
+      public double[] Eps1     = [];
+      public double[] Eps2     = [];
+      public double[] Sig1     = [];   // кПа
+      public double[] Sig2     = [];   // кПа
+      public double[] Beta     = [];   // коэфф. снижения Vecchio–Collins (0..1)
+      public double[] ThetaDeg = [];   // угол главных осей от x, градусы
+   }
 }

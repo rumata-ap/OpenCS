@@ -299,6 +299,53 @@ namespace CScore
          return r;
       }
 
+      /// <summary>
+      /// Профили главных деформаций, напряжений, β и угла θ по толщине пластины
+      /// (для вкладки «Главные оси»). Напряжения — в кПа.
+      /// </summary>
+      public PlatePrincipalAxes SamplePrincipalAxes(
+         ShellStrainState state, Diagramm cDiag, int nPoints)
+      {
+         int n = nPoints < 2 ? 2 : nPoints;
+         var r = new PlatePrincipalAxes
+         {
+            Z = new double[n], Eps1 = new double[n], Eps2 = new double[n],
+            Sig1 = new double[n], Sig2 = new double[n],
+            Beta = new double[n], ThetaDeg = new double[n],
+         };
+         double zlo = -H / 2.0, dz = H / (n - 1);
+         bool axial = PlateModel == "char1d_axial";
+
+         for (int i = 0; i < n; i++)
+         {
+            double z = zlo + i * dz;
+            r.Z[i] = z;
+            double ex = state.EpsX(z), ey = state.EpsY(z), gxy = state.GammaXY(z);
+            if (axial)
+            {
+               r.Eps1[i] = Math.Max(ex, ey);
+               r.Eps2[i] = Math.Min(ex, ey);
+               r.Sig1[i] = ConcreteStress(cDiag, r.Eps1[i], 1.0);
+               r.Sig2[i] = ConcreteStress(cDiag, r.Eps2[i], 1.0);
+               r.Beta[i]     = 1.0;
+               r.ThetaDeg[i] = ex >= ey ? 0.0 : 90.0;
+            }
+            else
+            {
+               PrincipalStrains2D(ex, ey, gxy, out double eps1, out double eps2, out double theta);
+               double beta = SofteningModel == "vecchio_collins"
+                  ? VecchioCollinsBeta(eps1, SofteningEpsC2) : 1.0;
+               r.Eps1[i]     = eps1;
+               r.Eps2[i]     = eps2;
+               r.Sig1[i]     = ConcreteStress(cDiag, eps1, beta);
+               r.Sig2[i]     = ConcreteStress(cDiag, eps2, beta);
+               r.Beta[i]     = beta;
+               r.ThetaDeg[i] = theta * 180.0 / Math.PI;
+            }
+         }
+         return r;
+      }
+
       static double Norm6(double[] v)
       {
          double s = 0;

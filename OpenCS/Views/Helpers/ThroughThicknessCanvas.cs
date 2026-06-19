@@ -12,7 +12,10 @@ namespace OpenCS.Views.Helpers
     {
         public double[] Z { get; init; } = [];
         public (string Name, double[] Values, Brush Color)[] Series { get; init; } = [];
+        /// <summary>Точки арматуры: (z, value, цвет). Отрисовываются как горизонтальный отрезок 0→value + кружок.</summary>
         public (double Z, double Value, Brush Color)[] Points { get; init; } = [];
+        /// <summary>Горизонтальные опорные линии (ц.т., нейтральная ось и т.п.) по z-координате.</summary>
+        public (double Z, Brush Color, string Label)[] HLines { get; init; } = [];
         public string Title { get; init; } = "";
         public string ValueAxisLabel { get; init; } = "";
     }
@@ -84,6 +87,16 @@ namespace OpenCS.Views.Helpers
             AddText(p.ValueAxisLabel, ml + plotW - 60, mt + plotH + 8, Brushes.Black, 11, false);
             AddText("z, м", 4, mt - 2, Brushes.Black, 11, false);
 
+            // Горизонтальные опорные линии (ц.т. и т.п.)
+            foreach (var hl in p.HLines)
+            {
+                double yh = Y(hl.Z);
+                AddLine(ml, yh, ml + plotW, yh, hl.Color, 0.9, 4);
+                var lbl = new TextBlock { Text = hl.Label, Foreground = hl.Color, FontSize = 9 };
+                SetLeft(lbl, ml + 2); SetTop(lbl, yh - 11);
+                Children.Add(lbl);
+            }
+
             // Серии (линии value(z))
             foreach (var s in p.Series)
             {
@@ -93,11 +106,14 @@ namespace OpenCS.Views.Helpers
                     poly.Points.Add(new Point(X(s.Values[i]), Y(p.Z[i])));
                 Children.Add(poly);
             }
-            // Точки арматуры
+
+            // Точки арматуры: горизонтальный отрезок 0→value + кружок
             foreach (var pt in p.Points)
             {
+                double xPt = X(pt.Value), yPt = Y(pt.Z);
+                AddLine(X(0), yPt, xPt, yPt, pt.Color, 1.2, 0);
                 var dot = new Ellipse { Width = 7, Height = 7, Fill = pt.Color };
-                SetLeft(dot, X(pt.Value) - 3.5); SetTop(dot, Y(pt.Z) - 3.5);
+                SetLeft(dot, xPt - 3.5); SetTop(dot, yPt - 3.5);
                 Children.Add(dot);
             }
         }
