@@ -286,10 +286,16 @@
                             </Grid>
                         </GroupBox>
                         <GroupBox Header="{DynamicResource CalcSettingsBatchGroup}" Margin="0,0,0,10">
-                            <CheckBox x:Name="BatchParallelCb"
-                                      Content="{DynamicResource BatchParallel_Label}"
-                                      ToolTip="{DynamicResource BatchParallel_Tip}"
-                                      Margin="4,6"/>
+                            <StackPanel>
+                                <CheckBox x:Name="BatchParallelCb"
+                                          Content="{DynamicResource BatchParallel_Label}"
+                                          ToolTip="{DynamicResource BatchParallel_Tip}"
+                                          Margin="4,6"/>
+                                <CheckBox x:Name="ShellWarmStartCb"
+                                          Content="{DynamicResource ShellWarmStart_Label}"
+                                          ToolTip="{DynamicResource ShellWarmStart_Tip}"
+                                          Margin="4,2,4,6"/>
+                            </StackPanel>
                         </GroupBox>
                     </StackPanel>
                 </ScrollViewer>

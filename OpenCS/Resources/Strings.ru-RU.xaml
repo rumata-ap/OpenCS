@@ -93,6 +93,8 @@
    <system:String x:Key="CalcSettingsBatchGroup">Пакетные задачи</system:String>
    <system:String x:Key="BatchParallel_Label">Параллельный расчёт (клонирование сечения на поток)</system:String>
    <system:String x:Key="BatchParallel_Tip">Рекомендуется при наборах усилий от 50 строк. Применяется ко всем пакетным задачам прочности и жёсткости. Задачи огнестойкости не затрагиваются.</system:String>
+   <system:String x:Key="ShellWarmStart_Label">Тёплый старт пластин (результат строки N → начало строки N+1)</system:String>
+   <system:String x:Key="ShellWarmStart_Tip">Передаёт найденные деформации предыдущей строки в качестве начального приближения для следующей. Может ускорить расчёт однородных наборов, но ухудшает сходимость при резкой смене знака сдвига (Nxy). По умолчанию отключён — каждая строка стартует от упругого приближения.</system:String>
    <system:String x:Key="CalcSettingsLineStyleGroup">Стили линий</system:String>
    <system:String x:Key="CalcSettingsHullLine">Контур: цвет</system:String>
    <system:String x:Key="CalcSettingsHullThickness">Контур: толщина</system:String>

@@ -66,6 +66,14 @@ namespace OpenCS.Utilites
       [JsonPropertyName("batchParallel")]
       public bool BatchParallel { get; set; } = false;
 
+      /// <summary>
+      /// Тёплый старт в пакетном расчёте пластин: результат предыдущей строки используется
+      /// как начальное приближение для следующей (SolveMany). При выключении каждая строка
+      /// стартует независимо от упругого приближения.
+      /// </summary>
+      [JsonPropertyName("shellWarmStart")]
+      public bool ShellWarmStart { get; set; } = false;
+
       /// <summary>Плавная (градиентная) цветовая карта напряжений/деформаций по умолчанию.</summary>
       [JsonPropertyName("smoothColormap")]
       public bool SmoothColormap { get; set; } = true;
@@ -90,6 +98,7 @@ namespace OpenCS.Utilites
          FiberLabelFontSize    = FiberLabelFontSize,
          Sp63DescEtaMin        = Sp63DescEtaMin,
          BatchParallel         = BatchParallel,
+         ShellWarmStart        = ShellWarmStart,
          SmoothColormap        = SmoothColormap,
       };
    }

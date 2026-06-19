@@ -44,6 +44,7 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
 
             if (settings.BatchParallel && total > 1)
             {
+                // Параллельный режим всегда без тёплого старта (независимые клоны)
                 Parallel.For(0, total, i =>
                 {
                     var clone = plate.CloneForCalc();
@@ -55,8 +56,9 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                     rows[i] = BuildRow(si.Num, si.Label, r);
                 });
             }
-            else
+            else if (settings.ShellWarmStart)
             {
+                // Последовательный режим с тёплым стартом: результат строки N → начало строки N+1
                 var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
                     centralJacobian: central);
                 var targets = items.Select(si =>
@@ -66,6 +68,21 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                 {
                     converged[i] = results[i].Converged;
                     rows[i] = BuildRow(items[i].Num, items[i].Label, results[i]);
+                }
+            }
+            else
+            {
+                // Последовательный режим без тёплого старта (по умолчанию): каждая строка
+                // стартует независимо от упругого приближения
+                var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
+                    centralJacobian: central);
+                for (int i = 0; i < total; i++)
+                {
+                    var si = items[i];
+                    double[] tgt = { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy };
+                    var r = solver.Solve(tgt);
+                    converged[i] = r.Converged;
+                    rows[i] = BuildRow(si.Num, si.Label, r);
                 }
             }
 

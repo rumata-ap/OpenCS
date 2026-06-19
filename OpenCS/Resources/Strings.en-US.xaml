@@ -92,6 +92,8 @@
    <system:String x:Key="CalcSettingsBatchGroup">Batch Tasks</system:String>
    <system:String x:Key="BatchParallel_Label">Parallel execution (clone section per thread)</system:String>
    <system:String x:Key="BatchParallel_Tip">Recommended for force sets with 50+ rows. Applies to all strength/stiffness batch tasks. Fire-resistance tasks are not affected.</system:String>
+   <system:String x:Key="ShellWarmStart_Label">Shell warm-start (row N result → row N+1 initial guess)</system:String>
+   <system:String x:Key="ShellWarmStart_Tip">Passes the converged strain state of the previous row as the initial guess for the next. Can speed up uniform force sets but may hurt convergence when Nxy changes sign between rows. Off by default — each row starts from the elastic guess independently.</system:String>
    <system:String x:Key="CalcSettingsLineStyleGroup">Line Styles</system:String>
    <system:String x:Key="CalcSettingsHullLine">Hull: color</system:String>
    <system:String x:Key="CalcSettingsHullThickness">Hull: thickness</system:String>
