@@ -34,6 +34,7 @@ public sealed class ShellStrainHandler : ITaskHandler
 
             var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
                 tolRes: p.TolRes, maxIter: p.MaxIter,
+                hDiff: settings.NewtonDeltaH,
                 centralJacobian: settings.NewtonJacobian == "central");
             var r = solver.Solve(target);
             var f = r.Forces;
