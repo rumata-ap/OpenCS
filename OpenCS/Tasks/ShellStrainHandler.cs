@@ -40,10 +40,13 @@ public sealed class ShellStrainHandler : ITaskHandler
             var f = r.Forces;
             var s = r.StrainState;
 
+            var sec = plate.ComputeSecant(s, cDiag, rDiag, layerDiags);
+
             var data = new
             {
                 converged = r.Converged, iterations = r.Iterations,
                 residual = Math.Round(r.Residual, 6),
+                section_h = plate.H,
                 eps0x = Math.Round(s.Eps0x, 9), eps0y = Math.Round(s.Eps0y, 9),
                 gamma0xy = Math.Round(s.Gamma0xy, 9),
                 kx = Math.Round(s.Kx, 9), ky = Math.Round(s.Ky, 9), kxy = Math.Round(s.Kxy, 9),
@@ -52,9 +55,25 @@ public sealed class ShellStrainHandler : ITaskHandler
                 Nx_result = Math.Round(f.Nx, 4), Ny_result = Math.Round(f.Ny, 4),
                 Nxy_result = Math.Round(f.Nxy, 4), Mx_result = Math.Round(f.Mx, 4),
                 My_result = Math.Round(f.My, 4), Mxy_result = Math.Round(f.Mxy, 4),
-                EAx = Math.Round(f.EAx, 3), EAy = Math.Round(f.EAy, 3),
-                EIx = Math.Round(f.EIx, 5), EIy = Math.Round(f.EIy, 5),
-                Zc = Math.Round(f.Zc, 6),
+                // Секущие жёсткости
+                EAx_sec  = Math.Round(sec.EAx,   1),
+                EAy_sec  = Math.Round(sec.EAy,   1),
+                zc_x_sec = Math.Round(sec.ZcxMm, 2),
+                zc_y_sec = Math.Round(sec.ZcyMm, 2),
+                EIxc_sec = Math.Round(sec.EIxc,  3),
+                EIyc_sec = Math.Round(sec.EIyc,  3),
+                // Упругие жёсткости
+                EAx_el   = Math.Round(sec.EAxEl,   1),
+                EAy_el   = Math.Round(sec.EAyEl,   1),
+                zc_x_el  = Math.Round(sec.ZcxElMm, 2),
+                zc_y_el  = Math.Round(sec.ZcyElMm, 2),
+                EIxc_el  = Math.Round(sec.EIxcEl,  3),
+                EIyc_el  = Math.Round(sec.EIycEl,  3),
+                // Коэффициенты снижения (-1 = не вычислен)
+                phi_EAx  = Math.Round(sec.PhiEAx,  4),
+                phi_EAy  = Math.Round(sec.PhiEAy,  4),
+                phi_EIxc = Math.Round(sec.PhiEIxc, 4),
+                phi_EIyc = Math.Round(sec.PhiEIyc, 4),
             };
 
             return new CalcResult

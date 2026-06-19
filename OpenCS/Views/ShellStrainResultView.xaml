@@ -4,38 +4,89 @@
              xmlns:helpers="clr-namespace:OpenCS.Views.Helpers">
     <Grid Margin="8">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="320"/>
+            <ColumnDefinition Width="420"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
+
+        <!-- ── Левая панель: сводка ──────────────────────────────────── -->
         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
             <StackPanel x:Name="SummaryPanel" Margin="0,0,8,0">
-                <TextBlock Text="{DynamicResource ShellStrainTitle}" FontWeight="Bold" FontSize="14" Margin="0,0,0,6"/>
+
+                <!-- Заголовок -->
+                <TextBlock Text="{DynamicResource ShellStrainTitle}" FontWeight="Bold" FontSize="14" Margin="0,0,0,4"/>
                 <TextBlock Text="{Binding TaskTag}"/>
-                <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="Bold"/>
+                <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="Bold" Margin="0,2,0,0"/>
+
+                <!-- Мембранные деформации -->
+                <Separator Margin="0,8,0,4"/>
+                <TextBlock Text="{DynamicResource ShellStrainMembrane}" FontWeight="Bold" Margin="0,0,0,2"/>
+                <TextBlock><Run Text="ε₀x  = "/><Run Text="{Binding Eps0xText, Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="ε₀y  = "/><Run Text="{Binding Eps0yText, Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="γ₀xy = "/><Run Text="{Binding Gamma0xyText, Mode=OneWay}"/></TextBlock>
+
+                <!-- Кривизны -->
+                <TextBlock Text="{DynamicResource ShellStrainCurvatures}" FontWeight="Bold" Margin="0,6,0,2"/>
+                <TextBlock><Run Text="κx  = "/><Run Text="{Binding KxText, Mode=OneWay}"/><Run Text="  1/м"/></TextBlock>
+                <TextBlock><Run Text="κy  = "/><Run Text="{Binding KyText, Mode=OneWay}"/><Run Text="  1/м"/></TextBlock>
+                <TextBlock><Run Text="κxy = "/><Run Text="{Binding KxyText, Mode=OneWay}"/><Run Text="  1/м"/></TextBlock>
+
+                <!-- Деформации на гранях -->
+                <Separator Margin="0,8,0,4"/>
+                <TextBlock Text="{Binding FaceSectionHeader, Mode=OneWay}" FontWeight="Bold" Margin="0,0,0,2"/>
+                <TextBlock><Run Text="εx(+h/2) = "/><Run Text="{Binding EpsXTopText, Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="εx(−h/2) = "/><Run Text="{Binding EpsXBotText, Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="εy(+h/2) = "/><Run Text="{Binding EpsYTopText, Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="εy(−h/2) = "/><Run Text="{Binding EpsYBotText, Mode=OneWay}"/></TextBlock>
+
+                <!-- Усилия -->
+                <Separator Margin="0,8,0,4"/>
+                <TextBlock Text="{DynamicResource ShellStrainForcesHeader}" FontWeight="Bold" Margin="0,0,0,2"/>
+                <TextBlock Text="{DynamicResource ShellStrainForcesDesc}" Foreground="Gray" FontSize="11" Margin="0,0,0,2"/>
+                <TextBlock><Run Text="Nx  = "/><Run Text="{Binding NxRow,  Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="Ny  = "/><Run Text="{Binding NyRow,  Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="Nxy = "/><Run Text="{Binding NxyRow, Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="Mx  = "/><Run Text="{Binding MxRow,  Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="My  = "/><Run Text="{Binding MyRow,  Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="Mxy = "/><Run Text="{Binding MxyRow, Mode=OneWay}"/></TextBlock>
+
+                <!-- Секущие жёсткости -->
+                <Separator Margin="0,8,0,4"/>
+                <TextBlock Text="{DynamicResource ShellStrainSecant}" FontWeight="Bold" Margin="0,0,0,2"/>
+                <TextBlock><Run Text="EAx         = "/><Run Text="{Binding EAxSecText,  Mode=OneWay}"/><Run Text="  кН/м"/></TextBlock>
+                <TextBlock><Run Text="EAy         = "/><Run Text="{Binding EAySecText,  Mode=OneWay}"/><Run Text="  кН/м"/></TextBlock>
+                <TextBlock><Run Text="zc,x        = "/><Run Text="{Binding ZcxSecText,  Mode=OneWay}"/><Run Text="  мм"/></TextBlock>
+                <TextBlock><Run Text="zc,y        = "/><Run Text="{Binding ZcySecText,  Mode=OneWay}"/><Run Text="  мм"/></TextBlock>
+                <TextBlock><Run Text="EIx (ц.т.) = "/><Run Text="{Binding EIxcSecText, Mode=OneWay}"/><Run Text="  кН·м"/></TextBlock>
+                <TextBlock><Run Text="EIy (ц.т.) = "/><Run Text="{Binding EIycSecText, Mode=OneWay}"/><Run Text="  кН·м"/></TextBlock>
+
+                <!-- Упругие жёсткости -->
+                <Separator Margin="0,8,0,4"/>
+                <TextBlock Text="{DynamicResource ShellStrainElastic}" FontWeight="Bold" Margin="0,0,0,2"/>
+                <TextBlock><Run Text="EAx,упр         = "/><Run Text="{Binding EAxElText,  Mode=OneWay}"/><Run Text="  кН/м"/></TextBlock>
+                <TextBlock><Run Text="EAy,упр         = "/><Run Text="{Binding EAyElText,  Mode=OneWay}"/><Run Text="  кН/м"/></TextBlock>
+                <TextBlock><Run Text="zc,x,упр        = "/><Run Text="{Binding ZcxElText,  Mode=OneWay}"/><Run Text="  мм"/></TextBlock>
+                <TextBlock><Run Text="zc,y,упр        = "/><Run Text="{Binding ZcyElText,  Mode=OneWay}"/><Run Text="  мм"/></TextBlock>
+                <TextBlock><Run Text="EIx,упр (ц.т.) = "/><Run Text="{Binding EIxcElText, Mode=OneWay}"/><Run Text="  кН·м"/></TextBlock>
+                <TextBlock><Run Text="EIy,упр (ц.т.) = "/><Run Text="{Binding EIycElText, Mode=OneWay}"/><Run Text="  кН·м"/></TextBlock>
+
+                <!-- Коэффициенты снижения -->
+                <Separator Margin="0,8,0,4"/>
+                <TextBlock Text="{DynamicResource ShellStrainPhi}" FontWeight="Bold" Margin="0,0,0,2"/>
+                <TextBlock><Run Text="φEAx        = "/><Run Text="{Binding PhiEAxText,  Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="φEAy        = "/><Run Text="{Binding PhiEAyText,  Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="φEIx (ц.т.) = "/><Run Text="{Binding PhiEIxcText, Mode=OneWay}"/></TextBlock>
+                <TextBlock><Run Text="φEIy (ц.т.) = "/><Run Text="{Binding PhiEIycText, Mode=OneWay}"/></TextBlock>
+
+                <!-- Сходимость -->
+                <Separator Margin="0,8,0,4"/>
+                <TextBlock Text="{DynamicResource ShellStrainConvergence}" FontWeight="Bold" Margin="0,0,0,2"/>
                 <TextBlock><Run Text="{DynamicResource ShellStrainIterations}"/><Run Text=": "/><Run Text="{Binding IterationsText, Mode=OneWay}"/></TextBlock>
                 <TextBlock><Run Text="{DynamicResource ShellStrainResidual}"/><Run Text=": "/><Run Text="{Binding ResidualText, Mode=OneWay}"/></TextBlock>
-                <TextBlock Text="{DynamicResource ShellStrainStrains}" FontWeight="Bold" Margin="0,8,0,2"/>
-                <TextBlock><Run Text="ε₀x = "/><Run Text="{Binding Eps0xText, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="ε₀y = "/><Run Text="{Binding Eps0yText, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="γ₀xy = "/><Run Text="{Binding Gamma0xyText, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="κx = "/><Run Text="{Binding KxText, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="κy = "/><Run Text="{Binding KyText, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="κxy = "/><Run Text="{Binding KxyText, Mode=OneWay}"/></TextBlock>
-                <TextBlock Text="{DynamicResource ShellStrainForces}" FontWeight="Bold" Margin="0,8,0,2"/>
-                <TextBlock><Run Text="Nx = "/><Run Text="{Binding NxRow, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="Ny = "/><Run Text="{Binding NyRow, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="Nxy = "/><Run Text="{Binding NxyRow, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="Mx = "/><Run Text="{Binding MxRow, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="My = "/><Run Text="{Binding MyRow, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="Mxy = "/><Run Text="{Binding MxyRow, Mode=OneWay}"/></TextBlock>
-                <TextBlock Text="{DynamicResource ShellStrainStiffness}" FontWeight="Bold" Margin="0,8,0,2"/>
-                <TextBlock><Run Text="EAx = "/><Run Text="{Binding EAxText, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="EAy = "/><Run Text="{Binding EAyText, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="EIx = "/><Run Text="{Binding EIxText, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="EIy = "/><Run Text="{Binding EIyText, Mode=OneWay}"/></TextBlock>
-                <TextBlock><Run Text="{DynamicResource ShellStrainZc}"/><Run Text=" = "/><Run Text="{Binding ZcText, Mode=OneWay}"/></TextBlock>
+                <TextBlock Margin="0,4,0,0"/>
             </StackPanel>
         </ScrollViewer>
+
+        <!-- ── Правая панель: эпюры ε(z) и σ(z) ─────────────────────── -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>

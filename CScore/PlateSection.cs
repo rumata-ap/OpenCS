@@ -608,5 +608,128 @@ namespace CScore
          double beta = 1.0 / (0.8 + 170.0 * eps1);
          return beta < 0.0 ? 0.0 : beta > 1.0 ? 1.0 : beta;
       }
+
+      // ── Секущие жёсткости ────────────────────────────────────────────────────
+
+      /// <summary>
+      /// Вычислить секущие и упругие жёсткости сечения по сходившемуся НДС.
+      /// Секущий модуль: E_sec = σ(ε)/ε при |ε|&gt;1e-9, иначе начальный касательный E₀.
+      /// Для «layered» и «char1d_principal»: главные оси + поворот тензора жёсткости (МКПТ).
+      /// Для «char1d_axial»: осевые модули независимо по x и y.
+      /// Единицы: EA — кН/м, EI — кН·м, Zc — мм.
+      /// </summary>
+      public ShellSecantStiffness ComputeSecant(
+         ShellStrainState state,
+         Diagramm cDiag, Diagramm rDiag,
+         IReadOnlyList<Diagramm?>? layerDiags = null)
+      {
+         const double DEPS = 1e-7;
+         // Начальный сжимающий модуль бетона (≥0), без ветви растяжения
+         double E0c = -cDiag.Sig(-DEPS, out _, tenB: false) / DEPS;
+
+         double EAx = 0, ESx = 0, EIx0 = 0;
+         double EAy = 0, ESy = 0, EIy0 = 0;
+         double EAxEl = 0, ESxEl = 0, EIx0El = 0;
+         double EAyEl = 0, ESyEl = 0, EIy0El = 0;
+
+         bool axial = PlateModel == "char1d_axial";
+         int nl = NLayers < 1 ? 1 : NLayers;
+         double dz = H / nl;
+         double z0 = -H / 2.0 + dz / 2.0;
+
+         for (int i = 0; i < nl; i++)
+         {
+            double zi  = z0 + i * dz;
+            double ex  = state.EpsX(zi);
+            double ey  = state.EpsY(zi);
+            double gxy = state.GammaXY(zi);
+
+            double EsX, EsY;
+            if (axial)
+            {
+               double sigx = ConcreteStress(cDiag, ex, 1.0);
+               double sigy = ConcreteStress(cDiag, ey, 1.0);
+               EsX = SecantOrE0(sigx, ex, E0c);
+               EsY = SecantOrE0(sigy, ey, E0c);
+            }
+            else
+            {
+               PrincipalStrains2D(ex, ey, gxy, out double eps1, out double eps2, out double theta);
+               double beta = SofteningModel == "vecchio_collins"
+                  ? VecchioCollinsBeta(eps1, SofteningEpsC2) : 1.0;
+
+               double sig1 = ConcreteStress(cDiag, eps1, beta);
+               double sig2 = ConcreteStress(cDiag, eps2, beta);
+
+               double E1 = SecantOrE0(sig1, eps1, E0c);
+               double E2 = SecantOrE0(sig2, eps2, E0c);
+
+               double Esum = E1 + E2;
+               double Gsec = Esum > 1e-9 ? E1 * E2 / Esum : 0.0;
+               double cosT = Math.Cos(theta), sinT = Math.Sin(theta);
+               double c2 = cosT * cosT, s2 = sinT * sinT;
+
+               EsX = E1 * c2 * c2 + 4.0 * Gsec * s2 * c2 + E2 * s2 * s2;
+               EsY = E1 * s2 * s2 + 4.0 * Gsec * s2 * c2 + E2 * c2 * c2;
+            }
+
+            EAx  += EsX * dz; ESx  += EsX * dz * zi; EIx0  += EsX * dz * zi * zi;
+            EAy  += EsY * dz; ESy  += EsY * dz * zi; EIy0  += EsY * dz * zi * zi;
+            EAxEl += E0c * dz; ESxEl += E0c * dz * zi; EIx0El += E0c * dz * zi * zi;
+            EAyEl += E0c * dz; ESyEl += E0c * dz * zi; EIy0El += E0c * dz * zi * zi;
+         }
+
+         for (int li = 0; li < RebarLayers.Count; li++)
+         {
+            var rl = RebarLayers[li];
+            var rd = layerDiags != null && li < layerDiags.Count && layerDiags[li] != null
+                     ? layerDiags[li]! : rDiag;
+            double E0r = rd.Sig(DEPS, out _, tenB: true) / DEPS;
+
+            if (rl.Asx > 0)
+            {
+               double esx = state.EpsX(rl.Zsx);
+               double ssx = RebarStress(rd, esx);
+               double Es  = SecantOrE0(ssx, esx, E0r);
+               EAx   += Es  * rl.Asx; ESx   += Es  * rl.Asx * rl.Zsx; EIx0  += Es  * rl.Asx * rl.Zsx * rl.Zsx;
+               EAxEl += E0r * rl.Asx; ESxEl += E0r * rl.Asx * rl.Zsx; EIx0El += E0r * rl.Asx * rl.Zsx * rl.Zsx;
+            }
+            if (rl.Asy > 0)
+            {
+               double esy = state.EpsY(rl.Zsy);
+               double ssy = RebarStress(rd, esy);
+               double Es  = SecantOrE0(ssy, esy, E0r);
+               EAy   += Es  * rl.Asy; ESy   += Es  * rl.Asy * rl.Zsy; EIy0  += Es  * rl.Asy * rl.Zsy * rl.Zsy;
+               EAyEl += E0r * rl.Asy; ESyEl += E0r * rl.Asy * rl.Zsy; EIy0El += E0r * rl.Asy * rl.Zsy * rl.Zsy;
+            }
+         }
+
+         static double SecantOrE0(double sig, double eps, double E0)
+            => Math.Abs(eps) > 1e-9 ? sig / eps : E0;
+         static double ZcFrom(double ES, double EA)
+            => Math.Abs(EA) > 1e-9 ? ES / EA : 0.0;
+         static double EIcFrom(double EI0, double ES, double EA)
+            => Math.Abs(EA) > 1e-9 ? EI0 - ES * ES / EA : EI0;
+         static double PhiSafe(double a, double b)
+            => Math.Abs(b) > 1e-9 ? a / b : -1.0;
+
+         double zcx   = ZcFrom(ESx,   EAx);   double zcy   = ZcFrom(ESy,   EAy);
+         double EIxc  = EIcFrom(EIx0,  ESx,   EAx);  double EIyc  = EIcFrom(EIy0,  ESy,   EAy);
+         double zcxEl = ZcFrom(ESxEl, EAxEl); double zcyEl = ZcFrom(ESyEl, EAyEl);
+         double EIxcEl = EIcFrom(EIx0El, ESxEl, EAxEl);
+         double EIycEl = EIcFrom(EIy0El, ESyEl, EAyEl);
+
+         return new ShellSecantStiffness
+         {
+            EAx = EAx, EAy = EAy,
+            ZcxMm = zcx * 1e3, ZcyMm = zcy * 1e3,
+            EIxc = EIxc, EIyc = EIyc,
+            EAxEl = EAxEl, EAyEl = EAyEl,
+            ZcxElMm = zcxEl * 1e3, ZcyElMm = zcyEl * 1e3,
+            EIxcEl = EIxcEl, EIycEl = EIycEl,
+            PhiEAx  = PhiSafe(EAx,  EAxEl),  PhiEAy  = PhiSafe(EAy,  EAyEl),
+            PhiEIxc = PhiSafe(EIxc, EIxcEl), PhiEIyc = PhiSafe(EIyc, EIycEl),
+         };
+      }
    }
 }
