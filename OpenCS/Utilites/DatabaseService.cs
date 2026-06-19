@@ -27,7 +27,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 18;
+      const int CurrentSchemaVersion = 20;
 
       static readonly string[] Migrations =
       [
@@ -211,7 +211,8 @@ namespace OpenCS.Utilites
            bc_preset TEXT NOT NULL DEFAULT 'manual',
            hole_bc_preset TEXT NOT NULL DEFAULT 'ambient',
            algorithm TEXT NOT NULL DEFAULT 'ruppert',
-           smooth_iter_tri INTEGER NOT NULL DEFAULT 5
+           smooth_iter_tri INTEGER NOT NULL DEFAULT 5,
+           aggregate_type TEXT NOT NULL DEFAULT ''
          );
          CREATE TABLE IF NOT EXISTS fire_section_edges (
            id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -509,7 +510,9 @@ namespace OpenCS.Utilites
                 bc_preset TEXT NOT NULL DEFAULT 'manual',
                 hole_bc_preset TEXT NOT NULL DEFAULT 'ambient',
                 algorithm TEXT NOT NULL DEFAULT 'ruppert',
-                smooth_iter_tri INTEGER NOT NULL DEFAULT 5
+                smooth_iter_tri INTEGER NOT NULL DEFAULT 5,
+                aggregate_type TEXT NOT NULL DEFAULT '',
+                mesh_element_type TEXT NOT NULL DEFAULT 'linear'
             );
             CREATE TABLE IF NOT EXISTS fire_section_edges (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -571,6 +574,8 @@ namespace OpenCS.Utilites
                if (i == 15) { MigrateV16(); continue; }
                if (i == 16) { MigrateV17(); continue; }
                if (i == 17) { EnsurePlateModelColumn(); continue; }
+               if (i == 18) { MigrateV19(); continue; }
+               if (i == 19) { MigrateV20(); continue; }
                var migCmd = _connection.CreateCommand();
                migCmd.CommandText = Migrations[i];
                migCmd.ExecuteNonQuery();
@@ -713,6 +718,20 @@ namespace OpenCS.Utilites
       {
          if (ColumnExists("plate_sections", "plate_model")) return;
          MigExec("ALTER TABLE plate_sections ADD COLUMN plate_model TEXT NOT NULL DEFAULT 'layered'");
+      }
+
+      /// <summary>Миграция v19: тип заполнителя бетона в fire_sections.</summary>
+      void MigrateV19()
+      {
+         if (ColumnExists("fire_sections", "aggregate_type")) return;
+         MigExec("ALTER TABLE fire_sections ADD COLUMN aggregate_type TEXT NOT NULL DEFAULT ''");
+      }
+
+      /// <summary>Миграция v20: тип КЭ сетки (linear/quadratic) в fire_sections.</summary>
+      void MigrateV20()
+      {
+         if (ColumnExists("fire_sections", "mesh_element_type")) return;
+         MigExec("ALTER TABLE fire_sections ADD COLUMN mesh_element_type TEXT NOT NULL DEFAULT 'linear'");
       }
 
       public void ChangeDatabase(string dataSource)
@@ -1876,7 +1895,8 @@ namespace OpenCS.Utilites
             cmd.CommandText = """
                SELECT id, num, tag, section_id, fire_duration_min, fire_curve,
                       mesh_step_m, time_step_s, theta, picard_tol_celsius, picard_max_iter,
-                      snapshot_step_min, bc_preset, hole_bc_preset, algorithm, smooth_iter_tri
+                      snapshot_step_min, bc_preset, hole_bc_preset, algorithm, smooth_iter_tri,
+                      aggregate_type, mesh_element_type
                FROM fire_sections
                ORDER BY num, id
             """;
@@ -1900,7 +1920,9 @@ namespace OpenCS.Utilites
                   BcPreset = r.GetString(12),
                   HoleBcPreset = r.GetString(13),
                   Algorithm = r.GetString(14),
-                  SmoothIterTri = r.GetInt32(15)
+                  SmoothIterTri = r.GetInt32(15),
+                  AggregateType = r.IsDBNull(16) ? "" : r.GetString(16),
+                  MeshElementType = r.IsDBNull(17) ? "linear" : r.GetString(17)
                };
                dict[fs.Id] = fs;
             }
@@ -1953,9 +1975,9 @@ namespace OpenCS.Utilites
                      INSERT INTO fire_sections
                         (num, tag, section_id, fire_duration_min, fire_curve, mesh_step_m, time_step_s,
                          theta, picard_tol_celsius, picard_max_iter, snapshot_step_min, bc_preset,
-                         hole_bc_preset, algorithm, smooth_iter_tri)
+                         hole_bc_preset, algorithm, smooth_iter_tri, aggregate_type, mesh_element_type)
                      VALUES
-                        (@num, @tag, @sid, @dur, @curve, @mesh, @dt, @theta, @ptol, @piter, @snap, @bcp, @hbcp, @algo, @smooth);
+                        (@num, @tag, @sid, @dur, @curve, @mesh, @dt, @theta, @ptol, @piter, @snap, @bcp, @hbcp, @algo, @smooth, @agg, @meshEl);
                      SELECT last_insert_rowid();
                   """;
                }
@@ -1966,7 +1988,8 @@ namespace OpenCS.Utilites
                         num=@num, tag=@tag, section_id=@sid, fire_duration_min=@dur, fire_curve=@curve,
                         mesh_step_m=@mesh, time_step_s=@dt, theta=@theta, picard_tol_celsius=@ptol,
                         picard_max_iter=@piter, snapshot_step_min=@snap, bc_preset=@bcp,
-                        hole_bc_preset=@hbcp, algorithm=@algo, smooth_iter_tri=@smooth
+                        hole_bc_preset=@hbcp, algorithm=@algo, smooth_iter_tri=@smooth,
+                        aggregate_type=@agg, mesh_element_type=@meshEl
                      WHERE id=@id;
                   """;
                   cmd.Parameters.AddWithValue("@id", fs.Id);
@@ -1987,6 +2010,8 @@ namespace OpenCS.Utilites
                cmd.Parameters.AddWithValue("@hbcp", fs.HoleBcPreset);
                cmd.Parameters.AddWithValue("@algo", fs.Algorithm);
                cmd.Parameters.AddWithValue("@smooth", fs.SmoothIterTri);
+               cmd.Parameters.AddWithValue("@agg", fs.AggregateType ?? "");
+               cmd.Parameters.AddWithValue("@meshEl", string.IsNullOrWhiteSpace(fs.MeshElementType) ? "linear" : fs.MeshElementType);
 
                if (isNew) fs.Id = (int)(long)cmd.ExecuteScalar()!;
                else cmd.ExecuteNonQuery();
@@ -2290,6 +2315,30 @@ namespace OpenCS.Utilites
           var cmd = _connection.CreateCommand();
          cmd.CommandText = @"INSERT OR REPLACE INTO settings (key, value_json)
                              VALUES ('csv', $json)";
+         cmd.Parameters.AddWithValue("$json", json);
+         cmd.ExecuteNonQuery();
+      }
+
+      public LiraImportSettings LoadLiraImportSettings()
+      {
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT value_json FROM settings WHERE key='lira_import'";
+         var json = cmd.ExecuteScalar() as string;
+         if (json == null)
+         {
+            var def = LiraImportSettings.Default;
+            SaveLiraImportSettings(def);
+            return def;
+         }
+         return JsonSerializer.Deserialize<LiraImportSettings>(json) ?? LiraImportSettings.Default;
+      }
+
+      public void SaveLiraImportSettings(LiraImportSettings s)
+      {
+         var json = JsonSerializer.Serialize(s);
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = @"INSERT OR REPLACE INTO settings (key, value_json)
+                             VALUES ('lira_import', $json)";
          cmd.Parameters.AddWithValue("$json", json);
          cmd.ExecuteNonQuery();
       }

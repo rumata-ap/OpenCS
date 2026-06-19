@@ -5,7 +5,7 @@ using CSfea.Thermal.Materials;
 namespace CSfea.Thermal;
 
 /// <summary>
-/// Сетка теплопроводности: узлы (X, Y), треугольные элементы CST (3 узла).
+/// Сетка теплопроводности: узлы (X, Y), треугольные элементы T3 (3 узла) или T6 (6 узлов).
 /// ndof = N (1 DOF на узел — температура). Разрежённая COO-сборка K и C.
 /// </summary>
 public sealed class HeatMesh
@@ -16,7 +16,7 @@ public sealed class HeatMesh
     /// <summary>Координата Y узлов, длина <see cref="NNodes"/>.</summary>
     public double[] Y { get; }
 
-    /// <summary>Элементы — массивы из 3 индексов узлов.</summary>
+    /// <summary>Элементы — массивы из 3 (T3) или 6 (T6) индексов узлов.</summary>
     public int[][] Elements { get; }
 
     /// <summary>Число узлов.</summary>
@@ -27,6 +27,9 @@ public sealed class HeatMesh
 
     /// <summary>Полное число степеней свободы (1 на узел).</summary>
     public int NDof => NNodes;
+
+    /// <summary>Квадратичная T6-сетка (6 узлов на элемент).</summary>
+    public bool IsQuadratic => Elements.Length > 0 && Elements[0].Length == 6;
 
     /// <summary>Создать сетку из координат узлов и списка треугольников.</summary>
     public HeatMesh(double[] x, double[] y, int[][] elements)
@@ -39,50 +42,70 @@ public sealed class HeatMesh
     }
 
     /// <summary>Собрать глобальную матрицу теплопроводности K.</summary>
-    /// <param name="mat">Материал.</param>
-    /// <param name="nodalT">Температура в узлах для оценки λ(T); если null — T=20°C.</param>
     public CooMatrix AssembleConductivity(IHeatMaterial mat, double[]? nodalT = null)
     {
-        var coo = new CooMatrix(NDof, NDof, Elements.Length * 9);
+        int block = IsQuadratic ? 36 : 9;
+        var coo = new CooMatrix(NDof, NDof, Elements.Length * block);
         for (int e = 0; e < Elements.Length; e++)
         {
             var el = Elements[e];
-            double T = ElementCentroidT(el, nodalT);
+            double T = ElementMeanTemperature(el, nodalT);
             double lambda = mat.Conductivity(T);
-            var ke = HeatTri3.ElementK(lambda, ElementCoords(el));
-            coo.AddBlock(el, ke);
+            if (el.Length == 6)
+                coo.AddBlock(el, HeatTri6.ElementK(lambda, ElementCoords(el)));
+            else if (el.Length == 3)
+                coo.AddBlock(el, HeatTri3.ElementK(lambda, ElementCoords(el)));
+            else
+                throw new InvalidOperationException($"Элемент #{e}: ожидается 3 или 6 узлов, получено {el.Length}.");
         }
         return coo;
     }
 
-    /// <summary>Собрать глобальную матрицу теплоёмкости C (consistent CST mass).</summary>
-    /// <param name="mat">Материал.</param>
-    /// <param name="nodalT">Температура в узлах для оценки ρc(T).</param>
+    /// <summary>Собрать глобальную матрицу теплоёмкости C.</summary>
     public CooMatrix AssembleCapacity(IHeatMaterial mat, double[] nodalT)
     {
         if (nodalT.Length != NNodes)
             throw new ArgumentException(
                 $"Длина nodalT ({nodalT.Length}) не совпадает с числом узлов ({NNodes}).");
 
-        var coo = new CooMatrix(NDof, NDof, Elements.Length * 9);
+        int block = IsQuadratic ? 36 : 9;
+        var coo = new CooMatrix(NDof, NDof, Elements.Length * block);
         for (int e = 0; e < Elements.Length; e++)
         {
             var el = Elements[e];
-            double T = ElementCentroidT(el, nodalT);
+            double T = ElementMeanTemperature(el, nodalT);
             double rhocp = mat.VolumetricHeatCapacity(T);
-            var me = HeatTri3.ElementM(rhocp, ElementCoords(el));
-            coo.AddBlock(el, me);
+            if (el.Length == 6)
+                coo.AddBlock(el, HeatTri6.ElementM(rhocp, ElementCoords(el)));
+            else if (el.Length == 3)
+                coo.AddBlock(el, HeatTri3.ElementM(rhocp, ElementCoords(el)));
+            else
+                throw new InvalidOperationException($"Элемент #{e}: ожидается 3 или 6 узлов, получено {el.Length}.");
         }
         return coo;
     }
 
-    private double ElementCentroidT(int[] el, double[]? nodalT)
+    double ElementMeanTemperature(int[] el, double[]? nodalT)
     {
         if (nodalT == null)
             return 20.0;
-        return (nodalT[el[0]] + nodalT[el[1]] + nodalT[el[2]]) / 3.0;
+        double sum = 0;
+        for (int i = 0; i < el.Length; i++)
+            sum += nodalT[el[i]];
+        return sum / el.Length;
     }
 
-    private double[] ElementCoords(int[] el)
-        => [X[el[0]], Y[el[0]], X[el[1]], Y[el[1]], X[el[2]], Y[el[2]]];
+    double[] ElementCoords(int[] el)
+    {
+        if (el.Length == 3)
+            return [X[el[0]], Y[el[0]], X[el[1]], Y[el[1]], X[el[2]], Y[el[2]]];
+
+        var coords = new double[12];
+        for (int i = 0; i < 6; i++)
+        {
+            coords[2 * i] = X[el[i]];
+            coords[2 * i + 1] = Y[el[i]];
+        }
+        return coords;
+    }
 }

@@ -1,6 +1,7 @@
 using CScore;
 using CSTriangulation;
 using CSfea.Thermal;
+using CSfea.Thermal.Elements;
 using Rupp = CSTriangulation.Ruppert;
 
 namespace CScore.Fire;
@@ -17,11 +18,13 @@ public static class FireMeshBuilder
     /// <param name="meshStepM">Целевой шаг сетки, м.</param>
     /// <param name="algorithm">Алгоритм триангуляции: <c>ruppert</c> или <c>advancing_front</c>.</param>
     /// <param name="smoothIterTri">Число итераций сглаживания треугольной сетки.</param>
+    /// <param name="useQuadratic">Повысить линейную сетку до квадратичной T6.</param>
     public static FireMeshBuildResult Build(
         CrossSection section,
         double meshStepM,
         string algorithm,
-        int smoothIterTri)
+        int smoothIterTri,
+        bool useQuadratic = false)
     {
         ArgumentNullException.ThrowIfNull(section);
         if (meshStepM <= 0.0)
@@ -67,10 +70,14 @@ public static class FireMeshBuilder
             nIter: Math.Max(0, smoothIterTri),
             chi: 2.0);
 
-        var mesh = new HeatMesh(
+        var linearMesh = new HeatMesh(
             optimized.Nodes.Select(n => n[0]).ToArray(),
             optimized.Nodes.Select(n => n[1]).ToArray(),
             optimized.Triangles.Select(t => new[] { t[0], t[1], t[2] }).ToArray());
+
+        HeatMesh mesh = linearMesh;
+        if (useQuadratic)
+            mesh = HeatMeshQuadratic.Promote(linearMesh);
 
         var boundaryInfos = BuildBoundaryInfos(mesh, outer, holes, meshStepM);
         var rebars = LocateRebars(section, mesh);
@@ -78,6 +85,7 @@ public static class FireMeshBuilder
         return new FireMeshBuildResult
         {
             Mesh = mesh,
+            LinearMesh = useQuadratic ? linearMesh : null,
             BoundaryEdges = boundaryInfos,
             Rebars = rebars
         };
@@ -209,8 +217,8 @@ public static class FireMeshBuilder
         var result = new List<FireRebarLocation>(points.Count);
         foreach (var p in points)
         {
-            if (!TryFindContainingElement(mesh, p.Fiber.X, p.Fiber.Y, out int eIdx, out double xi1, out double xi2, out double xi3))
-                throw new InvalidOperationException($"Арматурная точка id={p.Id} не попала ни в один элемент T3.");
+            if (!TryFindContainingElement(mesh, p.Fiber.X, p.Fiber.Y, out int eIdx, out double xi1, out double xi2, out double xi3, out double[]? shapeWeights))
+                throw new InvalidOperationException($"Арматурная точка id={p.Id} не попала ни в один элемент.");
 
             result.Add(new FireRebarLocation
             {
@@ -220,7 +228,8 @@ public static class FireMeshBuilder
                 ElementIndex = eIdx,
                 Xi1 = xi1,
                 Xi2 = xi2,
-                Xi3 = xi3
+                Xi3 = xi3,
+                ShapeWeights = shapeWeights
             });
         }
 
@@ -234,7 +243,8 @@ public static class FireMeshBuilder
         out int elementIndex,
         out double xi1,
         out double xi2,
-        out double xi3)
+        out double xi3,
+        out double[]? shapeWeights)
     {
         const double tol = 1e-9;
         for (int e = 0; e < mesh.Elements.Length; e++)
@@ -249,12 +259,21 @@ public static class FireMeshBuilder
             if (xi1 >= -tol && xi2 >= -tol && xi3 >= -tol)
             {
                 elementIndex = e;
+                if (tri.Length == 6)
+                {
+                    Span<double> w = stackalloc double[6];
+                    HeatTri6.ShapeFunctions(xi1, xi2, w);
+                    shapeWeights = w.ToArray();
+                }
+                else
+                    shapeWeights = null;
                 return true;
             }
         }
 
         elementIndex = -1;
         xi1 = xi2 = xi3 = 0.0;
+        shapeWeights = null;
         return false;
     }
 

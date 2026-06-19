@@ -138,6 +138,15 @@
             <MenuItem Header="{DynamicResource Exit}" Command="{Binding ExitCommand}" />
          </MenuItem>
          <MenuItem Header="{DynamicResource Edit}" ></MenuItem>
+         <MenuItem Header="{DynamicResource ImportMenu}" Margin="3">
+            <MenuItem Header="{DynamicResource ImportCirclesFromDxf}" Command="{Binding ImportCirclesFromDxfCommand}"/>
+            <MenuItem Header="{DynamicResource ImportContoursFromDxf}" Command="{Binding ImportContoursFromDxfCommand}"/>
+            <MenuItem Header="{DynamicResource ImportAreasFromDxf}" Command="{Binding FromDxfCommand}"/>
+            <Separator/>
+            <MenuItem Header="{DynamicResource ImportLiraLoadCases}" Command="{Binding ImportLiraLoadCasesCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraRsn}" Command="{Binding ImportLiraRsnCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraRsu}" Command="{Binding ImportLiraRsuCommand}"/>
+         </MenuItem>
          <MenuItem Header="{DynamicResource View}" >
             <MenuItem Header="{DynamicResource Language}">
                <MenuItem Header="{DynamicResource Russian}" Command="{Binding SetLanguageCommand}" CommandParameter="0" />

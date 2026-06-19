@@ -61,6 +61,15 @@ public class FireSectionDef
     /// <summary>Число итераций сглаживания триангуляции.</summary>
     public int SmoothIterTri { get; set; } = 5;
 
+    /// <summary>Тип конечного элемента сетки: <c>linear</c> (T3) или <c>quadratic</c> (T6).</summary>
+    public string MeshElementType { get; set; } = "linear";
+
     /// <summary>Граничные условия по рёбрам контура и отверстий.</summary>
     public List<FireBoundaryEdgeDef> Edges { get; set; } = [];
+
+    /// <summary>
+    /// Тип заполнителя бетона: <c>silicate</c>, <c>carbonate</c>, <c>lightweight</c>.
+    /// Пустая строка — наследовать из материала связанного сечения.
+    /// </summary>
+    public string AggregateType { get; set; } = "";
 }

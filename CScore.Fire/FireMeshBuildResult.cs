@@ -10,6 +10,9 @@ public sealed class FireMeshBuildResult
     /// <summary>Тепловая треугольная сетка T3.</summary>
     public required HeatMesh Mesh { get; init; }
 
+    /// <summary>Линейная T3-сетка до повышения до T6; <c>null</c> для линейного расчёта.</summary>
+    public HeatMesh? LinearMesh { get; init; }
+
     /// <summary>Граничные рёбра сетки с привязкой к исходным рёбрам контура.</summary>
     public required IReadOnlyList<FireBoundaryEdgeInfo> BoundaryEdges { get; init; }
 
@@ -64,6 +67,9 @@ public sealed class FireRebarLocation
     /// <summary>Вторая барицентрическая координата.</summary>
     public double Xi2 { get; init; }
 
-    /// <summary>Третья барицентрическая координата.</summary>
+    /// <summary>Третья барицентрическая координата (T3).</summary>
     public double Xi3 { get; init; }
+
+    /// <summary>Веса функций формы в узлах элемента (длина 3 или 6); приоритет над Xi1–Xi3.</summary>
+    public double[]? ShapeWeights { get; init; }
 }

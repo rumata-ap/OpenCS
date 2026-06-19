@@ -20,6 +20,8 @@ namespace OpenCS.Views.Helpers
             (byte)(a.G + (b.G - a.G) * t),
             (byte)(a.B + (b.B - a.B) * t));
 
+        public static Color LerpColor(Color a, Color b, double t) => Lerp(a, b, t);
+
         // 0 → белый; отрицательные → красный (осн.) / синий (арм.);
         // положительные → синий (осн.) / красный (арм.)
         static Color DivergingColor(double val, double min, double max, bool isRebar)
@@ -57,24 +59,57 @@ namespace OpenCS.Views.Helpers
             return Math.Clamp((val - min) / (max - min), 0.0, 1.0);
         }
 
-        /// <summary>Холодный синий → жёлтый → красный (для поля температуры).</summary>
-        public static Color ThermalColor(double t)
+        /// <summary>Карта температуры как matplotlib <c>hot_r</c> (GreenSectionPy): холод — светлый, жар — тёмный.</summary>
+        public static Color GetThermalColor(double val, double min, double max)
         {
-            t = Math.Clamp(t, 0.0, 1.0);
-            if (t <= 0.5)
-            {
-                double u = t * 2.0;
-                return Color.FromRgb(0, (byte)(u * 200), (byte)(180 + u * 75));
-            }
-            double v = (t - 0.5) * 2.0;
-            return Color.FromRgb((byte)(v * 255), (byte)((1 - v) * 220), 0);
+            double range = max - min;
+            double margin = range > 1e-9 ? range * 0.01 : 1.0;
+            return HotReversed(Normalize(val, min - margin, max + margin));
         }
 
         public static Color GetThermalDiscreteColor(double val, double min, double max, int bands = 8)
         {
-            double t = Normalize(val, min, max);
+            double range = max - min;
+            double margin = range > 1e-9 ? range * 0.01 : 1.0;
+            double lo = min - margin;
+            double hi = max + margin;
+            double t = Normalize(val, lo, hi);
             t = (Math.Floor(t * bands) + 0.5) / bands;
-            return ThermalColor(Math.Clamp(t, 0.0, 1.0));
+            return HotReversed(Math.Clamp(t, 0.0, 1.0));
+        }
+
+        /// <summary><c>hot_r</c>: t=0 → белый (min T), t=1 → чёрный (max T).</summary>
+        public static Color HotReversed(double t)
+            => HotMatplotlib(1.0 - Math.Clamp(t, 0.0, 1.0));
+
+        /// <summary>Стандартный matplotlib <c>hot</c>: t=0 → чёрный, t=1 → белый.</summary>
+        public static Color HotMatplotlib(double t)
+        {
+            t = Math.Clamp(t, 0.0, 1.0);
+            double r, g, b;
+            if (t < 1.0 / 3.0)
+            {
+                r = 3.0 * t;
+                g = 0.0;
+                b = 0.0;
+            }
+            else if (t < 2.0 / 3.0)
+            {
+                r = 1.0;
+                g = 3.0 * (t - 1.0 / 3.0);
+                b = 0.0;
+            }
+            else
+            {
+                r = 1.0;
+                g = 1.0;
+                b = 3.0 * (t - 2.0 / 3.0);
+            }
+
+            return Color.FromRgb(
+                (byte)Math.Round(r * 255.0),
+                (byte)Math.Round(g * 255.0),
+                (byte)Math.Round(b * 255.0));
         }
     }
 }

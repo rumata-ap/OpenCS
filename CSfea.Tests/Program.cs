@@ -43,7 +43,11 @@ Sp468MaterialsTests.RunAll();
 
 HeatTri3Tests.RunAll();
 
+HeatTri6Tests.RunAll();
+
 HeatMeshTests.RunAll();
+
+HeatMeshQuadraticTests.RunAll();
 
 HeatSteadyTests.RunAll();
 

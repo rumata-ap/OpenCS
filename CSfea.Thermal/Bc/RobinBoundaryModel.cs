@@ -54,6 +54,13 @@ public sealed class RobinBoundaryModel : IHeatBoundaryModel
             int b = edge.NodeB;
 
             double T_inf = ResolveAmbientTemperature(edge, time_s, fireCurve);
+
+            if (edge.NodeMid is int mid)
+            {
+                ApplyQuadraticRobinEdge(a, mid, b, L, edge, T_inf, nodalT, K, F);
+                continue;
+            }
+
             double T_surf = 0.5 * (nodalT[a] + nodalT[b]);
             double alpha_lin = RobinHeatFlux.ComputeAlphaLin(
                 T_surf, T_inf, edge.AlphaConv, edge.Emissivity);
@@ -69,6 +76,52 @@ public sealed class RobinBoundaryModel : IHeatBoundaryModel
             F[a] += f_val;
             F[b] += f_val;
         }
+    }
+
+    /// <summary>Робин на квадратичном 1D-ребре (3 узла): 2-точечная квадратура Гаусса.</summary>
+    static void ApplyQuadraticRobinEdge(
+        int a, int mid, int b, double L,
+        HeatBoundaryEdge edge, double T_inf,
+        double[] nodalT, CooMatrix K, double[] F)
+    {
+        double T_surf = (nodalT[a] + 4.0 * nodalT[mid] + nodalT[b]) / 6.0;
+        double alpha_lin = RobinHeatFlux.ComputeAlphaLin(
+            T_surf, T_inf, edge.AlphaConv, edge.Emissivity);
+
+        double halfL = 0.5 * L;
+        ReadOnlySpan<double> gaussXi = [-0.5773502691896257, 0.5773502691896257];
+        Span<double> n = stackalloc double[3];
+        int[] nodes = [a, mid, b];
+        var ke = new double[3, 3];
+        var fe = new double[3];
+
+        foreach (double xi in gaussXi)
+        {
+            QuadraticEdgeShape(xi, n);
+            double factor = alpha_lin * halfL;
+            for (int i = 0; i < 3; i++)
+            {
+                for (int j = 0; j < 3; j++)
+                    ke[i, j] += factor * n[i] * n[j];
+                fe[i] += factor * T_inf * n[i];
+            }
+        }
+
+        for (int i = 0; i < 3; i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                K.Add(nodes[i], nodes[j], ke[i, j]);
+            }
+            F[nodes[i]] += fe[i];
+        }
+    }
+
+    static void QuadraticEdgeShape(double xi, Span<double> n)
+    {
+        n[0] = 0.5 * xi * (xi - 1.0);
+        n[1] = 1.0 - xi * xi;
+        n[2] = 0.5 * xi * (xi + 1.0);
     }
 
     private static double ResolveAmbientTemperature(

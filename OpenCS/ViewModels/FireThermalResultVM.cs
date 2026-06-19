@@ -10,6 +10,9 @@ namespace OpenCS.ViewModels;
 public sealed class FireThermalResultVM : ViewModelBase
 {
     readonly FireThermalResult? _thermal;
+    bool _temperaturePlotLoaded;
+    bool _rebarChartLoaded;
+    bool _convergenceChartsLoaded;
 
     public bool HasResult { get; }
     public string NoResultText { get; }
@@ -26,25 +29,28 @@ public sealed class FireThermalResultVM : ViewModelBase
     public string MaxTemperatureText { get; }
     public string ConvergenceSummaryText { get; }
 
-    public FireMeshPlotVM? TemperaturePlot { get; }
-    public FireLineChartVM? RebarChart { get; }
-    public FireLineChartVM? PicardChart { get; }
-    public FireLineChartVM? ResidualChart { get; }
+    public FireMeshPlotVM? TemperaturePlot { get; private set; }
+    public FireLineChartVM? RebarChart { get; private set; }
+    public FireLineChartVM? PicardChart { get; private set; }
+    public FireLineChartVM? ResidualChart { get; private set; }
     public bool HasRebarChart => RebarChart is { Series.Count: > 0 };
     public bool HasConvergenceCharts => PicardChart is { Series.Count: > 0 };
+
+    public bool IsLoading { get; private set; }
 
     public ObservableCollection<RebarTempRow> RebarRows { get; } = [];
 
     public sealed record RebarTempRow(string IdText, string MaxTempText);
 
-    public FireThermalResultVM(FireSectionDef fireSection, FireThermalResult? thermal, int? resultId)
+    public FireThermalResultVM(FireSectionDef fireSection, FireThermalResult? thermal, int? resultId, bool loading = false)
     {
+        IsLoading = loading;
         HeaderText = fireSection.Tag;
 
         if (thermal is null || resultId is null)
         {
             HasResult = false;
-            NoResultText = Loc.S("FireThermal_NoResult");
+            NoResultText = IsLoading ? Loc.S("FireThermal_Loading") : Loc.S("FireThermal_NoResult");
             ResultIdText = "—";
             FireSectionText = fireSection.Tag;
             FireCurveText = MapCurve(fireSection.FireCurve);
@@ -95,10 +101,47 @@ public sealed class FireThermalResultVM : ViewModelBase
                 Loc.S("FireThermal_ConvergenceFormat"),
                 log.Count, maxPicard, maxRes);
         }
+    }
 
-        TemperaturePlot = FireMeshPlotBuilder.CreateTemperaturePlot(thermal);
-        RebarChart = FireMeshPlotBuilder.CreateRebarChart(thermal);
-        (PicardChart, ResidualChart) = FireMeshPlotBuilder.CreateConvergenceCharts(thermal);
+    /// <summary>Создать VM-заглушку на время фоновой загрузки результата.</summary>
+    public static FireThermalResultVM CreateLoading(FireSectionDef fireSection)
+        => new(fireSection, null, null, loading: true);
+
+    /// <summary>Создать карту температуры при первом открытии вкладки поля.</summary>
+    public FireMeshPlotVM? EnsureTemperaturePlotLoaded()
+    {
+        if (_thermal is null || _temperaturePlotLoaded)
+            return TemperaturePlot;
+
+        _temperaturePlotLoaded = true;
+        TemperaturePlot = FireMeshPlotBuilder.CreateTemperaturePlot(_thermal);
+        OnPropertyChanged(nameof(TemperaturePlot));
+        return TemperaturePlot;
+    }
+
+    /// <summary>Создать график арматуры при первом открытии вкладки.</summary>
+    public void EnsureRebarChartLoaded()
+    {
+        if (_thermal is null || _rebarChartLoaded)
+            return;
+
+        _rebarChartLoaded = true;
+        RebarChart = FireMeshPlotBuilder.CreateRebarChart(_thermal);
+        OnPropertyChanged(nameof(RebarChart));
+        OnPropertyChanged(nameof(HasRebarChart));
+    }
+
+    /// <summary>Создать графики сходимости при первом открытии вкладки.</summary>
+    public void EnsureConvergenceChartsLoaded()
+    {
+        if (_thermal is null || _convergenceChartsLoaded)
+            return;
+
+        _convergenceChartsLoaded = true;
+        (PicardChart, ResidualChart) = FireMeshPlotBuilder.CreateConvergenceCharts(_thermal);
+        OnPropertyChanged(nameof(PicardChart));
+        OnPropertyChanged(nameof(ResidualChart));
+        OnPropertyChanged(nameof(HasConvergenceCharts));
     }
 
     static string MapCurve(string curve) => curve switch

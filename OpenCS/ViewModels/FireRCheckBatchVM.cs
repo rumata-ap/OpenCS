@@ -21,6 +21,7 @@ public sealed class FireRCheckBatchVM : ViewModelBase
     public bool HasFailedRows => FailedRows.Count > 0;
 
     public sealed record BatchRow(
+        int Num,
         string Label,
         string PassedText,
         string MarginText,
@@ -57,6 +58,7 @@ public sealed class FireRCheckBatchVM : ViewModelBase
                 if (rowPassed) nPassed++;
 
                 var item = new BatchRow(
+                    Num: BatchResultRowHelper.RowNum(row, total),
                     Label: FireResultJson.Str(row, "label", $"#{total}"),
                     PassedText: rowPassed ? Loc.S("FireRCheck_PassedShort") : Loc.S("FireRCheck_NotPassedShort"),
                     MarginText: FireResultJson.Fmt(FireResultJson.Dbl(row, "margin"), 4),

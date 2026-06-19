@@ -6,6 +6,7 @@
    <Grid>
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
          <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
@@ -35,7 +36,28 @@
          </Grid>
       </Border>
 
-      <Grid Grid.Row="1">
+      <Border Grid.Row="1" BorderThickness="0,0,0,1"
+              BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+              Padding="6,4"
+              Visibility="{Binding IsTemperatureMode, Converter={StaticResource BoolToVisibility}}">
+         <StackPanel Orientation="Horizontal">
+            <CheckBox Content="{DynamicResource PlotSmoothColormap}"
+                      IsChecked="{Binding SmoothColormap}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+            <CheckBox Content="{DynamicResource FireThermal_ShowIsolines}"
+                      IsChecked="{Binding ShowIsolines}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <CheckBox Content="{DynamicResource FireThermal_IsolineLabels}"
+                      IsChecked="{Binding ShowIsolineLabels}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBlock Text="{DynamicResource FireThermal_IsolineStep}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            <TextBox x:Name="isolineStepBox"
+                     Text="{Binding IsolineStepText, UpdateSourceTrigger=LostFocus}"
+                     Width="56" VerticalAlignment="Center" Margin="0,0,4,0"
+                     KeyDown="IsolineStep_KeyDown"
+                     LostFocus="IsolineStep_LostFocus"/>
+            <TextBlock Text="°C" VerticalAlignment="Center" Foreground="Gray"/>
+         </StackPanel>
+      </Border>
+
+      <Grid Grid.Row="2">
          <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>
@@ -43,7 +65,7 @@
          <Border Grid.Column="0" Margin="4"
                  BorderThickness="1"
                  BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
-            <h:FireMeshCanvas ViewModel="{Binding}"/>
+            <h:FireMeshCanvas x:Name="meshCanvas" ViewModel="{Binding}"/>
          </Border>
          <Border Grid.Column="1" Width="64" Margin="4"
                  BorderThickness="1"

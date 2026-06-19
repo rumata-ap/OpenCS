@@ -11,4 +11,5 @@ public sealed record HeatBoundaryEdge(
     double AlphaConv,
     double Emissivity,
     double TAmbientCelsius,
-    Func<double, double>? FireCurveAtTime = null);
+    Func<double, double>? FireCurveAtTime = null,
+    int? NodeMid = null);

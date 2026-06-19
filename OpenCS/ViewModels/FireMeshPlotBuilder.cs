@@ -12,7 +12,11 @@ internal static class FireMeshPlotBuilder
 {
     public static FireMeshPlotVM CreateTemperaturePlot(FireThermalResult thermal, int initialSnapshot = -1)
         => new(FireMeshPlotMode.Temperature, "T, °C", thermal.TimesMin,
-            snap => BuildTemperatureSnapshot(thermal, snap), initialSnapshot);
+            snap => BuildTemperatureSnapshot(thermal, snap),
+            initialSnapshot,
+            thermal.MeshInfo.Mesh,
+            snap => thermal.Snapshots[ClampSnap(thermal, snap)],
+            thermal.MeshInfo);
 
     public static FireMeshPlotVM CreateGammaPlot(
         FireFiberSection fiber, FireThermalResult thermal, int initialSnapshot = -1)
@@ -97,24 +101,7 @@ internal static class FireMeshPlotBuilder
         double[] tField = thermal.Snapshots[snapIdx];
         var mesh = thermal.MeshInfo.Mesh;
 
-        var tris = new List<FireTriDraw>(mesh.Elements.Length);
-        for (int e = 0; e < mesh.Elements.Length; e++)
-        {
-            var tri = mesh.Elements[e];
-            var verts = new List<Point>(3);
-            double tSum = 0;
-            for (int i = 0; i < 3; i++)
-            {
-                int ni = tri[i];
-                verts.Add(Mm(mesh.X[ni], mesh.Y[ni]));
-                tSum += tField[ni];
-            }
-            double t = tSum / 3.0;
-            double cx = (mesh.X[tri[0]] + mesh.X[tri[1]] + mesh.X[tri[2]]) / 3.0;
-            double cy = (mesh.Y[tri[0]] + mesh.Y[tri[1]] + mesh.Y[tri[2]]) / 3.0;
-            tris.Add(new FireTriDraw(verts, Mm(cx, cy), t,
-                string.Format(CultureInfo.InvariantCulture, "T = {0:F1} °C", t)));
-        }
+        var tris = BuildTemperatureTriangles(mesh, tField);
 
         var pts = new List<FirePointDraw>();
         foreach (var r in thermal.MeshInfo.Rebars)
@@ -124,6 +111,41 @@ internal static class FireMeshPlotBuilder
                 string.Format(CultureInfo.InvariantCulture, "#{0}: T = {1:F1} °C", r.Id, t)));
         }
         return (tris, pts);
+    }
+
+    static List<FireTriDraw> BuildTemperatureTriangles(HeatMesh mesh, double[] tField)
+    {
+        var tris = new List<FireTriDraw>(mesh.Elements.Length);
+        foreach (var el in mesh.Elements)
+        {
+            if (el.Length != 3)
+                continue;
+            var tri = MakeTemperatureTri(mesh, tField, el[0], el[1], el[2]);
+            if (tri != null)
+                tris.Add(tri);
+        }
+        return tris;
+    }
+
+    static FireTriDraw? MakeTemperatureTri(HeatMesh mesh, double[] tField, int n0, int n1, int n2)
+    {
+        var verts = new List<Point>(3);
+        var nodeVals = new double[3];
+        int[] nodes = [n0, n1, n2];
+        double tSum = 0;
+        for (int i = 0; i < 3; i++)
+        {
+            int ni = nodes[i];
+            verts.Add(Mm(mesh.X[ni], mesh.Y[ni]));
+            nodeVals[i] = tField[ni];
+            tSum += tField[ni];
+        }
+
+        double t = tSum / 3.0;
+        double cx = (mesh.X[n0] + mesh.X[n1] + mesh.X[n2]) / 3.0;
+        double cy = (mesh.Y[n0] + mesh.Y[n1] + mesh.Y[n2]) / 3.0;
+        return new FireTriDraw(verts, nodeVals, Mm(cx, cy), t,
+            string.Format(CultureInfo.InvariantCulture, "T = {0:F1} °C", t));
     }
 
     static (IReadOnlyList<FireTriDraw>, IReadOnlyList<FirePointDraw>) BuildScalarFromMesh(
@@ -142,7 +164,7 @@ internal static class FireMeshPlotBuilder
             var c = concrete[e];
             var verts = TriVertsMm(mesh, tri);
             double v = concVal(c);
-            tris.Add(new FireTriDraw(verts, Mm(c.Cx, c.Cy), v, fmt(v)));
+            tris.Add(new FireTriDraw(verts, ConstantNodeValues(v), Mm(c.Cx, c.Cy), v, fmt(v)));
         }
 
         var pts = new List<FirePointDraw>();
@@ -166,7 +188,7 @@ internal static class FireMeshPlotBuilder
             var d = GetDiagram(c.Material, calc);
             double sig = d.Sig(eps, out _) * c.GammaBt / 1000.0;
             var tri = mesh.Elements[e];
-            tris.Add(new FireTriDraw(TriVertsMm(mesh, tri), Mm(c.Cx, c.Cy), sig,
+            tris.Add(new FireTriDraw(TriVertsMm(mesh, tri), ConstantNodeValues(sig), Mm(c.Cx, c.Cy), sig,
                 string.Format(CultureInfo.InvariantCulture, "σ = {0:+0.0;-0.0} МПа", sig)));
         }
 
@@ -193,7 +215,7 @@ internal static class FireMeshPlotBuilder
             var c = fiber.ConcreteElements[e];
             double eps = k.e0 + k.ky * c.Cy + k.kz * c.Cx;
             var tri = mesh.Elements[e];
-            tris.Add(new FireTriDraw(TriVertsMm(mesh, tri), Mm(c.Cx, c.Cy), eps,
+            tris.Add(new FireTriDraw(TriVertsMm(mesh, tri), ConstantNodeValues(eps), Mm(c.Cx, c.Cy), eps,
                 string.Format(CultureInfo.InvariantCulture, "ε = {0:+0.000000;-0.000000}", eps)));
         }
 
@@ -213,6 +235,8 @@ internal static class FireMeshPlotBuilder
         if (d != null && d.TryGetValue(calc, out var dg)) return dg;
         throw new InvalidOperationException($"Диаграмма {mat.Tag} не найдена.");
     }
+
+    static double[] ConstantNodeValues(double v) => [v, v, v];
 
     static List<Point> TriVertsMm(HeatMesh mesh, int[] tri)
     {

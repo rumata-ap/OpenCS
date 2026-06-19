@@ -61,7 +61,7 @@ public static class FireThermalBlobCodec
             {
                 X = [.. result.MeshInfo.Mesh.X],
                 Y = [.. result.MeshInfo.Mesh.Y],
-                Elements = result.MeshInfo.Mesh.Elements.Select(e => new[] { e[0], e[1], e[2] }).ToArray(),
+                Elements = result.MeshInfo.Mesh.Elements.Select(e => e.ToArray()).ToArray(),
                 BoundaryEdges = result.MeshInfo.BoundaryEdges.Select(e => new FireBoundaryEdgePayload
                 {
                     NodeA = e.NodeA,
@@ -79,7 +79,8 @@ public static class FireThermalBlobCodec
                     ElementIndex = r.ElementIndex,
                     Xi1 = r.Xi1,
                     Xi2 = r.Xi2,
-                    Xi3 = r.Xi3
+                    Xi3 = r.Xi3,
+                    ShapeWeights = r.ShapeWeights?.ToArray()
                 }).ToList()
             },
             TimesMin = [.. result.TimesMin],
@@ -125,7 +126,8 @@ public static class FireThermalBlobCodec
                 ElementIndex = r.ElementIndex,
                 Xi1 = r.Xi1,
                 Xi2 = r.Xi2,
-                Xi3 = r.Xi3
+                Xi3 = r.Xi3,
+                ShapeWeights = r.ShapeWeights
             }).ToList()
         };
 
@@ -192,5 +194,6 @@ public static class FireThermalBlobCodec
         public double Xi1 { get; set; }
         public double Xi2 { get; set; }
         public double Xi3 { get; set; }
+        public double[]? ShapeWeights { get; set; }
     }
 }

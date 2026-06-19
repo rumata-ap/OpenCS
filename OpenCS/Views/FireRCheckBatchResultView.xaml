@@ -20,6 +20,7 @@
          <DataGrid ItemsSource="{Binding AllRows}" AutoGenerateColumns="False"
                    IsReadOnly="True" CanUserAddRows="False" Margin="4">
             <DataGrid.Columns>
+               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
                <DataGridTextColumn Header="{DynamicResource FireRCheckBatch_ColLabel}" Binding="{Binding Label}" Width="*"/>
                <DataGridTextColumn Header="{DynamicResource FireRCheckBatch_ColPassed}" Binding="{Binding PassedText}" Width="90"/>
                <DataGridTextColumn Header="k" Binding="{Binding FactorText}" Width="70"/>
@@ -34,6 +35,7 @@
          <DataGrid ItemsSource="{Binding FailedRows}" AutoGenerateColumns="False"
                    IsReadOnly="True" CanUserAddRows="False" Margin="4">
             <DataGrid.Columns>
+               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
                <DataGridTextColumn Header="{DynamicResource FireRCheckBatch_ColLabel}" Binding="{Binding Label}" Width="*"/>
                <DataGridTextColumn Header="k" Binding="{Binding FactorText}" Width="70"/>
                <DataGridTextColumn Header="{DynamicResource FireRCheck_Margin}" Binding="{Binding MarginText}" Width="80"/>

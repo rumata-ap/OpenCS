@@ -445,6 +445,25 @@
    <system:String x:Key="ShellForceColQy">Qy, кН/м</system:String>
    <system:String x:Key="ImportCsvBtn">Импорт CSV</system:String>
    <system:String x:Key="ExportCsvBtn">Экспорт CSV</system:String>
+   <system:String x:Key="ImportMenu">Импорт</system:String>
+   <system:String x:Key="ImportCirclesFromDxf">Импорт окружностей из DXF…</system:String>
+   <system:String x:Key="ImportContoursFromDxf">Импорт контуров из DXF…</system:String>
+   <system:String x:Key="ImportAreasFromDxf">Импорт областей из DXF…</system:String>
+   <system:String x:Key="ImportLiraLoadCases">Импорт усилий LiraSAPR — по загружениям (HTML)…</system:String>
+   <system:String x:Key="ImportLiraRsn">Импорт усилий LiraSAPR — РСН (HTML)…</system:String>
+   <system:String x:Key="ImportLiraRsu">Импорт усилий LiraSAPR — РСУ (HTML)…</system:String>
+   <system:String x:Key="ImportLiraLoadCasesTitle">Импорт усилий LIRA — загружения</system:String>
+   <system:String x:Key="ImportLiraRsnTitle">Импорт усилий LIRA — РСН</system:String>
+   <system:String x:Key="ImportLiraRsuTitle">Импорт усилий LIRA — РСУ</system:String>
+   <system:String x:Key="ImportLiraErrorTitle">Импорт LIRA</system:String>
+   <system:String x:Key="ImportLiraFailed">Не удалось импортировать файл.</system:String>
+   <system:String x:Key="ImportLiraSuccess">Импортировано наборов усилий: {0} ({1})</system:String>
+   <system:String x:Key="LiraImportSettingsTab">Импорт LIRA</system:String>
+   <system:String x:Key="LiraImportUnitsGroup">Перевод т → кН</system:String>
+   <system:String x:Key="LiraTon981">9,80665 (1 т = 9,80665 кН)</system:String>
+   <system:String x:Key="LiraTon10">10 (1 т = 10 кН)</system:String>
+   <system:String x:Key="LiraImportBarMomentsGroup">Стержни</system:String>
+   <system:String x:Key="LiraInvertBarMxMy">Инвертировать знаки изгибающих моментов Mx и My</system:String>
    <system:String x:Key="SP20CombineBtn">Сочетания СП20</system:String>
    <system:String x:Key="SP20DialogTitle">Сочетания по СП 20.13330</system:String>
    <system:String x:Key="SP20SelectSets">Наборы усилий:</system:String>
@@ -703,6 +722,7 @@
    <system:String x:Key="CalcResultError">Ошибка при выполнении задачи «{0}».</system:String>
    <system:String x:Key="StrainStateBatch_TabRows">Все случаи</system:String>
    <system:String x:Key="StrainStateBatch_ColLabel">Метка</system:String>
+   <system:String x:Key="StrainStateBatch_ColNum">№</system:String>
    <system:String x:Key="StrainStateBatch_ColIter">Итер.</system:String>
    <system:String x:Key="StrainStateBatch_ColResidual">Невязка</system:String>
    <system:String x:Key="StrainStateBatch_ColStatus">Статус</system:String>
@@ -768,10 +788,33 @@
    <system:String x:Key="FireResult_AggregateCarbonate">Карбонатный</system:String>
    <system:String x:Key="FireSection_TabParameters">Параметры</system:String>
    <system:String x:Key="FireSection_TabThermalResult">Тепловой результат</system:String>
+   <system:String x:Key="FireSection_PreviewTitle">Сечение</system:String>
+   <system:String x:Key="FireSection_BcFire">Пожар</system:String>
+   <system:String x:Key="FireSection_BcAmbient">Окружающая среда</system:String>
+   <system:String x:Key="FireSection_BcAdiabatic">Теплоизолировано</system:String>
+   <system:String x:Key="FireSection_NoPreview">Связанное сечение не найдено или не имеет геометрии.</system:String>
+   <system:String x:Key="FireSection_ShowMesh">Сетка МКЭ</system:String>
+   <system:String x:Key="FireSection_ShowEdgeLabels">Номера рёбер</system:String>
+   <system:String x:Key="FireSection_MeshComputing">Вычисление сетки…</system:String>
+   <system:String x:Key="FireSection_MeshQuality">Элементов: {0}, min∠ = {1:F1}°</system:String>
+   <system:String x:Key="FireSection_MeshQualityQuadratic">T6-элементов: {0}, min∠ = {1:F1}°</system:String>
+   <system:String x:Key="FireSection_MeshElementType">Тип КЭ сетки</system:String>
+   <system:String x:Key="FireSection_MeshElementType_Linear">Линейный (T3)</system:String>
+   <system:String x:Key="FireSection_MeshElementType_Quadratic">Квадратичный (T6)</system:String>
+   <system:String x:Key="FireSection_MeshError">Ошибка сетки: {0}</system:String>
+   <system:String x:Key="FireSection_ManualHint">Вручную: ЛКМ по ребру — смена ГУ (пожар → среда → изоляция)</system:String>
+   <system:String x:Key="FireSection_EdgeTooltip">Ребро {0}: {1}</system:String>
+   <system:String x:Key="FireSection_EdgeClickHint">ЛКМ — сменить тип ГУ</system:String>
    <system:String x:Key="FireThermal_NoResult">Тепловой расчёт ещё не выполнялся. Нажмите «Тепловой расчёт» на вкладке параметров.</system:String>
+   <system:String x:Key="FireThermal_Loading">Загрузка результата…</system:String>
    <system:String x:Key="FireThermal_ResultId">ID результата:</system:String>
    <system:String x:Key="FireThermal_TabMetadata">Метаданные</system:String>
    <system:String x:Key="FireThermal_TabField">Температурное поле</system:String>
+   <system:String x:Key="FireThermal_ShowIsolines">Изолинии</system:String>
+   <system:String x:Key="FireThermal_IsolineStep">Шаг изолиний</system:String>
+   <system:String x:Key="FireThermal_IsolineLabels">Подписи изолиний</system:String>
+   <system:String x:Key="FireThermal_SmoothMapLoadingTitle">Плавная карта температуры</system:String>
+   <system:String x:Key="FireThermal_SmoothMapLoadingMessage">Построение сглаженного поля по T3-сетке. Подождите, это может занять несколько секунд.</system:String>
    <system:String x:Key="FireThermal_TabRebar">Арматура</system:String>
    <system:String x:Key="FireThermal_TabConvergence">Сходимость</system:String>
    <system:String x:Key="FireThermal_MeshNodes">Узлов сетки</system:String>

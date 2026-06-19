@@ -22,7 +22,12 @@ public static class FireThermalService
         ArgumentNullException.ThrowIfNull(def);
         ArgumentNullException.ThrowIfNull(section);
 
-        var meshResult = FireMeshBuilder.Build(section, def.MeshStepM, def.Algorithm, def.SmoothIterTri);
+        var meshResult = FireMeshBuilder.Build(
+            section,
+            def.MeshStepM,
+            def.Algorithm,
+            def.SmoothIterTri,
+            useQuadratic: IsQuadraticMesh(def));
         var boundaryEdges = FireBoundaryMapper.MapEdges(def, meshResult, def.FireCurve);
         var material = new Sp468ConcreteHeatMaterial(aggregateType, DefaultMoistureFraction);
 
@@ -73,6 +78,8 @@ public static class FireThermalService
         };
     }
 
+    static bool IsQuadraticMesh(FireSectionDef def) => false;
+
     private static Dictionary<int, double[]> BuildRebarHistory(FireMeshBuildResult meshResult, IReadOnlyList<double[]> snapshots)
     {
         var history = new Dictionary<int, double[]>(meshResult.Rebars.Count);
@@ -83,7 +90,15 @@ public static class FireThermalService
             for (int s = 0; s < snapshots.Count; s++)
             {
                 double[] t = snapshots[s];
-                one[s] = rebar.Xi1 * t[el[0]] + rebar.Xi2 * t[el[1]] + rebar.Xi3 * t[el[2]];
+                if (rebar.ShapeWeights is { Length: > 0 } w)
+                {
+                    double val = 0;
+                    for (int i = 0; i < w.Length && i < el.Length; i++)
+                        val += w[i] * t[el[i]];
+                    one[s] = val;
+                }
+                else
+                    one[s] = rebar.Xi1 * t[el[0]] + rebar.Xi2 * t[el[1]] + rebar.Xi3 * t[el[2]];
             }
 
             history[rebar.Id] = one;

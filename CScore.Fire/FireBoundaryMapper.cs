@@ -1,4 +1,5 @@
 using CScore.Fire.Entities;
+using CSfea.Thermal;
 using CSfea.Thermal.Bc;
 
 namespace CScore.Fire;
@@ -45,10 +46,18 @@ public static class FireBoundaryMapper
                 AlphaConv: resolved.AlphaConv,
                 Emissivity: resolved.Emissivity,
                 TAmbientCelsius: resolved.TAmbientCelsius,
-                FireCurveAtTime: resolved.BcType == HeatBoundaryBcType.Fire ? fireCurve : null));
+                FireCurveAtTime: resolved.BcType == HeatBoundaryBcType.Fire ? fireCurve : null,
+                NodeMid: ResolveMidNode(meshResult, edge.NodeA, edge.NodeB)));
         }
 
         return mapped;
+    }
+
+    static int? ResolveMidNode(FireMeshBuildResult meshResult, int a, int b)
+    {
+        if (meshResult.LinearMesh == null)
+            return null;
+        return HeatMeshQuadratic.TryGetMidNode(meshResult.LinearMesh, meshResult.Mesh, a, b);
     }
 
     private static ResolvedBoundary ResolveBoundaryDefinition(

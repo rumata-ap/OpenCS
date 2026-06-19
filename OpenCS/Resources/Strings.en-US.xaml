@@ -442,6 +442,25 @@
    <system:String x:Key="ShellForceColQy">Qy, kN/m</system:String>
    <system:String x:Key="ImportCsvBtn">Import CSV</system:String>
    <system:String x:Key="ExportCsvBtn">Export CSV</system:String>
+   <system:String x:Key="ImportMenu">Import</system:String>
+   <system:String x:Key="ImportCirclesFromDxf">Import circles from DXF…</system:String>
+   <system:String x:Key="ImportContoursFromDxf">Import contours from DXF…</system:String>
+   <system:String x:Key="ImportAreasFromDxf">Import material areas from DXF…</system:String>
+   <system:String x:Key="ImportLiraLoadCases">Import LiraSAPR forces — load cases (HTML)…</system:String>
+   <system:String x:Key="ImportLiraRsn">Import LiraSAPR forces — RSN (HTML)…</system:String>
+   <system:String x:Key="ImportLiraRsu">Import LiraSAPR forces — RSU (HTML)…</system:String>
+   <system:String x:Key="ImportLiraLoadCasesTitle">Import LIRA forces — load cases</system:String>
+   <system:String x:Key="ImportLiraRsnTitle">Import LIRA forces — RSN</system:String>
+   <system:String x:Key="ImportLiraRsuTitle">Import LIRA forces — RSU</system:String>
+   <system:String x:Key="ImportLiraErrorTitle">LIRA import</system:String>
+   <system:String x:Key="ImportLiraFailed">Failed to import the file.</system:String>
+   <system:String x:Key="ImportLiraSuccess">Imported force sets: {0} ({1})</system:String>
+   <system:String x:Key="LiraImportSettingsTab">LIRA import</system:String>
+   <system:String x:Key="LiraImportUnitsGroup">Convert ton → kN</system:String>
+   <system:String x:Key="LiraTon981">9.80665 (1 t = 9.80665 kN)</system:String>
+   <system:String x:Key="LiraTon10">10 (1 t = 10 kN)</system:String>
+   <system:String x:Key="LiraImportBarMomentsGroup">Bars</system:String>
+   <system:String x:Key="LiraInvertBarMxMy">Invert bending moment signs Mx and My</system:String>
    <system:String x:Key="SP20CombineBtn">SP20 Combinations</system:String>
    <system:String x:Key="SP20DialogTitle">SP 20.13330 Combinations</system:String>
    <system:String x:Key="SP20SelectSets">Force Sets:</system:String>
@@ -700,6 +719,7 @@
    <system:String x:Key="CalcResultError">Error running task "{0}".</system:String>
    <system:String x:Key="StrainStateBatch_TabRows">All cases</system:String>
    <system:String x:Key="StrainStateBatch_ColLabel">Label</system:String>
+   <system:String x:Key="StrainStateBatch_ColNum">#</system:String>
    <system:String x:Key="StrainStateBatch_ColIter">Iter.</system:String>
    <system:String x:Key="StrainStateBatch_ColResidual">Residual</system:String>
    <system:String x:Key="StrainStateBatch_ColStatus">Status</system:String>
@@ -765,10 +785,33 @@
    <system:String x:Key="FireResult_AggregateCarbonate">Carbonate</system:String>
    <system:String x:Key="FireSection_TabParameters">Parameters</system:String>
    <system:String x:Key="FireSection_TabThermalResult">Thermal result</system:String>
+   <system:String x:Key="FireSection_PreviewTitle">Section</system:String>
+   <system:String x:Key="FireSection_BcFire">Fire</system:String>
+   <system:String x:Key="FireSection_BcAmbient">Ambient</system:String>
+   <system:String x:Key="FireSection_BcAdiabatic">Adiabatic</system:String>
+   <system:String x:Key="FireSection_NoPreview">Linked section not found or has no geometry.</system:String>
+   <system:String x:Key="FireSection_ShowMesh">FEM mesh</system:String>
+   <system:String x:Key="FireSection_ShowEdgeLabels">Edge numbers</system:String>
+   <system:String x:Key="FireSection_MeshComputing">Computing mesh…</system:String>
+   <system:String x:Key="FireSection_MeshQuality">Elements: {0}, min∠ = {1:F1}°</system:String>
+   <system:String x:Key="FireSection_MeshQualityQuadratic">T6 elements: {0}, min∠ = {1:F1}°</system:String>
+   <system:String x:Key="FireSection_MeshElementType">Mesh element type</system:String>
+   <system:String x:Key="FireSection_MeshElementType_Linear">Linear (T3)</system:String>
+   <system:String x:Key="FireSection_MeshElementType_Quadratic">Quadratic (T6)</system:String>
+   <system:String x:Key="FireSection_MeshError">Mesh error: {0}</system:String>
+   <system:String x:Key="FireSection_ManualHint">Manual: LMB on edge cycles BC (fire → ambient → adiabatic)</system:String>
+   <system:String x:Key="FireSection_EdgeTooltip">Edge {0}: {1}</system:String>
+   <system:String x:Key="FireSection_EdgeClickHint">LMB — change BC type</system:String>
    <system:String x:Key="FireThermal_NoResult">No thermal analysis yet. Run it from the Parameters tab.</system:String>
+   <system:String x:Key="FireThermal_Loading">Loading result…</system:String>
    <system:String x:Key="FireThermal_ResultId">Result ID:</system:String>
    <system:String x:Key="FireThermal_TabMetadata">Metadata</system:String>
    <system:String x:Key="FireThermal_TabField">Temperature field</system:String>
+   <system:String x:Key="FireThermal_ShowIsolines">Isolines</system:String>
+   <system:String x:Key="FireThermal_IsolineStep">Isoline step</system:String>
+   <system:String x:Key="FireThermal_IsolineLabels">Isoline labels</system:String>
+   <system:String x:Key="FireThermal_SmoothMapLoadingTitle">Smooth temperature map</system:String>
+   <system:String x:Key="FireThermal_SmoothMapLoadingMessage">Building a smoothed field on the T3 mesh. Please wait, this may take a few seconds.</system:String>
    <system:String x:Key="FireThermal_TabRebar">Rebar</system:String>
    <system:String x:Key="FireThermal_TabConvergence">Convergence</system:String>
    <system:String x:Key="FireThermal_MeshNodes">Mesh nodes</system:String>

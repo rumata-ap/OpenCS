@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text.Json;
 
 using CScore;
+using CScore.Import;
 using CScore.Fire.Entities;
 using OpenCS.Services;
 using OpenCS.Tasks;
@@ -528,6 +529,9 @@ namespace OpenCS
 
       /// <summary>Команда прямого импорта замкнутых контуров из DXF без мастера.</summary>
       public ICommand ImportContoursFromDxfCommand { get; set; } = null!;
+      public ICommand ImportLiraLoadCasesCommand { get; set; } = null!;
+      public ICommand ImportLiraRsnCommand { get; set; } = null!;
+      public ICommand ImportLiraRsuCommand { get; set; } = null!;
 
       /// <summary>Команда добавления новой окружности вручную.</summary>
       public ICommand AddCircleCommand { get; set; } = null!;
@@ -588,6 +592,9 @@ namespace OpenCS
 
       /// <summary>Настройки численного расчёта (сетка, Ньютон).</summary>
       public Utilites.CalcSettings CalcSettings { get; set; } = Utilites.CalcSettings.Default;
+
+      /// <summary>Настройки импорта усилий LIRA SAPR (HTML).</summary>
+      public Utilites.LiraImportSettings LiraImportSettings { get; set; } = Utilites.LiraImportSettings.Default;
 
       private int langID = 0;
       /// <summary>
@@ -653,6 +660,7 @@ namespace OpenCS
           PlotSettings = db.LoadPlotSettings() ?? Utilites.PlotSettings.Default;
           CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
           CalcSettings = db.LoadCalcSettings() ?? Utilites.CalcSettings.Default;
+          LiraImportSettings = db.LoadLiraImportSettings() ?? Utilites.LiraImportSettings.Default;
           InitializeCollections();
            InitializeCommands();
         }
@@ -849,6 +857,9 @@ namespace OpenCS
          ExportCirclesToDxfCommand    = new RelayCommand(_ => ExportCirclesToDxf());
          ImportCirclesFromCsvCommand  = new RelayCommand(_ => ImportCirclesFromCsv());
          ExportCirclesToCsvCommand    = new RelayCommand(_ => ExportCirclesToCsv());
+         ImportLiraLoadCasesCommand   = new RelayCommand(_ => ImportLiraHtml(LiraImportMode.LoadCases));
+         ImportLiraRsnCommand         = new RelayCommand(_ => ImportLiraHtml(LiraImportMode.Rsn));
+         ImportLiraRsuCommand         = new RelayCommand(_ => ImportLiraHtml(LiraImportMode.Rsu));
       }
 
       void SetLanguage(object? param)
@@ -1145,6 +1156,40 @@ namespace OpenCS
          csv.WriteRecords(Circles.Select(c => new CircleCsvRow
             { Tag = c.Tag, X = c.X, Y = c.Y, Radius = c.Radius }));
          LogService.Info(string.Format(Loc.S("CirclesExportedToCsv"), Circles.Count, Path.GetFileName(fileName)));
+      }
+
+      void ImportLiraHtml(LiraImportMode mode)
+      {
+         string? fileName = FileDialogService.OpenFile(
+            filter: "HTML LIRA SAPR (*.htm;*.html)|*.htm;*.html",
+            title: mode switch
+            {
+               LiraImportMode.LoadCases => Loc.S("ImportLiraLoadCasesTitle"),
+               LiraImportMode.Rsn       => Loc.S("ImportLiraRsnTitle"),
+               _                        => Loc.S("ImportLiraRsuTitle"),
+            });
+         if (string.IsNullOrEmpty(fileName)) return;
+
+         var import = LiraImporter.ImportFile(fileName, mode, LiraImportSettings.ToOptions());
+         if (!import.Success)
+         {
+            System.Windows.MessageBox.Show(
+               import.Error ?? Loc.S("ImportLiraFailed"),
+               Loc.S("ImportLiraErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+         }
+
+         int nextNum = ForceSets.Count > 0 ? ForceSets.Max(f => f.Num) + 1 : 1;
+         foreach (var fs in import.ForceSets)
+         {
+            fs.Num = nextNum++;
+            db.SaveForceSet(fs);
+            ForceSets.Add(fs);
+         }
+         IsDirty = true;
+         LogService.Info(string.Format(Loc.S("ImportLiraSuccess"),
+            import.ForceSets.Count, Path.GetFileName(fileName)));
       }
 
       void RefreshAfterLoad()
@@ -1764,15 +1809,10 @@ namespace OpenCS
                   return;
                }
             }
-              else if (ct.Kind is "strain_state_batch"
-                 or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
-                 or "two_stage_strain" or "two_stage_strain_batch"
-                 or "shell_simpl_wa_sls" or "shell_simpl_wa_uls"
-                 or "shell_simpl_capri_sls" or "shell_simpl_capri_uls"
-                 or "strength_ndm_batch")
-             {
-                fi = new LoadItem(); // handler игнорирует item, итерирует через ctx.Database.ForceSets
-             }
+            else if (CalcTaskForceHelper.UsesDummyForceItem(ct))
+            {
+               fi = new LoadItem(); // обработчик читает усилия из ParamsJson/ctx.Database.ForceSets
+            }
             else
             {
                MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),

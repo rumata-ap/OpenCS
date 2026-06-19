@@ -8,7 +8,8 @@
                  HorizontalAlignment="Center" VerticalAlignment="Center"
                  Visibility="{Binding HasResult, Converter={StaticResource InverseBoolToVisibility}}"/>
 
-      <TabControl Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+      <TabControl x:Name="innerTabs" SelectionChanged="InnerTab_SelectionChanged"
+                  Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
          <TabItem Header="{DynamicResource FireThermal_TabMetadata}">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                <StackPanel Margin="12,8">
@@ -70,36 +71,11 @@
             </ScrollViewer>
          </TabItem>
 
-         <TabItem Header="{DynamicResource FireThermal_TabField}">
-            <local:FireMeshPlotView DataContext="{Binding TemperaturePlot}"/>
-         </TabItem>
+         <TabItem x:Name="fieldTab" Header="{DynamicResource FireThermal_TabField}"/>
 
-         <TabItem Header="{DynamicResource FireThermal_TabRebar}">
-            <Grid>
-               <local:FireChartView DataContext="{Binding RebarChart}"
-                                    Visibility="{Binding HasRebarChart, Converter={StaticResource BoolToVisibility}}"/>
-               <TextBlock Text="{DynamicResource FireThermal_NoRebarHistory}" Margin="16" Foreground="Gray"
-                          HorizontalAlignment="Center" VerticalAlignment="Center"
-                          Visibility="{Binding HasRebarChart, Converter={StaticResource InverseBoolToVisibility}}"/>
-            </Grid>
-         </TabItem>
+         <TabItem x:Name="rebarTab" Header="{DynamicResource FireThermal_TabRebar}"/>
 
-         <TabItem Header="{DynamicResource FireThermal_TabConvergence}">
-            <Grid>
-               <Grid.RowDefinitions>
-                  <RowDefinition Height="*"/>
-                  <RowDefinition Height="*"/>
-               </Grid.RowDefinitions>
-               <local:FireChartView Grid.Row="0" DataContext="{Binding PicardChart}"
-                                    Visibility="{Binding HasConvergenceCharts, Converter={StaticResource BoolToVisibility}}"/>
-               <local:FireChartView Grid.Row="1" DataContext="{Binding ResidualChart}"
-                                    Visibility="{Binding HasConvergenceCharts, Converter={StaticResource BoolToVisibility}}"/>
-               <TextBlock Grid.Row="0" Grid.RowSpan="2"
-                          Text="{Binding ConvergenceSummaryText}" Margin="16" Foreground="Gray"
-                          HorizontalAlignment="Center" VerticalAlignment="Center"
-                          Visibility="{Binding HasConvergenceCharts, Converter={StaticResource InverseBoolToVisibility}}"/>
-            </Grid>
-         </TabItem>
+         <TabItem x:Name="convergenceTab" Header="{DynamicResource FireThermal_TabConvergence}"/>
       </TabControl>
    </Grid>
 </UserControl>

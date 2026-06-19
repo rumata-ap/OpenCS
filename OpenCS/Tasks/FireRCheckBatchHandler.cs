@@ -69,6 +69,7 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                 rows.Add(new
                 {
                     force_item_id = fi.Id,
+                    num = fi.Num,
                     label = fi.Label,
                     passed = check.Passed,
                     margin = check.Margin,
