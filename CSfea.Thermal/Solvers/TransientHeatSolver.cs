@@ -46,6 +46,12 @@ public static class TransientHeatSolver
         double dtCurrent = subStepping ? 0.5 : dt;
         int subStepsDone = 0;
 
+        // Прямые решатели: один экземпляр на весь расчёт. Холецкий (SPD) с однократным
+        // символическим анализом; LU — fallback при неположительном пивоте.
+        var lu = new SparseLuSolver();
+        SparseCholeskySolver? chol = null;
+        bool useDirectFallback = false;
+
         while (t_s < duration_s - 1e-9)
         {
             if (subStepping && t_s < 60.0)
@@ -58,7 +64,6 @@ public static class TransientHeatSolver
             int nIter = 0;
             double maxResid = 0.0;
 
-            var lu = new SparseLuSolver();
             for (int k = 0; k < options.PicardMaxIter; k++)
             {
                 double[] midpointT = ComputeMidpointNodalTemperature(T, TNext);
@@ -79,8 +84,26 @@ public static class TransientHeatSolver
                 for (int i = 0; i < n; i++)
                     rhs[i] = cTimesT[i] / dtCurrent - kFactor * kTimesT[i] + F[i];
 
-                lu.Factorize(A);
-                double[] TNew = lu.Solve(rhs);
+                double[] TNew;
+                if (!useDirectFallback)
+                {
+                    chol ??= AnalyzeOnce(A, out useDirectFallback);
+                }
+                if (chol != null && !useDirectFallback)
+                {
+                    chol.Factorize(A);
+                    if (!chol.LastFactorizationSpd)
+                        useDirectFallback = true;
+                }
+                if (useDirectFallback)
+                {
+                    lu.Factorize(A);
+                    TNew = lu.Solve(rhs);
+                }
+                else
+                {
+                    TNew = chol!.Solve(rhs);
+                }
 
                 maxResid = MaxAbsDiff(TNew, TOldIter);
                 TNext = TNew;
@@ -137,6 +160,22 @@ public static class TransientHeatSolver
             throw new ArgumentOutOfRangeException(nameof(options.PicardMaxIter), "PicardMaxIter должен быть > 0.");
         if (options.PicardTolCelsius <= 0.0)
             throw new ArgumentOutOfRangeException(nameof(options.PicardTolCelsius), "PicardTolCelsius должен быть > 0.");
+    }
+
+    private static SparseCholeskySolver AnalyzeOnce(CscMatrix patternA, out bool fallback)
+    {
+        var chol = new SparseCholeskySolver();
+        try
+        {
+            chol.AnalyzePattern(patternA);
+            fallback = false;
+            return chol;
+        }
+        catch
+        {
+            fallback = true;
+            return chol;
+        }
     }
 
     private static CooMatrix CombineScaled(CscMatrix a, double aScale, CscMatrix b, double bScale)
