@@ -242,7 +242,7 @@ namespace CScore
                double e0 = Ft / E + 0.002;
                double e1 = 0.9 * Ft / E;
                double e2 = e0 + (e0 - e1);
-               xc[0] = Ec2; yc[0] = 1.1 * Fc;
+               xc[0] = -Et2; yc[0] = 1.1 * Fc;
                xc[1] = -e2; yc[1] = 1.1 * Fc;
                xc[2] = -e1; yc[2] = 0.9 * Fc;
                xc[3] = 0; yc[3] = 0;
