@@ -86,32 +86,31 @@ namespace OpenCS.Views
                     Z = s.Z,
                     Title = Res("ShellStrainSigXPlot"),
                     ValueAxisLabel = "МПа",
-                    Series = new[]
-                    {
-                        ("σx",  sigX,  (Brush)Brushes.Crimson),
-                        ("τxy", tauXY, (Brush)Brushes.SeaGreen),
-                    },
+                    Series = new[] { ("σx", sigX, (Brush)Brushes.Crimson) },
                     Points = s.Rebar.Where(r => r.AlongX)
                                     .Select(r => (r.Z, r.Sigma / 1000.0, (Brush)Brushes.DarkRed))
                                     .ToArray(),
-                    PointsUseSecondaryScale = true,
                     HLines = zcxLine,
+                    PointsInSeparateZone = true,
                 };
                 SigYCanvas.Profile = new ThroughThicknessProfile
                 {
                     Z = s.Z,
                     Title = Res("ShellStrainSigYPlot"),
                     ValueAxisLabel = "МПа",
-                    Series = new[]
-                    {
-                        ("σy",  sigY,  (Brush)Brushes.SteelBlue),
-                        ("τxy", tauXY, (Brush)Brushes.SeaGreen),
-                    },
+                    Series = new[] { ("σy", sigY, (Brush)Brushes.SteelBlue) },
                     Points = s.Rebar.Where(r => !r.AlongX)
                                     .Select(r => (r.Z, r.Sigma / 1000.0, (Brush)Brushes.DarkBlue))
                                     .ToArray(),
-                    PointsUseSecondaryScale = true,
                     HLines = zcyLine,
+                    PointsInSeparateZone = true,
+                };
+                TauXYCanvas.Profile = new ThroughThicknessProfile
+                {
+                    Z = s.Z,
+                    Title = Res("ShellStrainSigTauPlot"),
+                    ValueAxisLabel = "МПа",
+                    Series = new[] { ("τxy", tauXY, (Brush)Brushes.SeaGreen) },
                 };
 
                 // ── Вкладка «Главные оси» ────────────────────────────────────

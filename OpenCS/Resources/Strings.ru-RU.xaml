@@ -910,6 +910,7 @@
     <system:String x:Key="ShellStrainEpsGammaPlot">γxy(z)</system:String>
     <system:String x:Key="ShellStrainSigXPlot">σx(z), МПа</system:String>
     <system:String x:Key="ShellStrainSigYPlot">σy(z), МПа</system:String>
+    <system:String x:Key="ShellStrainSigTauPlot">τxy(z), МПа</system:String>
     <system:String x:Key="ShellStrainPrEpsPlot">ε₁, ε₂(z)</system:String>
     <system:String x:Key="ShellStrainPrSigPlot">σ₁, σ₂(z), МПа</system:String>
     <system:String x:Key="ShellStrainBetaPlot">β(z)</system:String>
