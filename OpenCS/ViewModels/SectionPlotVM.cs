@@ -28,6 +28,8 @@ namespace OpenCS.ViewModels
         public (Point pt, double val) GradientMin { get; init; }
         /// <summary>Вершина с максимальным значением σ/ε для построения градиентной кисти.</summary>
         public (Point pt, double val) GradientMax { get; init; }
+        /// <summary>Значения σ [МПа] или ε в каждой вершине Vertices (null для псевдофибр без повершинных значений).</summary>
+        public IReadOnlyList<double>? VertexValues { get; init; }
     }
 
     /// <summary>Данные для области без сетки — контур + значения в вершинах.</summary>
@@ -187,16 +189,19 @@ namespace OpenCS.ViewModels
                         // Концы градиентной кисти: вершины с min/max значением σ или ε
                         var gMin = (pt: pts[0], val: double.MaxValue);
                         var gMax = (pt: pts[0], val: double.MinValue);
-                        foreach (var v in pts)
+                        var vertVals = new double[pts.Count];
+                        for (int vi = 0; vi < pts.Count; vi++)
                         {
+                            var v = pts[vi];
                             double eps_v = ka.e0 + ka.ky * (v.Y / 1000.0) + ka.kz * (v.X / 1000.0);
                             double val_v = mode == SectionPlotMode.Stress
                                 ? dgr.SigValue(eps_v) / 1000.0 : eps_v;
+                            vertVals[vi] = val_v;
                             if (val_v < gMin.val) gMin = (v, val_v);
                             if (val_v > gMax.val) gMax = (v, val_v);
                         }
                         concrete.Add(new FiberDrawData(pts, centroid, val, isRebar, tip, sigMpa, f.Eps, aMm2)
-                            { Holes = fiberHoles, GradientMin = gMin, GradientMax = gMax });
+                            { Holes = fiberHoles, GradientMin = gMin, GradientMax = gMax, VertexValues = vertVals });
                         // Центр тяжести НДС
                         double esf = Math.Abs(f.Eps) > 1e-9 ? Math.Abs(f.Sig / 1000.0 / f.Eps) : E0;
                         double amm2f = f.Area * 1e6;
@@ -263,6 +268,14 @@ namespace OpenCS.ViewModels
                             ? dgr.SigValue(eps_c) / 1000.0 : eps_c;
                         var cellPts = (IReadOnlyList<Point>)cell
                             .Select(p => new Point(p.X, p.Y)).ToList();
+                        var cellVals = new double[cellPts.Count];
+                        for (int vi = 0; vi < cellPts.Count; vi++)
+                        {
+                            var cv = cellPts[vi];
+                            double eps_v = ka.e0 + ka.ky * (cv.Y / 1000) + ka.kz * (cv.X / 1000);
+                            cellVals[vi] = mode == SectionPlotMode.Stress
+                                ? dgr.SigValue(eps_v) / 1000.0 : eps_v;
+                        }
                         double cellSigMpa = dgr.SigValue(eps_c) / 1000.0;
                         double cellAmm2   = PolygonAreaMm2(cell);
                         string cellTip = $"{area.Tag}\nx={cx_mm:F1} мм  y={cy_mm:F1} мм\n" +
@@ -270,7 +283,8 @@ namespace OpenCS.ViewModels
                             $"ε = {eps_c:+0.00000;-0.00000}\n" +
                             $"A = {cellAmm2:F0} мм²";
                         concrete.Add(new FiberDrawData(cellPts,
-                            new Point(cx_mm, cy_mm), val, false, cellTip, cellSigMpa, eps_c, cellAmm2));
+                            new Point(cx_mm, cy_mm), val, false, cellTip, cellSigMpa, eps_c, cellAmm2)
+                            { VertexValues = cellVals });
                         // Центр тяжести НДС для псевдофибры
                         double esf_c = Math.Abs(eps_c) > 1e-9 ? Math.Abs(cellSigMpa / eps_c) : E0;
                         ea_c  += esf_c * cellAmm2;

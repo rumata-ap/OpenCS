@@ -1,5 +1,4 @@
 using OpenCS.ViewModels;
-using OpenCS.Views.Dialogs;
 using OpenCS.Views.Helpers;
 using System;
 using System.Collections.Generic;
@@ -8,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 namespace OpenCS.Views.Helpers;
 
@@ -25,10 +25,8 @@ public sealed class FireMeshCanvas : FrameworkElement
     readonly ToolTip _tip = new();
     string? _lastTip;
 
-    DrawingGroup? _smoothField;
+    SmoothFieldBitmap.RasterResult? _smoothRaster;
     int _smoothFieldRedraw = -1;
-    bool _smoothFieldBuildScheduled;
-    int _smoothFieldBuildGeneration;
     public static readonly DependencyProperty ViewModelProperty =
         DependencyProperty.Register(nameof(ViewModel), typeof(FireMeshPlotVM),
             typeof(FireMeshCanvas),
@@ -97,10 +95,8 @@ public sealed class FireMeshCanvas : FrameworkElement
 
     void InvalidateThermalCache()
     {
-        _smoothField = null;
+        _smoothRaster = null;
         _smoothFieldRedraw = -1;
-        _smoothFieldBuildScheduled = false;
-        _smoothFieldBuildGeneration++;
     }
 
     static bool UseSmoothThermalField(FireMeshPlotVM vm)
@@ -110,84 +106,50 @@ public sealed class FireMeshCanvas : FrameworkElement
     {
         if (!UseSmoothThermalField(vm))
             return;
-        if (_smoothField != null && _smoothFieldRedraw == vm.NeedRedraw)
-            return;
-        if (_smoothFieldBuildScheduled)
+        if (_smoothRaster != null)
             return;
 
-        _smoothFieldBuildScheduled = true;
-        int buildGen = _smoothFieldBuildGeneration;
+        if (!vm.TryGetThermalRasterData(out var mesh, out var nodalT, out var vmin, out var vmax))
+            return;
 
-        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+        int needRedraw = vm.NeedRedraw;
+
+        _ = Task.Run(() =>
         {
-            if (ViewModel != vm || buildGen != _smoothFieldBuildGeneration || !UseSmoothThermalField(vm))
+            var tris = new List<SmoothFieldBitmap.TriVal>(mesh.Elements.Length);
+            const double mm = 1000.0;
+            foreach (var el in mesh.Elements)
             {
-                _smoothFieldBuildScheduled = false;
-                return;
+                if (el.Length != 3) continue;
+                tris.Add(new SmoothFieldBitmap.TriVal(
+                    new Point(mesh.X[el[0]] * mm, mesh.Y[el[0]] * mm),
+                    new Point(mesh.X[el[1]] * mm, mesh.Y[el[1]] * mm),
+                    new Point(mesh.X[el[2]] * mm, mesh.Y[el[2]] * mm),
+                    nodalT[el[0]], nodalT[el[1]], nodalT[el[2]]));
             }
 
-            if (_smoothField != null && _smoothFieldRedraw == vm.NeedRedraw)
+            if (tris.Count == 0) return;
+
+            var pixels = SmoothFieldBitmap.Build(tris, vmin, vmax, ColormapHelper.GetThermalColor);
+            var raster = pixels?.Freeze();
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
             {
-                _smoothFieldBuildScheduled = false;
-                return;
-            }
-
-            var owner = Window.GetWindow(this);
-            bool ownerWasEnabled = owner?.IsEnabled ?? true;
-            if (owner != null)
-                owner.IsEnabled = false;
-
-            var loading = new FireSmoothMapLoadingWindow { Owner = owner };
-
-            async void OnContentRendered(object? sender, EventArgs e)
-            {
-                loading.ContentRendered -= OnContentRendered;
-                try
-                {
-                    await Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.Render);
-                    await RebuildSmoothFieldAsync(vm, buildGen);
-                    InvalidateVisual();
-                }
-                finally
-                {
-                    loading.Close();
-                    if (owner != null)
-                        owner.IsEnabled = ownerWasEnabled;
-                    _smoothFieldBuildScheduled = false;
-                }
-            }
-
-            loading.ContentRendered += OnContentRendered;
-            loading.Show();
+                _smoothRaster = raster;
+                _smoothFieldRedraw = needRedraw;
+                InvalidateVisual();
+            });
         });
-    }
-
-    async Task RebuildSmoothFieldAsync(FireMeshPlotVM vm, int buildGen)
-    {
-        if (!UseSmoothThermalField(vm))
-            return;
-        if (_smoothField != null && _smoothFieldRedraw == vm.NeedRedraw)
-            return;
-        if (ViewModel != vm || buildGen != _smoothFieldBuildGeneration)
-            return;
-
-        if (!vm.TryGetThermalRasterData(out var mesh, out var nodalT, out _, out _))
-            return;
-
-        var dg = await FireSmoothThermalField.BuildT3Async(mesh, nodalT, Dispatcher);
-        if (ViewModel != vm || buildGen != _smoothFieldBuildGeneration || !UseSmoothThermalField(vm))
-            return;
-
-        _smoothField = dg;
-        _smoothFieldRedraw = vm.NeedRedraw;
     }
 
     void DrawSmoothField(DrawingContext dc)
     {
-        if (_smoothField == null) return;
-        dc.PushTransform(new MatrixTransform(_scale, 0, 0, -_scale, _tx, _ty));
-        dc.DrawDrawing(_smoothField);
-        dc.Pop();
+        if (_smoothRaster == null) return;
+        var r = _smoothRaster;
+        double sx = r.XMinMm * _scale + _tx;
+        double sy = -r.YMaxMm * _scale + _ty;
+        double sw = (r.XMaxMm - r.XMinMm) * _scale;
+        double sh = (r.YMaxMm - r.YMinMm) * _scale;
+        dc.DrawImage(r.Bitmap, new Rect(sx, sy, sw, sh));
     }
     static readonly Pen _transparentPen = new(Brushes.Transparent, 0);
     static readonly Pen _outlinePen = new(Brushes.Black, 0.5);
@@ -355,9 +317,9 @@ public sealed class FireMeshCanvas : FrameworkElement
 
         if (smoothThermal)
         {
-            if (_smoothField == null)
+            if (_smoothRaster == null)
                 ScheduleSmoothFieldBuild(vm);
-            if (_smoothField != null)
+            if (_smoothRaster != null)
                 DrawSmoothField(dc);
             else
                 DrawDiscreteThermalTriangles(dc, vm);

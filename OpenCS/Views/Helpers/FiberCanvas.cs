@@ -8,6 +8,8 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 namespace OpenCS.Views.Helpers
 {
@@ -56,6 +58,8 @@ namespace OpenCS.Views.Helpers
             set => SetValue(ViewModelProperty, value);
         }
 
+        SmoothFieldBitmap.RasterResult? _smoothRaster;
+
         static void OnViewModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
             var fc = (FiberCanvas)d;
@@ -73,10 +77,15 @@ namespace OpenCS.Views.Helpers
             fc._selectedFibers.Clear();
             fc._selectedRebars.Clear();
             fc._selPopup.IsOpen = false;
+            fc._smoothRaster = null;
         }
 
         void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-            => InvalidateVisual();
+        {
+            if (e.PropertyName == nameof(SectionPlotVM.SmoothColormap))
+                _smoothRaster = null;
+            InvalidateVisual();
+        }
 
         bool _fitted;
 
@@ -234,36 +243,54 @@ namespace OpenCS.Views.Helpers
             // Основной материал (фибры и псевдофибры)
             bool isStressMode  = vm.Mode == SectionPlotMode.Stress;
             bool smoothColormap = vm.SmoothColormap;
+            bool hasSmoothBitmap = false;
             if (vm.ShowConcrete)
             {
-                foreach (var f in vm.ConcreteFibers)
+                if (smoothColormap)
+                    ScheduleSmoothRaster(vm);
+                hasSmoothBitmap = smoothColormap && _smoothRaster != null;
+
+                if (hasSmoothBitmap)
                 {
-                    Brush brush;
-                    if (isStressMode && Math.Abs(f.Value) < 1e-9)
-                    {
-                        brush = Brushes.White;
-                    }
-                    else if (smoothColormap &&
-                             Math.Abs(f.GradientMax.val - f.GradientMin.val) > 1e-10)
-                    {
-                        var c0 = ColormapHelper.GetColor(f.GradientMin.val,
-                            vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
-                        var c1 = ColormapHelper.GetColor(f.GradientMax.val,
-                            vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
-                        var lgb = new LinearGradientBrush(c0, c1,
-                            ToScreen(f.GradientMin.pt), ToScreen(f.GradientMax.pt));
-                        lgb.MappingMode = BrushMappingMode.Absolute;
-                        brush = lgb;
-                    }
-                    else
-                    {
-                        var color = smoothColormap
-                            ? ColormapHelper.GetColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar)
-                            : ColormapHelper.GetDiscreteColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
-                        brush = new SolidColorBrush(color);
-                    }
-                    dc.DrawGeometry(brush, _transparentPen, BuildPathWithHoles(f.Vertices, f.Holes));
+                    var r = _smoothRaster!;
+                    double sx = r.XMinMm * _scale + _tx;
+                    double sy = -r.YMaxMm * _scale + _ty;
+                    double sw = (r.XMaxMm - r.XMinMm) * _scale;
+                    double sh = (r.YMaxMm - r.YMinMm) * _scale;
+                    dc.DrawImage(r.Bitmap, new Rect(sx, sy, sw, sh));
                 }
+                else
+                {
+                    foreach (var f in vm.ConcreteFibers)
+                    {
+                        Brush brush;
+                        if (isStressMode && Math.Abs(f.Value) < 1e-9)
+                        {
+                            brush = Brushes.White;
+                        }
+                        else if (smoothColormap &&
+                                 Math.Abs(f.GradientMax.val - f.GradientMin.val) > 1e-10)
+                        {
+                            var c0 = ColormapHelper.GetColor(f.GradientMin.val,
+                                vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
+                            var c1 = ColormapHelper.GetColor(f.GradientMax.val,
+                                vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
+                            var lgb = new LinearGradientBrush(c0, c1,
+                                ToScreen(f.GradientMin.pt), ToScreen(f.GradientMax.pt));
+                            lgb.MappingMode = BrushMappingMode.Absolute;
+                            brush = lgb;
+                        }
+                        else
+                        {
+                            var color = smoothColormap
+                                ? ColormapHelper.GetColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar)
+                                : ColormapHelper.GetDiscreteColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
+                            brush = new SolidColorBrush(color);
+                        }
+                        dc.DrawGeometry(brush, _transparentPen, BuildPathWithHoles(f.Vertices, f.Holes));
+                    }
+                }
+
             }
 
             // Сетка фибр — тонкие полупрозрачные контуры ячеек поверх заливки
@@ -501,6 +528,47 @@ namespace OpenCS.Views.Helpers
             var p = new Pen(brush, thickness) { DashStyle = DashStyles.Dash };
             p.Freeze();
             return p;
+        }
+
+        void ScheduleSmoothRaster(SectionPlotVM vm)
+        {
+            if (_smoothRaster != null) return;
+
+            var fibers = vm.ConcreteFibers;
+            double vmin = vm.ConcreteMin;
+            double vmax = vm.ConcreteMax;
+
+            _ = Task.Run(() =>
+            {
+                var tris = new List<SmoothFieldBitmap.TriVal>();
+                foreach (var f in fibers)
+                {
+                    var vals = f.VertexValues;
+                    if (vals == null || vals.Count != f.Vertices.Count || f.Vertices.Count < 3)
+                        continue;
+                    if (f.Holes.Count > 0)
+                        continue;
+
+                    var verts = f.Vertices;
+                    for (int i = 1; i < verts.Count - 1; i++)
+                    {
+                        tris.Add(new SmoothFieldBitmap.TriVal(
+                            verts[0], verts[i], verts[i + 1],
+                            vals[0], vals[i], vals[i + 1]));
+                    }
+                }
+
+                if (tris.Count == 0) return;
+
+                var pixels = SmoothFieldBitmap.Build(tris, vmin, vmax,
+                    (val, min, max) => ColormapHelper.GetColor(val, min, max, false));
+                var raster = pixels?.Freeze();
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
+                {
+                    _smoothRaster = raster;
+                    InvalidateVisual();
+                });
+            });
         }
 
         // ── Mouse ─────────────────────────────────────────────────────
