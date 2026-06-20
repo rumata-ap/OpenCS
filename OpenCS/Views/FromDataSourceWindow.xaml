@@ -1,4 +1,4 @@
-﻿<Window x:Class="OpenCS.Views.FromDataSourceWindow"
+<Window x:Class="OpenCS.Views.FromDataSourceWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -130,6 +130,45 @@
 
                     </StackPanel>
                 </TabItem.Header>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Margin="5">
+                        <TextBlock Text="Норма:" VerticalAlignment="Center" MinWidth="80"/>
+                        <ComboBox Margin="5,0,0,0" Width="280"
+                                  ItemsSource="{Binding SteelNorms}"
+                                  SelectedIndex="{Binding SteelNormIndex}"
+                                  VerticalContentAlignment="Center"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="5" Grid.Row="1">
+                        <TextBlock Text="Тип проката:" VerticalAlignment="Center" MinWidth="80"/>
+                        <ComboBox Margin="5,0,0,0" Width="280"
+                                  ItemsSource="{Binding SteelProkatTypes}"
+                                  SelectedIndex="{Binding SteelProkatTypeIndex}"
+                                  VerticalContentAlignment="Center"/>
+                    </DockPanel>
+
+                    <DockPanel Margin="5" Grid.Row="2">
+                        <TextBlock Text="Марка:" VerticalAlignment="Center" MinWidth="80"/>
+                        <ComboBox Margin="5,0,0,0" Width="280"
+                                  ItemsSource="{Binding SteelMarks}"
+                                  SelectedIndex="{Binding SteelMarkIndex}"
+                                  VerticalContentAlignment="Center"/>
+                    </DockPanel>
+
+                    <ListBox Grid.Row="3"
+                             x:Name="steelListBox" 
+                             SelectedItem="{Binding SelectedMaterial}"
+                             ItemsSource="{Binding N}"/>
+
+                </Grid>
 
             </TabItem>
 

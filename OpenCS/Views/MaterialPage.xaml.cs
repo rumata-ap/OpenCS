@@ -10,10 +10,10 @@ namespace OpenCS.Views
 {
    public partial class MaterialPage : UserControl
    {
-      public MaterialPage(Material material, AppViewModel mvm)
+      public MaterialPage(Material material, AppViewModel mvm, MaterialVM? existingVm = null)
       {
          InitializeComponent();
-         var vm = new MaterialVM() { Material = material, mvm = mvm };
+         var vm = existingVm ?? new MaterialVM() { Material = material, mvm = mvm };
          DataContext = vm;
 
          // Заполнить ComboBox типа материала (в блоке Custom) и базового типа

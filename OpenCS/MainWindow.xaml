@@ -1,4 +1,4 @@
-﻿<Window x:Class="OpenCS.MainWindow"
+<Window x:Class="OpenCS.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -272,7 +272,7 @@
                 Header="{Binding ProjectFileName}">
       <TreeView x:Name="structureTree" Margin="4,2" BorderThickness="0" SelectedItemChanged="structureTree_SelectedItemChanged">
 
-               <TreeViewItem x:Name="geometryNode">
+               <TreeViewItem x:Name="geometryNode" IsExpanded="True">
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Image Source="/Images/geometry__32.png"/>
@@ -362,7 +362,7 @@
 
                </TreeViewItem>
 
-               <TreeViewItem x:Name="materialNode">
+               <TreeViewItem x:Name="materialNode" IsExpanded="True">
                   <TreeViewItem.Header>
                      <StackPanel Orientation="Horizontal" Margin="2">
                         <Image Source="/Images/material1__32.png"/>
@@ -380,32 +380,62 @@
                      </ContextMenu>
                   </TreeViewItem.ContextMenu>
 
-                  <TreeViewItem x:Name="concreteNode" ItemsSource="{Binding Concretes}">
-                     <TreeViewItem.Header>
-                        <StackPanel Orientation="Horizontal" Margin="2">
-                           <Image Source="/Images/kamni_wouahfq6r5gi__32.png"/>
-                           <TextBlock Text="{DynamicResource Concrete}" Margin="5,0,0,0"/>
-                        </StackPanel>
-                     </TreeViewItem.Header>
-                  </TreeViewItem>
-
-                  <TreeViewItem x:Name="rfsteelNode" ItemsSource="{Binding Armatures}">
-                     <TreeViewItem.Header>
-                        <StackPanel Orientation="Horizontal" Margin="2">
-                           <Image Source="/Images/armarura__32.png"/>
-                           <TextBlock Text="{DynamicResource Reinforcement}" Margin="5,0,0,0"/>
-                        </StackPanel>
-                     </TreeViewItem.Header>
-                  </TreeViewItem>
-
-                   <TreeViewItem x:Name="steelNode" ItemsSource="{Binding Steels}">
+                   <TreeViewItem x:Name="concreteNode" ItemsSource="{Binding Concretes}">
                       <TreeViewItem.Header>
                          <StackPanel Orientation="Horizontal" Margin="2">
-                            <Image Source="/Images/steel_3rbuwfklgl3w__32.png"/>
-                            <TextBlock Text="{DynamicResource StructuralSteel}" Margin="5,0,0,0"/>
+                            <Image Source="/Images/kamni_wouahfq6r5gi__32.png"/>
+                            <TextBlock Text="{DynamicResource Concrete}" Margin="5,0,0,0"/>
                          </StackPanel>
                       </TreeViewItem.Header>
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource Add}"
+                                      Click="ConcreteAdd_Click">
+                               <MenuItem.Icon>
+                                  <Image Source="/Images/add__32.png" />
+                               </MenuItem.Icon>
+                            </MenuItem>
+                         </ContextMenu>
+                      </TreeViewItem.ContextMenu>
                    </TreeViewItem>
+
+                   <TreeViewItem x:Name="rfsteelNode" ItemsSource="{Binding Armatures}">
+                      <TreeViewItem.Header>
+                         <StackPanel Orientation="Horizontal" Margin="2">
+                            <Image Source="/Images/armarura__32.png"/>
+                            <TextBlock Text="{DynamicResource Reinforcement}" Margin="5,0,0,0"/>
+                         </StackPanel>
+                      </TreeViewItem.Header>
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource Add}"
+                                      Click="RfsteelAdd_Click">
+                               <MenuItem.Icon>
+                                  <Image Source="/Images/add__32.png" />
+                               </MenuItem.Icon>
+                            </MenuItem>
+                         </ContextMenu>
+                      </TreeViewItem.ContextMenu>
+                   </TreeViewItem>
+
+                    <TreeViewItem x:Name="steelNode" ItemsSource="{Binding Steels}">
+                       <TreeViewItem.Header>
+                          <StackPanel Orientation="Horizontal" Margin="2">
+                             <Image Source="/Images/steel_3rbuwfklgl3w__32.png"/>
+                             <TextBlock Text="{DynamicResource StructuralSteel}" Margin="5,0,0,0"/>
+                          </StackPanel>
+                       </TreeViewItem.Header>
+                       <TreeViewItem.ContextMenu>
+                          <ContextMenu>
+                             <MenuItem Header="{DynamicResource Add}"
+                                       Click="SteelAdd_Click">
+                                <MenuItem.Icon>
+                                   <Image Source="/Images/add__32.png" />
+                                </MenuItem.Icon>
+                             </MenuItem>
+                          </ContextMenu>
+                       </TreeViewItem.ContextMenu>
+                    </TreeViewItem>
 
                    <TreeViewItem x:Name="diagramNode" ItemsSource="{Binding DiagramsLive}">
                       <TreeViewItem.Header>
@@ -442,7 +472,7 @@
                   </TreeViewItem.Header>
 
                   <!-- Подузел: Области (Region) -->
-                  <TreeViewItem x:Name="AreasNode" ItemsSource="{Binding AreasLive}" IsExpanded="True">
+                   <TreeViewItem x:Name="AreasNode" ItemsSource="{Binding AreasLive}">
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
@@ -478,7 +508,7 @@
                   </TreeViewItem>
 
                   <!-- Подузел: Группы арматуры (RebarGroup) -->
-                  <TreeViewItem x:Name="RebarGroupsNode" ItemsSource="{Binding RebarGroupsLive}" IsExpanded="True">
+                   <TreeViewItem x:Name="RebarGroupsNode" ItemsSource="{Binding RebarGroupsLive}">
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
@@ -515,7 +545,7 @@
                   </TreeViewItem>
 
                   <!-- Подузел: Одиночные стержни (SingleBar) -->
-                  <TreeViewItem x:Name="SingleBarsNode" ItemsSource="{Binding SingleBarsLive}" IsExpanded="True">
+                   <TreeViewItem x:Name="SingleBarsNode" ItemsSource="{Binding SingleBarsLive}">
                      <TreeViewItem.Header>
                         <StackPanel Orientation="Horizontal" Margin="2">
                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
@@ -734,7 +764,7 @@
                   </TreeViewItem.Header>
 
                   <!-- Стержни -->
-                  <TreeViewItem x:Name="barForceSetsNode" ItemsSource="{Binding BarForceSets}" IsExpanded="True">
+                   <TreeViewItem x:Name="barForceSetsNode" ItemsSource="{Binding BarForceSets}">
                      <TreeViewItem.Header>
                         <TextBlock Text="{DynamicResource BarForceSets}" FontWeight="SemiBold"/>
                      </TreeViewItem.Header>
@@ -781,7 +811,7 @@
                   </TreeViewItem>
 
                   <!-- Пластины -->
-                  <TreeViewItem x:Name="shellForceSetsNode" ItemsSource="{Binding ShellForceSets}" IsExpanded="True">
+                   <TreeViewItem x:Name="shellForceSetsNode" ItemsSource="{Binding ShellForceSets}">
                      <TreeViewItem.Header>
                         <TextBlock Text="{DynamicResource ShellForceSets}" FontWeight="SemiBold"/>
                      </TreeViewItem.Header>

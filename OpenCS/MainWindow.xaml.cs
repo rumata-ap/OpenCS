@@ -98,7 +98,17 @@ namespace OpenCS
 
       private void ConcreteAdd_Click(object sender, RoutedEventArgs e)
       {
-         vm.NewMaterialCommand.Execute(null);
+         vm.NewMaterialFromSource(0);
+      }
+
+      private void RfsteelAdd_Click(object sender, RoutedEventArgs e)
+      {
+         vm.NewMaterialFromSource(1);
+      }
+
+      private void SteelAdd_Click(object sender, RoutedEventArgs e)
+      {
+         vm.NewMaterialFromSource(2);
       }
 
       private void ConcreteDel_Click(object sender, RoutedEventArgs e)

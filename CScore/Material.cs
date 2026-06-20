@@ -118,10 +118,13 @@ namespace CScore
          }
          set
          {
-             chars[CalcType.C] = value!;
-             for (int i = 0; i < materialChars.Count; i++)
-                if (materialChars[i].TypeCalc == CalcType.C)
-                   materialChars[i] = value!;
+            if (value == null) return;
+            var clone = value.Clone();
+            clone.TypeCalc = CalcType.C;
+            chars[CalcType.C] = clone;
+            for (int i = 0; i < materialChars.Count; i++)
+               if (materialChars[i].TypeCalc == CalcType.C)
+                  materialChars[i] = clone;
          }
       }
 
@@ -139,10 +142,13 @@ namespace CScore
          }
          set
          {
-             chars[CalcType.CL] = value!;
-             for (int i = 0; i < materialChars.Count; i++)
-                if (materialChars[i].TypeCalc == CalcType.CL)
-                   materialChars[i] = value!;
+            if (value == null) return;
+            var clone = value.Clone();
+            clone.TypeCalc = CalcType.CL;
+            chars[CalcType.CL] = clone;
+            for (int i = 0; i < materialChars.Count; i++)
+               if (materialChars[i].TypeCalc == CalcType.CL)
+                  materialChars[i] = clone;
          }
       }
 
@@ -160,10 +166,13 @@ namespace CScore
           }
           set
           {
-              chars[CalcType.N] = value!;
-              for (int i = 0; i < materialChars.Count; i++)
-                 if (materialChars[i].TypeCalc == CalcType.N)
-                    materialChars[i] = value!;
+            if (value == null) return;
+            var clone = value.Clone();
+            clone.TypeCalc = CalcType.N;
+            chars[CalcType.N] = clone;
+            for (int i = 0; i < materialChars.Count; i++)
+               if (materialChars[i].TypeCalc == CalcType.N)
+                  materialChars[i] = clone;
          }
       }
 
@@ -181,10 +190,13 @@ namespace CScore
          }
          set
          {
-             chars[CalcType.NL] = value!;
-             for (int i = 0; i < materialChars.Count; i++)
-                if (materialChars[i].TypeCalc == CalcType.NL)
-                   materialChars[i] = value!;
+            if (value == null) return;
+            var clone = value.Clone();
+            clone.TypeCalc = CalcType.NL;
+            chars[CalcType.NL] = clone;
+            for (int i = 0; i < materialChars.Count; i++)
+               if (materialChars[i].TypeCalc == CalcType.NL)
+                  materialChars[i] = clone;
          }
       }
 
@@ -255,6 +267,7 @@ namespace CScore
             case DiagrammType.SP63: return GetDCL(sp63EtaMin);
             case DiagrammType.EKB:  return GetDEKB();
             case DiagrammType.SP35: return GetDSP35();
+            case DiagrammType.SP16: return GetDSP16();
          }
          return null;
       }
@@ -325,6 +338,14 @@ namespace CScore
          { CalcType.CL, chars[CalcType.CL].DSP35() },
          { CalcType.N,  chars[CalcType.N ].DSP35() },
          { CalcType.NL, chars[CalcType.NL].DSP35() },
+      };
+
+      Dictionary<CalcType, Diagramm> GetDSP16() => new()
+      {
+         { CalcType.C,  chars[CalcType.C ].DSP16() },
+         { CalcType.CL, chars[CalcType.CL].DSP16() },
+         { CalcType.N,  chars[CalcType.N ].DSP16() },
+         { CalcType.NL, chars[CalcType.NL].DSP16() },
       };
 
       /// <summary>

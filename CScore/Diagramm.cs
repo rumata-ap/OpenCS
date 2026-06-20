@@ -112,9 +112,9 @@ namespace CScore
             else E2 = It.Derivative(eps, out sig);
          }
          else if (eps < 0 && MaterialType == MatType.Concrete) E2 = Ic.Derivative(eps, out sig);
-         else if (eps < 0 && comprA && (MaterialType == MatType.ReSteelF || MaterialType == MatType.ReSteelU)) E2 = Ic.Derivative(eps, out sig);
-         else if (eps > 0 && (MaterialType == MatType.ReSteelF || MaterialType == MatType.ReSteelU)) E2 = It.Derivative(eps, out sig);
-         else sig = 0;
+          else if (eps < 0 && comprA && (MaterialType == MatType.ReSteelF || MaterialType == MatType.ReSteelU || MaterialType == MatType.Steel)) E2 = Ic.Derivative(eps, out sig);
+          else if (eps > 0 && (MaterialType == MatType.ReSteelF || MaterialType == MatType.ReSteelU || MaterialType == MatType.Steel)) E2 = It.Derivative(eps, out sig);
+          else sig = 0;
 
          return sig;
       }
@@ -216,9 +216,9 @@ namespace CScore
          // 3. Стандартные типы — изломы определяются автоматически по типу
          for (int i = 1; i < It.X.Length - 1; i++)
             pts.Add(It.X[i]);
-         if (Type == DiagrammType.L2 || Type == DiagrammType.L3 || Type == DiagrammType.SP35)
-            for (int i = 1; i < Ic.X.Length - 1; i++)
-               pts.Add(Ic.X[i]);
+          if (Type == DiagrammType.L2 || Type == DiagrammType.L3 || Type == DiagrammType.SP35 || Type == DiagrammType.SP16)
+             for (int i = 1; i < Ic.X.Length - 1; i++)
+                pts.Add(Ic.X[i]);
 
          return pts.ToArray();
       }
@@ -229,5 +229,5 @@ namespace CScore
    /// L2 — двухлинейная, L3 — трёхлинейная, SP63 — криволинейная по СП 63.13330,
    /// EKB — по Единым каталогам, SP35 — по СП 35.
    /// </summary>
-   public enum DiagrammType { L2, L3, EKB, SP63, SP35, Custom }
+    public enum DiagrammType { L2, L3, EKB, SP63, SP35, SP16, Custom }
 }

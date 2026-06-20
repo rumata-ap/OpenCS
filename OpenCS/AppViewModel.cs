@@ -510,6 +510,12 @@ namespace OpenCS
       public ICommand NewMaterialCommand { get; set; } = null!;
 
       /// <summary>
+      /// Команда привязки для добавления материала из справочника с автоматическим
+      /// выбором вкладки (бетон/арматура/сталь) в окне хранилища.
+      /// </summary>
+      public ICommand NewMaterialFromSourceCommand { get; set; } = null!;
+
+      /// <summary>
       /// Команда привязки для удаления выбранного материала
       /// с подтверждением через диалоговое окно.
       /// </summary>
@@ -815,7 +821,8 @@ namespace OpenCS
       {
          AddDiagramCommand = new RelayCommand(_ => AddDiagram());
          NewContourCommand = new RelayCommand(NewContour);
-         NewMaterialCommand = new RelayCommand(NewMaterial);
+          NewMaterialCommand = new RelayCommand(NewMaterial);
+          NewMaterialFromSourceCommand = new RelayCommand(_ => NewMaterialFromSource(0));
          DelMaterialCommand = new RelayCommand(DelMaterial);
          FromDxfCommand = new RelayCommand(FromDxf);
          DelContourCommand = new RelayCommand(DelContour);
@@ -885,10 +892,26 @@ namespace OpenCS
       /// Обработчик команды <see cref="NewMaterialCommand"/>. Создаёт новый
       /// пустой материал и открывает страницу его редактирования.
       /// </summary>
-      void NewMaterial(object? o = null)
-      {
-         CurrentPage = new MaterialPage(new Material(0), this);
-      }
+       void NewMaterial(object? o = null)
+       {
+          CurrentPage = new MaterialPage(new Material(0), this);
+       }
+
+       /// <summary>
+       /// Обработчик команды <see cref="NewMaterialFromSourceCommand"/>.
+       /// Создаёт новый материал, открывает страницу редактирования и сразу
+       /// открывает окно хранилища материалов с вкладкой, соответствующей
+       /// типу материала (0=бетон, 1=арматура, 2=сталь).
+       /// </summary>
+       internal void NewMaterialFromSource(int tabIndex)
+       {
+          var material = new Material(0);
+          var vm = new MaterialVM() { Material = material, mvm = this };
+          CurrentPage = new MaterialPage(material, this, vm);
+
+          var window = new Views.FromDataSourceWindow(vm, tabIndex);
+          window.ShowDialog();
+       }
 
       /// <summary>
       /// <summary>Создаёт новую пустую диаграмму σ(ε) и открывает её страницу редактирования.</summary>

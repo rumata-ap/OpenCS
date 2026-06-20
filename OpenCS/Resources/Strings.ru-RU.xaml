@@ -338,6 +338,7 @@
     <system:String x:Key="DiagL2_ReSteelF">Двухлинейная (L2) — арматура с физическим пределом</system:String>
     <system:String x:Key="DiagL3_ReSteelU">Трёхлинейная (L3) — арматура с условным пределом</system:String>
     <system:String x:Key="DiagL2_Steel">Двухлинейная (L2) — сталь конструкционная</system:String>
+    <system:String x:Key="DiagSP16_Steel">Многосегментная (СП 16.13330) — сталь конструкционная</system:String>
 
    <!-- ContourPlot -->
    <system:String x:Key="ContourTagHeader">Обозначение (слой DXF)</system:String>

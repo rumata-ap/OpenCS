@@ -211,6 +211,75 @@ namespace CScore
       }
 
       /// <summary>
+      /// Многосегментная диаграмма конструкционной стали по СП 16.13330 прил.В (табл.В.9, рис.В.1).
+      /// Симметрична: растяжение и сжатие имеют одинаковые характеристики.
+      /// </summary>
+      /// <param name="hasYieldPlateau">True — с площадкой текучести (OACDEF), False — без (OACEF).</param>
+      public Diagramm DSP16(bool hasYieldPlateau = true)
+      {
+         double Ry_kpa = Ry;
+         double eps_y = Ry_kpa / E;
+
+         int group = Ry_kpa switch
+         {
+            <= 290 => 1,
+            <= 390 => 2,
+            <= 440 => 3,
+            <= 500 => 4,
+            _      => 5
+         };
+
+         // Таблица В.9 — безразмерные параметры ε̅ = ε/ε_y, σ̅ = σ/Ry
+         var (eps_pl, sig_pl, eps_yld, eps_st, eps_u, sig_u, eps_t, sig_t) = group switch
+         {
+            1 => (0.8, 0.8,   1.7, 14.0, 141.6, 1.653, 251.0, 1.35),
+            2 => (0.8, 0.8,   1.7, 16.0,  88.3, 1.415, 153.0, 1.26),
+            3 => (0.9, 0.9,   1.7, 17.0,  67.1, 1.345, 115.0, 1.23),
+            4 => (0.9, 0.9,   1.7, 17.0,  49.6, 1.33,   87.2, 1.20),
+            _ => (0.9, 0.9,   1.7, 18.0,  26.2, 1.16,   51.1, 1.10)
+         };
+
+         var pos = new List<double[]>  // ε, σ (МПа)
+         {
+            new[] { 0.0,                      0.0 },
+            new[] { eps_pl * eps_y,           sig_pl * Ry_kpa },
+            new[] { eps_yld * eps_y,          Ry_kpa }
+         };
+         if (hasYieldPlateau)
+            pos.Add(new[] { eps_st * eps_y,   Ry_kpa });
+         pos.Add(new[] { eps_u * eps_y,       sig_u * Ry_kpa });
+         pos.Add(new[] { eps_t * eps_y,       sig_t * Ry_kpa });
+
+         int n = pos.Count;
+         var xc = new double[n];
+         var yc = new double[n];
+         var xt = new double[n];
+         var yt = new double[n];
+
+         // Сжатие (ε < 0) — обратный порядок, знак минус
+         for (int i = 0; i < n; i++)
+         {
+            xc[i] = -pos[n - 1 - i][0];
+            yc[i] = -pos[n - 1 - i][1];
+         }
+
+         // Растяжение (ε > 0) — прямой порядок
+         for (int i = 0; i < n; i++)
+         {
+            xt[i] = pos[i][0];
+            yt[i] = pos[i][1];
+         }
+
+         return new Diagramm(
+            new LSpline(xc, yc),
+            new LSpline(xt, yt),
+            DiagrammType.SP16, Type,
+            hasYieldPlateau
+               ? "Многосегментная по СП 16.13330 (сталь конструкционная)"
+               : "Многосегментная по СП 16.13330 без площадки (сталь конструкционная)");
+      }
+
+      /// <summary>
       /// Создает трехлинейную диаграмму работы материала.
       /// </summary>
       /// <returns>Объект типа <see cref="Diagramm"/>, представляющий трехлинейную диаграмму работы материала.</returns>

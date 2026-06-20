@@ -335,6 +335,7 @@
     <system:String x:Key="DiagL2_ReSteelF">Bi-linear (L2) — reinforcement with physical yield</system:String>
     <system:String x:Key="DiagL3_ReSteelU">Tri-linear (L3) — reinforcement with conditional yield</system:String>
     <system:String x:Key="DiagL2_Steel">Bi-linear (L2) — structural steel</system:String>
+    <system:String x:Key="DiagSP16_Steel">Multi-linear (SP 16.13330) — structural steel</system:String>
 
    <!-- ContourPlot -->
    <system:String x:Key="ContourTagHeader">Label (DXF layer)</system:String>

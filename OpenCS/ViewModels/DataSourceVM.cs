@@ -1,4 +1,4 @@
-﻿using CScore;
+using CScore;
 
 using CsvHelper.Configuration;
 using CsvHelper;
@@ -75,72 +75,77 @@ namespace OpenCS.ViewModels
       /// <summary>Индекс типа арматурной стали: 0 — стальная, 1 — полимерная композитная.</summary>
       int rfSteelTypeIndex = 0;
 
+      /// <summary>Полный список записей стали: (C-запись, N-запись, тип проката).</summary>
+      List<(MaterialChars mcC, MaterialChars mcN, string prokatType)> steelAll = new();
+
+      /// <summary>Список типов проката для ComboBox (уникальные, отсортированные).</summary>
+      List<string> steelProkatTypes = new();
+
+      /// <summary>Список марок стали для ComboBox (отфильтрованные по типу проката).</summary>
+      List<string> steelMarks = new();
+
+      /// <summary>Индекс выбранного типа проката.</summary>
+      int steelProkatTypeIndex = -1;
+
+      /// <summary>Индекс выбранной марки стали.</summary>
+      int steelMarkIndex = -1;
+
       /// <summary>
       /// Флаг учёта коэффициента gb3 для высоты сечения более 1.5 м.
-      /// При установке значения пересчитывает gb3 (0.85 или 1.0).
-      /// Используется для привязки в CheckBox.
       /// </summary>
       public bool IsH1_5
-      {  
-         get { return isH1_5; } 
-         set { isH1_5 = value; gb3 = value ? 0.85 : 1; OnPropertyChanged(); } 
+      {
+         get { return isH1_5; }
+         set { isH1_5 = value; gb3 = value ? 0.85 : 1; OnPropertyChanged(); }
       }
-      
+
       /// <summary>
       /// Флаг учёта коэффициента kE для термообработанной арматуры.
-      /// При установке значения пересчитывает kE (0.89 или 1.0).
-      /// Используется для привязки в CheckBox.
       /// </summary>
       public bool IsTerm
       {
          get { return isTerm; }
          set { isTerm = value; kE = value ? 0.89 : 1; OnPropertyChanged(); }
       }
-            
+
       /// <summary>
-      /// Флаг доступности переключателя термообработки. Активен только для мелкозернистого бетона.
-      /// Используется для привязки в представлении (IsEnabled).
+      /// Флаг доступности переключателя термообработки.
       /// </summary>
-      public bool IsTermEnable 
-      {  
-         get { return isTermEnable; } 
-         set { isTermEnable = value; OnPropertyChanged(); } 
-      }
-      
-      /// <summary>
-      /// Тип конструкции: 0 — железобетонная (gb2=0.9), 1 — бетонная (gb2=1.0).
-      /// При изменении пересчитывает коэффициент gb2. Используется для привязки в RadioButton.
-      /// </summary>
-      public int IsRC 
-      {  
-         get { return isRC; } 
-         set { isRC = value; gb2 = value == 1 ? 0.9 : 1; OnPropertyChanged(); } 
-      }
-            
-      /// <summary>
-      /// Индекс типа бетона: 0 — тяжёлый, 1 — мелкозернистый группы А,
-      /// 2 — мелкозернистый группы Б. При изменении обновляет доступность
-      /// переключателя термообработки и перезагружает данные из CSV.
-      /// </summary>
-      public int ConcreteTypeIndex 
-      {  
-         get { return concreteTypeIndex; } 
-         set { concreteTypeIndex = value; IsTermEnable = value == 1; OnPropertyChanged(); } 
-      }
-                  
-      /// <summary>
-      /// Индекс типа арматурной стали: 0 — стальная, 1 — полимерная композитная.
-      /// Используется для привязки в ComboBox.
-      /// </summary>
-      public int RfSteelTypeIndex 
-      {  
-         get { return rfSteelTypeIndex; } 
-         set { rfSteelTypeIndex = value; OnPropertyChanged(); } 
+      public bool IsTermEnable
+      {
+         get { return isTermEnable; }
+         set { isTermEnable = value; OnPropertyChanged(); }
       }
 
       /// <summary>
-      /// Список характеристик материала для расчёта на кратковременное действие нагрузки (N).
-      /// Используется для привязки в DataGrid справочника.
+      /// Тип конструкции: 0 — железобетонная, 1 — бетонная.
+      /// </summary>
+      public int IsRC
+      {
+         get { return isRC; }
+         set { isRC = value; gb2 = value == 1 ? 0.9 : 1; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Индекс типа бетона.
+      /// </summary>
+      public int ConcreteTypeIndex
+      {
+         get { return concreteTypeIndex; }
+         set { concreteTypeIndex = value; IsTermEnable = value == 1; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Индекс типа арматурной стали.
+      /// </summary>
+      public int RfSteelTypeIndex
+      {
+         get { return rfSteelTypeIndex; }
+         set { rfSteelTypeIndex = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>
+      /// Список характеристик материала для привязки ListBox.
       /// </summary>
       public List<MaterialChars> N
       {
@@ -149,9 +154,7 @@ namespace OpenCS.ViewModels
       }
 
       /// <summary>
-      /// Выбранная строка характеристик материала в DataGrid справочника.
-      /// При изменении вызывает <see cref="SelectMaterial"/> для заполнения
-      /// всех видов расчётных характеристик в <see cref="MaterialVM.Material"/>.
+      /// Выбранная строка характеристик материала.
       /// </summary>
       public MaterialChars? SelectedMaterial
       {
@@ -160,33 +163,51 @@ namespace OpenCS.ViewModels
       }
 
       /// <summary>
-      /// Флаг выбора вкладки «Бетон». При изменении вызывает <see cref="Select"/>
-      /// для перезагрузки данных из CSV-файла.
+      /// Флаг выбора вкладки «Бетон».
       /// </summary>
       public bool ConcreteTabIsSelected
       {
          get { return concreteTabIsSelected; }
-         set { concreteTabIsSelected = value; Select(); OnPropertyChanged(); }
+         set
+         {
+            concreteTabIsSelected = value;
+            if (value) { rfsteelTabIsSelected = false; steelTabIsSelected = false; }
+            Select(); OnPropertyChanged();
+            OnPropertyChanged(nameof(RfsteelTabIsSelected));
+            OnPropertyChanged(nameof(SteelTabIsSelected));
+         }
       }
 
       /// <summary>
-      /// Флаг выбора вкладки «Арматурная сталь». При изменении вызывает <see cref="Select"/>
-      /// для перезагрузки данных из CSV-файла.
+      /// Флаг выбора вкладки «Арматурная сталь».
       /// </summary>
       public bool RfsteelTabIsSelected
       {
          get { return rfsteelTabIsSelected; }
-         set { rfsteelTabIsSelected = value; Select(); OnPropertyChanged(); }
+         set
+         {
+            rfsteelTabIsSelected = value;
+            if (value) { concreteTabIsSelected = false; steelTabIsSelected = false; }
+            Select(); OnPropertyChanged();
+            OnPropertyChanged(nameof(ConcreteTabIsSelected));
+            OnPropertyChanged(nameof(SteelTabIsSelected));
+         }
       }
 
       /// <summary>
-      /// Флаг выбора вкладки «Сталь конструкций». При изменении вызывает <see cref="Select"/>
-      /// для перезагрузки данных из CSV-файла.
+      /// Флаг выбора вкладки «Сталь конструкций».
       /// </summary>
       public bool SteelTabIsSelected
       {
          get { return steelTabIsSelected; }
-         set { steelTabIsSelected = value; Select(); OnPropertyChanged(); }
+         set
+         {
+            steelTabIsSelected = value;
+            if (value) { concreteTabIsSelected = false; rfsteelTabIsSelected = false; }
+            Select(); OnPropertyChanged();
+            OnPropertyChanged(nameof(ConcreteTabIsSelected));
+            OnPropertyChanged(nameof(RfsteelTabIsSelected));
+         }
       }
 
       /// <summary>Список типов арматурной стали для ComboBox.</summary>
@@ -201,9 +222,48 @@ namespace OpenCS.ViewModels
       public List<string> ConstructionTypes { get; set; } = new()
       { "Железобетонная","Бетонная" };
 
+      /// <summary>Список норм конструкционной стали для ComboBox.</summary>
+      public List<string> SteelNorms { get; set; } = new()
+      { "СП 16.13330.2017", "СП 16.13330.2011", "ГОСТ 27772-2015" };
+
+      /// <summary>Индекс выбранной нормы конструкционной стали.</summary>
+      int steelNormIndex;
+      public int SteelNormIndex
+      {
+         get { return steelNormIndex; }
+         set { steelNormIndex = value; if (steelTabIsSelected) Select(); OnPropertyChanged(); }
+      }
+
+      /// <summary>Список типов проката для текущей нормы.</summary>
+      public List<string> SteelProkatTypes
+      {
+         get { return steelProkatTypes; }
+         set { steelProkatTypes = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>Индекс выбранного типа проката.</summary>
+      public int SteelProkatTypeIndex
+      {
+         get { return steelProkatTypeIndex; }
+         set { steelProkatTypeIndex = value; FilterSteelMarks(); OnPropertyChanged(); }
+      }
+
+      /// <summary>Список марок стали для текущего типа проката.</summary>
+      public List<string> SteelMarks
+      {
+         get { return steelMarks; }
+         set { steelMarks = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>Индекс выбранной марки стали.</summary>
+      public int SteelMarkIndex
+      {
+         get { return steelMarkIndex; }
+         set { steelMarkIndex = value; FilterSteelRecords(); OnPropertyChanged(); }
+      }
+
       /// <summary>
-      /// Ссылка на ViewModel материала, в которую загружаются выбранные
-      /// характеристики из справочника.
+      /// Ссылка на ViewModel материала.
       /// </summary>
       public MaterialVM Material { get; set; } = null!;
 
@@ -211,15 +271,12 @@ namespace OpenCS.ViewModels
 
       /// <summary>
       /// Применяет выбранный материал из справочника к ViewModel материала.
-      /// Устанавливает описание, коэффициенты условий работы (gb2, gb3, kE),
-      /// тип материала и все четыре набора характеристик (C, CL, N, NL).
-      /// Для бетона коэффициенты умножаются на gb2, gb3 и kE.
       /// </summary>
       public void SelectMaterial()
       {
          if (selectedMaterial == null) return;
          int i = n.IndexOf(selectedMaterial);
-         
+
          if (concreteTabIsSelected && concreteTypeIndex == 0)
             Material.Description = "Бетон тяжелый по СП 63.13330";
          if (concreteTabIsSelected && concreteTypeIndex == 1)
@@ -231,7 +288,12 @@ namespace OpenCS.ViewModels
          if (rfsteelTabIsSelected && rfSteelTypeIndex == 1)
             Material.Description = "Арматура композитная по ";
          if (steelTabIsSelected)
-            Material.Description = "Сталь для строительных конструкций по СП 16.13330";
+         {
+            var normName = SteelNorms[steelNormIndex];
+            var prokatType = steelProkatTypeIndex >= 0 && steelProkatTypeIndex < steelProkatTypes.Count
+               ? steelProkatTypes[steelProkatTypeIndex] : "";
+            Material.Description = $"Сталь {n[i].Tag} — {prokatType} — {normName}";
+         }
 
          if (concreteTabIsSelected)
          {
@@ -258,6 +320,14 @@ namespace OpenCS.ViewModels
             ccl.Ec1 = 0.6 * ccl.Fc / ccl.E;
             Material.CL = ccl;
          }
+         else if (steelTabIsSelected)
+         {
+            // Для стали C=CL, N=NL
+            Material.C = c[i];
+            Material.CL = c[i].Clone();
+            Material.N = n[i];
+            Material.NL = n[i].Clone();
+         }
          else
          {
             Material.C = c[i];
@@ -279,16 +349,13 @@ namespace OpenCS.ViewModels
       }
 
       /// <summary>
-      /// Загружает данные характеристик материала из CSV-файлов в соответствии
-      /// с выбранной вкладкой (бетон, арматурная сталь, сталь) и типом материала.
-      /// Заполняет списки C, CL, N, NL и свойство <see cref="N"/>.
+      /// Загружает данные характеристик материала из CSV-файлов.
       /// </summary>
       public void Select()
       {
-         // Настраиваем конфигурацию
          var config = new CsvConfiguration(CultureInfo.InvariantCulture)
          {
-            Delimiter = ";" // Устанавливаем разделитель
+            Delimiter = ";"
          };
 
          string basedir = AppDomain.CurrentDomain.BaseDirectory;
@@ -329,7 +396,7 @@ namespace OpenCS.ViewModels
                   fileNL = Path.Combine(basedir, dir, "Мелкозернистый группы А_NL_3.csv");
                   break;
             }
-         }      
+         }
          else if (concreteTabIsSelected && concreteTypeIndex == 2)
          {
             fileC = Path.Combine(basedir, dir, "Мелкозернистый группы Б_C.csv");
@@ -345,14 +412,21 @@ namespace OpenCS.ViewModels
                   fileNL = Path.Combine(basedir, dir, "Мелкозернистый группы Б_NL_3.csv");
                   break;
             }
-         }              
-         else if (rfsteelTabIsSelected/* && concreteTypeIndex == 0*/)
+         }
+         else if (rfsteelTabIsSelected)
          {
             fileC = Path.Combine(basedir, dir, "Арматура стальная_C.csv");
             fileCL = Path.Combine(basedir, dir, "Арматура стальная_CL.csv");
             fileN = Path.Combine(basedir, dir, "Арматура стальная_N.csv");
             fileNL = Path.Combine(basedir, dir, "Арматура стальная_NL.csv");
          }
+         else if (steelTabIsSelected)
+         {
+            LoadSteel(basedir, dir, config);
+            return;
+         }
+
+         if (string.IsNullOrEmpty(fileC)) return;
 
          using (var reader = new StreamReader(fileC))
          using (var csv = new CsvReader(reader, config))
@@ -382,6 +456,136 @@ namespace OpenCS.ViewModels
             nl = csv.GetRecords<MaterialChars>().ToList();
          }
 
+         N = n;
+      }
+
+      /// <summary>
+      /// Загружает CSV стали (C + N), извлекает типы проката и заполняет каскадные ComboBox.
+      /// </summary>
+      void LoadSteel(string basedir, string dir, CsvConfiguration config)
+      {
+         var normFile = steelNormIndex switch
+         {
+            1 => "СП_16_13330_2011",
+            2 => "ГОСТ_27772-2015",
+            _ => "СП_16_13330_2017"
+         };
+         var steelDir = Path.Combine(basedir, dir);
+         var fileC = Path.Combine(steelDir, $"Конструкционная_сталь_C_{normFile}.csv");
+         var fileN = Path.Combine(steelDir, $"Конструкционная_сталь_N_{normFile}.csv");
+         if (!File.Exists(fileC) || !File.Exists(fileN)) return;
+
+         var cList = ReadSteelCsv(fileC, config);
+         var nList = ReadSteelCsv(fileN, config);
+
+         steelAll.Clear();
+         for (int i = 0; i < cList.Count && i < nList.Count; i++)
+            steelAll.Add((cList[i].mc, nList[i].mc, cList[i].prokatType));
+
+         steelProkatTypes = steelAll.Select(s => s.prokatType)
+            .Where(t => !string.IsNullOrEmpty(t))
+            .Distinct().OrderBy(t => t).ToList();
+         OnPropertyChanged(nameof(SteelProkatTypes));
+
+         steelProkatTypeIndex = steelProkatTypes.Count > 0 ? 0 : -1;
+         OnPropertyChanged(nameof(SteelProkatTypeIndex));
+
+         FilterSteelMarks();
+      }
+
+      /// <summary>
+      /// Читает CSV стали, возвращает список (MaterialChars, prokatType).
+      /// </summary>
+      List<(MaterialChars mc, string prokatType)> ReadSteelCsv(string filePath, CsvConfiguration config)
+      {
+         var result = new List<(MaterialChars, string)>();
+         using var reader = new StreamReader(filePath);
+         using var csv = new CsvReader(reader, config);
+
+         csv.Read();
+         csv.ReadHeader();
+         int prokatIdx = -1;
+         string[]? headerRecord = csv.Parser!.Context!.Reader!.HeaderRecord;
+         if (headerRecord != null)
+            prokatIdx = Array.IndexOf(headerRecord, "ProkatType");
+
+         while (csv.Read())
+         {
+            var mc = new MaterialChars();
+            mc.Tag = csv.GetField("Tag") ?? "";
+            if (double.TryParse(csv.GetField("Class"), NumberStyles.Float, CultureInfo.InvariantCulture, out var cls)) mc.Class = cls;
+            if (double.TryParse(csv.GetField("Fc"), NumberStyles.Float, CultureInfo.InvariantCulture, out var fc)) mc.Fc = fc;
+            if (double.TryParse(csv.GetField("Ft"), NumberStyles.Float, CultureInfo.InvariantCulture, out var ft)) mc.Ft = ft;
+            if (double.TryParse(csv.GetField("Ry"), NumberStyles.Float, CultureInfo.InvariantCulture, out var ry)) mc.Ry = ry;
+            if (double.TryParse(csv.GetField("Ru"), NumberStyles.Float, CultureInfo.InvariantCulture, out var ru)) mc.Ru = ru;
+            if (double.TryParse(csv.GetField("E"), NumberStyles.Float, CultureInfo.InvariantCulture, out var e)) mc.E = e;
+            if (double.TryParse(csv.GetField("Ec0"), NumberStyles.Float, CultureInfo.InvariantCulture, out var v)) mc.Ec0 = v;
+            if (double.TryParse(csv.GetField("Ec1"), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) mc.Ec1 = v;
+            if (double.TryParse(csv.GetField("Ec2"), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) mc.Ec2 = v;
+            if (double.TryParse(csv.GetField("Ec1Red"), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) mc.Ec1Red = v;
+            if (double.TryParse(csv.GetField("Et1Red"), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) mc.Et1Red = v;
+            if (double.TryParse(csv.GetField("Et0"), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) mc.Et0 = v;
+            if (double.TryParse(csv.GetField("Et1"), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) mc.Et1 = v;
+            if (double.TryParse(csv.GetField("Et2"), NumberStyles.Float, CultureInfo.InvariantCulture, out v)) mc.Et2 = v;
+            mc.Type = MatType.Steel;
+
+            string prokatType = prokatIdx >= 0 ? (csv.GetField(prokatIdx) ?? "") : "";
+            result.Add((mc, prokatType));
+         }
+         return result;
+      }
+
+      /// <summary>
+      /// Фильтрует марки по выбранному типу проката.
+      /// </summary>
+      void FilterSteelMarks()
+      {
+         if (steelProkatTypeIndex < 0 || steelProkatTypeIndex >= steelProkatTypes.Count)
+         {
+            SteelMarks = new();
+            return;
+         }
+
+         var selectedType = steelProkatTypes[steelProkatTypeIndex];
+         steelMarks = steelAll
+            .Where(s => s.prokatType == selectedType)
+            .Select(s => s.mcC.Tag)
+            .Distinct().OrderBy(t => t).ToList();
+         OnPropertyChanged(nameof(SteelMarks));
+
+         steelMarkIndex = steelMarks.Count > 0 ? 0 : -1;
+         OnPropertyChanged(nameof(SteelMarkIndex));
+
+         FilterSteelRecords();
+      }
+
+      /// <summary>
+      /// Фильтрует записи по выбранной марке и типу проката.
+      /// C/CL из C-файла (Ry/Ru), N/NL из N-файла (Ryn/Run).
+      /// </summary>
+      void FilterSteelRecords()
+      {
+         if (steelProkatTypeIndex < 0 || steelProkatTypeIndex >= steelProkatTypes.Count)
+         {
+            c = new(); cl = new(); n = new(); nl = new(); N = n;
+            return;
+         }
+
+         var selectedType = steelProkatTypes[steelProkatTypeIndex];
+         var filtered = steelAll
+            .Where(s => s.prokatType == selectedType);
+
+         if (steelMarkIndex >= 0 && steelMarkIndex < steelMarks.Count)
+         {
+            var selectedMark = steelMarks[steelMarkIndex];
+            filtered = filtered.Where(s => s.mcC.Tag == selectedMark);
+         }
+
+         var pairs = filtered.ToList();
+         c  = pairs.Select(p => p.mcC).ToList();
+         cl = pairs.Select(p => p.mcC).ToList();
+         n  = pairs.Select(p => p.mcN).ToList();
+         nl = pairs.Select(p => p.mcN).ToList();
          N = n;
       }
    }

@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using CsvHelper;
 using CsvHelper.Configuration;
 using System.IO;
@@ -15,11 +15,16 @@ namespace OpenCS.Views
    /// </summary>
    public partial class FromDataSourceWindow : Window
    {    
-      public FromDataSourceWindow(MaterialVM material)
+      public FromDataSourceWindow(MaterialVM material, int tabIndex = 0)
       {
          InitializeComponent();
          DataSourceVM vm = new() { Material = material };
          DataContext = vm;
+         switch (tabIndex)
+         {
+            case 1: vm.RfsteelTabIsSelected = true; break;
+            case 2: vm.SteelTabIsSelected = true; break;
+         }
          vm.Select();
       }
    }

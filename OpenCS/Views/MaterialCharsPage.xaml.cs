@@ -60,8 +60,9 @@ namespace OpenCS.Views
                DiagrammType.L3   => materialChars.D3L(),
                DiagrammType.SP63 => materialChars.DCL(mvm.CalcSettings.Sp63DescEtaMin),
                DiagrammType.EKB  => materialChars.DEKB(),
-               DiagrammType.SP35 => materialChars.DSP35(),
-               _ => throw new ArgumentException(string.Format(Loc.S("DiagramTypeNotSupported"), dialog.SelectedType))
+                DiagrammType.SP35 => materialChars.DSP35(),
+                DiagrammType.SP16 => materialChars.DSP16(),
+                _ => throw new ArgumentException(string.Format(Loc.S("DiagramTypeNotSupported"), dialog.SelectedType))
             };
          }
          catch (Exception ex)
@@ -113,7 +114,8 @@ namespace OpenCS.Views
                 list.Add(new(DiagrammType.L3, Loc.S("DiagL3_ReSteelU")));
                 break;
              case MatType.Steel:
-                list.Add(new(DiagrammType.L2, Loc.S("DiagL2_Steel")));
+                list.Add(new(DiagrammType.L2,   Loc.S("DiagL2_Steel")));
+                list.Add(new(DiagrammType.SP16, Loc.S("DiagSP16_Steel")));
                 break;
          }
          return list;
