@@ -89,6 +89,8 @@
    <system:String x:Key="CalcSettingsJacobianCentral">Central</system:String>
    <system:String x:Key="CalcSettingsSp63EtaMin">SP63 desc. branch: η_min</system:String>
    <system:String x:Key="CalcSettingsSp63EtaMinTip">Lower bound of SP63 App.G descending branch. Per SP 63.13330 §G.1 — not less than 0.85</system:String>
+   <system:String x:Key="CalcSettingsShellTolRes">Tolerance (plates)</system:String>
+   <system:String x:Key="CalcSettingsShellTolResTip">Relative Newton tolerance for plate sections: ‖residual‖ / (1 + ‖target forces‖). Recommended: 1e-3.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Batch Tasks</system:String>
    <system:String x:Key="BatchParallel_Label">Parallel execution (clone section per thread)</system:String>
    <system:String x:Key="BatchParallel_Tip">Recommended for force sets with 50+ rows. Applies to all strength/stiffness batch tasks. Fire-resistance tasks are not affected.</system:String>

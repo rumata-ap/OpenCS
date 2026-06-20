@@ -33,7 +33,7 @@ public sealed class ShellStrainHandler : ITaskHandler
             double[] target = { p.Nx, p.Ny, p.Nxy, p.Mx, p.My, p.Mxy };
 
             var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
-                tolRes: p.TolRes, maxIter: p.MaxIter,
+                tolRes: settings.ShellNewtonTolRes, maxIter: settings.NewtonMaxIter,
                 hDiff: settings.NewtonDeltaH,
                 centralJacobian: settings.NewtonJacobian == "central");
             var r = solver.Solve(target);

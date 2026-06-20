@@ -37,9 +37,11 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
 
             var (cDiag, rDiag, layerDiags, _) =
                 PlateMaterialResolver.Resolve(plate, ctx.Database.Materials, task.CalcType);
-            var p       = ShellStrainParams.Parse(task.ParamsJson);
+            var p        = ShellStrainParams.Parse(task.ParamsJson);
             bool central = settings.NewtonJacobian == "central";
             double hDiff = settings.NewtonDeltaH;
+            double tolRes  = settings.ShellNewtonTolRes;
+            int    maxIter = settings.NewtonMaxIter;
 
             var items = forceSet.ShellItems;
             int total = items.Count;
@@ -55,7 +57,7 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                     var si = items[i];
                     double[] tgt = { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy };
                     var r = new ShellStrainSolver(clone, cDiag, rDiag, layerDiags,
-                        tolRes: p.TolRes, maxIter: p.MaxIter,
+                        tolRes: tolRes, maxIter: maxIter,
                         hDiff: hDiff, centralJacobian: central).Solve(tgt);
                     converged[i] = r.Converged;
                     rows[i] = BuildRow(si.Num, si.Label, r);
@@ -65,7 +67,7 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
             {
                 // Последовательный режим с тёплым стартом: результат строки N → начало строки N+1
                 var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
-                    tolRes: p.TolRes, maxIter: p.MaxIter,
+                    tolRes: tolRes, maxIter: maxIter,
                     hDiff: hDiff, centralJacobian: central);
                 var targets = items.Select(si =>
                     new[] { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy }).ToList();
@@ -81,7 +83,7 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                 // Последовательный режим без тёплого старта (по умолчанию): каждая строка
                 // стартует независимо от упругого приближения
                 var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
-                    tolRes: p.TolRes, maxIter: p.MaxIter,
+                    tolRes: tolRes, maxIter: maxIter,
                     hDiff: hDiff, centralJacobian: central);
                 for (int i = 0; i < total; i++)
                 {

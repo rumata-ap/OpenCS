@@ -247,6 +247,7 @@
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0"
                                            Text="{DynamicResource CalcSettingsTol}"
@@ -283,6 +284,14 @@
                                     <ComboBoxItem Tag="forward" Content="{DynamicResource CalcSettingsJacobianForward}"/>
                                     <ComboBoxItem Tag="central" Content="{DynamicResource CalcSettingsJacobianCentral}"/>
                                 </ComboBox>
+                                <TextBlock Grid.Row="5" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsShellTolRes}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsShellTolResTip}"/>
+                                <TextBox Grid.Row="5" Grid.Column="1"
+                                         x:Name="ShellTolResBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsShellTolResTip}"/>
                             </Grid>
                         </GroupBox>
                         <GroupBox Header="{DynamicResource CalcSettingsBatchGroup}" Margin="0,0,0,10">

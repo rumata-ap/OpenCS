@@ -202,6 +202,7 @@ namespace OpenCS.Views
          LabelFontSizeBox.Text     = _calcSettings.FiberLabelFontSize.ToString("F0");
          Sp63EtaMinBox.Text        = _calcSettings.Sp63DescEtaMin.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          NewtonJacobianCombo.SelectedIndex = _calcSettings.NewtonJacobian == "central" ? 1 : 0;
+         ShellTolResBox.Text         = _calcSettings.ShellNewtonTolRes.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          BatchParallelCb.IsChecked   = _calcSettings.BatchParallel;
          ShellWarmStartCb.IsChecked  = _calcSettings.ShellWarmStart;
          UpdateCalcSwatches();
@@ -280,6 +281,12 @@ namespace OpenCS.Views
             if (double.TryParse(Sp63EtaMinBox.Text, System.Globalization.NumberStyles.Float,
                 System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0 && v < 1)
                _calcSettings.Sp63DescEtaMin = v;
+         };
+         ShellTolResBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(ShellTolResBox.Text, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+               _calcSettings.ShellNewtonTolRes = v;
          };
          BatchParallelCb.Checked    += (_, _) => _calcSettings.BatchParallel  = true;
          BatchParallelCb.Unchecked  += (_, _) => _calcSettings.BatchParallel  = false;

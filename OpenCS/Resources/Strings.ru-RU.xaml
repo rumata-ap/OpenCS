@@ -90,6 +90,8 @@
    <system:String x:Key="CalcSettingsJacobianCentral">Центральная (central)</system:String>
    <system:String x:Key="CalcSettingsSp63EtaMin">Нисх. ветвь СП63: η_min</system:String>
    <system:String x:Key="CalcSettingsSp63EtaMinTip">Нижняя граница нисходящей ветви криволинейной диаграммы бетона. По СП 63.13330 п. Г.1 — не менее 0.85</system:String>
+   <system:String x:Key="CalcSettingsShellTolRes">Точность (пластины)</system:String>
+   <system:String x:Key="CalcSettingsShellTolResTip">Относительный допуск Ньютона для пластинчатых сечений: ‖невязка‖ / (1 + ‖усилия‖). Рекомендуется 1e-3.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Пакетные задачи</system:String>
    <system:String x:Key="BatchParallel_Label">Параллельный расчёт (клонирование сечения на поток)</system:String>
    <system:String x:Key="BatchParallel_Tip">Рекомендуется при наборах усилий от 50 строк. Применяется ко всем пакетным задачам прочности и жёсткости. Задачи огнестойкости не затрагиваются.</system:String>

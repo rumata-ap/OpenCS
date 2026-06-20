@@ -74,6 +74,14 @@ namespace OpenCS.Utilites
       [JsonPropertyName("shellWarmStart")]
       public bool ShellWarmStart { get; set; } = false;
 
+      /// <summary>
+      /// Относительный допуск сходимости метода Ньютона для пластинчатых сечений
+      /// (норма невязки усилий / (1 + норма целевых усилий)). Отличается от NewtonTolerance
+      /// (абсолютный допуск для стержней в кН): для пластин подходящий порядок — 1e-3.
+      /// </summary>
+      [JsonPropertyName("shellNewtonTolRes")]
+      public double ShellNewtonTolRes { get; set; } = 1e-3;
+
       /// <summary>Плавная (градиентная) цветовая карта напряжений/деформаций по умолчанию.</summary>
       [JsonPropertyName("smoothColormap")]
       public bool SmoothColormap { get; set; } = true;
@@ -99,6 +107,7 @@ namespace OpenCS.Utilites
          Sp63DescEtaMin        = Sp63DescEtaMin,
          BatchParallel         = BatchParallel,
          ShellWarmStart        = ShellWarmStart,
+         ShellNewtonTolRes     = ShellNewtonTolRes,
          SmoothColormap        = SmoothColormap,
       };
    }
