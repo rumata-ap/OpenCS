@@ -1,6 +1,5 @@
 using OpenCS.ViewModels;
-using System;
-using System.Linq;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -9,7 +8,7 @@ namespace OpenCS.Views.Helpers;
 
 /// <summary>
 /// Интерактивный WPF-канвас σ(ε)-диаграммы: кривые Ic/It, перетаскиваемые маркеры,
-/// зум колёсиком мыши, пан ЛКМ на пустом месте.
+/// зум колёсиком мыши, пан ЛКМ на пустом месте, hover-линия, магнит на излом-точках.
 /// </summary>
 public sealed class DiagramCanvas : FrameworkElement
 {
@@ -23,6 +22,10 @@ public sealed class DiagramCanvas : FrameworkElement
     bool  _panning;
     int   _dragIdx = -1;   // индекс перетаскиваемой точки (-1 = нет)
 
+    // ─── Hover ───
+    Point? _hoverScreen;   // null = курсор вне канваса или идёт drag/pan
+    const double SnapRadius = 15.0;
+
     // ─── Pen/brush кэш ───
     static readonly Pen   _bluePen       = new(new SolidColorBrush(Color.FromRgb(0, 0, 180)), 1.5);
     static readonly Pen   _redPen        = new(new SolidColorBrush(Color.FromRgb(180, 0, 0)), 1.5);
@@ -32,6 +35,17 @@ public sealed class DiagramCanvas : FrameworkElement
     static readonly Pen   _charMarkerPen = new(Brushes.Black, 2.0);
     static readonly Brush _blueFill      = new SolidColorBrush(Color.FromRgb(120, 120, 255));
     static readonly Brush _redFill       = new SolidColorBrush(Color.FromRgb(255, 120, 120));
+
+    static readonly Pen   _hoverLinePen  = MakeHoverLinePen();
+    static readonly Pen   _snapRingPen   = new(new SolidColorBrush(Color.FromRgb(220, 120, 0)), 1.5);
+
+    static Pen MakeHoverLinePen()
+    {
+        var p = new Pen(new SolidColorBrush(Color.FromArgb(160, 80, 80, 80)), 0.8);
+        p.DashStyle = new DashStyle(new double[] { 4, 3 }, 0);
+        p.Freeze();
+        return p;
+    }
 
     static readonly Typeface _labelTypeface = new("Segoe UI");
 
@@ -43,6 +57,7 @@ public sealed class DiagramCanvas : FrameworkElement
         _blueMarkerPen.Freeze(); _redMarkerPen.Freeze();
         _charMarkerPen.Freeze();
         _blueFill.Freeze(); _redFill.Freeze();
+        _snapRingPen.Freeze();
     }
 
     // ─── DependencyProperty ───
@@ -160,6 +175,60 @@ public sealed class DiagramCanvas : FrameworkElement
         // Подписи осей
         DrawLabel(dc, "ε", new Point(ActualWidth - 18, origin.Y - 16));
         DrawLabel(dc, "σ", new Point(origin.X + 4, 4));
+
+        DrawHoverOverlay(dc, vm);
+    }
+
+    void DrawHoverOverlay(DrawingContext dc, DiagramEditVM vm)
+    {
+        if (!_hoverScreen.HasValue) return;
+        var pos = _hoverScreen.Value;
+
+        // Найти ближайшую точку в радиусе SnapRadius
+        DiagramPoint? snap = null;
+        double bestD = SnapRadius;
+        foreach (var pt in vm.Points)
+        {
+            var sc = ToScreen(pt.Eps, pt.Sig);
+            double dx = pos.X - sc.X, dy = pos.Y - sc.Y;
+            double d = Math.Sqrt(dx * dx + dy * dy);
+            if (d < bestD) { bestD = d; snap = pt; }
+        }
+
+        double lineX;
+        string labelText;
+        if (snap != null)
+        {
+            var sc = ToScreen(snap.Eps, snap.Sig);
+            lineX = sc.X;
+            // Кольцо-магнит вокруг захваченной точки
+            dc.DrawEllipse(null, _snapRingPen, sc, MarkerR + 5, MarkerR + 5);
+            string epsStr = snap.Eps.ToString("F6", CultureInfo.InvariantCulture);
+            string sigStr = snap.Sig.ToString("F2", CultureInfo.InvariantCulture);
+            labelText = $"ε={epsStr}  σ={sigStr}";
+        }
+        else
+        {
+            lineX = pos.X;
+            var (eps, _) = ToModel(pos);
+            double sig = InterpSig(vm, eps);
+            string epsStr2 = eps.ToString("F6", CultureInfo.InvariantCulture);
+            string sigStr2 = sig.ToString("F2", CultureInfo.InvariantCulture);
+            labelText = $"ε={epsStr2}  σ={sigStr2}";
+        }
+
+        // Вертикальная пунктирная линия
+        dc.DrawLine(_hoverLinePen, new Point(lineX, 0), new Point(lineX, ActualHeight));
+
+        // Подпись значения
+        var ft = new FormattedText(labelText,
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            _labelTypeface, 10, Brushes.DimGray,
+            pixelsPerDip: 1.0);
+        double labelX = lineX + 5;
+        if (labelX + ft.Width > ActualWidth - 4) labelX = lineX - ft.Width - 5;
+        dc.DrawText(ft, new Point(labelX, 4));
     }
 
     void DrawBranch(DrawingContext dc,
@@ -222,12 +291,14 @@ public sealed class DiagramCanvas : FrameworkElement
         _dragIdx = HitTestPoint(pos);
         if (_dragIdx >= 0)
         {
+            _hoverScreen = null;
             CaptureMouse();
         }
         else
         {
             _panning   = true;
             _dragStart = pos;
+            _hoverScreen = null;
             CaptureMouse();
         }
         e.Handled = true;
@@ -237,7 +308,9 @@ public sealed class DiagramCanvas : FrameworkElement
     {
         _dragIdx = -1;
         _panning = false;
+        _hoverScreen = e.GetPosition(this);
         ReleaseMouseCapture();
+        InvalidateVisual();
         e.Handled = true;
     }
 
@@ -251,6 +324,7 @@ public sealed class DiagramCanvas : FrameworkElement
             var pt  = ViewModel.Points[_dragIdx];
             pt.Eps  = eps;
             pt.Sig  = sig;
+            _hoverScreen = null;
             InvalidateVisual();
         }
         else if (_panning)
@@ -258,9 +332,21 @@ public sealed class DiagramCanvas : FrameworkElement
             _tx += pos.X - _dragStart.X;
             _ty += pos.Y - _dragStart.Y;
             _dragStart = pos;
+            _hoverScreen = null;
+            InvalidateVisual();
+        }
+        else
+        {
+            _hoverScreen = pos;
             InvalidateVisual();
         }
         e.Handled = true;
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        _hoverScreen = null;
+        InvalidateVisual();
     }
 
     protected override void OnMouseWheel(MouseWheelEventArgs e)
@@ -272,7 +358,26 @@ public sealed class DiagramCanvas : FrameworkElement
         _scaleY *= factor;
         _tx = pos.X - eps0 * _scaleX;
         _ty = pos.Y + sig0 * _scaleY;
+        _hoverScreen = pos;
         InvalidateVisual();
         e.Handled = true;
+    }
+
+    // Линейная интерполяция σ по ε из отсортированного набора точек диаграммы.
+    static double InterpSig(DiagramEditVM vm, double eps)
+    {
+        var pts = vm.Points.OrderBy(p => p.Eps).ToList();
+        if (pts.Count == 0) return 0;
+        if (eps <= pts[0].Eps)     return pts[0].Sig;
+        if (eps >= pts[^1].Eps)    return pts[^1].Sig;
+        for (int i = 1; i < pts.Count; i++)
+        {
+            if (pts[i].Eps >= eps)
+            {
+                double t = (eps - pts[i - 1].Eps) / (pts[i].Eps - pts[i - 1].Eps);
+                return pts[i - 1].Sig + t * (pts[i].Sig - pts[i - 1].Sig);
+            }
+        }
+        return pts[^1].Sig;
     }
 }
