@@ -68,6 +68,12 @@ namespace CScore.PrestressLoss
             }
             if (p.Groups.Any(gp => gp.SigmaBpAuto) && section == null)
                 result.Errors.Add("Автоматический σ_bpj требует передачи сечения (section == null)");
+            foreach (var gp in p.Groups)
+                if (gp.SigSp0 <= 0)
+                    result.Warnings.Add(
+                        $"Группа AreaId={gp.AreaId}: σ_sp0 = 0 — задайте начальное предварительное напряжение в параметрах задачи");
+            if (p.Groups.Count == 0)
+                result.Warnings.Add("Нет арматурных групп: откройте «Параметры потерь…» и убедитесь, что сечение содержит арматуру с категорией RebarGroup");
             if (result.Errors.Count > 0)
                 return result;
 
