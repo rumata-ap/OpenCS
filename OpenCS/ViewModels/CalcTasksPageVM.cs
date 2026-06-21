@@ -33,8 +33,11 @@ namespace OpenCS.ViewModels
             selectedTask = value;
             RefreshResults();
             OnPropertyChanged();
+            OnPropertyChanged(nameof(IsPrestressLossSelected));
          }
       }
+
+      public bool IsPrestressLossSelected => SelectedTask?.Model.Kind == "prestress_loss";
 
       public CalcResult? SelectedResult
       {
@@ -42,12 +45,13 @@ namespace OpenCS.ViewModels
          set { selectedResult = value; OnPropertyChanged(); }
       }
 
-      public ICommand NewTaskCommand    { get; }
-      public ICommand RunTaskCommand    { get; }
-      public ICommand EditTaskCommand   { get; }
-      public ICommand DeleteTaskCommand { get; }
-      public ICommand ViewResultCommand   { get; }
-      public ICommand DeleteResultCommand { get; }
+      public ICommand NewTaskCommand             { get; }
+      public ICommand RunTaskCommand             { get; }
+      public ICommand EditTaskCommand            { get; }
+      public ICommand DeleteTaskCommand          { get; }
+      public ICommand ViewResultCommand          { get; }
+      public ICommand DeleteResultCommand        { get; }
+      public ICommand EditPrestressParamsCommand { get; }
 
       public CalcTasksPageVM(AppViewModel app, CalcTasksPage page)
       {
@@ -64,6 +68,8 @@ namespace OpenCS.ViewModels
          DeleteTaskCommand = new RelayCommand(_ => DeleteTask(), _ => SelectedTask != null);
          ViewResultCommand   = new RelayCommand(_ => ViewResult(),   _ => SelectedResult != null);
          DeleteResultCommand = new RelayCommand(_ => DeleteResult(), _ => SelectedResult != null);
+         EditPrestressParamsCommand = new RelayCommand(
+             _ => EditPrestressParams(), _ => IsPrestressLossSelected);
       }
 
       void RebuildTaskVMs()
@@ -102,6 +108,12 @@ namespace OpenCS.ViewModels
          _app.db.SaveCalcTask(ct);
          _app.IsDirty = true;
          _app.LogService.Info(string.Format(Loc.S("CalcTaskCreated"), ct.Tag));
+
+         if (ct.Kind == "prestress_loss")
+         {
+            var pdlg = new PrestressLossDialog(_app, ct) { Owner = Window.GetWindow(_page) };
+            pdlg.ShowDialog();
+         }
       }
 
       void EditTask()
@@ -122,6 +134,19 @@ namespace OpenCS.ViewModels
          _app.db.SaveCalcTask(ct);
          _app.IsDirty = true;
          RebuildTaskVMs();
+
+         if (ct.Kind == "prestress_loss")
+         {
+            var pdlg = new PrestressLossDialog(_app, ct) { Owner = Window.GetWindow(_page) };
+            pdlg.ShowDialog();
+         }
+      }
+
+      void EditPrestressParams()
+      {
+         if (SelectedTask == null) return;
+         var dlg = new PrestressLossDialog(_app, SelectedTask.Model) { Owner = Window.GetWindow(_page) };
+         dlg.ShowDialog();
       }
 
       void RunTask()

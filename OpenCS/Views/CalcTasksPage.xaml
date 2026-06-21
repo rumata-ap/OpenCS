@@ -27,6 +27,10 @@
             <Button Content="{DynamicResource CalcTaskDelete}"
                     Command="{Binding DeleteTaskCommand}"
                     Padding="10,3"/>
+            <Button Content="{DynamicResource PrestressLossParamsBtn}"
+                    Command="{Binding EditPrestressParamsCommand}"
+                    Visibility="{Binding IsPrestressLossSelected, Converter={StaticResource BoolToVisibility}}"
+                    Padding="10,3" Margin="6,0,0,0"/>
          </StackPanel>
       </Border>
 
