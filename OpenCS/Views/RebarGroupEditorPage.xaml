@@ -113,6 +113,25 @@
                       DisplayMemberPath="Tag"
                       Margin="0,0,0,6"/>
 
+            <!-- Преднапряжение -->
+            <GroupBox Header="{DynamicResource Prestress}" Margin="0,0,0,6">
+               <StackPanel Margin="4">
+                  <TextBlock Text="{DynamicResource SigSpLabel}" Margin="0,0,0,2"/>
+                  <TextBox Text="{Binding SigSp, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}"
+                           Margin="0,0,0,6"/>
+                  <TextBlock Text="{DynamicResource GammaSpLabel}" Margin="0,0,0,2"/>
+                  <ComboBox SelectedIndex="{Binding GammaSpIndex}" Margin="0,0,0,6">
+                     <ComboBoxItem Content="{DynamicResource GammaSp_1_0}"/>
+                     <ComboBoxItem Content="{DynamicResource GammaSp_0_9}"/>
+                     <ComboBoxItem Content="{DynamicResource GammaSp_1_1}"/>
+                  </ComboBox>
+                  <TextBlock>
+                     <Run Text="{DynamicResource EpsSpLabel}"/>
+                     <Run Text="{Binding EpsSp, Mode=OneWay}"/>
+                  </TextBlock>
+               </StackPanel>
+            </GroupBox>
+
             <!-- Тег -->
             <TextBlock Text="{DynamicResource RgGroupTag}" Margin="0,0,0,2"/>
             <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"

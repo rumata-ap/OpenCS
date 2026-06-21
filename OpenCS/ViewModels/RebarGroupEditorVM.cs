@@ -89,7 +89,46 @@ namespace OpenCS.ViewModels
         public Material? SelectedMaterial
         {
             get => _selectedMaterial;
-            set { _selectedMaterial = value; OnPropertyChanged(); }
+            set { _selectedMaterial = value; OnPropertyChanged(); OnPropertyChanged(nameof(EpsSp)); }
+        }
+
+        /// <summary>Предварительное напряжение после потерь [МПа].</summary>
+        public double SigSp
+        {
+            get => EditedArea?.SigSp ?? 0.0;
+            set
+            {
+                if (EditedArea != null) { EditedArea.SigSp = value; EditedArea.PropagateEps_p(); }
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EpsSp));
+            }
+        }
+
+        /// <summary>Индекс γ_sp для ComboBox: 0→1.0, 1→0.9, 2→1.1.</summary>
+        public int GammaSpIndex
+        {
+            get => EditedArea == null ? 0 : EditedArea.GammaSp switch { 0.9 => 1, 1.1 => 2, _ => 0 };
+            set
+            {
+                if (EditedArea != null)
+                {
+                    EditedArea.GammaSp = value switch { 1 => 0.9, 2 => 1.1, _ => 1.0 };
+                    EditedArea.PropagateEps_p();
+                }
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(EpsSp));
+            }
+        }
+
+        /// <summary>Вычисленная ε_sp в промиллях (только чтение).</summary>
+        public string EpsSp
+        {
+            get
+            {
+                double e = _selectedMaterial?.E ?? 0;
+                if (e < 1) return "—";
+                return $"{1000 * (EditedArea?.SigSp ?? 0) * (EditedArea?.GammaSp ?? 1) / e:F3} ‰";
+            }
         }
 
         public MaterialArea? SelectedRegion
@@ -462,6 +501,7 @@ namespace OpenCS.ViewModels
             area.HostAreaId = _selectedRegion?.Id;
             area.Material   = _selectedMaterial;
             area.MaterialId = _selectedMaterial?.Id ?? 0;
+            area.PropagateEps_p();
             area.Fibers.Clear();
             foreach (var b in Bars)
                 area.Fibers.Add(Fiber.CreatePoint(b.Diameter, b.X, b.Y));
