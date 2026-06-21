@@ -948,6 +948,40 @@
     <system:String x:Key="ColTotalAll">Σ all</system:String>
     <system:String x:Key="ColSigSp2">σ_sp2, MPa</system:String>
     <system:String x:Key="ColMinLoss">≥100?</system:String>
+    <!-- Column tooltips for prestress loss dialog -->
+    <system:String x:Key="TtColSigSp0">Initial prestress σ_sp0 [MPa] — before any losses</system:String>
+    <system:String x:Key="TtColRelaxFormula">Relaxation formula §9.1.3: A600–A1000 = hot-rolled bars; Вр/К = cold-drawn wire/strand; К stab. = stabilized strands</system:String>
+    <system:String x:Key="TtColSubMethod">Affects Δσ_sp1 (relaxation loss) and whether Δσ_sp3 (mold deformation) applies</system:String>
+    <system:String x:Key="TtColRelaxR">Relaxation coefficient r [%] — used only for stabilized strands formula</system:String>
+    <system:String x:Key="TtColDtDefault">Use default temperature drop ΔT = 65°C (§9.1.4)</system:String>
+    <system:String x:Key="TtColDt">Temperature drop during steam curing or heating [°C]</system:String>
+    <system:String x:Key="TtColFormDefault">Use default Δσ_sp3 = 30 MPa (§9.1.5). Uncheck to enter mold parameters manually</system:String>
+    <system:String x:Key="TtColNForms">Number of molds placed sequentially on one tensioning bed</system:String>
+    <system:String x:Key="TtColDlForm">Axial compression of one mold under tensioning force [mm]</system:String>
+    <system:String x:Key="TtColLForm">Total tensioning length between abutments [m]</system:String>
+    <system:String x:Key="TtColAnchorDefault">Use default anchor deformation Δl = 2 mm (§9.1.6)</system:String>
+    <system:String x:Key="TtColDlAnchor">Anchor slip/deformation when locking the tendon [mm]</system:String>
+    <system:String x:Key="TtColLAnchor">Distance between anchors (tendon length) [m]</system:String>
+    <system:String x:Key="TtColOmega1">ω₁ — friction coefficient of tendon against duct per unit length (§9.1.2)</system:String>
+    <system:String x:Key="TtColKFriction">k — coefficient for local duct deformations (§9.1.2)</system:String>
+    <system:String x:Key="TtColX">Length of tendon from the jack to the cross-section [m]</system:String>
+    <system:String x:Key="TtColTheta">Total angle of tendon curvature over length x [rad]</system:String>
+    <system:String x:Key="TtColSigmaBpAuto">Compute σ_bpj automatically from P̄₁ and reduced section geometry</system:String>
+    <system:String x:Key="TtColSigmaBpManual">Concrete stress at tendon level after first losses [MPa] (manual input)</system:String>
+    <!-- Column tooltips for prestress loss result view -->
+    <system:String x:Key="TtColDSp1">Δσ_sp1 — losses from steel relaxation (§9.1.3) [MPa]</system:String>
+    <system:String x:Key="TtColDSp2">Δσ_sp2 — losses from temperature drop during steam curing (§9.1.4, pre-tensioning only) [MPa]</system:String>
+    <system:String x:Key="TtColDSp3">Δσ_sp3 — losses from mold deformation (§9.1.5, mechanical pre-tensioning only) [MPa]</system:String>
+    <system:String x:Key="TtColDSp4">Δσ_sp4 — losses from anchor deformation (§9.1.6, mechanical pre-tensioning only) [MPa]</system:String>
+    <system:String x:Key="TtColDSp7">Δσ_sp7 — losses from friction between tendon and duct (§9.1.2, post-tensioning only) [MPa]</system:String>
+    <system:String x:Key="TtColTotalFirst">Total first losses = Δσ₁ + Δσ₂ + Δσ₃ + Δσ₄ + Δσ₇ [MPa]</system:String>
+    <system:String x:Key="TtColSigSp1">Prestress after first losses: σ_sp1 = σ_sp0 − Σ₁ [MPa]</system:String>
+    <system:String x:Key="TtColSigmaBpjRes">Concrete stress from P̄₁ at tendon level — input for creep calculation (§9.1.9) [MPa]</system:String>
+    <system:String x:Key="TtColDSp5">Δσ_sp5 — losses from concrete shrinkage (§9.1.8) [MPa]</system:String>
+    <system:String x:Key="TtColDSp6">Δσ_sp6 — losses from concrete creep (§9.1.9) [MPa]</system:String>
+    <system:String x:Key="TtColTotalAll">Total losses = first losses + Δσ₅ + Δσ₆ [MPa]</system:String>
+    <system:String x:Key="TtColSigSp2">Prestress after all losses: σ_sp2 = σ_sp0 − total [MPa]. Click 'Apply' to write to section</system:String>
+    <system:String x:Key="TtColMinLoss">Check §9.1.10: total losses must be ≥ 100 MPa. '!' = below minimum</system:String>
     <system:String x:Key="CalcTaskSelectPlateSection">Select a plate section</system:String>
     <system:String x:Key="CalcTaskPlatePanelHeader">Plate forces</system:String>
     <system:String x:Key="ShellStrainTitle">Plate strain plane</system:String>

@@ -951,6 +951,40 @@
     <system:String x:Key="ColTotalAll">Σ все</system:String>
     <system:String x:Key="ColSigSp2">σ_sp2, МПа</system:String>
     <system:String x:Key="ColMinLoss">≥100?</system:String>
+    <!-- Подсказки к столбцам таблицы параметров -->
+    <system:String x:Key="TtColSigSp0">Начальное предварительное напряжение σ_sp0 [МПа] — до всех потерь</system:String>
+    <system:String x:Key="TtColRelaxFormula">Формула п.9.1.3: A600–A1000 = горячекатаная арматура; Вр/К = холоднотянутая/канат упрочнённый; К стаб. = стабилизированные канаты</system:String>
+    <system:String x:Key="TtColSubMethod">Влияет на Δσ_sp1 (релаксация) и наличие Δσ_sp3 (деформация формы)</system:String>
+    <system:String x:Key="TtColRelaxR">Коэффициент релаксации r [%] — только для стабилизированных канатов (К стаб.)</system:String>
+    <system:String x:Key="TtColDtDefault">Использовать температурный перепад по умолчанию ΔT = 65°C (п. 9.1.4)</system:String>
+    <system:String x:Key="TtColDt">Температурный перепад при пропаривании/нагреве [°C]</system:String>
+    <system:String x:Key="TtColFormDefault">Использовать Δσ_sp3 = 30 МПа по умолчанию (п. 9.1.5). Снять для ввода параметров формы</system:String>
+    <system:String x:Key="TtColNForms">Число последовательно устанавливаемых форм на одном натяжном пути</system:String>
+    <system:String x:Key="TtColDlForm">Деформация сжатия одной упорной формы при натяжении [мм]</system:String>
+    <system:String x:Key="TtColLForm">Полная длина натяжного элемента (между упорами) [м]</system:String>
+    <system:String x:Key="TtColAnchorDefault">Использовать деформацию анкеров по умолчанию Δl = 2 мм (п. 9.1.6)</system:String>
+    <system:String x:Key="TtColDlAnchor">Деформация анкерных устройств при фиксации арматуры [мм]</system:String>
+    <system:String x:Key="TtColLAnchor">Расстояние между анкерами (длина напрягаемой арматуры) [м]</system:String>
+    <system:String x:Key="TtColOmega1">Коэффициент ω₁ = трение арматуры о стенки канала на 1 м длины (п. 9.1.2)</system:String>
+    <system:String x:Key="TtColKFriction">Коэффициент k, учитывающий местные деформации каналообразователя (п. 9.1.2)</system:String>
+    <system:String x:Key="TtColX">Длина напрягаемой арматуры от домкрата до расчётного сечения [м]</system:String>
+    <system:String x:Key="TtColTheta">Суммарный угол поворота оси арматуры на длине x [рад]</system:String>
+    <system:String x:Key="TtColSigmaBpAuto">Вычислить σ_bpj автоматически из P̄₁ и геометрии приведённого сечения</system:String>
+    <system:String x:Key="TtColSigmaBpManual">Напряжение в бетоне на уровне данной арматуры после первых потерь [МПа] (вводится вручную)</system:String>
+    <!-- Подсказки к столбцам таблицы результатов -->
+    <system:String x:Key="TtColDSp1">Δσ_sp1 — потери от релаксации арматуры (п. 9.1.3) [МПа]</system:String>
+    <system:String x:Key="TtColDSp2">Δσ_sp2 — потери от температурного перепада при пропаривании (п. 9.1.4, только натяжение на упоры) [МПа]</system:String>
+    <system:String x:Key="TtColDSp3">Δσ_sp3 — потери от деформации упорной формы (п. 9.1.5, только механ. на упоры) [МПа]</system:String>
+    <system:String x:Key="TtColDSp4">Δσ_sp4 — потери от деформации анкеров (п. 9.1.6, только механ. на упоры) [МПа]</system:String>
+    <system:String x:Key="TtColDSp7">Δσ_sp7 — потери от трения арматуры о каналообразователь (п. 9.1.2, только натяжение на бетон) [МПа]</system:String>
+    <system:String x:Key="TtColTotalFirst">Суммарные первые потери = Δσ₁ + Δσ₂ + Δσ₃ + Δσ₄ + Δσ₇ [МПа]</system:String>
+    <system:String x:Key="TtColSigSp1">Напряжение после первых потерь: σ_sp1 = σ_sp0 − Σ₁ [МПа]</system:String>
+    <system:String x:Key="TtColSigmaBpjRes">Напряжение в бетоне от P̄₁ на уровне данной арматуры — используется для расчёта ползучести (п. 9.1.9) [МПа]</system:String>
+    <system:String x:Key="TtColDSp5">Δσ_sp5 — потери от усадки бетона (п. 9.1.8) [МПа]</system:String>
+    <system:String x:Key="TtColDSp6">Δσ_sp6 — потери от ползучести бетона (п. 9.1.9) [МПа]</system:String>
+    <system:String x:Key="TtColTotalAll">Суммарные все потери = первые + Δσ₅ + Δσ₆ [МПа]</system:String>
+    <system:String x:Key="TtColSigSp2">Напряжение после всех потерь: σ_sp2 = σ_sp0 − Σ все [МПа]. Нажмите «Применить» чтобы записать в сечение</system:String>
+    <system:String x:Key="TtColMinLoss">Проверка п. 9.1.10: суммарные потери должны быть ≥ 100 МПа. «!» — потери меньше нормы</system:String>
     <system:String x:Key="CalcTaskSelectPlateSection">Выберите плитное сечение</system:String>
     <system:String x:Key="CalcTaskPlatePanelHeader">Усилия пластины</system:String>
     <system:String x:Key="ShellStrainTitle">Плоскость деформаций пластины</system:String>

@@ -28,22 +28,86 @@
                 IsReadOnly="True" HeadersVisibility="Column"
                 SelectionMode="Single" SelectionUnit="FullRow">
          <DataGrid.Columns>
-            <DataGridTextColumn Header="{DynamicResource ColGroup}"      Binding="{Binding AreaTag}"             Width="80"/>
-            <DataGridTextColumn Header="A, мм²"                          Binding="{Binding AreaMm2, StringFormat=F1}"  Width="70"/>
-            <DataGridTextColumn Header="{DynamicResource ColSigSp0}"     Binding="{Binding SigSp0,  StringFormat=F1}"  Width="68"/>
-            <DataGridTextColumn Header="{DynamicResource ColDSp1}"       Binding="{Binding DSp1,    StringFormat=F1}"  Width="60"/>
-            <DataGridTextColumn Header="{DynamicResource ColDSp2}"       Binding="{Binding DSp2,    StringFormat=F1}"  Width="60"/>
-            <DataGridTextColumn Header="{DynamicResource ColDSp3}"       Binding="{Binding DSp3,    StringFormat=F1}"  Width="62"/>
-            <DataGridTextColumn Header="{DynamicResource ColDSp4}"       Binding="{Binding DSp4,    StringFormat=F1}"  Width="60"/>
-            <DataGridTextColumn Header="{DynamicResource ColDSp7}"       Binding="{Binding DSp7,    StringFormat=F1}"  Width="60"/>
-            <DataGridTextColumn Header="{DynamicResource ColTotalFirst}"  Binding="{Binding TotalFirst, StringFormat=F1}" Width="50"/>
-            <DataGridTextColumn Header="{DynamicResource ColSigSp1}"     Binding="{Binding SigSp1,  StringFormat=F1}"  Width="68"/>
-            <DataGridTextColumn Header="{DynamicResource ColSigmaBpj}"   Binding="{Binding SigmaBpj, StringFormat=F2}" Width="68"/>
-            <DataGridTextColumn Header="{DynamicResource ColDSp5}"       Binding="{Binding DSp5,    StringFormat=F1}"  Width="62"/>
-            <DataGridTextColumn Header="{DynamicResource ColDSp6}"       Binding="{Binding DSp6,    StringFormat=F1}"  Width="62"/>
-            <DataGridTextColumn Header="{DynamicResource ColTotalAll}"    Binding="{Binding TotalAll, StringFormat=F1}" Width="55"/>
-            <DataGridTextColumn Header="{DynamicResource ColSigSp2}"     Binding="{Binding SigSp2,  StringFormat=F1}"  Width="68"/>
-            <DataGridTextColumn Header="{DynamicResource ColMinLoss}"    Binding="{Binding MinLossText}"               Width="50"/>
+            <DataGridTextColumn Binding="{Binding AreaTag}" Width="80">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColGroup}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding AreaMm2, StringFormat=F1}" Width="70">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="A, мм²" ToolTip="Площадь арматурной группы [мм²]"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding SigSp0, StringFormat=F1}" Width="68">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColSigSp0}" ToolTip="{DynamicResource TtColSigSp0}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding DSp1, StringFormat=F1}" Width="60">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColDSp1}" ToolTip="{DynamicResource TtColDSp1}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding DSp2, StringFormat=F1}" Width="60">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColDSp2}" ToolTip="{DynamicResource TtColDSp2}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding DSp3, StringFormat=F1}" Width="62">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColDSp3}" ToolTip="{DynamicResource TtColDSp3}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding DSp4, StringFormat=F1}" Width="60">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColDSp4}" ToolTip="{DynamicResource TtColDSp4}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding DSp7, StringFormat=F1}" Width="60">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColDSp7}" ToolTip="{DynamicResource TtColDSp7}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding TotalFirst, StringFormat=F1}" Width="50">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColTotalFirst}" ToolTip="{DynamicResource TtColTotalFirst}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding SigSp1, StringFormat=F1}" Width="68">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColSigSp1}" ToolTip="{DynamicResource TtColSigSp1}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding SigmaBpj, StringFormat=F2}" Width="68">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColSigmaBpj}" ToolTip="{DynamicResource TtColSigmaBpjRes}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding DSp5, StringFormat=F1}" Width="62">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColDSp5}" ToolTip="{DynamicResource TtColDSp5}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding DSp6, StringFormat=F1}" Width="62">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColDSp6}" ToolTip="{DynamicResource TtColDSp6}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding TotalAll, StringFormat=F1}" Width="55">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColTotalAll}" ToolTip="{DynamicResource TtColTotalAll}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding SigSp2, StringFormat=F1}" Width="68">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColSigSp2}" ToolTip="{DynamicResource TtColSigSp2}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding MinLossText}" Width="50">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColMinLoss}" ToolTip="{DynamicResource TtColMinLoss}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
          </DataGrid.Columns>
       </DataGrid>
 

@@ -54,14 +54,22 @@
                 HeadersVisibility="Column"
                 SelectionMode="Single" SelectionUnit="FullRow">
          <DataGrid.Columns>
-            <DataGridTextColumn Header="{DynamicResource ColGroup}"
-                                Binding="{Binding AreaTag}" IsReadOnly="True" Width="80"/>
-            <DataGridTextColumn Header="{DynamicResource ColSigSp0}"
-                                Binding="{Binding SigSp0, StringFormat=F1}" Width="75"/>
+            <DataGridTextColumn Binding="{Binding AreaTag}" IsReadOnly="True" Width="80">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColGroup}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+            <DataGridTextColumn Binding="{Binding SigSp0, StringFormat=F1}" Width="75">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColSigSp0}" ToolTip="{DynamicResource TtColSigSp0}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <DataGridComboBoxColumn x:Name="colRelax"
-                                    Header="{DynamicResource ColRelaxFormula}"
                                     SelectedItemBinding="{Binding RelaxFormulaStr, UpdateSourceTrigger=PropertyChanged}"
                                     Width="110">
+               <DataGridComboBoxColumn.Header>
+                  <TextBlock Text="{DynamicResource ColRelaxFormula}" ToolTip="{DynamicResource TtColRelaxFormula}"/>
+               </DataGridComboBoxColumn.Header>
                <DataGridComboBoxColumn.ItemsSource>
                   <x:Array Type="sys:String">
                      <sys:String>A600–A1000</sys:String>
@@ -72,9 +80,11 @@
             </DataGridComboBoxColumn>
             <!-- Механический / электротермический (только на упоры) -->
             <DataGridComboBoxColumn x:Name="colSubMethod"
-                                    Header="{DynamicResource ColSubMethod}"
                                     SelectedItemBinding="{Binding SubMethodStr, UpdateSourceTrigger=PropertyChanged}"
                                     Width="100">
+               <DataGridComboBoxColumn.Header>
+                  <TextBlock Text="{DynamicResource ColSubMethod}" ToolTip="{DynamicResource TtColSubMethod}"/>
+               </DataGridComboBoxColumn.Header>
                <DataGridComboBoxColumn.ItemsSource>
                   <x:Array Type="sys:String">
                      <sys:String>Механ.</sys:String>
@@ -82,54 +92,102 @@
                   </x:Array>
                </DataGridComboBoxColumn.ItemsSource>
             </DataGridComboBoxColumn>
-            <DataGridTextColumn Header="{DynamicResource ColRelaxR}"
-                                Binding="{Binding RelaxR, StringFormat=F2}" Width="45"/>
+            <DataGridTextColumn Binding="{Binding RelaxR, StringFormat=F2}" Width="45">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColRelaxR}" ToolTip="{DynamicResource TtColRelaxR}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <!-- OnSupports only -->
             <DataGridCheckBoxColumn x:Name="colDtDefault"
-                                    Header="{DynamicResource ColDeltaT_default}"
-                                    Binding="{Binding UseDefaultDeltaT, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+                                    Binding="{Binding UseDefaultDeltaT, UpdateSourceTrigger=PropertyChanged}" Width="60">
+               <DataGridCheckBoxColumn.Header>
+                  <TextBlock Text="{DynamicResource ColDeltaT_default}" ToolTip="{DynamicResource TtColDtDefault}"/>
+               </DataGridCheckBoxColumn.Header>
+            </DataGridCheckBoxColumn>
             <DataGridTextColumn x:Name="colDt"
-                                Header="{DynamicResource ColDeltaT}"
-                                Binding="{Binding DeltaT, StringFormat=F1}" Width="55"/>
+                                Binding="{Binding DeltaT, StringFormat=F1}" Width="55">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColDeltaT}" ToolTip="{DynamicResource TtColDt}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <DataGridCheckBoxColumn x:Name="colFormDefault"
-                                    Header="{DynamicResource ColFormDefault}"
-                                    Binding="{Binding UseDefaultFormDeform, UpdateSourceTrigger=PropertyChanged}" Width="65"/>
+                                    Binding="{Binding UseDefaultFormDeform, UpdateSourceTrigger=PropertyChanged}" Width="65">
+               <DataGridCheckBoxColumn.Header>
+                  <TextBlock Text="{DynamicResource ColFormDefault}" ToolTip="{DynamicResource TtColFormDefault}"/>
+               </DataGridCheckBoxColumn.Header>
+            </DataGridCheckBoxColumn>
             <DataGridTextColumn x:Name="colNForms"
-                                Header="{DynamicResource ColNForms}"
-                                Binding="{Binding NForms}" Width="45"/>
+                                Binding="{Binding NForms}" Width="45">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColNForms}" ToolTip="{DynamicResource TtColNForms}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <DataGridTextColumn x:Name="colDlForm"
-                                Header="{DynamicResource ColDeltaLForm}"
-                                Binding="{Binding DeltaLForm, StringFormat=F1}" Width="65"/>
+                                Binding="{Binding DeltaLForm, StringFormat=F1}" Width="65">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColDeltaLForm}" ToolTip="{DynamicResource TtColDlForm}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <DataGridTextColumn x:Name="colLForm"
-                                Header="{DynamicResource ColLForm}"
-                                Binding="{Binding LForm, StringFormat=F2}" Width="55"/>
+                                Binding="{Binding LForm, StringFormat=F2}" Width="55">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColLForm}" ToolTip="{DynamicResource TtColLForm}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <DataGridCheckBoxColumn x:Name="colAnchorDefault"
-                                    Header="{DynamicResource ColAnchorDefault}"
-                                    Binding="{Binding UseDefaultAnchorDeform, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+                                    Binding="{Binding UseDefaultAnchorDeform, UpdateSourceTrigger=PropertyChanged}" Width="60">
+               <DataGridCheckBoxColumn.Header>
+                  <TextBlock Text="{DynamicResource ColAnchorDefault}" ToolTip="{DynamicResource TtColAnchorDefault}"/>
+               </DataGridCheckBoxColumn.Header>
+            </DataGridCheckBoxColumn>
             <DataGridTextColumn x:Name="colDlAnchor"
-                                Header="{DynamicResource ColDeltaLAnchor}"
-                                Binding="{Binding DeltaLAnchor, StringFormat=F1}" Width="65"/>
+                                Binding="{Binding DeltaLAnchor, StringFormat=F1}" Width="65">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColDeltaLAnchor}" ToolTip="{DynamicResource TtColDlAnchor}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <DataGridTextColumn x:Name="colLAnchor"
-                                Header="{DynamicResource ColLAnchor}"
-                                Binding="{Binding LAnchor, StringFormat=F2}" Width="55"/>
+                                Binding="{Binding LAnchor, StringFormat=F2}" Width="55">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColLAnchor}" ToolTip="{DynamicResource TtColLAnchor}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <!-- OnConcrete only -->
             <DataGridTextColumn x:Name="colOmega1"
-                                Header="{DynamicResource ColOmega1}"
-                                Binding="{Binding Omega1, StringFormat=F3}" Width="55"/>
+                                Binding="{Binding Omega1, StringFormat=F3}" Width="55">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColOmega1}" ToolTip="{DynamicResource TtColOmega1}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <DataGridTextColumn x:Name="colKFric"
-                                Header="{DynamicResource ColKFriction}"
-                                Binding="{Binding KFriction, StringFormat=F3}" Width="50"/>
+                                Binding="{Binding KFriction, StringFormat=F3}" Width="50">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColKFriction}" ToolTip="{DynamicResource TtColKFriction}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <DataGridTextColumn x:Name="colX"
-                                Header="{DynamicResource ColXLength}"
-                                Binding="{Binding XLength, StringFormat=F2}" Width="50"/>
+                                Binding="{Binding XLength, StringFormat=F2}" Width="50">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColXLength}" ToolTip="{DynamicResource TtColX}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <DataGridTextColumn x:Name="colTheta"
-                                Header="{DynamicResource ColTheta}"
-                                Binding="{Binding Theta, StringFormat=F3}" Width="55"/>
+                                Binding="{Binding Theta, StringFormat=F3}" Width="55">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColTheta}" ToolTip="{DynamicResource TtColTheta}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
             <!-- σ_bpj (общие) -->
-            <DataGridCheckBoxColumn Header="{DynamicResource ColSigmaBpAuto}"
-                                    Binding="{Binding SigmaBpAuto, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
-            <DataGridTextColumn Header="{DynamicResource ColSigmaBpManual}"
-                                Binding="{Binding SigmaBpManual, StringFormat=F1}" Width="70"/>
+            <DataGridCheckBoxColumn Binding="{Binding SigmaBpAuto, UpdateSourceTrigger=PropertyChanged}" Width="60">
+               <DataGridCheckBoxColumn.Header>
+                  <TextBlock Text="{DynamicResource ColSigmaBpAuto}" ToolTip="{DynamicResource TtColSigmaBpAuto}"/>
+               </DataGridCheckBoxColumn.Header>
+            </DataGridCheckBoxColumn>
+            <DataGridTextColumn Binding="{Binding SigmaBpManual, StringFormat=F1}" Width="70">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ColSigmaBpManual}" ToolTip="{DynamicResource TtColSigmaBpManual}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
          </DataGrid.Columns>
       </DataGrid>
 
