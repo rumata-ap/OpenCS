@@ -1,0 +1,144 @@
+<Window x:Class="OpenCS.Views.PrestressLossDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        Title="{DynamicResource PrestressLossDialogTitle}"
+        Width="1150" Height="540" MinWidth="860" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+   <Grid Margin="8">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- Общие параметры -->
+      <WrapPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+         <TextBlock Text="{DynamicResource CalcTaskSection}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+         <TextBlock Text="{Binding SectionTag}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"/>
+
+         <TextBlock Text="{DynamicResource TensionMethodLabel}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+         <ComboBox SelectedIndex="{Binding MethodIndex}" Width="160" Margin="0,0,16,0">
+            <ComboBoxItem Content="{DynamicResource TensionOnSupports}"/>
+            <ComboBoxItem Content="{DynamicResource TensionOnConcrete}"/>
+         </ComboBox>
+
+         <CheckBox Content="{DynamicResource HeatTreatedLabel}" IsChecked="{Binding HeatTreated}"
+                   VerticalAlignment="Center" Margin="0,0,16,0"/>
+
+         <TextBlock Text="{DynamicResource HumidityLabel}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+         <ComboBox SelectedIndex="{Binding HumidityIndex}" Width="100" Margin="0,0,16,0">
+            <ComboBoxItem Content="{DynamicResource HumidityAbove75}"/>
+            <ComboBoxItem Content="{DynamicResource Humidity40_75}"/>
+            <ComboBoxItem Content="{DynamicResource HumidityBelow40}"/>
+         </ComboBox>
+
+         <TextBlock Text="{DynamicResource ConcreteClassLabel}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+         <RadioButton Content="{DynamicResource ConcreteClassAutoLabel}" IsChecked="{Binding ConcreteClassAuto}"
+                      GroupName="ccg" VerticalAlignment="Center" Margin="0,0,4,0"/>
+         <RadioButton Content="{DynamicResource ConcreteClassManualLabel}" IsChecked="{Binding ConcreteClassManual}"
+                      GroupName="ccg" VerticalAlignment="Center" Margin="0,0,2,0"/>
+         <TextBox Text="{Binding ConcreteClassText, UpdateSourceTrigger=PropertyChanged}"
+                  Width="40" IsEnabled="{Binding ConcreteClassManual}" Margin="0,0,16,0"/>
+
+         <TextBlock Text="{DynamicResource PhiBCrLabel}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+         <TextBlock Text="{Binding PhiBCrDisplay}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+      </WrapPanel>
+
+      <!-- DataGrid групп -->
+      <DataGrid x:Name="GroupsGrid" Grid.Row="1"
+                ItemsSource="{Binding Groups}"
+                AutoGenerateColumns="False"
+                CanUserAddRows="False" CanUserDeleteRows="False"
+                HeadersVisibility="Column"
+                SelectionMode="Single" SelectionUnit="FullRow">
+         <DataGrid.Columns>
+            <DataGridTextColumn Header="{DynamicResource ColGroup}"
+                                Binding="{Binding AreaTag}" IsReadOnly="True" Width="80"/>
+            <DataGridTextColumn Header="{DynamicResource ColSigSp0}"
+                                Binding="{Binding SigSp0, StringFormat=F1}" Width="75"/>
+            <DataGridComboBoxColumn x:Name="colRelax"
+                                    Header="{DynamicResource ColRelaxFormula}"
+                                    SelectedItemBinding="{Binding RelaxFormulaStr, UpdateSourceTrigger=PropertyChanged}"
+                                    Width="110">
+               <DataGridComboBoxColumn.ItemsSource>
+                  <x:Array Type="sys:String">
+                     <sys:String>A600–A1000</sys:String>
+                     <sys:String>Вр/К (упрочн.)</sys:String>
+                     <sys:String>К (стаб.)</sys:String>
+                  </x:Array>
+               </DataGridComboBoxColumn.ItemsSource>
+            </DataGridComboBoxColumn>
+            <!-- Механический / электротермический (только на упоры) -->
+            <DataGridComboBoxColumn x:Name="colSubMethod"
+                                    Header="{DynamicResource ColSubMethod}"
+                                    SelectedItemBinding="{Binding SubMethodStr, UpdateSourceTrigger=PropertyChanged}"
+                                    Width="100">
+               <DataGridComboBoxColumn.ItemsSource>
+                  <x:Array Type="sys:String">
+                     <sys:String>Механ.</sys:String>
+                     <sys:String>Электротерм.</sys:String>
+                  </x:Array>
+               </DataGridComboBoxColumn.ItemsSource>
+            </DataGridComboBoxColumn>
+            <DataGridTextColumn Header="{DynamicResource ColRelaxR}"
+                                Binding="{Binding RelaxR, StringFormat=F2}" Width="45"/>
+            <!-- OnSupports only -->
+            <DataGridCheckBoxColumn x:Name="colDtDefault"
+                                    Header="{DynamicResource ColDeltaT_default}"
+                                    Binding="{Binding UseDefaultDeltaT, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+            <DataGridTextColumn x:Name="colDt"
+                                Header="{DynamicResource ColDeltaT}"
+                                Binding="{Binding DeltaT, StringFormat=F1}" Width="55"/>
+            <DataGridCheckBoxColumn x:Name="colFormDefault"
+                                    Header="{DynamicResource ColFormDefault}"
+                                    Binding="{Binding UseDefaultFormDeform, UpdateSourceTrigger=PropertyChanged}" Width="65"/>
+            <DataGridTextColumn x:Name="colNForms"
+                                Header="{DynamicResource ColNForms}"
+                                Binding="{Binding NForms}" Width="45"/>
+            <DataGridTextColumn x:Name="colDlForm"
+                                Header="{DynamicResource ColDeltaLForm}"
+                                Binding="{Binding DeltaLForm, StringFormat=F1}" Width="65"/>
+            <DataGridTextColumn x:Name="colLForm"
+                                Header="{DynamicResource ColLForm}"
+                                Binding="{Binding LForm, StringFormat=F2}" Width="55"/>
+            <DataGridCheckBoxColumn x:Name="colAnchorDefault"
+                                    Header="{DynamicResource ColAnchorDefault}"
+                                    Binding="{Binding UseDefaultAnchorDeform, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+            <DataGridTextColumn x:Name="colDlAnchor"
+                                Header="{DynamicResource ColDeltaLAnchor}"
+                                Binding="{Binding DeltaLAnchor, StringFormat=F1}" Width="65"/>
+            <DataGridTextColumn x:Name="colLAnchor"
+                                Header="{DynamicResource ColLAnchor}"
+                                Binding="{Binding LAnchor, StringFormat=F2}" Width="55"/>
+            <!-- OnConcrete only -->
+            <DataGridTextColumn x:Name="colOmega1"
+                                Header="{DynamicResource ColOmega1}"
+                                Binding="{Binding Omega1, StringFormat=F3}" Width="55"/>
+            <DataGridTextColumn x:Name="colKFric"
+                                Header="{DynamicResource ColKFriction}"
+                                Binding="{Binding KFriction, StringFormat=F3}" Width="50"/>
+            <DataGridTextColumn x:Name="colX"
+                                Header="{DynamicResource ColXLength}"
+                                Binding="{Binding XLength, StringFormat=F2}" Width="50"/>
+            <DataGridTextColumn x:Name="colTheta"
+                                Header="{DynamicResource ColTheta}"
+                                Binding="{Binding Theta, StringFormat=F3}" Width="55"/>
+            <!-- σ_bpj (общие) -->
+            <DataGridCheckBoxColumn Header="{DynamicResource ColSigmaBpAuto}"
+                                    Binding="{Binding SigmaBpAuto, UpdateSourceTrigger=PropertyChanged}" Width="60"/>
+            <DataGridTextColumn Header="{DynamicResource ColSigmaBpManual}"
+                                Binding="{Binding SigmaBpManual, StringFormat=F1}" Width="70"/>
+         </DataGrid.Columns>
+      </DataGrid>
+
+      <!-- Кнопки -->
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+         <Button Content="{DynamicResource Save}"   Command="{Binding SaveCommand}"
+                 Padding="16,4" Margin="0,0,8,0"/>
+         <Button Content="{DynamicResource Cancel}" Command="{Binding CancelCommand}"
+                 Padding="16,4"/>
+      </StackPanel>
+   </Grid>
+</Window>
