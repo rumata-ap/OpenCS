@@ -251,6 +251,11 @@ namespace OpenCS.Utilites
          """
          -- v18: модель интегрирования пластины.
          ALTER TABLE plate_sections ADD COLUMN plate_model TEXT NOT NULL DEFAULT 'layered';
+         """,
+         """
+         -- v19: преднапряжение арматурных областей (σ_sp, γ_sp).
+         ALTER TABLE material_areas ADD COLUMN sig_sp   REAL NOT NULL DEFAULT 0.0;
+         ALTER TABLE material_areas ADD COLUMN gamma_sp REAL NOT NULL DEFAULT 1.0;
          """
       ];
 
@@ -454,7 +459,9 @@ namespace OpenCS.Utilites
                 mesh_max_area    REAL NOT NULL DEFAULT 0.01,
                 mesh_min_angle   REAL NOT NULL DEFAULT 30.0,
                 mesh_max_edge_len REAL NOT NULL DEFAULT 0.0,
-                mesh_smooth_iter  INTEGER NOT NULL DEFAULT 5
+                mesh_smooth_iter  INTEGER NOT NULL DEFAULT 5,
+                sig_sp            REAL    NOT NULL DEFAULT 0.0,
+                gamma_sp          REAL    NOT NULL DEFAULT 1.0
             );
             CREATE TABLE IF NOT EXISTS point_fibers (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1052,7 +1059,8 @@ namespace OpenCS.Utilites
          cmd.CommandText = """
             SELECT id, num, tag, description, material_id,
                    host_area_id, diagramm_type, nx, ny, wkt, category, pool_contour_id,
-                   mesh_method, mesh_max_area, mesh_min_angle, mesh_max_edge_len, mesh_smooth_iter
+                   mesh_method, mesh_max_area, mesh_min_angle, mesh_max_edge_len, mesh_smooth_iter,
+                   sig_sp, gamma_sp
             FROM material_areas
             WHERE section_id IS NULL
             ORDER BY num
@@ -1078,7 +1086,9 @@ namespace OpenCS.Utilites
                MeshMaxArea    = r.IsDBNull(13) ? 0.01 : r.GetDouble(13),
                MeshMinAngle   = r.IsDBNull(14) ? 30.0 : r.GetDouble(14),
                MeshMaxEdgeLen = r.IsDBNull(15) ? 0.0  : r.GetDouble(15),
-               MeshSmoothIter = r.IsDBNull(16) ? 5    : r.GetInt32(16)
+               MeshSmoothIter = r.IsDBNull(16) ? 5    : r.GetInt32(16),
+               SigSp          = r.IsDBNull(17) ? 0.0  : r.GetDouble(17),
+               GammaSp        = r.IsDBNull(18) ? 1.0  : r.GetDouble(18)
             };
             if (area.WKT != null)
             {
@@ -1172,9 +1182,11 @@ namespace OpenCS.Utilites
                   INSERT INTO material_areas
                      (num, tag, description, material_id, host_area_id,
                       diagramm_type, nx, ny, wkt, category, pool_contour_id,
-                      mesh_method, mesh_max_area, mesh_min_angle, mesh_max_edge_len, mesh_smooth_iter)
+                      mesh_method, mesh_max_area, mesh_min_angle, mesh_max_edge_len, mesh_smooth_iter,
+                      sig_sp, gamma_sp)
                   VALUES (@num,@tag,@desc,@mid,@hid,@dtype,@nx,@ny,@wkt,@cat,@pcid,
-                          @mmethod,@mmaxarea,@mminangle,@mmaxedge,@msmoothiter);
+                          @mmethod,@mmaxarea,@mminangle,@mmaxedge,@msmoothiter,
+                          @sigsp,@gammasp);
                   SELECT last_insert_rowid();
                """;
             }
@@ -1186,7 +1198,8 @@ namespace OpenCS.Utilites
                      host_area_id=@hid, diagramm_type=@dtype, nx=@nx, ny=@ny,
                      wkt=@wkt, category=@cat, pool_contour_id=@pcid,
                      mesh_method=@mmethod, mesh_max_area=@mmaxarea, mesh_min_angle=@mminangle,
-                     mesh_max_edge_len=@mmaxedge, mesh_smooth_iter=@msmoothiter
+                     mesh_max_edge_len=@mmaxedge, mesh_smooth_iter=@msmoothiter,
+                     sig_sp=@sigsp, gamma_sp=@gammasp
                   WHERE id=@id;
                """;
                cmd.Parameters.AddWithValue("@id", area.Id);
@@ -1207,6 +1220,8 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@mminangle",   area.MeshMinAngle);
             cmd.Parameters.AddWithValue("@mmaxedge",    area.MeshMaxEdgeLen);
             cmd.Parameters.AddWithValue("@msmoothiter", area.MeshSmoothIter);
+            cmd.Parameters.AddWithValue("@sigsp",       area.SigSp);
+            cmd.Parameters.AddWithValue("@gammasp",     area.GammaSp);
             if (isNew) area.Id = (int)(long)cmd.ExecuteScalar()!;
             else cmd.ExecuteNonQuery();
          }
