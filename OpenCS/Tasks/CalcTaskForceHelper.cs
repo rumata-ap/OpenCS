@@ -21,7 +21,7 @@ internal static class CalcTaskForceHelper
          or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"
          or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch"
          or "shell_strain_state" or "shell_strain_state_batch"
-         or "strength_ndm_batch" => true,
+         or "strength_ndm_batch" or "prestress_loss" => true,
       _ => false
    };
 
