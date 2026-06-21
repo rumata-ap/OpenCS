@@ -185,6 +185,8 @@ namespace CScore.PrestressLoss
             result.PrecompForceFirst = pFirst;
 
             // === Приведённые характеристики сечения (для авто σ_bpj) ===
+            // Для контурных областей (Region) — геометрия из Hull (теорема Грина);
+            // для прочих — из точечных фибр.
             double A_red = 0, I_red = 0, y_c = 0;
             {
                 double sumA = 0, sumAY = 0;
@@ -192,10 +194,18 @@ namespace CScore.PrestressLoss
                 {
                     double alpha = area.Category == AreaCategory.Region
                         ? 1.0 : (area.Material?.E ?? E_b) / E_b;
-                    foreach (var f in area.Fibers.Where(f => f.TypeFiber != FiberType.none))
+                    if (area.Category == AreaCategory.Region && area.Hull != null)
                     {
-                        sumA  += alpha * f.Area;
-                        sumAY += alpha * f.Area * f.Y;
+                        var gp = new GeoProps(area.Hull);
+                        double aA = gp.A, aSx = gp.Sx;
+                        foreach (var hole in area.Holes) { var h = new GeoProps(hole); aA -= h.A; aSx -= h.Sx; }
+                        sumA  += alpha * aA;
+                        sumAY += alpha * aSx;   // Sx = ∫y·dA
+                    }
+                    else
+                    {
+                        foreach (var f in area.Fibers.Where(f => f.TypeFiber != FiberType.none))
+                        { sumA += alpha * f.Area; sumAY += alpha * f.Area * f.Y; }
                     }
                 }
                 if (sumA > 0) { y_c = sumAY / sumA; A_red = sumA; }
@@ -203,8 +213,19 @@ namespace CScore.PrestressLoss
                 {
                     double alpha = area.Category == AreaCategory.Region
                         ? 1.0 : (area.Material?.E ?? E_b) / E_b;
-                    foreach (var f in area.Fibers.Where(f => f.TypeFiber != FiberType.none))
-                        I_red += alpha * f.Area * Math.Pow(f.Y - y_c, 2);
+                    if (area.Category == AreaCategory.Region && area.Hull != null)
+                    {
+                        var gp = new GeoProps(area.Hull);
+                        double aA = gp.A, aSx = gp.Sx, aIx = gp.Ix;
+                        foreach (var hole in area.Holes) { var h = new GeoProps(hole); aA -= h.A; aSx -= h.Sx; aIx -= h.Ix; }
+                        // ∫(y - y_c)² dA = Ix - 2·y_c·Sx + y_c²·A
+                        I_red += alpha * (aIx - 2 * y_c * aSx + y_c * y_c * aA);
+                    }
+                    else
+                    {
+                        foreach (var f in area.Fibers.Where(f => f.TypeFiber != FiberType.none))
+                            I_red += alpha * f.Area * Math.Pow(f.Y - y_c, 2);
+                    }
                 }
             }
 
@@ -219,10 +240,18 @@ namespace CScore.PrestressLoss
             }
 
             // Площадь бетонного сечения для μ_spj [м²]
-            double A_concrete = section!.Areas
-                .Where(a => a.Category == AreaCategory.Region)
-                .SelectMany(a => a.Fibers.Where(f => f.TypeFiber != FiberType.none))
-                .Sum(f => f.Area);
+            double A_concrete = 0;
+            foreach (var area in section!.Areas.Where(a => a.Category == AreaCategory.Region))
+            {
+                if (area.Hull != null)
+                {
+                    double a = new GeoProps(area.Hull).A;
+                    foreach (var hole in area.Holes) a -= new GeoProps(hole).A;
+                    A_concrete += a;
+                }
+                else
+                    A_concrete += area.Fibers.Where(f => f.TypeFiber != FiberType.none).Sum(f => f.Area);
+            }
 
             // === Вторые потери ===
             for (int i = 0; i < p.Groups.Count; i++)
