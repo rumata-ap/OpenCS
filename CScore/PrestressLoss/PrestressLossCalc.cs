@@ -151,9 +151,15 @@ namespace CScore.PrestressLoss
                 // Δσ_sp4 — деформация анкеров (только на упоры + механический, п.9.1.6)
                 if (p.Method == TensionMethod.OnSupports && gp.SubMethod == TensionSubMethod.Mechanical)
                 {
-                    double dl  = gp.UseDefaultAnchorDeform ? 2.0 : gp.DeltaLAnchor;
-                    double eps = dl / (gp.LAnchor * 1000.0);   // мм / (м*1000) = безразм.
-                    gr.DSp4 = eps * Es_MPa;
+                    if (gp.LAnchor <= 0)
+                        result.Warnings.Add(
+                            $"Группа «{area.Tag}»: Δσ_sp4 не вычислена — задайте «L анк.» (расстояние между анкерами) в параметрах");
+                    else
+                    {
+                        double dl  = gp.UseDefaultAnchorDeform ? 2.0 : gp.DeltaLAnchor;
+                        double eps = dl / (gp.LAnchor * 1000.0);   // мм / (м*1000) = безразм.
+                        gr.DSp4 = eps * Es_MPa;
+                    }
                 }
 
                 // Δσ_sp7 — трение (только на бетон, п.9.1.2)

@@ -39,7 +39,7 @@ namespace CScore.PrestressLoss
         // Деформация анкеров (OnSupports + Mechanical)
         public bool   UseDefaultAnchorDeform { get; set; } = true;
         public double DeltaLAnchor           { get; set; } = 2.0; // [мм]
-        public double LAnchor                { get; set; } = 1;   // [м]
+        public double LAnchor                { get; set; } = 0;   // [м], 0 = не задано → Δσ_sp4 не вычисляется
 
         // Трение (OnConcrete)
         public double Omega1    { get; set; } = 0.01;

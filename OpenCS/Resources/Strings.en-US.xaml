@@ -961,7 +961,7 @@
     <system:String x:Key="TtColLForm">Total tensioning length between abutments [m]</system:String>
     <system:String x:Key="TtColAnchorDefault">Use default anchor deformation Δl = 2 mm (§9.1.6)</system:String>
     <system:String x:Key="TtColDlAnchor">Anchor slip/deformation when locking the tendon [mm]</system:String>
-    <system:String x:Key="TtColLAnchor">Distance between anchors (tendon length) [m]</system:String>
+    <system:String x:Key="TtColLAnchor">Distance between anchors (tensioning element length) [m]. Typical: 10–150 m. 0 = not set → Δσ_sp4 is skipped</system:String>
     <system:String x:Key="TtColOmega1">ω₁ — friction coefficient of tendon against duct per unit length (§9.1.2)</system:String>
     <system:String x:Key="TtColKFriction">k — coefficient for local duct deformations (§9.1.2)</system:String>
     <system:String x:Key="TtColX">Length of tendon from the jack to the cross-section [m]</system:String>

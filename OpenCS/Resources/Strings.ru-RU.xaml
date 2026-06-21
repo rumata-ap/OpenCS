@@ -964,7 +964,7 @@
     <system:String x:Key="TtColLForm">Полная длина натяжного элемента (между упорами) [м]</system:String>
     <system:String x:Key="TtColAnchorDefault">Использовать деформацию анкеров по умолчанию Δl = 2 мм (п. 9.1.6)</system:String>
     <system:String x:Key="TtColDlAnchor">Деформация анкерных устройств при фиксации арматуры [мм]</system:String>
-    <system:String x:Key="TtColLAnchor">Расстояние между анкерами (длина напрягаемой арматуры) [м]</system:String>
+    <system:String x:Key="TtColLAnchor">Расстояние между анкерами (длина натяжного элемента) [м]. Типично 10–150 м. 0 = не задано → Δσ_sp4 не вычисляется</system:String>
     <system:String x:Key="TtColOmega1">Коэффициент ω₁ = трение арматуры о стенки канала на 1 м длины (п. 9.1.2)</system:String>
     <system:String x:Key="TtColKFriction">Коэффициент k, учитывающий местные деформации каналообразователя (п. 9.1.2)</system:String>
     <system:String x:Key="TtColX">Длина напрягаемой арматуры от домкрата до расчётного сечения [м]</system:String>
