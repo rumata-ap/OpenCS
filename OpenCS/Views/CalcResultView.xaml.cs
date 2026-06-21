@@ -11,6 +11,13 @@ namespace OpenCS.Views
     public CalcResultView(CalcResult result, AppViewModel app)
     {
         var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
+
+        if (task?.Kind == "prestress_loss")
+        {
+            Content = new PrestressLossResultView(result, app);
+            return;
+        }
+
         if (task?.Kind is "fire_r_check" or "fire_r_check_batch"
             or "strain_state_batch" or "two_stage_strain_batch"
             or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"
