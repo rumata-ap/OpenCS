@@ -390,6 +390,13 @@
    <system:String x:Key="ClearHull">Clear</system:String>
    <system:String x:Key="AddHole">Add Hole</system:String>
    <system:String x:Key="MeshGrid">Mesh</system:String>
+   <system:String x:Key="Prestress">Prestress</system:String>
+   <system:String x:Key="SigSpLabel">σ_sp after losses, MPa</system:String>
+   <system:String x:Key="GammaSpLabel">γ_sp accuracy factor (SP 63 cl. 9.2.6)</system:String>
+   <system:String x:Key="GammaSp_1_0">1.0 — not applied</system:String>
+   <system:String x:Key="GammaSp_0_9">0.9 — favorable</system:String>
+   <system:String x:Key="GammaSp_1_1">1.1 — unfavorable</system:String>
+   <system:String x:Key="EpsSpLabel">ε_sp (computed): </system:String>
    <system:String x:Key="CurrentHull">Current: </system:String>
    <system:String x:Key="DiagramType">Diagram Type</system:String>
    <system:String x:Key="NewTwoStageSection">New Strengthening</system:String>

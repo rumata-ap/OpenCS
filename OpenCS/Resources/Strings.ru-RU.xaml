@@ -393,6 +393,13 @@
    <system:String x:Key="ClearHull">Очистить</system:String>
    <system:String x:Key="AddHole">Добавить отверстие</system:String>
    <system:String x:Key="MeshGrid">Сетка</system:String>
+   <system:String x:Key="Prestress">Преднапряжение</system:String>
+   <system:String x:Key="SigSpLabel">σ_sp после потерь, МПа</system:String>
+   <system:String x:Key="GammaSpLabel">γ_sp — коэф. точности (п. 9.2.6 СП 63)</system:String>
+   <system:String x:Key="GammaSp_1_0">1.0 — не учитывать</system:String>
+   <system:String x:Key="GammaSp_0_9">0.9 — благоприятное влияние</system:String>
+   <system:String x:Key="GammaSp_1_1">1.1 — неблагоприятное влияние</system:String>
+   <system:String x:Key="EpsSpLabel">ε_sp (вычислено): </system:String>
    <system:String x:Key="CurrentHull">Текущий: </system:String>
    <system:String x:Key="DiagramType">Тип диаграммы</system:String>
    <system:String x:Key="NewTwoStageSection">Новое усиление</system:String>

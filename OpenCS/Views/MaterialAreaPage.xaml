@@ -99,6 +99,29 @@
                </StackPanel>
             </GroupBox>
 
+            <!-- Преднапряжение — только для арматурных областей -->
+            <GroupBox Header="{DynamicResource Prestress}"
+                      Visibility="{Binding PrestressVisibility}"
+                      Margin="0,0,0,8">
+               <StackPanel Margin="4">
+                  <TextBlock Text="{DynamicResource SigSpLabel}" Margin="0,0,0,2"/>
+                  <TextBox Text="{Binding SigSp, UpdateSourceTrigger=PropertyChanged, StringFormat=F1}"
+                           Margin="0,0,0,6"/>
+
+                  <TextBlock Text="{DynamicResource GammaSpLabel}" Margin="0,0,0,2"/>
+                  <ComboBox SelectedIndex="{Binding GammaSpIndex}" Margin="0,0,0,6">
+                     <ComboBoxItem Content="{DynamicResource GammaSp_1_0}"/>
+                     <ComboBoxItem Content="{DynamicResource GammaSp_0_9}"/>
+                     <ComboBoxItem Content="{DynamicResource GammaSp_1_1}"/>
+                  </ComboBox>
+
+                  <TextBlock>
+                     <Run Text="{DynamicResource EpsSpLabel}"/>
+                     <Run Text="{Binding EpsSp, Mode=OneWay}"/>
+                  </TextBlock>
+               </StackPanel>
+            </GroupBox>
+
             <!-- Кнопки -->
             <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                <Button Content="{DynamicResource Save}"
