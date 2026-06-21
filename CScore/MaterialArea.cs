@@ -167,7 +167,7 @@ namespace CScore
       public void PropagateEps_p()
       {
          if (SigSp == 0.0 || Material == null) return;
-         double eps_p = SigSp * GammaSp / Material.E;
+         double eps_p = SigSp * 1000.0 * GammaSp / Material.E;  // SigSp [МПа] → [кПа] ×1000; E в кПа
          foreach (var f in Fibers.Where(f => f.TypeFiber == FiberType.point))
             f.Eps_p = eps_p;
       }

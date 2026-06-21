@@ -127,7 +127,7 @@ namespace OpenCS.ViewModels
             {
                 double e = _selectedMaterial?.E ?? 0;
                 if (e < 1) return "—";
-                return $"{1000 * (EditedArea?.SigSp ?? 0) * (EditedArea?.GammaSp ?? 1) / e:F3} ‰";
+                return $"{(EditedArea?.SigSp ?? 0) * 1000.0 * (EditedArea?.GammaSp ?? 1) / e * 1000.0:F3} ‰";
             }
         }
 

@@ -104,7 +104,7 @@ namespace OpenCS.ViewModels
          {
             double e = _model.Material?.E ?? 0;
             if (e < 1) return "—";
-            return $"{1000 * _model.SigSp * _model.GammaSp / e:F3} ‰";
+            return $"{_model.SigSp * 1000.0 * _model.GammaSp / e * 1000.0:F3} ‰";
          }
       }
 
