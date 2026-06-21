@@ -100,7 +100,11 @@ public class PrestressLossDlgVM : ViewModelBase
         set { _concrClassAuto = value; OnPropertyChanged(); OnPropertyChanged(nameof(ConcreteClassManual)); OnPropertyChanged(nameof(PhiBCrDisplay)); }
     }
 
-    public bool ConcreteClassManual => !_concrClassAuto;
+    public bool ConcreteClassManual
+    {
+        get => !_concrClassAuto;
+        set { _concrClassAuto = !value; OnPropertyChanged(); OnPropertyChanged(nameof(ConcreteClassAuto)); OnPropertyChanged(nameof(PhiBCrDisplay)); }
+    }
 
     public string ConcreteClassText
     {
