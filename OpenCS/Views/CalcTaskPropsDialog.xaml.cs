@@ -112,6 +112,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(Stage1ShowManual));
            OnPropertyChanged(nameof(Stage2ShowSet));
            OnPropertyChanged(nameof(Stage2ShowManual));
+           OnPropertyChanged(nameof(IsPrestressLoss));
            if (!FilteredCalcTypes.Contains(SelectedCalcType))
                SelectedCalcType = FilteredCalcTypes[0];
         }
@@ -148,6 +149,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(Stage1ShowManual));
            OnPropertyChanged(nameof(Stage2ShowSet));
            OnPropertyChanged(nameof(Stage2ShowManual));
+           OnPropertyChanged(nameof(IsPrestressLoss));
            if (!FilteredCalcTypes.Contains(SelectedCalcType))
                SelectedCalcType = FilteredCalcTypes[0];
            FilterSections();
@@ -172,11 +174,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsPlateBatch => IsShellSimplBatch || IsShellStrainBatch;
    public bool IsTwoStage      => Kind is "two_stage_strain" or "two_stage_strain_batch";
    public bool IsTwoStageBatch => Kind == "two_stage_strain_batch";
-   public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel;
+   public bool IsPrestressLoss => Kind == "prestress_loss";
+   public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss;
    public bool ShowSolverMethod => IsLimitKind;
 
-   /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage).</summary>
-   public bool ShowStandardForce => !IsTwoStage && !IsPlatePanel;
+   /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
+   public bool ShowStandardForce => !IsTwoStage && !IsPlatePanel && !IsPrestressLoss;
 
    void FilterSections()
    {
@@ -406,7 +409,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shell_strain_state",       Label = Loc.S("CalcTaskKind_shell_strain_state") },
       new() { Id = "shell_strain_state_batch", Label = Loc.S("CalcTaskKind_shell_strain_state_batch") },
       new() { Id = "fire_r_check",         Label = Loc.S("CalcTaskKind_fire_r_check") },
-      new() { Id = "fire_r_check_batch",   Label = Loc.S("CalcTaskKind_fire_r_check_batch") }
+      new() { Id = "fire_r_check_batch",   Label = Loc.S("CalcTaskKind_fire_r_check_batch") },
+      new() { Id = "prestress_loss",       Label = Loc.S("CalcTaskKind_prestress_loss") }
    ];
 
    public List<CalcTaskSolverItem> SolverMethods { get; } =
