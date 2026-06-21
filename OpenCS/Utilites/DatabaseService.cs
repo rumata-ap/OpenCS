@@ -27,7 +27,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 21;
+      const int CurrentSchemaVersion = 22;
 
       static readonly string[] Migrations =
       [
@@ -251,11 +251,6 @@ namespace OpenCS.Utilites
          """
          -- v18: модель интегрирования пластины.
          ALTER TABLE plate_sections ADD COLUMN plate_model TEXT NOT NULL DEFAULT 'layered';
-         """,
-         """
-         -- v19: преднапряжение арматурных областей (σ_sp, γ_sp).
-         ALTER TABLE material_areas ADD COLUMN sig_sp   REAL NOT NULL DEFAULT 0.0;
-         ALTER TABLE material_areas ADD COLUMN gamma_sp REAL NOT NULL DEFAULT 1.0;
          """
       ];
 
@@ -585,6 +580,7 @@ namespace OpenCS.Utilites
                if (i == 18) { MigrateV19(); continue; }
                if (i == 19) { MigrateV20(); continue; }
                if (i == 20) { EnsureConcreteDiagramTypeColumn(); continue; }
+               if (i == 21) { EnsurePrestressColumns(); continue; }
                var migCmd = _connection.CreateCommand();
                migCmd.CommandText = Migrations[i];
                migCmd.ExecuteNonQuery();
@@ -735,6 +731,15 @@ namespace OpenCS.Utilites
       {
          if (ColumnExists("plate_sections", "concrete_diagram_type")) return;
          MigExec("ALTER TABLE plate_sections ADD COLUMN concrete_diagram_type TEXT NOT NULL DEFAULT 'L3'");
+      }
+
+      /// <summary>Миграция v22: σ_sp и γ_sp для преднапряжённых арматурных областей (идемпотентно).</summary>
+      void EnsurePrestressColumns()
+      {
+         if (!ColumnExists("material_areas", "sig_sp"))
+            MigExec("ALTER TABLE material_areas ADD COLUMN sig_sp   REAL NOT NULL DEFAULT 0.0");
+         if (!ColumnExists("material_areas", "gamma_sp"))
+            MigExec("ALTER TABLE material_areas ADD COLUMN gamma_sp REAL NOT NULL DEFAULT 1.0");
       }
 
       /// <summary>Миграция v19: тип заполнителя бетона в fire_sections.</summary>
