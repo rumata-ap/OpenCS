@@ -6,6 +6,7 @@ using OpenCS.Views;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -55,6 +56,7 @@ namespace OpenCS.ViewModels
             OnPropertyChanged();
             OnPropertyChanged(nameof(MaterialType));
             OnPropertyChanged(nameof(IsCustomMaterial));
+            OnPropertyChanged(nameof(EpsSp));
             RefreshPlot();
          }
       }
@@ -63,6 +65,48 @@ namespace OpenCS.ViewModels
 
       /// <summary>true если назначенный материал — Custom (для скрытия DiagrammType-комбо в UI).</summary>
       public bool IsCustomMaterial => _model.Material?.Type == MatType.Custom;
+
+      /// <summary>Видимость блока преднапряжения — только для арматурных областей.</summary>
+      public Visibility PrestressVisibility =>
+         (_model.Category is AreaCategory.RebarGroup or AreaCategory.SingleBar)
+            ? Visibility.Visible : Visibility.Collapsed;
+
+      /// <summary>Предварительное напряжение после потерь [МПа].</summary>
+      public double SigSp
+      {
+         get => _model.SigSp;
+         set
+         {
+            _model.SigSp = value;
+            _model.PropagateEps_p();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(EpsSp));
+         }
+      }
+
+      /// <summary>Индекс γ_sp для ComboBox: 0→1.0 (по умолч.), 1→0.9 (благопр.), 2→1.1 (неблагопр.).</summary>
+      public int GammaSpIndex
+      {
+         get => _model.GammaSp switch { 0.9 => 1, 1.1 => 2, _ => 0 };
+         set
+         {
+            _model.GammaSp = value switch { 1 => 0.9, 2 => 1.1, _ => 1.0 };
+            _model.PropagateEps_p();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(EpsSp));
+         }
+      }
+
+      /// <summary>Вычисленная ε_sp в промиллях, только для чтения.</summary>
+      public string EpsSp
+      {
+         get
+         {
+            double e = _model.Material?.E ?? 0;
+            if (e < 1) return "—";
+            return $"{1000 * _model.SigSp * _model.GammaSp / e:F3} ‰";
+         }
+      }
 
       public DiagrammType DiagrammType
       {
