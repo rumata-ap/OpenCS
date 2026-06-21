@@ -127,6 +127,14 @@ namespace OpenCS
       public bool IsDirty { get; set; }
 
       /// <summary>
+      /// Генерируется когда <see cref="MaterialArea.SigSp"/> изменяется извне (например,
+      /// через «Применить» результатов потерь преднапряжения). Аргумент — Id области.
+      /// </summary>
+      public event EventHandler<int>? MaterialAreaSigSpChanged;
+      public void RaiseAreaSigSpChanged(int areaId) =>
+          MaterialAreaSigSpChanged?.Invoke(this, areaId);
+
+      /// <summary>
       /// Заголовок окна приложения. Содержит имя текущего файла проекта.
       /// </summary>
       public string ProjectTitle

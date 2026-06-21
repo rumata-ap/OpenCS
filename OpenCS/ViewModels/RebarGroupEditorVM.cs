@@ -66,6 +66,17 @@ namespace OpenCS.ViewModels
             }
 
             InitStrategyReference();
+
+            app.MaterialAreaSigSpChanged += OnSigSpChangedExternally;
+        }
+
+        void OnSigSpChangedExternally(object? sender, int areaId)
+        {
+            if (EditedArea?.Id == areaId)
+            {
+                OnPropertyChanged(nameof(SigSp));
+                OnPropertyChanged(nameof(EpsSp));
+            }
         }
 
         // ── Стратегия ────────────────────────────────────────────────────────

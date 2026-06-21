@@ -108,6 +108,7 @@ class PrestressLossResultVM : ViewModelBase
             area.SigSp = gr.SigSp2;
             area.PropagateEps_p();
             _app.db.SaveMaterialArea(area);
+            _app.RaiseAreaSigSpChanged(area.Id);
             count++;
         }
         MessageBox.Show(
