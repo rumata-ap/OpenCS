@@ -86,6 +86,12 @@ namespace CScore
       /// <summary>Метод генерации сетки фибр.</summary>
       public MeshMethod MeshMethod { get; set; } = MeshMethod.Grid;
 
+      /// <summary>Предварительное напряжение арматуры после потерь [МПа]. 0 = не преднапряжена.</summary>
+      public double SigSp { get; set; } = 0.0;
+
+      /// <summary>Коэффициент точности преднапряжения γ_sp (п. 9.2.6 СП 63). 1.0 = не учитывать.</summary>
+      public double GammaSp { get; set; } = 1.0;
+
       /// <summary>Максимальная площадь треугольника (доля от площади области).</summary>
       public double MeshMaxArea { get; set; } = 0.01;
 
@@ -155,6 +161,18 @@ namespace CScore
       }
 
       /// <summary>
+      /// Вычисляет ε_sp = SigSp · GammaSp / E_s и записывает в <see cref="Fiber.Eps_p"/>
+      /// для всех точечных фибр. Вызывать после разрешения <see cref="Material"/>.
+      /// </summary>
+      public void PropagateEps_p()
+      {
+         if (SigSp == 0.0 || Material == null) return;
+         double eps_p = SigSp * GammaSp / Material.E;
+         foreach (var f in Fibers.Where(f => f.TypeFiber == FiberType.point))
+            f.Eps_p = eps_p;
+      }
+
+      /// <summary>
       /// Пересчитывает диаграммы после загрузки из БД.
       /// Для арматурной области с HostArea строит разностные диаграммы.
       /// </summary>
@@ -181,6 +199,7 @@ namespace CScore
          {
             Diagramms = own;
          }
+         PropagateEps_p();
       }
 
       /// <summary>
