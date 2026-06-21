@@ -6,10 +6,17 @@
 
    <Grid>
       <Grid.ColumnDefinitions>
-         <ColumnDefinition Width="180"/>
-         <ColumnDefinition/>
-         <ColumnDefinition Width="220"/>
+         <ColumnDefinition Width="240" MinWidth="160"/>
+         <ColumnDefinition Width="4"/>
+         <ColumnDefinition Width="*"   MinWidth="100"/>
+         <ColumnDefinition Width="4"/>
+         <ColumnDefinition Width="220" MinWidth="160"/>
       </Grid.ColumnDefinitions>
+
+      <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                    Background="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"/>
+      <GridSplitter Grid.Column="3" Width="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                    Background="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"/>
 
       <!-- Левая панель -->
       <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
@@ -149,10 +156,10 @@
       </ScrollViewer>
 
       <!-- Холст -->
-      <local:RebarGroupCanvas x:Name="Canvas" Grid.Column="1" Margin="4"/>
+      <local:RebarGroupCanvas x:Name="Canvas" Grid.Column="2" Margin="4"/>
 
       <!-- Правая панель -->
-      <Grid Grid.Column="2">
+      <Grid Grid.Column="4">
          <Grid.RowDefinitions>
             <RowDefinition Height="*"/>
             <RowDefinition Height="*"/>
