@@ -158,92 +158,86 @@
       <ToolBarTray Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3">
          <ToolBar>
             <!-- Файл -->
-            <!-- Новый проект: светло-голубой лист + зелёный плюс -->
+            <!-- Новый проект -->
             <Button Command="{Binding NewProjectCommand}" ToolTip="{DynamicResource New}" Padding="4,3">
                <Viewbox Width="18" Height="18">
                   <Grid Width="24" Height="24">
-                     <!-- Лист бумаги -->
-                     <Path Fill="#DBEAFE" Stroke="#2563EB" StrokeThickness="1"
-                           Data="M14 2H6C4.89 2 4 2.89 4 4V20C4 21.11 4.89 22 6 22H18C19.11 22 20 21.11 20 20V8L14 2Z"/>
-                     <!-- Загнутый уголок -->
-                     <Path Fill="#3B82F6"
-                           Data="M13 3.5L18.5 9H13V3.5Z"/>
-                     <!-- Горизонтальные строки-декор -->
-                     <Path Fill="#2563EB"
-                           Data="M7 12H12V13.5H7ZM7 15H11V16.5H7Z"/>
-                     <!-- Зелёный плюс (Новый) -->
-                     <Path Fill="#16A34A"
-                           Data="M11 11H9V13H11V15H13V13H15V11H13V9H11V11Z"/>
+                     <Path Fill="#2CA9BC"
+                           Data="M12.5,19A6.5,6.5,0,0,0,6,12.5V7l4-4h9a1,1,0,0,1,1,1V20a1,1,0,0,1-1,1H12.18A6.3,6.3,0,0,0,12.5,19Z"/>
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M4,19H8M6,21V17m8-4h2m0-4H10"/>
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M6,13V7l4-4h9a1,1,0,0,1,1,1V20a1,1,0,0,1-1,1H12"/>
                   </Grid>
                </Viewbox>
             </Button>
-            <!-- Открыть: двухтоновая янтарная папка -->
+            <!-- Открыть -->
             <Button Command="{Binding OpenProjectCommand}" ToolTip="{DynamicResource Open}" Padding="4,3">
                <Viewbox Width="18" Height="18">
                   <Grid Width="24" Height="24">
-                     <!-- Задняя стенка папки (тёмнее) -->
-                     <Path Fill="#D97706" Stroke="#92400E" StrokeThickness="1"
+                     <Path Fill="#2CA9BC" Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
                            Data="M10 4H4A2 2 0 0 0 2 6V18A2 2 0 0 0 4 20H20A2 2 0 0 0 22 18V8A2 2 0 0 0 20 6H12L10 4Z"/>
-                     <!-- Передняя стенка (светлее) -->
-                     <Path Fill="#FCD34D" Stroke="#92400E" StrokeThickness="1"
+                     <Path Fill="#5AC8E0" Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
                            Data="M2 10V18C2 19.11 2.89 20 4 20H20C21.11 20 22 19.11 22 18V10H2Z"/>
-                     <!-- Белые листы внутри -->
-                     <Path Fill="White" Opacity="0.75"
-                           Data="M6 12H18V17H6V12Z"/>
-                     <!-- Тонкие линии листов -->
-                     <Path Fill="#FDE68A"
-                           Data="M6 13.5H18V14H6ZM6 15H15V15.5H6Z"/>
                   </Grid>
                </Viewbox>
             </Button>
-            <!-- Сохранить: синяя дискета с белым ярлыком -->
+            <!-- Сохранить -->
             <Button Command="{Binding SaveProjectCommand}" ToolTip="{DynamicResource Save}" Padding="4,3">
                <Viewbox Width="18" Height="18">
                   <Grid Width="24" Height="24">
-                     <!-- Корпус дискеты -->
-                     <Path Fill="#2563EB"
-                           Data="M17 3H5C3.89 3 3 3.9 3 5V19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V7L17 3Z"/>
-                     <!-- Белый ярлык -->
-                     <Path Fill="White" Opacity="0.92"
-                           Data="M6 4H15V10H6V4Z"/>
-                     <!-- Строчки на ярлыке -->
-                     <Path Fill="#93C5FD"
-                           Data="M8 5.5H13V6.5H8ZM8 7.5H11V8.5H8Z"/>
-                     <!-- Диск (светло-голубой круг) -->
-                     <Path Fill="#BFDBFE"
-                           Data="M12 12C10.34 12 9 13.34 9 15S10.34 18 12 18 15 16.66 15 15 13.66 12 12 12Z"/>
-                     <!-- Отверстие диска -->
-                     <Path Fill="#1D4ED8"
-                           Data="M12 13.5C11.17 13.5 10.5 14.17 10.5 15S11.17 16.5 12 16.5 13.5 15.83 13.5 15 12.83 13.5 12 13.5Z"/>
+                     <Path Fill="#2CA9BC"
+                           Data="M19,3H8L4,7V20a1,1,0,0,0,1,1H8V15h8v6h3a1,1,0,0,0,1-1V4A1,1,0,0,0,19,3Z"/>
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M14,7h2M8,21h8V15H8ZM4,7V20a1,1,0,0,0,1,1H19a1,1,0,0,0,1-1V4a1,1,0,0,0-1-1H8Z"/>
                   </Grid>
                </Viewbox>
             </Button>
-            <!-- Сохранить как: оранжевая стрелка-скачать (выбор места) -->
+            <!-- Сохранить как -->
             <Button Command="{Binding SaveAsProjectCommand}" ToolTip="{DynamicResource SaveAs}" Padding="4,3">
                <Viewbox Width="18" Height="18">
                   <Grid Width="24" Height="24">
-                     <!-- Горизонтальная полоса-«стол» -->
-                     <Path Fill="#EA580C"
+                     <Path Fill="#2CA9BC" Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
                            Data="M3 19H21V21H3V19Z"/>
-                     <!-- Стрелка вниз (сохранить в выбранное место) -->
-                     <Path Fill="#F97316"
+                     <Path Fill="#2CA9BC" Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
                            Data="M15 3H9V11H5L12 18L19 11H15V3Z"/>
                   </Grid>
                </Viewbox>
             </Button>
             <Separator/>
             <!-- Геометрия -->
-            <Button Command="{Binding FromDxfCommand}" ToolTip="{DynamicResource FromDxf}" Padding="5,3">
-               <Image Source="{StaticResource di_dxf_file_xaml}" Width="16" Height="16"/>
-            </Button>
             <Button Command="{Binding NewContourCommand}" ToolTip="{DynamicResource TipNewContour}" Padding="5,3">
-               <Viewbox Width="16" Height="16">
-                  <Path Fill="#2563EB" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+               <Viewbox Width="20" Height="20">
+                  <Grid Width="24" Height="24">
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M7 6 L18 8 L20 19 L5 19 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M4 6 A3 3 0 1 0 10 6 A3 3 0 1 0 4 6 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M15 8 A3 3 0 1 0 21 8 A3 3 0 1 0 15 8 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M2 19 A3 3 0 1 0 8 19 A3 3 0 1 0 2 19 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M17 19 A3 3 0 1 0 23 19 A3 3 0 1 0 17 19 Z"/>
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M9 14 H15 M12 11 V17"/>
+                  </Grid>
                </Viewbox>
             </Button>
-            <Button Command="{Binding DelContourCommand}" ToolTip="{DynamicResource TipDelContour}" Padding="5,3">
-               <Viewbox Width="16" Height="16">
-                  <Path Fill="#DC2626" Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            <Button Command="{Binding AddCircleCommand}" ToolTip="{DynamicResource TipAddCircle}" Padding="5,3">
+               <Viewbox Width="20" Height="20">
+                  <Grid Width="24" Height="24">
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M4 6 A3 3 0 1 0 10 6 A3 3 0 1 0 4 6 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M15 8 A3 3 0 1 0 21 8 A3 3 0 1 0 15 8 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M2 19 A3 3 0 1 0 8 19 A3 3 0 1 0 2 19 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M17 19 A3 3 0 1 0 23 19 A3 3 0 1 0 17 19 Z"/>
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M9 14 H15 M12 11 V17"/>
+                  </Grid>
                </Viewbox>
             </Button>
             <Separator/>
@@ -282,34 +276,34 @@
 
                   <TreeViewItem.ContextMenu>
                      <ContextMenu>
-                        <MenuItem Header="{DynamicResource FromDxf}" Command="{Binding FromDxfCommand}">
-                           <MenuItem.Icon>
-                              <Image Source="{StaticResource di_dxf_file_xaml}" />
-                           </MenuItem.Icon>
-                        </MenuItem>
-                     </ContextMenu>
-                  </TreeViewItem.ContextMenu>
+                         <MenuItem Header="{DynamicResource FromDxf}" Command="{Binding FromDxfCommand}">
+                            <MenuItem.Icon>
+                               <Image Source="{StaticResource di_import_dxf_xaml}" />
+                            </MenuItem.Icon>
+                         </MenuItem>
+                      </ContextMenu>
+                   </TreeViewItem.ContextMenu>
 
-                  <TreeViewItem x:Name="CirclesTreeItem" ItemsSource="{Binding CirclesLive}">
-                     <TreeViewItem.Header>
-                        <StackPanel Orientation="Horizontal" Margin="2">
-                           <Image Source="/Images/circles__32.png"/>
-                           <TextBlock Text="{DynamicResource Circles}" Margin="5,0,0,0"/>
-                        </StackPanel>
-                     </TreeViewItem.Header>
+                   <TreeViewItem x:Name="CirclesTreeItem" ItemsSource="{Binding CirclesLive}">
+                      <TreeViewItem.Header>
+                         <StackPanel Orientation="Horizontal" Margin="2">
+                            <Image Source="/Images/circles__32.png"/>
+                            <TextBlock Text="{DynamicResource Circles}" Margin="5,0,0,0"/>
+                         </StackPanel>
+                      </TreeViewItem.Header>
 
-                     <TreeViewItem.ContextMenu>
-                        <ContextMenu>
-                           <MenuItem Header="{DynamicResource FromDxf}" Command="{Binding ImportCirclesFromDxfCommand}">
-                              <MenuItem.Icon>
-                                 <Image Source="{StaticResource di_dxf_file_xaml}"/>
-                              </MenuItem.Icon>
-                           </MenuItem>
-                           <MenuItem Header="{DynamicResource ToDxf}" Command="{Binding ExportCirclesToDxfCommand}">
-                              <MenuItem.Icon>
-                                 <Image Source="{StaticResource di_dxf_file_xaml}"/>
-                              </MenuItem.Icon>
-                           </MenuItem>
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource FromDxf}" Command="{Binding ImportCirclesFromDxfCommand}">
+                               <MenuItem.Icon>
+                                  <Image Source="{StaticResource di_import_dxf_xaml}"/>
+                               </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="{DynamicResource ToDxf}" Command="{Binding ExportCirclesToDxfCommand}">
+                               <MenuItem.Icon>
+                                  <Image Source="{StaticResource di_export_dxf_xaml}"/>
+                               </MenuItem.Icon>
+                            </MenuItem>
                            <Separator/>
                            <MenuItem Header="{DynamicResource FromCsv}" Command="{Binding ImportCirclesFromCsvCommand}">
                               <MenuItem.Icon>
@@ -336,11 +330,11 @@
 
                       <TreeViewItem.ContextMenu>
                          <ContextMenu>
-                            <MenuItem Header="{DynamicResource FromDxf}" Command="{Binding ImportContoursFromDxfCommand}">
-                               <MenuItem.Icon>
-                                  <Image Source="{StaticResource di_dxf_file_xaml}" />
-                               </MenuItem.Icon>
-                            </MenuItem>
+                             <MenuItem Header="{DynamicResource FromDxf}" Command="{Binding ImportContoursFromDxfCommand}">
+                                <MenuItem.Icon>
+                                   <Image Source="{StaticResource di_import_dxf_xaml}" />
+                                </MenuItem.Icon>
+                             </MenuItem>
                             <MenuItem Header="{DynamicResource Create}" Command="{Binding NewContourCommand}">
                                <MenuItem.Icon>
                                   <Viewbox Width="16" Height="16">

@@ -368,7 +368,8 @@
    <system:String x:Key="RibbonGroupMaterials">Материалы</system:String>
    <system:String x:Key="RibbonGroupRegions">Регионы</system:String>
    <system:String x:Key="RibbonGroupSettings">Настройки</system:String>
-   <system:String x:Key="TipNewContour">Новый контур</system:String>
+    <system:String x:Key="TipNewContour">Новый контур</system:String>
+    <system:String x:Key="TipAddCircle">Добавить окружность</system:String>
    <system:String x:Key="TipDelContour">Удалить контур</system:String>
    <system:String x:Key="TipNewMaterial">Новый материал</system:String>
    <system:String x:Key="TipDelMaterial">Удалить материал</system:String>

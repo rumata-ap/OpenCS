@@ -365,7 +365,8 @@
    <system:String x:Key="RibbonGroupMaterials">Materials</system:String>
    <system:String x:Key="RibbonGroupRegions">Regions</system:String>
    <system:String x:Key="RibbonGroupSettings">Settings</system:String>
-   <system:String x:Key="TipNewContour">New contour</system:String>
+    <system:String x:Key="TipNewContour">New contour</system:String>
+    <system:String x:Key="TipAddCircle">Add circle</system:String>
    <system:String x:Key="TipDelContour">Delete contour</system:String>
    <system:String x:Key="TipNewMaterial">New material</system:String>
    <system:String x:Key="TipDelMaterial">Delete material</system:String>

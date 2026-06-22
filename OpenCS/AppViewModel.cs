@@ -1136,7 +1136,9 @@ namespace OpenCS
 
       private void AddCircle(object? _ = null)
       {
-         var cp = new CircleP(0, 0, 0.01);
+         var dlg = new Views.Dialogs.CircleDialog();
+         if (dlg.ShowDialog() != true) return;
+         var cp = new CircleP(dlg.X, dlg.Y, dlg.Radius);
          db.SaveCircle(cp);
          Circles.Add(cp);
          this.CirclesRenumber();
