@@ -5,10 +5,12 @@ using CsvHelper.Configuration;
 
 using OpenCS.Services;
 using OpenCS.Utilites;
+using OpenCS.Views.Dialogs;
 
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -167,6 +169,24 @@ namespace OpenCS.ViewModels
       public ICommand SaveCommand { get; set; } = null!;
 
       /// <summary>
+      /// Команда привязки для отображения геометрических свойств контура.
+      /// Вызывает метод <c>ShowProperties</c>.
+      /// </summary>
+      public ICommand ShowPropertiesCommand { get; set; } = null!;
+
+      /// <summary>
+      /// Команда привязки для сдвига контура.
+      /// Вызывает метод <c>Translate</c>.
+      /// </summary>
+      public ICommand TranslateCommand { get; set; } = null!;
+
+      /// <summary>
+      /// Команда привязки для масштабирования контура относительно центра тяжести.
+      /// Вызывает метод <c>Scale</c>.
+      /// </summary>
+      public ICommand ScaleCommand { get; set; } = null!;
+
+      /// <summary>
       /// Инициализирует экземпляр <see cref="ContourVM"/> с пустым контуром
       /// и создаёт все команды привязки.
       /// </summary>
@@ -174,30 +194,112 @@ namespace OpenCS.ViewModels
       {
          Types = [ContourType.Hull, ContourType.Hole, ContourType.None];
 
-         RenumPointCommand = new RelayCommand(RenumPoint);
-         ExportCsvCommand = new RelayCommand(ExportCsv);
-         ImportCsvCommand = new RelayCommand(ImportCsv);
-         SaveChangesCommand = new RelayCommand(SaveChanges);
-         SaveCommand = new RelayCommand(Save);
-      }
+          RenumPointCommand = new RelayCommand(RenumPoint);
+          ExportCsvCommand = new RelayCommand(ExportCsv);
+          ImportCsvCommand = new RelayCommand(ImportCsv);
+          SaveChangesCommand = new RelayCommand(SaveChanges);
+          SaveCommand = new RelayCommand(Save);
+          ShowPropertiesCommand = new RelayCommand(_ => ShowProperties());
+          TranslateCommand = new RelayCommand(_ => Translate());
+          ScaleCommand = new RelayCommand(_ => Scale());
+       }
 
-      /// <summary>
-      /// Инициализирует экземпляр <see cref="ContourVM"/> с заданным доменным объектом контура
-      /// и создаёт все команды привязки.
-      /// </summary>
-      /// <param name="contour">Существующий объект контура для редактирования.</param>
-      public ContourVM(Contour contour)
-      {
-         Contour = contour;
-         IsSaved = true;
-         Types = [ContourType.Hull, ContourType.Hole, ContourType.None];
+       /// <summary>
+       /// Инициализирует экземпляр <see cref="ContourVM"/> с заданным доменным объектом контура
+       /// и создаёт все команды привязки.
+       /// </summary>
+       /// <param name="contour">Существующий объект контура для редактирования.</param>
+       public ContourVM(Contour contour)
+       {
+          Contour = contour;
+          IsSaved = true;
+          Types = [ContourType.Hull, ContourType.Hole, ContourType.None];
 
-         RenumPointCommand = new RelayCommand(RenumPoint);
-         ExportCsvCommand = new RelayCommand(ExportCsv);
-         ImportCsvCommand = new RelayCommand(ImportCsv);
-         SaveChangesCommand = new RelayCommand(SaveChanges);
-         SaveCommand = new RelayCommand(Save);
-      }
+          RenumPointCommand = new RelayCommand(RenumPoint);
+          ExportCsvCommand = new RelayCommand(ExportCsv);
+          ImportCsvCommand = new RelayCommand(ImportCsv);
+          SaveChangesCommand = new RelayCommand(SaveChanges);
+          SaveCommand = new RelayCommand(Save);
+          ShowPropertiesCommand = new RelayCommand(_ => ShowProperties());
+          TranslateCommand = new RelayCommand(_ => Translate());
+          ScaleCommand = new RelayCommand(_ => Scale());
+       }
+
+       void Translate()
+       {
+           var dlg = new Views.Dialogs.DoubleInputDialog(
+               "Сдвиг контура",
+               "Смещение по X (м):",
+               "Смещение по Y (м):");
+           if (dlg.ShowDialog() != true) return;
+
+           double dx = dlg.Value1, dy = dlg.Value2;
+           if (dx == 0 && dy == 0) return;
+
+           foreach (var p in Contour.Points)
+           {
+               p.X += dx;
+               p.Y += dy;
+           }
+           Contour.Points = new ObservableCollection<StressPoint>(Contour.Points);
+           Contour.SetWKT();
+
+           RefreshPlot();
+           mvm.db.SaveContour(Contour);
+           mvm.LogService.Info($"Контур сдвинут на ({dx}, {dy})");
+       }
+
+       void Scale()
+       {
+           var dlg = new Views.Dialogs.DoubleInputDialog(
+               "Масштабирование контура",
+               "Коэффициент по X:",
+               "Коэффициент по Y:",
+               1.0, 1.0);
+           if (dlg.ShowDialog() != true) return;
+
+           double sx = dlg.Value1, sy = dlg.Value2;
+           if (sx <= 0 || sy <= 0)
+           {
+               MessageBox.Show("Коэффициенты масштабирования должны быть положительными.",
+                   "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+               return;
+           }
+           if (sx == 1 && sy == 1) return;
+
+           // Centroid
+           double cx = 0, cy = 0;
+           int n = Contour.Points.Count;
+           foreach (var p in Contour.Points) { cx += p.X; cy += p.Y; }
+           cx /= n; cy /= n;
+
+           foreach (var p in Contour.Points)
+           {
+               p.X = cx + (p.X - cx) * sx;
+               p.Y = cy + (p.Y - cy) * sy;
+           }
+           Contour.Points = new ObservableCollection<StressPoint>(Contour.Points);
+           Contour.SetWKT();
+
+           RefreshPlot();
+           mvm.db.SaveContour(Contour);
+           mvm.LogService.Info($"Контур масштабирован ({sx}, {sy})");
+       }
+
+       void RefreshPlot()
+       {
+           PlotService?.Clear();
+           PlotService?.AddScatter(Contour.X.ToArray(), Contour.Y.ToArray(), lineWidth: 2);
+           PlotService?.EnableSquareAxes();
+           PlotService?.AutoScale();
+           PlotService?.Refresh();
+       }
+
+       void ShowProperties()
+       {
+          var dlg = new Views.Dialogs.ContourPropsWindow(Contour, Tag);
+          dlg.ShowDialog();
+       }
 
       /// <summary>
       /// Перенумеровывает точки контура начиная с 1 и сохраняет изменения в базу данных.

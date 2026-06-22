@@ -47,43 +47,70 @@
                </Grid.RowDefinitions>
 
                <Grid>
-                  <Grid.ColumnDefinitions>
-                     <ColumnDefinition Width="auto"/>
-                     <ColumnDefinition Width="auto"/>
-                     <ColumnDefinition Width="auto"/>
-                     <ColumnDefinition Width="auto"/>
-                     <ColumnDefinition />
-                  </Grid.ColumnDefinitions>
+                   <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="auto"/>
+                      <ColumnDefinition Width="auto"/>
+                      <ColumnDefinition Width="auto"/>
+                      <ColumnDefinition Width="auto"/>
+                      <ColumnDefinition Width="auto"/>
+                      <ColumnDefinition Width="auto"/>
+                      <ColumnDefinition Width="auto"/>
+                      <ColumnDefinition />
+                   </Grid.ColumnDefinitions>
 
-                  <Button Grid.Column="0" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
-                          IsEnabled="{Binding IsEdit}" Command="{Binding RenumPointCommand}"
-                          ToolTip="{DynamicResource TipRenumContour}">
-                     <Image Source="{StaticResource di_list_xaml}"/>
-                  </Button>
+                   <Button Grid.Column="0" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
+                           IsEnabled="{Binding IsEdit}" Command="{Binding RenumPointCommand}"
+                           ToolTip="{DynamicResource TipRenumContour}">
+                      <Image Source="{StaticResource di_list_xaml}"/>
+                   </Button>
 
-                  <Button Grid.Column="1" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
-                          IsEnabled="{Binding IsEdit}" Command="{Binding ExportCsvCommand}"
-                          ToolTip="{DynamicResource TipExportContourCsv}">
-                     <Image Source="{StaticResource di_from_csv_xaml}"/>
-                  </Button>
+                   <Button Grid.Column="1" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
+                           IsEnabled="{Binding IsEdit}" Command="{Binding ExportCsvCommand}"
+                           ToolTip="{DynamicResource TipExportContourCsv}">
+                      <Image Source="{StaticResource di_from_csv_xaml}"/>
+                   </Button>
 
-                  <Button Grid.Column="2" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
-                          IsEnabled="{Binding IsEdit}" Command="{Binding ImportCsvCommand}"
-                          ToolTip="{DynamicResource TipImportContourCsv}">
-                     <Image Source="{StaticResource di_to_csv_xaml}"/>
-                  </Button>
+                   <Button Grid.Column="2" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
+                           IsEnabled="{Binding IsEdit}" Command="{Binding ImportCsvCommand}"
+                           ToolTip="{DynamicResource TipImportContourCsv}">
+                      <Image Source="{StaticResource di_to_csv_xaml}"/>
+                   </Button>
 
-                  <ToggleButton Name="EditTB" Grid.Column="4" Width="25" Margin="1" Background="Transparent" BorderThickness="0"
-                                Command="{Binding SaveChangesCommand}" HorizontalAlignment="Right" IsChecked="{Binding IsEdit}"
-                                ToolTip="{DynamicResource TipToggleEdit}">
-                     <Image Source="{StaticResource di_edit_xaml}"/>
-                  </ToggleButton>
+                   <Button Grid.Column="3" Width="25" Margin="1" Background="Transparent" BorderThickness="0"
+                           Command="{Binding SaveCommand}" IsEnabled="{Binding IsEdit}"
+                           ToolTip="{DynamicResource TipSaveContour}">
+                      <Image Source="{StaticResource di_save_xaml}"/>
+                   </Button>
 
-                  <Button Grid.Column="3" Width="25" Margin="1" Background="Transparent" BorderThickness="0"
-                          Command="{Binding SaveCommand}" IsEnabled="{Binding IsEdit}"
-                          ToolTip="{DynamicResource TipSaveContour}">
-                     <Image Source="{StaticResource di_save_xaml}"/>
-                  </Button>
+                   <Button Grid.Column="4" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
+                           Command="{Binding TranslateCommand}"
+                           ToolTip="Сдвиг контура">
+                      <Viewbox Width="16" Height="16">
+                         <Path Fill="#4B5563" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm3.41 11.59L13 16.17V10h-2v6.17l-2.41-2.42L7 15l5 5 5-5-1.59-1.41z"/>
+                      </Viewbox>
+                   </Button>
+
+                   <Button Grid.Column="5" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
+                           Command="{Binding ScaleCommand}"
+                           ToolTip="Масштабирование контура">
+                      <Viewbox Width="16" Height="16">
+                         <Path Fill="#4B5563" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </Viewbox>
+                   </Button>
+
+                   <Button Grid.Column="6" Height="26" Width="26" Margin="1" Background="Transparent" BorderThickness="0"
+                           Command="{Binding ShowPropertiesCommand}"
+                           ToolTip="Геометрические свойства">
+                      <Viewbox Width="16" Height="16">
+                         <Path Fill="#4B5563" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                      </Viewbox>
+                   </Button>
+
+                   <ToggleButton Name="EditTB" Grid.Column="7" Width="25" Margin="1" Background="Transparent" BorderThickness="0"
+                                 Command="{Binding SaveChangesCommand}" HorizontalAlignment="Right" IsChecked="{Binding IsEdit}"
+                                 ToolTip="{DynamicResource TipToggleEdit}">
+                      <Image Source="{StaticResource di_edit_xaml}"/>
+                   </ToggleButton>
 
                </Grid>
 
