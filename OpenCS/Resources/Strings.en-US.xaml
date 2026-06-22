@@ -270,6 +270,15 @@
     <system:String x:Key="MaterialDeleted">Material '{0}' deleted</system:String>
     <system:String x:Key="ConfirmDeleteContour">Delete the selected contour and all related material regions permanently?</system:String>
     <system:String x:Key="ContourDeleted">Contour '{0}' deleted</system:String>
+    <system:String x:Key="ContourCreated">Contour '{0}' created</system:String>
+    <system:String x:Key="Contour">Contour</system:String>
+    <system:String x:Key="Templates">Templates</system:String>
+    <system:String x:Key="TemplateRect">Rectangle</system:String>
+    <system:String x:Key="TemplateTee">Tee</system:String>
+    <system:String x:Key="TemplateIBeam">I-Beam</system:String>
+    <system:String x:Key="TemplateAngle">Angle</system:String>
+    <system:String x:Key="TemplateCircle">Circle</system:String>
+    <system:String x:Key="FromSortament">From assortment</system:String>
     <system:String x:Key="ConfirmDeleteRegion">Delete the selected reinforced region permanently?</system:String>
     <system:String x:Key="RegionDeleted">Region '{0}' deleted</system:String>
     <system:String x:Key="ConfirmDeleteDiagram">Delete the diagram?</system:String>
@@ -344,8 +353,11 @@
    <system:String x:Key="TipRenumContour">Renumber contour vertices</system:String>
    <system:String x:Key="TipExportContourCsv">Export contour coordinates to *.csv</system:String>
    <system:String x:Key="TipImportContourCsv">Import contour coordinates from *.csv</system:String>
-   <system:String x:Key="TipToggleEdit">Toggle edit mode</system:String>
-   <system:String x:Key="TipSaveContour">Save contour or applied changes</system:String>
+    <system:String x:Key="TipToggleEdit">Toggle edit mode</system:String>
+    <system:String x:Key="TipSaveContour">Save contour or applied changes</system:String>
+    <system:String x:Key="TipTranslateContour">Translate contour</system:String>
+    <system:String x:Key="TipScaleContour">Scale contour</system:String>
+    <system:String x:Key="TipShowProperties">Geometric properties</system:String>
 
    <!-- RibbonBar -->
    <system:String x:Key="RibbonHome">Home</system:String>

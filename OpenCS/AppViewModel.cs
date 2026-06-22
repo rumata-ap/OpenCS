@@ -560,6 +560,19 @@ namespace OpenCS
       /// <summary>Команда экспорта окружностей проекта в CSV-файл.</summary>
       public ICommand ExportCirclesToCsvCommand { get; set; } = null!;
 
+      /// <summary>Команда создания контура из шаблона прямоугольника.</summary>
+      public ICommand NewContourFromTemplateRectCommand { get; set; } = null!;
+      /// <summary>Команда создания контура из шаблона тавра.</summary>
+      public ICommand NewContourFromTemplateTeeCommand { get; set; } = null!;
+      /// <summary>Команда создания контура из шаблона двутавра.</summary>
+      public ICommand NewContourFromTemplateIBeamCommand { get; set; } = null!;
+      /// <summary>Команда создания контура из шаблона уголка.</summary>
+      public ICommand NewContourFromTemplateAngleCommand { get; set; } = null!;
+      /// <summary>Команда создания контура из шаблона окружности.</summary>
+      public ICommand NewContourFromTemplateCircleCommand { get; set; } = null!;
+      /// <summary>Команда создания контура из сортамента металлопроката.</summary>
+      public ICommand NewContourFromSortamentCommand { get; set; } = null!;
+
       /// <summary>
       /// Команда создания нового проекта. Сбрасывает все данные и создаёт пустую базу данных.
       /// </summary>
@@ -871,8 +884,14 @@ namespace OpenCS
          ImportCirclesFromDxfCommand  = new RelayCommand(_ => ImportCirclesFromDxf());
          ExportCirclesToDxfCommand    = new RelayCommand(_ => ExportCirclesToDxf());
          ImportCirclesFromCsvCommand  = new RelayCommand(_ => ImportCirclesFromCsv());
-         ExportCirclesToCsvCommand    = new RelayCommand(_ => ExportCirclesToCsv());
-         ImportLiraLoadCasesCommand   = new RelayCommand(_ => ImportLiraHtml(LiraImportMode.LoadCases));
+          ExportCirclesToCsvCommand    = new RelayCommand(_ => ExportCirclesToCsv());
+          NewContourFromTemplateRectCommand   = new RelayCommand(_ => NewContourFromTemplateRect());
+          NewContourFromTemplateTeeCommand    = new RelayCommand(_ => NewContourFromTemplateTee());
+          NewContourFromTemplateIBeamCommand  = new RelayCommand(_ => NewContourFromTemplateIBeam());
+          NewContourFromTemplateAngleCommand  = new RelayCommand(_ => NewContourFromTemplateAngle());
+          NewContourFromTemplateCircleCommand = new RelayCommand(_ => NewContourFromTemplateCircle());
+          NewContourFromSortamentCommand      = new RelayCommand(_ => NewContourFromSortament());
+          ImportLiraLoadCasesCommand   = new RelayCommand(_ => ImportLiraHtml(LiraImportMode.LoadCases));
          ImportLiraRsnCommand         = new RelayCommand(_ => ImportLiraHtml(LiraImportMode.Rsn));
          ImportLiraRsuCommand         = new RelayCommand(_ => ImportLiraHtml(LiraImportMode.Rsu));
       }
@@ -944,6 +963,123 @@ namespace OpenCS
       void NewContour(object? o = null)
       {
          CurrentContour = new ContourVM { mvm = this };
+      }
+
+      void NewContourFromTemplateRect()
+      {
+         var dlg = new Views.Dialogs.TemplateRectDialog();
+         if (dlg.ShowDialog() != true) return;
+         var pts = TemplatePoints.RectPoints(dlg.WidthMm / 1000.0, dlg.HeightMm / 1000.0);
+         var contour = MakeContourFromPoints(pts, dlg.ContourName);
+         LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
+      }
+
+      void NewContourFromTemplateTee()
+      {
+         var dlg = new Views.Dialogs.TemplateTeeDialog();
+         if (dlg.ShowDialog() != true) return;
+         var pts = TemplatePoints.TeePoints(dlg.WidthMm / 1000.0, dlg.HeightMm / 1000.0,
+             dlg.TwMm / 1000.0, dlg.TfMm / 1000.0);
+         var contour = MakeContourFromPoints(pts, dlg.ContourName);
+         LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
+      }
+
+      void NewContourFromTemplateIBeam()
+      {
+         var dlg = new Views.Dialogs.TemplateIBeamDialog();
+         if (dlg.ShowDialog() != true) return;
+         var pts = TemplatePoints.IBeamPoints(dlg.HeightMm / 1000.0, dlg.WidthMm / 1000.0,
+             dlg.TwMm / 1000.0, dlg.TfMm / 1000.0);
+         var contour = MakeContourFromPoints(pts, dlg.ContourName);
+         LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
+      }
+
+      void NewContourFromTemplateAngle()
+      {
+         var dlg = new Views.Dialogs.TemplateAngleDialog();
+         if (dlg.ShowDialog() != true) return;
+         var pts = TemplatePoints.AnglePoints(dlg.WidthMm / 1000.0, dlg.HeightMm / 1000.0,
+             dlg.TwMm / 1000.0, dlg.TfMm / 1000.0);
+         var contour = MakeContourFromPoints(pts, dlg.ContourName);
+         LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
+      }
+
+      void NewContourFromTemplateCircle()
+      {
+         var dlg = new Views.Dialogs.TemplateCircleDialog();
+         if (dlg.ShowDialog() != true) return;
+         var pts = TemplatePoints.CirclePoints(dlg.DiameterMm / 1000.0, dlg.Segments);
+         var contour = MakeContourFromPoints(pts, dlg.ContourName);
+         LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
+      }
+
+      void NewContourFromSortament()
+      {
+         var dlg = new Views.Dialogs.ProfilePolyDialog();
+         if (dlg.ShowDialog() != true) return;
+
+         var pdb = new Utilites.ProfileDB();
+         var profile = pdb.GetProfile(dlg.ShapeType, dlg.ProfileId);
+         string name = dlg.ContourName;
+
+         if (dlg.IsHollow)
+         {
+            List<(double X, double Y)> outerPts, holePts;
+            if (profile is RectTubeProfile rtp)
+            {
+               outerPts = rtp.OuterPoints(dlg.NArc);
+               holePts = rtp.HolePoints(dlg.NArc);
+            }
+            else if (profile is RoundTubeProfile rtp2)
+            {
+               outerPts = rtp2.OuterPoints(dlg.NArc);
+               holePts = rtp2.HolePoints(dlg.NArc);
+            }
+            else return;
+
+            var outer = MakeContourFromPoints(outerPts, name, ContourType.Hull);
+            var holeContour = BuildContour(holePts, $"{name} (отв.)", ContourType.Hole);
+            db.SaveContour(holeContour);
+            Contours.Add(holeContour);
+            LogService.Info(string.Format(Loc.S("ContourCreated"), outer.Tag));
+         }
+         else
+         {
+            List<(double X, double Y)> pts;
+            if (profile is IBeamProfile ib)
+               pts = ib.ToPolygonPoints(dlg.NArc, dlg.Slope);
+            else if (profile is ChannelProfile ch)
+               pts = ch.ToPolygonPoints(dlg.NArc, dlg.Slope);
+            else if (profile is AngleProfile ang)
+               pts = ang.ToPolygonPoints(dlg.NArc);
+            else
+               return;
+            var contour = MakeContourFromPoints(pts, name, ContourType.Hull);
+            LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
+         }
+      }
+
+      Contour BuildContour(List<(double X, double Y)> pts, string name, ContourType type)
+      {
+         var stressPoints = new List<StressPoint>();
+         int k = 1;
+         foreach (var (x, y) in pts)
+            stressPoints.Add(new StressPoint(x, y) { Num = k++ });
+         stressPoints.Add(new StressPoint(pts[0].X, pts[0].Y) { Num = k });
+         return new Contour(stressPoints, string.IsNullOrWhiteSpace(name) ? Loc.S("Contour") : name)
+         {
+            Type = type
+         };
+      }
+
+      ContourVM MakeContourFromPoints(List<(double X, double Y)> pts, string name, ContourType type = ContourType.Hull)
+      {
+         var contour = BuildContour(pts, name, type);
+         db.SaveContour(contour);
+         Contours.Add(contour);
+         var vm = new ContourVM { mvm = this, Contour = contour };
+         CurrentContour = vm;
+         return vm;
       }
 
       /// <summary>

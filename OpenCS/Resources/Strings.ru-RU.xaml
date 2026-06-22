@@ -273,6 +273,15 @@
     <system:String x:Key="MaterialDeleted">Материал '{0}' удален</system:String>
     <system:String x:Key="ConfirmDeleteContour">Удалить безвозвратно выбранный контур и все связанные с ним области материалов?</system:String>
     <system:String x:Key="ContourDeleted">Контур '{0}' удален</system:String>
+    <system:String x:Key="ContourCreated">Контур '{0}' создан</system:String>
+    <system:String x:Key="Contour">Контур</system:String>
+    <system:String x:Key="Templates">Шаблоны</system:String>
+    <system:String x:Key="TemplateRect">Прямоугольник</system:String>
+    <system:String x:Key="TemplateTee">Тавр</system:String>
+    <system:String x:Key="TemplateIBeam">Двутавр</system:String>
+    <system:String x:Key="TemplateAngle">Уголок</system:String>
+    <system:String x:Key="TemplateCircle">Окружность</system:String>
+    <system:String x:Key="FromSortament">Из сортамента</system:String>
     <system:String x:Key="ConfirmDeleteRegion">Удалить безвозвратно выбранную армированную область?</system:String>
     <system:String x:Key="RegionDeleted">Область '{0}' удалена</system:String>
     <system:String x:Key="ConfirmDeleteDiagram">Удалить диаграмму?</system:String>
@@ -347,8 +356,11 @@
    <system:String x:Key="TipRenumContour">Перенумерация координат контура</system:String>
    <system:String x:Key="TipExportContourCsv">Экспорт координат контура в файл *.csv</system:String>
    <system:String x:Key="TipImportContourCsv">Импорт координат контура из файла *.csv</system:String>
-   <system:String x:Key="TipToggleEdit">Включение/отключение режима редактирования</system:String>
-   <system:String x:Key="TipSaveContour">Сохранение контура или внесённых изменений</system:String>
+    <system:String x:Key="TipToggleEdit">Включение/отключение режима редактирования</system:String>
+    <system:String x:Key="TipSaveContour">Сохранение контура или внесённых изменений</system:String>
+    <system:String x:Key="TipTranslateContour">Сдвиг контура</system:String>
+    <system:String x:Key="TipScaleContour">Масштабирование контура</system:String>
+    <system:String x:Key="TipShowProperties">Геометрические свойства</system:String>
 
    <!-- RibbonBar -->
    <system:String x:Key="RibbonHome">Главная</system:String>
