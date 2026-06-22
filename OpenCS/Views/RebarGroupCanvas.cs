@@ -1,3 +1,4 @@
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
 using System;
@@ -89,6 +90,12 @@ namespace OpenCS.Views
             dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, w, h));
             if (_vm == null) return;
 
+            // Координатная сетка
+            DrawGrid(dc, w, h);
+
+            // Координатные оси с подписями
+            DrawAxes(dc, w, h);
+
             // Опорный контур (серый)
             DrawPolyline(dc, _refPen, _vm.ReferencePoints, closed: true);
 
@@ -128,6 +135,173 @@ namespace OpenCS.Views
                 ctx.LineTo(ToScreen(pts[i].X, pts[i].Y), true, false);
             geom.Freeze();
             dc.DrawGeometry(null, pen, geom);
+        }
+
+        void DrawGrid(DrawingContext dc, double w, double h)
+        {
+            var settings = _vm?.App?.PlotSettings;
+            if (settings == null || !settings.ShowGrid) return;
+
+            double xMin = _originX;
+            double xMax = _originX + w / _scale;
+            double yMin = _originY;
+            double yMax = _originY + h / _scale;
+
+            var ticksX = NiceTicks(xMin, xMax, 6);
+            var ticksY = NiceTicks(yMin, yMax, 6);
+
+            Brush brush;
+            try { brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(settings.Grid)); }
+            catch { brush = new SolidColorBrush(Color.FromRgb(211, 211, 211)); }
+            brush.Freeze();
+
+            var pen = new Pen(brush, settings.GridThickness);
+            pen.DashStyle = DashStyles.Dot;
+            pen.Freeze();
+
+            foreach (var x in ticksX)
+            {
+                double px = ToScreen(x, 0).X;
+                if (px > 0 && px < w)
+                    dc.DrawLine(pen, new Point(px, 0), new Point(px, h));
+            }
+            foreach (var y in ticksY)
+            {
+                double py = ToScreen(0, y).Y;
+                if (py > 0 && py < h)
+                    dc.DrawLine(pen, new Point(0, py), new Point(w, py));
+            }
+        }
+
+        void DrawAxes(DrawingContext dc, double w, double h)
+        {
+            var settings = _vm?.App?.PlotSettings;
+            if (settings == null) return;
+
+            double xMin = _originX;
+            double xMax = _originX + w / _scale;
+            double yMin = _originY;
+            double yMax = _originY + h / _scale;
+
+            Brush brush;
+            try { brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(settings.AxesColor)); }
+            catch { brush = new SolidColorBrush(Color.FromRgb(100, 100, 100)); }
+            brush.Freeze();
+
+            var axisPen = new Pen(brush, 1);
+            axisPen.Freeze();
+
+            // Положение осей
+            double axisPxX, axisPxY;
+            if (settings.AxesAtOrigin)
+            {
+                axisPxX = Clamp(ToScreen(0, 0).X, 0, w);
+                axisPxY = Clamp(ToScreen(0, 0).Y, 0, h);
+            }
+            else
+            {
+                axisPxX = 0;
+                axisPxY = h;
+            }
+
+            // Ось X
+            dc.DrawLine(axisPen, new Point(0, axisPxY), new Point(w, axisPxY));
+            // Ось Y
+            dc.DrawLine(axisPen, new Point(axisPxX, 0), new Point(axisPxX, h));
+
+            if (!settings.ShowAxesValues) return;
+
+            var ticksX = NiceTicks(xMin, xMax, settings.TickCount);
+            var ticksY = NiceTicks(yMin, yMax, settings.TickCount);
+            double fontSize = settings.AxesFontSize;
+
+            var typeface = new Typeface("Segoe UI");
+            var tickPen = new Pen(brush, 0.8);
+            tickPen.Freeze();
+
+            const double tickLen = 4;
+
+            const double gap = 4;
+
+            // X-тики (вдоль оси)
+            foreach (var t in ticksX)
+            {
+                var sp = ToScreen(t, 0);
+                double px = sp.X;
+                if (px < 0 || px > w) continue;
+                double ty = axisPxY;
+                dc.DrawLine(tickPen, new Point(px, ty - tickLen), new Point(px, ty + tickLen));
+                var label = FormatTick(t);
+                var ft = new FormattedText(label,
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight, typeface, fontSize, brush, 96);
+                double lx = px - ft.Width / 2;
+                double ly;
+                if (ty + tickLen + gap + ft.Height <= h)
+                    ly = ty + tickLen + gap;
+                else
+                    ly = ty - tickLen - gap - ft.Height;
+                if (lx < 0) lx = 0;
+                if (lx + ft.Width > w) lx = w - ft.Width;
+                if (ly < 0) ly = 0;
+                if (ly + ft.Height > h) ly = h - ft.Height;
+                dc.DrawText(ft, new Point(lx, ly));
+            }
+
+            // Y-тики (вдоль оси)
+            foreach (var t in ticksY)
+            {
+                var sp = ToScreen(0, t);
+                double py = sp.Y;
+                if (py < 0 || py > h) continue;
+                double tx = axisPxX;
+                dc.DrawLine(tickPen, new Point(tx - tickLen, py), new Point(tx + tickLen, py));
+                var label = FormatTick(t);
+                var ft = new FormattedText(label,
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight, typeface, fontSize, brush, 96);
+                double lx, ly = py - ft.Height / 2;
+                if (tx - ft.Width - tickLen - gap >= 0)
+                    lx = tx - ft.Width - tickLen - gap;
+                else
+                    lx = tx + tickLen + gap;
+                if (lx < 0) lx = 0;
+                if (lx + ft.Width > w) lx = w - ft.Width;
+                if (ly < 0) ly = 0;
+                if (ly + ft.Height > h) ly = h - ft.Height;
+                dc.DrawText(ft, new Point(lx, ly));
+            }
+        }
+
+        static string FormatTick(double v)
+        {
+            var av = Math.Abs(v);
+            if (av == 0) return "0";
+            if (av < 0.001) return v.ToString("E2");
+            if (av < 0.01)  return v.ToString("F5");
+            if (av < 1)     return v.ToString("F4");
+            if (av < 100)   return v.ToString("F2");
+            if (av < 10000) return v.ToString("F0");
+            return v.ToString("E2");
+        }
+
+        static double Clamp(double v, double lo, double hi)
+            => v < lo ? lo : v > hi ? hi : v;
+
+        static double[] NiceTicks(double min, double max, int target)
+        {
+            if (max - min < 1e-12) return [];
+            double rough = (max - min) / target;
+            double mag = Math.Pow(10, Math.Floor(Math.Log10(rough)));
+            double res = rough / mag;
+            double nice = res <= 1.5 ? 1 : res <= 3.5 ? 2 : res <= 7.5 ? 5 : 10;
+            nice *= mag;
+            double start = Math.Ceiling(min / nice) * nice;
+            int n = (int)((max - start) / nice) + 1;
+            if (n > 50) return [];
+            var ticks = new double[n];
+            for (int i = 0; i < n; i++) ticks[i] = start + i * nice;
+            return ticks;
         }
 
         static void DrawDiamond(DrawingContext dc, Point center, Brush fill)

@@ -131,6 +131,17 @@
                        Command="{Binding DeleteCommand}"
                        Padding="12,4"/>
             </StackPanel>
+
+            <Separator Margin="0,8,0,6"/>
+
+            <StackPanel Orientation="Horizontal">
+               <Button Content="Сдвиг"
+                       Command="{Binding TranslateCommand}"
+                       Padding="8,3" Margin="0,0,6,0"/>
+               <Button Content="Свойства"
+                       Command="{Binding ShowPropertiesCommand}"
+                       Padding="8,3"/>
+            </StackPanel>
          </StackPanel>
       </ScrollViewer>
 

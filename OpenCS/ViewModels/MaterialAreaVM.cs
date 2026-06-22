@@ -2,6 +2,7 @@ using CScore;
 using OpenCS.Converters;
 using OpenCS.Utilites;
 using OpenCS.Views;
+using OpenCS.Views.Dialogs;
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -34,6 +35,8 @@ namespace OpenCS.ViewModels
          DeleteCommand           = new RelayCommand(_ => Delete());
          OpenMeshDialogCommand   = new RelayCommand(_ => OpenMeshDialog());
          ClearMeshCommand        = new RelayCommand(_ => ClearMesh());
+         TranslateCommand        = new RelayCommand(_ => Translate());
+         ShowPropertiesCommand   = new RelayCommand(_ => ShowProperties());
       }
 
       public AppViewModel App { get; }
@@ -173,6 +176,8 @@ namespace OpenCS.ViewModels
       public ICommand RemoveHoleCommand { get; }
       public ICommand SaveCommand { get; }
       public ICommand DeleteCommand { get; }
+      public ICommand TranslateCommand { get; }
+      public ICommand ShowPropertiesCommand { get; }
 
       public void RefreshPlot()
       {
@@ -319,6 +324,43 @@ namespace OpenCS.ViewModels
          App.db.SaveMeshFibers(_model);
          OnPropertyChanged(nameof(FibersCount));
          RefreshPlot();
+      }
+
+      void Translate()
+      {
+         var hull = _model.Hull;
+         if (hull == null) return;
+
+         var dlg = new DoubleInputDialog(
+            "Сдвиг контура",
+            "Смещение по X (м):",
+            "Смещение по Y (м):");
+         if (dlg.ShowDialog() != true) return;
+
+         double dx = dlg.Value1, dy = dlg.Value2;
+         if (dx == 0 && dy == 0) return;
+
+         for (int i = 0; i < hull.X.Count; i++)
+         {
+            hull.X[i] += dx;
+            hull.Y[i] += dy;
+         }
+         hull.Points = hull.XYsToPoints();
+         hull.SetWKT();
+
+         OnPropertyChanged(nameof(Hull));
+         RefreshPlot();
+         App.db.SaveContour(hull);
+         App.IsDirty = true;
+         App.LogService.Info($"Контур области сдвинут на ({dx}, {dy})");
+      }
+
+      void ShowProperties()
+      {
+         var hull = _model.Hull;
+         if (hull == null) return;
+         var dlg = new ContourPropsWindow(hull, hull.Tag);
+         dlg.ShowDialog();
       }
    }
 }

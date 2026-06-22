@@ -1,5 +1,6 @@
 using CScore;
 using OpenCS.Utilites;
+using OpenCS.Views.Dialogs;
 
 using System;
 using System.Collections.Generic;
@@ -51,6 +52,8 @@ namespace OpenCS.ViewModels
             FillBetweenCommand    = new RelayCommand(o => { if (o is ValueTuple<BarItem,BarItem> fb) FillBetween(fb.Item1, fb.Item2); });
             SaveCommand           = new RelayCommand(_ => Save());
             CancelCommand         = new RelayCommand(_ => App.CurrentPage = null!);
+            TranslateCommand      = new RelayCommand(_ => Translate());
+            ShowPropertiesCommand = new RelayCommand(_ => ShowProperties());
 
             // Определить начальную стратегию
             if (app.AreasLive.Any())     _strategy = RebarPlacementStrategy.FromRegion;
@@ -226,6 +229,41 @@ namespace OpenCS.ViewModels
             set { _fillArcRadius = value; OnPropertyChanged(); }
         }
 
+        // ── Трансформация ────────────────────────────────────────────────────
+
+        void Translate()
+        {
+            if (Bars.Count == 0) return;
+
+            var dlg = new DoubleInputDialog(
+                "Сдвиг стержней",
+                "Смещение по X (м):",
+                "Смещение по Y (м):");
+            if (dlg.ShowDialog() != true) return;
+
+            double dx = dlg.Value1, dy = dlg.Value2;
+            if (dx == 0 && dy == 0) return;
+
+            foreach (var bar in Bars)
+            {
+                bar.X += dx;
+                bar.Y += dy;
+            }
+
+            if (_referencePoints.Count > 0)
+            {
+                var moved = _referencePoints.Select(p => (p.X + dx, p.Y + dy)).ToList();
+                BuildEdgesFromContour(moved);
+            }
+        }
+
+        void ShowProperties()
+        {
+            if (Bars.Count == 0) return;
+            var dlg = new RebarGroupPropsWindow([.. Bars], _tag);
+            dlg.ShowDialog();
+        }
+
         // ── Сохранение ───────────────────────────────────────────────────────
 
         public string Tag
@@ -246,6 +284,8 @@ namespace OpenCS.ViewModels
         public ICommand FillBetweenCommand     { get; }
         public ICommand SaveCommand            { get; }
         public ICommand CancelCommand          { get; }
+        public ICommand TranslateCommand       { get; }
+        public ICommand ShowPropertiesCommand  { get; }
 
         // ── Инициализация ────────────────────────────────────────────────────
 
