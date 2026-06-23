@@ -1045,4 +1045,40 @@
     <system:String x:Key="ShellSimplPhi1">φ1 (длит.: 1.0/1.4)</system:String>
     <system:String x:Key="ShellSimplPhi2">φ2 (профиль: 0.5/0.8)</system:String>
 
+    <!-- Steel check per СП 16.13330.2017 -->
+    <system:String x:Key="CalcTaskKind_steel_check">Проверка по СП 16 (сталь)</system:String>
+    <system:String x:Key="SteelCheckParamsHeader">Параметры расчёта по СП 16</system:String>
+    <system:String x:Key="SteelCheckDesignLengthX">Расчётная длина l₀x, м</system:String>
+    <system:String x:Key="SteelCheckDesignLengthY">Расчётная длина l₀y, м</system:String>
+    <system:String x:Key="SteelCheckMuX">Коэффициент μx</system:String>
+    <system:String x:Key="SteelCheckMuY">Коэффициент μy</system:String>
+    <system:String x:Key="SteelCheckBetaM">Коэффициент βm</system:String>
+    <system:String x:Key="SteelCheckGammaM">Коэффициент γM</system:String>
+    <system:String x:Key="SteelCheckUtilizationLabel">Коэффициент использования: </system:String>
+    <system:String x:Key="SteelCheckStatusPassed">ПРОЙДЕНО</system:String>
+    <system:String x:Key="SteelCheckStatusFailed">НЕ ПРОЙДЕНО</system:String>
+    <system:String x:Key="SteelCheckColFormula">Формула</system:String>
+    <system:String x:Key="SteelCheckColCheck">Проверка</system:String>
+    <system:String x:Key="SteelCheckColApplied">Приложенное</system:String>
+    <system:String x:Key="SteelCheckColAllowable">Допустимое</system:String>
+    <system:String x:Key="SteelCheckColRatio">Коэфф.</system:String>
+    <system:String x:Key="SteelCheckColResult">Результат</system:String>
+    <system:String x:Key="SteelCheckOK">✓</system:String>
+    <system:String x:Key="SteelCheckFail">✗</system:String>
+
+    <!-- МКЭ -->
+    <system:String x:Key="FemSchemas">МКЭ-схемы</system:String>
+    <system:String x:Key="FemSchemaNew">Новая схема</system:String>
+    <system:String x:Key="FemSchemaDelete">Удалить схему</system:String>
+    <system:String x:Key="FemSchemaPageTitle">МКЭ-схема:</system:String>
+    <system:String x:Key="FemSchemaSource">Источник</system:String>
+    <system:String x:Key="FemMembersCount">Элементов</system:String>
+    <system:String x:Key="FemMembers">Конструктивные элементы</system:String>
+    <system:String x:Key="FemMemberType">Тип элемента</system:String>
+    <system:String x:Key="FemMemberNew">Новый элемент</system:String>
+    <system:String x:Key="FemMemberDelete">Удалить элемент</system:String>
+    <system:String x:Key="FemCheckAdd">Добавить проверку</system:String>
+    <system:String x:Key="FemCheckRun">Выполнить проверку</system:String>
+    <system:String x:Key="FemCheckDelete">Удалить проверку</system:String>
+
   </ResourceDictionary>

@@ -114,6 +114,9 @@ namespace OpenCS
       ForceSet? currentShellForceSet;
       PlateSection? currentPlateSection;
       FireSectionDef? currentFireSection;
+      CScore.Fem.FemSchema? currentFemSchema;
+      CScore.Fem.FemMember? currentFemMember;
+      CScore.Fem.FemCheck?  currentFemCheck;
 
       /// <summary>
       /// Путь к текущему файлу проекта. null если проект ещё не был сохранён.
@@ -268,6 +271,12 @@ namespace OpenCS
       /// <summary>Результаты расчётных задач.</summary>
       public ObservableCollection<CalcResult> CalcResults { get; set; } = null!;
 
+      /// <summary>МКЭ-расчётные схемы проекта.</summary>
+      public ObservableCollection<CScore.Fem.FemSchema> FemSchemas { get; set; } = null!;
+
+      /// <summary>Нормативные проверки по МКЭ-пайплайну.</summary>
+      public ObservableCollection<CScore.Fem.FemCheck> FemChecks { get; set; } = null!;
+
       /// <summary>Наборы усилий для стержней (Kind="bar").</summary>
       public ObservableCollection<ForceSet> BarForceSets { get; set; } = null!;
 
@@ -307,6 +316,64 @@ namespace OpenCS
             OnPropertyChanged();
          }
       }
+
+      /// <summary>Текущая МКЭ-расчётная схема. При установке открывает FemSchemaPage.</summary>
+      public CScore.Fem.FemSchema? CurrentFemSchema
+      {
+         get => currentFemSchema;
+         set
+         {
+            currentFemSchema = value;
+            if (value != null)
+               CurrentPage = new Views.FemSchemaPage(value, this);
+            OnPropertyChanged();
+         }
+      }
+
+      /// <summary>Текущий конструктивный элемент МКЭ. При установке открывает FemMemberEditorPage.</summary>
+      public CScore.Fem.FemMember? CurrentFemMember
+      {
+         get => currentFemMember;
+         set
+         {
+            currentFemMember = value;
+            if (value != null)
+               CurrentPage = new Views.FemMemberEditorPage(value, this);
+            OnPropertyChanged();
+         }
+      }
+
+      /// <summary>Текущая нормативная проверка МКЭ. При установке открывает SteelCheckResultView.</summary>
+      public CScore.Fem.FemCheck? CurrentFemCheck
+      {
+         get => currentFemCheck;
+         set
+         {
+            currentFemCheck = value;
+            if (value?.ResultId != null)
+            {
+               var result = CalcResults.FirstOrDefault(r => r.Id == value.ResultId);
+               if (result != null)
+                  CurrentPage = new Views.SteelCheckResultView(result.DataJson);
+            }
+            OnPropertyChanged();
+         }
+      }
+
+      /// <summary>Команда создания новой МКЭ-схемы.</summary>
+      public ICommand NewFemSchemaCommand    { get; set; } = null!;
+      /// <summary>Команда удаления МКЭ-схемы.</summary>
+      public ICommand DeleteFemSchemaCommand { get; set; } = null!;
+      /// <summary>Команда создания нового конструктивного элемента МКЭ.</summary>
+      public ICommand NewFemMemberCommand    { get; set; } = null!;
+      /// <summary>Команда удаления конструктивного элемента МКЭ.</summary>
+      public ICommand DeleteFemMemberCommand { get; set; } = null!;
+      /// <summary>Команда добавления нормативной проверки к элементу.</summary>
+      public ICommand AddFemCheckCommand     { get; set; } = null!;
+      /// <summary>Команда запуска нормативной проверки.</summary>
+      public ICommand RunFemCheckCommand     { get; set; } = null!;
+      /// <summary>Команда удаления нормативной проверки.</summary>
+      public ICommand DeleteFemCheckCommand  { get; set; } = null!;
 
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
@@ -817,6 +884,8 @@ namespace OpenCS
          RenumberFireSections();
          CalcTasks   = db.CalcTasks;
          CalcResults = db.CalcResults;
+         FemSchemas  = db.FemSchemas;
+         FemChecks   = db.FemChecks;
          CalcTasks.CollectionChanged   += (_, _) => IsDirty = true;
          CalcResults.CollectionChanged += (_, _) => IsDirty = true;
          MaterialAreas = db.MaterialAreas;
@@ -894,6 +963,14 @@ namespace OpenCS
           ImportLiraLoadCasesCommand   = new RelayCommand(_ => ImportLiraHtml(LiraImportMode.LoadCases));
          ImportLiraRsnCommand         = new RelayCommand(_ => ImportLiraHtml(LiraImportMode.Rsn));
          ImportLiraRsuCommand         = new RelayCommand(_ => ImportLiraHtml(LiraImportMode.Rsu));
+
+         NewFemSchemaCommand    = new RelayCommand(_ => NewFemSchema());
+         DeleteFemSchemaCommand = new RelayCommand(_ => DeleteFemSchema());
+         NewFemMemberCommand    = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
+         DeleteFemMemberCommand = new RelayCommand(_ => DeleteFemMember());
+         AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMember));
+         RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
+         DeleteFemCheckCommand  = new RelayCommand(_ => DeleteFemCheck());
       }
 
       void SetLanguage(object? param)
@@ -1380,6 +1457,8 @@ namespace OpenCS
          OnPropertyChanged(nameof(CurrentFireSection));
          CalcTasks   = db.CalcTasks;
          CalcResults = db.CalcResults;
+         FemSchemas  = db.FemSchemas;
+         FemChecks   = db.FemChecks;
          MaterialsSort();
          this.ContoursRenumber();
          CirclesLive = new(Circles); this.CirclesRenumber();
@@ -2046,6 +2125,78 @@ namespace OpenCS
          public double Y      { get; init; }
          public double Radius { get; init; }
       }
+
+      #region FEM
+
+      void NewFemSchema()
+      {
+         var schema = new CScore.Fem.FemSchema { Tag = "Схема", SourceType = "internal" };
+         db.SaveFemSchema(schema);
+      }
+
+      void DeleteFemSchema()
+      {
+         if (currentFemSchema == null) return;
+         db.DeleteFemSchema(currentFemSchema);
+         currentFemSchema = null;
+         CurrentPage = null!;
+      }
+
+      void NewFemMember(CScore.Fem.FemSchema? schema)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+         var member = new CScore.Fem.FemMember { SchemaId = schema.Id, Tag = "Элемент" };
+         db.SaveFemMember(member);
+         schema.Members.Add(member);
+      }
+
+      void DeleteFemMember()
+      {
+         if (currentFemMember == null) return;
+         db.DeleteFemMember(currentFemMember);
+         currentFemMember = null;
+         CurrentPage = null!;
+      }
+
+      void AddFemCheck(CScore.Fem.FemMember? member)
+      {
+         member ??= currentFemMember;
+         if (member == null) return;
+         var check = new CScore.Fem.FemCheck { SchemaId = member.SchemaId, MemberId = member.Id };
+         db.SaveFemCheck(check);
+      }
+
+      void RunFemCheck(CScore.Fem.FemCheck? check)
+      {
+         check ??= currentFemCheck;
+         if (check == null) return;
+         var member = FemSchemas
+            .SelectMany(s => s.Members)
+            .FirstOrDefault(m => m.Id == check.MemberId);
+         if (member?.CrossSectionId == null || member.ForceSetId == null) return;
+         var section  = CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId);
+         var forceSet = ForceSets.FirstOrDefault(f => f.Id == member.ForceSetId);
+         if (section == null || forceSet == null) return;
+
+         var result = CScore.Fem.FemCheckRunner.Run(check, member, section, forceSet,
+            (task, sect, item) => TaskRunner.Run(task, sect, item));
+         db.SaveCalcResultRaw(result, check.Id);
+         check.ResultId = result.Id;
+         db.SaveFemCheck(check);
+
+         CurrentFemCheck = check;
+      }
+
+      void DeleteFemCheck()
+      {
+         if (currentFemCheck == null) return;
+         db.DeleteFemCheck(currentFemCheck);
+         currentFemCheck = null;
+         CurrentPage = null!;
+      }
+
+      #endregion
    }
 
    /// <summary>Маркерный объект группы «Усиление» в дереве проекта.</summary>

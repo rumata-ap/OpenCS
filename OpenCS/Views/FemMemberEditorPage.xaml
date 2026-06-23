@@ -1,0 +1,100 @@
+<UserControl x:Class="OpenCS.Views.FemMemberEditorPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="16"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Tag}"
+                   VerticalAlignment="Center" Margin="0,0,8,8"/>
+        <TextBox   Grid.Row="0" Grid.Column="1"
+                   Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
+                   Margin="0,0,0,8"/>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FemMemberType}"
+                   VerticalAlignment="Center" Margin="0,0,8,8"/>
+        <ComboBox  Grid.Row="1" Grid.Column="1"
+                   ItemsSource="{Binding MemberTypes}"
+                   SelectedItem="{Binding MemberType}"
+                   Margin="0,0,0,8"/>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CalcTaskSection}"
+                   VerticalAlignment="Center" Margin="0,0,8,8"/>
+        <ComboBox  Grid.Row="2" Grid.Column="1"
+                   ItemsSource="{Binding AllSections}"
+                   SelectedItem="{Binding SelectedSection}"
+                   DisplayMemberPath="Tag"
+                   Margin="0,0,0,8"/>
+
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CalcTaskForceSet}"
+                   VerticalAlignment="Center" Margin="0,0,8,8"/>
+        <ComboBox  Grid.Row="3" Grid.Column="1"
+                   ItemsSource="{Binding AllForceSets}"
+                   SelectedItem="{Binding SelectedForceSet}"
+                   DisplayMemberPath="Tag"
+                   Margin="0,0,0,8"/>
+
+        <GroupBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                  Header="{DynamicResource SteelCheckParamsHeader}" Margin="0,4,0,0">
+            <Grid Margin="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource SteelCheckDesignLengthX}"
+                           VerticalAlignment="Center" Margin="0,0,4,4"/>
+                <TextBox   Grid.Row="0" Grid.Column="1"
+                           Text="{Binding DesignLengthX, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,8,4"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource SteelCheckDesignLengthY}"
+                           VerticalAlignment="Center" Margin="0,0,4,4"/>
+                <TextBox   Grid.Row="0" Grid.Column="3"
+                           Text="{Binding DesignLengthY, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource SteelCheckMuX}"
+                           VerticalAlignment="Center" Margin="0,0,4,4"/>
+                <TextBox   Grid.Row="1" Grid.Column="1"
+                           Text="{Binding MuX, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,8,4"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="{DynamicResource SteelCheckMuY}"
+                           VerticalAlignment="Center" Margin="0,0,4,4"/>
+                <TextBox   Grid.Row="1" Grid.Column="3"
+                           Text="{Binding MuY, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource SteelCheckBetaM}"
+                           VerticalAlignment="Center" Margin="0,0,4,4"/>
+                <TextBox   Grid.Row="2" Grid.Column="1"
+                           Text="{Binding BetaM, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,8,4"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Text="{DynamicResource SteelCheckGammaM}"
+                           VerticalAlignment="Center" Margin="0,0,4,4"/>
+                <TextBox   Grid.Row="2" Grid.Column="3"
+                           Text="{Binding GammaM, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
+            </Grid>
+        </GroupBox>
+
+        <Button Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
+                Content="{DynamicResource Save}"
+                Command="{Binding SaveCommand}"
+                HorizontalAlignment="Right" Width="100"/>
+    </Grid>
+</UserControl>

@@ -2609,13 +2609,18 @@ namespace OpenCS.Utilites
 
       void LoadFemChecks()
       {
+         // clear member Checks collections first
+         foreach (var s in FemSchemas)
+            foreach (var m in s.Members)
+               m.Checks.Clear();
+
          FemChecks.Clear();
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = "SELECT id, schema_id, member_id, norm_code, params_json, result_id FROM fem_checks ORDER BY id";
          using var r = cmd.ExecuteReader();
          while (r.Read())
          {
-            FemChecks.Add(new CScore.Fem.FemCheck
+            var check = new CScore.Fem.FemCheck
             {
                Id         = r.GetInt32(0),
                SchemaId   = r.GetInt32(1),
@@ -2623,7 +2628,10 @@ namespace OpenCS.Utilites
                NormCode   = r.GetString(3),
                ParamsJson = r.IsDBNull(4) ? null : r.GetString(4),
                ResultId   = r.IsDBNull(5) ? null : r.GetInt32(5)
-            });
+            };
+            FemChecks.Add(check);
+            var schema = FemSchemas.FirstOrDefault(s => s.Id == check.SchemaId);
+            schema?.Members.FirstOrDefault(m => m.Id == check.MemberId)?.Checks.Add(check);
          }
       }
 

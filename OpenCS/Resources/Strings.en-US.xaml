@@ -1042,4 +1042,40 @@
     <system:String x:Key="ShellSimplPhi1">φ1 (long-term: 1.0/1.4)</system:String>
     <system:String x:Key="ShellSimplPhi2">φ2 (profile: 0.5/0.8)</system:String>
 
- </ResourceDictionary>
+    <!-- Steel check per СП 16.13330.2017 -->
+    <system:String x:Key="CalcTaskKind_steel_check">Steel check per SP 16</system:String>
+    <system:String x:Key="SteelCheckParamsHeader">SP 16 calculation parameters</system:String>
+    <system:String x:Key="SteelCheckDesignLengthX">Design length l₀x, m</system:String>
+    <system:String x:Key="SteelCheckDesignLengthY">Design length l₀y, m</system:String>
+    <system:String x:Key="SteelCheckMuX">Coefficient μx</system:String>
+    <system:String x:Key="SteelCheckMuY">Coefficient μy</system:String>
+    <system:String x:Key="SteelCheckBetaM">Coefficient βm</system:String>
+    <system:String x:Key="SteelCheckGammaM">Coefficient γM</system:String>
+    <system:String x:Key="SteelCheckUtilizationLabel">Utilization ratio: </system:String>
+    <system:String x:Key="SteelCheckStatusPassed">PASSED</system:String>
+    <system:String x:Key="SteelCheckStatusFailed">FAILED</system:String>
+    <system:String x:Key="SteelCheckColFormula">Formula</system:String>
+    <system:String x:Key="SteelCheckColCheck">Check</system:String>
+    <system:String x:Key="SteelCheckColApplied">Applied</system:String>
+    <system:String x:Key="SteelCheckColAllowable">Allowable</system:String>
+    <system:String x:Key="SteelCheckColRatio">Ratio</system:String>
+    <system:String x:Key="SteelCheckColResult">Result</system:String>
+    <system:String x:Key="SteelCheckOK">✓</system:String>
+    <system:String x:Key="SteelCheckFail">✗</system:String>
+
+    <!-- FEM -->
+    <system:String x:Key="FemSchemas">FEM schemas</system:String>
+    <system:String x:Key="FemSchemaNew">New schema</system:String>
+    <system:String x:Key="FemSchemaDelete">Delete schema</system:String>
+    <system:String x:Key="FemSchemaPageTitle">FEM schema:</system:String>
+    <system:String x:Key="FemSchemaSource">Source</system:String>
+    <system:String x:Key="FemMembersCount">Members</system:String>
+    <system:String x:Key="FemMembers">Members</system:String>
+    <system:String x:Key="FemMemberType">Member type</system:String>
+    <system:String x:Key="FemMemberNew">New member</system:String>
+    <system:String x:Key="FemMemberDelete">Delete member</system:String>
+    <system:String x:Key="FemCheckAdd">Add check</system:String>
+    <system:String x:Key="FemCheckRun">Run check</system:String>
+    <system:String x:Key="FemCheckDelete">Delete check</system:String>
+
+  </ResourceDictionary>
