@@ -1063,8 +1063,12 @@
     <system:String x:Key="SteelCheckOK">✓</system:String>
     <system:String x:Key="SteelCheckFail">✗</system:String>
 
+    <!-- Tree panel tabs -->
+    <system:String x:Key="ProjectTab">Project</system:String>
+    <system:String x:Key="FemTab">FEM</system:String>
+
     <!-- FEM -->
-    <system:String x:Key="FemSchemas">FEM schemas</system:String>
+    <system:String x:Key="FemSchemas">Structural Schemas</system:String>
     <system:String x:Key="FemSchemaNew">New schema</system:String>
     <system:String x:Key="FemSchemaDelete">Delete schema</system:String>
     <system:String x:Key="FemSchemaPageTitle">FEM schema:</system:String>

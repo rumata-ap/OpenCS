@@ -198,21 +198,17 @@ namespace OpenCS
              vm.CurrentPage = new CalcResultView(calcResultItem, vm);
           }
 
-          if (e.NewValue is CScore.Fem.FemSchema femSchemaItem)
-          {
-             vm.CurrentFemSchema = femSchemaItem;
-          }
-
-          if (e.NewValue is CScore.Fem.FemMember femMemberItem)
-          {
-             vm.CurrentFemMember = femMemberItem;
-          }
-
-          if (e.NewValue is CScore.Fem.FemCheck femCheckItem)
-          {
-             vm.CurrentFemCheck = femCheckItem;
-          }
         }
+
+      private void femTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+      {
+          if (e.NewValue is CScore.Fem.FemSchema femSchemaItem)
+             vm.CurrentFemSchema = femSchemaItem;
+          else if (e.NewValue is CScore.Fem.FemMember femMemberItem)
+             vm.CurrentFemMember = femMemberItem;
+          else if (e.NewValue is CScore.Fem.FemCheck femCheckItem)
+             vm.CurrentFemCheck = femCheckItem;
+      }
 
       void TasksNode_Selected(object sender, RoutedEventArgs e)
       {

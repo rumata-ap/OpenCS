@@ -1066,8 +1066,12 @@
     <system:String x:Key="SteelCheckOK">✓</system:String>
     <system:String x:Key="SteelCheckFail">✗</system:String>
 
+    <!-- Вкладки панели дерева -->
+    <system:String x:Key="ProjectTab">Проект</system:String>
+    <system:String x:Key="FemTab">МКЭ</system:String>
+
     <!-- МКЭ -->
-    <system:String x:Key="FemSchemas">МКЭ-схемы</system:String>
+    <system:String x:Key="FemSchemas">Расчётные схемы</system:String>
     <system:String x:Key="FemSchemaNew">Новая схема</system:String>
     <system:String x:Key="FemSchemaDelete">Удалить схему</system:String>
     <system:String x:Key="FemSchemaPageTitle">МКЭ-схема:</system:String>
