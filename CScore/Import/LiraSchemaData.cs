@@ -20,10 +20,12 @@ public record LiraElementRecord(
     int[] NodeIds
 );
 
-/// <summary>Жёсткость стержня ЛираСАПР (из CSV-экспорта).</summary>
+/// <summary>
+/// Жёсткость стержня ЛираСАПР.
+/// Id — порядковый номер жёсткости (колонка «Тип» в CSV, совпадает с «Номер жёсткости» в таблице элементов).
+/// </summary>
 public record LiraBarStiffnessRecord(
     int    Id,
-    int    TypeCode,
     string Name,
     /// <summary>EF — жёсткость на растяжение/сжатие, т.</summary>
     double EF,
@@ -32,10 +34,12 @@ public record LiraBarStiffnessRecord(
     double GIk
 );
 
-/// <summary>Жёсткость пластины ЛираСАПР (из CSV-экспорта).</summary>
+/// <summary>
+/// Жёсткость пластины ЛираСАПР.
+/// Id — порядковый номер жёсткости (колонка «Тип» в CSV).
+/// </summary>
 public record LiraPlateStiffnessRecord(
     int    Id,
-    int    TypeCode,
     string Name,
     double E,
     double V12,

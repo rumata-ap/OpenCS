@@ -79,4 +79,6 @@ SteelCheckerTests.RunSimpleCompressionCheck();
 
 FemInfraTests.RunAll();
 
+LiraCsvSchemaParserTests.RunAll();
+
 return TestHarness.Summary();

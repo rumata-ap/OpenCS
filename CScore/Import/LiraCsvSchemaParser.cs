@@ -6,7 +6,13 @@ namespace CScore.Import;
 /// <summary>Парсер CSV-экспортов расчётной схемы ЛираСАПР (кодировка Windows-1251, разделитель «;»).</summary>
 public static class LiraCsvSchemaParser
 {
-    static readonly Encoding Cp1251 = Encoding.GetEncoding(1251);
+    static readonly Encoding Cp1251;
+
+    static LiraCsvSchemaParser()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        Cp1251 = Encoding.GetEncoding(1251);
+    }
 
     /// <summary>
     /// Читает CSV-файлы ЛираСАПР и возвращает объединённый контейнер данных схемы.
@@ -74,11 +80,11 @@ public static class LiraCsvSchemaParser
         {
             var cols = line.Split(';');
             if (cols.Length < 10) continue;
-            if (!int.TryParse(cols[0].Trim(), out int id)) continue;
-            _ = int.TryParse(cols[1].Trim(), out int typeCode);
+            // cols[0] = внутренний хэш-ключ Лиры (игнорируем)
+            // cols[1] = порядковый номер жёсткости = Номер жёсткости в таблице элементов
+            if (!int.TryParse(cols[1].Trim(), out int id)) continue;
             data.BarStiffnesses.Add(new LiraBarStiffnessRecord(
                 id,
-                typeCode,
                 cols[2].Trim(),
                 ParseDouble(cols[6]),   // EF
                 ParseDouble(cols[7]),   // EIy
@@ -94,11 +100,10 @@ public static class LiraCsvSchemaParser
         {
             var cols = line.Split(';');
             if (cols.Length < 11) continue;
-            if (!int.TryParse(cols[0].Trim(), out int id)) continue;
-            _ = int.TryParse(cols[1].Trim(), out int typeCode);
+            // cols[1] = порядковый номер жёсткости
+            if (!int.TryParse(cols[1].Trim(), out int id)) continue;
             data.PlateStiffnesses.Add(new LiraPlateStiffnessRecord(
                 id,
-                typeCode,
                 cols[2].Trim(),
                 ParseDouble(cols[4]),   // E
                 ParseDouble(cols[6]),   // V12
