@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace CScore.Fem;
 
 /// <summary>Конечный элемент сетки.</summary>
@@ -12,4 +14,12 @@ public class FemElement
     public string  NodeIdsJson { get; set; } = "[]";
     public string? SectionTag  { get; set; }
     public string? MaterialTag { get; set; }
+
+    int[]? _nodeIds;
+    int[] NodeIds => _nodeIds ??= JsonSerializer.Deserialize<int[]>(NodeIdsJson) ?? [];
+
+    public int? Node1 => NodeIds.Length > 0 ? NodeIds[0] : null;
+    public int? Node2 => NodeIds.Length > 1 ? NodeIds[1] : null;
+    public int? Node3 => NodeIds.Length > 2 ? NodeIds[2] : null;
+    public int? Node4 => NodeIds.Length > 3 ? NodeIds[3] : null;
 }

@@ -1,0 +1,169 @@
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using CScore.Fem;
+using OpenCS.Utilites;
+
+namespace OpenCS.ViewModels;
+
+/// <summary>Корневой узел «Расчётные схемы» в дереве МКЭ.</summary>
+class FemSchemasGroupNode
+{
+    public ObservableCollection<FemSchemaTreeVM> Schemas { get; } = [];
+
+    public FemSchemasGroupNode(ObservableCollection<FemSchema> source, DatabaseService db)
+    {
+        foreach (var s in source)
+            Schemas.Add(new FemSchemaTreeVM(s, db));
+
+        source.CollectionChanged += (_, e) =>
+        {
+            if (e.Action == NotifyCollectionChangedAction.Reset)
+            {
+                Schemas.Clear();
+                return;
+            }
+            if (e.NewItems != null)
+                foreach (FemSchema s in e.NewItems)
+                    Schemas.Add(new FemSchemaTreeVM(s, db));
+            if (e.OldItems != null)
+                foreach (FemSchema s in e.OldItems)
+                {
+                    var vm = Schemas.FirstOrDefault(x => x.Schema == s);
+                    if (vm != null) Schemas.Remove(vm);
+                }
+        };
+    }
+}
+
+/// <summary>Корневой узел «Проверки» в дереве МКЭ.</summary>
+class FemChecksGroupNode
+{
+    public ObservableCollection<FemCheck> Checks { get; }
+    public FemChecksGroupNode(ObservableCollection<FemCheck> checks) => Checks = checks;
+}
+
+/// <summary>Обёртка над FemSchema для дерева МКЭ; экспонирует 4 подузла.</summary>
+class FemSchemaTreeVM
+{
+    public FemSchema    Schema   { get; }
+    public FemSubNode[] SubNodes { get; }
+
+    internal FemNodesSubNode    NodesSubNode    { get; }
+    internal FemElementsSubNode ElementsSubNode { get; }
+
+    readonly DatabaseService _db;
+
+    public FemSchemaTreeVM(FemSchema schema, DatabaseService db)
+    {
+        Schema = schema;
+        _db    = db;
+
+        NodesSubNode    = new FemNodesSubNode(this);
+        ElementsSubNode = new FemElementsSubNode(this);
+
+        SubNodes =
+        [
+            NodesSubNode,
+            ElementsSubNode,
+            new FemMembersSubNode(schema.Members),
+            new FemForcesSubNode(),
+        ];
+
+        RefreshCounts();
+    }
+
+    void RefreshCounts()
+    {
+        var (nodes, bars, shells) = _db.GetFemTopologyCounts(Schema.Id);
+        NodesSubNode.Count             = nodes;
+        ElementsSubNode.BarCount       = bars;
+        ElementsSubNode.ShellCount     = shells;
+        ElementsSubNode.Bars.Count     = bars;
+        ElementsSubNode.Shells.Count   = shells;
+    }
+
+    /// <summary>Асинхронно загружает узлы схемы из БД.</summary>
+    internal Task<List<FemNode>> LoadNodesAsync()
+        => Task.Run(() => _db.GetFemNodes(Schema.Id));
+
+    /// <summary>Асинхронно загружает стержневые КЭ схемы из БД.</summary>
+    internal Task<List<FemElement>> LoadBarsAsync()
+        => Task.Run(() => _db.GetFemElements(Schema.Id)
+            .Where(e => e.ElemType == "beam").ToList());
+
+    /// <summary>Асинхронно загружает пластинчатые КЭ схемы из БД.</summary>
+    internal Task<List<FemElement>> LoadShellsAsync()
+        => Task.Run(() => _db.GetFemElements(Schema.Id)
+            .Where(e => e.ElemType == "shell").ToList());
+
+    /// <summary>Перечитывает счётчики после SaveFemTopology.</summary>
+    public void ReloadTopology() => RefreshCounts();
+}
+
+/// <summary>Базовый класс подузла расчётной схемы.</summary>
+public abstract class FemSubNode { }
+
+/// <summary>Подузел «Узлы» — листовой, данные в DataGrid загружаются асинхронно.</summary>
+public class FemNodesSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    int _count;
+    public int Count { get => _count; internal set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
+    internal FemSchemaTreeVM Owner { get; }
+    internal FemNodesSubNode(FemSchemaTreeVM owner) => Owner = owner;
+}
+
+/// <summary>Подузел «Конечные элементы» — содержит два дочерних узла: Стержни и Пластины.</summary>
+public class FemElementsSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    public FemBarsSubNode   Bars     { get; }
+    public FemShellsSubNode Shells   { get; }
+    public FemSubNode[]     Children { get; }
+
+    internal FemSchemaTreeVM Owner { get; }
+
+    // Счётчики дублируются здесь, чтобы показывать в заголовке без раскрытия
+    int _barCount, _shellCount;
+    public int BarCount   { get => _barCount;   internal set { _barCount   = value; PropertyChanged?.Invoke(this, new(nameof(BarCount)));   } }
+    public int ShellCount { get => _shellCount; internal set { _shellCount = value; PropertyChanged?.Invoke(this, new(nameof(ShellCount))); } }
+
+    internal FemElementsSubNode(FemSchemaTreeVM owner)
+    {
+        Owner    = owner;
+        Bars     = new FemBarsSubNode(owner);
+        Shells   = new FemShellsSubNode(owner);
+        Children = [Bars, Shells];
+    }
+}
+
+/// <summary>Подузел «Стержни» — листовой, данные в DataGrid загружаются асинхронно.</summary>
+public class FemBarsSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    int _count;
+    public int Count { get => _count; internal set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
+    internal FemSchemaTreeVM Owner { get; }
+    internal FemBarsSubNode(FemSchemaTreeVM owner) => Owner = owner;
+}
+
+/// <summary>Подузел «Пластины» — листовой, данные в DataGrid загружаются асинхронно.</summary>
+public class FemShellsSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    int _count;
+    public int Count { get => _count; internal set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
+    internal FemSchemaTreeVM Owner { get; }
+    internal FemShellsSubNode(FemSchemaTreeVM owner) => Owner = owner;
+}
+
+/// <summary>Подузел «Конструктивные элементы» — содержит FemMember'ы схемы.</summary>
+public class FemMembersSubNode : FemSubNode
+{
+    public ObservableCollection<FemMember> Members { get; }
+    public FemMembersSubNode(ObservableCollection<FemMember> members) => Members = members;
+}
+
+/// <summary>Подузел «Усилия схемы» — placeholder.</summary>
+public class FemForcesSubNode : FemSubNode { }

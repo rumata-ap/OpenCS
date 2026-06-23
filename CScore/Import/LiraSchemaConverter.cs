@@ -33,13 +33,35 @@ public static class LiraSchemaConverter
             .Select(e =>
             {
                 var stiff = data.BarStiffnesses.FirstOrDefault(s => s.Id == e.StiffnessId);
+                var tag   = stiff?.Name ?? (e.StiffnessId > 0 ? e.StiffnessId.ToString() : null);
                 return new FemElement
                 {
                     SchemaId    = schemaId,
                     ElemTag     = e.Id.ToString(),
                     ElemType    = "beam",
                     NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
-                    SectionTag  = stiff?.Name,
+                    SectionTag  = tag,
+                };
+            })
+            .ToArray();
+
+    /// <summary>
+    /// Создаёт массив FemElement из пластинчатых/оболочечных КЭ (3 или 4 узла).
+    /// </summary>
+    public static FemElement[] ToFemShellElements(LiraSchemaData data, int schemaId)
+        => data.Elements
+            .Where(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4)
+            .Select(e =>
+            {
+                var stiff = data.PlateStiffnesses.FirstOrDefault(s => s.Id == e.StiffnessId);
+                var tag   = stiff?.Name ?? (e.StiffnessId > 0 ? e.StiffnessId.ToString() : null);
+                return new FemElement
+                {
+                    SchemaId    = schemaId,
+                    ElemTag     = e.Id.ToString(),
+                    ElemType    = "shell",
+                    NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
+                    SectionTag  = tag,
                 };
             })
             .ToArray();
@@ -67,6 +89,36 @@ public static class LiraSchemaConverter
                     SchemaId    = schemaId,
                     Tag         = tag,
                     MemberType  = "beam",
+                    ElemIdsJson = JsonSerializer.Serialize(ids),
+                };
+            })
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Создаёт FemMember для каждого уникального ID жёсткости пластин.
+    /// </summary>
+    public static FemMember[] ToFemMembersByPlateStiffness(LiraSchemaData data, int schemaId)
+    {
+        var shellElements = data.Elements
+            .Where(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4)
+            .ToList();
+        if (shellElements.Count == 0) return [];
+
+        var stiffNames = data.PlateStiffnesses.ToDictionary(s => s.Id, s => s.Name);
+
+        return shellElements
+            .GroupBy(e => e.StiffnessId)
+            .OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                var tag  = stiffNames.TryGetValue(g.Key, out var name) ? name : $"Жёсткость пластины {g.Key}";
+                var ids  = g.Select(e => e.Id).ToArray();
+                return new FemMember
+                {
+                    SchemaId    = schemaId,
+                    Tag         = tag,
+                    MemberType  = "shell",
                     ElemIdsJson = JsonSerializer.Serialize(ids),
                 };
             })

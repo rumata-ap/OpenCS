@@ -15,8 +15,8 @@ namespace CScore.Import
             T  = Get(src, "MX") * m,
             My = Get(src, "MY") * m * SignMy,
             Mx = Get(src, "MZ") * m * SignMx,
-            Vy = Get(src, "QZ") * f,
-            Vx = Get(src, "QY") * f,
+            Vx = Get(src, "QZ") * f,
+            Vy = Get(src, "QY") * f,
          };
       }
 

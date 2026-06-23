@@ -148,6 +148,8 @@
             <MenuItem Header="{DynamicResource ImportLiraRsn}" Command="{Binding ImportLiraRsnCommand}"/>
             <MenuItem Header="{DynamicResource ImportLiraRsu}" Command="{Binding ImportLiraRsuCommand}"/>
             <MenuItem Header="{DynamicResource ImportLiraSchemaFromCsv}" Command="{Binding ImportLiraSchemaFromCsvCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraSchemaFromApi}" Command="{Binding ImportLiraSchemaFromApiCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}" Command="{Binding ImportLiraForcesFromApiCommand}"/>
          </MenuItem>
          <MenuItem Header="{DynamicResource View}" >
             <MenuItem Header="{DynamicResource Language}">
@@ -952,9 +954,9 @@
       <!-- Вкладка 2: МКЭ -->
       <TabItem Header="{DynamicResource FemTab}">
          <DockPanel>
-            <!-- Дерево МКЭ: схемы → элементы → проверки -->
+            <!-- Дерево МКЭ: корень → «Расчётные схемы» → Схема → {Узлы, КЭ, Конструктивные эл., Усилия} | «Проверки» -->
             <TreeView x:Name="femTree"
-                      ItemsSource="{Binding FemSchemas}"
+                      ItemsSource="{Binding FemRootNodes}"
                       Margin="4,2" BorderThickness="0"
                       SelectedItemChanged="femTree_SelectedItemChanged">
                <TreeView.ContextMenu>
@@ -964,8 +966,22 @@
                   </ContextMenu>
                </TreeView.ContextMenu>
                <TreeView.Resources>
-                  <HierarchicalDataTemplate DataType="{x:Type fem:FemSchema}"
-                                            ItemsSource="{Binding Members}">
+
+                  <!-- Корневой узел «Расчётные схемы» -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemSchemasGroupNode}"
+                                            ItemsSource="{Binding Schemas}">
+                     <TextBlock Text="{DynamicResource FemSchemas}" FontWeight="SemiBold"/>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Корневой узел «Проверки» -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemChecksGroupNode}"
+                                            ItemsSource="{Binding Checks}">
+                     <TextBlock Text="{DynamicResource FemChecksGroup}" FontWeight="SemiBold"/>
+                  </HierarchicalDataTemplate>
+
+                  <!-- FemSchemaTreeVM — обёртка схемы с 4 подузлами -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemSchemaTreeVM}"
+                                            ItemsSource="{Binding SubNodes}">
                      <StackPanel Orientation="Horizontal" Margin="2"
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
@@ -973,79 +989,134 @@
                               <MenuItem Header="{DynamicResource FemMemberNew}"
                                         Command="{Binding PlacementTarget.Tag.NewFemMemberCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
                               <MenuItem Header="{DynamicResource FemSchemaDelete}"
                                         Command="{Binding PlacementTarget.Tag.DeleteFemSchemaCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
                         <Viewbox Width="14" Height="14" Margin="0,0,4,0">
                            <Path Fill="#0EA5E9" Data="M2,2 H14 V6 H2 Z M2,9 H14 V13 H2 Z M2,5 H14 V10 H2 Z"/>
                         </Viewbox>
-                        <TextBlock Text="{Binding Tag}"/>
+                        <TextBlock Text="{Binding Schema.Tag}"/>
                         <TextBlock Text=" [" Foreground="Gray"/>
-                        <TextBlock Text="{Binding SourceType}" Foreground="Gray"/>
+                        <TextBlock Text="{Binding Schema.SourceType}" Foreground="Gray"/>
                         <TextBlock Text="]" Foreground="Gray"/>
                      </StackPanel>
-                     <HierarchicalDataTemplate.ItemTemplate>
-                        <HierarchicalDataTemplate DataType="{x:Type fem:FemMember}"
-                                                  ItemsSource="{Binding Checks}">
-                           <StackPanel Orientation="Horizontal" Margin="2"
-                                       Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
-                              <StackPanel.ContextMenu>
-                                 <ContextMenu>
-                                    <MenuItem Header="{DynamicResource FemCheckAdd}"
-                                              Command="{Binding PlacementTarget.Tag.AddFemCheckCommand,
-                                                        RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                              CommandParameter="{Binding PlacementTarget.DataContext,
-                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                    <Separator/>
-                                    <MenuItem Header="{DynamicResource FemMemberDelete}"
-                                              Command="{Binding PlacementTarget.Tag.DeleteFemMemberCommand,
-                                                        RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                              CommandParameter="{Binding PlacementTarget.DataContext,
-                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                 </ContextMenu>
-                              </StackPanel.ContextMenu>
-                              <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
-                                    Fill="SteelBlue"
-                                    Data="M3,3 H13 M3,8 H13 M3,13 H13"/>
-                              <TextBlock Text="{Binding Tag}"/>
-                              <TextBlock Text="{Binding MemberType, StringFormat='  [{0}]'}" Foreground="Gray"/>
-                           </StackPanel>
-                           <HierarchicalDataTemplate.ItemTemplate>
-                              <DataTemplate DataType="{x:Type fem:FemCheck}">
-                                 <StackPanel Orientation="Horizontal" Margin="2"
-                                             Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
-                                    <StackPanel.ContextMenu>
-                                       <ContextMenu>
-                                          <MenuItem Header="{DynamicResource FemCheckRun}"
-                                                    Command="{Binding PlacementTarget.Tag.RunFemCheckCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                    CommandParameter="{Binding PlacementTarget.DataContext,
-                                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                          <Separator/>
-                                          <MenuItem Header="{DynamicResource FemCheckDelete}"
-                                                    Command="{Binding PlacementTarget.Tag.DeleteFemCheckCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                    CommandParameter="{Binding PlacementTarget.DataContext,
-                                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                       </ContextMenu>
-                                    </StackPanel.ContextMenu>
-                                    <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
-                                          Fill="#4F46E5"
-                                          Data="M12,2 L14,8 L8,14 L2,8 L4,2 Z"/>
-                                    <TextBlock Text="{Binding DisplayTag}"/>
-                                 </StackPanel>
-                              </DataTemplate>
-                           </HierarchicalDataTemplate.ItemTemplate>
-                        </HierarchicalDataTemplate>
-                     </HierarchicalDataTemplate.ItemTemplate>
                   </HierarchicalDataTemplate>
+
+                  <!-- Подузел «Узлы» — листовой, данные в DataGrid -->
+                  <DataTemplate DataType="{x:Type vm:FemNodesSubNode}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemNodes}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </DataTemplate>
+
+                  <!-- Подузел «Конечные элементы» — два дочерних: Стержни и Пластины -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemElementsSubNode}"
+                                            ItemsSource="{Binding Children}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemElements}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0">
+                           <TextBlock.Text>
+                              <MultiBinding StringFormat="({0}/{1})">
+                                 <Binding Path="BarCount"/>
+                                 <Binding Path="ShellCount"/>
+                              </MultiBinding>
+                           </TextBlock.Text>
+                        </TextBlock>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Подузел «Стержни» — листовой, данные в DataGrid -->
+                  <DataTemplate DataType="{x:Type vm:FemBarsSubNode}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemBars}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </DataTemplate>
+
+                  <!-- Подузел «Пластины» — листовой, данные в DataGrid -->
+                  <DataTemplate DataType="{x:Type vm:FemShellsSubNode}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemShells}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </DataTemplate>
+
+                  <!-- Подузел «Конструктивные элементы» с дочерними FemMember -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemMembersSubNode}"
+                                            ItemsSource="{Binding Members}">
+                     <TextBlock Text="{DynamicResource FemMembers}"/>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Подузел «Усилия схемы» (placeholder) -->
+                  <DataTemplate DataType="{x:Type vm:FemForcesSubNode}">
+                     <TextBlock Text="{DynamicResource FemForces}" Foreground="Gray"/>
+                  </DataTemplate>
+
+                  <!-- FemMember -->
+                  <HierarchicalDataTemplate DataType="{x:Type fem:FemMember}"
+                                            ItemsSource="{Binding Checks}">
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemCheckAdd}"
+                                        Command="{Binding PlacementTarget.Tag.AddFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
+                              <MenuItem Header="{DynamicResource FemMemberDelete}"
+                                        Command="{Binding PlacementTarget.Tag.DeleteFemMemberCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
+                              Fill="SteelBlue"
+                              Data="M3,3 H13 M3,8 H13 M3,13 H13"/>
+                        <TextBlock Text="{Binding Tag}"/>
+                        <TextBlock Text="{Binding MemberType, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- FemCheck -->
+                  <DataTemplate DataType="{x:Type fem:FemCheck}">
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemCheckRun}"
+                                        Command="{Binding PlacementTarget.Tag.RunFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
+                              <MenuItem Header="{DynamicResource FemCheckDelete}"
+                                        Command="{Binding PlacementTarget.Tag.DeleteFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
+                              Fill="#4F46E5"
+                              Data="M12,2 L14,8 L8,14 L2,8 L4,2 Z"/>
+                        <TextBlock Text="{Binding DisplayTag}"/>
+                     </StackPanel>
+                  </DataTemplate>
+
                </TreeView.Resources>
             </TreeView>
          </DockPanel>

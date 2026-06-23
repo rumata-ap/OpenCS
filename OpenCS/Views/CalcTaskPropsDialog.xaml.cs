@@ -62,11 +62,15 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string shellSimplAcrcLim = "0.3";
     string shellSimplPhi1 = "1.0";
     string shellSimplPhi2 = "0.5";
-    ForceSet? stage1Set, stage2Set;
-    LoadItem? stage1Item, stage2Item;
-    bool stage1UseManual, stage2UseManual;
-    string stage1ManualN = "0", stage1ManualMx = "0", stage1ManualMy = "0";
-    string stage2ManualN = "0", stage2ManualMx = "0", stage2ManualMy = "0";
+   ForceSet? stage1Set, stage2Set;
+   LoadItem? stage1Item, stage2Item;
+   bool stage1UseManual, stage2UseManual;
+   string stage1ManualN = "0", stage1ManualMx = "0", stage1ManualMy = "0";
+   string stage2ManualN = "0", stage2ManualMx = "0", stage2ManualMy = "0";
+   // Steel check
+   string steelDesignLengthX = "3.0", steelDesignLengthY = "3.0";
+   string steelMuX = "1.0", steelMuY = "1.0";
+   string steelBetaM = "1.0", steelGammaM = "1.025";
 
    public string Tag { get => tag; set { tag = value; OnPropertyChanged(); } }
 
@@ -75,7 +79,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ManualMy { get => manualMy; set { manualMy = value; OnPropertyChanged(); } }
 
    public bool IsLimitSingle  => IsLimitSingleKind(Kind);
-   public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle;
+   public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || IsSteelCheck;
 
    static bool IsLimitSingleKind(string kind)
       => kind is "limit_force" or "limit_moment" or "limit_axial";
@@ -112,11 +116,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(Stage1ShowManual));
            OnPropertyChanged(nameof(Stage2ShowSet));
            OnPropertyChanged(nameof(Stage2ShowManual));
-           OnPropertyChanged(nameof(IsPrestressLoss));
-           if (!FilteredCalcTypes.Contains(SelectedCalcType))
-               SelectedCalcType = FilteredCalcTypes[0];
-        }
+         OnPropertyChanged(nameof(IsPrestressLoss));
+         OnPropertyChanged(nameof(IsSteelCheck));
+         OnPropertyChanged(nameof(ShowManualForces));
+         if (!FilteredCalcTypes.Contains(SelectedCalcType))
+             SelectedCalcType = FilteredCalcTypes[0];
      }
+ }
 
     public string Kind
      {
@@ -149,10 +155,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(Stage1ShowManual));
            OnPropertyChanged(nameof(Stage2ShowSet));
            OnPropertyChanged(nameof(Stage2ShowManual));
-           OnPropertyChanged(nameof(IsPrestressLoss));
-           if (!FilteredCalcTypes.Contains(SelectedCalcType))
-               SelectedCalcType = FilteredCalcTypes[0];
-           FilterSections();
+            OnPropertyChanged(nameof(IsPrestressLoss));
+            OnPropertyChanged(nameof(IsSteelCheck));
+            OnPropertyChanged(nameof(ShowManualForces));
+            if (!FilteredCalcTypes.Contains(SelectedCalcType))
+                SelectedCalcType = FilteredCalcTypes[0];
+            FilterSections();
         }
      }
 
@@ -175,6 +183,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsTwoStage      => Kind is "two_stage_strain" or "two_stage_strain_batch";
    public bool IsTwoStageBatch => Kind == "two_stage_strain_batch";
    public bool IsPrestressLoss => Kind == "prestress_loss";
+   public bool IsSteelCheck => Kind == "steel_check";
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss;
    public bool ShowSolverMethod => IsLimitKind;
 
@@ -185,7 +194,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    {
       Sections.Clear();
       IEnumerable<CrossSection> filtered;
-      if (IsTwoStage)
+      if (IsSteelCheck)
+         filtered = _allSections.Where(s => s.Areas.Any(a =>
+            a.Material?.Type is MatType.Steel or MatType.Custom));
+      else if (IsTwoStage)
          filtered = _allSections.Where(s => s is TwoStageSection);
       else
          filtered = _allSections.Where(s => s is not TwoStageSection);
@@ -385,6 +397,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     public string Stage2ManualMx { get => stage2ManualMx; set { stage2ManualMx = value; OnPropertyChanged(); } }
     public string Stage2ManualMy { get => stage2ManualMy; set { stage2ManualMy = value; OnPropertyChanged(); } }
 
+    // Steel check parameters
+    public string SteelDesignLengthX { get => steelDesignLengthX; set { steelDesignLengthX = value; OnPropertyChanged(); } }
+    public string SteelDesignLengthY { get => steelDesignLengthY; set { steelDesignLengthY = value; OnPropertyChanged(); } }
+    public string SteelMuX { get => steelMuX; set { steelMuX = value; OnPropertyChanged(); } }
+    public string SteelMuY { get => steelMuY; set { steelMuY = value; OnPropertyChanged(); } }
+    public string SteelBetaM { get => steelBetaM; set { steelBetaM = value; OnPropertyChanged(); } }
+    public string SteelGammaM { get => steelGammaM; set { steelGammaM = value; OnPropertyChanged(); } }
+
    public List<CalcTaskKindItem> AvailableKinds { get; } =
    [
       new() { Id = "strain_state",         Label = Loc.S("CalcTaskKind_strain_state") },
@@ -410,7 +430,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shell_strain_state_batch", Label = Loc.S("CalcTaskKind_shell_strain_state_batch") },
       new() { Id = "fire_r_check",         Label = Loc.S("CalcTaskKind_fire_r_check") },
       new() { Id = "fire_r_check_batch",   Label = Loc.S("CalcTaskKind_fire_r_check_batch") },
-      new() { Id = "prestress_loss",       Label = Loc.S("CalcTaskKind_prestress_loss") }
+       new() { Id = "prestress_loss",       Label = Loc.S("CalcTaskKind_prestress_loss") },
+       new() { Id = "steel_check",          Label = Loc.S("CalcTaskKind_steel_check") }
    ];
 
    public List<CalcTaskSolverItem> SolverMethods { get; } =
@@ -790,6 +811,55 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   StepDeg = stepDeg, AcrcLimMm = acrcLim,
                   Phi1 = phi1, Phi2 = phi2
               })
+          };
+          _window.DialogResult = true;
+          return;
+      }
+
+      if (IsSteelCheck)
+      {
+          if (SelectedSection == null)
+          {
+              MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+              return;
+          }
+
+          var inv = System.Globalization.CultureInfo.InvariantCulture;
+          double.TryParse(SteelDesignLengthX, System.Globalization.NumberStyles.Float, inv, out var dlx);
+          double.TryParse(SteelDesignLengthY, System.Globalization.NumberStyles.Float, inv, out var dly);
+          double.TryParse(SteelMuX, System.Globalization.NumberStyles.Float, inv, out var mux);
+          double.TryParse(SteelMuY, System.Globalization.NumberStyles.Float, inv, out var muy);
+          double.TryParse(SteelBetaM, System.Globalization.NumberStyles.Float, inv, out var bm);
+          double.TryParse(SteelGammaM, System.Globalization.NumberStyles.Float, inv, out var gm);
+
+          SteelManualForces? mf = null;
+          if (ShowManualForces)
+          {
+              double.TryParse(ManualN,  System.Globalization.NumberStyles.Float, inv, out var n);
+              double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, inv, out var mx);
+              double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, inv, out var my);
+              mf = new SteelManualForces { N = n, Mx = mx, My = my };
+          }
+
+          Result = new CalcTask
+          {
+              Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+              Kind = Kind,
+              SectionId = SelectedSection.Id,
+              ForceSetId = ShowManualForces ? 0 : (SelectedForceSet?.Id ?? 0),
+              ForceItemId = ShowManualForces ? 0 : (ShowForceItem ? (SelectedForceItem?.Id ?? 0) : 0),
+              CalcType = SelectedCalcType,
+              ParamsJson = new SteelCheckParams
+              {
+                  DesignLengthX = dlx,
+                  DesignLengthY = dly,
+                  MuX = mux,
+                  MuY = muy,
+                  BetaM = bm,
+                  GammaM = gm,
+                  ManualForces = mf
+              }.ToJson()
           };
           _window.DialogResult = true;
           return;

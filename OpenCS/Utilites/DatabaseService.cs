@@ -2794,6 +2794,100 @@ namespace OpenCS.Utilites
          }
       }
 
+      /// <summary>
+      /// Создаёт заглушки FemElement для элементов из списка, которых ещё нет в схеме.
+      /// Используется при импорте усилий из ЛИРЫ без предварительного импорта топологии.
+      /// </summary>
+      public void AddFemElementStubs(int schemaId, IReadOnlyList<int> liraElemIds)
+      {
+         if (liraElemIds.Count == 0) return;
+         var existing = GetFemElements(schemaId)
+            .Select(e => e.ElemTag)
+            .ToHashSet();
+
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json)
+               VALUES (@sid, @tag, 'beam', '[]')
+            """;
+            cmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
+            cmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
+            cmd.Parameters["@sid"].Value = schemaId;
+            foreach (int id in liraElemIds)
+            {
+               var tag = id.ToString();
+               if (existing.Contains(tag)) continue;
+               cmd.Parameters["@tag"].Value = tag;
+               cmd.ExecuteNonQuery();
+               existing.Add(tag);
+            }
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      /// <summary>Возвращает все узлы схемы.</summary>
+      public List<CScore.Fem.FemNode> GetFemNodes(int schemaId)
+      {
+         var result = new List<CScore.Fem.FemNode>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT id, node_tag, x, y, z, dof_mask FROM fem_nodes WHERE schema_id=@sid ORDER BY CAST(node_tag AS INTEGER)";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var rdr = cmd.ExecuteReader();
+         while (rdr.Read())
+            result.Add(new CScore.Fem.FemNode
+            {
+               Id       = rdr.GetInt32(0),
+               SchemaId = schemaId,
+               NodeTag  = rdr.GetString(1),
+               X        = rdr.GetDouble(2),
+               Y        = rdr.GetDouble(3),
+               Z        = rdr.GetDouble(4),
+               DofMask  = rdr.GetInt32(5),
+            });
+         return result;
+      }
+
+      /// <summary>Возвращает все конечные элементы схемы (без загрузки в наблюдаемые коллекции).</summary>
+      public List<CScore.Fem.FemElement> GetFemElements(int schemaId)
+      {
+         var result = new List<CScore.Fem.FemElement>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag FROM fem_elements WHERE schema_id=@sid";
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var rdr = cmd.ExecuteReader();
+         while (rdr.Read())
+            result.Add(new CScore.Fem.FemElement
+            {
+               Id          = rdr.GetInt32(0),
+               SchemaId    = schemaId,
+               ElemTag     = rdr.GetString(1),
+               ElemType    = rdr.GetString(2),
+               NodeIdsJson = rdr.GetString(3),
+               SectionTag  = rdr.IsDBNull(4) ? null : rdr.GetString(4),
+            });
+         return result;
+      }
+
+      /// <summary>Возвращает (nodeCount, barCount, shellCount) для быстрого отображения в дереве.</summary>
+      public (int nodes, int bars, int shells) GetFemTopologyCounts(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT
+              (SELECT COUNT(*) FROM fem_nodes    WHERE schema_id=@sid),
+              (SELECT COUNT(*) FROM fem_elements WHERE schema_id=@sid AND elem_type='beam'),
+              (SELECT COUNT(*) FROM fem_elements WHERE schema_id=@sid AND elem_type='shell')
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         if (!r.Read()) return (0, 0, 0);
+         return (r.GetInt32(0), r.GetInt32(1), r.GetInt32(2));
+      }
+
       public void SaveFemMember(CScore.Fem.FemMember m)
       {
          using var tx = _connection.BeginTransaction();

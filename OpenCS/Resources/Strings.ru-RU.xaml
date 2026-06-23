@@ -488,7 +488,7 @@
    <system:String x:Key="ImportLiraSchemaElemsTitle">Файл элементов ЛираСАПР (CSV)</system:String>
    <system:String x:Key="ImportLiraSchemaBarStiffTitle">Файл жёсткостей стержней (CSV, опционально)</system:String>
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Файл жёсткостей пластин (CSV, опционально)</system:String>
-   <system:String x:Key="ImportLiraSchemaSuccess">Импортирована схема: {0} узлов, {1} стержней, {2} конструктивных элементов</system:String>
+   <system:String x:Key="ImportLiraSchemaSuccess">Импортирована схема: {0} узлов, {1} стержней, {2} пластин, {3} конструктивных элементов</system:String>
    <system:String x:Key="CsvFileFilter">CSV-файл (*.csv)|*.csv|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="LiraImportSettingsTab">Импорт LIRA</system:String>
    <system:String x:Key="LiraImportUnitsGroup">Перевод т → кН</system:String>
@@ -1091,5 +1091,27 @@
     <system:String x:Key="FemCheckAdd">Добавить проверку</system:String>
     <system:String x:Key="FemCheckRun">Выполнить проверку</system:String>
     <system:String x:Key="FemCheckDelete">Удалить проверку</system:String>
+    <system:String x:Key="FemChecksGroup">Проверки</system:String>
+    <system:String x:Key="FemNodes">Узлы</system:String>
+    <system:String x:Key="FemElements">Конечные элементы</system:String>
+    <system:String x:Key="FemBars">Стержни</system:String>
+    <system:String x:Key="FemShells">Пластины</system:String>
+    <system:String x:Key="FemNodeTag">№ узла</system:String>
+    <system:String x:Key="FemNodeTag1">Узел 1</system:String>
+    <system:String x:Key="FemNodeTag2">Узел 2</system:String>
+    <system:String x:Key="FemNodeTag3">Узел 3</system:String>
+    <system:String x:Key="FemNodeTag4">Узел 4</system:String>
+    <system:String x:Key="FemElemTag">№ КЭ</system:String>
+    <system:String x:Key="FemSection">Жёсткость</system:String>
+    <system:String x:Key="FemDofMask">DOF-маска</system:String>
+    <system:String x:Key="FemForces">Усилия схемы</system:String>
+    <system:String x:Key="ImportLiraSchemaFromApi">Импорт топологии из ЛираСАПР (COM)…</system:String>
+    <system:String x:Key="ImportLiraForcesFromApi">Импорт усилий из ЛираСАПР (COM)…</system:String>
+    <system:String x:Key="ImportLiraForcesNoSchema">Сначала выберите расчётную схему в дереве МКЭ.</system:String>
+    <system:String x:Key="ImportLiraForcesNoElements">В схеме нет стержневых элементов для импорта усилий.</system:String>
+    <system:String x:Key="LiraElemRangeDlgTitle">Диапазон элементов ЛИРА</system:String>
+    <system:String x:Key="LiraElemRangeDlgPrompt">Топология не импортирована. Укажите номера стержневых КЭ для чтения усилий из ЛИРА:</system:String>
+    <system:String x:Key="LiraElemRangeDlgHint">Пример: 1-144  или  1-50, 75-100, 120</system:String>
+    <system:String x:Key="ImportLiraForcesStubsCreated">Создано {0} заглушек. Импортировано {1} наборов усилий.</system:String>
 
   </ResourceDictionary>

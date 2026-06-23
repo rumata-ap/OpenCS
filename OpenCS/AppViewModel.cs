@@ -277,6 +277,12 @@ namespace OpenCS
       /// <summary>Нормативные проверки по МКЭ-пайплайну.</summary>
       public ObservableCollection<CScore.Fem.FemCheck> FemChecks { get; set; } = null!;
 
+      /// <summary>Корневые узлы дерева МКЭ: «Расчётные схемы» и «Проверки».</summary>
+      public ObservableCollection<object> FemRootNodes { get; } = [];
+
+      ViewModels.FemSchemasGroupNode? femSchemasGroup;
+      ViewModels.FemChecksGroupNode?  femChecksGroup;
+
       /// <summary>Наборы усилий для стержней (Kind="bar").</summary>
       public ObservableCollection<ForceSet> BarForceSets { get; set; } = null!;
 
@@ -377,6 +383,12 @@ namespace OpenCS
 
       /// <summary>Команда импорта расчётной схемы из CSV-файлов ЛираСАПР.</summary>
       public ICommand ImportLiraSchemaFromCsvCommand { get; set; } = null!;
+
+      /// <summary>Команда импорта расчётной схемы из запущенной ЛираСАПР через COM API.</summary>
+      public ICommand ImportLiraSchemaFromApiCommand { get; set; } = null!;
+
+      /// <summary>Команда импорта усилий из запущенной ЛираСАПР через COM API.</summary>
+      public ICommand ImportLiraForcesFromApiCommand { get; set; } = null!;
 
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
@@ -529,6 +541,9 @@ namespace OpenCS
           Views.CalcTasksPage             => Loc.S("VT_CalcTasks"),
           Views.CalcResultView            => Loc.S("VT_CalcResult"),
           Views.FireSectionView           => Loc.S("VT_FireSection"),
+          Views.FemNodesView              => Loc.S("FemNodes"),
+          Views.FemBarsView               => Loc.S("FemBars"),
+          Views.FemShellsView             => Loc.S("FemShells"),
           _                               => ""
       };
       /// <summary>
@@ -889,6 +904,7 @@ namespace OpenCS
          CalcResults = db.CalcResults;
          FemSchemas  = db.FemSchemas;
          FemChecks   = db.FemChecks;
+         BuildFemRootNodes();
          CalcTasks.CollectionChanged   += (_, _) => IsDirty = true;
          CalcResults.CollectionChanged += (_, _) => IsDirty = true;
          MaterialAreas = db.MaterialAreas;
@@ -968,13 +984,15 @@ namespace OpenCS
          ImportLiraRsuCommand         = new RelayCommand(_ => ImportLiraHtml(LiraImportMode.Rsu));
 
          NewFemSchemaCommand    = new RelayCommand(_ => NewFemSchema());
-         DeleteFemSchemaCommand = new RelayCommand(_ => DeleteFemSchema());
+         DeleteFemSchemaCommand = new RelayCommand(p => DeleteFemSchema(p as CScore.Fem.FemSchema));
          NewFemMemberCommand    = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
          DeleteFemMemberCommand = new RelayCommand(_ => DeleteFemMember());
          AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMember));
          RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
          DeleteFemCheckCommand  = new RelayCommand(_ => DeleteFemCheck());
-         ImportLiraSchemaFromCsvCommand = new RelayCommand(_ => ImportLiraSchemaFromCsv());
+         ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
+         ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
+         ImportLiraForcesFromApiCommand  = new RelayCommand(_ => ImportLiraForcesFromApi());
       }
 
       void SetLanguage(object? param)
@@ -1463,6 +1481,7 @@ namespace OpenCS
          CalcResults = db.CalcResults;
          FemSchemas  = db.FemSchemas;
          FemChecks   = db.FemChecks;
+         BuildFemRootNodes();
          MaterialsSort();
          this.ContoursRenumber();
          CirclesLive = new(Circles); this.CirclesRenumber();
@@ -2165,14 +2184,20 @@ namespace OpenCS
             db.SaveFemSchema(schema);
 
             var nodes    = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
-            var elements = CScore.Import.LiraSchemaConverter.ToFemBarElements(raw, schema.Id);
-            var members  = CScore.Import.LiraSchemaConverter.ToFemMembersByStiffness(raw, schema.Id);
+            var elements = CScore.Import.LiraSchemaConverter.ToFemBarElements(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemShellElements(raw, schema.Id))
+                .ToArray();
+            var members  = CScore.Import.LiraSchemaConverter.ToFemMembersByStiffness(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemMembersByPlateStiffness(raw, schema.Id))
+                .ToArray();
 
             db.SaveFemTopology(schema.Id, nodes, elements, members);
+            RefreshFemSchemaTreeCounts(schema);
 
-            int barCount = raw.Elements.Count(e => e.NodeIds.Length == 2);
+            int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
+            int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
             LogService.Info(string.Format(Loc.S("ImportLiraSchemaSuccess"),
-               raw.Nodes.Count, barCount, members.Length));
+               raw.Nodes.Count, barCount, shellCount, members.Length));
          }
          catch (Exception ex)
          {
@@ -2183,12 +2208,140 @@ namespace OpenCS
          }
       }
 
-      void DeleteFemSchema()
+      void BuildFemRootNodes()
       {
-         if (currentFemSchema == null) return;
-         db.DeleteFemSchema(currentFemSchema);
-         currentFemSchema = null;
-         CurrentPage = null!;
+         femSchemasGroup = new ViewModels.FemSchemasGroupNode(FemSchemas, db);
+         femChecksGroup  = new ViewModels.FemChecksGroupNode(FemChecks);
+         FemRootNodes.Clear();
+         FemRootNodes.Add(femSchemasGroup);
+         FemRootNodes.Add(femChecksGroup);
+      }
+
+      void RefreshFemSchemaTreeCounts(CScore.Fem.FemSchema schema)
+          => femSchemasGroup?.Schemas
+              .FirstOrDefault(vm => vm.Schema == schema)
+              ?.ReloadTopology();
+
+
+
+      void DeleteFemSchema(CScore.Fem.FemSchema? schema = null)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+         db.DeleteFemSchema(schema);
+         if (currentFemSchema == schema)
+         {
+            currentFemSchema = null;
+            CurrentPage = null!;
+         }
+      }
+
+      void ImportLiraSchemaFromApi()
+      {
+         try
+         {
+            var raw    = Services.LiraApiSchemaReader.Read();
+            var schema = new CScore.Fem.FemSchema { Tag = "Схема Лира (API)", SourceType = "lira" };
+            db.SaveFemSchema(schema);
+            var nodes    = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
+            var elements = CScore.Import.LiraSchemaConverter.ToFemBarElements(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemShellElements(raw, schema.Id))
+                .ToArray();
+            var members  = CScore.Import.LiraSchemaConverter.ToFemMembersByStiffness(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemMembersByPlateStiffness(raw, schema.Id))
+                .ToArray();
+            db.SaveFemTopology(schema.Id, nodes, elements, members);
+            RefreshFemSchemaTreeCounts(schema);
+            int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
+            int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
+            LogService.Info(string.Format(Loc.S("ImportLiraSchemaSuccess"),
+               raw.Nodes.Count, barCount, shellCount, members.Length));
+         }
+         catch (Exception ex)
+         {
+            // Диагностический вывод может быть длинным — пишем в лог целиком, в MessageBox первую строку
+            string msg = ex.Message;
+            if (msg.Length > 300)
+            {
+               LogService.Error("ДИАГНОСТИКА ЛираСАПР COM:\n" + msg);
+               msg = msg.Split('\n')[0] + "\n\nПодробности — в журнале событий.";
+            }
+            System.Windows.MessageBox.Show(msg,
+               Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK,
+               System.Windows.MessageBoxImage.Error);
+         }
+      }
+
+      void ImportLiraForcesFromApi()
+      {
+         if (currentFemSchema == null)
+         {
+            System.Windows.MessageBox.Show(
+               Loc.S("ImportLiraForcesNoSchema"),
+               Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK,
+               System.Windows.MessageBoxImage.Warning);
+            return;
+         }
+
+         // Имя документа ЛираСАПР берётся из Tag схемы (должно совпадать с именем файла .lir без расширения)
+         var docName = currentFemSchema.Tag;
+
+         try
+         {
+            IReadOnlyList<int> elemIds;
+
+            if (currentFemMember != null)
+            {
+               // Импортируем только элементы выбранного конструктивного элемента
+               elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(
+                  currentFemMember.ElemIdsJson) ?? [];
+            }
+            else
+            {
+               // Все стержневые КЭ схемы
+               var elements = db.GetFemElements(currentFemSchema.Id);
+               elemIds = elements
+                  .Where(e => e.ElemType == "beam")
+                  .Select(e => int.TryParse(e.ElemTag, out int id) ? id : 0)
+                  .Where(id => id > 0)
+                  .ToList();
+            }
+
+            int stubsCreated = 0;
+            if (elemIds.Count == 0)
+            {
+               // Топология не импортирована — спрашиваем диапазон у пользователя
+               var dlg = new Views.LiraElemRangeDialog();
+               if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.Range))
+                  return;
+               var enteredIds = Views.LiraElemRangeDialog.ParseRange(dlg.Range);
+               if (enteredIds.Count == 0) return;
+               db.AddFemElementStubs(currentFemSchema.Id, enteredIds);
+               stubsCreated = enteredIds.Count;
+               elemIds = enteredIds;
+            }
+
+            var forceSets = Services.LiraApiForceImporter.ReadLoadCaseForces(
+               docName, currentFemSchema, elemIds);
+            foreach (var fs in forceSets)
+               db.SaveForceSet(fs);
+            IsDirty = true;
+            if (stubsCreated > 0)
+               LogService.Info(string.Format(Loc.S("ImportLiraForcesStubsCreated"),
+                  stubsCreated, forceSets.Count));
+            else
+               LogService.Info(string.Format(Loc.S("ImportLiraSuccess"),
+                  forceSets.Count, docName));
+         }
+         catch (Exception ex)
+         {
+            System.Windows.MessageBox.Show(ex.Message,
+               Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK,
+               System.Windows.MessageBoxImage.Error);
+         }
       }
 
       void NewFemMember(CScore.Fem.FemSchema? schema)

@@ -35,6 +35,7 @@ namespace OpenCS.Tasks
           ["shell_strain_state"]          = new ShellStrainHandler(),
           ["shell_strain_state_batch"]    = new ShellStrainBatchHandler(),
           ["prestress_loss"]              = new PrestressLossHandler(),
+          ["steel_check"]                 = new SteelCheckHandler(),
        };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>

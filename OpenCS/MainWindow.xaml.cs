@@ -202,8 +202,16 @@ namespace OpenCS
 
       private void femTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
       {
-          if (e.NewValue is CScore.Fem.FemSchema femSchemaItem)
-             vm.CurrentFemSchema = femSchemaItem;
+          if (e.NewValue is ViewModels.FemSchemaTreeVM schemaTreeVM)
+          {
+             vm.CurrentFemSchema = schemaTreeVM.Schema;
+          }
+          else if (e.NewValue is ViewModels.FemNodesSubNode nodesNode)
+             vm.CurrentPage = new Views.FemNodesView(nodesNode);
+          else if (e.NewValue is ViewModels.FemBarsSubNode barsNode)
+             vm.CurrentPage = new Views.FemBarsView(barsNode);
+          else if (e.NewValue is ViewModels.FemShellsSubNode shellsNode)
+             vm.CurrentPage = new Views.FemShellsView(shellsNode);
           else if (e.NewValue is CScore.Fem.FemMember femMemberItem)
              vm.CurrentFemMember = femMemberItem;
           else if (e.NewValue is CScore.Fem.FemCheck femCheckItem)

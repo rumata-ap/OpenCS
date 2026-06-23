@@ -485,7 +485,7 @@
    <system:String x:Key="ImportLiraSchemaElemsTitle">LIRA SAPR elements file (CSV)</system:String>
    <system:String x:Key="ImportLiraSchemaBarStiffTitle">Bar stiffnesses file (CSV, optional)</system:String>
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Plate stiffnesses file (CSV, optional)</system:String>
-   <system:String x:Key="ImportLiraSchemaSuccess">Imported schema: {0} nodes, {1} bars, {2} design members</system:String>
+   <system:String x:Key="ImportLiraSchemaSuccess">Imported schema: {0} nodes, {1} bars, {2} shells, {3} design members</system:String>
    <system:String x:Key="CsvFileFilter">CSV file (*.csv)|*.csv|All files (*.*)|*.*</system:String>
    <system:String x:Key="LiraImportSettingsTab">LIRA import</system:String>
    <system:String x:Key="LiraImportUnitsGroup">Convert ton → kN</system:String>
@@ -1088,5 +1088,27 @@
     <system:String x:Key="FemCheckAdd">Add check</system:String>
     <system:String x:Key="FemCheckRun">Run check</system:String>
     <system:String x:Key="FemCheckDelete">Delete check</system:String>
+    <system:String x:Key="FemChecksGroup">Checks</system:String>
+    <system:String x:Key="FemNodes">Nodes</system:String>
+    <system:String x:Key="FemElements">Finite Elements</system:String>
+    <system:String x:Key="FemBars">Bars</system:String>
+    <system:String x:Key="FemShells">Shells</system:String>
+    <system:String x:Key="FemNodeTag">Node #</system:String>
+    <system:String x:Key="FemNodeTag1">Node 1</system:String>
+    <system:String x:Key="FemNodeTag2">Node 2</system:String>
+    <system:String x:Key="FemNodeTag3">Node 3</system:String>
+    <system:String x:Key="FemNodeTag4">Node 4</system:String>
+    <system:String x:Key="FemElemTag">Element #</system:String>
+    <system:String x:Key="FemSection">Stiffness</system:String>
+    <system:String x:Key="FemDofMask">DOF mask</system:String>
+    <system:String x:Key="FemForces">Schema Forces</system:String>
+    <system:String x:Key="ImportLiraSchemaFromApi">Import topology from LIRA SAPR (COM)…</system:String>
+    <system:String x:Key="ImportLiraForcesFromApi">Import forces from LIRA SAPR (COM)…</system:String>
+    <system:String x:Key="ImportLiraForcesNoSchema">Select a FEM schema in the tree first.</system:String>
+    <system:String x:Key="ImportLiraForcesNoElements">No beam elements found in schema for force import.</system:String>
+    <system:String x:Key="LiraElemRangeDlgTitle">LIRA Element Range</system:String>
+    <system:String x:Key="LiraElemRangeDlgPrompt">Topology not imported. Enter beam element numbers to read forces from LIRA:</system:String>
+    <system:String x:Key="LiraElemRangeDlgHint">Example: 1-144  or  1-50, 75-100, 120</system:String>
+    <system:String x:Key="ImportLiraForcesStubsCreated">Created {0} element stubs. Imported {1} force sets.</system:String>
 
   </ResourceDictionary>

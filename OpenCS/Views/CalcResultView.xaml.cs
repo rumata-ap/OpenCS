@@ -18,6 +18,12 @@ namespace OpenCS.Views
             return;
         }
 
+        if (task?.Kind == "steel_check")
+        {
+            Content = new SteelCheckResultView(result.DataJson);
+            return;
+        }
+
         if (task?.Kind is "fire_r_check" or "fire_r_check_batch"
             or "strain_state_batch" or "two_stage_strain_batch"
             or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"

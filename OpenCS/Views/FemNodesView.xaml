@@ -1,0 +1,19 @@
+<UserControl x:Class="OpenCS.Views.FemNodesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+   <DataGrid x:Name="nodesGrid"
+             AutoGenerateColumns="False"
+             IsReadOnly="True"
+             CanUserAddRows="False"
+             CanUserDeleteRows="False"
+             EnableRowVirtualization="True"
+             VirtualizingPanel.IsVirtualizing="True">
+      <DataGrid.Columns>
+         <DataGridTextColumn Header="{DynamicResource FemNodeTag}" Binding="{Binding NodeTag}" Width="80"/>
+         <DataGridTextColumn Header="X, м"                        Binding="{Binding X, StringFormat=F4}" Width="100"/>
+         <DataGridTextColumn Header="Y, м"                        Binding="{Binding Y, StringFormat=F4}" Width="100"/>
+         <DataGridTextColumn Header="Z, м"                        Binding="{Binding Z, StringFormat=F4}" Width="100"/>
+         <DataGridTextColumn Header="{DynamicResource FemDofMask}" Binding="{Binding DofMask}" Width="80"/>
+      </DataGrid.Columns>
+   </DataGrid>
+</UserControl>
