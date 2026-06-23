@@ -269,7 +269,9 @@ namespace OpenCS.Utilites
       public ObservableCollection<PlateSection> PlateSections { get; } = [];
       public ObservableCollection<FireSectionDef> FireSections { get; } = [];
       public ObservableCollection<CalcTask> CalcTasks { get; } = [];
-      public ObservableCollection<CalcResult> CalcResults { get; } = [];
+      public ObservableCollection<CalcResult> CalcResults  { get; } = [];
+      public ObservableCollection<CScore.Fem.FemSchema> FemSchemas { get; } = [];
+      public ObservableCollection<CScore.Fem.FemCheck>  FemChecks  { get; } = [];
 
       public DatabaseService(string dataSource)
       {
@@ -988,6 +990,8 @@ namespace OpenCS.Utilites
          MaterialAreas.Clear();
          CalcTasks.Clear();
          CalcResults.Clear();
+         FemSchemas.Clear();
+         FemChecks.Clear();
       }
 
       #region Load
@@ -1011,6 +1015,8 @@ namespace OpenCS.Utilites
          LoadFireSections();
          LoadCalcTasks();
          LoadCalcResults();
+         LoadFemSchemas();
+         LoadFemChecks();
       }
 
       void LoadMaterials()
@@ -1740,17 +1746,20 @@ namespace OpenCS.Utilites
          var sets = new Dictionary<int, ForceSet>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, num, tag, description, kind FROM force_sets ORDER BY num";
+            cmd.CommandText = "SELECT id, num, tag, description, kind, source_type, source_schema_id, source_element_tag FROM force_sets ORDER BY num";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
                var fs = new ForceSet
                {
-                  Id          = r.GetInt32(0),
-                  Num         = r.GetInt32(1),
-                  Tag         = r.GetString(2),
-                  Description = r.IsDBNull(3) ? null : r.GetString(3),
-                  Kind        = r.IsDBNull(4) ? "bar" : r.GetString(4)
+                  Id               = r.GetInt32(0),
+                  Num              = r.GetInt32(1),
+                  Tag              = r.GetString(2),
+                  Description      = r.IsDBNull(3) ? null : r.GetString(3),
+                  Kind             = r.IsDBNull(4) ? "bar" : r.GetString(4),
+                  SourceType       = r.IsDBNull(5) ? null : r.GetString(5),
+                  SourceSchemaId   = r.IsDBNull(6) ? null : r.GetInt32(6),
+                  SourceElementTag = r.IsDBNull(7) ? null : r.GetString(7)
                };
                sets[fs.Id] = fs;
             }
@@ -1822,19 +1831,26 @@ namespace OpenCS.Utilites
          if (isNew)
          {
             cmd.CommandText = """
-               INSERT INTO force_sets (num, tag, description, kind) VALUES (@num, @tag, @desc, @kind);
+               INSERT INTO force_sets (num, tag, description, kind, source_type, source_schema_id, source_element_tag)
+               VALUES (@num, @tag, @desc, @kind, @stype, @ssid, @setag);
                SELECT last_insert_rowid();
             """;
          }
          else
          {
-            cmd.CommandText = "UPDATE force_sets SET num=@num, tag=@tag, description=@desc, kind=@kind WHERE id=@id";
+            cmd.CommandText = """
+               UPDATE force_sets SET num=@num, tag=@tag, description=@desc, kind=@kind,
+               source_type=@stype, source_schema_id=@ssid, source_element_tag=@setag WHERE id=@id
+            """;
             cmd.Parameters.AddWithValue("@id", fs.Id);
          }
-         cmd.Parameters.AddWithValue("@num",  fs.Num);
-         cmd.Parameters.AddWithValue("@tag",  fs.Tag);
-         cmd.Parameters.AddWithValue("@desc", (object?)fs.Description ?? DBNull.Value);
-         cmd.Parameters.AddWithValue("@kind", fs.Kind);
+         cmd.Parameters.AddWithValue("@num",   fs.Num);
+         cmd.Parameters.AddWithValue("@tag",   fs.Tag);
+         cmd.Parameters.AddWithValue("@desc",  (object?)fs.Description      ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@kind",  fs.Kind);
+         cmd.Parameters.AddWithValue("@stype", (object?)fs.SourceType       ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@ssid",  (object?)fs.SourceSchemaId   ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@setag", (object?)fs.SourceElementTag ?? DBNull.Value);
          if (isNew) fs.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
 
@@ -2537,6 +2553,242 @@ namespace OpenCS.Utilites
          cmd.CommandText = "INSERT OR REPLACE INTO settings (key, value_json) VALUES ('calc', $json)";
          cmd.Parameters.AddWithValue("$json", json);
          cmd.ExecuteNonQuery();
+      }
+
+      #endregion
+
+      #region FEM
+
+      void LoadFemSchemas()
+      {
+         FemSchemas.Clear();
+         var schemas = new Dictionary<int, CScore.Fem.FemSchema>();
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = "SELECT id, tag, source_type, created FROM fem_schemas ORDER BY id";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               var s = new CScore.Fem.FemSchema
+               {
+                  Id         = r.GetInt32(0),
+                  Tag        = r.GetString(1),
+                  SourceType = r.GetString(2),
+                  Created    = r.GetString(3)
+               };
+               schemas[s.Id] = s;
+            }
+         }
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               SELECT id, schema_id, tag, member_type, elem_ids_json,
+                      cross_section_id, force_set_id, design_params_json
+               FROM fem_members ORDER BY schema_id, id
+            """;
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               int sid = r.GetInt32(1);
+               if (!schemas.TryGetValue(sid, out var schema)) continue;
+               schema.Members.Add(new CScore.Fem.FemMember
+               {
+                  Id               = r.GetInt32(0),
+                  SchemaId         = sid,
+                  Tag              = r.GetString(2),
+                  MemberType       = r.IsDBNull(3) ? null : r.GetString(3),
+                  ElemIdsJson      = r.GetString(4),
+                  CrossSectionId   = r.IsDBNull(5) ? null : r.GetInt32(5),
+                  ForceSetId       = r.IsDBNull(6) ? null : r.GetInt32(6),
+                  DesignParamsJson = r.IsDBNull(7) ? null : r.GetString(7)
+               });
+            }
+         }
+         foreach (var s in schemas.Values) FemSchemas.Add(s);
+      }
+
+      void LoadFemChecks()
+      {
+         FemChecks.Clear();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT id, schema_id, member_id, norm_code, params_json, result_id FROM fem_checks ORDER BY id";
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+         {
+            FemChecks.Add(new CScore.Fem.FemCheck
+            {
+               Id         = r.GetInt32(0),
+               SchemaId   = r.GetInt32(1),
+               MemberId   = r.GetInt32(2),
+               NormCode   = r.GetString(3),
+               ParamsJson = r.IsDBNull(4) ? null : r.GetString(4),
+               ResultId   = r.IsDBNull(5) ? null : r.GetInt32(5)
+            });
+         }
+      }
+
+      public void SaveFemSchema(CScore.Fem.FemSchema schema)
+      {
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            if (schema.Id == 0)
+            {
+               cmd.CommandText = """
+                  INSERT INTO fem_schemas (tag, source_type, created)
+                  VALUES (@tag, @src, @created);
+                  SELECT last_insert_rowid();
+               """;
+               cmd.Parameters.AddWithValue("@tag",     schema.Tag);
+               cmd.Parameters.AddWithValue("@src",     schema.SourceType);
+               cmd.Parameters.AddWithValue("@created", schema.Created);
+               schema.Id = (int)(long)cmd.ExecuteScalar()!;
+               FemSchemas.Add(schema);
+            }
+            else
+            {
+               cmd.CommandText = "UPDATE fem_schemas SET tag=@tag, source_type=@src WHERE id=@id";
+               cmd.Parameters.AddWithValue("@tag", schema.Tag);
+               cmd.Parameters.AddWithValue("@src", schema.SourceType);
+               cmd.Parameters.AddWithValue("@id",  schema.Id);
+               cmd.ExecuteNonQuery();
+            }
+            foreach (var m in schema.Members)
+               SaveFemMemberCore(m, schema.Id);
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      public void DeleteFemSchema(CScore.Fem.FemSchema schema)
+      {
+         if (schema.Id == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fem_schemas WHERE id = @id";
+         cmd.Parameters.AddWithValue("@id", schema.Id);
+         cmd.ExecuteNonQuery();
+         FemSchemas.Remove(schema);
+      }
+
+      void SaveFemMemberCore(CScore.Fem.FemMember m, int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         if (m.Id == 0)
+         {
+            cmd.CommandText = """
+               INSERT INTO fem_members
+                   (schema_id, tag, member_type, elem_ids_json, cross_section_id, force_set_id, design_params_json)
+               VALUES (@sid, @tag, @mtype, @eids, @csid, @fsid, @dp);
+               SELECT last_insert_rowid();
+            """;
+            cmd.Parameters.AddWithValue("@sid",   schemaId);
+            cmd.Parameters.AddWithValue("@tag",   m.Tag);
+            cmd.Parameters.AddWithValue("@mtype", (object?)m.MemberType       ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@eids",  m.ElemIdsJson);
+            cmd.Parameters.AddWithValue("@csid",  (object?)m.CrossSectionId   ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
+            m.Id = (int)(long)cmd.ExecuteScalar()!;
+            m.SchemaId = schemaId;
+         }
+         else
+         {
+            cmd.CommandText = """
+               UPDATE fem_members SET tag=@tag, member_type=@mtype, elem_ids_json=@eids,
+               cross_section_id=@csid, force_set_id=@fsid, design_params_json=@dp WHERE id=@id
+            """;
+            cmd.Parameters.AddWithValue("@tag",   m.Tag);
+            cmd.Parameters.AddWithValue("@mtype", (object?)m.MemberType       ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@eids",  m.ElemIdsJson);
+            cmd.Parameters.AddWithValue("@csid",  (object?)m.CrossSectionId   ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@id",    m.Id);
+            cmd.ExecuteNonQuery();
+         }
+      }
+
+      public void SaveFemMember(CScore.Fem.FemMember m)
+      {
+         using var tx = _connection.BeginTransaction();
+         try { SaveFemMemberCore(m, m.SchemaId); tx.Commit(); }
+         catch { tx.Rollback(); throw; }
+      }
+
+      public void DeleteFemMember(CScore.Fem.FemMember m)
+      {
+         if (m.Id == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fem_members WHERE id = @id";
+         cmd.Parameters.AddWithValue("@id", m.Id);
+         cmd.ExecuteNonQuery();
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == m.SchemaId);
+         schema?.Members.Remove(m);
+      }
+
+      public void SaveFemCheck(CScore.Fem.FemCheck check)
+      {
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            if (check.Id == 0)
+            {
+               cmd.CommandText = """
+                  INSERT INTO fem_checks (schema_id, member_id, norm_code, params_json, result_id)
+                  VALUES (@sid, @mid, @nc, @pj, @rid);
+                  SELECT last_insert_rowid();
+               """;
+               cmd.Parameters.AddWithValue("@sid", check.SchemaId);
+               cmd.Parameters.AddWithValue("@mid", check.MemberId);
+               cmd.Parameters.AddWithValue("@nc",  check.NormCode);
+               cmd.Parameters.AddWithValue("@pj",  (object?)check.ParamsJson ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@rid", (object?)check.ResultId   ?? DBNull.Value);
+               check.Id = (int)(long)cmd.ExecuteScalar()!;
+               FemChecks.Add(check);
+            }
+            else
+            {
+               cmd.CommandText = "UPDATE fem_checks SET norm_code=@nc, params_json=@pj, result_id=@rid WHERE id=@id";
+               cmd.Parameters.AddWithValue("@nc",  check.NormCode);
+               cmd.Parameters.AddWithValue("@pj",  (object?)check.ParamsJson ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@rid", (object?)check.ResultId   ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@id",  check.Id);
+               cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      public void DeleteFemCheck(CScore.Fem.FemCheck check)
+      {
+         if (check.Id == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fem_checks WHERE id = @id";
+         cmd.Parameters.AddWithValue("@id", check.Id);
+         cmd.ExecuteNonQuery();
+         FemChecks.Remove(check);
+      }
+
+      /// <summary>Сохраняет CalcResult, связанный с FemCheck (task_id = 0, sentinel).</summary>
+      public void SaveCalcResultRaw(CalcResult r, int femCheckId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            INSERT INTO calc_results (task_id, task_kind, task_tag, created, status, data_json, fem_check_id)
+            VALUES (0, @kind, @tag, @created, @status, @data, @fid);
+            SELECT last_insert_rowid();
+         """;
+         cmd.Parameters.AddWithValue("@kind",    r.TaskKind);
+         cmd.Parameters.AddWithValue("@tag",     r.TaskTag);
+         cmd.Parameters.AddWithValue("@created", r.Created);
+         cmd.Parameters.AddWithValue("@status",  r.Status);
+         cmd.Parameters.AddWithValue("@data",    r.DataJson);
+         cmd.Parameters.AddWithValue("@fid",     femCheckId);
+         r.Id = (int)(long)cmd.ExecuteScalar()!;
+         CalcResults.Add(r);
       }
 
       #endregion
