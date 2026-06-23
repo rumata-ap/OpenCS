@@ -1,18 +1,34 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using CScore;
 using CScore.Fem;
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
 public partial class FemMemberEditorPage : UserControl
 {
+    readonly FemMember    _member;
+    readonly AppViewModel _app;
+
     public FemMemberEditorPage(FemMember member, AppViewModel app)
     {
+        _member = member;
+        _app    = app;
         InitializeComponent();
-        DataContext = new FemMemberEditorVM(member, app);
+        DataContext        = new FemMemberEditorVM(member, app);
+        view3D.DataContext = new Fem3DVM(member, app.db);
+    }
+
+    void ViewMode_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        view3D.DataContext = rbSchema.IsChecked == true
+            ? new Fem3DVM(_member, _app.db, highlightOnSchema: true)
+            : new Fem3DVM(_member, _app.db);
     }
 }
 
@@ -70,8 +86,8 @@ public class FemMemberEditorVM : ViewModelBase
         _app    = app;
         _db     = app.db;
         _params = FemDesignParams.Parse(member.DesignParamsJson);
-        _selectedSection   = app.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId);
-        _selectedForceSet  = app.ForceSets.FirstOrDefault(f => f.Id == member.ForceSetId);
+        _selectedSection  = app.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId);
+        _selectedForceSet = app.ForceSets.FirstOrDefault(f => f.Id == member.ForceSetId);
         SaveCommand = new RelayCommand(_ => Save());
     }
 

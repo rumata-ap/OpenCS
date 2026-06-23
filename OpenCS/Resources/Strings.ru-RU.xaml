@@ -1118,5 +1118,15 @@
     <system:String x:Key="LiraElemRangeDlgPrompt">Топология не импортирована. Укажите номера стержневых КЭ для чтения усилий из ЛИРА:</system:String>
     <system:String x:Key="LiraElemRangeDlgHint">Пример: 1-144  или  1-50, 75-100, 120</system:String>
     <system:String x:Key="ImportLiraForcesStubsCreated">Создано {0} заглушек. Импортировано {1} наборов усилий.</system:String>
+    <system:String x:Key="FemSchema3DTab">3D-схема</system:String>
+    <system:String x:Key="FemMembersListTab">Элементы</system:String>
+    <system:String x:Key="Fem3DZoomExtents">Вписать в вид</system:String>
+    <system:String x:Key="Fem3DLoading">Загрузка геометрии…</system:String>
+    <system:String x:Key="Fem3DColorBySection">Цвет по жёсткости</system:String>
+    <system:String x:Key="Fem3DNoData">Нет данных для отображения. Импортируйте топологию схемы.</system:String>
+    <system:String x:Key="Fem3DShowNodes">Узлы</system:String>
+    <system:String x:Key="Fem3DShowShellEdges">Сетка КЭ</system:String>
+    <system:String x:Key="Fem3DViewIsolated">Изолированно</system:String>
+    <system:String x:Key="Fem3DViewSchema">Вся схема</system:String>
 
   </ResourceDictionary>

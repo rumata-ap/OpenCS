@@ -1115,5 +1115,15 @@
     <system:String x:Key="LiraElemRangeDlgPrompt">Topology not imported. Enter beam element numbers to read forces from LIRA:</system:String>
     <system:String x:Key="LiraElemRangeDlgHint">Example: 1-144  or  1-50, 75-100, 120</system:String>
     <system:String x:Key="ImportLiraForcesStubsCreated">Created {0} element stubs. Imported {1} force sets.</system:String>
+    <system:String x:Key="FemSchema3DTab">3D View</system:String>
+    <system:String x:Key="FemMembersListTab">Members</system:String>
+    <system:String x:Key="Fem3DZoomExtents">Fit View</system:String>
+    <system:String x:Key="Fem3DLoading">Loading geometry…</system:String>
+    <system:String x:Key="Fem3DColorBySection">Color by stiffness</system:String>
+    <system:String x:Key="Fem3DNoData">No data to display. Import schema topology first.</system:String>
+    <system:String x:Key="Fem3DShowNodes">Nodes</system:String>
+    <system:String x:Key="Fem3DShowShellEdges">FE mesh</system:String>
+    <system:String x:Key="Fem3DViewIsolated">Isolated</system:String>
+    <system:String x:Key="Fem3DViewSchema">Full schema</system:String>
 
   </ResourceDictionary>
