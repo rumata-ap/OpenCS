@@ -147,6 +147,7 @@
             <MenuItem Header="{DynamicResource ImportLiraLoadCases}" Command="{Binding ImportLiraLoadCasesCommand}"/>
             <MenuItem Header="{DynamicResource ImportLiraRsn}" Command="{Binding ImportLiraRsnCommand}"/>
             <MenuItem Header="{DynamicResource ImportLiraRsu}" Command="{Binding ImportLiraRsuCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraSchemaFromCsv}" Command="{Binding ImportLiraSchemaFromCsvCommand}"/>
          </MenuItem>
          <MenuItem Header="{DynamicResource View}" >
             <MenuItem Header="{DynamicResource Language}">
@@ -951,21 +952,17 @@
       <!-- Вкладка 2: МКЭ -->
       <TabItem Header="{DynamicResource FemTab}">
          <DockPanel>
-            <!-- Панель кнопок -->
-            <ToolBar DockPanel.Dock="Top" Background="Transparent" BorderThickness="0">
-               <Button Content="{DynamicResource FemSchemaNew}"
-                       Command="{Binding NewFemSchemaCommand}"
-                       Style="{StaticResource IconButton25}"/>
-               <Separator/>
-               <Button Content="{DynamicResource ImportLiraSchemaFromCsv}"
-                       Command="{Binding ImportLiraSchemaFromCsvCommand}"
-                       Style="{StaticResource IconButton25}"/>
-            </ToolBar>
             <!-- Дерево МКЭ: схемы → элементы → проверки -->
             <TreeView x:Name="femTree"
                       ItemsSource="{Binding FemSchemas}"
                       Margin="4,2" BorderThickness="0"
                       SelectedItemChanged="femTree_SelectedItemChanged">
+               <TreeView.ContextMenu>
+                  <ContextMenu>
+                     <MenuItem Header="{DynamicResource FemSchemaNew}"
+                               Command="{Binding NewFemSchemaCommand}"/>
+                  </ContextMenu>
+               </TreeView.ContextMenu>
                <TreeView.Resources>
                   <HierarchicalDataTemplate DataType="{x:Type fem:FemSchema}"
                                             ItemsSource="{Binding Members}">
