@@ -62,6 +62,15 @@ namespace CScore
       /// <summary>Тип набора: "bar" или "shell".</summary>
       public string Kind { get; set; } = "bar";
 
+      /// <summary>Источник усилий: null (ручной ввод) | "fea" (результат МКЭ-расчёта).</summary>
+      public string? SourceType       { get; set; }
+
+      /// <summary>FK → fem_schemas.id. Null для ручного ввода.</summary>
+      public int?    SourceSchemaId   { get; set; }
+
+      /// <summary>Tag конструктивного элемента в расчётной схеме.</summary>
+      public string? SourceElementTag { get; set; }
+
       public List<LoadItem>      Items      { get; set; } = [];
       public List<ShellLoadItem> ShellItems { get; set; } = [];
 

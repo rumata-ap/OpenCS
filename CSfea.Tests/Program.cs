@@ -73,4 +73,10 @@ HeatAssemblyTests.RunAll();
 
 ThermalBenchmark.RunAll();
 
+SteelSectionTests.RunGeoPropsDirect();
+SteelSectionTests.RunIBeamProperties();
+SteelCheckerTests.RunSimpleCompressionCheck();
+
+FemInfraTests.RunAll();
+
 return TestHarness.Summary();
