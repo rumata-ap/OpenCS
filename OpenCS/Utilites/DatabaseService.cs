@@ -2679,6 +2679,83 @@ namespace OpenCS.Utilites
          FemSchemas.Remove(schema);
       }
 
+      /// <summary>Массовая вставка узлов и элементов МКЭ-схемы. Существующие записи для schemaId удаляются.</summary>
+      public void SaveFemTopology(
+         int schemaId,
+         IReadOnlyList<CScore.Fem.FemNode>    nodes,
+         IReadOnlyList<CScore.Fem.FemElement> elements,
+         IReadOnlyList<CScore.Fem.FemMember>  members)
+      {
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var delCmd = _connection.CreateCommand();
+            delCmd.CommandText = """
+               DELETE FROM fem_members  WHERE schema_id=@sid;
+               DELETE FROM fem_elements WHERE schema_id=@sid;
+               DELETE FROM fem_nodes    WHERE schema_id=@sid;
+            """;
+            delCmd.Parameters.AddWithValue("@sid", schemaId);
+            delCmd.ExecuteNonQuery();
+
+            using var nodeCmd = _connection.CreateCommand();
+            nodeCmd.CommandText = """
+               INSERT INTO fem_nodes (schema_id, node_tag, x, y, z, dof_mask)
+               VALUES (@sid, @tag, @x, @y, @z, @dm)
+            """;
+            nodeCmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
+            nodeCmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
+            nodeCmd.Parameters.Add("@x",   Microsoft.Data.Sqlite.SqliteType.Real);
+            nodeCmd.Parameters.Add("@y",   Microsoft.Data.Sqlite.SqliteType.Real);
+            nodeCmd.Parameters.Add("@z",   Microsoft.Data.Sqlite.SqliteType.Real);
+            nodeCmd.Parameters.Add("@dm",  Microsoft.Data.Sqlite.SqliteType.Integer);
+            foreach (var n in nodes)
+            {
+               nodeCmd.Parameters["@sid"].Value = schemaId;
+               nodeCmd.Parameters["@tag"].Value = n.NodeTag;
+               nodeCmd.Parameters["@x"].Value   = n.X;
+               nodeCmd.Parameters["@y"].Value   = n.Y;
+               nodeCmd.Parameters["@z"].Value   = n.Z;
+               nodeCmd.Parameters["@dm"].Value  = n.DofMask;
+               nodeCmd.ExecuteNonQuery();
+            }
+
+            using var elemCmd = _connection.CreateCommand();
+            elemCmd.CommandText = """
+               INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, section_tag)
+               VALUES (@sid, @tag, @etype, @nids, @stag)
+            """;
+            elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
+            elemCmd.Parameters.Add("@tag",  Microsoft.Data.Sqlite.SqliteType.Text);
+            elemCmd.Parameters.Add("@etype",Microsoft.Data.Sqlite.SqliteType.Text);
+            elemCmd.Parameters.Add("@nids", Microsoft.Data.Sqlite.SqliteType.Text);
+            elemCmd.Parameters.Add("@stag", Microsoft.Data.Sqlite.SqliteType.Text);
+            foreach (var e in elements)
+            {
+               elemCmd.Parameters["@sid"].Value   = schemaId;
+               elemCmd.Parameters["@tag"].Value   = e.ElemTag;
+               elemCmd.Parameters["@etype"].Value = e.ElemType;
+               elemCmd.Parameters["@nids"].Value  = e.NodeIdsJson;
+               elemCmd.Parameters["@stag"].Value  = (object?)e.SectionTag ?? DBNull.Value;
+               elemCmd.ExecuteNonQuery();
+            }
+
+            var schema = FemSchemas.FirstOrDefault(s => s.Id == schemaId);
+            foreach (var m in members)
+               SaveFemMemberCore(m, schemaId);
+
+            if (schema != null)
+            {
+               schema.Members.Clear();
+               foreach (var m in members.Where(m => m.SchemaId == schemaId))
+                  schema.Members.Add(m);
+            }
+
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
       void SaveFemMemberCore(CScore.Fem.FemMember m, int schemaId)
       {
          using var cmd = _connection.CreateCommand();

@@ -375,6 +375,9 @@ namespace OpenCS
       /// <summary>Команда удаления нормативной проверки.</summary>
       public ICommand DeleteFemCheckCommand  { get; set; } = null!;
 
+      /// <summary>Команда импорта расчётной схемы из CSV-файлов ЛираСАПР.</summary>
+      public ICommand ImportLiraSchemaFromCsvCommand { get; set; } = null!;
+
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
       /// <summary>Команда удаления плитного сечения (параметр PlateSection или текущее).</summary>
@@ -971,6 +974,7 @@ namespace OpenCS
          AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMember));
          RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
          DeleteFemCheckCommand  = new RelayCommand(_ => DeleteFemCheck());
+         ImportLiraSchemaFromCsvCommand = new RelayCommand(_ => ImportLiraSchemaFromCsv());
       }
 
       void SetLanguage(object? param)
@@ -2132,6 +2136,51 @@ namespace OpenCS
       {
          var schema = new CScore.Fem.FemSchema { Tag = "Схема", SourceType = "internal" };
          db.SaveFemSchema(schema);
+      }
+
+      void ImportLiraSchemaFromCsv()
+      {
+         var csvFilter = Loc.S("CsvFileFilter");
+
+         var nodesPath = FileDialogService.OpenFile(csvFilter, Loc.S("ImportLiraSchemaNodesTitle"));
+         if (nodesPath == null) return;
+
+         var elemsPath = FileDialogService.OpenFile(csvFilter, Loc.S("ImportLiraSchemaElemsTitle"));
+         if (elemsPath == null) return;
+
+         var barStiffPath   = FileDialogService.OpenFile(csvFilter, Loc.S("ImportLiraSchemaBarStiffTitle"));
+         var plateStiffPath = FileDialogService.OpenFile(csvFilter, Loc.S("ImportLiraSchemaPlateStiffTitle"));
+
+         try
+         {
+            var raw = CScore.Import.LiraCsvSchemaParser.Parse(
+               nodesPath, elemsPath, barStiffPath, plateStiffPath);
+
+            var schemaName = System.IO.Path.GetFileNameWithoutExtension(nodesPath);
+            var schema = new CScore.Fem.FemSchema
+            {
+               Tag        = schemaName,
+               SourceType = "lira",
+            };
+            db.SaveFemSchema(schema);
+
+            var nodes    = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
+            var elements = CScore.Import.LiraSchemaConverter.ToFemBarElements(raw, schema.Id);
+            var members  = CScore.Import.LiraSchemaConverter.ToFemMembersByStiffness(raw, schema.Id);
+
+            db.SaveFemTopology(schema.Id, nodes, elements, members);
+
+            int barCount = raw.Elements.Count(e => e.NodeIds.Length == 2);
+            LogService.Info(string.Format(Loc.S("ImportLiraSchemaSuccess"),
+               raw.Nodes.Count, barCount, members.Length));
+         }
+         catch (Exception ex)
+         {
+            System.Windows.MessageBox.Show(ex.Message,
+               Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK,
+               System.Windows.MessageBoxImage.Error);
+         }
       }
 
       void DeleteFemSchema()

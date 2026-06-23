@@ -956,6 +956,10 @@
                <Button Content="{DynamicResource FemSchemaNew}"
                        Command="{Binding NewFemSchemaCommand}"
                        Style="{StaticResource IconButton25}"/>
+               <Separator/>
+               <Button Content="{DynamicResource ImportLiraSchemaFromCsv}"
+                       Command="{Binding ImportLiraSchemaFromCsvCommand}"
+                       Style="{StaticResource IconButton25}"/>
             </ToolBar>
             <!-- Дерево МКЭ: схемы → элементы → проверки -->
             <TreeView x:Name="femTree"

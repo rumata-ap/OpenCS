@@ -480,6 +480,13 @@
    <system:String x:Key="ImportLiraErrorTitle">LIRA import</system:String>
    <system:String x:Key="ImportLiraFailed">Failed to import the file.</system:String>
    <system:String x:Key="ImportLiraSuccess">Imported force sets: {0} ({1})</system:String>
+   <system:String x:Key="ImportLiraSchemaFromCsv">Import LIRA SAPR schema (CSV)…</system:String>
+   <system:String x:Key="ImportLiraSchemaNodesTitle">LIRA SAPR nodes file (CSV)</system:String>
+   <system:String x:Key="ImportLiraSchemaElemsTitle">LIRA SAPR elements file (CSV)</system:String>
+   <system:String x:Key="ImportLiraSchemaBarStiffTitle">Bar stiffnesses file (CSV, optional)</system:String>
+   <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Plate stiffnesses file (CSV, optional)</system:String>
+   <system:String x:Key="ImportLiraSchemaSuccess">Imported schema: {0} nodes, {1} bars, {2} design members</system:String>
+   <system:String x:Key="CsvFileFilter">CSV file (*.csv)|*.csv|All files (*.*)|*.*</system:String>
    <system:String x:Key="LiraImportSettingsTab">LIRA import</system:String>
    <system:String x:Key="LiraImportUnitsGroup">Convert ton → kN</system:String>
    <system:String x:Key="LiraTon981">9.80665 (1 t = 9.80665 kN)</system:String>

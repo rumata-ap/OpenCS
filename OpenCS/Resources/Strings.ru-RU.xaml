@@ -483,6 +483,13 @@
    <system:String x:Key="ImportLiraErrorTitle">Импорт LIRA</system:String>
    <system:String x:Key="ImportLiraFailed">Не удалось импортировать файл.</system:String>
    <system:String x:Key="ImportLiraSuccess">Импортировано наборов усилий: {0} ({1})</system:String>
+   <system:String x:Key="ImportLiraSchemaFromCsv">Импорт схемы ЛираСАПР (CSV)…</system:String>
+   <system:String x:Key="ImportLiraSchemaNodesTitle">Файл узлов ЛираСАПР (CSV)</system:String>
+   <system:String x:Key="ImportLiraSchemaElemsTitle">Файл элементов ЛираСАПР (CSV)</system:String>
+   <system:String x:Key="ImportLiraSchemaBarStiffTitle">Файл жёсткостей стержней (CSV, опционально)</system:String>
+   <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Файл жёсткостей пластин (CSV, опционально)</system:String>
+   <system:String x:Key="ImportLiraSchemaSuccess">Импортирована схема: {0} узлов, {1} стержней, {2} конструктивных элементов</system:String>
+   <system:String x:Key="CsvFileFilter">CSV-файл (*.csv)|*.csv|Все файлы (*.*)|*.*</system:String>
    <system:String x:Key="LiraImportSettingsTab">Импорт LIRA</system:String>
    <system:String x:Key="LiraImportUnitsGroup">Перевод т → кН</system:String>
    <system:String x:Key="LiraTon981">9,80665 (1 т = 9,80665 кН)</system:String>
