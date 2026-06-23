@@ -1086,8 +1086,13 @@
     <system:String x:Key="FemMembersCount">Элементов</system:String>
     <system:String x:Key="FemMembers">Конструктивные элементы</system:String>
     <system:String x:Key="FemMemberType">Тип элемента</system:String>
-    <system:String x:Key="FemMemberNew">Новый элемент</system:String>
+    <system:String x:Key="FemMemberNew">Новый элемент...</system:String>
+    <system:String x:Key="FemMemberDlgTitle">Новый конструктивный элемент</system:String>
+    <system:String x:Key="FemMemberDlgRange">Элементы КЭ</system:String>
     <system:String x:Key="FemMemberDelete">Удалить элемент</system:String>
+    <system:String x:Key="FemGroupCreate">Создать группу из выделенных</system:String>
+    <system:String x:Key="FemGroupAuto">Авто-группировка по сечению</system:String>
+    <system:String x:Key="FemGroupAutoResult">Создано групп: {0}</system:String>
     <system:String x:Key="FemCheckAdd">Добавить проверку</system:String>
     <system:String x:Key="FemCheckRun">Выполнить проверку</system:String>
     <system:String x:Key="FemCheckDelete">Удалить проверку</system:String>

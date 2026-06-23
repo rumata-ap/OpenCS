@@ -370,8 +370,10 @@ namespace OpenCS
       public ICommand NewFemSchemaCommand    { get; set; } = null!;
       /// <summary>Команда удаления МКЭ-схемы.</summary>
       public ICommand DeleteFemSchemaCommand { get; set; } = null!;
-      /// <summary>Команда создания нового конструктивного элемента МКЭ.</summary>
-      public ICommand NewFemMemberCommand    { get; set; } = null!;
+      /// <summary>Команда создания нового конструктивного элемента МКЭ (без диалога).</summary>
+      public ICommand NewFemMemberCommand       { get; set; } = null!;
+      /// <summary>Команда создания нового конструктивного элемента через диалог ввода имени/типа/КЭ.</summary>
+      public ICommand NewFemMemberDialogCommand { get; set; } = null!;
       /// <summary>Команда удаления конструктивного элемента МКЭ.</summary>
       public ICommand DeleteFemMemberCommand { get; set; } = null!;
       /// <summary>Команда добавления нормативной проверки к элементу.</summary>
@@ -985,8 +987,9 @@ namespace OpenCS
 
          NewFemSchemaCommand    = new RelayCommand(_ => NewFemSchema());
          DeleteFemSchemaCommand = new RelayCommand(p => DeleteFemSchema(p as CScore.Fem.FemSchema));
-         NewFemMemberCommand    = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
-         DeleteFemMemberCommand = new RelayCommand(_ => DeleteFemMember());
+         NewFemMemberCommand       = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
+         NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
+         DeleteFemMemberCommand    = new RelayCommand(_ => DeleteFemMember());
          AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMember));
          RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
          DeleteFemCheckCommand  = new RelayCommand(_ => DeleteFemCheck());
@@ -2353,12 +2356,96 @@ namespace OpenCS
          schema.Members.Add(member);
       }
 
+      void NewFemMemberDialog(CScore.Fem.FemSchema? schema)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+         var dlg = new Views.FemMemberDialog();
+         if (dlg.ShowDialog() != true) return;
+         var ids = Views.LiraElemRangeDialog.ParseRange(dlg.Range);
+         CreateFemMemberFromRange(schema, ids, dlg.MemberTag, dlg.MemberType);
+      }
+
       void DeleteFemMember()
       {
          if (currentFemMember == null) return;
          db.DeleteFemMember(currentFemMember);
          currentFemMember = null;
          CurrentPage = null!;
+      }
+
+      /// <summary>Создаёт FemMember из списка выбранных КЭ.</summary>
+      public void CreateFemMemberFromSelection(CScore.Fem.FemSchema schema, IList<CScore.Fem.FemElement> elems)
+      {
+         if (elems.Count == 0) return;
+         var ids = elems
+            .Select(e => int.TryParse(e.ElemTag, out int id) ? id : 0)
+            .Where(id => id > 0)
+            .ToArray();
+         var tag = elems.Count == 1
+            ? (elems[0].SectionTag ?? elems[0].ElemTag)
+            : $"Группа ({elems.Count} КЭ)";
+         var member = new CScore.Fem.FemMember
+         {
+            SchemaId    = schema.Id,
+            Tag         = tag,
+            MemberType  = "beam",
+            ElemIdsJson = System.Text.Json.JsonSerializer.Serialize(ids),
+         };
+         db.SaveFemMember(member);
+         schema.Members.Add(member);
+      }
+
+      /// <summary>Создаёт FemMember из явного списка LIRA-id КЭ (строка диапазонов уже распарсена).</summary>
+      public void CreateFemMemberFromRange(
+         CScore.Fem.FemSchema schema,
+         IList<int>           elemIds,
+         string               tag,
+         string?              memberType)
+      {
+         var member = new CScore.Fem.FemMember
+         {
+            SchemaId    = schema.Id,
+            Tag         = string.IsNullOrWhiteSpace(tag) ? (elemIds.Count > 0 ? $"Группа ({elemIds.Count} КЭ)" : "Новый элемент") : tag,
+            MemberType  = string.IsNullOrWhiteSpace(memberType) ? null : memberType,
+            ElemIdsJson = System.Text.Json.JsonSerializer.Serialize(elemIds),
+         };
+         db.SaveFemMember(member);
+         schema.Members.Add(member);
+      }
+
+      /// <summary>Авто-группирует стержни схемы по SectionTag. Пропускает уже существующие группы.</summary>
+      public void AutoGroupFemMembersBySection(CScore.Fem.FemSchema schema)
+      {
+         var elements = db.GetFemElements(schema.Id)
+            .Where(e => e.ElemType == "beam")
+            .ToList();
+         if (elements.Count == 0) return;
+
+         var existingTags = schema.Members.Select(m => m.Tag).ToHashSet();
+         var grouped = elements.GroupBy(e => e.SectionTag ?? "");
+         int added = 0;
+         foreach (var grp in grouped.OrderBy(g => g.Key))
+         {
+            if (existingTags.Contains(grp.Key)) continue;
+            var ids = grp
+               .Select(e => int.TryParse(e.ElemTag, out int id) ? id : 0)
+               .Where(id => id > 0)
+               .ToArray();
+            var member = new CScore.Fem.FemMember
+            {
+               SchemaId    = schema.Id,
+               Tag         = grp.Key,
+               MemberType  = "beam",
+               ElemIdsJson = System.Text.Json.JsonSerializer.Serialize(ids),
+            };
+            db.SaveFemMember(member);
+            schema.Members.Add(member);
+            existingTags.Add(grp.Key);
+            added++;
+         }
+         if (added > 0)
+            LogService.Info(string.Format(Loc.S("FemGroupAutoResult"), added));
       }
 
       void AddFemCheck(CScore.Fem.FemMember? member)

@@ -1055,7 +1055,19 @@
                   <!-- Подузел «Конструктивные элементы» с дочерними FemMember -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemMembersSubNode}"
                                             ItemsSource="{Binding Members}">
-                     <TextBlock Text="{DynamicResource FemMembers}"/>
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemMemberNew}"
+                                        Command="{Binding PlacementTarget.Tag.NewFemMemberDialogCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <TextBlock Text="{DynamicResource FemMembers}"/>
+                     </StackPanel>
                   </HierarchicalDataTemplate>
 
                   <!-- Подузел «Усилия схемы» (placeholder) -->

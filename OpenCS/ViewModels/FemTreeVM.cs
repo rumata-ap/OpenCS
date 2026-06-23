@@ -65,7 +65,7 @@ class FemSchemaTreeVM
         [
             NodesSubNode,
             ElementsSubNode,
-            new FemMembersSubNode(schema.Members),
+            new FemMembersSubNode(schema, schema.Members),
             new FemForcesSubNode(),
         ];
 
@@ -161,8 +161,13 @@ public class FemShellsSubNode : FemSubNode, System.ComponentModel.INotifyPropert
 /// <summary>Подузел «Конструктивные элементы» — содержит FemMember'ы схемы.</summary>
 public class FemMembersSubNode : FemSubNode
 {
-    public ObservableCollection<FemMember> Members { get; }
-    public FemMembersSubNode(ObservableCollection<FemMember> members) => Members = members;
+    public FemSchema                        Schema  { get; }
+    public ObservableCollection<FemMember>  Members { get; }
+    public FemMembersSubNode(FemSchema schema, ObservableCollection<FemMember> members)
+    {
+        Schema  = schema;
+        Members = members;
+    }
 }
 
 /// <summary>Подузел «Усилия схемы» — placeholder.</summary>

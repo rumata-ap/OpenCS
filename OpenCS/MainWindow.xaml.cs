@@ -209,7 +209,7 @@ namespace OpenCS
           else if (e.NewValue is ViewModels.FemNodesSubNode nodesNode)
              vm.CurrentPage = new Views.FemNodesView(nodesNode);
           else if (e.NewValue is ViewModels.FemBarsSubNode barsNode)
-             vm.CurrentPage = new Views.FemBarsView(barsNode);
+             vm.CurrentPage = new Views.FemBarsView(barsNode, vm);
           else if (e.NewValue is ViewModels.FemShellsSubNode shellsNode)
              vm.CurrentPage = new Views.FemShellsView(shellsNode);
           else if (e.NewValue is CScore.Fem.FemMember femMemberItem)

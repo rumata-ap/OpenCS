@@ -1083,8 +1083,13 @@
     <system:String x:Key="FemMembersCount">Members</system:String>
     <system:String x:Key="FemMembers">Members</system:String>
     <system:String x:Key="FemMemberType">Member type</system:String>
-    <system:String x:Key="FemMemberNew">New member</system:String>
+    <system:String x:Key="FemMemberNew">New member...</system:String>
+    <system:String x:Key="FemMemberDlgTitle">New structural member</system:String>
+    <system:String x:Key="FemMemberDlgRange">FE range</system:String>
     <system:String x:Key="FemMemberDelete">Delete member</system:String>
+    <system:String x:Key="FemGroupCreate">Create group from selected</system:String>
+    <system:String x:Key="FemGroupAuto">Auto-group by section</system:String>
+    <system:String x:Key="FemGroupAutoResult">Groups created: {0}</system:String>
     <system:String x:Key="FemCheckAdd">Add check</system:String>
     <system:String x:Key="FemCheckRun">Run check</system:String>
     <system:String x:Key="FemCheckDelete">Delete check</system:String>
