@@ -27,7 +27,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 22;
+      const int CurrentSchemaVersion = 23;
 
       static readonly string[] Migrations =
       [
@@ -388,11 +388,14 @@ namespace OpenCS.Utilites
                 PRIMARY KEY (section_id, area_id)
             );
             CREATE TABLE IF NOT EXISTS force_sets (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                num         INTEGER NOT NULL DEFAULT 0,
-                tag         TEXT NOT NULL DEFAULT '',
-                description TEXT,
-                kind        TEXT NOT NULL DEFAULT 'bar'
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                num                INTEGER NOT NULL DEFAULT 0,
+                tag                TEXT NOT NULL DEFAULT '',
+                description        TEXT,
+                kind               TEXT NOT NULL DEFAULT 'bar',
+                source_type        TEXT,
+                source_schema_id   INTEGER,
+                source_element_tag TEXT
             );
             CREATE TABLE IF NOT EXISTS force_items (
                 id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -489,13 +492,14 @@ namespace OpenCS.Utilites
                 params_json     TEXT NOT NULL DEFAULT '{}'
             );
             CREATE TABLE IF NOT EXISTS calc_results (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                task_id     INTEGER NOT NULL REFERENCES calc_tasks(id) ON DELETE CASCADE,
-                task_kind   TEXT NOT NULL DEFAULT '',
-                task_tag    TEXT NOT NULL DEFAULT '',
-                created     TEXT NOT NULL DEFAULT '',
-                status      TEXT NOT NULL DEFAULT 'ok',
-                data_json   TEXT NOT NULL DEFAULT '{}'
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id      INTEGER NOT NULL DEFAULT 0,
+                task_kind    TEXT NOT NULL DEFAULT '',
+                task_tag     TEXT NOT NULL DEFAULT '',
+                created      TEXT NOT NULL DEFAULT '',
+                status       TEXT NOT NULL DEFAULT 'ok',
+                data_json    TEXT NOT NULL DEFAULT '{}',
+                fem_check_id INTEGER
             );
             CREATE TABLE IF NOT EXISTS fire_sections (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -533,6 +537,54 @@ namespace OpenCS.Utilites
                 fire_section_id INTEGER NOT NULL REFERENCES fire_sections(id) ON DELETE CASCADE,
                 created TEXT NOT NULL DEFAULT '',
                 blob BLOB NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS fem_schemas (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                tag         TEXT NOT NULL DEFAULT '',
+                source_type TEXT NOT NULL DEFAULT 'internal',
+                created     TEXT NOT NULL DEFAULT ''
+            );
+            CREATE TABLE IF NOT EXISTS fem_nodes (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                node_tag  TEXT NOT NULL DEFAULT '',
+                x REAL NOT NULL DEFAULT 0,
+                y REAL NOT NULL DEFAULT 0,
+                z REAL NOT NULL DEFAULT 0,
+                dof_mask  INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS fem_elements (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id     INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                elem_tag      TEXT NOT NULL DEFAULT '',
+                elem_type     TEXT NOT NULL DEFAULT 'beam',
+                node_ids_json TEXT NOT NULL DEFAULT '[]',
+                section_tag   TEXT,
+                material_tag  TEXT
+            );
+            CREATE TABLE IF NOT EXISTS fem_members (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id          INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                tag                TEXT NOT NULL DEFAULT '',
+                member_type        TEXT,
+                elem_ids_json      TEXT NOT NULL DEFAULT '[]',
+                cross_section_id   INTEGER REFERENCES cross_sections(id),
+                force_set_id       INTEGER REFERENCES force_sets(id),
+                design_params_json TEXT
+            );
+            CREATE TABLE IF NOT EXISTS fem_load_cases (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                tag       TEXT NOT NULL DEFAULT '',
+                load_type TEXT
+            );
+            CREATE TABLE IF NOT EXISTS fem_checks (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id   INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                member_id   INTEGER NOT NULL REFERENCES fem_members(id),
+                norm_code   TEXT NOT NULL DEFAULT 'steel_check',
+                params_json TEXT,
+                result_id   INTEGER REFERENCES calc_results(id)
             );";
          cmd.ExecuteNonQuery();
 
@@ -581,6 +633,7 @@ namespace OpenCS.Utilites
                if (i == 19) { MigrateV20(); continue; }
                if (i == 20) { EnsureConcreteDiagramTypeColumn(); continue; }
                if (i == 21) { EnsurePrestressColumns(); continue; }
+               if (i == 22) { MigrateV23(); continue; }
                var migCmd = _connection.CreateCommand();
                migCmd.CommandText = Migrations[i];
                migCmd.ExecuteNonQuery();
@@ -740,6 +793,69 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE material_areas ADD COLUMN sig_sp   REAL NOT NULL DEFAULT 0.0");
          if (!ColumnExists("material_areas", "gamma_sp"))
             MigExec("ALTER TABLE material_areas ADD COLUMN gamma_sp REAL NOT NULL DEFAULT 1.0");
+      }
+
+      /// <summary>Миграция v23: FEM-таблицы, source-колонки force_sets, fem_check_id в calc_results.</summary>
+      void MigrateV23()
+      {
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS fem_schemas (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                tag         TEXT NOT NULL DEFAULT '',
+                source_type TEXT NOT NULL DEFAULT 'internal',
+                created     TEXT NOT NULL DEFAULT ''
+            );
+            CREATE TABLE IF NOT EXISTS fem_nodes (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                node_tag  TEXT NOT NULL DEFAULT '',
+                x REAL NOT NULL DEFAULT 0,
+                y REAL NOT NULL DEFAULT 0,
+                z REAL NOT NULL DEFAULT 0,
+                dof_mask  INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS fem_elements (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id     INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                elem_tag      TEXT NOT NULL DEFAULT '',
+                elem_type     TEXT NOT NULL DEFAULT 'beam',
+                node_ids_json TEXT NOT NULL DEFAULT '[]',
+                section_tag   TEXT,
+                material_tag  TEXT
+            );
+            CREATE TABLE IF NOT EXISTS fem_members (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id          INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                tag                TEXT NOT NULL DEFAULT '',
+                member_type        TEXT,
+                elem_ids_json      TEXT NOT NULL DEFAULT '[]',
+                cross_section_id   INTEGER REFERENCES cross_sections(id),
+                force_set_id       INTEGER REFERENCES force_sets(id),
+                design_params_json TEXT
+            );
+            CREATE TABLE IF NOT EXISTS fem_load_cases (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                tag       TEXT NOT NULL DEFAULT '',
+                load_type TEXT
+            );
+            CREATE TABLE IF NOT EXISTS fem_checks (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id   INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                member_id   INTEGER NOT NULL REFERENCES fem_members(id),
+                norm_code   TEXT NOT NULL DEFAULT 'steel_check',
+                params_json TEXT,
+                result_id   INTEGER REFERENCES calc_results(id)
+            );
+            """);
+         if (!ColumnExists("force_sets", "source_type"))
+            MigExec("ALTER TABLE force_sets ADD COLUMN source_type        TEXT");
+         if (!ColumnExists("force_sets", "source_schema_id"))
+            MigExec("ALTER TABLE force_sets ADD COLUMN source_schema_id   INTEGER");
+         if (!ColumnExists("force_sets", "source_element_tag"))
+            MigExec("ALTER TABLE force_sets ADD COLUMN source_element_tag TEXT");
+         if (!ColumnExists("calc_results", "fem_check_id"))
+            MigExec("ALTER TABLE calc_results ADD COLUMN fem_check_id INTEGER");
       }
 
       /// <summary>Миграция v19: тип заполнителя бетона в fire_sections.</summary>
