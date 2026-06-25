@@ -2665,6 +2665,7 @@ namespace OpenCS
          db.SaveFemCheck(check);
 
          CurrentFemCheck = check;
+         CurrentPage = new Views.FemCheckResultView(result);
          LogService.Info($"FemCheck «{check.DisplayTag}»: {result.Status}");
       }
 
