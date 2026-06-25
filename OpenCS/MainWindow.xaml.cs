@@ -216,7 +216,19 @@ namespace OpenCS
           else if (e.NewValue is CScore.Fem.FemMember femMemberItem)
              vm.CurrentFemMember = femMemberItem;
           else if (e.NewValue is CScore.Fem.FemCheck femCheckItem)
+          {
              vm.CurrentFemCheck = femCheckItem;
+             if (femCheckItem.ResultId != null)
+             {
+                var result = vm.db.GetCalcResultByFemCheck(femCheckItem.Id);
+                if (result != null)
+                   vm.CurrentPage = new Views.FemCheckResultView(result);
+             }
+             else
+             {
+                vm.CurrentPage = null!;
+             }
+          }
       }
 
       void TasksNode_Selected(object sender, RoutedEventArgs e)

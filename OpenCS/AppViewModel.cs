@@ -363,19 +363,13 @@ namespace OpenCS
          }
       }
 
-      /// <summary>Текущая нормативная проверка МКЭ. При установке открывает SteelCheckResultView.</summary>
+      /// <summary>Текущая нормативная проверка МКЭ.</summary>
       public CScore.Fem.FemCheck? CurrentFemCheck
       {
          get => currentFemCheck;
          set
          {
             currentFemCheck = value;
-            if (value?.ResultId != null)
-            {
-               var result = CalcResults.FirstOrDefault(r => r.Id == value.ResultId);
-               if (result != null)
-                  CurrentPage = new Views.SteelCheckResultView(result.DataJson);
-            }
             OnPropertyChanged();
          }
       }
@@ -394,6 +388,8 @@ namespace OpenCS
       public ICommand AddFemCheckCommand     { get; set; } = null!;
       /// <summary>Команда запуска нормативной проверки.</summary>
       public ICommand RunFemCheckCommand     { get; set; } = null!;
+      /// <summary>Команда редактирования нормативной проверки.</summary>
+      public ICommand EditFemCheckCommand    { get; set; } = null!;
       /// <summary>Команда удаления нормативной проверки.</summary>
       public ICommand DeleteFemCheckCommand  { get; set; } = null!;
 
@@ -1028,6 +1024,7 @@ namespace OpenCS
          DeleteFemMemberCommand    = new RelayCommand(_ => DeleteFemMember());
          AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMember));
          RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
+         EditFemCheckCommand    = new RelayCommand(p => EditFemCheck(p as CScore.Fem.FemCheck));
          DeleteFemCheckCommand  = new RelayCommand(_ => DeleteFemCheck());
          DeleteFemSchemaForceSetsCommand = new RelayCommand(p => DeleteFemSchemaForceSets(p as CScore.Fem.FemSchema));
          ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
@@ -2623,9 +2620,18 @@ namespace OpenCS
 
       void AddFemCheck(CScore.Fem.FemMember? member)
       {
-         member ??= currentFemMember;
-         if (member == null) return;
-         var check = new CScore.Fem.FemCheck { SchemaId = member.SchemaId, MemberId = member.Id };
+         var dlg = new Views.FemCheckDialog(this);
+         if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
+         var check = dlg.ResultCheck;
+         db.SaveFemCheck(check);
+      }
+
+      void EditFemCheck(CScore.Fem.FemCheck? check)
+      {
+         check ??= currentFemCheck;
+         if (check == null) return;
+         var dlg = new Views.FemCheckDialog(this, check);
+         if (dlg.ShowDialog() != true) return;
          db.SaveFemCheck(check);
       }
 
@@ -2633,21 +2639,30 @@ namespace OpenCS
       {
          check ??= currentFemCheck;
          if (check == null) return;
-         var member = FemSchemas
-            .SelectMany(s => s.Members)
-            .FirstOrDefault(m => m.Id == check.MemberId);
-         if (member?.CrossSectionId == null || member.ForceSetId == null) return;
-         var section  = CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId);
-         var forceSet = ForceSets.FirstOrDefault(f => f.Id == member.ForceSetId);
-         if (section == null || forceSet == null) return;
 
-         var result = CScore.Fem.FemCheckRunner.Run(check, member, section, forceSet,
+         var member = FemSchemas.SelectMany(s => s.Members).FirstOrDefault(m => m.Id == check.MemberId);
+         if (member == null) { LogService.Warning($"FemCheck #{check.Id}: конструктивный элемент не найден"); return; }
+
+         CrossSection? barSection = null;
+         PlateSection? plateSection = null;
+
+         if (check.NormCode == "rc_plate_check")
+            plateSection = PlateSections.FirstOrDefault(s => s.Id == member.PlateSectionId);
+         else
+            barSection = CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId);
+
+         var memberForceSets = ForceSets.Where(f => f.SourceMemberId == member.Id).ToList();
+
+         var result = CScore.Fem.FemCheckRunner.RunMulti(
+            check, member, barSection, plateSection, memberForceSets,
             (task, sect, item) => TaskRunner.Run(task, sect, item));
+
          db.SaveCalcResultRaw(result, check.Id);
          check.ResultId = result.Id;
          db.SaveFemCheck(check);
 
          CurrentFemCheck = check;
+         LogService.Info($"FemCheck «{check.DisplayTag}»: {result.Status}");
       }
 
       void DeleteFemCheck()
