@@ -1119,6 +1119,8 @@
     <system:String x:Key="ImportLiraForcesFromApi">Импорт усилий ЗН из ЛираСАПР (COM)…</system:String>
     <system:String x:Key="ImportLiraRsnFromApi">Импорт усилий РСН из ЛираСАПР (COM)…</system:String>
     <system:String x:Key="ImportLiraRsnStarted">Импорт усилий РСН: {0} КЭ, группа «{1}»…</system:String>
+    <system:String x:Key="ImportLiraRsuFromApi">Импорт усилий РСУ из ЛираСАПР (COM)…</system:String>
+    <system:String x:Key="ImportLiraRsuStarted">Импорт усилий РСУ: {0} КЭ, группа «{1}»…</system:String>
     <system:String x:Key="ImportLiraForcesNoSchema">Расчётная схема конструктивного элемента не найдена в проекте.</system:String>
     <system:String x:Key="ImportLiraForcesNoMember">Выберите конструктивный элемент в дереве МКЭ (узел «Конструктивные элементы»).</system:String>
     <system:String x:Key="ImportLiraForcesNoElements">Выбранный конструктивный элемент не содержит ни одного КЭ. Добавьте КЭ в группу и повторите.</system:String>

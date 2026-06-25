@@ -412,6 +412,9 @@ namespace OpenCS
       /// <summary>Команда импорта усилий РСН из запущенной ЛираСАПР через COM API.</summary>
       public ICommand ImportLiraRsnFromApiCommand { get; set; } = null!;
 
+      /// <summary>Команда импорта усилий РСУ из запущенной ЛираСАПР через COM API.</summary>
+      public ICommand ImportLiraRsuFromApiCommand { get; set; } = null!;
+
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
       /// <summary>Команда удаления плитного сечения (параметр PlateSection или текущее).</summary>
@@ -1031,6 +1034,7 @@ namespace OpenCS
          ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
          ImportLiraForcesFromApiCommand  = new RelayCommand(_ => ImportLiraForcesFromApi());
          ImportLiraRsnFromApiCommand     = new RelayCommand(_ => ImportLiraRsnFromApi());
+         ImportLiraRsuFromApiCommand     = new RelayCommand(_ => ImportLiraRsuFromApi());
       }
 
       void SetLanguage(object? param)
@@ -2437,6 +2441,54 @@ namespace OpenCS
                Loc.S("ImportLiraErrorTitle"),
                System.Windows.MessageBoxButton.OK,
                System.Windows.MessageBoxImage.Error);
+         }
+      }
+
+      async void ImportLiraRsuFromApi()
+      {
+         if (currentFemMember == null)
+         {
+            System.Windows.MessageBox.Show(Loc.S("ImportLiraForcesNoMember"), Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return;
+         }
+
+         var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(currentFemMember.ElemIdsJson) ?? [];
+         if (elemIds.Length == 0)
+         {
+            System.Windows.MessageBox.Show(Loc.S("ImportLiraForcesNoElements"), Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            return;
+         }
+
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == currentFemMember.SchemaId);
+         if (schema == null) { LogService.Warning(Loc.S("ImportLiraForcesNoSchema")); return; }
+
+         var member = currentFemMember;
+         BeginBusy(string.Format(Loc.S("ImportLiraRsuStarted"), elemIds.Length, member.Tag));
+
+         try
+         {
+            var liraSettings = LiraImportSettings;
+            var memberTagCapture = member.Tag;
+            var forceSets = await RunOnStaThread(() =>
+               Services.LiraApiForceImporter.ReadDesignCombinationForces(schema, elemIds, liraSettings, memberTagCapture));
+
+            foreach (var fs in forceSets)
+            {
+               db.SaveForceSet(fs);
+               if (!ForceSets.Contains(fs)) ForceSets.Add(fs);
+            }
+            IsDirty = true;
+            string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            System.Windows.MessageBox.Show(ex.Message, Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
          }
       }
 

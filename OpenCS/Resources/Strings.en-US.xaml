@@ -1116,6 +1116,8 @@
     <system:String x:Key="ImportLiraForcesFromApi">Import load case forces from LIRA SAPR (COM)…</system:String>
     <system:String x:Key="ImportLiraRsnFromApi">Import RSN forces from LIRA SAPR (COM)…</system:String>
     <system:String x:Key="ImportLiraRsnStarted">Importing RSN forces: {0} elements, group «{1}»…</system:String>
+    <system:String x:Key="ImportLiraRsuFromApi">Import RSU (design combination) forces from LIRA SAPR (COM)…</system:String>
+    <system:String x:Key="ImportLiraRsuStarted">Importing RSU forces: {0} elements, group «{1}»…</system:String>
     <system:String x:Key="ImportLiraForcesNoSchema">The design member's schema was not found in the project.</system:String>
     <system:String x:Key="ImportLiraForcesNoMember">Select a design member in the FEM tree (under «Design Members» node).</system:String>
     <system:String x:Key="ImportLiraForcesNoElements">The selected design member has no elements. Add elements to the group and try again.</system:String>

@@ -153,6 +153,7 @@
             <MenuItem Header="{DynamicResource ImportLiraSchemaFromApi}" Command="{Binding ImportLiraSchemaFromApiCommand}"/>
             <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}" Command="{Binding ImportLiraForcesFromApiCommand}"/>
             <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}" Command="{Binding ImportLiraRsnFromApiCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}" Command="{Binding ImportLiraRsuFromApiCommand}"/>
          </MenuItem>
          <MenuItem Header="{DynamicResource View}" >
             <MenuItem Header="{DynamicResource Language}">
