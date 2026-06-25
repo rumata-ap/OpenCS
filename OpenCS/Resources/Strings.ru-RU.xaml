@@ -1117,6 +1117,13 @@
     <system:String x:Key="FemCheckNormCodeSteel">Сталь (СП 16)</system:String>
     <system:String x:Key="FemCheckNormCodeRcBar">ЖБ стержень (СП 63)</system:String>
     <system:String x:Key="FemCheckNormCodeRcPlate">ЖБ пластина/стена (СП 63)</system:String>
+    <system:String x:Key="FemCheckDlgPlateKind">Метод плитной проверки</system:String>
+    <system:String x:Key="FemCheckDlgAcrcLim">acrc,пред (мм)</system:String>
+    <system:String x:Key="PlateKindWaUls">Wood–Armer — прочность (ПС1)</system:String>
+    <system:String x:Key="PlateKindWaSls">Wood–Armer — трещины (ПС2)</system:String>
+    <system:String x:Key="PlateKindCapriUls">Капра-Мори — прочность (ПС1)</system:String>
+    <system:String x:Key="PlateKindCapriSls">Капра-Мори — трещины (ПС2)</system:String>
+    <system:String x:Key="PlateKindLayered">Слоистая модель — прочность</system:String>
     <system:String x:Key="RunFemCheck">Запустить проверку</system:String>
     <system:String x:Key="FemCheckEdit">Редактировать...</system:String>
     <!-- FemCheck результат -->

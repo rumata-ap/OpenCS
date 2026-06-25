@@ -71,6 +71,7 @@ public class FemCheckDialogVM : ViewModelBase
 
     public bool CanSelectSets => !_allSets;
 
+    // ── NormCode ──────────────────────────────────────────────────────────────
     public record NormCodeItem(string Code, string Label);
     public List<NormCodeItem> NormCodes { get; } =
     [
@@ -83,9 +84,53 @@ public class FemCheckDialogVM : ViewModelBase
     public NormCodeItem? SelectedNormCode
     {
         get => _selectedNormCode;
-        set { _selectedNormCode = value; OnPropertyChanged(); AutoFillTag(); }
+        set
+        {
+            _selectedNormCode = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PlateRowVisibility));
+            OnPropertyChanged(nameof(AcrcRowVisibility));
+            AutoFillTag();
+        }
     }
 
+    bool IsPlate => _selectedNormCode?.Code == "rc_plate_check";
+    public Visibility PlateRowVisibility => IsPlate ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility AcrcRowVisibility  =>
+        IsPlate && (_selectedPlateKind?.Kind.EndsWith("sls") == true)
+            ? Visibility.Visible : Visibility.Collapsed;
+
+    // ── Plate kind ────────────────────────────────────────────────────────────
+    public record PlateKindItem(string Kind, string Label);
+    public List<PlateKindItem> PlateKinds { get; } =
+    [
+        new("shell_simpl_wa_uls",    Loc.S("PlateKindWaUls")),
+        new("shell_simpl_wa_sls",    Loc.S("PlateKindWaSls")),
+        new("shell_simpl_capri_uls", Loc.S("PlateKindCapriUls")),
+        new("shell_simpl_capri_sls", Loc.S("PlateKindCapriSls")),
+        new("shell_layered",         Loc.S("PlateKindLayered")),
+    ];
+
+    PlateKindItem? _selectedPlateKind;
+    public PlateKindItem? SelectedPlateKind
+    {
+        get => _selectedPlateKind;
+        set
+        {
+            _selectedPlateKind = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(AcrcRowVisibility));
+        }
+    }
+
+    string _acrcLimMm = "0.3";
+    public string AcrcLimMm
+    {
+        get => _acrcLimMm;
+        set { _acrcLimMm = value; OnPropertyChanged(); }
+    }
+
+    // ── CalcType ──────────────────────────────────────────────────────────────
     public record CalcTypeOption(string? Code, string Label);
     public List<CalcTypeOption> CalcTypeOptions { get; } =
     [
@@ -106,6 +151,7 @@ public class FemCheckDialogVM : ViewModelBase
     string _tag = "";
     public string Tag { get => _tag; set { _tag = value; OnPropertyChanged(); } }
 
+    // ── Constructor ───────────────────────────────────────────────────────────
     public FemCheckDialogVM(AppViewModel app, FemCheck? existing, ListBox setsBox)
     {
         _app      = app;
@@ -115,6 +161,7 @@ public class FemCheckDialogVM : ViewModelBase
 
         _selectedNormCode       = NormCodes[0];
         _selectedCalcTypeOption = CalcTypeOptions[0];
+        _selectedPlateKind      = PlateKinds[0];
 
         if (existing != null) LoadFromExisting(existing);
         else if (Schemas.Count > 0) SelectedSchema = Schemas[0];
@@ -122,13 +169,20 @@ public class FemCheckDialogVM : ViewModelBase
 
     void LoadFromExisting(FemCheck check)
     {
-        SelectedSchema = Schemas.FirstOrDefault(s => s.Id == check.SchemaId);
-        SelectedMember = Members.FirstOrDefault(m => m.Id == check.MemberId);
-        SelectedNormCode = NormCodes.FirstOrDefault(n => n.Code == check.NormCode) ?? NormCodes[0];
+        SelectedSchema        = Schemas.FirstOrDefault(s => s.Id == check.SchemaId);
+        SelectedMember        = Members.FirstOrDefault(m => m.Id == check.MemberId);
+        SelectedNormCode      = NormCodes.FirstOrDefault(n => n.Code == check.NormCode) ?? NormCodes[0];
         SelectedCalcTypeOption = CalcTypeOptions.FirstOrDefault(o => o.Code == check.CalcTypeOverride)
                                  ?? CalcTypeOptions[0];
-        Tag = check.Tag;
+        Tag     = check.Tag;
         AllSets = check.IsAllSets;
+
+        if (check.NormCode == "rc_plate_check" && !string.IsNullOrWhiteSpace(check.ParamsJson))
+        {
+            var p = PlateCheckParams.Parse(check.ParamsJson);
+            SelectedPlateKind = PlateKinds.FirstOrDefault(k => k.Kind == p.Kind) ?? PlateKinds[0];
+            AcrcLimMm         = p.AcrcLimMm.ToString("G");
+        }
 
         if (!AllSets)
         {
@@ -170,6 +224,20 @@ public class FemCheckDialogVM : ViewModelBase
             forceSetIdsJson = ids.Length > 0 ? JsonSerializer.Serialize(ids) : "[]";
         }
 
+        string? paramsJson = null;
+        if (IsPlate && _selectedPlateKind != null)
+        {
+            double acrc = double.TryParse(AcrcLimMm.Replace(',', '.'),
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.3;
+
+            paramsJson = new PlateCheckParams
+            {
+                Kind      = _selectedPlateKind.Kind,
+                AcrcLimMm = acrc
+            }.ToJson();
+        }
+
         var check = _existing ?? new FemCheck();
         check.SchemaId         = _selectedSchema!.Id;
         check.MemberId         = _selectedMember!.Id;
@@ -177,6 +245,7 @@ public class FemCheckDialogVM : ViewModelBase
         check.Tag              = string.IsNullOrWhiteSpace(Tag) ? $"{_selectedMember.Tag}/{check.NormCode}" : Tag;
         check.ForceSetIdsJson  = forceSetIdsJson;
         check.CalcTypeOverride = _selectedCalcTypeOption?.Code;
+        check.ParamsJson       = paramsJson;
         return check;
     }
 }

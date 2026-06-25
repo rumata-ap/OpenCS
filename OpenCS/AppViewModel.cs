@@ -2649,16 +2649,29 @@ namespace OpenCS
          CrossSection? barSection = null;
          PlateSection? plateSection = null;
 
+         CScore.Material? concreteMat = null;
+         CScore.Material? rebarMat    = null;
+
          if (check.NormCode == "rc_plate_check")
+         {
             plateSection = PlateSections.FirstOrDefault(s => s.Id == member.PlateSectionId);
+            if (plateSection != null)
+            {
+               concreteMat = Materials.FirstOrDefault(m => m.Id == plateSection.ConcreteMaterialId);
+               rebarMat    = Materials.FirstOrDefault(m => m.Id == plateSection.RebarMaterialId);
+            }
+         }
          else
+         {
             barSection = CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId);
+         }
 
          var memberForceSets = ForceSets.Where(f => f.SourceMemberId == member.Id).ToList();
 
          var result = CScore.Fem.FemCheckRunner.RunMulti(
             check, member, barSection, plateSection, memberForceSets,
-            (task, sect, item) => TaskRunner.Run(task, sect, item));
+            (task, sect, item) => TaskRunner.Run(task, sect, item),
+            concreteMat, rebarMat);
 
          db.SaveCalcResultRaw(result, check.Id);
          check.ResultId = result.Id;

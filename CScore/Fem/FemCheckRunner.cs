@@ -14,7 +14,7 @@ public static class FemCheckRunner
 
     /// <summary>
     /// Главный метод: перебирает все выбранные наборы усилий, для каждой строки запускает
-    /// CalcTask, собирает таблицу строк и возвращает один CalcResult с DataJson.
+    /// проверку, собирает таблицу строк и возвращает один CalcResult с DataJson.
     /// </summary>
     public static CalcResult RunMulti(
         FemCheck      check,
@@ -22,7 +22,9 @@ public static class FemCheckRunner
         CrossSection? barSection,
         PlateSection? plateSection,
         IReadOnlyList<ForceSet> allMemberForceSets,
-        Func<CalcTask, CrossSection, LoadItem, CalcResult> barExecutor)
+        Func<CalcTask, CrossSection, LoadItem, CalcResult> barExecutor,
+        Material? concreteMat = null,
+        Material? rebarMat    = null)
     {
         var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
@@ -45,22 +47,40 @@ public static class FemCheckRunner
         foreach (var fs in forceSets)
         {
             var calcType = ExtractCalcType(fs.Tag, check.CalcTypeOverride);
-            var task = BuildCalcTask(check, member, calcType);
+            var task     = BuildCalcTask(check, member, calcType);
 
             if (isPlate)
             {
                 foreach (var shell in fs.ShellItems)
                 {
-                    rows.Add(new CheckRow
+                    try
                     {
-                        Label            = shell.Label,
-                        ForceSetTag      = fs.Tag,
-                        CalcType         = calcType.ToString(),
-                        Utilization      = 0,
-                        Passed           = false,
-                        WorstFormula     = "",
-                        WorstDescription = "rc_plate_check не реализован"
-                    });
+                        var (util, wf, wd) = RunPlateShellCheck(
+                            check, plateSection!, shell, concreteMat, rebarMat, calcType);
+                        rows.Add(new CheckRow
+                        {
+                            Label            = shell.Label,
+                            ForceSetTag      = fs.Tag,
+                            CalcType         = calcType.ToString(),
+                            Utilization      = util,
+                            Passed           = util <= 1.0,
+                            WorstFormula     = wf,
+                            WorstDescription = wd
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        rows.Add(new CheckRow
+                        {
+                            Label            = shell.Label,
+                            ForceSetTag      = fs.Tag,
+                            CalcType         = calcType.ToString(),
+                            Utilization      = 0,
+                            Passed           = false,
+                            WorstFormula     = "error",
+                            WorstDescription = ex.Message
+                        });
+                    }
                 }
             }
             else
@@ -69,7 +89,7 @@ public static class FemCheckRunner
                 {
                     try
                     {
-                        var r = barExecutor(task, barSection!, item);
+                        var r    = barExecutor(task, barSection!, item);
                         double util = ExtractUtilization(r.DataJson);
                         var (wf, wd) = ExtractWorstDetail(r.DataJson);
                         rows.Add(new CheckRow
@@ -100,15 +120,15 @@ public static class FemCheckRunner
             }
         }
 
-        int passed = rows.Count(r => r.Passed);
+        int passed   = rows.Count(r => r.Passed);
         var dataJson = JsonSerializer.Serialize(new
         {
-            normCode    = check.NormCode,
-            memberTag   = member.Tag,
-            totalRows   = rows.Count,
-            passedRows  = passed,
-            failedRows  = rows.Count - passed,
-            rows        = rows.Select(r => new
+            normCode   = check.NormCode,
+            memberTag  = member.Tag,
+            totalRows  = rows.Count,
+            passedRows = passed,
+            failedRows = rows.Count - passed,
+            rows       = rows.Select(r => new
             {
                 label            = r.Label,
                 forceSetTag      = r.ForceSetTag,
@@ -131,12 +151,157 @@ public static class FemCheckRunner
         };
     }
 
+    // ------------------------------------------------------------------ plate check
+
+    static (double util, string formula, string desc) RunPlateShellCheck(
+        FemCheck     check,
+        PlateSection section,
+        ShellLoadItem shell,
+        Material?    concreteMat,
+        Material?    rebarMat,
+        CalcType     calcType)
+    {
+        var p = PlateCheckParams.Parse(check.ParamsJson);
+
+        if (p.Kind.StartsWith("shell_simpl"))
+        {
+            if (concreteMat == null || rebarMat == null)
+                throw new InvalidOperationException(
+                    "Не найдены материалы бетона/арматуры плитного сечения");
+
+            var sp = new ShellSimplSolver.SolveParams(
+                shell.Nx, shell.Ny, shell.Nxy,
+                shell.Mx, shell.My, shell.Mxy,
+                p.Kind, p.StepDeg, p.AcrcLimMm, p.Phi1, p.Phi2);
+
+            var r = ShellSimplSolver.Solve(sp, section, concreteMat, rebarMat, calcType);
+            return ExtractSimplResult(r, p);
+        }
+
+        if (p.Kind == "shell_layered")
+        {
+            if (concreteMat == null || rebarMat == null)
+                throw new InvalidOperationException(
+                    "Не найдены материалы бетона/арматуры плитного сечения");
+
+            return RunLayeredCheck(section, shell, concreteMat, rebarMat, calcType, section.ConcreteDiagramType);
+        }
+
+        throw new InvalidOperationException($"Неизвестный вид плитной проверки: {p.Kind}");
+    }
+
+    static (double util, string formula, string desc) ExtractSimplResult(
+        ShellSimplSolver.SolveResult r, PlateCheckParams p)
+    {
+        bool isSls = r.CalcType == "sls";
+
+        if (!isSls)
+        {
+            double util = r.EtaMax ?? 0;
+            ShellSimplStripResult? worst = null;
+            if (r.WaStrips != null)
+                worst = r.WaStrips.Where(s => !s.NoRebar).MaxBy(s => s.Eta);
+            else
+            {
+                var ct = r.CriticalTop?.Strip;
+                var cb = r.CriticalBot?.Strip;
+                worst  = (ct?.Eta ?? 0) >= (cb?.Eta ?? 0) ? ct : cb;
+            }
+            return (util,
+                    worst?.Name ?? "",
+                    worst != null ? worst.Case : "");
+        }
+        else
+        {
+            double acrcMax = 0;
+            ShellSimplStripResult? worst = null;
+            if (r.WaStrips != null)
+            {
+                worst   = r.WaStrips.Where(s => !s.NoRebar && s.Cracked).MaxBy(s => s.Acrc_mm);
+                acrcMax = worst?.Acrc_mm ?? 0;
+            }
+            else
+            {
+                var ct = r.CriticalTop?.Strip;
+                var cb = r.CriticalBot?.Strip;
+                worst  = (ct?.Acrc_mm ?? 0) >= (cb?.Acrc_mm ?? 0) ? ct : cb;
+                acrcMax = worst?.Acrc_mm ?? 0;
+            }
+            double util = p.AcrcLimMm > 1e-12 ? acrcMax / p.AcrcLimMm : 0;
+            return (util,
+                    worst?.Name ?? "",
+                    worst != null ? $"acrc={worst.Acrc_mm:F3} мм" : "");
+        }
+    }
+
+    static (double util, string formula, string desc) RunLayeredCheck(
+        PlateSection section,
+        ShellLoadItem shell,
+        Material    concreteMat,
+        Material    rebarMat,
+        CalcType    calcType,
+        DiagrammType concreteDiagType)
+    {
+        // Строим диаграммы из материалов
+        var cDiag = concreteMat.GetDiagramms(concreteDiagType)?[calcType]
+            ?? concreteMat.GetDiagramms(DiagrammType.L3)?[calcType]
+            ?? throw new InvalidOperationException("Диаграмма бетона не построена");
+
+        var rDiag = rebarMat.GetDiagramms(DiagrammType.L2)?[calcType]
+            ?? throw new InvalidOperationException("Диаграмма арматуры не построена");
+
+        // Диаграммы для слоёв с индивидуальными материалами — не нужны (используем глобальные)
+        var solver = new ShellStrainSolver(section, cDiag, rDiag);
+
+        double[] target = [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy];
+        var result = solver.Solve(target);
+
+        if (!result.Converged)
+            return (2.0, "НДС", $"Нет сходимости за {result.Iterations} ит., Δ={result.Residual:G2}");
+
+        // Утилизация через максимальную сжимающую деформацию бетона
+        var st  = result.StrainState;
+        double h = section.H;
+        double zTop = h / 2.0;
+        double zBot = -h / 2.0;
+
+        // Главные деформации на верхней и нижней гранях
+        double eps2_top = MinPrincipalStrain(st.EpsX(zTop), st.EpsY(zTop), st.GammaXY(zTop));
+        double eps2_bot = MinPrincipalStrain(st.EpsX(zBot), st.EpsY(zBot), st.GammaXY(zBot));
+
+        // Предельная деформация бетона по СП 63 (ε_b2 ≈ 0.0035 для B20–B45)
+        const double epsCu = 0.0035;
+        double utilC = Math.Max(Math.Abs(eps2_top), Math.Abs(eps2_bot)) / epsCu;
+
+        // Максимальная деформация арматуры по z-координатам слоёв
+        double utilS = 0;
+        foreach (var layer in section.RebarLayers)
+        {
+            double epsX = st.EpsX(layer.Zsx);
+            double epsY = st.EpsY(layer.Zsy);
+            utilS = Math.Max(utilS, Math.Max(Math.Abs(epsX), Math.Abs(epsY)) / 0.025);
+        }
+
+        double util  = Math.Max(utilC, utilS);
+        string which = utilC >= utilS ? "бетон" : "арматура";
+        return (util, "ε-критерий", $"{which}: ε={util * (utilC >= utilS ? epsCu : 0.025):G3}");
+    }
+
+    static double MinPrincipalStrain(double ex, double ey, double gxy)
+    {
+        double avg    = (ex + ey) / 2.0;
+        double radius = Math.Sqrt(Math.Pow((ex - ey) / 2.0, 2) + Math.Pow(gxy / 2.0, 2));
+        return avg - radius;
+    }
+
+    // ------------------------------------------------------------------ bar check helpers
+
     /// <summary>Совместимость: одиночный набор усилий — делегирует в RunMulti.</summary>
     public static CalcResult Run(
-        FemCheck  check,
-        FemMember member,
+        FemCheck     check,
+        FemMember    member,
         CrossSection section,
-        ForceSet  forceSet,
+        ForceSet     forceSet,
         Func<CalcTask, CrossSection, LoadItem, CalcResult>? executor = null)
     {
         if (executor == null)
@@ -147,7 +312,7 @@ public static class FemCheckRunner
         return RunMulti(check, member, section, null, [forceSet], executor);
     }
 
-    // ------------------------------------------------------------------ helpers
+    // ------------------------------------------------------------------ shared helpers
 
     /// <summary>Определяет CalcType из тега набора усилий или из переопределения.</summary>
     public static CalcType ExtractCalcType(string forceSetTag, string? overrideValue)
