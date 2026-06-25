@@ -298,32 +298,65 @@ public static class FemCheckRunner
         if (!result.Converged)
             return (2.0, "НДС", $"Нет сходимости за {result.Iterations} ит., Δ={result.Residual:G2}");
 
-        // Утилизация через максимальную сжимающую деформацию бетона
-        var st  = result.StrainState;
-        double h = section.H;
-        double zTop = h / 2.0;
-        double zBot = -h / 2.0;
+        // ─── Деформационные параметры бетона по СП 63 п. 8.1.30 ────────────────
+        concreteMat.chars.TryGetValue(calcType, out var cCh);
+        double epsB0 = cCh?.Ec0 > 0 ? cCh.Ec0 : 0.002;   // εb0: деформация при достижении Rb
+        double epsB2 = cCh?.Ec2 > 0 ? cCh.Ec2 : 0.0035;  // εb2: предельная деформация сжатия
 
-        // Главные деформации на верхней и нижней гранях
-        double eps2_top = MinPrincipalStrain(st.EpsX(zTop), st.EpsY(zTop), st.GammaXY(zTop));
-        double eps2_bot = MinPrincipalStrain(st.EpsX(zBot), st.EpsY(zBot), st.GammaXY(zBot));
+        var    st = result.StrainState;
+        double h  = section.H;
 
-        // Предельная деформация бетона по СП 63 (ε_b2 ≈ 0.0035 для B20–B45)
-        const double epsCu = 0.0035;
-        double utilC = Math.Max(Math.Abs(eps2_top), Math.Abs(eps2_bot)) / epsCu;
+        // Минимальные главные деформации (наиболее сжимающие) на обеих гранях
+        double eps2T = MinPrincipalStrain(st.EpsX( h/2), st.EpsY( h/2), st.GammaXY( h/2));
+        double eps2B = MinPrincipalStrain(st.EpsX(-h/2), st.EpsY(-h/2), st.GammaXY(-h/2));
 
-        // Максимальная деформация арматуры по z-координатам слоёв
-        double utilS = 0;
-        foreach (var layer in section.RebarLayers)
+        // ε₂ — бо́льшая по абс. величине деформация (|ε₂| ≥ |ε₁|) — п. 8.1.30
+        double eps2, eps1;
+        if (Math.Abs(eps2T) >= Math.Abs(eps2B)) { eps2 = eps2T; eps1 = eps2B; }
+        else                                      { eps2 = eps2B; eps1 = eps2T; }
+
+        double epsBUlt;
+        string epsBDesc;
+
+        if (eps2 >= 0)
         {
-            double epsX = st.EpsX(layer.Zsx);
-            double epsY = st.EpsY(layer.Zsy);
-            utilS = Math.Max(utilS, Math.Max(Math.Abs(epsX), Math.Abs(epsY)) / 0.025);
+            // Сжатия нет → бетон не определяющий
+            epsBUlt  = epsB2;
+            epsBDesc = "нет сжатия";
+        }
+        else if (eps1 >= 0)
+        {
+            // Двузначная эпюра: разные знаки на гранях → εb,ult = εb2 (п. 8.1.30, абз. 1)
+            epsBUlt  = epsB2;
+            epsBDesc = $"двузн., εb,ult={epsB2:G3}";
+        }
+        else
+        {
+            // Однозначная эпюра: оба в сжатии → εb,ult = εb2 − (εb2−εb0)·ε₁/ε₂ (п. 8.1.30)
+            // eps2 < 0, eps1 < 0 ⇒ ε₁/ε₂ = (менее сжатая)/(более сжатая) ∈ [0, 1]
+            double ratio = Math.Abs(eps2) > 1e-12 ? Math.Clamp(eps1 / eps2, 0.0, 1.0) : 1.0;
+            epsBUlt  = epsB2 - (epsB2 - epsB0) * ratio;
+            epsBDesc = $"однозн., ε₁/ε₂={ratio:F2}, εb,ult={epsBUlt:G3}";
         }
 
-        double util  = Math.Max(utilC, utilS);
-        string which = utilC >= utilS ? "бетон" : "арматура";
-        return (util, "ε-критерий", $"{which}: ε={util * (utilC >= utilS ? epsCu : 0.025):G3}");
+        double utilC = eps2 < 0 ? Math.Abs(eps2) / epsBUlt : 0.0;
+
+        // ─── Арматура: εs,ult = 0.025 (физ. текучесть) / 0.015 (усл.) — п. 8.1.30 ─
+        double epsSUlt = rebarMat.Type == MatType.ReSteelF ? 0.025 : 0.015;
+        double utilS   = 0;
+        foreach (var layer in section.RebarLayers)
+        {
+            // Растяжение арматуры (максимальная растягивающая деформация в слое)
+            double epsX = st.EpsX(layer.Zsx);
+            double epsY = st.EpsY(layer.Zsy);
+            utilS = Math.Max(utilS, Math.Max(epsX, epsY) / epsSUlt);
+        }
+
+        double util = Math.Max(utilC, utilS);
+        if (utilC >= utilS)
+            return (util, "п.8.1.30 бетон", epsBDesc + $", ε={Math.Abs(eps2):G3}");
+        else
+            return (util, "п.8.1.30 арм.", $"εs={utilS * epsSUlt:G3}, εs,ult={epsSUlt:G3}");
     }
 
     /// <summary>
@@ -350,8 +383,15 @@ public static class FemCheckRunner
     static double MinPrincipalStrain(double ex, double ey, double gxy)
     {
         double avg    = (ex + ey) / 2.0;
-        double radius = Math.Sqrt(Math.Pow((ex - ey) / 2.0, 2) + Math.Pow(gxy / 2.0, 2));
-        return avg - radius;
+        double r      = Math.Sqrt((ex - ey) * (ex - ey) / 4.0 + gxy * gxy / 4.0);
+        return avg - r;
+    }
+
+    static double MaxPrincipalStrain(double ex, double ey, double gxy)
+    {
+        double avg    = (ex + ey) / 2.0;
+        double r      = Math.Sqrt((ex - ey) * (ex - ey) / 4.0 + gxy * gxy / 4.0);
+        return avg + r;
     }
 
     // ------------------------------------------------------------------ bar check helpers
