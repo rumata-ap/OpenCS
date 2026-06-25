@@ -130,6 +130,26 @@ public class FemCheckDialogVM : ViewModelBase
         set { _acrcLimMm = value; OnPropertyChanged(); }
     }
 
+    public record Phi1ModeItem(string Mode, string Label);
+    public List<Phi1ModeItem> Phi1Modes { get; } =
+    [
+        new("auto",   Loc.S("Phi1ModeAuto")),
+        new("manual", Loc.S("Phi1ModeManual")),
+    ];
+
+    Phi1ModeItem? _selectedPhi1Mode;
+    public Phi1ModeItem? SelectedPhi1Mode
+    {
+        get => _selectedPhi1Mode;
+        set { _selectedPhi1Mode = value; OnPropertyChanged(); OnPropertyChanged(nameof(Phi1ManualVisibility)); }
+    }
+
+    public Visibility Phi1ManualVisibility =>
+        _selectedPhi1Mode?.Mode == "manual" ? Visibility.Visible : Visibility.Collapsed;
+
+    string _phi1 = "1.0";
+    public string Phi1 { get => _phi1; set { _phi1 = value; OnPropertyChanged(); } }
+
     // ── CalcType ──────────────────────────────────────────────────────────────
     public record CalcTypeOption(string? Code, string Label);
     public List<CalcTypeOption> CalcTypeOptions { get; } =
@@ -162,6 +182,7 @@ public class FemCheckDialogVM : ViewModelBase
         _selectedNormCode       = NormCodes[0];
         _selectedCalcTypeOption = CalcTypeOptions[0];
         _selectedPlateKind      = PlateKinds[0];
+        _selectedPhi1Mode       = Phi1Modes[0]; // auto
 
         if (existing != null) LoadFromExisting(existing);
         else if (Schemas.Count > 0) SelectedSchema = Schemas[0];
@@ -180,8 +201,10 @@ public class FemCheckDialogVM : ViewModelBase
         if (check.NormCode == "rc_plate_check" && !string.IsNullOrWhiteSpace(check.ParamsJson))
         {
             var p = PlateCheckParams.Parse(check.ParamsJson);
-            SelectedPlateKind = PlateKinds.FirstOrDefault(k => k.Kind == p.Kind) ?? PlateKinds[0];
-            AcrcLimMm         = p.AcrcLimMm.ToString("G");
+            SelectedPlateKind  = PlateKinds.FirstOrDefault(k => k.Kind == p.Kind) ?? PlateKinds[0];
+            AcrcLimMm          = p.AcrcLimMm.ToString("G");
+            SelectedPhi1Mode   = Phi1Modes.FirstOrDefault(m => m.Mode == p.Phi1Mode) ?? Phi1Modes[0];
+            Phi1               = p.Phi1.ToString("G");
         }
 
         if (!AllSets)
@@ -227,14 +250,18 @@ public class FemCheckDialogVM : ViewModelBase
         string? paramsJson = null;
         if (IsPlate && _selectedPlateKind != null)
         {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
             double acrc = double.TryParse(AcrcLimMm.Replace(',', '.'),
-                System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0.3;
+                System.Globalization.NumberStyles.Float, inv, out var va) ? va : 0.3;
+            double phi1 = double.TryParse(Phi1.Replace(',', '.'),
+                System.Globalization.NumberStyles.Float, inv, out var vp) ? vp : 1.0;
 
             paramsJson = new PlateCheckParams
             {
                 Kind      = _selectedPlateKind.Kind,
-                AcrcLimMm = acrc
+                AcrcLimMm = acrc,
+                Phi1Mode  = _selectedPhi1Mode?.Mode ?? "auto",
+                Phi1      = phi1
             }.ToJson();
         }
 

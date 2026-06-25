@@ -1116,6 +1116,9 @@
     <system:String x:Key="FemCheckNormCodeRcPlate">RC plate/wall (SP 63)</system:String>
     <system:String x:Key="FemCheckDlgPlateKind">Plate check method</system:String>
     <system:String x:Key="FemCheckDlgAcrcLim">acrc,lim (mm)</system:String>
+    <system:String x:Key="FemCheckDlgPhi1Mode">φ1 (long-term)</system:String>
+    <system:String x:Key="Phi1ModeAuto">Auto (from N/NL sets)</system:String>
+    <system:String x:Key="Phi1ModeManual">Manual</system:String>
     <system:String x:Key="PlateKindWaUls">Wood–Armer — strength (ULS)</system:String>
     <system:String x:Key="PlateKindWaSls">Wood–Armer — cracking (SLS)</system:String>
     <system:String x:Key="PlateKindCapriUls">Caprani — strength (ULS)</system:String>

@@ -51,12 +51,22 @@ public static class FemCheckRunner
 
             if (isPlate)
             {
+                // Для auto-phi1 (SLS): строим lookup NL-строк по метке
+                var pParams = PlateCheckParams.Parse(check.ParamsJson);
+                Dictionary<string, ShellLoadItem>? nlLookup =
+                    (pParams.Phi1Mode == "auto" && pParams.Kind.Contains("sls"))
+                        ? BuildNlLookup(fs, forceSets)
+                        : null;
+
                 foreach (var shell in fs.ShellItems)
                 {
+                    nlLookup?.TryGetValue(shell.Label, out var nlShell);
+                    ShellLoadItem? nlItem = null;
+                    nlLookup?.TryGetValue(shell.Label, out nlItem);
                     try
                     {
                         var (util, wf, wd) = RunPlateShellCheck(
-                            check, plateSection!, shell, concreteMat, rebarMat, calcType);
+                            check, plateSection!, shell, concreteMat, rebarMat, calcType, nlItem);
                         rows.Add(new CheckRow
                         {
                             Label            = shell.Label,
@@ -154,14 +164,17 @@ public static class FemCheckRunner
     // ------------------------------------------------------------------ plate check
 
     static (double util, string formula, string desc) RunPlateShellCheck(
-        FemCheck     check,
-        PlateSection section,
+        FemCheck      check,
+        PlateSection  section,
         ShellLoadItem shell,
-        Material?    concreteMat,
-        Material?    rebarMat,
-        CalcType     calcType)
+        Material?     concreteMat,
+        Material?     rebarMat,
+        CalcType      calcType,
+        ShellLoadItem? nlShell = null)   // соответствующая NL-строка для auto-phi1
     {
         var p = PlateCheckParams.Parse(check.ParamsJson);
+
+        double phi1 = ResolvePhi1(p, shell, nlShell, section.H);
 
         if (p.Kind.StartsWith("shell_simpl"))
         {
@@ -172,7 +185,7 @@ public static class FemCheckRunner
             var sp = new ShellSimplSolver.SolveParams(
                 shell.Nx, shell.Ny, shell.Nxy,
                 shell.Mx, shell.My, shell.Mxy,
-                p.Kind, p.StepDeg, p.AcrcLimMm, p.Phi1, p.Phi2);
+                p.Kind, p.StepDeg, p.AcrcLimMm, phi1, p.Phi2);
 
             var r = ShellSimplSolver.Solve(sp, section, concreteMat, rebarMat, calcType);
             return ExtractSimplResult(r, p);
@@ -188,6 +201,32 @@ public static class FemCheckRunner
         }
 
         throw new InvalidOperationException($"Неизвестный вид плитной проверки: {p.Kind}");
+    }
+
+    /// <summary>
+    /// Вычисляет φ1 (долю длительности).
+    /// Manual: берём p.Phi1.
+    /// Auto: φ1 = clamp(1.0 + 0.4 * amp(NL) / amp(N), 1.0, 1.4).
+    /// </summary>
+    static double ResolvePhi1(PlateCheckParams p, ShellLoadItem shell, ShellLoadItem? nlShell, double h)
+    {
+        if (p.Phi1Mode != "auto" || nlShell == null) return p.Phi1;
+
+        double ampN  = ShellAmplitude(shell,   h);
+        double ampNL = ShellAmplitude(nlShell, h);
+
+        if (ampN < 1e-12) return 1.4;
+        return Math.Clamp(1.0 + 0.4 * ampNL / ampN, 1.0, 1.4);
+    }
+
+    /// <summary>Скалярная мера интенсивности оболочечных усилий (кН·м/м).</summary>
+    static double ShellAmplitude(ShellLoadItem s, double h)
+    {
+        double h6 = h / 6.0;
+        return Math.Sqrt(s.Mx * s.Mx + s.My * s.My + s.Mxy * s.Mxy
+                       + (s.Nx * h6) * (s.Nx * h6)
+                       + (s.Ny * h6) * (s.Ny * h6)
+                       + (s.Nxy * h6) * (s.Nxy * h6));
     }
 
     static (double util, string formula, string desc) ExtractSimplResult(
@@ -285,6 +324,27 @@ public static class FemCheckRunner
         double util  = Math.Max(utilC, utilS);
         string which = utilC >= utilS ? "бетон" : "арматура";
         return (util, "ε-критерий", $"{which}: ε={util * (utilC >= utilS ? epsCu : 0.025):G3}");
+    }
+
+    /// <summary>
+    /// Для N-набора усилий ищет соответствующий NL-набор среди всех наборов
+    /// (по тегу: "... (N)" → "... (NL)") и возвращает словарь label→ShellLoadItem.
+    /// </summary>
+    static Dictionary<string, ShellLoadItem>? BuildNlLookup(
+        ForceSet currentNSet, IReadOnlyList<ForceSet> allSets)
+    {
+        // Тег N-набора: "Плита — РСН 1 (N)" → ищем "Плита — РСН 1 (NL)"
+        string nTag  = currentNSet.Tag ?? "";
+        string nlTag = nTag.EndsWith("(N)")
+            ? nTag[..^3].TrimEnd() + "(NL)"
+            : null!;
+
+        if (nlTag == null) return null;
+
+        var nlSet = allSets.FirstOrDefault(f => f.Tag == nlTag);
+        if (nlSet == null) return null;
+
+        return nlSet.ShellItems.ToDictionary(s => s.Label, s => s);
     }
 
     static double MinPrincipalStrain(double ex, double ey, double gxy)

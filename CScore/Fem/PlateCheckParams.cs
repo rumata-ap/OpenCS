@@ -26,6 +26,13 @@ public record PlateCheckParams
     /// <summary>φ2 — коэффициент профиля арматуры (0.5 — периодический, 0.8 — гладкий).</summary>
     public double Phi2      { get; init; } = 0.5;
 
+    /// <summary>
+    /// Режим вычисления φ1:
+    /// "manual" — берём значение Phi1;
+    /// "auto"   — вычисляем per-row из пары N/NL наборов усилий.
+    /// </summary>
+    public string Phi1Mode { get; init; } = "manual";
+
     public string ToJson() => JsonSerializer.Serialize(this);
 
     public static PlateCheckParams Parse(string? json)

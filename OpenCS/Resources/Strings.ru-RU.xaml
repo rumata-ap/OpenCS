@@ -1119,6 +1119,9 @@
     <system:String x:Key="FemCheckNormCodeRcPlate">ЖБ пластина/стена (СП 63)</system:String>
     <system:String x:Key="FemCheckDlgPlateKind">Метод плитной проверки</system:String>
     <system:String x:Key="FemCheckDlgAcrcLim">acrc,пред (мм)</system:String>
+    <system:String x:Key="FemCheckDlgPhi1Mode">φ1 (длительность)</system:String>
+    <system:String x:Key="Phi1ModeAuto">Авто (из N/NL наборов)</system:String>
+    <system:String x:Key="Phi1ModeManual">Вручную</system:String>
     <system:String x:Key="PlateKindWaUls">Wood–Armer — прочность (ПС1)</system:String>
     <system:String x:Key="PlateKindWaSls">Wood–Armer — трещины (ПС2)</system:String>
     <system:String x:Key="PlateKindCapriUls">Капра-Мори — прочность (ПС1)</system:String>

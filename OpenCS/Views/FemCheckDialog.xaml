@@ -16,6 +16,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="8"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -86,24 +87,47 @@
                      Visibility="{Binding AcrcRowVisibility}"/>
         </Grid>
 
+        <!-- 6b. φ1 — только для SLS-методов -->
+        <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource FemCheckDlgPhi1Mode}"
+                   VerticalAlignment="Center" Margin="0,0,8,8"
+                   Visibility="{Binding AcrcRowVisibility}"/>
+        <Grid Grid.Row="6" Grid.Column="1" Margin="0,0,0,8"
+              Visibility="{Binding AcrcRowVisibility}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="50"/>
+            </Grid.ColumnDefinitions>
+            <ComboBox Grid.Column="0"
+                      ItemsSource="{Binding Phi1Modes}"
+                      SelectedItem="{Binding SelectedPhi1Mode}"
+                      DisplayMemberPath="Label"/>
+            <TextBlock Grid.Column="1" Text="φ1 ="
+                       VerticalAlignment="Center" Margin="8,0,4,0"
+                       Visibility="{Binding Phi1ManualVisibility}"/>
+            <TextBox Grid.Column="2"
+                     Text="{Binding Phi1, UpdateSourceTrigger=PropertyChanged}"
+                     Visibility="{Binding Phi1ManualVisibility}"/>
+        </Grid>
+
         <!-- 7. CalcType -->
-        <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource FemCheckDlgCalcType}"
+        <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource FemCheckDlgCalcType}"
                    VerticalAlignment="Center" Margin="0,0,8,8"/>
-        <ComboBox Grid.Row="6" Grid.Column="1"
+        <ComboBox Grid.Row="7" Grid.Column="1"
                   ItemsSource="{Binding CalcTypeOptions}"
                   SelectedItem="{Binding SelectedCalcTypeOption}"
                   DisplayMemberPath="Label"
                   Margin="0,0,0,8"/>
 
         <!-- 8. Имя -->
-        <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource FemCheckDlgTag}"
+        <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource FemCheckDlgTag}"
                    VerticalAlignment="Center" Margin="0,0,8,8"/>
-        <TextBox Grid.Row="7" Grid.Column="1"
+        <TextBox Grid.Row="8" Grid.Column="1"
                  Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
                  Margin="0,0,0,8"/>
 
         <!-- Кнопки -->
-        <StackPanel Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2"
+        <StackPanel Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
                     Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="{DynamicResource OK}" IsDefault="True"
                     Click="Ok_Click" Padding="20,4" Margin="0,0,8,0"/>
