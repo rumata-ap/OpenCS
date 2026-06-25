@@ -2653,6 +2653,17 @@ namespace OpenCS.Utilites
          FemChecks.Remove(check);
       }
 
+      public void DeleteAllFemChecks()
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fem_checks";
+         cmd.ExecuteNonQuery();
+         foreach (var s in FemSchemas)
+            foreach (var m in s.Members)
+               m.Checks.Clear();
+         FemChecks.Clear();
+      }
+
       /// <summary>Загружает последний CalcResult для указанного FemCheck по fem_check_id.</summary>
       public CalcResult? GetCalcResultByFemCheck(int femCheckId)
       {

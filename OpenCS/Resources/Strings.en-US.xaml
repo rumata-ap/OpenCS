@@ -1095,9 +1095,11 @@
     <system:String x:Key="FemGroupCreate">Create group from selected</system:String>
     <system:String x:Key="FemGroupAuto">Auto-group by section</system:String>
     <system:String x:Key="FemGroupAutoResult">Groups created: {0}</system:String>
-    <system:String x:Key="FemCheckAdd">Add check</system:String>
+    <system:String x:Key="FemCheckAdd">New check...</system:String>
     <system:String x:Key="FemCheckRun">Run check</system:String>
-    <system:String x:Key="FemCheckDelete">Delete check</system:String>
+    <system:String x:Key="FemCheckDelete">Delete</system:String>
+    <system:String x:Key="FemCheckDeleteAll">Delete all...</system:String>
+    <system:String x:Key="FemCheckDeleteAllConfirm">Delete all structural checks?</system:String>
     <system:String x:Key="FemChecksGroup">Checks</system:String>
     <!-- FemCheck dialog -->
     <system:String x:Key="FemCheckDlgTitle">Structural Check</system:String>

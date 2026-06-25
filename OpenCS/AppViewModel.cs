@@ -391,7 +391,9 @@ namespace OpenCS
       /// <summary>Команда редактирования нормативной проверки.</summary>
       public ICommand EditFemCheckCommand    { get; set; } = null!;
       /// <summary>Команда удаления нормативной проверки.</summary>
-      public ICommand DeleteFemCheckCommand  { get; set; } = null!;
+      public ICommand DeleteFemCheckCommand     { get; set; } = null!;
+      /// <summary>Команда удаления всех нормативных проверок.</summary>
+      public ICommand DeleteAllFemChecksCommand { get; set; } = null!;
 
       /// <summary>Команда удаления всех наборов усилий схемы МКЭ.</summary>
       public ICommand DeleteFemSchemaForceSetsCommand { get; set; } = null!;
@@ -1024,8 +1026,9 @@ namespace OpenCS
          DeleteFemMemberCommand    = new RelayCommand(_ => DeleteFemMember());
          AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMember));
          RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
-         EditFemCheckCommand    = new RelayCommand(p => EditFemCheck(p as CScore.Fem.FemCheck));
-         DeleteFemCheckCommand  = new RelayCommand(_ => DeleteFemCheck());
+         EditFemCheckCommand       = new RelayCommand(p => EditFemCheck(p as CScore.Fem.FemCheck));
+         DeleteFemCheckCommand     = new RelayCommand(p => DeleteFemCheck(p as CScore.Fem.FemCheck));
+         DeleteAllFemChecksCommand = new RelayCommand(_ => DeleteAllFemChecks());
          DeleteFemSchemaForceSetsCommand = new RelayCommand(p => DeleteFemSchemaForceSets(p as CScore.Fem.FemSchema));
          ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
          ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
@@ -2665,10 +2668,26 @@ namespace OpenCS
          LogService.Info($"FemCheck «{check.DisplayTag}»: {result.Status}");
       }
 
-      void DeleteFemCheck()
+      void DeleteFemCheck(CScore.Fem.FemCheck? check = null)
       {
-         if (currentFemCheck == null) return;
-         db.DeleteFemCheck(currentFemCheck);
+         check ??= currentFemCheck;
+         if (check == null) return;
+         db.DeleteFemCheck(check);
+         if (currentFemCheck == check)
+         {
+            currentFemCheck = null;
+            CurrentPage = null!;
+         }
+      }
+
+      void DeleteAllFemChecks()
+      {
+         var res = MessageBox.Show(
+            Loc.S("FemCheckDeleteAllConfirm"),
+            Loc.S("Confirmation"),
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+         if (res != MessageBoxResult.Yes) return;
+         db.DeleteAllFemChecks();
          currentFemCheck = null;
          CurrentPage = null!;
       }

@@ -1098,9 +1098,11 @@
     <system:String x:Key="FemGroupCreate">Создать группу из выделенных</system:String>
     <system:String x:Key="FemGroupAuto">Авто-группировка по сечению</system:String>
     <system:String x:Key="FemGroupAutoResult">Создано групп: {0}</system:String>
-    <system:String x:Key="FemCheckAdd">Добавить проверку</system:String>
+    <system:String x:Key="FemCheckAdd">Новая проверка...</system:String>
     <system:String x:Key="FemCheckRun">Выполнить проверку</system:String>
-    <system:String x:Key="FemCheckDelete">Удалить проверку</system:String>
+    <system:String x:Key="FemCheckDelete">Удалить</system:String>
+    <system:String x:Key="FemCheckDeleteAll">Удалить все...</system:String>
+    <system:String x:Key="FemCheckDeleteAllConfirm">Удалить все нормативные проверки?</system:String>
     <system:String x:Key="FemChecksGroup">Проверки</system:String>
     <!-- FemCheck диалог -->
     <system:String x:Key="FemCheckDlgTitle">Нормативная проверка</system:String>

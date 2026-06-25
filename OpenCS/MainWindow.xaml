@@ -991,7 +991,21 @@
                   <!-- Корневой узел «Проверки» -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemChecksGroupNode}"
                                             ItemsSource="{Binding Checks}">
-                     <TextBlock Text="{DynamicResource FemChecksGroup}" FontWeight="SemiBold"/>
+                     <StackPanel Orientation="Horizontal"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemCheckAdd}"
+                                        Command="{Binding PlacementTarget.Tag.AddFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
+                              <MenuItem Header="{DynamicResource FemCheckDeleteAll}"
+                                        Command="{Binding PlacementTarget.Tag.DeleteAllFemChecksCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <TextBlock Text="{DynamicResource FemChecksGroup}" FontWeight="SemiBold"/>
+                     </StackPanel>
                   </HierarchicalDataTemplate>
 
                   <!-- FemSchemaTreeVM — обёртка схемы с 4 подузлами -->
