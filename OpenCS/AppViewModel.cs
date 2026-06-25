@@ -2360,12 +2360,7 @@ namespace OpenCS
             var forceSets = await RunOnStaThread(() =>
                Services.LiraApiForceImporter.ReadLoadCaseForces(schema, elemIds, liraSettings, memberTagCapture));
 
-            foreach (var fs in forceSets)
-            {
-               db.SaveForceSet(fs);
-               if (!ForceSets.Contains(fs))
-                  ForceSets.Add(fs);
-            }
+            SaveImportedForceSets(forceSets, member.Id);
             IsDirty = true;
             string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
             LogService.Info(done);
@@ -2423,12 +2418,7 @@ namespace OpenCS
             var forceSets = await RunOnStaThread(() =>
                Services.LiraApiForceImporter.ReadLoadCombinationForces(schema, elemIds, liraSettings, memberTagCapture));
 
-            foreach (var fs in forceSets)
-            {
-               db.SaveForceSet(fs);
-               if (!ForceSets.Contains(fs))
-                  ForceSets.Add(fs);
-            }
+            SaveImportedForceSets(forceSets, member.Id);
             IsDirty = true;
             string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
             LogService.Info(done);
@@ -2474,11 +2464,7 @@ namespace OpenCS
             var forceSets = await RunOnStaThread(() =>
                Services.LiraApiForceImporter.ReadDesignCombinationForces(schema, elemIds, liraSettings, memberTagCapture));
 
-            foreach (var fs in forceSets)
-            {
-               db.SaveForceSet(fs);
-               if (!ForceSets.Contains(fs)) ForceSets.Add(fs);
-            }
+            SaveImportedForceSets(forceSets, member.Id);
             IsDirty = true;
             string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
             LogService.Info(done);
@@ -2489,6 +2475,17 @@ namespace OpenCS
             EndBusy();
             System.Windows.MessageBox.Show(ex.Message, Loc.S("ImportLiraErrorTitle"),
                System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+         }
+      }
+
+      void SaveImportedForceSets(IReadOnlyList<CScore.ForceSet> forceSets, int memberId)
+      {
+         foreach (var fs in forceSets)
+         {
+            fs.SourceMemberId = memberId;
+            db.SaveForceSet(fs);
+            if (!ForceSets.Contains(fs))
+               ForceSets.Add(fs);
          }
       }
 
@@ -2556,12 +2553,12 @@ namespace OpenCS
             .ToArray();
          var tag = elems.Count == 1
             ? (elems[0].SectionTag ?? elems[0].ElemTag)
-            : $"Группа ({elems.Count} КЭ)";
+            : $"Балка ({elems.Count} КЭ)";
          var member = new CScore.Fem.FemMember
          {
             SchemaId    = schema.Id,
             Tag         = tag,
-            MemberType  = "beam",
+            MemberType  = "Балка",
             ElemIdsJson = System.Text.Json.JsonSerializer.Serialize(ids),
          };
          db.SaveFemMember(member);
@@ -2578,7 +2575,11 @@ namespace OpenCS
          var member = new CScore.Fem.FemMember
          {
             SchemaId    = schema.Id,
-            Tag         = string.IsNullOrWhiteSpace(tag) ? (elemIds.Count > 0 ? $"Группа ({elemIds.Count} КЭ)" : "Новый элемент") : tag,
+            Tag         = string.IsNullOrWhiteSpace(tag)
+                             ? (elemIds.Count > 0
+                                 ? $"{(string.IsNullOrWhiteSpace(memberType) ? "Группа" : memberType)} ({elemIds.Count} КЭ)"
+                                 : "Новый элемент")
+                             : tag,
             MemberType  = string.IsNullOrWhiteSpace(memberType) ? null : memberType,
             ElemIdsJson = System.Text.Json.JsonSerializer.Serialize(elemIds),
          };
@@ -2608,7 +2609,7 @@ namespace OpenCS
             {
                SchemaId    = schema.Id,
                Tag         = grp.Key,
-               MemberType  = "beam",
+               MemberType  = "Балка",
                ElemIdsJson = System.Text.Json.JsonSerializer.Serialize(ids),
             };
             db.SaveFemMember(member);

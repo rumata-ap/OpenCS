@@ -27,231 +27,11 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 23;
+      const int CurrentSchemaVersion = 25;
 
-      static readonly string[] Migrations =
-      [
-         """
-         -- v1: начальная схема. Пустая миграция — таблицы создаются в EnsureCreated.
-         """,
-         """
-         -- v2: material_areas — section_id nullable, добавить колонку category.
-         CREATE TABLE IF NOT EXISTS material_areas_v2 (
-             id             INTEGER PRIMARY KEY AUTOINCREMENT,
-             section_id     INTEGER,
-             num            INTEGER NOT NULL DEFAULT 0,
-             tag            TEXT NOT NULL DEFAULT '',
-             description    TEXT,
-             material_id    INTEGER REFERENCES materials(id),
-             host_area_id   INTEGER REFERENCES material_areas_v2(id),
-             diagramm_type  TEXT NOT NULL DEFAULT 'L2',
-             nx             INTEGER NOT NULL DEFAULT 21,
-             ny             INTEGER NOT NULL DEFAULT 21,
-             wkt            TEXT,
-             category       TEXT NOT NULL DEFAULT 'region'
-         );
-         INSERT INTO material_areas_v2 (id, section_id, num, tag, description, material_id, host_area_id, diagramm_type, nx, ny, wkt, category)
-         SELECT id, section_id, num, tag, description, material_id, host_area_id, diagramm_type, nx, ny, wkt, 'region'
-         FROM material_areas;
-         DROP TABLE material_areas;
-         ALTER TABLE material_areas_v2 RENAME TO material_areas;
-         """,
-         """
-         -- v3: добавить pool_contour_id для связи standalone-области с контуром из пула.
-         ALTER TABLE material_areas ADD COLUMN pool_contour_id INTEGER REFERENCES contours(id);
-         """,
-         """
-         -- v4: поля параметров сетки в material_areas + таблица mesh_fibers.
-         ALTER TABLE material_areas ADD COLUMN mesh_method    TEXT NOT NULL DEFAULT 'grid';
-         ALTER TABLE material_areas ADD COLUMN mesh_max_area  REAL NOT NULL DEFAULT 0.01;
-         ALTER TABLE material_areas ADD COLUMN mesh_min_angle REAL NOT NULL DEFAULT 30.0;
-         CREATE TABLE IF NOT EXISTS mesh_fibers (
-             id      INTEGER PRIMARY KEY AUTOINCREMENT,
-             area_id INTEGER NOT NULL REFERENCES material_areas(id) ON DELETE CASCADE,
-             type    TEXT NOT NULL DEFAULT 'poly',
-             x       REAL NOT NULL DEFAULT 0,
-             y       REAL NOT NULL DEFAULT 0,
-             area    REAL NOT NULL DEFAULT 0,
-             wkt     TEXT,
-             eps_p   REAL NOT NULL DEFAULT 0
-         );
-         """,
-         """
-         -- v5: длина ребра и число итераций сглаживания для триангуляции.
-         ALTER TABLE material_areas ADD COLUMN mesh_max_edge_len REAL    NOT NULL DEFAULT 0.0;
-         ALTER TABLE material_areas ADD COLUMN mesh_smooth_iter  INTEGER NOT NULL DEFAULT 5;
-         """,
-         """
-         -- v6: cross_section_areas junction table — переход от section_id на material_areas к отдельной таблице связей.
-         CREATE TABLE IF NOT EXISTS cross_section_areas (
-             section_id  INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
-             area_id     INTEGER NOT NULL REFERENCES material_areas(id),
-             sort_order  INTEGER NOT NULL DEFAULT 0,
-             PRIMARY KEY (section_id, area_id)
-         );
-         INSERT OR IGNORE INTO cross_section_areas (section_id, area_id, sort_order)
-             SELECT section_id, id, num FROM material_areas WHERE section_id IS NOT NULL;
-         UPDATE material_areas SET section_id = NULL WHERE section_id IS NOT NULL;
-         """,
-         """
-         -- v7: наборы расчётных усилий.
-         CREATE TABLE IF NOT EXISTS force_sets (
-             id          INTEGER PRIMARY KEY AUTOINCREMENT,
-             num         INTEGER NOT NULL DEFAULT 0,
-             tag         TEXT NOT NULL DEFAULT '',
-             description TEXT
-         );
-         CREATE TABLE IF NOT EXISTS force_items (
-             id          INTEGER PRIMARY KEY AUTOINCREMENT,
-             set_id      INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
-             num         INTEGER NOT NULL DEFAULT 0,
-             tag         TEXT NOT NULL DEFAULT '',
-             n           REAL NOT NULL DEFAULT 0,
-             my          REAL NOT NULL DEFAULT 0,
-             mz          REAL NOT NULL DEFAULT 0,
-             calc_type   TEXT NOT NULL DEFAULT 'C'
-         );
-         """,
-         """
-         -- v8: force_sets добавить kind; force_items переименовать tag→label, добавить mx/vx/vy/t, убрать mz/calc_type.
-         ALTER TABLE force_sets ADD COLUMN kind TEXT NOT NULL DEFAULT 'bar';
-         CREATE TABLE IF NOT EXISTS force_items_v2 (
-             id      INTEGER PRIMARY KEY AUTOINCREMENT,
-             set_id  INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
-             num     INTEGER NOT NULL DEFAULT 0,
-             label   TEXT NOT NULL DEFAULT '',
-             n       REAL NOT NULL DEFAULT 0,
-             mx      REAL NOT NULL DEFAULT 0,
-             my      REAL NOT NULL DEFAULT 0,
-             vx      REAL NOT NULL DEFAULT 0,
-             vy      REAL NOT NULL DEFAULT 0,
-             t       REAL NOT NULL DEFAULT 0
-         );
-         INSERT INTO force_items_v2 (id, set_id, num, label, n, mx, my)
-             SELECT id, set_id, num, tag, n, my, mz FROM force_items;
-         DROP TABLE force_items;
-         ALTER TABLE force_items_v2 RENAME TO force_items;
-         """,
-         """
-         -- v9: плитные сечения.
-         CREATE TABLE IF NOT EXISTS plate_sections (
-             id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-             num                  INTEGER NOT NULL DEFAULT 0,
-             tag                  TEXT NOT NULL DEFAULT '',
-             description          TEXT,
-             h                    REAL NOT NULL DEFAULT 0.2,
-             n_layers             INTEGER NOT NULL DEFAULT 10,
-             concrete_material_id INTEGER NOT NULL DEFAULT 0,
-             rebar_material_id    INTEGER NOT NULL DEFAULT 0,
-             tension_concrete     INTEGER NOT NULL DEFAULT 0,
-             softening_model      TEXT NOT NULL DEFAULT '',
-             softening_eps_c2     REAL NOT NULL DEFAULT 0.002,
-             plate_model          TEXT NOT NULL DEFAULT 'layered',
-             rebar_layers_json    TEXT NOT NULL DEFAULT '[]'
-         );
-         """,
-         """
-         -- v10: пластинчатые усилия.
-         CREATE TABLE IF NOT EXISTS force_shell_items (
-             id      INTEGER PRIMARY KEY AUTOINCREMENT,
-             set_id  INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
-             num     INTEGER NOT NULL DEFAULT 0,
-             label   TEXT NOT NULL DEFAULT '',
-             nx      REAL NOT NULL DEFAULT 0,
-             ny      REAL NOT NULL DEFAULT 0,
-             nxy     REAL NOT NULL DEFAULT 0,
-             mx      REAL NOT NULL DEFAULT 0,
-             my      REAL NOT NULL DEFAULT 0,
-             mxy     REAL NOT NULL DEFAULT 0,
-             qx      REAL NOT NULL DEFAULT 0,
-             qy      REAL NOT NULL DEFAULT 0
-         );
-         """,
-         """
-         -- v11: geometry_set в таблице circles.
-         ALTER TABLE circles ADD COLUMN geometry_set TEXT NULL;
-         """,
-         """
-         -- v12: расчётные задачи и результаты.
-         CREATE TABLE IF NOT EXISTS calc_tasks (
-             id              INTEGER PRIMARY KEY AUTOINCREMENT,
-             num             INTEGER NOT NULL DEFAULT 0,
-             tag             TEXT NOT NULL DEFAULT '',
-             kind            TEXT NOT NULL DEFAULT 'strain_state',
-             section_id      INTEGER NOT NULL DEFAULT 0,
-             force_set_id    INTEGER NOT NULL DEFAULT 0,
-             force_item_id   INTEGER NOT NULL DEFAULT 0,
-             calc_type       TEXT NOT NULL DEFAULT 'C'
-         );
-         CREATE TABLE IF NOT EXISTS calc_results (
-             id          INTEGER PRIMARY KEY AUTOINCREMENT,
-             task_id     INTEGER NOT NULL REFERENCES calc_tasks(id) ON DELETE CASCADE,
-             task_kind   TEXT NOT NULL DEFAULT '',
-             task_tag    TEXT NOT NULL DEFAULT '',
-             created     TEXT NOT NULL DEFAULT '',
-             status      TEXT NOT NULL DEFAULT 'ok',
-             data_json   TEXT NOT NULL DEFAULT '{}'
-         );
-         """,
-         """
-         -- v13: огневые сечения и граничные условия рёбер.
-         CREATE TABLE IF NOT EXISTS fire_sections (
-           id INTEGER PRIMARY KEY AUTOINCREMENT,
-           num INTEGER NOT NULL DEFAULT 0,
-           tag TEXT NOT NULL DEFAULT '',
-           section_id INTEGER NOT NULL DEFAULT 0,
-           fire_duration_min REAL NOT NULL DEFAULT 60,
-           fire_curve TEXT NOT NULL DEFAULT 'iso834',
-           mesh_step_m REAL NOT NULL DEFAULT 0.01,
-           time_step_s REAL NOT NULL DEFAULT 5,
-           theta REAL NOT NULL DEFAULT 1,
-           picard_tol_celsius REAL NOT NULL DEFAULT 0.5,
-           picard_max_iter INTEGER NOT NULL DEFAULT 20,
-           snapshot_step_min REAL NOT NULL DEFAULT 5,
-           bc_preset TEXT NOT NULL DEFAULT 'manual',
-           hole_bc_preset TEXT NOT NULL DEFAULT 'ambient',
-           algorithm TEXT NOT NULL DEFAULT 'ruppert',
-           smooth_iter_tri INTEGER NOT NULL DEFAULT 5,
-           aggregate_type TEXT NOT NULL DEFAULT ''
-         );
-         CREATE TABLE IF NOT EXISTS fire_section_edges (
-           id INTEGER PRIMARY KEY AUTOINCREMENT,
-           fire_section_id INTEGER NOT NULL REFERENCES fire_sections(id) ON DELETE CASCADE,
-           edge_index INTEGER NOT NULL,
-           contour_type TEXT NOT NULL DEFAULT 'outer',
-           hole_index INTEGER,
-           bc_type TEXT NOT NULL DEFAULT 'adiabatic',
-           alpha_conv REAL NOT NULL DEFAULT 0,
-           emissivity REAL NOT NULL DEFAULT 0,
-           t_ambient REAL NOT NULL DEFAULT 20
-         );
-         """,
-         """
-         -- v14: бинарные результаты огневого теплового расчёта.
-         CREATE TABLE IF NOT EXISTS fire_thermal_results (
-           id INTEGER PRIMARY KEY AUTOINCREMENT,
-           fire_section_id INTEGER NOT NULL REFERENCES fire_sections(id) ON DELETE CASCADE,
-           created TEXT NOT NULL DEFAULT '',
-           blob BLOB NOT NULL
-         );
-         """,
-         """
-         -- v15: JSON-параметры расчётной задачи.
-         ALTER TABLE calc_tasks ADD COLUMN params_json TEXT NOT NULL DEFAULT '{}';
-         """,
-         """
-         -- v16: тип заполнителя бетона для огнестойкости.
-         ALTER TABLE materials ADD COLUMN aggregate_type TEXT DEFAULT 'silicate';
-         """,
-         """
-         -- v17: base_type и custom_diagram_ids для Custom-материалов.
-         ALTER TABLE materials ADD COLUMN base_type          INTEGER NOT NULL DEFAULT 0;
-         ALTER TABLE materials ADD COLUMN custom_diagram_ids TEXT    NOT NULL DEFAULT '{}';
-         """,
-         """
-         -- v18: модель интегрирования пластины.
-         ALTER TABLE plate_sections ADD COLUMN plate_model TEXT NOT NULL DEFAULT 'layered';
-         """
+      // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
+      // Оставлены только v23-v25 как C#-методы ниже.
+      static readonly string[] Migrations = [  // пустой — fallback не используется
       ];
 
       public string DataSource => _dataSource;
@@ -397,7 +177,8 @@ namespace OpenCS.Utilites
                 kind               TEXT NOT NULL DEFAULT 'bar',
                 source_type        TEXT,
                 source_schema_id   INTEGER,
-                source_element_tag TEXT
+                source_element_tag TEXT,
+                source_member_id   INTEGER
             );
             CREATE TABLE IF NOT EXISTS force_items (
                 id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -571,6 +352,7 @@ namespace OpenCS.Utilites
                 member_type        TEXT,
                 elem_ids_json      TEXT NOT NULL DEFAULT '[]',
                 cross_section_id   INTEGER REFERENCES cross_sections(id),
+                plate_section_id   INTEGER REFERENCES plate_sections(id),
                 force_set_id       INTEGER REFERENCES force_sets(id),
                 design_params_json TEXT
             );
@@ -625,20 +407,9 @@ namespace OpenCS.Utilites
          {
             for (int i = version; i < CurrentSchemaVersion; i++)
             {
-               if (i == 7) { MigrateV8(); continue; }
-               if (i == 8) { MigrateV9(); continue; }
-               if (i == 14) { MigrateV15(); continue; }
-               if (i == 15) { MigrateV16(); continue; }
-               if (i == 16) { MigrateV17(); continue; }
-               if (i == 17) { EnsurePlateModelColumn(); continue; }
-               if (i == 18) { MigrateV19(); continue; }
-               if (i == 19) { MigrateV20(); continue; }
-               if (i == 20) { EnsureConcreteDiagramTypeColumn(); continue; }
-               if (i == 21) { EnsurePrestressColumns(); continue; }
                if (i == 22) { MigrateV23(); continue; }
-               var migCmd = _connection.CreateCommand();
-               migCmd.CommandText = Migrations[i];
-               migCmd.ExecuteNonQuery();
+               if (i == 23) { MigrateV24(); continue; }
+               if (i == 24) { MigrateV25(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -671,130 +442,6 @@ namespace OpenCS.Utilites
          var cmd = _connection.CreateCommand();
          cmd.CommandText = sql;
          cmd.ExecuteNonQuery();
-      }
-
-      /// <summary>
-      /// Миграция v8 как C#-метод — идемпотентна при любом начальном состоянии force_sets/force_items.
-      /// EnsureCreated мог создать эти таблицы в финальном виде (с kind/label) ещё до того
-      /// как Migrate() добрался до v8, поэтому проверяем реальную схему перед ALTER TABLE.
-      /// </summary>
-      void MigrateV8()
-      {
-         // force_sets: kind может уже быть (EnsureCreated создал таблицу заново)
-         if (!ColumnExists("force_sets", "kind"))
-            MigExec("ALTER TABLE force_sets ADD COLUMN kind TEXT NOT NULL DEFAULT 'bar'");
-
-         // force_items: пересоздаём с новой схемой
-         MigExec("""
-            CREATE TABLE IF NOT EXISTS force_items_v2 (
-                id      INTEGER PRIMARY KEY AUTOINCREMENT,
-                set_id  INTEGER NOT NULL REFERENCES force_sets(id) ON DELETE CASCADE,
-                num     INTEGER NOT NULL DEFAULT 0,
-                label   TEXT NOT NULL DEFAULT '',
-                n       REAL NOT NULL DEFAULT 0,
-                mx      REAL NOT NULL DEFAULT 0,
-                my      REAL NOT NULL DEFAULT 0,
-                vx      REAL NOT NULL DEFAULT 0,
-                vy      REAL NOT NULL DEFAULT 0,
-                t       REAL NOT NULL DEFAULT 0
-            )
-            """);
-
-         if (ColumnExists("force_items", "tag"))
-         {
-            // Старая схема v7: tag, n, my(=сечение-My), mz(=сечение-Mz), calc_type
-            // Переименование: tag→label, my→mx (bar-Mx), mz→my (bar-My)
-            MigExec("INSERT INTO force_items_v2 (id, set_id, num, label, n, mx, my) SELECT id, set_id, num, tag, n, my, mz FROM force_items");
-         }
-         else if (ColumnExists("force_items", "label"))
-         {
-            // Новая схема (EnsureCreated создал таблицу с финальными колонками): просто копируем
-            MigExec("INSERT INTO force_items_v2 (id, set_id, num, label, n, mx, my, vx, vy, t) SELECT id, set_id, num, label, n, mx, my, vx, vy, t FROM force_items");
-         }
-
-         MigExec("DROP TABLE force_items");
-         MigExec("ALTER TABLE force_items_v2 RENAME TO force_items");
-      }
-
-      void MigrateV9()
-      {
-         MigExec("""
-            CREATE TABLE IF NOT EXISTS plate_sections (
-                id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-                num                  INTEGER NOT NULL DEFAULT 0,
-                tag                  TEXT NOT NULL DEFAULT '',
-                description          TEXT,
-                h                    REAL NOT NULL DEFAULT 0.2,
-                n_layers             INTEGER NOT NULL DEFAULT 10,
-                concrete_material_id INTEGER NOT NULL DEFAULT 0,
-                rebar_material_id    INTEGER NOT NULL DEFAULT 0,
-                tension_concrete     INTEGER NOT NULL DEFAULT 0,
-                softening_model      TEXT NOT NULL DEFAULT '',
-                softening_eps_c2     REAL NOT NULL DEFAULT 0.002,
-                plate_model           TEXT NOT NULL DEFAULT 'layered',
-                concrete_diagram_type TEXT NOT NULL DEFAULT 'L3',
-                rebar_layers_json     TEXT NOT NULL DEFAULT '[]'
-            )
-            """);
-      }
-
-      /// <summary>
-      /// Миграция v15: добавляет JSON-параметры в calc_tasks с мягким fallback для SQLite.
-      /// </summary>
-      void MigrateV15()
-      {
-         if (ColumnExists("calc_tasks", "params_json")) return;
-         try
-         {
-            MigExec("ALTER TABLE calc_tasks ADD COLUMN params_json TEXT NOT NULL DEFAULT '{}'");
-         }
-         catch (SqliteException)
-         {
-            MigExec("ALTER TABLE calc_tasks ADD COLUMN params_json TEXT DEFAULT '{}'");
-         }
-      }
-
-      /// <summary>
-      /// Миграция v16: добавляет тип заполнителя бетона в materials.
-      /// </summary>
-      void MigrateV16()
-      {
-         if (ColumnExists("materials", "aggregate_type")) return;
-         MigExec("ALTER TABLE materials ADD COLUMN aggregate_type TEXT DEFAULT 'silicate'");
-      }
-
-      /// <summary>
-      /// Миграция v17: добавляет base_type и custom_diagram_ids для Custom-материалов.
-      /// </summary>
-      void MigrateV17()
-      {
-         if (!ColumnExists("materials", "base_type"))
-            MigExec("ALTER TABLE materials ADD COLUMN base_type INTEGER NOT NULL DEFAULT 0");
-         if (!ColumnExists("materials", "custom_diagram_ids"))
-            MigExec("ALTER TABLE materials ADD COLUMN custom_diagram_ids TEXT NOT NULL DEFAULT '{}'");
-      }
-
-      /// <summary>Миграция v18: столбец plate_model в plate_sections (идемпотентно).</summary>
-      void EnsurePlateModelColumn()
-      {
-         if (ColumnExists("plate_sections", "plate_model")) return;
-         MigExec("ALTER TABLE plate_sections ADD COLUMN plate_model TEXT NOT NULL DEFAULT 'layered'");
-      }
-
-      /// <summary>Миграция v21: столбец concrete_diagram_type в plate_sections (идемпотентно).</summary>
-      void EnsureConcreteDiagramTypeColumn()
-      {
-         if (ColumnExists("plate_sections", "concrete_diagram_type")) return;
-         MigExec("ALTER TABLE plate_sections ADD COLUMN concrete_diagram_type TEXT NOT NULL DEFAULT 'L3'");
-      }
-
-      /// <summary>Миграция v22: σ_sp и γ_sp для преднапряжённых арматурных областей (идемпотентно).</summary>
-      void EnsurePrestressColumns()
-      {
-         if (!ColumnExists("material_areas", "sig_sp"))
-            MigExec("ALTER TABLE material_areas ADD COLUMN sig_sp   REAL NOT NULL DEFAULT 0.0");
-         if (!ColumnExists("material_areas", "gamma_sp"))
-            MigExec("ALTER TABLE material_areas ADD COLUMN gamma_sp REAL NOT NULL DEFAULT 1.0");
       }
 
       /// <summary>Миграция v23: FEM-таблицы, source-колонки force_sets, fem_check_id в calc_results.</summary>
@@ -832,6 +479,7 @@ namespace OpenCS.Utilites
                 member_type        TEXT,
                 elem_ids_json      TEXT NOT NULL DEFAULT '[]',
                 cross_section_id   INTEGER REFERENCES cross_sections(id),
+                plate_section_id   INTEGER REFERENCES plate_sections(id),
                 force_set_id       INTEGER REFERENCES force_sets(id),
                 design_params_json TEXT
             );
@@ -860,18 +508,18 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE calc_results ADD COLUMN fem_check_id INTEGER");
       }
 
-      /// <summary>Миграция v19: тип заполнителя бетона в fire_sections.</summary>
-      void MigrateV19()
+      /// <summary>Миграция v25: source_member_id в force_sets.</summary>
+      void MigrateV25()
       {
-         if (ColumnExists("fire_sections", "aggregate_type")) return;
-         MigExec("ALTER TABLE fire_sections ADD COLUMN aggregate_type TEXT NOT NULL DEFAULT ''");
+         if (!ColumnExists("force_sets", "source_member_id"))
+            MigExec("ALTER TABLE force_sets ADD COLUMN source_member_id INTEGER");
       }
 
-      /// <summary>Миграция v20: тип КЭ сетки (linear/quadratic) в fire_sections.</summary>
-      void MigrateV20()
+      /// <summary>Миграция v24: plate_section_id в fem_members.</summary>
+      void MigrateV24()
       {
-         if (ColumnExists("fire_sections", "mesh_element_type")) return;
-         MigExec("ALTER TABLE fire_sections ADD COLUMN mesh_element_type TEXT NOT NULL DEFAULT 'linear'");
+         if (!ColumnExists("fem_members", "plate_section_id"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN plate_section_id INTEGER REFERENCES plate_sections(id)");
       }
 
       public void ChangeDatabase(string dataSource)
@@ -1746,7 +1394,7 @@ namespace OpenCS.Utilites
          var sets = new Dictionary<int, ForceSet>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, num, tag, description, kind, source_type, source_schema_id, source_element_tag FROM force_sets ORDER BY num";
+            cmd.CommandText = "SELECT id, num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id FROM force_sets ORDER BY num";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -1759,7 +1407,8 @@ namespace OpenCS.Utilites
                   Kind             = r.IsDBNull(4) ? "bar" : r.GetString(4),
                   SourceType       = r.IsDBNull(5) ? null : r.GetString(5),
                   SourceSchemaId   = r.IsDBNull(6) ? null : r.GetInt32(6),
-                  SourceElementTag = r.IsDBNull(7) ? null : r.GetString(7)
+                  SourceElementTag = r.IsDBNull(7) ? null : r.GetString(7),
+                  SourceMemberId   = r.IsDBNull(8) ? null : r.GetInt32(8)
                };
                sets[fs.Id] = fs;
             }
@@ -1831,8 +1480,8 @@ namespace OpenCS.Utilites
          if (isNew)
          {
             cmd.CommandText = """
-               INSERT INTO force_sets (num, tag, description, kind, source_type, source_schema_id, source_element_tag)
-               VALUES (@num, @tag, @desc, @kind, @stype, @ssid, @setag);
+               INSERT INTO force_sets (num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id)
+               VALUES (@num, @tag, @desc, @kind, @stype, @ssid, @setag, @smid);
                SELECT last_insert_rowid();
             """;
          }
@@ -1840,7 +1489,7 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                UPDATE force_sets SET num=@num, tag=@tag, description=@desc, kind=@kind,
-               source_type=@stype, source_schema_id=@ssid, source_element_tag=@setag WHERE id=@id
+               source_type=@stype, source_schema_id=@ssid, source_element_tag=@setag, source_member_id=@smid WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@id", fs.Id);
          }
@@ -1851,6 +1500,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@stype", (object?)fs.SourceType       ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@ssid",  (object?)fs.SourceSchemaId   ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@setag", (object?)fs.SourceElementTag ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@smid",  (object?)fs.SourceMemberId   ?? DBNull.Value);
          if (isNew) fs.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
 
@@ -2601,7 +2251,7 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                SELECT id, schema_id, tag, member_type, elem_ids_json,
-                      cross_section_id, force_set_id, design_params_json
+                      cross_section_id, plate_section_id, force_set_id, design_params_json
                FROM fem_members ORDER BY schema_id, id
             """;
             using var r = cmd.ExecuteReader();
@@ -2617,8 +2267,9 @@ namespace OpenCS.Utilites
                   MemberType       = r.IsDBNull(3) ? null : r.GetString(3),
                   ElemIdsJson      = r.GetString(4),
                   CrossSectionId   = r.IsDBNull(5) ? null : r.GetInt32(5),
-                  ForceSetId       = r.IsDBNull(6) ? null : r.GetInt32(6),
-                  DesignParamsJson = r.IsDBNull(7) ? null : r.GetString(7)
+                  PlateSectionId   = r.IsDBNull(6) ? null : r.GetInt32(6),
+                  ForceSetId       = r.IsDBNull(7) ? null : r.GetInt32(7),
+                  DesignParamsJson = r.IsDBNull(8) ? null : r.GetString(8)
                });
             }
          }
@@ -2781,8 +2432,8 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                INSERT INTO fem_members
-                   (schema_id, tag, member_type, elem_ids_json, cross_section_id, force_set_id, design_params_json)
-               VALUES (@sid, @tag, @mtype, @eids, @csid, @fsid, @dp);
+                   (schema_id, tag, member_type, elem_ids_json, cross_section_id, plate_section_id, force_set_id, design_params_json)
+               VALUES (@sid, @tag, @mtype, @eids, @csid, @psid, @fsid, @dp);
                SELECT last_insert_rowid();
             """;
             cmd.Parameters.AddWithValue("@sid",   schemaId);
@@ -2790,6 +2441,7 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@mtype", (object?)m.MemberType       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@eids",  m.ElemIdsJson);
             cmd.Parameters.AddWithValue("@csid",  (object?)m.CrossSectionId   ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@psid",  (object?)m.PlateSectionId   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
             m.Id = (int)(long)cmd.ExecuteScalar()!;
@@ -2799,12 +2451,13 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                UPDATE fem_members SET tag=@tag, member_type=@mtype, elem_ids_json=@eids,
-               cross_section_id=@csid, force_set_id=@fsid, design_params_json=@dp WHERE id=@id
+               cross_section_id=@csid, plate_section_id=@psid, force_set_id=@fsid, design_params_json=@dp WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@tag",   m.Tag);
             cmd.Parameters.AddWithValue("@mtype", (object?)m.MemberType       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@eids",  m.ElemIdsJson);
             cmd.Parameters.AddWithValue("@csid",  (object?)m.CrossSectionId   ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@psid",  (object?)m.PlateSectionId   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@id",    m.Id);

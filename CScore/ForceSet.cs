@@ -71,6 +71,9 @@ namespace CScore
       /// <summary>Tag конструктивного элемента в расчётной схеме.</summary>
       public string? SourceElementTag { get; set; }
 
+      /// <summary>FK → fem_members.id. Null для ручного ввода.</summary>
+      public int?    SourceMemberId   { get; set; }
+
       public List<LoadItem>      Items      { get; set; } = [];
       public List<ShellLoadItem> ShellItems { get; set; } = [];
 

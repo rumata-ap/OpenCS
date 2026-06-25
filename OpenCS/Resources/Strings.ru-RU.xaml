@@ -1090,6 +1090,7 @@
     <system:String x:Key="FemMembersCount">Элементов</system:String>
     <system:String x:Key="FemMembers">Конструктивные элементы</system:String>
     <system:String x:Key="FemMemberType">Тип элемента</system:String>
+    <system:String x:Key="FemMemberShowAllForceSets">Показать все наборы</system:String>
     <system:String x:Key="FemMemberNew">Новый элемент...</system:String>
     <system:String x:Key="FemMemberDlgTitle">Новый конструктивный элемент</system:String>
     <system:String x:Key="FemMemberDlgRange">Элементы КЭ</system:String>

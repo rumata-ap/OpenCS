@@ -17,6 +17,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="16"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
@@ -34,8 +35,9 @@
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FemMemberType}"
                            VerticalAlignment="Center" Margin="0,0,8,8"/>
                 <ComboBox  Grid.Row="1" Grid.Column="1"
+                           IsEditable="True"
                            ItemsSource="{Binding MemberTypes}"
-                           SelectedItem="{Binding MemberType}"
+                           Text="{Binding MemberType, UpdateSourceTrigger=PropertyChanged}"
                            Margin="0,0,0,8"/>
 
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CalcTaskSection}"
@@ -46,15 +48,21 @@
                            DisplayMemberPath="Tag"
                            Margin="0,0,0,8"/>
 
+
                 <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CalcTaskForceSet}"
-                           VerticalAlignment="Center" Margin="0,0,8,8"/>
+                           VerticalAlignment="Center" Margin="0,0,8,4"/>
                 <ComboBox  Grid.Row="3" Grid.Column="1"
                            ItemsSource="{Binding AllForceSets}"
                            SelectedItem="{Binding SelectedForceSet}"
                            DisplayMemberPath="Tag"
-                           Margin="0,0,0,8"/>
+                           Margin="0,0,0,4"/>
 
-                <GroupBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                <CheckBox  Grid.Row="4" Grid.Column="1"
+                           IsChecked="{Binding ShowAllForceSets}"
+                           Content="{DynamicResource FemMemberShowAllForceSets}"
+                           Margin="0,0,0,8" FontSize="11" Foreground="Gray"/>
+
+                <GroupBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
                           Header="{DynamicResource SteelCheckParamsHeader}" Margin="0,4,0,0">
                     <Grid Margin="4">
                         <Grid.ColumnDefinitions>
@@ -101,7 +109,7 @@
                     </Grid>
                 </GroupBox>
 
-                <Button Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
+                <Button Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2"
                         Content="{DynamicResource Save}"
                         Command="{Binding SaveCommand}"
                         HorizontalAlignment="Right" Width="100"/>

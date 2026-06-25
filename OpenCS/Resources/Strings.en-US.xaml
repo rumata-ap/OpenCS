@@ -1087,6 +1087,7 @@
     <system:String x:Key="FemMembersCount">Members</system:String>
     <system:String x:Key="FemMembers">Members</system:String>
     <system:String x:Key="FemMemberType">Member type</system:String>
+    <system:String x:Key="FemMemberShowAllForceSets">Show all force sets</system:String>
     <system:String x:Key="FemMemberNew">New member...</system:String>
     <system:String x:Key="FemMemberDlgTitle">New structural member</system:String>
     <system:String x:Key="FemMemberDlgRange">FE range</system:String>

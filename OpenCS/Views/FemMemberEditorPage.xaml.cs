@@ -45,23 +45,69 @@ public class FemMemberEditorVM : ViewModelBase
         set { _member.Tag = value; OnPropertyChanged(); }
     }
 
+    static readonly HashSet<string> PlateMemberTypes =
+        new(System.StringComparer.OrdinalIgnoreCase) { "Плита", "Стена" };
+
     public string? MemberType
     {
         get => _member.MemberType;
-        set { _member.MemberType = value; OnPropertyChanged(); }
+        set
+        {
+            _member.MemberType = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsPlateType));
+            OnPropertyChanged(nameof(AllSections));
+        }
     }
 
-    public string[] MemberTypes { get; } = ["column", "beam", "brace", "other"];
+    public bool IsPlateType => PlateMemberTypes.Contains(MemberType ?? "");
 
-    public ObservableCollection<CrossSection> AllSections => _app.CrossSections;
+    public string[] MemberTypes { get; } = ["Балка", "Колонна", "Плита", "Стена", "Ферма", "Раскос", "Связь", "Другое"];
 
-    public IEnumerable<ForceSet> AllForceSets => _app.ForceSets;
+    /// <summary>Список доступных сечений — стержневые или пластинчатые в зависимости от типа.</summary>
+    public System.Collections.IEnumerable AllSections => IsPlateType
+        ? (System.Collections.IEnumerable)_app.PlateSections
+        : _app.CrossSections;
 
-    CrossSection? _selectedSection;
-    public CrossSection? SelectedSection
+    bool _showAllForceSets;
+    public bool ShowAllForceSets
     {
-        get => _selectedSection;
-        set { _selectedSection = value; OnPropertyChanged(); }
+        get => _showAllForceSets;
+        set { _showAllForceSets = value; OnPropertyChanged(); OnPropertyChanged(nameof(AllForceSets)); }
+    }
+
+    public IEnumerable<ForceSet> AllForceSets => _showAllForceSets
+        ? _app.ForceSets
+        : _app.ForceSets.Where(f => f.SourceMemberId == _member.Id);
+
+    CrossSection? _selectedBarSection;
+    PlateSection? _selectedPlateSection;
+
+    /// <summary>Выбранное стержневое сечение (когда тип — балка/колонна/ферма/...).</summary>
+    public CrossSection? SelectedBarSection
+    {
+        get => _selectedBarSection;
+        set { _selectedBarSection = value; OnPropertyChanged(); OnPropertyChanged(nameof(SelectedSection)); }
+    }
+
+    /// <summary>Выбранное пластинчатое сечение (когда тип — плита/стена).</summary>
+    public PlateSection? SelectedPlateSection
+    {
+        get => _selectedPlateSection;
+        set { _selectedPlateSection = value; OnPropertyChanged(); OnPropertyChanged(nameof(SelectedSection)); }
+    }
+
+    /// <summary>Унифицированный геттер для биндинга ComboBox.SelectedItem.</summary>
+    public object? SelectedSection
+    {
+        get => IsPlateType ? (object?)_selectedPlateSection : _selectedBarSection;
+        set
+        {
+            if (value is PlateSection ps) { _selectedPlateSection = ps; OnPropertyChanged(nameof(SelectedPlateSection)); }
+            else if (value is CrossSection cs) { _selectedBarSection = cs; OnPropertyChanged(nameof(SelectedBarSection)); }
+            else { _selectedBarSection = null; _selectedPlateSection = null; }
+            OnPropertyChanged();
+        }
     }
 
     ForceSet? _selectedForceSet;
@@ -86,14 +132,16 @@ public class FemMemberEditorVM : ViewModelBase
         _app    = app;
         _db     = app.db;
         _params = FemDesignParams.Parse(member.DesignParamsJson);
-        _selectedSection  = app.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId);
-        _selectedForceSet = app.ForceSets.FirstOrDefault(f => f.Id == member.ForceSetId);
+        _selectedBarSection   = app.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId);
+        _selectedPlateSection = app.PlateSections.FirstOrDefault(s => s.Id == member.PlateSectionId);
+        _selectedForceSet     = app.ForceSets.FirstOrDefault(f => f.Id == member.ForceSetId);
         SaveCommand = new RelayCommand(_ => Save());
     }
 
     void Save()
     {
-        _member.CrossSectionId   = _selectedSection?.Id;
+        _member.CrossSectionId   = IsPlateType ? null : _selectedBarSection?.Id;
+        _member.PlateSectionId   = IsPlateType ? _selectedPlateSection?.Id : null;
         _member.ForceSetId       = _selectedForceSet?.Id;
         _member.DesignParamsJson = _params.ToJson();
         _db.SaveFemMember(_member);

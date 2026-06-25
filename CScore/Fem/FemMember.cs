@@ -12,8 +12,11 @@ public class FemMember
     public string? MemberType       { get; set; }
     /// <summary>JSON-массив ID конечных элементов: [e1, e2, ...].</summary>
     public string  ElemIdsJson      { get; set; } = "[]";
-    /// <summary>FK → cross_sections.id. Сечение для нормативных проверок.</summary>
+    /// <summary>FK → cross_sections.id. Сечение для нормативных проверок (стержни).</summary>
     public int?    CrossSectionId   { get; set; }
+
+    /// <summary>FK → plate_sections.id. Сечение для нормативных проверок (пластины/стены).</summary>
+    public int?    PlateSectionId   { get; set; }
     /// <summary>FK → force_sets.id. Набор усилий (source_type='fea').</summary>
     public int?    ForceSetId       { get; set; }
     /// <summary>JSON-сериализация FemDesignParams (l₀, μ, βm, γM).</summary>
