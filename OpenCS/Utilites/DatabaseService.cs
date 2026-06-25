@@ -90,6 +90,8 @@ namespace OpenCS.Utilites
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = "PRAGMA journal_mode=DELETE";
          cmd.ExecuteNonQuery();
+         cmd.CommandText = "PRAGMA foreign_keys=OFF";
+         cmd.ExecuteNonQuery();
       }
 
       private void EnsureCreated()
