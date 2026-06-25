@@ -280,7 +280,11 @@
     <system:String x:Key="TemplateCircle">Circle</system:String>
     <system:String x:Key="FromSortament">From assortment</system:String>
     <system:String x:Key="ConfirmDeleteRegion">Delete the selected reinforced region permanently?</system:String>
+    <system:String x:Key="ConfirmDeleteFemForceSets">Delete all {0} force sets of schema «{1}»? This cannot be undone.</system:String>
+    <system:String x:Key="DeleteFemForceSetsMenu">Delete all force sets</system:String>
     <system:String x:Key="RegionDeleted">Region '{0}' deleted</system:String>
+    <system:String x:Key="VacuumDb">Compact database (VACUUM)</system:String>
+    <system:String x:Key="VacuumDbDone">VACUUM done: {0} KB → {1} KB, freed {2} KB</system:String>
     <system:String x:Key="ConfirmDeleteDiagram">Delete the diagram?</system:String>
     <system:String x:Key="ConfirmDeleteAllDiagrams">Delete all diagrams?</system:String>
     <system:String x:Key="AddDiagramTooltip">New Diagram</system:String>
@@ -1109,8 +1113,10 @@
     <system:String x:Key="FemForces">Schema Forces</system:String>
     <system:String x:Key="ImportLiraSchemaFromApi">Import topology from LIRA SAPR (COM)…</system:String>
     <system:String x:Key="ImportLiraForcesFromApi">Import forces from LIRA SAPR (COM)…</system:String>
-    <system:String x:Key="ImportLiraForcesNoSchema">Select a FEM schema in the tree first.</system:String>
-    <system:String x:Key="ImportLiraForcesNoElements">No beam elements found in schema for force import.</system:String>
+    <system:String x:Key="ImportLiraForcesNoSchema">The design member's schema was not found in the project.</system:String>
+    <system:String x:Key="ImportLiraForcesNoMember">Select a design member in the FEM tree (under «Design Members» node).</system:String>
+    <system:String x:Key="ImportLiraForcesNoElements">The selected design member has no elements. Add elements to the group and try again.</system:String>
+    <system:String x:Key="ImportLiraForcesStarted">Importing forces: {0} elements, group «{1}»…</system:String>
     <system:String x:Key="LiraElemRangeDlgTitle">LIRA Element Range</system:String>
     <system:String x:Key="LiraElemRangeDlgPrompt">Topology not imported. Enter beam element numbers to read forces from LIRA:</system:String>
     <system:String x:Key="LiraElemRangeDlgHint">Example: 1-144  or  1-50, 75-100, 120</system:String>

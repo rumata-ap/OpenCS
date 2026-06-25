@@ -405,6 +405,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Reference Include="Interop.LiraSaprRes">
+      <HintPath>Interop\Interop.LiraSaprRes.dll</HintPath>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+    </Reference>
+  </ItemGroup>
+
+
+  <ItemGroup>
     <Compile Update="Views\FromDataSourceWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>

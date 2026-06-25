@@ -383,6 +383,9 @@ namespace OpenCS
       /// <summary>Команда удаления нормативной проверки.</summary>
       public ICommand DeleteFemCheckCommand  { get; set; } = null!;
 
+      /// <summary>Команда удаления всех наборов усилий схемы МКЭ.</summary>
+      public ICommand DeleteFemSchemaForceSetsCommand { get; set; } = null!;
+
       /// <summary>Команда импорта расчётной схемы из CSV-файлов ЛираСАПР.</summary>
       public ICommand ImportLiraSchemaFromCsvCommand { get; set; } = null!;
 
@@ -688,6 +691,9 @@ namespace OpenCS
       /// <summary>Команда открытия единого окна настроек.</summary>
       public ICommand OpenSettingsCommand { get; set; } = null!;
 
+      /// <summary>Команда сжатия БД (SQLite VACUUM).</summary>
+      public ICommand VacuumDbCommand { get; set; } = null!;
+
       /// <summary>
       /// Глобальные настройки отображения графиков (цвета, сетка, подписи).
       /// </summary>
@@ -799,6 +805,15 @@ namespace OpenCS
             Application.Current.MainWindow.Close();
          else
             Application.Current.Shutdown();
+      }
+
+      void VacuumDb()
+      {
+         long sizeBefore = db.GetDbSizeBytes();
+         db.Vacuum();
+         long sizeAfter = db.GetDbSizeBytes();
+         long savedKb = (sizeBefore - sizeAfter) / 1024;
+         LogService.Info(string.Format(Loc.S("VacuumDbDone"), sizeBefore / 1024, sizeAfter / 1024, savedKb));
       }
 
       /// <summary>
@@ -942,6 +957,7 @@ namespace OpenCS
          SaveProjectCommand = new RelayCommand(SaveProject);
          SaveAsProjectCommand = new RelayCommand(SaveAsProject);
           ExitCommand = new RelayCommand(Exit);
+          VacuumDbCommand = new RelayCommand(_ => VacuumDb());
          OpenSettingsCommand = new RelayCommand(_ => new Views.SettingsWindow(this).ShowDialog());
          SetLanguageCommand = new RelayCommand(SetLanguage);
          NewCrossSectionCommand    = new RelayCommand(_ => NewCrossSection());
@@ -993,6 +1009,7 @@ namespace OpenCS
          AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMember));
          RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
          DeleteFemCheckCommand  = new RelayCommand(_ => DeleteFemCheck());
+         DeleteFemSchemaForceSetsCommand = new RelayCommand(p => DeleteFemSchemaForceSets(p as CScore.Fem.FemSchema));
          ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
          ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
          ImportLiraForcesFromApiCommand  = new RelayCommand(_ => ImportLiraForcesFromApi());
@@ -2213,7 +2230,7 @@ namespace OpenCS
 
       void BuildFemRootNodes()
       {
-         femSchemasGroup = new ViewModels.FemSchemasGroupNode(FemSchemas, db);
+         femSchemasGroup = new ViewModels.FemSchemasGroupNode(FemSchemas, db, ForceSets);
          femChecksGroup  = new ViewModels.FemChecksGroupNode(FemChecks);
          FemRootNodes.Clear();
          FemRootNodes.Add(femSchemasGroup);
@@ -2276,67 +2293,57 @@ namespace OpenCS
          }
       }
 
-      void ImportLiraForcesFromApi()
+      async void ImportLiraForcesFromApi()
       {
-         if (currentFemSchema == null)
+         if (currentFemMember == null)
          {
             System.Windows.MessageBox.Show(
-               Loc.S("ImportLiraForcesNoSchema"),
+               Loc.S("ImportLiraForcesNoMember"),
                Loc.S("ImportLiraErrorTitle"),
                System.Windows.MessageBoxButton.OK,
                System.Windows.MessageBoxImage.Warning);
             return;
          }
 
-         // Имя документа ЛираСАПР берётся из Tag схемы (должно совпадать с именем файла .lir без расширения)
-         var docName = currentFemSchema.Tag;
+         var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(
+            currentFemMember.ElemIdsJson) ?? [];
+
+         if (elemIds.Length == 0)
+         {
+            System.Windows.MessageBox.Show(
+               Loc.S("ImportLiraForcesNoElements"),
+               Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK,
+               System.Windows.MessageBoxImage.Warning);
+            return;
+         }
+
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == currentFemMember.SchemaId);
+         if (schema == null)
+         {
+            LogService.Warning(Loc.S("ImportLiraForcesNoSchema"));
+            return;
+         }
+
+         var member = currentFemMember;
+         LogService.Info(string.Format(Loc.S("ImportLiraForcesStarted"), elemIds.Length, member.Tag));
 
          try
          {
-            IReadOnlyList<int> elemIds;
+            var liraSettings = LiraImportSettings;
+            var memberTagCapture = member.Tag;
+            var forceSets = await RunOnStaThread(() =>
+               Services.LiraApiForceImporter.ReadLoadCaseForces(schema, elemIds, liraSettings, memberTagCapture));
 
-            if (currentFemMember != null)
-            {
-               // Импортируем только элементы выбранного конструктивного элемента
-               elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(
-                  currentFemMember.ElemIdsJson) ?? [];
-            }
-            else
-            {
-               // Все стержневые КЭ схемы
-               var elements = db.GetFemElements(currentFemSchema.Id);
-               elemIds = elements
-                  .Where(e => e.ElemType == "beam")
-                  .Select(e => int.TryParse(e.ElemTag, out int id) ? id : 0)
-                  .Where(id => id > 0)
-                  .ToList();
-            }
-
-            int stubsCreated = 0;
-            if (elemIds.Count == 0)
-            {
-               // Топология не импортирована — спрашиваем диапазон у пользователя
-               var dlg = new Views.LiraElemRangeDialog();
-               if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.Range))
-                  return;
-               var enteredIds = Views.LiraElemRangeDialog.ParseRange(dlg.Range);
-               if (enteredIds.Count == 0) return;
-               db.AddFemElementStubs(currentFemSchema.Id, enteredIds);
-               stubsCreated = enteredIds.Count;
-               elemIds = enteredIds;
-            }
-
-            var forceSets = Services.LiraApiForceImporter.ReadLoadCaseForces(
-               docName, currentFemSchema, elemIds);
             foreach (var fs in forceSets)
+            {
                db.SaveForceSet(fs);
+               if (!ForceSets.Contains(fs))
+                  ForceSets.Add(fs);
+            }
             IsDirty = true;
-            if (stubsCreated > 0)
-               LogService.Info(string.Format(Loc.S("ImportLiraForcesStubsCreated"),
-                  stubsCreated, forceSets.Count));
-            else
-               LogService.Info(string.Format(Loc.S("ImportLiraSuccess"),
-                  forceSets.Count, docName));
+            LogService.Info(string.Format(Loc.S("ImportLiraSuccess"),
+               forceSets.Count, member.Tag));
          }
          catch (Exception ex)
          {
@@ -2345,6 +2352,21 @@ namespace OpenCS
                System.Windows.MessageBoxButton.OK,
                System.Windows.MessageBoxImage.Error);
          }
+      }
+
+      // COM-объекты ЛИРЫ требуют STA; ThreadPool-потоки — MTA, поэтому запускаем в отдельном STA-потоке.
+      static Task<T> RunOnStaThread<T>(Func<T> func)
+      {
+         var tcs = new System.Threading.Tasks.TaskCompletionSource<T>();
+         var thread = new System.Threading.Thread(() =>
+         {
+            try   { tcs.SetResult(func()); }
+            catch (Exception ex) { tcs.SetException(ex); }
+         });
+         thread.SetApartmentState(System.Threading.ApartmentState.STA);
+         thread.IsBackground = true;
+         thread.Start();
+         return tcs.Task;
       }
 
       void NewFemMember(CScore.Fem.FemSchema? schema)
@@ -2483,6 +2505,25 @@ namespace OpenCS
          db.DeleteFemCheck(currentFemCheck);
          currentFemCheck = null;
          CurrentPage = null!;
+      }
+
+      void DeleteFemSchemaForceSets(CScore.Fem.FemSchema? schema)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+
+         var sets = ForceSets.Where(fs => fs.SourceSchemaId == schema.Id).ToList();
+         if (sets.Count == 0) return;
+
+         var res = System.Windows.MessageBox.Show(
+            string.Format(Loc.S("ConfirmDeleteFemForceSets"), sets.Count, schema.Tag),
+            Loc.S("Warning"),
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+         if (res != System.Windows.MessageBoxResult.Yes) return;
+
+         foreach (var fs in sets)
+            db.DeleteForceSet(fs);
       }
 
       #endregion

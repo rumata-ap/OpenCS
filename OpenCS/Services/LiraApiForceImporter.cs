@@ -1,118 +1,235 @@
 using CScore;
 using CScore.Fem;
+using LiraSaprRes;
+using OpenCS.Utilites;
 
 namespace OpenCS.Services;
 
 /// <summary>
-/// Читает усилия из открытого документа ЛираСАПР через COM (dynamic).
-/// ProgID объекта результатов: "LiraSaprRes.LiraResultsAccess".
+/// Читает усилия из открытого документа ЛираСАПР через COM (LiraResAPI.dll / LiraSaprRes interop).
 /// Паттерн: CreateNewRequest → заполнить поля → вызвать метод → обойти Response.
 /// </summary>
 /// <remarks>
-/// Перечень методов получения усилий:
-///   LoadCaseForces         — усилия от загружений (ЗН)
-///   LoadCombinationForces  — усилия от РСН
-///   DesignCombinationForces — усилия от РСУ (для подбора арматуры / стальных сечений)
-/// Константы LiraRequestEnum:
-///   kLiraRequest_LoadCaseForces           = 4
-///   kLiraRequest_LoadCombinationForces    = 6
-///   kLiraRequest_DesignCombinationForces  = 10
 /// Маппинг LIRA → OpenCS LoadItem: BarN→N, BarMx→T, BarMy→My, BarMz→Mx, BarQz→Vx, BarQy→Vy
 /// (уточнить при тестировании в зависимости от ориентации осей).
 /// </remarks>
 static class LiraApiForceImporter
 {
-    const int kRequestLoadCaseForces  = 4;
-    const int kRequestDesignComboForces = 10;
-
-    /// <summary>
-    /// Читает усилия от загружений для заданных КЭ и возвращает наборы усилий
-    /// (один <see cref="ForceSet"/> на каждое загружение × элемент).
-    /// </summary>
-    /// <param name="documentName">Имя документа ЛираСАПР (без расширения .lir).</param>
-    /// <param name="schema">МКЭ-схема (нужна для source_schema_id и списка элементов).</param>
-    /// <param name="elementIds">ID КЭ Лиры, для которых читать усилия.</param>
+    /// <summary>Читает усилия от загружений для заданных КЭ.</summary>
     public static List<ForceSet> ReadLoadCaseForces(
-        string    documentName,
         FemSchema schema,
-        IReadOnlyList<int> elementIds)
+        IReadOnlyList<int> elementIds,
+        LiraImportSettings settings,
+        string memberTag = "")
     {
         if (elementIds.Count == 0) return [];
 
-        dynamic result = CreateResultsAccessObject();
+        var (documentName, toKn, lcNames) = GetDocumentInfo(settings);
+        var result = CreateResultsAccessObject();
 
-        dynamic req = result.CreateNewRequest(kRequestLoadCaseForces);
+        var req = (LiraLoadCaseForcesRequest)result.CreateNewRequest(
+            LiraRequestEnum.kLiraRequest_LoadCaseForces);
         req.DocumentName = documentName;
         req.Elements.AddFromString(BuildRange(elementIds));
 
-        dynamic resp = result.LoadCaseForces(req);
-        return ParseForcesResponse(resp, schema, elementIds, "ЗН");
+        var resp = result.LoadCaseForces((LiraLoadCaseForcesRequest)req);
+        return ParseForcesResponse(resp, schema, elementIds, toKn, settings.InvertBarBendingMoments, memberTag, lcNames);
     }
 
-    /// <summary>
-    /// Читает усилия от РСУ (расчётные сочетания усилий) и возвращает наборы усилий.
-    /// </summary>
+    /// <summary>Читает усилия от РСУ (расчётные сочетания усилий, УГС).</summary>
     public static List<ForceSet> ReadDesignCombinationForces(
-        string    documentName,
         FemSchema schema,
         IReadOnlyList<int> elementIds,
+        LiraImportSettings settings,
         int combinationTable = 1)
     {
         if (elementIds.Count == 0) return [];
 
-        dynamic result = CreateResultsAccessObject();
+        var (documentName, _, _) = GetDocumentInfo(settings);
+        var result = CreateResultsAccessObject();
 
-        dynamic req = result.CreateNewRequest(kRequestDesignComboForces);
+        var req = (LiraDesignCombinationForcesRequest)result.CreateNewRequest(
+            LiraRequestEnum.kLiraRequest_DesignCombinationForces);
         req.DocumentName = documentName;
         req.Elements.AddFromString(BuildRange(elementIds));
-        req.LoadCombinationTable = combinationTable;
+        req.DesignCombinationTable = combinationTable;
 
-        dynamic resp = result.DesignCombinationForces(req);
-        return ParseForcesResponse(resp, schema, elementIds, "РСУ");
+        var resp = result.DesignCombinationForces((LiraDesignCombinationForcesRequest)req);
+        return ParseDesignForcesResponse(resp, schema, elementIds);
     }
 
     // ------------------------------------------------------------------ helpers
 
-    static dynamic CreateResultsAccessObject()
+    /// <summary>
+    /// Получает имя активного документа и коэффициент пересчёта усилий в кН (кН/м).
+    /// LiraUnitsForceEnum: 0=г, 1=кг, 2=тс, 3=Н, 4=кН, 5=МН, 6=фунт, 7=kips.
+    /// LiraUnitsGeometryEnum для знаменателя: 0=м, 1=см, 2=мм (используется при ×форс / ÷геом).
+    /// </summary>
+    static (string docName, double toKn, Dictionary<int,string> lcNames) GetDocumentInfo(LiraImportSettings settings)
     {
-        var type = Type.GetTypeFromProgID("LiraSaprRes.LiraResultsAccess")
+        var appType = Type.GetTypeFromProgID("LiraSapr.Application")
             ?? throw new InvalidOperationException(
-                "ProgID 'LiraSaprRes.LiraResultsAccess' не зарегистрирован. " +
-                "Убедитесь, что ЛираСАПР установлена и зарегистрирована (/register).");
-        return Activator.CreateInstance(type)!;
+                "ЛираСАПР не запущена. Откройте расчётную схему в ЛираСАПР и повторите.");
+
+        dynamic lira = Activator.CreateInstance(appType)!;
+
+        dynamic doc = lira.ActiveDocument
+            ?? throw new InvalidOperationException(
+                "В ЛираСАПР нет открытого документа. Откройте расчётную схему и повторите.");
+
+        string path = (string)doc.PathName;
+        string docName = System.IO.Path.GetFileNameWithoutExtension(path);
+
+        // Коэффициент: ЛИРА → кН
+        double forceToKn;
+        try
+        {
+            int f1 = (int)lira.MeasurementUnits.Forces1;
+            forceToKn = f1 switch
+            {
+                0 => 1e-6,                      // г → кН
+                1 => 1e-3,                      // кг → кН
+                2 => settings.TonToKnFactor,    // тс → кН (9.80665 или 10.0 по настройкам)
+                3 => 1e-3,                      // Н → кН
+                4 => 1.0,                       // кН → кН
+                5 => 1000.0,                    // МН → кН
+                6 => 0.004448,                  // фунт → кН
+                7 => 4.44822,                   // kips → кН
+                _ => 1.0
+            };
+        }
+        catch { forceToKn = 1.0; }
+
+        Dictionary<int, string> lcNames;
+        try { lcNames = LiraApiSchemaReader.ReadLoadCaseNames(lira.ActiveDocument); }
+        catch { lcNames = []; }
+
+        return (docName, forceToKn, lcNames);
     }
 
+    static LiraResultsAccess CreateResultsAccessObject() => new LiraResultsAccessClass();
+
     static List<ForceSet> ParseForcesResponse(
-        dynamic   resp,
+        LiraLoadCaseForcesResponse resp,
         FemSchema schema,
         IReadOnlyList<int> elementIds,
-        string    seriesPrefix)
+        double toKn,
+        bool invertBarMoments,
+        string memberTag,
+        Dictionary<int, string> lcNames)
     {
         var result = new List<ForceSet>();
+        var loadCases = resp.LoadCases;
+        int lcCount = loadCases.Count;
 
-        // перечень загружений/комбинаций доступен через resp.LoadCases или resp.LoadCombinations
-        // для LoadCaseForces — resp.LoadCases (LiraLoadCaseInfos)
-        // для DesignCombinationForces — resp.DesignCombinations (или resp.LoadCombinations)
-        dynamic loadCases;
-        try { loadCases = resp.LoadCases; }
-        catch { loadCases = resp.LoadCombinations; }
+        if (lcCount == 0) return result;
 
-        int lcCount = (int)loadCases.Count;
+        for (int lcIdx = 0; lcIdx < lcCount; lcIdx++)
+        {
+            int lcNum = loadCases.Item[lcIdx].Number;
+
+            string lcName = lcNames.TryGetValue(lcNum, out var lcN) ? lcN : $"ЗН {lcNum}";
+            string tag = string.IsNullOrEmpty(memberTag)
+                ? lcName
+                : $"{memberTag} — {lcName}";
+
+            var fs = new ForceSet
+            {
+                Tag            = tag,
+                Kind           = "shell",
+                SourceType     = "fea",
+                SourceSchemaId = schema.Id,
+            };
+
+            int itemNum = 1;
+            foreach (int elemId in elementIds)
+            {
+                int sectionCount;
+                try { sectionCount = resp.GetSectionCount(elemId); }
+                catch { sectionCount = 1; }
+
+                LiraElementFamilyEnum family;
+                try { family = resp.GetFamily(elemId); }
+                catch { family = LiraElementFamilyEnum.kLiraFamily_Bar; }
+
+                for (int sec = 1; sec <= sectionCount; sec++)
+                {
+                    try
+                    {
+                        if (family == LiraElementFamilyEnum.kLiraFamily_Plate)
+                        {
+                            double nx  = resp.GetPlateNx (elemId, sec, lcNum) * toKn;
+                            double ny  = resp.GetPlateNy (elemId, sec, lcNum) * toKn;
+                            double nxy = resp.GetPlateTxy(elemId, sec, lcNum) * toKn;
+                            double mx  = resp.GetPlateMx (elemId, sec, lcNum) * toKn;
+                            double my  = resp.GetPlateMy (elemId, sec, lcNum) * toKn;
+                            double mxy = resp.GetPlateMxy(elemId, sec, lcNum) * toKn;
+                            double qx  = resp.GetPlateQx (elemId, sec, lcNum) * toKn;
+                            double qy  = resp.GetPlateQy (elemId, sec, lcNum) * toKn;
+                            // Фильтр: элементы без результатов ЛИРА возвращает как точные нули
+                            if (nx == 0 && ny == 0 && nxy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
+                                continue;
+                            fs.ShellItems.Add(new ShellLoadItem
+                            {
+                                Num = itemNum++, Label = $"э.{elemId}",
+                                Nx = nx, Ny = ny, Nxy = nxy,
+                                Mx = mx, My = my, Mxy = mxy,
+                                Qx = qx, Qy = qy,
+                            });
+                        }
+                        else
+                        {
+                            double n  = resp.GetBarN (elemId, sec, lcNum) * toKn;
+                            double t  = resp.GetBarMx(elemId, sec, lcNum) * toKn;
+                            double my = resp.GetBarMy(elemId, sec, lcNum) * toKn;
+                            double mx = resp.GetBarMz(elemId, sec, lcNum) * toKn;
+                            double vx = resp.GetBarQz(elemId, sec, lcNum) * toKn;
+                            double vy = resp.GetBarQy(elemId, sec, lcNum) * toKn;
+                            if (n == 0 && t == 0 && my == 0 && mx == 0 && vx == 0 && vy == 0)
+                                continue;
+                            if (invertBarMoments) { my = -my; mx = -mx; }
+                            fs.Items.Add(new LoadItem
+                            {
+                                Num = itemNum++, Label = $"э.{elemId}",
+                                N = n, T = t, My = my, Mx = mx, Vx = vx, Vy = vy,
+                            });
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            if (fs.ShellItems.Count > 0 || fs.Items.Count > 0)
+                result.Add(fs);
+        }
+
+        return result;
+    }
+
+    static List<ForceSet> ParseDesignForcesResponse(
+        LiraDesignCombinationForcesResponse resp,
+        FemSchema schema,
+        IReadOnlyList<int> elementIds)
+    {
+        // Читаем УГС для предельного состояния по несущей способности (полное сочетание)
+        const int ls = (int)LiraLimitStateForcesEnum.kLiraLimitStateForces_UltimateFull;
+        var result = new List<ForceSet>();
 
         foreach (int elemId in elementIds)
         {
             int sectionCount;
-            try { sectionCount = (int)resp.GetSectionCount(elemId); }
-            catch { sectionCount = 2; }  // стержень по умолчанию — 2 сечения
+            try { sectionCount = resp.GetSectionCount(elemId); }
+            catch { sectionCount = 2; }
 
-            for (int lcIdx = 0; lcIdx < lcCount; lcIdx++)
+            int dcfCount;
+            try { dcfCount = resp.GetDCLCount(elemId, 1, ls); }
+            catch { continue; }
+
+            for (int dcf = 1; dcf <= dcfCount; dcf++)
             {
-                dynamic lcInfo = loadCases.Item[lcIdx];
-                int lcNum = (int)lcInfo.Number;
-
                 var fs = new ForceSet
                 {
-                    Tag              = $"{seriesPrefix}_{lcNum:D2} / э.{elemId}",
+                    Tag              = $"РСУ_{dcf:D2} / э.{elemId}",
                     Kind             = "bar",
                     SourceType       = "fea",
                     SourceSchemaId   = schema.Id,
@@ -121,28 +238,21 @@ static class LiraApiForceImporter
 
                 for (int sec = 1; sec <= sectionCount; sec++)
                 {
-                    var item = new LoadItem
-                    {
-                        Num   = sec,
-                        Label = $"sec {sec}",
-                    };
                     try
                     {
-                        // Маппинг LIRA → OpenCS: BarN→N, BarMx→T, BarMy→My, BarMz→Mx
-                        // BarQz — поперечная вдоль Z → Vx; BarQy — вдоль Y → Vy
-                        item.N  = (double)resp.GetBarN (elemId, sec, lcNum);
-                        item.T  = (double)resp.GetBarMx(elemId, sec, lcNum);
-                        item.My = (double)resp.GetBarMy(elemId, sec, lcNum);
-                        item.Mx = (double)resp.GetBarMz(elemId, sec, lcNum);
-                        item.Vx = (double)resp.GetBarQz(elemId, sec, lcNum);
-                        item.Vy = (double)resp.GetBarQy(elemId, sec, lcNum);
+                        fs.Items.Add(new LoadItem
+                        {
+                            Num   = sec,
+                            Label = $"sec {sec}",
+                            N     = resp.GetBarN (elemId, sec, ls, dcf),
+                            T     = resp.GetBarMx(elemId, sec, ls, dcf),
+                            My    = resp.GetBarMy(elemId, sec, ls, dcf),
+                            Mx    = resp.GetBarMz(elemId, sec, ls, dcf),
+                            Vx    = resp.GetBarQz(elemId, sec, ls, dcf),
+                            Vy    = resp.GetBarQy(elemId, sec, ls, dcf),
+                        });
                     }
-                    catch
-                    {
-                        // элемент или сечение могут отсутствовать — пропускаем
-                        continue;
-                    }
-                    fs.Items.Add(item);
+                    catch { }
                 }
 
                 if (fs.Items.Count > 0)
@@ -153,16 +263,12 @@ static class LiraApiForceImporter
         return result;
     }
 
-    // "1-N" строка диапазона элементов для AddFromString
     static string BuildRange(IReadOnlyList<int> ids)
     {
         if (ids.Count == 0) return "";
         var sorted = ids.OrderBy(x => x).ToList();
         int min = sorted[0], max = sorted[^1];
-        // если все идут подряд — используем диапазон; иначе — список через запятую
         bool contiguous = (max - min + 1 == sorted.Count);
-        return contiguous
-            ? $"{min}-{max}"
-            : string.Join(", ", sorted);
+        return contiguous ? $"{min}-{max}" : string.Join(", ", sorted);
     }
 }

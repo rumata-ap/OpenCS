@@ -136,6 +136,8 @@
             <Separator />
             <MenuItem Header="{DynamicResource Settings}" Command="{Binding OpenSettingsCommand}" />
             <Separator />
+            <MenuItem Header="{DynamicResource VacuumDb}" Command="{Binding VacuumDbCommand}" />
+            <Separator />
             <MenuItem Header="{DynamicResource Exit}" Command="{Binding ExitCommand}" />
          </MenuItem>
          <MenuItem Header="{DynamicResource Edit}" ></MenuItem>
@@ -1071,9 +1073,60 @@
                   </HierarchicalDataTemplate>
 
                   <!-- Подузел «Усилия схемы» (placeholder) -->
-                  <DataTemplate DataType="{x:Type vm:FemForcesSubNode}">
-                     <TextBlock Text="{DynamicResource FemForces}" Foreground="Gray"/>
+                  <!-- ForceSet внутри узла «Усилия схемы» -->
+                  <DataTemplate x:Key="FemForceSetTemplate" DataType="{x:Type core:ForceSet}">
+                     <StackPanel Orientation="Horizontal" Margin="1"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource RenameForceSet}"
+                                        Command="{Binding PlacementTarget.Tag.SetForceSetLoadTypeCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource DuplicateForceSet}"
+                                        Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
+                              <MenuItem Header="{DynamicResource DeleteForceSetItem}"
+                                        Command="{Binding PlacementTarget.Tag.DeleteForceSetCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
+                              Fill="SteelBlue"
+                              Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
+                        <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                        <TextBlock Text=" (" Foreground="Gray"/>
+                        <TextBlock Text="{Binding ShellItems.Count}" Foreground="Gray"/>
+                        <TextBlock Text=" эл.)" Foreground="Gray"/>
+                     </StackPanel>
                   </DataTemplate>
+
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemForcesSubNode}"
+                                            ItemsSource="{Binding ForceSets}"
+                                            ItemTemplate="{StaticResource FemForceSetTemplate}">
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource DeleteFemForceSetsMenu}"
+                                        Command="{Binding PlacementTarget.Tag.DeleteFemSchemaForceSetsCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <TextBlock Text="{DynamicResource FemForces}"/>
+                        <TextBlock Text=" (" Foreground="Gray"/>
+                        <TextBlock Text="{Binding Count}" Foreground="Gray"/>
+                        <TextBlock Text=")" Foreground="Gray"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
 
                   <!-- FemMember -->
                   <HierarchicalDataTemplate DataType="{x:Type fem:FemMember}"

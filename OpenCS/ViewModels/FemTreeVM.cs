@@ -10,10 +10,11 @@ class FemSchemasGroupNode
 {
     public ObservableCollection<FemSchemaTreeVM> Schemas { get; } = [];
 
-    public FemSchemasGroupNode(ObservableCollection<FemSchema> source, DatabaseService db)
+    public FemSchemasGroupNode(ObservableCollection<FemSchema> source, DatabaseService db,
+                               ObservableCollection<CScore.ForceSet> forceSets)
     {
         foreach (var s in source)
-            Schemas.Add(new FemSchemaTreeVM(s, db));
+            Schemas.Add(new FemSchemaTreeVM(s, db, forceSets));
 
         source.CollectionChanged += (_, e) =>
         {
@@ -24,7 +25,7 @@ class FemSchemasGroupNode
             }
             if (e.NewItems != null)
                 foreach (FemSchema s in e.NewItems)
-                    Schemas.Add(new FemSchemaTreeVM(s, db));
+                    Schemas.Add(new FemSchemaTreeVM(s, db, forceSets));
             if (e.OldItems != null)
                 foreach (FemSchema s in e.OldItems)
                 {
@@ -50,23 +51,26 @@ class FemSchemaTreeVM
 
     internal FemNodesSubNode    NodesSubNode    { get; }
     internal FemElementsSubNode ElementsSubNode { get; }
+    internal FemForcesSubNode   ForcesSubNode   { get; }
 
     readonly DatabaseService _db;
 
-    public FemSchemaTreeVM(FemSchema schema, DatabaseService db)
+    public FemSchemaTreeVM(FemSchema schema, DatabaseService db,
+                           ObservableCollection<CScore.ForceSet> forceSets)
     {
         Schema = schema;
         _db    = db;
 
         NodesSubNode    = new FemNodesSubNode(this);
         ElementsSubNode = new FemElementsSubNode(this);
+        ForcesSubNode   = new FemForcesSubNode(schema, forceSets);
 
         SubNodes =
         [
             NodesSubNode,
             ElementsSubNode,
             new FemMembersSubNode(schema, schema.Members),
-            new FemForcesSubNode(),
+            ForcesSubNode,
         ];
 
         RefreshCounts();
@@ -170,5 +174,41 @@ public class FemMembersSubNode : FemSubNode
     }
 }
 
-/// <summary>Подузел «Усилия схемы» — placeholder.</summary>
-public class FemForcesSubNode : FemSubNode { }
+/// <summary>Подузел «Усилия схемы» — наборы усилий, источник которых данная схема.</summary>
+public class FemForcesSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    public ObservableCollection<CScore.ForceSet> ForceSets { get; } = [];
+
+    int _count;
+    public int Count { get => _count; private set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
+
+    public CScore.Fem.FemSchema Schema { get; }
+
+    public FemForcesSubNode(CScore.Fem.FemSchema schema, ObservableCollection<CScore.ForceSet> allForceSets)
+    {
+        Schema = schema;
+        int schemaId = schema.Id;
+
+        foreach (var fs in allForceSets.Where(f => f.SourceSchemaId == schemaId))
+            ForceSets.Add(fs);
+        Count = ForceSets.Count;
+
+        allForceSets.CollectionChanged += (_, e) =>
+        {
+            if (e.Action == NotifyCollectionChangedAction.Reset)
+            {
+                ForceSets.Clear();
+                Count = 0;
+                return;
+            }
+            if (e.NewItems != null)
+                foreach (CScore.ForceSet fs in e.NewItems)
+                    if (fs.SourceSchemaId == schemaId) { ForceSets.Add(fs); Count = ForceSets.Count; }
+            if (e.OldItems != null)
+                foreach (CScore.ForceSet fs in e.OldItems)
+                    if (ForceSets.Remove(fs)) Count = ForceSets.Count;
+        };
+    }
+}

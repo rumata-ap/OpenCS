@@ -1948,6 +1948,24 @@ namespace OpenCS.Utilites
 
       #endregion
 
+      #region Maintenance
+
+      public void Vacuum()
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "VACUUM";
+         cmd.ExecuteNonQuery();
+      }
+
+      public long GetDbSizeBytes()
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()";
+         return (long)(cmd.ExecuteScalar() ?? 0L);
+      }
+
+      #endregion
+
       #region PlateSections
 
       void LoadPlateSections()

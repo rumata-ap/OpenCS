@@ -212,6 +212,8 @@ namespace OpenCS
              vm.CurrentPage = new Views.FemBarsView(barsNode, vm);
           else if (e.NewValue is ViewModels.FemShellsSubNode shellsNode)
              vm.CurrentPage = new Views.FemShellsView(shellsNode);
+          else if (e.NewValue is CScore.ForceSet forceSetItem)
+             vm.CurrentShellForceSet = forceSetItem;
           else if (e.NewValue is CScore.Fem.FemMember femMemberItem)
              vm.CurrentFemMember = femMemberItem;
           else if (e.NewValue is CScore.Fem.FemCheck femCheckItem)

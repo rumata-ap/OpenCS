@@ -10,8 +10,30 @@ namespace OpenCS.Services;
 /// </summary>
 static class LiraApiSchemaReader
 {
-    const int kNodesTable    = 2;   // kLiraTable_Nodes_Coordinates
-    const int kElementsTable = 3;   // kLiraTable_Elements_TypeAndNumbersOfNodes
+    const int kNodesTable      = 2;   // kLiraTable_Nodes_Coordinates
+    const int kElementsTable   = 3;   // kLiraTable_Elements_TypeAndNumbersOfNodes
+    const int kLoadCasesTable  = 25;  // номер загружения + имя + тип
+
+    /// <summary>
+    /// Читает имена загружений из таблицы 25.
+    /// Возвращает словарь: номер загружения → имя.
+    /// </summary>
+    public static Dictionary<int, string> ReadLoadCaseNames(dynamic doc)
+    {
+        var result = new Dictionary<int, string>();
+        var diag = new List<string>();
+        var raw = TryReadTable(doc.AllTables.CreateNewItem(kLoadCasesTable), diag, "LoadCases");
+        if (raw == null) return result;
+        int rows = raw.GetLength(0);
+        for (int i = 0; i < rows; i++)
+        {
+            if (!TryInt(raw[i, 0], out int lcNum)) continue;
+            string name = raw[i, 1]?.ToString() ?? $"ЗН {lcNum}";
+            if (string.IsNullOrWhiteSpace(name)) name = $"ЗН {lcNum}";
+            result[lcNum] = name;
+        }
+        return result;
+    }
 
     public static LiraSchemaData Read()
     {

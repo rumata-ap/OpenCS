@@ -283,7 +283,11 @@
     <system:String x:Key="TemplateCircle">Окружность</system:String>
     <system:String x:Key="FromSortament">Из сортамента</system:String>
     <system:String x:Key="ConfirmDeleteRegion">Удалить безвозвратно выбранную армированную область?</system:String>
+    <system:String x:Key="ConfirmDeleteFemForceSets">Удалить все {0} наборов усилий схемы «{1}»? Действие необратимо.</system:String>
+    <system:String x:Key="DeleteFemForceSetsMenu">Удалить все наборы усилий</system:String>
     <system:String x:Key="RegionDeleted">Область '{0}' удалена</system:String>
+    <system:String x:Key="VacuumDb">Сжать базу данных (VACUUM)</system:String>
+    <system:String x:Key="VacuumDbDone">VACUUM выполнен: {0} КБ → {1} КБ, освобождено {2} КБ</system:String>
     <system:String x:Key="ConfirmDeleteDiagram">Удалить диаграмму?</system:String>
     <system:String x:Key="ConfirmDeleteAllDiagrams">Удалить все диаграммы?</system:String>
     <system:String x:Key="AddDiagramTooltip">Новая диаграмма</system:String>
@@ -1112,8 +1116,10 @@
     <system:String x:Key="FemForces">Усилия схемы</system:String>
     <system:String x:Key="ImportLiraSchemaFromApi">Импорт топологии из ЛираСАПР (COM)…</system:String>
     <system:String x:Key="ImportLiraForcesFromApi">Импорт усилий из ЛираСАПР (COM)…</system:String>
-    <system:String x:Key="ImportLiraForcesNoSchema">Сначала выберите расчётную схему в дереве МКЭ.</system:String>
-    <system:String x:Key="ImportLiraForcesNoElements">В схеме нет стержневых элементов для импорта усилий.</system:String>
+    <system:String x:Key="ImportLiraForcesNoSchema">Расчётная схема конструктивного элемента не найдена в проекте.</system:String>
+    <system:String x:Key="ImportLiraForcesNoMember">Выберите конструктивный элемент в дереве МКЭ (узел «Конструктивные элементы»).</system:String>
+    <system:String x:Key="ImportLiraForcesNoElements">Выбранный конструктивный элемент не содержит ни одного КЭ. Добавьте КЭ в группу и повторите.</system:String>
+    <system:String x:Key="ImportLiraForcesStarted">Импорт усилий: {0} КЭ, группа «{1}»…</system:String>
     <system:String x:Key="LiraElemRangeDlgTitle">Диапазон элементов ЛИРА</system:String>
     <system:String x:Key="LiraElemRangeDlgPrompt">Топология не импортирована. Укажите номера стержневых КЭ для чтения усилий из ЛИРА:</system:String>
     <system:String x:Key="LiraElemRangeDlgHint">Пример: 1-144  или  1-50, 75-100, 120</system:String>
