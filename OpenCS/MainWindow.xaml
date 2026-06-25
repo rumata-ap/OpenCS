@@ -963,6 +963,12 @@
                       ItemsSource="{Binding FemRootNodes}"
                       Margin="4,2" BorderThickness="0"
                       SelectedItemChanged="femTree_SelectedItemChanged">
+               <!-- Корневые узлы (Расчётные схемы, Проверки) — всегда развёрнуты -->
+               <TreeView.ItemContainerStyle>
+                  <Style TargetType="TreeViewItem">
+                     <Setter Property="IsExpanded" Value="True"/>
+                  </Style>
+               </TreeView.ItemContainerStyle>
                <TreeView.ContextMenu>
                   <ContextMenu>
                      <MenuItem Header="{DynamicResource FemSchemaNew}"
@@ -971,9 +977,14 @@
                </TreeView.ContextMenu>
                <TreeView.Resources>
 
-                  <!-- Корневой узел «Расчётные схемы» -->
+                  <!-- Корневой узел «Расчётные схемы» — схемы внутри тоже развёрнуты -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemSchemasGroupNode}"
                                             ItemsSource="{Binding Schemas}">
+                     <HierarchicalDataTemplate.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem">
+                           <Setter Property="IsExpanded" Value="True"/>
+                        </Style>
+                     </HierarchicalDataTemplate.ItemContainerStyle>
                      <TextBlock Text="{DynamicResource FemSchemas}" FontWeight="SemiBold"/>
                   </HierarchicalDataTemplate>
 
