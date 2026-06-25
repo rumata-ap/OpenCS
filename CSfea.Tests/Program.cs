@@ -77,6 +77,10 @@ SteelSectionTests.RunGeoPropsDirect();
 SteelSectionTests.RunIBeamProperties();
 SteelCheckerTests.RunSimpleCompressionCheck();
 
+FemCheckRunnerTests.RunExtractCalcType();
+FemCheckRunnerTests.RunExtractWorstDetail();
+FemCheckRunnerTests.RunExtractWorstDetailNoDetails();
+
 FemInfraTests.RunAll();
 
 LiraCsvSchemaParserTests.RunAll();
