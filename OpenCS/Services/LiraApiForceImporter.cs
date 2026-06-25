@@ -36,6 +36,37 @@ static class LiraApiForceImporter
         return ParseForcesResponse(resp, schema, elementIds, toKn, settings.InvertBarBendingMoments, memberTag, lcNames);
     }
 
+    /// <summary>Читает усилия от РСН (расчётные сочетания нагрузок) — НС и ПС.</summary>
+    public static List<ForceSet> ReadLoadCombinationForces(
+        FemSchema schema,
+        IReadOnlyList<int> elementIds,
+        LiraImportSettings settings,
+        string memberTag = "",
+        int combinationTable = 1)
+    {
+        if (elementIds.Count == 0) return [];
+
+        var (documentName, toKn, _) = GetDocumentInfo(settings);
+        var result = CreateResultsAccessObject();
+
+        var req = (LiraLoadCombinationForcesRequest)result.CreateNewRequest(
+            LiraRequestEnum.kLiraRequest_LoadCombinationForces);
+        req.DocumentName = documentName;
+        req.Elements.AddFromString(BuildRange(elementIds));
+        req.LoadCombinationTable = combinationTable;
+
+        // Запрашиваем все 4 предельных состояния: C, CL, N, NL
+        req.LoadCombinationLimitState.Count = 4;
+        req.LoadCombinationLimitState.Item[0] = (int)LiraLimitStateForcesEnum.kLiraLimitStateForces_UltimateFull;
+        req.LoadCombinationLimitState.Item[1] = (int)LiraLimitStateForcesEnum.kLiraLimitStateForces_UltimateLongTerm;
+        req.LoadCombinationLimitState.Item[2] = (int)LiraLimitStateForcesEnum.kLiraLimitStateForces_ServiceabilityFull;
+        req.LoadCombinationLimitState.Item[3] = (int)LiraLimitStateForcesEnum.kLiraLimitStateForces_ServiceabilityLongTerm;
+
+        var resp = result.LoadCombinationForces((LiraLoadCombinationForcesRequest)req);
+        return ParseCombinationForcesResponse(resp, schema, elementIds, toKn,
+            settings.InvertBarBendingMoments, memberTag);
+    }
+
     /// <summary>Читает усилия от РСУ (расчётные сочетания усилий, УГС).</summary>
     public static List<ForceSet> ReadDesignCombinationForces(
         FemSchema schema,
@@ -201,6 +232,110 @@ static class LiraApiForceImporter
 
             if (fs.ShellItems.Count > 0 || fs.Items.Count > 0)
                 result.Add(fs);
+        }
+
+        return result;
+    }
+
+    static List<ForceSet> ParseCombinationForcesResponse(
+        LiraLoadCombinationForcesResponse resp,
+        FemSchema schema,
+        IReadOnlyList<int> elementIds,
+        double toKn,
+        bool invertBarMoments,
+        string memberTag)
+    {
+        var result = new List<ForceSet>();
+        var combinations = resp.LoadCombinations;
+        int lcCount = combinations.Count;
+        if (lcCount == 0) return result;
+
+        // Все 4 предельных состояния для ЖБ: C, CL, N, NL
+        var limitStates = new[]
+        {
+            ((int)LiraLimitStateForcesEnum.kLiraLimitStateForces_UltimateFull,           "(C)"),
+            ((int)LiraLimitStateForcesEnum.kLiraLimitStateForces_UltimateLongTerm,       "(CL)"),
+            ((int)LiraLimitStateForcesEnum.kLiraLimitStateForces_ServiceabilityFull,     "(N)"),
+            ((int)LiraLimitStateForcesEnum.kLiraLimitStateForces_ServiceabilityLongTerm, "(NL)"),
+        };
+
+        foreach (var (ls, lsSuffix) in limitStates)
+        {
+            for (int lcIdx = 0; lcIdx < lcCount; lcIdx++)
+            {
+                int lcNum = combinations.Item[lcIdx].Number;
+                string tag = string.IsNullOrEmpty(memberTag)
+                    ? $"РСН {lcNum} {lsSuffix}"
+                    : $"{memberTag} — РСН {lcNum} {lsSuffix}";
+
+                var fs = new ForceSet
+                {
+                    Tag            = tag,
+                    Kind           = "shell",
+                    SourceType     = "fea",
+                    SourceSchemaId = schema.Id,
+                };
+
+                int itemNum = 1;
+                foreach (int elemId in elementIds)
+                {
+                    int sectionCount;
+                    try { sectionCount = resp.GetSectionCount(elemId); }
+                    catch { sectionCount = 1; }
+
+                    LiraElementFamilyEnum family;
+                    try { family = resp.GetFamily(elemId); }
+                    catch { family = LiraElementFamilyEnum.kLiraFamily_Bar; }
+
+                    for (int sec = 1; sec <= sectionCount; sec++)
+                    {
+                        try
+                        {
+                            if (family == LiraElementFamilyEnum.kLiraFamily_Plate)
+                            {
+                                double nx  = resp.GetPlateNx (elemId, sec, lcNum, ls) * toKn;
+                                double ny  = resp.GetPlateNy (elemId, sec, lcNum, ls) * toKn;
+                                double nxy = resp.GetPlateTxy(elemId, sec, lcNum, ls) * toKn;
+                                double mx  = resp.GetPlateMx (elemId, sec, lcNum, ls) * toKn;
+                                double my  = resp.GetPlateMy (elemId, sec, lcNum, ls) * toKn;
+                                double mxy = resp.GetPlateMxy(elemId, sec, lcNum, ls) * toKn;
+                                double qx  = resp.GetPlateQx (elemId, sec, lcNum, ls) * toKn;
+                                double qy  = resp.GetPlateQy (elemId, sec, lcNum, ls) * toKn;
+                                if (nx == 0 && ny == 0 && nxy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
+                                    continue;
+                                fs.ShellItems.Add(new ShellLoadItem
+                                {
+                                    Num = itemNum++, Label = $"э.{elemId}",
+                                    Nx = nx, Ny = ny, Nxy = nxy,
+                                    Mx = mx, My = my, Mxy = mxy,
+                                    Qx = qx, Qy = qy,
+                                });
+                            }
+                            else
+                            {
+                                double n  = resp.GetBarN (elemId, sec, lcNum, ls) * toKn;
+                                double t  = resp.GetBarMx(elemId, sec, lcNum, ls) * toKn;
+                                double my = resp.GetBarMy(elemId, sec, lcNum, ls) * toKn;
+                                double mx = resp.GetBarMz(elemId, sec, lcNum, ls) * toKn;
+                                double vx = resp.GetBarQz(elemId, sec, lcNum, ls) * toKn;
+                                double vy = resp.GetBarQy(elemId, sec, lcNum, ls) * toKn;
+                                if (n == 0 && t == 0 && my == 0 && mx == 0 && vx == 0 && vy == 0)
+                                    continue;
+                                if (invertBarMoments) { my = -my; mx = -mx; }
+                                fs.Items.Add(new LoadItem
+                                {
+                                    Num = itemNum++, Label = $"э.{elemId}",
+                                    N = n, T = t, My = my, Mx = mx, Vx = vx, Vy = vy,
+                                });
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                if (fs.ShellItems.Count > 0 || fs.Items.Count > 0)
+                    result.Add(fs);
+            }
         }
 
         return result;

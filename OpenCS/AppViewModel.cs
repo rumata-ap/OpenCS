@@ -149,6 +149,20 @@ namespace OpenCS
          }
       }
 
+      string _statusMessage = "";
+      public string StatusMessage
+      {
+         get => _statusMessage;
+         set { _statusMessage = value; OnPropertyChanged(); }
+      }
+
+      bool _isBusy;
+      public bool IsBusy
+      {
+         get => _isBusy;
+         set { _isBusy = value; OnPropertyChanged(); }
+      }
+
       /// <summary>
       /// Имя файла проекта для отображения в заголовке дерева.
       /// </summary>
@@ -392,8 +406,11 @@ namespace OpenCS
       /// <summary>Команда импорта расчётной схемы из запущенной ЛираСАПР через COM API.</summary>
       public ICommand ImportLiraSchemaFromApiCommand { get; set; } = null!;
 
-      /// <summary>Команда импорта усилий из запущенной ЛираСАПР через COM API.</summary>
+      /// <summary>Команда импорта усилий ЗН из запущенной ЛираСАПР через COM API.</summary>
       public ICommand ImportLiraForcesFromApiCommand { get; set; } = null!;
+
+      /// <summary>Команда импорта усилий РСН из запущенной ЛираСАПР через COM API.</summary>
+      public ICommand ImportLiraRsnFromApiCommand { get; set; } = null!;
 
       /// <summary>Команда создания нового плитного сечения.</summary>
       public ICommand NewPlateSectionCommand { get; set; } = null!;
@@ -1013,6 +1030,7 @@ namespace OpenCS
          ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
          ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
          ImportLiraForcesFromApiCommand  = new RelayCommand(_ => ImportLiraForcesFromApi());
+         ImportLiraRsnFromApiCommand     = new RelayCommand(_ => ImportLiraRsnFromApi());
       }
 
       void SetLanguage(object? param)
@@ -2256,11 +2274,12 @@ namespace OpenCS
          }
       }
 
-      void ImportLiraSchemaFromApi()
+      async void ImportLiraSchemaFromApi()
       {
+         BeginBusy(Loc.S("StatusImportingSchema"));
          try
          {
-            var raw    = Services.LiraApiSchemaReader.Read();
+            var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.Read());
             var schema = new CScore.Fem.FemSchema { Tag = "Схема Лира (API)", SourceType = "lira" };
             db.SaveFemSchema(schema);
             var nodes    = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
@@ -2274,12 +2293,14 @@ namespace OpenCS
             RefreshFemSchemaTreeCounts(schema);
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
-            LogService.Info(string.Format(Loc.S("ImportLiraSchemaSuccess"),
-               raw.Nodes.Count, barCount, shellCount, members.Length));
+            string done = string.Format(Loc.S("ImportLiraSchemaSuccess"),
+               raw.Nodes.Count, barCount, shellCount, members.Length);
+            LogService.Info(done);
+            EndBusy(done);
          }
          catch (Exception ex)
          {
-            // Диагностический вывод может быть длинным — пишем в лог целиком, в MessageBox первую строку
+            EndBusy();
             string msg = ex.Message;
             if (msg.Length > 300)
             {
@@ -2326,7 +2347,7 @@ namespace OpenCS
          }
 
          var member = currentFemMember;
-         LogService.Info(string.Format(Loc.S("ImportLiraForcesStarted"), elemIds.Length, member.Tag));
+         BeginBusy(string.Format(Loc.S("ImportLiraForcesStarted"), elemIds.Length, member.Tag));
 
          try
          {
@@ -2342,16 +2363,93 @@ namespace OpenCS
                   ForceSets.Add(fs);
             }
             IsDirty = true;
-            LogService.Info(string.Format(Loc.S("ImportLiraSuccess"),
-               forceSets.Count, member.Tag));
+            string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
+            LogService.Info(done);
+            EndBusy(done);
          }
          catch (Exception ex)
          {
+            EndBusy();
             System.Windows.MessageBox.Show(ex.Message,
                Loc.S("ImportLiraErrorTitle"),
                System.Windows.MessageBoxButton.OK,
                System.Windows.MessageBoxImage.Error);
          }
+      }
+
+      async void ImportLiraRsnFromApi()
+      {
+         if (currentFemMember == null)
+         {
+            System.Windows.MessageBox.Show(
+               Loc.S("ImportLiraForcesNoMember"),
+               Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK,
+               System.Windows.MessageBoxImage.Warning);
+            return;
+         }
+
+         var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(
+            currentFemMember.ElemIdsJson) ?? [];
+
+         if (elemIds.Length == 0)
+         {
+            System.Windows.MessageBox.Show(
+               Loc.S("ImportLiraForcesNoElements"),
+               Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK,
+               System.Windows.MessageBoxImage.Warning);
+            return;
+         }
+
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == currentFemMember.SchemaId);
+         if (schema == null)
+         {
+            LogService.Warning(Loc.S("ImportLiraForcesNoSchema"));
+            return;
+         }
+
+         var member = currentFemMember;
+         BeginBusy(string.Format(Loc.S("ImportLiraRsnStarted"), elemIds.Length, member.Tag));
+
+         try
+         {
+            var liraSettings = LiraImportSettings;
+            var memberTagCapture = member.Tag;
+            var forceSets = await RunOnStaThread(() =>
+               Services.LiraApiForceImporter.ReadLoadCombinationForces(schema, elemIds, liraSettings, memberTagCapture));
+
+            foreach (var fs in forceSets)
+            {
+               db.SaveForceSet(fs);
+               if (!ForceSets.Contains(fs))
+                  ForceSets.Add(fs);
+            }
+            IsDirty = true;
+            string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
+            LogService.Info(done);
+            EndBusy(done);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            System.Windows.MessageBox.Show(ex.Message,
+               Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK,
+               System.Windows.MessageBoxImage.Error);
+         }
+      }
+
+      void BeginBusy(string message)
+      {
+         StatusMessage = message;
+         IsBusy = true;
+      }
+
+      void EndBusy(string? message = null)
+      {
+         IsBusy = false;
+         StatusMessage = message ?? "";
       }
 
       // COM-объекты ЛИРЫ требуют STA; ThreadPool-потоки — MTA, поэтому запускаем в отдельном STA-потоке.
