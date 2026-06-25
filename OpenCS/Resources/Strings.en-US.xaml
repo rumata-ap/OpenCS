@@ -1099,6 +1099,29 @@
     <system:String x:Key="FemCheckRun">Run check</system:String>
     <system:String x:Key="FemCheckDelete">Delete check</system:String>
     <system:String x:Key="FemChecksGroup">Checks</system:String>
+    <!-- FemCheck dialog -->
+    <system:String x:Key="FemCheckDlgTitle">Structural Check</system:String>
+    <system:String x:Key="FemCheckDlgSchema">FEM Schema</system:String>
+    <system:String x:Key="FemCheckDlgMember">Structural Member</system:String>
+    <system:String x:Key="FemCheckDlgForceSets">Force Sets</system:String>
+    <system:String x:Key="FemCheckDlgAllSets">All force sets</system:String>
+    <system:String x:Key="FemCheckDlgNormCode">Check type</system:String>
+    <system:String x:Key="FemCheckDlgCalcType">Material characteristics</system:String>
+    <system:String x:Key="FemCheckDlgCalcTypeAuto">Auto (from force set)</system:String>
+    <system:String x:Key="FemCheckDlgTag">Check name</system:String>
+    <system:String x:Key="FemCheckNormCodeSteel">Steel (SP 16)</system:String>
+    <system:String x:Key="FemCheckNormCodeRcBar">RC bar (SP 63)</system:String>
+    <system:String x:Key="FemCheckNormCodeRcPlate">RC plate/wall (SP 63)</system:String>
+    <system:String x:Key="RunFemCheck">Run check</system:String>
+    <system:String x:Key="FemCheckEdit">Edit...</system:String>
+    <!-- FemCheck result -->
+    <system:String x:Key="FemCheckResultSummary">{0} passed / {1} failed of {2}</system:String>
+    <system:String x:Key="FemCheckResultLabel">Label</system:String>
+    <system:String x:Key="FemCheckResultForceSet">Force set</system:String>
+    <system:String x:Key="FemCheckResultCalcType">Type</system:String>
+    <system:String x:Key="FemCheckResultUtil">Utilization</system:String>
+    <system:String x:Key="FemCheckResultWorstCheck">Controlling check</system:String>
+    <system:String x:Key="FemCheckResultStatus">Result</system:String>
     <system:String x:Key="FemNodes">Nodes</system:String>
     <system:String x:Key="FemElements">Finite Elements</system:String>
     <system:String x:Key="FemBars">Bars</system:String>

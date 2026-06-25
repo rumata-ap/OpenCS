@@ -1102,6 +1102,29 @@
     <system:String x:Key="FemCheckRun">Выполнить проверку</system:String>
     <system:String x:Key="FemCheckDelete">Удалить проверку</system:String>
     <system:String x:Key="FemChecksGroup">Проверки</system:String>
+    <!-- FemCheck диалог -->
+    <system:String x:Key="FemCheckDlgTitle">Нормативная проверка</system:String>
+    <system:String x:Key="FemCheckDlgSchema">Расчётная схема</system:String>
+    <system:String x:Key="FemCheckDlgMember">Конструктивный элемент</system:String>
+    <system:String x:Key="FemCheckDlgForceSets">Наборы усилий</system:String>
+    <system:String x:Key="FemCheckDlgAllSets">Все наборы</system:String>
+    <system:String x:Key="FemCheckDlgNormCode">Вид проверки</system:String>
+    <system:String x:Key="FemCheckDlgCalcType">Характеристики материалов</system:String>
+    <system:String x:Key="FemCheckDlgCalcTypeAuto">Авто (из набора усилий)</system:String>
+    <system:String x:Key="FemCheckDlgTag">Имя проверки</system:String>
+    <system:String x:Key="FemCheckNormCodeSteel">Сталь (СП 16)</system:String>
+    <system:String x:Key="FemCheckNormCodeRcBar">ЖБ стержень (СП 63)</system:String>
+    <system:String x:Key="FemCheckNormCodeRcPlate">ЖБ пластина/стена (СП 63)</system:String>
+    <system:String x:Key="RunFemCheck">Запустить проверку</system:String>
+    <system:String x:Key="FemCheckEdit">Редактировать...</system:String>
+    <!-- FemCheck результат -->
+    <system:String x:Key="FemCheckResultSummary">{0} прошло / {1} не прошло из {2}</system:String>
+    <system:String x:Key="FemCheckResultLabel">Метка</system:String>
+    <system:String x:Key="FemCheckResultForceSet">Набор усилий</system:String>
+    <system:String x:Key="FemCheckResultCalcType">Тип</system:String>
+    <system:String x:Key="FemCheckResultUtil">Утилизация</system:String>
+    <system:String x:Key="FemCheckResultWorstCheck">Определяющая проверка</system:String>
+    <system:String x:Key="FemCheckResultStatus">Результат</system:String>
     <system:String x:Key="FemNodes">Узлы</system:String>
     <system:String x:Key="FemElements">Конечные элементы</system:String>
     <system:String x:Key="FemBars">Стержни</system:String>
