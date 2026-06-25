@@ -27,7 +27,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 25;
+      const int CurrentSchemaVersion = 26;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -363,12 +363,15 @@ namespace OpenCS.Utilites
                 load_type TEXT
             );
             CREATE TABLE IF NOT EXISTS fem_checks (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                schema_id   INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
-                member_id   INTEGER NOT NULL REFERENCES fem_members(id),
-                norm_code   TEXT NOT NULL DEFAULT 'steel_check',
-                params_json TEXT,
-                result_id   INTEGER REFERENCES calc_results(id)
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id           INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                member_id           INTEGER NOT NULL REFERENCES fem_members(id),
+                norm_code           TEXT NOT NULL DEFAULT 'steel_check',
+                params_json         TEXT,
+                result_id           INTEGER REFERENCES calc_results(id),
+                tag                 TEXT NOT NULL DEFAULT '',
+                force_set_ids_json  TEXT NOT NULL DEFAULT '[]',
+                calc_type_override  TEXT
             );";
          cmd.ExecuteNonQuery();
 
@@ -410,6 +413,7 @@ namespace OpenCS.Utilites
                if (i == 22) { MigrateV23(); continue; }
                if (i == 23) { MigrateV24(); continue; }
                if (i == 24) { MigrateV25(); continue; }
+               if (i == 25) { MigrateV26(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -490,12 +494,15 @@ namespace OpenCS.Utilites
                 load_type TEXT
             );
             CREATE TABLE IF NOT EXISTS fem_checks (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                schema_id   INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
-                member_id   INTEGER NOT NULL REFERENCES fem_members(id),
-                norm_code   TEXT NOT NULL DEFAULT 'steel_check',
-                params_json TEXT,
-                result_id   INTEGER REFERENCES calc_results(id)
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id           INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                member_id           INTEGER NOT NULL REFERENCES fem_members(id),
+                norm_code           TEXT NOT NULL DEFAULT 'steel_check',
+                params_json         TEXT,
+                result_id           INTEGER REFERENCES calc_results(id),
+                tag                 TEXT NOT NULL DEFAULT '',
+                force_set_ids_json  TEXT NOT NULL DEFAULT '[]',
+                calc_type_override  TEXT
             );
             """);
          if (!ColumnExists("force_sets", "source_type"))
@@ -513,6 +520,17 @@ namespace OpenCS.Utilites
       {
          if (!ColumnExists("force_sets", "source_member_id"))
             MigExec("ALTER TABLE force_sets ADD COLUMN source_member_id INTEGER");
+      }
+
+      /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
+      void MigrateV26()
+      {
+         if (!ColumnExists("fem_checks", "tag"))
+            MigExec("ALTER TABLE fem_checks ADD COLUMN tag TEXT NOT NULL DEFAULT ''");
+         if (!ColumnExists("fem_checks", "force_set_ids_json"))
+            MigExec("ALTER TABLE fem_checks ADD COLUMN force_set_ids_json TEXT NOT NULL DEFAULT '[]'");
+         if (!ColumnExists("fem_checks", "calc_type_override"))
+            MigExec("ALTER TABLE fem_checks ADD COLUMN calc_type_override TEXT");
       }
 
       /// <summary>Миграция v24: plate_section_id в fem_members.</summary>
@@ -2285,18 +2303,21 @@ namespace OpenCS.Utilites
 
          FemChecks.Clear();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, schema_id, member_id, norm_code, params_json, result_id FROM fem_checks ORDER BY id";
+         cmd.CommandText = "SELECT id, schema_id, member_id, norm_code, params_json, result_id, tag, force_set_ids_json, calc_type_override FROM fem_checks ORDER BY id";
          using var r = cmd.ExecuteReader();
          while (r.Read())
          {
             var check = new CScore.Fem.FemCheck
             {
-               Id         = r.GetInt32(0),
-               SchemaId   = r.GetInt32(1),
-               MemberId   = r.GetInt32(2),
-               NormCode   = r.GetString(3),
-               ParamsJson = r.IsDBNull(4) ? null : r.GetString(4),
-               ResultId   = r.IsDBNull(5) ? null : r.GetInt32(5)
+               Id               = r.GetInt32(0),
+               SchemaId         = r.GetInt32(1),
+               MemberId         = r.GetInt32(2),
+               NormCode         = r.GetString(3),
+               ParamsJson       = r.IsDBNull(4) ? null : r.GetString(4),
+               ResultId         = r.IsDBNull(5) ? null : r.GetInt32(5),
+               Tag              = r.IsDBNull(6) ? "" : r.GetString(6),
+               ForceSetIdsJson  = r.IsDBNull(7) ? "[]" : r.GetString(7),
+               CalcTypeOverride = r.IsDBNull(8) ? null : r.GetString(8),
             };
             FemChecks.Add(check);
             var schema = FemSchemas.FirstOrDefault(s => s.Id == check.SchemaId);
@@ -2586,25 +2607,35 @@ namespace OpenCS.Utilites
             if (check.Id == 0)
             {
                cmd.CommandText = """
-                  INSERT INTO fem_checks (schema_id, member_id, norm_code, params_json, result_id)
-                  VALUES (@sid, @mid, @nc, @pj, @rid);
+                  INSERT INTO fem_checks (schema_id, member_id, norm_code, params_json, result_id,
+                                          tag, force_set_ids_json, calc_type_override)
+                  VALUES (@sid, @mid, @nc, @pj, @rid, @tag, @fsids, @cto);
                   SELECT last_insert_rowid();
                """;
-               cmd.Parameters.AddWithValue("@sid", check.SchemaId);
-               cmd.Parameters.AddWithValue("@mid", check.MemberId);
-               cmd.Parameters.AddWithValue("@nc",  check.NormCode);
-               cmd.Parameters.AddWithValue("@pj",  (object?)check.ParamsJson ?? DBNull.Value);
-               cmd.Parameters.AddWithValue("@rid", (object?)check.ResultId   ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@sid",  check.SchemaId);
+               cmd.Parameters.AddWithValue("@mid",  check.MemberId);
+               cmd.Parameters.AddWithValue("@nc",   check.NormCode);
+               cmd.Parameters.AddWithValue("@pj",   (object?)check.ParamsJson ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@rid",  (object?)check.ResultId   ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@tag",  check.Tag);
+               cmd.Parameters.AddWithValue("@fsids", check.ForceSetIdsJson);
+               cmd.Parameters.AddWithValue("@cto",  (object?)check.CalcTypeOverride ?? DBNull.Value);
                check.Id = (int)(long)cmd.ExecuteScalar()!;
                FemChecks.Add(check);
             }
             else
             {
-               cmd.CommandText = "UPDATE fem_checks SET norm_code=@nc, params_json=@pj, result_id=@rid WHERE id=@id";
-               cmd.Parameters.AddWithValue("@nc",  check.NormCode);
-               cmd.Parameters.AddWithValue("@pj",  (object?)check.ParamsJson ?? DBNull.Value);
-               cmd.Parameters.AddWithValue("@rid", (object?)check.ResultId   ?? DBNull.Value);
-               cmd.Parameters.AddWithValue("@id",  check.Id);
+               cmd.CommandText = """
+                  UPDATE fem_checks SET norm_code=@nc, params_json=@pj, result_id=@rid,
+                  tag=@tag, force_set_ids_json=@fsids, calc_type_override=@cto WHERE id=@id
+               """;
+               cmd.Parameters.AddWithValue("@nc",   check.NormCode);
+               cmd.Parameters.AddWithValue("@pj",   (object?)check.ParamsJson ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@rid",  (object?)check.ResultId   ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@tag",  check.Tag);
+               cmd.Parameters.AddWithValue("@fsids", check.ForceSetIdsJson);
+               cmd.Parameters.AddWithValue("@cto",  (object?)check.CalcTypeOverride ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@id",   check.Id);
                cmd.ExecuteNonQuery();
             }
             tx.Commit();
