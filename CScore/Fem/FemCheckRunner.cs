@@ -504,6 +504,12 @@ public static class FemCheckRunner
         return acrc_m * 1000.0;
     }
 
+    /// <summary>
+    /// Расчёт ширины раскрытия трещин по п. 8.2.15–8.2.18 СП 63
+    /// для слоистой модели пластины (shell_layered).
+    /// CalcType.N → непродолжительное раскрытие (acrc1 + acrc2 − acrc3, п. 8.2.7).
+    /// CalcType.NL → продолжительное раскрытие (только acrc1, φ1 = 1.4).
+    /// </summary>
     static (double util, string formula, string desc) RunLayeredSlsCheck(
         PlateSection     section,
         ShellLoadItem    shell,
@@ -518,7 +524,64 @@ public static class FemCheckRunner
         DiagrammType     concreteDiagType,
         ShellLoadItem?   nlShell)
     {
-        return (0.0, "", "SLS stub");
+        string suffix = "";
+        double acrcMax;
+        string acrcDir;
+
+        if (calcType == CalcType.NL)
+        {
+            // Только acrc1 (продолжительное раскрытие)
+            (acrcMax, acrcDir) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.4, phi2);
+        }
+        else // CalcType.N → непродолжительное, п. 8.2.7
+        {
+            // acrc2: N-набор, φ1 = 1.0
+            var (acrc2, dir2) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.0, phi2);
+
+            if (nlShell != null)
+            {
+                // Решить ShellStrainSolver для NL-набора (диаграмма CalcType.N по п. 6.1.26)
+                var cDiagNl = concreteMat.GetDiagramms(concreteDiagType)?[CalcType.N]
+                    ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N]
+                    ?? throw new InvalidOperationException("Диаграмма бетона N не построена (NL-набор)");
+                var rDiagNl = rebarMat.GetDiagramms(DiagrammType.L2)?[CalcType.N]
+                    ?? throw new InvalidOperationException("Диаграмма арматуры N не построена (NL-набор)");
+
+                var solverNl = new ShellStrainSolver(section, cDiagNl, rDiagNl);
+                double[] targetNl = [nlShell.Nx, nlShell.Ny, nlShell.Nxy,
+                                      nlShell.Mx, nlShell.My, nlShell.Mxy];
+                var resNl = solverNl.Solve(targetNl);
+
+                if (!resNl.Converged)
+                    suffix = $" (NL-набор: нет сход. Δ={resNl.Residual:G2})";
+
+                var stNl = resNl.Converged ? resNl.StrainState : st;
+
+                // acrc1: NL-набор, φ1 = 1.4
+                var (acrc1, dir1) = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.4, phi2);
+                // acrc3: NL-набор, φ1 = 1.0
+                var (acrc3, _)   = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.0, phi2);
+
+                // п. 8.2.7: acrc_непрод = acrc1 + acrc2 − acrc3
+                acrcMax = acrc1 + acrc2 - acrc3;
+                acrcDir = dir1.Length > 0 ? dir1 : dir2;
+            }
+            else
+            {
+                acrcMax = acrc2;
+                acrcDir = dir2;
+                suffix  = " (NL-набор не найден, acrc≈acrc2)";
+            }
+        }
+
+        acrcMax = Math.Max(acrcMax, 0.0);
+        double util = acrcLimMm > 1e-12 ? acrcMax / acrcLimMm : 0.0;
+
+        string desc = acrcMax > 1e-6
+            ? $"acrc={acrcMax:F3} мм{suffix}"
+            : $"трещин нет{suffix}";
+
+        return (util, acrcDir, desc);
     }
 
     /// <summary>
