@@ -197,7 +197,7 @@ public static class FemCheckRunner
                 throw new InvalidOperationException(
                     "Не найдены материалы бетона/арматуры плитного сечения");
 
-            return RunLayeredCheck(section, shell, concreteMat, rebarMat, calcType, section.ConcreteDiagramType);
+            return RunLayeredCheck(section, shell, concreteMat, rebarMat, calcType, section.ConcreteDiagramType, p, nlShell);
         }
 
         throw new InvalidOperationException($"Неизвестный вид плитной проверки: {p.Kind}");
@@ -274,22 +274,26 @@ public static class FemCheckRunner
     }
 
     static (double util, string formula, string desc) RunLayeredCheck(
-        PlateSection section,
-        ShellLoadItem shell,
-        Material    concreteMat,
-        Material    rebarMat,
-        CalcType    calcType,
-        DiagrammType concreteDiagType)
+        PlateSection     section,
+        ShellLoadItem    shell,
+        Material         concreteMat,
+        Material         rebarMat,
+        CalcType         calcType,
+        DiagrammType     concreteDiagType,
+        PlateCheckParams pParams,
+        ShellLoadItem?   nlShell = null)
     {
-        // Строим диаграммы из материалов
-        var cDiag = concreteMat.GetDiagramms(concreteDiagType)?[calcType]
-            ?? concreteMat.GetDiagramms(DiagrammType.L3)?[calcType]
+        // П. 6.1.26: для SLS диаграмма бетона — всегда CalcType.N
+        bool isSls = calcType == CalcType.N || calcType == CalcType.NL;
+        var diagCalcType = isSls ? CalcType.N : calcType;
+
+        var cDiag = concreteMat.GetDiagramms(concreteDiagType)?[diagCalcType]
+            ?? concreteMat.GetDiagramms(DiagrammType.L3)?[diagCalcType]
             ?? throw new InvalidOperationException("Диаграмма бетона не построена");
 
-        var rDiag = rebarMat.GetDiagramms(DiagrammType.L2)?[calcType]
+        var rDiag = rebarMat.GetDiagramms(DiagrammType.L2)?[diagCalcType]
             ?? throw new InvalidOperationException("Диаграмма арматуры не построена");
 
-        // Диаграммы для слоёв с индивидуальными материалами — не нужны (используем глобальные)
         var solver = new ShellStrainSolver(section, cDiag, rDiag);
 
         double[] target = [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy];
@@ -297,6 +301,19 @@ public static class FemCheckRunner
 
         if (!result.Converged)
             return (2.0, "НДС", $"Нет сходимости за {result.Iterations} ит., Δ={result.Residual:G2}");
+
+        // ── SLS: ширина раскрытия трещин (п. 8.2.15) ────────────────────────────
+        if (isSls)
+        {
+            if (!concreteMat.chars.TryGetValue(CalcType.N, out var cChSls) || cChSls == null)
+                throw new InvalidOperationException("Характеристики бетона CalcType.N не найдены");
+            if (!rebarMat.chars.TryGetValue(CalcType.N, out var rChSls) || rChSls == null)
+                throw new InvalidOperationException("Характеристики арматуры CalcType.N не найдены");
+
+            return RunLayeredSlsCheck(section, shell, result.StrainState, cChSls, rChSls,
+                                      calcType, pParams.Phi2, pParams.AcrcLimMm,
+                                      concreteMat, rebarMat, concreteDiagType, nlShell);
+        }
 
         // ─── Деформационные параметры бетона по СП 63 п. 8.1.30 ────────────────
         concreteMat.chars.TryGetValue(calcType, out var cCh);
@@ -357,6 +374,23 @@ public static class FemCheckRunner
             return (util, "п.8.1.30 бетон", epsBDesc + $", ε={Math.Abs(eps2):G3}");
         else
             return (util, "п.8.1.30 арм.", $"εs={utilS * epsSUlt:G3}, εs,ult={epsSUlt:G3}");
+    }
+
+    static (double util, string formula, string desc) RunLayeredSlsCheck(
+        PlateSection     section,
+        ShellLoadItem    shell,
+        ShellStrainState st,
+        MaterialChars    cCh,
+        MaterialChars    rCh,
+        CalcType         calcType,
+        double           phi2,
+        double           acrcLimMm,
+        Material         concreteMat,
+        Material         rebarMat,
+        DiagrammType     concreteDiagType,
+        ShellLoadItem?   nlShell)
+    {
+        return (0.0, "", "SLS stub");
     }
 
     /// <summary>
