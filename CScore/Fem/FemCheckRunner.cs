@@ -61,11 +61,24 @@ public static class FemCheckRunner
                         ? BuildNlLookup(fs, forceSets)
                         : null;
 
+                // Явный NL-набор для shell_layered SLS (NlForceSetId > 0):
+                Dictionary<string, ShellLoadItem>? explicitNlLookup = null;
+                if (pParams.Kind == "shell_layered" && pParams.NlForceSetId > 0)
+                {
+                    var nlFs = allMemberForceSets.FirstOrDefault(f => f.Id == pParams.NlForceSetId);
+                    if (nlFs != null)
+                        explicitNlLookup = nlFs.ShellItems
+                            .GroupBy(s => s.Label)
+                            .ToDictionary(g => g.Key, g => g.First());
+                }
+
                 foreach (var shell in fs.ShellItems)
                 {
-                    nlLookup?.TryGetValue(shell.Label, out var nlShell);
                     ShellLoadItem? nlItem = null;
                     nlLookup?.TryGetValue(shell.Label, out nlItem);
+                    // Явный NL-набор имеет приоритет над auto-lookup:
+                    if (explicitNlLookup != null)
+                        explicitNlLookup.TryGetValue(shell.Label, out nlItem);
                     try
                     {
                         var (util, wf, wd) = RunPlateShellCheck(
@@ -200,7 +213,7 @@ public static class FemCheckRunner
                 throw new InvalidOperationException(
                     "Не найдены материалы бетона/арматуры плитного сечения");
 
-            return RunLayeredCheck(section, shell, concreteMat, rebarMat, calcType, section.ConcreteDiagramType, p, nlShell);
+            return RunLayeredCheck(section, shell, concreteMat, rebarMat, calcType, section.ConcreteDiagramType, p, nlShell, p.LtFraction);
         }
 
         throw new InvalidOperationException($"Неизвестный вид плитной проверки: {p.Kind}");
@@ -284,7 +297,8 @@ public static class FemCheckRunner
         CalcType         calcType,
         DiagrammType     concreteDiagType,
         PlateCheckParams pParams,
-        ShellLoadItem?   nlShell = null)
+        ShellLoadItem?   nlShell = null,
+        double           ltFraction = 0.0)
     {
         // П. 6.1.26: для SLS диаграмма бетона — всегда CalcType.N
         bool isSls = calcType == CalcType.N || calcType == CalcType.NL;
@@ -315,7 +329,7 @@ public static class FemCheckRunner
 
             return RunLayeredSlsCheck(section, shell, result.StrainState, cChSls, rChSls,
                                       calcType, pParams.Phi2, pParams.AcrcLimMm,
-                                      concreteMat, rebarMat, concreteDiagType, nlShell);
+                                      concreteMat, rebarMat, concreteDiagType, nlShell, ltFraction);
         }
 
         // ─── Деформационные параметры бетона по СП 63 п. 8.1.30 ────────────────
@@ -525,7 +539,8 @@ public static class FemCheckRunner
         Material         concreteMat,
         Material         rebarMat,
         DiagrammType     concreteDiagType,
-        ShellLoadItem?   nlShell)
+        ShellLoadItem?   nlShell,
+        double           ltFraction = 0.0)
     {
         string suffix = "";
         double acrcMax;
@@ -571,9 +586,47 @@ public static class FemCheckRunner
             }
             else
             {
-                acrcMax = acrc2;
-                acrcDir = dir2;
-                suffix  = " (NL-набор не найден, acrc≈acrc2)";
+                // Нет явного NL-набора
+                if (ltFraction > 1e-9)
+                {
+                    // Виртуальный NL = N * LtFraction
+                    var virtualNl = new ShellLoadItem
+                    {
+                        Label = shell.Label,
+                        Nx  = shell.Nx  * ltFraction,
+                        Ny  = shell.Ny  * ltFraction,
+                        Nxy = shell.Nxy * ltFraction,
+                        Mx  = shell.Mx  * ltFraction,
+                        My  = shell.My  * ltFraction,
+                        Mxy = shell.Mxy * ltFraction,
+                    };
+
+                    var cDiagVirt = concreteMat.GetDiagramms(concreteDiagType)?[CalcType.N]
+                        ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N]
+                        ?? throw new InvalidOperationException("Диаграмма бетона N не построена (virtual NL)");
+                    var rDiagVirt = rebarMat.GetDiagramms(DiagrammType.L2)?[CalcType.N]
+                        ?? throw new InvalidOperationException("Диаграмма арматуры N не построена (virtual NL)");
+
+                    var solverVirt = new ShellStrainSolver(section, cDiagVirt, rDiagVirt);
+                    double[] targetVirt = [virtualNl.Nx, virtualNl.Ny, virtualNl.Nxy,
+                                           virtualNl.Mx, virtualNl.My, virtualNl.Mxy];
+                    var resVirt = solverVirt.Solve(targetVirt);
+
+                    suffix = resVirt.Converged ? $" (NL=N×{ltFraction:G})" : $" (NL=N×{ltFraction:G}, нет сход.)";
+                    var stVirt = resVirt.Converged ? resVirt.StrainState : st;
+
+                    var (acrc1, dir1) = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.4, phi2);
+                    var (acrc3, _)    = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.0, phi2);
+
+                    acrcMax = acrc1 + acrc2 - acrc3;
+                    acrcDir = dir1.Length > 0 ? dir1 : dir2;
+                }
+                else
+                {
+                    acrcMax = acrc2;
+                    acrcDir = dir2;
+                    suffix  = " (NL-набор не задан, acrc≈acrc2)";
+                }
             }
         }
 

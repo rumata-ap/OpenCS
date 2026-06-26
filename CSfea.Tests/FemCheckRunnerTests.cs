@@ -163,4 +163,37 @@ public static class FemCheckRunnerTests
             Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha, phi1: 1.0, phi2);
         TestHarness.CheckRel("acrc при сжатии == 0", acrcNeg, 0.0, 0.001);
     }
+
+    /// <summary>
+    /// Проверяет виртуальный NL через LtFraction: acrc1 + acrc2 − acrc3 == acrc1
+    /// при LtFraction=1.0 (virtualNl == N → acrc3 == acrc2 → сумма = acrc1).
+    /// </summary>
+    public static void RunLayeredSlsLtFraction()
+    {
+        TestHarness.Section("FemCheckRunner: ComputeAcrcStrip + LtFraction (виртуальный NL)");
+
+        double Eb = 32_500_000.0, Rb_ser = 22_000.0, Rbt = 1_750.0;
+        double Es = 200_000_000.0, Rs_ser = 500_000.0;
+        double h = 0.2, h0 = 0.175, aP = 0.025, As_t = 0.001, ds = 0.012;
+        double M = 50.0, N = 0.0, eps_s = 0.001;
+        double Eb_red = Rb_ser / 0.0015, alphaFull = Es / Eb, alpha = Es / Eb_red;
+        double phi2 = 0.5;
+
+        // LtFraction=0 → только acrc2 (phi1=1.0)
+        double acrc2 = FemCheckRunner.ComputeAcrcStrip(
+            eps_s, M, N, h, h0, aP, As_t, ds,
+            Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha, phi1: 1.0, phi2);
+
+        // LtFraction=1.0 → virtualNl == N → acrc3 == acrc2
+        // acrc1(phi1=1.4) + acrc2 - acrc3(=acrc2) = acrc1
+        double acrc1 = FemCheckRunner.ComputeAcrcStrip(
+            eps_s, M, N, h, h0, aP, As_t, ds,
+            Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha, phi1: 1.4, phi2);
+        double acrc3 = acrc2; // virtualNl == N → phi1=1.0 → same as acrc2
+        double acrcExpected = acrc1 + acrc2 - acrc3; // = acrc1
+
+        TestHarness.CheckRel("acrcExpected == acrc1 (LtFraction=1.0)", acrcExpected, acrc1, 0.001);
+        TestHarness.CheckRel("acrc1/acrc2 == 1.4 (phi1 ratio)", acrc1 / acrc2, 1.4, 0.001);
+        Console.WriteLine($"    acrc2={acrc2:F4} мм, acrc1={acrc1:F4} мм, acrcExpected={acrcExpected:F4} мм");
+    }
 }
