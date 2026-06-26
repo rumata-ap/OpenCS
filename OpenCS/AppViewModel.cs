@@ -295,7 +295,7 @@ namespace OpenCS
       public ObservableCollection<object> FemRootNodes { get; } = [];
 
       ViewModels.FemSchemasGroupNode? femSchemasGroup;
-      ViewModels.FemChecksGroupNode?  femChecksGroup;
+      ViewModels.FemChecksRootNode?   femChecksRoot;
 
       /// <summary>Наборы усилий для стержней (Kind="bar").</summary>
       public ObservableCollection<ForceSet> BarForceSets { get; set; } = null!;
@@ -394,6 +394,10 @@ namespace OpenCS
       public ICommand DeleteFemCheckCommand     { get; set; } = null!;
       /// <summary>Команда удаления всех нормативных проверок.</summary>
       public ICommand DeleteAllFemChecksCommand { get; set; } = null!;
+      /// <summary>Команда добавления проверки 2-й ГПС (SLS-диалог).</summary>
+      public ICommand AddSlsFemCheckCommand     { get; set; } = null!;
+      /// <summary>Команда добавления проверки по ключу группы (диспетчер uls/sls).</summary>
+      public ICommand AddFemCheckByGroupCommand { get; set; } = null!;
 
       /// <summary>Команда удаления всех наборов усилий схемы МКЭ.</summary>
       public ICommand DeleteFemSchemaForceSetsCommand { get; set; } = null!;
@@ -1029,6 +1033,12 @@ namespace OpenCS
          EditFemCheckCommand       = new RelayCommand(p => EditFemCheck(p as CScore.Fem.FemCheck));
          DeleteFemCheckCommand     = new RelayCommand(p => DeleteFemCheck(p as CScore.Fem.FemCheck));
          DeleteAllFemChecksCommand = new RelayCommand(_ => DeleteAllFemChecks());
+         AddSlsFemCheckCommand     = new RelayCommand(_ => AddSlsFemCheck());
+         AddFemCheckByGroupCommand = new RelayCommand(p =>
+         {
+             if (p is string g && g == "sls") AddSlsFemCheck();
+             else                             AddFemCheck(null);
+         });
          DeleteFemSchemaForceSetsCommand = new RelayCommand(p => DeleteFemSchemaForceSets(p as CScore.Fem.FemSchema));
          ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
          ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
@@ -2253,10 +2263,10 @@ namespace OpenCS
       void BuildFemRootNodes()
       {
          femSchemasGroup = new ViewModels.FemSchemasGroupNode(FemSchemas, db, ForceSets);
-         femChecksGroup  = new ViewModels.FemChecksGroupNode(FemChecks);
+         femChecksRoot   = new ViewModels.FemChecksRootNode(FemChecks);
          FemRootNodes.Clear();
          FemRootNodes.Add(femSchemasGroup);
-         FemRootNodes.Add(femChecksGroup);
+         FemRootNodes.Add(femChecksRoot);
       }
 
       void RefreshFemSchemaTreeCounts(CScore.Fem.FemSchema schema)
@@ -2627,6 +2637,12 @@ namespace OpenCS
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
          var check = dlg.ResultCheck;
          db.SaveFemCheck(check);
+      }
+
+      void AddSlsFemCheck()
+      {
+         // TODO Task 4: открыть FemSlsCheckDialog
+         System.Windows.MessageBox.Show("SLS диалог — в разработке");
       }
 
       void EditFemCheck(CScore.Fem.FemCheck? check)

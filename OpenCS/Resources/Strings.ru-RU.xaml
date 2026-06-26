@@ -1104,6 +1104,13 @@
     <system:String x:Key="FemCheckDeleteAll">Удалить все...</system:String>
     <system:String x:Key="FemCheckDeleteAllConfirm">Удалить все нормативные проверки?</system:String>
     <system:String x:Key="FemChecksGroup">Проверки</system:String>
+    <!-- FEM check groups -->
+    <system:String x:Key="FemGroupUls">1-я ГПС (прочность)</system:String>
+    <system:String x:Key="FemGroupSls">2-я ГПС (трещины)</system:String>
+    <system:String x:Key="FemGroupFire">Огнестойкость</system:String>
+    <system:String x:Key="FemGroupOther">Прочие</system:String>
+    <system:String x:Key="FemCheckAddUls">Добавить проверку 1-й ГПС...</system:String>
+    <system:String x:Key="FemCheckAddSls">Добавить проверку 2-й ГПС...</system:String>
     <!-- FemCheck диалог -->
     <system:String x:Key="FemCheckDlgTitle">Нормативная проверка</system:String>
     <system:String x:Key="FemCheckDlgSchema">Расчётная схема</system:String>

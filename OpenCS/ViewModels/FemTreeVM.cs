@@ -36,11 +36,79 @@ class FemSchemasGroupNode
     }
 }
 
-/// <summary>Корневой узел «Проверки» в дереве МКЭ.</summary>
-class FemChecksGroupNode
+/// <summary>Подгруппа проверок по типу предельного состояния.</summary>
+class FemChecksSubGroupNode
 {
-    public ObservableCollection<FemCheck> Checks { get; }
-    public FemChecksGroupNode(ObservableCollection<FemCheck> checks) => Checks = checks;
+    public string                         GroupKey { get; }
+    public string                         Label    { get; }
+    public ObservableCollection<FemCheck> Checks   { get; } = [];
+
+    public FemChecksSubGroupNode(string groupKey, string label)
+    {
+        GroupKey = groupKey;
+        Label    = label;
+    }
+}
+
+/// <summary>Корневой узел «МКЭ-проверки» — содержит 4 подгруппы (uls/sls/fire/other).</summary>
+class FemChecksRootNode
+{
+    public FemChecksSubGroupNode[] Groups { get; }
+
+    readonly FemChecksSubGroupNode _uls, _sls, _fire, _other;
+
+    public FemChecksRootNode(ObservableCollection<FemCheck> source)
+    {
+        _uls   = new("uls",   Loc.S("FemGroupUls"));
+        _sls   = new("sls",   Loc.S("FemGroupSls"));
+        _fire  = new("fire",  Loc.S("FemGroupFire"));
+        _other = new("other", Loc.S("FemGroupOther"));
+        Groups = [_uls, _sls, _fire, _other];
+
+        foreach (var c in source) Route(c);
+
+        source.CollectionChanged += (_, e) =>
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+            {
+                foreach (var g in Groups) g.Checks.Clear();
+                return;
+            }
+            if (e.NewItems != null)
+                foreach (FemCheck c in e.NewItems) Route(c);
+            if (e.OldItems != null)
+                foreach (FemCheck c in e.OldItems) Unroute(c);
+        };
+    }
+
+    void Route(FemCheck c) => SubGroupFor(Classify(c)).Checks.Add(c);
+
+    void Unroute(FemCheck c)
+    {
+        foreach (var g in Groups) g.Checks.Remove(c);
+    }
+
+    FemChecksSubGroupNode SubGroupFor(string key) => key switch
+    {
+        "uls"  => _uls,
+        "sls"  => _sls,
+        "fire" => _fire,
+        _      => _other
+    };
+
+    static string Classify(FemCheck c) => c.NormCode switch
+    {
+        "steel_check" or "rc_check" => "uls",
+        "rc_plate_check"             => ClassifyPlate(c),
+        _                            => "other"
+    };
+
+    static string ClassifyPlate(FemCheck c)
+    {
+        var p = PlateCheckParams.Parse(c.ParamsJson);
+        if (!string.IsNullOrEmpty(p.CheckGroup)) return p.CheckGroup;
+        return p.Kind.EndsWith("_sls") ? "sls" : "uls";
+    }
 }
 
 /// <summary>Обёртка над FemSchema для дерева МКЭ; экспонирует 4 подузла.</summary>

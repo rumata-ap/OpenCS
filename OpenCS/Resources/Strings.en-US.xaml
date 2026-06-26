@@ -1101,6 +1101,13 @@
     <system:String x:Key="FemCheckDeleteAll">Delete all...</system:String>
     <system:String x:Key="FemCheckDeleteAllConfirm">Delete all structural checks?</system:String>
     <system:String x:Key="FemChecksGroup">Checks</system:String>
+    <!-- FEM check groups -->
+    <system:String x:Key="FemGroupUls">1st LS Group (Strength)</system:String>
+    <system:String x:Key="FemGroupSls">2nd LS Group (Cracking)</system:String>
+    <system:String x:Key="FemGroupFire">Fire Resistance</system:String>
+    <system:String x:Key="FemGroupOther">Other</system:String>
+    <system:String x:Key="FemCheckAddUls">Add 1st LS check...</system:String>
+    <system:String x:Key="FemCheckAddSls">Add 2nd LS check...</system:String>
     <!-- FemCheck dialog -->
     <system:String x:Key="FemCheckDlgTitle">Structural Check</system:String>
     <system:String x:Key="FemCheckDlgSchema">FEM Schema</system:String>

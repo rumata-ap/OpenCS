@@ -988,15 +988,18 @@
                      <TextBlock Text="{DynamicResource FemSchemas}" FontWeight="SemiBold"/>
                   </HierarchicalDataTemplate>
 
-                  <!-- Корневой узел «Проверки» -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemChecksGroupNode}"
-                                            ItemsSource="{Binding Checks}">
+                  <!-- Корневой узел «МКЭ-проверки» — содержит 4 подгруппы -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemChecksRootNode}"
+                                            ItemsSource="{Binding Groups}">
                      <StackPanel Orientation="Horizontal"
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource FemCheckAdd}"
+                              <MenuItem Header="{DynamicResource FemCheckAddUls}"
                                         Command="{Binding PlacementTarget.Tag.AddFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemCheckAddSls}"
+                                        Command="{Binding PlacementTarget.Tag.AddSlsFemCheckCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
                               <MenuItem Header="{DynamicResource FemCheckDeleteAll}"
@@ -1005,6 +1008,24 @@
                            </ContextMenu>
                         </StackPanel.ContextMenu>
                         <TextBlock Text="{DynamicResource FemChecksGroup}" FontWeight="SemiBold"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Подгруппа (1-я ГПС / 2-я ГПС / Огнестойкость / Прочие) -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemChecksSubGroupNode}"
+                                            ItemsSource="{Binding Checks}">
+                     <StackPanel Orientation="Horizontal"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemCheckAdd}"
+                                        Command="{Binding PlacementTarget.Tag.AddFemCheckByGroupCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.GroupKey,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <TextBlock Text="{Binding Label}" FontStyle="Italic"/>
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
