@@ -80,6 +80,8 @@ SteelCheckerTests.RunSimpleCompressionCheck();
 FemCheckRunnerTests.RunExtractCalcType();
 FemCheckRunnerTests.RunExtractWorstDetail();
 FemCheckRunnerTests.RunExtractWorstDetailNoDetails();
+FemCheckRunnerTests.RunLayeredSlsAcrc();
+FemCheckRunnerTests.RunLayeredSlsThreeComponent();
 
 FemInfraTests.RunAll();
 

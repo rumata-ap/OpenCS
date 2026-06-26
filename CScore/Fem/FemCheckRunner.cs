@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
+
+[assembly: InternalsVisibleTo("CSfea.Tests")]
 
 namespace CScore.Fem;
 
