@@ -33,6 +33,16 @@ public record PlateCheckParams
     /// </summary>
     public string Phi1Mode { get; init; } = "manual";
 
+    /// <summary>
+    /// Группа нормативной проверки: "uls" — 1-я ГПС, "sls" — 2-я ГПС.
+    /// Пустая строка — авто-классификация по Kind.
+    /// </summary>
+    public string CheckGroup    { get; init; } = "";
+    /// <summary>Id явно выбранного набора усилий NL (для shell_layered SLS). 0 — не задан.</summary>
+    public int    NlForceSetId  { get; init; } = 0;
+    /// <summary>Доля длительности (0..1): виртуальный NL = N * LtFraction. Активен при NlForceSetId==0.</summary>
+    public double LtFraction    { get; init; } = 0.0;
+
     public string ToJson() => JsonSerializer.Serialize(this);
 
     public static PlateCheckParams Parse(string? json)
