@@ -105,9 +105,7 @@ public class FemCheckDialogVM : ViewModelBase
     public List<PlateKindItem> PlateKinds { get; } =
     [
         new("shell_simpl_wa_uls",    Loc.S("PlateKindWaUls")),
-        new("shell_simpl_wa_sls",    Loc.S("PlateKindWaSls")),
         new("shell_simpl_capri_uls", Loc.S("PlateKindCapriUls")),
-        new("shell_simpl_capri_sls", Loc.S("PlateKindCapriSls")),
         new("shell_layered",         Loc.S("PlateKindLayered")),
     ];
 
@@ -258,10 +256,11 @@ public class FemCheckDialogVM : ViewModelBase
 
             paramsJson = new PlateCheckParams
             {
-                Kind      = _selectedPlateKind.Kind,
-                AcrcLimMm = acrc,
-                Phi1Mode  = _selectedPhi1Mode?.Mode ?? "auto",
-                Phi1      = phi1
+                Kind       = _selectedPlateKind.Kind,
+                AcrcLimMm  = acrc,
+                Phi1Mode   = _selectedPhi1Mode?.Mode ?? "auto",
+                Phi1       = phi1,
+                CheckGroup = "uls",
             }.ToJson();
         }
 
