@@ -1134,6 +1134,14 @@
     <system:String x:Key="PlateKindCapriUls">Капра-Мори — прочность (ПС1)</system:String>
     <system:String x:Key="PlateKindCapriSls">Капра-Мори — трещины (ПС2)</system:String>
     <system:String x:Key="PlateKindLayered">Слоистая модель — прочность</system:String>
+    <system:String x:Key="PlateKindLayeredSls">Слоистая модель — трещины (ПС2)</system:String>
+    <!-- FemSlsCheckDialog -->
+    <system:String x:Key="FemSlsDlgTitle">Проверка 2-й ГПС (раскрытие трещин)</system:String>
+    <system:String x:Key="FemSlsDlgPlateKind">Метод проверки</system:String>
+    <system:String x:Key="FemSlsDlgNlForceSet">Набор усилий NL</system:String>
+    <system:String x:Key="FemSlsDlgNlNone">(не выбран — использовать долю)</system:String>
+    <system:String x:Key="FemSlsDlgLtFraction">Доля длительности</system:String>
+    <system:String x:Key="FemSlsDlgPhi2Label">φ2 (профиль арм.)</system:String>
     <system:String x:Key="RunFemCheck">Запустить проверку</system:String>
     <system:String x:Key="FemCheckEdit">Редактировать...</system:String>
     <!-- FemCheck результат -->

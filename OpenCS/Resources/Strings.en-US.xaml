@@ -1131,6 +1131,14 @@
     <system:String x:Key="PlateKindCapriUls">Caprani — strength (ULS)</system:String>
     <system:String x:Key="PlateKindCapriSls">Caprani — cracking (SLS)</system:String>
     <system:String x:Key="PlateKindLayered">Layered model — strength</system:String>
+    <system:String x:Key="PlateKindLayeredSls">Layered model — cracking (SLS)</system:String>
+    <!-- FemSlsCheckDialog -->
+    <system:String x:Key="FemSlsDlgTitle">2nd Limit State Check (Crack Width)</system:String>
+    <system:String x:Key="FemSlsDlgPlateKind">Check method</system:String>
+    <system:String x:Key="FemSlsDlgNlForceSet">NL force set</system:String>
+    <system:String x:Key="FemSlsDlgNlNone">(none — use fraction)</system:String>
+    <system:String x:Key="FemSlsDlgLtFraction">Long-term fraction</system:String>
+    <system:String x:Key="FemSlsDlgPhi2Label">φ2 (rebar profile)</system:String>
     <system:String x:Key="RunFemCheck">Run check</system:String>
     <system:String x:Key="FemCheckEdit">Edit...</system:String>
     <!-- FemCheck result -->

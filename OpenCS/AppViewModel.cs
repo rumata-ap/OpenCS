@@ -2641,16 +2641,29 @@ namespace OpenCS
 
       void AddSlsFemCheck()
       {
-         // TODO Task 4: открыть FemSlsCheckDialog
-         System.Windows.MessageBox.Show("SLS диалог — в разработке");
+         var dlg = new Views.FemSlsCheckDialog(this);
+         if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
+         db.SaveFemCheck(dlg.ResultCheck);
       }
 
       void EditFemCheck(CScore.Fem.FemCheck? check)
       {
          check ??= currentFemCheck;
          if (check == null) return;
-         var dlg = new Views.FemCheckDialog(this, check);
-         if (dlg.ShowDialog() != true) return;
+
+         bool isSls = check.NormCode == "rc_plate_check"
+                      && CScore.Fem.PlateCheckParams.Parse(check.ParamsJson).CheckGroup == "sls";
+
+         if (isSls)
+         {
+             var dlg = new Views.FemSlsCheckDialog(this, check);
+             if (dlg.ShowDialog() != true) return;
+         }
+         else
+         {
+             var dlg = new Views.FemCheckDialog(this, check);
+             if (dlg.ShowDialog() != true) return;
+         }
          db.SaveFemCheck(check);
       }
 
