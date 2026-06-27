@@ -154,7 +154,6 @@ static class LiraApiForceImporter
         var result = new List<ForceSet>();
         var loadCases = resp.LoadCases;
         int lcCount = loadCases.Count;
-
         if (lcCount == 0) return result;
 
         for (int lcIdx = 0; lcIdx < lcCount; lcIdx++)
@@ -169,7 +168,6 @@ static class LiraApiForceImporter
             var fs = new ForceSet
             {
                 Tag            = tag,
-                Kind           = "shell",
                 SourceType     = "fea",
                 SourceSchemaId = schema.Id,
             };
@@ -232,6 +230,7 @@ static class LiraApiForceImporter
                 }
             }
 
+            fs.Kind = fs.ShellItems.Count > 0 ? "shell" : "bar";
             if (fs.ShellItems.Count > 0 || fs.Items.Count > 0)
                 result.Add(fs);
         }
@@ -273,7 +272,6 @@ static class LiraApiForceImporter
                 var fs = new ForceSet
                 {
                     Tag            = tag,
-                    Kind           = "shell",
                     SourceType     = "fea",
                     SourceSchemaId = schema.Id,
                 };
@@ -335,6 +333,7 @@ static class LiraApiForceImporter
                     }
                 }
 
+                fs.Kind = fs.ShellItems.Count > 0 ? "shell" : "bar";
                 if (fs.ShellItems.Count > 0 || fs.Items.Count > 0)
                     result.Add(fs);
             }
@@ -371,7 +370,6 @@ static class LiraApiForceImporter
             var fs = new ForceSet
             {
                 Tag            = tag,
-                Kind           = "shell",
                 SourceType     = "fea",
                 SourceSchemaId = schema.Id,
             };
@@ -440,6 +438,7 @@ static class LiraApiForceImporter
                 }
             }
 
+            fs.Kind = fs.ShellItems.Count > 0 ? "shell" : "bar";
             if (fs.ShellItems.Count > 0 || fs.Items.Count > 0)
                 result.Add(fs);
         }

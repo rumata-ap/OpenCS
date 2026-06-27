@@ -27,7 +27,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 26;
+      const int CurrentSchemaVersion = 27;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -416,6 +416,7 @@ namespace OpenCS.Utilites
                if (i == 23) { MigrateV24(); continue; }
                if (i == 24) { MigrateV25(); continue; }
                if (i == 25) { MigrateV26(); continue; }
+               if (i == 26) { MigrateV27(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -522,6 +523,18 @@ namespace OpenCS.Utilites
       {
          if (!ColumnExists("force_sets", "source_member_id"))
             MigExec("ALTER TABLE force_sets ADD COLUMN source_member_id INTEGER");
+      }
+
+      /// <summary>Миграция v27: исправить kind='shell' у наборов усилий стержней (ошибка импорта).</summary>
+      void MigrateV27()
+      {
+         MigExec("""
+            UPDATE force_sets
+            SET kind = 'bar'
+            WHERE kind = 'shell'
+              AND EXISTS     (SELECT 1 FROM force_items       WHERE set_id = force_sets.id)
+              AND NOT EXISTS (SELECT 1 FROM force_shell_items WHERE set_id = force_sets.id)
+         """);
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
