@@ -5,6 +5,21 @@
         Width="480" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize">
+   <Window.Resources>
+      <!-- Виртуализация для ComboBox с тысячами строк (наборы усилий РСУ) -->
+      <Style x:Key="VirtualComboBox" TargetType="ComboBox">
+         <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+         <Setter Property="VirtualizingStackPanel.IsVirtualizing" Value="True"/>
+         <Setter Property="VirtualizingStackPanel.VirtualizationMode" Value="Recycling"/>
+         <Setter Property="ItemsPanel">
+            <Setter.Value>
+               <ItemsPanelTemplate>
+                  <VirtualizingStackPanel/>
+               </ItemsPanelTemplate>
+            </Setter.Value>
+         </Setter>
+      </Style>
+   </Window.Resources>
    <Grid Margin="16">
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
@@ -98,6 +113,7 @@
                  VerticalAlignment="Center" Margin="0,0,8,8"
                  Visibility="{Binding ShowForceItem, Converter={StaticResource BoolToVisibility}}"/>
       <ComboBox  Grid.Row="5" Grid.Column="1"
+                 Style="{StaticResource VirtualComboBox}"
                  ItemsSource="{Binding ForceItems}"
                  SelectedItem="{Binding SelectedForceItem}"
                  DisplayMemberPath="Label"
@@ -163,7 +179,8 @@
                <StackPanel Visibility="{Binding Stage1ShowSet, Converter={StaticResource BoolToVisibility}}">
                   <ComboBox ItemsSource="{Binding ForceSets}" SelectedItem="{Binding Stage1Set}"
                             DisplayMemberPath="Tag" Margin="0,2,0,4"/>
-                  <ComboBox ItemsSource="{Binding Stage1Items}" SelectedItem="{Binding Stage1Item}"
+                  <ComboBox Style="{StaticResource VirtualComboBox}"
+                            ItemsSource="{Binding Stage1Items}" SelectedItem="{Binding Stage1Item}"
                             DisplayMemberPath="Label" Margin="0,0,0,2"/>
                </StackPanel>
                <!-- Ручной ввод -->
@@ -209,7 +226,8 @@
                <StackPanel Visibility="{Binding Stage2ShowSet, Converter={StaticResource BoolToVisibility}}">
                   <ComboBox ItemsSource="{Binding ForceSets}" SelectedItem="{Binding Stage2Set}"
                             DisplayMemberPath="Tag" Margin="0,2,0,4"/>
-                  <ComboBox ItemsSource="{Binding Stage2Items}" SelectedItem="{Binding Stage2Item}"
+                  <ComboBox Style="{StaticResource VirtualComboBox}"
+                            ItemsSource="{Binding Stage2Items}" SelectedItem="{Binding Stage2Item}"
                             DisplayMemberPath="Label" Margin="0,0,0,2"/>
                </StackPanel>
                <Grid Visibility="{Binding Stage2ShowManual, Converter={StaticResource BoolToVisibility}}"
@@ -248,7 +266,8 @@
                <ComboBox ItemsSource="{Binding ShellForceSets}"
                          SelectedItem="{Binding SelectedShellForceSet}"
                          DisplayMemberPath="Tag" Margin="0,0,0,4"/>
-               <ComboBox ItemsSource="{Binding ShellForceItems}"
+               <ComboBox Style="{StaticResource VirtualComboBox}"
+                         ItemsSource="{Binding ShellForceItems}"
                          SelectedItem="{Binding SelectedShellForceItem}"
                          DisplayMemberPath="Label" Margin="0,0,0,4"/>
                <Grid Visibility="{Binding IsPlateBatch, Converter={StaticResource InverseBoolToVisibility}}">
