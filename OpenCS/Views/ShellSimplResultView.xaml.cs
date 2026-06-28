@@ -259,7 +259,7 @@ public class ShellSimplResultVM : ViewModelBase
         OverallOk = allOk;
         OverallStatus = allOk ? "Все условия выполнены" : "Обнаружены нарушения";
         OverallStatusBrush = allOk
-            ? new SolidColorBrush(Color.FromArgb(60, 46, 122, 62))
+            ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
             : new SolidColorBrush(Color.FromArgb(60, 192, 57, 43));
     }
 }

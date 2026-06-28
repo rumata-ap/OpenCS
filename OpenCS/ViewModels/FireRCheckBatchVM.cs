@@ -45,7 +45,9 @@ public sealed class FireRCheckBatchVM : ViewModelBase
         JsonElement root = FireResultJson.Root(result.DataJson);
         bool passed = FireResultJson.Bool(root, "passed");
         double worst = FireResultJson.Dbl(root, "worst_margin");
-        StatusBrush = passed ? Brushes.ForestGreen : Brushes.Firebrick;
+        StatusBrush = passed
+            ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
+            : Brushes.Firebrick;
 
         int total = 0;
         int nPassed = 0;

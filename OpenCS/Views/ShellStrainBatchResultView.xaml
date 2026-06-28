@@ -1,9 +1,23 @@
 <UserControl x:Class="OpenCS.Views.ShellStrainBatchResultView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <DockPanel Margin="8">
-        <TextBlock x:Name="SummaryText" DockPanel.Dock="Top" FontWeight="Bold" Margin="0,0,0,6"/>
-        <DataGrid x:Name="RowsGrid" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Шапка: вердикт -->
+        <Border Grid.Row="0" Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
+                Background="{Binding StatusBrush}">
+            <TextBlock Text="{Binding SummaryText}" FontWeight="Bold"
+                       HorizontalAlignment="Center"/>
+        </Border>
+
+        <!-- Таблица строк -->
+        <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
+                  IsReadOnly="True" GridLinesVisibility="Horizontal"
+                  CanUserSortColumns="True" HeadersVisibility="Column">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
                 <DataGridTextColumn Header="{DynamicResource ShellStrainColLabel}" Binding="{Binding Label}" Width="*"/>
@@ -14,5 +28,5 @@
                 <DataGridTextColumn Header="{DynamicResource ShellStrainColResidual}" Binding="{Binding Residual}" Width="120"/>
             </DataGrid.Columns>
         </DataGrid>
-    </DockPanel>
+    </Grid>
 </UserControl>

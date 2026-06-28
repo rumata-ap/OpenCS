@@ -67,7 +67,9 @@ public sealed class StrengthNDMBatchVM : ViewModelBase
             int  passed    = root.TryGetProperty("passed_count",    out var pc) ? pc.GetInt32()     : 0;
             bool allOk     = root.TryGetProperty("all_passed",     out var ap) && ap.GetBoolean();
 
-            StatusBrush = allOk ? Brushes.ForestGreen : Brushes.OrangeRed;
+            StatusBrush = allOk
+                ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
+                : Brushes.OrangeRed;
             SummaryText = string.Format(Loc.S("StrengthNDMBatch_SummaryFormat"),
                 total, passed, total - passed, converged);
 

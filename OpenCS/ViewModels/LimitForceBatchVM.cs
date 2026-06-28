@@ -65,7 +65,9 @@ public sealed class LimitForceBatchVM : ViewModelBase
             string solver  = root.TryGetProperty("solver", out var sv) ? sv.GetString() ?? "" : "";
 
             SolverText  = solver == "fast" ? Loc.S("LimitForceSolver_Fast") : Loc.S("LimitForceSolver_Bisection");
-            StatusBrush = allOk ? Brushes.ForestGreen : Brushes.OrangeRed;
+            StatusBrush = allOk
+                ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
+                : Brushes.OrangeRed;
             SummaryText = string.Format(Loc.S("LimitForceBatch_SummaryFormat"),
                 total, converged, total - converged);
 

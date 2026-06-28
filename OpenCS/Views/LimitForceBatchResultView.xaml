@@ -2,36 +2,38 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-   <TabControl>
-      <TabItem Header="{DynamicResource ResultTabSummary}">
-         <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="12,8">
-               <TextBlock Text="{Binding TaskTag}" FontSize="14" FontWeight="Bold"/>
-               <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,0,0,8"/>
-               <TextBlock Text="{Binding ErrorText}" Foreground="DarkRed" FontWeight="Bold"
-                          Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
-               <TextBlock Text="{Binding SummaryText}" FontSize="13" Foreground="{Binding StatusBrush}"
-                          TextWrapping="Wrap" Margin="0,4,0,4"/>
-               <TextBlock Text="{Binding SolverText}" Foreground="Gray"/>
-            </StackPanel>
-         </ScrollViewer>
-      </TabItem>
+   <Grid Margin="12">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
 
-      <TabItem Header="{DynamicResource LimitForceBatch_TabRows}">
-         <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
-                   IsReadOnly="True" CanUserAddRows="False" Margin="4">
-            <DataGrid.RowStyle>
-               <Style TargetType="DataGridRow">
-                  <Style.Triggers>
-                     <DataTrigger Binding="{Binding IsConverged}" Value="True">
-                        <Setter Property="Background" Value="#2200CC44"/>
-                     </DataTrigger>
-                     <DataTrigger Binding="{Binding IsConverged}" Value="False">
-                        <Setter Property="Background" Value="#22CC2200"/>
-                     </DataTrigger>
-                  </Style.Triggers>
-               </Style>
-            </DataGrid.RowStyle>
+      <!-- Шапка: вердикт -->
+      <Border Grid.Row="0" Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
+              Background="{Binding StatusBrush}">
+         <StackPanel HorizontalAlignment="Center">
+            <TextBlock Text="{Binding SummaryText}" FontWeight="Bold"/>
+            <TextBlock Text="{Binding SolverText}" Foreground="Gray" FontSize="11"
+                       Margin="0,2,0,0"/>
+         </StackPanel>
+      </Border>
+
+      <!-- Таблица строк -->
+      <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
+                IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
+                CanUserSortColumns="True">
+         <DataGrid.RowStyle>
+            <Style TargetType="DataGridRow">
+               <Style.Triggers>
+                  <DataTrigger Binding="{Binding IsConverged}" Value="True">
+                     <Setter Property="Background" Value="#1A2D7A3E"/>
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding IsConverged}" Value="False">
+                     <Setter Property="Background" Value="#1AC0392B"/>
+                  </DataTrigger>
+               </Style.Triggers>
+            </Style>
+         </DataGrid.RowStyle>
             <DataGrid.Columns>
                <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}"
                                    Binding="{Binding Num}" Width="40"/>
@@ -50,6 +52,5 @@
                                    Binding="{Binding StatusText}" Width="65"/>
             </DataGrid.Columns>
          </DataGrid>
-      </TabItem>
-   </TabControl>
+   </Grid>
 </UserControl>

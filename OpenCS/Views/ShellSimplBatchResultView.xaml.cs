@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json;
+using System.Windows.Media;
 using CScore;
 using OpenCS.Utilites;
 
@@ -30,6 +31,7 @@ public class ShellSimplBatchResultVM : ViewModelBase
 {
     public string Title { get; }
     public string Summary { get; }
+    public Brush StatusBrush { get; }
     public ObservableCollection<ShellSimplBatchRow> Rows { get; } = [];
 
     public ShellSimplBatchResultVM(CalcResult result, CalcTask task)
@@ -39,6 +41,11 @@ public class ShellSimplBatchResultVM : ViewModelBase
 
         int total = doc.GetProperty("total").GetInt32();
         int okCount = doc.GetProperty("converged_count").GetInt32();
+        bool allOk = okCount == total;
+
+        StatusBrush = allOk
+            ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(70, 80, 180, 80))
+            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(60, 192, 57, 43));
 
         int idx = 0;
         foreach (var r in doc.GetProperty("rows").EnumerateArray())

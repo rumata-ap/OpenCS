@@ -62,7 +62,9 @@ public sealed class StrainStateBatchVM : ViewModelBase
             int  converged = root.TryGetProperty("converged_count", out var c)  ? c.GetInt32()     : 0;
             bool allOk     = root.TryGetProperty("all_converged",   out var ac) && ac.GetBoolean();
 
-            StatusBrush = allOk ? Brushes.ForestGreen : Brushes.OrangeRed;
+            StatusBrush = allOk
+                ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
+                : Brushes.OrangeRed;
             SummaryText = string.Format(Loc.S("StrainStateBatch_SummaryFormat"),
                 total, converged, total - converged);
 

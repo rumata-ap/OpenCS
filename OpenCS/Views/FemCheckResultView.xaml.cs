@@ -35,7 +35,7 @@ public class FemCheckResultVM
 
             SummaryText  = string.Format(Utilites.Loc.S("FemCheckResultSummary"), passed, failed, total);
             SummaryBrush = failed == 0
-                ? new SolidColorBrush(Color.FromArgb(60, 46, 122, 62))
+                ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
                 : new SolidColorBrush(Color.FromArgb(60, 192, 57, 43));
 
             if (root.TryGetProperty("rows", out var rowsArr))
