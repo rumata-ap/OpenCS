@@ -56,6 +56,22 @@ public partial class ShellSimplBatchResultView : System.Windows.Controls.UserCon
             return;
         }
 
+        var forceSet = _app.BarForceSets.FirstOrDefault(f => f.Id == _task.ForceSetId);
+        if (forceSet == null)
+        {
+            MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        var shellItem = forceSet.ShellItems.FirstOrDefault(si => si.Num == row.Num);
+        if (shellItem == null)
+        {
+            MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
         var singleKind = _task.Kind.Replace("_batch", "");
         var tag = $"{section.Tag} — {row.Label}";
 
@@ -65,7 +81,13 @@ public partial class ShellSimplBatchResultView : System.Windows.Controls.UserCon
             SectionId = _task.SectionId,
             CalcType = _task.CalcType,
             Tag = tag,
-            ParamsJson = "{}"
+            ForceSetId = _task.ForceSetId,
+            ParamsJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                nx = shellItem.Nx, ny = shellItem.Ny, nxy = shellItem.Nxy,
+                mx = shellItem.Mx, my = shellItem.My, mxy = shellItem.Mxy,
+                step_deg = 10.0, acrc_lim_mm = 0.3, phi1 = 1.0, phi2 = 0.5
+            })
         };
 
         newTask.Num = _app.CalcTasks.Count > 0 ? _app.CalcTasks.Max(t => t.Num) + 1 : 1;
