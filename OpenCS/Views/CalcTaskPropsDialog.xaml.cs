@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Input;
 using CScore;
 using CScore.Fire.Entities;
@@ -12,10 +13,10 @@ namespace OpenCS.Views;
 
 public partial class CalcTaskPropsDialog : Window
 {
-   public CalcTaskPropsDialog(AppViewModel app, CalcTask? existing = null)
+   public CalcTaskPropsDialog(AppViewModel app, CalcTask? existing = null, string? groupKey = null)
    {
       InitializeComponent();
-      DataContext = new CalcTaskPropsDlgVM(app, existing, this);
+      DataContext = new CalcTaskPropsDlgVM(app, existing, this, groupKey);
    }
 
    public CalcTask? Result => (DataContext as CalcTaskPropsDlgVM)?.Result;
@@ -23,8 +24,10 @@ public partial class CalcTaskPropsDialog : Window
 
 public class CalcTaskKindItem
 {
-   public string Id { get; init; } = "";
-   public string Label { get; init; } = "";
+   public string Id       { get; init; } = "";
+   public string Label    { get; init; } = "";
+   public string GroupKey { get; init; } = "other";
+   public string Group    { get; init; } = "";
 }
 
 public class CalcTaskSolverItem
@@ -407,32 +410,39 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    public List<CalcTaskKindItem> AvailableKinds { get; } =
    [
-      new() { Id = "strain_state",         Label = Loc.S("CalcTaskKind_strain_state") },
-      new() { Id = "strain_state_batch",   Label = Loc.S("CalcTaskKind_strain_state_batch") },
-      new() { Id = "strength_ndm_batch",  Label = Loc.S("CalcTaskKind_strength_ndm_batch") },
-      new() { Id = "two_stage_strain",       Label = Loc.S("CalcTaskKind_two_stage_strain") },
-      new() { Id = "two_stage_strain_batch", Label = Loc.S("CalcTaskKind_two_stage_strain_batch") },
-      new() { Id = "limit_force",          Label = Loc.S("CalcTaskKind_limit_force") },
-      new() { Id = "limit_force_batch",    Label = Loc.S("CalcTaskKind_limit_force_batch") },
-      new() { Id = "limit_moment",         Label = Loc.S("CalcTaskKind_limit_moment") },
-      new() { Id = "limit_moment_batch",   Label = Loc.S("CalcTaskKind_limit_moment_batch") },
-      new() { Id = "limit_axial",          Label = Loc.S("CalcTaskKind_limit_axial") },
-      new() { Id = "limit_axial_batch",    Label = Loc.S("CalcTaskKind_limit_axial_batch") },
-      new() { Id = "shell_simpl_wa_sls",     Label = Loc.S("CalcTaskKind_shell_simpl_wa_sls") },
-      new() { Id = "shell_simpl_wa_uls",     Label = Loc.S("CalcTaskKind_shell_simpl_wa_uls") },
-      new() { Id = "shell_simpl_capri_sls",  Label = Loc.S("CalcTaskKind_shell_simpl_capri_sls") },
-      new() { Id = "shell_simpl_capri_uls",  Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls") },
-      new() { Id = "shell_simpl_wa_sls_batch",    Label = Loc.S("CalcTaskKind_shell_simpl_wa_sls_batch") },
-      new() { Id = "shell_simpl_wa_uls_batch",    Label = Loc.S("CalcTaskKind_shell_simpl_wa_uls_batch") },
-      new() { Id = "shell_simpl_capri_sls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_sls_batch") },
-      new() { Id = "shell_simpl_capri_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls_batch") },
-      new() { Id = "shell_strain_state",       Label = Loc.S("CalcTaskKind_shell_strain_state") },
-      new() { Id = "shell_strain_state_batch", Label = Loc.S("CalcTaskKind_shell_strain_state_batch") },
-      new() { Id = "fire_r_check",         Label = Loc.S("CalcTaskKind_fire_r_check") },
-      new() { Id = "fire_r_check_batch",   Label = Loc.S("CalcTaskKind_fire_r_check_batch") },
-       new() { Id = "prestress_loss",       Label = Loc.S("CalcTaskKind_prestress_loss") },
-       new() { Id = "steel_check",          Label = Loc.S("CalcTaskKind_steel_check") }
+      // НДС
+      new() { Id = "strain_state",             Label = Loc.S("CalcTaskKind_strain_state"),             GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
+      new() { Id = "strain_state_batch",       Label = Loc.S("CalcTaskKind_strain_state_batch"),       GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
+      new() { Id = "two_stage_strain",         Label = Loc.S("CalcTaskKind_two_stage_strain"),         GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
+      new() { Id = "two_stage_strain_batch",   Label = Loc.S("CalcTaskKind_two_stage_strain_batch"),   GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
+      new() { Id = "shell_strain_state",       Label = Loc.S("CalcTaskKind_shell_strain_state"),       GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
+      new() { Id = "shell_strain_state_batch", Label = Loc.S("CalcTaskKind_shell_strain_state_batch"), GroupKey = "nds",   Group = Loc.S("CalcTaskGroupNds") },
+      // 1-я ГПС
+      new() { Id = "limit_force",              Label = Loc.S("CalcTaskKind_limit_force"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "limit_force_batch",        Label = Loc.S("CalcTaskKind_limit_force_batch"),        GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "limit_moment",             Label = Loc.S("CalcTaskKind_limit_moment"),             GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "limit_moment_batch",       Label = Loc.S("CalcTaskKind_limit_moment_batch"),       GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "limit_axial",              Label = Loc.S("CalcTaskKind_limit_axial"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "limit_axial_batch",        Label = Loc.S("CalcTaskKind_limit_axial_batch"),        GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "strength_ndm_batch",       Label = Loc.S("CalcTaskKind_strength_ndm_batch"),       GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "shell_simpl_wa_uls",       Label = Loc.S("CalcTaskKind_shell_simpl_wa_uls"),       GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "shell_simpl_wa_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_wa_uls_batch"), GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "shell_simpl_capri_uls",    Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls"),    GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "shell_simpl_capri_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls_batch"), GroupKey = "uls", Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "steel_check",              Label = Loc.S("CalcTaskKind_steel_check"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      // 2-я ГПС
+      new() { Id = "shell_simpl_wa_sls",       Label = Loc.S("CalcTaskKind_shell_simpl_wa_sls"),       GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "shell_simpl_wa_sls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_wa_sls_batch"), GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "shell_simpl_capri_sls",    Label = Loc.S("CalcTaskKind_shell_simpl_capri_sls"),    GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "shell_simpl_capri_sls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_sls_batch"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      // Огнестойкость
+      new() { Id = "fire_r_check",             Label = Loc.S("CalcTaskKind_fire_r_check"),             GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
+      new() { Id = "fire_r_check_batch",       Label = Loc.S("CalcTaskKind_fire_r_check_batch"),       GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
+      // Прочие
+      new() { Id = "prestress_loss",           Label = Loc.S("CalcTaskKind_prestress_loss"),           GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
    ];
+
+   public ListCollectionView AvailableKindsView { get; }
 
    public List<CalcTaskSolverItem> SolverMethods { get; } =
    [
@@ -460,7 +470,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    public ICommand OkCommand { get; }
 
-   public CalcTaskPropsDlgVM(AppViewModel app, CalcTask? existing, Window window)
+   public CalcTaskPropsDlgVM(AppViewModel app, CalcTask? existing, Window window, string? groupKey = null)
    {
       _app = app;
       _window = window;
@@ -472,6 +482,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       ShellSimplSections = new ObservableCollection<PlateSection>(app.PlateSections);
       ShellForceSets = new ObservableCollection<ForceSet>(app.ShellForceSets);
       FilterSections();
+
+      AvailableKindsView = new ListCollectionView(AvailableKinds);
+      AvailableKindsView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(CalcTaskKindItem.Group)));
 
       if (existing != null)
       {
@@ -583,7 +596,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        }
        else
        {
-          SelectedKind = AvailableKinds[0];
+          SelectedKind = groupKey != null
+              ? AvailableKinds.FirstOrDefault(k => k.GroupKey == groupKey) ?? AvailableKinds[0]
+              : AvailableKinds[0];
           SelectedSolver = SolverMethods[0];
           SelectedSection = Sections.FirstOrDefault();
           SelectedFireSection = FireSections.FirstOrDefault();

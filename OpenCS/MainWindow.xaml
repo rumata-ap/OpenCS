@@ -859,6 +859,25 @@
                      </StackPanel>
                   </TreeViewItem.Header>
                   <TreeViewItem.Resources>
+
+                     <!-- Подгруппа задач (НДС / Несущая способность / Пластины / Огнестойкость / Прочие) -->
+                     <HierarchicalDataTemplate DataType="{x:Type vm:CalcTasksSubGroupNode}"
+                                               ItemsSource="{Binding Tasks}">
+                        <StackPanel Orientation="Horizontal"
+                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                           <StackPanel.ContextMenu>
+                              <ContextMenu>
+                                 <MenuItem Header="{DynamicResource CalcTaskNew}"
+                                           Command="{Binding PlacementTarget.Tag.NewCalcTaskCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.GroupKey,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              </ContextMenu>
+                           </StackPanel.ContextMenu>
+                           <TextBlock Text="{Binding Label}" FontStyle="Italic"/>
+                        </StackPanel>
+                     </HierarchicalDataTemplate>
+
                      <HierarchicalDataTemplate DataType="{x:Type vm:CalcTaskVM}"
                                                ItemsSource="{Binding Results}">
                         <StackPanel Orientation="Horizontal"

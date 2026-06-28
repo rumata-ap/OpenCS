@@ -38,10 +38,21 @@
       <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CalcTaskKind}"
                  VerticalAlignment="Center" Margin="0,0,8,8"/>
       <ComboBox  Grid.Row="1" Grid.Column="1"
-                 ItemsSource="{Binding AvailableKinds}"
+                 ItemsSource="{Binding AvailableKindsView}"
                  SelectedItem="{Binding SelectedKind}"
                  DisplayMemberPath="Label"
-                 Margin="0,0,0,8"/>
+                 Margin="0,0,0,8">
+         <ComboBox.GroupStyle>
+            <GroupStyle>
+               <GroupStyle.HeaderTemplate>
+                  <DataTemplate>
+                     <TextBlock Text="{Binding Name}" FontStyle="Italic" FontWeight="SemiBold"
+                                Foreground="Gray" Margin="2,4,0,0"/>
+                  </DataTemplate>
+               </GroupStyle.HeaderTemplate>
+            </GroupStyle>
+         </ComboBox.GroupStyle>
+      </ComboBox>
 
       <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CalcTaskFireSection}"
                  VerticalAlignment="Center" Margin="0,0,8,8"

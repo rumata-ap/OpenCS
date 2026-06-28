@@ -6,7 +6,6 @@ using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using OpenCS.Views;
 
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,7 +19,7 @@ namespace OpenCS
    {
       public AppViewModel vm;
 
-      readonly ObservableCollection<CalcTaskVM> _taskTreeItems = [];
+      CalcTasksRootNode? _tasksRoot;
 
       public MainWindow()
       {
@@ -41,53 +40,20 @@ namespace OpenCS
 
          Loaded += (_, _) =>
          {
-            tasksNode.ItemsSource = _taskTreeItems;
-            RebuildTaskTree();
-            SubscribeToTaskCollections();
-            vm.CalcTaskModified += RebuildTaskTree;
+            RebuildTasksRoot();
+            vm.CalcTaskModified += () => _tasksRoot?.Rebuild();
          };
          vm.PropertyChanged += (_, e2) =>
          {
             if (e2.PropertyName == nameof(AppViewModel.CalcTasks))
-            {
-               SubscribeToTaskCollections();
-               RebuildTaskTree();
-            }
+               RebuildTasksRoot();
          };
       }
 
-      void SubscribeToTaskCollections()
+      void RebuildTasksRoot()
       {
-         vm.CalcTasks.CollectionChanged   += (_, _) => RebuildTaskTree();
-         vm.CalcResults.CollectionChanged += (_, _) => RefreshResultsInTree();
-      }
-
-      void RebuildTaskTree()
-      {
-         _taskTreeItems.Clear();
-         foreach (var ct in vm.CalcTasks)
-         {
-            var tvm = new CalcTaskVM(ct);
-            var sec = vm.CrossSections.FirstOrDefault(s => s.Id == ct.SectionId);
-            var fs  = vm.BarForceSets.FirstOrDefault(f => f.Id == ct.ForceSetId);
-            var fi  = fs?.Items.FirstOrDefault(i => i.Id == ct.ForceItemId);
-            tvm.SectionTag     = sec?.Tag  ?? "";
-            tvm.ForceSetTag    = fs?.Tag   ?? "";
-            tvm.ForceItemLabel = fi?.Label ?? "";
-            foreach (var r in vm.CalcResults.Where(r => r.TaskId == ct.Id))
-               tvm.Results.Add(r);
-            _taskTreeItems.Add(tvm);
-         }
-      }
-
-      void RefreshResultsInTree()
-      {
-         foreach (var tvm in _taskTreeItems)
-         {
-            tvm.Results.Clear();
-            foreach (var r in vm.CalcResults.Where(r => r.TaskId == tvm.Model.Id))
-               tvm.Results.Add(r);
-         }
+         _tasksRoot = new CalcTasksRootNode(vm);
+         tasksNode.ItemsSource = _tasksRoot.Groups;
       }
 
       private void ContourDel_Click(object sender, RoutedEventArgs e)
@@ -185,6 +151,11 @@ namespace OpenCS
              {
                 vm.CurrentPage = null!;
              }
+          }
+
+          if (e.NewValue is CalcTasksSubGroupNode)
+          {
+             vm.CurrentPage = new CalcTasksPage(vm);
           }
 
           if (e.NewValue is CalcTaskVM calcTaskVmItem)

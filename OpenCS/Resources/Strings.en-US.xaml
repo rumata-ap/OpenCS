@@ -1098,6 +1098,13 @@
     <system:String x:Key="FemCheckDeleteAll">Delete all...</system:String>
     <system:String x:Key="FemCheckDeleteAllConfirm">Delete all structural checks?</system:String>
     <system:String x:Key="FemChecksGroup">Checks</system:String>
+    <!-- Calc task groups -->
+    <system:String x:Key="CalcTaskGroupNds">Strain State</system:String>
+    <system:String x:Key="CalcTaskGroupUls">1st LS Group (Strength)</system:String>
+    <system:String x:Key="CalcTaskGroupSls">2nd LS Group (Cracking)</system:String>
+    <system:String x:Key="CalcTaskGroupFire">Fire Resistance</system:String>
+    <system:String x:Key="CalcTaskGroupOther">Other</system:String>
+
     <!-- FEM check groups -->
     <system:String x:Key="FemGroupUls">1st LS Group (Strength)</system:String>
     <system:String x:Key="FemGroupSls">2nd LS Group (Cracking)</system:String>

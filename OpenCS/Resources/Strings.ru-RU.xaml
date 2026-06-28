@@ -1101,6 +1101,13 @@
     <system:String x:Key="FemCheckDeleteAll">Удалить все...</system:String>
     <system:String x:Key="FemCheckDeleteAllConfirm">Удалить все нормативные проверки?</system:String>
     <system:String x:Key="FemChecksGroup">Проверки</system:String>
+    <!-- Группы расчётных задач -->
+    <system:String x:Key="CalcTaskGroupNds">НДС</system:String>
+    <system:String x:Key="CalcTaskGroupUls">1-я ГПС</system:String>
+    <system:String x:Key="CalcTaskGroupSls">2-я ГПС</system:String>
+    <system:String x:Key="CalcTaskGroupFire">Огнестойкость</system:String>
+    <system:String x:Key="CalcTaskGroupOther">Прочие</system:String>
+
     <!-- FEM check groups -->
     <system:String x:Key="FemGroupUls">1-я ГПС (прочность)</system:String>
     <system:String x:Key="FemGroupSls">2-я ГПС (трещины)</system:String>

@@ -995,7 +995,7 @@ namespace OpenCS
          DeleteFireSectionCommand     = new RelayCommand(_ => DeleteFireSection());
          RenameFireSectionCommand     = new RelayCommand(_ => RenameFireSection());
          OpenCalcTasksCommand         = new RelayCommand(_ => CurrentPage = new Views.CalcTasksPage(this));
-         NewCalcTaskCommand    = new RelayCommand(_ => NewCalcTask());
+         NewCalcTaskCommand    = new RelayCommand(p => NewCalcTask(p as string));
          RunCalcTaskCommand    = new RelayCommand(p => RunCalcTask(p as CalcTask),    p => p is CalcTask);
          EditCalcTaskCommand   = new RelayCommand(p => EditCalcTask(p as CalcTask),   p => p is CalcTask);
          DeleteCalcTaskCommand = new RelayCommand(p => DeleteCalcTask(p as CalcTask), p => p is CalcTask);
@@ -2075,9 +2075,9 @@ namespace OpenCS
          IsDirty = true;
       }
 
-      void NewCalcTask()
+      void NewCalcTask(string? groupKey = null)
       {
-         var dlg = new CalcTaskPropsDialog(this)
+         var dlg = new CalcTaskPropsDialog(this, groupKey: groupKey)
          {
             Owner = Application.Current.MainWindow
          };
