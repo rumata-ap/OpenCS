@@ -74,6 +74,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string steelDesignLengthX = "3.0", steelDesignLengthY = "3.0";
    string steelMuX = "1.0", steelMuY = "1.0";
    string steelBetaM = "1.0", steelGammaM = "1.025";
+   string _forceItemFilter = "", _stage1ItemFilter = "", _stage2ItemFilter = "", _shellForceItemFilter = "";
 
    public string Tag { get => tag; set { tag = value; OnPropertyChanged(); } }
 
@@ -86,6 +87,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    static bool IsLimitSingleKind(string kind)
       => kind is "limit_force" or "limit_moment" or "limit_axial";
+
+   static bool Pass(string filter, string? label) =>
+      string.IsNullOrEmpty(filter) ||
+      (label ?? "").Contains(filter, StringComparison.OrdinalIgnoreCase);
 
      public CalcTaskKindItem? SelectedKind
      {
@@ -263,6 +268,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            ShellForceItems.Clear();
            if (value != null)
                foreach (var item in value.ShellItems) ShellForceItems.Add(item);
+           ShellForceItemFilter = "";
            SelectedShellForceItem = ShellForceItems.FirstOrDefault();
            OnPropertyChanged();
        }
@@ -288,6 +294,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    }
 
    public ObservableCollection<ShellLoadItem> ShellForceItems { get; } = [];
+   public ListCollectionView ShellForceItemsView { get; private set; } = null!;
+   public string ShellForceItemFilter
+   {
+      get => _shellForceItemFilter;
+      set { _shellForceItemFilter = value; OnPropertyChanged(); ShellForceItemsView?.Refresh(); }
+   }
    public ObservableCollection<ForceSet> ShellForceSets { get; }
 
    public string ShellSimplNx  { get => shellSimplNx;  set { shellSimplNx  = value; OnPropertyChanged(); } }
@@ -310,6 +322,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          ForceItems.Clear();
          if (value != null)
             foreach (var item in value.Items) ForceItems.Add(item);
+         ForceItemFilter = "";
          SelectedForceItem = ForceItems.FirstOrDefault();
          OnPropertyChanged();
       }
@@ -346,7 +359,19 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    // ── Усилия этапов двухстадийной задачи ──────────────────────────────
    // Stage*Item == null трактуется как «весь набор» (режим "set", только пакетная).
    public ObservableCollection<LoadItem> Stage1Items { get; } = [];
+   public ListCollectionView Stage1ItemsView { get; private set; } = null!;
+   public string Stage1ItemFilter
+   {
+      get => _stage1ItemFilter;
+      set { _stage1ItemFilter = value; OnPropertyChanged(); Stage1ItemsView?.Refresh(); }
+   }
    public ObservableCollection<LoadItem> Stage2Items { get; } = [];
+   public ListCollectionView Stage2ItemsView { get; private set; } = null!;
+   public string Stage2ItemFilter
+   {
+      get => _stage2ItemFilter;
+      set { _stage2ItemFilter = value; OnPropertyChanged(); Stage2ItemsView?.Refresh(); }
+   }
 
     public ForceSet? Stage1Set
     {
@@ -356,6 +381,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           stage1Set = value;
           Stage1Items.Clear();
           if (value != null) foreach (var it in value.Items) Stage1Items.Add(it);
+          Stage1ItemFilter = "";
           Stage1Item = Stage1Items.FirstOrDefault();
           OnPropertyChanged();
        }
@@ -382,6 +408,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           stage2Set = value;
           Stage2Items.Clear();
           if (value != null) foreach (var it in value.Items) Stage2Items.Add(it);
+          Stage2ItemFilter = "";
           Stage2Item = Stage2Items.FirstOrDefault();
           OnPropertyChanged();
        }
@@ -454,6 +481,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public ObservableCollection<FireSectionDef> FireSections { get; }
    public ObservableCollection<ForceSet> ForceSets { get; }
    public ObservableCollection<LoadItem> ForceItems { get; } = [];
+   public ListCollectionView ForceItemsView { get; private set; } = null!;
+   public string ForceItemFilter
+   {
+      get => _forceItemFilter;
+      set { _forceItemFilter = value; OnPropertyChanged(); ForceItemsView?.Refresh(); }
+   }
 
    public List<CalcType> CalcTypes { get; } = [CalcType.C, CalcType.CL, CalcType.N, CalcType.NL];
    public List<CalcType> FilteredCalcTypes
@@ -485,6 +518,15 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
       AvailableKindsView = new ListCollectionView(AvailableKinds);
       AvailableKindsView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(CalcTaskKindItem.Group)));
+
+      ForceItemsView      = new ListCollectionView(ForceItems);
+      Stage1ItemsView     = new ListCollectionView(Stage1Items);
+      Stage2ItemsView     = new ListCollectionView(Stage2Items);
+      ShellForceItemsView = new ListCollectionView(ShellForceItems);
+      ForceItemsView.Filter      = o => Pass(_forceItemFilter,      ((LoadItem)o).Label);
+      Stage1ItemsView.Filter     = o => Pass(_stage1ItemFilter,     ((LoadItem)o).Label);
+      Stage2ItemsView.Filter     = o => Pass(_stage2ItemFilter,     ((LoadItem)o).Label);
+      ShellForceItemsView.Filter = o => Pass(_shellForceItemFilter, ((ShellLoadItem)o).Label);
 
       if (existing != null)
       {

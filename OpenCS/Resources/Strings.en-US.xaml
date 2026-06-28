@@ -1104,6 +1104,7 @@
     <system:String x:Key="CalcTaskGroupSls">2nd LS Group (Cracking)</system:String>
     <system:String x:Key="CalcTaskGroupFire">Fire Resistance</system:String>
     <system:String x:Key="CalcTaskGroupOther">Other</system:String>
+    <system:String x:Key="FilterHint">Filter by label...</system:String>
 
     <!-- FEM check groups -->
     <system:String x:Key="FemGroupUls">1st LS Group (Strength)</system:String>
@@ -1150,7 +1151,7 @@
     <system:String x:Key="FemCheckResultLabel">Label</system:String>
     <system:String x:Key="FemCheckResultForceSet">Force set</system:String>
     <system:String x:Key="FemCheckResultCalcType">Type</system:String>
-    <system:String x:Key="FemCheckResultUtil">Utilization</system:String>
+    <system:String x:Key="FemCheckResultUtil">K</system:String>
     <system:String x:Key="FemCheckResultWorstCheck">Controlling check</system:String>
     <system:String x:Key="FemCheckResultStatus">Result</system:String>
     <system:String x:Key="FemNodes">Nodes</system:String>

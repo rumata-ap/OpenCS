@@ -1107,6 +1107,7 @@
     <system:String x:Key="CalcTaskGroupSls">2-я ГПС</system:String>
     <system:String x:Key="CalcTaskGroupFire">Огнестойкость</system:String>
     <system:String x:Key="CalcTaskGroupOther">Прочие</system:String>
+    <system:String x:Key="FilterHint">Фильтр по метке строки...</system:String>
 
     <!-- FEM check groups -->
     <system:String x:Key="FemGroupUls">1-я ГПС (прочность)</system:String>
@@ -1153,7 +1154,7 @@
     <system:String x:Key="FemCheckResultLabel">Метка</system:String>
     <system:String x:Key="FemCheckResultForceSet">Набор усилий</system:String>
     <system:String x:Key="FemCheckResultCalcType">Тип</system:String>
-    <system:String x:Key="FemCheckResultUtil">Утилизация</system:String>
+    <system:String x:Key="FemCheckResultUtil">Кисп</system:String>
     <system:String x:Key="FemCheckResultWorstCheck">Определяющая проверка</system:String>
     <system:String x:Key="FemCheckResultStatus">Результат</system:String>
     <system:String x:Key="FemNodes">Узлы</system:String>

@@ -112,13 +112,15 @@
       <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource CalcTaskForceItem}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
                  Visibility="{Binding ShowForceItem, Converter={StaticResource BoolToVisibility}}"/>
-      <ComboBox  Grid.Row="5" Grid.Column="1"
-                 Style="{StaticResource VirtualComboBox}"
-                 ItemsSource="{Binding ForceItems}"
-                 SelectedItem="{Binding SelectedForceItem}"
-                 DisplayMemberPath="Label"
-                 Margin="0,0,0,8"
-                 Visibility="{Binding ShowForceItem, Converter={StaticResource BoolToVisibility}}"/>
+      <StackPanel Grid.Row="5" Grid.Column="1" Margin="0,0,0,8"
+                  Visibility="{Binding ShowForceItem, Converter={StaticResource BoolToVisibility}}">
+         <TextBox Text="{Binding ForceItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                  ToolTip="{DynamicResource FilterHint}" Margin="0,0,0,2"/>
+         <ComboBox Style="{StaticResource VirtualComboBox}"
+                   ItemsSource="{Binding ForceItemsView}"
+                   SelectedItem="{Binding SelectedForceItem}"
+                   DisplayMemberPath="Label"/>
+      </StackPanel>
 
       <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
@@ -179,8 +181,10 @@
                <StackPanel Visibility="{Binding Stage1ShowSet, Converter={StaticResource BoolToVisibility}}">
                   <ComboBox ItemsSource="{Binding ForceSets}" SelectedItem="{Binding Stage1Set}"
                             DisplayMemberPath="Tag" Margin="0,2,0,4"/>
+                  <TextBox Text="{Binding Stage1ItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="{DynamicResource FilterHint}" Margin="0,0,0,2"/>
                   <ComboBox Style="{StaticResource VirtualComboBox}"
-                            ItemsSource="{Binding Stage1Items}" SelectedItem="{Binding Stage1Item}"
+                            ItemsSource="{Binding Stage1ItemsView}" SelectedItem="{Binding Stage1Item}"
                             DisplayMemberPath="Label" Margin="0,0,0,2"/>
                </StackPanel>
                <!-- Ручной ввод -->
@@ -226,8 +230,10 @@
                <StackPanel Visibility="{Binding Stage2ShowSet, Converter={StaticResource BoolToVisibility}}">
                   <ComboBox ItemsSource="{Binding ForceSets}" SelectedItem="{Binding Stage2Set}"
                             DisplayMemberPath="Tag" Margin="0,2,0,4"/>
+                  <TextBox Text="{Binding Stage2ItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="{DynamicResource FilterHint}" Margin="0,0,0,2"/>
                   <ComboBox Style="{StaticResource VirtualComboBox}"
-                            ItemsSource="{Binding Stage2Items}" SelectedItem="{Binding Stage2Item}"
+                            ItemsSource="{Binding Stage2ItemsView}" SelectedItem="{Binding Stage2Item}"
                             DisplayMemberPath="Label" Margin="0,0,0,2"/>
                </StackPanel>
                <Grid Visibility="{Binding Stage2ShowManual, Converter={StaticResource BoolToVisibility}}"
@@ -266,8 +272,10 @@
                <ComboBox ItemsSource="{Binding ShellForceSets}"
                          SelectedItem="{Binding SelectedShellForceSet}"
                          DisplayMemberPath="Tag" Margin="0,0,0,4"/>
+               <TextBox Text="{Binding ShellForceItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                        ToolTip="{DynamicResource FilterHint}" Margin="0,0,0,2"/>
                <ComboBox Style="{StaticResource VirtualComboBox}"
-                         ItemsSource="{Binding ShellForceItems}"
+                         ItemsSource="{Binding ShellForceItemsView}"
                          SelectedItem="{Binding SelectedShellForceItem}"
                          DisplayMemberPath="Label" Margin="0,0,0,4"/>
                <Grid Visibility="{Binding IsPlateBatch, Converter={StaticResource InverseBoolToVisibility}}">
