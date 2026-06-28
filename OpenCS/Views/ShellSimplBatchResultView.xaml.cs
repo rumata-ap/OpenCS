@@ -56,7 +56,8 @@ public partial class ShellSimplBatchResultView : System.Windows.Controls.UserCon
             return;
         }
 
-        var forceSet = _app.BarForceSets.FirstOrDefault(f => f.Id == _task.ForceSetId);
+        var forceSet = _app.ShellForceSets.FirstOrDefault(f => f.Id == _task.ForceSetId)
+                    ?? _app.BarForceSets.FirstOrDefault(f => f.Id == _task.ForceSetId);
         if (forceSet == null)
         {
             MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
