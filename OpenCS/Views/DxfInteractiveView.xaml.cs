@@ -265,7 +265,6 @@ namespace OpenCS.Views
             DxfRole.Hull       => "#4CAF50",
             DxfRole.Hole       => "#F44336",
             DxfRole.RebarGroup => "#FF9800",
-            DxfRole.SingleBar  => "#FFC107",
             _                  => _colorMap.TryGetValue(p.LayerName, out var c) ? c : "#808080"
          };
          double s = Scale;

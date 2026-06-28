@@ -8,7 +8,7 @@ namespace OpenCS.ViewModels
    public enum DxfPrimitiveKind { Contour, Circle }
 
    /// <summary>Роль примитива при назначении в MaterialArea.</summary>
-   public enum DxfRole { None, Hull, Hole, RebarGroup, SingleBar }
+   public enum DxfRole { None, Hull, Hole, RebarGroup }
 
    /// <summary>Информация о слое DXF: имя и цвет для легенды.</summary>
    public record LayerInfo(string Name, string HexColor)

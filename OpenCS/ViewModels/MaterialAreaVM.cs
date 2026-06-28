@@ -71,7 +71,7 @@ namespace OpenCS.ViewModels
 
       /// <summary>Видимость блока преднапряжения — только для арматурных областей.</summary>
       public Visibility PrestressVisibility =>
-         (_model.Category is AreaCategory.RebarGroup or AreaCategory.SingleBar)
+         (_model.Category == AreaCategory.RebarGroup)
             ? Visibility.Visible : Visibility.Collapsed;
 
       /// <summary>Предварительное напряжение после потерь [МПа].</summary>

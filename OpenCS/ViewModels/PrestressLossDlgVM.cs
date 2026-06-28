@@ -167,7 +167,7 @@ public class PrestressLossDlgVM : ViewModelBase
         if (section != null)
         {
             foreach (var area in section.Areas.Where(a =>
-                a.Category is AreaCategory.RebarGroup or AreaCategory.SingleBar))
+                a.Category == AreaCategory.RebarGroup))
             {
                 var saved = existing.Groups.FirstOrDefault(g => g.AreaId == area.Id);
                 var p = saved ?? new PrestressGroupParams { AreaId = area.Id, SigSp0 = area.SigSp };

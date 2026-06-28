@@ -888,7 +888,7 @@ namespace OpenCS.Utilites
                NX           = r.GetInt32(7),
                NY           = r.GetInt32(8),
                WKT          = r.IsDBNull(9) ? null : r.GetString(9),
-               Category      = Enum.TryParse<AreaCategory>(r.GetString(10), ignoreCase: true, out var cat) ? cat : AreaCategory.Region,
+               Category      = Enum.TryParse<AreaCategory>(r.GetString(10), ignoreCase: true, out var cat) ? cat : AreaCategory.RebarGroup,
                PoolContourId = r.IsDBNull(11) ? null : r.GetInt32(11),
                MeshMethod    = Enum.TryParse<CScore.MeshMethod>(r.IsDBNull(12) ? "grid" : r.GetString(12), ignoreCase: true, out var mm) ? mm : CScore.MeshMethod.Grid,
                MeshMaxArea    = r.IsDBNull(13) ? 0.01 : r.GetDouble(13),

@@ -122,9 +122,6 @@ namespace OpenCS.ViewModels
       public IReadOnlyList<DxfPrimitive> GroupBarPrimitives =>
          _primitives.Where(p => p.Role == DxfRole.RebarGroup).ToList();
 
-      public IReadOnlyList<DxfPrimitive> SingleBarPrimitives =>
-         _primitives.Where(p => p.Role == DxfRole.SingleBar).ToList();
-
       // ── Команды ──────────────────────────────────────────────────────────
 
       public ICommand OpenDXFCommand            { get; }
@@ -169,7 +166,6 @@ namespace OpenCS.ViewModels
          OnPropertyChanged(nameof(HullPrimitive));
          OnPropertyChanged(nameof(HolePrimitives));
          OnPropertyChanged(nameof(GroupBarPrimitives));
-         OnPropertyChanged(nameof(SingleBarPrimitives));
       }
 
       /// <summary>Сбрасывает роль примитива в None. Вызывается кнопкой [×] в правой панели.</summary>
@@ -180,12 +176,11 @@ namespace OpenCS.ViewModels
          OnPropertyChanged(nameof(HullPrimitive));
          OnPropertyChanged(nameof(HolePrimitives));
          OnPropertyChanged(nameof(GroupBarPrimitives));
-         OnPropertyChanged(nameof(SingleBarPrimitives));
       }
 
       private void CreateMaterialArea(object? _ = null)
       {
-         if (HullPrimitive == null && !GroupBarPrimitives.Any() && !SingleBarPrimitives.Any())
+         if (HullPrimitive == null && !GroupBarPrimitives.Any())
          {
             mvm.LogService.Info("Нет назначенных объектов для создания области");
             return;
@@ -226,20 +221,6 @@ namespace OpenCS.ViewModels
             mvm.db.SaveMaterialArea(group);
          }
 
-         // ── SingleBar (каждая → отдельная MaterialArea) ───────────────────
-         foreach (var bar in SingleBarPrimitives)
-         {
-            var single = new MaterialArea
-            {
-               Tag        = _tag + "_с",
-               Category   = AreaCategory.SingleBar,
-               HostAreaId = region?.Id
-            };
-            single.Fibers.Add(Fiber.CreatePoint(bar.Radius * 2, bar.CenterX, bar.CenterY));
-            mvm.db.SaveMaterialArea(single);
-            AddPrimitiveToGeometry(bar, ref circlesAdded);
-         }
-
          if (circlesAdded) mvm.CirclesRenumber();
 
          // ── Сброс ролей и групп после сохранения ─────────────────────────
@@ -249,7 +230,6 @@ namespace OpenCS.ViewModels
          OnPropertyChanged(nameof(HullPrimitive));
          OnPropertyChanged(nameof(HolePrimitives));
          OnPropertyChanged(nameof(GroupBarPrimitives));
-         OnPropertyChanged(nameof(SingleBarPrimitives));
 
          mvm.RefreshMaterialAreaLiveCollections();
          mvm.LogService.Info($"Создана MaterialArea «{_tag}»");

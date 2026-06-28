@@ -7,7 +7,7 @@ using CSTriangulation;
 namespace CScore
 {
    /// <summary>Категория материальной области: полигональная, группа стержней или одиночный стержень.</summary>
-   public enum AreaCategory { Region, RebarGroup, SingleBar }
+   public enum AreaCategory { Region, RebarGroup }
 
    /// <summary>Метод генерации сетки фибр.</summary>
    public enum MeshMethod { Grid, Ruppert, AdvancingFront }

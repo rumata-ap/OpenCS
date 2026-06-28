@@ -261,9 +261,6 @@ namespace OpenCS
       /// <summary>Группы арматурных стержней (Category == RebarGroup).</summary>
       public ObservableCollection<MaterialArea> RebarGroupsLive { get; set; } = [];
 
-      /// <summary>Одиночные стержни (Category == SingleBar).</summary>
-      public ObservableCollection<MaterialArea> SingleBarsLive { get; set; } = [];
-
       /// <summary>Простые фибровые сечения (не TwoStageSection).</summary>
       public ObservableCollection<CrossSection> FiberSectionsLive { get; } = [];
 
@@ -494,11 +491,8 @@ namespace OpenCS
       /// <summary>Команда удаления текущей MaterialArea.</summary>
       public ICommand DeleteMaterialAreaCommand { get; set; } = null!;
 
-      /// <summary>Команда создания новой группы арматуры (реализуется в Блоке 3).</summary>
+      /// <summary>Команда создания новой группы арматурных стержней.</summary>
       public ICommand NewRebarGroupCommand { get; set; } = null!;
-
-      /// <summary>Команда создания одиночного стержня (реализуется в Блоке 3).</summary>
-      public ICommand NewSingleBarCommand { get; set; } = null!;
 
       /// <summary>Команда создания нового поперечного сечения.</summary>
       public ICommand NewCrossSectionCommand { get; set; } = null!;
@@ -989,7 +983,6 @@ namespace OpenCS
          NewAreaCommand            = new RelayCommand(_ => NewArea());
          DeleteMaterialAreaCommand = new RelayCommand(_ => DeleteMaterialArea());
          NewRebarGroupCommand      = new RelayCommand(_ => NewRebarGroup());
-         NewSingleBarCommand       = new RelayCommand(_ => NewSingleBar());
          NewBarForceSetCommand        = new RelayCommand(_ => NewBarForceSet());
          NewShellForceSetCommand      = new RelayCommand(_ => NewShellForceSet());
          DeleteForceSetCommand        = new RelayCommand(p => DeleteForceSet(p as CScore.ForceSet));
@@ -1910,10 +1903,8 @@ namespace OpenCS
       {
          AreasLive       = new(MaterialAreas.Where(a => a.Category == AreaCategory.Region));
          RebarGroupsLive = new(MaterialAreas.Where(a => a.Category == AreaCategory.RebarGroup));
-         SingleBarsLive  = new(MaterialAreas.Where(a => a.Category == AreaCategory.SingleBar));
          OnPropertyChanged(nameof(AreasLive));
          OnPropertyChanged(nameof(RebarGroupsLive));
-         OnPropertyChanged(nameof(SingleBarsLive));
       }
 
       public void RefreshSectionLiveCollections()
@@ -1958,16 +1949,6 @@ namespace OpenCS
             Category = AreaCategory.RebarGroup
          };
          CurrentPage = new Views.RebarGroupEditorPage(area, this);
-      }
-
-      void NewSingleBar()
-      {
-         var area = new MaterialArea
-         {
-            Tag = $"Стержень {SingleBarsLive.Count + 1}",
-            Category = AreaCategory.SingleBar
-         };
-         CurrentPage = new Views.MaterialAreaPage(area, this);
       }
 
       void DeleteMaterialArea()

@@ -565,42 +565,7 @@
                      </TreeViewItem.ItemTemplate>
                   </TreeViewItem>
 
-                  <!-- Подузел: Одиночные стержни (SingleBar) -->
-                   <TreeViewItem x:Name="SingleBarsNode" ItemsSource="{Binding SingleBarsLive}">
-                     <TreeViewItem.Header>
-                        <StackPanel Orientation="Horizontal" Margin="2">
-                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
-                                 Fill="#F97316"
-                                 Data="M8,8 A3,3 0 1,0 8.001,8 Z"/>
-                           <TextBlock Text="{DynamicResource SingleBars}"/>
-                        </StackPanel>
-                     </TreeViewItem.Header>
-                     <TreeViewItem.ContextMenu>
-                        <ContextMenu>
-                           <MenuItem Header="{DynamicResource NewArea}"
-                                     Command="{Binding NewSingleBarCommand}"/>
-                           <MenuItem Header="{DynamicResource DeleteArea}"
-                                     Command="{Binding DeleteMaterialAreaCommand}"/>
-                           <Separator/>
-                           <MenuItem Header="{DynamicResource MenuFromDxfMaterialArea}"
-                                     Command="{Binding FromDxfCommand}">
-                              <MenuItem.Icon>
-                                 <Image Source="{StaticResource di_dxf_file_xaml}"/>
-                              </MenuItem.Icon>
-                           </MenuItem>
-                        </ContextMenu>
-                     </TreeViewItem.ContextMenu>
-                     <TreeViewItem.ItemTemplate>
-                        <DataTemplate DataType="{x:Type core:MaterialArea}">
-                           <StackPanel Orientation="Horizontal" Margin="1">
-                              <Path Width="13" Height="13" Margin="0,0,4,0" Stretch="Uniform"
-                                    Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrushConverter}}"
-                                    Data="M8,8 A3,3 0 1,0 8.001,8 Z"/>
-                              <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
-                           </StackPanel>
-                        </DataTemplate>
-                     </TreeViewItem.ItemTemplate>
-                  </TreeViewItem>
+
 
                </TreeViewItem>
 

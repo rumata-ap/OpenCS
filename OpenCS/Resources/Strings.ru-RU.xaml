@@ -399,7 +399,6 @@
    <system:String x:Key="MaterialAreas">Материальные области</system:String>
    <system:String x:Key="Areas">Области</system:String>
    <system:String x:Key="RebarGroups">Группы арматуры</system:String>
-   <system:String x:Key="SingleBars">Одиночные стержни</system:String>
    <system:String x:Key="FiberSections">Фибровые</system:String>
    <system:String x:Key="TwoStageSections">Усиление</system:String>
    <system:String x:Key="NewArea">Новая область</system:String>
@@ -612,11 +611,9 @@
    <system:String x:Key="DxfModeHull">Hull</system:String>
    <system:String x:Key="DxfModeHole">Отверстие</system:String>
    <system:String x:Key="DxfModeRebarGroup">Группа арм.</system:String>
-   <system:String x:Key="DxfModeSingleBar">Стержень</system:String>
    <system:String x:Key="DxfRightHull">Внешний контур</system:String>
    <system:String x:Key="DxfRightHoles">Отверстия</system:String>
    <system:String x:Key="DxfRightGroup">Группа арматуры</system:String>
-   <system:String x:Key="DxfRightSingle">Стержни</system:String>
    <system:String x:Key="DxfDiscretize">Дискретизация кругов</system:String>
    <system:String x:Key="DxfDiscretizeMethod">Метод</system:String>
    <system:String x:Key="DxfDiscretizeChord">Длина хорды</system:String>

@@ -396,7 +396,6 @@
    <system:String x:Key="MaterialAreas">Material Areas</system:String>
    <system:String x:Key="Areas">Areas</system:String>
    <system:String x:Key="RebarGroups">Rebar Groups</system:String>
-   <system:String x:Key="SingleBars">Single Bars</system:String>
    <system:String x:Key="FiberSections">Fiber Sections</system:String>
    <system:String x:Key="TwoStageSections">Strengthening</system:String>
    <system:String x:Key="NewArea">New Area</system:String>
@@ -609,11 +608,9 @@
    <system:String x:Key="DxfModeHull">Hull</system:String>
    <system:String x:Key="DxfModeHole">Hole</system:String>
    <system:String x:Key="DxfModeRebarGroup">Rebar Group</system:String>
-   <system:String x:Key="DxfModeSingleBar">Single Bar</system:String>
    <system:String x:Key="DxfRightHull">Outer contour</system:String>
    <system:String x:Key="DxfRightHoles">Holes</system:String>
    <system:String x:Key="DxfRightGroup">Rebar group</system:String>
-   <system:String x:Key="DxfRightSingle">Single bars</system:String>
    <system:String x:Key="DxfDiscretize">Circle discretization</system:String>
    <system:String x:Key="DxfDiscretizeMethod">Method</system:String>
    <system:String x:Key="DxfDiscretizeChord">Chord length</system:String>
