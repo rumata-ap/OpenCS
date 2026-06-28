@@ -5,6 +5,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Шапка: вердикт -->
@@ -15,9 +16,20 @@
         </Border>
 
         <!-- Таблица строк -->
-        <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
+        <DataGrid Grid.Row="1" x:Name="RowsGrid" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
                   IsReadOnly="True" GridLinesVisibility="Horizontal"
-                  CanUserSortColumns="True" HeadersVisibility="Column">
+                  CanUserSortColumns="True" HeadersVisibility="Column"
+                  SelectionMode="Single" SelectionUnit="FullRow"
+                  MouseDoubleClick="RowsGrid_MouseDoubleClick">
+            <DataGrid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="{DynamicResource CalcTaskNew}"
+                              Click="CreateTask_Click"/>
+                    <Separator/>
+                    <MenuItem Header="{DynamicResource ExportCsvBtn}"
+                              Click="ExportCsv_Click"/>
+                </ContextMenu>
+            </DataGrid.ContextMenu>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
                 <DataGridTextColumn Header="{DynamicResource ShellStrainColLabel}" Binding="{Binding Label}" Width="*"/>
@@ -28,5 +40,16 @@
                 <DataGridTextColumn Header="{DynamicResource ShellStrainColResidual}" Binding="{Binding Residual}" Width="120"/>
             </DataGrid.Columns>
         </DataGrid>
+
+        <!-- Кнопки внизу -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+            <Button Content="{DynamicResource CalcTaskNew}"
+                    Click="CreateTask_Click"
+                    Padding="12,4" Margin="0,0,8,0"
+                    x:Name="CreateTaskBtn" IsEnabled="False"/>
+            <Button Content="{DynamicResource ExportCsvBtn}"
+                    Click="ExportCsv_Click"
+                    Padding="12,4"/>
+        </StackPanel>
     </Grid>
 </UserControl>

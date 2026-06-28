@@ -6,6 +6,7 @@
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
       <!-- Шапка: вердикт -->
@@ -19,9 +20,10 @@
       </Border>
 
       <!-- Таблица строк -->
-      <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
+      <DataGrid Grid.Row="1" x:Name="RowsGrid" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
                 IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
-                CanUserSortColumns="True">
+                CanUserSortColumns="True" SelectionMode="Single" SelectionUnit="FullRow"
+                MouseDoubleClick="RowsGrid_MouseDoubleClick">
          <DataGrid.RowStyle>
             <Style TargetType="DataGridRow">
                <Style.Triggers>
@@ -34,23 +36,43 @@
                </Style.Triggers>
             </Style>
          </DataGrid.RowStyle>
-            <DataGrid.Columns>
-               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}"
-                                   Binding="{Binding Num}" Width="40"/>
-               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColLabel}"
-                                   Binding="{Binding Label}" Width="*"/>
-               <DataGridTextColumn Header="N, кН" Binding="{Binding NText}" Width="75"/>
-               <DataGridTextColumn Header="Mx, кН·м" Binding="{Binding MxText}" Width="82"/>
-               <DataGridTextColumn Header="My, кН·м" Binding="{Binding MyText}" Width="82"/>
-               <DataGridTextColumn Header="k" Binding="{Binding FactorText}" Width="70"/>
-               <DataGridTextColumn Header="η" Binding="{Binding UtilText}" Width="70"/>
-               <DataGridTextColumn Header="{DynamicResource LimitForce_Governing}"
-                                   Binding="{Binding GovText}" Width="90"/>
-               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColIter}"
-                                   Binding="{Binding IterText}" Width="52"/>
-               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColStatus}"
-                                   Binding="{Binding StatusText}" Width="65"/>
-            </DataGrid.Columns>
-         </DataGrid>
+         <DataGrid.ContextMenu>
+            <ContextMenu>
+               <MenuItem Header="{DynamicResource CalcTaskNew}"
+                         Click="CreateTask_Click"/>
+               <Separator/>
+               <MenuItem Header="{DynamicResource ExportCsvBtn}"
+                         Click="ExportCsv_Click"/>
+            </ContextMenu>
+         </DataGrid.ContextMenu>
+         <DataGrid.Columns>
+            <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}"
+                                Binding="{Binding Num}" Width="40"/>
+            <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColLabel}"
+                                Binding="{Binding Label}" Width="*"/>
+            <DataGridTextColumn Header="N, кН" Binding="{Binding NText}" Width="75"/>
+            <DataGridTextColumn Header="Mx, кН·м" Binding="{Binding MxText}" Width="82"/>
+            <DataGridTextColumn Header="My, кН·м" Binding="{Binding MyText}" Width="82"/>
+            <DataGridTextColumn Header="k" Binding="{Binding FactorText}" Width="70"/>
+            <DataGridTextColumn Header="η" Binding="{Binding UtilText}" Width="70"/>
+            <DataGridTextColumn Header="{DynamicResource LimitForce_Governing}"
+                                Binding="{Binding GovText}" Width="90"/>
+            <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColIter}"
+                                Binding="{Binding IterText}" Width="52"/>
+            <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColStatus}"
+                                Binding="{Binding StatusText}" Width="65"/>
+         </DataGrid.Columns>
+      </DataGrid>
+
+      <!-- Кнопки внизу -->
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+         <Button Content="{DynamicResource CalcTaskNew}"
+                 Click="CreateTask_Click"
+                 Padding="12,4" Margin="0,0,8,0"
+                 x:Name="CreateTaskBtn" IsEnabled="False"/>
+         <Button Content="{DynamicResource ExportCsvBtn}"
+                 Click="ExportCsv_Click"
+                 Padding="12,4"/>
+      </StackPanel>
    </Grid>
 </UserControl>

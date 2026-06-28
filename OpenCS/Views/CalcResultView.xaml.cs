@@ -35,14 +35,14 @@ namespace OpenCS.Views
         {
             Content = task.Kind switch
             {
-                "fire_r_check_batch"   => new FireRCheckBatchResultView(result),
+                "fire_r_check_batch"   => new FireRCheckBatchResultView(result, app, task),
                 "strain_state_batch" or "two_stage_strain_batch"
-                                       => new StrainStateBatchResultView(result),
+                                       => new StrainStateBatchResultView(result, app, task),
                 "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
-                                       => new LimitForceBatchResultView(result),
+                                       => new LimitForceBatchResultView(result, app, task),
                 "strength_ndm_batch"   => new StrengthNDMBatchResultView(result),
-                "shell_strain_state_batch" => new ShellStrainBatchResultView(result),
-                "shell_layered_uls_batch"  => new ShellStrainBatchResultView(result),
+                "shell_strain_state_batch" => new ShellStrainBatchResultView(result, app, task),
+                "shell_layered_uls_batch"  => new ShellStrainBatchResultView(result, app, task),
                 _ when task.Kind.StartsWith("shell_simpl_") && task.Kind.EndsWith("_batch")
                                        => new ShellSimplBatchResultView(result, task),
                 _                      => new FireRCheckResultView(result, app, task)
