@@ -754,12 +754,15 @@
                      <TreeViewItem.Header>
                         <TextBlock Text="{DynamicResource BarForceSets}" FontWeight="SemiBold"/>
                      </TreeViewItem.Header>
-                     <TreeViewItem.ContextMenu>
-                        <ContextMenu>
-                           <MenuItem Header="{DynamicResource NewBarForceSet}"
-                                     Command="{Binding NewBarForceSetCommand}"/>
-                        </ContextMenu>
-                     </TreeViewItem.ContextMenu>
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource NewBarForceSet}"
+                                      Command="{Binding NewBarForceSetCommand}"/>
+                            <Separator/>
+                            <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
+                                      Command="{Binding DeleteSelectedBarForceSetsCommand}"/>
+                         </ContextMenu>
+                      </TreeViewItem.ContextMenu>
                      <TreeViewItem.ItemTemplate>
                         <DataTemplate DataType="{x:Type core:ForceSet}">
                            <StackPanel Orientation="Horizontal" Margin="1"
@@ -801,12 +804,15 @@
                      <TreeViewItem.Header>
                         <TextBlock Text="{DynamicResource ShellForceSets}" FontWeight="SemiBold"/>
                      </TreeViewItem.Header>
-                     <TreeViewItem.ContextMenu>
-                        <ContextMenu>
-                           <MenuItem Header="{DynamicResource NewShellForceSet}"
-                                     Command="{Binding NewShellForceSetCommand}"/>
-                        </ContextMenu>
-                     </TreeViewItem.ContextMenu>
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource NewShellForceSet}"
+                                      Command="{Binding NewShellForceSetCommand}"/>
+                            <Separator/>
+                            <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
+                                      Command="{Binding DeleteSelectedShellForceSetsCommand}"/>
+                         </ContextMenu>
+                      </TreeViewItem.ContextMenu>
                      <TreeViewItem.ItemTemplate>
                         <DataTemplate DataType="{x:Type core:ForceSet}">
                            <StackPanel Orientation="Horizontal" Margin="1"
@@ -899,12 +905,18 @@
                                            CommandParameter="{Binding PlacementTarget.DataContext.Model,
                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                  <Separator/>
-                                 <MenuItem Header="{DynamicResource CalcTaskDelete}"
-                                           Command="{Binding PlacementTarget.Tag.DeleteCalcTaskCommand,
-                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                           CommandParameter="{Binding PlacementTarget.DataContext.Model,
-                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                              </ContextMenu>
+                                  <MenuItem Header="{DynamicResource CalcTaskDelete}"
+                                            Command="{Binding PlacementTarget.Tag.DeleteCalcTaskCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                            CommandParameter="{Binding PlacementTarget.DataContext.Model,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                  <Separator/>
+                                  <MenuItem Header="{DynamicResource CalcResultDeleteAll}"
+                                            Command="{Binding PlacementTarget.Tag.DeleteCalcResultsCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                            CommandParameter="{Binding PlacementTarget.DataContext.Model,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                               </ContextMenu>
                            </StackPanel.ContextMenu>
                            <TextBlock Text="{Binding Model.Num, StringFormat='{}{0:D3}  '}" Foreground="Gray"/>
                            <TextBlock Text="{Binding Model.Tag}"/>
@@ -1146,11 +1158,16 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource DeleteFemForceSetsMenu}"
-                                        Command="{Binding PlacementTarget.Tag.DeleteFemSchemaForceSetsCommand,
-                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
-                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                               <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
+                                         Command="{Binding PlacementTarget.Tag.DeleteSelectedForceSetsCommand,
+                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                               <MenuItem Header="{DynamicResource DeleteFemForceSetsMenu}"
+                                         Command="{Binding PlacementTarget.Tag.DeleteFemSchemaForceSetsCommand,
+                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                            </ContextMenu>
                         </StackPanel.ContextMenu>
                         <TextBlock Text="{DynamicResource FemForces}"/>

@@ -51,6 +51,7 @@ namespace OpenCS.ViewModels
       public ICommand DeleteTaskCommand          { get; }
       public ICommand ViewResultCommand          { get; }
       public ICommand DeleteResultCommand        { get; }
+      public ICommand DeleteAllResultsCommand    { get; }
       public ICommand EditPrestressParamsCommand { get; }
 
       public CalcTasksPageVM(AppViewModel app, CalcTasksPage page)
@@ -68,6 +69,7 @@ namespace OpenCS.ViewModels
          DeleteTaskCommand = new RelayCommand(_ => DeleteTask(), _ => SelectedTask != null);
          ViewResultCommand   = new RelayCommand(_ => ViewResult(),   _ => SelectedResult != null);
          DeleteResultCommand = new RelayCommand(_ => DeleteResult(), _ => SelectedResult != null);
+         DeleteAllResultsCommand = new RelayCommand(_ => DeleteAllResults(), _ => SelectedTask != null);
          EditPrestressParamsCommand = new RelayCommand(
              _ => EditPrestressParams(), _ => IsPrestressLossSelected);
       }
@@ -234,6 +236,17 @@ namespace OpenCS.ViewModels
       {
          if (SelectedResult == null) return;
          _app.db.DeleteCalcResult(SelectedResult);
+         RefreshResults();
+      }
+
+      void DeleteAllResults()
+      {
+         if (SelectedTask == null) return;
+         var tag = SelectedTask.Model.Tag;
+         var res = MessageBox.Show(string.Format(Loc.S("ConfirmDeleteCalcResults"), tag), Loc.S("Warning"),
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+         if (res != MessageBoxResult.Yes) return;
+         _app.db.DeleteCalcResultsByTaskId(SelectedTask.Model.Id);
          RefreshResults();
       }
    }

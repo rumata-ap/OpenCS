@@ -2177,6 +2177,16 @@ namespace OpenCS.Utilites
          CalcResults.Remove(cr);
       }
 
+      public void DeleteCalcResultsByTaskId(int taskId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM calc_results WHERE task_id=@tid";
+         cmd.Parameters.AddWithValue("@tid", taskId);
+         cmd.ExecuteNonQuery();
+         var toRemove = CalcResults.Where(r => r.TaskId == taskId).ToList();
+         foreach (var r in toRemove) CalcResults.Remove(r);
+      }
+
       #endregion
 
       #region Convenience methods

@@ -1,0 +1,39 @@
+<Window x:Class="OpenCS.Views.DeleteForceSetsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource DeleteSelectedForceSetsTitle}"
+        Width="420" MinHeight="300" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+   <Grid Margin="12">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <TextBlock Grid.Row="0" Text="{DynamicResource DeleteSelectedForceSetsPrompt}"
+                 TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+      <ListBox Grid.Row="1"
+               x:Name="ForceSetsList"
+               SelectionMode="Extended"
+               ItemsSource="{Binding ForceSets}"
+               DisplayMemberPath="Tag"
+               Margin="0,0,0,8"/>
+
+      <TextBlock Grid.Row="2" x:Name="CountText"
+                 Foreground="Gray" FontSize="11" Margin="0,0,0,8"/>
+
+      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+         <Button Content="{DynamicResource DeleteSelectedForceSetsBtn}"
+                 Click="Delete_Click"
+                 Padding="20,4" Margin="0,0,8,0"
+                 IsEnabled="False"
+                 x:Name="DeleteBtn"/>
+         <Button Content="{DynamicResource Cancel}" IsCancel="True" Padding="16,4"/>
+      </StackPanel>
+   </Grid>
+</Window>

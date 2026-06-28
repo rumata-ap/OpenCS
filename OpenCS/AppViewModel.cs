@@ -421,7 +421,8 @@ namespace OpenCS
       public ICommand AddFemCheckByGroupCommand { get; set; } = null!;
 
       /// <summary>Команда удаления всех наборов усилий схемы МКЭ.</summary>
-      public ICommand DeleteFemSchemaForceSetsCommand { get; set; } = null!;
+       public ICommand DeleteFemSchemaForceSetsCommand { get; set; } = null!;
+       public ICommand DeleteSelectedForceSetsCommand { get; set; } = null!;
 
       /// <summary>Команда импорта расчётной схемы из CSV-файлов ЛираСАПР.</summary>
       public ICommand ImportLiraSchemaFromCsvCommand { get; set; } = null!;
@@ -455,6 +456,8 @@ namespace OpenCS
       public ICommand EditCalcTaskCommand   { get; set; } = null!;
       /// <summary>Команда удаления задачи (параметр CalcTask).</summary>
       public ICommand DeleteCalcTaskCommand { get; set; } = null!;
+      /// <summary>Команда удаления всех результатов задачи (параметр CalcTask).</summary>
+      public ICommand DeleteCalcResultsCommand { get; set; } = null!;
 
       /// <summary>Поднимается при изменении свойств существующей задачи (не добавлении/удалении).</summary>
       public event Action? CalcTaskModified;
@@ -544,6 +547,11 @@ namespace OpenCS
 
       /// <summary>Команда дублирования набора усилий (параметр ForceSet).</summary>
       public ICommand DuplicateForceSetCommand { get; set; } = null!;
+
+      /// <summary>Команда удаления выбранных наборов усилий стержней.</summary>
+      public ICommand DeleteSelectedBarForceSetsCommand { get; set; } = null!;
+      /// <summary>Команда удаления выбранных наборов усилий пластин.</summary>
+      public ICommand DeleteSelectedShellForceSetsCommand { get; set; } = null!;
 
       /// <summary>
       /// Отфильтрованная коллекция диаграмм для отображения в TreeView.
@@ -1025,6 +1033,8 @@ namespace OpenCS
          DeleteForceSetCommand        = new RelayCommand(p => DeleteForceSet(p as CScore.ForceSet));
          SetForceSetLoadTypeCommand   = new RelayCommand(p => SetForceSetLoadType(p as CScore.ForceSet));
          DuplicateForceSetCommand     = new RelayCommand(p => DuplicateForceSet(p as CScore.ForceSet));
+         DeleteSelectedBarForceSetsCommand   = new RelayCommand(_ => DeleteSelectedForceSets(kind: "bar"));
+         DeleteSelectedShellForceSetsCommand = new RelayCommand(_ => DeleteSelectedForceSets(kind: "shell"));
          NewPlateSectionCommand       = new RelayCommand(_ => NewPlateSection());
          DeletePlateSectionCommand    = new RelayCommand(p => DeletePlateSection(p as CScore.PlateSection));
          DuplicatePlateSectionCommand = new RelayCommand(p => DuplicatePlateSection(p as CScore.PlateSection));
@@ -1036,6 +1046,7 @@ namespace OpenCS
          RunCalcTaskCommand    = new RelayCommand(p => RunCalcTask(p as CalcTask),    p => p is CalcTask);
          EditCalcTaskCommand   = new RelayCommand(p => EditCalcTask(p as CalcTask),   p => p is CalcTask);
          DeleteCalcTaskCommand = new RelayCommand(p => DeleteCalcTask(p as CalcTask), p => p is CalcTask);
+         DeleteCalcResultsCommand = new RelayCommand(p => DeleteCalcResults(p as CalcTask), p => p is CalcTask);
          ImportContoursFromDxfCommand = new RelayCommand(_ => ImportContoursFromDxf());
          AddCircleCommand             = new RelayCommand(_ => AddCircle());
          DeleteCircleCommand          = new RelayCommand(p => DeleteCircle(p as CircleP));
@@ -1069,7 +1080,8 @@ namespace OpenCS
              if (p is string g && g == "sls") AddSlsFemCheck();
              else                             AddFemCheck(null);
          });
-         DeleteFemSchemaForceSetsCommand = new RelayCommand(p => DeleteFemSchemaForceSets(p as CScore.Fem.FemSchema));
+          DeleteFemSchemaForceSetsCommand = new RelayCommand(p => DeleteFemSchemaForceSets(p as CScore.Fem.FemSchema));
+          DeleteSelectedForceSetsCommand = new RelayCommand(p => DeleteSelectedForceSets(p as CScore.Fem.FemSchema));
          ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
          ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
          ImportLiraForcesFromApiCommand  = new RelayCommand(_ => ImportLiraForcesFromApi());
@@ -2183,6 +2195,15 @@ namespace OpenCS
          db.DeleteCalcTask(ct);
       }
 
+      void DeleteCalcResults(CalcTask? ct)
+      {
+         if (ct == null) return;
+         var res = MessageBox.Show(string.Format(Loc.S("ConfirmDeleteCalcResults"), ct.Tag), Loc.S("Warning"),
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+         if (res != MessageBoxResult.Yes) return;
+         db.DeleteCalcResultsByTaskId(ct.Id);
+      }
+
       private record CircleCsvRow
       {
          public string Tag    { get; init; } = "";
@@ -2738,11 +2759,72 @@ namespace OpenCS
          if (res != System.Windows.MessageBoxResult.Yes) return;
 
          foreach (var fs in sets)
-            db.DeleteForceSet(fs);
-      }
+             db.DeleteForceSet(fs);
+       }
 
-      #endregion
-   }
+       void DeleteSelectedForceSets(CScore.Fem.FemSchema? schema)
+       {
+          schema ??= currentFemSchema;
+          if (schema == null) return;
+
+          var sets = ForceSets.Where(fs => fs.SourceSchemaId == schema.Id).ToList();
+          if (sets.Count == 0) return;
+
+          var dlg = new Views.DeleteForceSetsDialog(sets);
+          dlg.Owner = System.Windows.Application.Current.MainWindow;
+          if (dlg.ShowDialog() != true) return;
+
+          var selected = dlg.SelectedSets;
+          if (selected.Count == 0) return;
+
+          var res = System.Windows.MessageBox.Show(
+             string.Format(Loc.S("DeleteSelectedForceSetsConfirm"), selected.Count),
+             Loc.S("Warning"),
+             System.Windows.MessageBoxButton.YesNo,
+             System.Windows.MessageBoxImage.Warning);
+          if (res != System.Windows.MessageBoxResult.Yes) return;
+
+           foreach (var fs in selected)
+              db.DeleteForceSet(fs);
+        }
+
+        void DeleteSelectedForceSets(string kind)
+        {
+           var sets = ForceSets.Where(fs => fs.Kind == kind).ToList();
+           if (sets.Count == 0) return;
+
+           var dlg = new Views.DeleteForceSetsDialog(sets);
+           dlg.Owner = System.Windows.Application.Current.MainWindow;
+           if (dlg.ShowDialog() != true) return;
+
+           var selected = dlg.SelectedSets;
+           if (selected.Count == 0) return;
+
+           var res = System.Windows.MessageBox.Show(
+              string.Format(Loc.S("DeleteSelectedForceSetsConfirm"), selected.Count),
+              Loc.S("Warning"),
+              System.Windows.MessageBoxButton.YesNo,
+              System.Windows.MessageBoxImage.Warning);
+           if (res != System.Windows.MessageBoxResult.Yes) return;
+
+           foreach (var fs in selected)
+           {
+              if (fs == currentBarForceSet)
+              {
+                 currentBarForceSet = null;
+                 OnPropertyChanged(nameof(CurrentBarForceSet));
+              }
+              else if (fs == currentShellForceSet)
+              {
+                 currentShellForceSet = null;
+                 OnPropertyChanged(nameof(CurrentShellForceSet));
+              }
+              db.DeleteForceSet(fs);
+           }
+        }
+
+        #endregion
+    }
 
    /// <summary>Маркерный объект группы «Усиление» в дереве проекта.</summary>
    public sealed class SectionTreeGroup
