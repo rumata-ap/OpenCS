@@ -457,14 +457,14 @@ namespace CScore
                 if (M_des < N_THRESHOLD)
                 {
                     demand = N_c * arm / 2.0;
-                    caseStr = "Центр. сжатие → §8.1.14";
+                    caseStr = "Центр. сжатие, N·e ≤ M_ult (§8.1.14)";
                 }
                 else
                 {
                     double e0 = M_des / N_c;
                     double e = e0 + arm / 2.0;
                     demand = N_c * e;
-                    caseStr = "Внецентр. сжатие (§8.1.14)";
+                    caseStr = "Внецентр. сжатие, N·e ≤ M_ult (§8.1.14)";
                 }
             }
             else if (Math.Abs(N_des) <= N_THRESHOLD)
@@ -473,7 +473,7 @@ namespace CScore
                 x = Math.Max(0.0, Math.Min(x, xi_r * h0));
                 m_ult = Rb * b * x * (h0 - 0.5 * x) + Rsc * As_c * arm;
                 demand = M_des;
-                caseStr = "Изгиб (§8.1.9)";
+                caseStr = "Изгиб, M ≤ M_ult (§8.1.9)";
             }
             else
             {
@@ -492,12 +492,12 @@ namespace CScore
                     if (eta_c >= eta_t)
                     {
                         demand = dem_c; m_ult = M_c;
-                        caseStr = "Растяж. малый e, стор. As' (§8.1.19а)";
+                        caseStr = "Внецентр. растяж., N·e' ≤ M'_ult (§8.1.19а)";
                     }
                     else
                     {
                         demand = dem_t; m_ult = M_t;
-                        caseStr = "Растяж. малый e, стор. As (§8.1.19а)";
+                        caseStr = "Внецентр. растяж., N·e ≤ M_ult (§8.1.19а)";
                     }
                     x = 0.0;
                 }
@@ -505,7 +505,7 @@ namespace CScore
                 {
                     m_ult = Rs * As_t * arm;
                     demand = N_des * half;
-                    caseStr = "Центр./малый e растяж. (§8.1.18)";
+                    caseStr = "Центр. растяж., N ≤ N_ult (§8.1.18)";
                     x = 0.0;
                 }
                 else
@@ -516,7 +516,7 @@ namespace CScore
                     m_ult = Rb * b * x * (h0 - 0.5 * x) + Rsc * As_c * arm;
                     double e = e0 - half;
                     demand = N_des * e;
-                    caseStr = "Внецентр. растяж. большой e (§8.1.19б)";
+                    caseStr = "Внецентр. растяж., N·e ≤ M_ult (§8.1.19б)";
                 }
             }
 
