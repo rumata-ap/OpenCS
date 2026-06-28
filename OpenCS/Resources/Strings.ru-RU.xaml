@@ -291,6 +291,8 @@
     <system:String x:Key="DeleteSelectedForceSetsBtn">Удалить</system:String>
     <system:String x:Key="DeleteSelectedForceSetsCount">Выбрано: {0}</system:String>
     <system:String x:Key="DeleteSelectedForceSetsConfirm">Удалить {0} набор(ов) усилий? Действие необратимо.</system:String>
+    <system:String x:Key="DeleteAllForceSetsMenu">Удалить все...</system:String>
+    <system:String x:Key="ConfirmDeleteAllForceSets">Удалить все {0} наборов усилий? Действие необратимо.</system:String>
     <system:String x:Key="RegionDeleted">Область '{0}' удалена</system:String>
     <system:String x:Key="VacuumDb">Сжать базу данных (VACUUM)</system:String>
     <system:String x:Key="VacuumDbDone">VACUUM выполнен: {0} КБ → {1} КБ, освобождено {2} КБ</system:String>

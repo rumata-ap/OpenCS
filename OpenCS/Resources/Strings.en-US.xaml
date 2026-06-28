@@ -288,6 +288,8 @@
     <system:String x:Key="DeleteSelectedForceSetsBtn">Delete</system:String>
     <system:String x:Key="DeleteSelectedForceSetsCount">Selected: {0}</system:String>
     <system:String x:Key="DeleteSelectedForceSetsConfirm">Delete {0} force set(s)? This cannot be undone.</system:String>
+    <system:String x:Key="DeleteAllForceSetsMenu">Delete all...</system:String>
+    <system:String x:Key="ConfirmDeleteAllForceSets">Delete all {0} force sets? This cannot be undone.</system:String>
     <system:String x:Key="RegionDeleted">Region '{0}' deleted</system:String>
     <system:String x:Key="VacuumDb">Compact database (VACUUM)</system:String>
     <system:String x:Key="VacuumDbDone">VACUUM done: {0} KB → {1} KB, freed {2} KB</system:String>

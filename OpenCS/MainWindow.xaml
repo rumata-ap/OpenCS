@@ -761,10 +761,12 @@
                             <Separator/>
                             <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
                                       Command="{Binding DeleteSelectedBarForceSetsCommand}"/>
+                            <MenuItem Header="{DynamicResource DeleteAllForceSetsMenu}"
+                                      Command="{Binding DeleteAllBarForceSetsCommand}"/>
                          </ContextMenu>
                       </TreeViewItem.ContextMenu>
-                     <TreeViewItem.ItemTemplate>
-                        <DataTemplate DataType="{x:Type core:ForceSet}">
+                      <TreeViewItem.ItemTemplate>
+                         <DataTemplate DataType="{x:Type core:ForceSet}">
                            <StackPanel Orientation="Horizontal" Margin="1"
                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                               <StackPanel.ContextMenu>
@@ -811,10 +813,12 @@
                             <Separator/>
                             <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
                                       Command="{Binding DeleteSelectedShellForceSetsCommand}"/>
+                            <MenuItem Header="{DynamicResource DeleteAllForceSetsMenu}"
+                                      Command="{Binding DeleteAllShellForceSetsCommand}"/>
                          </ContextMenu>
                       </TreeViewItem.ContextMenu>
-                     <TreeViewItem.ItemTemplate>
-                        <DataTemplate DataType="{x:Type core:ForceSet}">
+                      <TreeViewItem.ItemTemplate>
+                         <DataTemplate DataType="{x:Type core:ForceSet}">
                            <StackPanel Orientation="Horizontal" Margin="1"
                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                               <StackPanel.ContextMenu>

@@ -552,6 +552,10 @@ namespace OpenCS
       public ICommand DeleteSelectedBarForceSetsCommand { get; set; } = null!;
       /// <summary>Команда удаления выбранных наборов усилий пластин.</summary>
       public ICommand DeleteSelectedShellForceSetsCommand { get; set; } = null!;
+      /// <summary>Команда удаления всех наборов усилий стержней.</summary>
+      public ICommand DeleteAllBarForceSetsCommand { get; set; } = null!;
+      /// <summary>Команда удаления всех наборов усилий пластин.</summary>
+      public ICommand DeleteAllShellForceSetsCommand { get; set; } = null!;
 
       /// <summary>
       /// Отфильтрованная коллекция диаграмм для отображения в TreeView.
@@ -1035,6 +1039,8 @@ namespace OpenCS
          DuplicateForceSetCommand     = new RelayCommand(p => DuplicateForceSet(p as CScore.ForceSet));
          DeleteSelectedBarForceSetsCommand   = new RelayCommand(_ => DeleteSelectedForceSets(kind: "bar"));
          DeleteSelectedShellForceSetsCommand = new RelayCommand(_ => DeleteSelectedForceSets(kind: "shell"));
+         DeleteAllBarForceSetsCommand   = new RelayCommand(_ => DeleteAllForceSets(kind: "bar"));
+         DeleteAllShellForceSetsCommand = new RelayCommand(_ => DeleteAllForceSets(kind: "shell"));
          NewPlateSectionCommand       = new RelayCommand(_ => NewPlateSection());
          DeletePlateSectionCommand    = new RelayCommand(p => DeletePlateSection(p as CScore.PlateSection));
          DuplicatePlateSectionCommand = new RelayCommand(p => DuplicatePlateSection(p as CScore.PlateSection));
@@ -2807,24 +2813,52 @@ namespace OpenCS
               System.Windows.MessageBoxImage.Warning);
            if (res != System.Windows.MessageBoxResult.Yes) return;
 
-           foreach (var fs in selected)
-           {
-              if (fs == currentBarForceSet)
-              {
-                 currentBarForceSet = null;
-                 OnPropertyChanged(nameof(CurrentBarForceSet));
-              }
-              else if (fs == currentShellForceSet)
-              {
-                 currentShellForceSet = null;
-                 OnPropertyChanged(nameof(CurrentShellForceSet));
-              }
-              db.DeleteForceSet(fs);
-           }
-        }
+            foreach (var fs in selected)
+            {
+               if (fs == currentBarForceSet)
+               {
+                  currentBarForceSet = null;
+                  OnPropertyChanged(nameof(CurrentBarForceSet));
+               }
+               else if (fs == currentShellForceSet)
+               {
+                  currentShellForceSet = null;
+                  OnPropertyChanged(nameof(CurrentShellForceSet));
+               }
+               db.DeleteForceSet(fs);
+            }
+         }
 
-        #endregion
-    }
+         void DeleteAllForceSets(string kind)
+         {
+            var sets = ForceSets.Where(fs => fs.Kind == kind).ToList();
+            if (sets.Count == 0) return;
+
+            var res = System.Windows.MessageBox.Show(
+               string.Format(Loc.S("ConfirmDeleteAllForceSets"), sets.Count),
+               Loc.S("Warning"),
+               System.Windows.MessageBoxButton.YesNo,
+               System.Windows.MessageBoxImage.Warning);
+            if (res != System.Windows.MessageBoxResult.Yes) return;
+
+            foreach (var fs in sets)
+            {
+               if (fs == currentBarForceSet)
+               {
+                  currentBarForceSet = null;
+                  OnPropertyChanged(nameof(CurrentBarForceSet));
+               }
+               else if (fs == currentShellForceSet)
+               {
+                  currentShellForceSet = null;
+                  OnPropertyChanged(nameof(CurrentShellForceSet));
+               }
+               db.DeleteForceSet(fs);
+            }
+         }
+
+         #endregion
+     }
 
    /// <summary>Маркерный объект группы «Усиление» в дереве проекта.</summary>
    public sealed class SectionTreeGroup
