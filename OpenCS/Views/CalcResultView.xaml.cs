@@ -44,7 +44,7 @@ namespace OpenCS.Views
                 "shell_strain_state_batch" => new ShellStrainBatchResultView(result, app, task),
                 "shell_layered_uls_batch"  => new ShellStrainBatchResultView(result, app, task),
                 _ when task.Kind.StartsWith("shell_simpl_") && task.Kind.EndsWith("_batch")
-                                       => new ShellSimplBatchResultView(result, task),
+                                       => new ShellSimplBatchResultView(result, task, app),
                 _                      => new FireRCheckResultView(result, app, task)
             };
             return;

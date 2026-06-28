@@ -1,19 +1,106 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
 using CScore;
+using CsvHelper;
+using System.Globalization;
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
 public partial class ShellSimplBatchResultView : System.Windows.Controls.UserControl
 {
-    public ShellSimplBatchResultView(CalcResult result, CalcTask task)
+    private readonly AppViewModel _app;
+    private readonly CalcTask _task;
+
+    public ShellSimplBatchResultView(CalcResult result, CalcTask task, AppViewModel app)
     {
+        _app = app;
+        _task = task;
         InitializeComponent();
         DataContext = new ShellSimplBatchResultVM(result, task);
+        RowsGrid.SelectionChanged += (_, _) =>
+        {
+            CreateTaskBtn.IsEnabled = RowsGrid.SelectedItem != null;
+        };
+    }
+
+    private ShellSimplBatchRow? SelectedRow
+        => RowsGrid.SelectedItem as ShellSimplBatchRow;
+
+    private void RowsGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (SelectedRow != null)
+            CreateTask();
+    }
+
+    private void CreateTask_Click(object sender, RoutedEventArgs e)
+        => CreateTask();
+
+    private void CreateTask()
+    {
+        var row = SelectedRow;
+        if (row == null) return;
+
+        var section = _app.CrossSections.FirstOrDefault(s => s.Id == _task.SectionId);
+        if (section == null)
+        {
+            MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        var singleKind = _task.Kind.Replace("_batch", "");
+        var tag = $"{section.Tag} — {row.Label}";
+
+        var newTask = new CalcTask
+        {
+            Kind = singleKind,
+            SectionId = _task.SectionId,
+            CalcType = _task.CalcType,
+            Tag = tag,
+            ParamsJson = "{}"
+        };
+
+        newTask.Num = _app.CalcTasks.Count > 0 ? _app.CalcTasks.Max(t => t.Num) + 1 : 1;
+        _app.db.SaveCalcTask(newTask);
+        _app.LogService.Info(string.Format(Loc.S("CalcTaskCreated"), tag));
+    }
+
+    private void ExportCsv_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = DataContext as ShellSimplBatchResultVM;
+        if (vm == null || vm.Rows.Count == 0) return;
+
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Filter = Loc.S("ExportCsv") + "|*.csv",
+            DefaultExt = ".csv",
+            FileName = $"{_task.Tag}_batch.csv"
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        using var writer = new StreamWriter(dlg.FileName, false, System.Text.Encoding.UTF8);
+        var cfg = new CsvHelper.Configuration.CsvConfiguration(CultureInfo.InvariantCulture)
+        {
+            HasHeaderRecord = true
+        };
+        using var csv = new CsvWriter(writer, cfg);
+
+        csv.WriteField("#"); csv.WriteField("Label"); csv.WriteField("η_max"); csv.WriteField("Status");
+        csv.NextRecord();
+
+        foreach (var r in vm.Rows)
+        {
+            csv.WriteField(r.Num); csv.WriteField(r.Label); csv.WriteField(r.EtaMaxDisplay); csv.WriteField(r.Status);
+            csv.NextRecord();
+        }
     }
 }
 
@@ -44,8 +131,8 @@ public class ShellSimplBatchResultVM : ViewModelBase
         bool allOk = okCount == total;
 
         StatusBrush = allOk
-            ? new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(70, 80, 180, 80))
-            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(60, 192, 57, 43));
+            ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
+            : new SolidColorBrush(Color.FromArgb(60, 192, 57, 43));
 
         int idx = 0;
         foreach (var r in doc.GetProperty("rows").EnumerateArray())
