@@ -12,10 +12,14 @@ namespace CScore
       public ShellResult Forces { get; set; } = new();
       /// <summary>Сходимость достигнута в пределах допусков.</summary>
       public bool Converged { get; set; }
-      /// <summary>Число выполненных итераций.</summary>
+      /// <summary>Число итераций финальной попытки.</summary>
       public int Iterations { get; set; }
+      /// <summary>Сумма итераций по всем попыткам (elastic → capri → continuation).</summary>
+      public int TotalIterations { get; set; }
       /// <summary>Норма невязки ‖R(ε*) − S‖ на последней итерации.</summary>
       public double Residual { get; set; }
+      /// <summary>Стратегия, давшая результат: elastic | capri | continuation.</summary>
+      public string Strategy { get; set; } = "elastic";
    }
 
    /// <summary>
@@ -37,7 +41,7 @@ namespace CScore
 
       public ShellStrainSolver(PlateSection section, Diagramm cDiag, Diagramm rDiag,
          IReadOnlyList<Diagramm?>? layerDiags = null,
-         double tolRes = 1e-3, double tolStep = 1e-10, int maxIter = 50,
+         double tolRes = 1e-3, double tolStep = 1e-10, int maxIter = 25,
          double hDiff = 1e-7, bool centralJacobian = false)
       {
          _section = section; _cDiag = cDiag; _rDiag = rDiag; _layerDiags = layerDiags;
@@ -73,6 +77,90 @@ namespace CScore
 
       /// <summary>Найти НДС при заданных усилиях target [Nx,Ny,Nxy,Mx,My,Mxy].</summary>
       public ShellStrainSolverResult Solve(double[] target, double[]? guess = null)
+         => SolveInternal(target, guess, "elastic");
+
+      /// <summary>
+      /// Каскад: упругий guess → Capri guess → continuation по λ.
+      /// tolStep не меняется; при неудаче каждой ветки переход к следующей.
+      /// </summary>
+      public ShellStrainSolverResult SolveRobust(
+         double[] target,
+         Material? concrete = null,
+         Material? rebar = null,
+         CalcType calc = CalcType.C,
+         double capriStepDeg = 10.0)
+      {
+         int totalIter = 0;
+
+         var elastic = SolveInternal(target, null, "elastic");
+         totalIter += elastic.Iterations;
+         if (elastic.Converged)
+         {
+            elastic.TotalIterations = totalIter;
+            return elastic;
+         }
+
+         elastic.TotalIterations = elastic.Iterations;
+
+         ShellStrainSolverResult? capri = null;
+         if (concrete is not null && rebar is not null)
+         {
+            var capriGuess = ShellStrainCapriGuess.Build(target, _section, concrete, rebar, calc, capriStepDeg);
+            if (capriGuess is not null)
+            {
+               capri = SolveInternal(target, capriGuess, "capri");
+               totalIter += capri.Iterations;
+               if (capri.Converged)
+               {
+                  capri.TotalIterations = totalIter;
+                  return capri;
+               }
+            }
+         }
+
+         var contGuess = capri is not null
+            ? capri.StrainState.ToArray()
+            : elastic.StrainState.ToArray();
+         var cont = SolveContinuation(target, contGuess);
+         cont.Strategy = "continuation";
+         totalIter += cont.TotalIterations > 0 ? cont.TotalIterations : cont.Iterations;
+         cont.TotalIterations = totalIter;
+         return cont;
+      }
+
+      /// <summary>
+      /// Продолжение нагружения S(λ), λ = 0.1…1.0; guess каждого шага — результат предыдущего.
+      /// </summary>
+      public ShellStrainSolverResult SolveContinuation(double[] target, double[]? initialGuess = null)
+      {
+         double[]? guess = initialGuess;
+         ShellStrainSolverResult? last = null;
+         int totalIter = 0;
+         const int nSteps = 10;
+
+         for (int i = 1; i <= nSteps; i++)
+         {
+            double lam = 0.1 * i;
+            var scaled = ScaleTarget(target, lam);
+            last = SolveInternal(scaled, guess, "continuation");
+            totalIter += last.Iterations;
+            guess = last.StrainState.ToArray();
+         }
+
+         last ??= SolveInternal(target, initialGuess, "continuation");
+         last.Strategy = "continuation";
+         last.TotalIterations = totalIter;
+         return last;
+      }
+
+      static double[] ScaleTarget(double[] target, double lam)
+         => new[]
+         {
+            target[0] * lam, target[1] * lam, target[2] * lam,
+            target[3] * lam, target[4] * lam, target[5] * lam,
+         };
+
+      ShellStrainSolverResult SolveInternal(double[] target, double[]? guess, string strategy)
       {
          double[] S = (double[])target.Clone();
          double[] e = guess != null ? (double[])guess.Clone() : ElasticGuess(S);
@@ -86,7 +174,7 @@ namespace CScore
             double res = Norm(f);
 
             if (res < thr)
-               return Finalize(e, true, it, res);
+               return Finalize(e, true, it, res, strategy);
 
             // Численный якобиан 6×6
             double[,] J = new double[6, 6];
@@ -129,13 +217,13 @@ namespace CScore
             {
                double[] Rf = Eval(e, out shellRes);
                double rf = Norm(Sub(Rf, S));
-               return Finalize(e, rf < thr, it, rf);
+               return Finalize(e, rf < thr, it, rf, strategy);
             }
          }
 
          double[] Rend = Eval(e, out shellRes);
          double rend = Norm(Sub(Rend, S));
-         return Finalize(e, rend < thr, _maxIter, rend);
+         return Finalize(e, rend < thr, _maxIter, rend, strategy);
       }
 
       /// <summary>
@@ -156,7 +244,7 @@ namespace CScore
          return results;
       }
 
-      ShellStrainSolverResult Finalize(double[] e, bool conv, int it, double res)
+      ShellStrainSolverResult Finalize(double[] e, bool conv, int it, double res, string strategy)
       {
          var state = ShellStrainState.FromArray(e);
          var full = _section.Compute(state, _cDiag, _rDiag, _layerDiags, computeStiffness: true);
@@ -164,6 +252,7 @@ namespace CScore
          {
             StrainState = state, Forces = full,
             Converged = conv, Iterations = it, Residual = res,
+            Strategy = strategy,
          };
       }
 

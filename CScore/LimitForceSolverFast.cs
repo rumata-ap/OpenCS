@@ -6,6 +6,9 @@ namespace CScore;
 /// </summary>
 public sealed class LimitForceSolverFast : ILimitForceSolver
 {
+   /// <summary>Необязательный трассировщик для диагностики fallback на бисекцию.</summary>
+   public static Action<string>? DebugTrace;
+
    enum SolveMode { All, Moment, Axial }
 
    readonly CrossSection _section;
@@ -103,6 +106,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       if (candidates.Count > 0)
          return candidates.MinBy(r => r!.Factor)!;
 
+      DebugTrace?.Invoke($"BisectFallback: comp={(comp is { Converged: true } ? comp.Factor.ToString("G6") : "fail")} tens={(tens is { Converged: true } ? tens.Factor.ToString("G6") : "fail")} mode={mode}");
       return BisectFallback(n, mx, my, mode);
    }
 
@@ -135,7 +139,10 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       int innerIters = 0;
       if (!TryEstimateCompressionStart(n, mx, my, guess, dNdk, dMxdk, dMydk,
             out double xA, out double yA, out double kx0, out double ky0, out double k0, ref innerIters))
+      {
+         DebugTrace?.Invoke("SolveCompression: TryEstimateCompressionStart failed");
          return null;
+      }
 
       int nDrivers = (Math.Abs(dNdk) > 1e-30 ? 1 : 0)
                    + (Math.Abs(dMxdk) > 1e-30 ? 1 : 0)
@@ -157,20 +164,29 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       // Отклонить вырожденное решение Ньютона (kx,ky→∞, k→0): силы и цель → 0,
       // невязка ложно мала. Физическая допустимость проверяется в IsValidSolution.
       if (conv && k < 1e-6)
+      {
+         DebugTrace?.Invoke($"SolveCompression: Newton degenerate k={k:G6}");
          conv = false;
+      }
 
       if (!conv && nDrivers < 3)
       {
          var fb2d = TryNewton2d(xA, yA, kx0, ky0, k0, n, mx, my,
             nFn, mxFn, myFn, dNdk, dMxdk, dMydk, out kx, out ky, out k, out nIter, out conv, out spFinal);
          if (!fb2d)
+         {
+            DebugTrace?.Invoke($"SolveCompression: Newton3d+Newton2d failed (nDrivers={nDrivers}, nIter={nIter})");
             return null;
+         }
       }
 
       // Бетонная фаза должна лишь сойтись; допустимость по арматуре проверяет
       // арматурная фаза ниже (перепинивает на управляющий стержень при εs > εsu).
       if (!conv)
+      {
+         DebugTrace?.Invoke($"SolveCompression: Newton not converged (nIter={nIter}, k={k:G6})");
          return null;
+      }
 
       int rebarIter = 0;
       bool rebarGoverns = false;
@@ -183,15 +199,26 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
          {
             (kx, ky, k, rebarIter, conv, spFinal) = rebar.Value;
             if (!conv)
+            {
+               DebugTrace?.Invoke("SolveCompression: RebarPhase not converged");
                return null;
+            }
             rebarGoverns = true;
          }
       }
 
       if (!IsValidSolution(kx, ky, k, spFinal, nFn, mxFn, myFn))
+      {
+         var f = Forces(spFinal);
+         double nT = nFn(k), mxT = mxFn(k), myT = myFn(k);
+         double res = Math.Sqrt(Math.Pow(f.N - nT, 2) + Math.Pow(f.Mx - mxT, 2) + Math.Pow(f.My - myT, 2));
+         double epsMin = _contourPts.Min(p => Eps(spFinal, p.X, p.Y));
+         DebugTrace?.Invoke($"SolveCompression: IsValidSolution failed k={k:G6} res={res:G6} resTol={ResidualTol(k, nFn, mxFn, myFn):G6} epsMin={epsMin:G6} epsCu={_epsCu:G6}");
          return null;
+      }
 
       string gov = rebarGoverns ? "rebar" : "concrete";
+      DebugTrace?.Invoke($"SolveCompression: OK k={k:G6} nIter={nIter} inner={innerIters} rebar={rebarIter} gov={gov}");
       var result = BuildResult(k, nIter, innerIters + nIter + rebarIter, spFinal, nFn, mxFn, myFn, gov);
       return result;
    }
@@ -236,30 +263,128 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
                      xA = exA; yA = eyA;
                      kx0 = kx0el; ky0 = ky0el;
                      k0 = k0el;
+                     DebugTrace?.Invoke($"TryEstimateCompressionStart: elastic guess k0={k0:G6} pin=({xA:G4},{yA:G4})");
                      return true;
                   }
+                  DebugTrace?.Invoke($"TryEstimateCompressionStart: elastic k0el={k0el:G6} <=0 (fEl N={fEl.N:G4} Mx={fEl.Mx:G4} My={fEl.My:G4})");
+                  if (TryBracketKLite(n, mx, my, dNdk, dMxdk, dMydk, out double kLite, ref innerIters))
+                     return FinishBracketStart(kLite, n, mx, my, dNdk, dMxdk, dMydk, elasticGuess,
+                        ref innerIters, out xA, out yA, out kx0, out ky0, out k0, lite: true);
                }
             }
+            else
+               DebugTrace?.Invoke("TryEstimateCompressionStart: elastic non-finite kx0/ky0");
          }
+         else
+            DebugTrace?.Invoke($"TryEstimateCompressionStart: elastic minEps={minEps:G6} (no compression on contour)");
       }
 
-      // Запасной вариант: бисекция по k + StrainSolver.
-      if (!TryBracketK(n, mx, my, out double kLo, out _, ref innerIters))
+      // Запасной вариант: полный bracket по k + StrainSolver.
+      if (!TryBracketK(n, mx, my, dNdk, dMxdk, dMydk, out double kLo, out _, ref innerIters))
+      {
+         DebugTrace?.Invoke("TryEstimateCompressionStart: TryBracketK failed");
          return false;
+      }
 
-      k0 = kLo;
-      var sp = _strainSolver.Solve(k0 * n, k0 * mx, k0 * my);
+      return FinishBracketStart(kLo, n, mx, my, dNdk, dMxdk, dMydk, elasticGuess,
+         ref innerIters, out xA, out yA, out kx0, out ky0, out k0, lite: false);
+   }
+
+   bool FinishBracketStart(
+      double k0val,
+      double n, double mx, double my,
+      double dNdk, double dMxdk, double dMydk,
+      Kurvature elasticGuess,
+      ref int innerIters,
+      out double xA, out double yA, out double kx0, out double ky0, out double k0,
+      bool lite)
+   {
+      xA = yA = kx0 = ky0 = 0;
+      k0 = k0val;
+      var (nk, mxk, myk) = LoadAtK(k0, n, mx, my, dNdk, dMxdk, dMydk);
+      var sp = _strainSolver.Solve(nk, mxk, myk);
       innerIters += _strainSolver.Iterations;
       if (!_strainSolver.Converged)
+      {
+         DebugTrace?.Invoke($"TryEstimateCompressionStart: StrainSolver failed at k0={k0:G6}");
          return false;
+      }
 
       if (!TryPinFromPlane(sp, elasticGuess, out xA, out yA, out kx0, out ky0))
+      {
+         DebugTrace?.Invoke("TryEstimateCompressionStart: TryPinFromPlane failed");
          return false;
+      }
 
+      string tag = lite ? "bracket-lite" : "bracket";
+      DebugTrace?.Invoke($"TryEstimateCompressionStart: {tag} k0={k0:G6} innerIters={innerIters} pin=({xA:G4},{yA:G4})");
       return k0 > 0 && double.IsFinite(k0);
    }
 
+   static (double N, double Mx, double My) LoadAtK(
+      double k, double n, double mx, double my,
+      double dNdk, double dMxdk, double dMydk)
+      => (
+         Math.Abs(dNdk) > 1e-30 ? k * n : n,
+         Math.Abs(dMxdk) > 1e-30 ? k * mx : mx,
+         Math.Abs(dMydk) > 1e-30 ? k * my : my);
+
+   /// <summary>
+   /// Облегчённый bracket: k=1 → удвоение до первого недопустимого, 4 шага бисекции.
+   /// ~10–15 вызовов StrainSolver вместо ~80.
+   /// </summary>
+   bool TryBracketKLite(
+      double n, double mx, double my,
+      double dNdk, double dMxdk, double dMydk,
+      out double kLo, ref int innerIters)
+   {
+      kLo = 0;
+      const int maxBisect = 4;
+      const double kMax = 1e4;
+
+      double kFeas = 0;
+      foreach (double kTry in new[] { 1.0, 0.5, 0.25, 0.125 })
+      {
+         var (nk, mxk, myk) = LoadAtK(kTry, n, mx, my, dNdk, dMxdk, dMydk);
+         if (IsFeasibleLoad(nk, mxk, myk, out _, ref innerIters))
+         {
+            kFeas = kTry;
+            break;
+         }
+      }
+
+      if (kFeas <= 0)
+         return false;
+
+      double kInf = kFeas * 2.0;
+      while (kInf <= kMax)
+      {
+         var (nk, mxk, myk) = LoadAtK(kInf, n, mx, my, dNdk, dMxdk, dMydk);
+         if (!IsFeasibleLoad(nk, mxk, myk, out _, ref innerIters))
+            break;
+         kFeas = kInf;
+         kInf *= 2.0;
+      }
+
+      if (kInf <= kFeas)
+         kInf = Math.Min(kFeas * 4.0, kMax);
+
+      kLo = kFeas;
+      for (int i = 0; i < maxBisect && (kInf - kLo) > _bisectTol * Math.Max(kLo, 1e-6); i++)
+      {
+         double mid = 0.5 * (kLo + kInf);
+         var (nk, mxk, myk) = LoadAtK(mid, n, mx, my, dNdk, dMxdk, dMydk);
+         if (IsFeasibleLoad(nk, mxk, myk, out _, ref innerIters))
+            kLo = mid;
+         else
+            kInf = mid;
+      }
+
+      return kLo > 0;
+   }
+
    bool TryBracketK(double n, double mx, double my,
+      double dNdk, double dMxdk, double dMydk,
       out double kLo, out double kHi, ref int innerIters)
    {
       kLo = 0;
@@ -281,7 +406,8 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
          if (k <= 0)
             continue;
 
-         if (IsFeasibleLoad(k * n, k * mx, k * my, out _, ref innerIters))
+         var load = LoadAtK(k, n, mx, my, dNdk, dMxdk, dMydk);
+         if (IsFeasibleLoad(load.N, load.Mx, load.My, out _, ref innerIters))
          {
             feasible = k;
             continue;
@@ -302,7 +428,8 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       for (int i = 0; i < 6 && (kHi - kLo) > _bisectTol; i++)
       {
          double mid = 0.5 * (kLo + kHi);
-         if (IsFeasibleLoad(mid * n, mid * mx, mid * my, out _, ref innerIters))
+         var loadMid = LoadAtK(mid, n, mx, my, dNdk, dMxdk, dMydk);
+         if (IsFeasibleLoad(loadMid.N, loadMid.Mx, loadMid.My, out _, ref innerIters))
             kLo = mid;
          else
             kHi = mid;

@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.Json;
+using System.Windows.Media;
 using CScore;
 using OpenCS.Utilites;
 
@@ -107,6 +108,7 @@ public class ShellSimplResultVM : ViewModelBase
 
     public bool OverallOk { get; set; }
     public string OverallStatus { get; set; } = "";
+    public Brush OverallStatusBrush { get; set; } = Brushes.LightGray;
 
     public ShellSimplResultVM(CalcResult result, CalcTask task)
     {
@@ -181,11 +183,13 @@ public class ShellSimplResultVM : ViewModelBase
             foreach (var d in dirs.EnumerateArray())
             {
                 var strip = d.GetProperty("Strip");
+                bool noRebar = strip.GetProperty("NoRebar").GetBoolean();
                 double acrc = isSls ? strip.GetProperty("Acrc_mm").GetDouble() : 0;
                 double eta = !isSls ? strip.GetProperty("Eta").GetDouble() : 0;
-                bool ok = isSls
+                bool ok = noRebar || (isSls
                     ? (acrc <= AcrcLimMm)
-                    : (eta <= 1.0);
+                    : (eta <= 1.0));
+                if (!ok) allOk = false;
 
                 Directions.Add(new ShellSimplDirectionRow
                 {
@@ -254,5 +258,8 @@ public class ShellSimplResultVM : ViewModelBase
 
         OverallOk = allOk;
         OverallStatus = allOk ? "Все условия выполнены" : "Обнаружены нарушения";
+        OverallStatusBrush = allOk
+            ? new SolidColorBrush(Color.FromArgb(60, 46, 122, 62))
+            : new SolidColorBrush(Color.FromArgb(60, 192, 57, 43));
     }
 }

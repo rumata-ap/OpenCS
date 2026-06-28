@@ -15,8 +15,8 @@
       <StackPanel Margin="8">
          <TextBlock FontWeight="Bold" FontSize="14" Text="{Binding Title}" Margin="0,0,0,4"/>
 
-         <Border BorderThickness="2" CornerRadius="4" Padding="8" Margin="0,0,0,8"
-                 BorderBrush="#CCCCCC" Background="#F5F5F5">
+         <Border CornerRadius="4" Padding="8,6" Margin="0,0,0,8"
+                 Background="{Binding OverallStatusBrush}">
             <TextBlock FontWeight="Bold" FontSize="13" Text="{Binding OverallStatus}"
                        HorizontalAlignment="Center"/>
          </Border>

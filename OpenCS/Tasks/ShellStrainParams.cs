@@ -13,12 +13,19 @@ public sealed class ShellStrainParams
     [JsonPropertyName("my")]  public double My { get; set; }
     [JsonPropertyName("mxy")] public double Mxy { get; set; }
     [JsonPropertyName("tol_res")] public double TolRes { get; set; } = 1e-3;
-    [JsonPropertyName("max_iter")] public int MaxIter { get; set; } = 50;
+    /// <summary>0 — брать из глобальных настроек (NewtonMaxIter).</summary>
+    [JsonPropertyName("max_iter")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int MaxIter { get; set; }
 
     public static ShellStrainParams Parse(string? json)
     {
         if (string.IsNullOrWhiteSpace(json) || json == "{}")
             return new ShellStrainParams();
-        return JsonSerializer.Deserialize<ShellStrainParams>(json) ?? new ShellStrainParams();
+        var p = JsonSerializer.Deserialize<ShellStrainParams>(json) ?? new ShellStrainParams();
+        // Раньше в JSON попадало max_iter=50 из дефолта класса — не переопределение настроек.
+        if (p.MaxIter == 50)
+            p.MaxIter = 0;
+        return p;
     }
 }

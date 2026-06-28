@@ -29,14 +29,19 @@ public sealed class ShellStrainHandler : ITaskHandler
             var (cDiag, rDiag, layerDiags, _) =
                 PlateMaterialResolver.Resolve(plate, ctx.Database.Materials, task.CalcType);
 
+            var concrete = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.ConcreteMaterialId);
+            var rebar    = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.RebarMaterialId);
+
             var p = ShellStrainParams.Parse(task.ParamsJson);
+            double tolRes  = p.TolRes > 0 ? p.TolRes : settings.ShellNewtonTolRes;
+            int    maxIter = p.MaxIter > 0 ? p.MaxIter : settings.NewtonMaxIter;
             double[] target = { p.Nx, p.Ny, p.Nxy, p.Mx, p.My, p.Mxy };
 
             var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
-                tolRes: settings.ShellNewtonTolRes, maxIter: settings.NewtonMaxIter,
+                tolRes: tolRes, maxIter: maxIter,
                 hDiff: settings.NewtonDeltaH,
                 centralJacobian: settings.NewtonJacobian == "central");
-            var r = solver.Solve(target);
+            var r = solver.SolveRobust(target, concrete, rebar, task.CalcType);
             var f = r.Forces;
             var s = r.StrainState;
 
@@ -45,6 +50,8 @@ public sealed class ShellStrainHandler : ITaskHandler
             var data = new
             {
                 converged = r.Converged, iterations = r.Iterations,
+                total_iterations = r.TotalIterations,
+                solve_strategy = r.Strategy,
                 residual = Math.Round(r.Residual, 6),
                 section_h = plate.H,
                 eps0x = Math.Round(s.Eps0x, 9), eps0y = Math.Round(s.Eps0y, 9),

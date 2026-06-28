@@ -40,8 +40,10 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
             var p        = ShellStrainParams.Parse(task.ParamsJson);
             bool central = settings.NewtonJacobian == "central";
             double hDiff = settings.NewtonDeltaH;
-            double tolRes  = settings.ShellNewtonTolRes;
-            int    maxIter = settings.NewtonMaxIter;
+            double tolRes  = p.TolRes > 0 ? p.TolRes : settings.ShellNewtonTolRes;
+            int    maxIter = p.MaxIter > 0 ? p.MaxIter : settings.NewtonMaxIter;
+            var concrete = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.ConcreteMaterialId);
+            var rebar    = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.RebarMaterialId);
 
             var items = forceSet.ShellItems;
             int total = items.Count;
@@ -58,7 +60,8 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                     double[] tgt = { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy };
                     var r = new ShellStrainSolver(clone, cDiag, rDiag, layerDiags,
                         tolRes: tolRes, maxIter: maxIter,
-                        hDiff: hDiff, centralJacobian: central).Solve(tgt);
+                        hDiff: hDiff, centralJacobian: central)
+                        .SolveRobust(tgt, concrete, rebar, task.CalcType);
                     converged[i] = r.Converged;
                     rows[i] = BuildRow(si.Num, si.Label, r);
                 });
@@ -89,7 +92,7 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                 {
                     var si = items[i];
                     double[] tgt = { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy };
-                    var r = solver.Solve(tgt);
+                    var r = solver.SolveRobust(tgt, concrete, rebar, task.CalcType);
                     converged[i] = r.Converged;
                     rows[i] = BuildRow(si.Num, si.Label, r);
                 }
@@ -130,6 +133,8 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
         label,
         converged = r.Converged,
         iterations = r.Iterations,
+        total_iterations = r.TotalIterations,
+        solve_strategy = r.Strategy,
         residual = Math.Round(r.Residual, 6),
         status = r.Converged ? "ok" : "not_converged",
     };
