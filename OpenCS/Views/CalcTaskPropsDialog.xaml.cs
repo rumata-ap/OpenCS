@@ -116,6 +116,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsShellSimplBatch));
            OnPropertyChanged(nameof(IsShellStrain));
            OnPropertyChanged(nameof(IsShellStrainBatch));
+           OnPropertyChanged(nameof(IsShellLayered));
+           OnPropertyChanged(nameof(IsShellLayeredBatch));
            OnPropertyChanged(nameof(IsPlatePanel));
            OnPropertyChanged(nameof(IsPlateBatch));
            OnPropertyChanged(nameof(FilteredCalcTypes));
@@ -155,6 +157,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsShellSimplBatch));
            OnPropertyChanged(nameof(IsShellStrain));
            OnPropertyChanged(nameof(IsShellStrainBatch));
+           OnPropertyChanged(nameof(IsShellLayered));
+           OnPropertyChanged(nameof(IsShellLayeredBatch));
            OnPropertyChanged(nameof(IsPlatePanel));
            OnPropertyChanged(nameof(IsPlateBatch));
            OnPropertyChanged(nameof(FilteredCalcTypes));
@@ -184,10 +188,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsShellSimplBatch => IsShellSimpl && Kind.EndsWith("_batch", StringComparison.Ordinal);
    public bool IsShellStrain      => Kind is "shell_strain_state" or "shell_strain_state_batch";
    public bool IsShellStrainBatch => Kind == "shell_strain_state_batch";
-   /// <summary>Панель пластины (выбор PlateSection + усилия) — для simpl и strain.</summary>
-   public bool IsPlatePanel => IsShellSimpl || IsShellStrain;
-   /// <summary>Пакетный режим плитной задачи (simpl или strain).</summary>
-   public bool IsPlateBatch => IsShellSimplBatch || IsShellStrainBatch;
+   public bool IsShellLayered      => Kind is "shell_layered_uls" or "shell_layered_uls_batch";
+   public bool IsShellLayeredBatch => Kind == "shell_layered_uls_batch";
+   /// <summary>Панель пластины (выбор PlateSection + усилия) — для simpl, strain и layered.</summary>
+   public bool IsPlatePanel => IsShellSimpl || IsShellStrain || IsShellLayered;
+   /// <summary>Пакетный режим плитной задачи (simpl, strain или layered).</summary>
+   public bool IsPlateBatch => IsShellSimplBatch || IsShellStrainBatch || IsShellLayeredBatch;
    public bool IsTwoStage      => Kind is "two_stage_strain" or "two_stage_strain_batch";
    public bool IsTwoStageBatch => Kind == "two_stage_strain_batch";
    public bool IsPrestressLoss => Kind == "prestress_loss";
@@ -456,6 +462,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shell_simpl_wa_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_wa_uls_batch"), GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_simpl_capri_uls",    Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls"),    GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_simpl_capri_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls_batch"), GroupKey = "uls", Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "shell_layered_uls",       Label = Loc.S("CalcTaskKind_shell_layered_uls"),       GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "shell_layered_uls_batch", Label = Loc.S("CalcTaskKind_shell_layered_uls_batch"), GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "steel_check",              Label = Loc.S("CalcTaskKind_steel_check"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       // 2-я ГПС
       new() { Id = "shell_simpl_wa_sls",       Label = Loc.S("CalcTaskKind_shell_simpl_wa_sls"),       GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
@@ -497,6 +505,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                return IsShellSimplSls
                    ? [CalcType.N, CalcType.NL]
                    : [CalcType.C, CalcType.CL];
+           if (IsShellLayered)
+               return [CalcType.C, CalcType.CL];
            return CalcTypes;
        }
    }
@@ -621,7 +631,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              }
           }
 
-          if (existing.Kind is "shell_strain_state" or "shell_strain_state_batch")
+          if (existing.Kind is "shell_strain_state" or "shell_strain_state_batch"
+              or "shell_layered_uls" or "shell_layered_uls_batch")
           {
              var sp = ShellStrainParams.Parse(existing.ParamsJson);
              var inv = System.Globalization.CultureInfo.InvariantCulture;
@@ -760,6 +771,62 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
           var invs = System.Globalization.CultureInfo.InvariantCulture;
           if (IsShellStrainBatch)
+          {
+              if (SelectedShellForceSet == null)
+              {
+                  MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
+                     MessageBoxButton.OK, MessageBoxImage.Warning);
+                  return;
+              }
+              Result = new CalcTask
+              {
+                  Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+                  Kind = Kind,
+                  SectionId = SelectedShellSimplSection.Id,
+                  ForceSetId = SelectedShellForceSet.Id,
+                  ForceItemId = 0,
+                  CalcType = SelectedCalcType,
+                  ParamsJson = JsonSerializer.Serialize(new ShellStrainParams())
+              };
+              _window.DialogResult = true;
+              return;
+          }
+
+          double snx  = double.TryParse(ShellSimplNx,  System.Globalization.NumberStyles.Float, invs, out var snxv)  ? snxv  : 0;
+          double sny  = double.TryParse(ShellSimplNy,  System.Globalization.NumberStyles.Float, invs, out var snyv)  ? snyv  : 0;
+          double snxy = double.TryParse(ShellSimplNxy, System.Globalization.NumberStyles.Float, invs, out var snxyv) ? snxyv : 0;
+          double smx  = double.TryParse(ShellSimplMx,  System.Globalization.NumberStyles.Float, invs, out var smxv)  ? smxv  : 0;
+          double smy  = double.TryParse(ShellSimplMy,  System.Globalization.NumberStyles.Float, invs, out var smyv)  ? smyv  : 0;
+          double smxy = double.TryParse(ShellSimplMxy, System.Globalization.NumberStyles.Float, invs, out var smxyv) ? smxyv : 0;
+
+          Result = new CalcTask
+          {
+              Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+              Kind = Kind,
+              SectionId = SelectedShellSimplSection.Id,
+              ForceSetId = 0,
+              ForceItemId = 0,
+              CalcType = SelectedCalcType,
+              ParamsJson = JsonSerializer.Serialize(new ShellStrainParams
+              {
+                  Nx = snx, Ny = sny, Nxy = snxy, Mx = smx, My = smy, Mxy = smxy
+              })
+          };
+          _window.DialogResult = true;
+          return;
+      }
+
+      if (IsShellLayered)
+      {
+          if (SelectedShellSimplSection == null)
+          {
+             MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+             return;
+          }
+
+          var invs = System.Globalization.CultureInfo.InvariantCulture;
+          if (IsShellLayeredBatch)
           {
               if (SelectedShellForceSet == null)
               {

@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Windows.Media;
 using CScore;
+using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
@@ -66,6 +67,14 @@ public sealed class ShellStrainSummaryVM
     public string IterationsText { get; }
     public string ResidualText   { get; }
 
+    // Проверка прочности (для shell_layered_uls; отсутствует у shell_strain_state)
+    public bool   HasCheck      { get; }
+    public string CheckHeader   { get; } = "";
+    public string VerdictText   { get; } = "";
+    public Brush  VerdictBrush  { get; } = Brushes.Gray;
+    public string CheckFormula  { get; } = "";
+    public string CheckNote     { get; } = "";
+
     public ShellStrainSummaryVM(CalcResult r)
     {
         TaskTag   = r.TaskTag;
@@ -73,11 +82,13 @@ public sealed class ShellStrainSummaryVM
         {
             "ok"            => "Сошлось ✓",
             "not_converged" => "НЕ СОШЛОСЬ ✗",
+            "fail"          => Loc.S("ShellStrainCheckVerdictFail"),
             "error"         => "Ошибка ✗",
             _               => r.Status,
         };
         StatusBrush = r.Status == "ok" ? Brushes.Green
                     : r.Status == "not_converged" ? Brushes.DarkOrange
+                    : r.Status == "fail" ? Brushes.Red
                     : Brushes.Red;
 
         string Dash = "—";
@@ -172,6 +183,19 @@ public sealed class ShellStrainSummaryVM
             PhiEAyText  = Phi("phi_EAy");
             PhiEIxcText = Phi("phi_EIxc");
             PhiEIycText = Phi("phi_EIyc");
+
+            // ── Блок проверки прочности (только для shell_layered_uls) ──────────
+            if (root.TryGetProperty("check", out var chk))
+            {
+                HasCheck = true;
+                CheckHeader = Loc.S("ShellStrainCheckHeader");
+                bool passed = chk.TryGetProperty("passed", out var pv) && pv.GetBoolean();
+                string verdict = chk.TryGetProperty("verdict", out var vv) ? vv.GetString() ?? "" : "";
+                VerdictText  = $"{CheckHeader}: {verdict}";
+                VerdictBrush = passed ? Brushes.Green : Brushes.Red;
+                CheckFormula = chk.TryGetProperty("formula", out var ff) ? ff.GetString() ?? "" : "";
+                CheckNote    = chk.TryGetProperty("note", out var nn)    ? nn.GetString() ?? "" : "";
+            }
         }
         catch { /* повреждённый JSON — поля остаются "—" */ }
     }

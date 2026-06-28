@@ -30,6 +30,7 @@ namespace OpenCS.Views
             or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch"
             or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
             or "shell_strain_state_batch"
+            or "shell_layered_uls_batch"
             or "strength_ndm_batch")
         {
             Content = task.Kind switch
@@ -41,6 +42,7 @@ namespace OpenCS.Views
                                        => new LimitForceBatchResultView(result),
                 "strength_ndm_batch"   => new StrengthNDMBatchResultView(result),
                 "shell_strain_state_batch" => new ShellStrainBatchResultView(result),
+                "shell_layered_uls_batch"  => new ShellStrainBatchResultView(result),
                 _ when task.Kind.StartsWith("shell_simpl_") && task.Kind.EndsWith("_batch")
                                        => new ShellSimplBatchResultView(result, task),
                 _                      => new FireRCheckResultView(result, app, task)
@@ -54,8 +56,8 @@ namespace OpenCS.Views
             return;
         }
 
-        // Поиск плоскости деформаций пластины (одиночный)
-        if (task != null && task.Kind == "shell_strain_state")
+        // Поиск плоскости деформаций пластины (одиночный) и слоистая прочность
+        if (task != null && (task.Kind == "shell_strain_state" || task.Kind == "shell_layered_uls"))
         {
             Content = new ShellStrainResultView(result, app, task);
             return;

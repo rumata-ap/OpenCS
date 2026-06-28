@@ -14,6 +14,20 @@
                     <TextBlock Text="{Binding TaskTag}"/>
                     <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="Bold" Margin="0,2,0,0"/>
 
+                    <!-- Проверка прочности по норме (только для слоистой задачи) -->
+                    <Separator Margin="0,8,0,4"
+                               Visibility="{Binding HasCheck, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock FontWeight="Bold" FontSize="13"
+                               Foreground="{Binding VerdictBrush}"
+                               Visibility="{Binding HasCheck, Converter={StaticResource BoolToVisibility}}"
+                               Text="{Binding VerdictText, Mode=OneWay}"/>
+                    <TextBlock FontWeight="Bold" Margin="0,2,0,0"
+                               Visibility="{Binding HasCheck, Converter={StaticResource BoolToVisibility}}"
+                               Text="{Binding CheckFormula, Mode=OneWay}"/>
+                    <TextBlock Foreground="Gray" FontSize="11"
+                               Visibility="{Binding HasCheck, Converter={StaticResource BoolToVisibility}}"
+                               Text="{Binding CheckNote, Mode=OneWay}"/>
+
                     <!-- Мембранные деформации -->
                     <Separator Margin="0,8,0,4"/>
                     <TextBlock Text="{DynamicResource ShellStrainMembrane}" FontWeight="Bold" Margin="0,0,0,2"/>

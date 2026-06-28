@@ -101,6 +101,7 @@ class CalcTasksRootNode
             or "strength_ndm_batch"
             or "shell_simpl_wa_uls"    or "shell_simpl_wa_uls_batch"
             or "shell_simpl_capri_uls" or "shell_simpl_capri_uls_batch"
+            or "shell_layered_uls"     or "shell_layered_uls_batch"
             or "steel_check"                                          => "uls",
         "shell_simpl_wa_sls"    or "shell_simpl_wa_sls_batch"
             or "shell_simpl_capri_sls" or "shell_simpl_capri_sls_batch" => "sls",

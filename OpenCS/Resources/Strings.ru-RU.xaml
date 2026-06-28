@@ -920,6 +920,8 @@
     <system:String x:Key="CalcTaskKind_shell_simpl_capri_uls_batch">Пластина: прочность Капри-Мори (набор)</system:String>
     <system:String x:Key="CalcTaskKind_shell_strain_state">Плоскость деформаций пластины</system:String>
     <system:String x:Key="CalcTaskKind_shell_strain_state_batch">Плоскость деформаций пластины (набор)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_layered_uls">Пластина: прочность (слоистая модель)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_layered_uls_batch">Пластина: прочность слоистая (набор)</system:String>
     <system:String x:Key="CalcTaskKind_prestress_loss">Потери преднапряжения (СП 63 гл. 9.1)</system:String>
     <system:String x:Key="PrestressLossDialogTitle">Параметры потерь преднапряжения</system:String>
     <system:String x:Key="PrestressLossParamsBtn">Параметры потерь…</system:String>
@@ -1024,6 +1026,10 @@
     <system:String x:Key="ShellStrainTabStrains">Деформации</system:String>
     <system:String x:Key="ShellStrainTabStresses">Напряжения</system:String>
     <system:String x:Key="ShellStrainTabPrincipal">Главные оси</system:String>
+    <system:String x:Key="ShellStrainCheckHeader">Проверка прочности по СП 63</system:String>
+    <system:String x:Key="ShellStrainCheckVerdictOk">прочность обеспечена</system:String>
+    <system:String x:Key="ShellStrainCheckVerdictFail">прочность НЕ обеспечена</system:String>
+    <system:String x:Key="ShellStrainCheckNotConverged">расчёт не сходится</system:String>
     <system:String x:Key="ShellStrainEpsXPlot">εx(z)</system:String>
     <system:String x:Key="ShellStrainEpsYPlot">εy(z)</system:String>
     <system:String x:Key="ShellStrainEpsGammaPlot">γxy(z)</system:String>
@@ -1042,6 +1048,8 @@
     <system:String x:Key="ShellStrainColStatus">Статус</system:String>
     <system:String x:Key="ShellStrainColIter">Итераций</system:String>
     <system:String x:Key="ShellStrainColResidual">Невязка</system:String>
+    <system:String x:Key="ShellStrainColVerdict">Прочность</system:String>
+    <system:String x:Key="ShellStrainColFormula">Формула</system:String>
     <system:String x:Key="ShellSimplSection">Сечение пластины</system:String>
     <system:String x:Key="ShellSimplForceNx">Nx, кН/м</system:String>
     <system:String x:Key="ShellSimplForceNy">Ny, кН/м</system:String>

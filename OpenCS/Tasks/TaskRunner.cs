@@ -34,6 +34,8 @@ namespace OpenCS.Tasks
           ["shell_simpl_capri_uls_batch"] = new ShellSimplCapriUlsBatchHandler(),
           ["shell_strain_state"]          = new ShellStrainHandler(),
           ["shell_strain_state_batch"]    = new ShellStrainBatchHandler(),
+          ["shell_layered_uls"]          = new ShellLayeredUlsHandler(),
+          ["shell_layered_uls_batch"]    = new ShellLayeredUlsBatchHandler(),
           ["prestress_loss"]              = new PrestressLossHandler(),
           ["steel_check"]                 = new SteelCheckHandler(),
        };

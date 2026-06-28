@@ -332,65 +332,10 @@ public static class FemCheckRunner
                                       concreteMat, rebarMat, concreteDiagType, nlShell, ltFraction);
         }
 
-        // ─── Деформационные параметры бетона по СП 63 п. 8.1.30 ────────────────
-        concreteMat.chars.TryGetValue(calcType, out var cCh);
-        double epsB0 = cCh?.Ec0 > 0 ? cCh.Ec0 : 0.002;   // εb0: деформация при достижении Rb
-        double epsB2 = cCh?.Ec2 > 0 ? cCh.Ec2 : 0.0035;  // εb2: предельная деформация сжатия
-
-        var    st = result.StrainState;
-        double h  = section.H;
-
-        // Минимальные главные деформации (наиболее сжимающие) на обеих гранях
-        double eps2T = MinPrincipalStrain(st.EpsX( h/2), st.EpsY( h/2), st.GammaXY( h/2));
-        double eps2B = MinPrincipalStrain(st.EpsX(-h/2), st.EpsY(-h/2), st.GammaXY(-h/2));
-
-        // ε₂ — бо́льшая по абс. величине деформация (|ε₂| ≥ |ε₁|) — п. 8.1.30
-        double eps2, eps1;
-        if (Math.Abs(eps2T) >= Math.Abs(eps2B)) { eps2 = eps2T; eps1 = eps2B; }
-        else                                      { eps2 = eps2B; eps1 = eps2T; }
-
-        double epsBUlt;
-        string epsBDesc;
-
-        if (eps2 >= 0)
-        {
-            // Сжатия нет → бетон не определяющий
-            epsBUlt  = epsB2;
-            epsBDesc = "нет сжатия";
-        }
-        else if (eps1 >= 0)
-        {
-            // Двузначная эпюра: разные знаки на гранях → εb,ult = εb2 (п. 8.1.30, абз. 1)
-            epsBUlt  = epsB2;
-            epsBDesc = $"двузн., εb,ult={epsB2:G3}";
-        }
-        else
-        {
-            // Однозначная эпюра: оба в сжатии → εb,ult = εb2 − (εb2−εb0)·ε₁/ε₂ (п. 8.1.30)
-            // eps2 < 0, eps1 < 0 ⇒ ε₁/ε₂ = (менее сжатая)/(более сжатая) ∈ [0, 1]
-            double ratio = Math.Abs(eps2) > 1e-12 ? Math.Clamp(eps1 / eps2, 0.0, 1.0) : 1.0;
-            epsBUlt  = epsB2 - (epsB2 - epsB0) * ratio;
-            epsBDesc = $"однозн., ε₁/ε₂={ratio:F2}, εb,ult={epsBUlt:G3}";
-        }
-
-        double utilC = eps2 < 0 ? Math.Abs(eps2) / epsBUlt : 0.0;
-
-        // ─── Арматура: εs,ult = 0.025 (физ. текучесть) / 0.015 (усл.) — п. 8.1.30 ─
-        double epsSUlt = rebarMat.Type == MatType.ReSteelF ? 0.025 : 0.015;
-        double utilS   = 0;
-        foreach (var layer in section.RebarLayers)
-        {
-            // Растяжение арматуры (максимальная растягивающая деформация в слое)
-            double epsX = st.EpsX(layer.Zsx);
-            double epsY = st.EpsY(layer.Zsy);
-            utilS = Math.Max(utilS, Math.Max(epsX, epsY) / epsSUlt);
-        }
-
-        double util = Math.Max(utilC, utilS);
-        if (utilC >= utilS)
-            return (util, "п.8.1.30 бетон", epsBDesc + $", ε={Math.Abs(eps2):G3}");
-        else
-            return (util, "п.8.1.30 арм.", $"εs={utilS * epsSUlt:G3}, εs,ult={epsSUlt:G3}");
+        // ── ULS: деформационная проверка п. 8.1.30 делегирует в ShellLayeredCheck ──
+        var r = ShellLayeredCheck.CheckUls(section, shell, concreteMat, rebarMat, calcType,
+            concreteDiagType, out _, out _, out _);
+        return (r.Utilization, r.Formula, r.Description);
     }
 
     /// <summary>
@@ -659,20 +604,6 @@ public static class FemCheckRunner
         if (nlSet == null) return null;
 
         return nlSet.ShellItems.ToDictionary(s => s.Label, s => s);
-    }
-
-    static double MinPrincipalStrain(double ex, double ey, double gxy)
-    {
-        double avg    = (ex + ey) / 2.0;
-        double r      = Math.Sqrt((ex - ey) * (ex - ey) / 4.0 + gxy * gxy / 4.0);
-        return avg - r;
-    }
-
-    static double MaxPrincipalStrain(double ex, double ey, double gxy)
-    {
-        double avg    = (ex + ey) / 2.0;
-        double r      = Math.Sqrt((ex - ey) * (ex - ey) / 4.0 + gxy * gxy / 4.0);
-        return avg + r;
     }
 
     // ------------------------------------------------------------------ bar check helpers
