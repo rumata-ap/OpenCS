@@ -115,7 +115,7 @@ namespace OpenCS.ViewModels
          Areas.Add(avm);
          SelectedArea = avm;
          RefreshPlot();
-         App.IsDirty = true;
+         App.MarkDirty(SaveCategory.CrossSections);
       }
 
       void RemoveArea(MaterialAreaVM? avm)
@@ -126,7 +126,7 @@ namespace OpenCS.ViewModels
          Areas.Remove(avm);
          if (SelectedArea == avm) SelectedArea = null;
          RefreshPlot();
-         App.IsDirty = true;
+         App.MarkDirty(SaveCategory.CrossSections);
       }
 
       void OpenMeshForArea(MaterialAreaVM? avm)
@@ -155,7 +155,7 @@ namespace OpenCS.ViewModels
             App.CrossSections.Add(_model);
             App.RefreshSectionLiveCollections();
          }
-         App.IsDirty = true;
+         App.MarkDirty(SaveCategory.CrossSections);
       }
    }
 }

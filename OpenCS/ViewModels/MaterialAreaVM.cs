@@ -293,7 +293,6 @@ namespace OpenCS.ViewModels
          else
          {
             App.RefreshMaterialAreaLiveCollections();
-            App.IsDirty = true;
          }
       }
 
@@ -351,7 +350,6 @@ namespace OpenCS.ViewModels
          OnPropertyChanged(nameof(Hull));
          RefreshPlot();
          App.db.SaveContour(hull);
-         App.IsDirty = true;
          App.LogService.Info($"Контур области сдвинут на ({dx}, {dy})");
       }
 

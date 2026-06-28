@@ -9,6 +9,7 @@ using System.Text.Json.Serialization;
 
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 
 namespace OpenCS.Utilites
 {
@@ -21,6 +22,7 @@ namespace OpenCS.Utilites
    {
       private SqliteConnection _connection;
       private string _dataSource;
+      private SaveCategory _pendingSave = SaveCategory.None;
       private static readonly JsonSerializerOptions _jsonSettings = new()
       {
          DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -644,15 +646,57 @@ namespace OpenCS.Utilites
 
       public void SaveAll()
       {
-         foreach (var m in Materials) SaveMaterial(m);
-         foreach (var c in Contours) SaveContour(c);
-         foreach (var c in Circles) SaveCircle(c);
-         foreach (var d in Diagrams) SaveDiagram(d);
-         foreach (var sec in CrossSections) SaveCrossSection(sec);
-         foreach (var fs in ForceSets) SaveForceSet(fs);
-         foreach (var ps in PlateSections) SavePlateSection(ps);
-         foreach (var fire in FireSections) SaveFireSection(fire);
-         foreach (var ct in CalcTasks) SaveCalcTask(ct);
+         if (_pendingSave.HasFlag(SaveCategory.Materials))
+         {
+            foreach (var m in Materials) SaveMaterial(m);
+         }
+         if (_pendingSave.HasFlag(SaveCategory.Contours))
+         {
+            foreach (var c in Contours) SaveContour(c);
+         }
+         if (_pendingSave.HasFlag(SaveCategory.Circles))
+         {
+            foreach (var c in Circles) SaveCircle(c);
+         }
+         if (_pendingSave.HasFlag(SaveCategory.Diagrams))
+         {
+            foreach (var d in Diagrams) SaveDiagram(d);
+         }
+         if (_pendingSave.HasFlag(SaveCategory.CrossSections))
+         {
+            foreach (var sec in CrossSections) SaveCrossSection(sec);
+         }
+         foreach (var fs in ForceSets)
+         {
+            if (fs.IsModified)
+               SaveForceSet(fs);
+         }
+         if (_pendingSave.HasFlag(SaveCategory.PlateSections))
+         {
+            foreach (var ps in PlateSections) SavePlateSection(ps);
+         }
+         if (_pendingSave.HasFlag(SaveCategory.FireSections))
+         {
+            foreach (var fire in FireSections) SaveFireSection(fire);
+         }
+         if (_pendingSave.HasFlag(SaveCategory.CalcTasks))
+         {
+            foreach (var ct in CalcTasks) SaveCalcTask(ct);
+         }
+         ClearPendingSave();
+      }
+
+      /// <summary>Есть ли несохранённые изменения, требующие SaveAll.</summary>
+      public bool NeedsSave =>
+         _pendingSave != SaveCategory.None || ForceSets.Any(fs => fs.IsModified);
+
+      public void MarkPending(SaveCategory category) => _pendingSave |= category;
+
+      public void ClearPendingSave()
+      {
+         _pendingSave = SaveCategory.None;
+         foreach (var fs in ForceSets)
+            fs.IsModified = false;
       }
 
       internal void ClearCollections()
@@ -1492,7 +1536,11 @@ namespace OpenCS.Utilites
                });
             }
          }
-         foreach (var fs in sets.Values) ForceSets.Add(fs);
+         foreach (var fs in sets.Values)
+         {
+            fs.IsModified = false;
+            ForceSets.Add(fs);
+         }
       }
 
       public void SaveForceSet(ForceSet fs)
@@ -1617,6 +1665,7 @@ namespace OpenCS.Utilites
             ins.Parameters.AddWithValue("@qy",  item.Qy);
             item.Id = (int)(long)ins.ExecuteScalar()!;
          }
+         fs.IsModified = false;
       }
 
       public void DeleteForceSet(ForceSet fs)

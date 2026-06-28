@@ -77,6 +77,9 @@ namespace CScore
       public List<LoadItem>      Items      { get; set; } = [];
       public List<ShellLoadItem> ShellItems { get; set; } = [];
 
+      /// <summary>Признак изменений в памяти, ещё не записанных через SaveAll.</summary>
+      public bool IsModified { get; set; }
+
       public override string ToString() => $"{Num:D3}#ForceSet : {Tag}";
    }
 }

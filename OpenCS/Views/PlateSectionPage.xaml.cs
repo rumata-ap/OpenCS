@@ -309,7 +309,6 @@ namespace OpenCS.ViewModels
          App.db.SavePlateSection(_model);
          if (!App.PlateSections.Contains(_model))
             App.PlateSections.Add(_model);
-         App.IsDirty = true;
       }
 
       void Delete()
@@ -321,7 +320,6 @@ namespace OpenCS.ViewModels
          if (res != System.Windows.MessageBoxResult.Yes) return;
          App.db.DeletePlateSection(_model);
          App.CurrentPage = null!;
-         App.IsDirty = true;
       }
    }
 }

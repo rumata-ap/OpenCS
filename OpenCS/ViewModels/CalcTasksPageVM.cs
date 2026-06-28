@@ -106,7 +106,6 @@ namespace OpenCS.ViewModels
          var ct = dlg.Result;
          ct.Num = _app.CalcTasks.Count > 0 ? _app.CalcTasks.Max(t => t.Num) + 1 : 1;
          _app.db.SaveCalcTask(ct);
-         _app.IsDirty = true;
          _app.LogService.Info(string.Format(Loc.S("CalcTaskCreated"), ct.Tag));
 
          if (ct.Kind == "prestress_loss")
@@ -132,7 +131,6 @@ namespace OpenCS.ViewModels
          ct.CalcType    = src.CalcType;
          ct.ParamsJson  = src.ParamsJson;
          _app.db.SaveCalcTask(ct);
-         _app.IsDirty = true;
          RebuildTaskVMs();
 
          if (ct.Kind == "prestress_loss")
@@ -195,7 +193,6 @@ namespace OpenCS.ViewModels
             FireSections = _app.FireSections
          });
          _app.db.SaveCalcResult(result);
-         _app.IsDirty = true;
          RefreshResults();
 
          var statusKey = result.Status switch
@@ -231,14 +228,12 @@ namespace OpenCS.ViewModels
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
          if (res != MessageBoxResult.Yes) return;
          _app.db.DeleteCalcTask(SelectedTask.Model);
-         _app.IsDirty = true;
       }
 
       void DeleteResult()
       {
          if (SelectedResult == null) return;
          _app.db.DeleteCalcResult(SelectedResult);
-         _app.IsDirty = true;
          RefreshResults();
       }
    }

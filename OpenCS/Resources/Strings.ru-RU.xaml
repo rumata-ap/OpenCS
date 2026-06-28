@@ -315,6 +315,7 @@
      <system:String x:Key="ProjectOpenError">Ошибка при открытии проекта: {0}</system:String>
      <system:String x:Key="NotSqliteDatabase">Выбранный файл не является базой данных SQLite</system:String>
     <system:String x:Key="ProjectSaved">Проект сохранен</system:String>
+    <system:String x:Key="SavingProject">Сохранение проекта…</system:String>
     <system:String x:Key="ProjectSaveError">Ошибка при сохранении проекта: {0}</system:String>
     <system:String x:Key="SaveProjectAs">Сохранить проект как</system:String>
     <system:String x:Key="ProjectSavedPath">Проект сохранен: {0}</system:String>

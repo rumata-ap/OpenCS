@@ -15,11 +15,15 @@ namespace OpenCS.ViewModels
    public class LoadItemVM : ViewModelBase
    {
       readonly LoadItem _model;
+      readonly Action? _onChanged;
 
-      public LoadItemVM(LoadItem model)
+      public LoadItemVM(LoadItem model, Action? onChanged = null)
       {
          _model = model;
+         _onChanged = onChanged;
       }
+
+      void Touch() => _onChanged?.Invoke();
 
       public LoadItem Model => _model;
 
@@ -28,43 +32,43 @@ namespace OpenCS.ViewModels
       public string Label
       {
          get => _model.Label;
-         set { _model.Label = value; OnPropertyChanged(); }
+         set { _model.Label = value; Touch(); OnPropertyChanged(); }
       }
 
       public double N
       {
          get => _model.N;
-         set { _model.N = value; OnPropertyChanged(); }
+         set { _model.N = value; Touch(); OnPropertyChanged(); }
       }
 
       public double Mx
       {
          get => _model.Mx;
-         set { _model.Mx = value; OnPropertyChanged(); }
+         set { _model.Mx = value; Touch(); OnPropertyChanged(); }
       }
 
       public double My
       {
          get => _model.My;
-         set { _model.My = value; OnPropertyChanged(); }
+         set { _model.My = value; Touch(); OnPropertyChanged(); }
       }
 
       public double Vx
       {
          get => _model.Vx;
-         set { _model.Vx = value; OnPropertyChanged(); }
+         set { _model.Vx = value; Touch(); OnPropertyChanged(); }
       }
 
       public double Vy
       {
          get => _model.Vy;
-         set { _model.Vy = value; OnPropertyChanged(); }
+         set { _model.Vy = value; Touch(); OnPropertyChanged(); }
       }
 
       public double T
       {
          get => _model.T;
-         set { _model.T = value; OnPropertyChanged(); }
+         set { _model.T = value; Touch(); OnPropertyChanged(); }
       }
    }
 
@@ -72,14 +76,16 @@ namespace OpenCS.ViewModels
    public class BarForceSetVM : ViewModelBase
    {
       readonly ForceSet _model;
+      readonly Action _touchSet;
       LoadItemVM? _selectedItem;
 
       public BarForceSetVM(ForceSet model, AppViewModel app)
       {
          _model = model;
          App = app;
+         _touchSet = () => App.TouchForceSet(_model);
          Items = new ObservableCollection<LoadItemVM>(
-            model.Items.ConvertAll(i => new LoadItemVM(i)));
+            model.Items.ConvertAll(i => new LoadItemVM(i, _touchSet)));
 
          AddItemCommand       = new RelayCommand(_ => AddItem());
          DeleteItemCommand    = new RelayCommand(_ => DeleteItem());
@@ -96,7 +102,7 @@ namespace OpenCS.ViewModels
       public string Tag
       {
          get => _model.Tag;
-         set { _model.Tag = value; OnPropertyChanged(); }
+         set { _model.Tag = value; App.TouchForceSet(_model); OnPropertyChanged(); }
       }
 
       public string Kind => _model.Kind;
@@ -121,10 +127,10 @@ namespace OpenCS.ViewModels
       {
          var item = new LoadItem { Label = $"{Items.Count + 1}" };
          _model.Items.Add(item);
-         var vm = new LoadItemVM(item);
+         var vm = new LoadItemVM(item, _touchSet);
          Items.Add(vm);
          SelectedItem = vm;
-         App.IsDirty = true;
+         App.TouchForceSet(_model);
       }
 
       void DuplicateItem()
@@ -143,13 +149,13 @@ namespace OpenCS.ViewModels
          if (idx >= 0) _model.Items.Insert(idx + 1, item);
          else _model.Items.Add(item);
 
-         var vm = new LoadItemVM(item);
+         var vm = new LoadItemVM(item, _touchSet);
          int vmIdx = Items.IndexOf(_selectedItem);
          if (vmIdx >= 0) Items.Insert(vmIdx + 1, vm);
          else Items.Add(vm);
 
          SelectedItem = vm;
-         App.IsDirty = true;
+         App.TouchForceSet(_model);
       }
 
       void DeleteItem()
@@ -158,7 +164,7 @@ namespace OpenCS.ViewModels
          _model.Items.Remove(_selectedItem.Model);
          Items.Remove(_selectedItem);
          SelectedItem = null;
-         App.IsDirty = true;
+         App.TouchForceSet(_model);
       }
 
       void ExportCsv()
@@ -230,9 +236,9 @@ namespace OpenCS.ViewModels
             {
                rows[i].Num = i + 1;
                _model.Items.Add(rows[i]);
-               Items.Add(new LoadItemVM(rows[i]));
+               Items.Add(new LoadItemVM(rows[i], _touchSet));
             }
-            App.IsDirty = true;
+            App.TouchForceSet(_model);
          }
          catch (System.Exception ex)
          {
@@ -264,7 +270,6 @@ namespace OpenCS.ViewModels
          App.db.SaveForceSet(_model);
          if (!App.ForceSets.Contains(_model))
             App.ForceSets.Add(_model);
-         App.IsDirty = true;
       }
 
       // Порт _make_duplicate_label из GreenSectionPy

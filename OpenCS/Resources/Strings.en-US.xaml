@@ -312,6 +312,7 @@
      <system:String x:Key="ProjectOpenError">Error opening project: {0}</system:String>
      <system:String x:Key="NotSqliteDatabase">The selected file is not a SQLite database</system:String>
     <system:String x:Key="ProjectSaved">Project saved</system:String>
+    <system:String x:Key="SavingProject">Saving project…</system:String>
     <system:String x:Key="ProjectSaveError">Error saving project: {0}</system:String>
     <system:String x:Key="SaveProjectAs">Save Project As</system:String>
     <system:String x:Key="ProjectSavedPath">Project saved: {0}</system:String>

@@ -562,7 +562,6 @@ namespace OpenCS.ViewModels
             else
             {
                 App.RefreshMaterialAreaLiveCollections();
-                App.IsDirty = true;
             }
             App.LogService.Info($"Группа арматуры «{area.Tag}» сохранена");
         }

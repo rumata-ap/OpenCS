@@ -278,7 +278,6 @@ namespace OpenCS.Views
       {
          ApplyFormToModel();
          _app.db.SaveFireSection(_model);
-         _app.IsDirty = true;
          LastRunInfo = Loc.S("FireSection_Saved");
          _app.LogService.Info(string.Format(Loc.S("FireSection_SavedLog"), _model.Tag));
       }
@@ -301,7 +300,6 @@ namespace OpenCS.Views
 
             var result = FireThermalService.Run(_model, section, ResolveAggregateType(section));
             int resultId = _app.db.SaveFireThermalResult(_model.Id, result);
-            _app.IsDirty = true;
             RefreshThermalResult();
             LastRunInfo = string.Format(Loc.S("FireSection_RunOk"), resultId);
             _app.LogService.Info(string.Format(Loc.S("FireSection_RunOkLog"), _model.Tag, resultId));

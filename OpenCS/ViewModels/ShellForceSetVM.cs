@@ -1,3 +1,4 @@
+using System;
 using CScore;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -15,14 +16,16 @@ namespace OpenCS.ViewModels
    public class ShellForceSetVM : ViewModelBase
    {
       readonly ForceSet _model;
+      readonly Action _touchSet;
       ShellLoadItemVM? _selectedItem;
 
       public ShellForceSetVM(ForceSet model, AppViewModel app)
       {
          _model = model;
          App    = app;
+         _touchSet = () => App.TouchForceSet(_model);
          Items  = new ObservableCollection<ShellLoadItemVM>(
-            model.ShellItems.ConvertAll(i => new ShellLoadItemVM(i)));
+            model.ShellItems.ConvertAll(i => new ShellLoadItemVM(i, _touchSet)));
 
          AddItemCommand       = new RelayCommand(_ => AddItem());
          DeleteItemCommand    = new RelayCommand(_ => DeleteItem());
@@ -39,7 +42,7 @@ namespace OpenCS.ViewModels
       public string Tag
       {
          get => _model.Tag;
-         set { _model.Tag = value; OnPropertyChanged(); }
+         set { _model.Tag = value; App.TouchForceSet(_model); OnPropertyChanged(); }
       }
 
       public ObservableCollection<ShellLoadItemVM> Items { get; }
@@ -62,10 +65,10 @@ namespace OpenCS.ViewModels
       {
          var item = new ShellLoadItem { Label = $"{Items.Count + 1}" };
          _model.ShellItems.Add(item);
-         var vm = new ShellLoadItemVM(item);
+         var vm = new ShellLoadItemVM(item, _touchSet);
          Items.Add(vm);
          SelectedItem = vm;
-         App.IsDirty = true;
+         App.TouchForceSet(_model);
       }
 
       void DuplicateItem()
@@ -84,13 +87,13 @@ namespace OpenCS.ViewModels
          if (idx >= 0) _model.ShellItems.Insert(idx + 1, item);
          else _model.ShellItems.Add(item);
 
-         var vm = new ShellLoadItemVM(item);
+         var vm = new ShellLoadItemVM(item, _touchSet);
          int vmIdx = Items.IndexOf(_selectedItem);
          if (vmIdx >= 0) Items.Insert(vmIdx + 1, vm);
          else Items.Add(vm);
 
          SelectedItem = vm;
-         App.IsDirty = true;
+         App.TouchForceSet(_model);
       }
 
       void DeleteItem()
@@ -99,7 +102,7 @@ namespace OpenCS.ViewModels
          _model.ShellItems.Remove(_selectedItem.Model);
          Items.Remove(_selectedItem);
          SelectedItem = null;
-         App.IsDirty = true;
+         App.TouchForceSet(_model);
       }
 
       void OpenSP20Dialog()
@@ -173,9 +176,9 @@ namespace OpenCS.ViewModels
             {
                rows[i].Num = i + 1;
                _model.ShellItems.Add(rows[i]);
-               Items.Add(new ShellLoadItemVM(rows[i]));
+               Items.Add(new ShellLoadItemVM(rows[i], _touchSet));
             }
-            App.IsDirty = true;
+            App.TouchForceSet(_model);
          }
          catch (System.Exception ex)
          {
@@ -197,8 +200,7 @@ namespace OpenCS.ViewModels
                ? App.ShellForceSets.Max(s => s.Num) + 1 : 1;
          App.db.SaveForceSet(_model);
          if (!App.ForceSets.Contains(_model))
-            App.ForceSets.Add(_model);  // CollectionChanged в AppViewModel добавит в ShellForceSets
-         App.IsDirty = true;
+            App.ForceSets.Add(_model);
       }
 
       static string MakeDuplicateLabel(string src, System.Collections.Generic.List<ShellLoadItem> items)

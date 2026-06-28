@@ -240,7 +240,6 @@ namespace OpenCS.ViewModels
             ? _app.ForceSets.Max(s => s.Num) + 1 : 1;
          _app.db.SaveForceSet(fs);
          _app.ForceSets.Add(fs);
-         _app.IsDirty = true;
       }
    }
 }

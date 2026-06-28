@@ -124,10 +124,34 @@ namespace OpenCS
       public string? CurrentProjectPath { get; private set; }
 
       /// <summary>
-      /// Признак наличия несохранённых изменений. Устанавливается при изменении данных,
-      /// сбрасывается при сохранении или после загрузки проекта.
+      /// Признак несохранённых изменений (данные в памяти, требующие SaveAll).
       /// </summary>
-      public bool IsDirty { get; set; }
+      public bool IsDirty => db.NeedsSave;
+
+      /// <summary>Пометить категорию данных для SaveAll и обновить привязки.</summary>
+      public void MarkDirty(SaveCategory category = SaveCategory.None)
+      {
+         if (category != SaveCategory.None)
+            db.MarkPending(category);
+         NotifyDirtyChanged();
+      }
+
+      /// <summary>Обновить привязку IsDirty без изменения состояния.</summary>
+      public void NotifyDirtyChanged() => OnPropertyChanged(nameof(IsDirty));
+
+      /// <summary>Сбросить все признаки несохранённых изменений.</summary>
+      public void ClearDirty()
+      {
+         db.ClearPendingSave();
+         NotifyDirtyChanged();
+      }
+
+      /// <summary>Пометить набор усилий изменённым (отложенное SaveAll).</summary>
+      public void TouchForceSet(ForceSet fs)
+      {
+         fs.IsModified = true;
+         NotifyDirtyChanged();
+      }
 
       /// <summary>
       /// Генерируется когда <see cref="MaterialArea.SigSp"/> изменяется извне (например,
@@ -843,8 +867,14 @@ namespace OpenCS
 
          if (CurrentProjectPath != null && IsDirty)
          {
-            try { db.SaveAll(); } catch { }
-            IsDirty = false;
+            try
+            {
+               BeginBusy(Loc.S("SavingProject"));
+               db.SaveAll();
+               ClearDirty();
+            }
+            catch { }
+            finally { EndBusy(); }
             return true;
          }
 
@@ -856,7 +886,7 @@ namespace OpenCS
 
          if (result == MessageBoxResult.Yes)
          {
-            SaveProject();
+            SaveProjectInternal();
             return CurrentProjectPath != null;
          }
          if (result == MessageBoxResult.No)
@@ -868,7 +898,7 @@ namespace OpenCS
       /// <summary>
       /// Сохраняет проект. Если путь не задан — показывает диалог «Сохранить как».
       /// </summary>
-      void SaveProject()
+      void SaveProjectInternal()
       {
          if (CurrentProjectPath == null)
          {
@@ -877,13 +907,18 @@ namespace OpenCS
          }
          try
          {
+            BeginBusy(Loc.S("SavingProject"));
             db.SaveAll();
-            IsDirty = false;
+            ClearDirty();
             LogService.Info(Loc.S("ProjectSaved"));
          }
          catch (Exception ex)
          {
             LogService.Error(string.Format(Loc.S("ProjectSaveError"), ex.Message));
+         }
+         finally
+         {
+            EndBusy();
          }
       }
 
@@ -897,13 +932,12 @@ namespace OpenCS
          Contours = db.Contours;
          Diagrams = db.Diagrams;
          CrossSections = db.CrossSections;
-         CrossSections.CollectionChanged += (_, _) => IsDirty = true;
+         CrossSections.CollectionChanged += (_, _) => MarkDirty(SaveCategory.CrossSections);
          ForceSets = db.ForceSets;
          BarForceSets   = new ObservableCollection<ForceSet>(ForceSets.Where(fs => fs.Kind == "bar"));
          ShellForceSets = new ObservableCollection<ForceSet>(ForceSets.Where(fs => fs.Kind == "shell"));
          ForceSets.CollectionChanged += (_, e) =>
          {
-            IsDirty = true;
             if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
             {
                BarForceSets.Clear();
@@ -911,11 +945,15 @@ namespace OpenCS
                return;
             }
             if (e.NewItems != null)
+            {
                foreach (ForceSet fs in e.NewItems)
                {
+                  if (fs.Id == 0 || fs.IsModified)
+                     TouchForceSet(fs);
                   if (fs.Kind == "shell") { if (!ShellForceSets.Contains(fs)) ShellForceSets.Add(fs); }
                   else                    { if (!BarForceSets.Contains(fs))   BarForceSets.Add(fs); }
                }
+            }
             if (e.OldItems != null)
                foreach (ForceSet fs in e.OldItems)
                {
@@ -924,13 +962,13 @@ namespace OpenCS
                }
          };
          PlateSections = db.PlateSections;
-         PlateSections.CollectionChanged += (_, _) => { RefreshPlateSectionsLive(); IsDirty = true; };
+         PlateSections.CollectionChanged += (_, _) => { RefreshPlateSectionsLive(); MarkDirty(SaveCategory.PlateSections); };
          RefreshPlateSectionsLive();
          FireSections = db.FireSections;
          FireSections.CollectionChanged += (_, _) =>
          {
             RenumberFireSections();
-            IsDirty = true;
+            MarkDirty(SaveCategory.FireSections);
          };
          RenumberFireSections();
          CalcTasks   = db.CalcTasks;
@@ -938,17 +976,16 @@ namespace OpenCS
          FemSchemas  = db.FemSchemas;
          FemChecks   = db.FemChecks;
          BuildFemRootNodes();
-         CalcTasks.CollectionChanged   += (_, _) => IsDirty = true;
-         CalcResults.CollectionChanged += (_, _) => IsDirty = true;
+         CalcTasks.CollectionChanged += (_, _) => MarkDirty(SaveCategory.CalcTasks);
          MaterialAreas = db.MaterialAreas;
-         MaterialAreas.CollectionChanged += (_, _) => { RefreshMaterialAreaLiveCollections(); IsDirty = true; };
+         MaterialAreas.CollectionChanged += (_, _) => RefreshMaterialAreaLiveCollections();
 
          Materials.CollectionChanged += Concretes_CollectionChanged;
          Contours.CollectionChanged += Contours_CollectionChanged;
-         Materials.CollectionChanged += (_, _) => IsDirty = true;
-         Contours.CollectionChanged += (_, _) => IsDirty = true;
-         Circles.CollectionChanged += (_, _) => IsDirty = true;
-         Diagrams.CollectionChanged += (_, _) => IsDirty = true;
+         Materials.CollectionChanged += (_, _) => MarkDirty(SaveCategory.Materials);
+         Contours.CollectionChanged += (_, _) => MarkDirty(SaveCategory.Contours);
+         Circles.CollectionChanged += (_, _) => MarkDirty(SaveCategory.Circles);
+         Diagrams.CollectionChanged += (_, _) => MarkDirty(SaveCategory.Diagrams);
          MaterialsSort();
 
          this.ContoursRenumber();
@@ -1500,7 +1537,6 @@ namespace OpenCS
             db.SaveForceSet(fs);
             ForceSets.Add(fs);
          }
-         IsDirty = true;
          LogService.Info(string.Format(Loc.S("ImportLiraSuccess"),
             import.ForceSets.Count, Path.GetFileName(fileName)));
       }
@@ -1535,7 +1571,7 @@ namespace OpenCS
          RefreshMaterialAreaLiveCollections();
          RefreshSectionLiveCollections();
          RefreshPlateSectionsLive();
-         IsDirty = false;
+         ClearDirty();
       }
 
       /// <summary>
@@ -1609,20 +1645,7 @@ namespace OpenCS
       /// </summary>
       private void SaveProject(object? o = null)
       {
-         if (CurrentProjectPath == null)
-         {
-            SaveAsProject(o);
-            return;
-         }
-         try
-         {
-            db.SaveAll();
-             LogService.Info(Loc.S("ProjectSaved"));
-          }
-          catch (Exception ex)
-          {
-             LogService.Error(string.Format(Loc.S("ProjectSaveError"), ex.Message));
-         }
+         SaveProjectInternal();
       }
 
       /// <summary>
@@ -1640,7 +1663,7 @@ namespace OpenCS
          {
              db.SaveAs(path);
              CurrentProjectPath = path;
-             IsDirty = false;
+             ClearDirty();
              OnPropertyChanged(nameof(ProjectTitle));
             OnPropertyChanged(nameof(ProjectFileName));
             LogService.Info(string.Format(Loc.S("ProjectSavedPath"), path));
@@ -1808,7 +1831,6 @@ namespace OpenCS
          currentCrossSection = null;
          CurrentPage = null!;
          OnPropertyChanged(nameof(CurrentCrossSection));
-         IsDirty = true;
       }
 
       public void RemoveMaterialArea(ViewModels.MaterialAreaVM vm)
@@ -1816,7 +1838,7 @@ namespace OpenCS
          var sec = CrossSections.FirstOrDefault(s => s.Areas.Contains(vm.Model));
          if (sec == null) return;
          sec.Areas.Remove(vm.Model);
-         IsDirty = true;
+         MarkDirty(SaveCategory.CrossSections);
       }
 
       void NewBarForceSet()
@@ -1853,7 +1875,6 @@ namespace OpenCS
             CurrentPage = null!;
             OnPropertyChanged(nameof(CurrentShellForceSet));
          }
-         IsDirty = true;
       }
 
       void SetForceSetLoadType(CScore.ForceSet? fs)
@@ -1868,7 +1889,6 @@ namespace OpenCS
          var col = fs.Kind == "shell" ? ShellForceSets : BarForceSets;
          int idx = col.IndexOf(fs);
          if (idx >= 0) { col.RemoveAt(idx); col.Insert(idx, fs); }
-         IsDirty = true;
       }
 
       void DuplicateForceSet(CScore.ForceSet? src)
@@ -1896,7 +1916,6 @@ namespace OpenCS
          for (int i = 0; i < copy.ShellItems.Count; i++) copy.ShellItems[i].Num = i + 1;
          db.SaveForceSet(copy);
          ForceSets.Add(copy);
-         IsDirty = true;
       }
 
       public void RefreshMaterialAreaLiveCollections()
@@ -1959,7 +1978,6 @@ namespace OpenCS
          currentMaterialArea = null;
          CurrentPage = null!;
          OnPropertyChanged(nameof(CurrentMaterialArea));
-         IsDirty = true;
       }
 
       void NewPlateSection()
@@ -1984,7 +2002,6 @@ namespace OpenCS
             CurrentPage = null!;
             OnPropertyChanged(nameof(CurrentPlateSection));
          }
-         IsDirty = true;
       }
 
       void DuplicatePlateSection(CScore.PlateSection? src)
@@ -2013,7 +2030,6 @@ namespace OpenCS
          copy.Num = PlateSections.Count > 0 ? PlateSections.Max(s => s.Num) + 1 : 1;
          db.SavePlateSection(copy);
          PlateSections.Add(copy);
-         IsDirty = true;
       }
 
       void NewFireSection()
@@ -2029,7 +2045,6 @@ namespace OpenCS
          db.SaveFireSection(section);
          RenumberFireSections();
          CurrentFireSection = section;
-         IsDirty = true;
       }
 
       void RenameFireSection()
@@ -2054,7 +2069,6 @@ namespace OpenCS
          OnPropertyChanged(nameof(FireSections));
          OnPropertyChanged(nameof(CurrentFireSection));
          CurrentPage = new Views.FireSectionView(CurrentFireSection, this);
-         IsDirty = true;
       }
 
       void DeleteFireSection()
@@ -2072,7 +2086,6 @@ namespace OpenCS
          RenumberFireSections();
          CurrentFireSection = null;
          CurrentPage = null!;
-         IsDirty = true;
       }
 
       void NewCalcTask(string? groupKey = null)
@@ -2085,7 +2098,6 @@ namespace OpenCS
          var ct = dlg.Result;
          ct.Num = CalcTasks.Count > 0 ? CalcTasks.Max(t => t.Num) + 1 : 1;
          db.SaveCalcTask(ct);
-         IsDirty = true;
          LogService.Info(string.Format(Loc.S("CalcTaskCreated"), ct.Tag));
       }
 
@@ -2130,7 +2142,6 @@ namespace OpenCS
             FireSections = FireSections
          });
          db.SaveCalcResult(result);
-         IsDirty = true;
          var statusKey = result.Status switch
          {
             "ok"            => "CalcResultOk",
@@ -2160,7 +2171,6 @@ namespace OpenCS
          ct.CalcType    = src.CalcType;
          ct.ParamsJson  = src.ParamsJson;
          db.SaveCalcTask(ct);
-         IsDirty = true;
          CalcTaskModified?.Invoke();
       }
 
@@ -2171,7 +2181,6 @@ namespace OpenCS
             MessageBoxButton.YesNo, MessageBoxImage.Warning);
          if (res != MessageBoxResult.Yes) return;
          db.DeleteCalcTask(ct);
-         IsDirty = true;
       }
 
       private record CircleCsvRow
@@ -2352,7 +2361,6 @@ namespace OpenCS
                Services.LiraApiForceImporter.ReadLoadCaseForces(schema, elemIds, liraSettings, memberTagCapture));
 
             SaveImportedForceSets(forceSets, member.Id);
-            IsDirty = true;
             string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
             LogService.Info(done);
             EndBusy(done);
@@ -2410,7 +2418,6 @@ namespace OpenCS
                Services.LiraApiForceImporter.ReadLoadCombinationForces(schema, elemIds, liraSettings, memberTagCapture));
 
             SaveImportedForceSets(forceSets, member.Id);
-            IsDirty = true;
             string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
             LogService.Info(done);
             EndBusy(done);
@@ -2456,7 +2463,6 @@ namespace OpenCS
                Services.LiraApiForceImporter.ReadDesignCombinationForces(schema, elemIds, liraSettings, memberTagCapture));
 
             SaveImportedForceSets(forceSets, member.Id);
-            IsDirty = true;
             string done = string.Format(Loc.S("ImportLiraSuccess"), forceSets.Count, member.Tag);
             LogService.Info(done);
             EndBusy(done);
