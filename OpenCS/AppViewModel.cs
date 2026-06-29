@@ -666,6 +666,16 @@ namespace OpenCS
       public ICommand NewMaterialFromSourceCommand { get; set; } = null!;
 
       /// <summary>
+      /// Команда привязки для добавления арматуры из справочника (вкладка 1).
+      /// </summary>
+      public ICommand AddRebarCommand { get; set; } = null!;
+
+      /// <summary>
+      /// Команда привязки для добавления конструкционной стали из справочника (вкладка 2).
+      /// </summary>
+      public ICommand AddSteelCommand { get; set; } = null!;
+
+      /// <summary>
       /// Команда привязки для удаления выбранного материала
       /// с подтверждением через диалоговое окно.
       /// </summary>
@@ -1013,7 +1023,9 @@ namespace OpenCS
          AddDiagramCommand = new RelayCommand(_ => AddDiagram());
          NewContourCommand = new RelayCommand(NewContour);
           NewMaterialCommand = new RelayCommand(NewMaterial);
-          NewMaterialFromSourceCommand = new RelayCommand(_ => NewMaterialFromSource(0));
+           NewMaterialFromSourceCommand = new RelayCommand(_ => NewMaterialFromSource(0));
+          AddRebarCommand = new RelayCommand(_ => NewMaterialFromSource(1));
+          AddSteelCommand = new RelayCommand(_ => NewMaterialFromSource(2));
          DelMaterialCommand = new RelayCommand(DelMaterial);
          FromDxfCommand = new RelayCommand(FromDxf);
          DelContourCommand = new RelayCommand(DelContour);

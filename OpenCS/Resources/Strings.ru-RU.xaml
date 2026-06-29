@@ -385,6 +385,9 @@
     <system:String x:Key="TipAddCircle">Добавить окружность</system:String>
    <system:String x:Key="TipDelContour">Удалить контур</system:String>
    <system:String x:Key="TipNewMaterial">Новый материал</system:String>
+   <system:String x:Key="TipAddConcrete">Добавить бетон</system:String>
+   <system:String x:Key="TipAddRebar">Добавить арматуру</system:String>
+   <system:String x:Key="TipAddSteel">Добавить сталь</system:String>
    <system:String x:Key="TipDelMaterial">Удалить материал</system:String>
    <system:String x:Key="TipNewRCRegion">Новая армированная область</system:String>
    <system:String x:Key="TipDelRCRegion">Удалить армированную область</system:String>

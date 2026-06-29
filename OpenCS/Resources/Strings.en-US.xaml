@@ -382,6 +382,9 @@
     <system:String x:Key="TipAddCircle">Add circle</system:String>
    <system:String x:Key="TipDelContour">Delete contour</system:String>
    <system:String x:Key="TipNewMaterial">New material</system:String>
+   <system:String x:Key="TipAddConcrete">Add concrete</system:String>
+   <system:String x:Key="TipAddRebar">Add rebar</system:String>
+   <system:String x:Key="TipAddSteel">Add steel</system:String>
    <system:String x:Key="TipDelMaterial">Delete material</system:String>
    <system:String x:Key="TipNewRCRegion">New RC region</system:String>
    <system:String x:Key="TipDelRCRegion">Delete RC region</system:String>
