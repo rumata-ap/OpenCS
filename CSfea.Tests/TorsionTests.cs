@@ -56,5 +56,17 @@ public static class TorsionTests
         double[] m = PrandtlTri3.MassVector(coords);
         TestHarness.CheckRel("M_i = A/3 = 1", m[0], 1.0, 1e-9);
     }
+
+    public static void MeshBuilderSquare()
+    {
+        TestHarness.Section("MeshBuilder: сетка квадрата 1×1 с границей");
+        var boundary = new TorsionBoundary(
+            new[] { 0.0, 1.0, 1.0, 0.0 },
+            new[] { 0.0, 0.0, 1.0, 1.0 });
+        var mesh = MeshBuilder.Build(boundary, maxElementSize: 0.5);
+        TestHarness.Check("Есть узлы", mesh.NodesX.Length > 4);
+        TestHarness.Check("Есть треугольники", mesh.Triangles.Length > 0);
+        TestHarness.Check("FixedDofs непустой", mesh.FixedDofs.Length >= 4);
+    }
 }
 

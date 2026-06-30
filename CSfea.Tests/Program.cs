@@ -95,5 +95,6 @@ LiraCsvSchemaParserTests.RunAll();
 TorsionTests.SmokePropsConstruction();
 TorsionTests.BoundaryFromMaterialArea();
 TorsionTests.PrandtlTri3ElementMatrices();
+TorsionTests.MeshBuilderSquare();
 
 return TestHarness.Summary();
