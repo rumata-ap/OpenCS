@@ -402,6 +402,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CScore\CScore.csproj" />
     <ProjectReference Include="..\CScore.Fire\CScore.Fire.csproj" />
+    <ProjectReference Include="..\CSfea.Torsion\CSfea.Torsion.csproj" />
   </ItemGroup>
 
   <ItemGroup>

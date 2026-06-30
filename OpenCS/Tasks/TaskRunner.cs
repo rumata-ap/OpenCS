@@ -38,6 +38,8 @@ namespace OpenCS.Tasks
           ["shell_layered_uls_batch"]    = new ShellLayeredUlsBatchHandler(),
           ["prestress_loss"]              = new PrestressLossHandler(),
           ["steel_check"]                 = new SteelCheckHandler(),
+          ["torsion_bem"]                 = new TorsionBemHandler(),
+          ["torsion_fem"]                 = new TorsionFemHandler(),
        };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>
