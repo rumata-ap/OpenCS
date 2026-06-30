@@ -1095,7 +1095,6 @@
     <system:String x:Key="SteelCheckFail">✗</system:String>
 
     <!-- Steel check tasks -->
-    <system:String x:Key="CalcTaskGroupSteel">Steel (SP 16)</system:String>
     <system:String x:Key="CalcTaskKind_steel_central_compression">Central compression</system:String>
     <system:String x:Key="CalcTaskKind_steel_central_tension">Central tension</system:String>
     <system:String x:Key="CalcTaskKind_steel_bending">Bending</system:String>

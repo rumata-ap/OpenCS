@@ -75,6 +75,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource SteelCheckDesignLengthX}"
                                    VerticalAlignment="Center" Margin="0,0,4,4"/>
@@ -106,6 +107,11 @@
                         <TextBox   Grid.Row="2" Grid.Column="3"
                                    Text="{Binding GammaM, UpdateSourceTrigger=PropertyChanged}"
                                    Margin="0,0,0,4"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource SteelCheckDesignLengthBit}"
+                                   VerticalAlignment="Center" Margin="0,0,4,4"/>
+                        <TextBox   Grid.Row="3" Grid.Column="1"
+                                   Text="{Binding DesignLengthBit, UpdateSourceTrigger=PropertyChanged}"
+                                   Margin="0,0,8,4"/>
                     </Grid>
                 </GroupBox>
 

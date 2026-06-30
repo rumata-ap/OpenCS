@@ -1098,7 +1098,6 @@
     <system:String x:Key="SteelCheckFail">✗</system:String>
 
     <!-- Отдельные задачи проверки стали -->
-    <system:String x:Key="CalcTaskGroupSteel">Сталь (СП 16)</system:String>
     <system:String x:Key="CalcTaskKind_steel_central_compression">Центральное сжатие</system:String>
     <system:String x:Key="CalcTaskKind_steel_central_tension">Центральное растяжение</system:String>
     <system:String x:Key="CalcTaskKind_steel_bending">Изгиб</system:String>

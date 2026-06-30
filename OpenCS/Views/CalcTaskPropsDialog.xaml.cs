@@ -198,7 +198,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsTwoStage      => Kind is "two_stage_strain" or "two_stage_strain_batch";
    public bool IsTwoStageBatch => Kind == "two_stage_strain_batch";
    public bool IsPrestressLoss => Kind == "prestress_loss";
-   public bool IsSteelCheck => Kind == "steel_check";
+    public bool IsSteelCheck => Kind is "steel_check" or
+        "steel_central_compression" or "steel_central_tension" or
+        "steel_bending" or "steel_compression_bending" or
+        "steel_tension_bending" or "steel_shear" or
+        "steel_torsion" or "steel_constructive";
    public bool IsTorsion => Kind is "torsion_bem" or "torsion_fem";
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss;
    public bool ShowSolverMethod => IsLimitKind;
@@ -466,7 +470,15 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shell_simpl_capri_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls_batch"), GroupKey = "uls", Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_layered_uls",       Label = Loc.S("CalcTaskKind_shell_layered_uls"),       GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_layered_uls_batch", Label = Loc.S("CalcTaskKind_shell_layered_uls_batch"), GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
-      new() { Id = "steel_check",              Label = Loc.S("CalcTaskKind_steel_check"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+       new() { Id = "steel_check",              Label = Loc.S("CalcTaskKind_steel_check"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+       new() { Id = "steel_central_compression",Label = Loc.S("CalcTaskKind_steel_central_compression"),GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+       new() { Id = "steel_central_tension",    Label = Loc.S("CalcTaskKind_steel_central_tension"),    GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+       new() { Id = "steel_bending",            Label = Loc.S("CalcTaskKind_steel_bending"),            GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+       new() { Id = "steel_compression_bending",Label = Loc.S("CalcTaskKind_steel_compression_bending"),GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+       new() { Id = "steel_tension_bending",    Label = Loc.S("CalcTaskKind_steel_tension_bending"),    GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+       new() { Id = "steel_shear",              Label = Loc.S("CalcTaskKind_steel_shear"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+       new() { Id = "steel_torsion",            Label = Loc.S("CalcTaskKind_steel_torsion"),            GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+       new() { Id = "steel_constructive",       Label = Loc.S("CalcTaskKind_steel_constructive"),       GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       // Прочее
       new() { Id = "torsion_bem",              Label = Loc.S("CalcTaskKind_torsion_bem"),              GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "torsion_fem",              Label = Loc.S("CalcTaskKind_torsion_fem"),              GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
@@ -650,6 +662,26 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              SelectedShellSimplSection = ShellSimplSections.FirstOrDefault(s => s.Id == existing.SectionId);
              if (existing.ForceSetId != 0)
                  SelectedShellForceSet = ShellForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
+          }
+
+          // Загрузка параметров стальных задач при редактировании
+          if (IsSteelCheck && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
+          {
+              var sp = SteelCheckParams.Parse(existing.ParamsJson);
+              var inv = System.Globalization.CultureInfo.InvariantCulture;
+              SteelDesignLengthX = sp.DesignLengthX.ToString("G6", inv);
+              SteelDesignLengthY = sp.DesignLengthY.ToString("G6", inv);
+              SteelMuX = sp.MuX.ToString("G6", inv);
+              SteelMuY = sp.MuY.ToString("G6", inv);
+              SteelBetaM = sp.BetaM.ToString("G6", inv);
+              SteelGammaM = sp.GammaM.ToString("G6", inv);
+
+              if (sp.ManualForces != null)
+              {
+                  ManualN  = sp.ManualForces.N .ToString("G6", inv);
+                  ManualMx = sp.ManualForces.Mx.ToString("G6", inv);
+                  ManualMy = sp.ManualForces.My.ToString("G6", inv);
+              }
           }
        }
        else
