@@ -86,5 +86,27 @@ public static class TorsionTests
         TestHarness.CheckRel("It (МКЭ)", props.It, exact, 0.03); // ≤3%
         TestHarness.Check("τ_unit_max > 0", props.TauUnitMax > 0);
     }
+
+    public static void BoundaryDiscretizeLoops()
+    {
+        TestHarness.Section("BoundaryDiscretizer: нарезка квадрата 10×10 с отверстием");
+        var boundary = new TorsionBoundary(
+            new[] { 0.0, 10.0, 10.0, 0.0 },
+            new[] { 0.0, 0.0, 10.0, 10.0 },
+            new List<(double[] X, double[] Y)>
+            {
+                (new[] { 4.0, 6.0, 6.0, 4.0 }, new[] { 4.0, 4.0, 6.0, 6.0 })
+            });
+        var d = BoundaryDiscretizer.Discretize(boundary, maxElementSize: 2.0);
+        // Внешний контур 10×10: рёбра длины 10, ceil(10/2)=5 на ребро → 20 узлов.
+        // Отверстие 2×2: рёбра длины 2, ceil(2/2)=1 на ребро → 4 узла.
+        TestHarness.Check("LoopSizes [20,4]", d.LoopSizes[0] == 20 && d.LoopSizes[1] == 4, $"loops={d.LoopSizes[0]},{d.LoopSizes[1]}");
+        TestHarness.Check("Сумма = N", d.X.Length == d.LoopSizes.Sum());
+        TestHarness.Check("Длины согласованы", d.X.Length == d.Y.Length && d.X.Length == d.J1.Length);
+        // Замыкание: последний узел внешнего контура (индекс 19) переходит в 0
+        TestHarness.Check("J1 замыкание внешнего", d.J1[19] == 0, $"J1[19]={d.J1[19]}");
+        // Замыкание отверстия: последний (индекс 23) переходит в начало отверстия (20)
+        TestHarness.Check("J1 замыкание отверстия", d.J1[23] == 20, $"J1[23]={d.J1[23]}");
+    }
 }
 
