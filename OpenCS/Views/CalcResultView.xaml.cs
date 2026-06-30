@@ -18,9 +18,19 @@ namespace OpenCS.Views
             return;
         }
 
-        if (task?.Kind == "steel_check")
+        if (task?.Kind is "steel_check" or
+            "steel_central_compression" or "steel_central_tension" or
+            "steel_bending" or "steel_compression_bending" or
+            "steel_tension_bending" or "steel_shear" or
+            "steel_torsion" or "steel_constructive")
         {
             Content = new SteelCheckResultView(result.DataJson);
+            return;
+        }
+
+        if (task?.Kind is "torsion_bem" or "torsion_fem")
+        {
+            Content = new TorsionResultView(result, app, task);
             return;
         }
 

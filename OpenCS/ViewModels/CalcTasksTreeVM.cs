@@ -102,7 +102,11 @@ class CalcTasksRootNode
             or "shell_simpl_wa_uls"    or "shell_simpl_wa_uls_batch"
             or "shell_simpl_capri_uls" or "shell_simpl_capri_uls_batch"
             or "shell_layered_uls"     or "shell_layered_uls_batch"
-            or "steel_check"                                          => "uls",
+            or "steel_check"
+            or "steel_central_compression" or "steel_central_tension"
+            or "steel_bending" or "steel_compression_bending"
+            or "steel_tension_bending" or "steel_shear"
+            or "steel_torsion"                                        => "uls",
         "shell_simpl_wa_sls"    or "shell_simpl_wa_sls_batch"
             or "shell_simpl_capri_sls" or "shell_simpl_capri_sls_batch" => "sls",
         _ when t.Kind.StartsWith("fire_", StringComparison.Ordinal)  => "fire",

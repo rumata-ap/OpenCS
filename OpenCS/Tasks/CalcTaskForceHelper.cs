@@ -11,7 +11,7 @@ internal static class CalcTaskForceHelper
    internal static bool UsesManualForces(CalcTask task)
       => task.Kind == "strain_state" || IsLimitSingleKind(task.Kind);
 
-   /// <summary>Задачи, для которых не нужна строка стержневого набора усилий (batch / ParamsJson / оболочки).</summary>
+   /// <summary>Задачи, для которых не нужна строка стержневого набора усилий (batch / ParamsJson / оболочки / сталь).</summary>
    internal static bool UsesDummyForceItem(CalcTask task) => task.Kind switch
    {
       "strain_state_batch" or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
@@ -22,7 +22,12 @@ internal static class CalcTaskForceHelper
          or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch"
          or "shell_strain_state" or "shell_strain_state_batch"
          or "shell_layered_uls" or "shell_layered_uls_batch"
-         or "strength_ndm_batch" or "prestress_loss" => true,
+         or "strength_ndm_batch" or "prestress_loss"
+          or "steel_check"
+          or "steel_central_compression" or "steel_central_tension"
+          or "steel_bending" or "steel_compression_bending"
+          or "steel_tension_bending" or "steel_shear"
+          or "steel_torsion" or "steel_constructive" => true,
       _ => false
    };
 

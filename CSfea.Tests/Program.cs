@@ -77,6 +77,10 @@ SteelSectionTests.RunGeoPropsDirect();
 SteelSectionTests.RunIBeamProperties();
 SteelCheckerTests.RunSimpleCompressionCheck();
 
+SteelClassifierTests.RunAll();
+SteelStrengthTests.RunAll();
+SteelStabilityTests.RunAll();
+
 FemCheckRunnerTests.RunExtractCalcType();
 FemCheckRunnerTests.RunExtractWorstDetail();
 FemCheckRunnerTests.RunExtractWorstDetailNoDetails();
@@ -87,5 +91,21 @@ FemCheckRunnerTests.RunLayeredSlsLtFraction();
 FemInfraTests.RunAll();
 
 LiraCsvSchemaParserTests.RunAll();
+
+TorsionTests.SmokePropsConstruction();
+TorsionTests.BoundaryFromMaterialArea();
+TorsionTests.PrandtlTri3ElementMatrices();
+TorsionTests.MeshBuilderSquare();
+TorsionTests.FemCircleItVsAnalytical();
+TorsionTests.BoundaryDiscretizeLoops();
+TorsionTests.BemKernelSlintcDiagonal();
+TorsionTests.BemCircleItVsAnalytical();
+TorsionTests.CrossValidationBemVsFem();
+TorsionTests.ConvergenceByElementSize();
+TorsionTests.RectangleTimoshenko();
+TorsionTests.HollowBoxBredt();
+TorsionTests.FemHollowCircleItVsExact();
+TorsionTests.BemHollowBoxBredt();
+TorsionTests.BemHollowCircleItVsExact();
 
 return TestHarness.Summary();
