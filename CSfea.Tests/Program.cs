@@ -104,5 +104,8 @@ TorsionTests.CrossValidationBemVsFem();
 TorsionTests.ConvergenceByElementSize();
 TorsionTests.RectangleTimoshenko();
 TorsionTests.HollowBoxBredt();
+TorsionTests.FemHollowCircleItVsExact();
+TorsionTests.BemHollowBoxBredt();
+TorsionTests.BemHollowCircleItVsExact();
 
 return TestHarness.Summary();

@@ -6,9 +6,13 @@ public static class TorsionBemSolver
     /// <summary>
     /// Решает задачу Неймана для депланации ω: Δω=0, ∂ω/∂n = y·nx − x·ny.
     /// Возвращает It, центр кручения, τ/(GΘ), поле депланации.
+    ///
+    /// Ориентация: внешний контур приводится к CCW, отверстия — к CW.
+    /// Это гарантирует правильное направление нормали для условия Неймана.
     /// </summary>
     public static TorsionProps Solve(TorsionBoundary boundary, double maxElementSize)
     {
+        boundary = EnsureOrientation(boundary);
         var d = BoundaryDiscretizer.Discretize(boundary, maxElementSize);
         var (G, H, xm, ym, enx, eny) = BemMatrices.Build(d);
         var (ub, unb, singular) = BemSystem.Solve(G, H, xm, ym, enx, eny, d);
@@ -37,5 +41,47 @@ public static class TorsionBemSolver
             Singular = false,
             NElements = xm.Length
         };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Привод ориентации контуров: внешний — CCW, отверстия — CW
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private static TorsionBoundary EnsureOrientation(TorsionBoundary b)
+    {
+        double[] outerX = b.OuterX, outerY = b.OuterY;
+        if (SignedArea(outerX, outerY) < 0)   // должно быть CCW (> 0)
+            (outerX, outerY) = Reversed(outerX, outerY);
+
+        List<(double[], double[])>? holes = null;
+        if (b.Holes is { Count: > 0 })
+        {
+            holes = new List<(double[], double[])>(b.Holes.Count);
+            foreach (var (hx, hy) in b.Holes)
+            {
+                var (hxr, hyr) = (hx, hy);
+                if (SignedArea(hxr, hyr) > 0)  // должно быть CW (< 0)
+                    (hxr, hyr) = Reversed(hxr, hyr);
+                holes.Add((hxr, hyr));
+            }
+        }
+        return new TorsionBoundary(outerX, outerY, holes);
+    }
+
+    private static double SignedArea(double[] x, double[] y)
+    {
+        double s = 0.0;
+        int n = x.Length;
+        for (int i = 0; i < n; i++) { int j = (i + 1) % n; s += x[i] * y[j] - x[j] * y[i]; }
+        return 0.5 * s;
+    }
+
+    private static (double[], double[]) Reversed(double[] x, double[] y)
+    {
+        var rx = (double[])x.Clone();
+        var ry = (double[])y.Clone();
+        Array.Reverse(rx);
+        Array.Reverse(ry);
+        return (rx, ry);
     }
 }

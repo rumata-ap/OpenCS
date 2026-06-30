@@ -190,11 +190,7 @@ public static class TorsionTests
 
     public static void HollowBoxBredt()
     {
-        TestHarness.Section("Полая коробка: It (МКЭ, φ=0 на всех контурах)");
-        // ВАЖНО: φ-формулировка МКЭ с φ=0 на ВСЕХ контурах занижает It для тонкостенных
-        // замкнутых сечений (требует отдельных констант Прандтля на каждом контуре — за рамками
-        // данной реализации). Это известное ограничение, зафиксированное в спеке. Здесь проверяем
-        // только корректность решателя на многосвязной области: It конечен и положителен.
+        TestHarness.Section("Полая коробка: It МКЭ (константы Прандтля) vs МГЭ");
         double B = 0.3, H = 0.5, t = 0.05;
         var boundary = new TorsionBoundary(
             new[] { -B / 2, B / 2, B / 2, -B / 2 },
@@ -205,13 +201,74 @@ public static class TorsionTests
                  new[] { -(H/2-t), -(H/2-t), (H/2-t), (H/2-t) })
             });
         var fem = TorsionSolver.Solve(boundary, TorsionMethod.Fem, 0.03);
-        TestHarness.Check("It МКЭ > 0 (многосвязная область)", fem.It > 0);
+        TestHarness.Check("It МКЭ > 0", fem.It > 0);
         TestHarness.Check("It МКЭ конечен", double.IsFinite(fem.It));
-        // Бредт даёт верхнюю оценку для тонкостенной трубы; МКЭ с φ=0 занижает, но It>0
+        // Бредт — ф-ла тонкой стенки; при t/B=17% корректный МКЭ (c_k≠0) даёт It > Бредт
         double Amid = (B - t) * (H - t);
         double Pmid = 2.0 * ((B - t) + (H - t));
         double bredt = 4.0 * Amid * Amid * t / Pmid;
-        TestHarness.CheckLess("It МКЭ < Бредт (ожидаемо для φ=0 на всех контурах)", fem.It, bredt);
+        TestHarness.Check("It МКЭ > Бредт (корректная постановка)", fem.It > bredt);
+        // Эталон Python FEM: ~1.921e-3 м⁴ ≈ Бредт×1.062; проверяем диапазон [0.9, 1.4]×Бредт
+        double ratio = fem.It / bredt;
+        TestHarness.Check("It МКЭ / Бредт ∈ [0.9, 1.4]", ratio >= 0.9 && ratio <= 1.4, $"ratio={ratio:F3}");
+    }
+
+    public static void FemHollowCircleItVsExact()
+    {
+        TestHarness.Section("МКЭ: полая труба r_out=0.1 r_in=0.06 vs π/2·(r⁴_out−r⁴_in)");
+        double rOut = 0.1, rIn = 0.06;
+        int nOut = 48, nIn = 36;
+        var ox = new double[nOut]; var oy = new double[nOut];
+        for (int i = 0; i < nOut; i++) { double a = 2 * Math.PI * i / nOut; ox[i] = rOut * Math.Cos(a); oy[i] = rOut * Math.Sin(a); }
+        var hx = new double[nIn]; var hy = new double[nIn];
+        for (int i = 0; i < nIn; i++) { double a = 2 * Math.PI * i / nIn; hx[i] = rIn * Math.Cos(a); hy[i] = rIn * Math.Sin(a); }
+        var boundary = new TorsionBoundary(ox, oy,
+            new List<(double[] X, double[] Y)> { (hx, hy) });
+        var fem  = TorsionFemSolver.Solve(boundary, maxElementSize: 0.012);
+        double exact = Math.PI / 2.0 * (Math.Pow(rOut, 4) - Math.Pow(rIn, 4));
+        TestHarness.Check("It МКЭ > 0", fem.It > 0);
+        TestHarness.CheckRel("It МКЭ (полая труба, ≤8%)", fem.It, exact, 0.08);
+    }
+
+    public static void BemHollowBoxBredt()
+    {
+        TestHarness.Section("МГЭ: полая коробка (многосвязная) vs формула Бредта");
+        double B = 0.3, H = 0.5, t = 0.05;
+        // Отверстие передаётся как CCW — TorsionBemSolver должен сам привести к CW
+        var boundary = new TorsionBoundary(
+            new[] { -B / 2, B / 2, B / 2, -B / 2 },
+            new[] { -H / 2, -H / 2, H / 2, H / 2 },
+            new List<(double[] X, double[] Y)>
+            {
+                (new[] { -(B/2-t), (B/2-t), (B/2-t), -(B/2-t) },
+                 new[] { -(H/2-t), -(H/2-t), (H/2-t), (H/2-t) })
+            });
+        var bem = TorsionSolver.Solve(boundary, TorsionMethod.Bem, 0.025);
+        TestHarness.Check("It МГЭ > 0", bem.It > 0);
+        TestHarness.Check("It МГЭ конечен", double.IsFinite(bem.It));
+        double Amid = (B - t) * (H - t);
+        double Pmid = 2.0 * ((B - t) + (H - t));
+        double bredt = 4.0 * Amid * Amid * t / Pmid;
+        // Python МГЭ даёт ~1.955e-3 ≈ Бредт × 1.081; допуск [0.9, 1.4]
+        double ratio = bem.It / bredt;
+        TestHarness.Check("It МГЭ / Бредт ∈ [0.9, 1.4]", ratio >= 0.9 && ratio <= 1.4, $"ratio={ratio:F3}");
+    }
+
+    public static void BemHollowCircleItVsExact()
+    {
+        TestHarness.Section("МГЭ: полая труба r_out=0.1 r_in=0.06 vs π/2·(r⁴_out−r⁴_in)");
+        double rOut = 0.1, rIn = 0.06;
+        int nOut = 64, nIn = 48;
+        var ox = new double[nOut]; var oy = new double[nOut];
+        for (int i = 0; i < nOut; i++) { double a = 2 * Math.PI * i / nOut; ox[i] = rOut * Math.Cos(a); oy[i] = rOut * Math.Sin(a); }
+        var hx = new double[nIn]; var hy = new double[nIn];
+        for (int i = 0; i < nIn; i++) { double a = 2 * Math.PI * i / nIn; hx[i] = rIn * Math.Cos(a); hy[i] = rIn * Math.Sin(a); }
+        var boundary = new TorsionBoundary(ox, oy,
+            new List<(double[] X, double[] Y)> { (hx, hy) });
+        var bem = TorsionBemSolver.Solve(boundary, maxElementSize: 0.012);
+        double exact = Math.PI / 2.0 * (Math.Pow(rOut, 4) - Math.Pow(rIn, 4));
+        TestHarness.Check("It МГЭ > 0", bem.It > 0);
+        TestHarness.CheckRel("It МГЭ (полая труба, ≤8%)", bem.It, exact, 0.08);
     }
 }
 
