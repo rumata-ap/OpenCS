@@ -88,4 +88,6 @@ FemInfraTests.RunAll();
 
 LiraCsvSchemaParserTests.RunAll();
 
+TorsionTests.SmokePropsConstruction();
+
 return TestHarness.Summary();
