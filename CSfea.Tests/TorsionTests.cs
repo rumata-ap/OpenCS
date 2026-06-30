@@ -48,10 +48,10 @@ public static class TorsionTests
         TestHarness.Check("K sum == 0", Math.Abs(kSum) < 1e-12, $"kSum={kSum}");
         // K симметрична и положительно полуопределена: диагональ > 0
         TestHarness.Check("K diag > 0", k[0, 0] > 0 && k[1, 1] > 0 && k[2, 2] > 0);
-        // Load: F_i = -2·(A/3) = -2·(3/3) = -2 для каждого
+        // Load: F_i = +2·(A/3) = +2·(3/3) = +2 для каждого (уравнение −∇²φ=2)
         double[] f = PrandtlTri3.LoadVector(coords);
-        TestHarness.CheckRel("F_i = -2", f[0], -2.0, 1e-9);
-        TestHarness.CheckRel("F_1 = -2", f[1], -2.0, 1e-9);
+        TestHarness.CheckRel("F_i = +2", f[0], 2.0, 1e-9);
+        TestHarness.CheckRel("F_1 = +2", f[1], 2.0, 1e-9);
         // Mass integral: ∫N_i dA = A/3 = 1
         double[] m = PrandtlTri3.MassVector(coords);
         TestHarness.CheckRel("M_i = A/3 = 1", m[0], 1.0, 1e-9);
@@ -67,6 +67,24 @@ public static class TorsionTests
         TestHarness.Check("Есть узлы", mesh.NodesX.Length > 4);
         TestHarness.Check("Есть треугольники", mesh.Triangles.Length > 0);
         TestHarness.Check("FixedDofs непустой", mesh.FixedDofs.Length >= 4);
+    }
+
+    public static void FemCircleItVsAnalytical()
+    {
+        TestHarness.Section("МКЭ: It круга vs π·r⁴/2");
+        double r = 0.5; // м
+        int n = 64;
+        double[] ox = new double[n], oy = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            double a = 2.0 * Math.PI * i / n;
+            ox[i] = r * Math.Cos(a); oy[i] = r * Math.Sin(a);
+        }
+        var boundary = new TorsionBoundary(ox, oy);
+        var props = TorsionFemSolver.Solve(boundary, maxElementSize: 0.1);
+        double exact = Math.PI * Math.Pow(r, 4) / 2.0;
+        TestHarness.CheckRel("It (МКЭ)", props.It, exact, 0.03); // ≤3%
+        TestHarness.Check("τ_unit_max > 0", props.TauUnitMax > 0);
     }
 }
 

@@ -31,11 +31,14 @@ public static class PrandtlTri3
         return k;
     }
 
-    /// <summary>Вектор правой части F_i = −2·(A/3) (постоянная −2, интеграл от N_i = A/3).</summary>
+    /// <summary>
+    /// Вектор правой части F_i = +2·(A/3). Уравнение −∇²φ = 2 (переписанное из ∇²φ=−2)
+    /// после слабой формы даёт K·φ = ∫2·N_i dA = 2·(A/3)·[1,1,1].
+    /// </summary>
     public static double[] LoadVector(ReadOnlySpan<double> c)
     {
         double area = Area(c);
-        double val = -2.0 * area / 3.0;
+        double val = 2.0 * area / 3.0;
         return new[] { val, val, val };
     }
 
