@@ -1081,6 +1081,7 @@
     <system:String x:Key="SteelCheckMuY">Coefficient μy</system:String>
     <system:String x:Key="SteelCheckBetaM">Coefficient βm</system:String>
     <system:String x:Key="SteelCheckGammaM">Coefficient γM</system:String>
+    <system:String x:Key="SteelCheckDesignLengthBit">Link spacing l_bit, m</system:String>
     <system:String x:Key="SteelCheckUtilizationLabel">Utilization ratio: </system:String>
     <system:String x:Key="SteelCheckStatusPassed">PASSED</system:String>
     <system:String x:Key="SteelCheckStatusFailed">FAILED</system:String>
@@ -1214,5 +1215,19 @@
     <system:String x:Key="Fem3DShowShellEdges">FE mesh</system:String>
     <system:String x:Key="Fem3DViewIsolated">Isolated</system:String>
     <system:String x:Key="Fem3DViewSchema">Full schema</system:String>
+    <system:String x:Key="CalcTaskKind_torsion_bem">Torsion (Saint-Venant, BEM)</system:String>
+    <system:String x:Key="CalcTaskKind_torsion_fem">Torsion (Saint-Venant, FEM)</system:String>
+    <system:String x:Key="TorsionTitle">Saint-Venant torsion constant</system:String>
+    <system:String x:Key="TorsionTabSummary">Summary</system:String>
+    <system:String x:Key="TorsionIt">Torsion constant It</system:String>
+    <system:String x:Key="TorsionShearCenter">Shear center</system:String>
+    <system:String x:Key="TorsionTauMax">Max shear stress τ_max</system:String>
+    <system:String x:Key="TorsionElements">Number of elements</system:String>
+    <system:String x:Key="TorsionMethod">Method</system:String>
+    <system:String x:Key="TorsionSingular">Singular matrix</system:String>
+    <system:String x:Key="TorsionElementSize">Element size, m</system:String>
+    <system:String x:Key="TorsionG">Shear modulus G, MPa</system:String>
+    <system:String x:Key="TorsionMk">Torque Mk, kN·m</system:String>
+    <system:String x:Key="CalcTaskGroupOther">Other</system:String>
 
   </ResourceDictionary>
