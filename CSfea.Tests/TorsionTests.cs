@@ -138,5 +138,35 @@ public static class TorsionTests
         TestHarness.Check("Центр кручения ≈ (0,0)", Math.Abs(props.ShearCenterX) < 0.05 && Math.Abs(props.ShearCenterY) < 0.05,
             $"sc=({props.ShearCenterX:F4},{props.ShearCenterY:F4})");
     }
+
+    public static void CrossValidationBemVsFem()
+    {
+        TestHarness.Section("Перекрёстная сверка МГЭ↔МКЭ на прямоугольнике 0.3×0.5");
+        double b = 0.3, h = 0.5;
+        var boundary = new TorsionBoundary(
+            new[] { -b / 2, b / 2, b / 2, -b / 2 },
+            new[] { -h / 2, -h / 2, h / 2, h / 2 });
+        var bem = TorsionSolver.Solve(boundary, TorsionMethod.Bem, 0.025);
+        var fem = TorsionSolver.Solve(boundary, TorsionMethod.Fem, 0.025);
+        TestHarness.Check("Bem не сингулярна", !bem.Singular);
+        TestHarness.Check("It МГЭ > 0", bem.It > 0);
+        TestHarness.Check("It МКЭ > 0", fem.It > 0);
+        TestHarness.CheckRel("МГЭ vs МКЭ (≤2%)", bem.It, fem.It, 0.02);
+    }
+
+    public static void ConvergenceByElementSize()
+    {
+        TestHarness.Section("Сходимость МКЭ по измельчению сетки");
+        double b = 0.2, h = 0.4;
+        var boundary = new TorsionBoundary(
+            new[] { -b / 2, b / 2, b / 2, -b / 2 },
+            new[] { -h / 2, -h / 2, h / 2, h / 2 });
+        double itFine = TorsionSolver.Solve(boundary, TorsionMethod.Fem, 0.02).It;
+        double itCoarse = TorsionSolver.Solve(boundary, TorsionMethod.Fem, 0.10).It;
+        // Эталон — формула Тимошенко для b≤h: b³h·(1/3 − 0.21·(b/h)·(1 − b⁴/(12h⁴)))
+        double timo = b * b * b * h * (1.0 / 3.0 - 0.21 * (b / h) * (1.0 - Math.Pow(b / h, 4) / 12.0));
+        TestHarness.CheckRel("It мелкая vs Тимошенко (≤5%)", itFine, timo, 0.05);
+        TestHarness.CheckRel("It сходимость (fine vs coarse ≤30%)", itFine, itCoarse, 0.30);
+    }
 }
 

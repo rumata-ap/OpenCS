@@ -100,5 +100,7 @@ TorsionTests.FemCircleItVsAnalytical();
 TorsionTests.BoundaryDiscretizeLoops();
 TorsionTests.BemKernelSlintcDiagonal();
 TorsionTests.BemCircleItVsAnalytical();
+TorsionTests.CrossValidationBemVsFem();
+TorsionTests.ConvergenceByElementSize();
 
 return TestHarness.Summary();
