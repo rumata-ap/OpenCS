@@ -99,5 +99,6 @@ TorsionTests.MeshBuilderSquare();
 TorsionTests.FemCircleItVsAnalytical();
 TorsionTests.BoundaryDiscretizeLoops();
 TorsionTests.BemKernelSlintcDiagonal();
+TorsionTests.BemCircleItVsAnalytical();
 
 return TestHarness.Summary();

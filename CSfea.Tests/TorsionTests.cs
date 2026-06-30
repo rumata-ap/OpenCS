@@ -116,5 +116,27 @@ public static class TorsionTests
         double g = BemKernels.Slintc(halfLength: 1.0);
         TestHarness.CheckRel("G_ii для sl=1", g, -1.0 / Math.PI, 1e-9);
     }
+
+    public static void BemCircleItVsAnalytical()
+    {
+        TestHarness.Section("МГЭ: It круга vs π·r⁴/2");
+        double r = 0.5; // м
+        int n = 64;
+        double[] ox = new double[n], oy = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            double a = 2.0 * Math.PI * i / n;
+            ox[i] = r * Math.Cos(a); oy[i] = r * Math.Sin(a);
+        }
+        var boundary = new TorsionBoundary(ox, oy);
+        var props = TorsionBemSolver.Solve(boundary, maxElementSize: 0.1);
+        double exact = Math.PI * Math.Pow(r, 4) / 2.0;
+        TestHarness.Check("Не сингулярна", !props.Singular);
+        TestHarness.CheckRel("It (МГЭ)", props.It, exact, 0.03); // ≤3%
+        TestHarness.Check("τ_unit_max > 0", props.TauUnitMax > 0);
+        // Для круга центр кручения совпадает с геометрическим центром (0,0)
+        TestHarness.Check("Центр кручения ≈ (0,0)", Math.Abs(props.ShearCenterX) < 0.05 && Math.Abs(props.ShearCenterY) < 0.05,
+            $"sc=({props.ShearCenterX:F4},{props.ShearCenterY:F4})");
+    }
 }
 

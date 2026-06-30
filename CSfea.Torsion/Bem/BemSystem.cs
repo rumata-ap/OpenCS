@@ -47,9 +47,25 @@ public static class BemSystem
         double[] x;
         try
         {
-            double det = DenseLinAlg.Det(A);
-            singular = Math.Abs(det) < 1e-12 * Scale(A, n);
-            x = singular ? new double[n] : DenseLinAlg.Solve(A, bvec);
+            // Детекция сингулярности: матрица постоянных граничных элементов с одним
+            // условием Дирихле невырождена. Det может быть мал из-за размерности,
+            // поэтому сингулярность определяем по фактической неудаче решения (NaN/Inf).
+            x = DenseLinAlg.Solve(A, bvec);
+            double maxX = 0; for (int i = 0; i < n; i++) maxX = Math.Max(maxX, Math.Abs(x[i]));
+            singular = !double.IsFinite(maxX);
+            // Проверка невязки как запасной критерий
+            if (!singular)
+            {
+                double resid = 0, bn = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    double s = 0;
+                    for (int j = 0; j < n; j++) s += A[i, j] * x[j];
+                    resid += (s - bvec[i]) * (s - bvec[i]);
+                    bn += bvec[i] * bvec[i];
+                }
+                if (bn > 0 && Math.Sqrt(resid / bn) > 1e-6) singular = true;
+            }
         }
         catch
         {
@@ -66,13 +82,5 @@ public static class BemSystem
             else               { ub[i] = x[i]; unb[i] = bc[i]; }   // un предписан, u — из решения
         }
         return (ub, unb, singular);
-    }
-
-    private static double Scale(double[,] A, int n)
-    {
-        double mx = 0.0;
-        for (int i = 0; i < n; i++)
-            for (int j = 0; j < n; j++) mx = Math.Max(mx, Math.Abs(A[i, j]));
-        return mx == 0.0 ? 1.0 : mx;
     }
 }
