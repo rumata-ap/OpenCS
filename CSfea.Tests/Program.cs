@@ -77,6 +77,10 @@ SteelSectionTests.RunGeoPropsDirect();
 SteelSectionTests.RunIBeamProperties();
 SteelCheckerTests.RunSimpleCompressionCheck();
 
+SteelClassifierTests.RunAll();
+SteelStrengthTests.RunAll();
+SteelStabilityTests.RunAll();
+
 FemCheckRunnerTests.RunExtractCalcType();
 FemCheckRunnerTests.RunExtractWorstDetail();
 FemCheckRunnerTests.RunExtractWorstDetailNoDetails();
@@ -90,5 +94,6 @@ LiraCsvSchemaParserTests.RunAll();
 
 TorsionTests.SmokePropsConstruction();
 TorsionTests.BoundaryFromMaterialArea();
+TorsionTests.PrandtlTri3ElementMatrices();
 
 return TestHarness.Summary();
