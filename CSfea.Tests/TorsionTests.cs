@@ -108,5 +108,13 @@ public static class TorsionTests
         // Замыкание отверстия: последний (индекс 23) переходит в начало отверстия (20)
         TestHarness.Check("J1 замыкание отверстия", d.J1[23] == 20, $"J1[23]={d.J1[23]}");
     }
+
+    public static void BemKernelSlintcDiagonal()
+    {
+        TestHarness.Section("BemKernels: slintc (диагональ G = (l/2)(ln(l/2)−1)/π)");
+        // Полудлина элемента sl = 1 → G_ii = 1·(ln(1) − 1)/π = (0 − 1)/π = −1/π
+        double g = BemKernels.Slintc(halfLength: 1.0);
+        TestHarness.CheckRel("G_ii для sl=1", g, -1.0 / Math.PI, 1e-9);
+    }
 }
 

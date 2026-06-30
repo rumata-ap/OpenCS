@@ -98,5 +98,6 @@ TorsionTests.PrandtlTri3ElementMatrices();
 TorsionTests.MeshBuilderSquare();
 TorsionTests.FemCircleItVsAnalytical();
 TorsionTests.BoundaryDiscretizeLoops();
+TorsionTests.BemKernelSlintcDiagonal();
 
 return TestHarness.Summary();
