@@ -1097,6 +1097,17 @@
     <system:String x:Key="SteelCheckOK">✓</system:String>
     <system:String x:Key="SteelCheckFail">✗</system:String>
 
+    <!-- Отдельные задачи проверки стали -->
+    <system:String x:Key="CalcTaskGroupSteel">Сталь (СП 16)</system:String>
+    <system:String x:Key="CalcTaskKind_steel_central_compression">Центральное сжатие</system:String>
+    <system:String x:Key="CalcTaskKind_steel_central_tension">Центральное растяжение</system:String>
+    <system:String x:Key="CalcTaskKind_steel_bending">Изгиб</system:String>
+    <system:String x:Key="CalcTaskKind_steel_compression_bending">Сжатие с изгибом</system:String>
+    <system:String x:Key="CalcTaskKind_steel_tension_bending">Растяжение с изгибом</system:String>
+    <system:String x:Key="CalcTaskKind_steel_shear">Срез</system:String>
+    <system:String x:Key="CalcTaskKind_steel_torsion">Кручение</system:String>
+    <system:String x:Key="CalcTaskKind_steel_constructive">Конструктивные</system:String>
+
     <!-- Вкладки панели дерева -->
     <system:String x:Key="ProjectTab">Проект</system:String>
     <system:String x:Key="FemTab">МКЭ</system:String>
@@ -1231,6 +1242,5 @@
     <system:String x:Key="TorsionElementSize">Размер элемента, м</system:String>
     <system:String x:Key="TorsionG">Модуль сдвига G, МПа</system:String>
     <system:String x:Key="TorsionMk">Крутящий момент Mk, кН·м</system:String>
-    <system:String x:Key="CalcTaskGroupOther">Прочее</system:String>
 
   </ResourceDictionary>
