@@ -128,6 +128,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(Stage2ShowManual));
          OnPropertyChanged(nameof(IsPrestressLoss));
          OnPropertyChanged(nameof(IsSteelCheck));
+         OnPropertyChanged(nameof(IsTorsion));
          OnPropertyChanged(nameof(ShowManualForces));
          if (!FilteredCalcTypes.Contains(SelectedCalcType))
              SelectedCalcType = FilteredCalcTypes[0];
@@ -198,6 +199,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsTwoStageBatch => Kind == "two_stage_strain_batch";
    public bool IsPrestressLoss => Kind == "prestress_loss";
    public bool IsSteelCheck => Kind == "steel_check";
+   public bool IsTorsion => Kind is "torsion_bem" or "torsion_fem";
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss;
    public bool ShowSolverMethod => IsLimitKind;
 
@@ -465,6 +467,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shell_layered_uls",       Label = Loc.S("CalcTaskKind_shell_layered_uls"),       GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_layered_uls_batch", Label = Loc.S("CalcTaskKind_shell_layered_uls_batch"), GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "steel_check",              Label = Loc.S("CalcTaskKind_steel_check"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      // Прочее
+      new() { Id = "torsion_bem",              Label = Loc.S("CalcTaskKind_torsion_bem"),              GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
+      new() { Id = "torsion_fem",              Label = Loc.S("CalcTaskKind_torsion_fem"),              GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       // 2-я ГПС
       new() { Id = "shell_simpl_wa_sls",       Label = Loc.S("CalcTaskKind_shell_simpl_wa_sls"),       GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "shell_simpl_wa_sls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_wa_sls_batch"), GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
