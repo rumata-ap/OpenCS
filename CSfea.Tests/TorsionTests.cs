@@ -168,5 +168,50 @@ public static class TorsionTests
         TestHarness.CheckRel("It мелкая vs Тимошенко (≤5%)", itFine, timo, 0.05);
         TestHarness.CheckRel("It сходимость (fine vs coarse ≤30%)", itFine, itCoarse, 0.30);
     }
+
+    public static void RectangleTimoshenko()
+    {
+        TestHarness.Section("Прямоугольник: It vs формула Тимошенко");
+        // Несколько пропорций (b≤h). elementSize адаптируется к меньшей стороне.
+        var cases = new[] { (b: 0.3, h: 0.3), (b: 0.2, h: 0.5), (b: 0.1, h: 0.6), (b: 0.15, h: 0.4) };
+        foreach (var (b, h) in cases)
+        {
+            double es = Math.Min(0.04, b / 5.0); // не грубее ~5 элементов на меньшую сторону
+            var boundary = new TorsionBoundary(
+                new[] { -b / 2, b / 2, b / 2, -b / 2 },
+                new[] { -h / 2, -h / 2, h / 2, h / 2 });
+            var bem = TorsionSolver.Solve(boundary, TorsionMethod.Bem, es);
+            var fem = TorsionSolver.Solve(boundary, TorsionMethod.Fem, es);
+            double timo = b * b * b * h * (1.0 / 3.0 - 0.21 * (b / h) * (1.0 - Math.Pow(b / h, 4) / 12.0));
+            TestHarness.CheckRel($"Bem {b}x{h} vs Тимошенко", bem.It, timo, 0.05);
+            TestHarness.CheckRel($"Fem {b}x{h} vs Тимошенко", fem.It, timo, 0.05);
+        }
+    }
+
+    public static void HollowBoxBredt()
+    {
+        TestHarness.Section("Полая коробка: It (МКЭ, φ=0 на всех контурах)");
+        // ВАЖНО: φ-формулировка МКЭ с φ=0 на ВСЕХ контурах занижает It для тонкостенных
+        // замкнутых сечений (требует отдельных констант Прандтля на каждом контуре — за рамками
+        // данной реализации). Это известное ограничение, зафиксированное в спеке. Здесь проверяем
+        // только корректность решателя на многосвязной области: It конечен и положителен.
+        double B = 0.3, H = 0.5, t = 0.05;
+        var boundary = new TorsionBoundary(
+            new[] { -B / 2, B / 2, B / 2, -B / 2 },
+            new[] { -H / 2, -H / 2, H / 2, H / 2 },
+            new List<(double[] X, double[] Y)>
+            {
+                (new[] { -(B/2-t), (B/2-t), (B/2-t), -(B/2-t) },
+                 new[] { -(H/2-t), -(H/2-t), (H/2-t), (H/2-t) })
+            });
+        var fem = TorsionSolver.Solve(boundary, TorsionMethod.Fem, 0.03);
+        TestHarness.Check("It МКЭ > 0 (многосвязная область)", fem.It > 0);
+        TestHarness.Check("It МКЭ конечен", double.IsFinite(fem.It));
+        // Бредт даёт верхнюю оценку для тонкостенной трубы; МКЭ с φ=0 занижает, но It>0
+        double Amid = (B - t) * (H - t);
+        double Pmid = 2.0 * ((B - t) + (H - t));
+        double bredt = 4.0 * Amid * Amid * t / Pmid;
+        TestHarness.CheckLess("It МКЭ < Бредт (ожидаемо для φ=0 на всех контурах)", fem.It, bredt);
+    }
 }
 
