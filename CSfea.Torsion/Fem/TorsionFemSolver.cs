@@ -77,6 +77,7 @@ public static class TorsionFemSolver
             NodeY        = mesh.NodesY,
             TauUnitField = tauUnit,
             PotentialField = phi,
+            Triangles    = mesh.Triangles,
             Singular     = false,
             NElements    = mesh.Triangles.Length,
         };

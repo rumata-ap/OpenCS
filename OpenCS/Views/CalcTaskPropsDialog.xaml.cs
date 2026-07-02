@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Input;
@@ -74,7 +76,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string steelDesignLengthX = "3.0", steelDesignLengthY = "3.0";
    string steelMuX = "1.0", steelMuY = "1.0";
    string steelBetaM = "1.0", steelGammaM = "1.025";
+   string torsionElementSize = "0.05", torsionMk = "";
    string _forceItemFilter = "", _stage1ItemFilter = "", _stage2ItemFilter = "", _shellForceItemFilter = "";
+   CancellationTokenSource? _torsionPreviewDebounceCts;
 
    public string Tag { get => tag; set { tag = value; OnPropertyChanged(); } }
 
@@ -129,7 +133,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(IsPrestressLoss));
          OnPropertyChanged(nameof(IsSteelCheck));
          OnPropertyChanged(nameof(IsTorsion));
+         OnPropertyChanged(nameof(IsTorsionFem));
          OnPropertyChanged(nameof(ShowManualForces));
+         NotifyTorsionForceProps();
+         RefreshTorsionMeshPreview();
          if (!FilteredCalcTypes.Contains(SelectedCalcType))
              SelectedCalcType = FilteredCalcTypes[0];
      }
@@ -170,10 +177,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(Stage2ShowManual));
             OnPropertyChanged(nameof(IsPrestressLoss));
             OnPropertyChanged(nameof(IsSteelCheck));
+            OnPropertyChanged(nameof(IsTorsion));
+            OnPropertyChanged(nameof(IsTorsionFem));
             OnPropertyChanged(nameof(ShowManualForces));
+            NotifyTorsionForceProps();
             if (!FilteredCalcTypes.Contains(SelectedCalcType))
                 SelectedCalcType = FilteredCalcTypes[0];
             FilterSections();
+            RefreshTorsionMeshPreview();
         }
      }
 
@@ -204,6 +215,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
         "steel_tension_bending" or "steel_shear" or
         "steel_torsion" or "steel_constructive";
    public bool IsTorsion => Kind is "torsion_bem" or "torsion_fem";
+   public bool IsTorsionFem => Kind == "torsion_fem";
+   public TorsionMeshPreviewVM TorsionMeshPreview { get; } = new();
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss;
    public bool ShowSolverMethod => IsLimitKind;
 
@@ -249,7 +262,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public CrossSection? SelectedSection
    {
       get => selectedSection;
-      set { selectedSection = value; OnPropertyChanged(); }
+      set { selectedSection = value; OnPropertyChanged(); RefreshTorsionMeshPreview(); }
    }
 
     public FireSectionDef? SelectedFireSection
@@ -337,7 +350,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          ForceItemFilter = "";
          SelectedForceItem = ForceItems.FirstOrDefault();
          OnPropertyChanged();
+         NotifyTorsionForceProps();
       }
+   }
+
+   void NotifyTorsionForceProps()
+   {
+      if (!IsTorsion) return;
+      OnPropertyChanged(nameof(TorsionMkFromSetText));
+      OnPropertyChanged(nameof(HasTorsionMkFromSet));
+      OnPropertyChanged(nameof(ShowTorsionManualMk));
    }
 
    public LoadItem? SelectedForceItem
@@ -359,6 +381,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             selectedForceItem = value;
          }
          OnPropertyChanged();
+         NotifyTorsionForceProps();
       }
    }
 
@@ -446,6 +469,27 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     public string SteelMuY { get => steelMuY; set { steelMuY = value; OnPropertyChanged(); } }
     public string SteelBetaM { get => steelBetaM; set { steelBetaM = value; OnPropertyChanged(); } }
     public string SteelGammaM { get => steelGammaM; set { steelGammaM = value; OnPropertyChanged(); } }
+
+   public string TorsionElementSize
+   {
+      get => torsionElementSize;
+      set { torsionElementSize = value; OnPropertyChanged(); RefreshTorsionMeshPreview(); }
+   }
+   public string TorsionMk { get => torsionMk; set { torsionMk = value; OnPropertyChanged(); } }
+
+   /// <summary>T (кручение) из выбранной строки набора усилий, кН·м.</summary>
+   public string TorsionMkFromSetText
+   {
+      get
+      {
+         if (selectedForceItem == null) return "—";
+         var inv = System.Globalization.CultureInfo.InvariantCulture;
+         return Math.Abs(selectedForceItem.T).ToString("G6", inv);
+      }
+   }
+
+   public bool HasTorsionMkFromSet => IsTorsion && selectedForceItem != null;
+   public bool ShowTorsionManualMk => IsTorsion && selectedForceItem == null;
 
    public List<CalcTaskKindItem> AvailableKinds { get; } =
    [
@@ -683,6 +727,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   ManualMy = sp.ManualForces.My.ToString("G6", inv);
               }
           }
+
+          if (IsTorsion && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
+          {
+              var tp = TorsionParams.Parse(existing.ParamsJson);
+              var inv = System.Globalization.CultureInfo.InvariantCulture;
+              TorsionElementSize = tp.ElementSize.ToString("G6", inv);
+              if (tp.MkKNm != 0) TorsionMk = tp.MkKNm.ToString("G6", inv);
+          }
+
+          NotifyTorsionForceProps();
        }
        else
        {
@@ -701,7 +755,40 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        }
 
       OkCommand = new RelayCommand(_ => Commit());
+      RefreshTorsionMeshPreview();
    }
+
+   void RefreshTorsionMeshPreview()
+   {
+      UpdateDialogWidth();
+      _torsionPreviewDebounceCts?.Cancel();
+      _torsionPreviewDebounceCts?.Dispose();
+      var cts = new CancellationTokenSource();
+      _torsionPreviewDebounceCts = cts;
+      Task.Run(async () =>
+      {
+         try { await Task.Delay(350, cts.Token).ConfigureAwait(false); }
+         catch (OperationCanceledException) { return; }
+         Application.Current?.Dispatcher.Invoke(ApplyTorsionMeshPreview);
+      });
+   }
+
+   void ApplyTorsionMeshPreview()
+   {
+      if (!IsTorsionFem)
+      {
+         TorsionMeshPreview.Configure(null, 0);
+         return;
+      }
+
+      var inv = System.Globalization.CultureInfo.InvariantCulture;
+      string raw = (TorsionElementSize ?? "").Trim().Replace(',', '.');
+      double elem = double.TryParse(raw, System.Globalization.NumberStyles.Float, inv, out var es) && es > 0
+         ? es : 0.05;
+      TorsionMeshPreview.Configure(SelectedSection, elem);
+   }
+
+   void UpdateDialogWidth() => _window.Width = IsTorsionFem ? 860 : 480;
 
     static StageForce BuildStageForceManual(string n, string mx, string my)
     {
@@ -972,6 +1059,45 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   StepDeg = stepDeg, AcrcLimMm = acrcLim,
                   Phi1 = phi1, Phi2 = phi2
               })
+          };
+          _window.DialogResult = true;
+          return;
+      }
+
+      if (IsTorsion)
+      {
+          if (SelectedSection == null)
+          {
+              MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+              return;
+          }
+
+          var inv = System.Globalization.CultureInfo.InvariantCulture;
+          double elem = double.TryParse(TorsionElementSize, System.Globalization.NumberStyles.Float, inv, out var es) ? es : 0.05;
+          if (elem <= 0) elem = 0.05;
+          double.TryParse(TorsionMk, System.Globalization.NumberStyles.Float, inv, out var mkManual);
+
+          if (SelectedForceSet != null && SelectedForceItem == null && mkManual <= 0)
+          {
+              MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+              return;
+          }
+
+          Result = new CalcTask
+          {
+              Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+              Kind = Kind,
+              SectionId = SelectedSection.Id,
+              ForceSetId = SelectedForceSet?.Id ?? 0,
+              ForceItemId = SelectedForceItem?.Id ?? 0,
+              CalcType = SelectedCalcType,
+              ParamsJson = new TorsionParams
+              {
+                  ElementSize = elem,
+                  MkKNm = mkManual
+              }.ToJson()
           };
           _window.DialogResult = true;
           return;

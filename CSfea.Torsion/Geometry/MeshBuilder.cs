@@ -44,13 +44,16 @@ public static class MeshBuilder
             }
         }
 
-        // Ruppert: только внутренние узлы (граница уже подготовлена)
+        // Рефайнмент только по площади: граница не дробится (AllowBoundarySplit=false),
+        // угловой критерий приводил к сотням тысяч точек Штейнера на вогнутых контурах.
+        double triArea = maxElementSize * maxElementSize * Math.Sqrt(3.0) / 4.0;
         var parms = new Rupp.TriangulationParams
         {
-            MinAngleDeg      = 26.0,
-            MaxArea          = maxElementSize * maxElementSize * Math.Sqrt(3.0) / 4.0,
+            MinAngleDeg        = 0.0,
+            MaxArea            = triArea,
             AllowBoundarySplit = false,
-            DoRefine         = true
+            DoRefine           = true,
+            MaxSteinerPoints   = EstimateMaxSteiner(boundary, triArea),
         };
         Rupp.RuppertResult result = Rupp.Triangulator.FromPolygon(outerPts, holes, parms);
 
@@ -156,5 +159,15 @@ public static class MeshBuilder
             if (dx * dx + dy * dy <= tol2) return true;
         }
         return false;
+    }
+
+    /// <summary>Оценка лимита точек Штейнера по площади bbox и целевому размеру элемента.</summary>
+    static int EstimateMaxSteiner(TorsionBoundary boundary, double triArea)
+    {
+        double minX = boundary.OuterX.Min(), maxX = boundary.OuterX.Max();
+        double minY = boundary.OuterY.Min(), maxY = boundary.OuterY.Max();
+        double bboxArea = Math.Max((maxX - minX) * (maxY - minY), 1e-12);
+        int est = (int)Math.Ceiling(bboxArea / Math.Max(triArea, 1e-18) * 4.0);
+        return Math.Clamp(est, 500, 20_000);
     }
 }

@@ -27,7 +27,8 @@ internal static class CalcTaskForceHelper
           or "steel_central_compression" or "steel_central_tension"
           or "steel_bending" or "steel_compression_bending"
           or "steel_tension_bending" or "steel_shear"
-          or "steel_torsion" or "steel_constructive" => true,
+          or "steel_torsion" or "steel_constructive"
+          or "torsion_bem" or "torsion_fem" => true,
       _ => false
    };
 
@@ -52,5 +53,21 @@ internal static class CalcTaskForceHelper
       {
          return null;
       }
+   }
+
+   /// <summary>
+   /// Строка набора усилий для задач с UsesDummyForceItem (сталь, кручение и т.д.).
+   /// Если ForceItemId задан — подставляет T/N/M из набора, иначе пустой LoadItem.
+   /// </summary>
+   internal static LoadItem ResolveOptionalForceItem(CalcTask task, IEnumerable<ForceSet> forceSets)
+   {
+      if (task.ForceItemId != 0)
+      {
+         var fromSet = forceSets.FirstOrDefault(f => f.Id == task.ForceSetId)
+            ?.Items.FirstOrDefault(i => i.Id == task.ForceItemId);
+         if (fromSet != null)
+            return fromSet;
+      }
+      return new LoadItem();
    }
 }

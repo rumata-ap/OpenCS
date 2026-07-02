@@ -1240,6 +1240,24 @@
     <system:String x:Key="TorsionSingular">Матрица вырождена</system:String>
     <system:String x:Key="TorsionElementSize">Размер элемента, м</system:String>
     <system:String x:Key="TorsionG">Модуль сдвига G, МПа</system:String>
+    <system:String x:Key="TorsionGAuto">G = E / (2(1+ν))</system:String>
+    <system:String x:Key="TorsionMkFromSet">Mk = T из набора</system:String>
+    <system:String x:Key="TorsionMkManual">Mk вручную, кН·м</system:String>
+    <system:String x:Key="TorsionMkHint">Крутящий момент T берётся из выбранной строки набора усилий; поле ниже — запасной вариант, если строка не выбрана.</system:String>
     <system:String x:Key="TorsionMk">Крутящий момент Mk, кН·м</system:String>
+    <system:String x:Key="TorsionTabTau">τ/(GΘ)</system:String>
+    <system:String x:Key="TorsionTabPotential">φ / ω</system:String>
+    <system:String x:Key="TorsionGIt">Жёсткость G·It</system:String>
+    <system:String x:Key="TorsionTwistRate">Удельный угол закручивания Θ</system:String>
+    <system:String x:Key="TorsionTauUnitMax">max τ/(GΘ)</system:String>
+    <system:String x:Key="TorsionTauMaxNotSet">— (задайте T в наборе усилий или Mk)</system:String>
+    <system:String x:Key="TorsionShearCenterFemNa">не вычисляется (МКЭ)</system:String>
+    <system:String x:Key="TorsionShowPhysicalTau">Физическое τ, МПа</system:String>
+    <system:String x:Key="TorsionPlotBoundaryNote">Значения на контуре (МГЭ)</system:String>
+    <system:String x:Key="TorsionUnitPotential">м²</system:String>
+    <system:String x:Key="TorsionStatusOk">Сошлось ✓</system:String>
+    <system:String x:Key="TorsionStatusNotConverged">НЕ СОШЛОСЬ ✗</system:String>
+    <system:String x:Key="TorsionStatusError">Ошибка ✗</system:String>
+    <system:String x:Key="TorsionParamsHeader">Параметры кручения</system:String>
 
   </ResourceDictionary>

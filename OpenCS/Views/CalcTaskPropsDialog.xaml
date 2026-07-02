@@ -1,6 +1,7 @@
 <Window x:Class="OpenCS.Views.CalcTaskPropsDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:h="clr-namespace:OpenCS.Views.Helpers"
         Title="{DynamicResource CalcTaskDlgTitle}"
         Width="480" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
@@ -400,6 +401,86 @@
                <TextBox Grid.Row="2" Grid.Column="3"
                         Text="{Binding SteelGammaM, UpdateSourceTrigger=PropertyChanged}"
                         Margin="0,0,0,4"/>
+            </Grid>
+         </GroupBox>
+      </StackPanel>
+
+      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsTorsion, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource TorsionParamsHeader}" Margin="0,8,0,0">
+            <Grid Margin="4">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" MinWidth="260"/>
+                  <ColumnDefinition Width="300"/>
+               </Grid.ColumnDefinitions>
+
+               <Grid Grid.Column="0" Margin="0,0,8,0">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="180"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource TorsionElementSize}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox Grid.Row="0" Grid.Column="1"
+                           Text="{Binding TorsionElementSize, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
+
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource TorsionMkFromSet}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding HasTorsionMkFromSet, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" FontFamily="Consolas" FontWeight="SemiBold"
+                             Margin="0,0,0,4"
+                             Visibility="{Binding HasTorsionMkFromSet, Converter={StaticResource BoolToVisibility}}">
+                     <Run Text="{Binding TorsionMkFromSetText, Mode=OneWay}"/>
+                     <Run Text=" кН·м"/>
+                  </TextBlock>
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource TorsionMkManual}"
+                             VerticalAlignment="Top" Margin="0,0,4,4"
+                             Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}"/>
+                  <StackPanel Grid.Row="2" Grid.Column="1"
+                              Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}">
+                     <TextBox Text="{Binding TorsionMk, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,0,2"/>
+                     <TextBlock Text="{DynamicResource TorsionMkHint}" Foreground="Gray"
+                                FontSize="11" TextWrapping="Wrap"/>
+                  </StackPanel>
+               </Grid>
+
+               <Grid Grid.Column="1"
+                     Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}">
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="280"/>
+                  </Grid.RowDefinitions>
+
+                  <TextBlock Grid.Row="0" Text="{DynamicResource FireSection_PreviewTitle}"
+                             FontWeight="Bold" Margin="0,0,0,4"/>
+
+                  <Grid Grid.Row="1" Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                     </Grid.ColumnDefinitions>
+                     <TextBlock Grid.Column="0" Text="{Binding TorsionMeshPreview.MeshQualityText}"
+                                VerticalAlignment="Center" Foreground="Gray" FontSize="11"
+                                TextTrimming="CharacterEllipsis"/>
+                     <Button Grid.Column="1" Content="{DynamicResource PlotFitAll}"
+                             Command="{Binding TorsionMeshPreview.FitAllCommand}" Padding="8,2"/>
+                  </Grid>
+
+                  <Border Grid.Row="2" BorderThickness="1"
+                          BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
+                     <h:TorsionMeshPreviewCanvas ViewModel="{Binding TorsionMeshPreview}"/>
+                  </Border>
+               </Grid>
             </Grid>
          </GroupBox>
       </StackPanel>

@@ -1237,6 +1237,24 @@
     <system:String x:Key="TorsionSingular">Singular matrix</system:String>
     <system:String x:Key="TorsionElementSize">Element size, m</system:String>
     <system:String x:Key="TorsionG">Shear modulus G, MPa</system:String>
+    <system:String x:Key="TorsionGAuto">G = E / (2(1+ν))</system:String>
+    <system:String x:Key="TorsionMkFromSet">Mk = T from force set</system:String>
+    <system:String x:Key="TorsionMkManual">Mk manual, kN·m</system:String>
+    <system:String x:Key="TorsionMkHint">Torque T is taken from the selected force-set row; the field above is a fallback when no set is selected.</system:String>
     <system:String x:Key="TorsionMk">Torque Mk, kN·m</system:String>
+    <system:String x:Key="TorsionTabTau">τ/(GΘ)</system:String>
+    <system:String x:Key="TorsionTabPotential">φ / ω</system:String>
+    <system:String x:Key="TorsionGIt">Stiffness G·It</system:String>
+    <system:String x:Key="TorsionTwistRate">Twist rate Θ</system:String>
+    <system:String x:Key="TorsionTauUnitMax">max τ/(GΘ)</system:String>
+    <system:String x:Key="TorsionTauMaxNotSet">— (set T in force set or Mk)</system:String>
+    <system:String x:Key="TorsionShearCenterFemNa">not computed (FEM)</system:String>
+    <system:String x:Key="TorsionShowPhysicalTau">Physical τ, MPa</system:String>
+    <system:String x:Key="TorsionPlotBoundaryNote">Boundary values (BEM)</system:String>
+    <system:String x:Key="TorsionUnitPotential">m²</system:String>
+    <system:String x:Key="TorsionStatusOk">Converged ✓</system:String>
+    <system:String x:Key="TorsionStatusNotConverged">NOT CONVERGED ✗</system:String>
+    <system:String x:Key="TorsionStatusError">Error ✗</system:String>
+    <system:String x:Key="TorsionParamsHeader">Torsion parameters</system:String>
 
   </ResourceDictionary>

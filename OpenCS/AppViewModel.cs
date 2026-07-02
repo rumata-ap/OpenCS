@@ -2157,7 +2157,7 @@ namespace OpenCS
             }
             else if (CalcTaskForceHelper.UsesDummyForceItem(ct))
             {
-               fi = new LoadItem(); // обработчик читает усилия из ParamsJson/ctx.Database.ForceSets
+               fi = CalcTaskForceHelper.ResolveOptionalForceItem(ct, BarForceSets);
             }
             else
             {

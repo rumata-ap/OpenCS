@@ -34,6 +34,18 @@ public sealed class TorsionProps
     /// <summary>Флаг вырожденности СЛАУ (МГЭ).</summary>
     public bool Singular { get; init; }
 
+    /// <summary>Треугольники МКЭ: [i0, i1, i2] на элемент (null для МГЭ).</summary>
+    public int[][]? Triangles { get; init; }
+
+    /// <summary>Координаты X вершин граничной дискретизации (МГЭ).</summary>
+    public double[]? BoundaryX { get; init; }
+
+    /// <summary>Координаты Y вершин граничной дискретизации (МГЭ).</summary>
+    public double[]? BoundaryY { get; init; }
+
+    /// <summary>Индекс следующей вершины по контуру (МГЭ).</summary>
+    public int[]? BoundaryJ1 { get; init; }
+
     /// <summary>Число элементов/узлов дискретизации.</summary>
     public int NElements { get; init; }
 

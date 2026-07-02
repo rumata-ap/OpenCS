@@ -38,6 +38,9 @@ public static class TorsionBemSolver
             NodeY = ym,
             TauUnitField = tau,
             PotentialField = ubU,
+            BoundaryX = d.X,
+            BoundaryY = d.Y,
+            BoundaryJ1 = d.J1,
             Singular = false,
             NElements = xm.Length
         };

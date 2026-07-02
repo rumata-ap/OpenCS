@@ -9,7 +9,7 @@ public sealed class TorsionParams
     /// <summary>Целевой размер элемента, м (для сетки/дискретизации).</summary>
     [JsonPropertyName("element_size")] public double ElementSize { get; set; } = 0.05;
 
-    /// <summary>Модуль сдвига G, МПа (опционально, для пересчёта τ_max).</summary>
+    /// <summary>Модуль сдвига G, МПа (устарело — вычисляется из E материала).</summary>
     [JsonPropertyName("g_mpa")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public double GMPa { get; set; }
@@ -24,4 +24,6 @@ public sealed class TorsionParams
         if (string.IsNullOrWhiteSpace(json) || json == "{}") return new TorsionParams();
         return JsonSerializer.Deserialize<TorsionParams>(json) ?? new TorsionParams();
     }
+
+    public string ToJson() => JsonSerializer.Serialize(this);
 }

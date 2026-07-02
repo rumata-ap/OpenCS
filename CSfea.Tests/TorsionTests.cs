@@ -1,6 +1,8 @@
 using CSfea.Torsion;
 using CScore;
 
+using System.Diagnostics;
+
 namespace CSfea.Tests;
 
 public static class TorsionTests
@@ -67,6 +69,64 @@ public static class TorsionTests
         TestHarness.Check("Есть узлы", mesh.NodesX.Length > 4);
         TestHarness.Check("Есть треугольники", mesh.Triangles.Length > 0);
         TestHarness.Check("FixedDofs непустой", mesh.FixedDofs.Length >= 4);
+    }
+
+    public static void MeshBuilderFromMaterialAreaMeters()
+    {
+        TestHarness.Section("MeshBuilder: прямоугольник 0.3×0.5 м из MaterialArea");
+        double b = 0.3, h = 0.5;
+        var area = new MaterialArea();
+        var hull = new Contour(
+            new[]
+            {
+                new StressPoint(-b / 2, -h / 2), new StressPoint(b / 2, -h / 2),
+                new StressPoint(b / 2, h / 2), new StressPoint(-b / 2, h / 2)
+            }, "hull");
+        hull.Type = ContourType.Hull;
+        area.Contours.Add(hull);
+
+        var boundary = area.FromMaterialArea();
+        var mesh = MeshBuilder.Build(boundary, maxElementSize: 0.05);
+        TestHarness.Check(">20 треугольников", mesh.Triangles.Length > 20,
+            $"tri={mesh.Triangles.Length}");
+    }
+
+    public static void MeshBuilderConcaveFrameFine()
+    {
+        TestHarness.Section("MeshBuilder: вогнутая рамка 30×15 см, h=0.01");
+        var boundary = SampleConcaveFrameBoundary();
+        var sw = Stopwatch.StartNew();
+        var mesh = MeshBuilder.Build(boundary, maxElementSize: 0.01);
+        sw.Stop();
+        TestHarness.Check("время < 3 с", sw.ElapsedMilliseconds < 3000, $"ms={sw.ElapsedMilliseconds}");
+        TestHarness.Check(">80 треугольников", mesh.Triangles.Length > 80, $"tri={mesh.Triangles.Length}");
+    }
+
+    /// <summary>Рамка 30×15 см (test_prj.db, контур 2) — один вогнутый контур.</summary>
+    static TorsionBoundary SampleConcaveFrameBoundary()
+    {
+        double[] ox =
+        [
+            -0.0745, 0.0745, 0.0745, 0.01575, 0.012385352413667231, 0.00925, 0.00655761184457488,
+            0.004491669750802297, 0.0031929642582421095, 0.00275, 0.00275, 0.003192964258242113,
+            0.0044916697508022956, 0.006557611844574882, 0.009250000000000001, 0.012385352413667228,
+            0.01575, 0.0745, 0.0745, 0.0745, -0.0745, -0.0745, -0.0745, -0.01575,
+            -0.012385352413667231, -0.00925, -0.00655761184457488, -0.0044916697508022956,
+            -0.0031929642582421112, -0.00275, -0.00275, -0.0031929642582421112,
+            -0.0044916697508022956, -0.00655761184457488, -0.00925, -0.012385352413667231, -0.01575
+        ];
+        double[] oy =
+        [
+            -0.149, -0.149, -0.141, -0.141, -0.14055703574175787, -0.13925833024919768,
+            -0.1371923881554251, -0.13449999999999998, -0.13136464758633273, -0.12799999999999997,
+            0.12799999999999997, 0.13136464758633276, 0.13449999999999998, 0.1371923881554251,
+            0.13925833024919768, 0.14055703574175787, 0.141, 0.141, 0.149, 0.149, 0.149, 0.141,
+            0.141, 0.141, 0.14055703574175787, 0.13925833024919768, 0.1371923881554251,
+            0.13449999999999998, 0.13136464758633273, 0.12799999999999997, -0.12799999999999997,
+            -0.13136464758633273, -0.13449999999999998, -0.1371923881554251, -0.13925833024919768,
+            -0.14055703574175787, -0.141
+        ];
+        return new TorsionBoundary(ox, oy);
     }
 
     public static void FemCircleItVsAnalytical()

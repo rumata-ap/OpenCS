@@ -1,6 +1,7 @@
-using System.Text.Json;
 using CScore;
 using OpenCS.Utilites;
+using System.Globalization;
+using System.Windows.Media;
 
 namespace OpenCS.ViewModels;
 
@@ -8,54 +9,108 @@ namespace OpenCS.ViewModels;
 public sealed class TorsionResultVM : ViewModelBase
 {
     public string TaskTag { get; }
+    public string CreatedText { get; }
     public string StatusText { get; }
-    public string StatusBrush { get; }
+    public Brush StatusBrush { get; }
 
     public string MethodText { get; }
-    public string ItText { get; }       // мм⁴
+    public string ItText { get; }
+    public string GItText { get; }
+    public bool HasGIt { get; }
+    public string GText { get; }
+    public string EText { get; }
+    public bool HasMaterialG { get; }
+    public string MkText { get; }
+    public bool HasMk { get; }
     public string ShearCenterText { get; }
-    public string TauMaxText { get; }   // МПа (если заданы G, Mk)
+    public string TauMaxText { get; }
+    public string TauUnitMaxText { get; }
+    public string TwistRateText { get; }
+    public bool HasTwistRate { get; }
     public string ElementsText { get; }
     public string ElementSizeText { get; }
     public bool IsSingular { get; }
+    public string? ErrorText { get; }
+    public bool HasError { get; }
+
+    public TorsionPlotVM TauPlot { get; }
+    public TorsionPlotVM PotentialPlot { get; }
+    public bool HasPlots { get; }
 
     public TorsionResultVM(CalcResult r)
     {
         TaskTag = r.TaskTag ?? "";
+        CreatedText = r.Created ?? "";
+
+        var data = TorsionResultData.FromCalcResult(r);
+        HasError = !string.IsNullOrEmpty(data.Error);
+        ErrorText = data.Error;
+
         StatusText = r.Status switch
         {
-            "ok" => "Сошлось ✓",
-            "not_converged" => "НЕ СОШЛОСЬ ✗",
-            "error" => "Ошибка ✗",
+            "ok" => Loc.S("TorsionStatusOk"),
+            "not_converged" => Loc.S("TorsionStatusNotConverged"),
+            "error" => Loc.S("TorsionStatusError"),
             _ => r.Status ?? ""
         };
         StatusBrush = r.Status switch
         {
-            "ok" => "Green",
-            "error" => "DarkOrange",
-            _ => "DarkOrange"
+            "ok" => Brushes.Green,
+            "error" => Brushes.DarkOrange,
+            _ => Brushes.DarkOrange
         };
 
-        try
+        MethodText = data.Method switch
         {
-            using var doc = JsonDocument.Parse(r.DataJson);
-            var root = doc.RootElement;
-            MethodText = root.TryGetProperty("method", out var m) ? m.GetString() ?? "" : "";
-            ItText = root.TryGetProperty("It_mm4", out var it) ? $"{it.GetDouble():e3}" : "—";
-            double scx = root.TryGetProperty("shear_center_x_m", out var sx) ? sx.GetDouble() : double.NaN;
-            double scy = root.TryGetProperty("shear_center_y_m", out var sy) ? sy.GetDouble() : double.NaN;
-            ShearCenterText = (double.IsNaN(scx) || double.IsNaN(scy))
-                ? "—" : $"({scx * 1000:F1}; {scy * 1000:F1}) мм";
-            TauMaxText = root.TryGetProperty("tau_max_Pa", out var tau) && double.IsFinite(tau.GetDouble())
-                ? $"{tau.GetDouble() / 1e6:F2} МПа" : "— (G, Mk не заданы)";
-            ElementsText = root.TryGetProperty("n_elements", out var el) ? el.GetInt32().ToString() : "—";
-            ElementSizeText = root.TryGetProperty("element_size_m", out var es) ? $"{es.GetDouble():F3}" : "—";
-            IsSingular = root.TryGetProperty("singular", out var s) && s.GetBoolean();
-        }
-        catch
+            "bem" => Loc.S("CalcTaskKind_torsion_bem"),
+            "fem" => Loc.S("CalcTaskKind_torsion_fem"),
+            _ => data.Method
+        };
+
+        var inv = CultureInfo.InvariantCulture;
+        ItText = double.IsFinite(data.ItMm4) ? data.ItMm4.ToString("N1", inv) : "—";
+
+        HasGIt = data.GMpa > 0 && double.IsFinite(data.ItMm4);
+        if (HasGIt)
         {
-            ItText = "—"; ShearCenterText = "—"; TauMaxText = "—"; ElementsText = "—";
-            MethodText = ""; ElementSizeText = "—";
+            double gIt = data.GMpa * data.ItMm4 * 1e-9; // кН·м²
+            GItText = gIt.ToString("G4", inv);
         }
+        else GItText = "—";
+
+        HasMaterialG = data.GMpa > 0;
+        GText = HasMaterialG ? $"{data.GMpa.ToString("G4", inv)} МПа ({Loc.S("TorsionGAuto")})" : "—";
+        EText = data.EMpa > 0 ? $"{data.EMpa.ToString("G4", inv)} МПа" : "—";
+        HasMk = data.MkKNm > 0;
+        MkText = HasMk ? $"{data.MkKNm.ToString("G4", inv)} кН·м" : "—";
+
+        ShearCenterText = data.HasShearCenter
+            ? $"({data.ShearCenterXmm:F1}; {data.ShearCenterYmm:F1})"
+            : (data.IsFem ? Loc.S("TorsionShearCenterFemNa") : "—");
+
+        TauUnitMaxText = double.IsFinite(data.TauUnitMaxMm2)
+            ? $"{data.TauUnitMaxMm2.ToString("G4", inv)} мм²"
+            : "—";
+
+        TauMaxText = data.HasPhysicalTau
+            ? $"{data.TauMaxMpa.ToString("F2", inv)} МПа"
+            : Loc.S("TorsionTauMaxNotSet");
+
+        HasTwistRate = double.IsFinite(data.TwistRate) && data.GMpa > 0 && data.MkKNm != 0;
+        TwistRateText = HasTwistRate
+            ? $"{data.TwistRate.ToString("G4", inv)} 1/м"
+            : "—";
+
+        ElementsText = data.NElements > 0 ? data.NElements.ToString(inv) : "—";
+        ElementSizeText = double.IsFinite(data.ElementSizeM)
+            ? $"{(data.ElementSizeM * 1000).ToString("F1", inv)} мм ({data.ElementSizeM.ToString("G4", inv)} м)"
+            : "—";
+
+        IsSingular = data.Singular;
+
+        HasPlots = data.HasFieldMesh || data.HasBoundaryField ||
+                   (data.NodeXM != null && data.TauUnit != null);
+        TauPlot = new TorsionPlotVM(data, TorsionFieldMode.TauUnit);
+        PotentialPlot = new TorsionPlotVM(data, TorsionFieldMode.Potential);
     }
 }
