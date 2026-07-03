@@ -1,0 +1,432 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>Images\OpenCS.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="DataSource\Арматура стальная_C.csv" />
+    <None Remove="DataSource\Арматура стальная_CL.csv" />
+    <None Remove="DataSource\Арматура стальная_N.csv" />
+    <None Remove="DataSource\Арматура стальная_NL.csv" />
+    <None Remove="DataSource\Мелкозернистый группы А_C.csv" />
+    <None Remove="DataSource\Мелкозернистый группы А_CL.csv" />
+    <None Remove="DataSource\Мелкозернистый группы А_N.csv" />
+    <None Remove="DataSource\Мелкозернистый группы А_NL_1.csv" />
+    <None Remove="DataSource\Мелкозернистый группы А_NL_2.csv" />
+    <None Remove="DataSource\Мелкозернистый группы А_NL_3.csv" />
+    <None Remove="DataSource\Мелкозернистый группы Б_C.csv" />
+    <None Remove="DataSource\Мелкозернистый группы Б_CL.csv" />
+    <None Remove="DataSource\Мелкозернистый группы Б_N.csv" />
+    <None Remove="DataSource\Мелкозернистый группы Б_NL_1.csv" />
+    <None Remove="DataSource\Мелкозернистый группы Б_NL_2.csv" />
+    <None Remove="DataSource\Мелкозернистый группы Б_NL_3.csv" />
+    <None Remove="Images\add__32.png" />
+    <None Remove="Images\armarura__32.png" />
+    <None Remove="Images\beton_9z1hl7dg9744__32.png" />
+    <None Remove="Images\beton_pujtiv6o98lx_32.png" />
+    <None Remove="Images\contours__32.png" />
+    <None Remove="Images\crossect--32.png" />
+    <None Remove="Images\crossect-32.png" />
+    <None Remove="Images\crossect__32.png" />
+    <None Remove="Images\database_icon_174569.png" />
+    <None Remove="Images\diagramma--32.png" />
+    <None Remove="Images\diagramma-32.png" />
+    <None Remove="Images\drawing_32.png" />
+    <None Remove="Images\drawing__32.png" />
+    <None Remove="Images\edit--32.png" />
+    <None Remove="Images\fareas--32.png" />
+    <None Remove="Images\fareas-32.png" />
+    <None Remove="Images\fibers--32.png" />
+    <None Remove="Images\geometry__32.png" />
+    <None Remove="Images\interfaceDXF.png" />
+    <None Remove="Images\interfaceDXF__32.png" />
+    <None Remove="Images\kamni_wouahfq6r5gi__32.png" />
+    <None Remove="Images\material1__32.png" />
+    <None Remove="Images\material_n068c7xwc94bg_32.png" />
+    <None Remove="Images\material_n068c7xwc94b_32.png" />
+    <None Remove="Images\material__32.png" />
+    <None Remove="Images\mesh-32.png" />
+    <None Remove="Images\point--32.png" />
+    <None Remove="Images\points__32.png" />
+    <None Remove="Images\poligon--32.png" />
+    <None Remove="Images\rconcrete--32.png" />
+    <None Remove="Images\rebar--32.png" />
+    <None Remove="Images\rebars--32.png" />
+    <None Remove="Images\rebarslayer--32.png" />
+    <None Remove="Images\rebarslayers--32.png" />
+    <None Remove="Images\rebar_group--32.png" />
+    <None Remove="Images\rebar_group_32.png" />
+    <None Remove="Images\rebar_group__32%281%29.png" />
+    <None Remove="Images\rebar_group__32.png" />
+    <None Remove="Images\region--32.png" />
+    <None Remove="Images\save--32.png" />
+    <None Remove="Images\save-32.png" />
+    <None Remove="Images\Save_as-80_icon-icons.com32.png" />
+    <None Remove="Images\save_file_32.png" />
+    <None Remove="Images\setka--32.png" />
+    <None Remove="Images\setka_32.png" />
+    <None Remove="Images\setka_orto--32.png" />
+    <None Remove="Images\setka_orto-32.png" />
+    <None Remove="Images\setka__32.png" />
+    <None Remove="Images\shape-design--32.png" />
+    <None Remove="Images\slice--32.png" />
+    <None Remove="Images\slice-32.png" />
+    <None Remove="Images\spiderweb--32.png" />
+    <None Remove="Images\spiderweb-32.png" />
+    <None Remove="Images\steel_3rbuwfklgl3w__32.png" />
+    <None Remove="Images\strelka_vlevo_32.png" />
+    <None Remove="Images\strelka_vlevo_krug--32.png" />
+    <None Remove="Images\strelka_vpravo_32.png" />
+    <None Remove="Images\strelki_vlevo_32.png" />
+    <None Remove="Images\triangle%281%29_32.png" />
+    <None Remove="Images\triangle%281%29__32.png" />
+    <None Remove="Images\triangle_32.png" />
+    <None Remove="Images\triangle__32.png" />
+    <None Remove="Images\update--32.png" />
+    <None Remove="Images\update-32.png" />
+    <None Remove="Images\volokno--32.png" />
+    <None Remove="Images\Арматура_32.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="DataSource\Sortamenty.db3">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Арматура стальная_C.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Арматура стальная_CL.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Арматура стальная_N.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Арматура стальная_NL.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Бетон_тяжелый_C.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Бетон_тяжелый_CL.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Бетон_тяжелый_N.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Бетон_тяжелый_NL_1.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Бетон_тяжелый_NL_2.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Бетон_тяжелый_NL_3.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы А_C.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы А_CL.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы А_N.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы А_NL_1.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы А_NL_2.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы А_NL_3.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы Б_C.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы Б_CL.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы Б_N.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы Б_NL_1.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы Б_NL_2.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Мелкозернистый группы Б_NL_3.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Конструкционная_сталь_C_СП_16_13330_2017.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Конструкционная_сталь_N_СП_16_13330_2017.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Конструкционная_сталь_C_СП_16_13330_2011.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Конструкционная_сталь_N_СП_16_13330_2011.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Конструкционная_сталь_C_ГОСТ_27772-2015.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DataSource\Конструкционная_сталь_N_ГОСТ_27772-2015.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\add__32.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\armarura__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\beton_9z1hl7dg9744__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\beton_pujtiv6o98lx_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\circle__32.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\circles__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\contours__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\crossect--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\crossect-32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\crossect__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\OpenCS.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\OpenCS-icon.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\database_icon_174569.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\delete__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\diagramma--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\diagramma-32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\drawing_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\drawing__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\edit--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\fareas--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\fareas-32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\fibers--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\geometry__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\interfaceDXF.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\interfaceDXF__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\kamni_wouahfq6r5gi__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\material1__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\material_n068c7xwc94bg_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\material_n068c7xwc94b_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\material__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\mesh-32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\point--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\points__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\poligon--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\rconcrete--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\rebar--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\rebars--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\rebarslayer--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\rebarslayers--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\rebar_group--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\rebar_group_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\rebar_group__32(1).png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\rebar_group__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\region--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\save--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\save-32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\Save_as-80_icon-icons.com32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\save_file_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\setka--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\setka_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\setka_orto--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\setka_orto-32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\setka__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\shape-design--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\slice--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\slice-32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\spiderweb--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\spiderweb-32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\steel_3rbuwfklgl3w__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\strelka_vlevo_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\strelka_vlevo_krug--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\strelka_vpravo_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\strelki_vlevo_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\triangle(1)_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\triangle(1)__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\triangle_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\triangle__32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\update--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\update-32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\volokno--32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Images\Арматура_32.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" Version="33.0.1" />
+    <PackageReference Include="HelixToolkit.Wpf" Version="3.1.2" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.1" />
+    <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
+    <PackageReference Include="netDxf" Version="2023.11.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CScore\CScore.csproj" />
+    <ProjectReference Include="..\CScore.Fire\CScore.Fire.csproj" />
+    <ProjectReference Include="..\CSfea.Torsion\CSfea.Torsion.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Interop.LiraSaprRes">
+      <HintPath>Interop\Interop.LiraSaprRes.dll</HintPath>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+    </Reference>
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <Compile Update="Views\FromDataSourceWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\MaterialPage.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+
+</Project>

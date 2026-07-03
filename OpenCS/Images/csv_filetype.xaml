@@ -1,0 +1,33 @@
+<ResourceDictionary xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+   <DrawingGroup x:Key="csv_filetype_xaml">
+      <DrawingGroup.ClipGeometry>
+         <RectangleGeometry Rect="0.0,0.0,24.0,24.0"/>
+      </DrawingGroup.ClipGeometry>
+      <GeometryDrawing Brush="#ff4caf50">
+         <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M 16.5 22 h -9 a 3 3 0 0 1 -3 -3 V 5 a 3 3 0 0 1 3 -3 h 6.59 a 1 1 0 0 1 0.7 0.29 l 4.42 4.42 a 1 1 0 0 1 0.29 0.7 V 19 A 3 3 0 0 1 16.5 22 Z" FillRule="Nonzero"/>
+         </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+      <GeometryDrawing Brush="#ffb9f6ca">
+         <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M 18.8 7.74 H 15.2 a 1.5 1.5 0 0 1 -1.5 -1.5 V 2.64 a 0.55 0.55 0 0 1 0.94 -0.39 L 19.19 6.8 A 0.55 0.55 0 0 1 18.8 7.74 Z" FillRule="Nonzero"/>
+         </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+      <GeometryDrawing Brush="#ffe8f5e9">
+         <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M 9.19 18.11 a 1.77 1.77 0 0 1 -0.82 -0.17 a 1.29 1.29 0 0 1 -0.55 -0.51 a 1.54 1.54 0 0 1 -0.2 -0.79 a 1.52 1.52 0 0 1 0.2 -0.79 a 1.21 1.21 0 0 1 0.55 -0.5 a 1.77 1.77 0 0 1 0.82 -0.18 a 1.45 1.45 0 0 1 0.35 0 a 1.47 1.47 0 0 1 0.38 0.11 a 0.38 0.38 0 0 1 0.19 0.16 a 0.43 0.43 0 0 1 0.05 0.23 a 0.48 0.48 0 0 1 -0.07 0.21 a 0.27 0.27 0 0 1 -0.17 0.13 a 0.27 0.27 0 0 1 -0.23 0 a 0.92 0.92 0 0 0 -0.39 -0.09 a 0.61 0.61 0 0 0 -0.47 0.18 a 0.77 0.77 0 0 0 -0.16 0.52 a 0.75 0.75 0 0 0 0.16 0.52 a 0.58 0.58 0 0 0 0.47 0.19 l 0.19 0 l 0.2 -0.07 a 0.27 0.27 0 0 1 0.23 0 a 0.26 0.26 0 0 1 0.16 0.13 a 0.38 0.38 0 0 1 0.07 0.21 a 0.37 0.37 0 0 1 -0.05 0.23 a 0.38 0.38 0 0 1 -0.19 0.16 a 2.15 2.15 0 0 1 -0.37 0.11 Z" FillRule="Nonzero"/>
+         </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+      <GeometryDrawing Brush="#ffe8f5e9">
+         <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M 11.79 18.11 a 2.92 2.92 0 0 1 -0.51 0 a 1.62 1.62 0 0 1 -0.47 -0.13 a 0.38 0.38 0 0 1 -0.24 -0.2 a 0.39 0.39 0 0 1 0 -0.26 a 0.35 0.35 0 0 1 0.16 -0.2 a 0.3 0.3 0 0 1 0.28 0 a 1.93 1.93 0 0 0 0.42 0.12 a 1.69 1.69 0 0 0 0.38 0 a 0.56 0.56 0 0 0 0.3 -0.06 a 0.18 0.18 0 0 0 0.09 -0.16 a 0.15 0.15 0 0 0 -0.06 -0.13 A 0.38 0.38 0 0 0 12 17 l -0.63 -0.11 a 0.91 0.91 0 0 1 -0.55 -0.25 a 0.74 0.74 0 0 1 -0.2 -0.53 a 0.85 0.85 0 0 1 0.17 -0.51 a 1.07 1.07 0 0 1 0.46 -0.33 a 1.83 1.83 0 0 1 0.68 -0.12 a 3.17 3.17 0 0 1 0.47 0 a 2 2 0 0 1 0.41 0.13 a 0.33 0.33 0 0 1 0.2 0.2 a 0.39 0.39 0 0 1 0 0.26 a 0.35 0.35 0 0 1 -0.17 0.19 a 0.3 0.3 0 0 1 -0.28 0 a 2.19 2.19 0 0 0 -0.34 -0.11 a 1.36 1.36 0 0 0 -0.27 0 a 0.62 0.62 0 0 0 -0.33 0.07 a 0.18 0.18 0 0 0 -0.1 0.16 c 0 0.1 0.07 0.16 0.21 0.19 l 0.64 0.11 a 1 1 0 0 1 0.56 0.24 a 0.7 0.7 0 0 1 0.2 0.52 a 0.83 0.83 0 0 1 -0.36 0.72 A 1.56 1.56 0 0 1 11.79 18.11 Z" FillRule="Nonzero"/>
+         </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+      <GeometryDrawing Brush="#ffe8f5e9">
+         <GeometryDrawing.Geometry>
+            <PathGeometry Figures="M 14.84 18.1 a 0.59 0.59 0 0 1 -0.57 -0.4 l -0.82 -1.87 a 0.51 0.51 0 0 1 0 -0.45 a 0.46 0.46 0 0 1 0.44 -0.2 a 0.44 0.44 0 0 1 0.29 0.09 a 0.63 0.63 0 0 1 0.21 0.32 l 0.48 1.24 l 0.51 -1.25 a 0.72 0.72 0 0 1 0.2 -0.31 a 0.53 0.53 0 0 1 0.32 -0.09 a 0.4 0.4 0 0 1 0.27 0.09 a 0.36 0.36 0 0 1 0.13 0.24 a 0.53 0.53 0 0 1 -0.05 0.32 l -0.84 1.88 A 0.58 0.58 0 0 1 14.84 18.1 Z" FillRule="Nonzero"/>
+         </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+   </DrawingGroup>
+   <DrawingImage Drawing="{StaticResource csv_filetype_xaml}" x:Key="di_csv_filetype_xaml"/>
+</ResourceDictionary>

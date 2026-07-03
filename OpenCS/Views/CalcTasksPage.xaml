@@ -1,0 +1,94 @@
+<UserControl x:Class="OpenCS.Views.CalcTasksPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+   <Grid>
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <!-- Тулбар задач -->
+      <Border Grid.Row="0" BorderThickness="0,0,0,1"
+              BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+              Padding="8,6">
+         <StackPanel Orientation="Horizontal">
+            <Button Content="{DynamicResource CalcTaskNew}"
+                    Command="{Binding NewTaskCommand}"
+                    Padding="10,3" Margin="0,0,6,0"/>
+            <Button Content="{DynamicResource CalcTaskRun}"
+                    Command="{Binding RunTaskCommand}"
+                    Padding="10,3" Margin="0,0,6,0"/>
+            <Button Content="{DynamicResource CalcTaskEdit}"
+                    Command="{Binding EditTaskCommand}"
+                    Padding="10,3" Margin="0,0,6,0"/>
+            <Button Content="{DynamicResource CalcTaskDelete}"
+                    Command="{Binding DeleteTaskCommand}"
+                    Padding="10,3"/>
+            <Button Content="{DynamicResource PrestressLossParamsBtn}"
+                    Command="{Binding EditPrestressParamsCommand}"
+                    Visibility="{Binding IsPrestressLossSelected, Converter={StaticResource BoolToVisibility}}"
+                    Padding="10,3" Margin="6,0,0,0"/>
+         </StackPanel>
+      </Border>
+
+      <!-- Список задач -->
+      <DataGrid Grid.Row="1"
+                ItemsSource="{Binding Tasks}"
+                SelectedItem="{Binding SelectedTask, Mode=TwoWay}"
+                AutoGenerateColumns="False"
+                CanUserAddRows="False"
+                CanUserDeleteRows="False"
+                SelectionMode="Single"
+                SelectionUnit="FullRow"
+                IsReadOnly="True"
+                HeadersVisibility="Column"
+                Margin="0,0,0,0">
+         <DataGrid.Columns>
+            <DataGridTextColumn Header="#"     Binding="{Binding Model.Num}"  Width="40"/>
+            <DataGridTextColumn Header="{DynamicResource Tag}"  Binding="{Binding Model.Tag}"  Width="*"/>
+            <DataGridTextColumn Header="{DynamicResource CalcTaskKind}" Binding="{Binding Model.Kind}" Width="120"/>
+            <DataGridTextColumn Header="{DynamicResource CalcType}"     Binding="{Binding Model.CalcType}" Width="60"/>
+         </DataGrid.Columns>
+      </DataGrid>
+
+      <!-- Разделитель результатов -->
+      <Border Grid.Row="2" BorderThickness="0,1,0,0"
+              BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+              Padding="8,4">
+         <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{DynamicResource CalcResults}" FontWeight="SemiBold"
+                       VerticalAlignment="Center" Margin="0,0,16,0"/>
+            <Button Content="{DynamicResource CalcResultView}"
+                    Command="{Binding ViewResultCommand}"
+                    Padding="8,2" Margin="0,0,6,0"/>
+             <Button Content="{DynamicResource CalcResultDelete}"
+                     Command="{Binding DeleteResultCommand}"
+                     Padding="8,2" Margin="0,0,6,0"/>
+             <Button Content="{DynamicResource CalcResultDeleteAll}"
+                     Command="{Binding DeleteAllResultsCommand}"
+                     Padding="8,2"/>
+         </StackPanel>
+      </Border>
+
+      <!-- Список результатов -->
+      <DataGrid Grid.Row="3"
+                ItemsSource="{Binding SelectedTaskResults}"
+                SelectedItem="{Binding SelectedResult, Mode=TwoWay}"
+                AutoGenerateColumns="False"
+                CanUserAddRows="False"
+                CanUserDeleteRows="False"
+                SelectionMode="Single"
+                SelectionUnit="FullRow"
+                IsReadOnly="True"
+                HeadersVisibility="Column"
+                MouseDoubleClick="ResultGrid_MouseDoubleClick">
+         <DataGrid.Columns>
+            <DataGridTextColumn Header="{DynamicResource CalcResultCreated}" Binding="{Binding Created}" Width="140"/>
+            <DataGridTextColumn Header="{DynamicResource CalcResultStatus}"  Binding="{Binding Status}"  Width="100"/>
+         </DataGrid.Columns>
+      </DataGrid>
+   </Grid>
+</UserControl>

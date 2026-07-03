@@ -1,0 +1,17 @@
+<UserControl x:Class="OpenCS.Views.LimitForceResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views">
+
+   <TabControl>
+      <TabItem Header="{DynamicResource ResultTabSummary}">
+         <local:LimitForceSummaryView x:Name="SummaryView"/>
+      </TabItem>
+      <TabItem Header="{DynamicResource ResultTabStress}">
+         <local:SectionPlotView x:Name="StressView"/>
+      </TabItem>
+      <TabItem Header="{DynamicResource ResultTabStrain}">
+         <local:SectionPlotView x:Name="StrainView"/>
+      </TabItem>
+   </TabControl>
+</UserControl>

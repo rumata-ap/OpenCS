@@ -1,0 +1,354 @@
+<Window x:Class="OpenCS.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource SettingsTitle}" Width="500" Height="680"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TabControl Grid.Row="0" Margin="0,0,0,5">
+            <TabItem Header="{DynamicResource PlotsTab}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <GroupBox Header="{DynamicResource ColorsAndSizes}" Margin="0,0,0,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="95"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="50"/>
+                    <ColumnDefinition Width="26"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="26"/>
+                    <RowDefinition Height="26"/>
+                    <RowDefinition Height="26"/>
+                    <RowDefinition Height="26"/>
+                    <RowDefinition Height="26"/>
+                    <RowDefinition Height="26"/>
+                    <RowDefinition Height="26"/>
+                    <RowDefinition Height="26"/>
+                    <RowDefinition Height="26"/>
+                    <RowDefinition Height="26"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Background}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" x:Name="BgBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <Rectangle Grid.Row="0" Grid.Column="3" x:Name="BgSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Grid}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="1" Grid.Column="1" x:Name="GridBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <Rectangle Grid.Row="1" Grid.Column="3" x:Name="GridSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Curves}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" x:Name="CurveBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="2" x:Name="CurveThBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource ThicknessPx}"/>
+                <Rectangle Grid.Row="2" Grid.Column="3" x:Name="CurveSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Fill}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="3" Grid.Column="1" x:Name="FillBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <Rectangle Grid.Row="3" Grid.Column="3" x:Name="FillSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource Markers}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="1" x:Name="MarkerBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <TextBox Grid.Row="4" Grid.Column="2" x:Name="MarkerSzBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource SizePx}"/>
+                <Rectangle Grid.Row="4" Grid.Column="3" x:Name="MarkerSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource Text}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="1" x:Name="TextBoxField" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <TextBox Grid.Row="5" Grid.Column="2" x:Name="FontSzBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource FontSizeLabels}"/>
+                <Rectangle Grid.Row="5" Grid.Column="3" x:Name="TextSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource Highlight}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="6" Grid.Column="1" x:Name="HighlightBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <Rectangle Grid.Row="6" Grid.Column="3" x:Name="HighlightSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource Axes}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="7" Grid.Column="1" x:Name="AxesColorBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <TextBox Grid.Row="7" Grid.Column="2" x:Name="AxesFontSzBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource FontSize}"/>
+                <Rectangle Grid.Row="7" Grid.Column="3" x:Name="AxesColorSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource DxfBackground}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="8" Grid.Column="1" x:Name="DxfBgBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <Rectangle Grid.Row="8" Grid.Column="3" x:Name="DxfBgSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+
+                <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource CentroidsSettings}" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="9" Grid.Column="1" x:Name="CentroidColorBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                <TextBox Grid.Row="9" Grid.Column="2" x:Name="CentroidSzBox" Margin="2" Height="22"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" ToolTip="{DynamicResource SizePx}"/>
+                <Rectangle Grid.Row="9" Grid.Column="3" x:Name="CentroidSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                           Stroke="LightGray" StrokeThickness="1"/>
+            </Grid>
+        </GroupBox>
+
+        <GroupBox Grid.Row="1" Header="{DynamicResource Palette}" Margin="0,0,0,10">
+            <WrapPanel x:Name="PalettePanel" Margin="2" />
+        </GroupBox>
+
+        <GroupBox Grid.Row="2" Header="{DynamicResource Display}" Margin="0,0,0,10">
+            <StackPanel>
+                <Grid Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <CheckBox x:Name="ShowGridCb" Content="{DynamicResource ShowGrid}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource Thickness}" VerticalAlignment="Center" FontSize="11" Margin="0,0,3,0"/>
+                        <TextBox x:Name="GridThBox" Width="40" Height="22"
+                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Ticks}" VerticalAlignment="Center" FontSize="11" Margin="8,0,3,0"/>
+                        <TextBox x:Name="TickCountBox" Width="40" Height="22"
+                                 VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                    </StackPanel>
+                </Grid>
+                <CheckBox x:Name="ShowLabelsCb" Content="{DynamicResource PointLabels}" Margin="0,3,0,0"/>
+                <CheckBox x:Name="ShowTooltipsCb" Content="{DynamicResource ClickHighlight}" Margin="0,3,0,0"/>
+                <CheckBox x:Name="ShowAxesValsCb" Content="{DynamicResource AxisValueLabels}" Margin="0,3,0,0"/>
+                <CheckBox x:Name="AxesOriginCb" Content="{DynamicResource AxesThroughOrigin}" Margin="0,3,0,0"/>
+                <Grid Margin="0,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{DynamicResource ScaleX}" VerticalAlignment="Center" FontSize="11"/>
+                    <TextBox Grid.Column="1" x:Name="ScaleXBox" Width="60" Height="22"
+                             VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                </Grid>
+                <Grid Margin="0,3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{DynamicResource ScaleY}" VerticalAlignment="Center" FontSize="11"/>
+                    <TextBox Grid.Column="1" x:Name="ScaleYBox" Width="60" Height="22"
+                             VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                </Grid>
+            </StackPanel>
+        </GroupBox>
+
+                        <GroupBox Header="{DynamicResource CalcSettingsLineStyleGroup}" Margin="0,0,0,10">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="95"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="26"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CalcSettingsHullLine}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" x:Name="HullColorBox" Margin="2" Height="22"
+                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                                <TextBox Grid.Row="0" Grid.Column="2" x:Name="HullThickBox" Margin="2" Height="22"
+                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                                         ToolTip="{DynamicResource ThicknessPx}"/>
+                                <Rectangle Grid.Row="0" Grid.Column="3" x:Name="HullSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                                           Stroke="LightGray" StrokeThickness="1"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CalcSettingsHoleLine}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" x:Name="HoleColorBox" Margin="2" Height="22"
+                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                                <TextBox Grid.Row="1" Grid.Column="2" x:Name="HoleThickBox" Margin="2" Height="22"
+                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                                         ToolTip="{DynamicResource ThicknessPx}"/>
+                                <Rectangle Grid.Row="1" Grid.Column="3" x:Name="HoleSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                                           Stroke="LightGray" StrokeThickness="1"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CalcSettingsNeutralAxisLine}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" x:Name="NeutralAxisColorBox" Margin="2" Height="22"
+                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                                <TextBox Grid.Row="2" Grid.Column="2" x:Name="NeutralAxisThickBox" Margin="2" Height="22"
+                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                                         ToolTip="{DynamicResource ThicknessPx}"/>
+                                <Rectangle Grid.Row="2" Grid.Column="3" x:Name="NeutralAxisSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                                           Stroke="LightGray" StrokeThickness="1"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CalcSettingsCentroidNdsLine}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" x:Name="CentroidNdsColorBox" Margin="2" Height="22"
+                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                                <TextBox Grid.Row="3" Grid.Column="2" x:Name="CentroidNdsSizeBox" Margin="2" Height="22"
+                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                                         ToolTip="{DynamicResource SizePx}"/>
+                                <Rectangle Grid.Row="3" Grid.Column="3" x:Name="CentroidNdsSwatch" Margin="2" RadiusX="3" RadiusY="3"
+                                           Stroke="LightGray" StrokeThickness="1"/>
+
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource CalcSettingsLabelFontSize}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="4" Grid.Column="2" x:Name="LabelFontSizeBox" Margin="2" Height="22"
+                                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                                         ToolTip="{DynamicResource SizePx}"/>
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Вкладка «Расчёт» -->
+            <TabItem Header="{DynamicResource CalcSettingsTab}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <GroupBox Header="{DynamicResource CalcSettingsGridGroup}" Margin="0,0,0,10">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="90"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsGridDensity}"
+                                           VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="0" Grid.Column="1"
+                                         x:Name="GridDensityBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"/>
+                            </Grid>
+                        </GroupBox>
+                        <GroupBox Header="{DynamicResource CalcSettingsNewtonGroup}" Margin="0,0,0,10">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="90"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsTol}"
+                                           VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="0" Grid.Column="1"
+                                         x:Name="NewtonTolBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsMaxIter}"
+                                           VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="1" Grid.Column="1"
+                                         x:Name="NewtonMaxIterBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsDeltaH}"
+                                           VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="2" Grid.Column="1"
+                                         x:Name="NewtonDeltaHBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp63EtaMin}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp63EtaMinTip}"/>
+                                <TextBox Grid.Row="3" Grid.Column="1"
+                                         x:Name="Sp63EtaMinBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp63EtaMinTip}"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsJacobian}"
+                                           VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="4" Grid.Column="1"
+                                          x:Name="NewtonJacobianCombo"
+                                          VerticalContentAlignment="Center" Margin="0,2">
+                                    <ComboBoxItem Tag="forward" Content="{DynamicResource CalcSettingsJacobianForward}"/>
+                                    <ComboBoxItem Tag="central" Content="{DynamicResource CalcSettingsJacobianCentral}"/>
+                                </ComboBox>
+                                <TextBlock Grid.Row="5" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsShellTolRes}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsShellTolResTip}"/>
+                                <TextBox Grid.Row="5" Grid.Column="1"
+                                         x:Name="ShellTolResBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsShellTolResTip}"/>
+                            </Grid>
+                        </GroupBox>
+                        <GroupBox Header="{DynamicResource CalcSettingsBatchGroup}" Margin="0,0,0,10">
+                            <StackPanel>
+                                <CheckBox x:Name="BatchParallelCb"
+                                          Content="{DynamicResource BatchParallel_Label}"
+                                          ToolTip="{DynamicResource BatchParallel_Tip}"
+                                          Margin="4,6"/>
+                                <CheckBox x:Name="ShellWarmStartCb"
+                                          Content="{DynamicResource ShellWarmStart_Label}"
+                                          ToolTip="{DynamicResource ShellWarmStart_Tip}"
+                                          Margin="4,2,4,6"/>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <!-- Вкладка «CSV» -->
+            <TabItem Header="{DynamicResource CsvSettingsTab}">
+                <StackPanel Margin="10">
+                    <GroupBox Header="{DynamicResource ColumnDelimiter}" Margin="0,0,0,10">
+                        <StackPanel Margin="4">
+                            <RadioButton x:Name="CsvSemicolon" Content="{DynamicResource Semicolon}" Margin="0,3"/>
+                            <RadioButton x:Name="CsvComma" Content="{DynamicResource Comma}" Margin="0,3"/>
+                        </StackPanel>
+                    </GroupBox>
+                    <GroupBox Header="{DynamicResource Encoding}">
+                        <StackPanel Margin="4">
+                            <RadioButton x:Name="CsvUtf8" Content="UTF-8" Margin="0,3"/>
+                            <RadioButton x:Name="CsvWin1251" Content="Windows-1251" Margin="0,3"/>
+                        </StackPanel>
+                    </GroupBox>
+                </StackPanel>
+            </TabItem>
+            <!-- Вкладка «Импорт LIRA» -->
+            <TabItem Header="{DynamicResource LiraImportSettingsTab}">
+                <StackPanel Margin="10">
+                    <GroupBox Header="{DynamicResource LiraImportUnitsGroup}" Margin="0,0,0,10">
+                        <StackPanel Margin="4">
+                            <RadioButton x:Name="LiraTon981" Content="{DynamicResource LiraTon981}" Margin="0,3"/>
+                            <RadioButton x:Name="LiraTon10" Content="{DynamicResource LiraTon10}" Margin="0,3"/>
+                        </StackPanel>
+                    </GroupBox>
+                    <GroupBox Header="{DynamicResource LiraImportBarMomentsGroup}">
+                        <CheckBox x:Name="LiraInvertBarMxMyCb"
+                                  Content="{DynamicResource LiraInvertBarMxMy}"
+                                  Margin="4,6"/>
+                    </GroupBox>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,0,0">
+            <Button Content="{DynamicResource Defaults}" Click="Reset_Click" Width="110" Height="28" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource Apply}" Click="Apply_Click" Width="90" Height="28" Margin="0,0,8,0" IsDefault="True"/>
+            <Button Content="OK" Click="Ok_Click" Width="70" Height="28" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource Cancel}" Click="Cancel_Click" Width="70" Height="28" IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>

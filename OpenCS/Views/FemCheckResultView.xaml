@@ -1,0 +1,49 @@
+<UserControl x:Class="OpenCS.Views.FemCheckResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Сводка -->
+        <Border Grid.Row="0" Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
+                Background="{Binding SummaryBrush}">
+            <TextBlock Text="{Binding SummaryText}" FontWeight="Bold"
+                       HorizontalAlignment="Center"/>
+        </Border>
+
+        <!-- Таблица строк -->
+        <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}" IsReadOnly="True"
+                  AutoGenerateColumns="False" GridLinesVisibility="Horizontal"
+                  CanUserSortColumns="True">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Passed}" Value="True">
+                            <Setter Property="Background" Value="#1A2D7A3E"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Passed}" Value="False">
+                            <Setter Property="Background" Value="#1AC0392B"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="{DynamicResource FemCheckResultLabel}"
+                                    Binding="{Binding Label}" Width="90"/>
+                <DataGridTextColumn Header="{DynamicResource FemCheckResultForceSet}"
+                                    Binding="{Binding ForceSetTag}" Width="*"/>
+                <DataGridTextColumn Header="{DynamicResource FemCheckResultCalcType}"
+                                    Binding="{Binding CalcType}" Width="50"/>
+                <DataGridTextColumn Header="{DynamicResource FemCheckResultUtil}"
+                                    Binding="{Binding UtilText}" Width="80"/>
+                <DataGridTextColumn Header="{DynamicResource FemCheckResultWorstCheck}"
+                                    Binding="{Binding WorstCheckText}" Width="200"/>
+                <DataGridTextColumn Header="{DynamicResource FemCheckResultStatus}"
+                                    Binding="{Binding StatusText}" Width="70"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

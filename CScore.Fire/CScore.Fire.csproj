@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>CScore.Fire</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CScore\CScore.csproj" />
+    <ProjectReference Include="..\CSTriangulation\CSTriangulation.csproj" />
+    <ProjectReference Include="..\CSfea.Thermal\CSfea.Thermal.csproj" />
+    <ProjectReference Include="..\CSmath\CSmath.csproj" />
+  </ItemGroup>
+
+</Project>

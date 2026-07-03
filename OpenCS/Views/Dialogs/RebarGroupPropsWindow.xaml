@@ -1,0 +1,93 @@
+<Window x:Class="OpenCS.Views.Dialogs.RebarGroupPropsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Свойства группы стержней"
+        Width="400" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="8,6" Background="#FAFAFA" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Единицы:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <RadioButton x:Name="UnitMm" Content="мм" GroupName="Units" Margin="0,0,4,0" Checked="Unit_Checked"/>
+                <RadioButton x:Name="UnitCm" Content="см" GroupName="Units" Margin="0,0,4,0" Checked="Unit_Checked"/>
+                <RadioButton x:Name="UnitM" Content="м" GroupName="Units" IsChecked="True" Margin="0,0,4,0" Checked="Unit_Checked"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="1" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="6" Padding="12" Background="#FAFAFA">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="180"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Количество стержней n:" FontWeight="SemiBold" Margin="0,0,8,5"/>
+                <TextBlock Grid.Row="0" Grid.Column="1" x:Name="CountText" Foreground="#2563EB" FontWeight="Bold" Margin="0,0,0,5"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Суммарная площадь As:" FontWeight="SemiBold" Margin="0,0,8,5"/>
+                <TextBox Grid.Row="1" Grid.Column="1" x:Name="AreaText" IsReadOnly="True" BorderThickness="0" Background="Transparent" Foreground="#2563EB" FontWeight="Bold" Focusable="True" Cursor="IBeam" Margin="0,0,0,5"/>
+                <Button Grid.Row="1" Grid.Column="2" Width="22" Height="22" Margin="4,0,0,5" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="Копировать" Click="CopyValue_Click" Tag="Area">
+                    <Path Fill="#6B7280" Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </Button>
+
+                <Separator Grid.Row="2" Grid.ColumnSpan="3" Margin="0,0,0,5"/>
+
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="Центр тяжести Xc:" FontWeight="SemiBold" Margin="0,0,8,5"/>
+                <TextBox Grid.Row="3" Grid.Column="1" x:Name="CentroidXText" IsReadOnly="True" BorderThickness="0" Background="Transparent" Foreground="#2563EB" FontWeight="Bold" Focusable="True" Cursor="IBeam" Margin="0,0,0,5"/>
+                <Button Grid.Row="3" Grid.Column="2" Width="22" Height="22" Margin="4,0,0,5" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="Копировать" Click="CopyValue_Click" Tag="CentroidX">
+                    <Path Fill="#6B7280" Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </Button>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Центр тяжести Yc:" FontWeight="SemiBold" Margin="0,0,8,5"/>
+                <TextBox Grid.Row="4" Grid.Column="1" x:Name="CentroidYText" IsReadOnly="True" BorderThickness="0" Background="Transparent" Foreground="#2563EB" FontWeight="Bold" Focusable="True" Cursor="IBeam" Margin="0,0,0,5"/>
+                <Button Grid.Row="4" Grid.Column="2" Width="22" Height="22" Margin="4,0,0,5" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="Копировать" Click="CopyValue_Click" Tag="CentroidY">
+                    <Path Fill="#6B7280" Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </Button>
+
+                <Separator Grid.Row="5" Grid.ColumnSpan="3" Margin="0,0,0,5"/>
+
+                <TextBlock Grid.Row="6" Grid.Column="0" Text="Момент инерции Isx:" FontWeight="SemiBold" Margin="0,0,8,5"/>
+                <TextBox Grid.Row="6" Grid.Column="1" x:Name="IxText" IsReadOnly="True" BorderThickness="0" Background="Transparent" Foreground="#2563EB" FontWeight="Bold" Focusable="True" Cursor="IBeam" Margin="0,0,0,5"/>
+                <Button Grid.Row="6" Grid.Column="2" Width="22" Height="22" Margin="4,0,0,5" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="Копировать" Click="CopyValue_Click" Tag="Ix">
+                    <Path Fill="#6B7280" Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </Button>
+
+                <TextBlock Grid.Row="7" Grid.Column="0" Text="Момент инерции Isy:" FontWeight="SemiBold" Margin="0,0,8,5"/>
+                <TextBox Grid.Row="7" Grid.Column="1" x:Name="IyText" IsReadOnly="True" BorderThickness="0" Background="Transparent" Foreground="#2563EB" FontWeight="Bold" Focusable="True" Cursor="IBeam" Margin="0,0,0,5"/>
+                <Button Grid.Row="7" Grid.Column="2" Width="22" Height="22" Margin="4,0,0,5" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="Копировать" Click="CopyValue_Click" Tag="Iy">
+                    <Path Fill="#6B7280" Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </Button>
+
+                <TextBlock Grid.Row="8" Grid.Column="0" Text="Центробежный момент Isxy:" FontWeight="SemiBold" Margin="0,0,8,5"/>
+                <TextBox Grid.Row="8" Grid.Column="1" x:Name="IxyText" IsReadOnly="True" BorderThickness="0" Background="Transparent" Foreground="#2563EB" FontWeight="Bold" Focusable="True" Cursor="IBeam" Margin="0,0,0,5"/>
+                <Button Grid.Row="8" Grid.Column="2" Width="22" Height="22" Margin="4,0,0,5" Padding="0" Background="Transparent" BorderThickness="0" Cursor="Hand" ToolTip="Копировать" Click="CopyValue_Click" Tag="Ixy">
+                    <Path Fill="#6B7280" Data="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                </Button>
+
+                <Separator Grid.Row="9" Grid.ColumnSpan="3" Margin="0,0,0,5"/>
+
+                <TextBlock Grid.Row="10" Grid.Column="0" Text="Диаметр мин./макс.:" FontWeight="SemiBold" Margin="0,0,8,5"/>
+                <TextBlock Grid.Row="10" Grid.Column="1" x:Name="DiameterRangeText" Foreground="#2563EB" FontWeight="Bold" Margin="0,0,0,5"/>
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="OK" IsDefault="True" IsCancel="True" Width="90" Click="Ok_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

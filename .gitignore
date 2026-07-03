@@ -1,0 +1,26 @@
+# .NET build artifacts
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Документация и планы (не часть кодовой базы)
+docs/
+
+# Вспомогательные утилиты и скрипты разработчика
+tools/
+_temp_*
+_mesh_quick/
+_torsion_quick_test/
+
+# Логи, разовые выгрузки, рантайм-данные
+crash.log
+test_output.txt
+dbapp.db
+
+# Посторонний артефакт в корне (не часть проекта)
+AppData/
+
+# Локальные настройки Claude Code (специфичны для машины разработчика)
+.claude/settings.local.json

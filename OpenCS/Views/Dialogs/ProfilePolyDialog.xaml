@@ -1,0 +1,57 @@
+<Window x:Class="OpenCS.Views.Dialogs.ProfilePolyDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Из сортамента"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="Тип:" VerticalAlignment="Center" Margin="0,0,8,8"/>
+        <ComboBox Grid.Row="0" Grid.Column="1" x:Name="TypeCombo" IsReadOnly="True" Margin="0,0,0,8"
+                  SelectionChanged="TypeCombo_SelectionChanged"/>
+
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="Подтип:" VerticalAlignment="Center" Margin="0,0,8,8"/>
+        <ComboBox Grid.Row="1" Grid.Column="1" x:Name="SubTypeCombo" IsReadOnly="True" Margin="0,0,0,8"
+                  SelectionChanged="SubTypeCombo_SelectionChanged"/>
+
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="Профиль:" VerticalAlignment="Center" Margin="0,0,8,8"/>
+        <ComboBox Grid.Row="2" Grid.Column="1" x:Name="ProfileCombo" IsReadOnly="True" Margin="0,0,0,8"
+                  SelectionChanged="ProfileCombo_SelectionChanged"/>
+
+        <TextBlock Grid.Row="3" Grid.Column="0" Text="Точек на дугу:" VerticalAlignment="Center" Margin="0,0,8,8"/>
+        <TextBox Grid.Row="3" Grid.Column="1" x:Name="NArcBox" Text="6" Margin="0,0,0,8" Width="80" HorizontalAlignment="Left"/>
+
+        <TextBlock Grid.Row="4" Grid.Column="0" Text="Уклон полок, %:" VerticalAlignment="Center" Margin="0,0,8,8"/>
+        <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBox x:Name="SlopeBox" Text="0" Width="80" IsEnabled="False"/>
+            <TextBlock x:Name="SlopeHint" Text="(не применяется)" Foreground="Gray" FontSize="10" VerticalAlignment="Center" Margin="8,0,0,0"/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="5" Grid.Column="0" Text="Имя:" VerticalAlignment="Center" Margin="0,0,8,8"/>
+        <TextBox Grid.Row="5" Grid.Column="1" x:Name="NameBox" Margin="0,0,0,8"/>
+
+        <TextBlock Grid.Row="6" Grid.Column="0" Text="Свойства:" VerticalAlignment="Top" Margin="0,0,8,8"/>
+        <TextBox Grid.Row="6" Grid.Column="1" x:Name="PropsBox" IsReadOnly="True"
+                 Background="#F5F5F5" BorderThickness="0" MinHeight="60"
+                 TextWrapping="Wrap" AcceptsReturn="True" Margin="0,0,0,8" FontFamily="Consolas" FontSize="12"/>
+
+        <StackPanel Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Content="OK" IsDefault="True" Click="Ok_Click" Width="90" Margin="0,0,8,0"/>
+            <Button Content="Отмена" IsCancel="True" Width="90"/>
+        </StackPanel>
+    </Grid>
+</Window>

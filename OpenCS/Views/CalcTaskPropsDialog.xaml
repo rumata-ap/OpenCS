@@ -1,0 +1,499 @@
+<Window x:Class="OpenCS.Views.CalcTaskPropsDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:h="clr-namespace:OpenCS.Views.Helpers"
+        Title="{DynamicResource CalcTaskDlgTitle}"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+   <Window.Resources>
+      <!-- Виртуализация для ComboBox с тысячами строк (наборы усилий РСУ) -->
+      <Style x:Key="VirtualComboBox" TargetType="ComboBox">
+         <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+         <Setter Property="VirtualizingStackPanel.IsVirtualizing" Value="True"/>
+         <Setter Property="VirtualizingStackPanel.VirtualizationMode" Value="Recycling"/>
+         <Setter Property="ItemsPanel">
+            <Setter.Value>
+               <ItemsPanelTemplate>
+                  <VirtualizingStackPanel/>
+               </ItemsPanelTemplate>
+            </Setter.Value>
+         </Setter>
+      </Style>
+   </Window.Resources>
+   <Grid Margin="16">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="Auto"/>
+           <RowDefinition Height="Auto"/>
+           <RowDefinition Height="Auto"/>
+           <RowDefinition Height="16"/>
+           <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="130"/>
+         <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Tag}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"/>
+      <TextBox   Grid.Row="0" Grid.Column="1"
+                 Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
+                 Margin="0,0,0,8"/>
+
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CalcTaskKind}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"/>
+      <ComboBox  Grid.Row="1" Grid.Column="1"
+                 ItemsSource="{Binding AvailableKindsView}"
+                 SelectedItem="{Binding SelectedKind}"
+                 DisplayMemberPath="Label"
+                 Margin="0,0,0,8">
+         <ComboBox.GroupStyle>
+            <GroupStyle>
+               <GroupStyle.HeaderTemplate>
+                  <DataTemplate>
+                     <TextBlock Text="{Binding Name}" FontStyle="Italic" FontWeight="SemiBold"
+                                Foreground="Gray" Margin="2,4,0,0"/>
+                  </DataTemplate>
+               </GroupStyle.HeaderTemplate>
+            </GroupStyle>
+         </ComboBox.GroupStyle>
+      </ComboBox>
+
+      <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CalcTaskFireSection}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding IsFireKind, Converter={StaticResource BoolToVisibility}}"/>
+      <ComboBox  Grid.Row="2" Grid.Column="1"
+                 ItemsSource="{Binding FireSections}"
+                 SelectedItem="{Binding SelectedFireSection}"
+                 DisplayMemberPath="Tag"
+                 Margin="0,0,0,8"
+                 Visibility="{Binding IsFireKind, Converter={StaticResource BoolToVisibility}}"/>
+
+      <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CalcTaskSection}"
+                  VerticalAlignment="Center" Margin="0,0,8,8"
+                  Visibility="{Binding IsPlatePanel, Converter={StaticResource InverseBoolToVisibility}}"/>
+      <ComboBox  Grid.Row="3" Grid.Column="1"
+                  ItemsSource="{Binding Sections}"
+                  SelectedItem="{Binding SelectedSection}"
+                  DisplayMemberPath="Tag"
+                  Margin="0,0,0,8"
+                  Visibility="{Binding IsPlatePanel, Converter={StaticResource InverseBoolToVisibility}}"/>
+
+      <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource ShellSimplSection}"
+                  VerticalAlignment="Center" Margin="0,0,8,8"
+                  Visibility="{Binding IsPlatePanel, Converter={StaticResource BoolToVisibility}}"/>
+      <ComboBox  Grid.Row="3" Grid.Column="1"
+                  ItemsSource="{Binding ShellSimplSections}"
+                  SelectedItem="{Binding SelectedShellSimplSection}"
+                  DisplayMemberPath="Tag"
+                  Margin="0,0,0,8"
+                  Visibility="{Binding IsPlatePanel, Converter={StaticResource BoolToVisibility}}"/>
+
+      <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource CalcTaskForceSet}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding ShowStandardForce, Converter={StaticResource BoolToVisibility}}"/>
+      <ComboBox  Grid.Row="4" Grid.Column="1"
+                 ItemsSource="{Binding ForceSets}"
+                 SelectedItem="{Binding SelectedForceSet}"
+                 DisplayMemberPath="Tag"
+                 Margin="0,0,0,8"
+                 Visibility="{Binding ShowStandardForce, Converter={StaticResource BoolToVisibility}}"/>
+
+      <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource CalcTaskForceItem}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding ShowForceItem, Converter={StaticResource BoolToVisibility}}"/>
+      <StackPanel Grid.Row="5" Grid.Column="1" Margin="0,0,0,8"
+                  Visibility="{Binding ShowForceItem, Converter={StaticResource BoolToVisibility}}">
+         <TextBox Text="{Binding ForceItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                  ToolTip="{DynamicResource FilterHint}" Margin="0,0,0,2"/>
+         <ComboBox Style="{StaticResource VirtualComboBox}"
+                   ItemsSource="{Binding ForceItemsView}"
+                   SelectedItem="{Binding SelectedForceItem}"
+                   DisplayMemberPath="Label"/>
+      </StackPanel>
+
+      <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+      <TextBox   Grid.Row="6" Grid.Column="1"
+                 Text="{Binding ManualN, UpdateSourceTrigger=PropertyChanged}"
+                 Margin="0,0,0,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+
+      <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource CalcTaskForceMx}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+      <TextBox   Grid.Row="7" Grid.Column="1"
+                 Text="{Binding ManualMx, UpdateSourceTrigger=PropertyChanged}"
+                 Margin="0,0,0,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+
+      <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource CalcTaskForceMy}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+      <TextBox   Grid.Row="8" Grid.Column="1"
+                 Text="{Binding ManualMy, UpdateSourceTrigger=PropertyChanged}"
+                 Margin="0,0,0,8"
+                 Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
+
+      <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource CalcType}"
+                 VerticalAlignment="Center" Margin="0,0,8,0"/>
+      <ComboBox  Grid.Row="9" Grid.Column="1"
+                  ItemsSource="{Binding FilteredCalcTypes}"
+                  SelectedItem="{Binding SelectedCalcType}"
+                 Margin="0,0,0,0"/>
+
+      <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource LimitForce_SolverMethod}"
+                 VerticalAlignment="Center" Margin="0,8,8,8"
+                 Visibility="{Binding ShowSolverMethod, Converter={StaticResource BoolToVisibility}}"/>
+      <ComboBox  Grid.Row="10" Grid.Column="1"
+                 ItemsSource="{Binding SolverMethods}"
+                 SelectedItem="{Binding SelectedSolver}"
+                 DisplayMemberPath="Label"
+                 Margin="0,8,0,8"
+                 Visibility="{Binding ShowSolverMethod, Converter={StaticResource BoolToVisibility}}"/>
+
+      <StackPanel Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsTwoStage, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource CalcTask_Stage1Force}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                  <RadioButton Content="{DynamicResource CalcTask_StageModeItem}"
+                               IsChecked="{Binding Stage1UseSet, Mode=TwoWay}"
+                               GroupName="Stage1Mode" Margin="0,0,12,0"
+                               VerticalAlignment="Center"/>
+                  <RadioButton Content="{DynamicResource CalcTask_StageModeManual}"
+                               IsChecked="{Binding Stage1UseManual, Mode=TwoWay}"
+                               GroupName="Stage1Mode"
+                               VerticalAlignment="Center"/>
+               </StackPanel>
+               <!-- Выбор из набора -->
+               <StackPanel Visibility="{Binding Stage1ShowSet, Converter={StaticResource BoolToVisibility}}">
+                  <ComboBox ItemsSource="{Binding ForceSets}" SelectedItem="{Binding Stage1Set}"
+                            DisplayMemberPath="Tag" Margin="0,2,0,4"/>
+                  <TextBox Text="{Binding Stage1ItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="{DynamicResource FilterHint}" Margin="0,0,0,2"/>
+                  <ComboBox Style="{StaticResource VirtualComboBox}"
+                            ItemsSource="{Binding Stage1ItemsView}" SelectedItem="{Binding Stage1Item}"
+                            DisplayMemberPath="Label" Margin="0,0,0,2"/>
+               </StackPanel>
+               <!-- Ручной ввод -->
+               <Grid Visibility="{Binding Stage1ShowManual, Converter={StaticResource BoolToVisibility}}"
+                     Margin="0,2,0,2">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox   Grid.Column="1"
+                             Text="{Binding Stage1ManualN, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,8,0"/>
+                  <TextBlock Grid.Column="2" Text="{DynamicResource CalcTaskForceMx}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox   Grid.Column="3"
+                             Text="{Binding Stage1ManualMx, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,8,0"/>
+                  <TextBlock Grid.Column="4" Text="{DynamicResource CalcTaskForceMy}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox   Grid.Column="5"
+                             Text="{Binding Stage1ManualMy, UpdateSourceTrigger=PropertyChanged}"/>
+               </Grid>
+            </StackPanel>
+         </GroupBox>
+         <GroupBox Header="{DynamicResource CalcTask_Stage2Force}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                  <RadioButton Content="{DynamicResource CalcTask_StageModeItem}"
+                               IsChecked="{Binding Stage2UseSet, Mode=TwoWay}"
+                               GroupName="Stage2Mode" Margin="0,0,12,0"
+                               VerticalAlignment="Center"/>
+                  <RadioButton Content="{DynamicResource CalcTask_StageModeManual}"
+                               IsChecked="{Binding Stage2UseManual, Mode=TwoWay}"
+                               GroupName="Stage2Mode"
+                               VerticalAlignment="Center"/>
+               </StackPanel>
+               <StackPanel Visibility="{Binding Stage2ShowSet, Converter={StaticResource BoolToVisibility}}">
+                  <ComboBox ItemsSource="{Binding ForceSets}" SelectedItem="{Binding Stage2Set}"
+                            DisplayMemberPath="Tag" Margin="0,2,0,4"/>
+                  <TextBox Text="{Binding Stage2ItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="{DynamicResource FilterHint}" Margin="0,0,0,2"/>
+                  <ComboBox Style="{StaticResource VirtualComboBox}"
+                            ItemsSource="{Binding Stage2ItemsView}" SelectedItem="{Binding Stage2Item}"
+                            DisplayMemberPath="Label" Margin="0,0,0,2"/>
+               </StackPanel>
+               <Grid Visibility="{Binding Stage2ShowManual, Converter={StaticResource BoolToVisibility}}"
+                     Margin="0,2,0,2">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox   Grid.Column="1"
+                             Text="{Binding Stage2ManualN, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,8,0"/>
+                  <TextBlock Grid.Column="2" Text="{DynamicResource CalcTaskForceMx}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox   Grid.Column="3"
+                             Text="{Binding Stage2ManualMx, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,8,0"/>
+                  <TextBlock Grid.Column="4" Text="{DynamicResource CalcTaskForceMy}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox   Grid.Column="5"
+                             Text="{Binding Stage2ManualMy, UpdateSourceTrigger=PropertyChanged}"/>
+               </Grid>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
+
+      <StackPanel Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsPlatePanel, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource CalcTaskPlatePanelHeader}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <ComboBox ItemsSource="{Binding ShellForceSets}"
+                         SelectedItem="{Binding SelectedShellForceSet}"
+                         DisplayMemberPath="Tag" Margin="0,0,0,4"/>
+               <TextBox Text="{Binding ShellForceItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                        ToolTip="{DynamicResource FilterHint}" Margin="0,0,0,2"/>
+               <ComboBox Style="{StaticResource VirtualComboBox}"
+                         ItemsSource="{Binding ShellForceItemsView}"
+                         SelectedItem="{Binding SelectedShellForceItem}"
+                         DisplayMemberPath="Label" Margin="0,0,0,4"/>
+               <Grid Visibility="{Binding IsPlateBatch, Converter={StaticResource InverseBoolToVisibility}}">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource ShellSimplForceNx}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox   Grid.Row="0" Grid.Column="1"
+                             Text="{Binding ShellSimplNx, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,8,4"/>
+                  <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource ShellSimplForceNy}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox   Grid.Row="0" Grid.Column="3"
+                             Text="{Binding ShellSimplNy, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,8,4"/>
+                  <TextBlock Grid.Row="0" Grid.Column="4" Text="{DynamicResource ShellSimplForceNxy}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox   Grid.Row="0" Grid.Column="5"
+                             Text="{Binding ShellSimplNxy, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,4"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource ShellSimplForceMx}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox   Grid.Row="1" Grid.Column="1"
+                             Text="{Binding ShellSimplMx, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,8,4"/>
+                  <TextBlock Grid.Row="1" Grid.Column="2" Text="{DynamicResource ShellSimplForceMy}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox   Grid.Row="1" Grid.Column="3"
+                             Text="{Binding ShellSimplMy, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,8,4"/>
+                  <TextBlock Grid.Row="1" Grid.Column="4" Text="{DynamicResource ShellSimplForceMxy}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox   Grid.Row="1" Grid.Column="5"
+                             Text="{Binding ShellSimplMxy, UpdateSourceTrigger=PropertyChanged}"
+                             Margin="0,0,0,4"/>
+               </Grid>
+               <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                  <TextBlock Text="{DynamicResource ShellSimplStepDeg}" VerticalAlignment="Center"
+                             Margin="0,0,4,0"
+                             Visibility="{Binding IsShellSimplCapri, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Text="{Binding ShellSimplStepDeg, UpdateSourceTrigger=PropertyChanged}"
+                           Width="50" Margin="0,0,12,0"
+                           Visibility="{Binding IsShellSimplCapri, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Text="{DynamicResource ShellSimplAcrcLim}" VerticalAlignment="Center"
+                             Margin="0,0,4,0"
+                             Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Text="{Binding ShellSimplAcrcLim, UpdateSourceTrigger=PropertyChanged}"
+                           Width="50" Margin="0,0,12,0"
+                           Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Text="{DynamicResource ShellSimplPhi1}" VerticalAlignment="Center"
+                             Margin="0,0,4,0"
+                             Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Text="{Binding ShellSimplPhi1, UpdateSourceTrigger=PropertyChanged}"
+                           Width="50" Margin="0,0,12,0"
+                           Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Text="{DynamicResource ShellSimplPhi2}" VerticalAlignment="Center"
+                             Margin="0,0,4,0"
+                             Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Text="{Binding ShellSimplPhi2, UpdateSourceTrigger=PropertyChanged}"
+                           Width="50" Margin="0,0,0,0"
+                           Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+               </StackPanel>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
+
+      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsSteelCheck, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource SteelCheckParamsHeader}" Margin="0,8,0,0">
+            <Grid Margin="4">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="130"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="130"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+               </Grid.RowDefinitions>
+
+               <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource SteelCheckDesignLengthX}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <TextBox Grid.Row="0" Grid.Column="1"
+                        Text="{Binding SteelDesignLengthX, UpdateSourceTrigger=PropertyChanged}"
+                        Margin="0,0,8,4"/>
+               <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource SteelCheckDesignLengthY}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <TextBox Grid.Row="0" Grid.Column="3"
+                        Text="{Binding SteelDesignLengthY, UpdateSourceTrigger=PropertyChanged}"
+                        Margin="0,0,0,4"/>
+
+               <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource SteelCheckMuX}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <TextBox Grid.Row="1" Grid.Column="1"
+                        Text="{Binding SteelMuX, UpdateSourceTrigger=PropertyChanged}"
+                        Margin="0,0,8,4"/>
+               <TextBlock Grid.Row="1" Grid.Column="2" Text="{DynamicResource SteelCheckMuY}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <TextBox Grid.Row="1" Grid.Column="3"
+                        Text="{Binding SteelMuY, UpdateSourceTrigger=PropertyChanged}"
+                        Margin="0,0,0,4"/>
+
+               <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource SteelCheckBetaM}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <TextBox Grid.Row="2" Grid.Column="1"
+                        Text="{Binding SteelBetaM, UpdateSourceTrigger=PropertyChanged}"
+                        Margin="0,0,8,4"/>
+               <TextBlock Grid.Row="2" Grid.Column="2" Text="{DynamicResource SteelCheckGammaM}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <TextBox Grid.Row="2" Grid.Column="3"
+                        Text="{Binding SteelGammaM, UpdateSourceTrigger=PropertyChanged}"
+                        Margin="0,0,0,4"/>
+            </Grid>
+         </GroupBox>
+      </StackPanel>
+
+      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsTorsion, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource TorsionParamsHeader}" Margin="0,8,0,0">
+            <Grid Margin="4">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" MinWidth="260"/>
+                  <ColumnDefinition Width="300"/>
+               </Grid.ColumnDefinitions>
+
+               <Grid Grid.Column="0" Margin="0,0,8,0">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="180"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource TorsionElementSize}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox Grid.Row="0" Grid.Column="1"
+                           Text="{Binding TorsionElementSize, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
+
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource TorsionMkFromSet}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding HasTorsionMkFromSet, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" FontFamily="Consolas" FontWeight="SemiBold"
+                             Margin="0,0,0,4"
+                             Visibility="{Binding HasTorsionMkFromSet, Converter={StaticResource BoolToVisibility}}">
+                     <Run Text="{Binding TorsionMkFromSetText, Mode=OneWay}"/>
+                     <Run Text=" кН·м"/>
+                  </TextBlock>
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource TorsionMkManual}"
+                             VerticalAlignment="Top" Margin="0,0,4,4"
+                             Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}"/>
+                  <StackPanel Grid.Row="2" Grid.Column="1"
+                              Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}">
+                     <TextBox Text="{Binding TorsionMk, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,0,2"/>
+                     <TextBlock Text="{DynamicResource TorsionMkHint}" Foreground="Gray"
+                                FontSize="11" TextWrapping="Wrap"/>
+                  </StackPanel>
+               </Grid>
+
+               <Grid Grid.Column="1"
+                     Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}">
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="280"/>
+                  </Grid.RowDefinitions>
+
+                  <TextBlock Grid.Row="0" Text="{DynamicResource FireSection_PreviewTitle}"
+                             FontWeight="Bold" Margin="0,0,0,4"/>
+
+                  <Grid Grid.Row="1" Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                     </Grid.ColumnDefinitions>
+                     <TextBlock Grid.Column="0" Text="{Binding TorsionMeshPreview.MeshQualityText}"
+                                VerticalAlignment="Center" Foreground="Gray" FontSize="11"
+                                TextTrimming="CharacterEllipsis"/>
+                     <Button Grid.Column="1" Content="{DynamicResource PlotFitAll}"
+                             Command="{Binding TorsionMeshPreview.FitAllCommand}" Padding="8,2"/>
+                  </Grid>
+
+                  <Border Grid.Row="2" BorderThickness="1"
+                          BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
+                     <h:TorsionMeshPreviewCanvas ViewModel="{Binding TorsionMeshPreview}"/>
+                  </Border>
+               </Grid>
+            </Grid>
+         </GroupBox>
+      </StackPanel>
+
+      <StackPanel Grid.Row="15" Grid.Column="0" Grid.ColumnSpan="2"
+                  Orientation="Horizontal" HorizontalAlignment="Right">
+         <Button Content="{DynamicResource OK}"
+                 IsDefault="True"
+                 Command="{Binding OkCommand}"
+                 Width="80" Margin="0,0,8,0"/>
+         <Button Content="{DynamicResource Cancel}"
+                 IsCancel="True"
+                 Width="80"/>
+      </StackPanel>
+   </Grid>
+</Window>

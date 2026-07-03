@@ -1,0 +1,118 @@
+<UserControl x:Class="OpenCS.Views.SectionPlotView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:h="clr-namespace:OpenCS.Views.Helpers">
+
+   <Grid>
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>  <!-- тулбар -->
+         <RowDefinition Height="*"/>     <!-- canvas + colorbars -->
+      </Grid.RowDefinitions>
+
+      <!-- Тулбар -->
+      <Border Grid.Row="0" BorderThickness="0,0,0,1"
+              BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+              Padding="6,4">
+         <StackPanel Orientation="Horizontal">
+            <CheckBox Content="{DynamicResource PlotShowMainMat}"
+                      IsChecked="{Binding ShowConcrete}" Margin="0,0,10,0"
+                      VerticalAlignment="Center"/>
+            <CheckBox Content="{DynamicResource PlotShowRebar}"
+                      IsChecked="{Binding ShowRebar}"    Margin="0,0,10,0"
+                      VerticalAlignment="Center"/>
+            <CheckBox Content="{DynamicResource PlotShowValues}"
+                      IsChecked="{Binding ShowValues}"   Margin="0,0,10,0"
+                      VerticalAlignment="Center"/>
+            <CheckBox Content="{DynamicResource PlotShowMaxCompr}"
+                      IsChecked="{Binding ShowMaxCompr}" Margin="0,0,10,0"
+                      VerticalAlignment="Center"/>
+            <Separator Margin="0,0,10,0" Style="{x:Null}"
+                       Width="1" Height="16" Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"/>
+            <CheckBox Content="{DynamicResource PlotSmoothColormap}"
+                      IsChecked="{Binding SmoothColormap}" Margin="0,0,10,0"
+                      VerticalAlignment="Center"/>
+            <CheckBox Content="{DynamicResource PlotShowFiberGrid}"
+                      IsChecked="{Binding ShowFiberGrid}" Margin="0,0,14,0"
+                      VerticalAlignment="Center"/>
+            <Button Content="{DynamicResource PlotFitAll}"
+                    Command="{Binding FitAllCommand}"
+                    Padding="8,2"/>
+         </StackPanel>
+      </Border>
+
+      <!-- Основная область: colorbar Арматура | Canvas | colorbar Осн.материал -->
+      <Grid Grid.Row="1">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>  <!-- colorbar Арматура (слева) -->
+            <ColumnDefinition Width="*"/>     <!-- FiberCanvas -->
+            <ColumnDefinition Width="Auto"/>  <!-- colorbar Осн.материал (справа) -->
+         </Grid.ColumnDefinitions>
+
+         <!-- Colorbar Арматура (слева, скрыт если нет арматуры) -->
+         <Border Grid.Column="0" Width="64" Margin="4"
+                 BorderThickness="1"
+                 BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+                 Visibility="{Binding HasRebar, Converter={StaticResource BoolToVisibility}}">
+            <DockPanel>
+               <TextBlock DockPanel.Dock="Top"
+                          Text="{DynamicResource ColorbarRebar}"
+                          FontSize="10" TextWrapping="Wrap" TextAlignment="Center"
+                          Margin="0,0,0,2"/>
+               <ItemsControl ItemsSource="{Binding RebarColorBands}">
+                  <ItemsControl.ItemsPanel>
+                     <ItemsPanelTemplate>
+                        <UniformGrid Columns="1"/>
+                     </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                     <DataTemplate>
+                        <Grid>
+                           <Rectangle Fill="{Binding Brush}"/>
+                           <TextBlock Text="{Binding Label}" FontSize="10"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                        </Grid>
+                     </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+               </ItemsControl>
+            </DockPanel>
+         </Border>
+
+         <!-- FiberCanvas -->
+         <Border Grid.Column="1" Margin="4"
+                 BorderThickness="1"
+                 BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
+            <h:FiberCanvas x:Name="FiberCanvasElement" ViewModel="{Binding}"/>
+         </Border>
+
+         <!-- Colorbar Осн. материал (справа) -->
+         <Border Grid.Column="2" Width="64" Margin="4"
+                 BorderThickness="1"
+                 BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
+            <DockPanel>
+               <TextBlock DockPanel.Dock="Top"
+                          Text="{DynamicResource ColorbarMainMaterial}"
+                          FontSize="10" TextWrapping="Wrap" TextAlignment="Center"
+                          Margin="0,0,0,2"/>
+               <ItemsControl ItemsSource="{Binding ConcreteColorBands}">
+                  <ItemsControl.ItemsPanel>
+                     <ItemsPanelTemplate>
+                        <UniformGrid Columns="1"/>
+                     </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                     <DataTemplate>
+                        <Grid>
+                           <Rectangle Fill="{Binding Brush}"/>
+                           <TextBlock Text="{Binding Label}" FontSize="10"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                        </Grid>
+                     </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+               </ItemsControl>
+            </DockPanel>
+         </Border>
+      </Grid>
+   </Grid>
+</UserControl>

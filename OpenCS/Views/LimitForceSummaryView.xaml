@@ -1,0 +1,69 @@
+<UserControl x:Class="OpenCS.Views.LimitForceSummaryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views">
+
+   <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="12,8">
+
+         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+            <TextBlock Text="{Binding TaskTag}" FontSize="14" FontWeight="Bold"
+                       Margin="0,0,10,0" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding StatusText}" FontSize="13"
+                       Foreground="{Binding StatusBrush}" VerticalAlignment="Center"/>
+         </StackPanel>
+         <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,0,0,10"/>
+
+         <GroupBox Header="{DynamicResource LimitForce_BlockTitle}" Margin="0,0,0,6" Padding="8,4">
+            <Grid>
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="200"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+               </Grid.RowDefinitions>
+               <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource LimitForce_Factor}" Foreground="Gray"/>
+               <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FactorText}" FontFamily="Consolas" FontWeight="Bold"/>
+               <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource LimitForce_Utilization}" Foreground="Gray"/>
+               <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding UtilizationText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource LimitForce_Governing}" Foreground="Gray"/>
+               <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GoverningText}"/>
+               <TextBlock Grid.Row="3" Grid.Column="0" Text="N_lim" Foreground="Gray"/>
+               <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding NLimitText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="4" Grid.Column="0" Text="Mx_lim" Foreground="Gray"/>
+               <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding MxLimitText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="5" Grid.Column="0" Text="My_lim" Foreground="Gray"/>
+               <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding MyLimitText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="6" Grid.Column="0" Text="ε_contour,min" Foreground="Gray"/>
+               <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding EpsContourText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="7" Grid.Column="0" Text="ε_cu" Foreground="Gray"/>
+               <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding EpsCuText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="8" Grid.Column="0" Text="ε_rebar,max" Foreground="Gray"
+                          Visibility="{Binding HasRebarEps, Converter={StaticResource BoolToVisibility}}"/>
+               <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding EpsRebarText}" FontFamily="Consolas"
+                          Visibility="{Binding HasRebarEps, Converter={StaticResource BoolToVisibility}}"/>
+               <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource LimitForce_SolverMethod}" Foreground="Gray"/>
+               <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding SolverText}"/>
+               <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource LimitForce_BisectSteps}" Foreground="Gray"/>
+               <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding IterationsText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="11" Grid.Column="0" Text="{DynamicResource LimitForce_InnerIterSum}" Foreground="Gray"/>
+               <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding NewtonIterText}" FontFamily="Consolas"/>
+            </Grid>
+         </GroupBox>
+
+         <local:StrainSummaryBody DataContext="{Binding StrainPart}"/>
+      </StackPanel>
+   </ScrollViewer>
+</UserControl>

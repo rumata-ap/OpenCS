@@ -1,0 +1,1314 @@
+<Window x:Class="OpenCS.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
+        xmlns:local="clr-namespace:OpenCS"
+        xmlns:views="clr-namespace:OpenCS.Views"
+        xmlns:core="clr-namespace:CScore;assembly=CScore"
+        xmlns:fire="clr-namespace:CScore.Fire.Entities;assembly=CScore.Fire"
+        xmlns:col="clr-namespace:System.Collections;assembly=mscorlib"
+        xmlns:vm="clr-namespace:OpenCS.ViewModels"
+        xmlns:fem="clr-namespace:CScore.Fem;assembly=CScore"
+        mc:Ignorable="d"
+        Title="{Binding ProjectTitle}" WindowStartupLocation="CenterScreen" Height="850" Width="1500"
+        Icon="/Images/OpenCS.ico"
+        Closing="Window_Closing">
+
+
+   <Window.Resources>
+      <ResourceDictionary>
+         <HierarchicalDataTemplate DataType="{x:Type core:Material}" ItemsSource="{Binding MaterialChars}">
+            <StackPanel Orientation="Horizontal" Margin="1">
+               <Image Source="/Images/material1__32.png" Margin="0,0,5,0" Stretch="None"/>
+               <TextBlock Text="{Binding Num}"/>
+               <TextBlock Text=":"/>
+               <TextBlock Text="{Binding Tag}" Margin="5,0,5,0"/>
+               <TextBlock Text="|"/>
+               <TextBlock Text="{Binding Description}" Margin="5,0,0,0" Foreground="Gray" />
+
+               <StackPanel.ContextMenu>
+                  <ContextMenu>
+                     <MenuItem Header="{DynamicResource Add}" Click="ConcreteAdd_Click">
+                        <MenuItem.Icon>
+                           <Image Source="/Images/add__32.png"/>
+                        </MenuItem.Icon>
+                     </MenuItem>
+                     <MenuItem Header="{DynamicResource Delete}" Click="ConcreteDel_Click">
+                        <MenuItem.Icon>
+                           <Image Source="/Images/delete--32.png"/>
+                        </MenuItem.Icon>
+                     </MenuItem>
+                  </ContextMenu>
+               </StackPanel.ContextMenu>
+            </StackPanel>
+
+            <HierarchicalDataTemplate.ItemTemplate>
+               <DataTemplate>
+                  <StackPanel Orientation="Horizontal" Margin="1">
+                     <Image Source="/Images/diagramma--32.png"/>
+                     <TextBlock Text=" ' "/>
+                     <TextBlock Text="{Binding TypeCalc}"/>
+                     <TextBlock Text=" '"/>
+                  </StackPanel>
+               </DataTemplate>
+            </HierarchicalDataTemplate.ItemTemplate>
+          </HierarchicalDataTemplate>
+
+           <HierarchicalDataTemplate DataType="{x:Type core:Diagramm}">
+              <StackPanel Orientation="Horizontal" Margin="1">
+                 <StackPanel.ContextMenu>
+                    <ContextMenu>
+                       <MenuItem Header="{DynamicResource Delete}" Click="DeleteDiagram_Click">
+                          <MenuItem.Icon>
+                             <Image Source="/Images/delete--32.png"/>
+                          </MenuItem.Icon>
+                       </MenuItem>
+                    </ContextMenu>
+                 </StackPanel.ContextMenu>
+                 <Image Source="/Images/diagramma--32.png"/>
+                 <TextBlock Text="{Binding Tag}" Margin="5,0,0,0"/>
+                 <TextBlock Text="  [" Foreground="Gray"/>
+                 <TextBlock Text="{Binding CalcType}" Foreground="Gray"/>
+                 <TextBlock Text="]" Foreground="Gray"/>
+              </StackPanel>
+           </HierarchicalDataTemplate>
+       </ResourceDictionary>
+    </Window.Resources>
+
+   <Grid x:Name="masterGrid" ShowGridLines="False">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"></RowDefinition>
+         <RowDefinition Height="Auto"></RowDefinition>
+         <RowDefinition Height="*"></RowDefinition>
+         <RowDefinition Height="Auto"></RowDefinition>
+         <RowDefinition Height="0.2*"></RowDefinition>
+         <RowDefinition Height="Auto"></RowDefinition>
+      </Grid.RowDefinitions>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="0.275*"></ColumnDefinition>
+         <ColumnDefinition Width="Auto"></ColumnDefinition>
+         <ColumnDefinition Width="*"></ColumnDefinition>
+      </Grid.ColumnDefinitions>
+
+      <GridSplitter Grid.Column="1" Grid.Row="2" Grid.RowSpan="3"  ShowsPreview="True" Width="4"
+        HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
+
+      <GridSplitter Grid.Column="2" Grid.Row="3"  ShowsPreview="True" Height="4"
+        HorizontalAlignment="Stretch" VerticalAlignment="Center" />
+
+       <ListView x:Name="LoggerListBox" Grid.Column="2" Grid.Row="4" SelectionMode="Single" FontSize="11"
+                  ItemsSource="{Binding LogService.LogEntries}">
+          <ListView.ItemTemplate>
+             <DataTemplate>
+                <TextBlock Text="{Binding FormattedMessage}">
+                   <TextBlock.Style>
+                      <Style TargetType="TextBlock">
+                         <Setter Property="Foreground" Value="Blue"/>
+                         <Style.Triggers>
+                            <DataTrigger Binding="{Binding Level}" Value="Error">
+                               <Setter Property="Foreground" Value="Red"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Level}" Value="Warning">
+                               <Setter Property="Foreground" Value="Gray"/>
+                            </DataTrigger>
+                         </Style.Triggers>
+                      </Style>
+                   </TextBlock.Style>
+                </TextBlock>
+             </DataTemplate>
+          </ListView.ItemTemplate>
+           <ListView.ContextMenu>
+              <ContextMenu>
+                 <MenuItem Header="{DynamicResource Copy}" Click="CopyLogEntry_Click" />
+              </ContextMenu>
+           </ListView.ContextMenu>
+       </ListView>
+
+
+      <Menu Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="3" FontSize="14" >
+         <MenuItem Header="{DynamicResource File}" Margin="3">
+            <MenuItem Header="{DynamicResource New}" Command="{Binding NewProjectCommand}" />
+            <MenuItem Header="{DynamicResource Open}" Command="{Binding OpenProjectCommand}" />
+            <Separator />
+            <MenuItem Header="{DynamicResource Save}" Command="{Binding SaveProjectCommand}" />
+            <MenuItem Header="{DynamicResource SaveAs}" Command="{Binding SaveAsProjectCommand}" />
+            <Separator />
+            <MenuItem Header="{DynamicResource Settings}" Command="{Binding OpenSettingsCommand}" />
+            <Separator />
+            <MenuItem Header="{DynamicResource VacuumDb}" Command="{Binding VacuumDbCommand}" />
+            <Separator />
+            <MenuItem Header="{DynamicResource Exit}" Command="{Binding ExitCommand}" />
+         </MenuItem>
+         <MenuItem Header="{DynamicResource Edit}" ></MenuItem>
+         <MenuItem Header="{DynamicResource ImportMenu}" Margin="3">
+            <MenuItem Header="{DynamicResource ImportCirclesFromDxf}" Command="{Binding ImportCirclesFromDxfCommand}"/>
+            <MenuItem Header="{DynamicResource ImportContoursFromDxf}" Command="{Binding ImportContoursFromDxfCommand}"/>
+            <MenuItem Header="{DynamicResource ImportAreasFromDxf}" Command="{Binding FromDxfCommand}"/>
+            <Separator/>
+            <MenuItem Header="{DynamicResource ImportLiraLoadCases}" Command="{Binding ImportLiraLoadCasesCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraRsn}" Command="{Binding ImportLiraRsnCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraRsu}" Command="{Binding ImportLiraRsuCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraSchemaFromCsv}" Command="{Binding ImportLiraSchemaFromCsvCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraSchemaFromApi}" Command="{Binding ImportLiraSchemaFromApiCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}" Command="{Binding ImportLiraForcesFromApiCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}" Command="{Binding ImportLiraRsnFromApiCommand}"/>
+            <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}" Command="{Binding ImportLiraRsuFromApiCommand}"/>
+         </MenuItem>
+         <MenuItem Header="{DynamicResource View}" >
+            <MenuItem Header="{DynamicResource Language}">
+               <MenuItem Header="{DynamicResource Russian}" Command="{Binding SetLanguageCommand}" CommandParameter="0" />
+               <MenuItem Header="{DynamicResource English}" Command="{Binding SetLanguageCommand}" CommandParameter="1" />
+            </MenuItem>
+         </MenuItem>
+      </Menu>
+
+      <ToolBarTray Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3">
+         <ToolBar>
+            <!-- Файл -->
+            <!-- Новый проект -->
+            <Button Command="{Binding NewProjectCommand}" ToolTip="{DynamicResource New}" Padding="4,3">
+               <Viewbox Width="18" Height="18">
+                  <Grid Width="24" Height="24">
+                     <Path Fill="#2CA9BC"
+                           Data="M12.5,19A6.5,6.5,0,0,0,6,12.5V7l4-4h9a1,1,0,0,1,1,1V20a1,1,0,0,1-1,1H12.18A6.3,6.3,0,0,0,12.5,19Z"/>
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M4,19H8M6,21V17m8-4h2m0-4H10"/>
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M6,13V7l4-4h9a1,1,0,0,1,1,1V20a1,1,0,0,1-1,1H12"/>
+                  </Grid>
+               </Viewbox>
+            </Button>
+            <!-- Открыть -->
+            <Button Command="{Binding OpenProjectCommand}" ToolTip="{DynamicResource Open}" Padding="4,3">
+               <Viewbox Width="18" Height="18">
+                  <Grid Width="24" Height="24">
+                     <Path Fill="#2CA9BC" Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M10 4H4A2 2 0 0 0 2 6V18A2 2 0 0 0 4 20H20A2 2 0 0 0 22 18V8A2 2 0 0 0 20 6H12L10 4Z"/>
+                     <Path Fill="#5AC8E0" Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M2 10V18C2 19.11 2.89 20 4 20H20C21.11 20 22 19.11 22 18V10H2Z"/>
+                  </Grid>
+               </Viewbox>
+            </Button>
+            <!-- Сохранить -->
+            <Button Command="{Binding SaveProjectCommand}" ToolTip="{DynamicResource Save}" Padding="4,3">
+               <Viewbox Width="18" Height="18">
+                  <Grid Width="24" Height="24">
+                     <Path Fill="#2CA9BC"
+                           Data="M19,3H8L4,7V20a1,1,0,0,0,1,1H8V15h8v6h3a1,1,0,0,0,1-1V4A1,1,0,0,0,19,3Z"/>
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M14,7h2M8,21h8V15H8ZM4,7V20a1,1,0,0,0,1,1H19a1,1,0,0,0,1-1V4a1,1,0,0,0-1-1H8Z"/>
+                  </Grid>
+               </Viewbox>
+            </Button>
+            <!-- Сохранить как -->
+            <Button Command="{Binding SaveAsProjectCommand}" ToolTip="{DynamicResource SaveAs}" Padding="4,3">
+               <Viewbox Width="18" Height="18">
+                  <Grid Width="24" Height="24">
+                     <Path Fill="#2CA9BC" Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M3 19H21V21H3V19Z"/>
+                     <Path Fill="#2CA9BC" Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M15 3H9V11H5L12 18L19 11H15V3Z"/>
+                  </Grid>
+               </Viewbox>
+            </Button>
+            <Separator/>
+            <!-- Геометрия -->
+            <Button Command="{Binding NewContourCommand}" ToolTip="{DynamicResource TipNewContour}" Padding="5,3">
+               <Viewbox Width="20" Height="20">
+                  <Grid Width="24" Height="24">
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M7 6 L18 8 L20 19 L5 19 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M4 6 A3 3 0 1 0 10 6 A3 3 0 1 0 4 6 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M15 8 A3 3 0 1 0 21 8 A3 3 0 1 0 15 8 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M2 19 A3 3 0 1 0 8 19 A3 3 0 1 0 2 19 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M17 19 A3 3 0 1 0 23 19 A3 3 0 1 0 17 19 Z"/>
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M9 14 H15 M12 11 V17"/>
+                  </Grid>
+               </Viewbox>
+            </Button>
+            <Button Command="{Binding AddCircleCommand}" ToolTip="{DynamicResource TipAddCircle}" Padding="5,3">
+               <Viewbox Width="20" Height="20">
+                  <Grid Width="24" Height="24">
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M4 6 A3 3 0 1 0 10 6 A3 3 0 1 0 4 6 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M15 8 A3 3 0 1 0 21 8 A3 3 0 1 0 15 8 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M2 19 A3 3 0 1 0 8 19 A3 3 0 1 0 2 19 Z"/>
+                     <Path Fill="White" Stroke="#000000" StrokeThickness="1.5"
+                           Data="M17 19 A3 3 0 1 0 23 19 A3 3 0 1 0 17 19 Z"/>
+                     <Path Stroke="#000000" StrokeThickness="1.5" StrokeLineJoin="Round"
+                           Data="M9 14 H15 M12 11 V17"/>
+                  </Grid>
+               </Viewbox>
+            </Button>
+            <Separator/>
+            <!-- Материалы -->
+            <Button Command="{Binding NewMaterialCommand}" ToolTip="{DynamicResource TipNewMaterial}" Padding="5,3">
+               <Viewbox Width="18" Height="18">
+                  <Canvas Width="512" Height="512">
+                     <Path Fill="#000000"
+                           Data="M88.6,306.2H58.733v-29.867c0-5.12-3.413-8.533-8.533-8.533s-8.533,3.413-8.533,8.533v38.4c0,5.12,3.413,8.533,8.533,8.533h38.4c5.12,0,8.533-3.413,8.533-8.533S93.72,306.2,88.6,306.2z M50.2,237.933c5.12,0,8.533-4.267,8.533-8.533v-85.333c0-5.12-3.413-8.533-8.533-8.533s-8.533,3.413-8.533,8.533V229.4C41.667,234.52,45.08,237.933,50.2,237.933z M88.6,50.2H50.2c-5.12,0-8.533,3.413-8.533,8.533v38.4c0,5.12,3.413,8.533,8.533,8.533s8.533-3.413,8.533-8.533V67.267H88.6c5.12,0,8.533-3.413,8.533-8.533S93.72,50.2,88.6,50.2z M220.867,50.2h-85.333c-5.12,0-8.533,3.413-8.533,8.533s3.413,8.533,8.533,8.533h85.333c4.267,0,8.533-3.413,8.533-8.533S225.987,50.2,220.867,50.2z M306.2,50.2h-38.4c-5.12,0-8.533,3.413-8.533,8.533s3.413,8.533,8.533,8.533h29.867v29.867c0,5.12,3.413,8.533,8.533,8.533s8.533-3.413,8.533-8.533v-38.4C314.733,53.613,311.32,50.2,306.2,50.2z M306.2,135.533c-5.12,0-8.533,3.413-8.533,8.533V229.4c0,5.12,3.413,8.533,8.533,8.533s8.533-4.267,8.533-8.533v-85.333C314.733,138.947,311.32,135.533,306.2,135.533z M306.2,267.8c-5.12,0-8.533,3.413-8.533,8.533V306.2H267.8c-5.12,0-8.533,3.413-8.533,8.533s3.413,8.533,8.533,8.533h38.4c5.12,0,8.533-3.413,8.533-8.533v-38.4C314.733,271.213,311.32,267.8,306.2,267.8z M220.867,306.2h-85.333c-5.12,0-8.533,3.413-8.533,8.533s3.413,8.533,8.533,8.533h85.333c4.267,0,8.533-3.413,8.533-8.533S225.987,306.2,220.867,306.2z M408.6,144.067c-5.12,0-8.533,3.413-8.533,8.533V191c0,5.12,3.413,8.533,8.533,8.533s8.533-3.413,8.533-8.533v-38.4C417.133,147.48,413.72,144.067,408.6,144.067z M408.6,229.4c-5.12,0-8.533,3.413-8.533,8.533v85.333c0,5.12,3.413,8.533,8.533,8.533s8.533-4.267,8.533-8.533v-85.333C417.133,232.813,413.72,229.4,408.6,229.4z M408.6,361.667c-5.12,0-8.533,3.413-8.533,8.533v29.867H370.2c-5.12,0-8.533,3.413-8.533,8.533c0,5.12,3.413,8.533,8.533,8.533h38.4c5.12,0,8.533-3.413,8.533-8.533v-38.4C417.133,365.08,413.72,361.667,408.6,361.667z M323.267,400.067h-85.333c-5.12,0-8.533,3.413-8.533,8.533c0,5.12,3.413,8.533,8.533,8.533h85.333c4.267,0,8.533-3.413,8.533-8.533C331.8,403.48,328.387,400.067,323.267,400.067z M191,400.067h-38.4c-5.12,0-8.533,3.413-8.533,8.533c0,5.12,3.413,8.533,8.533,8.533H191c5.12,0,8.533-3.413,8.533-8.533C199.533,403.48,196.12,400.067,191,400.067z M502.467,178.2c5.12,0,8.533-3.413,8.533-8.533s-3.413-8.533-8.533-8.533h-34.133v-25.6h34.133c5.12,0,8.533-3.413,8.533-8.533c0-5.12-3.413-8.533-8.533-8.533h-34.456c-2.137-14.272-14.776-25.6-29.544-25.6H357.4V37.4c0-16.213-13.653-29.867-29.867-29.867H28.867C12.653,7.533-1,21.187-1,37.4v298.667c0,16.213,13.653,29.867,29.867,29.867H101.4v64c0,14.768,11.328,27.407,25.6,29.544v34.456c0,5.12,3.413,8.533,8.533,8.533s8.533-3.413,8.533-8.533V459.8h25.6v34.133c0,5.12,3.413,8.533,8.533,8.533s8.533-3.413,8.533-8.533V459.8h25.6v34.133c0,5.12,3.413,8.533,8.533,8.533s8.533-3.413,8.533-8.533V459.8H255v34.133c0,5.12,3.413,8.533,8.533,8.533s8.533-3.413,8.533-8.533V459.8h25.6v34.133c0,5.12,3.413,8.533,8.533,8.533s8.533-3.413,8.533-8.533V459.8h25.6v34.133c0,5.12,3.413,8.533,8.533,8.533s8.533-3.413,8.533-8.533V459.8H383v34.133c0,5.12,3.413,8.533,8.533,8.533c5.12,0,8.533-3.413,8.533-8.533V459.8h25.6v34.133c0,5.12,3.413,8.533,8.533,8.533s8.533-3.413,8.533-8.533v-35.264c12.001-3.113,23.054-12.42,25.212-24.469h34.522c5.12,0,8.533-3.413,8.533-8.533s-3.413-8.533-8.533-8.533h-34.133v-25.6h34.133c5.12,0,8.533-3.413,8.533-8.533s-3.413-8.533-8.533-8.533h-34.133v-25.6h34.133c5.12,0,8.533-3.413,8.533-8.533c0-5.12-3.413-8.533-8.533-8.533h-34.133v-25.6h34.133c5.12,0,8.533-3.413,8.533-8.533s-3.413-8.533-8.533-8.533h-34.133v-25.6h34.133c5.12,0,8.533-3.413,8.533-8.533c0-5.12-3.413-8.533-8.533-8.533h-34.133v-25.6H502.467z M28.867,348.867c-6.827,0-12.8-5.973-12.8-12.8V37.4c0-6.827,5.973-12.8,12.8-12.8h298.667c6.827,0,12.8,5.973,12.8,12.8v55.467v243.2c0,6.827-5.973,12.8-12.8,12.8H101.4H28.867z M451.267,429.933c0,5.973-8.533,12.8-17.067,12.8H131.267c-6.827,0-12.8-5.973-12.8-12.8v-64h209.067c16.213,0,29.867-13.653,29.867-29.867V109.933h81.067c6.827,0,12.8,5.973,12.8,12.8V429.933z"/>
+                     <Path Fill="#000000"
+                           Data="M108,166 H248 V208 H108 Z M157,107 H199 V267 H157 Z"/>
+                  </Canvas>
+               </Viewbox>
+            </Button>
+            <Button Command="{Binding NewMaterialFromSourceCommand}" ToolTip="{DynamicResource TipAddConcrete}" Padding="5,3">
+               <Viewbox Width="18" Height="18">
+                  <Canvas Width="512" Height="512">
+                     <Path Fill="#878787" Stroke="#878787" StrokeThickness="5.632" StrokeLineJoin="Round"
+                           Data="M209.875 44.156l-182 106.47 119.625 54.31 148.344 11.72 41.97-24.312 17.342 11.562L309 230.656V379.53l53.563-14.624-64.625 51.97-110.875-59.626-2.157-1.53-71.28 6.56 75.936-31.967 100.75 52.125v-147.5l-145.906-11.5-1.625-.125-1.5-.688-121.093-55V391.47L44 423.186l82 20.97 21.875-21.282 11.156 29.72 131.282 33.592V434l4.25 2.28 5.47 2.94 4.812-3.908L309 431.97v52.155L491.375 377.78v-96.405L466.78 269.47l24.595-38.75V125l-90.25 52.28-1.094 34.095-88-58.688 84.97 5.375L476.5 112 291.562 64.937l1.625.563-64.406 5.78 5.345-20.936-24.25-6.188z"/>
+                  </Canvas>
+               </Viewbox>
+            </Button>
+            <Button Command="{Binding AddRebarCommand}" ToolTip="{DynamicResource TipAddRebar}" Padding="5,3">
+               <Image Source="/Images/armarura__32.png" Width="16" Height="16"/>
+            </Button>
+            <Button Command="{Binding AddSteelCommand}" ToolTip="{DynamicResource TipAddSteel}" Padding="5,3">
+               <Image Source="/Images/steel_3rbuwfklgl3w__32.png" Width="16" Height="16"/>
+            </Button>
+            <Separator/>
+            <!-- Настройки -->
+            <Button Command="{Binding OpenSettingsCommand}" ToolTip="{DynamicResource Settings}" Padding="5,3">
+               <Path Width="16" Height="16" Stretch="Uniform"
+                     Fill="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"
+                     Data="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+            </Button>
+         </ToolBar>
+      </ToolBarTray>
+
+      <GroupBox Grid.Column="0" Grid.Row="2" Grid.RowSpan="3" Margin="4"
+                Header="{Binding ProjectFileName}">
+      <TabControl>
+
+      <!-- Вкладка 1: Дерево проекта -->
+      <TabItem Header="{DynamicResource ProjectTab}">
+      <TreeView x:Name="structureTree" Margin="4,2" BorderThickness="0" SelectedItemChanged="structureTree_SelectedItemChanged">
+
+               <TreeViewItem x:Name="geometryNode" IsExpanded="True">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Image Source="/Images/geometry__32.png"/>
+                        <TextBlock Text="{DynamicResource Geometry}" Margin="5,0,0,0" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+
+                  <TreeViewItem.ContextMenu>
+                     <ContextMenu>
+                         <MenuItem Header="{DynamicResource FromDxf}" Command="{Binding FromDxfCommand}">
+                            <MenuItem.Icon>
+                               <Image Source="{StaticResource di_import_dxf_xaml}" />
+                            </MenuItem.Icon>
+                         </MenuItem>
+                      </ContextMenu>
+                   </TreeViewItem.ContextMenu>
+
+                   <TreeViewItem x:Name="CirclesTreeItem" ItemsSource="{Binding CirclesLive}">
+                      <TreeViewItem.Header>
+                         <StackPanel Orientation="Horizontal" Margin="2">
+                            <Image Source="/Images/circles__32.png"/>
+                            <TextBlock Text="{DynamicResource Circles}" Margin="5,0,0,0"/>
+                         </StackPanel>
+                      </TreeViewItem.Header>
+
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource FromDxf}" Command="{Binding ImportCirclesFromDxfCommand}">
+                               <MenuItem.Icon>
+                                  <Image Source="{StaticResource di_import_dxf_xaml}"/>
+                               </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="{DynamicResource ToDxf}" Command="{Binding ExportCirclesToDxfCommand}">
+                               <MenuItem.Icon>
+                                  <Image Source="{StaticResource di_export_dxf_xaml}"/>
+                               </MenuItem.Icon>
+                            </MenuItem>
+                           <Separator/>
+                           <MenuItem Header="{DynamicResource FromCsv}" Command="{Binding ImportCirclesFromCsvCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="{StaticResource di_to_csv_xaml}"/>
+                              </MenuItem.Icon>
+                           </MenuItem>
+                           <MenuItem Header="{DynamicResource ToCsv}" Command="{Binding ExportCirclesToCsvCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="{StaticResource di_from_csv_xaml}"/>
+                              </MenuItem.Icon>
+                           </MenuItem>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+
+                  </TreeViewItem>
+
+                   <TreeViewItem x:Name="ContoursTreeItem" ItemsSource="{Binding ContoursLive}" ItemTemplate="{StaticResource ContourSmall}">
+                      <TreeViewItem.Header>
+                         <StackPanel Orientation="Horizontal" Margin="2">
+                            <Image Source="/Images/contours__32.png"/>
+                            <TextBlock Text="{DynamicResource Contours}" Margin="5,0,0,0"/>
+                         </StackPanel>
+                      </TreeViewItem.Header>
+
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                             <MenuItem Header="{DynamicResource FromDxf}" Command="{Binding ImportContoursFromDxfCommand}">
+                                <MenuItem.Icon>
+                                   <Image Source="{StaticResource di_import_dxf_xaml}" />
+                                </MenuItem.Icon>
+                             </MenuItem>
+                            <MenuItem Header="{DynamicResource Create}" Command="{Binding NewContourCommand}">
+                               <MenuItem.Icon>
+                                  <Viewbox Width="16" Height="16">
+                                     <Path Fill="#2563EB" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                                  </Viewbox>
+                               </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="{DynamicResource Delete}" Command="{Binding DelContourCommand}">
+                               <MenuItem.Icon>
+                                  <Viewbox Width="16" Height="16">
+                                     <Path Fill="#DC2626" Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                  </Viewbox>
+                               </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem Header="{DynamicResource Templates}" >
+                               <MenuItem.Icon>
+                                  <Viewbox Width="16" Height="16">
+                                     <Path Fill="#4B5563" Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                  </Viewbox>
+                               </MenuItem.Icon>
+                               <MenuItem Header="{DynamicResource TemplateRect}" Command="{Binding NewContourFromTemplateRectCommand}"/>
+                               <MenuItem Header="{DynamicResource TemplateTee}" Command="{Binding NewContourFromTemplateTeeCommand}"/>
+                               <MenuItem Header="{DynamicResource TemplateIBeam}" Command="{Binding NewContourFromTemplateIBeamCommand}"/>
+                               <MenuItem Header="{DynamicResource TemplateAngle}" Command="{Binding NewContourFromTemplateAngleCommand}"/>
+                               <MenuItem Header="{DynamicResource TemplateCircle}" Command="{Binding NewContourFromTemplateCircleCommand}"/>
+                               <Separator/>
+                               <MenuItem Header="{DynamicResource FromSortament}" Command="{Binding NewContourFromSortamentCommand}"/>
+                            </MenuItem>
+                         </ContextMenu>
+                      </TreeViewItem.ContextMenu>
+
+                   </TreeViewItem>
+
+               </TreeViewItem>
+
+               <TreeViewItem x:Name="materialNode" IsExpanded="True">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Image Source="/Images/material1__32.png"/>
+                        <TextBlock Text="{DynamicResource Materials}" Margin="5,0,0,0" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+
+                  <TreeViewItem.ContextMenu>
+                     <ContextMenu>
+                        <MenuItem Header="{DynamicResource Add}" Command="{Binding NewMaterialCommand}">
+                           <MenuItem.Icon>
+                              <Image Source="/Images/add__32.png" />
+                           </MenuItem.Icon>
+                        </MenuItem>
+                     </ContextMenu>
+                  </TreeViewItem.ContextMenu>
+
+                   <TreeViewItem x:Name="concreteNode" ItemsSource="{Binding Concretes}">
+                      <TreeViewItem.Header>
+                         <StackPanel Orientation="Horizontal" Margin="2">
+                            <Image Source="/Images/kamni_wouahfq6r5gi__32.png"/>
+                            <TextBlock Text="{DynamicResource Concrete}" Margin="5,0,0,0"/>
+                         </StackPanel>
+                      </TreeViewItem.Header>
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource Add}"
+                                      Click="ConcreteAdd_Click">
+                               <MenuItem.Icon>
+                                  <Image Source="/Images/add__32.png" />
+                               </MenuItem.Icon>
+                            </MenuItem>
+                         </ContextMenu>
+                      </TreeViewItem.ContextMenu>
+                   </TreeViewItem>
+
+                   <TreeViewItem x:Name="rfsteelNode" ItemsSource="{Binding Armatures}">
+                      <TreeViewItem.Header>
+                         <StackPanel Orientation="Horizontal" Margin="2">
+                            <Image Source="/Images/armarura__32.png"/>
+                            <TextBlock Text="{DynamicResource Reinforcement}" Margin="5,0,0,0"/>
+                         </StackPanel>
+                      </TreeViewItem.Header>
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource Add}"
+                                      Click="RfsteelAdd_Click">
+                               <MenuItem.Icon>
+                                  <Image Source="/Images/add__32.png" />
+                               </MenuItem.Icon>
+                            </MenuItem>
+                         </ContextMenu>
+                      </TreeViewItem.ContextMenu>
+                   </TreeViewItem>
+
+                    <TreeViewItem x:Name="steelNode" ItemsSource="{Binding Steels}">
+                       <TreeViewItem.Header>
+                          <StackPanel Orientation="Horizontal" Margin="2">
+                             <Image Source="/Images/steel_3rbuwfklgl3w__32.png"/>
+                             <TextBlock Text="{DynamicResource StructuralSteel}" Margin="5,0,0,0"/>
+                          </StackPanel>
+                       </TreeViewItem.Header>
+                       <TreeViewItem.ContextMenu>
+                          <ContextMenu>
+                             <MenuItem Header="{DynamicResource Add}"
+                                       Click="SteelAdd_Click">
+                                <MenuItem.Icon>
+                                   <Image Source="/Images/add__32.png" />
+                                </MenuItem.Icon>
+                             </MenuItem>
+                          </ContextMenu>
+                       </TreeViewItem.ContextMenu>
+                    </TreeViewItem>
+
+                   <TreeViewItem x:Name="diagramNode" ItemsSource="{Binding DiagramsLive}">
+                      <TreeViewItem.Header>
+                         <StackPanel Orientation="Horizontal" Margin="2">
+                            <Image Source="/Images/diagramma--32.png"/>
+                            <TextBlock Text="{DynamicResource Diagrams}" Margin="5,0,5,0" FontWeight="Bold"/>
+                            <Button Content="+" Width="22" Height="22" Padding="0"
+                                    FontWeight="Bold" FontSize="13"
+                                    Command="{Binding DataContext.AddDiagramCommand,
+                                              RelativeSource={RelativeSource AncestorType=TreeView}}"
+                                    ToolTip="{DynamicResource AddDiagramTooltip}"
+                                    Style="{StaticResource IconButton25}"/>
+                         </StackPanel>
+                      </TreeViewItem.Header>
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource DeleteAll}" Click="DeleteAllDiagrams_Click">
+                               <MenuItem.Icon>
+                                  <Image Source="/Images/delete--32.png"/>
+                               </MenuItem.Icon>
+                            </MenuItem>
+                         </ContextMenu>
+                      </TreeViewItem.ContextMenu>
+                   </TreeViewItem>
+                </TreeViewItem>
+
+               <!-- Материальные области -->
+               <TreeViewItem x:Name="RegionsNode" IsExpanded="True">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Image Source="/Images/shape-design--32.png" Stretch="None"/>
+                        <TextBlock Text="{DynamicResource MaterialAreas}" Margin="5,0,0,0" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+
+                  <!-- Подузел: Области (Region) -->
+                   <TreeViewItem x:Name="AreasNode" ItemsSource="{Binding AreasLive}">
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="#3B82F6" Data="M1,1 H15 V15 H1 Z"/>
+                           <TextBlock Text="{DynamicResource Areas}"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+                     <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                           <MenuItem Header="{DynamicResource NewArea}"
+                                     Command="{Binding NewAreaCommand}"/>
+                           <MenuItem Header="{DynamicResource DeleteArea}"
+                                     Command="{Binding DeleteMaterialAreaCommand}"/>
+                           <Separator/>
+                           <MenuItem Header="{DynamicResource MenuFromDxfMaterialArea}"
+                                     Command="{Binding FromDxfCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="{StaticResource di_dxf_file_xaml}"/>
+                              </MenuItem.Icon>
+                           </MenuItem>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+                     <TreeViewItem.ItemTemplate>
+                        <DataTemplate DataType="{x:Type core:MaterialArea}">
+                           <StackPanel Orientation="Horizontal" Margin="1">
+                              <Path Width="13" Height="13" Margin="0,0,4,0" Stretch="Uniform"
+                                    Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrushConverter}}"
+                                    Data="{Binding Material.Type, Converter={StaticResource MatTypeToGeometryConverter}}"/>
+                              <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </TreeViewItem.ItemTemplate>
+                  </TreeViewItem>
+
+                  <!-- Подузел: Группы арматуры (RebarGroup) -->
+                   <TreeViewItem x:Name="RebarGroupsNode" ItemsSource="{Binding RebarGroupsLive}">
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="#F97316"
+                                 Data="M3,8 A2,2 0 1,0 3.001,8 Z M8,8 A2,2 0 1,0 8.001,8 Z M13,8 A2,2 0 1,0 13.001,8 Z"/>
+                           <TextBlock Text="{DynamicResource RebarGroups}"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+                     <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                           <MenuItem Header="{DynamicResource NewArea}"
+                                     Command="{Binding NewRebarGroupCommand}"/>
+                           <MenuItem Header="{DynamicResource DeleteArea}"
+                                     Command="{Binding DeleteMaterialAreaCommand}"/>
+                           <Separator/>
+                           <MenuItem Header="{DynamicResource MenuFromDxfMaterialArea}"
+                                     Command="{Binding FromDxfCommand}">
+                              <MenuItem.Icon>
+                                 <Image Source="{StaticResource di_dxf_file_xaml}"/>
+                              </MenuItem.Icon>
+                           </MenuItem>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+                     <TreeViewItem.ItemTemplate>
+                        <DataTemplate DataType="{x:Type core:MaterialArea}">
+                           <StackPanel Orientation="Horizontal" Margin="1">
+                              <Path Width="13" Height="13" Margin="0,0,4,0" Stretch="Uniform"
+                                    Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrushConverter}}"
+                                    Data="M3,8 A2,2 0 1,0 3.001,8 Z M8,8 A2,2 0 1,0 8.001,8 Z M13,8 A2,2 0 1,0 13.001,8 Z"/>
+                              <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </TreeViewItem.ItemTemplate>
+                  </TreeViewItem>
+
+
+
+               </TreeViewItem>
+
+
+
+               <!-- Поперечные сечения -->
+               <TreeViewItem x:Name="crosssectNode"
+                             ItemsSource="{Binding SectionTreeItems}"
+                             IsExpanded="True">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Image Source="/Images/crossect--32.png"/>
+                        <TextBlock Text="{DynamicResource CrossSections}" Margin="5,0,0,0" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+                  <TreeViewItem.ContextMenu>
+                     <ContextMenu>
+                        <MenuItem Header="{DynamicResource NewCrossSection}"
+                                  Command="{Binding NewCrossSectionCommand}"/>
+                        <MenuItem Header="{DynamicResource EditCrossSection}"
+                                  Command="{Binding EditCrossSectionCommand}"/>
+                        <MenuItem Header="{DynamicResource DeleteCrossSection}"
+                                  Command="{Binding DeleteCrossSectionCommand}"/>
+                     </ContextMenu>
+                  </TreeViewItem.ContextMenu>
+                  <TreeViewItem.Resources>
+                     <!-- Обычное сечение: иконка + дочерние области -->
+                     <HierarchicalDataTemplate DataType="{x:Type core:CrossSection}"
+                                               ItemsSource="{Binding Areas}">
+                        <StackPanel Orientation="Horizontal">
+                           <Path Width="14" Height="14" Margin="0,0,4,0" Stretch="Uniform"
+                                 Fill="SteelBlue" Data="M1,1 H7 L15,8 L7,15 H1 Z"/>
+                           <TextBlock Text="{Binding Tag}"/>
+                        </StackPanel>
+                        <HierarchicalDataTemplate.ItemTemplate>
+                           <DataTemplate DataType="{x:Type core:MaterialArea}">
+                              <StackPanel Orientation="Horizontal">
+                                 <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
+                                       Fill="{Binding Material.Type, Converter={StaticResource MatTypeToBrushConverter}}"
+                                       Data="{Binding Material.Type, Converter={StaticResource MatTypeToGeometryConverter}}"/>
+                                 <TextBlock Text="{Binding Tag}"/>
+                              </StackPanel>
+                           </DataTemplate>
+                        </HierarchicalDataTemplate.ItemTemplate>
+                     </HierarchicalDataTemplate>
+
+                     <!-- Группа «Усиление»: папка с двухстадийными сечениями -->
+                     <HierarchicalDataTemplate DataType="{x:Type local:SectionTreeGroup}"
+                                               ItemsSource="{Binding Items}">
+                        <StackPanel Orientation="Horizontal" Margin="2"
+                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                           <StackPanel.ContextMenu>
+                              <ContextMenu>
+                                 <MenuItem Header="{DynamicResource NewTwoStageSection}"
+                                           Command="{Binding PlacementTarget.Tag.NewTwoStageSectionCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource DeleteCrossSection}"
+                                           Command="{Binding PlacementTarget.Tag.DeleteCrossSectionCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              </ContextMenu>
+                           </StackPanel.ContextMenu>
+                           <!-- Иконка «Усиление»: две зеркальные копии иконки простого
+                                сечения в двух цветах (исходное + усиливающее сечение) -->
+                           <Viewbox Width="14" Height="14" Margin="0,0,4,0">
+                              <Canvas Width="16" Height="16">
+                                 <Path Fill="SteelBlue"  Data="M0.5,1 H3.5 L7.5,8 L3.5,15 H0.5 Z"/>
+                                 <Path Fill="DarkOrange" Data="M15.5,1 H12.5 L8.5,8 L12.5,15 H15.5 Z"/>
+                              </Canvas>
+                           </Viewbox>
+                           <TextBlock Text="{DynamicResource TwoStageSections}"/>
+                        </StackPanel>
+                        <HierarchicalDataTemplate.ItemTemplate>
+                           <DataTemplate DataType="{x:Type core:TwoStageSection}">
+                              <StackPanel Orientation="Horizontal">
+                                 <!-- Иконка двухстадийного сечения: две зеркальные копии
+                                      иконки простого сечения в двух цветах -->
+                                 <Viewbox Width="14" Height="14" Margin="0,0,4,0">
+                                    <Canvas Width="16" Height="16">
+                                       <Path Fill="SteelBlue"  Data="M0.5,1 H3.5 L7.5,8 L3.5,15 H0.5 Z"/>
+                                       <Path Fill="DarkOrange" Data="M15.5,1 H12.5 L8.5,8 L12.5,15 H15.5 Z"/>
+                                    </Canvas>
+                                 </Viewbox>
+                                 <TextBlock Text="{Binding Tag}"/>
+                              </StackPanel>
+                           </DataTemplate>
+                        </HierarchicalDataTemplate.ItemTemplate>
+                     </HierarchicalDataTemplate>
+
+                     <!-- Группа «Пластины»: папка с PlateSection -->
+                     <HierarchicalDataTemplate DataType="{x:Type local:PlateSectionTreeGroup}"
+                                               ItemsSource="{Binding Items}">
+                        <StackPanel Orientation="Horizontal" Margin="2"
+                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                           <StackPanel.ContextMenu>
+                              <ContextMenu>
+                                 <MenuItem Header="{DynamicResource NewPlateSection}"
+                                           Command="{Binding PlacementTarget.Tag.NewPlateSectionCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource DeletePlateSection}"
+                                           Command="{Binding PlacementTarget.Tag.DeletePlateSectionCommand,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              </ContextMenu>
+                           </StackPanel.ContextMenu>
+                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="SlateGray"
+                                 Data="M1,2 H15 V14 H1 Z M1,6 H15 M1,10 H15"/>
+                           <TextBlock Text="{DynamicResource PlateSections}"/>
+                        </StackPanel>
+                        <HierarchicalDataTemplate.ItemTemplate>
+                           <DataTemplate DataType="{x:Type core:PlateSection}">
+                              <StackPanel Orientation="Horizontal" Margin="1"
+                                          Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                                 <StackPanel.ContextMenu>
+                                    <ContextMenu>
+                                       <MenuItem Header="{DynamicResource DuplicatePlateSection}"
+                                                 Command="{Binding PlacementTarget.Tag.DuplicatePlateSectionCommand,
+                                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                 CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                       <Separator/>
+                                       <MenuItem Header="{DynamicResource DeletePlateSectionItem}"
+                                                 Command="{Binding PlacementTarget.Tag.DeletePlateSectionCommand,
+                                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                 CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    </ContextMenu>
+                                 </StackPanel.ContextMenu>
+                                 <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
+                                       Fill="SlateGray"
+                                       Data="M1,2 H15 V14 H1 Z M1,6 H15 M1,10 H15"/>
+                                 <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                                 <TextBlock Text=" h=" Foreground="Gray"/>
+                                 <TextBlock Text="{Binding H, StringFormat={}{0:G3}}" Foreground="Gray"/>
+                                 <TextBlock Text=" м" Foreground="Gray"/>
+                              </StackPanel>
+                           </DataTemplate>
+                        </HierarchicalDataTemplate.ItemTemplate>
+                     </HierarchicalDataTemplate>
+
+                  </TreeViewItem.Resources>
+               </TreeViewItem>
+
+               <TreeViewItem x:Name="fireNode" ItemsSource="{Binding FireSections}" IsExpanded="True">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0"
+                              Fill="#B91C1C"
+                              Data="M12 2C8.9 5.6 7 8.3 7 11.2C7 14.4 9.7 17 13 17C16.3 17 19 14.4 19 11.2C19 8.8 17.8 6.7 16 4.6C15.2 6.6 13.7 8.2 12.1 9.1C11.9 6.7 12 4.3 12 2Z"/>
+                        <TextBlock Text="{DynamicResource FireSection_Node}" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+                  <TreeViewItem.ContextMenu>
+                     <ContextMenu>
+                        <MenuItem Header="{DynamicResource FireSection_New}"
+                                  Command="{Binding NewFireSectionCommand}"/>
+                        <MenuItem Header="{DynamicResource FireSection_Rename}"
+                                  Command="{Binding RenameFireSectionCommand}"/>
+                        <MenuItem Header="{DynamicResource FireSection_Delete}"
+                                  Command="{Binding DeleteFireSectionCommand}"/>
+                     </ContextMenu>
+                  </TreeViewItem.ContextMenu>
+                  <TreeViewItem.ItemTemplate>
+                     <DataTemplate DataType="{x:Type fire:FireSectionDef}">
+                        <StackPanel Orientation="Horizontal" Margin="1">
+                           <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="#B91C1C"
+                                 Data="M12 2C8.9 5.6 7 8.3 7 11.2C7 14.4 9.7 17 13 17C16.3 17 19 14.4 19 11.2C19 8.8 17.8 6.7 16 4.6C15.2 6.6 13.7 8.2 12.1 9.1C11.9 6.7 12 4.3 12 2Z"/>
+                           <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                     </DataTemplate>
+                  </TreeViewItem.ItemTemplate>
+               </TreeViewItem>
+               <!-- Усилия -->
+               <TreeViewItem IsExpanded="True">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,5,0"
+                              Fill="Teal"
+                              Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
+                        <TextBlock Text="{DynamicResource ForceSets}" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+
+                  <!-- Стержни -->
+                   <TreeViewItem x:Name="barForceSetsNode" ItemsSource="{Binding BarForceSets}">
+                     <TreeViewItem.Header>
+                        <TextBlock Text="{DynamicResource BarForceSets}" FontWeight="SemiBold"/>
+                     </TreeViewItem.Header>
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource NewBarForceSet}"
+                                      Command="{Binding NewBarForceSetCommand}"/>
+                            <Separator/>
+                            <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
+                                      Command="{Binding DeleteSelectedBarForceSetsCommand}"/>
+                            <MenuItem Header="{DynamicResource DeleteAllForceSetsMenu}"
+                                      Command="{Binding DeleteAllBarForceSetsCommand}"/>
+                         </ContextMenu>
+                      </TreeViewItem.ContextMenu>
+                      <TreeViewItem.ItemTemplate>
+                         <DataTemplate DataType="{x:Type core:ForceSet}">
+                           <StackPanel Orientation="Horizontal" Margin="1"
+                                       Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                              <StackPanel.ContextMenu>
+                                 <ContextMenu>
+                                    <MenuItem Header="{DynamicResource RenameForceSet}"
+                                              Command="{Binding PlacementTarget.Tag.SetForceSetLoadTypeCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem Header="{DynamicResource DuplicateForceSet}"
+                                              Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <Separator/>
+                                    <MenuItem Header="{DynamicResource DeleteForceSetItem}"
+                                              Command="{Binding PlacementTarget.Tag.DeleteForceSetCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 </ContextMenu>
+                              </StackPanel.ContextMenu>
+                              <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
+                                    Fill="Teal"
+                                    Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
+                              <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                              <TextBlock Text=" (" Foreground="Gray"/>
+                              <TextBlock Text="{Binding Items.Count}" Foreground="Gray"/>
+                              <TextBlock Text=")" Foreground="Gray"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </TreeViewItem.ItemTemplate>
+                  </TreeViewItem>
+
+                  <!-- Пластины -->
+                   <TreeViewItem x:Name="shellForceSetsNode" ItemsSource="{Binding ShellForceSets}">
+                     <TreeViewItem.Header>
+                        <TextBlock Text="{DynamicResource ShellForceSets}" FontWeight="SemiBold"/>
+                     </TreeViewItem.Header>
+                      <TreeViewItem.ContextMenu>
+                         <ContextMenu>
+                            <MenuItem Header="{DynamicResource NewShellForceSet}"
+                                      Command="{Binding NewShellForceSetCommand}"/>
+                            <Separator/>
+                            <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
+                                      Command="{Binding DeleteSelectedShellForceSetsCommand}"/>
+                            <MenuItem Header="{DynamicResource DeleteAllForceSetsMenu}"
+                                      Command="{Binding DeleteAllShellForceSetsCommand}"/>
+                         </ContextMenu>
+                      </TreeViewItem.ContextMenu>
+                      <TreeViewItem.ItemTemplate>
+                         <DataTemplate DataType="{x:Type core:ForceSet}">
+                           <StackPanel Orientation="Horizontal" Margin="1"
+                                       Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                              <StackPanel.ContextMenu>
+                                 <ContextMenu>
+                                    <MenuItem Header="{DynamicResource RenameForceSet}"
+                                              Command="{Binding PlacementTarget.Tag.SetForceSetLoadTypeCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <MenuItem Header="{DynamicResource DuplicateForceSet}"
+                                              Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                    <Separator/>
+                                    <MenuItem Header="{DynamicResource DeleteForceSetItem}"
+                                              Command="{Binding PlacementTarget.Tag.DeleteForceSetCommand,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                              CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 </ContextMenu>
+                              </StackPanel.ContextMenu>
+                              <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
+                                    Fill="Teal"
+                                    Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
+                              <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                              <TextBlock Text=" (" Foreground="Gray"/>
+                              <TextBlock Text="{Binding ShellItems.Count}" Foreground="Gray"/>
+                              <TextBlock Text=")" Foreground="Gray"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </TreeViewItem.ItemTemplate>
+                  </TreeViewItem>
+
+               </TreeViewItem>
+
+               <!-- Задачи -->
+               <TreeViewItem x:Name="tasksNode"
+                             IsExpanded="True"
+                             Selected="TasksNode_Selected">
+                  <TreeViewItem.Header>
+                     <StackPanel Orientation="Horizontal" Margin="2">
+                        <Viewbox Width="16" Height="16" Margin="0,0,5,0">
+                           <Path Fill="#4F46E5"
+                                 Data="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm-2 14l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
+                        </Viewbox>
+                        <TextBlock Text="{DynamicResource Tasks}" FontWeight="Bold"/>
+                     </StackPanel>
+                  </TreeViewItem.Header>
+                  <TreeViewItem.Resources>
+
+                     <!-- Подгруппа задач (НДС / Несущая способность / Пластины / Огнестойкость / Прочие) -->
+                     <HierarchicalDataTemplate DataType="{x:Type vm:CalcTasksSubGroupNode}"
+                                               ItemsSource="{Binding Tasks}">
+                        <StackPanel Orientation="Horizontal"
+                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                           <StackPanel.ContextMenu>
+                              <ContextMenu>
+                                 <MenuItem Header="{DynamicResource CalcTaskNew}"
+                                           Command="{Binding PlacementTarget.Tag.NewCalcTaskCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.GroupKey,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              </ContextMenu>
+                           </StackPanel.ContextMenu>
+                           <TextBlock Text="{Binding Label}" FontStyle="Italic"/>
+                        </StackPanel>
+                     </HierarchicalDataTemplate>
+
+                     <HierarchicalDataTemplate DataType="{x:Type vm:CalcTaskVM}"
+                                               ItemsSource="{Binding Results}">
+                        <StackPanel Orientation="Horizontal"
+                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                           <StackPanel.ContextMenu>
+                              <ContextMenu>
+                                 <MenuItem Header="{DynamicResource CalcTaskNew}"
+                                           Command="{Binding PlacementTarget.Tag.NewCalcTaskCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <Separator/>
+                                 <MenuItem Header="{DynamicResource CalcTaskRun}"
+                                           Command="{Binding PlacementTarget.Tag.RunCalcTaskCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Model,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource CalcTaskEdit}"
+                                           Command="{Binding PlacementTarget.Tag.EditCalcTaskCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext.Model,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <Separator/>
+                                  <MenuItem Header="{DynamicResource CalcTaskDelete}"
+                                            Command="{Binding PlacementTarget.Tag.DeleteCalcTaskCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                            CommandParameter="{Binding PlacementTarget.DataContext.Model,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                  <Separator/>
+                                  <MenuItem Header="{DynamicResource CalcResultDeleteAll}"
+                                            Command="{Binding PlacementTarget.Tag.DeleteCalcResultsCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                            CommandParameter="{Binding PlacementTarget.DataContext.Model,
+                                                              RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                               </ContextMenu>
+                           </StackPanel.ContextMenu>
+                           <TextBlock Text="{Binding Model.Num, StringFormat='{}{0:D3}  '}" Foreground="Gray"/>
+                           <TextBlock Text="{Binding Model.Tag}"/>
+                           <TextBlock Text="{Binding Model.Kind, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                        </StackPanel>
+                     </HierarchicalDataTemplate>
+                     <DataTemplate DataType="{x:Type core:CalcResult}">
+                        <StackPanel Orientation="Horizontal">
+                           <TextBlock Text="{Binding Created}" Foreground="Gray" Margin="0,0,6,0"/>
+                           <TextBlock Text="{Binding Status}">
+                              <TextBlock.Style>
+                                 <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="Green"/>
+                                    <Style.Triggers>
+                                       <DataTrigger Binding="{Binding Status}" Value="error">
+                                          <Setter Property="Foreground" Value="Red"/>
+                                       </DataTrigger>
+                                       <DataTrigger Binding="{Binding Status}" Value="not_converged">
+                                          <Setter Property="Foreground" Value="Orange"/>
+                                       </DataTrigger>
+                                       <DataTrigger Binding="{Binding Status}" Value="not_passed">
+                                          <Setter Property="Foreground" Value="OrangeRed"/>
+                                       </DataTrigger>
+                                    </Style.Triggers>
+                                 </Style>
+                              </TextBlock.Style>
+                           </TextBlock>
+                        </StackPanel>
+                     </DataTemplate>
+                  </TreeViewItem.Resources>
+               </TreeViewItem>
+      </TreeView>
+      </TabItem>
+
+      <!-- Вкладка 2: МКЭ -->
+      <TabItem Header="{DynamicResource FemTab}">
+         <DockPanel>
+            <!-- Дерево МКЭ: корень → «Расчётные схемы» → Схема → {Узлы, КЭ, Конструктивные эл., Усилия} | «Проверки» -->
+            <TreeView x:Name="femTree"
+                      ItemsSource="{Binding FemRootNodes}"
+                      Margin="4,2" BorderThickness="0"
+                      SelectedItemChanged="femTree_SelectedItemChanged">
+               <!-- Корневые узлы (Расчётные схемы, Проверки) — всегда развёрнуты -->
+               <TreeView.ItemContainerStyle>
+                  <Style TargetType="TreeViewItem">
+                     <Setter Property="IsExpanded" Value="True"/>
+                  </Style>
+               </TreeView.ItemContainerStyle>
+               <TreeView.ContextMenu>
+                  <ContextMenu>
+                     <MenuItem Header="{DynamicResource FemSchemaNew}"
+                               Command="{Binding NewFemSchemaCommand}"/>
+                  </ContextMenu>
+               </TreeView.ContextMenu>
+               <TreeView.Resources>
+
+                  <!-- Корневой узел «Расчётные схемы» — схемы внутри тоже развёрнуты -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemSchemasGroupNode}"
+                                            ItemsSource="{Binding Schemas}">
+                     <HierarchicalDataTemplate.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem">
+                           <Setter Property="IsExpanded" Value="True"/>
+                        </Style>
+                     </HierarchicalDataTemplate.ItemContainerStyle>
+                     <TextBlock Text="{DynamicResource FemSchemas}" FontWeight="SemiBold"/>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Корневой узел «МКЭ-проверки» — содержит 4 подгруппы -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemChecksRootNode}"
+                                            ItemsSource="{Binding Groups}">
+                     <StackPanel Orientation="Horizontal"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemCheckAddUls}"
+                                        Command="{Binding PlacementTarget.Tag.AddFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemCheckAddSls}"
+                                        Command="{Binding PlacementTarget.Tag.AddSlsFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
+                              <MenuItem Header="{DynamicResource FemCheckDeleteAll}"
+                                        Command="{Binding PlacementTarget.Tag.DeleteAllFemChecksCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <TextBlock Text="{DynamicResource FemChecksGroup}" FontWeight="SemiBold"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Подгруппа (1-я ГПС / 2-я ГПС / Огнестойкость / Прочие) -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemChecksSubGroupNode}"
+                                            ItemsSource="{Binding Checks}">
+                     <StackPanel Orientation="Horizontal"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemCheckAdd}"
+                                        Command="{Binding PlacementTarget.Tag.AddFemCheckByGroupCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.GroupKey,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <TextBlock Text="{Binding Label}" FontStyle="Italic"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- FemSchemaTreeVM — обёртка схемы с 4 подузлами -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemSchemaTreeVM}"
+                                            ItemsSource="{Binding SubNodes}">
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemMemberNew}"
+                                        Command="{Binding PlacementTarget.Tag.NewFemMemberCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
+                              <MenuItem Header="{DynamicResource FemSchemaDelete}"
+                                        Command="{Binding PlacementTarget.Tag.DeleteFemSchemaCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <Viewbox Width="14" Height="14" Margin="0,0,4,0">
+                           <Path Fill="#0EA5E9" Data="M2,2 H14 V6 H2 Z M2,9 H14 V13 H2 Z M2,5 H14 V10 H2 Z"/>
+                        </Viewbox>
+                        <TextBlock Text="{Binding Schema.Tag}"/>
+                        <TextBlock Text=" [" Foreground="Gray"/>
+                        <TextBlock Text="{Binding Schema.SourceType}" Foreground="Gray"/>
+                        <TextBlock Text="]" Foreground="Gray"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Подузел «Узлы» — листовой, данные в DataGrid -->
+                  <DataTemplate DataType="{x:Type vm:FemNodesSubNode}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemNodes}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </DataTemplate>
+
+                  <!-- Подузел «Конечные элементы» — два дочерних: Стержни и Пластины -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemElementsSubNode}"
+                                            ItemsSource="{Binding Children}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemElements}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0">
+                           <TextBlock.Text>
+                              <MultiBinding StringFormat="({0}/{1})">
+                                 <Binding Path="BarCount"/>
+                                 <Binding Path="ShellCount"/>
+                              </MultiBinding>
+                           </TextBlock.Text>
+                        </TextBlock>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Подузел «Стержни» — листовой, данные в DataGrid -->
+                  <DataTemplate DataType="{x:Type vm:FemBarsSubNode}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemBars}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </DataTemplate>
+
+                  <!-- Подузел «Пластины» — листовой, данные в DataGrid -->
+                  <DataTemplate DataType="{x:Type vm:FemShellsSubNode}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemShells}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </DataTemplate>
+
+                  <!-- Подузел «Конструктивные элементы» с дочерними FemMember -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemMembersSubNode}"
+                                            ItemsSource="{Binding Members}">
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemMemberNew}"
+                                        Command="{Binding PlacementTarget.Tag.NewFemMemberDialogCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <TextBlock Text="{DynamicResource FemMembers}"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- Подузел «Усилия схемы» (placeholder) -->
+                  <!-- ForceSet внутри узла «Усилия схемы» -->
+                  <DataTemplate x:Key="FemForceSetTemplate" DataType="{x:Type core:ForceSet}">
+                     <StackPanel Orientation="Horizontal" Margin="1"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource RenameForceSet}"
+                                        Command="{Binding PlacementTarget.Tag.SetForceSetLoadTypeCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource DuplicateForceSet}"
+                                        Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
+                              <MenuItem Header="{DynamicResource DeleteForceSetItem}"
+                                        Command="{Binding PlacementTarget.Tag.DeleteForceSetCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
+                              Fill="SteelBlue"
+                              Data="M16,3V5H8V3H16M16,7V9H8V7H16M16,11V13H8V11H16M5,15H19L12,22L5,15Z"/>
+                        <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                        <TextBlock Text=" (" Foreground="Gray"/>
+                        <TextBlock Text="{Binding ShellItems.Count}" Foreground="Gray"/>
+                        <TextBlock Text=" эл.)" Foreground="Gray"/>
+                     </StackPanel>
+                  </DataTemplate>
+
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemForcesSubNode}"
+                                            ItemsSource="{Binding ForceSets}"
+                                            ItemTemplate="{StaticResource FemForceSetTemplate}">
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                               <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
+                                         Command="{Binding PlacementTarget.Tag.DeleteSelectedForceSetsCommand,
+                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                               <MenuItem Header="{DynamicResource DeleteFemForceSetsMenu}"
+                                         Command="{Binding PlacementTarget.Tag.DeleteFemSchemaForceSetsCommand,
+                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <TextBlock Text="{DynamicResource FemForces}"/>
+                        <TextBlock Text=" (" Foreground="Gray"/>
+                        <TextBlock Text="{Binding Count}" Foreground="Gray"/>
+                        <TextBlock Text=")" Foreground="Gray"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- FemMember -->
+                  <HierarchicalDataTemplate DataType="{x:Type fem:FemMember}"
+                                            ItemsSource="{Binding Checks}">
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemCheckAdd}"
+                                        Command="{Binding PlacementTarget.Tag.AddFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
+                              <MenuItem Header="{DynamicResource FemMemberDelete}"
+                                        Command="{Binding PlacementTarget.Tag.DeleteFemMemberCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
+                              Fill="SteelBlue"
+                              Data="M3,3 H13 M3,8 H13 M3,13 H13"/>
+                        <TextBlock Text="{Binding Tag}"/>
+                        <TextBlock Text="{Binding MemberType, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- FemCheck -->
+                  <DataTemplate DataType="{x:Type fem:FemCheck}">
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource RunFemCheck}"
+                                        Command="{Binding PlacementTarget.Tag.RunFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemCheckEdit}"
+                                        Command="{Binding PlacementTarget.Tag.EditFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
+                              <MenuItem Header="{DynamicResource FemCheckDelete}"
+                                        Command="{Binding PlacementTarget.Tag.DeleteFemCheckCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
+                              Fill="#4F46E5"
+                              Data="M12,2 L14,8 L8,14 L2,8 L4,2 Z"/>
+                        <TextBlock Text="{Binding DisplayTag}"/>
+                     </StackPanel>
+                  </DataTemplate>
+
+               </TreeView.Resources>
+            </TreeView>
+         </DockPanel>
+      </TabItem>
+
+      </TabControl>
+      </GroupBox>
+
+
+
+      <!--<ScrollViewer Grid.Column="2" Grid.Row="2" 
+                      HorizontalScrollBarVisibility="Auto" 
+                      VerticalScrollBarVisibility="Auto">
+
+          
+
+      </ScrollViewer>-->
+
+      <GroupBox Grid.Column="2" Grid.Row="2" Margin="4"
+                Header="{Binding CurrentPageTitle}">
+         <ContentControl x:Name="masterFrame" Content="{Binding CurrentPage}"/>
+      </GroupBox>
+
+      <StatusBar Height="25" Grid.Column="0" Grid.Row="5" Grid.ColumnSpan="3">
+         <StatusBar.ItemsPanel>
+            <ItemsPanelTemplate>
+               <Grid>
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="200"/>
+                  </Grid.ColumnDefinitions>
+               </Grid>
+            </ItemsPanelTemplate>
+         </StatusBar.ItemsPanel>
+
+         <!-- Сообщение о текущей операции -->
+         <StatusBarItem Grid.Column="0" HorizontalContentAlignment="Stretch">
+            <TextBlock Text="{Binding StatusMessage}" Margin="4,0"
+                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+         </StatusBarItem>
+
+         <!-- Прогрессбар — виден только во время выполнения -->
+         <StatusBarItem Grid.Column="1">
+            <ProgressBar Width="190" Height="14" IsIndeterminate="True">
+               <ProgressBar.Visibility>
+                  <Binding Path="IsBusy">
+                     <Binding.Converter>
+                        <BooleanToVisibilityConverter/>
+                     </Binding.Converter>
+                  </Binding>
+               </ProgressBar.Visibility>
+            </ProgressBar>
+         </StatusBarItem>
+      </StatusBar>
+
+   </Grid>
+</Window>

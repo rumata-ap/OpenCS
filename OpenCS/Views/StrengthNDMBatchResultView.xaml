@@ -1,0 +1,63 @@
+<UserControl x:Class="OpenCS.Views.StrengthNDMBatchResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+   <Grid Margin="12">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <!-- Шапка: вердикт -->
+      <Border Grid.Row="0" Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
+              Background="{Binding StatusBrush}">
+         <TextBlock Text="{Binding SummaryText}" FontWeight="Bold"
+                    HorizontalAlignment="Center"/>
+      </Border>
+
+      <!-- Таблица строк -->
+      <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
+                IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
+                CanUserSortColumns="True">
+         <DataGrid.RowStyle>
+            <Style TargetType="DataGridRow">
+               <Style.Triggers>
+                  <DataTrigger Binding="{Binding IsPassed}" Value="True">
+                     <Setter Property="Background" Value="#1A2D7A3E"/>
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding IsPassed}" Value="False">
+                     <Setter Property="Background" Value="#1AC0392B"/>
+                  </DataTrigger>
+               </Style.Triggers>
+            </Style>
+         </DataGrid.RowStyle>
+            <DataGrid.Columns>
+               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}"
+                                   Binding="{Binding Num}" Width="40"/>
+               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColLabel}"
+                                   Binding="{Binding Label}" Width="*"/>
+               <DataGridTextColumn Header="N, кН" Binding="{Binding NText}" Width="75"/>
+               <DataGridTextColumn Header="Mx, кН·м" Binding="{Binding MxText}" Width="82"/>
+               <DataGridTextColumn Header="My, кН·м" Binding="{Binding MyText}" Width="82"/>
+               <DataGridTextColumn Header="{DynamicResource StrengthNDM_ColEpsConcrete}"
+                                   Binding="{Binding EpsConcreteCompText}" Width="85"/>
+               <DataGridTextColumn Header="{DynamicResource StrengthNDM_ColEpsConcreteUlt}"
+                                   Binding="{Binding EpsConcreteUltText}" Width="85"/>
+               <DataGridTextColumn Header="{DynamicResource StrengthNDM_ColConcreteOk}"
+                                   Binding="{Binding ConcreteOkText}" Width="65"/>
+               <DataGridTextColumn Header="{DynamicResource StrengthNDM_ColEpsRebar}"
+                                   Binding="{Binding EpsRebarTensionText}" Width="85"/>
+               <DataGridTextColumn Header="{DynamicResource StrengthNDM_ColEpsRebarUlt}"
+                                   Binding="{Binding EpsRebarUltText}" Width="85"/>
+               <DataGridTextColumn Header="{DynamicResource StrengthNDM_ColRebarOk}"
+                                   Binding="{Binding RebarOkText}" Width="65"/>
+               <DataGridTextColumn Header="{DynamicResource StrengthNDM_ColStrengthOk}"
+                                   Binding="{Binding StrengthOkText}" Width="65"/>
+               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColIter}"
+                                   Binding="{Binding IterText}" Width="52"/>
+               <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColStatus}"
+                                   Binding="{Binding StatusText}" Width="65"/>
+            </DataGrid.Columns>
+         </DataGrid>
+   </Grid>
+</UserControl>

@@ -1,0 +1,66 @@
+<UserControl x:Class="OpenCS.Views.FireRCheckBatchResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+   <Grid Margin="12">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- Шапка: вердикт -->
+      <Border Grid.Row="0" Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
+              Background="{Binding StatusBrush}">
+         <TextBlock Text="{Binding SummaryText}" FontWeight="Bold"
+                    HorizontalAlignment="Center"/>
+      </Border>
+
+      <!-- Таблица строк -->
+      <TabControl Grid.Row="1">
+         <TabItem Header="{DynamicResource FireRCheckBatch_TabAll}">
+            <DataGrid x:Name="AllRowsGrid" ItemsSource="{Binding AllRows}" AutoGenerateColumns="False"
+                      IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
+                      CanUserSortColumns="True" SelectionMode="Single" SelectionUnit="FullRow"
+                      MouseDoubleClick="RowsGrid_MouseDoubleClick">
+               <DataGrid.ContextMenu>
+                  <ContextMenu>
+                     <MenuItem Header="{DynamicResource ExportCsvBtn}"
+                               Click="ExportCsv_Click"/>
+                  </ContextMenu>
+               </DataGrid.ContextMenu>
+               <DataGrid.Columns>
+                  <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
+                  <DataGridTextColumn Header="{DynamicResource FireRCheckBatch_ColLabel}" Binding="{Binding Label}" Width="*"/>
+                  <DataGridTextColumn Header="{DynamicResource FireRCheckBatch_ColPassed}" Binding="{Binding PassedText}" Width="90"/>
+                  <DataGridTextColumn Header="k" Binding="{Binding FactorText}" Width="70"/>
+                  <DataGridTextColumn Header="{DynamicResource FireRCheck_Margin}" Binding="{Binding MarginText}" Width="80"/>
+                  <DataGridTextColumn Header="{DynamicResource FireRCheck_Governing}" Binding="{Binding GoverningText}" Width="100"/>
+               </DataGrid.Columns>
+            </DataGrid>
+         </TabItem>
+
+         <TabItem Header="{DynamicResource FireRCheckBatch_TabFailed}"
+                  Visibility="{Binding HasFailedRows, Converter={StaticResource BoolToVisibility}}">
+            <DataGrid ItemsSource="{Binding FailedRows}" AutoGenerateColumns="False"
+                      IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
+                      CanUserSortColumns="True">
+               <DataGrid.Columns>
+                  <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
+                  <DataGridTextColumn Header="{DynamicResource FireRCheckBatch_ColLabel}" Binding="{Binding Label}" Width="*"/>
+                  <DataGridTextColumn Header="k" Binding="{Binding FactorText}" Width="70"/>
+                  <DataGridTextColumn Header="{DynamicResource FireRCheck_Margin}" Binding="{Binding MarginText}" Width="80"/>
+                  <DataGridTextColumn Header="{DynamicResource FireRCheck_Governing}" Binding="{Binding GoverningText}" Width="100"/>
+               </DataGrid.Columns>
+            </DataGrid>
+         </TabItem>
+      </TabControl>
+
+      <!-- Кнопки внизу -->
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+         <Button Content="{DynamicResource ExportCsvBtn}"
+                 Click="ExportCsv_Click"
+                 Padding="12,4"/>
+      </StackPanel>
+   </Grid>
+</UserControl>

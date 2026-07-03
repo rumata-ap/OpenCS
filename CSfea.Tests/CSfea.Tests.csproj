@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>CSfea.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CSfea.Core\CSfea.Core.csproj" />
+    <ProjectReference Include="..\CSfea.Sparse\CSfea.Sparse.csproj" />
+    <ProjectReference Include="..\CSfea.Sparse.CSparse\CSfea.Sparse.CSparse.csproj" />
+    <ProjectReference Include="..\CSfea.CScore\CSfea.CScore.csproj" />
+    <ProjectReference Include="..\CSfea.Thermal\CSfea.Thermal.csproj" />
+    <ProjectReference Include="..\CSfea.Torsion\CSfea.Torsion.csproj" />
+    <ProjectReference Include="..\CScore\CScore.csproj" />
+    <ProjectReference Include="..\CScore.Fire\CScore.Fire.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\tools\fire-parity\fixtures\*.json"
+          CopyToOutputDirectory="PreserveNewest"
+          Link="fixtures\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

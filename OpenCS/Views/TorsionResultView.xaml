@@ -1,0 +1,111 @@
+<UserControl x:Class="OpenCS.Views.TorsionResultView"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:local="clr-namespace:OpenCS.Views">
+   <TabControl>
+      <TabItem Header="{DynamicResource TorsionTabSummary}">
+         <ScrollViewer Padding="12" VerticalScrollBarVisibility="Auto">
+            <StackPanel Orientation="Vertical">
+               <TextBlock FontSize="16" FontWeight="Bold"
+                          Text="{Binding TaskTag}" Margin="0,0,0,2"/>
+               <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,0,0,8"/>
+               <TextBlock Margin="0,0,0,4">
+                  <Run Text="{DynamicResource TorsionMethod}"/>
+                  <Run Text=": "/>
+                  <Run Text="{Binding MethodText, Mode=OneWay}"/>
+               </TextBlock>
+               <TextBlock FontWeight="Bold" Foreground="{Binding StatusBrush, Mode=OneWay}"
+                          Text="{Binding StatusText, Mode=OneWay}" Margin="0,0,0,8"/>
+               <TextBlock Text="{Binding ErrorText}" Foreground="DarkRed" FontWeight="Bold"
+                          Margin="0,0,0,8"
+                          Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
+
+               <GroupBox Header="{DynamicResource TorsionTitle}" Padding="10" Margin="0,0,0,12">
+                  <Grid>
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                     </Grid.RowDefinitions>
+
+                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource TorsionIt}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="0" Grid.Column="1" FontFamily="Consolas">
+                        <Run Text="{Binding ItText, Mode=OneWay}"/>
+                        <Run Text=" мм⁴"/>
+                     </TextBlock>
+
+                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource TorsionGIt}" Foreground="Gray"
+                                Visibility="{Binding HasGIt, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Grid.Row="1" Grid.Column="1" FontFamily="Consolas"
+                                Visibility="{Binding HasGIt, Converter={StaticResource BoolToVisibility}}">
+                        <Run Text="{Binding GItText, Mode=OneWay}"/>
+                        <Run Text=" кН·м²"/>
+                     </TextBlock>
+
+                     <TextBlock Grid.Row="2" Grid.Column="0" Text="E" Foreground="Gray"
+                                Visibility="{Binding HasMaterialG, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding EText, Mode=OneWay}" FontFamily="Consolas"
+                                Visibility="{Binding HasMaterialG, Converter={StaticResource BoolToVisibility}}"/>
+
+                     <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource TorsionG}" Foreground="Gray"
+                                Visibility="{Binding HasMaterialG, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding GText, Mode=OneWay}" FontFamily="Consolas"
+                                Visibility="{Binding HasMaterialG, Converter={StaticResource BoolToVisibility}}"/>
+
+                     <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource TorsionMk}" Foreground="Gray"
+                                Visibility="{Binding HasMk, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding MkText, Mode=OneWay}" FontFamily="Consolas"
+                                Visibility="{Binding HasMk, Converter={StaticResource BoolToVisibility}}"/>
+
+                     <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource TorsionShearCenter}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding ShearCenterText, Mode=OneWay}" FontFamily="Consolas"/>
+
+                     <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource TorsionTauUnitMax}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding TauUnitMaxText, Mode=OneWay}" FontFamily="Consolas"/>
+
+                     <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource TorsionTauMax}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding TauMaxText, Mode=OneWay}" FontFamily="Consolas"/>
+
+                     <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource TorsionTwistRate}" Foreground="Gray"
+                                Visibility="{Binding HasTwistRate, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding TwistRateText, Mode=OneWay}" FontFamily="Consolas"
+                                Visibility="{Binding HasTwistRate, Converter={StaticResource BoolToVisibility}}"/>
+
+                     <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource TorsionElements}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding ElementsText, Mode=OneWay}" FontFamily="Consolas"/>
+
+                     <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource TorsionElementSize}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding ElementSizeText, Mode=OneWay}" FontFamily="Consolas"/>
+
+                     <TextBlock Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2" Foreground="DarkOrange" Margin="0,6,0,0"
+                                Visibility="{Binding IsSingular, Converter={StaticResource BoolToVisibility}}">
+                        <Run Text="{DynamicResource TorsionSingular}"/>
+                     </TextBlock>
+                  </Grid>
+               </GroupBox>
+            </StackPanel>
+         </ScrollViewer>
+      </TabItem>
+
+      <TabItem Header="{DynamicResource TorsionTabTau}">
+         <local:TorsionPlotView DataContext="{Binding TauPlot}"/>
+      </TabItem>
+
+      <TabItem Header="{DynamicResource TorsionTabPotential}">
+         <local:TorsionPlotView DataContext="{Binding PotentialPlot}"/>
+      </TabItem>
+   </TabControl>
+</UserControl>

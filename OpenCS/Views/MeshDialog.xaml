@@ -1,0 +1,103 @@
+<Window x:Class="OpenCS.Views.MeshDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource MeshDialogTitle}"
+        Width="640" Height="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+   <Window.Resources>
+      <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+   </Window.Resources>
+
+   <Grid Margin="8">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- Метод -->
+      <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+         <TextBlock Text="{DynamicResource MeshMethod}"
+                    VerticalAlignment="Center" Margin="0,0,8,0"/>
+         <ComboBox SelectedIndex="{Binding MeshMethodIndex}" Width="200">
+            <ComboBoxItem Content="{DynamicResource MeshMethod_Grid}"/>
+            <ComboBoxItem Content="{DynamicResource MeshMethod_Ruppert}"/>
+            <ComboBoxItem Content="{DynamicResource MeshMethod_AdvancingFront}"/>
+         </ComboBox>
+      </StackPanel>
+
+      <!-- Основная область: параметры + превью -->
+      <Grid Grid.Row="1">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
+         </Grid.ColumnDefinitions>
+
+         <!-- Панель параметров -->
+         <StackPanel Grid.Column="0" Margin="0,0,8,0">
+
+            <!-- Параметры сетки (Grid) -->
+            <StackPanel Visibility="{Binding IsGrid, Converter={StaticResource BoolToVis}}">
+               <TextBlock Text="{DynamicResource MeshNX}" Margin="0,0,0,2"/>
+               <TextBox Text="{Binding NX, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+               <TextBlock Text="{DynamicResource MeshNY}" Margin="0,0,0,2"/>
+               <TextBox Text="{Binding NY, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+            </StackPanel>
+
+            <!-- Параметры Ruppert -->
+            <StackPanel Visibility="{Binding IsRuppert, Converter={StaticResource BoolToVis}}">
+               <TextBlock Text="{DynamicResource MeshMaxArea}" Margin="0,0,0,2"/>
+               <TextBox Text="{Binding MaxAreaText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+               <TextBlock Text="{DynamicResource MeshMinAngle}" Margin="0,0,0,2"/>
+               <TextBox Text="{Binding MinAngleText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+            </StackPanel>
+
+            <!-- Параметры AdvancingFront -->
+            <StackPanel Visibility="{Binding IsAdvancingFront, Converter={StaticResource BoolToVis}}">
+               <TextBlock Text="{DynamicResource MeshMaxEdgeLen}" Margin="0,0,0,2"/>
+               <TextBox Text="{Binding MaxEdgeLenText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+            </StackPanel>
+
+            <!-- Сглаживание — для обоих методов триангуляции -->
+            <StackPanel Visibility="{Binding IsTriangulation, Converter={StaticResource BoolToVis}}">
+               <TextBlock Text="{DynamicResource MeshSmoothIter}" Margin="0,0,0,2"/>
+               <TextBox Text="{Binding SmoothIter, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+            </StackPanel>
+
+         </StackPanel>
+
+         <!-- Превью -->
+         <Border Grid.Column="1" BorderThickness="1"
+                 BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
+            <local:PlotCanvas x:Name="preview"
+                              xmlns:local="clr-namespace:OpenCS.Views"/>
+         </Border>
+      </Grid>
+
+      <!-- Нижняя панель: счётчик + кнопки -->
+      <Grid Grid.Row="2" Margin="0,8,0,0">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+         </Grid.ColumnDefinitions>
+
+         <TextBlock Grid.Column="0" VerticalAlignment="Center">
+            <Run Text="{DynamicResource MeshFibersCount}"/>
+            <Run Text="{Binding FibersCount, Mode=OneWay}"/>
+         </TextBlock>
+
+         <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <Button Content="{DynamicResource MeshGenerate}"
+                    Command="{Binding GenerateCommand}"
+                    Padding="12,4" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource MeshApply}"
+                    Command="{Binding ApplyCommand}"
+                    Padding="12,4" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource Cancel}"
+                    Command="{Binding CancelCommand}"
+                    Padding="12,4"/>
+         </StackPanel>
+      </Grid>
+   </Grid>
+</Window>

@@ -1,0 +1,85 @@
+<?xml version="1.0" ?>
+<ResourceDictionary xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+   <DrawingGroup x:Key="csv_export_xaml">
+      <DrawingGroup.ClipGeometry>
+         <RectangleGeometry Rect="0.0,0.0,793.7007874015749,1122.5196850393702"/>
+      </DrawingGroup.ClipGeometry>
+      <DrawingGroup>
+         <GeometryDrawing Brush="#ff000000">
+            <GeometryDrawing.Pen>
+               <Pen Brush="#ff000000" Thickness="1.0" DashCap="Flat">
+                  <Pen.DashStyle>
+                     <DashStyle Dashes=""/>
+                  </Pen.DashStyle>
+               </Pen>
+            </GeometryDrawing.Pen>
+            <GeometryDrawing.Geometry>
+               <PathGeometry Figures="M 215.715 131.266 A 105.827 105.827 0 0 0 109.889 237.092 L 109.889 804.301 A 105.827 105.827 0 0 0 215.715 910.129 L 1719.99 910.129 A 105.827 105.827 0 0 0 1825.82 804.301 L 1825.82 237.092 A 105.827 105.827 0 0 0 1719.99 131.266 L 215.715 131.266 z M 537.074 234.25 A 355.684 355.684 0 0 1 574.965 234.629 A 328.327 328.327 0 0 1 691.473 260.479 L 667.127 360.143 A 320.39 320.39 0 0 0 555.445 338.434 A 167.656 167.656 0 0 0 404.68 421.439 A 237.721 237.721 0 0 0 402.379 630.422 A 163.974 163.974 0 0 0 525.984 709.932 A 320.84 320.84 0 0 0 666.777 694.664 L 686.701 792.871 A 430.688 430.688 0 0 1 545.482 817.131 A 344.549 344.549 0 0 1 372.549 777.521 A 251.478 251.478 0 0 1 258.564 630.725 A 347.295 347.295 0 0 1 258.564 437.875 A 268.286 268.286 0 0 1 316.539 329.941 A 257.476 257.476 0 0 1 426.154 257.098 A 355.684 355.684 0 0 1 537.074 234.25 z M 959.176 234.324 A 314.356 314.356 0 0 1 995.338 234.723 A 378.354 378.354 0 0 1 1114.52 261.891 L 1086.59 365.352 A 284.165 284.165 0 0 0 996.295 338.559 A 321.359 321.359 0 0 0 953.33 337.961 A 95.4355 95.4355 0 0 0 911.162 349.99 A 50.5487 50.5487 0 0 0 885.699 387.797 A 58.0383 58.0383 0 0 0 917.973 442.645 L 1002.72 476.625 A 279.974 279.974 0 0 1 1109.18 551.709 A 159.53 159.53 0 0 1 1109.18 734.727 A 244.564 244.564 0 0 1 896.369 817.234 A 411.202 411.202 0 0 1 749.121 783.422 L 776.258 678.824 A 486.18 486.18 0 0 0 861.076 708.58 A 208.203 208.203 0 0 0 966.605 705.439 A 59.9832 59.9832 0 0 0 1006.46 656.688 A 58.4914 58.4914 0 0 0 974.279 598.896 A 305.849 305.849 0 0 0 923.771 575.184 A 427.18 427.18 0 0 1 829.143 530.758 A 161.72 161.72 0 0 1 762.863 446.275 A 155.406 155.406 0 0 1 762.863 361.268 A 174.568 174.568 0 0 1 853.742 257.807 A 314.356 314.356 0 0 1 959.176 234.324 z M 1177.01 244.037 L 1316.79 244.037 A 6599.84 6599.84 0 0 1 1437.93 686.574 A 7717.74 7717.74 0 0 1 1563.03 244.195 L 1698.53 244.195 L 1507.41 809.82 L 1358.94 809.82 L 1177.01 244.037 z" FillRule="Nonzero"/>
+            </GeometryDrawing.Geometry>
+         </GeometryDrawing>
+         <GeometryDrawing>
+            <GeometryDrawing.Pen>
+               <Pen Brush="#ff000000" LineJoin="Round" Thickness="94.48818898" DashCap="Flat">
+                  <Pen.DashStyle>
+                     <DashStyle Dashes=""/>
+                  </Pen.DashStyle>
+               </Pen>
+            </GeometryDrawing.Pen>
+            <GeometryDrawing.Geometry>
+               <PathGeometry Figures="M 306.764 -458.17 L 306.764 -773.383 L 1266.5 -773.383 L 1633.32 -347.593 L 1633.32 131.266" FillRule="Nonzero"/>
+            </GeometryDrawing.Geometry>
+         </GeometryDrawing>
+         <GeometryDrawing Brush="#ff000000">
+            <GeometryDrawing.Pen>
+               <Pen Brush="#ff000000" LineJoin="Round" Thickness="94.48818898" DashCap="Flat">
+                  <Pen.DashStyle>
+                     <DashStyle Dashes=""/>
+                  </Pen.DashStyle>
+               </Pen>
+            </GeometryDrawing.Pen>
+            <GeometryDrawing.Geometry>
+               <PathGeometry Figures="M 1255.32 -346.149 L 1255.32 -753.645 L 1602.64 -346.149 L 1255.32 -346.149 z" FillRule="Nonzero"/>
+            </GeometryDrawing.Geometry>
+         </GeometryDrawing>
+         <GeometryDrawing>
+            <GeometryDrawing.Pen>
+               <Pen Brush="#ff000000" LineJoin="Round" Thickness="94.48818898" DashCap="Flat">
+                  <Pen.DashStyle>
+                     <DashStyle Dashes=""/>
+                  </Pen.DashStyle>
+               </Pen>
+            </GeometryDrawing.Pen>
+            <GeometryDrawing.Geometry>
+               <PathGeometry Figures="M 306.764 131.266 L 306.764 -234.128" FillRule="Nonzero"/>
+            </GeometryDrawing.Geometry>
+         </GeometryDrawing>
+         <GeometryDrawing>
+            <GeometryDrawing.Pen>
+               <Pen Brush="#ff000000" LineJoin="Round" Thickness="94.48818898" DashCap="Flat">
+                  <Pen.DashStyle>
+                     <DashStyle Dashes=""/>
+                  </Pen.DashStyle>
+               </Pen>
+            </GeometryDrawing.Pen>
+            <GeometryDrawing.Geometry>
+               <PathGeometry Figures="M 1633.32 910.128 L 1633.32 1074.92 L 306.764 1074.92 L 306.764 910.128" FillRule="Nonzero"/>
+            </GeometryDrawing.Geometry>
+         </GeometryDrawing>
+      </DrawingGroup>
+      <DrawingGroup Transform="1.0115286,0.0,0.0,1.0402471000000002,-0.53439806,25.02612">
+         <GeometryDrawing Brush="#ff2c3c53">
+            <GeometryDrawing.Pen>
+               <Pen Brush="#ff2c3c53" LineJoin="Round" Thickness="99.6889" DashCap="Flat">
+                  <Pen.DashStyle>
+                     <DashStyle Dashes=""/>
+                  </Pen.DashStyle>
+               </Pen>
+            </GeometryDrawing.Pen>
+            <GeometryDrawing.Geometry>
+               <PathGeometry Figures="M 157.842 -432.121 H 638.54 V -589.879 L 1003.68 -315.653 L 638.54 -41.4279 V -199.186 H 157.842 Z" FillRule="Nonzero"/>
+            </GeometryDrawing.Geometry>
+         </GeometryDrawing>
+      </DrawingGroup>
+   </DrawingGroup>
+   <DrawingImage Drawing="{StaticResource csv_export_xaml}" x:Key="di_csv_export_xaml"/>
+</ResourceDictionary>

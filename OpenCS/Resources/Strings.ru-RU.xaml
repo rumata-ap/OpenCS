@@ -1,0 +1,1263 @@
+<ResourceDictionary
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:system="clr-namespace:System;assembly=mscorlib">
+
+   <!-- Language switcher -->
+   <system:String x:Key="Lang_Label">RU</system:String>
+
+   <!-- Main Menu -->
+   <system:String x:Key="File">Файл</system:String>
+   <system:String x:Key="New">Новый</system:String>
+   <system:String x:Key="Open">Открыть</system:String>
+     <system:String x:Key="Save">Сохранить</system:String>
+     <system:String x:Key="SaveAs">Сохранить как...</system:String>
+     <system:String x:Key="Exit">Выход</system:String>
+   <system:String x:Key="Edit">Изменить</system:String>
+   <system:String x:Key="View">Вид</system:String>
+   <system:String x:Key="Settings">Настройки</system:String>
+   <system:String x:Key="Language">Язык</system:String>
+   <system:String x:Key="Russian">Русский</system:String>
+   <system:String x:Key="English">English</system:String>
+   <system:String x:Key="Plots">Графики...</system:String>
+   <system:String x:Key="CsvExport">Экспорт в CSV...</system:String>
+
+   <!-- Search -->
+   <system:String x:Key="Search">Поиск...</system:String>
+
+   <!-- Tab headers -->
+
+
+   <!-- Tree view nodes -->
+   <system:String x:Key="Geometry">Геометрия</system:String>
+   <system:String x:Key="Circles">Окружности</system:String>
+   <system:String x:Key="Contours">Контуры</system:String>
+   <system:String x:Key="FromDxf">Из DXF</system:String>
+   <system:String x:Key="Create">Создать</system:String>
+   <system:String x:Key="Delete">Удалить</system:String>
+   <system:String x:Key="Add">Добавить</system:String>
+   <system:String x:Key="Materials">Материалы</system:String>
+   <system:String x:Key="Concrete">Бетон</system:String>
+   <system:String x:Key="Reinforcement">Арматура</system:String>
+   <system:String x:Key="StructuralSteel">Конструкционная сталь</system:String>
+   <system:String x:Key="Diagrams">Диаграммы</system:String>
+   <system:String x:Key="DeleteAll">Удалить все</system:String>
+   <system:String x:Key="MaterialRegions">Области материалов</system:String>
+   <system:String x:Key="Reinforced">Армированные</system:String>
+   <system:String x:Key="NewNode">Новый</system:String>
+   <system:String x:Key="Fibrous">Фибровые</system:String>
+   <system:String x:Key="Solid">Сплошные</system:String>
+   <system:String x:Key="CrossSections">Поперечные сечения</system:String>
+   <system:String x:Key="RCSections">Железобетонные</system:String>
+   <system:String x:Key="ContourSections">Контурные</system:String>
+   <system:String x:Key="Bars">Стержни</system:String>
+   <system:String x:Key="Plates">Пластины</system:String>
+   <system:String x:Key="Tasks">Задачи</system:String>
+
+   <!-- Counts -->
+   <system:String x:Key="Pcs">шт.</system:String>
+   <system:String x:Key="BarsOf">Стержней:</system:String>
+   <system:String x:Key="Unit_m">м</system:String>
+   <system:String x:Key="Unit_mm">мм</system:String>
+   <system:String x:Key="Unit_cm2">см</system:String>
+   <system:String x:Key="Superscript2">2</system:String>
+
+   <!-- Context menu in App.xaml -->
+   <system:String x:Key="Change">Изменить</system:String>
+
+   <!-- CsvSettings window -->
+   <system:String x:Key="CsvExportTitle">Экспорт в CSV</system:String>
+   <system:String x:Key="ColumnDelimiter">Разделитель колонок</system:String>
+   <system:String x:Key="Semicolon">Точка с запятой ( ; )</system:String>
+   <system:String x:Key="Comma">Запятая ( , )</system:String>
+   <system:String x:Key="Encoding">Кодировка</system:String>
+   <system:String x:Key="OK">OK</system:String>
+   <system:String x:Key="Cancel">Отмена</system:String>
+
+   <!-- Settings window -->
+   <system:String x:Key="SettingsTitle">Настройки</system:String>
+   <system:String x:Key="PlotsTab">Графики</system:String>
+   <system:String x:Key="CalcSettingsTab">Расчёт</system:String>
+   <system:String x:Key="CsvSettingsTab">CSV</system:String>
+   <system:String x:Key="CalcSettingsGridGroup">Постпроцессор</system:String>
+   <system:String x:Key="CalcSettingsGridDensity">Густота сетки (шагов по max(w,h))</system:String>
+   <system:String x:Key="CalcSettingsNewtonGroup">Итерации Ньютона</system:String>
+   <system:String x:Key="CalcSettingsTol">Допуск сходимости, кН</system:String>
+   <system:String x:Key="CalcSettingsMaxIter">Макс. итераций</system:String>
+   <system:String x:Key="CalcSettingsDeltaH">Шаг числ. производной h</system:String>
+   <system:String x:Key="CalcSettingsJacobian">Схема якобиана</system:String>
+   <system:String x:Key="CalcSettingsJacobianForward">Прямая (forward)</system:String>
+   <system:String x:Key="CalcSettingsJacobianCentral">Центральная (central)</system:String>
+   <system:String x:Key="CalcSettingsSp63EtaMin">Нисх. ветвь СП63: η_min</system:String>
+   <system:String x:Key="CalcSettingsSp63EtaMinTip">Нижняя граница нисходящей ветви криволинейной диаграммы бетона. По СП 63.13330 п. Г.1 — не менее 0.85</system:String>
+   <system:String x:Key="CalcSettingsShellTolRes">Точность (пластины)</system:String>
+   <system:String x:Key="CalcSettingsShellTolResTip">Относительный допуск Ньютона для пластинчатых сечений: ‖невязка‖ / (1 + ‖усилия‖). Рекомендуется 1e-3.</system:String>
+   <system:String x:Key="CalcSettingsBatchGroup">Пакетные задачи</system:String>
+   <system:String x:Key="BatchParallel_Label">Параллельный расчёт (клонирование сечения на поток)</system:String>
+   <system:String x:Key="BatchParallel_Tip">Рекомендуется при наборах усилий от 50 строк. Применяется ко всем пакетным задачам прочности и жёсткости. Задачи огнестойкости не затрагиваются.</system:String>
+   <system:String x:Key="ShellWarmStart_Label">Тёплый старт пластин (результат строки N → начало строки N+1)</system:String>
+   <system:String x:Key="ShellWarmStart_Tip">Передаёт найденные деформации предыдущей строки в качестве начального приближения для следующей. Может ускорить расчёт однородных наборов, но ухудшает сходимость при резкой смене знака сдвига (Nxy). По умолчанию отключён — каждая строка стартует от упругого приближения.</system:String>
+   <system:String x:Key="CalcSettingsLineStyleGroup">Стили линий</system:String>
+   <system:String x:Key="CalcSettingsHullLine">Контур: цвет</system:String>
+   <system:String x:Key="CalcSettingsHullThickness">Контур: толщина</system:String>
+   <system:String x:Key="CalcSettingsHoleLine">Отверстие: цвет</system:String>
+   <system:String x:Key="CalcSettingsHoleThickness">Отверстие: толщина</system:String>
+   <system:String x:Key="CalcSettingsNeutralAxisLine">Нейтр. ось: цвет</system:String>
+   <system:String x:Key="CalcSettingsNeutralAxisThickness">Нейтр. ось: толщина</system:String>
+   <system:String x:Key="CalcSettingsCentroidNdsLine">Ц.т. НДС: цвет</system:String>
+   <system:String x:Key="CalcSettingsCentroidNdsSize">Ц.т. НДС: размер</system:String>
+   <system:String x:Key="CalcSettingsLabelFontSize">Подписи σ/ε: размер шрифта</system:String>
+   <system:String x:Key="ColorsAndSizes">Цвета и размеры</system:String>
+   <system:String x:Key="Background">Фон</system:String>
+   <system:String x:Key="Grid">Сетка</system:String>
+   <system:String x:Key="Curves">Кривые</system:String>
+   <system:String x:Key="Fill">Заливка</system:String>
+   <system:String x:Key="Markers">Маркеры</system:String>
+   <system:String x:Key="Text">Текст</system:String>
+   <system:String x:Key="Highlight">Выделение</system:String>
+   <system:String x:Key="Axes">Оси</system:String>
+   <system:String x:Key="ThicknessPx">Толщина, px</system:String>
+   <system:String x:Key="SizePx">Размер, px</system:String>
+   <system:String x:Key="FontSizeLabels">Размер шрифта меток</system:String>
+   <system:String x:Key="FontSize">Размер шрифта</system:String>
+   <system:String x:Key="Palette">Палитра</system:String>
+   <system:String x:Key="Display">Отображение</system:String>
+   <system:String x:Key="ShowGrid">Сетка</system:String>
+   <system:String x:Key="Thickness">Толщина</system:String>
+   <system:String x:Key="Ticks">Засечек</system:String>
+   <system:String x:Key="PointLabels">Подписи точек</system:String>
+   <system:String x:Key="ClickHighlight">Выделение по клику</system:String>
+   <system:String x:Key="AxisValueLabels">Подписи значений на осях</system:String>
+   <system:String x:Key="AxesThroughOrigin">Оси через начало координат</system:String>
+   <system:String x:Key="ScaleX">Масштаб X</system:String>
+   <system:String x:Key="ScaleY">Масштаб Y</system:String>
+   <system:String x:Key="Defaults">По умолчанию</system:String>
+   <system:String x:Key="Apply">Применить</system:String>
+
+   <!-- DiagramPage -->
+   <system:String x:Key="Chart">График</system:String>
+   <system:String x:Key="Data">Данные</system:String>
+   <system:String x:Key="ExportCsv">Экспорт в CSV...</system:String>
+   <system:String x:Key="Close">Закрыть</system:String>
+
+   <!-- DiagramSelectWindow -->
+   <system:String x:Key="SelectDiagramType">Выбор типа диаграммы</system:String>
+   <system:String x:Key="AvailableDiagramTypes">Доступные типы диаграмм:</system:String>
+   <system:String x:Key="Ok">OK</system:String>
+
+    <!-- RCFiberRegionView -->
+    <system:String x:Key="ViewTab">Вид</system:String>
+   <system:String x:Key="EditAndSave">Изменить и сохранить</system:String>
+   <system:String x:Key="ContoursGroup">Контуры</system:String>
+   <system:String x:Key="Points">Точки</system:String>
+   <system:String x:Key="RebarGroupsFull">Группы арматурных стержней</system:String>
+   <system:String x:Key="Groups">Группы</system:String>
+   <system:String x:Key="Designation">Обозначение</system:String>
+   <system:String x:Key="Material">Материал</system:String>
+   <system:String x:Key="ReinforcementBars">Арматурные стержни</system:String>
+   <system:String x:Key="Fibers">Фибры</system:String>
+   <system:String x:Key="FibersElementary">Фибры (элементарные площадки)</system:String>
+   <system:String x:Key="ElementaryAreas">Элементарные площадки</system:String>
+   <system:String x:Key="Update">Обновить</system:String>
+   <system:String x:Key="Shape">Форма</system:String>
+   <system:String x:Key="WKT">Текстовое представление контура фибры в формате WKT</system:String>
+   <system:String x:Key="Area">Area, </system:String>
+   <system:String x:Key="Stress_MPa">Stress, МПа</system:String>
+   <system:String x:Key="Number">#</system:String>
+   <system:String x:Key="X_m">X, м</system:String>
+   <system:String x:Key="Y_m">Y, м</system:String>
+   <system:String x:Key="D_mm">d, мм</system:String>
+   <system:String x:Key="PreStrain">PreStrain</system:String>
+
+   <!-- RCFiberRegionPage -->
+   <system:String x:Key="RegionTab">Область</system:String>
+   <system:String x:Key="OuterContour">Внешний контур</system:String>
+   <system:String x:Key="Tag">Обозначение</system:String>
+   <system:String x:Key="Description">Описание</system:String>
+   <system:String x:Key="ConcreteLabel">Бетон</system:String>
+   <system:String x:Key="ContoursLabel">Контуры</system:String>
+   <system:String x:Key="ReinforcementTab">Армирование</system:String>
+   <system:String x:Key="MaterialsLabel">Материалы</system:String>
+   <system:String x:Key="GroupTag">Обозначение группы</system:String>
+   <system:String x:Key="GroupDescription">Описание группы</system:String>
+   <system:String x:Key="RebarGroupBars">Арматурные стержни группы</system:String>
+   <system:String x:Key="FromCircles">Из окружностей</system:String>
+    <system:String x:Key="MeshTab">Деление</system:String>
+
+   <!-- MaterialPage -->
+   <system:String x:Key="MaterialParams">Определение параметров материала</system:String>
+    <system:String x:Key="Name">Имя:</system:String>
+    <system:String x:Key="DescriptionLabel">Описание:</system:String>
+    <system:String x:Key="TagLabel">Обозначение</system:String>
+    <system:String x:Key="Class">Класс</system:String>
+   <system:String x:Key="CompressiveStrength">Прочность при сжатии Rc, МПа</system:String>
+   <system:String x:Key="TensileStrength">Прочность при растяжении Rt, МПа</system:String>
+   <system:String x:Key="YieldStrength">Предел текучести Ry, МПа</system:String>
+   <system:String x:Key="UltimateStrength">Предел прочности Ru, МПа</system:String>
+   <system:String x:Key="ElasticModulus">Начальный модуль упругости, ГПа</system:String>
+   <system:String x:Key="Eps_c0">Деформация при достижении Rc (eps_c0)</system:String>
+   <system:String x:Key="Eps_c1">Деформация при достижении 0.6*Rc (eps_c1)</system:String>
+   <system:String x:Key="Eps_c2">Предельная деформация сжатия (eps_c2)</system:String>
+   <system:String x:Key="Eps_c1_red">Приведенная по Rc деформация (eps_c1_red)</system:String>
+   <system:String x:Key="Eps_t1_red">Приведенная по Rt деформация (eps_t1_red)</system:String>
+   <system:String x:Key="Eps_t0">Деформация при достижении Rt (eps_t0)</system:String>
+   <system:String x:Key="Eps_t1">Деформация при достижении 0.6*Rt (eps_t1)</system:String>
+   <system:String x:Key="Eps_t2">Предельная деформация по Rt (eps_t2)</system:String>
+   <system:String x:Key="MaterialType">Тип материала</system:String>
+   <system:String x:Key="Humidity">Влажность среды</system:String>
+   <system:String x:Key="Material_AggregateType">Тип заполнителя</system:String>
+   <system:String x:Key="Material_AggregateType_Silicate">Силикатный</system:String>
+   <system:String x:Key="Material_AggregateType_Carbonate">Карбонатный</system:String>
+   <system:String x:Key="Material_AggregateType_Lightweight">Лёгкий</system:String>
+   <system:String x:Key="BuildDiagram">Построить диаграмму</system:String>
+   <system:String x:Key="EditMaterial">Редактировать материал</system:String>
+
+    <!-- MaterialCharsPage -->
+    <system:String x:Key="MaterialHeader">Материал: {0} | Тип расчёта: {1}</system:String>
+
+    <!-- RebarsPage -->
+    <system:String x:Key="BarsTab">Стержни</system:String>
+    <system:String x:Key="GeometricSet">Геометрический набор:</system:String>
+    <system:String x:Key="X_m_colon">X, м:</system:String>
+    <system:String x:Key="Y_m_colon">Y, м:</system:String>
+    <system:String x:Key="D_mm_colon">D, мм:</system:String>
+    <system:String x:Key="AddCaps">ДОБАВИТЬ</system:String>
+    <system:String x:Key="DeleteAllCaps">УДАЛИТЬ ВСЕ</system:String>
+    <system:String x:Key="DeleteCaps">УДАЛИТЬ</system:String>
+
+    <!-- FromDxfPage -->
+    <system:String x:Key="FromDxfTab">Выбор DXF</system:String>
+    <system:String x:Key="DesignationSet">Обозначение набора:</system:String>
+    <system:String x:Key="DxfUnits">Единицы измерения DXF:</system:String>
+    <system:String x:Key="ContourSelection">Отбор контуров</system:String>
+    <system:String x:Key="CircleSelection">Отбор окружностей</system:String>
+    <system:String x:Key="Project">Проект</system:String>
+    <system:String x:Key="DXF">DXF</system:String>
+    <system:String x:Key="DxfLayers">Слои</system:String>
+    <system:String x:Key="DxfBackground">Фон DXF</system:String>
+   <system:String x:Key="CentroidsSettings">Центроиды фибр</system:String>
+
+    <!-- GeoPropsView -->
+    <system:String x:Key="GeoPropsHeader">Геометрические характеристики</system:String>
+    <system:String x:Key="Unit_kN">кН</system:String>
+    <system:String x:Key="Unit_kNm">кН*м</system:String>
+    <system:String x:Key="Unit_m2">м²</system:String>
+    <system:String x:Key="Unit_kNm2">кН*м²</system:String>
+
+    <!-- MeshSettingsView / MeshSlidersView -->
+    <system:String x:Key="OrthogonalDivision">Ортогональное деление</system:String>
+    <system:String x:Key="Triangulation">Триангуляция</system:String>
+    <system:String x:Key="ToolTip_nY">Число участков деления по высоте области</system:String>
+    <system:String x:Key="ToolTip_nX">Число участков деления по ширине области</system:String>
+    <system:String x:Key="ToolTip_maxArea">Максимальная относительная площадь треугольника</system:String>
+    <system:String x:Key="ToolTip_minAngle">Минимальный угол треугольника</system:String>
+    <system:String x:Key="Method">Метод</system:String>
+    <system:String x:Key="TriangulationMethod_Ruppert">Рупперт</system:String>
+    <system:String x:Key="TriangulationMethod_AdvancingFront">Продвижение фронта</system:String>
+    <system:String x:Key="ToolTip_triangulationMethod">Метод триангуляции: Рупперт (CDT+рефайнмент) или продвижение фронта</system:String>
+
+    <!-- FromDataSourceWindow -->
+    <system:String x:Key="DataSourceTitle">Хранилище материалов</system:String>
+    <system:String x:Key="ConcreteType">Тип бетона:</system:String>
+    <system:String x:Key="ConstructionType">Конструкция:</system:String>
+    <system:String x:Key="HeightOver15m">Высота слоя бетонирования больше 1.5 метра</system:String>
+    <system:String x:Key="HeatTreatment">Тепловая обработка при атмосферном давлении</system:String>
+    <system:String x:Key="RfSteelType">Тип арматуры:</system:String>
+    <system:String x:Key="SteelLabel">Сталь</system:String>
+    <system:String x:Key="Strain">Деформация</system:String>
+
+    <!-- C# code-behind strings -->
+    <system:String x:Key="Untitled">Без имени</system:String>
+    <system:String x:Key="TitleFormat">OpenCS — {0}</system:String>
+    <system:String x:Key="ConfirmDeleteMaterial">Удалить безвозвратно выбранный материал?</system:String>
+    <system:String x:Key="MaterialDeleted">Материал '{0}' удален</system:String>
+    <system:String x:Key="ConfirmDeleteContour">Удалить безвозвратно выбранный контур и все связанные с ним области материалов?</system:String>
+    <system:String x:Key="ContourDeleted">Контур '{0}' удален</system:String>
+    <system:String x:Key="ContourCreated">Контур '{0}' создан</system:String>
+    <system:String x:Key="Contour">Контур</system:String>
+    <system:String x:Key="Templates">Шаблоны</system:String>
+    <system:String x:Key="TemplateRect">Прямоугольник</system:String>
+    <system:String x:Key="TemplateTee">Тавр</system:String>
+    <system:String x:Key="TemplateIBeam">Двутавр</system:String>
+    <system:String x:Key="TemplateAngle">Уголок</system:String>
+    <system:String x:Key="TemplateCircle">Окружность</system:String>
+    <system:String x:Key="FromSortament">Из сортамента</system:String>
+    <system:String x:Key="ConfirmDeleteRegion">Удалить безвозвратно выбранную армированную область?</system:String>
+    <system:String x:Key="ConfirmDeleteFemForceSets">Удалить все {0} наборов усилий схемы «{1}»? Действие необратимо.</system:String>
+    <system:String x:Key="DeleteFemForceSetsMenu">Удалить все наборы усилий</system:String>
+    <system:String x:Key="DeleteSelectedForceSetsMenu">Удалить выбранные...</system:String>
+    <system:String x:Key="DeleteSelectedForceSetsTitle">Удаление наборов усилий</system:String>
+    <system:String x:Key="DeleteSelectedForceSetsPrompt">Выберите наборы усилий для удаления (Ctrl+клик или Shift+клик для множественного выбора):</system:String>
+    <system:String x:Key="DeleteSelectedForceSetsBtn">Удалить</system:String>
+    <system:String x:Key="DeleteSelectedForceSetsCount">Выбрано: {0}</system:String>
+    <system:String x:Key="DeleteSelectedForceSetsConfirm">Удалить {0} набор(ов) усилий? Действие необратимо.</system:String>
+    <system:String x:Key="DeleteAllForceSetsMenu">Удалить все...</system:String>
+    <system:String x:Key="ConfirmDeleteAllForceSets">Удалить все {0} наборов усилий? Действие необратимо.</system:String>
+    <system:String x:Key="RegionDeleted">Область '{0}' удалена</system:String>
+    <system:String x:Key="VacuumDb">Сжать базу данных (VACUUM)</system:String>
+    <system:String x:Key="VacuumDbDone">VACUUM выполнен: {0} КБ → {1} КБ, освобождено {2} КБ</system:String>
+    <system:String x:Key="ConfirmDeleteDiagram">Удалить диаграмму?</system:String>
+    <system:String x:Key="ConfirmDeleteAllDiagrams">Удалить все диаграммы?</system:String>
+    <system:String x:Key="AddDiagramTooltip">Новая диаграмма</system:String>
+    <system:String x:Key="NewDiagram">Новая диаграмма</system:String>
+    <system:String x:Key="SaveDiagram">Сохранить</system:String>
+    <system:String x:Key="DiscardChanges">Отмена</system:String>
+    <system:String x:Key="ImportFromCsv">Импорт из CSV</system:String>
+    <system:String x:Key="AddRow">Добавить строку</system:String>
+    <system:String x:Key="DeleteRow">Удалить строку</system:String>
+    <system:String x:Key="Branch">Ветвь</system:String>
+    <system:String x:Key="Characteristic">Характерная</system:String>
+    <system:String x:Key="FitView">По размеру</system:String>
+    <system:String x:Key="DiagramTag">Наименование диаграммы</system:String>
+    <system:String x:Key="BaseType">Базовый тип поведения</system:String>
+    <system:String x:Key="DiagramsForCalcTypes">Диаграммы по видам расчёта</system:String>
+    <system:String x:Key="DiagramUsedByMaterials">Диаграмму используют материалы: {0}. Удаление невозможно.</system:String>
+    <system:String x:Key="DiagramDeleted">Диаграмма '{0}' удалена</system:String>
+    <system:String x:Key="AllDiagramsDeleted">Все диаграммы удалены</system:String>
+    <system:String x:Key="Confirmation">Подтверждение</system:String>
+    <system:String x:Key="Warning">WARNING</system:String>
+    <system:String x:Key="ProjectCreated">Новый проект создан</system:String>
+    <system:String x:Key="ProjectCreatedError">Ошибка при создании нового проекта: {0}</system:String>
+    <system:String x:Key="OpenProject">Открыть проект</system:String>
+    <system:String x:Key="ProjectOpened">Проект открыт: {0}</system:String>
+     <system:String x:Key="ProjectOpenError">Ошибка при открытии проекта: {0}</system:String>
+     <system:String x:Key="NotSqliteDatabase">Выбранный файл не является базой данных SQLite</system:String>
+    <system:String x:Key="ProjectSaved">Проект сохранен</system:String>
+    <system:String x:Key="SavingProject">Сохранение проекта…</system:String>
+    <system:String x:Key="ProjectSaveError">Ошибка при сохранении проекта: {0}</system:String>
+    <system:String x:Key="SaveProjectAs">Сохранить проект как</system:String>
+    <system:String x:Key="ProjectSavedPath">Проект сохранен: {0}</system:String>
+     <system:String x:Key="SqliteDbFilter">SQLite база данных (*.db)|*.db|Все файлы (*.*)|*.*</system:String>
+     <system:String x:Key="ConfirmSaveOnExit">Проект не сохранён. Сохранить перед закрытием?</system:String>
+     <system:String x:Key="Copy">Копировать</system:String>
+
+    <!-- DiagramPage / MaterialCharsPage code-behind -->
+    <system:String x:Key="MaterialColon">Материал:</system:String>
+    <system:String x:Key="CalcTypeColon">Тип расчёта:</system:String>
+    <system:String x:Key="DiagramTitle">Диаграмма работы материала — {0}</system:String>
+    <system:String x:Key="Compression">Сжатие</system:String>
+    <system:String x:Key="Tension">Растяжение</system:String>
+    <system:String x:Key="Nodes">(узлы)</system:String>
+    <system:String x:Key="Sigma_MPa">σ, МПа</system:String>
+    <system:String x:Key="ExportDiagramCsv">Экспорт диаграммы в CSV</system:String>
+    <system:String x:Key="CsvFilter">CSV files (*.csv)|*.csv</system:String>
+    <system:String x:Key="ErrorSave">Ошибка сохранения: {0}</system:String>
+    <system:String x:Key="Error">Ошибка</system:String>
+    <system:String x:Key="NoDiagramTypes">Для данного типа материала нет доступных типов диаграмм.</system:String>
+    <system:String x:Key="NoCompatibleDiagrams">Нет совместимых диаграмм</system:String>
+    <system:String x:Key="DiagramCreateError">Ошибка создания диаграммы: {0}</system:String>
+    <system:String x:Key="DiagramTypeNotSupported">Тип диаграммы {0} не поддерживается</system:String>
+    <system:String x:Key="DiagramBuilt">Диаграмма '{0}' построена</system:String>
+    <system:String x:Key="CharsSaved">Характеристики '{0}' ({1}) сохранены</system:String>
+    <system:String x:Key="DiagramDeletedCode">Диаграмма '{0}' удалена</system:String>
+
+    <!-- Diagram type names -->
+    <system:String x:Key="DiagL2_Concrete">Двухлинейная (L2) — СП63.13330</system:String>
+    <system:String x:Key="DiagL3_Concrete">Трёхлинейная (L3) — СП63.13330</system:String>
+    <system:String x:Key="DiagSP63">Криволинейная (СП63) — Приложение Г</system:String>
+    <system:String x:Key="DiagEKB">Нелинейная (ЕКБ/EN2 §3.1.5)</system:String>
+    <system:String x:Key="DiagSP35">Параболическо-прямоугольная (EN2 §3.1.7 / СП35)</system:String>
+    <system:String x:Key="DiagL2_ReSteelF">Двухлинейная (L2) — арматура с физическим пределом</system:String>
+    <system:String x:Key="DiagL3_ReSteelU">Трёхлинейная (L3) — арматура с условным пределом</system:String>
+    <system:String x:Key="DiagL2_Steel">Двухлинейная (L2) — сталь конструкционная</system:String>
+    <system:String x:Key="DiagSP16_Steel">Многосегментная (СП 16.13330) — сталь конструкционная</system:String>
+
+   <!-- ContourPlot -->
+   <system:String x:Key="ContourTagHeader">Обозначение (слой DXF)</system:String>
+   <system:String x:Key="ContourSetHeader">Набор (файл DXF)</system:String>
+   <system:String x:Key="ContourCoordinates">Координаты</system:String>
+   <system:String x:Key="TipRenumContour">Перенумерация координат контура</system:String>
+   <system:String x:Key="TipExportContourCsv">Экспорт координат контура в файл *.csv</system:String>
+   <system:String x:Key="TipImportContourCsv">Импорт координат контура из файла *.csv</system:String>
+    <system:String x:Key="TipToggleEdit">Включение/отключение режима редактирования</system:String>
+    <system:String x:Key="TipSaveContour">Сохранение контура или внесённых изменений</system:String>
+    <system:String x:Key="TipTranslateContour">Сдвиг контура</system:String>
+    <system:String x:Key="TipScaleContour">Масштабирование контура</system:String>
+    <system:String x:Key="TipShowProperties">Геометрические свойства</system:String>
+
+   <!-- RibbonBar -->
+   <system:String x:Key="RibbonHome">Главная</system:String>
+   <system:String x:Key="RibbonGroupGeometry">Геометрия</system:String>
+   <system:String x:Key="RibbonGroupMaterials">Материалы</system:String>
+   <system:String x:Key="RibbonGroupRegions">Регионы</system:String>
+   <system:String x:Key="RibbonGroupSettings">Настройки</system:String>
+    <system:String x:Key="TipNewContour">Новый контур</system:String>
+    <system:String x:Key="TipAddCircle">Добавить окружность</system:String>
+   <system:String x:Key="TipDelContour">Удалить контур</system:String>
+   <system:String x:Key="TipNewMaterial">Новый материал</system:String>
+   <system:String x:Key="TipAddConcrete">Добавить бетон</system:String>
+   <system:String x:Key="TipAddRebar">Добавить арматуру</system:String>
+   <system:String x:Key="TipAddSteel">Добавить сталь</system:String>
+   <system:String x:Key="TipDelMaterial">Удалить материал</system:String>
+   <system:String x:Key="TipNewRCRegion">Новая армированная область</system:String>
+   <system:String x:Key="TipDelRCRegion">Удалить армированную область</system:String>
+   <system:String x:Key="TipPlotSettings">Настройки графиков</system:String>
+   <system:String x:Key="TipCsvSettings">Настройки экспорта CSV</system:String>
+
+   <!-- CrossSection -->
+   <system:String x:Key="NewCrossSection">Новое сечение</system:String>
+   <system:String x:Key="EditCrossSection">Редактировать сечение</system:String>
+   <system:String x:Key="DeleteCrossSection">Удалить сечение</system:String>
+   <system:String x:Key="CrossSectionStage1">Этап 1</system:String>
+   <system:String x:Key="CrossSectionStage2">Этап 2</system:String>
+   <system:String x:Key="MaterialAreaLabel">Материальная область</system:String>
+   <system:String x:Key="AddConcreteArea">Добавить бетонную область</system:String>
+   <system:String x:Key="AddRebarArea">Добавить арматурную область</system:String>
+   <system:String x:Key="AddSteelArea">Добавить стальную область</system:String>
+   <system:String x:Key="HostArea">Бетонная область-носитель</system:String>
+   <system:String x:Key="DeleteArea">Удалить область</system:String>
+
+   <!-- Блок 1: дерево + MaterialAreaPage -->
+   <system:String x:Key="MaterialAreas">Материальные области</system:String>
+   <system:String x:Key="Areas">Области</system:String>
+   <system:String x:Key="RebarGroups">Группы арматуры</system:String>
+   <system:String x:Key="FiberSections">Фибровые</system:String>
+   <system:String x:Key="TwoStageSections">Усиление</system:String>
+   <system:String x:Key="NewArea">Новая область</system:String>
+   <system:String x:Key="Hull">Внешний контур (Hull)</system:String>
+   <system:String x:Key="Holes">Отверстия</system:String>
+   <system:String x:Key="SelectFromPool">Выбрать из пула</system:String>
+   <system:String x:Key="NewContourBtn">Новый контур</system:String>
+   <system:String x:Key="ClearHull">Очистить</system:String>
+   <system:String x:Key="AddHole">Добавить отверстие</system:String>
+   <system:String x:Key="MeshGrid">Сетка</system:String>
+   <system:String x:Key="Prestress">Преднапряжение</system:String>
+   <system:String x:Key="SigSpLabel">σ_sp после потерь, МПа</system:String>
+   <system:String x:Key="GammaSpLabel">γ_sp — коэф. точности (п. 9.2.6 СП 63)</system:String>
+   <system:String x:Key="GammaSp_1_0">1.0 — не учитывать</system:String>
+   <system:String x:Key="GammaSp_0_9">0.9 — благоприятное влияние</system:String>
+   <system:String x:Key="GammaSp_1_1">1.1 — неблагоприятное влияние</system:String>
+   <system:String x:Key="EpsSpLabel">ε_sp (вычислено): </system:String>
+   <system:String x:Key="CurrentHull">Текущий: </system:String>
+   <system:String x:Key="DiagramType">Тип диаграммы</system:String>
+   <system:String x:Key="NewTwoStageSection">Новое усиление</system:String>
+   <system:String x:Key="CrossSectionAreas">В сечении</system:String>
+   <system:String x:Key="CrossSectionPool">Из пула</system:String>
+   <system:String x:Key="CrossSectionSelectArea">Выберите область для редактирования</system:String>
+   <system:String x:Key="AddToSection">+</system:String>
+   <system:String x:Key="Stage1Kurvature">Кривизна 1-го этапа</system:String>
+   <system:String x:Key="KurvatureE0">ε₀:</system:String>
+   <system:String x:Key="KurvatureKy">κy:</system:String>
+   <system:String x:Key="KurvatureKz">κz:</system:String>
+
+   <!-- Force Sets -->
+   <system:String x:Key="ForceSets">Усилия</system:String>
+   <system:String x:Key="BarForceSets">Стержни</system:String>
+   <system:String x:Key="ShellForceSets">Пластины</system:String>
+   <system:String x:Key="NewBarForceSet">Новый набор усилий (стержень)</system:String>
+   <system:String x:Key="NewShellForceSet">Новый набор усилий (пластина)</system:String>
+   <system:String x:Key="NewForceSet">Новый набор усилий</system:String>
+   <system:String x:Key="DeleteForceSet">Удалить набор</system:String>
+   <system:String x:Key="ForceSetSelectHint">Выберите набор усилий для редактирования</system:String>
+   <system:String x:Key="RenameForceSet">Переименовать / вид загружения...</system:String>
+   <system:String x:Key="DuplicateForceSet">Дублировать набор</system:String>
+   <system:String x:Key="DeleteForceSetItem">Удалить набор</system:String>
+   <system:String x:Key="ForceSetPropsTitle">Вид загружения (СП20)</system:String>
+   <system:String x:Key="ForceLoadCurrentName">Набор:</system:String>
+   <system:String x:Key="ForceLoadTitleLabel">Название:</system:String>
+   <system:String x:Key="ForceLoadKindLabel">Вид загружения:</system:String>
+   <system:String x:Key="ForceLoadGammaLabel">γf (к-т надёжности):</system:String>
+   <system:String x:Key="ForceLoadGammaHint">(0 или пусто = по умолчанию)</system:String>
+   <system:String x:Key="ForceLoadGroupLabel">Группа взаимоисключения:</system:String>
+   <system:String x:Key="ForceLoadGroupHint">пример: ветер, снег, кран</system:String>
+   <system:String x:Key="ForceLoadPreviewLabel">Новое имя:</system:String>
+   <system:String x:Key="ForceLoadKindG">G — постоянная</system:String>
+   <system:String x:Key="ForceLoadKindL">L — длительная переменная</system:String>
+   <system:String x:Key="ForceLoadKindQ">Q — кратковременная переменная</system:String>
+   <system:String x:Key="ForceLoadKindA">A — особая (аварийная)</system:String>
+   <system:String x:Key="AddForceItem">+ Добавить</system:String>
+   <system:String x:Key="DeleteForceItem">Удалить</system:String>
+   <system:String x:Key="DuplicateForceItem">Дублировать</system:String>
+   <system:String x:Key="ForceColLabel">Метка</system:String>
+   <system:String x:Key="ForceColN">N, кН</system:String>
+   <system:String x:Key="ForceColMx">Mx, кН·м</system:String>
+   <system:String x:Key="ForceColMy">My, кН·м</system:String>
+   <system:String x:Key="ForceColVx">Vx, кН</system:String>
+   <system:String x:Key="ForceColVy">Vy, кН</system:String>
+   <system:String x:Key="ForceColT">T, кН·м</system:String>
+   <system:String x:Key="ShellForceColNx">Nx, кН/м</system:String>
+   <system:String x:Key="ShellForceColNy">Ny, кН/м</system:String>
+   <system:String x:Key="ShellForceColNxy">Nxy, кН/м</system:String>
+   <system:String x:Key="ShellForceColMx">Mx, кН·м/м</system:String>
+   <system:String x:Key="ShellForceColMy">My, кН·м/м</system:String>
+   <system:String x:Key="ShellForceColMxy">Mxy, кН·м/м</system:String>
+   <system:String x:Key="ShellForceColQx">Qx, кН/м</system:String>
+   <system:String x:Key="ShellForceColQy">Qy, кН/м</system:String>
+   <system:String x:Key="ImportCsvBtn">Импорт CSV</system:String>
+   <system:String x:Key="ExportCsvBtn">Экспорт CSV</system:String>
+   <system:String x:Key="ImportMenu">Импорт</system:String>
+   <system:String x:Key="ImportCirclesFromDxf">Импорт окружностей из DXF…</system:String>
+   <system:String x:Key="ImportContoursFromDxf">Импорт контуров из DXF…</system:String>
+   <system:String x:Key="ImportAreasFromDxf">Импорт областей из DXF…</system:String>
+   <system:String x:Key="ImportLiraLoadCases">Импорт усилий LiraSAPR — по загружениям (HTML)…</system:String>
+   <system:String x:Key="ImportLiraRsn">Импорт усилий LiraSAPR — РСН (HTML)…</system:String>
+   <system:String x:Key="ImportLiraRsu">Импорт усилий LiraSAPR — РСУ (HTML)…</system:String>
+   <system:String x:Key="ImportLiraLoadCasesTitle">Импорт усилий LIRA — загружения</system:String>
+   <system:String x:Key="ImportLiraRsnTitle">Импорт усилий LIRA — РСН</system:String>
+   <system:String x:Key="ImportLiraRsuTitle">Импорт усилий LIRA — РСУ</system:String>
+   <system:String x:Key="ImportLiraErrorTitle">Импорт LIRA</system:String>
+   <system:String x:Key="ImportLiraFailed">Не удалось импортировать файл.</system:String>
+   <system:String x:Key="ImportLiraSuccess">Импортировано наборов усилий: {0} ({1})</system:String>
+   <system:String x:Key="ImportLiraSchemaFromCsv">Импорт схемы ЛираСАПР (CSV)…</system:String>
+   <system:String x:Key="ImportLiraSchemaNodesTitle">Файл узлов ЛираСАПР (CSV)</system:String>
+   <system:String x:Key="ImportLiraSchemaElemsTitle">Файл элементов ЛираСАПР (CSV)</system:String>
+   <system:String x:Key="ImportLiraSchemaBarStiffTitle">Файл жёсткостей стержней (CSV, опционально)</system:String>
+   <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Файл жёсткостей пластин (CSV, опционально)</system:String>
+   <system:String x:Key="ImportLiraSchemaSuccess">Импортирована схема: {0} узлов, {1} стержней, {2} пластин, {3} конструктивных элементов</system:String>
+   <system:String x:Key="CsvFileFilter">CSV-файл (*.csv)|*.csv|Все файлы (*.*)|*.*</system:String>
+   <system:String x:Key="LiraImportSettingsTab">Импорт LIRA</system:String>
+   <system:String x:Key="LiraImportUnitsGroup">Перевод т → кН</system:String>
+   <system:String x:Key="LiraTon981">9,80665 (1 т = 9,80665 кН)</system:String>
+   <system:String x:Key="LiraTon10">10 (1 т = 10 кН)</system:String>
+   <system:String x:Key="LiraImportBarMomentsGroup">Стержни</system:String>
+   <system:String x:Key="LiraInvertBarMxMy">Инвертировать знаки изгибающих моментов Mx и My</system:String>
+   <system:String x:Key="SP20CombineBtn">Сочетания СП20</system:String>
+   <system:String x:Key="SP20DialogTitle">Сочетания по СП 20.13330</system:String>
+   <system:String x:Key="SP20SelectSets">Наборы усилий:</system:String>
+   <system:String x:Key="SP20ModeLabel">Сочетание:</system:String>
+   <system:String x:Key="SP20ModeFundamental">Основное (п. 6.2)</system:String>
+   <system:String x:Key="SP20ModeAccidental">Особое (п. 6.5)</system:String>
+   <system:String x:Key="SP20ModeBoth">Оба</system:String>
+   <system:String x:Key="SP20MakeEnvelope">Создавать огибающую</system:String>
+   <system:String x:Key="SP20MakeCases">Создавать список комбинаций</system:String>
+   <system:String x:Key="SP20ResultName">Базовое имя:</system:String>
+   <system:String x:Key="SP20Preview">Предпросмотр:</system:String>
+   <system:String x:Key="SP20Generate">Сформировать</system:String>
+
+   <!-- Плитные сечения -->
+   <system:String x:Key="PlateSections">Пластины</system:String>
+   <system:String x:Key="NewPlateSection">Новое сечение</system:String>
+   <system:String x:Key="DeletePlateSection">Удалить сечение</system:String>
+   <system:String x:Key="DuplicatePlateSection">Дублировать</system:String>
+   <system:String x:Key="DeletePlateSectionItem">Удалить</system:String>
+   <system:String x:Key="PlateSectionGeometry">Геометрия</system:String>
+   <system:String x:Key="PlateSectionMaterials">Материалы</system:String>
+   <system:String x:Key="PlateThicknessMm">Толщина h, мм:</system:String>
+   <system:String x:Key="PlateNLayers">Число слоёв бетона:</system:String>
+   <system:String x:Key="PlateTensionConcrete">Учёт растяжения бетона</system:String>
+   <system:String x:Key="PlateSofteningModel">Модель β-снижения:</system:String>
+   <system:String x:Key="PlateSofteningNone">Нет</system:String>
+   <system:String x:Key="PlateSofteningVC">Vecchio–Collins</system:String>
+   <system:String x:Key="PlateRebarLayers">Арматурные слои</system:String>
+   <system:String x:Key="PlateLayerName">Название</system:String>
+   <system:String x:Key="PlateLayerMode">Способ ввода</system:String>
+   <system:String x:Key="PlateLayerModeSpacing">Ø + шаг</system:String>
+   <system:String x:Key="PlateLayerModeCount">Ø + кол-во/м</system:String>
+   <system:String x:Key="PlateLayerModeDirect">Прямой ввод A</system:String>
+   <system:String x:Key="PlateLayerDiamX">Ø X, мм</system:String>
+   <system:String x:Key="PlateLayerSpacingX">Шаг X, мм</system:String>
+   <system:String x:Key="PlateLayerCountX">Кол-во X, шт/м</system:String>
+   <system:String x:Key="PlateLayerZsx">zsx, мм</system:String>
+   <system:String x:Key="PlateLayerDiamY">Ø Y, мм</system:String>
+   <system:String x:Key="PlateLayerSpacingY">Шаг Y, мм</system:String>
+   <system:String x:Key="PlateLayerCountY">Кол-во Y, шт/м</system:String>
+   <system:String x:Key="PlateLayerZsy">zsy, мм</system:String>
+   <system:String x:Key="PlateLayerAsx">Asx, см²/м</system:String>
+   <system:String x:Key="PlateLayerAsy">Asy, см²/м</system:String>
+   <system:String x:Key="PlateModel">Модель пластины:</system:String>
+   <system:String x:Key="PlateModelLayered">Слоистая</system:String>
+   <system:String x:Key="PlateModelChar1dPrincipal">1D по характ. точкам (по главным)</system:String>
+   <system:String x:Key="PlateModelChar1dAxial">1D по характ. точкам (по осям)</system:String>
+   <system:String x:Key="PlateConcreteDiagramType">Диаграмма бетона:</system:String>
+   <system:String x:Key="DiagramTypeL2">Двухлинейная (L2)</system:String>
+   <system:String x:Key="DiagramTypeL3">Трёхлинейная (L3)</system:String>
+   <system:String x:Key="DiagramTypeSP63">Криволинейная СП 63 (SP63)</system:String>
+   <system:String x:Key="DiagramTypeEKB">Нелинейная EN 1992 / ЕКБ (EKB)</system:String>
+   <system:String x:Key="DiagramTypeSP35">Параболическо-прямоугольная EN 1992 / СП 35 (SP35)</system:String>
+   <system:String x:Key="AddRebarLayer">Добавить слой</system:String>
+   <system:String x:Key="DeleteRebarLayer">Удалить слой</system:String>
+
+   <!-- Огнестойкость -->
+   <system:String x:Key="FireSection_Node">Огнестойкость</system:String>
+   <system:String x:Key="FireSection_New">Новое огневое сечение</system:String>
+   <system:String x:Key="FireSection_Delete">Удалить огневое сечение</system:String>
+   <system:String x:Key="FireSection_Rename">Переименовать / параметры...</system:String>
+   <system:String x:Key="FireSection_DialogTitle">Параметры огневого сечения</system:String>
+   <system:String x:Key="FireSection_CrossSection">Связанное сечение</system:String>
+   <system:String x:Key="FireSection_Duration">Длительность пожара, мин</system:String>
+   <system:String x:Key="FireSection_Curve">Огневая кривая</system:String>
+   <system:String x:Key="FireSection_CurveIso834">ISO 834</system:String>
+   <system:String x:Key="FireSection_CurveHydrocarbon">Углеводородная</system:String>
+   <system:String x:Key="FireSection_CurveSlow">Медленный нагрев</system:String>
+   <system:String x:Key="FireSection_MeshStep">Шаг сетки, м</system:String>
+   <system:String x:Key="FireSection_TimeStep">Шаг по времени, с</system:String>
+   <system:String x:Key="FireSection_BcPreset">Пресет ГУ</system:String>
+   <system:String x:Key="FireSection_BcManual">Вручную</system:String>
+   <system:String x:Key="FireSection_Bc1Sided">1 сторона</system:String>
+   <system:String x:Key="FireSection_Bc2Sided">2 стороны</system:String>
+   <system:String x:Key="FireSection_Bc3Sided">3 стороны</system:String>
+   <system:String x:Key="FireSection_BcAllSided">Все стороны</system:String>
+   <system:String x:Key="FireSection_RunThermal">Тепловой расчёт</system:String>
+   <system:String x:Key="FireSection_DefaultTag">Огневое сечение {0}</system:String>
+   <system:String x:Key="FireSection_NeedCrossSection">Выберите связанное поперечное сечение.</system:String>
+   <system:String x:Key="FireSection_ConfirmDelete">Удалить выбранное огневое сечение?</system:String>
+   <system:String x:Key="FireSection_SectionNotFound">Связанное сечение не найдено.</system:String>
+   <system:String x:Key="FireSection_Saved">Параметры сохранены.</system:String>
+   <system:String x:Key="FireSection_SavedLog">Огневое сечение '{0}' сохранено.</system:String>
+   <system:String x:Key="FireSection_RunOk">Тепловой расчёт выполнен. ID результата: {0}</system:String>
+   <system:String x:Key="FireSection_RunOkLog">Огневой расчёт '{0}' выполнен, результат #{1}.</system:String>
+   <system:String x:Key="FireSection_RunError">Ошибка огневого расчёта: {0}</system:String>
+
+   <!-- Mesh generation -->
+   <system:String x:Key="MeshMethod">Метод</system:String>
+   <system:String x:Key="MeshMethod_Grid">Ортогональная сетка</system:String>
+   <system:String x:Key="MeshMethod_Ruppert">Триангуляция Рупперта</system:String>
+   <system:String x:Key="MeshMethod_AdvancingFront">Фронтальная триангуляция</system:String>
+   <system:String x:Key="MeshGenerate">Разбить</system:String>
+   <system:String x:Key="MeshApply">Применить</system:String>
+   <system:String x:Key="MeshClear">Очистить</system:String>
+   <system:String x:Key="MeshConfigure">Настроить...</system:String>
+   <system:String x:Key="MeshFibersCount">Фибр: </system:String>
+   <system:String x:Key="MeshDisplayMode">Отображение</system:String>
+   <system:String x:Key="MeshDisplayCentroids">Центроиды</system:String>
+   <system:String x:Key="MeshDisplayElements">Элементы</system:String>
+   <system:String x:Key="MeshMaxArea">Макс. площадь</system:String>
+   <system:String x:Key="MeshMinAngle">Мин. угол, °</system:String>
+   <system:String x:Key="MeshMaxEdgeLen">Дл. ребра</system:String>
+   <system:String x:Key="MeshSmoothIter">Итер. сглаж.</system:String>
+   <system:String x:Key="MeshDialogTitle">Настройка сетки</system:String>
+   <system:String x:Key="MeshNX">NX:</system:String>
+   <system:String x:Key="MeshNY">NY:</system:String>
+
+   <!-- DXF MaterialArea import -->
+   <system:String x:Key="DxfModeHull">Hull</system:String>
+   <system:String x:Key="DxfModeHole">Отверстие</system:String>
+   <system:String x:Key="DxfModeRebarGroup">Группа арм.</system:String>
+   <system:String x:Key="DxfRightHull">Внешний контур</system:String>
+   <system:String x:Key="DxfRightHoles">Отверстия</system:String>
+   <system:String x:Key="DxfRightGroup">Группа арматуры</system:String>
+   <system:String x:Key="DxfDiscretize">Дискретизация кругов</system:String>
+   <system:String x:Key="DxfDiscretizeMethod">Метод</system:String>
+   <system:String x:Key="DxfDiscretizeChord">Длина хорды</system:String>
+   <system:String x:Key="DxfDiscretizeN">Число сегментов</system:String>
+   <system:String x:Key="DxfDiscretizeValue">Значение</system:String>
+   <system:String x:Key="DxfActiveGroup">Группа:</system:String>
+   <system:String x:Key="DxfCreateArea">Создать область</system:String>
+   <system:String x:Key="DxfTagLabel">Тег</system:String>
+   <system:String x:Key="MenuFromDxfMaterialArea">Из DXF…</system:String>
+
+   <!-- Rebar Group Editor -->
+   <system:String x:Key="RgStrategyGroup">Стратегия</system:String>
+   <system:String x:Key="RgStrategyRegion">По области</system:String>
+   <system:String x:Key="RgStrategyContour">По контуру</system:String>
+   <system:String x:Key="RgStrategyFree">Свободная</system:String>
+   <system:String x:Key="RgReference">Опора</system:String>
+   <system:String x:Key="RgCoverOffset">Отступ</system:String>
+   <system:String x:Key="RgOffsetStep">Шаг</system:String>
+   <system:String x:Key="RgResetOffsets">Сбросить все</system:String>
+   <system:String x:Key="RgBarDiameter">Ø</system:String>
+   <system:String x:Key="RgBarDiameterUnit">мм</system:String>
+   <system:String x:Key="RgFillN">N</system:String>
+   <system:String x:Key="RgFillStraight">По прямой</system:String>
+   <system:String x:Key="RgFillArc">По дуге</system:String>
+   <system:String x:Key="RgFillArcR">R, м</system:String>
+   <system:String x:Key="RgFillMode">Режим заполнения</system:String>
+   <system:String x:Key="RgEdgesTable">Рёбра</system:String>
+   <system:String x:Key="RgBarsTable">Стержни</system:String>
+   <system:String x:Key="RgGroupTag">Тег группы</system:String>
+   <system:String x:Key="RgMaterial">Материал</system:String>
+
+   <!-- CirclesView -->
+   <system:String x:Key="R_m">R, м</system:String>
+   <system:String x:Key="D_m">D, м</system:String>
+   <system:String x:Key="CircleSet">Набор</system:String>
+   <system:String x:Key="ConfirmDeleteCircle">Удалить безвозвратно выбранную окружность?</system:String>
+   <system:String x:Key="CircleDeleted">Окружность '{0}' удалена</system:String>
+   <system:String x:Key="CircleAdded">Добавлена новая окружность</system:String>
+
+   <!-- Contours DXF import -->
+   <system:String x:Key="ImportContoursFromDxfTitle">Импорт контуров из DXF</system:String>
+   <system:String x:Key="ContoursImportedFromDxf">Импортировано {0} контуров из «{1}»</system:String>
+   <system:String x:Key="ContoursSkippedDxf">Пропущено {0} незамкнутых полилиний</system:String>
+   <system:String x:Key="NoDxfPolylines">В файле «{0}» нет полилиний</system:String>
+
+   <!-- Circles context menu -->
+   <system:String x:Key="ToDxf">В DXF</system:String>
+   <system:String x:Key="FromCsv">Из CSV</system:String>
+   <system:String x:Key="ToCsv">В CSV</system:String>
+   <!-- Circles import/export messages -->
+   <system:String x:Key="ImportCirclesFromDxfTitle">Импорт окружностей из DXF</system:String>
+   <system:String x:Key="ExportCirclesToDxfTitle">Экспорт окружностей в DXF</system:String>
+   <system:String x:Key="ImportCirclesFromCsvTitle">Импорт окружностей из CSV</system:String>
+   <system:String x:Key="ExportCirclesToCsvTitle">Экспорт окружностей в CSV</system:String>
+   <system:String x:Key="CirclesImportedFromDxf">Импортировано {0} окружностей из «{1}»</system:String>
+   <system:String x:Key="CirclesExportedToDxf">Экспортировано {0} окружностей в «{1}»</system:String>
+   <system:String x:Key="CirclesImportedFromCsv">Импортировано {0} окружностей из «{1}»</system:String>
+   <system:String x:Key="CirclesExportedToCsv">Экспортировано {0} окружностей в «{1}»</system:String>
+   <system:String x:Key="NoDxfCircles">В файле «{0}» нет окружностей</system:String>
+   <system:String x:Key="NoCirclesToExport">Нет окружностей для экспорта</system:String>
+
+   <!-- View titles (GroupBox header in main content area) -->
+   <system:String x:Key="VT_Contour">Контур</system:String>
+   <system:String x:Key="VT_Material">Материал</system:String>
+   <system:String x:Key="VT_MaterialArea">Область</system:String>
+   <system:String x:Key="VT_RebarGroup">Группа арматуры</system:String>
+   <system:String x:Key="VT_CrossSection">Поперечное сечение</system:String>
+   <system:String x:Key="VT_TwoStageSection">Двухстадийное сечение</system:String>
+   <system:String x:Key="VT_PlateSection">Пластина</system:String>
+   <system:String x:Key="VT_BarForceSet">Усилия (стержень)</system:String>
+   <system:String x:Key="VT_ShellForceSet">Усилия (пластина)</system:String>
+   <system:String x:Key="VT_FromDxf">Импорт DXF</system:String>
+   <system:String x:Key="VT_Diagram">Диаграмма</system:String>
+   <system:String x:Key="VT_Circles">Окружности</system:String>
+   <system:String x:Key="VT_CalcTasks">Расчётные задачи</system:String>
+   <system:String x:Key="VT_CalcResult">Результат расчёта</system:String>
+   <system:String x:Key="VT_FireSection">Огнестойкость</system:String>
+
+   <!-- Расчётные задачи -->
+   <system:String x:Key="CalcTaskDlgTitle">Параметры расчётной задачи</system:String>
+   <system:String x:Key="CalcTaskKind">Тип задачи</system:String>
+   <system:String x:Key="CalcTaskSection">Сечение</system:String>
+   <system:String x:Key="CalcTaskForceSet">Набор усилий</system:String>
+   <system:String x:Key="CalcTaskForceItem">Строка усилий</system:String>
+   <system:String x:Key="CalcType">Тип расчёта</system:String>
+   <system:String x:Key="CalcTaskNew">Создать задачу</system:String>
+   <system:String x:Key="CalcTaskRun">Выполнить</system:String>
+   <system:String x:Key="CalcTaskEdit">Редактировать</system:String>
+   <system:String x:Key="CalcTaskDelete">Удалить задачу</system:String>
+   <system:String x:Key="CalcResults">Результаты</system:String>
+   <system:String x:Key="CalcResultView">Просмотр</system:String>
+    <system:String x:Key="CalcResultDelete">Удалить результат</system:String>
+    <system:String x:Key="CalcResultDeleteAll">Удалить все результаты</system:String>
+   <system:String x:Key="CalcResultCreated">Дата/время</system:String>
+   <system:String x:Key="CalcResultStatus">Статус</system:String>
+   <system:String x:Key="CalcTaskNeedSection">Не выбрано сечение.</system:String>
+   <system:String x:Key="CalcTaskNeedForceItem">Не выбран набор усилий или строка усилий.</system:String>
+   <system:String x:Key="CalcTaskSectionNotFound">Сечение задачи не найдено в проекте.</system:String>
+   <system:String x:Key="CalcTaskForceItemNotFound">Строка усилий задачи не найдена в проекте.</system:String>
+    <system:String x:Key="ConfirmDeleteCalcTask">Удалить задачу и все её результаты?</system:String>
+    <system:String x:Key="ConfirmDeleteCalcResults">Удалить все результаты задачи «{0}»?</system:String>
+    <system:String x:Key="CalcTaskCreated">Задача «{0}» создана.</system:String>
+   <system:String x:Key="CalcTaskKind_strain_state">Состояние деформаций</system:String>
+   <system:String x:Key="CalcTaskKind_fire_r_check">R-проверка (одна комбинация)</system:String>
+   <system:String x:Key="CalcTaskKind_fire_r_check_batch">R-проверка (весь набор)</system:String>
+   <system:String x:Key="CalcTaskKind_strain_state_batch">Состояние деформаций (весь набор)</system:String>
+   <system:String x:Key="CalcTaskKind_limit_force">Предельное усилие (k·N, k·Mx, k·My)</system:String>
+   <system:String x:Key="CalcTaskKind_limit_moment">Предельный момент (N фикс.)</system:String>
+   <system:String x:Key="CalcTaskKind_limit_axial">Предельная сила (Mx, My фикс.)</system:String>
+   <system:String x:Key="CalcTaskKind_limit_force_batch">Предельное усилие (весь набор)</system:String>
+   <system:String x:Key="CalcTaskKind_limit_moment_batch">Предельный момент (весь набор)</system:String>
+   <system:String x:Key="CalcTaskKind_limit_axial_batch">Предельная сила (весь набор)</system:String>
+   <system:String x:Key="CalcTaskKind_two_stage_strain">Двухстадийное НДС</system:String>
+   <system:String x:Key="CalcTaskKind_two_stage_strain_batch">Двухстадийное НДС (набор)</system:String>
+   <system:String x:Key="CalcTask_Stage1Force">Усилие этапа 1</system:String>
+   <system:String x:Key="CalcTask_Stage2Force">Усилие этапа 2</system:String>
+   <system:String x:Key="CalcTask_StageModeItem">Из набора усилий</system:String>
+   <system:String x:Key="CalcTask_StageModeManual">Ввод вручную</system:String>
+   <system:String x:Key="CalcTask_WholeSet">— весь набор —</system:String>
+   <system:String x:Key="TwoStageNeedEqualRows">Наборы усилий этапов 1 и 2 должны иметь одинаковое число строк.</system:String>
+   <system:String x:Key="TwoStageSummary_Stage1">Этап 1 (до усиления)</system:String>
+   <system:String x:Key="TwoStageSummary_Stage2">Этап 2 (составное сечение)</system:String>
+   <system:String x:Key="CalcTaskNeedForceSet">Не выбран набор усилий.</system:String>
+   <system:String x:Key="LimitForce_BlockTitle">Предельное нагружение</system:String>
+   <system:String x:Key="LimitForce_Factor">Коэффициент запаса k</system:String>
+   <system:String x:Key="LimitForce_Utilization">Коэффициент использования η</system:String>
+   <system:String x:Key="LimitForce_Governing">Управляющий критерий</system:String>
+   <system:String x:Key="LimitForce_SolverMethod">Метод решения</system:String>
+   <system:String x:Key="LimitForce_BisectSteps">Шагов бисекции</system:String>
+   <system:String x:Key="LimitForce_InnerIterSum">Внутренних итераций (сумма)</system:String>
+   <system:String x:Key="LimitForceSolver_Bisection">Бисекция</system:String>
+   <system:String x:Key="LimitForceSolver_Fast">Ньютон (быстрый)</system:String>
+   <system:String x:Key="LimitForceGov_Concrete">бетон</system:String>
+   <system:String x:Key="LimitForceGov_Rebar">арматура</system:String>
+   <system:String x:Key="LimitForceGov_Both">бетон + арматура</system:String>
+   <system:String x:Key="LimitForceBatch_TabRows">Строки набора</system:String>
+   <system:String x:Key="LimitForceBatch_SummaryFormat">Всего: {0}, сошлось: {1}, не сошлось: {2}</system:String>
+   <system:String x:Key="CalcTaskFireSection">Огневое сечение</system:String>
+   <system:String x:Key="CalcTaskNeedFireSection">Не выбрано огневое сечение.</system:String>
+   <system:String x:Key="CalcTaskForceN">N, кН</system:String>
+   <system:String x:Key="CalcTaskForceMx">Mx, кН·м</system:String>
+   <system:String x:Key="CalcTaskForceMy">My, кН·м</system:String>
+   <system:String x:Key="CalcResultNotPassed">Задача «{0}»: R-проверка не пройдена.</system:String>
+   <system:String x:Key="CalcResultOk">Задача «{0}» выполнена успешно.</system:String>
+   <system:String x:Key="CalcResultNotConverged">Задача «{0}» завершена без сходимости.</system:String>
+   <system:String x:Key="CalcResultPartial">Задача «{0}»: частичная сходимость.</system:String>
+   <system:String x:Key="CalcResultError">Ошибка при выполнении задачи «{0}».</system:String>
+   <system:String x:Key="StrainStateBatch_TabRows">Все случаи</system:String>
+   <system:String x:Key="StrainStateBatch_ColLabel">Метка</system:String>
+   <system:String x:Key="StrainStateBatch_ColNum">№</system:String>
+   <system:String x:Key="StrainStateBatch_ColIter">Итер.</system:String>
+   <system:String x:Key="StrainStateBatch_ColResidual">Невязка</system:String>
+   <system:String x:Key="StrainStateBatch_ColStatus">Статус</system:String>
+   <system:String x:Key="StrainStateBatch_SummaryFormat">Всего: {0}, сошлось: {1}, не сошлось: {2}</system:String>
+   <system:String x:Key="StrainStateBatch_StatusOk">ОК</system:String>
+   <system:String x:Key="StrainStateBatch_StatusNotConverged">Нет</system:String>
+    <system:String x:Key="CalcTaskKind_strength_ndm_batch">Проверка прочности (весь набор)</system:String>
+    <system:String x:Key="StrengthNDMBatch_TabRows">Строки набора</system:String>
+    <system:String x:Key="StrengthNDMBatch_SummaryFormat">Всего: {0}, прошло: {1}, не прошло: {2}, сошлось: {3}</system:String>
+    <system:String x:Key="StrengthNDM_Passed">Да</system:String>
+    <system:String x:Key="StrengthNDM_NotPassed">Нет</system:String>
+    <system:String x:Key="StrengthNDM_ColEpsConcrete">ε_b_max</system:String>
+    <system:String x:Key="StrengthNDM_ColEpsConcreteUlt">ε сжатие пред.</system:String>
+    <system:String x:Key="StrengthNDM_ColConcreteOk">Бетон ОК</system:String>
+    <system:String x:Key="StrengthNDM_ColEpsRebar">ε_s_max</system:String>
+    <system:String x:Key="StrengthNDM_ColEpsRebarUlt">ε растяж. пред.</system:String>
+    <system:String x:Key="StrengthNDM_ColRebarOk">Армат. ОК</system:String>
+    <system:String x:Key="StrengthNDM_ColStrengthOk">Прочность</system:String>
+    <system:String x:Key="CalcResultOkLabel">Сходимость достигнута</system:String>
+   <system:String x:Key="CalcResultNotConvergedLabel">Нет сходимости</system:String>
+   <system:String x:Key="CalcResultErrorLabel">Ошибка расчёта</system:String>
+   <system:String x:Key="CalcResultErrorMsg">Сообщение об ошибке</system:String>
+   <system:String x:Key="CalcResultConverged">Сходимость</system:String>
+   <system:String x:Key="CalcResultIterations">Итераций</system:String>
+   <system:String x:Key="CalcResultResidual">Невязка</system:String>
+   <system:String x:Key="CalcResultRawData">Данные</system:String>
+   <system:String x:Key="Target">Задано</system:String>
+   <system:String x:Key="Result">Получено</system:String>
+
+   <!-- CalcResultView tabs -->
+   <system:String x:Key="ResultTabSummary">Сводка</system:String>
+   <system:String x:Key="ResultTabStress">Напряжения σ</system:String>
+   <system:String x:Key="ResultTabStrain">Деформации ε</system:String>
+
+   <!-- Summary sections -->
+   <system:String x:Key="ResultStrainPlane">Плоскость деформаций</system:String>
+   <system:String x:Key="ResultForces">Усилия: задано → найдено</system:String>
+   <system:String x:Key="ResultExtremeStrains">Экстремальные деформации</system:String>
+   <system:String x:Key="ResultStiffness">Жёсткости (секущий модуль)</system:String>
+   <system:String x:Key="ResultElasticStiffness">Упругие жёсткости</system:String>
+   <system:String x:Key="ResultRebarTable">Арматура</system:String>
+   <system:String x:Key="ResultConvergence">Сходимость</system:String>
+   <system:String x:Key="ResultCentroid">Центр тяжести</system:String>
+   <system:String x:Key="ResultConvergedYes">Решение сошлось ✓</system:String>
+   <system:String x:Key="ResultConvergedNo">НЕ СОШЛОСЬ ✗</system:String>
+
+   <!-- Plot controls -->
+   <system:String x:Key="PlotShowMainMat">Осн. материал</system:String>
+   <system:String x:Key="PlotShowRebar">Арматура</system:String>
+   <system:String x:Key="PlotShowValues">Значения</system:String>
+   <system:String x:Key="PlotShowMaxCompr">Макс. сжатие</system:String>
+   <system:String x:Key="PlotSmoothColormap">Плавная карта</system:String>
+   <system:String x:Key="PlotShowFiberGrid">Сетка фибр</system:String>
+   <system:String x:Key="PlotFitAll">⊡ Показать всё</system:String>
+   <system:String x:Key="ColorbarMainMaterial">Осн. материал</system:String>
+   <system:String x:Key="ColorbarRebar">Арматура</system:String>
+   <system:String x:Key="ColorbarZero">0</system:String>
+
+   <!-- Fire result views (Phase 6) -->
+   <system:String x:Key="FireResult_Phase7Placeholder">Визуализация будет добавлена в следующей фазе (тепловая карта, графики T(t), карты γ и σ).</system:String>
+   <system:String x:Key="FireResult_AggregateType">Тип заполнителя</system:String>
+   <system:String x:Key="FireResult_AggregateSilicate">Силикатный</system:String>
+   <system:String x:Key="FireResult_AggregateCarbonate">Карбонатный</system:String>
+   <system:String x:Key="FireSection_TabParameters">Параметры</system:String>
+   <system:String x:Key="FireSection_TabThermalResult">Тепловой результат</system:String>
+   <system:String x:Key="FireSection_PreviewTitle">Сечение</system:String>
+   <system:String x:Key="FireSection_BcFire">Пожар</system:String>
+   <system:String x:Key="FireSection_BcAmbient">Окружающая среда</system:String>
+   <system:String x:Key="FireSection_BcAdiabatic">Теплоизолировано</system:String>
+   <system:String x:Key="FireSection_NoPreview">Связанное сечение не найдено или не имеет геометрии.</system:String>
+   <system:String x:Key="FireSection_ShowMesh">Сетка МКЭ</system:String>
+   <system:String x:Key="FireSection_ShowEdgeLabels">Номера рёбер</system:String>
+   <system:String x:Key="FireSection_MeshComputing">Вычисление сетки…</system:String>
+   <system:String x:Key="FireSection_MeshQuality">Элементов: {0}, min∠ = {1:F1}°</system:String>
+   <system:String x:Key="FireSection_MeshQualityQuadratic">T6-элементов: {0}, min∠ = {1:F1}°</system:String>
+   <system:String x:Key="FireSection_MeshElementType">Тип КЭ сетки</system:String>
+   <system:String x:Key="FireSection_MeshElementType_Linear">Линейный (T3)</system:String>
+   <system:String x:Key="FireSection_MeshElementType_Quadratic">Квадратичный (T6)</system:String>
+   <system:String x:Key="FireSection_MeshError">Ошибка сетки: {0}</system:String>
+   <system:String x:Key="FireSection_ManualHint">Вручную: ЛКМ по ребру — смена ГУ (пожар → среда → изоляция)</system:String>
+   <system:String x:Key="FireSection_EdgeTooltip">Ребро {0}: {1}</system:String>
+   <system:String x:Key="FireSection_EdgeClickHint">ЛКМ — сменить тип ГУ</system:String>
+   <system:String x:Key="FireThermal_NoResult">Тепловой расчёт ещё не выполнялся. Нажмите «Тепловой расчёт» на вкладке параметров.</system:String>
+   <system:String x:Key="FireThermal_Loading">Загрузка результата…</system:String>
+   <system:String x:Key="FireThermal_ResultId">ID результата:</system:String>
+   <system:String x:Key="FireThermal_TabMetadata">Метаданные</system:String>
+   <system:String x:Key="FireThermal_TabField">Температурное поле</system:String>
+   <system:String x:Key="FireThermal_ShowIsolines">Изолинии</system:String>
+   <system:String x:Key="FireThermal_IsolineStep">Шаг изолиний</system:String>
+   <system:String x:Key="FireThermal_IsolineLabels">Подписи изолиний</system:String>
+   <system:String x:Key="FireThermal_SmoothMapLoadingTitle">Плавная карта температуры</system:String>
+   <system:String x:Key="FireThermal_SmoothMapLoadingMessage">Построение сглаженного поля по T3-сетке. Подождите, это может занять несколько секунд.</system:String>
+   <system:String x:Key="FireThermal_TabRebar">Арматура</system:String>
+   <system:String x:Key="FireThermal_TabConvergence">Сходимость</system:String>
+   <system:String x:Key="FireThermal_MeshNodes">Узлов сетки</system:String>
+   <system:String x:Key="FireThermal_MeshElements">Элементов T3</system:String>
+   <system:String x:Key="FireThermal_Snapshots">Снапшотов</system:String>
+   <system:String x:Key="FireThermal_MaxTemp">T_max (финал)</system:String>
+   <system:String x:Key="FireThermal_RebarMaxT">T_max арматуры</system:String>
+   <system:String x:Key="FireThermal_NoConvergenceLog">Лог сходимости пуст.</system:String>
+   <system:String x:Key="FireThermal_ConvergenceFormat">Шагов: {0}, max Пикар = {1}, max невязка = {2:F3} °C</system:String>
+   <system:String x:Key="FireRCheck_VerdictFormat">Критерий R ({1}): {0}</system:String>
+   <system:String x:Key="FireRCheck_Passed">ПРОЙДЕНА</system:String>
+   <system:String x:Key="FireRCheck_NotPassed">НЕ ПРОЙДЕНА</system:String>
+   <system:String x:Key="FireRCheck_PassedShort">Да</system:String>
+   <system:String x:Key="FireRCheck_NotPassedShort">Нет</system:String>
+   <system:String x:Key="FireRCheck_MethodFiber">по норме (fiber)</system:String>
+   <system:String x:Key="FireRCheck_MethodMvp">MVP</system:String>
+   <system:String x:Key="FireRCheck_LimitLoading">Предельное нагружение</system:String>
+   <system:String x:Key="FireRCheck_Factor">Коэффициент запаса k</system:String>
+   <system:String x:Key="FireRCheck_Margin">Запас (k − 1)</system:String>
+   <system:String x:Key="FireRCheck_Utilization">Коэффициент использования η</system:String>
+   <system:String x:Key="FireRCheck_Governing">Управляющий критерий</system:String>
+   <system:String x:Key="FireRCheck_NLimit">N предельное, кН</system:String>
+   <system:String x:Key="FireRCheck_MxLimit">Mx предельное, кН·м</system:String>
+   <system:String x:Key="FireRCheck_MyLimit">My предельное, кН·м</system:String>
+   <system:String x:Key="FireRCheck_EpsLimits">ε_contour_min / ε_cu</system:String>
+   <system:String x:Key="FireRCheck_FireSection">Огнестойкость</system:String>
+   <system:String x:Key="FireRCheck_CriticalTime">Критическое время, мин</system:String>
+   <system:String x:Key="FireRCheck_Method">Метод</system:String>
+   <system:String x:Key="FireRCheck_GammaStats">Коэффициенты γ</system:String>
+   <system:String x:Key="FireRCheck_GammaBtStats">γ_bt min / avg / max</system:String>
+   <system:String x:Key="FireRCheck_GammaStCMin">γ_st,c min</system:String>
+   <system:String x:Key="FireRCheck_GammaStTMin">γ_st,t min</system:String>
+   <system:String x:Key="FireRCheck_Elements">Элементы бетон / арматура</system:String>
+   <system:String x:Key="FireRCheck_ElementCountsFormat">бетон: {0}, арматура: {1}</system:String>
+   <system:String x:Key="FireRCheck_NewtonIter">Итераций Ньютона</system:String>
+   <system:String x:Key="FireRCheck_GovConcrete">бетон</system:String>
+   <system:String x:Key="FireRCheck_GovRebar">арматура</system:String>
+   <system:String x:Key="FireRCheck_GovBoth">бетон + арматура</system:String>
+   <system:String x:Key="FireRCheck_TabGamma">Коэффициенты γ</system:String>
+   <system:String x:Key="FireRCheckBatch_TabAll">Все случаи</system:String>
+   <system:String x:Key="FireRCheckBatch_TabFailed">Не прошедшие</system:String>
+   <system:String x:Key="FireRCheckBatch_ColLabel">Метка</system:String>
+   <system:String x:Key="FireRCheckBatch_ColPassed">Пройдено</system:String>
+   <system:String x:Key="FireRCheckBatch_SummaryFormat">Всего: {0}, пройдено: {1}, не пройдено: {2}, худший запас: {3}</system:String>
+   <system:String x:Key="FirePlot_TimeLabel">t, мин:</system:String>
+   <system:String x:Key="FireThermal_NoRebarHistory">Нет истории температуры арматуры.</system:String>
+   <system:String x:Key="FireThermal_ChartRebarTitle">Температура арматуры</system:String>
+   <system:String x:Key="FireThermal_ChartPicardTitle">Итерации Пикара</system:String>
+   <system:String x:Key="FireThermal_ChartResidTitle">Невязка Пикара</system:String>
+   <system:String x:Key="FireThermal_ChartTimeX">t, мин</system:String>
+   <system:String x:Key="FireThermal_ChartTempY">T, °C</system:String>
+   <system:String x:Key="FireThermal_ChartPicardY">итераций</system:String>
+    <system:String x:Key="FireThermal_ChartResidY">max ΔT, °C (log)</system:String>
+
+    <!-- Shell simpl -->
+    <system:String x:Key="CalcTaskKind_shell_simpl_wa_sls">Пластина: трещины (Wood &amp; Armer)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_wa_uls">Пластина: прочность (Wood &amp; Armer)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_capri_sls">Пластина: трещины (Капри-Мори)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_capri_uls">Пластина: прочность (Капри-Мори)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_wa_sls_batch">Пластина: трещины WA (набор)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_wa_uls_batch">Пластина: прочность WA (набор)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_capri_sls_batch">Пластина: трещины Капри-Мори (набор)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_simpl_capri_uls_batch">Пластина: прочность Капри-Мори (набор)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_strain_state">Плоскость деформаций пластины</system:String>
+    <system:String x:Key="CalcTaskKind_shell_strain_state_batch">Плоскость деформаций пластины (набор)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_layered_uls">Пластина: прочность (слоистая модель)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_layered_uls_batch">Пластина: прочность слоистая (набор)</system:String>
+    <system:String x:Key="CalcTaskKind_prestress_loss">Потери преднапряжения (СП 63 гл. 9.1)</system:String>
+    <system:String x:Key="PrestressLossDialogTitle">Параметры потерь преднапряжения</system:String>
+    <system:String x:Key="PrestressLossParamsBtn">Параметры потерь…</system:String>
+    <system:String x:Key="TensionMethodLabel">Способ натяжения:</system:String>
+    <system:String x:Key="TensionOnSupports">На упоры</system:String>
+    <system:String x:Key="TensionOnConcrete">На бетон</system:String>
+    <system:String x:Key="HeatTreatedLabel">Тепловая обработка</system:String>
+    <system:String x:Key="HumidityLabel">Влажность воздуха:</system:String>
+    <system:String x:Key="HumidityAbove75">Выше 75%</system:String>
+    <system:String x:Key="Humidity40_75">40–75%</system:String>
+    <system:String x:Key="HumidityBelow40">Ниже 40%</system:String>
+    <system:String x:Key="ConcreteClassLabel">Класс бетона:</system:String>
+    <system:String x:Key="ConcreteClassAutoLabel">Авто из сечения</system:String>
+    <system:String x:Key="ConcreteClassManualLabel">Вручную:</system:String>
+    <system:String x:Key="PhiBCrLabel">φ_b,cr (табл. 6.12):</system:String>
+    <system:String x:Key="PrestressApplyBtn">Применить σ_sp2 к арматурным группам</system:String>
+    <system:String x:Key="PrestressApplied">σ_sp обновлено для {0} групп</system:String>
+    <system:String x:Key="PrestressForceFirst">P̄₁, кН:</system:String>
+    <system:String x:Key="PrestressForceTotal">P̄₂, кН:</system:String>
+    <system:String x:Key="Info">Информация</system:String>
+    <system:String x:Key="ColGroup">Группа</system:String>
+    <system:String x:Key="ColSigSp0">σ_sp0, МПа</system:String>
+    <system:String x:Key="ColRelaxFormula">Формула рел.</system:String>
+    <system:String x:Key="ColSubMethod">Способ</system:String>
+    <system:String x:Key="ColRelaxR">r, %</system:String>
+    <system:String x:Key="ColDeltaT_default">ΔT авто</system:String>
+    <system:String x:Key="ColDeltaT">ΔT, °C</system:String>
+    <system:String x:Key="ColFormDefault">Форма авто</system:String>
+    <system:String x:Key="ColNForms">n форм</system:String>
+    <system:String x:Key="ColDeltaLForm">Δl ф, мм</system:String>
+    <system:String x:Key="ColLForm">l ф, м</system:String>
+    <system:String x:Key="ColAnchorDefault">Анк. авто</system:String>
+    <system:String x:Key="ColDeltaLAnchor">Δl ан, мм</system:String>
+    <system:String x:Key="ColLAnchor">l ан, м</system:String>
+    <system:String x:Key="ColOmega1">ω₁</system:String>
+    <system:String x:Key="ColKFriction">k</system:String>
+    <system:String x:Key="ColXLength">x, м</system:String>
+    <system:String x:Key="ColTheta">θ, рад</system:String>
+    <system:String x:Key="ColSigmaBpAuto">σ_bpj авто</system:String>
+    <system:String x:Key="ColSigmaBpManual">σ_bpj, МПа</system:String>
+    <system:String x:Key="ColDSp1">Δσ₁ рел</system:String>
+    <system:String x:Key="ColDSp2">Δσ₂ темп</system:String>
+    <system:String x:Key="ColDSp3">Δσ₃ форма</system:String>
+    <system:String x:Key="ColDSp4">Δσ₄ анк</system:String>
+    <system:String x:Key="ColDSp7">Δσ₇ трен</system:String>
+    <system:String x:Key="ColTotalFirst">Σ₁</system:String>
+    <system:String x:Key="ColSigSp1">σ_sp1, МПа</system:String>
+    <system:String x:Key="ColSigmaBpj">σ_bpj, МПа</system:String>
+    <system:String x:Key="ColDSp5">Δσ₅ усад</system:String>
+    <system:String x:Key="ColDSp6">Δσ₆ полз</system:String>
+    <system:String x:Key="ColTotalAll">Σ все</system:String>
+    <system:String x:Key="ColSigSp2">σ_sp2, МПа</system:String>
+    <system:String x:Key="ColMinLoss">≥100?</system:String>
+    <!-- Подсказки к столбцам таблицы параметров -->
+    <system:String x:Key="TtColSigSp0">Начальное предварительное напряжение σ_sp0 [МПа] — до всех потерь</system:String>
+    <system:String x:Key="TtColRelaxFormula">Формула п.9.1.3: A600–A1000 = горячекатаная арматура; Вр/К = холоднотянутая/канат упрочнённый; К стаб. = стабилизированные канаты</system:String>
+    <system:String x:Key="TtColSubMethod">Влияет на Δσ_sp1 (релаксация) и наличие Δσ_sp3 (деформация формы)</system:String>
+    <system:String x:Key="TtColRelaxR">Коэффициент релаксации r [%] — только для стабилизированных канатов (К стаб.)</system:String>
+    <system:String x:Key="TtColDtDefault">Использовать температурный перепад по умолчанию ΔT = 65°C (п. 9.1.4)</system:String>
+    <system:String x:Key="TtColDt">Температурный перепад при пропаривании/нагреве [°C]</system:String>
+    <system:String x:Key="TtColFormDefault">Использовать Δσ_sp3 = 30 МПа по умолчанию (п. 9.1.5). Снять для ввода параметров формы</system:String>
+    <system:String x:Key="TtColNForms">Число последовательно устанавливаемых форм на одном натяжном пути</system:String>
+    <system:String x:Key="TtColDlForm">Деформация сжатия одной упорной формы при натяжении [мм]</system:String>
+    <system:String x:Key="TtColLForm">Полная длина натяжного элемента (между упорами) [м]</system:String>
+    <system:String x:Key="TtColAnchorDefault">Использовать деформацию анкеров по умолчанию Δl = 2 мм (п. 9.1.6)</system:String>
+    <system:String x:Key="TtColDlAnchor">Деформация анкерных устройств при фиксации арматуры [мм]</system:String>
+    <system:String x:Key="TtColLAnchor">Расстояние между анкерами (длина натяжного элемента) [м]. Типично 10–150 м. 0 = не задано → Δσ_sp4 не вычисляется</system:String>
+    <system:String x:Key="TtColOmega1">Коэффициент ω₁ = трение арматуры о стенки канала на 1 м длины (п. 9.1.2)</system:String>
+    <system:String x:Key="TtColKFriction">Коэффициент k, учитывающий местные деформации каналообразователя (п. 9.1.2)</system:String>
+    <system:String x:Key="TtColX">Длина напрягаемой арматуры от домкрата до расчётного сечения [м]</system:String>
+    <system:String x:Key="TtColTheta">Суммарный угол поворота оси арматуры на длине x [рад]</system:String>
+    <system:String x:Key="TtColSigmaBpAuto">Вычислить σ_bpj автоматически из P̄₁ и геометрии приведённого сечения</system:String>
+    <system:String x:Key="TtColSigmaBpManual">Напряжение в бетоне на уровне данной арматуры после первых потерь [МПа] (вводится вручную)</system:String>
+    <!-- Подсказки к столбцам таблицы результатов -->
+    <system:String x:Key="TtColDSp1">Δσ_sp1 — потери от релаксации арматуры (п. 9.1.3) [МПа]</system:String>
+    <system:String x:Key="TtColDSp2">Δσ_sp2 — потери от температурного перепада при пропаривании (п. 9.1.4, только натяжение на упоры) [МПа]</system:String>
+    <system:String x:Key="TtColDSp3">Δσ_sp3 — потери от деформации упорной формы (п. 9.1.5, только механ. на упоры) [МПа]</system:String>
+    <system:String x:Key="TtColDSp4">Δσ_sp4 — потери от деформации анкеров (п. 9.1.6, только механ. на упоры) [МПа]</system:String>
+    <system:String x:Key="TtColDSp7">Δσ_sp7 — потери от трения арматуры о каналообразователь (п. 9.1.2, только натяжение на бетон) [МПа]</system:String>
+    <system:String x:Key="TtColTotalFirst">Суммарные первые потери = Δσ₁ + Δσ₂ + Δσ₃ + Δσ₄ + Δσ₇ [МПа]</system:String>
+    <system:String x:Key="TtColSigSp1">Напряжение после первых потерь: σ_sp1 = σ_sp0 − Σ₁ [МПа]</system:String>
+    <system:String x:Key="TtColSigmaBpjRes">Напряжение в бетоне от P̄₁ на уровне данной арматуры — используется для расчёта ползучести (п. 9.1.9) [МПа]</system:String>
+    <system:String x:Key="TtColDSp5">Δσ_sp5 — потери от усадки бетона (п. 9.1.8) [МПа]</system:String>
+    <system:String x:Key="TtColDSp6">Δσ_sp6 — потери от ползучести бетона (п. 9.1.9) [МПа]</system:String>
+    <system:String x:Key="TtColTotalAll">Суммарные все потери = первые + Δσ₅ + Δσ₆ [МПа]</system:String>
+    <system:String x:Key="TtColSigSp2">Напряжение после всех потерь: σ_sp2 = σ_sp0 − Σ все [МПа]. Нажмите «Применить» чтобы записать в сечение</system:String>
+    <system:String x:Key="TtColMinLoss">Проверка п. 9.1.10: суммарные потери должны быть ≥ 100 МПа. «!» — потери меньше нормы</system:String>
+    <system:String x:Key="CalcTaskSelectPlateSection">Выберите плитное сечение</system:String>
+    <system:String x:Key="CalcTaskPlatePanelHeader">Усилия пластины</system:String>
+    <system:String x:Key="ShellStrainTitle">Плоскость деформаций пластины</system:String>
+    <system:String x:Key="ShellStrainIterations">Итераций</system:String>
+    <system:String x:Key="ShellStrainResidual">Невязка</system:String>
+    <system:String x:Key="ShellStrainMembrane">Мембранные деформации</system:String>
+    <system:String x:Key="ShellStrainCurvatures">Кривизны</system:String>
+    <system:String x:Key="ShellStrainForcesHeader">Усилия</system:String>
+    <system:String x:Key="ShellStrainForcesDesc">задано → найдено  (отклонение)</system:String>
+    <system:String x:Key="ShellStrainSecant">Секущие жёсткости</system:String>
+    <system:String x:Key="ShellStrainElastic">Упругие жёсткости</system:String>
+    <system:String x:Key="ShellStrainPhi">Коэффициенты снижения φ  (секущ. / упруг.)</system:String>
+    <system:String x:Key="ShellStrainConvergence">Сходимость</system:String>
+    <system:String x:Key="ShellStrainTabSummary">Сводка</system:String>
+    <system:String x:Key="ShellStrainTabStrains">Деформации</system:String>
+    <system:String x:Key="ShellStrainTabStresses">Напряжения</system:String>
+    <system:String x:Key="ShellStrainTabPrincipal">Главные оси</system:String>
+    <system:String x:Key="ShellStrainCheckHeader">Проверка прочности по СП 63</system:String>
+    <system:String x:Key="ShellStrainCheckVerdictOk">прочность обеспечена</system:String>
+    <system:String x:Key="ShellStrainCheckVerdictFail">прочность НЕ обеспечена</system:String>
+    <system:String x:Key="ShellStrainCheckNotConverged">расчёт не сходится</system:String>
+    <system:String x:Key="ShellStrainEpsXPlot">εx(z)</system:String>
+    <system:String x:Key="ShellStrainEpsYPlot">εy(z)</system:String>
+    <system:String x:Key="ShellStrainEpsGammaPlot">γxy(z)</system:String>
+    <system:String x:Key="ShellStrainSigXPlot">σx(z), МПа</system:String>
+    <system:String x:Key="ShellStrainSigYPlot">σy(z), МПа</system:String>
+    <system:String x:Key="ShellStrainSigTauPlot">τxy(z), МПа</system:String>
+    <system:String x:Key="ShellStrainPrEpsPlot">ε₁, ε₂(z)</system:String>
+    <system:String x:Key="ShellStrainPrSigPlot">σ₁, σ₂(z), МПа</system:String>
+    <system:String x:Key="ShellStrainBetaPlot">β(z)</system:String>
+    <system:String x:Key="ShellStrainThetaPlot">θ(z), °</system:String>
+    <system:String x:Key="ShellStrainEpsPlot">Эпюра ε(z)</system:String>
+    <system:String x:Key="ShellStrainSigPlot">Эпюра σ(z), МПа</system:String>
+    <system:String x:Key="ShellStrainBatchTitle">Плоскость деформаций пластины (набор)</system:String>
+    <system:String x:Key="ShellStrainBatchSummary">Сошлось {0} из {1}</system:String>
+    <system:String x:Key="ShellStrainColLabel">Метка</system:String>
+    <system:String x:Key="ShellStrainColStatus">Статус</system:String>
+    <system:String x:Key="ShellStrainColIter">Итераций</system:String>
+    <system:String x:Key="ShellStrainColResidual">Невязка</system:String>
+    <system:String x:Key="ShellStrainColVerdict">Прочность</system:String>
+    <system:String x:Key="ShellStrainColFormula">Формула</system:String>
+    <system:String x:Key="ShellSimplSection">Сечение пластины</system:String>
+    <system:String x:Key="ShellSimplForceNx">Nx, кН/м</system:String>
+    <system:String x:Key="ShellSimplForceNy">Ny, кН/м</system:String>
+    <system:String x:Key="ShellSimplForceNxy">Nxy, кН/м</system:String>
+    <system:String x:Key="ShellSimplForceMx">Mx, кН·м/м</system:String>
+    <system:String x:Key="ShellSimplForceMy">My, кН·м/м</system:String>
+    <system:String x:Key="ShellSimplForceMxy">Mxy, кН·м/м</system:String>
+    <system:String x:Key="ShellSimplStepDeg">Шаг сканирования, °</system:String>
+    <system:String x:Key="ShellSimplAcrcLim">acrc,lim, мм</system:String>
+    <system:String x:Key="ShellSimplPhi1">φ1 (длит.: 1.0/1.4)</system:String>
+    <system:String x:Key="ShellSimplPhi2">φ2 (профиль: 0.5/0.8)</system:String>
+
+    <!-- Steel check per СП 16.13330.2017 -->
+    <system:String x:Key="CalcTaskKind_steel_check">Проверка по СП 16 (сталь)</system:String>
+    <system:String x:Key="SteelCheckParamsHeader">Параметры расчёта по СП 16</system:String>
+    <system:String x:Key="SteelCheckDesignLengthX">Расчётная длина l₀x, м</system:String>
+    <system:String x:Key="SteelCheckDesignLengthY">Расчётная длина l₀y, м</system:String>
+    <system:String x:Key="SteelCheckMuX">Коэффициент μx</system:String>
+    <system:String x:Key="SteelCheckMuY">Коэффициент μy</system:String>
+    <system:String x:Key="SteelCheckBetaM">Коэффициент βm</system:String>
+    <system:String x:Key="SteelCheckGammaM">Коэффициент γM</system:String>
+    <system:String x:Key="SteelCheckDesignLengthBit">Расст. связи l_bit, м</system:String>
+    <system:String x:Key="SteelCheckUtilizationLabel">Коэффициент использования: </system:String>
+    <system:String x:Key="SteelCheckStatusPassed">ПРОЙДЕНО</system:String>
+    <system:String x:Key="SteelCheckStatusFailed">НЕ ПРОЙДЕНО</system:String>
+    <system:String x:Key="SteelCheckColFormula">Формула</system:String>
+    <system:String x:Key="SteelCheckColCheck">Проверка</system:String>
+    <system:String x:Key="SteelCheckColApplied">Приложенное</system:String>
+    <system:String x:Key="SteelCheckColAllowable">Допустимое</system:String>
+    <system:String x:Key="SteelCheckColRatio">Коэфф.</system:String>
+    <system:String x:Key="SteelCheckColResult">Результат</system:String>
+    <system:String x:Key="SteelCheckOK">✓</system:String>
+    <system:String x:Key="SteelCheckFail">✗</system:String>
+
+    <!-- Отдельные задачи проверки стали -->
+    <system:String x:Key="CalcTaskKind_steel_central_compression">Центральное сжатие</system:String>
+    <system:String x:Key="CalcTaskKind_steel_central_tension">Центральное растяжение</system:String>
+    <system:String x:Key="CalcTaskKind_steel_bending">Изгиб</system:String>
+    <system:String x:Key="CalcTaskKind_steel_compression_bending">Сжатие с изгибом</system:String>
+    <system:String x:Key="CalcTaskKind_steel_tension_bending">Растяжение с изгибом</system:String>
+    <system:String x:Key="CalcTaskKind_steel_shear">Срез</system:String>
+    <system:String x:Key="CalcTaskKind_steel_torsion">Кручение</system:String>
+    <system:String x:Key="CalcTaskKind_steel_constructive">Конструктивные</system:String>
+
+    <!-- Вкладки панели дерева -->
+    <system:String x:Key="ProjectTab">Проект</system:String>
+    <system:String x:Key="FemTab">МКЭ</system:String>
+
+    <!-- МКЭ -->
+    <system:String x:Key="FemSchemas">Расчётные схемы</system:String>
+    <system:String x:Key="FemSchemaNew">Новая схема</system:String>
+    <system:String x:Key="FemSchemaDelete">Удалить схему</system:String>
+    <system:String x:Key="FemSchemaPageTitle">МКЭ-схема:</system:String>
+    <system:String x:Key="FemSchemaSource">Источник</system:String>
+    <system:String x:Key="FemMembersCount">Элементов</system:String>
+    <system:String x:Key="FemMembers">Конструктивные элементы</system:String>
+    <system:String x:Key="FemMemberType">Тип элемента</system:String>
+    <system:String x:Key="FemMemberShowAllForceSets">Показать все наборы</system:String>
+    <system:String x:Key="FemMemberNew">Новый элемент...</system:String>
+    <system:String x:Key="FemMemberDlgTitle">Новый конструктивный элемент</system:String>
+    <system:String x:Key="FemMemberDlgRange">Элементы КЭ</system:String>
+    <system:String x:Key="FemMemberDelete">Удалить элемент</system:String>
+    <system:String x:Key="FemGroupCreate">Создать группу из выделенных</system:String>
+    <system:String x:Key="FemGroupAuto">Авто-группировка по сечению</system:String>
+    <system:String x:Key="FemGroupAutoResult">Создано групп: {0}</system:String>
+    <system:String x:Key="FemCheckAdd">Новая проверка...</system:String>
+    <system:String x:Key="FemCheckRun">Выполнить проверку</system:String>
+    <system:String x:Key="FemCheckDelete">Удалить</system:String>
+    <system:String x:Key="FemCheckDeleteAll">Удалить все...</system:String>
+    <system:String x:Key="FemCheckDeleteAllConfirm">Удалить все нормативные проверки?</system:String>
+    <system:String x:Key="FemChecksGroup">Проверки</system:String>
+    <!-- Группы расчётных задач -->
+    <system:String x:Key="CalcTaskGroupNds">НДС</system:String>
+    <system:String x:Key="CalcTaskGroupUls">1-я ГПС</system:String>
+    <system:String x:Key="CalcTaskGroupSls">2-я ГПС</system:String>
+    <system:String x:Key="CalcTaskGroupFire">Огнестойкость</system:String>
+    <system:String x:Key="CalcTaskGroupOther">Прочие</system:String>
+    <system:String x:Key="FilterHint">Фильтр по метке строки...</system:String>
+
+    <!-- FEM check groups -->
+    <system:String x:Key="FemGroupUls">1-я ГПС (прочность)</system:String>
+    <system:String x:Key="FemGroupSls">2-я ГПС (трещины)</system:String>
+    <system:String x:Key="FemGroupFire">Огнестойкость</system:String>
+    <system:String x:Key="FemGroupOther">Прочие</system:String>
+    <system:String x:Key="FemCheckAddUls">Добавить проверку 1-й ГПС...</system:String>
+    <system:String x:Key="FemCheckAddSls">Добавить проверку 2-й ГПС...</system:String>
+    <!-- FemCheck диалог -->
+    <system:String x:Key="FemCheckDlgTitle">Нормативная проверка</system:String>
+    <system:String x:Key="FemCheckDlgSchema">Расчётная схема</system:String>
+    <system:String x:Key="FemCheckDlgMember">Конструктивный элемент</system:String>
+    <system:String x:Key="FemCheckDlgForceSets">Наборы усилий</system:String>
+    <system:String x:Key="FemCheckDlgAllSets">Все наборы</system:String>
+    <system:String x:Key="FemCheckDlgNormCode">Вид проверки</system:String>
+    <system:String x:Key="FemCheckDlgCalcType">Характеристики материалов</system:String>
+    <system:String x:Key="FemCheckDlgCalcTypeAuto">Авто (из набора усилий)</system:String>
+    <system:String x:Key="FemCheckDlgTag">Имя проверки</system:String>
+    <system:String x:Key="FemCheckNormCodeSteel">Сталь (СП 16)</system:String>
+    <system:String x:Key="FemCheckNormCodeRcBar">ЖБ стержень (СП 63)</system:String>
+    <system:String x:Key="FemCheckNormCodeRcPlate">ЖБ пластина/стена (СП 63)</system:String>
+    <system:String x:Key="FemCheckDlgPlateKind">Метод плитной проверки</system:String>
+    <system:String x:Key="FemCheckDlgAcrcLim">acrc,пред (мм)</system:String>
+    <system:String x:Key="FemCheckDlgPhi1Mode">φ1 (длительность)</system:String>
+    <system:String x:Key="Phi1ModeAuto">Авто (из N/NL наборов)</system:String>
+    <system:String x:Key="Phi1ModeManual">Вручную</system:String>
+    <system:String x:Key="PlateKindWaUls">Wood–Armer — прочность (ПС1)</system:String>
+    <system:String x:Key="PlateKindWaSls">Wood–Armer — трещины (ПС2)</system:String>
+    <system:String x:Key="PlateKindCapriUls">Капра-Мори — прочность (ПС1)</system:String>
+    <system:String x:Key="PlateKindCapriSls">Капра-Мори — трещины (ПС2)</system:String>
+    <system:String x:Key="PlateKindLayered">Слоистая модель — прочность</system:String>
+    <system:String x:Key="PlateKindLayeredSls">Слоистая модель — трещины (ПС2)</system:String>
+    <!-- FemSlsCheckDialog -->
+    <system:String x:Key="FemSlsDlgTitle">Проверка 2-й ГПС (раскрытие трещин)</system:String>
+    <system:String x:Key="FemSlsDlgPlateKind">Метод проверки</system:String>
+    <system:String x:Key="FemSlsDlgNlForceSet">Набор усилий NL</system:String>
+    <system:String x:Key="FemSlsDlgNlNone">(не выбран — использовать долю)</system:String>
+    <system:String x:Key="FemSlsDlgLtFraction">Доля длительности</system:String>
+    <system:String x:Key="FemSlsDlgPhi2Label">φ2 (профиль арм.)</system:String>
+    <system:String x:Key="RunFemCheck">Запустить проверку</system:String>
+    <system:String x:Key="FemCheckEdit">Редактировать...</system:String>
+    <!-- FemCheck результат -->
+    <system:String x:Key="FemCheckResultSummary">{0} прошло / {1} не прошло из {2}</system:String>
+    <system:String x:Key="FemCheckResultLabel">Метка</system:String>
+    <system:String x:Key="FemCheckResultForceSet">Набор усилий</system:String>
+    <system:String x:Key="FemCheckResultCalcType">Тип</system:String>
+    <system:String x:Key="FemCheckResultUtil">Кисп</system:String>
+    <system:String x:Key="FemCheckResultWorstCheck">Определяющая проверка</system:String>
+    <system:String x:Key="FemCheckResultStatus">Результат</system:String>
+    <system:String x:Key="FemNodes">Узлы</system:String>
+    <system:String x:Key="FemElements">Конечные элементы</system:String>
+    <system:String x:Key="FemBars">Стержни</system:String>
+    <system:String x:Key="FemShells">Пластины</system:String>
+    <system:String x:Key="FemNodeTag">№ узла</system:String>
+    <system:String x:Key="FemNodeTag1">Узел 1</system:String>
+    <system:String x:Key="FemNodeTag2">Узел 2</system:String>
+    <system:String x:Key="FemNodeTag3">Узел 3</system:String>
+    <system:String x:Key="FemNodeTag4">Узел 4</system:String>
+    <system:String x:Key="FemElemTag">№ КЭ</system:String>
+    <system:String x:Key="FemSection">Жёсткость</system:String>
+    <system:String x:Key="FemDofMask">DOF-маска</system:String>
+    <system:String x:Key="FemForces">Усилия схемы</system:String>
+    <system:String x:Key="ImportLiraSchemaFromApi">Импорт топологии из ЛираСАПР (COM)…</system:String>
+    <system:String x:Key="StatusImportingSchema">Импорт топологии из ЛираСАПР…</system:String>
+    <system:String x:Key="ImportLiraForcesFromApi">Импорт усилий ЗН из ЛираСАПР (COM)…</system:String>
+    <system:String x:Key="ImportLiraRsnFromApi">Импорт усилий РСН из ЛираСАПР (COM)…</system:String>
+    <system:String x:Key="ImportLiraRsnStarted">Импорт усилий РСН: {0} КЭ, группа «{1}»…</system:String>
+    <system:String x:Key="ImportLiraRsuFromApi">Импорт усилий РСУ из ЛираСАПР (COM)…</system:String>
+    <system:String x:Key="ImportLiraRsuStarted">Импорт усилий РСУ: {0} КЭ, группа «{1}»…</system:String>
+    <system:String x:Key="ImportLiraForcesNoSchema">Расчётная схема конструктивного элемента не найдена в проекте.</system:String>
+    <system:String x:Key="ImportLiraForcesNoMember">Выберите конструктивный элемент в дереве МКЭ (узел «Конструктивные элементы»).</system:String>
+    <system:String x:Key="ImportLiraForcesNoElements">Выбранный конструктивный элемент не содержит ни одного КЭ. Добавьте КЭ в группу и повторите.</system:String>
+    <system:String x:Key="ImportLiraForcesStarted">Импорт усилий: {0} КЭ, группа «{1}»…</system:String>
+    <system:String x:Key="LiraElemRangeDlgTitle">Диапазон элементов ЛИРА</system:String>
+    <system:String x:Key="LiraElemRangeDlgPrompt">Топология не импортирована. Укажите номера стержневых КЭ для чтения усилий из ЛИРА:</system:String>
+    <system:String x:Key="LiraElemRangeDlgHint">Пример: 1-144  или  1-50, 75-100, 120</system:String>
+    <system:String x:Key="ImportLiraForcesStubsCreated">Создано {0} заглушек. Импортировано {1} наборов усилий.</system:String>
+    <system:String x:Key="FemSchema3DTab">3D-схема</system:String>
+    <system:String x:Key="FemMembersListTab">Элементы</system:String>
+    <system:String x:Key="Fem3DZoomExtents">Вписать в вид</system:String>
+    <system:String x:Key="Fem3DLoading">Загрузка геометрии…</system:String>
+    <system:String x:Key="Fem3DColorBySection">Цвет по жёсткости</system:String>
+    <system:String x:Key="Fem3DNoData">Нет данных для отображения. Импортируйте топологию схемы.</system:String>
+    <system:String x:Key="Fem3DShowNodes">Узлы</system:String>
+    <system:String x:Key="Fem3DShowShellEdges">Сетка КЭ</system:String>
+    <system:String x:Key="Fem3DViewIsolated">Изолированно</system:String>
+    <system:String x:Key="Fem3DViewSchema">Вся схема</system:String>
+    <system:String x:Key="CalcTaskKind_torsion_bem">Кручение (Сен-Венан, МГЭ)</system:String>
+    <system:String x:Key="CalcTaskKind_torsion_fem">Кручение (Сен-Венан, МКЭ)</system:String>
+    <system:String x:Key="TorsionTitle">Постоянная кручения Сен-Венана</system:String>
+    <system:String x:Key="TorsionTabSummary">Сводка</system:String>
+    <system:String x:Key="TorsionIt">Постоянная кручения It</system:String>
+    <system:String x:Key="TorsionShearCenter">Центр кручения</system:String>
+    <system:String x:Key="TorsionTauMax">Макс. касательное напряжение τ_max</system:String>
+    <system:String x:Key="TorsionElements">Число элементов</system:String>
+    <system:String x:Key="TorsionMethod">Метод</system:String>
+    <system:String x:Key="TorsionSingular">Матрица вырождена</system:String>
+    <system:String x:Key="TorsionElementSize">Размер элемента, м</system:String>
+    <system:String x:Key="TorsionG">Модуль сдвига G, МПа</system:String>
+    <system:String x:Key="TorsionGAuto">G = E / (2(1+ν))</system:String>
+    <system:String x:Key="TorsionMkFromSet">Mk = T из набора</system:String>
+    <system:String x:Key="TorsionMkManual">Mk вручную, кН·м</system:String>
+    <system:String x:Key="TorsionMkHint">Крутящий момент T берётся из выбранной строки набора усилий; поле ниже — запасной вариант, если строка не выбрана.</system:String>
+    <system:String x:Key="TorsionMk">Крутящий момент Mk, кН·м</system:String>
+    <system:String x:Key="TorsionTabTau">τ/(GΘ)</system:String>
+    <system:String x:Key="TorsionTabPotential">φ / ω</system:String>
+    <system:String x:Key="TorsionGIt">Жёсткость G·It</system:String>
+    <system:String x:Key="TorsionTwistRate">Удельный угол закручивания Θ</system:String>
+    <system:String x:Key="TorsionTauUnitMax">max τ/(GΘ)</system:String>
+    <system:String x:Key="TorsionTauMaxNotSet">— (задайте T в наборе усилий или Mk)</system:String>
+    <system:String x:Key="TorsionShearCenterFemNa">не вычисляется (МКЭ)</system:String>
+    <system:String x:Key="TorsionShowPhysicalTau">Физическое τ, МПа</system:String>
+    <system:String x:Key="TorsionPlotBoundaryNote">Значения на контуре (МГЭ)</system:String>
+    <system:String x:Key="TorsionUnitPotential">м²</system:String>
+    <system:String x:Key="TorsionStatusOk">Сошлось ✓</system:String>
+    <system:String x:Key="TorsionStatusNotConverged">НЕ СОШЛОСЬ ✗</system:String>
+    <system:String x:Key="TorsionStatusError">Ошибка ✗</system:String>
+    <system:String x:Key="TorsionParamsHeader">Параметры кручения</system:String>
+
+  </ResourceDictionary>
