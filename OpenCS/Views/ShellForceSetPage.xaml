@@ -1,7 +1,51 @@
 <UserControl x:Class="OpenCS.Views.ShellForceSetPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:OpenCS.ViewModels">
+             xmlns:vm="clr-namespace:OpenCS.ViewModels"
+             xmlns:local="clr-namespace:OpenCS.Views">
+
+   <UserControl.Resources>
+      <SolidColorBrush x:Key="ForceAxisXBrush" Color="ForestGreen"/>
+      <SolidColorBrush x:Key="ForceAxisYBrush" Color="RoyalBlue"/>
+
+      <SolidColorBrush x:Key="ForceAxisTauBrush" Color="#CC2222"/>
+      <SolidColorBrush x:Key="ForceAxisTwistBrush" Color="#CC9900"/>
+
+      <Style x:Key="ForceValueRightBase" TargetType="TextBlock">
+         <Setter Property="HorizontalAlignment" Value="Right"/>
+         <Setter Property="VerticalAlignment" Value="Center"/>
+      </Style>
+      <Style x:Key="ForceValueX" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRightBase}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisXBrush}"/>
+      </Style>
+      <Style x:Key="ForceValueY" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRightBase}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisYBrush}"/>
+      </Style>
+      <Style x:Key="ForceValueTau" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRightBase}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisTauBrush}"/>
+      </Style>
+      <Style x:Key="ForceValueTwist" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRightBase}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisTwistBrush}"/>
+      </Style>
+
+      <Style x:Key="ForceEditRightBase" TargetType="TextBox">
+         <Setter Property="HorizontalAlignment" Value="Right"/>
+         <Setter Property="VerticalAlignment" Value="Center"/>
+         <Setter Property="BorderThickness" Value="0"/>
+      </Style>
+      <Style x:Key="ForceEditX" TargetType="TextBox" BasedOn="{StaticResource ForceEditRightBase}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisXBrush}"/>
+      </Style>
+      <Style x:Key="ForceEditY" TargetType="TextBox" BasedOn="{StaticResource ForceEditRightBase}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisYBrush}"/>
+      </Style>
+      <Style x:Key="ForceEditTau" TargetType="TextBox" BasedOn="{StaticResource ForceEditRightBase}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisTauBrush}"/>
+      </Style>
+      <Style x:Key="ForceEditTwist" TargetType="TextBox" BasedOn="{StaticResource ForceEditRightBase}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisTwistBrush}"/>
+      </Style>
+   </UserControl.Resources>
 
    <Grid>
       <Grid.RowDefinitions>
@@ -49,8 +93,14 @@
          </StackPanel>
       </Border>
 
-      <!-- Таблица усилий пластины -->
-      <DataGrid Grid.Row="1"
+      <!-- Таблица усилий пластины и справка по знакам -->
+      <Grid Grid.Row="1" Margin="4,4,4,0">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="280"/>
+         </Grid.ColumnDefinitions>
+
+         <DataGrid Grid.Column="0"
                 ItemsSource="{Binding Items}"
                 SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                 AutoGenerateColumns="False"
@@ -60,7 +110,7 @@
                 SelectionUnit="FullRow"
                 GridLinesVisibility="Horizontal"
                 HeadersVisibility="Column"
-                Margin="4,4,4,0">
+                Margin="0,0,4,0">
 
          <DataGrid.Columns>
 
@@ -85,95 +135,82 @@
             </DataGridTextColumn>
 
             <DataGridTextColumn Binding="{Binding Nx, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
-                                Width="80">
+                                Width="80"
+                                ElementStyle="{StaticResource ForceValueX}"
+                                EditingElementStyle="{StaticResource ForceEditX}">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ShellForceColNx}"/>
                </DataGridTextColumn.Header>
-               <DataGridTextColumn.ElementStyle>
-                  <Style TargetType="TextBlock"><Setter Property="HorizontalAlignment" Value="Right"/>
-                     <Setter Property="VerticalAlignment" Value="Center"/></Style>
-               </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
 
             <DataGridTextColumn Binding="{Binding Ny, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
-                                Width="80">
+                                Width="80"
+                                ElementStyle="{StaticResource ForceValueY}"
+                                EditingElementStyle="{StaticResource ForceEditY}">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ShellForceColNy}"/>
                </DataGridTextColumn.Header>
-               <DataGridTextColumn.ElementStyle>
-                  <Style TargetType="TextBlock"><Setter Property="HorizontalAlignment" Value="Right"/>
-                     <Setter Property="VerticalAlignment" Value="Center"/></Style>
-               </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
 
             <DataGridTextColumn Binding="{Binding Nxy, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
-                                Width="80">
+                                Width="80"
+                                ElementStyle="{StaticResource ForceValueTau}"
+                                EditingElementStyle="{StaticResource ForceEditTau}">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ShellForceColNxy}"/>
                </DataGridTextColumn.Header>
-               <DataGridTextColumn.ElementStyle>
-                  <Style TargetType="TextBlock"><Setter Property="HorizontalAlignment" Value="Right"/>
-                     <Setter Property="VerticalAlignment" Value="Center"/></Style>
-               </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
 
             <DataGridTextColumn Binding="{Binding Mx, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
-                                Width="85">
+                                Width="85"
+                                ElementStyle="{StaticResource ForceValueX}"
+                                EditingElementStyle="{StaticResource ForceEditX}">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ShellForceColMx}"/>
                </DataGridTextColumn.Header>
-               <DataGridTextColumn.ElementStyle>
-                  <Style TargetType="TextBlock"><Setter Property="HorizontalAlignment" Value="Right"/>
-                     <Setter Property="VerticalAlignment" Value="Center"/></Style>
-               </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
 
             <DataGridTextColumn Binding="{Binding My, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
-                                Width="85">
+                                Width="85"
+                                ElementStyle="{StaticResource ForceValueY}"
+                                EditingElementStyle="{StaticResource ForceEditY}">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ShellForceColMy}"/>
                </DataGridTextColumn.Header>
-               <DataGridTextColumn.ElementStyle>
-                  <Style TargetType="TextBlock"><Setter Property="HorizontalAlignment" Value="Right"/>
-                     <Setter Property="VerticalAlignment" Value="Center"/></Style>
-               </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
 
             <DataGridTextColumn Binding="{Binding Mxy, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
-                                Width="90">
+                                Width="90"
+                                ElementStyle="{StaticResource ForceValueTwist}"
+                                EditingElementStyle="{StaticResource ForceEditTwist}">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ShellForceColMxy}"/>
                </DataGridTextColumn.Header>
-               <DataGridTextColumn.ElementStyle>
-                  <Style TargetType="TextBlock"><Setter Property="HorizontalAlignment" Value="Right"/>
-                     <Setter Property="VerticalAlignment" Value="Center"/></Style>
-               </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
 
             <DataGridTextColumn Binding="{Binding Qx, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
-                                Width="80">
+                                Width="80"
+                                ElementStyle="{StaticResource ForceValueX}"
+                                EditingElementStyle="{StaticResource ForceEditX}">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ShellForceColQx}"/>
                </DataGridTextColumn.Header>
-               <DataGridTextColumn.ElementStyle>
-                  <Style TargetType="TextBlock"><Setter Property="HorizontalAlignment" Value="Right"/>
-                     <Setter Property="VerticalAlignment" Value="Center"/></Style>
-               </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
 
             <DataGridTextColumn Binding="{Binding Qy, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
-                                Width="80">
+                                Width="80"
+                                ElementStyle="{StaticResource ForceValueY}"
+                                EditingElementStyle="{StaticResource ForceEditY}">
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ShellForceColQy}"/>
                </DataGridTextColumn.Header>
-               <DataGridTextColumn.ElementStyle>
-                  <Style TargetType="TextBlock"><Setter Property="HorizontalAlignment" Value="Right"/>
-                     <Setter Property="VerticalAlignment" Value="Center"/></Style>
-               </DataGridTextColumn.ElementStyle>
             </DataGridTextColumn>
 
          </DataGrid.Columns>
       </DataGrid>
+
+         <local:ForceSignConventionPanel Grid.Column="1" Kind="shell" VerticalAlignment="Top"/>
+      </Grid>
 
       <!-- Кнопки внизу -->
       <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="4,4,4,4">

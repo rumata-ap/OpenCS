@@ -1290,6 +1290,9 @@ namespace OpenCS.Utilites
          cmd.CommandText = "DELETE FROM materials WHERE id=$id";
          cmd.Parameters.AddWithValue("$id", m.Id);
          cmd.ExecuteNonQuery();
+         Materials.Remove(m);
+         foreach (var chars in m.MaterialChars.ToList())
+            MaterialChars.Remove(chars);
       }
 
       public void SaveContour(Contour c)

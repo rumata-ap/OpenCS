@@ -1,8 +1,13 @@
+using CsvHelper;
+using CsvHelper.Configuration;
 using CScore;
 using OpenCS.Utilites;
 using OpenCS.Views;
 
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Windows.Input;
 
 namespace OpenCS.ViewModels
@@ -33,7 +38,11 @@ namespace OpenCS.ViewModels
       public Material Material
       {
          get { return material; }
-         set { material = value;}
+         set
+         {
+            material = value;
+            OnPropertyChanged(nameof(ConcreteDampness));
+         }
       }
 
       /// <summary>
@@ -200,7 +209,11 @@ namespace OpenCS.ViewModels
       public MaterialChars N
       {
          get { return material.N!; }
-         set { material.N = value; OnPropertyChanged(); }
+         set
+         {
+            material.N = value;
+            OnPropertyChanged();
+         }
       }
       /// <summary>
       /// Характеристики материала для расчёта на кратковременное действие длительной нагрузки (NL).
@@ -209,7 +222,39 @@ namespace OpenCS.ViewModels
       public MaterialChars NL
       {
          get { return material.NL!; }
-         set { material.NL = value; OnPropertyChanged(); }
+         set
+         {
+            material.NL = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ConcreteDampness));
+         }
+      }
+
+      /// <summary>
+      /// Влажность среды для бетонного набора NL. При изменении в UI
+      /// подгружает соответствующую строку СП63-справочника и обновляет
+      /// деформационные параметры набора <see cref="NL"/>.
+      /// </summary>
+      public Dampness ConcreteDampness
+      {
+         get
+         {
+            var dampness = material.NL?.Dampness ?? Dampness.от40_до70;
+            return dampness == Dampness.any ? Dampness.от40_до70 : dampness;
+         }
+         set
+         {
+            var normalized = value == Dampness.any ? Dampness.от40_до70 : value;
+            if (material.NL == null)
+               material.NL = new MaterialChars(CalcType.NL);
+
+            material.NL.Dampness = normalized;
+            if (IsConcrete)
+               TryRefreshConcreteNlByDampness();
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(NL));
+         }
       }
 
       /// <summary>
@@ -262,6 +307,138 @@ namespace OpenCS.ViewModels
       public void SetJson()
       {
          material.SetJson();
+      }
+
+      bool TryRefreshConcreteNlByDampness()
+      {
+         if (!IsConcrete || material.N == null || material.NL == null)
+            return false;
+
+         string? prefix = ResolveConcreteCatalogPrefix();
+         if (prefix == null)
+            return false;
+
+         string? tag = FirstNonEmpty(material.NL.Tag, material.N.Tag, material.C?.Tag, material.Tag);
+         double classValue = material.NL.Class > 0 ? material.NL.Class
+            : material.N.Class > 0 ? material.N.Class
+            : material.C?.Class ?? 0;
+
+         var sourceN = LoadConcreteChars(prefix, CalcType.N, Dampness.any, tag, classValue);
+         var sourceNl = LoadConcreteChars(prefix, CalcType.NL, material.NL.Dampness, tag, classValue);
+         if (sourceN == null || sourceNl == null)
+            return false;
+
+         double kE = sourceN.E > 0 ? material.N.E / sourceN.E : 1.0;
+         if (!double.IsFinite(kE) || kE <= 0)
+            kE = 1.0;
+
+         var refreshed = sourceNl.Clone();
+         refreshed.E *= kE;
+         if (refreshed.E != 0)
+         {
+            refreshed.Et1 = 0.6 * refreshed.Ft / refreshed.E;
+            refreshed.Ec1 = 0.6 * refreshed.Fc / refreshed.E;
+         }
+
+         NL = refreshed;
+         return true;
+      }
+
+      string? ResolveConcreteCatalogPrefix()
+      {
+         string description = material.Description ?? "";
+         if (description.Contains("Бетон тяжел", System.StringComparison.OrdinalIgnoreCase))
+            return "Бетон_тяжелый";
+         if (description.Contains("группы А", System.StringComparison.OrdinalIgnoreCase))
+            return "Мелкозернистый группы А";
+         if (description.Contains("группы Б", System.StringComparison.OrdinalIgnoreCase))
+            return "Мелкозернистый группы Б";
+
+         string? tag = FirstNonEmpty(material.N?.Tag, material.C?.Tag, material.Tag);
+         double classValue = material.N?.Class > 0 ? material.N.Class
+            : material.C?.Class ?? 0;
+         double currentE = material.N?.E ?? 0;
+
+         string[] prefixes =
+         [
+            "Бетон_тяжелый",
+            "Мелкозернистый группы А",
+            "Мелкозернистый группы Б"
+         ];
+
+         string? bestPrefix = null;
+         double bestDiff = double.MaxValue;
+
+         foreach (var prefix in prefixes)
+         {
+            var candidate = LoadConcreteChars(prefix, CalcType.N, Dampness.any, tag, classValue);
+            if (candidate == null)
+               continue;
+
+            double diff = currentE > 0 && candidate.E > 0
+               ? System.Math.Abs(candidate.E - currentE) / currentE
+               : 0.0;
+
+            if (diff < bestDiff)
+            {
+               bestDiff = diff;
+               bestPrefix = prefix;
+            }
+         }
+
+         return bestPrefix;
+      }
+
+      static string? FirstNonEmpty(params string?[] values)
+         => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+      static MaterialChars? LoadConcreteChars(string prefix, CalcType calcType, Dampness dampness, string? tag, double classValue)
+      {
+         string? fileName = calcType switch
+         {
+            CalcType.N => $"{prefix}_N.csv",
+            CalcType.NL => $"{prefix}_{dampness switch
+            {
+               Dampness.ниже_40 => "NL_1",
+               Dampness.свыше_70 => "NL_3",
+               _ => "NL_2"
+            }}.csv",
+            _ => null
+         };
+         if (fileName == null)
+            return null;
+
+         string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DataSource", fileName);
+         if (!File.Exists(filePath))
+            return null;
+
+         var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+         {
+            Delimiter = ";"
+         };
+
+         using var reader = new StreamReader(filePath);
+         using var csv = new CsvReader(reader, config);
+         csv.Context.RegisterClassMap<MaterialCharsMap>();
+         var rows = csv.GetRecords<MaterialChars>().ToList();
+
+         if (!string.IsNullOrWhiteSpace(tag))
+         {
+            var byTag = rows.FirstOrDefault(r => string.Equals(r.Tag, tag, System.StringComparison.OrdinalIgnoreCase));
+            if (byTag != null)
+               return byTag;
+         }
+
+         if (classValue > 0)
+         {
+            var byClass = rows.FirstOrDefault(r => System.Math.Abs(r.Class - classValue) < 1e-9);
+            if (byClass != null)
+               return byClass;
+
+            return rows.OrderBy(r => System.Math.Abs(r.Class - classValue)).FirstOrDefault();
+         }
+
+         return null;
       }
    }
 }

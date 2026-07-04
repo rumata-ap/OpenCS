@@ -96,6 +96,7 @@ namespace OpenCS.Views
          ShowTooltipsCb.IsChecked = _settings.ShowTooltips;
          ShowAxesValsCb.IsChecked = _settings.ShowAxesValues;
          AxesOriginCb.IsChecked = _settings.AxesAtOrigin;
+         OriginReferenceAxesCb.IsChecked = _settings.ShowOriginReferenceAxes;
          UpdateSwatches();
       }
 
@@ -130,6 +131,8 @@ namespace OpenCS.Views
          ShowAxesValsCb.Unchecked += (_, _) => _settings.ShowAxesValues = false;
          AxesOriginCb.Checked += (_, _) => _settings.AxesAtOrigin = true;
          AxesOriginCb.Unchecked += (_, _) => _settings.AxesAtOrigin = false;
+         OriginReferenceAxesCb.Checked += (_, _) => _settings.ShowOriginReferenceAxes = true;
+         OriginReferenceAxesCb.Unchecked += (_, _) => _settings.ShowOriginReferenceAxes = false;
       }
 
       void UpdateSwatches()
@@ -352,6 +355,7 @@ namespace OpenCS.Views
          _settings.ShowTooltips = def.ShowTooltips;
          _settings.ShowAxesValues = def.ShowAxesValues;
          _settings.AxesAtOrigin = def.AxesAtOrigin;
+         _settings.ShowOriginReferenceAxes = def.ShowOriginReferenceAxes;
          _settings.AxesColor = def.AxesColor;
          _settings.AxesFontSize = def.AxesFontSize;
          _settings.GridThickness = def.GridThickness;

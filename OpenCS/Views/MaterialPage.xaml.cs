@@ -56,6 +56,9 @@ namespace OpenCS.Views
          diagramCL.SelectionChanged += (_, _) => UpdateDiagramId(vm, CalcType.CL, diagramCL);
          diagramN.SelectionChanged  += (_, _) => UpdateDiagramId(vm, CalcType.N,  diagramN);
          diagramNL.SelectionChanged += (_, _) => UpdateDiagramId(vm, CalcType.NL, diagramNL);
+
+         standardBodyBlock.SizeChanged += (_, _) => SyncHeaderScrollGutter();
+         Loaded += (_, _) => SyncHeaderScrollGutter();
       }
 
       void ShowCustomBlock(bool custom)
@@ -63,6 +66,19 @@ namespace OpenCS.Views
          customBlock.Visibility       = custom ? Visibility.Visible  : Visibility.Collapsed;
          standardHeaderBlock.Visibility = custom ? Visibility.Collapsed : Visibility.Visible;
          standardBodyBlock.Visibility   = custom ? Visibility.Collapsed : Visibility.Visible;
+         SyncHeaderScrollGutter();
+      }
+
+      void SyncHeaderScrollGutter()
+      {
+         if (standardHeaderBlock.Visibility != Visibility.Visible)
+            return;
+
+         standardBodyBlock.UpdateLayout();
+         var gutter = standardBodyBlock.ComputedVerticalScrollBarVisibility == Visibility.Visible
+            ? SystemParameters.VerticalScrollBarWidth
+            : 0.0;
+         standardHeaderBlock.Padding = new Thickness(0, 0, gutter, 0);
       }
 
       static void SetDiagramCombo(ComboBox combo, AppViewModel mvm, int id)

@@ -13,6 +13,7 @@ namespace OpenCS.Views
          InitializeComponent();
          _vm = new MaterialAreaVM(area, app);
          DataContext = _vm;
+         preview.ApplySettings(app.PlotSettings);
          diagramTypeCombo.ItemsSource = MaterialAreaVM.DiagramTypeValues;
          _vm.PropertyChanged += (_, e) =>
          {
@@ -67,6 +68,12 @@ namespace OpenCS.Views
          if (yMax - yMin < 1e-9) { yMin -= 0.1; yMax += 0.1; }
 
          preview.Draw(elements, xMin, xMax, yMin, yMax, squareAxes: true);
+      }
+
+      public void RefreshPlotSettings()
+      {
+         preview.ApplySettings(_vm.App.PlotSettings);
+         UpdatePlot();
       }
    }
 }

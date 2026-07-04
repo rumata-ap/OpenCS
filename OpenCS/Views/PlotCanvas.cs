@@ -63,7 +63,7 @@ namespace OpenCS.Views
                var hlb = ParseBrush(_settings.Highlight);
                dc.DrawEllipse(hlb, new Pen(hlb, 1.5), pt, 6, 6);
 
-               var ft = new FormattedText($"({p.x:F4}; {p.y:F2})",
+               var ft = new FormattedText(FormatPointLabel(p.x, p.y),
                   CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
                   new Typeface("Segoe UI"), 11, Brushes.Black, 1.0);
                var bg = new GeometryDrawing(Brushes.LightYellow, new Pen(Brushes.Gray, 0.5),
@@ -117,7 +117,7 @@ namespace OpenCS.Views
                for (int i = 0; i < n; i++)
                {
                   var pt = ToScreen(m.Xs[i], m.Ys[i]);
-                  var ft = new FormattedText($"({m.Xs[i]:F4}; {m.Ys[i]:F2})",
+                  var ft = new FormattedText(FormatPointLabel(m.Xs[i], m.Ys[i]),
                      CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
                      typeface, _settings.FontSize, ftBrush, 1.0);
                   dc.DrawText(ft, new Point(pt.X + 5, pt.Y - ft.Height - 3));
@@ -129,7 +129,7 @@ namespace OpenCS.Views
                if (n > 0)
                {
                   var pt = ToScreen(s.Xs[0], s.Ys[0]);
-                  var ft = new FormattedText($"({s.Xs[0]:F4}; {s.Ys[0]:F2})",
+                  var ft = new FormattedText(FormatPointLabel(s.Xs[0], s.Ys[0]),
                      CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
                      typeface, _settings.FontSize, ftBrush, 1.0);
                   dc.DrawText(ft, new Point(pt.X + 5, pt.Y - ft.Height - 3));
@@ -243,6 +243,8 @@ namespace OpenCS.Views
          dc.DrawLine(axisPen, new Point(0, axisPxY), new Point(w, axisPxY));
          dc.DrawLine(axisPen, new Point(axisPxX, 0), new Point(axisPxX, h));
 
+         DrawOriginReferenceAxes(dc, w, h);
+
          if (!settings.ShowAxesValues) return;
 
          var ticksX = NiceTicks(xMin, xMax, settings.TickCount);
@@ -322,6 +324,68 @@ namespace OpenCS.Views
          dc.DrawText(ft, new Point((w - ft.Width) / 2, 4));
       }
 
+      void DrawOriginReferenceAxes(DrawingContext dc, double w, double h)
+      {
+         if (!_settings.ShowOriginReferenceAxes) return;
+
+         double px0 = ToScreen(0, 0).X;
+         double py0 = ToScreen(0, 0).Y;
+         bool showVertical = px0 >= 0 && px0 <= w;
+         bool showHorizontal = py0 >= 0 && py0 <= h;
+         if (!showVertical && !showHorizontal) return;
+
+         var xBrush = Brushes.ForestGreen;
+         var yBrush = Brushes.RoyalBlue;
+         var xPen = new Pen(xBrush, 1.4);
+         var yPen = new Pen(yBrush, 1.4);
+         var typeface = new Typeface("Segoe UI Semibold");
+         double fontSize = Math.Max(11, _settings.AxesFontSize);
+         var haloBrush = new SolidColorBrush(Color.FromArgb(230, 255, 255, 255));
+         haloBrush.Freeze();
+         const double outerPad = 4;
+         const double lineGap = 6;
+         const double haloPad = 2;
+
+         void DrawLabel(FormattedText ft, double x, double y)
+         {
+            dc.DrawRectangle(haloBrush, null,
+               new Rect(x - haloPad, y - haloPad, ft.Width + 2 * haloPad, ft.Height + 2 * haloPad));
+            dc.DrawText(ft, new Point(x, y));
+         }
+
+         if (showHorizontal)
+         {
+            var ft = new FormattedText(Loc.S("AxisLabelX"), CultureInfo.CurrentCulture,
+               FlowDirection.LeftToRight, typeface, fontSize, xBrush, 96);
+            double ly = py0 - ft.Height - 2;
+            if (ly < outerPad) ly = Math.Min(h - ft.Height - outerPad, py0 + 2);
+            double leftLabelX = outerPad;
+            double rightLabelX = w - ft.Width - outerPad;
+            double lineStartX = leftLabelX + ft.Width + lineGap;
+            double lineEndX = rightLabelX - lineGap;
+            if (lineEndX > lineStartX)
+               dc.DrawLine(xPen, new Point(lineStartX, py0), new Point(lineEndX, py0));
+            DrawLabel(ft, leftLabelX, ly);
+            DrawLabel(ft, rightLabelX, ly);
+         }
+
+         if (showVertical)
+         {
+            var ft = new FormattedText(Loc.S("AxisLabelY"), CultureInfo.CurrentCulture,
+               FlowDirection.LeftToRight, typeface, fontSize, yBrush, 96);
+            double lx = px0 + 4;
+            if (lx + ft.Width > w - outerPad) lx = Math.Max(outerPad, px0 - ft.Width - 4);
+            double topLabelY = outerPad;
+            double bottomLabelY = h - ft.Height - outerPad;
+            double lineStartY = topLabelY + ft.Height + lineGap;
+            double lineEndY = bottomLabelY - lineGap;
+            if (lineEndY > lineStartY)
+               dc.DrawLine(yPen, new Point(px0, lineStartY), new Point(px0, lineEndY));
+            DrawLabel(ft, lx, topLabelY);
+            DrawLabel(ft, lx, bottomLabelY);
+         }
+      }
+
       private Point ToScreen(double mx, double my)
          => new(_scale * (mx - _originX),
                 RenderSize.Height - _scale * (my - _originY));
@@ -394,13 +458,23 @@ namespace OpenCS.Views
       static string FormatTick(double v)
       {
          var av = Math.Abs(v);
-         if (av == 0) return "0";
+         if (av < 1e-12) return "0";
          if (av < 0.001) return v.ToString("E2");
          if (av < 0.01) return v.ToString("F5");
          if (av < 1) return v.ToString("F4");
          if (av < 100) return v.ToString("F2");
          if (av < 10000) return v.ToString("F0");
          return v.ToString("E2");
+      }
+
+      static string FormatPointLabel(double x, double y)
+         => $"({FormatCoord(x, 4)}; {FormatCoord(y, 2)})";
+
+      static string FormatCoord(double v, int decimals)
+      {
+         double rounded = Math.Round(v, decimals, MidpointRounding.AwayFromZero);
+         if (rounded == 0) return "0";
+         return rounded.ToString($"F{decimals}", CultureInfo.CurrentCulture);
       }
 
       private static Brush ParseBrush(string hex)

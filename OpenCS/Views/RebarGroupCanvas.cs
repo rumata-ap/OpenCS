@@ -209,6 +209,8 @@ namespace OpenCS.Views
             // Ось Y
             dc.DrawLine(axisPen, new Point(axisPxX, 0), new Point(axisPxX, h));
 
+            DrawOriginReferenceAxes(dc, w, h);
+
             if (!settings.ShowAxesValues) return;
 
             var ticksX = NiceTicks(xMin, xMax, settings.TickCount);
@@ -276,13 +278,78 @@ namespace OpenCS.Views
         static string FormatTick(double v)
         {
             var av = Math.Abs(v);
-            if (av == 0) return "0";
+            if (av < 1e-12) return "0";
             if (av < 0.001) return v.ToString("E2");
             if (av < 0.01)  return v.ToString("F5");
             if (av < 1)     return v.ToString("F4");
             if (av < 100)   return v.ToString("F2");
             if (av < 10000) return v.ToString("F0");
             return v.ToString("E2");
+        }
+
+        void DrawOriginReferenceAxes(DrawingContext dc, double w, double h)
+        {
+            var settings = _vm?.App?.PlotSettings;
+            if (settings == null || !settings.ShowOriginReferenceAxes) return;
+
+            double px0 = ToScreen(0, 0).X;
+            double py0 = ToScreen(0, 0).Y;
+            bool showVertical = px0 >= 0 && px0 <= w;
+            bool showHorizontal = py0 >= 0 && py0 <= h;
+            if (!showVertical && !showHorizontal) return;
+
+            var xBrush = Brushes.ForestGreen;
+            var yBrush = Brushes.RoyalBlue;
+            var xPen = new Pen(xBrush, 1.4);
+            var yPen = new Pen(yBrush, 1.4);
+            var typeface = new Typeface("Segoe UI Semibold");
+            double fontSize = Math.Max(11, settings.AxesFontSize);
+            var haloBrush = new SolidColorBrush(Color.FromArgb(230, 255, 255, 255));
+            haloBrush.Freeze();
+            const double outerPad = 4;
+            const double lineGap = 6;
+            const double haloPad = 2;
+
+            void DrawLabel(FormattedText ft, double x, double y)
+            {
+                dc.DrawRectangle(haloBrush, null,
+                    new Rect(x - haloPad, y - haloPad, ft.Width + 2 * haloPad, ft.Height + 2 * haloPad));
+                dc.DrawText(ft, new Point(x, y));
+            }
+
+            if (showHorizontal)
+            {
+                var ft = new FormattedText(Loc.S("AxisLabelX"),
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight, typeface, fontSize, xBrush, 96);
+                double ly = py0 - ft.Height - 2;
+                if (ly < outerPad) ly = Math.Min(h - ft.Height - outerPad, py0 + 2);
+                double leftLabelX = outerPad;
+                double rightLabelX = w - ft.Width - outerPad;
+                double lineStartX = leftLabelX + ft.Width + lineGap;
+                double lineEndX = rightLabelX - lineGap;
+                if (lineEndX > lineStartX)
+                    dc.DrawLine(xPen, new Point(lineStartX, py0), new Point(lineEndX, py0));
+                DrawLabel(ft, leftLabelX, ly);
+                DrawLabel(ft, rightLabelX, ly);
+            }
+
+            if (showVertical)
+            {
+                var ft = new FormattedText(Loc.S("AxisLabelY"),
+                    System.Globalization.CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight, typeface, fontSize, yBrush, 96);
+                double lx = px0 + 4;
+                if (lx + ft.Width > w - outerPad) lx = Math.Max(outerPad, px0 - ft.Width - 4);
+                double topLabelY = outerPad;
+                double bottomLabelY = h - ft.Height - outerPad;
+                double lineStartY = topLabelY + ft.Height + lineGap;
+                double lineEndY = bottomLabelY - lineGap;
+                if (lineEndY > lineStartY)
+                    dc.DrawLine(yPen, new Point(px0, lineStartY), new Point(px0, lineEndY));
+                DrawLabel(ft, lx, topLabelY);
+                DrawLabel(ft, lx, bottomLabelY);
+            }
         }
 
         static double Clamp(double v, double lo, double hi)

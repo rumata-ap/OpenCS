@@ -13,6 +13,7 @@
         xmlns:fem="clr-namespace:CScore.Fem;assembly=CScore"
         mc:Ignorable="d"
         Title="{Binding ProjectTitle}" WindowStartupLocation="CenterScreen" Height="850" Width="1500"
+        Icon="/Images/OpenCS.ico"
         Closing="Window_Closing">
 
 

@@ -52,6 +52,9 @@ namespace OpenCS.Utilites
       [JsonPropertyName("axesOrigin")]
       public bool AxesAtOrigin { get; set; }
 
+      [JsonPropertyName("showOriginRefAxes")]
+      public bool ShowOriginReferenceAxes { get; set; } = true;
+
       [JsonPropertyName("axesColor")]
       public string AxesColor { get; set; } = "#000000";
 
@@ -91,6 +94,7 @@ namespace OpenCS.Utilites
          ShowGrid = ShowGrid, ShowPointLabels = ShowPointLabels,
          ShowTooltips = ShowTooltips,
          ShowAxesValues = ShowAxesValues, AxesAtOrigin = AxesAtOrigin,
+         ShowOriginReferenceAxes = ShowOriginReferenceAxes,
          AxesColor = AxesColor, AxesFontSize = AxesFontSize,
          GridThickness = GridThickness, TickCount = TickCount,
          ScaleX = ScaleX, ScaleY = ScaleY,

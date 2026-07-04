@@ -131,6 +131,7 @@
                 <CheckBox x:Name="ShowTooltipsCb" Content="{DynamicResource ClickHighlight}" Margin="0,3,0,0"/>
                 <CheckBox x:Name="ShowAxesValsCb" Content="{DynamicResource AxisValueLabels}" Margin="0,3,0,0"/>
                 <CheckBox x:Name="AxesOriginCb" Content="{DynamicResource AxesThroughOrigin}" Margin="0,3,0,0"/>
+                <CheckBox x:Name="OriginReferenceAxesCb" Content="{DynamicResource OriginReferenceAxes}" Margin="0,3,0,0"/>
                 <Grid Margin="0,3">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="140"/>

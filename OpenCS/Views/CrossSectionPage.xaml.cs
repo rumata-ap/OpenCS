@@ -14,6 +14,7 @@ namespace OpenCS.Views
          var section = new CrossSection { Tag = "Новое сечение" };
          _vm = new CrossSectionVM(section, app);
          DataContext = _vm;
+         preview.ApplySettings(app.PlotSettings);
          _vm.PropertyChanged += (_, e) =>
          {
             if (e.PropertyName == nameof(CrossSectionVM.PlotElements))
@@ -26,6 +27,7 @@ namespace OpenCS.Views
          InitializeComponent();
          _vm = new CrossSectionVM(section, app);
          DataContext = _vm;
+         preview.ApplySettings(app.PlotSettings);
          _vm.PropertyChanged += (_, e) =>
          {
             if (e.PropertyName == nameof(CrossSectionVM.PlotElements))
@@ -62,6 +64,12 @@ namespace OpenCS.Views
          if (yMax - yMin < 1e-9) { yMin -= 0.1; yMax += 0.1; }
 
          preview.Draw(elements, xMin, xMax, yMin, yMax, squareAxes: true);
+      }
+
+      public void RefreshPlotSettings()
+      {
+         preview.ApplySettings(_vm.App.PlotSettings);
+         UpdatePlot();
       }
    }
 }

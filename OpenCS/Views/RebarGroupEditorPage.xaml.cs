@@ -41,5 +41,10 @@ namespace OpenCS.Views
             if (sender is Button btn && btn.Tag is EdgeItem edge && _vm != null)
                 _vm.AdjustEdgeCommand.Execute((edge, -_vm.OffsetStep));
         }
+
+        public void RefreshPlotSettings()
+        {
+            Canvas.InvalidateVisual();
+        }
     }
 }

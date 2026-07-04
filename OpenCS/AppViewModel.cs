@@ -1121,8 +1121,12 @@ namespace OpenCS
       {
          if (CurrentPage is Views.ContourPlot cp && cp.DataContext is ViewModels.ContourVM cvm)
             cvm.PlotService?.ApplySettings(PlotSettings);
-         if (CurrentPage is Views.MaterialAreaPage map && map.DataContext is ViewModels.MaterialAreaVM mavm)
-            mavm.RefreshPlot();
+         if (CurrentPage is Views.MaterialAreaPage map)
+            map.RefreshPlotSettings();
+         if (CurrentPage is Views.CrossSectionPage csp)
+            csp.RefreshPlotSettings();
+         if (CurrentPage is Views.RebarGroupEditorPage rgp)
+            rgp.RefreshPlotSettings();
          DxfBgApplied?.Invoke(PlotSettings.DxfCanvasBackground);
       }
 

@@ -1,0 +1,220 @@
+<UserControl x:Class="OpenCS.Views.ForceSignConventionPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views"
+             x:Name="Root">
+
+   <UserControl.Resources>
+      <SolidColorBrush x:Key="ForceAxisZBrush" Color="Red"/>
+      <SolidColorBrush x:Key="ForceAxisXBrush" Color="ForestGreen"/>
+      <SolidColorBrush x:Key="ForceAxisYBrush" Color="RoyalBlue"/>
+      <SolidColorBrush x:Key="ForceAxisTauBrush" Color="#CC2222"/>
+      <SolidColorBrush x:Key="ForceAxisTwistBrush" Color="#CC9900"/>
+
+      <Style x:Key="ForceSignRuleZ" TargetType="TextBlock">
+         <Setter Property="TextWrapping" Value="Wrap"/>
+         <Setter Property="FontSize" Value="11"/>
+         <Setter Property="Margin" Value="0,2,0,0"/>
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisZBrush}"/>
+      </Style>
+      <Style x:Key="ForceSignRuleX" TargetType="TextBlock" BasedOn="{StaticResource ForceSignRuleZ}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisXBrush}"/>
+      </Style>
+      <Style x:Key="ForceSignRuleY" TargetType="TextBlock" BasedOn="{StaticResource ForceSignRuleZ}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisYBrush}"/>
+      </Style>
+      <Style x:Key="ForceSignRuleNeutral" TargetType="TextBlock" BasedOn="{StaticResource ForceSignRuleZ}">
+         <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"/>
+      </Style>
+      <Style x:Key="ForceSignRuleTau" TargetType="TextBlock" BasedOn="{StaticResource ForceSignRuleZ}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisTauBrush}"/>
+      </Style>
+      <Style x:Key="ForceSignRuleTwist" TargetType="TextBlock" BasedOn="{StaticResource ForceSignRuleZ}">
+         <Setter Property="Foreground" Value="{StaticResource ForceAxisTwistBrush}"/>
+      </Style>
+
+      <Style x:Key="BarSchematicHostVisibility" TargetType="Canvas">
+         <Setter Property="Visibility" Value="Collapsed"/>
+         <Style.Triggers>
+            <DataTrigger Binding="{Binding Kind, ElementName=Root}" Value="bar">
+               <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+         </Style.Triggers>
+      </Style>
+      <Style x:Key="ShellSchematicHostVisibility" TargetType="FrameworkElement">
+         <Setter Property="Visibility" Value="Collapsed"/>
+         <Style.Triggers>
+            <DataTrigger Binding="{Binding Kind, ElementName=Root}" Value="shell">
+               <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+         </Style.Triggers>
+      </Style>
+   </UserControl.Resources>
+
+   <Border BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+           BorderThickness="1"
+           CornerRadius="4"
+           Padding="8,6"
+           Background="#FAFAFA">
+      <StackPanel>
+         <TextBlock Text="{DynamicResource ForceSignConventionTitle}"
+                    FontWeight="SemiBold"
+                    FontSize="12"
+                    Foreground="#FF2813EB"/>
+
+         <Grid Margin="0,6,0,4">
+            <Canvas Style="{StaticResource BarSchematicHostVisibility}" Width="144" Height="108">
+               <Polygon Points="28,58 88,58 88,22 28,22"
+                        Fill="#DDDDDD" Stroke="#BBBBBB" StrokeThickness="1"/>
+               <Polygon Points="42,68 102,68 88,58 28,58"
+                        Fill="#E8E8E8" Stroke="#BBBBBB" StrokeThickness="1"/>
+               <Polygon Points="102,32 88,22 28,22 42,32"
+                        Fill="#E2E2E2" Stroke="#BBBBBB" StrokeThickness="1"/>
+               <Polygon Points="42,68 102,68 102,32 42,32"
+                        Fill="#F5F5F5" Stroke="#888888" StrokeThickness="1.2"/>
+
+               <Line X1="72" Y1="50" X2="72" Y2="10"
+                     Stroke="{StaticResource ForceAxisYBrush}" StrokeThickness="1.6"/>
+               <Polygon Points="72,10 68,18 76,18"
+                        Fill="{StaticResource ForceAxisYBrush}"/>
+               <Line X1="72" Y1="50" X2="124" Y2="50"
+                     Stroke="{StaticResource ForceAxisXBrush}" StrokeThickness="1.6"/>
+               <Polygon Points="124,50 116,46 116,54"
+                        Fill="{StaticResource ForceAxisXBrush}"/>
+               <Line X1="58" Y1="40" X2="108" Y2="76"
+                     Stroke="{StaticResource ForceAxisZBrush}" StrokeThickness="1.4"
+                     StrokeDashArray="3 2"/>
+               <Line X1="72" Y1="50" X2="108" Y2="76"
+                     Stroke="{StaticResource ForceAxisZBrush}" StrokeThickness="2"/>
+               <Polygon Points="108,76 100,73 104,68"
+                        Fill="{StaticResource ForceAxisZBrush}"/>
+
+               <Ellipse Canvas.Left="68" Canvas.Top="46" Width="8" Height="8"
+                        Fill="White" Stroke="#555555" StrokeThickness="1.2"/>
+               <TextBlock Canvas.Left="64" Canvas.Top="0"
+                          Text="{DynamicResource AxisLabelY}"
+                          Foreground="{StaticResource ForceAxisYBrush}"
+                          FontSize="10" FontWeight="SemiBold"/>
+               <TextBlock Canvas.Left="126" Canvas.Top="42"
+                          Text="{DynamicResource AxisLabelX}"
+                          Foreground="{StaticResource ForceAxisXBrush}"
+                          FontSize="10" FontWeight="SemiBold"/>
+               <TextBlock Canvas.Left="110" Canvas.Top="66"
+                          Text="{DynamicResource ForceSignConventionAxisZ}"
+                          Foreground="{StaticResource ForceAxisZBrush}"
+                          FontSize="10" FontWeight="SemiBold"/>
+            </Canvas>
+
+            <local:ShellLiraSignDiagram Style="{StaticResource ShellSchematicHostVisibility}"/>
+         </Grid>
+
+         <TextBlock Text="{DynamicResource ForceSignConventionAxesNote}"
+                    TextWrapping="Wrap" FontSize="10" Foreground="Gray" Margin="0,0,0,4">
+            <TextBlock.Style>
+               <Style TargetType="TextBlock">
+                  <Setter Property="Visibility" Value="Collapsed"/>
+                  <Style.Triggers>
+                     <DataTrigger Binding="{Binding Kind, ElementName=Root}" Value="bar">
+                        <Setter Property="Visibility" Value="Visible"/>
+                     </DataTrigger>
+                  </Style.Triggers>
+               </Style>
+            </TextBlock.Style>
+         </TextBlock>
+         <TextBlock Text="{DynamicResource ForceSignConventionShellPlaneNote}"
+                    TextWrapping="Wrap" FontSize="10" Foreground="Gray" Margin="0,0,0,4">
+            <TextBlock.Style>
+               <Style TargetType="TextBlock">
+                  <Setter Property="Visibility" Value="Collapsed"/>
+                  <Style.Triggers>
+                     <DataTrigger Binding="{Binding Kind, ElementName=Root}" Value="shell">
+                        <Setter Property="Visibility" Value="Visible"/>
+                     </DataTrigger>
+                  </Style.Triggers>
+               </Style>
+            </TextBlock.Style>
+         </TextBlock>
+
+         <StackPanel>
+            <StackPanel.Style>
+               <Style TargetType="StackPanel">
+                  <Setter Property="Visibility" Value="Collapsed"/>
+                  <Style.Triggers>
+                     <DataTrigger Binding="{Binding Kind, ElementName=Root}" Value="bar">
+                        <Setter Property="Visibility" Value="Visible"/>
+                     </DataTrigger>
+                  </Style.Triggers>
+               </Style>
+            </StackPanel.Style>
+            <TextBlock Style="{StaticResource ForceSignRuleZ}"
+                       Text="{DynamicResource ForceSignConventionBarN}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleX}"
+                       Text="{DynamicResource ForceSignConventionBarMx}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleY}"
+                       Text="{DynamicResource ForceSignConventionBarMy}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleX}"
+                       Text="{DynamicResource ForceSignConventionBarVx}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleY}"
+                       Text="{DynamicResource ForceSignConventionBarVy}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleZ}"
+                       Text="{DynamicResource ForceSignConventionBarT}"/>
+         </StackPanel>
+
+         <StackPanel>
+            <StackPanel.Style>
+               <Style TargetType="StackPanel">
+                  <Setter Property="Visibility" Value="Collapsed"/>
+                  <Style.Triggers>
+                     <DataTrigger Binding="{Binding Kind, ElementName=Root}" Value="shell">
+                        <Setter Property="Visibility" Value="Visible"/>
+                     </DataTrigger>
+                  </Style.Triggers>
+               </Style>
+            </StackPanel.Style>
+            <TextBlock Style="{StaticResource ForceSignRuleX}"
+                       Text="{DynamicResource ForceSignConventionShellNx}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleY}"
+                       Text="{DynamicResource ForceSignConventionShellNy}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleTau}"
+                       Text="{DynamicResource ForceSignConventionShellNxy}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleX}"
+                       Text="{DynamicResource ForceSignConventionShellMx}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleY}"
+                       Text="{DynamicResource ForceSignConventionShellMy}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleTwist}"
+                       Text="{DynamicResource ForceSignConventionShellMxy}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleX}"
+                       Text="{DynamicResource ForceSignConventionShellQx}"/>
+            <TextBlock Style="{StaticResource ForceSignRuleY}"
+                       Text="{DynamicResource ForceSignConventionShellQy}"/>
+         </StackPanel>
+
+         <TextBlock Text="{DynamicResource ForceSignConventionLiraNote}"
+                    TextWrapping="Wrap" FontSize="9" Foreground="Gray" Margin="0,8,0,0">
+            <TextBlock.Style>
+               <Style TargetType="TextBlock">
+                  <Setter Property="Visibility" Value="Collapsed"/>
+                  <Style.Triggers>
+                     <DataTrigger Binding="{Binding Kind, ElementName=Root}" Value="bar">
+                        <Setter Property="Visibility" Value="Visible"/>
+                     </DataTrigger>
+                  </Style.Triggers>
+               </Style>
+            </TextBlock.Style>
+         </TextBlock>
+         <TextBlock Text="{DynamicResource ForceSignConventionShellLiraNote}"
+                    TextWrapping="Wrap" FontSize="9" Foreground="Gray" Margin="0,8,0,0">
+            <TextBlock.Style>
+               <Style TargetType="TextBlock">
+                  <Setter Property="Visibility" Value="Collapsed"/>
+                  <Style.Triggers>
+                     <DataTrigger Binding="{Binding Kind, ElementName=Root}" Value="shell">
+                        <Setter Property="Visibility" Value="Visible"/>
+                     </DataTrigger>
+                  </Style.Triggers>
+               </Style>
+            </TextBlock.Style>
+         </TextBlock>
+      </StackPanel>
+   </Border>
+</UserControl>
