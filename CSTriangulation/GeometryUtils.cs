@@ -25,18 +25,17 @@ namespace CSTriangulation
       public static bool PointInSector(double px, double py, double qx, double qy,
          double rx, double ry, double tx, double ty)
       {
+         // Сектор — угловой клин при вершине q между лучами q→p и q→r (может простираться за
+         // отрезок p-r). t внутри клина, если он с правильной стороны от ОБОИХ лучей.
+         // crossQP = (q→p)×(q→t), crossQR = (q→r)×(q→t), crossBase = (q→p)×(q→r) задаёт ориентацию клина.
          double crossQR = (rx - qx) * (ty - qy) - (ry - qy) * (tx - qx);
          double crossQP = (px - qx) * (ty - qy) - (py - qy) * (tx - qx);
-         if (crossQR * crossQP < 0) return false;
-
-         double v1x = px - qx, v1y = py - qy;
-         double v2x = rx - qx, v2y = ry - qy;
-         double crossBase = v1x * v2y - v1y * v2x;
+         double crossBase = (px - qx) * (ry - qy) - (py - qy) * (rx - qx);
 
          if (crossBase >= 0)
-            return crossQP >= 0 && crossQR >= 0;
+            return crossQP >= 0 && crossQR <= 0;
          else
-            return crossQP <= 0 && crossQR <= 0;
+            return crossQP <= 0 && crossQR >= 0;
       }
 
       /// <summary>
@@ -138,5 +137,9 @@ namespace CSTriangulation
          }
          return 0.5 * s;
       }
+
+      /// <summary>Ориентация точки R относительно направленного отрезка PQ (§3.5, шаг 1).</summary>
+      public static double Orient(double px, double py, double qx, double qy, double rx, double ry)
+         => (qx - px) * (ry - py) - (qy - py) * (rx - px);
    }
 }
