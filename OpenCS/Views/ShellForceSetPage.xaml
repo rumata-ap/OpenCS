@@ -5,46 +5,11 @@
              xmlns:local="clr-namespace:OpenCS.Views">
 
    <UserControl.Resources>
-      <SolidColorBrush x:Key="ForceAxisXBrush" Color="ForestGreen"/>
-      <SolidColorBrush x:Key="ForceAxisYBrush" Color="RoyalBlue"/>
-
-      <SolidColorBrush x:Key="ForceAxisTauBrush" Color="#CC2222"/>
-      <SolidColorBrush x:Key="ForceAxisTwistBrush" Color="#CC9900"/>
-
-      <Style x:Key="ForceValueRightBase" TargetType="TextBlock">
-         <Setter Property="HorizontalAlignment" Value="Right"/>
-         <Setter Property="VerticalAlignment" Value="Center"/>
-      </Style>
-      <Style x:Key="ForceValueX" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRightBase}">
-         <Setter Property="Foreground" Value="{StaticResource ForceAxisXBrush}"/>
-      </Style>
-      <Style x:Key="ForceValueY" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRightBase}">
-         <Setter Property="Foreground" Value="{StaticResource ForceAxisYBrush}"/>
-      </Style>
-      <Style x:Key="ForceValueTau" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRightBase}">
-         <Setter Property="Foreground" Value="{StaticResource ForceAxisTauBrush}"/>
-      </Style>
-      <Style x:Key="ForceValueTwist" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRightBase}">
-         <Setter Property="Foreground" Value="{StaticResource ForceAxisTwistBrush}"/>
-      </Style>
-
-      <Style x:Key="ForceEditRightBase" TargetType="TextBox">
-         <Setter Property="HorizontalAlignment" Value="Right"/>
-         <Setter Property="VerticalAlignment" Value="Center"/>
-         <Setter Property="BorderThickness" Value="0"/>
-      </Style>
-      <Style x:Key="ForceEditX" TargetType="TextBox" BasedOn="{StaticResource ForceEditRightBase}">
-         <Setter Property="Foreground" Value="{StaticResource ForceAxisXBrush}"/>
-      </Style>
-      <Style x:Key="ForceEditY" TargetType="TextBox" BasedOn="{StaticResource ForceEditRightBase}">
-         <Setter Property="Foreground" Value="{StaticResource ForceAxisYBrush}"/>
-      </Style>
-      <Style x:Key="ForceEditTau" TargetType="TextBox" BasedOn="{StaticResource ForceEditRightBase}">
-         <Setter Property="Foreground" Value="{StaticResource ForceAxisTauBrush}"/>
-      </Style>
-      <Style x:Key="ForceEditTwist" TargetType="TextBox" BasedOn="{StaticResource ForceEditRightBase}">
-         <Setter Property="Foreground" Value="{StaticResource ForceAxisTwistBrush}"/>
-      </Style>
+      <ResourceDictionary>
+         <ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary Source="/Resources/ForceSetValueStyles.xaml"/>
+         </ResourceDictionary.MergedDictionaries>
+      </ResourceDictionary>
    </UserControl.Resources>
 
    <Grid>
@@ -54,43 +19,13 @@
          <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
-      <!-- Верхняя панель -->
+      <!-- Параметры СП20 -->
       <Border Grid.Row="0" BorderThickness="0,0,0,1"
               BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
               Padding="8,6">
-         <StackPanel Orientation="Horizontal">
-            <TextBlock Text="{DynamicResource Tag}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-            <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
-                     Width="260" Margin="0,0,12,0"/>
-            <Button Content="{DynamicResource SP20CombineBtn}"
-                    Command="{Binding SP20Command}"
-                    Padding="12,3" Margin="0,0,8,0"/>
-            <Separator Width="1" Margin="0,0,8,0"/>
-            <Button Style="{StaticResource IconButton25}"
-                    Command="{Binding SaveCommand}"
-                    ToolTip="{DynamicResource Save}"
-                    Margin="0,0,8,0">
-               <Path Width="16" Height="16" Stretch="Uniform"
-                     Fill="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"
-                     Data="M17 3H5C3.89 3 3 3.9 3 5V19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V7L17 3M19 19H5V5H16.17L19 7.83V19M12 12C10.34 12 9 13.34 9 15S10.34 18 12 18 15 16.66 15 15 13.66 12 12 12M6 6H15V10H6V6Z"/>
-            </Button>
-            <Separator Width="1" Margin="0,0,8,0"/>
-            <Button Style="{StaticResource IconButton25}"
-                    Command="{Binding ExportCsvCommand}"
-                    ToolTip="{DynamicResource ExportCsvBtn}"
-                    Margin="0,0,4,0">
-               <Path Width="16" Height="16" Stretch="Uniform"
-                     Fill="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"
-                     Data="M14,2L20,8V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V4A2,2 0 0,1 6,2H14M18,20V9H13V4H6V20H18M12,19L8,15H10.5V12H13.5V15H16L12,19Z"/>
-            </Button>
-            <Button Style="{StaticResource IconButton25}"
-                    Command="{Binding ImportCsvCommand}"
-                    ToolTip="{DynamicResource ImportCsvBtn}">
-               <Path Width="16" Height="16" Stretch="Uniform"
-                     Fill="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"
-                     Data="M14,2L20,8V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V4A2,2 0 0,1 6,2H14M18,20V9H13V4H6V20H18M12,12L16,16H13.5V19H10.5V16H8L12,12Z"/>
-            </Button>
-         </StackPanel>
+         <GroupBox Header="{DynamicResource ForceSetPropsTitle}" Padding="8,6,8,8">
+            <local:ForceSetSp20Panel DataContext="{Binding Sp20}"/>
+         </GroupBox>
       </Border>
 
       <!-- Таблица усилий пластины и справка по знакам -->
@@ -209,7 +144,11 @@
          </DataGrid.Columns>
       </DataGrid>
 
-         <local:ForceSignConventionPanel Grid.Column="1" Kind="shell" VerticalAlignment="Top"/>
+         <ScrollViewer Grid.Column="1"
+                       VerticalScrollBarVisibility="Auto"
+                       HorizontalScrollBarVisibility="Disabled">
+            <local:ForceSignConventionPanel Kind="shell"/>
+         </ScrollViewer>
       </Grid>
 
       <!-- Кнопки внизу -->
@@ -232,10 +171,35 @@
          </Button>
          <Button Style="{StaticResource IconButton25}"
                  Command="{Binding DeleteItemCommand}"
-                 ToolTip="{DynamicResource DeleteForceItem}">
+                 ToolTip="{DynamicResource DeleteForceItem}"
+                 Margin="0,0,8,0">
             <Path Width="16" Height="16" Stretch="Uniform"
                   Fill="#CC3333"
                   Data="M9.41,13L12,15.59L14.59,13L16,14.41L13.41,17L16,19.59L14.59,21L12,18.41L9.41,21L8,19.59L10.59,17L8,14.41L9.41,13M22,9A2,2 0 0 1 20,11H4A2,2 0 0 1 2,9V6A2,2 0 0 1 4,4H20A2,2 0 0 1 22,6V9M4,9H8V6H4V9M10,9H14V6H10V9M16,9H20V6H16V9Z"/>
+         </Button>
+         <Separator Width="1" Margin="0,0,8,0"/>
+         <Button Style="{StaticResource IconButton25}"
+                 Command="{Binding SaveCommand}"
+                 ToolTip="{DynamicResource Save}"
+                 Margin="0,0,8,0">
+            <Path Width="16" Height="16" Stretch="Uniform"
+                  Fill="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"
+                  Data="M17 3H5C3.89 3 3 3.9 3 5V19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V7L17 3M19 19H5V5H16.17L19 7.83V19M12 12C10.34 12 9 13.34 9 15S10.34 18 12 18 15 16.66 15 15 13.66 12 12 12M6 6H15V10H6V6Z"/>
+         </Button>
+         <Button Style="{StaticResource IconButton25}"
+                 Command="{Binding ExportCsvCommand}"
+                 ToolTip="{DynamicResource ExportCsvBtn}"
+                 Margin="0,0,4,0">
+            <Path Width="16" Height="16" Stretch="Uniform"
+                  Fill="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"
+                  Data="M14,2L20,8V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V4A2,2 0 0,1 6,2H14M18,20V9H13V4H6V20H18M12,19L8,15H10.5V12H13.5V15H16L12,19Z"/>
+         </Button>
+         <Button Style="{StaticResource IconButton25}"
+                 Command="{Binding ImportCsvCommand}"
+                 ToolTip="{DynamicResource ImportCsvBtn}">
+            <Path Width="16" Height="16" Stretch="Uniform"
+                  Fill="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}"
+                  Data="M14,2L20,8V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V4A2,2 0 0,1 6,2H14M18,20V9H13V4H6V20H18M12,12L16,16H13.5V19H10.5V16H8L12,12Z"/>
          </Button>
       </StackPanel>
 

@@ -22,7 +22,8 @@ public partial class StrainStateBatchResultView : UserControl
         _app = app;
         _task = task;
         InitializeComponent();
-        DataContext = new StrainStateBatchVM(result);
+        var section = app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId);
+        DataContext = new StrainStateBatchVM(result, section, app.CalcSettings);
         RowsGrid.SelectionChanged += (_, _) =>
         {
             CreateTaskBtn.IsEnabled = RowsGrid.SelectedItem != null;

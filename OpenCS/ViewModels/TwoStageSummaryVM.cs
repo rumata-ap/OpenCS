@@ -173,7 +173,7 @@ namespace OpenCS.ViewModels
                 Status   = s1Ok ? "ok" : "not_converged",
                 DataJson = JsonSerializer.Serialize(stage1Data)
             };
-            Stage1Summary = new StrainSummaryVM(stage1Result, stage1Section, calcType, settings.GridDensity);
+            Stage1Summary = new StrainSummaryVM(stage1Result, stage1Section, calcType, settings);
             Stage1Stress  = new SectionPlotVM(stage1Section, k1, calcType, SectionPlotMode.Stress, settings);
             Stage1Strain  = new SectionPlotVM(stage1Section, k1, calcType, SectionPlotMode.Strain, settings);
 
@@ -183,7 +183,7 @@ namespace OpenCS.ViewModels
             // в волокнах первого этапа), а для Areas — κ2 (волокна второго этапа).
             clone.Stage1Kurvature = k1;
             clone.SetEps(k2, calcType);
-            Stage2Summary = new StrainSummaryVM(result, clone, calcType, settings.GridDensity);
+            Stage2Summary = new StrainSummaryVM(result, clone, calcType, settings);
             Stage2Stress  = new SectionPlotVM(clone, k2, calcType, SectionPlotMode.Stress, settings);
             Stage2Strain  = new SectionPlotVM(clone, k2, calcType, SectionPlotMode.Strain, settings);
         }

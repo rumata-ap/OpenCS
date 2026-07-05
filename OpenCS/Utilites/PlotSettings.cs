@@ -82,6 +82,10 @@ namespace OpenCS.Utilites
       [JsonPropertyName("centroidSize")]
       public double CentroidSize { get; set; } = 4.0;
 
+      /// <summary>Раскрашивать значения усилий в таблицах наборов по цветам осей (как в карточке правила знаков).</summary>
+      [JsonPropertyName("forceSetColorize")]
+      public bool ForceSetColorize { get; set; } = false;
+
       public static PlotSettings Default => new();
 
       public PlotSettings Clone() => new()
@@ -99,7 +103,8 @@ namespace OpenCS.Utilites
          GridThickness = GridThickness, TickCount = TickCount,
          ScaleX = ScaleX, ScaleY = ScaleY,
          DxfCanvasBackground = DxfCanvasBackground,
-         CentroidColor = CentroidColor, CentroidSize = CentroidSize
+         CentroidColor = CentroidColor, CentroidSize = CentroidSize,
+         ForceSetColorize = ForceSetColorize
       };
    }
 }

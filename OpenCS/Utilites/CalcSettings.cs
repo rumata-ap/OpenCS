@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using CScore.Combinations;
 
 namespace OpenCS.Utilites
 {
@@ -86,6 +87,34 @@ namespace OpenCS.Utilites
       [JsonPropertyName("smoothColormap")]
       public bool SmoothColormap { get; set; } = false;
 
+      /// <summary>
+      /// Учёт уменьшения площади бетона, замещённой площадью арматуры:
+      /// разностная диаграмма σ_st − σ_bc для стержней в бетоне.
+      /// При false — чистая диаграмма стали, бетонная сетка включает площадь под арматурой.
+      /// </summary>
+      [JsonPropertyName("rebarDifferentialDiagram")]
+      public bool RebarDifferentialDiagram { get; set; } = true;
+
+      /// <summary>γf по умолчанию для постоянной нагрузки (G), неблагоприятно.</summary>
+      [JsonPropertyName("sp20GammaFG")]
+      public double Sp20GammaFPermanent { get; set; } = 1.1;
+
+      /// <summary>γf по умолчанию для постоянной нагрузки (G), благоприятно.</summary>
+      [JsonPropertyName("sp20GammaFGFav")]
+      public double Sp20GammaFPermanentFav { get; set; } = 0.9;
+
+      /// <summary>γf по умолчанию для длительной переменной нагрузки (L).</summary>
+      [JsonPropertyName("sp20GammaFL")]
+      public double Sp20GammaFLongTerm { get; set; } = 1.2;
+
+      /// <summary>γf по умолчанию для кратковременной переменной нагрузки (Q).</summary>
+      [JsonPropertyName("sp20GammaFQ")]
+      public double Sp20GammaFShortTerm { get; set; } = 1.4;
+
+      /// <summary>γf по умолчанию для особой нагрузки (A).</summary>
+      [JsonPropertyName("sp20GammaFA")]
+      public double Sp20GammaFAccidental { get; set; } = 1.0;
+
       public static CalcSettings Default => new();
 
       public CalcSettings Clone() => new()
@@ -109,6 +138,22 @@ namespace OpenCS.Utilites
          ShellWarmStart        = ShellWarmStart,
          ShellNewtonTolRes     = ShellNewtonTolRes,
          SmoothColormap        = SmoothColormap,
+         RebarDifferentialDiagram = RebarDifferentialDiagram,
+         Sp20GammaFPermanent      = Sp20GammaFPermanent,
+         Sp20GammaFPermanentFav   = Sp20GammaFPermanentFav,
+         Sp20GammaFLongTerm       = Sp20GammaFLongTerm,
+         Sp20GammaFShortTerm      = Sp20GammaFShortTerm,
+         Sp20GammaFAccidental     = Sp20GammaFAccidental,
+      };
+
+      /// <summary>Коэффициенты γf по умолчанию для комбинаторики СП 20.</summary>
+      public Sp20GammaDefaults ToSp20GammaDefaults() => new()
+      {
+         PermanentUnfav  = Sp20GammaFPermanent,
+         PermanentFav    = Sp20GammaFPermanentFav,
+         LongTermUnfav   = Sp20GammaFLongTerm,
+         ShortTermUnfav  = Sp20GammaFShortTerm,
+         AccidentalUnfav = Sp20GammaFAccidental,
       };
    }
 }

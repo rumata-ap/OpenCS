@@ -91,7 +91,19 @@
    <system:String x:Key="CalcSettingsSp63EtaMinTip">Lower bound of SP63 App.G descending branch. Per SP 63.13330 §G.1 — not less than 0.85</system:String>
    <system:String x:Key="CalcSettingsShellTolRes">Tolerance (plates)</system:String>
    <system:String x:Key="CalcSettingsShellTolResTip">Relative Newton tolerance for plate sections: ‖residual‖ / (1 + ‖target forces‖). Recommended: 1e-3.</system:String>
+   <system:String x:Key="PlotSettingsForceSetColorize">Colorize force values in sets by axis</system:String>
+   <system:String x:Key="PlotSettingsForceSetColorizeTip">When enabled, force set table values are colored like the sign convention card: N/T — red, Mx/Vx/Qx/Nx — green, My/Vy/Qy/Ny — blue; Nxy — dark red, Mxy — orange.</system:String>
+   <system:String x:Key="CalcSettingsRcGroup">RC cross-section</system:String>
+   <system:String x:Key="CalcSettingsRebarDifferentialDiagram">Account for concrete area reduction replaced by rebar</system:String>
+   <system:String x:Key="CalcSettingsRebarDifferentialDiagramTip">When enabled, rebar in concrete accounts for concrete area displaced by the bar (differential diagram σ_st − σ_bc). When disabled, the pure steel diagram is used and the concrete mesh includes the bar footprint.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Batch Tasks</system:String>
+   <system:String x:Key="CalcSettingsSp20Group">SP20 combinations (default γf)</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaG">G — permanent (unfav.)</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaGFav">G — permanent (fav.)</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaL">L — long-term</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaQ">Q — short-term</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaA">A — accidental</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaTip">Used in SP20 combinatorics when γf is not set explicitly in the force set</system:String>
    <system:String x:Key="BatchParallel_Label">Parallel execution (clone section per thread)</system:String>
    <system:String x:Key="BatchParallel_Tip">Recommended for force sets with 50+ rows. Applies to all strength/stiffness batch tasks. Fire-resistance tasks are not affected.</system:String>
    <system:String x:Key="ShellWarmStart_Label">Shell warm-start (row N result → row N+1 initial guess)</system:String>
@@ -369,11 +381,26 @@
    <system:String x:Key="TipRenumContour">Renumber contour vertices</system:String>
    <system:String x:Key="TipExportContourCsv">Export contour coordinates to *.csv</system:String>
    <system:String x:Key="TipImportContourCsv">Import contour coordinates from *.csv</system:String>
+   <system:String x:Key="TipCloseContour">Add closing vertex (same coordinates as the first point)</system:String>
+   <system:String x:Key="ContourClosingHint">Last vertex = first. Contour closes automatically on save.</system:String>
+   <system:String x:Key="ContourNeedsClosingHint">Open contour — add (X₁,Y₁) or use Close.</system:String>
+   <system:String x:Key="ContourTooFewPoints">A contour must have at least three vertices.</system:String>
+   <system:String x:Key="ContourClosedLog">Closing vertex added to contour</system:String>
     <system:String x:Key="TipToggleEdit">Toggle edit mode</system:String>
     <system:String x:Key="TipSaveContour">Save contour or applied changes</system:String>
     <system:String x:Key="TipTranslateContour">Translate contour</system:String>
     <system:String x:Key="TipScaleContour">Scale contour</system:String>
     <system:String x:Key="TipShowProperties">Geometric properties</system:String>
+   <system:String x:Key="ContourDrawAreaHeader">Drawing area</system:String>
+   <system:String x:Key="ContourDrawWidth">Width, m</system:String>
+   <system:String x:Key="ContourDrawHeight">Height, m</system:String>
+   <system:String x:Key="ContourGridStep">Grid step, mm</system:String>
+   <system:String x:Key="ContourSnapToGrid">Snap to grid</system:String>
+   <system:String x:Key="ContourBeginDrawing">Start drawing</system:String>
+   <system:String x:Key="TipContourBeginDrawing">Set drawing area (origin at center) and begin placing vertices</system:String>
+   <system:String x:Key="ContourDrawSetupHint">Coordinate origin (0; 0) is at the area center. Dashed frame on canvas.</system:String>
+   <system:String x:Key="ContourDrawActiveHint">LMB — vertex, drag — move, RMB/Delete — remove last, click 1st — close.</system:String>
+   <system:String x:Key="ContourDrawingStartedLog">Contour drawing started on canvas</system:String>
 
    <!-- RibbonBar -->
    <system:String x:Key="RibbonHome">Home</system:String>
@@ -457,10 +484,10 @@
    <system:String x:Key="ForceLoadTitleLabel">Name:</system:String>
    <system:String x:Key="ForceLoadKindLabel">Load type:</system:String>
    <system:String x:Key="ForceLoadGammaLabel">γf (reliability factor):</system:String>
-   <system:String x:Key="ForceLoadGammaHint">(0 or empty = default)</system:String>
+   <system:String x:Key="ForceLoadGammaHint">(0 or empty = from Settings → Calculation)</system:String>
    <system:String x:Key="ForceLoadGroupLabel">Mutual exclusion group:</system:String>
    <system:String x:Key="ForceLoadGroupHint">e.g. wind, snow, crane</system:String>
-   <system:String x:Key="ForceLoadPreviewLabel">New name:</system:String>
+   <system:String x:Key="ForceLoadPreviewLabel">Tree name:</system:String>
    <system:String x:Key="ForceLoadKindG">G — permanent</system:String>
    <system:String x:Key="ForceLoadKindL">L — long-term variable</system:String>
    <system:String x:Key="ForceLoadKindQ">Q — short-term variable</system:String>
@@ -483,8 +510,8 @@
    <system:String x:Key="ForceSignConventionShellViewSide">Section YZ</system:String>
    <system:String x:Key="ForceSignConventionAxisZ">Z</system:String>
    <system:String x:Key="ForceSignConventionBarN">N &gt; 0 — tension; N &lt; 0 — compression</system:String>
-   <system:String x:Key="ForceSignConventionBarMx">Mx &gt; 0 — tension at +Y, compression at −Y</system:String>
-   <system:String x:Key="ForceSignConventionBarMy">My &gt; 0 — tension at +X, compression at −X</system:String>
+   <system:String x:Key="ForceSignConventionBarMx">Mx &gt; 0 — lower fiber in compression, upper fiber in tension</system:String>
+   <system:String x:Key="ForceSignConventionBarMy">My &gt; 0 — left fiber in compression, right fiber in tension</system:String>
    <system:String x:Key="ForceSignConventionBarVx">Vx &gt; 0 — shear force in +X direction</system:String>
    <system:String x:Key="ForceSignConventionBarVy">Vy &gt; 0 — shear force in +Y direction</system:String>
    <system:String x:Key="ForceSignConventionBarT">T &gt; 0 — torsion about Z (right-hand rule)</system:String>
@@ -834,6 +861,7 @@
    <system:String x:Key="ResultTabStrain">Strains ε</system:String>
 
    <!-- Summary sections -->
+   <system:String x:Key="ResultRebarAreaReductionNote">Note: calculation accounts for concrete area reduction replaced by rebar.</system:String>
    <system:String x:Key="ResultStrainPlane">Strain plane</system:String>
    <system:String x:Key="ResultForces">Forces: target → result</system:String>
    <system:String x:Key="ResultExtremeStrains">Extreme strains</system:String>

@@ -27,23 +27,27 @@ namespace OpenCS.ViewModels
          Items  = new ObservableCollection<ShellLoadItemVM>(
             model.ShellItems.ConvertAll(i => new ShellLoadItemVM(i, _touchSet)));
 
+         Sp20 = new ForceSetNameEditorVM(model, _touchSet);
+
          AddItemCommand       = new RelayCommand(_ => AddItem());
          DeleteItemCommand    = new RelayCommand(_ => DeleteItem());
          DuplicateItemCommand = new RelayCommand(_ => DuplicateItem());
          SaveCommand          = new RelayCommand(_ => Save());
-         SP20Command          = new RelayCommand(_ => OpenSP20Dialog());
          ExportCsvCommand     = new RelayCommand(_ => ExportCsv());
          ImportCsvCommand     = new RelayCommand(_ => ImportCsv());
+         App.PlotSettingsApplied += OnPlotSettingsApplied;
       }
+
+      void OnPlotSettingsApplied() => OnPropertyChanged(nameof(ColorizeForceValues));
 
       public AppViewModel App { get; }
       public ForceSet Model => _model;
 
-      public string Tag
-      {
-         get => _model.Tag;
-         set { _model.Tag = value; App.TouchForceSet(_model); OnPropertyChanged(); }
-      }
+      /// <summary>Раскраска значений усилий по осям (глобальная настройка).</summary>
+      public bool ColorizeForceValues => App.PlotSettings.ForceSetColorize;
+
+      /// <summary>Параметры имени набора для комбинаторики СП20.</summary>
+      public ForceSetNameEditorVM Sp20 { get; }
 
       public ObservableCollection<ShellLoadItemVM> Items { get; }
 
@@ -57,7 +61,6 @@ namespace OpenCS.ViewModels
       public ICommand DeleteItemCommand    { get; }
       public ICommand DuplicateItemCommand { get; }
       public ICommand SaveCommand          { get; }
-      public ICommand SP20Command          { get; }
       public ICommand ExportCsvCommand     { get; }
       public ICommand ImportCsvCommand     { get; }
 
@@ -103,15 +106,6 @@ namespace OpenCS.ViewModels
          Items.Remove(_selectedItem);
          SelectedItem = null;
          App.TouchForceSet(_model);
-      }
-
-      void OpenSP20Dialog()
-      {
-         var dlg = new Views.SP20Dialog(App.ShellForceSets, App)
-         {
-            Owner = System.Windows.Application.Current.MainWindow
-         };
-         dlg.ShowDialog();
       }
 
       void ExportCsv()
@@ -201,6 +195,7 @@ namespace OpenCS.ViewModels
          App.db.SaveForceSet(_model);
          if (!App.ForceSets.Contains(_model))
             App.ForceSets.Add(_model);
+         App.RefreshForceSetInTree(_model);
       }
 
       static string MakeDuplicateLabel(string src, System.Collections.Generic.List<ShellLoadItem> items)

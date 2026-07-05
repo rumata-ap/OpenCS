@@ -44,7 +44,8 @@ public sealed class FireRCheckPlotsVM
         if (section is null)
             return;
 
-        section.ResolveAndBuildDiagramms(pool: app.Diagrams);
+        section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin, pool: app.Diagrams,
+            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
 
         int snapIdx = (int)FireResultJson.Dbl(d, "snapshot_index", -1);
         var fiber = FireFiberSection.FromThermalResult(thermal, section, snapIdx);

@@ -92,7 +92,19 @@
    <system:String x:Key="CalcSettingsSp63EtaMinTip">Нижняя граница нисходящей ветви криволинейной диаграммы бетона. По СП 63.13330 п. Г.1 — не менее 0.85</system:String>
    <system:String x:Key="CalcSettingsShellTolRes">Точность (пластины)</system:String>
    <system:String x:Key="CalcSettingsShellTolResTip">Относительный допуск Ньютона для пластинчатых сечений: ‖невязка‖ / (1 + ‖усилия‖). Рекомендуется 1e-3.</system:String>
+   <system:String x:Key="PlotSettingsForceSetColorize">Раскраска значений усилий в наборах по осям</system:String>
+   <system:String x:Key="PlotSettingsForceSetColorizeTip">При включении значения в таблице наборов усилий окрашиваются как в карточке правила знаков: N/T — красный, Mx/Vx/Qx/Nx — зелёный, My/Vy/Qy/Ny — синий; Nxy — тёмно-красный, Mxy — оранжевый.</system:String>
+   <system:String x:Key="CalcSettingsRcGroup">Ж/б сечение</system:String>
+   <system:String x:Key="CalcSettingsRebarDifferentialDiagram">Учёт уменьшения площади бетона, замещённой площадью арматуры</system:String>
+   <system:String x:Key="CalcSettingsRebarDifferentialDiagramTip">При включении для арматуры в бетоне учитывается уменьшение площади бетона, замещённой площадью стержня (разностная диаграмма σ_st − σ_bc). При выключении — чистая диаграмма стали, бетонная сетка включает площадь под арматурой.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Пакетные задачи</system:String>
+   <system:String x:Key="CalcSettingsSp20Group">Сочетания СП20 (γf по умолчанию)</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaG">G — постоянная (неблаг.)</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaGFav">G — постоянная (благ.)</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaL">L — длительная</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaQ">Q — кратковременная</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaA">A — особая</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaTip">Используются в комбинаторике СП20, если γf не задан явно в наборе усилий</system:String>
    <system:String x:Key="BatchParallel_Label">Параллельный расчёт (клонирование сечения на поток)</system:String>
    <system:String x:Key="BatchParallel_Tip">Рекомендуется при наборах усилий от 50 строк. Применяется ко всем пакетным задачам прочности и жёсткости. Задачи огнестойкости не затрагиваются.</system:String>
    <system:String x:Key="ShellWarmStart_Label">Тёплый старт пластин (результат строки N → начало строки N+1)</system:String>
@@ -372,11 +384,26 @@
    <system:String x:Key="TipRenumContour">Перенумерация координат контура</system:String>
    <system:String x:Key="TipExportContourCsv">Экспорт координат контура в файл *.csv</system:String>
    <system:String x:Key="TipImportContourCsv">Импорт координат контура из файла *.csv</system:String>
+   <system:String x:Key="TipCloseContour">Добавить замыкающую вершину (координаты первой точки)</system:String>
+   <system:String x:Key="ContourClosingHint">Последняя вершина = первая. При сохранении контур замыкается автоматически.</system:String>
+   <system:String x:Key="ContourNeedsClosingHint">Контур открыт — добавьте (X₁,Y₁) или «Замкнуть».</system:String>
+   <system:String x:Key="ContourTooFewPoints">Контур должен содержать не менее трёх вершин.</system:String>
+   <system:String x:Key="ContourClosedLog">Добавлена замыкающая вершина контура</system:String>
     <system:String x:Key="TipToggleEdit">Включение/отключение режима редактирования</system:String>
     <system:String x:Key="TipSaveContour">Сохранение контура или внесённых изменений</system:String>
     <system:String x:Key="TipTranslateContour">Сдвиг контура</system:String>
     <system:String x:Key="TipScaleContour">Масштабирование контура</system:String>
     <system:String x:Key="TipShowProperties">Геометрические свойства</system:String>
+   <system:String x:Key="ContourDrawAreaHeader">Область рисования</system:String>
+   <system:String x:Key="ContourDrawWidth">Ширина, м</system:String>
+   <system:String x:Key="ContourDrawHeight">Высота, м</system:String>
+   <system:String x:Key="ContourGridStep">Шаг сетки, мм</system:String>
+   <system:String x:Key="ContourSnapToGrid">Привязка к сетке</system:String>
+   <system:String x:Key="ContourBeginDrawing">Начать рисование</system:String>
+   <system:String x:Key="TipContourBeginDrawing">Задать габарит области (центр — начало координат) и перейти к расстановке вершин</system:String>
+   <system:String x:Key="ContourDrawSetupHint">Начало координат (0; 0) — в центре области. На холсте — пунктир рамки.</system:String>
+   <system:String x:Key="ContourDrawActiveHint">ЛКМ — вершина, перетаскивание — перемещение, ПКМ/Delete — удалить последнюю, клик по 1-й — замкнуть.</system:String>
+   <system:String x:Key="ContourDrawingStartedLog">Начато рисование контура на холсте</system:String>
 
    <!-- RibbonBar -->
    <system:String x:Key="RibbonHome">Главная</system:String>
@@ -460,10 +487,10 @@
    <system:String x:Key="ForceLoadTitleLabel">Название:</system:String>
    <system:String x:Key="ForceLoadKindLabel">Вид загружения:</system:String>
    <system:String x:Key="ForceLoadGammaLabel">γf (к-т надёжности):</system:String>
-   <system:String x:Key="ForceLoadGammaHint">(0 или пусто = по умолчанию)</system:String>
+   <system:String x:Key="ForceLoadGammaHint">(0 или пусто = из Настройки → Расчёт)</system:String>
    <system:String x:Key="ForceLoadGroupLabel">Группа взаимоисключения:</system:String>
    <system:String x:Key="ForceLoadGroupHint">пример: ветер, снег, кран</system:String>
-   <system:String x:Key="ForceLoadPreviewLabel">Новое имя:</system:String>
+   <system:String x:Key="ForceLoadPreviewLabel">Имя в дереве:</system:String>
    <system:String x:Key="ForceLoadKindG">G — постоянная</system:String>
    <system:String x:Key="ForceLoadKindL">L — длительная переменная</system:String>
    <system:String x:Key="ForceLoadKindQ">Q — кратковременная переменная</system:String>
@@ -486,8 +513,8 @@
    <system:String x:Key="ForceSignConventionShellViewSide">Разрез YZ</system:String>
    <system:String x:Key="ForceSignConventionAxisZ">Z</system:String>
    <system:String x:Key="ForceSignConventionBarN">N &gt; 0 — растяжение; N &lt; 0 — сжатие</system:String>
-   <system:String x:Key="ForceSignConventionBarMx">Mx &gt; 0 — растяжение на +Y, сжатие на −Y</system:String>
-   <system:String x:Key="ForceSignConventionBarMy">My &gt; 0 — растяжение на +X, сжатие на −X</system:String>
+   <system:String x:Key="ForceSignConventionBarMx">Mx &gt; 0 — нижнее волокно сжато, верхнее растянуто</system:String>
+   <system:String x:Key="ForceSignConventionBarMy">My &gt; 0 — левое волокно сжато, правое растянуто</system:String>
    <system:String x:Key="ForceSignConventionBarVx">Vx &gt; 0 — поперечная сила в направлении +X</system:String>
    <system:String x:Key="ForceSignConventionBarVy">Vy &gt; 0 — поперечная сила в направлении +Y</system:String>
    <system:String x:Key="ForceSignConventionBarT">T &gt; 0 — кручение вокруг Z (правило правого винта)</system:String>
@@ -837,6 +864,7 @@
    <system:String x:Key="ResultTabStrain">Деформации ε</system:String>
 
    <!-- Summary sections -->
+   <system:String x:Key="ResultRebarAreaReductionNote">Примечание: расчёт выполнен с учётом уменьшения площади бетона, замещённой площадью арматуры.</system:String>
    <system:String x:Key="ResultStrainPlane">Плоскость деформаций</system:String>
    <system:String x:Key="ResultForces">Усилия: задано → найдено</system:String>
    <system:String x:Key="ResultExtremeStrains">Экстремальные деформации</system:String>

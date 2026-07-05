@@ -17,7 +17,8 @@ public class PrestressLossHandler : ITaskHandler
         try
         {
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
-                pool: ctx?.Database?.Diagrams);
+                pool: ctx?.Database?.Diagrams,
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
 
             var p = JsonSerializer.Deserialize<PrestressLossParams>(task.ParamsJson)
                     ?? new PrestressLossParams();

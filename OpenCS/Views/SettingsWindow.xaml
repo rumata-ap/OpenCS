@@ -150,6 +150,10 @@
                     <TextBox Grid.Column="1" x:Name="ScaleYBox" Width="60" Height="22"
                              VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
                 </Grid>
+                <CheckBox x:Name="ForceSetColorizeCb"
+                          Content="{DynamicResource PlotSettingsForceSetColorize}"
+                          ToolTip="{DynamicResource PlotSettingsForceSetColorizeTip}"
+                          Margin="0,6,0,0"/>
             </StackPanel>
         </GroupBox>
 
@@ -294,6 +298,69 @@
                                          VerticalContentAlignment="Center" Margin="0,2"
                                          ToolTip="{DynamicResource CalcSettingsShellTolResTip}"/>
                             </Grid>
+                        </GroupBox>
+                        <GroupBox Header="{DynamicResource CalcSettingsSp20Group}" Margin="0,0,0,10">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="90"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp20GammaG}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBox Grid.Row="0" Grid.Column="1"
+                                         x:Name="Sp20GammaGBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp20GammaGFav}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBox Grid.Row="1" Grid.Column="1"
+                                         x:Name="Sp20GammaGFavBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp20GammaL}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBox Grid.Row="2" Grid.Column="1"
+                                         x:Name="Sp20GammaLBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp20GammaQ}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBox Grid.Row="3" Grid.Column="1"
+                                         x:Name="Sp20GammaQBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp20GammaA}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBox Grid.Row="4" Grid.Column="1"
+                                         x:Name="Sp20GammaABox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                            </Grid>
+                        </GroupBox>
+                        <GroupBox Header="{DynamicResource CalcSettingsRcGroup}" Margin="0,0,0,10">
+                            <StackPanel>
+                                <CheckBox x:Name="RebarDifferentialDiagramCb"
+                                          Content="{DynamicResource CalcSettingsRebarDifferentialDiagram}"
+                                          ToolTip="{DynamicResource CalcSettingsRebarDifferentialDiagramTip}"
+                                          Margin="4,6,4,6"/>
+                            </StackPanel>
                         </GroupBox>
                         <GroupBox Header="{DynamicResource CalcSettingsBatchGroup}" Margin="0,0,0,10">
                             <StackPanel>

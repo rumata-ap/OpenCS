@@ -22,7 +22,8 @@ public partial class LimitForceBatchResultView : UserControl
         _task = task;
         _singleKind = task.Kind.Replace("_batch", "");
         InitializeComponent();
-        DataContext = new LimitForceBatchVM(result);
+        var section = app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId);
+        DataContext = new LimitForceBatchVM(result, section, app.CalcSettings);
         RowsGrid.SelectionChanged += (_, _) =>
         {
             CreateTaskBtn.IsEnabled = RowsGrid.SelectedItem != null;

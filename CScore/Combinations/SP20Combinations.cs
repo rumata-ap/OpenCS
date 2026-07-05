@@ -93,9 +93,10 @@ namespace CScore.Combinations
       /// Возвращает (loadings, warnings).
       /// </summary>
       public static (List<Loading> Loadings, List<string> Warnings)
-         ForceSetsToLoadings(IList<ForceSet> forceSets)
+         ForceSetsToLoadings(IList<ForceSet> forceSets, Sp20GammaDefaults? gammaDefaults = null)
       {
          var warnings = new List<string>();
+         var g = gammaDefaults ?? Sp20GammaDefaults.Standard;
 
          if (forceSets == null || forceSets.Count == 0)
             return ([], ["Не выбран ни один набор усилий."]);
@@ -145,13 +146,15 @@ namespace CScore.Combinations
             Loading ld = lt switch
             {
                NormLoadType.Permanent   => Loading.Permanent(title, mat, cnames,
-                  gammaFUnfav: gammaKw ?? 1.1, group: group),
+                  gammaFUnfav: gammaKw ?? g.PermanentUnfav, gammaFFav: g.PermanentFav, group: group),
                NormLoadType.LongTerm    => Loading.LongTerm(title, mat, cnames,
-                  gammaFUnfav: gammaKw ?? 1.2, group: group),
+                  gammaFUnfav: gammaKw ?? g.LongTermUnfav, group: group),
                NormLoadType.ShortTerm   => Loading.ShortTerm(title, mat, cnames,
-                  gammaFUnfav: gammaKw ?? 1.4, group: group),
-               NormLoadType.Accidental  => Loading.Accidental(title, mat, cnames, group: group),
-               _ => Loading.ShortTerm(title, mat, cnames, group: group)
+                  gammaFUnfav: gammaKw ?? g.ShortTermUnfav, group: group),
+               NormLoadType.Accidental  => Loading.Accidental(title, mat, cnames,
+                  gammaFUnfav: g.AccidentalUnfav, group: group),
+               _ => Loading.ShortTerm(title, mat, cnames,
+                  gammaFUnfav: gammaKw ?? g.ShortTermUnfav, group: group)
             };
             loadings.Add(ld);
          }
@@ -301,9 +304,10 @@ namespace CScore.Combinations
       /// Построить огибающую и список комбинаций по СП20 из списка ForceSet.
       /// </summary>
       public static (Envelope Env, List<GeneratedCase> Cases, List<Loading> Loadings, List<string> Warnings)
-         SP20EnvelopeAndCasesFromForceSets(IList<ForceSet> forceSets, CombType combType)
+         SP20EnvelopeAndCasesFromForceSets(IList<ForceSet> forceSets, CombType combType,
+            Sp20GammaDefaults? gammaDefaults = null)
       {
-         var (loadings, warnings) = ForceSetsToLoadings(forceSets);
+         var (loadings, warnings) = ForceSetsToLoadings(forceSets, gammaDefaults);
          var rules = combType == CombType.Fundamental
             ? CombRules.SP20Fundamental()
             : CombRules.SP20Accidental();

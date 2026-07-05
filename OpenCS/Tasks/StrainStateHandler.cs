@@ -22,7 +22,8 @@ namespace OpenCS.Tasks
          try
          {
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
-                pool: ctx?.Database?.Diagrams);
+                pool: ctx?.Database?.Diagrams,
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
 
             double nTarget  = item.N;
             double mxTarget = item.Mx; // LoadItem.Mx → Load.Mx (∫σ·y·dA, момент относительно X)

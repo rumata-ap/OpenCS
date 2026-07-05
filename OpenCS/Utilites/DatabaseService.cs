@@ -894,11 +894,14 @@ namespace OpenCS.Utilites
       {
          // Материалы и диаграммы областей уже разрешены в пуле (ResolveReferencesForStandaloneAreas).
          // Вызываем ResolveAndBuildDiagramms для правильной привязки HostArea внутри сечения.
+         var calc = LoadCalcSettings();
          foreach (var sec in CrossSections)
          {
-            sec.ResolveAndBuildDiagramms(pool: Diagrams);
+            sec.ResolveAndBuildDiagramms(calc.Sp63DescEtaMin, pool: Diagrams,
+               rebarDifferentialDiagram: calc.RebarDifferentialDiagram);
             if (sec is TwoStageSection tss)
-               tss.Stage1.ResolveAndBuildDiagramms(pool: Diagrams);
+               tss.Stage1.ResolveAndBuildDiagramms(calc.Sp63DescEtaMin, pool: Diagrams,
+                  rebarDifferentialDiagram: calc.RebarDifferentialDiagram);
          }
       }
 
@@ -1002,6 +1005,7 @@ namespace OpenCS.Utilites
 
       void ResolveReferencesForStandaloneAreas()
       {
+         var calc = LoadCalcSettings();
          foreach (var area in MaterialAreas)
          {
             area.Material = Materials.FirstOrDefault(m => m.Id == area.MaterialId);
@@ -1016,7 +1020,8 @@ namespace OpenCS.Utilites
                   area.Hull = pc;
                }
             }
-            area.ResolveAndBuildDiagramms(pool: Diagrams);
+            area.ResolveAndBuildDiagramms(calc.Sp63DescEtaMin, pool: Diagrams,
+               rebarDifferentialDiagram: calc.RebarDifferentialDiagram);
          }
       }
 
@@ -2282,7 +2287,30 @@ namespace OpenCS.Utilites
             SavePlotSettings(def);
             return def;
          }
-         return JsonSerializer.Deserialize<PlotSettings>(json) ?? PlotSettings.Default;
+         var plot = JsonSerializer.Deserialize<PlotSettings>(json) ?? PlotSettings.Default;
+         MigrateForceSetColorizeFromCalc(plot, json);
+         return plot;
+      }
+
+      /// <summary>Перенос forceSetColorize из calc в plot (ранее хранилось в расчётных настройках).</summary>
+      void MigrateForceSetColorizeFromCalc(PlotSettings plot, string plotJson)
+      {
+         if (plotJson.Contains("\"forceSetColorize\"", StringComparison.Ordinal))
+            return;
+
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT value_json FROM settings WHERE key='calc'";
+         var calcJson = cmd.ExecuteScalar() as string;
+         if (calcJson == null)
+            return;
+
+         using var doc = JsonDocument.Parse(calcJson);
+         if (doc.RootElement.TryGetProperty("forceSetColorize", out var prop)
+             && prop.ValueKind == JsonValueKind.True)
+         {
+            plot.ForceSetColorize = true;
+            SavePlotSettings(plot);
+         }
       }
 
       public void SavePlotSettings(PlotSettings s)

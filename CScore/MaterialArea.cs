@@ -178,8 +178,10 @@ namespace CScore
       /// </summary>
       /// <param name="sp63EtaMin">Нижняя граница нисходящей ветви SP63 (по умолчанию 0.85).</param>
       /// <param name="pool">Пул диаграмм проекта — нужен для Custom-материала. null = старый путь.</param>
+      /// <param name="rebarDifferentialDiagram">Разностная диаграмма σ_st − σ_bc для арматуры в бетоне.</param>
       public void ResolveAndBuildDiagramms(double sp63EtaMin = 0.85,
-                                            IReadOnlyList<Diagramm>? pool = null)
+                                            IReadOnlyList<Diagramm>? pool = null,
+                                            bool rebarDifferentialDiagram = true)
       {
          if (Material == null) return;
 
@@ -189,7 +191,7 @@ namespace CScore
          else
             own = Material.GetDiagramms(DiagrammType, sp63EtaMin) ?? [];
 
-         if (HostArea != null && HostArea.Diagramms.Count > 0)
+         if (rebarDifferentialDiagram && HostArea != null && HostArea.Diagramms.Count > 0)
          {
             Diagramms = [];
             foreach (var ct in own.Keys)
@@ -231,7 +233,8 @@ namespace CScore
          IEnumerable<Fiber> bars,
          Material steelMaterial,
          DiagrammType steelDiagrammType,
-         MaterialArea? hostConcreteArea)
+         MaterialArea? hostConcreteArea,
+         bool rebarDifferentialDiagram = true)
       {
          var area = new MaterialArea
          {
@@ -242,7 +245,7 @@ namespace CScore
             HostAreaId = hostConcreteArea?.Id,
             Fibers = bars.ToList()
          };
-         area.ResolveAndBuildDiagramms();
+         area.ResolveAndBuildDiagramms(rebarDifferentialDiagram: rebarDifferentialDiagram);
          return area;
       }
 
@@ -251,7 +254,8 @@ namespace CScore
       /// точечных волокон в контуры бетонных областей (ray casting).
       /// Пропускает области с уже назначенным HostAreaId.
       /// </summary>
-      public static void AutoResolveHostAreas(IEnumerable<MaterialArea> allAreas)
+      public static void AutoResolveHostAreas(IEnumerable<MaterialArea> allAreas,
+                                              bool rebarDifferentialDiagram = true)
       {
          var all = allAreas.ToList();
          var concreteAreas = all
@@ -277,7 +281,7 @@ namespace CScore
                   break;
                }
             }
-            rebar.ResolveAndBuildDiagramms();
+            rebar.ResolveAndBuildDiagramms(rebarDifferentialDiagram: rebarDifferentialDiagram);
          }
       }
 

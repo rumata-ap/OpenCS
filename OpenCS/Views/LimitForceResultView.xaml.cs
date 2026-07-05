@@ -16,12 +16,13 @@ public partial class LimitForceResultView : UserControl
         if (section == null)
             return;
 
-        section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin, pool: app.Diagrams);
+        section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin, pool: app.Diagrams,
+            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
         var k = ParseKurvature(result.DataJson);
         section.SetEps(k, task.CalcType);
 
         SummaryView.DataContext = new LimitForceSummaryVM(
-            result, section, task.CalcType, app.CalcSettings.GridDensity);
+            result, section, task.CalcType, app.CalcSettings);
 
         var settings = app.CalcSettings;
         StressView.DataContext = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings);

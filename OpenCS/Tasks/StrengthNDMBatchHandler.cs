@@ -35,7 +35,8 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
                     $"Набор усилий id={task.ForceSetId} не найден.");
 
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
-                pool: ctx.Database.Diagrams);
+                pool: ctx.Database.Diagrams,
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
 
             var items = forceSet.Items;
             int total = items.Count;

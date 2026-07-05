@@ -17,6 +17,9 @@ public sealed class StrengthNDMBatchVM : ViewModelBase
     public bool   HasError    { get; }
     public string ErrorText   { get; } = "";
 
+    public bool   ShowRebarAreaNote { get; }
+    public string RebarAreaNote    { get; } = "";
+
     public ObservableCollection<BatchRow> Rows { get; } = [];
 
     public sealed record BatchRow(
@@ -37,10 +40,12 @@ public sealed class StrengthNDMBatchVM : ViewModelBase
         bool   IsPassed,
         bool   IsConverged);
 
-    public StrengthNDMBatchVM(CalcResult result)
+    public StrengthNDMBatchVM(CalcResult result, CrossSection? section = null, CalcSettings? settings = null)
     {
         TaskTag     = result.TaskTag;
         CreatedText = result.Created;
+        ShowRebarAreaNote = section != null && StrainSummaryVM.ShouldShowRebarAreaNote(section, settings);
+        RebarAreaNote     = ShowRebarAreaNote ? Loc.S("ResultRebarAreaReductionNote") : "";
 
         if (result.Status == "error")
         {

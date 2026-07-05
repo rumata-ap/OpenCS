@@ -18,6 +18,9 @@ public sealed class LimitForceBatchVM : ViewModelBase
     public string ErrorText   { get; } = "";
     public string SolverText  { get; }
 
+    public bool   ShowRebarAreaNote { get; }
+    public string RebarAreaNote    { get; } = "";
+
     public ObservableCollection<BatchRow> Rows { get; } = [];
 
     public sealed record BatchRow(
@@ -33,10 +36,12 @@ public sealed class LimitForceBatchVM : ViewModelBase
         string StatusText,
         bool   IsConverged);
 
-    public LimitForceBatchVM(CalcResult result)
+    public LimitForceBatchVM(CalcResult result, CrossSection? section = null, CalcSettings? settings = null)
     {
         TaskTag     = result.TaskTag;
         CreatedText = result.Created;
+        ShowRebarAreaNote = section != null && StrainSummaryVM.ShouldShowRebarAreaNote(section, settings);
+        RebarAreaNote     = ShowRebarAreaNote ? Loc.S("ResultRebarAreaReductionNote") : "";
 
         if (result.Status == "error")
         {

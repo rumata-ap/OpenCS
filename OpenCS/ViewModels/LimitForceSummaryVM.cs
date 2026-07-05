@@ -32,11 +32,11 @@ public sealed class LimitForceSummaryVM : ViewModelBase
 
     public StrainSummaryVM StrainPart { get; }
 
-    public LimitForceSummaryVM(CalcResult result, CrossSection section, CalcType calcType, int gridDensity = 20)
+    public LimitForceSummaryVM(CalcResult result, CrossSection section, CalcType calcType, CalcSettings? settings = null)
     {
         TaskTag     = result.TaskTag;
         CreatedText = result.Created;
-        StrainPart  = new StrainSummaryVM(result, section, calcType, gridDensity);
+        StrainPart  = new StrainSummaryVM(result, section, calcType, settings);
 
         var doc  = JsonDocument.Parse(result.DataJson);
         var root = doc.RootElement;

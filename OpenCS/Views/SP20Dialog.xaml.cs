@@ -128,7 +128,7 @@ namespace OpenCS.ViewModels
 
          try
          {
-            var (loadings, warnings) = SP20Combinations.ForceSetsToLoadings(sets);
+            var (loadings, warnings) = SP20Combinations.ForceSetsToLoadings(sets, _app.CalcSettings.ToSp20GammaDefaults());
             int perm = loadings.Count(l => l.LoadType == NormLoadType.Permanent);
             int lt   = loadings.Count(l => l.LoadType == NormLoadType.LongTerm);
             int st   = loadings.Count(l => l.LoadType == NormLoadType.ShortTerm);
@@ -213,7 +213,7 @@ namespace OpenCS.ViewModels
                    List<string> rowLabels, List<string> created)
       {
          var (env, cases, loadings, _) =
-            SP20Combinations.SP20EnvelopeAndCasesFromForceSets(sets, combType);
+            SP20Combinations.SP20EnvelopeAndCasesFromForceSets(sets, combType, _app.CalcSettings.ToSp20GammaDefaults());
 
          string kind = sets[0].Kind;
 

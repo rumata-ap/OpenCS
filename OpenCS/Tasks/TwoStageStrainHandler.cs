@@ -29,8 +29,10 @@ public sealed class TwoStageStrainHandler : ITaskHandler
          var f1 = TwoStageForceResolver.Resolve(p.Stage1, ctx.Database.ForceSets).Single();
          var f2 = TwoStageForceResolver.Resolve(p.Stage2, ctx.Database.ForceSets).Single();
 
-         tss.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams);
-         tss.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams);
+         tss.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+         tss.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
 
          // Этап 1: решаем сечение этапа 1 как обычное CrossSection → κ1
          var s1Solver = new StrainSolver(tss.Stage1, task.CalcType,

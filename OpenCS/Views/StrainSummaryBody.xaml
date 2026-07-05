@@ -175,5 +175,10 @@
          </Grid>
       </GroupBox>
 
+      <!-- Примечание об учёте замещения площади бетона -->
+      <TextBlock Text="{Binding RebarAreaNote}" TextWrapping="Wrap"
+                 Foreground="Gray" FontStyle="Italic" Margin="0,4,0,0"
+                 Visibility="{Binding ShowRebarAreaNote, Converter={StaticResource BoolToVisibility}}"/>
+
    </StackPanel>
 </UserControl>

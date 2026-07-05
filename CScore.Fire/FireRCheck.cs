@@ -17,8 +17,12 @@ public static class FireRCheck
         string method = "fiber",
         int snapshotIndex = -1,
         FireSectionDef? fireDef = null,
-        int? thermalResultId = null)
+        int? thermalResultId = null,
+        double sp63EtaMin = 0.85,
+        bool rebarDifferentialDiagram = true,
+        IReadOnlyList<Diagramm>? diagramPool = null)
         => method == "mvp"
             ? FireRCheckMvp.Run(thermal, section, n, mx, my, calc, snapshotIndex, fireDef, thermalResultId)
-            : FireRCheckFiber.Run(thermal, section, n, mx, my, calc, snapshotIndex, fireDef, thermalResultId);
+            : FireRCheckFiber.Run(thermal, section, n, mx, my, calc, snapshotIndex, fireDef, thermalResultId,
+                sp63EtaMin, rebarDifferentialDiagram, diagramPool);
 }

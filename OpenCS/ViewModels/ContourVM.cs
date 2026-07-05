@@ -8,6 +8,7 @@ using OpenCS.Utilites;
 using OpenCS.Views.Dialogs;
 
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
 using System.Windows;
@@ -16,6 +17,9 @@ using System.Windows.Media;
 
 namespace OpenCS.ViewModels
 {
+   /// <summary>Этап интерактивного рисования контура на холсте.</summary>
+   public enum ContourDrawingPhase { Setup, Draw }
+
    /// <summary>
    /// Вспомогательный класс для сериализации/десериализации координат при
    /// импорте и экспорте контуров в формате CSV.
@@ -43,6 +47,14 @@ namespace OpenCS.ViewModels
       /// <summary>Флаг, указывающий, находится ли контур в режиме редактирования.</summary>
       bool isEdit;
 
+      ContourDrawingPhase drawingPhase = ContourDrawingPhase.Setup;
+      double viewWidth = 1.0;
+      double viewHeight = 1.0;
+      int gridStepMm = 10;
+      bool snapToGrid = true;
+
+      NotifyCollectionChangedEventHandler? _pointsChangedHandler;
+
       /// <summary>
       /// Доменный объект контура, содержащий геометрию и метаданные.
       /// Изменения свойств ViewModel проксируются в этот объект.
@@ -61,10 +73,12 @@ namespace OpenCS.ViewModels
       public List<ContourType> Types { get; set; } = null!;
 
       /// <summary>
-      /// Сервис построения графиков. Используется для визуализации контура и точек
-      /// на плоскости с автоматическим масштабированием.
+      /// Сервис построения графиков (устаревший путь; контурный холст обновляется через <see cref="CanvasRefreshRequested"/>).
       /// </summary>
       public IPlotService PlotService { get; set; } = null!;
+
+      /// <summary>Запрос перерисовки интерактивного холста контура.</summary>
+      public event Action? CanvasRefreshRequested;
 
       /// <summary>
       /// Флаг, указывающий, сохранён ли контур в базу данных.
@@ -76,7 +90,11 @@ namespace OpenCS.ViewModels
       /// Флаг режима редактирования контура. При установке значения
       /// вызывается <c>OnPropertyChanged()</c> для обновления привязки.
       /// </summary>
-      public bool IsEdit { get => isEdit; set { isEdit = value; OnPropertyChanged(); } }
+      public bool IsEdit
+      {
+         get => isEdit;
+         set { isEdit = value; OnPropertyChanged(); OnPropertyChanged(nameof(NeedsClosingHint)); OnPropertyChanged(nameof(IsDrawingSetup)); OnPropertyChanged(nameof(IsDrawingActive)); }
+      }
 
       /// <summary>
       /// Тип контура (Оболочка, Отверстие, Нет). Проксирует свойство
@@ -124,7 +142,93 @@ namespace OpenCS.ViewModels
       /// Коллекция точек контура (StressPoint). При изменении вызывается
       /// <c>OnPropertyChanged()</c> для обновления привязки в ListBox точек.
       /// </summary>
-      public ObservableCollection<StressPoint> Points { get => Contour.Points; set { Contour.Points = value; OnPropertyChanged(); } }
+      public ObservableCollection<StressPoint> Points
+      {
+         get => Contour.Points;
+         set { Contour.Points = value; WirePointsCollection(); OnPropertyChanged(); NotifyContourGeometryChanged(); }
+      }
+
+      /// <summary>Показывать предупреждение о незамкнутом контуре (режим редактирования, ≥3 вершин).</summary>
+      public bool NeedsClosingHint => IsEdit && Contour.Points.Count >= 3 && !Contour.IsClosed;
+
+      /// <summary>Этап рисования: задание области или расстановка вершин.</summary>
+      public ContourDrawingPhase DrawingPhase
+      {
+         get => drawingPhase;
+         set
+         {
+            drawingPhase = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsDrawingSetup));
+            OnPropertyChanged(nameof(IsDrawingActive));
+         }
+      }
+
+      /// <summary>Панель габарита: полная ширина области (центр в начале координат), м.</summary>
+      public double ViewWidth
+      {
+         get => viewWidth;
+         set
+         {
+            viewWidth = value;
+            if (DrawingPhase == ContourDrawingPhase.Setup)
+               SetViewFromOrigin(viewWidth, viewHeight);
+            OnPropertyChanged();
+            RefreshPlot();
+         }
+      }
+
+      /// <summary>Панель габарита: полная высота области (центр в начале координат), м.</summary>
+      public double ViewHeight
+      {
+         get => viewHeight;
+         set
+         {
+            viewHeight = value;
+            if (DrawingPhase == ContourDrawingPhase.Setup)
+               SetViewFromOrigin(viewWidth, viewHeight);
+            OnPropertyChanged();
+            RefreshPlot();
+         }
+      }
+
+      /// <summary>Шаг строительной сетки, мм.</summary>
+      public int GridStepMm
+      {
+         get => gridStepMm;
+         set { gridStepMm = value > 0 ? value : 1; OnPropertyChanged(); OnPropertyChanged(nameof(GridStepM)); RefreshPlot(); }
+      }
+
+      /// <summary>Шаг сетки в метрах (для расчётов и отрисовки).</summary>
+      public double GridStepM => gridStepMm / 1000.0;
+
+      /// <summary>Доступные значения шага сетки, мм.</summary>
+      public IReadOnlyList<int> GridStepMmOptions { get; } = [1, 5, 10, 25, 50, 100];
+
+      /// <summary>Привязка координат вершин к сетке.</summary>
+      public bool SnapToGrid
+      {
+         get => snapToGrid;
+         set { snapToGrid = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>Левая граница видимой области модели, м.</summary>
+      public double ViewXMin { get; private set; } = -0.5;
+
+      /// <summary>Нижняя граница видимой области модели, м.</summary>
+      public double ViewYMin { get; private set; } = -0.5;
+
+      /// <summary>Правая граница видимой области модели, м.</summary>
+      public double ViewXMax { get; private set; } = 0.5;
+
+      /// <summary>Верхняя граница видимой области модели, м.</summary>
+      public double ViewYMax { get; private set; } = 0.5;
+
+      /// <summary>Настройка габарита перед первым рисованием.</summary>
+      public bool IsDrawingSetup => IsEdit && DrawingPhase == ContourDrawingPhase.Setup && Contour.Points.Count == 0;
+
+      /// <summary>Интерактивное рисование вершин на холсте.</summary>
+      public bool IsDrawingActive => IsEdit && DrawingPhase == ContourDrawingPhase.Draw;
 
       /// <summary>
       /// Выбранная точка контура в ListBox. Используется для редактирования
@@ -143,6 +247,11 @@ namespace OpenCS.ViewModels
       /// Вызывает метод <c>RenumPoint</c>.
       /// </summary>
       public ICommand RenumPointCommand { get; set; } = null!;
+
+      /// <summary>
+      /// Команда привязки для добавления замыкающей вершины контура.
+      /// </summary>
+      public ICommand CloseContourCommand { get; set; } = null!;
 
       /// <summary>
       /// Команда привязки для импорта координат точек из CSV-файла.
@@ -186,6 +295,9 @@ namespace OpenCS.ViewModels
       /// </summary>
       public ICommand ScaleCommand { get; set; } = null!;
 
+      /// <summary>Начать рисование после задания габарита области.</summary>
+      public ICommand BeginDrawingCommand { get; set; } = null!;
+
       /// <summary>
       /// Инициализирует экземпляр <see cref="ContourVM"/> с пустым контуром
       /// и создаёт все команды привязки.
@@ -195,6 +307,7 @@ namespace OpenCS.ViewModels
          Types = [ContourType.Hull, ContourType.Hole, ContourType.None];
 
           RenumPointCommand = new RelayCommand(RenumPoint);
+          CloseContourCommand = new RelayCommand(CloseContour);
           ExportCsvCommand = new RelayCommand(ExportCsv);
           ImportCsvCommand = new RelayCommand(ImportCsv);
           SaveChangesCommand = new RelayCommand(SaveChanges);
@@ -202,6 +315,9 @@ namespace OpenCS.ViewModels
           ShowPropertiesCommand = new RelayCommand(_ => ShowProperties());
           TranslateCommand = new RelayCommand(_ => Translate());
           ScaleCommand = new RelayCommand(_ => Scale());
+          BeginDrawingCommand = new RelayCommand(_ => BeginDrawing(), _ => CanBeginDrawing());
+          SetViewFromOrigin(viewWidth, viewHeight);
+          WirePointsCollection();
        }
 
        /// <summary>
@@ -216,6 +332,7 @@ namespace OpenCS.ViewModels
           Types = [ContourType.Hull, ContourType.Hole, ContourType.None];
 
           RenumPointCommand = new RelayCommand(RenumPoint);
+          CloseContourCommand = new RelayCommand(CloseContour);
           ExportCsvCommand = new RelayCommand(ExportCsv);
           ImportCsvCommand = new RelayCommand(ImportCsv);
           SaveChangesCommand = new RelayCommand(SaveChanges);
@@ -223,10 +340,217 @@ namespace OpenCS.ViewModels
           ShowPropertiesCommand = new RelayCommand(_ => ShowProperties());
           TranslateCommand = new RelayCommand(_ => Translate());
           ScaleCommand = new RelayCommand(_ => Scale());
+          BeginDrawingCommand = new RelayCommand(_ => BeginDrawing(), _ => CanBeginDrawing());
+          if (Contour.Points.Count > 0)
+          {
+             DrawingPhase = ContourDrawingPhase.Draw;
+             FitViewToPoints();
+          }
+          else
+             SetViewFromOrigin(viewWidth, viewHeight);
+          WirePointsCollection();
+       }
+
+       void WirePointsCollection()
+       {
+          if (_pointsChangedHandler != null)
+             Contour.Points.CollectionChanged -= _pointsChangedHandler;
+          _pointsChangedHandler = (_, _) =>
+          {
+             NotifyContourGeometryChanged();
+             RefreshPlot();
+          };
+          Contour.Points.CollectionChanged += _pointsChangedHandler;
+       }
+
+       bool CanBeginDrawing() => IsDrawingSetup && viewWidth > 0 && viewHeight > 0;
+
+       /// <summary>Задаёт область рисования с началом координат (0; 0) в центре.</summary>
+       public void SetViewFromOrigin(double width, double height)
+       {
+          double w = Math.Max(width, 1e-6);
+          double h = Math.Max(height, 1e-6);
+          ViewXMin = -w / 2;
+          ViewYMin = -h / 2;
+          ViewXMax = w / 2;
+          ViewYMax = h / 2;
+       }
+
+       /// <summary>Подгоняет видимую область под существующие вершины.</summary>
+       public void FitViewToPoints()
+       {
+          if (Contour.Points.Count == 0) return;
+
+          double xMin = double.MaxValue, xMax = double.MinValue;
+          double yMin = double.MaxValue, yMax = double.MinValue;
+          foreach (var p in Contour.Points)
+          {
+             if (p.X < xMin) xMin = p.X;
+             if (p.X > xMax) xMax = p.X;
+             if (p.Y < yMin) yMin = p.Y;
+             if (p.Y > yMax) yMax = p.Y;
+          }
+          if (xMax - xMin < 1e-9) { xMin -= 0.5; xMax += 0.5; }
+          if (yMax - yMin < 1e-9) { yMin -= 0.5; yMax += 0.5; }
+
+          double padX = (xMax - xMin) * 0.08 + 0.01;
+          double padY = (yMax - yMin) * 0.08 + 0.01;
+          ViewXMin = xMin - padX;
+          ViewYMin = yMin - padY;
+          ViewXMax = xMax + padX;
+          ViewYMax = yMax + padY;
+          RefreshPlot();
+       }
+
+       void BeginDrawing()
+       {
+          if (!CanBeginDrawing()) return;
+          SetViewFromOrigin(viewWidth, viewHeight);
+          DrawingPhase = ContourDrawingPhase.Draw;
+          mvm?.LogService.Info(Loc.S("ContourDrawingStartedLog"));
+          RefreshPlot();
+       }
+
+       /// <summary>Привязка координаты к шагу сетки.</summary>
+       public double SnapCoord(double v)
+       {
+          double step = GridStepM;
+          return SnapToGrid && step > 0 ? Math.Round(v / step) * step : v;
+       }
+
+       /// <summary>Добавляет вершину в режиме рисования.</summary>
+       public void AddPoint(double x, double y)
+       {
+          if (!IsDrawingActive) return;
+
+          x = SnapCoord(x);
+          y = SnapCoord(y);
+          int n = Contour.Points.Count + 1;
+          Contour.Points.Add(new StressPoint(x, y) { Num = n });
+          RenumPointLocal();
+          Point = Contour.Points[^1];
+          OnPropertyChanged(nameof(Points));
+          RefreshPlot();
+       }
+
+       /// <summary>Перемещает вершину (с синхронизацией замыкающей).</summary>
+       public void MovePoint(StressPoint pt, double x, double y)
+       {
+          if (!IsDrawingActive) return;
+
+          x = SnapCoord(x);
+          y = SnapCoord(y);
+          pt.X = x;
+          pt.Y = y;
+
+          int idx = Contour.Points.IndexOf(pt);
+          if (idx >= 0 && Contour.IsClosed)
+          {
+             if (idx == 0)
+             {
+                Contour.Points[^1].X = x;
+                Contour.Points[^1].Y = y;
+             }
+             else if (idx == Contour.Points.Count - 1)
+             {
+                Contour.Points[0].X = x;
+                Contour.Points[0].Y = y;
+             }
+          }
+          RefreshPlot();
+       }
+
+       /// <summary>Завершает перетаскивание вершины — обновляет привязку таблицы.</summary>
+       public void CommitPointMove()
+       {
+          OnPropertyChanged(nameof(Points));
+          NotifyContourGeometryChanged();
+       }
+
+       /// <summary>Удаляет последнюю вершину.</summary>
+       public void RemoveLastPoint()
+       {
+          if (!IsDrawingActive || Contour.Points.Count == 0) return;
+          Contour.Points.RemoveAt(Contour.Points.Count - 1);
+          RenumPointLocal();
+          Point = Contour.Points.Count > 0 ? Contour.Points[^1] : null;
+          OnPropertyChanged(nameof(Points));
+          NotifyContourGeometryChanged();
+          RefreshPlot();
+       }
+
+       /// <summary>Замыкание по клику на первую вершину.</summary>
+       public bool TryCloseAtFirstVertex()
+       {
+          if (!IsDrawingActive || Contour.Points.Count < 3 || Contour.IsClosed) return false;
+          CloseContour();
+          return Contour.IsClosed;
+       }
+
+       void RenumPointLocal()
+       {
+          int i = 1;
+          foreach (var item in Contour.Points)
+             item.Num = i++;
+       }
+
+       void NotifyContourGeometryChanged()
+       {
+          OnPropertyChanged(nameof(NeedsClosingHint));
+       }
+
+       void CloseContour(object? o = null)
+       {
+          if (!Contour.TryClose())
+          {
+             MessageBox.Show(Loc.S("ContourTooFewPoints"), Loc.S("Warning"),
+                 MessageBoxButton.OK, MessageBoxImage.Warning);
+             return;
+          }
+          RenumPoint();
+          RefreshPlot();
+          NotifyContourGeometryChanged();
+          mvm?.LogService.Info(Loc.S("ContourClosedLog"));
+       }
+
+       /// <summary>
+       /// Замыкает контур при необходимости, обновляет WKT и проверяет минимальное число вершин.
+       /// </summary>
+       bool PrepareContourForSave()
+       {
+          if (Contour.Points.Count < 3)
+          {
+             MessageBox.Show(Loc.S("ContourTooFewPoints"), Loc.S("Warning"),
+                 MessageBoxButton.OK, MessageBoxImage.Warning);
+             return false;
+          }
+          if (!Contour.TryClose())
+          {
+             MessageBox.Show(Loc.S("ContourTooFewPoints"), Loc.S("Warning"),
+                 MessageBoxButton.OK, MessageBoxImage.Warning);
+             return false;
+          }
+          RenumPoint();
+          RefreshPlot();
+          NotifyContourGeometryChanged();
+          return true;
+       }
+
+       /// <summary>
+       /// Предупреждает, если вершин контура меньше требуемого минимума.
+       /// </summary>
+       bool WarnContourVerticesBelow(int minCount)
+       {
+          if (Contour.Points.Count >= minCount) return false;
+          MessageBox.Show(Loc.S("ContourTooFewPoints"), Loc.S("Warning"),
+              MessageBoxButton.OK, MessageBoxImage.Warning);
+          return true;
        }
 
        void Translate()
        {
+           if (WarnContourVerticesBelow(4)) return;
+
            var dlg = new Views.Dialogs.DoubleInputDialog(
                "Сдвиг контура",
                "Смещение по X (м):",
@@ -251,6 +575,8 @@ namespace OpenCS.ViewModels
 
        void Scale()
        {
+           if (WarnContourVerticesBelow(4)) return;
+
            var dlg = new Views.Dialogs.DoubleInputDialog(
                "Масштабирование контура",
                "Коэффициент по X:",
@@ -286,17 +612,11 @@ namespace OpenCS.ViewModels
            mvm.LogService.Info($"Контур масштабирован ({sx}, {sy})");
        }
 
-       void RefreshPlot()
-       {
-           PlotService?.Clear();
-           PlotService?.AddScatter(Contour.X.ToArray(), Contour.Y.ToArray(), lineWidth: 2);
-           PlotService?.EnableSquareAxes();
-           PlotService?.AutoScale();
-           PlotService?.Refresh();
-       }
+       void RefreshPlot() => CanvasRefreshRequested?.Invoke();
 
        void ShowProperties()
        {
+          if (WarnContourVerticesBelow(4)) return;
           var dlg = new Views.Dialogs.ContourPropsWindow(Contour, Tag);
           dlg.ShowDialog();
        }
@@ -377,14 +697,16 @@ namespace OpenCS.ViewModels
             points.Add(new StressPoint(r.X, r.Y) { Num = i});
             i++;
          }
-         Points = [.. points];
-         Contour = new Contour(points, "");
-
-         PlotService.Clear();
-         PlotService.AddScatter(Contour.X.ToArray(), Contour.Y.ToArray(), lineWidth: 2);
-         PlotService.EnableSquareAxes();
-         PlotService.AutoScale();
-         PlotService.Refresh();
+         Contour.Points = new ObservableCollection<StressPoint>(points);
+         WirePointsCollection();
+         if (Contour.Points.Count >= 3 && !Contour.IsClosed)
+            Contour.TryClose();
+         DrawingPhase = ContourDrawingPhase.Draw;
+         RenumPoint();
+         FitViewToPoints();
+         RefreshPlot();
+         OnPropertyChanged(nameof(Points));
+         NotifyContourGeometryChanged();
       }
 
       /// <summary>
@@ -409,6 +731,8 @@ namespace OpenCS.ViewModels
       /// </summary>
       void Save(object? o = null)
       {
+         if (!PrepareContourForSave()) return;
+
          if (IsSaved)
          {
             mvm.db.SaveContour(Contour);

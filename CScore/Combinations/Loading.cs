@@ -88,13 +88,14 @@ namespace CScore.Combinations
                 componentNames ?? InferNames(forces),
                 gammaFUnfav, gammaFFav, psi1, psi2, group);
 
-      /// <summary>Особая нагрузка (γf=1.0, включается с коэф. 1.0).</summary>
+      /// <summary>Особая нагрузка (γf=1.0 по умолчанию, включается с коэф. 1.0).</summary>
       public static Loading Accidental(string name, double[,] forces,
          string[]? componentNames = null,
+         double gammaFUnfav = 1.0, double gammaFFav = 1.0,
          string? group = null)
          => new(name, NormLoadType.Accidental, forces,
                 componentNames ?? InferNames(forces),
-                1.0, 1.0, 1.0, 1.0, group);
+                gammaFUnfav, gammaFFav, 1.0, 1.0, group);
 
       // ---------------------------------------------------------------
       // Вспомогательные

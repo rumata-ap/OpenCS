@@ -773,6 +773,8 @@
                          <ContextMenu>
                             <MenuItem Header="{DynamicResource NewBarForceSet}"
                                       Command="{Binding NewBarForceSetCommand}"/>
+                            <MenuItem Header="{DynamicResource SP20CombineBtn}"
+                                      Command="{Binding SP20BarCombinationsCommand}"/>
                             <Separator/>
                             <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
                                       Command="{Binding DeleteSelectedBarForceSetsCommand}"/>
@@ -786,11 +788,6 @@
                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                               <StackPanel.ContextMenu>
                                  <ContextMenu>
-                                    <MenuItem Header="{DynamicResource RenameForceSet}"
-                                              Command="{Binding PlacementTarget.Tag.SetForceSetLoadTypeCommand,
-                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                              CommandParameter="{Binding PlacementTarget.DataContext,
-                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                     <MenuItem Header="{DynamicResource DuplicateForceSet}"
                                               Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
                                                                 RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -825,6 +822,8 @@
                          <ContextMenu>
                             <MenuItem Header="{DynamicResource NewShellForceSet}"
                                       Command="{Binding NewShellForceSetCommand}"/>
+                            <MenuItem Header="{DynamicResource SP20CombineBtn}"
+                                      Command="{Binding SP20ShellCombinationsCommand}"/>
                             <Separator/>
                             <MenuItem Header="{DynamicResource DeleteSelectedForceSetsMenu}"
                                       Command="{Binding DeleteSelectedShellForceSetsCommand}"/>
@@ -838,11 +837,6 @@
                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                               <StackPanel.ContextMenu>
                                  <ContextMenu>
-                                    <MenuItem Header="{DynamicResource RenameForceSet}"
-                                              Command="{Binding PlacementTarget.Tag.SetForceSetLoadTypeCommand,
-                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                              CommandParameter="{Binding PlacementTarget.DataContext,
-                                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                     <MenuItem Header="{DynamicResource DuplicateForceSet}"
                                               Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
                                                                 RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -1142,11 +1136,6 @@
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
                            <ContextMenu>
-                              <MenuItem Header="{DynamicResource RenameForceSet}"
-                                        Command="{Binding PlacementTarget.Tag.SetForceSetLoadTypeCommand,
-                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                        CommandParameter="{Binding PlacementTarget.DataContext,
-                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <MenuItem Header="{DynamicResource DuplicateForceSet}"
                                         Command="{Binding PlacementTarget.Tag.DuplicateForceSetCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"

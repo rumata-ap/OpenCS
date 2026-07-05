@@ -61,7 +61,8 @@ public sealed class FireRCheckHandler : ITaskHandler
                 ? p.ThermalResultId
                 : ctx.Database.GetLatestFireThermalResultId(p.FireSectionId);
 
-            section.ResolveAndBuildDiagramms(pool: ctx?.Database?.Diagrams);
+            section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx?.Database?.Diagrams,
+               rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
             FireCheckResult check = FireRCheck.Run(
                 thermal,
                 section,
@@ -72,7 +73,10 @@ public sealed class FireRCheckHandler : ITaskHandler
                 p.Method,
                 p.SnapshotIndex,
                 fireDef,
-                thermalId);
+                thermalId,
+                settings.Sp63DescEtaMin,
+                settings.RebarDifferentialDiagram,
+                ctx?.Database?.Diagrams);
 
             var data = new
             {

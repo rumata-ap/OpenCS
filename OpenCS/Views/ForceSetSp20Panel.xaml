@@ -1,0 +1,71 @@
+<UserControl x:Class="OpenCS.Views.ForceSetSp20Panel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             mc:Ignorable="d"
+             d:DesignHeight="90" d:DesignWidth="700">
+
+   <Grid>
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="Auto"/>
+         <ColumnDefinition Width="*"/>
+         <ColumnDefinition Width="16"/>
+         <ColumnDefinition Width="Auto"/>
+         <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Название -->
+      <TextBlock Grid.Row="0" Grid.Column="0"
+                 Text="{DynamicResource ForceLoadTitleLabel}"
+                 VerticalAlignment="Center" Margin="0,0,8,6"/>
+      <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,6"
+               Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}"/>
+
+      <!-- Вид загружения -->
+      <TextBlock Grid.Row="0" Grid.Column="3"
+                 Text="{DynamicResource ForceLoadKindLabel}"
+                 VerticalAlignment="Center" Margin="0,0,8,6"/>
+      <ComboBox Grid.Row="0" Grid.Column="4" Margin="0,0,0,6"
+                ItemsSource="{Binding KindOptions}"
+                SelectedIndex="{Binding KindIndex, Mode=TwoWay}"/>
+
+      <!-- γf -->
+      <TextBlock Grid.Row="1" Grid.Column="0"
+                 Text="{DynamicResource ForceLoadGammaLabel}"
+                 VerticalAlignment="Center" Margin="0,0,8,6"/>
+      <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,6">
+         <TextBox Text="{Binding GammaFText, UpdateSourceTrigger=PropertyChanged}"
+                  Width="72"/>
+         <TextBlock Text="{DynamicResource ForceLoadGammaHint}" Foreground="Gray"
+                    FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/>
+      </StackPanel>
+
+      <!-- Группа -->
+      <TextBlock Grid.Row="1" Grid.Column="3"
+                 Text="{DynamicResource ForceLoadGroupLabel}"
+                 VerticalAlignment="Top" Margin="0,2,8,6"/>
+      <StackPanel Grid.Row="1" Grid.Column="4" Margin="0,0,0,6">
+         <TextBox Text="{Binding Group, UpdateSourceTrigger=PropertyChanged}"/>
+         <TextBlock Text="{DynamicResource ForceLoadGroupHint}" Foreground="Gray"
+                    FontSize="11" Margin="0,2,0,0"/>
+      </StackPanel>
+
+      <!-- Имя в дереве -->
+      <TextBlock Grid.Row="2" Grid.Column="0"
+                 Text="{DynamicResource ForceLoadPreviewLabel}"
+                 VerticalAlignment="Center" Margin="0,0,8,0"/>
+      <Border Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4"
+              BorderThickness="1" Padding="6,4"
+              BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
+         <TextBlock Text="{Binding Preview}"
+                    FontFamily="Consolas, Courier New" FontSize="12"
+                    TextWrapping="Wrap"/>
+      </Border>
+   </Grid>
+</UserControl>

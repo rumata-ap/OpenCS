@@ -152,78 +152,25 @@ namespace CScore
       }
 
       /// <summary>
-      /// Триангуляция методом продвижения фронта (SETKA-4N-2D).
+      /// Триангуляция методом продвижения фронта (спецификация triangulation_spec.md).
       /// </summary>
       static Fiber[] TriangulationAdvancingFront(MaterialArea region, double maxTrgArea, double scale, double maxEdgeLen = 0, int smoothIter = 5)
       {
          double hullArea = WktHelper.PolygonArea(region.Hull!.X, region.Hull!.Y);
          double avgH = maxEdgeLen > 0
             ? maxEdgeLen
-            : Math.Sqrt(hullArea * maxTrgArea * 4 / System.Math.Sqrt(3));
+            : System.Math.Sqrt(hullArea * maxTrgArea * 4 / System.Math.Sqrt(3));
          double avgHScaled = System.Math.Max(avgH * scale, 1e-6);
 
-         var hullPts = region.Hull;
-         int nOuter = hullPts.Points.Count - 1;
-         var nodes = new List<double[]>();
-         var isBoundary = new List<bool>();
-         var hValues = new List<double>();
-         var outerIdxs = new List<int>();
+         var outer = BuildLoop(region.Hull, scale, avgHScaled, LoopKind.Hull);
 
-         // Добавляем промежуточные узлы вдоль рёбер контура с шагом avgHScaled
-         for (int j = 0; j < nOuter; j++)
-         {
-            double x0 = hullPts.X[j] * scale, y0 = hullPts.Y[j] * scale;
-            double x1 = hullPts.X[(j + 1) % nOuter] * scale, y1 = hullPts.Y[(j + 1) % nOuter] * scale;
-            double edgeLen = System.Math.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
-            int nSeg = System.Math.Max(1, (int)System.Math.Round(edgeLen / avgHScaled));
-            for (int s = 0; s < nSeg; s++)
-            {
-               double t = (double)s / nSeg;
-               outerIdxs.Add(nodes.Count);
-               nodes.Add([x0 + t * (x1 - x0), y0 + t * (y1 - y0)]);
-               isBoundary.Add(true);
-               hValues.Add(avgHScaled);
-            }
-         }
-
-         var holeIdxs = new List<List<int>>();
+         var holes = new List<ContourLoop>();
          if (region.Contours.Count > 1)
-         {
-            var h = region.Holes;
-            for (int k = 0; k < h.Count; k++)
-            {
-               Contour hole = h[k];
-               int nHole = hole.Points.Count - 1;
-               var holeIdxList = new List<int>();
-               for (int j = 0; j < nHole; j++)
-               {
-                  double x0 = hole.X[j] * scale, y0 = hole.Y[j] * scale;
-                  double x1 = hole.X[(j + 1) % nHole] * scale, y1 = hole.Y[(j + 1) % nHole] * scale;
-                  double edgeLen = System.Math.Sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
-                  int nSeg = System.Math.Max(1, (int)System.Math.Round(edgeLen / avgHScaled));
-                  for (int s = 0; s < nSeg; s++)
-                  {
-                     double t = (double)s / nSeg;
-                     holeIdxList.Add(nodes.Count);
-                     nodes.Add([x0 + t * (x1 - x0), y0 + t * (y1 - y0)]);
-                     isBoundary.Add(true);
-                     hValues.Add(avgHScaled);
-                  }
-               }
-               holeIdxs.Add(holeIdxList);
-            }
-         }
+            foreach (var hole in region.Holes)
+               holes.Add(BuildLoop(hole, scale, avgHScaled, LoopKind.Hole));
 
-         var contour = new DiscretizedContour
-         {
-            Nodes = nodes.ToArray(),
-            IsBoundary = isBoundary.ToArray(),
-            HValues = hValues.ToArray(),
-            OuterIndices = outerIdxs,
-            HoleIndices = holeIdxs
-         };
-
-         var afResult = AdvancingFront.Triangulate(contour, 90.0);
+         var input = new AdvancingFrontInput { Outer = outer, Holes = holes };
+         var afResult = AdvancingFront.Triangulate(input, 90.0);
 
          var optimized = Optimize.OptimizeTriangular(afResult, nIter: smoothIter, chi: 2.0);
 
@@ -255,6 +202,21 @@ namespace CScore
          }
 
          return [.. fas];
+      }
+
+      /// <summary>Строит замкнутый линейный контур (§1.2) из полигона Contour с равномерным шагом h.</summary>
+      static ContourLoop BuildLoop(Contour contour, double scale, double h, LoopKind kind)
+      {
+         int n = contour.Points.Count - 1;
+         var nodes = new ContourNode[n];
+         for (int j = 0; j < n; j++)
+            nodes[j] = new ContourNode(contour.X[j] * scale, contour.Y[j] * scale, h);
+
+         var faces = new List<ContourFace>(n);
+         for (int j = 0; j < n; j++)
+            faces.Add(ContourFace.Linear(nodes[j], nodes[(j + 1) % n]));
+
+         return new ContourLoop(kind, faces);
       }
    }
 }

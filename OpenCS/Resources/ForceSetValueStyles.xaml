@@ -1,0 +1,103 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+   <SolidColorBrush x:Key="ForceAxisZBrush" Color="Red"/>
+   <SolidColorBrush x:Key="ForceAxisXBrush" Color="ForestGreen"/>
+   <SolidColorBrush x:Key="ForceAxisYBrush" Color="RoyalBlue"/>
+   <SolidColorBrush x:Key="ForceAxisTauBrush" Color="#CC2222"/>
+   <SolidColorBrush x:Key="ForceAxisTwistBrush" Color="#CC9900"/>
+
+   <Style x:Key="ForceValueRight" TargetType="TextBlock">
+      <Setter Property="HorizontalAlignment" Value="Right"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+   </Style>
+
+   <Style x:Key="ForceEditRight" TargetType="TextBox">
+      <Setter Property="HorizontalAlignment" Value="Right"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="BorderThickness" Value="0"/>
+   </Style>
+
+   <Style x:Key="ForceValueZ" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRight}">
+      <Style.Triggers>
+         <DataTrigger Binding="{Binding DataContext.ColorizeForceValues, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                      Value="True">
+            <Setter Property="Foreground" Value="{StaticResource ForceAxisZBrush}"/>
+         </DataTrigger>
+      </Style.Triggers>
+   </Style>
+   <Style x:Key="ForceValueX" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRight}">
+      <Style.Triggers>
+         <DataTrigger Binding="{Binding DataContext.ColorizeForceValues, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                      Value="True">
+            <Setter Property="Foreground" Value="{StaticResource ForceAxisXBrush}"/>
+         </DataTrigger>
+      </Style.Triggers>
+   </Style>
+   <Style x:Key="ForceValueY" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRight}">
+      <Style.Triggers>
+         <DataTrigger Binding="{Binding DataContext.ColorizeForceValues, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                      Value="True">
+            <Setter Property="Foreground" Value="{StaticResource ForceAxisYBrush}"/>
+         </DataTrigger>
+      </Style.Triggers>
+   </Style>
+   <Style x:Key="ForceValueTau" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRight}">
+      <Style.Triggers>
+         <DataTrigger Binding="{Binding DataContext.ColorizeForceValues, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                      Value="True">
+            <Setter Property="Foreground" Value="{StaticResource ForceAxisTauBrush}"/>
+         </DataTrigger>
+      </Style.Triggers>
+   </Style>
+   <Style x:Key="ForceValueTwist" TargetType="TextBlock" BasedOn="{StaticResource ForceValueRight}">
+      <Style.Triggers>
+         <DataTrigger Binding="{Binding DataContext.ColorizeForceValues, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                      Value="True">
+            <Setter Property="Foreground" Value="{StaticResource ForceAxisTwistBrush}"/>
+         </DataTrigger>
+      </Style.Triggers>
+   </Style>
+
+   <Style x:Key="ForceEditZ" TargetType="TextBox" BasedOn="{StaticResource ForceEditRight}">
+      <Style.Triggers>
+         <DataTrigger Binding="{Binding DataContext.ColorizeForceValues, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                      Value="True">
+            <Setter Property="Foreground" Value="{StaticResource ForceAxisZBrush}"/>
+         </DataTrigger>
+      </Style.Triggers>
+   </Style>
+   <Style x:Key="ForceEditX" TargetType="TextBox" BasedOn="{StaticResource ForceEditRight}">
+      <Style.Triggers>
+         <DataTrigger Binding="{Binding DataContext.ColorizeForceValues, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                      Value="True">
+            <Setter Property="Foreground" Value="{StaticResource ForceAxisXBrush}"/>
+         </DataTrigger>
+      </Style.Triggers>
+   </Style>
+   <Style x:Key="ForceEditY" TargetType="TextBox" BasedOn="{StaticResource ForceEditRight}">
+      <Style.Triggers>
+         <DataTrigger Binding="{Binding DataContext.ColorizeForceValues, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                      Value="True">
+            <Setter Property="Foreground" Value="{StaticResource ForceAxisYBrush}"/>
+         </DataTrigger>
+      </Style.Triggers>
+   </Style>
+   <Style x:Key="ForceEditTau" TargetType="TextBox" BasedOn="{StaticResource ForceEditRight}">
+      <Style.Triggers>
+         <DataTrigger Binding="{Binding DataContext.ColorizeForceValues, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                      Value="True">
+            <Setter Property="Foreground" Value="{StaticResource ForceAxisTauBrush}"/>
+         </DataTrigger>
+      </Style.Triggers>
+   </Style>
+   <Style x:Key="ForceEditTwist" TargetType="TextBox" BasedOn="{StaticResource ForceEditRight}">
+      <Style.Triggers>
+         <DataTrigger Binding="{Binding DataContext.ColorizeForceValues, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                      Value="True">
+            <Setter Property="Foreground" Value="{StaticResource ForceAxisTwistBrush}"/>
+         </DataTrigger>
+      </Style.Triggers>
+   </Style>
+
+</ResourceDictionary>

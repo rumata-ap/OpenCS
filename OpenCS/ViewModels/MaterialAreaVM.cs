@@ -55,7 +55,8 @@ namespace OpenCS.ViewModels
          {
             _model.Material = value;
             _model.MaterialId = value?.Id ?? 0;
-            _model.ResolveAndBuildDiagramms(pool: App.db.Diagrams);
+            _model.ResolveAndBuildDiagramms(App.CalcSettings.Sp63DescEtaMin, pool: App.db.Diagrams,
+               rebarDifferentialDiagram: App.CalcSettings.RebarDifferentialDiagram);
             OnPropertyChanged();
             OnPropertyChanged(nameof(MaterialType));
             OnPropertyChanged(nameof(IsCustomMaterial));
@@ -117,7 +118,8 @@ namespace OpenCS.ViewModels
          set
          {
             _model.DiagrammType = value;
-            _model.ResolveAndBuildDiagramms(pool: App.db.Diagrams);
+            _model.ResolveAndBuildDiagramms(App.CalcSettings.Sp63DescEtaMin, pool: App.db.Diagrams,
+               rebarDifferentialDiagram: App.CalcSettings.RebarDifferentialDiagram);
             OnPropertyChanged();
          }
       }

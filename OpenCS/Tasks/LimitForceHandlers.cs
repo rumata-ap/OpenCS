@@ -28,7 +28,8 @@ static class LimitForceTaskHelper
       var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
       try
       {
-         section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin);
+         section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
          var solver = LimitForceSolvers.Create(section, task.CalcType,
             LimitForceParams.Parse(task.ParamsJson),
             newtonTol: settings.NewtonTolerance,
@@ -64,7 +65,8 @@ static class LimitForceTaskHelper
             ?? throw new InvalidOperationException(
                $"Набор усилий id={task.ForceSetId} не найден.");
 
-         section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin);
+         section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
          var parameters = LimitForceParams.Parse(task.ParamsJson);
          var items = forceSet.Items;
          int total = items.Count;

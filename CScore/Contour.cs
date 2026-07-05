@@ -26,7 +26,7 @@ namespace CScore
       public ObservableCollection<StressPoint> Points 
       { 
          get => points; 
-         set { points = value; PointsToXYs(); } 
+         set { points = value; if (points.Count >= 4) PointsToXYs(); } 
       }
       [JsonIgnore]
       public GeoProps Props { get => new(this); }
@@ -97,6 +97,36 @@ namespace CScore
       public void SetWKT()
       {
          WKT = WktHelper.PolygonToWKT(X, Y, null);
+      }
+
+      /// <summary>Допуск совпадения координат первой и последней вершин при проверке замыкания.</summary>
+      public const double CloseTolerance = 1e-4;
+
+      /// <summary>
+      /// Контур считается замкнутым, если последняя вершина совпадает с первой
+      /// (минимум три вершины).
+      /// </summary>
+      public bool IsClosed =>
+         Points.Count >= 3 &&
+         Math.Abs(Points[0].X - Points[^1].X) < CloseTolerance &&
+         Math.Abs(Points[0].Y - Points[^1].Y) < CloseTolerance;
+
+      /// <summary>
+      /// Добавляет замыкающую вершину с координатами первой точки, если контур ещё не замкнут.
+      /// Обновляет X/Y и WKT. Возвращает false, если вершин меньше трёх.
+      /// </summary>
+      public bool TryClose()
+      {
+         if (Points.Count < 3) return false;
+         if (!IsClosed)
+         {
+            var p0 = Points[0];
+            Points.Add(new StressPoint(p0.X, p0.Y) { Num = Points.Count + 1 });
+         }
+         if (Points.Count < 4) return false;
+         PointsToXYs();
+         SetWKT();
+         return true;
       }
 
       public void Scale(double scale)

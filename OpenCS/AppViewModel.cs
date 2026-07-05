@@ -153,6 +153,14 @@ namespace OpenCS
          NotifyDirtyChanged();
       }
 
+      /// <summary>Обновить отображение набора усилий в TreeView после смены имени.</summary>
+      public void RefreshForceSetInTree(ForceSet fs)
+      {
+         var col = fs.Kind == "shell" ? ShellForceSets : BarForceSets;
+         int idx = col.IndexOf(fs);
+         if (idx >= 0) { col.RemoveAt(idx); col.Insert(idx, fs); }
+      }
+
       /// <summary>
       /// Генерируется когда <see cref="MaterialArea.SigSp"/> изменяется извне (например,
       /// через «Применить» результатов потерь преднапряжения). Аргумент — Id области.
@@ -539,11 +547,14 @@ namespace OpenCS
       /// <summary>Команда создания нового набора усилий пластины.</summary>
       public ICommand NewShellForceSetCommand { get; set; } = null!;
 
+      /// <summary>Команда формирования сочетаний СП20 для наборов усилий стержней.</summary>
+      public ICommand SP20BarCombinationsCommand { get; set; } = null!;
+
+      /// <summary>Команда формирования сочетаний СП20 для наборов усилий пластин.</summary>
+      public ICommand SP20ShellCombinationsCommand { get; set; } = null!;
+
       /// <summary>Команда удаления набора усилий (параметр ForceSet).</summary>
       public ICommand DeleteForceSetCommand { get; set; } = null!;
-
-      /// <summary>Команда задания вида загружения / переименования набора усилий (параметр ForceSet).</summary>
-      public ICommand SetForceSetLoadTypeCommand { get; set; } = null!;
 
       /// <summary>Команда дублирования набора усилий (параметр ForceSet).</summary>
       public ICommand DuplicateForceSetCommand { get; set; } = null!;
@@ -774,6 +785,18 @@ namespace OpenCS
 
       /// <summary>Настройки численного расчёта (сетка, Ньютон).</summary>
       public Utilites.CalcSettings CalcSettings { get; set; } = Utilites.CalcSettings.Default;
+
+      /// <summary>Срабатывает после сохранения настроек расчёта (Настройки → Применить/OK).</summary>
+      public event Action? CalcSettingsApplied;
+
+      /// <summary>Уведомляет открытые страницы об изменении <see cref="CalcSettings"/>.</summary>
+      public void NotifyCalcSettingsApplied() => CalcSettingsApplied?.Invoke();
+
+      /// <summary>Срабатывает после сохранения настроек графики (Настройки → Применить/OK).</summary>
+      public event Action? PlotSettingsApplied;
+
+      /// <summary>Уведомляет открытые страницы об изменении <see cref="PlotSettings"/>.</summary>
+      public void NotifyPlotSettingsApplied() => PlotSettingsApplied?.Invoke();
 
       /// <summary>Настройки импорта усилий LIRA SAPR (HTML).</summary>
       public Utilites.LiraImportSettings LiraImportSettings { get; set; } = Utilites.LiraImportSettings.Default;
@@ -1046,8 +1069,9 @@ namespace OpenCS
          NewRebarGroupCommand      = new RelayCommand(_ => NewRebarGroup());
          NewBarForceSetCommand        = new RelayCommand(_ => NewBarForceSet());
          NewShellForceSetCommand      = new RelayCommand(_ => NewShellForceSet());
+         SP20BarCombinationsCommand   = new RelayCommand(_ => OpenSP20CombinationsDialog("bar"));
+         SP20ShellCombinationsCommand = new RelayCommand(_ => OpenSP20CombinationsDialog("shell"));
          DeleteForceSetCommand        = new RelayCommand(p => DeleteForceSet(p as CScore.ForceSet));
-         SetForceSetLoadTypeCommand   = new RelayCommand(p => SetForceSetLoadType(p as CScore.ForceSet));
          DuplicateForceSetCommand     = new RelayCommand(p => DuplicateForceSet(p as CScore.ForceSet));
          DeleteSelectedBarForceSetsCommand   = new RelayCommand(_ => DeleteSelectedForceSets(kind: "bar"));
          DeleteSelectedShellForceSetsCommand = new RelayCommand(_ => DeleteSelectedForceSets(kind: "shell"));
@@ -1128,6 +1152,7 @@ namespace OpenCS
          if (CurrentPage is Views.RebarGroupEditorPage rgp)
             rgp.RefreshPlotSettings();
          DxfBgApplied?.Invoke(PlotSettings.DxfCanvasBackground);
+         NotifyPlotSettingsApplied();
       }
 
       /// <summary>
@@ -1887,6 +1912,16 @@ namespace OpenCS
          CurrentPage = new Views.ShellForceSetPage(this);
       }
 
+      void OpenSP20CombinationsDialog(string kind)
+      {
+         var sets = kind == "shell" ? ShellForceSets : BarForceSets;
+         var dlg = new Views.SP20Dialog(sets, this)
+         {
+            Owner = System.Windows.Application.Current.MainWindow
+         };
+         dlg.ShowDialog();
+      }
+
       void DeleteForceSet(CScore.ForceSet? target = null)
       {
          var fs = target ?? currentBarForceSet ?? currentShellForceSet;
@@ -1909,20 +1944,6 @@ namespace OpenCS
             CurrentPage = null!;
             OnPropertyChanged(nameof(CurrentShellForceSet));
          }
-      }
-
-      void SetForceSetLoadType(CScore.ForceSet? fs)
-      {
-         if (fs == null) return;
-         var dlg = new Views.ForceSetPropsDialog(fs);
-         if (dlg.ShowDialog() != true) return;
-         var vm = (ForceSetPropsVM)dlg.DataContext;
-         fs.Tag = vm.ResultName;
-         db.SaveForceSet(fs);
-         // ForceSet не INPC — форсируем обновление TreeView через remove+insert
-         var col = fs.Kind == "shell" ? ShellForceSets : BarForceSets;
-         int idx = col.IndexOf(fs);
-         if (idx >= 0) { col.RemoveAt(idx); col.Insert(idx, fs); }
       }
 
       void DuplicateForceSet(CScore.ForceSet? src)

@@ -50,7 +50,7 @@ namespace OpenCS.Views
                                        => new StrainStateBatchResultView(result, app, task),
                 "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
                                        => new LimitForceBatchResultView(result, app, task),
-                "strength_ndm_batch"   => new StrengthNDMBatchResultView(result),
+                "strength_ndm_batch"   => new StrengthNDMBatchResultView(result, app, task),
                 "shell_strain_state_batch" => new ShellStrainBatchResultView(result, app, task),
                 "shell_layered_uls_batch"  => new ShellStrainBatchResultView(result, app, task),
                 _ when task.Kind.StartsWith("shell_simpl_") && task.Kind.EndsWith("_batch")
@@ -87,9 +87,11 @@ namespace OpenCS.Views
             if (tss != null)
             {
                 tss.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
-                    pool: app.Diagrams);
+                    pool: app.Diagrams,
+                    rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
                 tss.Stage1.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
-                    pool: app.Diagrams);
+                    pool: app.Diagrams,
+                    rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
                 Content = new TwoStageCalcResultView(result, tss, task.CalcType, app.CalcSettings);
                 return;
             }
@@ -113,12 +115,13 @@ namespace OpenCS.Views
 
             // Подготовить сечение: диаграммы + SetEps по плоскости из результата
             section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
-                pool: app.Diagrams);
+                pool: app.Diagrams,
+                rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
 
             var k = ParseKurvature(result.DataJson);
             section.SetEps(k, task.CalcType);
 
-            SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, app.CalcSettings.GridDensity);
+            SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, app.CalcSettings);
             var settings = app.CalcSettings;
             StressView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings);
             StrainView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings);

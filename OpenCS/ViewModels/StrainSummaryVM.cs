@@ -60,10 +60,17 @@ namespace OpenCS.ViewModels
         public string ResidualText   { get; }
         public bool   ShowConvergence { get; }
 
+        /// <summary>Примечание об учёте замещения площади бетона арматурой.</summary>
+        public bool   ShowRebarAreaNote { get; }
+        public string RebarAreaNote    { get; }
+
         public record RebarRow(int Num, string X, string Y, string Eps, string Sigma);
 
-        public StrainSummaryVM(CalcResult result, CrossSection section, CalcType calcType, int gridDensity = 20)
+        public StrainSummaryVM(CalcResult result, CrossSection section, CalcType calcType, CalcSettings? settings = null)
         {
+            int gridDensity = settings?.GridDensity ?? 20;
+            ShowRebarAreaNote = ShouldShowRebarAreaNote(section, settings);
+            RebarAreaNote     = ShowRebarAreaNote ? Loc.S("ResultRebarAreaReductionNote") : "";
             TaskTag     = result.TaskTag;
             CreatedText = result.Created;
 
@@ -146,6 +153,11 @@ namespace OpenCS.ViewModels
         }
 
         // ── Вспомогательные ───────────────────────────────────────────
+
+        /// <summary>Показывать примечание, если включена глобальная опция и в сечении есть арматура в бетоне.</summary>
+        public static bool ShouldShowRebarAreaNote(CrossSection section, CalcSettings? settings)
+            => settings?.RebarDifferentialDiagram == true
+               && section.Areas.Any(a => a.HostAreaId != null);
 
         static string Pct(double target, double result)
         {

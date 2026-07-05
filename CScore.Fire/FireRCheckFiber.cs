@@ -18,12 +18,15 @@ public static class FireRCheckFiber
         CalcType calc = CalcType.C,
         int snapshotIndex = -1,
         FireSectionDef? fireDef = null,
-        int? thermalResultId = null)
+        int? thermalResultId = null,
+        double sp63EtaMin = 0.85,
+        bool rebarDifferentialDiagram = true,
+        IReadOnlyList<Diagramm>? diagramPool = null)
     {
         ArgumentNullException.ThrowIfNull(thermal);
         ArgumentNullException.ThrowIfNull(section);
 
-        section.ResolveAndBuildDiagramms();
+        section.ResolveAndBuildDiagramms(sp63EtaMin, diagramPool, rebarDifferentialDiagram);
         var fiber = FireFiberSection.FromThermalResult(thermal, section, snapshotIndex);
         var solver = new LimitForceSolver(fiber, fiber.SourceSection, calc);
         LimitForceResult res = solver.AllFactor(n, mx, my);

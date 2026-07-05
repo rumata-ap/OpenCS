@@ -1,6 +1,3 @@
-using CScore;
-
-using OpenCS.Services;
 using OpenCS.ViewModels;
 
 using System.Windows.Controls;
@@ -16,22 +13,23 @@ namespace OpenCS.Views
       {
          InitializeComponent();
 
-         var plotService = new WpfPlotService(ViewPl);
-         plotService.ApplySettings(mvm.PlotSettings);
+         var vm = mvm.CurrentContour!;
+         ViewCanvas.SetVM(vm, mvm.PlotSettings);
 
-         if (isSaved)
+         if (isSaved && vm.Contour.Points.Count > 0)
          {
-            mvm.CurrentContour!.Contour.PointsToXYs();
-            plotService.AddScatter(mvm.CurrentContour.Contour.X.ToArray(), mvm.CurrentContour.Contour.Y.ToArray(), lineWidth: 2);
-            plotService.EnableSquareAxes();
-            plotService.AutoScale();
-            plotService.Refresh();
+            if (vm.Contour.Points.Count >= 4)
+               vm.Contour.PointsToXYs();
+            vm.DrawingPhase = ContourDrawingPhase.Draw;
+            vm.FitViewToPoints();
+         }
+         else
+         {
+            vm.IsEdit = true;
+            vm.DrawingPhase = ContourDrawingPhase.Setup;
          }
 
-         if(!isSaved) mvm.CurrentContour!.IsEdit = true;
-
-         mvm.CurrentContour!.PlotService = plotService;
-         DataContext = mvm.CurrentContour;
+         DataContext = vm;
       }
    }
 }

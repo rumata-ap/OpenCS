@@ -41,7 +41,8 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                 ? p.ThermalResultId
                 : ctx.Database.GetLatestFireThermalResultId(p.FireSectionId);
 
-            section.ResolveAndBuildDiagramms(pool: ctx?.Database?.Diagrams);
+            section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx?.Database?.Diagrams,
+               rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
 
             var rows = new List<object>();
             bool allPassed = true;
@@ -59,7 +60,10 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                     p.Method,
                     p.SnapshotIndex,
                     fireDef,
-                    thermalId);
+                    thermalId,
+                    settings.Sp63DescEtaMin,
+                    settings.RebarDifferentialDiagram,
+                    ctx?.Database?.Diagrams);
 
                 if (!check.Passed)
                     allPassed = false;

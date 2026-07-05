@@ -35,8 +35,10 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
             throw new InvalidOperationException(
                $"Число строк наборов этапов не совпадает: этап 1 = {s1Items.Count}, этап 2 = {s2Items.Count}.");
 
-         tss.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams);
-         tss.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams);
+         tss.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+         tss.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
 
          int total = s2Items.Count;
          var rows  = new object[total];
@@ -54,8 +56,10 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
          void Solve(int i)
          {
             var clone = (TwoStageSection)tss.CloneForCalc();
-            clone.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams);
-            clone.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams);
+            clone.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
+               rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+            clone.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
+               rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
 
             Kurvature k1;
             if (sharedK1.HasValue)
