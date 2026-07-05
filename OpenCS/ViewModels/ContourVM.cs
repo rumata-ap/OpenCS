@@ -547,6 +547,34 @@ namespace OpenCS.ViewModels
           return true;
        }
 
+       /// <summary>Синхронизирует Points → X/Y → WKT и обновляет таблицу координат.</summary>
+       void ApplyContourGeometryChange()
+       {
+          Contour.TryClose();
+          Contour.PointsToXYs();
+          Contour.SetWKT();
+
+          // Клонирование точек: StressPoint не уведомляет об изменении X/Y,
+          // поэтому DataGrid не обновится без замены элементов коллекции.
+          var refreshed = new ObservableCollection<StressPoint>();
+          foreach (var p in Contour.Points)
+          {
+             var c = p.Clone();
+             c.Contour = Contour;
+             refreshed.Add(c);
+          }
+          Points = refreshed;
+       }
+
+       /// <summary>Сохраняет контур в БД без дублирования в коллекции проекта.</summary>
+       void PersistContourToDb()
+       {
+          mvm.db.SaveContour(Contour);
+          if (mvm.Contours.Contains(Contour))
+             IsSaved = true;
+          mvm.MarkDirty(SaveCategory.Contours);
+       }
+
        void Translate()
        {
            if (WarnContourVerticesBelow(4)) return;
@@ -565,11 +593,9 @@ namespace OpenCS.ViewModels
                p.X += dx;
                p.Y += dy;
            }
-           Contour.Points = new ObservableCollection<StressPoint>(Contour.Points);
-           Contour.SetWKT();
-
-           RefreshPlot();
-           mvm.db.SaveContour(Contour);
+           ApplyContourGeometryChange();
+           FitViewToPoints();
+           PersistContourToDb();
            mvm.LogService.Info($"Контур сдвинут на ({dx}, {dy})");
        }
 
@@ -593,22 +619,19 @@ namespace OpenCS.ViewModels
            }
            if (sx == 1 && sy == 1) return;
 
-           // Centroid
-           double cx = 0, cy = 0;
-           int n = Contour.Points.Count;
-           foreach (var p in Contour.Points) { cx += p.X; cy += p.Y; }
-           cx /= n; cy /= n;
+           ApplyContourGeometryChange();
+           var props = new GeoProps(Contour);
+           double cx = props.Centroid.X;
+           double cy = props.Centroid.Y;
 
            foreach (var p in Contour.Points)
            {
                p.X = cx + (p.X - cx) * sx;
                p.Y = cy + (p.Y - cy) * sy;
            }
-           Contour.Points = new ObservableCollection<StressPoint>(Contour.Points);
-           Contour.SetWKT();
-
-           RefreshPlot();
-           mvm.db.SaveContour(Contour);
+           ApplyContourGeometryChange();
+           FitViewToPoints();
+           PersistContourToDb();
            mvm.LogService.Info($"Контур масштабирован ({sx}, {sy})");
        }
 
@@ -617,6 +640,7 @@ namespace OpenCS.ViewModels
        void ShowProperties()
        {
           if (WarnContourVerticesBelow(4)) return;
+          ApplyContourGeometryChange();
           var dlg = new Views.Dialogs.ContourPropsWindow(Contour, Tag);
           dlg.ShowDialog();
        }
@@ -733,19 +757,16 @@ namespace OpenCS.ViewModels
       {
          if (!PrepareContourForSave()) return;
 
-         if (IsSaved)
-         {
-            mvm.db.SaveContour(Contour);
-            mvm.LogService.Info($"Изменения контура '{Tag}' сохранены");
-         }
-         else
-         {
+         bool isNew = !mvm.Contours.Contains(Contour);
+         if (isNew)
             mvm.Contours.Add(Contour);
-            mvm.db.SaveContour(Contour);
-            IsSaved = true;
+         mvm.db.SaveContour(Contour);
+         IsSaved = true;
+         mvm.MarkDirty(SaveCategory.Contours);
 
-            mvm.LogService.Info($"Контур '{Tag}' успешно сохранен");
-         }
+         mvm.LogService.Info(isNew
+            ? $"Контур '{Tag}' успешно сохранен"
+            : $"Изменения контура '{Tag}' сохранены");
       }
 
    }

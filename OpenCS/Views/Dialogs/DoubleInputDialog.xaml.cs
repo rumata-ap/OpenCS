@@ -1,3 +1,5 @@
+using OpenCS.Utilites;
+
 using System.Windows;
 
 namespace OpenCS.Views.Dialogs;
@@ -23,7 +25,7 @@ public partial class DoubleInputDialog : Window
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
-        if (!double.TryParse(Value1Box.Text, out var v1))
+        if (!Pars.ParseAny(Value1Box.Text, out var v1))
         {
             MessageBox.Show("Введите числовое значение.", "Ошибка",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -31,7 +33,7 @@ public partial class DoubleInputDialog : Window
             Value1Box.SelectAll();
             return;
         }
-        if (!double.TryParse(Value2Box.Text, out var v2))
+        if (!Pars.ParseAny(Value2Box.Text, out var v2))
         {
             MessageBox.Show("Введите числовое значение.", "Ошибка",
                 MessageBoxButton.OK, MessageBoxImage.Warning);

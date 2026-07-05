@@ -1317,7 +1317,7 @@ namespace OpenCS
          var contour = BuildContour(pts, name, type);
          db.SaveContour(contour);
          Contours.Add(contour);
-         var vm = new ContourVM { mvm = this, Contour = contour };
+         var vm = new ContourVM(contour) { mvm = this };
          CurrentContour = vm;
          return vm;
       }

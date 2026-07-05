@@ -114,24 +114,25 @@ namespace CScore
          A = Math.Abs(temp);
 
          XY s = new XY();
+         double tempX = 0;
+         double tempY = 0;
+         double tempXY = 0;
          for (int i = 0; i < X.Count - 1; i++)
          {
-            s.X += 1 / 6 * (X[i] + X[i + 1]) * (X[i] * Y[i + 1] - Y[i] * X[i + 1]);
-            s.Y += 1 / 6 * (Y[i] + Y[i + 1]) * (X[i] * Y[i + 1] - Y[i] * X[i + 1]);
+            double cross = X[i] * Y[i + 1] - Y[i] * X[i + 1];
+            s.X += (X[i] + X[i + 1]) * cross / 6.0;
+            s.Y += (Y[i] + Y[i + 1]) * cross / 6.0;
+            tempX += (Math.Pow(X[i], 2) + X[i] * X[i + 1] +
+               Math.Pow(X[i + 1], 2)) * cross;
+            tempY += (Math.Pow(Y[i], 2) + Y[i] * Y[i + 1] +
+               Math.Pow(Y[i + 1], 2)) * cross;
+            tempXY += (X[i] * Y[i] + X[i] * Y[i + 1] + X[i + 1] * Y[i] + X[i + 1] * Y[i + 1]) * cross;
          }
          Sy = s.X; Sx = s.Y;
 
-         double tempX = 0;
-         double tempY = 0;
-         for (int i = 0; i < X.Count - 1; i++)
-         {
-            tempX += (Math.Pow(X[i], 2) + X[i] * X[i + 1] +
-               Math.Pow(X[i + 1], 2)) * (X[i] * Y[i + 1] - Y[i] * X[i + 1]);
-            tempY += (Math.Pow(Y[i], 2) + Y[i] * Y[i + 1] +
-               Math.Pow(Y[i + 1], 2)) * (X[i] * Y[i + 1] - Y[i] * X[i + 1]);
-         }
          Iy = Math.Abs(tempX / 12);
          Ix = Math.Abs(tempY / 12);
+         Ixy = Math.Abs(tempXY / 24);
 
          EA = A * e;
          ESx = Sx * e;
