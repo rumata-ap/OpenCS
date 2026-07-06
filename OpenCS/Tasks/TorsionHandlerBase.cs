@@ -20,10 +20,26 @@ public abstract class TorsionHandlerBase : ITaskHandler
         try
         {
             var p = TorsionParams.Parse(task.ParamsJson);
+            var femOrder = string.Equals(p.FemOrder, "quadratic", StringComparison.OrdinalIgnoreCase)
+                ? FemElementOrder.Quadratic
+                : FemElementOrder.Linear;
             var area = section.Areas[0];
             var boundary = area.FromMaterialArea();
-            double elemSizeM = p.ElementSize > 0 ? p.ElementSize : 0.05;
-            var props = TorsionSolver.Solve(boundary, Method, elemSizeM);
+
+            TorsionProps props;
+            TorsionAutoConvergeResult? autoConverge = null;
+            double elemSizeM;
+            if (p.AutoConverge)
+            {
+                autoConverge = TorsionRichardson.SolveAutoConverge(boundary, Method, p.Triangulation, femOrder);
+                props = autoConverge.ToTorsionProps();
+                elemSizeM = autoConverge.Steps[^1].ElementSize;
+            }
+            else
+            {
+                elemSizeM = p.ElementSize > 0 ? p.ElementSize : 0.05;
+                props = TorsionSolver.Solve(boundary, Method, elemSizeM, p.Triangulation, femOrder);
+            }
 
             var baseMat = TorsionMaterialHelper.ResolveBaseMaterial(section);
             double gMpa = TorsionMaterialHelper.ShearModulusMpa(baseMat);
@@ -44,6 +60,7 @@ public abstract class TorsionHandlerBase : ITaskHandler
             var data = new
             {
                 method = Method.ToString().ToLowerInvariant(),
+                fem_order = p.FemOrder,
                 It_m4 = props.It,
                 It_mm4 = props.It * 1e12,
                 shear_center_x_m = TorsionJsonHelper.Finite(props.ShearCenterX),
@@ -70,7 +87,15 @@ public abstract class TorsionHandlerBase : ITaskHandler
                 outer_x_mm = boundary.OuterX.Select(v => v * 1000.0).ToArray(),
                 outer_y_mm = boundary.OuterY.Select(v => v * 1000.0).ToArray(),
                 holes_x_mm = holesX,
-                holes_y_mm = holesY
+                holes_y_mm = holesY,
+                auto_converge = p.AutoConverge,
+                convergence_h_mm = autoConverge?.Steps.Select(s => s.ElementSize * 1000.0).ToArray(),
+                convergence_it_mm4 = autoConverge?.Steps.Select(s => s.Props.It * 1e12).ToArray(),
+                it_order = autoConverge?.ItOrder,
+                it_extrapolated = autoConverge?.ItExtrapolated,
+                shear_center_order_x = autoConverge?.ShearCenterXOrder,
+                shear_center_order_y = autoConverge?.ShearCenterYOrder,
+                shear_center_extrapolated = autoConverge?.ShearCenterExtrapolated
             };
             return new CalcResult
             {
