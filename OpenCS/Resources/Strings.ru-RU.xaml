@@ -538,7 +538,14 @@
    <system:String x:Key="ShellForceColQy">Qy, кН/м</system:String>
    <system:String x:Key="ImportCsvBtn">Импорт CSV</system:String>
    <system:String x:Key="ExportCsvBtn">Экспорт CSV</system:String>
-   <system:String x:Key="ImportMenu">Импорт</system:String>
+    <system:String x:Key="ImportMenu">Импорт</system:String>
+    <system:String x:Key="ImportSubMenuDxf">DXF…</system:String>
+    <system:String x:Key="ImportSubMenuAutoCAD">AutoCAD…</system:String>
+    <system:String x:Key="ImportSubMenuLira">ЛираСАПР…</system:String>
+    <system:String x:Key="ImportSubMenuScad">SCAD…</system:String>
+    <system:String x:Key="ImportSubMenuRobot">Robot…</system:String>
+    <system:String x:Key="ImportSubMenuRfem5">RFEM5…</system:String>
+    <system:String x:Key="ImportSubMenuSap2000">SAP2000…</system:String>
    <system:String x:Key="ImportCirclesFromDxf">Импорт окружностей из DXF…</system:String>
    <system:String x:Key="ImportContoursFromDxf">Импорт контуров из DXF…</system:String>
    <system:String x:Key="ImportAreasFromDxf">Импорт областей из DXF…</system:String>
@@ -558,7 +565,24 @@
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Файл жёсткостей пластин (CSV, опционально)</system:String>
    <system:String x:Key="ImportLiraSchemaSuccess">Импортирована схема: {0} узлов, {1} стержней, {2} пластин, {3} конструктивных элементов</system:String>
    <system:String x:Key="CsvFileFilter">CSV-файл (*.csv)|*.csv|Все файлы (*.*)|*.*</system:String>
-   <system:String x:Key="LiraImportSettingsTab">Импорт LIRA</system:String>
+    <system:String x:Key="ImportSettingsTab">Импорт</system:String>
+    <system:String x:Key="LiraImportGroupBox">Лира САПР</system:String>
+    <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>
+    <system:String x:Key="AcadImportUnitsGroup">Единицы измерения</system:String>
+    <system:String x:Key="AcadImportMm">Миллиметры (1 мм → 0,001 м)</system:String>
+    <system:String x:Key="AcadImportCm">Сантиметры (1 см → 0,01 м)</system:String>
+    <system:String x:Key="AcadImportM">Метры</system:String>
+    <system:String x:Key="AcadArcGroup">Аппроксимация дуг</system:String>
+    <system:String x:Key="AcadArcChord">По длине хорды (мм)</system:String>
+    <system:String x:Key="AcadArcFixed">Фиксированным числом сегментов</system:String>
+    <system:String x:Key="ImportAcadRegions">Области</system:String>
+    <system:String x:Key="ImportAcadRebarGroups">Группы арматуры</system:String>
+    <system:String x:Key="AcadNotRunning">AutoCAD не запущен. Запустите AutoCAD и повторите попытку.</system:String>
+    <system:String x:Key="AcadImportRegionsSuccess">Импортировано областей: {0}</system:String>
+    <system:String x:Key="AcadImportRebarGroupsSuccess">Импортировано групп арматуры: {0} (всего стержней: {1})</system:String>
+    <system:String x:Key="AcadNoClosedPolylines">Не найдено замкнутых полилиний на указанном слое.</system:String>
+    <system:String x:Key="AcadNoCircles">Не найдено окружностей на указанном слое.</system:String>
+    <system:String x:Key="LiraImportSettingsTab">Импорт LIRA</system:String>
    <system:String x:Key="LiraImportUnitsGroup">Перевод т → кН</system:String>
    <system:String x:Key="LiraTon981">9,80665 (1 т = 9,80665 кН)</system:String>
    <system:String x:Key="LiraTon10">10 (1 т = 10 кН)</system:String>
@@ -1292,6 +1316,13 @@
     <system:String x:Key="TorsionElements">Число элементов</system:String>
     <system:String x:Key="TorsionMethod">Метод</system:String>
     <system:String x:Key="TorsionSingular">Матрица вырождена</system:String>
+    <system:String x:Key="TorsionTriangulationMethod">Метод триангуляции</system:String>
+    <system:String x:Key="TorsionTriangulation_AdvancingFront">Продвижение фронта</system:String>
+    <system:String x:Key="TorsionTriangulation_Ruppert">Рупперт (CDT)</system:String>
+    <system:String x:Key="TorsionFemOrder">Порядок конечного элемента</system:String>
+    <system:String x:Key="TorsionFemOrder_Linear">T3 (линейный)</system:String>
+    <system:String x:Key="TorsionFemOrder_Quadratic">T6 (квадратичный)</system:String>
+    <system:String x:Key="TorsionFemOrderHint">T6 (квадратичное распределение внутри элемента) даёт заметно более точный результат It на той же или более грубой сетке, чем T3 — ценой более плотной матрицы. Не влияет на МГЭ.</system:String>
     <system:String x:Key="TorsionElementSize">Размер элемента, м</system:String>
     <system:String x:Key="TorsionG">Модуль сдвига G, МПа</system:String>
     <system:String x:Key="TorsionGAuto">G = E / (2(1+ν))</system:String>
@@ -1313,5 +1344,14 @@
     <system:String x:Key="TorsionStatusNotConverged">НЕ СОШЛОСЬ ✗</system:String>
     <system:String x:Key="TorsionStatusError">Ошибка ✗</system:String>
     <system:String x:Key="TorsionParamsHeader">Параметры кручения</system:String>
+    <system:String x:Key="TorsionAutoConverge">Автосходимость (экстраполяция Ричардсона)</system:String>
+    <system:String x:Key="TorsionAutoConvergeHint">Шаг сетки не задаётся вручную: выполняются 3 прогона (h0, h0/2, h0/4), где h0 — минимальная длина ребра/хорды контура. Результат It (и центр кручения для МГЭ) экстраполируется методом Ричардсона.</system:String>
+    <system:String x:Key="TorsionAutoConvergeHeader">Автосходимость (Ричардсон)</system:String>
+    <system:String x:Key="TorsionConvergenceSeries">Ряд по шагам сетки</system:String>
+    <system:String x:Key="TorsionConvergenceOrderIt">Порядок сходимости It</system:String>
+    <system:String x:Key="TorsionConvergenceOrderShearCenter">Порядок сходимости центра кручения</system:String>
+    <system:String x:Key="TorsionOrderUndetermined">не определён (ряд не монотонен или уже сошёлся)</system:String>
+    <system:String x:Key="TorsionExtrapolated">экстраполировано</system:String>
+    <system:String x:Key="TorsionExtrapolationUnreliable">экстраполяция ненадёжна — взято значение с самой мелкой сетки</system:String>
 
   </ResourceDictionary>

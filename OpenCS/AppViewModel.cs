@@ -706,6 +706,12 @@ namespace OpenCS
 
       /// <summary>Команда прямого импорта замкнутых контуров из DXF без мастера.</summary>
       public ICommand ImportContoursFromDxfCommand { get; set; } = null!;
+
+      /// <summary>Команда импорта областей из запущенного AutoCAD.</summary>
+      public ICommand ImportAcadRegionsCommand { get; set; } = null!;
+      /// <summary>Команда импорта групп арматуры из запущенного AutoCAD.</summary>
+      public ICommand ImportAcadRebarGroupsCommand { get; set; } = null!;
+
       public ICommand ImportLiraLoadCasesCommand { get; set; } = null!;
       public ICommand ImportLiraRsnCommand { get; set; } = null!;
       public ICommand ImportLiraRsuCommand { get; set; } = null!;
@@ -801,6 +807,9 @@ namespace OpenCS
       /// <summary>Настройки импорта усилий LIRA SAPR (HTML).</summary>
       public Utilites.LiraImportSettings LiraImportSettings { get; set; } = Utilites.LiraImportSettings.Default;
 
+      /// <summary>Настройки прямого импорта из AutoCAD.</summary>
+      public Utilites.AcadImportSettings AcadImportSettings { get; set; } = Utilites.AcadImportSettings.Default;
+
       private int langID = 0;
       /// <summary>
       /// Идентификатор текущего языка: 0 — русский, 1 — английский.
@@ -866,6 +875,7 @@ namespace OpenCS
           CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
           CalcSettings = db.LoadCalcSettings() ?? Utilites.CalcSettings.Default;
           LiraImportSettings = db.LoadLiraImportSettings() ?? Utilites.LiraImportSettings.Default;
+          AcadImportSettings = db.LoadAcadImportSettings() ?? Utilites.AcadImportSettings.Default;
           InitializeCollections();
            InitializeCommands();
         }
@@ -1089,8 +1099,10 @@ namespace OpenCS
          EditCalcTaskCommand   = new RelayCommand(p => EditCalcTask(p as CalcTask),   p => p is CalcTask);
          DeleteCalcTaskCommand = new RelayCommand(p => DeleteCalcTask(p as CalcTask), p => p is CalcTask);
          DeleteCalcResultsCommand = new RelayCommand(p => DeleteCalcResults(p as CalcTask), p => p is CalcTask);
-         ImportContoursFromDxfCommand = new RelayCommand(_ => ImportContoursFromDxf());
-         AddCircleCommand             = new RelayCommand(_ => AddCircle());
+          ImportContoursFromDxfCommand = new RelayCommand(_ => ImportContoursFromDxf());
+          ImportAcadRegionsCommand     = new RelayCommand(_ => ImportAcadRegions());
+          ImportAcadRebarGroupsCommand = new RelayCommand(_ => ImportAcadRebarGroups());
+          AddCircleCommand             = new RelayCommand(_ => AddCircle());
          DeleteCircleCommand          = new RelayCommand(p => DeleteCircle(p as CircleP));
          ImportCirclesFromDxfCommand  = new RelayCommand(_ => ImportCirclesFromDxf());
          ExportCirclesToDxfCommand    = new RelayCommand(_ => ExportCirclesToDxf());
@@ -1476,10 +1488,136 @@ namespace OpenCS
             this.CirclesRenumber();
             LogService.Info(string.Format(Loc.S("CirclesImportedFromDxf"), added, Path.GetFileName(fileName)));
          }
-         else
+          else
+          {
+             LogService.Warning(string.Format(Loc.S("NoDxfCircles"), Path.GetFileName(fileName)));
+          }
+       }
+
+      private void ImportAcadRegions(object? _ = null)
+      {
+         var s = AcadImportSettings;
+         using var importer = new Services.AcadImporter(
+            s.ScaleFactor,
+            s.ArcDiscretizationMode == ArcDiscretization.ChordLength,
+            s.ArcChordLength,
+            s.ArcSegments);
+         try
          {
-            LogService.Warning(string.Format(Loc.S("NoDxfCircles"), Path.GetFileName(fileName)));
+            importer.Connect();
          }
+         catch (InvalidOperationException ex)
+         {
+            LogService.Error(ex.Message);
+            return;
+         }
+
+         List<CScore.MaterialArea> regions;
+         List<CScore.Contour> contours;
+         try
+         {
+            string? filter = string.IsNullOrWhiteSpace(AcadImportSettings.DefaultLayerFilter)
+               ? null : AcadImportSettings.DefaultLayerFilter;
+            (regions, contours) = importer.ImportRegions(filter);
+         }
+         catch (Exception ex)
+         {
+            LogService.Error($"Ошибка при импорте областей из AutoCAD: {ex.Message}");
+            return;
+         }
+
+         if (regions.Count == 0)
+         {
+            LogService.Warning(Loc.S("AcadNoClosedPolylines"));
+            return;
+         }
+
+         int nextCtNum = Contours.Count > 0 ? Contours.Max(c => c.Num) + 1 : 1;
+         foreach (var ct in contours)
+         {
+            ct.Num = nextCtNum++;
+            int pi = 1;
+            foreach (var p in ct.Points)
+               p.Num = pi++;
+            db.SaveContour(ct);
+            if (!Contours.Contains(ct))
+               Contours.Add(ct);
+         }
+
+         int nextMaNum = MaterialAreas.Count > 0 ? MaterialAreas.Max(a => a.Num) + 1 : 1;
+         foreach (var ma in regions)
+         {
+            ma.Num = nextMaNum++;
+            db.SaveMaterialArea(ma);
+         }
+
+         LogService.Info(string.Format(Loc.S("AcadImportRegionsSuccess"), regions.Count));
+      }
+
+      private void ImportAcadRebarGroups(object? _ = null)
+      {
+         var s = AcadImportSettings;
+         using var importer = new Services.AcadImporter(
+            s.ScaleFactor,
+            s.ArcDiscretizationMode == ArcDiscretization.ChordLength,
+            s.ArcChordLength,
+            s.ArcSegments);
+         try
+         {
+            importer.Connect();
+         }
+         catch (InvalidOperationException ex)
+         {
+            LogService.Error(ex.Message);
+            return;
+         }
+
+         Dictionary<string, List<CScore.Fiber>> groups;
+         List<CScore.CircleP> circles;
+         try
+         {
+            string? filter = string.IsNullOrWhiteSpace(AcadImportSettings.DefaultLayerFilter)
+               ? null : AcadImportSettings.DefaultLayerFilter;
+            (groups, circles) = importer.ImportCirclesByLayer(filter);
+         }
+         catch (Exception ex)
+         {
+            LogService.Error($"Ошибка при импорте групп арматуры из AutoCAD: {ex.Message}");
+            return;
+         }
+
+         if (groups.Count == 0)
+         {
+            LogService.Warning(Loc.S("AcadNoCircles"));
+            return;
+         }
+
+         int nextCircNum = Circles.Count > 0 ? Circles.Max(c => c.Num) + 1 : 1;
+         foreach (var cp in circles)
+         {
+            cp.Num = nextCircNum++;
+            db.SaveCircle(cp);
+            if (!Circles.Contains(cp))
+               Circles.Add(cp);
+         }
+
+         this.CirclesRenumber();
+         int totalBars = 0;
+         foreach (var kv in groups)
+         {
+            var ma = new CScore.MaterialArea
+            {
+               Tag = kv.Key,
+               Category = CScore.AreaCategory.RebarGroup,
+               Fibers = kv.Value
+            };
+            int newNum = MaterialAreas.Count > 0 ? MaterialAreas.Max(a => a.Num) + 1 : 1;
+            ma.Num = newNum;
+            db.SaveMaterialArea(ma); // SaveMaterialArea сам добавляет в MaterialAreas
+            totalBars += kv.Value.Count;
+         }
+         this.CirclesRenumber();
+         LogService.Info(string.Format(Loc.S("AcadImportRebarGroupsSuccess"), groups.Count, totalBars));
       }
 
       private void ExportCirclesToDxf(object? _ = null)

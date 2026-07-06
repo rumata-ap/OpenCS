@@ -1,4 +1,5 @@
 using CSfea.Sparse;
+using CSTriangulation;
 
 namespace CSfea.Torsion;
 
@@ -27,9 +28,13 @@ public static class TorsionFemSolver
     /// (полые сечения с произвольным числом отверстий).
     /// ShearCenterX/Y = NaN (φ-формулировка центр кручения не даёт).
     /// </summary>
-    public static TorsionProps Solve(TorsionBoundary boundary, double maxElementSize)
+    public static TorsionProps Solve(TorsionBoundary boundary, double maxElementSize,
+        TriangulationMethod triangulation = TriangulationMethod.AdvancingFront,
+        FemElementOrder order = FemElementOrder.Linear)
     {
-        var mesh = MeshBuilder.Build(boundary, maxElementSize);
+        var mesh = MeshBuilder.Build(boundary, maxElementSize, triangulation);
+        if (order == FemElementOrder.Quadratic)
+            mesh = MeshBuilder.Promote(mesh, boundary);
         int ndof = mesh.NodesX.Length;
         int nHoles = mesh.HoleNodeSets.Length;
 
@@ -42,7 +47,7 @@ public static class TorsionFemSolver
         {
             // Односвязная область: стандартное условие Дирихле φ=0 на внешнем контуре
             var reduced = DirichletReducer.Reduce(K, F, mesh.OuterDofs, uFixed: null);
-            double[] uFree = SparseLuSolver.SolveOnce(reduced.Kff, reduced.Fmod);
+            double[] uFree = FactorizeSpd(reduced.Kff)(reduced.Fmod);
             phi = DirichletReducer.Expand(ndof, reduced.Free, uFree, mesh.OuterDofs, uFixed: null);
             it = TorsionPostprocessor.ComputeIt(mesh, phi);
         }
@@ -165,9 +170,8 @@ public static class TorsionFemSolver
         }
 
         // ── Дополнение Шура ───────────────────────────────────────────────────
-        // 1. Факторизовать K_ff
-        var kffSolver = new SparseLuSolver();
-        kffSolver.Factorize(kffCoo.ToCsc());
+        // 1. Факторизовать K_ff (RCM+Холецкий, откат на LU при необходимости)
+        var solveKff = FactorizeSpd(kffCoo.ToCsc());
 
         // 2. W = K_ff⁻¹ · Col  (nFree × nHoles)
         var W = new double[nFree, nHoles];
@@ -175,12 +179,12 @@ public static class TorsionFemSolver
         {
             var colK = new double[nFree];
             for (int i = 0; i < nFree; i++) colK[i] = col[i, k];
-            double[] wk = kffSolver.Solve(colK);
+            double[] wk = solveKff(colK);
             for (int i = 0; i < nFree; i++) W[i, k] = wk[i];
         }
 
         // 3. z0 = K_ff⁻¹ · f_free
-        double[] z0 = kffSolver.Solve(fFree);
+        double[] z0 = solveKff(fFree);
 
         // 4. S = M − ColT · W  (nHoles × nHoles)
         var S = new double[nHoles, nHoles];
@@ -237,5 +241,31 @@ public static class TorsionFemSolver
             areas[k] = Math.Abs(area) * 0.5;
         }
         return areas;
+    }
+
+    /// <summary>
+    /// Факторизует SPD-матрицу A через RCM+Холецкий (см. SparseCholeskySolver — RCM
+    /// встроен в AnalyzePattern); при LastFactorizationSpd==false или исключении из
+    /// AnalyzePattern/Factorize откатывается на SparseLuSolver (без переупорядочивания).
+    /// Возвращает функцию решения A·x=b, пригодную для многократного вызова с разными b
+    /// по одной факторизации (нужно для Schur-дополнения условий Бредта).
+    /// </summary>
+    private static Func<double[], double[]> FactorizeSpd(CscMatrix a)
+    {
+        var chol = new SparseCholeskySolver();
+        try
+        {
+            chol.AnalyzePattern(a);
+            chol.Factorize(a);
+            if (chol.LastFactorizationSpd)
+                return chol.Solve;
+        }
+        catch
+        {
+            // откат на LU ниже
+        }
+        var lu = new SparseLuSolver();
+        lu.Factorize(a);
+        return lu.Solve;
     }
 }

@@ -495,3 +495,10 @@ docs/
 .superpawers/
 AGENTS.md
 CLAUDE.md
+
+# Временные файлы разработки
+_temp_*
+stderr.txt
+test_marshal/
+_torsion_quick_test/
+AppData/

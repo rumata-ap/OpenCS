@@ -9,6 +9,7 @@ public sealed class TorsionResultData
     public string Method { get; }
     public bool IsFem => Method == "fem";
     public bool IsBem => Method == "bem";
+    public string FemOrder { get; }
     public string Status { get; }
     public double ItMm4 { get; }
     public double ShearCenterXmm { get; }
@@ -25,6 +26,15 @@ public sealed class TorsionResultData
     public double ElementSizeM { get; }
     public bool Singular { get; }
     public string? Error { get; }
+
+    public bool AutoConverge { get; }
+    public double[]? ConvergenceHMm { get; }
+    public double[]? ConvergenceItMm4 { get; }
+    public double? ItOrder { get; }
+    public bool ItExtrapolated { get; }
+    public double? ShearCenterOrderX { get; }
+    public double? ShearCenterOrderY { get; }
+    public bool ShearCenterExtrapolated { get; }
 
     public IReadOnlyList<Point> OuterHullMm { get; }
     public IReadOnlyList<IReadOnlyList<Point>> HolesMm { get; }
@@ -49,9 +59,14 @@ public sealed class TorsionResultData
         int nElements, double elementSizeM, bool singular, string? error,
         IReadOnlyList<Point> outer, IReadOnlyList<IReadOnlyList<Point>> holes,
         double[]? nodeX, double[]? nodeY, double[]? tauUnit, double[]? potential,
-        int[][]? triangles, double[]? bX, double[]? bY, int[]? bJ1)
+        int[][]? triangles, double[]? bX, double[]? bY, int[]? bJ1,
+        bool autoConverge, double[]? convergenceHMm, double[]? convergenceItMm4,
+        double? itOrder, bool itExtrapolated,
+        double? scOrderX, double? scOrderY, bool scExtrapolated,
+        string femOrder)
     {
         Method = method;
+        FemOrder = femOrder;
         Status = status;
         ItMm4 = itMm4;
         ShearCenterXmm = scXmm;
@@ -78,6 +93,14 @@ public sealed class TorsionResultData
         BoundaryXM = bX;
         BoundaryYM = bY;
         BoundaryJ1 = bJ1;
+        AutoConverge = autoConverge;
+        ConvergenceHMm = convergenceHMm;
+        ConvergenceItMm4 = convergenceItMm4;
+        ItOrder = itOrder;
+        ItExtrapolated = itExtrapolated;
+        ShearCenterOrderX = scOrderX;
+        ShearCenterOrderY = scOrderY;
+        ShearCenterExtrapolated = scExtrapolated;
     }
 
     public static TorsionResultData FromCalcResult(CScore.CalcResult r)
@@ -111,9 +134,17 @@ public sealed class TorsionResultData
             int nEl = root.TryGetProperty("n_elements", out var nel) ? nel.GetInt32() : 0;
             double es = root.TryGetProperty("element_size_m", out var esm) ? esm.GetDouble() : double.NaN;
             bool singular = root.TryGetProperty("singular", out var s) && s.GetBoolean();
+            string femOrder = root.TryGetProperty("fem_order", out var fo) ? fo.GetString() ?? "linear" : "linear";
 
             var outer = ParseContourMm(root, "outer_x_mm", "outer_y_mm");
             var holes = ParseHolesMm(root);
+
+            bool autoConverge = root.TryGetProperty("auto_converge", out var ac) && ac.GetBoolean();
+            double? itOrder = ParseNullableDouble(root, "it_order");
+            bool itExtrapolated = root.TryGetProperty("it_extrapolated", out var ie) && ie.ValueKind == JsonValueKind.True;
+            double? scOrderX = ParseNullableDouble(root, "shear_center_order_x");
+            double? scOrderY = ParseNullableDouble(root, "shear_center_order_y");
+            bool scExtrapolated = root.TryGetProperty("shear_center_extrapolated", out var se) && se.ValueKind == JsonValueKind.True;
 
             return new TorsionResultData(
                 method, r.Status ?? "",
@@ -129,7 +160,12 @@ public sealed class TorsionResultData
                 ParseTriangles(root),
                 ParseDoubleArray(root, "boundary_x"),
                 ParseDoubleArray(root, "boundary_y"),
-                ParseIntArray(root, "boundary_j1"));
+                ParseIntArray(root, "boundary_j1"),
+                autoConverge,
+                ParseDoubleArray(root, "convergence_h_mm"),
+                ParseDoubleArray(root, "convergence_it_mm4"),
+                itOrder, itExtrapolated,
+                scOrderX, scOrderY, scExtrapolated, femOrder);
         }
         catch
         {
@@ -141,7 +177,11 @@ public sealed class TorsionResultData
         new("", status, double.NaN, double.NaN, double.NaN, false,
             double.NaN, double.NaN, false, double.NaN, 0, 0, 0, 0, double.NaN, false, error,
             [], [],
-            null, null, null, null, null, null, null, null);
+            null, null, null, null, null, null, null, null,
+            false, null, null, null, false, null, null, false, "");
+
+    static double? ParseNullableDouble(JsonElement root, string key)
+        => root.TryGetProperty(key, out var v) && v.ValueKind is JsonValueKind.Number ? v.GetDouble() : null;
 
     static IReadOnlyList<Point> ParseContourMm(JsonElement root, string xKey, string yKey)
     {

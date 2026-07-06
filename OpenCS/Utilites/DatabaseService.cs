@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 27;
+       const int CurrentSchemaVersion = 27;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -801,16 +801,16 @@ namespace OpenCS.Utilites
       void LoadContours()
       {
          var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, tag, wkt, type, geometry_set, points_json FROM contours ORDER BY id";
-         using var reader = cmd.ExecuteReader();
-         while (reader.Read())
-         {
-            var c = new Contour
-            {
-               Id = reader.GetInt32(0),
-               Tag = reader.IsDBNull(1) ? "" : reader.GetString(1)
-            };
-            c.WKT = reader.IsDBNull(2) ? "" : reader.GetString(2);
+          cmd.CommandText = "SELECT id, tag, wkt, type, geometry_set, points_json FROM contours ORDER BY id";
+          using var reader = cmd.ExecuteReader();
+          while (reader.Read())
+          {
+             var c = new Contour
+             {
+                Id = reader.GetInt32(0),
+                Tag = reader.IsDBNull(1) ? "" : reader.GetString(1)
+             };
+             c.WKT = reader.IsDBNull(2) ? "" : reader.GetString(2);
             if (!string.IsNullOrEmpty(c.WKT))
             {
                WktHelper.ParseWKTPolygon(c.WKT, out var ox, out var oy, out _, out _);
@@ -1305,23 +1305,23 @@ namespace OpenCS.Utilites
          var cmd = _connection.CreateCommand();
          var pointsJson = JsonSerializer.Serialize(c.Points.ToList(), _jsonSettings);
 
-         if (c.Id == 0)
-         {
-            cmd.CommandText = @"INSERT INTO contours (tag, wkt, type, geometry_set, points_json, regions_json)
-                               VALUES ($tag, $wkt, $type, $gset, $pjson, '[]');
-                               SELECT last_insert_rowid();";
-         }
-         else
-         {
-            cmd.CommandText = @"UPDATE contours SET tag=$tag, wkt=$wkt, type=$type, geometry_set=$gset,
-                               points_json=$pjson WHERE id=$id";
-            cmd.Parameters.AddWithValue("$id", c.Id);
-         }
-         cmd.Parameters.AddWithValue("$tag", c.Tag ?? "");
-         cmd.Parameters.AddWithValue("$wkt", c.WKT ?? "");
-         cmd.Parameters.AddWithValue("$type", (int)c.Type);
-         cmd.Parameters.AddWithValue("$gset", (object?)c.GeometrySet ?? DBNull.Value);
-         cmd.Parameters.AddWithValue("$pjson", pointsJson);
+          if (c.Id == 0)
+          {
+             cmd.CommandText = @"INSERT INTO contours (tag, wkt, type, geometry_set, points_json, regions_json)
+                                VALUES ($tag, $wkt, $type, $gset, $pjson, '[]');
+                                SELECT last_insert_rowid();";
+          }
+          else
+          {
+             cmd.CommandText = @"UPDATE contours SET tag=$tag, wkt=$wkt, type=$type, geometry_set=$gset,
+                                points_json=$pjson WHERE id=$id";
+             cmd.Parameters.AddWithValue("$id", c.Id);
+          }
+          cmd.Parameters.AddWithValue("$tag", c.Tag ?? "");
+          cmd.Parameters.AddWithValue("$wkt", c.WKT ?? "");
+          cmd.Parameters.AddWithValue("$type", (int)c.Type);
+          cmd.Parameters.AddWithValue("$gset", (object?)c.GeometrySet ?? DBNull.Value);
+          cmd.Parameters.AddWithValue("$pjson", pointsJson);
          if (c.Id == 0)
             c.Id = Convert.ToInt32(cmd.ExecuteScalar());
          else
@@ -2272,6 +2272,30 @@ namespace OpenCS.Utilites
          var cmd = _connection.CreateCommand();
          cmd.CommandText = @"INSERT OR REPLACE INTO settings (key, value_json)
                              VALUES ('lira_import', $json)";
+         cmd.Parameters.AddWithValue("$json", json);
+         cmd.ExecuteNonQuery();
+      }
+
+      public AcadImportSettings LoadAcadImportSettings()
+      {
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT value_json FROM settings WHERE key='acad_import'";
+         var json = cmd.ExecuteScalar() as string;
+         if (json == null)
+         {
+            var def = AcadImportSettings.Default;
+            SaveAcadImportSettings(def);
+            return def;
+         }
+         return JsonSerializer.Deserialize<AcadImportSettings>(json) ?? AcadImportSettings.Default;
+      }
+
+      public void SaveAcadImportSettings(AcadImportSettings s)
+      {
+         var json = JsonSerializer.Serialize(s);
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = @"INSERT OR REPLACE INTO settings (key, value_json)
+                              VALUES ('acad_import', $json)";
          cmd.Parameters.AddWithValue("$json", json);
          cmd.ExecuteNonQuery();
       }

@@ -1,5 +1,6 @@
 using CScore;
 using CSfea.Torsion;
+using CSTriangulation;
 using OpenCS.Utilites;
 using System.Globalization;
 using System.Windows;
@@ -38,7 +39,8 @@ public sealed class TorsionMeshPreviewVM : ViewModelBase
         FitAllCommand = new RelayCommand(_ => FitAllRequested?.Invoke());
     }
 
-    public void Configure(CrossSection? section, double elementSizeM)
+    public void Configure(CrossSection? section, double elementSizeM,
+        TriangulationMethod triangulation = TriangulationMethod.AdvancingFront)
     {
         if (section == null || section.Areas.Count == 0 || elementSizeM <= 0)
         {
@@ -60,7 +62,7 @@ public sealed class TorsionMeshPreviewVM : ViewModelBase
             {
                 try
                 {
-                    var mesh = MeshBuilder.Build(boundary, elementSizeM);
+                    var mesh = MeshBuilder.Build(boundary, elementSizeM, triangulation);
                     var tris = new List<TorsionPreviewTriDraw>(mesh.Triangles.Length);
                     double minAngleGlobal = double.MaxValue;
                     foreach (var el in mesh.Triangles)

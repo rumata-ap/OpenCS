@@ -535,7 +535,14 @@
    <system:String x:Key="ShellForceColQy">Qy, kN/m</system:String>
    <system:String x:Key="ImportCsvBtn">Import CSV</system:String>
    <system:String x:Key="ExportCsvBtn">Export CSV</system:String>
-   <system:String x:Key="ImportMenu">Import</system:String>
+    <system:String x:Key="ImportMenu">Import</system:String>
+    <system:String x:Key="ImportSubMenuDxf">DXF…</system:String>
+    <system:String x:Key="ImportSubMenuAutoCAD">AutoCAD…</system:String>
+    <system:String x:Key="ImportSubMenuLira">LiraSAPR…</system:String>
+    <system:String x:Key="ImportSubMenuScad">SCAD…</system:String>
+    <system:String x:Key="ImportSubMenuRobot">Robot…</system:String>
+    <system:String x:Key="ImportSubMenuRfem5">RFEM5…</system:String>
+    <system:String x:Key="ImportSubMenuSap2000">SAP2000…</system:String>
    <system:String x:Key="ImportCirclesFromDxf">Import circles from DXF…</system:String>
    <system:String x:Key="ImportContoursFromDxf">Import contours from DXF…</system:String>
    <system:String x:Key="ImportAreasFromDxf">Import material areas from DXF…</system:String>
@@ -555,7 +562,24 @@
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Plate stiffnesses file (CSV, optional)</system:String>
    <system:String x:Key="ImportLiraSchemaSuccess">Imported schema: {0} nodes, {1} bars, {2} shells, {3} design members</system:String>
    <system:String x:Key="CsvFileFilter">CSV file (*.csv)|*.csv|All files (*.*)|*.*</system:String>
-   <system:String x:Key="LiraImportSettingsTab">LIRA import</system:String>
+    <system:String x:Key="ImportSettingsTab">Import</system:String>
+    <system:String x:Key="LiraImportGroupBox">LiraSAPR</system:String>
+    <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>
+    <system:String x:Key="AcadImportUnitsGroup">Units</system:String>
+    <system:String x:Key="AcadImportMm">Millimeters (1 mm → 0.001 m)</system:String>
+    <system:String x:Key="AcadImportCm">Centimeters (1 cm → 0.01 m)</system:String>
+    <system:String x:Key="AcadImportM">Meters</system:String>
+    <system:String x:Key="AcadArcGroup">Arc approximation</system:String>
+    <system:String x:Key="AcadArcChord">By chord length (m)</system:String>
+    <system:String x:Key="AcadArcFixed">Fixed segment count</system:String>
+    <system:String x:Key="ImportAcadRegions">Regions</system:String>
+    <system:String x:Key="ImportAcadRebarGroups">Rebar groups</system:String>
+    <system:String x:Key="AcadNotRunning">AutoCAD is not running. Start AutoCAD and try again.</system:String>
+    <system:String x:Key="AcadImportRegionsSuccess">Imported regions: {0}</system:String>
+    <system:String x:Key="AcadImportRebarGroupsSuccess">Imported rebar groups: {0} (total bars: {1})</system:String>
+    <system:String x:Key="AcadNoClosedPolylines">No closed polylines found on the specified layer.</system:String>
+    <system:String x:Key="AcadNoCircles">No circles found on the specified layer.</system:String>
+    <system:String x:Key="LiraImportSettingsTab">LIRA import</system:String>
    <system:String x:Key="LiraImportUnitsGroup">Convert ton → kN</system:String>
    <system:String x:Key="LiraTon981">9.80665 (1 t = 9.80665 kN)</system:String>
    <system:String x:Key="LiraTon10">10 (1 t = 10 kN)</system:String>
@@ -1289,6 +1313,13 @@
     <system:String x:Key="TorsionElements">Number of elements</system:String>
     <system:String x:Key="TorsionMethod">Method</system:String>
     <system:String x:Key="TorsionSingular">Singular matrix</system:String>
+    <system:String x:Key="TorsionTriangulationMethod">Triangulation method</system:String>
+    <system:String x:Key="TorsionTriangulation_AdvancingFront">Advancing front</system:String>
+    <system:String x:Key="TorsionTriangulation_Ruppert">Ruppert (CDT)</system:String>
+    <system:String x:Key="TorsionFemOrder">Finite element order</system:String>
+    <system:String x:Key="TorsionFemOrder_Linear">T3 (linear)</system:String>
+    <system:String x:Key="TorsionFemOrder_Quadratic">T6 (quadratic)</system:String>
+    <system:String x:Key="TorsionFemOrderHint">T6 (quadratic distribution within the element) gives noticeably more accurate It on the same or coarser mesh than T3, at the cost of a denser matrix. Does not affect BEM.</system:String>
     <system:String x:Key="TorsionElementSize">Element size, m</system:String>
     <system:String x:Key="TorsionG">Shear modulus G, MPa</system:String>
     <system:String x:Key="TorsionGAuto">G = E / (2(1+ν))</system:String>
@@ -1310,5 +1341,14 @@
     <system:String x:Key="TorsionStatusNotConverged">NOT CONVERGED ✗</system:String>
     <system:String x:Key="TorsionStatusError">Error ✗</system:String>
     <system:String x:Key="TorsionParamsHeader">Torsion parameters</system:String>
+    <system:String x:Key="TorsionAutoConverge">Auto-converge (Richardson extrapolation)</system:String>
+    <system:String x:Key="TorsionAutoConvergeHint">Mesh size is not set manually: 3 runs are performed (h0, h0/2, h0/4), where h0 is the minimum edge/chord length of the boundary. It (and shear center for BEM) is extrapolated with Richardson's method.</system:String>
+    <system:String x:Key="TorsionAutoConvergeHeader">Auto-convergence (Richardson)</system:String>
+    <system:String x:Key="TorsionConvergenceSeries">Mesh-size series</system:String>
+    <system:String x:Key="TorsionConvergenceOrderIt">It convergence order</system:String>
+    <system:String x:Key="TorsionConvergenceOrderShearCenter">Shear center convergence order</system:String>
+    <system:String x:Key="TorsionOrderUndetermined">undetermined (series not monotonic or already converged)</system:String>
+    <system:String x:Key="TorsionExtrapolated">extrapolated</system:String>
+    <system:String x:Key="TorsionExtrapolationUnreliable">extrapolation unreliable — using finest-mesh value</system:String>
 
   </ResourceDictionary>

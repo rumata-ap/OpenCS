@@ -55,6 +55,10 @@ public static class BoundaryDiscretizer
         return new BoundaryDiscrete { X = xs.ToArray(), Y = ys.ToArray(), J1 = j1, LoopSizes = loopSizes.ToArray() };
     }
 
+    /// <summary>Вырожденные (дублирующиеся) вершины исходного полигона игнорируются, а не превращаются
+    /// в граничный элемент нулевой длины (ядра МГЭ содержат ln(l/2) — расходятся при l→0).</summary>
+    const double DegenerateEdgeTolerance = 1e-9;
+
     /// <summary>Разбивает замкнутый контур на отрезки ≤ maxElementSize, добавляя точки в xs/ys.</summary>
     private static void SubdivideLoop(double[] x, double[] y, double maxElementSize,
         List<double> xs, List<double> ys)
@@ -65,6 +69,8 @@ public static class BoundaryDiscretizer
             int j = (i + 1) % n;
             double dx = x[j] - x[i], dy = y[j] - y[i];
             double len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < DegenerateEdgeTolerance) continue; // дублирующаяся вершина — пропускаем без потери геометрии
+
             int m = Math.Max(1, (int)Math.Ceiling(len / maxElementSize));
             for (int k = 0; k < m; k++)
             {

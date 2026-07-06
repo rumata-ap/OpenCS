@@ -2,6 +2,8 @@ using OpenCS.Utilites;
 using CalcSettings = OpenCS.Utilites.CalcSettings;
 using CsvExportSettings = OpenCS.Utilites.CsvExportSettings;
 using LiraImportSettings = OpenCS.Utilites.LiraImportSettings;
+using AcadImportSettings = OpenCS.Utilites.AcadImportSettings;
+using ArcDiscretization = OpenCS.Utilites.ArcDiscretization;
 
 using System.Linq;
 using System.Windows;
@@ -19,6 +21,7 @@ namespace OpenCS.Views
       readonly CalcSettings _calcSettings;
       readonly CsvExportSettings _csvSettings;
       readonly LiraImportSettings _liraSettings;
+      readonly AcadImportSettings _acadSettings;
 
       static readonly string[] _palette =
       [
@@ -34,8 +37,9 @@ namespace OpenCS.Views
          _settings = mvm.PlotSettings.Clone();
          _calcSettings = mvm.CalcSettings.Clone();
          _csvSettings = mvm.CsvSettings.Clone();
-         _liraSettings = mvm.LiraImportSettings.Clone();
-         Owner = Application.Current.MainWindow;
+          _liraSettings = mvm.LiraImportSettings.Clone();
+          _acadSettings = mvm.AcadImportSettings.Clone();
+          Owner = Application.Current.MainWindow;
 
          LoadToUi();
          HookTextBoxes();
@@ -44,9 +48,11 @@ namespace OpenCS.Views
          HookCalcBoxes();
          LoadCsvToUi();
          HookCsvControls();
-         LoadLiraToUi();
-         HookLiraControls();
-      }
+          LoadLiraToUi();
+          HookLiraControls();
+          LoadAcadToUi();
+          HookAcadControls();
+       }
 
       void BuildPalette()
       {
@@ -182,9 +188,12 @@ namespace OpenCS.Views
          _mvm.CsvSettings = _csvSettings.Clone();
          _mvm.db.SaveCsvSettings(_mvm.CsvSettings);
 
-         _mvm.LiraImportSettings = _liraSettings.Clone();
-         _mvm.db.SaveLiraImportSettings(_mvm.LiraImportSettings);
-      }
+          _mvm.LiraImportSettings = _liraSettings.Clone();
+          _mvm.db.SaveLiraImportSettings(_mvm.LiraImportSettings);
+
+          _mvm.AcadImportSettings = _acadSettings.Clone();
+          _mvm.db.SaveAcadImportSettings(_mvm.AcadImportSettings);
+       }
 
       void Cancel_Click(object sender, RoutedEventArgs e)
       {
@@ -362,6 +371,41 @@ namespace OpenCS.Views
          UpdateSwatch(HoleSwatch,        HoleColorBox.Text);
          UpdateSwatch(NeutralAxisSwatch, NeutralAxisColorBox.Text);
          UpdateSwatch(CentroidNdsSwatch, CentroidNdsColorBox.Text);
+      }
+
+      void LoadAcadToUi()
+      {
+         const double mm = 0.001;
+         const double cm = 0.01;
+         AcadMm.IsChecked = Math.Abs(_acadSettings.ScaleFactor - mm) < 0.0001;
+         AcadCm.IsChecked = Math.Abs(_acadSettings.ScaleFactor - cm) < 0.0001;
+         AcadM.IsChecked  = Math.Abs(_acadSettings.ScaleFactor - 1.0) < 0.0001;
+
+         AcadArcChordRb.IsChecked = _acadSettings.ArcDiscretizationMode == ArcDiscretization.ChordLength;
+         AcadArcFixedRb.IsChecked = _acadSettings.ArcDiscretizationMode == ArcDiscretization.FixedSegments;
+         AcadArcChordBox.Text = _acadSettings.ArcChordLength.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
+         AcadArcSegBox.Text = _acadSettings.ArcSegments.ToString();
+      }
+
+      void HookAcadControls()
+      {
+         AcadMm.Checked += (_, _) => _acadSettings.ScaleFactor = 0.001;
+         AcadCm.Checked += (_, _) => _acadSettings.ScaleFactor = 0.01;
+         AcadM.Checked  += (_, _) => _acadSettings.ScaleFactor = 1.0;
+
+         AcadArcChordRb.Checked += (_, _) => _acadSettings.ArcDiscretizationMode = ArcDiscretization.ChordLength;
+         AcadArcFixedRb.Checked += (_, _) => _acadSettings.ArcDiscretizationMode = ArcDiscretization.FixedSegments;
+         AcadArcChordBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(AcadArcChordBox.Text, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+               _acadSettings.ArcChordLength = v;
+         };
+         AcadArcSegBox.TextChanged += (_, _) =>
+         {
+            if (int.TryParse(AcadArcSegBox.Text, out var v) && v >= 3)
+               _acadSettings.ArcSegments = v;
+         };
       }
 
       void Reset_Click(object sender, RoutedEventArgs e)

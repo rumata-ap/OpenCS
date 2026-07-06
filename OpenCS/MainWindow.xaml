@@ -142,20 +142,34 @@
             <MenuItem Header="{DynamicResource Exit}" Command="{Binding ExitCommand}" />
          </MenuItem>
          <MenuItem Header="{DynamicResource Edit}" ></MenuItem>
-         <MenuItem Header="{DynamicResource ImportMenu}" Margin="3">
-            <MenuItem Header="{DynamicResource ImportCirclesFromDxf}" Command="{Binding ImportCirclesFromDxfCommand}"/>
-            <MenuItem Header="{DynamicResource ImportContoursFromDxf}" Command="{Binding ImportContoursFromDxfCommand}"/>
-            <MenuItem Header="{DynamicResource ImportAreasFromDxf}" Command="{Binding FromDxfCommand}"/>
-            <Separator/>
-            <MenuItem Header="{DynamicResource ImportLiraLoadCases}" Command="{Binding ImportLiraLoadCasesCommand}"/>
-            <MenuItem Header="{DynamicResource ImportLiraRsn}" Command="{Binding ImportLiraRsnCommand}"/>
-            <MenuItem Header="{DynamicResource ImportLiraRsu}" Command="{Binding ImportLiraRsuCommand}"/>
-            <MenuItem Header="{DynamicResource ImportLiraSchemaFromCsv}" Command="{Binding ImportLiraSchemaFromCsvCommand}"/>
-            <MenuItem Header="{DynamicResource ImportLiraSchemaFromApi}" Command="{Binding ImportLiraSchemaFromApiCommand}"/>
-            <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}" Command="{Binding ImportLiraForcesFromApiCommand}"/>
-            <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}" Command="{Binding ImportLiraRsnFromApiCommand}"/>
-            <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}" Command="{Binding ImportLiraRsuFromApiCommand}"/>
-         </MenuItem>
+          <MenuItem Header="{DynamicResource ImportMenu}" Margin="3">
+             <MenuItem Header="{DynamicResource ImportSubMenuDxf}">
+                <MenuItem Header="{DynamicResource ImportCirclesFromDxf}" Command="{Binding ImportCirclesFromDxfCommand}"/>
+                <MenuItem Header="{DynamicResource ImportContoursFromDxf}" Command="{Binding ImportContoursFromDxfCommand}"/>
+                <MenuItem Header="{DynamicResource ImportAreasFromDxf}" Command="{Binding FromDxfCommand}"/>
+             </MenuItem>
+              <MenuItem Header="{DynamicResource ImportSubMenuAutoCAD}">
+                 <MenuItem Header="{DynamicResource ImportAcadRegions}" Command="{Binding ImportAcadRegionsCommand}"/>
+                 <MenuItem Header="{DynamicResource ImportAcadRebarGroups}" Command="{Binding ImportAcadRebarGroupsCommand}"/>
+              </MenuItem>
+             <Separator/>
+             <MenuItem Header="{DynamicResource ImportSubMenuLira}">
+                <MenuItem Header="{DynamicResource ImportLiraSchemaFromCsv}" Command="{Binding ImportLiraSchemaFromCsvCommand}"/>
+                <MenuItem Header="{DynamicResource ImportLiraSchemaFromApi}" Command="{Binding ImportLiraSchemaFromApiCommand}"/>
+                <Separator/>
+                <MenuItem Header="{DynamicResource ImportLiraLoadCases}" Command="{Binding ImportLiraLoadCasesCommand}"/>
+                <MenuItem Header="{DynamicResource ImportLiraRsn}" Command="{Binding ImportLiraRsnCommand}"/>
+                <MenuItem Header="{DynamicResource ImportLiraRsu}" Command="{Binding ImportLiraRsuCommand}"/>
+                <Separator/>
+                <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}" Command="{Binding ImportLiraForcesFromApiCommand}"/>
+                <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}" Command="{Binding ImportLiraRsnFromApiCommand}"/>
+                <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}" Command="{Binding ImportLiraRsuFromApiCommand}"/>
+             </MenuItem>
+             <MenuItem Header="{DynamicResource ImportSubMenuScad}" IsEnabled="False"/>
+             <MenuItem Header="{DynamicResource ImportSubMenuRobot}" IsEnabled="False"/>
+             <MenuItem Header="{DynamicResource ImportSubMenuRfem5}" IsEnabled="False"/>
+             <MenuItem Header="{DynamicResource ImportSubMenuSap2000}" IsEnabled="False"/>
+          </MenuItem>
          <MenuItem Header="{DynamicResource View}" >
             <MenuItem Header="{DynamicResource Language}">
                <MenuItem Header="{DynamicResource Russian}" Command="{Binding SetLanguageCommand}" CommandParameter="0" />
