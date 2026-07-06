@@ -1,5 +1,6 @@
 using CSfea.Torsion;
 using CScore;
+using CSTriangulation;
 
 using System.Diagnostics;
 
@@ -572,6 +573,66 @@ public static class TorsionTests
         try { MeshBuilder.Promote(quad, boundary); }
         catch (ArgumentException) { threw = true; }
         TestHarness.Check("Promote(T6) бросает ArgumentException", threw);
+    }
+
+    public static void FemCircleItVsAnalyticalQuadratic()
+    {
+        TestHarness.Section("МКЭ T6: It круга vs π·r⁴/2 (та же сетка, что и T3 — точнее)");
+        double r = 0.5; // м
+        int n = 64;
+        double[] ox = new double[n], oy = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            double a = 2.0 * Math.PI * i / n;
+            ox[i] = r * Math.Cos(a); oy[i] = r * Math.Sin(a);
+        }
+        var boundary = new TorsionBoundary(ox, oy);
+        var props = TorsionFemSolver.Solve(boundary, maxElementSize: 0.1, order: FemElementOrder.Quadratic);
+        double exact = Math.PI * Math.Pow(r, 4) / 2.0;
+        TestHarness.CheckRel("It (МКЭ T6, ≤1%)", props.It, exact, 0.01);
+        TestHarness.Check("τ_unit_max > 0", props.TauUnitMax > 0);
+    }
+
+    public static void RectangleTimoshenkoQuadratic()
+    {
+        TestHarness.Section("МКЭ T6: прямоугольник vs Тимошенко (та же сетка, что и T3 — точнее)");
+        double b = 0.2, h = 0.4;
+        var boundary = new TorsionBoundary(
+            new[] { -b / 2, b / 2, b / 2, -b / 2 },
+            new[] { -h / 2, -h / 2, h / 2, h / 2 });
+        var props = TorsionFemSolver.Solve(boundary, maxElementSize: 0.04, order: FemElementOrder.Quadratic);
+        double timo = b * b * b * h * (1.0 / 3.0 - 0.21 * (b / h) * (1.0 - Math.Pow(b / h, 4) / 12.0));
+        TestHarness.CheckRel("It (МКЭ T6 vs Тимошенко, ≤2%)", props.It, timo, 0.02);
+    }
+
+    public static void FemHollowCircleItVsExactQuadratic()
+    {
+        TestHarness.Section("МКЭ T6: полая труба (Брэдт на серединных узлах отверстия) vs π/2·(r⁴_out−r⁴_in)");
+        double rOut = 0.1, rIn = 0.06;
+        int nOut = 48, nIn = 36;
+        var ox = new double[nOut]; var oy = new double[nOut];
+        for (int i = 0; i < nOut; i++) { double a = 2 * Math.PI * i / nOut; ox[i] = rOut * Math.Cos(a); oy[i] = rOut * Math.Sin(a); }
+        var hx = new double[nIn]; var hy = new double[nIn];
+        for (int i = 0; i < nIn; i++) { double a = 2 * Math.PI * i / nIn; hx[i] = rIn * Math.Cos(a); hy[i] = rIn * Math.Sin(a); }
+        var boundary = new TorsionBoundary(ox, oy,
+            new List<(double[] X, double[] Y)> { (hx, hy) });
+        var fem = TorsionFemSolver.Solve(boundary, maxElementSize: 0.012, order: FemElementOrder.Quadratic);
+        double exact = Math.PI / 2.0 * (Math.Pow(rOut, 4) - Math.Pow(rIn, 4));
+        TestHarness.Check("It МКЭ T6 > 0", fem.It > 0);
+        TestHarness.CheckRel("It МКЭ T6 (полая труба, ≤2%)", fem.It, exact, 0.02);
+    }
+
+    public static void TorsionSolverFemOrderDefaultIsLinear()
+    {
+        TestHarness.Section("TorsionSolver.Solve: параметр femOrder по умолчанию не меняет T3-результат");
+        double b = 0.3, h = 0.5;
+        var boundary = new TorsionBoundary(
+            new[] { -b / 2, b / 2, b / 2, -b / 2 },
+            new[] { -h / 2, -h / 2, h / 2, h / 2 });
+        var withoutParam = TorsionSolver.Solve(boundary, TorsionMethod.Fem, 0.025);
+        var explicitLinear = TorsionSolver.Solve(boundary, TorsionMethod.Fem, 0.025,
+            TriangulationMethod.AdvancingFront, FemElementOrder.Linear);
+        TestHarness.CheckRel("It совпадает при явном и дефолтном Linear", explicitLinear.It, withoutParam.It, 1e-12);
     }
 }
 

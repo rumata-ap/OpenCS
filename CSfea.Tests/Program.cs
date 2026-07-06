@@ -129,4 +129,9 @@ TorsionTests.MeshBuilderPromoteSquareNodeCount();
 TorsionTests.MeshBuilderPromoteClassifiesBoundaryMidNodes();
 TorsionTests.MeshBuilderPromoteRejectsAlreadyQuadratic();
 
+TorsionTests.FemCircleItVsAnalyticalQuadratic();
+TorsionTests.RectangleTimoshenkoQuadratic();
+TorsionTests.FemHollowCircleItVsExactQuadratic();
+TorsionTests.TorsionSolverFemOrderDefaultIsLinear();
+
 return TestHarness.Summary();

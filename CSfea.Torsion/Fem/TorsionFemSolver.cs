@@ -1,4 +1,5 @@
 using CSfea.Sparse;
+using CSTriangulation;
 
 namespace CSfea.Torsion;
 
@@ -27,9 +28,13 @@ public static class TorsionFemSolver
     /// (полые сечения с произвольным числом отверстий).
     /// ShearCenterX/Y = NaN (φ-формулировка центр кручения не даёт).
     /// </summary>
-    public static TorsionProps Solve(TorsionBoundary boundary, double maxElementSize)
+    public static TorsionProps Solve(TorsionBoundary boundary, double maxElementSize,
+        TriangulationMethod triangulation = TriangulationMethod.AdvancingFront,
+        FemElementOrder order = FemElementOrder.Linear)
     {
-        var mesh = MeshBuilder.Build(boundary, maxElementSize);
+        var mesh = MeshBuilder.Build(boundary, maxElementSize, triangulation);
+        if (order == FemElementOrder.Quadratic)
+            mesh = MeshBuilder.Promote(mesh, boundary);
         int ndof = mesh.NodesX.Length;
         int nHoles = mesh.HoleNodeSets.Length;
 
