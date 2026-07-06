@@ -131,6 +131,7 @@
                 <CheckBox x:Name="ShowTooltipsCb" Content="{DynamicResource ClickHighlight}" Margin="0,3,0,0"/>
                 <CheckBox x:Name="ShowAxesValsCb" Content="{DynamicResource AxisValueLabels}" Margin="0,3,0,0"/>
                 <CheckBox x:Name="AxesOriginCb" Content="{DynamicResource AxesThroughOrigin}" Margin="0,3,0,0"/>
+                <CheckBox x:Name="OriginReferenceAxesCb" Content="{DynamicResource OriginReferenceAxes}" Margin="0,3,0,0"/>
                 <Grid Margin="0,3">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="140"/>
@@ -149,6 +150,10 @@
                     <TextBox Grid.Column="1" x:Name="ScaleYBox" Width="60" Height="22"
                              VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
                 </Grid>
+                <CheckBox x:Name="ForceSetColorizeCb"
+                          Content="{DynamicResource PlotSettingsForceSetColorize}"
+                          ToolTip="{DynamicResource PlotSettingsForceSetColorizeTip}"
+                          Margin="0,6,0,0"/>
             </StackPanel>
         </GroupBox>
 
@@ -294,6 +299,69 @@
                                          ToolTip="{DynamicResource CalcSettingsShellTolResTip}"/>
                             </Grid>
                         </GroupBox>
+                        <GroupBox Header="{DynamicResource CalcSettingsSp20Group}" Margin="0,0,0,10">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="90"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp20GammaG}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBox Grid.Row="0" Grid.Column="1"
+                                         x:Name="Sp20GammaGBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp20GammaGFav}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBox Grid.Row="1" Grid.Column="1"
+                                         x:Name="Sp20GammaGFavBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp20GammaL}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBox Grid.Row="2" Grid.Column="1"
+                                         x:Name="Sp20GammaLBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp20GammaQ}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBox Grid.Row="3" Grid.Column="1"
+                                         x:Name="Sp20GammaQBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0"
+                                           Text="{DynamicResource CalcSettingsSp20GammaA}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                                <TextBox Grid.Row="4" Grid.Column="1"
+                                         x:Name="Sp20GammaABox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsSp20GammaTip}"/>
+                            </Grid>
+                        </GroupBox>
+                        <GroupBox Header="{DynamicResource CalcSettingsRcGroup}" Margin="0,0,0,10">
+                            <StackPanel>
+                                <CheckBox x:Name="RebarDifferentialDiagramCb"
+                                          Content="{DynamicResource CalcSettingsRebarDifferentialDiagram}"
+                                          ToolTip="{DynamicResource CalcSettingsRebarDifferentialDiagramTip}"
+                                          Margin="4,6,4,6"/>
+                            </StackPanel>
+                        </GroupBox>
                         <GroupBox Header="{DynamicResource CalcSettingsBatchGroup}" Margin="0,0,0,10">
                             <StackPanel>
                                 <CheckBox x:Name="BatchParallelCb"
@@ -326,21 +394,48 @@
                     </GroupBox>
                 </StackPanel>
             </TabItem>
-            <!-- Вкладка «Импорт LIRA» -->
-            <TabItem Header="{DynamicResource LiraImportSettingsTab}">
-                <StackPanel Margin="10">
-                    <GroupBox Header="{DynamicResource LiraImportUnitsGroup}" Margin="0,0,0,10">
-                        <StackPanel Margin="4">
-                            <RadioButton x:Name="LiraTon981" Content="{DynamicResource LiraTon981}" Margin="0,3"/>
-                            <RadioButton x:Name="LiraTon10" Content="{DynamicResource LiraTon10}" Margin="0,3"/>
-                        </StackPanel>
-                    </GroupBox>
-                    <GroupBox Header="{DynamicResource LiraImportBarMomentsGroup}">
-                        <CheckBox x:Name="LiraInvertBarMxMyCb"
-                                  Content="{DynamicResource LiraInvertBarMxMy}"
-                                  Margin="4,6"/>
-                    </GroupBox>
-                </StackPanel>
+            <!-- Вкладка «Импорт» -->
+            <TabItem Header="{DynamicResource ImportSettingsTab}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="10">
+                        <GroupBox Header="{DynamicResource LiraImportGroupBox}" Margin="0,0,0,10">
+                            <StackPanel Margin="4">
+                                <GroupBox Header="{DynamicResource LiraImportUnitsGroup}" Margin="0,0,0,6">
+                                    <StackPanel Margin="2">
+                                        <RadioButton x:Name="LiraTon981" Content="{DynamicResource LiraTon981}" Margin="0,3"/>
+                                        <RadioButton x:Name="LiraTon10" Content="{DynamicResource LiraTon10}" Margin="0,3"/>
+                                    </StackPanel>
+                                </GroupBox>
+                                <GroupBox Header="{DynamicResource LiraImportBarMomentsGroup}">
+                                    <CheckBox x:Name="LiraInvertBarMxMyCb"
+                                              Content="{DynamicResource LiraInvertBarMxMy}"
+                                              Margin="4,6"/>
+                                </GroupBox>
+                            </StackPanel>
+                        </GroupBox>
+                        <GroupBox Header="{DynamicResource AcadImportGroupBox}">
+                            <StackPanel Margin="4">
+                                <GroupBox Header="{DynamicResource AcadImportUnitsGroup}">
+                                    <StackPanel Margin="2">
+                                        <RadioButton x:Name="AcadMm" Content="{DynamicResource AcadImportMm}" Margin="0,3"/>
+                                        <RadioButton x:Name="AcadCm" Content="{DynamicResource AcadImportCm}" Margin="0,3"/>
+                                        <RadioButton x:Name="AcadM" Content="{DynamicResource AcadImportM}" Margin="0,3"/>
+                                    </StackPanel>
+                                </GroupBox>
+                                <GroupBox Header="{DynamicResource AcadArcGroup}" Margin="0,6,0,0">
+                                    <StackPanel Margin="2">
+                                        <RadioButton x:Name="AcadArcChordRb" Content="{DynamicResource AcadArcChord}" Margin="0,3"/>
+                                        <TextBox x:Name="AcadArcChordBox" Width="80" Height="22" Margin="20,0,0,3"
+                                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                                        <RadioButton x:Name="AcadArcFixedRb" Content="{DynamicResource AcadArcFixed}" Margin="0,3"/>
+                                        <TextBox x:Name="AcadArcSegBox" Width="60" Height="22" Margin="20,0,0,0"
+                                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+                                    </StackPanel>
+                                </GroupBox>
+                            </StackPanel>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
 

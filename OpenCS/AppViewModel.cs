@@ -153,6 +153,14 @@ namespace OpenCS
          NotifyDirtyChanged();
       }
 
+      /// <summary>Обновить отображение набора усилий в TreeView после смены имени.</summary>
+      public void RefreshForceSetInTree(ForceSet fs)
+      {
+         var col = fs.Kind == "shell" ? ShellForceSets : BarForceSets;
+         int idx = col.IndexOf(fs);
+         if (idx >= 0) { col.RemoveAt(idx); col.Insert(idx, fs); }
+      }
+
       /// <summary>
       /// Генерируется когда <see cref="MaterialArea.SigSp"/> изменяется извне (например,
       /// через «Применить» результатов потерь преднапряжения). Аргумент — Id области.
@@ -539,11 +547,14 @@ namespace OpenCS
       /// <summary>Команда создания нового набора усилий пластины.</summary>
       public ICommand NewShellForceSetCommand { get; set; } = null!;
 
+      /// <summary>Команда формирования сочетаний СП20 для наборов усилий стержней.</summary>
+      public ICommand SP20BarCombinationsCommand { get; set; } = null!;
+
+      /// <summary>Команда формирования сочетаний СП20 для наборов усилий пластин.</summary>
+      public ICommand SP20ShellCombinationsCommand { get; set; } = null!;
+
       /// <summary>Команда удаления набора усилий (параметр ForceSet).</summary>
       public ICommand DeleteForceSetCommand { get; set; } = null!;
-
-      /// <summary>Команда задания вида загружения / переименования набора усилий (параметр ForceSet).</summary>
-      public ICommand SetForceSetLoadTypeCommand { get; set; } = null!;
 
       /// <summary>Команда дублирования набора усилий (параметр ForceSet).</summary>
       public ICommand DuplicateForceSetCommand { get; set; } = null!;
@@ -695,6 +706,12 @@ namespace OpenCS
 
       /// <summary>Команда прямого импорта замкнутых контуров из DXF без мастера.</summary>
       public ICommand ImportContoursFromDxfCommand { get; set; } = null!;
+
+      /// <summary>Команда импорта областей из запущенного AutoCAD.</summary>
+      public ICommand ImportAcadRegionsCommand { get; set; } = null!;
+      /// <summary>Команда импорта групп арматуры из запущенного AutoCAD.</summary>
+      public ICommand ImportAcadRebarGroupsCommand { get; set; } = null!;
+
       public ICommand ImportLiraLoadCasesCommand { get; set; } = null!;
       public ICommand ImportLiraRsnCommand { get; set; } = null!;
       public ICommand ImportLiraRsuCommand { get; set; } = null!;
@@ -775,8 +792,23 @@ namespace OpenCS
       /// <summary>Настройки численного расчёта (сетка, Ньютон).</summary>
       public Utilites.CalcSettings CalcSettings { get; set; } = Utilites.CalcSettings.Default;
 
+      /// <summary>Срабатывает после сохранения настроек расчёта (Настройки → Применить/OK).</summary>
+      public event Action? CalcSettingsApplied;
+
+      /// <summary>Уведомляет открытые страницы об изменении <see cref="CalcSettings"/>.</summary>
+      public void NotifyCalcSettingsApplied() => CalcSettingsApplied?.Invoke();
+
+      /// <summary>Срабатывает после сохранения настроек графики (Настройки → Применить/OK).</summary>
+      public event Action? PlotSettingsApplied;
+
+      /// <summary>Уведомляет открытые страницы об изменении <see cref="PlotSettings"/>.</summary>
+      public void NotifyPlotSettingsApplied() => PlotSettingsApplied?.Invoke();
+
       /// <summary>Настройки импорта усилий LIRA SAPR (HTML).</summary>
       public Utilites.LiraImportSettings LiraImportSettings { get; set; } = Utilites.LiraImportSettings.Default;
+
+      /// <summary>Настройки прямого импорта из AutoCAD.</summary>
+      public Utilites.AcadImportSettings AcadImportSettings { get; set; } = Utilites.AcadImportSettings.Default;
 
       private int langID = 0;
       /// <summary>
@@ -843,6 +875,7 @@ namespace OpenCS
           CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
           CalcSettings = db.LoadCalcSettings() ?? Utilites.CalcSettings.Default;
           LiraImportSettings = db.LoadLiraImportSettings() ?? Utilites.LiraImportSettings.Default;
+          AcadImportSettings = db.LoadAcadImportSettings() ?? Utilites.AcadImportSettings.Default;
           InitializeCollections();
            InitializeCommands();
         }
@@ -1046,8 +1079,9 @@ namespace OpenCS
          NewRebarGroupCommand      = new RelayCommand(_ => NewRebarGroup());
          NewBarForceSetCommand        = new RelayCommand(_ => NewBarForceSet());
          NewShellForceSetCommand      = new RelayCommand(_ => NewShellForceSet());
+         SP20BarCombinationsCommand   = new RelayCommand(_ => OpenSP20CombinationsDialog("bar"));
+         SP20ShellCombinationsCommand = new RelayCommand(_ => OpenSP20CombinationsDialog("shell"));
          DeleteForceSetCommand        = new RelayCommand(p => DeleteForceSet(p as CScore.ForceSet));
-         SetForceSetLoadTypeCommand   = new RelayCommand(p => SetForceSetLoadType(p as CScore.ForceSet));
          DuplicateForceSetCommand     = new RelayCommand(p => DuplicateForceSet(p as CScore.ForceSet));
          DeleteSelectedBarForceSetsCommand   = new RelayCommand(_ => DeleteSelectedForceSets(kind: "bar"));
          DeleteSelectedShellForceSetsCommand = new RelayCommand(_ => DeleteSelectedForceSets(kind: "shell"));
@@ -1065,8 +1099,10 @@ namespace OpenCS
          EditCalcTaskCommand   = new RelayCommand(p => EditCalcTask(p as CalcTask),   p => p is CalcTask);
          DeleteCalcTaskCommand = new RelayCommand(p => DeleteCalcTask(p as CalcTask), p => p is CalcTask);
          DeleteCalcResultsCommand = new RelayCommand(p => DeleteCalcResults(p as CalcTask), p => p is CalcTask);
-         ImportContoursFromDxfCommand = new RelayCommand(_ => ImportContoursFromDxf());
-         AddCircleCommand             = new RelayCommand(_ => AddCircle());
+          ImportContoursFromDxfCommand = new RelayCommand(_ => ImportContoursFromDxf());
+          ImportAcadRegionsCommand     = new RelayCommand(_ => ImportAcadRegions());
+          ImportAcadRebarGroupsCommand = new RelayCommand(_ => ImportAcadRebarGroups());
+          AddCircleCommand             = new RelayCommand(_ => AddCircle());
          DeleteCircleCommand          = new RelayCommand(p => DeleteCircle(p as CircleP));
          ImportCirclesFromDxfCommand  = new RelayCommand(_ => ImportCirclesFromDxf());
          ExportCirclesToDxfCommand    = new RelayCommand(_ => ExportCirclesToDxf());
@@ -1121,9 +1157,14 @@ namespace OpenCS
       {
          if (CurrentPage is Views.ContourPlot cp && cp.DataContext is ViewModels.ContourVM cvm)
             cvm.PlotService?.ApplySettings(PlotSettings);
-         if (CurrentPage is Views.MaterialAreaPage map && map.DataContext is ViewModels.MaterialAreaVM mavm)
-            mavm.RefreshPlot();
+         if (CurrentPage is Views.MaterialAreaPage map)
+            map.RefreshPlotSettings();
+         if (CurrentPage is Views.CrossSectionPage csp)
+            csp.RefreshPlotSettings();
+         if (CurrentPage is Views.RebarGroupEditorPage rgp)
+            rgp.RefreshPlotSettings();
          DxfBgApplied?.Invoke(PlotSettings.DxfCanvasBackground);
+         NotifyPlotSettingsApplied();
       }
 
       /// <summary>
@@ -1288,7 +1329,7 @@ namespace OpenCS
          var contour = BuildContour(pts, name, type);
          db.SaveContour(contour);
          Contours.Add(contour);
-         var vm = new ContourVM { mvm = this, Contour = contour };
+         var vm = new ContourVM(contour) { mvm = this };
          CurrentContour = vm;
          return vm;
       }
@@ -1447,10 +1488,136 @@ namespace OpenCS
             this.CirclesRenumber();
             LogService.Info(string.Format(Loc.S("CirclesImportedFromDxf"), added, Path.GetFileName(fileName)));
          }
-         else
+          else
+          {
+             LogService.Warning(string.Format(Loc.S("NoDxfCircles"), Path.GetFileName(fileName)));
+          }
+       }
+
+      private void ImportAcadRegions(object? _ = null)
+      {
+         var s = AcadImportSettings;
+         using var importer = new Services.AcadImporter(
+            s.ScaleFactor,
+            s.ArcDiscretizationMode == ArcDiscretization.ChordLength,
+            s.ArcChordLength,
+            s.ArcSegments);
+         try
          {
-            LogService.Warning(string.Format(Loc.S("NoDxfCircles"), Path.GetFileName(fileName)));
+            importer.Connect();
          }
+         catch (InvalidOperationException ex)
+         {
+            LogService.Error(ex.Message);
+            return;
+         }
+
+         List<CScore.MaterialArea> regions;
+         List<CScore.Contour> contours;
+         try
+         {
+            string? filter = string.IsNullOrWhiteSpace(AcadImportSettings.DefaultLayerFilter)
+               ? null : AcadImportSettings.DefaultLayerFilter;
+            (regions, contours) = importer.ImportRegions(filter);
+         }
+         catch (Exception ex)
+         {
+            LogService.Error($"Ошибка при импорте областей из AutoCAD: {ex.Message}");
+            return;
+         }
+
+         if (regions.Count == 0)
+         {
+            LogService.Warning(Loc.S("AcadNoClosedPolylines"));
+            return;
+         }
+
+         int nextCtNum = Contours.Count > 0 ? Contours.Max(c => c.Num) + 1 : 1;
+         foreach (var ct in contours)
+         {
+            ct.Num = nextCtNum++;
+            int pi = 1;
+            foreach (var p in ct.Points)
+               p.Num = pi++;
+            db.SaveContour(ct);
+            if (!Contours.Contains(ct))
+               Contours.Add(ct);
+         }
+
+         int nextMaNum = MaterialAreas.Count > 0 ? MaterialAreas.Max(a => a.Num) + 1 : 1;
+         foreach (var ma in regions)
+         {
+            ma.Num = nextMaNum++;
+            db.SaveMaterialArea(ma);
+         }
+
+         LogService.Info(string.Format(Loc.S("AcadImportRegionsSuccess"), regions.Count));
+      }
+
+      private void ImportAcadRebarGroups(object? _ = null)
+      {
+         var s = AcadImportSettings;
+         using var importer = new Services.AcadImporter(
+            s.ScaleFactor,
+            s.ArcDiscretizationMode == ArcDiscretization.ChordLength,
+            s.ArcChordLength,
+            s.ArcSegments);
+         try
+         {
+            importer.Connect();
+         }
+         catch (InvalidOperationException ex)
+         {
+            LogService.Error(ex.Message);
+            return;
+         }
+
+         Dictionary<string, List<CScore.Fiber>> groups;
+         List<CScore.CircleP> circles;
+         try
+         {
+            string? filter = string.IsNullOrWhiteSpace(AcadImportSettings.DefaultLayerFilter)
+               ? null : AcadImportSettings.DefaultLayerFilter;
+            (groups, circles) = importer.ImportCirclesByLayer(filter);
+         }
+         catch (Exception ex)
+         {
+            LogService.Error($"Ошибка при импорте групп арматуры из AutoCAD: {ex.Message}");
+            return;
+         }
+
+         if (groups.Count == 0)
+         {
+            LogService.Warning(Loc.S("AcadNoCircles"));
+            return;
+         }
+
+         int nextCircNum = Circles.Count > 0 ? Circles.Max(c => c.Num) + 1 : 1;
+         foreach (var cp in circles)
+         {
+            cp.Num = nextCircNum++;
+            db.SaveCircle(cp);
+            if (!Circles.Contains(cp))
+               Circles.Add(cp);
+         }
+
+         this.CirclesRenumber();
+         int totalBars = 0;
+         foreach (var kv in groups)
+         {
+            var ma = new CScore.MaterialArea
+            {
+               Tag = kv.Key,
+               Category = CScore.AreaCategory.RebarGroup,
+               Fibers = kv.Value
+            };
+            int newNum = MaterialAreas.Count > 0 ? MaterialAreas.Max(a => a.Num) + 1 : 1;
+            ma.Num = newNum;
+            db.SaveMaterialArea(ma); // SaveMaterialArea сам добавляет в MaterialAreas
+            totalBars += kv.Value.Count;
+         }
+         this.CirclesRenumber();
+         LogService.Info(string.Format(Loc.S("AcadImportRebarGroupsSuccess"), groups.Count, totalBars));
       }
 
       private void ExportCirclesToDxf(object? _ = null)
@@ -1883,6 +2050,16 @@ namespace OpenCS
          CurrentPage = new Views.ShellForceSetPage(this);
       }
 
+      void OpenSP20CombinationsDialog(string kind)
+      {
+         var sets = kind == "shell" ? ShellForceSets : BarForceSets;
+         var dlg = new Views.SP20Dialog(sets, this)
+         {
+            Owner = System.Windows.Application.Current.MainWindow
+         };
+         dlg.ShowDialog();
+      }
+
       void DeleteForceSet(CScore.ForceSet? target = null)
       {
          var fs = target ?? currentBarForceSet ?? currentShellForceSet;
@@ -1905,20 +2082,6 @@ namespace OpenCS
             CurrentPage = null!;
             OnPropertyChanged(nameof(CurrentShellForceSet));
          }
-      }
-
-      void SetForceSetLoadType(CScore.ForceSet? fs)
-      {
-         if (fs == null) return;
-         var dlg = new Views.ForceSetPropsDialog(fs);
-         if (dlg.ShowDialog() != true) return;
-         var vm = (ForceSetPropsVM)dlg.DataContext;
-         fs.Tag = vm.ResultName;
-         db.SaveForceSet(fs);
-         // ForceSet не INPC — форсируем обновление TreeView через remove+insert
-         var col = fs.Kind == "shell" ? ShellForceSets : BarForceSets;
-         int idx = col.IndexOf(fs);
-         if (idx >= 0) { col.RemoveAt(idx); col.Insert(idx, fs); }
       }
 
       void DuplicateForceSet(CScore.ForceSet? src)

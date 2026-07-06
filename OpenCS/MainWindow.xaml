@@ -148,7 +148,10 @@
                 <MenuItem Header="{DynamicResource ImportContoursFromDxf}" Command="{Binding ImportContoursFromDxfCommand}"/>
                 <MenuItem Header="{DynamicResource ImportAreasFromDxf}" Command="{Binding FromDxfCommand}"/>
              </MenuItem>
-             <MenuItem Header="{DynamicResource ImportSubMenuAutoCAD}" IsEnabled="False"/>
+              <MenuItem Header="{DynamicResource ImportSubMenuAutoCAD}">
+                 <MenuItem Header="{DynamicResource ImportAcadRegions}" Command="{Binding ImportAcadRegionsCommand}"/>
+                 <MenuItem Header="{DynamicResource ImportAcadRebarGroups}" Command="{Binding ImportAcadRebarGroupsCommand}"/>
+              </MenuItem>
              <Separator/>
              <MenuItem Header="{DynamicResource ImportSubMenuLira}">
                 <MenuItem Header="{DynamicResource ImportLiraSchemaFromCsv}" Command="{Binding ImportLiraSchemaFromCsvCommand}"/>

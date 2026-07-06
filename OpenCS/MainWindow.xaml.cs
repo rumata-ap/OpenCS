@@ -255,7 +255,10 @@ namespace OpenCS
       void CopyLogEntry_Click(object sender, RoutedEventArgs e)
       {
          if (LoggerListBox.SelectedItem is LogEntry entry)
-            Clipboard.SetText(entry.FormattedMessage);
+         {
+            try { Clipboard.SetText(entry.FormattedMessage); }
+            catch { /* игнорируем ошибки буфера обмена (CLIPBRD_E_CANT_OPEN) */ }
+         }
       }
    }
 }

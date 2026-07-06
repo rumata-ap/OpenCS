@@ -2,6 +2,8 @@ using OpenCS.Utilites;
 using CalcSettings = OpenCS.Utilites.CalcSettings;
 using CsvExportSettings = OpenCS.Utilites.CsvExportSettings;
 using LiraImportSettings = OpenCS.Utilites.LiraImportSettings;
+using AcadImportSettings = OpenCS.Utilites.AcadImportSettings;
+using ArcDiscretization = OpenCS.Utilites.ArcDiscretization;
 
 using System.Linq;
 using System.Windows;
@@ -19,6 +21,7 @@ namespace OpenCS.Views
       readonly CalcSettings _calcSettings;
       readonly CsvExportSettings _csvSettings;
       readonly LiraImportSettings _liraSettings;
+      readonly AcadImportSettings _acadSettings;
 
       static readonly string[] _palette =
       [
@@ -34,8 +37,9 @@ namespace OpenCS.Views
          _settings = mvm.PlotSettings.Clone();
          _calcSettings = mvm.CalcSettings.Clone();
          _csvSettings = mvm.CsvSettings.Clone();
-         _liraSettings = mvm.LiraImportSettings.Clone();
-         Owner = Application.Current.MainWindow;
+          _liraSettings = mvm.LiraImportSettings.Clone();
+          _acadSettings = mvm.AcadImportSettings.Clone();
+          Owner = Application.Current.MainWindow;
 
          LoadToUi();
          HookTextBoxes();
@@ -44,9 +48,11 @@ namespace OpenCS.Views
          HookCalcBoxes();
          LoadCsvToUi();
          HookCsvControls();
-         LoadLiraToUi();
-         HookLiraControls();
-      }
+          LoadLiraToUi();
+          HookLiraControls();
+          LoadAcadToUi();
+          HookAcadControls();
+       }
 
       void BuildPalette()
       {
@@ -96,6 +102,8 @@ namespace OpenCS.Views
          ShowTooltipsCb.IsChecked = _settings.ShowTooltips;
          ShowAxesValsCb.IsChecked = _settings.ShowAxesValues;
          AxesOriginCb.IsChecked = _settings.AxesAtOrigin;
+         OriginReferenceAxesCb.IsChecked = _settings.ShowOriginReferenceAxes;
+         ForceSetColorizeCb.IsChecked = _settings.ForceSetColorize;
          UpdateSwatches();
       }
 
@@ -130,6 +138,10 @@ namespace OpenCS.Views
          ShowAxesValsCb.Unchecked += (_, _) => _settings.ShowAxesValues = false;
          AxesOriginCb.Checked += (_, _) => _settings.AxesAtOrigin = true;
          AxesOriginCb.Unchecked += (_, _) => _settings.AxesAtOrigin = false;
+         OriginReferenceAxesCb.Checked += (_, _) => _settings.ShowOriginReferenceAxes = true;
+         OriginReferenceAxesCb.Unchecked += (_, _) => _settings.ShowOriginReferenceAxes = false;
+         ForceSetColorizeCb.Checked += (_, _) => _settings.ForceSetColorize = true;
+         ForceSetColorizeCb.Unchecked += (_, _) => _settings.ForceSetColorize = false;
       }
 
       void UpdateSwatches()
@@ -171,13 +183,17 @@ namespace OpenCS.Views
 
          _mvm.CalcSettings = _calcSettings.Clone();
          _mvm.db.SaveCalcSettings(_mvm.CalcSettings);
+         _mvm.NotifyCalcSettingsApplied();
 
          _mvm.CsvSettings = _csvSettings.Clone();
          _mvm.db.SaveCsvSettings(_mvm.CsvSettings);
 
-         _mvm.LiraImportSettings = _liraSettings.Clone();
-         _mvm.db.SaveLiraImportSettings(_mvm.LiraImportSettings);
-      }
+          _mvm.LiraImportSettings = _liraSettings.Clone();
+          _mvm.db.SaveLiraImportSettings(_mvm.LiraImportSettings);
+
+          _mvm.AcadImportSettings = _acadSettings.Clone();
+          _mvm.db.SaveAcadImportSettings(_mvm.AcadImportSettings);
+       }
 
       void Cancel_Click(object sender, RoutedEventArgs e)
       {
@@ -203,8 +219,14 @@ namespace OpenCS.Views
          Sp63EtaMinBox.Text        = _calcSettings.Sp63DescEtaMin.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          NewtonJacobianCombo.SelectedIndex = _calcSettings.NewtonJacobian == "central" ? 1 : 0;
          ShellTolResBox.Text         = _calcSettings.ShellNewtonTolRes.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         Sp20GammaGBox.Text          = _calcSettings.Sp20GammaFPermanent.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         Sp20GammaGFavBox.Text       = _calcSettings.Sp20GammaFPermanentFav.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         Sp20GammaLBox.Text          = _calcSettings.Sp20GammaFLongTerm.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         Sp20GammaQBox.Text          = _calcSettings.Sp20GammaFShortTerm.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         Sp20GammaABox.Text          = _calcSettings.Sp20GammaFAccidental.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          BatchParallelCb.IsChecked   = _calcSettings.BatchParallel;
          ShellWarmStartCb.IsChecked  = _calcSettings.ShellWarmStart;
+         RebarDifferentialDiagramCb.IsChecked = _calcSettings.RebarDifferentialDiagram;
          UpdateCalcSwatches();
       }
 
@@ -288,10 +310,27 @@ namespace OpenCS.Views
                 System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
                _calcSettings.ShellNewtonTolRes = v;
          };
+         HookSp20GammaBox(Sp20GammaGBox, v => _calcSettings.Sp20GammaFPermanent = v);
+         HookSp20GammaBox(Sp20GammaGFavBox, v => _calcSettings.Sp20GammaFPermanentFav = v);
+         HookSp20GammaBox(Sp20GammaLBox, v => _calcSettings.Sp20GammaFLongTerm = v);
+         HookSp20GammaBox(Sp20GammaQBox, v => _calcSettings.Sp20GammaFShortTerm = v);
+         HookSp20GammaBox(Sp20GammaABox, v => _calcSettings.Sp20GammaFAccidental = v);
          BatchParallelCb.Checked    += (_, _) => _calcSettings.BatchParallel  = true;
          BatchParallelCb.Unchecked  += (_, _) => _calcSettings.BatchParallel  = false;
          ShellWarmStartCb.Checked   += (_, _) => _calcSettings.ShellWarmStart = true;
          ShellWarmStartCb.Unchecked += (_, _) => _calcSettings.ShellWarmStart = false;
+         RebarDifferentialDiagramCb.Checked   += (_, _) => _calcSettings.RebarDifferentialDiagram = true;
+         RebarDifferentialDiagramCb.Unchecked += (_, _) => _calcSettings.RebarDifferentialDiagram = false;
+      }
+
+      static void HookSp20GammaBox(System.Windows.Controls.TextBox box, Action<double> setter)
+      {
+         box.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(box.Text, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+               setter(v);
+         };
       }
 
       void LoadCsvToUi()
@@ -334,6 +373,41 @@ namespace OpenCS.Views
          UpdateSwatch(CentroidNdsSwatch, CentroidNdsColorBox.Text);
       }
 
+      void LoadAcadToUi()
+      {
+         const double mm = 0.001;
+         const double cm = 0.01;
+         AcadMm.IsChecked = Math.Abs(_acadSettings.ScaleFactor - mm) < 0.0001;
+         AcadCm.IsChecked = Math.Abs(_acadSettings.ScaleFactor - cm) < 0.0001;
+         AcadM.IsChecked  = Math.Abs(_acadSettings.ScaleFactor - 1.0) < 0.0001;
+
+         AcadArcChordRb.IsChecked = _acadSettings.ArcDiscretizationMode == ArcDiscretization.ChordLength;
+         AcadArcFixedRb.IsChecked = _acadSettings.ArcDiscretizationMode == ArcDiscretization.FixedSegments;
+         AcadArcChordBox.Text = _acadSettings.ArcChordLength.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
+         AcadArcSegBox.Text = _acadSettings.ArcSegments.ToString();
+      }
+
+      void HookAcadControls()
+      {
+         AcadMm.Checked += (_, _) => _acadSettings.ScaleFactor = 0.001;
+         AcadCm.Checked += (_, _) => _acadSettings.ScaleFactor = 0.01;
+         AcadM.Checked  += (_, _) => _acadSettings.ScaleFactor = 1.0;
+
+         AcadArcChordRb.Checked += (_, _) => _acadSettings.ArcDiscretizationMode = ArcDiscretization.ChordLength;
+         AcadArcFixedRb.Checked += (_, _) => _acadSettings.ArcDiscretizationMode = ArcDiscretization.FixedSegments;
+         AcadArcChordBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(AcadArcChordBox.Text, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+               _acadSettings.ArcChordLength = v;
+         };
+         AcadArcSegBox.TextChanged += (_, _) =>
+         {
+            if (int.TryParse(AcadArcSegBox.Text, out var v) && v >= 3)
+               _acadSettings.ArcSegments = v;
+         };
+      }
+
       void Reset_Click(object sender, RoutedEventArgs e)
       {
          var def = PlotSettings.Default;
@@ -352,6 +426,7 @@ namespace OpenCS.Views
          _settings.ShowTooltips = def.ShowTooltips;
          _settings.ShowAxesValues = def.ShowAxesValues;
          _settings.AxesAtOrigin = def.AxesAtOrigin;
+         _settings.ShowOriginReferenceAxes = def.ShowOriginReferenceAxes;
          _settings.AxesColor = def.AxesColor;
          _settings.AxesFontSize = def.AxesFontSize;
          _settings.GridThickness = def.GridThickness;
@@ -361,6 +436,7 @@ namespace OpenCS.Views
          _settings.DxfCanvasBackground = def.DxfCanvasBackground;
          _settings.CentroidColor = def.CentroidColor;
          _settings.CentroidSize = def.CentroidSize;
+         _settings.ForceSetColorize = def.ForceSetColorize;
          LoadToUi();
       }
    }

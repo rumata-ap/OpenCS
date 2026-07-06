@@ -565,7 +565,24 @@
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Файл жёсткостей пластин (CSV, опционально)</system:String>
    <system:String x:Key="ImportLiraSchemaSuccess">Импортирована схема: {0} узлов, {1} стержней, {2} пластин, {3} конструктивных элементов</system:String>
    <system:String x:Key="CsvFileFilter">CSV-файл (*.csv)|*.csv|Все файлы (*.*)|*.*</system:String>
-   <system:String x:Key="LiraImportSettingsTab">Импорт LIRA</system:String>
+    <system:String x:Key="ImportSettingsTab">Импорт</system:String>
+    <system:String x:Key="LiraImportGroupBox">Лира САПР</system:String>
+    <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>
+    <system:String x:Key="AcadImportUnitsGroup">Единицы измерения</system:String>
+    <system:String x:Key="AcadImportMm">Миллиметры (1 мм → 0,001 м)</system:String>
+    <system:String x:Key="AcadImportCm">Сантиметры (1 см → 0,01 м)</system:String>
+    <system:String x:Key="AcadImportM">Метры</system:String>
+    <system:String x:Key="AcadArcGroup">Аппроксимация дуг</system:String>
+    <system:String x:Key="AcadArcChord">По длине хорды (мм)</system:String>
+    <system:String x:Key="AcadArcFixed">Фиксированным числом сегментов</system:String>
+    <system:String x:Key="ImportAcadRegions">Области</system:String>
+    <system:String x:Key="ImportAcadRebarGroups">Группы арматуры</system:String>
+    <system:String x:Key="AcadNotRunning">AutoCAD не запущен. Запустите AutoCAD и повторите попытку.</system:String>
+    <system:String x:Key="AcadImportRegionsSuccess">Импортировано областей: {0}</system:String>
+    <system:String x:Key="AcadImportRebarGroupsSuccess">Импортировано групп арматуры: {0} (всего стержней: {1})</system:String>
+    <system:String x:Key="AcadNoClosedPolylines">Не найдено замкнутых полилиний на указанном слое.</system:String>
+    <system:String x:Key="AcadNoCircles">Не найдено окружностей на указанном слое.</system:String>
+    <system:String x:Key="LiraImportSettingsTab">Импорт LIRA</system:String>
    <system:String x:Key="LiraImportUnitsGroup">Перевод т → кН</system:String>
    <system:String x:Key="LiraTon981">9,80665 (1 т = 9,80665 кН)</system:String>
    <system:String x:Key="LiraTon10">10 (1 т = 10 кН)</system:String>

@@ -562,7 +562,24 @@
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Plate stiffnesses file (CSV, optional)</system:String>
    <system:String x:Key="ImportLiraSchemaSuccess">Imported schema: {0} nodes, {1} bars, {2} shells, {3} design members</system:String>
    <system:String x:Key="CsvFileFilter">CSV file (*.csv)|*.csv|All files (*.*)|*.*</system:String>
-   <system:String x:Key="LiraImportSettingsTab">LIRA import</system:String>
+    <system:String x:Key="ImportSettingsTab">Import</system:String>
+    <system:String x:Key="LiraImportGroupBox">LiraSAPR</system:String>
+    <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>
+    <system:String x:Key="AcadImportUnitsGroup">Units</system:String>
+    <system:String x:Key="AcadImportMm">Millimeters (1 mm → 0.001 m)</system:String>
+    <system:String x:Key="AcadImportCm">Centimeters (1 cm → 0.01 m)</system:String>
+    <system:String x:Key="AcadImportM">Meters</system:String>
+    <system:String x:Key="AcadArcGroup">Arc approximation</system:String>
+    <system:String x:Key="AcadArcChord">By chord length (m)</system:String>
+    <system:String x:Key="AcadArcFixed">Fixed segment count</system:String>
+    <system:String x:Key="ImportAcadRegions">Regions</system:String>
+    <system:String x:Key="ImportAcadRebarGroups">Rebar groups</system:String>
+    <system:String x:Key="AcadNotRunning">AutoCAD is not running. Start AutoCAD and try again.</system:String>
+    <system:String x:Key="AcadImportRegionsSuccess">Imported regions: {0}</system:String>
+    <system:String x:Key="AcadImportRebarGroupsSuccess">Imported rebar groups: {0} (total bars: {1})</system:String>
+    <system:String x:Key="AcadNoClosedPolylines">No closed polylines found on the specified layer.</system:String>
+    <system:String x:Key="AcadNoCircles">No circles found on the specified layer.</system:String>
+    <system:String x:Key="LiraImportSettingsTab">LIRA import</system:String>
    <system:String x:Key="LiraImportUnitsGroup">Convert ton → kN</system:String>
    <system:String x:Key="LiraTon981">9.80665 (1 t = 9.80665 kN)</system:String>
    <system:String x:Key="LiraTon10">10 (1 t = 10 kN)</system:String>
