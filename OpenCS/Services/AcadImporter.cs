@@ -53,7 +53,12 @@ namespace OpenCS.Services
                throw new InvalidOperationException($"CreateBindCtx не удался (HRESULT: 0x{hr:X8})");
 
             ctx.GetRunningObjectTable(out rot);
+            if (rot == null)
+               throw new InvalidOperationException("GetRunningObjectTable вернул null");
+
             rot.EnumRunning(out monikers);
+            if (monikers == null)
+               throw new InvalidOperationException("EnumRunning вернул null");
 
             var moniker = new IMoniker[1];
 
