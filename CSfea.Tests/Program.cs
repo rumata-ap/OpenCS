@@ -135,5 +135,6 @@ TorsionTests.FemHollowCircleItVsExactQuadratic();
 TorsionTests.TorsionSolverFemOrderDefaultIsLinear();
 
 TorsionTests.ConvergenceOrderT3VsT6();
+TorsionTests.FemT6ConcaveFrameSolvesWithinTimeout();
 
 return TestHarness.Summary();

@@ -657,5 +657,19 @@ public static class TorsionTests
         TestHarness.CheckRel("It T6 (грубая сетка, ≤2%)", itT6, timo, 0.02);
     }
 
+    public static void FemT6ConcaveFrameSolvesWithinTimeout()
+    {
+        TestHarness.Section("МКЭ T6: вогнутая рамка 30Б1-подобного профиля решается за разумное время (RCM+Холецкий)");
+        var boundary = SampleConcaveFrameBoundary();
+        double h0 = TorsionBoundaryMetrics.MinEdgeLength(boundary);
+        double h = h0 / 2.0; // тот самый размер (~7000 T6 DOF), на котором раньше зависало
+        var sw = Stopwatch.StartNew();
+        var props = TorsionFemSolver.Solve(boundary, h, order: FemElementOrder.Quadratic);
+        sw.Stop();
+        TestHarness.Check("It > 0", props.It > 0, $"It={props.It:e4}");
+        TestHarness.Check("It конечен", double.IsFinite(props.It));
+        TestHarness.Check($"Решение за разумное время (было: не завершалось за несколько минут)",
+            sw.ElapsedMilliseconds < 20000, $"ms={sw.ElapsedMilliseconds}, nNodes={props.NodeX!.Length}");
+    }
 }
 
