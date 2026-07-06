@@ -14,6 +14,8 @@ public sealed class TorsionResultVM : ViewModelBase
     public Brush StatusBrush { get; }
 
     public string MethodText { get; }
+    public bool ShowFemOrder { get; }
+    public string FemOrderText { get; } = "";
     public string ItText { get; }
     public string GItText { get; }
     public bool HasGIt { get; }
@@ -32,6 +34,15 @@ public sealed class TorsionResultVM : ViewModelBase
     public bool IsSingular { get; }
     public string? ErrorText { get; }
     public bool HasError { get; }
+
+    public bool ShowAutoConverge { get; }
+    public string AutoConvergeSeriesText { get; } = "";
+    public string ItOrderText { get; } = "";
+    public string ItExtrapolatedText { get; } = "";
+    public Brush ItExtrapolatedBrush { get; } = Brushes.Gray;
+    public bool HasShearCenterOrder { get; }
+    public string ShearCenterOrderText { get; } = "";
+    public string ShearCenterExtrapolatedText { get; } = "";
 
     public TorsionPlotVM TauPlot { get; }
     public TorsionPlotVM PotentialPlot { get; }
@@ -66,6 +77,11 @@ public sealed class TorsionResultVM : ViewModelBase
             "fem" => Loc.S("CalcTaskKind_torsion_fem"),
             _ => data.Method
         };
+
+        ShowFemOrder = data.IsFem;
+        FemOrderText = data.FemOrder == "quadratic"
+            ? Loc.S("TorsionFemOrder_Quadratic")
+            : Loc.S("TorsionFemOrder_Linear");
 
         var inv = CultureInfo.InvariantCulture;
         ItText = double.IsFinite(data.ItMm4) ? data.ItMm4.ToString("N1", inv) : "—";
@@ -112,5 +128,34 @@ public sealed class TorsionResultVM : ViewModelBase
                    (data.NodeXM != null && data.TauUnit != null);
         TauPlot = new TorsionPlotVM(data, TorsionFieldMode.TauUnit);
         PotentialPlot = new TorsionPlotVM(data, TorsionFieldMode.Potential);
+
+        ShowAutoConverge = data.AutoConverge && data.ConvergenceHMm != null && data.ConvergenceItMm4 != null;
+        if (ShowAutoConverge)
+        {
+            var hs = data.ConvergenceHMm!;
+            var its = data.ConvergenceItMm4!;
+            AutoConvergeSeriesText = string.Join("  →  ", hs.Zip(its,
+                (h, itv) => $"h={h.ToString("G3", inv)} мм: It={itv.ToString("N0", inv)} мм⁴"));
+
+            ItOrderText = data.ItOrder is double p
+                ? $"p ≈ {p.ToString("F2", inv)}"
+                : Loc.S("TorsionOrderUndetermined");
+
+            ItExtrapolatedText = data.ItExtrapolated
+                ? Loc.S("TorsionExtrapolated")
+                : Loc.S("TorsionExtrapolationUnreliable");
+            ItExtrapolatedBrush = data.ItExtrapolated ? Brushes.Green : Brushes.DarkOrange;
+
+            HasShearCenterOrder = data.ShearCenterOrderX is double || data.ShearCenterOrderY is double;
+            if (HasShearCenterOrder)
+            {
+                string px = data.ShearCenterOrderX is double pxv ? pxv.ToString("F2", inv) : "—";
+                string py = data.ShearCenterOrderY is double pyv ? pyv.ToString("F2", inv) : "—";
+                ShearCenterOrderText = $"p_x ≈ {px}, p_y ≈ {py}";
+                ShearCenterExtrapolatedText = data.ShearCenterExtrapolated
+                    ? Loc.S("TorsionExtrapolated")
+                    : Loc.S("TorsionExtrapolationUnreliable");
+            }
+        }
     }
 }

@@ -14,6 +14,12 @@
                   <Run Text=": "/>
                   <Run Text="{Binding MethodText, Mode=OneWay}"/>
                </TextBlock>
+               <TextBlock Margin="0,0,0,4"
+                          Visibility="{Binding ShowFemOrder, Converter={StaticResource BoolToVisibility}}">
+                  <Run Text="{DynamicResource TorsionFemOrder}"/>
+                  <Run Text=": "/>
+                  <Run Text="{Binding FemOrderText, Mode=OneWay}"/>
+               </TextBlock>
                <TextBlock FontWeight="Bold" Foreground="{Binding StatusBrush, Mode=OneWay}"
                           Text="{Binding StatusText, Mode=OneWay}" Margin="0,0,0,8"/>
                <TextBlock Text="{Binding ErrorText}" Foreground="DarkRed" FontWeight="Bold"
@@ -95,6 +101,32 @@
                         <Run Text="{DynamicResource TorsionSingular}"/>
                      </TextBlock>
                   </Grid>
+               </GroupBox>
+
+               <GroupBox Header="{DynamicResource TorsionAutoConvergeHeader}" Padding="10" Margin="0,0,0,12"
+                         Visibility="{Binding ShowAutoConverge, Converter={StaticResource BoolToVisibility}}">
+                  <StackPanel>
+                     <TextBlock Text="{DynamicResource TorsionConvergenceSeries}" Foreground="Gray" Margin="0,0,0,2"/>
+                     <TextBlock Text="{Binding AutoConvergeSeriesText, Mode=OneWay}" FontFamily="Consolas"
+                                TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                     <TextBlock Margin="0,0,0,2">
+                        <Run Text="{DynamicResource TorsionConvergenceOrderIt}" Foreground="Gray"/>
+                        <Run Text=": "/>
+                        <Run Text="{Binding ItOrderText, Mode=OneWay}" FontFamily="Consolas"/>
+                     </TextBlock>
+                     <TextBlock Text="{Binding ItExtrapolatedText, Mode=OneWay}"
+                                Foreground="{Binding ItExtrapolatedBrush, Mode=OneWay}" Margin="0,0,0,8"/>
+
+                     <StackPanel Visibility="{Binding HasShearCenterOrder, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Margin="0,0,0,2">
+                           <Run Text="{DynamicResource TorsionConvergenceOrderShearCenter}" Foreground="Gray"/>
+                           <Run Text=": "/>
+                           <Run Text="{Binding ShearCenterOrderText, Mode=OneWay}" FontFamily="Consolas"/>
+                        </TextBlock>
+                        <TextBlock Text="{Binding ShearCenterExtrapolatedText, Mode=OneWay}" Foreground="Gray"/>
+                     </StackPanel>
+                  </StackPanel>
                </GroupBox>
             </StackPanel>
          </ScrollViewer>
