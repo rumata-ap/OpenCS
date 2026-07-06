@@ -634,5 +634,28 @@ public static class TorsionTests
             TriangulationMethod.AdvancingFront, FemElementOrder.Linear);
         TestHarness.CheckRel("It совпадает при явном и дефолтном Linear", explicitLinear.It, withoutParam.It, 1e-12);
     }
+
+    public static void ConvergenceOrderT3VsT6()
+    {
+        TestHarness.Section("Сходимость МКЭ: T6 заметно точнее T3 на той же грубой сетке (прямоугольник)");
+        double b = 0.2, h = 0.4;
+        var boundary = new TorsionBoundary(
+            new[] { -b / 2, b / 2, b / 2, -b / 2 },
+            new[] { -h / 2, -h / 2, h / 2, h / 2 });
+        double timo = b * b * b * h * (1.0 / 3.0 - 0.21 * (b / h) * (1.0 - Math.Pow(b / h, 4) / 12.0));
+
+        double es = 0.08; // грубая сетка — специально не мелкая
+        double itT3 = TorsionSolver.Solve(boundary, TorsionMethod.Fem, es,
+            TriangulationMethod.AdvancingFront, FemElementOrder.Linear).It;
+        double itT6 = TorsionSolver.Solve(boundary, TorsionMethod.Fem, es,
+            TriangulationMethod.AdvancingFront, FemElementOrder.Quadratic).It;
+
+        double errT3 = Math.Abs(itT3 - timo) / timo;
+        double errT6 = Math.Abs(itT6 - timo) / timo;
+        TestHarness.Check($"Ошибка T6 меньше ошибки T3 на той же сетке (T3={errT3 * 100:F2}%, T6={errT6 * 100:F2}%)",
+            errT6 < errT3, $"errT3={errT3:e3}, errT6={errT6:e3}");
+        TestHarness.CheckRel("It T6 (грубая сетка, ≤2%)", itT6, timo, 0.02);
+    }
+
 }
 

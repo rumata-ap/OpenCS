@@ -134,4 +134,6 @@ TorsionTests.RectangleTimoshenkoQuadratic();
 TorsionTests.FemHollowCircleItVsExactQuadratic();
 TorsionTests.TorsionSolverFemOrderDefaultIsLinear();
 
+TorsionTests.ConvergenceOrderT3VsT6();
+
 return TestHarness.Summary();
