@@ -314,6 +314,105 @@ public static class TorsionTests
         TestHarness.Check("It МГЭ / Бредт ∈ [0.9, 1.4]", ratio >= 0.9 && ratio <= 1.4, $"ratio={ratio:F3}");
     }
 
+    public static void MinEdgeLengthSquareWithHole()
+    {
+        TestHarness.Section("TorsionBoundaryMetrics.MinEdgeLength: квадрат 10×10 с отверстием 2×2");
+        var boundary = new TorsionBoundary(
+            new[] { 0.0, 10.0, 10.0, 0.0 },
+            new[] { 0.0, 0.0, 10.0, 10.0 },
+            new List<(double[] X, double[] Y)>
+            {
+                (new[] { 4.0, 6.0, 6.0, 4.0 }, new[] { 4.0, 4.0, 6.0, 6.0 })
+            });
+        double h0 = TorsionBoundaryMetrics.MinEdgeLength(boundary);
+        // Внешние рёбра длиной 10, рёбра отверстия длиной 2 — минимум должен быть по отверстию.
+        TestHarness.CheckRel("MinEdgeLength = 2 (по отверстию)", h0, 2.0, 1e-9);
+    }
+
+    public static void MinEdgeLengthCircleApprox()
+    {
+        TestHarness.Section("TorsionBoundaryMetrics.MinEdgeLength: полигон-аппроксимация окружности");
+        double r = 0.5;
+        int n = 64;
+        double[] ox = new double[n], oy = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            double a = 2.0 * Math.PI * i / n;
+            ox[i] = r * Math.Cos(a); oy[i] = r * Math.Sin(a);
+        }
+        var boundary = new TorsionBoundary(ox, oy);
+        double h0 = TorsionBoundaryMetrics.MinEdgeLength(boundary);
+        // Правильный n-угольник: длина хорды = 2r·sin(π/n), одинакова для всех рёбер.
+        double chord = 2.0 * r * Math.Sin(Math.PI / n);
+        TestHarness.CheckRel("MinEdgeLength = хорда правильного 64-угольника", h0, chord, 1e-9);
+    }
+
+    public static void MinEdgeLengthIgnoresDegenerateEdges()
+    {
+        TestHarness.Section("TorsionBoundaryMetrics.MinEdgeLength: игнорирует дублирующиеся (нулевые) точки");
+        // Квадрат 10×10, но с дублированной вершиной (нулевое ребро) — не должен давать MinEdgeLength≈0.
+        var boundary = new TorsionBoundary(
+            new[] { 0.0, 10.0, 10.0, 10.0, 0.0 },
+            new[] { 0.0, 0.0, 0.0, 10.0, 10.0 });
+        double h0 = TorsionBoundaryMetrics.MinEdgeLength(boundary);
+        TestHarness.CheckRel("MinEdgeLength = 10 (вырожденное ребро проигнорировано)", h0, 10.0, 1e-9);
+    }
+
+    public static void RichardsonExtrapolateMonotonicSeries()
+    {
+        TestHarness.Section("TorsionRichardson.Extrapolate: синтетический ряд I(h) = I∞ + C·h^p");
+        double iInf = 85000.0, c = 40000.0, p = 1.7;
+        double h0 = 1.0;
+        double[] seq =
+        [
+            iInf + c * Math.Pow(h0, p),
+            iInf + c * Math.Pow(h0 / 2.0, p),
+            iInf + c * Math.Pow(h0 / 4.0, p)
+        ];
+        var (value, order, extrapolated) = TorsionRichardson.Extrapolate(seq);
+        TestHarness.Check("Экстраполяция признана надёжной", extrapolated);
+        TestHarness.CheckRel("Оценённый порядок ≈ p", order ?? double.NaN, p, 1e-6);
+        TestHarness.CheckRel("Экстраполированное значение ≈ I∞", value, iInf, 1e-6);
+    }
+
+    public static void RichardsonExtrapolateAlreadyConverged()
+    {
+        TestHarness.Section("TorsionRichardson.Extrapolate: ряд уже сошёлся (нет изменений)");
+        double[] seq = [100.0, 100.0, 100.0];
+        var (value, order, extrapolated) = TorsionRichardson.Extrapolate(seq);
+        TestHarness.Check("Экстраполяция не применяется (нечего экстраполировать)", !extrapolated);
+        TestHarness.Check("Порядок не определён", order == null);
+        TestHarness.CheckRel("Значение = последняя точка", value, 100.0, 1e-9);
+    }
+
+    public static void RichardsonExtrapolateNonMonotonicSeries()
+    {
+        TestHarness.Section("TorsionRichardson.Extrapolate: немонотонный (зашумлённый) ряд — не доверяем экстраполяции");
+        double[] seq = [100.0, 105.0, 102.0]; // рост, затем спад — не степенной закон убывания ошибки
+        var (value, order, extrapolated) = TorsionRichardson.Extrapolate(seq);
+        TestHarness.Check("Экстраполяция помечена ненадёжной", !extrapolated);
+        TestHarness.CheckRel("Возвращено значение с самой мелкой сетки", value, 102.0, 1e-9);
+    }
+
+    public static void RichardsonAutoConvergeConcaveFrame()
+    {
+        TestHarness.Section("TorsionRichardson.SolveAutoConverge: вогнутая рамка (двутавр-подобный профиль), МГЭ");
+        var boundary = SampleConcaveFrameBoundary();
+        var sw = Stopwatch.StartNew();
+        var result = TorsionRichardson.SolveAutoConverge(boundary, TorsionMethod.Bem);
+        sw.Stop();
+        TestHarness.Check("3 шага сходимости", result.Steps.Count == 3, $"steps={result.Steps.Count}");
+        TestHarness.Check("h убывает вдвое на каждом шаге",
+            Math.Abs(result.Steps[1].ElementSize - result.Steps[0].ElementSize / 2.0) < 1e-12 &&
+            Math.Abs(result.Steps[2].ElementSize - result.Steps[0].ElementSize / 4.0) < 1e-12);
+        TestHarness.Check("It > 0", result.It > 0, $"It={result.It}");
+        TestHarness.Check("It конечен", double.IsFinite(result.It));
+        // Референс из test_prj.db (30Б1): It ≈ 8.6 см⁴ = 8.6e-8 м⁴. Допуск широкий — цель теста
+        // не точность БД, а то, что автосходимость не деградирует и не расходится.
+        TestHarness.CheckRel("It (авто-Ричардсон) ≈ референс 8.6 см⁴", result.It, 8.6e-8, 0.15);
+        TestHarness.Check("время < 30 с", sw.ElapsedMilliseconds < 30000, $"ms={sw.ElapsedMilliseconds}");
+    }
+
     public static void BemHollowCircleItVsExact()
     {
         TestHarness.Section("МГЭ: полая труба r_out=0.1 r_in=0.06 vs π/2·(r⁴_out−r⁴_in)");
@@ -329,6 +428,88 @@ public static class TorsionTests
         double exact = Math.PI / 2.0 * (Math.Pow(rOut, 4) - Math.Pow(rIn, 4));
         TestHarness.Check("It МГЭ > 0", bem.It > 0);
         TestHarness.CheckRel("It МГЭ (полая труба, ≤8%)", bem.It, exact, 0.08);
+    }
+
+    static readonly double[] UnitTri6 =
+    [
+        0, 0, 1, 0, 0, 1,
+        0.5, 0, 0.5, 0.5, 0, 0.5
+    ];
+
+    public static void PrandtlTri6ShapeFunctionsPartitionOfUnity()
+    {
+        TestHarness.Section("PrandtlTri6: разбиение единицы функций формы");
+        Span<double> n = stackalloc double[6];
+        PrandtlTri6.ShapeFunctions(0.2, 0.3, n);
+        double sum = 0;
+        for (int i = 0; i < 6; i++) sum += n[i];
+        TestHarness.CheckRel("Σ N_i = 1", sum, 1.0, 1e-12);
+    }
+
+    public static void PrandtlTri6AreaMatchesTri3()
+    {
+        TestHarness.Section("PrandtlTri6: площадь по вершинам совпадает с PrandtlTri3");
+        double a6 = PrandtlTri6.AreaFromCorners(UnitTri6);
+        double a3 = PrandtlTri3.Area(new double[] { 0, 0, 1, 0, 0, 1 });
+        TestHarness.CheckRel("A совпадает", a6, a3, 1e-12);
+    }
+
+    public static void PrandtlTri6ElementKSymmetricPositiveDiagonalZeroRowSum()
+    {
+        TestHarness.Section("PrandtlTri6: K симметрична, диагональ > 0, суммы строк ≈ 0");
+        var ke = PrandtlTri6.ElementK(UnitTri6);
+        bool symmetric = true, positiveDiag = true, rowSumsZero = true;
+        for (int i = 0; i < 6; i++)
+        {
+            if (ke[i, i] <= 0.0) positiveDiag = false;
+            double rowSum = 0;
+            for (int j = 0; j < 6; j++)
+            {
+                rowSum += ke[i, j];
+                if (Math.Abs(ke[i, j] - ke[j, i]) > 1e-10) symmetric = false;
+            }
+            if (Math.Abs(rowSum) > 1e-9) rowSumsZero = false;
+        }
+        TestHarness.Check("K симметрична", symmetric);
+        TestHarness.Check("K диагональ > 0", positiveDiag);
+        TestHarness.Check("Суммы строк ≈ 0 (константное поле → нулевой поток)", rowSumsZero);
+    }
+
+    public static void PrandtlTri6LoadAndMassVectors()
+    {
+        TestHarness.Section("PrandtlTri6: аналитический Load/Mass-вектор (0 на вершинах, A/3 и 2A/3 на серединах)");
+        // Прямоугольный треугольник (0,0),(2,0),(0,3), площадь A=3; середины (1,0),(1,1.5),(0,1.5).
+        double[] coords = { 0, 0, 2, 0, 0, 3, 1, 0, 1, 1.5, 0, 1.5 };
+        double[] m = PrandtlTri6.MassVector(coords);
+        TestHarness.CheckRel("M[0] (вершина) = 0", m[0], 0.0, 1e-12);
+        TestHarness.CheckRel("M[1] (вершина) = 0", m[1], 0.0, 1e-12);
+        TestHarness.CheckRel("M[2] (вершина) = 0", m[2], 0.0, 1e-12);
+        TestHarness.CheckRel("M[3] (середина) = A/3 = 1", m[3], 1.0, 1e-9);
+        TestHarness.CheckRel("M[4] (середина) = A/3 = 1", m[4], 1.0, 1e-9);
+        TestHarness.CheckRel("M[5] (середина) = A/3 = 1", m[5], 1.0, 1e-9);
+
+        double[] f = PrandtlTri6.LoadVector(coords);
+        TestHarness.CheckRel("F[0] (вершина) = 0", f[0], 0.0, 1e-12);
+        TestHarness.CheckRel("F[3] (середина) = 2A/3 = 2", f[3], 2.0, 1e-9);
+    }
+
+    public static void PrandtlTri6NodeGradientReproducesLinearField()
+    {
+        TestHarness.Section("PrandtlTri6: поузловой градиент воспроизводит линейное поле φ=2x+3y");
+        // Прямоугольный треугольник (0,0),(2,0),(0,3); середины (1,0),(1,1.5),(0,1.5).
+        double[] coords = { 0, 0, 2, 0, 0, 3, 1, 0, 1, 1.5, 0, 1.5 };
+        double[] phi = new double[6];
+        for (int i = 0; i < 6; i++)
+        {
+            double x = coords[2 * i], y = coords[2 * i + 1];
+            phi[i] = 2.0 * x + 3.0 * y;
+        }
+        for (int node = 0; node < 6; node++)
+        {
+            var (dphidx, dphidy) = PrandtlTri6.NodeGradient(node, coords, phi);
+            TestHarness.CheckRel($"dφ/dx в узле {node} = 2", dphidx, 2.0, 1e-9);
+            TestHarness.CheckRel($"dφ/dy в узле {node} = 3", dphidy, 3.0, 1e-9);
+        }
     }
 }
 
