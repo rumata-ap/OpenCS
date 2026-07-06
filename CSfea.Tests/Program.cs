@@ -125,4 +125,8 @@ TorsionTests.PrandtlTri6ElementKSymmetricPositiveDiagonalZeroRowSum();
 TorsionTests.PrandtlTri6LoadAndMassVectors();
 TorsionTests.PrandtlTri6NodeGradientReproducesLinearField();
 
+TorsionTests.MeshBuilderPromoteSquareNodeCount();
+TorsionTests.MeshBuilderPromoteClassifiesBoundaryMidNodes();
+TorsionTests.MeshBuilderPromoteRejectsAlreadyQuadratic();
+
 return TestHarness.Summary();

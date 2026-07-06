@@ -511,5 +511,67 @@ public static class TorsionTests
             TestHarness.CheckRel($"dφ/dy в узле {node} = 3", dphidy, 3.0, 1e-9);
         }
     }
+
+    public static void MeshBuilderPromoteSquareNodeCount()
+    {
+        TestHarness.Section("MeshBuilder.Promote: квадрат 1×1 — число узлов/треугольников");
+        var boundary = new TorsionBoundary(
+            new[] { 0.0, 1.0, 1.0, 0.0 },
+            new[] { 0.0, 0.0, 1.0, 1.0 });
+        var linear = MeshBuilder.Build(boundary, maxElementSize: 0.5);
+        var quad = MeshBuilder.Promote(linear, boundary);
+        TestHarness.Check("Треугольники стали 6-узловыми",
+            quad.Triangles.Length == linear.Triangles.Length && quad.Triangles.All(t => t.Length == 6));
+        TestHarness.Check("Узлов стало больше (добавлены середины)",
+            quad.NodesX.Length > linear.NodesX.Length);
+        // Каждая пара соседних треугольников делит ровно один серединный узел общего ребра —
+        // общее число новых узлов не может превышать 3 на треугольник.
+        TestHarness.Check("Прирост узлов ≤ 3 на треугольник (дедуп общих рёбер)",
+            quad.NodesX.Length - linear.NodesX.Length <= 3 * linear.Triangles.Length);
+    }
+
+    public static void MeshBuilderPromoteClassifiesBoundaryMidNodes()
+    {
+        TestHarness.Section("MeshBuilder.Promote: квадрат с отверстием — классификация серединных узлов границы");
+        var boundary = new TorsionBoundary(
+            new[] { 0.0, 10.0, 10.0, 0.0 },
+            new[] { 0.0, 0.0, 10.0, 10.0 },
+            new List<(double[] X, double[] Y)>
+            {
+                (new[] { 4.0, 6.0, 6.0, 4.0 }, new[] { 4.0, 4.0, 6.0, 6.0 })
+            });
+        var linear = MeshBuilder.Build(boundary, maxElementSize: 1.0);
+        var quad = MeshBuilder.Promote(linear, boundary);
+
+        TestHarness.Check("OuterDofs расширены серединами внешней границы",
+            quad.OuterDofs.Length > linear.OuterDofs.Length);
+        TestHarness.Check("HoleNodeSets[0] расширены серединами границы отверстия",
+            quad.HoleNodeSets[0].Length > linear.HoleNodeSets[0].Length);
+
+        // Все узлы OuterDofs должны лежать на внешнем контуре (x=0, x=10, y=0 или y=10).
+        bool allOnOuter = quad.OuterDofs.All(i =>
+            Math.Abs(quad.NodesX[i]) < 1e-6 || Math.Abs(quad.NodesX[i] - 10.0) < 1e-6 ||
+            Math.Abs(quad.NodesY[i]) < 1e-6 || Math.Abs(quad.NodesY[i] - 10.0) < 1e-6);
+        TestHarness.Check("Все OuterDofs геометрически на внешнем контуре", allOnOuter);
+
+        // Ни один узел OuterDofs не должен совпадать с узлом HoleNodeSets[0].
+        var holeSet = new HashSet<int>(quad.HoleNodeSets[0]);
+        TestHarness.Check("OuterDofs и HoleNodeSets[0] не пересекаются",
+            !quad.OuterDofs.Any(holeSet.Contains));
+    }
+
+    public static void MeshBuilderPromoteRejectsAlreadyQuadratic()
+    {
+        TestHarness.Section("MeshBuilder.Promote: повторный вызов на T6-сетке бросает исключение");
+        var boundary = new TorsionBoundary(
+            new[] { 0.0, 1.0, 1.0, 0.0 },
+            new[] { 0.0, 0.0, 1.0, 1.0 });
+        var linear = MeshBuilder.Build(boundary, maxElementSize: 0.5);
+        var quad = MeshBuilder.Promote(linear, boundary);
+        bool threw = false;
+        try { MeshBuilder.Promote(quad, boundary); }
+        catch (ArgumentException) { threw = true; }
+        TestHarness.Check("Promote(T6) бросает ArgumentException", threw);
+    }
 }
 
