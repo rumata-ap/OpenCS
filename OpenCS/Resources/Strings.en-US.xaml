@@ -91,7 +91,19 @@
    <system:String x:Key="CalcSettingsSp63EtaMinTip">Lower bound of SP63 App.G descending branch. Per SP 63.13330 §G.1 — not less than 0.85</system:String>
    <system:String x:Key="CalcSettingsShellTolRes">Tolerance (plates)</system:String>
    <system:String x:Key="CalcSettingsShellTolResTip">Relative Newton tolerance for plate sections: ‖residual‖ / (1 + ‖target forces‖). Recommended: 1e-3.</system:String>
+   <system:String x:Key="PlotSettingsForceSetColorize">Colorize force values in sets by axis</system:String>
+   <system:String x:Key="PlotSettingsForceSetColorizeTip">When enabled, force set table values are colored like the sign convention card: N/T — red, Mx/Vx/Qx/Nx — green, My/Vy/Qy/Ny — blue; Nxy — dark red, Mxy — orange.</system:String>
+   <system:String x:Key="CalcSettingsRcGroup">RC cross-section</system:String>
+   <system:String x:Key="CalcSettingsRebarDifferentialDiagram">Account for concrete area reduction replaced by rebar</system:String>
+   <system:String x:Key="CalcSettingsRebarDifferentialDiagramTip">When enabled, rebar in concrete accounts for concrete area displaced by the bar (differential diagram σ_st − σ_bc). When disabled, the pure steel diagram is used and the concrete mesh includes the bar footprint.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Batch Tasks</system:String>
+   <system:String x:Key="CalcSettingsSp20Group">SP20 combinations (default γf)</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaG">G — permanent (unfav.)</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaGFav">G — permanent (fav.)</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaL">L — long-term</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaQ">Q — short-term</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaA">A — accidental</system:String>
+   <system:String x:Key="CalcSettingsSp20GammaTip">Used in SP20 combinatorics when γf is not set explicitly in the force set</system:String>
    <system:String x:Key="BatchParallel_Label">Parallel execution (clone section per thread)</system:String>
    <system:String x:Key="BatchParallel_Tip">Recommended for force sets with 50+ rows. Applies to all strength/stiffness batch tasks. Fire-resistance tasks are not affected.</system:String>
    <system:String x:Key="ShellWarmStart_Label">Shell warm-start (row N result → row N+1 initial guess)</system:String>
@@ -128,6 +140,9 @@
    <system:String x:Key="ClickHighlight">Click Highlight</system:String>
    <system:String x:Key="AxisValueLabels">Axis Value Labels</system:String>
    <system:String x:Key="AxesThroughOrigin">Axes through origin</system:String>
+   <system:String x:Key="OriginReferenceAxes">Origin reference axes X/Y</system:String>
+   <system:String x:Key="AxisLabelX">X</system:String>
+   <system:String x:Key="AxisLabelY">Y</system:String>
    <system:String x:Key="ScaleX">Scale X</system:String>
    <system:String x:Key="ScaleY">Scale Y</system:String>
    <system:String x:Key="Defaults">Defaults</system:String>
@@ -366,11 +381,26 @@
    <system:String x:Key="TipRenumContour">Renumber contour vertices</system:String>
    <system:String x:Key="TipExportContourCsv">Export contour coordinates to *.csv</system:String>
    <system:String x:Key="TipImportContourCsv">Import contour coordinates from *.csv</system:String>
+   <system:String x:Key="TipCloseContour">Add closing vertex (same coordinates as the first point)</system:String>
+   <system:String x:Key="ContourClosingHint">Last vertex = first. Contour closes automatically on save.</system:String>
+   <system:String x:Key="ContourNeedsClosingHint">Open contour — add (X₁,Y₁) or use Close.</system:String>
+   <system:String x:Key="ContourTooFewPoints">A contour must have at least three vertices.</system:String>
+   <system:String x:Key="ContourClosedLog">Closing vertex added to contour</system:String>
     <system:String x:Key="TipToggleEdit">Toggle edit mode</system:String>
     <system:String x:Key="TipSaveContour">Save contour or applied changes</system:String>
     <system:String x:Key="TipTranslateContour">Translate contour</system:String>
     <system:String x:Key="TipScaleContour">Scale contour</system:String>
     <system:String x:Key="TipShowProperties">Geometric properties</system:String>
+   <system:String x:Key="ContourDrawAreaHeader">Drawing area</system:String>
+   <system:String x:Key="ContourDrawWidth">Width, m</system:String>
+   <system:String x:Key="ContourDrawHeight">Height, m</system:String>
+   <system:String x:Key="ContourGridStep">Grid step, mm</system:String>
+   <system:String x:Key="ContourSnapToGrid">Snap to grid</system:String>
+   <system:String x:Key="ContourBeginDrawing">Start drawing</system:String>
+   <system:String x:Key="TipContourBeginDrawing">Set drawing area (origin at center) and begin placing vertices</system:String>
+   <system:String x:Key="ContourDrawSetupHint">Coordinate origin (0; 0) is at the area center. Dashed frame on canvas.</system:String>
+   <system:String x:Key="ContourDrawActiveHint">LMB — vertex, drag — move, RMB/Delete — remove last, click 1st — close.</system:String>
+   <system:String x:Key="ContourDrawingStartedLog">Contour drawing started on canvas</system:String>
 
    <!-- RibbonBar -->
    <system:String x:Key="RibbonHome">Home</system:String>
@@ -454,10 +484,10 @@
    <system:String x:Key="ForceLoadTitleLabel">Name:</system:String>
    <system:String x:Key="ForceLoadKindLabel">Load type:</system:String>
    <system:String x:Key="ForceLoadGammaLabel">γf (reliability factor):</system:String>
-   <system:String x:Key="ForceLoadGammaHint">(0 or empty = default)</system:String>
+   <system:String x:Key="ForceLoadGammaHint">(0 or empty = from Settings → Calculation)</system:String>
    <system:String x:Key="ForceLoadGroupLabel">Mutual exclusion group:</system:String>
    <system:String x:Key="ForceLoadGroupHint">e.g. wind, snow, crane</system:String>
-   <system:String x:Key="ForceLoadPreviewLabel">New name:</system:String>
+   <system:String x:Key="ForceLoadPreviewLabel">Tree name:</system:String>
    <system:String x:Key="ForceLoadKindG">G — permanent</system:String>
    <system:String x:Key="ForceLoadKindL">L — long-term variable</system:String>
    <system:String x:Key="ForceLoadKindQ">Q — short-term variable</system:String>
@@ -472,6 +502,29 @@
    <system:String x:Key="ForceColVx">Vx, kN</system:String>
    <system:String x:Key="ForceColVy">Vy, kN</system:String>
    <system:String x:Key="ForceColT">T, kN·m</system:String>
+   <system:String x:Key="ForceSignConventionTitle">Sign convention</system:String>
+   <system:String x:Key="ForceSignConventionAxesNote">Section axes match the cross-section drawing axes.</system:String>
+   <system:String x:Key="ForceSignConventionShellPlaneNote">Node 1 is at the element corner. Axes X, Y lie in the plane; Z is the upward normal (LIRA convention).</system:String>
+   <system:String x:Key="ForceSignConventionShellViewPlan">Plan XY</system:String>
+   <system:String x:Key="ForceSignConventionShellViewFront">Section XZ</system:String>
+   <system:String x:Key="ForceSignConventionShellViewSide">Section YZ</system:String>
+   <system:String x:Key="ForceSignConventionAxisZ">Z</system:String>
+   <system:String x:Key="ForceSignConventionBarN">N &gt; 0 — tension; N &lt; 0 — compression</system:String>
+   <system:String x:Key="ForceSignConventionBarMx">Mx &gt; 0 — lower fiber in compression, upper fiber in tension</system:String>
+   <system:String x:Key="ForceSignConventionBarMy">My &gt; 0 — left fiber in compression, right fiber in tension</system:String>
+   <system:String x:Key="ForceSignConventionBarVx">Vx &gt; 0 — shear force in +X direction</system:String>
+   <system:String x:Key="ForceSignConventionBarVy">Vy &gt; 0 — shear force in +Y direction</system:String>
+   <system:String x:Key="ForceSignConventionBarT">T &gt; 0 — torsion about Z (right-hand rule)</system:String>
+   <system:String x:Key="ForceSignConventionShellNx">Nx &gt; 0 — tension along X</system:String>
+   <system:String x:Key="ForceSignConventionShellNy">Ny &gt; 0 — tension along Y</system:String>
+   <system:String x:Key="ForceSignConventionShellNxy">Nxy &gt; 0 — shear; lengthens diagonal 1–4 vs. 2–3</system:String>
+   <system:String x:Key="ForceSignConventionShellMx">Mx &gt; 0 — moment about X; tension on face opposite +Z</system:String>
+   <system:String x:Key="ForceSignConventionShellMy">My &gt; 0 — moment about Y; tension on face opposite +Z</system:String>
+   <system:String x:Key="ForceSignConventionShellMxy">Mxy &gt; 0 — twisting; right-hand rule for diagonal 1–4 from node 1</system:String>
+   <system:String x:Key="ForceSignConventionShellQx">Qx &gt; 0 — transverse shear Qx acts along +Z</system:String>
+   <system:String x:Key="ForceSignConventionShellQy">Qy &gt; 0 — transverse shear Qy acts along +Z</system:String>
+   <system:String x:Key="ForceSignConventionShellLiraNote">Diagram and signs follow LIRA rules (green — X, blue — Y, red — Nxy, yellow — Mxy).</system:String>
+   <system:String x:Key="ForceSignConventionLiraNote">LIRA import may invert bending moment signs — see Settings.</system:String>
    <system:String x:Key="ShellForceColNx">Nx, kN/m</system:String>
    <system:String x:Key="ShellForceColNy">Ny, kN/m</system:String>
    <system:String x:Key="ShellForceColNxy">Nxy, kN/m</system:String>
@@ -482,7 +535,14 @@
    <system:String x:Key="ShellForceColQy">Qy, kN/m</system:String>
    <system:String x:Key="ImportCsvBtn">Import CSV</system:String>
    <system:String x:Key="ExportCsvBtn">Export CSV</system:String>
-   <system:String x:Key="ImportMenu">Import</system:String>
+    <system:String x:Key="ImportMenu">Import</system:String>
+    <system:String x:Key="ImportSubMenuDxf">DXF…</system:String>
+    <system:String x:Key="ImportSubMenuAutoCAD">AutoCAD…</system:String>
+    <system:String x:Key="ImportSubMenuLira">LiraSAPR…</system:String>
+    <system:String x:Key="ImportSubMenuScad">SCAD…</system:String>
+    <system:String x:Key="ImportSubMenuRobot">Robot…</system:String>
+    <system:String x:Key="ImportSubMenuRfem5">RFEM5…</system:String>
+    <system:String x:Key="ImportSubMenuSap2000">SAP2000…</system:String>
    <system:String x:Key="ImportCirclesFromDxf">Import circles from DXF…</system:String>
    <system:String x:Key="ImportContoursFromDxf">Import contours from DXF…</system:String>
    <system:String x:Key="ImportAreasFromDxf">Import material areas from DXF…</system:String>
@@ -808,6 +868,7 @@
    <system:String x:Key="ResultTabStrain">Strains ε</system:String>
 
    <!-- Summary sections -->
+   <system:String x:Key="ResultRebarAreaReductionNote">Note: calculation accounts for concrete area reduction replaced by rebar.</system:String>
    <system:String x:Key="ResultStrainPlane">Strain plane</system:String>
    <system:String x:Key="ResultForces">Forces: target → result</system:String>
    <system:String x:Key="ResultExtremeStrains">Extreme strains</system:String>
