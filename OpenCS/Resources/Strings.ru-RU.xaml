@@ -1316,6 +1316,13 @@
     <system:String x:Key="TorsionElements">Число элементов</system:String>
     <system:String x:Key="TorsionMethod">Метод</system:String>
     <system:String x:Key="TorsionSingular">Матрица вырождена</system:String>
+    <system:String x:Key="TorsionTriangulationMethod">Метод триангуляции</system:String>
+    <system:String x:Key="TorsionTriangulation_AdvancingFront">Продвижение фронта</system:String>
+    <system:String x:Key="TorsionTriangulation_Ruppert">Рупперт (CDT)</system:String>
+    <system:String x:Key="TorsionFemOrder">Порядок конечного элемента</system:String>
+    <system:String x:Key="TorsionFemOrder_Linear">T3 (линейный)</system:String>
+    <system:String x:Key="TorsionFemOrder_Quadratic">T6 (квадратичный)</system:String>
+    <system:String x:Key="TorsionFemOrderHint">T6 (квадратичное распределение внутри элемента) даёт заметно более точный результат It на той же или более грубой сетке, чем T3 — ценой более плотной матрицы. Не влияет на МГЭ.</system:String>
     <system:String x:Key="TorsionElementSize">Размер элемента, м</system:String>
     <system:String x:Key="TorsionG">Модуль сдвига G, МПа</system:String>
     <system:String x:Key="TorsionGAuto">G = E / (2(1+ν))</system:String>
@@ -1337,5 +1344,14 @@
     <system:String x:Key="TorsionStatusNotConverged">НЕ СОШЛОСЬ ✗</system:String>
     <system:String x:Key="TorsionStatusError">Ошибка ✗</system:String>
     <system:String x:Key="TorsionParamsHeader">Параметры кручения</system:String>
+    <system:String x:Key="TorsionAutoConverge">Автосходимость (экстраполяция Ричардсона)</system:String>
+    <system:String x:Key="TorsionAutoConvergeHint">Шаг сетки не задаётся вручную: выполняются 3 прогона (h0, h0/2, h0/4), где h0 — минимальная длина ребра/хорды контура. Результат It (и центр кручения для МГЭ) экстраполируется методом Ричардсона.</system:String>
+    <system:String x:Key="TorsionAutoConvergeHeader">Автосходимость (Ричардсон)</system:String>
+    <system:String x:Key="TorsionConvergenceSeries">Ряд по шагам сетки</system:String>
+    <system:String x:Key="TorsionConvergenceOrderIt">Порядок сходимости It</system:String>
+    <system:String x:Key="TorsionConvergenceOrderShearCenter">Порядок сходимости центра кручения</system:String>
+    <system:String x:Key="TorsionOrderUndetermined">не определён (ряд не монотонен или уже сошёлся)</system:String>
+    <system:String x:Key="TorsionExtrapolated">экстраполировано</system:String>
+    <system:String x:Key="TorsionExtrapolationUnreliable">экстраполяция ненадёжна — взято значение с самой мелкой сетки</system:String>
 
   </ResourceDictionary>

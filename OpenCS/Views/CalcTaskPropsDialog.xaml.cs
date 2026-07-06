@@ -76,7 +76,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string steelDesignLengthX = "3.0", steelDesignLengthY = "3.0";
    string steelMuX = "1.0", steelMuY = "1.0";
    string steelBetaM = "1.0", steelGammaM = "1.025";
-   string torsionElementSize = "0.05", torsionMk = "";
+    string torsionElementSize = "0.05", torsionMk = "";
+    int _torsionTriangulationIndex;
+    int _torsionFemOrderIndex;
+    bool torsionAutoConverge;
    string _forceItemFilter = "", _stage1ItemFilter = "", _stage2ItemFilter = "", _shellForceItemFilter = "";
    CancellationTokenSource? _torsionPreviewDebounceCts;
 
@@ -475,7 +478,34 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       get => torsionElementSize;
       set { torsionElementSize = value; OnPropertyChanged(); RefreshTorsionMeshPreview(); }
    }
-   public string TorsionMk { get => torsionMk; set { torsionMk = value; OnPropertyChanged(); } }
+    public string TorsionMk { get => torsionMk; set { torsionMk = value; OnPropertyChanged(); } }
+
+    public int TorsionTriangulationIndex
+    {
+       get => _torsionTriangulationIndex;
+       set { _torsionTriangulationIndex = value; OnPropertyChanged(); RefreshTorsionMeshPreview(); }
+    }
+
+    public int TorsionFemOrderIndex
+    {
+       get => _torsionFemOrderIndex;
+       set { _torsionFemOrderIndex = value; OnPropertyChanged(); }
+    }
+
+    public bool TorsionAutoConverge
+    {
+       get => torsionAutoConverge;
+       set
+       {
+          torsionAutoConverge = value;
+          OnPropertyChanged();
+          OnPropertyChanged(nameof(ShowTorsionElementSize));
+          RefreshTorsionMeshPreview();
+       }
+    }
+
+    /// <summary>Поле "размер элемента" скрывается, когда включена автосходимость (шаг подбирается сам).</summary>
+    public bool ShowTorsionElementSize => !TorsionAutoConverge;
 
    /// <summary>T (кручение) из выбранной строки набора усилий, кН·м.</summary>
    public string TorsionMkFromSetText
@@ -734,6 +764,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               var inv = System.Globalization.CultureInfo.InvariantCulture;
               TorsionElementSize = tp.ElementSize.ToString("G6", inv);
               if (tp.MkKNm != 0) TorsionMk = tp.MkKNm.ToString("G6", inv);
+              TorsionTriangulationIndex = tp.Triangulation == CSTriangulation.TriangulationMethod.Ruppert ? 1 : 0;
+              TorsionAutoConverge = tp.AutoConverge;
+              TorsionFemOrderIndex = tp.FemOrder == "quadratic" ? 1 : 0;
           }
 
           NotifyTorsionForceProps();
@@ -775,7 +808,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    void ApplyTorsionMeshPreview()
    {
-      if (!IsTorsionFem)
+      if (!IsTorsionFem || TorsionAutoConverge)
       {
          TorsionMeshPreview.Configure(null, 0);
          return;
@@ -785,7 +818,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       string raw = (TorsionElementSize ?? "").Trim().Replace(',', '.');
       double elem = double.TryParse(raw, System.Globalization.NumberStyles.Float, inv, out var es) && es > 0
          ? es : 0.05;
-      TorsionMeshPreview.Configure(SelectedSection, elem);
+      TorsionMeshPreview.Configure(SelectedSection, elem, _torsionTriangulationIndex == 0
+          ? CSTriangulation.TriangulationMethod.AdvancingFront
+          : CSTriangulation.TriangulationMethod.Ruppert);
    }
 
    void UpdateDialogWidth() => _window.Width = IsTorsionFem ? 860 : 480;
@@ -1096,7 +1131,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               ParamsJson = new TorsionParams
               {
                   ElementSize = elem,
-                  MkKNm = mkManual
+                  MkKNm = mkManual,
+                  Triangulation = _torsionTriangulationIndex == 0
+                      ? CSTriangulation.TriangulationMethod.AdvancingFront
+                      : CSTriangulation.TriangulationMethod.Ruppert,
+                  AutoConverge = TorsionAutoConverge,
+                  FemOrder = _torsionFemOrderIndex == 1 ? "quadratic" : "linear"
               }.ToJson()
           };
           _window.DialogResult = true;

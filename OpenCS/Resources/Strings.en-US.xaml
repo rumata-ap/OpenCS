@@ -1313,6 +1313,13 @@
     <system:String x:Key="TorsionElements">Number of elements</system:String>
     <system:String x:Key="TorsionMethod">Method</system:String>
     <system:String x:Key="TorsionSingular">Singular matrix</system:String>
+    <system:String x:Key="TorsionTriangulationMethod">Triangulation method</system:String>
+    <system:String x:Key="TorsionTriangulation_AdvancingFront">Advancing front</system:String>
+    <system:String x:Key="TorsionTriangulation_Ruppert">Ruppert (CDT)</system:String>
+    <system:String x:Key="TorsionFemOrder">Finite element order</system:String>
+    <system:String x:Key="TorsionFemOrder_Linear">T3 (linear)</system:String>
+    <system:String x:Key="TorsionFemOrder_Quadratic">T6 (quadratic)</system:String>
+    <system:String x:Key="TorsionFemOrderHint">T6 (quadratic distribution within the element) gives noticeably more accurate It on the same or coarser mesh than T3, at the cost of a denser matrix. Does not affect BEM.</system:String>
     <system:String x:Key="TorsionElementSize">Element size, m</system:String>
     <system:String x:Key="TorsionG">Shear modulus G, MPa</system:String>
     <system:String x:Key="TorsionGAuto">G = E / (2(1+ν))</system:String>
@@ -1334,5 +1341,14 @@
     <system:String x:Key="TorsionStatusNotConverged">NOT CONVERGED ✗</system:String>
     <system:String x:Key="TorsionStatusError">Error ✗</system:String>
     <system:String x:Key="TorsionParamsHeader">Torsion parameters</system:String>
+    <system:String x:Key="TorsionAutoConverge">Auto-converge (Richardson extrapolation)</system:String>
+    <system:String x:Key="TorsionAutoConvergeHint">Mesh size is not set manually: 3 runs are performed (h0, h0/2, h0/4), where h0 is the minimum edge/chord length of the boundary. It (and shear center for BEM) is extrapolated with Richardson's method.</system:String>
+    <system:String x:Key="TorsionAutoConvergeHeader">Auto-convergence (Richardson)</system:String>
+    <system:String x:Key="TorsionConvergenceSeries">Mesh-size series</system:String>
+    <system:String x:Key="TorsionConvergenceOrderIt">It convergence order</system:String>
+    <system:String x:Key="TorsionConvergenceOrderShearCenter">Shear center convergence order</system:String>
+    <system:String x:Key="TorsionOrderUndetermined">undetermined (series not monotonic or already converged)</system:String>
+    <system:String x:Key="TorsionExtrapolated">extrapolated</system:String>
+    <system:String x:Key="TorsionExtrapolationUnreliable">extrapolation unreliable — using finest-mesh value</system:String>
 
   </ResourceDictionary>

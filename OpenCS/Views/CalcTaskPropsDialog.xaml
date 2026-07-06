@@ -419,38 +419,68 @@
                      <ColumnDefinition Width="180"/>
                      <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
-                  <Grid.RowDefinitions>
-                     <RowDefinition Height="Auto"/>
-                     <RowDefinition Height="Auto"/>
-                     <RowDefinition Height="Auto"/>
-                  </Grid.RowDefinitions>
+                   <Grid.RowDefinitions>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                   </Grid.RowDefinitions>
 
-                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource TorsionElementSize}"
-                             VerticalAlignment="Center" Margin="0,0,4,4"/>
-                  <TextBox Grid.Row="0" Grid.Column="1"
-                           Text="{Binding TorsionElementSize, UpdateSourceTrigger=PropertyChanged}"
-                           Margin="0,0,0,4"/>
+                   <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                             Content="{DynamicResource TorsionAutoConverge}"
+                             IsChecked="{Binding TorsionAutoConverge}"
+                             ToolTip="{DynamicResource TorsionAutoConvergeHint}"
+                             Margin="0,0,0,4"/>
 
-                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource TorsionMkFromSet}"
+                   <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource TorsionElementSize}"
+                              VerticalAlignment="Center" Margin="0,0,4,4"
+                              IsEnabled="{Binding ShowTorsionElementSize}"/>
+                   <TextBox Grid.Row="1" Grid.Column="1"
+                            Text="{Binding TorsionElementSize, UpdateSourceTrigger=PropertyChanged}"
+                            IsEnabled="{Binding ShowTorsionElementSize}"
+                            Margin="0,0,0,4"/>
+
+                   <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource TorsionTriangulationMethod}"
+                              VerticalAlignment="Center" Margin="0,0,4,4"/>
+                   <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,4"
+                             SelectedIndex="{Binding TorsionTriangulationIndex}">
+                      <ComboBoxItem Content="{DynamicResource TorsionTriangulation_AdvancingFront}"/>
+                      <ComboBoxItem Content="{DynamicResource TorsionTriangulation_Ruppert}"/>
+                   </ComboBox>
+
+                   <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource TorsionMkFromSet}"
                              VerticalAlignment="Center" Margin="0,0,4,4"
                              Visibility="{Binding HasTorsionMkFromSet, Converter={StaticResource BoolToVisibility}}"/>
-                  <TextBlock Grid.Row="1" Grid.Column="1" FontFamily="Consolas" FontWeight="SemiBold"
-                             Margin="0,0,0,4"
-                             Visibility="{Binding HasTorsionMkFromSet, Converter={StaticResource BoolToVisibility}}">
-                     <Run Text="{Binding TorsionMkFromSetText, Mode=OneWay}"/>
-                     <Run Text=" кН·м"/>
-                  </TextBlock>
+                   <TextBlock Grid.Row="3" Grid.Column="1" FontFamily="Consolas" FontWeight="SemiBold"
+                              Margin="0,0,0,4"
+                              Visibility="{Binding HasTorsionMkFromSet, Converter={StaticResource BoolToVisibility}}">
+                      <Run Text="{Binding TorsionMkFromSetText, Mode=OneWay}"/>
+                      <Run Text=" кН·м"/>
+                   </TextBlock>
 
-                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource TorsionMkManual}"
-                             VerticalAlignment="Top" Margin="0,0,4,4"
-                             Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}"/>
-                  <StackPanel Grid.Row="2" Grid.Column="1"
-                              Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}">
+                   <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource TorsionMkManual}"
+                              VerticalAlignment="Top" Margin="0,0,4,4"
+                              Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}"/>
+                   <StackPanel Grid.Row="4" Grid.Column="1"
+                               Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}">
                      <TextBox Text="{Binding TorsionMk, UpdateSourceTrigger=PropertyChanged}"
                               Margin="0,0,0,2"/>
                      <TextBlock Text="{DynamicResource TorsionMkHint}" Foreground="Gray"
                                 FontSize="11" TextWrapping="Wrap"/>
                   </StackPanel>
+
+                   <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource TorsionFemOrder}"
+                              VerticalAlignment="Center" Margin="0,0,4,4"
+                              Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}"/>
+                   <ComboBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,4"
+                             SelectedIndex="{Binding TorsionFemOrderIndex}"
+                             ToolTip="{DynamicResource TorsionFemOrderHint}"
+                             Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}">
+                      <ComboBoxItem Content="{DynamicResource TorsionFemOrder_Linear}"/>
+                      <ComboBoxItem Content="{DynamicResource TorsionFemOrder_Quadratic}"/>
+                   </ComboBox>
                </Grid>
 
                <Grid Grid.Column="1"
