@@ -1029,6 +1029,15 @@ namespace OpenCS.Utilites
       {
          using var conn = new SqliteConnection($"Data Source={_dataSource}");
          conn.Open();
+         // В отличие от _connection, это отдельное соединение открывается заново на каждый вызов
+         // и по умолчанию (в отличие от _connection) имеет PRAGMA foreign_keys=ON (значение по
+         // умолчанию у e_sqlite3), из-за чего вставка MaterialArea со ссылкой на ещё не
+         // сохранённые material/host_area/contour падала с "FOREIGN KEY constraint failed".
+         using (var fkCmd = conn.CreateCommand())
+         {
+            fkCmd.CommandText = "PRAGMA foreign_keys=OFF";
+            fkCmd.ExecuteNonQuery();
+         }
          using var tx = conn.BeginTransaction();
          bool isNew = area.Id == 0;
          using (var cmd = conn.CreateCommand())
