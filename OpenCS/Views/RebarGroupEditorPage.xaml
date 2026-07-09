@@ -32,7 +32,10 @@
                                IsChecked="{Binding StrategyFromContour}"
                                Margin="0,0,0,2"/>
                   <RadioButton Content="{DynamicResource RgStrategyFree}"
-                               IsChecked="{Binding StrategyBare}"/>
+                               IsChecked="{Binding StrategyBare}"
+                               Margin="0,0,0,2"/>
+                  <RadioButton Content="{DynamicResource RgStrategyFromSet}"
+                               IsChecked="{Binding StrategyFromCircleSet}"/>
                </StackPanel>
             </GroupBox>
 
@@ -49,6 +52,18 @@
                          DisplayMemberPath="Tag"
                          Margin="0,0,0,4"
                          Visibility="{Binding StrategyFromContour, Converter={StaticResource BoolToVisibility}}"/>
+            </StackPanel>
+
+            <!-- Импорт из набора окружностей (видим только при FromCircleSet) -->
+            <StackPanel Visibility="{Binding StrategyFromCircleSet, Converter={StaticResource BoolToVisibility}}"
+                        Margin="0,0,0,6">
+               <TextBlock Text="{DynamicResource RgCircleSetLabel}" Margin="0,0,0,2"/>
+               <ComboBox ItemsSource="{Binding AvailableGeometrySets}"
+                         SelectedItem="{Binding SelectedGeometrySet}"
+                         Margin="0,0,0,4"/>
+               <Button Content="{DynamicResource RgImportFromSet}"
+                       Command="{Binding ImportFromCircleSetCommand}"
+                       Padding="4,2"/>
             </StackPanel>
 
             <!-- Линия защитного слоя (скрыта при Bare) -->
