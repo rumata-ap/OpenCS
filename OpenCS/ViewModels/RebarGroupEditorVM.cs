@@ -22,6 +22,7 @@ namespace OpenCS.ViewModels
         MaterialArea? _selectedRegion;
         Contour? _selectedContour;
         Material? _selectedMaterial;
+        string? _selectedGeometrySet;
         double _globalOffset = 0.025;
         double _offsetStep   = 0.001;
         double _activeDiameter = 0.012; // 12 мм
@@ -54,6 +55,7 @@ namespace OpenCS.ViewModels
             CancelCommand         = new RelayCommand(_ => App.CurrentPage = null!);
             TranslateCommand      = new RelayCommand(_ => Translate());
             ShowPropertiesCommand = new RelayCommand(_ => ShowProperties());
+            ImportFromCircleSetCommand = new RelayCommand(_ => ImportFromCircleSet());
 
             // Определить начальную стратегию
             if (app.AreasLive.Any())     _strategy = RebarPlacementStrategy.FromRegion;
@@ -101,6 +103,26 @@ namespace OpenCS.ViewModels
         public IReadOnlyList<MaterialArea> AvailableRegions  => App.AreasLive;
         public IReadOnlyList<Contour>      AvailableContours => App.Contours;
         public IReadOnlyList<Material>     AvailableMaterials => App.Materials;
+
+        /// <summary>
+        /// Значения GeometrySet окружностей проекта, доступные для импорта в стержни.
+        /// Служебные теги вида "RebarGroup#{id}" (проставляются при сохранении любой
+        /// группы арматуры, чтобы её стержни были видны в узле Геометрия/Окружности)
+        /// исключаются — иначе можно было бы «импортировать» группу саму в себя.
+        /// </summary>
+        public IReadOnlyList<string> AvailableGeometrySets =>
+            App.Circles
+               .Select(c => c.GeometrySet)
+               .Where(g => !string.IsNullOrWhiteSpace(g) && !g!.StartsWith("RebarGroup#"))
+               .Distinct()
+               .OrderBy(g => g)
+               .ToList()!;
+
+        public string? SelectedGeometrySet
+        {
+            get => _selectedGeometrySet;
+            set { _selectedGeometrySet = value; OnPropertyChanged(); }
+        }
 
         public Material? SelectedMaterial
         {
@@ -288,6 +310,7 @@ namespace OpenCS.ViewModels
         public ICommand CancelCommand          { get; }
         public ICommand TranslateCommand       { get; }
         public ICommand ShowPropertiesCommand  { get; }
+        public ICommand ImportFromCircleSetCommand { get; }
 
         // ── Инициализация ────────────────────────────────────────────────────
 
@@ -417,6 +440,23 @@ namespace OpenCS.ViewModels
         {
             var bar = new BarItem { X = x, Y = y, Diameter = _activeDiameter, Index = Bars.Count + 1 };
             Bars.Add(bar);
+            RenumberBars();
+        }
+
+        /// <summary>
+        /// Копирует окружности проекта с выбранным GeometrySet в список стержней как
+        /// обычные BarItem (разовое копирование, без последующей связи с исходными
+        /// окружностями). Диаметр берётся из диаметра каждой окружности, а не из
+        /// ActiveDiameter — набор может содержать окружности разных размеров.
+        /// </summary>
+        void ImportFromCircleSet()
+        {
+            if (string.IsNullOrEmpty(_selectedGeometrySet)) return;
+
+            foreach (var c in App.Circles.Where(c => c.GeometrySet == _selectedGeometrySet)
+                                          .OrderBy(c => c.Num))
+                Bars.Add(new BarItem { X = c.X, Y = c.Y, Diameter = c.Diameter, Index = Bars.Count + 1 });
+
             RenumberBars();
         }
 
