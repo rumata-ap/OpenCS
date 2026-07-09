@@ -435,6 +435,9 @@ namespace OpenCS
       /// <summary>Команда импорта расчётной схемы из CSV-файлов ЛираСАПР.</summary>
       public ICommand ImportLiraSchemaFromCsvCommand { get; set; } = null!;
 
+      /// <summary>Команда импорта топологии расчётной схемы из текстового формата SCAD.</summary>
+      public ICommand ImportScadTopologyFromTxtCommand { get; set; } = null!;
+
       /// <summary>Команда импорта расчётной схемы из запущенной ЛираСАПР через COM API.</summary>
       public ICommand ImportLiraSchemaFromApiCommand { get; set; } = null!;
 
@@ -1137,6 +1140,7 @@ namespace OpenCS
           DeleteFemSchemaForceSetsCommand = new RelayCommand(p => DeleteFemSchemaForceSets(p as CScore.Fem.FemSchema));
           DeleteSelectedForceSetsCommand = new RelayCommand(p => DeleteSelectedForceSets(p as CScore.Fem.FemSchema));
          ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
+         ImportScadTopologyFromTxtCommand = new RelayCommand(_ => ImportScadTopologyFromTxt());
          ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
          ImportLiraForcesFromApiCommand  = new RelayCommand(_ => ImportLiraForcesFromApi());
          ImportLiraRsnFromApiCommand     = new RelayCommand(_ => ImportLiraRsnFromApi());
@@ -2450,6 +2454,47 @@ namespace OpenCS
                System.Windows.MessageBoxButton.OK,
                System.Windows.MessageBoxImage.Error);
          }
+      }
+
+      void ImportScadTopologyFromTxt()
+      {
+         string? fileName = FileDialogService.OpenFile(
+            filter: Loc.S("ScadTextFileFilter"),
+            title:  Loc.S("ImportScadTopologyTitle"));
+         if (string.IsNullOrEmpty(fileName)) return;
+
+         var import = CScore.Import.ScadTextParser.Parse(fileName);
+         if (!import.Success)
+         {
+            System.Windows.MessageBox.Show(
+               import.Error ?? Loc.S("ImportScadFailed"),
+               Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+         }
+
+         foreach (var w in import.Warnings)
+            LogService.Warning(w);
+
+         var data = import.Data!;
+         var schema = new CScore.Fem.FemSchema
+         {
+            Tag        = Path.GetFileNameWithoutExtension(fileName),
+            SourceType = "scad",
+         };
+         db.SaveFemSchema(schema);
+
+         var nodes    = CScore.Import.ScadSchemaConverter.ToFemNodes(data, schema.Id);
+         var elements = CScore.Import.ScadSchemaConverter.ToFemElements(data, schema.Id);
+         var members  = CScore.Import.ScadSchemaConverter.ToFemMembers(data, schema.Id);
+
+         db.SaveFemTopology(schema.Id, nodes, elements, members);
+         RefreshFemSchemaTreeCounts(schema);
+
+         int barCount   = elements.Count(e => e.ElemType == "beam");
+         int shellCount = elements.Count(e => e.ElemType == "shell");
+         LogService.Info(string.Format(Loc.S("ImportScadSuccess"),
+            nodes.Length, barCount, shellCount, members.Length, data.Groups.Count));
       }
 
       void BuildFemRootNodes()
