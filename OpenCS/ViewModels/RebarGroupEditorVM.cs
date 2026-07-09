@@ -5,6 +5,7 @@ using OpenCS.Views.Dialogs;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows.Input;
 
@@ -352,14 +353,16 @@ namespace OpenCS.ViewModels
                 // Левая нормаль для CCW-контура = внутренняя
                 double nx = -(ey - sy) / len;
                 double ny =  (ex - sx) / len;
-                Edges.Add(new EdgeItem
+                var edge = new EdgeItem
                 {
                     Index   = Edges.Count + 1,
                     Offset  = _globalOffset,
                     StartX  = sx, StartY = sy,
                     EndX    = ex, EndY   = ey,
                     NormalX = nx, NormalY = ny
-                });
+                };
+                edge.PropertyChanged += OnEdgeOffsetChanged;
+                Edges.Add(edge);
             }
             RecomputeCoverLine();
         }
@@ -395,6 +398,18 @@ namespace OpenCS.ViewModels
         }
 
         // ── Вычисление линии защитного слоя ──────────────────────────────────
+
+        /// <summary>
+        /// Единая точка пересчёта линии защитного слоя при изменении отступа любого
+        /// ребра — не важно, каким путём (перетаскивание ручки, кнопки +/− или прямой
+        /// ввод значения в таблице рёбер, у которой TextBox привязан к EdgeItem.Offset
+        /// напрямую, в обход команд VM).
+        /// </summary>
+        void OnEdgeOffsetChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(EdgeItem.Offset))
+                RecomputeCoverLine();
+        }
 
         public void RecomputeCoverLine()
         {
@@ -492,21 +507,18 @@ namespace OpenCS.ViewModels
         void AdjustEdge(EdgeItem edge, double delta)
         {
             edge.Offset = Math.Max(0, edge.Offset + delta);
-            RecomputeCoverLine();
         }
 
         void SetEdgeOffset(EdgeItem edge, double newOffset)
         {
             double step = _offsetStep > 0 ? _offsetStep : 0.001;
             edge.Offset = Math.Max(0, Math.Round(newOffset / step) * step);
-            RecomputeCoverLine();
         }
 
         void ResetAllOffsets()
         {
             foreach (var e in Edges)
                 e.Offset = _globalOffset;
-            RecomputeCoverLine();
         }
 
         // ── Fill Between ──────────────────────────────────────────────────────
