@@ -165,7 +165,9 @@
                 <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}" Command="{Binding ImportLiraRsnFromApiCommand}"/>
                 <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}" Command="{Binding ImportLiraRsuFromApiCommand}"/>
              </MenuItem>
-             <MenuItem Header="{DynamicResource ImportSubMenuScad}" IsEnabled="False"/>
+             <MenuItem Header="{DynamicResource ImportSubMenuScad}">
+                <MenuItem Header="{DynamicResource ImportScadTopologyFromTxt}" Command="{Binding ImportScadTopologyFromTxtCommand}"/>
+             </MenuItem>
              <MenuItem Header="{DynamicResource ImportSubMenuRobot}" IsEnabled="False"/>
              <MenuItem Header="{DynamicResource ImportSubMenuRfem5}" IsEnabled="False"/>
              <MenuItem Header="{DynamicResource ImportSubMenuSap2000}" IsEnabled="False"/>

@@ -562,6 +562,12 @@
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Plate stiffnesses file (CSV, optional)</system:String>
    <system:String x:Key="ImportLiraSchemaSuccess">Imported schema: {0} nodes, {1} bars, {2} shells, {3} design members</system:String>
    <system:String x:Key="CsvFileFilter">CSV file (*.csv)|*.csv|All files (*.*)|*.*</system:String>
+   <system:String x:Key="ImportScadTopologyFromTxt">Import SCAD topology (text format)…</system:String>
+   <system:String x:Key="ImportScadTopologyTitle">Import SCAD topology — text format (.txt)</system:String>
+   <system:String x:Key="ScadTextFileFilter">SCAD text format (*.txt)|*.txt|All files (*.*)|*.*</system:String>
+   <system:String x:Key="ImportScadErrorTitle">SCAD import</system:String>
+   <system:String x:Key="ImportScadFailed">Failed to import the file.</system:String>
+   <system:String x:Key="ImportScadSuccess">Imported SCAD schema: {0} nodes, {1} bars, {2} shells, {3} design members, {4} named groups</system:String>
     <system:String x:Key="ImportSettingsTab">Import</system:String>
     <system:String x:Key="LiraImportGroupBox">LiraSAPR</system:String>
     <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>
