@@ -94,6 +94,8 @@ FemInfraTests.RunAll();
 
 LiraCsvSchemaParserTests.RunAll();
 
+ScadTextParserTests.RunAll();
+
 TorsionTests.SmokePropsConstruction();
 TorsionTests.BoundaryFromMaterialArea();
 TorsionTests.PrandtlTri3ElementMatrices();
