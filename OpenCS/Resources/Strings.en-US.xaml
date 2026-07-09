@@ -715,6 +715,9 @@
    <system:String x:Key="RgStrategyRegion">By region</system:String>
    <system:String x:Key="RgStrategyContour">By contour</system:String>
    <system:String x:Key="RgStrategyFree">Free</system:String>
+   <system:String x:Key="RgStrategyFromSet">From circle set</system:String>
+   <system:String x:Key="RgCircleSetLabel">Circle set</system:String>
+   <system:String x:Key="RgImportFromSet">Import</system:String>
    <system:String x:Key="RgReference">Reference</system:String>
    <system:String x:Key="RgCoverOffset">Cover</system:String>
    <system:String x:Key="RgOffsetStep">Step</system:String>

@@ -718,6 +718,9 @@
    <system:String x:Key="RgStrategyRegion">По области</system:String>
    <system:String x:Key="RgStrategyContour">По контуру</system:String>
    <system:String x:Key="RgStrategyFree">Свободная</system:String>
+   <system:String x:Key="RgStrategyFromSet">Из набора окружностей</system:String>
+   <system:String x:Key="RgCircleSetLabel">Набор окружностей</system:String>
+   <system:String x:Key="RgImportFromSet">Импортировать</system:String>
    <system:String x:Key="RgReference">Опора</system:String>
    <system:String x:Key="RgCoverOffset">Отступ</system:String>
    <system:String x:Key="RgOffsetStep">Шаг</system:String>
