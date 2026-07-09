@@ -10,7 +10,7 @@ using System.Windows.Input;
 
 namespace OpenCS.ViewModels
 {
-    public enum RebarPlacementStrategy { FromRegion, FromContour, Bare }
+    public enum RebarPlacementStrategy { FromRegion, FromContour, Bare, FromCircleSet }
 
     /// <summary>ViewModel страницы задания группы арматурных стержней.</summary>
     public class RebarGroupEditorVM : ViewModelBase
@@ -90,11 +90,13 @@ namespace OpenCS.ViewModels
             set { _strategy = value; OnPropertyChanged(); InitStrategyReference(); }
         }
 
-        public bool StrategyFromRegion  { get => _strategy == RebarPlacementStrategy.FromRegion;  set { if (value) Strategy = RebarPlacementStrategy.FromRegion; } }
-        public bool StrategyFromContour { get => _strategy == RebarPlacementStrategy.FromContour; set { if (value) Strategy = RebarPlacementStrategy.FromContour; } }
-        public bool StrategyBare        { get => _strategy == RebarPlacementStrategy.Bare;        set { if (value) Strategy = RebarPlacementStrategy.Bare; } }
+        public bool StrategyFromRegion    { get => _strategy == RebarPlacementStrategy.FromRegion;    set { if (value) Strategy = RebarPlacementStrategy.FromRegion; } }
+        public bool StrategyFromContour   { get => _strategy == RebarPlacementStrategy.FromContour;   set { if (value) Strategy = RebarPlacementStrategy.FromContour; } }
+        public bool StrategyBare          { get => _strategy == RebarPlacementStrategy.Bare;          set { if (value) Strategy = RebarPlacementStrategy.Bare; } }
+        public bool StrategyFromCircleSet { get => _strategy == RebarPlacementStrategy.FromCircleSet; set { if (value) Strategy = RebarPlacementStrategy.FromCircleSet; } }
 
-        public bool HasReference => _strategy != RebarPlacementStrategy.Bare;
+        /// <summary>Линия защитного слоя и таблица рёбер актуальны только при опоре на область/контур.</summary>
+        public bool HasReference => _strategy is RebarPlacementStrategy.FromRegion or RebarPlacementStrategy.FromContour;
 
         public IReadOnlyList<MaterialArea> AvailableRegions  => App.AreasLive;
         public IReadOnlyList<Contour>      AvailableContours => App.Contours;
@@ -294,6 +296,7 @@ namespace OpenCS.ViewModels
             OnPropertyChanged(nameof(StrategyFromRegion));
             OnPropertyChanged(nameof(StrategyFromContour));
             OnPropertyChanged(nameof(StrategyBare));
+            OnPropertyChanged(nameof(StrategyFromCircleSet));
             OnPropertyChanged(nameof(HasReference));
 
             if (_strategy == RebarPlacementStrategy.FromRegion && AvailableRegions.Any())
@@ -563,7 +566,38 @@ namespace OpenCS.ViewModels
             {
                 App.RefreshMaterialAreaLiveCollections();
             }
+            SyncBarCircles(area);
             App.LogService.Info($"Группа арматуры «{area.Tag}» сохранена");
+        }
+
+        /// <summary>
+        /// Отражает стержни группы в коллекции App.Circles (узел Геометрия/Окружности),
+        /// как это делают импорты из AutoCAD/DXF. GeometrySet хранит ключ вида
+        /// "RebarGroup#{id}" — по нему при повторном сохранении удаляются старые
+        /// окружности этой группы перед вставкой актуального набора.
+        /// </summary>
+        void SyncBarCircles(MaterialArea area)
+        {
+            string geometrySet = $"RebarGroup#{area.Id}";
+            foreach (var stale in App.Circles.Where(c => c.GeometrySet == geometrySet).ToList())
+            {
+                App.Circles.Remove(stale);
+                App.db.DeleteCircle(stale);
+            }
+
+            int nextNum = App.Circles.Count > 0 ? App.Circles.Max(c => c.Num) + 1 : 1;
+            foreach (var b in Bars)
+            {
+                var cp = new CircleP(b.X, b.Y, b.Diameter / 2)
+                {
+                    Tag         = _tag,
+                    GeometrySet = geometrySet,
+                    Num         = nextNum++
+                };
+                App.db.SaveCircle(cp);
+                App.Circles.Add(cp);
+            }
+            App.CirclesRenumber();
         }
     }
 }
