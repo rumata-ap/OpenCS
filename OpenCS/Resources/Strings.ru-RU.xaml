@@ -565,6 +565,12 @@
    <system:String x:Key="ImportLiraSchemaPlateStiffTitle">Файл жёсткостей пластин (CSV, опционально)</system:String>
    <system:String x:Key="ImportLiraSchemaSuccess">Импортирована схема: {0} узлов, {1} стержней, {2} пластин, {3} конструктивных элементов</system:String>
    <system:String x:Key="CsvFileFilter">CSV-файл (*.csv)|*.csv|Все файлы (*.*)|*.*</system:String>
+   <system:String x:Key="ImportScadTopologyFromTxt">Импорт топологии SCAD (текстовый формат)…</system:String>
+   <system:String x:Key="ImportScadTopologyTitle">Импорт топологии SCAD — текстовый формат (.txt)</system:String>
+   <system:String x:Key="ScadTextFileFilter">Текстовый формат SCAD (*.txt)|*.txt|Все файлы (*.*)|*.*</system:String>
+   <system:String x:Key="ImportScadErrorTitle">Импорт SCAD</system:String>
+   <system:String x:Key="ImportScadFailed">Не удалось импортировать файл.</system:String>
+   <system:String x:Key="ImportScadSuccess">Импортирована схема SCAD: {0} узлов, {1} стержней, {2} оболочек, {3} конструктивных элементов, {4} именованных групп</system:String>
     <system:String x:Key="ImportSettingsTab">Импорт</system:String>
     <system:String x:Key="LiraImportGroupBox">Лира САПР</system:String>
     <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>
@@ -718,6 +724,9 @@
    <system:String x:Key="RgStrategyRegion">По области</system:String>
    <system:String x:Key="RgStrategyContour">По контуру</system:String>
    <system:String x:Key="RgStrategyFree">Свободная</system:String>
+   <system:String x:Key="RgStrategyFromSet">Из набора окружностей</system:String>
+   <system:String x:Key="RgCircleSetLabel">Набор окружностей</system:String>
+   <system:String x:Key="RgImportFromSet">Импортировать</system:String>
    <system:String x:Key="RgReference">Опора</system:String>
    <system:String x:Key="RgCoverOffset">Отступ</system:String>
    <system:String x:Key="RgOffsetStep">Шаг</system:String>

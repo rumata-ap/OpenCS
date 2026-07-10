@@ -11,4 +11,10 @@
     <ProjectReference Include="..\CSTriangulation\CSTriangulation.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Нужен для Encoding.GetEncoding(1251) — .NET Core/5+ не регистрирует легаси-кодовые
+         страницы по умолчанию (ScadTextParser читает текстовый экспорт SCAD в Windows-1251). -->
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="9.0.0" />
+  </ItemGroup>
+
 </Project>

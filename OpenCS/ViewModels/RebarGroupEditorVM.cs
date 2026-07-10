@@ -5,12 +5,13 @@ using OpenCS.Views.Dialogs;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Windows.Input;
 
 namespace OpenCS.ViewModels
 {
-    public enum RebarPlacementStrategy { FromRegion, FromContour, Bare }
+    public enum RebarPlacementStrategy { FromRegion, FromContour, Bare, FromCircleSet }
 
     /// <summary>ViewModel страницы задания группы арматурных стержней.</summary>
     public class RebarGroupEditorVM : ViewModelBase
@@ -22,6 +23,7 @@ namespace OpenCS.ViewModels
         MaterialArea? _selectedRegion;
         Contour? _selectedContour;
         Material? _selectedMaterial;
+        string? _selectedGeometrySet;
         double _globalOffset = 0.025;
         double _offsetStep   = 0.001;
         double _activeDiameter = 0.012; // 12 мм
@@ -54,6 +56,7 @@ namespace OpenCS.ViewModels
             CancelCommand         = new RelayCommand(_ => App.CurrentPage = null!);
             TranslateCommand      = new RelayCommand(_ => Translate());
             ShowPropertiesCommand = new RelayCommand(_ => ShowProperties());
+            ImportFromCircleSetCommand = new RelayCommand(_ => ImportFromCircleSet());
 
             // Определить начальную стратегию
             if (app.AreasLive.Any())     _strategy = RebarPlacementStrategy.FromRegion;
@@ -90,15 +93,37 @@ namespace OpenCS.ViewModels
             set { _strategy = value; OnPropertyChanged(); InitStrategyReference(); }
         }
 
-        public bool StrategyFromRegion  { get => _strategy == RebarPlacementStrategy.FromRegion;  set { if (value) Strategy = RebarPlacementStrategy.FromRegion; } }
-        public bool StrategyFromContour { get => _strategy == RebarPlacementStrategy.FromContour; set { if (value) Strategy = RebarPlacementStrategy.FromContour; } }
-        public bool StrategyBare        { get => _strategy == RebarPlacementStrategy.Bare;        set { if (value) Strategy = RebarPlacementStrategy.Bare; } }
+        public bool StrategyFromRegion    { get => _strategy == RebarPlacementStrategy.FromRegion;    set { if (value) Strategy = RebarPlacementStrategy.FromRegion; } }
+        public bool StrategyFromContour   { get => _strategy == RebarPlacementStrategy.FromContour;   set { if (value) Strategy = RebarPlacementStrategy.FromContour; } }
+        public bool StrategyBare          { get => _strategy == RebarPlacementStrategy.Bare;          set { if (value) Strategy = RebarPlacementStrategy.Bare; } }
+        public bool StrategyFromCircleSet { get => _strategy == RebarPlacementStrategy.FromCircleSet; set { if (value) Strategy = RebarPlacementStrategy.FromCircleSet; } }
 
-        public bool HasReference => _strategy != RebarPlacementStrategy.Bare;
+        /// <summary>Линия защитного слоя и таблица рёбер актуальны только при опоре на область/контур.</summary>
+        public bool HasReference => _strategy is RebarPlacementStrategy.FromRegion or RebarPlacementStrategy.FromContour;
 
         public IReadOnlyList<MaterialArea> AvailableRegions  => App.AreasLive;
         public IReadOnlyList<Contour>      AvailableContours => App.Contours;
         public IReadOnlyList<Material>     AvailableMaterials => App.Materials;
+
+        /// <summary>
+        /// Значения GeometrySet окружностей проекта, доступные для импорта в стержни.
+        /// Служебные теги вида "RebarGroup#{id}" (проставляются при сохранении любой
+        /// группы арматуры, чтобы её стержни были видны в узле Геометрия/Окружности)
+        /// исключаются — иначе можно было бы «импортировать» группу саму в себя.
+        /// </summary>
+        public IReadOnlyList<string> AvailableGeometrySets =>
+            App.Circles
+               .Select(c => c.GeometrySet)
+               .Where(g => !string.IsNullOrWhiteSpace(g) && !g!.StartsWith("RebarGroup#"))
+               .Distinct()
+               .OrderBy(g => g)
+               .ToList()!;
+
+        public string? SelectedGeometrySet
+        {
+            get => _selectedGeometrySet;
+            set { _selectedGeometrySet = value; OnPropertyChanged(); }
+        }
 
         public Material? SelectedMaterial
         {
@@ -286,6 +311,7 @@ namespace OpenCS.ViewModels
         public ICommand CancelCommand          { get; }
         public ICommand TranslateCommand       { get; }
         public ICommand ShowPropertiesCommand  { get; }
+        public ICommand ImportFromCircleSetCommand { get; }
 
         // ── Инициализация ────────────────────────────────────────────────────
 
@@ -294,6 +320,7 @@ namespace OpenCS.ViewModels
             OnPropertyChanged(nameof(StrategyFromRegion));
             OnPropertyChanged(nameof(StrategyFromContour));
             OnPropertyChanged(nameof(StrategyBare));
+            OnPropertyChanged(nameof(StrategyFromCircleSet));
             OnPropertyChanged(nameof(HasReference));
 
             if (_strategy == RebarPlacementStrategy.FromRegion && AvailableRegions.Any())
@@ -326,14 +353,16 @@ namespace OpenCS.ViewModels
                 // Левая нормаль для CCW-контура = внутренняя
                 double nx = -(ey - sy) / len;
                 double ny =  (ex - sx) / len;
-                Edges.Add(new EdgeItem
+                var edge = new EdgeItem
                 {
                     Index   = Edges.Count + 1,
                     Offset  = _globalOffset,
                     StartX  = sx, StartY = sy,
                     EndX    = ex, EndY   = ey,
                     NormalX = nx, NormalY = ny
-                });
+                };
+                edge.PropertyChanged += OnEdgeOffsetChanged;
+                Edges.Add(edge);
             }
             RecomputeCoverLine();
         }
@@ -369,6 +398,18 @@ namespace OpenCS.ViewModels
         }
 
         // ── Вычисление линии защитного слоя ──────────────────────────────────
+
+        /// <summary>
+        /// Единая точка пересчёта линии защитного слоя при изменении отступа любого
+        /// ребра — не важно, каким путём (перетаскивание ручки, кнопки +/− или прямой
+        /// ввод значения в таблице рёбер, у которой TextBox привязан к EdgeItem.Offset
+        /// напрямую, в обход команд VM).
+        /// </summary>
+        void OnEdgeOffsetChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(EdgeItem.Offset))
+                RecomputeCoverLine();
+        }
 
         public void RecomputeCoverLine()
         {
@@ -417,6 +458,23 @@ namespace OpenCS.ViewModels
             RenumberBars();
         }
 
+        /// <summary>
+        /// Копирует окружности проекта с выбранным GeometrySet в список стержней как
+        /// обычные BarItem (разовое копирование, без последующей связи с исходными
+        /// окружностями). Диаметр берётся из диаметра каждой окружности, а не из
+        /// ActiveDiameter — набор может содержать окружности разных размеров.
+        /// </summary>
+        void ImportFromCircleSet()
+        {
+            if (string.IsNullOrEmpty(_selectedGeometrySet)) return;
+
+            foreach (var c in App.Circles.Where(c => c.GeometrySet == _selectedGeometrySet)
+                                          .OrderBy(c => c.Num))
+                Bars.Add(new BarItem { X = c.X, Y = c.Y, Diameter = c.Diameter, Index = Bars.Count + 1 });
+
+            RenumberBars();
+        }
+
         void MoveBar(BarItem bar, double x, double y)
         {
             bar.X = x;
@@ -449,21 +507,18 @@ namespace OpenCS.ViewModels
         void AdjustEdge(EdgeItem edge, double delta)
         {
             edge.Offset = Math.Max(0, edge.Offset + delta);
-            RecomputeCoverLine();
         }
 
         void SetEdgeOffset(EdgeItem edge, double newOffset)
         {
             double step = _offsetStep > 0 ? _offsetStep : 0.001;
             edge.Offset = Math.Max(0, Math.Round(newOffset / step) * step);
-            RecomputeCoverLine();
         }
 
         void ResetAllOffsets()
         {
             foreach (var e in Edges)
                 e.Offset = _globalOffset;
-            RecomputeCoverLine();
         }
 
         // ── Fill Between ──────────────────────────────────────────────────────
@@ -563,7 +618,38 @@ namespace OpenCS.ViewModels
             {
                 App.RefreshMaterialAreaLiveCollections();
             }
+            SyncBarCircles(area);
             App.LogService.Info($"Группа арматуры «{area.Tag}» сохранена");
+        }
+
+        /// <summary>
+        /// Отражает стержни группы в коллекции App.Circles (узел Геометрия/Окружности),
+        /// как это делают импорты из AutoCAD/DXF. GeometrySet хранит ключ вида
+        /// "RebarGroup#{id}" — по нему при повторном сохранении удаляются старые
+        /// окружности этой группы перед вставкой актуального набора.
+        /// </summary>
+        void SyncBarCircles(MaterialArea area)
+        {
+            string geometrySet = $"RebarGroup#{area.Id}";
+            foreach (var stale in App.Circles.Where(c => c.GeometrySet == geometrySet).ToList())
+            {
+                App.Circles.Remove(stale);
+                App.db.DeleteCircle(stale);
+            }
+
+            int nextNum = App.Circles.Count > 0 ? App.Circles.Max(c => c.Num) + 1 : 1;
+            foreach (var b in Bars)
+            {
+                var cp = new CircleP(b.X, b.Y, b.Diameter / 2)
+                {
+                    Tag         = _tag,
+                    GeometrySet = geometrySet,
+                    Num         = nextNum++
+                };
+                App.db.SaveCircle(cp);
+                App.Circles.Add(cp);
+            }
+            App.CirclesRenumber();
         }
     }
 }

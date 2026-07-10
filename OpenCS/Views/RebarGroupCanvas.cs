@@ -436,6 +436,19 @@ namespace OpenCS.Views
             FitToView();
         }
 
+        /// <summary>Зум колесом мыши с фиксацией модельной точки под курсором (как в FiberCanvas).</summary>
+        protected override void OnMouseWheel(MouseWheelEventArgs e)
+        {
+            var pos = e.GetPosition(this);
+            var (mx, my) = ToModel(pos);
+            double factor = e.Delta > 0 ? 1.2 : 1.0 / 1.2;
+            _scale *= factor;
+            _originX = mx - pos.X / _scale;
+            _originY = my - (ActualHeight - pos.Y) / _scale;
+            InvalidateVisual();
+            e.Handled = true;
+        }
+
         // ── Hit-test ─────────────────────────────────────────────────────────
 
         const double HitBarPx    = 8;
