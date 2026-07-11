@@ -20,7 +20,7 @@ public sealed class SectionCutWindowService : IDisposable
         _settings = settings;
     }
 
-    public void Bind(SectionCutVM cutVm, SectionPlotMode plotMode)
+    public void Bind(SectionCutVM? cutVm, SectionPlotMode plotMode)
     {
         if (_boundVm != null)
             _boundVm.PropertyChanged -= OnVmPropertyChanged;
@@ -33,15 +33,9 @@ public sealed class SectionCutWindowService : IDisposable
             cutVm.ScaleS = _settings.SectionCutWindow.ScaleS;
             cutVm.ScaleV = _settings.SectionCutWindow.ScaleV;
             cutVm.PropertyChanged += OnVmPropertyChanged;
-            if (cutVm.IsActive)
-                EnsureWindow();
-            else
-                CloseWindow();
         }
-        else
-        {
-            CloseWindow();
-        }
+
+        SyncWindow();
     }
 
     public void UpdatePlotMode(SectionPlotMode plotMode)
@@ -54,19 +48,28 @@ public sealed class SectionCutWindowService : IDisposable
     void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_boundVm == null) return;
-        if (e.PropertyName == nameof(SectionCutVM.IsActive))
+        if (e.PropertyName is nameof(SectionCutVM.IsActive) or nameof(SectionCutVM.Result))
         {
-            if (_boundVm.IsActive) EnsureWindow();
-            else CloseWindow();
+            SyncWindow();
+            if (_boundVm.Result != null && _window != null)
+                _boundVm.RequestFit();
         }
         else if (e.PropertyName is nameof(SectionCutVM.WindowTitleSuffix))
         {
             UpdateTitle();
         }
-        else if (e.PropertyName == nameof(SectionCutVM.Result) && _boundVm.Result != null && _window != null)
-        {
-            _boundVm.RequestFit();
-        }
+    }
+
+    /// <summary>
+    /// Окно эпюры открывается только когда инструмент активен и уже есть результат разреза
+    /// (после указания точки/точек на карте сечения).
+    /// </summary>
+    void SyncWindow()
+    {
+        if (_boundVm != null && _boundVm.IsActive && _boundVm.Result != null)
+            EnsureWindow();
+        else
+            CloseWindow();
     }
 
     void EnsureWindow()

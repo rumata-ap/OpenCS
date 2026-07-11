@@ -1367,6 +1367,7 @@
    <system:String x:Key="SectionCutOrientVertical">Vertical</system:String>
    <system:String x:Key="SectionCutFillToggle">Fill</system:String>
    <system:String x:Key="SectionCutHatchToggle">Hatching</system:String>
+   <system:String x:Key="SectionCutRebarForceToggle">Rebar force</system:String>
    <system:String x:Key="SectionCutClear">Clear</system:String>
    <system:String x:Key="SectionCutExport">Export</system:String>
    <system:String x:Key="SectionCutExportTitle">Export cut diagram</system:String>
@@ -1378,7 +1379,8 @@
    <system:String x:Key="SectionCutExportFormatSvg">SVG (vector)</system:String>
    <system:String x:Key="SectionCutExportFormatDxf">DXF (CAD)</system:String>
    <system:String x:Key="SectionCutExportAsOnScreen">As on screen</system:String>
-   <system:String x:Key="SectionCutExportAsOnScreenHint">Axes, grid, fill, labels and rebar as in the diagram window. If off — baseline, curve and end labels only.</system:String>
+   <system:String x:Key="SectionCutExportAsOnScreenHint">Axes, grid, fill/hatch (DXF skips solid fill), A/B markers, labels and rebar lines as on screen. If off — baseline, curve, end caps and end labels.</system:String>
+   <system:String x:Key="SectionCutCopyFailed">Failed to copy the cut diagram to the clipboard.</system:String>
    <system:String x:Key="SectionCutScaleS">Scale s</system:String>
    <system:String x:Key="SectionCutScaleV">Scale σ/ε</system:String>
    <system:String x:Key="SectionCutWindowTitleStress">σ diagram</system:String>

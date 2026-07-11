@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using System;
 using System.Linq;
@@ -62,8 +63,12 @@ namespace OpenCS.ViewModels
         public SectionPlotVM?   Stage2Stress  { get; }
         public SectionPlotVM?   Stage2Strain  { get; }
 
+        public SectionCutVM? Stage1CutVM { get; }
+        public SectionCutVM? Stage2CutVM { get; }
+
         public TwoStageSummaryVM(CalcResult result, TwoStageSection tss,
-                                  CalcType calcType, CalcSettings settings)
+                                  CalcType calcType, CalcSettings settings,
+                                  IFileDialogService fileDialogService)
         {
             TaskTag     = result.TaskTag;
             CreatedText = result.Created;
@@ -186,6 +191,18 @@ namespace OpenCS.ViewModels
             Stage2Summary = new StrainSummaryVM(result, clone, calcType, settings);
             Stage2Stress  = new SectionPlotVM(clone, k2, calcType, SectionPlotMode.Stress, settings);
             Stage2Strain  = new SectionPlotVM(clone, k2, calcType, SectionPlotMode.Strain, settings);
+
+            string titleSuffix = $"{result.TaskTag} — {tss.Tag}";
+            var cut1 = new SectionCutVM(stage1Section, k1, calcType, fileDialogService)
+                { WindowTitleSuffix = $"{titleSuffix} ({Loc.S("TwoStageSummary_Stage1")})" };
+            var cut2 = new SectionCutVM(clone, k2, calcType, fileDialogService)
+                { WindowTitleSuffix = $"{titleSuffix} ({Loc.S("TwoStageSummary_Stage2")})" };
+            Stage1CutVM = cut1;
+            Stage2CutVM = cut2;
+            Stage1Stress!.CutVM = cut1;
+            Stage1Strain!.CutVM = cut1;
+            Stage2Stress!.CutVM = cut2;
+            Stage2Strain!.CutVM = cut2;
         }
 
         static string Pct(double target, double result)

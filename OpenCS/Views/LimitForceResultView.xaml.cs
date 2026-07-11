@@ -1,13 +1,17 @@
 using CScore;
+using OpenCS.Services;
 using OpenCS.ViewModels;
 using System.Linq;
 using System.Text.Json;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace OpenCS.Views;
 
 public partial class LimitForceResultView : UserControl
 {
+    SectionCutWindowService? _cutWindow;
+
     public LimitForceResultView(CalcResult result, AppViewModel app, CalcTask task)
     {
         InitializeComponent();
@@ -21,12 +25,34 @@ public partial class LimitForceResultView : UserControl
         var k = ParseKurvature(result.DataJson);
         section.SetEps(k, task.CalcType);
 
-        SummaryView.DataContext = new LimitForceSummaryVM(
-            result, section, task.CalcType, app.CalcSettings);
+        var summaryVm = new LimitForceSummaryVM(result, section, task.CalcType, app.CalcSettings);
+        SummaryView.DataContext = summaryVm;
 
         var settings = app.CalcSettings;
-        StressView.DataContext = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings);
-        StrainView.DataContext = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings);
+        var stressVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings);
+        var strainVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings);
+
+        var cutVm = new SectionCutVM(section, k, task.CalcType, app.FileDialogService)
+        {
+            EpsCu = summaryVm.EpsCu,
+            WindowTitleSuffix = $"{task.Tag} — {section.Tag}"
+        };
+        stressVm.CutVM = cutVm;
+        strainVm.CutVM = cutVm;
+
+        StressView.DataContext = stressVm;
+        StrainView.DataContext = strainVm;
+
+        _cutWindow = new SectionCutWindowService(settings);
+        _cutWindow.Bind(cutVm, SectionPlotMode.Stress);
+        MainTabs.SelectionChanged += OnTabSelectionChanged;
+        Unloaded += (_, _) => _cutWindow?.Dispose();
+    }
+
+    void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (MainTabs.SelectedIndex == 1) _cutWindow?.UpdatePlotMode(SectionPlotMode.Stress);
+        else if (MainTabs.SelectedIndex == 2) _cutWindow?.UpdatePlotMode(SectionPlotMode.Strain);
     }
 
     static Kurvature ParseKurvature(string dataJson)

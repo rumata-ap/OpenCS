@@ -43,4 +43,29 @@ public class SectionCutDiagramStyleTests
         Assert.Equal(4, parts[1].EndExclusive);
         Assert.False(parts[1].Positive);
     }
+
+    [Fact]
+    public void BuildSignedFillCurves_InsertsZeroAtSignChange()
+    {
+        var s = new[] { 0.0, 1.0, 2.0, 3.0 };
+        var v = new[] { 1.0, 0.5, -0.5, -1.0 };
+        var regions = SectionCutDiagramStyle.BuildSignedFillCurves(s, v);
+        Assert.Equal(2, regions.Count);
+
+        Assert.True(regions[0].Positive);
+        Assert.Equal(0.0, regions[0].Curve[0].S, 6);
+        Assert.Equal(1.0, regions[0].Curve[0].V, 6);
+        Assert.Equal(0.0, regions[0].Curve[^1].V, 6);
+        Assert.Equal(1.5, regions[0].Curve[^1].S, 6);
+
+        Assert.False(regions[1].Positive);
+        Assert.Equal(0.0, regions[1].Curve[0].V, 6);
+        Assert.Equal(1.5, regions[1].Curve[0].S, 6);
+        Assert.Equal(3.0, regions[1].Curve[^1].S, 6);
+        Assert.Equal(-1.0, regions[1].Curve[^1].V, 6);
+    }
+
+    [Fact]
+    public void ZeroCrossingT_MidpointForSymmetric()
+        => Assert.Equal(0.5, SectionCutDiagramStyle.ZeroCrossingT(1.0, -1.0), 6);
 }

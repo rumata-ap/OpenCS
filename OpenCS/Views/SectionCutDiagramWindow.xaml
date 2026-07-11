@@ -1,0 +1,46 @@
+<Window x:Class="OpenCS.Views.SectionCutDiagramWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:h="clr-namespace:OpenCS.Views.Helpers"
+        ResizeMode="CanResize"
+        MinWidth="480" MinHeight="280"
+        ShowInTaskbar="False"
+        Focusable="True">
+   <Window.InputBindings>
+      <KeyBinding Command="ApplicationCommands.Copy" Key="C" Modifiers="Control"/>
+   </Window.InputBindings>
+   <Grid>
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <Border Grid.Row="0" BorderThickness="0,0,0,1"
+              BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+              Padding="6,4">
+         <StackPanel Orientation="Horizontal">
+            <RadioButton Content="{DynamicResource SectionCutOrientVertical}"
+                         IsChecked="{Binding IsHorizontal, Converter={StaticResource InverseBool}, Mode=OneWay}"
+                         Checked="OnOrientVerticalChecked"
+                         GroupName="CutWinOrient" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <RadioButton Content="{DynamicResource SectionCutOrientHorizontal}"
+                         IsChecked="{Binding IsHorizontal, Mode=OneWay}"
+                         Checked="OnOrientHorizontalChecked"
+                         GroupName="CutWinOrient" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <CheckBox Content="{DynamicResource SectionCutFillToggle}"
+                      IsChecked="{Binding FillMode}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <CheckBox Content="{DynamicResource SectionCutHatchToggle}"
+                      IsChecked="{Binding HatchMode}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <CheckBox Content="{DynamicResource SectionCutRebarForceToggle}"
+                      IsChecked="{Binding ShowRebarForce}" VerticalAlignment="Center"/>
+         </StackPanel>
+      </Border>
+
+      <Border Grid.Row="1" Margin="4"
+              BorderThickness="1"
+              BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
+         <h:CutCanvas x:Name="DiagramCanvas" CutViewModel="{Binding}" PlotMode="Stress"
+                      Focusable="True"/>
+      </Border>
+   </Grid>
+</Window>

@@ -53,6 +53,10 @@ namespace OpenCS.Utilites
       [JsonPropertyName("fiberLabelFontSize")]
       public double FiberLabelFontSize { get; set; } = 9.0;
 
+      /// <summary>Размер и положение окна эпюры разреза сечения.</summary>
+      [JsonPropertyName("sectionCutWindow")]
+      public SectionCutWindowSettings SectionCutWindow { get; set; } = new();
+
       /// <summary>
       /// Нижняя граница нисходящей ветви криволинейной диаграммы бетона по Прил. Г СП 63.13330
       /// (уровень напряжений η = σ/Rb). По норме ≥ 0.85 (п. Г.1).
@@ -133,6 +137,7 @@ namespace OpenCS.Utilites
          CentroidNdsColor      = CentroidNdsColor,
          CentroidNdsSize       = CentroidNdsSize,
          FiberLabelFontSize    = FiberLabelFontSize,
+         SectionCutWindow      = SectionCutWindow.Clone(),
          Sp63DescEtaMin        = Sp63DescEtaMin,
          BatchParallel         = BatchParallel,
          ShellWarmStart        = ShellWarmStart,

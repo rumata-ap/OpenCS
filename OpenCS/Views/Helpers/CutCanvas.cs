@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using System;
@@ -52,21 +53,28 @@ namespace OpenCS.Views.Helpers
         /// <summary>Упрощённый режим экспорта: без заливки/штриховки/арматуры (подписи кривой остаются).</summary>
         public bool ExportPlainMode { get; set; }
 
-        const double MarginLeft = 54;
-        const double MarginRight = 16;
-        const double MarginTop = 16;
-        const double MarginBottom = 46;
+        const double MarginLeft = 58;
+        const double MarginRight = 56;
+        const double MarginTop = 40;
+        const double MarginBottom = 48;
         const double SnapRadiusPx = 12.0;
         const double EndTickLen = 8.0;
-        const double MaxRebarLinePx = 18.0;
+        /// <summary>Длина линии арматуры по умолчанию (пока пользователь не потянул ручку).</summary>
+        const double DefaultRebarLinePx = 18.0;
         const double RebarLineThickness = 2.8;
         const double RebarHandleRadius = 5.5;
         const double RebarHandleHitRadius = 10.0;
+        const double RebarLabelGapPx = 6.0;
+        /// <summary>Доля запаса внутри рамки при Fit (с каждой стороны).</summary>
+        const double FitPadFrac = 0.05;
+        /// <summary>Смещение начала s=0 от края рамки в долях длины (до центрирования pan).</summary>
+        const double SOriginFrac = 0.0;
 
         double _baseScaleS = 1.0, _baseScaleV = 1.0;
         double _plotOx, _plotOy, _plotW, _plotH;
         double _panX, _panY;
         double _lengthMm, _vAbsMax, _rebarVAbsMax;
+        double _fitVMin, _fitVMax;
         bool _fitted;
         bool? _lastHorizontal;
 
@@ -96,7 +104,8 @@ namespace OpenCS.Views.Helpers
             SizeChanged += (_, _) =>
             {
                 if (CutViewModel?.Result == null) return;
-                FitToView();
+                // При ресайзе заново максимально вписываем (множители зума сохраняем).
+                ApplyMaximalFit(resetUserScale: false);
                 InvalidateVisual();
             };
         }
@@ -108,13 +117,40 @@ namespace OpenCS.Views.Helpers
             fitItem.SetResourceReference(HeaderedItemsControl.HeaderProperty, "PlotFitAll");
             fitItem.Click += (_, _) => CutViewModel?.FitCommand.Execute(null);
 
+            var copyItem = new MenuItem();
+            copyItem.SetResourceReference(HeaderedItemsControl.HeaderProperty, "Copy");
+            copyItem.InputGestureText = "Ctrl+C";
+            copyItem.Click += (_, _) => CopyEmfToClipboard();
+
             var exportItem = new MenuItem();
             exportItem.SetResourceReference(HeaderedItemsControl.HeaderProperty, "SectionCutExport");
             exportItem.Click += (_, _) => CutViewModel?.ExportCommand.Execute(null);
 
             menu.Items.Add(fitItem);
+            menu.Items.Add(copyItem);
             menu.Items.Add(exportItem);
             ContextMenu = menu;
+        }
+
+        /// <summary>Копирует текущий вид эпюры в буфер обмена как EMF.</summary>
+        public bool CopyEmfToClipboard()
+        {
+            if (CutViewModel?.Result == null || ActualWidth < 1 || ActualHeight < 1)
+                return false;
+
+            bool prevHover = _hoverVisible;
+            _hoverVisible = false;
+            try
+            {
+                InvalidateVisual();
+                UpdateLayout();
+                return SectionCutEmfClipboard.TryCopy(this);
+            }
+            finally
+            {
+                _hoverVisible = prevHover;
+                if (prevHover) InvalidateVisual();
+            }
         }
 
         static void OnCutViewModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -137,15 +173,18 @@ namespace OpenCS.Views.Helpers
         void OnCutChanged()
         {
             if (CutViewModel?.Result != null)
-                FitToView();
+            {
+                bool horizontal = CutViewModel.IsHorizontal;
+                // Refit только при смене ориентации; зум ScaleS/ScaleV не должен трогать _baseScale*.
+                if (_lastHorizontal is bool prev && prev != horizontal)
+                    ApplyMaximalFit(resetUserScale: true);
+            }
             InvalidateVisual();
         }
 
         void OnFitRequested()
         {
-            _panX = _panY = 0;
-            _fitted = false;
-            FitToView();
+            ApplyMaximalFit(resetUserScale: true);
             InvalidateVisual();
         }
 
@@ -154,9 +193,27 @@ namespace OpenCS.Views.Helpers
             if (!_fitted && CutViewModel?.Result != null)
             {
                 _fitted = true;
-                FitToView();
+                ApplyMaximalFit(resetUserScale: true);
             }
             return finalSize;
+        }
+
+        /// <summary>
+        /// Подбирает наибольшие масштабы s и σ/ε, чтобы эпюра максимально заполнила рамку сетки.
+        /// При resetUserScale множители ScaleS/ScaleV сбрасываются в 1 (эталон «вписано»).
+        /// </summary>
+        void ApplyMaximalFit(bool resetUserScale)
+        {
+            if (CutViewModel is { } vm && resetUserScale)
+            {
+                if (Math.Abs(vm.ScaleS - 1.0) > 1e-15) vm.ScaleS = 1.0;
+                if (Math.Abs(vm.ScaleV - 1.0) > 1e-15) vm.ScaleV = 1.0;
+            }
+
+            _panX = _panY = 0;
+            FitToView();
+            ApplyContentPanForMaxFill();
+            _fitted = true;
         }
 
         void FitToView()
@@ -173,7 +230,7 @@ namespace OpenCS.Views.Helpers
                 return;
             }
 
-            bool horizontal = CutViewModel?.IsHorizontal ?? true;
+            bool horizontal = CutViewModel?.IsHorizontal ?? false;
             if (_lastHorizontal is bool prev && prev != horizontal)
                 _panX = _panY = 0;
             _lastHorizontal = horizontal;
@@ -181,27 +238,187 @@ namespace OpenCS.Views.Helpers
             _lengthMm = Distance(result.Start, result.End) * 1000.0;
             if (_lengthMm < 1e-6) _lengthMm = 1;
 
-            double vMin = 0, vMax = 0;
+            double vMin = double.PositiveInfinity, vMax = double.NegativeInfinity;
             CollectValueRange(result, ref vMin, ref vMax);
+            if (double.IsInfinity(vMin) || double.IsInfinity(vMax))
+            {
+                vMin = 0;
+                vMax = 0;
+            }
+            if (vMax < vMin) (vMin, vMax) = (vMax, vMin);
             _vAbsMax = Math.Max(Math.Abs(vMin), Math.Abs(vMax));
             if (_vAbsMax < 1e-12) _vAbsMax = 1;
+            _fitVMin = vMin;
+            _fitVMax = vMax;
 
-            double padFrac = 0.1;
+            // Пиксельный вылет линий арматуры и подписей от базы (не масштабируется ScaleV).
+            ComputeRebarPixelExtras(result, out double rebarNegPx, out double rebarPosPx, out double rebarAlongSPx);
+
+            double sAxis = horizontal ? _plotW : _plotH;
+            double vAxis = horizontal ? _plotH : _plotW;
+            double padS = sAxis * FitPadFrac;
+            double padV = vAxis * FitPadFrac;
+
+            double sUsable = sAxis - 2.0 * padS - 2.0 * rebarAlongSPx;
+            if (sUsable < 20) sUsable = 20;
+            _baseScaleS = sUsable / Math.Max(_lengthMm, 1e-12);
+
+            double vUsable = vAxis - 2.0 * padV;
+            if (vUsable < 20) vUsable = 20;
+            _baseScaleV = MaxScaleVForRebarAndCurve(vUsable, vMin, vMax, rebarNegPx, rebarPosPx);
+
+            _fitted = true;
+        }
+
+        /// <summary>
+        /// Макс. вылет арматуры от базы в −V / +V (длина линии + подпись на конце) и вдоль s.
+        /// Учитывает фактическое смещение подписи относительно конца линии (см. DrawRebarOnCurve).
+        /// </summary>
+        void ComputeRebarPixelExtras(SectionCutResult result,
+            out double rebarNegPx, out double rebarPosPx, out double rebarAlongSPx)
+        {
+            rebarNegPx = 0;
+            rebarPosPx = 0;
+            rebarAlongSPx = 0;
+            if (ExportPlainMode || CutViewModel is not { } vm) return;
+
+            UpdateRebarValueRange(result);
+            double labelW = EstimateRebarLabelWidth(vm);
+            double labelH = 14.0;
+            bool horizontal = vm.IsHorizontal;
+            // Запас под белую ручку на конце линии.
+            double tip = RebarHandleRadius;
+
+            foreach (var r in result.Rebars)
+            {
+                double len = ResolveRebarLengthPx(vm, r) + tip;
+                double val = RebarDisplayValue(r, vm);
+                bool neg = val < 0;
+
+                if (horizontal)
+                {
+                    // Подпись: end + (6, 6) → вдоль s (+X) и вниз (+Y = −V).
+                    rebarAlongSPx = Math.Max(rebarAlongSPx, RebarLabelGapPx + labelW);
+                    if (neg)
+                        rebarNegPx = Math.Max(rebarNegPx, len + RebarLabelGapPx + labelH);
+                    else
+                        rebarPosPx = Math.Max(rebarPosPx, len);
+                }
+                else
+                {
+                    // Подпись: end + (6, 12) → вдоль +V (+X) и вдоль s (+Y).
+                    rebarAlongSPx = Math.Max(rebarAlongSPx, 12.0 + labelH);
+                    if (neg)
+                        rebarNegPx = Math.Max(rebarNegPx, len);
+                    else
+                        rebarPosPx = Math.Max(rebarPosPx, len + RebarLabelGapPx + labelW);
+                }
+            }
+        }
+
+        double EstimateRebarLabelWidth(SectionCutVM vm)
+        {
+            string sample = vm.ShowRebarForce
+                ? "N=+999.99"
+                : PlotMode == SectionPlotMode.Stress
+                    ? "σ=+99.99"
+                    : "ε=+0.00000";
+            var ft = new FormattedText(sample, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                new Typeface("Segoe UI"), 10, Brushes.Black, 1.0);
+            return ft.Width;
+        }
+
+        /// <summary>
+        /// Наибольший ScaleV, при котором эпюра [vMin,vMax] и вылеты арматуры (±px от базы) влезают в vUsable.
+        /// </summary>
+        static double MaxScaleVForRebarAndCurve(double vUsable, double vMin, double vMax,
+            double rebarNegPx, double rebarPosPx)
+        {
+            double lo = 0;
+            double hi = vUsable / Math.Max(Math.Abs(vMax - vMin), 1e-12);
+            for (int i = 0; i < 40; i++)
+            {
+                double mid = (lo + hi) * 0.5;
+                double left = Math.Max(rebarNegPx, Math.Max(0, -vMin) * mid);
+                double right = Math.Max(rebarPosPx, Math.Max(0, vMax) * mid);
+                if (left + right <= vUsable + 1e-6)
+                    lo = mid;
+                else
+                    hi = mid;
+            }
+            return Math.Max(lo, 1e-12);
+        }
+
+        /// <summary>
+        /// Pan так, чтобы эпюра [vMin,vMax], база и вылеты арматуры с подписями легли в рамку.
+        /// </summary>
+        void ApplyContentPanForMaxFill()
+        {
+            if (CutViewModel?.Result is not { } result || _lengthMm < 1e-12) return;
+            bool horizontal = CutViewModel.IsHorizontal;
+            ComputeRebarPixelExtras(result, out double rebarNegPx, out double rebarPosPx, out double rebarAlongSPx);
+
+            double sAxis = horizontal ? _plotW : _plotH;
+            double vAxis = horizontal ? _plotH : _plotW;
+            double padS = sAxis * FitPadFrac;
+            double padV = vAxis * FitPadFrac;
+
+            double vMin = _fitVMin, vMax = _fitVMax;
+            if (Math.Abs(vMax - vMin) < 1e-12)
+            {
+                vMin = -_vAbsMax;
+                vMax = _vAbsMax;
+            }
+
+            _panX = 0;
+            _panY = 0;
+
+            // s=0 с запасом под подписи арматуры вдоль s.
+            var pS0 = ToScreen(0, 0);
+            if (horizontal)
+                _panX = (_plotOx + padS + rebarAlongSPx) - pS0.X;
+            else
+                _panY = (_plotOy + padS + rebarAlongSPx) - pS0.Y;
+
+            // База v=0: слева/сверху оставляем max(вылет арматуры, вылет эпюры).
+            var pBase = ToScreen(0, 0);
             if (horizontal)
             {
-                _baseScaleS = _plotW / (_lengthMm * (1 + 2 * padFrac));
-                _baseScaleV = _plotH / 2 / _vAbsMax / (1 + padFrac);
+                // +V вверх (меньше Y), −V вниз.
+                double topExt = Math.Max(rebarPosPx, Math.Max(0, vMax) * ScaleV);
+                _panY += (_plotOy + padV + topExt) - pBase.Y;
             }
             else
             {
-                _baseScaleS = _plotH / (_lengthMm * (1 + 2 * padFrac));
-                _baseScaleV = _plotW / 2 / _vAbsMax / (1 + padFrac);
+                // +V вправо, −V влево.
+                double leftExt = Math.Max(rebarNegPx, Math.Max(0, -vMin) * ScaleV);
+                _panX += (_plotOx + padV + leftExt) - pBase.X;
             }
-            _fitted = true;
+        }
+
+        /// <summary>Сдвигает pan так, чтобы отрезок s∈[0,L] оказался по центру рамки.</summary>
+        void CenterContentInPlot()
+        {
+            if (CutViewModel?.Result == null || _lengthMm < 1e-12) return;
+            bool horizontal = CutViewModel.IsHorizontal;
+
+            var p0 = ToScreen(0, 0);
+            var p1 = ToScreen(_lengthMm, 0);
+            if (horizontal)
+            {
+                double mid = (p0.X + p1.X) / 2;
+                _panX += (_plotOx + _plotW / 2) - mid;
+            }
+            else
+            {
+                double mid = (p0.Y + p1.Y) / 2;
+                _panY += (_plotOy + _plotH / 2) - mid;
+            }
         }
 
         void CollectValueRange(SectionCutResult result, ref double vMin, ref double vMax)
         {
+            // Только эпюра материала — арматуру в диапазон вписывания не включаем.
             foreach (var seg in result.Segments)
                 foreach (var p in seg.Points)
                 {
@@ -210,12 +427,6 @@ namespace OpenCS.Views.Helpers
                     if (v < vMin) vMin = v.Value;
                     if (v > vMax) vMax = v.Value;
                 }
-            foreach (var r in result.Rebars)
-            {
-                double v = PlotMode == SectionPlotMode.Stress ? r.Sig : r.Eps;
-                if (v < vMin) vMin = v;
-                if (v > vMax) vMax = v;
-            }
             if (PlotMode == SectionPlotMode.Strain && CutViewModel?.EpsCu is { } epsCu)
             {
                 if (epsCu < vMin) vMin = epsCu;
@@ -223,24 +434,58 @@ namespace OpenCS.Views.Helpers
             }
         }
 
+        double RebarDisplayValue(CutRebarMarker r, SectionCutVM? vm)
+        {
+            if (vm?.ShowRebarForce == true)
+                return r.ForceKN;
+            return PlotMode == SectionPlotMode.Stress ? r.Sig : r.Eps;
+        }
+
         double ScaleS => _baseScaleS * (CutViewModel?.ScaleS ?? 1.0);
         double ScaleV => _baseScaleV * (CutViewModel?.ScaleV ?? 1.0);
 
+        /// <summary>Снимок текущего вида для SVG/DXF (размер окна, масштабы, pan).</summary>
+        public SectionCutViewTransform? CaptureViewTransform()
+        {
+            if (CutViewModel?.Result == null || ActualWidth < 1 || ActualHeight < 1)
+                return null;
+            if (!_fitted)
+                ApplyMaximalFit(resetUserScale: false);
+            return new SectionCutViewTransform
+            {
+                CanvasWidth = ActualWidth,
+                CanvasHeight = ActualHeight,
+                PlotOx = _plotOx,
+                PlotOy = _plotOy,
+                PlotW = _plotW,
+                PlotH = _plotH,
+                PanX = _panX,
+                PanY = _panY,
+                ScaleS = ScaleS,
+                ScaleV = ScaleV,
+                LengthMm = _lengthMm,
+                FitVMin = _fitVMin,
+                FitVMax = _fitVMax,
+                Horizontal = CutViewModel.IsHorizontal
+            };
+        }
+
         double BaseScreenS(double sMm)
         {
-            bool horizontal = CutViewModel?.IsHorizontal ?? true;
-            return horizontal ? _plotOx + _lengthMm * 0.1 * ScaleS + sMm * ScaleS : _plotOy + _lengthMm * 0.1 * ScaleS + sMm * ScaleS;
+            bool horizontal = CutViewModel?.IsHorizontal ?? false;
+            double origin = horizontal ? _plotOx : _plotOy;
+            return origin + _lengthMm * SOriginFrac * ScaleS + sMm * ScaleS;
         }
 
         double BaseScreenV0()
         {
-            bool horizontal = CutViewModel?.IsHorizontal ?? true;
+            bool horizontal = CutViewModel?.IsHorizontal ?? false;
             return horizontal ? _plotOy + _plotH / 2 : _plotOx + _plotW / 2;
         }
 
         Point ToScreen(double sMm, double value)
         {
-            bool horizontal = CutViewModel?.IsHorizontal ?? true;
+            bool horizontal = CutViewModel?.IsHorizontal ?? false;
             if (horizontal)
                 return new Point(BaseScreenS(sMm) + _panX, BaseScreenV0() + _panY - value * ScaleV);
             return new Point(BaseScreenV0() + _panX + value * ScaleV, BaseScreenS(sMm) + _panY);
@@ -249,28 +494,29 @@ namespace OpenCS.Views.Helpers
         void UpdateRebarValueRange(SectionCutResult result)
         {
             _rebarVAbsMax = 0;
+            var vm = CutViewModel;
             foreach (var r in result.Rebars)
             {
-                double v = PlotMode == SectionPlotMode.Stress ? r.Sig : r.Eps;
-                double av = Math.Abs(v);
+                double av = Math.Abs(RebarDisplayValue(r, vm));
                 if (av > _rebarVAbsMax) _rebarVAbsMax = av;
             }
             if (_rebarVAbsMax < 1e-12) _rebarVAbsMax = 1;
         }
 
-        /// <summary>Длина линии усилия арматуры в пикселях — не зависит от ScaleV эпюры бетона.</summary>
-        double ResolveRebarLengthPx(SectionCutVM vm, CutRebarMarker r, double computedV)
+        /// <summary>Длина линии арматуры: только ручной override или фиксированный default (без верхнего предела).</summary>
+        double ResolveRebarLengthPx(SectionCutVM vm, CutRebarMarker r)
         {
             var key = SectionCutVM.RebarKey(r);
-            if (vm.TryGetRebarLengthPxOverride(key, out double px)) return px;
-            if (_rebarVAbsMax < 1e-12) return 0;
-            return Math.Min(MaxRebarLinePx, Math.Abs(computedV) / _rebarVAbsMax * MaxRebarLinePx);
+            if (vm.TryGetRebarLengthPxOverride(key, out double px))
+                return Math.Max(0, px);
+            return DefaultRebarLinePx;
         }
 
         static Point RebarEndScreen(Point basePt, double computedV, double lengthPx, bool horizontal)
         {
-            if (lengthPx < 1e-6 || Math.Abs(computedV) < 1e-12) return basePt;
-            int sign = computedV > 0 ? 1 : -1;
+            if (lengthPx < 1e-6) return basePt;
+            // Знак направления — по величине; при нуле рисуем «в положительную» сторону.
+            int sign = computedV < 0 ? -1 : 1;
             return horizontal
                 ? new Point(basePt.X, basePt.Y - sign * lengthPx)
                 : new Point(basePt.X + sign * lengthPx, basePt.Y);
@@ -316,7 +562,8 @@ namespace OpenCS.Views.Helpers
                 return;
             }
 
-            if (!_fitted) FitToView();
+            if (!_fitted)
+                ApplyMaximalFit(resetUserScale: true);
 
             UpdateRebarValueRange(result);
 
@@ -394,7 +641,7 @@ namespace OpenCS.Views.Helpers
 
         void DrawGridAndAxes(DrawingContext dc)
         {
-            bool horizontal = CutViewModel?.IsHorizontal ?? true;
+            bool horizontal = CutViewModel?.IsHorizontal ?? false;
             var plotRect = new Rect(_plotOx, _plotOy, _plotW, _plotH);
             dc.DrawRectangle(null, _axisPen, plotRect);
 
@@ -413,7 +660,7 @@ namespace OpenCS.Views.Helpers
                     var p = ToScreen(s, 0);
                     if (p.X < _plotOx - 1 || p.X > _plotOx + _plotW + 1) continue;
                     dc.DrawLine(_gridPen, new Point(p.X, _plotOy), new Point(p.X, _plotOy + _plotH));
-                    DrawTickLabel(dc, FormatS(s, sStep), new Point(p.X, _plotOy + _plotH + 4), horizontal: true);
+                    DrawTickLabel(dc, FormatS(s, sStep), new Point(p.X, _plotOy + _plotH + 6), TickLabelAlign.CenterBelow);
                 }
                 for (double v = FloorToStep(vMin, vStep); v <= vMax + vStep * 0.5; v += vStep)
                 {
@@ -421,15 +668,17 @@ namespace OpenCS.Views.Helpers
                     if (p.Y < _plotOy - 1 || p.Y > _plotOy + _plotH + 1) continue;
                     dc.DrawLine(Math.Abs(v) < vStep * 0.01 ? _zeroPen : _gridPen,
                         new Point(_plotOx, p.Y), new Point(_plotOx + _plotW, p.Y));
-                    DrawTickLabel(dc, FormatValueForStep(v, vStep), new Point(_plotOx - 4, p.Y), horizontal: false);
+                    DrawTickLabel(dc, FormatValueForStep(v, vStep), new Point(_plotOx - 6, p.Y), TickLabelAlign.RightMiddle);
                 }
-                DrawAxisTitle(dc, Loc.S("SectionCutAxisS"), new Point(_plotOx + _plotW / 2, ActualHeight - 8), center: true);
+                DrawAxisTitle(dc, Loc.S("SectionCutAxisS"),
+                    new Point(_plotOx + _plotW / 2, ActualHeight - 6), center: true, vertical: false);
                 DrawAxisTitle(dc, PlotMode == SectionPlotMode.Stress
                     ? Loc.S("SectionCutAxisSigma") : Loc.S("SectionCutAxisEps"),
-                    new Point(10, _plotOy + _plotH / 2), center: false, vertical: true);
+                    new Point(14, _plotOy + _plotH / 2), center: true, vertical: true);
             }
             else
             {
+                // Вертикальная эпюра (учебник): s вниз, σ/ε вправо/влево от нуля.
                 double sMin = ScreenToS(_plotOy, false);
                 double sMax = ScreenToS(_plotOy + _plotH, false);
                 double vMin = ScreenToV(_plotOx, false);
@@ -440,7 +689,7 @@ namespace OpenCS.Views.Helpers
                     var p = ToScreen(s, 0);
                     if (p.Y < _plotOy - 1 || p.Y > _plotOy + _plotH + 1) continue;
                     dc.DrawLine(_gridPen, new Point(_plotOx, p.Y), new Point(_plotOx + _plotW, p.Y));
-                    DrawTickLabel(dc, FormatS(s, sStep), new Point(_plotOx + _plotW + 4, p.Y), horizontal: true);
+                    DrawTickLabel(dc, FormatS(s, sStep), new Point(_plotOx + _plotW + 6, p.Y), TickLabelAlign.LeftMiddle);
                 }
                 for (double v = FloorToStep(vMin, vStep); v <= vMax + vStep * 0.5; v += vStep)
                 {
@@ -448,12 +697,13 @@ namespace OpenCS.Views.Helpers
                     if (p.X < _plotOx - 1 || p.X > _plotOx + _plotW + 1) continue;
                     dc.DrawLine(Math.Abs(v) < vStep * 0.01 ? _zeroPen : _gridPen,
                         new Point(p.X, _plotOy), new Point(p.X, _plotOy + _plotH));
-                    DrawTickLabel(dc, FormatValueForStep(v, vStep), new Point(p.X, _plotOy - 4), horizontal: true);
+                    DrawTickLabel(dc, FormatValueForStep(v, vStep), new Point(p.X, _plotOy - 6), TickLabelAlign.CenterAbove);
                 }
-                DrawAxisTitle(dc, Loc.S("SectionCutAxisS"), new Point(ActualWidth - 8, _plotOy + _plotH / 2), center: true, vertical: true);
+                DrawAxisTitle(dc, Loc.S("SectionCutAxisS"),
+                    new Point(ActualWidth - 10, _plotOy + _plotH / 2), center: true, vertical: true);
                 DrawAxisTitle(dc, PlotMode == SectionPlotMode.Stress
                     ? Loc.S("SectionCutAxisSigma") : Loc.S("SectionCutAxisEps"),
-                    new Point(_plotOx + _plotW / 2, 10), center: true);
+                    new Point(_plotOx + _plotW / 2, 14), center: true, vertical: false);
             }
         }
 
@@ -479,7 +729,7 @@ namespace OpenCS.Views.Helpers
 
         void DrawEndMarkers(DrawingContext dc, SectionCutResult result)
         {
-            bool horizontal = CutViewModel?.IsHorizontal ?? true;
+            bool horizontal = CutViewModel?.IsHorizontal ?? false;
             double s0 = 0, s1 = _lengthMm;
             var p0 = ToScreen(s0, 0);
             var p1 = ToScreen(s1, 0);
@@ -488,15 +738,15 @@ namespace OpenCS.Views.Helpers
             {
                 dc.DrawLine(_endTickPen, new Point(p0.X, p0.Y - EndTickLen / 2), new Point(p0.X, p0.Y + EndTickLen / 2));
                 dc.DrawLine(_endTickPen, new Point(p1.X, p1.Y - EndTickLen / 2), new Point(p1.X, p1.Y + EndTickLen / 2));
-                DrawTickLabel(dc, "A", new Point(p0.X, p0.Y + EndTickLen + 2), horizontal: true);
-                DrawTickLabel(dc, "B", new Point(p1.X, p1.Y + EndTickLen + 2), horizontal: true);
+                DrawTickLabel(dc, "A", new Point(p0.X, p0.Y + EndTickLen + 2), TickLabelAlign.CenterBelow);
+                DrawTickLabel(dc, "B", new Point(p1.X, p1.Y + EndTickLen + 2), TickLabelAlign.CenterBelow);
             }
             else
             {
                 dc.DrawLine(_endTickPen, new Point(p0.X - EndTickLen / 2, p0.Y), new Point(p0.X + EndTickLen / 2, p0.Y));
                 dc.DrawLine(_endTickPen, new Point(p1.X - EndTickLen / 2, p1.Y), new Point(p1.X + EndTickLen / 2, p1.Y));
-                DrawTickLabel(dc, "A", new Point(p0.X - EndTickLen - 2, p0.Y), horizontal: false);
-                DrawTickLabel(dc, "B", new Point(p1.X - EndTickLen - 2, p1.Y), horizontal: false);
+                DrawTickLabel(dc, "A", new Point(p0.X - EndTickLen - 4, p0.Y), TickLabelAlign.RightMiddle);
+                DrawTickLabel(dc, "B", new Point(p1.X - EndTickLen - 4, p1.Y), TickLabelAlign.RightMiddle);
             }
         }
 
@@ -509,50 +759,59 @@ namespace OpenCS.Views.Helpers
             if (pts.Count < 2) return;
 
             var vals = pts.Select(x => x.v!.Value).ToList();
+            var sMm = pts.Select(x => x.p.S * 1000.0).ToList();
 
             if ((vm.FillMode || vm.HatchMode) && !ExportPlainMode)
             {
-                var fillGeom = new StreamGeometry();
-                using (var ctx = fillGeom.Open())
-                {
-                    ctx.BeginFigure(ToScreen(pts[0].p.S * 1000.0, 0), true, true);
-                    foreach (var x in pts)
-                        ctx.LineTo(ToScreen(x.p.S * 1000.0, x.v!.Value), true, false);
-                    ctx.LineTo(ToScreen(pts[^1].p.S * 1000.0, 0), true, false);
-                }
-                fillGeom.Freeze();
-
                 var matType = vm.GetAreaMatType(seg.AreaIndex);
                 double vMax = _vAbsMax;
+                bool horizontal = CutViewModel?.IsHorizontal ?? false;
 
-                if (vm.FillMode)
+                foreach (var region in SectionCutDiagramStyle.BuildSignedFillCurves(sMm, vals))
                 {
-                    double avg = pts.Average(x => x.v!.Value);
-                    var color = CutDiagramColors.Get(matType, avg, vMax);
-                    var brush = new SolidColorBrush(Color.FromArgb(90, color.R, color.G, color.B));
-                    dc.DrawGeometry(brush, null, fillGeom);
-                }
+                    if (region.Curve.Count < 1) continue;
 
-                if (vm.HatchMode)
-                {
-                    dc.PushClip(fillGeom);
-                    double avg = pts.Average(x => x.v!.Value);
-                    var color = CutDiagramColors.Get(matType, avg, vMax);
-                    var pen = new Pen(new SolidColorBrush(Color.FromArgb(160, color.R, color.G, color.B)), 0.8);
-                    pen.Freeze();
-                    var bounds = fillGeom.Bounds;
-                    bool horizontal = CutViewModel?.IsHorizontal ?? true;
-                    if (horizontal)
+                    var fillGeom = new StreamGeometry();
+                    using (var ctx = fillGeom.Open())
                     {
-                        for (double x = bounds.Left + 3; x < bounds.Right; x += 5)
-                            dc.DrawLine(pen, new Point(x, bounds.Top), new Point(x, bounds.Bottom));
+                        ctx.BeginFigure(ToScreen(region.Curve[0].S, 0), true, true);
+                        foreach (var (s, v) in region.Curve)
+                            ctx.LineTo(ToScreen(s, v), true, false);
+                        ctx.LineTo(ToScreen(region.Curve[^1].S, 0), true, false);
                     }
-                    else
+                    fillGeom.Freeze();
+
+                    // Представитель знака — среднее по |v| с нужным знаком (нули на границах не портят).
+                    double sample = region.Curve.Where(p => Math.Abs(p.V) > SectionCutDiagramStyle.SignEpsilon)
+                        .Select(p => p.V)
+                        .DefaultIfEmpty(region.Positive ? 1.0 : -1.0)
+                        .Average();
+                    var color = CutDiagramColors.Get(matType, sample, vMax);
+
+                    if (vm.FillMode)
                     {
-                        for (double y = bounds.Top + 3; y < bounds.Bottom; y += 5)
-                            dc.DrawLine(pen, new Point(bounds.Left, y), new Point(bounds.Right, y));
+                        var brush = new SolidColorBrush(Color.FromArgb(90, color.R, color.G, color.B));
+                        dc.DrawGeometry(brush, null, fillGeom);
                     }
-                    dc.Pop();
+
+                    if (vm.HatchMode)
+                    {
+                        dc.PushClip(fillGeom);
+                        var pen = new Pen(new SolidColorBrush(Color.FromArgb(160, color.R, color.G, color.B)), 0.8);
+                        pen.Freeze();
+                        var bounds = fillGeom.Bounds;
+                        if (horizontal)
+                        {
+                            for (double x = bounds.Left + 3; x < bounds.Right; x += 5)
+                                dc.DrawLine(pen, new Point(x, bounds.Top), new Point(x, bounds.Bottom));
+                        }
+                        else
+                        {
+                            for (double y = bounds.Top + 3; y < bounds.Bottom; y += 5)
+                                dc.DrawLine(pen, new Point(bounds.Left, y), new Point(bounds.Right, y));
+                        }
+                        dc.Pop();
+                    }
                 }
             }
 
@@ -593,8 +852,8 @@ namespace OpenCS.Views.Helpers
         {
             var p0 = ToScreen(s0Mm, v0);
             var p1 = ToScreen(s1Mm, v1);
-            DrawTickLabel(dc, FormatValue(v0), new Point(p0.X + 4, p0.Y - 12), horizontal: true);
-            DrawTickLabel(dc, FormatValue(v1), new Point(p1.X + 4, p1.Y - 12), horizontal: true);
+            DrawTickLabel(dc, FormatValue(v0), new Point(p0.X + 4, p0.Y - 12), TickLabelAlign.LeftAbove);
+            DrawTickLabel(dc, FormatValue(v1), new Point(p1.X + 4, p1.Y - 12), TickLabelAlign.LeftAbove);
         }
 
         /// <summary>Отрезок от базы до кривой на границе сегмента (начало / конец / разрыв).</summary>
@@ -607,7 +866,7 @@ namespace OpenCS.Views.Helpers
 
         void DrawRebarOnCurve(DrawingContext dc, CutRebarMarker r, SectionCutVM vm, bool onCurve)
         {
-            double computedV = PlotMode == SectionPlotMode.Stress ? r.Sig : r.Eps;
+            double computedV = RebarDisplayValue(r, vm);
             double sMm = r.S * 1000.0;
             var basePt = ToScreen(sMm, 0);
             bool horizontal = vm.IsHorizontal;
@@ -619,17 +878,19 @@ namespace OpenCS.Views.Helpers
                 var fillBrush = new SolidColorBrush(color);
                 fillBrush.Freeze();
                 dc.DrawEllipse(fillBrush, forcePen, basePt, RebarHandleRadius, RebarHandleRadius);
-                double lengthPx = ResolveRebarLengthPx(vm, r, computedV);
+                double lengthPx = ResolveRebarLengthPx(vm, r);
                 var endPt = RebarEndScreen(basePt, computedV, lengthPx, horizontal);
                 dc.DrawLine(forcePen, basePt, endPt);
                 dc.DrawEllipse(Brushes.White, forcePen, endPt, RebarHandleRadius, RebarHandleRadius);
-                string val = PlotMode == SectionPlotMode.Stress
-                    ? $"σ={computedV:+0.##;-0.##}"
-                    : $"ε={computedV:+0.00000;-0.00000}";
+                string val = vm.ShowRebarForce
+                    ? $"N={computedV:+0.##;-0.##}"
+                    : PlotMode == SectionPlotMode.Stress
+                        ? $"σ={computedV:+0.##;-0.##}"
+                        : $"ε={computedV:+0.00000;-0.00000}";
                 var labelPt = horizontal
                     ? new Point(endPt.X + 6, endPt.Y + 6)
                     : new Point(endPt.X + 6, endPt.Y + 12);
-                DrawTickLabel(dc, val, labelPt, horizontal: true);
+                DrawTickLabel(dc, val, labelPt, TickLabelAlign.LeftTop);
             }
             else
             {
@@ -639,7 +900,7 @@ namespace OpenCS.Views.Helpers
                 var labelPt = horizontal
                     ? new Point(basePt.X + 4, basePt.Y + RebarHandleRadius + 4)
                     : new Point(basePt.X + RebarHandleRadius + 4, basePt.Y + 8);
-                DrawTickLabel(dc, $"№{r.Num}", labelPt, horizontal: true);
+                DrawTickLabel(dc, $"№{r.Num}", labelPt, TickLabelAlign.LeftTop);
             }
         }
 
@@ -655,9 +916,9 @@ namespace OpenCS.Views.Helpers
             SectionCutVM.RebarLineKey? found = null;
             foreach (var r in result.Rebars)
             {
-                double computedV = PlotMode == SectionPlotMode.Stress ? r.Sig : r.Eps;
+                double computedV = RebarDisplayValue(r, vm);
                 var basePt = ToScreen(r.S * 1000.0, 0);
-                double lengthPx = ResolveRebarLengthPx(vm, r, computedV);
+                double lengthPx = ResolveRebarLengthPx(vm, r);
                 var endPt = RebarEndScreen(basePt, computedV, lengthPx, horizontal);
                 double d = (endPt - screen).Length;
                 if (d < best)
@@ -684,19 +945,40 @@ namespace OpenCS.Views.Helpers
             string vLabel = PlotMode == SectionPlotMode.Stress
                 ? string.Format(CultureInfo.CurrentCulture, Loc.S("SectionCutHoverSigma"), _hoverV)
                 : string.Format(CultureInfo.CurrentCulture, Loc.S("SectionCutHoverEps"), _hoverV);
-            DrawTickLabel(dc, sLabel, new Point(pt.X + 8, _plotOy + 4), horizontal: true);
-            DrawTickLabel(dc, vLabel, new Point(pt.X + 8, pt.Y - 14), horizontal: true);
+            DrawTickLabel(dc, sLabel, new Point(pt.X + 8, _plotOy + 4), TickLabelAlign.LeftTop);
+            DrawTickLabel(dc, vLabel, new Point(pt.X + 8, pt.Y - 4), TickLabelAlign.LeftAbove);
         }
 
-        void DrawTickLabel(DrawingContext dc, string text, Point pos, bool horizontal)
+        enum TickLabelAlign
+        {
+            CenterBelow,
+            CenterAbove,
+            LeftMiddle,
+            RightMiddle,
+            LeftTop,
+            LeftAbove,
+            CenterTop,
+        }
+
+        void DrawTickLabel(DrawingContext dc, string text, Point pos, TickLabelAlign align)
         {
             var tf = new Typeface("Segoe UI");
             var ft = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
                 tf, 10, Brushes.Black, 1.0);
-            if (horizontal)
-                dc.DrawText(ft, new Point(pos.X - ft.Width / 2, pos.Y));
-            else
-                dc.DrawText(ft, new Point(pos.X - ft.Width, pos.Y - ft.Height / 2));
+            double x = align switch
+            {
+                TickLabelAlign.RightMiddle => pos.X - ft.Width,
+                TickLabelAlign.LeftMiddle or TickLabelAlign.LeftTop or TickLabelAlign.LeftAbove => pos.X,
+                _ => pos.X - ft.Width / 2
+            };
+            double y = align switch
+            {
+                TickLabelAlign.CenterAbove or TickLabelAlign.LeftAbove => pos.Y - ft.Height,
+                TickLabelAlign.RightMiddle or TickLabelAlign.LeftMiddle => pos.Y - ft.Height / 2,
+                TickLabelAlign.LeftTop or TickLabelAlign.CenterTop => pos.Y,
+                _ => pos.Y // CenterBelow
+            };
+            dc.DrawText(ft, new Point(x, y));
         }
 
         void DrawAxisTitle(DrawingContext dc, string text, Point pos, bool center, bool vertical = false)
@@ -706,14 +988,16 @@ namespace OpenCS.Views.Helpers
                 tf, 11, Brushes.Black, 1.0);
             if (vertical)
             {
+                // Центрируем повёрнутый текст в точке pos (в полосе правого/левого поля).
                 dc.PushTransform(new RotateTransform(-90, pos.X, pos.Y));
-                dc.DrawText(ft, new Point(pos.X - ft.Width / 2, pos.Y));
+                dc.DrawText(ft, new Point(pos.X - ft.Width / 2, pos.Y - ft.Height / 2));
                 dc.Pop();
             }
             else
             {
                 double x = center ? pos.X - ft.Width / 2 : pos.X;
-                dc.DrawText(ft, new Point(x, pos.Y - ft.Height));
+                // pos.Y — нижняя граница зоны заголовка: рисуем текст над ней.
+                dc.DrawText(ft, new Point(x, Math.Max(2, pos.Y - ft.Height)));
             }
         }
 
@@ -737,19 +1021,51 @@ namespace OpenCS.Views.Helpers
             double s = horizontal ? ScreenToS(pos.X, true) : ScreenToS(pos.Y, false);
             double v = horizontal ? ScreenToV(pos.Y, true) : ScreenToV(pos.X, false);
 
-            if (mods.HasFlag(ModifierKeys.Control))
-                CutViewModel.ScaleV = Math.Clamp(CutViewModel.ScaleV * factor, 0.05, 50.0);
-            else if (mods.HasFlag(ModifierKeys.Shift))
-                CutViewModel.ScaleS = Math.Clamp(CutViewModel.ScaleS * factor, 0.1, 5.0);
+            bool zoomV;
+            bool zoomS;
+            // Ctrl → только σ/ε; Shift → только s; без модификаторов → оба.
+            if (mods.HasFlag(ModifierKeys.Control) && !mods.HasFlag(ModifierKeys.Shift))
+            {
+                zoomV = true;
+                zoomS = false;
+            }
+            else if (mods.HasFlag(ModifierKeys.Shift) && !mods.HasFlag(ModifierKeys.Control))
+            {
+                zoomV = false;
+                zoomS = true;
+            }
             else
             {
-                CutViewModel.ScaleS = Math.Clamp(CutViewModel.ScaleS * factor, 0.1, 5.0);
-                CutViewModel.ScaleV = Math.Clamp(CutViewModel.ScaleV * factor, 0.05, 50.0);
+                zoomV = true;
+                zoomS = true;
             }
 
+            if (zoomV)
+                CutViewModel.ScaleV = Math.Clamp(CutViewModel.ScaleV * factor, 0.05, 50.0);
+            if (zoomS)
+                CutViewModel.ScaleS = Math.Clamp(CutViewModel.ScaleS * factor, 0.1, 5.0);
+
+            // Удерживаем точку (s,v) под курсором — только по осям, которые реально зумились.
             var pt = ToScreen(s, v);
-            _panX += pos.X - pt.X;
-            _panY += pos.Y - pt.Y;
+            if (zoomV && zoomS)
+            {
+                _panX += pos.X - pt.X;
+                _panY += pos.Y - pt.Y;
+            }
+            else if (zoomV)
+            {
+                if (horizontal)
+                    _panY += pos.Y - pt.Y;
+                else
+                    _panX += pos.X - pt.X;
+            }
+            else if (zoomS)
+            {
+                if (horizontal)
+                    _panX += pos.X - pt.X;
+                else
+                    _panY += pos.Y - pt.Y;
+            }
 
             InvalidateVisual();
             e.Handled = true;
@@ -793,7 +1109,7 @@ namespace OpenCS.Views.Helpers
                 {
                     if (SectionCutVM.RebarKey(r) != dragKey) continue;
                     var basePt = ToScreen(r.S * 1000.0, 0);
-                    double computedV = PlotMode == SectionPlotMode.Stress ? r.Sig : r.Eps;
+                    double computedV = RebarDisplayValue(r, vm);
                     double px = RebarLengthPxFromScreen(basePt, screenPos, vm.IsHorizontal);
                     vm.SetRebarLengthPxOverride(dragKey, px);
                     break;

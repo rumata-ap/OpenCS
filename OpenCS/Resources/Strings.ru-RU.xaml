@@ -1370,6 +1370,7 @@
    <system:String x:Key="SectionCutOrientVertical">Вертикально</system:String>
    <system:String x:Key="SectionCutFillToggle">Заливка</system:String>
    <system:String x:Key="SectionCutHatchToggle">Штриховка</system:String>
+   <system:String x:Key="SectionCutRebarForceToggle">Усилие в арматуре</system:String>
    <system:String x:Key="SectionCutClear">Очистить</system:String>
    <system:String x:Key="SectionCutExport">Экспорт</system:String>
    <system:String x:Key="SectionCutExportTitle">Экспорт эпюры разреза</system:String>
@@ -1381,7 +1382,8 @@
    <system:String x:Key="SectionCutExportFormatSvg">SVG (вектор)</system:String>
    <system:String x:Key="SectionCutExportFormatDxf">DXF (CAD)</system:String>
    <system:String x:Key="SectionCutExportAsOnScreen">Как на экране</system:String>
-   <system:String x:Key="SectionCutExportAsOnScreenHint">Оси, сетка, заливка, подписи и арматура — как в окне эпюры. Если выключено — только база, кривая и подписи концов.</system:String>
+   <system:String x:Key="SectionCutExportAsOnScreenHint">Оси, сетка, заливка/штриховка (в DXF заливка не пишется), маркеры A/B, подписи, линии арматуры — как на экране. Если выключено — база, кривая, торцы и подписи концов.</system:String>
+   <system:String x:Key="SectionCutCopyFailed">Не удалось скопировать эпюру в буфер обмена.</system:String>
    <system:String x:Key="SectionCutScaleS">Масштаб s</system:String>
    <system:String x:Key="SectionCutScaleV">Масштаб σ/ε</system:String>
    <system:String x:Key="SectionCutWindowTitleStress">Эпюра σ</system:String>

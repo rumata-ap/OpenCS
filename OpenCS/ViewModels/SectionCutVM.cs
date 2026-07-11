@@ -46,7 +46,7 @@ public sealed class SectionCutVM : ViewModelBase
         }
     }
 
-    bool _isHorizontal = true;
+    bool _isHorizontal = false;
     public bool IsHorizontal
     {
         get => _isHorizontal;
@@ -71,6 +71,14 @@ public sealed class SectionCutVM : ViewModelBase
     {
         get => _hatchMode;
         set { if (_hatchMode == value) return; _hatchMode = value; OnPropertyChanged(); Changed?.Invoke(); }
+    }
+
+    bool _showRebarForce;
+    /// <summary>Показывать усилие N в арматуре вместо σ/ε.</summary>
+    public bool ShowRebarForce
+    {
+        get => _showRebarForce;
+        set { if (_showRebarForce == value) return; _showRebarForce = value; OnPropertyChanged(); Changed?.Invoke(); }
     }
 
     double _scaleS = 1.0;

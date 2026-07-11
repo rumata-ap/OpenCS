@@ -209,6 +209,7 @@ namespace OpenCS.ViewModels
             {
                Fibers = meshFibers,
                ShowCentroids = (_fiberDisplayMode == FiberDisplayMode.Centroids),
+               Fill = null,
                CentroidFill = centroidBrush,
                MarkerSize = ps.CentroidSize
             });

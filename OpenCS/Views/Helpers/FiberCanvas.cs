@@ -188,15 +188,19 @@ namespace OpenCS.Views.Helpers
             _ty = pad + (sh - mh * _scale) / 2 + yMax * _scale;
 
             InvalidateVisual();
+            ViewTransformChanged?.Invoke();
         }
 
-        // ── Model ↔ Screen ────────────────────────────────────────────
+        // ── Model ↔ Screen (internal — используется SectionCutOverlay) ──
         // Y инвертируется: модельная ось Y вверх, экранная — вниз
-        Point ToScreen(Point model) =>
+        internal Point ToScreen(Point model) =>
             new(model.X * _scale + _tx, -model.Y * _scale + _ty);
 
-        Point ToModel(Point screen) =>
+        internal Point ToModel(Point screen) =>
             new((screen.X - _tx) / _scale, -(screen.Y - _ty) / _scale);
+
+        /// <summary>Срабатывает после любого изменения масштаба/смещения (зум, панорамирование, FitToView) — SectionCutOverlay использует его, чтобы оставаться синхронным с картинкой сечения.</summary>
+        internal event Action? ViewTransformChanged;
 
         // ── OnRender ──────────────────────────────────────────────────
         protected override void OnRender(DrawingContext dc)
@@ -580,6 +584,7 @@ namespace OpenCS.Views.Helpers
             _tx = pos.X + (_tx - pos.X) * factor;
             _ty = pos.Y + (_ty - pos.Y) * factor;
             InvalidateVisual();
+            ViewTransformChanged?.Invoke();
             e.Handled = true;
         }
 
@@ -629,6 +634,7 @@ namespace OpenCS.Views.Helpers
                         _dragStart = pos;
                         _selPopup.IsOpen = false;
                         InvalidateVisual();
+                        ViewTransformChanged?.Invoke();
                     }
                 }
                 return;

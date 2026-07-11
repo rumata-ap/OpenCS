@@ -110,7 +110,8 @@ namespace OpenCS.Views
    {
       public Fiber[] Fibers          { get; init; } = [];
       public bool ShowCentroids      { get; init; } = false;
-      public Brush Fill              { get; init; } = Brushes.LightSteelBlue;
+      /// <summary>Заливка ячеек сетки. null — только рёбра (Stroke), без заливки.</summary>
+      public Brush? Fill             { get; init; } = Brushes.LightSteelBlue;
       public Brush CentroidFill      { get; init; } = Brushes.RoyalBlue;
       public Brush Stroke            { get; init; } = Brushes.SteelBlue;
       public double StrokeThickness  { get; init; } = 0.5;

@@ -1,13 +1,17 @@
 using CScore;
+using OpenCS.Services;
 using OpenCS.ViewModels;
 using System.Linq;
 using System.Text.Json;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
     public partial class CalcResultView : UserControl
     {
+        SectionCutWindowService? _cutWindow;
+
     public CalcResultView(CalcResult result, AppViewModel app)
     {
         var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
@@ -92,7 +96,7 @@ namespace OpenCS.Views
                 tss.Stage1.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
                     pool: app.Diagrams,
                     rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
-                Content = new TwoStageCalcResultView(result, tss, task.CalcType, app.CalcSettings);
+                Content = new TwoStageCalcResultView(result, tss, task.CalcType, app.CalcSettings, app.FileDialogService);
                 return;
             }
             // tss == null: проваливаемся в стандартный путь (покажет FallbackSummaryVM)
@@ -123,8 +127,29 @@ namespace OpenCS.Views
 
             SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, app.CalcSettings);
             var settings = app.CalcSettings;
-            StressView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings);
-            StrainView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings);
+            var stressVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings);
+            var strainVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings);
+
+            var cutVm = new SectionCutVM(section, k, task.CalcType, app.FileDialogService)
+            {
+                WindowTitleSuffix = $"{task.Tag} — {section.Tag}"
+            };
+            stressVm.CutVM = cutVm;
+            strainVm.CutVM = cutVm;
+
+            StressView.DataContext = stressVm;
+            StrainView.DataContext = strainVm;
+
+            _cutWindow = new SectionCutWindowService(settings);
+            _cutWindow.Bind(cutVm, SectionPlotMode.Stress);
+            Tabs.SelectionChanged += OnTabSelectionChanged;
+            Unloaded += (_, _) => _cutWindow?.Dispose();
+        }
+
+        void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (Tabs.SelectedIndex == 1) _cutWindow?.UpdatePlotMode(SectionPlotMode.Stress);
+            else if (Tabs.SelectedIndex == 2) _cutWindow?.UpdatePlotMode(SectionPlotMode.Strain);
         }
 
         static Kurvature ParseKurvature(string dataJson)

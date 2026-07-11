@@ -136,6 +136,14 @@ namespace OpenCS.ViewModels
         /// <summary>Центр тяжести по НДС (секущий модуль) в мм; null если не вычислен.</summary>
         public Point? NdsCentroid { get; }
 
+        SectionCutVM? _cutVM;
+        /// <summary>Общий инструмент разреза — один экземпляр на результат, назначается и вкладке «Напряжения», и вкладке «Деформации» (см. CalcResultView/LimitForceResultView).</summary>
+        public SectionCutVM? CutVM
+        {
+            get => _cutVM;
+            set { _cutVM = value; OnPropertyChanged(); }
+        }
+
         public SectionPlotVM(CrossSection section, Kurvature k, CalcType calcType, SectionPlotMode mode, CalcSettings? settings = null)
         {
             Mode = mode;

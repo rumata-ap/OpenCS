@@ -2,8 +2,10 @@ using CScore;
 using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
+using OpenCS.Views.Helpers;
 using System;
 using System.Windows;
+using System.Windows.Input;
 
 namespace OpenCS.Views;
 
@@ -16,6 +18,7 @@ public partial class SectionCutDiagramWindow : Window
     public SectionCutDiagramWindow(CalcSettings settings)
     {
         InitializeComponent();
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy, OnCopyExecuted, OnCopyCanExecute));
     }
 
     public void Attach(SectionCutVM vm, SectionPlotMode plotMode)
@@ -28,6 +31,22 @@ public partial class SectionCutDiagramWindow : Window
     }
 
     public void SetPlotMode(SectionPlotMode plotMode) => DiagramCanvas.PlotMode = plotMode;
+
+    void OnCopyCanExecute(object sender, CanExecuteRoutedEventArgs e)
+    {
+        e.CanExecute = _vm?.Result != null
+            && DiagramCanvas.ActualWidth > 1
+            && DiagramCanvas.ActualHeight > 1;
+        e.Handled = true;
+    }
+
+    void OnCopyExecuted(object sender, ExecutedRoutedEventArgs e)
+    {
+        if (!DiagramCanvas.CopyEmfToClipboard())
+            MessageBox.Show(Loc.S("SectionCutCopyFailed"), Loc.S("Error"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        e.Handled = true;
+    }
 
     public void PerformExport(string path, SectionCutExportOptions options)
     {
@@ -48,15 +67,32 @@ public partial class SectionCutDiagramWindow : Window
                     SectionCutExporter.ExportPng(DiagramCanvas, path);
                     break;
                 case SectionCutExportFormat.Svg:
-                    if (_vm.Result != null)
-                        SectionCutSvgExporter.Save(path, _vm.Result, DiagramCanvas.PlotMode,
-                            _vm.IsHorizontal, options.AsOnScreen && _vm.FillMode, _vm.EpsCu,
-                            asOnScreen: options.AsOnScreen);
-                    break;
                 case SectionCutExportFormat.Dxf:
-                    if (_vm.Result != null)
-                        SectionCutDxfExporter.Save(path, _vm.Result, DiagramCanvas.PlotMode,
-                            _vm.IsHorizontal, _vm.EpsCu, asOnScreen: options.AsOnScreen);
+                    if (_vm.Result == null) break;
+                    var exportArgs = new SectionCutExportArgs
+                    {
+                        Result = _vm.Result,
+                        Mode = DiagramCanvas.PlotMode,
+                        Horizontal = _vm.IsHorizontal,
+                        AsOnScreen = options.AsOnScreen,
+                        FillMode = _vm.FillMode,
+                        HatchMode = _vm.HatchMode,
+                        ShowRebarForce = _vm.ShowRebarForce,
+                        EpsCu = _vm.EpsCu,
+                        GetAreaMatType = _vm.GetAreaMatType,
+                        ResolveRebarLengthPx = r =>
+                        {
+                            var key = SectionCutVM.RebarKey(r);
+                            return _vm.TryGetRebarLengthPxOverride(key, out double px)
+                                ? px
+                                : SectionCutExportArgs.DefaultRebarLinePx;
+                        },
+                        View = DiagramCanvas.CaptureViewTransform()
+                    };
+                    if (options.Format == SectionCutExportFormat.Svg)
+                        SectionCutSvgExporter.Save(path, exportArgs);
+                    else
+                        SectionCutDxfExporter.Save(path, exportArgs);
                     break;
             }
         }
