@@ -49,6 +49,9 @@ namespace OpenCS.Views.Helpers
             set => SetValue(ShowChromeProperty, value);
         }
 
+        /// <summary>Упрощённый режим экспорта: без заливки/штриховки/арматуры (подписи кривой остаются).</summary>
+        public bool ExportPlainMode { get; set; }
+
         const double MarginLeft = 54;
         const double MarginRight = 16;
         const double MarginTop = 16;
@@ -340,13 +343,16 @@ namespace OpenCS.Views.Helpers
             if (PlotMode == SectionPlotMode.Strain && vm.EpsCu is { } epsCu)
                 dc.DrawLine(_epsCuPen, ToScreen(0, epsCu), ToScreen(_lengthMm, epsCu));
 
-            foreach (var r in result.Rebars)
-                DrawRebarOnCurve(dc, r, vm, onCurve: true);
+            if (!ExportPlainMode)
+            {
+                foreach (var r in result.Rebars)
+                    DrawRebarOnCurve(dc, r, vm, onCurve: true);
 
-            foreach (var r in result.NearbyRebars)
-                DrawRebarOnCurve(dc, r, vm, onCurve: false);
+                foreach (var r in result.NearbyRebars)
+                    DrawRebarOnCurve(dc, r, vm, onCurve: false);
+            }
 
-            if (_hoverVisible)
+            if (_hoverVisible && !ExportPlainMode)
                 DrawHover(dc, vm);
         }
 
@@ -504,7 +510,7 @@ namespace OpenCS.Views.Helpers
 
             var vals = pts.Select(x => x.v!.Value).ToList();
 
-            if (vm.FillMode || vm.HatchMode)
+            if ((vm.FillMode || vm.HatchMode) && !ExportPlainMode)
             {
                 var fillGeom = new StreamGeometry();
                 using (var ctx = fillGeom.Open())

@@ -1376,6 +1376,12 @@
    <system:String x:Key="SectionCutExportModePrompt">Что включить в файл?</system:String>
    <system:String x:Key="SectionCutExportDiagramOnly">Только эпюра</system:String>
    <system:String x:Key="SectionCutExportWithChrome">С оформлением (оси, сетка, легенда)</system:String>
+   <system:String x:Key="SectionCutExportFormatLabel">Формат файла</system:String>
+   <system:String x:Key="SectionCutExportFormatPng">PNG (растр)</system:String>
+   <system:String x:Key="SectionCutExportFormatSvg">SVG (вектор)</system:String>
+   <system:String x:Key="SectionCutExportFormatDxf">DXF (CAD)</system:String>
+   <system:String x:Key="SectionCutExportAsOnScreen">Как на экране</system:String>
+   <system:String x:Key="SectionCutExportAsOnScreenHint">Оси, сетка, заливка, подписи и арматура — как в окне эпюры. Если выключено — только база, кривая и подписи концов.</system:String>
    <system:String x:Key="SectionCutScaleS">Масштаб s</system:String>
    <system:String x:Key="SectionCutScaleV">Масштаб σ/ε</system:String>
    <system:String x:Key="SectionCutWindowTitleStress">Эпюра σ</system:String>

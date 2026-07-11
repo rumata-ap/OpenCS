@@ -107,7 +107,7 @@ public sealed class SectionCutVM : ViewModelBase
 
     public event Action? Changed;
     public event Action? FitRequested;
-    public event Action<string, bool>? ExportRequested;
+    public event Action<SectionCutExportOptions, string>? ExportRequested;
 
     /// <summary>Ключ линии усилия арматуры на эпюре (номер + позиция s, мм).</summary>
     public readonly record struct RebarLineKey(int Num, int SMm);
@@ -226,14 +226,26 @@ public sealed class SectionCutVM : ViewModelBase
 
     void Export()
     {
-        bool? withChrome = SectionCutExportDialog.Show();
-        if (withChrome == null) return;
+        var options = SectionCutExportDialog.Show();
+        if (options == null) return;
 
+        string filter = options.Format switch
+        {
+            SectionCutExportFormat.Svg => "SVG (*.svg)|*.svg",
+            SectionCutExportFormat.Dxf => "DXF (*.dxf)|*.dxf",
+            _ => "PNG (*.png)|*.png"
+        };
+        string ext = options.Format switch
+        {
+            SectionCutExportFormat.Svg => "svg",
+            SectionCutExportFormat.Dxf => "dxf",
+            _ => "png"
+        };
         string? path = _fileDialogService.SaveFile(
-            filter: "PNG (*.png)|*.png|SVG (*.svg)|*.svg|DXF (*.dxf)|*.dxf",
-            defaultExt: "png",
+            filter: filter,
+            defaultExt: ext,
             title: Loc.S("SectionCutExportTitle"));
         if (string.IsNullOrEmpty(path)) return;
-        ExportRequested?.Invoke(path, withChrome.Value);
+        ExportRequested?.Invoke(options, path);
     }
 }

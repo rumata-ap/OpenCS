@@ -1373,6 +1373,12 @@
    <system:String x:Key="SectionCutExportModePrompt">What to include in the file?</system:String>
    <system:String x:Key="SectionCutExportDiagramOnly">Diagram only</system:String>
    <system:String x:Key="SectionCutExportWithChrome">With layout (axes, grid, legend)</system:String>
+   <system:String x:Key="SectionCutExportFormatLabel">File format</system:String>
+   <system:String x:Key="SectionCutExportFormatPng">PNG (raster)</system:String>
+   <system:String x:Key="SectionCutExportFormatSvg">SVG (vector)</system:String>
+   <system:String x:Key="SectionCutExportFormatDxf">DXF (CAD)</system:String>
+   <system:String x:Key="SectionCutExportAsOnScreen">As on screen</system:String>
+   <system:String x:Key="SectionCutExportAsOnScreenHint">Axes, grid, fill, labels and rebar as in the diagram window. If off — baseline, curve and end labels only.</system:String>
    <system:String x:Key="SectionCutScaleS">Scale s</system:String>
    <system:String x:Key="SectionCutScaleV">Scale σ/ε</system:String>
    <system:String x:Key="SectionCutWindowTitleStress">σ diagram</system:String>
