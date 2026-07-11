@@ -73,7 +73,6 @@ namespace OpenCS.Views.Helpers
 
         static readonly Pen _basePen = MakePen(Brushes.Black, 1.5);
         static readonly Pen _holeBasePen = MakeDashedPen(Color.FromRgb(0xB0, 0xB0, 0xB0), 1.2);
-        static readonly Pen _curvePen = MakePen(Brushes.DarkRed, 1.5);
         static readonly Pen _boundaryPen = MakePen(Brushes.Black, 1.0);
         static readonly Pen _epsCuPen = MakeDashedPen(Colors.Purple, 1.2);
         static readonly Pen _nearbyPen = MakeDashedPen(Color.FromRgb(0x88, 0x88, 0x88), 1.0);
@@ -81,6 +80,10 @@ namespace OpenCS.Views.Helpers
         static readonly Pen _axisPen = MakePen(Brushes.Black, 1.0);
         static readonly Pen _zeroPen = MakePen(new SolidColorBrush(Color.FromRgb(0xA0, 0xA0, 0xA0)), 1.0);
         static readonly Pen _endTickPen = MakePen(Brushes.Black, 1.0);
+        static readonly Pen _hoverPen = MakeDashedPen(Color.FromRgb(0x66, 0x66, 0x66), 0.8);
+
+        bool _hoverVisible;
+        double _hoverSmm, _hoverV;
 
         public CutCanvas()
         {
@@ -315,10 +318,7 @@ namespace OpenCS.Views.Helpers
             UpdateRebarValueRange(result);
 
             if (ShowChrome)
-            {
                 DrawGridAndAxes(dc);
-                DrawLegend(dc);
-            }
 
             foreach (var seg in result.Segments)
             {
@@ -345,6 +345,9 @@ namespace OpenCS.Views.Helpers
 
             foreach (var r in result.NearbyRebars)
                 DrawRebarOnCurve(dc, r, vm, onCurve: false);
+
+            if (_hoverVisible)
+                DrawHover(dc, vm);
         }
 
         const double TargetGridSpacingPx = 50.0;
@@ -499,23 +502,7 @@ namespace OpenCS.Views.Helpers
                 .ToList();
             if (pts.Count < 2) return;
 
-            var geom = new StreamGeometry();
-            using (var ctx = geom.Open())
-            {
-                bool first = true;
-                foreach (var x in pts)
-                {
-                    var sc = ToScreen(x.p.S * 1000.0, x.v!.Value);
-                    if (first) { ctx.BeginFigure(sc, false, false); first = false; }
-                    else ctx.LineTo(sc, true, false);
-                }
-            }
-            geom.Freeze();
-            dc.DrawGeometry(null, _curvePen, geom);
-
-            // Замыкающие отрезки на концах сегмента — перпендикулярно базе (закрытый контур эпюры)
-            DrawSegmentEndCap(dc, pts[0].p.S * 1000.0, pts[0].v!.Value);
-            DrawSegmentEndCap(dc, pts[^1].p.S * 1000.0, pts[^1].v!.Value);
+            var vals = pts.Select(x => x.v!.Value).ToList();
 
             if (vm.FillMode || vm.HatchMode)
             {
@@ -549,7 +536,6 @@ namespace OpenCS.Views.Helpers
                     pen.Freeze();
                     var bounds = fillGeom.Bounds;
                     bool horizontal = CutViewModel?.IsHorizontal ?? true;
-                    // Штриховка всегда перпендикулярна базе (учебниковый вид)
                     if (horizontal)
                     {
                         for (double x = bounds.Left + 3; x < bounds.Right; x += 5)
@@ -563,14 +549,54 @@ namespace OpenCS.Views.Helpers
                     dc.Pop();
                 }
             }
+
+            foreach (var part in SectionCutDiagramStyle.SplitBySign(vals))
+            {
+                var pen = MakeSignPen(vals[part.Start]);
+                var geom = new StreamGeometry();
+                using (var ctx = geom.Open())
+                {
+                    bool first = true;
+                    for (int i = part.Start; i < part.EndExclusive; i++)
+                    {
+                        var sc = ToScreen(pts[i].p.S * 1000.0, vals[i]);
+                        if (first) { ctx.BeginFigure(sc, false, false); first = false; }
+                        else ctx.LineTo(sc, true, false);
+                    }
+                }
+                geom.Freeze();
+                dc.DrawGeometry(null, pen, geom);
+            }
+
+            DrawSegmentEndCap(dc, pts[0].p.S * 1000.0, vals[0], MakeSignPen(vals[0]));
+            DrawSegmentEndCap(dc, pts[^1].p.S * 1000.0, vals[^1], MakeSignPen(vals[^1]));
+            DrawSegmentValueLabels(dc, pts[0].p.S * 1000.0, vals[0], pts[^1].p.S * 1000.0, vals[^1]);
+        }
+
+        static Pen MakeSignPen(double value)
+        {
+            var (r, g, b) = SectionCutDiagramStyle.CurveStrokeRgb(value);
+            var brush = new SolidColorBrush(Color.FromRgb(r, g, b));
+            brush.Freeze();
+            var pen = new Pen(brush, 1.5);
+            pen.Freeze();
+            return pen;
+        }
+
+        void DrawSegmentValueLabels(DrawingContext dc, double s0Mm, double v0, double s1Mm, double v1)
+        {
+            var p0 = ToScreen(s0Mm, v0);
+            var p1 = ToScreen(s1Mm, v1);
+            DrawTickLabel(dc, FormatValue(v0), new Point(p0.X + 4, p0.Y - 12), horizontal: true);
+            DrawTickLabel(dc, FormatValue(v1), new Point(p1.X + 4, p1.Y - 12), horizontal: true);
         }
 
         /// <summary>Отрезок от базы до кривой на границе сегмента (начало / конец / разрыв).</summary>
-        void DrawSegmentEndCap(DrawingContext dc, double sMm, double value)
+        void DrawSegmentEndCap(DrawingContext dc, double sMm, double value, Pen pen)
         {
             var basePt = ToScreen(sMm, 0);
             var curvePt = ToScreen(sMm, value);
-            dc.DrawLine(_curvePen, basePt, curvePt);
+            dc.DrawLine(pen, basePt, curvePt);
         }
 
         void DrawRebarOnCurve(DrawingContext dc, CutRebarMarker r, SectionCutVM vm, bool onCurve)
@@ -639,47 +665,21 @@ namespace OpenCS.Views.Helpers
             return true;
         }
 
-        void DrawLegend(DrawingContext dc)
+        void DrawHover(DrawingContext dc, SectionCutVM vm)
         {
-            var lines = new List<string>
-            {
-                Loc.S("SectionCutLegendBase"),
-                PlotMode == SectionPlotMode.Stress
-                    ? Loc.S("SectionCutLegendCurveSigma")
-                    : Loc.S("SectionCutLegendCurveEps"),
-                Loc.S("SectionCutLegendRebarOn"),
-                Loc.S("SectionCutLegendRebarNear"),
-                Loc.S("SectionCutLegendConcreteComp"),
-                Loc.S("SectionCutLegendConcreteTen"),
-                Loc.S("SectionCutLegendRebarComp"),
-                Loc.S("SectionCutLegendRebarTen"),
-            };
-            if (PlotMode == SectionPlotMode.Strain && CutViewModel?.EpsCu != null)
-                lines.Insert(2, Loc.S("SectionCutLegendEpsCu"));
+            bool horizontal = vm.IsHorizontal;
+            var pt = ToScreen(_hoverSmm, _hoverV);
+            if (horizontal)
+                dc.DrawLine(_hoverPen, new Point(pt.X, _plotOy), new Point(pt.X, _plotOy + _plotH));
+            else
+                dc.DrawLine(_hoverPen, new Point(_plotOx, pt.Y), new Point(_plotOx + _plotW, pt.Y));
 
-            double x = _plotOx + _plotW - 8;
-            double y = _plotOy + 8;
-            double maxW = 0, lineH = 14;
-            var tf = new Typeface("Segoe UI");
-            var texts = lines.Select(l =>
-            {
-                var ft = new FormattedText(l, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-                    tf, 10, Brushes.Black, 1.0);
-                if (ft.Width > maxW) maxW = ft.Width;
-                return ft;
-            }).ToList();
-
-            double boxW = maxW + 16, boxH = texts.Count * lineH + 10;
-            x -= boxW;
-            dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(230, 255, 255, 255)),
-                new Pen(Brushes.Gray, 0.5), new Rect(x, y, boxW, boxH));
-
-            double cy = y + 6;
-            foreach (var ft in texts)
-            {
-                dc.DrawText(ft, new Point(x + 8, cy));
-                cy += lineH;
-            }
+            string sLabel = string.Format(CultureInfo.CurrentCulture, Loc.S("SectionCutHoverS"), _hoverSmm);
+            string vLabel = PlotMode == SectionPlotMode.Stress
+                ? string.Format(CultureInfo.CurrentCulture, Loc.S("SectionCutHoverSigma"), _hoverV)
+                : string.Format(CultureInfo.CurrentCulture, Loc.S("SectionCutHoverEps"), _hoverV);
+            DrawTickLabel(dc, sLabel, new Point(pt.X + 8, _plotOy + 4), horizontal: true);
+            DrawTickLabel(dc, vLabel, new Point(pt.X + 8, pt.Y - 14), horizontal: true);
         }
 
         void DrawTickLabel(DrawingContext dc, string text, Point pos, bool horizontal)
@@ -809,7 +809,15 @@ namespace OpenCS.Views.Helpers
             }
 
             var result = CutViewModel?.Result;
-            if (result == null) return;
+            if (result == null)
+            {
+                if (_hoverVisible)
+                {
+                    _hoverVisible = false;
+                    InvalidateVisual();
+                }
+                return;
+            }
 
             if (TryHitRebarHandle(screenPos, out _))
                 Cursor = Cursors.SizeAll;
@@ -828,22 +836,34 @@ namespace OpenCS.Views.Helpers
                     if (d < best) { best = d; nearest = new CutSampleHit(p.S * 1000.0, v.Value); }
                 }
 
-            ToolTip? tip = ToolTipService.GetToolTip(this) as ToolTip;
+            bool wasHover = _hoverVisible;
+            double prevS = _hoverSmm, prevV = _hoverV;
             if (nearest != null)
             {
-                string label = PlotMode == SectionPlotMode.Stress
-                    ? string.Format(CultureInfo.CurrentCulture, Loc.S("SectionCutTooltipStress"),
-                        nearest.Value.S, nearest.Value.Value)
-                    : string.Format(CultureInfo.CurrentCulture, Loc.S("SectionCutTooltipStrain"),
-                        nearest.Value.S, nearest.Value.Value);
-                if (tip == null) { tip = new ToolTip(); ToolTipService.SetToolTip(this, tip); }
-                tip.Content = label;
-                ToolTipService.SetIsEnabled(this, true);
+                _hoverVisible = true;
+                _hoverSmm = nearest.Value.S;
+                _hoverV = nearest.Value.Value;
             }
             else
             {
-                ToolTipService.SetIsEnabled(this, false);
+                _hoverVisible = false;
             }
+            ToolTipService.SetIsEnabled(this, false);
+
+            if (wasHover != _hoverVisible ||
+                Math.Abs(prevS - _hoverSmm) > 1e-9 ||
+                Math.Abs(prevV - _hoverV) > 1e-12)
+                InvalidateVisual();
+        }
+
+        protected override void OnMouseLeave(MouseEventArgs e)
+        {
+            if (_hoverVisible)
+            {
+                _hoverVisible = false;
+                InvalidateVisual();
+            }
+            base.OnMouseLeave(e);
         }
 
         protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)

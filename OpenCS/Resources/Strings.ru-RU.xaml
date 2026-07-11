@@ -1363,4 +1363,43 @@
     <system:String x:Key="TorsionExtrapolated">экстраполировано</system:String>
     <system:String x:Key="TorsionExtrapolationUnreliable">экстраполяция ненадёжна — взято значение с самой мелкой сетки</system:String>
 
+   <system:String x:Key="SectionCutButton">Разрез</system:String>
+   <system:String x:Key="SectionCutModeGradient">По градиенту</system:String>
+   <system:String x:Key="SectionCutModeFree">Свободный</system:String>
+   <system:String x:Key="SectionCutOrientHorizontal">Горизонтально</system:String>
+   <system:String x:Key="SectionCutOrientVertical">Вертикально</system:String>
+   <system:String x:Key="SectionCutFillToggle">Заливка</system:String>
+   <system:String x:Key="SectionCutHatchToggle">Штриховка</system:String>
+   <system:String x:Key="SectionCutClear">Очистить</system:String>
+   <system:String x:Key="SectionCutExport">Экспорт</system:String>
+   <system:String x:Key="SectionCutExportTitle">Экспорт эпюры разреза</system:String>
+   <system:String x:Key="SectionCutExportModePrompt">Что включить в файл?</system:String>
+   <system:String x:Key="SectionCutExportDiagramOnly">Только эпюра</system:String>
+   <system:String x:Key="SectionCutExportWithChrome">С оформлением (оси, сетка, легенда)</system:String>
+   <system:String x:Key="SectionCutScaleS">Масштаб s</system:String>
+   <system:String x:Key="SectionCutScaleV">Масштаб σ/ε</system:String>
+   <system:String x:Key="SectionCutWindowTitleStress">Эпюра σ</system:String>
+   <system:String x:Key="SectionCutWindowTitleStrain">Эпюра ε</system:String>
+   <system:String x:Key="SectionCutAxisS">s, мм</system:String>
+   <system:String x:Key="SectionCutAxisSigma">σ, МПа</system:String>
+   <system:String x:Key="SectionCutAxisEps">ε</system:String>
+   <system:String x:Key="SectionCutLegendBase">— база разреза</system:String>
+   <system:String x:Key="SectionCutLegendCurveSigma">— кривая σ</system:String>
+   <system:String x:Key="SectionCutLegendCurveEps">— кривая ε</system:String>
+   <system:String x:Key="SectionCutLegendEpsCu">- - εcu</system:String>
+   <system:String x:Key="SectionCutLegendRebarOn">● арматура в разрезе</system:String>
+   <system:String x:Key="SectionCutLegendRebarNear">○ арматура рядом</system:String>
+   <system:String x:Key="SectionCutLegendConcreteComp">бетон: сжатие — красный</system:String>
+   <system:String x:Key="SectionCutLegendConcreteTen">бетон: растяжение — синий</system:String>
+   <system:String x:Key="SectionCutLegendRebarComp">арматура: сжатие — синий</system:String>
+   <system:String x:Key="SectionCutLegendRebarTen">арматура: растяжение — красный</system:String>
+   <system:String x:Key="SectionCutTooltipStress">s = {0:F0} мм&#10;σ = {1:+0.00;-0.00} МПа</system:String>
+   <system:String x:Key="SectionCutTooltipStrain">s = {0:F0} мм&#10;ε = {1:+0.00000;-0.00000}</system:String>
+   <system:String x:Key="SectionCutHoverS">s={0:F0}</system:String>
+   <system:String x:Key="SectionCutHoverSigma">σ={0:+0.00;-0.00}</system:String>
+   <system:String x:Key="SectionCutHoverEps">ε={0:+0.00000;-0.00000}</system:String>
+   <system:String x:Key="SectionCutHintNoTool">Нажмите «Разрез», чтобы указать линию на сечении</system:String>
+   <system:String x:Key="SectionCutHintClickOnePoint">Укажите точку на сечении</system:String>
+   <system:String x:Key="SectionCutHintClickTwoPoints">Укажите две точки на сечении</system:String>
+
   </ResourceDictionary>

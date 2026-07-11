@@ -1360,4 +1360,43 @@
     <system:String x:Key="TorsionExtrapolated">extrapolated</system:String>
     <system:String x:Key="TorsionExtrapolationUnreliable">extrapolation unreliable — using finest-mesh value</system:String>
 
+   <system:String x:Key="SectionCutButton">Cut</system:String>
+   <system:String x:Key="SectionCutModeGradient">By gradient</system:String>
+   <system:String x:Key="SectionCutModeFree">Free</system:String>
+   <system:String x:Key="SectionCutOrientHorizontal">Horizontal</system:String>
+   <system:String x:Key="SectionCutOrientVertical">Vertical</system:String>
+   <system:String x:Key="SectionCutFillToggle">Fill</system:String>
+   <system:String x:Key="SectionCutHatchToggle">Hatching</system:String>
+   <system:String x:Key="SectionCutClear">Clear</system:String>
+   <system:String x:Key="SectionCutExport">Export</system:String>
+   <system:String x:Key="SectionCutExportTitle">Export cut diagram</system:String>
+   <system:String x:Key="SectionCutExportModePrompt">What to include in the file?</system:String>
+   <system:String x:Key="SectionCutExportDiagramOnly">Diagram only</system:String>
+   <system:String x:Key="SectionCutExportWithChrome">With layout (axes, grid, legend)</system:String>
+   <system:String x:Key="SectionCutScaleS">Scale s</system:String>
+   <system:String x:Key="SectionCutScaleV">Scale σ/ε</system:String>
+   <system:String x:Key="SectionCutWindowTitleStress">σ diagram</system:String>
+   <system:String x:Key="SectionCutWindowTitleStrain">ε diagram</system:String>
+   <system:String x:Key="SectionCutAxisS">s, mm</system:String>
+   <system:String x:Key="SectionCutAxisSigma">σ, MPa</system:String>
+   <system:String x:Key="SectionCutAxisEps">ε</system:String>
+   <system:String x:Key="SectionCutLegendBase">— cut baseline</system:String>
+   <system:String x:Key="SectionCutLegendCurveSigma">— σ curve</system:String>
+   <system:String x:Key="SectionCutLegendCurveEps">— ε curve</system:String>
+   <system:String x:Key="SectionCutLegendEpsCu">- - εcu</system:String>
+   <system:String x:Key="SectionCutLegendRebarOn">● rebar on cut</system:String>
+   <system:String x:Key="SectionCutLegendRebarNear">○ rebar nearby</system:String>
+   <system:String x:Key="SectionCutLegendConcreteComp">concrete: compression — red</system:String>
+   <system:String x:Key="SectionCutLegendConcreteTen">concrete: tension — blue</system:String>
+   <system:String x:Key="SectionCutLegendRebarComp">rebar: compression — blue</system:String>
+   <system:String x:Key="SectionCutLegendRebarTen">rebar: tension — red</system:String>
+   <system:String x:Key="SectionCutTooltipStress">s = {0:F0} mm&#10;σ = {1:+0.00;-0.00} MPa</system:String>
+   <system:String x:Key="SectionCutTooltipStrain">s = {0:F0} mm&#10;ε = {1:+0.00000;-0.00000}</system:String>
+   <system:String x:Key="SectionCutHoverS">s={0:F0}</system:String>
+   <system:String x:Key="SectionCutHoverSigma">σ={0:+0.00;-0.00}</system:String>
+   <system:String x:Key="SectionCutHoverEps">ε={0:+0.00000;-0.00000}</system:String>
+   <system:String x:Key="SectionCutHintNoTool">Click "Cut" to draw a line on the section</system:String>
+   <system:String x:Key="SectionCutHintClickOnePoint">Click a point on the section</system:String>
+   <system:String x:Key="SectionCutHintClickTwoPoints">Click two points on the section</system:String>
+
   </ResourceDictionary>
