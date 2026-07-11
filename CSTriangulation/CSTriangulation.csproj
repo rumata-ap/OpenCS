@@ -6,4 +6,14 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Временно (см. docs/superpowers/specs/2026-07-11-ruppert-trianglenet-design.md):
+         Ruppert-триангуляция переведена на Triangle.NET, т.к. собственный
+         CDT+Refine не реагирует на параметры area/angle. -->
+    <Reference Include="Triangle">
+      <HintPath>libs\Triangle\Triangle.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+
 </Project>
