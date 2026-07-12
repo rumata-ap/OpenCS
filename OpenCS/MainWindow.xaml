@@ -167,6 +167,9 @@
              </MenuItem>
              <MenuItem Header="{DynamicResource ImportSubMenuScad}">
                 <MenuItem Header="{DynamicResource ImportScadTopologyFromTxt}" Command="{Binding ImportScadTopologyFromTxtCommand}"/>
+                <MenuItem Header="{DynamicResource ImportScadForcesLoadCases}" Command="{Binding ImportScadForcesLoadCasesCommand}"/>
+                <MenuItem Header="{DynamicResource ImportScadForcesRsu}" Command="{Binding ImportScadForcesRsuCommand}"/>
+                <MenuItem Header="{DynamicResource ImportScadForcesCombinations}" Command="{Binding ImportScadForcesCombinationsCommand}"/>
              </MenuItem>
              <MenuItem Header="{DynamicResource ImportSubMenuRobot}" IsEnabled="False"/>
              <MenuItem Header="{DynamicResource ImportSubMenuRfem5}" IsEnabled="False"/>
@@ -1303,7 +1306,10 @@
 
          <!-- Прогрессбар — виден только во время выполнения -->
          <StatusBarItem Grid.Column="1">
-            <ProgressBar Width="190" Height="14" IsIndeterminate="True">
+            <ProgressBar Width="190" Height="14"
+                         Minimum="0" Maximum="1"
+                         Value="{Binding BusyProgress}"
+                         IsIndeterminate="{Binding IsBusyProgressIndeterminate}">
                <ProgressBar.Visibility>
                   <Binding Path="IsBusy">
                      <Binding.Converter>

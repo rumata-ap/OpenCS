@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace CScore.Fem;
 
-/// <summary>Конечный элемент сетки.</summary>
+    /// <summary>Конечный элемент сетки.</summary>
 public class FemElement
 {
     public int     Id          { get; set; }
@@ -14,6 +14,8 @@ public class FemElement
     public string  NodeIdsJson { get; set; } = "[]";
     public string? SectionTag  { get; set; }
     public string? MaterialTag { get; set; }
+    /// <summary>Толщина оболочки, м (из SCAD GE/GEI). Null для стержней / если неизвестна.</summary>
+    public double? ThicknessM  { get; set; }
 
     int[]? _nodeIds;
     int[] NodeIds => _nodeIds ??= JsonSerializer.Deserialize<int[]>(NodeIdsJson) ?? [];

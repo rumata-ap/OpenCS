@@ -235,10 +235,26 @@ public static class ScadTextParser
             };
             var nameMatch = NameRegex.Match(rec);
             string? name = nameMatch.Success ? nameMatch.Groups[1].Value.Trim() : null;
+            double? thickness = kind == ScadStiffnessKind.Shell ? TryParseShellThickness(rec) : null;
 
-            result.Add(new ScadStiffnessRecord(id, name, kind));
+            result.Add(new ScadStiffnessRecord(id, name, kind, thickness));
         }
         return result;
+    }
+
+    /// <summary>
+    /// GE/GEI: после ключевого слова идут E, ν, h (м), затем RO/TMP/...
+    /// Пример: "2 GE 1.8e+06 0.2 0.22 RO 2.5".
+    /// </summary>
+    static double? TryParseShellThickness(string record)
+    {
+        var m = Regex.Match(record, @"\b(?:GEI|GE)\s+([^\s/]+)\s+([^\s/]+)\s+([^\s/]+)",
+            RegexOptions.IgnoreCase);
+        if (!m.Success) return null;
+        if (!double.TryParse(m.Groups[3].Value.Replace(',', '.'),
+                NumberStyles.Float, CultureInfo.InvariantCulture, out double h))
+            return null;
+        return h > 0 ? h : null;
     }
 
     static List<ScadGroupRecord> ParseGroups(string blockContent)
