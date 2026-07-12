@@ -14,8 +14,16 @@ namespace CScore.Sp63
     public static class RodEtaWiring
     {
         /// <summary>Диагностика η для одной оси изгиба.</summary>
+        /// <param name="Eta">Коэффициент η.</param>
+        /// <param name="Ncr">Условная критическая сила, кН.</param>
+        /// <param name="D">Использованная жёсткость (по формуле — режим A, из решателя — режим B), кН·м².</param>
+        /// <param name="L0">Расчётная длина, м (как задана пользователем).</param>
+        /// <param name="H">Высота сечения в этой плоскости изгиба, м (авто — ограничивающий прямоугольник).</param>
+        /// <param name="Slender">Гибкость l0/h &gt; 14 (п. 8.1.2).</param>
+        /// <param name="Stable">false — потеря устойчивости.</param>
         public readonly record struct AxisDiagnostics(
-            double Eta, double Ncr, bool Slender, bool Stable,
+            double Eta, double Ncr, double D, double L0, double H,
+            bool Slender, bool Stable,
             int Iterations, bool ExtrapolationFailed);
 
         /// <summary>Результат усиления моментов по обеим осям.</summary>
@@ -66,9 +74,9 @@ namespace CScore.Sp63
             }
 
             return new Result(mxEff, myEff,
-                new AxisDiagnostics(exResult.Eta, exResult.Ncr, exResult.Slender, exResult.Stable,
+                new AxisDiagnostics(exResult.Eta, exResult.Ncr, exResult.D, l0x, hx, exResult.Slender, exResult.Stable,
                     exResult.Iterations, exResult.ExtrapolationFailed),
-                new AxisDiagnostics(eyResult.Eta, eyResult.Ncr, eyResult.Slender, eyResult.Stable,
+                new AxisDiagnostics(eyResult.Eta, eyResult.Ncr, eyResult.D, l0y, hy, eyResult.Slender, eyResult.Stable,
                     eyResult.Iterations, eyResult.ExtrapolationFailed));
         }
     }

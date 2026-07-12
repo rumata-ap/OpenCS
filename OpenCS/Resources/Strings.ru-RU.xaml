@@ -912,7 +912,7 @@
    <system:String x:Key="ResultEtaMyOriginal">My исходный</system:String>
    <system:String x:Key="ResultEtaX">ηx</system:String>
    <system:String x:Key="ResultEtaY">ηy</system:String>
-   <system:String x:Key="ResultEtaNotRequired">гибкость l0/h ≤ 14 — поправка не требуется</system:String>
+   <system:String x:Key="ResultEtaNotRequired">поправка не требуется</system:String>
    <system:String x:Key="ResultEtaInstable">ПОТЕРЯ УСТОЙЧИВОСТИ (|N| ≥ Ncr)</system:String>
    <system:String x:Key="ResultEtaInstabilityWarning">Внимание: по одной из осей продольная сила превышает условную критическую силу Ncr — устойчивость элемента не обеспечена.</system:String>
    <system:String x:Key="ResultEtaExtrapolationNote">Экстраполяция Эйткена не сошлась (расходящаяся/осциллирующая последовательность) — использовано последнее приближение η без ускорения.</system:String>

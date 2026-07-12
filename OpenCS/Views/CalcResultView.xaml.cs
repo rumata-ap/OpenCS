@@ -188,7 +188,11 @@ namespace OpenCS.Views
         public string EtaModeText     => "—";
         public string MxOriginalText  => "—";
         public string MyOriginalText  => "—";
+        public string L0xText => "—"; public string HxText => "—";
+        public string SlendernessXText => "—"; public string DxText => "—"; public string NcrXText => "—";
         public string EtaXText  => "—";
+        public string L0yText => "—"; public string HyText => "—";
+        public string SlendernessYText => "—"; public string DyText => "—"; public string NcrYText => "—";
         public string EtaYText  => "—";
         public bool   EtaUnstable => false;
         public bool   EtaExtrapolationFailed => false;

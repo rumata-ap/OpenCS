@@ -30,6 +30,14 @@ public class RodEtaWiringTests
         Assert.True(result.Y.Eta > 1.0, $"ηy={result.Y.Eta}");
         Assert.Equal(80 * result.X.Eta, result.MxEff, precision: 6);
         Assert.Equal(40 * result.Y.Eta, result.MyEff, precision: 6);
+
+        // Диагностика геометрии/жёсткости, доступная теперь наружу
+        Assert.Equal(10, result.X.L0);
+        Assert.Equal(6,  result.Y.L0);
+        Assert.Equal(0.6, result.X.H, precision: 6); // высота в плоскости Mx — размер по Y
+        Assert.Equal(0.3, result.Y.H, precision: 6); // высота в плоскости My — размер по X
+        Assert.True(result.X.D > 0, $"Dx={result.X.D}");
+        Assert.True(result.Y.D > 0, $"Dy={result.Y.D}");
     }
 
     [Fact]
@@ -55,6 +63,10 @@ public class RodEtaWiringTests
         Assert.True(result.X.Eta > 1.0);
         Assert.True(result.Y.Eta > 1.0);
         Assert.True(result.X.Iterations > 0);
+
+        // D в режиме B берётся из фактической (здесь — постоянной) жёсткости решателя
+        Assert.Equal(dxConst, result.X.D, precision: 3);
+        Assert.Equal(dyConst, result.Y.D, precision: 3);
     }
 
     [Fact]
@@ -71,5 +83,8 @@ public class RodEtaWiringTests
         Assert.Equal(20, result.MyEff);
         Assert.False(result.X.Slender);
         Assert.False(result.Y.Slender);
+        // L0/H остаются доступными даже когда поправка не применяется
+        Assert.Equal(3, result.X.L0);
+        Assert.Equal(0.6, result.X.H, precision: 6);
     }
 }

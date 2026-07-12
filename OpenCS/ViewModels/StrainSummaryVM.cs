@@ -33,7 +33,17 @@ namespace OpenCS.ViewModels
         public string EtaModeText { get; }
         public string MxOriginalText { get; }
         public string MyOriginalText { get; }
+        public string L0xText { get; }
+        public string HxText  { get; }
+        public string SlendernessXText { get; }
+        public string DxText  { get; }
+        public string NcrXText { get; }
         public string EtaXText { get; }
+        public string L0yText { get; }
+        public string HyText  { get; }
+        public string SlendernessYText { get; }
+        public string DyText  { get; }
+        public string NcrYText { get; }
         public string EtaYText { get; }
         public bool   EtaUnstable { get; }
         public bool   EtaExtrapolationFailed { get; }
@@ -135,14 +145,38 @@ namespace OpenCS.ViewModels
                 bool extrapFailedX = etaEl.TryGetProperty("extrapolationFailedX", out var efxEl) && efxEl.GetBoolean();
                 bool extrapFailedY = etaEl.TryGetProperty("extrapolationFailedY", out var efyEl) && efyEl.GetBoolean();
 
-                EtaXText = FormatEtaAxis(etaXv, slenderX, stableX, ncrX);
-                EtaYText = FormatEtaAxis(etaYv, slenderY, stableY, ncrY);
+                double l0x = etaEl.TryGetProperty("l0x", out var l0xEl) ? l0xEl.GetDouble() : 0;
+                double hx  = etaEl.TryGetProperty("hx",  out var hxEl)  ? hxEl.GetDouble()  : 0;
+                double? slendernessX = etaEl.TryGetProperty("slendernessX", out var slxEl) && slxEl.ValueKind != JsonValueKind.Null ? slxEl.GetDouble() : null;
+                double? dX = etaEl.TryGetProperty("dX", out var dxEl) && dxEl.ValueKind != JsonValueKind.Null ? dxEl.GetDouble() : null;
+
+                double l0y = etaEl.TryGetProperty("l0y", out var l0yEl) ? l0yEl.GetDouble() : 0;
+                double hy  = etaEl.TryGetProperty("hy",  out var hyEl)  ? hyEl.GetDouble()  : 0;
+                double? slendernessY = etaEl.TryGetProperty("slendernessY", out var slyEl) && slyEl.ValueKind != JsonValueKind.Null ? slyEl.GetDouble() : null;
+                double? dY = etaEl.TryGetProperty("dY", out var dyEl) && dyEl.ValueKind != JsonValueKind.Null ? dyEl.GetDouble() : null;
+
+                L0xText = $"{l0x:0.00}  м";
+                HxText  = $"{hx:0.00}  м";
+                SlendernessXText = FormatSlenderness(slendernessX, slenderX);
+                DxText  = dX.HasValue ? $"{dX.Value:F1}  кН·м²" : "—";
+                NcrXText = ncrX.HasValue ? $"{ncrX.Value:F0}  кН" : "—";
+                EtaXText = FormatEta(etaXv, slenderX, stableX);
+
+                L0yText = $"{l0y:0.00}  м";
+                HyText  = $"{hy:0.00}  м";
+                SlendernessYText = FormatSlenderness(slendernessY, slenderY);
+                DyText  = dY.HasValue ? $"{dY.Value:F1}  кН·м²" : "—";
+                NcrYText = ncrY.HasValue ? $"{ncrY.Value:F0}  кН" : "—";
+                EtaYText = FormatEta(etaYv, slenderY, stableY);
+
                 EtaUnstable = (slenderX && !stableX) || (slenderY && !stableY);
                 EtaExtrapolationFailed = mode == "iterative" && ((slenderX && extrapFailedX) || (slenderY && extrapFailedY));
             }
             else
             {
-                EtaModeText = MxOriginalText = MyOriginalText = EtaXText = EtaYText = "—";
+                EtaModeText = MxOriginalText = MyOriginalText = "—";
+                L0xText = HxText = SlendernessXText = DxText = NcrXText = EtaXText = "—";
+                L0yText = HyText = SlendernessYText = DyText = NcrYText = EtaYText = "—";
                 EtaUnstable = EtaExtrapolationFailed = false;
             }
 
@@ -212,13 +246,20 @@ namespace OpenCS.ViewModels
         static string FmtRatio(double v)
             => double.IsNaN(v) || double.IsInfinity(v) ? "—" : $"{v:0.000}";
 
-        /// <summary>Форматирует диагностику η для одной оси (п. 8.1.15 СП63.13330).</summary>
-        static string FormatEtaAxis(double eta, bool slender, bool stable, double? ncr)
+        /// <summary>Значение η для одной оси (п. 8.1.15 СП63.13330).</summary>
+        static string FormatEta(double eta, bool slender, bool stable)
         {
-            if (!slender) return Loc.S("ResultEtaNotRequired");
+            if (!slender) return "1.000";
             if (!stable)  return Loc.S("ResultEtaInstable");
-            string ncrPart = ncr.HasValue ? $", Ncr = {ncr.Value:F0} кН" : "";
-            return $"η = {eta:0.000}{ncrPart}";
+            return $"{eta:0.000}";
+        }
+
+        /// <summary>Гибкость l0/h с пометкой, применяется ли поправка (порог 14, п. 8.1.2).</summary>
+        static string FormatSlenderness(double? ratio, bool slender)
+        {
+            if (!ratio.HasValue) return "—";
+            string suffix = slender ? " > 14" : $" ≤ 14 ({Loc.S("ResultEtaNotRequired")})";
+            return $"{ratio.Value:0.0}{suffix}";
         }
 
         static (double? min, double? max) ComputeExtremeStrains(CrossSection section, Kurvature k)

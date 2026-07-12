@@ -909,7 +909,7 @@
    <system:String x:Key="ResultEtaMyOriginal">My original</system:String>
    <system:String x:Key="ResultEtaX">ηx</system:String>
    <system:String x:Key="ResultEtaY">ηy</system:String>
-   <system:String x:Key="ResultEtaNotRequired">slenderness l0/h ≤ 14 — no amplification required</system:String>
+   <system:String x:Key="ResultEtaNotRequired">no amplification required</system:String>
    <system:String x:Key="ResultEtaInstable">INSTABILITY (|N| ≥ Ncr)</system:String>
    <system:String x:Key="ResultEtaInstabilityWarning">Warning: on one axis the axial force exceeds the conditional critical force Ncr — stability is not ensured.</system:String>
    <system:String x:Key="ResultEtaExtrapolationNote">Aitken extrapolation did not converge (diverging/oscillating sequence) — the last η approximation was used without acceleration.</system:String>
