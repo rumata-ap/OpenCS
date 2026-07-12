@@ -913,6 +913,9 @@
    <system:String x:Key="ResultEtaInstable">INSTABILITY (|N| ≥ Ncr)</system:String>
    <system:String x:Key="ResultEtaInstabilityWarning">Warning: on one axis the axial force exceeds the conditional critical force Ncr — stability is not ensured.</system:String>
    <system:String x:Key="ResultEtaExtrapolationNote">Aitken extrapolation did not converge (diverging/oscillating sequence) — the last η approximation was used without acceleration.</system:String>
+   <system:String x:Key="ResultEtaExtrapolationShort">extrapolation did not converge, last pass used</system:String>
+   <system:String x:Key="ResultEtaTrajectoryX">ηx trajectory</system:String>
+   <system:String x:Key="ResultEtaTrajectoryY">ηy trajectory</system:String>
    <system:String x:Key="ResultExtremeStrains">Extreme strains</system:String>
    <system:String x:Key="ResultStiffness">Stiffness (secant modulus)</system:String>
    <system:String x:Key="ResultElasticStiffness">Elastic stiffness</system:String>

@@ -53,17 +53,17 @@
          <StackPanel>
             <Grid Margin="0,0,0,4">
                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="100"/>
+                  <ColumnDefinition Width="90"/>
                   <ColumnDefinition Width="*"/>
                </Grid.ColumnDefinitions>
                <TextBlock Grid.Column="0" Text="{DynamicResource ResultEtaMode}" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Column="1" Text="{Binding EtaModeText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Column="1" Text="{Binding EtaModeText}" FontFamily="Consolas" Margin="16,1,0,1"/>
             </Grid>
             <Grid>
                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="70"/>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="70"/>
+                  <ColumnDefinition Width="90"/>
+                  <ColumnDefinition Width="110"/>
+                  <ColumnDefinition Width="90"/>
                   <ColumnDefinition Width="*"/>
                </Grid.ColumnDefinitions>
                <Grid.RowDefinitions>
@@ -77,40 +77,62 @@
                </Grid.RowDefinitions>
 
                <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource ResultEtaMxOriginal}" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MxOriginalText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MxOriginalText}" FontFamily="Consolas" Margin="16,1,0,1"/>
                <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource ResultEtaMyOriginal}" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding MyOriginalText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding MyOriginalText}" FontFamily="Consolas" Margin="16,1,0,1"/>
 
                <TextBlock Grid.Row="1" Grid.Column="0" Text="l0x" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding L0xText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding L0xText}" FontFamily="Consolas" Margin="16,1,0,1"/>
                <TextBlock Grid.Row="1" Grid.Column="2" Text="l0y" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding L0yText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding L0yText}" FontFamily="Consolas" Margin="16,1,0,1"/>
 
                <TextBlock Grid.Row="2" Grid.Column="0" Text="hx" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding HxText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding HxText}" FontFamily="Consolas" Margin="16,1,0,1"/>
                <TextBlock Grid.Row="2" Grid.Column="2" Text="hy" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding HyText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding HyText}" FontFamily="Consolas" Margin="16,1,0,1"/>
 
                <TextBlock Grid.Row="3" Grid.Column="0" Text="l0x/hx" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SlendernessXText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SlendernessXText}" FontFamily="Consolas" Margin="16,1,0,1"/>
                <TextBlock Grid.Row="3" Grid.Column="2" Text="l0y/hy" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding SlendernessYText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding SlendernessYText}" FontFamily="Consolas" Margin="16,1,0,1"/>
 
                <TextBlock Grid.Row="4" Grid.Column="0" Text="Dx" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding DxText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding DxText}" FontFamily="Consolas" Margin="16,1,0,1"/>
                <TextBlock Grid.Row="4" Grid.Column="2" Text="Dy" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding DyText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding DyText}" FontFamily="Consolas" Margin="16,1,0,1"/>
 
                <TextBlock Grid.Row="5" Grid.Column="0" Text="Ncr,x" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding NcrXText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding NcrXText}" FontFamily="Consolas" Margin="16,1,0,1"/>
                <TextBlock Grid.Row="5" Grid.Column="2" Text="Ncr,y" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding NcrYText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding NcrYText}" FontFamily="Consolas" Margin="16,1,0,1"/>
 
                <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource ResultEtaX}" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding EtaXText}" FontFamily="Consolas" FontWeight="Bold" Margin="0,1"/>
+               <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding EtaXText}" FontFamily="Consolas" FontWeight="Bold" Margin="16,1,0,1"/>
                <TextBlock Grid.Row="6" Grid.Column="2" Text="{DynamicResource ResultEtaY}" Foreground="Gray" Margin="0,1"/>
-               <TextBlock Grid.Row="6" Grid.Column="3" Text="{Binding EtaYText}" FontFamily="Consolas" FontWeight="Bold" Margin="0,1"/>
+               <TextBlock Grid.Row="6" Grid.Column="3" Text="{Binding EtaYText}" FontFamily="Consolas" FontWeight="Bold" Margin="16,1,0,1"/>
             </Grid>
+
+            <!-- Траектория итераций (только для уточнённого режима) -->
+            <StackPanel Margin="0,6,0,0"
+                        Visibility="{Binding ShowEtaTrajectory, Converter={StaticResource BoolToVisibility}}">
+               <Grid Margin="0,0,0,2">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="90"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="{DynamicResource ResultEtaTrajectoryX}" Foreground="Gray" Margin="0,1" VerticalAlignment="Top"/>
+                  <TextBlock Grid.Column="1" Text="{Binding EtaXTrajectoryText}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="16,1,0,1"/>
+               </Grid>
+               <Grid>
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="90"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="{DynamicResource ResultEtaTrajectoryY}" Foreground="Gray" Margin="0,1" VerticalAlignment="Top"/>
+                  <TextBlock Grid.Column="1" Text="{Binding EtaYTrajectoryText}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" Margin="16,1,0,1"/>
+               </Grid>
+            </StackPanel>
+
             <TextBlock Text="{DynamicResource ResultEtaInstabilityWarning}" TextWrapping="Wrap"
                        Foreground="Red" FontWeight="Bold" Margin="0,4,0,0"
                        Visibility="{Binding EtaUnstable, Converter={StaticResource BoolToVisibility}}"/>

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text.Json;
 using CScore;
 using OpenCS.Utilites;
@@ -67,6 +68,7 @@ namespace OpenCS.Tasks
                   slenderX         = wiring.X.Slender,
                   stableX          = wiring.X.Stable,
                   extrapolationFailedX = wiring.X.ExtrapolationFailed,
+                  etaHistoryX      = wiring.X.EtaHistory.Select(e => Math.Round(e, 6)).ToArray(),
                   l0y              = Math.Round(wiring.Y.L0, 4),
                   hy               = Math.Round(wiring.Y.H,  4),
                   slendernessY     = wiring.Y.H > 1e-9 ? Math.Round(wiring.Y.L0 / wiring.Y.H, 2) : (double?)null,
@@ -76,6 +78,7 @@ namespace OpenCS.Tasks
                   slenderY         = wiring.Y.Slender,
                   stableY          = wiring.Y.Stable,
                   extrapolationFailedY = wiring.Y.ExtrapolationFailed,
+                  etaHistoryY      = wiring.Y.EtaHistory.Select(e => Math.Round(e, 6)).ToArray(),
                };
             }
 

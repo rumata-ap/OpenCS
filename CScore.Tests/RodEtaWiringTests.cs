@@ -67,6 +67,10 @@ public class RodEtaWiringTests
         // D в режиме B берётся из фактической (здесь — постоянной) жёсткости решателя
         Assert.Equal(dxConst, result.X.D, precision: 3);
         Assert.Equal(dyConst, result.Y.D, precision: 3);
+
+        // История проходов η доступна для отображения в UI
+        Assert.Equal(3, result.X.EtaHistory.Length);
+        Assert.Equal(3, result.Y.EtaHistory.Length);
     }
 
     [Fact]

@@ -34,7 +34,15 @@ namespace CScore.Sp63
         public readonly record struct EtaResult(
             double Eta, double Ncr, double D,
             bool Slender, bool Stable, double MEff,
-            int Iterations, bool ExtrapolationFailed);
+            int Iterations, bool ExtrapolationFailed)
+        {
+            /// <summary>
+            /// Последовательность η по проходам режима B (η⁽⁰⁾,η⁽¹⁾,η⁽²⁾ — до
+            /// экстраполяции Эйткена). Пусто для режима A и когда поправка не
+            /// применялась.
+            /// </summary>
+            public double[] EtaHistory { get; init; } = Array.Empty<double>();
+        }
 
         /// <summary>Условная критическая сила: Ncr = π²·D/l0² (формула 8.1.15).</summary>
         public static double Ncr(double d, double l0) => Math.PI * Math.PI * d / (l0 * l0);
@@ -137,12 +145,14 @@ namespace CScore.Sp63
             {
                 double kappa = solveCurvature(mCurrent);
                 if (Math.Abs(kappa) < 1e-12)
-                    return new EtaResult(1.0, double.PositiveInfinity, double.NaN, slender, true, m0, i, false);
+                    return new EtaResult(1.0, double.PositiveInfinity, double.NaN, slender, true, m0, i, false)
+                        { EtaHistory = etas[..i] };
 
                 double d = mCurrent / kappa;
                 double ncr = Ncr(d, l0);
                 if (Math.Abs(n) >= ncr)
-                    return new EtaResult(double.PositiveInfinity, ncr, d, slender, false, m0, i + 1, false);
+                    return new EtaResult(double.PositiveInfinity, ncr, d, slender, false, m0, i + 1, false)
+                        { EtaHistory = etas[..i] };
 
                 etas[i] = 1.0 / (1.0 - Math.Abs(n) / ncr);
                 mCurrent = m0 * etas[i];
@@ -165,12 +175,14 @@ namespace CScore.Sp63
             double mFinal = m0 * etaFinal;
             double kappaFinal = solveCurvature(mFinal);
             if (Math.Abs(kappaFinal) < 1e-12)
-                return new EtaResult(etaFinal, double.PositiveInfinity, double.NaN, slender, true, mFinal, passes + 1, extrapolationFailed);
+                return new EtaResult(etaFinal, double.PositiveInfinity, double.NaN, slender, true, mFinal, passes + 1, extrapolationFailed)
+                    { EtaHistory = etas };
 
             double dFinal = mFinal / kappaFinal;
             double ncrFinal = Ncr(dFinal, l0);
             bool stable = Math.Abs(n) < ncrFinal;
-            return new EtaResult(etaFinal, ncrFinal, dFinal, slender, stable, mFinal, passes + 1, extrapolationFailed);
+            return new EtaResult(etaFinal, ncrFinal, dFinal, slender, stable, mFinal, passes + 1, extrapolationFailed)
+                { EtaHistory = etas };
         }
     }
 }

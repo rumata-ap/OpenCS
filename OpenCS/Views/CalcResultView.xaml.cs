@@ -196,6 +196,9 @@ namespace OpenCS.Views
         public string EtaYText  => "—";
         public bool   EtaUnstable => false;
         public bool   EtaExtrapolationFailed => false;
+        public bool   ShowEtaTrajectory => false;
+        public string EtaXTrajectoryText => "—";
+        public string EtaYTrajectoryText => "—";
         public bool   HasExtremes    => false;
         public string EpsMinText     => "—";
         public string EpsMaxText     => "—";

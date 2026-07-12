@@ -161,6 +161,8 @@ public class EccentricityAmplifierTests
         Assert.True(r.Stable);
         Assert.Equal(etaExpected, r.Eta, precision: 6);
         Assert.True(r.ExtrapolationFailed);
+        Assert.Equal(3, r.EtaHistory.Length);
+        Assert.All(r.EtaHistory, e => Assert.Equal(etaExpected, e, precision: 6));
     }
 
     [Fact]
@@ -196,5 +198,8 @@ public class EccentricityAmplifierTests
             n: -800, m0: 80, l0: 6, h: 0.3, Solve);
 
         Assert.True(r.ExtrapolationFailed);
+        Assert.Equal(3, r.EtaHistory.Length);
+        // η финальный (без экстраполяции) должен совпасть с последним проходом истории
+        Assert.Equal(r.EtaHistory[2], r.Eta, precision: 6);
     }
 }

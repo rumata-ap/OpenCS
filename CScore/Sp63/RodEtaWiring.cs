@@ -24,7 +24,11 @@ namespace CScore.Sp63
         public readonly record struct AxisDiagnostics(
             double Eta, double Ncr, double D, double L0, double H,
             bool Slender, bool Stable,
-            int Iterations, bool ExtrapolationFailed);
+            int Iterations, bool ExtrapolationFailed)
+        {
+            /// <summary>Последовательность η по проходам режима B (см. <see cref="EccentricityAmplifier.EtaResult.EtaHistory"/>).</summary>
+            public double[] EtaHistory { get; init; } = Array.Empty<double>();
+        }
 
         /// <summary>Результат усиления моментов по обеим осям.</summary>
         public readonly record struct Result(
@@ -75,9 +79,9 @@ namespace CScore.Sp63
 
             return new Result(mxEff, myEff,
                 new AxisDiagnostics(exResult.Eta, exResult.Ncr, exResult.D, l0x, hx, exResult.Slender, exResult.Stable,
-                    exResult.Iterations, exResult.ExtrapolationFailed),
+                    exResult.Iterations, exResult.ExtrapolationFailed) { EtaHistory = exResult.EtaHistory },
                 new AxisDiagnostics(eyResult.Eta, eyResult.Ncr, eyResult.D, l0y, hy, eyResult.Slender, eyResult.Stable,
-                    eyResult.Iterations, eyResult.ExtrapolationFailed));
+                    eyResult.Iterations, eyResult.ExtrapolationFailed) { EtaHistory = eyResult.EtaHistory });
         }
     }
 }

@@ -47,6 +47,9 @@ namespace OpenCS.ViewModels
         public string EtaYText { get; }
         public bool   EtaUnstable { get; }
         public bool   EtaExtrapolationFailed { get; }
+        public bool   ShowEtaTrajectory { get; }
+        public string EtaXTrajectoryText { get; }
+        public string EtaYTrajectoryText { get; }
 
         // ── Экстремальные деформации ───────────────────────────────────
         public string EpsMinText { get; }
@@ -171,13 +174,21 @@ namespace OpenCS.ViewModels
 
                 EtaUnstable = (slenderX && !stableX) || (slenderY && !stableY);
                 EtaExtrapolationFailed = mode == "iterative" && ((slenderX && extrapFailedX) || (slenderY && extrapFailedY));
+
+                // Траектория итераций (режим B) — история η по проходам + результат экстраполяции Эйткена
+                double[] historyX = ReadDoubleArray(etaEl, "etaHistoryX");
+                double[] historyY = ReadDoubleArray(etaEl, "etaHistoryY");
+                ShowEtaTrajectory = mode == "iterative" && (historyX.Length > 0 || historyY.Length > 0);
+                EtaXTrajectoryText = FormatTrajectory(historyX, etaXv, extrapFailedX);
+                EtaYTrajectoryText = FormatTrajectory(historyY, etaYv, extrapFailedY);
             }
             else
             {
                 EtaModeText = MxOriginalText = MyOriginalText = "—";
                 L0xText = HxText = SlendernessXText = DxText = NcrXText = EtaXText = "—";
                 L0yText = HyText = SlendernessYText = DyText = NcrYText = EtaYText = "—";
-                EtaUnstable = EtaExtrapolationFailed = false;
+                EtaUnstable = EtaExtrapolationFailed = ShowEtaTrajectory = false;
+                EtaXTrajectoryText = EtaYTrajectoryText = "—";
             }
 
             // Экстремальные деформации — по вершинам контуров Hull и стержням
@@ -260,6 +271,27 @@ namespace OpenCS.ViewModels
             if (!ratio.HasValue) return "—";
             string suffix = slender ? " > 14" : $" ≤ 14 ({Loc.S("ResultEtaNotRequired")})";
             return $"{ratio.Value:0.0}{suffix}";
+        }
+
+        static double[] ReadDoubleArray(JsonElement parent, string propertyName)
+        {
+            if (!parent.TryGetProperty(propertyName, out var arrEl) || arrEl.ValueKind != JsonValueKind.Array)
+                return [];
+            return [.. arrEl.EnumerateArray().Select(e => e.GetDouble())];
+        }
+
+        /// <summary>
+        /// Траектория проходов режима B: η по каждому проходу → результат
+        /// экстраполяции Эйткена (или пометка, что экстраполяция не сошлась).
+        /// </summary>
+        static string FormatTrajectory(double[] history, double finalEta, bool extrapolationFailed)
+        {
+            if (history.Length == 0) return "—";
+            string steps = string.Join(" → ", history.Select((e, i) => $"η({i})={e:0.000}"));
+            string tail = extrapolationFailed
+                ? Loc.S("ResultEtaExtrapolationShort")
+                : $"η* = {finalEta:0.000}";
+            return $"{steps} → {tail}";
         }
 
         static (double? min, double? max) ComputeExtremeStrains(CrossSection section, Kurvature k)
