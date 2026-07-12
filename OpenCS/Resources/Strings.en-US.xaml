@@ -96,6 +96,8 @@
    <system:String x:Key="CalcSettingsRcGroup">RC cross-section</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagram">Account for concrete area reduction replaced by rebar</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagramTip">When enabled, rebar in concrete accounts for concrete area displaced by the bar (differential diagram σ_st − σ_bc). When disabled, the pure steel diagram is used and the concrete mesh includes the bar footprint.</system:String>
+   <system:String x:Key="CalcSettingsConsiderConcreteTensionUls">Account for concrete tension in ULS (limit state 1) checks</system:String>
+   <system:String x:Key="CalcSettingsConsiderConcreteTensionUlsTip">Affects limit-force and strain-plane search for CalcType C/CL — for both bar and plate sections. Does not affect SLS (N/NL). For plates, overrides the section page's "Concrete tension" flag only in this mode.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Batch Tasks</system:String>
    <system:String x:Key="CalcSettingsSp20Group">SP20 combinations (default γf)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaG">G — permanent (unfav.)</system:String>
@@ -615,6 +617,7 @@
    <system:String x:Key="PlateThicknessMm">Thickness h, mm:</system:String>
    <system:String x:Key="PlateNLayers">Concrete layers:</system:String>
    <system:String x:Key="PlateTensionConcrete">Concrete tension</system:String>
+   <system:String x:Key="PlateTensionConcreteTip">At ULS (C/CL) this flag is ignored — the global calc setting "Account for concrete tension in ULS checks" applies instead. At SLS (N/NL) it works as set here.</system:String>
    <system:String x:Key="PlateSofteningModel">β-reduction model:</system:String>
    <system:String x:Key="PlateSofteningNone">None</system:String>
    <system:String x:Key="PlateSofteningVC">Vecchio–Collins</system:String>

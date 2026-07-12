@@ -97,6 +97,8 @@
    <system:String x:Key="CalcSettingsRcGroup">Ж/б сечение</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagram">Учёт уменьшения площади бетона, замещённой площадью арматуры</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagramTip">При включении для арматуры в бетоне учитывается уменьшение площади бетона, замещённой площадью стержня (разностная диаграмма σ_st − σ_bc). При выключении — чистая диаграмма стали, бетонная сетка включает площадь под арматурой.</system:String>
+   <system:String x:Key="CalcSettingsConsiderConcreteTensionUls">Учитывать работу бетона на растяжение при расчётах по 1-й ГПС</system:String>
+   <system:String x:Key="CalcSettingsConsiderConcreteTensionUlsTip">Влияет на поиск предельных усилий и плоскости деформаций при CalcType C/CL — для стержневых и пластинчатых сечений. На 2-ю ГПС (N/NL) не влияет. Для пластин перекрывает флаг «Учёт растяжения бетона» страницы сечения только в этом режиме.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Пакетные задачи</system:String>
    <system:String x:Key="CalcSettingsSp20Group">Сочетания СП20 (γf по умолчанию)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaG">G — постоянная (неблаг.)</system:String>
@@ -618,6 +620,7 @@
    <system:String x:Key="PlateThicknessMm">Толщина h, мм:</system:String>
    <system:String x:Key="PlateNLayers">Число слоёв бетона:</system:String>
    <system:String x:Key="PlateTensionConcrete">Учёт растяжения бетона</system:String>
+   <system:String x:Key="PlateTensionConcreteTip">При 1-й ГПС (C/CL) этот флаг игнорируется — действует глобальная настройка расчёта «Учитывать работу бетона на растяжение при расчётах по 1-й ГПС». При 2-й ГПС (N/NL) продолжает работать как задано здесь.</system:String>
    <system:String x:Key="PlateSofteningModel">Модель β-снижения:</system:String>
    <system:String x:Key="PlateSofteningNone">Нет</system:String>
    <system:String x:Key="PlateSofteningVC">Vecchio–Collins</system:String>
