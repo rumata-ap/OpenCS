@@ -28,6 +28,16 @@ namespace OpenCS.ViewModels
         public string MxText { get; }
         public string MyText { get; }
 
+        // ── Влияние прогиба (η, п. 8.1.15 СП63.13330) ──────────────────
+        public bool   EtaEnabled { get; }
+        public string EtaModeText { get; }
+        public string MxOriginalText { get; }
+        public string MyOriginalText { get; }
+        public string EtaXText { get; }
+        public string EtaYText { get; }
+        public bool   EtaUnstable { get; }
+        public bool   EtaExtrapolationFailed { get; }
+
         // ── Экстремальные деформации ───────────────────────────────────
         public string EpsMinText { get; }
         public string EpsMaxText { get; }
@@ -102,6 +112,40 @@ namespace OpenCS.ViewModels
             MxText = $"{mxt:+0.000;-0.000} → {mxr:+0.000;-0.000}  кН·м  ({Pct(mxt, mxr)})";
             MyText = $"{myt:+0.000;-0.000} → {myr:+0.000;-0.000}  кН·м  ({Pct(myt, myr)})";
 
+            // η (п. 8.1.15 СП63.13330) — присутствует, только если задача считала поправку
+            EtaEnabled = root.TryGetProperty("eta", out var etaEl) && etaEl.ValueKind != JsonValueKind.Null;
+            if (EtaEnabled)
+            {
+                string mode = etaEl.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "formula" : "formula";
+                EtaModeText = mode == "iterative" ? Loc.S("ResultEtaModeIterative") : Loc.S("ResultEtaModeFormula");
+
+                double mxOrig = etaEl.TryGetProperty("mxOriginal", out var mxoEl) ? mxoEl.GetDouble() : 0;
+                double myOrig = etaEl.TryGetProperty("myOriginal", out var myoEl) ? myoEl.GetDouble() : 0;
+                MxOriginalText = $"{mxOrig:+0.000;-0.000}  кН·м";
+                MyOriginalText = $"{myOrig:+0.000;-0.000}  кН·м";
+
+                bool slenderX = etaEl.TryGetProperty("slenderX", out var sxEl) && sxEl.GetBoolean();
+                bool slenderY = etaEl.TryGetProperty("slenderY", out var syEl) && syEl.GetBoolean();
+                bool stableX  = !etaEl.TryGetProperty("stableX", out var stxEl) || stxEl.GetBoolean();
+                bool stableY  = !etaEl.TryGetProperty("stableY", out var styEl) || styEl.GetBoolean();
+                double etaXv  = etaEl.TryGetProperty("etaX", out var exEl) ? exEl.GetDouble() : 1.0;
+                double etaYv  = etaEl.TryGetProperty("etaY", out var eyEl) ? eyEl.GetDouble() : 1.0;
+                double? ncrX  = etaEl.TryGetProperty("ncrX", out var nxEl) && nxEl.ValueKind != JsonValueKind.Null ? nxEl.GetDouble() : null;
+                double? ncrY  = etaEl.TryGetProperty("ncrY", out var nyEl) && nyEl.ValueKind != JsonValueKind.Null ? nyEl.GetDouble() : null;
+                bool extrapFailedX = etaEl.TryGetProperty("extrapolationFailedX", out var efxEl) && efxEl.GetBoolean();
+                bool extrapFailedY = etaEl.TryGetProperty("extrapolationFailedY", out var efyEl) && efyEl.GetBoolean();
+
+                EtaXText = FormatEtaAxis(etaXv, slenderX, stableX, ncrX);
+                EtaYText = FormatEtaAxis(etaYv, slenderY, stableY, ncrY);
+                EtaUnstable = (slenderX && !stableX) || (slenderY && !stableY);
+                EtaExtrapolationFailed = mode == "iterative" && ((slenderX && extrapFailedX) || (slenderY && extrapFailedY));
+            }
+            else
+            {
+                EtaModeText = MxOriginalText = MyOriginalText = EtaXText = EtaYText = "—";
+                EtaUnstable = EtaExtrapolationFailed = false;
+            }
+
             // Экстремальные деформации — по вершинам контуров Hull и стержням
             var (epsMin, epsMax) = ComputeExtremeStrains(section, k);
             HasExtremes = epsMin.HasValue;
@@ -167,6 +211,15 @@ namespace OpenCS.ViewModels
 
         static string FmtRatio(double v)
             => double.IsNaN(v) || double.IsInfinity(v) ? "—" : $"{v:0.000}";
+
+        /// <summary>Форматирует диагностику η для одной оси (п. 8.1.15 СП63.13330).</summary>
+        static string FormatEtaAxis(double eta, bool slender, bool stable, double? ncr)
+        {
+            if (!slender) return Loc.S("ResultEtaNotRequired");
+            if (!stable)  return Loc.S("ResultEtaInstable");
+            string ncrPart = ncr.HasValue ? $", Ncr = {ncr.Value:F0} кН" : "";
+            return $"η = {eta:0.000}{ncrPart}";
+        }
 
         static (double? min, double? max) ComputeExtremeStrains(CrossSection section, Kurvature k)
         {

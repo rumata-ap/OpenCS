@@ -46,6 +46,43 @@
          </Grid>
       </GroupBox>
 
+      <!-- Влияние прогиба (η, п. 8.1.15 СП63.13330) -->
+      <GroupBox Header="{DynamicResource ResultEtaHeader}"
+                Margin="0,0,0,6" Padding="8,4"
+                Visibility="{Binding EtaEnabled, Converter={StaticResource BoolToVisibility}}">
+         <StackPanel>
+            <Grid>
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="100"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+               </Grid.RowDefinitions>
+               <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource ResultEtaMode}" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding EtaModeText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource ResultEtaMxOriginal}" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MxOriginalText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource ResultEtaX}" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding EtaXText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource ResultEtaMyOriginal}" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding MyOriginalText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource ResultEtaY}" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding EtaYText}" FontFamily="Consolas" Margin="0,1"/>
+            </Grid>
+            <TextBlock Text="{DynamicResource ResultEtaInstabilityWarning}" TextWrapping="Wrap"
+                       Foreground="Red" FontWeight="Bold" Margin="0,4,0,0"
+                       Visibility="{Binding EtaUnstable, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Text="{DynamicResource ResultEtaExtrapolationNote}" TextWrapping="Wrap"
+                       Foreground="DarkOrange" FontStyle="Italic" Margin="0,4,0,0"
+                       Visibility="{Binding EtaExtrapolationFailed, Converter={StaticResource BoolToVisibility}}"/>
+         </StackPanel>
+      </GroupBox>
+
       <!-- Экстремальные деформации -->
       <GroupBox Header="{DynamicResource ResultExtremeStrains}"
                 Margin="0,0,0,6" Padding="8,4"

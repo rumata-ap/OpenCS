@@ -184,6 +184,14 @@ namespace OpenCS.Views
         public string NText     => "—";
         public string MxText    => "—";
         public string MyText    => "—";
+        public bool   EtaEnabled => false;
+        public string EtaModeText     => "—";
+        public string MxOriginalText  => "—";
+        public string MyOriginalText  => "—";
+        public string EtaXText  => "—";
+        public string EtaYText  => "—";
+        public bool   EtaUnstable => false;
+        public bool   EtaExtrapolationFailed => false;
         public bool   HasExtremes    => false;
         public string EpsMinText     => "—";
         public string EpsMaxText     => "—";
