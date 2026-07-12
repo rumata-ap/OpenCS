@@ -57,6 +57,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string manualN = "0";
     string manualMx = "0";
     string manualMy = "0";
+    // Eta (п. 8.1.15 СП63.13330)
+    bool etaEnabled, etaIterative;
+    string etaL0x = "6.0", etaL0y = "6.0", etaM1lx = "", etaM1ly = "";
     // Shell simpl
     PlateSection? selectedShellSimplSection;
     ForceSet? selectedShellForceSet;
@@ -88,6 +91,37 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ManualN  { get => manualN;  set { manualN  = value; OnPropertyChanged(); } }
    public string ManualMx { get => manualMx; set { manualMx = value; OnPropertyChanged(); } }
    public string ManualMy { get => manualMy; set { manualMy = value; OnPropertyChanged(); } }
+
+   public bool IsStrainState => Kind == "strain_state";
+
+   public bool EtaEnabled
+   {
+      get => etaEnabled;
+      set
+      {
+         etaEnabled = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowEtaFields));
+         OnPropertyChanged(nameof(ShowEtaFormulaFields));
+      }
+   }
+
+   public bool EtaIterative
+   {
+      get => etaIterative;
+      set { etaIterative = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowEtaFormulaFields)); }
+   }
+
+   public string EtaL0x  { get => etaL0x;  set { etaL0x  = value; OnPropertyChanged(); } }
+   public string EtaL0y  { get => etaL0y;  set { etaL0y  = value; OnPropertyChanged(); } }
+   public string EtaM1lx { get => etaM1lx; set { etaM1lx = value; OnPropertyChanged(); } }
+   public string EtaM1ly { get => etaM1ly; set { etaM1ly = value; OnPropertyChanged(); } }
+
+   /// <summary>Показывать блок η целиком — только для strain_state при включённой галке.</summary>
+   public bool ShowEtaFields => IsStrainState && EtaEnabled;
+
+   /// <summary>Поля M1l — только для буквального (формульного) режима.</summary>
+   public bool ShowEtaFormulaFields => ShowEtaFields && !EtaIterative;
 
    public bool IsLimitSingle  => IsLimitSingleKind(Kind);
    public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || IsSteelCheck;
@@ -138,6 +172,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(IsTorsion));
          OnPropertyChanged(nameof(IsTorsionFem));
          OnPropertyChanged(nameof(ShowManualForces));
+         OnPropertyChanged(nameof(IsStrainState));
+         OnPropertyChanged(nameof(ShowEtaFields));
+         OnPropertyChanged(nameof(ShowEtaFormulaFields));
          NotifyTorsionForceProps();
          RefreshTorsionMeshPreview();
          if (!FilteredCalcTypes.Contains(SelectedCalcType))
@@ -183,6 +220,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsTorsion));
             OnPropertyChanged(nameof(IsTorsionFem));
             OnPropertyChanged(nameof(ShowManualForces));
+            OnPropertyChanged(nameof(IsStrainState));
+            OnPropertyChanged(nameof(ShowEtaFields));
+            OnPropertyChanged(nameof(ShowEtaFormulaFields));
             NotifyTorsionForceProps();
             if (!FilteredCalcTypes.Contains(SelectedCalcType))
                 SelectedCalcType = FilteredCalcTypes[0];
@@ -670,6 +710,19 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          }
          else if (IsLimitKind)
             SolverId = LimitForceParams.Parse(existing.ParamsJson).Solver;
+
+          if (existing.Kind == "strain_state"
+              && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
+          {
+             var ep = LimitForceParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             EtaEnabled   = ep.EtaEnabled;
+             EtaIterative = ep.EtaIterative;
+             if (ep.EtaL0x.HasValue)  EtaL0x  = ep.EtaL0x.Value.ToString("G6", inv);
+             if (ep.EtaL0y.HasValue)  EtaL0y  = ep.EtaL0y.Value.ToString("G6", inv);
+             if (ep.EtaM1lx.HasValue) EtaM1lx = ep.EtaM1lx.Value.ToString("G6", inv);
+             if (ep.EtaM1ly.HasValue) EtaM1ly = ep.EtaM1ly.Value.ToString("G6", inv);
+          }
 
           if (existing.Kind is "two_stage_strain" or "two_stage_strain_batch")
           {
@@ -1224,6 +1277,19 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           return;
        }
 
+       if (IsStrainState && EtaEnabled)
+       {
+          var invEta = System.Globalization.CultureInfo.InvariantCulture;
+          bool validX = double.TryParse(EtaL0x, System.Globalization.NumberStyles.Float, invEta, out var l0xCheck) && l0xCheck > 0;
+          bool validY = double.TryParse(EtaL0y, System.Globalization.NumberStyles.Float, invEta, out var l0yCheck) && l0yCheck > 0;
+          if (!validX || !validY)
+          {
+             MessageBox.Show(Loc.S("EtaNeedL0"), Loc.S("Warning"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+             return;
+          }
+       }
+
        string paramsJson = "{}";
        if (IsFireKind && SelectedFireSection != null)
        {
@@ -1247,6 +1313,27 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                 Solver = SolverId,
                 N = n, Mx = mx, My = my
              }.ToJson();
+          }
+          else if (IsStrainState)
+          {
+             var lfp = new LimitForceParams { N = n, Mx = mx, My = my };
+             if (EtaEnabled)
+             {
+                double.TryParse(EtaL0x,  System.Globalization.NumberStyles.Float, inv, out var l0x);
+                double.TryParse(EtaL0y,  System.Globalization.NumberStyles.Float, inv, out var l0y);
+                lfp.EtaEnabled   = true;
+                lfp.EtaIterative = EtaIterative;
+                lfp.EtaL0x = l0x;
+                lfp.EtaL0y = l0y;
+                if (!EtaIterative)
+                {
+                   if (double.TryParse(EtaM1lx, System.Globalization.NumberStyles.Float, inv, out var m1lx))
+                      lfp.EtaM1lx = m1lx;
+                   if (double.TryParse(EtaM1ly, System.Globalization.NumberStyles.Float, inv, out var m1ly))
+                      lfp.EtaM1ly = m1ly;
+                }
+             }
+             paramsJson = lfp.ToJson();
           }
           else
              paramsJson = JsonSerializer.Serialize(new { N = n, Mx = mx, My = my });

@@ -1173,6 +1173,19 @@
     <system:String x:Key="SteelCheckBetaM">Coefficient βm</system:String>
     <system:String x:Key="SteelCheckGammaM">Coefficient γM</system:String>
     <system:String x:Key="SteelCheckDesignLengthBit">Link spacing l_bit, m</system:String>
+
+    <!-- Eta (buckling amplification) per SP63.13330 cl.8.1.15 -->
+    <system:String x:Key="EtaParamsHeader">Deflection influence (η, cl. 8.1.15 SP63.13330)</system:String>
+    <system:String x:Key="EtaEnabledLabel">Account for deflection influence (η)</system:String>
+    <system:String x:Key="EtaEnabledHint">Multiplies the moment by the η coefficient per cl. 8.1.15 SP63.13330 when l0/h &gt; 14 and the axial force is compressive.</system:String>
+    <system:String x:Key="EtaIterativeLabel">Refined (iterative) calculation</system:String>
+    <system:String x:Key="EtaIterativeHint">Stiffness D is taken from the actual strain-state solution (3 passes + Aitken extrapolation) instead of the code's simplified formula.</system:String>
+    <system:String x:Key="EtaL0xLabel">Effective length l₀x, m</system:String>
+    <system:String x:Key="EtaL0yLabel">Effective length l₀y, m</system:String>
+    <system:String x:Key="EtaM1lxLabel">Long-term moment M1l,x, kN·m</system:String>
+    <system:String x:Key="EtaM1lyLabel">Long-term moment M1l,y, kN·m</system:String>
+    <system:String x:Key="EtaNeedL0">To account for deflection influence (η), specify effective lengths l₀x and l₀y (&gt; 0).</system:String>
+
     <system:String x:Key="SteelCheckUtilizationLabel">Utilization ratio: </system:String>
     <system:String x:Key="SteelCheckStatusPassed">PASSED</system:String>
     <system:String x:Key="SteelCheckStatusFailed">FAILED</system:String>

@@ -1176,6 +1176,19 @@
     <system:String x:Key="SteelCheckBetaM">Коэффициент βm</system:String>
     <system:String x:Key="SteelCheckGammaM">Коэффициент γM</system:String>
     <system:String x:Key="SteelCheckDesignLengthBit">Расст. связи l_bit, м</system:String>
+
+    <!-- Eta (буклинг) per СП63.13330 п.8.1.15 -->
+    <system:String x:Key="EtaParamsHeader">Влияние прогиба (η, п. 8.1.15 СП63.13330)</system:String>
+    <system:String x:Key="EtaEnabledLabel">Учитывать влияние прогиба (η)</system:String>
+    <system:String x:Key="EtaEnabledHint">Домножает момент на коэффициент η по п. 8.1.15 СП63.13330 при гибкости l0/h &gt; 14 и сжимающей продольной силе.</system:String>
+    <system:String x:Key="EtaIterativeLabel">Уточнённый (итерационный) расчёт</system:String>
+    <system:String x:Key="EtaIterativeHint">Жёсткость D берётся из фактического решения НДС (3 прохода + экстраполяция Эйткена) вместо упрощённой формулы нормы.</system:String>
+    <system:String x:Key="EtaL0xLabel">Расчётная длина l₀x, м</system:String>
+    <system:String x:Key="EtaL0yLabel">Расчётная длина l₀y, м</system:String>
+    <system:String x:Key="EtaM1lxLabel">Момент от длит. нагрузки M1l,x, кН·м</system:String>
+    <system:String x:Key="EtaM1lyLabel">Момент от длит. нагрузки M1l,y, кН·м</system:String>
+    <system:String x:Key="EtaNeedL0">Для учёта влияния прогиба (η) укажите расчётные длины l₀x и l₀y (&gt; 0).</system:String>
+
     <system:String x:Key="SteelCheckUtilizationLabel">Коэффициент использования: </system:String>
     <system:String x:Key="SteelCheckStatusPassed">ПРОЙДЕНО</system:String>
     <system:String x:Key="SteelCheckStatusFailed">НЕ ПРОЙДЕНО</system:String>

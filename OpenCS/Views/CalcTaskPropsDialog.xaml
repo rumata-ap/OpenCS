@@ -406,6 +406,65 @@
       </StackPanel>
 
       <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsStrainState, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource EtaParamsHeader}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <CheckBox Content="{DynamicResource EtaEnabledLabel}"
+                         IsChecked="{Binding EtaEnabled}"
+                         ToolTip="{DynamicResource EtaEnabledHint}"
+                         Margin="0,0,0,4"/>
+
+               <StackPanel Visibility="{Binding ShowEtaFields, Converter={StaticResource BoolToVisibility}}">
+                  <CheckBox Content="{DynamicResource EtaIterativeLabel}"
+                            IsChecked="{Binding EtaIterative}"
+                            ToolTip="{DynamicResource EtaIterativeHint}"
+                            Margin="0,0,0,4"/>
+
+                  <Grid Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+
+                     <TextBlock Grid.Column="0" Text="{DynamicResource EtaL0xLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"/>
+                     <TextBox Grid.Column="1"
+                              Text="{Binding EtaL0x, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,8,4"/>
+                     <TextBlock Grid.Column="2" Text="{DynamicResource EtaL0yLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"/>
+                     <TextBox Grid.Column="3"
+                              Text="{Binding EtaL0y, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,0,4"/>
+                  </Grid>
+
+                  <Grid Visibility="{Binding ShowEtaFormulaFields, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+
+                     <TextBlock Grid.Column="0" Text="{DynamicResource EtaM1lxLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"/>
+                     <TextBox Grid.Column="1"
+                              Text="{Binding EtaM1lx, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,8,4"/>
+                     <TextBlock Grid.Column="2" Text="{DynamicResource EtaM1lyLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"/>
+                     <TextBox Grid.Column="3"
+                              Text="{Binding EtaM1ly, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,0,4"/>
+                  </Grid>
+               </StackPanel>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
+
+      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsTorsion, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource TorsionParamsHeader}" Margin="0,8,0,0">
             <Grid Margin="4">
