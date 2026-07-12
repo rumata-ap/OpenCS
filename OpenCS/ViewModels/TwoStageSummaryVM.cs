@@ -194,9 +194,9 @@ namespace OpenCS.ViewModels
             Stage2Strain  = new SectionPlotVM(clone, k2, calcType, SectionPlotMode.Strain, settings, ten);
 
             string titleSuffix = $"{result.TaskTag} — {tss.Tag}";
-            var cut1 = new SectionCutVM(stage1Section, k1, calcType, fileDialogService)
+            var cut1 = new SectionCutVM(stage1Section, k1, calcType, fileDialogService, ten)
                 { WindowTitleSuffix = $"{titleSuffix} ({Loc.S("TwoStageSummary_Stage1")})" };
-            var cut2 = new SectionCutVM(clone, k2, calcType, fileDialogService)
+            var cut2 = new SectionCutVM(clone, k2, calcType, fileDialogService, ten)
                 { WindowTitleSuffix = $"{titleSuffix} ({Loc.S("TwoStageSummary_Stage2")})" };
             Stage1CutVM = cut1;
             Stage2CutVM = cut2;

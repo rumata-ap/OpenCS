@@ -33,7 +33,7 @@ public partial class LimitForceResultView : UserControl
         var stressVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings, ten);
         var strainVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings, ten);
 
-        var cutVm = new SectionCutVM(section, k, task.CalcType, app.FileDialogService)
+        var cutVm = new SectionCutVM(section, k, task.CalcType, app.FileDialogService, ten)
         {
             EpsCu = summaryVm.EpsCu,
             WindowTitleSuffix = $"{task.Tag} — {section.Tag}"
