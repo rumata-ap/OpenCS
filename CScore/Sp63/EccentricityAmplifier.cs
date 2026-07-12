@@ -48,14 +48,12 @@ namespace CScore.Sp63
         public static double Ncr(double d, double l0) => Math.PI * Math.PI * d / (l0 * l0);
 
         /// <summary>
-        /// φl = 1 + M1l/M1, клэмп [1; 2] (п. 8.1.15). При M1≈0 возвращает
-        /// консервативное значение 2 (защита от деления на ноль).
+        /// φl = 1 + ψ, клэмп [1; 2] (п. 8.1.15), где ψ = M1l/M1 — относительная
+        /// доля длительности момента, задаваемая пользователем напрямую (не
+        /// зависит от знака/величины конкретного M — применима к любой силовой
+        /// позиции, в т.ч. в пакетных задачах).
         /// </summary>
-        public static double PhiL(double m1, double m1l)
-        {
-            if (Math.Abs(m1) < 1e-9) return 2.0;
-            return Math.Clamp(1.0 + m1l / m1, 1.0, 2.0);
-        }
+        public static double PhiL(double psi) => Math.Clamp(1.0 + psi, 1.0, 2.0);
 
         /// <summary>δe = clamp(e0/h, 0.15, 1.5) (п. 8.1.15).</summary>
         public static double DeltaE(double e0, double h) => Math.Clamp(Math.Abs(e0) / h, 0.15, 1.5);
@@ -80,11 +78,13 @@ namespace CScore.Sp63
 
         /// <summary>
         /// true — поправку η можно не считать: либо N не сжимающая (конвенция
-        /// проекта: сжатие — отрицательное N), либо гибкость l0/h ≤ 14 (п. 8.1.2).
+        /// проекта: сжатие — отрицательное N), либо гибкость l0/h не превышает
+        /// <paramref name="threshold"/> (по умолчанию 14 — п. 8.1.2; допускается
+        /// уточнять пользователем).
         /// </summary>
-        public static bool ShouldSkip(double n, double l0, double h, out bool slender)
+        public static bool ShouldSkip(double n, double l0, double h, out bool slender, double threshold = SlendernessThreshold)
         {
-            slender = l0 / h > SlendernessThreshold;
+            slender = l0 / h > threshold;
             return n >= -1e-9 || !slender;
         }
 
@@ -104,15 +104,16 @@ namespace CScore.Sp63
         /// </summary>
         public static EtaResult AmplifyFormula(
             double n, double m0, double l0, double h,
-            double eiConcrete, double eiRebar, double m1, double m1l)
+            double eiConcrete, double eiRebar, double psi,
+            double slendernessThreshold = SlendernessThreshold)
         {
             if (l0 <= 0 || h <= 0)
                 throw new ArgumentException("l0 и h должны быть положительны");
 
-            if (ShouldSkip(n, l0, h, out var slender) || Math.Abs(m0) < 1e-9)
+            if (ShouldSkip(n, l0, h, out var slender, slendernessThreshold) || Math.Abs(m0) < 1e-9)
                 return new EtaResult(1.0, double.PositiveInfinity, double.NaN, slender, true, m0, 0, false);
 
-            double phiL = PhiL(m1, m1l);
+            double phiL = PhiL(psi);
             double e0 = Math.Abs(m0) / Math.Abs(n);
             double deltaE = DeltaE(e0, h);
             double kb = Kb(phiL, deltaE);
@@ -131,12 +132,13 @@ namespace CScore.Sp63
         /// </summary>
         public static EtaResult AmplifyIterative(
             double n, double m0, double l0, double h,
-            Func<double, double> solveCurvature, int passes = 3)
+            Func<double, double> solveCurvature, int passes = 3,
+            double slendernessThreshold = SlendernessThreshold)
         {
             if (l0 <= 0 || h <= 0)
                 throw new ArgumentException("l0 и h должны быть положительны");
 
-            if (ShouldSkip(n, l0, h, out var slender) || Math.Abs(m0) < 1e-9)
+            if (ShouldSkip(n, l0, h, out var slender, slendernessThreshold) || Math.Abs(m0) < 1e-9)
                 return new EtaResult(1.0, double.PositiveInfinity, double.NaN, slender, true, m0, 0, false);
 
             var etas = new double[passes];

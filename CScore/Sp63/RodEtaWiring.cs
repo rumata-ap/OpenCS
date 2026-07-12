@@ -42,8 +42,9 @@ namespace CScore.Sp63
         /// </summary>
         public static Result Apply(
             CrossSection section, double n, double mx0, double my0,
-            double l0x, double l0y, double m1lx, double m1ly,
-            bool iterative, Func<double, double, Kurvature> jointSolve)
+            double l0x, double l0y, double psiX, double psiY,
+            bool iterative, Func<double, double, Kurvature> jointSolve,
+            double slendernessThreshold = EccentricityAmplifier.SlendernessThreshold)
         {
             var (minX, maxX, minY, maxY) = section.SectionBoundingBox();
             double hx = maxY - minY; // высота в плоскости изгиба Mx (варьируется по Y)
@@ -56,12 +57,14 @@ namespace CScore.Sp63
             {
                 exResult = EccentricityAmplifier.AmplifyIterative(
                     n, mx0, l0x, hx,
-                    mxTrial => jointSolve(mxTrial, my0).ky);
+                    mxTrial => jointSolve(mxTrial, my0).ky,
+                    passes: 3, slendernessThreshold: slendernessThreshold);
                 mxEff = exResult.MEff;
 
                 eyResult = EccentricityAmplifier.AmplifyIterative(
                     n, my0, l0y, hy,
-                    myTrial => jointSolve(mxEff, myTrial).kz);
+                    myTrial => jointSolve(mxEff, myTrial).kz,
+                    passes: 3, slendernessThreshold: slendernessThreshold);
                 myEff = eyResult.MEff;
             }
             else
@@ -69,11 +72,11 @@ namespace CScore.Sp63
                 var split = section.SplitStiffnessByMaterial();
 
                 exResult = EccentricityAmplifier.AmplifyFormula(
-                    n, mx0, l0x, hx, split.EIxConcrete, split.EIxRebar, Math.Abs(mx0), m1lx);
+                    n, mx0, l0x, hx, split.EIxConcrete, split.EIxRebar, psiX, slendernessThreshold);
                 mxEff = exResult.MEff;
 
                 eyResult = EccentricityAmplifier.AmplifyFormula(
-                    n, my0, l0y, hy, split.EIyConcrete, split.EIyRebar, Math.Abs(my0), m1ly);
+                    n, my0, l0y, hy, split.EIyConcrete, split.EIyRebar, psiY, slendernessThreshold);
                 myEff = eyResult.MEff;
             }
 

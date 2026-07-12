@@ -21,7 +21,7 @@ public class RodEtaWiringTests
         // гибкость превышала порог 14 по ОБЕИМ осям (l0x/0.6>14 и l0y/0.3>14).
         var result = RodEtaWiring.Apply(
             section, n: -800, mx0: 80, my0: 40,
-            l0x: 10, l0y: 6, m1lx: 40, m1ly: 20,
+            l0x: 10, l0y: 6, psiX: 0.5, psiY: 0.5,
             iterative: false, jointSolve: Solve);
 
         Assert.True(result.X.Slender, "l0x/hx=10/0.6≈16.7>14 должно считаться гибким");
@@ -55,7 +55,7 @@ public class RodEtaWiringTests
 
         var result = RodEtaWiring.Apply(
             section, n: -800, mx0: 80, my0: 40,
-            l0x: 10, l0y: 6, m1lx: 40, m1ly: 20,
+            l0x: 10, l0y: 6, psiX: 0.5, psiY: 0.5,
             iterative: true, jointSolve: Solve);
 
         Assert.True(result.X.Stable);
@@ -74,13 +74,32 @@ public class RodEtaWiringTests
     }
 
     [Fact]
+    public void Apply_CustomSlendernessThreshold_SkipsBothAxesBelowRaisedLimit()
+    {
+        var section = SectionCutFixtures.BuildReinforcedRectangle(0.3, 0.6);
+
+        // l0x/hx≈16.7 и l0y/hy=20 — гибко относительно нормативных 14, но не
+        // относительно пользовательского порога 25.
+        var result = RodEtaWiring.Apply(
+            section, n: -800, mx0: 80, my0: 40,
+            l0x: 10, l0y: 6, psiX: 0.5, psiY: 0.5,
+            iterative: false, jointSolve: (_, _) => new Kurvature(),
+            slendernessThreshold: 25);
+
+        Assert.False(result.X.Slender);
+        Assert.False(result.Y.Slender);
+        Assert.Equal(80, result.MxEff);
+        Assert.Equal(40, result.MyEff);
+    }
+
+    [Fact]
     public void Apply_NotSlender_ReturnsOriginalMoments()
     {
         var section = SectionCutFixtures.BuildReinforcedRectangle(0.3, 0.6);
 
         var result = RodEtaWiring.Apply(
             section, n: -500, mx0: 50, my0: 20,
-            l0x: 3, l0y: 3, m1lx: 25, m1ly: 10,
+            l0x: 3, l0y: 3, psiX: 0.5, psiY: 0.5,
             iterative: false, jointSolve: (_, _) => new Kurvature());
 
         Assert.Equal(50, result.MxEff);

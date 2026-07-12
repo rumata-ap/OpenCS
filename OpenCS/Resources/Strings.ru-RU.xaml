@@ -908,8 +908,8 @@
    <system:String x:Key="ResultEtaMode">Режим</system:String>
    <system:String x:Key="ResultEtaModeFormula">Буквальный (формула)</system:String>
    <system:String x:Key="ResultEtaModeIterative">Уточнённый (итерационный)</system:String>
-   <system:String x:Key="ResultEtaMxOriginal">Mx исходный</system:String>
-   <system:String x:Key="ResultEtaMyOriginal">My исходный</system:String>
+   <system:String x:Key="ResultEtaMxOriginal">Mx,0</system:String>
+   <system:String x:Key="ResultEtaMyOriginal">My,0</system:String>
    <system:String x:Key="ResultEtaX">ηx</system:String>
    <system:String x:Key="ResultEtaY">ηy</system:String>
    <system:String x:Key="ResultEtaNotRequired">поправка не требуется</system:String>
@@ -1195,14 +1195,20 @@
     <!-- Eta (буклинг) per СП63.13330 п.8.1.15 -->
     <system:String x:Key="EtaParamsHeader">Влияние прогиба (η, п. 8.1.15 СП63.13330)</system:String>
     <system:String x:Key="EtaEnabledLabel">Учитывать влияние прогиба (η)</system:String>
-    <system:String x:Key="EtaEnabledHint">Домножает момент на коэффициент η по п. 8.1.15 СП63.13330 при гибкости l0/h &gt; 14 и сжимающей продольной силе.</system:String>
+    <system:String x:Key="EtaEnabledHint">Домножает момент на коэффициент η по п. 8.1.15 СП63.13330 при гибкости l0/h выше предельной (по умолчанию 14, п. 8.1.2) и сжимающей продольной силе.</system:String>
     <system:String x:Key="EtaIterativeLabel">Уточнённый (итерационный) расчёт</system:String>
     <system:String x:Key="EtaIterativeHint">Жёсткость D берётся из фактического решения НДС (3 прохода + экстраполяция Эйткена) вместо упрощённой формулы нормы.</system:String>
-    <system:String x:Key="EtaL0xLabel">Расчётная длина l₀x, м</system:String>
-    <system:String x:Key="EtaL0yLabel">Расчётная длина l₀y, м</system:String>
-    <system:String x:Key="EtaM1lxLabel">Момент от длит. нагрузки M1l,x, кН·м</system:String>
-    <system:String x:Key="EtaM1lyLabel">Момент от длит. нагрузки M1l,y, кН·м</system:String>
-    <system:String x:Key="EtaNeedL0">Для учёта влияния прогиба (η) укажите расчётные длины l₀x и l₀y (&gt; 0).</system:String>
+    <system:String x:Key="EtaLLabel">Длина элемента L, м</system:String>
+    <system:String x:Key="EtaMuxLabel">μx</system:String>
+    <system:String x:Key="EtaMuyLabel">μy</system:String>
+    <system:String x:Key="EtaMuTableHint">Коэффициент μ расчётной длины l₀=μ·L по п. 8.1.17 СП63.13330:&#10;а) шарнир-шарнир на двух концах — 1,0&#10;б) жёсткая заделка на одном конце, консоль на другом — 2,0&#10;в) шарнирное несмещаемое опирание на одном конце, а на другом:&#10;   — жёсткая заделка — 0,7&#10;   — податливая заделка — 0,9&#10;г) податливое шарнирное опирание на одном конце, а на другом:&#10;   — жёсткая заделка — 1,5&#10;   — податливая заделка — 2,0&#10;д) несмещаемые заделки на двух концах:&#10;   — жёсткие — 0,5&#10;   — податливые — 0,8&#10;е) ограниченно смещаемые заделки на двух концах:&#10;   — жёсткие — 0,8&#10;   — податливые — 1,2</system:String>
+    <system:String x:Key="EtaPsixLabel">ψx</system:String>
+    <system:String x:Key="EtaPsiyLabel">ψy</system:String>
+    <system:String x:Key="EtaPsiHint">ψ = M1l/M1 — относительная доля момента от длительных нагрузок (0…1 и более); φl = 1+ψ, не более 2 (п. 8.1.15 СП63.13330).</system:String>
+    <system:String x:Key="EtaSlendernessThresholdLabel">Гибкость l₀/h</system:String>
+    <system:String x:Key="EtaSlendernessThresholdHint">Гибкость, выше которой применяется поправка η. По умолчанию 14 (п. 8.1.2 СП63.13330) — можно уточнить под конкретную конструкцию.</system:String>
+    <system:String x:Key="EtaNeedL0">Для учёта влияния прогиба (η) укажите длину элемента L (&gt; 0) и, при необходимости, коэффициенты μx/μy (&gt; 0).</system:String>
+    <system:String x:Key="EtaInvalidThreshold">Предельная гибкость l₀/h должна быть положительным числом.</system:String>
 
     <system:String x:Key="SteelCheckUtilizationLabel">Коэффициент использования: </system:String>
     <system:String x:Key="SteelCheckStatusPassed">ПРОЙДЕНО</system:String>

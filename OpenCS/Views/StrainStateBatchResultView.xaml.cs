@@ -95,6 +95,8 @@ public partial class StrainStateBatchResultView : UserControl
         csv.WriteField("Mx"); csv.WriteField("My"); csv.WriteField("e0");
         csv.WriteField("ky"); csv.WriteField("kz"); csv.WriteField("Iter");
         csv.WriteField("Residual"); csv.WriteField("Status");
+        csv.WriteField("Mx,eff"); csv.WriteField("My,eff");
+        csv.WriteField("etaX"); csv.WriteField("etaY");
         csv.NextRecord();
 
         foreach (var r in vm.Rows)
@@ -103,6 +105,8 @@ public partial class StrainStateBatchResultView : UserControl
             csv.WriteField(r.NText); csv.WriteField(r.MxText); csv.WriteField(r.MyText);
             csv.WriteField(r.E0Text); csv.WriteField(r.KyText); csv.WriteField(r.KzText);
             csv.WriteField(r.IterText); csv.WriteField(r.ResText); csv.WriteField(r.StatusText);
+            csv.WriteField(r.MxEffText); csv.WriteField(r.MyEffText);
+            csv.WriteField(r.EtaXText); csv.WriteField(r.EtaYText);
             csv.NextRecord();
         }
     }

@@ -45,18 +45,23 @@ namespace OpenCS.Tasks
             var etaParams = LimitForceParams.Parse(task.ParamsJson);
             if (etaParams.EtaEnabled)
             {
+               double slendernessThreshold = etaParams.EtaSlendernessThreshold
+                   ?? CScore.Sp63.EccentricityAmplifier.SlendernessThreshold;
+
                var wiring = CScore.Sp63.RodEtaWiring.Apply(
                    section, nTarget, mxOriginal, myOriginal,
-                   etaParams.EtaL0x ?? 0, etaParams.EtaL0y ?? 0,
-                   etaParams.EtaM1lx ?? Math.Abs(mxOriginal), etaParams.EtaM1ly ?? Math.Abs(myOriginal),
+                   etaParams.EtaL0x, etaParams.EtaL0y,
+                   etaParams.EtaPsiX ?? 1.0, etaParams.EtaPsiY ?? 1.0,
                    etaParams.EtaIterative,
-                   (mx, my) => solver.Solve(nTarget, mx, my));
+                   (mx, my) => solver.Solve(nTarget, mx, my),
+                   slendernessThreshold);
 
                mxTarget = wiring.MxEff;
                myTarget = wiring.MyEff;
                etaData = new
                {
                   mode       = etaParams.EtaIterative ? "iterative" : "formula",
+                  slendernessThreshold,
                   mxOriginal,
                   myOriginal,
                   l0x              = Math.Round(wiring.X.L0, 4),

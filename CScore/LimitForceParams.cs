@@ -26,17 +26,36 @@ public sealed class LimitForceParams
    /// <summary>false — буквальный режим (формула нормы); true — уточнённый (итерационный).</summary>
    public bool EtaIterative { get; set; }
 
-   /// <summary>Расчётная длина по оси X (для Mx), м.</summary>
-   public double? EtaL0x { get; set; }
+   /// <summary>Длина элемента, м (п. 8.1.17).</summary>
+   public double? EtaL { get; set; }
 
-   /// <summary>Расчётная длина по оси Y (для My), м.</summary>
-   public double? EtaL0y { get; set; }
+   /// <summary>Коэффициент расчётной длины μx (плоскость Mx) — l0x = μx·L (п. 8.1.17).</summary>
+   public double? EtaMuX { get; set; }
 
-   /// <summary>Момент от длительной нагрузки, ось X (только режим A), кН·м.</summary>
-   public double? EtaM1lx { get; set; }
+   /// <summary>Коэффициент расчётной длины μy (плоскость My) — l0y = μy·L (п. 8.1.17).</summary>
+   public double? EtaMuY { get; set; }
 
-   /// <summary>Момент от длительной нагрузки, ось Y (только режим A), кН·м.</summary>
-   public double? EtaM1ly { get; set; }
+   /// <summary>Расчётная длина в плоскости Mx, м: l0x = L·μx (0, если L не задана).</summary>
+   public double EtaL0x => (EtaL ?? 0) * (EtaMuX ?? 1.0);
+
+   /// <summary>Расчётная длина в плоскости My, м: l0y = L·μy (0, если L не задана).</summary>
+   public double EtaL0y => (EtaL ?? 0) * (EtaMuY ?? 1.0);
+
+   /// <summary>
+   /// Относительная доля длительности момента ψx = M1l/M1 в плоскости Mx
+   /// (только режим A). Не зависит от абсолютной величины момента — применима
+   /// к любой силовой позиции, в т.ч. в пакетных задачах.
+   /// </summary>
+   public double? EtaPsiX { get; set; }
+
+   /// <summary>Относительная доля длительности момента ψy = M1l/M1 в плоскости My (только режим A).</summary>
+   public double? EtaPsiY { get; set; }
+
+   /// <summary>
+   /// Предельная гибкость l0/h, выше которой требуется поправка η (по умолчанию
+   /// 14 — п. 8.1.2 СП63.13330; пользователь может уточнить значение).
+   /// </summary>
+   public double? EtaSlendernessThreshold { get; set; }
 
    /// <summary>Разобрать JSON-параметры задачи.</summary>
    public static LimitForceParams Parse(string? json)
@@ -64,10 +83,18 @@ public sealed class LimitForceParams
 
          if (root.TryGetProperty("etaEnabled",   out var eeEl)) p.EtaEnabled   = eeEl.GetBoolean();
          if (root.TryGetProperty("etaIterative", out var eiEl)) p.EtaIterative = eiEl.GetBoolean();
-         if (root.TryGetProperty("etaL0x",  out var l0xEl))  p.EtaL0x  = l0xEl.GetDouble();
-         if (root.TryGetProperty("etaL0y",  out var l0yEl))  p.EtaL0y  = l0yEl.GetDouble();
-         if (root.TryGetProperty("etaM1lx", out var m1lxEl)) p.EtaM1lx = m1lxEl.GetDouble();
-         if (root.TryGetProperty("etaM1ly", out var m1lyEl)) p.EtaM1ly = m1lyEl.GetDouble();
+         if (root.TryGetProperty("etaL",   out var lEl))   p.EtaL   = lEl.GetDouble();
+         if (root.TryGetProperty("etaMuX", out var muxEl)) p.EtaMuX = muxEl.GetDouble();
+         if (root.TryGetProperty("etaMuY", out var muyEl)) p.EtaMuY = muyEl.GetDouble();
+         // etaPsiX/etaPsiY сериализуются как null в итерационном режиме (не запрашиваются
+         // у пользователя) — GetDouble() на null-элементе бросает исключение, поэтому
+         // проверяем ValueKind, а не просто наличие свойства.
+         if (root.TryGetProperty("etaPsiX", out var psixEl) && psixEl.ValueKind != JsonValueKind.Null)
+            p.EtaPsiX = psixEl.GetDouble();
+         if (root.TryGetProperty("etaPsiY", out var psiyEl) && psiyEl.ValueKind != JsonValueKind.Null)
+            p.EtaPsiY = psiyEl.GetDouble();
+         if (root.TryGetProperty("etaSlendernessThreshold", out var thEl) && thEl.ValueKind != JsonValueKind.Null)
+            p.EtaSlendernessThreshold = thEl.GetDouble();
       }
       catch { /* defaults */ }
 
@@ -87,10 +114,12 @@ public sealed class LimitForceParams
             My = My ?? 0.0,
             etaEnabled   = true,
             etaIterative = EtaIterative,
-            etaL0x  = EtaL0x  ?? 0.0,
-            etaL0y  = EtaL0y  ?? 0.0,
-            etaM1lx = EtaM1lx,
-            etaM1ly = EtaM1ly,
+            etaL    = EtaL    ?? 0.0,
+            etaMuX  = EtaMuX  ?? 1.0,
+            etaMuY  = EtaMuY  ?? 1.0,
+            etaPsiX = EtaPsiX,
+            etaPsiY = EtaPsiY,
+            etaSlendernessThreshold = EtaSlendernessThreshold ?? Sp63.EccentricityAmplifier.SlendernessThreshold,
          });
       }
 

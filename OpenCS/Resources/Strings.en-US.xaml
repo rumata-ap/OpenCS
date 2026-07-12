@@ -905,8 +905,8 @@
    <system:String x:Key="ResultEtaMode">Mode</system:String>
    <system:String x:Key="ResultEtaModeFormula">Literal (formula)</system:String>
    <system:String x:Key="ResultEtaModeIterative">Refined (iterative)</system:String>
-   <system:String x:Key="ResultEtaMxOriginal">Mx original</system:String>
-   <system:String x:Key="ResultEtaMyOriginal">My original</system:String>
+   <system:String x:Key="ResultEtaMxOriginal">Mx,0</system:String>
+   <system:String x:Key="ResultEtaMyOriginal">My,0</system:String>
    <system:String x:Key="ResultEtaX">ηx</system:String>
    <system:String x:Key="ResultEtaY">ηy</system:String>
    <system:String x:Key="ResultEtaNotRequired">no amplification required</system:String>
@@ -1192,14 +1192,20 @@
     <!-- Eta (buckling amplification) per SP63.13330 cl.8.1.15 -->
     <system:String x:Key="EtaParamsHeader">Deflection influence (η, cl. 8.1.15 SP63.13330)</system:String>
     <system:String x:Key="EtaEnabledLabel">Account for deflection influence (η)</system:String>
-    <system:String x:Key="EtaEnabledHint">Multiplies the moment by the η coefficient per cl. 8.1.15 SP63.13330 when l0/h &gt; 14 and the axial force is compressive.</system:String>
+    <system:String x:Key="EtaEnabledHint">Multiplies the moment by the η coefficient per cl. 8.1.15 SP63.13330 when l0/h exceeds the slenderness limit (default 14, cl. 8.1.2) and the axial force is compressive.</system:String>
     <system:String x:Key="EtaIterativeLabel">Refined (iterative) calculation</system:String>
     <system:String x:Key="EtaIterativeHint">Stiffness D is taken from the actual strain-state solution (3 passes + Aitken extrapolation) instead of the code's simplified formula.</system:String>
-    <system:String x:Key="EtaL0xLabel">Effective length l₀x, m</system:String>
-    <system:String x:Key="EtaL0yLabel">Effective length l₀y, m</system:String>
-    <system:String x:Key="EtaM1lxLabel">Long-term moment M1l,x, kN·m</system:String>
-    <system:String x:Key="EtaM1lyLabel">Long-term moment M1l,y, kN·m</system:String>
-    <system:String x:Key="EtaNeedL0">To account for deflection influence (η), specify effective lengths l₀x and l₀y (&gt; 0).</system:String>
+    <system:String x:Key="EtaLLabel">Element length L, m</system:String>
+    <system:String x:Key="EtaMuxLabel">μx</system:String>
+    <system:String x:Key="EtaMuyLabel">μy</system:String>
+    <system:String x:Key="EtaMuTableHint">Effective length coefficient μ (l₀=μ·L) per cl. 8.1.17 SP63.13330:&#10;a) pinned at both ends — 1.0&#10;b) fixed at one end, free (cantilever) at the other — 2.0&#10;c) pinned, non-sway at one end, at the other:&#10;   — rigid fixity — 0.7&#10;   — flexible fixity — 0.9&#10;d) pinned, sway-permitting at one end, at the other:&#10;   — rigid fixity — 1.5&#10;   — flexible fixity — 2.0&#10;e) non-sway fixity at both ends:&#10;   — rigid — 0.5&#10;   — flexible — 0.8&#10;f) limited-sway fixity at both ends:&#10;   — rigid — 0.8&#10;   — flexible — 1.2</system:String>
+    <system:String x:Key="EtaPsixLabel">ψx</system:String>
+    <system:String x:Key="EtaPsiyLabel">ψy</system:String>
+    <system:String x:Key="EtaPsiHint">ψ = M1l/M1 — relative share of the moment from long-term loads (0…1 or more); φl = 1+ψ, capped at 2 (cl. 8.1.15 SP63.13330).</system:String>
+    <system:String x:Key="EtaSlendernessThresholdLabel">Slenderness l₀/h</system:String>
+    <system:String x:Key="EtaSlendernessThresholdHint">Slenderness above which the η correction applies. Defaults to 14 (cl. 8.1.2 SP63.13330) — can be refined for a specific structure.</system:String>
+    <system:String x:Key="EtaNeedL0">To account for deflection influence (η), specify element length L (&gt; 0) and, if needed, coefficients μx/μy (&gt; 0).</system:String>
+    <system:String x:Key="EtaInvalidThreshold">The slenderness limit l₀/h must be a positive number.</system:String>
 
     <system:String x:Key="SteelCheckUtilizationLabel">Utilization ratio: </system:String>
     <system:String x:Key="SteelCheckStatusPassed">PASSED</system:String>

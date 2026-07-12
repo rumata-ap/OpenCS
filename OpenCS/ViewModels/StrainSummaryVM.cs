@@ -132,6 +132,10 @@ namespace OpenCS.ViewModels
                 string mode = etaEl.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "formula" : "formula";
                 EtaModeText = mode == "iterative" ? Loc.S("ResultEtaModeIterative") : Loc.S("ResultEtaModeFormula");
 
+                double slendernessThreshold = etaEl.TryGetProperty("slendernessThreshold", out var thEl) && thEl.ValueKind != JsonValueKind.Null
+                    ? thEl.GetDouble()
+                    : CScore.Sp63.EccentricityAmplifier.SlendernessThreshold;
+
                 double mxOrig = etaEl.TryGetProperty("mxOriginal", out var mxoEl) ? mxoEl.GetDouble() : 0;
                 double myOrig = etaEl.TryGetProperty("myOriginal", out var myoEl) ? myoEl.GetDouble() : 0;
                 MxOriginalText = $"{mxOrig:+0.000;-0.000}  кН·м";
@@ -160,14 +164,14 @@ namespace OpenCS.ViewModels
 
                 L0xText = $"{l0x:0.00}  м";
                 HxText  = $"{hx:0.00}  м";
-                SlendernessXText = FormatSlenderness(slendernessX, slenderX);
+                SlendernessXText = FormatSlenderness(slendernessX, slenderX, slendernessThreshold);
                 DxText  = dX.HasValue ? $"{dX.Value:F1}  кН·м²" : "—";
                 NcrXText = ncrX.HasValue ? $"{ncrX.Value:F0}  кН" : "—";
                 EtaXText = FormatEta(etaXv, slenderX, stableX);
 
                 L0yText = $"{l0y:0.00}  м";
                 HyText  = $"{hy:0.00}  м";
-                SlendernessYText = FormatSlenderness(slendernessY, slenderY);
+                SlendernessYText = FormatSlenderness(slendernessY, slenderY, slendernessThreshold);
                 DyText  = dY.HasValue ? $"{dY.Value:F1}  кН·м²" : "—";
                 NcrYText = ncrY.HasValue ? $"{ncrY.Value:F0}  кН" : "—";
                 EtaYText = FormatEta(etaYv, slenderY, stableY);
@@ -265,11 +269,12 @@ namespace OpenCS.ViewModels
             return $"{eta:0.000}";
         }
 
-        /// <summary>Гибкость l0/h с пометкой, применяется ли поправка (порог 14, п. 8.1.2).</summary>
-        static string FormatSlenderness(double? ratio, bool slender)
+        /// <summary>Гибкость l0/h с пометкой, применяется ли поправка (порог задаётся пользователем, по умолчанию 14 — п. 8.1.2).</summary>
+        static string FormatSlenderness(double? ratio, bool slender, double threshold)
         {
             if (!ratio.HasValue) return "—";
-            string suffix = slender ? " > 14" : $" ≤ 14 ({Loc.S("ResultEtaNotRequired")})";
+            string t = threshold.ToString("0.#");
+            string suffix = slender ? $" > {t}" : $" ≤ {t} ({Loc.S("ResultEtaNotRequired")})";
             return $"{ratio.Value:0.0}{suffix}";
         }
 

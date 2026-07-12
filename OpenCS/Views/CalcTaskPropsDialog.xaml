@@ -406,7 +406,7 @@
       </StackPanel>
 
       <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
-                  Visibility="{Binding IsStrainState, Converter={StaticResource BoolToVisibility}}">
+                  Visibility="{Binding SupportsEta, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource EtaParamsHeader}" Margin="0,8,0,0">
             <StackPanel Margin="4">
                <CheckBox Content="{DynamicResource EtaEnabledLabel}"
@@ -424,19 +424,63 @@
                      <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="130"/>
                         <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+
+                     <TextBlock Grid.Column="0" Text="{DynamicResource EtaLLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"/>
+                     <TextBox Grid.Column="1"
+                              Text="{Binding EtaL, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,0,4"/>
+                  </Grid>
+
+                  <Grid Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="130"/>
                         <ColumnDefinition Width="*"/>
                      </Grid.ColumnDefinitions>
 
-                     <TextBlock Grid.Column="0" Text="{DynamicResource EtaL0xLabel}"
-                                VerticalAlignment="Center" Margin="0,0,4,4"/>
+                     <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource EtaMuxLabel}" VerticalAlignment="Center" Margin="0,0,2,4"/>
+                        <TextBlock Text="ⓘ" Foreground="Gray" Cursor="Help" VerticalAlignment="Center" Margin="0,0,4,4">
+                           <TextBlock.ToolTip>
+                              <ToolTip MaxWidth="380">
+                                 <TextBlock Text="{DynamicResource EtaMuTableHint}" TextWrapping="Wrap"/>
+                              </ToolTip>
+                           </TextBlock.ToolTip>
+                        </TextBlock>
+                     </StackPanel>
                      <TextBox Grid.Column="1"
-                              Text="{Binding EtaL0x, UpdateSourceTrigger=PropertyChanged}"
+                              Text="{Binding EtaMuX, UpdateSourceTrigger=PropertyChanged}"
                               Margin="0,0,8,4"/>
-                     <TextBlock Grid.Column="2" Text="{DynamicResource EtaL0yLabel}"
-                                VerticalAlignment="Center" Margin="0,0,4,4"/>
+                     <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource EtaMuyLabel}" VerticalAlignment="Center" Margin="0,0,2,4"/>
+                        <TextBlock Text="ⓘ" Foreground="Gray" Cursor="Help" VerticalAlignment="Center" Margin="0,0,4,4">
+                           <TextBlock.ToolTip>
+                              <ToolTip MaxWidth="380">
+                                 <TextBlock Text="{DynamicResource EtaMuTableHint}" TextWrapping="Wrap"/>
+                              </ToolTip>
+                           </TextBlock.ToolTip>
+                        </TextBlock>
+                     </StackPanel>
                      <TextBox Grid.Column="3"
-                              Text="{Binding EtaL0y, UpdateSourceTrigger=PropertyChanged}"
+                              Text="{Binding EtaMuY, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,0,4"/>
+                  </Grid>
+
+                  <Grid Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+
+                     <TextBlock Grid.Column="0" Text="{DynamicResource EtaSlendernessThresholdLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"
+                                ToolTip="{DynamicResource EtaSlendernessThresholdHint}"/>
+                     <TextBox Grid.Column="1"
+                              Text="{Binding EtaSlendernessThreshold, UpdateSourceTrigger=PropertyChanged}"
+                              ToolTip="{DynamicResource EtaSlendernessThresholdHint}"
                               Margin="0,0,0,4"/>
                   </Grid>
 
@@ -448,15 +492,19 @@
                         <ColumnDefinition Width="*"/>
                      </Grid.ColumnDefinitions>
 
-                     <TextBlock Grid.Column="0" Text="{DynamicResource EtaM1lxLabel}"
-                                VerticalAlignment="Center" Margin="0,0,4,4"/>
+                     <TextBlock Grid.Column="0" Text="{DynamicResource EtaPsixLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"
+                                ToolTip="{DynamicResource EtaPsiHint}"/>
                      <TextBox Grid.Column="1"
-                              Text="{Binding EtaM1lx, UpdateSourceTrigger=PropertyChanged}"
+                              Text="{Binding EtaPsiX, UpdateSourceTrigger=PropertyChanged}"
+                              ToolTip="{DynamicResource EtaPsiHint}"
                               Margin="0,0,8,4"/>
-                     <TextBlock Grid.Column="2" Text="{DynamicResource EtaM1lyLabel}"
-                                VerticalAlignment="Center" Margin="0,0,4,4"/>
+                     <TextBlock Grid.Column="2" Text="{DynamicResource EtaPsiyLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"
+                                ToolTip="{DynamicResource EtaPsiHint}"/>
                      <TextBox Grid.Column="3"
-                              Text="{Binding EtaM1ly, UpdateSourceTrigger=PropertyChanged}"
+                              Text="{Binding EtaPsiY, UpdateSourceTrigger=PropertyChanged}"
+                              ToolTip="{DynamicResource EtaPsiHint}"
                               Margin="0,0,0,4"/>
                   </Grid>
                </StackPanel>

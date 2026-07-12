@@ -34,7 +34,11 @@ public sealed class StrainStateBatchVM : ViewModelBase
         string IterText,
         string ResText,
         string StatusText,
-        bool   IsConverged);
+        bool   IsConverged,
+        string MxEffText,
+        string MyEffText,
+        string EtaXText,
+        string EtaYText);
 
     public StrainStateBatchVM(CalcResult result, CrossSection? section = null, CalcSettings? settings = null)
     {
@@ -83,6 +87,22 @@ public sealed class StrainStateBatchVM : ViewModelBase
                     bool   conv = st == "ok";
                     int    iter = row.TryGetProperty("iterations", out var iv) ? iv.GetInt32() : 0;
 
+                    bool hasEta = row.TryGetProperty("eta", out var etaEl) && etaEl.ValueKind != JsonValueKind.Null;
+                    string mxEffText = hasEta ? Num(row, "MxTarget", 4) : "—";
+                    string myEffText = hasEta ? Num(row, "MyTarget", 4) : "—";
+                    string etaXText  = "—", etaYText = "—";
+                    if (hasEta)
+                    {
+                        bool slenderX = etaEl.TryGetProperty("slenderX", out var sxEl) && sxEl.GetBoolean();
+                        bool slenderY = etaEl.TryGetProperty("slenderY", out var syEl) && syEl.GetBoolean();
+                        bool stableX  = !etaEl.TryGetProperty("stableX", out var stxEl) || stxEl.GetBoolean();
+                        bool stableY  = !etaEl.TryGetProperty("stableY", out var styEl) || styEl.GetBoolean();
+                        double etaXv  = etaEl.TryGetProperty("etaX", out var exEl) ? exEl.GetDouble() : 1.0;
+                        double etaYv  = etaEl.TryGetProperty("etaY", out var eyEl) ? eyEl.GetDouble() : 1.0;
+                        etaXText = FormatEta(etaXv, slenderX, stableX);
+                        etaYText = FormatEta(etaYv, slenderY, stableY);
+                    }
+
                     Rows.Add(new BatchRow(
                         Num:        BatchResultRowHelper.RowNum(row, idx),
                         Label:      Str(row, "label"),
@@ -96,7 +116,11 @@ public sealed class StrainStateBatchVM : ViewModelBase
                         ResText:    Num(row, "residual", 3),
                         StatusText: conv ? Loc.S("StrainStateBatch_StatusOk")
                                         : Loc.S("StrainStateBatch_StatusNotConverged"),
-                        IsConverged: conv));
+                        IsConverged: conv,
+                        MxEffText:  mxEffText,
+                        MyEffText:  myEffText,
+                        EtaXText:   etaXText,
+                        EtaYText:   etaYText));
                 }
             }
         }
@@ -116,4 +140,12 @@ public sealed class StrainStateBatchVM : ViewModelBase
         el.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
             ? v.GetDouble().ToString($"G{sig}")
             : "—";
+
+    /// <summary>Значение η для одной оси (п. 8.1.15 СП63.13330) — как в StrainSummaryVM.</summary>
+    static string FormatEta(double eta, bool slender, bool stable)
+    {
+        if (!slender) return "1.000";
+        if (!stable)  return Loc.S("ResultEtaInstable");
+        return $"{eta:0.000}";
+    }
 }

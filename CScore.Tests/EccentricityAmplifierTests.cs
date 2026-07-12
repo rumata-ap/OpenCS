@@ -15,18 +15,12 @@ public class EccentricityAmplifierTests
     }
 
     [Theory]
-    [InlineData(100, 50, 1.5)]   // M1l/M1=0.5 → 1.5
-    [InlineData(100, 100, 2.0)]  // M1l=M1 → φl=2 (клэмп сверху)
-    [InlineData(100, 0, 1.0)]    // M1l=0 → φl=1 (клэмп снизу по формуле, ≥1)
-    public void PhiL_ClampsToRange(double m1, double m1l, double expected)
+    [InlineData(0.5, 1.5)]  // ψ=0.5 → φl=1.5
+    [InlineData(1.0, 2.0)]  // ψ=1.0 → φl=2 (клэмп сверху)
+    [InlineData(0.0, 1.0)]  // ψ=0   → φl=1 (клэмп снизу)
+    public void PhiL_ClampsToRange(double psi, double expected)
     {
-        Assert.Equal(expected, EccentricityAmplifier.PhiL(m1, m1l), precision: 6);
-    }
-
-    [Fact]
-    public void PhiL_GuardsAgainstZeroM1()
-    {
-        Assert.Equal(2.0, EccentricityAmplifier.PhiL(0, 50));
+        Assert.Equal(expected, EccentricityAmplifier.PhiL(psi), precision: 6);
     }
 
     [Theory]
@@ -91,11 +85,48 @@ public class EccentricityAmplifierTests
     }
 
     [Fact]
+    public void ShouldSkip_CustomThreshold_OverridesDefault14()
+    {
+        // l0/h = 6/0.3 = 20 — гибко относительно нормативного порога 14, но НЕ
+        // относительно пользовательского порога 25.
+        bool skip = EccentricityAmplifier.ShouldSkip(n: -500, l0: 6, h: 0.3, out bool slender, threshold: 25);
+        Assert.True(skip);
+        Assert.False(slender);
+    }
+
+    [Fact]
+    public void AmplifyFormula_CustomThreshold_SkipsBelowRaisedLimit()
+    {
+        // Та же гибкая колонна, что и в AmplifyFormula_AmplifiesSlenderCompressedColumn
+        // (l0/h=20>14), но с пользовательским порогом 25 поправка не требуется.
+        var r = EccentricityAmplifier.AmplifyFormula(
+            n: -800, m0: 80, l0: 6, h: 0.3,
+            eiConcrete: 175_500, eiRebar: 24_544, psi: 0.5,
+            slendernessThreshold: 25);
+
+        Assert.False(r.Slender);
+        Assert.Equal(1.0, r.Eta);
+        Assert.Equal(80, r.MEff);
+    }
+
+    [Fact]
+    public void AmplifyIterative_CustomThreshold_SkipsBelowRaisedLimit()
+    {
+        var r = EccentricityAmplifier.AmplifyIterative(
+            n: -800, m0: 80, l0: 6, h: 0.3, solveCurvature: m => m / 200_000,
+            passes: 3, slendernessThreshold: 25);
+
+        Assert.False(r.Slender);
+        Assert.Equal(1.0, r.Eta);
+        Assert.Equal(0, r.Iterations);
+    }
+
+    [Fact]
     public void AmplifyFormula_NoAmplification_WhenNotSlender()
     {
         var r = EccentricityAmplifier.AmplifyFormula(
             n: -500, m0: 50, l0: 3, h: 0.3,
-            eiConcrete: 175_500, eiRebar: 24_544, m1: 50, m1l: 50);
+            eiConcrete: 175_500, eiRebar: 24_544, psi: 1.0);
 
         Assert.Equal(1.0, r.Eta);
         Assert.Equal(50, r.MEff);
@@ -107,7 +138,7 @@ public class EccentricityAmplifierTests
     {
         var r = EccentricityAmplifier.AmplifyFormula(
             n: 500, m0: 50, l0: 6, h: 0.3,
-            eiConcrete: 175_500, eiRebar: 24_544, m1: 50, m1l: 50);
+            eiConcrete: 175_500, eiRebar: 24_544, psi: 1.0);
 
         Assert.Equal(1.0, r.Eta);
     }
@@ -118,7 +149,7 @@ public class EccentricityAmplifierTests
         // Гибкая колонна: l0/h=6/0.3=20>14, N сжимающая, приличный эксцентриситет.
         var r = EccentricityAmplifier.AmplifyFormula(
             n: -800, m0: 80, l0: 6, h: 0.3,
-            eiConcrete: 175_500, eiRebar: 24_544, m1: 80, m1l: 40);
+            eiConcrete: 175_500, eiRebar: 24_544, psi: 0.5);
 
         Assert.True(r.Slender);
         Assert.True(r.Stable);
@@ -132,7 +163,7 @@ public class EccentricityAmplifierTests
         // Малая жёсткость → Ncr мал → |N|>=Ncr
         var r = EccentricityAmplifier.AmplifyFormula(
             n: -800, m0: 80, l0: 6, h: 0.3,
-            eiConcrete: 100, eiRebar: 10, m1: 80, m1l: 40);
+            eiConcrete: 100, eiRebar: 10, psi: 0.5);
 
         Assert.False(r.Stable);
         Assert.True(double.IsPositiveInfinity(r.Eta));

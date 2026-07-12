@@ -17,7 +17,12 @@ public static class LimitForceSolvers
       bool ten = true)
    {
       parameters ??= new LimitForceParams();
-      if (parameters.Solver == "fast")
+
+      // Поправка η (п. 8.1.15) реализована только в бисекционном решателе
+      // (см. LimitForceSolver.MomentFactor) — быстрый Ньютон не поддерживает
+      // пересчёт η внутри итераций, поэтому при EtaEnabled используем бисекцию
+      // независимо от выбранного пользователем метода.
+      if (parameters.Solver == "fast" && !parameters.EtaEnabled)
       {
          return new LimitForceSolverFast(section, calc,
             newtonTol: newtonTol, newtonMaxIter: newtonMaxIter,
@@ -26,6 +31,6 @@ public static class LimitForceSolvers
 
       return LimitForceSolver.ForCrossSection(section, calc,
          solverTol: newtonTol, solverMaxIter: newtonMaxIter,
-         bisectTol: bisectTol, bisectMaxIter: bisectMaxIter, ten: ten);
+         bisectTol: bisectTol, bisectMaxIter: bisectMaxIter, ten: ten, etaParams: parameters);
    }
 }
