@@ -146,11 +146,12 @@ namespace CScore
          Diagramm concreteDiagram,
          Diagramm rebarDiagram,
          IReadOnlyList<Diagramm?>? layerDiagrams = null,
-         bool computeStiffness = true)
+         bool computeStiffness = true,
+         bool? tensionOverride = null)
       {
          var (nx, ny, nxy, mx, my, mxy,
               nxc, nyc, nxyc, mxc, myc, mxyc,
-              nxr, nyr, mxr, myr) = Integrate(state, concreteDiagram, rebarDiagram, layerDiagrams);
+              nxr, nyr, mxr, myr) = Integrate(state, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
 
          double zc = 0.0, eax = 0.0, eay = 0.0, eix = 0.0, eiy = 0.0;
 
@@ -159,21 +160,21 @@ namespace CScore
             const double hd = 1e-7;
 
             var s1 = new ShellStrainState(state.Eps0x + hd, state.Eps0y, state.Gamma0xy, state.Kx, state.Ky, state.Kxy);
-            var (nx1, _, _, mx1, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s1, concreteDiagram, rebarDiagram, layerDiagrams);
+            var (nx1, _, _, mx1, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s1, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
             double dNx = nx1 - nx;
             eax = dNx / hd;
             zc  = Math.Abs(dNx) > 0.0 ? (mx1 - mx) / dNx : GeomCentroid();
 
             var s2 = new ShellStrainState(state.Eps0x, state.Eps0y + hd, state.Gamma0xy, state.Kx, state.Ky, state.Kxy);
-            var (_, ny2, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s2, concreteDiagram, rebarDiagram, layerDiagrams);
+            var (_, ny2, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s2, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
             eay = (ny2 - ny) / hd;
 
             var s3 = new ShellStrainState(state.Eps0x, state.Eps0y, state.Gamma0xy, state.Kx + hd, state.Ky, state.Kxy);
-            var (_, _, _, mx3, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s3, concreteDiagram, rebarDiagram, layerDiagrams);
+            var (_, _, _, mx3, _, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s3, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
             eix = (mx3 - mx) / hd;
 
             var s4 = new ShellStrainState(state.Eps0x, state.Eps0y, state.Gamma0xy, state.Kx, state.Ky + hd, state.Kxy);
-            var (_, _, _, _, my4, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s4, concreteDiagram, rebarDiagram, layerDiagrams);
+            var (_, _, _, _, my4, _, _, _, _, _, _, _, _, _, _, _) = Integrate(s4, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
             eiy = (my4 - my) / hd;
          }
          else
@@ -204,10 +205,11 @@ namespace CScore
          double nu = 0.2,
          double kShear = 5.0 / 6.0,
          double[,]? asOverride = null,
-         double fdStep = 1e-7)
+         double fdStep = 1e-7,
+         bool? tensionOverride = null)
       {
          var (nx, ny, nxy, mx, my, mxy, _, _, _, _, _, _, _, _, _, _) =
-            Integrate(state, concreteDiagram, rebarDiagram, layerDiagrams);
+            Integrate(state, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
 
          double[] state6 =
          [
@@ -224,7 +226,7 @@ namespace CScore
             arr[col] += h;
             var sPert = ShellStrainState.FromArray(arr);
             var (nx1, ny1, nxy1, mx1, my1, mxy1, _, _, _, _, _, _, _, _, _, _) =
-               Integrate(sPert, concreteDiagram, rebarDiagram, layerDiagrams);
+               Integrate(sPert, concreteDiagram, rebarDiagram, layerDiagrams, tensionOverride);
             var f1 = new[] { nx1, ny1, nxy1, mx1, my1, mxy1 };
             for (int row = 0; row < 6; row++)
                j[row, col] = (f1[row] - f0[row]) / h;
@@ -249,7 +251,7 @@ namespace CScore
       /// </summary>
       public PlateThroughThickness SampleThroughThickness(
          ShellStrainState state, Diagramm cDiag, Diagramm rDiag,
-         IReadOnlyList<Diagramm?>? layerDiags, int nPoints)
+         IReadOnlyList<Diagramm?>? layerDiags, int nPoints, bool? tensionOverride = null)
       {
          int n = nPoints < 2 ? 2 : nPoints;
          var r = new PlateThroughThickness
@@ -269,8 +271,8 @@ namespace CScore
 
             if (axial)
             {
-               r.SigX[i] = ConcreteStress(cDiag, ex, 1.0);
-               r.SigY[i] = ConcreteStress(cDiag, ey, 1.0);
+               r.SigX[i] = ConcreteStress(cDiag, ex, 1.0, tensionOverride);
+               r.SigY[i] = ConcreteStress(cDiag, ey, 1.0, tensionOverride);
                r.TauXY[i] = 0.0;
             }
             else
@@ -278,8 +280,8 @@ namespace CScore
                PrincipalStrains2D(ex, ey, gxy, out double eps1, out double eps2, out double theta);
                double beta = SofteningModel == "vecchio_collins"
                   ? VecchioCollinsBeta(eps1, SofteningEpsC2) : 1.0;
-               double sig1 = ConcreteStress(cDiag, eps1, beta);
-               double sig2 = ConcreteStress(cDiag, eps2, beta);
+               double sig1 = ConcreteStress(cDiag, eps1, beta, tensionOverride);
+               double sig2 = ConcreteStress(cDiag, eps2, beta, tensionOverride);
                RotateStressesToXY(sig1, sig2, theta, out double sx, out double sy, out double txy);
                r.SigX[i] = sx; r.SigY[i] = sy; r.TauXY[i] = txy;
             }
@@ -304,7 +306,7 @@ namespace CScore
       /// (для вкладки «Главные оси»). Напряжения — в кПа.
       /// </summary>
       public PlatePrincipalAxes SamplePrincipalAxes(
-         ShellStrainState state, Diagramm cDiag, int nPoints)
+         ShellStrainState state, Diagramm cDiag, int nPoints, bool? tensionOverride = null)
       {
          int n = nPoints < 2 ? 2 : nPoints;
          var r = new PlatePrincipalAxes
@@ -325,8 +327,8 @@ namespace CScore
             {
                r.Eps1[i] = Math.Max(ex, ey);
                r.Eps2[i] = Math.Min(ex, ey);
-               r.Sig1[i] = ConcreteStress(cDiag, r.Eps1[i], 1.0);
-               r.Sig2[i] = ConcreteStress(cDiag, r.Eps2[i], 1.0);
+               r.Sig1[i] = ConcreteStress(cDiag, r.Eps1[i], 1.0, tensionOverride);
+               r.Sig2[i] = ConcreteStress(cDiag, r.Eps2[i], 1.0, tensionOverride);
                r.Beta[i]     = 1.0;
                r.ThetaDeg[i] = ex >= ey ? 0.0 : 90.0;
             }
@@ -337,8 +339,8 @@ namespace CScore
                   ? VecchioCollinsBeta(eps1, SofteningEpsC2) : 1.0;
                r.Eps1[i]     = eps1;
                r.Eps2[i]     = eps2;
-               r.Sig1[i]     = ConcreteStress(cDiag, eps1, beta);
-               r.Sig2[i]     = ConcreteStress(cDiag, eps2, beta);
+               r.Sig1[i]     = ConcreteStress(cDiag, eps1, beta, tensionOverride);
+               r.Sig2[i]     = ConcreteStress(cDiag, eps2, beta, tensionOverride);
                r.Beta[i]     = beta;
                r.ThetaDeg[i] = theta * 180.0 / Math.PI;
             }
@@ -382,13 +384,14 @@ namespace CScore
       private (double nx, double ny, double nxy, double mx, double my, double mxy,
                double nxc, double nyc, double nxyc, double mxc, double myc, double mxyc,
                double nxr, double nyr, double mxr, double myr)
-         Integrate(ShellStrainState s, Diagramm cDiag, Diagramm rDiag, IReadOnlyList<Diagramm?>? layerDiags)
+         Integrate(ShellStrainState s, Diagramm cDiag, Diagramm rDiag, IReadOnlyList<Diagramm?>? layerDiags,
+            bool? tensionOverride = null)
       {
          var (nxc, nyc, nxyc, mxc, myc, mxyc) = PlateModel switch
          {
-            "char1d_axial"     => IntegrateConcreteChar1dAxial(s, cDiag),
-            "char1d_principal" => IntegrateConcreteChar1dPrincipal(s, cDiag),
-            _                  => IntegrateConcreteLayered(s, cDiag),
+            "char1d_axial"     => IntegrateConcreteChar1dAxial(s, cDiag, tensionOverride),
+            "char1d_principal" => IntegrateConcreteChar1dPrincipal(s, cDiag, tensionOverride),
+            _                  => IntegrateConcreteLayered(s, cDiag, tensionOverride),
          };
 
          var (nxr, nyr, mxr, myr) = IntegrateRebar(s, rDiag, layerDiags);
@@ -400,7 +403,7 @@ namespace CScore
 
       // ── Бетон: слоистая модель (разбиение на NLayers, главные + softening) ──
       private (double nxc, double nyc, double nxyc, double mxc, double myc, double mxyc)
-         IntegrateConcreteLayered(ShellStrainState s, Diagramm cDiag)
+         IntegrateConcreteLayered(ShellStrainState s, Diagramm cDiag, bool? tensionOverride)
       {
          double h  = H;
          int    nl = NLayers < 1 ? 1 : NLayers;
@@ -421,8 +424,8 @@ namespace CScore
             double beta = SofteningModel == "vecchio_collins"
                ? VecchioCollinsBeta(eps1, SofteningEpsC2) : 1.0;
 
-            double sig1 = ConcreteStress(cDiag, eps1, beta);
-            double sig2 = ConcreteStress(cDiag, eps2, beta);
+            double sig1 = ConcreteStress(cDiag, eps1, beta, tensionOverride);
+            double sig2 = ConcreteStress(cDiag, eps2, beta, tensionOverride);
 
             RotateStressesToXY(sig1, sig2, theta, out double sigx, out double sigy, out double txy);
 
@@ -441,7 +444,7 @@ namespace CScore
 
       // ── Бетон: 1D по характерным точкам, по осям ───────────────────────────
       private (double nxc, double nyc, double nxyc, double mxc, double myc, double mxyc)
-         IntegrateConcreteChar1dAxial(ShellStrainState s, Diagramm cDiag)
+         IntegrateConcreteChar1dAxial(ShellStrainState s, Diagramm cDiag, bool? tensionOverride)
       {
          double h = H, zlo = -h / 2.0, zhi = h / 2.0;
          double[] crit = cDiag.GetCriticalStrains();
@@ -462,8 +465,8 @@ namespace CScore
             {
                double z  = mid + half * Gl5Pts[g];
                double w  = Gl5Wts[g] * half;
-               double sigx = ConcreteStress(cDiag, s.EpsX(z), 1.0);
-               double sigy = ConcreteStress(cDiag, s.EpsY(z), 1.0);
+               double sigx = ConcreteStress(cDiag, s.EpsX(z), 1.0, tensionOverride);
+               double sigy = ConcreteStress(cDiag, s.EpsY(z), 1.0, tensionOverride);
                double kf = w;          // σ[кПа=кН/м²]·dz[м] → кН/м
                nxc += sigx * kf;  mxc += sigx * kf * z;
                nyc += sigy * kf;  myc += sigy * kf * z;
@@ -486,7 +489,7 @@ namespace CScore
 
       // ── Бетон: 1D по характерным точкам, по главным (+softening) ───────────
       private (double nxc, double nyc, double nxyc, double mxc, double myc, double mxyc)
-         IntegrateConcreteChar1dPrincipal(ShellStrainState s, Diagramm cDiag)
+         IntegrateConcreteChar1dPrincipal(ShellStrainState s, Diagramm cDiag, bool? tensionOverride)
       {
          double h = H, zlo = -h / 2.0, zhi = h / 2.0;
          double[] crit = cDiag.GetCriticalStrains();
@@ -510,8 +513,8 @@ namespace CScore
                   out double eps1, out double eps2, out double theta);
                double beta = SofteningModel == "vecchio_collins"
                   ? VecchioCollinsBeta(eps1, SofteningEpsC2) : 1.0;
-               double sig1 = ConcreteStress(cDiag, eps1, beta);
-               double sig2 = ConcreteStress(cDiag, eps2, beta);
+               double sig1 = ConcreteStress(cDiag, eps1, beta, tensionOverride);
+               double sig2 = ConcreteStress(cDiag, eps2, beta, tensionOverride);
                RotateStressesToXY(sig1, sig2, theta, out double sigx, out double sigy, out double txy);
                double kf = w;
                nxc += sigx * kf;  mxc += sigx * kf * z;
@@ -608,10 +611,11 @@ namespace CScore
 
       // ── Напряжения материалов ──────────────────────────────────────────────
 
-      double ConcreteStress(Diagramm d, double eps, double beta)
+      double ConcreteStress(Diagramm d, double eps, double beta, bool? tensionOverride)
       {
+         bool tension = tensionOverride ?? TensionConcrete;
          if (eps > 0.0)
-            return TensionConcrete ? d.Sig(eps, out _, tenB: true) : 0.0;
+            return tension ? d.Sig(eps, out _, tenB: true) : 0.0;
          return beta * d.Sig(eps, out _, tenB: false);
       }
 
@@ -668,7 +672,8 @@ namespace CScore
       public ShellSecantStiffness ComputeSecant(
          ShellStrainState state,
          Diagramm cDiag, Diagramm rDiag,
-         IReadOnlyList<Diagramm?>? layerDiags = null)
+         IReadOnlyList<Diagramm?>? layerDiags = null,
+         bool? tensionOverride = null)
       {
          const double DEPS = 1e-7;
          // Начальный сжимающий модуль бетона (≥0), без ветви растяжения
@@ -694,8 +699,8 @@ namespace CScore
             double EsX, EsY;
             if (axial)
             {
-               double sigx = ConcreteStress(cDiag, ex, 1.0);
-               double sigy = ConcreteStress(cDiag, ey, 1.0);
+               double sigx = ConcreteStress(cDiag, ex, 1.0, tensionOverride);
+               double sigy = ConcreteStress(cDiag, ey, 1.0, tensionOverride);
                EsX = SecantOrE0(sigx, ex, E0c);
                EsY = SecantOrE0(sigy, ey, E0c);
             }
@@ -705,8 +710,8 @@ namespace CScore
                double beta = SofteningModel == "vecchio_collins"
                   ? VecchioCollinsBeta(eps1, SofteningEpsC2) : 1.0;
 
-               double sig1 = ConcreteStress(cDiag, eps1, beta);
-               double sig2 = ConcreteStress(cDiag, eps2, beta);
+               double sig1 = ConcreteStress(cDiag, eps1, beta, tensionOverride);
+               double sig2 = ConcreteStress(cDiag, eps2, beta, tensionOverride);
 
                double E1 = SecantOrE0(sig1, eps1, E0c);
                double E2 = SecantOrE0(sig2, eps2, E0c);

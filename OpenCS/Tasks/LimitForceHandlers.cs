@@ -33,7 +33,8 @@ static class LimitForceTaskHelper
          var solver = LimitForceSolvers.Create(section, task.CalcType,
             LimitForceParams.Parse(task.ParamsJson),
             newtonTol: settings.NewtonTolerance,
-            newtonMaxIter: settings.NewtonMaxIter);
+            newtonMaxIter: settings.NewtonMaxIter,
+            ten: settings.ResolveConcreteTension(task.CalcType));
 
          var res = mode switch
          {
@@ -81,7 +82,8 @@ static class LimitForceTaskHelper
                var clone = section.CloneForCalc();
                var solver = LimitForceSolvers.Create(clone, task.CalcType, parameters,
                   newtonTol: settings.NewtonTolerance,
-                  newtonMaxIter: settings.NewtonMaxIter);
+                  newtonMaxIter: settings.NewtonMaxIter,
+                  ten: settings.ResolveConcreteTension(task.CalcType));
                var res = Solve(solver, fi, mode);
                convergedArr[i] = res.Converged;
                rowResults[i] = BuildRow(fi, res);
@@ -91,7 +93,8 @@ static class LimitForceTaskHelper
          {
             var solver = LimitForceSolvers.Create(section, task.CalcType, parameters,
                newtonTol: settings.NewtonTolerance,
-               newtonMaxIter: settings.NewtonMaxIter);
+               newtonMaxIter: settings.NewtonMaxIter,
+               ten: settings.ResolveConcreteTension(task.CalcType));
             for (int i = 0; i < total; i++)
             {
                var fi = items[i];

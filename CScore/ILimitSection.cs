@@ -6,7 +6,7 @@ namespace CScore;
 public interface ILimitSection
 {
    /// <summary>Интеграл усилий при плоскости деформаций.</summary>
-   Load Integral(Kurvature k, CalcType calc);
+   Load Integral(Kurvature k, CalcType calc, bool ten = true);
 
    /// <summary>Вершины контура (внешний + отверстия) для проверки ε_cu.</summary>
    IEnumerable<(double X, double Y)> ContourVertices { get; }

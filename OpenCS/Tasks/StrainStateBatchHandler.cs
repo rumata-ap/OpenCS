@@ -33,6 +33,7 @@ public sealed class StrainStateBatchHandler : ITaskHandler
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx.Database.Diagrams,
                 rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+            bool ten = settings.ResolveConcreteTension(task.CalcType);
 
             var items = forceSet.Items;
             int total = items.Count;
@@ -45,7 +46,7 @@ public sealed class StrainStateBatchHandler : ITaskHandler
                 {
                     var fi    = items[i];
                     var clone = section.CloneForCalc();
-                    var solver = new StrainSolver(clone, task.CalcType,
+                    var solver = new StrainSolver(clone, task.CalcType, ten: ten,
                         tol:     settings.NewtonTolerance,
                         maxIter: settings.NewtonMaxIter,
                         h:       settings.NewtonDeltaH,
@@ -60,7 +61,7 @@ public sealed class StrainStateBatchHandler : ITaskHandler
                 for (int i = 0; i < total; i++)
                 {
                     var fi     = items[i];
-                    var solver = new StrainSolver(section, task.CalcType,
+                    var solver = new StrainSolver(section, task.CalcType, ten: ten,
                         tol:     settings.NewtonTolerance,
                         maxIter: settings.NewtonMaxIter,
                         h:       settings.NewtonDeltaH,

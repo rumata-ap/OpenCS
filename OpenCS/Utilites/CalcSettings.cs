@@ -99,6 +99,22 @@ namespace OpenCS.Utilites
       [JsonPropertyName("rebarDifferentialDiagram")]
       public bool RebarDifferentialDiagram { get; set; } = true;
 
+      /// <summary>
+      /// Учитывать работу бетона на растяжение при расчётах по 1-й ГПС (CalcType C/CL):
+      /// поиск предельных усилий и плоскости деформаций для стержневых и пластинчатых
+      /// сечений. На 2-ю ГПС (N/NL) не влияет — там растяжение бетона учитывается как раньше.
+      /// </summary>
+      [JsonPropertyName("considerConcreteTensionUls")]
+      public bool ConsiderConcreteTensionUls { get; set; } = false;
+
+      /// <summary>
+      /// Разрешить ли учёт растяжения бетона для стержневого сечения при данном виде
+      /// расчёта: для C/CL — по значению <see cref="ConsiderConcreteTensionUls"/>,
+      /// для N/NL — всегда true (без изменений).
+      /// </summary>
+      public bool ResolveConcreteTension(CScore.CalcType calc)
+         => calc is CScore.CalcType.C or CScore.CalcType.CL ? ConsiderConcreteTensionUls : true;
+
       /// <summary>γf по умолчанию для постоянной нагрузки (G), неблагоприятно.</summary>
       [JsonPropertyName("sp20GammaFG")]
       public double Sp20GammaFPermanent { get; set; } = 1.1;
@@ -144,6 +160,7 @@ namespace OpenCS.Utilites
          ShellNewtonTolRes     = ShellNewtonTolRes,
          SmoothColormap        = SmoothColormap,
          RebarDifferentialDiagram = RebarDifferentialDiagram,
+         ConsiderConcreteTensionUls = ConsiderConcreteTensionUls,
          Sp20GammaFPermanent      = Sp20GammaFPermanent,
          Sp20GammaFPermanentFav   = Sp20GammaFPermanentFav,
          Sp20GammaFLongTerm       = Sp20GammaFLongTerm,

@@ -39,6 +39,7 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
             rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
          tss.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
             rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+         bool ten = settings.ResolveConcreteTension(task.CalcType);
 
          int total = s2Items.Count;
          var rows  = new object[total];
@@ -48,7 +49,7 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
          Kurvature? sharedK1 = null;
          if (stage1Fixed)
          {
-            var s1Solver = new StrainSolver(tss.Stage1, task.CalcType,
+            var s1Solver = new StrainSolver(tss.Stage1, task.CalcType, ten: ten,
                tol: settings.NewtonTolerance, maxIter: settings.NewtonMaxIter, h: settings.NewtonDeltaH);
             sharedK1 = s1Solver.Solve(s1Items[0].N, s1Items[0].Mx, s1Items[0].My);
          }
@@ -69,14 +70,14 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
             else
             {
                var f1 = s1Items[i];
-               var s1Solver = new StrainSolver(clone.Stage1, task.CalcType,
+               var s1Solver = new StrainSolver(clone.Stage1, task.CalcType, ten: ten,
                   tol: settings.NewtonTolerance, maxIter: settings.NewtonMaxIter, h: settings.NewtonDeltaH);
                k1 = s1Solver.Solve(f1.N, f1.Mx, f1.My);
             }
             clone.Stage1Kurvature = k1;
 
             var f2 = s2Items[i];
-            var s2Solver = new StrainSolver(clone, task.CalcType,
+            var s2Solver = new StrainSolver(clone, task.CalcType, ten: ten,
                tol: settings.NewtonTolerance, maxIter: settings.NewtonMaxIter, h: settings.NewtonDeltaH);
             var k = s2Solver.Solve(f2.N, f2.Mx, f2.My);
 

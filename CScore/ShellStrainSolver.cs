@@ -38,22 +38,25 @@ namespace CScore
       readonly int _maxIter;
       readonly double _hDiff;
       readonly bool _central;
+      readonly bool? _tensionOverride;
 
       public ShellStrainSolver(PlateSection section, Diagramm cDiag, Diagramm rDiag,
          IReadOnlyList<Diagramm?>? layerDiags = null,
          double tolRes = 1e-3, double tolStep = 1e-10, int maxIter = 25,
-         double hDiff = 1e-7, bool centralJacobian = false)
+         double hDiff = 1e-7, bool centralJacobian = false,
+         bool? tensionOverride = null)
       {
          _section = section; _cDiag = cDiag; _rDiag = rDiag; _layerDiags = layerDiags;
          _tolRes = tolRes; _tolStep = tolStep; _maxIter = maxIter;
          _hDiff = hDiff; _central = centralJacobian;
+         _tensionOverride = tensionOverride;
       }
 
       /// <summary>Вектор усилий R(ε) = [Nx,Ny,Nxy,Mx,My,Mxy].</summary>
       double[] Eval(double[] e, out ShellResult res)
       {
          var state = ShellStrainState.FromArray(e);
-         res = _section.Compute(state, _cDiag, _rDiag, _layerDiags, computeStiffness: false);
+         res = _section.Compute(state, _cDiag, _rDiag, _layerDiags, computeStiffness: false, tensionOverride: _tensionOverride);
          return new[] { res.Nx, res.Ny, res.Nxy, res.Mx, res.My, res.Mxy };
       }
 
@@ -247,7 +250,7 @@ namespace CScore
       ShellStrainSolverResult Finalize(double[] e, bool conv, int it, double res, string strategy)
       {
          var state = ShellStrainState.FromArray(e);
-         var full = _section.Compute(state, _cDiag, _rDiag, _layerDiags, computeStiffness: true);
+         var full = _section.Compute(state, _cDiag, _rDiag, _layerDiags, computeStiffness: true, tensionOverride: _tensionOverride);
          return new ShellStrainSolverResult
          {
             StrainState = state, Forces = full,

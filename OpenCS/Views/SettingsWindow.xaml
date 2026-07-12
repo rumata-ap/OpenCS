@@ -360,6 +360,10 @@
                                           Content="{DynamicResource CalcSettingsRebarDifferentialDiagram}"
                                           ToolTip="{DynamicResource CalcSettingsRebarDifferentialDiagramTip}"
                                           Margin="4,6,4,6"/>
+                                <CheckBox x:Name="ConsiderConcreteTensionUlsCb"
+                                          Content="{DynamicResource CalcSettingsConsiderConcreteTensionUls}"
+                                          ToolTip="{DynamicResource CalcSettingsConsiderConcreteTensionUlsTip}"
+                                          Margin="4,2,4,6"/>
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="{DynamicResource CalcSettingsBatchGroup}" Margin="0,0,0,10">

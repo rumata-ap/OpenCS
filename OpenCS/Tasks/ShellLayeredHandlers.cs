@@ -42,7 +42,8 @@ public sealed class ShellLayeredUlsHandler : ITaskHandler
 
             var chk = ShellLayeredCheck.CheckUls(plate, shell, concreteMat, rebarMat,
                 task.CalcType, plate.ConcreteDiagramType,
-                out var st, out var f, out var sec);
+                out var st, out var f, out var sec,
+                tensionOverride: settings.ConsiderConcreteTensionUls);
 
             bool passed = chk.Converged && chk.Passed;
             string status = !chk.Converged ? "not_converged"
@@ -135,7 +136,8 @@ public sealed class ShellLayeredUlsBatchHandler : ITaskHandler
             {
                 var chk = ShellLayeredCheck.CheckUls(plate, si, concreteMat, rebarMat,
                     task.CalcType, plate.ConcreteDiagramType,
-                    out _, out _, out _);
+                    out _, out _, out _,
+                    tensionOverride: settings.ConsiderConcreteTensionUls);
 
                 bool passed = chk.Converged && chk.Passed;
                 if (passed) passedCount++;

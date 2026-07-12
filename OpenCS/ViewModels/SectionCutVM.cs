@@ -16,6 +16,7 @@ public sealed class SectionCutVM : ViewModelBase
     readonly CalcType _calcType;
     readonly IFileDialogService _fileDialogService;
     readonly List<(MaterialArea Area, Kurvature Ka)> _regionAreas;
+    readonly bool _ten;
 
     (double X, double Y)? _p1;
     (double X, double Y)? _p2;
@@ -136,12 +137,13 @@ public sealed class SectionCutVM : ViewModelBase
 
     void ClearRebarOverrides() => _rebarLengthPxOverrides.Clear();
 
-    public SectionCutVM(CrossSection section, Kurvature k, CalcType calcType, IFileDialogService fileDialogService)
+    public SectionCutVM(CrossSection section, Kurvature k, CalcType calcType, IFileDialogService fileDialogService, bool ten = true)
     {
         _section = section;
         _k = k;
         _calcType = calcType;
         _fileDialogService = fileDialogService;
+        _ten = ten;
         _regionAreas = section.EnumerateAreas(k)
             .Where(t => t.area.Hull != null && t.area.Diagramms.ContainsKey(calcType))
             .ToList();
@@ -226,7 +228,7 @@ public sealed class SectionCutVM : ViewModelBase
     {
         if (_p1 == null) return;
         ClearRebarOverrides();
-        Result = SectionCutBuilder.Build(_section, _k, _calcType, Mode, _p1.Value, _p2, RebarThresholdM);
+        Result = SectionCutBuilder.Build(_section, _k, _calcType, Mode, _p1.Value, _p2, RebarThresholdM, tenB: _ten);
         OnPropertyChanged(nameof(HasPendingPoint));
         OnPropertyChanged(nameof(Result));
         RequestFit();

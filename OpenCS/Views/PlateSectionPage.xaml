@@ -102,10 +102,12 @@
                   </ComboBox>
 
                   <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource PlateTensionConcrete}"
-                             VerticalAlignment="Center" Margin="0,0,8,4"/>
+                             VerticalAlignment="Center" Margin="0,0,8,4"
+                             ToolTip="{DynamicResource PlateTensionConcreteTip}"/>
                   <CheckBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,4"
                             IsChecked="{Binding TensionConcrete, Mode=TwoWay}"
-                            VerticalAlignment="Center"/>
+                            VerticalAlignment="Center"
+                            ToolTip="{DynamicResource PlateTensionConcreteTip}"/>
 
                   <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource PlateSofteningModel}"
                              VerticalAlignment="Center" Margin="0,0,8,4"/>

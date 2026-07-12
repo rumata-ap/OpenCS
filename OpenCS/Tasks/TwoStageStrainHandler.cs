@@ -33,19 +33,20 @@ public sealed class TwoStageStrainHandler : ITaskHandler
             rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
          tss.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
             rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+         bool ten = settings.ResolveConcreteTension(task.CalcType);
 
          // Этап 1: решаем сечение этапа 1 как обычное CrossSection → κ1
-         var s1Solver = new StrainSolver(tss.Stage1, task.CalcType,
+         var s1Solver = new StrainSolver(tss.Stage1, task.CalcType, ten: ten,
             tol: settings.NewtonTolerance, maxIter: settings.NewtonMaxIter, h: settings.NewtonDeltaH);
          var k1 = s1Solver.Solve(f1.N, f1.Mx, f1.My);
          tss.Stage1Kurvature = k1;
 
          // Этап 2: составное сечение под полным усилием этапа 2
-         var s2Solver = new StrainSolver(tss, task.CalcType,
+         var s2Solver = new StrainSolver(tss, task.CalcType, ten: ten,
             tol: settings.NewtonTolerance, maxIter: settings.NewtonMaxIter, h: settings.NewtonDeltaH);
          var k = s2Solver.Solve(f2.N, f2.Mx, f2.My);
-         var res    = tss.Integral(k, task.CalcType);
-         var resS1  = tss.Stage1.Integral(k1, task.CalcType);
+         var res    = tss.Integral(k, task.CalcType, ten);
+         var resS1  = tss.Stage1.Integral(k1, task.CalcType, ten);
 
          var data = new
          {

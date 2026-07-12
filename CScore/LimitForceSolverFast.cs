@@ -21,6 +21,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
    readonly int _bisectMaxIter;
    readonly double _solverTol;
    readonly int _solverMaxIter;
+   readonly bool _ten;
 
    readonly List<(double X, double Y)> _contourPts;
    readonly List<(double X, double Y, double EpsSu)> _rebarLimits;
@@ -40,7 +41,8 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       double bisectTol = 1e-4,
       int bisectMaxIter = 60,
       double solverTol = 0.5,
-      int solverMaxIter = 60)
+      int solverMaxIter = 60,
+      bool ten = true)
    {
       _section = section ?? throw new ArgumentNullException(nameof(section));
       _calc = calc;
@@ -51,11 +53,12 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       _bisectMaxIter = bisectMaxIter;
       _solverTol = solverTol;
       _solverMaxIter = solverMaxIter;
+      _ten = ten;
 
       _adapter = new CrossSectionLimitAdapter(section, calc);
       _contourPts = _adapter.ContourVertices.ToList();
       _rebarLimits = _adapter.RebarPoints.ToList();
-      _strainSolver = new LimitSectionStrainSolver(_adapter, section, calc, solverTol, solverMaxIter);
+      _strainSolver = new LimitSectionStrainSolver(_adapter, section, calc, solverTol, solverMaxIter, ten: ten);
       _epsCu = _adapter.EpsCu;
 
       if (_contourPts.Count == 0)
@@ -932,7 +935,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
    {
       var bisect = LimitForceSolver.ForCrossSection(_section, _calc,
          solverTol: _solverTol, solverMaxIter: _solverMaxIter,
-         bisectTol: _bisectTol, bisectMaxIter: _bisectMaxIter);
+         bisectTol: _bisectTol, bisectMaxIter: _bisectMaxIter, ten: _ten);
       return mode switch
       {
          SolveMode.Moment => bisect.MomentFactor(n, mx, my),
@@ -978,7 +981,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
 
    (double N, double Mx, double My) Forces(Kurvature sp)
    {
-      var r = _section.Compute(sp, _calc, computeStiffness: false);
+      var r = _section.Compute(sp, _calc, _ten, computeStiffness: false);
       return (r.N, r.Mx, r.My);
    }
 

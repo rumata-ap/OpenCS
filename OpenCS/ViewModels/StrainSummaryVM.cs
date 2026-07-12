@@ -66,7 +66,7 @@ namespace OpenCS.ViewModels
 
         public record RebarRow(int Num, string X, string Y, string Eps, string Sigma);
 
-        public StrainSummaryVM(CalcResult result, CrossSection section, CalcType calcType, CalcSettings? settings = null)
+        public StrainSummaryVM(CalcResult result, CrossSection section, CalcType calcType, CalcSettings? settings = null, bool ten = true)
         {
             int gridDensity = settings?.GridDensity ?? 20;
             ShowRebarAreaNote = ShouldShowRebarAreaNote(section, settings);
@@ -109,7 +109,7 @@ namespace OpenCS.ViewModels
             EpsMaxText  = epsMax.HasValue ? $"{epsMax.Value:+0.000000;-0.000000}" : "—";
 
             // Жёсткости
-            var stiff = ComputeStiffness(section, k, calcType, gridDensity);
+            var stiff = ComputeStiffness(section, k, calcType, gridDensity, ten);
             HasStiffness = stiff != null;
             if (stiff != null)
             {
@@ -186,7 +186,7 @@ namespace OpenCS.ViewModels
             return (vals.Min(), vals.Max());
         }
 
-        static StiffnessResult? ComputeStiffness(CrossSection section, Kurvature k, CalcType calcType, int gridDensity = 20)
+        static StiffnessResult? ComputeStiffness(CrossSection section, Kurvature k, CalcType calcType, int gridDensity = 20, bool ten = true)
         {
             // Единицы ввода: площадь [м²], координаты [м], E [МПа=Н/мм²]
             // Единицы вывода: EA [кН], EI [кН·м²], ц.т. [мм]
@@ -240,7 +240,7 @@ namespace OpenCS.ViewModels
                         double cy_mm = cell.Average(p => p.Y);
                         if (holesMm.Any(h => PointInPolyMm(cx_mm, cy_mm, h))) continue;
                         double eps_c = ka.e0 + ka.ky * (cy_mm / 1000) + ka.kz * (cx_mm / 1000);
-                        double sig_c = dgr.SigValue(eps_c) / 1000.0;
+                        double sig_c = dgr.SigValue(eps_c, ten) / 1000.0;
                         double Es = Math.Abs(eps_c) > 1e-9 ? Math.Abs(sig_c / eps_c) : E0;
                         double cellAmm2 = PolygonAreaMm2(cell);
                         Acc(Es, E0, cellAmm2, cx_mm, cy_mm,
