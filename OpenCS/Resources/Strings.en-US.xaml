@@ -639,11 +639,12 @@
    <system:String x:Key="PlateModelChar1dPrincipal">1D char. points (principal)</system:String>
    <system:String x:Key="PlateModelChar1dAxial">1D char. points (axial)</system:String>
    <system:String x:Key="PlateConcreteDiagramType">Concrete diagram:</system:String>
-   <system:String x:Key="DiagramTypeL2">Bilinear (L2)</system:String>
-   <system:String x:Key="DiagramTypeL3">Trilinear (L3)</system:String>
-   <system:String x:Key="DiagramTypeSP63">Curvilinear SP63</system:String>
-   <system:String x:Key="DiagramTypeEKB">Nonlinear EN 1992 / CEB (EKB)</system:String>
-   <system:String x:Key="DiagramTypeSP35">Parabolic-rectangular EN 1992 / SP35</system:String>
+   <system:String x:Key="DiagramTypeL2">Bilinear (SP63)</system:String>
+   <system:String x:Key="DiagramTypeL3">Trilinear (SP63)</system:String>
+   <system:String x:Key="DiagramTypeSP63">Curvilinear (SP63)</system:String>
+   <system:String x:Key="DiagramTypeEKB">Curvilinear (EKB/EN)</system:String>
+   <system:String x:Key="DiagramTypeSP35">Curvilinear (SP35/EN)</system:String>
+   <system:String x:Key="DiagramTypeSP16">Multi-segment (SP16)</system:String>
    <system:String x:Key="AddRebarLayer">Add layer</system:String>
    <system:String x:Key="DeleteRebarLayer">Delete layer</system:String>
 
@@ -691,13 +692,13 @@
    <system:String x:Key="MeshDisplayMode">Display</system:String>
    <system:String x:Key="MeshDisplayCentroids">Centroids</system:String>
    <system:String x:Key="MeshDisplayElements">Elements</system:String>
-   <system:String x:Key="MeshMaxArea">Max area</system:String>
-   <system:String x:Key="MeshMinAngle">Min angle, °</system:String>
-   <system:String x:Key="MeshMaxEdgeLen">Edge length</system:String>
-   <system:String x:Key="MeshSmoothIter">Smooth iter.</system:String>
+   <system:String x:Key="MeshMaxArea">Maximum area</system:String>
+   <system:String x:Key="MeshMinAngle">Minimum angle, °</system:String>
+   <system:String x:Key="MeshMaxEdgeLen">Triangle edge length</system:String>
+   <system:String x:Key="MeshSmoothIter">Smoothing iterations</system:String>
    <system:String x:Key="MeshDialogTitle">Mesh Configuration</system:String>
-   <system:String x:Key="MeshNX">NX:</system:String>
-   <system:String x:Key="MeshNY">NY:</system:String>
+   <system:String x:Key="MeshNX">Number of divisions along X</system:String>
+   <system:String x:Key="MeshNY">Number of divisions along Y</system:String>
 
    <!-- DXF MaterialArea import -->
    <system:String x:Key="DxfModeHull">Hull</system:String>

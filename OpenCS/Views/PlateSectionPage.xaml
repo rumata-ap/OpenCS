@@ -92,9 +92,14 @@
                   <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource PlateConcreteDiagramType}"
                              VerticalAlignment="Center" Margin="0,0,8,4"/>
                   <ComboBox  Grid.Row="2" Grid.Column="1" Margin="0,0,0,4"
-                             ItemsSource="{Binding ConcreteDiagramTypeOptions}"
-                             SelectedValuePath="Key" DisplayMemberPath="Display"
-                             SelectedValue="{Binding ConcreteDiagramType, Mode=TwoWay}"/>
+                             SelectedValue="{Binding ConcreteDiagramType, Mode=TwoWay}"
+                             SelectedValuePath="Tag">
+                     <ComboBoxItem Tag="L2"   Content="{DynamicResource DiagramTypeL2}"/>
+                     <ComboBoxItem Tag="L3"   Content="{DynamicResource DiagramTypeL3}"/>
+                     <ComboBoxItem Tag="SP63" Content="{DynamicResource DiagramTypeSP63}"/>
+                     <ComboBoxItem Tag="EKB"  Content="{DynamicResource DiagramTypeEKB}"/>
+                     <ComboBoxItem Tag="SP35" Content="{DynamicResource DiagramTypeSP35}"/>
+                  </ComboBox>
 
                   <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource PlateTensionConcrete}"
                              VerticalAlignment="Center" Margin="0,0,8,4"/>

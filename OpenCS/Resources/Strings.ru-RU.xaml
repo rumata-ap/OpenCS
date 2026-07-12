@@ -642,11 +642,12 @@
    <system:String x:Key="PlateModelChar1dPrincipal">1D по характ. точкам (по главным)</system:String>
    <system:String x:Key="PlateModelChar1dAxial">1D по характ. точкам (по осям)</system:String>
    <system:String x:Key="PlateConcreteDiagramType">Диаграмма бетона:</system:String>
-   <system:String x:Key="DiagramTypeL2">Двухлинейная (L2)</system:String>
-   <system:String x:Key="DiagramTypeL3">Трёхлинейная (L3)</system:String>
-   <system:String x:Key="DiagramTypeSP63">Криволинейная СП 63 (SP63)</system:String>
-   <system:String x:Key="DiagramTypeEKB">Нелинейная EN 1992 / ЕКБ (EKB)</system:String>
-   <system:String x:Key="DiagramTypeSP35">Параболическо-прямоугольная EN 1992 / СП 35 (SP35)</system:String>
+   <system:String x:Key="DiagramTypeL2">Двухлинейная (СП63)</system:String>
+   <system:String x:Key="DiagramTypeL3">Трёхлинейная (СП63)</system:String>
+   <system:String x:Key="DiagramTypeSP63">Криволинейная (СП63)</system:String>
+   <system:String x:Key="DiagramTypeEKB">Криволинейная (EKB/EN)</system:String>
+   <system:String x:Key="DiagramTypeSP35">Криволинейная (СП35/EN)</system:String>
+   <system:String x:Key="DiagramTypeSP16">Многосегментная (СП16)</system:String>
    <system:String x:Key="AddRebarLayer">Добавить слой</system:String>
    <system:String x:Key="DeleteRebarLayer">Удалить слой</system:String>
 
@@ -694,13 +695,13 @@
    <system:String x:Key="MeshDisplayMode">Отображение</system:String>
    <system:String x:Key="MeshDisplayCentroids">Центроиды</system:String>
    <system:String x:Key="MeshDisplayElements">Элементы</system:String>
-   <system:String x:Key="MeshMaxArea">Макс. площадь</system:String>
-   <system:String x:Key="MeshMinAngle">Мин. угол, °</system:String>
-   <system:String x:Key="MeshMaxEdgeLen">Дл. ребра</system:String>
-   <system:String x:Key="MeshSmoothIter">Итер. сглаж.</system:String>
+   <system:String x:Key="MeshMaxArea">Максимальная площадь</system:String>
+   <system:String x:Key="MeshMinAngle">Минимальный угол, °</system:String>
+   <system:String x:Key="MeshMaxEdgeLen">Длина ребра треугольника</system:String>
+   <system:String x:Key="MeshSmoothIter">Итерации сглаживания</system:String>
    <system:String x:Key="MeshDialogTitle">Настройка сетки</system:String>
-   <system:String x:Key="MeshNX">NX:</system:String>
-   <system:String x:Key="MeshNY">NY:</system:String>
+   <system:String x:Key="MeshNX">Число участков по X</system:String>
+   <system:String x:Key="MeshNY">Число участков по Y</system:String>
 
    <!-- DXF MaterialArea import -->
    <system:String x:Key="DxfModeHull">Hull</system:String>
