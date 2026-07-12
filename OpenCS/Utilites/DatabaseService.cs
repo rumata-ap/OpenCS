@@ -347,7 +347,8 @@ namespace OpenCS.Utilites
                 elem_type     TEXT NOT NULL DEFAULT 'beam',
                 node_ids_json TEXT NOT NULL DEFAULT '[]',
                 section_tag   TEXT,
-                material_tag  TEXT
+                material_tag  TEXT,
+                thickness_m   REAL
             );
             CREATE TABLE IF NOT EXISTS fem_members (
                 id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -479,7 +480,8 @@ namespace OpenCS.Utilites
                 elem_type     TEXT NOT NULL DEFAULT 'beam',
                 node_ids_json TEXT NOT NULL DEFAULT '[]',
                 section_tag   TEXT,
-                material_tag  TEXT
+                material_tag  TEXT,
+                thickness_m   REAL
             );
             CREATE TABLE IF NOT EXISTS fem_members (
                 id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -516,7 +518,8 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE force_sets ADD COLUMN source_schema_id   INTEGER");
          if (!ColumnExists("force_sets", "source_element_tag"))
             MigExec("ALTER TABLE force_sets ADD COLUMN source_element_tag TEXT");
-         if (!ColumnExists("calc_results", "fem_check_id"))
+         if (!ColumnExists("fem_elements", "thickness_m"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN thickness_m REAL");
             MigExec("ALTER TABLE calc_results ADD COLUMN fem_check_id INTEGER");
       }
 
@@ -2550,14 +2553,15 @@ namespace OpenCS.Utilites
 
             using var elemCmd = _connection.CreateCommand();
             elemCmd.CommandText = """
-               INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, section_tag)
-               VALUES (@sid, @tag, @etype, @nids, @stag)
+               INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m)
+               VALUES (@sid, @tag, @etype, @nids, @stag, @thk)
             """;
             elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
             elemCmd.Parameters.Add("@tag",  Microsoft.Data.Sqlite.SqliteType.Text);
             elemCmd.Parameters.Add("@etype",Microsoft.Data.Sqlite.SqliteType.Text);
             elemCmd.Parameters.Add("@nids", Microsoft.Data.Sqlite.SqliteType.Text);
             elemCmd.Parameters.Add("@stag", Microsoft.Data.Sqlite.SqliteType.Text);
+            elemCmd.Parameters.Add("@thk",  Microsoft.Data.Sqlite.SqliteType.Real);
             foreach (var e in elements)
             {
                elemCmd.Parameters["@sid"].Value   = schemaId;
@@ -2565,6 +2569,7 @@ namespace OpenCS.Utilites
                elemCmd.Parameters["@etype"].Value = e.ElemType;
                elemCmd.Parameters["@nids"].Value  = e.NodeIdsJson;
                elemCmd.Parameters["@stag"].Value  = (object?)e.SectionTag ?? DBNull.Value;
+               elemCmd.Parameters["@thk"].Value   = e.ThicknessM.HasValue ? e.ThicknessM.Value : DBNull.Value;
                elemCmd.ExecuteNonQuery();
             }
 
@@ -2686,7 +2691,7 @@ namespace OpenCS.Utilites
       {
          var result = new List<CScore.Fem.FemElement>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag FROM fem_elements WHERE schema_id=@sid";
+         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m FROM fem_elements WHERE schema_id=@sid";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var rdr = cmd.ExecuteReader();
          while (rdr.Read())
@@ -2698,6 +2703,7 @@ namespace OpenCS.Utilites
                ElemType    = rdr.GetString(2),
                NodeIdsJson = rdr.GetString(3),
                SectionTag  = rdr.IsDBNull(4) ? null : rdr.GetString(4),
+               ThicknessM  = rdr.IsDBNull(5) ? null : rdr.GetDouble(5),
             });
          return result;
       }

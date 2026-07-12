@@ -195,6 +195,22 @@ namespace OpenCS
          set { _isBusy = value; OnPropertyChanged(); }
       }
 
+      double _busyProgress;
+      /// <summary>Прогресс длительной операции (0…1) для StatusBar.</summary>
+      public double BusyProgress
+      {
+         get => _busyProgress;
+         set { _busyProgress = value; OnPropertyChanged(); }
+      }
+
+      bool _isBusyProgressIndeterminate = true;
+      /// <summary>true — бегущий индикатор; false — определённый BusyProgress.</summary>
+      public bool IsBusyProgressIndeterminate
+      {
+         get => _isBusyProgressIndeterminate;
+         set { _isBusyProgressIndeterminate = value; OnPropertyChanged(); }
+      }
+
       /// <summary>
       /// Имя файла проекта для отображения в заголовке дерева.
       /// </summary>
@@ -437,6 +453,15 @@ namespace OpenCS
 
       /// <summary>Команда импорта топологии расчётной схемы из текстового формата SCAD.</summary>
       public ICommand ImportScadTopologyFromTxtCommand { get; set; } = null!;
+
+      /// <summary>Команда импорта стержневых усилий (загружения) из XLS-отчёта SCAD.</summary>
+      public ICommand ImportScadForcesLoadCasesCommand { get; set; } = null!;
+
+      /// <summary>Команда импорта стержневых усилий (РСУ) из XLS-отчёта SCAD.</summary>
+      public ICommand ImportScadForcesRsuCommand { get; set; } = null!;
+
+      /// <summary>Команда импорта усилий РСН (комбинации) из XLS-отчёта SCAD.</summary>
+      public ICommand ImportScadForcesCombinationsCommand { get; set; } = null!;
 
       /// <summary>Команда импорта расчётной схемы из запущенной ЛираСАПР через COM API.</summary>
       public ICommand ImportLiraSchemaFromApiCommand { get; set; } = null!;
@@ -1141,6 +1166,9 @@ namespace OpenCS
           DeleteSelectedForceSetsCommand = new RelayCommand(p => DeleteSelectedForceSets(p as CScore.Fem.FemSchema));
          ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
          ImportScadTopologyFromTxtCommand = new RelayCommand(_ => ImportScadTopologyFromTxt());
+         ImportScadForcesLoadCasesCommand = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.LoadCases));
+         ImportScadForcesRsuCommand       = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.Rsu));
+         ImportScadForcesCombinationsCommand = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.Combinations));
          ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
          ImportLiraForcesFromApiCommand  = new RelayCommand(_ => ImportLiraForcesFromApi());
          ImportLiraRsnFromApiCommand     = new RelayCommand(_ => ImportLiraRsnFromApi());
@@ -2497,6 +2525,120 @@ namespace OpenCS
             nodes.Length, barCount, shellCount, members.Length, data.Groups.Count));
       }
 
+      async void ImportScadForces(CScore.Import.ScadXlsImportMode mode)
+      {
+         string? fileName = FileDialogService.OpenFile(
+            filter: Loc.S("ScadXlsFileFilter"),
+            title: mode switch
+            {
+               CScore.Import.ScadXlsImportMode.LoadCases => Loc.S("ImportScadForcesTitleLoadCases"),
+               CScore.Import.ScadXlsImportMode.Combinations => Loc.S("ImportScadForcesTitleCombinations"),
+               _ => Loc.S("ImportScadForcesTitleRsu"),
+            });
+         if (string.IsNullOrEmpty(fileName)) return;
+
+         string? seed = null;
+         if (currentFemMember != null)
+         {
+            try
+            {
+               var ids = System.Text.Json.JsonSerializer.Deserialize<int[]>(currentFemMember.ElemIdsJson) ?? [];
+               if (ids.Length > 0)
+                  seed = string.Join(", ", ids);
+            }
+            catch { /* ignore bad json */ }
+         }
+
+         var dlg = new Views.ScadForceImportDialog(seed) { Owner = System.Windows.Application.Current.MainWindow };
+         if (dlg.ShowDialog() != true) return;
+
+         HashSet<int> elementIds = [];
+         if (!dlg.ImportAllElements)
+         {
+            if (!CScore.Import.ScadElementIdParser.TryParse(dlg.ElementText, out elementIds, out var parseError))
+            {
+               System.Windows.MessageBox.Show(
+                  parseError ?? Loc.S("ImportScadFailed"),
+                  Loc.S("ImportScadErrorTitle"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               return;
+            }
+         }
+
+         // Толщина пластин: A из XLS (внутри импортёра) поверх B из FEM-схемы; иначе поле диалога.
+         var thicknessFromTopology = new Dictionary<int, double>();
+         var schemaForThk = currentFemMember != null
+            ? FemSchemas.FirstOrDefault(s => s.Id == currentFemMember.SchemaId)
+            : currentFemSchema;
+         if (schemaForThk != null)
+         {
+            foreach (var el in db.GetFemElements(schemaForThk.Id))
+            {
+               if (el.ThicknessM is not > 0) continue;
+               if (!int.TryParse(el.ElemTag, out int scadId)) continue;
+               thicknessFromTopology[scadId] = el.ThicknessM.Value;
+            }
+         }
+
+         var options = new CScore.Import.ScadXlsImportOptions
+         {
+            TonToKnFactor = LiraImportSettings.TonToKnFactor,
+            InvertBarBendingMoments = LiraImportSettings.InvertBarBendingMoments,
+            ElementIds = elementIds,
+            ImportAllElements = dlg.ImportAllElements,
+            DefaultThicknessM = dlg.ThicknessMm / 1000.0,
+            ElementThicknessM = thicknessFromTopology,
+         };
+
+         BeginBusy(Loc.S("ImportScadForcesStarted"), indeterminate: false);
+         try
+         {
+            var progress = new Progress<CScore.Import.ScadXlsProgress>(p =>
+               ReportBusyProgress(p.Fraction, string.IsNullOrEmpty(p.Message) ? null : p.Message));
+
+            var import = await Task.Run(() =>
+               CScore.Import.ScadXlsForceImporter.ImportFile(fileName, mode, options, progress));
+
+            if (!import.Success)
+            {
+               EndBusy();
+               System.Windows.MessageBox.Show(
+                  import.Error ?? import.Warning ?? Loc.S("ImportScadForcesNoRows"),
+                  Loc.S("ImportScadErrorTitle"),
+                  MessageBoxButton.OK,
+                  import.Error != null ? MessageBoxImage.Error : MessageBoxImage.Warning);
+               return;
+            }
+
+            if (!string.IsNullOrEmpty(import.Warning))
+               LogService.Warning(import.Warning);
+
+            ReportBusyProgress(0.97, Loc.S("ImportScadForcesSaving"));
+            int memberId = currentFemMember?.Id ?? 0;
+            int nextNum = ForceSets.Count > 0 ? ForceSets.Max(f => f.Num) + 1 : 1;
+            foreach (var fs in import.ForceSets)
+            {
+               fs.Num = nextNum++;
+               if (memberId > 0)
+                  fs.SourceMemberId = memberId;
+               db.SaveForceSet(fs);
+               if (!ForceSets.Contains(fs))
+                  ForceSets.Add(fs);
+            }
+
+            string done = string.Format(Loc.S("ImportScadForcesSuccess"),
+               import.ForceSets.Count, import.RowsMatched);
+            LogService.Info(done + " — " + Path.GetFileName(fileName));
+            EndBusy(done);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            System.Windows.MessageBox.Show(ex.Message, Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Error);
+         }
+      }
+
       void BuildFemRootNodes()
       {
          femSchemasGroup = new ViewModels.FemSchemasGroupNode(FemSchemas, db, ForceSets);
@@ -2733,15 +2875,26 @@ namespace OpenCS
          }
       }
 
-      void BeginBusy(string message)
+      void BeginBusy(string message, bool indeterminate = true)
       {
          StatusMessage = message;
+         IsBusyProgressIndeterminate = indeterminate;
+         BusyProgress = 0;
          IsBusy = true;
+      }
+
+      void ReportBusyProgress(double fraction, string? message = null)
+      {
+         BusyProgress = Math.Clamp(fraction, 0, 1);
+         if (message != null)
+            StatusMessage = message;
       }
 
       void EndBusy(string? message = null)
       {
          IsBusy = false;
+         IsBusyProgressIndeterminate = true;
+         BusyProgress = 0;
          StatusMessage = message ?? "";
       }
 
