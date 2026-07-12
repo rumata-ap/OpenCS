@@ -13,6 +13,7 @@ public sealed class LimitForceSolver : ILimitForceSolver
    readonly double _solverTol;
    readonly double _bisectTol;
    readonly int _bisectMaxIter;
+   readonly bool _ten;
 
    /// <summary>Создаёт бисекционный решатель предельных усилий.</summary>
    public LimitForceSolver(
@@ -23,7 +24,8 @@ public sealed class LimitForceSolver : ILimitForceSolver
       int solverMaxIter = 60,
       double solverStep = 1e-7,
       double bisectTol = 1e-4,
-      int bisectMaxIter = 60)
+      int bisectMaxIter = 60,
+      bool ten = true)
    {
       _section = section ?? throw new ArgumentNullException(nameof(section));
       _guessSection = guessSection ?? (section is CrossSectionLimitAdapter adapter
@@ -36,7 +38,8 @@ public sealed class LimitForceSolver : ILimitForceSolver
       _solverTol = solverTol;
       _bisectTol = bisectTol;
       _bisectMaxIter = bisectMaxIter;
-      _solver = new LimitSectionStrainSolver(section, _guessSection, calc, solverTol, solverMaxIter, solverStep);
+      _ten = ten;
+      _solver = new LimitSectionStrainSolver(section, _guessSection, calc, solverTol, solverMaxIter, solverStep, ten);
    }
 
    /// <summary>Создаёт решатель для обычного сечения через адаптер.</summary>
@@ -46,9 +49,10 @@ public sealed class LimitForceSolver : ILimitForceSolver
       double solverTol = 0.5,
       int solverMaxIter = 60,
       double bisectTol = 1e-4,
-      int bisectMaxIter = 60)
+      int bisectMaxIter = 60,
+      bool ten = true)
       => new(new CrossSectionLimitAdapter(section, calc), section, calc,
-         solverTol, solverMaxIter, bisectTol: bisectTol, bisectMaxIter: bisectMaxIter);
+         solverTol, solverMaxIter, bisectTol: bisectTol, bisectMaxIter: bisectMaxIter, ten: ten);
 
    /// <inheritdoc/>
    public LimitForceResult AllFactor(double n, double mx, double my)
@@ -235,7 +239,7 @@ public sealed class LimitForceSolver : ILimitForceSolver
       if (!_solver.Converged || _solver.Residual > _solverTol)
          return false;
 
-      Load act = _section.Integral(k, _calc);
+      Load act = _section.Integral(k, _calc, _ten);
       double resid = Math.Sqrt(
          Math.Pow(act.N - n, 2) +
          Math.Pow(act.Mx - mx, 2) +

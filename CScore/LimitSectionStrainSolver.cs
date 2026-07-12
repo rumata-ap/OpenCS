@@ -16,6 +16,7 @@ public sealed class LimitSectionStrainSolver
    readonly double _tol;
    readonly int _maxIter;
    readonly double _h;
+   readonly bool _ten;
 
    public LimitSectionStrainSolver(
       ILimitSection section,
@@ -23,7 +24,8 @@ public sealed class LimitSectionStrainSolver
       CalcType calc = CalcType.C,
       double tol = 0.5,
       int maxIter = 60,
-      double h = 1e-7)
+      double h = 1e-7,
+      bool ten = true)
    {
       _section = section ?? throw new ArgumentNullException(nameof(section));
       _guessSection = guessSection ?? throw new ArgumentNullException(nameof(guessSection));
@@ -31,6 +33,7 @@ public sealed class LimitSectionStrainSolver
       _tol = tol;
       _maxIter = maxIter;
       _h = h;
+      _ten = ten;
    }
 
    /// <summary>Находит плоскость деформаций при заданных усилиях.</summary>
@@ -43,7 +46,7 @@ public sealed class LimitSectionStrainSolver
 
       for (int iter = 0; iter < _maxIter; iter++)
       {
-         var f0 = _section.Integral(k, _calc);
+         var f0 = _section.Integral(k, _calc, _ten);
          double r0 = f0.N - nTarget;
          double r1 = f0.Mx - mxTarget;
          double r2 = f0.My - myTarget;
@@ -66,8 +69,8 @@ public sealed class LimitSectionStrainSolver
          };
          for (int col = 0; col < 3; col++)
          {
-            var fp = _section.Integral(k + axes[col], _calc);
-            var fm = _section.Integral(k - axes[col], _calc);
+            var fp = _section.Integral(k + axes[col], _calc, _ten);
+            var fm = _section.Integral(k - axes[col], _calc, _ten);
             j[0, col] = (fp.N - fm.N) / (2 * _h);
             j[1, col] = (fp.Mx - fm.Mx) / (2 * _h);
             j[2, col] = (fp.My - fm.My) / (2 * _h);
