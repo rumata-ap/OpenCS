@@ -29,14 +29,16 @@ namespace OpenCS.Tasks
             double mxTarget = item.Mx; // LoadItem.Mx → Load.Mx (∫σ·y·dA, момент относительно X)
             double myTarget = item.My; // LoadItem.My → Load.My (∫σ·x·dA, момент относительно Y)
 
+            bool ten = settings.ResolveConcreteTension(task.CalcType);
             var solver = new StrainSolver(section, task.CalcType,
+                ten: ten,
                 tol: settings.NewtonTolerance,
                 maxIter: settings.NewtonMaxIter,
                 h: settings.NewtonDeltaH,
                 centralJacobian: settings.NewtonJacobian == "central");
             var k      = solver.Solve(nTarget, mxTarget, myTarget);
 
-            var result = section.Integral(k, task.CalcType);
+            var result = section.Integral(k, task.CalcType, ten);
 
             var data = new
             {
