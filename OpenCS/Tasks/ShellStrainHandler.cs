@@ -36,16 +36,19 @@ public sealed class ShellStrainHandler : ITaskHandler
             double tolRes  = p.TolRes > 0 ? p.TolRes : settings.ShellNewtonTolRes;
             int    maxIter = p.MaxIter > 0 ? p.MaxIter : settings.NewtonMaxIter;
             double[] target = { p.Nx, p.Ny, p.Nxy, p.Mx, p.My, p.Mxy };
+            bool? tensionOverride = task.CalcType is CalcType.C or CalcType.CL
+               ? settings.ConsiderConcreteTensionUls : (bool?)null;
 
             var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
                 tolRes: tolRes, maxIter: maxIter,
                 hDiff: settings.NewtonDeltaH,
-                centralJacobian: settings.NewtonJacobian == "central");
+                centralJacobian: settings.NewtonJacobian == "central",
+                tensionOverride: tensionOverride);
             var r = solver.SolveRobust(target, concrete, rebar, task.CalcType);
             var f = r.Forces;
             var s = r.StrainState;
 
-            var sec = plate.ComputeSecant(s, cDiag, rDiag, layerDiags);
+            var sec = plate.ComputeSecant(s, cDiag, rDiag, layerDiags, tensionOverride: tensionOverride);
 
             var data = new
             {
