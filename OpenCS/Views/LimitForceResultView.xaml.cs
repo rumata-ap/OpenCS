@@ -22,15 +22,16 @@ public partial class LimitForceResultView : UserControl
 
         section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin, pool: app.Diagrams,
             rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
+        var settings = app.CalcSettings;
+        bool ten = settings.ResolveConcreteTension(task.CalcType);
         var k = ParseKurvature(result.DataJson);
-        section.SetEps(k, task.CalcType);
+        section.SetEps(k, task.CalcType, ten);
 
-        var summaryVm = new LimitForceSummaryVM(result, section, task.CalcType, app.CalcSettings);
+        var summaryVm = new LimitForceSummaryVM(result, section, task.CalcType, settings);
         SummaryView.DataContext = summaryVm;
 
-        var settings = app.CalcSettings;
-        var stressVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings);
-        var strainVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings);
+        var stressVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings, ten);
+        var strainVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings, ten);
 
         var cutVm = new SectionCutVM(section, k, task.CalcType, app.FileDialogService)
         {

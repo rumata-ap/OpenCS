@@ -123,12 +123,13 @@ namespace OpenCS.Views
                 rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
 
             var k = ParseKurvature(result.DataJson);
-            section.SetEps(k, task.CalcType);
-
-            SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, app.CalcSettings);
             var settings = app.CalcSettings;
-            var stressVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings);
-            var strainVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings);
+            bool ten = settings.ResolveConcreteTension(task.CalcType);
+            section.SetEps(k, task.CalcType, ten);
+
+            SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, settings, ten);
+            var stressVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings, ten);
+            var strainVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings, ten);
 
             var cutVm = new SectionCutVM(section, k, task.CalcType, app.FileDialogService)
             {
