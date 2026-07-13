@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text.Json;
 using CScore;
+using CScore.Sp63;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
@@ -60,6 +61,73 @@ public sealed class CrackWidthHandler : ITaskHandler
                     break;
             }
 
+            double mxLongIn = mxLong, myLongIn = myLong, mxTotalIn = mxTotal, myTotalIn = myTotal;
+            object? etaData = null;
+
+            var etaParams = LimitForceParams.Parse(task.ParamsJson);
+            if (etaParams.EtaEnabled)
+            {
+                double psiX = CrackWidthEta.AutoPsi(mxLongIn, mxTotalIn);
+                double psiY = CrackWidthEta.AutoPsi(myLongIn, myTotalIn);
+                double threshold = etaParams.EtaSlendernessThreshold
+                    ?? EccentricityAmplifier.SlendernessThreshold;
+
+                bool ten = settings.ResolveConcreteTension(CalcType.N);
+                var strainSolver = new StrainSolver(section, CalcType.N,
+                    ten: ten,
+                    tol: settings.NewtonTolerance,
+                    maxIter: settings.NewtonMaxIter,
+                    h: settings.NewtonDeltaH,
+                    centralJacobian: settings.NewtonJacobian == "central");
+
+                var wiring = RodEtaWiring.Apply(
+                    section, nTotal, mxTotalIn, myTotalIn,
+                    etaParams.EtaL0x, etaParams.EtaL0y,
+                    psiX, psiY,
+                    etaParams.EtaIterative,
+                    (mx, my) => strainSolver.Solve(nTotal, mx, my),
+                    threshold);
+
+                var scaled = CrackWidthEta.ScaleLongTotal(
+                    mxLongIn, mxTotalIn, myLongIn, myTotalIn, wiring.MxEff, wiring.MyEff);
+                mxLong = scaled.MxLongEff;
+                mxTotal = scaled.MxTotalEff;
+                myLong = scaled.MyLongEff;
+                myTotal = scaled.MyTotalEff;
+
+                etaData = new
+                {
+                    mode = etaParams.EtaIterative ? "iterative" : "formula",
+                    slendernessThreshold = threshold,
+                    psiX,
+                    psiY,
+                    mxOriginal = mxTotalIn,
+                    myOriginal = myTotalIn,
+                    mxLongOriginal = mxLongIn,
+                    myLongOriginal = myLongIn,
+                    l0x = Math.Round(wiring.X.L0, 4),
+                    hx = Math.Round(wiring.X.H, 4),
+                    slendernessX = wiring.X.H > 1e-9 ? Math.Round(wiring.X.L0 / wiring.X.H, 2) : (double?)null,
+                    dX = double.IsFinite(wiring.X.D) ? Math.Round(wiring.X.D, 2) : (double?)null,
+                    etaX = Math.Round(wiring.X.Eta, 6),
+                    ncrX = double.IsFinite(wiring.X.Ncr) ? Math.Round(wiring.X.Ncr, 4) : (double?)null,
+                    slenderX = wiring.X.Slender,
+                    stableX = wiring.X.Stable,
+                    extrapolationFailedX = wiring.X.ExtrapolationFailed,
+                    etaHistoryX = wiring.X.EtaHistory.Select(e => Math.Round(e, 6)).ToArray(),
+                    l0y = Math.Round(wiring.Y.L0, 4),
+                    hy = Math.Round(wiring.Y.H, 4),
+                    slendernessY = wiring.Y.H > 1e-9 ? Math.Round(wiring.Y.L0 / wiring.Y.H, 2) : (double?)null,
+                    dY = double.IsFinite(wiring.Y.D) ? Math.Round(wiring.Y.D, 2) : (double?)null,
+                    etaY = Math.Round(wiring.Y.Eta, 6),
+                    ncrY = double.IsFinite(wiring.Y.Ncr) ? Math.Round(wiring.Y.Ncr, 4) : (double?)null,
+                    slenderY = wiring.Y.Slender,
+                    stableY = wiring.Y.Stable,
+                    extrapolationFailedY = wiring.Y.ExtrapolationFailed,
+                    etaHistoryY = wiring.Y.EtaHistory.Select(e => Math.Round(e, 6)).ToArray(),
+                };
+            }
+
             var solver = new CrackWidthSolver(section,
                 calcCrc: CalcType.CL, calcService: CalcType.N,
                 acrcUltLong: p.AcrcUltLong, acrcUltShort: p.AcrcUltShort,
@@ -74,6 +142,10 @@ public sealed class CrackWidthHandler : ITaskHandler
                 Mx_total = Math.Round(mxTotal, 4),
                 My_long = Math.Round(myLong, 4),
                 My_total = Math.Round(myTotal, 4),
+                Mx_long_input = Math.Round(mxLongIn, 4),
+                Mx_total_input = Math.Round(mxTotalIn, 4),
+                My_long_input = Math.Round(myLongIn, 4),
+                My_total_input = Math.Round(myTotalIn, 4),
                 cracked = res.Cracked,
                 acrc_long = Math.Round(res.AcrcLong, 4),
                 acrc_short = Math.Round(res.AcrcShort, 4),
@@ -87,7 +159,8 @@ public sealed class CrackWidthHandler : ITaskHandler
                 ls = Math.Round(res.Ls * 1000.0, 2),
                 ds_eq = Math.Round(res.DsEq * 1000.0, 2),
                 As_tens = Math.Round(res.AsTens * 1e4, 4),
-                Abt = Math.Round(res.Abt * 1e4, 2)
+                Abt = Math.Round(res.Abt * 1e4, 2),
+                eta = etaData
             };
 
             return new CalcResult

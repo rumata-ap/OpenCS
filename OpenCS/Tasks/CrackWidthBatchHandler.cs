@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using CScore;
+using CScore.Sp63;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
@@ -48,6 +49,11 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                 acrcUltLong: p.AcrcUltLong, acrcUltShort: p.AcrcUltShort,
                 sp63EtaMin: settings.Sp63DescEtaMin);
 
+            var etaParams = LimitForceParams.Parse(task.ParamsJson);
+            double etaThreshold = etaParams.EtaSlendernessThreshold
+                ?? EccentricityAmplifier.SlendernessThreshold;
+            bool ten = settings.ResolveConcreteTension(CalcType.N);
+
             var items = forceSet.Items;
             int total = items.Count;
             var rowResults = new List<object>(total);
@@ -86,6 +92,46 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                     myLong = myTotal;
                 }
 
+                double mxLongIn = mxLong, myLongIn = myLong, mxTotalIn = mxTotal, myTotalIn = myTotal;
+                object? etaRow = null;
+                if (etaParams.EtaEnabled)
+                {
+                    double psiX = CrackWidthEta.AutoPsi(mxLongIn, mxTotalIn);
+                    double psiY = CrackWidthEta.AutoPsi(myLongIn, myTotalIn);
+                    var strainSolver = new StrainSolver(section, CalcType.N,
+                        ten: ten,
+                        tol: settings.NewtonTolerance,
+                        maxIter: settings.NewtonMaxIter,
+                        h: settings.NewtonDeltaH,
+                        centralJacobian: settings.NewtonJacobian == "central");
+                    var wiring = RodEtaWiring.Apply(
+                        section, nTotal, mxTotalIn, myTotalIn,
+                        etaParams.EtaL0x, etaParams.EtaL0y,
+                        psiX, psiY, etaParams.EtaIterative,
+                        (mx, my) => strainSolver.Solve(nTotal, mx, my),
+                        etaThreshold);
+                    var scaled = CrackWidthEta.ScaleLongTotal(
+                        mxLongIn, mxTotalIn, myLongIn, myTotalIn, wiring.MxEff, wiring.MyEff);
+                    mxLong = scaled.MxLongEff;
+                    mxTotal = scaled.MxTotalEff;
+                    myLong = scaled.MyLongEff;
+                    myTotal = scaled.MyTotalEff;
+                    etaRow = new
+                    {
+                        mode = etaParams.EtaIterative ? "iterative" : "formula",
+                        psiX,
+                        psiY,
+                        etaX = Math.Round(wiring.X.Eta, 6),
+                        etaY = Math.Round(wiring.Y.Eta, 6),
+                        mxOriginal = mxTotalIn,
+                        myOriginal = myTotalIn,
+                        mxEff = wiring.MxEff,
+                        myEff = wiring.MyEff,
+                        stableX = wiring.X.Stable,
+                        stableY = wiring.Y.Stable,
+                    };
+                }
+
                 var res = solver.Compute(N: nTotal, mxLong: mxLong, mxTotal: mxTotal, myLong: myLong, myTotal: myTotal);
                 if (res.PassedLong && res.PassedShort) passedCount++;
 
@@ -103,7 +149,8 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                     acrc_short = Math.Round(res.AcrcShort, 4),
                     passed_long = res.PassedLong,
                     passed_short = res.PassedShort,
-                    status = (res.PassedLong && res.PassedShort) ? "ok" : "not_passed"
+                    status = (res.PassedLong && res.PassedShort) ? "ok" : "not_passed",
+                    eta = etaRow
                 });
             }
 
