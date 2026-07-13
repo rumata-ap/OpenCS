@@ -122,6 +122,7 @@ TorsionTests.RichardsonExtrapolateNonMonotonicSeries();
 TorsionTests.RichardsonAutoConvergeConcaveFrame();
 TorsionTests.RichardsonBuildRunSizes();
 TorsionTests.RichardsonAutoConvergeCustomH0AndTwoRuns();
+TorsionTests.RichardsonAutoConvergeParallelMatchesSequentialIt();
 
 TorsionTests.PrandtlTri6ShapeFunctionsPartitionOfUnity();
 TorsionTests.PrandtlTri6AreaMatchesTri3();

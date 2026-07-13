@@ -43,6 +43,7 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
             var rowResults = new object[total];
             var convergedArr = new bool[total];
             var passedArr = new bool[total];
+            int done = 0;
 
             void Solve(int i)
             {
@@ -62,6 +63,7 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
                         epsConcreteCompression: 0, epsConcreteUlt: 0,
                         epsRebarTension: 0, epsRebarUlt: 0,
                         concreteOk: false, rebarOk: false, strengthOk: false);
+                    BatchProgress.Report(ctx, ref done, total);
                     return;
                 }
 
@@ -82,10 +84,18 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
                     epsConcreteMin, epsConcreteUlt,
                     epsRebarMax, epsRebarUlt,
                     concreteOk, rebarOk, strengthOk);
+                BatchProgress.Report(ctx, ref done, total);
             }
 
             if (settings.BatchParallel && total > 1)
-                Parallel.For(0, total, Solve);
+            {
+                Parallel.For(0, total, (i, state) =>
+                {
+                    if (ctx?.CancellationToken.IsCancellationRequested == true) { state.Stop(); return; }
+                    Solve(i);
+                });
+                ctx?.CancellationToken.ThrowIfCancellationRequested();
+            }
             else
                 for (int i = 0; i < total; i++) Solve(i);
 

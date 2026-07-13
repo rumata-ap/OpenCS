@@ -195,6 +195,22 @@ namespace OpenCS
          set { _isBusy = value; OnPropertyChanged(); }
       }
 
+      double _busyProgress;
+      /// <summary>Прогресс длительной операции (0…1) для StatusBar.</summary>
+      public double BusyProgress
+      {
+         get => _busyProgress;
+         set { _busyProgress = value; OnPropertyChanged(); }
+      }
+
+      bool _isBusyProgressIndeterminate = true;
+      /// <summary>true — бегущий индикатор; false — определённый BusyProgress.</summary>
+      public bool IsBusyProgressIndeterminate
+      {
+         get => _isBusyProgressIndeterminate;
+         set { _isBusyProgressIndeterminate = value; OnPropertyChanged(); }
+      }
+
       /// <summary>
       /// Имя файла проекта для отображения в заголовке дерева.
       /// </summary>
@@ -459,6 +475,8 @@ namespace OpenCS
 
       /// <summary>Команда открытия страницы расчётных задач.</summary>
       public ICommand OpenCalcTasksCommand { get; set; } = null!;
+      /// <summary>Команда отмены текущей длительной операции (StatusBar).</summary>
+      public ICommand CancelBusyCommand { get; set; } = null!;
       /// <summary>Команда создания новой задачи из контекстного меню дерева.</summary>
       public ICommand NewCalcTaskCommand    { get; set; } = null!;
       /// <summary>Команда запуска задачи (параметр CalcTask).</summary>
@@ -1097,8 +1115,9 @@ namespace OpenCS
          DeleteFireSectionCommand     = new RelayCommand(_ => DeleteFireSection());
          RenameFireSectionCommand     = new RelayCommand(_ => RenameFireSection());
          OpenCalcTasksCommand         = new RelayCommand(_ => CurrentPage = new Views.CalcTasksPage(this));
+         CancelBusyCommand            = new RelayCommand(_ => CancelBusy(), _ => IsBusy);
          NewCalcTaskCommand    = new RelayCommand(p => NewCalcTask(p as string));
-         RunCalcTaskCommand    = new RelayCommand(p => RunCalcTask(p as CalcTask),    p => p is CalcTask);
+         RunCalcTaskCommand    = new RelayCommand(p => _ = RunCalcTaskAsync(p as CalcTask), p => p is CalcTask && !IsBusy);
          EditCalcTaskCommand   = new RelayCommand(p => EditCalcTask(p as CalcTask),   p => p is CalcTask);
          DeleteCalcTaskCommand = new RelayCommand(p => DeleteCalcTask(p as CalcTask), p => p is CalcTask);
          DeleteCalcResultsCommand = new RelayCommand(p => DeleteCalcResults(p as CalcTask), p => p is CalcTask);
@@ -2298,57 +2317,10 @@ namespace OpenCS
          LogService.Info(string.Format(Loc.S("CalcTaskCreated"), ct.Tag));
       }
 
-      void RunCalcTask(CalcTask? ct)
+      async Task RunCalcTaskAsync(CalcTask? ct)
       {
          if (ct == null) return;
-         var section = CrossSections.FirstOrDefault(s => s.Id == ct.SectionId);
-         if (section == null)
-         {
-            MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
-               MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
-         }
-         var fs = BarForceSets.FirstOrDefault(f => f.Id == ct.ForceSetId);
-         var fi = fs?.Items.FirstOrDefault(i => i.Id == ct.ForceItemId);
-         if (fi == null)
-         {
-            if (CalcTaskForceHelper.UsesManualForces(ct))
-            {
-               fi = CalcTaskForceHelper.ResolveSingleForces(ct, BarForceSets);
-               if (fi == null)
-               {
-                  MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-                     MessageBoxButton.OK, MessageBoxImage.Error);
-                  return;
-               }
-            }
-            else if (CalcTaskForceHelper.UsesDummyForceItem(ct))
-            {
-               fi = CalcTaskForceHelper.ResolveOptionalForceItem(ct, BarForceSets);
-            }
-            else
-            {
-               MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-                  MessageBoxButton.OK, MessageBoxImage.Error);
-               return;
-            }
-         }
-         var result = TaskRunner.Run(ct, section, fi, CalcSettings, new TaskRunContext
-         {
-            Database     = db,
-            FireSections = FireSections
-         });
-         db.SaveCalcResult(result);
-         var statusKey = result.Status switch
-         {
-            "ok"            => "CalcResultOk",
-            "not_converged" => "CalcResultNotConverged",
-            "partial"       => "CalcResultPartial",
-            "not_passed"    => "CalcResultNotPassed",
-            _               => "CalcResultError"
-         };
-         LogService.Info(string.Format(Loc.S(statusKey), ct.Tag));
-         CurrentPage = new CalcResultView(result, this);
+         await CalcTaskExecutor.RunAsync(this, ct);
       }
 
       void EditCalcTask(CalcTask? ct)
@@ -2733,16 +2705,45 @@ namespace OpenCS
          }
       }
 
-      void BeginBusy(string message)
+      CancellationTokenSource? _busyCts;
+
+      public void BeginBusy(string message, bool indeterminate = true)
       {
          StatusMessage = message;
+         IsBusyProgressIndeterminate = indeterminate;
+         BusyProgress = 0;
          IsBusy = true;
+         System.Windows.Input.CommandManager.InvalidateRequerySuggested();
       }
 
-      void EndBusy(string? message = null)
+      public CancellationTokenSource BeginBusyWithCancellation(string message, bool indeterminate = true)
       {
+         _busyCts?.Dispose();
+         _busyCts = new CancellationTokenSource();
+         BeginBusy(message, indeterminate);
+         return _busyCts;
+      }
+
+      public void CancelBusy() => _busyCts?.Cancel();
+
+      public void ReportBusyProgress(double fraction, string? message = null)
+      {
+         if (IsBusyProgressIndeterminate)
+            IsBusyProgressIndeterminate = false;
+         BusyProgress = Math.Clamp(fraction, 0, 1);
+         if (message != null)
+            StatusMessage = message;
+      }
+
+      public void EndBusy(string? message = null)
+      {
+         _busyCts?.Dispose();
+         _busyCts = null;
          IsBusy = false;
+         IsBusyProgressIndeterminate = true;
+         BusyProgress = 0;
          StatusMessage = message ?? "";
+         System.Windows.Input.CommandManager.InvalidateRequerySuggested();
       }
 
       // COM-объекты ЛИРЫ требуют STA; ThreadPool-потоки — MTA, поэтому запускаем в отдельном STA-потоке.

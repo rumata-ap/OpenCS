@@ -412,12 +412,27 @@ public static class TorsionTests
         var boundary = SampleConcaveFrameBoundary();
         double h0 = 0.02;
         var result = TorsionRichardson.SolveAutoConverge(boundary, TorsionMethod.Bem,
-            triangulation: default, femOrder: default, h0: h0, nRuns: 2);
+            triangulation: default, femOrder: default, h0: h0, nRuns: 2, parallel: false);
         TestHarness.Check("ровно 2 шага", result.Steps.Count == 2, $"steps={result.Steps.Count}");
         TestHarness.CheckRel("Steps[0].ElementSize = h0", result.Steps[0].ElementSize, h0, 1e-12);
         TestHarness.CheckRel("Steps[1].ElementSize = h0/2", result.Steps[1].ElementSize, h0 / 2.0, 1e-12);
         TestHarness.Check("It не экстраполирован", !result.ItExtrapolated);
         TestHarness.CheckRel("It = It мелкой сетки", result.It, result.FinestProps.It, 1e-15);
+    }
+
+    public static void RichardsonAutoConvergeParallelMatchesSequentialIt()
+    {
+        TestHarness.Section("TorsionRichardson parallel vs sequential It (N=2, custom h0)");
+        var boundary = SampleConcaveFrameBoundary();
+        double h0 = 0.02;
+        var seq = TorsionRichardson.SolveAutoConverge(boundary, TorsionMethod.Bem,
+            h0: h0, nRuns: 2, parallel: false);
+        var par = TorsionRichardson.SolveAutoConverge(boundary, TorsionMethod.Bem,
+            h0: h0, nRuns: 2, parallel: true);
+        TestHarness.Check("steps equal", seq.Steps.Count == par.Steps.Count);
+        TestHarness.CheckRel("It parallel ≈ sequential", par.It, seq.It, 1e-12);
+        for (int i = 0; i < seq.Steps.Count; i++)
+            TestHarness.CheckRel($"h[{i}]", par.Steps[i].ElementSize, seq.Steps[i].ElementSize, 1e-15);
     }
 
     public static void RichardsonAutoConvergeConcaveFrame()

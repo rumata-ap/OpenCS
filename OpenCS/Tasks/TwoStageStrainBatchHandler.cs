@@ -43,6 +43,7 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
          int total = s2Items.Count;
          var rows  = new object[total];
          var conv  = new bool[total];
+         int done = 0;
 
          // κ1 один раз, если этап 1 — одно усилие
          Kurvature? sharedK1 = null;
@@ -92,10 +93,18 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
                status = s2Solver.Converged ? "ok" : "not_converged",
                stage1_e0 = Math.Round(k1.e0, 8), stage1_ky = Math.Round(k1.ky, 8), stage1_kz = Math.Round(k1.kz, 8)
             };
+            BatchProgress.Report(ctx, ref done, total);
          }
 
          if (settings.BatchParallel && total > 1)
-            Parallel.For(0, total, Solve);
+         {
+            Parallel.For(0, total, (i, state) =>
+            {
+               if (ctx?.CancellationToken.IsCancellationRequested == true) { state.Stop(); return; }
+               Solve(i);
+            });
+            ctx?.CancellationToken.ThrowIfCancellationRequested();
+         }
          else
             for (int i = 0; i < total; i++) Solve(i);
 

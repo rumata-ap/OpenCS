@@ -1363,6 +1363,12 @@
     <system:String x:Key="TorsionAutoRunsWarn">N ≥ 5: расчёт может занять очень много времени.</system:String>
     <system:String x:Key="TorsionAutoH0Invalid">Укажите положительную стартовую длину h₀.</system:String>
     <system:String x:Key="TorsionAutoRunsInvalid">Число прогонов N должно быть целым ≥ 2.</system:String>
+    <system:String x:Key="CalcTaskCancel">Отменить</system:String>
+    <system:String x:Key="CalcTaskCancelled">Расчёт отменён</system:String>
+    <system:String x:Key="CalcTaskRunning">Расчёт: {0}…</system:String>
+    <system:String x:Key="CalcTaskBatchProgress">Пакет: {0}/{1}</system:String>
+    <system:String x:Key="CalcTaskTorsionRunProgress">Кручение: прогон {0}/{1} (h={2})</system:String>
+    <system:String x:Key="CalcTaskSavingResult">Сохранение результата…</system:String>
     <system:String x:Key="TorsionConvergenceSeries">Ряд по шагам сетки</system:String>
     <system:String x:Key="TorsionConvergenceOrderIt">Порядок сходимости It</system:String>
     <system:String x:Key="TorsionConvergenceOrderShearCenter">Порядок сходимости центра кручения</system:String>

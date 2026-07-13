@@ -49,12 +49,14 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
             int total = items.Count;
             var rows = new object[total];
             var converged = new bool[total];
+            int done = 0;
 
             if (settings.BatchParallel && total > 1)
             {
                 // Параллельный режим всегда без тёплого старта (независимые клоны)
-                Parallel.For(0, total, i =>
+                Parallel.For(0, total, (i, state) =>
                 {
+                    if (ctx?.CancellationToken.IsCancellationRequested == true) { state.Stop(); return; }
                     var clone = plate.CloneForCalc();
                     var si = items[i];
                     double[] tgt = { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy };
@@ -64,7 +66,9 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                         .SolveRobust(tgt, concrete, rebar, task.CalcType);
                     converged[i] = r.Converged;
                     rows[i] = BuildRow(si.Num, si.Label, r);
+                    BatchProgress.Report(ctx, ref done, total);
                 });
+                ctx?.CancellationToken.ThrowIfCancellationRequested();
             }
             else if (settings.ShellWarmStart)
             {
@@ -79,6 +83,7 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                 {
                     converged[i] = results[i].Converged;
                     rows[i] = BuildRow(items[i].Num, items[i].Label, results[i]);
+                    BatchProgress.Report(ctx, ref done, total);
                 }
             }
             else
@@ -95,6 +100,7 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                     var r = solver.SolveRobust(tgt, concrete, rebar, task.CalcType);
                     converged[i] = r.Converged;
                     rows[i] = BuildRow(si.Num, si.Label, r);
+                    BatchProgress.Report(ctx, ref done, total);
                 }
             }
 

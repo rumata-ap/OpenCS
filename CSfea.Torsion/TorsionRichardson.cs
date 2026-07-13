@@ -64,12 +64,11 @@ public sealed class TorsionAutoConvergeResult
 /// Экстраполяция Ричардсона по серии прогонов кручения с половинным шагом.
 /// По умолчанию: h0 = минимальная длина ребра контура, N = 3 прогона (h0, h0/2, h0/4).
 /// При N≥3 экстраполяция выполняется по последним трём прогонам; при N=2 — берётся мелкая сетка.
+/// Прогоны по умолчанию выполняются параллельно.
 /// </summary>
 public static class TorsionRichardson
 {
-    /// <summary>Минимально разумный порядок сходимости, при котором экстраполяции ещё доверяем.</summary>
     const double MinTrustedOrder = 0.05;
-    /// <summary>Максимально разумный порядок — выше подозрительно (случайное совпадение на грубых сетках).</summary>
     const double MaxTrustedOrder = 6.0;
 
     /// <summary>Размеры элементов серии: h0, h0/2, … (n = max(2, nRuns)).</summary>
@@ -82,26 +81,53 @@ public static class TorsionRichardson
         return sizes;
     }
 
+    /// <param name="onStepCompleted">Вызывается после каждого прогона: (completed, total, h).</param>
+    /// <param name="parallel">true — Parallel.For по прогонам (по умолчанию).</param>
     public static TorsionAutoConvergeResult SolveAutoConverge(
         TorsionBoundary boundary, TorsionMethod method,
         TriangulationMethod triangulation = TriangulationMethod.AdvancingFront,
         FemElementOrder femOrder = FemElementOrder.Linear,
         double? h0 = null,
         int nRuns = 3,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        Action<int, int, double>? onStepCompleted = null,
+        bool parallel = true)
     {
         double hStart = h0 ?? TorsionBoundaryMetrics.MinEdgeLength(boundary);
         if (!double.IsFinite(hStart) || hStart <= 0.0)
             throw new InvalidOperationException("Не удалось определить масштаб контура для авто-сходимости (вырожденная геометрия).");
 
         double[] sizes = BuildRunSizes(hStart, nRuns);
-        var steps = new List<TorsionConvergenceStep>(sizes.Length);
-        foreach (double h in sizes)
+        var propsArr = new TorsionProps[sizes.Length];
+        int completed = 0;
+
+        void RunOne(int i)
         {
             ct.ThrowIfCancellationRequested();
-            var props = TorsionSolver.Solve(boundary, method, h, triangulation, femOrder, ct);
-            steps.Add(new TorsionConvergenceStep { ElementSize = h, Props = props });
+            propsArr[i] = TorsionSolver.Solve(boundary, method, sizes[i], triangulation, femOrder, ct);
+            int done = Interlocked.Increment(ref completed);
+            onStepCompleted?.Invoke(done, sizes.Length, sizes[i]);
         }
+
+        if (parallel && sizes.Length > 1)
+        {
+            Parallel.For(0, sizes.Length, (i, state) =>
+            {
+                if (ct.IsCancellationRequested) { state.Stop(); return; }
+                try { RunOne(i); }
+                catch (OperationCanceledException) { state.Stop(); }
+            });
+            ct.ThrowIfCancellationRequested();
+        }
+        else
+        {
+            for (int i = 0; i < sizes.Length; i++)
+                RunOne(i);
+        }
+
+        var steps = new List<TorsionConvergenceStep>(sizes.Length);
+        for (int i = 0; i < sizes.Length; i++)
+            steps.Add(new TorsionConvergenceStep { ElementSize = sizes[i], Props = propsArr[i] });
 
         double itVal;
         double? itOrder;
@@ -145,12 +171,6 @@ public static class TorsionRichardson
         };
     }
 
-    /// <summary>
-    /// Экстраполяция Ричардсона по 3 точкам (грубая→мелкая, геометрическое сгущение ×2).
-    /// Возвращает (значение, оценённый порядок p, признак надёжности экстраполяции).
-    /// Если ряд не монотонен, уже сошёлся, или порядок выглядит неправдоподобно —
-    /// экстраполяция не применяется, возвращается значение с самой мелкой сетки.
-    /// </summary>
     internal static (double value, double? order, bool extrapolated) Extrapolate(double[] seq)
     {
         if (seq.Length != 3 || seq.Any(v => !double.IsFinite(v)))
@@ -162,15 +182,15 @@ public static class TorsionRichardson
         double scale = Math.Max(Math.Abs(i1), Math.Max(Math.Abs(i2), Math.Abs(i3)));
         double eps = Math.Max(scale * 1e-10, 1e-300);
         if (Math.Abs(d2) < eps)
-            return (i3, null, false); // уже сошлось в пределах точности — экстраполировать нечего
+            return (i3, null, false);
 
         double ratio = d1 / d2;
         if (!double.IsFinite(ratio) || ratio <= 1.0000001)
-            return (i3, null, false); // не монотонно/не убывает как степенной закон — доверять нельзя
+            return (i3, null, false);
 
         double p = Math.Log(ratio, 2.0);
         if (!double.IsFinite(p) || p < MinTrustedOrder || p > MaxTrustedOrder)
-            return (i3, p, false); // порядок неправдоподобен — берём мелкую сетку, но публикуем p для диагностики
+            return (i3, p, false);
 
         double extrapolated = i3 + (i3 - i2) / (Math.Pow(2.0, p) - 1.0);
         return (extrapolated, p, true);

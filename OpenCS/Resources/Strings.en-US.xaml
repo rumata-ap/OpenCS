@@ -1360,6 +1360,12 @@
     <system:String x:Key="TorsionAutoRunsWarn">N ≥ 5: the calculation may take a very long time.</system:String>
     <system:String x:Key="TorsionAutoH0Invalid">Enter a positive start length h₀.</system:String>
     <system:String x:Key="TorsionAutoRunsInvalid">Number of runs N must be an integer ≥ 2.</system:String>
+    <system:String x:Key="CalcTaskCancel">Cancel</system:String>
+    <system:String x:Key="CalcTaskCancelled">Calculation cancelled</system:String>
+    <system:String x:Key="CalcTaskRunning">Running: {0}…</system:String>
+    <system:String x:Key="CalcTaskBatchProgress">Batch: {0}/{1}</system:String>
+    <system:String x:Key="CalcTaskTorsionRunProgress">Torsion: run {0}/{1} (h={2})</system:String>
+    <system:String x:Key="CalcTaskSavingResult">Saving result…</system:String>
     <system:String x:Key="TorsionConvergenceSeries">Mesh-size series</system:String>
     <system:String x:Key="TorsionConvergenceOrderIt">It convergence order</system:String>
     <system:String x:Key="TorsionConvergenceOrderShearCenter">Shear center convergence order</system:String>

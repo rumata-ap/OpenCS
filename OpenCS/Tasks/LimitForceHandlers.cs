@@ -72,11 +72,13 @@ static class LimitForceTaskHelper
          int total = items.Count;
          var rowResults = new object[total];
          var convergedArr = new bool[total];
+         int done = 0;
 
          if (settings.BatchParallel && total > 1)
          {
-            Parallel.For(0, total, i =>
+            Parallel.For(0, total, (i, state) =>
             {
+               if (ctx?.CancellationToken.IsCancellationRequested == true) { state.Stop(); return; }
                var fi = items[i];
                var clone = section.CloneForCalc();
                var solver = LimitForceSolvers.Create(clone, task.CalcType, parameters,
@@ -85,7 +87,9 @@ static class LimitForceTaskHelper
                var res = Solve(solver, fi, mode);
                convergedArr[i] = res.Converged;
                rowResults[i] = BuildRow(fi, res);
+               BatchProgress.Report(ctx, ref done, total);
             });
+            ctx?.CancellationToken.ThrowIfCancellationRequested();
          }
          else
          {
@@ -98,6 +102,7 @@ static class LimitForceTaskHelper
                var res = Solve(solver, fi, mode);
                convergedArr[i] = res.Converged;
                rowResults[i] = BuildRow(fi, res);
+               BatchProgress.Report(ctx, ref done, total);
             }
          }
 
