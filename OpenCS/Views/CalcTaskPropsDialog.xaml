@@ -23,22 +23,25 @@
    </Window.Resources>
    <Grid Margin="16">
       <Grid.RowDefinitions>
-         <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
-          <RowDefinition Height="Auto"/>
-          <RowDefinition Height="Auto"/>
-           <RowDefinition Height="Auto"/>
-           <RowDefinition Height="Auto"/>
-           <RowDefinition Height="16"/>
-           <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/> <!-- 0 Tag -->
+         <RowDefinition Height="Auto"/> <!-- 1 Kind -->
+         <RowDefinition Height="Auto"/> <!-- 2 Fire section -->
+         <RowDefinition Height="Auto"/> <!-- 3 Section -->
+         <RowDefinition Height="Auto"/> <!-- 4 Force set -->
+         <RowDefinition Height="Auto"/> <!-- 5 Force item -->
+         <RowDefinition Height="Auto"/> <!-- 6 N -->
+         <RowDefinition Height="Auto"/> <!-- 7 Mx -->
+         <RowDefinition Height="Auto"/> <!-- 8 My -->
+         <RowDefinition Height="Auto"/> <!-- 9 CalcType -->
+         <RowDefinition Height="Auto"/> <!-- 10 Solver -->
+         <RowDefinition Height="Auto"/> <!-- 11 Limit/two-stage/... -->
+         <RowDefinition Height="Auto"/> <!-- 12 Shell simpl -->
+         <RowDefinition Height="Auto"/> <!-- 13 Steel -->
+         <RowDefinition Height="Auto"/> <!-- 14 Eta -->
+         <RowDefinition Height="Auto"/> <!-- 15 Torsion -->
+         <RowDefinition Height="Auto"/> <!-- 16 Crack width -->
+         <RowDefinition Height="16"/>   <!-- 17 spacer -->
+         <RowDefinition Height="Auto"/> <!-- 18 OK/Cancel -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
          <ColumnDefinition Width="130"/>
@@ -405,7 +408,7 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding SupportsEta, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource EtaParamsHeader}" Margin="0,8,0,0">
             <StackPanel Margin="4">
@@ -516,7 +519,7 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="15" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsTorsion, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource TorsionParamsHeader}" Margin="0,8,0,0">
             <Grid Margin="4">
@@ -663,7 +666,7 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="16" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsCrackWidthAny, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource CrackWidthParamsHeader}" Margin="0,8,0,0">
             <StackPanel Margin="4">
@@ -723,7 +726,7 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="15" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="18" Grid.Column="0" Grid.ColumnSpan="2"
                   Orientation="Horizontal" HorizontalAlignment="Right">
          <Button Content="{DynamicResource OK}"
                  IsDefault="True"
