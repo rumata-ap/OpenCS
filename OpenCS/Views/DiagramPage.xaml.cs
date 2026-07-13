@@ -33,8 +33,16 @@ namespace OpenCS.Views
 
         void Save_Click(object sender, RoutedEventArgs e)
         {
-            _vm.Save();
-            titleText.Text = _vm.Tag;
+            try
+            {
+                _vm.Save();
+                titleText.Text = _vm.Tag;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format(Loc.S("ErrorSave"), ex.Message),
+                                Loc.S("Error"), MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         void AddRow_Click(object sender, RoutedEventArgs e)

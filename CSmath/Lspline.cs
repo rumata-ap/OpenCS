@@ -31,6 +31,10 @@ namespace CSmath
          x = sorted.Select(point => point.x).ToArray();
          y = sorted.Select(point => point.y).ToArray();
 
+         for (int i = 1; i < x.Length; i++)
+            if (x[i] == x[i - 1])
+               throw new ArgumentException("Массив X содержит повторяющиеся значения — линейная интерполяция требует различных узлов.");
+
          X = x.ToArray();
          Y = y.ToArray();
 

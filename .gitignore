@@ -3,8 +3,9 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
-# Claude Code local settings
-.claude/settings.local.json
+# Claude Code / MiMoCode — всё кроме AGENTS.md и CLAUDE.md
+.claude/
+.mimocode/
 
 # Brainstorm visual companion sessions
 .superpowers/
@@ -507,3 +508,6 @@ stderr.txt
 test_marshal/
 _torsion_quick_test/
 AppData/
+
+.worktrees/
+
