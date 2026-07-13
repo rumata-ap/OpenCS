@@ -1015,6 +1015,10 @@
     <system:String x:Key="CalcTaskKind_shell_simpl_wa_uls_batch">Plate: strength WA (batch)</system:String>
     <system:String x:Key="CalcTaskKind_shell_simpl_capri_sls_batch">Plate: cracks Capri-Mori (batch)</system:String>
     <system:String x:Key="CalcTaskKind_shell_simpl_capri_uls_batch">Plate: strength Capri-Mori (batch)</system:String>
+    <system:String x:Key="CalcTaskKind_cracking">Cracking moment</system:String>
+    <system:String x:Key="CalcTaskKind_cracking_batch">Cracking moment (whole set)</system:String>
+    <system:String x:Key="CalcTaskKind_crack_width">Crack width</system:String>
+    <system:String x:Key="CalcTaskKind_crack_width_batch">Crack width (whole set)</system:String>
     <system:String x:Key="CalcTaskKind_shell_strain_state">Plate strain plane</system:String>
     <system:String x:Key="CalcTaskKind_shell_strain_state_batch">Plate strain plane (batch)</system:String>
     <system:String x:Key="CalcTaskKind_shell_layered_uls">Plate: strength (layered)</system:String>
@@ -1359,5 +1363,27 @@
     <system:String x:Key="TorsionOrderUndetermined">undetermined (series not monotonic or already converged)</system:String>
     <system:String x:Key="TorsionExtrapolated">extrapolated</system:String>
     <system:String x:Key="TorsionExtrapolationUnreliable">extrapolation unreliable — using finest-mesh value</system:String>
+
+    <system:String x:Key="CrackWidthParamsHeader">Crack calculation parameters</system:String>
+    <system:String x:Key="CrackWidth_AcrcUltLong">Long-term acrc limit, mm</system:String>
+    <system:String x:Key="CrackWidth_AcrcUltShort">Short-term acrc limit, mm</system:String>
+    <system:String x:Key="CrackWidth_ForcesMode">Long-term load mode</system:String>
+    <system:String x:Key="CrackWidth_LongShare">Long-term load share</system:String>
+    <system:String x:Key="CrackWidth_ManualNLong">N long-term, kN</system:String>
+    <system:String x:Key="CrackWidth_ManualMxLong">Mx long-term, kN·m</system:String>
+    <system:String x:Key="CrackWidth_ManualMyLong">My long-term, kN·m</system:String>
+    <system:String x:Key="CrackWidth_ForceSetLong">Force set (long-term)</system:String>
+    <system:String x:Key="CrackWidth_ForceItemLong">Force row (long-term)</system:String>
+
+    <system:String x:Key="CrackingBatch_SummaryFormat">Total: {0}, converged: {1}, not converged: {2}</system:String>
+    <system:String x:Key="CrackWidthBatch_SummaryFormat">Total: {0}, passed: {1}, failed: {2}</system:String>
+    <system:String x:Key="Cracking_ColMxCrc">Mx,crc, kN·m</system:String>
+    <system:String x:Key="Cracking_ColMyCrc">My,crc, kN·m</system:String>
+    <system:String x:Key="Cracking_ColMcrc">Mcrc, kN·m</system:String>
+    <system:String x:Key="CrackWidth_ColAcrcLong">acrc,long, mm</system:String>
+    <system:String x:Key="CrackWidth_ColAcrcShort">acrc,short, mm</system:String>
+    <system:String x:Key="CrackWidth_ColPassedLong">Passed (long)</system:String>
+    <system:String x:Key="CrackWidth_ColPassedShort">Passed (short)</system:String>
+    <system:String x:Key="CrackWidth_NoCracks">No cracks</system:String>
 
   </ResourceDictionary>

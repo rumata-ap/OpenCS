@@ -67,6 +67,17 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string shellSimplAcrcLim = "0.3";
     string shellSimplPhi1 = "1.0";
     string shellSimplPhi2 = "0.5";
+    // Crack width
+    string crackWidthAcrcUltLong = "0.3";
+    string crackWidthAcrcUltShort = "0.4";
+    string crackWidthForcesMode = "total_only";
+    string crackWidthLongShare = "0.7";
+    string crackWidthManualNLong = "0";
+    string crackWidthManualMxLong = "0";
+    string crackWidthManualMyLong = "0";
+    ForceSet? crackWidthLongForceSet;
+    LoadItem? crackWidthLongForceItem;
+    string _crackWidthLongForceItemFilter = "";
    ForceSet? stage1Set, stage2Set;
    LoadItem? stage1Item, stage2Item;
    bool stage1UseManual, stage2UseManual;
@@ -90,7 +101,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ManualMy { get => manualMy; set { manualMy = value; OnPropertyChanged(); } }
 
    public bool IsLimitSingle  => IsLimitSingleKind(Kind);
-   public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || IsSteelCheck;
+   public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || IsSteelCheck || IsCracking || IsCrackWidth;
 
    static bool IsLimitSingleKind(string kind)
       => kind is "limit_force" or "limit_moment" or "limit_axial";
@@ -135,6 +146,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(Stage2ShowManual));
          OnPropertyChanged(nameof(IsPrestressLoss));
          OnPropertyChanged(nameof(IsSteelCheck));
+         OnPropertyChanged(nameof(IsCracking));
+         OnPropertyChanged(nameof(IsCrackingBatch));
+         OnPropertyChanged(nameof(IsCrackWidth));
+         OnPropertyChanged(nameof(IsCrackWidthBatch));
+         OnPropertyChanged(nameof(IsCrackWidthAny));
+         OnPropertyChanged(nameof(CrackWidthForcesModeItems));
+         OnPropertyChanged(nameof(ShowCrackWidthShare));
+         OnPropertyChanged(nameof(ShowCrackWidthManual));
+         OnPropertyChanged(nameof(ShowCrackWidthForceItemLong));
+         OnPropertyChanged(nameof(ShowCrackWidthTwoSets));
          OnPropertyChanged(nameof(IsTorsion));
          OnPropertyChanged(nameof(IsTorsionFem));
          OnPropertyChanged(nameof(ShowManualForces));
@@ -180,6 +201,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(Stage2ShowManual));
             OnPropertyChanged(nameof(IsPrestressLoss));
             OnPropertyChanged(nameof(IsSteelCheck));
+            OnPropertyChanged(nameof(IsCracking));
+            OnPropertyChanged(nameof(IsCrackingBatch));
+            OnPropertyChanged(nameof(IsCrackWidth));
+            OnPropertyChanged(nameof(IsCrackWidthBatch));
+            OnPropertyChanged(nameof(IsCrackWidthAny));
+            OnPropertyChanged(nameof(CrackWidthForcesModeItems));
+            OnPropertyChanged(nameof(ShowCrackWidthShare));
+            OnPropertyChanged(nameof(ShowCrackWidthManual));
+            OnPropertyChanged(nameof(ShowCrackWidthForceItemLong));
+            OnPropertyChanged(nameof(ShowCrackWidthTwoSets));
             OnPropertyChanged(nameof(IsTorsion));
             OnPropertyChanged(nameof(IsTorsionFem));
             OnPropertyChanged(nameof(ShowManualForces));
@@ -220,7 +251,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsTorsion => Kind is "torsion_bem" or "torsion_fem";
    public bool IsTorsionFem => Kind == "torsion_fem";
    public TorsionMeshPreviewVM TorsionMeshPreview { get; } = new();
-   public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss;
+   public bool IsCracking      => Kind == "cracking";
+   public bool IsCrackingBatch => Kind == "cracking_batch";
+   public bool IsCrackWidth      => Kind == "crack_width";
+   public bool IsCrackWidthBatch => Kind == "crack_width_batch";
+   public bool IsCrackWidthAny   => IsCrackWidth || IsCrackWidthBatch;
+   public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
+      && !IsCrackingBatch && !IsCrackWidthBatch;
    public bool ShowSolverMethod => IsLimitKind;
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
@@ -340,6 +377,66 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ShellSimplAcrcLim  { get => shellSimplAcrcLim;  set { shellSimplAcrcLim  = value; OnPropertyChanged(); } }
    public string ShellSimplPhi1     { get => shellSimplPhi1;     set { shellSimplPhi1     = value; OnPropertyChanged(); } }
    public string ShellSimplPhi2     { get => shellSimplPhi2;     set { shellSimplPhi2     = value; OnPropertyChanged(); } }
+
+   public string CrackWidthAcrcUltLong  { get => crackWidthAcrcUltLong;  set { crackWidthAcrcUltLong  = value; OnPropertyChanged(); } }
+   public string CrackWidthAcrcUltShort { get => crackWidthAcrcUltShort; set { crackWidthAcrcUltShort = value; OnPropertyChanged(); } }
+   public string CrackWidthLongShare    { get => crackWidthLongShare;    set { crackWidthLongShare    = value; OnPropertyChanged(); } }
+   public string CrackWidthManualNLong  { get => crackWidthManualNLong;  set { crackWidthManualNLong  = value; OnPropertyChanged(); } }
+   public string CrackWidthManualMxLong { get => crackWidthManualMxLong; set { crackWidthManualMxLong = value; OnPropertyChanged(); } }
+   public string CrackWidthManualMyLong { get => crackWidthManualMyLong; set { crackWidthManualMyLong = value; OnPropertyChanged(); } }
+
+   public string CrackWidthForcesMode
+   {
+      get => crackWidthForcesMode;
+      set
+      {
+         crackWidthForcesMode = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowCrackWidthShare));
+         OnPropertyChanged(nameof(ShowCrackWidthManual));
+         OnPropertyChanged(nameof(ShowCrackWidthForceItemLong));
+         OnPropertyChanged(nameof(ShowCrackWidthTwoSets));
+      }
+   }
+
+   /// <summary>Значения режима, доступные для текущего Kind (single или batch).</summary>
+   public List<string> CrackWidthForcesModeItems => IsCrackWidthBatch
+      ? ["total_only", "share", "two_sets"]
+      : ["total_only", "share", "manual", "force_item_long"];
+
+   public bool ShowCrackWidthShare         => CrackWidthForcesMode == "share";
+   public bool ShowCrackWidthManual        => IsCrackWidth && CrackWidthForcesMode == "manual";
+   public bool ShowCrackWidthForceItemLong => IsCrackWidth && CrackWidthForcesMode == "force_item_long";
+   public bool ShowCrackWidthTwoSets       => IsCrackWidthBatch && CrackWidthForcesMode == "two_sets";
+
+   // Переиспользует существующую публичную коллекцию ForceSets (тот же список,
+   // что и у стандартного picker'а) — отдельная коллекция не нужна.
+   public ForceSet? SelectedCrackWidthLongForceSet
+   {
+      get => crackWidthLongForceSet;
+      set
+      {
+         crackWidthLongForceSet = value;
+         CrackWidthLongForceItems.Clear();
+         if (value != null)
+            foreach (var it in value.Items) CrackWidthLongForceItems.Add(it);
+         SelectedCrackWidthLongForceItem = CrackWidthLongForceItems.FirstOrDefault();
+         OnPropertyChanged();
+      }
+   }
+
+   public ObservableCollection<LoadItem> CrackWidthLongForceItems { get; } = [];
+   public ListCollectionView CrackWidthLongForceItemsView { get; private set; } = null!;
+   public string CrackWidthLongForceItemFilter
+   {
+      get => _crackWidthLongForceItemFilter;
+      set { _crackWidthLongForceItemFilter = value; OnPropertyChanged(); CrackWidthLongForceItemsView?.Refresh(); }
+   }
+   public LoadItem? SelectedCrackWidthLongForceItem
+   {
+      get => crackWidthLongForceItem;
+      set { crackWidthLongForceItem = value; OnPropertyChanged(); }
+   }
 
    public ForceSet? SelectedForceSet
    {
@@ -561,6 +658,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shell_simpl_wa_sls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_wa_sls_batch"), GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "shell_simpl_capri_sls",    Label = Loc.S("CalcTaskKind_shell_simpl_capri_sls"),    GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "shell_simpl_capri_sls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_sls_batch"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "cracking",           Label = Loc.S("CalcTaskKind_cracking"),           GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "cracking_batch",     Label = Loc.S("CalcTaskKind_cracking_batch"),     GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "crack_width",        Label = Loc.S("CalcTaskKind_crack_width"),        GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "crack_width_batch",  Label = Loc.S("CalcTaskKind_crack_width_batch"),  GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       // Огнестойкость
       new() { Id = "fire_r_check",             Label = Loc.S("CalcTaskKind_fire_r_check"),             GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
       new() { Id = "fire_r_check_batch",       Label = Loc.S("CalcTaskKind_fire_r_check_batch"),       GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
@@ -628,6 +729,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       Stage1ItemsView.Filter     = o => Pass(_stage1ItemFilter,     ((LoadItem)o).Label);
       Stage2ItemsView.Filter     = o => Pass(_stage2ItemFilter,     ((LoadItem)o).Label);
       ShellForceItemsView.Filter = o => Pass(_shellForceItemFilter, ((ShellLoadItem)o).Label);
+
+      CrackWidthLongForceItemsView = new ListCollectionView(CrackWidthLongForceItems);
+      CrackWidthLongForceItemsView.Filter = o => Pass(_crackWidthLongForceItemFilter, ((LoadItem)o).Label);
 
       if (existing != null)
       {
@@ -756,6 +860,28 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   ManualMx = sp.ManualForces.Mx.ToString("G6", inv);
                   ManualMy = sp.ManualForces.My.ToString("G6", inv);
               }
+          }
+
+          if (existing.Kind is "crack_width" or "crack_width_batch")
+          {
+             var cwp = CrackWidthTaskParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             CrackWidthAcrcUltLong  = cwp.AcrcUltLong.ToString("G6", inv);
+             CrackWidthAcrcUltShort = cwp.AcrcUltShort.ToString("G6", inv);
+             CrackWidthForcesMode   = cwp.ForcesMode;
+             CrackWidthLongShare    = cwp.LongShare.ToString("G6", inv);
+             if (cwp.NLongManual.HasValue)  CrackWidthManualNLong  = cwp.NLongManual.Value.ToString("G6", inv);
+             if (cwp.MxLongManual.HasValue) CrackWidthManualMxLong = cwp.MxLongManual.Value.ToString("G6", inv);
+             if (cwp.MyLongManual.HasValue) CrackWidthManualMyLong = cwp.MyLongManual.Value.ToString("G6", inv);
+             if (cwp.ForceSetLongId.HasValue)
+             {
+                SelectedCrackWidthLongForceSet = ForceSets.FirstOrDefault(fs => fs.Id == cwp.ForceSetLongId.Value);
+                if (cwp.ForceItemLongId.HasValue)
+                   SelectedCrackWidthLongForceItem = CrackWidthLongForceItems.FirstOrDefault(i => i.Id == cwp.ForceItemLongId.Value);
+             }
+             if (cwp.N.HasValue)  ManualN  = cwp.N.Value.ToString("G6", inv);
+             if (cwp.Mx.HasValue) ManualMx = cwp.Mx.Value.ToString("G6", inv);
+             if (cwp.My.HasValue) ManualMy = cwp.My.Value.ToString("G6", inv);
           }
 
           if (IsTorsion && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
@@ -1097,6 +1223,92 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           };
           _window.DialogResult = true;
           return;
+      }
+
+      if (IsCrackWidthAny)
+      {
+         if (SelectedSection == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         var invCw = System.Globalization.CultureInfo.InvariantCulture;
+         double.TryParse(CrackWidthAcrcUltLong,  System.Globalization.NumberStyles.Float, invCw, out var acrcLong);
+         double.TryParse(CrackWidthAcrcUltShort, System.Globalization.NumberStyles.Float, invCw, out var acrcShort);
+         double.TryParse(CrackWidthLongShare,    System.Globalization.NumberStyles.Float, invCw, out var longShare);
+
+         var cwp = new CrackWidthTaskParams
+         {
+            AcrcUltLong = acrcLong,
+            AcrcUltShort = acrcShort,
+            ForcesMode = CrackWidthForcesMode,
+            LongShare = longShare
+         };
+
+         if (IsCrackWidthBatch)
+         {
+            if (SelectedForceSet == null)
+            {
+               MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               return;
+            }
+            if (CrackWidthForcesMode == "two_sets")
+               cwp.ForceSetLongId = SelectedCrackWidthLongForceSet?.Id;
+
+            Result = new CalcTask
+            {
+               Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+               Kind = Kind,
+               SectionId = SelectedSection.Id,
+               ForceSetId = SelectedForceSet.Id,
+               ForceItemId = 0,
+               CalcType = SelectedCalcType,
+               ParamsJson = cwp.ToJson()
+            };
+            _window.DialogResult = true;
+            return;
+         }
+
+         // Одиночная crack_width: полная нагрузка — через ManualN/Mx/My (ShowManualForces=true).
+         double.TryParse(ManualN,  System.Globalization.NumberStyles.Float, invCw, out var nTotal);
+         double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, invCw, out var mxTotal);
+         double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, invCw, out var myTotal);
+         cwp.N = nTotal; cwp.Mx = mxTotal; cwp.My = myTotal;
+
+         if (CrackWidthForcesMode == "manual")
+         {
+            double.TryParse(CrackWidthManualNLong,  System.Globalization.NumberStyles.Float, invCw, out var nLongM);
+            double.TryParse(CrackWidthManualMxLong, System.Globalization.NumberStyles.Float, invCw, out var mxLongM);
+            double.TryParse(CrackWidthManualMyLong, System.Globalization.NumberStyles.Float, invCw, out var myLongM);
+            cwp.NLongManual = nLongM; cwp.MxLongManual = mxLongM; cwp.MyLongManual = myLongM;
+         }
+         else if (CrackWidthForcesMode == "force_item_long")
+         {
+            if (SelectedCrackWidthLongForceSet == null || SelectedCrackWidthLongForceItem == null)
+            {
+               MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               return;
+            }
+            cwp.ForceSetLongId = SelectedCrackWidthLongForceSet.Id;
+            cwp.ForceItemLongId = SelectedCrackWidthLongForceItem.Id;
+         }
+
+         Result = new CalcTask
+         {
+            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Kind = Kind,
+            SectionId = SelectedSection.Id,
+            ForceSetId = 0,
+            ForceItemId = 0,
+            CalcType = SelectedCalcType,
+            ParamsJson = cwp.ToJson()
+         };
+         _window.DialogResult = true;
+         return;
       }
 
       if (IsTorsion)

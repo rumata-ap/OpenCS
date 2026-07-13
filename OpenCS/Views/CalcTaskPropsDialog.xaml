@@ -515,6 +515,66 @@
          </GroupBox>
       </StackPanel>
 
+      <StackPanel Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsCrackWidthAny, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource CrackWidthParamsHeader}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <Grid Margin="0,0,0,4">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                     <TextBlock Text="{DynamicResource CrackWidth_AcrcUltLong}"/>
+                     <TextBox Text="{Binding CrackWidthAcrcUltLong, UpdateSourceTrigger=PropertyChanged}"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                     <TextBlock Text="{DynamicResource CrackWidth_AcrcUltShort}"/>
+                     <TextBox Text="{Binding CrackWidthAcrcUltShort, UpdateSourceTrigger=PropertyChanged}"/>
+                  </StackPanel>
+               </Grid>
+
+               <TextBlock Text="{DynamicResource CrackWidth_ForcesMode}" Margin="0,4,0,0"/>
+               <ComboBox ItemsSource="{Binding CrackWidthForcesModeItems}"
+                         SelectedItem="{Binding CrackWidthForcesMode}" Margin="0,0,0,4"/>
+
+               <StackPanel Visibility="{Binding ShowCrackWidthShare, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource CrackWidth_LongShare}"/>
+                  <TextBox Text="{Binding CrackWidthLongShare, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+               </StackPanel>
+
+               <StackPanel Visibility="{Binding ShowCrackWidthManual, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource CrackWidth_ManualNLong}"/>
+                  <TextBox Text="{Binding CrackWidthManualNLong, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,2"/>
+                  <TextBlock Text="{DynamicResource CrackWidth_ManualMxLong}"/>
+                  <TextBox Text="{Binding CrackWidthManualMxLong, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,2"/>
+                  <TextBlock Text="{DynamicResource CrackWidth_ManualMyLong}"/>
+                  <TextBox Text="{Binding CrackWidthManualMyLong, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
+               </StackPanel>
+
+               <StackPanel Visibility="{Binding ShowCrackWidthTwoSets, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource CrackWidth_ForceSetLong}"/>
+                  <ComboBox ItemsSource="{Binding ForceSets}"
+                            SelectedItem="{Binding SelectedCrackWidthLongForceSet}"
+                            DisplayMemberPath="Tag" Margin="0,0,0,4"/>
+               </StackPanel>
+
+               <StackPanel Visibility="{Binding ShowCrackWidthForceItemLong, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource CrackWidth_ForceItemLong}"/>
+                  <ComboBox ItemsSource="{Binding ForceSets}"
+                            SelectedItem="{Binding SelectedCrackWidthLongForceSet}"
+                            DisplayMemberPath="Tag" Margin="0,0,0,2"/>
+                  <TextBox Text="{Binding CrackWidthLongForceItemFilter, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="{DynamicResource FilterHint}" Margin="0,0,0,2"/>
+                  <ComboBox Style="{StaticResource VirtualComboBox}"
+                            ItemsSource="{Binding CrackWidthLongForceItemsView}"
+                            SelectedItem="{Binding SelectedCrackWidthLongForceItem}"
+                            DisplayMemberPath="Label" Margin="0,0,0,4"/>
+               </StackPanel>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
+
       <StackPanel Grid.Row="15" Grid.Column="0" Grid.ColumnSpan="2"
                   Orientation="Horizontal" HorizontalAlignment="Right">
          <Button Content="{DynamicResource OK}"

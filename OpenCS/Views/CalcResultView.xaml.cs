@@ -41,7 +41,8 @@ namespace OpenCS.Views
             or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
             or "shell_strain_state_batch"
             or "shell_layered_uls_batch"
-            or "strength_ndm_batch")
+            or "strength_ndm_batch"
+            or "cracking_batch" or "crack_width_batch")
         {
             Content = task.Kind switch
             {
@@ -53,10 +54,20 @@ namespace OpenCS.Views
                 "strength_ndm_batch"   => new StrengthNDMBatchResultView(result, app, task),
                 "shell_strain_state_batch" => new ShellStrainBatchResultView(result, app, task),
                 "shell_layered_uls_batch"  => new ShellStrainBatchResultView(result, app, task),
+                "cracking_batch"       => new CrackingBatchResultView(result, app, task),
+                "crack_width_batch"    => new CrackWidthBatchResultView(result, app, task),
                 _ when task.Kind.StartsWith("shell_simpl_") && task.Kind.EndsWith("_batch")
                                        => new ShellSimplBatchResultView(result, task, app),
                 _                      => new FireRCheckResultView(result, app, task)
             };
+            return;
+        }
+
+        if (task?.Kind is "cracking" or "crack_width")
+        {
+            Content = task.Kind == "cracking"
+                ? new CrackingResultView(result, app, task)
+                : new CrackWidthResultView(result, app, task);
             return;
         }
 

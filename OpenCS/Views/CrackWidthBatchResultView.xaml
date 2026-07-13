@@ -1,0 +1,43 @@
+<UserControl x:Class="OpenCS.Views.CrackWidthBatchResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+   <Grid Margin="12">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <Border Grid.Row="0" Padding="8,6" CornerRadius="4" Background="{Binding StatusBrush}" Margin="0,0,0,8">
+         <TextBlock Text="{Binding SummaryText}" FontWeight="Bold" HorizontalAlignment="Center"/>
+      </Border>
+
+      <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
+                IsReadOnly="True" CanUserAddRows="False" GridLinesVisibility="Horizontal"
+                CanUserSortColumns="True">
+         <DataGrid.RowStyle>
+            <Style TargetType="DataGridRow">
+               <Style.Triggers>
+                  <DataTrigger Binding="{Binding IsPassed}" Value="True">
+                     <Setter Property="Background" Value="#1A2D7A3E"/>
+                  </DataTrigger>
+                  <DataTrigger Binding="{Binding IsPassed}" Value="False">
+                     <Setter Property="Background" Value="#1AC0392B"/>
+                  </DataTrigger>
+               </Style.Triggers>
+            </Style>
+         </DataGrid.RowStyle>
+         <DataGrid.Columns>
+            <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColNum}" Binding="{Binding Num}" Width="40"/>
+            <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColLabel}" Binding="{Binding Label}" Width="*"/>
+            <DataGridTextColumn Header="N, кН" Binding="{Binding NText}" Width="70"/>
+            <DataGridTextColumn Header="Mx,дл, кН·м" Binding="{Binding MxLongText}" Width="85"/>
+            <DataGridTextColumn Header="Mx,полн, кН·м" Binding="{Binding MxTotalText}" Width="85"/>
+            <DataGridTextColumn Header="{DynamicResource CrackWidth_ColAcrcLong}" Binding="{Binding AcrcLongText}" Width="80"/>
+            <DataGridTextColumn Header="{DynamicResource CrackWidth_ColAcrcShort}" Binding="{Binding AcrcShortText}" Width="80"/>
+            <DataGridTextColumn Header="{DynamicResource CrackWidth_ColPassedLong}" Binding="{Binding PassedLongText}" Width="75"/>
+            <DataGridTextColumn Header="{DynamicResource CrackWidth_ColPassedShort}" Binding="{Binding PassedShortText}" Width="75"/>
+         </DataGrid.Columns>
+      </DataGrid>
+   </Grid>
+</UserControl>
