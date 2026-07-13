@@ -30,6 +30,7 @@ internal static class TestSections
         };
         concrete.Hull = hull;
         concrete.SetWKT();
+        concrete.SliceXY(nx: 12, ny: 20);
 
         var rebar = new MaterialArea
         {

@@ -6,6 +6,12 @@
 # Claude Code local settings
 .claude/settings.local.json
 
+# Brainstorm visual companion sessions
+.superpowers/
+
+# Git worktrees (local)
+.worktrees/
+
 # SQLite database (рабочий файл, не коммитится)
 dbapp.db
 

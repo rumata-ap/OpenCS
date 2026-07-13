@@ -40,9 +40,15 @@ namespace CScore
       /// Решает обратную задачу: при заданных target-усилиях N/My/Mz (кН, кН·м)
       /// находит кривизну k = (e0, ky, kz). Возвращает найденную Kurvature.
       /// </summary>
-      public Kurvature Solve(double nTarget, double mxTarget, double myTarget)
+      /// <param name="initialGuess">
+      /// Начальное приближение кривизны. Null (по умолчанию) — используется штатная упругая
+      /// оценка <see cref="CrossSection.Guess"/>. Передавайте явное приближение, когда упругая
+      /// оценка заведомо далека от решения (например, для трещиноватого сечения, где реальная
+      /// жёсткость сильно отличается от упругой) — это предотвращает расхождение метода Ньютона.
+      /// </param>
+      public Kurvature Solve(double nTarget, double mxTarget, double myTarget, Kurvature? initialGuess = null)
       {
-         Kurvature k = _section.Guess(new Load { N = nTarget, Mx = mxTarget, My = myTarget });
+         Kurvature k = initialGuess ?? _section.Guess(new Load { N = nTarget, Mx = mxTarget, My = myTarget });
          if (!double.IsFinite(k.e0)) k.e0 = 0;
          if (!double.IsFinite(k.ky)) k.ky = 0;
          if (!double.IsFinite(k.kz)) k.kz = 0;
