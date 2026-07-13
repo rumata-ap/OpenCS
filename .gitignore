@@ -499,8 +499,7 @@ $RECYCLE.BIN/
 # OpenCS-specific
 docs/
 .superpawers/
-AGENTS.md
-CLAUDE.md
+# AGENTS.md / CLAUDE.md — tracked: памятка для агентов (в т.ч. работа с двух ПК) должна ехать через git
 
 # Временные файлы разработки
 _temp_*
