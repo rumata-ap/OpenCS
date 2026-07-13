@@ -1439,6 +1439,11 @@
     <system:String x:Key="CrackWidth_AcrcUltLong">Long-term acrc limit, mm</system:String>
     <system:String x:Key="CrackWidth_AcrcUltShort">Short-term acrc limit, mm</system:String>
     <system:String x:Key="CrackWidth_ForcesMode">Long-term load mode</system:String>
+    <system:String x:Key="CrackWidth_Mode_total_only">Total load only</system:String>
+    <system:String x:Key="CrackWidth_Mode_share">Share of total</system:String>
+    <system:String x:Key="CrackWidth_Mode_manual">Long-term manually</system:String>
+    <system:String x:Key="CrackWidth_Mode_force_item_long">Separate force row</system:String>
+    <system:String x:Key="CrackWidth_Mode_two_sets">Two force sets</system:String>
     <system:String x:Key="CrackWidth_LongShare">Long-term load share</system:String>
     <system:String x:Key="CrackWidth_ManualNLong">N long-term, kN</system:String>
     <system:String x:Key="CrackWidth_ManualMxLong">Mx long-term, kN·m</system:String>

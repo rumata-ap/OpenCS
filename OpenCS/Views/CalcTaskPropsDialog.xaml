@@ -687,7 +687,10 @@
 
                <TextBlock Text="{DynamicResource CrackWidth_ForcesMode}" Margin="0,4,0,0"/>
                <ComboBox ItemsSource="{Binding CrackWidthForcesModeItems}"
-                         SelectedItem="{Binding CrackWidthForcesMode}" Margin="0,0,0,4"/>
+                         SelectedValue="{Binding CrackWidthForcesMode}"
+                         SelectedValuePath="Id"
+                         DisplayMemberPath="Label"
+                         Margin="0,0,0,4"/>
 
                <StackPanel Visibility="{Binding ShowCrackWidthShare, Converter={StaticResource BoolToVisibility}}">
                   <TextBlock Text="{DynamicResource CrackWidth_LongShare}"/>

@@ -221,6 +221,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(IsCrackWidthBatch));
          OnPropertyChanged(nameof(IsCrackWidthAny));
          OnPropertyChanged(nameof(CrackWidthForcesModeItems));
+         if (CrackWidthForcesModeItems.TrueForAll(i => i.Id != CrackWidthForcesMode))
+            CrackWidthForcesMode = "total_only";
          OnPropertyChanged(nameof(ShowCrackWidthShare));
          OnPropertyChanged(nameof(ShowCrackWidthManual));
          OnPropertyChanged(nameof(ShowCrackWidthForceItemLong));
@@ -286,6 +288,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsCrackWidthBatch));
             OnPropertyChanged(nameof(IsCrackWidthAny));
             OnPropertyChanged(nameof(CrackWidthForcesModeItems));
+            if (CrackWidthForcesModeItems.TrueForAll(i => i.Id != CrackWidthForcesMode))
+               CrackWidthForcesMode = "total_only";
             OnPropertyChanged(nameof(ShowCrackWidthShare));
             OnPropertyChanged(nameof(ShowCrackWidthManual));
             OnPropertyChanged(nameof(ShowCrackWidthForceItemLong));
@@ -487,10 +491,19 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       }
    }
 
-   /// <summary>Значения режима, доступные для текущего Kind (single или batch).</summary>
-   public List<string> CrackWidthForcesModeItems => IsCrackWidthBatch
-      ? ["total_only", "share", "two_sets"]
-      : ["total_only", "share", "manual", "force_item_long"];
+   /// <summary>Режимы длительной нагрузки (Id в ParamsJson, Label через локализацию).</summary>
+   public List<CalcTaskSolverItem> CrackWidthForcesModeItems => IsCrackWidthBatch
+      ? [
+           new() { Id = "total_only", Label = Loc.S("CrackWidth_Mode_total_only") },
+           new() { Id = "share",      Label = Loc.S("CrackWidth_Mode_share") },
+           new() { Id = "two_sets",   Label = Loc.S("CrackWidth_Mode_two_sets") },
+        ]
+      : [
+           new() { Id = "total_only",       Label = Loc.S("CrackWidth_Mode_total_only") },
+           new() { Id = "share",            Label = Loc.S("CrackWidth_Mode_share") },
+           new() { Id = "manual",           Label = Loc.S("CrackWidth_Mode_manual") },
+           new() { Id = "force_item_long",  Label = Loc.S("CrackWidth_Mode_force_item_long") },
+        ];
 
    public bool ShowCrackWidthShare         => CrackWidthForcesMode == "share";
    public bool ShowCrackWidthManual        => IsCrackWidth && CrackWidthForcesMode == "manual";
