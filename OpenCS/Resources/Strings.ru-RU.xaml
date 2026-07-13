@@ -1290,6 +1290,8 @@
     <system:String x:Key="CalcTaskGroupFire">Огнестойкость</system:String>
     <system:String x:Key="CalcTaskGroupOther">Прочие</system:String>
     <system:String x:Key="FilterHint">Фильтр по метке строки...</system:String>
+    <system:String x:Key="ForceItemFilterPlaceholder">Поиск строки усилий по метке…</system:String>
+    <system:String x:Key="ForceItemFilterHint">Введите часть метки, чтобы сузить список строк усилий ниже. Нужно при больших наборах (сотни/тысячи комбинаций).</system:String>
 
     <!-- FEM check groups -->
     <system:String x:Key="FemGroupUls">1-я ГПС (прочность)</system:String>

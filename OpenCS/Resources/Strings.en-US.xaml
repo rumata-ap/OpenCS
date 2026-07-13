@@ -1287,6 +1287,8 @@
     <system:String x:Key="CalcTaskGroupFire">Fire Resistance</system:String>
     <system:String x:Key="CalcTaskGroupOther">Other</system:String>
     <system:String x:Key="FilterHint">Filter by label...</system:String>
+    <system:String x:Key="ForceItemFilterPlaceholder">Search force rows by label…</system:String>
+    <system:String x:Key="ForceItemFilterHint">Type part of a label to narrow the force-row list below. Useful for large sets (hundreds/thousands of combinations).</system:String>
 
     <!-- FEM check groups -->
     <system:String x:Key="FemGroupUls">1st LS Group (Strength)</system:String>
