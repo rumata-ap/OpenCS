@@ -13,6 +13,8 @@ public sealed class LimitForceSolver : ILimitForceSolver
    readonly double _solverTol;
    readonly double _bisectTol;
    readonly int _bisectMaxIter;
+   readonly bool _ten;
+   readonly LimitForceParams? _eta;
 
    /// <summary>Создаёт бисекционный решатель предельных усилий.</summary>
    public LimitForceSolver(
@@ -23,7 +25,9 @@ public sealed class LimitForceSolver : ILimitForceSolver
       int solverMaxIter = 60,
       double solverStep = 1e-7,
       double bisectTol = 1e-4,
-      int bisectMaxIter = 60)
+      int bisectMaxIter = 60,
+      bool ten = true,
+      LimitForceParams? etaParams = null)
    {
       _section = section ?? throw new ArgumentNullException(nameof(section));
       _guessSection = guessSection ?? (section is CrossSectionLimitAdapter adapter
@@ -36,7 +40,9 @@ public sealed class LimitForceSolver : ILimitForceSolver
       _solverTol = solverTol;
       _bisectTol = bisectTol;
       _bisectMaxIter = bisectMaxIter;
-      _solver = new LimitSectionStrainSolver(section, _guessSection, calc, solverTol, solverMaxIter, solverStep);
+      _ten = ten;
+      _eta = etaParams is { EtaEnabled: true } ? etaParams : null;
+      _solver = new LimitSectionStrainSolver(section, _guessSection, calc, solverTol, solverMaxIter, solverStep, ten);
    }
 
    /// <summary>Создаёт решатель для обычного сечения через адаптер.</summary>
@@ -46,31 +52,65 @@ public sealed class LimitForceSolver : ILimitForceSolver
       double solverTol = 0.5,
       int solverMaxIter = 60,
       double bisectTol = 1e-4,
-      int bisectMaxIter = 60)
+      int bisectMaxIter = 60,
+      bool ten = true,
+      LimitForceParams? etaParams = null)
       => new(new CrossSectionLimitAdapter(section, calc), section, calc,
-         solverTol, solverMaxIter, bisectTol: bisectTol, bisectMaxIter: bisectMaxIter);
+         solverTol, solverMaxIter, bisectTol: bisectTol, bisectMaxIter: bisectMaxIter, ten: ten, etaParams: etaParams);
 
    /// <inheritdoc/>
    public LimitForceResult AllFactor(double n, double mx, double my)
       => Bisect(k => k * n, k => k * mx, k => k * my);
 
-   /// <inheritdoc/>
+   /// <summary>
+   /// Предельный коэффициент k·(Mx, My) при фиксированном N. Если в параметрах
+   /// задачи включена поправка η (п. 8.1.15 — при N=const её можно пересчитывать
+   /// на каждой пробной точке k без риска потери устойчивости бисекции, в
+   /// отличие от AllFactor/AxialFactor, где N сам является искомой величиной),
+   /// на каждом пробном k момент (k·mx, k·my) перед проверкой вместимости
+   /// сечения усиливается через <see cref="Sp63.RodEtaWiring.Apply"/>; в отчёте
+   /// (MxLimit/MyLimit) при этом остаётся исходный (неусиленный) момент —
+   /// диагностика усиления доступна в <see cref="LimitForceResult.Eta"/>.
+   /// </summary>
    public LimitForceResult MomentFactor(double n, double mx, double my)
-      => Bisect(_ => n, k => k * mx, k => k * my);
+      => _eta != null
+         ? Bisect(_ => n, k => k * mx, k => k * my, AmplifyForEta)
+         : Bisect(_ => n, k => k * mx, k => k * my);
 
    /// <inheritdoc/>
    public LimitForceResult AxialFactor(double n, double mx, double my)
       => Bisect(k => k * n, _ => mx, _ => my);
 
-   LimitForceResult Bisect(Func<double, double> nFn, Func<double, double> mxFn, Func<double, double> myFn)
+   Sp63.RodEtaWiring.Result AmplifyForEta(double n, double mxRaw, double myRaw)
+      => Sp63.RodEtaWiring.Apply(
+         _guessSection, n, mxRaw, myRaw,
+         _eta!.EtaL0x, _eta.EtaL0y,
+         _eta.EtaPsiX ?? 1.0, _eta.EtaPsiY ?? 1.0,
+         _eta.EtaIterative,
+         (tmx, tmy) => _solver.Solve(n, tmx, tmy),
+         _eta.EtaSlendernessThreshold ?? Sp63.EccentricityAmplifier.SlendernessThreshold);
+
+   LimitForceResult Bisect(
+      Func<double, double> nFn, Func<double, double> mxFn, Func<double, double> myFn,
+      Func<double, double, double, Sp63.RodEtaWiring.Result>? amplify = null)
    {
       int totalNewton = 0;
 
-      (bool Feasible, Kurvature? StrainPlane) FeasibleAt(double k)
+      (bool Feasible, Kurvature? StrainPlane, Sp63.RodEtaWiring.Result? Eta) FeasibleAt(double k)
       {
-         bool ok = IsFeasible(nFn(k), mxFn(k), myFn(k), out var sp);
+         double n = nFn(k), mxRaw = mxFn(k), myRaw = myFn(k);
+         double mx = mxRaw, my = myRaw;
+         Sp63.RodEtaWiring.Result? eta = null;
+         if (amplify != null)
+         {
+            var wiring = amplify(n, mxRaw, myRaw);
+            eta = wiring;
+            mx = wiring.MxEff;
+            my = wiring.MyEff;
+         }
+         bool ok = IsFeasible(n, mx, my, out var sp);
          totalNewton += _solver.Iterations;
-         return (ok, sp);
+         return (ok, sp, eta);
       }
 
       double? a = null;
@@ -88,7 +128,7 @@ public sealed class LimitForceSolver : ILimitForceSolver
 
       foreach (double k in kGrid)
       {
-         var (feasible, _) = FeasibleAt(k);
+         var (feasible, _, _) = FeasibleAt(k);
          if (feasible)
          {
             feasibleSeen = true;
@@ -127,6 +167,7 @@ public sealed class LimitForceSolver : ILimitForceSolver
       }
 
       Kurvature? bestSp = null;
+      Sp63.RodEtaWiring.Result? bestEta = null;
       int nIter = 0;
       double left = a.Value;
       double right = b.Value;
@@ -134,11 +175,12 @@ public sealed class LimitForceSolver : ILimitForceSolver
       for (nIter = 1; nIter <= _bisectMaxIter; nIter++)
       {
          double mid = 0.5 * (left + right);
-         var (feasible, sp) = FeasibleAt(mid);
+         var (feasible, sp, eta) = FeasibleAt(mid);
          if (feasible)
          {
             left = mid;
             bestSp = sp;
+            bestEta = eta;
          }
          else
          {
@@ -150,7 +192,7 @@ public sealed class LimitForceSolver : ILimitForceSolver
       }
 
       return BuildResult(
-         left, nIter, totalNewton, bestSp,
+         left, nIter, totalNewton, bestSp, bestEta,
          (right - left) <= _bisectTol * 10.0,
          nFn, mxFn, myFn);
    }
@@ -175,6 +217,7 @@ public sealed class LimitForceSolver : ILimitForceSolver
       int nIter,
       int totalNewton,
       Kurvature? bestSp,
+      Sp63.RodEtaWiring.Result? bestEta,
       bool converged,
       Func<double, double> nFn,
       Func<double, double> mxFn,
@@ -222,7 +265,8 @@ public sealed class LimitForceSolver : ILimitForceSolver
          EpsCu = _section.EpsCu,
          EpsRebarMax = epsRebarMax,
          EpsSu = epsSu,
-         Governing = governing
+         Governing = governing,
+         Eta = bestEta
       };
    }
 
@@ -235,7 +279,7 @@ public sealed class LimitForceSolver : ILimitForceSolver
       if (!_solver.Converged || _solver.Residual > _solverTol)
          return false;
 
-      Load act = _section.Integral(k, _calc);
+      Load act = _section.Integral(k, _calc, _ten);
       double resid = Math.Sqrt(
          Math.Pow(act.N - n, 2) +
          Math.Pow(act.Mx - mx, 2) +

@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:OpenCS.Views">
 
-   <TabControl>
+   <TabControl x:Name="MainTabs">
       <TabItem Header="{DynamicResource ResultTabSummary}">
          <local:LimitForceSummaryView x:Name="SummaryView"/>
       </TabItem>

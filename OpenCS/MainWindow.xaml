@@ -167,6 +167,9 @@
              </MenuItem>
              <MenuItem Header="{DynamicResource ImportSubMenuScad}">
                 <MenuItem Header="{DynamicResource ImportScadTopologyFromTxt}" Command="{Binding ImportScadTopologyFromTxtCommand}"/>
+                <MenuItem Header="{DynamicResource ImportScadForcesLoadCases}" Command="{Binding ImportScadForcesLoadCasesCommand}"/>
+                <MenuItem Header="{DynamicResource ImportScadForcesRsu}" Command="{Binding ImportScadForcesRsuCommand}"/>
+                <MenuItem Header="{DynamicResource ImportScadForcesCombinations}" Command="{Binding ImportScadForcesCombinationsCommand}"/>
              </MenuItem>
              <MenuItem Header="{DynamicResource ImportSubMenuRobot}" IsEnabled="False"/>
              <MenuItem Header="{DynamicResource ImportSubMenuRfem5}" IsEnabled="False"/>
@@ -1289,21 +1292,38 @@
                <Grid>
                   <Grid.ColumnDefinitions>
                      <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="Auto"/>
                      <ColumnDefinition Width="200"/>
                   </Grid.ColumnDefinitions>
                </Grid>
             </ItemsPanelTemplate>
          </StatusBar.ItemsPanel>
 
-         <!-- Сообщение о текущей операции -->
          <StatusBarItem Grid.Column="0" HorizontalContentAlignment="Stretch">
             <TextBlock Text="{Binding StatusMessage}" Margin="4,0"
                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
          </StatusBarItem>
 
-         <!-- Прогрессбар — виден только во время выполнения -->
          <StatusBarItem Grid.Column="1">
-            <ProgressBar Width="190" Height="14" IsIndeterminate="True">
+            <Button Content="{DynamicResource CalcTaskCancel}"
+                    Command="{Binding CancelBusyCommand}"
+                    Padding="8,1" Margin="4,0"
+                    VerticalAlignment="Center">
+               <Button.Visibility>
+                  <Binding Path="IsBusy">
+                     <Binding.Converter>
+                        <BooleanToVisibilityConverter/>
+                     </Binding.Converter>
+                  </Binding>
+               </Button.Visibility>
+            </Button>
+         </StatusBarItem>
+
+         <StatusBarItem Grid.Column="2">
+            <ProgressBar Width="190" Height="14"
+                         Minimum="0" Maximum="1"
+                         Value="{Binding BusyProgress}"
+                         IsIndeterminate="{Binding IsBusyProgressIndeterminate}">
                <ProgressBar.Visibility>
                   <Binding Path="IsBusy">
                      <Binding.Converter>

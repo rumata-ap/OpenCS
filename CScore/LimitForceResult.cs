@@ -46,4 +46,11 @@ public sealed class LimitForceResult
 
    /// <summary>Управляющий критерий: concrete | rebar | both | none.</summary>
    public string Governing { get; set; } = "none";
+
+   /// <summary>
+   /// Диагностика η (п. 8.1.15 СП63.13330) в найденной предельной точке —
+   /// заполняется только для режимов, где η реализована (сейчас — MomentFactor
+   /// при включённом EtaEnabled в параметрах задачи).
+   /// </summary>
+   public Sp63.RodEtaWiring.Result? Eta { get; set; }
 }

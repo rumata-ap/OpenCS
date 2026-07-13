@@ -7,6 +7,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using CScore;
 using CScore.Fire.Entities;
+using CSfea.Torsion;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
@@ -57,6 +58,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string manualN = "0";
     string manualMx = "0";
     string manualMy = "0";
+    // Eta (п. 8.1.15 СП63.13330)
+    bool etaEnabled, etaIterative;
+    string etaL = "6.0", etaMuX = "1.0", etaMuY = "1.0", etaPsiX = "1.0", etaPsiY = "1.0";
+    string etaSlendernessThreshold = "14";
     // Shell simpl
     PlateSection? selectedShellSimplSection;
     ForceSet? selectedShellForceSet;
@@ -88,6 +93,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string steelMuX = "1.0", steelMuY = "1.0";
    string steelBetaM = "1.0", steelGammaM = "1.025";
     string torsionElementSize = "0.05", torsionMk = "";
+    string torsionAutoH0 = "0.05";
+    string torsionAutoRuns = "3";
+    double _lastTorsionLmin = double.NaN;
+    bool _torsionH0UserOverride;
     int _torsionTriangulationIndex;
     int _torsionFemOrderIndex;
     bool torsionAutoConverge;
@@ -99,6 +108,50 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ManualN  { get => manualN;  set { manualN  = value; OnPropertyChanged(); } }
    public string ManualMx { get => manualMx; set { manualMx = value; OnPropertyChanged(); } }
    public string ManualMy { get => manualMy; set { manualMy = value; OnPropertyChanged(); } }
+
+   public bool IsStrainState => Kind == "strain_state";
+
+   /// <summary>
+   /// Виды задач, поддерживающие блок η (п. 8.1.15): состояние деформаций
+   /// (N фиксирован по определению) и поиск предельного момента при
+   /// фиксированном N (limit_moment) — в обоих случаях N не меняется в ходе
+   /// решения, что позволяет пересчитывать η без риска потери устойчивости
+   /// поиска. limit_force/limit_axial (N — искомая величина) пока не
+   /// поддерживаются — см. RodEtaWiring/LimitForceSolver.MomentFactor.
+   /// </summary>
+   public bool SupportsEta => Kind is "strain_state" or "strain_state_batch"
+      or "limit_moment" or "limit_moment_batch";
+
+   public bool EtaEnabled
+   {
+      get => etaEnabled;
+      set
+      {
+         etaEnabled = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowEtaFields));
+         OnPropertyChanged(nameof(ShowEtaFormulaFields));
+      }
+   }
+
+   public bool EtaIterative
+   {
+      get => etaIterative;
+      set { etaIterative = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowEtaFormulaFields)); }
+   }
+
+   public string EtaL    { get => etaL;    set { etaL    = value; OnPropertyChanged(); } }
+   public string EtaMuX  { get => etaMuX;  set { etaMuX  = value; OnPropertyChanged(); } }
+   public string EtaMuY  { get => etaMuY;  set { etaMuY  = value; OnPropertyChanged(); } }
+   public string EtaPsiX { get => etaPsiX; set { etaPsiX = value; OnPropertyChanged(); } }
+   public string EtaPsiY { get => etaPsiY; set { etaPsiY = value; OnPropertyChanged(); } }
+   public string EtaSlendernessThreshold { get => etaSlendernessThreshold; set { etaSlendernessThreshold = value; OnPropertyChanged(); } }
+
+   /// <summary>Показывать блок η целиком — для strain_state и strain_state_batch при включённой галке.</summary>
+   public bool ShowEtaFields => SupportsEta && EtaEnabled;
+
+   /// <summary>Поля ψ (доля длительности момента) — только для буквального (формульного) режима.</summary>
+   public bool ShowEtaFormulaFields => ShowEtaFields && !EtaIterative;
 
    public bool IsLimitSingle  => IsLimitSingleKind(Kind);
    public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || IsSteelCheck || IsCracking || IsCrackWidth;
@@ -159,8 +212,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(IsTorsion));
          OnPropertyChanged(nameof(IsTorsionFem));
          OnPropertyChanged(nameof(ShowManualForces));
+         OnPropertyChanged(nameof(IsStrainState));
+         OnPropertyChanged(nameof(SupportsEta));
+         OnPropertyChanged(nameof(ShowEtaFields));
+         OnPropertyChanged(nameof(ShowEtaFormulaFields));
          NotifyTorsionForceProps();
          RefreshTorsionMeshPreview();
+         RefreshTorsionLmin();
+         OnPropertyChanged(nameof(ShowTorsionAutoParams));
+         OnPropertyChanged(nameof(ShowTorsionElementSize));
+         OnPropertyChanged(nameof(ShowTorsionAutoRunsWarn));
          if (!FilteredCalcTypes.Contains(SelectedCalcType))
              SelectedCalcType = FilteredCalcTypes[0];
      }
@@ -214,11 +275,18 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsTorsion));
             OnPropertyChanged(nameof(IsTorsionFem));
             OnPropertyChanged(nameof(ShowManualForces));
+            OnPropertyChanged(nameof(IsStrainState));
+            OnPropertyChanged(nameof(ShowEtaFields));
+            OnPropertyChanged(nameof(ShowEtaFormulaFields));
             NotifyTorsionForceProps();
             if (!FilteredCalcTypes.Contains(SelectedCalcType))
                 SelectedCalcType = FilteredCalcTypes[0];
             FilterSections();
             RefreshTorsionMeshPreview();
+            RefreshTorsionLmin();
+            OnPropertyChanged(nameof(ShowTorsionAutoParams));
+            OnPropertyChanged(nameof(ShowTorsionElementSize));
+            OnPropertyChanged(nameof(ShowTorsionAutoRunsWarn));
         }
      }
 
@@ -302,7 +370,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public CrossSection? SelectedSection
    {
       get => selectedSection;
-      set { selectedSection = value; OnPropertyChanged(); RefreshTorsionMeshPreview(); }
+      set { selectedSection = value; OnPropertyChanged(); RefreshTorsionMeshPreview(); RefreshTorsionLmin(); }
    }
 
     public FireSectionDef? SelectedFireSection
@@ -577,6 +645,38 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    }
     public string TorsionMk { get => torsionMk; set { torsionMk = value; OnPropertyChanged(); } }
 
+    public string TorsionAutoH0
+    {
+       get => torsionAutoH0;
+       set
+       {
+          if (torsionAutoH0 == value) return;
+          torsionAutoH0 = value;
+          _torsionH0UserOverride = true;
+          OnPropertyChanged();
+       }
+    }
+
+    public string TorsionAutoRuns
+    {
+       get => torsionAutoRuns;
+       set
+       {
+          torsionAutoRuns = value;
+          OnPropertyChanged();
+          OnPropertyChanged(nameof(ShowTorsionAutoRunsWarn));
+       }
+    }
+
+    public string TorsionLminText { get; private set; } = "—";
+
+    public bool ShowTorsionAutoParams => IsTorsion && TorsionAutoConverge;
+
+    public bool ShowTorsionAutoRunsWarn =>
+       ShowTorsionAutoParams
+       && int.TryParse((TorsionAutoRuns ?? "").Trim(), out var n)
+       && n >= 5;
+
     public int TorsionTriangulationIndex
     {
        get => _torsionTriangulationIndex;
@@ -597,12 +697,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           torsionAutoConverge = value;
           OnPropertyChanged();
           OnPropertyChanged(nameof(ShowTorsionElementSize));
+          OnPropertyChanged(nameof(ShowTorsionAutoParams));
+          OnPropertyChanged(nameof(ShowTorsionAutoRunsWarn));
           RefreshTorsionMeshPreview();
        }
     }
 
-    /// <summary>Поле "размер элемента" скрывается, когда включена автосходимость (шаг подбирается сам).</summary>
-    public bool ShowTorsionElementSize => !TorsionAutoConverge;
+    /// <summary>Поле "размер элемента" скрывается, когда включена автосходимость.</summary>
+    public bool ShowTorsionElementSize => IsTorsion && !TorsionAutoConverge;
 
    /// <summary>T (кручение) из выбранной строки набора усилий, кН·м.</summary>
    public string TorsionMkFromSetText
@@ -775,6 +877,22 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          else if (IsLimitKind)
             SolverId = LimitForceParams.Parse(existing.ParamsJson).Solver;
 
+          if (existing.Kind is "strain_state" or "strain_state_batch" or "limit_moment" or "limit_moment_batch"
+              && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
+          {
+             var ep = LimitForceParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             EtaEnabled   = ep.EtaEnabled;
+             EtaIterative = ep.EtaIterative;
+             if (ep.EtaL.HasValue)    EtaL    = ep.EtaL.Value.ToString("G6", inv);
+             if (ep.EtaMuX.HasValue)  EtaMuX  = ep.EtaMuX.Value.ToString("G6", inv);
+             if (ep.EtaMuY.HasValue)  EtaMuY  = ep.EtaMuY.Value.ToString("G6", inv);
+             if (ep.EtaPsiX.HasValue) EtaPsiX = ep.EtaPsiX.Value.ToString("G6", inv);
+             if (ep.EtaPsiY.HasValue) EtaPsiY = ep.EtaPsiY.Value.ToString("G6", inv);
+             if (ep.EtaSlendernessThreshold.HasValue)
+                EtaSlendernessThreshold = ep.EtaSlendernessThreshold.Value.ToString("G6", inv);
+          }
+
           if (existing.Kind is "two_stage_strain" or "two_stage_strain_batch")
           {
              var tp = TwoStageParams.Parse(existing.ParamsJson);
@@ -893,9 +1011,18 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               TorsionTriangulationIndex = tp.Triangulation == CSTriangulation.TriangulationMethod.Ruppert ? 1 : 0;
               TorsionAutoConverge = tp.AutoConverge;
               TorsionFemOrderIndex = tp.FemOrder == "quadratic" ? 1 : 0;
+              if (tp.AutoH0 > 0)
+              {
+                  torsionAutoH0 = tp.AutoH0.ToString("G6", inv);
+                  _torsionH0UserOverride = true;
+                  OnPropertyChanged(nameof(TorsionAutoH0));
+              }
+              if (tp.AutoRuns >= 2)
+                  TorsionAutoRuns = tp.AutoRuns.ToString(inv);
           }
 
           NotifyTorsionForceProps();
+          RefreshTorsionLmin();
        }
        else
        {
@@ -915,6 +1042,53 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
       OkCommand = new RelayCommand(_ => Commit());
       RefreshTorsionMeshPreview();
+      RefreshTorsionLmin();
+   }
+
+   void RefreshTorsionLmin()
+   {
+      if (!IsTorsion || SelectedSection?.Areas == null || SelectedSection.Areas.Count == 0)
+      {
+         TorsionLminText = "—";
+         _lastTorsionLmin = double.NaN;
+         OnPropertyChanged(nameof(TorsionLminText));
+         return;
+      }
+
+      try
+      {
+         var boundary = SelectedSection.Areas[0].FromMaterialArea();
+         double lmin = TorsionBoundaryMetrics.MinEdgeLength(boundary);
+         var inv = System.Globalization.CultureInfo.InvariantCulture;
+         if (!double.IsFinite(lmin) || lmin <= 0)
+         {
+            TorsionLminText = "—";
+            _lastTorsionLmin = double.NaN;
+         }
+         else
+         {
+            TorsionLminText = lmin.ToString("G6", inv) + " м";
+            bool shouldFillH0 = !_torsionH0UserOverride
+               || !double.IsFinite(_lastTorsionLmin)
+               || (double.TryParse(torsionAutoH0.Replace(',', '.'),
+                      System.Globalization.NumberStyles.Float, inv, out var cur)
+                   && Math.Abs(cur - _lastTorsionLmin) < 1e-15 * Math.Max(1, Math.Abs(_lastTorsionLmin)));
+            _lastTorsionLmin = lmin;
+            if (shouldFillH0)
+            {
+               _torsionH0UserOverride = false;
+               torsionAutoH0 = lmin.ToString("G6", inv);
+               OnPropertyChanged(nameof(TorsionAutoH0));
+            }
+         }
+         OnPropertyChanged(nameof(TorsionLminText));
+      }
+      catch
+      {
+         TorsionLminText = "—";
+         _lastTorsionLmin = double.NaN;
+         OnPropertyChanged(nameof(TorsionLminText));
+      }
    }
 
    void RefreshTorsionMeshPreview()
@@ -1325,6 +1499,25 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           if (elem <= 0) elem = 0.05;
           double.TryParse(TorsionMk, System.Globalization.NumberStyles.Float, inv, out var mkManual);
 
+          double autoH0 = 0;
+          int autoRuns = 0;
+          if (TorsionAutoConverge)
+          {
+              string hRaw = (TorsionAutoH0 ?? "").Trim().Replace(',', '.');
+              if (!double.TryParse(hRaw, System.Globalization.NumberStyles.Float, inv, out autoH0) || autoH0 <= 0)
+              {
+                  MessageBox.Show(Loc.S("TorsionAutoH0Invalid"), Loc.S("Warning"),
+                      MessageBoxButton.OK, MessageBoxImage.Warning);
+                  return;
+              }
+              if (!int.TryParse((TorsionAutoRuns ?? "").Trim(), out autoRuns) || autoRuns < 2)
+              {
+                  MessageBox.Show(Loc.S("TorsionAutoRunsInvalid"), Loc.S("Warning"),
+                      MessageBoxButton.OK, MessageBoxImage.Warning);
+                  return;
+              }
+          }
+
           if (SelectedForceSet != null && SelectedForceItem == null && mkManual <= 0)
           {
               MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
@@ -1348,7 +1541,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                       ? CSTriangulation.TriangulationMethod.AdvancingFront
                       : CSTriangulation.TriangulationMethod.Ruppert,
                   AutoConverge = TorsionAutoConverge,
-                  FemOrder = _torsionFemOrderIndex == 1 ? "quadratic" : "linear"
+                  FemOrder = _torsionFemOrderIndex == 1 ? "quadratic" : "linear",
+                  AutoH0 = TorsionAutoConverge ? autoH0 : 0,
+                  AutoRuns = TorsionAutoConverge ? autoRuns : 0
               }.ToJson()
           };
           _window.DialogResult = true;
@@ -1436,6 +1631,27 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           return;
        }
 
+       if (SupportsEta && EtaEnabled)
+       {
+          var invEta = System.Globalization.CultureInfo.InvariantCulture;
+          bool validL   = double.TryParse(EtaL, System.Globalization.NumberStyles.Float, invEta, out var lCheck) && lCheck > 0;
+          bool validMuX = !double.TryParse(EtaMuX, System.Globalization.NumberStyles.Float, invEta, out var muxCheck) || muxCheck > 0;
+          bool validMuY = !double.TryParse(EtaMuY, System.Globalization.NumberStyles.Float, invEta, out var muyCheck) || muyCheck > 0;
+          bool validThreshold = !double.TryParse(EtaSlendernessThreshold, System.Globalization.NumberStyles.Float, invEta, out var thCheck) || thCheck > 0;
+          if (!validL || !validMuX || !validMuY)
+          {
+             MessageBox.Show(Loc.S("EtaNeedL0"), Loc.S("Warning"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+             return;
+          }
+          if (!validThreshold)
+          {
+             MessageBox.Show(Loc.S("EtaInvalidThreshold"), Loc.S("Warning"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+             return;
+          }
+       }
+
        string paramsJson = "{}";
        if (IsFireKind && SelectedFireSection != null)
        {
@@ -1454,18 +1670,35 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           double my = double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, inv, out var myv) ? myv : 0;
           if (IsLimitSingle)
           {
-             paramsJson = new LimitForceParams
-             {
-                Solver = SolverId,
-                N = n, Mx = mx, My = my
-             }.ToJson();
+             var lfp = new LimitForceParams { Solver = SolverId, N = n, Mx = mx, My = my };
+             if (Kind == "limit_moment" && EtaEnabled) ApplyEtaParams(lfp, inv);
+             paramsJson = lfp.ToJson();
+          }
+          else if (IsStrainState)
+          {
+             var lfp = new LimitForceParams { N = n, Mx = mx, My = my };
+             if (EtaEnabled) ApplyEtaParams(lfp, inv);
+             paramsJson = lfp.ToJson();
           }
           else
              paramsJson = JsonSerializer.Serialize(new { N = n, Mx = mx, My = my });
        }
+       else if (Kind == "strain_state_batch")
+       {
+          if (EtaEnabled)
+          {
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             var lfp = new LimitForceParams();
+             ApplyEtaParams(lfp, inv);
+             paramsJson = lfp.ToJson();
+          }
+       }
        else if (IsLimitKind)
        {
-          paramsJson = new LimitForceParams { Solver = SolverId }.ToJson();
+          var lfp = new LimitForceParams { Solver = SolverId };
+          if (Kind == "limit_moment_batch" && EtaEnabled)
+             ApplyEtaParams(lfp, System.Globalization.CultureInfo.InvariantCulture);
+          paramsJson = lfp.ToJson();
        }
 
       Result = new CalcTask
@@ -1481,5 +1714,28 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       };
 
       _window.DialogResult = true;
+   }
+
+   /// <summary>
+   /// Переносит поля блока η (п. 8.1.15) диалога в <see cref="LimitForceParams"/>.
+   /// Общая логика для одиночной (strain_state, ручные усилия) и пакетной
+   /// (strain_state_batch, усилия из ForceSet) задач — набор η-параметров
+   /// (L, μx/μy, ψx/ψy, порог гибкости) одинаков и не зависит от конкретной
+   /// силовой позиции.
+   /// </summary>
+   void ApplyEtaParams(LimitForceParams lfp, System.Globalization.CultureInfo inv)
+   {
+      lfp.EtaEnabled   = true;
+      lfp.EtaIterative = EtaIterative;
+      if (double.TryParse(EtaL,   System.Globalization.NumberStyles.Float, inv, out var l))   lfp.EtaL   = l;
+      if (double.TryParse(EtaMuX, System.Globalization.NumberStyles.Float, inv, out var mux)) lfp.EtaMuX = mux;
+      if (double.TryParse(EtaMuY, System.Globalization.NumberStyles.Float, inv, out var muy)) lfp.EtaMuY = muy;
+      if (double.TryParse(EtaSlendernessThreshold, System.Globalization.NumberStyles.Float, inv, out var th) && th > 0)
+         lfp.EtaSlendernessThreshold = th;
+      if (!EtaIterative)
+      {
+         if (double.TryParse(EtaPsiX, System.Globalization.NumberStyles.Float, inv, out var psix)) lfp.EtaPsiX = psix;
+         if (double.TryParse(EtaPsiY, System.Globalization.NumberStyles.Float, inv, out var psiy)) lfp.EtaPsiY = psiy;
+      }
    }
 }

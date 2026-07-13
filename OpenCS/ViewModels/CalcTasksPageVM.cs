@@ -64,7 +64,8 @@ namespace OpenCS.ViewModels
          _app.CalcResults.CollectionChanged += (_, _) => RefreshResults();
 
          NewTaskCommand    = new RelayCommand(_ => NewTask());
-         RunTaskCommand    = new RelayCommand(_ => RunTask(),   _ => SelectedTask != null);
+         RunTaskCommand    = new RelayCommand(_ => _ = RunTaskAsync(),
+            _ => SelectedTask != null && !_app.IsBusy);
          EditTaskCommand   = new RelayCommand(_ => EditTask(),  _ => SelectedTask != null);
          DeleteTaskCommand = new RelayCommand(_ => DeleteTask(), _ => SelectedTask != null);
          ViewResultCommand   = new RelayCommand(_ => ViewResult(),   _ => SelectedResult != null);
@@ -149,67 +150,15 @@ namespace OpenCS.ViewModels
          dlg.ShowDialog();
       }
 
-      void RunTask()
+      async Task RunTaskAsync()
       {
          if (SelectedTask == null) return;
-         var ct = SelectedTask.Model;
-
-         var section = _app.CrossSections.FirstOrDefault(s => s.Id == ct.SectionId);
-         if (section == null)
+         var taskRef = SelectedTask;
+         await CalcTaskExecutor.RunAsync(_app, taskRef.Model, onResultsChanged: () =>
          {
-            MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
-               MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
-         }
-
-         LoadItem? fi;
-         if (CalcTaskForceHelper.UsesManualForces(ct))
-         {
-            fi = CalcTaskForceHelper.ResolveSingleForces(ct, _app.BarForceSets);
-            if (fi == null)
-            {
-               MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-                  MessageBoxButton.OK, MessageBoxImage.Error);
-               return;
-            }
-         }
-         else if (CalcTaskForceHelper.UsesDummyForceItem(ct))
-         {
-            fi = CalcTaskForceHelper.ResolveOptionalForceItem(ct, _app.BarForceSets);
-         }
-         else
-         {
-            var fs = _app.BarForceSets.FirstOrDefault(f => f.Id == ct.ForceSetId);
-            fi = fs?.Items.FirstOrDefault(i => i.Id == ct.ForceItemId);
-            if (fi == null)
-            {
-               MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-                  MessageBoxButton.OK, MessageBoxImage.Error);
-               return;
-            }
-         }
-
-         var result = TaskRunner.Run(ct, section, fi, _app.CalcSettings, new TaskRunContext
-         {
-            Database = _app.db,
-            FireSections = _app.FireSections
-         });
-         _app.db.SaveCalcResult(result);
-         RefreshResults();
-
-         var statusKey = result.Status switch
-         {
-            "ok"            => "CalcResultOk",
-            "not_converged" => "CalcResultNotConverged",
-            "partial"       => "CalcResultPartial",
-            "not_passed"    => "CalcResultNotPassed",
-            _               => "CalcResultError"
-         };
-         _app.LogService.Info(string.Format(Loc.S(statusKey), ct.Tag));
-
-         SelectedResult = SelectedTaskResults.LastOrDefault();
-         if (SelectedResult != null)
-            ViewResult();
+            RefreshResults();
+            SelectedResult = SelectedTaskResults.LastOrDefault();
+         }, navigateToResult: true);
       }
 
       public void SelectTask(int taskId)

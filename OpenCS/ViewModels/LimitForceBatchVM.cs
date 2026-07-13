@@ -34,7 +34,9 @@ public sealed class LimitForceBatchVM : ViewModelBase
         string GovText,
         string IterText,
         string StatusText,
-        bool   IsConverged);
+        bool   IsConverged,
+        string EtaXText,
+        string EtaYText);
 
     public LimitForceBatchVM(CalcResult result, CrossSection? section = null, CalcSettings? settings = null)
     {
@@ -93,6 +95,19 @@ public sealed class LimitForceBatchVM : ViewModelBase
                         _          => "—"
                     };
 
+                    string etaXText = "—", etaYText = "—";
+                    if (row.TryGetProperty("eta", out var etaEl) && etaEl.ValueKind != JsonValueKind.Null)
+                    {
+                        bool slenderX = etaEl.TryGetProperty("slenderX", out var sxEl) && sxEl.GetBoolean();
+                        bool slenderY = etaEl.TryGetProperty("slenderY", out var syEl) && syEl.GetBoolean();
+                        bool stableX  = !etaEl.TryGetProperty("stableX", out var stxEl) || stxEl.GetBoolean();
+                        bool stableY  = !etaEl.TryGetProperty("stableY", out var styEl) || styEl.GetBoolean();
+                        double etaXv  = etaEl.TryGetProperty("etaX", out var exEl) ? exEl.GetDouble() : 1.0;
+                        double etaYv  = etaEl.TryGetProperty("etaY", out var eyEl) ? eyEl.GetDouble() : 1.0;
+                        etaXText = FormatEta(etaXv, slenderX, stableX);
+                        etaYText = FormatEta(etaYv, slenderY, stableY);
+                    }
+
                     Rows.Add(new BatchRow(
                         Num:        BatchResultRowHelper.RowNum(row, idx),
                         Label:      Str(row, "label"),
@@ -104,7 +119,9 @@ public sealed class LimitForceBatchVM : ViewModelBase
                         GovText:    govT,
                         IterText:   row.TryGetProperty("iterations", out var iv) ? iv.GetInt32().ToString() : "—",
                         StatusText: conv ? Loc.S("ResultConvergedYes") : Loc.S("ResultConvergedNo"),
-                        IsConverged: conv));
+                        IsConverged: conv,
+                        EtaXText: etaXText,
+                        EtaYText: etaYText));
                 }
             }
         }
@@ -125,5 +142,13 @@ public sealed class LimitForceBatchVM : ViewModelBase
     {
         if (!row.TryGetProperty(prop, out var v)) return "—";
         return v.GetDouble().ToString($"0.{new string('0', dec)}");
+    }
+
+    /// <summary>Значение η для одной оси (п. 8.1.15 СП63.13330) — как в StrainSummaryVM.</summary>
+    static string FormatEta(double eta, bool slender, bool stable)
+    {
+        if (!slender) return "1.000";
+        if (!stable)  return Loc.S("ResultEtaInstable");
+        return $"{eta:0.000}";
     }
 }

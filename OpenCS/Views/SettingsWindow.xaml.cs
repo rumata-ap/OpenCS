@@ -227,6 +227,7 @@ namespace OpenCS.Views
          BatchParallelCb.IsChecked   = _calcSettings.BatchParallel;
          ShellWarmStartCb.IsChecked  = _calcSettings.ShellWarmStart;
          RebarDifferentialDiagramCb.IsChecked = _calcSettings.RebarDifferentialDiagram;
+         ConsiderConcreteTensionUlsCb.IsChecked = _calcSettings.ConsiderConcreteTensionUls;
          UpdateCalcSwatches();
       }
 
@@ -321,6 +322,8 @@ namespace OpenCS.Views
          ShellWarmStartCb.Unchecked += (_, _) => _calcSettings.ShellWarmStart = false;
          RebarDifferentialDiagramCb.Checked   += (_, _) => _calcSettings.RebarDifferentialDiagram = true;
          RebarDifferentialDiagramCb.Unchecked += (_, _) => _calcSettings.RebarDifferentialDiagram = false;
+         ConsiderConcreteTensionUlsCb.Checked   += (_, _) => _calcSettings.ConsiderConcreteTensionUls = true;
+         ConsiderConcreteTensionUlsCb.Unchecked += (_, _) => _calcSettings.ConsiderConcreteTensionUls = false;
       }
 
       static void HookSp20GammaBox(System.Windows.Controls.TextBox box, Action<double> setter)

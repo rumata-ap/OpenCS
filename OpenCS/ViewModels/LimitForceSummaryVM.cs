@@ -24,6 +24,7 @@ public sealed class LimitForceSummaryVM : ViewModelBase
     public string MyLimitText    { get; }
     public string EpsContourText { get; }
     public string EpsCuText      { get; }
+    public double EpsCu          { get; }
     public bool   HasRebarEps    { get; }
     public string EpsRebarText   { get; }
     public string EpsSuText      { get; }
@@ -68,6 +69,7 @@ public sealed class LimitForceSummaryVM : ViewModelBase
 
         EpsContourText = Signed(root, "eps_contour_min");
         EpsCuText      = Signed(root, "eps_cu");
+        EpsCu          = root.TryGetProperty("eps_cu", out var epsCuVal) ? epsCuVal.GetDouble() : 0.0;
 
         string epsRebarText = "—";
         string epsSuText    = "—";

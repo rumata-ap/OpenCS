@@ -72,6 +72,25 @@ public static class TorsionTests
         TestHarness.Check("FixedDofs непустой", mesh.FixedDofs.Length >= 4);
     }
 
+    public static void MeshBuilderSquareWithHoleRuppert()
+    {
+        TestHarness.Section("MeshBuilder: Ruppert — квадрат 10×10 с отверстием 2×2");
+        var boundary = new TorsionBoundary(
+            new[] { 0.0, 10.0, 10.0, 0.0 },
+            new[] { 0.0, 0.0, 10.0, 10.0 },
+            new List<(double[] X, double[] Y)>
+            {
+                (new[] { 4.0, 6.0, 6.0, 4.0 }, new[] { 4.0, 4.0, 6.0, 6.0 })
+            });
+        var mesh = MeshBuilder.Build(boundary, maxElementSize: 1.0, method: TriangulationMethod.Ruppert);
+        TestHarness.Check("Есть узлы", mesh.NodesX.Length > 0, $"nodes={mesh.NodesX.Length}");
+        TestHarness.Check("Есть треугольники", mesh.Triangles.Length > 0, $"tri={mesh.Triangles.Length}");
+        TestHarness.Check("OuterDofs непустой", mesh.OuterDofs.Length > 0, $"outer={mesh.OuterDofs.Length}");
+        TestHarness.Check("HoleNodeSets[0] непустой",
+            mesh.HoleNodeSets.Length == 1 && mesh.HoleNodeSets[0].Length > 0,
+            $"holeSets={mesh.HoleNodeSets.Length}");
+    }
+
     public static void MeshBuilderFromMaterialAreaMeters()
     {
         TestHarness.Section("MeshBuilder: прямоугольник 0.3×0.5 м из MaterialArea");
@@ -393,6 +412,46 @@ public static class TorsionTests
         var (value, order, extrapolated) = TorsionRichardson.Extrapolate(seq);
         TestHarness.Check("Экстраполяция помечена ненадёжной", !extrapolated);
         TestHarness.CheckRel("Возвращено значение с самой мелкой сетки", value, 102.0, 1e-9);
+    }
+
+    public static void RichardsonBuildRunSizes()
+    {
+        TestHarness.Section("TorsionRichardson.BuildRunSizes");
+        var s = TorsionRichardson.BuildRunSizes(0.08, 4);
+        TestHarness.Check("len=4", s.Length == 4);
+        TestHarness.CheckRel("s0", s[0], 0.08, 1e-15);
+        TestHarness.CheckRel("s3", s[3], 0.01, 1e-15);
+        var s2 = TorsionRichardson.BuildRunSizes(0.05, 1);
+        TestHarness.Check("nRuns<2 → 2", s2.Length == 2);
+    }
+
+    public static void RichardsonAutoConvergeCustomH0AndTwoRuns()
+    {
+        TestHarness.Section("TorsionRichardson.SolveAutoConverge: custom h0, N=2 — без экстраполяции");
+        var boundary = SampleConcaveFrameBoundary();
+        double h0 = 0.02;
+        var result = TorsionRichardson.SolveAutoConverge(boundary, TorsionMethod.Bem,
+            triangulation: default, femOrder: default, h0: h0, nRuns: 2, parallel: false);
+        TestHarness.Check("ровно 2 шага", result.Steps.Count == 2, $"steps={result.Steps.Count}");
+        TestHarness.CheckRel("Steps[0].ElementSize = h0", result.Steps[0].ElementSize, h0, 1e-12);
+        TestHarness.CheckRel("Steps[1].ElementSize = h0/2", result.Steps[1].ElementSize, h0 / 2.0, 1e-12);
+        TestHarness.Check("It не экстраполирован", !result.ItExtrapolated);
+        TestHarness.CheckRel("It = It мелкой сетки", result.It, result.FinestProps.It, 1e-15);
+    }
+
+    public static void RichardsonAutoConvergeParallelMatchesSequentialIt()
+    {
+        TestHarness.Section("TorsionRichardson parallel vs sequential It (N=2, custom h0)");
+        var boundary = SampleConcaveFrameBoundary();
+        double h0 = 0.02;
+        var seq = TorsionRichardson.SolveAutoConverge(boundary, TorsionMethod.Bem,
+            h0: h0, nRuns: 2, parallel: false);
+        var par = TorsionRichardson.SolveAutoConverge(boundary, TorsionMethod.Bem,
+            h0: h0, nRuns: 2, parallel: true);
+        TestHarness.Check("steps equal", seq.Steps.Count == par.Steps.Count);
+        TestHarness.CheckRel("It parallel ≈ sequential", par.It, seq.It, 1e-12);
+        for (int i = 0; i < seq.Steps.Count; i++)
+            TestHarness.CheckRel($"h[{i}]", par.Steps[i].ElementSize, seq.Steps[i].ElementSize, 1e-15);
     }
 
     public static void RichardsonAutoConvergeConcaveFrame()

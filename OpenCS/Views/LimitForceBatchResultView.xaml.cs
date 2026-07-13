@@ -93,8 +93,9 @@ public partial class LimitForceBatchResultView : UserControl
 
         csv.WriteField("#"); csv.WriteField("Label"); csv.WriteField("N");
         csv.WriteField("Mx"); csv.WriteField("My"); csv.WriteField("k");
-        csv.WriteField("η"); csv.WriteField("Governing");
+        csv.WriteField("Utilization"); csv.WriteField("Governing");
         csv.WriteField("Iter"); csv.WriteField("Status");
+        csv.WriteField("etaX"); csv.WriteField("etaY");
         csv.NextRecord();
 
         foreach (var r in vm.Rows)
@@ -103,6 +104,7 @@ public partial class LimitForceBatchResultView : UserControl
             csv.WriteField(r.NText); csv.WriteField(r.MxText); csv.WriteField(r.MyText);
             csv.WriteField(r.FactorText); csv.WriteField(r.UtilText); csv.WriteField(r.GovText);
             csv.WriteField(r.IterText); csv.WriteField(r.StatusText);
+            csv.WriteField(r.EtaXText); csv.WriteField(r.EtaYText);
             csv.NextRecord();
         }
     }

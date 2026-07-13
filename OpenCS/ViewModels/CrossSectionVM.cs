@@ -89,7 +89,7 @@ namespace OpenCS.ViewModels
             .Where(f => f.TypeFiber is FiberType.poly or FiberType.tri)
             .ToArray();
          if (meshFibers.Length > 0)
-            elements.Add(new FiberMeshElement { Fibers = meshFibers, ShowCentroids = false });
+            elements.Add(new FiberMeshElement { Fibers = meshFibers, ShowCentroids = false, Fill = null });
          foreach (var hole in area.Holes)
             if (hole.X.Count > 0)
                elements.Add(new PolygonElement

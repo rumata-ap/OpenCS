@@ -9,6 +9,23 @@ namespace OpenCS
         {
             base.OnStartup(e);
             DispatcherUnhandledException += OnDispatcherUnhandledException;
+
+            // Явная загрузка HelixToolkit при старте — иначе при первом открытии
+            // FemSchemaView3D WPF иногда не находит сборку по XmlnsDefinition
+            // (типично при запуске не из bin/Debug после неполной пересборки).
+            try
+            {
+                _ = typeof(HelixToolkit.Wpf.HelixViewport3D);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Не удалось загрузить HelixToolkit.Wpf (3D-просмотрщик схем).\n" +
+                    "Пересоберите OpenCS (Debug) и запускайте exe из\n" +
+                    "OpenCS\\bin\\Debug\\net9.0-windows\\OpenCS.exe\n\n" + ex.Message,
+                    "HelixToolkit",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
         void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)

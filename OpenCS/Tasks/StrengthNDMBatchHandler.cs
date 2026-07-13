@@ -37,18 +37,20 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx.Database.Diagrams,
                 rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+            bool ten = settings.ResolveConcreteTension(task.CalcType);
 
             var items = forceSet.Items;
             int total = items.Count;
             var rowResults = new object[total];
             var convergedArr = new bool[total];
             var passedArr = new bool[total];
+            int done = 0;
 
             void Solve(int i)
             {
                 var fi = items[i];
                 var clone = settings.BatchParallel ? section.CloneForCalc() : section;
-                var solver = new StrainSolver(clone, task.CalcType,
+                var solver = new StrainSolver(clone, task.CalcType, ten: ten,
                     tol: settings.NewtonTolerance,
                     maxIter: settings.NewtonMaxIter,
                     h: settings.NewtonDeltaH);
@@ -62,10 +64,11 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
                         epsConcreteCompression: 0, epsConcreteUlt: 0,
                         epsRebarTension: 0, epsRebarUlt: 0,
                         concreteOk: false, rebarOk: false, strengthOk: false);
+                    BatchProgress.Report(ctx, ref done, total);
                     return;
                 }
 
-                clone.SetEps(k, task.CalcType);
+                clone.SetEps(k, task.CalcType, ten);
 
                 var (epsConcreteMin, epsConcreteMax) = ComputeExtremeConcreteStrains(clone, k);
                 var (epsRebarMin, epsRebarMax) = ComputeExtremeRebarStrains(clone, k);
@@ -82,10 +85,18 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
                     epsConcreteMin, epsConcreteUlt,
                     epsRebarMax, epsRebarUlt,
                     concreteOk, rebarOk, strengthOk);
+                BatchProgress.Report(ctx, ref done, total);
             }
 
             if (settings.BatchParallel && total > 1)
-                Parallel.For(0, total, Solve);
+            {
+                Parallel.For(0, total, (i, state) =>
+                {
+                    if (ctx?.CancellationToken.IsCancellationRequested == true) { state.Stop(); return; }
+                    Solve(i);
+                });
+                ctx?.CancellationToken.ThrowIfCancellationRequested();
+            }
             else
                 for (int i = 0; i < total; i++) Solve(i);
 

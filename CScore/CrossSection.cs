@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json.Serialization;
 
 namespace CScore
@@ -134,6 +135,78 @@ namespace CScore
             pr = pr + new GeoProps(area);
          }
          return pr;
+      }
+
+      /// <summary>Приведённые (E-взвешенные) моменты инерции бетона и арматуры порознь.</summary>
+      public readonly record struct StiffnessSplit(
+         double EIxConcrete, double EIxRebar,
+         double EIyConcrete, double EIyRebar);
+
+      /// <summary>
+      /// Разделяет приведённую жёсткость сечения на вклад бетона и арматуры
+      /// относительно общего приведённого центра тяжести сечения. Нужно для
+      /// формулы D = kb·Eb·I + ks·Es·Is (п. 8.1.15 СП63.13330). Использует уже
+      /// существующую агрегацию <see cref="ElasticProps"/>, разбитую по признаку
+      /// <see cref="MaterialArea.HostAreaId"/> (null — бетон, иначе — арматура),
+      /// затем переносит оба слагаемых к общему центру тяжести по формуле
+      /// параллельного переноса I_C = I_O - 2·c·S_O + c²·A_O.
+      /// </summary>
+      public StiffnessSplit SplitStiffnessByMaterial()
+      {
+         var concreteAreas = Areas.Where(a => a.HostAreaId == null);
+         var rebarAreas    = Areas.Where(a => a.HostAreaId != null);
+
+         var prConcrete = ElasticProps(concreteAreas);
+         var prRebar    = ElasticProps(rebarAreas);
+         var prAll      = prConcrete + prRebar;
+
+         double xc = prAll.EA > 1e-10 ? prAll.Centroid.X : 0.0;
+         double yc = prAll.EA > 1e-10 ? prAll.Centroid.Y : 0.0;
+
+         double eixConcrete = prConcrete.EIx - 2 * yc * prConcrete.ESx + yc * yc * prConcrete.EA;
+         double eixRebar    = prRebar.EIx    - 2 * yc * prRebar.ESx    + yc * yc * prRebar.EA;
+         double eiyConcrete = prConcrete.EIy - 2 * xc * prConcrete.ESy + xc * xc * prConcrete.EA;
+         double eiyRebar    = prRebar.EIy    - 2 * xc * prRebar.ESy    + xc * xc * prRebar.EA;
+
+         return new StiffnessSplit(eixConcrete, eixRebar, eiyConcrete, eiyRebar);
+      }
+
+      /// <summary>
+      /// Ограничивающий прямоугольник сечения (по контурам областей и точечным
+      /// фибрам арматуры). Нужен для автоматического определения высоты сечения
+      /// h в плоскости изгиба (п. 8.1.15: δe = e0/h, гейт гибкости l0/h).
+      /// </summary>
+      public (double minX, double maxX, double minY, double maxY) SectionBoundingBox()
+      {
+         double minX = double.MaxValue, maxX = double.MinValue;
+         double minY = double.MaxValue, maxY = double.MinValue;
+         bool any = false;
+
+         void Consider(double x, double y)
+         {
+            any = true;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+         }
+
+         foreach (var area in Areas)
+         {
+            if (area.Hull != null)
+            {
+               area.Hull.PointsToXYs();
+               for (int i = 0; i < area.Hull.X.Count; i++)
+                  Consider(area.Hull.X[i], area.Hull.Y[i]);
+            }
+            foreach (var f in area.Fibers)
+               Consider(f.X, f.Y);
+         }
+
+         if (!any)
+            throw new InvalidOperationException("Сечение не содержит геометрии для ограничивающего прямоугольника");
+
+         return (minX, maxX, minY, maxY);
       }
 
       /// <summary>Упругое приближение кривизны из геометрических характеристик и нагрузки.</summary>

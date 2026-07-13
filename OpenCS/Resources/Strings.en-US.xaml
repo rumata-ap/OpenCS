@@ -96,6 +96,8 @@
    <system:String x:Key="CalcSettingsRcGroup">RC cross-section</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagram">Account for concrete area reduction replaced by rebar</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagramTip">When enabled, rebar in concrete accounts for concrete area displaced by the bar (differential diagram σ_st − σ_bc). When disabled, the pure steel diagram is used and the concrete mesh includes the bar footprint.</system:String>
+   <system:String x:Key="CalcSettingsConsiderConcreteTensionUls">Account for concrete tension in ULS (limit state 1) checks</system:String>
+   <system:String x:Key="CalcSettingsConsiderConcreteTensionUlsTip">Affects limit-force and strain-plane search for CalcType C/CL — for both bar and plate sections. Does not affect SLS (N/NL). For plates, overrides the section page's "Concrete tension" flag only in this mode.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Batch Tasks</system:String>
    <system:String x:Key="CalcSettingsSp20Group">SP20 combinations (default γf)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaG">G — permanent (unfav.)</system:String>
@@ -568,6 +570,25 @@
    <system:String x:Key="ImportScadErrorTitle">SCAD import</system:String>
    <system:String x:Key="ImportScadFailed">Failed to import the file.</system:String>
    <system:String x:Key="ImportScadSuccess">Imported SCAD schema: {0} nodes, {1} bars, {2} shells, {3} design members, {4} named groups</system:String>
+   <system:String x:Key="ImportScadForcesLoadCases">Forces — load cases (XLS)…</system:String>
+   <system:String x:Key="ImportScadForcesRsu">Forces — design combinations RSU (XLS)…</system:String>
+   <system:String x:Key="ImportScadForcesCombinations">Forces — RSN (combinations) (XLS)…</system:String>
+   <system:String x:Key="ImportScadForcesTitleLoadCases">Import SCAD forces — load cases (.xls)</system:String>
+   <system:String x:Key="ImportScadForcesTitleRsu">Import SCAD forces — RSU (.xls)</system:String>
+   <system:String x:Key="ImportScadForcesTitleCombinations">Import SCAD forces — RSN / combinations (.xls)</system:String>
+   <system:String x:Key="ScadXlsFileFilter">SCAD Excel (*.xls)|*.xls|All files (*.*)|*.*</system:String>
+   <system:String x:Key="ScadForceImportDialogTitle">SCAD element filter</system:String>
+   <system:String x:Key="ScadForceImportElementsLabel">Element numbers (e.g. 12, 15-20)</system:String>
+   <system:String x:Key="ScadForceImportFromMember">From FemMember</system:String>
+   <system:String x:Key="ScadForceImportAllElements">For all model elements</system:String>
+   <system:String x:Key="ScadForceImportThicknessLabel">Plate thickness (mm), if missing in stiffnesses:</system:String>
+   <system:String x:Key="ScadForceImportOk">OK</system:String>
+   <system:String x:Key="ScadForceImportCancel">Cancel</system:String>
+   <system:String x:Key="ScadForceImportNoMember">No design member selected, or its FE list is empty.</system:String>
+   <system:String x:Key="ImportScadForcesStarted">Importing SCAD forces…</system:String>
+   <system:String x:Key="ImportScadForcesSaving">Saving force sets…</system:String>
+   <system:String x:Key="ImportScadForcesSuccess">Imported force sets: {0}, rows: {1}</system:String>
+   <system:String x:Key="ImportScadForcesNoRows">No force rows matched the element filter.</system:String>
     <system:String x:Key="ImportSettingsTab">Import</system:String>
     <system:String x:Key="LiraImportGroupBox">LiraSAPR</system:String>
     <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>
@@ -615,6 +636,7 @@
    <system:String x:Key="PlateThicknessMm">Thickness h, mm:</system:String>
    <system:String x:Key="PlateNLayers">Concrete layers:</system:String>
    <system:String x:Key="PlateTensionConcrete">Concrete tension</system:String>
+   <system:String x:Key="PlateTensionConcreteTip">At ULS (C/CL) this flag is ignored — the global calc setting "Account for concrete tension in ULS checks" applies instead. At SLS (N/NL) it works as set here.</system:String>
    <system:String x:Key="PlateSofteningModel">β-reduction model:</system:String>
    <system:String x:Key="PlateSofteningNone">None</system:String>
    <system:String x:Key="PlateSofteningVC">Vecchio–Collins</system:String>
@@ -639,11 +661,12 @@
    <system:String x:Key="PlateModelChar1dPrincipal">1D char. points (principal)</system:String>
    <system:String x:Key="PlateModelChar1dAxial">1D char. points (axial)</system:String>
    <system:String x:Key="PlateConcreteDiagramType">Concrete diagram:</system:String>
-   <system:String x:Key="DiagramTypeL2">Bilinear (L2)</system:String>
-   <system:String x:Key="DiagramTypeL3">Trilinear (L3)</system:String>
-   <system:String x:Key="DiagramTypeSP63">Curvilinear SP63</system:String>
-   <system:String x:Key="DiagramTypeEKB">Nonlinear EN 1992 / CEB (EKB)</system:String>
-   <system:String x:Key="DiagramTypeSP35">Parabolic-rectangular EN 1992 / SP35</system:String>
+   <system:String x:Key="DiagramTypeL2">Bilinear (SP63)</system:String>
+   <system:String x:Key="DiagramTypeL3">Trilinear (SP63)</system:String>
+   <system:String x:Key="DiagramTypeSP63">Curvilinear (SP63)</system:String>
+   <system:String x:Key="DiagramTypeEKB">Curvilinear (EKB/EN)</system:String>
+   <system:String x:Key="DiagramTypeSP35">Curvilinear (SP35/EN)</system:String>
+   <system:String x:Key="DiagramTypeSP16">Multi-segment (SP16)</system:String>
    <system:String x:Key="AddRebarLayer">Add layer</system:String>
    <system:String x:Key="DeleteRebarLayer">Delete layer</system:String>
 
@@ -691,13 +714,13 @@
    <system:String x:Key="MeshDisplayMode">Display</system:String>
    <system:String x:Key="MeshDisplayCentroids">Centroids</system:String>
    <system:String x:Key="MeshDisplayElements">Elements</system:String>
-   <system:String x:Key="MeshMaxArea">Max area</system:String>
-   <system:String x:Key="MeshMinAngle">Min angle, °</system:String>
-   <system:String x:Key="MeshMaxEdgeLen">Edge length</system:String>
-   <system:String x:Key="MeshSmoothIter">Smooth iter.</system:String>
+   <system:String x:Key="MeshMaxArea">Maximum area</system:String>
+   <system:String x:Key="MeshMinAngle">Minimum angle, °</system:String>
+   <system:String x:Key="MeshMaxEdgeLen">Triangle edge length</system:String>
+   <system:String x:Key="MeshSmoothIter">Smoothing iterations</system:String>
    <system:String x:Key="MeshDialogTitle">Mesh Configuration</system:String>
-   <system:String x:Key="MeshNX">NX:</system:String>
-   <system:String x:Key="MeshNY">NY:</system:String>
+   <system:String x:Key="MeshNX">Number of divisions along X</system:String>
+   <system:String x:Key="MeshNY">Number of divisions along Y</system:String>
 
    <!-- DXF MaterialArea import -->
    <system:String x:Key="DxfModeHull">Hull</system:String>
@@ -897,6 +920,21 @@
    <system:String x:Key="ResultRebarAreaReductionNote">Note: calculation accounts for concrete area reduction replaced by rebar.</system:String>
    <system:String x:Key="ResultStrainPlane">Strain plane</system:String>
    <system:String x:Key="ResultForces">Forces: target → result</system:String>
+   <system:String x:Key="ResultEtaHeader">Deflection influence (η, cl. 8.1.15 SP63.13330)</system:String>
+   <system:String x:Key="ResultEtaMode">Mode</system:String>
+   <system:String x:Key="ResultEtaModeFormula">Literal (formula)</system:String>
+   <system:String x:Key="ResultEtaModeIterative">Refined (iterative)</system:String>
+   <system:String x:Key="ResultEtaMxOriginal">Mx,0</system:String>
+   <system:String x:Key="ResultEtaMyOriginal">My,0</system:String>
+   <system:String x:Key="ResultEtaX">ηx</system:String>
+   <system:String x:Key="ResultEtaY">ηy</system:String>
+   <system:String x:Key="ResultEtaNotRequired">no amplification required</system:String>
+   <system:String x:Key="ResultEtaInstable">INSTABILITY (|N| ≥ Ncr)</system:String>
+   <system:String x:Key="ResultEtaInstabilityWarning">Warning: on one axis the axial force exceeds the conditional critical force Ncr — stability is not ensured.</system:String>
+   <system:String x:Key="ResultEtaExtrapolationNote">Aitken extrapolation did not converge (diverging/oscillating sequence) — the last η approximation was used without acceleration.</system:String>
+   <system:String x:Key="ResultEtaExtrapolationShort">extrapolation did not converge, last pass used</system:String>
+   <system:String x:Key="ResultEtaTrajectoryX">ηx trajectory</system:String>
+   <system:String x:Key="ResultEtaTrajectoryY">ηy trajectory</system:String>
    <system:String x:Key="ResultExtremeStrains">Extreme strains</system:String>
    <system:String x:Key="ResultStiffness">Stiffness (secant modulus)</system:String>
    <system:String x:Key="ResultElasticStiffness">Elastic stiffness</system:String>
@@ -1173,6 +1211,25 @@
     <system:String x:Key="SteelCheckBetaM">Coefficient βm</system:String>
     <system:String x:Key="SteelCheckGammaM">Coefficient γM</system:String>
     <system:String x:Key="SteelCheckDesignLengthBit">Link spacing l_bit, m</system:String>
+
+    <!-- Eta (buckling amplification) per SP63.13330 cl.8.1.15 -->
+    <system:String x:Key="EtaParamsHeader">Deflection influence (η, cl. 8.1.15 SP63.13330)</system:String>
+    <system:String x:Key="EtaEnabledLabel">Account for deflection influence (η)</system:String>
+    <system:String x:Key="EtaEnabledHint">Multiplies the moment by the η coefficient per cl. 8.1.15 SP63.13330 when l0/h exceeds the slenderness limit (default 14, cl. 8.1.2) and the axial force is compressive.</system:String>
+    <system:String x:Key="EtaIterativeLabel">Refined (iterative) calculation</system:String>
+    <system:String x:Key="EtaIterativeHint">Stiffness D is taken from the actual strain-state solution (3 passes + Aitken extrapolation) instead of the code's simplified formula.</system:String>
+    <system:String x:Key="EtaLLabel">Element length L, m</system:String>
+    <system:String x:Key="EtaMuxLabel">μx</system:String>
+    <system:String x:Key="EtaMuyLabel">μy</system:String>
+    <system:String x:Key="EtaMuTableHint">Effective length coefficient μ (l₀=μ·L) per cl. 8.1.17 SP63.13330:&#10;a) pinned at both ends — 1.0&#10;b) fixed at one end, free (cantilever) at the other — 2.0&#10;c) pinned, non-sway at one end, at the other:&#10;   — rigid fixity — 0.7&#10;   — flexible fixity — 0.9&#10;d) pinned, sway-permitting at one end, at the other:&#10;   — rigid fixity — 1.5&#10;   — flexible fixity — 2.0&#10;e) non-sway fixity at both ends:&#10;   — rigid — 0.5&#10;   — flexible — 0.8&#10;f) limited-sway fixity at both ends:&#10;   — rigid — 0.8&#10;   — flexible — 1.2</system:String>
+    <system:String x:Key="EtaPsixLabel">ψx</system:String>
+    <system:String x:Key="EtaPsiyLabel">ψy</system:String>
+    <system:String x:Key="EtaPsiHint">ψ = M1l/M1 — relative share of the moment from long-term loads (0…1 or more); φl = 1+ψ, capped at 2 (cl. 8.1.15 SP63.13330).</system:String>
+    <system:String x:Key="EtaSlendernessThresholdLabel">Slenderness l₀/h</system:String>
+    <system:String x:Key="EtaSlendernessThresholdHint">Slenderness above which the η correction applies. Defaults to 14 (cl. 8.1.2 SP63.13330) — can be refined for a specific structure.</system:String>
+    <system:String x:Key="EtaNeedL0">To account for deflection influence (η), specify element length L (&gt; 0) and, if needed, coefficients μx/μy (&gt; 0).</system:String>
+    <system:String x:Key="EtaInvalidThreshold">The slenderness limit l₀/h must be a positive number.</system:String>
+
     <system:String x:Key="SteelCheckUtilizationLabel">Utilization ratio: </system:String>
     <system:String x:Key="SteelCheckStatusPassed">PASSED</system:String>
     <system:String x:Key="SteelCheckStatusFailed">FAILED</system:String>
@@ -1355,8 +1412,21 @@
     <system:String x:Key="TorsionStatusError">Error ✗</system:String>
     <system:String x:Key="TorsionParamsHeader">Torsion parameters</system:String>
     <system:String x:Key="TorsionAutoConverge">Auto-converge (Richardson extrapolation)</system:String>
-    <system:String x:Key="TorsionAutoConvergeHint">Mesh size is not set manually: 3 runs are performed (h0, h0/2, h0/4), where h0 is the minimum edge/chord length of the boundary. It (and shear center for BEM) is extrapolated with Richardson's method.</system:String>
+    <system:String x:Key="TorsionAutoConvergeHint">Runs with halved step (h₀…h₀/2^(N−1)); It (and shear center for BEM) is Richardson-extrapolated from the last three runs when N≥3. Default h₀ is the minimum boundary edge length.</system:String>
     <system:String x:Key="TorsionAutoConvergeHeader">Auto-convergence (Richardson)</system:String>
+    <system:String x:Key="TorsionAutoH0">Start length h₀, m</system:String>
+    <system:String x:Key="TorsionAutoRuns">Number of runs N</system:String>
+    <system:String x:Key="TorsionLmin">Contour Lₘᵢₙ</system:String>
+    <system:String x:Key="TorsionAutoRunsHint">Runs: h₀, h₀/2, …, h₀/2^(N−1). A large N greatly increases runtime.</system:String>
+    <system:String x:Key="TorsionAutoRunsWarn">N ≥ 5: the calculation may take a very long time.</system:String>
+    <system:String x:Key="TorsionAutoH0Invalid">Enter a positive start length h₀.</system:String>
+    <system:String x:Key="TorsionAutoRunsInvalid">Number of runs N must be an integer ≥ 2.</system:String>
+    <system:String x:Key="CalcTaskCancel">Cancel</system:String>
+    <system:String x:Key="CalcTaskCancelled">Calculation cancelled</system:String>
+    <system:String x:Key="CalcTaskRunning">Running: {0}…</system:String>
+    <system:String x:Key="CalcTaskBatchProgress">Batch: {0}/{1}</system:String>
+    <system:String x:Key="CalcTaskTorsionRunProgress">Torsion: run {0}/{1} (h={2})</system:String>
+    <system:String x:Key="CalcTaskSavingResult">Saving result…</system:String>
     <system:String x:Key="TorsionConvergenceSeries">Mesh-size series</system:String>
     <system:String x:Key="TorsionConvergenceOrderIt">It convergence order</system:String>
     <system:String x:Key="TorsionConvergenceOrderShearCenter">Shear center convergence order</system:String>
@@ -1385,5 +1455,52 @@
     <system:String x:Key="CrackWidth_ColPassedLong">Passed (long)</system:String>
     <system:String x:Key="CrackWidth_ColPassedShort">Passed (short)</system:String>
     <system:String x:Key="CrackWidth_NoCracks">No cracks</system:String>
+
+   <system:String x:Key="SectionCutButton">Cut</system:String>
+   <system:String x:Key="SectionCutModeGradient">By gradient</system:String>
+   <system:String x:Key="SectionCutModeFree">Free</system:String>
+   <system:String x:Key="SectionCutOrientHorizontal">Horizontal</system:String>
+   <system:String x:Key="SectionCutOrientVertical">Vertical</system:String>
+   <system:String x:Key="SectionCutFillToggle">Fill</system:String>
+   <system:String x:Key="SectionCutHatchToggle">Hatching</system:String>
+   <system:String x:Key="SectionCutRebarForceToggle">Rebar force</system:String>
+   <system:String x:Key="SectionCutClear">Clear</system:String>
+   <system:String x:Key="SectionCutExport">Export</system:String>
+   <system:String x:Key="SectionCutExportTitle">Export cut diagram</system:String>
+   <system:String x:Key="SectionCutExportModePrompt">What to include in the file?</system:String>
+   <system:String x:Key="SectionCutExportDiagramOnly">Diagram only</system:String>
+   <system:String x:Key="SectionCutExportWithChrome">With layout (axes, grid, legend)</system:String>
+   <system:String x:Key="SectionCutExportFormatLabel">File format</system:String>
+   <system:String x:Key="SectionCutExportFormatPng">PNG (raster)</system:String>
+   <system:String x:Key="SectionCutExportFormatSvg">SVG (vector)</system:String>
+   <system:String x:Key="SectionCutExportFormatDxf">DXF (CAD)</system:String>
+   <system:String x:Key="SectionCutExportAsOnScreen">As on screen</system:String>
+   <system:String x:Key="SectionCutExportAsOnScreenHint">Axes, grid, fill/hatch (DXF skips solid fill), A/B markers, labels and rebar lines as on screen. If off — baseline, curve, end caps and end labels.</system:String>
+   <system:String x:Key="SectionCutCopyFailed">Failed to copy the cut diagram to the clipboard.</system:String>
+   <system:String x:Key="SectionCutScaleS">Scale s</system:String>
+   <system:String x:Key="SectionCutScaleV">Scale σ/ε</system:String>
+   <system:String x:Key="SectionCutWindowTitleStress">σ diagram</system:String>
+   <system:String x:Key="SectionCutWindowTitleStrain">ε diagram</system:String>
+   <system:String x:Key="SectionCutAxisS">s, mm</system:String>
+   <system:String x:Key="SectionCutAxisSigma">σ, MPa</system:String>
+   <system:String x:Key="SectionCutAxisEps">ε</system:String>
+   <system:String x:Key="SectionCutLegendBase">— cut baseline</system:String>
+   <system:String x:Key="SectionCutLegendCurveSigma">— σ curve</system:String>
+   <system:String x:Key="SectionCutLegendCurveEps">— ε curve</system:String>
+   <system:String x:Key="SectionCutLegendEpsCu">- - εcu</system:String>
+   <system:String x:Key="SectionCutLegendRebarOn">● rebar on cut</system:String>
+   <system:String x:Key="SectionCutLegendRebarNear">○ rebar nearby</system:String>
+   <system:String x:Key="SectionCutLegendConcreteComp">concrete: compression — red</system:String>
+   <system:String x:Key="SectionCutLegendConcreteTen">concrete: tension — blue</system:String>
+   <system:String x:Key="SectionCutLegendRebarComp">rebar: compression — blue</system:String>
+   <system:String x:Key="SectionCutLegendRebarTen">rebar: tension — red</system:String>
+   <system:String x:Key="SectionCutTooltipStress">s = {0:F0} mm&#10;σ = {1:+0.00;-0.00} MPa</system:String>
+   <system:String x:Key="SectionCutTooltipStrain">s = {0:F0} mm&#10;ε = {1:+0.00000;-0.00000}</system:String>
+   <system:String x:Key="SectionCutHoverS">s={0:F0}</system:String>
+   <system:String x:Key="SectionCutHoverSigma">σ={0:+0.00;-0.00}</system:String>
+   <system:String x:Key="SectionCutHoverEps">ε={0:+0.00000;-0.00000}</system:String>
+   <system:String x:Key="SectionCutHintNoTool">Click "Cut" to draw a line on the section</system:String>
+   <system:String x:Key="SectionCutHintClickOnePoint">Click a point on the section</system:String>
+   <system:String x:Key="SectionCutHintClickTwoPoints">Click two points on the section</system:String>
 
   </ResourceDictionary>

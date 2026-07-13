@@ -10,4 +10,13 @@
     <ProjectReference Include="..\CSmath\CSmath.csproj" />
     <ProjectReference Include="..\CSTriangulation\CSTriangulation.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Требуется в каждом exe-проекте отдельно: raw HintPath-ссылки, объявленные
+         только в CSTriangulation.csproj, физически копируются в bin/ транзитивно,
+         но не попадают в .deps.json потребителя (нужно для рантайм-резолва в net9.0). -->
+    <Reference Include="Triangle">
+      <HintPath>..\CSTriangulation\libs\Triangle\Triangle.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
 </Project>

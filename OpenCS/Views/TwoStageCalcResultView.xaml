@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:OpenCS.Views">
 
-   <TabControl>
+   <TabControl x:Name="MainTabs">
       <!-- ╔═══════════════ Сводка ═══════════════╗ -->
       <TabItem Header="{DynamicResource ResultTabSummary}">
          <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -111,7 +111,7 @@
 
       <!-- ╔═══════════════ Этап 1 ═══════════════╗ -->
       <TabItem Header="{DynamicResource TwoStageSummary_Stage1}">
-         <TabControl>
+         <TabControl x:Name="Stage1InnerTabs" SelectionChanged="OnStageInnerTabChanged">
             <TabItem Header="{DynamicResource ResultTabSummary}">
                <ScrollViewer VerticalScrollBarVisibility="Auto">
                   <StackPanel Margin="12,8">
@@ -130,7 +130,7 @@
 
       <!-- ╔═══════════════ Этап 2 ═══════════════╗ -->
       <TabItem Header="{DynamicResource TwoStageSummary_Stage2}">
-         <TabControl>
+         <TabControl x:Name="Stage2InnerTabs" SelectionChanged="OnStageInnerTabChanged">
             <TabItem Header="{DynamicResource ResultTabSummary}">
                <ScrollViewer VerticalScrollBarVisibility="Auto">
                   <StackPanel Margin="12,8">

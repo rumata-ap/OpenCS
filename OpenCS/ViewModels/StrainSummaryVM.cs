@@ -28,6 +28,29 @@ namespace OpenCS.ViewModels
         public string MxText { get; }
         public string MyText { get; }
 
+        // ── Влияние прогиба (η, п. 8.1.15 СП63.13330) ──────────────────
+        public bool   EtaEnabled { get; }
+        public string EtaModeText { get; }
+        public string MxOriginalText { get; }
+        public string MyOriginalText { get; }
+        public string L0xText { get; }
+        public string HxText  { get; }
+        public string SlendernessXText { get; }
+        public string DxText  { get; }
+        public string NcrXText { get; }
+        public string EtaXText { get; }
+        public string L0yText { get; }
+        public string HyText  { get; }
+        public string SlendernessYText { get; }
+        public string DyText  { get; }
+        public string NcrYText { get; }
+        public string EtaYText { get; }
+        public bool   EtaUnstable { get; }
+        public bool   EtaExtrapolationFailed { get; }
+        public bool   ShowEtaTrajectory { get; }
+        public string EtaXTrajectoryText { get; }
+        public string EtaYTrajectoryText { get; }
+
         // ── Экстремальные деформации ───────────────────────────────────
         public string EpsMinText { get; }
         public string EpsMaxText { get; }
@@ -66,7 +89,7 @@ namespace OpenCS.ViewModels
 
         public record RebarRow(int Num, string X, string Y, string Eps, string Sigma);
 
-        public StrainSummaryVM(CalcResult result, CrossSection section, CalcType calcType, CalcSettings? settings = null)
+        public StrainSummaryVM(CalcResult result, CrossSection section, CalcType calcType, CalcSettings? settings = null, bool ten = true)
         {
             int gridDensity = settings?.GridDensity ?? 20;
             ShowRebarAreaNote = ShouldShowRebarAreaNote(section, settings);
@@ -102,6 +125,76 @@ namespace OpenCS.ViewModels
             MxText = $"{mxt:+0.000;-0.000} → {mxr:+0.000;-0.000}  кН·м  ({Pct(mxt, mxr)})";
             MyText = $"{myt:+0.000;-0.000} → {myr:+0.000;-0.000}  кН·м  ({Pct(myt, myr)})";
 
+            // η (п. 8.1.15 СП63.13330) — присутствует, только если задача считала поправку
+            EtaEnabled = root.TryGetProperty("eta", out var etaEl) && etaEl.ValueKind != JsonValueKind.Null;
+            if (EtaEnabled)
+            {
+                string mode = etaEl.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "formula" : "formula";
+                EtaModeText = mode == "iterative" ? Loc.S("ResultEtaModeIterative") : Loc.S("ResultEtaModeFormula");
+
+                double slendernessThreshold = etaEl.TryGetProperty("slendernessThreshold", out var thEl) && thEl.ValueKind != JsonValueKind.Null
+                    ? thEl.GetDouble()
+                    : CScore.Sp63.EccentricityAmplifier.SlendernessThreshold;
+
+                double mxOrig = etaEl.TryGetProperty("mxOriginal", out var mxoEl) ? mxoEl.GetDouble() : 0;
+                double myOrig = etaEl.TryGetProperty("myOriginal", out var myoEl) ? myoEl.GetDouble() : 0;
+                MxOriginalText = $"{mxOrig:+0.000;-0.000}  кН·м";
+                MyOriginalText = $"{myOrig:+0.000;-0.000}  кН·м";
+
+                bool slenderX = etaEl.TryGetProperty("slenderX", out var sxEl) && sxEl.GetBoolean();
+                bool slenderY = etaEl.TryGetProperty("slenderY", out var syEl) && syEl.GetBoolean();
+                bool stableX  = !etaEl.TryGetProperty("stableX", out var stxEl) || stxEl.GetBoolean();
+                bool stableY  = !etaEl.TryGetProperty("stableY", out var styEl) || styEl.GetBoolean();
+                double etaXv  = etaEl.TryGetProperty("etaX", out var exEl) ? exEl.GetDouble() : 1.0;
+                double etaYv  = etaEl.TryGetProperty("etaY", out var eyEl) ? eyEl.GetDouble() : 1.0;
+                double? ncrX  = etaEl.TryGetProperty("ncrX", out var nxEl) && nxEl.ValueKind != JsonValueKind.Null ? nxEl.GetDouble() : null;
+                double? ncrY  = etaEl.TryGetProperty("ncrY", out var nyEl) && nyEl.ValueKind != JsonValueKind.Null ? nyEl.GetDouble() : null;
+                bool extrapFailedX = etaEl.TryGetProperty("extrapolationFailedX", out var efxEl) && efxEl.GetBoolean();
+                bool extrapFailedY = etaEl.TryGetProperty("extrapolationFailedY", out var efyEl) && efyEl.GetBoolean();
+
+                double l0x = etaEl.TryGetProperty("l0x", out var l0xEl) ? l0xEl.GetDouble() : 0;
+                double hx  = etaEl.TryGetProperty("hx",  out var hxEl)  ? hxEl.GetDouble()  : 0;
+                double? slendernessX = etaEl.TryGetProperty("slendernessX", out var slxEl) && slxEl.ValueKind != JsonValueKind.Null ? slxEl.GetDouble() : null;
+                double? dX = etaEl.TryGetProperty("dX", out var dxEl) && dxEl.ValueKind != JsonValueKind.Null ? dxEl.GetDouble() : null;
+
+                double l0y = etaEl.TryGetProperty("l0y", out var l0yEl) ? l0yEl.GetDouble() : 0;
+                double hy  = etaEl.TryGetProperty("hy",  out var hyEl)  ? hyEl.GetDouble()  : 0;
+                double? slendernessY = etaEl.TryGetProperty("slendernessY", out var slyEl) && slyEl.ValueKind != JsonValueKind.Null ? slyEl.GetDouble() : null;
+                double? dY = etaEl.TryGetProperty("dY", out var dyEl) && dyEl.ValueKind != JsonValueKind.Null ? dyEl.GetDouble() : null;
+
+                L0xText = $"{l0x:0.00}  м";
+                HxText  = $"{hx:0.00}  м";
+                SlendernessXText = FormatSlenderness(slendernessX, slenderX, slendernessThreshold);
+                DxText  = dX.HasValue ? $"{dX.Value:F1}  кН·м²" : "—";
+                NcrXText = ncrX.HasValue ? $"{ncrX.Value:F0}  кН" : "—";
+                EtaXText = FormatEta(etaXv, slenderX, stableX);
+
+                L0yText = $"{l0y:0.00}  м";
+                HyText  = $"{hy:0.00}  м";
+                SlendernessYText = FormatSlenderness(slendernessY, slenderY, slendernessThreshold);
+                DyText  = dY.HasValue ? $"{dY.Value:F1}  кН·м²" : "—";
+                NcrYText = ncrY.HasValue ? $"{ncrY.Value:F0}  кН" : "—";
+                EtaYText = FormatEta(etaYv, slenderY, stableY);
+
+                EtaUnstable = (slenderX && !stableX) || (slenderY && !stableY);
+                EtaExtrapolationFailed = mode == "iterative" && ((slenderX && extrapFailedX) || (slenderY && extrapFailedY));
+
+                // Траектория итераций (режим B) — история η по проходам + результат экстраполяции Эйткена
+                double[] historyX = ReadDoubleArray(etaEl, "etaHistoryX");
+                double[] historyY = ReadDoubleArray(etaEl, "etaHistoryY");
+                ShowEtaTrajectory = mode == "iterative" && (historyX.Length > 0 || historyY.Length > 0);
+                EtaXTrajectoryText = FormatTrajectory(historyX, etaXv, extrapFailedX);
+                EtaYTrajectoryText = FormatTrajectory(historyY, etaYv, extrapFailedY);
+            }
+            else
+            {
+                EtaModeText = MxOriginalText = MyOriginalText = "—";
+                L0xText = HxText = SlendernessXText = DxText = NcrXText = EtaXText = "—";
+                L0yText = HyText = SlendernessYText = DyText = NcrYText = EtaYText = "—";
+                EtaUnstable = EtaExtrapolationFailed = ShowEtaTrajectory = false;
+                EtaXTrajectoryText = EtaYTrajectoryText = "—";
+            }
+
             // Экстремальные деформации — по вершинам контуров Hull и стержням
             var (epsMin, epsMax) = ComputeExtremeStrains(section, k);
             HasExtremes = epsMin.HasValue;
@@ -109,7 +202,7 @@ namespace OpenCS.ViewModels
             EpsMaxText  = epsMax.HasValue ? $"{epsMax.Value:+0.000000;-0.000000}" : "—";
 
             // Жёсткости
-            var stiff = ComputeStiffness(section, k, calcType, gridDensity);
+            var stiff = ComputeStiffness(section, k, calcType, gridDensity, ten);
             HasStiffness = stiff != null;
             if (stiff != null)
             {
@@ -168,6 +261,44 @@ namespace OpenCS.ViewModels
         static string FmtRatio(double v)
             => double.IsNaN(v) || double.IsInfinity(v) ? "—" : $"{v:0.000}";
 
+        /// <summary>Значение η для одной оси (п. 8.1.15 СП63.13330).</summary>
+        static string FormatEta(double eta, bool slender, bool stable)
+        {
+            if (!slender) return "1.000";
+            if (!stable)  return Loc.S("ResultEtaInstable");
+            return $"{eta:0.000}";
+        }
+
+        /// <summary>Гибкость l0/h с пометкой, применяется ли поправка (порог задаётся пользователем, по умолчанию 14 — п. 8.1.2).</summary>
+        static string FormatSlenderness(double? ratio, bool slender, double threshold)
+        {
+            if (!ratio.HasValue) return "—";
+            string t = threshold.ToString("0.#");
+            string suffix = slender ? $" > {t}" : $" ≤ {t} ({Loc.S("ResultEtaNotRequired")})";
+            return $"{ratio.Value:0.0}{suffix}";
+        }
+
+        static double[] ReadDoubleArray(JsonElement parent, string propertyName)
+        {
+            if (!parent.TryGetProperty(propertyName, out var arrEl) || arrEl.ValueKind != JsonValueKind.Array)
+                return [];
+            return [.. arrEl.EnumerateArray().Select(e => e.GetDouble())];
+        }
+
+        /// <summary>
+        /// Траектория проходов режима B: η по каждому проходу → результат
+        /// экстраполяции Эйткена (или пометка, что экстраполяция не сошлась).
+        /// </summary>
+        static string FormatTrajectory(double[] history, double finalEta, bool extrapolationFailed)
+        {
+            if (history.Length == 0) return "—";
+            string steps = string.Join(" → ", history.Select((e, i) => $"η({i})={e:0.000}"));
+            string tail = extrapolationFailed
+                ? Loc.S("ResultEtaExtrapolationShort")
+                : $"η* = {finalEta:0.000}";
+            return $"{steps} → {tail}";
+        }
+
         static (double? min, double? max) ComputeExtremeStrains(CrossSection section, Kurvature k)
         {
             var vals = new List<double>();
@@ -186,7 +317,7 @@ namespace OpenCS.ViewModels
             return (vals.Min(), vals.Max());
         }
 
-        static StiffnessResult? ComputeStiffness(CrossSection section, Kurvature k, CalcType calcType, int gridDensity = 20)
+        static StiffnessResult? ComputeStiffness(CrossSection section, Kurvature k, CalcType calcType, int gridDensity = 20, bool ten = true)
         {
             // Единицы ввода: площадь [м²], координаты [м], E [МПа=Н/мм²]
             // Единицы вывода: EA [кН], EI [кН·м²], ц.т. [мм]
@@ -240,7 +371,7 @@ namespace OpenCS.ViewModels
                         double cy_mm = cell.Average(p => p.Y);
                         if (holesMm.Any(h => PointInPolyMm(cx_mm, cy_mm, h))) continue;
                         double eps_c = ka.e0 + ka.ky * (cy_mm / 1000) + ka.kz * (cx_mm / 1000);
-                        double sig_c = dgr.SigValue(eps_c) / 1000.0;
+                        double sig_c = dgr.SigValue(eps_c, ten) / 1000.0;
                         double Es = Math.Abs(eps_c) > 1e-9 ? Math.Abs(sig_c / eps_c) : E0;
                         double cellAmm2 = PolygonAreaMm2(cell);
                         Acc(Es, E0, cellAmm2, cx_mm, cy_mm,

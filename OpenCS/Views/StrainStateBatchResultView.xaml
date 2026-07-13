@@ -69,6 +69,14 @@
                                 Binding="{Binding ResText}"   Width="72"/>
             <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColStatus}"
                                 Binding="{Binding StatusText}" Width="65"/>
+            <DataGridTextColumn Header="Mx,эф, кН·м"
+                                Binding="{Binding MxEffText}" Width="82"/>
+            <DataGridTextColumn Header="My,эф, кН·м"
+                                Binding="{Binding MyEffText}" Width="82"/>
+            <DataGridTextColumn Header="ηx"
+                                Binding="{Binding EtaXText}"  Width="60"/>
+            <DataGridTextColumn Header="ηy"
+                                Binding="{Binding EtaYText}"  Width="60"/>
          </DataGrid.Columns>
       </DataGrid>
 

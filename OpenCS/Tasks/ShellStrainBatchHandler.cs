@@ -42,6 +42,8 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
             double hDiff = settings.NewtonDeltaH;
             double tolRes  = p.TolRes > 0 ? p.TolRes : settings.ShellNewtonTolRes;
             int    maxIter = p.MaxIter > 0 ? p.MaxIter : settings.NewtonMaxIter;
+            bool? tensionOverride = task.CalcType is CalcType.C or CalcType.CL
+               ? settings.ConsiderConcreteTensionUls : (bool?)null;
             var concrete = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.ConcreteMaterialId);
             var rebar    = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.RebarMaterialId);
 
@@ -49,29 +51,35 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
             int total = items.Count;
             var rows = new object[total];
             var converged = new bool[total];
+            int done = 0;
 
             if (settings.BatchParallel && total > 1)
             {
                 // Параллельный режим всегда без тёплого старта (независимые клоны)
-                Parallel.For(0, total, i =>
+                Parallel.For(0, total, (i, state) =>
                 {
+                    if (ctx?.CancellationToken.IsCancellationRequested == true) { state.Stop(); return; }
                     var clone = plate.CloneForCalc();
                     var si = items[i];
                     double[] tgt = { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy };
                     var r = new ShellStrainSolver(clone, cDiag, rDiag, layerDiags,
                         tolRes: tolRes, maxIter: maxIter,
-                        hDiff: hDiff, centralJacobian: central)
+                        hDiff: hDiff, centralJacobian: central,
+                        tensionOverride: tensionOverride)
                         .SolveRobust(tgt, concrete, rebar, task.CalcType);
                     converged[i] = r.Converged;
                     rows[i] = BuildRow(si.Num, si.Label, r);
+                    BatchProgress.Report(ctx, ref done, total);
                 });
+                ctx?.CancellationToken.ThrowIfCancellationRequested();
             }
             else if (settings.ShellWarmStart)
             {
                 // Последовательный режим с тёплым стартом: результат строки N → начало строки N+1
                 var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
                     tolRes: tolRes, maxIter: maxIter,
-                    hDiff: hDiff, centralJacobian: central);
+                    hDiff: hDiff, centralJacobian: central,
+                    tensionOverride: tensionOverride);
                 var targets = items.Select(si =>
                     new[] { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy }).ToList();
                 var results = solver.SolveMany(targets);
@@ -79,6 +87,7 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                 {
                     converged[i] = results[i].Converged;
                     rows[i] = BuildRow(items[i].Num, items[i].Label, results[i]);
+                    BatchProgress.Report(ctx, ref done, total);
                 }
             }
             else
@@ -87,7 +96,8 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                 // стартует независимо от упругого приближения
                 var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
                     tolRes: tolRes, maxIter: maxIter,
-                    hDiff: hDiff, centralJacobian: central);
+                    hDiff: hDiff, centralJacobian: central,
+                    tensionOverride: tensionOverride);
                 for (int i = 0; i < total; i++)
                 {
                     var si = items[i];
@@ -95,6 +105,7 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                     var r = solver.SolveRobust(tgt, concrete, rebar, task.CalcType);
                     converged[i] = r.Converged;
                     rows[i] = BuildRow(si.Num, si.Label, r);
+                    BatchProgress.Report(ctx, ref done, total);
                 }
             }
 

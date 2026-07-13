@@ -404,6 +404,7 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.1" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
     <PackageReference Include="netDxf" Version="2023.11.10" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -416,6 +417,13 @@
     <Reference Include="Interop.LiraSaprRes">
       <HintPath>Interop\Interop.LiraSaprRes.dll</HintPath>
       <EmbedInteropTypes>false</EmbedInteropTypes>
+    </Reference>
+    <!-- Требуется в каждом exe-проекте отдельно: raw HintPath-ссылки, объявленные
+         только в CSTriangulation.csproj, физически копируются в bin/ транзитивно,
+         но не попадают в .deps.json потребителя (нужно для рантайм-резолва в net9.0). -->
+    <Reference Include="Triangle">
+      <HintPath>..\CSTriangulation\libs\Triangle\Triangle.dll</HintPath>
+      <Private>True</Private>
     </Reference>
   </ItemGroup>
 

@@ -58,13 +58,15 @@
             <DataGridTextColumn Header="Mx, кН·м" Binding="{Binding MxText}" Width="82"/>
             <DataGridTextColumn Header="My, кН·м" Binding="{Binding MyText}" Width="82"/>
             <DataGridTextColumn Header="k" Binding="{Binding FactorText}" Width="70"/>
-            <DataGridTextColumn Header="η" Binding="{Binding UtilText}" Width="70"/>
+            <DataGridTextColumn Header="Использ." Binding="{Binding UtilText}" Width="70"/>
             <DataGridTextColumn Header="{DynamicResource LimitForce_Governing}"
                                 Binding="{Binding GovText}" Width="90"/>
             <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColIter}"
                                 Binding="{Binding IterText}" Width="52"/>
             <DataGridTextColumn Header="{DynamicResource StrainStateBatch_ColStatus}"
                                 Binding="{Binding StatusText}" Width="65"/>
+            <DataGridTextColumn Header="ηx (8.1.15)" Binding="{Binding EtaXText}" Width="80"/>
+            <DataGridTextColumn Header="ηy (8.1.15)" Binding="{Binding EtaYText}" Width="80"/>
          </DataGrid.Columns>
       </DataGrid>
 

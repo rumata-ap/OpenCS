@@ -32,7 +32,8 @@ public static class ShellLayeredCheck
         DiagrammType concreteDiagType,
         out ShellStrainState strainState,
         out ShellResult resultForces,
-        out ShellSecantStiffness secant)
+        out ShellSecantStiffness secant,
+        bool? tensionOverride = null)
     {
         var diagCalcType = calcType;   // ULS: C или CL
 
@@ -43,14 +44,14 @@ public static class ShellLayeredCheck
         var rDiag = rebarMat.GetDiagramms(DiagrammType.L2)?[diagCalcType]
             ?? throw new InvalidOperationException("Диаграмма арматуры не построена");
 
-        var solver = new ShellStrainSolver(section, cDiag, rDiag);
+        var solver = new ShellStrainSolver(section, cDiag, rDiag, tensionOverride: tensionOverride);
 
         double[] target = [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy];
         var res = solver.Solve(target);
 
         strainState  = res.StrainState;
         resultForces = res.Forces;
-        secant       = section.ComputeSecant(res.StrainState, cDiag, rDiag);
+        secant       = section.ComputeSecant(res.StrainState, cDiag, rDiag, tensionOverride: tensionOverride);
 
         if (!res.Converged)
             return new Result(Passed: false, Utilization: 2.0,

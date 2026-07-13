@@ -29,16 +29,32 @@ public abstract class TorsionHandlerBase : ITaskHandler
             TorsionProps props;
             TorsionAutoConvergeResult? autoConverge = null;
             double elemSizeM;
+            var ct = ctx?.CancellationToken ?? default;
             if (p.AutoConverge)
             {
-                autoConverge = TorsionRichardson.SolveAutoConverge(boundary, Method, p.Triangulation, femOrder);
+                double? h0 = p.AutoH0 > 0 ? p.AutoH0 : null;
+                int nRuns = p.AutoRuns >= 2 ? p.AutoRuns : 3;
+                Action<int, int, double>? onStep = null;
+                if (ctx?.Progress is { } prog)
+                {
+                    var inv = System.Globalization.CultureInfo.InvariantCulture;
+                    onStep = (done, total, h) => prog.Report(new CalcTaskProgress
+                    {
+                        Fraction = (double)done / total,
+                        Message = string.Format(Loc.S("CalcTaskTorsionRunProgress"),
+                            done, total, h.ToString("G4", inv))
+                    });
+                }
+                autoConverge = TorsionRichardson.SolveAutoConverge(
+                    boundary, Method, p.Triangulation, femOrder, h0, nRuns, ct, onStep);
                 props = autoConverge.ToTorsionProps();
                 elemSizeM = autoConverge.Steps[^1].ElementSize;
             }
             else
             {
+                ct.ThrowIfCancellationRequested();
                 elemSizeM = p.ElementSize > 0 ? p.ElementSize : 0.05;
-                props = TorsionSolver.Solve(boundary, Method, elemSizeM, p.Triangulation, femOrder);
+                props = TorsionSolver.Solve(boundary, Method, elemSizeM, p.Triangulation, femOrder, ct);
             }
 
             var baseMat = TorsionMaterialHelper.ResolveBaseMaterial(section);

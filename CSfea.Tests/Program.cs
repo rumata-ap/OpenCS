@@ -100,6 +100,7 @@ TorsionTests.SmokePropsConstruction();
 TorsionTests.BoundaryFromMaterialArea();
 TorsionTests.PrandtlTri3ElementMatrices();
 TorsionTests.MeshBuilderSquare();
+TorsionTests.MeshBuilderSquareWithHoleRuppert();
 TorsionTests.MeshBuilderFromMaterialAreaMeters();
 TorsionTests.MeshBuilderConcaveFrameFine();
 TorsionTests.FemCircleItVsAnalytical();
@@ -120,6 +121,9 @@ TorsionTests.RichardsonExtrapolateMonotonicSeries();
 TorsionTests.RichardsonExtrapolateAlreadyConverged();
 TorsionTests.RichardsonExtrapolateNonMonotonicSeries();
 TorsionTests.RichardsonAutoConvergeConcaveFrame();
+TorsionTests.RichardsonBuildRunSizes();
+TorsionTests.RichardsonAutoConvergeCustomH0AndTwoRuns();
+TorsionTests.RichardsonAutoConvergeParallelMatchesSequentialIt();
 
 TorsionTests.PrandtlTri6ShapeFunctionsPartitionOfUnity();
 TorsionTests.PrandtlTri6AreaMatchesTri3();

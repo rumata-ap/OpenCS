@@ -406,84 +406,228 @@
       </StackPanel>
 
       <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding SupportsEta, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource EtaParamsHeader}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <CheckBox Content="{DynamicResource EtaEnabledLabel}"
+                         IsChecked="{Binding EtaEnabled}"
+                         ToolTip="{DynamicResource EtaEnabledHint}"
+                         Margin="0,0,0,4"/>
+
+               <StackPanel Visibility="{Binding ShowEtaFields, Converter={StaticResource BoolToVisibility}}">
+                  <CheckBox Content="{DynamicResource EtaIterativeLabel}"
+                            IsChecked="{Binding EtaIterative}"
+                            ToolTip="{DynamicResource EtaIterativeHint}"
+                            Margin="0,0,0,4"/>
+
+                  <Grid Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+
+                     <TextBlock Grid.Column="0" Text="{DynamicResource EtaLLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"/>
+                     <TextBox Grid.Column="1"
+                              Text="{Binding EtaL, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,0,4"/>
+                  </Grid>
+
+                  <Grid Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+
+                     <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource EtaMuxLabel}" VerticalAlignment="Center" Margin="0,0,2,4"/>
+                        <TextBlock Text="ⓘ" Foreground="Gray" Cursor="Help" VerticalAlignment="Center" Margin="0,0,4,4">
+                           <TextBlock.ToolTip>
+                              <ToolTip MaxWidth="380">
+                                 <TextBlock Text="{DynamicResource EtaMuTableHint}" TextWrapping="Wrap"/>
+                              </ToolTip>
+                           </TextBlock.ToolTip>
+                        </TextBlock>
+                     </StackPanel>
+                     <TextBox Grid.Column="1"
+                              Text="{Binding EtaMuX, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,8,4"/>
+                     <StackPanel Grid.Column="2" Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource EtaMuyLabel}" VerticalAlignment="Center" Margin="0,0,2,4"/>
+                        <TextBlock Text="ⓘ" Foreground="Gray" Cursor="Help" VerticalAlignment="Center" Margin="0,0,4,4">
+                           <TextBlock.ToolTip>
+                              <ToolTip MaxWidth="380">
+                                 <TextBlock Text="{DynamicResource EtaMuTableHint}" TextWrapping="Wrap"/>
+                              </ToolTip>
+                           </TextBlock.ToolTip>
+                        </TextBlock>
+                     </StackPanel>
+                     <TextBox Grid.Column="3"
+                              Text="{Binding EtaMuY, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,0,4"/>
+                  </Grid>
+
+                  <Grid Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+
+                     <TextBlock Grid.Column="0" Text="{DynamicResource EtaSlendernessThresholdLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"
+                                ToolTip="{DynamicResource EtaSlendernessThresholdHint}"/>
+                     <TextBox Grid.Column="1"
+                              Text="{Binding EtaSlendernessThreshold, UpdateSourceTrigger=PropertyChanged}"
+                              ToolTip="{DynamicResource EtaSlendernessThresholdHint}"
+                              Margin="0,0,0,4"/>
+                  </Grid>
+
+                  <Grid Visibility="{Binding ShowEtaFormulaFields, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+
+                     <TextBlock Grid.Column="0" Text="{DynamicResource EtaPsixLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"
+                                ToolTip="{DynamicResource EtaPsiHint}"/>
+                     <TextBox Grid.Column="1"
+                              Text="{Binding EtaPsiX, UpdateSourceTrigger=PropertyChanged}"
+                              ToolTip="{DynamicResource EtaPsiHint}"
+                              Margin="0,0,8,4"/>
+                     <TextBlock Grid.Column="2" Text="{DynamicResource EtaPsiyLabel}"
+                                VerticalAlignment="Center" Margin="0,0,4,4"
+                                ToolTip="{DynamicResource EtaPsiHint}"/>
+                     <TextBox Grid.Column="3"
+                              Text="{Binding EtaPsiY, UpdateSourceTrigger=PropertyChanged}"
+                              ToolTip="{DynamicResource EtaPsiHint}"
+                              Margin="0,0,0,4"/>
+                  </Grid>
+               </StackPanel>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
+
+      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsTorsion, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource TorsionParamsHeader}" Margin="0,8,0,0">
             <Grid Margin="4">
                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="*" MinWidth="260"/>
-                  <ColumnDefinition Width="300"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
                </Grid.ColumnDefinitions>
 
                <Grid Grid.Column="0" Margin="0,0,8,0">
                   <Grid.ColumnDefinitions>
-                     <ColumnDefinition Width="180"/>
+                     <ColumnDefinition Width="130"/>
                      <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
-                   <Grid.RowDefinitions>
-                      <RowDefinition Height="Auto"/>
-                      <RowDefinition Height="Auto"/>
-                      <RowDefinition Height="Auto"/>
-                      <RowDefinition Height="Auto"/>
-                      <RowDefinition Height="Auto"/>
-                      <RowDefinition Height="Auto"/>
-                   </Grid.RowDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
 
-                   <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
-                             Content="{DynamicResource TorsionAutoConverge}"
-                             IsChecked="{Binding TorsionAutoConverge}"
-                             ToolTip="{DynamicResource TorsionAutoConvergeHint}"
-                             Margin="0,0,0,4"/>
-
-                   <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource TorsionElementSize}"
-                              VerticalAlignment="Center" Margin="0,0,4,4"
-                              IsEnabled="{Binding ShowTorsionElementSize}"/>
-                   <TextBox Grid.Row="1" Grid.Column="1"
-                            Text="{Binding TorsionElementSize, UpdateSourceTrigger=PropertyChanged}"
-                            IsEnabled="{Binding ShowTorsionElementSize}"
+                  <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                            Content="{DynamicResource TorsionAutoConverge}"
+                            IsChecked="{Binding TorsionAutoConverge}"
+                            ToolTip="{DynamicResource TorsionAutoConvergeHint}"
                             Margin="0,0,0,4"/>
 
-                   <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource TorsionTriangulationMethod}"
-                              VerticalAlignment="Center" Margin="0,0,4,4"/>
-                   <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,4"
-                             SelectedIndex="{Binding TorsionTriangulationIndex}">
-                      <ComboBoxItem Content="{DynamicResource TorsionTriangulation_AdvancingFront}"/>
-                      <ComboBoxItem Content="{DynamicResource TorsionTriangulation_Ruppert}"/>
-                   </ComboBox>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource TorsionElementSize}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding ShowTorsionElementSize, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="1" Grid.Column="1"
+                           Text="{Binding TorsionElementSize, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"
+                           Visibility="{Binding ShowTorsionElementSize, Converter={StaticResource BoolToVisibility}}"/>
 
-                   <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource TorsionMkFromSet}"
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource TorsionAutoH0}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding ShowTorsionAutoParams, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="2" Grid.Column="1"
+                           Text="{Binding TorsionAutoH0, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"
+                           Visibility="{Binding ShowTorsionAutoParams, Converter={StaticResource BoolToVisibility}}"/>
+
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource TorsionAutoRuns}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding ShowTorsionAutoParams, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="3" Grid.Column="1"
+                           Text="{Binding TorsionAutoRuns, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"
+                           Visibility="{Binding ShowTorsionAutoParams, Converter={StaticResource BoolToVisibility}}"/>
+
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource TorsionLmin}"
+                             VerticalAlignment="Center" Margin="0,0,4,4" Foreground="Gray"/>
+                  <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding TorsionLminText}"
+                             FontFamily="Consolas" FontWeight="SemiBold" Margin="0,0,0,4"
+                             VerticalAlignment="Center"/>
+
+                  <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,4">
+                     <TextBlock Text="{DynamicResource TorsionAutoRunsHint}" Foreground="Gray" FontSize="11"
+                                TextWrapping="Wrap"
+                                Visibility="{Binding ShowTorsionAutoParams, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Text="{DynamicResource TorsionAutoRunsWarn}" Foreground="#B86B00" FontSize="11"
+                                TextWrapping="Wrap" Margin="0,4,0,0"
+                                Visibility="{Binding ShowTorsionAutoRunsWarn, Converter={StaticResource BoolToVisibility}}"/>
+                  </StackPanel>
+
+                  <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource TorsionTriangulationMethod}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}"/>
+                  <ComboBox Grid.Row="6" Grid.Column="1" Margin="0,0,0,4"
+                            SelectedIndex="{Binding TorsionTriangulationIndex}"
+                            Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}">
+                     <ComboBoxItem Content="{DynamicResource TorsionTriangulation_AdvancingFront}"/>
+                     <ComboBoxItem Content="{DynamicResource TorsionTriangulation_Ruppert}"/>
+                  </ComboBox>
+
+                  <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource TorsionMkFromSet}"
                              VerticalAlignment="Center" Margin="0,0,4,4"
                              Visibility="{Binding HasTorsionMkFromSet, Converter={StaticResource BoolToVisibility}}"/>
-                   <TextBlock Grid.Row="3" Grid.Column="1" FontFamily="Consolas" FontWeight="SemiBold"
-                              Margin="0,0,0,4"
-                              Visibility="{Binding HasTorsionMkFromSet, Converter={StaticResource BoolToVisibility}}">
-                      <Run Text="{Binding TorsionMkFromSetText, Mode=OneWay}"/>
-                      <Run Text=" кН·м"/>
-                   </TextBlock>
+                  <TextBlock Grid.Row="7" Grid.Column="1" FontFamily="Consolas" FontWeight="SemiBold"
+                             Margin="0,0,0,4"
+                             Visibility="{Binding HasTorsionMkFromSet, Converter={StaticResource BoolToVisibility}}">
+                     <Run Text="{Binding TorsionMkFromSetText, Mode=OneWay}"/>
+                     <Run Text=" кН·м"/>
+                  </TextBlock>
 
-                   <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource TorsionMkManual}"
-                              VerticalAlignment="Top" Margin="0,0,4,4"
-                              Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}"/>
-                   <StackPanel Grid.Row="4" Grid.Column="1"
-                               Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource TorsionMkManual}"
+                             VerticalAlignment="Top" Margin="0,0,4,4"
+                             Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}"/>
+                  <StackPanel Grid.Row="8" Grid.Column="1"
+                              Visibility="{Binding ShowTorsionManualMk, Converter={StaticResource BoolToVisibility}}">
                      <TextBox Text="{Binding TorsionMk, UpdateSourceTrigger=PropertyChanged}"
                               Margin="0,0,0,2"/>
                      <TextBlock Text="{DynamicResource TorsionMkHint}" Foreground="Gray"
                                 FontSize="11" TextWrapping="Wrap"/>
                   </StackPanel>
 
-                   <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource TorsionFemOrder}"
-                              VerticalAlignment="Center" Margin="0,0,4,4"
-                              Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}"/>
-                   <ComboBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,4"
-                             SelectedIndex="{Binding TorsionFemOrderIndex}"
-                             ToolTip="{DynamicResource TorsionFemOrderHint}"
-                             Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}">
-                      <ComboBoxItem Content="{DynamicResource TorsionFemOrder_Linear}"/>
-                      <ComboBoxItem Content="{DynamicResource TorsionFemOrder_Quadratic}"/>
-                   </ComboBox>
+                  <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource TorsionFemOrder}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}"/>
+                  <ComboBox Grid.Row="9" Grid.Column="1" Margin="0,0,0,4"
+                            SelectedIndex="{Binding TorsionFemOrderIndex}"
+                            ToolTip="{DynamicResource TorsionFemOrderHint}"
+                            Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}">
+                     <ComboBoxItem Content="{DynamicResource TorsionFemOrder_Linear}"/>
+                     <ComboBoxItem Content="{DynamicResource TorsionFemOrder_Quadratic}"/>
+                  </ComboBox>
                </Grid>
 
-               <Grid Grid.Column="1"
+               <Grid Grid.Column="1" Width="300"
                      Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}">
                   <Grid.RowDefinitions>
                      <RowDefinition Height="Auto"/>

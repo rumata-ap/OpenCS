@@ -4,6 +4,9 @@ namespace OpenCS.Views
 {
     public partial class SectionPlotView : UserControl
     {
-        public SectionPlotView() => InitializeComponent();
+        public SectionPlotView()
+        {
+            InitializeComponent();
+        }
     }
 }

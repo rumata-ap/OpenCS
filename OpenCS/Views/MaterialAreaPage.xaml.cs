@@ -14,7 +14,6 @@ namespace OpenCS.Views
          _vm = new MaterialAreaVM(area, app);
          DataContext = _vm;
          preview.ApplySettings(app.PlotSettings);
-         diagramTypeCombo.ItemsSource = MaterialAreaVM.DiagramTypeValues;
          _vm.PropertyChanged += (_, e) =>
          {
             if (e.PropertyName == nameof(MaterialAreaVM.PlotElements))
