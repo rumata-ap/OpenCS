@@ -1351,8 +1351,15 @@
     <system:String x:Key="TorsionStatusError">Error ✗</system:String>
     <system:String x:Key="TorsionParamsHeader">Torsion parameters</system:String>
     <system:String x:Key="TorsionAutoConverge">Auto-converge (Richardson extrapolation)</system:String>
-    <system:String x:Key="TorsionAutoConvergeHint">Mesh size is not set manually: 3 runs are performed (h0, h0/2, h0/4), where h0 is the minimum edge/chord length of the boundary. It (and shear center for BEM) is extrapolated with Richardson's method.</system:String>
+    <system:String x:Key="TorsionAutoConvergeHint">Runs with halved step (h₀…h₀/2^(N−1)); It (and shear center for BEM) is Richardson-extrapolated from the last three runs when N≥3. Default h₀ is the minimum boundary edge length.</system:String>
     <system:String x:Key="TorsionAutoConvergeHeader">Auto-convergence (Richardson)</system:String>
+    <system:String x:Key="TorsionAutoH0">Start length h₀, m</system:String>
+    <system:String x:Key="TorsionAutoRuns">Number of runs N</system:String>
+    <system:String x:Key="TorsionLmin">Contour Lₘᵢₙ</system:String>
+    <system:String x:Key="TorsionAutoRunsHint">Runs: h₀, h₀/2, …, h₀/2^(N−1). A large N greatly increases runtime.</system:String>
+    <system:String x:Key="TorsionAutoRunsWarn">N ≥ 5: the calculation may take a very long time.</system:String>
+    <system:String x:Key="TorsionAutoH0Invalid">Enter a positive start length h₀.</system:String>
+    <system:String x:Key="TorsionAutoRunsInvalid">Number of runs N must be an integer ≥ 2.</system:String>
     <system:String x:Key="TorsionConvergenceSeries">Mesh-size series</system:String>
     <system:String x:Key="TorsionConvergenceOrderIt">It convergence order</system:String>
     <system:String x:Key="TorsionConvergenceOrderShearCenter">Shear center convergence order</system:String>

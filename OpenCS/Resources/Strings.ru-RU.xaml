@@ -1354,8 +1354,15 @@
     <system:String x:Key="TorsionStatusError">Ошибка ✗</system:String>
     <system:String x:Key="TorsionParamsHeader">Параметры кручения</system:String>
     <system:String x:Key="TorsionAutoConverge">Автосходимость (экстраполяция Ричардсона)</system:String>
-    <system:String x:Key="TorsionAutoConvergeHint">Шаг сетки не задаётся вручную: выполняются 3 прогона (h0, h0/2, h0/4), где h0 — минимальная длина ребра/хорды контура. Результат It (и центр кручения для МГЭ) экстраполируется методом Ричардсона.</system:String>
+    <system:String x:Key="TorsionAutoConvergeHint">Серия прогонов с половинным шагом (h₀…h₀/2^(N−1)); It (и центр кручения для МГЭ) экстраполируется методом Ричардсона по последним трём прогонам при N≥3. h₀ по умолчанию — минимальная длина ребра контура.</system:String>
     <system:String x:Key="TorsionAutoConvergeHeader">Автосходимость (Ричардсон)</system:String>
+    <system:String x:Key="TorsionAutoH0">Стартовая длина h₀, м</system:String>
+    <system:String x:Key="TorsionAutoRuns">Число прогонов N</system:String>
+    <system:String x:Key="TorsionLmin">Lₘᵢₙ контура</system:String>
+    <system:String x:Key="TorsionAutoRunsHint">Прогоны: h₀, h₀/2, …, h₀/2^(N−1). Большое N сильно увеличивает время расчёта.</system:String>
+    <system:String x:Key="TorsionAutoRunsWarn">N ≥ 5: расчёт может занять очень много времени.</system:String>
+    <system:String x:Key="TorsionAutoH0Invalid">Укажите положительную стартовую длину h₀.</system:String>
+    <system:String x:Key="TorsionAutoRunsInvalid">Число прогонов N должно быть целым ≥ 2.</system:String>
     <system:String x:Key="TorsionConvergenceSeries">Ряд по шагам сетки</system:String>
     <system:String x:Key="TorsionConvergenceOrderIt">Порядок сходимости It</system:String>
     <system:String x:Key="TorsionConvergenceOrderShearCenter">Порядок сходимости центра кручения</system:String>

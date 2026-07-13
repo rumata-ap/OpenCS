@@ -26,13 +26,22 @@ public sealed class TorsionParams
     public TriangulationMethod Triangulation { get; set; } = TriangulationMethod.AdvancingFront;
 
     /// <summary>
-    /// Автоматическая сходимость (экстраполяция Ричардсона по 3 прогонам, шаг сетки
-    /// определяется из геометрии — см. <see cref="CSfea.Torsion.TorsionRichardson"/>).
-    /// Если true, <see cref="ElementSize"/> игнорируется.
+    /// Автоматическая сходимость (экстраполяция Ричардсона).
+    /// Если true, <see cref="ElementSize"/> игнорируется; используются <see cref="AutoH0"/> и <see cref="AutoRuns"/>.
     /// </summary>
     [JsonPropertyName("auto_converge")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool AutoConverge { get; set; }
+
+    /// <summary>Стартовая длина граничного элемента при автосходимости, м. 0 = взять MinEdgeLength.</summary>
+    [JsonPropertyName("auto_h0")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double AutoH0 { get; set; }
+
+    /// <summary>Число прогонов автосходимости (N ≥ 2). 0 = default 3.</summary>
+    [JsonPropertyName("auto_runs")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int AutoRuns { get; set; }
 
     /// <summary>
     /// Порядок конечного элемента МКЭ: "linear" (T3, по умолчанию) или "quadratic" (T6).

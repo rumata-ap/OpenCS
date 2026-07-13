@@ -10,8 +10,8 @@ public sealed class TorsionConvergenceStep
 }
 
 /// <summary>
-/// Результат автоматического 3-точечного прогона с экстраполяцией Ричардсона.
-/// Шаги идут от грубого к мелкому: Steps[0] — h0, Steps[1] — h0/2, Steps[2] — h0/4.
+/// Результат серии прогонов с экстраполяцией Ричардсона.
+/// Шаги идут от грубого к мелкому: Steps[0] — h0, Steps[i] — h0/2^i.
 /// </summary>
 public sealed class TorsionAutoConvergeResult
 {
@@ -61,12 +61,9 @@ public sealed class TorsionAutoConvergeResult
 }
 
 /// <summary>
-/// Автоматическая экстраполяция Ричардсона по трём "пристрелочным" прогонам кручения.
-/// Шаг сетки не задаётся вручную, а вычисляется из геометрии: h0 = минимальная длина ребра
-/// контура (по всем скруглениям сразу — минимум длины хорды среди них, если их несколько),
-/// h1 = h0/2, h2 = h0/4. При h0 каждая исходная фасета получает ровно один элемент —
-/// это "нулевая" детализация, заданная самой геометрией (числом точек на дугу при построении
-/// контура), а не произвольное число.
+/// Экстраполяция Ричардсона по серии прогонов кручения с половинным шагом.
+/// По умолчанию: h0 = минимальная длина ребра контура, N = 3 прогона (h0, h0/2, h0/4).
+/// При N≥3 экстраполяция выполняется по последним трём прогонам; при N=2 — берётся мелкая сетка.
 /// </summary>
 public static class TorsionRichardson
 {
@@ -75,18 +72,30 @@ public static class TorsionRichardson
     /// <summary>Максимально разумный порядок — выше подозрительно (случайное совпадение на грубых сетках).</summary>
     const double MaxTrustedOrder = 6.0;
 
+    /// <summary>Размеры элементов серии: h0, h0/2, … (n = max(2, nRuns)).</summary>
+    internal static double[] BuildRunSizes(double h0, int nRuns)
+    {
+        int n = Math.Max(2, nRuns);
+        var sizes = new double[n];
+        for (int i = 0; i < n; i++)
+            sizes[i] = h0 / Math.Pow(2.0, i);
+        return sizes;
+    }
+
     public static TorsionAutoConvergeResult SolveAutoConverge(
         TorsionBoundary boundary, TorsionMethod method,
         TriangulationMethod triangulation = TriangulationMethod.AdvancingFront,
         FemElementOrder femOrder = FemElementOrder.Linear,
+        double? h0 = null,
+        int nRuns = 3,
         CancellationToken ct = default)
     {
-        double h0 = TorsionBoundaryMetrics.MinEdgeLength(boundary);
-        if (!double.IsFinite(h0) || h0 <= 0.0)
+        double hStart = h0 ?? TorsionBoundaryMetrics.MinEdgeLength(boundary);
+        if (!double.IsFinite(hStart) || hStart <= 0.0)
             throw new InvalidOperationException("Не удалось определить масштаб контура для авто-сходимости (вырожденная геометрия).");
 
-        double[] sizes = { h0, h0 / 2.0, h0 / 4.0 };
-        var steps = new List<TorsionConvergenceStep>(3);
+        double[] sizes = BuildRunSizes(hStart, nRuns);
+        var steps = new List<TorsionConvergenceStep>(sizes.Length);
         foreach (double h in sizes)
         {
             ct.ThrowIfCancellationRequested();
@@ -94,17 +103,29 @@ public static class TorsionRichardson
             steps.Add(new TorsionConvergenceStep { ElementSize = h, Props = props });
         }
 
-        var itSeries = steps.Select(s => s.Props.It).ToArray();
-        var (itVal, itOrder, itExtra) = Extrapolate(itSeries);
+        double itVal;
+        double? itOrder;
+        bool itExtra;
+        if (steps.Count >= 3)
+        {
+            var itSeries = steps.TakeLast(3).Select(s => s.Props.It).ToArray();
+            (itVal, itOrder, itExtra) = Extrapolate(itSeries);
+        }
+        else
+        {
+            itVal = steps[^1].Props.It;
+            itOrder = null;
+            itExtra = false;
+        }
 
         bool hasSc = steps.All(s => double.IsFinite(s.Props.ShearCenterX) && double.IsFinite(s.Props.ShearCenterY));
         double scX = steps[^1].Props.ShearCenterX, scY = steps[^1].Props.ShearCenterY;
         double? scXOrder = null, scYOrder = null;
         bool scXExtra = false, scYExtra = false;
-        if (hasSc)
+        if (hasSc && steps.Count >= 3)
         {
-            var scXSeries = steps.Select(s => s.Props.ShearCenterX).ToArray();
-            var scYSeries = steps.Select(s => s.Props.ShearCenterY).ToArray();
+            var scXSeries = steps.TakeLast(3).Select(s => s.Props.ShearCenterX).ToArray();
+            var scYSeries = steps.TakeLast(3).Select(s => s.Props.ShearCenterY).ToArray();
             (scX, scXOrder, scXExtra) = Extrapolate(scXSeries);
             (scY, scYOrder, scYExtra) = Extrapolate(scYSeries);
         }

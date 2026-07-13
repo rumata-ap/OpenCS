@@ -395,6 +395,31 @@ public static class TorsionTests
         TestHarness.CheckRel("Возвращено значение с самой мелкой сетки", value, 102.0, 1e-9);
     }
 
+    public static void RichardsonBuildRunSizes()
+    {
+        TestHarness.Section("TorsionRichardson.BuildRunSizes");
+        var s = TorsionRichardson.BuildRunSizes(0.08, 4);
+        TestHarness.Check("len=4", s.Length == 4);
+        TestHarness.CheckRel("s0", s[0], 0.08, 1e-15);
+        TestHarness.CheckRel("s3", s[3], 0.01, 1e-15);
+        var s2 = TorsionRichardson.BuildRunSizes(0.05, 1);
+        TestHarness.Check("nRuns<2 → 2", s2.Length == 2);
+    }
+
+    public static void RichardsonAutoConvergeCustomH0AndTwoRuns()
+    {
+        TestHarness.Section("TorsionRichardson.SolveAutoConverge: custom h0, N=2 — без экстраполяции");
+        var boundary = SampleConcaveFrameBoundary();
+        double h0 = 0.02;
+        var result = TorsionRichardson.SolveAutoConverge(boundary, TorsionMethod.Bem,
+            triangulation: default, femOrder: default, h0: h0, nRuns: 2);
+        TestHarness.Check("ровно 2 шага", result.Steps.Count == 2, $"steps={result.Steps.Count}");
+        TestHarness.CheckRel("Steps[0].ElementSize = h0", result.Steps[0].ElementSize, h0, 1e-12);
+        TestHarness.CheckRel("Steps[1].ElementSize = h0/2", result.Steps[1].ElementSize, h0 / 2.0, 1e-12);
+        TestHarness.Check("It не экстраполирован", !result.ItExtrapolated);
+        TestHarness.CheckRel("It = It мелкой сетки", result.It, result.FinestProps.It, 1e-15);
+    }
+
     public static void RichardsonAutoConvergeConcaveFrame()
     {
         TestHarness.Section("TorsionRichardson.SolveAutoConverge: вогнутая рамка (двутавр-подобный профиль), МГЭ");

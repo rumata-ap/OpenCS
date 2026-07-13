@@ -7,6 +7,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using CScore;
 using CScore.Fire.Entities;
+using CSfea.Torsion;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
@@ -77,6 +78,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string steelMuX = "1.0", steelMuY = "1.0";
    string steelBetaM = "1.0", steelGammaM = "1.025";
     string torsionElementSize = "0.05", torsionMk = "";
+    string torsionAutoH0 = "0.05";
+    string torsionAutoRuns = "3";
+    double _lastTorsionLmin = double.NaN;
+    bool _torsionH0UserOverride;
     int _torsionTriangulationIndex;
     int _torsionFemOrderIndex;
     bool torsionAutoConverge;
@@ -140,6 +145,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(ShowManualForces));
          NotifyTorsionForceProps();
          RefreshTorsionMeshPreview();
+         RefreshTorsionLmin();
+         OnPropertyChanged(nameof(ShowTorsionAutoParams));
+         OnPropertyChanged(nameof(ShowTorsionElementSize));
+         OnPropertyChanged(nameof(ShowTorsionAutoRunsWarn));
          if (!FilteredCalcTypes.Contains(SelectedCalcType))
              SelectedCalcType = FilteredCalcTypes[0];
      }
@@ -188,6 +197,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                 SelectedCalcType = FilteredCalcTypes[0];
             FilterSections();
             RefreshTorsionMeshPreview();
+            RefreshTorsionLmin();
+            OnPropertyChanged(nameof(ShowTorsionAutoParams));
+            OnPropertyChanged(nameof(ShowTorsionElementSize));
+            OnPropertyChanged(nameof(ShowTorsionAutoRunsWarn));
         }
      }
 
@@ -265,7 +278,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public CrossSection? SelectedSection
    {
       get => selectedSection;
-      set { selectedSection = value; OnPropertyChanged(); RefreshTorsionMeshPreview(); }
+      set { selectedSection = value; OnPropertyChanged(); RefreshTorsionMeshPreview(); RefreshTorsionLmin(); }
    }
 
     public FireSectionDef? SelectedFireSection
@@ -480,6 +493,38 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    }
     public string TorsionMk { get => torsionMk; set { torsionMk = value; OnPropertyChanged(); } }
 
+    public string TorsionAutoH0
+    {
+       get => torsionAutoH0;
+       set
+       {
+          if (torsionAutoH0 == value) return;
+          torsionAutoH0 = value;
+          _torsionH0UserOverride = true;
+          OnPropertyChanged();
+       }
+    }
+
+    public string TorsionAutoRuns
+    {
+       get => torsionAutoRuns;
+       set
+       {
+          torsionAutoRuns = value;
+          OnPropertyChanged();
+          OnPropertyChanged(nameof(ShowTorsionAutoRunsWarn));
+       }
+    }
+
+    public string TorsionLminText { get; private set; } = "—";
+
+    public bool ShowTorsionAutoParams => IsTorsion && TorsionAutoConverge;
+
+    public bool ShowTorsionAutoRunsWarn =>
+       ShowTorsionAutoParams
+       && int.TryParse((TorsionAutoRuns ?? "").Trim(), out var n)
+       && n >= 5;
+
     public int TorsionTriangulationIndex
     {
        get => _torsionTriangulationIndex;
@@ -500,12 +545,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           torsionAutoConverge = value;
           OnPropertyChanged();
           OnPropertyChanged(nameof(ShowTorsionElementSize));
+          OnPropertyChanged(nameof(ShowTorsionAutoParams));
+          OnPropertyChanged(nameof(ShowTorsionAutoRunsWarn));
           RefreshTorsionMeshPreview();
        }
     }
 
-    /// <summary>Поле "размер элемента" скрывается, когда включена автосходимость (шаг подбирается сам).</summary>
-    public bool ShowTorsionElementSize => !TorsionAutoConverge;
+    /// <summary>Поле "размер элемента" скрывается, когда включена автосходимость.</summary>
+    public bool ShowTorsionElementSize => IsTorsion && !TorsionAutoConverge;
 
    /// <summary>T (кручение) из выбранной строки набора усилий, кН·м.</summary>
    public string TorsionMkFromSetText
@@ -767,9 +814,18 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               TorsionTriangulationIndex = tp.Triangulation == CSTriangulation.TriangulationMethod.Ruppert ? 1 : 0;
               TorsionAutoConverge = tp.AutoConverge;
               TorsionFemOrderIndex = tp.FemOrder == "quadratic" ? 1 : 0;
+              if (tp.AutoH0 > 0)
+              {
+                  torsionAutoH0 = tp.AutoH0.ToString("G6", inv);
+                  _torsionH0UserOverride = true;
+                  OnPropertyChanged(nameof(TorsionAutoH0));
+              }
+              if (tp.AutoRuns >= 2)
+                  TorsionAutoRuns = tp.AutoRuns.ToString(inv);
           }
 
           NotifyTorsionForceProps();
+          RefreshTorsionLmin();
        }
        else
        {
@@ -789,6 +845,53 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
       OkCommand = new RelayCommand(_ => Commit());
       RefreshTorsionMeshPreview();
+      RefreshTorsionLmin();
+   }
+
+   void RefreshTorsionLmin()
+   {
+      if (!IsTorsion || SelectedSection?.Areas == null || SelectedSection.Areas.Count == 0)
+      {
+         TorsionLminText = "—";
+         _lastTorsionLmin = double.NaN;
+         OnPropertyChanged(nameof(TorsionLminText));
+         return;
+      }
+
+      try
+      {
+         var boundary = SelectedSection.Areas[0].FromMaterialArea();
+         double lmin = TorsionBoundaryMetrics.MinEdgeLength(boundary);
+         var inv = System.Globalization.CultureInfo.InvariantCulture;
+         if (!double.IsFinite(lmin) || lmin <= 0)
+         {
+            TorsionLminText = "—";
+            _lastTorsionLmin = double.NaN;
+         }
+         else
+         {
+            TorsionLminText = lmin.ToString("G6", inv) + " м";
+            bool shouldFillH0 = !_torsionH0UserOverride
+               || !double.IsFinite(_lastTorsionLmin)
+               || (double.TryParse(torsionAutoH0.Replace(',', '.'),
+                      System.Globalization.NumberStyles.Float, inv, out var cur)
+                   && Math.Abs(cur - _lastTorsionLmin) < 1e-15 * Math.Max(1, Math.Abs(_lastTorsionLmin)));
+            _lastTorsionLmin = lmin;
+            if (shouldFillH0)
+            {
+               _torsionH0UserOverride = false;
+               torsionAutoH0 = lmin.ToString("G6", inv);
+               OnPropertyChanged(nameof(TorsionAutoH0));
+            }
+         }
+         OnPropertyChanged(nameof(TorsionLminText));
+      }
+      catch
+      {
+         TorsionLminText = "—";
+         _lastTorsionLmin = double.NaN;
+         OnPropertyChanged(nameof(TorsionLminText));
+      }
    }
 
    void RefreshTorsionMeshPreview()
@@ -1113,6 +1216,25 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           if (elem <= 0) elem = 0.05;
           double.TryParse(TorsionMk, System.Globalization.NumberStyles.Float, inv, out var mkManual);
 
+          double autoH0 = 0;
+          int autoRuns = 0;
+          if (TorsionAutoConverge)
+          {
+              string hRaw = (TorsionAutoH0 ?? "").Trim().Replace(',', '.');
+              if (!double.TryParse(hRaw, System.Globalization.NumberStyles.Float, inv, out autoH0) || autoH0 <= 0)
+              {
+                  MessageBox.Show(Loc.S("TorsionAutoH0Invalid"), Loc.S("Warning"),
+                      MessageBoxButton.OK, MessageBoxImage.Warning);
+                  return;
+              }
+              if (!int.TryParse((TorsionAutoRuns ?? "").Trim(), out autoRuns) || autoRuns < 2)
+              {
+                  MessageBox.Show(Loc.S("TorsionAutoRunsInvalid"), Loc.S("Warning"),
+                      MessageBoxButton.OK, MessageBoxImage.Warning);
+                  return;
+              }
+          }
+
           if (SelectedForceSet != null && SelectedForceItem == null && mkManual <= 0)
           {
               MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
@@ -1136,7 +1258,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                       ? CSTriangulation.TriangulationMethod.AdvancingFront
                       : CSTriangulation.TriangulationMethod.Ruppert,
                   AutoConverge = TorsionAutoConverge,
-                  FemOrder = _torsionFemOrderIndex == 1 ? "quadratic" : "linear"
+                  FemOrder = _torsionFemOrderIndex == 1 ? "quadratic" : "linear",
+                  AutoH0 = TorsionAutoConverge ? autoH0 : 0,
+                  AutoRuns = TorsionAutoConverge ? autoRuns : 0
               }.ToJson()
           };
           _window.DialogResult = true;

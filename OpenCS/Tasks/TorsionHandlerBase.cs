@@ -31,7 +31,10 @@ public abstract class TorsionHandlerBase : ITaskHandler
             double elemSizeM;
             if (p.AutoConverge)
             {
-                autoConverge = TorsionRichardson.SolveAutoConverge(boundary, Method, p.Triangulation, femOrder);
+                double? h0 = p.AutoH0 > 0 ? p.AutoH0 : null;
+                int nRuns = p.AutoRuns >= 2 ? p.AutoRuns : 3;
+                autoConverge = TorsionRichardson.SolveAutoConverge(
+                    boundary, Method, p.Triangulation, femOrder, h0, nRuns);
                 props = autoConverge.ToTorsionProps();
                 elemSizeM = autoConverge.Steps[^1].ElementSize;
             }
