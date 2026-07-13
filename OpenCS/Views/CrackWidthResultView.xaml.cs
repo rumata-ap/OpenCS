@@ -1,5 +1,7 @@
 using System;
+using System.Globalization;
 using System.Text.Json;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using CScore;
@@ -34,6 +36,14 @@ public sealed class CrackWidthResultVM
     public string LsText { get; } = "—";
     public string DsEqText { get; } = "—";
     public string McrcText { get; } = "—";
+
+    public bool EtaEnabled { get; }
+    public string EtaModeText { get; } = "";
+    public string EtaXText { get; } = "—";
+    public string EtaYText { get; } = "—";
+    public string EtaPsiText { get; } = "";
+    public string EtaMxText { get; } = "";
+    public string EtaMyText { get; } = "";
 
     public CrackWidthResultVM(CalcResult result)
     {
@@ -71,6 +81,22 @@ public sealed class CrackWidthResultVM
             DsEqText = Num(root, "ds_eq");
             McrcText = Num(root, "Mcrc");
 
+            EtaEnabled = root.TryGetProperty("eta", out var etaEl) && etaEl.ValueKind == JsonValueKind.Object;
+            if (EtaEnabled)
+            {
+                string mode = etaEl.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "formula" : "formula";
+                EtaModeText = mode == "iterative" ? Loc.S("ResultEtaModeIterative") : Loc.S("ResultEtaModeFormula");
+                EtaXText = Num(etaEl, "etaX");
+                EtaYText = Num(etaEl, "etaY");
+                string psiX = Num(etaEl, "psiX");
+                string psiY = Num(etaEl, "psiY");
+                EtaPsiText = $"ψx={psiX}, ψy={psiY}";
+                string mxOrig = Num(etaEl, "mxOriginal");
+                string myOrig = Num(etaEl, "myOriginal");
+                EtaMxText = $"Mx: {mxOrig} → {MxTotalText}";
+                EtaMyText = $"My: {myOrig} → {Num(root, "My_total")}";
+            }
+
             bool allPassed = passedLong && passedShort;
             SummaryText = !Cracked
                 ? Loc.S("CrackWidth_NoCracks")
@@ -90,5 +116,5 @@ public sealed class CrackWidthResultVM
 
     static string Num(JsonElement el, string key) =>
         el.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
-            ? v.GetDouble().ToString("G4") : "—";
+            ? v.GetDouble().ToString("G4", CultureInfo.InvariantCulture) : "—";
 }

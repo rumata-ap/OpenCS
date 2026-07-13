@@ -1225,6 +1225,7 @@
     <system:String x:Key="EtaPsixLabel">ψx</system:String>
     <system:String x:Key="EtaPsiyLabel">ψy</system:String>
     <system:String x:Key="EtaPsiHint">ψ = M1l/M1 — relative share of the moment from long-term loads (0…1 or more); φl = 1+ψ, capped at 2 (cl. 8.1.15 SP63.13330).</system:String>
+    <system:String x:Key="EtaAutoPsiCrackHint">For crack width, ψ = |M_long/M_total| is taken automatically from the long-term load mode (ψ fields are hidden).</system:String>
     <system:String x:Key="EtaSlendernessThresholdLabel">Slenderness l₀/h</system:String>
     <system:String x:Key="EtaSlendernessThresholdHint">Slenderness above which the η correction applies. Defaults to 14 (cl. 8.1.2 SP63.13330) — can be refined for a specific structure.</system:String>
     <system:String x:Key="EtaNeedL0">To account for deflection influence (η), specify element length L (&gt; 0) and, if needed, coefficients μx/μy (&gt; 0).</system:String>

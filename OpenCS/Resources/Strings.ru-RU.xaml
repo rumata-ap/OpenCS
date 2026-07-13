@@ -1228,6 +1228,7 @@
     <system:String x:Key="EtaPsixLabel">ψx</system:String>
     <system:String x:Key="EtaPsiyLabel">ψy</system:String>
     <system:String x:Key="EtaPsiHint">ψ = M1l/M1 — относительная доля момента от длительных нагрузок (0…1 и более); φl = 1+ψ, не более 2 (п. 8.1.15 СП63.13330).</system:String>
+    <system:String x:Key="EtaAutoPsiCrackHint">Для ширины трещин ψ = |M_long/M_total| берётся автоматически из режима длительной нагрузки (поля ψ скрыты).</system:String>
     <system:String x:Key="EtaSlendernessThresholdLabel">Гибкость l₀/h</system:String>
     <system:String x:Key="EtaSlendernessThresholdHint">Гибкость, выше которой применяется поправка η. По умолчанию 14 (п. 8.1.2 СП63.13330) — можно уточнить под конкретную конструкцию.</system:String>
     <system:String x:Key="EtaNeedL0">Для учёта влияния прогиба (η) укажите длину элемента L (&gt; 0) и, при необходимости, коэффициенты μx/μy (&gt; 0).</system:String>

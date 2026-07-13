@@ -484,7 +484,11 @@
                               Margin="0,0,0,4"/>
                   </Grid>
 
-                  <Grid Visibility="{Binding ShowEtaFormulaFields, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource EtaAutoPsiCrackHint}"
+                             TextWrapping="Wrap" Margin="0,0,0,8" Opacity="0.85"
+                             Visibility="{Binding ShowEtaAutoPsiHint, Converter={StaticResource BoolToVisibility}}"/>
+
+                  <Grid Visibility="{Binding ShowEtaPsiFields, Converter={StaticResource BoolToVisibility}}">
                      <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="130"/>
                         <ColumnDefinition Width="*"/>

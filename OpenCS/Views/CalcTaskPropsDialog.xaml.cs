@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Threading;
@@ -120,7 +121,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    /// поддерживаются — см. RodEtaWiring/LimitForceSolver.MomentFactor.
    /// </summary>
    public bool SupportsEta => Kind is "strain_state" or "strain_state_batch"
-      or "limit_moment" or "limit_moment_batch";
+      or "limit_moment" or "limit_moment_batch"
+      or "crack_width" or "crack_width_batch";
 
    public bool EtaEnabled
    {
@@ -131,13 +133,21 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged();
          OnPropertyChanged(nameof(ShowEtaFields));
          OnPropertyChanged(nameof(ShowEtaFormulaFields));
+         OnPropertyChanged(nameof(ShowEtaPsiFields));
+         OnPropertyChanged(nameof(ShowEtaAutoPsiHint));
       }
    }
 
    public bool EtaIterative
    {
       get => etaIterative;
-      set { etaIterative = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowEtaFormulaFields)); }
+      set
+      {
+         etaIterative = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowEtaFormulaFields));
+         OnPropertyChanged(nameof(ShowEtaPsiFields));
+      }
    }
 
    public string EtaL    { get => etaL;    set { etaL    = value; OnPropertyChanged(); } }
@@ -152,6 +162,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    /// <summary>Поля ψ (доля длительности момента) — только для буквального (формульного) режима.</summary>
    public bool ShowEtaFormulaFields => ShowEtaFields && !EtaIterative;
+
+   /// <summary>ψx/ψy вручную — не для трещин (там авто из M_long/M_total).</summary>
+   public bool ShowEtaPsiFields => ShowEtaFormulaFields && !IsCrackWidthAny;
+
+   /// <summary>Подсказка про авто-ψ для задач ширины трещин.</summary>
+   public bool ShowEtaAutoPsiHint => SupportsEta && IsCrackWidthAny;
 
    public bool IsLimitSingle  => IsLimitSingleKind(Kind);
    public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || IsSteelCheck || IsCracking || IsCrackWidth;
@@ -216,6 +232,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(SupportsEta));
          OnPropertyChanged(nameof(ShowEtaFields));
          OnPropertyChanged(nameof(ShowEtaFormulaFields));
+         OnPropertyChanged(nameof(ShowEtaPsiFields));
+         OnPropertyChanged(nameof(ShowEtaAutoPsiHint));
          NotifyTorsionForceProps();
          RefreshTorsionMeshPreview();
          RefreshTorsionLmin();
@@ -278,6 +296,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsStrainState));
             OnPropertyChanged(nameof(ShowEtaFields));
             OnPropertyChanged(nameof(ShowEtaFormulaFields));
+            OnPropertyChanged(nameof(ShowEtaPsiFields));
+            OnPropertyChanged(nameof(ShowEtaAutoPsiHint));
             NotifyTorsionForceProps();
             if (!FilteredCalcTypes.Contains(SelectedCalcType))
                 SelectedCalcType = FilteredCalcTypes[0];
@@ -877,7 +897,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          else if (IsLimitKind)
             SolverId = LimitForceParams.Parse(existing.ParamsJson).Solver;
 
-          if (existing.Kind is "strain_state" or "strain_state_batch" or "limit_moment" or "limit_moment_batch"
+          if ((existing.Kind is "strain_state" or "strain_state_batch" or "limit_moment" or "limit_moment_batch"
+              or "crack_width" or "crack_width_batch")
               && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
           {
              var ep = LimitForceParams.Parse(existing.ParamsJson);
@@ -1440,7 +1461,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                ForceSetId = SelectedForceSet.Id,
                ForceItemId = 0,
                CalcType = SelectedCalcType,
-               ParamsJson = cwp.ToJson()
+               ParamsJson = MergeCrackParamsWithEta(cwp)
             };
             _window.DialogResult = true;
             return;
@@ -1479,7 +1500,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             ForceSetId = 0,
             ForceItemId = 0,
             CalcType = SelectedCalcType,
-            ParamsJson = cwp.ToJson()
+            ParamsJson = MergeCrackParamsWithEta(cwp)
          };
          _window.DialogResult = true;
          return;
@@ -1732,10 +1753,34 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       if (double.TryParse(EtaMuY, System.Globalization.NumberStyles.Float, inv, out var muy)) lfp.EtaMuY = muy;
       if (double.TryParse(EtaSlendernessThreshold, System.Globalization.NumberStyles.Float, inv, out var th) && th > 0)
          lfp.EtaSlendernessThreshold = th;
-      if (!EtaIterative)
+      if (!EtaIterative && !IsCrackWidthAny)
       {
          if (double.TryParse(EtaPsiX, System.Globalization.NumberStyles.Float, inv, out var psix)) lfp.EtaPsiX = psix;
          if (double.TryParse(EtaPsiY, System.Globalization.NumberStyles.Float, inv, out var psiy)) lfp.EtaPsiY = psiy;
       }
+   }
+
+   /// <summary>Объединяет ParamsJson трещин с полями η (если включены).</summary>
+   string MergeCrackParamsWithEta(CrackWidthTaskParams cwp)
+   {
+      string crackJson = cwp.ToJson();
+      if (!EtaEnabled)
+         return crackJson;
+
+      var lfp = new LimitForceParams();
+      ApplyEtaParams(lfp, System.Globalization.CultureInfo.InvariantCulture);
+      using var crackDoc = System.Text.Json.JsonDocument.Parse(crackJson);
+      using var etaDoc = System.Text.Json.JsonDocument.Parse(lfp.ToJson());
+      var dict = new Dictionary<string, System.Text.Json.JsonElement>();
+      foreach (var prop in crackDoc.RootElement.EnumerateObject())
+         dict[prop.Name] = prop.Value.Clone();
+      foreach (var prop in etaDoc.RootElement.EnumerateObject())
+      {
+         // Не затирать N/Mx/My трещин нулями из LimitForceParams.ToJson().
+         if (prop.Name is "N" or "Mx" or "My" or "solver")
+            continue;
+         dict[prop.Name] = prop.Value.Clone();
+      }
+      return System.Text.Json.JsonSerializer.Serialize(dict);
    }
 }
