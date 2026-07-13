@@ -9,7 +9,8 @@ internal static class CalcTaskForceHelper
       => kind is "limit_force" or "limit_moment" or "limit_axial";
 
    internal static bool UsesManualForces(CalcTask task)
-      => task.Kind == "strain_state" || IsLimitSingleKind(task.Kind);
+      => task.Kind == "strain_state" || task.Kind == "cracking" || task.Kind == "crack_width"
+         || IsLimitSingleKind(task.Kind);
 
    /// <summary>Задачи, для которых не нужна строка стержневого набора усилий (batch / ParamsJson / оболочки / сталь).</summary>
    internal static bool UsesDummyForceItem(CalcTask task) => task.Kind switch
@@ -28,7 +29,8 @@ internal static class CalcTaskForceHelper
           or "steel_bending" or "steel_compression_bending"
           or "steel_tension_bending" or "steel_shear"
           or "steel_torsion" or "steel_constructive"
-          or "torsion_bem" or "torsion_fem" => true,
+          or "torsion_bem" or "torsion_fem"
+          or "cracking_batch" or "crack_width_batch" => true,
       _ => false
    };
 
