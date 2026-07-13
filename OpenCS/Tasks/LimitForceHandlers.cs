@@ -33,7 +33,8 @@ static class LimitForceTaskHelper
          var solver = LimitForceSolvers.Create(section, task.CalcType,
             LimitForceParams.Parse(task.ParamsJson),
             newtonTol: settings.NewtonTolerance,
-            newtonMaxIter: settings.NewtonMaxIter);
+            newtonMaxIter: settings.NewtonMaxIter,
+            ten: settings.ResolveConcreteTension(task.CalcType));
 
          var res = mode switch
          {
@@ -83,10 +84,11 @@ static class LimitForceTaskHelper
                var clone = section.CloneForCalc();
                var solver = LimitForceSolvers.Create(clone, task.CalcType, parameters,
                   newtonTol: settings.NewtonTolerance,
-                  newtonMaxIter: settings.NewtonMaxIter);
+                  newtonMaxIter: settings.NewtonMaxIter,
+                  ten: settings.ResolveConcreteTension(task.CalcType));
                var res = Solve(solver, fi, mode);
                convergedArr[i] = res.Converged;
-               rowResults[i] = BuildRow(fi, res);
+               rowResults[i] = BuildRow(fi, res, parameters);
                BatchProgress.Report(ctx, ref done, total);
             });
             ctx?.CancellationToken.ThrowIfCancellationRequested();
@@ -95,13 +97,14 @@ static class LimitForceTaskHelper
          {
             var solver = LimitForceSolvers.Create(section, task.CalcType, parameters,
                newtonTol: settings.NewtonTolerance,
-               newtonMaxIter: settings.NewtonMaxIter);
+               newtonMaxIter: settings.NewtonMaxIter,
+               ten: settings.ResolveConcreteTension(task.CalcType));
             for (int i = 0; i < total; i++)
             {
                var fi = items[i];
                var res = Solve(solver, fi, mode);
                convergedArr[i] = res.Converged;
-               rowResults[i] = BuildRow(fi, res);
+               rowResults[i] = BuildRow(fi, res, parameters);
                BatchProgress.Report(ctx, ref done, total);
             }
          }
@@ -155,7 +158,7 @@ static class LimitForceTaskHelper
       }
 
       var parameters = LimitForceParams.Parse(task.ParamsJson);
-      var data = BuildData(res, item, parameters.Solver, k, nRes, mxRes, myRes);
+      var data = BuildData(res, item, parameters, k, nRes, mxRes, myRes);
 
       return new CalcResult
       {
@@ -169,12 +172,12 @@ static class LimitForceTaskHelper
    }
 
    static object BuildData(
-      LimitForceResult res, LoadItem item, string solverMethod, Kurvature k,
+      LimitForceResult res, LoadItem item, LimitForceParams parameters, Kurvature k,
       double nRes, double mxRes, double myRes)
    {
       return new
       {
-         solver_method     = solverMethod,
+         solver_method     = parameters.Solver,
          converged         = res.Converged,
          iterations        = res.Iterations,
          newton_iterations = res.NewtonIterations,
@@ -197,10 +200,56 @@ static class LimitForceTaskHelper
          N_result          = Math.Round(nRes, 4),
          Mx_result         = Math.Round(mxRes, 4),
          My_result         = Math.Round(myRes, 4),
+         eta               = BuildEtaJson(res.Eta, parameters.EtaIterative,
+            parameters.EtaSlendernessThreshold ?? CScore.Sp63.EccentricityAmplifier.SlendernessThreshold,
+            res.MxLimit, res.MyLimit),
       };
    }
 
-   static object BuildRow(LoadItem fi, LimitForceResult res)
+   /// <summary>
+   /// Диагностика η (п. 8.1.15) для найденной предельной точки — см.
+   /// LimitForceResult.Eta. Схема полей совпадает с StrainStateHandler.etaData,
+   /// чтобы результат читал тот же StrainSummaryVM/StrainSummaryBody (см.
+   /// LimitForceSummaryView.xaml: local:StrainSummaryBody DataContext=StrainPart).
+   /// mxOriginal/myOriginal — найденный предельный момент (Mx_limit/My_limit,
+   /// т.е. ДО усиления η — усиленное значение использовалось только для
+   /// проверки вместимости сечения на каждом пробном k).
+   /// </summary>
+   static object? BuildEtaJson(
+      CScore.Sp63.RodEtaWiring.Result? etaOpt, bool iterative, double threshold,
+      double mxOriginal, double myOriginal)
+   {
+      if (etaOpt is not { } eta) return null;
+      return new
+      {
+         mode = iterative ? "iterative" : "formula",
+         slendernessThreshold = threshold,
+         mxOriginal,
+         myOriginal,
+         l0x = Math.Round(eta.X.L0, 4),
+         hx  = Math.Round(eta.X.H,  4),
+         slendernessX = eta.X.H > 1e-9 ? Math.Round(eta.X.L0 / eta.X.H, 2) : (double?)null,
+         dX = double.IsFinite(eta.X.D) ? Math.Round(eta.X.D, 2) : (double?)null,
+         etaX = Math.Round(eta.X.Eta, 6),
+         ncrX = double.IsFinite(eta.X.Ncr) ? Math.Round(eta.X.Ncr, 4) : (double?)null,
+         slenderX = eta.X.Slender,
+         stableX  = eta.X.Stable,
+         extrapolationFailedX = eta.X.ExtrapolationFailed,
+         etaHistoryX = eta.X.EtaHistory.Select(e => Math.Round(e, 6)).ToArray(),
+         l0y = Math.Round(eta.Y.L0, 4),
+         hy  = Math.Round(eta.Y.H,  4),
+         slendernessY = eta.Y.H > 1e-9 ? Math.Round(eta.Y.L0 / eta.Y.H, 2) : (double?)null,
+         dY = double.IsFinite(eta.Y.D) ? Math.Round(eta.Y.D, 2) : (double?)null,
+         etaY = Math.Round(eta.Y.Eta, 6),
+         ncrY = double.IsFinite(eta.Y.Ncr) ? Math.Round(eta.Y.Ncr, 4) : (double?)null,
+         slenderY = eta.Y.Slender,
+         stableY  = eta.Y.Stable,
+         extrapolationFailedY = eta.Y.ExtrapolationFailed,
+         etaHistoryY = eta.Y.EtaHistory.Select(e => Math.Round(e, 6)).ToArray(),
+      };
+   }
+
+   static object BuildRow(LoadItem fi, LimitForceResult res, LimitForceParams parameters)
    {
       var k = res.StrainPlane ?? new Kurvature();
       return new
@@ -221,7 +270,10 @@ static class LimitForceTaskHelper
          kz                = Math.Round(k.kz, 8),
          iterations        = res.Iterations,
          newton_iterations = res.NewtonIterations,
-         status            = res.Converged ? "ok" : "not_converged"
+         status            = res.Converged ? "ok" : "not_converged",
+         eta               = BuildEtaJson(res.Eta, parameters.EtaIterative,
+            parameters.EtaSlendernessThreshold ?? CScore.Sp63.EccentricityAmplifier.SlendernessThreshold,
+            res.MxLimit, res.MyLimit),
       };
    }
 

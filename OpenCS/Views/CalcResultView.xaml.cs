@@ -1,13 +1,17 @@
 using CScore;
+using OpenCS.Services;
 using OpenCS.ViewModels;
 using System.Linq;
 using System.Text.Json;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
     public partial class CalcResultView : UserControl
     {
+        SectionCutWindowService? _cutWindow;
+
     public CalcResultView(CalcResult result, AppViewModel app)
     {
         var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
@@ -92,7 +96,7 @@ namespace OpenCS.Views
                 tss.Stage1.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
                     pool: app.Diagrams,
                     rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
-                Content = new TwoStageCalcResultView(result, tss, task.CalcType, app.CalcSettings);
+                Content = new TwoStageCalcResultView(result, tss, task.CalcType, app.CalcSettings, app.FileDialogService);
                 return;
             }
             // tss == null: проваливаемся в стандартный путь (покажет FallbackSummaryVM)
@@ -119,12 +123,34 @@ namespace OpenCS.Views
                 rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
 
             var k = ParseKurvature(result.DataJson);
-            section.SetEps(k, task.CalcType);
-
-            SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, app.CalcSettings);
             var settings = app.CalcSettings;
-            StressView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings);
-            StrainView.DataContext  = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings);
+            bool ten = settings.ResolveConcreteTension(task.CalcType);
+            section.SetEps(k, task.CalcType, ten);
+
+            SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, settings, ten);
+            var stressVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings, ten);
+            var strainVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings, ten);
+
+            var cutVm = new SectionCutVM(section, k, task.CalcType, app.FileDialogService, ten)
+            {
+                WindowTitleSuffix = $"{task.Tag} — {section.Tag}"
+            };
+            stressVm.CutVM = cutVm;
+            strainVm.CutVM = cutVm;
+
+            StressView.DataContext = stressVm;
+            StrainView.DataContext = strainVm;
+
+            _cutWindow = new SectionCutWindowService(settings);
+            _cutWindow.Bind(cutVm, SectionPlotMode.Stress);
+            Tabs.SelectionChanged += OnTabSelectionChanged;
+            Unloaded += (_, _) => _cutWindow?.Dispose();
+        }
+
+        void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (Tabs.SelectedIndex == 1) _cutWindow?.UpdatePlotMode(SectionPlotMode.Stress);
+            else if (Tabs.SelectedIndex == 2) _cutWindow?.UpdatePlotMode(SectionPlotMode.Strain);
         }
 
         static Kurvature ParseKurvature(string dataJson)
@@ -158,6 +184,21 @@ namespace OpenCS.Views
         public string NText     => "—";
         public string MxText    => "—";
         public string MyText    => "—";
+        public bool   EtaEnabled => false;
+        public string EtaModeText     => "—";
+        public string MxOriginalText  => "—";
+        public string MyOriginalText  => "—";
+        public string L0xText => "—"; public string HxText => "—";
+        public string SlendernessXText => "—"; public string DxText => "—"; public string NcrXText => "—";
+        public string EtaXText  => "—";
+        public string L0yText => "—"; public string HyText => "—";
+        public string SlendernessYText => "—"; public string DyText => "—"; public string NcrYText => "—";
+        public string EtaYText  => "—";
+        public bool   EtaUnstable => false;
+        public bool   EtaExtrapolationFailed => false;
+        public bool   ShowEtaTrajectory => false;
+        public string EtaXTrajectoryText => "—";
+        public string EtaYTrajectoryText => "—";
         public bool   HasExtremes    => false;
         public string EpsMinText     => "—";
         public string EpsMaxText     => "—";

@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using System;
 using System.Linq;
@@ -62,11 +63,16 @@ namespace OpenCS.ViewModels
         public SectionPlotVM?   Stage2Stress  { get; }
         public SectionPlotVM?   Stage2Strain  { get; }
 
+        public SectionCutVM? Stage1CutVM { get; }
+        public SectionCutVM? Stage2CutVM { get; }
+
         public TwoStageSummaryVM(CalcResult result, TwoStageSection tss,
-                                  CalcType calcType, CalcSettings settings)
+                                  CalcType calcType, CalcSettings settings,
+                                  IFileDialogService fileDialogService)
         {
             TaskTag     = result.TaskTag;
             CreatedText = result.Created;
+            bool ten = settings.ResolveConcreteTension(calcType);
 
             using var doc  = JsonDocument.Parse(result.DataJson);
             var root = doc.RootElement;
@@ -113,13 +119,13 @@ namespace OpenCS.ViewModels
                 Tag   = clone.Stage1.Tag,
                 Areas = clone.Stage1.Areas.Select(a => a.CloneForCalc()).ToList()
             };
-            stage1Section.SetEps(k1, calcType);
+            stage1Section.SetEps(k1, calcType, ten);
 
             // Усилия этапа 1: вычисляем через интеграл сечения (источник истины),
             // а не из JSON — это работает и для старых результатов без полей stage1_N_*.
             // Для target берём значение из JSON если есть (внешнее заданное усилие);
             // иначе считаем target ≈ result (при сходимости они совпадают).
-            var resS1 = stage1Section.Integral(k1, calcType);
+            var resS1 = stage1Section.Integral(k1, calcType, ten);
             bool hasS1TargetN  = root.TryGetProperty("stage1_N_target",  out v);
             bool hasS1TargetMx = root.TryGetProperty("stage1_Mx_target", out v);
             bool hasS1TargetMy = root.TryGetProperty("stage1_My_target", out v);
@@ -173,19 +179,31 @@ namespace OpenCS.ViewModels
                 Status   = s1Ok ? "ok" : "not_converged",
                 DataJson = JsonSerializer.Serialize(stage1Data)
             };
-            Stage1Summary = new StrainSummaryVM(stage1Result, stage1Section, calcType, settings);
-            Stage1Stress  = new SectionPlotVM(stage1Section, k1, calcType, SectionPlotMode.Stress, settings);
-            Stage1Strain  = new SectionPlotVM(stage1Section, k1, calcType, SectionPlotMode.Strain, settings);
+            Stage1Summary = new StrainSummaryVM(stage1Result, stage1Section, calcType, settings, ten);
+            Stage1Stress  = new SectionPlotVM(stage1Section, k1, calcType, SectionPlotMode.Stress, settings, ten);
+            Stage1Strain  = new SectionPlotVM(stage1Section, k1, calcType, SectionPlotMode.Strain, settings, ten);
 
             // Этап 2: составное сечение (этап 1 + этап 2) под κ2.
             // Stage1Kurvature восстанавливается, чтобы EnumerateAreas(κ2) на clone
             // вернул для Stage1.Areas эффективную плоскость κ1+κ2 (суммарная деформация
             // в волокнах первого этапа), а для Areas — κ2 (волокна второго этапа).
             clone.Stage1Kurvature = k1;
-            clone.SetEps(k2, calcType);
-            Stage2Summary = new StrainSummaryVM(result, clone, calcType, settings);
-            Stage2Stress  = new SectionPlotVM(clone, k2, calcType, SectionPlotMode.Stress, settings);
-            Stage2Strain  = new SectionPlotVM(clone, k2, calcType, SectionPlotMode.Strain, settings);
+            clone.SetEps(k2, calcType, ten);
+            Stage2Summary = new StrainSummaryVM(result, clone, calcType, settings, ten);
+            Stage2Stress  = new SectionPlotVM(clone, k2, calcType, SectionPlotMode.Stress, settings, ten);
+            Stage2Strain  = new SectionPlotVM(clone, k2, calcType, SectionPlotMode.Strain, settings, ten);
+
+            string titleSuffix = $"{result.TaskTag} — {tss.Tag}";
+            var cut1 = new SectionCutVM(stage1Section, k1, calcType, fileDialogService, ten)
+                { WindowTitleSuffix = $"{titleSuffix} ({Loc.S("TwoStageSummary_Stage1")})" };
+            var cut2 = new SectionCutVM(clone, k2, calcType, fileDialogService, ten)
+                { WindowTitleSuffix = $"{titleSuffix} ({Loc.S("TwoStageSummary_Stage2")})" };
+            Stage1CutVM = cut1;
+            Stage2CutVM = cut2;
+            Stage1Stress!.CutVM = cut1;
+            Stage1Strain!.CutVM = cut1;
+            Stage2Stress!.CutVM = cut2;
+            Stage2Strain!.CutVM = cut2;
         }
 
         static string Pct(double target, double result)

@@ -228,9 +228,22 @@
                                   DisplayMemberPath="Tag"
                                   Margin="0,0,0,8"/>
                         <TextBlock Text="{DynamicResource DiagramType}" Margin="0,0,0,2"/>
-                        <ComboBox ItemsSource="{Binding DiagramTypeValues}"
-                                  SelectedItem="{Binding DiagrammType}"
-                                  Margin="0,0,0,8"/>
+                        <ComboBox SelectedValue="{Binding DiagrammType}"
+                                  SelectedValuePath="Tag"
+                                  Margin="0,0,0,8">
+                           <ComboBoxItem Tag="{x:Static core:DiagrammType.L2}"
+                                         Content="{DynamicResource DiagramTypeL2}"/>
+                           <ComboBoxItem Tag="{x:Static core:DiagrammType.L3}"
+                                         Content="{DynamicResource DiagramTypeL3}"/>
+                           <ComboBoxItem Tag="{x:Static core:DiagrammType.SP63}"
+                                         Content="{DynamicResource DiagramTypeSP63}"/>
+                           <ComboBoxItem Tag="{x:Static core:DiagrammType.EKB}"
+                                         Content="{DynamicResource DiagramTypeEKB}"/>
+                           <ComboBoxItem Tag="{x:Static core:DiagrammType.SP35}"
+                                         Content="{DynamicResource DiagramTypeSP35}"/>
+                           <ComboBoxItem Tag="{x:Static core:DiagrammType.SP16}"
+                                         Content="{DynamicResource DiagramTypeSP16}"/>
+                        </ComboBox>
                         <GroupBox Header="{DynamicResource Hull}" Margin="0,0,0,8">
                            <StackPanel Margin="4">
                               <ComboBox ItemsSource="{Binding ProjectContours}"

@@ -24,6 +24,8 @@ namespace OpenCS.Views
                 var (cDiag, rDiag, layerDiags, _) =
                     PlateMaterialResolver.Resolve(plate, app.db.Materials, task.CalcType);
                 var st = ParseState(result.DataJson);
+                bool? tensionOverride = task.CalcType is CalcType.C or CalcType.CL
+                   ? app.CalcSettings.ConsiderConcreteTensionUls : (bool?)null;
 
                 // ── HLines: центры тяжести из JSON ────────────────────────────
                 double zcxM = 0, zcyM = 0;
@@ -39,7 +41,7 @@ namespace OpenCS.Views
                 var zcyLine = new (double Z, Brush Color, string Label)[] { (zcyM, Brushes.DarkBlue, "zc,y") };
 
                 // ── Выборка профилей ──────────────────────────────────────────
-                var s = plate.SampleThroughThickness(st, cDiag, rDiag, layerDiags, 41);
+                var s = plate.SampleThroughThickness(st, cDiag, rDiag, layerDiags, 41, tensionOverride);
 
                 // Маркеры арматуры на деформационных эпюрах (деформация в слое)
                 var rebarEpsX = s.Rebar.Where(r => r.AlongX)
@@ -114,7 +116,7 @@ namespace OpenCS.Views
                 };
 
                 // ── Вкладка «Главные оси» ────────────────────────────────────
-                var pa = plate.SamplePrincipalAxes(st, cDiag, 41);
+                var pa = plate.SamplePrincipalAxes(st, cDiag, 41, tensionOverride);
 
                 PrEpsCanvas.Profile = new ThroughThicknessProfile
                 {

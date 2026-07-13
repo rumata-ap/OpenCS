@@ -58,6 +58,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string manualN = "0";
     string manualMx = "0";
     string manualMy = "0";
+    // Eta (п. 8.1.15 СП63.13330)
+    bool etaEnabled, etaIterative;
+    string etaL = "6.0", etaMuX = "1.0", etaMuY = "1.0", etaPsiX = "1.0", etaPsiY = "1.0";
+    string etaSlendernessThreshold = "14";
     // Shell simpl
     PlateSection? selectedShellSimplSection;
     ForceSet? selectedShellForceSet;
@@ -93,6 +97,50 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ManualN  { get => manualN;  set { manualN  = value; OnPropertyChanged(); } }
    public string ManualMx { get => manualMx; set { manualMx = value; OnPropertyChanged(); } }
    public string ManualMy { get => manualMy; set { manualMy = value; OnPropertyChanged(); } }
+
+   public bool IsStrainState => Kind == "strain_state";
+
+   /// <summary>
+   /// Виды задач, поддерживающие блок η (п. 8.1.15): состояние деформаций
+   /// (N фиксирован по определению) и поиск предельного момента при
+   /// фиксированном N (limit_moment) — в обоих случаях N не меняется в ходе
+   /// решения, что позволяет пересчитывать η без риска потери устойчивости
+   /// поиска. limit_force/limit_axial (N — искомая величина) пока не
+   /// поддерживаются — см. RodEtaWiring/LimitForceSolver.MomentFactor.
+   /// </summary>
+   public bool SupportsEta => Kind is "strain_state" or "strain_state_batch"
+      or "limit_moment" or "limit_moment_batch";
+
+   public bool EtaEnabled
+   {
+      get => etaEnabled;
+      set
+      {
+         etaEnabled = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowEtaFields));
+         OnPropertyChanged(nameof(ShowEtaFormulaFields));
+      }
+   }
+
+   public bool EtaIterative
+   {
+      get => etaIterative;
+      set { etaIterative = value; OnPropertyChanged(); OnPropertyChanged(nameof(ShowEtaFormulaFields)); }
+   }
+
+   public string EtaL    { get => etaL;    set { etaL    = value; OnPropertyChanged(); } }
+   public string EtaMuX  { get => etaMuX;  set { etaMuX  = value; OnPropertyChanged(); } }
+   public string EtaMuY  { get => etaMuY;  set { etaMuY  = value; OnPropertyChanged(); } }
+   public string EtaPsiX { get => etaPsiX; set { etaPsiX = value; OnPropertyChanged(); } }
+   public string EtaPsiY { get => etaPsiY; set { etaPsiY = value; OnPropertyChanged(); } }
+   public string EtaSlendernessThreshold { get => etaSlendernessThreshold; set { etaSlendernessThreshold = value; OnPropertyChanged(); } }
+
+   /// <summary>Показывать блок η целиком — для strain_state и strain_state_batch при включённой галке.</summary>
+   public bool ShowEtaFields => SupportsEta && EtaEnabled;
+
+   /// <summary>Поля ψ (доля длительности момента) — только для буквального (формульного) режима.</summary>
+   public bool ShowEtaFormulaFields => ShowEtaFields && !EtaIterative;
 
    public bool IsLimitSingle  => IsLimitSingleKind(Kind);
    public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || IsSteelCheck;
@@ -143,6 +191,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(IsTorsion));
          OnPropertyChanged(nameof(IsTorsionFem));
          OnPropertyChanged(nameof(ShowManualForces));
+         OnPropertyChanged(nameof(IsStrainState));
+         OnPropertyChanged(nameof(SupportsEta));
+         OnPropertyChanged(nameof(ShowEtaFields));
+         OnPropertyChanged(nameof(ShowEtaFormulaFields));
          NotifyTorsionForceProps();
          RefreshTorsionMeshPreview();
          RefreshTorsionLmin();
@@ -192,6 +244,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsTorsion));
             OnPropertyChanged(nameof(IsTorsionFem));
             OnPropertyChanged(nameof(ShowManualForces));
+            OnPropertyChanged(nameof(IsStrainState));
+            OnPropertyChanged(nameof(ShowEtaFields));
+            OnPropertyChanged(nameof(ShowEtaFormulaFields));
             NotifyTorsionForceProps();
             if (!FilteredCalcTypes.Contains(SelectedCalcType))
                 SelectedCalcType = FilteredCalcTypes[0];
@@ -717,6 +772,22 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          }
          else if (IsLimitKind)
             SolverId = LimitForceParams.Parse(existing.ParamsJson).Solver;
+
+          if (existing.Kind is "strain_state" or "strain_state_batch" or "limit_moment" or "limit_moment_batch"
+              && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
+          {
+             var ep = LimitForceParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             EtaEnabled   = ep.EtaEnabled;
+             EtaIterative = ep.EtaIterative;
+             if (ep.EtaL.HasValue)    EtaL    = ep.EtaL.Value.ToString("G6", inv);
+             if (ep.EtaMuX.HasValue)  EtaMuX  = ep.EtaMuX.Value.ToString("G6", inv);
+             if (ep.EtaMuY.HasValue)  EtaMuY  = ep.EtaMuY.Value.ToString("G6", inv);
+             if (ep.EtaPsiX.HasValue) EtaPsiX = ep.EtaPsiX.Value.ToString("G6", inv);
+             if (ep.EtaPsiY.HasValue) EtaPsiY = ep.EtaPsiY.Value.ToString("G6", inv);
+             if (ep.EtaSlendernessThreshold.HasValue)
+                EtaSlendernessThreshold = ep.EtaSlendernessThreshold.Value.ToString("G6", inv);
+          }
 
           if (existing.Kind is "two_stage_strain" or "two_stage_strain_batch")
           {
@@ -1348,6 +1419,27 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           return;
        }
 
+       if (SupportsEta && EtaEnabled)
+       {
+          var invEta = System.Globalization.CultureInfo.InvariantCulture;
+          bool validL   = double.TryParse(EtaL, System.Globalization.NumberStyles.Float, invEta, out var lCheck) && lCheck > 0;
+          bool validMuX = !double.TryParse(EtaMuX, System.Globalization.NumberStyles.Float, invEta, out var muxCheck) || muxCheck > 0;
+          bool validMuY = !double.TryParse(EtaMuY, System.Globalization.NumberStyles.Float, invEta, out var muyCheck) || muyCheck > 0;
+          bool validThreshold = !double.TryParse(EtaSlendernessThreshold, System.Globalization.NumberStyles.Float, invEta, out var thCheck) || thCheck > 0;
+          if (!validL || !validMuX || !validMuY)
+          {
+             MessageBox.Show(Loc.S("EtaNeedL0"), Loc.S("Warning"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+             return;
+          }
+          if (!validThreshold)
+          {
+             MessageBox.Show(Loc.S("EtaInvalidThreshold"), Loc.S("Warning"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+             return;
+          }
+       }
+
        string paramsJson = "{}";
        if (IsFireKind && SelectedFireSection != null)
        {
@@ -1366,18 +1458,35 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           double my = double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, inv, out var myv) ? myv : 0;
           if (IsLimitSingle)
           {
-             paramsJson = new LimitForceParams
-             {
-                Solver = SolverId,
-                N = n, Mx = mx, My = my
-             }.ToJson();
+             var lfp = new LimitForceParams { Solver = SolverId, N = n, Mx = mx, My = my };
+             if (Kind == "limit_moment" && EtaEnabled) ApplyEtaParams(lfp, inv);
+             paramsJson = lfp.ToJson();
+          }
+          else if (IsStrainState)
+          {
+             var lfp = new LimitForceParams { N = n, Mx = mx, My = my };
+             if (EtaEnabled) ApplyEtaParams(lfp, inv);
+             paramsJson = lfp.ToJson();
           }
           else
              paramsJson = JsonSerializer.Serialize(new { N = n, Mx = mx, My = my });
        }
+       else if (Kind == "strain_state_batch")
+       {
+          if (EtaEnabled)
+          {
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             var lfp = new LimitForceParams();
+             ApplyEtaParams(lfp, inv);
+             paramsJson = lfp.ToJson();
+          }
+       }
        else if (IsLimitKind)
        {
-          paramsJson = new LimitForceParams { Solver = SolverId }.ToJson();
+          var lfp = new LimitForceParams { Solver = SolverId };
+          if (Kind == "limit_moment_batch" && EtaEnabled)
+             ApplyEtaParams(lfp, System.Globalization.CultureInfo.InvariantCulture);
+          paramsJson = lfp.ToJson();
        }
 
       Result = new CalcTask
@@ -1393,5 +1502,28 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       };
 
       _window.DialogResult = true;
+   }
+
+   /// <summary>
+   /// Переносит поля блока η (п. 8.1.15) диалога в <see cref="LimitForceParams"/>.
+   /// Общая логика для одиночной (strain_state, ручные усилия) и пакетной
+   /// (strain_state_batch, усилия из ForceSet) задач — набор η-параметров
+   /// (L, μx/μy, ψx/ψy, порог гибкости) одинаков и не зависит от конкретной
+   /// силовой позиции.
+   /// </summary>
+   void ApplyEtaParams(LimitForceParams lfp, System.Globalization.CultureInfo inv)
+   {
+      lfp.EtaEnabled   = true;
+      lfp.EtaIterative = EtaIterative;
+      if (double.TryParse(EtaL,   System.Globalization.NumberStyles.Float, inv, out var l))   lfp.EtaL   = l;
+      if (double.TryParse(EtaMuX, System.Globalization.NumberStyles.Float, inv, out var mux)) lfp.EtaMuX = mux;
+      if (double.TryParse(EtaMuY, System.Globalization.NumberStyles.Float, inv, out var muy)) lfp.EtaMuY = muy;
+      if (double.TryParse(EtaSlendernessThreshold, System.Globalization.NumberStyles.Float, inv, out var th) && th > 0)
+         lfp.EtaSlendernessThreshold = th;
+      if (!EtaIterative)
+      {
+         if (double.TryParse(EtaPsiX, System.Globalization.NumberStyles.Float, inv, out var psix)) lfp.EtaPsiX = psix;
+         if (double.TryParse(EtaPsiY, System.Globalization.NumberStyles.Float, inv, out var psiy)) lfp.EtaPsiY = psiy;
+      }
    }
 }

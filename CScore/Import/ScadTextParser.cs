@@ -7,8 +7,10 @@ namespace CScore.Import;
 /// <summary>
 /// Разбор нативного текстового экспорта SCAD (реверс-инжинерено на файле SCAD 21.1,
 /// официальной спецификации формата нет). Файл — последовательность блоков вида
-/// "(N/запись1/запись2/.../)" (кодировка Windows-1251). Разбираются только блоки,
-/// нужные для топологии: (1) элементы, (3) жёсткости, (4) узлы, (47) именованные группы.
+/// "(N/запись1/запись2/.../)" (кодировка Windows-1251). В экспорте SCAD до v11
+/// вокруг номера блока допускаются пробелы: "( 1/...)" вместо "(1/...)".
+/// Разбираются только блоки, нужные для топологии: (1) элементы, (3) жёсткости,
+/// (4) узлы, (47) именованные группы.
 /// </summary>
 public static class ScadTextParser
 {
@@ -40,8 +42,9 @@ public static class ScadTextParser
     static readonly Regex VersionHeader =
         new(@"\(0;Version=(\d+);SubVersion=(\d+)", RegexOptions.Compiled);
 
+    // GE/GEI — оболочки (GEI в экспорте SCAD до v11), STZ/S0 — стержни, SPRING — пружины.
     static readonly Regex StiffnessHeader =
-        new(@"^(\d+)\s+(GE|STZ|S0|SPRING)\b", RegexOptions.Compiled);
+        new(@"^(\d+)\s+(GEI|GE|STZ|S0|SPRING)\b", RegexOptions.Compiled);
 
     static readonly Regex NameRegex =
         new("Name\\s+\"([^\"]*)\"", RegexOptions.Compiled);
@@ -126,16 +129,17 @@ public static class ScadTextParser
     }
 
     /// <summary>
-    /// Извлекает содержимое блока "(blockNumber/...)" — от маркера "(N/" до начала
-    /// следующего блока (последовательность ")(" любого номера) или до конца файла.
+    /// Извлекает содержимое блока "(blockNumber/...)" — от маркера "(N/" (или "( N /"
+    /// в экспорте SCAD до v11) до начала следующего блока (")(" любого номера)
+    /// или до конца файла.
     /// </summary>
     static string ExtractBlockContent(string text, int blockNumber)
     {
-        string marker = $"({blockNumber}/";
-        int start = text.IndexOf(marker, StringComparison.Ordinal);
-        if (start < 0) return "";
+        // Пробелы вокруг номера допускаются: в SCAD до v11 маркеры пишутся как "( 1/".
+        var start = Regex.Match(text, $@"\(\s*{blockNumber}\s*/");
+        if (!start.Success) return "";
 
-        int contentStart = start + marker.Length;
+        int contentStart = start.Index + start.Length;
         var next = BlockBoundary.Match(text, contentStart);
         int contentEnd = next.Success ? next.Index : text.Length;
 
@@ -225,16 +229,32 @@ public static class ScadTextParser
             int id = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
             var kind = m.Groups[2].Value switch
             {
-                "GE"              => ScadStiffnessKind.Shell,
+                "GE" or "GEI"     => ScadStiffnessKind.Shell,
                 "STZ" or "S0"     => ScadStiffnessKind.Bar,
                 _                 => ScadStiffnessKind.Other,
             };
             var nameMatch = NameRegex.Match(rec);
             string? name = nameMatch.Success ? nameMatch.Groups[1].Value.Trim() : null;
+            double? thickness = kind == ScadStiffnessKind.Shell ? TryParseShellThickness(rec) : null;
 
-            result.Add(new ScadStiffnessRecord(id, name, kind));
+            result.Add(new ScadStiffnessRecord(id, name, kind, thickness));
         }
         return result;
+    }
+
+    /// <summary>
+    /// GE/GEI: после ключевого слова идут E, ν, h (м), затем RO/TMP/...
+    /// Пример: "2 GE 1.8e+06 0.2 0.22 RO 2.5".
+    /// </summary>
+    static double? TryParseShellThickness(string record)
+    {
+        var m = Regex.Match(record, @"\b(?:GEI|GE)\s+([^\s/]+)\s+([^\s/]+)\s+([^\s/]+)",
+            RegexOptions.IgnoreCase);
+        if (!m.Success) return null;
+        if (!double.TryParse(m.Groups[3].Value.Replace(',', '.'),
+                NumberStyles.Float, CultureInfo.InvariantCulture, out double h))
+            return null;
+        return h > 0 ? h : null;
     }
 
     static List<ScadGroupRecord> ParseGroups(string blockContent)

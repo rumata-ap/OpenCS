@@ -1,15 +1,15 @@
 <UserControl x:Class="OpenCS.Views.SectionPlotView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:h="clr-namespace:OpenCS.Views.Helpers">
+             xmlns:h="clr-namespace:OpenCS.Views.Helpers"
+             xmlns:cs="clr-namespace:CScore;assembly=CScore">
 
    <Grid>
       <Grid.RowDefinitions>
-         <RowDefinition Height="Auto"/>  <!-- тулбар -->
-         <RowDefinition Height="*"/>     <!-- canvas + colorbars -->
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
-      <!-- Тулбар -->
       <Border Grid.Row="0" BorderThickness="0,0,0,1"
               BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
               Padding="6,4">
@@ -36,19 +36,31 @@
                       VerticalAlignment="Center"/>
             <Button Content="{DynamicResource PlotFitAll}"
                     Command="{Binding FitAllCommand}"
-                    Padding="8,2"/>
+                    Padding="8,2" Margin="0,0,14,0"/>
+            <Separator Margin="0,0,10,0" Style="{x:Null}"
+                       Width="1" Height="16" Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"/>
+            <ToggleButton Content="{DynamicResource SectionCutButton}"
+                          IsChecked="{Binding CutVM.IsActive}"
+                          Padding="8,2" Margin="0,0,10,0"/>
+            <StackPanel Orientation="Horizontal"
+                        Visibility="{Binding CutVM.IsActive, Converter={StaticResource BoolToVisibility}}">
+               <RadioButton Content="{DynamicResource SectionCutModeGradient}"
+                            IsChecked="{Binding CutVM.Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static cs:CutMode.GradientSnap}}"
+                            GroupName="CutMode" VerticalAlignment="Center" Margin="0,0,8,0"/>
+               <RadioButton Content="{DynamicResource SectionCutModeFree}"
+                            IsChecked="{Binding CutVM.Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static cs:CutMode.Free}}"
+                            GroupName="CutMode" VerticalAlignment="Center"/>
+            </StackPanel>
          </StackPanel>
       </Border>
 
-      <!-- Основная область: colorbar Арматура | Canvas | colorbar Осн.материал -->
       <Grid Grid.Row="1">
          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>  <!-- colorbar Арматура (слева) -->
-            <ColumnDefinition Width="*"/>     <!-- FiberCanvas -->
-            <ColumnDefinition Width="Auto"/>  <!-- colorbar Осн.материал (справа) -->
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
          </Grid.ColumnDefinitions>
 
-         <!-- Colorbar Арматура (слева, скрыт если нет арматуры) -->
          <Border Grid.Column="0" Width="64" Margin="4"
                  BorderThickness="1"
                  BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
@@ -78,14 +90,17 @@
             </DockPanel>
          </Border>
 
-         <!-- FiberCanvas -->
          <Border Grid.Column="1" Margin="4"
                  BorderThickness="1"
                  BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">
-            <h:FiberCanvas x:Name="FiberCanvasElement" ViewModel="{Binding}"/>
+            <Grid>
+               <h:FiberCanvas x:Name="FiberCanvasElement" ViewModel="{Binding}"/>
+               <h:SectionCutOverlay Host="{Binding ElementName=FiberCanvasElement}"
+                                     CutViewModel="{Binding CutVM}"
+                                     IsHitTestVisible="{Binding CutVM.IsActive}"/>
+            </Grid>
          </Border>
 
-         <!-- Colorbar Осн. материал (справа) -->
          <Border Grid.Column="2" Width="64" Margin="4"
                  BorderThickness="1"
                  BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}">

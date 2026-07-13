@@ -1,0 +1,71 @@
+<Window x:Class="OpenCS.Views.ScadForceImportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource ScadForceImportDialogTitle}"
+        Width="500" Height="280"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+   <Grid Margin="12">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <TextBlock Grid.Row="0"
+                 Text="{DynamicResource ScadForceImportElementsLabel}"
+                 Margin="0,0,0,6"/>
+
+      <DockPanel Grid.Row="1" LastChildFill="True" Margin="0,0,0,8">
+         <Button x:Name="FromMemberButton"
+                 DockPanel.Dock="Right"
+                 Content="{DynamicResource ScadForceImportFromMember}"
+                 Click="FromMember_Click"
+                 Margin="8,0,0,0"
+                 Padding="8,4"
+                 MinWidth="140"/>
+         <TextBox x:Name="ElementsBox"
+                  VerticalContentAlignment="Center"
+                  TextChanged="ElementsBox_TextChanged"/>
+      </DockPanel>
+
+      <CheckBox x:Name="AllElementsCheck"
+                Grid.Row="2"
+                Content="{DynamicResource ScadForceImportAllElements}"
+                Margin="0,0,0,8"
+                Checked="AllElements_Changed"
+                Unchecked="AllElements_Changed"/>
+
+      <DockPanel Grid.Row="3" LastChildFill="True" Margin="0,0,0,8">
+         <TextBlock DockPanel.Dock="Left"
+                    Text="{DynamicResource ScadForceImportThicknessLabel}"
+                    VerticalAlignment="Center"
+                    Margin="0,0,8,0"/>
+         <TextBox x:Name="ThicknessBox"
+                  Width="100"
+                  HorizontalAlignment="Left"
+                  VerticalContentAlignment="Center"
+                  Text="200"
+                  TextChanged="ThicknessBox_TextChanged"/>
+      </DockPanel>
+
+      <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+         <Button x:Name="OkButton"
+                 Content="{DynamicResource ScadForceImportOk}"
+                 IsDefault="True"
+                 IsEnabled="False"
+                 Click="Ok_Click"
+                 MinWidth="90"
+                 Margin="0,0,8,0"
+                 Padding="10,4"/>
+         <Button Content="{DynamicResource ScadForceImportCancel}"
+                 IsCancel="True"
+                 MinWidth="90"
+                 Padding="10,4"/>
+      </StackPanel>
+   </Grid>
+</Window>

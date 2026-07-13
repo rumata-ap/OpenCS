@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text.Json;
 using CScore;
 using OpenCS.Utilites;
@@ -25,18 +26,69 @@ namespace OpenCS.Tasks
                 pool: ctx?.Database?.Diagrams,
                 rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
 
-            double nTarget  = item.N;
-            double mxTarget = item.Mx; // LoadItem.Mx → Load.Mx (∫σ·y·dA, момент относительно X)
-            double myTarget = item.My; // LoadItem.My → Load.My (∫σ·x·dA, момент относительно Y)
+            double nTarget    = item.N;
+            double mxOriginal = item.Mx; // LoadItem.Mx → Load.Mx (∫σ·y·dA, момент относительно X)
+            double myOriginal = item.My; // LoadItem.My → Load.My (∫σ·x·dA, момент относительно Y)
 
+            bool ten = settings.ResolveConcreteTension(task.CalcType);
             var solver = new StrainSolver(section, task.CalcType,
+                ten: ten,
                 tol: settings.NewtonTolerance,
                 maxIter: settings.NewtonMaxIter,
                 h: settings.NewtonDeltaH,
                 centralJacobian: settings.NewtonJacobian == "central");
-            var k      = solver.Solve(nTarget, mxTarget, myTarget);
 
-            var result = section.Integral(k, task.CalcType);
+            double mxTarget = mxOriginal;
+            double myTarget = myOriginal;
+            object? etaData = null;
+
+            var etaParams = LimitForceParams.Parse(task.ParamsJson);
+            if (etaParams.EtaEnabled)
+            {
+               double slendernessThreshold = etaParams.EtaSlendernessThreshold
+                   ?? CScore.Sp63.EccentricityAmplifier.SlendernessThreshold;
+
+               var wiring = CScore.Sp63.RodEtaWiring.Apply(
+                   section, nTarget, mxOriginal, myOriginal,
+                   etaParams.EtaL0x, etaParams.EtaL0y,
+                   etaParams.EtaPsiX ?? 1.0, etaParams.EtaPsiY ?? 1.0,
+                   etaParams.EtaIterative,
+                   (mx, my) => solver.Solve(nTarget, mx, my),
+                   slendernessThreshold);
+
+               mxTarget = wiring.MxEff;
+               myTarget = wiring.MyEff;
+               etaData = new
+               {
+                  mode       = etaParams.EtaIterative ? "iterative" : "formula",
+                  slendernessThreshold,
+                  mxOriginal,
+                  myOriginal,
+                  l0x              = Math.Round(wiring.X.L0, 4),
+                  hx               = Math.Round(wiring.X.H,  4),
+                  slendernessX     = wiring.X.H > 1e-9 ? Math.Round(wiring.X.L0 / wiring.X.H, 2) : (double?)null,
+                  dX               = double.IsFinite(wiring.X.D) ? Math.Round(wiring.X.D, 2) : (double?)null,
+                  etaX             = Math.Round(wiring.X.Eta, 6),
+                  ncrX             = double.IsFinite(wiring.X.Ncr) ? Math.Round(wiring.X.Ncr, 4) : (double?)null,
+                  slenderX         = wiring.X.Slender,
+                  stableX          = wiring.X.Stable,
+                  extrapolationFailedX = wiring.X.ExtrapolationFailed,
+                  etaHistoryX      = wiring.X.EtaHistory.Select(e => Math.Round(e, 6)).ToArray(),
+                  l0y              = Math.Round(wiring.Y.L0, 4),
+                  hy               = Math.Round(wiring.Y.H,  4),
+                  slendernessY     = wiring.Y.H > 1e-9 ? Math.Round(wiring.Y.L0 / wiring.Y.H, 2) : (double?)null,
+                  dY               = double.IsFinite(wiring.Y.D) ? Math.Round(wiring.Y.D, 2) : (double?)null,
+                  etaY             = Math.Round(wiring.Y.Eta, 6),
+                  ncrY             = double.IsFinite(wiring.Y.Ncr) ? Math.Round(wiring.Y.Ncr, 4) : (double?)null,
+                  slenderY         = wiring.Y.Slender,
+                  stableY          = wiring.Y.Stable,
+                  extrapolationFailedY = wiring.Y.ExtrapolationFailed,
+                  etaHistoryY      = wiring.Y.EtaHistory.Select(e => Math.Round(e, 6)).ToArray(),
+               };
+            }
+
+            var k      = solver.Solve(nTarget, mxTarget, myTarget);
+            var result = section.Integral(k, task.CalcType, ten);
 
             var data = new
             {
@@ -51,7 +103,8 @@ namespace OpenCS.Tasks
                My_target  = myTarget,
                N_result   = Math.Round(result.N,  4),
                Mx_result  = Math.Round(result.Mx, 4),
-               My_result  = Math.Round(result.My, 4)
+               My_result  = Math.Round(result.My, 4),
+               eta        = etaData
             };
 
             return new CalcResult

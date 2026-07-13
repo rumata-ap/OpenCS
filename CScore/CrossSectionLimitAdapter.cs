@@ -29,7 +29,7 @@ public sealed class CrossSectionLimitAdapter : ILimitSection
    }
 
    /// <inheritdoc/>
-   public Load Integral(Kurvature k, CalcType calc) => Section.Integral(k, calc);
+   public Load Integral(Kurvature k, CalcType calc, bool ten = true) => Section.Integral(k, calc, ten);
 
    static IEnumerable<(double X, double Y)> CollectContourVertices(CrossSection section)
    {

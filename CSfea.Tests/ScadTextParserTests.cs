@@ -17,12 +17,72 @@ static class ScadTextParserTests
         "(4/0 0 0/1 0 0/1 1 0/0 1 0/0 0 1/1 0 1/)" +
         "(47/Name=\"ТестГруппа\" 2  : 1 3-4/)";
 
+    // Фикстура формата SCAD до v11: пробел после "(" в маркерах блоков,
+    // жёсткости с ключевым словом GEI (вместо GE), без блока (47).
+    const string FixtureLegacy =
+        "( 0/ 1; Test/ 2; 5/)" +
+        "( 1/10 1 1 2 /44 2 1 2 3 4 /42 2 4 5 6 /)" +
+        "( 3/1 GEI 1.9e+06 0.2 0.25 RO 2.5 Name \"Плита\"/" +
+        "2 S0 900000 40 90 NU 0.2 Name \"Стойка\"/)" +
+        "( 4/-0.1 20.1 -0.3 /1 0 0 /1 1 0 /0 1 0 /0 0 1 /1 0 1 /)";
+
     public static void RunAll()
     {
         TestHarness.Section("ScadTextParser");
         TestParseSuccess();
+        TestParseLegacyFormat();
         TestRealFile();
+        TestLegacyRealFile();
         TestConverter();
+    }
+
+    static void TestParseLegacyFormat()
+    {
+        var r = ScadTextParser.ParseText(FixtureLegacy);
+        TestHarness.Check("Legacy: Success", r.Success, r.Error ?? "");
+        if (!r.Success || r.Data == null) return;
+
+        var d = r.Data;
+        TestHarness.Check("Legacy: Nodes.Count == 6", d.Nodes.Count == 6, $"{d.Nodes.Count}");
+        TestHarness.Check("Legacy: Elements.Count == 3", d.Elements.Count == 3, $"{d.Elements.Count}");
+        TestHarness.Check("Legacy: Stiffnesses.Count == 2", d.Stiffnesses.Count == 2, $"{d.Stiffnesses.Count}");
+
+        var shell = d.Stiffnesses.First(s => s.Id == 1);
+        TestHarness.Check("Legacy: GEI → Shell, Name=Плита",
+            shell.Kind == ScadStiffnessKind.Shell && shell.Name == "Плита");
+        var bar = d.Stiffnesses.First(s => s.Id == 2);
+        TestHarness.Check("Legacy: S0 → Bar", bar.Kind == ScadStiffnessKind.Bar);
+
+        TestHarness.Check("Legacy: Groups.Count == 0 (блока 47 нет)",
+            d.Groups.Count == 0, $"{d.Groups.Count}");
+    }
+
+    const string LegacyRealFile = @"O:\docs\SCAD\SCAD_ЖК.txt";
+
+    static void TestLegacyRealFile()
+    {
+        if (!File.Exists(LegacyRealFile))
+        {
+            TestHarness.Check("Legacy real file SCAD_ЖК.txt найден", false, "пропущено — файл недоступен");
+            return;
+        }
+
+        var r = ScadTextParser.Parse(LegacyRealFile);
+        TestHarness.Check("LegacyReal: Success", r.Success, r.Error ?? "");
+        if (!r.Success || r.Data == null) return;
+
+        var d = r.Data;
+        TestHarness.Check("LegacyReal: Nodes.Count == 146780", d.Nodes.Count == 146780, $"{d.Nodes.Count}");
+        TestHarness.Check("LegacyReal: Elements.Count == 145027", d.Elements.Count == 145027, $"{d.Elements.Count}");
+        TestHarness.Check("LegacyReal: Stiffnesses.Count == 5 (все GEI)",
+            d.Stiffnesses.Count == 5, $"{d.Stiffnesses.Count}");
+        TestHarness.Check("LegacyReal: все жёсткости — Shell (GEI)",
+            d.Stiffnesses.All(s => s.Kind == ScadStiffnessKind.Shell));
+        TestHarness.Check("LegacyReal: Groups.Count == 0 (блока 47 нет)",
+            d.Groups.Count == 0, $"{d.Groups.Count}");
+
+        Console.WriteLine($"    LegacyReal: узлов={d.Nodes.Count}, элементов={d.Elements.Count}, жёсткостей={d.Stiffnesses.Count}");
+        foreach (var w in r.Warnings) Console.WriteLine($"      - {w}");
     }
 
     static void TestParseSuccess()

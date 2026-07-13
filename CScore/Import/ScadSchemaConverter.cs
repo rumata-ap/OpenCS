@@ -17,9 +17,11 @@ public static class ScadSchemaConverter
     public static FemElement[] ToFemElements(ScadSchemaData data, int schemaId)
     {
         var stiffNames = data.Stiffnesses.ToDictionary(s => s.Id, s => s.Name);
+        var stiffThk   = data.Stiffnesses.ToDictionary(s => s.Id, s => s.ThicknessM);
         return data.Elements.Select(e =>
         {
             stiffNames.TryGetValue(e.StiffnessId, out var name);
+            stiffThk.TryGetValue(e.StiffnessId, out var thk);
             return new FemElement
             {
                 SchemaId    = schemaId,
@@ -27,6 +29,7 @@ public static class ScadSchemaConverter
                 ElemType    = e.NodeIds.Length == 2 ? "beam" : "shell",
                 NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
                 SectionTag  = name,
+                ThicknessM  = thk,
             };
         }).ToArray();
     }

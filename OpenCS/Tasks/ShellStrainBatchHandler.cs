@@ -42,6 +42,8 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
             double hDiff = settings.NewtonDeltaH;
             double tolRes  = p.TolRes > 0 ? p.TolRes : settings.ShellNewtonTolRes;
             int    maxIter = p.MaxIter > 0 ? p.MaxIter : settings.NewtonMaxIter;
+            bool? tensionOverride = task.CalcType is CalcType.C or CalcType.CL
+               ? settings.ConsiderConcreteTensionUls : (bool?)null;
             var concrete = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.ConcreteMaterialId);
             var rebar    = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.RebarMaterialId);
 
@@ -62,7 +64,8 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                     double[] tgt = { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy };
                     var r = new ShellStrainSolver(clone, cDiag, rDiag, layerDiags,
                         tolRes: tolRes, maxIter: maxIter,
-                        hDiff: hDiff, centralJacobian: central)
+                        hDiff: hDiff, centralJacobian: central,
+                        tensionOverride: tensionOverride)
                         .SolveRobust(tgt, concrete, rebar, task.CalcType);
                     converged[i] = r.Converged;
                     rows[i] = BuildRow(si.Num, si.Label, r);
@@ -75,7 +78,8 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                 // Последовательный режим с тёплым стартом: результат строки N → начало строки N+1
                 var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
                     tolRes: tolRes, maxIter: maxIter,
-                    hDiff: hDiff, centralJacobian: central);
+                    hDiff: hDiff, centralJacobian: central,
+                    tensionOverride: tensionOverride);
                 var targets = items.Select(si =>
                     new[] { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy }).ToList();
                 var results = solver.SolveMany(targets);
@@ -92,7 +96,8 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                 // стартует независимо от упругого приближения
                 var solver = new ShellStrainSolver(plate, cDiag, rDiag, layerDiags,
                     tolRes: tolRes, maxIter: maxIter,
-                    hDiff: hDiff, centralJacobian: central);
+                    hDiff: hDiff, centralJacobian: central,
+                    tensionOverride: tensionOverride);
                 for (int i = 0; i < total; i++)
                 {
                     var si = items[i];

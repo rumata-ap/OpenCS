@@ -72,6 +72,25 @@ public static class TorsionTests
         TestHarness.Check("FixedDofs непустой", mesh.FixedDofs.Length >= 4);
     }
 
+    public static void MeshBuilderSquareWithHoleRuppert()
+    {
+        TestHarness.Section("MeshBuilder: Ruppert — квадрат 10×10 с отверстием 2×2");
+        var boundary = new TorsionBoundary(
+            new[] { 0.0, 10.0, 10.0, 0.0 },
+            new[] { 0.0, 0.0, 10.0, 10.0 },
+            new List<(double[] X, double[] Y)>
+            {
+                (new[] { 4.0, 6.0, 6.0, 4.0 }, new[] { 4.0, 4.0, 6.0, 6.0 })
+            });
+        var mesh = MeshBuilder.Build(boundary, maxElementSize: 1.0, method: TriangulationMethod.Ruppert);
+        TestHarness.Check("Есть узлы", mesh.NodesX.Length > 0, $"nodes={mesh.NodesX.Length}");
+        TestHarness.Check("Есть треугольники", mesh.Triangles.Length > 0, $"tri={mesh.Triangles.Length}");
+        TestHarness.Check("OuterDofs непустой", mesh.OuterDofs.Length > 0, $"outer={mesh.OuterDofs.Length}");
+        TestHarness.Check("HoleNodeSets[0] непустой",
+            mesh.HoleNodeSets.Length == 1 && mesh.HoleNodeSets[0].Length > 0,
+            $"holeSets={mesh.HoleNodeSets.Length}");
+    }
+
     public static void MeshBuilderFromMaterialAreaMeters()
     {
         TestHarness.Section("MeshBuilder: прямоугольник 0.3×0.5 м из MaterialArea");

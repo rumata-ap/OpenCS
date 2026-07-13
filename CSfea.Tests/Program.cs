@@ -100,6 +100,7 @@ TorsionTests.SmokePropsConstruction();
 TorsionTests.BoundaryFromMaterialArea();
 TorsionTests.PrandtlTri3ElementMatrices();
 TorsionTests.MeshBuilderSquare();
+TorsionTests.MeshBuilderSquareWithHoleRuppert();
 TorsionTests.MeshBuilderFromMaterialAreaMeters();
 TorsionTests.MeshBuilderConcaveFrameFine();
 TorsionTests.FemCircleItVsAnalytical();

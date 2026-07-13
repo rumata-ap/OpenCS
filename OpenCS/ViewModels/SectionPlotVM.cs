@@ -136,7 +136,15 @@ namespace OpenCS.ViewModels
         /// <summary>Центр тяжести по НДС (секущий модуль) в мм; null если не вычислен.</summary>
         public Point? NdsCentroid { get; }
 
-        public SectionPlotVM(CrossSection section, Kurvature k, CalcType calcType, SectionPlotMode mode, CalcSettings? settings = null)
+        SectionCutVM? _cutVM;
+        /// <summary>Общий инструмент разреза — один экземпляр на результат, назначается и вкладке «Напряжения», и вкладке «Деформации» (см. CalcResultView/LimitForceResultView).</summary>
+        public SectionCutVM? CutVM
+        {
+            get => _cutVM;
+            set { _cutVM = value; OnPropertyChanged(); }
+        }
+
+        public SectionPlotVM(CrossSection section, Kurvature k, CalcType calcType, SectionPlotMode mode, CalcSettings? settings = null, bool ten = true)
         {
             Mode = mode;
 
@@ -195,7 +203,7 @@ namespace OpenCS.ViewModels
                             var v = pts[vi];
                             double eps_v = ka.e0 + ka.ky * (v.Y / 1000.0) + ka.kz * (v.X / 1000.0);
                             double val_v = mode == SectionPlotMode.Stress
-                                ? dgr.SigValue(eps_v) / 1000.0 : eps_v;
+                                ? dgr.SigValue(eps_v, ten) / 1000.0 : eps_v;
                             vertVals[vi] = val_v;
                             if (val_v < gMin.val) gMin = (v, val_v);
                             if (val_v > gMax.val) gMax = (v, val_v);
@@ -233,7 +241,7 @@ namespace OpenCS.ViewModels
                         double ex = area.Hull.X[i], ey = area.Hull.Y[i];
                         double eps = ka.e0 + ka.ky * ey + ka.kz * ex;
                         double v = mode == SectionPlotMode.Stress
-                            ? dgr.SigValue(eps) / 1000.0 : eps;
+                            ? dgr.SigValue(eps, ten) / 1000.0 : eps;
                         hullVals.Add((new Point(ex * 1000, ey * 1000), v));
                     }
 
@@ -265,7 +273,7 @@ namespace OpenCS.ViewModels
                         if (holesMm.Any(h => PointInPolyMm(cx_mm, cy_mm, h))) continue;
                         double eps_c = ka.e0 + ka.ky * (cy_mm / 1000) + ka.kz * (cx_mm / 1000);
                         double val = mode == SectionPlotMode.Stress
-                            ? dgr.SigValue(eps_c) / 1000.0 : eps_c;
+                            ? dgr.SigValue(eps_c, ten) / 1000.0 : eps_c;
                         var cellPts = (IReadOnlyList<Point>)cell
                             .Select(p => new Point(p.X, p.Y)).ToList();
                         var cellVals = new double[cellPts.Count];
@@ -274,9 +282,9 @@ namespace OpenCS.ViewModels
                             var cv = cellPts[vi];
                             double eps_v = ka.e0 + ka.ky * (cv.Y / 1000) + ka.kz * (cv.X / 1000);
                             cellVals[vi] = mode == SectionPlotMode.Stress
-                                ? dgr.SigValue(eps_v) / 1000.0 : eps_v;
+                                ? dgr.SigValue(eps_v, ten) / 1000.0 : eps_v;
                         }
-                        double cellSigMpa = dgr.SigValue(eps_c) / 1000.0;
+                        double cellSigMpa = dgr.SigValue(eps_c, ten) / 1000.0;
                         double cellAmm2   = PolygonAreaMm2(cell);
                         string cellTip = $"{area.Tag}\nx={cx_mm:F1} мм  y={cy_mm:F1} мм\n" +
                             $"σ = {cellSigMpa:+0.0;-0.0} МПа\n" +

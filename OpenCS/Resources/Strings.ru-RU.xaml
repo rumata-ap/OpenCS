@@ -97,6 +97,8 @@
    <system:String x:Key="CalcSettingsRcGroup">Ж/б сечение</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagram">Учёт уменьшения площади бетона, замещённой площадью арматуры</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagramTip">При включении для арматуры в бетоне учитывается уменьшение площади бетона, замещённой площадью стержня (разностная диаграмма σ_st − σ_bc). При выключении — чистая диаграмма стали, бетонная сетка включает площадь под арматурой.</system:String>
+   <system:String x:Key="CalcSettingsConsiderConcreteTensionUls">Учитывать работу бетона на растяжение при расчётах по 1-й ГПС</system:String>
+   <system:String x:Key="CalcSettingsConsiderConcreteTensionUlsTip">Влияет на поиск предельных усилий и плоскости деформаций при CalcType C/CL — для стержневых и пластинчатых сечений. На 2-ю ГПС (N/NL) не влияет. Для пластин перекрывает флаг «Учёт растяжения бетона» страницы сечения только в этом режиме.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Пакетные задачи</system:String>
    <system:String x:Key="CalcSettingsSp20Group">Сочетания СП20 (γf по умолчанию)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaG">G — постоянная (неблаг.)</system:String>
@@ -571,6 +573,25 @@
    <system:String x:Key="ImportScadErrorTitle">Импорт SCAD</system:String>
    <system:String x:Key="ImportScadFailed">Не удалось импортировать файл.</system:String>
    <system:String x:Key="ImportScadSuccess">Импортирована схема SCAD: {0} узлов, {1} стержней, {2} оболочек, {3} конструктивных элементов, {4} именованных групп</system:String>
+   <system:String x:Key="ImportScadForcesLoadCases">Усилия — загружения (XLS)…</system:String>
+   <system:String x:Key="ImportScadForcesRsu">Усилия — РСУ (XLS)…</system:String>
+   <system:String x:Key="ImportScadForcesCombinations">Усилия — РСН (комбинации) (XLS)…</system:String>
+   <system:String x:Key="ImportScadForcesTitleLoadCases">Импорт усилий SCAD — загружения (.xls)</system:String>
+   <system:String x:Key="ImportScadForcesTitleRsu">Импорт усилий SCAD — РСУ (.xls)</system:String>
+   <system:String x:Key="ImportScadForcesTitleCombinations">Импорт усилий SCAD — РСН / комбинации (.xls)</system:String>
+   <system:String x:Key="ScadXlsFileFilter">SCAD Excel (*.xls)|*.xls|Все файлы (*.*)|*.*</system:String>
+   <system:String x:Key="ScadForceImportDialogTitle">Фильтр элементов SCAD</system:String>
+   <system:String x:Key="ScadForceImportElementsLabel">Номера элементов (например: 12, 15-20)</system:String>
+   <system:String x:Key="ScadForceImportFromMember">Из FemMember</system:String>
+   <system:String x:Key="ScadForceImportAllElements">Для всех элементов схемы</system:String>
+   <system:String x:Key="ScadForceImportThicknessLabel">Толщина пластины (мм), если нет в жёсткостях:</system:String>
+   <system:String x:Key="ScadForceImportOk">OK</system:String>
+   <system:String x:Key="ScadForceImportCancel">Отмена</system:String>
+   <system:String x:Key="ScadForceImportNoMember">Нет выбранного конструктивного элемента или у него пустой список КЭ.</system:String>
+   <system:String x:Key="ImportScadForcesStarted">Импорт усилий SCAD…</system:String>
+   <system:String x:Key="ImportScadForcesSaving">Сохранение наборов усилий…</system:String>
+   <system:String x:Key="ImportScadForcesSuccess">Импортировано наборов: {0}, строк: {1}</system:String>
+   <system:String x:Key="ImportScadForcesNoRows">После фильтра не найдено строк усилий.</system:String>
     <system:String x:Key="ImportSettingsTab">Импорт</system:String>
     <system:String x:Key="LiraImportGroupBox">Лира САПР</system:String>
     <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>
@@ -618,6 +639,7 @@
    <system:String x:Key="PlateThicknessMm">Толщина h, мм:</system:String>
    <system:String x:Key="PlateNLayers">Число слоёв бетона:</system:String>
    <system:String x:Key="PlateTensionConcrete">Учёт растяжения бетона</system:String>
+   <system:String x:Key="PlateTensionConcreteTip">При 1-й ГПС (C/CL) этот флаг игнорируется — действует глобальная настройка расчёта «Учитывать работу бетона на растяжение при расчётах по 1-й ГПС». При 2-й ГПС (N/NL) продолжает работать как задано здесь.</system:String>
    <system:String x:Key="PlateSofteningModel">Модель β-снижения:</system:String>
    <system:String x:Key="PlateSofteningNone">Нет</system:String>
    <system:String x:Key="PlateSofteningVC">Vecchio–Collins</system:String>
@@ -642,11 +664,12 @@
    <system:String x:Key="PlateModelChar1dPrincipal">1D по характ. точкам (по главным)</system:String>
    <system:String x:Key="PlateModelChar1dAxial">1D по характ. точкам (по осям)</system:String>
    <system:String x:Key="PlateConcreteDiagramType">Диаграмма бетона:</system:String>
-   <system:String x:Key="DiagramTypeL2">Двухлинейная (L2)</system:String>
-   <system:String x:Key="DiagramTypeL3">Трёхлинейная (L3)</system:String>
-   <system:String x:Key="DiagramTypeSP63">Криволинейная СП 63 (SP63)</system:String>
-   <system:String x:Key="DiagramTypeEKB">Нелинейная EN 1992 / ЕКБ (EKB)</system:String>
-   <system:String x:Key="DiagramTypeSP35">Параболическо-прямоугольная EN 1992 / СП 35 (SP35)</system:String>
+   <system:String x:Key="DiagramTypeL2">Двухлинейная (СП63)</system:String>
+   <system:String x:Key="DiagramTypeL3">Трёхлинейная (СП63)</system:String>
+   <system:String x:Key="DiagramTypeSP63">Криволинейная (СП63)</system:String>
+   <system:String x:Key="DiagramTypeEKB">Криволинейная (EKB/EN)</system:String>
+   <system:String x:Key="DiagramTypeSP35">Криволинейная (СП35/EN)</system:String>
+   <system:String x:Key="DiagramTypeSP16">Многосегментная (СП16)</system:String>
    <system:String x:Key="AddRebarLayer">Добавить слой</system:String>
    <system:String x:Key="DeleteRebarLayer">Удалить слой</system:String>
 
@@ -694,13 +717,13 @@
    <system:String x:Key="MeshDisplayMode">Отображение</system:String>
    <system:String x:Key="MeshDisplayCentroids">Центроиды</system:String>
    <system:String x:Key="MeshDisplayElements">Элементы</system:String>
-   <system:String x:Key="MeshMaxArea">Макс. площадь</system:String>
-   <system:String x:Key="MeshMinAngle">Мин. угол, °</system:String>
-   <system:String x:Key="MeshMaxEdgeLen">Дл. ребра</system:String>
-   <system:String x:Key="MeshSmoothIter">Итер. сглаж.</system:String>
+   <system:String x:Key="MeshMaxArea">Максимальная площадь</system:String>
+   <system:String x:Key="MeshMinAngle">Минимальный угол, °</system:String>
+   <system:String x:Key="MeshMaxEdgeLen">Длина ребра треугольника</system:String>
+   <system:String x:Key="MeshSmoothIter">Итерации сглаживания</system:String>
    <system:String x:Key="MeshDialogTitle">Настройка сетки</system:String>
-   <system:String x:Key="MeshNX">NX:</system:String>
-   <system:String x:Key="MeshNY">NY:</system:String>
+   <system:String x:Key="MeshNX">Число участков по X</system:String>
+   <system:String x:Key="MeshNY">Число участков по Y</system:String>
 
    <!-- DXF MaterialArea import -->
    <system:String x:Key="DxfModeHull">Hull</system:String>
@@ -900,6 +923,21 @@
    <system:String x:Key="ResultRebarAreaReductionNote">Примечание: расчёт выполнен с учётом уменьшения площади бетона, замещённой площадью арматуры.</system:String>
    <system:String x:Key="ResultStrainPlane">Плоскость деформаций</system:String>
    <system:String x:Key="ResultForces">Усилия: задано → найдено</system:String>
+   <system:String x:Key="ResultEtaHeader">Влияние прогиба (η, п. 8.1.15 СП63.13330)</system:String>
+   <system:String x:Key="ResultEtaMode">Режим</system:String>
+   <system:String x:Key="ResultEtaModeFormula">Буквальный (формула)</system:String>
+   <system:String x:Key="ResultEtaModeIterative">Уточнённый (итерационный)</system:String>
+   <system:String x:Key="ResultEtaMxOriginal">Mx,0</system:String>
+   <system:String x:Key="ResultEtaMyOriginal">My,0</system:String>
+   <system:String x:Key="ResultEtaX">ηx</system:String>
+   <system:String x:Key="ResultEtaY">ηy</system:String>
+   <system:String x:Key="ResultEtaNotRequired">поправка не требуется</system:String>
+   <system:String x:Key="ResultEtaInstable">ПОТЕРЯ УСТОЙЧИВОСТИ (|N| ≥ Ncr)</system:String>
+   <system:String x:Key="ResultEtaInstabilityWarning">Внимание: по одной из осей продольная сила превышает условную критическую силу Ncr — устойчивость элемента не обеспечена.</system:String>
+   <system:String x:Key="ResultEtaExtrapolationNote">Экстраполяция Эйткена не сошлась (расходящаяся/осциллирующая последовательность) — использовано последнее приближение η без ускорения.</system:String>
+   <system:String x:Key="ResultEtaExtrapolationShort">экстраполяция не сошлась, использован последний проход</system:String>
+   <system:String x:Key="ResultEtaTrajectoryX">Траектория ηx</system:String>
+   <system:String x:Key="ResultEtaTrajectoryY">Траектория ηy</system:String>
    <system:String x:Key="ResultExtremeStrains">Экстремальные деформации</system:String>
    <system:String x:Key="ResultStiffness">Жёсткости (секущий модуль)</system:String>
    <system:String x:Key="ResultElasticStiffness">Упругие жёсткости</system:String>
@@ -1172,6 +1210,25 @@
     <system:String x:Key="SteelCheckBetaM">Коэффициент βm</system:String>
     <system:String x:Key="SteelCheckGammaM">Коэффициент γM</system:String>
     <system:String x:Key="SteelCheckDesignLengthBit">Расст. связи l_bit, м</system:String>
+
+    <!-- Eta (буклинг) per СП63.13330 п.8.1.15 -->
+    <system:String x:Key="EtaParamsHeader">Влияние прогиба (η, п. 8.1.15 СП63.13330)</system:String>
+    <system:String x:Key="EtaEnabledLabel">Учитывать влияние прогиба (η)</system:String>
+    <system:String x:Key="EtaEnabledHint">Домножает момент на коэффициент η по п. 8.1.15 СП63.13330 при гибкости l0/h выше предельной (по умолчанию 14, п. 8.1.2) и сжимающей продольной силе.</system:String>
+    <system:String x:Key="EtaIterativeLabel">Уточнённый (итерационный) расчёт</system:String>
+    <system:String x:Key="EtaIterativeHint">Жёсткость D берётся из фактического решения НДС (3 прохода + экстраполяция Эйткена) вместо упрощённой формулы нормы.</system:String>
+    <system:String x:Key="EtaLLabel">Длина элемента L, м</system:String>
+    <system:String x:Key="EtaMuxLabel">μx</system:String>
+    <system:String x:Key="EtaMuyLabel">μy</system:String>
+    <system:String x:Key="EtaMuTableHint">Коэффициент μ расчётной длины l₀=μ·L по п. 8.1.17 СП63.13330:&#10;а) шарнир-шарнир на двух концах — 1,0&#10;б) жёсткая заделка на одном конце, консоль на другом — 2,0&#10;в) шарнирное несмещаемое опирание на одном конце, а на другом:&#10;   — жёсткая заделка — 0,7&#10;   — податливая заделка — 0,9&#10;г) податливое шарнирное опирание на одном конце, а на другом:&#10;   — жёсткая заделка — 1,5&#10;   — податливая заделка — 2,0&#10;д) несмещаемые заделки на двух концах:&#10;   — жёсткие — 0,5&#10;   — податливые — 0,8&#10;е) ограниченно смещаемые заделки на двух концах:&#10;   — жёсткие — 0,8&#10;   — податливые — 1,2</system:String>
+    <system:String x:Key="EtaPsixLabel">ψx</system:String>
+    <system:String x:Key="EtaPsiyLabel">ψy</system:String>
+    <system:String x:Key="EtaPsiHint">ψ = M1l/M1 — относительная доля момента от длительных нагрузок (0…1 и более); φl = 1+ψ, не более 2 (п. 8.1.15 СП63.13330).</system:String>
+    <system:String x:Key="EtaSlendernessThresholdLabel">Гибкость l₀/h</system:String>
+    <system:String x:Key="EtaSlendernessThresholdHint">Гибкость, выше которой применяется поправка η. По умолчанию 14 (п. 8.1.2 СП63.13330) — можно уточнить под конкретную конструкцию.</system:String>
+    <system:String x:Key="EtaNeedL0">Для учёта влияния прогиба (η) укажите длину элемента L (&gt; 0) и, при необходимости, коэффициенты μx/μy (&gt; 0).</system:String>
+    <system:String x:Key="EtaInvalidThreshold">Предельная гибкость l₀/h должна быть положительным числом.</system:String>
+
     <system:String x:Key="SteelCheckUtilizationLabel">Коэффициент использования: </system:String>
     <system:String x:Key="SteelCheckStatusPassed">ПРОЙДЕНО</system:String>
     <system:String x:Key="SteelCheckStatusFailed">НЕ ПРОЙДЕНО</system:String>
@@ -1375,5 +1432,52 @@
     <system:String x:Key="TorsionOrderUndetermined">не определён (ряд не монотонен или уже сошёлся)</system:String>
     <system:String x:Key="TorsionExtrapolated">экстраполировано</system:String>
     <system:String x:Key="TorsionExtrapolationUnreliable">экстраполяция ненадёжна — взято значение с самой мелкой сетки</system:String>
+
+   <system:String x:Key="SectionCutButton">Разрез</system:String>
+   <system:String x:Key="SectionCutModeGradient">По градиенту</system:String>
+   <system:String x:Key="SectionCutModeFree">Свободный</system:String>
+   <system:String x:Key="SectionCutOrientHorizontal">Горизонтально</system:String>
+   <system:String x:Key="SectionCutOrientVertical">Вертикально</system:String>
+   <system:String x:Key="SectionCutFillToggle">Заливка</system:String>
+   <system:String x:Key="SectionCutHatchToggle">Штриховка</system:String>
+   <system:String x:Key="SectionCutRebarForceToggle">Усилие в арматуре</system:String>
+   <system:String x:Key="SectionCutClear">Очистить</system:String>
+   <system:String x:Key="SectionCutExport">Экспорт</system:String>
+   <system:String x:Key="SectionCutExportTitle">Экспорт эпюры разреза</system:String>
+   <system:String x:Key="SectionCutExportModePrompt">Что включить в файл?</system:String>
+   <system:String x:Key="SectionCutExportDiagramOnly">Только эпюра</system:String>
+   <system:String x:Key="SectionCutExportWithChrome">С оформлением (оси, сетка, легенда)</system:String>
+   <system:String x:Key="SectionCutExportFormatLabel">Формат файла</system:String>
+   <system:String x:Key="SectionCutExportFormatPng">PNG (растр)</system:String>
+   <system:String x:Key="SectionCutExportFormatSvg">SVG (вектор)</system:String>
+   <system:String x:Key="SectionCutExportFormatDxf">DXF (CAD)</system:String>
+   <system:String x:Key="SectionCutExportAsOnScreen">Как на экране</system:String>
+   <system:String x:Key="SectionCutExportAsOnScreenHint">Оси, сетка, заливка/штриховка (в DXF заливка не пишется), маркеры A/B, подписи, линии арматуры — как на экране. Если выключено — база, кривая, торцы и подписи концов.</system:String>
+   <system:String x:Key="SectionCutCopyFailed">Не удалось скопировать эпюру в буфер обмена.</system:String>
+   <system:String x:Key="SectionCutScaleS">Масштаб s</system:String>
+   <system:String x:Key="SectionCutScaleV">Масштаб σ/ε</system:String>
+   <system:String x:Key="SectionCutWindowTitleStress">Эпюра σ</system:String>
+   <system:String x:Key="SectionCutWindowTitleStrain">Эпюра ε</system:String>
+   <system:String x:Key="SectionCutAxisS">s, мм</system:String>
+   <system:String x:Key="SectionCutAxisSigma">σ, МПа</system:String>
+   <system:String x:Key="SectionCutAxisEps">ε</system:String>
+   <system:String x:Key="SectionCutLegendBase">— база разреза</system:String>
+   <system:String x:Key="SectionCutLegendCurveSigma">— кривая σ</system:String>
+   <system:String x:Key="SectionCutLegendCurveEps">— кривая ε</system:String>
+   <system:String x:Key="SectionCutLegendEpsCu">- - εcu</system:String>
+   <system:String x:Key="SectionCutLegendRebarOn">● арматура в разрезе</system:String>
+   <system:String x:Key="SectionCutLegendRebarNear">○ арматура рядом</system:String>
+   <system:String x:Key="SectionCutLegendConcreteComp">бетон: сжатие — красный</system:String>
+   <system:String x:Key="SectionCutLegendConcreteTen">бетон: растяжение — синий</system:String>
+   <system:String x:Key="SectionCutLegendRebarComp">арматура: сжатие — синий</system:String>
+   <system:String x:Key="SectionCutLegendRebarTen">арматура: растяжение — красный</system:String>
+   <system:String x:Key="SectionCutTooltipStress">s = {0:F0} мм&#10;σ = {1:+0.00;-0.00} МПа</system:String>
+   <system:String x:Key="SectionCutTooltipStrain">s = {0:F0} мм&#10;ε = {1:+0.00000;-0.00000}</system:String>
+   <system:String x:Key="SectionCutHoverS">s={0:F0}</system:String>
+   <system:String x:Key="SectionCutHoverSigma">σ={0:+0.00;-0.00}</system:String>
+   <system:String x:Key="SectionCutHoverEps">ε={0:+0.00000;-0.00000}</system:String>
+   <system:String x:Key="SectionCutHintNoTool">Нажмите «Разрез», чтобы указать линию на сечении</system:String>
+   <system:String x:Key="SectionCutHintClickOnePoint">Укажите точку на сечении</system:String>
+   <system:String x:Key="SectionCutHintClickTwoPoints">Укажите две точки на сечении</system:String>
 
   </ResourceDictionary>

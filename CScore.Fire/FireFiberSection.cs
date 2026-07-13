@@ -198,7 +198,7 @@ public sealed class FireFiberSection : ILimitSection
     }
 
     /// <inheritdoc/>
-    public Load Integral(Kurvature k, CalcType calc)
+    public Load Integral(Kurvature k, CalcType calc, bool ten = true)
     {
         double n = 0.0;
         double mx = 0.0;
