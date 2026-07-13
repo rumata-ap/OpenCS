@@ -23,21 +23,22 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
       {
          if (ctx?.Database is null)
             throw new InvalidOperationException("Для two_stage_strain_batch требуется контекст с DatabaseService.");
+         var db = ctx.Database;
          if (section is not TwoStageSection tss)
             throw new InvalidOperationException("Сечение задачи не является двухстадийным.");
 
          var p = TwoStageParams.Parse(task.ParamsJson);
-         var s1Items = TwoStageForceResolver.Resolve(p.Stage1, ctx.Database.ForceSets);
-         var s2Items = TwoStageForceResolver.Resolve(p.Stage2, ctx.Database.ForceSets);
+         var s1Items = TwoStageForceResolver.Resolve(p.Stage1, db.ForceSets);
+         var s2Items = TwoStageForceResolver.Resolve(p.Stage2, db.ForceSets);
 
          bool stage1Fixed = s1Items.Count == 1;
          if (!stage1Fixed && s1Items.Count != s2Items.Count)
             throw new InvalidOperationException(
                $"Число строк наборов этапов не совпадает: этап 1 = {s1Items.Count}, этап 2 = {s2Items.Count}.");
 
-         tss.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
+         tss.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: db.Diagrams,
             rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
-         tss.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
+         tss.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: db.Diagrams,
             rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
          bool ten = settings.ResolveConcreteTension(task.CalcType);
 
@@ -58,9 +59,9 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
          void Solve(int i)
          {
             var clone = (TwoStageSection)tss.CloneForCalc();
-            clone.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
+            clone.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: db.Diagrams,
                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
-            clone.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
+            clone.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: db.Diagrams,
                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
 
             Kurvature k1;
