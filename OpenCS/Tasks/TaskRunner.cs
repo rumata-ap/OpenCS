@@ -48,6 +48,10 @@ namespace OpenCS.Tasks
           ["steel_constructive"]          = new SteelConstructiveHandler(),
           ["torsion_bem"]                 = new TorsionBemHandler(),
           ["torsion_fem"]                 = new TorsionFemHandler(),
+          ["cracking"]             = new CrackingHandler(),
+          ["crack_width"]          = new CrackWidthHandler(),
+          ["cracking_batch"]       = new CrackingBatchHandler(),
+          ["crack_width_batch"]    = new CrackWidthBatchHandler(),
        };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>
