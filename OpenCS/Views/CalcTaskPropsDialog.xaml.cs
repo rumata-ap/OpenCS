@@ -252,9 +252,18 @@ public class CalcTaskPropsDlgVM : ViewModelBase
         get => selectedKind?.Id ?? "strain_state";
         set
         {
-           selectedKind = AvailableKinds.FirstOrDefault(k => k.Id == value) ?? AvailableKinds[0];
-           OnPropertyChanged();
-           OnPropertyChanged(nameof(SelectedKind));
+            selectedKind = AvailableKinds.FirstOrDefault(k => k.Id == value) ?? AvailableKinds[0];
+            if (ShowManualForces && SelectedForceItem != null)
+            {
+               var fi = SelectedForceItem;
+               var inv = System.Globalization.CultureInfo.InvariantCulture;
+               ManualN  = fi.N.ToString("G6", inv);
+               ManualMx = fi.Mx.ToString("G6", inv);
+               ManualMy = fi.My.ToString("G6", inv);
+               SelectedForceItem = null;
+            }
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedKind));
            OnPropertyChanged(nameof(IsFireKind));
            OnPropertyChanged(nameof(IsStrainBatch));
            OnPropertyChanged(nameof(IsLimitBatch));
@@ -881,7 +890,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          if (p.FireSectionId > 0)
             SelectedFireSection = FireSections.FirstOrDefault(f => f.Id == p.FireSectionId);
 
-         if ((existing.Kind == "strain_state" || IsLimitSingleKind(existing.Kind))
+         if ((existing.Kind == "strain_state" || IsLimitSingleKind(existing.Kind) || existing.Kind == "cracking")
              && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
          {
             var lp = LimitForceParams.Parse(existing.ParamsJson);
