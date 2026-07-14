@@ -1,0 +1,23 @@
+<UserControl x:Class="OpenCS.Views.CrackingSummaryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views">
+
+   <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="12,8">
+
+         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+            <TextBlock Text="{Binding TaskTag}" FontSize="14" FontWeight="Bold"
+                       Margin="0,0,10,0" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding StatusText}" FontSize="13"
+                       Foreground="{Binding StatusBrush}" VerticalAlignment="Center"/>
+         </StackPanel>
+         <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,0,0,10"/>
+
+         <local:CrackingMomentPartView DataContext="{Binding CrackingPart}"/>
+
+         <TextBlock Text="{Binding ErrorText}" Foreground="DarkRed" TextWrapping="Wrap" Margin="0,8,0,0"
+                    Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
+      </StackPanel>
+   </ScrollViewer>
+</UserControl>

@@ -1,74 +1,75 @@
-using System;
+using System.Linq;
 using System.Text.Json;
 using System.Windows.Controls;
-using System.Windows.Media;
 using CScore;
+using OpenCS.Services;
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
 public partial class CrackingResultView : UserControl
 {
+    SectionCutWindowService? _cutWindow;
+
     public CrackingResultView(CalcResult result, AppViewModel app, CalcTask task)
     {
         InitializeComponent();
-        DataContext = new CrackingResultVM(result);
-    }
-}
 
-public sealed class CrackingResultVM
-{
-    public string SummaryText { get; }
-    public Brush StatusBrush { get; }
-    public bool HasError { get; }
-    public string ErrorText { get; } = "";
-    public string NText { get; } = "—";
-    public string MxCrcText { get; } = "—";
-    public string MyCrcText { get; } = "—";
-    public string McrcText { get; } = "—";
+        SummaryView.DataContext = new CrackingSummaryVM(result);
 
-    public CrackingResultVM(CalcResult result)
-    {
-        if (result.Status == "error")
+        var section = app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId);
+        var k = ParsePlane(result.DataJson);
+        if (section == null || k == null)
         {
-            HasError = true;
-            try
-            {
-                var doc = JsonDocument.Parse(result.DataJson);
-                ErrorText = doc.RootElement.TryGetProperty("error", out var e) ? e.GetString() ?? "" : result.DataJson;
-            }
-            catch { ErrorText = result.DataJson; }
-            SummaryText = Loc.S("CalcResultErrorLabel");
-            StatusBrush = Brushes.DarkRed;
+            MainTabs.Items.RemoveAt(2);
+            MainTabs.Items.RemoveAt(1);
             return;
         }
 
-        try
-        {
-            var doc = JsonDocument.Parse(result.DataJson);
-            var root = doc.RootElement;
-            bool converged = root.TryGetProperty("converged", out var cv) && cv.GetBoolean();
+        section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin, pool: app.Diagrams,
+            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
+        section.SetEps(k.Value, CalcType.CL, ten: true);
 
-            NText     = Num(root, "N");
-            MxCrcText = Num(root, "Mx_crc");
-            MyCrcText = Num(root, "My_crc");
-            McrcText  = Num(root, "Mcrc");
+        var settings = app.CalcSettings;
+        var stressVm = new SectionPlotVM(section, k.Value, CalcType.CL, SectionPlotMode.Stress, settings, ten: true);
+        var strainVm = new SectionPlotVM(section, k.Value, CalcType.CL, SectionPlotMode.Strain, settings, ten: true);
 
-            SummaryText = converged ? Loc.S("ResultConvergedYes") : Loc.S("ResultConvergedNo");
-            StatusBrush = converged
-                ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
-                : Brushes.OrangeRed;
-        }
-        catch (Exception ex)
+        var cutVm = new SectionCutVM(section, k.Value, CalcType.CL, app.FileDialogService, ten: true)
         {
-            HasError = true;
-            ErrorText = ex.Message;
-            SummaryText = Loc.S("CalcResultErrorLabel");
-            StatusBrush = Brushes.DarkRed;
-        }
+            WindowTitleSuffix = $"{task.Tag} — {section.Tag}"
+        };
+        stressVm.CutVM = cutVm;
+        strainVm.CutVM = cutVm;
+
+        StressView.DataContext = stressVm;
+        StrainView.DataContext = strainVm;
+
+        _cutWindow = new SectionCutWindowService(settings);
+        _cutWindow.Bind(cutVm, SectionPlotMode.Stress);
+        MainTabs.SelectionChanged += OnTabSelectionChanged;
+        Unloaded += (_, _) => _cutWindow?.Dispose();
     }
 
-    static string Num(JsonElement el, string key) =>
-        el.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
-            ? v.GetDouble().ToString("G4") : "—";
+    void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (MainTabs.SelectedIndex == 1) _cutWindow?.UpdatePlotMode(SectionPlotMode.Stress);
+        else if (MainTabs.SelectedIndex == 2) _cutWindow?.UpdatePlotMode(SectionPlotMode.Strain);
+    }
+
+    static Kurvature? ParsePlane(string dataJson)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(dataJson)) return null;
+            var doc = JsonDocument.Parse(dataJson);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("plane_converged", out var pcEl) || !pcEl.GetBoolean()) return null;
+            if (!root.TryGetProperty("e0", out var e0El) || e0El.ValueKind != JsonValueKind.Number) return null;
+            if (!root.TryGetProperty("ky", out var kyEl) || kyEl.ValueKind != JsonValueKind.Number) return null;
+            if (!root.TryGetProperty("kz", out var kzEl) || kzEl.ValueKind != JsonValueKind.Number) return null;
+            return new Kurvature { e0 = e0El.GetDouble(), ky = kyEl.GetDouble(), kz = kzEl.GetDouble() };
+        }
+        catch { return null; }
+    }
 }
