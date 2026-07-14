@@ -1,120 +1,79 @@
-using System;
-using System.Globalization;
+using System.Linq;
 using System.Text.Json;
-using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using CScore;
+using OpenCS.Services;
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
 public partial class CrackWidthResultView : UserControl
 {
+    SectionCutWindowService? _cutWindow;
+
     public CrackWidthResultView(CalcResult result, AppViewModel app, CalcTask task)
     {
         InitializeComponent();
-        DataContext = new CrackWidthResultVM(result);
-    }
-}
 
-public sealed class CrackWidthResultVM
-{
-    public string SummaryText { get; }
-    public Brush StatusBrush { get; }
-    public bool HasError { get; }
-    public string ErrorText { get; } = "";
-    public bool Cracked { get; }
+        var section = app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId);
+        var k = ParsePlane(result.DataJson);
 
-    public string NText { get; } = "—";
-    public string MxLongText { get; } = "—";
-    public string MxTotalText { get; } = "—";
-    public string AcrcLongText { get; } = "—";
-    public string AcrcShortText { get; } = "—";
-    public string SigmaSText { get; } = "—";
-    public string PsiSText { get; } = "—";
-    public string LsText { get; } = "—";
-    public string DsEqText { get; } = "—";
-    public string McrcText { get; } = "—";
-
-    public bool EtaEnabled { get; }
-    public string EtaModeText { get; } = "";
-    public string EtaXText { get; } = "—";
-    public string EtaYText { get; } = "—";
-    public string EtaPsiText { get; } = "";
-    public string EtaMxText { get; } = "";
-    public string EtaMyText { get; } = "";
-
-    public CrackWidthResultVM(CalcResult result)
-    {
-        if (result.Status == "error")
+        if (section != null && k != null)
         {
-            HasError = true;
-            try
-            {
-                var doc = JsonDocument.Parse(result.DataJson);
-                ErrorText = doc.RootElement.TryGetProperty("error", out var e) ? e.GetString() ?? "" : result.DataJson;
-            }
-            catch { ErrorText = result.DataJson; }
-            SummaryText = Loc.S("CalcResultErrorLabel");
-            StatusBrush = Brushes.DarkRed;
+            section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin, pool: app.Diagrams,
+                rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
+            section.SetEps(k.Value, CalcType.N, ten: false);
+        }
+
+        SummaryView.DataContext = new CrackWidthSummaryVM(result, section);
+
+        if (section == null || k == null)
+        {
+            MainTabs.Items.RemoveAt(2);
+            MainTabs.Items.RemoveAt(1);
             return;
         }
 
-        try
+        var settings = app.CalcSettings;
+        var stressVm = new SectionPlotVM(section, k.Value, CalcType.N, SectionPlotMode.Stress, settings, ten: false);
+        var strainVm = new SectionPlotVM(section, k.Value, CalcType.N, SectionPlotMode.Strain, settings, ten: false);
+
+        var cutVm = new SectionCutVM(section, k.Value, CalcType.N, app.FileDialogService, ten: false)
         {
-            var doc = JsonDocument.Parse(result.DataJson);
-            var root = doc.RootElement;
+            WindowTitleSuffix = $"{task.Tag} — {section.Tag}"
+        };
+        stressVm.CutVM = cutVm;
+        strainVm.CutVM = cutVm;
 
-            Cracked = root.TryGetProperty("cracked", out var cr) && cr.GetBoolean();
-            bool passedLong = root.TryGetProperty("passed_long", out var pl) && pl.GetBoolean();
-            bool passedShort = root.TryGetProperty("passed_short", out var ps) && ps.GetBoolean();
+        StressView.DataContext = stressVm;
+        StrainView.DataContext = strainVm;
 
-            NText = Num(root, "N");
-            MxLongText = Num(root, "Mx_long");
-            MxTotalText = Num(root, "Mx_total");
-            AcrcLongText = Num(root, "acrc_long");
-            AcrcShortText = Num(root, "acrc_short");
-            SigmaSText = Num(root, "sigma_s");
-            PsiSText = Num(root, "psi_s");
-            LsText = Num(root, "ls");
-            DsEqText = Num(root, "ds_eq");
-            McrcText = Num(root, "Mcrc");
-
-            EtaEnabled = root.TryGetProperty("eta", out var etaEl) && etaEl.ValueKind == JsonValueKind.Object;
-            if (EtaEnabled)
-            {
-                string mode = etaEl.TryGetProperty("mode", out var modeEl) ? modeEl.GetString() ?? "formula" : "formula";
-                EtaModeText = mode == "iterative" ? Loc.S("ResultEtaModeIterative") : Loc.S("ResultEtaModeFormula");
-                EtaXText = Num(etaEl, "etaX");
-                EtaYText = Num(etaEl, "etaY");
-                string psiX = Num(etaEl, "psiX");
-                string psiY = Num(etaEl, "psiY");
-                EtaPsiText = $"ψx={psiX}, ψy={psiY}";
-                string mxOrig = Num(etaEl, "mxOriginal");
-                string myOrig = Num(etaEl, "myOriginal");
-                EtaMxText = $"Mx: {mxOrig} → {MxTotalText}";
-                EtaMyText = $"My: {myOrig} → {Num(root, "My_total")}";
-            }
-
-            bool allPassed = passedLong && passedShort;
-            SummaryText = !Cracked
-                ? Loc.S("CrackWidth_NoCracks")
-                : (allPassed ? Loc.S("StrengthNDM_Passed") : Loc.S("StrengthNDM_NotPassed"));
-            StatusBrush = (!Cracked || allPassed)
-                ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
-                : Brushes.OrangeRed;
-        }
-        catch (Exception ex)
-        {
-            HasError = true;
-            ErrorText = ex.Message;
-            SummaryText = Loc.S("CalcResultErrorLabel");
-            StatusBrush = Brushes.DarkRed;
-        }
+        _cutWindow = new SectionCutWindowService(settings);
+        _cutWindow.Bind(cutVm, SectionPlotMode.Stress);
+        MainTabs.SelectionChanged += OnTabSelectionChanged;
+        Unloaded += (_, _) => _cutWindow?.Dispose();
     }
 
-    static string Num(JsonElement el, string key) =>
-        el.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.Number
-            ? v.GetDouble().ToString("G4", CultureInfo.InvariantCulture) : "—";
+    void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (MainTabs.SelectedIndex == 1) _cutWindow?.UpdatePlotMode(SectionPlotMode.Stress);
+        else if (MainTabs.SelectedIndex == 2) _cutWindow?.UpdatePlotMode(SectionPlotMode.Strain);
+    }
+
+    static Kurvature? ParsePlane(string dataJson)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(dataJson)) return null;
+            var doc = JsonDocument.Parse(dataJson);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("plane_converged", out var pcEl) || !pcEl.GetBoolean()) return null;
+            if (!root.TryGetProperty("e0", out var e0El) || e0El.ValueKind != JsonValueKind.Number) return null;
+            if (!root.TryGetProperty("ky", out var kyEl) || kyEl.ValueKind != JsonValueKind.Number) return null;
+            if (!root.TryGetProperty("kz", out var kzEl) || kzEl.ValueKind != JsonValueKind.Number) return null;
+            return new Kurvature { e0 = e0El.GetDouble(), ky = kyEl.GetDouble(), kz = kzEl.GetDouble() };
+        }
+        catch { return null; }
+    }
 }

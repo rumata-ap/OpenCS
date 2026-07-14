@@ -1,0 +1,173 @@
+<UserControl x:Class="OpenCS.Views.CrackWidthSummaryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views">
+
+   <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="12,8">
+
+         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+            <TextBlock Text="{Binding TaskTag}" FontSize="14" FontWeight="Bold"
+                       Margin="0,0,10,0" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding StatusText}" FontSize="13"
+                       Foreground="{Binding StatusBrush}" VerticalAlignment="Center"/>
+         </StackPanel>
+         <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,0,0,10"/>
+
+         <GroupBox Header="{DynamicResource CrackWidth_ForcesHeader}" Margin="0,0,0,6" Padding="8,4">
+            <Grid>
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="130"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+               </Grid.RowDefinitions>
+               <TextBlock Grid.Row="0" Grid.Column="0" Text="N" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding NText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="1" Grid.Column="0" Text="Mx, дл." Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MxLongText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="2" Grid.Column="0" Text="Mx, полн." Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding MxTotalText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="3" Grid.Column="0" Text="My, дл." Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding MyLongText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="4" Grid.Column="0" Text="My, полн." Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding MyTotalText}" FontFamily="Consolas" Margin="0,1"/>
+            </Grid>
+         </GroupBox>
+
+         <local:CrackingMomentPartView DataContext="{Binding CrackingPart}"/>
+         <Grid Margin="0,-2,0,6">
+            <Grid.ColumnDefinitions>
+               <ColumnDefinition Width="130"/>
+               <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{DynamicResource CrackWidth_UtilizationLabel}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Column="1" Text="{Binding UtilCrcText}" FontFamily="Consolas" Margin="0,1"/>
+         </Grid>
+
+         <GroupBox Header="{DynamicResource CrackWidth_CrackWidthHeader}" Margin="0,0,0,6" Padding="8,4"
+                    Visibility="{Binding Cracked, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+               <TextBlock Text="{DynamicResource CrackWidth_LongLabel}" FontWeight="SemiBold" Margin="0,0,0,2"/>
+               <Grid Margin="0,0,0,6">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="130"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CrackWidth_ColAcrcLong}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AcrcLongText}" FontFamily="Consolas" FontWeight="Bold" Margin="0,1"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CrackWidth_AcrcUltLong}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AcrcUltLongText}" FontFamily="Consolas" Margin="0,1"/>
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CrackWidth_UtilizationLabel}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UtilLongText}" FontFamily="Consolas" Margin="0,1"/>
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CrackWidth_ColPassedLong}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PassedLongText}" Foreground="{Binding PassedLongBrush}" FontWeight="Bold" Margin="0,1"/>
+               </Grid>
+
+               <TextBlock Text="{DynamicResource CrackWidth_ShortLabel}" FontWeight="SemiBold" Margin="0,0,0,2"/>
+               <Grid>
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="130"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CrackWidth_ColAcrcShort}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AcrcShortText}" FontFamily="Consolas" FontWeight="Bold" Margin="0,1"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CrackWidth_AcrcUltShort}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AcrcUltShortText}" FontFamily="Consolas" Margin="0,1"/>
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CrackWidth_UtilizationLabel}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UtilShortText}" FontFamily="Consolas" Margin="0,1"/>
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CrackWidth_ColPassedShort}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PassedShortText}" Foreground="{Binding PassedShortBrush}" FontWeight="Bold" Margin="0,1"/>
+               </Grid>
+            </StackPanel>
+         </GroupBox>
+
+         <GroupBox Header="{DynamicResource CrackWidth_ParamsHeader}" Margin="0,0,0,6" Padding="8,4"
+                    Visibility="{Binding Cracked, Converter={StaticResource BoolToVisibility}}">
+            <Grid>
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="130"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+               </Grid.RowDefinitions>
+               <TextBlock Grid.Row="0" Grid.Column="0" Text="σs" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SigmaSText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="1" Grid.Column="0" Text="ψs" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PsiSText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="2" Grid.Column="0" Text="ls" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LsText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="3" Grid.Column="0" Text="ds,экв" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DsEqText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="4" Grid.Column="0" Text="As,раст" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding AsTensText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="5" Grid.Column="0" Text="Abt" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding AbtText}" FontFamily="Consolas" Margin="0,1"/>
+               <TextBlock Grid.Row="6" Grid.Column="0" Text="h0" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding H0Text}" FontFamily="Consolas" Margin="0,1"/>
+            </Grid>
+         </GroupBox>
+
+         <GroupBox Header="{DynamicResource ResultEtaHeader}" Margin="0,0,0,6" Padding="8,4"
+                    Visibility="{Binding EtaEnabled, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+               <TextBlock Text="{Binding EtaModeText}" Margin="0,2"/>
+               <TextBlock Margin="0,2">
+                  <Run Text="ηx: "/><Run Text="{Binding EtaXText, Mode=OneWay}" FontWeight="Bold"/>
+                  <Run Text="   ηy: "/><Run Text="{Binding EtaYText, Mode=OneWay}" FontWeight="Bold"/>
+               </TextBlock>
+               <TextBlock Text="{Binding EtaPsiText}" Margin="0,2" Foreground="#555"/>
+               <TextBlock Text="{Binding EtaMxText}" Margin="0,2"/>
+               <TextBlock Text="{Binding EtaMyText}" Margin="0,2"/>
+            </StackPanel>
+         </GroupBox>
+
+         <GroupBox Header="{DynamicResource CrackWidth_RebarTensHeader}" Margin="0,0,0,6" Padding="4"
+                    Visibility="{Binding HasRebar, Converter={StaticResource BoolToVisibility}}">
+            <DataGrid ItemsSource="{Binding RebarRows}"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      CanUserAddRows="False" CanUserDeleteRows="False"
+                      HeadersVisibility="Column" SelectionMode="Single">
+               <DataGrid.Columns>
+                  <DataGridTextColumn Header="№"      Binding="{Binding Num}"   Width="36"/>
+                  <DataGridTextColumn Header="x, мм"  Binding="{Binding X}"     Width="72"/>
+                  <DataGridTextColumn Header="y, мм"  Binding="{Binding Y}"     Width="72"/>
+                  <DataGridTextColumn Header="ε"      Binding="{Binding Eps}"   Width="100"/>
+                  <DataGridTextColumn Header="σ, МПа" Binding="{Binding Sigma}" Width="90"/>
+               </DataGrid.Columns>
+            </DataGrid>
+         </GroupBox>
+
+         <TextBlock Text="{DynamicResource CrackWidth_PlaneNotConverged}" TextWrapping="Wrap"
+                    Foreground="DarkOrange" FontStyle="Italic" Margin="0,4,0,0"
+                    Visibility="{Binding ShowPlaneWarning, Converter={StaticResource BoolToVisibility}}"/>
+
+         <TextBlock Text="{Binding ErrorText}" Foreground="DarkRed" TextWrapping="Wrap" Margin="0,8,0,0"
+                    Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
+      </StackPanel>
+   </ScrollViewer>
+</UserControl>
