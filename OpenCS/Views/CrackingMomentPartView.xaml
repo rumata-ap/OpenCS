@@ -1,0 +1,53 @@
+<UserControl x:Class="OpenCS.Views.CrackingMomentPartView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+   <GroupBox Header="{DynamicResource Cracking_BlockTitle}" Margin="0,0,0,6" Padding="8,4">
+      <StackPanel>
+         <Grid>
+            <Grid.ColumnDefinitions>
+               <ColumnDefinition Width="90"/>
+               <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="N" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding NText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Cracking_ColMxCrc}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MxCrcText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Cracking_ColMyCrc}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding MyCrcText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Cracking_ColMcrc}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding McrcText}" FontFamily="Consolas" FontWeight="Bold" Margin="0,1"/>
+         </Grid>
+
+         <Grid Margin="0,6,0,0" Visibility="{Binding HasEpsData, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+               <ColumnDefinition Width="90"/>
+               <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="ε_bt,max" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding EpsMaxTensionText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="ε_bt,ult" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EpsTensionLimitText}" FontFamily="Consolas" Margin="0,1"/>
+         </Grid>
+
+         <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+               <ColumnDefinition Width="90"/>
+               <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{DynamicResource ResultConvergence}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Column="1" Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="Bold" Margin="0,1"/>
+         </Grid>
+      </StackPanel>
+   </GroupBox>
+</UserControl>
