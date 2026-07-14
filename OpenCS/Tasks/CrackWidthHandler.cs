@@ -154,12 +154,22 @@ public sealed class CrackWidthHandler : ITaskHandler
                 passed_long = res.PassedLong,
                 passed_short = res.PassedShort,
                 Mcrc = Math.Round(res.Mcrc, 4),
+                Mx_crc = Math.Round(res.MxCrc, 4),
+                My_crc = Math.Round(res.MyCrc, 4),
+                crc_converged = res.CrcConverged,
+                eps_max_tension = Math.Round(res.EpsMaxTension, 8),
+                eps_tension_limit = Math.Round(res.EpsTensionLimit, 8),
+                h0 = Math.Round(res.H0 * 1000.0, 1),
                 sigma_s = Math.Round(res.SigmaS / 1000.0, 2),
                 psi_s = Math.Round(res.PsiS, 4),
                 ls = Math.Round(res.Ls * 1000.0, 2),
                 ds_eq = Math.Round(res.DsEq * 1000.0, 2),
                 As_tens = Math.Round(res.AsTens * 1e4, 4),
                 Abt = Math.Round(res.Abt * 1e4, 2),
+                e0 = res.PlaneLong.HasValue ? Math.Round(res.PlaneLong.Value.e0, 8) : (double?)null,
+                ky = res.PlaneLong.HasValue ? Math.Round(res.PlaneLong.Value.ky, 8) : (double?)null,
+                kz = res.PlaneLong.HasValue ? Math.Round(res.PlaneLong.Value.kz, 8) : (double?)null,
+                plane_converged = res.PlaneLong.HasValue,
                 eta = etaData
             };
 
