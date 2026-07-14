@@ -1470,7 +1470,7 @@
     <system:String x:Key="CrackWidth_ForcesHeader">Усилия</system:String>
     <system:String x:Key="CrackWidth_CrackWidthHeader">Ширина раскрытия трещин</system:String>
     <system:String x:Key="CrackWidth_ParamsHeader">Параметры расчёта</system:String>
-    <system:String x:Key="CrackWidth_UtilizationLabel">Утилизация</system:String>
+    <system:String x:Key="CrackWidth_UtilizationLabel">Использование</system:String>
     <system:String x:Key="CrackWidth_LongLabel">Длительное раскрытие</system:String>
     <system:String x:Key="CrackWidth_ShortLabel">Кратковременное раскрытие</system:String>
     <system:String x:Key="CrackWidth_RebarTensHeader">Растянутая арматура</system:String>

@@ -56,7 +56,7 @@
                <TextBlock Text="{DynamicResource CrackWidth_LongLabel}" FontWeight="SemiBold" Margin="0,0,0,2"/>
                <Grid Margin="0,0,0,6">
                   <Grid.ColumnDefinitions>
-                     <ColumnDefinition Width="90"/>
+                     <ColumnDefinition Width="120"/>
                      <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
@@ -78,7 +78,7 @@
                <TextBlock Text="{DynamicResource CrackWidth_ShortLabel}" FontWeight="SemiBold" Margin="0,0,0,2"/>
                <Grid>
                   <Grid.ColumnDefinitions>
-                     <ColumnDefinition Width="90"/>
+                     <ColumnDefinition Width="120"/>
                      <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
