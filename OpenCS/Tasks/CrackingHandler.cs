@@ -36,7 +36,13 @@ public sealed class CrackingHandler : ITaskHandler
                 N = item.N,
                 Mx_crc = Math.Round(res.Mx, 4),
                 My_crc = Math.Round(res.My, 4),
-                Mcrc = Math.Round(mcrc, 4)
+                Mcrc = Math.Round(mcrc, 4),
+                eps_max_tension = Math.Round(res.EpsMaxTension, 8),
+                eps_tension_limit = Math.Round(solver.TensionLimit(), 8),
+                e0 = res.StrainPlane.HasValue ? Math.Round(res.StrainPlane.Value.e0, 8) : (double?)null,
+                ky = res.StrainPlane.HasValue ? Math.Round(res.StrainPlane.Value.ky, 8) : (double?)null,
+                kz = res.StrainPlane.HasValue ? Math.Round(res.StrainPlane.Value.kz, 8) : (double?)null,
+                plane_converged = res.StrainPlane.HasValue
             };
 
             return new CalcResult
