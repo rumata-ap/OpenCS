@@ -56,7 +56,7 @@
                <TextBlock Text="{DynamicResource CrackWidth_LongLabel}" FontWeight="SemiBold" Margin="0,0,0,2"/>
                <Grid Margin="0,0,0,6">
                   <Grid.ColumnDefinitions>
-                     <ColumnDefinition Width="130"/>
+                     <ColumnDefinition Width="90"/>
                      <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
@@ -65,20 +65,20 @@
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
-                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CrackWidth_ColAcrcLong}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CrackWidth_AcrcRowLabel}" Foreground="Gray" Margin="0,1"/>
                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AcrcLongText}" FontFamily="Consolas" FontWeight="Bold" Margin="0,1"/>
-                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CrackWidth_AcrcUltLong}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CrackWidth_AcrcUltRowLabel}" Foreground="Gray" Margin="0,1"/>
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AcrcUltLongText}" FontFamily="Consolas" Margin="0,1"/>
                   <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CrackWidth_UtilizationLabel}" Foreground="Gray" Margin="0,1"/>
                   <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UtilLongText}" FontFamily="Consolas" Margin="0,1"/>
-                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CrackWidth_ColPassedLong}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CrackWidth_PassedRowLabel}" Foreground="Gray" Margin="0,1"/>
                   <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PassedLongText}" Foreground="{Binding PassedLongBrush}" FontWeight="Bold" Margin="0,1"/>
                </Grid>
 
                <TextBlock Text="{DynamicResource CrackWidth_ShortLabel}" FontWeight="SemiBold" Margin="0,0,0,2"/>
                <Grid>
                   <Grid.ColumnDefinitions>
-                     <ColumnDefinition Width="130"/>
+                     <ColumnDefinition Width="90"/>
                      <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
@@ -87,13 +87,13 @@
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
-                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CrackWidth_ColAcrcShort}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CrackWidth_AcrcRowLabel}" Foreground="Gray" Margin="0,1"/>
                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AcrcShortText}" FontFamily="Consolas" FontWeight="Bold" Margin="0,1"/>
-                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CrackWidth_AcrcUltShort}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CrackWidth_AcrcUltRowLabel}" Foreground="Gray" Margin="0,1"/>
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AcrcUltShortText}" FontFamily="Consolas" Margin="0,1"/>
                   <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource CrackWidth_UtilizationLabel}" Foreground="Gray" Margin="0,1"/>
                   <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UtilShortText}" FontFamily="Consolas" Margin="0,1"/>
-                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CrackWidth_ColPassedShort}" Foreground="Gray" Margin="0,1"/>
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource CrackWidth_PassedRowLabel}" Foreground="Gray" Margin="0,1"/>
                   <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PassedShortText}" Foreground="{Binding PassedShortBrush}" FontWeight="Bold" Margin="0,1"/>
                </Grid>
             </StackPanel>

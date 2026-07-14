@@ -1475,6 +1475,9 @@
     <system:String x:Key="CrackWidth_ShortLabel">Кратковременное раскрытие</system:String>
     <system:String x:Key="CrackWidth_RebarTensHeader">Растянутая арматура</system:String>
     <system:String x:Key="CrackWidth_PlaneNotConverged">Плоскость деформаций не сошлась — эпюры и таблица арматуры недоступны.</system:String>
+    <system:String x:Key="CrackWidth_AcrcRowLabel">acrc</system:String>
+    <system:String x:Key="CrackWidth_AcrcUltRowLabel">acrc,ult</system:String>
+    <system:String x:Key="CrackWidth_PassedRowLabel">Прошло</system:String>
 
    <system:String x:Key="SectionCutButton">Разрез</system:String>
    <system:String x:Key="SectionCutModeGradient">По градиенту</system:String>

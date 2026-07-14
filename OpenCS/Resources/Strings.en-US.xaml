@@ -1472,6 +1472,9 @@
     <system:String x:Key="CrackWidth_ShortLabel">Short-term opening</system:String>
     <system:String x:Key="CrackWidth_RebarTensHeader">Tension reinforcement</system:String>
     <system:String x:Key="CrackWidth_PlaneNotConverged">Strain plane did not converge — plots and rebar table are unavailable.</system:String>
+    <system:String x:Key="CrackWidth_AcrcRowLabel">acrc</system:String>
+    <system:String x:Key="CrackWidth_AcrcUltRowLabel">acrc,ult</system:String>
+    <system:String x:Key="CrackWidth_PassedRowLabel">Passed</system:String>
 
    <system:String x:Key="SectionCutButton">Cut</system:String>
    <system:String x:Key="SectionCutModeGradient">By gradient</system:String>
