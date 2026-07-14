@@ -29,4 +29,15 @@ public class CrackingSolverTests
 
         Assert.True(mcrcLarge > mcrcSmall);
     }
+
+    [Fact]
+    public void TensionLimit_ReturnsPositiveConcreteTensionStrain()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var solver = new CrackingSolver(section, CalcType.CL);
+
+        double limit = solver.TensionLimit();
+
+        Assert.True(limit > 0.0);
+    }
 }

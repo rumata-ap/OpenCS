@@ -59,7 +59,8 @@ public sealed class CrackingSolver
         _bisectMaxIter = bisectMaxIter;
     }
 
-    double TensionLimit()
+    /// <summary>Предельная растягивающая деформация бетона (п. Г.1 СП63.13330), из диаграммы <see cref="_calcCrc"/>.</summary>
+    public double TensionLimit()
     {
         if (_epsTensionLimitOverride.HasValue) return _epsTensionLimitOverride.Value;
 
