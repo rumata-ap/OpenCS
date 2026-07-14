@@ -1463,6 +1463,15 @@
     <system:String x:Key="CrackWidth_ColPassedLong">Passed (long)</system:String>
     <system:String x:Key="CrackWidth_ColPassedShort">Passed (short)</system:String>
     <system:String x:Key="CrackWidth_NoCracks">No cracks</system:String>
+    <system:String x:Key="Cracking_BlockTitle">Cracking moment</system:String>
+    <system:String x:Key="CrackWidth_ForcesHeader">Forces</system:String>
+    <system:String x:Key="CrackWidth_CrackWidthHeader">Crack width</system:String>
+    <system:String x:Key="CrackWidth_ParamsHeader">Calculation parameters</system:String>
+    <system:String x:Key="CrackWidth_UtilizationLabel">Utilization</system:String>
+    <system:String x:Key="CrackWidth_LongLabel">Long-term opening</system:String>
+    <system:String x:Key="CrackWidth_ShortLabel">Short-term opening</system:String>
+    <system:String x:Key="CrackWidth_RebarTensHeader">Tension reinforcement</system:String>
+    <system:String x:Key="CrackWidth_PlaneNotConverged">Strain plane did not converge — plots and rebar table are unavailable.</system:String>
 
    <system:String x:Key="SectionCutButton">Cut</system:String>
    <system:String x:Key="SectionCutModeGradient">By gradient</system:String>

@@ -1466,6 +1466,15 @@
     <system:String x:Key="CrackWidth_ColPassedLong">Прошло (дл.)</system:String>
     <system:String x:Key="CrackWidth_ColPassedShort">Прошло (кратк.)</system:String>
     <system:String x:Key="CrackWidth_NoCracks">Трещины не образуются</system:String>
+    <system:String x:Key="Cracking_BlockTitle">Трещинообразование</system:String>
+    <system:String x:Key="CrackWidth_ForcesHeader">Усилия</system:String>
+    <system:String x:Key="CrackWidth_CrackWidthHeader">Ширина раскрытия трещин</system:String>
+    <system:String x:Key="CrackWidth_ParamsHeader">Параметры расчёта</system:String>
+    <system:String x:Key="CrackWidth_UtilizationLabel">Утилизация</system:String>
+    <system:String x:Key="CrackWidth_LongLabel">Длительное раскрытие</system:String>
+    <system:String x:Key="CrackWidth_ShortLabel">Кратковременное раскрытие</system:String>
+    <system:String x:Key="CrackWidth_RebarTensHeader">Растянутая арматура</system:String>
+    <system:String x:Key="CrackWidth_PlaneNotConverged">Плоскость деформаций не сошлась — эпюры и таблица арматуры недоступны.</system:String>
 
    <system:String x:Key="SectionCutButton">Разрез</system:String>
    <system:String x:Key="SectionCutModeGradient">По градиенту</system:String>
