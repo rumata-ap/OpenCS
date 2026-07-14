@@ -1,3 +1,4 @@
+using System;
 using Xunit;
 using CScore;
 
@@ -57,5 +58,43 @@ public class CrackWidthSolverTests
 
         Assert.True(res.Cracked);
         Assert.Equal(res.AcrcLong, res.AcrcShort, 6);
+    }
+
+    // Бетонная область без построенной сетки волокон (только Hull, контурный интеграл по
+    // теореме Грина — см. CrossSection.Integral). SolveDamped/EvalWithTangent суммировал
+    // только area.Fibers и полностью игнорировал такой бетон, из-за чего пост-трещинный
+    // Ньютон "видел" только 2 стержня арматуры под всей нагрузкой N и расходился в
+    // абсурдные кривизны вместо схождения — Compute тихо возвращал Cracked=false.
+    [Fact]
+    public void Compute_MeshlessConcreteArea_ConvergesAboveCrackingMoment()
+    {
+        var section = TestSections.RectWithBottomRebarNoMesh();
+        var mcrc = new CrackingSolver(section, CalcType.CL).CrackingMoment(0, -1, 0).Mx;
+
+        var solver = new CrackWidthSolver(section);
+        var res = solver.Compute(N: 0.0, mxLong: mcrc * 4.0, mxTotal: mcrc * 4.0);
+
+        Assert.True(res.Cracked);
+        Assert.True(res.AcrcLong > 0.0);
+    }
+
+    [Fact]
+    public void Compute_AboveCrackingMoment_ExposesPlaneAndCrackingMomentFields()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var mcrc = new CrackingSolver(section, CalcType.CL).CrackingMoment(0, -1, 0).Mx;
+
+        var solver = new CrackWidthSolver(section);
+        var res = solver.Compute(N: 0.0, mxLong: mcrc * 4.0, mxTotal: mcrc * 4.0);
+
+        Assert.True(res.Cracked);
+        Assert.True(res.CrcConverged);
+        Assert.True(res.MxCrc < 0);                        // тот же знак/направление, что и mcrc
+        Assert.Equal(res.Mcrc, Math.Abs(res.MxCrc), 3);     // Mcrc — модуль вектора (MxCrc, MyCrc)
+        Assert.Equal(0.0, res.MyCrc, 6);                    // одноосное направление — My=0
+        Assert.True(res.EpsTensionLimit > 0.0);
+        Assert.True(res.EpsMaxTension > 0.0);
+        Assert.True(res.H0 > 0.0);
+        Assert.True(res.PlaneLong.HasValue);
     }
 }

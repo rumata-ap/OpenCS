@@ -34,6 +34,20 @@ public sealed class CrackWidthResult
     public double Acrc1 { get; set; }
     public double Acrc2 { get; set; }
     public double Acrc3 { get; set; }
+    /// <summary>Компонента момента трещинообразования по X, кН·м (см. <see cref="Mcrc"/> — их модуль).</summary>
+    public double MxCrc { get; set; }
+    /// <summary>Компонента момента трещинообразования по Y, кН·м.</summary>
+    public double MyCrc { get; set; }
+    /// <summary>Сошёлся ли поиск момента трещинообразования (бисекция в <see cref="CrackingSolver"/>).</summary>
+    public bool CrcConverged { get; set; }
+    /// <summary>Максимальная растягивающая деформация бетона в момент трещинообразования.</summary>
+    public double EpsMaxTension { get; set; }
+    /// <summary>Предельная растягивающая деформация бетона (из диаграммы, п. Г.1 СП63.13330).</summary>
+    public double EpsTensionLimit { get; set; }
+    /// <summary>Эффективная высота сечения h0, м (используется при расчёте ls/Abt).</summary>
+    public double H0 { get; set; }
+    /// <summary>Пост-трещинная плоскость деформаций (ten=false) от длительной нагрузки, если Newton сошёлся.</summary>
+    public Kurvature? PlaneLong { get; set; }
 }
 
 /// <summary>
@@ -83,6 +97,20 @@ public sealed class CrackWidthSolver
     Kurvature SolveDamped(double nTarget, double mxTarget, double myTarget, Kurvature seed,
         out bool converged, int maxIter = 60)
     {
+        if (HasMeshlessArea())
+        {
+            // EvalWithTangent суммирует только area.Fibers и не поддерживает контурный
+            // (безсеточный, теорема Грина) путь CrossSection.Integral — на сечениях без
+            // построенной сетки бетона он "не видит" бетон вовсе и расходится в абсурдные
+            // кривизны. StrainSolver с численным Якобианом идёт через Integral() и корректно
+            // работает в обоих режимах (сеточном и контурном).
+            var strainSolver = new StrainSolver(_section, _calcService, ten: false, ca: true,
+                tol: _solverTol, maxIter: maxIter, centralJacobian: true);
+            var kMeshless = strainSolver.Solve(nTarget, mxTarget, myTarget, seed);
+            converged = strainSolver.Converged;
+            return kMeshless;
+        }
+
         Kurvature k = seed;
         double bestResidual = double.MaxValue;
         Kurvature bestK = seed;
@@ -184,6 +212,16 @@ public sealed class CrackWidthSolver
         };
         return (load, jac);
     }
+
+    /// <summary>
+    /// Есть ли в сечении область без сеточных волокон, работающая через контурный
+    /// (безсеточный) путь <see cref="CrossSection.Integral"/> — та же проверка, что и там.
+    /// </summary>
+    bool HasMeshlessArea() =>
+        _section.Areas.Any(a =>
+            !a.Fibers.Any(f => f.TypeFiber != FiberType.point) &&
+            a.Hull != null &&
+            a.Diagramms.ContainsKey(_calcService));
 
     /// <summary>Метод Гаусса с выбором ведущего элемента для системы 3×3. Возвращает false при сингулярности.</summary>
     static bool GaussSolve3(double[,] a, double[] b, out double[] x)
@@ -391,6 +429,7 @@ public sealed class CrackWidthSolver
 
         var crcRes = crcSolver.CrackingMoment(N, mxDir, myDir);
         double mcrc = Math.Sqrt(crcRes.Mx * crcRes.Mx + crcRes.My * crcRes.My);
+        double epsTensionLimit = crcSolver.TensionLimit();
 
         double mLong = Math.Sqrt(mxLong * mxLong + myLong * myLong);
 
@@ -399,7 +438,12 @@ public sealed class CrackWidthSolver
             Cracked = false,
             AcrcUltLong = _acrcUltLong,
             AcrcUltShort = _acrcUltShort,
-            Mcrc = mcrc
+            Mcrc = mcrc,
+            MxCrc = crcRes.Mx,
+            MyCrc = crcRes.My,
+            CrcConverged = crcRes.Converged,
+            EpsMaxTension = crcRes.EpsMaxTension,
+            EpsTensionLimit = epsTensionLimit
         };
 
         if (mLong <= mcrc || !crcRes.StrainPlane.HasValue) return zero;
@@ -476,6 +520,13 @@ public sealed class CrackWidthSolver
             UtilLong = _acrcUltLong > 0 ? acrcLong / _acrcUltLong : 0.0,
             UtilShort = _acrcUltShort > 0 ? acrcShort / _acrcUltShort : 0.0,
             Mcrc = mcrc,
+            MxCrc = crcRes.Mx,
+            MyCrc = crcRes.My,
+            CrcConverged = crcRes.Converged,
+            EpsMaxTension = crcRes.EpsMaxTension,
+            EpsTensionLimit = epsTensionLimit,
+            H0 = h0,
+            PlaneLong = planeLong,
             SigmaS = sigmaLongKPa,
             SigmaSCrc = sigmaCrcKPa,
             PsiS = psiS,
