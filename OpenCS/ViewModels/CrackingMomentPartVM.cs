@@ -18,9 +18,12 @@ public sealed class CrackingMomentPartVM
     public bool HasEpsData { get; }
     public string EpsMaxTensionText { get; } = "—";
     public string EpsTensionLimitText { get; } = "—";
+    /// <summary>Отношение приложенного момента к Mcrc (только для crack_width — там есть с чем сравнивать).</summary>
+    public bool HasUtilization { get; }
+    public string UtilizationText { get; } = "—";
 
     public CrackingMomentPartVM(double n, double mxCrc, double myCrc, double mcrc, bool converged,
-        double? epsMaxTension, double? epsTensionLimit)
+        double? epsMaxTension, double? epsTensionLimit, double? utilization = null)
     {
         NText = $"{n:0.###}  кН";
         MxCrcText = $"{mxCrc:0.####}  кН·м";
@@ -35,5 +38,9 @@ public sealed class CrackingMomentPartVM
             EpsMaxTensionText = $"{epsMaxTension!.Value:+0.000000;-0.000000}";
             EpsTensionLimitText = $"{epsTensionLimit!.Value:+0.000000;-0.000000}";
         }
+
+        HasUtilization = utilization.HasValue;
+        if (HasUtilization)
+            UtilizationText = $"{utilization!.Value:0.000}";
     }
 }

@@ -26,7 +26,6 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
     public string MyTotalText { get; } = "—";
 
     public CrackingMomentPartVM CrackingPart { get; }
-    public string UtilCrcText { get; } = "—";
 
     public bool Cracked { get; }
     public string AcrcLongText { get; } = "—";
@@ -109,8 +108,8 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
         bool crcConverged = root.TryGetProperty("crc_converged", out var ccv) && ccv.GetBoolean();
         double? epsMaxTension = root.TryGetProperty("eps_max_tension", out var emt) ? emt.GetDouble() : null;
         double? epsTensionLimit = root.TryGetProperty("eps_tension_limit", out var etl) ? etl.GetDouble() : null;
-        CrackingPart = new CrackingMomentPartVM(GetD(root, "N"), mxCrc, myCrc, mcrc, crcConverged, epsMaxTension, epsTensionLimit);
-        UtilCrcText = mcrc > 1e-9 ? $"{mLong / mcrc:0.000}" : "—";
+        double? utilCrc = mcrc > 1e-9 ? mLong / mcrc : null;
+        CrackingPart = new CrackingMomentPartVM(GetD(root, "N"), mxCrc, myCrc, mcrc, crcConverged, epsMaxTension, epsTensionLimit, utilCrc);
 
         double acrcLong = GetD(root, "acrc_long");
         double acrcUltLong = GetD(root, "acrc_ult_long");

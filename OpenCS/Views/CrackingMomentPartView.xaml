@@ -42,11 +42,19 @@
 
          <Grid Margin="0,6,0,0">
             <Grid.ColumnDefinitions>
-               <ColumnDefinition Width="90"/>
+               <ColumnDefinition Width="120"/>
                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{DynamicResource ResultConvergence}" Foreground="Gray" Margin="0,1"/>
-            <TextBlock Grid.Column="1" Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="Bold" Margin="0,1"/>
+            <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource ResultConvergence}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="Bold" Margin="0,1"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource CrackWidth_UtilizationLabel}" Foreground="Gray" Margin="0,1"
+                       Visibility="{Binding HasUtilization, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding UtilizationText}" FontFamily="Consolas" Margin="0,1"
+                       Visibility="{Binding HasUtilization, Converter={StaticResource BoolToVisibility}}"/>
          </Grid>
       </StackPanel>
    </GroupBox>

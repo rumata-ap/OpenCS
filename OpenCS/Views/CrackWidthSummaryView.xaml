@@ -41,14 +41,6 @@
          </GroupBox>
 
          <local:CrackingMomentPartView DataContext="{Binding CrackingPart}"/>
-         <Grid Margin="0,-2,0,6">
-            <Grid.ColumnDefinitions>
-               <ColumnDefinition Width="130"/>
-               <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{DynamicResource CrackWidth_UtilizationLabel}" Foreground="Gray" Margin="0,1"/>
-            <TextBlock Grid.Column="1" Text="{Binding UtilCrcText}" FontFamily="Consolas" Margin="0,1"/>
-         </Grid>
 
          <GroupBox Header="{DynamicResource CrackWidth_CrackWidthHeader}" Margin="0,0,0,6" Padding="8,4"
                     Visibility="{Binding Cracked, Converter={StaticResource BoolToVisibility}}">
