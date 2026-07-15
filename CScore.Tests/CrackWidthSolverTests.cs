@@ -354,7 +354,7 @@ public class CrackWidthSolverTests
         Assert.True(layer1.All(e => e.SigmaKPa > 0.0));
         Assert.True(layer2.All(e => e.SigmaKPa > 0.0));
         Assert.True(layer1[0].SigmaKPa > layer2[0].SigmaKPa);
-        Assert.True(layer1[0].AcrcMm > layer2[0].AcrcMm);
+        Assert.True(layer1[0].AcrcLongMm > layer2[0].AcrcLongMm);
         Assert.True(res.AcrcByRebar.All(e => e.PsiS > 0.0 && e.PsiS <= 1.0));
     }
 
@@ -367,5 +367,45 @@ public class CrackWidthSolverTests
 
         Assert.False(res.Cracked);
         Assert.Empty(res.AcrcByRebar);
+    }
+
+    // Как и на уровне сечения (Compute_LongEqualsTotal_ShortEqualsLong), при mxTotal==mxLong
+    // (и совпадающих calcService/calcServiceLong по умолчанию) кратковременная составляющая
+    // по каждому стержню должна точно совпасть с длительной: acrc2_j==acrc3_j (одни и те же
+    // σ/ε на одной и той же диаграмме, разница только в φ1 в SingleAcrc), поэтому
+    // acrcShort_j = acrc1_j+acrc2_j-acrc3_j = acrc1_j = acrcLong_j.
+    [Fact]
+    public void Compute_AcrcByRebar_LongEqualsTotal_ShortEqualsLong()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
+
+        var solver = new CrackWidthSolver(section);
+        var res = solver.Compute(N: 0.0, mxLong: mcrc * 3.0, mxTotal: mcrc * 3.0);
+
+        Assert.True(res.Cracked);
+        Assert.NotEmpty(res.AcrcByRebar);
+        Assert.All(res.AcrcByRebar, e => Assert.Equal(e.AcrcLongMm, e.AcrcShortMm, 6));
+        Assert.All(res.AcrcByRebar, e => Assert.Equal(e.PsiS, e.PsiS2, 9));
+    }
+
+    // mxTotal > mxLong — кратковременная составляющая должна быть положительной и иметь
+    // собственный, отличный от длительного, ψs (своя пара σ/σcrc на кратковременной диаграмме).
+    [Fact]
+    public void Compute_AcrcByRebar_TotalGreaterThanLong_ShortAcrcPositiveWithOwnPsiS()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
+
+        var solver = new CrackWidthSolver(section);
+        var res = solver.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 3.0);
+
+        Assert.True(res.Cracked);
+        Assert.NotEmpty(res.AcrcByRebar);
+        Assert.All(res.AcrcByRebar, e =>
+        {
+            Assert.True(e.AcrcShortMm > 0.0);
+            Assert.True(e.PsiS2 > 0.0 && e.PsiS2 <= 1.0);
+        });
     }
 }

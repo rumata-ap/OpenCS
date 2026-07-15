@@ -70,10 +70,12 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
     public bool PlaneConverged { get; }
     public bool ShowPlaneWarning => Cracked && !PlaneConverged;
 
-    public record RebarRow(int Num, string X, string Y, string Eps, string Sigma, string PsiS, string AcrcMm);
+    public record RebarRow(int Num, string X, string Y, string Eps, string Sigma,
+        string PsiS, string AcrcLongMm, string PsiS2, string AcrcShortMm);
 
     /// <summary>Одна запись из "acrc_by_rebar" (см. CScore.RebarAcrcEntry) — координаты в мм.</summary>
-    public readonly record struct RebarAcrcParsed(double XMm, double YMm, double PsiS, double AcrcMm);
+    public readonly record struct RebarAcrcParsed(
+        double XMm, double YMm, double PsiS, double AcrcLongMm, double PsiS2, double AcrcShortMm);
 
     /// <summary>
     /// Разбирает "acrc_by_rebar" из DataJson задачи crack_width — используется и таблицей
@@ -92,9 +94,11 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
             foreach (var el in arr.EnumerateArray())
             {
                 if (!el.TryGetProperty("x", out var xEl) || !el.TryGetProperty("y", out var yEl)
-                    || !el.TryGetProperty("psi_s", out var psEl) || !el.TryGetProperty("acrc_mm", out var acEl))
+                    || !el.TryGetProperty("psi_s", out var psEl) || !el.TryGetProperty("acrc_long_mm", out var aclEl)
+                    || !el.TryGetProperty("psi_s2", out var ps2El) || !el.TryGetProperty("acrc_short_mm", out var acsEl))
                     continue;
-                result.Add(new RebarAcrcParsed(xEl.GetDouble(), yEl.GetDouble(), psEl.GetDouble(), acEl.GetDouble()));
+                result.Add(new RebarAcrcParsed(xEl.GetDouble(), yEl.GetDouble(),
+                    psEl.GetDouble(), aclEl.GetDouble(), ps2El.GetDouble(), acsEl.GetDouble()));
             }
         }
         catch { /* пустой список — таблица/тултип просто не покажут доп. колонку */ }
@@ -222,7 +226,9 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
                         $"{f.Eps:+0.00000;-0.00000}",
                         $"{f.Sig / 1000.0:+0.0;-0.0}",
                         nearest.HasValue ? $"{nearest.Value.PsiS:0.000}" : "—",
-                        nearest.HasValue ? $"{nearest.Value.AcrcMm:0.000}" : "—"));
+                        nearest.HasValue ? $"{nearest.Value.AcrcLongMm:0.000}" : "—",
+                        nearest.HasValue ? $"{nearest.Value.PsiS2:0.000}" : "—",
+                        nearest.HasValue ? $"{nearest.Value.AcrcShortMm:0.000}" : "—"));
                 }
         }
 

@@ -185,7 +185,9 @@ public sealed class CrackWidthHandler : ITaskHandler
                     x = Math.Round(e.X * 1000.0, 2),
                     y = Math.Round(e.Y * 1000.0, 2),
                     psi_s = Math.Round(e.PsiS, 4),
-                    acrc_mm = Math.Round(e.AcrcMm, 4)
+                    acrc_long_mm = Math.Round(e.AcrcLongMm, 4),
+                    psi_s2 = Math.Round(e.PsiS2, 4),
+                    acrc_short_mm = Math.Round(e.AcrcShortMm, 4)
                 }).ToArray(),
                 eta = etaData
             };

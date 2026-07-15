@@ -41,7 +41,8 @@ public partial class CrackWidthResultView : UserControl
         {
             var nearest = CrackWidthSummaryVM.FindNearest(acrcByRebar, xM * 1000.0, yM * 1000.0);
             return nearest.HasValue
-                ? $"ψs = {nearest.Value.PsiS:0.000}   acrc = {nearest.Value.AcrcMm:0.000} мм"
+                ? $"ψs(дл.) = {nearest.Value.PsiS:0.000}   acrc(дл.) = {nearest.Value.AcrcLongMm:0.000} мм\n" +
+                  $"ψs(кратк.) = {nearest.Value.PsiS2:0.000}   acrc(кратк.) = {nearest.Value.AcrcShortMm:0.000} мм"
                 : null;
         }
         var stressVm = new SectionPlotVM(section, k.Value, CalcType.N, SectionPlotMode.Stress, settings, ten: false, extraRebarTooltip: RebarTooltip);

@@ -169,10 +169,12 @@
                   <DataGridTextColumn Header="№"      Binding="{Binding Num}"   Width="36"/>
                   <DataGridTextColumn Header="x, мм"  Binding="{Binding X}"     Width="72"/>
                   <DataGridTextColumn Header="y, мм"  Binding="{Binding Y}"     Width="72"/>
-                  <DataGridTextColumn Header="ε"        Binding="{Binding Eps}"    Width="100"/>
-                  <DataGridTextColumn Header="σ, МПа"   Binding="{Binding Sigma}"  Width="90"/>
-                  <DataGridTextColumn Header="ψs"       Binding="{Binding PsiS}"   Width="70"/>
-                  <DataGridTextColumn Header="acrc, мм" Binding="{Binding AcrcMm}" Width="90"/>
+                  <DataGridTextColumn Header="ε"                 Binding="{Binding Eps}"          Width="100"/>
+                  <DataGridTextColumn Header="σ, МПа"            Binding="{Binding Sigma}"        Width="90"/>
+                  <DataGridTextColumn Header="ψs (дл.)"          Binding="{Binding PsiS}"          Width="70"/>
+                  <DataGridTextColumn Header="acrc, мм (дл.)"    Binding="{Binding AcrcLongMm}"    Width="100"/>
+                  <DataGridTextColumn Header="ψs (кратк.)"       Binding="{Binding PsiS2}"         Width="80"/>
+                  <DataGridTextColumn Header="acrc, мм (кратк.)" Binding="{Binding AcrcShortMm}"   Width="110"/>
                </DataGrid.Columns>
             </DataGrid>
          </GroupBox>
