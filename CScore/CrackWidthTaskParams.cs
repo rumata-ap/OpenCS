@@ -25,6 +25,13 @@ public sealed class CrackWidthTaskParams
     /// <summary>Доля длительной нагрузки от полной (режим "share").</summary>
     public double LongShare { get; set; } = 0.7;
 
+    /// <summary>
+    /// Использовать CalcType.NL (вместо N) при расчёте длительной части раскрытия трещин
+    /// (acrcLong). Кратковременная часть (acrc2) и момент трещинообразования (calcCrc=CL)
+    /// не затрагиваются.
+    /// </summary>
+    public bool LongPartUseNL { get; set; } = false;
+
     /// <summary>FK → ForceSet длительных нагрузок (режим "two_sets", batch).</summary>
     public int? ForceSetLongId { get; set; }
 
