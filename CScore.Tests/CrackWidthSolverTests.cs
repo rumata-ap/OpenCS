@@ -144,4 +144,55 @@ public class CrackWidthSolverTests
         Assert.True(Math.Abs(resNL.AcrcLong - resN.AcrcLong) > 1e-6);
         Assert.True(Math.Abs(resNL.Acrc1 - resN.Acrc1) > 1e-6);
     }
+
+    [Fact]
+    public void Compute_ExplicitPhi3_ScalesAcrcProportionally()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
+        var solver = new CrackWidthSolver(section);
+
+        var res10 = solver.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 2.5, phi3: 1.0);
+        var res12 = solver.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 2.5, phi3: 1.2);
+
+        Assert.True(res10.Cracked);
+        Assert.True(res12.Cracked);
+        Assert.Equal(res10.AcrcLong * 1.2, res12.AcrcLong, 6);
+    }
+
+    // п. 8.2.15: φ3 = 1.2 для растянутых элементов (N > 0, знак "+" = растяжение),
+    // 1.0 для изгибаемых/внецентренно сжатых. При phi3 = null Compute должен выбирать
+    // его автоматически по знаку N (тот же признак, что и в FemCheckRunner для плит).
+    [Fact]
+    public void Compute_TensileN_AutoSelectsPhi3OnePointTwo()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
+        var solver = new CrackWidthSolver(section);
+
+        const double n = 1.0; // небольшое растяжение, знак "+"
+        var resAuto = solver.Compute(N: n, mxLong: mcrc * 2.5, mxTotal: mcrc * 2.5);
+        var resExplicit10 = solver.Compute(N: n, mxLong: mcrc * 2.5, mxTotal: mcrc * 2.5, phi3: 1.0);
+
+        Assert.True(resAuto.Cracked);
+        Assert.True(resExplicit10.Cracked);
+        Assert.Equal(resExplicit10.AcrcLong * 1.2, resAuto.AcrcLong, 6);
+    }
+
+    [Fact]
+    public void Compute_Phi2Override_ScalesAcrcProportionally()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
+
+        var solverDefault = new CrackWidthSolver(section);
+        var solverSmooth  = new CrackWidthSolver(section, phi2: 0.8);
+
+        var resDefault = solverDefault.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 2.5);
+        var resSmooth  = solverSmooth.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 2.5);
+
+        Assert.True(resDefault.Cracked);
+        Assert.True(resSmooth.Cracked);
+        Assert.Equal(resDefault.AcrcLong * (0.8 / 0.5), resSmooth.AcrcLong, 6);
+    }
 }

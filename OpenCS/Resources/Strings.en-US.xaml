@@ -1440,6 +1440,8 @@
     <system:String x:Key="CrackWidthParamsHeader">Crack calculation parameters</system:String>
     <system:String x:Key="CrackWidth_AcrcUltLong">Long-term acrc limit, mm</system:String>
     <system:String x:Key="CrackWidth_AcrcUltShort">Short-term acrc limit, mm</system:String>
+    <system:String x:Key="CrackWidth_Phi2">φ2 (rebar profile)</system:String>
+    <system:String x:Key="CrackWidth_Phi2Hint">Longitudinal rebar profile coefficient (cl. 8.2.15): 0.5 — ribbed or rope, 0.8 — smooth.</system:String>
     <system:String x:Key="CrackWidth_ForcesMode">Long-term load mode</system:String>
     <system:String x:Key="CrackWidth_Mode_total_only">Total load only</system:String>
     <system:String x:Key="CrackWidth_Mode_share">Share of total</system:String>
@@ -1477,6 +1479,10 @@
     <system:String x:Key="CrackWidth_AcrcRowLabel">acrc</system:String>
     <system:String x:Key="CrackWidth_AcrcUltRowLabel">acrc,ult</system:String>
     <system:String x:Key="CrackWidth_PassedRowLabel">Passed</system:String>
+    <system:String x:Key="CrackWidth_PsiSRowLabel">ψs</system:String>
+    <system:String x:Key="CrackWidth_Acrc1RowLabel">acrc1</system:String>
+    <system:String x:Key="CrackWidth_Acrc2RowLabel">acrc2</system:String>
+    <system:String x:Key="CrackWidth_Acrc3RowLabel">acrc3</system:String>
 
    <system:String x:Key="SectionCutButton">Cut</system:String>
    <system:String x:Key="SectionCutModeGradient">By gradient</system:String>

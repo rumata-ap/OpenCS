@@ -1443,6 +1443,8 @@
     <system:String x:Key="CrackWidthParamsHeader">Параметры расчёта трещин</system:String>
     <system:String x:Key="CrackWidth_AcrcUltLong">Пред. продолжит. acrc, мм</system:String>
     <system:String x:Key="CrackWidth_AcrcUltShort">Пред. непродолжит. acrc, мм</system:String>
+    <system:String x:Key="CrackWidth_Phi2">φ2 (профиль арматуры)</system:String>
+    <system:String x:Key="CrackWidth_Phi2Hint">Коэффициент профиля продольной арматуры (п. 8.2.15): 0.5 — периодического профиля и канатная, 0.8 — гладкая.</system:String>
     <system:String x:Key="CrackWidth_ForcesMode">Режим длительной нагрузки</system:String>
     <system:String x:Key="CrackWidth_Mode_total_only">Только полная нагрузка</system:String>
     <system:String x:Key="CrackWidth_Mode_share">Доля от полной</system:String>
@@ -1480,6 +1482,10 @@
     <system:String x:Key="CrackWidth_AcrcRowLabel">acrc</system:String>
     <system:String x:Key="CrackWidth_AcrcUltRowLabel">acrc,ult</system:String>
     <system:String x:Key="CrackWidth_PassedRowLabel">Прошло</system:String>
+    <system:String x:Key="CrackWidth_PsiSRowLabel">ψs</system:String>
+    <system:String x:Key="CrackWidth_Acrc1RowLabel">acrc1</system:String>
+    <system:String x:Key="CrackWidth_Acrc2RowLabel">acrc2</system:String>
+    <system:String x:Key="CrackWidth_Acrc3RowLabel">acrc3</system:String>
 
    <system:String x:Key="SectionCutButton">Разрез</system:String>
    <system:String x:Key="SectionCutModeGradient">По градиенту</system:String>

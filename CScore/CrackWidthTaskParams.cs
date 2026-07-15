@@ -19,6 +19,12 @@ public sealed class CrackWidthTaskParams
     public double AcrcUltLong { get; set; } = 0.3;
     public double AcrcUltShort { get; set; } = 0.4;
 
+    /// <summary>
+    /// Коэффициент профиля продольной арматуры φ2 (п. 8.2.15): 0.5 — периодического
+    /// профиля и канатная (по умолчанию), 0.8 — гладкая.
+    /// </summary>
+    public double Phi2 { get; set; } = 0.5;
+
     /// <summary>"total_only" | "share" | "two_sets" (batch) | "manual" | "force_item_long" (single).</summary>
     public string ForcesMode { get; set; } = "total_only";
 

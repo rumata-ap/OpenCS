@@ -22,7 +22,13 @@ public sealed class CrackWidthResult
     public double SigmaS { get; set; }
     /// <summary>То же при образовании трещин (на той же диаграмме, что и SigmaS), кПа.</summary>
     public double SigmaSCrc { get; set; }
+    /// <summary>ψs для acrc1/acrc3 (длительная нагрузка, п. 8.2.18).</summary>
     public double PsiS { get; set; }
+    /// <summary>
+    /// ψs для acrc2 (полная кратковременная нагрузка) — считается на паре σs,total/σs,crc,short,
+    /// поэтому в общем случае отличается от <see cref="PsiS"/>.
+    /// </summary>
+    public double PsiS2 { get; set; }
     /// <summary>Базовое расстояние между трещинами, м.</summary>
     public double Ls { get; set; }
     /// <summary>Эквивалентный диаметр растянутой арматуры, м.</summary>
@@ -416,14 +422,20 @@ public sealed class CrackWidthSolver
     }
 
     /// <summary>Вычислить ширину раскрытия нормальных трещин.</summary>
+    /// <param name="phi3">
+    /// Коэффициент вида нагружения (п. 8.2.15): 1.0 — изгибаемые и внецентренно сжатые,
+    /// 1.2 — растянутые элементы. При null определяется автоматически по знаку N
+    /// (N > 0 — растяжение, тем же способом, что и в FemCheckRunner для плит).
+    /// </param>
     public CrackWidthResult Compute(
         double N,
         double mxLong,
         double? mxTotal = null,
         double myLong = 0.0,
         double? myTotal = null,
-        double phi3 = 1.0)
+        double? phi3 = null)
     {
+        double phi3Eff = phi3 ?? (N > 1e-3 ? 1.2 : 1.0);
         double mxTot = mxTotal ?? mxLong;
         double myTot = myTotal ?? myLong;
 
@@ -506,9 +518,9 @@ public sealed class CrackWidthSolver
 
         double esKPa = RebarEsKPa(_section);
 
-        var (acrc1, psiS) = SingleAcrc(sigmaLongKPa, sigmaCrcLongKPa, lsM, phi1: 1.4, phi3: phi3, esKPa: esKPa);
-        var (acrc3, _) = SingleAcrc(sigmaLongKPa, sigmaCrcLongKPa, lsM, phi1: 1.0, phi3: phi3, esKPa: esKPa);
-        var (acrc2, _) = SingleAcrc(sigmaTotalKPa, sigmaCrcShortKPa, lsM, phi1: 1.0, phi3: phi3, esKPa: esKPa);
+        var (acrc1, psiS) = SingleAcrc(sigmaLongKPa, sigmaCrcLongKPa, lsM, phi1: 1.4, phi3: phi3Eff, esKPa: esKPa);
+        var (acrc3, _) = SingleAcrc(sigmaLongKPa, sigmaCrcLongKPa, lsM, phi1: 1.0, phi3: phi3Eff, esKPa: esKPa);
+        var (acrc2, psiS2) = SingleAcrc(sigmaTotalKPa, sigmaCrcShortKPa, lsM, phi1: 1.0, phi3: phi3Eff, esKPa: esKPa);
 
         double acrcLong = acrc1;
         double acrcShort = acrc1 + acrc2 - acrc3;
@@ -538,6 +550,7 @@ public sealed class CrackWidthSolver
             SigmaS = sigmaLongKPa,
             SigmaSCrc = sigmaCrcLongKPa,
             PsiS = psiS,
+            PsiS2 = psiS2,
             Ls = lsM,
             DsEq = dsEq,
             AsTens = asTens,

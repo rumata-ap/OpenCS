@@ -76,6 +76,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     // Crack width
     string crackWidthAcrcUltLong = "0.3";
     string crackWidthAcrcUltShort = "0.4";
+    string crackWidthPhi2 = "0.5";
     string crackWidthForcesMode = "total_only";
     string crackWidthLongShare = "0.7";
     bool crackWidthLongPartUseNL;
@@ -482,6 +483,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    public string CrackWidthAcrcUltLong  { get => crackWidthAcrcUltLong;  set { crackWidthAcrcUltLong  = value; OnPropertyChanged(); } }
    public string CrackWidthAcrcUltShort { get => crackWidthAcrcUltShort; set { crackWidthAcrcUltShort = value; OnPropertyChanged(); } }
+   public string CrackWidthPhi2         { get => crackWidthPhi2;         set { crackWidthPhi2         = value; OnPropertyChanged(); } }
    public string CrackWidthLongShare    { get => crackWidthLongShare;    set { crackWidthLongShare    = value; OnPropertyChanged(); } }
    public bool   CrackWidthLongPartUseNL { get => crackWidthLongPartUseNL; set { crackWidthLongPartUseNL = value; OnPropertyChanged(); } }
    public string CrackWidthManualNLong  { get => crackWidthManualNLong;  set { crackWidthManualNLong  = value; OnPropertyChanged(); } }
@@ -1033,6 +1035,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              var inv = System.Globalization.CultureInfo.InvariantCulture;
              CrackWidthAcrcUltLong  = cwp.AcrcUltLong.ToString("G6", inv);
              CrackWidthAcrcUltShort = cwp.AcrcUltShort.ToString("G6", inv);
+             CrackWidthPhi2         = cwp.Phi2.ToString("G6", inv);
              CrackWidthForcesMode   = cwp.ForcesMode;
              CrackWidthLongShare    = cwp.LongShare.ToString("G6", inv);
              CrackWidthLongPartUseNL = cwp.LongPartUseNL;
@@ -1459,12 +1462,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          var invCw = System.Globalization.CultureInfo.InvariantCulture;
          double.TryParse(CrackWidthAcrcUltLong,  System.Globalization.NumberStyles.Float, invCw, out var acrcLong);
          double.TryParse(CrackWidthAcrcUltShort, System.Globalization.NumberStyles.Float, invCw, out var acrcShort);
+         double.TryParse(CrackWidthPhi2,         System.Globalization.NumberStyles.Float, invCw, out var phi2);
          double.TryParse(CrackWidthLongShare,    System.Globalization.NumberStyles.Float, invCw, out var longShare);
 
          var cwp = new CrackWidthTaskParams
          {
             AcrcUltLong = acrcLong,
             AcrcUltShort = acrcShort,
+            Phi2 = phi2,
             ForcesMode = CrackWidthForcesMode,
             LongShare = longShare,
             LongPartUseNL = CrackWidthLongPartUseNL

@@ -43,6 +43,10 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
 
     public string SigmaSText { get; } = "—";
     public string PsiSText { get; } = "—";
+    public string PsiSShortText { get; } = "—";
+    public string Acrc1Text { get; } = "—";
+    public string Acrc2Text { get; } = "—";
+    public string Acrc3Text { get; } = "—";
     public string LsText { get; } = "—";
     public string DsEqText { get; } = "—";
     public string AsTensText { get; } = "—";
@@ -129,6 +133,10 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
 
         SigmaSText = NumUnit(root, "sigma_s", "МПа");
         PsiSText = NumRaw(root, "psi_s");
+        PsiSShortText = NumRaw(root, "psi_s2");
+        Acrc1Text = NumUnit(root, "acrc1", "мм");
+        Acrc2Text = NumUnit(root, "acrc2", "мм");
+        Acrc3Text = NumUnit(root, "acrc3", "мм");
         LsText = NumUnit(root, "ls", "мм");
         DsEqText = NumUnit(root, "ds_eq", "мм");
         AsTensText = NumUnit(root, "As_tens", "см²");

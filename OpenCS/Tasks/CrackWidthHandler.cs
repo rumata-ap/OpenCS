@@ -132,6 +132,7 @@ public sealed class CrackWidthHandler : ITaskHandler
             var solver = new CrackWidthSolver(section,
                 calcCrc: calcCrc, calcService: CalcType.N,
                 calcServiceLong: p.LongPartUseNL ? CalcType.NL : (CalcType?)null,
+                phi2: p.Phi2,
                 acrcUltLong: p.AcrcUltLong, acrcUltShort: p.AcrcUltShort,
                 sp63EtaMin: settings.Sp63DescEtaMin);
 
@@ -164,6 +165,10 @@ public sealed class CrackWidthHandler : ITaskHandler
                 h0 = Math.Round(res.H0 * 1000.0, 1),
                 sigma_s = Math.Round(res.SigmaS / 1000.0, 2),
                 psi_s = Math.Round(res.PsiS, 4),
+                psi_s2 = Math.Round(res.PsiS2, 4),
+                acrc1 = Math.Round(res.Acrc1, 4),
+                acrc2 = Math.Round(res.Acrc2, 4),
+                acrc3 = Math.Round(res.Acrc3, 4),
                 ls = Math.Round(res.Ls * 1000.0, 2),
                 ds_eq = Math.Round(res.DsEq * 1000.0, 2),
                 As_tens = Math.Round(res.AsTens * 1e4, 4),
