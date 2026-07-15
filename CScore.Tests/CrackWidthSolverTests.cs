@@ -296,4 +296,35 @@ public class CrackWidthSolverTests
         Assert.True(res.PsiS > 0.0);
         Assert.True(res.PsiS <= 1.0);
     }
+
+    // Инженерное уточнение сверх буквы нормы (актуально при косом изгибе, где стержни в
+    // растянутой зоне напряжены существенно неравномерно): As_tens/ds_eq считаются не
+    // "в лоб" (полная площадь любого стержня с eps>0), а с весом σi/σ_max — вклад слабо
+    // растянутого стержня (у нейтральной оси) в As_tens и ls уменьшается пропорционально
+    // тому, насколько он менее напряжён, чем самый растянутый стержень. Слой 2 (y0+0.20,
+    // ближе к нейтральной оси) в растянутой зоне, но заметно слабее слоя 1 (y0+0.04) —
+    // взвешенная As_tens должна оказаться строго между "только слой 1" и "оба слоя в лоб".
+    [Fact]
+    public void Compute_WeaklyStressedSecondLayer_AsTensWeightedBetweenLayer1AndNaiveSum()
+    {
+        const double diam = 0.016;
+        var section = TestSections.RectWithTwoBottomRebarLayers(diam: diam);
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
+
+        var solver = new CrackWidthSolver(section);
+        var res = solver.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 2.5);
+
+        Assert.True(res.Cracked);
+
+        double areaOneBar = Math.PI * diam * diam / 4.0;
+        double layer1Area = 2.0 * areaOneBar;
+        double naiveTotalArea = 4.0 * areaOneBar;
+
+        Assert.True(res.AsTens > layer1Area);
+        Assert.True(res.AsTens < naiveTotalArea);
+
+        // Диаметр одинаковый у всех стержней — эквивалентный диаметр не должен зависеть
+        // от веса (взвешенное среднее константы равно самой константе).
+        Assert.Equal(diam, res.DsEq, 6);
+    }
 }

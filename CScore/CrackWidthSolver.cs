@@ -56,7 +56,12 @@ public sealed class CrackWidthResult
     public double Ls { get; set; }
     /// <summary>Эквивалентный диаметр растянутой арматуры, м.</summary>
     public double DsEq { get; set; }
-    /// <summary>Площадь растянутой арматуры, м².</summary>
+    /// <summary>
+    /// Приведённая площадь растянутой арматуры, м² — с весом σi/σs (см.
+    /// <see cref="CrackWidthSolver"/>.TensileRebarProps): слабо растянутый стержень (у
+    /// нейтральной оси) входит в сумму не полной площадью, а пропорционально своей доле
+    /// напряжения от самого растянутого стержня.
+    /// </summary>
     public double AsTens { get; set; }
     /// <summary>Площадь растянутого бетона (ограниченная), м².</summary>
     public double Abt { get; set; }
@@ -308,12 +313,45 @@ public sealed class CrackWidthSolver
     /// Использует СОБСТВЕННУЮ (не разностную) диаграмму материала стержня на диаграмме
     /// <paramref name="calcType"/> — не зависит от того, построены ли в MaterialArea.Diagramms
     /// разностные (сталь-бетон) кривые.
+    /// <para>
+    /// As_tens/ds_eq считаются НЕ "в лоб" (полная площадь любого стержня с eps&gt;0), а с
+    /// весом σi/σ_max — инженерное уточнение сверх буквы п.8.2.17 (там просто "площадь
+    /// растянутой арматуры"), актуальное при косом изгибе: стержень у самой нейтральной оси
+    /// формально в растяжении, но почти не работает, и учёт его площади наравне со стержнем
+    /// у растянутой грани занижал бы ls (и, как следствие, acrc) без физических оснований.
+    /// Центр тяжести растянутой арматуры (yTensCentroid, для a_cover/h0) — геометрическая
+    /// величина, взвешиванию не подлежит, считается по полной площади.
+    /// </para>
     /// </summary>
     (double sigmaMaxKPa, double epsAtSigmaMax, double asTens, double dsEq, double aCoverEff, double yTensCentroid)
         TensileRebarProps(CrossSection section, Kurvature k, CalcType calcType)
     {
         double sigmaMax = 0.0, epsAtSigmaMax = 0.0;
-        double asSum = 0.0, asDSum = 0.0, aySum = 0.0;
+
+        // Первый проход: найти σ_max среди растянутых стержней — база для веса σi/σ_max.
+        foreach (var (area, ka) in section.EnumerateAreas(k))
+        {
+            if (!IsRebar(area)) continue;
+            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin);
+            if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcType, out var ownDgr)) continue;
+
+            foreach (var f in area.Fibers)
+            {
+                if (f.TypeFiber != FiberType.point) continue;
+                double eps = ka.e0 + ka.ky * f.Y + ka.kz * f.X;
+                if (eps <= 0.0) continue;
+
+                double sig = ownDgr.Sig(eps, out _);
+                if (sig > sigmaMax) { sigmaMax = sig; epsAtSigmaMax = eps; }
+            }
+        }
+
+        if (sigmaMax < 1e-9) return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+        // Второй проход: взвешенные As_tens/ds_eq (вес σi/σ_max) и "чистый" (без
+        // взвешивания) центр тяжести растянутой арматуры.
+        double asWeighted = 0.0, asDWeighted = 0.0;
+        double asPlain = 0.0, ayPlain = 0.0;
 
         foreach (var (area, ka) in section.EnumerateAreas(k))
         {
@@ -330,17 +368,18 @@ public sealed class CrackWidthSolver
                 double sig = ownDgr.Sig(eps, out _);
                 if (sig <= 0.0) continue;
 
-                if (sig > sigmaMax) { sigmaMax = sig; epsAtSigmaMax = eps; }
-                asSum += f.Area;
-                asDSum += f.Area * f.Diameter;
-                aySum += f.Area * f.Y;
+                double w = sig / sigmaMax;
+                asWeighted += f.Area * w;
+                asDWeighted += f.Area * w * f.Diameter;
+                asPlain += f.Area;
+                ayPlain += f.Area * f.Y;
             }
         }
 
-        if (asSum < 1e-15) return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        if (asWeighted < 1e-15) return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 
-        double dsEq = asDSum / asSum;
-        double yTensCentroid = aySum / asSum;
+        double dsEq = asDWeighted / asWeighted;
+        double yTensCentroid = ayPlain / asPlain;
 
         var concreteVertices = ConcreteVertices();
         double aCoverEff;
@@ -349,7 +388,7 @@ public sealed class CrackWidthSolver
         else
             aCoverEff = Math.Abs(yTensCentroid - concreteVertices.Min(p => p.Y));
 
-        return (sigmaMax, epsAtSigmaMax, asTens: asSum, dsEq, aCoverEff, yTensCentroid);
+        return (sigmaMax, epsAtSigmaMax, asTens: asWeighted, dsEq, aCoverEff, yTensCentroid);
     }
 
     (double sigmaMaxKPa, double epsAtSigmaMax) SigmaSFromPlane(Kurvature k, CalcType calcType)
