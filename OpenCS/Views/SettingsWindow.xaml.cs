@@ -228,6 +228,7 @@ namespace OpenCS.Views
          ShellWarmStartCb.IsChecked  = _calcSettings.ShellWarmStart;
          RebarDifferentialDiagramCb.IsChecked = _calcSettings.RebarDifferentialDiagram;
          ConsiderConcreteTensionUlsCb.IsChecked = _calcSettings.ConsiderConcreteTensionUls;
+         PsiSMethodCombo.SelectedIndex = _calcSettings.CrackWidthPsiSMethod == "strain8232" ? 1 : 0;
          UpdateCalcSwatches();
       }
 
@@ -324,6 +325,11 @@ namespace OpenCS.Views
          RebarDifferentialDiagramCb.Unchecked += (_, _) => _calcSettings.RebarDifferentialDiagram = false;
          ConsiderConcreteTensionUlsCb.Checked   += (_, _) => _calcSettings.ConsiderConcreteTensionUls = true;
          ConsiderConcreteTensionUlsCb.Unchecked += (_, _) => _calcSettings.ConsiderConcreteTensionUls = false;
+         PsiSMethodCombo.SelectionChanged += (_, _) =>
+         {
+            _calcSettings.CrackWidthPsiSMethod =
+               (PsiSMethodCombo.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag as string ?? "stress8138";
+         };
       }
 
       static void HookSp20GammaBox(System.Windows.Controls.TextBox box, Action<double> setter)

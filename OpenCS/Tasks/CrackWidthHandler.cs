@@ -134,7 +134,8 @@ public sealed class CrackWidthHandler : ITaskHandler
                 calcServiceLong: p.LongPartUseNL ? CalcType.NL : (CalcType?)null,
                 phi2: p.Phi2,
                 acrcUltLong: p.AcrcUltLong, acrcUltShort: p.AcrcUltShort,
-                sp63EtaMin: settings.Sp63DescEtaMin);
+                sp63EtaMin: settings.Sp63DescEtaMin,
+                psiSMethod: settings.ResolvePsiSMethod());
 
             var res = solver.Compute(N: nTotal, mxLong: mxLong, mxTotal: mxTotal, myLong: myLong, myTotal: myTotal);
 

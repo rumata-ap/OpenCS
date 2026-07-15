@@ -115,6 +115,19 @@ namespace OpenCS.Utilites
       public bool ResolveConcreteTension(CScore.CalcType calc)
          => calc is CScore.CalcType.C or CScore.CalcType.CL ? ConsiderConcreteTensionUls : true;
 
+      /// <summary>
+      /// Метод коэффициента ψs (неравномерность деформаций растянутой арматуры между
+      /// трещинами) в задачах ширины раскрытия трещин: "stress8138" (п. 8.2.18, по
+      /// отношению напряжений, по умолчанию) | "strain8232" (п. 8.2.32, по отношению
+      /// деформаций).
+      /// </summary>
+      [JsonPropertyName("crackWidthPsiSMethod")]
+      public string CrackWidthPsiSMethod { get; set; } = "stress8138";
+
+      /// <summary>Разобранное значение <see cref="CrackWidthPsiSMethod"/> для передачи в CrackWidthSolver.</summary>
+      public CScore.PsiSMethod ResolvePsiSMethod()
+         => CrackWidthPsiSMethod == "strain8232" ? CScore.PsiSMethod.Strain8232 : CScore.PsiSMethod.Stress8138;
+
       /// <summary>γf по умолчанию для постоянной нагрузки (G), неблагоприятно.</summary>
       [JsonPropertyName("sp20GammaFG")]
       public double Sp20GammaFPermanent { get; set; } = 1.1;
@@ -161,6 +174,7 @@ namespace OpenCS.Utilites
          SmoothColormap        = SmoothColormap,
          RebarDifferentialDiagram = RebarDifferentialDiagram,
          ConsiderConcreteTensionUls = ConsiderConcreteTensionUls,
+         CrackWidthPsiSMethod  = CrackWidthPsiSMethod,
          Sp20GammaFPermanent      = Sp20GammaFPermanent,
          Sp20GammaFPermanentFav   = Sp20GammaFPermanentFav,
          Sp20GammaFLongTerm       = Sp20GammaFLongTerm,

@@ -97,6 +97,10 @@
    <system:String x:Key="CalcSettingsRcGroup">Ж/б сечение</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagram">Учёт уменьшения площади бетона, замещённой площадью арматуры</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagramTip">При включении для арматуры в бетоне учитывается уменьшение площади бетона, замещённой площадью стержня (разностная диаграмма σ_st − σ_bc). При выключении — чистая диаграмма стали, бетонная сетка включает площадь под арматурой.</system:String>
+   <system:String x:Key="CalcSettingsPsiSMethod">Метод коэффициента ψs (раскрытие трещин)</system:String>
+   <system:String x:Key="CalcSettingsPsiSMethodStress">п. 8.2.18 — по напряжениям</system:String>
+   <system:String x:Key="CalcSettingsPsiSMethodStrain">п. 8.2.32 — по деформациям</system:String>
+   <system:String x:Key="CalcSettingsPsiSMethodTip">Как считать ψs (неравномерность деформаций растянутой арматуры между трещинами) в задачах ширины раскрытия трещин: по отношению напряжений σs,crc/σs (формула 8.138, п. 8.2.18 — стандартный способ) или по отношению деформаций εs,crc/εs (формула деформационной модели, п. 8.2.32). При упругой арматуре второй вариант даёт немного больший ψs (и, соответственно, ширину раскрытия) при том же нагружении.</system:String>
    <system:String x:Key="CalcSettingsConsiderConcreteTensionUls">Учитывать работу бетона на растяжение при расчётах по 1-й ГПС</system:String>
    <system:String x:Key="CalcSettingsConsiderConcreteTensionUlsTip">Влияет на поиск предельных усилий и плоскости деформаций при CalcType C/CL — для стержневых и пластинчатых сечений. На 2-ю ГПС (N/NL) не влияет. Для пластин перекрывает флаг «Учёт растяжения бетона» страницы сечения только в этом режиме.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Пакетные задачи</system:String>

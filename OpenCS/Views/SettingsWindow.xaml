@@ -364,6 +364,23 @@
                                           Content="{DynamicResource CalcSettingsConsiderConcreteTensionUls}"
                                           ToolTip="{DynamicResource CalcSettingsConsiderConcreteTensionUlsTip}"
                                           Margin="4,2,4,6"/>
+                                <Grid Margin="4,2,4,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="180"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{DynamicResource CalcSettingsPsiSMethod}"
+                                               VerticalAlignment="Center"
+                                               ToolTip="{DynamicResource CalcSettingsPsiSMethodTip}"/>
+                                    <ComboBox Grid.Column="1"
+                                              x:Name="PsiSMethodCombo"
+                                              VerticalContentAlignment="Center"
+                                              ToolTip="{DynamicResource CalcSettingsPsiSMethodTip}">
+                                        <ComboBoxItem Tag="stress8138" Content="{DynamicResource CalcSettingsPsiSMethodStress}"/>
+                                        <ComboBoxItem Tag="strain8232" Content="{DynamicResource CalcSettingsPsiSMethodStrain}"/>
+                                    </ComboBox>
+                                </Grid>
                             </StackPanel>
                         </GroupBox>
                         <GroupBox Header="{DynamicResource CalcSettingsBatchGroup}" Margin="0,0,0,10">

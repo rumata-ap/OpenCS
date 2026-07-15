@@ -96,6 +96,10 @@
    <system:String x:Key="CalcSettingsRcGroup">RC cross-section</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagram">Account for concrete area reduction replaced by rebar</system:String>
    <system:String x:Key="CalcSettingsRebarDifferentialDiagramTip">When enabled, rebar in concrete accounts for concrete area displaced by the bar (differential diagram σ_st − σ_bc). When disabled, the pure steel diagram is used and the concrete mesh includes the bar footprint.</system:String>
+   <system:String x:Key="CalcSettingsPsiSMethod">ψs coefficient method (crack width)</system:String>
+   <system:String x:Key="CalcSettingsPsiSMethodStress">§8.2.18 — stress ratio</system:String>
+   <system:String x:Key="CalcSettingsPsiSMethodStrain">§8.2.32 — strain ratio</system:String>
+   <system:String x:Key="CalcSettingsPsiSMethodTip">How ψs (non-uniform strain distribution of tensioned rebar between cracks) is computed in crack-width tasks: from the stress ratio σs,crc/σs (formula 8.138, §8.2.18 — the standard approach) or from the strain ratio εs,crc/εs (deformation-model formula, §8.2.32). For elastic rebar the strain-based variant gives a slightly larger ψs (and hence crack width) under the same loading.</system:String>
    <system:String x:Key="CalcSettingsConsiderConcreteTensionUls">Account for concrete tension in ULS (limit state 1) checks</system:String>
    <system:String x:Key="CalcSettingsConsiderConcreteTensionUlsTip">Affects limit-force and strain-plane search for CalcType C/CL — for both bar and plate sections. Does not affect SLS (N/NL). For plates, overrides the section page's "Concrete tension" flag only in this mode.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Batch Tasks</system:String>

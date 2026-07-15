@@ -50,7 +50,8 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                 calcServiceLong: p.LongPartUseNL ? CalcType.NL : (CalcType?)null,
                 phi2: p.Phi2,
                 acrcUltLong: p.AcrcUltLong, acrcUltShort: p.AcrcUltShort,
-                sp63EtaMin: settings.Sp63DescEtaMin);
+                sp63EtaMin: settings.Sp63DescEtaMin,
+                psiSMethod: settings.ResolvePsiSMethod());
 
             var etaParams = LimitForceParams.Parse(task.ParamsJson);
             double etaThreshold = etaParams.EtaSlendernessThreshold
