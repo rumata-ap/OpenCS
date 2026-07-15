@@ -4,6 +4,24 @@ using System.Linq;
 
 namespace CScore;
 
+/// <summary>
+/// Метод вычисления коэффициента ψs (неравномерность деформаций растянутой арматуры
+/// между трещинами) в задаче ширины раскрытия трещин.
+/// </summary>
+public enum PsiSMethod
+{
+    /// <summary>П. 8.2.18, формула 8.138: ψs = 1 − 0.8·σs,crc/σs (по отношению напряжений).</summary>
+    Stress8138,
+    /// <summary>
+    /// П. 8.2.32, формула деформационной модели: ψs = 1 / (1 + 0.8·εs,crc/εs) (по отношению
+    /// деформаций). Норма относит эту формулу к расчёту кривизны/жёсткости (многослойная
+    /// деформационная модель), а не к формуле раскрытия трещин 8.2.15 — здесь применяется
+    /// как внормативно допускаемая альтернатива к тому же "представительному" стержню,
+    /// что и Stress8138 (без встраивания в саму итерацию равновесия).
+    /// </summary>
+    Strain8232
+}
+
 /// <summary>Результат расчёта ширины раскрытия нормальных трещин (СП 63.13330 п.8.2). Все ширины — в мм.</summary>
 public sealed class CrackWidthResult
 {
@@ -77,6 +95,7 @@ public sealed class CrackWidthSolver
     readonly double _acrcUltShort;
     readonly double _sp63EtaMin;
     readonly double _solverTol;
+    readonly PsiSMethod _psiSMethod;
 
     public CrackWidthSolver(
         CrossSection section,
@@ -87,7 +106,8 @@ public sealed class CrackWidthSolver
         double acrcUltLong = 0.3,
         double acrcUltShort = 0.4,
         double sp63EtaMin = 0.85,
-        double solverTol = 0.5)
+        double solverTol = 0.5,
+        PsiSMethod psiSMethod = PsiSMethod.Stress8138)
     {
         _section = section ?? throw new ArgumentNullException(nameof(section));
         _calcCrc = calcCrc;
@@ -98,6 +118,7 @@ public sealed class CrackWidthSolver
         _acrcUltShort = acrcUltShort;
         _sp63EtaMin = sp63EtaMin;
         _solverTol = solverTol;
+        _psiSMethod = psiSMethod;
     }
 
     /// <summary>
@@ -288,10 +309,10 @@ public sealed class CrackWidthSolver
     /// <paramref name="calcType"/> — не зависит от того, построены ли в MaterialArea.Diagramms
     /// разностные (сталь-бетон) кривые.
     /// </summary>
-    (double sigmaMaxKPa, double asTens, double dsEq, double aCoverEff, double yTensCentroid)
+    (double sigmaMaxKPa, double epsAtSigmaMax, double asTens, double dsEq, double aCoverEff, double yTensCentroid)
         TensileRebarProps(CrossSection section, Kurvature k, CalcType calcType)
     {
-        double sigmaMax = 0.0;
+        double sigmaMax = 0.0, epsAtSigmaMax = 0.0;
         double asSum = 0.0, asDSum = 0.0, aySum = 0.0;
 
         foreach (var (area, ka) in section.EnumerateAreas(k))
@@ -309,14 +330,14 @@ public sealed class CrackWidthSolver
                 double sig = ownDgr.Sig(eps, out _);
                 if (sig <= 0.0) continue;
 
-                sigmaMax = Math.Max(sigmaMax, sig);
+                if (sig > sigmaMax) { sigmaMax = sig; epsAtSigmaMax = eps; }
                 asSum += f.Area;
                 asDSum += f.Area * f.Diameter;
                 aySum += f.Area * f.Y;
             }
         }
 
-        if (asSum < 1e-15) return (0.0, 0.0, 0.0, 0.0, 0.0);
+        if (asSum < 1e-15) return (0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 
         double dsEq = asDSum / asSum;
         double yTensCentroid = aySum / asSum;
@@ -328,12 +349,12 @@ public sealed class CrackWidthSolver
         else
             aCoverEff = Math.Abs(yTensCentroid - concreteVertices.Min(p => p.Y));
 
-        return (sigmaMax, asSum, dsEq, aCoverEff, yTensCentroid);
+        return (sigmaMax, epsAtSigmaMax, asTens: asSum, dsEq, aCoverEff, yTensCentroid);
     }
 
-    double SigmaSFromPlane(Kurvature k, CalcType calcType)
+    (double sigmaMaxKPa, double epsAtSigmaMax) SigmaSFromPlane(Kurvature k, CalcType calcType)
     {
-        double sigmaMax = 0.0;
+        double sigmaMax = 0.0, epsAtSigmaMax = 0.0;
         foreach (var (area, ka) in _section.EnumerateAreas(k))
         {
             if (!IsRebar(area)) continue;
@@ -346,10 +367,10 @@ public sealed class CrackWidthSolver
                 double eps = ka.e0 + ka.ky * f.Y + ka.kz * f.X;
                 if (eps <= 0.0) continue;
                 double sig = ownDgr.Sig(eps, out _);
-                if (sig > sigmaMax) sigmaMax = sig;
+                if (sig > sigmaMax) { sigmaMax = sig; epsAtSigmaMax = eps; }
             }
         }
-        return sigmaMax;
+        return (sigmaMax, epsAtSigmaMax);
     }
 
     List<(double X, double Y)> ConcreteVertices() =>
@@ -405,17 +426,32 @@ public sealed class CrackWidthSolver
         return abtTotal;
     }
 
-    (double acrcMm, double psiS) SingleAcrc(double sigmaSKPa, double sigmaCrcKPa, double lsM,
-        double phi1, double phi3, double esKPa)
+    (double acrcMm, double psiS) SingleAcrc(double sigmaSKPa, double sigmaCrcKPa,
+        double epsSRaw, double epsCrcRaw, double lsM, double phi1, double phi3, double esKPa)
     {
         if (sigmaSKPa < 1.0) return (0.0, 1.0);
 
-        double psiS = 1.0 - 0.8 * sigmaCrcKPa / sigmaSKPa;
-        psiS = Math.Max(0.2, Math.Min(1.0, psiS));
+        double psiS = ComputePsiS(sigmaSKPa, sigmaCrcKPa, epsSRaw, epsCrcRaw);
 
         double epsS = sigmaSKPa / esKPa;
         double acrcM = phi1 * _phi2 * phi3 * psiS * epsS * lsM;
         return (acrcM * 1000.0, psiS);
+    }
+
+    /// <summary>ψs по выбранному методу (<see cref="_psiSMethod"/>) — п. 8.2.18 (по напряжениям) или п. 8.2.32 (по деформациям).</summary>
+    double ComputePsiS(double sigmaSKPa, double sigmaCrcKPa, double epsS, double epsCrc)
+    {
+        if (_psiSMethod == PsiSMethod.Strain8232)
+        {
+            // ψs = 1 / (1 + 0.8·εs,crc/εs). Отрицательную/нулевую εs,crc (стержень ещё не
+            // был растянут в момент трещинообразования сечения) приводим к 0 — снижения нет,
+            // ψs = 1, как и предписывает норма для случая "трещины ещё нет у этого стержня".
+            double ratio = epsS > 1e-12 ? Math.Max(epsCrc, 0.0) / epsS : 0.0;
+            return Math.Clamp(1.0 / (1.0 + 0.8 * ratio), 0.0, 1.0);
+        }
+
+        double psiS = 1.0 - 0.8 * sigmaCrcKPa / sigmaSKPa;
+        return Math.Clamp(psiS, 0.2, 1.0);
     }
 
     static double RebarEsKPa(CrossSection section)
@@ -497,7 +533,7 @@ public sealed class CrackWidthSolver
             if (!convTotal) planeTotal = planeLong; // фолбэк для σs,total
         }
 
-        var (sigmaLongKPa, asTens, dsEq, aCoverEff, yTensCg) = TensileRebarProps(_section, planeLong, _calcServiceLong);
+        var (sigmaLongKPa, epsLong, asTens, dsEq, aCoverEff, yTensCg) = TensileRebarProps(_section, planeLong, _calcServiceLong);
         if (asTens < 1e-15 || dsEq < 1e-15) return zero;
 
         var concreteVertices = ConcreteVertices();
@@ -544,15 +580,15 @@ public sealed class CrackWidthSolver
         // σs,crc считается дважды — на той же диаграмме, что и σs, с которой её сравнивают
         // в формуле ψs = 1 − 0.8·σs,crc/σs (acrc1/acrc3 — длительная диаграмма,
         // acrc2 — кратковременная), иначе ψs сравнивало бы напряжения на разных базисах.
-        double sigmaCrcLongKPa = SigmaSFromPlane(planeCrcLong, _calcServiceLong);
-        double sigmaCrcShortKPa = SigmaSFromPlane(planeCrcShort, _calcService);
-        double sigmaTotalKPa = SigmaSFromPlane(planeTotal, _calcService);
+        var (sigmaCrcLongKPa, epsCrcLong) = SigmaSFromPlane(planeCrcLong, _calcServiceLong);
+        var (sigmaCrcShortKPa, epsCrcShort) = SigmaSFromPlane(planeCrcShort, _calcService);
+        var (sigmaTotalKPa, epsTotal) = SigmaSFromPlane(planeTotal, _calcService);
 
         double esKPa = RebarEsKPa(_section);
 
-        var (acrc1, psiS) = SingleAcrc(sigmaLongKPa, sigmaCrcLongKPa, lsM, phi1: 1.4, phi3: phi3Eff, esKPa: esKPa);
-        var (acrc3, _) = SingleAcrc(sigmaLongKPa, sigmaCrcLongKPa, lsM, phi1: 1.0, phi3: phi3Eff, esKPa: esKPa);
-        var (acrc2, psiS2) = SingleAcrc(sigmaTotalKPa, sigmaCrcShortKPa, lsM, phi1: 1.0, phi3: phi3Eff, esKPa: esKPa);
+        var (acrc1, psiS) = SingleAcrc(sigmaLongKPa, sigmaCrcLongKPa, epsLong, epsCrcLong, lsM, phi1: 1.4, phi3: phi3Eff, esKPa: esKPa);
+        var (acrc3, _) = SingleAcrc(sigmaLongKPa, sigmaCrcLongKPa, epsLong, epsCrcLong, lsM, phi1: 1.0, phi3: phi3Eff, esKPa: esKPa);
+        var (acrc2, psiS2) = SingleAcrc(sigmaTotalKPa, sigmaCrcShortKPa, epsTotal, epsCrcShort, lsM, phi1: 1.0, phi3: phi3Eff, esKPa: esKPa);
 
         double acrcLong = acrc1;
         double acrcShort = acrc1 + acrc2 - acrc3;

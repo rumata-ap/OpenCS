@@ -235,4 +235,65 @@ public class CrackWidthSolverTests
         Assert.True(naiveSigmaCrcKPa > 0.0);
         Assert.True(res.SigmaSCrc > naiveSigmaCrcKPa * 1.5);
     }
+
+    // п. 8.2.32 (формула деформационной модели, по отношению деформаций) vs п. 8.2.18
+    // (формула 8.138, по отношению напряжений) — при упругой арматуре (σ = E·ε) оба
+    // используют одно и то же отношение r = σs,crc/σs = εs,crc/εs, но по разным формулам:
+    // ψs,strain = 1/(1+0.8r) ≥ ψs,stress = 1-0.8r для любого r∈[0,1] (равенство только
+    // при r=0). Значит при том же нагружении Strain8232 должен давать ψs (и, как
+    // следствие, acrc) не меньше, чем Stress8138 — с строгим неравенством вблизи
+    // трещинообразования, где r заметно больше нуля.
+    [Fact]
+    public void Compute_Strain8232Method_GivesLargerPsiSThanStress8138NearCracking()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
+
+        var solverStress = new CrackWidthSolver(section, psiSMethod: PsiSMethod.Stress8138);
+        var solverStrain = new CrackWidthSolver(section, psiSMethod: PsiSMethod.Strain8232);
+
+        var resStress = solverStress.Compute(N: 0.0, mxLong: mcrc * 2.0, mxTotal: mcrc * 2.0);
+        var resStrain = solverStrain.Compute(N: 0.0, mxLong: mcrc * 2.0, mxTotal: mcrc * 2.0);
+
+        Assert.True(resStress.Cracked);
+        Assert.True(resStrain.Cracked);
+        Assert.True(resStrain.PsiS > resStress.PsiS);
+        Assert.True(resStrain.AcrcLong > resStress.AcrcLong);
+    }
+
+    // Явно переданный Stress8138 (== значение по умолчанию) не должен ничего менять —
+    // регрессионная защита от случайной смены поведения по умолчанию.
+    [Fact]
+    public void Compute_ExplicitStress8138_MatchesDefault()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
+
+        var solverDefault = new CrackWidthSolver(section);
+        var solverExplicit = new CrackWidthSolver(section, psiSMethod: PsiSMethod.Stress8138);
+
+        var resDefault = solverDefault.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 2.5);
+        var resExplicit = solverExplicit.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 2.5);
+
+        Assert.True(resDefault.Cracked);
+        Assert.Equal(resDefault.PsiS, resExplicit.PsiS, 9);
+        Assert.Equal(resDefault.AcrcLong, resExplicit.AcrcLong, 9);
+    }
+
+    // Формула 8.2.32 клипуется сверху в 1.0 (не может "усиливать" сечение относительно
+    // случая без трещин) — проверяем на умеренной перегрузке, где ψs,strain ещё не должен
+    // прижаться к 1 (иначе тест ничего не проверял бы).
+    [Fact]
+    public void Compute_Strain8232Method_PsiSWithinUnitRange()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
+
+        var solver = new CrackWidthSolver(section, psiSMethod: PsiSMethod.Strain8232);
+        var res = solver.Compute(N: 0.0, mxLong: mcrc * 2.0, mxTotal: mcrc * 2.0);
+
+        Assert.True(res.Cracked);
+        Assert.True(res.PsiS > 0.0);
+        Assert.True(res.PsiS <= 1.0);
+    }
 }
