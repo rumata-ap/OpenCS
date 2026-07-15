@@ -1541,4 +1541,5 @@
     <system:String x:Key="CalcTaskKind_opensees_section_moment_curvature">OpenSees: section moment–curvature</system:String>
     <system:String x:Key="OpenSeesTaskCancelled">OpenSees calculation was cancelled.</system:String>
     <system:String x:Key="OpenSeesTaskErrorFormat">OpenSees error: {0}</system:String>
+    <system:String x:Key="CalcTaskKind_opensees_section_interaction_nm">OpenSees: N–M interaction</system:String>
   </ResourceDictionary>

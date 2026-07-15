@@ -98,6 +98,54 @@ public sealed class OpenSeesIntegrationTests
         }
     }
 
+    [Fact]
+    public async Task N_M_interaction_runs_three_axial_force_points_in_order()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string root = Path.Combine(Path.GetTempPath(), "opencs-opensees-interaction", Guid.NewGuid().ToString("N"));
+        try
+        {
+            SectionInteractionResult result = await new SectionInteractionService(
+                new SectionAnalysisService(
+                    new SectionMomentCurvatureTclGenerator(),
+                    new OpenSeesProcessRunner(),
+                    new OpenSeesArtifactStore(root))).RunAsync(
+                ElasticSection(),
+                new SectionInteractionRequest
+                {
+                    AxialForcesN = [-100_000, 0, 100_000],
+                    MaxCurvature = 1e-5,
+                    Increments = 2
+                },
+                new OpenSeesRunRequest
+                {
+                    ExecutablePath = executable,
+                    WorkingDirectory = Path.GetTempPath(),
+                    Timeout = TimeSpan.FromSeconds(30)
+                },
+                CancellationToken.None);
+
+            Assert.Equal("ok", result.Status);
+            Assert.Equal(3, result.Points.Count);
+            Assert.Equal(new[] { -100_000d, 0d, 100_000d }, result.Points.Select(point => point.AxialForceN));
+            Assert.All(result.Points, point =>
+            {
+                Assert.True(point.BendingMomentNm.HasValue);
+                Assert.True(point.Curvature > 0);
+                Assert.True(Directory.Exists(point.ArtifactDirectory));
+                Assert.True(File.Exists(Path.Combine(point.ArtifactDirectory, "completed.marker")));
+                Assert.True(File.Exists(Path.Combine(point.ArtifactDirectory, "section_history.out")));
+                Assert.True(File.Exists(Path.Combine(point.ArtifactDirectory, "manifest.json")));
+            });
+            Assert.Equal(3, result.Points.Select(point => point.ArtifactDirectory).Distinct().Count());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static OpenSeesSectionModel ElasticSection() => new()
     {
         Materials =

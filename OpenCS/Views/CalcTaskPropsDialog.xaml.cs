@@ -823,6 +823,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       // Прочие
       new() { Id = "prestress_loss",           Label = Loc.S("CalcTaskKind_prestress_loss"),           GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "opensees_section_moment_curvature", Label = Loc.S("CalcTaskKind_opensees_section_moment_curvature"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
+      new() { Id = "opensees_section_interaction_nm", Label = Loc.S("CalcTaskKind_opensees_section_interaction_nm"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
    ];
 
    public ListCollectionView AvailableKindsView { get; }
