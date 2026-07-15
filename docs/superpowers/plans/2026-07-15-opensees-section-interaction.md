@@ -1,61 +1,61 @@
-# РћРґРЅРѕРѕСЃРЅР°СЏ РґРёР°РіСЂР°РјРјР° N-M: РїР»Р°РЅ СЂРµР°Р»РёР·Р°С†РёРё
+# Одноосная диаграмма N-M: план реализации
 
-> **Р”Р»СЏ Р°РіРµРЅС‚РЅС‹С… РёСЃРїРѕР»РЅРёС‚РµР»РµР№:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (СЂРµРєРѕРјРµРЅРґСѓРµС‚СЃСЏ) РёР»Рё `superpowers:executing-plans` РґР»СЏ РІС‹РїРѕР»РЅРµРЅРёСЏ СЌС‚РѕРіРѕ РїР»Р°РЅР° РїРѕ Р·Р°РґР°С‡Р°Рј. РЁР°РіРё РёСЃРїРѕР»СЊР·СѓСЋС‚ С‡РµРєР±РѕРєСЃС‹ (`- [x]`) РґР»СЏ РѕС‚СЃР»РµР¶РёРІР°РЅРёСЏ.
+> **Для агентных исполнителей:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (рекомендуется) или `superpowers:executing-plans` для выполнения этого плана по задачам. Шаги используют чекбоксы (`- [x]`) для отслеживания.
 
-**Р¦РµР»СЊ:** Р”РѕР±Р°РІРёС‚СЊ Р±РёР±Р»РёРѕС‚РµС‡РЅС‹Р№ Рё OpenCS-task РІРµСЂС‚РёРєР°Р»СЊРЅС‹Р№ СЃСЂРµР· РѕРґРЅРѕРѕСЃРЅРѕР№ РґРёР°РіСЂР°РјРјС‹ `N-M`, РІС‹РїРѕР»РЅСЏСЋС‰РёР№ РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅСѓСЋ СЃРµСЂРёСЋ РёР·РѕР»РёСЂРѕРІР°РЅРЅС‹С… monotonic momentвЂ“curvature СЂР°СЃС‡С‘С‚РѕРІ РґР»СЏ Р·Р°РґР°РЅРЅС‹С… РїСЂРѕРґРѕР»СЊРЅС‹С… СЃРёР».
+**Цель:** Добавить библиотечный и OpenCS-task вертикальный срез одноосной диаграммы `N-M`, выполняющий последовательную серию изолированных monotonic moment–curvature расчётов для заданных продольных сил.
 
-**РђСЂС…РёС‚РµРєС‚СѓСЂР°:** РЎСѓС‰РµСЃС‚РІСѓСЋС‰РёР№ `SectionAnalysisService` СЃС‚Р°РЅРµС‚ СЂРµР°Р»РёР·Р°С†РёРµР№ РЅРµР±РѕР»СЊС€РѕРіРѕ РєРѕРЅС‚СЂР°РєС‚Р° РёСЃРїРѕР»РЅРёС‚РµР»СЏ. РќРѕРІС‹Р№ `SectionInteractionService` Р±СѓРґРµС‚ РІР°Р»РёРґРёСЂРѕРІР°С‚СЊ СЃРїРёСЃРѕРє СЃРёР», РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕ РІС‹Р·С‹РІР°С‚СЊ СЌС‚РѕС‚ РєРѕРЅС‚СЂР°РєС‚, РІС‹Р±РёСЂР°С‚СЊ РїРѕСЃР»РµРґРЅСЋСЋ СЃРѕС€РµРґС€СѓСЋСЃСЏ СЃС‚СЂРѕРєСѓ РєР°Р¶РґРѕР№ РёСЃС‚РѕСЂРёРё Рё Р°РіСЂРµРіРёСЂРѕРІР°С‚СЊ СЃС‚Р°С‚СѓСЃС‹. WPF РѕСЃС‚Р°С‘С‚СЃСЏ Р±РµР· РѕС‚РґРµР»СЊРЅРѕРіРѕ РіСЂР°С„РёРєР°: task СЃРѕС…СЂР°РЅСЏРµС‚ С‚РёРїРёР·РёСЂРѕРІР°РЅРЅС‹Р№ `SectionInteractionResult` РІ `CalcResult.DataJson`, Р° РєР°Р¶РґР°СЏ С‚РѕС‡РєР° СЃРѕС…СЂР°РЅСЏРµС‚ СЃРѕР±СЃС‚РІРµРЅРЅС‹Рµ Р°СЂС‚РµС„Р°РєС‚С‹ stage 0вЂ“1.
+**Архитектура:** Существующий `SectionAnalysisService` станет реализацией небольшого контракта исполнителя. Новый `SectionInteractionService` будет валидировать список сил, последовательно вызывать этот контракт, выбирать последнюю сошедшуюся строку каждой истории и агрегировать статусы. WPF остаётся без отдельного графика: task сохраняет типизированный `SectionInteractionResult` в `CalcResult.DataJson`, а каждая точка сохраняет собственные артефакты stage 0–1.
 
 **РўРµС…РЅРѕР»РѕРіРёРё:** .NET 9, C#, СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёР№ `OpenCS.OpenSees`, `System.Text.Json`, `CancellationToken`, xUnit, РІРЅРµС€РЅРёР№ Tcl/OpenSees backend.
 
 ---
 
-## РљРѕРЅС‚РµРєСЃС‚ Рё РЅРµРёР·РјРµРЅСЏРµРјС‹Рµ СЃРѕРіР»Р°С€РµРЅРёСЏ
+## Контекст и неизменяемые соглашения
 
-- Р Р°Р±РѕС‚Р°С‚СЊ РІ РІРµС‚РєРµ `feature/opensees-section-interaction` РІ worktree `C:\Users\ponomarev\Documents\devel\OpenCS\.worktrees\opensees-section-interaction`.
-- Backend С…СЂР°РЅРёС‚ СЃРёР»С‹ РІ `N`, РјРѕРјРµРЅС‚С‹ РІ `NВ·m`, РєСЂРёРІРёР·РЅСѓ РІ `1/m`; РїР°СЂР°РјРµС‚СЂС‹ OpenCS task РїСЂРёРЅРёРјР°СЋС‚ `axialForces` РІ `kN` Рё РєРѕРЅРІРµСЂС‚РёСЂСѓСЋС‚ РёС… СЂРѕРІРЅРѕ РѕРґРёРЅ СЂР°Р· С‡РµСЂРµР· `CScoreUnitConverter.KiloNewtonsToNewtons`.
-- РџРѕСЂСЏРґРѕРє `axialForces` СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ. РЎРїРёСЃРѕРє РЅРµ РїСѓСЃС‚РѕР№, РІСЃРµ Р·РЅР°С‡РµРЅРёСЏ РєРѕРЅРµС‡РЅС‹Рµ, С‚РѕС‡РЅС‹Рµ РґСѓР±Р»РёРєР°С‚С‹ Р·Р°РїСЂРµС‰РµРЅС‹.
-- Р”Р»СЏ РєР°Р¶РґРѕР№ СЃРёР»С‹ СЃРѕР·РґР°С‘С‚СЃСЏ РѕС‚РґРµР»СЊРЅС‹Р№ РІС‹Р·РѕРІ `SectionAnalysisService`; РµРіРѕ `OpenSeesArtifactStore` СѓР¶Рµ СЃРѕР·РґР°С‘С‚ СѓРЅРёРєР°Р»СЊРЅС‹Р№ РєР°С‚Р°Р»РѕРі Рё СЃРѕС…СЂР°РЅСЏРµС‚ `script.tcl`, `manifest.json`, `stdout.txt`, `stderr.txt`, `exit.json` Рё recorder-С„Р°Р№Р»С‹.
-- РџРѕСЃР»РµРґРЅСЏСЏ С‚РѕС‡РєР° РґРёР°РіСЂР°РјРјС‹ Р±РµСЂС‘С‚СЃСЏ РєР°Рє `Rows.LastOrDefault(row => row.Converged)`, Р° РЅРµ РєР°Рє РїРѕСЃР»РµРґРЅСЏСЏ СЃС‚СЂРѕРєР° СЃС…РѕРґРёРјРѕСЃС‚Рё. РџРѕСЌС‚РѕРјСѓ С‡Р°СЃС‚РёС‡РЅРѕ СЃРѕС€РµРґС€Р°СЏСЃСЏ РёСЃС‚РѕСЂРёСЏ РјРѕР¶РµС‚ СЃРѕС…СЂР°РЅРёС‚СЊ РїРѕР»РµР·РЅСѓСЋ РїРѕСЃР»РµРґРЅСЋСЋ СЃРѕС€РµРґС€СѓСЋСЃСЏ РїР°СЂСѓ `N-M`, РЅРѕ СЃР°РјР° С‚РѕС‡РєР° РѕСЃС‚Р°С‘С‚СЃСЏ `not_converged`.
-- РС‚РѕРіРѕРІС‹Р№ СЃС‚Р°С‚СѓСЃ: `error`, РµСЃР»Рё С…РѕС‚СЏ Р±С‹ РѕРґРЅР° С‚РѕС‡РєР° РёРјРµРµС‚ `error`; РёРЅР°С‡Рµ `not_converged`, РµСЃР»Рё С…РѕС‚СЏ Р±С‹ РѕРґРЅР° С‚РѕС‡РєР° РЅРµ РёРјРµРµС‚ `ok`; РёРЅР°С‡Рµ `ok`.
-- `N-Mx-My`, target-force РїР°СЂС‹, РїР°СЂР°Р»Р»РµР»СЊРЅС‹Рµ Р·Р°РїСѓСЃРєРё Рё WPF-РіСЂР°С„РёРє РІ СЌС‚РѕС‚ РїР»Р°РЅ РЅРµ РІС…РѕРґСЏС‚.
+- Работать в ветке `feature/opensees-section-interaction` в worktree `C:\Users\ponomarev\Documents\devel\OpenCS\.worktrees\opensees-section-interaction`.
+- Backend хранит силы в `N`, моменты в `N·m`, кривизну в `1/m`; параметры OpenCS task принимают `axialForces` в `kN` и конвертируют их ровно один раз через `CScoreUnitConverter.KiloNewtonsToNewtons`.
+- Порядок `axialForces` сохраняется. Список не пустой, все значения конечные, точные дубликаты запрещены.
+- Для каждой силы создаётся отдельный вызов `SectionAnalysisService`; его `OpenSeesArtifactStore` уже создаёт уникальный каталог и сохраняет `script.tcl`, `manifest.json`, `stdout.txt`, `stderr.txt`, `exit.json` и recorder-файлы.
+- Последняя точка диаграммы берётся как `Rows.LastOrDefault(row => row.Converged)`, а не как последняя строка сходимости. Поэтому частично сошедшаяся история может сохранить полезную последнюю сошедшуюся пару `N-M`, но сама точка остаётся `not_converged`.
+- Итоговый статус: `error`, если хотя бы одна точка имеет `error`; иначе `not_converged`, если хотя бы одна точка не имеет `ok`; иначе `ok`.
+- `N-Mx-My`, target-force пары, параллельные запуски и WPF-график в этот план не входят.
 
-## РљР°СЂС‚Р° С„Р°Р№Р»РѕРІ
+## Карта файлов
 
-РЎРѕР·РґР°С‚СЊ:
+Создать:
 
 - `OpenCS.OpenSees/Analysis/SectionInteractionRequest.cs` вЂ” Р·Р°РїСЂРѕСЃ Рё РІР°Р»РёРґР°С†РёСЏ СЃРїРёСЃРєР° СЃРёР».
-- `OpenCS.OpenSees/Analysis/SectionInteractionPoint.cs` вЂ” РѕРґРЅР° С‚РѕС‡РєР° СЂРµР·СѓР»СЊС‚Р°С‚Р°.
-- `OpenCS.OpenSees/Analysis/SectionInteractionResult.cs` вЂ” РёС‚РѕРі РєСЂРёРІРѕР№ Рё Р°РіСЂРµРіРёСЂРѕРІР°РЅРЅС‹Р№ СЃС‚Р°С‚СѓСЃ.
-- `OpenCS.OpenSees/Services/ISectionAnalysisExecutor.cs` вЂ” РєРѕРЅС‚СЂР°РєС‚ РѕРґРЅРѕРіРѕ РІРЅСѓС‚СЂРµРЅРЅРµРіРѕ Р°РЅР°Р»РёР·Р°.
-- `OpenCS.OpenSees/Services/SectionInteractionService.cs` вЂ” РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅР°СЏ РѕСЂРєРµСЃС‚СЂР°С†РёСЏ С‚РѕС‡РµРє.
-- `OpenCS/Tasks/OpenSeesSectionInteractionParams.cs` вЂ” JSON-РїР°СЂР°РјРµС‚СЂС‹ РЅРѕРІРѕР№ task.
-- `OpenCS/Tasks/OpenSeesSectionInteractionHandler.cs` вЂ” Р°РґР°РїС‚Р°С†РёСЏ `CrossSection` Рё Р·Р°РїСѓСЃРє СЃРµСЂРІРёСЃР°.
+- `OpenCS.OpenSees/Analysis/SectionInteractionPoint.cs` — одна точка результата.
+- `OpenCS.OpenSees/Analysis/SectionInteractionResult.cs` — итог кривой и агрегированный статус.
+- `OpenCS.OpenSees/Services/ISectionAnalysisExecutor.cs` — контракт одного внутреннего анализа.
+- `OpenCS.OpenSees/Services/SectionInteractionService.cs` — последовательная оркестрация точек.
+- `OpenCS/Tasks/OpenSeesSectionInteractionParams.cs` — JSON-параметры новой task.
+- `OpenCS/Tasks/OpenSeesSectionInteractionHandler.cs` — адаптация `CrossSection` и запуск сервиса.
 
 РР·РјРµРЅРёС‚СЊ:
 
 - `OpenCS.OpenSees/Services/SectionAnalysisService.cs` вЂ” СЂРµР°Р»РёР·РѕРІР°С‚СЊ `ISectionAnalysisExecutor`.
-- `OpenCS.OpenSees.Tests/SectionInteractionTests.cs` вЂ” unit-С‚РµСЃС‚С‹ РјРѕРґРµР»Рё Рё РѕСЂРєРµСЃС‚СЂР°С†РёРё.
-- `OpenCS.OpenSees.Tests/OpenSeesIntegrationTests.cs` вЂ” СЂРµР°Р»СЊРЅС‹Р№ opt-in С‚РµСЃС‚ С‚СЂС‘С… С‚РѕС‡РµРє `N-M`.
+- `OpenCS.OpenSees.Tests/SectionInteractionTests.cs` — unit-тесты модели и оркестрации.
+- `OpenCS.OpenSees.Tests/OpenSeesIntegrationTests.cs` — реальный opt-in тест трёх точек `N-M`.
 - `OpenCS.OpenSees.Tests/OpenSeesTaskContractTests.cs` вЂ” JSON-РєРѕРЅС‚СЂР°РєС‚, РєРѕРЅРІРµСЂС‚Р°С†РёСЏ РµРґРёРЅРёС† Рё СЂРµРіРёСЃС‚СЂР°С†РёСЏ kind.
 - `OpenCS/Tasks/TaskRunner.cs` вЂ” Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊ `opensees_section_interaction_nm`.
-- `OpenCS/Views/CalcTaskPropsDialog.xaml.cs` вЂ” РґРѕР±Р°РІРёС‚СЊ Р·Р°РґР°С‡Сѓ РІ СЃРїРёСЃРѕРє РІС‹Р±РѕСЂР°.
-- `OpenCS/Resources/Strings.ru-RU.xaml` вЂ” СЂСѓСЃСЃРєРѕРµ РЅР°Р·РІР°РЅРёРµ task.
+- `OpenCS/Views/CalcTaskPropsDialog.xaml.cs` — добавить задачу в список выбора.
+- `OpenCS/Resources/Strings.ru-RU.xaml` — русское название task.
 - `OpenCS/Resources/Strings.en-US.xaml` вЂ” Р°РЅРіР»РёР№СЃРєРѕРµ РЅР°Р·РІР°РЅРёРµ task.
-- `OpenCS.OpenSees/README.md` вЂ” РґРѕРєСѓРјРµРЅС‚РёСЂРѕРІР°С‚СЊ JSON, СЃС‚Р°С‚СѓСЃС‹ Рё РєР°С‚Р°Р»РѕРіРё С‚РѕС‡РµРє.
+- `OpenCS.OpenSees/README.md` — документировать JSON, статусы и каталоги точек.
 
 ---
 
-### Р—Р°РґР°С‡Р° 1: Р”РѕР±Р°РІРёС‚СЊ РєРѕРЅС‚СЂР°РєС‚С‹ Р·Р°РїСЂРѕСЃР° Рё СЂРµР·СѓР»СЊС‚Р°С‚Р°
+### Задача 1: Добавить контракты запроса и результата
 
 **Р¤Р°Р№Р»С‹:**
 
-- РЎРѕР·РґР°С‚СЊ: `OpenCS.OpenSees/Analysis/SectionInteractionRequest.cs`
-- РЎРѕР·РґР°С‚СЊ: `OpenCS.OpenSees/Analysis/SectionInteractionPoint.cs`
-- РЎРѕР·РґР°С‚СЊ: `OpenCS.OpenSees/Analysis/SectionInteractionResult.cs`
-- РўРµСЃС‚: `OpenCS.OpenSees.Tests/SectionInteractionTests.cs`
+- Создать: `OpenCS.OpenSees/Analysis/SectionInteractionRequest.cs`
+- Создать: `OpenCS.OpenSees/Analysis/SectionInteractionPoint.cs`
+- Создать: `OpenCS.OpenSees/Analysis/SectionInteractionResult.cs`
+- Тест: `OpenCS.OpenSees.Tests/SectionInteractionTests.cs`
 
-- [x] **РЁР°Рі 1: РќР°РїРёСЃР°С‚СЊ РїР°РґР°СЋС‰РёРµ С‚РµСЃС‚С‹ РІР°Р»РёРґР°С†РёРё Рё С„РѕСЂРјС‹ СЂРµР·СѓР»СЊС‚Р°С‚Р°.**
+- [x] **Шаг 1: Написать падающие тесты валидации и формы результата.**
 
 ```csharp
 using OpenCS.OpenSees.Analysis;
@@ -121,15 +121,15 @@ public sealed class SectionInteractionTests
 }
 ```
 
-- [x] **РЁР°Рі 2: Р—Р°РїСѓСЃС‚РёС‚СЊ С‚РѕР»СЊРєРѕ РЅРѕРІС‹Рµ С‚РµСЃС‚С‹ Рё СѓР±РµРґРёС‚СЊСЃСЏ, С‡С‚Рѕ РѕРЅРё РЅРµ РєРѕРјРїРёР»РёСЂСѓСЋС‚СЃСЏ РёР·-Р·Р° РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‰РёС… С‚РёРїРѕРІ.**
+- [x] **Шаг 2: Запустить только новые тесты и убедиться, что они не компилируются из-за отсутствующих типов.**
 
-Р—Р°РїСѓСЃРє: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SectionInteractionTests`
+Запуск: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SectionInteractionTests`
 
-РћР¶РёРґР°РµРјС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚: `FAIL` СЃ РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‰РёРјРё `SectionInteractionRequest`, `SectionInteractionPoint` Рё `SectionHistoryRow` РІ РЅРѕРІРѕРј С„Р°Р№Р»Рµ С‚РµСЃС‚Р°.
+Ожидаемый результат: `FAIL` с отсутствующими `SectionInteractionRequest`, `SectionInteractionPoint` и `SectionHistoryRow` в новом файле теста.
 
 - [x] **РЁР°Рі 3: Р РµР°Р»РёР·РѕРІР°С‚СЊ РјРёРЅРёРјР°Р»СЊРЅС‹Рµ РєРѕРЅС‚СЂР°РєС‚С‹.**
 
-`SectionInteractionRequest` РґРѕР»Р¶РµРЅ СЃРѕРґРµСЂР¶Р°С‚СЊ `IReadOnlyList<double> AxialForcesN = []`, `MaxCurvature = 0.01`, `Increments = 20`, `SectionBendingAxis Axis = Mx` Рё `OpenSeesCoordinateConvention Convention = CScoreDefault`. `Validate()` РґРѕР»Р¶РµРЅ РїСЂРѕРІРµСЂРёС‚СЊ РЅРµРїСѓСЃС‚РѕР№ СЃРїРёСЃРѕРє, РєРѕРЅРµС‡РЅРѕСЃС‚СЊ РєР°Р¶РґРѕРіРѕ Р·РЅР°С‡РµРЅРёСЏ, С‚РѕС‡РЅС‹Рµ РґСѓР±Р»РёРєР°С‚С‹, Р° Р·Р°С‚РµРј С‚Рµ Р¶Рµ `MaxCurvature`/`Increments`, С‡С‚Рѕ РїСЂРѕРІРµСЂСЏРµС‚ `SectionAnalysisRequest`.
+`SectionInteractionRequest` должен содержать `IReadOnlyList<double> AxialForcesN = []`, `MaxCurvature = 0.01`, `Increments = 20`, `SectionBendingAxis Axis = Mx` и `OpenSeesCoordinateConvention Convention = CScoreDefault`. `Validate()` должен проверить непустой список, конечность каждого значения, точные дубликаты, а затем те же `MaxCurvature`/`Increments`, что проверяет `SectionAnalysisRequest`.
 
 ```csharp
 public void Validate()
@@ -145,33 +145,33 @@ public void Validate()
 }
 ```
 
-`SectionInteractionPoint` СЃРѕРґРµСЂР¶РёС‚ `AxialForceN`, nullable `BendingMomentNm`, nullable `Curvature`, nullable `SectionHistoryRow TerminalRow`, `Status = "error"`, `Diagnostics = []` Рё `ArtifactDirectory = ""`. `SectionInteractionResult` СЃРѕРґРµСЂР¶РёС‚ `Status = "error"`, `Points = []` Рё `Diagnostics = []`. Р’СЃРµ public-С‚РёРїС‹ Рё СЃРІРѕР№СЃС‚РІР° РїРѕР»СѓС‡Р°СЋС‚ СЂСѓСЃСЃРєРёРµ XML-РєРѕРјРјРµРЅС‚Р°СЂРёРё.
+`SectionInteractionPoint` содержит `AxialForceN`, nullable `BendingMomentNm`, nullable `Curvature`, nullable `SectionHistoryRow TerminalRow`, `Status = "error"`, `Diagnostics = []` и `ArtifactDirectory = ""`. `SectionInteractionResult` содержит `Status = "error"`, `Points = []` и `Diagnostics = []`. Все public-типы и свойства получают русские XML-комментарии.
 
-- [x] **РЁР°Рі 4: Р—Р°РїСѓСЃС‚РёС‚СЊ С‚РµСЃС‚С‹ Рё РїСЂРѕРІРµСЂРёС‚СЊ PASS.**
+- [x] **Шаг 4: Запустить тесты и проверить PASS.**
 
-Р—Р°РїСѓСЃРє: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SectionInteractionTests`
+Запуск: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SectionInteractionTests`
 
-РћР¶РёРґР°РµРјС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚: РІСЃРµ С‚РµСЃС‚С‹ `SectionInteractionTests` РїСЂРѕС…РѕРґСЏС‚.
+Ожидаемый результат: все тесты `SectionInteractionTests` проходят.
 
-- [x] **РЁР°Рі 5: Р—Р°С„РёРєСЃРёСЂРѕРІР°С‚СЊ РєРѕРЅС‚СЂР°РєС‚ РѕС‚РґРµР»СЊРЅС‹Рј РєРѕРјРјРёС‚РѕРј.**
+- [x] **Шаг 5: Зафиксировать контракт отдельным коммитом.**
 
 ```powershell
 git add OpenCS.OpenSees/Analysis/SectionInteractionRequest.cs OpenCS.OpenSees/Analysis/SectionInteractionPoint.cs OpenCS.OpenSees/Analysis/SectionInteractionResult.cs OpenCS.OpenSees.Tests/SectionInteractionTests.cs
 git commit -m "feat(opensees): add N-M interaction contracts"
 ```
 
-### Р—Р°РґР°С‡Р° 2: Р”РѕР±Р°РІРёС‚СЊ executor-РєРѕРЅС‚СЂР°РєС‚ Рё СЃРµСЂРІРёСЃ РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕР№ РѕСЂРєРµСЃС‚СЂР°С†РёРё
+### Задача 2: Добавить executor-контракт и сервис последовательной оркестрации
 
 **Р¤Р°Р№Р»С‹:**
 
-- РЎРѕР·РґР°С‚СЊ: `OpenCS.OpenSees/Services/ISectionAnalysisExecutor.cs`
-- РЎРѕР·РґР°С‚СЊ: `OpenCS.OpenSees/Services/SectionInteractionService.cs`
+- Создать: `OpenCS.OpenSees/Services/ISectionAnalysisExecutor.cs`
+- Создать: `OpenCS.OpenSees/Services/SectionInteractionService.cs`
 - РР·РјРµРЅРёС‚СЊ: `OpenCS.OpenSees/Services/SectionAnalysisService.cs`
 - РР·РјРµРЅРёС‚СЊ: `OpenCS.OpenSees.Tests/SectionInteractionTests.cs`
 
-- [x] **РЁР°Рі 1: Р”РѕР±Р°РІРёС‚СЊ С‚РµСЃС‚РѕРІС‹Р№ fake executor Рё РїР°РґР°СЋС‰РёРµ С‚РµСЃС‚С‹ РїРѕСЂСЏРґРєР°, РІС‹Р±РѕСЂР° СЃС‚СЂРѕРєРё Рё СЃС‚Р°С‚СѓСЃРѕРІ.**
+- [x] **Шаг 1: Добавить тестовый fake executor и падающие тесты порядка, выбора строки и статусов.**
 
-Fake РґРѕР»Р¶РµРЅ Р·Р°РїРёСЃС‹РІР°С‚СЊ РєР°Р¶РґС‹Р№ `SectionAnalysisRequest` Рё РІРѕР·РІСЂР°С‰Р°С‚СЊ СЂРµР·СѓР»СЊС‚Р°С‚С‹ РёР· РѕС‡РµСЂРµРґРё:
+Fake должен записывать каждый `SectionAnalysisRequest` и возвращать результаты из очереди:
 
 ```csharp
 private sealed class FakeSectionAnalysisExecutor : ISectionAnalysisExecutor
@@ -191,19 +191,19 @@ private sealed class FakeSectionAnalysisExecutor : ISectionAnalysisExecutor
 }
 ```
 
-Р”РѕР±Р°РІРёС‚СЊ С‚РµСЃС‚, РєРѕС‚РѕСЂС‹Р№ РїРµСЂРµРґР°С‘С‚ `AxialForcesN = [100, -200, 300]`, Р° fake РІРѕР·РІСЂР°С‰Р°РµС‚ РґРІРµ converged-СЃС‚СЂРѕРєРё, Р·Р°С‚РµРј `not_converged` СЃ РѕРґРЅРѕР№ РїСЂРµРґС‹РґСѓС‰РµР№ converged-СЃС‚СЂРѕРєРѕР№, Р·Р°С‚РµРј `error`. РўРµСЃС‚ РґРѕР»Р¶РµРЅ РїСЂРѕРІРµСЂРёС‚СЊ СЃРѕС…СЂР°РЅС‘РЅРЅС‹Р№ РїРѕСЂСЏРґРѕРє Р·Р°РїСЂРѕСЃРѕРІ, СЃРёР»С‹ `100/-200/300`, РІС‹Р±РѕСЂ РїРѕСЃР»РµРґРЅРµР№ converged-СЃС‚СЂРѕРєРё РІРѕ РІС‚РѕСЂРѕР№ С‚РѕС‡РєРµ, РѕС‚РґРµР»СЊРЅС‹Рµ `ArtifactDirectory` РёР· СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ Рё РёС‚РѕРіРѕРІС‹Р№ СЃС‚Р°С‚СѓСЃ `error`.
+Добавить тест, который передаёт `AxialForcesN = [100, -200, 300]`, а fake возвращает две converged-строки, затем `not_converged` с одной предыдущей converged-строкой, затем `error`. Тест должен проверить сохранённый порядок запросов, силы `100/-200/300`, выбор последней converged-строки во второй точке, отдельные `ArtifactDirectory` из результатов и итоговый статус `error`.
 
-Р”РѕР±Р°РІРёС‚СЊ РѕС‚РґРµР»СЊРЅС‹Р№ С‚РµСЃС‚ Р±РµР· `error`, РЅРѕ СЃ РѕРґРЅРѕР№ `not_converged` С‚РѕС‡РєРѕР№; РѕР¶РёРґР°РµРјС‹Р№ РёС‚РѕРіРѕРІС‹Р№ СЃС‚Р°С‚СѓСЃ вЂ” `not_converged`. Р”РѕР±Р°РІРёС‚СЊ С‚РµСЃС‚ СЃ РѕС‚РјРµРЅС‘РЅРЅС‹Рј С‚РѕРєРµРЅРѕРј РјРµР¶РґСѓ С‚РѕС‡РєР°РјРё Рё РїСЂРѕРІРµСЂРёС‚СЊ, С‡С‚Рѕ executor РІС‹Р·РІР°РЅ С‚РѕР»СЊРєРѕ РґР»СЏ СѓР¶Рµ РЅР°С‡Р°РІС€РёС…СЃСЏ С‚РѕС‡РµРє, Р° `OperationCanceledException` РЅРµ РїСЂРµРІСЂР°С‰Р°РµС‚СЃСЏ РІ СѓСЃРїРµС€РЅС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚.
+Добавить отдельный тест без `error`, но с одной `not_converged` точкой; ожидаемый итоговый статус — `not_converged`. Добавить тест с отменённым токеном между точками и проверить, что executor вызван только для уже начавшихся точек, а `OperationCanceledException` не превращается в успешный результат.
 
-- [x] **РЁР°Рі 2: Р—Р°РїСѓСЃС‚РёС‚СЊ С‚РµСЃС‚С‹ Рё СѓР±РµРґРёС‚СЊСЃСЏ, С‡С‚Рѕ РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚ executor/service.**
+- [x] **Шаг 2: Запустить тесты и убедиться, что отсутствует executor/service.**
 
-Р—Р°РїСѓСЃРє: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SectionInteractionTests`
+Запуск: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SectionInteractionTests`
 
-РћР¶РёРґР°РµРјС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚: `FAIL` РґРѕ РїРѕСЏРІР»РµРЅРёСЏ `ISectionAnalysisExecutor` Рё `SectionInteractionService`.
+Ожидаемый результат: `FAIL` до появления `ISectionAnalysisExecutor` и `SectionInteractionService`.
 
-- [x] **РЁР°Рі 3: Р’РІРµСЃС‚Рё РєРѕРЅС‚СЂР°РєС‚ Рё РїРѕРґРєР»СЋС‡РёС‚СЊ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёР№ СЃРµСЂРІРёСЃ.**
+- [x] **Шаг 3: Ввести контракт и подключить существующий сервис.**
 
-РљРѕРЅС‚СЂР°РєС‚ РґРѕР»Р¶РµРЅ Р±С‹С‚СЊ С‚Р°РєРёРј:
+Контракт должен быть таким:
 
 ```csharp
 public interface ISectionAnalysisExecutor
@@ -216,11 +216,11 @@ public interface ISectionAnalysisExecutor
 }
 ```
 
-РР·РјРµРЅРёС‚СЊ РѕР±СЉСЏРІР»РµРЅРёРµ `SectionAnalysisService` РЅР° `public sealed class SectionAnalysisService : ISectionAnalysisExecutor`; СЃРёРіРЅР°С‚СѓСЂСѓ Рё РїРѕРІРµРґРµРЅРёРµ РµРіРѕ С‚РµРєСѓС‰РµРіРѕ `RunAsync` РЅРµ РјРµРЅСЏС‚СЊ.
+Изменить объявление `SectionAnalysisService` на `public sealed class SectionAnalysisService : ISectionAnalysisExecutor`; сигнатуру и поведение его текущего `RunAsync` не менять.
 
 - [x] **РЁР°Рі 4: Р РµР°Р»РёР·РѕРІР°С‚СЊ `SectionInteractionService`.**
 
-РљРѕРЅСЃС‚СЂСѓРєС‚РѕСЂ РїСЂРёРЅРёРјР°РµС‚ `ISectionAnalysisExecutor executor`. РњРµС‚РѕРґ:
+Конструктор принимает `ISectionAnalysisExecutor executor`. Метод:
 
 ```csharp
 public Task<SectionInteractionResult> RunAsync(
@@ -230,9 +230,9 @@ public Task<SectionInteractionResult> RunAsync(
     CancellationToken cancellationToken);
 ```
 
-РћРЅ РґРѕР»Р¶РµРЅ РІС‹Р·РІР°С‚СЊ `model.Validate()` Рё `request.Validate()` РґРѕ РїРµСЂРІРѕРіРѕ Р·Р°РїСѓСЃРєР°. Р”Р»СЏ РєР°Р¶РґРѕРіРѕ `force` РІ РёСЃС…РѕРґРЅРѕРј РїРѕСЂСЏРґРєРµ СЃРѕР·РґР°С‚СЊ `SectionAnalysisRequest` СЃ С‚РµРјРё Р¶Рµ `MaxCurvature`, `Increments`, `Axis`, `Convention` Рё `AxialForceN = force`. РџРµСЂРµРґ РєР°Р¶РґРѕР№ С‚РѕС‡РєРѕР№ РІС‹Р·РІР°С‚СЊ `cancellationToken.ThrowIfCancellationRequested()`.
+Он должен вызвать `model.Validate()` и `request.Validate()` до первого запуска. Для каждого `force` в исходном порядке создать `SectionAnalysisRequest` с теми же `MaxCurvature`, `Increments`, `Axis`, `Convention` и `AxialForceN = force`. Перед каждой точкой вызвать `cancellationToken.ThrowIfCancellationRequested()`.
 
-Р РµР·СѓР»СЊС‚Р°С‚ РѕРґРЅРѕР№ С‚РѕС‡РєРё СЃС‚СЂРѕРёС‚СЃСЏ С‚Р°Рє:
+Результат одной точки строится так:
 
 ```csharp
 SectionHistoryRow? lastConverged = analysis.Rows.LastOrDefault(row => row.Converged);
@@ -248,13 +248,13 @@ new SectionInteractionPoint
 };
 ```
 
-РџРѕСЃР»Рµ executor СЃРЅРѕРІР° РїСЂРѕРІРµСЂРёС‚СЊ С‚РѕРєРµРЅ, С‡С‚РѕР±С‹ РѕС‚РјРµРЅР°, РїРµСЂРµС…РІР°С‡РµРЅРЅР°СЏ РІРЅСѓС‚СЂРµРЅРЅРёРј СЃРµСЂРІРёСЃРѕРј, РЅРµ РїРѕР·РІРѕР»РёР»Р° РЅР°С‡Р°С‚СЊ СЃР»РµРґСѓСЋС‰СѓСЋ С‚РѕС‡РєСѓ. РќРµРѕР±СЂР°Р±РѕС‚Р°РЅРЅРѕРµ РёСЃРєР»СЋС‡РµРЅРёРµ РѕРґРЅРѕР№ С‚РѕС‡РєРё РїСЂРµРѕР±СЂР°Р·РѕРІР°С‚СЊ РІ С‚РѕС‡РєСѓ `error` СЃ С‚РµРєСЃС‚РѕРј РёСЃРєР»СЋС‡РµРЅРёСЏ Рё РїСЂРѕРґРѕР»Р¶РёС‚СЊ РѕСЃС‚Р°Р»СЊРЅС‹Рµ С‚РѕС‡РєРё; `OperationCanceledException` РїСЂРѕР±СЂРѕСЃРёС‚СЊ. РС‚РѕРіРѕРІС‹Р№ СЃС‚Р°С‚СѓСЃ РІС‹С‡РёСЃР»СЏС‚СЊ РїРѕ РїСЂР°РІРёР»Р°Рј РёР· spec. `Diagnostics` СЂРµР·СѓР»СЊС‚Р°С‚Р° РґРѕР»Р¶РЅС‹ СЃРѕРґРµСЂР¶Р°С‚СЊ С‚РѕР»СЊРєРѕ Р°РіСЂРµРіРёСЂРѕРІР°РЅРЅС‹Рµ СЃРѕРѕР±С‰РµРЅРёСЏ, Р° РїРѕРґСЂРѕР±РЅРѕСЃС‚Рё РєР°Р¶РґРѕР№ С‚РѕС‡РєРё РѕСЃС‚Р°СЋС‚СЃСЏ РІ `Points`.
+После executor снова проверить токен, чтобы отмена, перехваченная внутренним сервисом, не позволила начать следующую точку. Необработанное исключение одной точки преобразовать в точку `error` с текстом исключения и продолжить остальные точки; `OperationCanceledException` пробросить. Итоговый статус вычислять по правилам из spec. `Diagnostics` результата должны содержать только агрегированные сообщения, а подробности каждой точки остаются в `Points`.
 
-- [x] **РЁР°Рі 5: Р—Р°РїСѓСЃС‚РёС‚СЊ С‚РµСЃС‚С‹ Рё РїСЂРѕРІРµСЂРёС‚СЊ PASS.**
+- [x] **Шаг 5: Запустить тесты и проверить PASS.**
 
-Р—Р°РїСѓСЃРє: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SectionInteractionTests`
+Запуск: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SectionInteractionTests`
 
-РћР¶РёРґР°РµРјС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚: РІСЃРµ unit-С‚РµСЃС‚С‹ РєРѕРЅС‚СЂР°РєС‚Р°, РїРѕСЂСЏРґРєР°, РІС‹Р±РѕСЂР° СЃС‚СЂРѕРєРё, СЃС‚Р°С‚СѓСЃРѕРІ Рё РѕС‚РјРµРЅС‹ РїСЂРѕС…РѕРґСЏС‚.
+Ожидаемый результат: все unit-тесты контракта, порядка, выбора строки, статусов и отмены проходят.
 
 - [x] **РЁР°Рі 6: Р—Р°С„РёРєСЃРёСЂРѕРІР°С‚СЊ СЃРµСЂРІРёСЃ РѕС‚РґРµР»СЊРЅС‹Рј РєРѕРјРјРёС‚РѕРј.**
 
@@ -263,17 +263,17 @@ git add OpenCS.OpenSees/Services/ISectionAnalysisExecutor.cs OpenCS.OpenSees/Ser
 git commit -m "feat(opensees): orchestrate sequential N-M analyses"
 ```
 
-### Р—Р°РґР°С‡Р° 3: Р”РѕР±Р°РІРёС‚СЊ РїР°СЂР°РјРµС‚СЂС‹ Рё task handler OpenCS
+### Задача 3: Добавить параметры и task handler OpenCS
 
 **Р¤Р°Р№Р»С‹:**
 
-- РЎРѕР·РґР°С‚СЊ: `OpenCS/Tasks/OpenSeesSectionInteractionParams.cs`
-- РЎРѕР·РґР°С‚СЊ: `OpenCS/Tasks/OpenSeesSectionInteractionHandler.cs`
+- Создать: `OpenCS/Tasks/OpenSeesSectionInteractionParams.cs`
+- Создать: `OpenCS/Tasks/OpenSeesSectionInteractionHandler.cs`
 - РР·РјРµРЅРёС‚СЊ: `OpenCS.OpenSees.Tests/OpenSeesTaskContractTests.cs`
 
-- [x] **РЁР°Рі 1: РќР°РїРёСЃР°С‚СЊ РїР°РґР°СЋС‰РёРµ contract-С‚РµСЃС‚С‹ РґР»СЏ JSON.**
+- [x] **Шаг 1: Написать падающие contract-тесты для JSON.**
 
-Р”РѕР±Р°РІРёС‚СЊ С‚РµСЃС‚ РґР»СЏ JSON:
+Добавить тест для JSON:
 
 ```json
 {
@@ -286,21 +286,21 @@ git commit -m "feat(opensees): orchestrate sequential N-M analyses"
 }
 ```
 
-РџСЂРѕРІРµСЂРёС‚СЊ С‚СЂРё СЃРёР»С‹ РІ `kN`, РїР°СЂР°РјРµС‚СЂС‹ РєСЂРёРІРёР·РЅС‹, РѕСЃСЊ, timeout Рё РїСѓС‚СЊ. РџСЂРѕРІРµСЂРёС‚СЊ, С‡С‚Рѕ `{}` РёСЃРїРѕР»СЊР·СѓРµС‚ `AxialForcesKn = [0]`, РїРѕР»РѕР¶РёС‚РµР»СЊРЅС‹Рµ defaults `MaxCurvature = 0.01`, `Increments = 20`, `TimeoutSeconds = 300`, Р° РїСѓСЃС‚РѕР№ СЃРїРёСЃРѕРє, `NaN`/`Infinity` РїРѕСЃР»Рµ РґРµСЃРµСЂРёР°Р»РёР·Р°С†РёРё, РЅРµРїРѕР»РѕР¶РёС‚РµР»СЊРЅС‹Рµ `increments`/timeout/maxCurvature, РґСѓР±Р»РёРєР°С‚С‹ Рё РЅРµРёР·РІРµСЃС‚РЅР°СЏ РѕСЃСЊ РѕС‚РєР»РѕРЅСЏСЋС‚СЃСЏ `ArgumentException`.
+Проверить три силы в `kN`, параметры кривизны, ось, timeout и путь. Проверить, что `{}` использует `AxialForcesKn = [0]`, положительные defaults `MaxCurvature = 0.01`, `Increments = 20`, `TimeoutSeconds = 300`, а пустой список, `NaN`/`Infinity` после десериализации, неположительные `increments`/timeout/maxCurvature, дубликаты и неизвестная ось отклоняются `ArgumentException`.
 
-- [x] **РЁР°Рі 2: Р—Р°РїСѓСЃС‚РёС‚СЊ contract-С‚РµСЃС‚С‹ Рё СѓР±РµРґРёС‚СЊСЃСЏ, С‡С‚Рѕ РЅРѕРІС‹Р№ С‚РёРї РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚.**
+- [x] **Шаг 2: Запустить contract-тесты и убедиться, что новый тип отсутствует.**
 
-Р—Р°РїСѓСЃРє: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesTaskContractTests`
+Запуск: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesTaskContractTests`
 
-РћР¶РёРґР°РµРјС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚: РЅРѕРІС‹Рµ С‚РµСЃС‚С‹ РЅРµ РєРѕРјРїРёР»РёСЂСѓСЋС‚СЃСЏ РґРѕ СЃРѕР·РґР°РЅРёСЏ `OpenSeesSectionInteractionParams`.
+Ожидаемый результат: новые тесты не компилируются до создания `OpenSeesSectionInteractionParams`.
 
-- [x] **РЁР°Рі 3: Р РµР°Р»РёР·РѕРІР°С‚СЊ parser РїР°СЂР°РјРµС‚СЂРѕРІ.**
+- [x] **Шаг 3: Реализовать parser параметров.**
 
-РўРёРї РґРѕР»Р¶РµРЅ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ `System.Text.Json` СЃ `PropertyNameCaseInsensitive = true`, РїСѓР±Р»РёС‡РЅРѕРµ СЃРІРѕР№СЃС‚РІРѕ `IReadOnlyList<double> AxialForcesKn`, defaults РёР· С€Р°РіР° 1 Рё РЅРѕСЂРјР°Р»РёР·Р°С†РёСЋ `Axis` Рє СЃС‚СЂРѕРіРѕ `Mx`/`My`. РќРµ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ СЂСѓСЃСЃРєРёРµ СЃС‚СЂРѕРєРё РІ task-РєРѕРЅС‚СЂР°РєС‚Рµ, С‚Р°Рє РєР°Рє СЃРѕРѕР±С‰РµРЅРёСЏ parser РЅРµ РїРѕРєР°Р·С‹РІР°СЋС‚СЃСЏ РЅР°РїСЂСЏРјСѓСЋ РІ XAML.
+Тип должен использовать `System.Text.Json` с `PropertyNameCaseInsensitive = true`, публичное свойство `IReadOnlyList<double> AxialForcesKn`, defaults из шага 1 и нормализацию `Axis` к строго `Mx`/`My`. Не использовать русские строки в task-контракте, так как сообщения parser не показываются напрямую в XAML.
 
 - [x] **РЁР°Рі 4: РџСЂРѕРІРµСЂРёС‚СЊ РµРґРёРЅРёС†С‹ Рё СЃРµСЂРёР°Р»РёР·СѓРµРјРѕСЃС‚СЊ СЂРµР·СѓР»СЊС‚Р°С‚Р°.**
 
-Р’ contract-С‚РµСЃС‚Рµ РїСЂРѕРІРµСЂРёС‚СЊ:
+В contract-тесте проверить:
 
 ```csharp
 OpenSeesSectionInteractionParams parameters = OpenSeesSectionInteractionParams.Parse(json);
@@ -319,15 +319,15 @@ Assert.Contains("\"AxialForceN\":1000", jsonResult);
 
 - [x] **РЁР°Рі 5: Р РµР°Р»РёР·РѕРІР°С‚СЊ handler.**
 
-`OpenSeesSectionInteractionHandler : ITaskHandler` РїРѕР»СѓС‡Р°РµС‚ kind `opensees_section_interaction_nm`. Р’ `Run` РѕРЅ РґРѕР»Р¶РµРЅ РїРѕРІС‚РѕСЂРёС‚СЊ РїСЂРѕРІРµСЂРµРЅРЅС‹Р№ stage 0вЂ“1 pipeline: РїСЂРѕРІРµСЂРёС‚СЊ cancellation, СЂР°СЃРїР°СЂСЃРёС‚СЊ params, РІС‹Р±СЂР°С‚СЊ `Mx`/`My`, РїРѕР»СѓС‡РёС‚СЊ materials/diagrams РёР· `TaskRunContext.Database`, РІС‹Р·РІР°С‚СЊ `CrossSectionToOpenSeesAdapter.Build`, СЂР°Р·СЂРµС€РёС‚СЊ executable С‡РµСЂРµР· `OpenSeesExecutableResolver`, СЃРєРѕРЅРІРµСЂС‚РёСЂРѕРІР°С‚СЊ `AxialForcesKn` РІ `AxialForcesN`, СЃРѕР·РґР°С‚СЊ `SectionInteractionRequest`, Р·Р°С‚РµРј СЃРѕР·РґР°С‚СЊ `SectionAnalysisService` Рё `SectionInteractionService` СЃ `OpenSeesArtifactStore` РїРѕРґ `AppContext.BaseDirectory/OpenSeesArtifacts`.
+`OpenSeesSectionInteractionHandler : ITaskHandler` получает kind `opensees_section_interaction_nm`. В `Run` он должен повторить проверенный stage 0–1 pipeline: проверить cancellation, распарсить params, выбрать `Mx`/`My`, получить materials/diagrams из `TaskRunContext.Database`, вызвать `CrossSectionToOpenSeesAdapter.Build`, разрешить executable через `OpenSeesExecutableResolver`, сконвертировать `AxialForcesKn` в `AxialForcesN`, создать `SectionInteractionRequest`, затем создать `SectionAnalysisService` и `SectionInteractionService` с `OpenSeesArtifactStore` под `AppContext.BaseDirectory/OpenSeesArtifacts`.
 
-Р”Р»СЏ РєР°Р¶РґРѕР№ С‚РѕС‡РєРё РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РѕРґРёРЅ Рё С‚РѕС‚ Р¶Рµ `OpenSeesRunRequest` СЃ executable Рё timeout; РІРЅСѓС‚СЂРµРЅРЅРёР№ interaction service РѕР±РµСЃРїРµС‡РёС‚ СѓРЅРёРєР°Р»СЊРЅС‹Рµ РєР°С‚Р°Р»РѕРіРё. Р’РѕР·РІСЂР°С‚РёС‚СЊ `CalcResult` СЃ `Status = result.Status` Рё `DataJson = JsonSerializer.Serialize(result)`. `OperationCanceledException` РІРµСЂРЅСѓС‚СЊ РєР°Рє `not_converged`, РїСЂРѕС‡РёРµ РёСЃРєР»СЋС‡РµРЅРёСЏ вЂ” РєР°Рє `error`, РЅРµ РІС‹Р±СЂР°СЃС‹РІР°СЏ РёС… РЅР°СЂСѓР¶Сѓ.
+Для каждой точки использовать один и тот же `OpenSeesRunRequest` с executable и timeout; внутренний interaction service обеспечит уникальные каталоги. Возвратить `CalcResult` с `Status = result.Status` и `DataJson = JsonSerializer.Serialize(result)`. `OperationCanceledException` вернуть как `not_converged`, прочие исключения — как `error`, не выбрасывая их наружу.
 
-- [x] **РЁР°Рі 6: Р—Р°РїСѓСЃС‚РёС‚СЊ РІСЃРµ task-contract С‚РµСЃС‚С‹.**
+- [x] **Шаг 6: Запустить все task-contract тесты.**
 
-Р—Р°РїСѓСЃРє: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesTaskContractTests`
+Запуск: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesTaskContractTests`
 
-РћР¶РёРґР°РµРјС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚: PASS, РІРєР»СЋС‡Р°СЏ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёРµ С‚РµСЃС‚С‹ momentвЂ“curvature.
+Ожидаемый результат: PASS, включая существующие тесты moment–curvature.
 
 - [x] **РЁР°Рі 7: Р—Р°С„РёРєСЃРёСЂРѕРІР°С‚СЊ task pipeline РѕС‚РґРµР»СЊРЅС‹Рј РєРѕРјРјРёС‚РѕРј.**
 
@@ -348,29 +348,29 @@ git commit -m "feat(opensees): add N-M task contract and handler"
 
 - [x] **РЁР°Рі 1: Р”РѕР±Р°РІРёС‚СЊ РїСЂРѕРІРµСЂРєСѓ СЂРµРіРёСЃС‚СЂР°С†РёРё.**
 
-Р’ `TaskRunner.KindList` РїСЂРѕРІРµСЂРёС‚СЊ РЅР°Р»РёС‡РёРµ С‚РѕС‡РЅРѕРіРѕ Р·РЅР°С‡РµРЅРёСЏ `opensees_section_interaction_nm` СЂСЏРґРѕРј СЃ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёРј `opensees_section_moment_curvature`.
+В `TaskRunner.KindList` проверить наличие точного значения `opensees_section_interaction_nm` рядом с существующим `opensees_section_moment_curvature`.
 
-- [x] **РЁР°Рі 2: Р”РѕР±Р°РІРёС‚СЊ resource keys РІ РѕР±Р° СЃР»РѕРІР°СЂСЏ.**
+- [x] **Шаг 2: Добавить resource keys в оба словаря.**
 
-Р”РѕР±Р°РІРёС‚СЊ РѕРґРёРЅР°РєРѕРІС‹Р№ РєР»СЋС‡ `CalcTaskKind_opensees_section_interaction_nm` РІ `Strings.ru-RU.xaml` Рё `Strings.en-US.xaml`. Р СѓСЃСЃРєРѕРµ Р·РЅР°С‡РµРЅРёРµ РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ `OpenSees: РґРёР°РіСЂР°РјРјР° NвЂ“M`, Р°РЅРіР»РёР№СЃРєРѕРµ вЂ” `OpenSees: NвЂ“M interaction`. Р’ `.cs` Рё `.xaml` РЅРµ РґРѕР±Р°РІР»СЏС‚СЊ РІРёРґРёРјС‹Р№ С‚РµРєСЃС‚ РЅР°РїСЂСЏРјСѓСЋ: СЃРїРёСЃРѕРє task РґРѕР»Р¶РµРЅ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ `Loc.S("CalcTaskKind_opensees_section_interaction_nm")`.
+Добавить одинаковый ключ `CalcTaskKind_opensees_section_interaction_nm` в `Strings.ru-RU.xaml` и `Strings.en-US.xaml`. Русское значение должно быть `OpenSees: диаграмма N–M`, английское — `OpenSees: N–M interaction`. В `.cs` и `.xaml` не добавлять видимый текст напрямую: список task должен использовать `Loc.S("CalcTaskKind_opensees_section_interaction_nm")`.
 
-- [x] **РЁР°Рі 3: Р—Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°С‚СЊ РѕР±СЂР°Р±РѕС‚С‡РёРє Рё РґРѕР±Р°РІРёС‚СЊ РїСѓРЅРєС‚ РІС‹Р±РѕСЂР°.**
+- [x] **Шаг 3: Зарегистрировать обработчик и добавить пункт выбора.**
 
-Р’ СЃР»РѕРІР°СЂСЊ `Handlers` РґРѕР±Р°РІРёС‚СЊ:
+В словарь `Handlers` добавить:
 
 ```csharp
 ["opensees_section_interaction_nm"] = new OpenSeesSectionInteractionHandler(),
 ```
 
-Р’ СЃРїРёСЃРѕРє `CalcTaskPropsDialog` РґРѕР±Р°РІРёС‚СЊ `new()` СЃ `Id = "opensees_section_interaction_nm"`, `Label = Loc.S("CalcTaskKind_opensees_section_interaction_nm")`, С‚РѕР№ Р¶Рµ РіСЂСѓРїРїРѕР№ `other`, С‡С‚Рѕ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ С‚РµРєСѓС‰РµР№ OpenSees task.
+В список `CalcTaskPropsDialog` добавить `new()` с `Id = "opensees_section_interaction_nm"`, `Label = Loc.S("CalcTaskKind_opensees_section_interaction_nm")`, той же группой `other`, что используется текущей OpenSees task.
 
 - [x] **РЁР°Рі 4: РџСЂРѕРІРµСЂРёС‚СЊ Р»РѕРєР°Р»РёР·Р°С†РёСЋ Рё СЂРµРіРёСЃС‚СЂР°С†РёСЋ СЃР±РѕСЂРєРѕР№.**
 
-Р—Р°РїСѓСЃРє: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesTaskContractTests`
+Запуск: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesTaskContractTests`
 
-Р—Р°С‚РµРј: `dotnet build OpenCS/OpenCS.csproj --no-restore`
+Затем: `dotnet build OpenCS/OpenCS.csproj --no-restore`
 
-РћР¶РёРґР°РµРјС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚: contract-С‚РµСЃС‚С‹ Рё WPF-СЃР±РѕСЂРєР° РїСЂРѕС…РѕРґСЏС‚ Р±РµР· РЅРѕРІС‹С… РїСЂРµРґСѓРїСЂРµР¶РґРµРЅРёР№.
+Ожидаемый результат: contract-тесты и WPF-сборка проходят без новых предупреждений.
 
 - [x] **РЁР°Рі 5: Р—Р°С„РёРєСЃРёСЂРѕРІР°С‚СЊ СЂРµРіРёСЃС‚СЂР°С†РёСЋ РѕС‚РґРµР»СЊРЅС‹Рј РєРѕРјРјРёС‚РѕРј.**
 
@@ -379,24 +379,24 @@ git add OpenCS/Tasks/TaskRunner.cs OpenCS/Views/CalcTaskPropsDialog.xaml.cs Open
 git commit -m "feat(opensees): register N-M calculation task"
 ```
 
-### Р—Р°РґР°С‡Р° 5: Р”РѕР±Р°РІРёС‚СЊ СЂРµР°Р»СЊРЅСѓСЋ РёРЅС‚РµРіСЂР°С†РёСЋ Рё РґРѕРєСѓРјРµРЅС‚Р°С†РёСЋ
+### Задача 5: Добавить реальную интеграцию и документацию
 
 **Р¤Р°Р№Р»С‹:**
 
 - РР·РјРµРЅРёС‚СЊ: `OpenCS.OpenSees.Tests/OpenSeesIntegrationTests.cs`
 - РР·РјРµРЅРёС‚СЊ: `OpenCS.OpenSees/README.md`
 
-- [x] **РЁР°Рі 1: РќР°РїРёСЃР°С‚СЊ opt-in integration-С‚РµСЃС‚ С‚СЂС‘С… С‚РѕС‡РµРє.**
+- [x] **Шаг 1: Написать opt-in integration-тест трёх точек.**
 
-РСЃРїРѕР»СЊР·РѕРІР°С‚СЊ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёРµ `OpenSeesTestExecutable.ResolveOrSkip()` Рё `ElasticSection()`. РЎРѕР·РґР°С‚СЊ `SectionInteractionService` РїРѕРІРµСЂС… СЂРµР°Р»СЊРЅС‹С… `SectionAnalysisService`, `SectionMomentCurvatureTclGenerator`, `OpenSeesProcessRunner` Рё РІСЂРµРјРµРЅРЅРѕРіРѕ `OpenSeesArtifactStore`. Р—Р°РїСЂРѕСЃРёС‚СЊ `AxialForcesN = [-100_000, 0, 100_000]`, `MaxCurvature = 1e-5`, `Increments = 2`.
+Использовать существующие `OpenSeesTestExecutable.ResolveOrSkip()` и `ElasticSection()`. Создать `SectionInteractionService` поверх реальных `SectionAnalysisService`, `SectionMomentCurvatureTclGenerator`, `OpenSeesProcessRunner` и временного `OpenSeesArtifactStore`. Запросить `AxialForcesN = [-100_000, 0, 100_000]`, `MaxCurvature = 1e-5`, `Increments = 2`.
 
-РџСЂРѕРІРµСЂРёС‚СЊ `Status == "ok"`, СЂРѕРІРЅРѕ С‚СЂРё С‚РѕС‡РєРё РІ РёСЃС…РѕРґРЅРѕРј РїРѕСЂСЏРґРєРµ, РєРѕРЅРµС‡РЅС‹Рµ `BendingMomentNm` Рё `Curvature`, РїРѕР»РѕР¶РёС‚РµР»СЊРЅСѓСЋ РєСЂРёРІРёР·РЅСѓ Рё С‚СЂРё СЂР°Р·Р»РёС‡РЅС‹С… СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёС… `ArtifactDirectory`. Р’ РєР°Р¶РґРѕРј РєР°С‚Р°Р»РѕРіРµ РїСЂРѕРІРµСЂРёС‚СЊ `completed.marker`, `section_history.out` Рё `manifest.json`. Р’ `finally` СѓРґР°Р»РёС‚СЊ РІСЂРµРјРµРЅРЅС‹Р№ root С‚Р°Рє Р¶Рµ, РєР°Рє РІ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёС… integration-С‚РµСЃС‚Р°С….
+Проверить `Status == "ok"`, ровно три точки в исходном порядке, конечные `BendingMomentNm` и `Curvature`, положительную кривизну и три различных существующих `ArtifactDirectory`. В каждом каталоге проверить `completed.marker`, `section_history.out` и `manifest.json`. В `finally` удалить временный root так же, как в существующих integration-тестах.
 
-- [x] **РЁР°Рі 2: Р—Р°РїСѓСЃС‚РёС‚СЊ С‚РѕР»СЊРєРѕ integration-С‚РµСЃС‚.**
+- [x] **Шаг 2: Запустить только integration-тест.**
 
-Р—Р°РїСѓСЃРє: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesIntegrationTests`
+Запуск: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesIntegrationTests`
 
-РћР¶РёРґР°РµРјС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚: С‚РµСЃС‚ РїСЂРѕС…РѕРґРёС‚ РїСЂРё Р·Р°РґР°РЅРЅРѕРј `OPENSEES_EXE`; Р±РµР· executable opt-in-С‚РµСЃС‚С‹ РїСЂРѕРїСѓСЃРєР°СЋС‚СЃСЏ С€С‚Р°С‚РЅС‹Рј `SkipException`.
+Ожидаемый результат: тест проходит при заданном `OPENSEES_EXE`; без executable opt-in-тесты пропускаются штатным `SkipException`.
 
 - [x] **РЁР°Рі 3: РћР±РЅРѕРІРёС‚СЊ README.**
 
@@ -416,7 +416,7 @@ $env:OPENSEES_EXE = 'C:\path\to\OpenSees.exe'
 }
 ```
 
-РЇРІРЅРѕ СѓРєР°Р·Р°С‚СЊ, С‡С‚Рѕ `axialForces` Р·Р°РґР°СЋС‚СЃСЏ РІ `kN`, backend СЂР°Р±РѕС‚Р°РµС‚ РІ SI, С‚РѕС‡РєРё Р·Р°РїСѓСЃРєР°СЋС‚СЃСЏ РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅРѕ, РєР°Р¶РґР°СЏ С‚РѕС‡РєР° РїРѕР»СѓС‡Р°РµС‚ СЃРѕР±СЃС‚РІРµРЅРЅС‹Р№ РєР°С‚Р°Р»РѕРі, Р° РїРѕСЃР»РµРґРЅСЏСЏ converged-СЃС‚СЂРѕРєР° СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ РґР°Р¶Рµ РїСЂРё СЃС‚Р°С‚СѓСЃРµ `not_converged`. РџРµСЂРµС‡РёСЃР»РёС‚СЊ Р°РіСЂРµРіРёСЂРѕРІР°РЅРЅС‹Рµ СЃС‚Р°С‚СѓСЃС‹ Рё РёСЃРєР»СЋС‡РёС‚СЊ РёР· С‚РµРєСѓС‰РµР№ РІРµСЂСЃРёРё `N-Mx-My`, target-force Рё parallel batch.
+Явно указать, что `axialForces` задаются в `kN`, backend работает в SI, точки запускаются последовательно, каждая точка получает собственный каталог, а последняя converged-строка сохраняется даже при статусе `not_converged`. Перечислить агрегированные статусы и исключить из текущей версии `N-Mx-My`, target-force и parallel batch.
 
 - [x] **РЁР°Рі 4: Р—Р°С„РёРєСЃРёСЂРѕРІР°С‚СЊ РёРЅС‚РµРіСЂР°С†РёСЋ Рё РґРѕРєСѓРјРµРЅС‚Р°С†РёСЋ.**
 
@@ -425,28 +425,28 @@ git add OpenCS.OpenSees.Tests/OpenSeesIntegrationTests.cs OpenCS.OpenSees/README
 git commit -m "test(opensees): cover N-M interaction integration"
 ```
 
-### Р—Р°РґР°С‡Р° 6: РџРѕР»РЅР°СЏ РїСЂРѕРІРµСЂРєР° stage Рё handoff
+### Задача 6: Полная проверка stage и handoff
 
-- [x] **РЁР°Рі 1: Р—Р°РїСѓСЃС‚РёС‚СЊ РїРѕР»РЅС‹Р№ РЅР°Р±РѕСЂ OpenSees-С‚РµСЃС‚РѕРІ.**
+- [x] **Шаг 1: Запустить полный набор OpenSees-тестов.**
 
 ```powershell
 dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj
 ```
 
-РћР¶РёРґР°РµРјС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚: РІСЃРµ pure-С‚РµСЃС‚С‹ РїСЂРѕС…РѕРґСЏС‚, integration-С‚РµСЃС‚С‹ РїСЂРѕС…РѕРґСЏС‚ РїСЂРё `OPENSEES_EXE` РёР»Рё С€С‚Р°С‚РЅРѕ РїСЂРѕРїСѓСЃРєР°СЋС‚СЃСЏ Р±РµР· РЅРµРіРѕ.
+Ожидаемый результат: все pure-тесты проходят, integration-тесты проходят при `OPENSEES_EXE` или штатно пропускаются без него.
 
-- [x] **РЁР°Рі 2: Р—Р°РїСѓСЃС‚РёС‚СЊ РґРѕРјРµРЅРЅС‹Рµ С‚РµСЃС‚С‹ Рё СЃР±РѕСЂРєСѓ СЂРµС€РµРЅРёСЏ.**
+- [x] **Шаг 2: Запустить доменные тесты и сборку решения.**
 
 ```powershell
 dotnet test CScore.Tests/CScore.Tests.csproj
 dotnet build OpenCS.sln --no-restore
 ```
 
-РћР¶РёРґР°РµРјС‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚: С‚РµСЃС‚С‹ Рё solution build СѓСЃРїРµС€РЅС‹; СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёРµ РїСЂРµРґСѓРїСЂРµР¶РґРµРЅРёСЏ РІРЅРµ OpenSees РЅРµ РёСЃРїСЂР°РІР»СЏС‚СЊ РІ СЂР°РјРєР°С… СЌС‚РѕРіРѕ СЃСЂРµР·Р°.
+Ожидаемый результат: тесты и solution build успешны; существующие предупреждения вне OpenSees не исправлять в рамках этого среза.
 
-- [x] **РЁР°Рі 3: РџСЂРѕРІРµСЂРёС‚СЊ Р°СЂС‚РµС„Р°РєС‚С‹ Рё Git-СЃРѕСЃС‚РѕСЏРЅРёРµ.**
+- [x] **Шаг 3: Проверить артефакты и Git-состояние.**
 
-РџСЂРѕРІРµСЂРёС‚СЊ РѕРґРёРЅ СЂРµР°Р»СЊРЅС‹Р№ РєР°С‚Р°Р»РѕРі РІР·Р°РёРјРѕРґРµР№СЃС‚РІРёСЏ: С‚СЂРё РѕС‚РґРµР»СЊРЅС‹С… РїРѕРґРєР°С‚Р°Р»РѕРіР°, SI-Р·РЅР°С‡РµРЅРёСЏ РІ `script.tcl`, РїРѕСЂСЏРґРѕРє `N`, РЅР°Р»РёС‡РёРµ `manifest.json`, `exit.json`, `section_history.out` Рё `completed.marker`. Р’С‹РїРѕР»РЅРёС‚СЊ `git diff --check` Рё `git status -sb`; РІ СЂР°Р±РѕС‡РµРј РґРµСЂРµРІРµ РґРѕР»Р¶РЅС‹ РѕСЃС‚Р°С‚СЊСЃСЏ С‚РѕР»СЊРєРѕ РѕСЃРѕР·РЅР°РЅРЅС‹Рµ РёР·РјРµРЅРµРЅРёСЏ/РєРѕРјРјРёС‚С‹ СЌС‚РѕР№ РІРµС‚РєРё.
+Проверить один реальный каталог взаимодействия: три отдельных подкаталога, SI-значения в `script.tcl`, порядок `N`, наличие `manifest.json`, `exit.json`, `section_history.out` и `completed.marker`. Выполнить `git diff --check` и `git status -sb`; в рабочем дереве должны остаться только осознанные изменения/коммиты этой ветки.
 
 - [x] **РЁР°Рі 4: Р—Р°С„РёРєСЃРёСЂРѕРІР°С‚СЊ РІС‹РїРѕР»РЅРµРЅРёРµ РїР»Р°РЅР° Рё handoff.**
 
@@ -455,11 +455,11 @@ git add docs/superpowers/plans/2026-07-15-opensees-section-interaction.md
 git commit -m "docs(opensees): add N-M implementation plan"
 ```
 
-РџРѕСЃР»Рµ СЌС‚РѕРіРѕ СЃР»РµРґСѓСЋС‰Р°СЏ РіСЂР°РЅРёС†Р° СЂРµР°Р»РёР·Р°С†РёРё вЂ” РѕС‚РґРµР»СЊРЅР°СЏ СЃРїРµС†РёС„РёРєР°С†РёСЏ `N-Mx-My` РёР»Рё target-force, Р±РµР· СЂР°СЃС€РёСЂРµРЅРёСЏ С‚РµРєСѓС‰РµРіРѕ task СЃРєСЂС‹С‚С‹РјРё РїР°СЂР°РјРµС‚СЂР°РјРё.
+После этого следующая граница реализации — отдельная спецификация `N-Mx-My` или target-force, без расширения текущего task скрытыми параметрами.
 
-## РЎР°РјРѕРїСЂРѕРІРµСЂРєР° РїР»Р°РЅР°
+## Самопроверка плана
 
-- Р’СЃРµ С‚СЂРµР±РѕРІР°РЅРёСЏ СЃРїРµС†РёС„РёРєР°С†РёРё РїРѕРєСЂС‹С‚С‹ Р·Р°РґР°С‡Р°РјРё 1вЂ“6: РјРѕРґРµР»Рё, РїРѕСЃР»РµРґРѕРІР°С‚РµР»СЊРЅС‹Р№ executor, СЃС‚Р°С‚СѓСЃС‹, Р°СЂС‚РµС„Р°РєС‚С‹, cancellation, task contract, Р»РѕРєР°Р»РёР·Р°С†РёСЏ Рё opt-in integration.
-- Р’ РїР»Р°РЅРµ РЅРµС‚ С€Р°РіРѕРІ СЃ `TODO`, `TBD`, РЅРµРѕРїСЂРµРґРµР»С‘РЅРЅС‹РјРё С„Р°Р№Р»Р°РјРё РёР»Рё СЃСЃС‹Р»РєР°РјРё РЅР° РЅРµСЃСѓС‰РµСЃС‚РІСѓСЋС‰РёРµ РјРµС‚РѕРґС‹; РєРѕРЅС‚СЂР°РєС‚ `ISectionAnalysisExecutor.RunAsync` РѕРїСЂРµРґРµР»С‘РЅ РґРѕ РµРіРѕ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёСЏ.
-- РЎСѓС‰РµСЃС‚РІСѓСЋС‰Р°СЏ task momentвЂ“curvature РЅРµ РјРµРЅСЏРµС‚ СЃРµРјР°РЅС‚РёРєСѓ Р·Р°РїСЂРѕСЃР°; РЅРѕРІР°СЏ task РёСЃРїРѕР»СЊР·СѓРµС‚ РѕС‚РґРµР»СЊРЅС‹Р№ kind Рё РѕС‚РґРµР»СЊРЅС‹Р№ params-РєР»Р°СЃСЃ.
-- РџР°СЂР°Р»Р»РµР»РёР·Рј, РїСЂРѕСЃС‚СЂР°РЅСЃС‚РІРµРЅРЅР°СЏ РґРёР°РіСЂР°РјРјР° Рё target-force СЏРІРЅРѕ РёСЃРєР»СЋС‡РµРЅС‹, РїРѕСЌС‚РѕРјСѓ РїР»Р°РЅ РѕСЃС‚Р°С‘С‚СЃСЏ РѕРґРЅРёРј С‚РµСЃС‚РёСЂСѓРµРјС‹Рј РІРµСЂС‚РёРєР°Р»СЊРЅС‹Рј СЃСЂРµР·РѕРј.
+- Все требования спецификации покрыты задачами 1–6: модели, последовательный executor, статусы, артефакты, cancellation, task contract, локализация и opt-in integration.
+- В плане нет шагов с `TODO`, `TBD`, неопределёнными файлами или ссылками на несуществующие методы; контракт `ISectionAnalysisExecutor.RunAsync` определён до его использования.
+- Существующая task moment–curvature не меняет семантику запроса; новая task использует отдельный kind и отдельный params-класс.
+- Параллелизм, пространственная диаграмма и target-force явно исключены, поэтому план остаётся одним тестируемым вертикальным срезом.
