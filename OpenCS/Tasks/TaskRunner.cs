@@ -51,7 +51,8 @@ namespace OpenCS.Tasks
           ["cracking"]             = new CrackingHandler(),
           ["crack_width"]          = new CrackWidthHandler(),
           ["cracking_batch"]       = new CrackingBatchHandler(),
-          ["crack_width_batch"]    = new CrackWidthBatchHandler(),
+         ["crack_width_batch"]    = new CrackWidthBatchHandler(),
+         ["opensees_section_moment_curvature"] = new OpenSeesSectionMomentCurvatureHandler(),
        };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>

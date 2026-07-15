@@ -411,6 +411,8 @@
     <ProjectReference Include="..\CScore\CScore.csproj" />
     <ProjectReference Include="..\CScore.Fire\CScore.Fire.csproj" />
     <ProjectReference Include="..\CSfea.Torsion\CSfea.Torsion.csproj" />
+    <ProjectReference Include="..\OpenCS.OpenSees\OpenCS.OpenSees.csproj" />
+    <ProjectReference Include="..\OpenCS.OpenSees.CScore\OpenCS.OpenSees.CScore.csproj" />
   </ItemGroup>
 
   <ItemGroup>

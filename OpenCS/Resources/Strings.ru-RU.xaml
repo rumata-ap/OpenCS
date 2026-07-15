@@ -1526,4 +1526,7 @@
    <system:String x:Key="SectionCutHintClickOnePoint">Укажите точку на сечении</system:String>
    <system:String x:Key="SectionCutHintClickTwoPoints">Укажите две точки на сечении</system:String>
 
+    <system:String x:Key="CalcTaskKind_opensees_section_moment_curvature">OpenSees: момент–кривизна сечения</system:String>
+    <system:String x:Key="OpenSeesTaskCancelled">Расчёт OpenSees отменён.</system:String>
+    <system:String x:Key="OpenSeesTaskErrorFormat">Ошибка OpenSees: {0}</system:String>
   </ResourceDictionary>

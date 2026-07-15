@@ -811,6 +811,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "fire_r_check_batch",       Label = Loc.S("CalcTaskKind_fire_r_check_batch"),       GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
       // Прочие
       new() { Id = "prestress_loss",           Label = Loc.S("CalcTaskKind_prestress_loss"),           GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
+      new() { Id = "opensees_section_moment_curvature", Label = Loc.S("CalcTaskKind_opensees_section_moment_curvature"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
    ];
 
    public ListCollectionView AvailableKindsView { get; }
