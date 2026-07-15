@@ -130,6 +130,7 @@ public sealed class CrackWidthHandler : ITaskHandler
 
             var solver = new CrackWidthSolver(section,
                 calcCrc: CalcType.CL, calcService: CalcType.N,
+                calcServiceLong: p.LongPartUseNL ? CalcType.NL : (CalcType?)null,
                 acrcUltLong: p.AcrcUltLong, acrcUltShort: p.AcrcUltShort,
                 sp63EtaMin: settings.Sp63DescEtaMin);
 
