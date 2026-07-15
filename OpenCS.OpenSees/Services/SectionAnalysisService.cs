@@ -8,7 +8,7 @@ using OpenCS.OpenSees.Tcl;
 namespace OpenCS.OpenSees.Services;
 
 /// <summary>Оркестрирует генерацию Tcl, внешний запуск, parsing и сохранение артефактов.</summary>
-public sealed class SectionAnalysisService
+public sealed class SectionAnalysisService : ISectionAnalysisExecutor
 {
     private readonly IOpenSeesTclGenerator _generator;
     private readonly IOpenSeesProcessRunner _runner;
