@@ -772,6 +772,11 @@
                   <TextBox Text="{Binding CrackWidthLongShare, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4"/>
                </StackPanel>
 
+               <CheckBox Content="{DynamicResource CrackWidth_LongPartUseNL}"
+                         IsChecked="{Binding CrackWidthLongPartUseNL}"
+                         ToolTip="{DynamicResource CrackWidth_LongPartUseNLHint}"
+                         Margin="0,0,0,4"/>
+
                <StackPanel Visibility="{Binding ShowCrackWidthManual, Converter={StaticResource BoolToVisibility}}">
                   <TextBlock Text="{DynamicResource CrackWidth_ManualNLong}"/>
                   <TextBox Text="{Binding CrackWidthManualNLong, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,2"/>

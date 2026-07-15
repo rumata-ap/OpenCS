@@ -1447,6 +1447,8 @@
     <system:String x:Key="CrackWidth_Mode_force_item_long">Separate force row</system:String>
     <system:String x:Key="CrackWidth_Mode_two_sets">Two force sets</system:String>
     <system:String x:Key="CrackWidth_LongShare">Long-term load share</system:String>
+    <system:String x:Key="CrackWidth_LongPartUseNL">Use NL for long-term part</system:String>
+    <system:String x:Key="CrackWidth_LongPartUseNLHint">Use long-term (NL) concrete and rebar characteristics instead of short-term (N) when computing the long-term crack width. The cracking moment and short-term part are not affected.</system:String>
     <system:String x:Key="CrackWidth_ManualNLong">N long-term, kN</system:String>
     <system:String x:Key="CrackWidth_ManualMxLong">Mx long-term, kN·m</system:String>
     <system:String x:Key="CrackWidth_ManualMyLong">My long-term, kN·m</system:String>

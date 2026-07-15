@@ -78,6 +78,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string crackWidthAcrcUltShort = "0.4";
     string crackWidthForcesMode = "total_only";
     string crackWidthLongShare = "0.7";
+    bool crackWidthLongPartUseNL;
     string crackWidthManualNLong = "0";
     string crackWidthManualMxLong = "0";
     string crackWidthManualMyLong = "0";
@@ -482,6 +483,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string CrackWidthAcrcUltLong  { get => crackWidthAcrcUltLong;  set { crackWidthAcrcUltLong  = value; OnPropertyChanged(); } }
    public string CrackWidthAcrcUltShort { get => crackWidthAcrcUltShort; set { crackWidthAcrcUltShort = value; OnPropertyChanged(); } }
    public string CrackWidthLongShare    { get => crackWidthLongShare;    set { crackWidthLongShare    = value; OnPropertyChanged(); } }
+   public bool   CrackWidthLongPartUseNL { get => crackWidthLongPartUseNL; set { crackWidthLongPartUseNL = value; OnPropertyChanged(); } }
    public string CrackWidthManualNLong  { get => crackWidthManualNLong;  set { crackWidthManualNLong  = value; OnPropertyChanged(); } }
    public string CrackWidthManualMxLong { get => crackWidthManualMxLong; set { crackWidthManualMxLong = value; OnPropertyChanged(); } }
    public string CrackWidthManualMyLong { get => crackWidthManualMyLong; set { crackWidthManualMyLong = value; OnPropertyChanged(); } }
@@ -1031,6 +1033,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              CrackWidthAcrcUltShort = cwp.AcrcUltShort.ToString("G6", inv);
              CrackWidthForcesMode   = cwp.ForcesMode;
              CrackWidthLongShare    = cwp.LongShare.ToString("G6", inv);
+             CrackWidthLongPartUseNL = cwp.LongPartUseNL;
              if (cwp.NLongManual.HasValue)  CrackWidthManualNLong  = cwp.NLongManual.Value.ToString("G6", inv);
              if (cwp.MxLongManual.HasValue) CrackWidthManualMxLong = cwp.MxLongManual.Value.ToString("G6", inv);
              if (cwp.MyLongManual.HasValue) CrackWidthManualMyLong = cwp.MyLongManual.Value.ToString("G6", inv);
@@ -1461,7 +1464,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             AcrcUltLong = acrcLong,
             AcrcUltShort = acrcShort,
             ForcesMode = CrackWidthForcesMode,
-            LongShare = longShare
+            LongShare = longShare,
+            LongPartUseNL = CrackWidthLongPartUseNL
          };
 
          if (IsCrackWidthBatch)
