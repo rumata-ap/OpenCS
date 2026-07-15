@@ -195,4 +195,44 @@ public class CrackWidthSolverTests
         Assert.True(resSmooth.Cracked);
         Assert.Equal(resDefault.AcrcLong * (0.8 / 0.5), resSmooth.AcrcLong, 6);
     }
+
+    // Инцидент 2026-07-15 (найден пользователем): SigmaSCrc читался прямо с ДОтрещинной
+    // плоскости crcRes.StrainPlane (ten=true — CrackingSolver ищет по ней сам Mcrc), где
+    // бетон ещё несёт растяжение и разгружает арматуру. По п.8.2.18 σs,crc должно быть
+    // напряжением в арматуре В СЕЧЕНИИ С ТРЕЩИНОЙ, т.е. на пересчитанной (ten=false)
+    // плоскости при том же M=Mcrc — там бетон резко перестаёт помогать, и напряжение в
+    // арматуре ощутимо ВЫШЕ, чем на дотрещинной плоскости при том же моменте.
+    [Fact]
+    public void Compute_SigmaSCrc_HigherThanOnPreCrackPlane()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var crcSolver = new CrackingSolver(section, CalcType.N);
+        var crcRes = crcSolver.CrackingMoment(0, -1, 0);
+        Assert.True(crcRes.StrainPlane.HasValue);
+
+        var solver = new CrackWidthSolver(section);
+        var res = solver.Compute(N: 0.0, mxLong: crcRes.Mx * 2.5, mxTotal: crcRes.Mx * 2.5);
+        Assert.True(res.Cracked);
+
+        // "Наивное" (ошибочное) значение — напряжение в арматуре на ДОтрещинной плоскости,
+        // которое раньше ошибочно использовалось как σs,crc.
+        var plane = crcRes.StrainPlane!.Value;
+        double naiveSigmaCrcKPa = 0.0;
+        foreach (var area in section.Areas)
+        {
+            if (area.Material?.Type is not (MatType.ReSteelF or MatType.ReSteelU)) continue;
+            var dgr = area.Material.GetDiagramms(area.DiagrammType, 0.85)![CalcType.N];
+            foreach (var f in area.Fibers)
+            {
+                if (f.TypeFiber != FiberType.point) continue;
+                double eps = plane.e0 + plane.ky * f.Y + plane.kz * f.X;
+                if (eps <= 0.0) continue;
+                double sig = dgr.Sig(eps, out _);
+                if (sig > naiveSigmaCrcKPa) naiveSigmaCrcKPa = sig;
+            }
+        }
+
+        Assert.True(naiveSigmaCrcKPa > 0.0);
+        Assert.True(res.SigmaSCrc > naiveSigmaCrcKPa * 1.5);
+    }
 }

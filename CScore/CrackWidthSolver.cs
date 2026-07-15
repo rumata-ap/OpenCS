@@ -514,11 +514,38 @@ public sealed class CrackWidthSolver
         double lsMax = Math.Min(40.0 * dsEq, 0.40);
         lsM = Math.Max(lsMin, Math.Min(lsMax, lsM));
 
+        // σs,crc (п.8.2.18) — напряжение в арматуре В СЕЧЕНИИ С ТРЕЩИНОЙ сразу после
+        // образования трещин, т.е. на ПОСТ-трещинной (ten=false) плоскости деформаций при
+        // M=Mcrc — а не на исходной (ещё не растрескавшейся, ten=true) плоскости
+        // crcRes.StrainPlane, которую CrackingSolver использовал только чтобы найти сам
+        // момент Mcrc. При чтении σs,crc прямо с той (дотрещинной) плоскости бетон
+        // продолжает "работать" на растяжение и берёт на себя часть усилия — σs,crc
+        // получается заниженным, почти как напряжение ДО образования трещины, а не сразу
+        // после (даёт завышенный, слишком оптимистичный ψs и заниженную acrc).
+        var elasticGuessCrc = _section.Guess(new Load { N = N, Mx = crcRes.Mx, My = crcRes.My });
+        if (!double.IsFinite(elasticGuessCrc.e0)) elasticGuessCrc.e0 = 0;
+        if (!double.IsFinite(elasticGuessCrc.ky)) elasticGuessCrc.ky = 0;
+        if (!double.IsFinite(elasticGuessCrc.kz)) elasticGuessCrc.kz = 0;
+
+        var planeCrcLong = SolveDamped(N, crcRes.Mx, crcRes.My, elasticGuessCrc, _calcServiceLong, out var convCrcLong);
+        if (!convCrcLong) return zero;
+
+        Kurvature planeCrcShort;
+        if (_calcServiceLong == _calcService)
+        {
+            planeCrcShort = planeCrcLong;
+        }
+        else
+        {
+            planeCrcShort = SolveDamped(N, crcRes.Mx, crcRes.My, elasticGuessCrc, _calcService, out var convCrcShort);
+            if (!convCrcShort) planeCrcShort = planeCrcLong; // фолбэк, как и для planeTotal
+        }
+
         // σs,crc считается дважды — на той же диаграмме, что и σs, с которой её сравнивают
         // в формуле ψs = 1 − 0.8·σs,crc/σs (acrc1/acrc3 — длительная диаграмма,
         // acrc2 — кратковременная), иначе ψs сравнивало бы напряжения на разных базисах.
-        double sigmaCrcLongKPa = SigmaSFromPlane(crcRes.StrainPlane.Value, _calcServiceLong);
-        double sigmaCrcShortKPa = SigmaSFromPlane(crcRes.StrainPlane.Value, _calcService);
+        double sigmaCrcLongKPa = SigmaSFromPlane(planeCrcLong, _calcServiceLong);
+        double sigmaCrcShortKPa = SigmaSFromPlane(planeCrcShort, _calcService);
         double sigmaTotalKPa = SigmaSFromPlane(planeTotal, _calcService);
 
         double esKPa = RebarEsKPa(_section);
