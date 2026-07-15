@@ -144,7 +144,8 @@ namespace OpenCS.ViewModels
             set { _cutVM = value; OnPropertyChanged(); }
         }
 
-        public SectionPlotVM(CrossSection section, Kurvature k, CalcType calcType, SectionPlotMode mode, CalcSettings? settings = null, bool ten = true)
+        public SectionPlotVM(CrossSection section, Kurvature k, CalcType calcType, SectionPlotMode mode,
+            CalcSettings? settings = null, bool ten = true, Func<double, double, string?>? extraRebarTooltip = null)
         {
             Mode = mode;
 
@@ -316,6 +317,8 @@ namespace OpenCS.ViewModels
                                  $"σ = {rSigMpa:+0.0;-0.0} МПа\n" +
                                  $"ε = {f.Eps:+0.00000;-0.00000}\n" +
                                  $"A = {rAreaMm2:F0} мм²";
+                    string? extraLine = extraRebarTooltip?.Invoke(f.X, f.Y);
+                    if (!string.IsNullOrEmpty(extraLine)) tip += "\n" + extraLine;
                     rebar.Add(new RebarDrawData(
                         new Point(f.X * 1000, f.Y * 1000),
                         f.Diameter / 2.0 * 1000,

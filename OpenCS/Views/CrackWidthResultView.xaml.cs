@@ -36,8 +36,16 @@ public partial class CrackWidthResultView : UserControl
         }
 
         var settings = app.CalcSettings;
-        var stressVm = new SectionPlotVM(section, k.Value, CalcType.N, SectionPlotMode.Stress, settings, ten: false);
-        var strainVm = new SectionPlotVM(section, k.Value, CalcType.N, SectionPlotMode.Strain, settings, ten: false);
+        var acrcByRebar = CrackWidthSummaryVM.ParseAcrcByRebar(result.DataJson);
+        string? RebarTooltip(double xM, double yM)
+        {
+            var nearest = CrackWidthSummaryVM.FindNearest(acrcByRebar, xM * 1000.0, yM * 1000.0);
+            return nearest.HasValue
+                ? $"ψs = {nearest.Value.PsiS:0.000}   acrc = {nearest.Value.AcrcMm:0.000} мм"
+                : null;
+        }
+        var stressVm = new SectionPlotVM(section, k.Value, CalcType.N, SectionPlotMode.Stress, settings, ten: false, extraRebarTooltip: RebarTooltip);
+        var strainVm = new SectionPlotVM(section, k.Value, CalcType.N, SectionPlotMode.Strain, settings, ten: false, extraRebarTooltip: RebarTooltip);
 
         var cutVm = new SectionCutVM(section, k.Value, CalcType.N, app.FileDialogService, ten: false)
         {

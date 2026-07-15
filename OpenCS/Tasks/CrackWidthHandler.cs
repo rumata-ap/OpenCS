@@ -180,6 +180,13 @@ public sealed class CrackWidthHandler : ITaskHandler
                 ky = res.PlaneLong.HasValue ? Math.Round(res.PlaneLong.Value.ky, 8) : (double?)null,
                 kz = res.PlaneLong.HasValue ? Math.Round(res.PlaneLong.Value.kz, 8) : (double?)null,
                 plane_converged = res.PlaneLong.HasValue,
+                acrc_by_rebar = res.AcrcByRebar.Select(e => new
+                {
+                    x = Math.Round(e.X * 1000.0, 2),
+                    y = Math.Round(e.Y * 1000.0, 2),
+                    psi_s = Math.Round(e.PsiS, 4),
+                    acrc_mm = Math.Round(e.AcrcMm, 4)
+                }).ToArray(),
                 eta = etaData
             };
 

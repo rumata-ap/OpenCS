@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
@@ -69,7 +70,49 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
     public bool PlaneConverged { get; }
     public bool ShowPlaneWarning => Cracked && !PlaneConverged;
 
-    public record RebarRow(int Num, string X, string Y, string Eps, string Sigma);
+    public record RebarRow(int Num, string X, string Y, string Eps, string Sigma, string PsiS, string AcrcMm);
+
+    /// <summary>Одна запись из "acrc_by_rebar" (см. CScore.RebarAcrcEntry) — координаты в мм.</summary>
+    public readonly record struct RebarAcrcParsed(double XMm, double YMm, double PsiS, double AcrcMm);
+
+    /// <summary>
+    /// Разбирает "acrc_by_rebar" из DataJson задачи crack_width — используется и таблицей
+    /// стержней сводки (<see cref="RebarRows"/>), и тултипом стержня на канвасе сечения
+    /// (см. CrackWidthResultView).
+    /// </summary>
+    public static IReadOnlyList<RebarAcrcParsed> ParseAcrcByRebar(string dataJson)
+    {
+        var result = new List<RebarAcrcParsed>();
+        try
+        {
+            var doc = JsonDocument.Parse(dataJson);
+            if (!doc.RootElement.TryGetProperty("acrc_by_rebar", out var arr) || arr.ValueKind != JsonValueKind.Array)
+                return result;
+
+            foreach (var el in arr.EnumerateArray())
+            {
+                if (!el.TryGetProperty("x", out var xEl) || !el.TryGetProperty("y", out var yEl)
+                    || !el.TryGetProperty("psi_s", out var psEl) || !el.TryGetProperty("acrc_mm", out var acEl))
+                    continue;
+                result.Add(new RebarAcrcParsed(xEl.GetDouble(), yEl.GetDouble(), psEl.GetDouble(), acEl.GetDouble()));
+            }
+        }
+        catch { /* пустой список — таблица/тултип просто не покажут доп. колонку */ }
+        return result;
+    }
+
+    /// <summary>Ближайшая (по X/Y в мм, допуск 1 мм) запись <see cref="ParseAcrcByRebar"/> для стержня — null, если не нашлась.</summary>
+    public static RebarAcrcParsed? FindNearest(IReadOnlyList<RebarAcrcParsed> entries, double xMm, double yMm)
+    {
+        RebarAcrcParsed? best = null;
+        double bestDist = 1.0; // мм
+        foreach (var e in entries)
+        {
+            double dist = Math.Sqrt((e.XMm - xMm) * (e.XMm - xMm) + (e.YMm - yMm) * (e.YMm - yMm));
+            if (dist < bestDist) { bestDist = dist; best = e; }
+        }
+        return best;
+    }
 
     public CrackWidthSummaryVM(CalcResult result, CrossSection? section)
     {
@@ -165,15 +208,22 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
             && root.TryGetProperty("kz", out var kzEl) && kzEl.ValueKind == JsonValueKind.Number)
         {
             var k = new Kurvature { e0 = e0El.GetDouble(), ky = kyEl.GetDouble(), kz = kzEl.GetDouble() };
+            var acrcByRebar = ParseAcrcByRebar(result.DataJson);
             int num = 1;
             foreach (var (area, _) in section.EnumerateAreas(k))
                 foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point && f.Eps > 0))
+                {
+                    double xMm = f.X * 1000, yMm = f.Y * 1000;
+                    var nearest = FindNearest(acrcByRebar, xMm, yMm);
                     RebarRows.Add(new RebarRow(
                         num++,
-                        $"{f.X * 1000:+0.0;-0.0}",
-                        $"{f.Y * 1000:+0.0;-0.0}",
+                        $"{xMm:+0.0;-0.0}",
+                        $"{yMm:+0.0;-0.0}",
                         $"{f.Eps:+0.00000;-0.00000}",
-                        $"{f.Sig / 1000.0:+0.0;-0.0}"));
+                        $"{f.Sig / 1000.0:+0.0;-0.0}",
+                        nearest.HasValue ? $"{nearest.Value.PsiS:0.000}" : "—",
+                        nearest.HasValue ? $"{nearest.Value.AcrcMm:0.000}" : "—"));
+                }
         }
 
         StatusText = !PlaneConverged && Cracked
