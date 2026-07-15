@@ -761,9 +761,12 @@
                </Grid>
 
                <TextBlock Text="{DynamicResource CrackWidth_Phi2}"/>
-               <TextBox Text="{Binding CrackWidthPhi2, UpdateSourceTrigger=PropertyChanged}"
-                        ToolTip="{DynamicResource CrackWidth_Phi2Hint}"
-                        Margin="0,0,0,4"/>
+               <ComboBox ItemsSource="{Binding CrackWidthPhi2Items}"
+                         SelectedValue="{Binding CrackWidthPhi2}"
+                         SelectedValuePath="Id"
+                         DisplayMemberPath="Label"
+                         ToolTip="{DynamicResource CrackWidth_Phi2Hint}"
+                         Margin="0,0,0,4"/>
 
                <TextBlock Text="{DynamicResource CrackWidth_ForcesMode}" Margin="0,4,0,0"/>
                <ComboBox ItemsSource="{Binding CrackWidthForcesModeItems}"

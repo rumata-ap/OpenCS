@@ -1440,8 +1440,10 @@
     <system:String x:Key="CrackWidthParamsHeader">Crack calculation parameters</system:String>
     <system:String x:Key="CrackWidth_AcrcUltLong">Long-term acrc limit, mm</system:String>
     <system:String x:Key="CrackWidth_AcrcUltShort">Short-term acrc limit, mm</system:String>
-    <system:String x:Key="CrackWidth_Phi2">φ2 (rebar profile)</system:String>
-    <system:String x:Key="CrackWidth_Phi2Hint">Longitudinal rebar profile coefficient (cl. 8.2.15): 0.5 — ribbed or rope, 0.8 — smooth.</system:String>
+    <system:String x:Key="CrackWidth_Phi2">Longitudinal rebar profile</system:String>
+    <system:String x:Key="CrackWidth_Phi2Hint">Coefficient φ2 (cl. 8.2.15), accounting for the longitudinal rebar profile.</system:String>
+    <system:String x:Key="CrackWidth_Phi2_Ribbed">Ribbed / rope (φ2 = 0.5)</system:String>
+    <system:String x:Key="CrackWidth_Phi2_Smooth">Smooth (φ2 = 0.8)</system:String>
     <system:String x:Key="CrackWidth_ForcesMode">Long-term load mode</system:String>
     <system:String x:Key="CrackWidth_Mode_total_only">Total load only</system:String>
     <system:String x:Key="CrackWidth_Mode_share">Share of total</system:String>

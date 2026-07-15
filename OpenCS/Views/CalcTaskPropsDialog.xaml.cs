@@ -504,6 +504,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       }
    }
 
+   /// <summary>Варианты профиля продольной арматуры (п. 8.2.15) для выбора φ2.</summary>
+   public List<CalcTaskSolverItem> CrackWidthPhi2Items { get; } =
+   [
+      new() { Id = "0.5", Label = Loc.S("CrackWidth_Phi2_Ribbed") },
+      new() { Id = "0.8", Label = Loc.S("CrackWidth_Phi2_Smooth") },
+   ];
+
    /// <summary>Режимы длительной нагрузки (Id в ParamsJson, Label через локализацию).</summary>
    public List<CalcTaskSolverItem> CrackWidthForcesModeItems => IsCrackWidthBatch
       ? [
@@ -1035,7 +1042,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              var inv = System.Globalization.CultureInfo.InvariantCulture;
              CrackWidthAcrcUltLong  = cwp.AcrcUltLong.ToString("G6", inv);
              CrackWidthAcrcUltShort = cwp.AcrcUltShort.ToString("G6", inv);
-             CrackWidthPhi2         = cwp.Phi2.ToString("G6", inv);
+             CrackWidthPhi2         = cwp.Phi2 >= 0.65 ? "0.8" : "0.5";
              CrackWidthForcesMode   = cwp.ForcesMode;
              CrackWidthLongShare    = cwp.LongShare.ToString("G6", inv);
              CrackWidthLongPartUseNL = cwp.LongPartUseNL;
