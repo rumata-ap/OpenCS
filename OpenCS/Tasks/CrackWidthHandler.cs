@@ -164,6 +164,8 @@ public sealed class CrackWidthHandler : ITaskHandler
                 eps_tension_limit = Math.Round(res.EpsTensionLimit, 8),
                 h0 = Math.Round(res.H0 * 1000.0, 1),
                 sigma_s = Math.Round(res.SigmaS / 1000.0, 2),
+                sigma_s_crc = Math.Round(res.SigmaSCrc / 1000.0, 2),
+                sigma_s_crc2 = Math.Round(res.SigmaSCrc2 / 1000.0, 2),
                 psi_s = Math.Round(res.PsiS, 4),
                 psi_s2 = Math.Round(res.PsiS2, 4),
                 acrc1 = Math.Round(res.Acrc1, 4),

@@ -22,6 +22,11 @@ public sealed class CrackWidthResult
     public double SigmaS { get; set; }
     /// <summary>То же при образовании трещин (на той же диаграмме, что и SigmaS), кПа.</summary>
     public double SigmaSCrc { get; set; }
+    /// <summary>
+    /// Напряжение в арматуре при образовании трещин на базисе σs,total (для acrc2) —
+    /// в общем случае отличается от <see cref="SigmaSCrc"/>, т.к. считается на другой диаграмме.
+    /// </summary>
+    public double SigmaSCrc2 { get; set; }
     /// <summary>ψs для acrc1/acrc3 (длительная нагрузка, п. 8.2.18).</summary>
     public double PsiS { get; set; }
     /// <summary>
@@ -549,6 +554,7 @@ public sealed class CrackWidthSolver
             PlaneLong = planeLong,
             SigmaS = sigmaLongKPa,
             SigmaSCrc = sigmaCrcLongKPa,
+            SigmaSCrc2 = sigmaCrcShortKPa,
             PsiS = psiS,
             PsiS2 = psiS2,
             Ls = lsM,

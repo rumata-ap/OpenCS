@@ -1483,6 +1483,7 @@
     <system:String x:Key="CrackWidth_AcrcUltRowLabel">acrc,ult</system:String>
     <system:String x:Key="CrackWidth_PassedRowLabel">Прошло</system:String>
     <system:String x:Key="CrackWidth_PsiSRowLabel">ψs</system:String>
+    <system:String x:Key="CrackWidth_SigmaSCrcRowLabel">σs,crc</system:String>
     <system:String x:Key="CrackWidth_Acrc1RowLabel">acrc1</system:String>
     <system:String x:Key="CrackWidth_Acrc2RowLabel">acrc2</system:String>
     <system:String x:Key="CrackWidth_Acrc3RowLabel">acrc3</system:String>

@@ -42,6 +42,8 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
     public Brush PassedShortBrush { get; } = Brushes.Gray;
 
     public string SigmaSText { get; } = "—";
+    public string SigmaSCrcText { get; } = "—";
+    public string SigmaSCrcShortText { get; } = "—";
     public string PsiSText { get; } = "—";
     public string PsiSShortText { get; } = "—";
     public string Acrc1Text { get; } = "—";
@@ -132,6 +134,8 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
         PassedShortBrush = PassedShort ? Brushes.Green : Brushes.Red;
 
         SigmaSText = NumUnit(root, "sigma_s", "МПа");
+        SigmaSCrcText = NumUnit(root, "sigma_s_crc", "МПа");
+        SigmaSCrcShortText = NumUnit(root, "sigma_s_crc2", "МПа");
         PsiSText = NumRaw(root, "psi_s");
         PsiSShortText = NumRaw(root, "psi_s2");
         Acrc1Text = NumUnit(root, "acrc1", "мм");
