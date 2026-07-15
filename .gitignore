@@ -80,6 +80,8 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+!OpenCS.OpenSees/Artifacts/
+!OpenCS.OpenSees/Artifacts/**
 
 # Tye
 .tye/
