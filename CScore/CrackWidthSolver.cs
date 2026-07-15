@@ -82,7 +82,31 @@ public sealed class CrackWidthResult
     public double H0 { get; set; }
     /// <summary>Пост-трещинная плоскость деформаций (ten=false) от длительной нагрузки, если Newton сошёлся.</summary>
     public Kurvature? PlaneLong { get; set; }
+    /// <summary>
+    /// Ширина раскрытия трещины (длительная, acrc1) ПО КАЖДОМУ растянутому стержню отдельно —
+    /// внормативное уточнение п.8.2.15 (норма даёт одно значение на всё сечение, по
+    /// "представительному" стержню). Общий ls (см. <see cref="Ls"/>), но собственные σs/εs/ψs
+    /// в точке каждого стержня. Актуально при косом изгибе, где стержни растянутой зоны
+    /// нагружены существенно неравномерно. Пусто, если Cracked=false.
+    /// </summary>
+    public IReadOnlyList<RebarAcrcEntry> AcrcByRebar { get; set; } = [];
 }
+
+/// <summary>Ширина раскрытия трещины (acrc1, длительная) в точке одного стержня — см. <see cref="CrackWidthResult.AcrcByRebar"/>.</summary>
+/// <param name="X">Координата стержня, м.</param>
+/// <param name="Y">Координата стержня, м.</param>
+/// <param name="Diameter">Диаметр стержня, м.</param>
+/// <param name="Eps">Деформация стержня от длительной нагрузки.</param>
+/// <param name="EpsCrc">Деформация стержня в момент трещинообразования (0, если стержень тогда ещё не был растянут).</param>
+/// <param name="SigmaKPa">Напряжение стержня от длительной нагрузки, кПа.</param>
+/// <param name="SigmaCrcKPa">Напряжение стержня в момент трещинообразования, кПа.</param>
+/// <param name="PsiS">ψs в точке этого стержня (по методу солвера — Stress8138 или Strain8232).</param>
+/// <param name="AcrcMm">Ширина раскрытия трещины в точке этого стержня, мм.</param>
+public sealed record RebarAcrcEntry(
+    double X, double Y, double Diameter,
+    double Eps, double EpsCrc,
+    double SigmaKPa, double SigmaCrcKPa,
+    double PsiS, double AcrcMm);
 
 /// <summary>
 /// Ширина раскрытия нормальных трещин по СП 63.13330 п.8.2.15-8.2.18.
@@ -493,6 +517,56 @@ public sealed class CrackWidthSolver
         return Math.Clamp(psiS, 0.2, 1.0);
     }
 
+    /// <summary>
+    /// Ширина раскрытия трещины (acrc1, длительная) по КАЖДОМУ растянутому стержню
+    /// отдельно — внормативное расширение сверх п.8.2.15 (см. <see cref="RebarAcrcEntry"/>).
+    /// Общий <paramref name="lsM"/>, но собственные σs/εs/ψs в точке каждого стержня —
+    /// переиспользует <see cref="SingleAcrc"/>, поэтому уважает выбранный <see cref="_psiSMethod"/>.
+    /// </summary>
+    List<RebarAcrcEntry> ComputeAcrcByRebar(Kurvature planeLoad, Kurvature planeCrc,
+        CalcType calcType, double lsM, double phi1, double phi3, double esKPa)
+    {
+        // ε при трещинообразовании — отдельный проход: EnumerateAreas даёт локально
+        // скорректированную под КОНКРЕТНУЮ плоскость ka, поэтому её нельзя переиспользовать
+        // между planeLoad и planeCrc для одного и того же стержня.
+        var epsCrcByFiber = new Dictionary<Fiber, double>(ReferenceEqualityComparer.Instance);
+        foreach (var (area, ka) in _section.EnumerateAreas(planeCrc))
+        {
+            if (!IsRebar(area)) continue;
+            foreach (var f in area.Fibers)
+            {
+                if (f.TypeFiber != FiberType.point) continue;
+                epsCrcByFiber[f] = ka.e0 + ka.ky * f.Y + ka.kz * f.X;
+            }
+        }
+
+        var result = new List<RebarAcrcEntry>();
+        foreach (var (area, ka) in _section.EnumerateAreas(planeLoad))
+        {
+            if (!IsRebar(area)) continue;
+            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin);
+            if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcType, out var ownDgr)) continue;
+
+            foreach (var f in area.Fibers)
+            {
+                if (f.TypeFiber != FiberType.point) continue;
+                double eps = ka.e0 + ka.ky * f.Y + ka.kz * f.X;
+                if (eps <= 0.0) continue; // сжат при этой нагрузке — ширина трещины не определена
+
+                double sig = ownDgr.Sig(eps, out _);
+                if (sig <= 0.0) continue;
+
+                double epsCrcRaw = epsCrcByFiber.TryGetValue(f, out var ec) ? ec : 0.0;
+                double epsCrc = Math.Max(epsCrcRaw, 0.0);
+                double sigCrc = epsCrc > 0.0 ? ownDgr.Sig(epsCrc, out _) : 0.0;
+
+                var (acrcMm, psiSj) = SingleAcrc(sig, sigCrc, eps, epsCrc, lsM, phi1, phi3, esKPa);
+                result.Add(new RebarAcrcEntry(f.X, f.Y, f.Diameter, eps, epsCrc, sig, sigCrc, psiSj, acrcMm));
+            }
+        }
+        return result;
+    }
+
     static double RebarEsKPa(CrossSection section)
     {
         foreach (var area in section.Areas)
@@ -629,6 +703,8 @@ public sealed class CrackWidthSolver
         var (acrc3, _) = SingleAcrc(sigmaLongKPa, sigmaCrcLongKPa, epsLong, epsCrcLong, lsM, phi1: 1.0, phi3: phi3Eff, esKPa: esKPa);
         var (acrc2, psiS2) = SingleAcrc(sigmaTotalKPa, sigmaCrcShortKPa, epsTotal, epsCrcShort, lsM, phi1: 1.0, phi3: phi3Eff, esKPa: esKPa);
 
+        var acrcByRebar = ComputeAcrcByRebar(planeLong, planeCrcLong, _calcServiceLong, lsM, phi1: 1.4, phi3: phi3Eff, esKPa: esKPa);
+
         double acrcLong = acrc1;
         double acrcShort = acrc1 + acrc2 - acrc3;
 
@@ -665,7 +741,8 @@ public sealed class CrackWidthSolver
             Abt = abt,
             Acrc1 = acrc1,
             Acrc2 = acrc2,
-            Acrc3 = acrc3
+            Acrc3 = acrc3,
+            AcrcByRebar = acrcByRebar
         };
     }
 }

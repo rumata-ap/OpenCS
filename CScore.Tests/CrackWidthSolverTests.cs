@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Xunit;
 using CScore;
 
@@ -326,5 +327,45 @@ public class CrackWidthSolverTests
         // Диаметр одинаковый у всех стержней — эквивалентный диаметр не должен зависеть
         // от веса (взвешенное среднее константы равно самой константе).
         Assert.Equal(diam, res.DsEq, 6);
+    }
+
+    // Внормативное расширение (см. AcrcByRebar): ширина раскрытия трещины по КАЖДОМУ
+    // растянутому стержню отдельно (общий ls, собственные σs/εs/ψs у каждого). Слой 1
+    // (y0+0.04, у самой растянутой грани) напряжён сильнее слоя 2 (y0+0.20, ближе к
+    // нейтральной оси) — его acrc должен быть больше.
+    [Fact]
+    public void Compute_AcrcByRebar_MoreStressedBarHasLargerCrackWidth()
+    {
+        var section = TestSections.RectWithTwoBottomRebarLayers();
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
+
+        var solver = new CrackWidthSolver(section, psiSMethod: PsiSMethod.Strain8232);
+        var res = solver.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 2.5);
+
+        Assert.True(res.Cracked);
+        Assert.Equal(4, res.AcrcByRebar.Count);
+
+        const double y0 = -0.25;
+        var layer1 = res.AcrcByRebar.Where(e => Math.Abs(e.Y - (y0 + 0.04)) < 1e-6).ToList();
+        var layer2 = res.AcrcByRebar.Where(e => Math.Abs(e.Y - (y0 + 0.20)) < 1e-6).ToList();
+
+        Assert.Equal(2, layer1.Count);
+        Assert.Equal(2, layer2.Count);
+        Assert.True(layer1.All(e => e.SigmaKPa > 0.0));
+        Assert.True(layer2.All(e => e.SigmaKPa > 0.0));
+        Assert.True(layer1[0].SigmaKPa > layer2[0].SigmaKPa);
+        Assert.True(layer1[0].AcrcMm > layer2[0].AcrcMm);
+        Assert.True(res.AcrcByRebar.All(e => e.PsiS > 0.0 && e.PsiS <= 1.0));
+    }
+
+    [Fact]
+    public void Compute_BelowCrackingMoment_AcrcByRebarEmpty()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var solver = new CrackWidthSolver(section);
+        var res = solver.Compute(N: 0.0, mxLong: -0.5, mxTotal: -0.5);
+
+        Assert.False(res.Cracked);
+        Assert.Empty(res.AcrcByRebar);
     }
 }
