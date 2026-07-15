@@ -97,4 +97,51 @@ public class CrackWidthSolverTests
         Assert.True(res.H0 > 0.0);
         Assert.True(res.PlaneLong.HasValue);
     }
+
+    [Fact]
+    public void Compute_CalcServiceLongNull_MatchesExplicitN()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var mcrc = new CrackingSolver(section, CalcType.CL).CrackingMoment(0, -1, 0).Mx;
+
+        // mxLong < mxTotal, чтобы planeTotal решался независимо от planeLong.
+        var solverDefault = new CrackWidthSolver(section);
+        var solverExplicitN = new CrackWidthSolver(section, calcServiceLong: CalcType.N);
+
+        var resDefault = solverDefault.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 4.0);
+        var resExplicitN = solverExplicitN.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 4.0);
+
+        Assert.True(resDefault.Cracked);
+        Assert.Equal(resDefault.AcrcLong, resExplicitN.AcrcLong, 6);
+        Assert.Equal(resDefault.AcrcShort, resExplicitN.AcrcShort, 6);
+        Assert.Equal(resDefault.Acrc1, resExplicitN.Acrc1, 6);
+        Assert.Equal(resDefault.Acrc2, resExplicitN.Acrc2, 6);
+        Assert.Equal(resDefault.Acrc3, resExplicitN.Acrc3, 6);
+    }
+
+    [Fact]
+    public void Compute_CalcServiceLongNL_ChangesOnlyLongPart()
+    {
+        var section = TestSections.RectWithBottomRebar();
+        var mcrc = new CrackingSolver(section, CalcType.CL).CrackingMoment(0, -1, 0).Mx;
+
+        // mxLong < mxTotal, чтобы planeTotal (и, следовательно, Acrc2) решался независимо
+        // от planeLong и не зависел от calcServiceLong.
+        var solverN  = new CrackWidthSolver(section);
+        var solverNL = new CrackWidthSolver(section, calcServiceLong: CalcType.NL);
+
+        var resN  = solverN.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 4.0);
+        var resNL = solverNL.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 4.0);
+
+        Assert.True(resN.Cracked);
+        Assert.True(resNL.Cracked);
+
+        // Кратковременная часть не должна зависеть от переключателя длительной части.
+        Assert.Equal(resN.Acrc2, resNL.Acrc2, 6);
+
+        // Длительная часть обязана измениться — у B25 N и NL заметно различаются
+        // (E: 30 000 000 vs 17 857 142.86 кПа, см. TestMaterials.Concrete).
+        Assert.True(Math.Abs(resNL.AcrcLong - resN.AcrcLong) > 1e-6);
+        Assert.True(Math.Abs(resNL.Acrc1 - resN.Acrc1) > 1e-6);
+    }
 }

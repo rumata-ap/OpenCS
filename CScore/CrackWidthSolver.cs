@@ -20,7 +20,7 @@ public sealed class CrackWidthResult
     public double Mcrc { get; set; }
     /// <summary>Напряжение в наиболее растянутом стержне от длительных нагрузок, кПа.</summary>
     public double SigmaS { get; set; }
-    /// <summary>То же при образовании трещин, кПа.</summary>
+    /// <summary>То же при образовании трещин (на той же диаграмме, что и SigmaS), кПа.</summary>
     public double SigmaSCrc { get; set; }
     public double PsiS { get; set; }
     /// <summary>Базовое расстояние между трещинами, м.</summary>
@@ -60,6 +60,7 @@ public sealed class CrackWidthSolver
     readonly CrossSection _section;
     readonly CalcType _calcCrc;
     readonly CalcType _calcService;
+    readonly CalcType _calcServiceLong;
     readonly double _phi2;
     readonly double _acrcUltLong;
     readonly double _acrcUltShort;
@@ -70,6 +71,7 @@ public sealed class CrackWidthSolver
         CrossSection section,
         CalcType calcCrc = CalcType.CL,
         CalcType calcService = CalcType.N,
+        CalcType? calcServiceLong = null,
         double phi2 = 0.5,
         double acrcUltLong = 0.3,
         double acrcUltShort = 0.4,
@@ -79,6 +81,7 @@ public sealed class CrackWidthSolver
         _section = section ?? throw new ArgumentNullException(nameof(section));
         _calcCrc = calcCrc;
         _calcService = calcService;
+        _calcServiceLong = calcServiceLong ?? calcService;
         _phi2 = phi2;
         _acrcUltLong = acrcUltLong;
         _acrcUltShort = acrcUltShort;
@@ -95,16 +98,16 @@ public sealed class CrackWidthSolver
     /// Якобиан использует касательный модуль ИМЕННО в точке k — корректен по обе стороны излома.
     /// </summary>
     Kurvature SolveDamped(double nTarget, double mxTarget, double myTarget, Kurvature seed,
-        out bool converged, int maxIter = 60)
+        CalcType calcType, out bool converged, int maxIter = 60)
     {
-        if (HasMeshlessArea())
+        if (HasMeshlessArea(calcType))
         {
             // EvalWithTangent суммирует только area.Fibers и не поддерживает контурный
             // (безсеточный, теорема Грина) путь CrossSection.Integral — на сечениях без
             // построенной сетки бетона он "не видит" бетон вовсе и расходится в абсурдные
             // кривизны. StrainSolver с численным Якобианом идёт через Integral() и корректно
             // работает в обоих режимах (сеточном и контурном).
-            var strainSolver = new StrainSolver(_section, _calcService, ten: false, ca: true,
+            var strainSolver = new StrainSolver(_section, calcType, ten: false, ca: true,
                 tol: _solverTol, maxIter: maxIter, centralJacobian: true);
             var kMeshless = strainSolver.Solve(nTarget, mxTarget, myTarget, seed);
             converged = strainSolver.Converged;
@@ -117,7 +120,7 @@ public sealed class CrackWidthSolver
 
         for (int iter = 0; iter < maxIter; iter++)
         {
-            var (f0, jac) = EvalWithTangent(k);
+            var (f0, jac) = EvalWithTangent(k, calcType);
 
             double r0 = f0.N - nTarget, r1 = f0.Mx - mxTarget, r2 = f0.My - myTarget;
             double residual = Math.Sqrt(r0 * r0 + r1 * r1 + r2 * r2);
@@ -145,7 +148,7 @@ public sealed class CrackWidthSolver
                     ky = k.ky - lambda * dk[1],
                     kz = k.kz - lambda * dk[2]
                 };
-                var (fNext, _) = EvalWithTangent(kNext);
+                var (fNext, _) = EvalWithTangent(kNext, calcType);
                 double rn0 = fNext.N - nTarget, rn1 = fNext.Mx - mxTarget, rn2 = fNext.My - myTarget;
                 double residualNext = Math.Sqrt(rn0 * rn0 + rn1 * rn1 + rn2 * rn2);
                 if (residualNext < residual)
@@ -172,7 +175,7 @@ public sealed class CrackWidthSolver
     /// суммируя по всем волокнам (mesh + точечные) касательный модуль E2, полученный из
     /// <see cref="Diagramm.Sig(Fiber, bool, bool)"/> (текущая, а не конечно-разностная, точка).
     /// </summary>
-    (Load load, double[,] jacobian) EvalWithTangent(Kurvature k)
+    (Load load, double[,] jacobian) EvalWithTangent(Kurvature k, CalcType calcType)
     {
         double n = 0, mx = 0, my = 0;
         double dN_de0 = 0, dN_dky = 0, dN_dkz = 0;
@@ -186,7 +189,7 @@ public sealed class CrackWidthSolver
             // общий для L2/L3/SP63, дестабилизирует Ньютона). До и в момент трещинообразования
             // растяжение бетона уже учтено в CrackingSolver (calcCrc, ten=true по умолчанию) —
             // именно оттуда SolveRamped стартует, поэтому здесь мы всегда уже "за" трещиной.
-            area.SetEps(ka, _calcService, false, true);
+            area.SetEps(ka, calcType, false, true);
             foreach (var f in area.Fibers)
             {
                 n += f.N;
@@ -217,11 +220,11 @@ public sealed class CrackWidthSolver
     /// Есть ли в сечении область без сеточных волокон, работающая через контурный
     /// (безсеточный) путь <see cref="CrossSection.Integral"/> — та же проверка, что и там.
     /// </summary>
-    bool HasMeshlessArea() =>
+    bool HasMeshlessArea(CalcType calcType) =>
         _section.Areas.Any(a =>
             !a.Fibers.Any(f => f.TypeFiber != FiberType.point) &&
             a.Hull != null &&
-            a.Diagramms.ContainsKey(_calcService));
+            a.Diagramms.ContainsKey(calcType));
 
     /// <summary>Метод Гаусса с выбором ведущего элемента для системы 3×3. Возвращает false при сингулярности.</summary>
     static bool GaussSolve3(double[,] a, double[] b, out double[] x)
@@ -270,11 +273,12 @@ public sealed class CrackWidthSolver
 
     /// <summary>
     /// Свойства растянутой арматуры при заданной плоскости деформаций.
-    /// Использует СОБСТВЕННУЮ (не разностную) диаграмму материала стержня — не зависит
-    /// от того, построены ли в MaterialArea.Diagramms разностные (сталь-бетон) кривые.
+    /// Использует СОБСТВЕННУЮ (не разностную) диаграмму материала стержня на диаграмме
+    /// <paramref name="calcType"/> — не зависит от того, построены ли в MaterialArea.Diagramms
+    /// разностные (сталь-бетон) кривые.
     /// </summary>
     (double sigmaMaxKPa, double asTens, double dsEq, double aCoverEff, double yTensCentroid)
-        TensileRebarProps(CrossSection section, Kurvature k)
+        TensileRebarProps(CrossSection section, Kurvature k, CalcType calcType)
     {
         double sigmaMax = 0.0;
         double asSum = 0.0, asDSum = 0.0, aySum = 0.0;
@@ -283,7 +287,7 @@ public sealed class CrackWidthSolver
         {
             if (!IsRebar(area)) continue;
             var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin);
-            if (ownDiagrams == null || !ownDiagrams.TryGetValue(_calcService, out var ownDgr)) continue;
+            if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcType, out var ownDgr)) continue;
 
             foreach (var f in area.Fibers)
             {
@@ -316,14 +320,14 @@ public sealed class CrackWidthSolver
         return (sigmaMax, asSum, dsEq, aCoverEff, yTensCentroid);
     }
 
-    double SigmaSFromPlane(Kurvature k)
+    double SigmaSFromPlane(Kurvature k, CalcType calcType)
     {
         double sigmaMax = 0.0;
         foreach (var (area, ka) in _section.EnumerateAreas(k))
         {
             if (!IsRebar(area)) continue;
             var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin);
-            if (ownDiagrams == null || !ownDiagrams.TryGetValue(_calcService, out var ownDgr)) continue;
+            if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcType, out var ownDgr)) continue;
 
             foreach (var f in area.Fibers)
             {
@@ -458,7 +462,7 @@ public sealed class CrackWidthSolver
         if (!double.IsFinite(elasticGuess.kz)) elasticGuess.kz = 0;
 
         bool convLong;
-        var planeLong = SolveDamped(N, mxLong, myLong, elasticGuess, out convLong);
+        var planeLong = SolveDamped(N, mxLong, myLong, elasticGuess, _calcServiceLong, out convLong);
         if (!convLong) return zero;
 
         Kurvature planeTotal;
@@ -472,11 +476,11 @@ public sealed class CrackWidthSolver
             if (!double.IsFinite(elasticGuessTotal.e0)) elasticGuessTotal.e0 = 0;
             if (!double.IsFinite(elasticGuessTotal.ky)) elasticGuessTotal.ky = 0;
             if (!double.IsFinite(elasticGuessTotal.kz)) elasticGuessTotal.kz = 0;
-            planeTotal = SolveDamped(N, mxTot, myTot, elasticGuessTotal, out var convTotal);
+            planeTotal = SolveDamped(N, mxTot, myTot, elasticGuessTotal, _calcService, out var convTotal);
             if (!convTotal) planeTotal = planeLong; // фолбэк для σs,total
         }
 
-        var (sigmaLongKPa, asTens, dsEq, aCoverEff, yTensCg) = TensileRebarProps(_section, planeLong);
+        var (sigmaLongKPa, asTens, dsEq, aCoverEff, yTensCg) = TensileRebarProps(_section, planeLong, _calcServiceLong);
         if (asTens < 1e-15 || dsEq < 1e-15) return zero;
 
         var concreteVertices = ConcreteVertices();
@@ -493,14 +497,18 @@ public sealed class CrackWidthSolver
         double lsMax = Math.Min(40.0 * dsEq, 0.40);
         lsM = Math.Max(lsMin, Math.Min(lsMax, lsM));
 
-        double sigmaCrcKPa = SigmaSFromPlane(crcRes.StrainPlane.Value);
-        double sigmaTotalKPa = SigmaSFromPlane(planeTotal);
+        // σs,crc считается дважды — на той же диаграмме, что и σs, с которой её сравнивают
+        // в формуле ψs = 1 − 0.8·σs,crc/σs (acrc1/acrc3 — длительная диаграмма,
+        // acrc2 — кратковременная), иначе ψs сравнивало бы напряжения на разных базисах.
+        double sigmaCrcLongKPa = SigmaSFromPlane(crcRes.StrainPlane.Value, _calcServiceLong);
+        double sigmaCrcShortKPa = SigmaSFromPlane(crcRes.StrainPlane.Value, _calcService);
+        double sigmaTotalKPa = SigmaSFromPlane(planeTotal, _calcService);
 
         double esKPa = RebarEsKPa(_section);
 
-        var (acrc1, psiS) = SingleAcrc(sigmaLongKPa, sigmaCrcKPa, lsM, phi1: 1.4, phi3: phi3, esKPa: esKPa);
-        var (acrc3, _) = SingleAcrc(sigmaLongKPa, sigmaCrcKPa, lsM, phi1: 1.0, phi3: phi3, esKPa: esKPa);
-        var (acrc2, _) = SingleAcrc(sigmaTotalKPa, sigmaCrcKPa, lsM, phi1: 1.0, phi3: phi3, esKPa: esKPa);
+        var (acrc1, psiS) = SingleAcrc(sigmaLongKPa, sigmaCrcLongKPa, lsM, phi1: 1.4, phi3: phi3, esKPa: esKPa);
+        var (acrc3, _) = SingleAcrc(sigmaLongKPa, sigmaCrcLongKPa, lsM, phi1: 1.0, phi3: phi3, esKPa: esKPa);
+        var (acrc2, _) = SingleAcrc(sigmaTotalKPa, sigmaCrcShortKPa, lsM, phi1: 1.0, phi3: phi3, esKPa: esKPa);
 
         double acrcLong = acrc1;
         double acrcShort = acrc1 + acrc2 - acrc3;
@@ -528,7 +536,7 @@ public sealed class CrackWidthSolver
             H0 = h0,
             PlaneLong = planeLong,
             SigmaS = sigmaLongKPa,
-            SigmaSCrc = sigmaCrcKPa,
+            SigmaSCrc = sigmaCrcLongKPa,
             PsiS = psiS,
             Ls = lsM,
             DsEq = dsEq,
