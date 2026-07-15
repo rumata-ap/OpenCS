@@ -37,6 +37,7 @@ public sealed class OpenSeesTaskContractTests
     public void TaskRunner_registers_the_OpenSees_kind()
     {
         Assert.Contains("opensees_section_moment_curvature", TaskRunner.KindList);
+        Assert.Contains("opensees_section_interaction_nm", TaskRunner.KindList);
     }
 
     [Fact]
