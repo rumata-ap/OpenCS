@@ -845,6 +845,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                    : [CalcType.C, CalcType.CL];
            if (IsShellLayered)
                return [CalcType.C, CalcType.CL];
+           if (IsCracking || IsCrackingBatch || IsCrackWidthAny)
+               return [CalcType.N, CalcType.NL];
            return CalcTypes;
        }
    }

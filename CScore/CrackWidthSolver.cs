@@ -69,7 +69,7 @@ public sealed class CrackWidthSolver
 
     public CrackWidthSolver(
         CrossSection section,
-        CalcType calcCrc = CalcType.CL,
+        CalcType calcCrc = CalcType.N,
         CalcType calcService = CalcType.N,
         CalcType? calcServiceLong = null,
         double phi2 = 0.5,

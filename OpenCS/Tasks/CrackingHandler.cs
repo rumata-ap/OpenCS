@@ -26,7 +26,8 @@ public sealed class CrackingHandler : ITaskHandler
             double dmx = mag > 1e-12 ? item.Mx / mag : 1.0;
             double dmy = mag > 1e-12 ? item.My / mag : 0.0;
 
-            var solver = new CrackingSolver(section, CalcType.CL);
+            var calcCrc = task.CalcType is CalcType.N or CalcType.NL ? task.CalcType : CalcType.N;
+            var solver = new CrackingSolver(section, calcCrc);
             var res = solver.CrackingMoment(item.N, dmx, dmy);
             double mcrc = Math.Sqrt(res.Mx * res.Mx + res.My * res.My);
 

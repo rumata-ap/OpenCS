@@ -44,8 +44,9 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                     .GroupBy(i => i.Label).ToDictionary(g => g.Key, g => g.First());
             }
 
+            var calcCrc = task.CalcType is CalcType.N or CalcType.NL ? task.CalcType : CalcType.N;
             var solver = new CrackWidthSolver(section,
-                calcCrc: CalcType.CL, calcService: CalcType.N,
+                calcCrc: calcCrc, calcService: CalcType.N,
                 calcServiceLong: p.LongPartUseNL ? CalcType.NL : (CalcType?)null,
                 acrcUltLong: p.AcrcUltLong, acrcUltShort: p.AcrcUltShort,
                 sp63EtaMin: settings.Sp63DescEtaMin);

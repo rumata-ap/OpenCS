@@ -32,6 +32,7 @@ public sealed class CrackingBatchHandler : ITaskHandler
             int total = items.Count;
             var rowResults = new object[total];
             var convergedArr = new bool[total];
+            var calcCrc = task.CalcType is CalcType.N or CalcType.NL ? task.CalcType : CalcType.N;
 
             void Solve(int i)
             {
@@ -41,7 +42,7 @@ public sealed class CrackingBatchHandler : ITaskHandler
                 double dmx = mag > 1e-12 ? fi.Mx / mag : 1.0;
                 double dmy = mag > 1e-12 ? fi.My / mag : 0.0;
 
-                var solver = new CrackingSolver(clone, CalcType.CL);
+                var solver = new CrackingSolver(clone, calcCrc);
                 var res = solver.CrackingMoment(fi.N, dmx, dmy);
                 double mcrc = Math.Sqrt(res.Mx * res.Mx + res.My * res.My);
                 convergedArr[i] = res.Converged;

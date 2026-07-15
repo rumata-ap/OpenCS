@@ -33,14 +33,14 @@ public class CrackWidthSolverTests
     {
         var section = TestSections.RectWithBottomRebar();
         // Направление трещинообразования — растяжение снизу (арматура), поэтому (0, -1, 0).
-        var mcrc = new CrackingSolver(section, CalcType.CL).CrackingMoment(0, -1, 0).Mx;
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
 
-        // Множители выше Mcrc, но ниже предельного момента сечения (Mult ≈ 4.4·Mcrc:
-        // при 5·Mcrc арматура уже потекла и равновесия не существует — это не дефект
-        // решателя, а исчерпание несущей способности).
+        // Множители выше Mcrc, но ниже предельного момента сечения (на характеристиках N
+        // Mult оказывается между 3·Mcrc и 3.5·Mcrc: при 3.5·Mcrc арматура уже потекла и
+        // равновесия не существует — это не дефект решателя, а исчерпание несущей способности).
         var solver = new CrackWidthSolver(section);
         var low = solver.Compute(N: 0.0, mxLong: mcrc * 2.0, mxTotal: mcrc * 2.0);
-        var high = solver.Compute(N: 0.0, mxLong: mcrc * 4.0, mxTotal: mcrc * 4.0);
+        var high = solver.Compute(N: 0.0, mxLong: mcrc * 3.0, mxTotal: mcrc * 3.0);
 
         Assert.True(low.Cracked);
         Assert.True(high.Cracked);
@@ -51,10 +51,10 @@ public class CrackWidthSolverTests
     public void Compute_LongEqualsTotal_ShortEqualsLong()
     {
         var section = TestSections.RectWithBottomRebar();
-        var mcrc = new CrackingSolver(section, CalcType.CL).CrackingMoment(0, -1, 0).Mx;
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
 
         var solver = new CrackWidthSolver(section);
-        var res = solver.Compute(N: 0.0, mxLong: mcrc * 4.0, mxTotal: mcrc * 4.0);
+        var res = solver.Compute(N: 0.0, mxLong: mcrc * 3.0, mxTotal: mcrc * 3.0);
 
         Assert.True(res.Cracked);
         Assert.Equal(res.AcrcLong, res.AcrcShort, 6);
@@ -69,10 +69,10 @@ public class CrackWidthSolverTests
     public void Compute_MeshlessConcreteArea_ConvergesAboveCrackingMoment()
     {
         var section = TestSections.RectWithBottomRebarNoMesh();
-        var mcrc = new CrackingSolver(section, CalcType.CL).CrackingMoment(0, -1, 0).Mx;
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
 
         var solver = new CrackWidthSolver(section);
-        var res = solver.Compute(N: 0.0, mxLong: mcrc * 4.0, mxTotal: mcrc * 4.0);
+        var res = solver.Compute(N: 0.0, mxLong: mcrc * 3.0, mxTotal: mcrc * 3.0);
 
         Assert.True(res.Cracked);
         Assert.True(res.AcrcLong > 0.0);
@@ -82,10 +82,10 @@ public class CrackWidthSolverTests
     public void Compute_AboveCrackingMoment_ExposesPlaneAndCrackingMomentFields()
     {
         var section = TestSections.RectWithBottomRebar();
-        var mcrc = new CrackingSolver(section, CalcType.CL).CrackingMoment(0, -1, 0).Mx;
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
 
         var solver = new CrackWidthSolver(section);
-        var res = solver.Compute(N: 0.0, mxLong: mcrc * 4.0, mxTotal: mcrc * 4.0);
+        var res = solver.Compute(N: 0.0, mxLong: mcrc * 3.0, mxTotal: mcrc * 3.0);
 
         Assert.True(res.Cracked);
         Assert.True(res.CrcConverged);
@@ -102,14 +102,14 @@ public class CrackWidthSolverTests
     public void Compute_CalcServiceLongNull_MatchesExplicitN()
     {
         var section = TestSections.RectWithBottomRebar();
-        var mcrc = new CrackingSolver(section, CalcType.CL).CrackingMoment(0, -1, 0).Mx;
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
 
         // mxLong < mxTotal, чтобы planeTotal решался независимо от planeLong.
         var solverDefault = new CrackWidthSolver(section);
         var solverExplicitN = new CrackWidthSolver(section, calcServiceLong: CalcType.N);
 
-        var resDefault = solverDefault.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 4.0);
-        var resExplicitN = solverExplicitN.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 4.0);
+        var resDefault = solverDefault.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 3.0);
+        var resExplicitN = solverExplicitN.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 3.0);
 
         Assert.True(resDefault.Cracked);
         Assert.Equal(resDefault.AcrcLong, resExplicitN.AcrcLong, 6);
@@ -123,15 +123,15 @@ public class CrackWidthSolverTests
     public void Compute_CalcServiceLongNL_ChangesOnlyLongPart()
     {
         var section = TestSections.RectWithBottomRebar();
-        var mcrc = new CrackingSolver(section, CalcType.CL).CrackingMoment(0, -1, 0).Mx;
+        var mcrc = new CrackingSolver(section, CalcType.N).CrackingMoment(0, -1, 0).Mx;
 
         // mxLong < mxTotal, чтобы planeTotal (и, следовательно, Acrc2) решался независимо
         // от planeLong и не зависел от calcServiceLong.
         var solverN  = new CrackWidthSolver(section);
         var solverNL = new CrackWidthSolver(section, calcServiceLong: CalcType.NL);
 
-        var resN  = solverN.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 4.0);
-        var resNL = solverNL.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 4.0);
+        var resN  = solverN.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 3.0);
+        var resNL = solverNL.Compute(N: 0.0, mxLong: mcrc * 2.5, mxTotal: mcrc * 3.0);
 
         Assert.True(resN.Cracked);
         Assert.True(resNL.Cracked);

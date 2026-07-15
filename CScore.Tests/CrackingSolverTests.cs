@@ -9,7 +9,7 @@ public class CrackingSolverTests
     public void CrackingMoment_PureBending_Converges()
     {
         var section = TestSections.RectWithBottomRebar();
-        var solver = new CrackingSolver(section, CalcType.CL);
+        var solver = new CrackingSolver(section, CalcType.N);
 
         var res = solver.CrackingMoment(N: 0.0, Mx: 1.0, My: 0.0);
 
@@ -24,8 +24,8 @@ public class CrackingSolverTests
         var small = TestSections.RectWithBottomRebar(h: 0.3);
         var large = TestSections.RectWithBottomRebar(h: 0.6);
 
-        var mcrcSmall = new CrackingSolver(small, CalcType.CL).CrackingMoment(0, 1, 0).Mx;
-        var mcrcLarge = new CrackingSolver(large, CalcType.CL).CrackingMoment(0, 1, 0).Mx;
+        var mcrcSmall = new CrackingSolver(small, CalcType.N).CrackingMoment(0, 1, 0).Mx;
+        var mcrcLarge = new CrackingSolver(large, CalcType.N).CrackingMoment(0, 1, 0).Mx;
 
         Assert.True(mcrcLarge > mcrcSmall);
     }
@@ -34,7 +34,7 @@ public class CrackingSolverTests
     public void TensionLimit_ReturnsPositiveConcreteTensionStrain()
     {
         var section = TestSections.RectWithBottomRebar();
-        var solver = new CrackingSolver(section, CalcType.CL);
+        var solver = new CrackingSolver(section, CalcType.N);
 
         double limit = solver.TensionLimit();
 
@@ -51,7 +51,7 @@ public class CrackingSolverTests
     public void CrackingMoment_InvariantToDirectionVectorMagnitude()
     {
         var section = TestSections.RectWithBottomRebar();
-        var solver = new CrackingSolver(section, CalcType.CL);
+        var solver = new CrackingSolver(section, CalcType.N);
 
         // Единичное направление (как делает CrackingHandler) против "сырого" момента большой
         // величины в ту же сторону (как раньше делал CrackWidthSolver.Compute()).

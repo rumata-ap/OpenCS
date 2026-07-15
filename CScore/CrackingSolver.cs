@@ -24,7 +24,11 @@ public sealed class CrackingSolverResult
 /// Момент трещинообразования поперечного сечения (СП 63.13330): бисекция по масштабу
 /// момента при фиксированной нормальной силе и направлении (Mx:My = const) до достижения
 /// максимальной растягивающей деформацией бетона предельного значения (из ветви растяжения
-/// диаграммы бетона <paramref name="calcCrc"/>, обычно <see cref="CalcType.CL"/>).
+/// диаграммы бетона <paramref name="calcCrc"/>). Расчёт по образованию трещин — часть
+/// расчёта по 2-й группе предельных состояний (п. 8.2.14 СП63.13330: "расчётные характеристики
+/// материалов принимают для предельных состояний второй группы") — <paramref name="calcCrc"/>
+/// обязан быть <see cref="CalcType.N"/> или <see cref="CalcType.NL"/>, использование
+/// <see cref="CalcType.C"/>/<see cref="CalcType.CL"/> (1-я группа) здесь недопустимо.
 /// Единицы: кН, кН·м, м. Требует, чтобы <see cref="CrossSection.ResolveAndBuildDiagramms"/>
 /// уже был вызван вызывающей стороной.
 /// </summary>
@@ -41,7 +45,7 @@ public sealed class CrackingSolver
 
     public CrackingSolver(
         CrossSection section,
-        CalcType calcCrc = CalcType.CL,
+        CalcType calcCrc = CalcType.N,
         double? epsTensionLimit = null,
         double solverTol = 0.5,
         int solverMaxIter = 60,

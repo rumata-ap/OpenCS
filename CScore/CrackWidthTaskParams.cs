@@ -27,8 +27,8 @@ public sealed class CrackWidthTaskParams
 
     /// <summary>
     /// Использовать CalcType.NL (вместо N) при расчёте длительной части раскрытия трещин
-    /// (acrcLong). Кратковременная часть (acrc2) и момент трещинообразования (calcCrc=CL)
-    /// не затрагиваются.
+    /// (acrcLong). Кратковременная часть (acrc2) не затрагивается. Момент трещинообразования
+    /// (calcCrc) на этот флаг не влияет — выбирается отдельно через CalcTask.CalcType (N/NL).
     /// </summary>
     public bool LongPartUseNL { get; set; } = false;
 
