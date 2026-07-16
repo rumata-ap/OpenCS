@@ -448,11 +448,11 @@ git commit -m "test(opensees): cover spatial interaction integration"
 
 **Files:** Modify `OpenCS.OpenSees/README.md`; update both OpenSees specs/plans only to mark completed checkboxes after verification.
 
-- [ ] **Step 1: Document the user workflow.**
+- [x] **Step 1: Document the user workflow.**
 
 Document selecting a bar `ForceSet`, unique N extraction, `angleStepDegrees`, the JSON stored in `ParamsJson`, the polar result tab, optional M–κ tab, status aggregation and artifact navigation. State explicitly that `Mx/My` values from ForceSet rows are ignored and that all OpenSees runs are sequential and independent.
 
-- [ ] **Step 2: Run focused tests.**
+- [x] **Step 2: Run focused tests.**
 
 ```powershell
 dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj
@@ -460,7 +460,7 @@ dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj
 
 Expected: all pure tests PASS; real OpenSees tests PASS or SKIP only when `OPENSEES_EXE` is absent.
 
-- [ ] **Step 3: Run domain tests and solution build.**
+- [x] **Step 3: Run domain tests and solution build.**
 
 ```powershell
 dotnet test CScore.Tests/CScore.Tests.csproj
@@ -473,11 +473,11 @@ Expected: PASS/build success with only documented pre-existing warnings.
 
 Create a task from `CalcTaskPropsDialog`, select a ForceSet with repeated N values, verify the preview deduplicates N and counts directions, save/edit the task, run it with OpenSees, open the result, switch N, select an angle row, open `M–κ`, inspect diagnostics and verify artifact directories.
 
-- [ ] **Step 5: Inspect generated artifacts.**
+- [x] **Step 5: Inspect generated artifacts.**
 
 Open one `script.tcl`, `manifest.json`, `section_history.out`, and serialized result. Verify `-ndm 3 -ndf 6`, DOF 5/6 mapping, SI values, invariant decimals, no executable path interpolation, full `HistoryRows`, and unique artifacts.
 
-- [ ] **Step 6: Commit documentation and plan completion.**
+- [x] **Step 6: Commit documentation and record verification status.**
 
 ```powershell
 git add OpenCS.OpenSees/README.md docs/superpowers/specs docs/superpowers/plans/2026-07-16-opensees-spatial-interaction.md
