@@ -28,11 +28,10 @@
 opensees_section_interaction_n_mx_my
 ```
 
-Параметры task:
+Параметры task. Набор продольных сил выбирается в UI и хранится в `CalcTask.ForceSetId`; `axialForces` в JSON не дублируются:
 
 ```json
 {
-  "axialForces": [-1000, 0, 1000],
   "angleStepDegrees": 45,
   "maxCurvature": 0.01,
   "increments": 20,
@@ -41,7 +40,7 @@ opensees_section_interaction_n_mx_my
 }
 ```
 
-На границе OpenCS `axialForces` задаются в кН. Handler ровно один раз переводит их в Н через существующий `CScoreUnitConverter.KiloNewtonsToNewtons`. В библиотечном контракте силы хранятся в Н, кривизна — в `1/м`, моменты — в Н·м.
+Handler находит bar `ForceSet` по `CalcTask.ForceSetId`, берёт значения `N` его строк в исходном порядке и удаляет точные дубликаты. Эти значения задаются в кН и ровно один раз переводятся в Н через существующий `CScoreUnitConverter.KiloNewtonsToNewtons`. В библиотечном контракте силы хранятся в Н, кривизна — в `1/м`, моменты — в Н·м.
 
 `angleStepDegrees` должен быть конечным, положительным и делить `360` без остатка. Сервис генерирует углы `0, step, ..., 360-step`; угол `360` не добавляется, поскольку дублирует `0`. Порядок сил и углов детерминирован и сохраняется.
 
@@ -119,7 +118,7 @@ step loadFactor axialForceN momentMxNm momentMyNm curvatureMx curvatureMy curvat
 
 ## OpenCS task
 
-`OpenSeesSectionSpatialInteractionHandler` повторяет проверенный pipeline stage 0–1: проверяет отмену, разбирает JSON, получает materials/diagrams из `TaskRunContext.Database`, строит prepared `OpenSeesSectionModel`, разрешает executable, конвертирует силы к Н, создаёт пространственный request и запускает сервис под `AppContext.BaseDirectory/OpenSeesArtifacts`.
+`OpenSeesSectionSpatialInteractionHandler` повторяет проверенный pipeline stage 0–1: проверяет отмену, разбирает JSON, получает bar `ForceSet` и его `N` из `TaskRunContext.Database`, получает materials/diagrams, строит prepared `OpenSeesSectionModel`, разрешает executable, конвертирует силы к Н, создаёт пространственный request и запускает сервис под `AppContext.BaseDirectory/OpenSeesArtifacts`.
 
 Результат сериализуется через `System.Text.Json` в `CalcResult.DataJson`, а `CalcResult.Status` получает агрегированный статус. Исключения подготовки и запуска преобразуются в типизированный `error`-результат с диагностикой и не выбрасываются наружу task runner.
 
