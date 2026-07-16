@@ -427,9 +427,14 @@
                                         <RadioButton x:Name="LiraTon10" Content="{DynamicResource LiraTon10}" Margin="0,3"/>
                                     </StackPanel>
                                 </GroupBox>
-                                <GroupBox Header="{DynamicResource LiraImportBarMomentsGroup}">
+                                <GroupBox Header="{DynamicResource LiraImportBarMomentsGroup}" Margin="0,0,0,6">
                                     <CheckBox x:Name="LiraInvertBarMxMyCb"
                                               Content="{DynamicResource LiraInvertBarMxMy}"
+                                              Margin="4,6"/>
+                                </GroupBox>
+                                <GroupBox Header="{DynamicResource LiraImportShellMomentsGroup}">
+                                    <CheckBox x:Name="LiraInvertShellMxMyCb"
+                                              Content="{DynamicResource LiraInvertShellMxMy}"
                                               Margin="4,6"/>
                                 </GroupBox>
                             </StackPanel>

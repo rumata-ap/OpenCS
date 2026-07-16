@@ -616,6 +616,8 @@
    <system:String x:Key="LiraTon10">10 (1 t = 10 kN)</system:String>
    <system:String x:Key="LiraImportBarMomentsGroup">Bars</system:String>
    <system:String x:Key="LiraInvertBarMxMy">Invert bending moment signs Mx and My</system:String>
+   <system:String x:Key="LiraImportShellMomentsGroup">Plates</system:String>
+   <system:String x:Key="LiraInvertShellMxMy">Invert moment signs Mx, My and Mxy</system:String>
    <system:String x:Key="SP20CombineBtn">SP20 Combinations</system:String>
    <system:String x:Key="SP20DialogTitle">SP 20.13330 Combinations</system:String>
    <system:String x:Key="SP20SelectSets">Force Sets:</system:String>

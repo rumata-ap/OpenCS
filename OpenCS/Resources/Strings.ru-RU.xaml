@@ -619,6 +619,8 @@
    <system:String x:Key="LiraTon10">10 (1 т = 10 кН)</system:String>
    <system:String x:Key="LiraImportBarMomentsGroup">Стержни</system:String>
    <system:String x:Key="LiraInvertBarMxMy">Инвертировать знаки изгибающих моментов Mx и My</system:String>
+   <system:String x:Key="LiraImportShellMomentsGroup">Плиты</system:String>
+   <system:String x:Key="LiraInvertShellMxMy">Инвертировать знаки моментов Mx, My и Mxy</system:String>
    <system:String x:Key="SP20CombineBtn">Сочетания СП20</system:String>
    <system:String x:Key="SP20DialogTitle">Сочетания по СП 20.13330</system:String>
    <system:String x:Key="SP20SelectSets">Наборы усилий:</system:String>

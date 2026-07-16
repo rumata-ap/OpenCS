@@ -363,7 +363,8 @@ namespace OpenCS.Views
          const double ten = 10.0;
          LiraTon981.IsChecked = Math.Abs(_liraSettings.TonToKnFactor - ten) > 0.01;
          LiraTon10.IsChecked  = Math.Abs(_liraSettings.TonToKnFactor - ten) <= 0.01;
-         LiraInvertBarMxMyCb.IsChecked = _liraSettings.InvertBarBendingMoments;
+         LiraInvertBarMxMyCb.IsChecked   = _liraSettings.InvertBarBendingMoments;
+         LiraInvertShellMxMyCb.IsChecked = _liraSettings.InvertShellBendingMoments;
       }
 
       void HookLiraControls()
@@ -372,6 +373,8 @@ namespace OpenCS.Views
          LiraTon10.Checked  += (_, _) => _liraSettings.TonToKnFactor = 10.0;
          LiraInvertBarMxMyCb.Checked   += (_, _) => _liraSettings.InvertBarBendingMoments = true;
          LiraInvertBarMxMyCb.Unchecked += (_, _) => _liraSettings.InvertBarBendingMoments = false;
+         LiraInvertShellMxMyCb.Checked   += (_, _) => _liraSettings.InvertShellBendingMoments = true;
+         LiraInvertShellMxMyCb.Unchecked += (_, _) => _liraSettings.InvertShellBendingMoments = false;
       }
 
       void UpdateCalcSwatches()
