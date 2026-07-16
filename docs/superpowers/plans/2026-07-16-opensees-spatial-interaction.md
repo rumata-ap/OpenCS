@@ -241,17 +241,17 @@ git commit -m "feat(opensees): add spatial section analysis service"
 
 **Files:** Create `OpenCS.OpenSees/Services/SectionSpatialInteractionService.cs`; modify `OpenCS.OpenSees/Analysis/SectionSpatialInteractionPoint.cs`; extend `OpenCS.OpenSees.Tests/SpatialInteractionTests.cs`.
 
-- [ ] **Step 1: Add fake-executor orchestration tests.**
+- [x] **Step 1: Add fake-executor orchestration tests.**
 
 Use axial forces `[100_000, -200_000]` and `AngleStepDegrees = 90`; assert requests are `[100000/0, 100000/90, 100000/180, 100000/270, -200000/0, ...]`, all request angles are preserved, each point retains the complete `HistoryRows`, the terminal values come from `Rows.LastOrDefault(row => row.Converged)`, and every point retains its artifact directory.
 
 Add tests for aggregate `error`, aggregate `not_converged`, cancellation between points and an exception from one fake run becoming an error point without corrupting the remaining order.
 
-- [ ] **Step 2: Implement the sequential service.**
+- [x] **Step 2: Implement the sequential service.**
 
 Validate model/request/process request, loop in the exact order above, invoke `ISpatialSectionAnalysisExecutor.RunAsync`, copy all rows into `HistoryRows`, choose the last converged row, and aggregate statuses as `error > not_converged > ok`. Do not parallelize or reuse material state across points.
 
-- [ ] **Step 3: Run and commit.**
+- [x] **Step 3: Run and commit.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SpatialInteractionTests`
 
