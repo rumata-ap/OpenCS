@@ -209,6 +209,24 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         return skippedUnsaved;
     }
 
+    FemFragmentSnapshot? _clipboard;
+    public bool HasClipboard => _clipboard != null;
+
+    public void CopySelection()
+    {
+        if (Selection.SelectedNodeTags.Count == 0 && Selection.SelectedElemTags.Count == 0) return;
+        _clipboard = FemFragmentClipboard.Copy(Session,
+            Selection.SelectedNodeTags.ToHashSet(), Selection.SelectedElemTags.ToHashSet());
+        OnPropertyChanged(nameof(HasClipboard));
+    }
+
+    public void PasteClipboard(double dx, double dy, double dz)
+    {
+        if (_clipboard is not { } snapshot) return;
+        Session.Execute(new PasteFragmentCommand(snapshot, dx, dy, dz));
+        RefreshCollections();
+    }
+
     /// <summary>Пересинхронизирует ObservableCollection-зеркала с текущим состоянием Session
     /// после Execute/Undo/Redo. Вызывается всеми командными операциями редактора.</summary>
     public void RefreshCollections()

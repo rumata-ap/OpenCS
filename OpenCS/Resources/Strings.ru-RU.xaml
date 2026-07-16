@@ -1405,6 +1405,7 @@
     <system:String x:Key="FemNodeLoadSkippedUnsavedTitle">Узлы не сохранены</system:String>
     <system:String x:Key="FemNodeLoadSkippedUnsaved">Нагрузка не применена к новым, ещё не сохранённым узлам: {0}. Сохраните схему и повторите.</system:String>
     <system:String x:Key="FemSaveBlockedTitle">Сохранение заблокировано</system:String>
+    <system:String x:Key="FemPasteOffsetTitle">Смещение при вставке</system:String>
     <system:String x:Key="CalcTaskKind_torsion_bem">Кручение (Сен-Венан, МГЭ)</system:String>
     <system:String x:Key="CalcTaskKind_torsion_fem">Кручение (Сен-Венан, МКЭ)</system:String>
     <system:String x:Key="TorsionTitle">Постоянная кручения Сен-Венана</system:String>

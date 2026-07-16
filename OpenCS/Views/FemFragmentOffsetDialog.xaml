@@ -1,0 +1,15 @@
+<Window x:Class="OpenCS.Views.FemFragmentOffsetDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource FemPasteOffsetTitle}" Width="260" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner">
+    <StackPanel Margin="12">
+        <TextBlock Text="dx"/>
+        <TextBox x:Name="dxBox" Text="0"/>
+        <TextBlock Text="dy" Margin="0,8,0,0"/>
+        <TextBox x:Name="dyBox" Text="0"/>
+        <TextBlock Text="dz" Margin="0,8,0,0"/>
+        <TextBox x:Name="dzBox" Text="0"/>
+        <Button Content="OK" Click="Ok_Click" Margin="0,12,0,0" HorizontalAlignment="Right" Padding="16,4"/>
+    </StackPanel>
+</Window>

@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media.Media3D;
 using CScore.Fem;
 using OpenCS.Utilites;
@@ -34,8 +35,34 @@ public partial class FemSchemaPage : UserControl
         _editorVm.SaveBlocked += errors => MessageBox.Show(
             string.Join("\n", errors.Select(d => d.Message)),
             Loc.S("FemSaveBlockedTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
+
+        PreviewKeyDown += OnPreviewKeyDown;
     }
 
     void CreateMember_Click(object sender, RoutedEventArgs e)
         => _editorVm.CreateMemberFromElements(barsGrid.SelectedItems.OfType<FemElement>());
+
+    void OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        bool ctrl = Keyboard.Modifiers == ModifierKeys.Control;
+        if (!ctrl) return;
+
+        if (e.Key == Key.C)
+        {
+            _editorVm.CopySelection();
+        }
+        else if (e.Key == Key.V && _editorVm.HasClipboard)
+        {
+            var dlg = new FemFragmentOffsetDialog { Owner = Window.GetWindow(this) };
+            if (dlg.ShowDialog() == true) _editorVm.PasteClipboard(dlg.Dx, dlg.Dy, dlg.Dz);
+        }
+        else if (e.Key == Key.Z && _editorVm.UndoCommand.CanExecute(null))
+        {
+            _editorVm.UndoCommand.Execute(null);
+        }
+        else if (e.Key == Key.Y && _editorVm.RedoCommand.CanExecute(null))
+        {
+            _editorVm.RedoCommand.Execute(null);
+        }
+    }
 }

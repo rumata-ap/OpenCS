@@ -251,7 +251,9 @@ public partial class FemSchemaView3D : UserControl
         }
         foreach (var (tag, p1, p2) in vm.BarProxies)
         {
-            var pipe = new PipeVisual3D { Point1 = p1, Point2 = p2, Diameter = 0.05, Fill = new SolidColorBrush(Colors.Transparent) };
+            bool selected = vm.Selection?.SelectedElemTags.Contains(tag) == true;
+            var color = selected ? Colors.OrangeRed : Colors.Transparent;
+            var pipe = new PipeVisual3D { Point1 = p1, Point2 = p2, Diameter = 0.1, Fill = new SolidColorBrush(color) };
             _pickTargets[pipe] = (false, tag);
             viewport.Children.Add(pipe);
         }
