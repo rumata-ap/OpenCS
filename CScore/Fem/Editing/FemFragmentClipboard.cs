@@ -51,18 +51,17 @@ public sealed class PasteFragmentCommand(FemFragmentSnapshot snapshot, double dx
         }
         foreach (var n in _newNodes) session.Nodes.Add(n);
 
+        // NodeIdsJson/ElemIdsJson хранят NodeTag/ElemTag как числа (соглашение всей кодовой базы —
+        // см. FemTopologyValidator), поэтому старый тег узла/элемента — это просто id.ToString().
         var elemTagMap = new Dictionary<string, string>(StringComparer.Ordinal);
         _newElements = [];
-        var nodeByOldTag = snapshot.Nodes.ToDictionary(n => n.NodeTag, n => n);
-        var nodeIdByNewTag = session.Nodes.ToDictionary(n => n.NodeTag, n => n.Id);
         foreach (var element in snapshot.Elements)
         {
             var newTag = FemTopologyValidator.NextElemTag(session.Elements.Concat(_newElements).ToList());
             elemTagMap[element.ElemTag] = newTag;
             var oldIds = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson) ?? [];
             var newIds = oldIds
-                .Select(id => nodeByOldTag.Values.First(n => n.Id == id).NodeTag)
-                .Select(oldTag => nodeIdByNewTag[nodeTagMap[oldTag]])
+                .Select(id => int.Parse(nodeTagMap[id.ToString()]))
                 .ToArray();
             _newElements.Add(new FemElement
             {
@@ -78,10 +77,8 @@ public sealed class PasteFragmentCommand(FemFragmentSnapshot snapshot, double dx
         foreach (var member in snapshot.Members)
         {
             var oldElemIds = JsonSerializer.Deserialize<int[]>(member.ElemIdsJson) ?? [];
-            var elemIdByNewTag = session.Elements.ToDictionary(e => e.ElemTag, e => e.Id);
             var newElemIds = oldElemIds
-                .Select(id => snapshot.Elements.First(e => e.Id == id).ElemTag)
-                .Select(oldTag => elemIdByNewTag[elemTagMap[oldTag]])
+                .Select(id => int.Parse(elemTagMap[id.ToString()]))
                 .ToArray();
             _newMembers.Add(new FemMember
             {

@@ -59,14 +59,15 @@ public sealed class FemSchemaEditSessionNodeTests
     public void DeleteNodeCommand_CascadesToElementsMembersAndLoads_AndUndoRestoresAll()
     {
         var session = NewSession();
-        var n1 = new FemNode { Id = 1, NodeTag = "1" };
-        var n2 = new FemNode { Id = 2, NodeTag = "2" };
+        // Id намеренно НЕ совпадает с NodeTag: NodeIdsJson/ElemIdsJson ссылаются по Tag, а не по БД-Id.
+        var n1 = new FemNode { Id = 101, NodeTag = "1" };
+        var n2 = new FemNode { Id = 102, NodeTag = "2" };
         session.Execute(new AddNodeCommand(n1));
         session.Execute(new AddNodeCommand(n2));
         session.Elements.Add(new FemElement { Id = 1, ElemTag = "1", NodeIdsJson = "[1,2]" });
         session.Members.Add(new FemMember { Id = 1, Tag = "M1", ElemIdsJson = "[1]" });
         session.LoadCases.Add(new FemLoadCase { Id = 1, Tag = "G" });
-        session.NodeLoads.Add(new FemNodeLoad { Id = 1, LoadCaseId = 1, NodeId = 1, Fz = 5 });
+        session.NodeLoads.Add(new FemNodeLoad { Id = 1, LoadCaseId = 1, NodeId = 101, Fz = 5 });
 
         session.Execute(new DeleteNodeCommand(n1));
 

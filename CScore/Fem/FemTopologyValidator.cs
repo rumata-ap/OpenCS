@@ -21,14 +21,22 @@ public static class FemTopologyValidator
         ArgumentNullException.ThrowIfNull(elements);
         ArgumentNullException.ThrowIfNull(members);
 
+        // NodeIdsJson/ElemIdsJson хранят NodeTag/ElemTag узлов и элементов как числа
+        // (соглашение всей кодовой базы — см. Fem3DVM.GetBarPoints, FemMember.ElemIdsJson
+        // в режиме _memberOnly), а не БД-Id: у ещё не сохранённых объектов Id всегда 0.
         var errors = new List<FemValidationDiagnostic>();
         var nodeById = new Dictionary<int, FemNode>();
         foreach (var node in nodes)
             if (!nodeById.TryAdd(node.Id, node))
                 errors.Add(new("node_id_duplicate", $"Идентификатор узла {node.Id} повторяется."));
 
-        foreach (var group in nodes.GroupBy(n => n.NodeTag, StringComparer.Ordinal).Where(g => g.Count() > 1))
-            errors.Add(new("node_tag_duplicate", $"Тег узла '{group.Key}' используется несколько раз."));
+        var nodeTagSet = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in nodes.GroupBy(n => n.NodeTag, StringComparer.Ordinal))
+        {
+            nodeTagSet.Add(group.Key);
+            if (group.Count() > 1)
+                errors.Add(new("node_tag_duplicate", $"Тег узла '{group.Key}' используется несколько раз."));
+        }
 
         var elemById = new Dictionary<int, FemElement>();
         foreach (var element in elements)
@@ -37,10 +45,10 @@ public static class FemTopologyValidator
                 errors.Add(new("element_id_duplicate", $"Идентификатор элемента {element.Id} повторяется."));
 
             var ids = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson) ?? [];
-            foreach (var nodeId in ids)
-                if (!nodeById.ContainsKey(nodeId))
+            foreach (var nodeTagId in ids)
+                if (!nodeTagSet.Contains(nodeTagId.ToString()))
                     errors.Add(new("element_node_missing",
-                        $"Элемент {element.ElemTag} ссылается на отсутствующий узел {nodeId}."));
+                        $"Элемент {element.ElemTag} ссылается на отсутствующий узел {nodeTagId}."));
 
             if (element.ElemType == "beam" && ids.Length == 2 && ids[0] == ids[1])
                 errors.Add(new("element_zero_length", $"Стержень {element.ElemTag} имеет нулевую длину."));

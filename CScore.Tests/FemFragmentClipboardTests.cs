@@ -30,9 +30,10 @@ public sealed class FemFragmentClipboardTests
     public void Paste_GeneratesNewTagsAppliesOffsetAndRemapsReferences()
     {
         var session = new FemSchemaEditSession(new FemSchema { Id = 1 });
-        session.Nodes.Add(new FemNode { Id = 1, NodeTag = "1", X = 0, Y = 0, Z = 0 });
-        session.Nodes.Add(new FemNode { Id = 2, NodeTag = "2", X = 1, Y = 0, Z = 0 });
-        session.Elements.Add(new FemElement { Id = 1, ElemTag = "1", NodeIdsJson = "[1,2]" });
+        // Id намеренно НЕ совпадает с NodeTag/ElemTag: ссылки в JSON идут по Tag, а не по БД-Id.
+        session.Nodes.Add(new FemNode { Id = 101, NodeTag = "1", X = 0, Y = 0, Z = 0 });
+        session.Nodes.Add(new FemNode { Id = 102, NodeTag = "2", X = 1, Y = 0, Z = 0 });
+        session.Elements.Add(new FemElement { Id = 201, ElemTag = "1", NodeIdsJson = "[1,2]" });
         session.Members.Add(new FemMember { Id = 1, Tag = "M1", ElemIdsJson = "[1]", CrossSectionId = 5,
             GjStrategy = "manual", GjManualValue = 100 });
 

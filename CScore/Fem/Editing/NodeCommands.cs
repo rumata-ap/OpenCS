@@ -49,8 +49,10 @@ public sealed class DeleteNodeCommand(FemNode node) : IFemEditCommand
     {
         session.Nodes.Remove(node);
 
+        // NodeIdsJson хранит NodeTag узла как число, не БД-Id (см. FemTopologyValidator).
+        int nodeTagId = int.Parse(node.NodeTag);
         _removedElements = session.Elements
-            .Where(e => (JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? []).Contains(node.Id))
+            .Where(e => (JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? []).Contains(nodeTagId))
             .ToList();
         foreach (var e in _removedElements) session.Elements.Remove(e);
 
