@@ -52,7 +52,7 @@ namespace CScore.Import
             {
                if (kind == LiraElementKind.Shell)
                {
-                  var item = LiraForceMapper.MapShell(forceDict, units);
+                  var item = LiraForceMapper.MapShell(forceDict, units, options);
                   item.Label = label;
                   item.Num   = num++;
                   fs.ShellItems.Add(item);
@@ -92,7 +92,7 @@ namespace CScore.Import
          {
             if (kind == LiraElementKind.Shell)
             {
-               var item = LiraForceMapper.MapShell(forceDict, units);
+               var item = LiraForceMapper.MapShell(forceDict, units, options);
                item.Label = label;
                item.Num   = num++;
                fs.ShellItems.Add(item);

@@ -9,6 +9,9 @@ namespace CScore.Import
       /// <summary>Инвертировать знаки изгибающих моментов Mx/My для стержней.</summary>
       public bool InvertBarBendingMoments { get; set; } = true;
 
+      /// <summary>Инвертировать знаки изгибающих/крутящего моментов Mx/My/Mxy для пластин.</summary>
+      public bool InvertShellBendingMoments { get; set; } = true;
+
       public static LiraImportOptions Default => new();
    }
 }

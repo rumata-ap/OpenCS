@@ -20,18 +20,19 @@ namespace CScore.Import
          };
       }
 
-      public static ShellLoadItem MapShell(IReadOnlyDictionary<string, double> src, LiraUnitScales units)
+      public static ShellLoadItem MapShell(IReadOnlyDictionary<string, double> src, LiraUnitScales units, LiraImportOptions opt)
       {
          double sf = units.ShellForce;
          double sm = units.ShellMoment;
+         double sign = opt.InvertShellBendingMoments ? -1.0 : 1.0;
          return new ShellLoadItem
          {
             Nx  = Get(src, "NX") * sf,
             Ny  = Get(src, "NY") * sf,
             Nxy = Get(src, "TXY") * sf,
-            Mx  = Get(src, "MX") * sm,
-            My  = Get(src, "MY") * sm,
-            Mxy = Get(src, "MXY") * sm,
+            Mx  = Get(src, "MX") * sm * sign,
+            My  = Get(src, "MY") * sm * sign,
+            Mxy = Get(src, "MXY") * sm * sign,
             Qx  = Get(src, "QX") * sf,
             Qy  = Get(src, "QY") * sf,
          };

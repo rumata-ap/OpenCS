@@ -36,14 +36,15 @@ public static class ScadXlsForceMapper
     {
         double f = opt.TonToKnFactor;
         double h = thicknessM;
+        double sign = opt.InvertShellBendingMoments ? -1.0 : 1.0;
         return new ShellLoadItem
         {
             Nx  = sx * h * f,
             Ny  = sy * h * f,
             Nxy = txy * h * f,
-            Mx  = mx * f,
-            My  = my * f,
-            Mxy = mxy * f,
+            Mx  = mx * f * sign,
+            My  = my * f * sign,
+            Mxy = mxy * f * sign,
             Qx  = qx * f,
             Qy  = qy * f,
         };

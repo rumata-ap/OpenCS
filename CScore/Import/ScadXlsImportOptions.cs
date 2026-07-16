@@ -5,6 +5,9 @@ public class ScadXlsImportOptions
 {
     public double TonToKnFactor { get; set; } = 9.80665;
     public bool InvertBarBendingMoments { get; set; } = true;
+
+    /// <summary>Инвертировать знаки изгибающих/крутящего моментов Mx/My/Mxy для пластин.</summary>
+    public bool InvertShellBendingMoments { get; set; } = true;
     public IReadOnlySet<int> ElementIds { get; set; } = new HashSet<int>();
 
     /// <summary>Импортировать все элементы листа (игнорировать ElementIds).</summary>
