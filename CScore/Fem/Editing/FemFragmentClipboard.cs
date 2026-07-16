@@ -15,8 +15,18 @@ public static class FemFragmentClipboard
         IReadOnlySet<string> nodeTags,
         IReadOnlySet<string> elemTags)
     {
-        var nodes = session.Nodes.Where(n => nodeTags.Contains(n.NodeTag)).ToList();
         var elements = session.Elements.Where(e => elemTags.Contains(e.ElemTag)).ToList();
+
+        // Узлы, на которые ссылаются копируемые элементы, обязаны попасть во фрагмент, даже если
+        // пользователь явно не выделял их в 3D — иначе вставка не сможет восстановить стержень
+        // (см. PasteFragmentCommand: он ремапит NodeIdsJson через теги узлов этого фрагмента).
+        var requiredNodeTags = elements
+            .SelectMany(e => JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? [])
+            .Select(id => id.ToString())
+            .ToHashSet(StringComparer.Ordinal);
+        requiredNodeTags.UnionWith(nodeTags);
+
+        var nodes = session.Nodes.Where(n => requiredNodeTags.Contains(n.NodeTag)).ToList();
         var members = session.Members
             .Where(m => (JsonSerializer.Deserialize<int[]>(m.ElemIdsJson) ?? [])
                 .Select(id => id.ToString())
@@ -46,6 +56,7 @@ public sealed class PasteFragmentCommand(FemFragmentSnapshot snapshot, double dx
             nodeTagMap[node.NodeTag] = newTag;
             _newNodes.Add(new FemNode
             {
+                SchemaId = session.Schema.Id,
                 NodeTag = newTag, X = node.X + dx, Y = node.Y + dy, Z = node.Z + dz, DofMask = node.DofMask
             });
         }
@@ -65,6 +76,7 @@ public sealed class PasteFragmentCommand(FemFragmentSnapshot snapshot, double dx
                 .ToArray();
             _newElements.Add(new FemElement
             {
+                SchemaId = session.Schema.Id,
                 ElemTag = newTag, ElemType = element.ElemType,
                 NodeIdsJson = JsonSerializer.Serialize(newIds),
                 SectionTag = element.SectionTag, MaterialTag = element.MaterialTag,
@@ -82,6 +94,7 @@ public sealed class PasteFragmentCommand(FemFragmentSnapshot snapshot, double dx
                 .ToArray();
             _newMembers.Add(new FemMember
             {
+                SchemaId = session.Schema.Id,
                 Tag = member.Tag + " (копия)", MemberType = member.MemberType,
                 ElemIdsJson = JsonSerializer.Serialize(newElemIds),
                 CrossSectionId = member.CrossSectionId, PlateSectionId = member.PlateSectionId,

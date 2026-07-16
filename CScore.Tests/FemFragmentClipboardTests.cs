@@ -27,6 +27,23 @@ public sealed class FemFragmentClipboardTests
     }
 
     [Fact]
+    public void Copy_PullsInElementNodesEvenWhenNotExplicitlySelected()
+    {
+        var session = new FemSchemaEditSession(new FemSchema { Id = 1 });
+        session.Nodes.Add(new FemNode { Id = 1, NodeTag = "1", X = 0 });
+        session.Nodes.Add(new FemNode { Id = 2, NodeTag = "2", X = 1 });
+        session.Elements.Add(new FemElement { Id = 1, ElemTag = "1", NodeIdsJson = "[1,2]" });
+
+        // Пользователь выделил только стержень, ни один узел явно не выбран.
+        var snapshot = FemFragmentClipboard.Copy(session,
+            nodeTags: new HashSet<string>(),
+            elemTags: new HashSet<string> { "1" });
+
+        Assert.Equal(2, snapshot.Nodes.Count);
+        Assert.Single(snapshot.Elements);
+    }
+
+    [Fact]
     public void Paste_GeneratesNewTagsAppliesOffsetAndRemapsReferences()
     {
         var session = new FemSchemaEditSession(new FemSchema { Id = 1 });
