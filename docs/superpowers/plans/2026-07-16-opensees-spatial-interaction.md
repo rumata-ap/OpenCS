@@ -212,21 +212,21 @@ git commit -m "feat(opensees): generate 3D spatial section Tcl"
 
 **Files:** Create `OpenCS.OpenSees/Services/ISpatialSectionAnalysisExecutor.cs`, `OpenCS.OpenSees/Services/SpatialSectionAnalysisService.cs`, `OpenCS.OpenSees.Tests/SpatialSectionAnalysisServiceTests.cs`.
 
-- [ ] **Step 1: Write fake generator/runner tests.**
+- [x] **Step 1: Write fake generator/runner tests.**
 
 Assert call order `Generate → ArtifactStore.Create/WriteScript/WriteManifest → runner → parser → final manifest`, propagation of the `AngleDegrees` request, preservation of artifacts on non-zero exit, missing marker and parser errors, and cancellation before generation and during runner execution.
 
-- [ ] **Step 2: Run the filtered tests and confirm missing service types.**
+- [x] **Step 2: Run the filtered tests and confirm missing service types.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SpatialSectionAnalysisServiceTests`
 
 Expected: FAIL because the spatial executor/service do not exist.
 
-- [ ] **Step 3: Implement the service.**
+- [x] **Step 3: Implement the service.**
 
 Mirror `SectionAnalysisService`’s artifact lifecycle, but inject the spatial generator and spatial parser. Return `error` for generation/setup/parser failures, `not_converged` for non-zero/timeout/cancelled/non-converged histories, and `ok` only when every parsed row is converged. Keep `ArtifactDirectory`, `RunResult`, all rows and diagnostics in the returned result.
 
-- [ ] **Step 4: Run and commit.**
+- [x] **Step 4: Run and commit.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SpatialSectionAnalysisServiceTests`
 
