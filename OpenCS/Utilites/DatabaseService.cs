@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-       const int CurrentSchemaVersion = 28;
+       const int CurrentSchemaVersion = 29;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -359,7 +359,10 @@ namespace OpenCS.Utilites
                 cross_section_id   INTEGER REFERENCES cross_sections(id),
                 plate_section_id   INTEGER REFERENCES plate_sections(id),
                 force_set_id       INTEGER REFERENCES force_sets(id),
-                design_params_json TEXT
+                design_params_json TEXT,
+                gj_strategy        TEXT NOT NULL DEFAULT 'manual',
+                gj_manual_value    REAL,
+                gj_torsion_task_id INTEGER REFERENCES calc_tasks(id)
             );
             CREATE TABLE IF NOT EXISTS fem_load_cases (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -450,6 +453,7 @@ namespace OpenCS.Utilites
                if (i == 25) { MigrateV26(); continue; }
                if (i == 26) { MigrateV27(); continue; }
                if (i == 27) { MigrateV28(); continue; }
+               if (i == 28) { MigrateV29(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -613,6 +617,17 @@ namespace OpenCS.Utilites
                 created TEXT NOT NULL DEFAULT ''
             )
          """);
+      }
+
+      /// <summary>Миграция v29: GJ-стратегия и ссылка на задачу кручения на FemMember.</summary>
+      void MigrateV29()
+      {
+         if (!ColumnExists("fem_members", "gj_strategy"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN gj_strategy TEXT NOT NULL DEFAULT 'manual'");
+         if (!ColumnExists("fem_members", "gj_manual_value"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN gj_manual_value REAL");
+         if (!ColumnExists("fem_members", "gj_torsion_task_id"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN gj_torsion_task_id INTEGER");
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -2483,7 +2498,8 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                SELECT id, schema_id, tag, member_type, elem_ids_json,
-                      cross_section_id, plate_section_id, force_set_id, design_params_json
+                      cross_section_id, plate_section_id, force_set_id, design_params_json,
+                      gj_strategy, gj_manual_value, gj_torsion_task_id
                FROM fem_members ORDER BY schema_id, id
             """;
             using var r = cmd.ExecuteReader();
@@ -2501,7 +2517,10 @@ namespace OpenCS.Utilites
                   CrossSectionId   = r.IsDBNull(5) ? null : r.GetInt32(5),
                   PlateSectionId   = r.IsDBNull(6) ? null : r.GetInt32(6),
                   ForceSetId       = r.IsDBNull(7) ? null : r.GetInt32(7),
-                  DesignParamsJson = r.IsDBNull(8) ? null : r.GetString(8)
+                  DesignParamsJson = r.IsDBNull(8) ? null : r.GetString(8),
+                  GjStrategy       = r.IsDBNull(9) ? "manual" : r.GetString(9),
+                  GjManualValue    = r.IsDBNull(10) ? null : r.GetDouble(10),
+                  GjTorsionTaskId  = r.IsDBNull(11) ? null : r.GetInt32(11)
                });
             }
          }
@@ -3062,8 +3081,9 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                INSERT INTO fem_members
-                   (schema_id, tag, member_type, elem_ids_json, cross_section_id, plate_section_id, force_set_id, design_params_json)
-               VALUES (@sid, @tag, @mtype, @eids, @csid, @psid, @fsid, @dp);
+                   (schema_id, tag, member_type, elem_ids_json, cross_section_id, plate_section_id,
+                    force_set_id, design_params_json, gj_strategy, gj_manual_value, gj_torsion_task_id)
+               VALUES (@sid, @tag, @mtype, @eids, @csid, @psid, @fsid, @dp, @gjs, @gjv, @gjt);
                SELECT last_insert_rowid();
             """;
             cmd.Parameters.AddWithValue("@sid",   schemaId);
@@ -3074,6 +3094,9 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@psid",  (object?)m.PlateSectionId   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@gjs",   m.GjStrategy);
+            cmd.Parameters.AddWithValue("@gjv",   (object?)m.GjManualValue    ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@gjt",   (object?)m.GjTorsionTaskId  ?? DBNull.Value);
             m.Id = (int)(long)cmd.ExecuteScalar()!;
             m.SchemaId = schemaId;
          }
@@ -3081,7 +3104,8 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                UPDATE fem_members SET tag=@tag, member_type=@mtype, elem_ids_json=@eids,
-               cross_section_id=@csid, plate_section_id=@psid, force_set_id=@fsid, design_params_json=@dp WHERE id=@id
+               cross_section_id=@csid, plate_section_id=@psid, force_set_id=@fsid, design_params_json=@dp,
+               gj_strategy=@gjs, gj_manual_value=@gjv, gj_torsion_task_id=@gjt WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@tag",   m.Tag);
             cmd.Parameters.AddWithValue("@mtype", (object?)m.MemberType       ?? DBNull.Value);
@@ -3090,6 +3114,9 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@psid",  (object?)m.PlateSectionId   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@gjs",   m.GjStrategy);
+            cmd.Parameters.AddWithValue("@gjv",   (object?)m.GjManualValue    ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@gjt",   (object?)m.GjTorsionTaskId  ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@id",    m.Id);
             cmd.ExecuteNonQuery();
          }
