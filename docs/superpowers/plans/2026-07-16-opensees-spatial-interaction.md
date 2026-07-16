@@ -357,19 +357,19 @@ git commit -m "feat(opensees): add spatial task dialog parameters"
 
 **Files:** Create `OpenCS/ViewModels/OpenSeesSpatialInteractionResultVM.cs`, `OpenCS.OpenSees.Tests/OpenSeesSpatialInteractionResultVMTests.cs`.
 
-- [ ] **Step 1: Write grouping/selection tests.**
+- [x] **Step 1: Write grouping/selection tests.**
 
 Deserialize a result with two N groups and four angles. Assert `AvailableAxialForces` keeps result order, selecting N exposes only its points, selecting an angle updates the selected point, changing N preserves the angle when available and falls back to the first angle otherwise, and `HistoryRows` drives the M–κ series.
 
-- [ ] **Step 2: Implement the VM.**
+- [x] **Step 2: Implement the VM.**
 
 Expose `AvailableAxialForces`, `SelectedAxialForce`, `AvailableAngles`, `SelectedAngle`, `SelectedPoint`, `PolarMxKnM`, `PolarMyKnM`, `HistoryCurvatureMx`, `HistoryCurvatureMy`, `HistoryMomentMxKnM`, `HistoryMomentMyKnM`, `PointRows`, `Diagnostics`, `StatusText`, and redraw/fit commands. Convert N from N to kN and moments from N·m to kN·m only for display; keep model values in SI.
 
-- [ ] **Step 3: Handle empty/error/partial results.**
+- [x] **Step 3: Handle empty/error/partial results.**
 
 Expose an empty-state message when JSON contains an error or no points, mark non-converged points in the table, and keep the terminal values null when no history row converged.
 
-- [ ] **Step 4: Run the VM/grouping tests and commit.**
+- [x] **Step 4: Run the VM/grouping tests and commit.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesSpatialInteractionResultVMTests`
 
