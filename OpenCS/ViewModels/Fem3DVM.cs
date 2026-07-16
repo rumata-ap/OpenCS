@@ -38,6 +38,14 @@ public class Fem3DVM : ViewModelBase
     public Point3DCollection?  ShellEdgePoints { get; private set; }
     public Point3DCollection?  NodePoints      { get; private set; }
 
+    public FemSchemaSelectionVM? Selection { get; set; }
+    public bool EditMode { get; set; }
+
+    /// <summary>Тег узла и его позиция — для построения кликабельных прокси в режиме редактирования.</summary>
+    public List<(string Tag, Point3D Position)> NodeProxies { get; private set; } = [];
+    /// <summary>Тег элемента и его концы — для построения кликабельных прокси в режиме редактирования.</summary>
+    public List<(string Tag, Point3D P1, Point3D P2)> BarProxies { get; private set; } = [];
+
     public static Color ShellColor   => Color.FromArgb(180, 160, 190, 210);
     public static Color ShellBgColor => Color.FromArgb(100, 180, 180, 190);
     public static Color ShellHiColor => Color.FromArgb(210, 255, 100,  50);
@@ -139,6 +147,20 @@ public class Fem3DVM : ViewModelBase
         NodePoints = new Point3DCollection(
             allNodes.Where(n => usedNodeKeys.Contains(n.NodeTag))
                     .Select(n => new Point3D(n.X, n.Y, n.Z)));
+
+        if (EditMode)
+        {
+            NodeProxies = allNodes
+                .Where(n => usedNodeKeys.Contains(n.NodeTag))
+                .Select(n => (n.NodeTag, new Point3D(n.X, n.Y, n.Z)))
+                .ToList();
+            BarProxies = elements
+                .Where(e => e.ElemType == "beam")
+                .Select(e => (Tag: e.ElemTag, Pair: GetBarPoints(nodeMap, e)))
+                .Where(x => x.Pair.HasValue)
+                .Select(x => (x.Tag, x.Pair!.Value.p1, x.Pair.Value.p2))
+                .ToList();
+        }
 
         OnPropertyChanged(nameof(BarGroups));
         OnPropertyChanged(nameof(ShellMesh));

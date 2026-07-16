@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using HelixToolkit.Wpf;
@@ -16,11 +17,14 @@ public partial class FemSchemaView3D : UserControl
     PointsVisual3D? _nodesVisual;
     LinesVisual3D?  _shellEdgesVisual;
 
+    readonly Dictionary<Visual3D, (bool IsNode, string Tag)> _pickTargets = new();
+
     public FemSchemaView3D()
     {
         InitializeComponent();
         Loaded             += OnLoaded;
         DataContextChanged += OnDataContextChanged;
+        viewport.MouseLeftButtonDown += Viewport_MouseLeftButtonDown;
     }
 
     async void OnLoaded(object sender, RoutedEventArgs e)
@@ -105,6 +109,46 @@ public partial class FemSchemaView3D : UserControl
 
         if (VM.BarGroups.Count > 0 || VM.ShellMesh != null)
             viewport.ZoomExtents(500);
+
+        BuildEditProxies();
+    }
+
+    void BuildEditProxies()
+    {
+        _pickTargets.Clear();
+        if (VM is not { EditMode: true } vm) return;
+
+        foreach (var (tag, pos) in vm.NodeProxies)
+        {
+            var sphere = new SphereVisual3D { Center = pos, Radius = 0.08, Fill = new SolidColorBrush(Colors.Transparent) };
+            _pickTargets[sphere] = (true, tag);
+            viewport.Children.Add(sphere);
+        }
+        foreach (var (tag, p1, p2) in vm.BarProxies)
+        {
+            var pipe = new PipeVisual3D { Point1 = p1, Point2 = p2, Diameter = 0.05, Fill = new SolidColorBrush(Colors.Transparent) };
+            _pickTargets[pipe] = (false, tag);
+            viewport.Children.Add(pipe);
+        }
+    }
+
+    void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (VM is not { EditMode: true, Selection: { } selection }) return;
+        var position = e.GetPosition(viewport);
+        HitTestResultBehavior Callback(HitTestResult result)
+        {
+            if (result is RayMeshGeometry3DHitTestResult meshHit &&
+                _pickTargets.TryGetValue(meshHit.VisualHit, out var target))
+            {
+                bool additive = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+                if (target.IsNode) selection.ToggleNode(target.Tag, additive);
+                else selection.ToggleElement(target.Tag, additive);
+                return HitTestResultBehavior.Stop;
+            }
+            return HitTestResultBehavior.Continue;
+        }
+        VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
     }
 
     void ShellEdgesToggle(object sender, RoutedEventArgs e)
