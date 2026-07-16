@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows.Data;
 using System.Windows.Input;
 using CScore;
 using CScore.Fem;
@@ -236,6 +237,16 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         SyncList(Members, Session.Members);
         SyncList(LoadCases, Session.LoadCases);
         OnPropertyChanged(nameof(Session));
+
+        // Домены (FemNode/FemElement/FemMember/FemLoadCase) не реализуют INotifyPropertyChanged
+        // (CScore — чистый доменный слой без ссылок на WPF), а SyncList не пересобирает
+        // ObservableCollection, если набор объектов не изменился (та же ссылка, то же поле мутировано
+        // командой, например назначение сечения/GJ). Без принудительного Refresh() гриды показывают
+        // устаревшие значения таких полей до следующей структурной пересборки коллекции.
+        CollectionViewSource.GetDefaultView(Nodes).Refresh();
+        CollectionViewSource.GetDefaultView(Elements).Refresh();
+        CollectionViewSource.GetDefaultView(Members).Refresh();
+        CollectionViewSource.GetDefaultView(LoadCases).Refresh();
     }
 
     static void SyncList<T>(ObservableCollection<T> target, List<T> source)

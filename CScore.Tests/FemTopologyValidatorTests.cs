@@ -56,7 +56,7 @@ public sealed class FemTopologyValidatorTests
     }
 
     [Fact]
-    public void Validate_RejectsInvalidGjConfiguration()
+    public void Validate_FlagsIncompleteGjConfigurationAsWarningNotError()
     {
         var schema = new FemSchema { Id = 1 };
         var members = new[]
@@ -67,8 +67,22 @@ public sealed class FemTopologyValidatorTests
 
         var errors = FemTopologyValidator.Validate(schema, [], [], members);
 
-        Assert.Contains(errors, e => e.Code == "gj_manual_value_missing");
-        Assert.Contains(errors, e => e.Code == "gj_torsion_task_missing");
+        var manualMissing = Assert.Single(errors, e => e.Code == "gj_manual_value_missing");
+        var taskMissing = Assert.Single(errors, e => e.Code == "gj_torsion_task_missing");
+        Assert.False(manualMissing.IsError);
+        Assert.False(taskMissing.IsError);
+    }
+
+    [Fact]
+    public void Validate_RejectsUnknownGjStrategyAsError()
+    {
+        var schema = new FemSchema { Id = 1 };
+        var members = new[] { new FemMember { Id = 1, SchemaId = 1, Tag = "M1", GjStrategy = "bogus" } };
+
+        var errors = FemTopologyValidator.Validate(schema, [], [], members);
+
+        var diagnostic = Assert.Single(errors, e => e.Code == "gj_strategy_invalid");
+        Assert.True(diagnostic.IsError);
     }
 
     [Fact]

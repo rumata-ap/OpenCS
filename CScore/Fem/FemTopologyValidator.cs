@@ -73,16 +73,19 @@ public static class FemTopologyValidator
                 errors.Add(new("member_section_missing",
                     $"Конструктивному элементу '{member.Tag}' не назначено сечение.", IsError: false));
 
+            // GJ не настроен до конца — как и отсутствие сечения, это предупреждение, а не ошибка:
+            // схему можно сохранить в процессе редактирования, готовность к расчёту OpenSees
+            // проверяется отдельно (срез 4/5).
             if (!GjStrategies.Contains(member.GjStrategy))
                 errors.Add(new("gj_strategy_invalid",
                     $"У '{member.Tag}' недопустимая GJ-стратегия '{member.GjStrategy}'."));
             else if (member.GjStrategy == "manual" &&
                      (member.GjManualValue is null || member.GjManualValue <= 0 || !double.IsFinite(member.GjManualValue.Value)))
                 errors.Add(new("gj_manual_value_missing",
-                    $"У '{member.Tag}' не задано положительное ручное значение GJ."));
+                    $"У '{member.Tag}' не задано положительное ручное значение GJ.", IsError: false));
             else if (member.GjStrategy == "saint_venant" && member.GjTorsionTaskId is null)
                 errors.Add(new("gj_torsion_task_missing",
-                    $"У '{member.Tag}' не выбрана задача кручения для GJ."));
+                    $"У '{member.Tag}' не выбрана задача кручения для GJ.", IsError: false));
         }
 
         return errors;
