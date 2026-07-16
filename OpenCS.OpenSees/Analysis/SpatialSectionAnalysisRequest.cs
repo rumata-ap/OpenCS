@@ -12,7 +12,7 @@ public sealed class SpatialSectionAnalysisRequest
     public double AngleDegrees { get; init; }
 
     /// <summary>Максимальная длина радиального луча кривизны в 1/м.</summary>
-    public double MaxCurvature { get; init; }
+    public double MaxCurvature { get; init; } = 0.01;
 
     /// <summary>Количество радиальных шагов.</summary>
     public int Increments { get; init; } = 20;

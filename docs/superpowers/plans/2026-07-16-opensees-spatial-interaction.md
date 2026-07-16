@@ -168,7 +168,7 @@ git commit -m "feat(opensees): parse spatial section histories"
 
 **Files:** Create `OpenCS.OpenSees/Tcl/ISpatialSectionTclGenerator.cs`, `OpenCS.OpenSees/Tcl/SpatialSectionTclGenerator.cs`, `OpenCS.OpenSees.Tests/SpatialTclGeneratorTests.cs`.
 
-- [ ] **Step 1: Write snapshot and culture tests.**
+- [x] **Step 1: Write snapshot and culture tests.**
 
 Build a two-fiber `OpenSeesSectionModel` and assert the generated script contains exactly:
 
@@ -185,19 +185,19 @@ completed.marker
 
 Assert fiber order, materials, `OpenSees Mz → CScore Mx`, `OpenSees My → CScore My`, invariant decimal formatting under a comma-decimal current culture, no absolute executable path in Tcl, and no 2D `-ndm 2 -ndf 3`.
 
-- [ ] **Step 2: Run the filtered tests and confirm the generator is missing.**
+- [x] **Step 2: Run the filtered tests and confirm the generator is missing.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SpatialTclGeneratorTests`
 
 Expected: FAIL because the 3D generator does not exist.
 
-- [ ] **Step 3: Implement the generator.**
+- [x] **Step 3: Implement the generator.**
 
 Use the existing material and fiber emission policy from `SectionMomentCurvatureTclGenerator`, but emit `model basic -ndm 3 -ndf 6`, 3D node/fix commands, a six-component axial load, and a zero-length section. Use DOF 5 for `CurvatureMy`/OpenSees `My` and DOF 6 for `CurvatureMx`/OpenSees `Mz`; use `LoadControl` with two proportional `sp` values so the common load factor goes from zero to one.
 
 Write `section_history.out` with the 10-column schema from Task 2, record one row per radial increment, break on a non-zero `analyze` return, close all files, create `completed.marker`, and call `wipe`. Use `TclNumber.Format` for every numeric value and `InvariantCulture` for integer interpolation.
 
-- [ ] **Step 4: Run and commit.**
+- [x] **Step 4: Run and commit.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SpatialTclGeneratorTests`
 
