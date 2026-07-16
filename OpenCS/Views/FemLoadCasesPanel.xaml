@@ -1,0 +1,31 @@
+<UserControl x:Class="OpenCS.Views.FemLoadCasesPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="16">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <DockPanel Grid.Column="0">
+            <Button DockPanel.Dock="Top" Content="{DynamicResource FemLoadCaseNew}" Click="NewLoadCase_Click" Margin="0,0,0,8"/>
+            <ListBox ItemsSource="{Binding LoadCases}" DisplayMemberPath="Tag"
+                     SelectedItem="{Binding SelectedLoadCase}"/>
+        </DockPanel>
+        <StackPanel Grid.Column="1" Margin="16,0,0,0">
+            <TextBlock Text="{DynamicResource FemNodeLoadHint}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <TextBlock Text="Fx"/>
+            <TextBox x:Name="fxBox" Text="0" Margin="0,2,0,6"/>
+            <TextBlock Text="Fy"/>
+            <TextBox x:Name="fyBox" Text="0" Margin="0,2,0,6"/>
+            <TextBlock Text="Fz"/>
+            <TextBox x:Name="fzBox" Text="0" Margin="0,2,0,6"/>
+            <TextBlock Text="Mx"/>
+            <TextBox x:Name="mxBox" Text="0" Margin="0,2,0,6"/>
+            <TextBlock Text="My"/>
+            <TextBox x:Name="myBox" Text="0" Margin="0,2,0,6"/>
+            <TextBlock Text="Mz"/>
+            <TextBox x:Name="mzBox" Text="0" Margin="0,2,0,6"/>
+            <Button Content="{DynamicResource FemApplyLoadToSelection}" Click="ApplyLoad_Click" Margin="0,8,0,0"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

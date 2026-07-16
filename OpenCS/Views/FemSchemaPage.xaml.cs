@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Media.Media3D;
 using CScore.Fem;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using System.Windows.Controls;
 
@@ -30,6 +31,9 @@ public partial class FemSchemaPage : UserControl
             else if (args.PropertyName == nameof(FemSchemaEditorVM.Session) && !fem3d.IsLoading)
                 fem3d.LoadFromSession(_editorVm.Session);
         };
+        _editorVm.SaveBlocked += errors => MessageBox.Show(
+            string.Join("\n", errors.Select(d => d.Message)),
+            Loc.S("FemSaveBlockedTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
     void CreateMember_Click(object sender, RoutedEventArgs e)

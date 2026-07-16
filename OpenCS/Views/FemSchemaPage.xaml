@@ -114,5 +114,10 @@
                 </Grid>
             </Grid>
         </TabItem>
+
+        <!-- Вкладка загружений -->
+        <TabItem Header="{DynamicResource FemLoadCasesTab}">
+            <local:FemLoadCasesPanel DataContext="{Binding}"/>
+        </TabItem>
     </TabControl>
 </UserControl>

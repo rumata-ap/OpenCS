@@ -148,7 +148,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public void CreateNodeAt(double x, double y, double z)
     {
         var tag = FemTopologyValidator.NextNodeTag(Session.Nodes);
-        Session.Execute(new AddNodeCommand(new FemNode { NodeTag = tag, X = x, Y = y, Z = z }));
+        Session.Execute(new AddNodeCommand(new FemNode { SchemaId = Session.Schema.Id, NodeTag = tag, X = x, Y = y, Z = z }));
         RefreshCollections();
     }
 
@@ -159,7 +159,10 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         // Id ещё не назначен (=0) до сохранения, тогда как NodeTag стабилен с момента создания.
         var tag = FemTopologyValidator.NextElemTag(Session.Elements);
         var json = System.Text.Json.JsonSerializer.Serialize(new[] { int.Parse(nodeTagA), int.Parse(nodeTagB) });
-        Session.Execute(new AddElementCommand(new FemElement { ElemTag = tag, ElemType = "beam", NodeIdsJson = json }));
+        Session.Execute(new AddElementCommand(new FemElement
+        {
+            SchemaId = Session.Schema.Id, ElemTag = tag, ElemType = "beam", NodeIdsJson = json
+        }));
         RefreshCollections();
     }
 
@@ -170,8 +173,40 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         if (elemTags.Length == 0) return;
         var tag = $"M{Members.Count + 1}";
         var json = System.Text.Json.JsonSerializer.Serialize(elemTags);
-        Session.Execute(new CreateMemberCommand(new FemMember { Tag = tag, ElemIdsJson = json }));
+        Session.Execute(new CreateMemberCommand(new FemMember { SchemaId = Session.Schema.Id, Tag = tag, ElemIdsJson = json }));
         RefreshCollections();
+    }
+
+    public void AddLoadCase(string tagPrefix, string sp20Type)
+    {
+        var tag = tagPrefix;
+        int n = 2;
+        while (Session.LoadCases.Any(lc => lc.Tag == tag))
+            tag = $"{tagPrefix} {n++}";
+        Session.Execute(new AddLoadCaseCommand(new FemLoadCase { SchemaId = Session.Schema.Id, Tag = tag, Sp20Type = sp20Type }));
+        RefreshCollections();
+    }
+
+    /// <summary>
+    /// Применяет компоненты нагрузки к выбранным в 3D узлам для текущего загружения. FemNodeLoad.NodeId —
+    /// это БД-Id узла (FK fem_node_loads.node_id), а не NodeTag; для ещё не сохранённых узлов (Id=0)
+    /// такого Id не существует, поэтому они пропускаются — возвращённый список их тегов используется
+    /// вызывающей стороной, чтобы сообщить пользователю «сначала сохраните схему».
+    /// </summary>
+    public IReadOnlyList<string> ApplyLoadToSelection(double fx, double fy, double fz, double mx, double my, double mz)
+    {
+        var skippedUnsaved = new List<string>();
+        if (SelectedLoadCase is not { } loadCase) return skippedUnsaved;
+
+        foreach (var tag in Selection.SelectedNodeTags)
+        {
+            var node = Session.Nodes.SingleOrDefault(n => n.NodeTag == tag);
+            if (node == null) continue;
+            if (node.Id == 0) { skippedUnsaved.Add(tag); continue; }
+            Session.Execute(new SetNodeLoadCommand(loadCase.Id, node.Id, fx, fy, fz, mx, my, mz));
+        }
+        RefreshCollections();
+        return skippedUnsaved;
     }
 
     /// <summary>Пересинхронизирует ObservableCollection-зеркала с текущим состоянием Session
@@ -192,12 +227,24 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         foreach (var item in source) target.Add(item);
     }
 
+    /// <summary>
+    /// Срабатывает, когда «Сохранить» заблокировано ошибками валидации. Полноценная вкладка
+    /// диагностики появится отдельной задачей — пока подписчик (FemSchemaPage) просто показывает
+    /// список ошибок, чтобы «Сохранить» не выглядело молча неработающим.
+    /// </summary>
+    public event Action<IReadOnlyList<FemValidationDiagnostic>>? SaveBlocked;
+
     void Save()
     {
         Diagnostics = FemTopologyValidator.Validate(Session.Schema, Session.Nodes, Session.Elements, Session.Members)
             .Concat(FemCanonicalValidator.Validate(Session.Schema, Session.LoadCases, Session.Nodes, Session.NodeLoads))
             .ToList();
-        if (Diagnostics.Any(d => d.IsError)) return;
+        var errors = Diagnostics.Where(d => d.IsError).ToList();
+        if (errors.Count > 0)
+        {
+            SaveBlocked?.Invoke(errors);
+            return;
+        }
 
         _db.SaveFemSchemaEdit(Session.Schema.Id, Session.Nodes, Session.Elements, Session.Members,
             Session.LoadCases, Session.NodeLoads);
