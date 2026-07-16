@@ -384,23 +384,23 @@ git commit -m "feat(opensees): prepare spatial interaction result VM"
 
 **Files:** Create `OpenCS/Views/OpenSeesSpatialInteractionResultView.xaml`, `OpenCS/Views/OpenSeesSpatialInteractionResultView.xaml.cs`; modify `OpenCS/Views/CalcResultView.xaml.cs`; add localized keys to both resource dictionaries.
 
-- [ ] **Step 1: Add the result route contract test.**
+- [x] **Step 1: Add the result route contract test.**
 
 Assert that the new kind is handled before the generic fallback in `CalcResultView` and that the view is constructed with `new OpenSeesSpatialInteractionResultView(result)`.
 
-- [ ] **Step 2: Create the XAML layout.**
+- [x] **Step 2: Create the XAML layout.**
 
 Use a `TabControl` with localized headers for `Mx–My`, `M–κ`, and diagnostics. The first tab contains a `ComboBox` for N, a square `PlotCanvas`, an angle selector, a selected-point summary and a `DataGrid`. The second tab contains a `PlotCanvas` and the selected history table. The third tab contains status, diagnostics and artifact directory text.
 
-- [ ] **Step 3: Bind the polar plot.**
+- [x] **Step 3: Bind the polar plot.**
 
 Instantiate `WpfPlotService` for the polar `PlotCanvas`, call `EnableSquareAxes()`, draw the selected group in kN·m, add markers for all angles, add a highlighted marker for the selected angle, and set localized Mx/My labels. Redraw on N/angle/VM changes and keep equal X/Y scale.
 
-- [ ] **Step 4: Bind the optional M–κ plot.**
+- [x] **Step 4: Bind the optional M–κ plot.**
 
 Instantiate a second `WpfPlotService`; draw `HistoryCurvatureMx`/`HistoryMomentMxKnM` and `HistoryCurvatureMy`/`HistoryMomentMyKnM` as separate lines. The tab must remain empty-state-safe for a point without `HistoryRows` and must never trigger a recalculation.
 
-- [ ] **Step 5: Route and build.**
+- [x] **Step 5: Route and build.**
 
 Add:
 
@@ -416,7 +416,7 @@ Run: `dotnet build OpenCS/OpenCS.csproj --no-restore`
 
 Expected: successful WPF build.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```powershell
 git add OpenCS/Views/OpenSeesSpatialInteractionResultView.xaml OpenCS/Views/OpenSeesSpatialInteractionResultView.xaml.cs OpenCS/Views/CalcResultView.xaml.cs OpenCS/Resources/Strings.ru-RU.xaml OpenCS/Resources/Strings.en-US.xaml

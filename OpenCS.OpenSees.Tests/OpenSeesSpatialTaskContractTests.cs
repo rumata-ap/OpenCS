@@ -1,5 +1,6 @@
 using CScore;
 using OpenCS.Tasks;
+using OpenCS.Views;
 
 namespace OpenCS.OpenSees.Tests;
 
@@ -88,5 +89,36 @@ public sealed class OpenSeesSpatialTaskContractTests
         Assert.Contains("\"maxCurvature\":0.02", json);
         Assert.DoesNotContain("axialForces", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("forceSet", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Result_view_routes_spatial_kind_before_generic_fallback()
+    {
+        string sourcePath = FindRepositoryFile(Path.Combine("OpenCS", "Views", "CalcResultView.xaml.cs"));
+        string source = File.ReadAllText(sourcePath);
+        const string kind = "opensees_section_interaction_n_mx_my";
+
+        int routeIndex = source.IndexOf($"task?.Kind == \"{kind}\"", StringComparison.Ordinal);
+        int fallbackIndex = source.IndexOf("task?.Kind == \"prestress_loss\"", StringComparison.Ordinal);
+
+        Assert.True(routeIndex >= 0);
+        Assert.True(fallbackIndex < 0 || routeIndex < fallbackIndex);
+        Assert.Contains("new OpenSeesSpatialInteractionResultView(result)", source, StringComparison.Ordinal);
+        Assert.NotNull(typeof(OpenSeesSpatialInteractionResultView).GetConstructor([typeof(CalcResult)]));
+    }
+
+    private static string FindRepositoryFile(string relativePath)
+    {
+        DirectoryInfo? directory = new DirectoryInfo(typeof(CalcResultView).Assembly.Location).Parent;
+        while (directory is not null)
+        {
+            string candidate = Path.Combine(directory.FullName, relativePath);
+            if (File.Exists(candidate))
+                return candidate;
+
+            directory = directory.Parent;
+        }
+
+        throw new FileNotFoundException($"Не найден файл репозитория: {relativePath}");
     }
 }

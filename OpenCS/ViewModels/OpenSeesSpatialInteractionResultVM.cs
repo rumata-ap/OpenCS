@@ -128,6 +128,7 @@ public sealed class OpenSeesSpatialInteractionResultVM : ViewModelBase
         double? CurvatureMy,
         bool IsConverged,
         string Status,
+        string StatusText,
         string ArtifactDirectory);
 
     /// <summary>Создаёт VM из сохранённого CalcResult.</summary>
@@ -216,6 +217,11 @@ public sealed class OpenSeesSpatialInteractionResultVM : ViewModelBase
                 point.CurvatureMy,
                 point.TerminalRow?.Converged == true,
                 point.Status,
+                point.Status == "ok"
+                    ? Loc.S("OpenSeesSpatialStatusOk")
+                    : point.Status == "not_converged"
+                        ? Loc.S("OpenSeesSpatialStatusNotConverged")
+                        : Loc.S("OpenSeesSpatialStatusError"),
                 point.ArtifactDirectory));
         }
     }
