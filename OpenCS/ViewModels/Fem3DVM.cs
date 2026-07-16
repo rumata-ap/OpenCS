@@ -85,6 +85,23 @@ public class Fem3DVM : ViewModelBase
         var allNodes    = await Task.Run(() => _db.GetFemNodes(_schemaId));
         var allElements = await Task.Run(() => _db.GetFemElements(_schemaId));
 
+        ApplyTopology(allNodes, allElements);
+        IsLoading = false;
+        Status    = "";
+    }
+
+    /// <summary>Синхронно перестраивает геометрию из живой сессии редактирования (без БД).
+    /// Используется в режиме редактирования, чтобы созданные/изменённые узлы и стержни
+    /// сразу отражались в 3D без ожидания сохранения.</summary>
+    public void LoadFromSession(CScore.Fem.Editing.FemSchemaEditSession session)
+    {
+        ApplyTopology(session.Nodes, session.Elements);
+        IsLoading = false;
+        Status    = "";
+    }
+
+    void ApplyTopology(List<FemNode> allNodes, List<FemElement> allElements)
+    {
         // В режиме члена — фильтруем только нужные КЭ
         List<FemElement> elements;
         if (_memberOnly != null)
@@ -100,11 +117,42 @@ public class Fem3DVM : ViewModelBase
             elements = allElements;
         }
 
-        if (allNodes.Count == 0 || elements.Count == 0)
+        // В режиме просмотра пустая схема — это нормальный повод показать «нет данных».
+        // В режиме редактирования оверлей перекрывал бы клики по пустому 3D-виду, где как раз
+        // и создаётся самый первый узел, поэтому там он никогда не показывается.
+        if (!EditMode && (allNodes.Count == 0 || elements.Count == 0))
         {
-            IsLoading = false;
-            NoData    = true;
-            Status    = "";
+            BarGroups       = [];
+            ShellMesh       = null;
+            HiShellMesh     = null;
+            ShellEdgePoints = null;
+            NodePoints      = null;
+            NodeProxies     = [];
+            BarProxies      = [];
+            NoData          = true;
+            OnPropertyChanged(nameof(BarGroups));
+            OnPropertyChanged(nameof(ShellMesh));
+            OnPropertyChanged(nameof(HiShellMesh));
+            OnPropertyChanged(nameof(ShellEdgePoints));
+            OnPropertyChanged(nameof(NodePoints));
+            return;
+        }
+        NoData = false;
+
+        if (EditMode && elements.Count == 0)
+        {
+            BarGroups       = [];
+            ShellMesh       = null;
+            HiShellMesh     = null;
+            ShellEdgePoints = null;
+            NodePoints      = new Point3DCollection(allNodes.Select(n => new Point3D(n.X, n.Y, n.Z)));
+            NodeProxies     = allNodes.Select(n => (n.NodeTag, new Point3D(n.X, n.Y, n.Z))).ToList();
+            BarProxies      = [];
+            OnPropertyChanged(nameof(BarGroups));
+            OnPropertyChanged(nameof(ShellMesh));
+            OnPropertyChanged(nameof(HiShellMesh));
+            OnPropertyChanged(nameof(ShellEdgePoints));
+            OnPropertyChanged(nameof(NodePoints));
             return;
         }
 
@@ -139,19 +187,18 @@ public class Fem3DVM : ViewModelBase
         }
         ShellEdgePoints = BuildShellEdges(nodeMap, elements);
 
-        // Узлы: только те, что реально используются отображаемыми КЭ
+        // Узлы: в режиме просмотра — только реально используемые отображаемыми КЭ (меньше шума
+        // для импортированных схем); в режиме редактирования — все, включая ещё не связанные стержнем.
         var usedNodeKeys = elements
             .SelectMany(e => JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? [])
             .Select(id => id.ToString())
             .ToHashSet();
-        NodePoints = new Point3DCollection(
-            allNodes.Where(n => usedNodeKeys.Contains(n.NodeTag))
-                    .Select(n => new Point3D(n.X, n.Y, n.Z)));
+        var visibleNodes = EditMode ? allNodes : allNodes.Where(n => usedNodeKeys.Contains(n.NodeTag)).ToList();
+        NodePoints = new Point3DCollection(visibleNodes.Select(n => new Point3D(n.X, n.Y, n.Z)));
 
         if (EditMode)
         {
-            NodeProxies = allNodes
-                .Where(n => usedNodeKeys.Contains(n.NodeTag))
+            NodeProxies = visibleNodes
                 .Select(n => (n.NodeTag, new Point3D(n.X, n.Y, n.Z)))
                 .ToList();
             BarProxies = elements
@@ -167,8 +214,6 @@ public class Fem3DVM : ViewModelBase
         OnPropertyChanged(nameof(HiShellMesh));
         OnPropertyChanged(nameof(ShellEdgePoints));
         OnPropertyChanged(nameof(NodePoints));
-        IsLoading = false;
-        Status    = "";
     }
 
     // -------------------------------------------------------------------------

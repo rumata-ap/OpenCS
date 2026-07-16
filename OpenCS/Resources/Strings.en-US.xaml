@@ -1382,6 +1382,13 @@
     <system:String x:Key="Fem3DShowShellEdges">FE mesh</system:String>
     <system:String x:Key="Fem3DViewIsolated">Isolated</system:String>
     <system:String x:Key="Fem3DViewSchema">Full schema</system:String>
+    <system:String x:Key="FemNodesTab">Nodes</system:String>
+    <system:String x:Key="FemBarsEditTab">Bars</system:String>
+    <system:String x:Key="FemCreateNodeMode">Create node</system:String>
+    <system:String x:Key="FemCreateBarMode">Create bar</system:String>
+    <system:String x:Key="FemUndo">Undo</system:String>
+    <system:String x:Key="FemRedo">Redo</system:String>
+    <system:String x:Key="FemSaveSchema">Save schema</system:String>
     <system:String x:Key="CalcTaskKind_torsion_bem">Torsion (Saint-Venant, BEM)</system:String>
     <system:String x:Key="CalcTaskKind_torsion_fem">Torsion (Saint-Venant, FEM)</system:String>
     <system:String x:Key="TorsionTitle">Saint-Venant torsion constant</system:String>

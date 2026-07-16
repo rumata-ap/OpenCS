@@ -8,6 +8,48 @@
             <local:FemSchemaView3D x:Name="view3D"/>
         </TabItem>
 
+        <!-- Вкладка узлов -->
+        <TabItem Header="{DynamicResource FemNodesTab}">
+            <DockPanel Margin="16">
+                <ToolBar DockPanel.Dock="Top">
+                    <ToggleButton Content="{DynamicResource FemCreateNodeMode}" IsChecked="{Binding CreateNodeMode}"/>
+                    <Separator/>
+                    <Button Content="{DynamicResource FemUndo}" Command="{Binding UndoCommand}"/>
+                    <Button Content="{DynamicResource FemRedo}" Command="{Binding RedoCommand}"/>
+                    <Separator/>
+                    <Button Content="{DynamicResource FemSaveSchema}" Command="{Binding SaveCommand}"/>
+                </ToolBar>
+                <DataGrid ItemsSource="{Binding Nodes}" AutoGenerateColumns="False" IsReadOnly="False"
+                          SelectionMode="Extended" x:Name="nodesGrid">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Tag" Binding="{Binding NodeTag}" IsReadOnly="True" Width="60"/>
+                        <DataGridTextColumn Header="X" Binding="{Binding X}" Width="80"/>
+                        <DataGridTextColumn Header="Y" Binding="{Binding Y}" Width="80"/>
+                        <DataGridTextColumn Header="Z" Binding="{Binding Z}" Width="80"/>
+                        <DataGridTextColumn Header="DofMask" Binding="{Binding DofMask}" Width="80"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </TabItem>
+
+        <!-- Вкладка стержней -->
+        <TabItem Header="{DynamicResource FemBarsEditTab}">
+            <DockPanel Margin="16">
+                <ToolBar DockPanel.Dock="Top">
+                    <ToggleButton Content="{DynamicResource FemCreateBarMode}" IsChecked="{Binding CreateBarMode}"/>
+                </ToolBar>
+                <DataGrid ItemsSource="{Binding Elements}" AutoGenerateColumns="False" IsReadOnly="True"
+                          SelectionMode="Extended" x:Name="barsGrid">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Tag" Binding="{Binding ElemTag}" Width="60"/>
+                        <DataGridTextColumn Header="Node1" Binding="{Binding Node1}" Width="60"/>
+                        <DataGridTextColumn Header="Node2" Binding="{Binding Node2}" Width="60"/>
+                        <DataGridTextColumn Header="SectionTag" Binding="{Binding SectionTag}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+        </TabItem>
+
         <!-- Вкладка конструктивных элементов -->
         <TabItem Header="{DynamicResource FemMembersListTab}">
             <Grid Margin="16">
@@ -21,7 +63,7 @@
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
                     <TextBlock Text="{DynamicResource FemSchemaPageTitle}"
                                FontWeight="Bold" FontSize="14" Margin="0,0,6,0"/>
-                    <TextBlock Text="{Binding Schema.Tag}" FontSize="14"/>
+                    <TextBlock Text="{Binding Session.Schema.Tag}" FontSize="14"/>
                 </StackPanel>
 
                 <Grid Grid.Row="1" Margin="0,0,0,8">
@@ -37,17 +79,18 @@
                                Text="{DynamicResource FemSchemaSource}"
                                VerticalAlignment="Center" Margin="0,0,8,4"/>
                     <TextBlock Grid.Row="0" Grid.Column="1"
-                               Text="{Binding Schema.SourceType}" FontWeight="Bold" Margin="0,0,0,4"/>
+                               Text="{Binding Session.Schema.SourceType}" FontWeight="Bold" Margin="0,0,0,4"/>
                     <TextBlock Grid.Row="1" Grid.Column="0"
                                Text="{DynamicResource FemMembersCount}"
                                VerticalAlignment="Center"/>
                     <TextBlock Grid.Row="1" Grid.Column="1"
-                               Text="{Binding Schema.Members.Count}" FontWeight="Bold"/>
+                               Text="{Binding Members.Count}" FontWeight="Bold"/>
                 </Grid>
 
                 <TextBlock Grid.Row="2" Text="{DynamicResource FemMembers}"
                            FontWeight="Bold" Margin="0,8,0,4"/>
-                <DataGrid Grid.Row="3" ItemsSource="{Binding Schema.Members}"
+                <DataGrid Grid.Row="3" ItemsSource="{Binding Members}"
+                          SelectedItem="{Binding SelectedMember}"
                           AutoGenerateColumns="False" IsReadOnly="True">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource Tag}"

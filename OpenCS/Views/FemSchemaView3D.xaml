@@ -14,6 +14,7 @@
             <Separator/>
             <CheckBox x:Name="showNodesCheck"
                       Content="{DynamicResource Fem3DShowNodes}"
+                      IsChecked="True"
                       VerticalAlignment="Center" Margin="4,0"
                       Checked="NodesToggle" Unchecked="NodesToggle"/>
             <CheckBox x:Name="showShellEdgesCheck"

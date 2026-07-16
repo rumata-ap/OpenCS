@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 
@@ -31,6 +32,8 @@ namespace OpenCS
         void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
             var msg = e.Exception.ToString();
+            System.IO.File.AppendAllText(@"C:\Users\ponomarev\Documents\devel\OpenCS\opencs_debug.log",
+                $"[{DateTime.Now:O}] DispatcherUnhandledException: {msg}\n");
             MessageBox.Show(msg, "Необработанное исключение",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             e.Handled = true;
