@@ -13,18 +13,24 @@ namespace OpenCS.Utilites
       [JsonPropertyName("invertBarMxMy")]
       public bool InvertBarBendingMoments { get; set; } = true;
 
+      /// <summary>Инвертировать изгибающие/крутящий моменты Mx/My/Mxy для пластин.</summary>
+      [JsonPropertyName("invertShellMxMyMxy")]
+      public bool InvertShellBendingMoments { get; set; } = true;
+
       public static LiraImportSettings Default => new();
 
       public LiraImportSettings Clone() => new()
       {
-         TonToKnFactor           = TonToKnFactor,
-         InvertBarBendingMoments = InvertBarBendingMoments,
+         TonToKnFactor             = TonToKnFactor,
+         InvertBarBendingMoments   = InvertBarBendingMoments,
+         InvertShellBendingMoments = InvertShellBendingMoments,
       };
 
       public CScore.Import.LiraImportOptions ToOptions() => new()
       {
-         TonToKnFactor           = TonToKnFactor,
-         InvertBarBendingMoments = InvertBarBendingMoments,
+         TonToKnFactor             = TonToKnFactor,
+         InvertBarBendingMoments   = InvertBarBendingMoments,
+         InvertShellBendingMoments = InvertShellBendingMoments,
       };
    }
 }

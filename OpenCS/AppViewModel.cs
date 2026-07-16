@@ -2540,6 +2540,7 @@ namespace OpenCS
          {
             TonToKnFactor = LiraImportSettings.TonToKnFactor,
             InvertBarBendingMoments = LiraImportSettings.InvertBarBendingMoments,
+            InvertShellBendingMoments = LiraImportSettings.InvertShellBendingMoments,
             ElementIds = elementIds,
             ImportAllElements = dlg.ImportAllElements,
             DefaultThicknessM = dlg.ThicknessMm / 1000.0,

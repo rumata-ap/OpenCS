@@ -33,7 +33,7 @@ static class LiraApiForceImporter
         req.Elements.AddFromString(BuildRange(elementIds));
 
         var resp = result.LoadCaseForces((LiraLoadCaseForcesRequest)req);
-        return ParseForcesResponse(resp, schema, elementIds, toKn, settings.InvertBarBendingMoments, memberTag, lcNames);
+        return ParseForcesResponse(resp, schema, elementIds, toKn, settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag, lcNames);
     }
 
     /// <summary>Читает усилия от РСН (расчётные сочетания нагрузок) — НС и ПС.</summary>
@@ -64,7 +64,7 @@ static class LiraApiForceImporter
 
         var resp = result.LoadCombinationForces((LiraLoadCombinationForcesRequest)req);
         return ParseCombinationForcesResponse(resp, schema, elementIds, toKn,
-            settings.InvertBarBendingMoments, memberTag);
+            settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag);
     }
 
     /// <summary>Читает усилия от РСУ (расчётные сочетания усилий) — 4 предельных состояния.</summary>
@@ -88,7 +88,7 @@ static class LiraApiForceImporter
 
         var resp = result.DesignCombinationForces((LiraDesignCombinationForcesRequest)req);
         return ParseDesignForcesResponse(resp, schema, elementIds, toKn,
-            settings.InvertBarBendingMoments, memberTag);
+            settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag);
     }
 
     // ------------------------------------------------------------------ helpers
@@ -148,6 +148,7 @@ static class LiraApiForceImporter
         IReadOnlyList<int> elementIds,
         double toKn,
         bool invertBarMoments,
+        bool invertShellMoments,
         string memberTag,
         Dictionary<int, string> lcNames)
     {
@@ -200,11 +201,12 @@ static class LiraApiForceImporter
                             // Фильтр: элементы без результатов ЛИРА возвращает как точные нули
                             if (nx == 0 && ny == 0 && nxy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
                                 continue;
+                            double shellSign = invertShellMoments ? -1.0 : 1.0;
                             fs.ShellItems.Add(new ShellLoadItem
                             {
                                 Num = itemNum++, Label = $"э.{elemId}",
                                 Nx = nx, Ny = ny, Nxy = nxy,
-                                Mx = mx, My = my, Mxy = mxy,
+                                Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                 Qx = qx, Qy = qy,
                             });
                         }
@@ -244,6 +246,7 @@ static class LiraApiForceImporter
         IReadOnlyList<int> elementIds,
         double toKn,
         bool invertBarMoments,
+        bool invertShellMoments,
         string memberTag)
     {
         var result = new List<ForceSet>();
@@ -303,11 +306,12 @@ static class LiraApiForceImporter
                                 double qy  = resp.GetPlateQy (elemId, sec, lcNum, ls) * toKn;
                                 if (nx == 0 && ny == 0 && nxy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
                                     continue;
+                                double shellSign = invertShellMoments ? -1.0 : 1.0;
                                 fs.ShellItems.Add(new ShellLoadItem
                                 {
                                     Num = itemNum++, Label = $"э.{elemId}",
                                     Nx = nx, Ny = ny, Nxy = nxy,
-                                    Mx = mx, My = my, Mxy = mxy,
+                                    Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                     Qx = qx, Qy = qy,
                                 });
                             }
@@ -348,6 +352,7 @@ static class LiraApiForceImporter
         IReadOnlyList<int> elementIds,
         double toKn,
         bool invertBarMoments,
+        bool invertShellMoments,
         string memberTag)
     {
         var result = new List<ForceSet>();
@@ -407,11 +412,12 @@ static class LiraApiForceImporter
                                 double qy  = resp.GetPlateQy (elemId, sec, ls, dcf) * toKn;
                                 if (nx == 0 && ny == 0 && nxy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
                                     continue;
+                                double shellSign = invertShellMoments ? -1.0 : 1.0;
                                 fs.ShellItems.Add(new ShellLoadItem
                                 {
                                     Num = itemNum++, Label = $"э.{elemId} к{dcf}",
                                     Nx = nx, Ny = ny, Nxy = nxy,
-                                    Mx = mx, My = my, Mxy = mxy,
+                                    Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                     Qx = qx, Qy = qy,
                                 });
                             }
