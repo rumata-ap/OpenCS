@@ -21,6 +21,12 @@ public class FemMember
     public int?    ForceSetId       { get; set; }
     /// <summary>JSON-сериализация FemDesignParams (l₀, μ, βm, γM).</summary>
     public string? DesignParamsJson { get; set; }
+    /// <summary>Стратегия крутильной жёсткости: "manual" | "saint_venant".</summary>
+    public string  GjStrategy      { get; set; } = "manual";
+    /// <summary>Ручное значение GJ, Н·м². Используется при GjStrategy="manual".</summary>
+    public double? GjManualValue   { get; set; }
+    /// <summary>FK → calc_tasks.id (Kind "torsion_bem"/"torsion_fem"). Используется при GjStrategy="saint_venant".</summary>
+    public int?    GjTorsionTaskId { get; set; }
     /// <summary>Проверки, привязанные к этому элементу (eager-loaded).</summary>
     public ObservableCollection<FemCheck> Checks { get; } = [];
 }

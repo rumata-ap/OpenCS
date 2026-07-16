@@ -1,7 +1,7 @@
 namespace CScore.Fem;
 
 /// <summary>Диагностическое сообщение проверки канонической FEM-модели.</summary>
-public sealed record FemValidationDiagnostic(string Code, string Message);
+public sealed record FemValidationDiagnostic(string Code, string Message, bool IsError = true);
 
 /// <summary>Проверяет ссылки, идентификаторы и числовую корректность FEM-контрактов.</summary>
 public static class FemCanonicalValidator
