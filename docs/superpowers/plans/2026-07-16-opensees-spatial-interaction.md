@@ -133,17 +133,17 @@ git commit -m "feat(opensees): add spatial interaction contracts"
 
 **Files:** Create `OpenCS.OpenSees/Results/SpatialSectionResultParser.cs`, `OpenCS.OpenSees.Tests/SpatialSectionResultParserTests.cs`.
 
-- [ ] **Step 1: Write parser tests.**
+- [x] **Step 1: Write parser tests.**
 
 Cover a marker-backed invariant-culture file with 10 columns, comments, blank lines, `0/1` convergence flags, and exact mapping of `Mz → MomentMxNm`, `My → MomentMyNm`, `rotationZ → CurvatureMx`, `rotationY → CurvatureMy`. Add tests for missing history, missing marker, empty data, wrong column count, invalid number, invalid boolean and non-finite values.
 
-- [ ] **Step 2: Run the filtered parser tests.**
+- [x] **Step 2: Run the filtered parser tests.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SpatialSectionResultParserTests`
 
 Expected: FAIL because the parser does not exist.
 
-- [ ] **Step 3: Implement the parser.**
+- [x] **Step 3: Implement the parser.**
 
 Require these columns after comments are skipped:
 
@@ -153,7 +153,7 @@ step loadFactor axialForceN openSeesMzNm openSeesMyNm rotationY rotationZ curvat
 
 Parse every numeric value with `InvariantCulture`, require `double.IsFinite`, map the values to the named CScore components, and throw `OpenSeesResultException` with a stable code for every malformed input. Require at least one row and a non-empty `completed.marker`.
 
-- [ ] **Step 4: Run tests and commit.**
+- [x] **Step 4: Run tests and commit.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SpatialSectionResultParserTests`
 
