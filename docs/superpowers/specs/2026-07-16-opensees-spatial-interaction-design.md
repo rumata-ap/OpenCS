@@ -82,7 +82,7 @@ OpenSees My -> CScore My
 - `SpatialSectionHistoryRow` — строка с `N`, `Mx`, `My`, `CurvatureMx`, `CurvatureMy`, модулем кривизны, сходимостью и невязкой;
 - `SpatialSectionAnalysisResult` — история, статус, диагностика и каталог артефактов;
 - `SectionSpatialInteractionRequest` — силы, шаг угла и радиальные параметры;
-- `SectionSpatialInteractionPoint` — последняя сошедшаяся строка для `(N, угол)` и её артефакты;
+- `SectionSpatialInteractionPoint` — полная радиальная история для `(N, угол)`, последняя сошедшаяся строка и её артефакты;
 - `SectionSpatialInteractionResult` — все точки и агрегированный статус;
 - `SpatialSectionTclGenerator` и `SpatialSectionResultParser` — 3D Tcl и строгий parser;
 - `SpatialSectionAnalysisService` — один изолированный запуск;
@@ -106,7 +106,7 @@ step loadFactor axialForceN momentMxNm momentMyNm curvatureMx curvatureMy curvat
 
 ## Статусы и ошибки
 
-Для точки используются `ok`, `not_converged`, `error`. Последняя сошедшаяся строка сохраняется даже если более поздний радиальный шаг не сошёлся. Если сходящихся строк нет, конечные значения остаются `null`.
+Для точки используются `ok`, `not_converged`, `error`. Полная радиальная история сохраняется в `HistoryRows`; последняя сошедшаяся строка сохраняется отдельно даже если более поздний радиальный шаг не сошёлся. Если сходящихся строк нет, конечные значения остаются `null`.
 
 Итоговый статус:
 
