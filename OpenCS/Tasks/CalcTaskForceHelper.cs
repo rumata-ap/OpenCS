@@ -31,6 +31,7 @@ internal static class CalcTaskForceHelper
           or "steel_torsion" or "steel_constructive"
           or "torsion_bem" or "torsion_fem"
           or "cracking_batch" or "crack_width_batch" => true,
+      "opensees_section_interaction_n_mx_my" => true,
       _ => false
    };
 

@@ -54,6 +54,7 @@ namespace OpenCS.Tasks
          ["crack_width_batch"]    = new CrackWidthBatchHandler(),
          ["opensees_section_moment_curvature"] = new OpenSeesSectionMomentCurvatureHandler(),
          ["opensees_section_interaction_nm"] = new OpenSeesSectionInteractionHandler(),
+         ["opensees_section_interaction_n_mx_my"] = new OpenSeesSpatialInteractionHandler(),
        };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>

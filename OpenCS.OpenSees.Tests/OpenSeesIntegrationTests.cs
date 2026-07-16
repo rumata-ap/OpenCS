@@ -17,7 +17,7 @@ public sealed class OpenSeesIntegrationTests
         string root = Path.Combine(Path.GetTempPath(), "opencs-opensees-integration", Guid.NewGuid().ToString("N"));
         try
         {
-            OpenSeesSectionModel model = ElasticSection();
+            OpenSeesSectionModel model = CrossSectionFixtures.SymmetricElasticSection();
             SectionAnalysisResult result = await new SectionAnalysisService(
                 new SectionMomentCurvatureTclGenerator(),
                 new OpenSeesProcessRunner(),
@@ -110,7 +110,7 @@ public sealed class OpenSeesIntegrationTests
                     new SectionMomentCurvatureTclGenerator(),
                     new OpenSeesProcessRunner(),
                     new OpenSeesArtifactStore(root))).RunAsync(
-                ElasticSection(),
+                CrossSectionFixtures.SymmetricElasticSection(),
                 new SectionInteractionRequest
                 {
                     AxialForcesN = [-100_000, 0, 100_000],
@@ -146,21 +146,4 @@ public sealed class OpenSeesIntegrationTests
         }
     }
 
-    private static OpenSeesSectionModel ElasticSection() => new()
-    {
-        Materials =
-        [
-            new OpenSeesMaterialDefinition
-            {
-                Tag = 1,
-                PositiveEnvelope = [new EnvelopePoint(0, 0), new EnvelopePoint(0.01, 2_000_000)],
-                NegativeEnvelope = [new EnvelopePoint(-0.01, -2_000_000), new EnvelopePoint(0, 0)]
-            }
-        ],
-        Fibers =
-        [
-            new OpenSeesFiber(-0.5, 0, 0.5, 1),
-            new OpenSeesFiber(0.5, 0, 0.5, 1)
-        ]
-    };
 }

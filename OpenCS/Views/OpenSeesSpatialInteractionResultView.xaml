@@ -1,0 +1,218 @@
+<UserControl x:Class="OpenCS.Views.OpenSeesSpatialInteractionResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:h="clr-namespace:OpenCS.Views">
+   <UserControl.Resources>
+      <Style x:Key="OpenSeesSpatialPanelStyle" TargetType="Border">
+         <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"/>
+         <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"/>
+         <Setter Property="BorderThickness" Value="1"/>
+         <Setter Property="CornerRadius" Value="4"/>
+         <Setter Property="Padding" Value="12"/>
+      </Style>
+      <Style x:Key="OpenSeesSpatialSummaryCardStyle" TargetType="Border">
+         <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
+         <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"/>
+         <Setter Property="BorderThickness" Value="1"/>
+         <Setter Property="CornerRadius" Value="4"/>
+         <Setter Property="Padding" Value="10,8"/>
+      </Style>
+      <Style x:Key="OpenSeesSpatialPanelHeaderStyle" TargetType="TextBlock">
+         <Setter Property="FontWeight" Value="SemiBold"/>
+         <Setter Property="FontSize" Value="14"/>
+         <Setter Property="Margin" Value="0,0,0,8"/>
+      </Style>
+      <Style x:Key="OpenSeesSpatialSummaryLabelStyle" TargetType="TextBlock">
+         <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
+         <Setter Property="FontSize" Value="11"/>
+      </Style>
+      <Style x:Key="OpenSeesSpatialSummarySmallLabelStyle" TargetType="TextBlock">
+         <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
+         <Setter Property="FontSize" Value="11"/>
+         <Setter Property="VerticalAlignment" Value="Bottom"/>
+      </Style>
+      <Style x:Key="OpenSeesSpatialSummaryValueStyle" TargetType="TextBlock">
+         <Setter Property="FontSize" Value="16"/>
+         <Setter Property="FontWeight" Value="SemiBold"/>
+         <Setter Property="Margin" Value="0,4,0,0"/>
+      </Style>
+      <Style x:Key="OpenSeesSpatialInspectorLabelStyle" TargetType="TextBlock">
+         <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
+         <Setter Property="Margin" Value="0,0,6,0"/>
+      </Style>
+      <Style x:Key="OpenSeesSpatialInspectorValueStyle" TargetType="TextBlock">
+         <Setter Property="FontWeight" Value="SemiBold"/>
+         <Setter Property="Margin" Value="0,0,18,0"/>
+      </Style>
+   </UserControl.Resources>
+   <TabControl>
+      <TabItem Header="{DynamicResource OpenSeesSpatialTabCharts}">
+         <Grid Margin="14">
+            <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="*"/>
+               <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="0,0,0,12">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+               </Grid.ColumnDefinitions>
+               <StackPanel>
+                  <TextBlock Text="{DynamicResource OpenSeesSpatialReportTitle}" FontSize="18" FontWeight="SemiBold"/>
+                  <TextBlock Text="{DynamicResource OpenSeesSpatialReportSubtitle}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,3,0,0"/>
+               </StackPanel>
+               <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                  <TextBlock Text="{DynamicResource OpenSeesSpatialSelectedN}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <ComboBox ItemsSource="{Binding AvailableAxialForces}" SelectedItem="{Binding SelectedAxialForce}" Width="115" Margin="0,0,14,0"/>
+                  <TextBlock Text="{DynamicResource OpenSeesSpatialSelectedAngle}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <ComboBox ItemsSource="{Binding AvailableAngles}" SelectedItem="{Binding SelectedAngle}" Width="90"/>
+               </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="1" Margin="0,0,0,12">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <Border Grid.Column="0" Style="{DynamicResource OpenSeesSpatialSummaryCardStyle}" Margin="0,0,6,0">
+                  <StackPanel>
+                     <TextBlock Text="{DynamicResource OpenSeesSpatialSummaryN}" Style="{DynamicResource OpenSeesSpatialSummaryLabelStyle}"/>
+                     <TextBlock Text="{Binding SelectedAxialForce, StringFormat={}{0:0.###}}" Style="{DynamicResource OpenSeesSpatialSummaryValueStyle}"/>
+                  </StackPanel>
+               </Border>
+               <Border Grid.Column="1" Style="{DynamicResource OpenSeesSpatialSummaryCardStyle}" Margin="0,0,6,0">
+                  <StackPanel>
+                     <TextBlock Text="{DynamicResource OpenSeesSpatialSummaryAngle}" Style="{DynamicResource OpenSeesSpatialSummaryLabelStyle}"/>
+                     <TextBlock Text="{Binding SelectedAngle, StringFormat={}{0:0.###}}" Style="{DynamicResource OpenSeesSpatialSummaryValueStyle}"/>
+                  </StackPanel>
+               </Border>
+               <Border Grid.Column="2" Style="{DynamicResource OpenSeesSpatialSummaryCardStyle}" Margin="0,0,6,0">
+                  <StackPanel>
+                     <TextBlock Text="{DynamicResource OpenSeesSpatialSummaryMoments}" Style="{DynamicResource OpenSeesSpatialSummaryLabelStyle}"/>
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource OpenSeesSpatialMxColumn}" Style="{DynamicResource OpenSeesSpatialSummarySmallLabelStyle}"/>
+                        <TextBlock Text="{Binding SelectedMomentMxKnM, StringFormat={}{0:0.###}}" Style="{DynamicResource OpenSeesSpatialSummaryValueStyle}" Margin="6,0,12,0"/>
+                        <TextBlock Text="{DynamicResource OpenSeesSpatialMyColumn}" Style="{DynamicResource OpenSeesSpatialSummarySmallLabelStyle}"/>
+                        <TextBlock Text="{Binding SelectedMomentMyKnM, StringFormat={}{0:0.###}}" Style="{DynamicResource OpenSeesSpatialSummaryValueStyle}" Margin="6,0,0,0"/>
+                     </StackPanel>
+                  </StackPanel>
+               </Border>
+               <Border Grid.Column="3" Style="{DynamicResource OpenSeesSpatialSummaryCardStyle}">
+                  <StackPanel>
+                     <TextBlock Text="{DynamicResource OpenSeesSpatialSummaryStatus}" Style="{DynamicResource OpenSeesSpatialSummaryLabelStyle}"/>
+                     <TextBlock Text="{Binding VerificationStatusText}" Style="{DynamicResource OpenSeesSpatialSummaryValueStyle}"/>
+                  </StackPanel>
+               </Border>
+            </Grid>
+
+            <Grid Grid.Row="2" Margin="0,0,0,12">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <Border Grid.Column="0" Style="{DynamicResource OpenSeesSpatialPanelStyle}" Margin="0,0,6,0">
+                  <Grid>
+                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                     <TextBlock Text="{DynamicResource OpenSeesSpatialPolarTitle}" Style="{DynamicResource OpenSeesSpatialPanelHeaderStyle}"/>
+                     <h:PlotCanvas Grid.Row="1" x:Name="PolarPlot"/>
+                  </Grid>
+               </Border>
+               <Border Grid.Column="1" Style="{DynamicResource OpenSeesSpatialPanelStyle}" Margin="6,0,0,0">
+                  <Grid>
+                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                     <TextBlock Text="{DynamicResource OpenSeesSpatialHistoryTitle}" Style="{DynamicResource OpenSeesSpatialPanelHeaderStyle}"/>
+                     <h:PlotCanvas Grid.Row="1" x:Name="HistoryPlot"/>
+                  </Grid>
+               </Border>
+            </Grid>
+
+            <Border Grid.Row="3" Style="{DynamicResource OpenSeesSpatialPanelStyle}">
+               <WrapPanel>
+                  <TextBlock Text="{DynamicResource OpenSeesSpatialInspector}" Style="{DynamicResource OpenSeesSpatialInspectorLabelStyle}" FontWeight="SemiBold"/>
+                  <TextBlock Text="{DynamicResource OpenSeesSpatialSelectedCurvatureMx}" Style="{DynamicResource OpenSeesSpatialInspectorLabelStyle}"/>
+                  <TextBlock Text="{Binding SelectedCurvatureMx, StringFormat={}{0:0.#####}}" Style="{DynamicResource OpenSeesSpatialInspectorValueStyle}"/>
+                  <TextBlock Text="{DynamicResource OpenSeesSpatialSelectedCurvatureMy}" Style="{DynamicResource OpenSeesSpatialInspectorLabelStyle}"/>
+                  <TextBlock Text="{Binding SelectedCurvatureMy, StringFormat={}{0:0.#####}}" Style="{DynamicResource OpenSeesSpatialInspectorValueStyle}"/>
+                  <TextBlock Text="{DynamicResource OpenSeesSpatialHistoryCount}" Style="{DynamicResource OpenSeesSpatialInspectorLabelStyle}"/>
+                  <TextBlock Text="{Binding SelectedHistoryCount}" Style="{DynamicResource OpenSeesSpatialInspectorValueStyle}"/>
+                  <TextBlock Text="{Binding SelectedStatusText}" FontWeight="SemiBold"/>
+               </WrapPanel>
+            </Border>
+         </Grid>
+      </TabItem>
+
+      <TabItem Header="{DynamicResource OpenSeesSpatialTabDirections}">
+         <Grid Margin="14">
+            <Border Style="{DynamicResource OpenSeesSpatialPanelStyle}">
+               <Grid>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                  <TextBlock Text="{DynamicResource OpenSeesSpatialDirectionsHeader}" Style="{DynamicResource OpenSeesSpatialPanelHeaderStyle}"/>
+                  <DataGrid Grid.Row="1" ItemsSource="{Binding PointRows}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" RowHeight="28" Margin="0,8,0,0">
+                     <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialAngleColumn}" Binding="{Binding AngleDegrees, StringFormat={}{0:0.###}}" Width="80"/>
+                        <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialMxColumn}" Binding="{Binding MomentMxKnM, StringFormat={}{0:0.###}}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialMyColumn}" Binding="{Binding MomentMyKnM, StringFormat={}{0:0.###}}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialKxColumn}" Binding="{Binding CurvatureMx, StringFormat={}{0:0.#####}}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialKyColumn}" Binding="{Binding CurvatureMy, StringFormat={}{0:0.#####}}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialStatusColumn}" Binding="{Binding StatusText}" Width="160"/>
+                     </DataGrid.Columns>
+                  </DataGrid>
+               </Grid>
+            </Border>
+         </Grid>
+      </TabItem>
+
+      <TabItem Header="{DynamicResource OpenSeesSpatialTabHistory}">
+         <Grid Margin="14">
+            <Border Style="{DynamicResource OpenSeesSpatialPanelStyle}">
+               <DataGrid ItemsSource="{Binding SelectedPoint.HistoryRows}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" RowHeight="28">
+                  <DataGrid.Columns>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialStepColumn}" Binding="{Binding Step}" Width="70"/>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialHistoryMxColumn}" Binding="{Binding MomentMxNm, StringFormat={}{0:G6}}" Width="*"/>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialHistoryMyColumn}" Binding="{Binding MomentMyNm, StringFormat={}{0:G6}}" Width="*"/>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialKxColumn}" Binding="{Binding CurvatureMx, StringFormat={}{0:G6}}" Width="*"/>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialKyColumn}" Binding="{Binding CurvatureMy, StringFormat={}{0:G6}}" Width="*"/>
+                     <DataGridCheckBoxColumn Header="{DynamicResource OpenSeesSpatialConvergedColumn}" Binding="{Binding Converged}" Width="100"/>
+                  </DataGrid.Columns>
+               </DataGrid>
+            </Border>
+         </Grid>
+      </TabItem>
+
+      <TabItem Header="{DynamicResource OpenSeesSpatialTabVerification}">
+         <Grid Margin="14">
+            <Border Style="{DynamicResource OpenSeesSpatialPanelStyle}">
+               <DataGrid ItemsSource="{Binding DemandCheckRows}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" RowHeight="28">
+                  <DataGrid.Columns>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialDemandNumColumn}" Binding="{Binding Num}" Width="70"/>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialDemandLabelColumn}" Binding="{Binding Label}" Width="*"/>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialSelectedN}" Binding="{Binding AxialForceKn, StringFormat={}{0:0.###}}" Width="110"/>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialMxColumn}" Binding="{Binding MomentMxKnM, StringFormat={}{0:0.###}}" Width="110"/>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialMyColumn}" Binding="{Binding MomentMyKnM, StringFormat={}{0:0.###}}" Width="110"/>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialUtilizationColumn}" Binding="{Binding Utilization, StringFormat={}{0:0.###}}" Width="110"/>
+                     <DataGridTextColumn Header="{DynamicResource OpenSeesSpatialStatusColumn}" Binding="{Binding StatusText}" Width="190"/>
+                  </DataGrid.Columns>
+               </DataGrid>
+            </Border>
+         </Grid>
+      </TabItem>
+
+      <TabItem Header="{DynamicResource OpenSeesSpatialTabDiagnostics}">
+         <ScrollViewer Padding="14" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+               <TextBlock Text="{DynamicResource OpenSeesSpatialStatusLabel}" FontWeight="SemiBold"/>
+               <TextBlock Text="{Binding OverallStatusText}" Margin="0,3,0,12"/>
+               <TextBlock Text="{DynamicResource OpenSeesSpatialDiagnosticsLabel}" FontWeight="SemiBold"/>
+               <ItemsControl ItemsSource="{Binding Diagnostics}" Margin="0,5,0,12"/>
+               <TextBlock Text="{DynamicResource OpenSeesSpatialArtifactLabel}" FontWeight="SemiBold"/>
+               <TextBlock Text="{Binding SelectedPoint.ArtifactDirectory}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+            </StackPanel>
+         </ScrollViewer>
+      </TabItem>
+   </TabControl>
+</UserControl>
