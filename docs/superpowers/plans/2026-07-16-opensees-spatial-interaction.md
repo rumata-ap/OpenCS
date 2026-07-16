@@ -66,7 +66,7 @@
 
 **Files:** Create the six files under `OpenCS.OpenSees/Analysis/`; test `OpenCS.OpenSees.Tests/SpatialInteractionTests.cs`.
 
-- [ ] **Step 1: Write validation and geometry tests.**
+- [x] **Step 1: Write validation and geometry tests.**
 
 ```csharp
 [Fact]
@@ -98,13 +98,13 @@ public void Spatial_point_maps_zero_and_ninety_degrees_to_Mx_and_My()
 }
 ```
 
-- [ ] **Step 2: Run the filtered tests and confirm the types are missing.**
+- [x] **Step 2: Run the filtered tests and confirm the types are missing.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SpatialInteractionTests`
 
 Expected: FAIL with missing spatial contract types.
 
-- [ ] **Step 3: Implement the contracts.**
+- [x] **Step 3: Implement the contracts.**
 
 `SectionSpatialInteractionRequest` must contain `IReadOnlyList<double> AxialForcesN`, `AngleStepDegrees`, `MaxCurvature`, `Increments`, `Convention`, `Validate()`, and `GenerateAnglesDegrees()`. `Validate()` rejects empty/non-finite/duplicate N, non-finite positive curvature, non-positive increments, and a positive finite angle step that does not divide 360 within a documented absolute tolerance. `GenerateAnglesDegrees()` returns `0, step, ..., 360-step` using deterministic rounding.
 
@@ -116,13 +116,13 @@ Expected: FAIL with missing spatial contract types.
 
 Every public type/property receives Russian XML documentation.
 
-- [ ] **Step 4: Run the tests.**
+- [x] **Step 4: Run the tests.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~SpatialInteractionTests`
 
 Expected: all spatial contract tests PASS.
 
-- [ ] **Step 5: Commit.**
+- [x] **Step 5: Commit.**
 
 ```powershell
 git add OpenCS.OpenSees/Analysis OpenCS.OpenSees.Tests/SpatialInteractionTests.cs
