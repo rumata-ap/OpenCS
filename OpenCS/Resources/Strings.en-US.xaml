@@ -524,8 +524,8 @@
    <system:String x:Key="ForceSignConventionShellNx">Nx &gt; 0 — tension along X</system:String>
    <system:String x:Key="ForceSignConventionShellNy">Ny &gt; 0 — tension along Y</system:String>
    <system:String x:Key="ForceSignConventionShellNxy">Nxy &gt; 0 — shear; lengthens diagonal 1–4 vs. 2–3</system:String>
-   <system:String x:Key="ForceSignConventionShellMx">Mx &gt; 0 — moment about X; tension on face opposite +Z</system:String>
-   <system:String x:Key="ForceSignConventionShellMy">My &gt; 0 — moment about Y; tension on face opposite +Z</system:String>
+   <system:String x:Key="ForceSignConventionShellMx">Mx &gt; 0 — moment about X; tension on the +Z face</system:String>
+   <system:String x:Key="ForceSignConventionShellMy">My &gt; 0 — moment about Y; tension on the +Z face</system:String>
    <system:String x:Key="ForceSignConventionShellMxy">Mxy &gt; 0 — twisting; right-hand rule for diagonal 1–4 from node 1</system:String>
    <system:String x:Key="ForceSignConventionShellQx">Qx &gt; 0 — transverse shear Qx acts along +Z</system:String>
    <system:String x:Key="ForceSignConventionShellQy">Qy &gt; 0 — transverse shear Qy acts along +Z</system:String>

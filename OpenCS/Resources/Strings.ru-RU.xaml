@@ -527,8 +527,8 @@
    <system:String x:Key="ForceSignConventionShellNx">Nx &gt; 0 — растяжение по X</system:String>
    <system:String x:Key="ForceSignConventionShellNy">Ny &gt; 0 — растяжение по Y</system:String>
    <system:String x:Key="ForceSignConventionShellNxy">Nxy &gt; 0 — касательное; удлиняет диагональ 1–4 относительно 2–3</system:String>
-   <system:String x:Key="ForceSignConventionShellMx">Mx &gt; 0 — момент вокруг X; растяжение грани противоположной +Z</system:String>
-   <system:String x:Key="ForceSignConventionShellMy">My &gt; 0 — момент вокруг Y; растяжение грани противоположной +Z</system:String>
+   <system:String x:Key="ForceSignConventionShellMx">Mx &gt; 0 — момент вокруг X; растяжение грани +Z</system:String>
+   <system:String x:Key="ForceSignConventionShellMy">My &gt; 0 — момент вокруг Y; растяжение грани +Z</system:String>
    <system:String x:Key="ForceSignConventionShellMxy">Mxy &gt; 0 — кручение; правило правого винта для диагонали 1–4 от узла 1</system:String>
    <system:String x:Key="ForceSignConventionShellQx">Qx &gt; 0 — поперечная сила Qx направлена по +Z</system:String>
    <system:String x:Key="ForceSignConventionShellQy">Qy &gt; 0 — поперечная сила Qy направлена по +Z</system:String>
