@@ -59,7 +59,7 @@ public sealed class SpatialSectionTclGenerator : ISpatialSectionTclGenerator
         AppendLine(script, "fix 1 1 1 1 1 1 1");
         AppendLine(script, "fix 2 0 1 1 1 0 0");
         AppendLine(script, "element zeroLengthSection 1 1 2 1");
-        AppendLine(script, "constraints Penalty 1.0e20 1.0e20");
+        AppendLine(script, "constraints Transformation");
         AppendLine(script, "numberer Plain");
         AppendLine(script, "system BandGeneral");
         AppendLine(script, "test NormUnbalance 1.0e-8 50 0");

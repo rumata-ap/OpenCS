@@ -427,17 +427,17 @@ git commit -m "feat(opensees): add spatial interaction result view"
 
 **Files:** Create `OpenCS.OpenSees.Tests/OpenSeesSpatialIntegrationTests.cs`; modify `OpenCS.OpenSees.Tests/Fixtures/CrossSectionFixtures.cs` to expose the reusable symmetric elastic section fixture used by both 2D and 3D integration tests.
 
-- [ ] **Step 1: Add the opt-in test.**
+- [x] **Step 1: Add the opt-in test.**
 
 Resolve `OPENSEES_EXE` with the existing skip helper. Run a symmetric elastic rectangular section at `N = 0` and angles `0, 90, 180, 270` with two radial increments. Assert status `ok`, four unique artifact directories, completion markers, non-empty histories, positive `Mx` at positive `CurvatureMx`, positive `My` at positive `CurvatureMy`, and opposite signs at 180/270.
 
-- [ ] **Step 2: Run the integration test.**
+- [x] **Step 2: Run the integration test.**
 
 Run: `$env:OPENSEES_EXE='C:\Tools\OpenSees\bin\OpenSees.exe'; dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesSpatialIntegrationTests`
 
 Expected: PASS with a compatible executable, otherwise SKIPPED by the existing opt-in helper.
 
-- [ ] **Step 3: Commit.**
+- [x] **Step 3: Commit.**
 
 ```powershell
 git add OpenCS.OpenSees.Tests/OpenSeesSpatialIntegrationTests.cs OpenCS.OpenSees.Tests/Fixtures/CrossSectionFixtures.cs

@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.OpenSees.Model;
 
 namespace OpenCS.OpenSees.Tests.Fixtures;
 
@@ -47,6 +48,26 @@ internal static class CrossSectionFixtures
             [concrete.Id] = concrete,
             [steel.Id] = steel
         };
+
+    public static OpenSeesSectionModel SymmetricElasticSection() => new()
+    {
+        Materials =
+        [
+            new OpenSeesMaterialDefinition
+            {
+                Tag = 1,
+                PositiveEnvelope = [new EnvelopePoint(0, 0), new EnvelopePoint(0.01, 2_000_000)],
+                NegativeEnvelope = [new EnvelopePoint(-0.01, -2_000_000), new EnvelopePoint(0, 0)]
+            }
+        ],
+        Fibers =
+        [
+            new OpenSeesFiber(-0.5, -0.5, 0.25, 1),
+            new OpenSeesFiber(-0.5, 0.5, 0.25, 1),
+            new OpenSeesFiber(0.5, -0.5, 0.25, 1),
+            new OpenSeesFiber(0.5, 0.5, 0.25, 1)
+        ]
+    };
 
     private static Material CreateMaterial(
         int id,
