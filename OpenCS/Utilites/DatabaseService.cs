@@ -3074,6 +3074,162 @@ namespace OpenCS.Utilites
          catch { tx.Rollback(); throw; }
       }
 
+      /// <summary>
+      /// Атомарно заменяет узлы, элементы, члены, загружения и узловые нагрузки схемы
+      /// слепком из FemSchemaEditSession. В отличие от SaveFemTopology, не консервирует
+      /// старые нагрузки по тегу — сессия уже несёт актуальный набор.
+      /// </summary>
+      public void SaveFemSchemaEdit(
+         int schemaId,
+         IReadOnlyList<CScore.Fem.FemNode>     nodes,
+         IReadOnlyList<CScore.Fem.FemElement>  elements,
+         IReadOnlyList<CScore.Fem.FemMember>   members,
+         IReadOnlyList<CScore.Fem.FemLoadCase> loadCases,
+         IReadOnlyList<CScore.Fem.FemNodeLoad> nodeLoads)
+      {
+         var newTags = nodes.Select(n => n.NodeTag).ToList();
+         if (newTags.Count != newTags.Distinct(StringComparer.Ordinal).Count())
+            throw new InvalidOperationException("Теги узлов FEM-схемы должны быть уникальными.");
+
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using (var delCmd = _connection.CreateCommand())
+            {
+               delCmd.CommandText = """
+                  DELETE FROM fem_node_loads WHERE schema_id=@sid;
+                  DELETE FROM fem_load_cases WHERE schema_id=@sid;
+                  DELETE FROM fem_members    WHERE schema_id=@sid;
+                  DELETE FROM fem_elements   WHERE schema_id=@sid;
+                  DELETE FROM fem_nodes      WHERE schema_id=@sid;
+               """;
+               delCmd.Parameters.AddWithValue("@sid", schemaId);
+               delCmd.ExecuteNonQuery();
+            }
+
+            var newNodeIdByTag = new Dictionary<string, int>(StringComparer.Ordinal);
+            using (var nodeCmd = _connection.CreateCommand())
+            {
+               nodeCmd.CommandText = """
+                  INSERT INTO fem_nodes (schema_id, node_tag, x, y, z, dof_mask)
+                  VALUES (@sid, @tag, @x, @y, @z, @dm);
+                  SELECT last_insert_rowid();
+               """;
+               nodeCmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
+               nodeCmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
+               nodeCmd.Parameters.Add("@x",   Microsoft.Data.Sqlite.SqliteType.Real);
+               nodeCmd.Parameters.Add("@y",   Microsoft.Data.Sqlite.SqliteType.Real);
+               nodeCmd.Parameters.Add("@z",   Microsoft.Data.Sqlite.SqliteType.Real);
+               nodeCmd.Parameters.Add("@dm",  Microsoft.Data.Sqlite.SqliteType.Integer);
+               foreach (var n in nodes)
+               {
+                  nodeCmd.Parameters["@sid"].Value = schemaId;
+                  nodeCmd.Parameters["@tag"].Value = n.NodeTag;
+                  nodeCmd.Parameters["@x"].Value   = n.X;
+                  nodeCmd.Parameters["@y"].Value   = n.Y;
+                  nodeCmd.Parameters["@z"].Value   = n.Z;
+                  nodeCmd.Parameters["@dm"].Value  = n.DofMask;
+                  int newId = (int)(long)nodeCmd.ExecuteScalar()!;
+                  newNodeIdByTag[n.NodeTag] = newId;
+                  n.Id = newId;
+                  n.SchemaId = schemaId;
+               }
+            }
+
+            using (var elemCmd = _connection.CreateCommand())
+            {
+               elemCmd.CommandText = """
+                  INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m)
+                  VALUES (@sid, @tag, @etype, @nids, @stag, @thk);
+                  SELECT last_insert_rowid();
+               """;
+               elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
+               elemCmd.Parameters.Add("@tag",  Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@etype",Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@nids", Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@stag", Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@thk",  Microsoft.Data.Sqlite.SqliteType.Real);
+               foreach (var e in elements)
+               {
+                  elemCmd.Parameters["@sid"].Value   = schemaId;
+                  elemCmd.Parameters["@tag"].Value   = e.ElemTag;
+                  elemCmd.Parameters["@etype"].Value = e.ElemType;
+                  elemCmd.Parameters["@nids"].Value  = e.NodeIdsJson;
+                  elemCmd.Parameters["@stag"].Value  = (object?)e.SectionTag ?? DBNull.Value;
+                  elemCmd.Parameters["@thk"].Value   = e.ThicknessM.HasValue ? e.ThicknessM.Value : DBNull.Value;
+                  int newId = (int)(long)elemCmd.ExecuteScalar()!;
+                  e.Id = newId;
+                  e.SchemaId = schemaId;
+               }
+            }
+
+            foreach (var m in members)
+               SaveFemMemberCore(m, schemaId);
+
+            var newLoadCaseIdByOld = new Dictionary<int, int>();
+            using (var lcCmd = _connection.CreateCommand())
+            {
+               lcCmd.CommandText = """
+                  INSERT INTO fem_load_cases
+                     (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2)
+                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2);
+                  SELECT last_insert_rowid();
+               """;
+               foreach (var lc in loadCases)
+               {
+                  lcCmd.Parameters.Clear();
+                  lcCmd.Parameters.AddWithValue("@sid", schemaId);
+                  lcCmd.Parameters.AddWithValue("@tag", lc.Tag);
+                  lcCmd.Parameters.AddWithValue("@lt",  (object?)lc.LoadType   ?? DBNull.Value);
+                  lcCmd.Parameters.AddWithValue("@st",  lc.Sp20Type);
+                  lcCmd.Parameters.AddWithValue("@sg",  (object?)lc.Sp20Group ?? DBNull.Value);
+                  lcCmd.Parameters.AddWithValue("@gu",  (object?)lc.GammaFUnfav ?? DBNull.Value);
+                  lcCmd.Parameters.AddWithValue("@gf",  (object?)lc.GammaFFav   ?? DBNull.Value);
+                  lcCmd.Parameters.AddWithValue("@p1",  (object?)lc.Psi1 ?? DBNull.Value);
+                  lcCmd.Parameters.AddWithValue("@p2",  (object?)lc.Psi2 ?? DBNull.Value);
+                  int newId = (int)(long)lcCmd.ExecuteScalar()!;
+                  newLoadCaseIdByOld[lc.Id] = newId;
+                  lc.Id = newId;
+                  lc.SchemaId = schemaId;
+               }
+            }
+
+            using (var loadCmd = _connection.CreateCommand())
+            {
+               loadCmd.CommandText = """
+                  INSERT INTO fem_node_loads (schema_id, load_case_id, node_id, fx, fy, fz, mx, my, mz)
+                  VALUES (@sid, @lc, @nid, @fx, @fy, @fz, @mx, @my, @mz)
+               """;
+               foreach (var load in nodeLoads)
+               {
+                  loadCmd.Parameters.Clear();
+                  loadCmd.Parameters.AddWithValue("@sid", schemaId);
+                  loadCmd.Parameters.AddWithValue("@lc",  newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out var lcId) ? lcId : load.LoadCaseId);
+                  loadCmd.Parameters.AddWithValue("@nid", load.NodeId);
+                  loadCmd.Parameters.AddWithValue("@fx", load.Fx);
+                  loadCmd.Parameters.AddWithValue("@fy", load.Fy);
+                  loadCmd.Parameters.AddWithValue("@fz", load.Fz);
+                  loadCmd.Parameters.AddWithValue("@mx", load.Mx);
+                  loadCmd.Parameters.AddWithValue("@my", load.My);
+                  loadCmd.Parameters.AddWithValue("@mz", load.Mz);
+                  loadCmd.ExecuteNonQuery();
+               }
+            }
+
+            var schema = FemSchemas.FirstOrDefault(s => s.Id == schemaId);
+            if (schema != null)
+            {
+               schema.Members.Clear();
+               foreach (var m in members) schema.Members.Add(m);
+               schema.LoadCases.Clear();
+               foreach (var lc in loadCases) schema.LoadCases.Add(lc);
+            }
+
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
       void SaveFemMemberCore(CScore.Fem.FemMember m, int schemaId)
       {
          using var cmd = _connection.CreateCommand();
