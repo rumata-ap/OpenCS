@@ -49,6 +49,7 @@ public static class ShellStrainSolverTests
         {
             Type = MatType.Concrete, E = 30_000, Fc = 30, Ft = 2.0, Ry = 2.0, Ru = 30,
             Ec0 = -0.002, Ec2 = -0.0035, Ec1Red = -0.0035 * 0.6, Et2 = 0.00015, Et1Red = 0.00015 * 0.6,
+            Et1 = 0.00005, Et0 = 0.0001,
         };
         var m = new Material { Id = 5, E = 30_000, Type = MatType.Concrete, Tag = "c30" };
         m.MaterialChars = [Ch(CalcType.C), Ch(CalcType.CL), Ch(CalcType.N), Ch(CalcType.NL)];
