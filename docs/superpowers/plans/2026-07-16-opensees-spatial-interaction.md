@@ -266,7 +266,7 @@ git commit -m "feat(opensees): orchestrate spatial interaction points"
 
 **Files:** Create `OpenCS/Tasks/OpenSeesSpatialInteractionParams.cs`, `OpenCS/Tasks/OpenSeesSpatialInteractionHandler.cs`; modify `OpenCS/Tasks/CalcTaskForceHelper.cs`, `OpenCS/Tasks/TaskRunner.cs`; create `OpenCS.OpenSees.Tests/OpenSeesSpatialTaskContractTests.cs`.
 
-- [ ] **Step 1: Write task contract tests.**
+- [x] **Step 1: Write task contract tests.**
 
 Assert parsing of:
 
@@ -276,21 +276,21 @@ Assert parsing of:
 
 Assert defaults, rejection of non-dividing angle steps and non-positive values, registration of `opensees_section_interaction_n_mx_my`, and `OpenSeesSpatialInteractionParams.ExtractAxialForcesKn(forceSet)` preserving first-seen unique N values. Assert `[-1000, 0, 1000]` kN become `[-1000000, 0, 1000000]` N exactly once.
 
-- [ ] **Step 2: Run the filtered tests and confirm missing task types.**
+- [x] **Step 2: Run the filtered tests and confirm missing task types.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesSpatialTaskContractTests`
 
 Expected: FAIL because the new params/handler/kind do not exist.
 
-- [ ] **Step 3: Implement params and ForceSet resolver.**
+- [x] **Step 3: Implement params and ForceSet resolver.**
 
 `OpenSeesSpatialInteractionParams.Parse` owns only `AngleStepDegrees`, `MaxCurvature`, `Increments`, `TimeoutSeconds`, and `ExecutablePath`. Add `OpenSeesSpatialInteractionParams.ExtractAxialForcesKn(ForceSet forceSet)` that selects `Items.Select(item => item.N)`, removes exact duplicates while preserving order, and rejects an empty/non-finite result. The handler finds `ctx.Database.ForceSets.Single(fs => fs.Id == task.ForceSetId && fs.Kind == "bar")` and calls this method.
 
-- [ ] **Step 4: Implement handler and dummy-force routing.**
+- [x] **Step 4: Implement handler and dummy-force routing.**
 
 Build the prepared model exactly as the existing interaction handler does, resolve executable, create `SectionSpatialInteractionRequest`, create `SpatialSectionAnalysisService` and `SectionSpatialInteractionService`, and serialize the typed result. Add the new kind to `CalcTaskForceHelper.UsesDummyForceItem` so `CalcTaskExecutor.TryResolve` permits `ForceItemId = 0`. Register the handler in `TaskRunner`.
 
-- [ ] **Step 5: Run and commit.**
+- [x] **Step 5: Run and commit.**
 
 Run: `dotnet test OpenCS.OpenSees.Tests/OpenCS.OpenSees.Tests.csproj --filter FullyQualifiedName~OpenSeesSpatialTaskContractTests`
 
