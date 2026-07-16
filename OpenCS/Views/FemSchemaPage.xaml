@@ -1,7 +1,11 @@
 <UserControl x:Class="OpenCS.Views.FemSchemaPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:local="clr-namespace:OpenCS.Views">
+             xmlns:local="clr-namespace:OpenCS.Views"
+             xmlns:helpers="clr-namespace:OpenCS.Views.Helpers">
+    <UserControl.Resources>
+        <helpers:DiagnosticColorConverter x:Key="DiagnosticColorConverter"/>
+    </UserControl.Resources>
     <TabControl>
         <!-- Вкладка 3D-схема -->
         <TabItem Header="{DynamicResource FemSchema3DTab}">
@@ -118,6 +122,18 @@
         <!-- Вкладка загружений -->
         <TabItem Header="{DynamicResource FemLoadCasesTab}">
             <local:FemLoadCasesPanel DataContext="{Binding}"/>
+        </TabItem>
+
+        <!-- Вкладка проверки схемы -->
+        <TabItem Header="{DynamicResource FemDiagnosticsTab}">
+            <ListBox ItemsSource="{Binding Diagnostics}" Margin="16">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Message}" TextWrapping="Wrap"
+                                   Foreground="{Binding IsError, Converter={StaticResource DiagnosticColorConverter}}"/>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
         </TabItem>
     </TabControl>
 </UserControl>
