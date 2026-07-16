@@ -71,6 +71,107 @@ public sealed class SpatialInteractionTests
     }
 
     [Fact]
+    public async Task Service_builds_boundary_and_uniform_support_slices()
+    {
+        CapacityExecutor executor = new();
+
+        SectionSpatialInteractionResult result = await new SectionSpatialInteractionService(executor).RunAsync(
+            ValidModel(),
+            new SectionSpatialInteractionRequest
+            {
+                AxialForcesN = [0, 100_000],
+                AdditionalAxialSlices = 2,
+                AngleStepDegrees = 90,
+                DemandPoints =
+                [
+                    new SpatialInteractionDemandPoint
+                    {
+                        Num = 1,
+                        AxialForceN = 50_000,
+                        MomentMxNm = 50_000,
+                        MomentMyNm = 0
+                    }
+                ]
+            },
+            new OpenSeesRunRequest { ExecutablePath = "OpenSees.exe" },
+            CancellationToken.None);
+
+        Assert.Equal("surface", result.GeometryKind);
+        Assert.Equal("ok", result.VerificationStatus);
+        Assert.Equal(4, result.Slices.Count);
+        Assert.Equal(new[] { 0d, 100_000d / 3, 200_000d / 3, 100_000d },
+            executor.Requests.Select(request => request.AxialForceN).Distinct().OrderBy(value => value));
+        Assert.Single(result.DemandChecks);
+        Assert.True(result.DemandChecks[0].IsInside);
+    }
+
+    [Fact]
+    public async Task Service_moves_failed_boundary_inward_and_marks_demand_outside_verified_range()
+    {
+        CapacityExecutor executor = new() { FailedAxialForcesN = [-100_000] };
+
+        SectionSpatialInteractionResult result = await new SectionSpatialInteractionService(executor).RunAsync(
+            ValidModel(),
+            new SectionSpatialInteractionRequest
+            {
+                AxialForcesN = [-100_000, 0, 100_000],
+                AdditionalAxialSlices = 0,
+                AngleStepDegrees = 90,
+                DemandPoints =
+                [new SpatialInteractionDemandPoint { Num = 1, AxialForceN = -100_000 }]
+            },
+            new OpenSeesRunRequest { ExecutablePath = "OpenSees.exe" },
+            CancellationToken.None);
+
+        Assert.Equal(0, result.EffectiveMinimumAxialForceN);
+        Assert.Equal(100_000, result.EffectiveMaximumAxialForceN);
+        Assert.Equal("outside_axial_range", result.DemandChecks[0].Status);
+        Assert.Equal("not_ok", result.VerificationStatus);
+        Assert.False(result.DemandChecks[0].IsInside);
+    }
+
+    [Fact]
+    public async Task Service_uses_plane_geometry_when_all_axial_forces_are_equal()
+    {
+        CapacityExecutor executor = new();
+
+        SectionSpatialInteractionResult result = await new SectionSpatialInteractionService(executor).RunAsync(
+            ValidModel(),
+            new SectionSpatialInteractionRequest
+            {
+                AxialForcesN = [100_000],
+                AdditionalAxialSlices = 4,
+                AngleStepDegrees = 90,
+                DemandPoints =
+                [
+                    new SpatialInteractionDemandPoint
+                    {
+                        Num = 1,
+                        AxialForceN = 100_000,
+                        MomentMxNm = 50_000,
+                        MomentMyNm = 0
+                    },
+                    new SpatialInteractionDemandPoint
+                    {
+                        Num = 2,
+                        AxialForceN = 100_000,
+                        MomentMxNm = 150_000,
+                        MomentMyNm = 0
+                    }
+                ]
+            },
+            new OpenSeesRunRequest { ExecutablePath = "OpenSees.exe" },
+            CancellationToken.None);
+
+        Assert.Equal("plane", result.GeometryKind);
+        Assert.Equal("not_ok", result.VerificationStatus);
+        Assert.Single(result.Slices);
+        Assert.Equal(1, result.DemandChecks.Count(check => check.IsInside));
+        Assert.Equal(1, result.DemandChecks.Count(check => !check.IsInside));
+        Assert.Single(executor.Requests.Select(request => request.AxialForceN).Distinct());
+    }
+
+    [Fact]
     public async Task Service_preserves_force_angle_order_history_terminal_and_artifacts()
     {
         FakeSpatialExecutor executor = new();
@@ -80,6 +181,7 @@ public sealed class SpatialInteractionTests
             new SectionSpatialInteractionRequest
             {
                 AxialForcesN = [100_000, -200_000],
+                AdditionalAxialSlices = 0,
                 AngleStepDegrees = 90,
                 MaxCurvature = 0.01,
                 Increments = 2
@@ -89,7 +191,7 @@ public sealed class SpatialInteractionTests
 
         Assert.Equal("ok", result.Status);
         Assert.Equal(
-            new[] { "100000/0", "100000/90", "100000/180", "100000/270", "-200000/0", "-200000/90", "-200000/180", "-200000/270" },
+            new[] { "-200000/0", "-200000/90", "-200000/180", "-200000/270", "100000/0", "100000/90", "100000/180", "100000/270" },
             executor.Requests.Select(request => $"{request.AxialForceN:0}/{request.AngleDegrees:0}"));
         Assert.Equal(8, result.Points.Count);
         Assert.All(result.Points, point =>
@@ -207,6 +309,45 @@ public sealed class SpatialInteractionTests
                 Rows = [converged, notConverged],
                 ArtifactDirectory = $"artifact-{Requests.Count}",
                 Diagnostics = Status == "ok" ? [] : ["not converged"]
+            });
+        }
+    }
+
+    private sealed class CapacityExecutor : ISpatialSectionAnalysisExecutor
+    {
+        public List<SpatialSectionAnalysisRequest> Requests { get; } = [];
+        public HashSet<double> FailedAxialForcesN { get; init; } = [];
+
+        public Task<SpatialSectionAnalysisResult> RunAsync(
+            OpenSeesSectionModel model,
+            SpatialSectionAnalysisRequest request,
+            OpenSeesRunRequest processRequest,
+            CancellationToken cancellationToken)
+        {
+            Requests.Add(request);
+            if (FailedAxialForcesN.Contains(request.AxialForceN))
+                return Task.FromResult(new SpatialSectionAnalysisResult
+                {
+                    Status = "not_converged",
+                    Rows = [new SpatialSectionHistoryRow { Converged = false }]
+                });
+
+            double radius = 100_000;
+            double angle = request.AngleDegrees * Math.PI / 180.0;
+            return Task.FromResult(new SpatialSectionAnalysisResult
+            {
+                Status = "ok",
+                Rows =
+                [
+                    new SpatialSectionHistoryRow
+                    {
+                        Converged = true,
+                        MomentMxNm = radius * Math.Cos(angle),
+                        MomentMyNm = radius * Math.Sin(angle),
+                        CurvatureMx = Math.Cos(angle) * 0.01,
+                        CurvatureMy = Math.Sin(angle) * 0.01
+                    }
+                ]
             });
         }
     }

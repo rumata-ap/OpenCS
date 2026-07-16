@@ -60,6 +60,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string manualMx = "0";
     string manualMy = "0";
     string openSeesSpatialAngleStep = "45";
+    string openSeesSpatialAdditionalSlices = "2";
     string openSeesSpatialMaxCurvature = "0.01";
     string openSeesSpatialIncrements = "20";
     string openSeesSpatialTimeoutSeconds = "300";
@@ -598,6 +599,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       set { openSeesSpatialAngleStep = value; OnPropertyChanged(); OnPropertyChanged(nameof(OpenSeesSpatialPointCount)); }
    }
 
+   public string OpenSeesAdditionalAxialSlices
+   {
+      get => openSeesSpatialAdditionalSlices;
+      set { openSeesSpatialAdditionalSlices = value; OnPropertyChanged(); OnPropertyChanged(nameof(OpenSeesSpatialPointCount)); }
+   }
+
    public string OpenSeesMaxCurvature
    {
       get => openSeesSpatialMaxCurvature;
@@ -662,8 +669,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
          try
          {
-            return checked(OpenSeesSpatialInteractionParams.ExtractAxialForcesKn(SelectedForceSet).Count
-                * (int)rounded);
+            if (!int.TryParse((OpenSeesAdditionalAxialSlices ?? "").Trim(), out int additional) || additional < 0)
+               return 0;
+
+            return checked((additional + 2) * (int)rounded);
          }
          catch (ArgumentException)
          {
@@ -1004,6 +1013,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             var spatial = OpenSeesSpatialInteractionParams.Parse(existing.ParamsJson);
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             OpenSeesAngleStepDegrees = spatial.AngleStepDegrees.ToString("G6", inv);
+            OpenSeesAdditionalAxialSlices = spatial.AdditionalAxialSlices.ToString(inv);
             OpenSeesMaxCurvature = spatial.MaxCurvature.ToString("G6", inv);
             OpenSeesIncrements = spatial.Increments.ToString(inv);
             OpenSeesTimeoutSeconds = spatial.TimeoutSeconds.ToString(inv);
@@ -1333,6 +1343,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          string ParseNumberText(string value) => (value ?? "").Trim().Replace(',', '.');
          if (!double.TryParse(ParseNumberText(OpenSeesAngleStepDegrees),
                  System.Globalization.NumberStyles.Float, inv, out double angleStep) ||
+             !int.TryParse((OpenSeesAdditionalAxialSlices ?? "").Trim(), out int additionalAxialSlices) ||
              !double.TryParse(ParseNumberText(OpenSeesMaxCurvature),
                  System.Globalization.NumberStyles.Float, inv, out double maxCurvature) ||
              !int.TryParse((OpenSeesIncrements ?? "").Trim(), out int increments) ||
@@ -1349,6 +1360,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OpenSeesSpatialInteractionParams parameters = new()
             {
                AngleStepDegrees = angleStep,
+               AdditionalAxialSlices = additionalAxialSlices,
                MaxCurvature = maxCurvature,
                Increments = increments,
                TimeoutSeconds = timeoutSeconds,

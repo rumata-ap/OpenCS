@@ -166,6 +166,7 @@
                   <RowDefinition Height="Auto"/>
                   <RowDefinition Height="Auto"/>
                   <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
                </Grid.RowDefinitions>
 
                <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CalcTaskForceSet}"
@@ -185,25 +186,31 @@
                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding OpenSeesAngleStepDegrees, UpdateSourceTrigger=PropertyChanged}"
                         Margin="0,0,0,4" ToolTip="{DynamicResource OpenSeesSpatialAngleStepHint}"/>
 
-               <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialMaxCurvature}"
+               <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialAdditionalSlices}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"
+                          ToolTip="{DynamicResource OpenSeesSpatialAdditionalSlicesHint}"/>
+               <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding OpenSeesAdditionalAxialSlices, UpdateSourceTrigger=PropertyChanged}"
+                        Margin="0,0,0,4" ToolTip="{DynamicResource OpenSeesSpatialAdditionalSlicesHint}"/>
+
+               <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialMaxCurvature}"
                           VerticalAlignment="Center" Margin="0,0,4,4"/>
-               <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding OpenSeesMaxCurvature, UpdateSourceTrigger=PropertyChanged}"
+               <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding OpenSeesMaxCurvature, UpdateSourceTrigger=PropertyChanged}"
                         Margin="0,0,0,4"/>
 
-               <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialIncrements}"
+               <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialIncrements}"
                           VerticalAlignment="Center" Margin="0,0,4,4"/>
-               <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding OpenSeesIncrements, UpdateSourceTrigger=PropertyChanged}"
+               <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding OpenSeesIncrements, UpdateSourceTrigger=PropertyChanged}"
                         Margin="0,0,0,4"/>
 
-               <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialTimeout}"
+               <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialTimeout}"
                           VerticalAlignment="Center" Margin="0,0,4,4"/>
-               <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding OpenSeesTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}"
+               <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding OpenSeesTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}"
                         Margin="0,0,0,4"/>
 
-               <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialExecutablePath}"
+               <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialExecutablePath}"
                           VerticalAlignment="Center" Margin="0,0,4,0"
                           ToolTip="{DynamicResource OpenSeesSpatialExecutablePathHint}"/>
-               <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding OpenSeesExecutablePath, UpdateSourceTrigger=PropertyChanged}"
+               <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding OpenSeesExecutablePath, UpdateSourceTrigger=PropertyChanged}"
                         ToolTip="{DynamicResource OpenSeesSpatialExecutablePathHint}"/>
             </Grid>
          </GroupBox>

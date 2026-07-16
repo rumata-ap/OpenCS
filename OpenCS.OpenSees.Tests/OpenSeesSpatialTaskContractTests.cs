@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS.OpenSees.Analysis;
 using OpenCS.Tasks;
 using OpenCS.Views;
 
@@ -17,6 +18,7 @@ public sealed class OpenSeesSpatialTaskContractTests
         Assert.Equal(20, parameters.Increments);
         Assert.Equal(300, parameters.TimeoutSeconds);
         Assert.Equal("C:/OpenSees.exe", parameters.ExecutablePath);
+        Assert.Equal(2, parameters.AdditionalAxialSlices);
     }
 
     [Fact]
@@ -28,12 +30,14 @@ public sealed class OpenSeesSpatialTaskContractTests
         Assert.True(defaults.MaxCurvature > 0);
         Assert.True(defaults.Increments > 0);
         Assert.True(defaults.TimeoutSeconds > 0);
+        Assert.Equal(2, defaults.AdditionalAxialSlices);
 
         Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"angleStepDegrees\":7}"));
         Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"angleStepDegrees\":0}"));
         Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"maxCurvature\":0}"));
         Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"increments\":0}"));
         Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"timeoutSeconds\":-1}"));
+        Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"additionalAxialSlices\":-1}"));
     }
 
     [Fact]
@@ -62,6 +66,29 @@ public sealed class OpenSeesSpatialTaskContractTests
 
         Assert.Equal(new[] { -1000d, 0d, 1000d }, forcesKn);
         Assert.Equal(new[] { -1_000_000d, 0d, 1_000_000d }, forcesN);
+    }
+
+    [Fact]
+    public void ForceSet_resolver_preserves_all_demand_moments()
+    {
+        ForceSet forceSet = new()
+        {
+            Kind = "bar",
+            Items =
+            [
+                new LoadItem { Num = 7, Label = "LC-7", N = 100, Mx = 12, My = -8 }
+            ]
+        };
+
+        IReadOnlyList<SpatialInteractionDemandPoint> points =
+            OpenSeesSpatialInteractionParams.ExtractDemandPoints(forceSet);
+
+        Assert.Single(points);
+        Assert.Equal(7, points[0].Num);
+        Assert.Equal("LC-7", points[0].Label);
+        Assert.Equal(100_000, points[0].AxialForceN);
+        Assert.Equal(12_000, points[0].MomentMxNm);
+        Assert.Equal(-8_000, points[0].MomentMyNm);
     }
 
     [Fact]

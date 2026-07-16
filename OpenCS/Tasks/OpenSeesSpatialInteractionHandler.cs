@@ -60,6 +60,8 @@ public sealed class OpenSeesSpatialInteractionHandler : ITaskHandler
                 AxialForcesN = OpenSeesSpatialInteractionParams.ExtractAxialForcesKn(forceSet)
                     .Select(CScoreUnitConverter.KiloNewtonsToNewtons)
                     .ToArray(),
+                AdditionalAxialSlices = parameters.AdditionalAxialSlices,
+                DemandPoints = OpenSeesSpatialInteractionParams.ExtractDemandPoints(forceSet),
                 AngleStepDegrees = parameters.AngleStepDegrees,
                 MaxCurvature = parameters.MaxCurvature,
                 Increments = parameters.Increments,

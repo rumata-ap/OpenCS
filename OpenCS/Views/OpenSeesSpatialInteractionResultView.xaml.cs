@@ -64,9 +64,11 @@ public partial class OpenSeesSpatialInteractionResultView : UserControl
         double[] ky = _vm.HistoryCurvatureMy.ToArray();
         double[] mx = _vm.HistoryMomentMxKnM.ToArray();
         double[] my = _vm.HistoryMomentMyKnM.ToArray();
-        _historyPlot.AddScatter(kx, mx, color: "#2F5597", label: Loc.S("OpenSeesSpatialMxSeries"));
-        _historyPlot.AddScatter(ky, my, color: "#70AD47", label: Loc.S("OpenSeesSpatialMySeries"));
-        _historyPlot.ShowLegend(true);
+        if (kx.Length > 0 && mx.Length > 0)
+            _historyPlot.AddScatter(kx, mx, color: "#2F5597", label: Loc.S("OpenSeesSpatialMxSeries"));
+        if (ky.Length > 0 && my.Length > 0)
+            _historyPlot.AddScatter(ky, my, color: "#70AD47", label: Loc.S("OpenSeesSpatialMySeries"));
+        _historyPlot.ShowLegend(kx.Length > 0 || ky.Length > 0);
         _historyPlot.Refresh();
     }
 }

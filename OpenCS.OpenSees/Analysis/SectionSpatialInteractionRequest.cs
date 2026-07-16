@@ -8,6 +8,12 @@ public sealed class SectionSpatialInteractionRequest
     /// <summary>Упорядоченный список продольных сил в Н.</summary>
     public IReadOnlyList<double> AxialForcesN { get; init; } = [];
 
+    /// <summary>Количество равномерных промежуточных опорных срезов между границами N.</summary>
+    public int AdditionalAxialSlices { get; init; } = 2;
+
+    /// <summary>Точки исходного ForceSet, которые требуется проверить относительно поверхности.</summary>
+    public IReadOnlyList<SpatialInteractionDemandPoint> DemandPoints { get; init; } = [];
+
     /// <summary>Шаг полного оборота лучей в градусах.</summary>
     public double AngleStepDegrees { get; init; } = 45;
 
@@ -28,6 +34,13 @@ public sealed class SectionSpatialInteractionRequest
             throw new ArgumentException("AxialForcesN must contain finite values.", nameof(AxialForcesN));
         if (AxialForcesN.Count != AxialForcesN.Distinct().Count())
             throw new ArgumentException("AxialForcesN must not contain duplicates.", nameof(AxialForcesN));
+        if (AdditionalAxialSlices < 0)
+            throw new ArgumentException("AdditionalAxialSlices must not be negative.", nameof(AdditionalAxialSlices));
+        if (DemandPoints.Any(point =>
+                !double.IsFinite(point.AxialForceN) ||
+                !double.IsFinite(point.MomentMxNm) ||
+                !double.IsFinite(point.MomentMyNm)))
+            throw new ArgumentException("DemandPoints must contain finite values.", nameof(DemandPoints));
         if (!double.IsFinite(AngleStepDegrees) || AngleStepDegrees <= 0)
             throw new ArgumentException("AngleStepDegrees must be positive and finite.", nameof(AngleStepDegrees));
         double count = 360.0 / AngleStepDegrees;

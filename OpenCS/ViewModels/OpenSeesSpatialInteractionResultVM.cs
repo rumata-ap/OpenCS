@@ -72,6 +72,52 @@ public sealed class OpenSeesSpatialInteractionResultVM : ViewModelBase
     public SectionSpatialInteractionPoint? SelectedPoint =>
         CurrentGroup?.Points.FirstOrDefault(point => point.AngleDegrees == _selectedAngle);
 
+    /// <summary>Момент Mx выбранной точки в кН·м для отображения.</summary>
+    public double? SelectedMomentMxKnM => SelectedPoint?.MomentMxNm / 1000.0;
+
+    /// <summary>Момент My выбранной точки в кН·м для отображения.</summary>
+    public double? SelectedMomentMyKnM => SelectedPoint?.MomentMyNm / 1000.0;
+
+    /// <summary>Кривизна Mx выбранной точки в 1/м.</summary>
+    public double? SelectedCurvatureMx => SelectedPoint?.CurvatureMx;
+
+    /// <summary>Кривизна My выбранной точки в 1/м.</summary>
+    public double? SelectedCurvatureMy => SelectedPoint?.CurvatureMy;
+
+    /// <summary>Количество строк истории выбранной точки.</summary>
+    public int SelectedHistoryCount => SelectedPoint?.HistoryRows.Count ?? 0;
+
+    /// <summary>Признак наличия выбранной точки.</summary>
+    public bool HasSelectedPoint => SelectedPoint is not null;
+
+    /// <summary>Локализованный статус выбранной точки.</summary>
+    public string SelectedStatusText => LocalizeStatus(SelectedPoint?.Status);
+
+    /// <summary>Локализованный итоговый статус расчёта.</summary>
+    public string OverallStatusText => LocalizeStatus(Result.Status);
+
+    /// <summary>Локализованный итог проверки исходных точек ForceSet.</summary>
+    public string VerificationStatusText => Result.VerificationStatus switch
+    {
+        "ok" => Loc.S("OpenSeesSpatialVerificationOk"),
+        "not_ok" => Loc.S("OpenSeesSpatialVerificationNotOk"),
+        "indeterminate" => Loc.S("OpenSeesSpatialVerificationIndeterminate"),
+        _ => Loc.S("OpenSeesSpatialVerificationUnavailable")
+    };
+
+    /// <summary>Локализованный тип геометрии результата.</summary>
+    public string GeometryKindText => Result.GeometryKind switch
+    {
+        "plane" => Loc.S("OpenSeesSpatialGeometryPlane"),
+        _ => Loc.S("OpenSeesSpatialGeometrySurface")
+    };
+
+    /// <summary>Минимальная рабочая продольная сила в кН.</summary>
+    public double? EffectiveMinimumAxialForceKn => Result.EffectiveMinimumAxialForceN / 1000.0;
+
+    /// <summary>Максимальная рабочая продольная сила в кН.</summary>
+    public double? EffectiveMaximumAxialForceKn => Result.EffectiveMaximumAxialForceN / 1000.0;
+
     /// <summary>Точки Mx выбранной группы в кН·м.</summary>
     public IReadOnlyList<double?> PolarMxKnM => CurrentGroup?.Points
         .Select(point => point.MomentMxNm / 1000.0)
@@ -100,6 +146,12 @@ public sealed class OpenSeesSpatialInteractionResultVM : ViewModelBase
 
     /// <summary>Строки таблицы углов выбранной группы.</summary>
     public ObservableCollection<PointRow> PointRows { get; } = [];
+
+    /// <summary>Строки проверки исходных точек ForceSet.</summary>
+    public ObservableCollection<DemandCheckRow> DemandCheckRows { get; } = [];
+
+    /// <summary>Признак наличия проверяемых точек ForceSet.</summary>
+    public bool HasDemandChecks => DemandCheckRows.Count > 0;
 
     /// <summary>Диагностика расчёта.</summary>
     public IReadOnlyList<string> Diagnostics => Result.Diagnostics;
@@ -131,6 +183,19 @@ public sealed class OpenSeesSpatialInteractionResultVM : ViewModelBase
         string StatusText,
         string ArtifactDirectory);
 
+    /// <summary>Строка отчёта по проверке одной точки ForceSet.</summary>
+    public sealed record DemandCheckRow(
+        int Num,
+        string Label,
+        double AxialForceKn,
+        double MomentMxKnM,
+        double MomentMyKnM,
+        bool IsInside,
+        double? Utilization,
+        string Status,
+        string StatusText,
+        string Diagnostic);
+
     /// <summary>Создаёт VM из сохранённого CalcResult.</summary>
     public OpenSeesSpatialInteractionResultVM(CalcResult result)
     {
@@ -143,7 +208,16 @@ public sealed class OpenSeesSpatialInteractionResultVM : ViewModelBase
 
         try
         {
-            if (result.Status == "error")
+            SectionSpatialInteractionResult? parsed = JsonSerializer.Deserialize<SectionSpatialInteractionResult>(result.DataJson);
+            bool hasTypedResult = parsed is not null &&
+                (parsed.Points.Count > 0 ||
+                 parsed.Slices.Count > 0 ||
+                 parsed.DemandChecks.Count > 0 ||
+                 parsed.Diagnostics.Count > 0 ||
+                 parsed.EffectiveMinimumAxialForceN.HasValue ||
+                 parsed.EffectiveMaximumAxialForceN.HasValue);
+
+            if (result.Status == "error" && !hasTypedResult)
             {
                 Result = new SectionSpatialInteractionResult { Status = result.Status };
                 HasError = true;
@@ -151,7 +225,7 @@ public sealed class OpenSeesSpatialInteractionResultVM : ViewModelBase
             }
             else
             {
-                Result = JsonSerializer.Deserialize<SectionSpatialInteractionResult>(result.DataJson)
+                Result = parsed
                     ?? new SectionSpatialInteractionResult { Status = result.Status };
                 HasError = Result.Points.Count == 0;
                 ErrorText = HasError ? Loc.S("OpenSeesSpatialResultEmpty") : "";
@@ -181,6 +255,20 @@ public sealed class OpenSeesSpatialInteractionResultVM : ViewModelBase
         _selectedAxialForceN = _groups.FirstOrDefault()?.AxialForceN;
         _selectedAngle = CurrentGroup?.Angles.FirstOrDefault();
         RebuildPointRows();
+        foreach (SectionSpatialInteractionDemandCheck check in Result.DemandChecks)
+        {
+            DemandCheckRows.Add(new DemandCheckRow(
+                check.Num,
+                check.Label,
+                check.AxialForceN / 1000.0,
+                check.MomentMxNm / 1000.0,
+                check.MomentMyNm / 1000.0,
+                check.IsInside,
+                check.Utilization,
+                check.Status,
+                LocalizeCheckStatus(check.Status),
+                check.Diagnostic));
+        }
     }
 
     private ForceGroup? CurrentGroup => _groups.FirstOrDefault(
@@ -193,6 +281,13 @@ public sealed class OpenSeesSpatialInteractionResultVM : ViewModelBase
         OnPropertyChanged(nameof(AvailableAngles));
         OnPropertyChanged(nameof(SelectedAngle));
         OnPropertyChanged(nameof(SelectedPoint));
+        OnPropertyChanged(nameof(SelectedMomentMxKnM));
+        OnPropertyChanged(nameof(SelectedMomentMyKnM));
+        OnPropertyChanged(nameof(SelectedCurvatureMx));
+        OnPropertyChanged(nameof(SelectedCurvatureMy));
+        OnPropertyChanged(nameof(SelectedHistoryCount));
+        OnPropertyChanged(nameof(HasSelectedPoint));
+        OnPropertyChanged(nameof(SelectedStatusText));
         OnPropertyChanged(nameof(PolarMxKnM));
         OnPropertyChanged(nameof(PolarMyKnM));
         OnPropertyChanged(nameof(HistoryCurvatureMx));
@@ -240,6 +335,24 @@ public sealed class OpenSeesSpatialInteractionResultVM : ViewModelBase
             return json;
         }
     }
+
+    private static string LocalizeStatus(string? status) => status switch
+    {
+        "ok" => Loc.S("OpenSeesSpatialStatusOk"),
+        "not_converged" => Loc.S("OpenSeesSpatialStatusNotConverged"),
+        "error" => Loc.S("OpenSeesSpatialStatusError"),
+        _ => status ?? ""
+    };
+
+    private static string LocalizeCheckStatus(string? status) => status switch
+    {
+        "inside" => Loc.S("OpenSeesSpatialCheckInside"),
+        "outside" => Loc.S("OpenSeesSpatialCheckOutside"),
+        "outside_axial_range" => Loc.S("OpenSeesSpatialCheckOutsideRange"),
+        "not_converged" => Loc.S("OpenSeesSpatialCheckIndeterminate"),
+        "no_surface" => Loc.S("OpenSeesSpatialCheckNoSurface"),
+        _ => status ?? ""
+    };
 
     private sealed class ForceGroup(double axialForceN)
     {

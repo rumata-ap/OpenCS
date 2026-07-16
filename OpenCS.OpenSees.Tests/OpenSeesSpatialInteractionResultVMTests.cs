@@ -69,6 +69,61 @@ public sealed class OpenSeesSpatialInteractionResultVMTests
         Assert.Empty(empty.HistoryCurvatureMx);
     }
 
+    [Fact]
+    public void VM_exposes_report_summary_in_display_units()
+    {
+        OpenSeesSpatialInteractionResultVM vm = new(new CalcResult
+        {
+            Status = "ok",
+            DataJson = JsonSerializer.Serialize(CreateResult())
+        });
+
+        Assert.Equal(1, vm.SelectedMomentMxKnM);
+        Assert.Equal(1, vm.SelectedMomentMyKnM);
+        Assert.Equal(0.001, vm.SelectedCurvatureMx);
+        Assert.Equal(0.002, vm.SelectedCurvatureMy);
+        Assert.Equal(2, vm.SelectedHistoryCount);
+        Assert.True(vm.HasSelectedPoint);
+        Assert.Equal("OpenSeesSpatialStatusOk", vm.SelectedStatusText);
+    }
+
+    [Fact]
+    public void VM_exposes_geometry_kind_and_force_set_checks()
+    {
+        SectionSpatialInteractionResult result = new()
+        {
+            Status = "ok",
+            GeometryKind = "plane",
+            Points = CreateResult().Points,
+            DemandChecks =
+            [
+                new SectionSpatialInteractionDemandCheck
+                {
+                    Num = 7,
+                    Label = "LC-7",
+                    AxialForceN = 100_000,
+                    MomentMxNm = 12_000,
+                    MomentMyNm = -8_000,
+                    IsInside = true,
+                    Utilization = 0.75,
+                    Status = "inside"
+                }
+            ]
+        };
+
+        OpenSeesSpatialInteractionResultVM vm = new(new CalcResult
+        {
+            Status = "ok",
+            DataJson = JsonSerializer.Serialize(result)
+        });
+
+        Assert.Equal("OpenSeesSpatialGeometryPlane", vm.GeometryKindText);
+        Assert.Single(vm.DemandCheckRows);
+        Assert.Equal(12, vm.DemandCheckRows[0].MomentMxKnM);
+        Assert.Equal(0.75, vm.DemandCheckRows[0].Utilization);
+        Assert.Equal("OpenSeesSpatialCheckInside", vm.DemandCheckRows[0].StatusText);
+    }
+
     private static SectionSpatialInteractionResult CreateResult() => new()
     {
         Status = "ok",
