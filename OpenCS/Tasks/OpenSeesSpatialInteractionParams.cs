@@ -89,4 +89,7 @@ public sealed class OpenSeesSpatialInteractionParams
 
         return values;
     }
+
+    /// <summary>Сериализует параметры в стабильные имена JSON-полей задачи.</summary>
+    public string ToJson() => JsonSerializer.Serialize(this);
 }

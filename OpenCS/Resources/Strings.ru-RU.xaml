@@ -1545,4 +1545,19 @@
     <system:String x:Key="OpenSeesTaskCancelled">Расчёт OpenSees отменён.</system:String>
     <system:String x:Key="OpenSeesTaskErrorFormat">Ошибка OpenSees: {0}</system:String>
     <system:String x:Key="CalcTaskKind_opensees_section_interaction_nm">OpenSees: диаграмма N–M</system:String>
+    <system:String x:Key="CalcTaskKind_opensees_section_interaction_n_mx_my">OpenSees: пространственная диаграмма N–Mx–My</system:String>
+    <system:String x:Key="OpenSeesSpatialParamsHeader">Параметры пространственного расчёта</system:String>
+    <system:String x:Key="OpenSeesSpatialNPreview">N из выбранного набора, кН</system:String>
+    <system:String x:Key="OpenSeesSpatialNoN">Нет конечных значений N</system:String>
+    <system:String x:Key="OpenSeesSpatialAngleStep">Шаг угла, °</system:String>
+    <system:String x:Key="OpenSeesSpatialAngleStepHint">Шаг полного оборота от 0 до 360°; значение должно делить 360° без остатка.</system:String>
+    <system:String x:Key="OpenSeesSpatialMaxCurvature">Максимальная кривизна, 1/м</system:String>
+    <system:String x:Key="OpenSeesSpatialIncrements">Шагов по кривизне</system:String>
+    <system:String x:Key="OpenSeesSpatialTimeout">Таймаут, с</system:String>
+    <system:String x:Key="OpenSeesSpatialExecutablePath">Путь к OpenSees</system:String>
+    <system:String x:Key="OpenSeesSpatialExecutablePathHint">Оставьте пустым для поиска OpenSees.exe рядом с приложением.</system:String>
+    <system:String x:Key="OpenSeesSpatialPointCount">Всего запусков:</system:String>
+    <system:String x:Key="OpenSeesSpatialPointCountHint">Количество запусков: число уникальных N, умноженное на число углов полного оборота.</system:String>
+    <system:String x:Key="OpenSeesSpatialInvalidParams">Проверьте параметры пространственного расчёта: шаг угла должен делить 360°, а числовые значения быть положительными.</system:String>
+    <system:String x:Key="OpenSeesSpatialNeedForceSet">Выберите барный набор усилий с хотя бы одним конечным значением N.</system:String>
   </ResourceDictionary>

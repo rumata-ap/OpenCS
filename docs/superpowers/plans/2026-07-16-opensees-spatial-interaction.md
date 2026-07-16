@@ -305,19 +305,19 @@ git commit -m "feat(opensees): add spatial interaction task"
 
 **Files:** Modify `OpenCS/Views/CalcTaskPropsDialog.xaml.cs`, `OpenCS/Views/CalcTaskPropsDialog.xaml`; modify both resource dictionaries; extend `OpenCS.OpenSees.Tests/OpenSeesSpatialTaskContractTests.cs` where serialization can be tested without WPF.
 
-- [ ] **Step 1: Add view-model properties and preview tests.**
+- [x] **Step 1: Add view-model properties and preview tests.**
 
 Add `IsOpenSeesSpatialInteraction`, `OpenSeesAngleStepDegrees`, `OpenSeesMaxCurvature`, `OpenSeesIncrements`, `OpenSeesTimeoutSeconds`, `OpenSeesExecutablePath`, `OpenSeesForceSetNPreview`, and `OpenSeesSpatialPointCount`. The preview must derive from `SelectedForceSet.Items`, distinct N values in source order, and `360 / step`.
 
-- [ ] **Step 2: Load existing task values.**
+- [x] **Step 2: Load existing task values.**
 
 When `existing.Kind == "opensees_section_interaction_n_mx_my"`, select `existing.ForceSetId`, parse `OpenSeesSpatialInteractionParams`, and format numeric fields with invariant `G6`. Set `ForceItemId` to zero in the view model and notify all visibility/preview properties when kind or ForceSet changes.
 
-- [ ] **Step 3: Add the localized XAML panel.**
+- [x] **Step 3: Add the localized XAML panel.**
 
 Add one `StackPanel`/`GroupBox` controlled by `IsOpenSeesSpatialInteraction` with a bar `ForceSet` ComboBox, N preview, angle step, curvature, increments, timeout and executable path. Hide the ordinary `LoadItem` selector for this kind. Every `TextBlock`, `ToolTip`, header and unit uses a `DynamicResource` key present in both dictionaries.
 
-- [ ] **Step 4: Serialize on OK.**
+- [x] **Step 4: Serialize on OK.**
 
 Before creating `CalcTask`, require a selected section and bar ForceSet with at least one unique N. Parse all numeric fields, show localized warning and keep the dialog open on invalid values. Create:
 
@@ -340,13 +340,13 @@ new CalcTask
 }
 ```
 
-- [ ] **Step 5: Build the OpenCS project.**
+- [x] **Step 5: Build the OpenCS project.**
 
 Run: `dotnet build OpenCS/OpenCS.csproj --no-restore`
 
 Expected: successful build with no new XAML/resource errors.
 
-- [ ] **Step 6: Commit.**
+- [x] **Step 6: Commit.**
 
 ```powershell
 git add OpenCS/Views/CalcTaskPropsDialog.xaml OpenCS/Views/CalcTaskPropsDialog.xaml.cs OpenCS/Resources/Strings.ru-RU.xaml OpenCS/Resources/Strings.en-US.xaml

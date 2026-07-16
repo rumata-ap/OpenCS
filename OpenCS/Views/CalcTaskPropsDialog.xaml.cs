@@ -59,6 +59,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string manualN = "0";
     string manualMx = "0";
     string manualMy = "0";
+    string openSeesSpatialAngleStep = "45";
+    string openSeesSpatialMaxCurvature = "0.01";
+    string openSeesSpatialIncrements = "20";
+    string openSeesSpatialTimeoutSeconds = "300";
+    string openSeesSpatialExecutablePath = "";
     // Eta (п. 8.1.15 СП63.13330)
     bool etaEnabled, etaIterative;
     string etaL = "6.0", etaMuX = "1.0", etaMuY = "1.0", etaPsiX = "1.0", etaPsiY = "1.0";
@@ -220,8 +225,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(IsCracking));
          OnPropertyChanged(nameof(IsCrackingBatch));
          OnPropertyChanged(nameof(IsCrackWidth));
-         OnPropertyChanged(nameof(IsCrackWidthBatch));
-         OnPropertyChanged(nameof(IsCrackWidthAny));
+           OnPropertyChanged(nameof(IsCrackWidthBatch));
+           OnPropertyChanged(nameof(IsCrackWidthAny));
+           OnPropertyChanged(nameof(IsOpenSeesSpatialInteraction));
+           OnPropertyChanged(nameof(OpenSeesForceSetNPreview));
+           OnPropertyChanged(nameof(OpenSeesSpatialPointCount));
+            OnPropertyChanged(nameof(IsOpenSeesSpatialInteraction));
          OnPropertyChanged(nameof(CrackWidthForcesModeItems));
          if (CrackWidthForcesModeItems.TrueForAll(i => i.Id != CrackWidthForcesMode))
             CrackWidthForcesMode = "total_only";
@@ -271,6 +280,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsLimitBatch));
            OnPropertyChanged(nameof(IsLimitSingle));
            OnPropertyChanged(nameof(ShowForceItem));
+           OnPropertyChanged(nameof(ShowStandardForce));
            OnPropertyChanged(nameof(ShowManualForces));
            OnPropertyChanged(nameof(ShowSolverMethod));
            OnPropertyChanged(nameof(IsTwoStage));
@@ -298,6 +308,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsCrackWidth));
             OnPropertyChanged(nameof(IsCrackWidthBatch));
             OnPropertyChanged(nameof(IsCrackWidthAny));
+            OnPropertyChanged(nameof(IsOpenSeesSpatialInteraction));
+            OnPropertyChanged(nameof(OpenSeesForceSetNPreview));
+            OnPropertyChanged(nameof(OpenSeesSpatialPointCount));
             OnPropertyChanged(nameof(CrackWidthForcesModeItems));
             if (CrackWidthForcesModeItems.TrueForAll(i => i.Id != CrackWidthForcesMode))
                CrackWidthForcesMode = "total_only";
@@ -359,12 +372,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsCrackWidth      => Kind == "crack_width";
    public bool IsCrackWidthBatch => Kind == "crack_width_batch";
    public bool IsCrackWidthAny   => IsCrackWidth || IsCrackWidthBatch;
+   public bool IsOpenSeesSpatialInteraction => Kind == "opensees_section_interaction_n_mx_my";
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
+      && !IsOpenSeesSpatialInteraction
       && !IsCrackingBatch && !IsCrackWidthBatch;
    public bool ShowSolverMethod => IsLimitKind;
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
-   public bool ShowStandardForce => !IsTwoStage && !IsPlatePanel && !IsPrestressLoss;
+   public bool ShowStandardForce => !IsTwoStage && !IsPlatePanel && !IsPrestressLoss && !IsOpenSeesSpatialInteraction;
 
    void FilterSections()
    {
@@ -571,7 +586,89 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          ForceItemFilter = "";
          SelectedForceItem = ForceItems.FirstOrDefault();
          OnPropertyChanged();
+         OnPropertyChanged(nameof(OpenSeesForceSetNPreview));
+         OnPropertyChanged(nameof(OpenSeesSpatialPointCount));
          NotifyTorsionForceProps();
+      }
+   }
+
+   public string OpenSeesAngleStepDegrees
+   {
+      get => openSeesSpatialAngleStep;
+      set { openSeesSpatialAngleStep = value; OnPropertyChanged(); OnPropertyChanged(nameof(OpenSeesSpatialPointCount)); }
+   }
+
+   public string OpenSeesMaxCurvature
+   {
+      get => openSeesSpatialMaxCurvature;
+      set { openSeesSpatialMaxCurvature = value; OnPropertyChanged(); }
+   }
+
+   public string OpenSeesIncrements
+   {
+      get => openSeesSpatialIncrements;
+      set { openSeesSpatialIncrements = value; OnPropertyChanged(); }
+   }
+
+   public string OpenSeesTimeoutSeconds
+   {
+      get => openSeesSpatialTimeoutSeconds;
+      set { openSeesSpatialTimeoutSeconds = value; OnPropertyChanged(); }
+   }
+
+   public string OpenSeesExecutablePath
+   {
+      get => openSeesSpatialExecutablePath;
+      set { openSeesSpatialExecutablePath = value; OnPropertyChanged(); }
+   }
+
+   public string OpenSeesForceSetNPreview
+   {
+      get
+      {
+         if (SelectedForceSet == null)
+            return Loc.S("OpenSeesSpatialNoN");
+
+         try
+         {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            return string.Join(", ", OpenSeesSpatialInteractionParams
+               .ExtractAxialForcesKn(SelectedForceSet)
+               .Select(value => value.ToString("G6", inv)));
+         }
+         catch (ArgumentException)
+         {
+            return Loc.S("OpenSeesSpatialNoN");
+         }
+      }
+   }
+
+   public int OpenSeesSpatialPointCount
+   {
+      get
+      {
+         if (SelectedForceSet == null ||
+             !double.TryParse((OpenSeesAngleStepDegrees ?? "").Trim().Replace(',', '.'),
+                 System.Globalization.NumberStyles.Float,
+                 System.Globalization.CultureInfo.InvariantCulture,
+                 out double step) ||
+             !double.IsFinite(step) || step <= 0)
+            return 0;
+
+         double angleCount = 360.0 / step;
+         double rounded = Math.Round(angleCount);
+         if (rounded < 1 || Math.Abs(angleCount - rounded) > 1e-9 * Math.Max(1, Math.Abs(angleCount)))
+            return 0;
+
+         try
+         {
+            return checked(OpenSeesSpatialInteractionParams.ExtractAxialForcesKn(SelectedForceSet).Count
+                * (int)rounded);
+         }
+         catch (ArgumentException)
+         {
+            return 0;
+         }
       }
    }
 
@@ -824,6 +921,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "prestress_loss",           Label = Loc.S("CalcTaskKind_prestress_loss"),           GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "opensees_section_moment_curvature", Label = Loc.S("CalcTaskKind_opensees_section_moment_curvature"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "opensees_section_interaction_nm", Label = Loc.S("CalcTaskKind_opensees_section_interaction_nm"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
+      new() { Id = "opensees_section_interaction_n_mx_my", Label = Loc.S("CalcTaskKind_opensees_section_interaction_n_mx_my"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
    ];
 
    public ListCollectionView AvailableKindsView { get; }
@@ -900,6 +998,19 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          SelectedForceSet = ForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
          SelectedForceItem = ForceItems.FirstOrDefault(fi => fi.Id == existing.ForceItemId);
          SelectedCalcType = existing.CalcType;
+
+         if (existing.Kind == "opensees_section_interaction_n_mx_my")
+         {
+            var spatial = OpenSeesSpatialInteractionParams.Parse(existing.ParamsJson);
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            OpenSeesAngleStepDegrees = spatial.AngleStepDegrees.ToString("G6", inv);
+            OpenSeesMaxCurvature = spatial.MaxCurvature.ToString("G6", inv);
+            OpenSeesIncrements = spatial.Increments.ToString(inv);
+            OpenSeesTimeoutSeconds = spatial.TimeoutSeconds.ToString(inv);
+            OpenSeesExecutablePath = spatial.ExecutablePath ?? "";
+            SelectedForceSet = ForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
+            SelectedForceItem = null;
+         }
 
          var p = FireRCheckParams.Parse(existing.ParamsJson);
          if (p.FireSectionId > 0)
@@ -1202,6 +1313,72 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    void Commit()
    {
+      if (IsOpenSeesSpatialInteraction)
+      {
+         if (SelectedSection == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         if (SelectedForceSet == null)
+         {
+            MessageBox.Show(Loc.S("OpenSeesSpatialNeedForceSet"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         var inv = System.Globalization.CultureInfo.InvariantCulture;
+         string ParseNumberText(string value) => (value ?? "").Trim().Replace(',', '.');
+         if (!double.TryParse(ParseNumberText(OpenSeesAngleStepDegrees),
+                 System.Globalization.NumberStyles.Float, inv, out double angleStep) ||
+             !double.TryParse(ParseNumberText(OpenSeesMaxCurvature),
+                 System.Globalization.NumberStyles.Float, inv, out double maxCurvature) ||
+             !int.TryParse((OpenSeesIncrements ?? "").Trim(), out int increments) ||
+             !int.TryParse((OpenSeesTimeoutSeconds ?? "").Trim(), out int timeoutSeconds))
+         {
+            MessageBox.Show(Loc.S("OpenSeesSpatialInvalidParams"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         try
+         {
+            _ = OpenSeesSpatialInteractionParams.ExtractAxialForcesKn(SelectedForceSet);
+            OpenSeesSpatialInteractionParams parameters = new()
+            {
+               AngleStepDegrees = angleStep,
+               MaxCurvature = maxCurvature,
+               Increments = increments,
+               TimeoutSeconds = timeoutSeconds,
+               ExecutablePath = string.IsNullOrWhiteSpace(OpenSeesExecutablePath)
+                  ? null
+                  : OpenSeesExecutablePath.Trim()
+            };
+            OpenSeesSpatialInteractionParams validated =
+               OpenSeesSpatialInteractionParams.Parse(parameters.ToJson());
+
+            Result = new CalcTask
+            {
+               Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+               Kind = Kind,
+               SectionId = SelectedSection.Id,
+               ForceSetId = SelectedForceSet.Id,
+               ForceItemId = 0,
+               CalcType = SelectedCalcType,
+               ParamsJson = validated.ToJson()
+            };
+            _window.DialogResult = true;
+         }
+         catch (ArgumentException)
+         {
+            MessageBox.Show(Loc.S("OpenSeesSpatialInvalidParams"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+         }
+         return;
+      }
+
       if (IsTwoStage)
       {
          if (SelectedSection == null)

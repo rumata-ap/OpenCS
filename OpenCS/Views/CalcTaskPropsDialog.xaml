@@ -150,6 +150,70 @@
                    DisplayMemberPath="Label"/>
       </StackPanel>
 
+      <StackPanel Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsOpenSeesSpatialInteraction, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource OpenSeesSpatialParamsHeader}" Margin="0,8,0,0">
+            <Grid Margin="4">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="170"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+               </Grid.RowDefinitions>
+
+               <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CalcTaskForceSet}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding ForceSets}"
+                         SelectedItem="{Binding SelectedForceSet}" DisplayMemberPath="Tag"
+                         Margin="0,0,0,4"/>
+
+               <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialNPreview}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding OpenSeesForceSetNPreview}"
+                          Margin="0,0,0,4" TextWrapping="Wrap"/>
+
+               <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialAngleStep}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"
+                          ToolTip="{DynamicResource OpenSeesSpatialAngleStepHint}"/>
+               <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding OpenSeesAngleStepDegrees, UpdateSourceTrigger=PropertyChanged}"
+                        Margin="0,0,0,4" ToolTip="{DynamicResource OpenSeesSpatialAngleStepHint}"/>
+
+               <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialMaxCurvature}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding OpenSeesMaxCurvature, UpdateSourceTrigger=PropertyChanged}"
+                        Margin="0,0,0,4"/>
+
+               <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialIncrements}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding OpenSeesIncrements, UpdateSourceTrigger=PropertyChanged}"
+                        Margin="0,0,0,4"/>
+
+               <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialTimeout}"
+                          VerticalAlignment="Center" Margin="0,0,4,4"/>
+               <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding OpenSeesTimeoutSeconds, UpdateSourceTrigger=PropertyChanged}"
+                        Margin="0,0,0,4"/>
+
+               <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialExecutablePath}"
+                          VerticalAlignment="Center" Margin="0,0,4,0"
+                          ToolTip="{DynamicResource OpenSeesSpatialExecutablePathHint}"/>
+               <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding OpenSeesExecutablePath, UpdateSourceTrigger=PropertyChanged}"
+                        ToolTip="{DynamicResource OpenSeesSpatialExecutablePathHint}"/>
+            </Grid>
+         </GroupBox>
+         <StackPanel Orientation="Horizontal" Margin="4,4,0,0"
+                     ToolTip="{DynamicResource OpenSeesSpatialPointCountHint}">
+            <TextBlock Text="{DynamicResource OpenSeesSpatialPointCount}"/>
+            <TextBlock Text="{Binding OpenSeesSpatialPointCount, StringFormat={}{0}}" Margin="4,0,0,0"/>
+         </StackPanel>
+      </StackPanel>
+
       <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
                  Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>

@@ -71,4 +71,22 @@ public sealed class OpenSeesSpatialTaskContractTests
         Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.ExtractAxialForcesKn(
             new ForceSet { Kind = "bar", Items = [new LoadItem { N = double.NaN }] }));
     }
+
+    [Fact]
+    public void ParamsJson_serialization_contains_only_spatial_analysis_fields()
+    {
+        string json = new OpenSeesSpatialInteractionParams
+        {
+            AngleStepDegrees = 90,
+            MaxCurvature = 0.02,
+            Increments = 40,
+            TimeoutSeconds = 90,
+            ExecutablePath = "C:/OpenSees.exe"
+        }.ToJson();
+
+        Assert.Contains("\"angleStepDegrees\":90", json);
+        Assert.Contains("\"maxCurvature\":0.02", json);
+        Assert.DoesNotContain("axialForces", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("forceSet", json, StringComparison.OrdinalIgnoreCase);
+    }
 }
