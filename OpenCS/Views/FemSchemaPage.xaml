@@ -37,6 +37,8 @@
             <DockPanel Margin="16">
                 <ToolBar DockPanel.Dock="Top">
                     <ToggleButton Content="{DynamicResource FemCreateBarMode}" IsChecked="{Binding CreateBarMode}"/>
+                    <Separator/>
+                    <Button Content="{DynamicResource FemCreateMemberFromSelection}" Click="CreateMember_Click"/>
                 </ToolBar>
                 <DataGrid ItemsSource="{Binding Elements}" AutoGenerateColumns="False" IsReadOnly="True"
                           SelectionMode="Extended" x:Name="barsGrid">
@@ -89,20 +91,27 @@
 
                 <TextBlock Grid.Row="2" Text="{DynamicResource FemMembers}"
                            FontWeight="Bold" Margin="0,8,0,4"/>
-                <DataGrid Grid.Row="3" ItemsSource="{Binding Members}"
-                          SelectedItem="{Binding SelectedMember}"
-                          AutoGenerateColumns="False" IsReadOnly="True">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="{DynamicResource Tag}"
-                                            Binding="{Binding Tag}" Width="120"/>
-                        <DataGridTextColumn Header="{DynamicResource FemMemberType}"
-                                            Binding="{Binding MemberType}" Width="120"/>
-                        <DataGridTextColumn Header="CrossSectionId"
-                                            Binding="{Binding CrossSectionId}" Width="120"/>
-                        <DataGridTextColumn Header="ForceSetId"
-                                            Binding="{Binding ForceSetId}" Width="*"/>
-                    </DataGrid.Columns>
-                </DataGrid>
+                <Grid Grid.Row="3">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="260"/>
+                    </Grid.ColumnDefinitions>
+                    <DataGrid Grid.Column="0" ItemsSource="{Binding Members}"
+                              SelectedItem="{Binding SelectedMember}"
+                              AutoGenerateColumns="False" IsReadOnly="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource Tag}"
+                                                Binding="{Binding Tag}" Width="120"/>
+                            <DataGridTextColumn Header="{DynamicResource FemMemberType}"
+                                                Binding="{Binding MemberType}" Width="120"/>
+                            <DataGridTextColumn Header="CrossSectionId"
+                                                Binding="{Binding CrossSectionId}" Width="120"/>
+                            <DataGridTextColumn Header="ForceSetId"
+                                                Binding="{Binding ForceSetId}" Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <local:FemMemberPropertiesPanel Grid.Column="1" DataContext="{Binding}"/>
+                </Grid>
             </Grid>
         </TabItem>
     </TabControl>

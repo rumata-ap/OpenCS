@@ -1389,6 +1389,11 @@
     <system:String x:Key="FemUndo">Undo</system:String>
     <system:String x:Key="FemRedo">Redo</system:String>
     <system:String x:Key="FemSaveSchema">Save schema</system:String>
+    <system:String x:Key="FemMemberSection">Cross-section</system:String>
+    <system:String x:Key="FemMemberGjStrategy">Torsional stiffness (GJ)</system:String>
+    <system:String x:Key="FemGjManual">Manual</system:String>
+    <system:String x:Key="FemGjSaintVenant">From torsion task (Saint-Venant)</system:String>
+    <system:String x:Key="FemCreateMemberFromSelection">Create member from selection</system:String>
     <system:String x:Key="CalcTaskKind_torsion_bem">Torsion (Saint-Venant, BEM)</system:String>
     <system:String x:Key="CalcTaskKind_torsion_fem">Torsion (Saint-Venant, FEM)</system:String>
     <system:String x:Key="TorsionTitle">Saint-Venant torsion constant</system:String>

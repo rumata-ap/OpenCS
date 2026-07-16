@@ -1,0 +1,24 @@
+<UserControl x:Class="OpenCS.Views.FemMemberPropertiesPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Margin="8">
+        <TextBlock Text="{Binding SelectedMember.Tag}" FontWeight="Bold" Margin="0,0,0,8"/>
+
+        <TextBlock Text="{DynamicResource FemMemberSection}"/>
+        <ComboBox ItemsSource="{Binding CrossSections}"
+                  SelectedItem="{Binding SelectedMemberCrossSection}"
+                  DisplayMemberPath="Tag" Margin="0,0,0,12"/>
+
+        <TextBlock Text="{DynamicResource FemMemberGjStrategy}" FontWeight="Bold" Margin="0,0,0,4"/>
+        <RadioButton GroupName="gj" Content="{DynamicResource FemGjManual}"
+                     IsChecked="{Binding SelectedMemberGjIsManual}"/>
+        <TextBox Text="{Binding SelectedMemberGjManualValue, UpdateSourceTrigger=LostFocus}"
+                 Margin="16,2,0,8"/>
+
+        <RadioButton GroupName="gj" Content="{DynamicResource FemGjSaintVenant}"
+                     IsChecked="{Binding SelectedMemberGjIsSaintVenant}"/>
+        <ComboBox ItemsSource="{Binding SelectedMemberTorsionTasks}"
+                  SelectedItem="{Binding SelectedMemberTorsionTask}"
+                  DisplayMemberPath="Tag" Margin="16,2,0,0"/>
+    </StackPanel>
+</UserControl>
