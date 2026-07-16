@@ -55,4 +55,39 @@ public sealed class FemSchemaEditPersistenceTests
             if (File.Exists(path)) File.Delete(path);
         }
     }
+
+    [Fact]
+    public void SaveFemSchemaEdit_PersistsSameMemberAcrossRepeatedSaves()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-fem-edit-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var db = new DatabaseService(path);
+            var schema = new FemSchema { Tag = "Edit", SourceType = "internal" };
+            db.SaveFemSchema(schema);
+
+            var node = new FemNode { NodeTag = "1", X = 0 };
+            var member = new FemMember { Tag = "M1", ElemIdsJson = "[]" };
+
+            // Первое сохранение назначает member.Id из БД (как SaveFemMemberCore при Id==0).
+            db.SaveFemSchemaEdit(schema.Id, [node], [], [member], [], []);
+            Assert.NotEqual(0, member.Id);
+            db.LoadAll();
+            Assert.Single(db.FemSchemas.Single(s => s.Id == schema.Id).Members);
+
+            // Второе сохранение того же member (Id уже не 0) не должно потерять запись: fem_members
+            // полностью пересоздаётся, значит SaveFemMemberCore обязан вставить строку заново,
+            // а не выполнить UPDATE по уже удалённому id.
+            db.SaveFemSchemaEdit(schema.Id, db.GetFemNodes(schema.Id), [], [member], [], []);
+
+            db.LoadAll();
+            var members = db.FemSchemas.Single(s => s.Id == schema.Id).Members;
+            Assert.Single(members);
+            Assert.Equal("M1", members.Single().Tag);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
 }

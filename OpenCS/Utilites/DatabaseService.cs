@@ -3060,7 +3060,13 @@ namespace OpenCS.Utilites
 
             var schema = FemSchemas.FirstOrDefault(s => s.Id == schemaId);
             foreach (var m in members)
+            {
+               // fem_members для схемы уже полностью удалены выше — старый m.Id (если он остался
+               // от предыдущего сохранения) указывал бы на строку, которой больше нет, и
+               // SaveFemMemberCore молча выполнил бы UPDATE по несуществующему id.
+               m.Id = 0;
                SaveFemMemberCore(m, schemaId);
+            }
 
             if (schema != null)
             {
@@ -3164,7 +3170,13 @@ namespace OpenCS.Utilites
             }
 
             foreach (var m in members)
+            {
+               // fem_members для схемы уже полностью удалены выше — старый m.Id (если он остался
+               // от предыдущего сохранения) указывал бы на строку, которой больше нет, и
+               // SaveFemMemberCore молча выполнил бы UPDATE по несуществующему id.
+               m.Id = 0;
                SaveFemMemberCore(m, schemaId);
+            }
 
             var newLoadCaseIdByOld = new Dictionary<int, int>();
             using (var lcCmd = _connection.CreateCommand())
