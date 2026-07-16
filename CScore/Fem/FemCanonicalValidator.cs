@@ -23,9 +23,11 @@ public static class FemCanonicalValidator
         ArgumentNullException.ThrowIfNull(nodes);
         ArgumentNullException.ThrowIfNull(loads);
 
+        // Id=0 обозначает ещё не сохранённый объект (см. FemSchemaEditSession): несколько таких
+        // объектов одновременно — законное состояние сессии редактирования, а не дубликат.
         var errors = new List<FemValidationDiagnostic>();
-        var caseById = BuildUniqueIndex(loadCases, "load_case_id_duplicate", errors);
-        var nodeById = BuildUniqueIndex(nodes, "node_id_duplicate", errors);
+        var caseById = BuildUniqueIndex(loadCases, "load_case_id_duplicate", errors, skipZero: true);
+        var nodeById = BuildUniqueIndex(nodes, "node_id_duplicate", errors, skipZero: true);
         BuildUniqueIndex(loads, "node_load_id_duplicate", errors, skipZero: true);
 
         foreach (var loadCase in loadCases)

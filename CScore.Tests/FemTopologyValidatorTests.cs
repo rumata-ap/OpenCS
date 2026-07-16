@@ -84,6 +84,26 @@ public sealed class FemTopologyValidatorTests
     }
 
     [Fact]
+    public void Validate_DoesNotFlagMultipleUnsavedNodesOrElementsAsDuplicateId()
+    {
+        var schema = new FemSchema { Id = 1 };
+        var nodes = new[]
+        {
+            new FemNode { Id = 0, SchemaId = 1, NodeTag = "1" },
+            new FemNode { Id = 0, SchemaId = 1, NodeTag = "2" }
+        };
+        var elements = new[]
+        {
+            new FemElement { Id = 0, SchemaId = 1, ElemTag = "1", NodeIdsJson = "[1,2]" },
+            new FemElement { Id = 0, SchemaId = 1, ElemTag = "2", NodeIdsJson = "[2,1]" }
+        };
+
+        var errors = FemTopologyValidator.Validate(schema, nodes, elements, []);
+
+        Assert.DoesNotContain(errors, e => e.Code is "node_id_duplicate" or "element_id_duplicate");
+    }
+
+    [Fact]
     public void NextNodeTag_ReturnsMaxPlusOne()
     {
         var nodes = new[]

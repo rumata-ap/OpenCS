@@ -30,6 +30,24 @@ public sealed class FemCanonicalValidatorTests
     }
 
     [Fact]
+    public void Validator_DoesNotFlagMultipleUnsavedNodesOrLoadCasesAsDuplicateId()
+    {
+        var errors = FemCanonicalValidator.Validate(
+            new FemSchema { Id = 1 },
+            [
+                new FemLoadCase { Id = 0, SchemaId = 1, Tag = "G", Sp20Type = "permanent" },
+                new FemLoadCase { Id = 0, SchemaId = 1, Tag = "Q", Sp20Type = "short_term" }
+            ],
+            [
+                new FemNode { Id = 0, SchemaId = 1 },
+                new FemNode { Id = 0, SchemaId = 1 }
+            ],
+            []);
+
+        Assert.DoesNotContain(errors, e => e.Code is "load_case_id_duplicate" or "node_id_duplicate");
+    }
+
+    [Fact]
     public void Validator_RejectsNonFiniteLoadsAndDuplicateTags()
     {
         var errors = FemCanonicalValidator.Validate(

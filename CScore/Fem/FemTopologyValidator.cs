@@ -23,11 +23,13 @@ public static class FemTopologyValidator
 
         // NodeIdsJson/ElemIdsJson хранят NodeTag/ElemTag узлов и элементов как числа
         // (соглашение всей кодовой базы — см. Fem3DVM.GetBarPoints, FemMember.ElemIdsJson
-        // в режиме _memberOnly), а не БД-Id: у ещё не сохранённых объектов Id всегда 0.
+        // в режиме _memberOnly), а не БД-Id: у ещё не сохранённых объектов Id всегда 0,
+        // поэтому 0 не считается дублирующимся идентификатором — это законное состояние
+        // нескольких узлов/элементов одновременно до сохранения схемы.
         var errors = new List<FemValidationDiagnostic>();
         var nodeById = new Dictionary<int, FemNode>();
         foreach (var node in nodes)
-            if (!nodeById.TryAdd(node.Id, node))
+            if (node.Id != 0 && !nodeById.TryAdd(node.Id, node))
                 errors.Add(new("node_id_duplicate", $"Идентификатор узла {node.Id} повторяется."));
 
         var nodeTagSet = new HashSet<string>(StringComparer.Ordinal);
@@ -41,7 +43,7 @@ public static class FemTopologyValidator
         var elemById = new Dictionary<int, FemElement>();
         foreach (var element in elements)
         {
-            if (!elemById.TryAdd(element.Id, element))
+            if (element.Id != 0 && !elemById.TryAdd(element.Id, element))
                 errors.Add(new("element_id_duplicate", $"Идентификатор элемента {element.Id} повторяется."));
 
             var ids = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson) ?? [];
