@@ -14,4 +14,10 @@ public class FemSchema
 
     /// <summary>Конструктивные элементы схемы. Заполняются при загрузке из БД.</summary>
     public ObservableCollection<FemMember> Members { get; } = [];
+
+    /// <summary>Загружения схемы.</summary>
+    public ObservableCollection<FemLoadCase> LoadCases { get; } = [];
+
+    /// <summary>Постановки расчёта схемы.</summary>
+    public ObservableCollection<FemAnalysis> Analyses { get; } = [];
 }
