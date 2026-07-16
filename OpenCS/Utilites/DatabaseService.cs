@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-       const int CurrentSchemaVersion = 27;
+       const int CurrentSchemaVersion = 28;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -365,7 +365,36 @@ namespace OpenCS.Utilites
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
                 tag       TEXT NOT NULL DEFAULT '',
-                load_type TEXT
+                load_type TEXT,
+                sp20_type TEXT NOT NULL DEFAULT 'short_term',
+                sp20_group TEXT,
+                gamma_f_unfav REAL,
+                gamma_f_fav REAL,
+                psi1 REAL,
+                psi2 REAL
+            );
+            CREATE TABLE IF NOT EXISTS fem_node_loads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                load_case_id INTEGER NOT NULL REFERENCES fem_load_cases(id) ON DELETE CASCADE,
+                node_id INTEGER NOT NULL REFERENCES fem_nodes(id) ON DELETE CASCADE,
+                fx REAL NOT NULL DEFAULT 0,
+                fy REAL NOT NULL DEFAULT 0,
+                fz REAL NOT NULL DEFAULT 0,
+                mx REAL NOT NULL DEFAULT 0,
+                my REAL NOT NULL DEFAULT 0,
+                mz REAL NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS fem_analyses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                tag TEXT NOT NULL DEFAULT '',
+                kind TEXT NOT NULL DEFAULT 'linear',
+                load_expression_json TEXT NOT NULL DEFAULT '{}',
+                params_json TEXT NOT NULL DEFAULT '{}',
+                status TEXT NOT NULL DEFAULT 'created',
+                result_id INTEGER REFERENCES calc_results(id),
+                created TEXT NOT NULL DEFAULT ''
             );
             CREATE TABLE IF NOT EXISTS fem_checks (
                 id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -420,6 +449,7 @@ namespace OpenCS.Utilites
                if (i == 24) { MigrateV25(); continue; }
                if (i == 25) { MigrateV26(); continue; }
                if (i == 26) { MigrateV27(); continue; }
+               if (i == 27) { MigrateV28(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -539,6 +569,49 @@ namespace OpenCS.Utilites
             WHERE kind = 'shell'
               AND EXISTS     (SELECT 1 FROM force_items       WHERE set_id = force_sets.id)
               AND NOT EXISTS (SELECT 1 FROM force_shell_items WHERE set_id = force_sets.id)
+         """);
+      }
+
+      /// <summary>Миграция v28: канонические узловые нагрузки, постановки и метаданные СП20.</summary>
+      void MigrateV28()
+      {
+         if (!ColumnExists("fem_load_cases", "sp20_type"))
+            MigExec("ALTER TABLE fem_load_cases ADD COLUMN sp20_type TEXT NOT NULL DEFAULT 'short_term'");
+         if (!ColumnExists("fem_load_cases", "sp20_group"))
+            MigExec("ALTER TABLE fem_load_cases ADD COLUMN sp20_group TEXT");
+         if (!ColumnExists("fem_load_cases", "gamma_f_unfav"))
+            MigExec("ALTER TABLE fem_load_cases ADD COLUMN gamma_f_unfav REAL");
+         if (!ColumnExists("fem_load_cases", "gamma_f_fav"))
+            MigExec("ALTER TABLE fem_load_cases ADD COLUMN gamma_f_fav REAL");
+         if (!ColumnExists("fem_load_cases", "psi1"))
+            MigExec("ALTER TABLE fem_load_cases ADD COLUMN psi1 REAL");
+         if (!ColumnExists("fem_load_cases", "psi2"))
+            MigExec("ALTER TABLE fem_load_cases ADD COLUMN psi2 REAL");
+
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS fem_node_loads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                load_case_id INTEGER NOT NULL REFERENCES fem_load_cases(id) ON DELETE CASCADE,
+                node_id INTEGER NOT NULL REFERENCES fem_nodes(id) ON DELETE CASCADE,
+                fx REAL NOT NULL DEFAULT 0,
+                fy REAL NOT NULL DEFAULT 0,
+                fz REAL NOT NULL DEFAULT 0,
+                mx REAL NOT NULL DEFAULT 0,
+                my REAL NOT NULL DEFAULT 0,
+                mz REAL NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS fem_analyses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                tag TEXT NOT NULL DEFAULT '',
+                kind TEXT NOT NULL DEFAULT 'linear',
+                load_expression_json TEXT NOT NULL DEFAULT '{}',
+                params_json TEXT NOT NULL DEFAULT '{}',
+                status TEXT NOT NULL DEFAULT 'created',
+                result_id INTEGER REFERENCES calc_results(id),
+                created TEXT NOT NULL DEFAULT ''
+            )
          """);
       }
 
@@ -2432,6 +2505,59 @@ namespace OpenCS.Utilites
                });
             }
          }
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               SELECT id, schema_id, tag, load_type, sp20_type, sp20_group,
+                      gamma_f_unfav, gamma_f_fav, psi1, psi2
+               FROM fem_load_cases ORDER BY schema_id, id
+            """;
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               int sid = r.GetInt32(1);
+               if (!schemas.TryGetValue(sid, out var schema)) continue;
+               schema.LoadCases.Add(new CScore.Fem.FemLoadCase
+               {
+                  Id          = r.GetInt32(0),
+                  SchemaId    = sid,
+                  Tag         = r.GetString(2),
+                  LoadType    = r.IsDBNull(3) ? null : r.GetString(3),
+                  Sp20Type    = r.IsDBNull(4) ? "short_term" : r.GetString(4),
+                  Sp20Group   = r.IsDBNull(5) ? null : r.GetString(5),
+                  GammaFUnfav = r.IsDBNull(6) ? null : r.GetDouble(6),
+                  GammaFFav   = r.IsDBNull(7) ? null : r.GetDouble(7),
+                  Psi1        = r.IsDBNull(8) ? null : r.GetDouble(8),
+                  Psi2        = r.IsDBNull(9) ? null : r.GetDouble(9)
+               });
+            }
+         }
+         using (var cmd = _connection.CreateCommand())
+         {
+            cmd.CommandText = """
+               SELECT id, schema_id, tag, kind, load_expression_json, params_json,
+                      status, result_id, created
+               FROM fem_analyses ORDER BY schema_id, id
+            """;
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+               int sid = r.GetInt32(1);
+               if (!schemas.TryGetValue(sid, out var schema)) continue;
+               schema.Analyses.Add(new CScore.Fem.FemAnalysis
+               {
+                  Id                  = r.GetInt32(0),
+                  SchemaId            = sid,
+                  Tag                 = r.GetString(2),
+                  Kind                = r.GetString(3),
+                  LoadExpressionJson  = r.GetString(4),
+                  ParamsJson          = r.GetString(5),
+                  Status              = r.GetString(6),
+                  ResultId            = r.IsDBNull(7) ? null : r.GetInt32(7),
+                  Created             = r.GetString(8)
+               });
+            }
+         }
          foreach (var s in schemas.Values) FemSchemas.Add(s);
       }
 
@@ -2510,6 +2636,299 @@ namespace OpenCS.Utilites
          FemSchemas.Remove(schema);
       }
 
+      public List<CScore.Fem.FemLoadCase> GetFemLoadCases(int schemaId)
+      {
+         var result = new List<CScore.Fem.FemLoadCase>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, tag, load_type, sp20_type, sp20_group,
+                   gamma_f_unfav, gamma_f_fav, psi1, psi2
+            FROM fem_load_cases WHERE schema_id=@sid ORDER BY id
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+            result.Add(new CScore.Fem.FemLoadCase
+            {
+               Id          = r.GetInt32(0),
+               SchemaId    = schemaId,
+               Tag         = r.GetString(1),
+               LoadType    = r.IsDBNull(2) ? null : r.GetString(2),
+               Sp20Type    = r.IsDBNull(3) ? "short_term" : r.GetString(3),
+               Sp20Group   = r.IsDBNull(4) ? null : r.GetString(4),
+               GammaFUnfav = r.IsDBNull(5) ? null : r.GetDouble(5),
+               GammaFFav   = r.IsDBNull(6) ? null : r.GetDouble(6),
+               Psi1        = r.IsDBNull(7) ? null : r.GetDouble(7),
+               Psi2        = r.IsDBNull(8) ? null : r.GetDouble(8)
+            });
+         return result;
+      }
+
+      public void SaveFemLoadCase(CScore.Fem.FemLoadCase loadCase)
+      {
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            if (loadCase.Id == 0)
+            {
+               cmd.CommandText = """
+                  INSERT INTO fem_load_cases
+                     (schema_id, tag, load_type, sp20_type, sp20_group,
+                      gamma_f_unfav, gamma_f_fav, psi1, psi2)
+                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2);
+                  SELECT last_insert_rowid();
+               """;
+               AddFemLoadCaseParameters(cmd, loadCase);
+               loadCase.Id = (int)(long)cmd.ExecuteScalar()!;
+            }
+            else
+            {
+               cmd.CommandText = """
+                  UPDATE fem_load_cases SET tag=@tag, load_type=@lt, sp20_type=@st,
+                     sp20_group=@sg, gamma_f_unfav=@gu, gamma_f_fav=@gf,
+                     psi1=@p1, psi2=@p2 WHERE id=@id AND schema_id=@sid
+               """;
+               AddFemLoadCaseParameters(cmd, loadCase);
+               cmd.Parameters.AddWithValue("@id", loadCase.Id);
+               cmd.ExecuteNonQuery();
+            }
+
+            var schema = FemSchemas.FirstOrDefault(s => s.Id == loadCase.SchemaId);
+            if (schema != null && !schema.LoadCases.Contains(loadCase))
+               schema.LoadCases.Add(loadCase);
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      public void DeleteFemLoadCase(CScore.Fem.FemLoadCase loadCase)
+      {
+         if (loadCase.Id == 0) return;
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = "DELETE FROM fem_node_loads WHERE load_case_id=@id; DELETE FROM fem_load_cases WHERE id=@id";
+            cmd.Parameters.AddWithValue("@id", loadCase.Id);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+            FemSchemas.FirstOrDefault(s => s.Id == loadCase.SchemaId)?.LoadCases.Remove(loadCase);
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      static void AddFemLoadCaseParameters(SqliteCommand cmd, CScore.Fem.FemLoadCase loadCase)
+      {
+         cmd.Parameters.AddWithValue("@sid", loadCase.SchemaId);
+         cmd.Parameters.AddWithValue("@tag", loadCase.Tag);
+         cmd.Parameters.AddWithValue("@lt", (object?)loadCase.LoadType ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@st", loadCase.Sp20Type);
+         cmd.Parameters.AddWithValue("@sg", (object?)loadCase.Sp20Group ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@gu", (object?)loadCase.GammaFUnfav ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@gf", (object?)loadCase.GammaFFav ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@p1", (object?)loadCase.Psi1 ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@p2", (object?)loadCase.Psi2 ?? DBNull.Value);
+      }
+
+      public List<CScore.Fem.FemNodeLoad> GetFemNodeLoads(int schemaId, int? loadCaseId = null)
+      {
+         var result = new List<CScore.Fem.FemNodeLoad>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, load_case_id, node_id, fx, fy, fz, mx, my, mz
+            FROM fem_node_loads
+            WHERE schema_id=@sid AND (@lc IS NULL OR load_case_id=@lc)
+            ORDER BY id
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@lc", (object?)loadCaseId ?? DBNull.Value);
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+            result.Add(new CScore.Fem.FemNodeLoad
+            {
+               Id         = r.GetInt32(0), SchemaId = schemaId,
+               LoadCaseId = r.GetInt32(1), NodeId = r.GetInt32(2),
+               Fx = r.GetDouble(3), Fy = r.GetDouble(4), Fz = r.GetDouble(5),
+               Mx = r.GetDouble(6), My = r.GetDouble(7), Mz = r.GetDouble(8)
+            });
+         return result;
+      }
+
+      public void SaveFemNodeLoad(CScore.Fem.FemNodeLoad load)
+      {
+         ValidateFemNodeLoadReferences(load);
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            if (load.Id == 0)
+            {
+               cmd.CommandText = """
+                  INSERT INTO fem_node_loads
+                     (schema_id, load_case_id, node_id, fx, fy, fz, mx, my, mz)
+                  VALUES (@sid, @lc, @nid, @fx, @fy, @fz, @mx, @my, @mz);
+                  SELECT last_insert_rowid();
+               """;
+               AddFemNodeLoadParameters(cmd, load);
+               load.Id = (int)(long)cmd.ExecuteScalar()!;
+            }
+            else
+            {
+               cmd.CommandText = """
+                  UPDATE fem_node_loads SET load_case_id=@lc, node_id=@nid,
+                     fx=@fx, fy=@fy, fz=@fz, mx=@mx, my=@my, mz=@mz
+                  WHERE id=@id AND schema_id=@sid
+               """;
+               AddFemNodeLoadParameters(cmd, load);
+               cmd.Parameters.AddWithValue("@id", load.Id);
+               cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      public void DeleteFemNodeLoad(CScore.Fem.FemNodeLoad load)
+      {
+         if (load.Id == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fem_node_loads WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", load.Id);
+         cmd.ExecuteNonQuery();
+      }
+
+      static void AddFemNodeLoadParameters(SqliteCommand cmd, CScore.Fem.FemNodeLoad load)
+      {
+         cmd.Parameters.AddWithValue("@sid", load.SchemaId);
+         cmd.Parameters.AddWithValue("@lc", load.LoadCaseId);
+         cmd.Parameters.AddWithValue("@nid", load.NodeId);
+         cmd.Parameters.AddWithValue("@fx", load.Fx);
+         cmd.Parameters.AddWithValue("@fy", load.Fy);
+         cmd.Parameters.AddWithValue("@fz", load.Fz);
+         cmd.Parameters.AddWithValue("@mx", load.Mx);
+         cmd.Parameters.AddWithValue("@my", load.My);
+         cmd.Parameters.AddWithValue("@mz", load.Mz);
+      }
+
+      public List<CScore.Fem.FemAnalysis> GetFemAnalyses(int schemaId)
+      {
+         var result = new List<CScore.Fem.FemAnalysis>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, tag, kind, load_expression_json, params_json, status, result_id, created
+            FROM fem_analyses WHERE schema_id=@sid ORDER BY id
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+            result.Add(ReadFemAnalysis(r, schemaId));
+         return result;
+      }
+
+      public CScore.Fem.FemAnalysis? GetFemAnalysis(int id)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, schema_id, tag, kind, load_expression_json, params_json, status, result_id, created
+            FROM fem_analyses WHERE id=@id
+         """;
+         cmd.Parameters.AddWithValue("@id", id);
+         using var r = cmd.ExecuteReader();
+         return r.Read() ? ReadFemAnalysis(r, r.GetInt32(1), hasSchemaColumn: true) : null;
+      }
+
+      static CScore.Fem.FemAnalysis ReadFemAnalysis(SqliteDataReader r, int schemaId, bool hasSchemaColumn = false)
+      {
+         int offset = hasSchemaColumn ? 1 : 0;
+         return new CScore.Fem.FemAnalysis
+         {
+            Id                 = r.GetInt32(0),
+            SchemaId           = schemaId,
+            Tag                = r.GetString(1 + offset),
+            Kind               = r.GetString(2 + offset),
+            LoadExpressionJson = r.GetString(3 + offset),
+            ParamsJson         = r.GetString(4 + offset),
+            Status             = r.GetString(5 + offset),
+            ResultId           = r.IsDBNull(6 + offset) ? null : r.GetInt32(6 + offset),
+            Created            = r.GetString(7 + offset)
+         };
+      }
+
+      public void SaveFemAnalysis(CScore.Fem.FemAnalysis analysis)
+      {
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            if (analysis.Id == 0)
+            {
+               cmd.CommandText = """
+                  INSERT INTO fem_analyses
+                     (schema_id, tag, kind, load_expression_json, params_json, status, result_id, created)
+                  VALUES (@sid, @tag, @kind, @expr, @params, @status, @rid, @created);
+                  SELECT last_insert_rowid();
+               """;
+               AddFemAnalysisParameters(cmd, analysis);
+               analysis.Id = (int)(long)cmd.ExecuteScalar()!;
+            }
+            else
+            {
+               cmd.CommandText = """
+                  UPDATE fem_analyses SET tag=@tag, kind=@kind, load_expression_json=@expr,
+                     params_json=@params, status=@status, result_id=@rid WHERE id=@id AND schema_id=@sid
+               """;
+               AddFemAnalysisParameters(cmd, analysis);
+               cmd.Parameters.AddWithValue("@id", analysis.Id);
+               cmd.ExecuteNonQuery();
+            }
+            var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
+            if (schema != null && !schema.Analyses.Contains(analysis))
+               schema.Analyses.Add(analysis);
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      public void DeleteFemAnalysis(CScore.Fem.FemAnalysis analysis)
+      {
+         if (analysis.Id == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fem_analyses WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", analysis.Id);
+         cmd.ExecuteNonQuery();
+         FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId)?.Analyses.Remove(analysis);
+      }
+
+      static void AddFemAnalysisParameters(SqliteCommand cmd, CScore.Fem.FemAnalysis analysis)
+      {
+         cmd.Parameters.AddWithValue("@sid", analysis.SchemaId);
+         cmd.Parameters.AddWithValue("@tag", analysis.Tag);
+         cmd.Parameters.AddWithValue("@kind", analysis.Kind);
+         cmd.Parameters.AddWithValue("@expr", analysis.LoadExpressionJson);
+         cmd.Parameters.AddWithValue("@params", analysis.ParamsJson);
+         cmd.Parameters.AddWithValue("@status", analysis.Status);
+         cmd.Parameters.AddWithValue("@rid", (object?)analysis.ResultId ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@created", analysis.Created);
+      }
+
+      void ValidateFemNodeLoadReferences(CScore.Fem.FemNodeLoad load)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT
+              (SELECT schema_id FROM fem_nodes WHERE id=@nid),
+              (SELECT schema_id FROM fem_load_cases WHERE id=@lc)
+         """;
+         cmd.Parameters.AddWithValue("@nid", load.NodeId);
+         cmd.Parameters.AddWithValue("@lc", load.LoadCaseId);
+         using var r = cmd.ExecuteReader();
+         if (!r.Read() || r.IsDBNull(0) || r.IsDBNull(1))
+            throw new InvalidOperationException("Узловая нагрузка ссылается на неизвестный узел или загружение.");
+         if (r.GetInt32(0) != load.SchemaId || r.GetInt32(1) != load.SchemaId)
+            throw new InvalidOperationException("Узел, загружение и узловая нагрузка должны принадлежать одной FEM-схеме.");
+      }
+
       /// <summary>Массовая вставка узлов и элементов МКЭ-схемы. Существующие записи для schemaId удаляются.</summary>
       public void SaveFemTopology(
          int schemaId,
@@ -2517,6 +2936,21 @@ namespace OpenCS.Utilites
          IReadOnlyList<CScore.Fem.FemElement> elements,
          IReadOnlyList<CScore.Fem.FemMember>  members)
       {
+         var oldNodesById = GetFemNodes(schemaId).ToDictionary(node => node.Id);
+         var newTags = nodes.Select(node => node.NodeTag).ToList();
+         if (newTags.Count != newTags.Distinct(StringComparer.Ordinal).Count())
+            throw new InvalidOperationException("Теги узлов FEM-схемы должны быть уникальными.");
+
+         var preservedLoads = new List<(string NodeTag, CScore.Fem.FemNodeLoad Load)>();
+         foreach (var load in GetFemNodeLoads(schemaId))
+         {
+            if (!oldNodesById.TryGetValue(load.NodeId, out var oldNode))
+               throw new InvalidOperationException($"Узловая нагрузка {load.Id} ссылается на отсутствующий узел {load.NodeId}.");
+            if (!newTags.Contains(oldNode.NodeTag, StringComparer.Ordinal))
+               throw new InvalidOperationException($"Нельзя удалить загруженный узел с тегом '{oldNode.NodeTag}'.");
+            preservedLoads.Add((oldNode.NodeTag, load));
+         }
+
          using var tx = _connection.BeginTransaction();
          try
          {
@@ -2524,6 +2958,7 @@ namespace OpenCS.Utilites
             delCmd.CommandText = """
                DELETE FROM fem_members  WHERE schema_id=@sid;
                DELETE FROM fem_elements WHERE schema_id=@sid;
+               DELETE FROM fem_node_loads WHERE schema_id=@sid;
                DELETE FROM fem_nodes    WHERE schema_id=@sid;
             """;
             delCmd.Parameters.AddWithValue("@sid", schemaId);
@@ -2540,6 +2975,8 @@ namespace OpenCS.Utilites
             nodeCmd.Parameters.Add("@y",   Microsoft.Data.Sqlite.SqliteType.Real);
             nodeCmd.Parameters.Add("@z",   Microsoft.Data.Sqlite.SqliteType.Real);
             nodeCmd.Parameters.Add("@dm",  Microsoft.Data.Sqlite.SqliteType.Integer);
+            nodeCmd.CommandText += "; SELECT last_insert_rowid();";
+            var newNodeIds = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var n in nodes)
             {
                nodeCmd.Parameters["@sid"].Value = schemaId;
@@ -2548,7 +2985,36 @@ namespace OpenCS.Utilites
                nodeCmd.Parameters["@y"].Value   = n.Y;
                nodeCmd.Parameters["@z"].Value   = n.Z;
                nodeCmd.Parameters["@dm"].Value  = n.DofMask;
-               nodeCmd.ExecuteNonQuery();
+               newNodeIds[n.NodeTag] = (int)(long)nodeCmd.ExecuteScalar()!;
+            }
+
+            using var loadCmd = _connection.CreateCommand();
+            loadCmd.CommandText = """
+               INSERT INTO fem_node_loads
+                  (schema_id, load_case_id, node_id, fx, fy, fz, mx, my, mz)
+               VALUES (@sid, @lc, @nid, @fx, @fy, @fz, @mx, @my, @mz)
+            """;
+            loadCmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
+            loadCmd.Parameters.Add("@lc",  Microsoft.Data.Sqlite.SqliteType.Integer);
+            loadCmd.Parameters.Add("@nid", Microsoft.Data.Sqlite.SqliteType.Integer);
+            loadCmd.Parameters.Add("@fx",  Microsoft.Data.Sqlite.SqliteType.Real);
+            loadCmd.Parameters.Add("@fy",  Microsoft.Data.Sqlite.SqliteType.Real);
+            loadCmd.Parameters.Add("@fz",  Microsoft.Data.Sqlite.SqliteType.Real);
+            loadCmd.Parameters.Add("@mx",  Microsoft.Data.Sqlite.SqliteType.Real);
+            loadCmd.Parameters.Add("@my",  Microsoft.Data.Sqlite.SqliteType.Real);
+            loadCmd.Parameters.Add("@mz",  Microsoft.Data.Sqlite.SqliteType.Real);
+            foreach (var (nodeTag, load) in preservedLoads)
+            {
+               loadCmd.Parameters["@sid"].Value = schemaId;
+               loadCmd.Parameters["@lc"].Value  = load.LoadCaseId;
+               loadCmd.Parameters["@nid"].Value = newNodeIds[nodeTag];
+               loadCmd.Parameters["@fx"].Value  = load.Fx;
+               loadCmd.Parameters["@fy"].Value  = load.Fy;
+               loadCmd.Parameters["@fz"].Value  = load.Fz;
+               loadCmd.Parameters["@mx"].Value  = load.Mx;
+               loadCmd.Parameters["@my"].Value  = load.My;
+               loadCmd.Parameters["@mz"].Value  = load.Mz;
+               loadCmd.ExecuteNonQuery();
             }
 
             using var elemCmd = _connection.CreateCommand();
