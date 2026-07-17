@@ -260,6 +260,14 @@ public partial class FemSchemaView3D : UserControl
                 var sphere = new SphereVisual3D { Center = pos, Radius = 0.05, Fill = new SolidColorBrush(color) };
                 _pickTargets[sphere] = (true, tag);
                 viewport.Children.Add(sphere);
+
+                var hitSphere = new SphereVisual3D
+                {
+                    Center = pos, Radius = 0.15,
+                    Fill = new SolidColorBrush(Colors.Transparent)
+                };
+                _pickTargets[hitSphere] = (true, tag);
+                viewport.Children.Add(hitSphere);
             }
         }
         foreach (var (tag, p1, p2) in vm.BarProxies)
@@ -285,38 +293,42 @@ public partial class FemSchemaView3D : UserControl
         }
 
         if (vm.Selection is not { } selection) return;
+        var hits = new List<(bool IsNode, string Tag)>();
         HitTestResultBehavior Callback(HitTestResult result)
         {
             if (result is RayMeshGeometry3DHitTestResult meshHit &&
                 _pickTargets.TryGetValue(meshHit.VisualHit, out var target))
-            {
-                if (_createBarMode)
-                {
-                    if (!target.IsNode) return HitTestResultBehavior.Continue;
-                    if (_pendingBarFirstNode == null)
-                    {
-                        _pendingBarFirstNode = target.Tag;
-                        UpdateGroundPlane();
-                        BuildEditProxies();
-                    }
-                    else if (_pendingBarFirstNode != target.Tag)
-                    {
-                        BarCreateRequested?.Invoke(_pendingBarFirstNode, target.Tag);
-                        _pendingBarFirstNode = null;
-                        UpdateGroundPlane();
-                        ClearRubberBand();
-                    }
-                    return HitTestResultBehavior.Stop;
-                }
-
-                bool additive = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
-                if (target.IsNode) selection.ToggleNode(target.Tag, additive);
-                else selection.ToggleElement(target.Tag, additive);
-                return HitTestResultBehavior.Stop;
-            }
+                hits.Add(target);
             return HitTestResultBehavior.Continue;
         }
         VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
+        if (hits.Count == 0) return;
+
+        var pick = hits.FirstOrDefault(h => h.IsNode);
+        if (pick.Tag == null) pick = hits[0];
+
+        if (_createBarMode)
+        {
+            if (!pick.IsNode) return;
+            if (_pendingBarFirstNode == null)
+            {
+                _pendingBarFirstNode = pick.Tag;
+                UpdateGroundPlane();
+                BuildEditProxies();
+            }
+            else if (_pendingBarFirstNode != pick.Tag)
+            {
+                BarCreateRequested?.Invoke(_pendingBarFirstNode, pick.Tag);
+                _pendingBarFirstNode = pick.Tag;
+                UpdateGroundPlane();
+                ClearRubberBand();
+            }
+            return;
+        }
+
+        bool additive = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        if (pick.IsNode) selection.ToggleNode(pick.Tag, additive);
+        else selection.ToggleElement(pick.Tag, additive);
     }
 
     void Viewport_MouseMove(object sender, MouseEventArgs e)
