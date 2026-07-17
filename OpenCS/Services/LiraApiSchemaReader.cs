@@ -10,9 +10,10 @@ namespace OpenCS.Services;
 /// </summary>
 static class LiraApiSchemaReader
 {
-    const int kNodesTable      = 2;   // kLiraTable_Nodes_Coordinates
-    const int kElementsTable   = 3;   // kLiraTable_Elements_TypeAndNumbersOfNodes
-    const int kLoadCasesTable  = 25;  // номер загружения + имя + тип
+    const int kNodesTable              = 2;   // kLiraTable_Nodes_Coordinates
+    const int kElementsTable           = 3;   // kLiraTable_Elements_TypeAndNumbersOfNodes
+    const int kConstructiveBlocksTable = 31;  // конструктивные блоки
+    const int kLoadCasesTable          = 25;  // номер загружения + имя + тип
 
     /// <summary>
     /// Читает имена загружений из таблицы 25.
@@ -58,6 +59,10 @@ static class LiraApiSchemaReader
         var elemsRaw = TryReadTable(doc.AllTables.CreateNewItem(kElementsTable), diag, "S1-Elems");
         if (elemsRaw != null) ParseElements(elemsRaw, data);
 
+        // Конструктивные блоки (не критично — если таблицы нет, просто пропускаем)
+        var blocksRaw = TryReadTable(doc.AllTables.CreateNewItem(kConstructiveBlocksTable), diag, "S1-Blocks");
+        if (blocksRaw != null) ParseConstructiveBlocks(blocksRaw, data);
+
         // Стратегия 2: AllTables.Item[key] + GetContents(ref data)
         if (data.Nodes.Count == 0)
         {
@@ -68,6 +73,11 @@ static class LiraApiSchemaReader
         {
             elemsRaw = TryReadTable(GetItem(doc.AllTables, kElementsTable, diag, "S2-Elems"), diag, "S2-Elems");
             if (elemsRaw != null) ParseElements(elemsRaw, data);
+        }
+        if (data.ConstructiveBlocks.Count == 0)
+        {
+            blocksRaw = TryReadTable(GetItem(doc.AllTables, kConstructiveBlocksTable, diag, "S2-Blocks"), diag, "S2-Blocks");
+            if (blocksRaw != null) ParseConstructiveBlocks(blocksRaw, data);
         }
 
         if (data.Nodes.Count == 0 && data.Elements.Count == 0)
@@ -253,6 +263,93 @@ static class LiraApiSchemaReader
             if (nodeIds.Length == 0) continue;
             data.Elements.Add(new LiraElementRecord(id, feType, secCount, stiffId, nodeIds));
         }
+    }
+
+    /// <summary>
+    /// Парсит таблицу 31 (конструктивные блоки).
+    /// Колонки: [0]=Список номеров КЭ (ranges "1-10,15"), [1]=Вд КоБ, [2]=Id, [3]=Этаж, [4]=Марка, [5]=Комментарий, [6]=Цвет.
+    /// </summary>
+    static void ParseConstructiveBlocks(object[,] rows, LiraSchemaData data)
+    {
+        int count = rows.GetLength(0);
+        int cols  = rows.GetLength(1);
+        for (int i = 0; i < count; i++)
+        {
+            // Id блока — колонка 2 (если есть), иначе генерируем
+            int id = cols > 2 && TryInt(rows[i, 2], out int bid) ? bid : i + 1;
+            string type    = cols > 0 ? rows[i, 0]?.ToString() ?? "" : ""; // Вд КоБ
+            string floor   = cols > 3 ? rows[i, 3]?.ToString() ?? "" : ""; // Этаж
+            string mark    = cols > 4 ? rows[i, 4]?.ToString() ?? "" : ""; // Марка
+            string comment = cols > 5 ? rows[i, 5]?.ToString() ?? "" : ""; // Комментарий
+
+            // Номера КЭ — колонка 0 (ranges "27764-27789" или "1,2,3-10")
+            // В пользовательских данных колонки 0 и 1 поменяны местами относительно
+            // стандартного порядка: [0]=Список КЭ, [1]=Вд КоБ, [2]=Id...
+            // Пробуем определить: если col[0] содержит цифры/дефисы — это список КЭ,
+            // иначе col[0] = Вд КоБ, а col[1] = список КЭ (старый порядок).
+            string elemStr;
+            if (cols > 1 && LooksLikeElementRange(rows[i, 0]))
+            {
+                // Новый порядок: [0]=КЭ, [1]=Вд КоБ, [2]=Id...
+                elemStr = rows[i, 0]?.ToString() ?? "";
+                type    = rows[i, 1]?.ToString() ?? "";
+            }
+            else if (cols > 1)
+            {
+                // Старый порядок: [0]=Вд КоБ, [1]=КЭ, [2]=Id...
+                type    = rows[i, 0]?.ToString() ?? "";
+                elemStr = rows[i, 1]?.ToString() ?? "";
+            }
+            else
+            {
+                continue;
+            }
+
+            var elemIds = ExpandElementRanges(elemStr);
+            if (elemIds.Length == 0) continue;
+
+            data.ConstructiveBlocks.Add(new LiraConstructiveBlockRecord(
+                id, type, floor, mark, comment, elemIds));
+        }
+    }
+
+    /// <summary>Проверяет, похоже ли значение ячейки на диапазон номеров КЭ (содержит цифры и дефисы).</summary>
+    static bool LooksLikeElementRange(object? cell)
+    {
+        if (cell == null) return false;
+        var s = cell.ToString();
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        // Строка вида "27764-27789" или "1,2,3-10"
+        bool hasDigit = false;
+        foreach (char c in s)
+        {
+            if (char.IsDigit(c)) hasDigit = true;
+            else if (c != '-' && c != ',' && c != ' ' && c != ';') return false;
+        }
+        return hasDigit;
+    }
+
+    /// <summary>Разворачивает строку диапазонов КЭ ("1-5,8,10-12") в массив номеров.</summary>
+    static int[] ExpandElementRanges(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return [];
+        var result = new List<int>();
+        var parts = s.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var part in parts)
+        {
+            var trimmed = part.Trim();
+            var dashIdx = trimmed.IndexOf('-');
+            if (dashIdx > 0 && int.TryParse(trimmed[..dashIdx], out int lo)
+                && int.TryParse(trimmed[(dashIdx + 1)..], out int hi))
+            {
+                for (int n = lo; n <= hi; n++) result.Add(n);
+            }
+            else if (int.TryParse(trimmed, out int n))
+            {
+                result.Add(n);
+            }
+        }
+        return [.. result];
     }
 
     static int[] ParseNodeIds(string s)

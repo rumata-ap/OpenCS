@@ -2686,13 +2686,17 @@ namespace OpenCS
                 .ToArray();
             var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByConstructiveBlocks(raw, schema.Id))
                 .ToArray();
             db.SaveFemTopology(schema.Id, nodes, members, memberGroups);
             RefreshFemSchemaTreeCounts(schema);
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
+            int blockCount = raw.ConstructiveBlocks.Count;
             string done = string.Format(Loc.S("ImportLiraSchemaSuccess"),
                raw.Nodes.Count, barCount, shellCount, memberGroups.Length);
+            if (blockCount > 0)
+                done += $" ({blockCount} кБ)";
             LogService.Info(done);
             EndBusy(done);
          }

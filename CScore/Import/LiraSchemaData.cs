@@ -46,11 +46,27 @@ public record LiraPlateStiffnessRecord(
     double H_mm
 );
 
+/// <summary>Конструктивный блок ЛираСАПР (таблица 31).</summary>
+public record LiraConstructiveBlockRecord(
+    int      Id,
+    /// <summary>Вд КоБ — тип блока (СТЕНА, КОЛОННА, БАЛКА и т.д.).</summary>
+    string   Type,
+    /// <summary>Этаж.</summary>
+    string   Floor,
+    /// <summary>Марка.</summary>
+    string   Mark,
+    /// <summary>Комментарий.</summary>
+    string   Comment,
+    /// <summary>Номера КЭ, входящих в блок (развёрнутые из диапазонов).</summary>
+    int[]    ElementIds
+);
+
 /// <summary>Контейнер сырых данных расчётной схемы ЛираСАПР после CSV-парсинга.</summary>
 public class LiraSchemaData
 {
-    public List<LiraNodeRecord>           Nodes            { get; } = [];
-    public List<LiraElementRecord>        Elements         { get; } = [];
-    public List<LiraBarStiffnessRecord>   BarStiffnesses   { get; } = [];
-    public List<LiraPlateStiffnessRecord> PlateStiffnesses { get; } = [];
+    public List<LiraNodeRecord>               Nodes              { get; } = [];
+    public List<LiraElementRecord>            Elements           { get; } = [];
+    public List<LiraBarStiffnessRecord>       BarStiffnesses     { get; } = [];
+    public List<LiraPlateStiffnessRecord>     PlateStiffnesses   { get; } = [];
+    public List<LiraConstructiveBlockRecord>  ConstructiveBlocks { get; } = [];
 }

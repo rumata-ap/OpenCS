@@ -124,4 +124,31 @@ public static class LiraSchemaConverter
             })
             .ToArray();
     }
+
+    /// <summary>
+    /// Создаёт FemMemberGroup из конструктивных блоков ЛираСАПР (таблица 31).
+    /// Tag = "{Тип} [{Этаж}]" (или просто Тип, если этаж пустой).
+    /// </summary>
+    public static FemMemberGroup[] ToFemMemberGroupsByConstructiveBlocks(LiraSchemaData data, int schemaId)
+    {
+        if (data.ConstructiveBlocks.Count == 0) return [];
+
+        return data.ConstructiveBlocks
+            .Select(b =>
+            {
+                var tag = string.IsNullOrWhiteSpace(b.Floor)
+                    ? b.Type
+                    : $"{b.Type} [{b.Floor}]";
+                if (!string.IsNullOrWhiteSpace(b.Mark))
+                    tag += $" {b.Mark}";
+                return new FemMemberGroup
+                {
+                    SchemaId       = schemaId,
+                    Tag            = tag,
+                    MemberType     = null, // тип определяется по составу КЭ
+                    MemberTagsJson = JsonSerializer.Serialize(b.ElementIds),
+                };
+            })
+            .ToArray();
+    }
 }
