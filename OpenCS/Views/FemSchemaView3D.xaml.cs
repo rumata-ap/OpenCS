@@ -38,6 +38,7 @@ public partial class FemSchemaView3D : UserControl
         _pendingBarFirstNode = null;
         UpdateGroundPlane();
         ClearRubberBand();
+        createNodePanel.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public void SetCreateBarMode(bool value)
@@ -47,6 +48,7 @@ public partial class FemSchemaView3D : UserControl
         UpdateGroundPlane();
         ClearRubberBand();
         BuildEditProxies();
+        createBarPanel.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
     }
 
     void UpdateGroundPlane()
@@ -313,7 +315,12 @@ public partial class FemSchemaView3D : UserControl
         if (_createNodeMode)
         {
             if (TryHitGroundPlane(position, out var worldPoint))
+            {
+                createNodeXBox.Text = worldPoint.X.ToString("F3");
+                createNodeYBox.Text = worldPoint.Y.ToString("F3");
+                createNodeZBox.Text = worldPoint.Z.ToString("F3");
                 NodeCreateRequested?.Invoke(worldPoint);
+            }
             return;
         }
 
@@ -420,4 +427,38 @@ public partial class FemSchemaView3D : UserControl
 
     void ZoomExtents_Click(object sender, RoutedEventArgs e)
         => viewport.ZoomExtents(500);
+
+    void CreateNodeFromPanel_Click(object sender, RoutedEventArgs e)
+    {
+        if (!double.TryParse(createNodeXBox.Text, out var x)) return;
+        if (!double.TryParse(createNodeYBox.Text, out var y)) return;
+        if (!double.TryParse(createNodeZBox.Text, out var z)) return;
+        NodeCreateRequested?.Invoke(new Point3D(x, y, z));
+    }
+
+    void CloseCreateNodePanel_Click(object sender, RoutedEventArgs e)
+        => CreateNodeModeCloseRequested?.Invoke();
+
+    public event Action? CreateNodeModeCloseRequested;
+
+    void CloseCreateBarPanel_Click(object sender, RoutedEventArgs e)
+        => CreateBarModeCloseRequested?.Invoke();
+
+    public event Action? CreateBarModeCloseRequested;
+
+    public void SetBarSectionItemsSource(System.Collections.IEnumerable? sections)
+        => createBarSectionCombo.ItemsSource = sections;
+
+    string? _pendingBarSectionTag;
+
+    void CreateBarSectionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (createBarSectionCombo.SelectedItem is CScore.CrossSection cs)
+            _pendingBarSectionTag = cs.Tag;
+        else
+            _pendingBarSectionTag = null;
+    }
+
+    /// <summary>Тег сечения, выбранного в панели «Добавить элемент» (для применения при создании).</summary>
+    public string? PendingBarSectionTag => _pendingBarSectionTag;
 }

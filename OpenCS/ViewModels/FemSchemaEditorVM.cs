@@ -180,16 +180,90 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         RefreshCollections();
     }
 
-    public void CreateBarBetween(string nodeTagA, string nodeTagB)
+    public void CreateBarBetween(string nodeTagA, string nodeTagB, string? sectionTag = null)
     {
-        // NodeIdsJson хранит NodeTag узлов как числа (соглашение всей кодовой базы —
-        // см. Fem3DVM.GetBarPoints/nodeMap), а не БД-Id: для только что созданных узлов
-        // Id ещё не назначен (=0) до сохранения, тогда как NodeTag стабилен с момента создания.
         var tag = FemTopologyValidator.NextElemTag(Session.Members);
         var json = System.Text.Json.JsonSerializer.Serialize(new[] { int.Parse(nodeTagA), int.Parse(nodeTagB) });
+        int? sectionId = null;
+        if (sectionTag != null)
+        {
+            var cs = CrossSections.FirstOrDefault(s => s.Tag == sectionTag);
+            if (cs != null) sectionId = cs.Id;
+        }
         Session.Execute(new AddMemberCommand(new FemMember
         {
-            SchemaId = Session.Schema.Id, ElemTag = tag, ElemType = "beam", NodeIdsJson = json
+            SchemaId = Session.Schema.Id, ElemTag = tag, ElemType = "beam", NodeIdsJson = json,
+            CrossSectionId = sectionId
+        }));
+        RefreshCollections();
+    }
+
+    public void DeleteMemberByTag(string elemTag)
+    {
+        var member = Session.Members.FirstOrDefault(m => m.ElemTag == elemTag);
+        if (member == null) return;
+        Session.Execute(new DeleteMemberCommand(member));
+        Selection.ToggleElement(elemTag, additive: false);
+        RefreshCollections();
+    }
+
+    public void SplitMemberByTag(string elemTag)
+    {
+        var member = Session.Members.FirstOrDefault(m => m.ElemTag == elemTag);
+        if (member == null) return;
+        var ids = System.Text.Json.JsonSerializer.Deserialize<int[]>(member.NodeIdsJson) ?? [];
+        if (ids.Length != 2) return;
+        var n1 = Session.Nodes.FirstOrDefault(n => n.NodeTag == ids[0].ToString());
+        var n2 = Session.Nodes.FirstOrDefault(n => n.NodeTag == ids[1].ToString());
+        if (n1 == null || n2 == null) return;
+
+        var midTag = FemTopologyValidator.NextNodeTag(Session.Nodes);
+        var midNode = new FemNode
+        {
+            SchemaId = Session.Schema.Id, NodeTag = midTag,
+            X = (n1.X + n2.X) / 2, Y = (n1.Y + n2.Y) / 2, Z = (n1.Z + n2.Z) / 2,
+        };
+        Session.Execute(new AddNodeCommand(midNode));
+
+        Session.Execute(new DeleteMemberCommand(member));
+
+        var tag1 = FemTopologyValidator.NextElemTag(Session.Members);
+        Session.Execute(new AddMemberCommand(new FemMember
+        {
+            SchemaId = Session.Schema.Id, ElemTag = tag1, ElemType = "beam",
+            NodeIdsJson = System.Text.Json.JsonSerializer.Serialize(new[] { ids[0], int.Parse(midTag) }),
+            CrossSectionId = member.CrossSectionId, GjStrategy = member.GjStrategy,
+            GjManualValue = member.GjManualValue, GjTorsionTaskId = member.GjTorsionTaskId,
+        }));
+        var tag2 = FemTopologyValidator.NextElemTag(Session.Members);
+        Session.Execute(new AddMemberCommand(new FemMember
+        {
+            SchemaId = Session.Schema.Id, ElemTag = tag2, ElemType = "beam",
+            NodeIdsJson = System.Text.Json.JsonSerializer.Serialize(new[] { int.Parse(midTag), ids[1] }),
+            CrossSectionId = member.CrossSectionId, GjStrategy = member.GjStrategy,
+            GjManualValue = member.GjManualValue, GjTorsionTaskId = member.GjTorsionTaskId,
+        }));
+
+        RefreshCollections();
+    }
+
+    public void MoveNodeByTag(string nodeTag, double dx, double dy, double dz)
+    {
+        var node = Session.Nodes.FirstOrDefault(n => n.NodeTag == nodeTag);
+        if (node == null) return;
+        Session.Execute(new MoveNodeCommand(node, node.X + dx, node.Y + dy, node.Z + dz));
+        RefreshCollections();
+    }
+
+    public void CopyNodeByTag(string nodeTag, double dx, double dy, double dz)
+    {
+        var node = Session.Nodes.FirstOrDefault(n => n.NodeTag == nodeTag);
+        if (node == null) return;
+        var newTag = FemTopologyValidator.NextNodeTag(Session.Nodes);
+        Session.Execute(new AddNodeCommand(new FemNode
+        {
+            SchemaId = Session.Schema.Id, NodeTag = newTag,
+            X = node.X + dx, Y = node.Y + dy, Z = node.Z + dz, DofMask = node.DofMask
         }));
         RefreshCollections();
     }

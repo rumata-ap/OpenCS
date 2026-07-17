@@ -34,6 +34,74 @@
                            ShowViewCube="True"
                            ZoomAroundMouseDownPoint="True"/>
 
+        <!-- Немодальная панель «Добавить узел» -->
+        <Border x:Name="createNodePanel" Grid.Row="1"
+                Visibility="Collapsed"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Margin="8" Padding="10" Background="#F0FFFFFF"
+                BorderBrush="Gray" BorderThickness="1" CornerRadius="4"
+                Panel.ZIndex="20">
+            <StackPanel Width="200">
+                <Grid>
+                    <TextBlock Text="{DynamicResource FemCreateNodePanelTitle}" FontWeight="Bold"/>
+                    <Button Content="{DynamicResource FemPanelClose}"
+                            HorizontalAlignment="Right" Padding="4,0"
+                            Click="CloseCreateNodePanel_Click"/>
+                </Grid>
+                <TextBlock Text="{DynamicResource FemCreateNodeHint}"
+                           TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,4,0,8"/>
+                <Grid Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{DynamicResource FemCreateNodeX}" Grid.Column="0"/>
+                    <TextBox x:Name="createNodeXBox" Grid.Column="1" Text="0"/>
+                </Grid>
+                <Grid Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{DynamicResource FemCreateNodeY}" Grid.Column="0"/>
+                    <TextBox x:Name="createNodeYBox" Grid.Column="1" Text="0"/>
+                </Grid>
+                <Grid Margin="0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{DynamicResource FemCreateNodeZ}" Grid.Column="0"/>
+                    <TextBox x:Name="createNodeZBox" Grid.Column="1" Text="0"/>
+                </Grid>
+                <Button Content="{DynamicResource FemCreateNodeAdd}" Margin="0,8,0,0"
+                        Click="CreateNodeFromPanel_Click"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Немодальная панель «Добавить элемент» -->
+        <Border x:Name="createBarPanel" Grid.Row="1"
+                Visibility="Collapsed"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Margin="8" Padding="10" Background="#F0FFFFFF"
+                BorderBrush="Gray" BorderThickness="1" CornerRadius="4"
+                Panel.ZIndex="20">
+            <StackPanel Width="220">
+                <Grid>
+                    <TextBlock Text="{DynamicResource FemCreateMemberPanelTitle}" FontWeight="Bold"/>
+                    <Button Content="{DynamicResource FemPanelClose}"
+                            HorizontalAlignment="Right" Padding="4,0"
+                            Click="CloseCreateBarPanel_Click"/>
+                </Grid>
+                <TextBlock Text="{DynamicResource FemCreateMemberHint}"
+                           TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,4,0,8"/>
+                <TextBlock Text="{DynamicResource FemCreateMemberSection}" Margin="0,2"/>
+                <ComboBox x:Name="createBarSectionCombo"
+                          DisplayMemberPath="Tag"
+                          SelectionChanged="CreateBarSectionCombo_SelectionChanged"/>
+            </StackPanel>
+        </Border>
+
         <!-- Оверлей загрузки -->
         <Border Grid.Row="1"
                 Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}"

@@ -34,7 +34,10 @@ public partial class FemSchemaPage : UserControl
         };
 
         view3D.NodeCreateRequested += p => _editorVm.CreateNodeAt(p.X, p.Y, p.Z);
-        view3D.BarCreateRequested  += (a, b) => _editorVm.CreateBarBetween(a, b);
+        view3D.BarCreateRequested  += (a, b) => _editorVm.CreateBarBetween(a, b, view3D.PendingBarSectionTag);
+        view3D.CreateNodeModeCloseRequested += () => _editorVm.CreateNodeMode = false;
+        view3D.CreateBarModeCloseRequested  += () => _editorVm.CreateBarMode  = false;
+        view3D.SetBarSectionItemsSource(_editorVm.CrossSections);
         _editorVm.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(FemSchemaEditorVM.CreateNodeMode))
