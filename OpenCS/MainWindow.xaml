@@ -1204,8 +1204,8 @@
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
-                  <!-- FemMember -->
-                  <HierarchicalDataTemplate DataType="{x:Type fem:FemMember}"
+                  <!-- FemMemberGroup -->
+                  <HierarchicalDataTemplate DataType="{x:Type fem:FemMemberGroup}"
                                             ItemsSource="{Binding Checks}">
                      <StackPanel Orientation="Horizontal" Margin="2"
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">

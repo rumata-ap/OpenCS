@@ -44,7 +44,7 @@
                     <Separator/>
                     <Button Content="{DynamicResource FemCreateMemberFromSelection}" Click="CreateMember_Click"/>
                 </ToolBar>
-                <DataGrid ItemsSource="{Binding Elements}" AutoGenerateColumns="False" IsReadOnly="True"
+                <DataGrid ItemsSource="{Binding Members}" AutoGenerateColumns="False" IsReadOnly="True"
                           SelectionMode="Extended" x:Name="barsGrid">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="Tag" Binding="{Binding ElemTag}" Width="60"/>
@@ -105,13 +105,13 @@
                               AutoGenerateColumns="False" IsReadOnly="True">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{DynamicResource Tag}"
-                                                Binding="{Binding Tag}" Width="120"/>
+                                                Binding="{Binding ElemTag}" Width="120"/>
                             <DataGridTextColumn Header="{DynamicResource FemMemberType}"
-                                                Binding="{Binding MemberType}" Width="120"/>
+                                                Binding="{Binding ElemType}" Width="120"/>
                             <DataGridTextColumn Header="CrossSectionId"
                                                 Binding="{Binding CrossSectionId}" Width="120"/>
-                            <DataGridTextColumn Header="ForceSetId"
-                                                Binding="{Binding ForceSetId}" Width="*"/>
+                            <DataGridTextColumn Header="GjStrategy"
+                                                Binding="{Binding GjStrategy}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
                     <local:FemMemberPropertiesPanel Grid.Column="1" DataContext="{Binding}"/>

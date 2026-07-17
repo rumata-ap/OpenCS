@@ -643,16 +643,32 @@ namespace OpenCS.Utilites
       /// <summary>Миграция v30: конструктивный элемент — теперь FemMember (было FemElement, таблица
       /// fem_elements→fem_members), группа — FemMemberGroup (было FemMember, таблица fem_members→
       /// fem_member_groups). Сечение/GJ переезжают с группы на каждый её элемент — раньше значение
-      /// относилось сразу ко всем элементам группы, теперь это собственное поле элемента.</summary>
+      /// относилось сразу ко всем элементам группы, теперь это собственное поле элемента.
+      ///
+      /// EnsureCreated() уже выполнился к моменту вызова Migrate() и мог успеть создать пустые
+      /// fem_members/fem_member_groups НОВОЙ формы через CREATE TABLE IF NOT EXISTS (для баз без
+      /// старого fem_members вообще — например, версии до v23). Поэтому признаком «есть что
+      /// переносить» служит не факт существования таблиц (они теперь существуют всегда), а наличие
+      /// СТАРОЙ колонки elem_ids_json на fem_members — она есть только у старой формы группы.</summary>
       void MigrateV30()
       {
-         if (!TableExists("fem_member_groups"))
+         bool hasLegacyGroupShape = ColumnExists("fem_members", "elem_ids_json");
+
+         if (hasLegacyGroupShape)
          {
+            // EnsureCreated мог уже создать пустую fem_member_groups новой формы — она не нужна,
+            // переносим на её место старый fem_members со всеми данными.
+            MigExec("DROP TABLE IF EXISTS fem_member_groups");
             MigExec("ALTER TABLE fem_members RENAME TO fem_member_groups");
             MigExec("ALTER TABLE fem_member_groups RENAME COLUMN elem_ids_json TO member_tags_json");
+
+            if (TableExists("fem_elements"))
+            {
+               // Аналогично: EnsureCreated мог уже создать пустую fem_members новой формы.
+               MigExec("DROP TABLE IF EXISTS fem_members");
+               MigExec("ALTER TABLE fem_elements RENAME TO fem_members");
+            }
          }
-         if (TableExists("fem_elements"))
-            MigExec("ALTER TABLE fem_elements RENAME TO fem_members");
 
          if (!ColumnExists("fem_members", "cross_section_id"))
             MigExec("ALTER TABLE fem_members ADD COLUMN cross_section_id INTEGER REFERENCES cross_sections(id)");
@@ -662,6 +678,8 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE fem_members ADD COLUMN gj_manual_value REAL");
          if (!ColumnExists("fem_members", "gj_torsion_task_id"))
             MigExec("ALTER TABLE fem_members ADD COLUMN gj_torsion_task_id INTEGER REFERENCES calc_tasks(id)");
+
+         if (!hasLegacyGroupShape) return; // fem_member_groups новой формы — переносить нечего
 
          // Перенос значений сечения/GJ с группы на каждый её элемент.
          var groups = new List<(int Id, string TagsJson, long? CrossSectionId, string GjStrategy, double? GjManualValue, long? GjTorsionTaskId)>();
