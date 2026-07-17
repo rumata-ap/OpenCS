@@ -27,6 +27,7 @@ public static class LiraFileParser
         var offset = SkipHeader(bytes);
         SkipMetadata(bytes, ref offset);
         ParseNodes3D(bytes, ref offset, data);
+        ParseElements(bytes, ref offset, data);
         return data;
     }
 
@@ -118,5 +119,101 @@ public static class LiraFileParser
         }
 
         offset += count * 28;
+    }
+
+    /// <summary>
+    /// Определяет начало блока элементов (Block 4).
+    /// Block 4 начинается после Block 2. Первые 12 байт — нули, затем uint32 тип.
+    /// </summary>
+    internal static (int offset, int count) FindElementBlock(byte[] bytes, int afterBlock2)
+    {
+        int offset = afterBlock2;
+        int recordSize = 38;
+
+        // Ищем начало: 12 нулевых байт + uint32 тип (0x10000..0x10003)
+        while (offset + recordSize <= bytes.Length)
+        {
+            bool allZero = true;
+            for (int i = 0; i < 12; i++)
+            {
+                if (bytes[offset + i] != 0) { allZero = false; break; }
+            }
+            if (allZero)
+            {
+                var marker = BitConverter.ToUInt32(bytes, offset + 12);
+                if (marker >= 0x10000 && marker <= 0x10003)
+                {
+                    // Считаем количество записей
+                    int count = 0;
+                    int scan = offset;
+                    while (scan + recordSize <= bytes.Length)
+                    {
+                        bool recZero = true;
+                        for (int i = 0; i < 12; i++)
+                        {
+                            if (bytes[scan + i] != 0) { recZero = false; break; }
+                        }
+                        if (!recZero) break;
+                        var m = BitConverter.ToUInt32(bytes, scan + 12);
+                        if (m < 0x10000 || m > 0x10003) break;
+                        count++;
+                        scan += recordSize;
+                    }
+                    return (offset, count);
+                }
+            }
+            offset += 4;
+        }
+
+        throw new InvalidOperationException("Блок элементов не найден в файле");
+    }
+
+    /// <summary>Читает элементы из Block 4.</summary>
+    internal static void ParseElements(byte[] bytes, ref int offset, LiraSchemaData data)
+    {
+        var (blockOffset, count) = FindElementBlock(bytes, offset);
+        offset = blockOffset;
+        int recordSize = 38;
+
+        for (int i = 0; i < count; i++)
+        {
+            int baseOff = offset + i * recordSize;
+            var marker = BitConverter.ToUInt32(bytes, baseOff + 12);
+            int elemType = (int)(marker & 0xFFFF); // младшие 16 бит = тип
+
+            // ID узлов — uint16 на позициях +18, +22, +26, +30
+            var n1 = BitConverter.ToUInt16(bytes, baseOff + 18);
+            var n2 = BitConverter.ToUInt16(bytes, baseOff + 22);
+            var n3 = BitConverter.ToUInt16(bytes, baseOff + 26);
+            var n4 = BitConverter.ToUInt16(bytes, baseOff + 30);
+
+            int[] nodeIds = elemType switch
+            {
+                0 => new[] { (int)n1, (int)n2 },                         // стержень: 2 узла
+                1 => n4 == 0
+                    ? new[] { (int)n1, (int)n2, (int)n3 }                // треугольник: 3 узла
+                    : new[] { (int)n1, (int)n2, (int)n3, (int)n4 },     // quad: 4 узла
+                2 => new[] { (int)n1, (int)n2, (int)n3, (int)n4 },      // quad: 4 узла
+                3 => n4 == 0
+                    ? new[] { (int)n1, (int)n2, (int)n3 }                // треугольник
+                    : new[] { (int)n1, (int)n2, (int)n3, (int)n4 },     // quad
+                _ => Array.Empty<int>()
+            };
+
+            if (nodeIds.Length == 0) continue;
+
+            // Stiffness ID из поля +24 (int32), только для стержней
+            int stiffId = elemType == 0 ? BitConverter.ToInt32(bytes, baseOff + 24) : 0;
+
+            data.Elements.Add(new LiraElementRecord(
+                Id:            i,
+                FeType:        elemType,
+                SectionCount:  1,
+                StiffnessId:   stiffId,
+                NodeIds:       nodeIds
+            ));
+        }
+
+        offset += count * recordSize;
     }
 }

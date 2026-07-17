@@ -77,4 +77,44 @@ public class LiraFileParserTests
             Assert.InRange(n.Z, -5.0, 35.0);
         });
     }
+
+    [Fact]
+    public void Parse_Elements_HasExpectedCount()
+    {
+        if (!File.Exists(TestLirPath)) return;
+
+        var data = LiraFileParser.Parse(TestLirPath);
+
+        // Всего 200 769 элементов (783 стержня + 10 944 треугольника + 174 219 четырёхугольника + 14 823 смешанных)
+        Assert.Equal(200769, data.Elements.Count);
+    }
+
+    [Fact]
+    public void Parse_Elements_BarElementsCount()
+    {
+        if (!File.Exists(TestLirPath)) return;
+
+        var data = LiraFileParser.Parse(TestLirPath);
+
+        int barCount = data.Elements.Count(e => e.NodeIds.Length == 2);
+        Assert.Equal(783, barCount);
+    }
+
+    [Fact]
+    public void Parse_Elements_ShellElementsHaveValidNodes()
+    {
+        if (!File.Exists(TestLirPath)) return;
+
+        var data = LiraFileParser.Parse(TestLirPath);
+
+        var shellElems = data.Elements.Where(e => e.NodeIds.Length >= 3).ToList();
+        Assert.NotEmpty(shellElems);
+
+        // Все ID узлов должны быть в диапазоне [0, nodeCount)
+        int nodeCount = data.Nodes.Count;
+        Assert.All(shellElems, e =>
+        {
+            Assert.All(e.NodeIds, nid => Assert.InRange(nid, 0, nodeCount - 1));
+        });
+    }
 }
