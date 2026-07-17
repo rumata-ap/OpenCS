@@ -1,0 +1,57 @@
+<Window x:Class="OpenCS.Views.FemMemberPropertiesDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource FemMemberPropsTitle}"
+        Width="340" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="12">
+        <Grid Margin="0,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{DynamicResource FemMemberPropsTag}" Grid.Column="0"/>
+            <TextBlock x:Name="tagText" Grid.Column="1" FontWeight="Bold"/>
+        </Grid>
+        <Grid Margin="0,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{DynamicResource FemMemberPropsNodes}" Grid.Column="0"/>
+            <TextBlock x:Name="nodesText" Grid.Column="1"/>
+        </Grid>
+        <Grid Margin="0,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{DynamicResource FemMemberPropsLength}" Grid.Column="0"/>
+            <TextBlock x:Name="lengthText" Grid.Column="1"/>
+        </Grid>
+        <Grid Margin="0,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="140"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{DynamicResource FemMemberPropsType}" Grid.Column="0"/>
+            <TextBlock x:Name="typeText" Grid.Column="1"/>
+        </Grid>
+
+        <Separator Margin="0,8"/>
+        <TextBlock Text="{DynamicResource FemMemberSection}" Margin="0,2"/>
+        <ComboBox x:Name="sectionCombo" DisplayMemberPath="Tag" SelectionChanged="SectionCombo_SelectionChanged"/>
+
+        <TextBlock Text="{DynamicResource FemMemberGjStrategy}" Margin="0,8,0,2"/>
+        <RadioButton x:Name="gjManualRadio" Content="{DynamicResource FemGjManual}"
+                     GroupName="gj" Checked="GjStrategy_Changed"/>
+        <TextBox x:Name="gjManualValueBox" Margin="16,2,0,2" LostFocus="GjManualValue_LostFocus"/>
+        <RadioButton x:Name="gjSaintVenantRadio" Content="{DynamicResource FemGjSaintVenant}"
+                     GroupName="gj" Checked="GjStrategy_Changed"/>
+        <ComboBox x:Name="torsionTaskCombo" Margin="16,2,0,2" DisplayMemberPath="Tag"
+                  SelectionChanged="TorsionTask_SelectionChanged"/>
+
+        <TextBlock Text="{DynamicResource FemMemberPropsTargetLength}" Margin="0,8,0,2" TextWrapping="Wrap"/>
+        <TextBox x:Name="targetLengthBox" LostFocus="TargetLength_LostFocus"/>
+    </StackPanel>
+</Window>

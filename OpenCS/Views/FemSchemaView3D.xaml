@@ -2,6 +2,23 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:h="clr-namespace:HelixToolkit.Wpf;assembly=HelixToolkit.Wpf">
+    <UserControl.Resources>
+        <ContextMenu x:Key="MemberContextMenu">
+            <MenuItem Header="{DynamicResource FemMemberSectionCtx}" Click="MemberSectionCtx_Click"/>
+            <MenuItem Header="{DynamicResource FemMemberPropertiesCtx}" Click="MemberPropertiesCtx_Click"/>
+            <Separator/>
+            <MenuItem Header="{DynamicResource FemMemberSplitCtx}" Click="MemberSplitCtx_Click"/>
+            <MenuItem Header="{DynamicResource FemMemberDeleteCtx}" Click="MemberDeleteCtx_Click"/>
+            <Separator/>
+            <MenuItem Header="{DynamicResource FemMemberForcesCtx}" IsEnabled="False"/>
+        </ContextMenu>
+        <ContextMenu x:Key="NodeContextMenu">
+            <MenuItem Header="{DynamicResource FemNodeMoveCtx}" Click="NodeMoveCtx_Click"/>
+            <MenuItem Header="{DynamicResource FemNodeCopyCtx}" Click="NodeCopyCtx_Click"/>
+            <Separator/>
+            <MenuItem Header="{DynamicResource FemNodePropertiesCtx}" Click="NodePropertiesCtx_Click"/>
+        </ContextMenu>
+    </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

@@ -38,6 +38,20 @@ public partial class FemSchemaPage : UserControl
         view3D.CreateNodeModeCloseRequested += () => _editorVm.CreateNodeMode = false;
         view3D.CreateBarModeCloseRequested  += () => _editorVm.CreateBarMode  = false;
         view3D.SetBarSectionItemsSource(_editorVm.CrossSections);
+        view3D.MemberDeleteRequested += tag => _editorVm.DeleteMemberByTag(tag);
+        view3D.MemberSplitRequested  += tag => _editorVm.SplitMemberByTag(tag);
+        view3D.MemberPropertiesRequested  += OpenMemberProperties;
+        view3D.MemberSectionEditRequested += OpenMemberProperties;
+        view3D.NodeMoveRequested += (tag, dx, dy, dz) => _editorVm.MoveNodeByTag(tag, dx, dy, dz);
+        view3D.NodeCopyRequested += (tag, dx, dy, dz) => _editorVm.CopyNodeByTag(tag, dx, dy, dz);
+        view3D.NodePropertiesRequested += tag =>
+        {
+            var node = _editorVm.Session.Nodes.FirstOrDefault(n => n.NodeTag == tag);
+            if (node == null) return;
+            var dlg = new FemNodePropertiesDialog(node, _editorVm) { Owner = Window.GetWindow(this) };
+            dlg.MemberSelected += elemTag => _editorVm.Selection.ToggleElement(elemTag, additive: false);
+            dlg.Show();
+        };
         _editorVm.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName == nameof(FemSchemaEditorVM.CreateNodeMode))
@@ -56,6 +70,13 @@ public partial class FemSchemaPage : UserControl
 
     void CreateMember_Click(object sender, RoutedEventArgs e)
         => _editorVm.CreateMemberGroupFromElements(barsGrid.SelectedItems.OfType<FemMember>());
+
+    void OpenMemberProperties(string tag)
+    {
+        var member = _editorVm.Session.Members.FirstOrDefault(m => m.ElemTag == tag);
+        if (member == null) return;
+        new FemMemberPropertiesDialog(member, _editorVm) { Owner = Window.GetWindow(this) }.Show();
+    }
 
     void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {

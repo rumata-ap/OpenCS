@@ -1,0 +1,15 @@
+<Window x:Class="OpenCS.Views.FemNodeOffsetDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="240" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <StackPanel Margin="12">
+        <TextBlock x:Name="dxLabel" Text="{DynamicResource FemNodeOffsetDx}"/>
+        <TextBox x:Name="dxBox" Text="0" Margin="0,0,0,6"/>
+        <TextBlock x:Name="dyLabel" Text="{DynamicResource FemNodeOffsetDy}"/>
+        <TextBox x:Name="dyBox" Text="0" Margin="0,0,0,6"/>
+        <TextBlock x:Name="dzLabel" Text="{DynamicResource FemNodeOffsetDz}"/>
+        <TextBox x:Name="dzBox" Text="0" Margin="0,0,0,6"/>
+        <Button Content="{DynamicResource FemNodeOffsetApply}" Click="Apply_Click"/>
+    </StackPanel>
+</Window>

@@ -19,6 +19,7 @@ public partial class FemSchemaView3D : UserControl
     LinesVisual3D?  _meshVisual;
 
     readonly Dictionary<Visual3D, (bool IsNode, string Tag)> _pickTargets = new();
+    string? _contextMenuTargetTag;
 
     bool _createNodeMode;
     bool _createBarMode;
@@ -122,6 +123,7 @@ public partial class FemSchemaView3D : UserControl
         viewport.MouseLeftButtonDown += Viewport_MouseLeftButtonDown;
         viewport.MouseMove           += Viewport_MouseMove;
         viewport.MouseRightButtonDown += Viewport_MouseRightButtonDown_BreakChain;
+        viewport.MouseRightButtonDown += Viewport_MouseRightButtonDown_ShowMenu;
         viewport.KeyDown              += Viewport_KeyDown;
         viewport.Focusable = true;
     }
@@ -461,4 +463,88 @@ public partial class FemSchemaView3D : UserControl
 
     /// <summary>Тег сечения, выбранного в панели «Добавить элемент» (для применения при создании).</summary>
     public string? PendingBarSectionTag => _pendingBarSectionTag;
+
+    void Viewport_MouseRightButtonDown_ShowMenu(object sender, MouseButtonEventArgs e)
+    {
+        if (VM is not { EditMode: true }) return;
+        if (_createBarMode) return;
+
+        var position = e.GetPosition(viewport);
+        (bool IsNode, string Tag)? hit = null;
+        HitTestResultBehavior Callback(HitTestResult result)
+        {
+            if (result is RayMeshGeometry3DHitTestResult meshHit &&
+                _pickTargets.TryGetValue(meshHit.VisualHit, out var target))
+            {
+                hit = target;
+                return HitTestResultBehavior.Stop;
+            }
+            return HitTestResultBehavior.Continue;
+        }
+        VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
+        if (hit is not { } target) return;
+
+        _contextMenuTargetTag = target.Tag;
+        var menu = (ContextMenu)Resources[target.IsNode ? "NodeContextMenu" : "MemberContextMenu"];
+        menu.PlacementTarget = viewport;
+        menu.IsOpen = true;
+        e.Handled = true;
+    }
+
+    void MemberDeleteCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        MemberDeleteRequested?.Invoke(tag);
+    }
+
+    void MemberSplitCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        MemberSplitRequested?.Invoke(tag);
+    }
+
+    void MemberSectionCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        MemberSectionEditRequested?.Invoke(tag);
+    }
+
+    void MemberPropertiesCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        MemberPropertiesRequested?.Invoke(tag);
+    }
+
+    public event Action<string>? MemberDeleteRequested;
+    public event Action<string>? MemberSplitRequested;
+    public event Action<string>? MemberSectionEditRequested;
+    public event Action<string>? MemberPropertiesRequested;
+
+    void NodeMoveCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        var dlg = new FemNodeOffsetDialog(isCopy: false,
+            (dx, dy, dz) => NodeMoveRequested?.Invoke(tag, dx, dy, dz))
+        { Owner = Window.GetWindow(this) };
+        dlg.Show();
+    }
+
+    void NodeCopyCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        var dlg = new FemNodeOffsetDialog(isCopy: true,
+            (dx, dy, dz) => NodeCopyRequested?.Invoke(tag, dx, dy, dz))
+        { Owner = Window.GetWindow(this) };
+        dlg.Show();
+    }
+
+    void NodePropertiesCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        NodePropertiesRequested?.Invoke(tag);
+    }
+
+    public event Action<string, double, double, double>? NodeMoveRequested;
+    public event Action<string, double, double, double>? NodeCopyRequested;
+    public event Action<string>? NodePropertiesRequested;
 }
