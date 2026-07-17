@@ -1218,6 +1218,18 @@
                                         CommandParameter="{Binding PlacementTarget.DataContext,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
+                              <MenuItem Header="{DynamicResource ImportSubMenuLiraForces}">
+                                 <MenuItem Header="{DynamicResource ImportLiraForcesFromApi}"
+                                           Command="{Binding PlacementTarget.Tag.ImportLiraForcesFromApiCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource ImportLiraRsnFromApi}"
+                                           Command="{Binding PlacementTarget.Tag.ImportLiraRsnFromApiCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                 <MenuItem Header="{DynamicResource ImportLiraRsuFromApi}"
+                                           Command="{Binding PlacementTarget.Tag.ImportLiraRsuFromApiCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              </MenuItem>
+                              <Separator/>
                               <MenuItem Header="{DynamicResource FemMemberDelete}"
                                         Command="{Binding PlacementTarget.Tag.DeleteFemMemberCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"

@@ -1371,6 +1371,7 @@
     <system:String x:Key="FemForces">Усилия схемы</system:String>
     <system:String x:Key="ImportLiraSchemaFromApi">Импорт топологии из ЛираСАПР (COM)…</system:String>
     <system:String x:Key="StatusImportingSchema">Импорт топологии из ЛираСАПР…</system:String>
+    <system:String x:Key="ImportSubMenuLiraForces">Усилия из ЛираСАПР (COM)</system:String>
     <system:String x:Key="ImportLiraForcesFromApi">Импорт усилий ЗН из ЛираСАПР (COM)…</system:String>
     <system:String x:Key="ImportLiraRsnFromApi">Импорт усилий РСН из ЛираСАПР (COM)…</system:String>
     <system:String x:Key="ImportLiraRsnStarted">Импорт усилий РСН: {0} КЭ, группа «{1}»…</system:String>

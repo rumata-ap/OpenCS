@@ -1368,6 +1368,7 @@
     <system:String x:Key="FemForces">Schema Forces</system:String>
     <system:String x:Key="ImportLiraSchemaFromApi">Import topology from LIRA SAPR (COM)…</system:String>
     <system:String x:Key="StatusImportingSchema">Importing topology from LIRA SAPR…</system:String>
+    <system:String x:Key="ImportSubMenuLiraForces">Forces from LIRA SAPR (COM)</system:String>
     <system:String x:Key="ImportLiraForcesFromApi">Import load case forces from LIRA SAPR (COM)…</system:String>
     <system:String x:Key="ImportLiraRsnFromApi">Import RSN forces from LIRA SAPR (COM)…</system:String>
     <system:String x:Key="ImportLiraRsnStarted">Importing RSN forces: {0} elements, group «{1}»…</system:String>
