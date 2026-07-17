@@ -19,6 +19,7 @@ public partial class FemSchemaView3D : UserControl
     LinesVisual3D?  _meshVisual;
 
     readonly Dictionary<Visual3D, (bool IsNode, string Tag)> _pickTargets = new();
+    PointsVisual3D? _editNodesVisual;
     string? _contextMenuTargetTag;
 
     bool _createNodeMode;
@@ -273,30 +274,47 @@ public partial class FemSchemaView3D : UserControl
         UpdateGroundPlane();
     }
 
+    /// <summary>Порог, после которого вместо сфер (по одной на узел) используется PointsVisual3D.
+    /// Сферы дают per-node клик, но O(N) Visual3D — на импортированных моделях (>500 узлов) вешают UI.</summary>
+    const int SphereNodeThreshold = 500;
+
     void BuildEditProxies()
     {
         foreach (var visual in _pickTargets.Keys) viewport.Children.Remove(visual);
         _pickTargets.Clear();
+        if (_editNodesVisual != null) { viewport.Children.Remove(_editNodesVisual); _editNodesVisual = null; }
         if (VM is not { EditMode: true } vm) return;
 
         if (showNodesCheck.IsChecked == true)
         {
-            foreach (var (tag, pos) in vm.NodeProxies)
+            if (vm.NodeProxies.Count <= SphereNodeThreshold)
             {
-                bool isPendingBarFirst = _createBarMode && tag == _pendingBarFirstNode;
-                bool selected = vm.Selection?.SelectedNodeTags.Contains(tag) == true;
-                var color = isPendingBarFirst ? Colors.Gold : selected ? Colors.OrangeRed : Colors.DimGray;
-                var sphere = new SphereVisual3D { Center = pos, Radius = 0.05, Fill = new SolidColorBrush(color) };
-                _pickTargets[sphere] = (true, tag);
-                viewport.Children.Add(sphere);
-
-                var hitSphere = new SphereVisual3D
+                foreach (var (tag, pos) in vm.NodeProxies)
                 {
-                    Center = pos, Radius = 0.15,
-                    Fill = new SolidColorBrush(Colors.Transparent)
+                    bool isPendingBarFirst = _createBarMode && tag == _pendingBarFirstNode;
+                    bool selected = vm.Selection?.SelectedNodeTags.Contains(tag) == true;
+                    var color = isPendingBarFirst ? Colors.Gold : selected ? Colors.OrangeRed : Colors.DimGray;
+                    var sphere = new SphereVisual3D { Center = pos, Radius = 0.05, Fill = new SolidColorBrush(color) };
+                    _pickTargets[sphere] = (true, tag);
+                    viewport.Children.Add(sphere);
+
+                    var hitSphere = new SphereVisual3D
+                    {
+                        Center = pos, Radius = 0.15,
+                        Fill = new SolidColorBrush(Colors.Transparent)
+                    };
+                    _pickTargets[hitSphere] = (true, tag);
+                    viewport.Children.Add(hitSphere);
+                }
+            }
+            else
+            {
+                _editNodesVisual = new PointsVisual3D
+                {
+                    Points = new Point3DCollection(vm.NodeProxies.Select(np => np.Position)),
+                    Color = Colors.DimGray, Size = 6
                 };
-                _pickTargets[hitSphere] = (true, tag);
-                viewport.Children.Add(hitSphere);
+                viewport.Children.Add(_editNodesVisual);
             }
         }
         foreach (var (tag, p1, p2) in vm.BarProxies)
