@@ -451,6 +451,9 @@ namespace OpenCS
       /// <summary>Команда импорта расчётной схемы из CSV-файлов ЛираСАПР.</summary>
       public ICommand ImportLiraSchemaFromCsvCommand { get; set; } = null!;
 
+      /// <summary>Команда импорта расчётной схемы из .lir файла ЛираСАПР.</summary>
+      public ICommand ImportLiraSchemaFromFileCommand { get; set; } = null!;
+
       /// <summary>Команда импорта топологии расчётной схемы из текстового формата SCAD.</summary>
       public ICommand ImportScadTopologyFromTxtCommand { get; set; } = null!;
 
@@ -1171,6 +1174,7 @@ namespace OpenCS
           DeleteFemSchemaForceSetsCommand = new RelayCommand(p => DeleteFemSchemaForceSets(p as CScore.Fem.FemSchema));
           DeleteSelectedForceSetsCommand = new RelayCommand(p => DeleteSelectedForceSets(p as CScore.Fem.FemSchema));
          ImportLiraSchemaFromCsvCommand  = new RelayCommand(_ => ImportLiraSchemaFromCsv());
+         ImportLiraSchemaFromFileCommand = new RelayCommand(_ => ImportLiraSchemaFromFile());
          ImportScadTopologyFromTxtCommand = new RelayCommand(_ => ImportScadTopologyFromTxt());
          ImportScadForcesLoadCasesCommand = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.LoadCases));
          ImportScadForcesRsuCommand       = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.Rsu));
@@ -2420,6 +2424,50 @@ namespace OpenCS
             db.SaveFemSchema(schema);
 
             var nodes   = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
+            var members = CScore.Import.LiraSchemaConverter.ToFemBarMembers(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemShellMembers(raw, schema.Id))
+                .ToArray();
+            var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
+                .ToArray();
+
+            db.SaveFemTopology(schema.Id, nodes, members, memberGroups);
+            RefreshFemSchemaTreeCounts(schema);
+
+            int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
+            int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
+            LogService.Info(string.Format(Loc.S("ImportLiraSchemaSuccess"),
+               raw.Nodes.Count, barCount, shellCount, memberGroups.Length));
+         }
+         catch (Exception ex)
+         {
+            System.Windows.MessageBox.Show(ex.Message,
+               Loc.S("ImportLiraErrorTitle"),
+               System.Windows.MessageBoxButton.OK,
+               System.Windows.MessageBoxImage.Error);
+         }
+      }
+
+      void ImportLiraSchemaFromFile()
+      {
+         string? fileName = FileDialogService.OpenFile(
+            filter: Loc.S("LiraFileFilter"),
+            title:  Loc.S("ImportLiraSchemaFromFileTitle"));
+         if (string.IsNullOrEmpty(fileName)) return;
+
+         try
+         {
+            var raw = CScore.Import.LiraFileParser.Parse(fileName);
+
+            var schemaName = System.IO.Path.GetFileNameWithoutExtension(fileName);
+            var schema = new CScore.Fem.FemSchema
+            {
+               Tag        = schemaName,
+               SourceType = "lira",
+            };
+            db.SaveFemSchema(schema);
+
+            var nodes = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
             var members = CScore.Import.LiraSchemaConverter.ToFemBarMembers(raw, schema.Id)
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemShellMembers(raw, schema.Id))
                 .ToArray();

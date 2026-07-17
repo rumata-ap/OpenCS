@@ -155,6 +155,7 @@
              <Separator/>
              <MenuItem Header="{DynamicResource ImportSubMenuLira}">
                 <MenuItem Header="{DynamicResource ImportLiraSchemaFromCsv}" Command="{Binding ImportLiraSchemaFromCsvCommand}"/>
+                <MenuItem Header="{DynamicResource ImportLiraSchemaFromFile}" Command="{Binding ImportLiraSchemaFromFileCommand}"/>
                 <MenuItem Header="{DynamicResource ImportLiraSchemaFromApi}" Command="{Binding ImportLiraSchemaFromApiCommand}"/>
                 <Separator/>
                 <MenuItem Header="{DynamicResource ImportLiraLoadCases}" Command="{Binding ImportLiraLoadCasesCommand}"/>

@@ -1370,6 +1370,9 @@
     <system:String x:Key="FemDofMask">DOF-маска</system:String>
     <system:String x:Key="FemForces">Усилия схемы</system:String>
     <system:String x:Key="ImportLiraSchemaFromApi">Импорт топологии из ЛираСАПР (COM)…</system:String>
+    <system:String x:Key="ImportLiraSchemaFromFile">Импорт схемы из .lir файла…</system:String>
+    <system:String x:Key="ImportLiraSchemaFromFileTitle">Файл ЛираСАПР (.lir)</system:String>
+    <system:String x:Key="LiraFileFilter">Файлы ЛираСАПР (*.lir)|*.lir</system:String>
     <system:String x:Key="StatusImportingSchema">Импорт топологии из ЛираСАПР…</system:String>
     <system:String x:Key="ImportSubMenuLiraForces">Усилия из ЛираСАПР (COM)</system:String>
     <system:String x:Key="ImportLiraForcesFromApi">Импорт усилий ЗН из ЛираСАПР (COM)…</system:String>

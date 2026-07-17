@@ -1367,6 +1367,9 @@
     <system:String x:Key="FemDofMask">DOF mask</system:String>
     <system:String x:Key="FemForces">Schema Forces</system:String>
     <system:String x:Key="ImportLiraSchemaFromApi">Import topology from LIRA SAPR (COM)…</system:String>
+    <system:String x:Key="ImportLiraSchemaFromFile">Import schema from .lir file…</system:String>
+    <system:String x:Key="ImportLiraSchemaFromFileTitle">LIRA SAPR file (.lir)</system:String>
+    <system:String x:Key="LiraFileFilter">LIRA SAPR files (*.lir)|*.lir</system:String>
     <system:String x:Key="StatusImportingSchema">Importing topology from LIRA SAPR…</system:String>
     <system:String x:Key="ImportSubMenuLiraForces">Forces from LIRA SAPR (COM)</system:String>
     <system:String x:Key="ImportLiraForcesFromApi">Import load case forces from LIRA SAPR (COM)…</system:String>
