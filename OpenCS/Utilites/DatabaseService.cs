@@ -757,6 +757,29 @@ namespace OpenCS.Utilites
          if (!ColumnExists("fem_members", "target_mesh_length_m"))
             MigExec("ALTER TABLE fem_members ADD COLUMN target_mesh_length_m REAL");
 
+         if (TableExists("fem_elements") && ColumnExists("fem_elements", "elem_type"))
+         {
+            MigExec("""
+               INSERT INTO fem_members
+                  (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag,
+                   thickness_m, cross_section_id, gj_strategy, gj_manual_value,
+                   gj_torsion_task_id, target_mesh_length_m)
+               SELECT legacy.schema_id, legacy.elem_tag, legacy.elem_type, legacy.node_ids_json,
+                      legacy.section_tag, legacy.material_tag, legacy.thickness_m,
+                      NULL, 'manual', NULL, NULL, NULL
+               FROM fem_elements AS legacy
+               WHERE NOT EXISTS
+                  (SELECT 1 FROM fem_members AS current
+                   WHERE current.schema_id = legacy.schema_id
+                     AND current.elem_tag = legacy.elem_tag)
+               """);
+
+            var backupTable = "fem_elements_legacy_v30";
+            for (var suffix = 2; TableExists(backupTable); suffix++)
+               backupTable = $"fem_elements_legacy_v30_{suffix}";
+            MigExec($"ALTER TABLE fem_elements RENAME TO {backupTable}");
+         }
+
          MigExec("""
             CREATE TABLE IF NOT EXISTS fem_mesh_nodes (
                 id                INTEGER PRIMARY KEY AUTOINCREMENT,
