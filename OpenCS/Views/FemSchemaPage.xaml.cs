@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Diagnostics;
 using System.Windows.Input;
 using System.Windows.Media.Media3D;
 using CScore.Fem;
@@ -20,7 +21,17 @@ public partial class FemSchemaPage : UserControl
 
         var fem3d = new Fem3DVM(schema, app.db) { Selection = _editorVm.Selection, EditMode = true };
         view3D.DataContext = fem3d;
-        _editorVm.MeshDiscretized += async (_, _) => await fem3d.LoadMeshOverlayAsync();
+        _editorVm.MeshDiscretized += async (_, _) =>
+        {
+            try
+            {
+                await fem3d.LoadMeshOverlayAsync();
+            }
+            catch (Exception exception)
+            {
+                Debug.WriteLine(exception);
+            }
+        };
 
         view3D.NodeCreateRequested += p => _editorVm.CreateNodeAt(p.X, p.Y, p.Z);
         view3D.BarCreateRequested  += (a, b) => _editorVm.CreateBarBetween(a, b);

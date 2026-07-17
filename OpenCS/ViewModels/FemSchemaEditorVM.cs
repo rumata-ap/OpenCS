@@ -29,8 +29,19 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public ObservableCollection<CalcTask> AllCalcTasks { get; }
 
     bool _createNodeMode, _createBarMode;
+    bool _isDiscretizing;
     public bool CreateNodeMode { get => _createNodeMode; set { _createNodeMode = value; if (value) CreateBarMode = false; OnPropertyChanged(); } }
     public bool CreateBarMode  { get => _createBarMode;  set { _createBarMode  = value; if (value) CreateNodeMode = false; OnPropertyChanged(); } }
+    public bool IsDiscretizing
+    {
+        get => _isDiscretizing;
+        private set
+        {
+            _isDiscretizing = value;
+            OnPropertyChanged();
+            CommandManager.InvalidateRequerySuggested();
+        }
+    }
 
     FemMember? _selectedMember;
     public FemMember? SelectedMember
@@ -159,7 +170,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         UndoCommand = new RelayCommand(_ => { Session.Undo(); RefreshCollections(); }, _ => Session.CanUndo);
         RedoCommand = new RelayCommand(_ => { Session.Redo(); RefreshCollections(); }, _ => Session.CanRedo);
         SaveCommand = new RelayCommand(_ => Save(), _ => Session.IsDirty);
-        DiscretizeCommand = new RelayCommand(_ => Discretize());
+        DiscretizeCommand = new RelayCommand(_ => Discretize(), _ => !IsDiscretizing);
     }
 
     public void CreateNodeAt(double x, double y, double z)
@@ -282,13 +293,23 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
     public void Discretize()
     {
-        var mesh = FemMeshDiscretizer.Discretize(
-            Session.Schema.Id, Session.Nodes, Session.Members, DefaultTargetMeshLengthM);
-        LastMeshDiagnostics = FemTopologyValidator.ValidateMesh(mesh.Nodes, mesh.Elements);
-        if (LastMeshDiagnostics.Any(diagnostic => diagnostic.IsError)) return;
+        if (IsDiscretizing) return;
+        IsDiscretizing = true;
+        try
+        {
+            var mesh = FemMeshDiscretizer.Discretize(
+                Session.Schema.Id, Session.Nodes, Session.Members, DefaultTargetMeshLengthM);
+            LastMeshDiagnostics = FemTopologyValidator.ValidateMesh(mesh.Nodes, mesh.Elements);
+            if (LastMeshDiagnostics.Any(diagnostic => diagnostic.IsError)) return;
 
-        _db.SaveFemMeshSnapshot(Session.Schema.Id, mesh.Nodes, mesh.Elements);
-        MeshDiscretized?.Invoke(this, EventArgs.Empty);
+            _db.SaveFemMeshSnapshot(Session.Schema.Id, mesh.Nodes, mesh.Elements);
+            MeshDiscretized?.Invoke(this, EventArgs.Empty);
+        }
+        finally
+        {
+            IsDiscretizing = false;
+            CommandManager.InvalidateRequerySuggested();
+        }
     }
 
     void Save()

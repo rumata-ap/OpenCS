@@ -280,6 +280,41 @@ public sealed class FemMeshPersistenceTests
     }
 
     [Fact]
+    public async Task Fem3DVM_LoadMeshOverlayAsync_SkipsMalformedElementsAndDuplicateOrMissingNodes()
+    {
+        string path = TempDatabasePath();
+        try
+        {
+            using var db = new DatabaseService(path);
+            var schema = SaveSchema(db);
+            db.SaveFemMeshSnapshot(schema.Id,
+                [
+                    new FemMeshNode { NodeTag = "1", X = 1 },
+                    new FemMeshNode { NodeTag = "1", X = 99 },
+                    new FemMeshNode { NodeTag = "2", X = 2 },
+                ],
+                [
+                    new FemElement { ElemTag = "valid", NodeIdsJson = "[1,2]" },
+                    new FemElement { ElemTag = "malformed", NodeIdsJson = "not-json" },
+                    new FemElement { ElemTag = "null", NodeIdsJson = "null" },
+                    new FemElement { ElemTag = "missing", NodeIdsJson = "[1,99]" },
+                ]);
+
+            var vm = new Fem3DVM(schema, db);
+
+            await vm.LoadMeshOverlayAsync();
+
+            Assert.Equal(2, vm.MeshLinePoints?.Count);
+            Assert.Equal(new Point3D(1, 0, 0), vm.MeshLinePoints![0]);
+            Assert.Equal(new Point3D(2, 0, 0), vm.MeshLinePoints[1]);
+        }
+        finally
+        {
+            DeleteDatabase(path);
+        }
+    }
+
+    [Fact]
     public void FemMember_TargetMeshLengthMRoundTripsThroughSchemaEdit()
     {
         string path = TempDatabasePath();

@@ -23,6 +23,7 @@ public class Fem3DVM : ViewModelBase
     readonly DatabaseService _db;
     readonly FemMemberGroup? _memberOnly;      // показывать только КЭ группы
     readonly FemMemberGroup? _highlightMember; // показывать всю схему, группа подсвечена
+    long _meshOverlayRequestVersion;
 
     bool   _isLoading = true;
     bool   _noData;
@@ -83,28 +84,53 @@ public class Fem3DVM : ViewModelBase
         NoData    = false;
         Status    = Loc.S("Fem3DLoading");
 
-        var allNodes    = await Task.Run(() => _db.GetFemNodes(_schemaId));
-        var allElements = await Task.Run(() => _db.GetFemMembers(_schemaId));
+        try
+        {
+            var allNodes    = await Task.Run(() => _db.GetFemNodes(_schemaId));
+            var allElements = await Task.Run(() => _db.GetFemMembers(_schemaId));
 
-        ApplyTopology(allNodes, allElements);
-        if (_memberOnly == null && _highlightMember == null)
-            await LoadMeshOverlayAsync();
-        IsLoading = false;
-        Status    = "";
+            ApplyTopology(allNodes, allElements);
+            if (_memberOnly == null && _highlightMember == null)
+                await LoadMeshOverlayAsync();
+        }
+        finally
+        {
+            IsLoading = false;
+            Status    = "";
+        }
     }
 
     public async Task LoadMeshOverlayAsync()
     {
-        var meshNodes = await Task.Run(() => _db.GetFemMeshNodes(_schemaId));
-        var meshElements = await Task.Run(() => _db.GetFemMeshElements(_schemaId));
-        var nodeMap = meshNodes
-            .Where(node => int.TryParse(node.NodeTag, out _))
-            .ToDictionary(node => int.Parse(node.NodeTag), node => new Point3D(node.X, node.Y, node.Z));
+        var requestVersion = Interlocked.Increment(ref _meshOverlayRequestVersion);
+        var snapshot = await Task.Run(() =>
+        {
+            var nodes = _db.GetFemMeshNodes(_schemaId);
+            var elements = _db.GetFemMeshElements(_schemaId);
+            return (nodes, elements);
+        });
+
+        var nodeMap = new Dictionary<int, Point3D>();
+        foreach (var node in snapshot.nodes)
+        {
+            if (!int.TryParse(node.NodeTag, out var nodeTag)) continue;
+            nodeMap.TryAdd(nodeTag, new Point3D(node.X, node.Y, node.Z));
+        }
+
         var linePoints = new Point3DCollection();
 
-        foreach (var element in meshElements)
+        foreach (var element in snapshot.elements)
         {
-            var nodeIds = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson) ?? [];
+            int[] nodeIds;
+            try
+            {
+                nodeIds = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson ?? "[]") ?? [];
+            }
+            catch (JsonException)
+            {
+                continue;
+            }
+
             if (nodeIds.Length < 2 ||
                 !nodeMap.TryGetValue(nodeIds[0], out var first) ||
                 !nodeMap.TryGetValue(nodeIds[1], out var second))
@@ -114,6 +140,7 @@ public class Fem3DVM : ViewModelBase
             linePoints.Add(second);
         }
 
+        if (requestVersion != Volatile.Read(ref _meshOverlayRequestVersion)) return;
         if (linePoints.Count > 0)
             linePoints.Freeze();
         MeshLinePoints = linePoints.Count > 0 ? linePoints : null;
