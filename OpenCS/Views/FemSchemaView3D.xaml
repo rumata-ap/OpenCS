@@ -21,6 +21,10 @@
                       Content="{DynamicResource Fem3DShowShellEdges}"
                       VerticalAlignment="Center" Margin="4,0"
                       Checked="ShellEdgesToggle" Unchecked="ShellEdgesToggle"/>
+            <CheckBox x:Name="showMeshCheck"
+                      Content="{DynamicResource Fem3DShowMesh}"
+                      VerticalAlignment="Center" Margin="4,0"
+                      Checked="MeshToggle" Unchecked="MeshToggle"/>
         </ToolBar>
 
         <!-- 3D viewport -->

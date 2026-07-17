@@ -2,6 +2,8 @@ using System.Text.Json;
 using CScore.Fem;
 using Microsoft.Data.Sqlite;
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
+using System.Windows.Media.Media3D;
 
 namespace OpenCS.OpenSees.Tests;
 
@@ -235,6 +237,41 @@ public sealed class FemMeshPersistenceTests
             Assert.Equal("[1,2]", loadedMember.NodeIdsJson);
             db.LoadAll();
             Assert.Single(db.FemSchemas.Single(item => item.Id == schema.Id).MemberGroups);
+        }
+        finally
+        {
+            DeleteDatabase(path);
+        }
+    }
+
+    [Fact]
+    public async Task Fem3DVM_LoadMeshOverlayAsync_ExpandsElementNodePairsToLinePoints()
+    {
+        string path = TempDatabasePath();
+        try
+        {
+            using var db = new DatabaseService(path);
+            var schema = SaveSchema(db);
+            db.SaveFemMeshSnapshot(schema.Id,
+                [
+                    new FemMeshNode { NodeTag = "1", X = 1, Y = 2, Z = 3 },
+                    new FemMeshNode { NodeTag = "2", X = 4, Y = 5, Z = 6 },
+                    new FemMeshNode { NodeTag = "3", X = 7, Y = 8, Z = 9 },
+                ],
+                [
+                    new FemElement { ElemTag = "1", NodeIdsJson = "[1,2]" },
+                    new FemElement { ElemTag = "2", NodeIdsJson = "[2,3]" },
+                ]);
+
+            var vm = new Fem3DVM(schema, db);
+
+            await vm.LoadMeshOverlayAsync();
+
+            Assert.Equal(4, vm.MeshLinePoints?.Count);
+            Assert.Equal(new Point3D(1, 2, 3), vm.MeshLinePoints![0]);
+            Assert.Equal(new Point3D(4, 5, 6), vm.MeshLinePoints[1]);
+            Assert.Equal(new Point3D(4, 5, 6), vm.MeshLinePoints[2]);
+            Assert.Equal(new Point3D(7, 8, 9), vm.MeshLinePoints[3]);
         }
         finally
         {

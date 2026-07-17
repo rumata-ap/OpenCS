@@ -37,6 +37,7 @@ public class Fem3DVM : ViewModelBase
     public MeshGeometry3D?     HiShellMesh     { get; private set; }
     public Point3DCollection?  ShellEdgePoints { get; private set; }
     public Point3DCollection?  NodePoints      { get; private set; }
+    public Point3DCollection?  MeshLinePoints  { get; private set; }
 
     public FemSchemaSelectionVM? Selection { get; set; }
     public bool EditMode { get; set; }
@@ -86,8 +87,37 @@ public class Fem3DVM : ViewModelBase
         var allElements = await Task.Run(() => _db.GetFemMembers(_schemaId));
 
         ApplyTopology(allNodes, allElements);
+        if (_memberOnly == null && _highlightMember == null)
+            await LoadMeshOverlayAsync();
         IsLoading = false;
         Status    = "";
+    }
+
+    public async Task LoadMeshOverlayAsync()
+    {
+        var meshNodes = await Task.Run(() => _db.GetFemMeshNodes(_schemaId));
+        var meshElements = await Task.Run(() => _db.GetFemMeshElements(_schemaId));
+        var nodeMap = meshNodes
+            .Where(node => int.TryParse(node.NodeTag, out _))
+            .ToDictionary(node => int.Parse(node.NodeTag), node => new Point3D(node.X, node.Y, node.Z));
+        var linePoints = new Point3DCollection();
+
+        foreach (var element in meshElements)
+        {
+            var nodeIds = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson) ?? [];
+            if (nodeIds.Length < 2 ||
+                !nodeMap.TryGetValue(nodeIds[0], out var first) ||
+                !nodeMap.TryGetValue(nodeIds[1], out var second))
+                continue;
+
+            linePoints.Add(first);
+            linePoints.Add(second);
+        }
+
+        if (linePoints.Count > 0)
+            linePoints.Freeze();
+        MeshLinePoints = linePoints.Count > 0 ? linePoints : null;
+        OnPropertyChanged(nameof(MeshLinePoints));
     }
 
     /// <summary>Синхронно перестраивает геометрию из живой сессии редактирования (без БД).

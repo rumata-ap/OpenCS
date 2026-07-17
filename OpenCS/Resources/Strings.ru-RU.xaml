@@ -150,6 +150,7 @@
    <system:String x:Key="OriginReferenceAxes">Линии начала координат X/Y</system:String>
    <system:String x:Key="AxisLabelX">X</system:String>
    <system:String x:Key="AxisLabelY">Y</system:String>
+    <system:String x:Key="AxisLabelZ">Z</system:String>
    <system:String x:Key="ScaleX">Масштаб X</system:String>
    <system:String x:Key="ScaleY">Масштаб Y</system:String>
    <system:String x:Key="Defaults">По умолчанию</system:String>
@@ -1354,6 +1355,9 @@
     <system:String x:Key="FemNodeTag">№ узла</system:String>
     <system:String x:Key="FemNodeTag1">Узел 1</system:String>
     <system:String x:Key="FemNodeTag2">Узел 2</system:String>
+    <system:String x:Key="FemSectionTag">Тег сечения</system:String>
+    <system:String x:Key="FemCrossSectionId">ID сечения</system:String>
+    <system:String x:Key="FemGjStrategy">Стратегия GJ</system:String>
     <system:String x:Key="FemNodeTag3">Узел 3</system:String>
     <system:String x:Key="FemNodeTag4">Узел 4</system:String>
     <system:String x:Key="FemElemTag">№ КЭ</system:String>
@@ -1383,6 +1387,9 @@
     <system:String x:Key="Fem3DNoData">Нет данных для отображения. Импортируйте топологию схемы.</system:String>
     <system:String x:Key="Fem3DShowNodes">Узлы</system:String>
     <system:String x:Key="Fem3DShowShellEdges">Сетка КЭ</system:String>
+    <system:String x:Key="FemDiscretize">Дискретизировать</system:String>
+    <system:String x:Key="FemDiscretizeTargetLength">Целевая длина КЭ, м</system:String>
+    <system:String x:Key="Fem3DShowMesh">Сетка стержней</system:String>
     <system:String x:Key="Fem3DViewIsolated">Изолированно</system:String>
     <system:String x:Key="Fem3DViewSchema">Вся схема</system:String>
     <system:String x:Key="FemNodesTab">Узлы</system:String>

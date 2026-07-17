@@ -9,7 +9,18 @@
     <TabControl>
         <!-- Вкладка 3D-схема -->
         <TabItem Header="{DynamicResource FemSchema3DTab}">
-            <local:FemSchemaView3D x:Name="view3D"/>
+            <DockPanel>
+                <ToolBar DockPanel.Dock="Top">
+                    <TextBlock Text="{DynamicResource FemDiscretizeTargetLength}"
+                               VerticalAlignment="Center" Margin="4,0,6,0"/>
+                    <TextBox Width="90"
+                             Text="{Binding DefaultTargetMeshLengthM, UpdateSourceTrigger=PropertyChanged}"
+                             VerticalContentAlignment="Center" Margin="0,0,6,0"/>
+                    <Button Content="{DynamicResource FemDiscretize}"
+                            Command="{Binding DiscretizeCommand}"/>
+                </ToolBar>
+                <local:FemSchemaView3D x:Name="view3D"/>
+            </DockPanel>
         </TabItem>
 
         <!-- Вкладка узлов -->
@@ -26,11 +37,11 @@
                 <DataGrid ItemsSource="{Binding Nodes}" AutoGenerateColumns="False" IsReadOnly="False"
                           SelectionMode="Extended" x:Name="nodesGrid">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Tag" Binding="{Binding NodeTag}" IsReadOnly="True" Width="60"/>
-                        <DataGridTextColumn Header="X" Binding="{Binding X}" Width="80"/>
-                        <DataGridTextColumn Header="Y" Binding="{Binding Y}" Width="80"/>
-                        <DataGridTextColumn Header="Z" Binding="{Binding Z}" Width="80"/>
-                        <DataGridTextColumn Header="DofMask" Binding="{Binding DofMask}" Width="80"/>
+                        <DataGridTextColumn Header="{DynamicResource Tag}" Binding="{Binding NodeTag}" IsReadOnly="True" Width="60"/>
+                        <DataGridTextColumn Header="{DynamicResource AxisLabelX}" Binding="{Binding X}" Width="80"/>
+                        <DataGridTextColumn Header="{DynamicResource AxisLabelY}" Binding="{Binding Y}" Width="80"/>
+                        <DataGridTextColumn Header="{DynamicResource AxisLabelZ}" Binding="{Binding Z}" Width="80"/>
+                        <DataGridTextColumn Header="{DynamicResource FemDofMask}" Binding="{Binding DofMask}" Width="80"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>
@@ -47,10 +58,10 @@
                 <DataGrid ItemsSource="{Binding Members}" AutoGenerateColumns="False" IsReadOnly="True"
                           SelectionMode="Extended" x:Name="barsGrid">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Tag" Binding="{Binding ElemTag}" Width="60"/>
-                        <DataGridTextColumn Header="Node1" Binding="{Binding Node1}" Width="60"/>
-                        <DataGridTextColumn Header="Node2" Binding="{Binding Node2}" Width="60"/>
-                        <DataGridTextColumn Header="SectionTag" Binding="{Binding SectionTag}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource Tag}" Binding="{Binding ElemTag}" Width="60"/>
+                        <DataGridTextColumn Header="{DynamicResource FemNodeTag1}" Binding="{Binding Node1}" Width="60"/>
+                        <DataGridTextColumn Header="{DynamicResource FemNodeTag2}" Binding="{Binding Node2}" Width="60"/>
+                        <DataGridTextColumn Header="{DynamicResource FemSectionTag}" Binding="{Binding SectionTag}" Width="*"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>
@@ -108,9 +119,9 @@
                                                 Binding="{Binding ElemTag}" Width="120"/>
                             <DataGridTextColumn Header="{DynamicResource FemMemberType}"
                                                 Binding="{Binding ElemType}" Width="120"/>
-                            <DataGridTextColumn Header="CrossSectionId"
+                            <DataGridTextColumn Header="{DynamicResource FemCrossSectionId}"
                                                 Binding="{Binding CrossSectionId}" Width="120"/>
-                            <DataGridTextColumn Header="GjStrategy"
+                            <DataGridTextColumn Header="{DynamicResource FemGjStrategy}"
                                                 Binding="{Binding GjStrategy}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>

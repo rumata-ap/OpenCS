@@ -16,6 +16,7 @@ public partial class FemSchemaView3D : UserControl
     Fem3DVM?        _activeVm;
     PointsVisual3D? _nodesVisual;
     LinesVisual3D?  _shellEdgesVisual;
+    LinesVisual3D?  _meshVisual;
 
     readonly Dictionary<Visual3D, (bool IsNode, string Tag)> _pickTargets = new();
 
@@ -152,6 +153,7 @@ public partial class FemSchemaView3D : UserControl
         _activeVm         = vm;
         _nodesVisual      = null;
         _shellEdgesVisual = null;
+        _meshVisual       = null;
         viewport.Children.Clear();
 
         vm.PropertyChanged += OnVMPropertyChanged;
@@ -166,13 +168,15 @@ public partial class FemSchemaView3D : UserControl
 
     void OnVMPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(Fem3DVM.IsLoading) && VM is { IsLoading: false })
+        if ((e.PropertyName == nameof(Fem3DVM.IsLoading) && VM is { IsLoading: false }) ||
+            e.PropertyName == nameof(Fem3DVM.MeshLinePoints))
             BuildVisuals();
     }
 
     void BuildVisuals()
     {
         viewport.Children.Clear();
+        _meshVisual = null;
         viewport.Children.Add(new DefaultLights());
 
         if (VM == null) return;
@@ -203,6 +207,12 @@ public partial class FemSchemaView3D : UserControl
             var model = new GeometryModel3D(hiMesh, mat) { BackMaterial = mat };
             viewport.Children.Add(new ModelVisual3D { Content = model });
         }
+
+        _meshVisual = VM.MeshLinePoints is { Count: > 0 } meshPoints
+            ? new LinesVisual3D { Points = meshPoints, Color = Colors.LimeGreen, Thickness = 1.0 }
+            : null;
+        if (showMeshCheck.IsChecked == true && _meshVisual != null)
+            viewport.Children.Add(_meshVisual);
 
         _shellEdgesVisual = VM.ShellEdgePoints is { Count: > 0 } edgePts
             ? new LinesVisual3D { Points = edgePts, Color = Colors.DimGray, Thickness = 0.5 }
@@ -351,6 +361,15 @@ public partial class FemSchemaView3D : UserControl
             viewport.Children.Add(_nodesVisual);
         else
             viewport.Children.Remove(_nodesVisual);
+    }
+
+    void MeshToggle(object sender, RoutedEventArgs e)
+    {
+        if (_meshVisual == null) return;
+        if (showMeshCheck.IsChecked == true)
+            viewport.Children.Add(_meshVisual);
+        else
+            viewport.Children.Remove(_meshVisual);
     }
 
     void ZoomExtents_Click(object sender, RoutedEventArgs e)

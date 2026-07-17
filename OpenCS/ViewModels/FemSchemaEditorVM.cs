@@ -124,9 +124,24 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     IReadOnlyList<FemValidationDiagnostic> _diagnostics = [];
     public IReadOnlyList<FemValidationDiagnostic> Diagnostics { get => _diagnostics; private set { _diagnostics = value; OnPropertyChanged(); } }
 
+    double? _defaultTargetMeshLengthM;
+    public double? DefaultTargetMeshLengthM
+    {
+        get => _defaultTargetMeshLengthM;
+        set { _defaultTargetMeshLengthM = value; OnPropertyChanged(); }
+    }
+
+    IReadOnlyList<FemValidationDiagnostic> _lastMeshDiagnostics = [];
+    public IReadOnlyList<FemValidationDiagnostic> LastMeshDiagnostics
+    {
+        get => _lastMeshDiagnostics;
+        private set { _lastMeshDiagnostics = value; OnPropertyChanged(); }
+    }
+
     public ICommand UndoCommand { get; }
     public ICommand RedoCommand { get; }
     public ICommand SaveCommand { get; }
+    public ICommand DiscretizeCommand { get; }
 
     public FemSchemaEditorVM(FemSchema schema, AppViewModel app)
     {
@@ -144,6 +159,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         UndoCommand = new RelayCommand(_ => { Session.Undo(); RefreshCollections(); }, _ => Session.CanUndo);
         RedoCommand = new RelayCommand(_ => { Session.Redo(); RefreshCollections(); }, _ => Session.CanRedo);
         SaveCommand = new RelayCommand(_ => Save(), _ => Session.IsDirty);
+        DiscretizeCommand = new RelayCommand(_ => Discretize());
     }
 
     public void CreateNodeAt(double x, double y, double z)
@@ -262,6 +278,18 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// список ошибок, чтобы «Сохранить» не выглядело молча неработающим.
     /// </summary>
     public event Action<IReadOnlyList<FemValidationDiagnostic>>? SaveBlocked;
+    public event EventHandler? MeshDiscretized;
+
+    public void Discretize()
+    {
+        var mesh = FemMeshDiscretizer.Discretize(
+            Session.Schema.Id, Session.Nodes, Session.Members, DefaultTargetMeshLengthM);
+        LastMeshDiagnostics = FemTopologyValidator.ValidateMesh(mesh.Nodes, mesh.Elements);
+        if (LastMeshDiagnostics.Any(diagnostic => diagnostic.IsError)) return;
+
+        _db.SaveFemMeshSnapshot(Session.Schema.Id, mesh.Nodes, mesh.Elements);
+        MeshDiscretized?.Invoke(this, EventArgs.Empty);
+    }
 
     void Save()
     {

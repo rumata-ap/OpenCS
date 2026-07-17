@@ -149,6 +149,7 @@
    <system:String x:Key="OriginReferenceAxes">Origin reference axes X/Y</system:String>
    <system:String x:Key="AxisLabelX">X</system:String>
    <system:String x:Key="AxisLabelY">Y</system:String>
+    <system:String x:Key="AxisLabelZ">Z</system:String>
    <system:String x:Key="ScaleX">Scale X</system:String>
    <system:String x:Key="ScaleY">Scale Y</system:String>
    <system:String x:Key="Defaults">Defaults</system:String>
@@ -1351,6 +1352,9 @@
     <system:String x:Key="FemNodeTag">Node #</system:String>
     <system:String x:Key="FemNodeTag1">Node 1</system:String>
     <system:String x:Key="FemNodeTag2">Node 2</system:String>
+    <system:String x:Key="FemSectionTag">Section tag</system:String>
+    <system:String x:Key="FemCrossSectionId">Cross-section ID</system:String>
+    <system:String x:Key="FemGjStrategy">GJ strategy</system:String>
     <system:String x:Key="FemNodeTag3">Node 3</system:String>
     <system:String x:Key="FemNodeTag4">Node 4</system:String>
     <system:String x:Key="FemElemTag">Element #</system:String>
@@ -1380,6 +1384,9 @@
     <system:String x:Key="Fem3DNoData">No data to display. Import schema topology first.</system:String>
     <system:String x:Key="Fem3DShowNodes">Nodes</system:String>
     <system:String x:Key="Fem3DShowShellEdges">FE mesh</system:String>
+    <system:String x:Key="FemDiscretize">Discretize</system:String>
+    <system:String x:Key="FemDiscretizeTargetLength">Target mesh element length, m</system:String>
+    <system:String x:Key="Fem3DShowMesh">Bar mesh</system:String>
     <system:String x:Key="Fem3DViewIsolated">Isolated</system:String>
     <system:String x:Key="Fem3DViewSchema">Full schema</system:String>
     <system:String x:Key="FemNodesTab">Nodes</system:String>
