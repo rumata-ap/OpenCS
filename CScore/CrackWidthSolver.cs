@@ -588,7 +588,7 @@ public sealed class CrackWidthSolver
                     double epsTotal = epsTotalByFiber.TryGetValue(f, out var et) ? et : 0.0;
                     if (epsTotal > 0.0)
                     {
-                        double sigTotal = ownDgrShort.Sig(epsTotal, out _);
+                        double sigTotal = ownDgrShort!.Sig(epsTotal, out _);
                         if (sigTotal > 0.0)
                         {
                             double epsCrcShortRaw = epsCrcShortByFiber.TryGetValue(f, out var ecs) ? ecs : 0.0;
