@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-       const int CurrentSchemaVersion = 30;
+       const int CurrentSchemaVersion = 31;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -352,7 +352,29 @@ namespace OpenCS.Utilites
                 cross_section_id   INTEGER REFERENCES cross_sections(id),
                 gj_strategy        TEXT NOT NULL DEFAULT 'manual',
                 gj_manual_value    REAL,
-                gj_torsion_task_id INTEGER REFERENCES calc_tasks(id)
+                gj_torsion_task_id INTEGER REFERENCES calc_tasks(id),
+                target_mesh_length_m REAL
+            );
+            CREATE TABLE IF NOT EXISTS fem_mesh_nodes (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id        INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                node_tag         TEXT NOT NULL DEFAULT '',
+                x                REAL NOT NULL DEFAULT 0,
+                y                REAL NOT NULL DEFAULT 0,
+                z                REAL NOT NULL DEFAULT 0,
+                source_node_tag  TEXT,
+                source_member_tag TEXT
+            );
+            CREATE TABLE IF NOT EXISTS fem_elements (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id           INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                elem_tag            TEXT NOT NULL DEFAULT '',
+                node_ids_json       TEXT NOT NULL DEFAULT '[]',
+                source_member_tag   TEXT,
+                cross_section_id    INTEGER REFERENCES cross_sections(id),
+                gj_strategy         TEXT NOT NULL DEFAULT 'manual',
+                gj_manual_value     REAL,
+                gj_torsion_task_id  INTEGER REFERENCES calc_tasks(id)
             );
             CREATE TABLE IF NOT EXISTS fem_member_groups (
                 id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -455,6 +477,7 @@ namespace OpenCS.Utilites
                if (i == 27) { MigrateV28(); continue; }
                if (i == 28) { MigrateV29(); continue; }
                if (i == 29) { MigrateV30(); continue; }
+               if (i == 30) { MigrateV31(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -662,7 +685,7 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE fem_members RENAME TO fem_member_groups");
             MigExec("ALTER TABLE fem_member_groups RENAME COLUMN elem_ids_json TO member_tags_json");
 
-            if (TableExists("fem_elements"))
+            if (TableExists("fem_elements") && ColumnExists("fem_elements", "elem_type"))
             {
                // Аналогично: EnsureCreated мог уже создать пустую fem_members новой формы.
                MigExec("DROP TABLE IF EXISTS fem_members");
@@ -726,6 +749,37 @@ namespace OpenCS.Utilites
                updCmd.ExecuteNonQuery();
             }
          }
+      }
+
+      /// <summary>Миграция v31: целевая длина конструктивного элемента и сохранённый FEM-слепок.</summary>
+      void MigrateV31()
+      {
+         if (!ColumnExists("fem_members", "target_mesh_length_m"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN target_mesh_length_m REAL");
+
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS fem_mesh_nodes (
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id         INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                node_tag          TEXT NOT NULL DEFAULT '',
+                x                 REAL NOT NULL DEFAULT 0,
+                y                 REAL NOT NULL DEFAULT 0,
+                z                 REAL NOT NULL DEFAULT 0,
+                source_node_tag   TEXT,
+                source_member_tag TEXT
+            );
+            CREATE TABLE IF NOT EXISTS fem_elements (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id          INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                elem_tag           TEXT NOT NULL DEFAULT '',
+                node_ids_json      TEXT NOT NULL DEFAULT '[]',
+                source_member_tag  TEXT,
+                cross_section_id   INTEGER REFERENCES cross_sections(id),
+                gj_strategy        TEXT NOT NULL DEFAULT 'manual',
+                gj_manual_value    REAL,
+                gj_torsion_task_id INTEGER REFERENCES calc_tasks(id)
+            );
+            """);
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -3132,8 +3186,9 @@ namespace OpenCS.Utilites
             using var elemCmd = _connection.CreateCommand();
             elemCmd.CommandText = """
                INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m,
-                                         cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id)
-               VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt)
+                                         cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
+                                         target_mesh_length_m)
+               VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt, @tml)
             """;
             elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
             elemCmd.Parameters.Add("@tag",  Microsoft.Data.Sqlite.SqliteType.Text);
@@ -3145,6 +3200,7 @@ namespace OpenCS.Utilites
             elemCmd.Parameters.Add("@gjs",  Microsoft.Data.Sqlite.SqliteType.Text);
             elemCmd.Parameters.Add("@gjv",  Microsoft.Data.Sqlite.SqliteType.Real);
             elemCmd.Parameters.Add("@gjt",  Microsoft.Data.Sqlite.SqliteType.Integer);
+            elemCmd.Parameters.Add("@tml",  Microsoft.Data.Sqlite.SqliteType.Real);
             foreach (var e in members)
             {
                elemCmd.Parameters["@sid"].Value   = schemaId;
@@ -3157,6 +3213,7 @@ namespace OpenCS.Utilites
                elemCmd.Parameters["@gjs"].Value   = e.GjStrategy;
                elemCmd.Parameters["@gjv"].Value   = (object?)e.GjManualValue ?? DBNull.Value;
                elemCmd.Parameters["@gjt"].Value   = (object?)e.GjTorsionTaskId ?? DBNull.Value;
+               elemCmd.Parameters["@tml"].Value   = (object?)e.TargetMeshLengthM ?? DBNull.Value;
                elemCmd.ExecuteNonQuery();
             }
 
@@ -3248,8 +3305,9 @@ namespace OpenCS.Utilites
             {
                elemCmd.CommandText = """
                   INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m,
-                                            cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id)
-                  VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt);
+                                            cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
+                                            target_mesh_length_m)
+                  VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt, @tml);
                   SELECT last_insert_rowid();
                """;
                elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
@@ -3262,6 +3320,7 @@ namespace OpenCS.Utilites
                elemCmd.Parameters.Add("@gjs",  Microsoft.Data.Sqlite.SqliteType.Text);
                elemCmd.Parameters.Add("@gjv",  Microsoft.Data.Sqlite.SqliteType.Real);
                elemCmd.Parameters.Add("@gjt",  Microsoft.Data.Sqlite.SqliteType.Integer);
+               elemCmd.Parameters.Add("@tml",  Microsoft.Data.Sqlite.SqliteType.Real);
                foreach (var e in members)
                {
                   elemCmd.Parameters["@sid"].Value   = schemaId;
@@ -3274,6 +3333,7 @@ namespace OpenCS.Utilites
                   elemCmd.Parameters["@gjs"].Value   = e.GjStrategy;
                   elemCmd.Parameters["@gjv"].Value   = (object?)e.GjManualValue ?? DBNull.Value;
                   elemCmd.Parameters["@gjt"].Value   = (object?)e.GjTorsionTaskId ?? DBNull.Value;
+                  elemCmd.Parameters["@tml"].Value   = (object?)e.TargetMeshLengthM ?? DBNull.Value;
                   int newId = (int)(long)elemCmd.ExecuteScalar()!;
                   e.Id = newId;
                   e.SchemaId = schemaId;
@@ -3407,8 +3467,8 @@ namespace OpenCS.Utilites
          {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
-               INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json)
-               VALUES (@sid, @tag, 'beam', '[]')
+               INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, target_mesh_length_m)
+               VALUES (@sid, @tag, 'beam', '[]', NULL)
             """;
             cmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
             cmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
@@ -3453,7 +3513,7 @@ namespace OpenCS.Utilites
       {
          var result = new List<CScore.Fem.FemMember>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id FROM fem_members WHERE schema_id=@sid";
+         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m FROM fem_members WHERE schema_id=@sid";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var rdr = cmd.ExecuteReader();
          while (rdr.Read())
@@ -3470,6 +3530,157 @@ namespace OpenCS.Utilites
                GjStrategy      = rdr.GetString(7),
                GjManualValue   = rdr.IsDBNull(8) ? null : rdr.GetDouble(8),
                GjTorsionTaskId = rdr.IsDBNull(9) ? null : rdr.GetInt32(9),
+               TargetMeshLengthM = rdr.IsDBNull(10) ? null : rdr.GetDouble(10),
+            });
+         return result;
+      }
+
+      /// <summary>Атомарно заменяет сохранённый mesh-слепок FEM-схемы.</summary>
+      public void SaveFemMeshSnapshot(
+         int schemaId,
+         IReadOnlyList<CScore.Fem.FemMeshNode> nodes,
+         IReadOnlyList<CScore.Fem.FemElement> elements)
+      {
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using (var deleteCmd = _connection.CreateCommand())
+            {
+               deleteCmd.CommandText = """
+                  DELETE FROM fem_elements    WHERE schema_id=@sid;
+                  DELETE FROM fem_mesh_nodes  WHERE schema_id=@sid;
+               """;
+               deleteCmd.Parameters.AddWithValue("@sid", schemaId);
+               deleteCmd.ExecuteNonQuery();
+            }
+
+            using (var nodeCmd = _connection.CreateCommand())
+            {
+               nodeCmd.CommandText = """
+                  INSERT INTO fem_mesh_nodes
+                     (schema_id, node_tag, x, y, z, source_node_tag, source_member_tag)
+                  VALUES (@sid, @tag, @x, @y, @z, @source_node_tag, @source_member_tag);
+                  SELECT last_insert_rowid();
+               """;
+               nodeCmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
+               nodeCmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
+               nodeCmd.Parameters.Add("@x", Microsoft.Data.Sqlite.SqliteType.Real);
+               nodeCmd.Parameters.Add("@y", Microsoft.Data.Sqlite.SqliteType.Real);
+               nodeCmd.Parameters.Add("@z", Microsoft.Data.Sqlite.SqliteType.Real);
+               nodeCmd.Parameters.Add("@source_node_tag", Microsoft.Data.Sqlite.SqliteType.Text);
+               nodeCmd.Parameters.Add("@source_member_tag", Microsoft.Data.Sqlite.SqliteType.Text);
+
+               foreach (var node in nodes)
+               {
+                  nodeCmd.Parameters["@sid"].Value = schemaId;
+                  nodeCmd.Parameters["@tag"].Value = node.NodeTag;
+                  nodeCmd.Parameters["@x"].Value = node.X;
+                  nodeCmd.Parameters["@y"].Value = node.Y;
+                  nodeCmd.Parameters["@z"].Value = node.Z;
+                  nodeCmd.Parameters["@source_node_tag"].Value = (object?)node.SourceNodeTag ?? DBNull.Value;
+                  nodeCmd.Parameters["@source_member_tag"].Value = (object?)node.SourceMemberTag ?? DBNull.Value;
+                  node.Id = (int)(long)nodeCmd.ExecuteScalar()!;
+                  node.SchemaId = schemaId;
+               }
+            }
+
+            using (var elementCmd = _connection.CreateCommand())
+            {
+               elementCmd.CommandText = """
+                  INSERT INTO fem_elements
+                     (schema_id, elem_tag, node_ids_json, source_member_tag, cross_section_id,
+                      gj_strategy, gj_manual_value, gj_torsion_task_id)
+                  VALUES (@sid, @tag, @node_ids, @source_member_tag, @cross_section_id,
+                          @gj_strategy, @gj_manual_value, @gj_torsion_task_id);
+                  SELECT last_insert_rowid();
+               """;
+               elementCmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
+               elementCmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
+               elementCmd.Parameters.Add("@node_ids", Microsoft.Data.Sqlite.SqliteType.Text);
+               elementCmd.Parameters.Add("@source_member_tag", Microsoft.Data.Sqlite.SqliteType.Text);
+               elementCmd.Parameters.Add("@cross_section_id", Microsoft.Data.Sqlite.SqliteType.Integer);
+               elementCmd.Parameters.Add("@gj_strategy", Microsoft.Data.Sqlite.SqliteType.Text);
+               elementCmd.Parameters.Add("@gj_manual_value", Microsoft.Data.Sqlite.SqliteType.Real);
+               elementCmd.Parameters.Add("@gj_torsion_task_id", Microsoft.Data.Sqlite.SqliteType.Integer);
+
+               foreach (var element in elements)
+               {
+                  elementCmd.Parameters["@sid"].Value = schemaId;
+                  elementCmd.Parameters["@tag"].Value = element.ElemTag;
+                  elementCmd.Parameters["@node_ids"].Value = element.NodeIdsJson;
+                  elementCmd.Parameters["@source_member_tag"].Value = (object?)element.SourceMemberTag ?? DBNull.Value;
+                  elementCmd.Parameters["@cross_section_id"].Value = (object?)element.CrossSectionId ?? DBNull.Value;
+                  elementCmd.Parameters["@gj_strategy"].Value = element.GjStrategy;
+                  elementCmd.Parameters["@gj_manual_value"].Value = (object?)element.GjManualValue ?? DBNull.Value;
+                  elementCmd.Parameters["@gj_torsion_task_id"].Value = (object?)element.GjTorsionTaskId ?? DBNull.Value;
+                  element.Id = (int)(long)elementCmd.ExecuteScalar()!;
+                  element.SchemaId = schemaId;
+               }
+            }
+
+            tx.Commit();
+         }
+         catch
+         {
+            tx.Rollback();
+            throw;
+         }
+      }
+
+      /// <summary>Возвращает сохранённые узлы mesh-слепка FEM-схемы.</summary>
+      public List<CScore.Fem.FemMeshNode> GetFemMeshNodes(int schemaId)
+      {
+         var result = new List<CScore.Fem.FemMeshNode>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, node_tag, x, y, z, source_node_tag, source_member_tag
+            FROM fem_mesh_nodes
+            WHERE schema_id=@sid
+            ORDER BY id
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var rdr = cmd.ExecuteReader();
+         while (rdr.Read())
+            result.Add(new CScore.Fem.FemMeshNode
+            {
+               Id = rdr.GetInt32(0),
+               SchemaId = schemaId,
+               NodeTag = rdr.GetString(1),
+               X = rdr.GetDouble(2),
+               Y = rdr.GetDouble(3),
+               Z = rdr.GetDouble(4),
+               SourceNodeTag = rdr.IsDBNull(5) ? null : rdr.GetString(5),
+               SourceMemberTag = rdr.IsDBNull(6) ? null : rdr.GetString(6),
+            });
+         return result;
+      }
+
+      /// <summary>Возвращает сохранённые конечные элементы mesh-слепка FEM-схемы.</summary>
+      public List<CScore.Fem.FemElement> GetFemMeshElements(int schemaId)
+      {
+         var result = new List<CScore.Fem.FemElement>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, elem_tag, node_ids_json, source_member_tag, cross_section_id,
+                   gj_strategy, gj_manual_value, gj_torsion_task_id
+            FROM fem_elements
+            WHERE schema_id=@sid
+            ORDER BY id
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var rdr = cmd.ExecuteReader();
+         while (rdr.Read())
+            result.Add(new CScore.Fem.FemElement
+            {
+               Id = rdr.GetInt32(0),
+               SchemaId = schemaId,
+               ElemTag = rdr.GetString(1),
+               NodeIdsJson = rdr.GetString(2),
+               SourceMemberTag = rdr.IsDBNull(3) ? null : rdr.GetString(3),
+               CrossSectionId = rdr.IsDBNull(4) ? null : rdr.GetInt32(4),
+               GjStrategy = rdr.GetString(5),
+               GjManualValue = rdr.IsDBNull(6) ? null : rdr.GetDouble(6),
+               GjTorsionTaskId = rdr.IsDBNull(7) ? null : rdr.GetInt32(7),
             });
          return result;
       }
@@ -3518,8 +3729,9 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m,
-                                         cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id)
-               VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt);
+                                         cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
+                                         target_mesh_length_m)
+               VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt, @tml);
                SELECT last_insert_rowid();
             """;
             cmd.Parameters.AddWithValue("@sid",   m.SchemaId);
@@ -3532,13 +3744,15 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@gjs",   m.GjStrategy);
             cmd.Parameters.AddWithValue("@gjv",   (object?)m.GjManualValue   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@gjt",   (object?)m.GjTorsionTaskId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@tml",   (object?)m.TargetMeshLengthM ?? DBNull.Value);
             m.Id = (int)(long)cmd.ExecuteScalar()!;
          }
          else
          {
             cmd.CommandText = """
                UPDATE fem_members SET elem_tag=@tag, elem_type=@etype, node_ids_json=@nids, section_tag=@stag,
-               thickness_m=@thk, cross_section_id=@csid, gj_strategy=@gjs, gj_manual_value=@gjv, gj_torsion_task_id=@gjt
+               thickness_m=@thk, cross_section_id=@csid, gj_strategy=@gjs, gj_manual_value=@gjv,
+               gj_torsion_task_id=@gjt, target_mesh_length_m=@tml
                WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@tag",   m.ElemTag);
@@ -3550,6 +3764,7 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@gjs",   m.GjStrategy);
             cmd.Parameters.AddWithValue("@gjv",   (object?)m.GjManualValue   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@gjt",   (object?)m.GjTorsionTaskId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@tml",   (object?)m.TargetMeshLengthM ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@id",    m.Id);
             cmd.ExecuteNonQuery();
          }
