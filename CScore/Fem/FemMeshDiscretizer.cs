@@ -61,6 +61,7 @@ public static class FemMeshDiscretizer
                 .OrderBy(point => point.Parameter)
                 .ThenBy(point => point.Index)
                 .ToArray();
+            points = RemoveShortSpans(points, length);
 
             var orderedMeshNodes = points
                 .Select(point => GetOrCreateSourceNode(
@@ -80,12 +81,16 @@ public static class FemMeshDiscretizer
                 var start = points[pointIndex];
                 var end = points[pointIndex + 1];
                 var segmentLength = (end.Parameter - start.Parameter) * length;
-                if (!double.IsFinite(segmentLength) || segmentLength <= 0)
+                if (!double.IsFinite(segmentLength) || segmentLength < CollinearToleranceM)
                     continue;
 
-                var subdivisionCount = targetLength is { } target
-                    ? Math.Max(1, (int)Math.Ceiling(segmentLength / target))
-                    : 1;
+                var subdivisionCount = 1;
+                if (targetLength is { } target)
+                {
+                    var requestedSubdivisionCount = Math.Max(1, (int)Math.Ceiling(segmentLength / target));
+                    var maximumSubdivisionCount = Math.Max(1, (int)Math.Floor(segmentLength / CollinearToleranceM));
+                    subdivisionCount = Math.Min(requestedSubdivisionCount, maximumSubdivisionCount);
+                }
                 var startMeshNode = orderedMeshNodes[pointIndex];
                 var endMeshNode = orderedMeshNodes[pointIndex + 1];
                 var previousNodeTag = int.Parse(startMeshNode.NodeTag);
@@ -116,6 +121,30 @@ public static class FemMeshDiscretizer
         }
 
         return (meshNodes, meshElements);
+    }
+
+    static PointOnMember[] RemoveShortSpans(PointOnMember[] points, double memberLength)
+    {
+        var chain = points.ToList();
+        var index = 1;
+        while (index < chain.Count)
+        {
+            var spanLength = (chain[index].Parameter - chain[index - 1].Parameter) * memberLength;
+            if (spanLength >= CollinearToleranceM)
+            {
+                index++;
+                continue;
+            }
+
+            // Сохраняем конечный узел стержня, удаляя близкий к нему внутренний узел.
+            if (index == chain.Count - 1)
+                chain.RemoveAt(index - 1);
+            else
+                chain.RemoveAt(index);
+            index = Math.Max(1, index - 1);
+        }
+
+        return chain.ToArray();
     }
 
     static bool TryReadEndpointTags(string? json, out int[] tags)
