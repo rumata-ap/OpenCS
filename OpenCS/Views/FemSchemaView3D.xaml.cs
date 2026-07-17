@@ -260,7 +260,7 @@ public partial class FemSchemaView3D : UserControl
         else
         {
             _nodesVisual = VM.NodePoints is { Count: > 0 } nodePts
-                ? new PointsVisual3D { Points = nodePts, Color = Colors.DimGray, Size = 6 }
+                ? new PointsVisual3D { Points = nodePts, Color = Colors.DimGray, Size = 3 }
                 : null;
 
             if (showNodesCheck.IsChecked == true && _nodesVisual != null)
@@ -312,7 +312,7 @@ public partial class FemSchemaView3D : UserControl
                 _editNodesVisual = new PointsVisual3D
                 {
                     Points = new Point3DCollection(vm.NodeProxies.Select(np => np.Position)),
-                    Color = Colors.DimGray, Size = 6
+                    Color = Colors.DimGray, Size = 3
                 };
                 viewport.Children.Add(_editNodesVisual);
             }
