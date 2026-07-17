@@ -73,6 +73,14 @@ public static class FemTopologyValidator
                     $"У '{element.ElemTag}' не выбрана задача кручения для GJ.", IsError: false));
         }
 
+        foreach (var member in members)
+        {
+            if (member.TargetMeshLengthM is { } targetMeshLengthM &&
+                (targetMeshLengthM <= 0 || !double.IsFinite(targetMeshLengthM)))
+                errors.Add(new("target_mesh_length_invalid",
+                    $"У '{member.ElemTag}' целевая длина элемента сетки должна быть положительным конечным числом."));
+        }
+
         foreach (var group in members.GroupBy(e => e.ElemTag, StringComparer.Ordinal).Where(g => g.Count() > 1))
             errors.Add(new("element_tag_duplicate", $"Тег элемента '{group.Key}' используется несколько раз."));
 
@@ -85,6 +93,48 @@ public static class FemTopologyValidator
                 if (!elemTagSet.Contains(tag))
                     errors.Add(new("member_element_missing",
                         $"Группа '{group.Tag}' ссылается на отсутствующий конструктивный элемент {tag}."));
+        }
+
+        return errors;
+    }
+
+    /// <summary>Проверяет ссылки и вырожденность конечных элементов дискретизированной сетки.</summary>
+    public static IReadOnlyList<FemValidationDiagnostic> ValidateMesh(
+        IReadOnlyList<FemMeshNode> nodes,
+        IReadOnlyList<FemElement> elements)
+    {
+        ArgumentNullException.ThrowIfNull(nodes);
+        ArgumentNullException.ThrowIfNull(elements);
+
+        var errors = new List<FemValidationDiagnostic>();
+        var nodeById = new Dictionary<int, FemMeshNode>();
+        foreach (var node in nodes)
+            nodeById.TryAdd(node.Id, node);
+
+        foreach (var element in elements)
+        {
+            var nodeIds = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson) ?? [];
+            var missingNodeIds = nodeIds
+                .Where(nodeId => !nodeById.ContainsKey(nodeId))
+                .Distinct()
+                .ToArray();
+
+            foreach (var nodeId in missingNodeIds)
+                errors.Add(new("mesh_element_node_missing",
+                    $"Элемент сетки {element.ElemTag} ссылается на отсутствующий узел {nodeId}."));
+
+            if (missingNodeIds.Length > 0)
+                continue;
+
+            var elementNodes = nodeIds.Select(nodeId => nodeById[nodeId]).ToArray();
+            var distinctCoordinates = elementNodes
+                .Select(node => (node.X, node.Y, node.Z))
+                .Distinct()
+                .Count();
+
+            if (nodeIds.Length < 2 || nodeIds.Distinct().Count() < 2 || distinctCoordinates < 2)
+                errors.Add(new("mesh_element_degenerate",
+                    $"Элемент сетки {element.ElemTag} является вырожденным."));
         }
 
         return errors;

@@ -27,6 +27,8 @@ public class FemMember
     public double? GjManualValue    { get; set; }
     /// <summary>FK → calc_tasks.id (Kind "torsion_bem"/"torsion_fem"). Используется при GjStrategy="saint_venant".</summary>
     public int?    GjTorsionTaskId  { get; set; }
+    /// <summary>Целевая длина элемента сетки при дискретизации, м. Null означает значение по умолчанию.</summary>
+    public double? TargetMeshLengthM { get; set; }
 
     int[]? _nodeIds;
     int[] NodeIds => _nodeIds ??= JsonSerializer.Deserialize<int[]>(NodeIdsJson) ?? [];
