@@ -594,6 +594,11 @@
    <system:String x:Key="ImportScadForcesSaving">Saving force sets…</system:String>
    <system:String x:Key="ImportScadForcesSuccess">Imported force sets: {0}, rows: {1}</system:String>
    <system:String x:Key="ImportScadForcesNoRows">No force rows matched the element filter.</system:String>
+    <system:String x:Key="ImportScadRsu2">Forces — RSU (RSU2)…</system:String>
+    <system:String x:Key="ScadRsu2FileFilter">SCAD RSU2 files (*.RSU2)|*.RSU2</system:String>
+    <system:String x:Key="ScadRsu2DialogTitle">Select RSU2 file</system:String>
+    <system:String x:Key="ScadRsu2Importing">Importing RSU from RSU2…</system:String>
+    <system:String x:Key="ScadRsu2Success">Imported RSU sets: {0}</system:String>
     <system:String x:Key="ImportSettingsTab">Import</system:String>
     <system:String x:Key="LiraImportGroupBox">LiraSAPR</system:String>
     <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>

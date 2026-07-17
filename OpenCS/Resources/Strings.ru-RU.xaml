@@ -597,6 +597,11 @@
    <system:String x:Key="ImportScadForcesSaving">Сохранение наборов усилий…</system:String>
    <system:String x:Key="ImportScadForcesSuccess">Импортировано наборов: {0}, строк: {1}</system:String>
    <system:String x:Key="ImportScadForcesNoRows">После фильтра не найдено строк усилий.</system:String>
+    <system:String x:Key="ImportScadRsu2">Усилия — РСУ (RSU2)…</system:String>
+    <system:String x:Key="ScadRsu2FileFilter">Файлы SCAD RSU2 (*.RSU2)|*.RSU2</system:String>
+    <system:String x:Key="ScadRsu2DialogTitle">Выберите файл RSU2</system:String>
+    <system:String x:Key="ScadRsu2Importing">Импорт РСУ из RSU2…</system:String>
+    <system:String x:Key="ScadRsu2Success">Импортировано наборов РСУ: {0}</system:String>
     <system:String x:Key="ImportSettingsTab">Импорт</system:String>
     <system:String x:Key="LiraImportGroupBox">Лира САПР</system:String>
     <system:String x:Key="AcadImportGroupBox">AutoCAD</system:String>
