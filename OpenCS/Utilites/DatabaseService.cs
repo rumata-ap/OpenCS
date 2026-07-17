@@ -3208,16 +3208,17 @@ namespace OpenCS.Utilites
 
             using var elemCmd = _connection.CreateCommand();
             elemCmd.CommandText = """
-               INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m,
+               INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                          cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
                                          target_mesh_length_m)
-               VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt, @tml)
+               VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml)
             """;
             elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
             elemCmd.Parameters.Add("@tag",  Microsoft.Data.Sqlite.SqliteType.Text);
             elemCmd.Parameters.Add("@etype",Microsoft.Data.Sqlite.SqliteType.Text);
             elemCmd.Parameters.Add("@nids", Microsoft.Data.Sqlite.SqliteType.Text);
             elemCmd.Parameters.Add("@stag", Microsoft.Data.Sqlite.SqliteType.Text);
+            elemCmd.Parameters.Add("@mtag", Microsoft.Data.Sqlite.SqliteType.Text);
             elemCmd.Parameters.Add("@thk",  Microsoft.Data.Sqlite.SqliteType.Real);
             elemCmd.Parameters.Add("@csid", Microsoft.Data.Sqlite.SqliteType.Integer);
             elemCmd.Parameters.Add("@gjs",  Microsoft.Data.Sqlite.SqliteType.Text);
@@ -3231,6 +3232,7 @@ namespace OpenCS.Utilites
                elemCmd.Parameters["@etype"].Value = e.ElemType;
                elemCmd.Parameters["@nids"].Value  = e.NodeIdsJson;
                elemCmd.Parameters["@stag"].Value  = (object?)e.SectionTag ?? DBNull.Value;
+               elemCmd.Parameters["@mtag"].Value  = (object?)e.MaterialTag ?? DBNull.Value;
                elemCmd.Parameters["@thk"].Value   = e.ThicknessM.HasValue ? e.ThicknessM.Value : DBNull.Value;
                elemCmd.Parameters["@csid"].Value  = (object?)e.CrossSectionId ?? DBNull.Value;
                elemCmd.Parameters["@gjs"].Value   = e.GjStrategy;
@@ -3327,10 +3329,10 @@ namespace OpenCS.Utilites
             using (var elemCmd = _connection.CreateCommand())
             {
                elemCmd.CommandText = """
-                  INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m,
+                  INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                             cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
                                             target_mesh_length_m)
-                  VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt, @tml);
+                  VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml);
                   SELECT last_insert_rowid();
                """;
                elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
@@ -3338,6 +3340,7 @@ namespace OpenCS.Utilites
                elemCmd.Parameters.Add("@etype",Microsoft.Data.Sqlite.SqliteType.Text);
                elemCmd.Parameters.Add("@nids", Microsoft.Data.Sqlite.SqliteType.Text);
                elemCmd.Parameters.Add("@stag", Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@mtag", Microsoft.Data.Sqlite.SqliteType.Text);
                elemCmd.Parameters.Add("@thk",  Microsoft.Data.Sqlite.SqliteType.Real);
                elemCmd.Parameters.Add("@csid", Microsoft.Data.Sqlite.SqliteType.Integer);
                elemCmd.Parameters.Add("@gjs",  Microsoft.Data.Sqlite.SqliteType.Text);
@@ -3351,6 +3354,7 @@ namespace OpenCS.Utilites
                   elemCmd.Parameters["@etype"].Value = e.ElemType;
                   elemCmd.Parameters["@nids"].Value  = e.NodeIdsJson;
                   elemCmd.Parameters["@stag"].Value  = (object?)e.SectionTag ?? DBNull.Value;
+                  elemCmd.Parameters["@mtag"].Value  = (object?)e.MaterialTag ?? DBNull.Value;
                   elemCmd.Parameters["@thk"].Value   = e.ThicknessM.HasValue ? e.ThicknessM.Value : DBNull.Value;
                   elemCmd.Parameters["@csid"].Value  = (object?)e.CrossSectionId ?? DBNull.Value;
                   elemCmd.Parameters["@gjs"].Value   = e.GjStrategy;
@@ -3490,8 +3494,8 @@ namespace OpenCS.Utilites
          {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
-               INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, target_mesh_length_m)
-               VALUES (@sid, @tag, 'beam', '[]', NULL)
+               INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, material_tag, target_mesh_length_m)
+               VALUES (@sid, @tag, 'beam', '[]', NULL, NULL)
             """;
             cmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
             cmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
@@ -3536,7 +3540,7 @@ namespace OpenCS.Utilites
       {
          var result = new List<CScore.Fem.FemMember>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m FROM fem_members WHERE schema_id=@sid";
+         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m FROM fem_members WHERE schema_id=@sid";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var rdr = cmd.ExecuteReader();
          while (rdr.Read())
@@ -3548,12 +3552,13 @@ namespace OpenCS.Utilites
                ElemType    = rdr.GetString(2),
                NodeIdsJson = rdr.GetString(3),
                SectionTag  = rdr.IsDBNull(4) ? null : rdr.GetString(4),
-               ThicknessM  = rdr.IsDBNull(5) ? null : rdr.GetDouble(5),
-               CrossSectionId  = rdr.IsDBNull(6) ? null : rdr.GetInt32(6),
-               GjStrategy      = rdr.GetString(7),
-               GjManualValue   = rdr.IsDBNull(8) ? null : rdr.GetDouble(8),
-               GjTorsionTaskId = rdr.IsDBNull(9) ? null : rdr.GetInt32(9),
-               TargetMeshLengthM = rdr.IsDBNull(10) ? null : rdr.GetDouble(10),
+               MaterialTag = rdr.IsDBNull(5) ? null : rdr.GetString(5),
+               ThicknessM  = rdr.IsDBNull(6) ? null : rdr.GetDouble(6),
+               CrossSectionId  = rdr.IsDBNull(7) ? null : rdr.GetInt32(7),
+               GjStrategy      = rdr.GetString(8),
+               GjManualValue   = rdr.IsDBNull(9) ? null : rdr.GetDouble(9),
+               GjTorsionTaskId = rdr.IsDBNull(10) ? null : rdr.GetInt32(10),
+               TargetMeshLengthM = rdr.IsDBNull(11) ? null : rdr.GetDouble(11),
             });
          return result;
       }
@@ -3751,10 +3756,10 @@ namespace OpenCS.Utilites
          if (m.Id == 0)
          {
             cmd.CommandText = """
-               INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m,
+               INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                          cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
                                          target_mesh_length_m)
-               VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt, @tml);
+               VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml);
                SELECT last_insert_rowid();
             """;
             cmd.Parameters.AddWithValue("@sid",   m.SchemaId);
@@ -3762,6 +3767,7 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@etype", m.ElemType);
             cmd.Parameters.AddWithValue("@nids",  m.NodeIdsJson);
             cmd.Parameters.AddWithValue("@stag",  (object?)m.SectionTag ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@mtag",  (object?)m.MaterialTag ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@thk",   m.ThicknessM.HasValue ? m.ThicknessM.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@csid",  (object?)m.CrossSectionId  ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@gjs",   m.GjStrategy);
@@ -3774,7 +3780,7 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                UPDATE fem_members SET elem_tag=@tag, elem_type=@etype, node_ids_json=@nids, section_tag=@stag,
-               thickness_m=@thk, cross_section_id=@csid, gj_strategy=@gjs, gj_manual_value=@gjv,
+               material_tag=@mtag, thickness_m=@thk, cross_section_id=@csid, gj_strategy=@gjs, gj_manual_value=@gjv,
                gj_torsion_task_id=@gjt, target_mesh_length_m=@tml
                WHERE id=@id
             """;
@@ -3782,6 +3788,7 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@etype", m.ElemType);
             cmd.Parameters.AddWithValue("@nids",  m.NodeIdsJson);
             cmd.Parameters.AddWithValue("@stag",  (object?)m.SectionTag ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@mtag",  (object?)m.MaterialTag ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@thk",   m.ThicknessM.HasValue ? m.ThicknessM.Value : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@csid",  (object?)m.CrossSectionId  ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@gjs",   m.GjStrategy);

@@ -21,7 +21,12 @@ public sealed class FemMeshPersistenceTests
             Assert.Contains(members, member => member.ElemTag == "current");
             var migratedLegacy = Assert.Single(members, member => member.ElemTag == "legacy");
             Assert.Equal("legacy-section", migratedLegacy.SectionTag);
+            Assert.Equal("legacy-material", migratedLegacy.MaterialTag);
             Assert.Equal(0.4, migratedLegacy.ThicknessM);
+
+            db.SaveFemSchemaEdit(1, [], [migratedLegacy], [], [], []);
+            var reloadedLegacy = Assert.Single(db.GetFemMembers(1));
+            Assert.Equal("legacy-material", reloadedLegacy.MaterialTag);
 
             var nodes = new[]
             {
