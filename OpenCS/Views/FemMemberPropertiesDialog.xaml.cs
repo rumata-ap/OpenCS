@@ -10,6 +10,7 @@ public partial class FemMemberPropertiesDialog : Window
 {
     readonly FemMember _member;
     readonly FemSchemaEditorVM _editorVm;
+    bool _initializing = true;
 
     public FemMemberPropertiesDialog(FemMember member, FemSchemaEditorVM editorVm)
     {
@@ -38,14 +39,16 @@ public partial class FemMemberPropertiesDialog : Window
         gjManualValueBox.Text = member.GjManualValue?.ToString("F1") ?? "";
 
         torsionTaskCombo.ItemsSource = editorVm.AllCalcTasks
-            .Where(t => t.Kind is "torsion_bem" or "torsion_fem" && t.SectionId == member.CrossSectionId);
+            .Where(t => (t.Kind is "torsion_bem" or "torsion_fem") && t.SectionId == member.CrossSectionId);
         torsionTaskCombo.SelectedItem = editorVm.AllCalcTasks.FirstOrDefault(t => t.Id == member.GjTorsionTaskId);
 
         targetLengthBox.Text = member.TargetMeshLengthM?.ToString("F2") ?? "";
+        _initializing = false;
     }
 
     void SectionCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
+        if (_initializing) return;
         var section = sectionCombo.SelectedItem as CrossSection;
         _editorVm.Session.Execute(new SetMemberSectionCommand(_member, section?.Id));
         _editorVm.RefreshCollections();
@@ -53,6 +56,7 @@ public partial class FemMemberPropertiesDialog : Window
 
     void GjStrategy_Changed(object sender, RoutedEventArgs e)
     {
+        if (_initializing) return;
         if (gjSaintVenantRadio.IsChecked == true)
             _editorVm.Session.Execute(new SetMemberGjCommand(_member, "saint_venant", null, _member.GjTorsionTaskId));
         else
@@ -69,6 +73,7 @@ public partial class FemMemberPropertiesDialog : Window
 
     void TorsionTask_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
+        if (_initializing) return;
         var task = torsionTaskCombo.SelectedItem as CalcTask;
         _editorVm.Session.Execute(new SetMemberGjCommand(_member, "saint_venant", null, task?.Id));
         _editorVm.RefreshCollections();
