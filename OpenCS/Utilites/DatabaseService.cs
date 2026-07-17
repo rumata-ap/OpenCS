@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-       const int CurrentSchemaVersion = 29;
+       const int CurrentSchemaVersion = 30;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -340,7 +340,7 @@ namespace OpenCS.Utilites
                 z REAL NOT NULL DEFAULT 0,
                 dof_mask  INTEGER NOT NULL DEFAULT 0
             );
-            CREATE TABLE IF NOT EXISTS fem_elements (
+            CREATE TABLE IF NOT EXISTS fem_members (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id     INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
                 elem_tag      TEXT NOT NULL DEFAULT '',
@@ -348,21 +348,21 @@ namespace OpenCS.Utilites
                 node_ids_json TEXT NOT NULL DEFAULT '[]',
                 section_tag   TEXT,
                 material_tag  TEXT,
-                thickness_m   REAL
+                thickness_m   REAL,
+                cross_section_id   INTEGER REFERENCES cross_sections(id),
+                gj_strategy        TEXT NOT NULL DEFAULT 'manual',
+                gj_manual_value    REAL,
+                gj_torsion_task_id INTEGER REFERENCES calc_tasks(id)
             );
-            CREATE TABLE IF NOT EXISTS fem_members (
+            CREATE TABLE IF NOT EXISTS fem_member_groups (
                 id                 INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id          INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
                 tag                TEXT NOT NULL DEFAULT '',
                 member_type        TEXT,
-                elem_ids_json      TEXT NOT NULL DEFAULT '[]',
-                cross_section_id   INTEGER REFERENCES cross_sections(id),
+                member_tags_json   TEXT NOT NULL DEFAULT '[]',
                 plate_section_id   INTEGER REFERENCES plate_sections(id),
                 force_set_id       INTEGER REFERENCES force_sets(id),
-                design_params_json TEXT,
-                gj_strategy        TEXT NOT NULL DEFAULT 'manual',
-                gj_manual_value    REAL,
-                gj_torsion_task_id INTEGER REFERENCES calc_tasks(id)
+                design_params_json TEXT
             );
             CREATE TABLE IF NOT EXISTS fem_load_cases (
                 id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -402,7 +402,7 @@ namespace OpenCS.Utilites
             CREATE TABLE IF NOT EXISTS fem_checks (
                 id                  INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id           INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
-                member_id           INTEGER NOT NULL REFERENCES fem_members(id),
+                member_id           INTEGER NOT NULL REFERENCES fem_member_groups(id),
                 norm_code           TEXT NOT NULL DEFAULT 'steel_check',
                 params_json         TEXT,
                 result_id           INTEGER REFERENCES calc_results(id),
@@ -454,6 +454,7 @@ namespace OpenCS.Utilites
                if (i == 26) { MigrateV27(); continue; }
                if (i == 27) { MigrateV28(); continue; }
                if (i == 28) { MigrateV29(); continue; }
+               if (i == 29) { MigrateV30(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -628,6 +629,85 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE fem_members ADD COLUMN gj_manual_value REAL");
          if (!ColumnExists("fem_members", "gj_torsion_task_id"))
             MigExec("ALTER TABLE fem_members ADD COLUMN gj_torsion_task_id INTEGER");
+      }
+
+      /// <summary>Проверяет существование таблицы (для идемпотентных переименований в миграциях).</summary>
+      bool TableExists(string table)
+      {
+         var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@n";
+         cmd.Parameters.AddWithValue("@n", table);
+         return (long)cmd.ExecuteScalar()! > 0;
+      }
+
+      /// <summary>Миграция v30: конструктивный элемент — теперь FemMember (было FemElement, таблица
+      /// fem_elements→fem_members), группа — FemMemberGroup (было FemMember, таблица fem_members→
+      /// fem_member_groups). Сечение/GJ переезжают с группы на каждый её элемент — раньше значение
+      /// относилось сразу ко всем элементам группы, теперь это собственное поле элемента.</summary>
+      void MigrateV30()
+      {
+         if (!TableExists("fem_member_groups"))
+         {
+            MigExec("ALTER TABLE fem_members RENAME TO fem_member_groups");
+            MigExec("ALTER TABLE fem_member_groups RENAME COLUMN elem_ids_json TO member_tags_json");
+         }
+         if (TableExists("fem_elements"))
+            MigExec("ALTER TABLE fem_elements RENAME TO fem_members");
+
+         if (!ColumnExists("fem_members", "cross_section_id"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN cross_section_id INTEGER REFERENCES cross_sections(id)");
+         if (!ColumnExists("fem_members", "gj_strategy"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN gj_strategy TEXT NOT NULL DEFAULT 'manual'");
+         if (!ColumnExists("fem_members", "gj_manual_value"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN gj_manual_value REAL");
+         if (!ColumnExists("fem_members", "gj_torsion_task_id"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN gj_torsion_task_id INTEGER REFERENCES calc_tasks(id)");
+
+         // Перенос значений сечения/GJ с группы на каждый её элемент.
+         var groups = new List<(int Id, string TagsJson, long? CrossSectionId, string GjStrategy, double? GjManualValue, long? GjTorsionTaskId)>();
+         using (var groupCmd = _connection.CreateCommand())
+         {
+            groupCmd.CommandText = "SELECT id, member_tags_json, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id FROM fem_member_groups";
+            using var rdr = groupCmd.ExecuteReader();
+            while (rdr.Read())
+               groups.Add((
+                  rdr.GetInt32(0),
+                  rdr.GetString(1),
+                  rdr.IsDBNull(2) ? null : rdr.GetInt64(2),
+                  rdr.GetString(3),
+                  rdr.IsDBNull(4) ? null : rdr.GetDouble(4),
+                  rdr.IsDBNull(5) ? null : rdr.GetInt64(5)));
+         }
+
+         using var updCmd = _connection.CreateCommand();
+         updCmd.CommandText = """
+            UPDATE fem_members SET cross_section_id=@cs, gj_strategy=@gs, gj_manual_value=@gv, gj_torsion_task_id=@gt
+            WHERE schema_id=(SELECT schema_id FROM fem_member_groups WHERE id=@gid) AND elem_tag=@tag
+         """;
+         updCmd.Parameters.Add("@cs",  Microsoft.Data.Sqlite.SqliteType.Integer);
+         updCmd.Parameters.Add("@gs",  Microsoft.Data.Sqlite.SqliteType.Text);
+         updCmd.Parameters.Add("@gv",  Microsoft.Data.Sqlite.SqliteType.Real);
+         updCmd.Parameters.Add("@gt",  Microsoft.Data.Sqlite.SqliteType.Integer);
+         updCmd.Parameters.Add("@gid", Microsoft.Data.Sqlite.SqliteType.Integer);
+         updCmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
+
+         foreach (var g in groups)
+         {
+            if (g.CrossSectionId is null && g.GjStrategy == "manual" && g.GjManualValue is null && g.GjTorsionTaskId is null)
+               continue; // нечего переносить
+
+            var tags = System.Text.Json.JsonSerializer.Deserialize<int[]>(g.TagsJson) ?? [];
+            foreach (var tag in tags)
+            {
+               updCmd.Parameters["@cs"].Value  = (object?)g.CrossSectionId  ?? DBNull.Value;
+               updCmd.Parameters["@gs"].Value  = g.GjStrategy;
+               updCmd.Parameters["@gv"].Value  = (object?)g.GjManualValue   ?? DBNull.Value;
+               updCmd.Parameters["@gt"].Value  = (object?)g.GjTorsionTaskId ?? DBNull.Value;
+               updCmd.Parameters["@gid"].Value = g.Id;
+               updCmd.Parameters["@tag"].Value = tag.ToString();
+               updCmd.ExecuteNonQuery();
+            }
+         }
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -2497,30 +2577,25 @@ namespace OpenCS.Utilites
          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = """
-               SELECT id, schema_id, tag, member_type, elem_ids_json,
-                      cross_section_id, plate_section_id, force_set_id, design_params_json,
-                      gj_strategy, gj_manual_value, gj_torsion_task_id
-               FROM fem_members ORDER BY schema_id, id
+               SELECT id, schema_id, tag, member_type, member_tags_json,
+                      plate_section_id, force_set_id, design_params_json
+               FROM fem_member_groups ORDER BY schema_id, id
             """;
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
                int sid = r.GetInt32(1);
                if (!schemas.TryGetValue(sid, out var schema)) continue;
-               schema.Members.Add(new CScore.Fem.FemMember
+               schema.MemberGroups.Add(new CScore.Fem.FemMemberGroup
                {
                   Id               = r.GetInt32(0),
                   SchemaId         = sid,
                   Tag              = r.GetString(2),
                   MemberType       = r.IsDBNull(3) ? null : r.GetString(3),
-                  ElemIdsJson      = r.GetString(4),
-                  CrossSectionId   = r.IsDBNull(5) ? null : r.GetInt32(5),
-                  PlateSectionId   = r.IsDBNull(6) ? null : r.GetInt32(6),
-                  ForceSetId       = r.IsDBNull(7) ? null : r.GetInt32(7),
-                  DesignParamsJson = r.IsDBNull(8) ? null : r.GetString(8),
-                  GjStrategy       = r.IsDBNull(9) ? "manual" : r.GetString(9),
-                  GjManualValue    = r.IsDBNull(10) ? null : r.GetDouble(10),
-                  GjTorsionTaskId  = r.IsDBNull(11) ? null : r.GetInt32(11)
+                  MemberTagsJson   = r.GetString(4),
+                  PlateSectionId   = r.IsDBNull(5) ? null : r.GetInt32(5),
+                  ForceSetId       = r.IsDBNull(6) ? null : r.GetInt32(6),
+                  DesignParamsJson = r.IsDBNull(7) ? null : r.GetString(7),
                });
             }
          }
@@ -2607,7 +2682,7 @@ namespace OpenCS.Utilites
             };
             FemChecks.Add(check);
             var schema = FemSchemas.FirstOrDefault(s => s.Id == check.SchemaId);
-            schema?.Members.FirstOrDefault(m => m.Id == check.MemberId)?.Checks.Add(check);
+            schema?.MemberGroups.FirstOrDefault(m => m.Id == check.MemberId)?.Checks.Add(check);
          }
       }
 
@@ -2638,8 +2713,8 @@ namespace OpenCS.Utilites
                cmd.Parameters.AddWithValue("@id",  schema.Id);
                cmd.ExecuteNonQuery();
             }
-            foreach (var m in schema.Members)
-               SaveFemMemberCore(m, schema.Id);
+            foreach (var g in schema.MemberGroups)
+               SaveFemMemberGroupCore(g, schema.Id);
             tx.Commit();
          }
          catch { tx.Rollback(); throw; }
@@ -2951,9 +3026,9 @@ namespace OpenCS.Utilites
       /// <summary>Массовая вставка узлов и элементов МКЭ-схемы. Существующие записи для schemaId удаляются.</summary>
       public void SaveFemTopology(
          int schemaId,
-         IReadOnlyList<CScore.Fem.FemNode>    nodes,
-         IReadOnlyList<CScore.Fem.FemElement> elements,
-         IReadOnlyList<CScore.Fem.FemMember>  members)
+         IReadOnlyList<CScore.Fem.FemNode>        nodes,
+         IReadOnlyList<CScore.Fem.FemMember>      members,
+         IReadOnlyList<CScore.Fem.FemMemberGroup> memberGroups)
       {
          var oldNodesById = GetFemNodes(schemaId).ToDictionary(node => node.Id);
          var newTags = nodes.Select(node => node.NodeTag).ToList();
@@ -2975,8 +3050,8 @@ namespace OpenCS.Utilites
          {
             using var delCmd = _connection.CreateCommand();
             delCmd.CommandText = """
-               DELETE FROM fem_members  WHERE schema_id=@sid;
-               DELETE FROM fem_elements WHERE schema_id=@sid;
+               DELETE FROM fem_member_groups WHERE schema_id=@sid;
+               DELETE FROM fem_members       WHERE schema_id=@sid;
                DELETE FROM fem_node_loads WHERE schema_id=@sid;
                DELETE FROM fem_nodes    WHERE schema_id=@sid;
             """;
@@ -3038,8 +3113,9 @@ namespace OpenCS.Utilites
 
             using var elemCmd = _connection.CreateCommand();
             elemCmd.CommandText = """
-               INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m)
-               VALUES (@sid, @tag, @etype, @nids, @stag, @thk)
+               INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m,
+                                         cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id)
+               VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt)
             """;
             elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
             elemCmd.Parameters.Add("@tag",  Microsoft.Data.Sqlite.SqliteType.Text);
@@ -3047,7 +3123,11 @@ namespace OpenCS.Utilites
             elemCmd.Parameters.Add("@nids", Microsoft.Data.Sqlite.SqliteType.Text);
             elemCmd.Parameters.Add("@stag", Microsoft.Data.Sqlite.SqliteType.Text);
             elemCmd.Parameters.Add("@thk",  Microsoft.Data.Sqlite.SqliteType.Real);
-            foreach (var e in elements)
+            elemCmd.Parameters.Add("@csid", Microsoft.Data.Sqlite.SqliteType.Integer);
+            elemCmd.Parameters.Add("@gjs",  Microsoft.Data.Sqlite.SqliteType.Text);
+            elemCmd.Parameters.Add("@gjv",  Microsoft.Data.Sqlite.SqliteType.Real);
+            elemCmd.Parameters.Add("@gjt",  Microsoft.Data.Sqlite.SqliteType.Integer);
+            foreach (var e in members)
             {
                elemCmd.Parameters["@sid"].Value   = schemaId;
                elemCmd.Parameters["@tag"].Value   = e.ElemTag;
@@ -3055,24 +3135,28 @@ namespace OpenCS.Utilites
                elemCmd.Parameters["@nids"].Value  = e.NodeIdsJson;
                elemCmd.Parameters["@stag"].Value  = (object?)e.SectionTag ?? DBNull.Value;
                elemCmd.Parameters["@thk"].Value   = e.ThicknessM.HasValue ? e.ThicknessM.Value : DBNull.Value;
+               elemCmd.Parameters["@csid"].Value  = (object?)e.CrossSectionId ?? DBNull.Value;
+               elemCmd.Parameters["@gjs"].Value   = e.GjStrategy;
+               elemCmd.Parameters["@gjv"].Value   = (object?)e.GjManualValue ?? DBNull.Value;
+               elemCmd.Parameters["@gjt"].Value   = (object?)e.GjTorsionTaskId ?? DBNull.Value;
                elemCmd.ExecuteNonQuery();
             }
 
             var schema = FemSchemas.FirstOrDefault(s => s.Id == schemaId);
-            foreach (var m in members)
+            foreach (var g in memberGroups)
             {
-               // fem_members для схемы уже полностью удалены выше — старый m.Id (если он остался
+               // fem_member_groups для схемы уже полностью удалены выше — старый g.Id (если он остался
                // от предыдущего сохранения) указывал бы на строку, которой больше нет, и
-               // SaveFemMemberCore молча выполнил бы UPDATE по несуществующему id.
-               m.Id = 0;
-               SaveFemMemberCore(m, schemaId);
+               // SaveFemMemberGroupCore молча выполнил бы UPDATE по несуществующему id.
+               g.Id = 0;
+               SaveFemMemberGroupCore(g, schemaId);
             }
 
             if (schema != null)
             {
-               schema.Members.Clear();
-               foreach (var m in members.Where(m => m.SchemaId == schemaId))
-                  schema.Members.Add(m);
+               schema.MemberGroups.Clear();
+               foreach (var g in memberGroups.Where(g => g.SchemaId == schemaId))
+                  schema.MemberGroups.Add(g);
             }
 
             tx.Commit();
@@ -3087,11 +3171,11 @@ namespace OpenCS.Utilites
       /// </summary>
       public void SaveFemSchemaEdit(
          int schemaId,
-         IReadOnlyList<CScore.Fem.FemNode>     nodes,
-         IReadOnlyList<CScore.Fem.FemElement>  elements,
-         IReadOnlyList<CScore.Fem.FemMember>   members,
-         IReadOnlyList<CScore.Fem.FemLoadCase> loadCases,
-         IReadOnlyList<CScore.Fem.FemNodeLoad> nodeLoads)
+         IReadOnlyList<CScore.Fem.FemNode>        nodes,
+         IReadOnlyList<CScore.Fem.FemMember>      members,
+         IReadOnlyList<CScore.Fem.FemMemberGroup> memberGroups,
+         IReadOnlyList<CScore.Fem.FemLoadCase>    loadCases,
+         IReadOnlyList<CScore.Fem.FemNodeLoad>    nodeLoads)
       {
          var newTags = nodes.Select(n => n.NodeTag).ToList();
          if (newTags.Count != newTags.Distinct(StringComparer.Ordinal).Count())
@@ -3103,11 +3187,11 @@ namespace OpenCS.Utilites
             using (var delCmd = _connection.CreateCommand())
             {
                delCmd.CommandText = """
-                  DELETE FROM fem_node_loads WHERE schema_id=@sid;
-                  DELETE FROM fem_load_cases WHERE schema_id=@sid;
-                  DELETE FROM fem_members    WHERE schema_id=@sid;
-                  DELETE FROM fem_elements   WHERE schema_id=@sid;
-                  DELETE FROM fem_nodes      WHERE schema_id=@sid;
+                  DELETE FROM fem_node_loads    WHERE schema_id=@sid;
+                  DELETE FROM fem_load_cases    WHERE schema_id=@sid;
+                  DELETE FROM fem_member_groups WHERE schema_id=@sid;
+                  DELETE FROM fem_members       WHERE schema_id=@sid;
+                  DELETE FROM fem_nodes         WHERE schema_id=@sid;
                """;
                delCmd.Parameters.AddWithValue("@sid", schemaId);
                delCmd.ExecuteNonQuery();
@@ -3145,8 +3229,9 @@ namespace OpenCS.Utilites
             using (var elemCmd = _connection.CreateCommand())
             {
                elemCmd.CommandText = """
-                  INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m)
-                  VALUES (@sid, @tag, @etype, @nids, @stag, @thk);
+                  INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m,
+                                            cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id)
+                  VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt);
                   SELECT last_insert_rowid();
                """;
                elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
@@ -3155,7 +3240,11 @@ namespace OpenCS.Utilites
                elemCmd.Parameters.Add("@nids", Microsoft.Data.Sqlite.SqliteType.Text);
                elemCmd.Parameters.Add("@stag", Microsoft.Data.Sqlite.SqliteType.Text);
                elemCmd.Parameters.Add("@thk",  Microsoft.Data.Sqlite.SqliteType.Real);
-               foreach (var e in elements)
+               elemCmd.Parameters.Add("@csid", Microsoft.Data.Sqlite.SqliteType.Integer);
+               elemCmd.Parameters.Add("@gjs",  Microsoft.Data.Sqlite.SqliteType.Text);
+               elemCmd.Parameters.Add("@gjv",  Microsoft.Data.Sqlite.SqliteType.Real);
+               elemCmd.Parameters.Add("@gjt",  Microsoft.Data.Sqlite.SqliteType.Integer);
+               foreach (var e in members)
                {
                   elemCmd.Parameters["@sid"].Value   = schemaId;
                   elemCmd.Parameters["@tag"].Value   = e.ElemTag;
@@ -3163,19 +3252,23 @@ namespace OpenCS.Utilites
                   elemCmd.Parameters["@nids"].Value  = e.NodeIdsJson;
                   elemCmd.Parameters["@stag"].Value  = (object?)e.SectionTag ?? DBNull.Value;
                   elemCmd.Parameters["@thk"].Value   = e.ThicknessM.HasValue ? e.ThicknessM.Value : DBNull.Value;
+                  elemCmd.Parameters["@csid"].Value  = (object?)e.CrossSectionId ?? DBNull.Value;
+                  elemCmd.Parameters["@gjs"].Value   = e.GjStrategy;
+                  elemCmd.Parameters["@gjv"].Value   = (object?)e.GjManualValue ?? DBNull.Value;
+                  elemCmd.Parameters["@gjt"].Value   = (object?)e.GjTorsionTaskId ?? DBNull.Value;
                   int newId = (int)(long)elemCmd.ExecuteScalar()!;
                   e.Id = newId;
                   e.SchemaId = schemaId;
                }
             }
 
-            foreach (var m in members)
+            foreach (var g in memberGroups)
             {
-               // fem_members для схемы уже полностью удалены выше — старый m.Id (если он остался
+               // fem_member_groups для схемы уже полностью удалены выше — старый g.Id (если он остался
                // от предыдущего сохранения) указывал бы на строку, которой больше нет, и
-               // SaveFemMemberCore молча выполнил бы UPDATE по несуществующему id.
-               m.Id = 0;
-               SaveFemMemberCore(m, schemaId);
+               // SaveFemMemberGroupCore молча выполнил бы UPDATE по несуществующему id.
+               g.Id = 0;
+               SaveFemMemberGroupCore(g, schemaId);
             }
 
             var newLoadCaseIdByOld = new Dictionary<int, int>();
@@ -3231,8 +3324,8 @@ namespace OpenCS.Utilites
             var schema = FemSchemas.FirstOrDefault(s => s.Id == schemaId);
             if (schema != null)
             {
-               schema.Members.Clear();
-               foreach (var m in members) schema.Members.Add(m);
+               schema.MemberGroups.Clear();
+               foreach (var g in memberGroups) schema.MemberGroups.Add(g);
                schema.LoadCases.Clear();
                foreach (var lc in loadCases) schema.LoadCases.Add(lc);
             }
@@ -3242,62 +3335,52 @@ namespace OpenCS.Utilites
          catch { tx.Rollback(); throw; }
       }
 
-      void SaveFemMemberCore(CScore.Fem.FemMember m, int schemaId)
+      void SaveFemMemberGroupCore(CScore.Fem.FemMemberGroup g, int schemaId)
       {
          using var cmd = _connection.CreateCommand();
-         if (m.Id == 0)
+         if (g.Id == 0)
          {
             cmd.CommandText = """
-               INSERT INTO fem_members
-                   (schema_id, tag, member_type, elem_ids_json, cross_section_id, plate_section_id,
-                    force_set_id, design_params_json, gj_strategy, gj_manual_value, gj_torsion_task_id)
-               VALUES (@sid, @tag, @mtype, @eids, @csid, @psid, @fsid, @dp, @gjs, @gjv, @gjt);
+               INSERT INTO fem_member_groups
+                   (schema_id, tag, member_type, member_tags_json, plate_section_id, force_set_id, design_params_json)
+               VALUES (@sid, @tag, @mtype, @mtags, @psid, @fsid, @dp);
                SELECT last_insert_rowid();
             """;
             cmd.Parameters.AddWithValue("@sid",   schemaId);
-            cmd.Parameters.AddWithValue("@tag",   m.Tag);
-            cmd.Parameters.AddWithValue("@mtype", (object?)m.MemberType       ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@eids",  m.ElemIdsJson);
-            cmd.Parameters.AddWithValue("@csid",  (object?)m.CrossSectionId   ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@psid",  (object?)m.PlateSectionId   ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@gjs",   m.GjStrategy);
-            cmd.Parameters.AddWithValue("@gjv",   (object?)m.GjManualValue    ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@gjt",   (object?)m.GjTorsionTaskId  ?? DBNull.Value);
-            m.Id = (int)(long)cmd.ExecuteScalar()!;
-            m.SchemaId = schemaId;
+            cmd.Parameters.AddWithValue("@tag",   g.Tag);
+            cmd.Parameters.AddWithValue("@mtype", (object?)g.MemberType       ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@mtags", g.MemberTagsJson);
+            cmd.Parameters.AddWithValue("@psid",  (object?)g.PlateSectionId   ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@fsid",  (object?)g.ForceSetId       ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@dp",    (object?)g.DesignParamsJson ?? DBNull.Value);
+            g.Id = (int)(long)cmd.ExecuteScalar()!;
+            g.SchemaId = schemaId;
          }
          else
          {
             cmd.CommandText = """
-               UPDATE fem_members SET tag=@tag, member_type=@mtype, elem_ids_json=@eids,
-               cross_section_id=@csid, plate_section_id=@psid, force_set_id=@fsid, design_params_json=@dp,
-               gj_strategy=@gjs, gj_manual_value=@gjv, gj_torsion_task_id=@gjt WHERE id=@id
+               UPDATE fem_member_groups SET tag=@tag, member_type=@mtype, member_tags_json=@mtags,
+               plate_section_id=@psid, force_set_id=@fsid, design_params_json=@dp WHERE id=@id
             """;
-            cmd.Parameters.AddWithValue("@tag",   m.Tag);
-            cmd.Parameters.AddWithValue("@mtype", (object?)m.MemberType       ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@eids",  m.ElemIdsJson);
-            cmd.Parameters.AddWithValue("@csid",  (object?)m.CrossSectionId   ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@psid",  (object?)m.PlateSectionId   ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@gjs",   m.GjStrategy);
-            cmd.Parameters.AddWithValue("@gjv",   (object?)m.GjManualValue    ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@gjt",   (object?)m.GjTorsionTaskId  ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@id",    m.Id);
+            cmd.Parameters.AddWithValue("@tag",   g.Tag);
+            cmd.Parameters.AddWithValue("@mtype", (object?)g.MemberType       ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@mtags", g.MemberTagsJson);
+            cmd.Parameters.AddWithValue("@psid",  (object?)g.PlateSectionId   ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@fsid",  (object?)g.ForceSetId       ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@dp",    (object?)g.DesignParamsJson ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@id",    g.Id);
             cmd.ExecuteNonQuery();
          }
       }
 
       /// <summary>
-      /// Создаёт заглушки FemElement для элементов из списка, которых ещё нет в схеме.
+      /// Создаёт заглушки FemMember для элементов из списка, которых ещё нет в схеме.
       /// Используется при импорте усилий из ЛИРЫ без предварительного импорта топологии.
       /// </summary>
       public void AddFemElementStubs(int schemaId, IReadOnlyList<int> liraElemIds)
       {
          if (liraElemIds.Count == 0) return;
-         var existing = GetFemElements(schemaId)
+         var existing = GetFemMembers(schemaId)
             .Select(e => e.ElemTag)
             .ToHashSet();
 
@@ -3306,7 +3389,7 @@ namespace OpenCS.Utilites
          {
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
-               INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json)
+               INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json)
                VALUES (@sid, @tag, 'beam', '[]')
             """;
             cmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
@@ -3347,16 +3430,16 @@ namespace OpenCS.Utilites
          return result;
       }
 
-      /// <summary>Возвращает все конечные элементы схемы (без загрузки в наблюдаемые коллекции).</summary>
-      public List<CScore.Fem.FemElement> GetFemElements(int schemaId)
+      /// <summary>Возвращает все конструктивные элементы схемы (без загрузки в наблюдаемые коллекции).</summary>
+      public List<CScore.Fem.FemMember> GetFemMembers(int schemaId)
       {
-         var result = new List<CScore.Fem.FemElement>();
+         var result = new List<CScore.Fem.FemMember>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m FROM fem_elements WHERE schema_id=@sid";
+         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id FROM fem_members WHERE schema_id=@sid";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var rdr = cmd.ExecuteReader();
          while (rdr.Read())
-            result.Add(new CScore.Fem.FemElement
+            result.Add(new CScore.Fem.FemMember
             {
                Id          = rdr.GetInt32(0),
                SchemaId    = schemaId,
@@ -3365,6 +3448,10 @@ namespace OpenCS.Utilites
                NodeIdsJson = rdr.GetString(3),
                SectionTag  = rdr.IsDBNull(4) ? null : rdr.GetString(4),
                ThicknessM  = rdr.IsDBNull(5) ? null : rdr.GetDouble(5),
+               CrossSectionId  = rdr.IsDBNull(6) ? null : rdr.GetInt32(6),
+               GjStrategy      = rdr.GetString(7),
+               GjManualValue   = rdr.IsDBNull(8) ? null : rdr.GetDouble(8),
+               GjTorsionTaskId = rdr.IsDBNull(9) ? null : rdr.GetInt32(9),
             });
          return result;
       }
@@ -3375,9 +3462,9 @@ namespace OpenCS.Utilites
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = """
             SELECT
-              (SELECT COUNT(*) FROM fem_nodes    WHERE schema_id=@sid),
-              (SELECT COUNT(*) FROM fem_elements WHERE schema_id=@sid AND elem_type='beam'),
-              (SELECT COUNT(*) FROM fem_elements WHERE schema_id=@sid AND elem_type='shell')
+              (SELECT COUNT(*) FROM fem_nodes   WHERE schema_id=@sid),
+              (SELECT COUNT(*) FROM fem_members WHERE schema_id=@sid AND elem_type='beam'),
+              (SELECT COUNT(*) FROM fem_members WHERE schema_id=@sid AND elem_type='shell')
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var r = cmd.ExecuteReader();
@@ -3385,22 +3472,69 @@ namespace OpenCS.Utilites
          return (r.GetInt32(0), r.GetInt32(1), r.GetInt32(2));
       }
 
-      public void SaveFemMember(CScore.Fem.FemMember m)
+      public void SaveFemMemberGroup(CScore.Fem.FemMemberGroup g)
       {
          using var tx = _connection.BeginTransaction();
-         try { SaveFemMemberCore(m, m.SchemaId); tx.Commit(); }
+         try { SaveFemMemberGroupCore(g, g.SchemaId); tx.Commit(); }
          catch { tx.Rollback(); throw; }
       }
 
-      public void DeleteFemMember(CScore.Fem.FemMember m)
+      public void DeleteFemMemberGroup(CScore.Fem.FemMemberGroup g)
       {
-         if (m.Id == 0) return;
+         if (g.Id == 0) return;
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM fem_members WHERE id = @id";
-         cmd.Parameters.AddWithValue("@id", m.Id);
+         cmd.CommandText = "DELETE FROM fem_member_groups WHERE id = @id";
+         cmd.Parameters.AddWithValue("@id", g.Id);
          cmd.ExecuteNonQuery();
-         var schema = FemSchemas.FirstOrDefault(s => s.Id == m.SchemaId);
-         schema?.Members.Remove(m);
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == g.SchemaId);
+         schema?.MemberGroups.Remove(g);
+      }
+
+      /// <summary>Сохраняет один конструктивный элемент (INSERT/UPDATE по m.Id). Используется точечными
+      /// операциями вне полной пересборки топологии — например, массовым назначением сечения всем
+      /// элементам группы из FemMemberEditorPage.</summary>
+      public void SaveFemMember(CScore.Fem.FemMember m)
+      {
+         using var cmd = _connection.CreateCommand();
+         if (m.Id == 0)
+         {
+            cmd.CommandText = """
+               INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, thickness_m,
+                                         cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id)
+               VALUES (@sid, @tag, @etype, @nids, @stag, @thk, @csid, @gjs, @gjv, @gjt);
+               SELECT last_insert_rowid();
+            """;
+            cmd.Parameters.AddWithValue("@sid",   m.SchemaId);
+            cmd.Parameters.AddWithValue("@tag",   m.ElemTag);
+            cmd.Parameters.AddWithValue("@etype", m.ElemType);
+            cmd.Parameters.AddWithValue("@nids",  m.NodeIdsJson);
+            cmd.Parameters.AddWithValue("@stag",  (object?)m.SectionTag ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@thk",   m.ThicknessM.HasValue ? m.ThicknessM.Value : (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@csid",  (object?)m.CrossSectionId  ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@gjs",   m.GjStrategy);
+            cmd.Parameters.AddWithValue("@gjv",   (object?)m.GjManualValue   ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@gjt",   (object?)m.GjTorsionTaskId ?? DBNull.Value);
+            m.Id = (int)(long)cmd.ExecuteScalar()!;
+         }
+         else
+         {
+            cmd.CommandText = """
+               UPDATE fem_members SET elem_tag=@tag, elem_type=@etype, node_ids_json=@nids, section_tag=@stag,
+               thickness_m=@thk, cross_section_id=@csid, gj_strategy=@gjs, gj_manual_value=@gjv, gj_torsion_task_id=@gjt
+               WHERE id=@id
+            """;
+            cmd.Parameters.AddWithValue("@tag",   m.ElemTag);
+            cmd.Parameters.AddWithValue("@etype", m.ElemType);
+            cmd.Parameters.AddWithValue("@nids",  m.NodeIdsJson);
+            cmd.Parameters.AddWithValue("@stag",  (object?)m.SectionTag ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@thk",   m.ThicknessM.HasValue ? m.ThicknessM.Value : (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@csid",  (object?)m.CrossSectionId  ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@gjs",   m.GjStrategy);
+            cmd.Parameters.AddWithValue("@gjv",   (object?)m.GjManualValue   ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@gjt",   (object?)m.GjTorsionTaskId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@id",    m.Id);
+            cmd.ExecuteNonQuery();
+         }
       }
 
       public void SaveFemCheck(CScore.Fem.FemCheck check)

@@ -21,7 +21,7 @@ public static class FemCheckRunner
     /// </summary>
     public static CalcResult RunMulti(
         FemCheck      check,
-        FemMember     member,
+        FemMemberGroup member,
         CrossSection? barSection,
         PlateSection? plateSection,
         IReadOnlyList<ForceSet> allMemberForceSets,
@@ -611,7 +611,7 @@ public static class FemCheckRunner
     /// <summary>Совместимость: одиночный набор усилий — делегирует в RunMulti.</summary>
     public static CalcResult Run(
         FemCheck     check,
-        FemMember    member,
+        FemMemberGroup member,
         CrossSection section,
         ForceSet     forceSet,
         Func<CalcTask, CrossSection, LoadItem, CalcResult>? executor = null)
@@ -679,7 +679,7 @@ public static class FemCheckRunner
     }
 
     /// <summary>Подготавливает CalcTask из параметров FemCheck и FemMember.</summary>
-    public static CalcTask BuildCalcTask(FemCheck check, FemMember member, CalcType? calcType = null)
+    public static CalcTask BuildCalcTask(FemCheck check, FemMemberGroup member, CalcType? calcType = null)
     {
         var paramsJson = check.ParamsJson
             ?? FemDesignParams.Parse(member.DesignParamsJson).ToJson();

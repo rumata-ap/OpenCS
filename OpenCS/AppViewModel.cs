@@ -115,7 +115,7 @@ namespace OpenCS
       PlateSection? currentPlateSection;
       FireSectionDef? currentFireSection;
       CScore.Fem.FemSchema? currentFemSchema;
-      CScore.Fem.FemMember? currentFemMember;
+      CScore.Fem.FemMemberGroup? currentFemMember;
       CScore.Fem.FemCheck?  currentFemCheck;
 
       /// <summary>
@@ -395,8 +395,8 @@ namespace OpenCS
          }
       }
 
-      /// <summary>Текущий конструктивный элемент МКЭ. При установке открывает FemMemberEditorPage.</summary>
-      public CScore.Fem.FemMember? CurrentFemMember
+      /// <summary>Текущая группа конструктивных элементов МКЭ. При установке открывает FemMemberEditorPage.</summary>
+      public CScore.Fem.FemMemberGroup? CurrentFemMember
       {
          get => currentFemMember;
          set
@@ -1154,7 +1154,7 @@ namespace OpenCS
          NewFemMemberCommand       = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
          NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
          DeleteFemMemberCommand    = new RelayCommand(_ => DeleteFemMember());
-         AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMember));
+         AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMemberGroup));
          RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
          EditFemCheckCommand       = new RelayCommand(p => EditFemCheck(p as CScore.Fem.FemCheck));
          DeleteFemCheckCommand     = new RelayCommand(p => DeleteFemCheck(p as CScore.Fem.FemCheck));
@@ -2415,21 +2415,21 @@ namespace OpenCS
             };
             db.SaveFemSchema(schema);
 
-            var nodes    = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
-            var elements = CScore.Import.LiraSchemaConverter.ToFemBarElements(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemShellElements(raw, schema.Id))
+            var nodes   = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
+            var members = CScore.Import.LiraSchemaConverter.ToFemBarMembers(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemShellMembers(raw, schema.Id))
                 .ToArray();
-            var members  = CScore.Import.LiraSchemaConverter.ToFemMembersByStiffness(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemMembersByPlateStiffness(raw, schema.Id))
+            var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
                 .ToArray();
 
-            db.SaveFemTopology(schema.Id, nodes, elements, members);
+            db.SaveFemTopology(schema.Id, nodes, members, memberGroups);
             RefreshFemSchemaTreeCounts(schema);
 
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
             LogService.Info(string.Format(Loc.S("ImportLiraSchemaSuccess"),
-               raw.Nodes.Count, barCount, shellCount, members.Length));
+               raw.Nodes.Count, barCount, shellCount, memberGroups.Length));
          }
          catch (Exception ex)
          {
@@ -2468,17 +2468,17 @@ namespace OpenCS
          };
          db.SaveFemSchema(schema);
 
-         var nodes    = CScore.Import.ScadSchemaConverter.ToFemNodes(data, schema.Id);
-         var elements = CScore.Import.ScadSchemaConverter.ToFemElements(data, schema.Id);
-         var members  = CScore.Import.ScadSchemaConverter.ToFemMembers(data, schema.Id);
+         var nodes        = CScore.Import.ScadSchemaConverter.ToFemNodes(data, schema.Id);
+         var members      = CScore.Import.ScadSchemaConverter.ToFemMembers(data, schema.Id);
+         var memberGroups = CScore.Import.ScadSchemaConverter.ToFemMemberGroups(data, schema.Id);
 
-         db.SaveFemTopology(schema.Id, nodes, elements, members);
+         db.SaveFemTopology(schema.Id, nodes, members, memberGroups);
          RefreshFemSchemaTreeCounts(schema);
 
-         int barCount   = elements.Count(e => e.ElemType == "beam");
-         int shellCount = elements.Count(e => e.ElemType == "shell");
+         int barCount   = members.Count(e => e.ElemType == "beam");
+         int shellCount = members.Count(e => e.ElemType == "shell");
          LogService.Info(string.Format(Loc.S("ImportScadSuccess"),
-            nodes.Length, barCount, shellCount, members.Length, data.Groups.Count));
+            nodes.Length, barCount, shellCount, memberGroups.Length, data.Groups.Count));
       }
 
       async void ImportScadForces(CScore.Import.ScadXlsImportMode mode)
@@ -2498,7 +2498,7 @@ namespace OpenCS
          {
             try
             {
-               var ids = System.Text.Json.JsonSerializer.Deserialize<int[]>(currentFemMember.ElemIdsJson) ?? [];
+               var ids = System.Text.Json.JsonSerializer.Deserialize<int[]>(currentFemMember.MemberTagsJson) ?? [];
                if (ids.Length > 0)
                   seed = string.Join(", ", ids);
             }
@@ -2528,7 +2528,7 @@ namespace OpenCS
             : currentFemSchema;
          if (schemaForThk != null)
          {
-            foreach (var el in db.GetFemElements(schemaForThk.Id))
+            foreach (var el in db.GetFemMembers(schemaForThk.Id))
             {
                if (el.ThicknessM is not > 0) continue;
                if (!int.TryParse(el.ElemTag, out int scadId)) continue;
@@ -2632,19 +2632,19 @@ namespace OpenCS
             var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.Read());
             var schema = new CScore.Fem.FemSchema { Tag = "Схема Лира (API)", SourceType = "lira" };
             db.SaveFemSchema(schema);
-            var nodes    = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
-            var elements = CScore.Import.LiraSchemaConverter.ToFemBarElements(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemShellElements(raw, schema.Id))
+            var nodes   = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
+            var members = CScore.Import.LiraSchemaConverter.ToFemBarMembers(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemShellMembers(raw, schema.Id))
                 .ToArray();
-            var members  = CScore.Import.LiraSchemaConverter.ToFemMembersByStiffness(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemMembersByPlateStiffness(raw, schema.Id))
+            var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
                 .ToArray();
-            db.SaveFemTopology(schema.Id, nodes, elements, members);
+            db.SaveFemTopology(schema.Id, nodes, members, memberGroups);
             RefreshFemSchemaTreeCounts(schema);
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
             string done = string.Format(Loc.S("ImportLiraSchemaSuccess"),
-               raw.Nodes.Count, barCount, shellCount, members.Length);
+               raw.Nodes.Count, barCount, shellCount, memberGroups.Length);
             LogService.Info(done);
             EndBusy(done);
          }
@@ -2677,7 +2677,7 @@ namespace OpenCS
          }
 
          var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(
-            currentFemMember.ElemIdsJson) ?? [];
+            currentFemMember.MemberTagsJson) ?? [];
 
          if (elemIds.Length == 0)
          {
@@ -2734,7 +2734,7 @@ namespace OpenCS
          }
 
          var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(
-            currentFemMember.ElemIdsJson) ?? [];
+            currentFemMember.MemberTagsJson) ?? [];
 
          if (elemIds.Length == 0)
          {
@@ -2787,7 +2787,7 @@ namespace OpenCS
             return;
          }
 
-         var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(currentFemMember.ElemIdsJson) ?? [];
+         var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(currentFemMember.MemberTagsJson) ?? [];
          if (elemIds.Length == 0)
          {
             System.Windows.MessageBox.Show(Loc.S("ImportLiraForcesNoElements"), Loc.S("ImportLiraErrorTitle"),
@@ -2892,9 +2892,9 @@ namespace OpenCS
       {
          schema ??= currentFemSchema;
          if (schema == null) return;
-         var member = new CScore.Fem.FemMember { SchemaId = schema.Id, Tag = "Элемент" };
-         db.SaveFemMember(member);
-         schema.Members.Add(member);
+         var group = new CScore.Fem.FemMemberGroup { SchemaId = schema.Id, Tag = "Элемент" };
+         db.SaveFemMemberGroup(group);
+         schema.MemberGroups.Add(group);
       }
 
       void NewFemMemberDialog(CScore.Fem.FemSchema? schema)
@@ -2910,13 +2910,13 @@ namespace OpenCS
       void DeleteFemMember()
       {
          if (currentFemMember == null) return;
-         db.DeleteFemMember(currentFemMember);
+         db.DeleteFemMemberGroup(currentFemMember);
          currentFemMember = null;
          CurrentPage = null!;
       }
 
-      /// <summary>Создаёт FemMember из списка выбранных КЭ.</summary>
-      public void CreateFemMemberFromSelection(CScore.Fem.FemSchema schema, IList<CScore.Fem.FemElement> elems)
+      /// <summary>Создаёт FemMemberGroup из списка выбранных конструктивных элементов.</summary>
+      public void CreateFemMemberFromSelection(CScore.Fem.FemSchema schema, IList<CScore.Fem.FemMember> elems)
       {
          if (elems.Count == 0) return;
          var ids = elems
@@ -2926,49 +2926,49 @@ namespace OpenCS
          var tag = elems.Count == 1
             ? (elems[0].SectionTag ?? elems[0].ElemTag)
             : $"Балка ({elems.Count} КЭ)";
-         var member = new CScore.Fem.FemMember
+         var group = new CScore.Fem.FemMemberGroup
          {
-            SchemaId    = schema.Id,
-            Tag         = tag,
-            MemberType  = "Балка",
-            ElemIdsJson = System.Text.Json.JsonSerializer.Serialize(ids),
+            SchemaId       = schema.Id,
+            Tag            = tag,
+            MemberType     = "Балка",
+            MemberTagsJson = System.Text.Json.JsonSerializer.Serialize(ids),
          };
-         db.SaveFemMember(member);
-         schema.Members.Add(member);
+         db.SaveFemMemberGroup(group);
+         schema.MemberGroups.Add(group);
       }
 
-      /// <summary>Создаёт FemMember из явного списка LIRA-id КЭ (строка диапазонов уже распарсена).</summary>
+      /// <summary>Создаёт FemMemberGroup из явного списка LIRA-id элементов (строка диапазонов уже распарсена).</summary>
       public void CreateFemMemberFromRange(
          CScore.Fem.FemSchema schema,
          IList<int>           elemIds,
          string               tag,
          string?              memberType)
       {
-         var member = new CScore.Fem.FemMember
+         var group = new CScore.Fem.FemMemberGroup
          {
-            SchemaId    = schema.Id,
-            Tag         = string.IsNullOrWhiteSpace(tag)
+            SchemaId       = schema.Id,
+            Tag            = string.IsNullOrWhiteSpace(tag)
                              ? (elemIds.Count > 0
                                  ? $"{(string.IsNullOrWhiteSpace(memberType) ? "Группа" : memberType)} ({elemIds.Count} КЭ)"
                                  : "Новый элемент")
                              : tag,
-            MemberType  = string.IsNullOrWhiteSpace(memberType) ? null : memberType,
-            ElemIdsJson = System.Text.Json.JsonSerializer.Serialize(elemIds),
+            MemberType     = string.IsNullOrWhiteSpace(memberType) ? null : memberType,
+            MemberTagsJson = System.Text.Json.JsonSerializer.Serialize(elemIds),
          };
-         db.SaveFemMember(member);
-         schema.Members.Add(member);
+         db.SaveFemMemberGroup(group);
+         schema.MemberGroups.Add(group);
       }
 
       /// <summary>Авто-группирует стержни схемы по SectionTag. Пропускает уже существующие группы.</summary>
       public void AutoGroupFemMembersBySection(CScore.Fem.FemSchema schema)
       {
-         var elements = db.GetFemElements(schema.Id)
+         var members = db.GetFemMembers(schema.Id)
             .Where(e => e.ElemType == "beam")
             .ToList();
-         if (elements.Count == 0) return;
+         if (members.Count == 0) return;
 
-         var existingTags = schema.Members.Select(m => m.Tag).ToHashSet();
-         var grouped = elements.GroupBy(e => e.SectionTag ?? "");
+         var existingTags = schema.MemberGroups.Select(g => g.Tag).ToHashSet();
+         var grouped = members.GroupBy(e => e.SectionTag ?? "");
          int added = 0;
          foreach (var grp in grouped.OrderBy(g => g.Key))
          {
@@ -2977,15 +2977,15 @@ namespace OpenCS
                .Select(e => int.TryParse(e.ElemTag, out int id) ? id : 0)
                .Where(id => id > 0)
                .ToArray();
-            var member = new CScore.Fem.FemMember
+            var group = new CScore.Fem.FemMemberGroup
             {
-               SchemaId    = schema.Id,
-               Tag         = grp.Key,
-               MemberType  = "Балка",
-               ElemIdsJson = System.Text.Json.JsonSerializer.Serialize(ids),
+               SchemaId       = schema.Id,
+               Tag            = grp.Key,
+               MemberType     = "Балка",
+               MemberTagsJson = System.Text.Json.JsonSerializer.Serialize(ids),
             };
-            db.SaveFemMember(member);
-            schema.Members.Add(member);
+            db.SaveFemMemberGroup(group);
+            schema.MemberGroups.Add(group);
             existingTags.Add(grp.Key);
             added++;
          }
@@ -2993,7 +2993,7 @@ namespace OpenCS
             LogService.Info(string.Format(Loc.S("FemGroupAutoResult"), added));
       }
 
-      void AddFemCheck(CScore.Fem.FemMember? member)
+      void AddFemCheck(CScore.Fem.FemMemberGroup? member)
       {
          var dlg = new Views.FemCheckDialog(this);
          if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
@@ -3034,7 +3034,7 @@ namespace OpenCS
          check ??= currentFemCheck;
          if (check == null) return;
 
-         var member = FemSchemas.SelectMany(s => s.Members).FirstOrDefault(m => m.Id == check.MemberId);
+         var member = FemSchemas.SelectMany(s => s.MemberGroups).FirstOrDefault(m => m.Id == check.MemberId);
          if (member == null) { LogService.Warning($"FemCheck #{check.Id}: конструктивный элемент не найден"); return; }
 
          CrossSection? barSection = null;
@@ -3054,7 +3054,15 @@ namespace OpenCS
          }
          else
          {
-            barSection = CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId);
+            // CrossSectionId теперь собственное поле каждого конструктивного FemMember, а не группы
+            // (см. docs/superpowers/specs/2026-07-17-fem-constructive-member-editor-design.md) — берём
+            // сечение первого элемента группы, у которого оно назначено.
+            var groupMemberTags = System.Text.Json.JsonSerializer.Deserialize<int[]>(member.MemberTagsJson) ?? [];
+            var primaryCrossSectionId = db.GetFemMembers(member.SchemaId)
+               .Where(e => int.TryParse(e.ElemTag, out var t) && groupMemberTags.Contains(t))
+               .Select(e => e.CrossSectionId)
+               .FirstOrDefault(id => id != null);
+            barSection = CrossSections.FirstOrDefault(s => s.Id == primaryCrossSectionId);
          }
 
          var memberForceSets = ForceSets.Where(f => f.SourceMemberId == member.Id).ToList();

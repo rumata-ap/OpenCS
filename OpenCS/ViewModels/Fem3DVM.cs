@@ -21,8 +21,8 @@ public class Fem3DVM : ViewModelBase
 
     readonly int             _schemaId;
     readonly DatabaseService _db;
-    readonly FemMember?      _memberOnly;      // показывать только КЭ члена
-    readonly FemMember?      _highlightMember; // показывать всю схему, член подсвечен
+    readonly FemMemberGroup? _memberOnly;      // показывать только КЭ группы
+    readonly FemMemberGroup? _highlightMember; // показывать всю схему, группа подсвечена
 
     bool   _isLoading = true;
     bool   _noData;
@@ -58,8 +58,8 @@ public class Fem3DVM : ViewModelBase
         Status    = Loc.S("Fem3DLoading");
     }
 
-    /// <summary>Режим конструктивного элемента — показывает только КЭ этого члена.</summary>
-    public Fem3DVM(FemMember member, DatabaseService db)
+    /// <summary>Режим конструктивного элемента — показывает только КЭ этой группы.</summary>
+    public Fem3DVM(FemMemberGroup member, DatabaseService db)
     {
         _schemaId   = member.SchemaId;
         _db         = db;
@@ -67,8 +67,8 @@ public class Fem3DVM : ViewModelBase
         Status      = Loc.S("Fem3DLoading");
     }
 
-    /// <summary>Режим схемы с подсветкой — все КЭ схемы, КЭ члена выделены красным.</summary>
-    public Fem3DVM(FemMember member, DatabaseService db, bool highlightOnSchema)
+    /// <summary>Режим схемы с подсветкой — все КЭ схемы, КЭ группы выделены красным.</summary>
+    public Fem3DVM(FemMemberGroup member, DatabaseService db, bool highlightOnSchema)
     {
         _schemaId        = member.SchemaId;
         _db              = db;
@@ -83,7 +83,7 @@ public class Fem3DVM : ViewModelBase
         Status    = Loc.S("Fem3DLoading");
 
         var allNodes    = await Task.Run(() => _db.GetFemNodes(_schemaId));
-        var allElements = await Task.Run(() => _db.GetFemElements(_schemaId));
+        var allElements = await Task.Run(() => _db.GetFemMembers(_schemaId));
 
         ApplyTopology(allNodes, allElements);
         IsLoading = false;
@@ -95,18 +95,18 @@ public class Fem3DVM : ViewModelBase
     /// сразу отражались в 3D без ожидания сохранения.</summary>
     public void LoadFromSession(CScore.Fem.Editing.FemSchemaEditSession session)
     {
-        ApplyTopology(session.Nodes, session.Elements);
+        ApplyTopology(session.Nodes, session.Members);
         IsLoading = false;
         Status    = "";
     }
 
-    void ApplyTopology(List<FemNode> allNodes, List<FemElement> allElements)
+    void ApplyTopology(List<FemNode> allNodes, List<FemMember> allElements)
     {
         // В режиме члена — фильтруем только нужные КЭ
-        List<FemElement> elements;
+        List<FemMember> elements;
         if (_memberOnly != null)
         {
-            var memberIds = (JsonSerializer.Deserialize<int[]>(_memberOnly.ElemIdsJson) ?? [])
+            var memberIds = (JsonSerializer.Deserialize<int[]>(_memberOnly.MemberTagsJson) ?? [])
                             .ToHashSet();
             elements = allElements
                 .Where(e => int.TryParse(e.ElemTag, out var id) && memberIds.Contains(id))
@@ -160,7 +160,7 @@ public class Fem3DVM : ViewModelBase
 
         if (_highlightMember != null)
         {
-            var hiTags  = (JsonSerializer.Deserialize<int[]>(_highlightMember.ElemIdsJson) ?? [])
+            var hiTags  = (JsonSerializer.Deserialize<int[]>(_highlightMember.MemberTagsJson) ?? [])
                           .Select(id => id.ToString())
                           .ToHashSet(StringComparer.Ordinal);
             var hiElems = elements.Where(e => hiTags.Contains(e.ElemTag.Trim())).ToList();
@@ -218,7 +218,7 @@ public class Fem3DVM : ViewModelBase
 
     // -------------------------------------------------------------------------
 
-    List<BarGroup> BuildSectionColoredBars(Dictionary<string, Point3D> nodeMap, List<FemElement> bars)
+    List<BarGroup> BuildSectionColoredBars(Dictionary<string, Point3D> nodeMap, List<FemMember> bars)
     {
         var grouped = bars.GroupBy(e => e.SectionTag ?? "").OrderBy(g => g.Key).ToList();
         var result  = new List<BarGroup>(grouped.Count);
@@ -235,7 +235,7 @@ public class Fem3DVM : ViewModelBase
         return result;
     }
 
-    MeshGeometry3D? BuildShellMesh(Dictionary<string, Point3D> nodeMap, List<FemElement> elements)
+    MeshGeometry3D? BuildShellMesh(Dictionary<string, Point3D> nodeMap, List<FemMember> elements)
     {
         var shells = elements.Where(e => e.ElemType == "shell").ToList();
         if (shells.Count == 0) return null;
@@ -272,7 +272,7 @@ public class Fem3DVM : ViewModelBase
         return new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
     }
 
-    Point3DCollection? BuildShellEdges(Dictionary<string, Point3D> nodeMap, List<FemElement> elements)
+    Point3DCollection? BuildShellEdges(Dictionary<string, Point3D> nodeMap, List<FemMember> elements)
     {
         var shells = elements.Where(e => e.ElemType == "shell").ToList();
         if (shells.Count == 0) return null;
@@ -318,7 +318,7 @@ public class Fem3DVM : ViewModelBase
 
     // -------------------------------------------------------------------------
 
-    Point3DCollection BuildLinePoints(Dictionary<string, Point3D> nodeMap, IEnumerable<FemElement> elems)
+    Point3DCollection BuildLinePoints(Dictionary<string, Point3D> nodeMap, IEnumerable<FemMember> elems)
     {
         var pts = new Point3DCollection();
         foreach (var e in elems)
@@ -329,7 +329,7 @@ public class Fem3DVM : ViewModelBase
         return pts;
     }
 
-    static (Point3D p1, Point3D p2)? GetBarPoints(Dictionary<string, Point3D> nodeMap, FemElement e)
+    static (Point3D p1, Point3D p2)? GetBarPoints(Dictionary<string, Point3D> nodeMap, FemMember e)
     {
         var ids = JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? [];
         if (ids.Length < 2) return null;

@@ -18,10 +18,10 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public FemSchemaEditSession Session   { get; }
     public FemSchemaSelectionVM Selection { get; } = new();
 
-    public ObservableCollection<FemNode>     Nodes     { get; } = [];
-    public ObservableCollection<FemElement>  Elements  { get; } = [];
-    public ObservableCollection<FemMember>   Members   { get; } = [];
-    public ObservableCollection<FemLoadCase> LoadCases { get; } = [];
+    public ObservableCollection<FemNode>        Nodes        { get; } = [];
+    public ObservableCollection<FemMember>      Members      { get; } = [];
+    public ObservableCollection<FemMemberGroup> MemberGroups { get; } = [];
+    public ObservableCollection<FemLoadCase>    LoadCases    { get; } = [];
 
     /// <summary>Пул проектных сечений — источник для назначения FemMember.CrossSectionId.</summary>
     public ObservableCollection<CrossSection> CrossSections { get; }
@@ -135,8 +135,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         AllCalcTasks  = app.CalcTasks;
         Session = new FemSchemaEditSession(schema);
         Session.Nodes.AddRange(_db.GetFemNodes(schema.Id));
-        Session.Elements.AddRange(_db.GetFemElements(schema.Id));
-        Session.Members.AddRange(schema.Members);
+        Session.Members.AddRange(_db.GetFemMembers(schema.Id));
+        Session.MemberGroups.AddRange(schema.MemberGroups);
         Session.LoadCases.AddRange(schema.LoadCases);
         Session.NodeLoads.AddRange(_db.GetFemNodeLoads(schema.Id));
         RefreshCollections();
@@ -158,23 +158,23 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         // NodeIdsJson хранит NodeTag узлов как числа (соглашение всей кодовой базы —
         // см. Fem3DVM.GetBarPoints/nodeMap), а не БД-Id: для только что созданных узлов
         // Id ещё не назначен (=0) до сохранения, тогда как NodeTag стабилен с момента создания.
-        var tag = FemTopologyValidator.NextElemTag(Session.Elements);
+        var tag = FemTopologyValidator.NextElemTag(Session.Members);
         var json = System.Text.Json.JsonSerializer.Serialize(new[] { int.Parse(nodeTagA), int.Parse(nodeTagB) });
-        Session.Execute(new AddElementCommand(new FemElement
+        Session.Execute(new AddMemberCommand(new FemMember
         {
             SchemaId = Session.Schema.Id, ElemTag = tag, ElemType = "beam", NodeIdsJson = json
         }));
         RefreshCollections();
     }
 
-    /// <summary>Группирует выбранные стержни в новый конструктивный элемент (FemMember).</summary>
-    public void CreateMemberFromElements(IEnumerable<FemElement> elements)
+    /// <summary>Группирует выбранные конструктивные элементы в новую группу (FemMemberGroup).</summary>
+    public void CreateMemberGroupFromElements(IEnumerable<FemMember> members)
     {
-        var elemTags = elements.Select(e => int.Parse(e.ElemTag)).ToArray();
-        if (elemTags.Length == 0) return;
-        var tag = $"M{Members.Count + 1}";
-        var json = System.Text.Json.JsonSerializer.Serialize(elemTags);
-        Session.Execute(new CreateMemberCommand(new FemMember { SchemaId = Session.Schema.Id, Tag = tag, ElemIdsJson = json }));
+        var memberTags = members.Select(e => int.Parse(e.ElemTag)).ToArray();
+        if (memberTags.Length == 0) return;
+        var tag = $"M{MemberGroups.Count + 1}";
+        var json = System.Text.Json.JsonSerializer.Serialize(memberTags);
+        Session.Execute(new CreateMemberGroupCommand(new FemMemberGroup { SchemaId = Session.Schema.Id, Tag = tag, MemberTagsJson = json }));
         RefreshCollections();
     }
 
@@ -233,19 +233,19 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public void RefreshCollections()
     {
         SyncList(Nodes, Session.Nodes);
-        SyncList(Elements, Session.Elements);
         SyncList(Members, Session.Members);
+        SyncList(MemberGroups, Session.MemberGroups);
         SyncList(LoadCases, Session.LoadCases);
         OnPropertyChanged(nameof(Session));
 
-        // Домены (FemNode/FemElement/FemMember/FemLoadCase) не реализуют INotifyPropertyChanged
+        // Домены (FemNode/FemMember/FemMemberGroup/FemLoadCase) не реализуют INotifyPropertyChanged
         // (CScore — чистый доменный слой без ссылок на WPF), а SyncList не пересобирает
         // ObservableCollection, если набор объектов не изменился (та же ссылка, то же поле мутировано
         // командой, например назначение сечения/GJ). Без принудительного Refresh() гриды показывают
         // устаревшие значения таких полей до следующей структурной пересборки коллекции.
         CollectionViewSource.GetDefaultView(Nodes).Refresh();
-        CollectionViewSource.GetDefaultView(Elements).Refresh();
         CollectionViewSource.GetDefaultView(Members).Refresh();
+        CollectionViewSource.GetDefaultView(MemberGroups).Refresh();
         CollectionViewSource.GetDefaultView(LoadCases).Refresh();
     }
 
@@ -265,7 +265,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
     void Save()
     {
-        Diagnostics = FemTopologyValidator.Validate(Session.Schema, Session.Nodes, Session.Elements, Session.Members)
+        Diagnostics = FemTopologyValidator.Validate(Session.Schema, Session.Nodes, Session.Members, Session.MemberGroups)
             .Concat(FemCanonicalValidator.Validate(Session.Schema, Session.LoadCases, Session.Nodes, Session.NodeLoads))
             .ToList();
         var errors = Diagnostics.Where(d => d.IsError).ToList();
@@ -275,7 +275,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             return;
         }
 
-        _db.SaveFemSchemaEdit(Session.Schema.Id, Session.Nodes, Session.Elements, Session.Members,
+        _db.SaveFemSchemaEdit(Session.Schema.Id, Session.Nodes, Session.Members, Session.MemberGroups,
             Session.LoadCases, Session.NodeLoads);
         Session.MarkSaved();
         RefreshCollections();

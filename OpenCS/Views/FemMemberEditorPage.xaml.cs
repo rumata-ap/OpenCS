@@ -11,10 +11,10 @@ namespace OpenCS.Views;
 
 public partial class FemMemberEditorPage : UserControl
 {
-    readonly FemMember    _member;
-    readonly AppViewModel _app;
+    readonly FemMemberGroup _member;
+    readonly AppViewModel   _app;
 
-    public FemMemberEditorPage(FemMember member, AppViewModel app)
+    public FemMemberEditorPage(FemMemberGroup member, AppViewModel app)
     {
         _member = member;
         _app    = app;
@@ -36,7 +36,7 @@ public class FemMemberEditorVM : ViewModelBase
 {
     readonly DatabaseService _db;
     readonly AppViewModel    _app;
-    readonly FemMember       _member;
+    readonly FemMemberGroup  _member;
     FemDesignParams          _params;
 
     public string Tag
@@ -126,13 +126,23 @@ public class FemMemberEditorVM : ViewModelBase
 
     public ICommand SaveCommand { get; }
 
-    public FemMemberEditorVM(FemMember member, AppViewModel app)
+    public FemMemberEditorVM(FemMemberGroup member, AppViewModel app)
     {
         _member = member;
         _app    = app;
         _db     = app.db;
         _params = FemDesignParams.Parse(member.DesignParamsJson);
-        _selectedBarSection   = app.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId);
+
+        // CrossSectionId теперь собственное поле каждого конструктивного FemMember, а не группы
+        // (см. docs/superpowers/specs/2026-07-17-fem-constructive-member-editor-design.md) — начальный
+        // выбор в комбобоксе берём с первого элемента группы, у которого сечение назначено.
+        var memberTags = System.Text.Json.JsonSerializer.Deserialize<int[]>(member.MemberTagsJson) ?? [];
+        var groupElements = app.db.GetFemMembers(member.SchemaId)
+            .Where(e => int.TryParse(e.ElemTag, out var t) && memberTags.Contains(t))
+            .ToList();
+        var primaryCrossSectionId = groupElements.Select(e => e.CrossSectionId).FirstOrDefault(id => id != null);
+
+        _selectedBarSection   = app.CrossSections.FirstOrDefault(s => s.Id == primaryCrossSectionId);
         _selectedPlateSection = app.PlateSections.FirstOrDefault(s => s.Id == member.PlateSectionId);
         _selectedForceSet     = app.ForceSets.FirstOrDefault(f => f.Id == member.ForceSetId);
         SaveCommand = new RelayCommand(_ => Save());
@@ -140,10 +150,25 @@ public class FemMemberEditorVM : ViewModelBase
 
     void Save()
     {
-        _member.CrossSectionId   = IsPlateType ? null : _selectedBarSection?.Id;
         _member.PlateSectionId   = IsPlateType ? _selectedPlateSection?.Id : null;
         _member.ForceSetId       = _selectedForceSet?.Id;
         _member.DesignParamsJson = _params.ToJson();
-        _db.SaveFemMember(_member);
+        _db.SaveFemMemberGroup(_member);
+
+        if (!IsPlateType)
+        {
+            // Сечение назначается напрямую каждому конструктивному элементу группы — эта страница
+            // проставляет выбранное сечение всем элементам группы разом (массовое действие, без
+            // хранения связи «группа → сечение» после этого).
+            var memberTags = System.Text.Json.JsonSerializer.Deserialize<int[]>(_member.MemberTagsJson) ?? [];
+            var groupElements = _db.GetFemMembers(_member.SchemaId)
+                .Where(e => int.TryParse(e.ElemTag, out var t) && memberTags.Contains(t))
+                .ToList();
+            foreach (var e in groupElements)
+            {
+                e.CrossSectionId = _selectedBarSection?.Id;
+                _db.SaveFemMember(e);
+            }
+        }
     }
 }

@@ -137,7 +137,7 @@ class FemSchemaTreeVM
         [
             NodesSubNode,
             ElementsSubNode,
-            new FemMembersSubNode(schema, schema.Members),
+            new FemMembersSubNode(schema, schema.MemberGroups),
             ForcesSubNode,
         ];
 
@@ -158,14 +158,14 @@ class FemSchemaTreeVM
     internal Task<List<FemNode>> LoadNodesAsync()
         => Task.Run(() => _db.GetFemNodes(Schema.Id));
 
-    /// <summary>Асинхронно загружает стержневые КЭ схемы из БД.</summary>
-    internal Task<List<FemElement>> LoadBarsAsync()
-        => Task.Run(() => _db.GetFemElements(Schema.Id)
+    /// <summary>Асинхронно загружает стержневые конструктивные элементы схемы из БД.</summary>
+    internal Task<List<FemMember>> LoadBarsAsync()
+        => Task.Run(() => _db.GetFemMembers(Schema.Id)
             .Where(e => e.ElemType == "beam").ToList());
 
-    /// <summary>Асинхронно загружает пластинчатые КЭ схемы из БД.</summary>
-    internal Task<List<FemElement>> LoadShellsAsync()
-        => Task.Run(() => _db.GetFemElements(Schema.Id)
+    /// <summary>Асинхронно загружает пластинчатые конструктивные элементы схемы из БД.</summary>
+    internal Task<List<FemMember>> LoadShellsAsync()
+        => Task.Run(() => _db.GetFemMembers(Schema.Id)
             .Where(e => e.ElemType == "shell").ToList());
 
     /// <summary>Перечитывает счётчики после SaveFemTopology.</summary>
@@ -230,12 +230,12 @@ public class FemShellsSubNode : FemSubNode, System.ComponentModel.INotifyPropert
     internal FemShellsSubNode(FemSchemaTreeVM owner) => Owner = owner;
 }
 
-/// <summary>Подузел «Конструктивные элементы» — содержит FemMember'ы схемы.</summary>
+/// <summary>Подузел «Группы конструктивных элементов» — содержит FemMemberGroup'ы схемы.</summary>
 public class FemMembersSubNode : FemSubNode
 {
-    public FemSchema                        Schema  { get; }
-    public ObservableCollection<FemMember>  Members { get; }
-    public FemMembersSubNode(FemSchema schema, ObservableCollection<FemMember> members)
+    public FemSchema                             Schema  { get; }
+    public ObservableCollection<FemMemberGroup>  Members { get; }
+    public FemMembersSubNode(FemSchema schema, ObservableCollection<FemMemberGroup> members)
     {
         Schema  = schema;
         Members = members;

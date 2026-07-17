@@ -39,7 +39,7 @@ public class FemSlsCheckDialogVM : ViewModelBase
     readonly FemCheck?    _existing;
 
     public ObservableCollection<FemSchema> Schemas { get; }
-    public ObservableCollection<FemMember> Members { get; } = [];
+    public ObservableCollection<FemMemberGroup> Members { get; } = [];
     public ObservableCollection<ForceSet>  FilteredForceSets { get; } = [];
     public ObservableCollection<ForceSet>  NlForceSets { get; } = [];
 
@@ -50,8 +50,8 @@ public class FemSlsCheckDialogVM : ViewModelBase
         set { _selectedSchema = value; OnPropertyChanged(); RefreshMembers(); }
     }
 
-    FemMember? _selectedMember;
-    public FemMember? SelectedMember
+    FemMemberGroup? _selectedMember;
+    public FemMemberGroup? SelectedMember
     {
         get => _selectedMember;
         set { _selectedMember = value; OnPropertyChanged(); RefreshForceSets(); AutoFillTag(); }
@@ -208,7 +208,7 @@ public class FemSlsCheckDialogVM : ViewModelBase
     {
         Members.Clear();
         if (_selectedSchema == null) return;
-        foreach (var m in _selectedSchema.Members) Members.Add(m);
+        foreach (var m in _selectedSchema.MemberGroups) Members.Add(m);
         SelectedMember = Members.FirstOrDefault();
     }
 
