@@ -13,19 +13,18 @@ public static class FemTopologyValidator
     public static IReadOnlyList<FemValidationDiagnostic> Validate(
         FemSchema schema,
         IReadOnlyList<FemNode> nodes,
-        IReadOnlyList<FemElement> elements,
-        IReadOnlyList<FemMember> members)
+        IReadOnlyList<FemMember> members,
+        IReadOnlyList<FemMemberGroup> memberGroups)
     {
         ArgumentNullException.ThrowIfNull(schema);
         ArgumentNullException.ThrowIfNull(nodes);
-        ArgumentNullException.ThrowIfNull(elements);
         ArgumentNullException.ThrowIfNull(members);
+        ArgumentNullException.ThrowIfNull(memberGroups);
 
-        // NodeIdsJson/ElemIdsJson хранят NodeTag/ElemTag узлов и элементов как числа
-        // (соглашение всей кодовой базы — см. Fem3DVM.GetBarPoints, FemMember.ElemIdsJson
-        // в режиме _memberOnly), а не БД-Id: у ещё не сохранённых объектов Id всегда 0,
-        // поэтому 0 не считается дублирующимся идентификатором — это законное состояние
-        // нескольких узлов/элементов одновременно до сохранения схемы.
+        // NodeIdsJson/MemberTagsJson хранят NodeTag/ElemTag узлов и элементов как числа
+        // (соглашение всей кодовой базы — см. Fem3DVM.GetBarPoints), а не БД-Id: у ещё не
+        // сохранённых объектов Id всегда 0, поэтому 0 не считается дублирующимся идентификатором —
+        // это законное состояние нескольких узлов/элементов одновременно до сохранения схемы.
         var errors = new List<FemValidationDiagnostic>();
         var nodeById = new Dictionary<int, FemNode>();
         foreach (var node in nodes)
@@ -40,8 +39,8 @@ public static class FemTopologyValidator
                 errors.Add(new("node_tag_duplicate", $"Тег узла '{group.Key}' используется несколько раз."));
         }
 
-        var elemById = new Dictionary<int, FemElement>();
-        foreach (var element in elements)
+        var elemById = new Dictionary<int, FemMember>();
+        foreach (var element in members)
         {
             if (element.Id != 0 && !elemById.TryAdd(element.Id, element))
                 errors.Add(new("element_id_duplicate", $"Идентификатор элемента {element.Id} повторяется."));
@@ -54,38 +53,38 @@ public static class FemTopologyValidator
 
             if (element.ElemType == "beam" && ids.Length == 2 && ids[0] == ids[1])
                 errors.Add(new("element_zero_length", $"Стержень {element.ElemTag} имеет нулевую длину."));
-        }
 
-        foreach (var group in elements.GroupBy(e => e.ElemTag, StringComparer.Ordinal).Where(g => g.Count() > 1))
-            errors.Add(new("element_tag_duplicate", $"Тег элемента '{group.Key}' используется несколько раз."));
-
-        var elemTagSet = elements.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
-        foreach (var member in members)
-        {
-            var elemTags = (JsonSerializer.Deserialize<int[]>(member.ElemIdsJson) ?? [])
-                .Select(id => id.ToString());
-            foreach (var tag in elemTags)
-                if (!elemTagSet.Contains(tag))
-                    errors.Add(new("member_element_missing",
-                        $"Конструктивный элемент '{member.Tag}' ссылается на отсутствующий КЭ {tag}."));
-
-            if (member.CrossSectionId == null)
+            if (element.CrossSectionId == null)
                 errors.Add(new("member_section_missing",
-                    $"Конструктивному элементу '{member.Tag}' не назначено сечение.", IsError: false));
+                    $"Конструктивному элементу '{element.ElemTag}' не назначено сечение.", IsError: false));
 
             // GJ не настроен до конца — как и отсутствие сечения, это предупреждение, а не ошибка:
             // схему можно сохранить в процессе редактирования, готовность к расчёту OpenSees
             // проверяется отдельно (срез 4/5).
-            if (!GjStrategies.Contains(member.GjStrategy))
+            if (!GjStrategies.Contains(element.GjStrategy))
                 errors.Add(new("gj_strategy_invalid",
-                    $"У '{member.Tag}' недопустимая GJ-стратегия '{member.GjStrategy}'."));
-            else if (member.GjStrategy == "manual" &&
-                     (member.GjManualValue is null || member.GjManualValue <= 0 || !double.IsFinite(member.GjManualValue.Value)))
+                    $"У '{element.ElemTag}' недопустимая GJ-стратегия '{element.GjStrategy}'."));
+            else if (element.GjStrategy == "manual" &&
+                     (element.GjManualValue is null || element.GjManualValue <= 0 || !double.IsFinite(element.GjManualValue.Value)))
                 errors.Add(new("gj_manual_value_missing",
-                    $"У '{member.Tag}' не задано положительное ручное значение GJ.", IsError: false));
-            else if (member.GjStrategy == "saint_venant" && member.GjTorsionTaskId is null)
+                    $"У '{element.ElemTag}' не задано положительное ручное значение GJ.", IsError: false));
+            else if (element.GjStrategy == "saint_venant" && element.GjTorsionTaskId is null)
                 errors.Add(new("gj_torsion_task_missing",
-                    $"У '{member.Tag}' не выбрана задача кручения для GJ.", IsError: false));
+                    $"У '{element.ElemTag}' не выбрана задача кручения для GJ.", IsError: false));
+        }
+
+        foreach (var group in members.GroupBy(e => e.ElemTag, StringComparer.Ordinal).Where(g => g.Count() > 1))
+            errors.Add(new("element_tag_duplicate", $"Тег элемента '{group.Key}' используется несколько раз."));
+
+        var elemTagSet = members.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
+        foreach (var group in memberGroups)
+        {
+            var elemTags = (JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [])
+                .Select(id => id.ToString());
+            foreach (var tag in elemTags)
+                if (!elemTagSet.Contains(tag))
+                    errors.Add(new("member_element_missing",
+                        $"Группа '{group.Tag}' ссылается на отсутствующий конструктивный элемент {tag}."));
         }
 
         return errors;
@@ -95,7 +94,7 @@ public static class FemTopologyValidator
     public static string NextNodeTag(IReadOnlyList<FemNode> nodes) => NextTag(nodes.Select(n => n.NodeTag));
 
     /// <summary>Следующий свободный числовой тег элемента в схеме, начиная с "1".</summary>
-    public static string NextElemTag(IReadOnlyList<FemElement> elements) => NextTag(elements.Select(e => e.ElemTag));
+    public static string NextElemTag(IReadOnlyList<FemMember> members) => NextTag(members.Select(e => e.ElemTag));
 
     static string NextTag(IEnumerable<string> tags)
     {

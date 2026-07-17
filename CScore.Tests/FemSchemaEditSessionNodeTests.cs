@@ -56,30 +56,30 @@ public sealed class FemSchemaEditSessionNodeTests
     }
 
     [Fact]
-    public void DeleteNodeCommand_CascadesToElementsMembersAndLoads_AndUndoRestoresAll()
+    public void DeleteNodeCommand_CascadesToMembersGroupsAndLoads_AndUndoRestoresAll()
     {
         var session = NewSession();
-        // Id намеренно НЕ совпадает с NodeTag: NodeIdsJson/ElemIdsJson ссылаются по Tag, а не по БД-Id.
+        // Id намеренно НЕ совпадает с NodeTag: NodeIdsJson/MemberTagsJson ссылаются по Tag, а не по БД-Id.
         var n1 = new FemNode { Id = 101, NodeTag = "1" };
         var n2 = new FemNode { Id = 102, NodeTag = "2" };
         session.Execute(new AddNodeCommand(n1));
         session.Execute(new AddNodeCommand(n2));
-        session.Elements.Add(new FemElement { Id = 1, ElemTag = "1", NodeIdsJson = "[1,2]" });
-        session.Members.Add(new FemMember { Id = 1, Tag = "M1", ElemIdsJson = "[1]" });
+        session.Members.Add(new FemMember { Id = 1, ElemTag = "1", NodeIdsJson = "[1,2]" });
+        session.MemberGroups.Add(new FemMemberGroup { Id = 1, Tag = "M1", MemberTagsJson = "[1]" });
         session.LoadCases.Add(new FemLoadCase { Id = 1, Tag = "G" });
         session.NodeLoads.Add(new FemNodeLoad { Id = 1, LoadCaseId = 1, NodeId = 101, Fz = 5 });
 
         session.Execute(new DeleteNodeCommand(n1));
 
         Assert.Single(session.Nodes);
-        Assert.Empty(session.Elements);
+        Assert.Empty(session.Members);
         Assert.Empty(session.NodeLoads);
-        Assert.Equal("[]", session.Members[0].ElemIdsJson);
+        Assert.Equal("[]", session.MemberGroups[0].MemberTagsJson);
 
         session.Undo();
         Assert.Equal(2, session.Nodes.Count);
-        Assert.Single(session.Elements);
+        Assert.Single(session.Members);
         Assert.Single(session.NodeLoads);
-        Assert.Equal("[1]", session.Members[0].ElemIdsJson);
+        Assert.Equal("[1]", session.MemberGroups[0].MemberTagsJson);
     }
 }

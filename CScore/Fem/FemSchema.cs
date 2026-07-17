@@ -12,8 +12,8 @@ public class FemSchema
     public string SourceType { get; set; } = "internal";
     public string Created    { get; set; } = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
-    /// <summary>Конструктивные элементы схемы. Заполняются при загрузке из БД.</summary>
-    public ObservableCollection<FemMember> Members { get; } = [];
+    /// <summary>Группы конструктивных элементов схемы. Заполняются при загрузке из БД.</summary>
+    public ObservableCollection<FemMemberGroup> MemberGroups { get; } = [];
 
     /// <summary>Загружения схемы.</summary>
     public ObservableCollection<FemLoadCase> LoadCases { get; } = [];

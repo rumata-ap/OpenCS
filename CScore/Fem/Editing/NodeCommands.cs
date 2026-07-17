@@ -37,13 +37,13 @@ public sealed class SetDofMaskCommand(FemNode node, int mask) : IFemEditCommand
     public void Undo(FemSchemaEditSession session) => node.DofMask = _oldMask;
 }
 
-/// <summary>Удаляет узел и каскадно — ссылающиеся на него элементы, узловые нагрузки
-/// и ссылки на удалённые элементы в FemMember.ElemIdsJson. Полностью обратимо.</summary>
+/// <summary>Удаляет узел и каскадно — ссылающиеся на него конструктивные элементы, узловые нагрузки
+/// и ссылки на удалённые элементы в FemMemberGroup.MemberTagsJson. Полностью обратимо.</summary>
 public sealed class DeleteNodeCommand(FemNode node) : IFemEditCommand
 {
-    List<FemElement>  _removedElements  = [];
-    List<FemNodeLoad> _removedLoads     = [];
-    List<(FemMember member, string oldJson)> _memberEdits = [];
+    List<FemMember>   _removedMembers = [];
+    List<FemNodeLoad> _removedLoads   = [];
+    List<(FemMemberGroup group, string oldJson)> _groupEdits = [];
 
     public void Do(FemSchemaEditSession session)
     {
@@ -51,31 +51,31 @@ public sealed class DeleteNodeCommand(FemNode node) : IFemEditCommand
 
         // NodeIdsJson хранит NodeTag узла как число, не БД-Id (см. FemTopologyValidator).
         int nodeTagId = int.Parse(node.NodeTag);
-        _removedElements = session.Elements
+        _removedMembers = session.Members
             .Where(e => (JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? []).Contains(nodeTagId))
             .ToList();
-        foreach (var e in _removedElements) session.Elements.Remove(e);
+        foreach (var e in _removedMembers) session.Members.Remove(e);
 
         _removedLoads = session.NodeLoads.Where(l => l.NodeId == node.Id).ToList();
         foreach (var l in _removedLoads) session.NodeLoads.Remove(l);
 
-        var removedElemTags = _removedElements.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
-        _memberEdits = [];
-        foreach (var member in session.Members)
+        var removedMemberTags = _removedMembers.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
+        _groupEdits = [];
+        foreach (var group in session.MemberGroups)
         {
-            var ids = JsonSerializer.Deserialize<int[]>(member.ElemIdsJson) ?? [];
-            var kept = ids.Where(id => !removedElemTags.Contains(id.ToString())).ToArray();
+            var ids = JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [];
+            var kept = ids.Where(id => !removedMemberTags.Contains(id.ToString())).ToArray();
             if (kept.Length == ids.Length) continue;
-            _memberEdits.Add((member, member.ElemIdsJson));
-            member.ElemIdsJson = JsonSerializer.Serialize(kept);
+            _groupEdits.Add((group, group.MemberTagsJson));
+            group.MemberTagsJson = JsonSerializer.Serialize(kept);
         }
     }
 
     public void Undo(FemSchemaEditSession session)
     {
         session.Nodes.Add(node);
-        foreach (var e in _removedElements) session.Elements.Add(e);
+        foreach (var e in _removedMembers) session.Members.Add(e);
         foreach (var l in _removedLoads) session.NodeLoads.Add(l);
-        foreach (var (member, oldJson) in _memberEdits) member.ElemIdsJson = oldJson;
+        foreach (var (group, oldJson) in _groupEdits) group.MemberTagsJson = oldJson;
     }
 }

@@ -5,11 +5,11 @@ public sealed class FemSchemaEditSession
 {
     public FemSchema Schema { get; }
 
-    public List<FemNode>     Nodes     { get; } = [];
-    public List<FemElement>  Elements  { get; } = [];
-    public List<FemMember>   Members   { get; } = [];
-    public List<FemLoadCase> LoadCases { get; } = [];
-    public List<FemNodeLoad> NodeLoads { get; } = [];
+    public List<FemNode>        Nodes        { get; } = [];
+    public List<FemMember>      Members      { get; } = [];
+    public List<FemMemberGroup> MemberGroups { get; } = [];
+    public List<FemLoadCase>    LoadCases    { get; } = [];
+    public List<FemNodeLoad>    NodeLoads    { get; } = [];
 
     readonly List<IFemEditCommand> _history = [];
     int _position; // индекс первой ненаправленной команды (== _history.Count при отсутствии redo)

@@ -1,9 +1,35 @@
 namespace CScore.Fem.Editing;
 
-public sealed class CreateMemberCommand(FemMember member) : IFemEditCommand
+public sealed class AddMemberCommand(FemMember member) : IFemEditCommand
 {
     public void Do(FemSchemaEditSession session) => session.Members.Add(member);
     public void Undo(FemSchemaEditSession session) => session.Members.Remove(member);
+}
+
+/// <summary>Удаляет элемент и убирает его тег из FemMemberGroup.MemberTagsJson всех групп, где он был. Обратимо.</summary>
+public sealed class DeleteMemberCommand(FemMember member) : IFemEditCommand
+{
+    List<(FemMemberGroup group, string oldJson)> _groupEdits = [];
+
+    public void Do(FemSchemaEditSession session)
+    {
+        session.Members.Remove(member);
+        _groupEdits = [];
+        foreach (var group in session.MemberGroups)
+        {
+            var ids = System.Text.Json.JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [];
+            var kept = ids.Where(id => id.ToString() != member.ElemTag).ToArray();
+            if (kept.Length == ids.Length) continue;
+            _groupEdits.Add((group, group.MemberTagsJson));
+            group.MemberTagsJson = System.Text.Json.JsonSerializer.Serialize(kept);
+        }
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        session.Members.Add(member);
+        foreach (var (group, oldJson) in _groupEdits) group.MemberTagsJson = oldJson;
+    }
 }
 
 public sealed class SetMemberSectionCommand(FemMember member, int? crossSectionId) : IFemEditCommand
