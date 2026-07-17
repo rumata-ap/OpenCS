@@ -463,6 +463,9 @@ namespace OpenCS
       /// <summary>Команда импорта усилий РСН (комбинации) из XLS-отчёта SCAD.</summary>
       public ICommand ImportScadForcesCombinationsCommand { get; set; } = null!;
 
+      /// <summary>Команда импорта расчётных сочетаний из бинарного файла SCAD RSU2.</summary>
+      public ICommand ImportScadRsu2Command { get; set; } = null!;
+
       /// <summary>Команда импорта расчётной схемы из запущенной ЛираСАПР через COM API.</summary>
       public ICommand ImportLiraSchemaFromApiCommand { get; set; } = null!;
 
@@ -1172,6 +1175,7 @@ namespace OpenCS
          ImportScadForcesLoadCasesCommand = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.LoadCases));
          ImportScadForcesRsuCommand       = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.Rsu));
          ImportScadForcesCombinationsCommand = new RelayCommand(_ => ImportScadForces(CScore.Import.ScadXlsImportMode.Combinations));
+         ImportScadRsu2Command            = new RelayCommand(_ => ImportScadRsu2());
          ImportLiraSchemaFromApiCommand  = new RelayCommand(_ => ImportLiraSchemaFromApi());
          ImportLiraForcesFromApiCommand  = new RelayCommand(_ => ImportLiraForcesFromApi());
          ImportLiraRsnFromApiCommand     = new RelayCommand(_ => ImportLiraRsnFromApi());
@@ -2479,6 +2483,50 @@ namespace OpenCS
          int shellCount = members.Count(e => e.ElemType == "shell");
          LogService.Info(string.Format(Loc.S("ImportScadSuccess"),
             nodes.Length, barCount, shellCount, memberGroups.Length, data.Groups.Count));
+      }
+
+      async void ImportScadRsu2()
+      {
+         string? fileName = FileDialogService.OpenFile(
+            filter: Loc.S("ScadRsu2FileFilter"),
+            title: Loc.S("ScadRsu2DialogTitle"));
+         if (string.IsNullOrEmpty(fileName)) return;
+
+         BeginBusy(Loc.S("ScadRsu2Importing"));
+         try
+         {
+            var import = await Task.Run(() =>
+               CScore.Import.ScadRsu2Importer.ImportFile(fileName));
+
+            if (!import.Success)
+            {
+               EndBusy();
+               System.Windows.MessageBox.Show(
+                  import.Error ?? "Ошибка импорта RSU2",
+                  Loc.S("ImportScadErrorTitle"),
+                  MessageBoxButton.OK, MessageBoxImage.Error);
+               return;
+            }
+
+            int nextNum = ForceSets.Count > 0 ? ForceSets.Max(f => f.Num) + 1 : 1;
+            foreach (var fs in import.ForceSets)
+            {
+               fs.Num = nextNum++;
+               db.SaveForceSet(fs);
+               if (!ForceSets.Contains(fs))
+                  ForceSets.Add(fs);
+            }
+
+            string done = string.Format(Loc.S("ScadRsu2Success"), import.ForceSets.Count);
+            LogService.Info(done + " — " + Path.GetFileName(fileName));
+            EndBusy(done);
+         }
+         catch (Exception ex)
+         {
+            EndBusy();
+            System.Windows.MessageBox.Show(ex.Message, Loc.S("ImportScadErrorTitle"),
+               MessageBoxButton.OK, MessageBoxImage.Error);
+         }
       }
 
       async void ImportScadForces(CScore.Import.ScadXlsImportMode mode)

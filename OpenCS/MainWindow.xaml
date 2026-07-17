@@ -170,6 +170,7 @@
                 <MenuItem Header="{DynamicResource ImportScadForcesLoadCases}" Command="{Binding ImportScadForcesLoadCasesCommand}"/>
                 <MenuItem Header="{DynamicResource ImportScadForcesRsu}" Command="{Binding ImportScadForcesRsuCommand}"/>
                 <MenuItem Header="{DynamicResource ImportScadForcesCombinations}" Command="{Binding ImportScadForcesCombinationsCommand}"/>
+                <MenuItem Header="{DynamicResource ImportScadRsu2}" Command="{Binding ImportScadRsu2Command}"/>
              </MenuItem>
              <MenuItem Header="{DynamicResource ImportSubMenuRobot}" IsEnabled="False"/>
              <MenuItem Header="{DynamicResource ImportSubMenuRfem5}" IsEnabled="False"/>
