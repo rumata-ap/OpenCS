@@ -14,7 +14,7 @@ public static class ScadSchemaConverter
             X = n.X, Y = n.Y, Z = n.Z,
         }).ToArray();
 
-    public static FemElement[] ToFemElements(ScadSchemaData data, int schemaId)
+    public static FemMember[] ToFemMembers(ScadSchemaData data, int schemaId)
     {
         var stiffNames = data.Stiffnesses.ToDictionary(s => s.Id, s => s.Name);
         var stiffThk   = data.Stiffnesses.ToDictionary(s => s.Id, s => s.ThicknessM);
@@ -22,7 +22,7 @@ public static class ScadSchemaConverter
         {
             stiffNames.TryGetValue(e.StiffnessId, out var name);
             stiffThk.TryGetValue(e.StiffnessId, out var thk);
-            return new FemElement
+            return new FemMember
             {
                 SchemaId    = schemaId,
                 ElemTag     = e.Id.ToString(),
@@ -35,16 +35,16 @@ public static class ScadSchemaConverter
     }
 
     /// <summary>
-    /// Строит FemMember: элементы, входящие хотя бы в одну именованную группу SCAD,
+    /// Строит FemMemberGroup: элементы, входящие хотя бы в одну именованную группу SCAD,
     /// группируются по имени группы (Tag = имя группы). Остальные элементы группируются
     /// по номеру жёсткости — так же, как для схем ЛираСАПР (см. LiraSchemaConverter).
     /// </summary>
-    public static FemMember[] ToFemMembers(ScadSchemaData data, int schemaId)
+    public static FemMemberGroup[] ToFemMemberGroups(ScadSchemaData data, int schemaId)
     {
         var elementById = data.Elements.ToDictionary(e => e.Id);
         var stiffNames  = data.Stiffnesses.ToDictionary(s => s.Id, s => s.Name);
         var assigned    = new HashSet<int>();
-        var members     = new List<FemMember>();
+        var groups      = new List<FemMemberGroup>();
 
         foreach (var group in data.Groups)
         {
@@ -54,12 +54,12 @@ public static class ScadSchemaConverter
             if (ids.Length == 0) continue;
 
             bool allBars = ids.All(id => elementById[id].NodeIds.Length == 2);
-            members.Add(new FemMember
+            groups.Add(new FemMemberGroup
             {
-                SchemaId    = schemaId,
-                Tag         = group.Name,
-                MemberType  = allBars ? "beam" : "shell",
-                ElemIdsJson = JsonSerializer.Serialize(ids),
+                SchemaId       = schemaId,
+                Tag            = group.Name,
+                MemberType     = allBars ? "beam" : "shell",
+                MemberTagsJson = JsonSerializer.Serialize(ids),
             });
         }
 
@@ -72,15 +72,15 @@ public static class ScadSchemaConverter
             var ids = g.Select(e => e.Id).ToArray();
             bool allBars = g.All(e => e.NodeIds.Length == 2);
 
-            members.Add(new FemMember
+            groups.Add(new FemMemberGroup
             {
-                SchemaId    = schemaId,
-                Tag         = tag,
-                MemberType  = allBars ? "beam" : "shell",
-                ElemIdsJson = JsonSerializer.Serialize(ids),
+                SchemaId       = schemaId,
+                Tag            = tag,
+                MemberType     = allBars ? "beam" : "shell",
+                MemberTagsJson = JsonSerializer.Serialize(ids),
             });
         }
 
-        return members.ToArray();
+        return groups.ToArray();
     }
 }

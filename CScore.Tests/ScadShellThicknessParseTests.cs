@@ -22,12 +22,12 @@ public class ScadShellThicknessParseTests
     }
 
     [Fact]
-    public void Converter_CopiesThicknessToFemElement()
+    public void Converter_CopiesThicknessToFemMember()
     {
         var data = new ScadSchemaData();
         data.Stiffnesses.Add(new ScadStiffnessRecord(1, "Плита", ScadStiffnessKind.Shell, 0.25));
         data.Elements.Add(new ScadElementRecord(10, 44, 1, [1, 2, 3, 4]));
-        var elems = ScadSchemaConverter.ToFemElements(data, schemaId: 1);
+        var elems = ScadSchemaConverter.ToFemMembers(data, schemaId: 1);
         Assert.Equal(0.25, Assert.Single(elems).ThicknessM);
     }
 }

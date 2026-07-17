@@ -18,10 +18,10 @@ public static class FemInfraTests
         TestHarness.Check("FemNode.NodeTag",  node.NodeTag  == "N1");
         TestHarness.Check("FemNode.DofMask",  node.DofMask  == 63);
 
-        var elem = new FemElement { ElemTag = "E1", ElemType = "beam" };
-        TestHarness.Check("FemElement.ElemType", elem.ElemType == "beam");
+        var elem = new FemMember { ElemTag = "E1", ElemType = "beam" };
+        TestHarness.Check("FemMember.ElemType", elem.ElemType == "beam");
 
-        var member = new FemMember { Tag = "К1", MemberType = "column" };
+        var member = new FemMemberGroup { Tag = "К1", MemberType = "column" };
         var p = new FemDesignParams { DesignLengthX = 4.5, MuX = 0.7, GammaM = 1.025 };
         member.DesignParamsJson = p.ToJson();
         var p2 = FemDesignParams.Parse(member.DesignParamsJson);
@@ -41,7 +41,7 @@ public static class FemInfraTests
 
         // BuildCalcTask: params fallback from member.DesignParamsJson
         var checkNoParams = new FemCheck { Id = 5, NormCode = "steel_check", MemberId = 1, SchemaId = 1 };
-        var memberForTask = new FemMember { Tag = "К2" };
+        var memberForTask = new FemMemberGroup { Tag = "К2" };
         var dp = new FemDesignParams { DesignLengthX = 6.0, MuX = 1.0 };
         memberForTask.DesignParamsJson = dp.ToJson();
         var task = FemCheckRunner.BuildCalcTask(checkNoParams, memberForTask);
@@ -69,10 +69,10 @@ public static class FemInfraTests
         TestHarness.Check("PickWorst(low, high) == high",    FemCheckRunner.PickWorst(rLow,  rHigh) == rHigh);
         TestHarness.Check("PickWorst(high, low) == high",    FemCheckRunner.PickWorst(rHigh, rLow)  == rHigh);
 
-        // FemMember.Checks collection (eager-load container)
-        var mCol = new FemMember { Tag = "К3" };
+        // FemMemberGroup.Checks collection (eager-load container)
+        var mCol = new FemMemberGroup { Tag = "К3" };
         mCol.Checks.Add(new FemCheck { Id = 10, NormCode = "steel_check" });
-        TestHarness.Check("FemMember.Checks eager container", mCol.Checks.Count == 1);
+        TestHarness.Check("FemMemberGroup.Checks eager container", mCol.Checks.Count == 1);
     }
 
     static CalcResult MakeResult(double utilization) => new()

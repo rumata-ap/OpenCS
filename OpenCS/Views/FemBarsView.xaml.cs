@@ -24,7 +24,7 @@ public partial class FemBarsView : UserControl
 
     void NewMember_Click(object sender, RoutedEventArgs e)
     {
-        var selected = barsGrid.SelectedItems.OfType<FemElement>().ToList();
+        var selected = barsGrid.SelectedItems.OfType<FemMember>().ToList();
         var initialRange = selected.Count > 0
             ? string.Join(" ", selected.Select(el => el.ElemTag))
             : "";
@@ -37,7 +37,7 @@ public partial class FemBarsView : UserControl
 
     void CreateGroup_Click(object sender, RoutedEventArgs e)
     {
-        var selected = barsGrid.SelectedItems.OfType<FemElement>().ToList();
+        var selected = barsGrid.SelectedItems.OfType<FemMember>().ToList();
         if (selected.Count == 0) return;
         _app.CreateFemMemberFromSelection(_node.Owner.Schema, selected);
     }

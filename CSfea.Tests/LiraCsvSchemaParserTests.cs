@@ -161,33 +161,33 @@ static class LiraCsvSchemaParserTests
     static void TestConverter()
     {
         if (!File.Exists(BarStiff)) return;
-        var result  = LiraCsvSchemaParser.Parse(Nodes, Elements, BarStiff);
-        var members = LiraSchemaConverter.ToFemMembersByStiffness(result, schemaId: 999);
+        var result = LiraCsvSchemaParser.Parse(Nodes, Elements, BarStiff);
+        var groups = LiraSchemaConverter.ToFemMemberGroupsByStiffness(result, schemaId: 999);
 
-        TestHarness.Check("Converter: создан >= 1 FemMember", members.Length >= 1,
-            $"members={members.Length}");
+        TestHarness.Check("Converter: создана >= 1 FemMemberGroup", groups.Length >= 1,
+            $"groups={groups.Length}");
 
-        // все стержни одной жёсткости (Id=4) — должен быть ровно 1 член
-        var m = members.FirstOrDefault(x => x.Tag.Contains("40"));
-        TestHarness.Check("Converter: FemMember с именем жёсткости найден", m != null,
+        // все стержни одной жёсткости (Id=4) — должна быть ровно 1 группа
+        var m = groups.FirstOrDefault(x => x.Tag.Contains("40"));
+        TestHarness.Check("Converter: FemMemberGroup с именем жёсткости найдена", m != null,
             $"Tag='{m?.Tag}'");
-        TestHarness.Check("Converter: SchemaId = 999", members.All(x => x.SchemaId == 999));
+        TestHarness.Check("Converter: SchemaId = 999", groups.All(x => x.SchemaId == 999));
 
-        // ElemIdsJson должен быть непустым JSON-массивом
-        bool hasIds = members.All(x =>
-            x.ElemIdsJson.StartsWith("[") && x.ElemIdsJson.Length > 3);
-        TestHarness.Check("Converter: ElemIdsJson непустой", hasIds,
-            $"sample='{members[0].ElemIdsJson[..Math.Min(40, members[0].ElemIdsJson.Length)]}'");
+        // MemberTagsJson должен быть непустым JSON-массивом
+        bool hasIds = groups.All(x =>
+            x.MemberTagsJson.StartsWith("[") && x.MemberTagsJson.Length > 3);
+        TestHarness.Check("Converter: MemberTagsJson непустой", hasIds,
+            $"sample='{groups[0].MemberTagsJson[..Math.Min(40, groups[0].MemberTagsJson.Length)]}'");
 
-        // узлы и элементы
-        var nodes    = LiraSchemaConverter.ToFemNodes(result, 999);
-        var elements = LiraSchemaConverter.ToFemBarElements(result, 999);
+        // узлы и конструктивные элементы
+        var nodes   = LiraSchemaConverter.ToFemNodes(result, 999);
+        var members = LiraSchemaConverter.ToFemBarMembers(result, 999);
         TestHarness.Check("Converter: ToFemNodes.Count = Nodes.Count",
             nodes.Length == result.Nodes.Count,
             $"{nodes.Length} vs {result.Nodes.Count}");
-        TestHarness.Check("Converter: ToFemBarElements все beam",
-            elements.All(e => e.ElemType == "beam"));
-        TestHarness.Check("Converter: FemElement.NodeIdsJson валиден",
-            elements.All(e => e.NodeIdsJson.StartsWith("[") && e.NodeIdsJson.Contains(",")));
+        TestHarness.Check("Converter: ToFemBarMembers все beam",
+            members.All(e => e.ElemType == "beam"));
+        TestHarness.Check("Converter: FemMember.NodeIdsJson валиден",
+            members.All(e => e.NodeIdsJson.StartsWith("[") && e.NodeIdsJson.Contains(",")));
     }
 }

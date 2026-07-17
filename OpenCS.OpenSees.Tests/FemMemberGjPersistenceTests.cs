@@ -16,13 +16,13 @@ public sealed class FemMemberGjPersistenceTests
             db.SaveFemSchema(schema);
             var member = new FemMember
             {
-                SchemaId = schema.Id, Tag = "M1",
+                SchemaId = schema.Id, ElemTag = "1",
                 GjStrategy = "saint_venant", GjTorsionTaskId = 7
             };
             db.SaveFemMember(member);
 
             db.LoadAll();
-            var loaded = db.FemSchemas.Single(s => s.Id == schema.Id).Members.Single();
+            var loaded = db.GetFemMembers(schema.Id).Single();
 
             Assert.Equal("saint_venant", loaded.GjStrategy);
             Assert.Equal(7, loaded.GjTorsionTaskId);

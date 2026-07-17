@@ -24,17 +24,17 @@ public static class LiraSchemaConverter
             .ToArray();
 
     /// <summary>
-    /// Создаёт массив FemElement из стержневых КЭ (2 узла).
+    /// Создаёт массив конструктивных FemMember из стержневых КЭ (2 узла).
     /// schemaId должен быть уже сохранён в БД.
     /// </summary>
-    public static FemElement[] ToFemBarElements(LiraSchemaData data, int schemaId)
+    public static FemMember[] ToFemBarMembers(LiraSchemaData data, int schemaId)
         => data.Elements
             .Where(e => e.NodeIds.Length == 2)
             .Select(e =>
             {
                 var stiff = data.BarStiffnesses.FirstOrDefault(s => s.Id == e.StiffnessId);
                 var tag   = stiff?.Name ?? (e.StiffnessId > 0 ? e.StiffnessId.ToString() : null);
-                return new FemElement
+                return new FemMember
                 {
                     SchemaId    = schemaId,
                     ElemTag     = e.Id.ToString(),
@@ -46,16 +46,16 @@ public static class LiraSchemaConverter
             .ToArray();
 
     /// <summary>
-    /// Создаёт массив FemElement из пластинчатых/оболочечных КЭ (3 или 4 узла).
+    /// Создаёт массив конструктивных FemMember из пластинчатых/оболочечных КЭ (3 или 4 узла).
     /// </summary>
-    public static FemElement[] ToFemShellElements(LiraSchemaData data, int schemaId)
+    public static FemMember[] ToFemShellMembers(LiraSchemaData data, int schemaId)
         => data.Elements
             .Where(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4)
             .Select(e =>
             {
                 var stiff = data.PlateStiffnesses.FirstOrDefault(s => s.Id == e.StiffnessId);
                 var tag   = stiff?.Name ?? (e.StiffnessId > 0 ? e.StiffnessId.ToString() : null);
-                return new FemElement
+                return new FemMember
                 {
                     SchemaId    = schemaId,
                     ElemTag     = e.Id.ToString(),
@@ -67,10 +67,10 @@ public static class LiraSchemaConverter
             .ToArray();
 
     /// <summary>
-    /// Создаёт FemMember для каждого уникального ID жёсткости стержней.
-    /// Tag = имя жёсткости из CSV; ElemIdsJson = все элементы данной жёсткости.
+    /// Создаёт FemMemberGroup для каждого уникального ID жёсткости стержней.
+    /// Tag = имя жёсткости из CSV; MemberTagsJson = все элементы данной жёсткости.
     /// </summary>
-    public static FemMember[] ToFemMembersByStiffness(LiraSchemaData data, int schemaId)
+    public static FemMemberGroup[] ToFemMemberGroupsByStiffness(LiraSchemaData data, int schemaId)
     {
         var barElements = data.Elements
             .Where(e => e.NodeIds.Length == 2)
@@ -84,21 +84,21 @@ public static class LiraSchemaConverter
             {
                 var tag  = stiffNames.TryGetValue(g.Key, out var name) ? name : $"Жёсткость {g.Key}";
                 var ids  = g.Select(e => e.Id).ToArray();
-                return new FemMember
+                return new FemMemberGroup
                 {
-                    SchemaId    = schemaId,
-                    Tag         = tag,
-                    MemberType  = "beam",
-                    ElemIdsJson = JsonSerializer.Serialize(ids),
+                    SchemaId       = schemaId,
+                    Tag            = tag,
+                    MemberType     = "beam",
+                    MemberTagsJson = JsonSerializer.Serialize(ids),
                 };
             })
             .ToArray();
     }
 
     /// <summary>
-    /// Создаёт FemMember для каждого уникального ID жёсткости пластин.
+    /// Создаёт FemMemberGroup для каждого уникального ID жёсткости пластин.
     /// </summary>
-    public static FemMember[] ToFemMembersByPlateStiffness(LiraSchemaData data, int schemaId)
+    public static FemMemberGroup[] ToFemMemberGroupsByPlateStiffness(LiraSchemaData data, int schemaId)
     {
         var shellElements = data.Elements
             .Where(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4)
@@ -114,12 +114,12 @@ public static class LiraSchemaConverter
             {
                 var tag  = stiffNames.TryGetValue(g.Key, out var name) ? name : $"Жёсткость пластины {g.Key}";
                 var ids  = g.Select(e => e.Id).ToArray();
-                return new FemMember
+                return new FemMemberGroup
                 {
-                    SchemaId    = schemaId,
-                    Tag         = tag,
-                    MemberType  = "shell",
-                    ElemIdsJson = JsonSerializer.Serialize(ids),
+                    SchemaId       = schemaId,
+                    Tag            = tag,
+                    MemberType     = "shell",
+                    MemberTagsJson = JsonSerializer.Serialize(ids),
                 };
             })
             .ToArray();

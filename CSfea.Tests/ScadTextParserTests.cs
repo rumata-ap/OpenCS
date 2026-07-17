@@ -183,27 +183,27 @@ static class ScadTextParserTests
         TestHarness.Check("Converter: node[2] X=1,Y=1,Z=0",
             nodes[2].X == 1 && nodes[2].Y == 1 && nodes[2].Z == 0);
 
-        var elements = ScadSchemaConverter.ToFemElements(data, schemaId: 42);
-        TestHarness.Check("Converter: ToFemElements.Length == 4", elements.Length == 4, $"{elements.Length}");
-        var barEl = elements.First(e => e.ElemTag == "1");
+        var members = ScadSchemaConverter.ToFemMembers(data, schemaId: 42);
+        TestHarness.Check("Converter: ToFemMembers.Length == 4", members.Length == 4, $"{members.Length}");
+        var barEl = members.First(e => e.ElemTag == "1");
         TestHarness.Check("Converter: элемент 1 — beam, SectionTag=Стойка",
             barEl.ElemType == "beam" && barEl.SectionTag == "Стойка");
-        var quadEl = elements.First(e => e.ElemTag == "3");
+        var quadEl = members.First(e => e.ElemTag == "3");
         TestHarness.Check("Converter: элемент 3 — shell, SectionTag=Плита, NodeIdsJson=[1,2,3,4]",
             quadEl.ElemType == "shell" && quadEl.SectionTag == "Плита" &&
             quadEl.NodeIdsJson == "[1,2,3,4]");
 
-        var members = ScadSchemaConverter.ToFemMembers(data, schemaId: 42);
-        TestHarness.Check("Converter: ToFemMembers.Length == 2", members.Length == 2, $"{members.Length}");
-        var groupMember = members.FirstOrDefault(m => m.Tag == "ТестГруппа");
-        TestHarness.Check("Converter: member 'ТестГруппа' найден", groupMember != null);
-        TestHarness.Check("Converter: 'ТестГруппа'.ElemIdsJson содержит 1,3,4",
+        var groups = ScadSchemaConverter.ToFemMemberGroups(data, schemaId: 42);
+        TestHarness.Check("Converter: ToFemMemberGroups.Length == 2", groups.Length == 2, $"{groups.Length}");
+        var groupMember = groups.FirstOrDefault(m => m.Tag == "ТестГруппа");
+        TestHarness.Check("Converter: группа 'ТестГруппа' найдена", groupMember != null);
+        TestHarness.Check("Converter: 'ТестГруппа'.MemberTagsJson содержит 1,3,4",
             groupMember != null &&
-            new[] { 1, 3, 4 }.All(id => groupMember.ElemIdsJson.Contains(id.ToString())));
-        var fallbackMember = members.FirstOrDefault(m => m.Tag == "Стойка");
-        TestHarness.Check("Converter: member 'Стойка' (по жёсткости, элемент 6 вне группы) найден",
-            fallbackMember != null);
+            new[] { 1, 3, 4 }.All(id => groupMember.MemberTagsJson.Contains(id.ToString())));
+        var fallbackGroup = groups.FirstOrDefault(m => m.Tag == "Стойка");
+        TestHarness.Check("Converter: группа 'Стойка' (по жёсткости, элемент 6 вне группы) найдена",
+            fallbackGroup != null);
         TestHarness.Check("Converter: 'Стойка'.MemberType == beam",
-            fallbackMember != null && fallbackMember.MemberType == "beam");
+            fallbackGroup != null && fallbackGroup.MemberType == "beam");
     }
 }

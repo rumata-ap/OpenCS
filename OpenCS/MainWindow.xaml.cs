@@ -189,7 +189,7 @@ namespace OpenCS
              else
                 vm.CurrentBarForceSet = forceSetItem;
           }
-          else if (e.NewValue is CScore.Fem.FemMember femMemberItem)
+          else if (e.NewValue is CScore.Fem.FemMemberGroup femMemberItem)
              vm.CurrentFemMember = femMemberItem;
           else if (e.NewValue is CScore.Fem.FemCheck femCheckItem)
           {

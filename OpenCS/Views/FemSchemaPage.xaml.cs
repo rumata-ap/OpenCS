@@ -40,7 +40,7 @@ public partial class FemSchemaPage : UserControl
     }
 
     void CreateMember_Click(object sender, RoutedEventArgs e)
-        => _editorVm.CreateMemberFromElements(barsGrid.SelectedItems.OfType<FemElement>());
+        => _editorVm.CreateMemberGroupFromElements(barsGrid.SelectedItems.OfType<FemMember>());
 
     void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {

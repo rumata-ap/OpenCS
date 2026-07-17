@@ -2659,7 +2659,7 @@ namespace OpenCS.Utilites
       {
          // clear member Checks collections first
          foreach (var s in FemSchemas)
-            foreach (var m in s.Members)
+            foreach (var m in s.MemberGroups)
                m.Checks.Clear();
 
          FemChecks.Clear();
@@ -3598,7 +3598,7 @@ namespace OpenCS.Utilites
          cmd.CommandText = "DELETE FROM fem_checks";
          cmd.ExecuteNonQuery();
          foreach (var s in FemSchemas)
-            foreach (var m in s.Members)
+            foreach (var m in s.MemberGroups)
                m.Checks.Clear();
          FemChecks.Clear();
       }
