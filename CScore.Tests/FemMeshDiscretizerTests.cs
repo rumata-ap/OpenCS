@@ -84,7 +84,7 @@ public sealed class FemMeshDiscretizerTests
     {
         var nodes = Nodes((1, "1", 0), (2, "2", 0.0025));
 
-        var mesh = FemMeshDiscretizer.Discretize(4, nodes, [Member("7", "[1,2]")], 1e-10);
+        var mesh = FemMeshDiscretizer.Discretize(4, nodes, [Member("7", "[1,2]")], 1e-12);
 
         Assert.Equal(2, mesh.Elements.Count);
         Assert.All(mesh.Elements, element => Assert.True(ElementLength(element, mesh.Nodes) >= FemMeshDiscretizer.CollinearToleranceM));
