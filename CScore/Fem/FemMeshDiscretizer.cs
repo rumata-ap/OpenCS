@@ -87,7 +87,7 @@ public static class FemMeshDiscretizer
                 var subdivisionCount = 1;
                 if (targetLength is { } target)
                 {
-                    var requestedSubdivisionCount = Math.Max(1, (int)Math.Ceiling(segmentLength / target));
+                    var requestedSubdivisionCount = Math.Max(1, (int)Math.Min(Math.Ceiling(segmentLength / target), int.MaxValue));
                     var maximumSubdivisionCount = Math.Max(1, (int)Math.Floor(segmentLength / CollinearToleranceM));
                     subdivisionCount = Math.Min(requestedSubdivisionCount, maximumSubdivisionCount);
                 }
