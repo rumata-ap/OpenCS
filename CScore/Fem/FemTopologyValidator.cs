@@ -5,6 +5,8 @@ namespace CScore.Fem;
 /// <summary>Проверяет топологическую и GJ-корректность канонической FEM-схемы.</summary>
 public static class FemTopologyValidator
 {
+    const double CollinearToleranceM = 0.001;
+
     static readonly HashSet<string> GjStrategies = new(StringComparer.OrdinalIgnoreCase)
     {
         "manual", "saint_venant"
@@ -107,32 +109,41 @@ public static class FemTopologyValidator
         ArgumentNullException.ThrowIfNull(elements);
 
         var errors = new List<FemValidationDiagnostic>();
-        var nodeById = new Dictionary<int, FemMeshNode>();
+        var nodeByTag = new Dictionary<int, FemMeshNode>();
         foreach (var node in nodes)
-            nodeById.TryAdd(node.Id, node);
+            if (int.TryParse(node.NodeTag, out var nodeTag))
+                nodeByTag.TryAdd(nodeTag, node);
 
         foreach (var element in elements)
         {
             var nodeIds = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson) ?? [];
             var missingNodeIds = nodeIds
-                .Where(nodeId => !nodeById.ContainsKey(nodeId))
+                .Where(nodeTag => !nodeByTag.ContainsKey(nodeTag))
                 .Distinct()
                 .ToArray();
 
-            foreach (var nodeId in missingNodeIds)
+            foreach (var nodeTag in missingNodeIds)
                 errors.Add(new("mesh_element_node_missing",
-                    $"Элемент сетки {element.ElemTag} ссылается на отсутствующий узел {nodeId}."));
+                    $"Элемент сетки {element.ElemTag} ссылается на отсутствующий узел {nodeTag}."));
 
             if (missingNodeIds.Length > 0)
                 continue;
 
-            var elementNodes = nodeIds.Select(nodeId => nodeById[nodeId]).ToArray();
-            var distinctCoordinates = elementNodes
-                .Select(node => (node.X, node.Y, node.Z))
-                .Distinct()
-                .Count();
+            if (nodeIds.Length < 2)
+            {
+                errors.Add(new("mesh_element_degenerate",
+                    $"Элемент сетки {element.ElemTag} является вырожденным."));
+                continue;
+            }
 
-            if (nodeIds.Length < 2 || nodeIds.Distinct().Count() < 2 || distinctCoordinates < 2)
+            var firstNode = nodeByTag[nodeIds[0]];
+            var secondNode = nodeByTag[nodeIds[1]];
+            var dx = secondNode.X - firstNode.X;
+            var dy = secondNode.Y - firstNode.Y;
+            var dz = secondNode.Z - firstNode.Z;
+            var length = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+
+            if (length < CollinearToleranceM)
                 errors.Add(new("mesh_element_degenerate",
                     $"Элемент сетки {element.ElemTag} является вырожденным."));
         }

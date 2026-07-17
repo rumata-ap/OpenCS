@@ -86,8 +86,8 @@ public sealed class FemMeshDiscretizationTests
     {
         var nodes = new[]
         {
-            new FemMeshNode { Id = 1, NodeTag = "1", X = 0, Y = 0, Z = 0 },
-            new FemMeshNode { Id = 2, NodeTag = "2", X = 1, Y = 0, Z = 0 }
+            new FemMeshNode { Id = 101, NodeTag = "1", X = 0, Y = 0, Z = 0 },
+            new FemMeshNode { Id = 202, NodeTag = "2", X = 1, Y = 0, Z = 0 }
         };
         var elements = new[]
         {
@@ -103,7 +103,7 @@ public sealed class FemMeshDiscretizationTests
     [Fact]
     public void ValidateMesh_ReportsElementReferencingMissingNode()
     {
-        var nodes = new[] { new FemMeshNode { Id = 1, NodeTag = "1" } };
+        var nodes = new[] { new FemMeshNode { Id = 101, NodeTag = "1" } };
         var elements = new[]
         {
             new FemElement { Id = 1, ElemTag = "1", NodeIdsJson = "[1,99]" }
@@ -111,16 +111,16 @@ public sealed class FemMeshDiscretizationTests
 
         var diagnostics = FemTopologyValidator.ValidateMesh(nodes, elements);
 
-        Assert.Contains(diagnostics, diagnostic => diagnostic.Code == "mesh_element_node_missing");
+        Assert.Single(diagnostics, diagnostic => diagnostic.Code == "mesh_element_node_missing");
     }
 
     [Fact]
-    public void ValidateMesh_ReportsElementWithCoincidentNodesAsDegenerate()
+    public void ValidateMesh_ReportsNonZeroSegmentShorterThanToleranceAsDegenerate()
     {
         var nodes = new[]
         {
-            new FemMeshNode { Id = 1, NodeTag = "1", X = 2, Y = 3, Z = 4 },
-            new FemMeshNode { Id = 2, NodeTag = "2", X = 2, Y = 3, Z = 4 }
+            new FemMeshNode { Id = 101, NodeTag = "1", X = 2, Y = 3, Z = 4 },
+            new FemMeshNode { Id = 202, NodeTag = "2", X = 2.0001, Y = 3, Z = 4 }
         };
         var elements = new[]
         {
