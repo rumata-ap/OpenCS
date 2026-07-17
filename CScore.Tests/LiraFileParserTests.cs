@@ -117,4 +117,36 @@ public class LiraFileParserTests
             Assert.All(e.NodeIds, nid => Assert.InRange(nid, 0, nodeCount - 1));
         });
     }
+
+    /// <summary>
+    /// Интеграционный тест полного цикла: парсинг заголовка, узлов и элементов из .lir файла.
+    /// </summary>
+    [Fact]
+    public void Parse_FullCycle_AllSectionsPopulated()
+    {
+        if (!File.Exists(TestLirPath)) return;
+
+        var data = LiraFileParser.Parse(TestLirPath);
+
+        // Узлы
+        Assert.Equal(173692, data.Nodes.Count);
+
+        // Элементы
+        Assert.Equal(200769, data.Elements.Count);
+
+        // Стержни (2 узла)
+        int bars = data.Elements.Count(e => e.NodeIds.Length == 2);
+        Assert.Equal(783, bars);
+
+        // Оболочки (3-4 узла)
+        int shells = data.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
+        Assert.Equal(200769 - 783, shells);
+
+        // Все ID узлов валидны
+        int nodeCount = data.Nodes.Count;
+        Assert.All(data.Elements, e =>
+        {
+            Assert.All(e.NodeIds, nid => Assert.InRange(nid, 0, nodeCount - 1));
+        });
+    }
 }
