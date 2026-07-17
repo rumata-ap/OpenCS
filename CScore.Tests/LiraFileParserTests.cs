@@ -51,4 +51,30 @@ public class LiraFileParserTests
         LiraFileParser.SkipMetadata(buf, ref offset);
         Assert.Equal(62, offset);
     }
+
+    [Fact]
+    public void Parse_Nodes3D_HasExpectedCount()
+    {
+        if (!File.Exists(TestLirPath)) return;
+
+        var data = LiraFileParser.Parse(TestLirPath);
+
+        // Block 2 содержит 173 692 узла (валидных записей с int32=1)
+        Assert.Equal(173692, data.Nodes.Count);
+    }
+
+    [Fact]
+    public void Parse_Nodes3D_CoordinatesInRange()
+    {
+        if (!File.Exists(TestLirPath)) return;
+
+        var data = LiraFileParser.Parse(TestLirPath);
+
+        Assert.All(data.Nodes, n =>
+        {
+            Assert.InRange(n.X, -10.0, 65.0);
+            Assert.InRange(n.Y, -35.0, 10.0);
+            Assert.InRange(n.Z, -5.0, 35.0);
+        });
+    }
 }
