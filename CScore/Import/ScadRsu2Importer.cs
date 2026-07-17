@@ -72,6 +72,7 @@ public static class ScadRsu2Importer
         }
 
         // Парсинг записей
+        var counters = new Dictionary<int, int>(); // type_code -> порядковый номер в наборе
         for (int i = 0; i < nRecords; i++)
         {
             int baseOff = HeaderSize + i * RecordSize;
@@ -80,10 +81,13 @@ public static class ScadRsu2Importer
             if (!sets.TryGetValue(typeCode, out var fs))
                 continue;
 
+            counters.TryGetValue(typeCode, out int idxInSet);
+            counters[typeCode] = idxInSet + 1;
+
             if (isShell)
-                fs.ShellItems.Add(ReadShellItem(data, baseOff, i));
+                fs.ShellItems.Add(ReadShellItem(data, baseOff, idxInSet, i));
             else
-                fs.Items.Add(ReadBarItem(data, baseOff, i));
+                fs.Items.Add(ReadBarItem(data, baseOff, idxInSet, i));
         }
 
         // Добавляем только непустые наборы
@@ -99,14 +103,14 @@ public static class ScadRsu2Importer
         return result;
     }
 
-    static LoadItem ReadBarItem(byte[] data, int baseOff, int index)
+    static LoadItem ReadBarItem(byte[] data, int baseOff, int idxInSet, int idxInFile)
     {
         const double G = 1000.0;  // Н→кН
         const double sign = -1.0; // инверсия моментов SCAD→OpenCS
         return new LoadItem
         {
-            Num   = index + 1,
-            Label = FormatLabel(data, baseOff, index),
+            Num   = idxInSet + 1,
+            Label = $"{idxInSet + 1}-{idxInFile + 1}",
             N     = BitConverter.ToDouble(data, baseOff + BarN)  / G,
             T     = BitConverter.ToDouble(data, baseOff + BarMk) / G,
             My    = BitConverter.ToDouble(data, baseOff + BarMy) / G * sign,
@@ -116,14 +120,14 @@ public static class ScadRsu2Importer
         };
     }
 
-    static ShellLoadItem ReadShellItem(byte[] data, int baseOff, int index)
+    static ShellLoadItem ReadShellItem(byte[] data, int baseOff, int idxInSet, int idxInFile)
     {
         const double G = 1000.0;  // Н→кН
         const double sign = -1.0; // инверсия моментов SCAD→OpenCS
         return new ShellLoadItem
         {
-            Num   = index + 1,
-            Label = FormatLabel(data, baseOff, index),
+            Num   = idxInSet + 1,
+            Label = $"{idxInSet + 1}-{idxInFile + 1}",
             Nx    = BitConverter.ToDouble(data, baseOff + ShellNx)  / G,
             Ny    = BitConverter.ToDouble(data, baseOff + ShellNy)  / G,
             Nxy   = BitConverter.ToDouble(data, baseOff + ShellTxy) / G,
@@ -131,23 +135,7 @@ public static class ScadRsu2Importer
             My    = BitConverter.ToDouble(data, baseOff + ShellMy)  / G * sign,
             Mxy   = BitConverter.ToDouble(data, baseOff + ShellMxy) / G * sign,
             Qx    = BitConverter.ToDouble(data, baseOff + ShellQx)  / G,
-            Qy    = BitConverter.ToDouble(data, baseOff + ShellQy)  / G,
+            Qy    = BitConverter.ToDouble(data, baseOff + ShellQy) / G,
         };
-    }
-
-    static string FormatLabel(byte[] data, int baseOff, int index)
-    {
-        int firstSlot = FirstActiveSlot(data, baseOff);
-        return firstSlot > 0 ? $"{index + 1}-{firstSlot}" : (index + 1).ToString();
-    }
-
-    static int FirstActiveSlot(byte[] data, int baseOff)
-    {
-        for (int c = 1; c <= 62; c++)
-        {
-            if (BitConverter.ToInt32(data, baseOff + 20 + c * 8) != 0)
-                return c;
-        }
-        return 0;
     }
 }
