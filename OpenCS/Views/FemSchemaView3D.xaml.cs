@@ -250,14 +250,17 @@ public partial class FemSchemaView3D : UserControl
         _pickTargets.Clear();
         if (VM is not { EditMode: true } vm) return;
 
-        foreach (var (tag, pos) in vm.NodeProxies)
+        if (showNodesCheck.IsChecked == true)
         {
-            bool isPendingBarFirst = _createBarMode && tag == _pendingBarFirstNode;
-            bool selected = vm.Selection?.SelectedNodeTags.Contains(tag) == true;
-            var color = isPendingBarFirst ? Colors.Gold : selected ? Colors.OrangeRed : Colors.DimGray;
-            var sphere = new SphereVisual3D { Center = pos, Radius = 0.05, Fill = new SolidColorBrush(color) };
-            _pickTargets[sphere] = (true, tag);
-            viewport.Children.Add(sphere);
+            foreach (var (tag, pos) in vm.NodeProxies)
+            {
+                bool isPendingBarFirst = _createBarMode && tag == _pendingBarFirstNode;
+                bool selected = vm.Selection?.SelectedNodeTags.Contains(tag) == true;
+                var color = isPendingBarFirst ? Colors.Gold : selected ? Colors.OrangeRed : Colors.DimGray;
+                var sphere = new SphereVisual3D { Center = pos, Radius = 0.05, Fill = new SolidColorBrush(color) };
+                _pickTargets[sphere] = (true, tag);
+                viewport.Children.Add(sphere);
+            }
         }
         foreach (var (tag, p1, p2) in vm.BarProxies)
         {
@@ -356,6 +359,12 @@ public partial class FemSchemaView3D : UserControl
 
     void NodesToggle(object sender, RoutedEventArgs e)
     {
+        if (VM?.EditMode == true)
+        {
+            BuildEditProxies();
+            return;
+        }
+
         if (_nodesVisual == null) return;
         if (showNodesCheck.IsChecked == true)
             viewport.Children.Add(_nodesVisual);
