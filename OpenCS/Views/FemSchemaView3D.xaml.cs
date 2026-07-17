@@ -119,6 +119,31 @@ public partial class FemSchemaView3D : UserControl
         DataContextChanged += OnDataContextChanged;
         viewport.MouseLeftButtonDown += Viewport_MouseLeftButtonDown;
         viewport.MouseMove           += Viewport_MouseMove;
+        viewport.MouseRightButtonDown += Viewport_MouseRightButtonDown_BreakChain;
+        viewport.KeyDown              += Viewport_KeyDown;
+        viewport.Focusable = true;
+    }
+
+    void Viewport_MouseRightButtonDown_BreakChain(object sender, MouseButtonEventArgs e)
+    {
+        if (!_createBarMode || _pendingBarFirstNode == null) return;
+        _pendingBarFirstNode = null;
+        UpdateGroundPlane();
+        ClearRubberBand();
+        BuildEditProxies();
+    }
+
+    void Viewport_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        if (_createBarMode && _pendingBarFirstNode != null)
+        {
+            _pendingBarFirstNode = null;
+            UpdateGroundPlane();
+            ClearRubberBand();
+            BuildEditProxies();
+            e.Handled = true;
+        }
     }
 
     async void OnLoaded(object sender, RoutedEventArgs e)
