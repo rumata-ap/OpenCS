@@ -247,11 +247,13 @@ public static class LiraFileParser
         var marker = BitConverter.ToUInt32(bytes, baseOff + 12);
         int binType = (int)(marker & 0xFFFF);
 
-        // ID узлов — int32 (1-based LIRA ID) на позициях +18, +22, +28, +32
-        var n1 = BitConverter.ToInt32(bytes, baseOff + 18);
-        var n2 = BitConverter.ToInt32(bytes, baseOff + 22);
-        var n3 = BitConverter.ToInt32(bytes, baseOff + 28);
-        var n4 = BitConverter.ToInt32(bytes, baseOff + 32);
+        // ID узлов — int32 на позициях +18, +22, +26, +30 (1-based LIRA ID)
+        // Binary ID = LIRA ID + 152026
+        const int nodeIdOffset = 152026;
+        var n1 = BitConverter.ToInt32(bytes, baseOff + 18) - nodeIdOffset;
+        var n2 = BitConverter.ToInt32(bytes, baseOff + 22) - nodeIdOffset;
+        var n3 = BitConverter.ToInt32(bytes, baseOff + 26) - nodeIdOffset;
+        var n4 = BitConverter.ToInt32(bytes, baseOff + 30) - nodeIdOffset;
 
         int liraType = binType switch
         {
