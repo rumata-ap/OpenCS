@@ -63,7 +63,7 @@ public static class LiraFileParser
 
         while (offset + recordSize <= bytes.Length)
         {
-            if (bytes[offset + 23] == 0xE4 && bytes[offset + 24] == 0xBC)
+            if (bytes[offset + 22] == 0xE4 && bytes[offset + 23] == 0xBC)
             {
                 count++;
                 offset += recordSize;
