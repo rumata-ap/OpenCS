@@ -274,7 +274,7 @@ public static class LiraFileParser
         {
             0 => new[] { n1, n2 },
             1 => new[] { n1, n2, n3 },
-            2 => new[] { n1, n2, n4, n3 }, // Исправление бабочек (1-2-4-3)
+            2 => new[] { n1, n2, n3, n4 },
             _ => []
         };
 
