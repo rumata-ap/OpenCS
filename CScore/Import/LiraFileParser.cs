@@ -18,6 +18,7 @@ public static class LiraFileParser
 
     /// <summary>
     /// Читает .lir файл и возвращает контейнер сырых данных схемы.
+    /// Порядок блоков: Header → Metadata → Block 1 (2D) → Block 2 (3D) → Elements
     /// </summary>
     public static LiraSchemaData Parse(string filePath)
     {
@@ -128,15 +129,14 @@ public static class LiraFileParser
             double y = BitConverter.ToDouble(bytes, baseOff);      // Block1.Y → LIRA.X
             double z = BitConverter.ToDouble(bytes, baseOff + 8);  // Block1.Z → LIRA.Y
 
-            // SQLite не хранит NaN/Infinity — заменяем на 0
             if (double.IsNaN(y) || double.IsInfinity(y)) y = 0;
             if (double.IsNaN(z) || double.IsInfinity(z)) z = 0;
 
             data.Nodes.Add(new LiraNodeRecord(
-                Id:      i + 1,              // LIRA ID: 1-based
-                X:       y,                  // swap: Block1.Y → LIRA.X
-                Y:       z,                  // swap: Block1.Z → LIRA.Y
-                Z:       0,                  // Block 1 не имеет Z координаты
+                Id:      i + 1,
+                X:       y,
+                Y:       z,
+                Z:       0,
                 DofMask: 0
             ));
         }
@@ -154,13 +154,12 @@ public static class LiraFileParser
             double y = BitConverter.ToDouble(bytes, baseOff + 8);
             double z = BitConverter.ToDouble(bytes, baseOff + 16);
 
-            // SQLite не хранит NaN/Infinity — заменяем на 0
             if (double.IsNaN(x) || double.IsInfinity(x)) x = 0;
             if (double.IsNaN(y) || double.IsInfinity(y)) y = 0;
             if (double.IsNaN(z) || double.IsInfinity(z)) z = 0;
 
             data.Nodes.Add(new LiraNodeRecord(
-                Id:      block1Count + i + 1,  // LIRA ID: после Block 1
+                Id:      block1Count + i + 1,
                 X:       x,
                 Y:       y,
                 Z:       z,
@@ -175,12 +174,11 @@ public static class LiraFileParser
 
     /// <summary>
     /// Определяет начало блока элементов (Block 4).
-    /// Каждая запись 76 байт = две подзаписи по 38 байт (по одному элементу в каждой).
-    /// Маркер: 12 нулевых байт + uint32 тип (0x10000..0x10003) в каждой подзаписи.
+    /// Ищет 12 нулевых байт + uint32 маркер (0x10000..0x10003).
     /// </summary>
-    internal static (int offset, int count) FindElementBlock(byte[] bytes, int afterNodes)
+    internal static (int offset, int count) FindElementBlock(byte[] bytes, int searchStart)
     {
-        int offset = afterNodes;
+        int offset = searchStart;
         const int subRecordSize = 38;
 
         // Ищем начало: 12 нулевых байт + uint32 тип (0x10000..0x10003)
@@ -242,16 +240,18 @@ public static class LiraFileParser
 
     /// <summary>
     /// Читает один элемент из подзаписи 38 байт.
+    /// ID узлов — int32 (4 байта) на позициях +16, +20, +24, +28.
     /// </summary>
     static void ParseOneElement(byte[] bytes, int baseOff, int elemIndex, LiraSchemaData data)
     {
         var marker = BitConverter.ToUInt32(bytes, baseOff + 12);
         int binType = (int)(marker & 0xFFFF);
 
-        var n1 = BitConverter.ToUInt16(bytes, baseOff + 18);
-        var n2 = BitConverter.ToUInt16(bytes, baseOff + 22);
-        var n3 = BitConverter.ToUInt16(bytes, baseOff + 26);
-        var n4 = BitConverter.ToUInt16(bytes, baseOff + 30);
+        // ID узлов — int32 (1-based LIRA ID)
+        var n1 = BitConverter.ToInt32(bytes, baseOff + 16);
+        var n2 = BitConverter.ToInt32(bytes, baseOff + 20);
+        var n3 = BitConverter.ToInt32(bytes, baseOff + 24);
+        var n4 = BitConverter.ToInt32(bytes, baseOff + 28);
 
         int liraType = binType switch
         {
@@ -266,14 +266,14 @@ public static class LiraFileParser
 
         int[] nodeIds = binType switch
         {
-            0 => new[] { (int)n1, (int)n2 },
-            _ => new[] { (int)n1, (int)n2, (int)n3, (int)n4 }
+            0 => new[] { n1, n2 },
+            _ => new[] { n1, n2, n3, n4 }
         };
 
         nodeIds = nodeIds.Where(id => id != 0).ToArray();
         if (nodeIds.Length == 0) return;
 
-        int stiffId = binType == 0 ? BitConverter.ToInt32(bytes, baseOff + 24) : 0;
+        int stiffId = binType == 0 ? BitConverter.ToInt32(bytes, baseOff + 32) : 0;
 
         data.Elements.Add(new LiraElementRecord(
             Id:           elemIndex,
