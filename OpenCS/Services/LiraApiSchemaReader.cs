@@ -261,6 +261,7 @@ static class LiraApiSchemaReader
 
             var nodeIds = ParseNodeIds(nodeIdsStr);
             if (nodeIds.Length == 0) continue;
+
             data.Elements.Add(new LiraElementRecord(id, feType, secCount, stiffId, nodeIds));
         }
     }

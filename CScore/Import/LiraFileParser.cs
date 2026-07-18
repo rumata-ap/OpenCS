@@ -256,30 +256,26 @@ public static class LiraFileParser
 
         int liraType = binType switch
         {
-            0 => 10,   // стержень — работает корректно
-            // Пластины (type 1,2,3) пока исключаются — формат не расшифрован полностью
+            0 => 10,   // стержень
+            1 => 42,   // треугольник
+            2 => 44,   // четырехугольник
             _ => 0
         };
 
         if (liraType == 0) return;
 
-        // Стержни: apply offset. Пластины: без смещения.
-        const int barOffset = 152026;
-        int n1, n2, n3, n4;
-        if (binType == 0)
-        {
-            n1 = rawN1 - barOffset; n2 = rawN2 - barOffset;
-            n3 = rawN3 - barOffset; n4 = rawN4 - barOffset;
-        }
-        else
-        {
-            n1 = rawN1; n2 = rawN2; n3 = rawN3; n4 = rawN4;
-        }
+        // ID узлов 0-based, приводим к 1-based (как в LIRA)
+        int n1 = rawN1 + 1;
+        int n2 = rawN2 + 1;
+        int n3 = rawN3 + 1;
+        int n4 = rawN4 + 1;
 
         int[] nodeIds = binType switch
         {
             0 => new[] { n1, n2 },
-            _ => new[] { n1, n2, n3, n4 }
+            1 => new[] { n1, n2, n3 },
+            2 => new[] { n1, n2, n4, n3 }, // Исправление бабочек (1-2-4-3)
+            _ => []
         };
 
         nodeIds = nodeIds.Where(id => id > 0).ToArray();
