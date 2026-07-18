@@ -85,8 +85,8 @@ public class LiraFileParserTests
         if (!File.Exists(TestLirPath)) return;
         var data = LiraFileParser.Parse(TestLirPath);
 
-        // ~200769 элементов (76-байтные записи содержат по 2 подзаписи)
-        Assert.InRange(data.Elements.Count, 200769, 200771);
+        // 185946 элементов (783 стержня + 185163 пластины, как в COM API)
+        Assert.Equal(185946, data.Elements.Count);
     }
 
     [Fact]
@@ -145,16 +145,16 @@ public class LiraFileParserTests
         // Узлы: Block 1 + Block 2
         Assert.Equal(185440, data.Nodes.Count);
 
-        // Элементы: ~200769
-        Assert.InRange(data.Elements.Count, 200769, 200771);
+        // Элементы: 185946 (783 стержня + 185163 пластины)
+        Assert.Equal(185946, data.Elements.Count);
 
         // Стержни (2 узла)
         int bars = data.Elements.Count(e => e.NodeIds.Length == 2);
         Assert.Equal(783, bars);
 
-        // Оболочки (3-4 узла)
+        // Пластины (3-4 узла)
         int shells = data.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
-        Assert.True(shells > 190000, $"Expected >190000 shells, got {shells}");
+        Assert.Equal(185163, shells);
 
         // Все ID узлов валидны (1-based)
         int nodeCount = data.Nodes.Count;
