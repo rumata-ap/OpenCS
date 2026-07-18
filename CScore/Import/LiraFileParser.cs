@@ -240,31 +240,42 @@ public static class LiraFileParser
 
     /// <summary>
     /// Читает один элемент из подзаписи 38 байт.
-    /// ID узлов — int32 (4 байта) на позициях +16, +20, +24, +28.
+    /// Стержни: binary ID − 152026 = LIRA ID.
+    /// Пластины: binary ID = LIRA ID (без смещения).
     /// </summary>
     static void ParseOneElement(byte[] bytes, int baseOff, int elemIndex, LiraSchemaData data)
     {
         var marker = BitConverter.ToUInt32(bytes, baseOff + 12);
         int binType = (int)(marker & 0xFFFF);
 
-        // ID узлов — int32 на позициях +18, +22, +26, +30 (1-based LIRA ID)
-        // Binary ID = LIRA ID + 152026
-        const int nodeIdOffset = 152026;
-        var n1 = BitConverter.ToInt32(bytes, baseOff + 18) - nodeIdOffset;
-        var n2 = BitConverter.ToInt32(bytes, baseOff + 22) - nodeIdOffset;
-        var n3 = BitConverter.ToInt32(bytes, baseOff + 26) - nodeIdOffset;
-        var n4 = BitConverter.ToInt32(bytes, baseOff + 30) - nodeIdOffset;
+        // ID узлов — int32 на позициях +18, +22, +26, +30
+        var rawN1 = BitConverter.ToInt32(bytes, baseOff + 18);
+        var rawN2 = BitConverter.ToInt32(bytes, baseOff + 22);
+        var rawN3 = BitConverter.ToInt32(bytes, baseOff + 26);
+        var rawN4 = BitConverter.ToInt32(bytes, baseOff + 30);
 
         int liraType = binType switch
         {
             0 => 10,   // стержень
             1 => 42,   // оболочка
             2 => 44,   // оболочка
-            // 3 → 57: исключается (не является полноценной оболочкой в LIRA)
-            _ => 0     // неизвестные типы пропускаются
+            _ => 0
         };
 
-        if (liraType == 0) return; // пропуск неизвестных/исключённых типов
+        if (liraType == 0) return;
+
+        // Стержни: apply offset. Пластины: без смещения.
+        const int barOffset = 152026;
+        int n1, n2, n3, n4;
+        if (binType == 0)
+        {
+            n1 = rawN1 - barOffset; n2 = rawN2 - barOffset;
+            n3 = rawN3 - barOffset; n4 = rawN4 - barOffset;
+        }
+        else
+        {
+            n1 = rawN1; n2 = rawN2; n3 = rawN3; n4 = rawN4;
+        }
 
         int[] nodeIds = binType switch
         {
@@ -272,16 +283,14 @@ public static class LiraFileParser
             _ => new[] { n1, n2, n3, n4 }
         };
 
-        nodeIds = nodeIds.Where(id => id != 0).ToArray();
+        nodeIds = nodeIds.Where(id => id > 0).ToArray();
         if (nodeIds.Length == 0) return;
-
-        int stiffId = binType == 0 ? BitConverter.ToInt32(bytes, baseOff + 24) : 0;
 
         data.Elements.Add(new LiraElementRecord(
             Id:           elemIndex,
             FeType:       liraType,
             SectionCount: 1,
-            StiffnessId:  stiffId,
+            StiffnessId:  0,
             NodeIds:      nodeIds
         ));
     }
