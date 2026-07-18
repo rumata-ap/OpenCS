@@ -175,15 +175,16 @@ public static class LiraFileParser
 
     /// <summary>
     /// Определяет начало блока элементов (Block 4).
-    /// Ищет 12 нулевых байт + uint32 маркер (0x10000..0x10003).
+    /// Каждая запись 76 байт = две подзаписи по 38 байт (по одному элементу в каждой).
+    /// Маркер: 12 нулевых байт + uint32 тип (0x10000..0x10003) в каждой подзаписи.
     /// </summary>
     internal static (int offset, int count) FindElementBlock(byte[] bytes, int afterNodes)
     {
         int offset = afterNodes;
-        int recordSize = 38;
+        const int subRecordSize = 38;
 
         // Ищем начало: 12 нулевых байт + uint32 тип (0x10000..0x10003)
-        while (offset + recordSize <= bytes.Length)
+        while (offset + subRecordSize <= bytes.Length)
         {
             bool allZero = true;
             for (int i = 0; i < 12; i++)
@@ -195,7 +196,25 @@ public static class LiraFileParser
                 var marker = BitConverter.ToUInt32(bytes, offset + 12);
                 if (marker >= 0x10000 && marker <= 0x10003)
                 {
-                    // Считаем количество записей (38 байт каждая)
+                    // Определяем размер записи: проверяем 38 и 76 байт
+                    // 76-байтные записи содержат две подзаписи по 38 байт
+                    int recordSize = subRecordSize;
+                    if (offset + 76 <= bytes.Length)
+                    {
+                        bool secondSubHasMarker = true;
+                        for (int i = 0; i < 12; i++)
+                        {
+                            if (bytes[offset + 38 + i] != 0) { secondSubHasMarker = false; break; }
+                        }
+                        if (secondSubHasMarker)
+                        {
+                            var m2 = BitConverter.ToUInt32(bytes, offset + 38 + 12);
+                            if (m2 >= 0x10000 && m2 <= 0x10003)
+                                recordSize = 76;
+                        }
+                    }
+
+                    // Считаем количество записей
                     int count = 0;
                     int scan = offset;
                     while (scan + recordSize <= bytes.Length)
@@ -222,62 +241,89 @@ public static class LiraFileParser
     }
 
     /// <summary>
+    /// Читает один элемент из подзаписи 38 байт.
+    /// </summary>
+    static void ParseOneElement(byte[] bytes, int baseOff, int elemIndex, LiraSchemaData data)
+    {
+        var marker = BitConverter.ToUInt32(bytes, baseOff + 12);
+        int binType = (int)(marker & 0xFFFF);
+
+        var n1 = BitConverter.ToUInt16(bytes, baseOff + 18);
+        var n2 = BitConverter.ToUInt16(bytes, baseOff + 22);
+        var n3 = BitConverter.ToUInt16(bytes, baseOff + 26);
+        var n4 = BitConverter.ToUInt16(bytes, baseOff + 30);
+
+        int liraType = binType switch
+        {
+            0 => 10,   // стержень
+            1 => 42,   // оболочка
+            2 => 44,   // оболочка
+            3 => 57,   // оболочка
+            _ => binType
+        };
+
+        int[] nodeIds = binType switch
+        {
+            0 => new[] { (int)n1, (int)n2 },
+            _ => new[] { (int)n1, (int)n2, (int)n3, (int)n4 }
+        };
+
+        nodeIds = nodeIds.Where(id => id != 0).ToArray();
+        if (nodeIds.Length == 0) return;
+
+        int stiffId = binType == 0 ? BitConverter.ToInt32(bytes, baseOff + 24) : 0;
+
+        data.Elements.Add(new LiraElementRecord(
+            Id:           elemIndex,
+            FeType:       liraType,
+            SectionCount: 1,
+            StiffnessId:  stiffId,
+            NodeIds:      nodeIds
+        ));
+    }
+
+    /// <summary>
     /// Читает элементы из Block 4.
-    /// ID узлов — 1-based LIRA ID (uint16 на позициях +18, +22, +26, +30).
+    /// Записи по 76 байт (две подзаписи по 38 байт), или по 38 байт.
+    /// ID узлов — 1-based LIRA ID.
     /// </summary>
     internal static void ParseElements(byte[] bytes, ref int offset, LiraSchemaData data)
     {
         var (blockOffset, count) = FindElementBlock(bytes, offset);
         offset = blockOffset;
-        int recordSize = 38;
 
+        // Определяем размер записи
+        int recordSize = 38;
+        if (offset + 76 <= bytes.Length)
+        {
+            bool secondSubHasMarker = true;
+            for (int i = 0; i < 12; i++)
+            {
+                if (bytes[offset + 38 + i] != 0) { secondSubHasMarker = false; break; }
+            }
+            if (secondSubHasMarker)
+            {
+                var m2 = BitConverter.ToUInt32(bytes, offset + 38 + 12);
+                if (m2 >= 0x10000 && m2 <= 0x10003)
+                    recordSize = 76;
+            }
+        }
+
+        int elemIndex = 1;
         for (int i = 0; i < count; i++)
         {
             int baseOff = offset + i * recordSize;
-            var marker = BitConverter.ToUInt32(bytes, baseOff + 12);
-            int binType = (int)(marker & 0xFFFF); // младшие 16 бит = тип в бинарнике
 
-            // ID узлов — uint16 на позициях +18, +22, +26, +30
-            // Это 1-based LIRA ID
-            var n1 = BitConverter.ToUInt16(bytes, baseOff + 18);
-            var n2 = BitConverter.ToUInt16(bytes, baseOff + 22);
-            var n3 = BitConverter.ToUInt16(bytes, baseOff + 26);
-            var n4 = BitConverter.ToUInt16(bytes, baseOff + 30);
-
-            // Преобразуем бинарный тип в LIRA тип
-            int liraType = binType switch
+            if (recordSize == 76)
             {
-                0 => 10,   // стержень
-                1 => 42,   // оболочка (треугольник/четырёхугольник)
-                2 => 44,   // оболочка (четырёхугольник)
-                3 => 57,   // оболочка
-                _ => binType
-            };
-
-            int[] nodeIds = binType switch
+                // Две подзаписи по 38 байт
+                ParseOneElement(bytes, baseOff, elemIndex++, data);
+                ParseOneElement(bytes, baseOff + 38, elemIndex++, data);
+            }
+            else
             {
-                0 => new[] { (int)n1, (int)n2 },                         // стержень: 2 узла
-                1 => new[] { (int)n1, (int)n2, (int)n3, (int)n4 },      // оболочка: 3-4 узла
-                2 => new[] { (int)n1, (int)n2, (int)n3, (int)n4 },      // оболочка: 3-4 узла
-                3 => new[] { (int)n1, (int)n2, (int)n3, (int)n4 },      // оболочка: 3-4 узла
-                _ => Array.Empty<int>()
-            };
-
-            // Удаляем нулевые ID узлов (0 = пустой слот, треугольник)
-            nodeIds = nodeIds.Where(id => id != 0).ToArray();
-
-            if (nodeIds.Length == 0) continue;
-
-            // Stiffness ID из поля +24 (int32), только для стержней
-            int stiffId = binType == 0 ? BitConverter.ToInt32(bytes, baseOff + 24) : 0;
-
-            data.Elements.Add(new LiraElementRecord(
-                Id:            i + 1,         // LIRA ID: 1-based
-                FeType:        liraType,      // LIRA тип (10, 42, 44, 57)
-                SectionCount:  1,
-                StiffnessId:   stiffId,
-                NodeIds:       nodeIds        // 1-based LIRA ID узлов
-            ));
+                ParseOneElement(bytes, baseOff, elemIndex++, data);
+            }
         }
 
         offset += count * recordSize;
