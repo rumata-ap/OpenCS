@@ -128,6 +128,10 @@ public static class LiraFileParser
             double y = BitConverter.ToDouble(bytes, baseOff);      // Block1.Y → LIRA.X
             double z = BitConverter.ToDouble(bytes, baseOff + 8);  // Block1.Z → LIRA.Y
 
+            // SQLite не хранит NaN/Infinity — заменяем на 0
+            if (double.IsNaN(y) || double.IsInfinity(y)) y = 0;
+            if (double.IsNaN(z) || double.IsInfinity(z)) z = 0;
+
             data.Nodes.Add(new LiraNodeRecord(
                 Id:      i + 1,              // LIRA ID: 1-based
                 X:       y,                  // swap: Block1.Y → LIRA.X
@@ -149,6 +153,11 @@ public static class LiraFileParser
             double x = BitConverter.ToDouble(bytes, baseOff);
             double y = BitConverter.ToDouble(bytes, baseOff + 8);
             double z = BitConverter.ToDouble(bytes, baseOff + 16);
+
+            // SQLite не хранит NaN/Infinity — заменяем на 0
+            if (double.IsNaN(x) || double.IsInfinity(x)) x = 0;
+            if (double.IsNaN(y) || double.IsInfinity(y)) y = 0;
+            if (double.IsNaN(z) || double.IsInfinity(z)) z = 0;
 
             data.Nodes.Add(new LiraNodeRecord(
                 Id:      block1Count + i + 1,  // LIRA ID: после Block 1
