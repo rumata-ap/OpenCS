@@ -89,6 +89,7 @@ public sealed class FemMeshPersistenceTests
             var loadedElements = db.GetFemMeshElements(schema.Id);
             Assert.Equal(3, loadedNodes.Count);
             Assert.Equal(2, loadedElements.Count);
+            Assert.Equal((3, 2), db.GetFemMeshSnapshotCounts(schema.Id));
             Assert.All(loadedNodes, node =>
             {
                 Assert.Equal(schema.Id, node.SchemaId);
@@ -268,6 +269,7 @@ public sealed class FemMeshPersistenceTests
             await vm.LoadMeshOverlayAsync();
 
             Assert.Equal(4, vm.MeshLinePoints?.Count);
+            Assert.Equal(3, vm.MeshNodePoints?.Count);
             Assert.Equal(new Point3D(1, 2, 3), vm.MeshLinePoints![0]);
             Assert.Equal(new Point3D(4, 5, 6), vm.MeshLinePoints[1]);
             Assert.Equal(new Point3D(4, 5, 6), vm.MeshLinePoints[2]);

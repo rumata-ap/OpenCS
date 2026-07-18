@@ -4,12 +4,13 @@
     <Grid Margin="16">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="220"/>
+            <ColumnDefinition Width="260"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         <DockPanel Grid.Column="0">
             <Button DockPanel.Dock="Top" Content="{DynamicResource FemLoadCaseNew}" Click="NewLoadCase_Click" Margin="0,0,0,8"/>
             <ListBox ItemsSource="{Binding LoadCases}" DisplayMemberPath="Tag"
-                     SelectedItem="{Binding SelectedLoadCase}"/>
+                     SelectedItem="{Binding SelectedLoadCase}" SelectionChanged="LoadCaseSelectionChanged"/>
         </DockPanel>
         <StackPanel Grid.Column="1" Margin="16,0,0,0">
             <TextBlock Text="{DynamicResource FemNodeLoadHint}" TextWrapping="Wrap" Margin="0,0,0,8"/>
@@ -26,6 +27,68 @@
             <TextBlock Text="Mz"/>
             <TextBox x:Name="mzBox" Text="0" Margin="0,2,0,6"/>
             <Button Content="{DynamicResource FemApplyLoadToSelection}" Click="ApplyLoad_Click" Margin="0,8,0,0"/>
+            <Expander Header="{DynamicResource FemLoadCaseSp20Parameters}" IsExpanded="False" Margin="0,12,0,0">
+                <Grid Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="85"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="{DynamicResource Tag}" VerticalAlignment="Center"/>
+                    <TextBox x:Name="loadCaseTagBox" Grid.Row="0" Grid.Column="1"/>
+                    <TextBlock Grid.Row="1" Text="{DynamicResource FemLoadCaseSp20Type}" VerticalAlignment="Center"/>
+                    <ComboBox x:Name="loadCaseTypeCombo" Grid.Row="1" Grid.Column="1" SelectedValuePath="Tag">
+                        <ComboBoxItem Tag="permanent" Content="{DynamicResource FemLoadCaseTypePermanent}"/>
+                        <ComboBoxItem Tag="long_term" Content="{DynamicResource FemLoadCaseTypeLongTerm}"/>
+                        <ComboBoxItem Tag="short_term" Content="{DynamicResource FemLoadCaseTypeShortTerm}"/>
+                        <ComboBoxItem Tag="accidental" Content="{DynamicResource FemLoadCaseTypeAccidental}"/>
+                    </ComboBox>
+                    <TextBlock Grid.Row="2" Text="{DynamicResource FemLoadCaseSp20Group}" VerticalAlignment="Center"/>
+                    <TextBox x:Name="loadCaseGroupBox" Grid.Row="2" Grid.Column="1"/>
+                    <TextBlock Grid.Row="3" Text="{DynamicResource FemLoadCaseGammaUnfav}" VerticalAlignment="Center"/>
+                    <TextBox x:Name="gammaUnfavBox" Grid.Row="3" Grid.Column="1"/>
+                    <TextBlock Grid.Row="4" Text="{DynamicResource FemLoadCaseGammaFav}" VerticalAlignment="Center"/>
+                    <TextBox x:Name="gammaFavBox" Grid.Row="4" Grid.Column="1"/>
+                    <TextBlock Grid.Row="5" Text="{DynamicResource FemLoadCasePsi1}" VerticalAlignment="Center"/>
+                    <TextBox x:Name="psi1Box" Grid.Row="5" Grid.Column="1"/>
+                    <TextBlock Grid.Row="6" Text="{DynamicResource FemLoadCasePsi2}" VerticalAlignment="Center"/>
+                    <TextBox x:Name="psi2Box" Grid.Row="6" Grid.Column="1"/>
+                    <Button Grid.Row="7" Grid.ColumnSpan="2" Content="{DynamicResource FemLoadCaseApplyParameters}"
+                            Click="SaveLoadCaseParameters_Click" Margin="0,6,0,0"/>
+                </Grid>
+            </Expander>
         </StackPanel>
+        <Grid Grid.Column="2" Margin="16,0,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="130"/>
+            </Grid.RowDefinitions>
+            <ToolBar Grid.Row="0">
+                <Button Content="{DynamicResource FemLoadDefinitionNew}" Click="NewDefinition_Click"/>
+                <Button Content="{DynamicResource FemLoadDefinitionDelete}" Click="DeleteDefinition_Click"/>
+                <Separator/>
+                <Button Content="{DynamicResource FemLoadDefinitionGenerateSp20}" Click="GenerateSp20_Click"/>
+            </ToolBar>
+            <ListBox Grid.Row="1" ItemsSource="{Binding LoadDefinitions}" DisplayMemberPath="Tag"
+                     SelectedItem="{Binding SelectedLoadDefinition}" Margin="0,8,0,8"/>
+            <ToolBar Grid.Row="2">
+                <Button Content="{DynamicResource FemLoadDefinitionAddCase}" Click="AddCaseToDefinition_Click"/>
+                <Button Content="{DynamicResource FemLoadDefinitionRemoveCase}" Click="DeleteDefinitionTerm_Click"/>
+                <Separator/>
+                <TextBox x:Name="definitionCoefficientBox" Width="70" Text="1"/>
+                <Button Content="{DynamicResource FemLoadDefinitionApplyCoefficient}" Click="SaveDefinitionTermCoefficient_Click"/>
+            </ToolBar>
+            <DataGrid Grid.Row="3" ItemsSource="{Binding SelectedLoadDefinitionTerms}"
+                      SelectedItem="{Binding SelectedLoadDefinitionTerm}"
+                      AutoGenerateColumns="False" IsReadOnly="True" Margin="0,8,0,0">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="{DynamicResource FemLoadDefinitionCase}" Binding="{Binding LoadCaseTag}" Width="*"/>
+                    <DataGridTextColumn Header="{DynamicResource FemLoadDefinitionCoefficient}" Binding="{Binding Coefficient}" Width="100"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
     </Grid>
 </UserControl>

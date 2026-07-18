@@ -34,6 +34,9 @@ class FemSchemasGroupNode
                 }
         };
     }
+
+    public void ReloadMeshSnapshot(int schemaId)
+        => Schemas.FirstOrDefault(schema => schema.Schema.Id == schemaId)?.ReloadMeshSnapshot();
 }
 
 /// <summary>Подгруппа проверок по типу предельного состояния.</summary>
@@ -111,7 +114,7 @@ class FemChecksRootNode
     }
 }
 
-/// <summary>Обёртка над FemSchema для дерева МКЭ; экспонирует 4 подузла.</summary>
+/// <summary>Обёртка над FemSchema для дерева МКЭ; экспонирует подузлы конструктивной модели и сетки.</summary>
 class FemSchemaTreeVM
 {
     public FemSchema    Schema   { get; }
@@ -119,6 +122,7 @@ class FemSchemaTreeVM
 
     internal FemNodesSubNode    NodesSubNode    { get; }
     internal FemElementsSubNode ElementsSubNode { get; }
+    internal FemMeshSnapshotSubNode MeshSnapshotSubNode { get; }
     internal FemForcesSubNode   ForcesSubNode   { get; }
 
     readonly DatabaseService _db;
@@ -131,12 +135,14 @@ class FemSchemaTreeVM
 
         NodesSubNode    = new FemNodesSubNode(this);
         ElementsSubNode = new FemElementsSubNode(this);
+        MeshSnapshotSubNode = new FemMeshSnapshotSubNode(this);
         ForcesSubNode   = new FemForcesSubNode(schema, forceSets);
 
         SubNodes =
         [
             NodesSubNode,
             ElementsSubNode,
+            MeshSnapshotSubNode,
             new FemMembersSubNode(schema, schema.MemberGroups),
             ForcesSubNode,
         ];
@@ -152,6 +158,14 @@ class FemSchemaTreeVM
         ElementsSubNode.ShellCount     = shells;
         ElementsSubNode.Bars.Count     = bars;
         ElementsSubNode.Shells.Count   = shells;
+        RefreshMeshSnapshotCounts();
+    }
+
+    void RefreshMeshSnapshotCounts()
+    {
+        var (nodes, elements) = _db.GetFemMeshSnapshotCounts(Schema.Id);
+        MeshSnapshotSubNode.Nodes.Count = nodes;
+        MeshSnapshotSubNode.Elements.Count = elements;
     }
 
     /// <summary>Асинхронно загружает узлы схемы из БД.</summary>
@@ -170,10 +184,50 @@ class FemSchemaTreeVM
 
     /// <summary>Перечитывает счётчики после SaveFemTopology.</summary>
     public void ReloadTopology() => RefreshCounts();
+
+    /// <summary>Перечитывает счётчики после сохранения mesh-снимка.</summary>
+    public void ReloadMeshSnapshot() => RefreshMeshSnapshotCounts();
 }
 
 /// <summary>Базовый класс подузла расчётной схемы.</summary>
 public abstract class FemSubNode { }
+
+/// <summary>Подузел сохранённой расчётной сетки с дочерними узлами её узлов и элементов.</summary>
+public class FemMeshSnapshotSubNode : FemSubNode
+{
+    public FemMeshNodesSubNode Nodes { get; }
+    public FemMeshElementsSubNode Elements { get; }
+    public FemSubNode[] Children { get; }
+
+    internal FemSchemaTreeVM Owner { get; }
+    internal FemMeshSnapshotSubNode(FemSchemaTreeVM owner)
+    {
+        Owner = owner;
+        Nodes = new FemMeshNodesSubNode(owner);
+        Elements = new FemMeshElementsSubNode(owner);
+        Children = [Nodes, Elements];
+    }
+}
+
+/// <summary>Подузел узлов сохранённой расчётной сетки.</summary>
+public class FemMeshNodesSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    int _count;
+    public int Count { get => _count; internal set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
+    internal FemSchemaTreeVM Owner { get; }
+    internal FemMeshNodesSubNode(FemSchemaTreeVM owner) => Owner = owner;
+}
+
+/// <summary>Подузел конечных элементов сохранённой расчётной сетки.</summary>
+public class FemMeshElementsSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    int _count;
+    public int Count { get => _count; internal set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
+    internal FemSchemaTreeVM Owner { get; }
+    internal FemMeshElementsSubNode(FemSchemaTreeVM owner) => Owner = owner;
+}
 
 /// <summary>Подузел «Узлы» — листовой, данные в DataGrid загружаются асинхронно.</summary>
 public class FemNodesSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged

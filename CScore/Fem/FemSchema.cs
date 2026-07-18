@@ -18,6 +18,9 @@ public class FemSchema
     /// <summary>Загружения схемы.</summary>
     public ObservableCollection<FemLoadCase> LoadCases { get; } = [];
 
+    /// <summary>Именованные определения одиночных загружений и сочетаний схемы.</summary>
+    public ObservableCollection<FemLoadDefinition> LoadDefinitions { get; } = [];
+
     /// <summary>Постановки расчёта схемы.</summary>
     public ObservableCollection<FemAnalysis> Analyses { get; } = [];
 }

@@ -1098,6 +1098,30 @@
                      </StackPanel>
                   </DataTemplate>
 
+                  <!-- Подузел «Расчётная сетка» — отдельный слепок, не меняет конструктивную модель -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemMeshSnapshotSubNode}"
+                                            ItemsSource="{Binding Children}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemMeshSnapshot}"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <DataTemplate DataType="{x:Type vm:FemMeshNodesSubNode}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemNodes}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </DataTemplate>
+
+                  <DataTemplate DataType="{x:Type vm:FemMeshElementsSubNode}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemElements}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </DataTemplate>
+
                   <!-- Подузел «Конечные элементы» — два дочерних: Стержни и Пластины -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemElementsSubNode}"
                                             ItemsSource="{Binding Children}">

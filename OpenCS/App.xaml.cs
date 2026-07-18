@@ -32,8 +32,16 @@ namespace OpenCS
         void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
             var msg = e.Exception.ToString();
-            System.IO.File.AppendAllText(@"C:\Users\ponomarev\Documents\devel\OpenCS\opencs_debug.log",
-                $"[{DateTime.Now:O}] DispatcherUnhandledException: {msg}\n");
+            try
+            {
+                var logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "opencs_debug.log");
+                System.IO.File.AppendAllText(logPath,
+                    $"[{DateTime.Now:O}] DispatcherUnhandledException: {msg}\n");
+            }
+            catch
+            {
+                // Обработчик ошибки не должен завершать приложение, если журнал недоступен.
+            }
             MessageBox.Show(msg, "Необработанное исключение",
                 MessageBoxButton.OK, MessageBoxImage.Error);
             e.Handled = true;

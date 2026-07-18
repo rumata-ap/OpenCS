@@ -11,12 +11,24 @@ namespace OpenCS.Views;
 
 public partial class FemSchemaView3D : UserControl
 {
+    /// <summary>Редактор схемы: источник команд и режимов единого тулбара 3D-вида.</summary>
+    public static readonly DependencyProperty EditorProperty = DependencyProperty.Register(
+        nameof(Editor), typeof(FemSchemaEditorVM), typeof(FemSchemaView3D));
+
+    public FemSchemaEditorVM? Editor
+    {
+        get => (FemSchemaEditorVM?)GetValue(EditorProperty);
+        set => SetValue(EditorProperty, value);
+    }
+
     Fem3DVM? VM => DataContext as Fem3DVM;
 
     Fem3DVM?        _activeVm;
     PointsVisual3D? _nodesVisual;
     LinesVisual3D?  _shellEdgesVisual;
     LinesVisual3D?  _meshVisual;
+    LinesVisual3D?  _meshNodeGlyphVisual;
+    bool _meshRenderQueued;
 
     readonly Dictionary<Visual3D, (bool IsNode, string Tag)> _pickTargets = new();
     PointsVisual3D? _editNodesVisual;
@@ -123,19 +135,25 @@ public partial class FemSchemaView3D : UserControl
         DataContextChanged += OnDataContextChanged;
         viewport.MouseLeftButtonDown += Viewport_MouseLeftButtonDown;
         viewport.MouseMove           += Viewport_MouseMove;
-        viewport.MouseRightButtonDown += Viewport_MouseRightButtonDown_BreakChain;
-        viewport.MouseRightButtonDown += Viewport_MouseRightButtonDown_ShowMenu;
+        PreviewMouseRightButtonDown += FemSchemaView3D_PreviewMouseRightButtonDown;
         viewport.KeyDown              += Viewport_KeyDown;
         viewport.Focusable = true;
     }
 
-    void Viewport_MouseRightButtonDown_BreakChain(object sender, MouseButtonEventArgs e)
+    /// <summary>Перехватывает ПКМ до контроллера камеры Helix: только попадание в редактируемый объект
+    /// открывает меню, а клик по пустому месту остаётся жестом вращения модели.</summary>
+    void FemSchemaView3D_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (!_createBarMode || _pendingBarFirstNode == null) return;
-        _pendingBarFirstNode = null;
-        UpdateGroundPlane();
-        ClearRubberBand();
-        BuildEditProxies();
+        if (_createBarMode && _pendingBarFirstNode != null)
+        {
+            _pendingBarFirstNode = null;
+            UpdateGroundPlane();
+            ClearRubberBand();
+            BuildEditProxies();
+            return;
+        }
+
+        ShowContextMenuAt(e);
     }
 
     void Viewport_KeyDown(object sender, KeyEventArgs e)
@@ -184,6 +202,7 @@ public partial class FemSchemaView3D : UserControl
         _nodesVisual      = null;
         _shellEdgesVisual = null;
         _meshVisual       = null;
+        _meshNodeGlyphVisual = null;
         viewport.Children.Clear();
 
         vm.PropertyChanged += OnVMPropertyChanged;
@@ -199,7 +218,9 @@ public partial class FemSchemaView3D : UserControl
     void OnVMPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if ((e.PropertyName == nameof(Fem3DVM.IsLoading) && VM is { IsLoading: false }) ||
-            e.PropertyName == nameof(Fem3DVM.MeshLinePoints))
+            e.PropertyName == nameof(Fem3DVM.MeshLinePoints) ||
+            e.PropertyName == nameof(Fem3DVM.MeshNodePoints) ||
+            e.PropertyName == nameof(Fem3DVM.DiagramGlyphs))
             BuildVisuals();
     }
 
@@ -207,6 +228,7 @@ public partial class FemSchemaView3D : UserControl
     {
         viewport.Children.Clear();
         _meshVisual = null;
+        _meshNodeGlyphVisual = null;
         viewport.Children.Add(new DefaultLights());
 
         if (VM == null) return;
@@ -239,11 +261,17 @@ public partial class FemSchemaView3D : UserControl
         }
 
         _meshVisual = VM.MeshLinePoints is { Count: > 0 } meshPoints
-            ? new LinesVisual3D { Points = meshPoints, Color = Colors.LimeGreen, Thickness = 1.0 }
+            ? new LinesVisual3D { Points = meshPoints, Color = Colors.MediumTurquoise, Thickness = 2.0 }
             : null;
-        if (showMeshCheck.IsChecked == true && _meshVisual != null)
-            viewport.Children.Add(_meshVisual);
-
+        if (VM.MeshNodePoints is { Count: > 0 } meshNodePoints)
+        {
+            _meshNodeGlyphVisual = new LinesVisual3D
+            {
+                Points = FemMeshNodeGlyphFactory.Create(meshNodePoints),
+                Color = Colors.DeepSkyBlue,
+                Thickness = 1.5
+            };
+        }
         _shellEdgesVisual = VM.ShellEdgePoints is { Count: > 0 } edgePts
             ? new LinesVisual3D { Points = edgePts, Color = Colors.DimGray, Thickness = 0.5 }
             : null;
@@ -270,8 +298,103 @@ public partial class FemSchemaView3D : UserControl
         if (VM.BarGroups.Count > 0 || VM.ShellMesh != null)
             viewport.ZoomExtents(500);
 
+        BuildDiagramGlyphs();
         BuildEditProxies();
+        AddMeshVisuals();
         UpdateGroundPlane();
+    }
+
+    /// <summary>Рисует условные знаки закреплений, сил и моментов отдельными 3D-линиями.</summary>
+    void BuildDiagramGlyphs()
+    {
+        if (VM == null) return;
+        foreach (var glyph in VM.DiagramGlyphs)
+        {
+            if (!VM.DiagramNodePositions.TryGetValue(glyph.NodeId, out var node)) continue;
+            var axis = glyph.Axis;
+            axis.Normalize();
+            var side = Math.Abs(axis.Z) < 0.9
+                ? Vector3D.CrossProduct(axis, new Vector3D(0, 0, 1))
+                : Vector3D.CrossProduct(axis, new Vector3D(0, 1, 0));
+            side.Normalize();
+            var up = Vector3D.CrossProduct(axis, side);
+            up.Normalize();
+
+            switch (glyph.Kind)
+            {
+                case FemDiagramGlyphKind.TranslationSupport:
+                    DrawTranslationSupport(node, axis, side, up);
+                    break;
+                case FemDiagramGlyphKind.RotationSupport:
+                    DrawRotationSupport(node, axis, side, up);
+                    break;
+                case FemDiagramGlyphKind.Force:
+                    DrawForce(node, axis * glyph.Sign, side, up);
+                    break;
+                case FemDiagramGlyphKind.Moment:
+                    DrawMoment(node, axis * glyph.Sign, side, up);
+                    break;
+            }
+        }
+    }
+
+    void DrawTranslationSupport(Point3D node, Vector3D axis, Vector3D side, Vector3D up)
+    {
+        var basePoint = node + axis * 0.28;
+        AddGlyphLines(Colors.RoyalBlue, 2,
+            [node, basePoint, basePoint - side * 0.16, basePoint + side * 0.16,
+             basePoint - up * 0.16, basePoint + up * 0.16,
+             basePoint - side * 0.12 - up * 0.12, basePoint + side * 0.12 + up * 0.12]);
+    }
+
+    void DrawRotationSupport(Point3D node, Vector3D axis, Vector3D side, Vector3D up)
+    {
+        var points = new Point3DCollection();
+        for (int i = 0; i <= 12; i++)
+        {
+            double angle = Math.PI * 1.6 * i / 12 + Math.PI * 0.2;
+            points.Add(node + side * (Math.Cos(angle) * 0.24) + up * (Math.Sin(angle) * 0.24));
+        }
+        AddGlyphLine(Colors.MediumBlue, 2, points);
+        var tip = points[^1];
+        AddGlyphLines(Colors.MediumBlue, 2, [tip, tip - side * 0.1 - up * 0.06, tip, tip + side * 0.04 - up * 0.1]);
+    }
+
+    void DrawForce(Point3D node, Vector3D direction, Vector3D side, Vector3D up)
+    {
+        var tip = node + direction * 0.16;
+        var tail = node + direction * 0.72;
+        AddGlyphLines(Colors.Crimson, 2.5,
+            [tail, tip,
+             tip, tip + direction * 0.18 + side * 0.11,
+             tip, tip + direction * 0.18 - side * 0.11,
+             tip, tip + direction * 0.18 + up * 0.11,
+             tip, tip + direction * 0.18 - up * 0.11]);
+    }
+
+    void DrawMoment(Point3D node, Vector3D axis, Vector3D side, Vector3D up)
+    {
+        var points = new Point3DCollection();
+        for (int i = 0; i <= 16; i++)
+        {
+            double angle = Math.PI * 1.65 * i / 16;
+            points.Add(node + side * (Math.Cos(angle) * 0.32) + up * (Math.Sin(angle) * 0.32));
+        }
+        AddGlyphLine(Colors.DarkOrange, 2.5, points);
+        var tip = points[^1];
+        var tangent = Vector3D.CrossProduct(axis, tip - node);
+        tangent.Normalize();
+        AddGlyphLines(Colors.DarkOrange, 2.5,
+            [tip, tip - tangent * 0.15 + axis * 0.08, tip, tip - tangent * 0.15 - axis * 0.08]);
+    }
+
+    void AddGlyphLines(Color color, double thickness, IEnumerable<Point3D> points)
+        => AddGlyphLine(color, thickness, new Point3DCollection(points));
+
+    void AddGlyphLine(Color color, double thickness, Point3DCollection points)
+    {
+        if (points.Count < 2) return;
+        viewport.Children.Add(new LinesVisual3D { Points = points, Color = color, Thickness = thickness });
     }
 
     /// <summary>Порог, после которого вместо сфер (по одной на узел) используется PointsVisual3D.
@@ -321,7 +444,7 @@ public partial class FemSchemaView3D : UserControl
         {
             bool selected = vm.Selection?.SelectedElemTags.Contains(tag) == true;
             var color = selected ? Colors.OrangeRed : Colors.Transparent;
-            var pipe = new PipeVisual3D { Point1 = p1, Point2 = p2, Diameter = 0.1, Fill = new SolidColorBrush(color) };
+            var pipe = new PipeVisual3D { Point1 = p1, Point2 = p2, Diameter = 0.04, Fill = new SolidColorBrush(color) };
             _pickTargets[pipe] = (false, tag);
             viewport.Children.Add(pipe);
         }
@@ -425,7 +548,8 @@ public partial class FemSchemaView3D : UserControl
     {
         if (VM?.EditMode == true)
         {
-            BuildEditProxies();
+            // Прокси редактирования добавляются заново; полная пересборка возвращает mesh-слой поверх них.
+            BuildVisuals();
             return;
         }
 
@@ -438,12 +562,25 @@ public partial class FemSchemaView3D : UserControl
 
     void MeshToggle(object sender, RoutedEventArgs e)
     {
-        if (_meshVisual == null) return;
-        if (showMeshCheck.IsChecked == true)
-            viewport.Children.Add(_meshVisual);
-        else
-            viewport.Children.Remove(_meshVisual);
+        if (_meshRenderQueued) return;
+        _meshRenderQueued = true;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, new Action(() =>
+        {
+            _meshRenderQueued = false;
+            BuildVisuals();
+        }));
     }
+
+    /// <summary>Добавляет расчётную сетку последней, поверх прокси редактирования исходной схемы.</summary>
+    void AddMeshVisuals()
+    {
+        if (showMeshCheck.IsChecked != true) return;
+        if (_meshVisual != null) viewport.Children.Add(_meshVisual);
+        if (_meshNodeGlyphVisual != null) viewport.Children.Add(_meshNodeGlyphVisual);
+    }
+
+    /// <summary>Включает показ сохранённой расчётной сетки.</summary>
+    public void ShowMeshOverlay() => showMeshCheck.IsChecked = true;
 
     void ZoomExtents_Click(object sender, RoutedEventArgs e)
         => viewport.ZoomExtents(500);
@@ -482,7 +619,7 @@ public partial class FemSchemaView3D : UserControl
     /// <summary>Тег сечения, выбранного в панели «Добавить элемент» (для применения при создании).</summary>
     public string? PendingBarSectionTag => _pendingBarSectionTag;
 
-    void Viewport_MouseRightButtonDown_ShowMenu(object sender, MouseButtonEventArgs e)
+    void ShowContextMenuAt(MouseButtonEventArgs e)
     {
         if (VM is not { EditMode: true }) return;
         if (_createBarMode) return;

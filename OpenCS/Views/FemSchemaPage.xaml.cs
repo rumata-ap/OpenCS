@@ -20,18 +20,23 @@ public partial class FemSchemaPage : UserControl
         DataContext = _editorVm;
 
         var fem3d = new Fem3DVM(schema, app.db) { Selection = _editorVm.Selection, EditMode = true };
+        fem3d.LoadFromSession(_editorVm.Session);
+        view3D.Editor = _editorVm;
         view3D.DataContext = fem3d;
         _editorVm.MeshDiscretized += async (_, _) =>
         {
             try
             {
                 await fem3d.LoadMeshOverlayAsync();
+                app.ReloadFemMeshSnapshotTree(schema.Id);
+                view3D.ShowMeshOverlay();
             }
             catch (Exception exception)
             {
                 Debug.WriteLine(exception);
             }
         };
+        _editorVm.NodeLoadsApplied += fem3d.SelectDiagramLoadCase;
 
         view3D.NodeCreateRequested += p => _editorVm.CreateNodeAt(p.X, p.Y, p.Z);
         view3D.BarCreateRequested  += (a, b) => _editorVm.CreateBarBetween(a, b, view3D.PendingBarSectionTag);

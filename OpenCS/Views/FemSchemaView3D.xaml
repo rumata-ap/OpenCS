@@ -1,8 +1,18 @@
-<UserControl x:Class="OpenCS.Views.FemSchemaView3D"
+<UserControl x:Class="OpenCS.Views.FemSchemaView3D" x:Name="root"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views"
+             xmlns:conv="clr-namespace:OpenCS.Converters"
              xmlns:h="clr-namespace:HelixToolkit.Wpf;assembly=HelixToolkit.Wpf">
     <UserControl.Resources>
+        <conv:NullableDoubleTextConverter x:Key="NullableDoubleTextConverter"/>
+        <Style x:Key="IconToggleButton25" TargetType="ToggleButton">
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="Width" Value="25"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Margin" Value="2,0"/>
+        </Style>
         <ContextMenu x:Key="MemberContextMenu">
             <MenuItem Header="{DynamicResource FemMemberSectionCtx}" Click="MemberSectionCtx_Click"/>
             <MenuItem Header="{DynamicResource FemMemberPropertiesCtx}" Click="MemberPropertiesCtx_Click"/>
@@ -26,22 +36,77 @@
         </Grid.RowDefinitions>
 
         <ToolBar Grid.Row="0">
-            <Button Content="{DynamicResource Fem3DZoomExtents}"
-                    Click="ZoomExtents_Click" Padding="8,2"/>
+            <ToggleButton Style="{StaticResource IconToggleButton25}"
+                          IsChecked="{Binding Editor.CreateNodeMode, ElementName=root, Mode=TwoWay}"
+                          ToolTip="{DynamicResource FemCreateNodeMode}">
+                <Path Data="M12,3 V21 M3,12 H21 M8,8 A5,5 0 1,0 8.01,8" Stroke="Black" StrokeThickness="1.7"/>
+            </ToggleButton>
+            <ToggleButton Style="{StaticResource IconToggleButton25}"
+                          IsChecked="{Binding Editor.CreateBarMode, ElementName=root, Mode=TwoWay}"
+                          ToolTip="{DynamicResource FemCreateBarMode}">
+                <Path Data="M5,19 L19,5 M4,18 A2,2 0 1,0 4.01,18 M20,6 A2,2 0 1,0 20.01,6" Stroke="Black" StrokeThickness="1.7"/>
+            </ToggleButton>
+            <Button Style="{StaticResource IconButton25}"
+                    Command="{Binding Editor.UndoCommand, ElementName=root}"
+                    ToolTip="{DynamicResource FemUndo}">
+                <Path Data="M10,6 L4,12 L10,18 M5,12 H15 A5,5 0 1,1 15,22" Stroke="Black" StrokeThickness="1.7"/>
+            </Button>
+            <Button Style="{StaticResource IconButton25}"
+                    Command="{Binding Editor.RedoCommand, ElementName=root}"
+                    ToolTip="{DynamicResource FemRedo}">
+                <Path Data="M14,6 L20,12 L14,18 M19,12 H9 A5,5 0 1,0 9,22" Stroke="Black" StrokeThickness="1.7"/>
+            </Button>
+            <Button Style="{StaticResource IconButton25}"
+                    Command="{Binding Editor.SaveCommand, ElementName=root}"
+                    ToolTip="{DynamicResource FemSaveSchema}">
+                <Path Data="M4,3 H17 L21,7 V21 H3 V3 Z M7,3 V9 H16 V3 M7,21 V14 H17 V21" Stroke="Black" StrokeThickness="1.5"/>
+            </Button>
             <Separator/>
-            <CheckBox x:Name="showNodesCheck"
-                      Content="{DynamicResource Fem3DShowNodes}"
-                      IsChecked="False"
-                      VerticalAlignment="Center" Margin="4,0"
-                      Checked="NodesToggle" Unchecked="NodesToggle"/>
-            <CheckBox x:Name="showShellEdgesCheck"
-                      Content="{DynamicResource Fem3DShowShellEdges}"
-                      VerticalAlignment="Center" Margin="4,0"
-                      Checked="ShellEdgesToggle" Unchecked="ShellEdgesToggle"/>
-            <CheckBox x:Name="showMeshCheck"
-                      Content="{DynamicResource Fem3DShowMesh}"
-                      VerticalAlignment="Center" Margin="4,0"
-                      Checked="MeshToggle" Unchecked="MeshToggle"/>
+            <Button Style="{StaticResource IconButton25}" Click="ZoomExtents_Click"
+                    ToolTip="{DynamicResource Fem3DZoomExtents}">
+                <Path Data="M4,9 V4 H9 M15,4 H20 V9 M20,15 V20 H15 M9,20 H4 V15 M8,8 H16 V16 H8 Z" Stroke="Black" StrokeThickness="1.6"/>
+            </Button>
+            <ToggleButton x:Name="showNodesCheck" Style="{StaticResource IconToggleButton25}"
+                          IsChecked="False" ToolTip="{DynamicResource Fem3DShowNodes}"
+                          Checked="NodesToggle" Unchecked="NodesToggle">
+                <Path Data="M12,4 A3,3 0 1,0 12.01,4 M5,20 C5,16 8,14 12,14 C16,14 19,16 19,20" Stroke="Black" StrokeThickness="1.6"/>
+            </ToggleButton>
+            <ToggleButton x:Name="showShellEdgesCheck" Style="{StaticResource IconToggleButton25}"
+                          IsChecked="True" ToolTip="{DynamicResource Fem3DShowShellEdges}"
+                          Checked="ShellEdgesToggle" Unchecked="ShellEdgesToggle">
+                <Path Data="M4,4 H20 V20 H4 Z M4,12 H20 M12,4 V20" Stroke="Black" StrokeThickness="1.4"/>
+            </ToggleButton>
+            <ToggleButton x:Name="showMeshCheck" Style="{StaticResource IconToggleButton25}"
+                          IsChecked="False" ToolTip="{DynamicResource Fem3DShowMesh}"
+                          Checked="MeshToggle" Unchecked="MeshToggle">
+                <Path Data="M4,19 L10,5 L20,19 Z M7,14 H17 M10,5 L14,19" Stroke="Black" StrokeThickness="1.4"/>
+            </ToggleButton>
+            <Separator/>
+            <Menu>
+                <MenuItem ToolTip="{DynamicResource Fem3DDrawingFlags}">
+                    <MenuItem.Header>
+                        <Path Data="M4,5 H20 V14 H11 L7,19 V14 H4 Z M8,9 H16 M8,12 H14" Stroke="Black" StrokeThickness="1.4"/>
+                    </MenuItem.Header>
+                    <MenuItem Header="{DynamicResource Fem3DShowSupports}" IsCheckable="True"
+                              IsChecked="{Binding ShowSupportGlyphs, Mode=TwoWay}"/>
+                    <MenuItem Header="{DynamicResource Fem3DShowLoads}" IsCheckable="True"
+                              IsChecked="{Binding ShowLoadGlyphs, Mode=TwoWay}"/>
+                </MenuItem>
+            </Menu>
+            <TextBlock Text="{DynamicResource Fem3DLoadDisplay}" VerticalAlignment="Center" Margin="8,0,4,0"/>
+            <ComboBox Width="180" ItemsSource="{Binding DiagramLoadSources}" DisplayMemberPath="Label"
+                      SelectedItem="{Binding SelectedDiagramLoadSource, Mode=TwoWay}"/>
+            <Separator/>
+            <TextBlock Text="{DynamicResource FemDiscretizeTargetLength}" VerticalAlignment="Center" Margin="4,0,4,0"/>
+            <TextBox Width="72" VerticalContentAlignment="Center"
+                     Text="{Binding Editor.DefaultTargetMeshLengthM, ElementName=root,
+                                    Converter={StaticResource NullableDoubleTextConverter},
+                                    UpdateSourceTrigger=LostFocus}"/>
+            <Button Style="{StaticResource IconButton25}"
+                    Command="{Binding Editor.DiscretizeCommand, ElementName=root}"
+                    ToolTip="{DynamicResource FemDiscretize}">
+                <Path Data="M4,19 L10,5 L20,19 Z M7,14 H17 M10,5 L14,19 M3,21 H21" Stroke="Black" StrokeThickness="1.4"/>
+            </Button>
         </ToolBar>
 
         <!-- 3D viewport -->

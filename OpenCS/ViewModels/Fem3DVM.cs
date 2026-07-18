@@ -9,6 +9,9 @@ namespace OpenCS.ViewModels;
 /// <summary>Группа стержней одного цвета для 3D-отображения.</summary>
 public record BarGroup(string Label, Color Color, Point3DCollection Points, double Thickness = 1.5);
 
+/// <summary>Источник, по которому в 3D показываются узловые нагрузки.</summary>
+public sealed record FemDiagramLoadSource(string Label, FemLoadCase? LoadCase, FemLoadDefinition? Definition);
+
 /// <summary>ViewModel 3D-вида расчётной схемы или конструктивного элемента МКЭ.</summary>
 public class Fem3DVM : ViewModelBase
 {
@@ -24,6 +27,8 @@ public class Fem3DVM : ViewModelBase
     readonly FemMemberGroup? _memberOnly;      // показывать только КЭ группы
     readonly FemMemberGroup? _highlightMember; // показывать всю схему, группа подсвечена
     long _meshOverlayRequestVersion;
+    IReadOnlyList<FemNode> _diagramNodes = [];
+    IReadOnlyList<FemNodeLoad> _diagramNodeLoads = [];
 
     bool   _isLoading = true;
     bool   _noData;
@@ -39,6 +44,31 @@ public class Fem3DVM : ViewModelBase
     public Point3DCollection?  ShellEdgePoints { get; private set; }
     public Point3DCollection?  NodePoints      { get; private set; }
     public Point3DCollection?  MeshLinePoints  { get; private set; }
+    public Point3DCollection?  MeshNodePoints  { get; private set; }
+    public IReadOnlyList<FemDiagramGlyph> DiagramGlyphs { get; private set; } = [];
+    public List<FemDiagramLoadSource> DiagramLoadSources { get; private set; } = [];
+    public IReadOnlyDictionary<int, Point3D> DiagramNodePositions { get; private set; } = new Dictionary<int, Point3D>();
+
+    bool _showSupportGlyphs = true;
+    public bool ShowSupportGlyphs
+    {
+        get => _showSupportGlyphs;
+        set { if (_showSupportGlyphs == value) return; _showSupportGlyphs = value; RefreshDiagramGlyphs(); OnPropertyChanged(); }
+    }
+
+    bool _showLoadGlyphs = true;
+    public bool ShowLoadGlyphs
+    {
+        get => _showLoadGlyphs;
+        set { if (_showLoadGlyphs == value) return; _showLoadGlyphs = value; RefreshDiagramGlyphs(); OnPropertyChanged(); }
+    }
+
+    FemDiagramLoadSource? _selectedDiagramLoadSource;
+    public FemDiagramLoadSource? SelectedDiagramLoadSource
+    {
+        get => _selectedDiagramLoadSource;
+        set { _selectedDiagramLoadSource = value; RefreshDiagramGlyphs(); OnPropertyChanged(); }
+    }
 
     public FemSchemaSelectionVM? Selection { get; set; }
     public bool EditMode { get; set; }
@@ -111,8 +141,10 @@ public class Fem3DVM : ViewModelBase
         });
 
         var nodeMap = new Dictionary<int, Point3D>();
+        var meshNodePoints = new Point3DCollection();
         foreach (var node in snapshot.nodes)
         {
+            meshNodePoints.Add(new Point3D(node.X, node.Y, node.Z));
             if (!int.TryParse(node.NodeTag, out var nodeTag)) continue;
             nodeMap.TryAdd(nodeTag, new Point3D(node.X, node.Y, node.Z));
         }
@@ -143,8 +175,12 @@ public class Fem3DVM : ViewModelBase
         if (requestVersion != Volatile.Read(ref _meshOverlayRequestVersion)) return;
         if (linePoints.Count > 0)
             linePoints.Freeze();
+        if (meshNodePoints.Count > 0)
+            meshNodePoints.Freeze();
         MeshLinePoints = linePoints.Count > 0 ? linePoints : null;
+        MeshNodePoints = meshNodePoints.Count > 0 ? meshNodePoints : null;
         OnPropertyChanged(nameof(MeshLinePoints));
+        OnPropertyChanged(nameof(MeshNodePoints));
     }
 
     /// <summary>Синхронно перестраивает геометрию из живой сессии редактирования (без БД).
@@ -153,8 +189,47 @@ public class Fem3DVM : ViewModelBase
     public void LoadFromSession(CScore.Fem.Editing.FemSchemaEditSession session)
     {
         ApplyTopology(session.Nodes, session.Members);
+        _diagramNodes = session.Nodes;
+        _diagramNodeLoads = session.NodeLoads;
+        DiagramNodePositions = session.Nodes.ToDictionary(node => node.Id, node => new Point3D(node.X, node.Y, node.Z));
+        RefreshDiagramSources(session.LoadCases, session.LoadDefinitions);
+        RefreshDiagramGlyphs();
         IsLoading = false;
         Status    = "";
+    }
+
+    void RefreshDiagramSources(
+        IReadOnlyList<FemLoadCase> loadCases,
+        IReadOnlyList<FemLoadDefinition> definitions)
+    {
+        var selectedLoadCaseId = SelectedDiagramLoadSource?.LoadCase?.Id;
+        var selectedDefinitionId = SelectedDiagramLoadSource?.Definition?.Id;
+        DiagramLoadSources = loadCases
+            .Select(loadCase => new FemDiagramLoadSource(loadCase.Tag, loadCase, null))
+            .Concat(definitions.Select(definition => new FemDiagramLoadSource(definition.Tag, null, definition)))
+            .ToList();
+        SelectedDiagramLoadSource = DiagramLoadSources.FirstOrDefault(source =>
+            source.LoadCase?.Id == selectedLoadCaseId || source.Definition?.Id == selectedDefinitionId);
+        OnPropertyChanged(nameof(DiagramLoadSources));
+    }
+
+    /// <summary>Выбирает исходное загружение как источник глифов в 3D-виде.</summary>
+    public void SelectDiagramLoadCase(FemLoadCase loadCase)
+    {
+        ArgumentNullException.ThrowIfNull(loadCase);
+        SelectedDiagramLoadSource = DiagramLoadSources.FirstOrDefault(source => source.LoadCase?.Id == loadCase.Id);
+    }
+
+    void RefreshDiagramGlyphs()
+    {
+        IReadOnlyList<FemResolvedNodeLoad> loads = SelectedDiagramLoadSource switch
+        {
+            { LoadCase: { } loadCase } => FemLoadDisplayResolver.ResolveLoadCase(loadCase, _diagramNodeLoads),
+            { Definition: { } definition } => FemLoadDisplayResolver.ResolveDefinition(definition, _diagramNodeLoads),
+            _ => []
+        };
+        DiagramGlyphs = FemDiagramGlyphFactory.Create(_diagramNodes, loads, ShowSupportGlyphs, ShowLoadGlyphs);
+        OnPropertyChanged(nameof(DiagramGlyphs));
     }
 
     void ApplyTopology(List<FemNode> allNodes, List<FemMember> allElements)

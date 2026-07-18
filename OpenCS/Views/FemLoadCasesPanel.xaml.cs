@@ -10,7 +10,11 @@ public partial class FemLoadCasesPanel : UserControl
 {
     FemSchemaEditorVM? Editor => DataContext as FemSchemaEditorVM;
 
-    public FemLoadCasesPanel() => InitializeComponent();
+    public FemLoadCasesPanel()
+    {
+        InitializeComponent();
+        DataContextChanged += (_, _) => PopulateLoadCaseParameters();
+    }
 
     void NewLoadCase_Click(object sender, RoutedEventArgs e)
         => Editor?.AddLoadCase(Loc.S("FemLoadCaseDefaultTag"), "short_term");
@@ -24,5 +28,48 @@ public partial class FemLoadCasesPanel : UserControl
             MessageBox.Show(
                 string.Format(Loc.S("FemNodeLoadSkippedUnsaved"), string.Join(", ", skipped)),
                 Loc.S("FemNodeLoadSkippedUnsavedTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    void NewDefinition_Click(object sender, RoutedEventArgs e)
+        => Editor?.AddManualLoadDefinition(Loc.S("FemLoadDefinitionDefaultTag"));
+
+    void DeleteDefinition_Click(object sender, RoutedEventArgs e)
+        => Editor?.DeleteSelectedLoadDefinition();
+
+    void AddCaseToDefinition_Click(object sender, RoutedEventArgs e)
+        => Editor?.AddSelectedLoadCaseToDefinition();
+
+    void DeleteDefinitionTerm_Click(object sender, RoutedEventArgs e)
+        => Editor?.DeleteSelectedLoadDefinitionTerm();
+
+    void GenerateSp20_Click(object sender, RoutedEventArgs e)
+        => Editor?.GenerateSp20LoadDefinitions("fundamental");
+
+    void SaveDefinitionTermCoefficient_Click(object sender, RoutedEventArgs e)
+    {
+        if (Editor == null || !double.TryParse(definitionCoefficientBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var coefficient)) return;
+        Editor.UpdateSelectedLoadDefinitionTermCoefficient(coefficient);
+    }
+
+    void SaveLoadCaseParameters_Click(object sender, RoutedEventArgs e)
+    {
+        if (Editor == null || loadCaseTypeCombo.SelectedValue is not string sp20Type) return;
+        double? ParseOptional(TextBox box) => double.TryParse(box.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : null;
+        Editor.UpdateSelectedLoadCase(loadCaseTagBox.Text, sp20Type, loadCaseGroupBox.Text,
+            ParseOptional(gammaUnfavBox), ParseOptional(gammaFavBox), ParseOptional(psi1Box), ParseOptional(psi2Box));
+    }
+
+    void LoadCaseSelectionChanged(object sender, SelectionChangedEventArgs e) => PopulateLoadCaseParameters();
+
+    void PopulateLoadCaseParameters()
+    {
+        if (Editor?.SelectedLoadCase is not { } loadCase) return;
+        loadCaseTagBox.Text = loadCase.Tag;
+        loadCaseTypeCombo.SelectedValue = loadCase.Sp20Type;
+        loadCaseGroupBox.Text = loadCase.Sp20Group ?? "";
+        gammaUnfavBox.Text = loadCase.GammaFUnfav?.ToString(CultureInfo.InvariantCulture) ?? "";
+        gammaFavBox.Text = loadCase.GammaFFav?.ToString(CultureInfo.InvariantCulture) ?? "";
+        psi1Box.Text = loadCase.Psi1?.ToString(CultureInfo.InvariantCulture) ?? "";
+        psi2Box.Text = loadCase.Psi2?.ToString(CultureInfo.InvariantCulture) ?? "";
     }
 }

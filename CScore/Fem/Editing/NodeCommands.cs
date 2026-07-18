@@ -4,7 +4,11 @@ namespace CScore.Fem.Editing;
 
 public sealed class AddNodeCommand(FemNode node) : IFemEditCommand
 {
-    public void Do(FemSchemaEditSession session) => session.Nodes.Add(node);
+    public void Do(FemSchemaEditSession session)
+    {
+        if (node.Id == 0) node.Id = session.AllocateTemporaryNodeId();
+        session.Nodes.Add(node);
+    }
     public void Undo(FemSchemaEditSession session) => session.Nodes.Remove(node);
 }
 

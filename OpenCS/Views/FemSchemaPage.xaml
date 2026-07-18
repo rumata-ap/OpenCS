@@ -9,18 +9,7 @@
     <TabControl>
         <!-- Вкладка 3D-схема -->
         <TabItem Header="{DynamicResource FemSchema3DTab}">
-            <DockPanel>
-                <ToolBar DockPanel.Dock="Top">
-                    <TextBlock Text="{DynamicResource FemDiscretizeTargetLength}"
-                               VerticalAlignment="Center" Margin="4,0,6,0"/>
-                    <TextBox Width="90"
-                             Text="{Binding DefaultTargetMeshLengthM, UpdateSourceTrigger=PropertyChanged}"
-                             VerticalContentAlignment="Center" Margin="0,0,6,0"/>
-                    <Button Content="{DynamicResource FemDiscretize}"
-                            Command="{Binding DiscretizeCommand}"/>
-                </ToolBar>
-                <local:FemSchemaView3D x:Name="view3D"/>
-            </DockPanel>
+            <local:FemSchemaView3D x:Name="view3D"/>
         </TabItem>
 
         <!-- Вкладка узлов -->

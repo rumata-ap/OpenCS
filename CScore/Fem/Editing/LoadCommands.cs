@@ -2,7 +2,11 @@ namespace CScore.Fem.Editing;
 
 public sealed class AddLoadCaseCommand(FemLoadCase loadCase) : IFemEditCommand
 {
-    public void Do(FemSchemaEditSession session) => session.LoadCases.Add(loadCase);
+    public void Do(FemSchemaEditSession session)
+    {
+        if (loadCase.Id == 0) loadCase.Id = session.AllocateTemporaryLoadCaseId();
+        session.LoadCases.Add(loadCase);
+    }
     public void Undo(FemSchemaEditSession session) => session.LoadCases.Remove(loadCase);
 }
 
@@ -57,6 +61,52 @@ public sealed class DeleteLoadCaseCommand(FemLoadCase loadCase) : IFemEditComman
     }
 }
 
+/// <summary>Добавляет сохранённое определение одиночного загружения или сочетания.</summary>
+public sealed class AddLoadDefinitionCommand(FemLoadDefinition definition) : IFemEditCommand
+{
+    public void Do(FemSchemaEditSession session) => session.LoadDefinitions.Add(definition);
+    public void Undo(FemSchemaEditSession session) => session.LoadDefinitions.Remove(definition);
+}
+
+/// <summary>Удаляет определение нагрузки вместе с возможностью отмены операции.</summary>
+public sealed class DeleteLoadDefinitionCommand(FemLoadDefinition definition) : IFemEditCommand
+{
+    public void Do(FemSchemaEditSession session) => session.LoadDefinitions.Remove(definition);
+    public void Undo(FemSchemaEditSession session) => session.LoadDefinitions.Add(definition);
+}
+
+/// <summary>Заменяет изменяемые поля определения нагрузки, сохраняя идентификатор и схему.</summary>
+public sealed class EditLoadDefinitionCommand(FemLoadDefinition target, FemLoadDefinition values) : IFemEditCommand
+{
+    FemLoadDefinition? _old;
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _old ??= Snapshot(target);
+        Apply(target, values);
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        if (_old != null) Apply(target, _old);
+    }
+
+    static FemLoadDefinition Snapshot(FemLoadDefinition source) => new()
+    {
+        Tag = source.Tag, Description = source.Description, ExpressionJson = source.ExpressionJson,
+        SourceKind = source.SourceKind, CombinationType = source.CombinationType
+    };
+
+    static void Apply(FemLoadDefinition target, FemLoadDefinition source)
+    {
+        target.Tag = source.Tag;
+        target.Description = source.Description;
+        target.ExpressionJson = source.ExpressionJson;
+        target.SourceKind = source.SourceKind;
+        target.CombinationType = source.CombinationType;
+    }
+}
+
 /// <summary>Создаёт или обновляет единственную FemNodeLoad для пары (loadCaseId, nodeId). Обратимо.</summary>
 public sealed class SetNodeLoadCommand(
     int loadCaseId, int nodeId,
@@ -80,7 +130,12 @@ public sealed class SetNodeLoadCommand(
         }
         else
         {
-            _created = new FemNodeLoad { LoadCaseId = loadCaseId, NodeId = nodeId };
+            _created = new FemNodeLoad
+            {
+                SchemaId = session.Schema.Id,
+                LoadCaseId = loadCaseId,
+                NodeId = nodeId
+            };
             Apply(_created);
             session.NodeLoads.Add(_created);
         }

@@ -7,6 +7,43 @@ namespace OpenCS.OpenSees.Tests;
 public sealed class FemCanonicalDatabaseTests
 {
     [Fact]
+    public void SaveFemSchemaEdit_RemapsTransientLoadAndDefinitionReferences()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-fem-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var db = new DatabaseService(path);
+            var schema = new FemSchema { Tag = "Transient" };
+            db.SaveFemSchema(schema);
+            var node = new FemNode { Id = -1, SchemaId = schema.Id, NodeTag = "1" };
+            var loadCase = new FemLoadCase { Id = -2, SchemaId = schema.Id, Tag = "G", Sp20Type = "permanent" };
+            var nodeLoad = new FemNodeLoad { SchemaId = schema.Id, LoadCaseId = -2, NodeId = -1, Fz = -12 };
+            var definition = new FemLoadDefinition { SchemaId = schema.Id, Tag = "C1" };
+            definition.SetExpression(new FemLoadExpression
+            {
+                Mode = FemLoadExpressionMode.Sum,
+                Terms = [new FemLoadTerm { LoadCaseId = -2, Coefficient = 1 }]
+            });
+
+            db.SaveFemSchemaEdit(schema.Id, [node], [], [], [loadCase], [nodeLoad], [definition]);
+
+            var savedLoadCase = db.GetFemLoadCases(schema.Id).Single();
+            var savedNode = db.GetFemNodes(schema.Id).Single();
+            var savedNodeLoad = db.GetFemNodeLoads(schema.Id).Single();
+            var savedDefinition = db.GetFemLoadDefinitions(schema.Id).Single();
+            Assert.True(savedLoadCase.Id > 0);
+            Assert.True(savedNode.Id > 0);
+            Assert.Equal(savedLoadCase.Id, savedNodeLoad.LoadCaseId);
+            Assert.Equal(savedNode.Id, savedNodeLoad.NodeId);
+            Assert.Equal(savedLoadCase.Id, savedDefinition.GetExpression().Terms.Single().LoadCaseId);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void FemLoadsAndAnalyses_RoundTripThroughDatabase()
     {
         string path = Path.Combine(Path.GetTempPath(), $"opencs-fem-{Guid.NewGuid():N}.db");
@@ -92,6 +129,36 @@ public sealed class FemCanonicalDatabaseTests
             db.SaveFemLoadCase(loadCase);
 
             Assert.Equal("short_term", db.GetFemLoadCases(schema.Id).Single().Sp20Type);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void SchemaVersion32Database_RepairsFemMembersWithoutThicknessColumn()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-fem-{Guid.NewGuid():N}.db");
+        try
+        {
+            using (var db = new DatabaseService(path))
+            {
+            }
+
+            using (var connection = new SqliteConnection($"Data Source={path}"))
+            {
+                connection.Open();
+                using var command = connection.CreateCommand();
+                command.CommandText = """
+                    ALTER TABLE fem_members DROP COLUMN thickness_m;
+                    UPDATE settings SET value_json = '32' WHERE key = 'schema_version';
+                    """;
+                command.ExecuteNonQuery();
+            }
+
+            using var repaired = new DatabaseService(path);
+            Assert.Empty(repaired.GetFemMembers(1));
         }
         finally
         {

@@ -63,6 +63,7 @@ public sealed class FemSchemaEditSessionLoadTests
         session.Execute(new SetNodeLoadCommand(1, 10, fx: 1, fy: 0, fz: 0, mx: 0, my: 0, mz: 0));
         Assert.Single(session.NodeLoads);
         Assert.Equal(1, session.NodeLoads[0].Fx);
+        Assert.Equal(session.Schema.Id, session.NodeLoads[0].SchemaId);
 
         session.Execute(new SetNodeLoadCommand(1, 10, fx: 9, fy: 0, fz: 0, mx: 0, my: 0, mz: 0));
         Assert.Single(session.NodeLoads);

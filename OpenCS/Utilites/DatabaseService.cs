@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-       const int CurrentSchemaVersion = 31;
+        const int CurrentSchemaVersion = 33;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -410,6 +410,17 @@ namespace OpenCS.Utilites
                 my REAL NOT NULL DEFAULT 0,
                 mz REAL NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS fem_load_definitions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                tag TEXT NOT NULL DEFAULT '',
+                description TEXT,
+                expression_json TEXT NOT NULL DEFAULT '{}',
+                source_kind TEXT NOT NULL DEFAULT 'manual',
+                combination_type TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_load_definitions_schema_tag
+                ON fem_load_definitions(schema_id, tag);
             CREATE TABLE IF NOT EXISTS fem_analyses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
@@ -478,6 +489,8 @@ namespace OpenCS.Utilites
                if (i == 28) { MigrateV29(); continue; }
                if (i == 29) { MigrateV30(); continue; }
                if (i == 30) { MigrateV31(); continue; }
+               if (i == 31) { MigrateV32(); continue; }
+               if (i == 32) { MigrateV33(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -805,6 +818,36 @@ namespace OpenCS.Utilites
             """);
       }
 
+      /// <summary>Миграция v32: именованные определения загружений FEM.</summary>
+      void MigrateV32()
+      {
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS fem_load_definitions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                tag TEXT NOT NULL DEFAULT '',
+                description TEXT,
+                expression_json TEXT NOT NULL DEFAULT '{}',
+                source_kind TEXT NOT NULL DEFAULT 'manual',
+                combination_type TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_fem_load_definitions_schema_tag
+                ON fem_load_definitions(schema_id, tag);
+         """);
+      }
+
+      /// <summary>
+      /// Миграция v33: восстанавливает thickness_m в конструктивных элементах.
+      ///
+      /// Ранние версии v30 могли оставлять базу с отметкой актуальной версии,
+      /// но без этого столбца, если перестройка fem_members была прервана.
+      /// </summary>
+      void MigrateV33()
+      {
+         if (!ColumnExists("fem_members", "thickness_m"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN thickness_m REAL");
+      }
+
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
       void MigrateV26()
       {
@@ -1100,8 +1143,8 @@ namespace OpenCS.Utilites
          CrossSections.Clear();
 
          var sections = new Dictionary<int, CrossSection>();
-         using (var cmd = _connection.CreateCommand())
-         {
+          using (var cmd = _connection.CreateCommand())
+          {
             cmd.CommandText = "SELECT id, num, tag, description, type FROM cross_sections ORDER BY num";
             using var r = cmd.ExecuteReader();
             while (r.Read())
@@ -1772,8 +1815,8 @@ namespace OpenCS.Utilites
                };
                sets[fs.Id] = fs;
             }
-         }
-         using (var cmd = _connection.CreateCommand())
+          }
+          using (var cmd = _connection.CreateCommand())
          {
             cmd.CommandText = "SELECT id, set_id, num, label, n, mx, my, vx, vy, t FROM force_items ORDER BY set_id, num";
             using var r = cmd.ExecuteReader();
@@ -2721,10 +2764,30 @@ namespace OpenCS.Utilites
                });
             }
          }
-         using (var cmd = _connection.CreateCommand())
-         {
-            cmd.CommandText = """
-               SELECT id, schema_id, tag, kind, load_expression_json, params_json,
+          using (var cmd = _connection.CreateCommand())
+          {
+             cmd.CommandText = """
+                SELECT id, schema_id, tag, description, expression_json, source_kind, combination_type
+                FROM fem_load_definitions ORDER BY schema_id, id
+             """;
+             using var r = cmd.ExecuteReader();
+             while (r.Read())
+             {
+                int sid = r.GetInt32(1);
+                if (!schemas.TryGetValue(sid, out var schema)) continue;
+                schema.LoadDefinitions.Add(new CScore.Fem.FemLoadDefinition
+                {
+                   Id = r.GetInt32(0), SchemaId = sid, Tag = r.GetString(2),
+                   Description = r.IsDBNull(3) ? null : r.GetString(3),
+                   ExpressionJson = r.GetString(4), SourceKind = r.GetString(5),
+                   CombinationType = r.IsDBNull(6) ? null : r.GetString(6)
+                });
+             }
+          }
+          using (var cmd = _connection.CreateCommand())
+          {
+             cmd.CommandText = """
+                SELECT id, schema_id, tag, kind, load_expression_json, params_json,
                       status, result_id, created
                FROM fem_analyses ORDER BY schema_id, id
             """;
@@ -2942,6 +3005,73 @@ namespace OpenCS.Utilites
                Mx = r.GetDouble(6), My = r.GetDouble(7), Mz = r.GetDouble(8)
             });
          return result;
+      }
+
+      public List<CScore.Fem.FemLoadDefinition> GetFemLoadDefinitions(int schemaId)
+      {
+         var result = new List<CScore.Fem.FemLoadDefinition>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, tag, description, expression_json, source_kind, combination_type
+            FROM fem_load_definitions WHERE schema_id=@sid ORDER BY id
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+            result.Add(new CScore.Fem.FemLoadDefinition
+            {
+               Id = r.GetInt32(0), SchemaId = schemaId, Tag = r.GetString(1),
+               Description = r.IsDBNull(2) ? null : r.GetString(2), ExpressionJson = r.GetString(3),
+               SourceKind = r.GetString(4), CombinationType = r.IsDBNull(5) ? null : r.GetString(5)
+            });
+         return result;
+      }
+
+      public void SaveFemLoadDefinition(CScore.Fem.FemLoadDefinition definition)
+      {
+         using var cmd = _connection.CreateCommand();
+         if (definition.Id <= 0)
+         {
+            cmd.CommandText = """
+               INSERT INTO fem_load_definitions (schema_id, tag, description, expression_json, source_kind, combination_type)
+               VALUES (@sid, @tag, @desc, @expr, @source, @type); SELECT last_insert_rowid();
+            """;
+            AddFemLoadDefinitionParameters(cmd, definition);
+            definition.Id = (int)(long)cmd.ExecuteScalar()!;
+         }
+         else
+         {
+            cmd.CommandText = """
+               UPDATE fem_load_definitions SET tag=@tag, description=@desc, expression_json=@expr,
+                   source_kind=@source, combination_type=@type WHERE id=@id AND schema_id=@sid
+            """;
+            AddFemLoadDefinitionParameters(cmd, definition);
+            cmd.Parameters.AddWithValue("@id", definition.Id);
+            cmd.ExecuteNonQuery();
+         }
+      }
+
+      public void DeleteFemLoadDefinition(CScore.Fem.FemLoadDefinition definition)
+      {
+         if (definition.Id != 0)
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = "DELETE FROM fem_load_definitions WHERE id=@id AND schema_id=@sid";
+            cmd.Parameters.AddWithValue("@id", definition.Id);
+            cmd.Parameters.AddWithValue("@sid", definition.SchemaId);
+            cmd.ExecuteNonQuery();
+         }
+         FemSchemas.FirstOrDefault(schema => schema.Id == definition.SchemaId)?.LoadDefinitions.Remove(definition);
+      }
+
+      static void AddFemLoadDefinitionParameters(SqliteCommand cmd, CScore.Fem.FemLoadDefinition definition)
+      {
+         cmd.Parameters.AddWithValue("@sid", definition.SchemaId);
+         cmd.Parameters.AddWithValue("@tag", definition.Tag);
+         cmd.Parameters.AddWithValue("@desc", (object?)definition.Description ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@expr", definition.ExpressionJson);
+         cmd.Parameters.AddWithValue("@source", definition.SourceKind);
+         cmd.Parameters.AddWithValue("@type", (object?)definition.CombinationType ?? DBNull.Value);
       }
 
       public void SaveFemNodeLoad(CScore.Fem.FemNodeLoad load)
@@ -3275,7 +3405,8 @@ namespace OpenCS.Utilites
          IReadOnlyList<CScore.Fem.FemMember>      members,
          IReadOnlyList<CScore.Fem.FemMemberGroup> memberGroups,
          IReadOnlyList<CScore.Fem.FemLoadCase>    loadCases,
-         IReadOnlyList<CScore.Fem.FemNodeLoad>    nodeLoads)
+         IReadOnlyList<CScore.Fem.FemNodeLoad>    nodeLoads,
+         IReadOnlyList<CScore.Fem.FemLoadDefinition>? definitions = null)
       {
          var newTags = nodes.Select(n => n.NodeTag).ToList();
          if (newTags.Count != newTags.Distinct(StringComparer.Ordinal).Count())
@@ -3288,6 +3419,7 @@ namespace OpenCS.Utilites
             {
                delCmd.CommandText = """
                   DELETE FROM fem_node_loads    WHERE schema_id=@sid;
+                  DELETE FROM fem_load_definitions WHERE schema_id=@sid;
                   DELETE FROM fem_load_cases    WHERE schema_id=@sid;
                   DELETE FROM fem_member_groups WHERE schema_id=@sid;
                   DELETE FROM fem_members       WHERE schema_id=@sid;
@@ -3297,7 +3429,7 @@ namespace OpenCS.Utilites
                delCmd.ExecuteNonQuery();
             }
 
-            var newNodeIdByTag = new Dictionary<string, int>(StringComparer.Ordinal);
+            var newNodeIdByOld = new Dictionary<int, int>();
             using (var nodeCmd = _connection.CreateCommand())
             {
                nodeCmd.CommandText = """
@@ -3313,6 +3445,7 @@ namespace OpenCS.Utilites
                nodeCmd.Parameters.Add("@dm",  Microsoft.Data.Sqlite.SqliteType.Integer);
                foreach (var n in nodes)
                {
+                  int oldId = n.Id;
                   nodeCmd.Parameters["@sid"].Value = schemaId;
                   nodeCmd.Parameters["@tag"].Value = n.NodeTag;
                   nodeCmd.Parameters["@x"].Value   = n.X;
@@ -3320,7 +3453,7 @@ namespace OpenCS.Utilites
                   nodeCmd.Parameters["@z"].Value   = n.Z;
                   nodeCmd.Parameters["@dm"].Value  = n.DofMask;
                   int newId = (int)(long)nodeCmd.ExecuteScalar()!;
-                  newNodeIdByTag[n.NodeTag] = newId;
+                  newNodeIdByOld[oldId] = newId;
                   n.Id = newId;
                   n.SchemaId = schemaId;
                }
@@ -3415,7 +3548,9 @@ namespace OpenCS.Utilites
                   loadCmd.Parameters.Clear();
                   loadCmd.Parameters.AddWithValue("@sid", schemaId);
                   loadCmd.Parameters.AddWithValue("@lc",  newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out var lcId) ? lcId : load.LoadCaseId);
-                  loadCmd.Parameters.AddWithValue("@nid", load.NodeId);
+                  if (!newNodeIdByOld.TryGetValue(load.NodeId, out int nodeId))
+                     throw new InvalidOperationException($"Узловая нагрузка ссылается на отсутствующий узел {load.NodeId}.");
+                  loadCmd.Parameters.AddWithValue("@nid", nodeId);
                   loadCmd.Parameters.AddWithValue("@fx", load.Fx);
                   loadCmd.Parameters.AddWithValue("@fy", load.Fy);
                   loadCmd.Parameters.AddWithValue("@fz", load.Fz);
@@ -3423,6 +3558,38 @@ namespace OpenCS.Utilites
                   loadCmd.Parameters.AddWithValue("@my", load.My);
                   loadCmd.Parameters.AddWithValue("@mz", load.Mz);
                   loadCmd.ExecuteNonQuery();
+                  load.NodeId = nodeId;
+                  load.LoadCaseId = newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out var mappedLoadCaseId)
+                     ? mappedLoadCaseId : load.LoadCaseId;
+               }
+            }
+
+            var savedDefinitions = definitions ?? [];
+            using (var definitionCmd = _connection.CreateCommand())
+            {
+               definitionCmd.CommandText = """
+                  INSERT INTO fem_load_definitions (schema_id, tag, description, expression_json, source_kind, combination_type)
+                  VALUES (@sid, @tag, @desc, @expr, @source, @type); SELECT last_insert_rowid();
+               """;
+               foreach (var definition in savedDefinitions)
+               {
+                  var expression = definition.GetExpression();
+                  var rewritten = new CScore.Fem.FemLoadExpression
+                  {
+                     Mode = expression.Mode,
+                     LoadCaseIds = expression.LoadCaseIds.Select(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id).ToList(),
+                     Terms = expression.Terms.Select(term => new CScore.Fem.FemLoadTerm
+                     {
+                        LoadCaseId = newLoadCaseIdByOld.TryGetValue(term.LoadCaseId, out var mapped) ? mapped : term.LoadCaseId,
+                        Coefficient = term.Coefficient
+                     }).ToList(),
+                     CombinationType = expression.CombinationType
+                  };
+                  definition.SetExpression(rewritten);
+                  definitionCmd.Parameters.Clear();
+                  AddFemLoadDefinitionParameters(definitionCmd, definition);
+                  definition.Id = (int)(long)definitionCmd.ExecuteScalar()!;
+                  definition.SchemaId = schemaId;
                }
             }
 
@@ -3433,6 +3600,8 @@ namespace OpenCS.Utilites
                foreach (var g in memberGroups) schema.MemberGroups.Add(g);
                schema.LoadCases.Clear();
                foreach (var lc in loadCases) schema.LoadCases.Add(lc);
+               schema.LoadDefinitions.Clear();
+               foreach (var definition in savedDefinitions) schema.LoadDefinitions.Add(definition);
             }
 
             tx.Commit();
@@ -3727,6 +3896,21 @@ namespace OpenCS.Utilites
          using var r = cmd.ExecuteReader();
          if (!r.Read()) return (0, 0, 0);
          return (r.GetInt32(0), r.GetInt32(1), r.GetInt32(2));
+      }
+
+      /// <summary>Возвращает число узлов и элементов сохранённой расчётной сетки.</summary>
+      public (int nodes, int elements) GetFemMeshSnapshotCounts(int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT
+              (SELECT COUNT(*) FROM fem_mesh_nodes WHERE schema_id=@sid),
+              (SELECT COUNT(*) FROM fem_elements   WHERE schema_id=@sid)
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var r = cmd.ExecuteReader();
+         if (!r.Read()) return (0, 0);
+         return (r.GetInt32(0), r.GetInt32(1));
       }
 
       public void SaveFemMemberGroup(CScore.Fem.FemMemberGroup g)

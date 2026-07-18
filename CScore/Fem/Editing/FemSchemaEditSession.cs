@@ -10,15 +10,24 @@ public sealed class FemSchemaEditSession
     public List<FemMemberGroup> MemberGroups { get; } = [];
     public List<FemLoadCase>    LoadCases    { get; } = [];
     public List<FemNodeLoad>    NodeLoads    { get; } = [];
+    public List<FemLoadDefinition> LoadDefinitions { get; } = [];
 
     readonly List<IFemEditCommand> _history = [];
     int _position; // индекс первой ненаправленной команды (== _history.Count при отсутствии redo)
+    int _nextTemporaryNodeId = -1;
+    int _nextTemporaryLoadCaseId = -1;
 
     public FemSchemaEditSession(FemSchema schema) => Schema = schema;
 
     public bool CanUndo => _position > 0;
     public bool CanRedo => _position < _history.Count;
     public bool IsDirty => _position > 0;
+
+    /// <summary>Выделяет стабильный до сохранения отрицательный идентификатор конструктивного узла.</summary>
+    public int AllocateTemporaryNodeId() => _nextTemporaryNodeId--;
+
+    /// <summary>Выделяет стабильный до сохранения отрицательный идентификатор исходного загружения.</summary>
+    public int AllocateTemporaryLoadCaseId() => _nextTemporaryLoadCaseId--;
 
     public void Execute(IFemEditCommand command)
     {

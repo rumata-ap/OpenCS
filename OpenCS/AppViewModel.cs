@@ -2701,6 +2701,10 @@ namespace OpenCS
          FemRootNodes.Add(femChecksRoot);
       }
 
+      /// <summary>Обновляет в дереве счётчики сохранённой расчётной сетки схемы.</summary>
+      public void ReloadFemMeshSnapshotTree(int schemaId)
+          => femSchemasGroup?.ReloadMeshSnapshot(schemaId);
+
       void RefreshFemSchemaTreeCounts(CScore.Fem.FemSchema schema)
           => femSchemasGroup?.Schemas
               .FirstOrDefault(vm => vm.Schema == schema)
