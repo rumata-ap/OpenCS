@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-        const int CurrentSchemaVersion = 34;
+        const int CurrentSchemaVersion = 35;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -492,6 +492,7 @@ namespace OpenCS.Utilites
                if (i == 31) { MigrateV32(); continue; }
                if (i == 32) { MigrateV33(); continue; }
                if (i == 33) { MigrateV34(); continue; }
+               if (i == 34) { MigrateV35(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -868,6 +869,23 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE fem_checks ADD COLUMN element_id INTEGER");
          if (!ColumnExists("force_sets", "source_element_id"))
             MigExec("ALTER TABLE force_sets ADD COLUMN source_element_id INTEGER");
+      }
+
+      /// <summary>
+      /// Миграция v35: fem_elements получает elem_type/section_tag/material_tag/thickness_m —
+      /// чтобы представлять не только 2-узловые стержни (дискретизированные из конструктивной
+      /// модели), но и 3/4-узловые пластинчатые КЭ, импортированные напрямую из SCAD/Lira.
+      /// </summary>
+      void MigrateV35()
+      {
+         if (!ColumnExists("fem_elements", "elem_type"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN elem_type TEXT NOT NULL DEFAULT 'beam'");
+         if (!ColumnExists("fem_elements", "section_tag"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN section_tag TEXT");
+         if (!ColumnExists("fem_elements", "material_tag"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN material_tag TEXT");
+         if (!ColumnExists("fem_elements", "thickness_m"))
+            MigExec("ALTER TABLE fem_elements ADD COLUMN thickness_m REAL");
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -3876,9 +3894,11 @@ namespace OpenCS.Utilites
                elementCmd.CommandText = """
                   INSERT INTO fem_elements
                      (schema_id, elem_tag, node_ids_json, source_member_tag, cross_section_id,
-                      gj_strategy, gj_manual_value, gj_torsion_task_id)
+                      gj_strategy, gj_manual_value, gj_torsion_task_id, elem_type, section_tag,
+                      material_tag, thickness_m)
                   VALUES (@sid, @tag, @node_ids, @source_member_tag, @cross_section_id,
-                          @gj_strategy, @gj_manual_value, @gj_torsion_task_id);
+                          @gj_strategy, @gj_manual_value, @gj_torsion_task_id, @elem_type,
+                          @section_tag, @material_tag, @thickness_m);
                   SELECT last_insert_rowid();
                """;
                elementCmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
@@ -3889,6 +3909,10 @@ namespace OpenCS.Utilites
                elementCmd.Parameters.Add("@gj_strategy", Microsoft.Data.Sqlite.SqliteType.Text);
                elementCmd.Parameters.Add("@gj_manual_value", Microsoft.Data.Sqlite.SqliteType.Real);
                elementCmd.Parameters.Add("@gj_torsion_task_id", Microsoft.Data.Sqlite.SqliteType.Integer);
+               elementCmd.Parameters.Add("@elem_type", Microsoft.Data.Sqlite.SqliteType.Text);
+               elementCmd.Parameters.Add("@section_tag", Microsoft.Data.Sqlite.SqliteType.Text);
+               elementCmd.Parameters.Add("@material_tag", Microsoft.Data.Sqlite.SqliteType.Text);
+               elementCmd.Parameters.Add("@thickness_m", Microsoft.Data.Sqlite.SqliteType.Real);
 
                foreach (var element in elements)
                {
@@ -3900,6 +3924,10 @@ namespace OpenCS.Utilites
                   elementCmd.Parameters["@gj_strategy"].Value = element.GjStrategy;
                   elementCmd.Parameters["@gj_manual_value"].Value = (object?)element.GjManualValue ?? DBNull.Value;
                   elementCmd.Parameters["@gj_torsion_task_id"].Value = (object?)element.GjTorsionTaskId ?? DBNull.Value;
+                  elementCmd.Parameters["@elem_type"].Value = element.ElemType;
+                  elementCmd.Parameters["@section_tag"].Value = (object?)element.SectionTag ?? DBNull.Value;
+                  elementCmd.Parameters["@material_tag"].Value = (object?)element.MaterialTag ?? DBNull.Value;
+                  elementCmd.Parameters["@thickness_m"].Value = (object?)element.ThicknessM ?? DBNull.Value;
                   element.Id = (int)(long)elementCmd.ExecuteScalar()!;
                   element.SchemaId = schemaId;
                }
@@ -3949,7 +3977,8 @@ namespace OpenCS.Utilites
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = """
             SELECT id, elem_tag, node_ids_json, source_member_tag, cross_section_id,
-                   gj_strategy, gj_manual_value, gj_torsion_task_id
+                   gj_strategy, gj_manual_value, gj_torsion_task_id, elem_type, section_tag,
+                   material_tag, thickness_m
             FROM fem_elements
             WHERE schema_id=@sid
             ORDER BY id
@@ -3968,6 +3997,10 @@ namespace OpenCS.Utilites
                GjStrategy = rdr.GetString(5),
                GjManualValue = rdr.IsDBNull(6) ? null : rdr.GetDouble(6),
                GjTorsionTaskId = rdr.IsDBNull(7) ? null : rdr.GetInt32(7),
+               ElemType = rdr.GetString(8),
+               SectionTag = rdr.IsDBNull(9) ? null : rdr.GetString(9),
+               MaterialTag = rdr.IsDBNull(10) ? null : rdr.GetString(10),
+               ThicknessM = rdr.IsDBNull(11) ? null : rdr.GetDouble(11),
             });
          return result;
       }
