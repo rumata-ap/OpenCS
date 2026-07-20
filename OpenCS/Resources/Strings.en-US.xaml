@@ -1381,6 +1381,8 @@
     <system:String x:Key="FemResultTabReact">Reactions</system:String>
     <system:String x:Key="FemResultTabForces">Forces</system:String>
     <system:String x:Key="FemResultDeformScale">Deformation scale:</system:String>
+    <system:String x:Key="FemResultForceComponent">Diagram:</system:String>
+    <system:String x:Key="FemResultForceScale">Diagram scale:</system:String>
     <system:String x:Key="FemResultStatus">Status:</system:String>
     <system:String x:Key="FemResultArtifacts">Artifacts:</system:String>
     <system:String x:Key="FemColNode">Node</system:String>

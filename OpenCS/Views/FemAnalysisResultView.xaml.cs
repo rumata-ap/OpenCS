@@ -13,6 +13,7 @@ public partial class FemAnalysisResultView : UserControl
 {
     readonly FemAnalysisResultVM _vm;
     LinesVisual3D? _deformed;
+    MeshGeometryVisual3D? _forceRibbon;
 
     public FemAnalysisResultView(CalcResult result, AppViewModel app, FemSchema schema)
     {
@@ -27,6 +28,8 @@ public partial class FemAnalysisResultView : UserControl
     {
         if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedLines) && _deformed is not null)
             _deformed.Points = _vm.DeformedLines;
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.ForceDiagramMesh) && _forceRibbon is not null)
+            _forceRibbon.MeshGeometry = _vm.ForceDiagramMesh;
     }
 
     void BuildViewport()
@@ -36,6 +39,12 @@ public partial class FemAnalysisResultView : UserControl
         viewport.Children.Add(new LinesVisual3D { Color = Colors.Gray, Thickness = 1, Points = _vm.OriginalLines });
         _deformed = new LinesVisual3D { Color = Colors.SteelBlue, Thickness = 2, Points = _vm.DeformedLines };
         viewport.Children.Add(_deformed);
+        _forceRibbon = new MeshGeometryVisual3D
+        {
+            MeshGeometry = _vm.ForceDiagramMesh,
+            Fill = new SolidColorBrush(Color.FromArgb(140, 0xE8, 0x7A, 0x00))
+        };
+        viewport.Children.Add(_forceRibbon);
         viewport.ZoomExtents();
     }
 }

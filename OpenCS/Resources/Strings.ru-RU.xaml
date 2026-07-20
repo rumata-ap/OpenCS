@@ -1384,6 +1384,8 @@
     <system:String x:Key="FemResultTabReact">Реакции</system:String>
     <system:String x:Key="FemResultTabForces">Усилия</system:String>
     <system:String x:Key="FemResultDeformScale">Масштаб деформаций:</system:String>
+    <system:String x:Key="FemResultForceComponent">Эпюра:</system:String>
+    <system:String x:Key="FemResultForceScale">Масштаб эпюры:</system:String>
     <system:String x:Key="FemResultStatus">Статус:</system:String>
     <system:String x:Key="FemResultArtifacts">Артефакты:</system:String>
     <system:String x:Key="FemColNode">Узел</system:String>

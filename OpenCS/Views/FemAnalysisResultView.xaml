@@ -18,9 +18,17 @@
                     </Grid.RowDefinitions>
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4">
                         <TextBlock Text="{DynamicResource FemResultDeformScale}" VerticalAlignment="Center"/>
-                        <Slider x:Name="scaleSlider" Width="200" Minimum="0" Maximum="500"
+                        <Slider x:Name="scaleSlider" Width="160" Minimum="0" Maximum="500"
                                 Value="{Binding DeformScale, Mode=TwoWay}" VerticalAlignment="Center" Margin="8,0"/>
                         <TextBlock Text="{Binding DeformScale, StringFormat='×{0:0.###}'}" VerticalAlignment="Center"/>
+                        <Separator Margin="10,0"/>
+                        <TextBlock Text="{DynamicResource FemResultForceComponent}" VerticalAlignment="Center"/>
+                        <ComboBox Width="70" Margin="6,0" VerticalAlignment="Center"
+                                  ItemsSource="{Binding ForceComponents}"
+                                  SelectedItem="{Binding SelectedForceComponent, Mode=TwoWay}"/>
+                        <TextBlock Text="{DynamicResource FemResultForceScale}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                        <Slider Width="160" Minimum="0" Maximum="500"
+                                Value="{Binding ForceScale, Mode=TwoWay}" VerticalAlignment="Center" Margin="8,0"/>
                     </StackPanel>
                     <h:HelixViewport3D x:Name="viewport" Grid.Row="1" Background="White"
                                        ShowCoordinateSystem="True" ShowViewCube="True"
