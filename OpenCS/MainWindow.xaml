@@ -1098,7 +1098,7 @@
                      </StackPanel>
                   </DataTemplate>
 
-                  <!-- Подузел «Расчётная сетка» — отдельный слепок, не меняет конструктивную модель -->
+                  <!-- Подузел «Сетка конечных элементов» — отдельный слепок, не меняет конструктивную модель -->
                   <HierarchicalDataTemplate DataType="{x:Type vm:FemMeshSnapshotSubNode}"
                                             ItemsSource="{Binding Children}">
                      <StackPanel Orientation="Horizontal">
@@ -1114,9 +1114,33 @@
                      </StackPanel>
                   </DataTemplate>
 
-                  <DataTemplate DataType="{x:Type vm:FemMeshElementsSubNode}">
+                  <!-- Подузел «Элементы» mesh-слепка — два дочерних: Стержни и Пластины -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemMeshElementsSubNode}"
+                                            ItemsSource="{Binding Children}">
                      <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{DynamicResource FemMeshElements}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0">
+                           <TextBlock.Text>
+                              <MultiBinding StringFormat="({0}/{1})">
+                                 <Binding Path="BarCount"/>
+                                 <Binding Path="ShellCount"/>
+                              </MultiBinding>
+                           </TextBlock.Text>
+                        </TextBlock>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <DataTemplate DataType="{x:Type vm:FemMeshBarsSubNode}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemMeshBars}"/>
+                        <TextBlock Foreground="Gray" Margin="4,0,0,0"
+                                   Text="{Binding Count, StringFormat=({0})}"/>
+                     </StackPanel>
+                  </DataTemplate>
+
+                  <DataTemplate DataType="{x:Type vm:FemMeshShellsSubNode}">
+                     <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{DynamicResource FemMeshShells}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
                      </StackPanel>
