@@ -3089,14 +3089,16 @@ namespace OpenCS
             .Select(e => int.TryParse(e.ElemTag, out int id) ? id : 0)
             .Where(id => id > 0)
             .ToArray();
+         bool allShells = elems.All(e => e.ElemType == "shell");
+         string typeLabel = allShells ? "Плита" : "Балка";
          var tag = elems.Count == 1
             ? (elems[0].SectionTag ?? elems[0].ElemTag)
-            : $"Балка ({elems.Count} КЭ)";
+            : $"{typeLabel} ({elems.Count} КЭ)";
          var group = new CScore.Fem.FemMemberGroup
          {
             SchemaId       = schema.Id,
             Tag            = tag,
-            MemberType     = "Балка",
+            MemberType     = typeLabel,
             MemberTagsJson = System.Text.Json.JsonSerializer.Serialize(ids),
          };
          db.SaveFemMemberGroup(group);
