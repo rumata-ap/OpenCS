@@ -35,6 +35,40 @@ public static class ScadSchemaConverter
     }
 
     /// <summary>
+    /// Создаёт узлы КЭ-сетки напрямую из данных SCAD — модель SCAD уже является готовой сеткой,
+    /// поэтому импорт минует конструктивный слой (FemNode/FemMember) и не требует последующей
+    /// дискретизации.
+    /// </summary>
+    public static FemMeshNode[] ToFemMeshNodes(ScadSchemaData data, int schemaId) =>
+        data.Nodes.Select(n => new FemMeshNode
+        {
+            SchemaId = schemaId,
+            NodeTag  = n.Id.ToString(),
+            X = n.X, Y = n.Y, Z = n.Z,
+        }).ToArray();
+
+    /// <summary>Создаёт элементы КЭ-сетки (стержни и оболочки вперемешку, по числу узлов) напрямую из данных SCAD.</summary>
+    public static FemElement[] ToFemMeshElements(ScadSchemaData data, int schemaId)
+    {
+        var stiffNames = data.Stiffnesses.ToDictionary(s => s.Id, s => s.Name);
+        var stiffThk   = data.Stiffnesses.ToDictionary(s => s.Id, s => s.ThicknessM);
+        return data.Elements.Select(e =>
+        {
+            stiffNames.TryGetValue(e.StiffnessId, out var name);
+            stiffThk.TryGetValue(e.StiffnessId, out var thk);
+            return new FemElement
+            {
+                SchemaId    = schemaId,
+                ElemTag     = e.Id.ToString(),
+                ElemType    = e.NodeIds.Length == 2 ? "beam" : "shell",
+                NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
+                SectionTag  = name,
+                ThicknessM  = thk,
+            };
+        }).ToArray();
+    }
+
+    /// <summary>
     /// Строит FemMemberGroup: элементы, входящие хотя бы в одну именованную группу SCAD,
     /// группируются по имени группы (Tag = имя группы). Остальные элементы группируются
     /// по номеру жёсткости — так же, как для схем ЛираСАПР (см. LiraSchemaConverter).
