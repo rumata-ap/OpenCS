@@ -181,7 +181,7 @@ namespace OpenCS
           else if (e.NewValue is ViewModels.FemBarsSubNode barsNode)
              vm.CurrentPage = new Views.FemBarsView(barsNode, vm);
           else if (e.NewValue is ViewModels.FemShellsSubNode shellsNode)
-             vm.CurrentPage = new Views.FemShellsView(shellsNode);
+             vm.CurrentPage = new Views.FemShellsView(shellsNode, vm);
           else if (e.NewValue is CScore.ForceSet forceSetItem)
           {
              if (forceSetItem.Kind == "shell")

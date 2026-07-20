@@ -1,20 +1,26 @@
 <UserControl x:Class="OpenCS.Views.FemShellsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-   <DataGrid x:Name="shellsGrid"
-             AutoGenerateColumns="False"
-             IsReadOnly="True"
-             CanUserAddRows="False"
-             CanUserDeleteRows="False"
-             EnableRowVirtualization="True"
-             VirtualizingPanel.IsVirtualizing="True">
-      <DataGrid.Columns>
-         <DataGridTextColumn Header="{DynamicResource FemElemTag}"  Binding="{Binding ElemTag}"    Width="80"/>
-         <DataGridTextColumn Header="{DynamicResource FemSection}"  Binding="{Binding SectionTag}" Width="120"/>
-         <DataGridTextColumn Header="{DynamicResource FemNodeTag1}" Binding="{Binding Node1}"      Width="80"/>
-         <DataGridTextColumn Header="{DynamicResource FemNodeTag2}" Binding="{Binding Node2}"      Width="80"/>
-         <DataGridTextColumn Header="{DynamicResource FemNodeTag3}" Binding="{Binding Node3}"      Width="80"/>
-         <DataGridTextColumn Header="{DynamicResource FemNodeTag4}" Binding="{Binding Node4}"      Width="80"/>
-      </DataGrid.Columns>
-   </DataGrid>
+   <DockPanel>
+      <ToolBar DockPanel.Dock="Top">
+         <Button Content="{DynamicResource FemGroupCreate}" Click="CreateGroup_Click"/>
+      </ToolBar>
+      <DataGrid x:Name="shellsGrid"
+                AutoGenerateColumns="False"
+                IsReadOnly="True"
+                CanUserAddRows="False"
+                CanUserDeleteRows="False"
+                SelectionMode="Extended"
+                EnableRowVirtualization="True"
+                VirtualizingPanel.IsVirtualizing="True">
+         <DataGrid.Columns>
+            <DataGridTextColumn Header="{DynamicResource FemElemTag}"  Binding="{Binding ElemTag}"    Width="80"/>
+            <DataGridTextColumn Header="{DynamicResource FemSection}"  Binding="{Binding SectionTag}" Width="120"/>
+            <DataGridTextColumn Header="{DynamicResource FemNodeTag1}" Binding="{Binding Node1}"      Width="80"/>
+            <DataGridTextColumn Header="{DynamicResource FemNodeTag2}" Binding="{Binding Node2}"      Width="80"/>
+            <DataGridTextColumn Header="{DynamicResource FemNodeTag3}" Binding="{Binding Node3}"      Width="80"/>
+            <DataGridTextColumn Header="{DynamicResource FemNodeTag4}" Binding="{Binding Node4}"      Width="80"/>
+         </DataGrid.Columns>
+      </DataGrid>
+   </DockPanel>
 </UserControl>
