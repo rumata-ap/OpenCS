@@ -74,6 +74,10 @@ namespace CScore
       /// <summary>FK → fem_members.id. Null для ручного ввода.</summary>
       public int?    SourceMemberId   { get; set; }
 
+      /// <summary>FK → fem_members.id. Набор усилий одного конструктивного элемента (в отличие
+      /// от SourceMemberId, который указывает на группу). Ровно одно из двух заполнено.</summary>
+      public int?    SourceElementId  { get; set; }
+
       public List<LoadItem>      Items      { get; set; } = [];
       public List<ShellLoadItem> ShellItems { get; set; } = [];
 
