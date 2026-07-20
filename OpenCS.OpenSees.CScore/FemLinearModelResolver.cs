@@ -96,7 +96,7 @@ public sealed class FemLinearModelResolver
             }
 
             (double, double, double) vecxz;
-            try { vecxz = FemLocalAxis.Vecxz(ni, nj); }
+            try { vecxz = FemLocalAxis.Vecxz(ni, nj, member.RotationDeg); }
             catch (InvalidOperationException ex) { errors.Add($"Элемент {el.ElemTag}: {ex.Message}"); continue; }
 
             if (!int.TryParse(el.ElemTag, out int etag))
