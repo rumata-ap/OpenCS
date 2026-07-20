@@ -2942,13 +2942,38 @@ namespace OpenCS.Utilites
          catch { tx.Rollback(); throw; }
       }
 
+      /// <summary>
+      /// Удаляет схему МКЭ и все дочерние строки по schema_id вручную — ON DELETE CASCADE в
+      /// объявлениях FK не выполняется, т.к. на соединении PRAGMA foreign_keys=OFF (см.
+      /// SetDeleteJournalMode). Без явного удаления узлы/элементы импортированной сетки
+      /// (обычно самая объёмная часть) оставались бы «осиротевшими» строками в БД — файл
+      /// не уменьшался бы даже после VACUUM.
+      /// </summary>
       public void DeleteFemSchema(CScore.Fem.FemSchema schema)
       {
          if (schema.Id == 0) return;
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM fem_schemas WHERE id = @id";
-         cmd.Parameters.AddWithValue("@id", schema.Id);
-         cmd.ExecuteNonQuery();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               DELETE FROM fem_checks            WHERE schema_id=@id;
+               DELETE FROM fem_analyses           WHERE schema_id=@id;
+               DELETE FROM fem_load_definitions   WHERE schema_id=@id;
+               DELETE FROM fem_node_loads         WHERE schema_id=@id;
+               DELETE FROM fem_load_cases         WHERE schema_id=@id;
+               DELETE FROM fem_member_groups      WHERE schema_id=@id;
+               DELETE FROM fem_elements           WHERE schema_id=@id;
+               DELETE FROM fem_mesh_nodes         WHERE schema_id=@id;
+               DELETE FROM fem_members            WHERE schema_id=@id;
+               DELETE FROM fem_nodes              WHERE schema_id=@id;
+               DELETE FROM fem_schemas            WHERE id=@id;
+            """;
+            cmd.Parameters.AddWithValue("@id", schema.Id);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
          FemSchemas.Remove(schema);
       }
 
