@@ -1435,6 +1435,10 @@
     <system:String x:Key="FemDiscretizeTargetLength">Целевая длина КЭ, м</system:String>
     <system:String x:Key="FemMeshSnapshot">Сетка конечных элементов</system:String>
     <system:String x:Key="FemMeshElements">Элементы</system:String>
+    <system:String x:Key="FemMeshBars">Стержни</system:String>
+    <system:String x:Key="FemMeshShells">Пластины</system:String>
+    <system:String x:Key="FemMeshSourceNodeTag">Исходный узел</system:String>
+    <system:String x:Key="FemMeshSourceMemberTag">Исходный элемент</system:String>
     <system:String x:Key="Fem3DDrawingFlags">Флаги рисования</system:String>
     <system:String x:Key="Fem3DShowSupports">Закрепления</system:String>
     <system:String x:Key="Fem3DShowLoads">Нагрузки</system:String>

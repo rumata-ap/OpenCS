@@ -1432,6 +1432,10 @@
     <system:String x:Key="FemDiscretizeTargetLength">Target mesh element length, m</system:String>
     <system:String x:Key="FemMeshSnapshot">Finite Element Mesh</system:String>
     <system:String x:Key="FemMeshElements">Elements</system:String>
+    <system:String x:Key="FemMeshBars">Bars</system:String>
+    <system:String x:Key="FemMeshShells">Shells</system:String>
+    <system:String x:Key="FemMeshSourceNodeTag">Source Node</system:String>
+    <system:String x:Key="FemMeshSourceMemberTag">Source Element</system:String>
     <system:String x:Key="Fem3DDrawingFlags">Drawing flags</system:String>
     <system:String x:Key="Fem3DShowSupports">Supports</system:String>
     <system:String x:Key="Fem3DShowLoads">Loads</system:String>
