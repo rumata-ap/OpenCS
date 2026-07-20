@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using HelixToolkit.Wpf;
 using OpenCS.ViewModels;
+using OpenCS.Views.Helpers;
 
 namespace OpenCS.Views;
 
@@ -28,7 +29,6 @@ public partial class FemSchemaView3D : UserControl
     LinesVisual3D?  _shellEdgesVisual;
     LinesVisual3D?  _meshVisual;
     LinesVisual3D?  _meshNodeGlyphVisual;
-    bool _meshRenderQueued;
 
     readonly Dictionary<Visual3D, (bool IsNode, string Tag)> _pickTargets = new();
     PointsVisual3D? _editNodesVisual;
@@ -276,9 +276,6 @@ public partial class FemSchemaView3D : UserControl
             ? new LinesVisual3D { Points = edgePts, Color = Colors.DimGray, Thickness = 0.5 }
             : null;
 
-        if (showShellEdgesCheck.IsChecked == true && _shellEdgesVisual != null)
-            viewport.Children.Add(_shellEdgesVisual);
-
         // В режиме редактирования узлы рисуются как сферы в BuildEditProxies (заодно кликабельные);
         // плоский PointsVisual3D (квадратные спрайты) — только для режима просмотра.
         if (VM.EditMode)
@@ -300,7 +297,7 @@ public partial class FemSchemaView3D : UserControl
 
         BuildDiagramGlyphs();
         BuildEditProxies();
-        AddMeshVisuals();
+        ApplyGridVisuals();
         UpdateGroundPlane();
     }
 
@@ -535,13 +532,17 @@ public partial class FemSchemaView3D : UserControl
         _rubberBandVisual.Points = new Point3DCollection([firstNode.Position, endPoint]);
     }
 
-    void ShellEdgesToggle(object sender, RoutedEventArgs e)
+    void GridToggle(object sender, RoutedEventArgs e)
+        => ApplyGridVisuals();
+
+    void ApplyGridVisuals()
     {
-        if (_shellEdgesVisual == null) return;
-        if (showShellEdgesCheck.IsChecked == true)
-            viewport.Children.Add(_shellEdgesVisual);
-        else
-            viewport.Children.Remove(_shellEdgesVisual);
+        FemGridVisuals.Apply(
+            viewport.Children,
+            showGridCheck.IsChecked == true,
+            _shellEdgesVisual,
+            _meshVisual,
+            _meshNodeGlyphVisual);
     }
 
     void NodesToggle(object sender, RoutedEventArgs e)
@@ -560,27 +561,8 @@ public partial class FemSchemaView3D : UserControl
             viewport.Children.Remove(_nodesVisual);
     }
 
-    void MeshToggle(object sender, RoutedEventArgs e)
-    {
-        if (_meshRenderQueued) return;
-        _meshRenderQueued = true;
-        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, new Action(() =>
-        {
-            _meshRenderQueued = false;
-            BuildVisuals();
-        }));
-    }
-
-    /// <summary>Добавляет расчётную сетку последней, поверх прокси редактирования исходной схемы.</summary>
-    void AddMeshVisuals()
-    {
-        if (showMeshCheck.IsChecked != true) return;
-        if (_meshVisual != null) viewport.Children.Add(_meshVisual);
-        if (_meshNodeGlyphVisual != null) viewport.Children.Add(_meshNodeGlyphVisual);
-    }
-
-    /// <summary>Включает показ сохранённой расчётной сетки.</summary>
-    public void ShowMeshOverlay() => showMeshCheck.IsChecked = true;
+    /// <summary>Включает общий показ сетки после построения расчётной сетки.</summary>
+    public void ShowMeshOverlay() => showGridCheck.IsChecked = true;
 
     void ZoomExtents_Click(object sender, RoutedEventArgs e)
         => viewport.ZoomExtents(500);

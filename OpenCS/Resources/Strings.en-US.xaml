@@ -1427,10 +1427,9 @@
     <system:String x:Key="Fem3DColorBySection">Color by stiffness</system:String>
     <system:String x:Key="Fem3DNoData">No data to display. Import schema topology first.</system:String>
     <system:String x:Key="Fem3DShowNodes">Nodes</system:String>
-    <system:String x:Key="Fem3DShowShellEdges">FE mesh</system:String>
+    <system:String x:Key="Fem3DShowGrid">Grid</system:String>
     <system:String x:Key="FemDiscretize">Discretize</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Target mesh element length, m</system:String>
-    <system:String x:Key="Fem3DShowMesh">Bar mesh</system:String>
     <system:String x:Key="FemMeshSnapshot">Analysis mesh</system:String>
     <system:String x:Key="Fem3DDrawingFlags">Drawing flags</system:String>
     <system:String x:Key="Fem3DShowSupports">Supports</system:String>

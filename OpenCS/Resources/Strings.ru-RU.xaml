@@ -1430,10 +1430,9 @@
     <system:String x:Key="Fem3DColorBySection">Цвет по жёсткости</system:String>
     <system:String x:Key="Fem3DNoData">Нет данных для отображения. Импортируйте топологию схемы.</system:String>
     <system:String x:Key="Fem3DShowNodes">Узлы</system:String>
-    <system:String x:Key="Fem3DShowShellEdges">Сетка КЭ</system:String>
+    <system:String x:Key="Fem3DShowGrid">Сетка</system:String>
     <system:String x:Key="FemDiscretize">Дискретизировать</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Целевая длина КЭ, м</system:String>
-    <system:String x:Key="Fem3DShowMesh">Сетка стержней</system:String>
     <system:String x:Key="FemMeshSnapshot">Расчётная сетка</system:String>
     <system:String x:Key="Fem3DDrawingFlags">Флаги рисования</system:String>
     <system:String x:Key="Fem3DShowSupports">Закрепления</system:String>
