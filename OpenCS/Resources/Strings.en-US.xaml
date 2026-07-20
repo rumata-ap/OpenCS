@@ -1488,6 +1488,7 @@
     <system:String x:Key="FemSaveSchema">Save schema</system:String>
     <system:String x:Key="FemMemberSection">Cross-section</system:String>
     <system:String x:Key="FemMemberGjStrategy">Torsional stiffness (GJ)</system:String>
+    <system:String x:Key="FemMemberRotationDeg">Section rotation angle, °</system:String>
     <system:String x:Key="FemGjManual">Manual</system:String>
     <system:String x:Key="FemGjSaintVenant">From torsion task (Saint-Venant)</system:String>
     <system:String x:Key="FemCreateMemberFromSelection">Create member from selection</system:String>

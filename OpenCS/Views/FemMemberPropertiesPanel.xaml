@@ -20,5 +20,8 @@
         <ComboBox ItemsSource="{Binding SelectedMemberTorsionTasks}"
                   SelectedItem="{Binding SelectedMemberTorsionTask}"
                   DisplayMemberPath="Tag" Margin="16,2,0,0"/>
+
+        <TextBlock Text="{DynamicResource FemMemberRotationDeg}" Margin="0,12,0,4"/>
+        <TextBox Text="{Binding SelectedMemberRotationDeg, UpdateSourceTrigger=LostFocus}"/>
     </StackPanel>
 </UserControl>
