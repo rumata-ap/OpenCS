@@ -3450,6 +3450,42 @@ namespace OpenCS.Utilites
       }
 
       /// <summary>
+      /// Атомарно заменяет группы конструктивных элементов схемы, не затрагивая узлы/элементы —
+      /// используется импортом топологии напрямую в сетку (SaveFemMeshSnapshot), где узлы и
+      /// элементы конструктивного слоя (fem_nodes/fem_members) не участвуют.
+      /// </summary>
+      public void SaveFemMemberGroups(int schemaId, IReadOnlyList<CScore.Fem.FemMemberGroup> memberGroups)
+      {
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using (var delCmd = _connection.CreateCommand())
+            {
+               delCmd.CommandText = "DELETE FROM fem_member_groups WHERE schema_id=@sid";
+               delCmd.Parameters.AddWithValue("@sid", schemaId);
+               delCmd.ExecuteNonQuery();
+            }
+
+            foreach (var g in memberGroups)
+            {
+               g.Id = 0;
+               SaveFemMemberGroupCore(g, schemaId);
+            }
+
+            var schema = FemSchemas.FirstOrDefault(s => s.Id == schemaId);
+            if (schema != null)
+            {
+               schema.MemberGroups.Clear();
+               foreach (var g in memberGroups.Where(g => g.SchemaId == schemaId))
+                  schema.MemberGroups.Add(g);
+            }
+
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      /// <summary>
       /// Атомарно заменяет узлы, элементы, члены, загружения и узловые нагрузки схемы
       /// слепком из FemSchemaEditSession. В отличие от SaveFemTopology, не консервирует
       /// старые нагрузки по тегу — сессия уже несёт актуальный набор.
