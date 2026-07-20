@@ -38,6 +38,11 @@ public class FemMember : IFemCheckable
     /// <summary>JSON-сериализация FemDesignParams для проверки этого элемента напрямую (без группы).</summary>
     public string? DesignParamsJson { get; set; }
 
+    /// <summary>Угол поворота локальных осей Y/Z стержня вокруг его продольной оси (β-угол),
+    /// градусы. 0 — автоматический выбор ориентации (см. FemLocalAxis.Vecxz), положительный
+    /// угол — поворот по правилу правой руки вокруг локальной X (от узла I к узлу J).</summary>
+    public double RotationDeg { get; set; }
+
     string IFemCheckable.Tag => ElemTag;
 
     int[]? _nodeIds;
