@@ -3202,41 +3202,68 @@ namespace OpenCS
          check ??= currentFemCheck;
          if (check == null) return;
 
-         var member = FemSchemas.SelectMany(s => s.MemberGroups).FirstOrDefault(m => m.Id == check.MemberId);
-         if (member == null) { LogService.Warning($"FemCheck #{check.Id}: конструктивный элемент не найден"); return; }
-
+         CScore.Fem.IFemCheckable? target = null;
          CrossSection? barSection = null;
          PlateSection? plateSection = null;
-
          CScore.Material? concreteMat = null;
          CScore.Material? rebarMat    = null;
+         List<CScore.ForceSet> targetForceSets;
 
-         if (check.NormCode == "rc_plate_check")
+         if (check.TargetsElement)
          {
-            plateSection = PlateSections.FirstOrDefault(s => s.Id == member.PlateSectionId);
-            if (plateSection != null)
+            var element = db.GetFemMembers(check.SchemaId).FirstOrDefault(e => e.Id == check.ElementId);
+            if (element == null) { LogService.Warning($"FemCheck #{check.Id}: конструктивный элемент не найден"); return; }
+            target = element;
+
+            if (check.NormCode == "rc_plate_check")
             {
-               concreteMat = Materials.FirstOrDefault(m => m.Id == plateSection.ConcreteMaterialId);
-               rebarMat    = Materials.FirstOrDefault(m => m.Id == plateSection.RebarMaterialId);
+               plateSection = PlateSections.FirstOrDefault(s => s.Id == element.PlateSectionId);
+               if (plateSection != null)
+               {
+                  concreteMat = Materials.FirstOrDefault(m => m.Id == plateSection.ConcreteMaterialId);
+                  rebarMat    = Materials.FirstOrDefault(m => m.Id == plateSection.RebarMaterialId);
+               }
             }
+            else
+            {
+               barSection = CrossSections.FirstOrDefault(s => s.Id == element.CrossSectionId);
+            }
+
+            targetForceSets = ForceSets.Where(f => f.SourceElementId == element.Id).ToList();
          }
          else
          {
-            // CrossSectionId теперь собственное поле каждого конструктивного FemMember, а не группы
-            // (см. docs/superpowers/specs/2026-07-17-fem-constructive-member-editor-design.md) — берём
-            // сечение первого элемента группы, у которого оно назначено.
-            var groupMemberTags = System.Text.Json.JsonSerializer.Deserialize<int[]>(member.MemberTagsJson) ?? [];
-            var primaryCrossSectionId = db.GetFemMembers(member.SchemaId)
-               .Where(e => int.TryParse(e.ElemTag, out var t) && groupMemberTags.Contains(t))
-               .Select(e => e.CrossSectionId)
-               .FirstOrDefault(id => id != null);
-            barSection = CrossSections.FirstOrDefault(s => s.Id == primaryCrossSectionId);
+            var group = FemSchemas.SelectMany(s => s.MemberGroups).FirstOrDefault(m => m.Id == check.MemberId);
+            if (group == null) { LogService.Warning($"FemCheck #{check.Id}: конструктивный элемент не найден"); return; }
+            target = group;
+
+            if (check.NormCode == "rc_plate_check")
+            {
+               plateSection = PlateSections.FirstOrDefault(s => s.Id == group.PlateSectionId);
+               if (plateSection != null)
+               {
+                  concreteMat = Materials.FirstOrDefault(m => m.Id == plateSection.ConcreteMaterialId);
+                  rebarMat    = Materials.FirstOrDefault(m => m.Id == plateSection.RebarMaterialId);
+               }
+            }
+            else
+            {
+               // CrossSectionId — собственное поле каждого конструктивного FemMember, а не группы
+               // (см. docs/superpowers/specs/2026-07-17-fem-constructive-member-editor-design.md) — берём
+               // сечение первого элемента группы, у которого оно назначено.
+               var groupMemberTags = System.Text.Json.JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [];
+               var primaryCrossSectionId = db.GetFemMembers(group.SchemaId)
+                  .Where(e => int.TryParse(e.ElemTag, out var t) && groupMemberTags.Contains(t))
+                  .Select(e => e.CrossSectionId)
+                  .FirstOrDefault(id => id != null);
+               barSection = CrossSections.FirstOrDefault(s => s.Id == primaryCrossSectionId);
+            }
+
+            targetForceSets = ForceSets.Where(f => f.SourceMemberId == group.Id).ToList();
          }
 
-         var memberForceSets = ForceSets.Where(f => f.SourceMemberId == member.Id).ToList();
-
          var result = CScore.Fem.FemCheckRunner.RunMulti(
-            check, member, barSection, plateSection, memberForceSets,
+            check, target, barSection, plateSection, targetForceSets,
             (task, sect, item) => TaskRunner.Run(task, sect, item),
             concreteMat, rebarMat);
 
