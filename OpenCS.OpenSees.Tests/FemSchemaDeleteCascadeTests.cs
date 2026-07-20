@@ -95,3 +95,45 @@ public sealed class FemSchemaDeleteCascadeTests
         if (File.Exists(path)) File.Delete(path);
     }
 }
+
+public sealed class ForceSetDeleteCascadeTests
+{
+    [Fact]
+    public void DeleteForceSet_RemovesItemsAndShellItems()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-force-set-delete-{Guid.NewGuid():N}.db");
+        try
+        {
+            int setId;
+            using (var db = new DatabaseService(path))
+            {
+                var fs = new global::CScore.ForceSet { Tag = "РСН 1", Kind = "shell" };
+                fs.Items.Add(new global::CScore.LoadItem { Label = "1", N = 10 });
+                fs.ShellItems.Add(new global::CScore.ShellLoadItem { Label = "1", Nx = 5 });
+                db.SaveForceSet(fs);
+                setId = fs.Id;
+
+                Assert.True(CountRows(path, "force_items", setId) > 0);
+                Assert.True(CountRows(path, "force_shell_items", setId) > 0);
+
+                db.DeleteForceSet(fs);
+            }
+
+            Assert.Equal(0, CountRows(path, "force_items", setId));
+            Assert.Equal(0, CountRows(path, "force_shell_items", setId));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    static int CountRows(string path, string table, int setId)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT COUNT(*) FROM {table} WHERE set_id = {setId}";
+        return (int)(long)command.ExecuteScalar()!;
+    }
+}

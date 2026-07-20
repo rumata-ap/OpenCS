@@ -2046,13 +2046,27 @@ namespace OpenCS.Utilites
          fs.IsModified = false;
       }
 
+      /// <summary>
+      /// Удаляет набор усилий и его строки (force_items/force_shell_items) вручную — как и
+      /// у DeleteFemSchema, ON DELETE CASCADE не выполняется при PRAGMA foreign_keys=OFF.
+      /// </summary>
       public void DeleteForceSet(ForceSet fs)
       {
          if (fs.Id == 0) return;
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM force_sets WHERE id = @id";
-         cmd.Parameters.AddWithValue("@id", fs.Id);
-         cmd.ExecuteNonQuery();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               DELETE FROM force_items       WHERE set_id=@id;
+               DELETE FROM force_shell_items WHERE set_id=@id;
+               DELETE FROM force_sets        WHERE id=@id;
+            """;
+            cmd.Parameters.AddWithValue("@id", fs.Id);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
          ForceSets.Remove(fs);
       }
 
