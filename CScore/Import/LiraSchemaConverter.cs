@@ -67,6 +67,62 @@ public static class LiraSchemaConverter
             .ToArray();
 
     /// <summary>
+    /// Создаёт узлы КЭ-сетки напрямую из данных ЛираСАПР — модель Лиры уже является готовой
+    /// сеткой, поэтому импорт минует конструктивный слой (FemNode/FemMember) и не требует
+    /// последующей дискретизации.
+    /// </summary>
+    public static FemMeshNode[] ToFemMeshNodes(LiraSchemaData data, int schemaId)
+        => data.Nodes
+            .Select(n => new FemMeshNode
+            {
+                SchemaId = schemaId,
+                NodeTag  = n.Id.ToString(),
+                X        = n.X,
+                Y        = n.Y,
+                Z        = n.Z,
+            })
+            .ToArray();
+
+    /// <summary>Создаёт 2-узловые стержневые элементы КЭ-сетки напрямую из данных ЛираСАПР.</summary>
+    public static FemElement[] ToFemMeshBarElements(LiraSchemaData data, int schemaId)
+        => data.Elements
+            .Where(e => e.NodeIds.Length == 2)
+            .Select(e =>
+            {
+                var stiff = data.BarStiffnesses.FirstOrDefault(s => s.Id == e.StiffnessId);
+                var tag   = stiff?.Name ?? (e.StiffnessId > 0 ? e.StiffnessId.ToString() : null);
+                return new FemElement
+                {
+                    SchemaId    = schemaId,
+                    ElemTag     = e.Id.ToString(),
+                    ElemType    = "beam",
+                    NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
+                    SectionTag  = tag,
+                };
+            })
+            .ToArray();
+
+    /// <summary>Создаёт 3/4-узловые пластинчатые элементы КЭ-сетки напрямую из данных ЛираСАПР.</summary>
+    public static FemElement[] ToFemMeshShellElements(LiraSchemaData data, int schemaId)
+        => data.Elements
+            .Where(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4)
+            .Select(e =>
+            {
+                var stiff = data.PlateStiffnesses.FirstOrDefault(s => s.Id == e.StiffnessId);
+                var tag   = stiff?.Name ?? (e.StiffnessId > 0 ? e.StiffnessId.ToString() : null);
+                return new FemElement
+                {
+                    SchemaId    = schemaId,
+                    ElemTag     = e.Id.ToString(),
+                    ElemType    = "shell",
+                    NodeIdsJson = JsonSerializer.Serialize(e.NodeIds),
+                    SectionTag  = tag,
+                    ThicknessM  = stiff?.H_mm is { } h ? h / 1000.0 : null,
+                };
+            })
+            .ToArray();
+
+    /// <summary>
     /// Создаёт FemMemberGroup для каждого уникального ID жёсткости стержней.
     /// Tag = имя жёсткости из CSV; MemberTagsJson = все элементы данной жёсткости.
     /// </summary>
