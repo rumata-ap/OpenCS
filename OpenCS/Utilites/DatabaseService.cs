@@ -1472,13 +1472,25 @@ namespace OpenCS.Utilites
             MaterialAreas.Add(area);
       }
 
+      /// <summary>Удаляет область и её волокна (point_fibers/mesh_fibers) — те же ON DELETE
+      /// CASCADE в схеме, не выполняющиеся при PRAGMA foreign_keys=OFF (см. DeleteFemSchema).</summary>
       public void DeleteMaterialArea(MaterialArea area)
       {
          if (area.Id == 0) { MaterialAreas.Remove(area); return; }
-         var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM material_areas WHERE id = @id";
-         cmd.Parameters.AddWithValue("@id", area.Id);
-         cmd.ExecuteNonQuery();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               DELETE FROM point_fibers   WHERE area_id=@id;
+               DELETE FROM mesh_fibers    WHERE area_id=@id;
+               DELETE FROM material_areas WHERE id=@id;
+            """;
+            cmd.Parameters.AddWithValue("@id", area.Id);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
          MaterialAreas.Remove(area);
       }
 
@@ -1826,13 +1838,26 @@ namespace OpenCS.Utilites
          }
       }
 
+      /// <summary>Удаляет сечение и его дочерние строки (те же ON DELETE CASCADE в схеме, что
+      /// не выполняются при PRAGMA foreign_keys=OFF — см. DeleteFemSchema).</summary>
       public void DeleteCrossSection(CrossSection section)
       {
          if (section.Id == 0) return;
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM cross_sections WHERE id = @id";
-         cmd.Parameters.AddWithValue("@id", section.Id);
-         cmd.ExecuteNonQuery();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               DELETE FROM cross_section_stages           WHERE section_id=@id;
+               DELETE FROM cross_section_stage_kurvature   WHERE section_id=@id;
+               DELETE FROM cross_section_areas             WHERE section_id=@id;
+               DELETE FROM cross_sections                  WHERE id=@id;
+            """;
+            cmd.Parameters.AddWithValue("@id", section.Id);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
          CrossSections.Remove(section);
       }
 
@@ -2364,13 +2389,27 @@ namespace OpenCS.Utilites
       /// <summary>
       /// Удаляет огневое сечение по идентификатору.
       /// </summary>
+      /// <summary>Удаляет огневое сечение и его дочерние строки (fire_section_edges — рёбра
+      /// граничных условий, fire_thermal_results — BLOB'ы результатов теплового расчёта, могут
+      /// быть объёмными). Те же ON DELETE CASCADE в схеме, не выполняющиеся при
+      /// PRAGMA foreign_keys=OFF (см. DeleteFemSchema).</summary>
       public void DeleteFireSection(int id)
       {
          if (id == 0) return;
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM fire_sections WHERE id=@id";
-         cmd.Parameters.AddWithValue("@id", id);
-         cmd.ExecuteNonQuery();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               DELETE FROM fire_section_edges   WHERE fire_section_id=@id;
+               DELETE FROM fire_thermal_results WHERE fire_section_id=@id;
+               DELETE FROM fire_sections        WHERE id=@id;
+            """;
+            cmd.Parameters.AddWithValue("@id", id);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
          var existing = FireSections.FirstOrDefault(x => x.Id == id);
          if (existing != null) FireSections.Remove(existing);
       }

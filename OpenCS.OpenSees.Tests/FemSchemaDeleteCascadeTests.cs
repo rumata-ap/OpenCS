@@ -230,3 +230,183 @@ public sealed class CalcTaskDeleteCascadeTests
         return (int)(long)command.ExecuteScalar()!;
     }
 }
+
+public sealed class CrossSectionDeleteCascadeTests
+{
+    [Fact]
+    public void DeleteCrossSection_RemovesStagesKurvatureAndAreaLinks()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-cross-section-delete-{Guid.NewGuid():N}.db");
+        try
+        {
+            int sectionId;
+            using (var db = new DatabaseService(path))
+            {
+                sectionId = InsertReturningId(path, "INSERT INTO cross_sections DEFAULT VALUES");
+                int stage1Id = InsertReturningId(path, "INSERT INTO cross_sections DEFAULT VALUES");
+                int areaId = InsertReturningId(path, "INSERT INTO material_areas DEFAULT VALUES");
+
+                Exec(path, $"INSERT INTO cross_section_stages (section_id, stage1_section_id) VALUES ({sectionId}, {stage1Id})");
+                Exec(path, $"INSERT INTO cross_section_stage_kurvature (section_id) VALUES ({sectionId})");
+                Exec(path, $"INSERT INTO cross_section_areas (section_id, area_id) VALUES ({sectionId}, {areaId})");
+
+                Assert.True(CountWhere(path, "cross_section_stages", "section_id", sectionId) > 0);
+                Assert.True(CountWhere(path, "cross_section_stage_kurvature", "section_id", sectionId) > 0);
+                Assert.True(CountWhere(path, "cross_section_areas", "section_id", sectionId) > 0);
+
+                db.DeleteCrossSection(new global::CScore.CrossSection { Id = sectionId });
+            }
+
+            Assert.Equal(0, CountWhere(path, "cross_section_stages", "section_id", sectionId));
+            Assert.Equal(0, CountWhere(path, "cross_section_stage_kurvature", "section_id", sectionId));
+            Assert.Equal(0, CountWhere(path, "cross_section_areas", "section_id", sectionId));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    static int InsertReturningId(string path, string insertSql)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = insertSql + "; SELECT last_insert_rowid();";
+        return (int)(long)command.ExecuteScalar()!;
+    }
+
+    static void Exec(string path, string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+
+    static int CountWhere(string path, string table, string column, int value)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT COUNT(*) FROM {table} WHERE {column} = {value}";
+        return (int)(long)command.ExecuteScalar()!;
+    }
+}
+
+public sealed class MaterialAreaDeleteCascadeTests
+{
+    [Fact]
+    public void DeleteMaterialArea_RemovesPointAndMeshFibers()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-material-area-delete-{Guid.NewGuid():N}.db");
+        try
+        {
+            int areaId;
+            using (var db = new DatabaseService(path))
+            {
+                areaId = InsertReturningId(path, "INSERT INTO material_areas DEFAULT VALUES");
+                Exec(path, $"INSERT INTO point_fibers (area_id) VALUES ({areaId})");
+                Exec(path, $"INSERT INTO mesh_fibers (area_id) VALUES ({areaId})");
+
+                Assert.True(CountWhere(path, "point_fibers", "area_id", areaId) > 0);
+                Assert.True(CountWhere(path, "mesh_fibers", "area_id", areaId) > 0);
+
+                db.DeleteMaterialArea(new global::CScore.MaterialArea { Id = areaId });
+            }
+
+            Assert.Equal(0, CountWhere(path, "point_fibers", "area_id", areaId));
+            Assert.Equal(0, CountWhere(path, "mesh_fibers", "area_id", areaId));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    static int InsertReturningId(string path, string insertSql)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = insertSql + "; SELECT last_insert_rowid();";
+        return (int)(long)command.ExecuteScalar()!;
+    }
+
+    static void Exec(string path, string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+
+    static int CountWhere(string path, string table, string column, int value)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT COUNT(*) FROM {table} WHERE {column} = {value}";
+        return (int)(long)command.ExecuteScalar()!;
+    }
+}
+
+public sealed class FireSectionDeleteCascadeTests
+{
+    [Fact]
+    public void DeleteFireSection_RemovesEdgesAndThermalResults()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-fire-section-delete-{Guid.NewGuid():N}.db");
+        try
+        {
+            int fireSectionId;
+            using (var db = new DatabaseService(path))
+            {
+                fireSectionId = InsertReturningId(path, "INSERT INTO fire_sections DEFAULT VALUES");
+                Exec(path, $"INSERT INTO fire_section_edges (fire_section_id, edge_index) VALUES ({fireSectionId}, 0)");
+                Exec(path, $"INSERT INTO fire_thermal_results (fire_section_id, blob) VALUES ({fireSectionId}, X'00')");
+
+                Assert.True(CountWhere(path, "fire_section_edges", "fire_section_id", fireSectionId) > 0);
+                Assert.True(CountWhere(path, "fire_thermal_results", "fire_section_id", fireSectionId) > 0);
+
+                db.DeleteFireSection(fireSectionId);
+            }
+
+            Assert.Equal(0, CountWhere(path, "fire_section_edges", "fire_section_id", fireSectionId));
+            Assert.Equal(0, CountWhere(path, "fire_thermal_results", "fire_section_id", fireSectionId));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    static int InsertReturningId(string path, string insertSql)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = insertSql + "; SELECT last_insert_rowid();";
+        return (int)(long)command.ExecuteScalar()!;
+    }
+
+    static void Exec(string path, string sql)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+
+    static int CountWhere(string path, string table, string column, int value)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT COUNT(*) FROM {table} WHERE {column} = {value}";
+        return (int)(long)command.ExecuteScalar()!;
+    }
+}
