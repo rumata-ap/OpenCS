@@ -52,6 +52,34 @@ public static class FemCheckRunnerTests
         CheckStr("description пусто", d, "");
     }
 
+    public static void RunMultiAcceptsSingleElementTarget()
+    {
+        TestHarness.Section("FemCheckRunner: RunMulti принимает одиночный FemMember (без группы)");
+
+        var check = new FemCheck
+        {
+            SchemaId = 1,
+            ElementId = 42,
+            NormCode = "steel_check",
+            Tag = "Элемент 42 / steel_check",
+        };
+        var element = new FemMember
+        {
+            Id = 42,
+            SchemaId = 1,
+            ElemTag = "42",
+            ElemType = "beam",
+        };
+
+        var result = FemCheckRunner.RunMulti(
+            check, element, null, null, [],
+            (task, sect, item) => throw new InvalidOperationException("executor must not run: no force sets"));
+
+        CheckStr("статус — ошибка (нет наборов усилий)", result.Status, "error");
+        bool tagPresent = result.DataJson.Contains("\"42\"");
+        Console.WriteLine($"  [{(tagPresent ? "PASS" : "FAIL")}] DataJson содержит memberTag элемента: {result.DataJson}");
+    }
+
     /// <summary>
     /// Ручная проверка ComputeAcrcStrip для полосы B30/A500, Mx=50 кН·м/м.
     /// Эталон считаем вручную и сравниваем с допуском 0.1%.

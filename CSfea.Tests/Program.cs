@@ -89,6 +89,7 @@ FemCheckRunnerTests.RunExtractWorstDetailNoDetails();
 FemCheckRunnerTests.RunLayeredSlsAcrc();
 FemCheckRunnerTests.RunLayeredSlsThreeComponent();
 FemCheckRunnerTests.RunLayeredSlsLtFraction();
+FemCheckRunnerTests.RunMultiAcceptsSingleElementTarget();
 
 FemInfraTests.RunAll();
 
