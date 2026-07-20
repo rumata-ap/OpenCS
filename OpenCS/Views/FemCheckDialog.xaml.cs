@@ -32,6 +32,18 @@ public partial class FemCheckDialog : Window
     }
 }
 
+/// <summary>Обёртка над целью проверки для комбобокса диалога: либо группа (FemMemberGroup),
+/// либо одиночный конструктивный элемент (FemMember). Кладём оба варианта в один список,
+/// чтобы не плодить два выпадающих списка.</summary>
+public sealed class FemCheckTarget
+{
+    public required string Kind { get; init; } // "group" | "element"
+    public required int    Id   { get; init; }
+    public required string Tag  { get; init; }
+    public FemMemberGroup? Group   { get; init; }
+    public FemMember?      Element { get; init; }
+}
+
 public class FemCheckDialogVM : ViewModelBase
 {
     readonly AppViewModel _app;
@@ -39,7 +51,7 @@ public class FemCheckDialogVM : ViewModelBase
     readonly FemCheck?    _existing;
 
     public ObservableCollection<FemSchema> Schemas { get; }
-    public ObservableCollection<FemMemberGroup> Members { get; } = [];
+    public ObservableCollection<FemCheckTarget> Members { get; } = [];
     public ObservableCollection<ForceSet>  FilteredForceSets { get; } = [];
 
     FemSchema? _selectedSchema;
@@ -49,8 +61,8 @@ public class FemCheckDialogVM : ViewModelBase
         set { _selectedSchema = value; OnPropertyChanged(); RefreshMembers(); }
     }
 
-    FemMemberGroup? _selectedMember;
-    public FemMemberGroup? SelectedMember
+    FemCheckTarget? _selectedMember;
+    public FemCheckTarget? SelectedMember
     {
         get => _selectedMember;
         set { _selectedMember = value; OnPropertyChanged(); RefreshForceSets(); AutoFillTag(); }
@@ -189,7 +201,9 @@ public class FemCheckDialogVM : ViewModelBase
     void LoadFromExisting(FemCheck check)
     {
         SelectedSchema        = Schemas.FirstOrDefault(s => s.Id == check.SchemaId);
-        SelectedMember        = Members.FirstOrDefault(m => m.Id == check.MemberId);
+        SelectedMember        = check.TargetsElement
+            ? Members.FirstOrDefault(t => t.Kind == "element" && t.Id == check.ElementId)
+            : Members.FirstOrDefault(t => t.Kind == "group"   && t.Id == check.MemberId);
         SelectedNormCode      = NormCodes.FirstOrDefault(n => n.Code == check.NormCode) ?? NormCodes[0];
         SelectedCalcTypeOption = CalcTypeOptions.FirstOrDefault(o => o.Code == check.CalcTypeOverride)
                                  ?? CalcTypeOptions[0];
@@ -217,7 +231,10 @@ public class FemCheckDialogVM : ViewModelBase
     {
         Members.Clear();
         if (_selectedSchema == null) return;
-        foreach (var m in _selectedSchema.MemberGroups) Members.Add(m);
+        foreach (var g in _selectedSchema.MemberGroups)
+            Members.Add(new FemCheckTarget { Kind = "group", Id = g.Id, Tag = $"[Группа] {g.Tag}", Group = g });
+        foreach (var e in _app.GetFemMembers(_selectedSchema))
+            Members.Add(new FemCheckTarget { Kind = "element", Id = e.Id, Tag = $"[Элемент] {e.ElemTag}", Element = e });
         SelectedMember = Members.FirstOrDefault();
     }
 
@@ -225,7 +242,10 @@ public class FemCheckDialogVM : ViewModelBase
     {
         FilteredForceSets.Clear();
         if (_selectedMember == null) return;
-        foreach (var fs in _app.ForceSets.Where(f => f.SourceMemberId == _selectedMember.Id))
+        var matching = _selectedMember.Kind == "element"
+            ? _app.ForceSets.Where(f => f.SourceElementId == _selectedMember.Id)
+            : _app.ForceSets.Where(f => f.SourceMemberId == _selectedMember.Id);
+        foreach (var fs in matching)
             FilteredForceSets.Add(fs);
         if (AllSets) _setsBox.SelectAll();
     }
@@ -266,7 +286,8 @@ public class FemCheckDialogVM : ViewModelBase
 
         var check = _existing ?? new FemCheck();
         check.SchemaId         = _selectedSchema!.Id;
-        check.MemberId         = _selectedMember!.Id;
+        check.MemberId         = _selectedMember!.Kind == "group"   ? _selectedMember.Id : 0;
+        check.ElementId        = _selectedMember!.Kind == "element" ? _selectedMember.Id : null;
         check.NormCode         = _selectedNormCode?.Code ?? "steel_check";
         check.Tag              = string.IsNullOrWhiteSpace(Tag) ? $"{_selectedMember.Tag}/{check.NormCode}" : Tag;
         check.ForceSetIdsJson  = forceSetIdsJson;

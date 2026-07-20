@@ -3197,6 +3197,9 @@ namespace OpenCS
          db.SaveFemCheck(check);
       }
 
+      /// <summary>Возвращает конструктивные элементы схемы синхронно (для диалогов выбора цели проверки).</summary>
+      public List<CScore.Fem.FemMember> GetFemMembers(CScore.Fem.FemSchema schema) => db.GetFemMembers(schema.Id);
+
       void RunFemCheck(CScore.Fem.FemCheck? check)
       {
          check ??= currentFemCheck;
