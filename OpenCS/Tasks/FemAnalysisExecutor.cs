@@ -52,7 +52,7 @@ public static class FemAnalysisExecutor
 
         var parameters = FemAnalysisParams.Parse(analysis.ParamsJson);
         var executable = new OpenSeesExecutableResolver(Path.Combine(AppContext.BaseDirectory, "OpenSees.exe"))
-            .Resolve(parameters.ExecutablePath);
+            .Resolve(parameters.ExecutablePath ?? ResolveFromOpenSeesHome());
 
         var service = new FemLinearAnalysisService(
             new FemLinearTclGenerator(),
@@ -77,6 +77,15 @@ public static class FemAnalysisExecutor
             Status = output.Status,
             DataJson = output.DataJson
         };
+    }
+
+    /// <summary>Путь к OpenSees.exe из %OPENSEES_HOME%\bin, если он существует; иначе null.</summary>
+    static string? ResolveFromOpenSeesHome()
+    {
+        var home = Environment.GetEnvironmentVariable("OPENSEES_HOME");
+        if (string.IsNullOrWhiteSpace(home)) return null;
+        var candidate = Path.Combine(home, "bin", "OpenSees.exe");
+        return File.Exists(candidate) ? candidate : null;
     }
 
     static CalcResult Error(FemAnalysis analysis, string created, string message) => new()
