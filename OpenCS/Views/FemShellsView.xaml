@@ -4,6 +4,9 @@
    <DockPanel>
       <ToolBar DockPanel.Dock="Top">
          <Button Content="{DynamicResource FemGroupCreate}" Click="CreateGroup_Click"/>
+         <Separator/>
+         <Button Content="{DynamicResource FemCheckAdd}"
+                 Command="{Binding DataContext.AddFemCheckCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
       </ToolBar>
       <DataGrid x:Name="shellsGrid"
                 AutoGenerateColumns="False"

@@ -7,6 +7,9 @@
          <Separator/>
          <Button Content="{DynamicResource FemGroupCreate}" Click="CreateGroup_Click" Margin="4,0,4,0"/>
          <Button Content="{DynamicResource FemGroupAuto}"   Click="AutoGroup_Click"/>
+         <Separator/>
+         <Button Content="{DynamicResource FemCheckAdd}"
+                 Command="{Binding DataContext.AddFemCheckCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
       </ToolBar>
       <DataGrid x:Name="barsGrid"
                 AutoGenerateColumns="False"
