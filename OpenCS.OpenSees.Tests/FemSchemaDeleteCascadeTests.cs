@@ -187,3 +187,46 @@ public sealed class FemCheckDeleteCascadeTests
         return (int)(long)command.ExecuteScalar()!;
     }
 }
+
+public sealed class CalcTaskDeleteCascadeTests
+{
+    [Fact]
+    public void DeleteCalcTask_RemovesLinkedCalcResults()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-calc-task-delete-{Guid.NewGuid():N}.db");
+        try
+        {
+            int taskId;
+            using (var db = new DatabaseService(path))
+            {
+                var task = new global::CScore.CalcTask { Kind = "torsion_fem", Tag = "Задача 1" };
+                db.SaveCalcTask(task);
+                taskId = task.Id;
+
+                var r1 = new global::CScore.CalcResult { TaskId = taskId, TaskKind = "torsion_fem", TaskTag = "run1", Created = "now", Status = "ok", DataJson = "{}" };
+                db.SaveCalcResult(r1);
+                var r2 = new global::CScore.CalcResult { TaskId = taskId, TaskKind = "torsion_fem", TaskTag = "run2", Created = "now", Status = "ok", DataJson = "{}" };
+                db.SaveCalcResult(r2);
+
+                Assert.Equal(2, CountResultsByTask(path, taskId));
+
+                db.DeleteCalcTask(task);
+            }
+
+            Assert.Equal(0, CountResultsByTask(path, taskId));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    static int CountResultsByTask(string path, int taskId)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT COUNT(*) FROM calc_results WHERE task_id = {taskId}";
+        return (int)(long)command.ExecuteScalar()!;
+    }
+}

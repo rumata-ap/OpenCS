@@ -2524,15 +2524,26 @@ namespace OpenCS.Utilites
             cmd.ExecuteNonQuery();
       }
 
+      /// <summary>Удаляет задачу расчёта и её calc_results. В схеме БД для calc_results.task_id
+      /// не объявлен FK/ON DELETE CASCADE вовсе (и даже если бы был — PRAGMA foreign_keys=OFF
+      /// на соединении всё равно отключает каскад), поэтому удаление выполняется явно.</summary>
       public void DeleteCalcTask(CalcTask ct)
       {
          if (ct.Id == 0) { CalcTasks.Remove(ct); return; }
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM calc_tasks WHERE id=@id";
-         cmd.Parameters.AddWithValue("@id", ct.Id);
-         cmd.ExecuteNonQuery();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               DELETE FROM calc_results WHERE task_id=@id;
+               DELETE FROM calc_tasks   WHERE id=@id;
+            """;
+            cmd.Parameters.AddWithValue("@id", ct.Id);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
          CalcTasks.Remove(ct);
-         // Удаляем связанные результаты из коллекции (каскад в БД уже сработал)
          var toRemove = CalcResults.Where(r => r.TaskId == ct.Id).ToList();
          foreach (var r in toRemove) CalcResults.Remove(r);
       }
