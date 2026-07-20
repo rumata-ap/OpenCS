@@ -69,3 +69,16 @@ public sealed class SetMemberGjCommand(FemMember member, string strategy, double
         member.GjTorsionTaskId = _oldTaskId;
     }
 }
+
+public sealed class SetMemberRotationCommand(FemMember member, double rotationDeg) : IFemEditCommand
+{
+    double _old;
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _old = member.RotationDeg;
+        member.RotationDeg = rotationDeg;
+    }
+
+    public void Undo(FemSchemaEditSession session) => member.RotationDeg = _old;
+}

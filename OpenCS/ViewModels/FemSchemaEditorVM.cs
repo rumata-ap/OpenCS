@@ -61,6 +61,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             OnPropertyChanged(nameof(SelectedMemberGjIsSaintVenant));
             OnPropertyChanged(nameof(SelectedMemberGjManualValue));
             OnPropertyChanged(nameof(SelectedMemberTorsionTask));
+            OnPropertyChanged(nameof(SelectedMemberRotationDeg));
         }
     }
 
@@ -116,6 +117,20 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         {
             if (SelectedMember == null) return;
             Session.Execute(new SetMemberGjCommand(SelectedMember, "manual", value, null));
+            RefreshCollections();
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Угол поворота локальных осей выбранного стержня (β-угол), градусы.
+    /// Изменение проходит через SetMemberRotationCommand (undo/redo).</summary>
+    public double SelectedMemberRotationDeg
+    {
+        get => SelectedMember?.RotationDeg ?? 0;
+        set
+        {
+            if (SelectedMember == null) return;
+            Session.Execute(new SetMemberRotationCommand(SelectedMember, value));
             RefreshCollections();
             OnPropertyChanged();
         }
