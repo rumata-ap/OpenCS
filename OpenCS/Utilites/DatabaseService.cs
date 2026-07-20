@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-        const int CurrentSchemaVersion = 35;
+        const int CurrentSchemaVersion = 36;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -357,7 +357,8 @@ namespace OpenCS.Utilites
                 target_mesh_length_m REAL,
                 plate_section_id   INTEGER REFERENCES plate_sections(id),
                 force_set_id       INTEGER REFERENCES force_sets(id),
-                design_params_json TEXT
+                design_params_json TEXT,
+                rotation_deg       REAL NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS fem_mesh_nodes (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -502,6 +503,7 @@ namespace OpenCS.Utilites
                if (i == 32) { MigrateV33(); continue; }
                if (i == 33) { MigrateV34(); continue; }
                if (i == 34) { MigrateV35(); continue; }
+               if (i == 35) { MigrateV36(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -895,6 +897,13 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE fem_elements ADD COLUMN material_tag TEXT");
          if (!ColumnExists("fem_elements", "thickness_m"))
             MigExec("ALTER TABLE fem_elements ADD COLUMN thickness_m REAL");
+      }
+
+      /// <summary>Миграция v36: rotation_deg (β-угол локальных осей) в fem_members.</summary>
+      void MigrateV36()
+      {
+         if (!ColumnExists("fem_members", "rotation_deg"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN rotation_deg REAL NOT NULL DEFAULT 0");
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -3666,8 +3675,8 @@ namespace OpenCS.Utilites
                elemCmd.CommandText = """
                   INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                             cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
-                                            target_mesh_length_m)
-                  VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml);
+                                            target_mesh_length_m, rotation_deg)
+                  VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @rot);
                   SELECT last_insert_rowid();
                """;
                elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
@@ -3682,6 +3691,7 @@ namespace OpenCS.Utilites
                elemCmd.Parameters.Add("@gjv",  Microsoft.Data.Sqlite.SqliteType.Real);
                elemCmd.Parameters.Add("@gjt",  Microsoft.Data.Sqlite.SqliteType.Integer);
                elemCmd.Parameters.Add("@tml",  Microsoft.Data.Sqlite.SqliteType.Real);
+               elemCmd.Parameters.Add("@rot",  Microsoft.Data.Sqlite.SqliteType.Real);
                foreach (var e in members)
                {
                   elemCmd.Parameters["@sid"].Value   = schemaId;
@@ -3696,6 +3706,7 @@ namespace OpenCS.Utilites
                   elemCmd.Parameters["@gjv"].Value   = (object?)e.GjManualValue ?? DBNull.Value;
                   elemCmd.Parameters["@gjt"].Value   = (object?)e.GjTorsionTaskId ?? DBNull.Value;
                   elemCmd.Parameters["@tml"].Value   = (object?)e.TargetMeshLengthM ?? DBNull.Value;
+                  elemCmd.Parameters["@rot"].Value   = e.RotationDeg;
                   int newId = (int)(long)elemCmd.ExecuteScalar()!;
                   e.Id = newId;
                   e.SchemaId = schemaId;
@@ -3961,7 +3972,7 @@ namespace OpenCS.Utilites
       {
          var result = new List<CScore.Fem.FemMember>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m, plate_section_id, force_set_id, design_params_json FROM fem_members WHERE schema_id=@sid";
+         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg FROM fem_members WHERE schema_id=@sid";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var rdr = cmd.ExecuteReader();
          while (rdr.Read())
@@ -3983,6 +3994,7 @@ namespace OpenCS.Utilites
                PlateSectionId    = rdr.IsDBNull(12) ? null : rdr.GetInt32(12),
                ForceSetId        = rdr.IsDBNull(13) ? null : rdr.GetInt32(13),
                DesignParamsJson  = rdr.IsDBNull(14) ? null : rdr.GetString(14),
+               RotationDeg       = rdr.GetDouble(15),
             });
          return result;
       }
@@ -4214,8 +4226,8 @@ namespace OpenCS.Utilites
             cmd.CommandText = """
                INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                          cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
-                                         target_mesh_length_m, plate_section_id, force_set_id, design_params_json)
-               VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp);
+                                         target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg)
+               VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp, @rot);
                SELECT last_insert_rowid();
             """;
             cmd.Parameters.AddWithValue("@sid",   m.SchemaId);
@@ -4233,6 +4245,7 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@psid",  (object?)m.PlateSectionId   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@rot",   m.RotationDeg);
             m.Id = (int)(long)cmd.ExecuteScalar()!;
          }
          else
@@ -4241,7 +4254,7 @@ namespace OpenCS.Utilites
                UPDATE fem_members SET elem_tag=@tag, elem_type=@etype, node_ids_json=@nids, section_tag=@stag,
                material_tag=@mtag, thickness_m=@thk, cross_section_id=@csid, gj_strategy=@gjs, gj_manual_value=@gjv,
                gj_torsion_task_id=@gjt, target_mesh_length_m=@tml, plate_section_id=@psid, force_set_id=@fsid,
-               design_params_json=@dp
+               design_params_json=@dp, rotation_deg=@rot
                WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@tag",   m.ElemTag);
@@ -4258,6 +4271,7 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@psid",  (object?)m.PlateSectionId   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@rot",   m.RotationDeg);
             cmd.Parameters.AddWithValue("@id",    m.Id);
             cmd.ExecuteNonQuery();
          }
