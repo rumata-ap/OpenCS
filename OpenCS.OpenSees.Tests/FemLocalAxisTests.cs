@@ -41,4 +41,45 @@ public class FemLocalAxisTests
         var v = FemLocalAxis.Vecxz(N(1, 0, 0, 0), N(2, 0.01, 0.01, 4));
         Assert.Equal((1, 0, 0), v);
     }
+
+    /// <summary>
+    /// Горизонтальный вдоль X стержень: база vecxz=(0,0,1). Поворот вокруг локальной X
+    /// (=global X здесь) на 90° по правилу правой руки переводит (0,0,1) в (0,-1,0).
+    /// </summary>
+    [Fact]
+    public void Vecxz_HorizontalBar_Rotated90_ReturnsMinusGlobalY()
+    {
+        var (x, y, z) = FemLocalAxis.Vecxz(N(1, 0, 0, 0), N(2, 3, 0, 0), rotationDeg: 90);
+        Assert.Equal(0, x, 9);
+        Assert.Equal(-1, y, 9);
+        Assert.Equal(0, z, 9);
+    }
+
+    [Fact]
+    public void Vecxz_HorizontalBar_Rotated180_ReturnsMinusGlobalZ()
+    {
+        var (x, y, z) = FemLocalAxis.Vecxz(N(1, 0, 0, 0), N(2, 3, 0, 0), rotationDeg: 180);
+        Assert.Equal(0, x, 9);
+        Assert.Equal(0, y, 9);
+        Assert.Equal(-1, z, 9);
+    }
+
+    /// <summary>Вертикальный стержень: база vecxz=(1,0,0). Поворот на 90° вокруг локальной X
+    /// (=global Z здесь) переводит (1,0,0) в (0,1,0).</summary>
+    [Fact]
+    public void Vecxz_VerticalBar_Rotated90_ReturnsGlobalY()
+    {
+        var (x, y, z) = FemLocalAxis.Vecxz(N(1, 0, 0, 0), N(2, 0, 0, 4), rotationDeg: 90);
+        Assert.Equal(0, x, 9);
+        Assert.Equal(1, y, 9);
+        Assert.Equal(0, z, 9);
+    }
+
+    [Fact]
+    public void Vecxz_ZeroRotation_MatchesUnrotatedOverload()
+    {
+        var withDefault = FemLocalAxis.Vecxz(N(1, 0, 0, 0), N(2, 3, 0, 0));
+        var withZero = FemLocalAxis.Vecxz(N(1, 0, 0, 0), N(2, 3, 0, 0), rotationDeg: 0);
+        Assert.Equal(withDefault, withZero);
+    }
 }
