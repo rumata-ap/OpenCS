@@ -1301,6 +1301,54 @@
                      </StackPanel>
                   </DataTemplate>
 
+                  <!-- FemAnalysesSubNode -->
+                  <HierarchicalDataTemplate DataType="{x:Type vm:FemAnalysesSubNode}"
+                                            ItemsSource="{Binding Analyses}">
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemAnalysisCreate}"
+                                        Command="{Binding PlacementTarget.Tag.CreateFemAnalysisCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <TextBlock Text="{DynamicResource FemAnalysesNode}"/>
+                        <TextBlock Text=" (" Foreground="Gray"/>
+                        <TextBlock Text="{Binding Count}" Foreground="Gray"/>
+                        <TextBlock Text=")" Foreground="Gray"/>
+                     </StackPanel>
+                  </HierarchicalDataTemplate>
+
+                  <!-- FemAnalysis -->
+                  <DataTemplate DataType="{x:Type fem:FemAnalysis}">
+                     <StackPanel Orientation="Horizontal" Margin="2"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemAnalysisRun}"
+                                        Command="{Binding PlacementTarget.Tag.RunFemAnalysisCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
+                              <MenuItem Header="{DynamicResource FemAnalysisDelete}"
+                                        Command="{Binding PlacementTarget.Tag.DeleteFemAnalysisCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
+                        <Path Width="12" Height="12" Margin="0,0,4,0" Stretch="Uniform"
+                              Fill="#0E9F6E"
+                              Data="M4,12 H20 M12,4 V20"/>
+                        <TextBlock Text="{Binding Tag}"/>
+                        <TextBlock Text="{Binding Status, StringFormat='  [{0}]'}" Foreground="Gray"/>
+                     </StackPanel>
+                  </DataTemplate>
+
                </TreeView.Resources>
             </TreeView>
          </DockPanel>

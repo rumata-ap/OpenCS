@@ -1,0 +1,108 @@
+<UserControl x:Class="OpenCS.Views.FemAnalysisResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:h="clr-namespace:HelixToolkit.Wpf;assembly=HelixToolkit.Wpf">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TabControl Grid.Row="0">
+            <!-- 3D -->
+            <TabItem Header="{DynamicResource FemResultTab3D}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4">
+                        <TextBlock Text="{DynamicResource FemResultDeformScale}" VerticalAlignment="Center"/>
+                        <Slider x:Name="scaleSlider" Width="200" Minimum="0" Maximum="500"
+                                Value="{Binding DeformScale, Mode=TwoWay}" VerticalAlignment="Center" Margin="8,0"/>
+                        <TextBlock Text="{Binding DeformScale, StringFormat='×{0:0.###}'}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <h:HelixViewport3D x:Name="viewport" Grid.Row="1" Background="White"
+                                       ShowCoordinateSystem="True" ShowViewCube="True"
+                                       ZoomAroundMouseDownPoint="True"/>
+                </Grid>
+            </TabItem>
+
+            <!-- Перемещения -->
+            <TabItem Header="{DynamicResource FemResultTabDisp}">
+                <DataGrid ItemsSource="{Binding Displacements}" AutoGenerateColumns="False"
+                          IsReadOnly="True" CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding NodeTag}"/>
+                        <DataGridTextColumn Header="Ux" Binding="{Binding Ux, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Uy" Binding="{Binding Uy, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Uz" Binding="{Binding Uz, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Rx" Binding="{Binding Rx, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Ry" Binding="{Binding Ry, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Rz" Binding="{Binding Rz, StringFormat=G6}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <!-- Реакции -->
+            <TabItem Header="{DynamicResource FemResultTabReact}">
+                <DataGrid ItemsSource="{Binding Reactions}" AutoGenerateColumns="False"
+                          IsReadOnly="True" CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding NodeTag}"/>
+                        <DataGridTextColumn Header="Rx" Binding="{Binding Rx, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Ry" Binding="{Binding Ry, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Rz" Binding="{Binding Rz, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Mx" Binding="{Binding Mx, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="My" Binding="{Binding My, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Mz" Binding="{Binding Mz, StringFormat=G6}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <!-- Усилия -->
+            <TabItem Header="{DynamicResource FemResultTabForces}">
+                <DataGrid ItemsSource="{Binding ElementForces}" AutoGenerateColumns="False"
+                          IsReadOnly="True" CanUserAddRows="False">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource FemColElement}" Binding="{Binding ElemTag}"/>
+                        <DataGridTextColumn Header="N(i)"  Binding="{Binding Ni,  StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Qy(i)" Binding="{Binding Qyi, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Qz(i)" Binding="{Binding Qzi, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Mx(i)" Binding="{Binding Mxi, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="My(i)" Binding="{Binding Myi, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Mz(i)" Binding="{Binding Mzi, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="N(j)"  Binding="{Binding Nj,  StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Qy(j)" Binding="{Binding Qyj, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Qz(j)" Binding="{Binding Qzj, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Mx(j)" Binding="{Binding Mxj, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="My(j)" Binding="{Binding Myj, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="Mz(j)" Binding="{Binding Mzj, StringFormat=G6}"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
+
+        <!-- Статус и диагностика -->
+        <Border Grid.Row="1" BorderBrush="#DDD" BorderThickness="0,1,0,0" Padding="6">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{DynamicResource FemResultStatus}" FontWeight="Bold"/>
+                    <TextBlock Text="{Binding Status}" Margin="6,0,0,0"/>
+                </StackPanel>
+                <ItemsControl ItemsSource="{Binding Diagnostics}" Margin="0,4,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Foreground="#B00" TextWrapping="Wrap"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0"
+                            Visibility="{Binding HasArtifacts, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource FemResultArtifacts}" Foreground="Gray"/>
+                    <TextBlock Text="{Binding ArtifactDirectory}" Foreground="Gray" Margin="6,0,0,0"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

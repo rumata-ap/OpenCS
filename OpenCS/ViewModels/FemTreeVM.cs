@@ -124,6 +124,7 @@ class FemSchemaTreeVM
     internal FemElementsSubNode ElementsSubNode { get; }
     internal FemMeshSnapshotSubNode MeshSnapshotSubNode { get; }
     internal FemForcesSubNode   ForcesSubNode   { get; }
+    internal FemAnalysesSubNode AnalysesSubNode { get; }
 
     readonly DatabaseService _db;
 
@@ -137,6 +138,7 @@ class FemSchemaTreeVM
         ElementsSubNode = new FemElementsSubNode(this);
         MeshSnapshotSubNode = new FemMeshSnapshotSubNode(this);
         ForcesSubNode   = new FemForcesSubNode(schema, forceSets);
+        AnalysesSubNode = new FemAnalysesSubNode(schema);
 
         SubNodes =
         [
@@ -145,6 +147,7 @@ class FemSchemaTreeVM
             MeshSnapshotSubNode,
             new FemMembersSubNode(schema, schema.MemberGroups),
             ForcesSubNode,
+            AnalysesSubNode,
         ];
 
         RefreshCounts();
@@ -293,6 +296,24 @@ public class FemMembersSubNode : FemSubNode
     {
         Schema  = schema;
         Members = members;
+    }
+}
+
+/// <summary>Подузел «Расчёты OpenSees» — постановки линейного расчёта схемы.</summary>
+public class FemAnalysesSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    public FemSchema Schema { get; }
+    public ObservableCollection<FemAnalysis> Analyses { get; }
+    int _count;
+    public int Count { get => _count; private set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
+
+    public FemAnalysesSubNode(FemSchema schema)
+    {
+        Schema = schema;
+        Analyses = schema.Analyses;
+        Count = Analyses.Count;
+        Analyses.CollectionChanged += (_, __) => Count = Analyses.Count;
     }
 }
 

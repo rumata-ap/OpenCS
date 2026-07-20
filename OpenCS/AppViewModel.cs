@@ -431,6 +431,12 @@ namespace OpenCS
       public ICommand DeleteFemMemberCommand { get; set; } = null!;
       /// <summary>Команда добавления нормативной проверки к элементу.</summary>
       public ICommand AddFemCheckCommand     { get; set; } = null!;
+      /// <summary>Команда создания постановки линейного OpenSees-расчёта схемы.</summary>
+      public ICommand CreateFemAnalysisCommand { get; set; } = null!;
+      /// <summary>Команда запуска линейного OpenSees-расчёта схемы.</summary>
+      public ICommand RunFemAnalysisCommand    { get; set; } = null!;
+      /// <summary>Команда удаления постановки линейного расчёта.</summary>
+      public ICommand DeleteFemAnalysisCommand { get; set; } = null!;
       /// <summary>Команда запуска нормативной проверки.</summary>
       public ICommand RunFemCheckCommand     { get; set; } = null!;
       /// <summary>Команда редактирования нормативной проверки.</summary>
@@ -1161,6 +1167,9 @@ namespace OpenCS
          NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
          DeleteFemMemberCommand    = new RelayCommand(_ => DeleteFemMember());
          AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMemberGroup));
+         CreateFemAnalysisCommand = new RelayCommand(p => CreateFemAnalysis(p as CScore.Fem.FemSchema));
+         RunFemAnalysisCommand    = new RelayCommand(p => _ = RunFemAnalysis(p as CScore.Fem.FemAnalysis));
+         DeleteFemAnalysisCommand = new RelayCommand(p => DeleteFemAnalysis(p as CScore.Fem.FemAnalysis));
          RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
          EditFemCheckCommand       = new RelayCommand(p => EditFemCheck(p as CScore.Fem.FemCheck));
          DeleteFemCheckCommand     = new RelayCommand(p => DeleteFemCheck(p as CScore.Fem.FemCheck));
@@ -3183,6 +3192,61 @@ namespace OpenCS
          CurrentFemCheck = check;
          CurrentPage = new Views.FemCheckResultView(result);
          LogService.Info($"FemCheck «{check.DisplayTag}»: {result.Status}");
+      }
+
+      void CreateFemAnalysis(CScore.Fem.FemSchema? schema)
+      {
+         schema ??= currentFemSchema;
+         if (schema == null) return;
+         var dlg = new Views.FemAnalysisDialog(schema)
+         {
+            Owner = System.Windows.Application.Current.MainWindow
+         };
+         if (dlg.ShowDialog() != true) return;
+         var analysis = dlg.Result;
+         analysis.SchemaId = schema.Id;
+         db.SaveFemAnalysis(analysis);   // добавит в schema.Analyses
+      }
+
+      async Task RunFemAnalysis(CScore.Fem.FemAnalysis? analysis)
+      {
+         if (analysis == null || IsBusy) return;
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
+         if (schema == null) return;
+
+         var cts = BeginBusyWithCancellation(
+            string.Format(Loc.S("FemAnalysisRunning"), analysis.Tag), indeterminate: true);
+         analysis.Status = "running";
+         db.SaveFemAnalysis(analysis);
+         try
+         {
+            var result = await Tasks.FemAnalysisExecutor.RunAsync(this, schema, analysis, cts.Token);
+            db.SaveCalcResult(result);
+            analysis.ResultId = result.Id;
+            analysis.Status   = result.Status;
+            db.SaveFemAnalysis(analysis);
+            CurrentPage = new Views.FemAnalysisResultView(result, this, schema);
+            EndBusy(string.Format(Loc.S("FemAnalysisDone"), analysis.Tag));
+         }
+         catch (OperationCanceledException)
+         {
+            analysis.Status = "cancelled";
+            db.SaveFemAnalysis(analysis);
+            EndBusy(Loc.S("CalcTaskCancelled"));
+         }
+         catch (Exception ex)
+         {
+            analysis.Status = "error";
+            db.SaveFemAnalysis(analysis);
+            EndBusy();
+            LogService.Error(ex.Message);
+         }
+      }
+
+      void DeleteFemAnalysis(CScore.Fem.FemAnalysis? analysis)
+      {
+         if (analysis == null) return;
+         db.DeleteFemAnalysis(analysis);
       }
 
       void DeleteFemCheck(CScore.Fem.FemCheck? check = null)
