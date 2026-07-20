@@ -30,6 +30,14 @@ public class FemMember
     /// <summary>Целевая длина элемента сетки при дискретизации, м. Null означает значение по умолчанию.</summary>
     public double? TargetMeshLengthM { get; set; }
 
+    /// <summary>FK → plate_sections.id. Сечение для нормативной проверки этого элемента напрямую
+    /// (без группы) — актуально для пластин.</summary>
+    public int?    PlateSectionId   { get; set; }
+    /// <summary>FK → force_sets.id. Набор усилий, назначенный этому элементу напрямую.</summary>
+    public int?    ForceSetId       { get; set; }
+    /// <summary>JSON-сериализация FemDesignParams для проверки этого элемента напрямую (без группы).</summary>
+    public string? DesignParamsJson { get; set; }
+
     int[]? _nodeIds;
     int[] NodeIds => _nodeIds ??= JsonSerializer.Deserialize<int[]>(NodeIdsJson) ?? [];
 
