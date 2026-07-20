@@ -362,14 +362,14 @@ public partial class FemSchemaView3D : UserControl
 
     void DrawForce(Point3D node, Vector3D direction, Vector3D side, Vector3D up)
     {
-        var tip = node + direction * 0.16;
-        var tail = node + direction * 0.72;
+        var tip = node - direction * 0.16;
+        var tail = node - direction * 0.72;
         AddGlyphLines(Colors.Crimson, 2.5,
             [tail, tip,
-             tip, tip + direction * 0.18 + side * 0.11,
-             tip, tip + direction * 0.18 - side * 0.11,
-             tip, tip + direction * 0.18 + up * 0.11,
-             tip, tip + direction * 0.18 - up * 0.11]);
+             tip, tip - direction * 0.18 + side * 0.11,
+             tip, tip - direction * 0.18 - side * 0.11,
+             tip, tip - direction * 0.18 + up * 0.11,
+             tip, tip - direction * 0.18 - up * 0.11]);
     }
 
     void DrawMoment(Point3D node, Vector3D axis, Vector3D side, Vector3D up)

@@ -23,6 +23,12 @@ Developer is always on Windows. **Use the PowerShell tool, not Bash**, for all c
 
 **`dotnet build` always runs without confirmation** — never ask before running any `dotnet build *` command. It is safe, read-only from a project state perspective, and is the only verification step in this project.
 
+## Execution Mode
+
+**Все планы выполняются InLine** (в текущей сессии, основным агентом) по умолчанию.
+Субагенты (parallel dispatch, workflows, actor) используются **только** когда пользователь явно об этом просит (например: «запусти через субагентов», «сделай параллельно», «используй workflows»).
+Не предлагать субагентов самопроизвольно — даже для больших планов.
+
 ## Two computers / local vs remote Git (обязательно читать в начале сессии)
 
 Developer works on **two PCs**. Each machine has its **own local git clone**. Synology Drive (or any file sync) must **not** be the source of truth for this repo — it previously caused “vanished” features when histories diverged while files looked present.

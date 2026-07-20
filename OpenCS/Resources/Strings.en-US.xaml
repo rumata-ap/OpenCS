@@ -843,6 +843,12 @@
    <system:String x:Key="CalcTaskNeedForceItem">No force set or force row selected.</system:String>
    <system:String x:Key="CalcTaskSectionNotFound">Task section not found in project.</system:String>
    <system:String x:Key="CalcTaskForceItemNotFound">Task force row not found in project.</system:String>
+    <system:String x:Key="FemResetScale">Reset scale</system:String>
+    <system:String x:Key="FemAnalysisEdit">Edit analysis</system:String>
+    <system:String x:Key="FemAnalysisViewResult">View result</system:String>
+    <system:String x:Key="FemResultMember2D">Show 2D diagram</system:String>
+    <system:String x:Key="FemResultMemberSection">Go to section</system:String>
+    <system:String x:Key="FemResultNodeValues">Show node values</system:String>
     <system:String x:Key="ConfirmDeleteCalcTask">Delete task and all its results?</system:String>
     <system:String x:Key="ConfirmDeleteCalcResults">Delete all results of task "{0}"?</system:String>
     <system:String x:Key="CalcTaskCreated">Task "{0}" created.</system:String>

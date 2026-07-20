@@ -107,10 +107,10 @@ public partial class FemMemberForceView : UserControl
 
     static (double Vi, double Vj) ComponentValues(FemForceComponent comp, FemElementEndForces f) => comp switch
     {
-        FemForceComponent.N  => (f.Ni,  -f.Nj),
-        FemForceComponent.Qy => (f.Qyi, -f.Qyj),
-        FemForceComponent.Qz => (f.Qzi, -f.Qzj),
-        FemForceComponent.Mx => (f.Mxi, -f.Mxj),
+        FemForceComponent.N  => (-f.Ni,  f.Nj),
+        FemForceComponent.Qy => (-f.Qyi, f.Qyj),
+        FemForceComponent.Qz => (-f.Qzi, f.Qzj),
+        FemForceComponent.Mx => (-f.Mxi, f.Mxj),
         FemForceComponent.My => (f.Myi, -f.Myj),
         FemForceComponent.Mz => (f.Mzi, -f.Mzj),
         _ => (0, 0)

@@ -388,6 +388,23 @@ namespace OpenCS
          get => currentFemSchema;
          set
          {
+            if (currentFemSchema != null && value != currentFemSchema && currentPage is Views.FemSchemaPage page)
+            {
+               if (page.DataContext is ViewModels.FemSchemaEditorVM editor && editor.Session.IsDirty)
+               {
+                  var result = System.Windows.MessageBox.Show(
+                     Loc.S("ConfirmSaveOnExit"),
+                     Loc.S("Confirmation"),
+                     System.Windows.MessageBoxButton.YesNoCancel,
+                     System.Windows.MessageBoxImage.Question);
+                  
+                  if (result == System.Windows.MessageBoxResult.Cancel)
+                     return;
+                  if (result == System.Windows.MessageBoxResult.Yes)
+                     editor.Save();
+               }
+            }
+
             currentFemSchema = value;
             if (value != null)
                CurrentPage = new Views.FemSchemaPage(value, this);
@@ -433,6 +450,8 @@ namespace OpenCS
       public ICommand AddFemCheckCommand     { get; set; } = null!;
       /// <summary>Команда создания постановки линейного OpenSees-расчёта схемы.</summary>
       public ICommand CreateFemAnalysisCommand { get; set; } = null!;
+      public ICommand EditFemAnalysisCommand { get; set; } = null!;
+      public ICommand ViewFemAnalysisResultCommand { get; set; } = null!;
       /// <summary>Команда запуска линейного OpenSees-расчёта схемы.</summary>
       public ICommand RunFemAnalysisCommand    { get; set; } = null!;
       /// <summary>Команда удаления постановки линейного расчёта.</summary>
@@ -1168,7 +1187,8 @@ namespace OpenCS
          DeleteFemMemberCommand    = new RelayCommand(_ => DeleteFemMember());
          AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMemberGroup));
          CreateFemAnalysisCommand = new RelayCommand(p => CreateFemAnalysis(p as CScore.Fem.FemSchema));
-         RunFemAnalysisCommand    = new RelayCommand(p => _ = RunFemAnalysis(p as CScore.Fem.FemAnalysis));
+         EditFemAnalysisCommand = new RelayCommand(p => EditFemAnalysis(p as CScore.Fem.FemAnalysis));
+         ViewFemAnalysisResultCommand = new RelayCommand(p => ViewFemAnalysisResult(p as CScore.Fem.FemAnalysis));         RunFemAnalysisCommand    = new RelayCommand(p => _ = RunFemAnalysis(p as CScore.Fem.FemAnalysis));
          DeleteFemAnalysisCommand = new RelayCommand(p => DeleteFemAnalysis(p as CScore.Fem.FemAnalysis));
          RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
          EditFemCheckCommand       = new RelayCommand(p => EditFemCheck(p as CScore.Fem.FemCheck));
@@ -3208,6 +3228,48 @@ namespace OpenCS
          db.SaveFemAnalysis(analysis);   // добавит в schema.Analyses
       }
 
+      void EditFemAnalysis(CScore.Fem.FemAnalysis? analysis)
+      {
+         if (analysis == null) return;
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
+         if (schema == null) return;
+
+         var dlg = new Views.FemAnalysisDialog(schema, analysis)
+         {
+            Owner = System.Windows.Application.Current.MainWindow
+         };
+         if (dlg.ShowDialog() != true) return;
+         
+         analysis.Tag = dlg.Result.Tag;
+         analysis.LoadExpressionJson = dlg.Result.LoadExpressionJson;
+         analysis.ParamsJson = dlg.Result.ParamsJson;
+         db.SaveFemAnalysis(analysis);
+      }
+
+      void ViewFemAnalysisResult(CScore.Fem.FemAnalysis? analysis)
+      {
+         if (analysis == null || analysis.ResultId == 0) return;
+         var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
+         if (schema == null) return;
+         var result = db.CalcResults.FirstOrDefault(r => r.Id == analysis.ResultId.Value);
+         if (result == null) return;
+
+         var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
+         vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag);
+         vm.GoToSectionRequested += tag => {
+            var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
+            if (member != null && member.CrossSectionId.HasValue) {
+               var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
+               if (section != null) CurrentPage = new Views.CrossSectionView(section, this);
+            }
+         };
+         vm.ShowNodeValuesRequested += tag => {
+            var node = db.GetFemMeshNodes(schema.Id).FirstOrDefault(n => n.NodeTag == tag);
+            if (node != null) System.Windows.MessageBox.Show($"Узел {node.NodeTag}: {node.X:F3}, {node.Y:F3}, {node.Z:F3}");
+         };
+         CurrentPage = new Views.FemAnalysisResultView(vm);
+      }
+
       async Task RunFemAnalysis(CScore.Fem.FemAnalysis? analysis)
       {
          if (analysis == null || IsBusy) return;
@@ -3225,7 +3287,45 @@ namespace OpenCS
             analysis.ResultId = result.Id;
             analysis.Status   = result.Status;
             db.SaveFemAnalysis(analysis);
-            CurrentPage = new Views.FemAnalysisResultView(result, this, schema);
+
+            var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
+            vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag);
+            vm.GoToSectionRequested += tag => {
+               var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
+               if (member != null && member.CrossSectionId.HasValue) {
+                  var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
+                  if (section != null) CurrentPage = new Views.CrossSectionView(section, this);
+               }
+            };
+            vm.ShowNodeValuesRequested += tag => {
+               var node = db.GetFemMeshNodes(schema.Id).FirstOrDefault(n => n.NodeTag == tag);
+               if (node != null) System.Windows.MessageBox.Show($"Узел {node.NodeTag}: {node.X:F3}, {node.Y:F3}, {node.Z:F3}");
+            };
+            
+            var statusKey = result.Status switch
+            {
+                "ok" => "CalcResultOk",
+                "not_converged" => "CalcResultNotConverged",
+                "partial" => "CalcResultPartial",
+                "not_passed" => "CalcResultNotPassed",
+                _ => "CalcResultError"
+            };
+            string done = string.Format(Loc.S(statusKey), analysis.Tag);
+            if (result.Status == "ok")
+                LogService.Info(done);
+            else if (result.Status == "not_converged")
+                LogService.Warning(done);
+            else
+                LogService.Error(done);
+
+            if (vm.Diagnostics.Count > 0)
+                foreach (var diag in vm.Diagnostics)
+                    LogService.Warning($"[{analysis.Tag}] {diag}");
+            
+            if (vm.HasArtifacts)
+                LogService.Info($"[{analysis.Tag}] {Loc.S("FemResultArtifacts")} {vm.ArtifactDirectory}");
+
+            CurrentPage = new Views.FemAnalysisResultView(vm);
             EndBusy(string.Format(Loc.S("FemAnalysisDone"), analysis.Tag));
          }
          catch (OperationCanceledException)

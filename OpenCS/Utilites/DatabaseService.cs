@@ -3593,6 +3593,56 @@ namespace OpenCS.Utilites
                }
             }
 
+            using (var analysisCmd = _connection.CreateCommand())
+            {
+               analysisCmd.CommandText = "SELECT id, load_expression_json FROM fem_analyses WHERE schema_id=@sid";
+               analysisCmd.Parameters.AddWithValue("@sid", schemaId);
+               var analysesToUpdate = new List<(int Id, string Json)>();
+               using (var rdr = analysisCmd.ExecuteReader())
+               {
+                  while (rdr.Read())
+                  {
+                     if (!rdr.IsDBNull(1))
+                        analysesToUpdate.Add((rdr.GetInt32(0), rdr.GetString(1)));
+                  }
+               }
+               foreach (var a in analysesToUpdate)
+               {
+                  var expression = System.Text.Json.JsonSerializer.Deserialize<CScore.Fem.FemLoadExpression>(a.Json);
+                  if (expression != null)
+                  {
+                     var rewritten = new CScore.Fem.FemLoadExpression
+                     {
+                        Mode = expression.Mode,
+                        LoadCaseIds = expression.LoadCaseIds.Select(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id).ToList(),
+                        Terms = expression.Terms.Select(term => new CScore.Fem.FemLoadTerm
+                        {
+                           LoadCaseId = newLoadCaseIdByOld.TryGetValue(term.LoadCaseId, out var mapped) ? mapped : term.LoadCaseId,
+                           Coefficient = term.Coefficient
+                        }).ToList(),
+                        CombinationType = expression.CombinationType
+                     };
+                     
+                     var newJson = System.Text.Json.JsonSerializer.Serialize(rewritten);
+                     if (newJson != a.Json)
+                     {
+                        using var updateCmd = _connection.CreateCommand();
+                        updateCmd.CommandText = "UPDATE fem_analyses SET load_expression_json=@json WHERE id=@id";
+                        updateCmd.Parameters.AddWithValue("@json", newJson);
+                        updateCmd.Parameters.AddWithValue("@id", a.Id);
+                        updateCmd.ExecuteNonQuery();
+                        
+                        var sc = FemSchemas.FirstOrDefault(s => s.Id == schemaId);
+                        if (sc != null)
+                        {
+                           var analysisObj = sc.Analyses.FirstOrDefault(an => an.Id == a.Id);
+                           if (analysisObj != null) analysisObj.LoadExpressionJson = newJson;
+                        }
+                     }
+                  }
+               }
+            }
+
             var schema = FemSchemas.FirstOrDefault(s => s.Id == schemaId);
             if (schema != null)
             {

@@ -549,7 +549,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         }
     }
 
-    void Save()
+    public void Save()
     {
         Diagnostics = FemTopologyValidator.Validate(Session.Schema, Session.Nodes, Session.Members, Session.MemberGroups)
             .Concat(FemCanonicalValidator.Validate(Session.Schema, Session.LoadCases, Session.Nodes, Session.NodeLoads))

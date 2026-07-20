@@ -846,6 +846,12 @@
    <system:String x:Key="CalcTaskNeedForceItem">Не выбран набор усилий или строка усилий.</system:String>
    <system:String x:Key="CalcTaskSectionNotFound">Сечение задачи не найдено в проекте.</system:String>
    <system:String x:Key="CalcTaskForceItemNotFound">Строка усилий задачи не найдена в проекте.</system:String>
+    <system:String x:Key="FemResetScale">Сбросить масштаб</system:String>
+    <system:String x:Key="FemAnalysisEdit">Редактировать постановку</system:String>
+    <system:String x:Key="FemAnalysisViewResult">Показать результат</system:String>
+    <system:String x:Key="FemResultMember2D">Показать 2D-эпюру</system:String>
+    <system:String x:Key="FemResultMemberSection">Перейти к сечению</system:String>
+    <system:String x:Key="FemResultNodeValues">Показать значения в узле</system:String>
     <system:String x:Key="ConfirmDeleteCalcTask">Удалить задачу и все её результаты?</system:String>
     <system:String x:Key="ConfirmDeleteCalcResults">Удалить все результаты задачи «{0}»?</system:String>
     <system:String x:Key="CalcTaskCreated">Задача «{0}» создана.</system:String>

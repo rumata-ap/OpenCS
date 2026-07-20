@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 
@@ -10,6 +10,22 @@ namespace OpenCS.Utilites
       {
          return double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out result) ||
                 double.TryParse(text.Replace('.', ','), NumberStyles.Float, new CultureInfo("ru-RU"), out result);
+      }
+   }
+
+   public class AnyDoubleConverter : IValueConverter
+   {
+      public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+      {
+         if (value is double d) return d.ToString("G", culture);
+         return value?.ToString() ?? "";
+      }
+
+      public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+      {
+         if (value is string str && Pars.ParseAny(str, out double res))
+            return res;
+         return Binding.DoNothing;
       }
    }
 

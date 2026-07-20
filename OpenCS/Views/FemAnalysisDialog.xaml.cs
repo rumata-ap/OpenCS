@@ -12,12 +12,29 @@ public partial class FemAnalysisDialog : Window
     /// <summary>Сформированная постановка (валидна после DialogResult == true).</summary>
     public FemAnalysis Result { get; private set; } = new();
 
-    public FemAnalysisDialog(FemSchema schema)
+    public FemAnalysisDialog(FemSchema schema, FemAnalysis? existing = null)
     {
         _schema = schema;
         InitializeComponent();
-        LoadSourceBox.ItemsSource = BuildLoadSources();
-        if (LoadSourceBox.Items.Count > 0) LoadSourceBox.SelectedIndex = 0;
+        var sources = BuildLoadSources();
+        LoadSourceBox.ItemsSource = sources;
+
+        if (existing != null)
+        {
+            Title = (string)Application.Current.FindResource("FemAnalysisEdit") ?? "Редактировать постановку";
+            TagBox.Text = existing.Tag;
+            var pars = System.Text.Json.JsonSerializer.Deserialize<FemAnalysisParams>(existing.ParamsJson) ?? new FemAnalysisParams();
+            ExeBox.Text = pars.ExecutablePath;
+            TimeoutBox.Text = pars.TimeoutSeconds.ToString();
+            
+            var sel = sources.FirstOrDefault(s => s.Expr.ToJson() == existing.LoadExpressionJson);
+            if (sel != null) LoadSourceBox.SelectedItem = sel;
+            else if (sources.Count > 0) LoadSourceBox.SelectedIndex = 0;
+        }
+        else
+        {
+            if (LoadSourceBox.Items.Count > 0) LoadSourceBox.SelectedIndex = 0;
+        }
     }
 
     sealed record LoadSource(string Label, FemLoadExpression Expr);

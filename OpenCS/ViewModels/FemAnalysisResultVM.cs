@@ -18,6 +18,7 @@ public class FemAnalysisResultVM : ViewModelBase
     public bool HasArtifacts => !string.IsNullOrEmpty(ArtifactDirectory);
     /// <summary>Диагностические сообщения и ошибки валидации.</summary>
     public IReadOnlyList<string> Diagnostics { get; }
+    public bool HasDiagnostics => Diagnostics.Count > 0 && Status != "ok";
 
     public IReadOnlyList<FemNodeDisplacement> Displacements { get; }
     public IReadOnlyList<FemNodeReaction> Reactions { get; }
@@ -28,7 +29,7 @@ public class FemAnalysisResultVM : ViewModelBase
     readonly List<(int I, int J)> _elementPairs = [];
 
     /// <summary>Геометрия mesh-элемента с локальным базисом для эпюр.</summary>
-    readonly record struct ElementGeom(int Tag, Point3D Pi, Point3D Pj, Vector3D Ey, Vector3D Ez);
+    readonly record struct ElementGeom(int Tag, int Ni, int Nj, Point3D Pi, Point3D Pj, Vector3D Ey, Vector3D Ez);
     readonly List<ElementGeom> _elementGeoms = [];
     readonly Dictionary<int, FemElementEndForces> _forcesByElem = [];
 
@@ -36,6 +37,8 @@ public class FemAnalysisResultVM : ViewModelBase
     public Point3DCollection OriginalLines { get; } = [];
     /// <summary>Точки линий деформированной схемы, парами (масштаб DeformScale).</summary>
     public Point3DCollection DeformedLines { get; private set; } = [];
+    /// <summary>Точки узлов деформированной схемы.</summary>
+    public Point3DCollection DeformedNodes { get; private set; } = [];
 
     /// <summary>Есть ли стержневая геометрия для 3D-отображения.</summary>
     public bool HasGeometry => _elementPairs.Count > 0;
@@ -72,8 +75,22 @@ public class FemAnalysisResultVM : ViewModelBase
     /// <summary>Геометрия ленты выбранной эпюры.</summary>
     public MeshGeometry3D? ForceDiagramMesh { get; private set; }
 
+    public System.Windows.Input.ICommand ResetDeformScaleCommand { get; }
+    public System.Windows.Input.ICommand ResetForceScaleCommand { get; }
+
+    public event Action<string>? ShowMemberForceRequested;
+    public event Action<string>? GoToSectionRequested;
+    public event Action<string>? ShowNodeValuesRequested;
+
+    public void RequestShowMemberForce(string tag) => ShowMemberForceRequested?.Invoke(tag);
+    public void RequestGoToSection(string tag) => GoToSectionRequested?.Invoke(tag);
+    public void RequestShowNodeValues(string tag) => ShowNodeValuesRequested?.Invoke(tag);
+
     public FemAnalysisResultVM(CalcResult result, DatabaseService db, FemSchema schema)
     {
+        ResetDeformScaleCommand = new RelayCommand(_ => DeformScale = SuggestScale());
+        ResetForceScaleCommand = new RelayCommand(_ => ForceScale = SuggestForceScale());
+
         Status = result.Status;
 
         var parsed = ParseResult(result.DataJson);
@@ -99,7 +116,7 @@ public class FemAnalysisResultVM : ViewModelBase
                 var pi = _originalByTag[ends[0]];
                 var pj = _originalByTag[ends[1]];
                 var (ey, ez) = LocalFrame(pi, pj);
-                _elementGeoms.Add(new ElementGeom(etag, pi, pj, ey, ez));
+                _elementGeoms.Add(new ElementGeom(etag, ends[0], ends[1], pi, pj, ey, ez));
             }
         }
 
@@ -139,10 +156,10 @@ public class FemAnalysisResultVM : ViewModelBase
     /// <summary>Значения выбранной компоненты на концах i и j (внутреннее усилие, непрерывное по узлу).</summary>
     (double Vi, double Vj) ComponentValues(FemElementEndForces f) => _selectedForceComponent switch
     {
-        FemForceComponent.N  => (f.Ni,  -f.Nj),
-        FemForceComponent.Qy => (f.Qyi, -f.Qyj),
-        FemForceComponent.Qz => (f.Qzi, -f.Qzj),
-        FemForceComponent.Mx => (f.Mxi, -f.Mxj),
+        FemForceComponent.N  => (-f.Ni,  f.Nj),
+        FemForceComponent.Qy => (-f.Qyi, f.Qyj),
+        FemForceComponent.Qz => (-f.Qzi, f.Qzj),
+        FemForceComponent.Mx => (-f.Mxi, f.Mxj),
         FemForceComponent.My => (f.Myi, -f.Myj),
         FemForceComponent.Mz => (f.Mzi, -f.Mzj),
         _ => (0, 0)
@@ -197,6 +214,14 @@ public class FemAnalysisResultVM : ViewModelBase
         }
         DeformedLines = pts;
         OnPropertyChanged(nameof(DeformedLines));
+
+        var nodes = new Point3DCollection();
+        foreach (var kvp in _originalByTag)
+        {
+            nodes.Add(Deformed(kvp.Key));
+        }
+        DeformedNodes = nodes;
+        OnPropertyChanged(nameof(DeformedNodes));
     }
 
     Point3D Deformed(int tag)
@@ -249,6 +274,86 @@ public class FemAnalysisResultVM : ViewModelBase
         }
         catch (JsonException) { }
         return list;
+    }
+    /// <summary>HitTest для контекстного меню: возвращает "Node" или "Member" и Tag.</summary>
+    public (string Kind, string Tag)? HitTest(Point3D origin, Vector3D dir)
+    {
+        double bestDist = double.MaxValue;
+        (string Kind, string Tag)? bestHit = null;
+
+        double hitRadius = 0.1;
+        if (_originalByTag.Count > 0)
+        {
+            var bounds = new Rect3D(_originalByTag.Values.First(), new Size3D());
+            foreach (var p in _originalByTag.Values) bounds.Union(p);
+            hitRadius = System.Math.Max(1e-3, bounds.SizeX + bounds.SizeY + bounds.SizeZ) * 0.01;
+        }
+
+        dir.Normalize();
+
+        foreach (var kvp in _originalByTag)
+        {
+            Point3D pt = kvp.Value;
+            if (_dispByTag.TryGetValue(kvp.Key, out var disp)) pt += disp * _deformScale;
+            Vector3D v = pt - origin;
+            double t = Vector3D.DotProduct(v, dir);
+            if (t > 0)
+            {
+                Point3D proj = origin + dir * t;
+                double dist = (proj - pt).Length;
+                if (dist < hitRadius * 1.5 && t < bestDist)
+                {
+                    bestDist = t;
+                    bestHit = ("Node", kvp.Key.ToString());
+                }
+            }
+        }
+
+        foreach (var eg in _elementGeoms)
+        {
+            Point3D p0 = eg.Pi, p1 = eg.Pj;
+            if (_dispByTag.TryGetValue(eg.Ni, out var d0)) p0 += d0 * _deformScale;
+            if (_dispByTag.TryGetValue(eg.Nj, out var d1)) p1 += d1 * _deformScale;
+            
+            Vector3D u = dir;
+            Vector3D v = p1 - p0;
+            Vector3D w = origin - p0;
+            
+            double a = Vector3D.DotProduct(u, u);
+            double b = Vector3D.DotProduct(u, v);
+            double c = Vector3D.DotProduct(v, v);
+            double d = Vector3D.DotProduct(u, w);
+            double e = Vector3D.DotProduct(v, w);
+            double D = a * c - b * b;
+            
+            double sc, tc;
+            if (D < 1e-8)
+            {
+                sc = 0.0;
+                tc = (b > c ? d / b : e / c);
+            }
+            else
+            {
+                sc = (b * e - c * d) / D;
+                tc = (a * e - b * d) / D;
+            }
+            
+            if (tc < 0) { tc = 0; sc = -d / a; }
+            else if (tc > 1) { tc = 1; sc = (b - d) / a; }
+            if (sc < 0) { sc = 0; }
+            
+            Point3D dP = origin + sc * u;
+            Point3D dP_seg = p0 + tc * v;
+            double dist = (dP - dP_seg).Length;
+            
+            if (dist < hitRadius && sc > 0 && sc < bestDist)
+            {
+                bestDist = sc;
+                bestHit = ("Member", eg.Tag.ToString());
+            }
+        }
+
+        return bestHit;
     }
 }
 
