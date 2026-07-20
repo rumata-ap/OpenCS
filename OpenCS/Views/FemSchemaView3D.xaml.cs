@@ -533,7 +533,14 @@ public partial class FemSchemaView3D : UserControl
     }
 
     void GridToggle(object sender, RoutedEventArgs e)
-        => ApplyGridVisuals();
+    {
+        // showGridCheck.IsChecked="True" в XAML отличается от значения по умолчанию (False),
+        // поэтому WPF поднимает Checked синхронно во время InitializeComponent(), до того как
+        // viewport (объявлен ниже в XAML) будет подключён — тот же паттерн, что и в
+        // OnDataContextChanged (см. выше).
+        if (!IsLoaded) return;
+        ApplyGridVisuals();
+    }
 
     void ApplyGridVisuals()
     {
