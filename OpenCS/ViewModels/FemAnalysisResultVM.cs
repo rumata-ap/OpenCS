@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Windows.Media.Media3D;
 using CScore;
 using CScore.Fem;
+using OpenCS.OpenSees.CScore;
 using OpenCS.OpenSees.Structural;
 using OpenCS.Utilites;
 
@@ -29,7 +30,7 @@ public class FemAnalysisResultVM : ViewModelBase
     readonly List<(int I, int J)> _elementPairs = [];
 
     /// <summary>Геометрия mesh-элемента с локальным базисом для эпюр.</summary>
-    readonly record struct ElementGeom(int Tag, int Ni, int Nj, Point3D Pi, Point3D Pj, Vector3D Ey, Vector3D Ez);
+    readonly record struct ElementGeom(int Tag, string? SourceMemberTag, int Ni, int Nj, Point3D Pi, Point3D Pj, Vector3D Ey, Vector3D Ez);
     readonly List<ElementGeom> _elementGeoms = [];
     readonly Dictionary<int, FemElementEndForces> _forcesByElem = [];
 
@@ -48,7 +49,7 @@ public class FemAnalysisResultVM : ViewModelBase
     public double DeformScale
     {
         get => _deformScale;
-        set { if (value <= 0 || value == _deformScale) return; _deformScale = value; RebuildDeformed(); OnPropertyChanged(); }
+        set { if (!FemScaleInput.IsValid(value) || value == _deformScale) return; _deformScale = value; RebuildDeformed(); OnPropertyChanged(); }
     }
 
     /// <summary>Компоненты усилий для выбора эпюры.</summary>
@@ -69,7 +70,7 @@ public class FemAnalysisResultVM : ViewModelBase
     public double ForceScale
     {
         get => _forceScale;
-        set { if (value <= 0 || value == _forceScale) return; _forceScale = value; RebuildForceDiagram(); OnPropertyChanged(); }
+        set { if (!FemScaleInput.IsValid(value) || value == _forceScale) return; _forceScale = value; RebuildForceDiagram(); OnPropertyChanged(); }
     }
 
     /// <summary>Геометрия ленты выбранной эпюры.</summary>
@@ -85,6 +86,20 @@ public class FemAnalysisResultVM : ViewModelBase
     public void RequestShowMemberForce(string tag) => ShowMemberForceRequested?.Invoke(tag);
     public void RequestGoToSection(string tag) => GoToSectionRequested?.Invoke(tag);
     public void RequestShowNodeValues(string tag) => ShowNodeValuesRequested?.Invoke(tag);
+
+    /// <summary>Возвращает координаты, перемещения и реакции узла из результата.</summary>
+    public bool TryGetNodeResult(string tag, out Point3D point,
+        out FemNodeDisplacement? displacement, out FemNodeReaction? reaction)
+    {
+        displacement = null;
+        reaction = null;
+        point = default;
+        if (!int.TryParse(tag, out var nodeTag) || !_originalByTag.TryGetValue(nodeTag, out point))
+            return false;
+        displacement = Displacements.FirstOrDefault(item => item.NodeTag == nodeTag);
+        reaction = Reactions.FirstOrDefault(item => item.NodeTag == nodeTag);
+        return true;
+    }
 
     public FemAnalysisResultVM(CalcResult result, DatabaseService db, FemSchema schema)
     {
@@ -116,7 +131,7 @@ public class FemAnalysisResultVM : ViewModelBase
                 var pi = _originalByTag[ends[0]];
                 var pj = _originalByTag[ends[1]];
                 var (ey, ez) = LocalFrame(pi, pj);
-                _elementGeoms.Add(new ElementGeom(etag, ends[0], ends[1], pi, pj, ey, ez));
+                _elementGeoms.Add(new ElementGeom(etag, e.SourceMemberTag, ends[0], ends[1], pi, pj, ey, ez));
             }
         }
 
@@ -349,7 +364,7 @@ public class FemAnalysisResultVM : ViewModelBase
             if (dist < hitRadius && sc > 0 && sc < bestDist)
             {
                 bestDist = sc;
-                bestHit = ("Member", eg.Tag.ToString());
+                bestHit = ("Member", FemResultIdentity.ResolveMemberTag(eg.SourceMemberTag, eg.Tag));
             }
         }
 

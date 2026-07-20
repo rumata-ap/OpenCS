@@ -1,6 +1,7 @@
 using System.Windows;
 using CScore.Fem;
 using OpenCS.Tasks;
+using OpenCS.Utilites;
 
 namespace OpenCS.Views;
 
@@ -21,7 +22,7 @@ public partial class FemAnalysisDialog : Window
 
         if (existing != null)
         {
-            Title = (string)Application.Current.FindResource("FemAnalysisEdit") ?? "Редактировать постановку";
+            Title = Loc.S("FemAnalysisEdit");
             TagBox.Text = existing.Tag;
             var pars = System.Text.Json.JsonSerializer.Deserialize<FemAnalysisParams>(existing.ParamsJson) ?? new FemAnalysisParams();
             ExeBox.Text = pars.ExecutablePath;

@@ -2398,18 +2398,28 @@ namespace OpenCS.Utilites
          cmd.CommandText = "SELECT id, task_id, task_kind, task_tag, created, status, data_json FROM calc_results ORDER BY id";
          using var reader = cmd.ExecuteReader();
          while (reader.Read())
-         {
-            CalcResults.Add(new CalcResult
-            {
-               Id       = reader.GetInt32(0),
-               TaskId   = reader.GetInt32(1),
-               TaskKind = reader.GetString(2),
-               TaskTag  = reader.GetString(3),
-               Created  = reader.GetString(4),
-               Status   = reader.GetString(5),
-               DataJson = reader.GetString(6)
-            });
-         }
+            CalcResults.Add(ReadCalcResult(reader));
+      }
+
+      static CalcResult ReadCalcResult(Microsoft.Data.Sqlite.SqliteDataReader reader) => new()
+      {
+         Id       = reader.GetInt32(0),
+         TaskId   = reader.GetInt32(1),
+         TaskKind = reader.GetString(2),
+         TaskTag  = reader.GetString(3),
+         Created  = reader.GetString(4),
+         Status   = reader.GetString(5),
+         DataJson = reader.GetString(6)
+      };
+
+      /// <summary>Загружает сохранённый расчёт по идентификатору.</summary>
+      public CalcResult? GetCalcResultById(int resultId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT id, task_id, task_kind, task_tag, created, status, data_json FROM calc_results WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", resultId);
+         using var reader = cmd.ExecuteReader();
+         return reader.Read() ? ReadCalcResult(reader) : null;
       }
 
       public void SaveCalcTask(CalcTask ct)

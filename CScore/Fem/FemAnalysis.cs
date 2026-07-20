@@ -16,4 +16,11 @@ public sealed class FemAnalysis
     public FemLoadExpression GetLoadExpression() => FemLoadExpression.Parse(LoadExpressionJson);
 
     public void SetLoadExpression(FemLoadExpression expression) => LoadExpressionJson = expression.ToJson();
+
+    /// <summary>Инвалидирует результат после изменения параметров постановки.</summary>
+    public void InvalidateResult()
+    {
+        ResultId = null;
+        Status = "created";
+    }
 }

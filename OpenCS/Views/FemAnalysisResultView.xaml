@@ -6,7 +6,6 @@
              Language="ru-RU">
     <UserControl.Resources>
         <u:AnyDoubleConverter x:Key="AnyDoubleConv"/>
-        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <ContextMenu x:Key="ResultMemberContextMenu">
             <MenuItem Header="{DynamicResource FemResultMember2D}" Click="MemberShow2DCtx_Click"/>
             <MenuItem Header="{DynamicResource FemResultMemberSection}" Click="MemberSectionCtx_Click"/>
@@ -48,17 +47,6 @@
                                        ShowCoordinateSystem="True" ShowViewCube="True"
                                        ZoomAroundMouseDownPoint="True"
                                        PreviewMouseRightButtonDown="Viewport_PreviewMouseRightButtonDown"/>
-                    <Border Grid.Row="1" Background="#FFF0F0" BorderBrush="Red" BorderThickness="1" 
-                            VerticalAlignment="Top" HorizontalAlignment="Left" Margin="10"
-                            Visibility="{Binding HasDiagnostics, Converter={StaticResource BoolToVis}}">
-                        <ItemsControl ItemsSource="{Binding Diagnostics}" Margin="10">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" Foreground="Red" TextWrapping="Wrap" MaxWidth="600"/>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </Border>
                 </Grid>
             </TabItem>
 

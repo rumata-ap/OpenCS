@@ -23,8 +23,8 @@ namespace OpenCS.Utilites
 
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         if (value is string str && Pars.ParseAny(str, out double res))
-            return res;
+          if (value is string str && Pars.ParseAny(str, out double res) && double.IsFinite(res))
+             return res;
          return Binding.DoNothing;
       }
    }

@@ -17,6 +17,7 @@ public partial class FemSchemaPage : UserControl
     {
         InitializeComponent();
         _editorVm = new FemSchemaEditorVM(schema, app);
+        app.RegisterFemSchemaEditor(_editorVm);
         DataContext = _editorVm;
 
         var fem3d = new Fem3DVM(schema, app.db) { Selection = _editorVm.Selection, EditMode = true };

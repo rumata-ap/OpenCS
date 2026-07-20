@@ -549,7 +549,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         }
     }
 
-    public void Save()
+    public bool Save()
     {
         Diagnostics = FemTopologyValidator.Validate(Session.Schema, Session.Nodes, Session.Members, Session.MemberGroups)
             .Concat(FemCanonicalValidator.Validate(Session.Schema, Session.LoadCases, Session.Nodes, Session.NodeLoads))
@@ -559,12 +559,13 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         if (errors.Count > 0)
         {
             SaveBlocked?.Invoke(errors);
-            return;
+            return false;
         }
 
         _db.SaveFemSchemaEdit(Session.Schema.Id, Session.Nodes, Session.Members, Session.MemberGroups,
             Session.LoadCases, Session.NodeLoads, Session.LoadDefinitions);
         Session.MarkSaved();
         RefreshCollections();
+        return true;
     }
 }

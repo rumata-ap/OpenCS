@@ -115,6 +115,7 @@ namespace OpenCS
       PlateSection? currentPlateSection;
       FireSectionDef? currentFireSection;
       CScore.Fem.FemSchema? currentFemSchema;
+      ViewModels.FemSchemaEditorVM? activeFemSchemaEditor;
       CScore.Fem.FemMemberGroup? currentFemMember;
       CScore.Fem.FemCheck?  currentFemCheck;
 
@@ -388,28 +389,50 @@ namespace OpenCS
          get => currentFemSchema;
          set
          {
-            if (currentFemSchema != null && value != currentFemSchema && currentPage is Views.FemSchemaPage page)
-            {
-               if (page.DataContext is ViewModels.FemSchemaEditorVM editor && editor.Session.IsDirty)
-               {
-                  var result = System.Windows.MessageBox.Show(
-                     Loc.S("ConfirmSaveOnExit"),
-                     Loc.S("Confirmation"),
-                     System.Windows.MessageBoxButton.YesNoCancel,
-                     System.Windows.MessageBoxImage.Question);
-                  
-                  if (result == System.Windows.MessageBoxResult.Cancel)
-                     return;
-                  if (result == System.Windows.MessageBoxResult.Yes)
-                     editor.Save();
-               }
-            }
+            if (ReferenceEquals(value, currentFemSchema) && currentPage is Views.FemSchemaPage)
+               return;
+            if (!TryLeaveFemSchemaEditor())
+               return;
 
             currentFemSchema = value;
-            if (value != null)
-               CurrentPage = new Views.FemSchemaPage(value, this);
+            CurrentPage = value != null ? new Views.FemSchemaPage(value, this) : null!;
             OnPropertyChanged();
          }
+      }
+
+      /// <summary>Регистрирует редактор FEM, пока его сессия существует в памяти.</summary>
+      public void RegisterFemSchemaEditor(ViewModels.FemSchemaEditorVM editor) => activeFemSchemaEditor = editor;
+
+      /// <summary>Снимает регистрацию редактора FEM при закрытии его страницы.</summary>
+      public void UnregisterFemSchemaEditor(ViewModels.FemSchemaEditorVM editor)
+      {
+         if (ReferenceEquals(activeFemSchemaEditor, editor))
+            activeFemSchemaEditor = null;
+      }
+
+      bool TryLeaveFemSchemaEditor()
+      {
+         var editor = activeFemSchemaEditor;
+         if (editor == null || !editor.Session.IsDirty)
+            return true;
+
+         var result = MessageBox.Show(
+            Loc.S("ConfirmSaveOnExit"),
+            Loc.S("Confirmation"),
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question);
+
+         if (result == MessageBoxResult.Cancel)
+            return false;
+         if (result == MessageBoxResult.Yes)
+         {
+            editor.Save();
+            if (editor.Session.IsDirty)
+               return false;
+         }
+
+         activeFemSchemaEditor = null;
+         return true;
       }
 
       /// <summary>Текущая группа конструктивных элементов МКЭ. При установке открывает FemMemberEditorPage.</summary>
@@ -647,7 +670,14 @@ namespace OpenCS
       public UserControl CurrentPage
       {
          get => currentPage;
-         set { currentPage = value; OnPropertyChanged(); OnPropertyChanged(nameof(CurrentPageTitle)); }
+         set
+         {
+            if (ReferenceEquals(currentPage, value)) return;
+            if (!TryLeaveFemSchemaEditor()) return;
+            currentPage = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CurrentPageTitle));
+         }
       }
 
       /// <summary>
@@ -1188,7 +1218,10 @@ namespace OpenCS
          AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMemberGroup));
          CreateFemAnalysisCommand = new RelayCommand(p => CreateFemAnalysis(p as CScore.Fem.FemSchema));
          EditFemAnalysisCommand = new RelayCommand(p => EditFemAnalysis(p as CScore.Fem.FemAnalysis));
-         ViewFemAnalysisResultCommand = new RelayCommand(p => ViewFemAnalysisResult(p as CScore.Fem.FemAnalysis));         RunFemAnalysisCommand    = new RelayCommand(p => _ = RunFemAnalysis(p as CScore.Fem.FemAnalysis));
+         ViewFemAnalysisResultCommand = new RelayCommand(
+            p => ViewFemAnalysisResult(p as CScore.Fem.FemAnalysis),
+            p => p is CScore.Fem.FemAnalysis a && a.ResultId is > 0);
+         RunFemAnalysisCommand    = new RelayCommand(p => _ = RunFemAnalysis(p as CScore.Fem.FemAnalysis));
          DeleteFemAnalysisCommand = new RelayCommand(p => DeleteFemAnalysis(p as CScore.Fem.FemAnalysis));
          RunFemCheckCommand     = new RelayCommand(p => RunFemCheck(p as CScore.Fem.FemCheck));
          EditFemCheckCommand       = new RelayCommand(p => EditFemCheck(p as CScore.Fem.FemCheck));
@@ -3239,23 +3272,28 @@ namespace OpenCS
             Owner = System.Windows.Application.Current.MainWindow
          };
          if (dlg.ShowDialog() != true) return;
-         
+         bool changed = analysis.Tag != dlg.Result.Tag ||
+            analysis.LoadExpressionJson != dlg.Result.LoadExpressionJson ||
+            analysis.ParamsJson != dlg.Result.ParamsJson;
          analysis.Tag = dlg.Result.Tag;
          analysis.LoadExpressionJson = dlg.Result.LoadExpressionJson;
          analysis.ParamsJson = dlg.Result.ParamsJson;
+         if (changed)
+            analysis.InvalidateResult();
          db.SaveFemAnalysis(analysis);
+         CommandManager.InvalidateRequerySuggested();
       }
 
       void ViewFemAnalysisResult(CScore.Fem.FemAnalysis? analysis)
       {
-         if (analysis == null || analysis.ResultId == 0) return;
+         if (analysis?.ResultId is not int resultId || resultId <= 0) return;
          var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
          if (schema == null) return;
-         var result = db.CalcResults.FirstOrDefault(r => r.Id == analysis.ResultId.Value);
+         var result = db.GetCalcResultById(resultId);
          if (result == null) return;
 
          var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
-         vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag);
+         vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag, result);
          vm.GoToSectionRequested += tag => {
             var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
             if (member != null && member.CrossSectionId.HasValue) {
@@ -3263,10 +3301,7 @@ namespace OpenCS
                if (section != null) CurrentPage = new Views.CrossSectionView(section, this);
             }
          };
-         vm.ShowNodeValuesRequested += tag => {
-            var node = db.GetFemMeshNodes(schema.Id).FirstOrDefault(n => n.NodeTag == tag);
-            if (node != null) System.Windows.MessageBox.Show($"Узел {node.NodeTag}: {node.X:F3}, {node.Y:F3}, {node.Z:F3}");
-         };
+         vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
          CurrentPage = new Views.FemAnalysisResultView(vm);
       }
 
@@ -3289,7 +3324,7 @@ namespace OpenCS
             db.SaveFemAnalysis(analysis);
 
             var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
-            vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag);
+            vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag, result);
             vm.GoToSectionRequested += tag => {
                var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
                if (member != null && member.CrossSectionId.HasValue) {
@@ -3297,10 +3332,7 @@ namespace OpenCS
                   if (section != null) CurrentPage = new Views.CrossSectionView(section, this);
                }
             };
-            vm.ShowNodeValuesRequested += tag => {
-               var node = db.GetFemMeshNodes(schema.Id).FirstOrDefault(n => n.NodeTag == tag);
-               if (node != null) System.Windows.MessageBox.Show($"Узел {node.NodeTag}: {node.X:F3}, {node.Y:F3}, {node.Z:F3}");
-            };
+            vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
             
             var statusKey = result.Status switch
             {
@@ -3349,6 +3381,22 @@ namespace OpenCS
          db.DeleteFemAnalysis(analysis);
       }
 
+      void ShowFemNodeResult(ViewModels.FemAnalysisResultVM vm, string tag)
+      {
+         if (!vm.TryGetNodeResult(tag, out var point, out var displacement, out var reaction))
+            return;
+
+         var lines = new List<string>
+         {
+            string.Format(Loc.S("FemResultNodeCoordinates"), point.X, point.Y, point.Z)
+         };
+         if (displacement is { } d)
+            lines.Add(string.Format(Loc.S("FemResultNodeDisplacements"), d.Ux, d.Uy, d.Uz, d.Rx, d.Ry, d.Rz));
+         if (reaction is { } r)
+            lines.Add(string.Format(Loc.S("FemResultNodeReactions"), r.Rx, r.Ry, r.Rz, r.Mx, r.My, r.Mz));
+         MessageBox.Show(string.Join(Environment.NewLine, lines), Loc.S("FemResultNodeTitle"));
+      }
+
       /// <summary>Открывает 2D-эпюры усилий по одному конструктивному стержню
       /// на основе последнего успешного расчёта схемы.</summary>
       public void ShowMemberForceDiagram(CScore.Fem.FemSchema schema, string memberTag)
@@ -3359,7 +3407,7 @@ namespace OpenCS
             LogService.Warning(Loc.S("FemMemberForceNoResult"));
             return;
          }
-         var cr = db.CalcResults.FirstOrDefault(c => c.Id == rid);
+         var cr = db.GetCalcResultById(rid);
          if (cr == null)
          {
             LogService.Warning(Loc.S("FemMemberForceNoResult"));
@@ -3367,6 +3415,9 @@ namespace OpenCS
          }
          CurrentPage = new Views.FemMemberForceView(db, schema, memberTag, cr);
       }
+
+      void ShowMemberForceDiagram(CScore.Fem.FemSchema schema, string memberTag, CalcResult result)
+         => CurrentPage = new Views.FemMemberForceView(db, schema, memberTag, result);
 
       void DeleteFemCheck(CScore.Fem.FemCheck? check = null)
       {

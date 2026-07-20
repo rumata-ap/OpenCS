@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Linq;
 using System.Collections.Generic;
+using OpenCS.Utilites;
 
 namespace OpenCS.Views.Helpers;
 
@@ -78,7 +79,7 @@ public sealed class FemMemberForceCanvas : Canvas
 
         if (_sSpan <= 1e-9 || _vMax <= 1e-12)
         {
-            AddText("нет данных", _x0, _axisY - 8, Brushes.Gray, 12, false);
+            AddText(Loc.S("FemNoData"), _x0, _axisY - 8, Brushes.Gray, 12, false);
             DrawAxis(_x0, _x1, _axisY);
             EnsureHoverOverlays();
             return;
