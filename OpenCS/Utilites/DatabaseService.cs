@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-        const int CurrentSchemaVersion = 33;
+        const int CurrentSchemaVersion = 34;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -491,6 +491,7 @@ namespace OpenCS.Utilites
                if (i == 30) { MigrateV31(); continue; }
                if (i == 31) { MigrateV32(); continue; }
                if (i == 32) { MigrateV33(); continue; }
+               if (i == 33) { MigrateV34(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -846,6 +847,27 @@ namespace OpenCS.Utilites
       {
          if (!ColumnExists("fem_members", "thickness_m"))
             MigExec("ALTER TABLE fem_members ADD COLUMN thickness_m REAL");
+      }
+
+      /// <summary>
+      /// Миграция v34: FemMember получает собственные свойства цели проверки
+      /// (plate_section_id, force_set_id, design_params_json) — как у FemMemberGroup, но для
+      /// одиночного конструктивного элемента. fem_checks получает element_id (альтернатива
+      /// member_id для проверки одного элемента без группы). force_sets получает
+      /// source_element_id (аналог source_member_id, для наборов усилий одного элемента).
+      /// </summary>
+      void MigrateV34()
+      {
+         if (!ColumnExists("fem_members", "plate_section_id"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN plate_section_id INTEGER REFERENCES plate_sections(id)");
+         if (!ColumnExists("fem_members", "force_set_id"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN force_set_id INTEGER REFERENCES force_sets(id)");
+         if (!ColumnExists("fem_members", "design_params_json"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN design_params_json TEXT");
+         if (!ColumnExists("fem_checks", "element_id"))
+            MigExec("ALTER TABLE fem_checks ADD COLUMN element_id INTEGER");
+         if (!ColumnExists("force_sets", "source_element_id"))
+            MigExec("ALTER TABLE force_sets ADD COLUMN source_element_id INTEGER");
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
