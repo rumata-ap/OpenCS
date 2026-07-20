@@ -166,9 +166,12 @@ class FemSchemaTreeVM
 
     void RefreshMeshSnapshotCounts()
     {
-        var (nodes, elements) = _db.GetFemMeshSnapshotCounts(Schema.Id);
-        MeshSnapshotSubNode.Nodes.Count = nodes;
-        MeshSnapshotSubNode.Elements.Count = elements;
+        var (nodes, bars, shells) = _db.GetFemMeshSnapshotCounts(Schema.Id);
+        MeshSnapshotSubNode.Nodes.Count             = nodes;
+        MeshSnapshotSubNode.Elements.BarCount        = bars;
+        MeshSnapshotSubNode.Elements.ShellCount      = shells;
+        MeshSnapshotSubNode.Elements.Bars.Count      = bars;
+        MeshSnapshotSubNode.Elements.Shells.Count    = shells;
     }
 
     /// <summary>Асинхронно загружает узлы схемы из БД.</summary>
@@ -183,6 +186,20 @@ class FemSchemaTreeVM
     /// <summary>Асинхронно загружает пластинчатые конструктивные элементы схемы из БД.</summary>
     internal Task<List<FemMember>> LoadShellsAsync()
         => Task.Run(() => _db.GetFemMembers(Schema.Id)
+            .Where(e => e.ElemType == "shell").ToList());
+
+    /// <summary>Асинхронно загружает узлы сохранённой расчётной сетки схемы из БД.</summary>
+    internal Task<List<FemMeshNode>> LoadMeshNodesAsync()
+        => Task.Run(() => _db.GetFemMeshNodes(Schema.Id));
+
+    /// <summary>Асинхронно загружает стержневые элементы сохранённой расчётной сетки схемы из БД.</summary>
+    internal Task<List<FemElement>> LoadMeshBarsAsync()
+        => Task.Run(() => _db.GetFemMeshElements(Schema.Id)
+            .Where(e => e.ElemType == "beam").ToList());
+
+    /// <summary>Асинхронно загружает пластинчатые элементы сохранённой расчётной сетки схемы из БД.</summary>
+    internal Task<List<FemElement>> LoadMeshShellsAsync()
+        => Task.Run(() => _db.GetFemMeshElements(Schema.Id)
             .Where(e => e.ElemType == "shell").ToList());
 
     /// <summary>Перечитывает счётчики после SaveFemTopology.</summary>
@@ -222,14 +239,48 @@ public class FemMeshNodesSubNode : FemSubNode, System.ComponentModel.INotifyProp
     internal FemMeshNodesSubNode(FemSchemaTreeVM owner) => Owner = owner;
 }
 
-/// <summary>Подузел конечных элементов сохранённой расчётной сетки.</summary>
+/// <summary>Подузел конечных элементов сохранённой расчётной сетки — содержит два дочерних узла: Стержни и Пластины.</summary>
 public class FemMeshElementsSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    public FemMeshBarsSubNode   Bars     { get; }
+    public FemMeshShellsSubNode Shells   { get; }
+    public FemSubNode[]         Children { get; }
+
+    internal FemSchemaTreeVM Owner { get; }
+
+    int _barCount, _shellCount;
+    public int BarCount   { get => _barCount;   internal set { _barCount   = value; PropertyChanged?.Invoke(this, new(nameof(BarCount)));   } }
+    public int ShellCount { get => _shellCount; internal set { _shellCount = value; PropertyChanged?.Invoke(this, new(nameof(ShellCount))); } }
+
+    internal FemMeshElementsSubNode(FemSchemaTreeVM owner)
+    {
+        Owner    = owner;
+        Bars     = new FemMeshBarsSubNode(owner);
+        Shells   = new FemMeshShellsSubNode(owner);
+        Children = [Bars, Shells];
+    }
+}
+
+/// <summary>Подузел «Стержни» сохранённой расчётной сетки — листовой, данные в DataGrid загружаются асинхронно.</summary>
+public class FemMeshBarsSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
 {
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
     int _count;
     public int Count { get => _count; internal set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
     internal FemSchemaTreeVM Owner { get; }
-    internal FemMeshElementsSubNode(FemSchemaTreeVM owner) => Owner = owner;
+    internal FemMeshBarsSubNode(FemSchemaTreeVM owner) => Owner = owner;
+}
+
+/// <summary>Подузел «Пластины» сохранённой расчётной сетки — листовой, данные в DataGrid загружаются асинхронно.</summary>
+public class FemMeshShellsSubNode : FemSubNode, System.ComponentModel.INotifyPropertyChanged
+{
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    int _count;
+    public int Count { get => _count; internal set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
+    internal FemSchemaTreeVM Owner { get; }
+    internal FemMeshShellsSubNode(FemSchemaTreeVM owner) => Owner = owner;
 }
 
 /// <summary>Подузел «Узлы» — листовой, данные в DataGrid загружаются асинхронно.</summary>

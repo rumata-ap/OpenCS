@@ -182,7 +182,8 @@ namespace OpenCS.Utilites
                 source_type        TEXT,
                 source_schema_id   INTEGER,
                 source_element_tag TEXT,
-                source_member_id   INTEGER
+                source_member_id   INTEGER,
+                source_element_id  INTEGER
             );
             CREATE TABLE IF NOT EXISTS force_items (
                 id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -353,7 +354,10 @@ namespace OpenCS.Utilites
                 gj_strategy        TEXT NOT NULL DEFAULT 'manual',
                 gj_manual_value    REAL,
                 gj_torsion_task_id INTEGER REFERENCES calc_tasks(id),
-                target_mesh_length_m REAL
+                target_mesh_length_m REAL,
+                plate_section_id   INTEGER REFERENCES plate_sections(id),
+                force_set_id       INTEGER REFERENCES force_sets(id),
+                design_params_json TEXT
             );
             CREATE TABLE IF NOT EXISTS fem_mesh_nodes (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -369,12 +373,16 @@ namespace OpenCS.Utilites
                 id                  INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id           INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
                 elem_tag            TEXT NOT NULL DEFAULT '',
+                elem_type           TEXT NOT NULL DEFAULT 'beam',
                 node_ids_json       TEXT NOT NULL DEFAULT '[]',
                 source_member_tag   TEXT,
                 cross_section_id    INTEGER REFERENCES cross_sections(id),
                 gj_strategy         TEXT NOT NULL DEFAULT 'manual',
                 gj_manual_value     REAL,
-                gj_torsion_task_id  INTEGER REFERENCES calc_tasks(id)
+                gj_torsion_task_id  INTEGER REFERENCES calc_tasks(id),
+                section_tag         TEXT,
+                material_tag        TEXT,
+                thickness_m         REAL
             );
             CREATE TABLE IF NOT EXISTS fem_member_groups (
                 id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -441,7 +449,8 @@ namespace OpenCS.Utilites
                 result_id           INTEGER REFERENCES calc_results(id),
                 tag                 TEXT NOT NULL DEFAULT '',
                 force_set_ids_json  TEXT NOT NULL DEFAULT '[]',
-                calc_type_override  TEXT
+                calc_type_override  TEXT,
+                element_id          INTEGER
             );";
          cmd.ExecuteNonQuery();
 
@@ -4058,18 +4067,20 @@ namespace OpenCS.Utilites
       }
 
       /// <summary>Возвращает число узлов и элементов сохранённой расчётной сетки.</summary>
-      public (int nodes, int elements) GetFemMeshSnapshotCounts(int schemaId)
+      /// <summary>Возвращает число узлов, стержневых и пластинчатых элементов сохранённой расчётной сетки.</summary>
+      public (int nodes, int bars, int shells) GetFemMeshSnapshotCounts(int schemaId)
       {
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = """
             SELECT
               (SELECT COUNT(*) FROM fem_mesh_nodes WHERE schema_id=@sid),
-              (SELECT COUNT(*) FROM fem_elements   WHERE schema_id=@sid)
+              (SELECT COUNT(*) FROM fem_elements   WHERE schema_id=@sid AND elem_type='beam'),
+              (SELECT COUNT(*) FROM fem_elements   WHERE schema_id=@sid AND elem_type='shell')
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var r = cmd.ExecuteReader();
-         if (!r.Read()) return (0, 0);
-         return (r.GetInt32(0), r.GetInt32(1));
+         if (!r.Read()) return (0, 0, 0);
+         return (r.GetInt32(0), r.GetInt32(1), r.GetInt32(2));
       }
 
       public void SaveFemMemberGroup(CScore.Fem.FemMemberGroup g)

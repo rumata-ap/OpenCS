@@ -89,7 +89,7 @@ public sealed class FemMeshPersistenceTests
             var loadedElements = db.GetFemMeshElements(schema.Id);
             Assert.Equal(3, loadedNodes.Count);
             Assert.Equal(2, loadedElements.Count);
-            Assert.Equal((3, 2), db.GetFemMeshSnapshotCounts(schema.Id));
+            Assert.Equal((3, 2, 0), db.GetFemMeshSnapshotCounts(schema.Id));
             Assert.All(loadedNodes, node =>
             {
                 Assert.Equal(schema.Id, node.SchemaId);
