@@ -670,10 +670,17 @@ public partial class FemSchemaView3D : UserControl
         MemberPropertiesRequested?.Invoke(tag);
     }
 
+    void MemberForcesCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        MemberForcesRequested?.Invoke(tag);
+    }
+
     public event Action<string>? MemberDeleteRequested;
     public event Action<string>? MemberSplitRequested;
     public event Action<string>? MemberSectionEditRequested;
     public event Action<string>? MemberPropertiesRequested;
+    public event Action<string>? MemberForcesRequested;
 
     void NodeMoveCtx_Click(object sender, RoutedEventArgs e)
     {

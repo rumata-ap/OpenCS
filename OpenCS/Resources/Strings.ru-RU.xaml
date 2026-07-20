@@ -1390,6 +1390,9 @@
     <system:String x:Key="FemResultArtifacts">Артефакты:</system:String>
     <system:String x:Key="FemColNode">Узел</system:String>
     <system:String x:Key="FemColElement">Элемент</system:String>
+    <system:String x:Key="FemMemberForceComponent">Компонента:</system:String>
+    <system:String x:Key="FemMemberForceTitle">Эпюра {1} — стержень {0}</system:String>
+    <system:String x:Key="FemMemberForceNoResult">Нет успешного расчёта OpenSees для этой схемы</system:String>
     <system:String x:Key="ImportLiraSchemaFromApi">Импорт топологии из ЛираСАПР (COM)…</system:String>
     <system:String x:Key="ImportLiraSchemaFromFile">Импорт схемы из .lir файла…</system:String>
     <system:String x:Key="ImportLiraSchemaFromFileTitle">Файл ЛираСАПР (.lir)</system:String>

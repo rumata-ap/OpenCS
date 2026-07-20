@@ -20,7 +20,7 @@
             <MenuItem Header="{DynamicResource FemMemberSplitCtx}" Click="MemberSplitCtx_Click"/>
             <MenuItem Header="{DynamicResource FemMemberDeleteCtx}" Click="MemberDeleteCtx_Click"/>
             <Separator/>
-            <MenuItem Header="{DynamicResource FemMemberForcesCtx}" IsEnabled="False"/>
+            <MenuItem Header="{DynamicResource FemMemberForcesCtx}" Click="MemberForcesCtx_Click"/>
         </ContextMenu>
         <ContextMenu x:Key="NodeContextMenu">
             <MenuItem Header="{DynamicResource FemNodeMoveCtx}" Click="NodeMoveCtx_Click"/>

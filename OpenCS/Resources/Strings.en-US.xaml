@@ -1387,6 +1387,9 @@
     <system:String x:Key="FemResultArtifacts">Artifacts:</system:String>
     <system:String x:Key="FemColNode">Node</system:String>
     <system:String x:Key="FemColElement">Element</system:String>
+    <system:String x:Key="FemMemberForceComponent">Component:</system:String>
+    <system:String x:Key="FemMemberForceTitle">{1} diagram — member {0}</system:String>
+    <system:String x:Key="FemMemberForceNoResult">No successful OpenSees analysis for this schema</system:String>
     <system:String x:Key="ImportLiraSchemaFromApi">Import topology from LIRA SAPR (COM)…</system:String>
     <system:String x:Key="ImportLiraSchemaFromFile">Import schema from .lir file…</system:String>
     <system:String x:Key="ImportLiraSchemaFromFileTitle">LIRA SAPR file (.lir)</system:String>

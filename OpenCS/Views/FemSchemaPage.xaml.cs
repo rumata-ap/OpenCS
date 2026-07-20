@@ -47,6 +47,7 @@ public partial class FemSchemaPage : UserControl
         view3D.MemberSplitRequested  += tag => _editorVm.SplitMemberByTag(tag);
         view3D.MemberPropertiesRequested  += OpenMemberProperties;
         view3D.MemberSectionEditRequested += OpenMemberProperties;
+        view3D.MemberForcesRequested      += tag => app.ShowMemberForceDiagram(schema, tag);
         view3D.NodeMoveRequested += (tag, dx, dy, dz) => _editorVm.MoveNodeByTag(tag, dx, dy, dz);
         view3D.NodeCopyRequested += (tag, dx, dy, dz) => _editorVm.CopyNodeByTag(tag, dx, dy, dz);
         view3D.NodePropertiesRequested += tag =>

@@ -3249,6 +3249,25 @@ namespace OpenCS
          db.DeleteFemAnalysis(analysis);
       }
 
+      /// <summary>Открывает 2D-эпюры усилий по одному конструктивному стержню
+      /// на основе последнего успешного расчёта схемы.</summary>
+      public void ShowMemberForceDiagram(CScore.Fem.FemSchema schema, string memberTag)
+      {
+         var analysis = schema.Analyses.LastOrDefault(a => a.ResultId is not null && a.Status == "ok");
+         if (analysis?.ResultId is not int rid)
+         {
+            LogService.Warning(Loc.S("FemMemberForceNoResult"));
+            return;
+         }
+         var cr = db.CalcResults.FirstOrDefault(c => c.Id == rid);
+         if (cr == null)
+         {
+            LogService.Warning(Loc.S("FemMemberForceNoResult"));
+            return;
+         }
+         CurrentPage = new Views.FemMemberForceView(db, schema, memberTag, cr);
+      }
+
       void DeleteFemCheck(CScore.Fem.FemCheck? check = null)
       {
          check ??= currentFemCheck;
