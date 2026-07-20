@@ -3312,13 +3312,26 @@ namespace OpenCS.Utilites
          catch { tx.Rollback(); throw; }
       }
 
+      /// <summary>Удаляет постановку расчёта и её calc_results (может содержать полные данные
+      /// по всем узлам/элементам большой схемы — без явного удаления оставался бы «осиротевшим»,
+      /// как и в DeleteFemSchema/DeleteForceSet).</summary>
       public void DeleteFemAnalysis(CScore.Fem.FemAnalysis analysis)
       {
          if (analysis.Id == 0) return;
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM fem_analyses WHERE id=@id";
-         cmd.Parameters.AddWithValue("@id", analysis.Id);
-         cmd.ExecuteNonQuery();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               DELETE FROM calc_results WHERE id=@rid;
+               DELETE FROM fem_analyses WHERE id=@id;
+            """;
+            cmd.Parameters.AddWithValue("@rid", (object?)analysis.ResultId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@id", analysis.Id);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
          FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId)?.Analyses.Remove(analysis);
       }
 
@@ -4246,21 +4259,45 @@ namespace OpenCS.Utilites
          catch { tx.Rollback(); throw; }
       }
 
+      /// <summary>Удаляет проверку и все её calc_results (см. DeleteFemAnalysis — тот же паттерн).
+      /// calc_results.fem_check_id — обратная ссылка, может указывать на несколько исторических
+      /// результатов одной проверки, не только на текущий check.ResultId.</summary>
       public void DeleteFemCheck(CScore.Fem.FemCheck check)
       {
          if (check.Id == 0) return;
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM fem_checks WHERE id = @id";
-         cmd.Parameters.AddWithValue("@id", check.Id);
-         cmd.ExecuteNonQuery();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               DELETE FROM calc_results WHERE fem_check_id=@id OR id=@rid;
+               DELETE FROM fem_checks   WHERE id=@id;
+            """;
+            cmd.Parameters.AddWithValue("@id", check.Id);
+            cmd.Parameters.AddWithValue("@rid", (object?)check.ResultId ?? DBNull.Value);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
          FemChecks.Remove(check);
       }
 
+      /// <summary>Удаляет все проверки схемы(схем) вместе с их calc_results.</summary>
       public void DeleteAllFemChecks()
       {
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM fem_checks";
-         cmd.ExecuteNonQuery();
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            cmd.CommandText = """
+               DELETE FROM calc_results WHERE fem_check_id IN (SELECT id FROM fem_checks)
+                                            OR id IN (SELECT result_id FROM fem_checks WHERE result_id IS NOT NULL);
+               DELETE FROM fem_checks;
+            """;
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
          foreach (var s in FemSchemas)
             foreach (var m in s.MemberGroups)
                m.Checks.Clear();

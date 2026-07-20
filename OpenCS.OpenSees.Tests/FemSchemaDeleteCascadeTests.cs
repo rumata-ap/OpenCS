@@ -137,3 +137,53 @@ public sealed class ForceSetDeleteCascadeTests
         return (int)(long)command.ExecuteScalar()!;
     }
 }
+
+public sealed class FemCheckDeleteCascadeTests
+{
+    [Fact]
+    public void DeleteFemCheck_RemovesAllLinkedCalcResults()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-fem-check-delete-{Guid.NewGuid():N}.db");
+        try
+        {
+            int checkId;
+            using (var db = new DatabaseService(path))
+            {
+                var schema = new FemSchema { Tag = "Схема", SourceType = "internal" };
+                db.SaveFemSchema(schema);
+
+                var check = new FemCheck { SchemaId = schema.Id, MemberId = 0, NormCode = "steel_check", Tag = "Проверка 1" };
+                db.SaveFemCheck(check);
+                checkId = check.Id;
+
+                // Две исторические записи через обратную ссылку fem_check_id — только последняя
+                // становится check.ResultId, но обе должны удалиться вместе с проверкой.
+                var r1 = new global::CScore.CalcResult { TaskKind = "steel_check", TaskTag = "run1", Created = "now", Status = "ok", DataJson = "{}" };
+                db.SaveCalcResultRaw(r1, checkId);
+                var r2 = new global::CScore.CalcResult { TaskKind = "steel_check", TaskTag = "run2", Created = "now", Status = "ok", DataJson = "{}" };
+                db.SaveCalcResultRaw(r2, checkId);
+                check.ResultId = r2.Id;
+                db.SaveFemCheck(check);
+
+                Assert.Equal(2, CountResultsByFemCheck(path, checkId));
+
+                db.DeleteFemCheck(check);
+            }
+
+            Assert.Equal(0, CountResultsByFemCheck(path, checkId));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    static int CountResultsByFemCheck(string path, int checkId)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT COUNT(*) FROM calc_results WHERE fem_check_id = {checkId}";
+        return (int)(long)command.ExecuteScalar()!;
+    }
+}
