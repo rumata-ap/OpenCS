@@ -1819,7 +1819,7 @@ namespace OpenCS.Utilites
          var sets = new Dictionary<int, ForceSet>();
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id FROM force_sets ORDER BY num";
+            cmd.CommandText = "SELECT id, num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id, source_element_id FROM force_sets ORDER BY num";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -1833,7 +1833,8 @@ namespace OpenCS.Utilites
                   SourceType       = r.IsDBNull(5) ? null : r.GetString(5),
                   SourceSchemaId   = r.IsDBNull(6) ? null : r.GetInt32(6),
                   SourceElementTag = r.IsDBNull(7) ? null : r.GetString(7),
-                  SourceMemberId   = r.IsDBNull(8) ? null : r.GetInt32(8)
+                  SourceMemberId   = r.IsDBNull(8) ? null : r.GetInt32(8),
+                  SourceElementId  = r.IsDBNull(9) ? null : r.GetInt32(9)
                };
                sets[fs.Id] = fs;
             }
@@ -1909,8 +1910,8 @@ namespace OpenCS.Utilites
          if (isNew)
          {
             cmd.CommandText = """
-               INSERT INTO force_sets (num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id)
-               VALUES (@num, @tag, @desc, @kind, @stype, @ssid, @setag, @smid);
+               INSERT INTO force_sets (num, tag, description, kind, source_type, source_schema_id, source_element_tag, source_member_id, source_element_id)
+               VALUES (@num, @tag, @desc, @kind, @stype, @ssid, @setag, @smid, @seid);
                SELECT last_insert_rowid();
             """;
          }
@@ -1918,7 +1919,8 @@ namespace OpenCS.Utilites
          {
             cmd.CommandText = """
                UPDATE force_sets SET num=@num, tag=@tag, description=@desc, kind=@kind,
-               source_type=@stype, source_schema_id=@ssid, source_element_tag=@setag, source_member_id=@smid WHERE id=@id
+               source_type=@stype, source_schema_id=@ssid, source_element_tag=@setag, source_member_id=@smid,
+               source_element_id=@seid WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@id", fs.Id);
          }
@@ -1930,6 +1932,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@ssid",  (object?)fs.SourceSchemaId   ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@setag", (object?)fs.SourceElementTag ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@smid",  (object?)fs.SourceMemberId   ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@seid",  (object?)fs.SourceElementId  ?? DBNull.Value);
          if (isNew) fs.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
 
@@ -2854,7 +2857,7 @@ namespace OpenCS.Utilites
 
          FemChecks.Clear();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, schema_id, member_id, norm_code, params_json, result_id, tag, force_set_ids_json, calc_type_override FROM fem_checks ORDER BY id";
+         cmd.CommandText = "SELECT id, schema_id, member_id, norm_code, params_json, result_id, tag, force_set_ids_json, calc_type_override, element_id FROM fem_checks ORDER BY id";
          using var r = cmd.ExecuteReader();
          while (r.Read())
          {
@@ -2869,10 +2872,12 @@ namespace OpenCS.Utilites
                Tag              = r.IsDBNull(6) ? "" : r.GetString(6),
                ForceSetIdsJson  = r.IsDBNull(7) ? "[]" : r.GetString(7),
                CalcTypeOverride = r.IsDBNull(8) ? null : r.GetString(8),
+               ElementId        = r.IsDBNull(9) ? null : r.GetInt32(9),
             };
             FemChecks.Add(check);
             var schema = FemSchemas.FirstOrDefault(s => s.Id == check.SchemaId);
-            schema?.MemberGroups.FirstOrDefault(m => m.Id == check.MemberId)?.Checks.Add(check);
+            if (!check.TargetsElement)
+               schema?.MemberGroups.FirstOrDefault(m => m.Id == check.MemberId)?.Checks.Add(check);
          }
       }
 
@@ -3791,7 +3796,7 @@ namespace OpenCS.Utilites
       {
          var result = new List<CScore.Fem.FemMember>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m FROM fem_members WHERE schema_id=@sid";
+         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m, plate_section_id, force_set_id, design_params_json FROM fem_members WHERE schema_id=@sid";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var rdr = cmd.ExecuteReader();
          while (rdr.Read())
@@ -3810,6 +3815,9 @@ namespace OpenCS.Utilites
                GjManualValue   = rdr.IsDBNull(9) ? null : rdr.GetDouble(9),
                GjTorsionTaskId = rdr.IsDBNull(10) ? null : rdr.GetInt32(10),
                TargetMeshLengthM = rdr.IsDBNull(11) ? null : rdr.GetDouble(11),
+               PlateSectionId    = rdr.IsDBNull(12) ? null : rdr.GetInt32(12),
+               ForceSetId        = rdr.IsDBNull(13) ? null : rdr.GetInt32(13),
+               DesignParamsJson  = rdr.IsDBNull(14) ? null : rdr.GetString(14),
             });
          return result;
       }
@@ -4024,8 +4032,8 @@ namespace OpenCS.Utilites
             cmd.CommandText = """
                INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                          cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
-                                         target_mesh_length_m)
-               VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml);
+                                         target_mesh_length_m, plate_section_id, force_set_id, design_params_json)
+               VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp);
                SELECT last_insert_rowid();
             """;
             cmd.Parameters.AddWithValue("@sid",   m.SchemaId);
@@ -4040,6 +4048,9 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@gjv",   (object?)m.GjManualValue   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@gjt",   (object?)m.GjTorsionTaskId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@tml",   (object?)m.TargetMeshLengthM ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@psid",  (object?)m.PlateSectionId   ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
             m.Id = (int)(long)cmd.ExecuteScalar()!;
          }
          else
@@ -4047,7 +4058,8 @@ namespace OpenCS.Utilites
             cmd.CommandText = """
                UPDATE fem_members SET elem_tag=@tag, elem_type=@etype, node_ids_json=@nids, section_tag=@stag,
                material_tag=@mtag, thickness_m=@thk, cross_section_id=@csid, gj_strategy=@gjs, gj_manual_value=@gjv,
-               gj_torsion_task_id=@gjt, target_mesh_length_m=@tml
+               gj_torsion_task_id=@gjt, target_mesh_length_m=@tml, plate_section_id=@psid, force_set_id=@fsid,
+               design_params_json=@dp
                WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@tag",   m.ElemTag);
@@ -4061,6 +4073,9 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@gjv",   (object?)m.GjManualValue   ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@gjt",   (object?)m.GjTorsionTaskId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@tml",   (object?)m.TargetMeshLengthM ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@psid",  (object?)m.PlateSectionId   ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@id",    m.Id);
             cmd.ExecuteNonQuery();
          }
@@ -4076,8 +4091,8 @@ namespace OpenCS.Utilites
             {
                cmd.CommandText = """
                   INSERT INTO fem_checks (schema_id, member_id, norm_code, params_json, result_id,
-                                          tag, force_set_ids_json, calc_type_override)
-                  VALUES (@sid, @mid, @nc, @pj, @rid, @tag, @fsids, @cto);
+                                          tag, force_set_ids_json, calc_type_override, element_id)
+                  VALUES (@sid, @mid, @nc, @pj, @rid, @tag, @fsids, @cto, @eid);
                   SELECT last_insert_rowid();
                """;
                cmd.Parameters.AddWithValue("@sid",  check.SchemaId);
@@ -4088,6 +4103,7 @@ namespace OpenCS.Utilites
                cmd.Parameters.AddWithValue("@tag",  check.Tag);
                cmd.Parameters.AddWithValue("@fsids", check.ForceSetIdsJson);
                cmd.Parameters.AddWithValue("@cto",  (object?)check.CalcTypeOverride ?? DBNull.Value);
+               cmd.Parameters.AddWithValue("@eid",  (object?)check.ElementId ?? DBNull.Value);
                check.Id = (int)(long)cmd.ExecuteScalar()!;
                FemChecks.Add(check);
             }
