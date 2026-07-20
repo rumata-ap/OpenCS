@@ -1116,7 +1116,7 @@
 
                   <DataTemplate DataType="{x:Type vm:FemMeshElementsSubNode}">
                      <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{DynamicResource FemElements}"/>
+                        <TextBlock Text="{DynamicResource FemMeshElements}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
                      </StackPanel>

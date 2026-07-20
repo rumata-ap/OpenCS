@@ -1290,7 +1290,7 @@
     <system:String x:Key="FemSchemaPageTitle">МКЭ-схема:</system:String>
     <system:String x:Key="FemSchemaSource">Источник</system:String>
     <system:String x:Key="FemMembersCount">Элементов</system:String>
-    <system:String x:Key="FemMembers">Конструктивные элементы</system:String>
+    <system:String x:Key="FemMembers">Группы конечных элементов</system:String>
     <system:String x:Key="FemMemberType">Тип элемента</system:String>
     <system:String x:Key="FemMemberShowAllForceSets">Показать все наборы</system:String>
     <system:String x:Key="FemMemberNew">Новый элемент...</system:String>
@@ -1365,7 +1365,7 @@
     <system:String x:Key="FemCheckResultWorstCheck">Определяющая проверка</system:String>
     <system:String x:Key="FemCheckResultStatus">Результат</system:String>
     <system:String x:Key="FemNodes">Узлы</system:String>
-    <system:String x:Key="FemElements">Конечные элементы</system:String>
+    <system:String x:Key="FemElements">Конструктивные элементы</system:String>
     <system:String x:Key="FemBars">Стержни</system:String>
     <system:String x:Key="FemShells">Пластины</system:String>
     <system:String x:Key="FemNodeTag">№ узла</system:String>
@@ -1433,7 +1433,8 @@
     <system:String x:Key="Fem3DShowGrid">Сетка</system:String>
     <system:String x:Key="FemDiscretize">Дискретизировать</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Целевая длина КЭ, м</system:String>
-    <system:String x:Key="FemMeshSnapshot">Расчётная сетка</system:String>
+    <system:String x:Key="FemMeshSnapshot">Сетка конечных элементов</system:String>
+    <system:String x:Key="FemMeshElements">Элементы</system:String>
     <system:String x:Key="Fem3DDrawingFlags">Флаги рисования</system:String>
     <system:String x:Key="Fem3DShowSupports">Закрепления</system:String>
     <system:String x:Key="Fem3DShowLoads">Нагрузки</system:String>

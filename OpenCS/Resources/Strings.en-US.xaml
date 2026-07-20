@@ -1287,7 +1287,7 @@
     <system:String x:Key="FemSchemaPageTitle">FEM schema:</system:String>
     <system:String x:Key="FemSchemaSource">Source</system:String>
     <system:String x:Key="FemMembersCount">Members</system:String>
-    <system:String x:Key="FemMembers">Members</system:String>
+    <system:String x:Key="FemMembers">Finite Element Groups</system:String>
     <system:String x:Key="FemMemberType">Member type</system:String>
     <system:String x:Key="FemMemberShowAllForceSets">Show all force sets</system:String>
     <system:String x:Key="FemMemberNew">New member...</system:String>
@@ -1362,7 +1362,7 @@
     <system:String x:Key="FemCheckResultWorstCheck">Controlling check</system:String>
     <system:String x:Key="FemCheckResultStatus">Result</system:String>
     <system:String x:Key="FemNodes">Nodes</system:String>
-    <system:String x:Key="FemElements">Finite Elements</system:String>
+    <system:String x:Key="FemElements">Structural Elements</system:String>
     <system:String x:Key="FemBars">Bars</system:String>
     <system:String x:Key="FemShells">Shells</system:String>
     <system:String x:Key="FemNodeTag">Node #</system:String>
@@ -1430,7 +1430,8 @@
     <system:String x:Key="Fem3DShowGrid">Grid</system:String>
     <system:String x:Key="FemDiscretize">Discretize</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Target mesh element length, m</system:String>
-    <system:String x:Key="FemMeshSnapshot">Analysis mesh</system:String>
+    <system:String x:Key="FemMeshSnapshot">Finite Element Mesh</system:String>
+    <system:String x:Key="FemMeshElements">Elements</system:String>
     <system:String x:Key="Fem3DDrawingFlags">Drawing flags</system:String>
     <system:String x:Key="Fem3DShowSupports">Supports</system:String>
     <system:String x:Key="Fem3DShowLoads">Loads</system:String>
