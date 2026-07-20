@@ -4,7 +4,7 @@ namespace CScore.Fem;
 
 /// <summary>Группа конструктивных элементов (FemMember) — единица нормативной проверки и импорта усилий.
 /// Сечение и GJ-стратегия у неё больше нет: они назначаются напрямую каждому FemMember.</summary>
-public class FemMemberGroup
+public class FemMemberGroup : IFemCheckable
 {
     public int     Id               { get; set; }
     public int     SchemaId         { get; set; }

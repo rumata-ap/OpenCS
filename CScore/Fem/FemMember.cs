@@ -5,7 +5,7 @@ namespace CScore.Fem;
 /// <summary>Конструктивный элемент — стержень между двумя FemNode. Создаётся кликом в 3D-редакторе.
 /// Сечение и GJ-стратегия — его собственные поля (раньше жили на группе FemMemberGroup).
 /// После явной команды «Дискретизировать» превращается в один или несколько расчётных КЭ.</summary>
-public class FemMember
+public class FemMember : IFemCheckable
 {
     public int     Id          { get; set; }
     public int     SchemaId    { get; set; }
@@ -37,6 +37,8 @@ public class FemMember
     public int?    ForceSetId       { get; set; }
     /// <summary>JSON-сериализация FemDesignParams для проверки этого элемента напрямую (без группы).</summary>
     public string? DesignParamsJson { get; set; }
+
+    string IFemCheckable.Tag => ElemTag;
 
     int[]? _nodeIds;
     int[] NodeIds => _nodeIds ??= JsonSerializer.Deserialize<int[]>(NodeIdsJson) ?? [];
