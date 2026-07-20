@@ -2485,15 +2485,16 @@ namespace OpenCS
             };
             db.SaveFemSchema(schema);
 
-            var nodes   = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
-            var members = CScore.Import.LiraSchemaConverter.ToFemBarMembers(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemShellMembers(raw, schema.Id))
+            var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
+            var meshElements = CScore.Import.LiraSchemaConverter.ToFemMeshBarElements(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemMeshShellElements(raw, schema.Id))
                 .ToArray();
             var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
                 .ToArray();
 
-            db.SaveFemTopology(schema.Id, nodes, members, memberGroups);
+            db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
+            db.SaveFemMemberGroups(schema.Id, memberGroups);
             RefreshFemSchemaTreeCounts(schema);
 
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
@@ -2529,15 +2530,16 @@ namespace OpenCS
             };
             db.SaveFemSchema(schema);
 
-            var nodes = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
-            var members = CScore.Import.LiraSchemaConverter.ToFemBarMembers(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemShellMembers(raw, schema.Id))
+            var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
+            var meshElements = CScore.Import.LiraSchemaConverter.ToFemMeshBarElements(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemMeshShellElements(raw, schema.Id))
                 .ToArray();
             var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
                 .ToArray();
 
-            db.SaveFemTopology(schema.Id, nodes, members, memberGroups);
+            db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
+            db.SaveFemMemberGroups(schema.Id, memberGroups);
             RefreshFemSchemaTreeCounts(schema);
 
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
@@ -2582,17 +2584,18 @@ namespace OpenCS
          };
          db.SaveFemSchema(schema);
 
-         var nodes        = CScore.Import.ScadSchemaConverter.ToFemNodes(data, schema.Id);
-         var members      = CScore.Import.ScadSchemaConverter.ToFemMembers(data, schema.Id);
+         var meshNodes    = CScore.Import.ScadSchemaConverter.ToFemMeshNodes(data, schema.Id);
+         var meshElements = CScore.Import.ScadSchemaConverter.ToFemMeshElements(data, schema.Id);
          var memberGroups = CScore.Import.ScadSchemaConverter.ToFemMemberGroups(data, schema.Id);
 
-         db.SaveFemTopology(schema.Id, nodes, members, memberGroups);
+         db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
+         db.SaveFemMemberGroups(schema.Id, memberGroups);
          RefreshFemSchemaTreeCounts(schema);
 
-         int barCount   = members.Count(e => e.ElemType == "beam");
-         int shellCount = members.Count(e => e.ElemType == "shell");
+         int barCount   = meshElements.Count(e => e.ElemType == "beam");
+         int shellCount = meshElements.Count(e => e.ElemType == "shell");
          LogService.Info(string.Format(Loc.S("ImportScadSuccess"),
-            nodes.Length, barCount, shellCount, memberGroups.Length, data.Groups.Count));
+            meshNodes.Length, barCount, shellCount, memberGroups.Length, data.Groups.Count));
       }
 
       async void ImportScadRsu2()
@@ -2768,9 +2771,11 @@ namespace OpenCS
           => femSchemasGroup?.ReloadMeshSnapshot(schemaId);
 
       void RefreshFemSchemaTreeCounts(CScore.Fem.FemSchema schema)
-          => femSchemasGroup?.Schemas
-              .FirstOrDefault(vm => vm.Schema == schema)
-              ?.ReloadTopology();
+      {
+         var vm = femSchemasGroup?.Schemas.FirstOrDefault(x => x.Schema == schema);
+         vm?.ReloadTopology();
+         vm?.ReloadMeshSnapshot();
+      }
 
 
 
@@ -2794,15 +2799,16 @@ namespace OpenCS
             var raw = await RunOnStaThread(() => Services.LiraApiSchemaReader.Read());
             var schema = new CScore.Fem.FemSchema { Tag = "Схема Лира (API)", SourceType = "lira" };
             db.SaveFemSchema(schema);
-            var nodes   = CScore.Import.LiraSchemaConverter.ToFemNodes(raw, schema.Id);
-            var members = CScore.Import.LiraSchemaConverter.ToFemBarMembers(raw, schema.Id)
-                .Concat(CScore.Import.LiraSchemaConverter.ToFemShellMembers(raw, schema.Id))
+            var meshNodes = CScore.Import.LiraSchemaConverter.ToFemMeshNodes(raw, schema.Id);
+            var meshElements = CScore.Import.LiraSchemaConverter.ToFemMeshBarElements(raw, schema.Id)
+                .Concat(CScore.Import.LiraSchemaConverter.ToFemMeshShellElements(raw, schema.Id))
                 .ToArray();
             var memberGroups = CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByStiffness(raw, schema.Id)
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByPlateStiffness(raw, schema.Id))
                 .Concat(CScore.Import.LiraSchemaConverter.ToFemMemberGroupsByConstructiveBlocks(raw, schema.Id))
                 .ToArray();
-            db.SaveFemTopology(schema.Id, nodes, members, memberGroups);
+            db.SaveFemMeshSnapshot(schema.Id, meshNodes, meshElements);
+            db.SaveFemMemberGroups(schema.Id, memberGroups);
             RefreshFemSchemaTreeCounts(schema);
             int barCount   = raw.Elements.Count(e => e.NodeIds.Length == 2);
             int shellCount = raw.Elements.Count(e => e.NodeIds.Length == 3 || e.NodeIds.Length == 4);
