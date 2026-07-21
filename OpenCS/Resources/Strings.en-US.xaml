@@ -821,6 +821,7 @@
    <system:String x:Key="VT_CalcTasks">Calc Tasks</system:String>
    <system:String x:Key="VT_CalcResult">Calc Result</system:String>
    <system:String x:Key="VT_FireSection">Fire</system:String>
+   <system:String x:Key="VT_FemAnalysisResult">FEM Analysis Result</system:String>
 
    <!-- Calc Tasks -->
    <system:String x:Key="CalcTaskDlgTitle">Task Properties</system:String>
@@ -1433,6 +1434,32 @@
     <system:String x:Key="FemResultArtifacts">Artifacts:</system:String>
     <system:String x:Key="FemColNode">Node</system:String>
     <system:String x:Key="FemColElement">Element</system:String>
+    <system:String x:Key="UnitKN">kN</system:String>
+    <system:String x:Key="UnitKNm">kN·m</system:String>
+    <system:String x:Key="FemColDispUx">Ux, m</system:String>
+    <system:String x:Key="FemColDispUy">Uy, m</system:String>
+    <system:String x:Key="FemColDispUz">Uz, m</system:String>
+    <system:String x:Key="FemColDispRx">Rx, rad</system:String>
+    <system:String x:Key="FemColDispRy">Ry, rad</system:String>
+    <system:String x:Key="FemColDispRz">Rz, rad</system:String>
+    <system:String x:Key="FemColReactRx">Rx, kN</system:String>
+    <system:String x:Key="FemColReactRy">Ry, kN</system:String>
+    <system:String x:Key="FemColReactRz">Rz, kN</system:String>
+    <system:String x:Key="FemColReactMx">Mx, kN·m</system:String>
+    <system:String x:Key="FemColReactMy">My, kN·m</system:String>
+    <system:String x:Key="FemColReactMz">Mz, kN·m</system:String>
+    <system:String x:Key="FemColForceNi">N(i), kN</system:String>
+    <system:String x:Key="FemColForceQyi">Qy(i), kN</system:String>
+    <system:String x:Key="FemColForceQzi">Qz(i), kN</system:String>
+    <system:String x:Key="FemColForceMxi">Mx(i), kN·m</system:String>
+    <system:String x:Key="FemColForceMyi">My(i), kN·m</system:String>
+    <system:String x:Key="FemColForceMzi">Mz(i), kN·m</system:String>
+    <system:String x:Key="FemColForceNj">N(j), kN</system:String>
+    <system:String x:Key="FemColForceQyj">Qy(j), kN</system:String>
+    <system:String x:Key="FemColForceQzj">Qz(j), kN</system:String>
+    <system:String x:Key="FemColForceMxj">Mx(j), kN·m</system:String>
+    <system:String x:Key="FemColForceMyj">My(j), kN·m</system:String>
+    <system:String x:Key="FemColForceMzj">Mz(j), kN·m</system:String>
     <system:String x:Key="FemMemberForceComponent">Component:</system:String>
     <system:String x:Key="FemMemberForceTitle">{1} diagram — member {0}</system:String>
     <system:String x:Key="FemMemberForceNoResult">No successful OpenSees analysis for this schema</system:String>

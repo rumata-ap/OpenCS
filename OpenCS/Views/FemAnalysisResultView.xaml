@@ -8,6 +8,8 @@
              Language="ru-RU">
     <UserControl.Resources>
         <u:AnyDoubleConverter x:Key="AnyDoubleConv"/>
+        <u:NToKNConvert x:Key="NToKN"/>
+        <u:FemForceComponentLabelConverter x:Key="ForceComponentLabelConv"/>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <ContextMenu x:Key="ResultMemberContextMenu">
             <MenuItem Header="{DynamicResource FemResultMember2D}" Click="MemberShow2DCtx_Click"/>
@@ -40,9 +42,15 @@
                         <CheckBox x:Name="highlightWholeMemberCheck" Content="{DynamicResource FemResultHighlightWholeMember}" VerticalAlignment="Center" IsChecked="True" Click="HighlightWholeMemberToggle" Margin="0,0,10,0"/>
                         <Separator Margin="10,0"/>
                         <TextBlock Text="{DynamicResource FemResultForceComponent}" VerticalAlignment="Center"/>
-                        <ComboBox Width="70" Margin="6,0" VerticalAlignment="Center"
+                        <ComboBox Width="90" Margin="6,0" VerticalAlignment="Center"
                                   ItemsSource="{Binding ForceComponents}"
-                                  SelectedItem="{Binding SelectedForceComponent, Mode=TwoWay}"/>
+                                  SelectedItem="{Binding SelectedForceComponent, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource ForceComponentLabelConv}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                         <TextBlock Text="{DynamicResource FemResultForceScale}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                         <TextBox Width="60" Text="{Binding ForceScale, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=500}" VerticalAlignment="Center" Margin="8,0"/>
                         <Button Style="{DynamicResource IconButton}" Content="↺" ToolTip="{DynamicResource FemResetScale}" Command="{Binding ResetForceScaleCommand}"/>
@@ -62,12 +70,12 @@
                           SelectionChanged="DisplacementsGrid_SelectionChanged">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding NodeTag}"/>
-                        <DataGridTextColumn Header="Ux" Binding="{Binding Ux, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Uy" Binding="{Binding Uy, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Uz" Binding="{Binding Uz, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Rx" Binding="{Binding Rx, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Ry" Binding="{Binding Ry, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Rz" Binding="{Binding Rz, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColDispUx}" Binding="{Binding Ux, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColDispUy}" Binding="{Binding Uy, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColDispUz}" Binding="{Binding Uz, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColDispRx}" Binding="{Binding Rx, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColDispRy}" Binding="{Binding Ry, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColDispRz}" Binding="{Binding Rz, StringFormat=G6}"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>
@@ -80,12 +88,12 @@
                           SelectionChanged="ReactionsGrid_SelectionChanged">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding NodeTag}"/>
-                        <DataGridTextColumn Header="Rx" Binding="{Binding Rx, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Ry" Binding="{Binding Ry, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Rz" Binding="{Binding Rz, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Mx" Binding="{Binding Mx, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="My" Binding="{Binding My, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Mz" Binding="{Binding Mz, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColReactRx}" Binding="{Binding Rx, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColReactRy}" Binding="{Binding Ry, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColReactRz}" Binding="{Binding Rz, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColReactMx}" Binding="{Binding Mx, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColReactMy}" Binding="{Binding My, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColReactMz}" Binding="{Binding Mz, Converter={StaticResource NToKN}, StringFormat=G6}"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>
@@ -98,18 +106,18 @@
                           SelectionChanged="ElementForcesGrid_SelectionChanged">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource FemColElement}" Binding="{Binding ElemTag}"/>
-                        <DataGridTextColumn Header="N(i)"  Binding="{Binding Ni,  StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Qy(i)" Binding="{Binding Qyi, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Qz(i)" Binding="{Binding Qzi, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Mx(i)" Binding="{Binding Mxi, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="My(i)" Binding="{Binding Myi, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Mz(i)" Binding="{Binding Mzi, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="N(j)"  Binding="{Binding Nj,  StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Qy(j)" Binding="{Binding Qyj, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Qz(j)" Binding="{Binding Qzj, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Mx(j)" Binding="{Binding Mxj, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="My(j)" Binding="{Binding Myj, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="Mz(j)" Binding="{Binding Mzj, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceNi}"  Binding="{Binding Ni,  Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceQyi}" Binding="{Binding Qyi, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceQzi}" Binding="{Binding Qzi, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMxi}" Binding="{Binding Mxi, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMyi}" Binding="{Binding Myi, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMzi}" Binding="{Binding Mzi, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceNj}"  Binding="{Binding Nj,  Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceQyj}" Binding="{Binding Qyj, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceQzj}" Binding="{Binding Qzj, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMxj}" Binding="{Binding Mxj, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMyj}" Binding="{Binding Myj, Converter={StaticResource NToKN}, StringFormat=G6}"/>
+                        <DataGridTextColumn Header="{DynamicResource FemColForceMzj}" Binding="{Binding Mzj, Converter={StaticResource NToKN}, StringFormat=G6}"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>

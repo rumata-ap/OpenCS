@@ -110,4 +110,34 @@ namespace OpenCS.Utilites
          return -double.Parse((string)value, CultureInfo.InvariantCulture);
       }
    }
+
+   /// <summary>Н → кН (и Н·м → кН·м — коэффициент тот же, различается только подпись единицы в заголовке).</summary>
+   public class NToKNConvert : IValueConverter
+   {
+      public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+      {
+         return 0.001 * (double)value;
+      }
+
+      public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+      {
+         return 1000 * double.Parse((string)value, CultureInfo.InvariantCulture);
+      }
+   }
+
+   /// <summary>Подпись компоненты усилия для селектора 3D-эпюры — символ + единица измерения (кН/кН·м).</summary>
+   public class FemForceComponentLabelConverter : IValueConverter
+   {
+      public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+      {
+         if (value is not OpenCS.ViewModels.FemForceComponent c) return value?.ToString() ?? "";
+         bool isForce = c is OpenCS.ViewModels.FemForceComponent.N
+            or OpenCS.ViewModels.FemForceComponent.Qy or OpenCS.ViewModels.FemForceComponent.Qz;
+         string unit = isForce ? Loc.S("UnitKN") : Loc.S("UnitKNm");
+         return $"{c}, {unit}";
+      }
+
+      public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+         Binding.DoNothing;
+   }
 }

@@ -703,6 +703,7 @@ namespace OpenCS
           Views.FemNodesView              => Loc.S("FemNodes"),
           Views.FemBarsView               => Loc.S("FemBars"),
           Views.FemShellsView             => Loc.S("FemShells"),
+          Views.FemAnalysisResultView     => Loc.S("VT_FemAnalysisResult"),
           _                               => ""
       };
       /// <summary>

@@ -216,7 +216,7 @@ public class FemAnalysisResultVM : ViewModelBase
         [FemForceComponent.N, FemForceComponent.Qy, FemForceComponent.Qz,
          FemForceComponent.Mx, FemForceComponent.My, FemForceComponent.Mz];
 
-    FemForceComponent _selectedForceComponent = FemForceComponent.My;
+    FemForceComponent _selectedForceComponent = FemForceComponent.Mz;
     /// <summary>Выбранная компонента усилия для 3D-эпюры.</summary>
     public FemForceComponent SelectedForceComponent
     {

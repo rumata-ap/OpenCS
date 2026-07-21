@@ -824,6 +824,7 @@
    <system:String x:Key="VT_CalcTasks">Расчётные задачи</system:String>
    <system:String x:Key="VT_CalcResult">Результат расчёта</system:String>
    <system:String x:Key="VT_FireSection">Огнестойкость</system:String>
+   <system:String x:Key="VT_FemAnalysisResult">Результат расчёта FEM</system:String>
 
    <!-- Расчётные задачи -->
    <system:String x:Key="CalcTaskDlgTitle">Параметры расчётной задачи</system:String>
@@ -1436,6 +1437,32 @@
     <system:String x:Key="FemResultArtifacts">Артефакты:</system:String>
     <system:String x:Key="FemColNode">Узел</system:String>
     <system:String x:Key="FemColElement">Элемент</system:String>
+    <system:String x:Key="UnitKN">кН</system:String>
+    <system:String x:Key="UnitKNm">кН·м</system:String>
+    <system:String x:Key="FemColDispUx">Ux, м</system:String>
+    <system:String x:Key="FemColDispUy">Uy, м</system:String>
+    <system:String x:Key="FemColDispUz">Uz, м</system:String>
+    <system:String x:Key="FemColDispRx">Rx, рад</system:String>
+    <system:String x:Key="FemColDispRy">Ry, рад</system:String>
+    <system:String x:Key="FemColDispRz">Rz, рад</system:String>
+    <system:String x:Key="FemColReactRx">Rx, кН</system:String>
+    <system:String x:Key="FemColReactRy">Ry, кН</system:String>
+    <system:String x:Key="FemColReactRz">Rz, кН</system:String>
+    <system:String x:Key="FemColReactMx">Mx, кН·м</system:String>
+    <system:String x:Key="FemColReactMy">My, кН·м</system:String>
+    <system:String x:Key="FemColReactMz">Mz, кН·м</system:String>
+    <system:String x:Key="FemColForceNi">N(i), кН</system:String>
+    <system:String x:Key="FemColForceQyi">Qy(i), кН</system:String>
+    <system:String x:Key="FemColForceQzi">Qz(i), кН</system:String>
+    <system:String x:Key="FemColForceMxi">Mx(i), кН·м</system:String>
+    <system:String x:Key="FemColForceMyi">My(i), кН·м</system:String>
+    <system:String x:Key="FemColForceMzi">Mz(i), кН·м</system:String>
+    <system:String x:Key="FemColForceNj">N(j), кН</system:String>
+    <system:String x:Key="FemColForceQyj">Qy(j), кН</system:String>
+    <system:String x:Key="FemColForceQzj">Qz(j), кН</system:String>
+    <system:String x:Key="FemColForceMxj">Mx(j), кН·м</system:String>
+    <system:String x:Key="FemColForceMyj">My(j), кН·м</system:String>
+    <system:String x:Key="FemColForceMzj">Mz(j), кН·м</system:String>
     <system:String x:Key="FemMemberForceComponent">Компонента:</system:String>
     <system:String x:Key="FemMemberForceTitle">Эпюра {1} — стержень {0}</system:String>
     <system:String x:Key="FemMemberForceNoResult">Нет успешного расчёта OpenSees для этой схемы</system:String>
