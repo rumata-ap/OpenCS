@@ -1399,6 +1399,11 @@
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Макс. число итераций</system:String>
     <system:String x:Key="FemAnalysisGeomTransfLabel">Формулировка geomTransf</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Точки интегрирования</system:String>
+    <system:String x:Key="FemResultTabHistory">История</system:String>
+    <system:String x:Key="FemResultStep">Шаг</system:String>
+    <system:String x:Key="FemResultStepLabel">Шаг {0}/{1}, λ={2:F3} ({3})</system:String>
+    <system:String x:Key="FemResultConverged">сошёлся</system:String>
+    <system:String x:Key="FemResultNotConverged">не сошёлся</system:String>
     <system:String x:Key="FemResultTab3D">3D</system:String>
     <system:String x:Key="FemResultTabDisp">Перемещения</system:String>
     <system:String x:Key="FemResultTabReact">Реакции</system:String>

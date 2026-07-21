@@ -1396,6 +1396,11 @@
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Max iterations</system:String>
     <system:String x:Key="FemAnalysisGeomTransfLabel">geomTransf formulation</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Integration points</system:String>
+    <system:String x:Key="FemResultTabHistory">History</system:String>
+    <system:String x:Key="FemResultStep">Step</system:String>
+    <system:String x:Key="FemResultStepLabel">Step {0}/{1}, λ={2:F3} ({3})</system:String>
+    <system:String x:Key="FemResultConverged">converged</system:String>
+    <system:String x:Key="FemResultNotConverged">not converged</system:String>
     <system:String x:Key="FemResultTab3D">3D</system:String>
     <system:String x:Key="FemResultTabDisp">Displacements</system:String>
     <system:String x:Key="FemResultTabReact">Reactions</system:String>
