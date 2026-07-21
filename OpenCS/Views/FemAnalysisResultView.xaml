@@ -11,6 +11,20 @@
         <u:NToKNConvert x:Key="NToKN"/>
         <u:FemForceComponentLabelConverter x:Key="ForceComponentLabelConv"/>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <Style x:Key="IconToggleButton25" TargetType="ToggleButton">
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="Width" Value="25"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Margin" Value="2,0"/>
+        </Style>
+        <Style x:Key="IconButton25" TargetType="Button">
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="Width" Value="25"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Margin" Value="2,0"/>
+        </Style>
         <ContextMenu x:Key="ResultMemberContextMenu">
             <MenuItem Header="{DynamicResource FemResultMember2D}" Click="MemberShow2DCtx_Click"/>
             <MenuItem Header="{DynamicResource FemResultMemberSection}" Click="MemberSectionCtx_Click"/>
@@ -33,16 +47,26 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="4">
-                        <TextBlock Text="{DynamicResource FemResultDeformScale}" VerticalAlignment="Center"/>
-                        <TextBox Width="60" Text="{Binding DeformScale, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=500}" VerticalAlignment="Center" Margin="8,0"/>
-                        <Button Style="{DynamicResource IconButton}" Content="↺" ToolTip="{DynamicResource FemResetScale}" Command="{Binding ResetDeformScaleCommand}" Margin="0,0,10,0"/>
-                        <Separator Margin="10,0"/>
-                        <CheckBox x:Name="showNodesCheck" Content="{DynamicResource FemShowNodes}" VerticalAlignment="Center" IsChecked="True" Click="NodesToggle" Margin="0,0,10,0"/>
-                        <CheckBox x:Name="highlightWholeMemberCheck" Content="{DynamicResource FemResultHighlightWholeMember}" VerticalAlignment="Center" IsChecked="True" Click="HighlightWholeMemberToggle" Margin="0,0,10,0"/>
-                        <Separator Margin="10,0"/>
-                        <TextBlock Text="{DynamicResource FemResultForceComponent}" VerticalAlignment="Center"/>
-                        <ComboBox Width="90" Margin="6,0" VerticalAlignment="Center"
+                    <ToolBar Grid.Row="0">
+                        <TextBlock Text="{DynamicResource FemResultDeformScale}" VerticalAlignment="Center" Margin="4,0,2,0"/>
+                        <TextBox Width="65" Text="{Binding DeformScale, StringFormat=F2, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=500}" VerticalAlignment="Center" TextAlignment="Center" Margin="4,0"/>
+                        <Button Style="{StaticResource IconButton25}" ToolTip="{DynamicResource FemResetScale}" Command="{Binding ResetDeformScaleCommand}">
+                            <Path Data="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,14.21 4.9,16.21 6.34,17.65L7.76,16.24C6.67,15.15 6,13.66 6,12A6,6 0 0,1 12,6Z" Fill="Black" Stretch="Uniform" Margin="2"/>
+                        </Button>
+                        <Separator/>
+                        <ToggleButton x:Name="showNodesCheck" Style="{StaticResource IconToggleButton25}"
+                                      IsChecked="True" ToolTip="{DynamicResource Fem3DShowNodes}"
+                                      Checked="NodesToggle" Unchecked="NodesToggle">
+                            <Path Data="M12,4A2.5,2.5 0 0,1 14.5,6.5A2.5,2.5 0 0,1 12,9A2.5,2.5 0 0,1 9.5,6.5A2.5,2.5 0 0,1 12,4M5.5,14A2.5,2.5 0 0,1 8,16.5A2.5,2.5 0 0,1 5.5,19A2.5,2.5 0 0,1 3,16.5A2.5,2.5 0 0,1 5.5,14M18.5,14A2.5,2.5 0 0,1 21,16.5A2.5,2.5 0 0,1 18.5,19A2.5,2.5 0 0,1 16,16.5A2.5,2.5 0 0,1 18.5,14Z" Fill="Black" Stretch="Uniform" Margin="2"/>
+                        </ToggleButton>
+                        <ToggleButton x:Name="highlightWholeMemberCheck" Style="{StaticResource IconToggleButton25}"
+                                      IsChecked="True" ToolTip="{DynamicResource FemResultHighlightWholeMember}"
+                                      Checked="HighlightWholeMemberToggle" Unchecked="HighlightWholeMemberToggle">
+                            <Path Data="M4,11H20V13H4V11M2,7A2,2 0 0,1 4,5H20A2,2 0 0,1 22,7V17A2,2 0 0,1 20,19H4A2,2 0 0,1 2,17V7M4,7V17H20V7H4Z" Fill="Black" Stretch="Uniform" Margin="2"/>
+                        </ToggleButton>
+                        <Separator/>
+                        <TextBlock Text="{DynamicResource FemResultForceComponent}" VerticalAlignment="Center" Margin="4,0,2,0"/>
+                        <ComboBox Width="90" Margin="4,0" VerticalAlignment="Center"
                                   ItemsSource="{Binding ForceComponents}"
                                   SelectedItem="{Binding SelectedForceComponent, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
@@ -51,10 +75,12 @@
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <TextBlock Text="{DynamicResource FemResultForceScale}" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                        <TextBox Width="60" Text="{Binding ForceScale, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=500}" VerticalAlignment="Center" Margin="8,0"/>
-                        <Button Style="{DynamicResource IconButton}" Content="↺" ToolTip="{DynamicResource FemResetScale}" Command="{Binding ResetForceScaleCommand}"/>
-                    </StackPanel>
+                        <TextBlock Text="{DynamicResource FemResultForceScale}" VerticalAlignment="Center" Margin="4,0,2,0"/>
+                        <TextBox Width="65" Text="{Binding ForceScale, StringFormat=F2, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=500}" VerticalAlignment="Center" TextAlignment="Center" Margin="4,0"/>
+                        <Button Style="{StaticResource IconButton25}" ToolTip="{DynamicResource FemResetScale}" Command="{Binding ResetForceScaleCommand}">
+                            <Path Data="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,14.21 4.9,16.21 6.34,17.65L7.76,16.24C6.67,15.15 6,13.66 6,12A6,6 0 0,1 12,6Z" Fill="Black" Stretch="Uniform" Margin="2"/>
+                        </Button>
+                    </ToolBar>
                     <h:HelixViewport3D x:Name="viewport" Grid.Row="1" Background="White"
                                        ShowCoordinateSystem="True" ShowViewCube="True"
                                        ZoomAroundMouseDownPoint="True"

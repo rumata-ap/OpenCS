@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using CScore;
@@ -102,14 +103,14 @@ public partial class FemAnalysisResultView : UserControl
 
     void NodesToggle(object sender, System.Windows.RoutedEventArgs e)
     {
-        if (_nodesVisual != null && sender is CheckBox cb)
-            _nodesVisual.Points = cb.IsChecked == true ? _vm.DeformedNodes : null;
+        if (_nodesVisual != null && sender is ToggleButton tb)
+            _nodesVisual.Points = tb.IsChecked == true ? _vm.DeformedNodes : null;
     }
 
     void HighlightWholeMemberToggle(object sender, System.Windows.RoutedEventArgs e)
     {
-        if (sender is not CheckBox cb) return;
-        _highlightWholeMember = cb.IsChecked == true;
+        if (sender is not ToggleButton tb) return;
+        _highlightWholeMember = tb.IsChecked == true;
         UpdateSelectionHighlight();
     }
 
