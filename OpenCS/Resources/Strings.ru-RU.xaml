@@ -1397,8 +1397,14 @@
     <system:String x:Key="FemAnalysisLoadStepsLabel">Число шагов нагрузки</system:String>
     <system:String x:Key="FemAnalysisToleranceLabel">Допуск невязки</system:String>
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Макс. число итераций</system:String>
-    <system:String x:Key="FemAnalysisGeomTransfLabel">Формулировка geomTransf</system:String>
+    <system:String x:Key="FemAnalysisGeomTransfLabel">Учёт геометрической нелинейности</system:String>
+    <system:String x:Key="FemGeomTransfLinear">Линейная (без учёта геометрической нелинейности)</system:String>
+    <system:String x:Key="FemGeomTransfPDelta">Метод P-Дельта</system:String>
+    <system:String x:Key="FemGeomTransfCorotational">Коротационная (сопутствующая система координат)</system:String>
     <system:String x:Key="FemAnalysisConvergenceTestLabel">Критерий сходимости</system:String>
+    <system:String x:Key="FemConvergenceEnergyIncr">По приращению энергии</system:String>
+    <system:String x:Key="FemConvergenceNormUnbalance">По норме небаланса сил</system:String>
+    <system:String x:Key="FemConvergenceNormDispIncr">По норме приращения перемещений</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Точки интегрирования</system:String>
     <system:String x:Key="FemResultTabHistory">История</system:String>
     <system:String x:Key="FemResultStep">Шаг</system:String>

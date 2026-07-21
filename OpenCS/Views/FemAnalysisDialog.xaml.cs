@@ -22,8 +22,10 @@ public partial class FemAnalysisDialog : Window
         var sources = BuildLoadSources();
         LoadSourceBox.ItemsSource = sources;
         CalcTypeBox.ItemsSource = Enum.GetValues<CalcType>();
-        GeomTransfBox.ItemsSource = new[] { "Linear", "PDelta", "Corotational" };
-        ConvergenceTestBox.ItemsSource = new[] { "EnergyIncr", "NormUnbalance", "NormDispIncr" };
+        var geomTransfOptions = BuildGeomTransfOptions();
+        var convergenceTestOptions = BuildConvergenceTestOptions();
+        GeomTransfBox.ItemsSource = geomTransfOptions;
+        ConvergenceTestBox.ItemsSource = convergenceTestOptions;
 
         if (existing != null)
         {
@@ -37,8 +39,8 @@ public partial class FemAnalysisDialog : Window
             LoadStepsBox.Text = pars.LoadSteps.ToString();
             ToleranceBox.Text = pars.Tolerance.ToString(CultureInfo.InvariantCulture);
             MaxIterationsBox.Text = pars.MaxIterations.ToString();
-            GeomTransfBox.SelectedItem = pars.GeomTransfKind;
-            ConvergenceTestBox.SelectedItem = pars.ConvergenceTest;
+            GeomTransfBox.SelectedItem = geomTransfOptions.FirstOrDefault(o => o.Value == pars.GeomTransfKind) ?? geomTransfOptions[0];
+            ConvergenceTestBox.SelectedItem = convergenceTestOptions.FirstOrDefault(o => o.Value == pars.ConvergenceTest) ?? convergenceTestOptions[0];
             IntegrationPointsBox.Text = pars.IntegrationPoints.ToString();
 
             var sel = sources.FirstOrDefault(s => s.Expr.ToJson() == existing.LoadExpressionJson);
@@ -48,14 +50,31 @@ public partial class FemAnalysisDialog : Window
         else
         {
             CalcTypeBox.SelectedItem = CalcType.C;
-            GeomTransfBox.SelectedItem = "Linear";
-            ConvergenceTestBox.SelectedItem = "EnergyIncr";
+            GeomTransfBox.SelectedItem = geomTransfOptions[0];
+            ConvergenceTestBox.SelectedItem = convergenceTestOptions[0];
             if (LoadSourceBox.Items.Count > 0) LoadSourceBox.SelectedIndex = 0;
         }
         UpdateNonlinearPanelVisibility();
     }
 
     sealed record LoadSource(string Label, FemLoadExpression Expr);
+
+    /// <summary>Пара «значение для Tcl/хранения» + «локализованная подпись для UI».</summary>
+    sealed record ComboOption(string Value, string Label);
+
+    static List<ComboOption> BuildGeomTransfOptions() =>
+    [
+        new("Linear", Loc.S("FemGeomTransfLinear")),
+        new("PDelta", Loc.S("FemGeomTransfPDelta")),
+        new("Corotational", Loc.S("FemGeomTransfCorotational")),
+    ];
+
+    static List<ComboOption> BuildConvergenceTestOptions() =>
+    [
+        new("EnergyIncr", Loc.S("FemConvergenceEnergyIncr")),
+        new("NormUnbalance", Loc.S("FemConvergenceNormUnbalance")),
+        new("NormDispIncr", Loc.S("FemConvergenceNormDispIncr")),
+    ];
 
     List<LoadSource> BuildLoadSources()
     {
@@ -96,8 +115,8 @@ public partial class FemAnalysisDialog : Window
             pars.Tolerance = double.TryParse(ToleranceBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var tol) && tol > 0
                 ? tol : 1e-6;
             pars.MaxIterations = int.TryParse(MaxIterationsBox.Text, out var iters) && iters > 0 ? iters : 50;
-            pars.GeomTransfKind = GeomTransfBox.SelectedItem as string ?? "Linear";
-            pars.ConvergenceTest = ConvergenceTestBox.SelectedItem as string ?? "EnergyIncr";
+            pars.GeomTransfKind = (GeomTransfBox.SelectedItem as ComboOption)?.Value ?? "Linear";
+            pars.ConvergenceTest = (ConvergenceTestBox.SelectedItem as ComboOption)?.Value ?? "EnergyIncr";
             pars.IntegrationPoints = int.TryParse(IntegrationPointsBox.Text, out var ip) && ip > 0 ? ip : 5;
         }
 

@@ -39,10 +39,10 @@
             <TextBox x:Name="MaxIterationsBox" Text="50"/>
 
             <TextBlock Text="{DynamicResource FemAnalysisGeomTransfLabel}" Margin="0,8,0,0"/>
-            <ComboBox x:Name="GeomTransfBox"/>
+            <ComboBox x:Name="GeomTransfBox" DisplayMemberPath="Label"/>
 
             <TextBlock Text="{DynamicResource FemAnalysisConvergenceTestLabel}" Margin="0,8,0,0"/>
-            <ComboBox x:Name="ConvergenceTestBox"/>
+            <ComboBox x:Name="ConvergenceTestBox" DisplayMemberPath="Label"/>
 
             <TextBlock Text="{DynamicResource FemAnalysisIntegrationPointsLabel}" Margin="0,8,0,0"/>
             <TextBox x:Name="IntegrationPointsBox" Text="5"/>

@@ -1394,8 +1394,14 @@
     <system:String x:Key="FemAnalysisLoadStepsLabel">Load steps</system:String>
     <system:String x:Key="FemAnalysisToleranceLabel">Convergence tolerance</system:String>
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Max iterations</system:String>
-    <system:String x:Key="FemAnalysisGeomTransfLabel">geomTransf formulation</system:String>
+    <system:String x:Key="FemAnalysisGeomTransfLabel">Geometric nonlinearity</system:String>
+    <system:String x:Key="FemGeomTransfLinear">Linear (no geometric nonlinearity)</system:String>
+    <system:String x:Key="FemGeomTransfPDelta">P-Delta</system:String>
+    <system:String x:Key="FemGeomTransfCorotational">Corotational</system:String>
     <system:String x:Key="FemAnalysisConvergenceTestLabel">Convergence test</system:String>
+    <system:String x:Key="FemConvergenceEnergyIncr">Energy increment</system:String>
+    <system:String x:Key="FemConvergenceNormUnbalance">Unbalanced force norm</system:String>
+    <system:String x:Key="FemConvergenceNormDispIncr">Displacement increment norm</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Integration points</system:String>
     <system:String x:Key="FemResultTabHistory">History</system:String>
     <system:String x:Key="FemResultStep">Step</system:String>
