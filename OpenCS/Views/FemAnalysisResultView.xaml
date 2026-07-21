@@ -49,7 +49,7 @@
                     </Grid.RowDefinitions>
                     <ToolBar Grid.Row="0">
                         <TextBlock Text="{DynamicResource FemResultDeformScale}" VerticalAlignment="Center" Margin="4,0,2,0"/>
-                        <TextBox Width="65" Text="{Binding DeformScale, StringFormat=F2, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=500}" VerticalAlignment="Center" TextAlignment="Center" Margin="4,0"/>
+                        <TextBox Width="65" Text="{Binding DeformScale, Converter={StaticResource AnyDoubleConv}, ConverterParameter=F2, UpdateSourceTrigger=PropertyChanged, Delay=500}" VerticalAlignment="Center" TextAlignment="Center" Margin="4,0"/>
                         <Button Style="{StaticResource IconButton25}" ToolTip="{DynamicResource FemResetScale}" Command="{Binding ResetDeformScaleCommand}">
                             <Path Data="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,14.21 4.9,16.21 6.34,17.65L7.76,16.24C6.67,15.15 6,13.66 6,12A6,6 0 0,1 12,6Z" Fill="Black" Stretch="Uniform" Margin="2"/>
                         </Button>
@@ -76,7 +76,7 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                         <TextBlock Text="{DynamicResource FemResultForceScale}" VerticalAlignment="Center" Margin="4,0,2,0"/>
-                        <TextBox Width="65" Text="{Binding ForceScale, StringFormat=F2, Converter={StaticResource AnyDoubleConv}, UpdateSourceTrigger=PropertyChanged, Delay=500}" VerticalAlignment="Center" TextAlignment="Center" Margin="4,0"/>
+                        <TextBox Width="65" Text="{Binding ForceScale, Converter={StaticResource AnyDoubleConv}, ConverterParameter=F2, UpdateSourceTrigger=PropertyChanged, Delay=500}" VerticalAlignment="Center" TextAlignment="Center" Margin="4,0"/>
                         <Button Style="{StaticResource IconButton25}" ToolTip="{DynamicResource FemResetScale}" Command="{Binding ResetForceScaleCommand}">
                             <Path Data="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,14.21 4.9,16.21 6.34,17.65L7.76,16.24C6.67,15.15 6,13.66 6,12A6,6 0 0,1 12,6Z" Fill="Black" Stretch="Uniform" Margin="2"/>
                         </Button>

@@ -17,7 +17,12 @@ namespace OpenCS.Utilites
    {
       public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
       {
-         if (value is double d) return d.ToString("G", culture);
+         if (value is double d)
+         {
+            if (parameter is string fmt && !string.IsNullOrEmpty(fmt))
+               return d.ToString(fmt, culture);
+            return d.ToString("G", culture);
+         }
          return value?.ToString() ?? "";
       }
 

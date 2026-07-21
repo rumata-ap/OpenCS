@@ -506,7 +506,9 @@ public class FemAnalysisResultVM : ViewModelBase
         double dz = xs.Max(p => p.Z) - xs.Min(p => p.Z);
         double diag = System.Math.Sqrt(dx * dx + dy * dy + dz * dz);
         if (diag <= 1e-9) return 1.0;
-        return 0.1 * diag / maxVal;
+        double val = 0.1 * diag / maxVal;
+        double rounded = System.Math.Round(val, 2);
+        return rounded > 0 ? rounded : val;
     }
 
     void RebuildDeformed()
@@ -560,7 +562,9 @@ public class FemAnalysisResultVM : ViewModelBase
         double dz = xs.Max(p => p.Z) - xs.Min(p => p.Z);
         double diag = System.Math.Sqrt(dx * dx + dy * dy + dz * dz);
         if (diag <= 1e-9) return 1.0;
-        return 0.05 * diag / maxDisp;
+        double val = 0.05 * diag / maxDisp;
+        double rounded = System.Math.Round(val, 2);
+        return rounded > 0 ? rounded : val;
     }
 
     static FemLinearResult? ParseResult(string dataJson)
