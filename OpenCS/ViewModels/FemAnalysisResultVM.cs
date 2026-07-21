@@ -90,6 +90,9 @@ public class FemAnalysisResultVM : ViewModelBase
             OnPropertyChanged(nameof(Displacements));
             OnPropertyChanged(nameof(Reactions));
             OnPropertyChanged(nameof(ElementForces));
+            OnPropertyChanged(nameof(SelectedDisplacementRow));
+            OnPropertyChanged(nameof(SelectedReactionRow));
+            OnPropertyChanged(nameof(SelectedForceRow));
             OnPropertyChanged(nameof(CurrentStepLabel));
         }
     }
@@ -140,9 +143,65 @@ public class FemAnalysisResultVM : ViewModelBase
     public Point3DCollection DeformedLines { get; private set; } = [];
     /// <summary>Точки узлов деформированной схемы.</summary>
     public Point3DCollection DeformedNodes { get; private set; } = [];
+    /// <summary>Деформированные координаты узлов по тегу mesh-узла — для pick targets в 3D-виде.</summary>
+    public IReadOnlyDictionary<int, Point3D> DeformedNodesByTag { get; private set; } = new Dictionary<int, Point3D>();
+    /// <summary>Деформированные концы каждого mesh-элемента (тег, конец i, конец j) — для pick targets в 3D-виде.</summary>
+    public IReadOnlyList<(int Tag, Point3D P0, Point3D P1)> DeformedElementSegments { get; private set; } = [];
 
     /// <summary>Есть ли стержневая геометрия для 3D-отображения.</summary>
     public bool HasGeometry => _elementPairs.Count > 0;
+
+    int? _selectedNodeTag;
+    /// <summary>Тег выбранного в 3D-виде (или в таблице) узла; взаимоисключающе с <see cref="SelectedElemTag"/>.</summary>
+    public int? SelectedNodeTag => _selectedNodeTag;
+
+    int? _selectedElemTag;
+    /// <summary>Тег выбранного в 3D-виде (или в таблице) mesh-элемента; взаимоисключающе с <see cref="SelectedNodeTag"/>.</summary>
+    public int? SelectedElemTag => _selectedElemTag;
+
+    /// <summary>Выбирает узел (или снимает весь выбор при null); сбрасывает выбор элемента.</summary>
+    public void SelectNode(int? tag)
+    {
+        if (_selectedNodeTag == tag && _selectedElemTag == null) return;
+        _selectedNodeTag = tag;
+        _selectedElemTag = null;
+        NotifySelectionChanged();
+    }
+
+    /// <summary>Выбирает mesh-элемент (или снимает весь выбор при null); сбрасывает выбор узла.</summary>
+    public void SelectElement(int? tag)
+    {
+        if (_selectedElemTag == tag && _selectedNodeTag == null) return;
+        _selectedElemTag = tag;
+        _selectedNodeTag = null;
+        NotifySelectionChanged();
+    }
+
+    void NotifySelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedNodeTag));
+        OnPropertyChanged(nameof(SelectedElemTag));
+        OnPropertyChanged(nameof(SelectedDisplacementRow));
+        OnPropertyChanged(nameof(SelectedReactionRow));
+        OnPropertyChanged(nameof(SelectedForceRow));
+    }
+
+    /// <summary>Строка таблицы «Перемещения», соответствующая выбранному узлу (для подсветки грида).</summary>
+    public FemNodeDisplacement? SelectedDisplacementRow =>
+        _selectedNodeTag is int tag ? Displacements.FirstOrDefault(d => d.NodeTag == tag) : null;
+    /// <summary>Строка таблицы «Реакции», соответствующая выбранному узлу (для подсветки грида).</summary>
+    public FemNodeReaction? SelectedReactionRow =>
+        _selectedNodeTag is int tag ? Reactions.FirstOrDefault(r => r.NodeTag == tag) : null;
+    /// <summary>Строка таблицы «Усилия», соответствующая выбранному элементу (для подсветки грида).</summary>
+    public FemElementEndForces? SelectedForceRow =>
+        _selectedElemTag is int tag ? ElementForces.FirstOrDefault(f => f.ElemTag == tag) : null;
+
+    /// <summary>Резолвит тег mesh-элемента в тег конструктивного стержня (для действий контекстного меню).</summary>
+    public string ResolveMemberTag(int meshElemTag)
+    {
+        var eg = _elementGeoms.FirstOrDefault(g => g.Tag == meshElemTag);
+        return FemResultIdentity.ResolveMemberTag(eg.SourceMemberTag, meshElemTag);
+    }
 
     double _deformScale = 1.0;
     /// <summary>Масштаб визуализации перемещений.</summary>
@@ -462,12 +521,22 @@ public class FemAnalysisResultVM : ViewModelBase
         OnPropertyChanged(nameof(DeformedLines));
 
         var nodes = new Point3DCollection();
+        var nodesByTag = new Dictionary<int, Point3D>();
         foreach (var kvp in _originalByTag)
         {
-            nodes.Add(Deformed(kvp.Key));
+            var d = Deformed(kvp.Key);
+            nodes.Add(d);
+            nodesByTag[kvp.Key] = d;
         }
         DeformedNodes = nodes;
+        DeformedNodesByTag = nodesByTag;
         OnPropertyChanged(nameof(DeformedNodes));
+        OnPropertyChanged(nameof(DeformedNodesByTag));
+
+        DeformedElementSegments = _elementGeoms
+            .Select(eg => (eg.Tag, Deformed(eg.Ni), Deformed(eg.Nj)))
+            .ToList();
+        OnPropertyChanged(nameof(DeformedElementSegments));
     }
 
     Point3D Deformed(int tag)
@@ -531,86 +600,6 @@ public class FemAnalysisResultVM : ViewModelBase
         }
         catch (JsonException) { }
         return list;
-    }
-    /// <summary>HitTest для контекстного меню: возвращает "Node" или "Member" и Tag.</summary>
-    public (string Kind, string Tag)? HitTest(Point3D origin, Vector3D dir)
-    {
-        double bestDist = double.MaxValue;
-        (string Kind, string Tag)? bestHit = null;
-
-        double hitRadius = 0.1;
-        if (_originalByTag.Count > 0)
-        {
-            var bounds = new Rect3D(_originalByTag.Values.First(), new Size3D());
-            foreach (var p in _originalByTag.Values) bounds.Union(p);
-            hitRadius = System.Math.Max(1e-3, bounds.SizeX + bounds.SizeY + bounds.SizeZ) * 0.01;
-        }
-
-        dir.Normalize();
-
-        foreach (var kvp in _originalByTag)
-        {
-            Point3D pt = kvp.Value;
-            if (_dispByTag.TryGetValue(kvp.Key, out var disp)) pt += disp * _deformScale;
-            Vector3D v = pt - origin;
-            double t = Vector3D.DotProduct(v, dir);
-            if (t > 0)
-            {
-                Point3D proj = origin + dir * t;
-                double dist = (proj - pt).Length;
-                if (dist < hitRadius * 1.5 && t < bestDist)
-                {
-                    bestDist = t;
-                    bestHit = ("Node", kvp.Key.ToString());
-                }
-            }
-        }
-
-        foreach (var eg in _elementGeoms)
-        {
-            Point3D p0 = eg.Pi, p1 = eg.Pj;
-            if (_dispByTag.TryGetValue(eg.Ni, out var d0)) p0 += d0 * _deformScale;
-            if (_dispByTag.TryGetValue(eg.Nj, out var d1)) p1 += d1 * _deformScale;
-            
-            Vector3D u = dir;
-            Vector3D v = p1 - p0;
-            Vector3D w = origin - p0;
-            
-            double a = Vector3D.DotProduct(u, u);
-            double b = Vector3D.DotProduct(u, v);
-            double c = Vector3D.DotProduct(v, v);
-            double d = Vector3D.DotProduct(u, w);
-            double e = Vector3D.DotProduct(v, w);
-            double D = a * c - b * b;
-            
-            double sc, tc;
-            if (D < 1e-8)
-            {
-                sc = 0.0;
-                tc = (b > c ? d / b : e / c);
-            }
-            else
-            {
-                sc = (b * e - c * d) / D;
-                tc = (a * e - b * d) / D;
-            }
-            
-            if (tc < 0) { tc = 0; sc = -d / a; }
-            else if (tc > 1) { tc = 1; sc = (b - d) / a; }
-            if (sc < 0) { sc = 0; }
-            
-            Point3D dP = origin + sc * u;
-            Point3D dP_seg = p0 + tc * v;
-            double dist = (dP - dP_seg).Length;
-            
-            if (dist < hitRadius && sc > 0 && sc < bestDist)
-            {
-                bestDist = sc;
-                bestHit = ("Member", FemResultIdentity.ResolveMemberTag(eg.SourceMemberTag, eg.Tag));
-            }
-        }
-
-        return bestHit;
     }
 }
 
