@@ -119,8 +119,21 @@ public class Fem3DVM : ViewModelBase
             var allNodes    = await Task.Run(() => _db.GetFemNodes(_schemaId));
             var allElements = await Task.Run(() => _db.GetFemMembers(_schemaId));
 
+            // Схемы, импортированные из ЛИРА/SCAD, пишут топологию сразу в mesh-слой и не создают
+            // конструктивный слой (FemNode/FemMember) — тогда источником геометрии для 3D-вида
+            // (сплошная заливка пластин, полные рёбра, группировка стержней по сечению) служит
+            // именно mesh-слой, а не одна лишь тонкая оверлейная сетка.
+            bool constructiveEmpty = allNodes.Count == 0 && allElements.Count == 0;
+            if (constructiveEmpty)
+            {
+                var meshNodes    = await Task.Run(() => _db.GetFemMeshNodes(_schemaId));
+                var meshElements = await Task.Run(() => _db.GetFemMeshElements(_schemaId));
+                allNodes    = meshNodes.Select(ToFemNode).ToList();
+                allElements = meshElements.Select(ToFemMember).ToList();
+            }
+
             ApplyTopology(allNodes, allElements);
-            if (_memberOnly == null && _highlightMember == null)
+            if (_memberOnly == null && _highlightMember == null && !constructiveEmpty)
                 await LoadMeshOverlayAsync();
         }
         finally
@@ -129,6 +142,17 @@ public class Fem3DVM : ViewModelBase
             Status    = "";
         }
     }
+
+    static FemNode ToFemNode(FemMeshNode n) => new()
+    {
+        NodeTag = n.NodeTag, X = n.X, Y = n.Y, Z = n.Z,
+    };
+
+    static FemMember ToFemMember(FemElement e) => new()
+    {
+        ElemTag = e.ElemTag, ElemType = e.ElemType, NodeIdsJson = e.NodeIdsJson,
+        SectionTag = e.SectionTag, MaterialTag = e.MaterialTag, ThicknessM = e.ThicknessM,
+    };
 
     public async Task LoadMeshOverlayAsync()
     {
