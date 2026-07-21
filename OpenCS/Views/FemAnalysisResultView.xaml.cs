@@ -16,8 +16,16 @@ public partial class FemAnalysisResultView : UserControl
     /// <summary>Порог, после которого picking по отдельным узлам/элементам отключается (как в
     /// FemSchemaView3D) — на больших моделях O(N) Visual3D вешают UI.</summary>
     const int PickTargetThreshold = 500;
-    const double NodePickRadius = 0.15;
-    const double ElemPickDiameter = 0.04;
+
+    // Радиус/диаметр pick-целей считаются от средней длины mesh-сегмента (см. BuildPickTargets),
+    // а не берутся фиксированными: на густой сетке (короткие сегменты) фиксированный размер делает
+    // сферу узла крупнее самого сегмента — стержень физически невозможно кликнуть между узлами.
+    const double NodePickRadiusFactor = 0.12;
+    const double NodePickRadiusMin = 0.01;
+    const double NodePickRadiusMax = 0.5;
+    const double ElemPickDiameterFactor = 0.05;
+    const double ElemPickDiameterMin = 0.005;
+    const double ElemPickDiameterMax = 0.2;
 
     // Уточнение относительно спеки: там описана пара «видимая маленькая сфера + невидимая
     // крупнее» по образцу FemSchemaView3D. Здесь этого не нужно — узлы уже рисует отдельный
@@ -135,11 +143,17 @@ public partial class FemAnalysisResultView : UserControl
         if (!_vm.HasGeometry) return;
         if (_vm.DeformedNodesByTag.Count > PickTargetThreshold) return;
 
+        double avgSegmentLength = _vm.DeformedElementSegments.Count > 0
+            ? _vm.DeformedElementSegments.Average(s => (s.P1 - s.P0).Length)
+            : 1.0;
+        double nodeRadius = System.Math.Clamp(avgSegmentLength * NodePickRadiusFactor, NodePickRadiusMin, NodePickRadiusMax);
+        double elemDiameter = System.Math.Clamp(avgSegmentLength * ElemPickDiameterFactor, ElemPickDiameterMin, ElemPickDiameterMax);
+
         foreach (var (tag, pos) in _vm.DeformedNodesByTag)
         {
             var sphere = new SphereVisual3D
             {
-                Center = pos, Radius = NodePickRadius,
+                Center = pos, Radius = nodeRadius,
                 Fill = new SolidColorBrush(IsNodeHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent)
             };
             _pickTargets[sphere] = (true, tag);
@@ -151,7 +165,7 @@ public partial class FemAnalysisResultView : UserControl
         {
             var pipe = new PipeVisual3D
             {
-                Point1 = p0, Point2 = p1, Diameter = ElemPickDiameter,
+                Point1 = p0, Point2 = p1, Diameter = elemDiameter,
                 Fill = new SolidColorBrush(IsElemHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent)
             };
             _pickTargets[pipe] = (false, tag);
@@ -182,13 +196,17 @@ public partial class FemAnalysisResultView : UserControl
     (bool IsNode, int Tag)? HitTestPick(System.Windows.Point position)
     {
         (bool IsNode, int Tag)? hit = null;
+        double bestDistance = double.MaxValue;
         HitTestResultBehavior Callback(HitTestResult result)
         {
-            if (result is RayMeshGeometry3DHitTestResult meshHit &&
-                _pickTargets.TryGetValue(meshHit.VisualHit, out var target))
+            // Перебираем все попадания и берём ближайшее к камере по лучу — иначе при плотной
+            // сетке порядок узел/элемент в дереве визуалов (не расстояние) решал бы, что выбрано.
+            if (result is RayHitTestResult rayHit &&
+                _pickTargets.TryGetValue(rayHit.VisualHit, out var target) &&
+                rayHit.DistanceToRayOrigin < bestDistance)
             {
+                bestDistance = rayHit.DistanceToRayOrigin;
                 hit = target;
-                return HitTestResultBehavior.Stop;
             }
             return HitTestResultBehavior.Continue;
         }
