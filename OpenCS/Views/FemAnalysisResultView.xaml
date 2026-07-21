@@ -55,8 +55,10 @@
 
             <!-- Перемещения -->
             <TabItem Header="{DynamicResource FemResultTabDisp}">
-                <DataGrid ItemsSource="{Binding Displacements}" AutoGenerateColumns="False"
-                          IsReadOnly="True" CanUserAddRows="False">
+                <DataGrid x:Name="displacementsGrid" ItemsSource="{Binding Displacements}" AutoGenerateColumns="False"
+                          IsReadOnly="True" CanUserAddRows="False"
+                          SelectedItem="{Binding SelectedDisplacementRow, Mode=OneWay}"
+                          SelectionChanged="DisplacementsGrid_SelectionChanged">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding NodeTag}"/>
                         <DataGridTextColumn Header="Ux" Binding="{Binding Ux, StringFormat=G6}"/>
@@ -71,8 +73,10 @@
 
             <!-- Реакции -->
             <TabItem Header="{DynamicResource FemResultTabReact}">
-                <DataGrid ItemsSource="{Binding Reactions}" AutoGenerateColumns="False"
-                          IsReadOnly="True" CanUserAddRows="False">
+                <DataGrid x:Name="reactionsGrid" ItemsSource="{Binding Reactions}" AutoGenerateColumns="False"
+                          IsReadOnly="True" CanUserAddRows="False"
+                          SelectedItem="{Binding SelectedReactionRow, Mode=OneWay}"
+                          SelectionChanged="ReactionsGrid_SelectionChanged">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding NodeTag}"/>
                         <DataGridTextColumn Header="Rx" Binding="{Binding Rx, StringFormat=G6}"/>
@@ -87,8 +91,10 @@
 
             <!-- Усилия -->
             <TabItem Header="{DynamicResource FemResultTabForces}">
-                <DataGrid ItemsSource="{Binding ElementForces}" AutoGenerateColumns="False"
-                          IsReadOnly="True" CanUserAddRows="False">
+                <DataGrid x:Name="elementForcesGrid" ItemsSource="{Binding ElementForces}" AutoGenerateColumns="False"
+                          IsReadOnly="True" CanUserAddRows="False"
+                          SelectedItem="{Binding SelectedForceRow, Mode=OneWay}"
+                          SelectionChanged="ElementForcesGrid_SelectionChanged">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="{DynamicResource FemColElement}" Binding="{Binding ElemTag}"/>
                         <DataGridTextColumn Header="N(i)"  Binding="{Binding Ni,  StringFormat=G6}"/>
