@@ -3339,7 +3339,7 @@ namespace OpenCS
             var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
             if (member != null && member.CrossSectionId.HasValue) {
                var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
-               if (section != null) CurrentPage = new Views.CrossSectionView(section, this);
+               if (section != null) CurrentCrossSection = section;
             }
          };
          vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
@@ -3370,7 +3370,7 @@ namespace OpenCS
                var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
                if (member != null && member.CrossSectionId.HasValue) {
                   var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
-                  if (section != null) CurrentPage = new Views.CrossSectionView(section, this);
+                  if (section != null) CurrentCrossSection = section;
                }
             };
             vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
