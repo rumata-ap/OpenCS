@@ -1429,6 +1429,7 @@
     <system:String x:Key="FemResultSectionStress">Напряжения σ</system:String>
     <system:String x:Key="FemResultSectionStrain">Деформации ε</system:String>
     <system:String x:Key="FemResultDeformScale">Масштаб деформаций:</system:String>
+    <system:String x:Key="FemResultHighlightWholeMember">Выбор по конструктивному стержню</system:String>
     <system:String x:Key="FemResultForceComponent">Эпюра:</system:String>
     <system:String x:Key="FemResultForceScale">Масштаб эпюры:</system:String>
     <system:String x:Key="FemResultStatus">Статус:</system:String>

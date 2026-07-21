@@ -37,6 +37,7 @@
                         <Button Style="{DynamicResource IconButton}" Content="↺" ToolTip="{DynamicResource FemResetScale}" Command="{Binding ResetDeformScaleCommand}" Margin="0,0,10,0"/>
                         <Separator Margin="10,0"/>
                         <CheckBox x:Name="showNodesCheck" Content="{DynamicResource FemShowNodes}" VerticalAlignment="Center" IsChecked="True" Click="NodesToggle" Margin="0,0,10,0"/>
+                        <CheckBox x:Name="highlightWholeMemberCheck" Content="{DynamicResource FemResultHighlightWholeMember}" VerticalAlignment="Center" IsChecked="True" Click="HighlightWholeMemberToggle" Margin="0,0,10,0"/>
                         <Separator Margin="10,0"/>
                         <TextBlock Text="{DynamicResource FemResultForceComponent}" VerticalAlignment="Center"/>
                         <ComboBox Width="70" Margin="6,0" VerticalAlignment="Center"

@@ -1426,6 +1426,7 @@
     <system:String x:Key="FemResultSectionStress">Stress σ</system:String>
     <system:String x:Key="FemResultSectionStrain">Strain ε</system:String>
     <system:String x:Key="FemResultDeformScale">Deformation scale:</system:String>
+    <system:String x:Key="FemResultHighlightWholeMember">Select by structural member</system:String>
     <system:String x:Key="FemResultForceComponent">Diagram:</system:String>
     <system:String x:Key="FemResultForceScale">Diagram scale:</system:String>
     <system:String x:Key="FemResultStatus">Status:</system:String>

@@ -34,6 +34,8 @@ public partial class FemAnalysisResultView : UserControl
     readonly Dictionary<int, SphereVisual3D> _nodeSpheresByTag = new();
     readonly Dictionary<int, PipeVisual3D> _elemPipesByTag = new();
 
+    bool _highlightWholeMember = true;
+
     public FemAnalysisResultView(FemAnalysisResultVM vm)
     {
         InitializeComponent();
@@ -96,6 +98,13 @@ public partial class FemAnalysisResultView : UserControl
             _nodesVisual.Points = cb.IsChecked == true ? _vm.DeformedNodes : null;
     }
 
+    void HighlightWholeMemberToggle(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (sender is not CheckBox cb) return;
+        _highlightWholeMember = cb.IsChecked == true;
+        UpdateSelectionHighlight();
+    }
+
     void BuildViewport()
     {
         if (!_vm.HasGeometry) return;
@@ -128,11 +137,10 @@ public partial class FemAnalysisResultView : UserControl
 
         foreach (var (tag, pos) in _vm.DeformedNodesByTag)
         {
-            bool selected = _vm.SelectedNodeTag == tag;
             var sphere = new SphereVisual3D
             {
                 Center = pos, Radius = NodePickRadius,
-                Fill = new SolidColorBrush(selected ? Colors.OrangeRed : Colors.Transparent)
+                Fill = new SolidColorBrush(IsNodeHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent)
             };
             _pickTargets[sphere] = (true, tag);
             _nodeSpheresByTag[tag] = sphere;
@@ -141,11 +149,10 @@ public partial class FemAnalysisResultView : UserControl
 
         foreach (var (tag, p0, p1) in _vm.DeformedElementSegments)
         {
-            bool selected = _vm.SelectedElemTag == tag;
             var pipe = new PipeVisual3D
             {
                 Point1 = p0, Point2 = p1, Diameter = ElemPickDiameter,
-                Fill = new SolidColorBrush(selected ? Colors.OrangeRed : Colors.Transparent)
+                Fill = new SolidColorBrush(IsElemHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent)
             };
             _pickTargets[pipe] = (false, tag);
             _elemPipesByTag[tag] = pipe;
@@ -153,12 +160,23 @@ public partial class FemAnalysisResultView : UserControl
         }
     }
 
+    bool IsNodeHighlighted(int tag) => _vm.SelectedNodeTag == tag;
+
+    /// <summary>В режиме «по конструктивному стержню» подсвечивает все mesh-сегменты одного стержня;
+    /// в mesh-режиме — только сам выбранный сегмент. Идентичность выбора (SelectedElemTag) режим не меняет.</summary>
+    bool IsElemHighlighted(int tag)
+    {
+        if (_vm.SelectedElemTag is not int selected) return false;
+        if (!_highlightWholeMember) return selected == tag;
+        return _vm.ResolveMemberTag(tag) == _vm.ResolveMemberTag(selected);
+    }
+
     void UpdateSelectionHighlight()
     {
         foreach (var (tag, sphere) in _nodeSpheresByTag)
-            sphere.Fill = new SolidColorBrush(_vm.SelectedNodeTag == tag ? Colors.OrangeRed : Colors.Transparent);
+            sphere.Fill = new SolidColorBrush(IsNodeHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent);
         foreach (var (tag, pipe) in _elemPipesByTag)
-            pipe.Fill = new SolidColorBrush(_vm.SelectedElemTag == tag ? Colors.OrangeRed : Colors.Transparent);
+            pipe.Fill = new SolidColorBrush(IsElemHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent);
     }
 
     (bool IsNode, int Tag)? HitTestPick(System.Windows.Point position)
