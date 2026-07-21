@@ -232,8 +232,9 @@ public class FemAnalysisResultVM : ViewModelBase
         set { if (!FemScaleInput.IsValid(value) || value == _forceScale) return; _forceScale = value; RebuildForceDiagram(); OnPropertyChanged(); }
     }
 
-    /// <summary>Геометрия ленты выбранной эпюры.</summary>
-    public MeshGeometry3D? ForceDiagramMesh { get; private set; }
+    /// <summary>Геометрия ленты выбранной эпюры. Никогда не null — RebuildForceDiagram
+    /// выставляет её (пусть даже пустой) уже в конструкторе, до первого чтения.</summary>
+    public MeshGeometry3D ForceDiagramMesh { get; private set; } = new();
 
     /// <summary>Положение максимума выбранной компоненты усилия на ленте эпюры (null, если данных нет).</summary>
     public Point3D? ForceMaxLabelPosition { get; private set; }

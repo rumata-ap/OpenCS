@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.Versioning;
 using Xunit;
 using CScore.Import;
 
@@ -13,6 +14,7 @@ namespace CScore.Tests.Import
         // This test requires LIRA-SAPR to be installed and the specified file to be currently OPEN in it.
         // It reads topology from the live COM API and compares it byte-by-byte with our binary parser.
         [Fact(Skip = "Requires LIRA-SAPR installed and 'hostel.lir' to be open in it. Run manually for verification.")]
+        [SupportedOSPlatform("windows")]
         public void CompareComApiAndBinaryParser()
         {
             string path = @"C:\Users\palex\Documents\prj\obshezitie_belgorod\calc\hostel.lir";
@@ -21,8 +23,8 @@ namespace CScore.Tests.Import
             // 1. Read from API
             var appType = Type.GetTypeFromProgID("LiraSapr.Application");
             Assert.NotNull(appType);
-            
-            dynamic lira = Activator.CreateInstance(appType);
+
+            dynamic lira = Activator.CreateInstance(appType!)!;
             dynamic doc = lira.ActiveDocument;
             Assert.NotNull(doc);
 
@@ -31,13 +33,13 @@ namespace CScore.Tests.Import
 
             // Read Nodes
             dynamic nodesTable = doc.AllTables.CreateNewItem(2);
-            object rawNodes = null;
+            object? rawNodes = null;
             nodesTable.GetContents(ref rawNodes);
             ParseApiNodes(rawNodes as object[,], apiData);
 
             // Read Elems
             dynamic elemsTable = doc.AllTables.CreateNewItem(3);
-            object rawElems = null;
+            object? rawElems = null;
             elemsTable.GetContents(ref rawElems);
             ParseApiElements(rawElems as object[,], apiData);
 
@@ -107,7 +109,7 @@ namespace CScore.Tests.Import
         }
 
         // --- API Parsing Helpers ---
-        static void ParseApiNodes(object[,] rows, LiraSchemaData data)
+        static void ParseApiNodes(object[,]? rows, LiraSchemaData data)
         {
             if (rows == null) return;
             int count = rows.GetLength(0);
@@ -121,7 +123,7 @@ namespace CScore.Tests.Import
             }
         }
 
-        static void ParseApiElements(object[,] rows, LiraSchemaData data)
+        static void ParseApiElements(object[,]? rows, LiraSchemaData data)
         {
             if (rows == null) return;
             int count = rows.GetLength(0);

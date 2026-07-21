@@ -76,7 +76,7 @@ public partial class FemAnalysisResultView : UserControl
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedNodes) && _nodesVisual is not null)
         {
-            _nodesVisual.Points = showNodesCheck.IsChecked == true ? _vm.DeformedNodes : null;
+            _nodesVisual.Points = showNodesCheck.IsChecked == true ? _vm.DeformedNodes : null!;
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.ForceDiagramMesh) && _forceRibbon is not null)
         {
@@ -111,7 +111,7 @@ public partial class FemAnalysisResultView : UserControl
     void NodesToggle(object sender, System.Windows.RoutedEventArgs e)
     {
         if (_nodesVisual != null && sender is ToggleButton tb)
-            _nodesVisual.Points = tb.IsChecked == true ? _vm.DeformedNodes : null;
+            _nodesVisual.Points = tb.IsChecked == true ? _vm.DeformedNodes : null!;
     }
 
     void HighlightWholeMemberToggle(object sender, System.Windows.RoutedEventArgs e)
