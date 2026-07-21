@@ -1507,6 +1507,7 @@
     <system:String x:Key="FemMemberGjStrategy">Крутильная жёсткость (GJ)</system:String>
     <system:String x:Key="FemMemberRotationDeg">Угол поворота сечения, °</system:String>
     <system:String x:Key="FemGjManual">Вручную</system:String>
+    <system:String x:Key="FemGjUnits">Н·м²</system:String>
     <system:String x:Key="FemGjSaintVenant">По задаче кручения (Сен-Венан)</system:String>
     <system:String x:Key="FemCreateMemberFromSelection">Создать элемент из выбранных</system:String>
     <system:String x:Key="FemLoadCasesTab">Загружения</system:String>

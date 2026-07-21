@@ -1504,6 +1504,7 @@
     <system:String x:Key="FemMemberGjStrategy">Torsional stiffness (GJ)</system:String>
     <system:String x:Key="FemMemberRotationDeg">Section rotation angle, °</system:String>
     <system:String x:Key="FemGjManual">Manual</system:String>
+    <system:String x:Key="FemGjUnits">N·m²</system:String>
     <system:String x:Key="FemGjSaintVenant">From torsion task (Saint-Venant)</system:String>
     <system:String x:Key="FemCreateMemberFromSelection">Create member from selection</system:String>
     <system:String x:Key="FemLoadCasesTab">Load cases</system:String>
