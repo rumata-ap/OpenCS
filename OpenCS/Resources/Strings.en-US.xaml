@@ -1444,6 +1444,9 @@
     <system:String x:Key="Fem3DShowGrid">Grid</system:String>
     <system:String x:Key="FemDiscretize">Discretize</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Target mesh element length, m</system:String>
+    <system:String x:Key="FemMergeNodes">Merge coincident nodes</system:String>
+    <system:String x:Key="FemMergeNodesDone">Merged {0} nodes into {1} groups</system:String>
+    <system:String x:Key="FemMergeNodesNone">No coincident nodes found</system:String>
     <system:String x:Key="FemMeshSnapshot">Finite Element Mesh</system:String>
     <system:String x:Key="FemMeshElements">Elements</system:String>
     <system:String x:Key="FemMeshBars">Bars</system:String>

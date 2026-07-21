@@ -1447,6 +1447,9 @@
     <system:String x:Key="Fem3DShowGrid">Сетка</system:String>
     <system:String x:Key="FemDiscretize">Дискретизировать</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Целевая длина КЭ, м</system:String>
+    <system:String x:Key="FemMergeNodes">Сшить совпадающие узлы</system:String>
+    <system:String x:Key="FemMergeNodesDone">Объединено {0} узлов в {1} групп</system:String>
+    <system:String x:Key="FemMergeNodesNone">Совпадающих узлов не найдено</system:String>
     <system:String x:Key="FemMeshSnapshot">Сетка конечных элементов</system:String>
     <system:String x:Key="FemMeshElements">Элементы</system:String>
     <system:String x:Key="FemMeshBars">Стержни</system:String>
