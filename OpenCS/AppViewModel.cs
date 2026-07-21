@@ -3434,7 +3434,8 @@ namespace OpenCS
          if (displacement is { } d)
             lines.Add(string.Format(Loc.S("FemResultNodeDisplacements"), d.Ux, d.Uy, d.Uz, d.Rx, d.Ry, d.Rz));
          if (reaction is { } r)
-            lines.Add(string.Format(Loc.S("FemResultNodeReactions"), r.Rx, r.Ry, r.Rz, r.Mx, r.My, r.Mz));
+            lines.Add(string.Format(Loc.S("FemResultNodeReactions"),
+               r.Rx / 1000, r.Ry / 1000, r.Rz / 1000, r.Mx / 1000, r.My / 1000, r.Mz / 1000));
          MessageBox.Show(string.Join(Environment.NewLine, lines), Loc.S("FemResultNodeTitle"));
       }
 

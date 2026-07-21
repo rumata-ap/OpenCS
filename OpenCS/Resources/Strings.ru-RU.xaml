@@ -854,9 +854,9 @@
     <system:String x:Key="FemResultMemberSection">Перейти к сечению</system:String>
     <system:String x:Key="FemResultNodeValues">Показать значения в узле</system:String>
     <system:String x:Key="FemResultNodeTitle">Результат в узле</system:String>
-    <system:String x:Key="FemResultNodeCoordinates">Координаты: ({0:F3}; {1:F3}; {2:F3})</system:String>
-    <system:String x:Key="FemResultNodeDisplacements">Перемещения: Ux={0:G6}, Uy={1:G6}, Uz={2:G6}; Rx={3:G6}, Ry={4:G6}, Rz={5:G6}</system:String>
-    <system:String x:Key="FemResultNodeReactions">Реакции: Rx={0:G6}, Ry={1:G6}, Rz={2:G6}; Mx={3:G6}, My={4:G6}, Mz={5:G6}</system:String>
+    <system:String x:Key="FemResultNodeCoordinates">Координаты, м: ({0:F3}; {1:F3}; {2:F3})</system:String>
+    <system:String x:Key="FemResultNodeDisplacements">Перемещения (м / рад): Ux={0:G6}, Uy={1:G6}, Uz={2:G6}; Rx={3:G6}, Ry={4:G6}, Rz={5:G6}</system:String>
+    <system:String x:Key="FemResultNodeReactions">Реакции (кН / кН·м): Rx={0:G6}, Ry={1:G6}, Rz={2:G6}; Mx={3:G6}, My={4:G6}, Mz={5:G6}</system:String>
     <system:String x:Key="FemNoData">Нет данных</system:String>
     <system:String x:Key="ConfirmDeleteCalcTask">Удалить задачу и все её результаты?</system:String>
     <system:String x:Key="ConfirmDeleteCalcResults">Удалить все результаты задачи «{0}»?</system:String>

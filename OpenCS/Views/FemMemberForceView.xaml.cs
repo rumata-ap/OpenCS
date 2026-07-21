@@ -27,7 +27,7 @@ public partial class FemMemberForceView : UserControl
         BuildElements(db, schema, memberTag, result);
 
         componentBox.ItemsSource = System.Enum.GetValues<FemForceComponent>();
-        componentBox.SelectedItem = FemForceComponent.My;
+        componentBox.SelectedItem = FemForceComponent.Mz;
     }
 
     void BuildElements(DatabaseService db, FemSchema schema, string memberTag, CalcResult result)
@@ -87,10 +87,13 @@ public partial class FemMemberForceView : UserControl
             .Select(el =>
             {
                 var (vi, vj) = ComponentValues(comp, el.Forces);
-                return new FemMemberForceCanvas.Segment(el.Si, el.Sj, vi, vj);
+                return new FemMemberForceCanvas.Segment(el.Si, el.Sj, vi / 1000, vj / 1000);
             })
             .ToList();
-        canvas.SetData(segs, string.Format(Loc.S("FemMemberForceTitle"), _memberTag, comp));
+        bool isForce = comp is FemForceComponent.N or FemForceComponent.Qy or FemForceComponent.Qz;
+        string unit = isForce ? Loc.S("UnitKN") : Loc.S("UnitKNm");
+        string title = string.Format(Loc.S("FemMemberForceTitle"), _memberTag, comp) + $", {unit}";
+        canvas.SetData(segs, title);
     }
 
     static (double Vi, double Vj) ComponentValues(FemForceComponent comp, FemElementEndForces f) => comp switch
