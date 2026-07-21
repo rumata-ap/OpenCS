@@ -3311,9 +3311,11 @@ namespace OpenCS
          };
          if (dlg.ShowDialog() != true) return;
          bool changed = analysis.Tag != dlg.Result.Tag ||
+            analysis.Kind != dlg.Result.Kind ||
             analysis.LoadExpressionJson != dlg.Result.LoadExpressionJson ||
             analysis.ParamsJson != dlg.Result.ParamsJson;
          analysis.Tag = dlg.Result.Tag;
+         analysis.Kind = dlg.Result.Kind;
          analysis.LoadExpressionJson = dlg.Result.LoadExpressionJson;
          analysis.ParamsJson = dlg.Result.ParamsJson;
          if (changed)

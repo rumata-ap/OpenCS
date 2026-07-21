@@ -1390,6 +1390,15 @@
     <system:String x:Key="FemAnalysisLoadLabel">Загружение</system:String>
     <system:String x:Key="FemAnalysisExeLabel">Путь к OpenSees.exe (необязательно)</system:String>
     <system:String x:Key="FemAnalysisTimeoutLabel">Таймаут, с</system:String>
+    <system:String x:Key="FemAnalysisKindLabel">Тип расчёта</system:String>
+    <system:String x:Key="FemAnalysisKindLinear">Линейный</system:String>
+    <system:String x:Key="FemAnalysisKindNonlinear">Нелинейный</system:String>
+    <system:String x:Key="FemAnalysisCalcTypeLabel">Тип диаграмм (CalcType)</system:String>
+    <system:String x:Key="FemAnalysisLoadStepsLabel">Число шагов нагрузки</system:String>
+    <system:String x:Key="FemAnalysisToleranceLabel">Допуск невязки</system:String>
+    <system:String x:Key="FemAnalysisMaxIterationsLabel">Макс. число итераций</system:String>
+    <system:String x:Key="FemAnalysisGeomTransfLabel">Формулировка geomTransf</system:String>
+    <system:String x:Key="FemAnalysisIntegrationPointsLabel">Точки интегрирования</system:String>
     <system:String x:Key="FemResultTab3D">3D</system:String>
     <system:String x:Key="FemResultTabDisp">Перемещения</system:String>
     <system:String x:Key="FemResultTabReact">Реакции</system:String>

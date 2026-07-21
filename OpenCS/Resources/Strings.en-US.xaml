@@ -1387,6 +1387,15 @@
     <system:String x:Key="FemAnalysisLoadLabel">Load case</system:String>
     <system:String x:Key="FemAnalysisExeLabel">Path to OpenSees.exe (optional)</system:String>
     <system:String x:Key="FemAnalysisTimeoutLabel">Timeout, s</system:String>
+    <system:String x:Key="FemAnalysisKindLabel">Analysis kind</system:String>
+    <system:String x:Key="FemAnalysisKindLinear">Linear</system:String>
+    <system:String x:Key="FemAnalysisKindNonlinear">Nonlinear</system:String>
+    <system:String x:Key="FemAnalysisCalcTypeLabel">Diagram type (CalcType)</system:String>
+    <system:String x:Key="FemAnalysisLoadStepsLabel">Load steps</system:String>
+    <system:String x:Key="FemAnalysisToleranceLabel">Convergence tolerance</system:String>
+    <system:String x:Key="FemAnalysisMaxIterationsLabel">Max iterations</system:String>
+    <system:String x:Key="FemAnalysisGeomTransfLabel">geomTransf formulation</system:String>
+    <system:String x:Key="FemAnalysisIntegrationPointsLabel">Integration points</system:String>
     <system:String x:Key="FemResultTab3D">3D</system:String>
     <system:String x:Key="FemResultTabDisp">Displacements</system:String>
     <system:String x:Key="FemResultTabReact">Reactions</system:String>
