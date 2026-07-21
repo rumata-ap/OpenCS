@@ -822,6 +822,7 @@
    <system:String x:Key="VT_CalcResult">Calc Result</system:String>
    <system:String x:Key="VT_FireSection">Fire</system:String>
    <system:String x:Key="VT_FemAnalysisResult">FEM Analysis Result</system:String>
+   <system:String x:Key="VT_FemMemberForce">Member Force Diagram</system:String>
 
    <!-- Calc Tasks -->
    <system:String x:Key="CalcTaskDlgTitle">Task Properties</system:String>

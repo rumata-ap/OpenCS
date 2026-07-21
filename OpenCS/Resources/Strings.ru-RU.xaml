@@ -825,6 +825,7 @@
    <system:String x:Key="VT_CalcResult">Результат расчёта</system:String>
    <system:String x:Key="VT_FireSection">Огнестойкость</system:String>
    <system:String x:Key="VT_FemAnalysisResult">Результат расчёта FEM</system:String>
+   <system:String x:Key="VT_FemMemberForce">Эпюра усилий стержня</system:String>
 
    <!-- Расчётные задачи -->
    <system:String x:Key="CalcTaskDlgTitle">Параметры расчётной задачи</system:String>
