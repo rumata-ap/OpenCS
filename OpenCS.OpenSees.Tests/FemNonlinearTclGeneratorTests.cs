@@ -42,7 +42,7 @@ public class FemNonlinearTclGeneratorTests
         Assert.Contains("fiber", tcl);
         Assert.Contains("geomTransf PDelta", tcl);
         Assert.Contains("element forceBeamColumn 1 1 2 5 1", tcl);
-        Assert.Contains("test NormUnbalance", tcl);
+        Assert.Contains("test EnergyIncr", tcl);
         Assert.Contains("algorithm Newton", tcl);
         Assert.Contains("integrator LoadControl", tcl);
     }

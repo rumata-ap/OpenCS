@@ -1395,6 +1395,7 @@
     <system:String x:Key="FemAnalysisToleranceLabel">Convergence tolerance</system:String>
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Max iterations</system:String>
     <system:String x:Key="FemAnalysisGeomTransfLabel">geomTransf formulation</system:String>
+    <system:String x:Key="FemAnalysisConvergenceTestLabel">Convergence test</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Integration points</system:String>
     <system:String x:Key="FemResultTabHistory">History</system:String>
     <system:String x:Key="FemResultStep">Step</system:String>

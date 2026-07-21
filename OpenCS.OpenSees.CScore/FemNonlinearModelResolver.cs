@@ -162,7 +162,8 @@ public sealed class FemNonlinearModelResolver
             LoadSteps = options.LoadSteps,
             Tolerance = options.Tolerance,
             MaxIterations = options.MaxIterations,
-            GeomTransfKind = options.GeomTransfKind
+            GeomTransfKind = options.GeomTransfKind,
+            ConvergenceTest = options.ConvergenceTest
         };
         try { model.Validate(); }
         catch (InvalidOperationException ex) { return new FemNonlinearResolveResult(null, [ex.Message]); }

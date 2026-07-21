@@ -41,6 +41,9 @@
             <TextBlock Text="{DynamicResource FemAnalysisGeomTransfLabel}" Margin="0,8,0,0"/>
             <ComboBox x:Name="GeomTransfBox"/>
 
+            <TextBlock Text="{DynamicResource FemAnalysisConvergenceTestLabel}" Margin="0,8,0,0"/>
+            <ComboBox x:Name="ConvergenceTestBox"/>
+
             <TextBlock Text="{DynamicResource FemAnalysisIntegrationPointsLabel}" Margin="0,8,0,0"/>
             <TextBox x:Name="IntegrationPointsBox" Text="5"/>
         </StackPanel>

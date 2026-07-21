@@ -79,7 +79,7 @@ public sealed class FemNonlinearTclGenerator
         L("constraints Transformation");
         L("numberer RCM");
         L("system BandGeneral");
-        L($"test NormUnbalance {F(model.Tolerance)} {model.MaxIterations} 0");
+        L($"test {model.ConvergenceTest} {F(model.Tolerance)} {model.MaxIterations} 0");
         L("algorithm Newton");
         L($"integrator LoadControl {F(1.0 / model.LoadSteps)}");
         L("analysis Static");

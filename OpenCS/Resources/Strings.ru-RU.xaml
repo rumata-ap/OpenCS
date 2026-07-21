@@ -1398,6 +1398,7 @@
     <system:String x:Key="FemAnalysisToleranceLabel">Допуск невязки</system:String>
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Макс. число итераций</system:String>
     <system:String x:Key="FemAnalysisGeomTransfLabel">Формулировка geomTransf</system:String>
+    <system:String x:Key="FemAnalysisConvergenceTestLabel">Критерий сходимости</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Точки интегрирования</system:String>
     <system:String x:Key="FemResultTabHistory">История</system:String>
     <system:String x:Key="FemResultStep">Шаг</system:String>

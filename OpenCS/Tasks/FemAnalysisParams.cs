@@ -15,12 +15,15 @@ public sealed class FemAnalysisParams
     public CalcType? CalcType { get; set; }
     /// <summary>Число шагов нагрузки (LoadControl).</summary>
     public int LoadSteps { get; set; } = 10;
-    /// <summary>Допуск критерия сходимости NormUnbalance.</summary>
+    /// <summary>Допуск критерия сходимости.</summary>
     public double Tolerance { get; set; } = 1e-6;
     /// <summary>Максимальное число итераций Ньютона на шаг.</summary>
     public int MaxIterations { get; set; } = 50;
     /// <summary>Формулировка geomTransf: "Linear" | "PDelta" | "Corotational".</summary>
     public string GeomTransfKind { get; set; } = "Linear";
+    /// <summary>Критерий сходимости Ньютона: "EnergyIncr" (по умолчанию, самый устойчивый) |
+    /// "NormUnbalance" | "NormDispIncr".</summary>
+    public string ConvergenceTest { get; set; } = "EnergyIncr";
     /// <summary>Число точек интегрирования forceBeamColumn.</summary>
     public int IntegrationPoints { get; set; } = 5;
 

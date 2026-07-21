@@ -7,4 +7,5 @@ public sealed record FemNonlinearAnalysisOptions(
     int LoadSteps,
     double Tolerance,
     int MaxIterations,
-    int IntegrationPoints);
+    int IntegrationPoints,
+    string ConvergenceTest = "EnergyIncr");

@@ -16,6 +16,9 @@ public sealed class FemNonlinearModel
     public double Tolerance { get; init; } = 1e-6;
     public int MaxIterations { get; init; } = 50;
     public string GeomTransfKind { get; init; } = "Linear";
+    /// <summary>Критерий сходимости Ньютона: "EnergyIncr" (по умолчанию, самый устойчивый —
+    /// учитывает и невязку силы, и приращение перемещения) | "NormUnbalance" | "NormDispIncr".</summary>
+    public string ConvergenceTest { get; init; } = "EnergyIncr";
 
     /// <summary>Проверяет целостность модели перед генерацией Tcl.</summary>
     public void Validate()
@@ -28,6 +31,8 @@ public sealed class FemNonlinearModel
         if (MaxIterations <= 0) throw new InvalidOperationException("Максимальное число итераций должно быть положительным.");
         if (GeomTransfKind is not ("Linear" or "PDelta" or "Corotational"))
             throw new InvalidOperationException($"Неизвестная формулировка geomTransf «{GeomTransfKind}».");
+        if (ConvergenceTest is not ("EnergyIncr" or "NormUnbalance" or "NormDispIncr"))
+            throw new InvalidOperationException($"Неизвестный критерий сходимости «{ConvergenceTest}».");
 
         var tags = new HashSet<int>();
         foreach (var n in Nodes)

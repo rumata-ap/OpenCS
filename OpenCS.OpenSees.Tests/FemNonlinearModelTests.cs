@@ -82,6 +82,21 @@ public class FemNonlinearModelTests
     }
 
     [Fact]
+    public void Validate_UnknownConvergenceTest_Throws()
+    {
+        var valid = ValidModel();
+        var model = new FemNonlinearModel
+        {
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            ConvergenceTest = "Nope"
+        };
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_DefaultConvergenceTest_IsEnergyIncr() => Assert.Equal("EnergyIncr", ValidModel().ConvergenceTest);
+
+    [Fact]
     public void Validate_ZeroIntegrationPoints_Throws()
     {
         var model = ValidModel();

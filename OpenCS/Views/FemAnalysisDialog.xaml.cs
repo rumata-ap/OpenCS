@@ -23,6 +23,7 @@ public partial class FemAnalysisDialog : Window
         LoadSourceBox.ItemsSource = sources;
         CalcTypeBox.ItemsSource = Enum.GetValues<CalcType>();
         GeomTransfBox.ItemsSource = new[] { "Linear", "PDelta", "Corotational" };
+        ConvergenceTestBox.ItemsSource = new[] { "EnergyIncr", "NormUnbalance", "NormDispIncr" };
 
         if (existing != null)
         {
@@ -37,6 +38,7 @@ public partial class FemAnalysisDialog : Window
             ToleranceBox.Text = pars.Tolerance.ToString(CultureInfo.InvariantCulture);
             MaxIterationsBox.Text = pars.MaxIterations.ToString();
             GeomTransfBox.SelectedItem = pars.GeomTransfKind;
+            ConvergenceTestBox.SelectedItem = pars.ConvergenceTest;
             IntegrationPointsBox.Text = pars.IntegrationPoints.ToString();
 
             var sel = sources.FirstOrDefault(s => s.Expr.ToJson() == existing.LoadExpressionJson);
@@ -47,6 +49,7 @@ public partial class FemAnalysisDialog : Window
         {
             CalcTypeBox.SelectedItem = CalcType.C;
             GeomTransfBox.SelectedItem = "Linear";
+            ConvergenceTestBox.SelectedItem = "EnergyIncr";
             if (LoadSourceBox.Items.Count > 0) LoadSourceBox.SelectedIndex = 0;
         }
         UpdateNonlinearPanelVisibility();
@@ -94,6 +97,7 @@ public partial class FemAnalysisDialog : Window
                 ? tol : 1e-6;
             pars.MaxIterations = int.TryParse(MaxIterationsBox.Text, out var iters) && iters > 0 ? iters : 50;
             pars.GeomTransfKind = GeomTransfBox.SelectedItem as string ?? "Linear";
+            pars.ConvergenceTest = ConvergenceTestBox.SelectedItem as string ?? "EnergyIncr";
             pars.IntegrationPoints = int.TryParse(IntegrationPointsBox.Text, out var ip) && ip > 0 ? ip : 5;
         }
 
