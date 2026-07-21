@@ -144,8 +144,11 @@ namespace OpenCS.ViewModels
             set { _cutVM = value; OnPropertyChanged(); }
         }
 
+        /// <summary>Создаёт представление сечения. recordedFibers задаёт сохранённые в OpenSees
+        /// значения по плоскому индексу волокна, если результат получен из нелинейного FEM-расчёта.</summary>
         public SectionPlotVM(CrossSection section, Kurvature k, CalcType calcType, SectionPlotMode mode,
-            CalcSettings? settings = null, bool ten = true, Func<double, double, string?>? extraRebarTooltip = null)
+            CalcSettings? settings = null, bool ten = true, Func<double, double, string?>? extraRebarTooltip = null,
+            IReadOnlyDictionary<int, (double StressPa, double Strain)>? recordedFibers = null)
         {
             Mode = mode;
 
@@ -172,9 +175,14 @@ namespace OpenCS.ViewModels
             // Аккумуляторы точки максимального сжатия
             Point? mcPt = null; double mcEps = double.MaxValue, mcSig = 0;
 
+            int recordedFiberIndex = 0;
             foreach (var (area, ka) in section.EnumerateAreas(k))
             {
-                if (!area.Diagramms.TryGetValue(calcType, out var dgr)) continue;
+                if (!area.Diagramms.TryGetValue(calcType, out var dgr))
+                {
+                    recordedFiberIndex += area.Fibers.Count;
+                    continue;
+                }
                 bool isRebar = area.Category != AreaCategory.Region;
                 bool hasMesh = area.Fibers.Any(f => f.TypeFiber != FiberType.point);
                 double E0 = Math.Abs(dgr.SigValue(1e-7)) / 1e-7 / 1000.0;
@@ -184,16 +192,21 @@ namespace OpenCS.ViewModels
                     anyMesh = true;
                     foreach (var f in area.Fibers.Where(f => f.TypeFiber != FiberType.point))
                     {
+                        int fiberIndex = recordedFiberIndex++;
+                        (double StressPa, double Strain) recorded = default;
+                        bool hasRecorded = recordedFibers?.TryGetValue(fiberIndex, out recorded) == true;
+                        double fiberSigKpa = hasRecorded ? recorded.StressPa / 1000.0 : f.Sig;
+                        double fiberEps = hasRecorded ? recorded.Strain : f.Eps;
                         // f.Sig в кПа → делим на 1000 для МПа
-                        double val = mode == SectionPlotMode.Stress ? f.Sig / 1000.0 : f.Eps;
+                        double val = mode == SectionPlotMode.Stress ? fiberSigKpa / 1000.0 : fiberEps;
                         var (pts, fiberHoles) = ParseWktFull(f.WKT);
                         if (pts == null || pts.Count < 3) continue;
                         var centroid  = new Point(f.X * 1000, f.Y * 1000);
-                        double sigMpa = f.Sig / 1000.0;
+                        double sigMpa = fiberSigKpa / 1000.0;
                         double aMm2   = f.Area * 1e6;
                         string tip = $"{area.Tag}\nx={f.X*1000:F1} мм  y={f.Y*1000:F1} мм\n" +
                                      $"σ = {sigMpa:+0.0;-0.0} МПа\n" +
-                                     $"ε = {f.Eps:+0.00000;-0.00000}\n" +
+                                     $"ε = {fiberEps:+0.00000;-0.00000}\n" +
                                      $"A = {aMm2:F0} мм²";
                         // Концы градиентной кисти: вершины с min/max значением σ или ε
                         var gMin = (pt: pts[0], val: double.MaxValue);
@@ -203,8 +216,10 @@ namespace OpenCS.ViewModels
                         {
                             var v = pts[vi];
                             double eps_v = ka.e0 + ka.ky * (v.Y / 1000.0) + ka.kz * (v.X / 1000.0);
-                            double val_v = mode == SectionPlotMode.Stress
-                                ? dgr.SigValue(eps_v, ten) / 1000.0 : eps_v;
+                            double val_v = hasRecorded
+                                ? val
+                                : mode == SectionPlotMode.Stress
+                                    ? dgr.SigValue(eps_v, ten) / 1000.0 : eps_v;
                             vertVals[vi] = val_v;
                             if (val_v < gMin.val) gMin = (v, val_v);
                             if (val_v > gMax.val) gMax = (v, val_v);
@@ -212,7 +227,7 @@ namespace OpenCS.ViewModels
                         concrete.Add(new FiberDrawData(pts, centroid, val, isRebar, tip, sigMpa, f.Eps, aMm2)
                             { Holes = fiberHoles, GradientMin = gMin, GradientMax = gMax, VertexValues = vertVals });
                         // Центр тяжести НДС
-                        double esf = Math.Abs(f.Eps) > 1e-9 ? Math.Abs(f.Sig / 1000.0 / f.Eps) : E0;
+                        double esf = Math.Abs(fiberEps) > 1e-9 ? Math.Abs(sigMpa / fiberEps) : E0;
                         double amm2f = f.Area * 1e6;
                         ea_c  += esf * amm2f;
                         esy_c += esf * amm2f * f.X * 1000;
@@ -308,14 +323,19 @@ namespace OpenCS.ViewModels
                 // Точечные фибры (арматура) → круги
                 foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
                 {
+                    int fiberIndex = recordedFiberIndex++;
+                    (double StressPa, double Strain) recorded = default;
+                    bool hasRecorded = recordedFibers?.TryGetValue(fiberIndex, out recorded) == true;
+                    double fiberSigKpa = hasRecorded ? recorded.StressPa / 1000.0 : f.Sig;
+                    double fiberEps = hasRecorded ? recorded.Strain : f.Eps;
                     // f.Sig в кПа → делим на 1000 для МПа
-                    double rSigMpa  = f.Sig / 1000.0;
+                    double rSigMpa  = fiberSigKpa / 1000.0;
                     double rAreaMm2 = f.Area * 1e6;
-                    double val = mode == SectionPlotMode.Stress ? rSigMpa : f.Eps;
+                    double val = mode == SectionPlotMode.Stress ? rSigMpa : fiberEps;
                     string tip = $"{area.Tag} ⌀{f.Diameter*1000:F0} мм\n" +
                                  $"x={f.X*1000:F1}  y={f.Y*1000:F1} мм\n" +
                                  $"σ = {rSigMpa:+0.0;-0.0} МПа\n" +
-                                 $"ε = {f.Eps:+0.00000;-0.00000}\n" +
+                                 $"ε = {fiberEps:+0.00000;-0.00000}\n" +
                                  $"A = {rAreaMm2:F0} мм²";
                     string? extraLine = extraRebarTooltip?.Invoke(f.X, f.Y);
                     if (!string.IsNullOrEmpty(extraLine)) tip += "\n" + extraLine;
@@ -324,7 +344,7 @@ namespace OpenCS.ViewModels
                         f.Diameter / 2.0 * 1000,
                         val, tip, rSigMpa, f.Eps, rAreaMm2));
                     // Центр тяжести НДС
-                    double esf = Math.Abs(f.Eps) > 1e-9 ? Math.Abs(f.Sig / 1000.0 / f.Eps) : E0;
+                    double esf = Math.Abs(fiberEps) > 1e-9 ? Math.Abs(rSigMpa / fiberEps) : E0;
                     double amm2f = f.Area * 1e6;
                     ea_c  += esf * amm2f;
                     esy_c += esf * amm2f * f.X * 1000;

@@ -58,13 +58,49 @@ public class FemNonlinearModelTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void Validate_NonPositiveLoadSteps_Throws(int steps)
+    public void Validate_NonPositiveLegacyLoadFactorStep_Throws(double step)
     {
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
             Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
-            LoadSteps = steps
+            LoadFactorStep = step
+        };
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_NonPositiveLoadFactorStep_Throws()
+    {
+        var valid = ValidModel();
+        var model = new FemNonlinearModel
+        {
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            LoadFactorStep = 0
+        };
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_MaxLoadFactorBelowStep_Throws()
+    {
+        var valid = ValidModel();
+        var model = new FemNonlinearModel
+        {
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            LoadFactorStep = 0.2, MaxLoadFactor = 0.1
+        };
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_ZeroRefinementDivisions_Throws()
+    {
+        var valid = ValidModel();
+        var model = new FemNonlinearModel
+        {
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            RefinementDivisions = 0
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
     }

@@ -46,6 +46,7 @@ public class Fem3DVM : ViewModelBase
     public Point3DCollection?  MeshLinePoints  { get; private set; }
     public Point3DCollection?  MeshNodePoints  { get; private set; }
     public IReadOnlyList<FemDiagramGlyph> DiagramGlyphs { get; private set; } = [];
+    public IReadOnlyList<FemSectionGlyph> SectionGlyphs { get; private set; } = [];
     public List<FemDiagramLoadSource> DiagramLoadSources { get; private set; } = [];
     public IReadOnlyDictionary<int, Point3D> DiagramNodePositions { get; private set; } = new Dictionary<int, Point3D>();
 
@@ -61,6 +62,14 @@ public class Fem3DVM : ViewModelBase
     {
         get => _showLoadGlyphs;
         set { if (_showLoadGlyphs == value) return; _showLoadGlyphs = value; RefreshDiagramGlyphs(); OnPropertyChanged(); }
+    }
+
+    bool _showSectionGlyphs = true;
+    /// <summary>Показывать контуры поперечных сечений и локальные оси стержней.</summary>
+    public bool ShowSectionGlyphs
+    {
+        get => _showSectionGlyphs;
+        set { if (_showSectionGlyphs == value) return; _showSectionGlyphs = value; OnPropertyChanged(); }
     }
 
     FemDiagramLoadSource? _selectedDiagramLoadSource;
@@ -285,12 +294,14 @@ public class Fem3DVM : ViewModelBase
             NodePoints      = null;
             NodeProxies     = [];
             BarProxies      = [];
+            SectionGlyphs   = [];
             NoData          = true;
             OnPropertyChanged(nameof(BarGroups));
             OnPropertyChanged(nameof(ShellMesh));
             OnPropertyChanged(nameof(HiShellMesh));
             OnPropertyChanged(nameof(ShellEdgePoints));
             OnPropertyChanged(nameof(NodePoints));
+            OnPropertyChanged(nameof(SectionGlyphs));
             return;
         }
         NoData = false;
@@ -304,11 +315,13 @@ public class Fem3DVM : ViewModelBase
             NodePoints      = new Point3DCollection(allNodes.Select(n => new Point3D(n.X, n.Y, n.Z)));
             NodeProxies     = allNodes.Select(n => (n.NodeTag, new Point3D(n.X, n.Y, n.Z))).ToList();
             BarProxies      = [];
+            SectionGlyphs   = [];
             OnPropertyChanged(nameof(BarGroups));
             OnPropertyChanged(nameof(ShellMesh));
             OnPropertyChanged(nameof(HiShellMesh));
             OnPropertyChanged(nameof(ShellEdgePoints));
             OnPropertyChanged(nameof(NodePoints));
+            OnPropertyChanged(nameof(SectionGlyphs));
             return;
         }
 
@@ -342,6 +355,7 @@ public class Fem3DVM : ViewModelBase
             HiShellMesh = null;
         }
         ShellEdgePoints = BuildShellEdges(nodeMap, elements);
+        SectionGlyphs = FemSectionGlyphFactory.Create(elements, _db.CrossSections, nodeMap);
 
         // Узлы: в режиме просмотра — только реально используемые отображаемыми КЭ (меньше шума
         // для импортированных схем); в режиме редактирования — все, включая ещё не связанные стержнем.
@@ -370,6 +384,7 @@ public class Fem3DVM : ViewModelBase
         OnPropertyChanged(nameof(HiShellMesh));
         OnPropertyChanged(nameof(ShellEdgePoints));
         OnPropertyChanged(nameof(NodePoints));
+        OnPropertyChanged(nameof(SectionGlyphs));
     }
 
     // -------------------------------------------------------------------------

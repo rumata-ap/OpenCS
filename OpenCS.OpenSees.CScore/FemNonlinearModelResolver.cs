@@ -159,11 +159,14 @@ public sealed class FemNonlinearModelResolver
             Sections = sectionsByKey.Values.ToDictionary(v => v.Tag, v => v.Model),
             Elements = elements,
             Loads = loads,
-            LoadSteps = options.LoadSteps,
+            LoadFactorStep = options.LoadFactorStep,
+            MaxLoadFactor = options.MaxLoadFactor,
+            RefinementDivisions = options.RefinementDivisions,
             Tolerance = options.Tolerance,
             MaxIterations = options.MaxIterations,
             GeomTransfKind = options.GeomTransfKind,
-            ConvergenceTest = options.ConvergenceTest
+            ConvergenceTest = options.ConvergenceTest,
+            CalcTypeName = calcType.ToString()
         };
         try { model.Validate(); }
         catch (InvalidOperationException ex) { return new FemNonlinearResolveResult(null, [ex.Message]); }

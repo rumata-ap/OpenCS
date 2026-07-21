@@ -114,11 +114,12 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
     public double SelectedMemberGjManualValue
     {
-        get => SelectedMember?.GjManualValue ?? 0;
+        get => FemUnitConverter.NewtonMetersSquaredToKiloNewtonMetersSquared(SelectedMember?.GjManualValue ?? 0);
         set
         {
             if (SelectedMember == null) return;
-            Session.Execute(new SetMemberGjCommand(SelectedMember, "manual", value, null));
+            var valueInternal = FemUnitConverter.KiloNewtonMetersSquaredToNewtonMetersSquared(value);
+            Session.Execute(new SetMemberGjCommand(SelectedMember, "manual", valueInternal, null));
             RefreshCollections();
             OnPropertyChanged();
         }

@@ -42,7 +42,10 @@ public sealed class FemNonlinearResultParser
         {
             if (!s.Converged)
             {
-                results.Add(new FemNonlinearStepResult(s.StepIndex, s.LoadFactor, false, [], [], []));
+                results.Add(new FemNonlinearStepResult(s.StepIndex, s.LoadFactor, false, [], [], [])
+                {
+                    IsRefinement = s.IsRefinement
+                });
                 continue;
             }
 
@@ -51,7 +54,10 @@ public sealed class FemNonlinearResultParser
                 ? ToNodeReactions(reactRows[rowIndex], order.RestrainedTags)
                 : [];
             var forces = ToElementForces(forceRows[rowIndex], order.ElemTags);
-            results.Add(new FemNonlinearStepResult(s.StepIndex, s.LoadFactor, true, disp, react, forces));
+            results.Add(new FemNonlinearStepResult(s.StepIndex, s.LoadFactor, true, disp, react, forces)
+            {
+                IsRefinement = s.IsRefinement
+            });
             rowIndex++;
         }
         return results;
@@ -73,11 +79,11 @@ public sealed class FemNonlinearResultParser
         }
     }
 
-    static List<(int StepIndex, double LoadFactor, bool Converged)> ParseStepStatus(string path)
+    static List<(int StepIndex, double LoadFactor, bool Converged, bool IsRefinement)> ParseStepStatus(string path)
     {
         if (!File.Exists(path))
             throw new OpenSeesResultException("MissingFile", $"Файл step_status не найден: {path}");
-        var rows = new List<(int, double, bool)>();
+        var rows = new List<(int, double, bool, bool)>();
         int lineNo = 0;
         foreach (var raw in File.ReadAllLines(path))
         {
@@ -85,13 +91,15 @@ public sealed class FemNonlinearResultParser
             var line = raw.Trim();
             if (line.Length == 0 || line.StartsWith('#')) continue;
             var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length != 3)
-                throw new OpenSeesResultException("WrongColumnCount", $"step_status строка {lineNo}: ожидалось 3 колонки, получено {parts.Length}.");
+            if (parts.Length != 4)
+                throw new OpenSeesResultException("WrongColumnCount", $"step_status строка {lineNo}: ожидалось 4 колонки, получено {parts.Length}.");
             if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var step) ||
                 !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var lf) ||
-                !int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var convergedFlag))
+                !int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var convergedFlag) ||
+                !int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var refinementFlag) ||
+                (convergedFlag is not (0 or 1)) || (refinementFlag is not (0 or 1)))
                 throw new OpenSeesResultException("InvalidNumber", $"step_status строка {lineNo}: не удалось разобрать значения.");
-            rows.Add((step, lf, convergedFlag != 0));
+            rows.Add((step, lf, convergedFlag != 0, refinementFlag != 0));
         }
         return rows;
     }
@@ -106,6 +114,9 @@ public sealed class FemNonlinearResultParser
             lineNo++;
             var line = raw.Trim();
             if (line.Length == 0 || line.StartsWith('#')) continue;
+            if (line.Contains('\0'))
+                throw new OpenSeesResultException("CorruptedOutput",
+                    $"{name} строка {lineNo}: найден нулевой байт; файл результата повреждён OpenSees.");
             var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length != expectedCols)
                 throw new OpenSeesResultException("WrongColumnCount", $"{name} строка {lineNo}: ожидалось {expectedCols} колонок, получено {parts.Length}.");

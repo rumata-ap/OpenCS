@@ -10,7 +10,8 @@ namespace OpenCS.OpenSees.Tests;
 public class FemNonlinearModelResolverTests
 {
     static FemNonlinearAnalysisOptions Options() => new(
-        GeomTransfKind: "Linear", LoadSteps: 10, Tolerance: 1e-6, MaxIterations: 50, IntegrationPoints: 5);
+        GeomTransfKind: "Linear", LoadFactorStep: 0.1, MaxLoadFactor: 1.0,
+        RefinementDivisions: 10, Tolerance: 1e-6, MaxIterations: 50, IntegrationPoints: 5);
 
     // Конструктивная консоль: узел 1 (заделка, dofMask=63) — узел 2 (свободен), 1 стержень, сечение #5.
     static (List<FemMeshNode>, List<FemElement>, List<FemNode>, List<FemMember>, List<FemNodeLoad>) Console(double gj = 1e6)
@@ -61,14 +62,15 @@ public class FemNonlinearModelResolverTests
         var e = r.Model.Elements[0];
         Assert.Equal(1, e.SectionTag);
         Assert.Equal(5, e.NumIntegrationPoints);
-        Assert.Equal((0d, 0d, 1d), e.Vecxz);
+        Assert.Equal((0d, -1d, 0d), e.Vecxz);
         Assert.Equal(1e6, r.Model.Sections[e.SectionTag].GJ, 3);
 
         var load = Assert.Single(r.Model.Loads);
         Assert.Equal(2, load.NodeTag);
         Assert.Equal(-1000, load.Fz, 6);
 
-        Assert.Equal(10, r.Model.LoadSteps);
+        Assert.Equal(0.1, r.Model.LoadFactorStep, 12);
+        Assert.Equal(1.0, r.Model.MaxLoadFactor, 12);
         Assert.Equal("Linear", r.Model.GeomTransfKind);
     }
 

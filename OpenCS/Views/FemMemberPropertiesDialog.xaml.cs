@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows;
 using CScore;
 using CScore.Fem;
@@ -36,7 +37,9 @@ public partial class FemMemberPropertiesDialog : Window
 
         gjManualRadio.IsChecked = member.GjStrategy != "saint_venant";
         gjSaintVenantRadio.IsChecked = member.GjStrategy == "saint_venant";
-        gjManualValueBox.Text = member.GjManualValue?.ToString("F1") ?? "";
+        gjManualValueBox.Text = member.GjManualValue is double gj
+            ? FemUnitConverter.NewtonMetersSquaredToKiloNewtonMetersSquared(gj).ToString("F1", CultureInfo.CurrentCulture)
+            : "";
 
         torsionTaskCombo.ItemsSource = editorVm.AllCalcTasks
             .Where(t => (t.Kind is "torsion_bem" or "torsion_fem") && t.SectionId == member.CrossSectionId);
@@ -66,7 +69,8 @@ public partial class FemMemberPropertiesDialog : Window
 
     void GjManualValue_LostFocus(object sender, RoutedEventArgs e)
     {
-        if (!double.TryParse(gjManualValueBox.Text, out var value)) return;
+        if (!double.TryParse(gjManualValueBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var valueKilo)) return;
+        var value = FemUnitConverter.KiloNewtonMetersSquaredToNewtonMetersSquared(valueKilo);
         _editorVm.Session.Execute(new SetMemberGjCommand(_member, "manual", value, null));
         _editorVm.RefreshCollections();
     }

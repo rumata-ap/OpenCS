@@ -32,9 +32,8 @@ public partial class FemMemberForceView : UserControl
 
     void BuildElements(DatabaseService db, FemSchema schema, string memberTag, CalcResult result)
     {
-        var parsed = ParseResult(result.DataJson);
-        if (parsed is null) return;
-        var forcesByElem = parsed.ElementForces.ToDictionary(f => f.ElemTag);
+        var forcesByElem = FemMemberForceResultResolver.ResolveElementForces(result)
+            .ToDictionary(f => f.ElemTag);
 
         var meshPos = new Dictionary<int, Point3D>();
         foreach (var n in db.GetFemMeshNodes(schema.Id))
@@ -79,17 +78,6 @@ public partial class FemMemberForceView : UserControl
             if (d.Length > 1e-9) { d.Normalize(); return (origin, d); }
         }
         return (new Point3D(), new Vector3D(1, 0, 0));
-    }
-
-    static FemLinearResult? ParseResult(string dataJson)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(dataJson);
-            if (!doc.RootElement.TryGetProperty("Displacements", out _)) return null;
-            return JsonSerializer.Deserialize<FemLinearResult>(dataJson);
-        }
-        catch (JsonException) { return null; }
     }
 
     void ComponentBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

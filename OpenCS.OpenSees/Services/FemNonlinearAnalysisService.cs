@@ -97,7 +97,19 @@ public sealed class FemNonlinearAnalysisService
             Status = status,
             Steps = steps,
             Diagnostics = diagnostics,
-            ArtifactDirectory = artifact.DirectoryPath
+            ArtifactDirectory = artifact.DirectoryPath,
+            LimitReached = steps.Any(s => !s.Converged),
+            LastConvergedLoadFactor = steps.Where(s => s.Converged)
+                .Select(s => s.LoadFactor).DefaultIfEmpty(0).Max(),
+            FailedLoadFactor = steps.FirstOrDefault(s => !s.Converged)?.LoadFactor,
+            LoadFactorStep = model.LoadFactorStep,
+            MaxLoadFactor = model.MaxLoadFactor,
+            RefinementDivisions = model.RefinementDivisions,
+            CalcTypeName = model.CalcTypeName,
+            FiberStateFileName = File.Exists(Path.Combine(artifact.DirectoryPath, "nonlinear_fiber_states.out"))
+                ? "nonlinear_fiber_states.out" : null,
+            SectionOrderFileName = File.Exists(Path.Combine(artifact.DirectoryPath, "nonlinear_section_order.json"))
+                ? "nonlinear_section_order.json" : null
         };
     }
 }

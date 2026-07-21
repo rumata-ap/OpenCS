@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using CScore.Fem;
@@ -47,12 +48,12 @@ public partial class FemNodePropertiesDialog : Window
     {
         if (loadCaseCombo.SelectedItem is not FemLoadCase lc) return;
         var load = _editorVm.Session.NodeLoads.FirstOrDefault(l => l.LoadCaseId == lc.Id && l.NodeId == _node.Id);
-        fxBox.Text = (load?.Fx ?? 0).ToString("F2");
-        fyBox.Text = (load?.Fy ?? 0).ToString("F2");
-        fzBox.Text = (load?.Fz ?? 0).ToString("F2");
-        mxBox.Text = (load?.Mx ?? 0).ToString("F2");
-        myBox.Text = (load?.My ?? 0).ToString("F2");
-        mzBox.Text = (load?.Mz ?? 0).ToString("F2");
+        fxBox.Text = FemUnitConverter.NewtonsToKiloNewtons(load?.Fx ?? 0).ToString("F2", CultureInfo.CurrentCulture);
+        fyBox.Text = FemUnitConverter.NewtonsToKiloNewtons(load?.Fy ?? 0).ToString("F2", CultureInfo.CurrentCulture);
+        fzBox.Text = FemUnitConverter.NewtonsToKiloNewtons(load?.Fz ?? 0).ToString("F2", CultureInfo.CurrentCulture);
+        mxBox.Text = FemUnitConverter.NewtonMetersToKiloNewtonMeters(load?.Mx ?? 0).ToString("F2", CultureInfo.CurrentCulture);
+        myBox.Text = FemUnitConverter.NewtonMetersToKiloNewtonMeters(load?.My ?? 0).ToString("F2", CultureInfo.CurrentCulture);
+        mzBox.Text = FemUnitConverter.NewtonMetersToKiloNewtonMeters(load?.Mz ?? 0).ToString("F2", CultureInfo.CurrentCulture);
     }
 
     void LoadCaseCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => LoadLoadFields();
@@ -84,12 +85,18 @@ public partial class FemNodePropertiesDialog : Window
             MessageBox.Show((string)Application.Current.FindResource("FemNodeLoadSkippedUnsavedTitle"));
             return;
         }
-        if (!double.TryParse(fxBox.Text, out var fx)) fx = 0;
-        if (!double.TryParse(fyBox.Text, out var fy)) fy = 0;
-        if (!double.TryParse(fzBox.Text, out var fz)) fz = 0;
-        if (!double.TryParse(mxBox.Text, out var mx)) mx = 0;
-        if (!double.TryParse(myBox.Text, out var my)) my = 0;
-        if (!double.TryParse(mzBox.Text, out var mz)) mz = 0;
+        if (!double.TryParse(fxBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var fxKilo)) fxKilo = 0;
+        if (!double.TryParse(fyBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var fyKilo)) fyKilo = 0;
+        if (!double.TryParse(fzBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var fzKilo)) fzKilo = 0;
+        if (!double.TryParse(mxBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var mxKilo)) mxKilo = 0;
+        if (!double.TryParse(myBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var myKilo)) myKilo = 0;
+        if (!double.TryParse(mzBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var mzKilo)) mzKilo = 0;
+        var fx = FemUnitConverter.KiloNewtonsToNewtons(fxKilo);
+        var fy = FemUnitConverter.KiloNewtonsToNewtons(fyKilo);
+        var fz = FemUnitConverter.KiloNewtonsToNewtons(fzKilo);
+        var mx = FemUnitConverter.KiloNewtonMetersToNewtonMeters(mxKilo);
+        var my = FemUnitConverter.KiloNewtonMetersToNewtonMeters(myKilo);
+        var mz = FemUnitConverter.KiloNewtonMetersToNewtonMeters(mzKilo);
         _editorVm.Session.Execute(new SetNodeLoadCommand(lc.Id, _node.Id, fx, fy, fz, mx, my, mz));
         _editorVm.RefreshCollections();
     }

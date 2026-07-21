@@ -3438,10 +3438,10 @@ namespace OpenCS
       }
 
       /// <summary>Открывает 2D-эпюры усилий по одному конструктивному стержню
-      /// на основе последнего успешного расчёта схемы.</summary>
+      /// на основе последнего расчёта схемы с сохранённым результатом.</summary>
       public void ShowMemberForceDiagram(CScore.Fem.FemSchema schema, string memberTag)
       {
-         var analysis = schema.Analyses.LastOrDefault(a => a.ResultId is not null && a.Status == "ok");
+         var analysis = FemAnalysisResultResolver.FindLatestWithResult(schema.Analyses);
          if (analysis?.ResultId is not int rid)
          {
             LogService.Warning(Loc.S("FemMemberForceNoResult"));

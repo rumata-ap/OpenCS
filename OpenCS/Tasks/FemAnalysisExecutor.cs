@@ -112,8 +112,9 @@ public static class FemAnalysisExecutor
         }
         var materials = app.Materials.Where(m => m.Id != 0).ToDictionary(m => m.Id);
         var options = new FemNonlinearAnalysisOptions(
-            parameters.GeomTransfKind, parameters.LoadSteps, parameters.Tolerance,
-            parameters.MaxIterations, parameters.IntegrationPoints, parameters.ConvergenceTest);
+            parameters.GeomTransfKind, parameters.LoadFactorStep, parameters.MaxLoadFactor,
+            parameters.RefinementDivisions, parameters.Tolerance, parameters.MaxIterations,
+            parameters.IntegrationPoints, parameters.ConvergenceTest);
 
         var input = new FemNonlinearWorkflowInput(
             meshNodes, meshElems, sourceNodes, sourceMembers, resolvedLoads,

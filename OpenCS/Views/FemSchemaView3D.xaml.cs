@@ -220,7 +220,8 @@ public partial class FemSchemaView3D : UserControl
         if ((e.PropertyName == nameof(Fem3DVM.IsLoading) && VM is { IsLoading: false }) ||
             e.PropertyName == nameof(Fem3DVM.MeshLinePoints) ||
             e.PropertyName == nameof(Fem3DVM.MeshNodePoints) ||
-            e.PropertyName == nameof(Fem3DVM.DiagramGlyphs))
+            e.PropertyName == nameof(Fem3DVM.DiagramGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.ShowSectionGlyphs))
             BuildVisuals();
     }
 
@@ -296,6 +297,7 @@ public partial class FemSchemaView3D : UserControl
             viewport.ZoomExtents(500);
 
         BuildDiagramGlyphs();
+        BuildSectionGlyphs();
         BuildEditProxies();
         ApplyGridVisuals();
         UpdateGroundPlane();
@@ -392,6 +394,47 @@ public partial class FemSchemaView3D : UserControl
     {
         if (points.Count < 2) return;
         viewport.Children.Add(new LinesVisual3D { Points = points, Color = color, Thickness = thickness });
+    }
+
+    /// <summary>Рисует контуры сечений и положительные направления локальных Y/Z.</summary>
+    void BuildSectionGlyphs()
+    {
+        if (VM is not { ShowSectionGlyphs: true }) return;
+
+        foreach (var glyph in VM.SectionGlyphs)
+        {
+            double extent = glyph.Contours
+                .SelectMany(contour => contour)
+                .Select(point => Math.Sqrt(point.Y * point.Y + point.Z * point.Z))
+                .DefaultIfEmpty(glyph.FallbackHalfSize)
+                .Max();
+            double halfSize = Math.Max(extent, glyph.FallbackHalfSize);
+
+            if (glyph.Contours.Count == 0)
+            {
+                var y = glyph.LocalY * halfSize;
+                var z = glyph.LocalZ * halfSize;
+                AddGlyphLine(Colors.Gold, 1.5,
+                [glyph.Center + y + z, glyph.Center - y + z,
+                 glyph.Center - y - z, glyph.Center + y - z,
+                 glyph.Center + y + z]);
+            }
+            else
+            {
+                foreach (var contour in glyph.Contours)
+                {
+                    var points = new Point3DCollection(contour.Select(point =>
+                        glyph.Center + glyph.LocalY * point.Y + glyph.LocalZ * point.Z));
+                    AddGlyphLine(Colors.Gold, 1.5, points);
+                }
+            }
+
+            double axisLength = Math.Max(halfSize * 1.35, 0.08);
+            AddGlyphLine(Colors.LimeGreen, 1.2,
+                [glyph.Center, glyph.Center + glyph.LocalY * axisLength]);
+            AddGlyphLine(Colors.DeepSkyBlue, 1.2,
+                [glyph.Center, glyph.Center + glyph.LocalZ * axisLength]);
+        }
     }
 
     /// <summary>Порог, после которого вместо сфер (по одной на узел) используется PointsVisual3D.
@@ -659,6 +702,12 @@ public partial class FemSchemaView3D : UserControl
         MemberPropertiesRequested?.Invoke(tag);
     }
 
+    void MemberRotationCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        MemberRotationRequested?.Invoke(tag);
+    }
+
     void MemberForcesCtx_Click(object sender, RoutedEventArgs e)
     {
         if (_contextMenuTargetTag is not { } tag) return;
@@ -669,6 +718,7 @@ public partial class FemSchemaView3D : UserControl
     public event Action<string>? MemberSplitRequested;
     public event Action<string>? MemberSectionEditRequested;
     public event Action<string>? MemberPropertiesRequested;
+    public event Action<string>? MemberRotationRequested;
     public event Action<string>? MemberForcesRequested;
 
     void NodeMoveCtx_Click(object sender, RoutedEventArgs e)

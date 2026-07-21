@@ -28,7 +28,8 @@ public class FemNonlinearTclGeneratorTests
             Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = section },
             Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
             Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
-            LoadSteps = 4, Tolerance = 1e-6, MaxIterations = 30, GeomTransfKind = "PDelta"
+            LoadFactorStep = 0.25, MaxLoadFactor = 1.0, RefinementDivisions = 10,
+            Tolerance = 1e-6, MaxIterations = 30, GeomTransfKind = "PDelta"
         };
     }
 
@@ -48,30 +49,57 @@ public class FemNonlinearTclGeneratorTests
     }
 
     [Fact]
-    public void Generate_EmitsRecordersBeforeStepLoopAndOrderFile()
+    public void Generate_EmitsTextSnapshotsBeforeStepLoopAndOrderFile()
     {
         string tcl = new FemNonlinearTclGenerator().Generate(Console());
-        Assert.Contains("recorder Node -file nonlinear_node_disp.out -time -node 1 2 -dof 1 2 3 4 5 6 disp", tcl);
-        Assert.Contains("recorder Node -file nonlinear_node_reactions.out -time -node 1 -dof 1 2 3 4 5 6 reaction", tcl);
-        Assert.Contains("recorder Element -file nonlinear_element_forces.out -time -ele 1 localForce", tcl);
+        Assert.DoesNotContain("recorder Node", tcl);
+        Assert.DoesNotContain("recorder Element", tcl);
+        Assert.Contains("set nonlinearNodeDisp [open nonlinear_node_disp.out w]", tcl);
+        Assert.Contains("set nonlinearNodeReactions [open nonlinear_node_reactions.out w]", tcl);
+        Assert.Contains("set nonlinearElementForces [open nonlinear_element_forces.out w]", tcl);
+        Assert.Contains("puts $nonlinearNodeDisp", tcl);
+        Assert.Contains("puts $nonlinearNodeReactions", tcl);
+        Assert.Contains("puts $nonlinearElementForces", tcl);
         Assert.Contains("recorder_order.json", tcl);
         Assert.Contains("\"nodeTags\":[1,2]", tcl);
         Assert.Contains("\"restrainedTags\":[1]", tcl);
         Assert.Contains("\"elemTags\":[1]", tcl);
 
-        int recorderIndex = tcl.IndexOf("recorder Node -file nonlinear_node_disp.out", StringComparison.Ordinal);
-        int loopIndex = tcl.IndexOf("for {set i 1}", StringComparison.Ordinal);
+        int recorderIndex = tcl.IndexOf("set nonlinearNodeDisp", StringComparison.Ordinal);
+        int loopIndex = tcl.IndexOf("set currentLambda", StringComparison.Ordinal);
         Assert.True(recorderIndex < loopIndex && recorderIndex >= 0 && loopIndex >= 0);
+    }
+
+    [Fact]
+    public void Generate_SetsIntegratorBeforeStaticAnalysis()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        int integratorIndex = tcl.IndexOf("integrator LoadControl 1.0", StringComparison.Ordinal);
+        int analysisIndex = tcl.IndexOf("analysis Static", StringComparison.Ordinal);
+        Assert.True(integratorIndex >= 0 && analysisIndex > integratorIndex);
     }
 
     [Fact]
     public void Generate_EmitsStepLoopWithBreakOnFailure()
     {
         string tcl = new FemNonlinearTclGenerator().Generate(Console());
-        Assert.Contains("for {set i 1} {$i <= 4} {incr i}", tcl);
+        Assert.Contains("while {$currentLambda <", tcl);
         Assert.Contains("set rc [analyze 1]", tcl);
-        Assert.Contains("if {$rc != 0} {break}", tcl);
+        Assert.Contains("refinementDivisions", tcl);
         Assert.Contains("step_status.out", tcl);
         Assert.Contains("completed.marker", tcl);
+    }
+
+    [Fact]
+    public void Generate_EmitsAdaptiveLoadAndFiberStateArtifacts()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("set loadFactorStep 0.25", tcl);
+        Assert.Contains("set maxLoadFactor 1", tcl);
+        Assert.Contains("set refinementDivisions 10", tcl);
+        Assert.Contains("nonlinear_fiber_states.out", tcl);
+        Assert.Contains("nonlinear_section_order.json", tcl);
+        Assert.Contains("integrationPoints", tcl);
+        Assert.Contains("isRefinement", tcl);
     }
 }

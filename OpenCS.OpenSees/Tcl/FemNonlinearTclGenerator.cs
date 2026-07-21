@@ -81,7 +81,8 @@ public sealed class FemNonlinearTclGenerator
         L("system BandGeneral");
         L($"test {model.ConvergenceTest} {F(model.Tolerance)} {model.MaxIterations} 0");
         L("algorithm Newton");
-        L($"integrator LoadControl {F(1.0 / model.LoadSteps)}");
+        // Интегратор должен быть задан до создания StaticAnalysis.
+        L("integrator LoadControl 1.0");
         L("analysis Static");
         L();
 
@@ -89,10 +90,13 @@ public sealed class FemNonlinearTclGenerator
         var restrainedTags = model.Nodes.Where(n => n.Fixed.Any(f => f)).Select(n => n.Tag).ToList();
         var elemTags = model.Elements.Select(e => e.Tag).ToList();
 
-        L($"recorder Node -file nonlinear_node_disp.out -time -node {string.Join(' ', nodeTags)} -dof 1 2 3 4 5 6 disp");
+        // Используем Tcl-каналы вместо recorder Node/Element. В OpenSees 3.8.0
+        // большие серии eleResponse-запросов к fiber-секциям иногда оставляют
+        // нулевые байты в DataFileStream, из-за чего теряется вся строка шага.
+        L("set nonlinearNodeDisp [open nonlinear_node_disp.out w]");
         if (restrainedTags.Count > 0)
-            L($"recorder Node -file nonlinear_node_reactions.out -time -node {string.Join(' ', restrainedTags)} -dof 1 2 3 4 5 6 reaction");
-        L($"recorder Element -file nonlinear_element_forces.out -time -ele {string.Join(' ', elemTags)} localForce");
+            L("set nonlinearNodeReactions [open nonlinear_node_reactions.out w]");
+        L("set nonlinearElementForces [open nonlinear_element_forces.out w]");
         L();
 
         // recorder_order.json — статический эхо-вывод уже известных на этапе генерации списков тегов,
@@ -105,13 +109,89 @@ public sealed class FemNonlinearTclGenerator
         L("close $orderFile");
         L();
 
+        // Сохраняем фактические положения точек интегрирования forceBeamColumn.
+        // integrationPoints возвращает нормированные координаты от узла I; длина берётся
+        // из исходной геометрии элемента.
+        var nodeByTag = model.Nodes.ToDictionary(n => n.Tag);
+        L("set sectionOrder [open nonlinear_section_order.json w]");
+        L("puts $sectionOrder \"{\\\"locations\\\":\\[\"");
+        L("set sectionLocationFirst 1");
+        foreach (var e in model.Elements.OrderBy(e => e.Tag))
+        {
+            if (!nodeByTag.TryGetValue(e.NodeI, out var ni) || !nodeByTag.TryGetValue(e.NodeJ, out var nj))
+                throw new InvalidOperationException($"Элемент {e.Tag}: не найдены узлы для вычисления длины.");
+            double dx = nj.X - ni.X;
+            double dy = nj.Y - ni.Y;
+            double dz = nj.Z - ni.Z;
+            double length = System.Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            if (length <= 0 || !double.IsFinite(length))
+                throw new InvalidOperationException($"Элемент {e.Tag}: длина должна быть конечной и положительной.");
+
+            var section = model.Sections[e.SectionTag];
+            L($"set ipLocations_{e.Tag} [eleResponse {e.Tag} integrationPoints]");
+            L($"for {{set ip 1}} {{$ip <= {e.NumIntegrationPoints}}} {{incr ip}} {{");
+            L($"    set xi [lindex $ipLocations_{e.Tag} [expr {{$ip - 1}}]]");
+            // forceBeamColumn.integrationPoints возвращает координату вдоль элемента
+            // в метрах, а не безразмерную координату.
+            L("    set distance $xi");
+            L($"    set relative [expr {{$xi / {F(length)}}}]");
+            L("    if {$sectionLocationFirst == 0} { puts -nonewline $sectionOrder {,} }");
+            L("    set sectionLocationFirst 0");
+            L($"    puts $sectionOrder [format {{    {{\"elementTag\":{e.Tag},\"integrationPoint\":%d,\"sectionTag\":{e.SectionTag},\"fiberCount\":{section.Fibers.Count},\"distanceFromElementStartM\":%.17g,\"elementLengthM\":{F(length)},\"relativePosition\":%.17g}}}} $ip $distance $relative]");
+            L("}");
+        }
+        L("puts $sectionOrder \"]}\"");
+        L("close $sectionOrder");
+        L();
+
+        L("set fiberStates [open nonlinear_fiber_states.out w]");
+        L("puts $fiberStates {# step loadFactor elementTag integrationPoint fiberIndex stressPa strain}");
         L("set stepStatus [open step_status.out w]");
-        L("puts $stepStatus {# step loadFactor converged}");
-        L("for {set i 1} {$i <= " + model.LoadSteps + "} {incr i} {");
+        L("puts $stepStatus {# step loadFactor converged isRefinement}");
+        L($"set loadFactorStep {F(model.LoadFactorStep)}");
+        L($"set maxLoadFactor {F(model.MaxLoadFactor)}");
+        L($"set refinementDivisions {model.RefinementDivisions}");
+        L("set currentLambda 0.0");
+        L("set stepIndex 0");
+        L("set analysisFailed 0");
+        L("while {$currentLambda < $maxLoadFactor - 1.0e-12} {");
+        L("    set targetLambda [expr {min($currentLambda + $loadFactorStep, $maxLoadFactor)}]");
+        L("    set increment [expr {$targetLambda - $currentLambda}]");
+        L("    integrator LoadControl $increment");
         L("    set rc [analyze 1]");
-        L("    puts $stepStatus \"$i [getTime] [expr {$rc == 0}]\"");
-        L("    if {$rc != 0} {break}");
+        L("    if {$rc == 0} {");
+        L("        set currentLambda [getTime]");
+        L("        incr stepIndex");
+        L("        puts $stepStatus [list $stepIndex $currentLambda 1 0]");
+        EmitFiberStateWrites(L, model);
+        EmitRecorderSnapshot(L, nodeTags, restrainedTags, elemTags);
+        L("    } else {");
+        L("        set refinedIncrement [expr {($targetLambda - $currentLambda) / $refinementDivisions}]");
+        L("        set refinementFailed 0");
+        L("        for {set r 1} {$r <= $refinementDivisions} {incr r} {");
+        L("            integrator LoadControl $refinedIncrement");
+        L("            set refinedRc [analyze 1]");
+        L("            if {$refinedRc != 0} {");
+        L("                set failedLambda [expr {$currentLambda + $refinedIncrement * ($r - 1)}]");
+        L("                puts $stepStatus [list [expr {$stepIndex + 1}] $failedLambda 0 1]");
+        L("                set refinementFailed 1");
+        L("                set analysisFailed 1");
+        L("                break");
+        L("            }");
+        L("            set currentLambda [getTime]");
+        L("            incr stepIndex");
+        L("            puts $stepStatus [list $stepIndex $currentLambda 1 1]");
+        EmitFiberStateWrites(L, model);
+        EmitRecorderSnapshot(L, nodeTags, restrainedTags, elemTags);
+        L("        }");
+        L("        if {$refinementFailed == 1} {break}");
+        L("    }");
         L("}");
+        L("close $nonlinearNodeDisp");
+        if (restrainedTags.Count > 0)
+            L("close $nonlinearNodeReactions");
+        L("close $nonlinearElementForces");
+        L("close $fiberStates");
         L("close $stepStatus");
         L();
 
@@ -121,5 +201,49 @@ public sealed class FemNonlinearTclGenerator
         L("wipe");
 
         return sb.ToString();
+    }
+
+    static void EmitFiberStateWrites(Action<string> line, FemNonlinearModel model)
+    {
+        foreach (var e in model.Elements.OrderBy(e => e.Tag))
+        {
+            var section = model.Sections[e.SectionTag];
+            line($"        for {{set ip 1}} {{$ip <= {e.NumIntegrationPoints}}} {{incr ip}} {{");
+            line($"            for {{set fiberIndex 0}} {{$fiberIndex < {section.Fibers.Count}}} {{incr fiberIndex}} {{");
+            string fiberCoordinates = string.Join(' ', section.Fibers.Select(f => $"{TclNumber.Format(f.Y)} {TclNumber.Format(f.Z)}"));
+            line($"                set stressStrain [eleResponse {e.Tag} section $ip fiber [lindex {{{fiberCoordinates}}} [expr {{$fiberIndex * 2}}]] [lindex {{{fiberCoordinates}}} [expr {{$fiberIndex * 2 + 1}}]] stressStrain]");
+            line($"                if {{[llength $stressStrain] >= 2}} {{ puts $fiberStates [list $stepIndex $currentLambda {e.Tag} $ip $fiberIndex [lindex $stressStrain 0] [lindex $stressStrain 1]] }}");
+            line("            }");
+            line("        }");
+        }
+    }
+
+    static void EmitRecorderSnapshot(Action<string> line, IReadOnlyList<int> nodeTags,
+        IReadOnlyList<int> restrainedTags, IReadOnlyList<int> elemTags)
+    {
+        line("        set nonlinearNodeDispRow [list [getTime]]");
+        foreach (int tag in nodeTags)
+            for (int dof = 1; dof <= 6; dof++)
+                line($"        lappend nonlinearNodeDispRow [lindex [nodeDisp {tag}] {dof - 1}]");
+        line("        puts $nonlinearNodeDisp $nonlinearNodeDispRow");
+
+        if (restrainedTags.Count > 0)
+        {
+            line("        reactions");
+            line("        set nonlinearNodeReactionRow [list [getTime]]");
+            foreach (int tag in restrainedTags)
+                for (int dof = 1; dof <= 6; dof++)
+                    line($"        lappend nonlinearNodeReactionRow [lindex [nodeReaction {tag}] {dof - 1}]");
+            line("        puts $nonlinearNodeReactions $nonlinearNodeReactionRow");
+        }
+
+        line("        set nonlinearElementForceRow [list [getTime]]");
+        foreach (int tag in elemTags)
+        {
+            line($"        foreach nonlinearElementForceValue [eleResponse {tag} localForce] {{");
+            line("            lappend nonlinearElementForceRow $nonlinearElementForceValue");
+            line("        }");
+        }
+        line("        puts $nonlinearElementForces $nonlinearElementForceRow");
     }
 }

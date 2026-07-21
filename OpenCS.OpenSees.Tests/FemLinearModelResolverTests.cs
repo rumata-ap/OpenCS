@@ -66,7 +66,7 @@ public class FemLinearModelResolverTests
         Assert.Equal(2e-4, e.Iz, 12);
         Assert.Equal(1e6, e.G, 3);       // G=GjManual
         Assert.Equal(1.0, e.J, 12);      // J=1 → G·J=GJ
-        Assert.Equal((0d, 0d, 1d), e.Vecxz);
+        Assert.Equal((0d, -1d, 0d), e.Vecxz);
 
         var load = Assert.Single(r.Model.Loads);
         Assert.Equal(2, load.NodeTag);   // перенесена на mesh-узел «2»

@@ -16,6 +16,7 @@
         <ContextMenu x:Key="MemberContextMenu">
             <MenuItem Header="{DynamicResource FemMemberSectionCtx}" Click="MemberSectionCtx_Click"/>
             <MenuItem Header="{DynamicResource FemMemberPropertiesCtx}" Click="MemberPropertiesCtx_Click"/>
+            <MenuItem Header="{DynamicResource FemMemberRotationCtx}" Click="MemberRotationCtx_Click"/>
             <Separator/>
             <MenuItem Header="{DynamicResource FemMemberSplitCtx}" Click="MemberSplitCtx_Click"/>
             <MenuItem Header="{DynamicResource FemMemberDeleteCtx}" Click="MemberDeleteCtx_Click"/>
@@ -86,6 +87,8 @@
                               IsChecked="{Binding ShowSupportGlyphs, Mode=TwoWay}"/>
                     <MenuItem Header="{DynamicResource Fem3DShowLoads}" IsCheckable="True"
                               IsChecked="{Binding ShowLoadGlyphs, Mode=TwoWay}"/>
+                    <MenuItem Header="{DynamicResource Fem3DShowSectionGlyphs}" IsCheckable="True"
+                              IsChecked="{Binding ShowSectionGlyphs, Mode=TwoWay}"/>
                 </MenuItem>
             </Menu>
             <TextBlock Text="{DynamicResource Fem3DLoadDisplay}" VerticalAlignment="Center" Margin="8,0,4,0"/>

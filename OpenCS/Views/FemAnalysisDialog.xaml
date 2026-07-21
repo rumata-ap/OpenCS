@@ -29,8 +29,14 @@
             <TextBlock Text="{DynamicResource FemAnalysisCalcTypeLabel}"/>
             <ComboBox x:Name="CalcTypeBox"/>
 
-            <TextBlock Text="{DynamicResource FemAnalysisLoadStepsLabel}" Margin="0,8,0,0"/>
-            <TextBox x:Name="LoadStepsBox" Text="10"/>
+            <TextBlock Text="{DynamicResource FemAnalysisLoadFactorStepLabel}" Margin="0,8,0,0"/>
+            <TextBox x:Name="LoadFactorStepBox" Text="0.1"/>
+
+            <TextBlock Text="{DynamicResource FemAnalysisMaxLoadFactorLabel}" Margin="0,8,0,0"/>
+            <TextBox x:Name="MaxLoadFactorBox" Text="10"/>
+
+            <TextBlock Text="{DynamicResource FemAnalysisRefinementDivisionsLabel}" Margin="0,8,0,0"/>
+            <TextBox x:Name="RefinementDivisionsBox" Text="10"/>
 
             <TextBlock Text="{DynamicResource FemAnalysisToleranceLabel}" Margin="0,8,0,0"/>
             <TextBox x:Name="ToleranceBox" Text="1E-06"/>

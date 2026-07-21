@@ -42,7 +42,8 @@ public sealed class FemNonlinearIntegrationTests
             Sections = new Dictionary<int, OpenCS.OpenSees.Model.OpenSeesSectionModel> { [1] = section },
             Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
             Loads = [new FemLinearNodalLoad(2, 0, 0, P, 0, 0, 0)],
-            LoadSteps = 4, Tolerance = 1e-8, MaxIterations = 30, GeomTransfKind = "Linear"
+            LoadFactorStep = 0.25, MaxLoadFactor = 1.0, RefinementDivisions = 10,
+            Tolerance = 1e-8, MaxIterations = 30, GeomTransfKind = "Linear"
         };
 
         try
@@ -77,6 +78,19 @@ public sealed class FemNonlinearIntegrationTests
                 .SelectMany(f => new[] { System.Math.Abs(f.Myi), System.Math.Abs(f.Myj) })
                 .Max();
             Assert.InRange(baseMoment, 1900, 2100);   // момент заделки ≈ |P|·L = 2000
+
+            var fiberParser = new FemNonlinearFiberStateParser();
+            var locations = fiberParser.ParseLocations(
+                Path.Combine(result.ArtifactDirectory!, result.SectionOrderFileName!));
+            Assert.Equal(5, locations.Count);
+            var firstLocation = locations[0];
+            var selectedStates = fiberParser.ParseSection(
+                Path.Combine(result.ArtifactDirectory!, result.FiberStateFileName!),
+                firstLocation.ElementTag, firstLocation.IntegrationPoint);
+            Assert.NotEmpty(selectedStates);
+            Assert.Equal(4, selectedStates.Select(s => s.StepIndex).Distinct().Count());
+            Assert.DoesNotContain('\0', File.ReadAllText(
+                Path.Combine(result.ArtifactDirectory!, "nonlinear_node_disp.out")));
         }
         finally
         {

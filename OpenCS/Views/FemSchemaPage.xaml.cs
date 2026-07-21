@@ -6,12 +6,14 @@ using CScore.Fem;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using System.Windows.Controls;
+using CScore.Fem.Editing;
 
 namespace OpenCS.Views;
 
 public partial class FemSchemaPage : UserControl
 {
     readonly FemSchemaEditorVM _editorVm;
+    readonly Fem3DVM _fem3d;
 
     public FemSchemaPage(FemSchema schema, AppViewModel app)
     {
@@ -20,15 +22,15 @@ public partial class FemSchemaPage : UserControl
         app.RegisterFemSchemaEditor(_editorVm);
         DataContext = _editorVm;
 
-        var fem3d = new Fem3DVM(schema, app.db) { Selection = _editorVm.Selection, EditMode = true };
-        fem3d.LoadFromSession(_editorVm.Session);
+        _fem3d = new Fem3DVM(schema, app.db) { Selection = _editorVm.Selection, EditMode = true };
+        _fem3d.LoadFromSession(_editorVm.Session);
         view3D.Editor = _editorVm;
-        view3D.DataContext = fem3d;
+        view3D.DataContext = _fem3d;
         _editorVm.MeshDiscretized += async (_, _) =>
         {
             try
             {
-                await fem3d.LoadMeshOverlayAsync();
+                await _fem3d.LoadMeshOverlayAsync();
                 app.ReloadFemMeshSnapshotTree(schema.Id);
                 view3D.ShowMeshOverlay();
             }
@@ -37,7 +39,7 @@ public partial class FemSchemaPage : UserControl
                 Debug.WriteLine(exception);
             }
         };
-        _editorVm.NodeLoadsApplied += fem3d.SelectDiagramLoadCase;
+        _editorVm.NodeLoadsApplied += _fem3d.SelectDiagramLoadCase;
 
         view3D.NodeCreateRequested += p => _editorVm.CreateNodeAt(p.X, p.Y, p.Z);
         view3D.BarCreateRequested  += (a, b) => _editorVm.CreateBarBetween(a, b, view3D.PendingBarSectionTag);
@@ -48,6 +50,7 @@ public partial class FemSchemaPage : UserControl
         view3D.MemberSplitRequested  += tag => _editorVm.SplitMemberByTag(tag);
         view3D.MemberPropertiesRequested  += OpenMemberProperties;
         view3D.MemberSectionEditRequested += OpenMemberProperties;
+        view3D.MemberRotationRequested    += OpenMemberRotation;
         view3D.MemberForcesRequested      += tag => app.ShowMemberForceDiagram(schema, tag);
         view3D.NodeMoveRequested += (tag, dx, dy, dz) => _editorVm.MoveNodeByTag(tag, dx, dy, dz);
         view3D.NodeCopyRequested += (tag, dx, dy, dz) => _editorVm.CopyNodeByTag(tag, dx, dy, dz);
@@ -65,8 +68,8 @@ public partial class FemSchemaPage : UserControl
                 view3D.SetCreateNodeMode(_editorVm.CreateNodeMode);
             else if (args.PropertyName == nameof(FemSchemaEditorVM.CreateBarMode))
                 view3D.SetCreateBarMode(_editorVm.CreateBarMode);
-            else if (args.PropertyName == nameof(FemSchemaEditorVM.Session) && !fem3d.IsLoading)
-                fem3d.LoadFromSession(_editorVm.Session);
+            else if (args.PropertyName == nameof(FemSchemaEditorVM.Session) && !_fem3d.IsLoading)
+                _fem3d.LoadFromSession(_editorVm.Session);
         };
         _editorVm.SaveBlocked += errors => MessageBox.Show(
             string.Join("\n", errors.Select(d => d.Message)),
@@ -83,6 +86,19 @@ public partial class FemSchemaPage : UserControl
         var member = _editorVm.Session.Members.FirstOrDefault(m => m.ElemTag == tag);
         if (member == null) return;
         new FemMemberPropertiesDialog(member, _editorVm) { Owner = Window.GetWindow(this) }.Show();
+    }
+
+    void OpenMemberRotation(string tag)
+    {
+        var member = _editorVm.Session.Members.FirstOrDefault(m => m.ElemTag == tag);
+        if (member == null) return;
+
+        new FemMemberRotationDialog(member.RotationDeg, value =>
+        {
+            _editorVm.Session.Execute(new SetMemberRotationCommand(member, value));
+            _editorVm.RefreshCollections();
+            _fem3d.LoadFromSession(_editorVm.Session);
+        }) { Owner = Window.GetWindow(this) }.Show();
     }
 
     void OnPreviewKeyDown(object sender, KeyEventArgs e)

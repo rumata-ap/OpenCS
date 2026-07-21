@@ -36,7 +36,9 @@ public partial class FemAnalysisDialog : Window
             ExeBox.Text = pars.ExecutablePath;
             TimeoutBox.Text = pars.TimeoutSeconds.ToString();
             CalcTypeBox.SelectedItem = pars.CalcType ?? CalcType.C;
-            LoadStepsBox.Text = pars.LoadSteps.ToString();
+            LoadFactorStepBox.Text = pars.LoadFactorStep.ToString(CultureInfo.InvariantCulture);
+            MaxLoadFactorBox.Text = pars.MaxLoadFactor.ToString(CultureInfo.InvariantCulture);
+            RefinementDivisionsBox.Text = pars.RefinementDivisions.ToString(CultureInfo.InvariantCulture);
             ToleranceBox.Text = pars.Tolerance.ToString(CultureInfo.InvariantCulture);
             MaxIterationsBox.Text = pars.MaxIterations.ToString();
             GeomTransfBox.SelectedItem = geomTransfOptions.FirstOrDefault(o => o.Value == pars.GeomTransfKind) ?? geomTransfOptions[0];
@@ -111,7 +113,12 @@ public partial class FemAnalysisDialog : Window
         if (isNonlinear)
         {
             pars.CalcType = CalcTypeBox.SelectedItem as CalcType? ?? CalcType.C;
-            pars.LoadSteps = int.TryParse(LoadStepsBox.Text, out var steps) && steps > 0 ? steps : 10;
+            pars.LoadFactorStep = double.TryParse(LoadFactorStepBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var loadStep) && loadStep > 0
+                ? loadStep : 0.1;
+            pars.MaxLoadFactor = double.TryParse(MaxLoadFactorBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var maxLoad) && maxLoad >= pars.LoadFactorStep
+                ? maxLoad : Math.Max(10.0, pars.LoadFactorStep);
+            pars.RefinementDivisions = int.TryParse(RefinementDivisionsBox.Text, out var refinement) && refinement > 0
+                ? refinement : 10;
             pars.Tolerance = double.TryParse(ToleranceBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var tol) && tol > 0
                 ? tol : 1e-6;
             pars.MaxIterations = int.TryParse(MaxIterationsBox.Text, out var iters) && iters > 0 ? iters : 50;

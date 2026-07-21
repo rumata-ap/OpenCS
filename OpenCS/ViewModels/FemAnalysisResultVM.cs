@@ -1,8 +1,10 @@
 using System.Text.Json;
+using System.IO;
 using System.Windows.Media.Media3D;
 using CScore;
 using CScore.Fem;
 using OpenCS.OpenSees.CScore;
+using OpenCS.OpenSees.Results;
 using OpenCS.OpenSees.Structural;
 using OpenCS.Utilites;
 
@@ -34,6 +36,39 @@ public class FemAnalysisResultVM : ViewModelBase
     public IReadOnlyList<FemNonlinearStepResult> Steps { get; }
     /// <summary>Точки для графика load-factor по шагам.</summary>
     public IReadOnlyList<FemLoadFactorPoint> LoadFactorPoints { get; }
+    /// <summary>Каталог точек интегрирования, доступных для просмотра fiber-состояния.</summary>
+    public IReadOnlyList<FemSectionLocationRow> SectionLocations { get; private set; } = [];
+    public bool HasSectionResults => SectionLocations.Count > 0;
+
+    FemSectionLocationRow? _selectedSectionLocation;
+    /// <summary>Выбранная точка интегрирования вдоль конструктивного стержня.</summary>
+    public FemSectionLocationRow? SelectedSectionLocation
+    {
+        get => _selectedSectionLocation;
+        set
+        {
+            if (Equals(value, _selectedSectionLocation)) return;
+            _selectedSectionLocation = value;
+            LoadSelectedFiberStates();
+            RebuildSectionPlots();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedSectionPositionLabel));
+        }
+    }
+
+    /// <summary>Положение выбранного сечения в метрах и долях длины стержня.</summary>
+    public string SelectedSectionPositionLabel => _selectedSectionLocation == null
+        ? ""
+        : string.Format(Loc.S("FemResultSectionPositionValue"),
+            _selectedSectionLocation.PositionFromMemberStartM,
+            _selectedSectionLocation.MemberLengthM,
+            _selectedSectionLocation.RelativePosition);
+    public bool HasSelectedSectionState => SectionStressPlot != null && SectionStrainPlot != null;
+
+    /// <summary>Карта напряжений выбранного сечения.</summary>
+    public SectionPlotVM? SectionStressPlot { get; private set; }
+    /// <summary>Карта деформаций выбранного сечения.</summary>
+    public SectionPlotVM? SectionStrainPlot { get; private set; }
     /// <summary>Верхняя граница слайдера шага.</summary>
     public int MaxStepIndex => Math.Max(0, Steps.Count - 1);
 
@@ -50,6 +85,7 @@ public class FemAnalysisResultVM : ViewModelBase
             ApplyStepData();
             RebuildDeformed();
             RebuildForceDiagram();
+            RebuildSectionPlots();
             OnPropertyChanged();
             OnPropertyChanged(nameof(Displacements));
             OnPropertyChanged(nameof(Reactions));
@@ -92,6 +128,11 @@ public class FemAnalysisResultVM : ViewModelBase
     readonly record struct ElementGeom(int Tag, string? SourceMemberTag, int Ni, int Nj, Point3D Pi, Point3D Pj, Vector3D Ey, Vector3D Ez);
     readonly List<ElementGeom> _elementGeoms = [];
     readonly Dictionary<int, FemElementEndForces> _forcesByElem = [];
+    readonly DatabaseService _database;
+    readonly Dictionary<int, int?> _sectionIdByElement = [];
+    FemNonlinearResult? _nonlinearResult;
+    IReadOnlyList<FemNonlinearFiberState> _fiberStates = [];
+    string? _fiberStatePath;
 
     /// <summary>Точки линий исходной (недеформированной) схемы, парами.</summary>
     public Point3DCollection OriginalLines { get; } = [];
@@ -162,6 +203,7 @@ public class FemAnalysisResultVM : ViewModelBase
 
     public FemAnalysisResultVM(CalcResult result, DatabaseService db, FemSchema schema)
     {
+        _database = db;
         ResetDeformScaleCommand = new RelayCommand(_ => DeformScale = SuggestScale());
         ResetForceScaleCommand = new RelayCommand(_ => ForceScale = SuggestForceScale());
 
@@ -170,6 +212,7 @@ public class FemAnalysisResultVM : ViewModelBase
         var nonlinear = ParseNonlinearResult(result.DataJson);
         if (nonlinear != null)
         {
+            _nonlinearResult = nonlinear;
             IsNonlinear = true;
             Steps = nonlinear.Steps;
             ArtifactDirectory = nonlinear.ArtifactDirectory;
@@ -192,7 +235,10 @@ public class FemAnalysisResultVM : ViewModelBase
             if (int.TryParse(n.NodeTag, out int tag))
                 _originalByTag[tag] = new Point3D(n.X, n.Y, n.Z);
 
-        foreach (var e in db.GetFemMeshElements(schema.Id))
+        var meshNodes = db.GetFemMeshNodes(schema.Id);
+        var meshElements = db.GetFemMeshElements(schema.Id);
+        var sourceMembers = db.GetFemMembers(schema.Id);
+        foreach (var e in meshElements)
         {
             var ends = JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? [];
             if (ends.Length != 2 || !_originalByTag.ContainsKey(ends[0]) || !_originalByTag.ContainsKey(ends[1]))
@@ -200,9 +246,11 @@ public class FemAnalysisResultVM : ViewModelBase
             _elementPairs.Add((ends[0], ends[1]));
             if (int.TryParse(e.ElemTag, out int etag))
             {
+                _sectionIdByElement[etag] = e.CrossSectionId;
                 var pi = _originalByTag[ends[0]];
                 var pj = _originalByTag[ends[1]];
-                var (ey, ez) = LocalFrame(pi, pj);
+                double rotationDeg = sourceMembers.FirstOrDefault(m => m.ElemTag == e.SourceMemberTag)?.RotationDeg ?? 0;
+                var (ey, ez) = LocalFrame(pi, pj, rotationDeg);
                 _elementGeoms.Add(new ElementGeom(etag, e.SourceMemberTag, ends[0], ends[1], pi, pj, ey, ez));
             }
         }
@@ -213,7 +261,15 @@ public class FemAnalysisResultVM : ViewModelBase
             OriginalLines.Add(_originalByTag[j]);
         }
 
-        _selectedStepIndex = Steps.Count > 0 ? Steps.Count - 1 : 0;
+        LoadSectionResultData(meshNodes, meshElements, sourceMembers);
+
+        _selectedStepIndex = 0;
+        for (int i = Steps.Count - 1; i >= 0; i--)
+            if (Steps[i].Converged)
+            {
+                _selectedStepIndex = i;
+                break;
+            }
         if (Steps.Count > 0) ApplyStepData();
 
         _deformScale = SuggestScale();
@@ -221,20 +277,126 @@ public class FemAnalysisResultVM : ViewModelBase
 
         _forceScale = SuggestForceScale();
         RebuildForceDiagram();
+        RebuildSectionPlots();
     }
 
-    static (Vector3D Ey, Vector3D Ez) LocalFrame(Point3D pi, Point3D pj)
+    void LoadSectionResultData(
+        IReadOnlyList<FemMeshNode> meshNodes,
+        IReadOnlyList<FemElement> meshElements,
+        IReadOnlyList<FemMember> sourceMembers)
     {
-        var ex = pj - pi;
-        if (ex.Length < 1e-9) return (new Vector3D(0, 1, 0), new Vector3D(0, 0, 1));
-        ex.Normalize();
-        var vecxz = System.Math.Abs(ex.Z) > 1 - 1e-6 ? new Vector3D(1, 0, 0) : new Vector3D(0, 0, 1);
-        var ey = Vector3D.CrossProduct(vecxz, ex);
-        if (ey.Length < 1e-9) ey = Vector3D.CrossProduct(new Vector3D(0, 1, 0), ex);
-        ey.Normalize();
-        var ez = Vector3D.CrossProduct(ex, ey);
-        ez.Normalize();
-        return (ey, ez);
+        foreach (var element in meshElements)
+            if (int.TryParse(element.ElemTag, out int elementTag))
+            {
+                int? fallback = sourceMembers.FirstOrDefault(m => m.ElemTag == element.SourceMemberTag)?.CrossSectionId;
+                if (_sectionIdByElement.TryGetValue(elementTag, out var current) && current is null)
+                    _sectionIdByElement[elementTag] = fallback;
+            }
+        if (!IsNonlinear || _nonlinearResult == null || string.IsNullOrWhiteSpace(ArtifactDirectory)) return;
+        if (string.IsNullOrWhiteSpace(_nonlinearResult.FiberStateFileName) ||
+            string.IsNullOrWhiteSpace(_nonlinearResult.SectionOrderFileName)) return;
+        try
+        {
+            var parser = new FemNonlinearFiberStateParser();
+            _fiberStatePath = Path.Combine(ArtifactDirectory, _nonlinearResult.FiberStateFileName);
+            var recordedLocations = parser.ParseLocations(Path.Combine(ArtifactDirectory, _nonlinearResult.SectionOrderFileName));
+            var available = File.Exists(_fiberStatePath) && new FileInfo(_fiberStatePath).Length > 0
+                ? recordedLocations.Select(x => (x.ElementTag, x.IntegrationPoint)).ToHashSet()
+                : [];
+            SectionLocations = new FemSectionLocationResolver().Resolve(
+                meshNodes, meshElements, sourceMembers, recordedLocations, available);
+            OnPropertyChanged(nameof(SectionLocations));
+            OnPropertyChanged(nameof(HasSectionResults));
+            _selectedSectionLocation = SectionLocations.FirstOrDefault(x => x.IsStateAvailable);
+            LoadSelectedFiberStates();
+            OnPropertyChanged(nameof(SelectedSectionLocation));
+            OnPropertyChanged(nameof(SelectedSectionPositionLabel));
+        }
+        catch (OpenSeesResultException)
+        {
+            // Дополнительные файлы не должны скрывать остальные результаты FEM.
+            _fiberStates = [];
+            _fiberStatePath = null;
+            SectionLocations = [];
+        }
+    }
+
+    void LoadSelectedFiberStates()
+    {
+        _fiberStates = [];
+        if (_selectedSectionLocation is not { IsStateAvailable: true } selected ||
+            string.IsNullOrWhiteSpace(_fiberStatePath)) return;
+        try
+        {
+            _fiberStates = new FemNonlinearFiberStateParser().ParseSection(
+                _fiberStatePath, selected.MeshElementTag, selected.IntegrationPoint);
+        }
+        catch (OpenSeesResultException)
+        {
+            _fiberStates = [];
+        }
+    }
+
+    void RebuildSectionPlots()
+    {
+        SectionStressPlot = null;
+        SectionStrainPlot = null;
+        var selected = _selectedSectionLocation;
+        if (selected == null || !selected.IsStateAvailable || _fiberStates.Count == 0 || Steps.Count == 0)
+        {
+            OnPropertyChanged(nameof(SectionStressPlot));
+            OnPropertyChanged(nameof(SectionStrainPlot));
+            OnPropertyChanged(nameof(HasSelectedSectionState));
+            return;
+        }
+        if (!_sectionIdByElement.TryGetValue(selected.MeshElementTag, out int? sectionId) || sectionId is not int id)
+        {
+            NotifySectionPlotsChanged();
+            return;
+        }
+        var section = _database.CrossSections.FirstOrDefault(s => s.Id == id);
+        if (section == null)
+        {
+            NotifySectionPlotsChanged();
+            return;
+        }
+
+        int step = Steps[SelectedStepIndex].StepIndex;
+        var recorded = _fiberStates
+            .Where(s => s.StepIndex == step &&
+                        s.ElementTag == selected.MeshElementTag &&
+                        s.IntegrationPoint == selected.IntegrationPoint)
+            .ToDictionary(s => s.FiberIndex, s => (s.StressPa, s.Strain));
+        if (recorded.Count == 0)
+        {
+            NotifySectionPlotsChanged();
+            return;
+        }
+        var calcType = Enum.TryParse<CalcType>(_nonlinearResult?.CalcTypeName, out var parsedCalcType)
+            ? parsedCalcType : CalcType.C;
+        var curvature = new Kurvature();
+        SectionStressPlot = new SectionPlotVM(section, curvature, calcType, SectionPlotMode.Stress,
+            recordedFibers: recorded);
+        SectionStrainPlot = new SectionPlotVM(section, curvature, calcType, SectionPlotMode.Strain,
+            recordedFibers: recorded);
+        NotifySectionPlotsChanged();
+    }
+
+    void NotifySectionPlotsChanged()
+    {
+        OnPropertyChanged(nameof(SectionStressPlot));
+        OnPropertyChanged(nameof(SectionStrainPlot));
+        OnPropertyChanged(nameof(HasSelectedSectionState));
+    }
+
+    static (Vector3D Ey, Vector3D Ez) LocalFrame(Point3D pi, Point3D pj, double rotationDeg)
+    {
+        var frame = FemLocalAxis.LocalFrame(
+            new FemLinearNode(0, pi.X, pi.Y, pi.Z, new bool[6]),
+            new FemLinearNode(0, pj.X, pj.Y, pj.Z, new bool[6]),
+            rotationDeg);
+        return (new Vector3D(frame.Y.X, frame.Y.Y, frame.Y.Z),
+                new Vector3D(frame.Z.X, frame.Z.Y, frame.Z.Z));
     }
 
     /// <summary>Значения выбранной компоненты на концах i и j (внутреннее усилие, непрерывное по узлу).</summary>

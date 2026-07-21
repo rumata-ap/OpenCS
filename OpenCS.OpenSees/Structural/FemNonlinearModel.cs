@@ -12,13 +12,17 @@ public sealed class FemNonlinearModel
     public IReadOnlyList<FemNonlinearElement> Elements { get; init; } = [];
     public IReadOnlyList<FemLinearNodalLoad> Loads { get; init; } = [];
 
-    public int LoadSteps { get; init; } = 10;
+    public double LoadFactorStep { get; init; } = 0.1;
+    public double MaxLoadFactor { get; init; } = 10.0;
+    public int RefinementDivisions { get; init; } = 10;
     public double Tolerance { get; init; } = 1e-6;
     public int MaxIterations { get; init; } = 50;
     public string GeomTransfKind { get; init; } = "Linear";
     /// <summary>Критерий сходимости Ньютона: "EnergyIncr" (по умолчанию, самый устойчивый —
     /// учитывает и невязку силы, и приращение перемещения) | "NormUnbalance" | "NormDispIncr".</summary>
     public string ConvergenceTest { get; init; } = "EnergyIncr";
+    /// <summary>Имя набора диаграмм CScore, использованного при построении fiber-сечения.</summary>
+    public string CalcTypeName { get; init; } = "C";
 
     /// <summary>Проверяет целостность модели перед генерацией Tcl.</summary>
     public void Validate()
@@ -26,7 +30,14 @@ public sealed class FemNonlinearModel
         if (Nodes.Count == 0) throw new InvalidOperationException("Модель не содержит узлов.");
         if (Elements.Count == 0) throw new InvalidOperationException("Модель не содержит элементов.");
         if (Sections.Count == 0) throw new InvalidOperationException("Модель не содержит fiber-сечений.");
-        if (LoadSteps <= 0) throw new InvalidOperationException("Число шагов нагрузки должно быть положительным.");
+        if (!double.IsFinite(LoadFactorStep) || LoadFactorStep <= 0)
+            throw new InvalidOperationException("Шаг коэффициента нагрузки должен быть конечным и положительным.");
+        if (!double.IsFinite(MaxLoadFactor) || MaxLoadFactor <= 0)
+            throw new InvalidOperationException("Максимальный коэффициент нагрузки должен быть конечным и положительным.");
+        if (MaxLoadFactor < LoadFactorStep)
+            throw new InvalidOperationException("Максимальный коэффициент нагрузки не может быть меньше шага.");
+        if (RefinementDivisions <= 0)
+            throw new InvalidOperationException("Количество делений шага должно быть положительным.");
         if (Tolerance <= 0) throw new InvalidOperationException("Допуск невязки должен быть положительным.");
         if (MaxIterations <= 0) throw new InvalidOperationException("Максимальное число итераций должно быть положительным.");
         if (GeomTransfKind is not ("Linear" or "PDelta" or "Corotational"))
