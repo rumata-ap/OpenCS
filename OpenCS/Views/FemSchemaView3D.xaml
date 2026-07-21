@@ -102,6 +102,11 @@
                     ToolTip="{DynamicResource FemDiscretize}">
                 <Path Data="M2,11 H22 V13 H2 Z M6,7 V17 H8 V7 Z M11,7 V17 H13 V7 Z M16,7 V17 H18 V7 Z" Fill="Black" Stretch="Uniform" Margin="2"/>
             </Button>
+            <Button Style="{StaticResource IconButton25}"
+                    Command="{Binding Editor.MergeNodesCommand, ElementName=root}"
+                    ToolTip="{DynamicResource FemMergeNodes}">
+                <Path Data="M9,12 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 M15,12 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" Fill="Black" Stretch="Uniform" Margin="2"/>
+            </Button>
         </ToolBar>
 
         <!-- 3D viewport -->

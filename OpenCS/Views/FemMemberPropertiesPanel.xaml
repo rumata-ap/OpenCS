@@ -12,8 +12,10 @@
         <TextBlock Text="{DynamicResource FemMemberGjStrategy}" FontWeight="Bold" Margin="0,0,0,4"/>
         <RadioButton GroupName="gj" Content="{DynamicResource FemGjManual}"
                      IsChecked="{Binding SelectedMemberGjIsManual}"/>
-        <TextBox Text="{Binding SelectedMemberGjManualValue, UpdateSourceTrigger=LostFocus}"
-                 Margin="16,2,0,8"/>
+        <StackPanel Orientation="Horizontal" Margin="16,2,0,8">
+            <TextBox Text="{Binding SelectedMemberGjManualValue, UpdateSourceTrigger=LostFocus}" Width="120"/>
+            <TextBlock Text="{DynamicResource FemGjUnits}" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="Gray"/>
+        </StackPanel>
 
         <RadioButton GroupName="gj" Content="{DynamicResource FemGjSaintVenant}"
                      IsChecked="{Binding SelectedMemberGjIsSaintVenant}"/>

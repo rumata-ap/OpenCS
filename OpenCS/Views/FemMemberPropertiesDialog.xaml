@@ -45,7 +45,10 @@
         <TextBlock Text="{DynamicResource FemMemberGjStrategy}" Margin="0,8,0,2"/>
         <RadioButton x:Name="gjManualRadio" Content="{DynamicResource FemGjManual}"
                      GroupName="gj" Checked="GjStrategy_Changed"/>
-        <TextBox x:Name="gjManualValueBox" Margin="16,2,0,2" LostFocus="GjManualValue_LostFocus"/>
+        <StackPanel Orientation="Horizontal" Margin="16,2,0,2">
+            <TextBox x:Name="gjManualValueBox" Width="120" LostFocus="GjManualValue_LostFocus"/>
+            <TextBlock Text="{DynamicResource FemGjUnits}" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="Gray"/>
+        </StackPanel>
         <RadioButton x:Name="gjSaintVenantRadio" Content="{DynamicResource FemGjSaintVenant}"
                      GroupName="gj" Checked="GjStrategy_Changed"/>
         <ComboBox x:Name="torsionTaskCombo" Margin="16,2,0,2" DisplayMemberPath="Tag"

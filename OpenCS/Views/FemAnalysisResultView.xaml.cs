@@ -22,12 +22,21 @@ public partial class FemAnalysisResultView : UserControl
         _vm = vm;
         DataContext = _vm;
         BuildViewport();
+        BuildLoadFactorCanvas();
+        loadFactorCanvas.StepClicked += idx => _vm.SelectedStepIndex = idx;
         _vm.PropertyChanged += OnVmPropertyChanged;
     }
 
+    void BuildLoadFactorCanvas() =>
+        loadFactorCanvas.SetData(_vm.LoadFactorPoints.Select(p => (p.Step, p.LoadFactor, p.Converged)).ToList(), _vm.SelectedStepIndex);
+
     void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedLines) && _deformed is not null)
+        if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedStepIndex))
+        {
+            loadFactorCanvas.SetData(_vm.LoadFactorPoints.Select(p => (p.Step, p.LoadFactor, p.Converged)).ToList(), _vm.SelectedStepIndex);
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedLines) && _deformed is not null)
         {
             _deformed.Points = _vm.DeformedLines;
         }

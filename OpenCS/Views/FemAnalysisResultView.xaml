@@ -3,9 +3,11 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:h="clr-namespace:HelixToolkit.Wpf;assembly=HelixToolkit.Wpf"
              xmlns:u="clr-namespace:OpenCS.Utilites"
+             xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
              Language="ru-RU">
     <UserControl.Resources>
         <u:AnyDoubleConverter x:Key="AnyDoubleConv"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <ContextMenu x:Key="ResultMemberContextMenu">
             <MenuItem Header="{DynamicResource FemResultMember2D}" Click="MemberShow2DCtx_Click"/>
             <MenuItem Header="{DynamicResource FemResultMemberSection}" Click="MemberSectionCtx_Click"/>
@@ -103,8 +105,21 @@
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>
+
+            <!-- История (только нелинейный расчёт) -->
+            <TabItem Header="{DynamicResource FemResultTabHistory}" Visibility="{Binding IsNonlinear, Converter={StaticResource BoolToVis}}">
+                <helpers:FemLoadFactorCanvas x:Name="loadFactorCanvas"/>
+            </TabItem>
         </TabControl>
 
-
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="4"
+                    Visibility="{Binding IsNonlinear, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="{DynamicResource FemResultStep}" VerticalAlignment="Center"/>
+            <Slider x:Name="stepSlider" Width="220" Margin="8,0"
+                    Minimum="0" Maximum="{Binding MaxStepIndex}"
+                    Value="{Binding SelectedStepIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding CurrentStepLabel}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+        </StackPanel>
     </Grid>
 </UserControl>

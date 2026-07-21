@@ -4,6 +4,7 @@ using System.Windows.Input;
 using CScore;
 using CScore.Fem;
 using CScore.Fem.Editing;
+using OpenCS.Services;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -17,6 +18,7 @@ public sealed record FemLoadDefinitionTermView(int LoadCaseId, string LoadCaseTa
 public sealed class FemSchemaEditorVM : ViewModelBase
 {
     readonly DatabaseService _db;
+    readonly ILogService _logService;
 
     public FemSchemaEditSession Session   { get; }
     public FemSchemaSelectionVM Selection { get; } = new();
@@ -192,10 +194,12 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public ICommand RedoCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand DiscretizeCommand { get; }
+    public ICommand MergeNodesCommand { get; }
 
     public FemSchemaEditorVM(FemSchema schema, AppViewModel app)
     {
         _db = app.db;
+        _logService = app.LogService;
         CrossSections = app.CrossSections;
         AllCalcTasks  = app.CalcTasks;
         Session = new FemSchemaEditSession(schema);
@@ -211,6 +215,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         RedoCommand = new RelayCommand(_ => { Session.Redo(); RefreshCollections(); }, _ => Session.CanRedo);
         SaveCommand = new RelayCommand(_ => Save(), _ => Session.IsDirty);
         DiscretizeCommand = new RelayCommand(_ => Discretize(), _ => !IsDiscretizing);
+        MergeNodesCommand = new RelayCommand(_ => _logService.Info(MergeCoincidentNodes()));
     }
 
     public void CreateNodeAt(double x, double y, double z)
@@ -542,6 +547,19 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public event Action<IReadOnlyList<FemValidationDiagnostic>>? SaveBlocked;
     public event EventHandler? MeshDiscretized;
     public event Action<FemLoadCase>? NodeLoadsApplied;
+
+    /// <summary>Сшивает совпадающие по координатам узлы конструктивного слоя. Возвращает короткий
+    /// отчёт для лога.</summary>
+    public string MergeCoincidentNodes()
+    {
+        var command = new MergeCoincidentNodesCommand();
+        Session.Execute(command);
+        RefreshCollections();
+        if (command.LastResult.Count == 0)
+            return Loc.S("FemMergeNodesNone");
+        int totalMerged = command.LastResult.Sum(group => group.MergedTags.Count);
+        return string.Format(Loc.S("FemMergeNodesDone"), totalMerged, command.LastResult.Count);
+    }
 
     public void Discretize()
     {

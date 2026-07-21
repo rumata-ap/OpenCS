@@ -1387,6 +1387,27 @@
     <system:String x:Key="FemAnalysisLoadLabel">Load case</system:String>
     <system:String x:Key="FemAnalysisExeLabel">Path to OpenSees.exe (optional)</system:String>
     <system:String x:Key="FemAnalysisTimeoutLabel">Timeout, s</system:String>
+    <system:String x:Key="FemAnalysisKindLabel">Analysis kind</system:String>
+    <system:String x:Key="FemAnalysisKindLinear">Linear</system:String>
+    <system:String x:Key="FemAnalysisKindNonlinear">Nonlinear</system:String>
+    <system:String x:Key="FemAnalysisCalcTypeLabel">Diagram type (CalcType)</system:String>
+    <system:String x:Key="FemAnalysisLoadStepsLabel">Load steps</system:String>
+    <system:String x:Key="FemAnalysisToleranceLabel">Convergence tolerance</system:String>
+    <system:String x:Key="FemAnalysisMaxIterationsLabel">Max iterations</system:String>
+    <system:String x:Key="FemAnalysisGeomTransfLabel">Geometric nonlinearity</system:String>
+    <system:String x:Key="FemGeomTransfLinear">Linear (no geometric nonlinearity)</system:String>
+    <system:String x:Key="FemGeomTransfPDelta">P-Delta</system:String>
+    <system:String x:Key="FemGeomTransfCorotational">Corotational</system:String>
+    <system:String x:Key="FemAnalysisConvergenceTestLabel">Convergence test</system:String>
+    <system:String x:Key="FemConvergenceEnergyIncr">Energy increment</system:String>
+    <system:String x:Key="FemConvergenceNormUnbalance">Unbalanced force norm</system:String>
+    <system:String x:Key="FemConvergenceNormDispIncr">Displacement increment norm</system:String>
+    <system:String x:Key="FemAnalysisIntegrationPointsLabel">Integration points</system:String>
+    <system:String x:Key="FemResultTabHistory">History</system:String>
+    <system:String x:Key="FemResultStep">Step</system:String>
+    <system:String x:Key="FemResultStepLabel">Step {0}/{1}, λ={2:F3} ({3})</system:String>
+    <system:String x:Key="FemResultConverged">converged</system:String>
+    <system:String x:Key="FemResultNotConverged">not converged</system:String>
     <system:String x:Key="FemResultTab3D">3D</system:String>
     <system:String x:Key="FemResultTabDisp">Displacements</system:String>
     <system:String x:Key="FemResultTabReact">Reactions</system:String>
@@ -1430,6 +1451,9 @@
     <system:String x:Key="Fem3DShowGrid">Grid</system:String>
     <system:String x:Key="FemDiscretize">Discretize</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Target mesh element length, m</system:String>
+    <system:String x:Key="FemMergeNodes">Merge coincident nodes</system:String>
+    <system:String x:Key="FemMergeNodesDone">Merged {0} nodes into {1} groups</system:String>
+    <system:String x:Key="FemMergeNodesNone">No coincident nodes found</system:String>
     <system:String x:Key="FemMeshSnapshot">Finite Element Mesh</system:String>
     <system:String x:Key="FemMeshElements">Elements</system:String>
     <system:String x:Key="FemMeshBars">Bars</system:String>
@@ -1490,6 +1514,7 @@
     <system:String x:Key="FemMemberGjStrategy">Torsional stiffness (GJ)</system:String>
     <system:String x:Key="FemMemberRotationDeg">Section rotation angle, °</system:String>
     <system:String x:Key="FemGjManual">Manual</system:String>
+    <system:String x:Key="FemGjUnits">N·m²</system:String>
     <system:String x:Key="FemGjSaintVenant">From torsion task (Saint-Venant)</system:String>
     <system:String x:Key="FemCreateMemberFromSelection">Create member from selection</system:String>
     <system:String x:Key="FemLoadCasesTab">Load cases</system:String>

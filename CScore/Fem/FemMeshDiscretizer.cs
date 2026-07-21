@@ -61,7 +61,7 @@ public static class FemMeshDiscretizer
                 .OrderBy(point => point.Parameter)
                 .ThenBy(point => point.Index)
                 .ToArray();
-            points = RemoveShortSpans(points, length);
+            points = RemoveShortSpans(points, length, firstSourceNode.NodeTag, secondSourceNode.NodeTag);
 
             var orderedMeshNodes = points
                 .Select(point => GetOrCreateSourceNode(
@@ -123,7 +123,8 @@ public static class FemMeshDiscretizer
         return (meshNodes, meshElements);
     }
 
-    static PointOnMember[] RemoveShortSpans(PointOnMember[] points, double memberLength)
+    static PointOnMember[] RemoveShortSpans(
+        PointOnMember[] points, double memberLength, string firstEndpointTag, string secondEndpointTag)
     {
         var chain = points.ToList();
         var index = 1;
@@ -136,8 +137,20 @@ public static class FemMeshDiscretizer
                 continue;
             }
 
-            // Сохраняем конечный узел стержня, удаляя близкий к нему внутренний узел.
-            if (index == chain.Count - 1)
+            // При схлопывании двух совпадающих по положению узлов всегда сохраняем истинный
+            // объявленный конец ИМЕННО этого стержня, а не случайно совпавший с ним посторонний
+            // узел схемы — иначе дискретизация соседнего стержня, разделяющего эту точку,
+            // «отвязывается» от неё (см. StrayNodeCoincidentWithSharedEndpoint_DoesNotReplaceTrueEndpoint).
+            var prevIsEndpoint = IsEndpointTag(chain[index - 1].Node.NodeTag, firstEndpointTag, secondEndpointTag);
+            var currIsEndpoint = IsEndpointTag(chain[index].Node.NodeTag, firstEndpointTag, secondEndpointTag);
+
+            if (currIsEndpoint && !prevIsEndpoint)
+                chain.RemoveAt(index - 1);
+            else if (prevIsEndpoint && !currIsEndpoint)
+                chain.RemoveAt(index);
+            // Ни один, ни оба сразу не являются объявленным концом стержня — прежняя эвристика:
+            // сохраняем конечный узел стержня, удаляя близкий к нему внутренний узел.
+            else if (index == chain.Count - 1)
                 chain.RemoveAt(index - 1);
             else
                 chain.RemoveAt(index);
@@ -146,6 +159,9 @@ public static class FemMeshDiscretizer
 
         return chain.ToArray();
     }
+
+    static bool IsEndpointTag(string nodeTag, string firstEndpointTag, string secondEndpointTag) =>
+        nodeTag == firstEndpointTag || nodeTag == secondEndpointTag;
 
     static bool TryReadEndpointTags(string? json, out int[] tags)
     {

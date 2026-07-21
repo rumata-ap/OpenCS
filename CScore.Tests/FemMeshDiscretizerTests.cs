@@ -168,6 +168,37 @@ public sealed class FemMeshDiscretizerTests
     }
 
     [Fact]
+    public void StrayNodeCoincidentWithSharedEndpoint_DoesNotReplaceTrueEndpoint()
+    {
+        // Узел "0" — посторонний, ни в один стержень не входит, но стоит ровно в той же точке
+        // (5,0), что и настоящий общий узел "2" между стержнями 7 и 8, и имеет меньший Id/индекс
+        // в списке узлов схемы — раньше это заставляло дискретизатор ошибочно подставлять "0"
+        // вместо истинного конца стержня "2" при сборке сетки для стержня 8.
+        var nodes = new[]
+        {
+            new FemNode { Id = 1, NodeTag = "0", X = 5, Y = 0 },
+            new FemNode { Id = 2, NodeTag = "1", X = 0, Y = 0 },
+            new FemNode { Id = 3, NodeTag = "2", X = 5, Y = 0 },
+            new FemNode { Id = 4, NodeTag = "3", X = 10, Y = 0 },
+        };
+        var members = new[]
+        {
+            Member("7", "[1,2]"),
+            Member("8", "[2,3]")
+        };
+
+        var mesh = FemMeshDiscretizer.Discretize(4, nodes, members, null);
+
+        Assert.Equal(2, mesh.Elements.Count);
+        Assert.Single(mesh.Nodes, node => node.SourceNodeTag == "2");
+        Assert.DoesNotContain(mesh.Nodes, node => node.SourceNodeTag == "0");
+
+        var sharedTag = int.Parse(mesh.Nodes.Single(node => node.SourceNodeTag == "2").NodeTag);
+        Assert.Contains(sharedTag, NodeTags(mesh.Elements[0]));
+        Assert.Contains(sharedTag, NodeTags(mesh.Elements[1]));
+    }
+
+    [Fact]
     public void MultipleMembersReuseSourceNodesAndKeepGeneratedTagsUnique()
     {
         var nodes = Nodes((1, "1", 0), (2, "2", 5), (3, "3", 10));

@@ -21,9 +21,68 @@ public class FemAnalysisResultVM : ViewModelBase
     public IReadOnlyList<string> Diagnostics { get; }
     public bool HasDiagnostics => Diagnostics.Count > 0 && Status != "ok";
 
-    public IReadOnlyList<FemNodeDisplacement> Displacements { get; }
-    public IReadOnlyList<FemNodeReaction> Reactions { get; }
-    public IReadOnlyList<FemElementEndForces> ElementForces { get; }
+    public IReadOnlyList<FemNodeDisplacement> Displacements { get; private set; } = [];
+    public IReadOnlyList<FemNodeReaction> Reactions { get; private set; } = [];
+    public IReadOnlyList<FemElementEndForces> ElementForces { get; private set; } = [];
+
+    /// <summary>Точка графика «коэффициент нагрузки по шагам» для результатной вкладки.</summary>
+    public sealed record FemLoadFactorPoint(int Step, double LoadFactor, bool Converged);
+
+    /// <summary>True, если результат — нелинейный расчёт (несколько шагов, доступен слайдер шага).</summary>
+    public bool IsNonlinear { get; }
+    /// <summary>Полная история шагов; для линейного результата — один синтетический шаг.</summary>
+    public IReadOnlyList<FemNonlinearStepResult> Steps { get; }
+    /// <summary>Точки для графика load-factor по шагам.</summary>
+    public IReadOnlyList<FemLoadFactorPoint> LoadFactorPoints { get; }
+    /// <summary>Верхняя граница слайдера шага.</summary>
+    public int MaxStepIndex => Math.Max(0, Steps.Count - 1);
+
+    int _selectedStepIndex;
+    /// <summary>Выбранный шаг (0-based) — управляет Displacements/Reactions/ElementForces и 3D-видом.</summary>
+    public int SelectedStepIndex
+    {
+        get => _selectedStepIndex;
+        set
+        {
+            int clamped = Steps.Count == 0 ? 0 : Math.Clamp(value, 0, Steps.Count - 1);
+            if (clamped == _selectedStepIndex) return;
+            _selectedStepIndex = clamped;
+            ApplyStepData();
+            RebuildDeformed();
+            RebuildForceDiagram();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Displacements));
+            OnPropertyChanged(nameof(Reactions));
+            OnPropertyChanged(nameof(ElementForces));
+            OnPropertyChanged(nameof(CurrentStepLabel));
+        }
+    }
+
+    /// <summary>Подпись текущего шага: номер, коэффициент нагрузки, статус сходимости.</summary>
+    public string CurrentStepLabel
+    {
+        get
+        {
+            if (Steps.Count == 0) return "";
+            var s = Steps[SelectedStepIndex];
+            string convergedText = s.Converged ? Loc.S("FemResultConverged") : Loc.S("FemResultNotConverged");
+            return string.Format(Loc.S("FemResultStepLabel"), SelectedStepIndex + 1, Steps.Count, s.LoadFactor, convergedText);
+        }
+    }
+
+    void ApplyStepData()
+    {
+        var step = Steps[SelectedStepIndex];
+        Displacements = step.Displacements;
+        Reactions = step.Reactions;
+        ElementForces = step.ElementForces;
+
+        _dispByTag.Clear();
+        foreach (var d in Displacements) _dispByTag[d.NodeTag] = new Vector3D(d.Ux, d.Uy, d.Uz);
+
+        _forcesByElem.Clear();
+        foreach (var f in ElementForces) _forcesByElem[f.ElemTag] = f;
+    }
 
     readonly Dictionary<int, Point3D> _originalByTag = [];
     readonly Dictionary<int, Vector3D> _dispByTag = [];
@@ -108,12 +167,25 @@ public class FemAnalysisResultVM : ViewModelBase
 
         Status = result.Status;
 
-        var parsed = ParseResult(result.DataJson);
-        Displacements = parsed?.Displacements ?? [];
-        Reactions = parsed?.Reactions ?? [];
-        ElementForces = parsed?.ElementForces ?? [];
-        ArtifactDirectory = parsed?.ArtifactDirectory;
-        Diagnostics = CollectDiagnostics(result.DataJson, parsed);
+        var nonlinear = ParseNonlinearResult(result.DataJson);
+        if (nonlinear != null)
+        {
+            IsNonlinear = true;
+            Steps = nonlinear.Steps;
+            ArtifactDirectory = nonlinear.ArtifactDirectory;
+            Diagnostics = CollectDiagnostics(result.DataJson, nonlinear.Diagnostics);
+        }
+        else
+        {
+            var linear = ParseResult(result.DataJson);
+            IsNonlinear = false;
+            ArtifactDirectory = linear?.ArtifactDirectory;
+            Diagnostics = CollectDiagnostics(result.DataJson, linear?.Diagnostics ?? []);
+            Steps = linear != null
+                ? [new FemNonlinearStepResult(1, 1.0, Status == "ok", linear.Displacements, linear.Reactions, linear.ElementForces)]
+                : [];
+        }
+        LoadFactorPoints = Steps.Select(s => new FemLoadFactorPoint(s.StepIndex, s.LoadFactor, s.Converged)).ToList();
 
         // Геометрия из mesh-снимка схемы
         foreach (var n in db.GetFemMeshNodes(schema.Id))
@@ -135,17 +207,14 @@ public class FemAnalysisResultVM : ViewModelBase
             }
         }
 
-        foreach (var f in ElementForces)
-            _forcesByElem[f.ElemTag] = f;
-
-        foreach (var d in Displacements)
-            _dispByTag[d.NodeTag] = new Vector3D(d.Ux, d.Uy, d.Uz);
-
         foreach (var (i, j) in _elementPairs)
         {
             OriginalLines.Add(_originalByTag[i]);
             OriginalLines.Add(_originalByTag[j]);
         }
+
+        _selectedStepIndex = Steps.Count > 0 ? Steps.Count - 1 : 0;
+        if (Steps.Count > 0) ApplyStepData();
 
         _deformScale = SuggestScale();
         RebuildDeformed();
@@ -274,10 +343,21 @@ public class FemAnalysisResultVM : ViewModelBase
         catch (JsonException) { return null; }
     }
 
-    static IReadOnlyList<string> CollectDiagnostics(string dataJson, FemLinearResult? parsed)
+    static FemNonlinearResult? ParseNonlinearResult(string dataJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(dataJson);
+            if (!doc.RootElement.TryGetProperty("Steps", out _)) return null;
+            return JsonSerializer.Deserialize<FemNonlinearResult>(dataJson);
+        }
+        catch (JsonException) { return null; }
+    }
+
+    static IReadOnlyList<string> CollectDiagnostics(string dataJson, IReadOnlyList<string> parsedDiagnostics)
     {
         var list = new List<string>();
-        if (parsed?.Diagnostics is { Count: > 0 }) list.AddRange(parsed.Diagnostics);
+        if (parsedDiagnostics.Count > 0) list.AddRange(parsedDiagnostics);
         try
         {
             using var doc = JsonDocument.Parse(dataJson);

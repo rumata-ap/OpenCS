@@ -1390,6 +1390,27 @@
     <system:String x:Key="FemAnalysisLoadLabel">Загружение</system:String>
     <system:String x:Key="FemAnalysisExeLabel">Путь к OpenSees.exe (необязательно)</system:String>
     <system:String x:Key="FemAnalysisTimeoutLabel">Таймаут, с</system:String>
+    <system:String x:Key="FemAnalysisKindLabel">Тип расчёта</system:String>
+    <system:String x:Key="FemAnalysisKindLinear">Линейный</system:String>
+    <system:String x:Key="FemAnalysisKindNonlinear">Нелинейный</system:String>
+    <system:String x:Key="FemAnalysisCalcTypeLabel">Тип диаграмм (CalcType)</system:String>
+    <system:String x:Key="FemAnalysisLoadStepsLabel">Число шагов нагрузки</system:String>
+    <system:String x:Key="FemAnalysisToleranceLabel">Допуск невязки</system:String>
+    <system:String x:Key="FemAnalysisMaxIterationsLabel">Макс. число итераций</system:String>
+    <system:String x:Key="FemAnalysisGeomTransfLabel">Учёт геометрической нелинейности</system:String>
+    <system:String x:Key="FemGeomTransfLinear">Линейная (без учёта геометрической нелинейности)</system:String>
+    <system:String x:Key="FemGeomTransfPDelta">Метод P-Дельта</system:String>
+    <system:String x:Key="FemGeomTransfCorotational">Коротационная (сопутствующая система координат)</system:String>
+    <system:String x:Key="FemAnalysisConvergenceTestLabel">Критерий сходимости</system:String>
+    <system:String x:Key="FemConvergenceEnergyIncr">По приращению энергии</system:String>
+    <system:String x:Key="FemConvergenceNormUnbalance">По норме небаланса сил</system:String>
+    <system:String x:Key="FemConvergenceNormDispIncr">По норме приращения перемещений</system:String>
+    <system:String x:Key="FemAnalysisIntegrationPointsLabel">Точки интегрирования</system:String>
+    <system:String x:Key="FemResultTabHistory">История</system:String>
+    <system:String x:Key="FemResultStep">Шаг</system:String>
+    <system:String x:Key="FemResultStepLabel">Шаг {0}/{1}, λ={2:F3} ({3})</system:String>
+    <system:String x:Key="FemResultConverged">сошёлся</system:String>
+    <system:String x:Key="FemResultNotConverged">не сошёлся</system:String>
     <system:String x:Key="FemResultTab3D">3D</system:String>
     <system:String x:Key="FemResultTabDisp">Перемещения</system:String>
     <system:String x:Key="FemResultTabReact">Реакции</system:String>
@@ -1433,6 +1454,9 @@
     <system:String x:Key="Fem3DShowGrid">Сетка</system:String>
     <system:String x:Key="FemDiscretize">Дискретизировать</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Целевая длина КЭ, м</system:String>
+    <system:String x:Key="FemMergeNodes">Сшить совпадающие узлы</system:String>
+    <system:String x:Key="FemMergeNodesDone">Объединено {0} узлов в {1} групп</system:String>
+    <system:String x:Key="FemMergeNodesNone">Совпадающих узлов не найдено</system:String>
     <system:String x:Key="FemMeshSnapshot">Сетка конечных элементов</system:String>
     <system:String x:Key="FemMeshElements">Элементы</system:String>
     <system:String x:Key="FemMeshBars">Стержни</system:String>
@@ -1493,6 +1517,7 @@
     <system:String x:Key="FemMemberGjStrategy">Крутильная жёсткость (GJ)</system:String>
     <system:String x:Key="FemMemberRotationDeg">Угол поворота сечения, °</system:String>
     <system:String x:Key="FemGjManual">Вручную</system:String>
+    <system:String x:Key="FemGjUnits">Н·м²</system:String>
     <system:String x:Key="FemGjSaintVenant">По задаче кручения (Сен-Венан)</system:String>
     <system:String x:Key="FemCreateMemberFromSelection">Создать элемент из выбранных</system:String>
     <system:String x:Key="FemLoadCasesTab">Загружения</system:String>
