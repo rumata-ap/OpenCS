@@ -235,6 +235,15 @@ public class FemAnalysisResultVM : ViewModelBase
     /// <summary>Геометрия ленты выбранной эпюры.</summary>
     public MeshGeometry3D? ForceDiagramMesh { get; private set; }
 
+    /// <summary>Положение максимума выбранной компоненты усилия на ленте эпюры (null, если данных нет).</summary>
+    public Point3D? ForceMaxLabelPosition { get; private set; }
+    /// <summary>Подпись максимума (значение в кН/кН·м + единица).</summary>
+    public string? ForceMaxLabelText { get; private set; }
+    /// <summary>Положение минимума выбранной компоненты усилия на ленте эпюры (null, если данных нет).</summary>
+    public Point3D? ForceMinLabelPosition { get; private set; }
+    /// <summary>Подпись минимума (значение в кН/кН·м + единица).</summary>
+    public string? ForceMinLabelText { get; private set; }
+
     public System.Windows.Input.ICommand ResetDeformScaleCommand { get; }
     public System.Windows.Input.ICommand ResetForceScaleCommand { get; }
 
@@ -479,15 +488,36 @@ public class FemAnalysisResultVM : ViewModelBase
     void RebuildForceDiagram()
     {
         var segs = new List<(Point3D, Point3D, Vector3D, Vector3D)>();
+        double maxV = double.NegativeInfinity, minV = double.PositiveInfinity;
+        Point3D maxPos = default, minPos = default;
         foreach (var g in _elementGeoms)
         {
             if (!_forcesByElem.TryGetValue(g.Tag, out var f)) continue;
             var (vi, vj) = ComponentValues(f);
             var axis = OffsetAxis(g);
-            segs.Add((g.Pi, g.Pj, axis * (vi * _forceScale), axis * (vj * _forceScale)));
+            var offI = axis * (vi * _forceScale);
+            var offJ = axis * (vj * _forceScale);
+            segs.Add((g.Pi, g.Pj, offI, offJ));
+
+            if (vi > maxV) { maxV = vi; maxPos = g.Pi + offI; }
+            if (vj > maxV) { maxV = vj; maxPos = g.Pj + offJ; }
+            if (vi < minV) { minV = vi; minPos = g.Pi + offI; }
+            if (vj < minV) { minV = vj; minPos = g.Pj + offJ; }
         }
         ForceDiagramMesh = FemForceDiagramFactory.BuildRibbons(segs);
         OnPropertyChanged(nameof(ForceDiagramMesh));
+
+        bool hasData = segs.Count > 0 && double.IsFinite(maxV) && double.IsFinite(minV);
+        bool isForce = _selectedForceComponent is FemForceComponent.N or FemForceComponent.Qy or FemForceComponent.Qz;
+        string unit = isForce ? Loc.S("UnitKN") : Loc.S("UnitKNm");
+        ForceMaxLabelPosition = hasData ? maxPos : null;
+        ForceMaxLabelText = hasData ? $"{maxV / 1000:G4} {unit}" : null;
+        ForceMinLabelPosition = hasData ? minPos : null;
+        ForceMinLabelText = hasData ? $"{minV / 1000:G4} {unit}" : null;
+        OnPropertyChanged(nameof(ForceMaxLabelPosition));
+        OnPropertyChanged(nameof(ForceMaxLabelText));
+        OnPropertyChanged(nameof(ForceMinLabelPosition));
+        OnPropertyChanged(nameof(ForceMinLabelText));
     }
 
     /// <summary>Масштаб эпюры: макс. |усилие| по всем компонентам → ≈10% габарита.</summary>

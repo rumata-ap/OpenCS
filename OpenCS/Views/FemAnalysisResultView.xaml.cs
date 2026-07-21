@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
@@ -38,6 +39,8 @@ public partial class FemAnalysisResultView : UserControl
     LinesVisual3D? _deformed;
     PointsVisual3D? _nodesVisual;
     MeshGeometryVisual3D? _forceRibbon;
+    BillboardTextVisual3D? _forceMaxLabel;
+    BillboardTextVisual3D? _forceMinLabel;
 
     readonly Dictionary<Visual3D, (bool IsNode, int Tag)> _pickTargets = new();
     readonly Dictionary<int, SphereVisual3D> _nodeSpheresByTag = new();
@@ -78,6 +81,10 @@ public partial class FemAnalysisResultView : UserControl
         else if (e.PropertyName == nameof(FemAnalysisResultVM.ForceDiagramMesh) && _forceRibbon is not null)
         {
             _forceRibbon.MeshGeometry = _vm.ForceDiagramMesh;
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.ForceMaxLabelText))
+        {
+            UpdateForceLabels();
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedElementSegments))
         {
@@ -126,10 +133,51 @@ public partial class FemAnalysisResultView : UserControl
         _forceRibbon = new MeshGeometryVisual3D
         {
             MeshGeometry = _vm.ForceDiagramMesh,
-            Fill = new SolidColorBrush(Color.FromArgb(140, 0xE8, 0x7A, 0x00))
+            Fill = new SolidColorBrush(ForceRibbonColor)
         };
         viewport.Children.Add(_forceRibbon);
+
+        _forceMaxLabel = new BillboardTextVisual3D
+        {
+            Foreground = Brushes.Black, Background = Brushes.White,
+            FontWeight = FontWeights.Bold, FontSize = 12
+        };
+        _forceMinLabel = new BillboardTextVisual3D
+        {
+            Foreground = Brushes.Black, Background = Brushes.White,
+            FontWeight = FontWeights.Bold, FontSize = 12
+        };
+        viewport.Children.Add(_forceMaxLabel);
+        viewport.Children.Add(_forceMinLabel);
+        UpdateForceLabels();
+
         viewport.ZoomExtents();
+    }
+
+    /// <summary>Лёгкий полупрозрачный тон ленты эпюры — отличается от SteelBlue (деформация)
+    /// и от OrangeRed (подсветка выбора), чтобы не сливаться на глаз.</summary>
+    static readonly Color ForceRibbonColor = Color.FromArgb(90, 0x4D, 0xB6, 0xAC);
+
+    void UpdateForceLabels()
+    {
+        if (_forceMaxLabel != null)
+        {
+            if (_vm.ForceMaxLabelPosition is { } maxPos && _vm.ForceMaxLabelText is { } maxText)
+            {
+                _forceMaxLabel.Position = maxPos;
+                _forceMaxLabel.Text = maxText;
+            }
+            else _forceMaxLabel.Text = "";
+        }
+        if (_forceMinLabel != null)
+        {
+            if (_vm.ForceMinLabelPosition is { } minPos && _vm.ForceMinLabelText is { } minText)
+            {
+                _forceMinLabel.Position = minPos;
+                _forceMinLabel.Text = minText;
+            }
+            else _forceMinLabel.Text = "";
+        }
     }
 
     string? _contextMenuTargetTag;
