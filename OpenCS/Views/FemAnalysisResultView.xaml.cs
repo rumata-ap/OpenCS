@@ -1,9 +1,11 @@
 using System.ComponentModel;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Media3D;
 using CScore;
 using CScore.Fem;
 using HelixToolkit.Wpf;
+using OpenCS.OpenSees.Structural;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
@@ -11,10 +13,26 @@ namespace OpenCS.Views;
 /// <summary>Результатная вкладка линейного OpenSees-расчёта FEM-схемы: 3D-деформация и таблицы.</summary>
 public partial class FemAnalysisResultView : UserControl
 {
+    /// <summary>Порог, после которого picking по отдельным узлам/элементам отключается (как в
+    /// FemSchemaView3D) — на больших моделях O(N) Visual3D вешают UI.</summary>
+    const int PickTargetThreshold = 500;
+    const double NodePickRadius = 0.15;
+    const double ElemPickDiameter = 0.04;
+
+    // Уточнение относительно спеки: там описана пара «видимая маленькая сфера + невидимая
+    // крупнее» по образцу FemSchemaView3D. Здесь этого не нужно — узлы уже рисует отдельный
+    // PointsVisual3D (_nodesVisual, см. BuildViewport), поэтому единственная сфера на pick
+    // target достаточна: Transparent в обычном состоянии (только для picking), OrangeRed при
+    // выборе (подсветка). Так же, как уже сделано для элементов (PipeVisual3D).
+
     readonly FemAnalysisResultVM _vm;
     LinesVisual3D? _deformed;
     PointsVisual3D? _nodesVisual;
     MeshGeometryVisual3D? _forceRibbon;
+
+    readonly Dictionary<Visual3D, (bool IsNode, int Tag)> _pickTargets = new();
+    readonly Dictionary<int, SphereVisual3D> _nodeSpheresByTag = new();
+    readonly Dictionary<int, PipeVisual3D> _elemPipesByTag = new();
 
     public FemAnalysisResultView(FemAnalysisResultVM vm)
     {
@@ -22,9 +40,11 @@ public partial class FemAnalysisResultView : UserControl
         _vm = vm;
         DataContext = _vm;
         BuildViewport();
+        BuildPickTargets();
         BuildLoadFactorCanvas();
         loadFactorCanvas.StepClicked += idx => _vm.SelectedStepIndex = idx;
         _vm.PropertyChanged += OnVmPropertyChanged;
+        viewport.MouseLeftButtonDown += Viewport_MouseLeftButtonDown;
     }
 
     void BuildLoadFactorCanvas() =>
@@ -47,6 +67,26 @@ public partial class FemAnalysisResultView : UserControl
         else if (e.PropertyName == nameof(FemAnalysisResultVM.ForceDiagramMesh) && _forceRibbon is not null)
         {
             _forceRibbon.MeshGeometry = _vm.ForceDiagramMesh;
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedElementSegments))
+        {
+            BuildPickTargets();
+        }
+        else if (e.PropertyName is nameof(FemAnalysisResultVM.SelectedNodeTag) or nameof(FemAnalysisResultVM.SelectedElemTag))
+        {
+            UpdateSelectionHighlight();
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedDisplacementRow) && _vm.SelectedDisplacementRow is { } dispRow)
+        {
+            displacementsGrid.ScrollIntoView(dispRow);
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedReactionRow) && _vm.SelectedReactionRow is { } reactRow)
+        {
+            reactionsGrid.ScrollIntoView(reactRow);
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedForceRow) && _vm.SelectedForceRow is { } forceRow)
+        {
+            elementForcesGrid.ScrollIntoView(forceRow);
         }
     }
 
@@ -75,43 +115,102 @@ public partial class FemAnalysisResultView : UserControl
     }
 
     string? _contextMenuTargetTag;
-    string? _contextMenuTargetKind;
 
-    HelixToolkit.Wpf.Ray3D? GetRay(System.Windows.Point pt)
+    void BuildPickTargets()
     {
-        if (viewport.Camera is not System.Windows.Media.Media3D.ProjectionCamera) return null;
-        var m = HelixToolkit.Wpf.Viewport3DHelper.GetTotalTransform(viewport.Viewport);
-        if (!m.HasInverse) return null;
-        m.Invert();
-        var w = viewport.ActualWidth;
-        var h = viewport.ActualHeight;
-        if (w == 0 || h == 0) return null;
-        var p0 = new System.Windows.Media.Media3D.Point3D(pt.X / w * 2 - 1, -(pt.Y / h * 2 - 1), 0);
-        var p1 = new System.Windows.Media.Media3D.Point3D(pt.X / w * 2 - 1, -(pt.Y / h * 2 - 1), 1);
-        var p0w = m.Transform(p0);
-        var p1w = m.Transform(p1);
-        return new HelixToolkit.Wpf.Ray3D(p0w, p1w - p0w);
+        foreach (var v in _pickTargets.Keys) viewport.Children.Remove(v);
+        _pickTargets.Clear();
+        _nodeSpheresByTag.Clear();
+        _elemPipesByTag.Clear();
+
+        if (!_vm.HasGeometry) return;
+        if (_vm.DeformedNodesByTag.Count > PickTargetThreshold) return;
+
+        foreach (var (tag, pos) in _vm.DeformedNodesByTag)
+        {
+            bool selected = _vm.SelectedNodeTag == tag;
+            var sphere = new SphereVisual3D
+            {
+                Center = pos, Radius = NodePickRadius,
+                Fill = new SolidColorBrush(selected ? Colors.OrangeRed : Colors.Transparent)
+            };
+            _pickTargets[sphere] = (true, tag);
+            _nodeSpheresByTag[tag] = sphere;
+            viewport.Children.Add(sphere);
+        }
+
+        foreach (var (tag, p0, p1) in _vm.DeformedElementSegments)
+        {
+            bool selected = _vm.SelectedElemTag == tag;
+            var pipe = new PipeVisual3D
+            {
+                Point1 = p0, Point2 = p1, Diameter = ElemPickDiameter,
+                Fill = new SolidColorBrush(selected ? Colors.OrangeRed : Colors.Transparent)
+            };
+            _pickTargets[pipe] = (false, tag);
+            _elemPipesByTag[tag] = pipe;
+            viewport.Children.Add(pipe);
+        }
+    }
+
+    void UpdateSelectionHighlight()
+    {
+        foreach (var (tag, sphere) in _nodeSpheresByTag)
+            sphere.Fill = new SolidColorBrush(_vm.SelectedNodeTag == tag ? Colors.OrangeRed : Colors.Transparent);
+        foreach (var (tag, pipe) in _elemPipesByTag)
+            pipe.Fill = new SolidColorBrush(_vm.SelectedElemTag == tag ? Colors.OrangeRed : Colors.Transparent);
+    }
+
+    (bool IsNode, int Tag)? HitTestPick(System.Windows.Point position)
+    {
+        (bool IsNode, int Tag)? hit = null;
+        HitTestResultBehavior Callback(HitTestResult result)
+        {
+            if (result is RayMeshGeometry3DHitTestResult meshHit &&
+                _pickTargets.TryGetValue(meshHit.VisualHit, out var target))
+            {
+                hit = target;
+                return HitTestResultBehavior.Stop;
+            }
+            return HitTestResultBehavior.Continue;
+        }
+        VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
+        return hit;
+    }
+
+    void Viewport_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        var hit = HitTestPick(e.GetPosition(viewport));
+        if (hit is not { } target) { _vm.SelectNode(null); return; }
+
+        if (target.IsNode)
+            _vm.SelectNode(_vm.SelectedNodeTag == target.Tag ? null : target.Tag);
+        else
+            _vm.SelectElement(_vm.SelectedElemTag == target.Tag ? null : target.Tag);
     }
 
     void Viewport_PreviewMouseRightButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        var pt = e.GetPosition(viewport);
-        var ray = GetRay(pt);
-        if (ray == null) return;
-        
-        var hit = _vm.HitTest(ray.Origin, ray.Direction);
-        if (hit == null) return;
+        var hit = HitTestPick(e.GetPosition(viewport));
+        if (hit is not { } target) return;
 
-        // Если попали по узлу или элементу, блокируем вращение камеры (которое HelixToolkit делает по правому клику)
+        // Попадание по узлу/элементу — блокируем вращение камеры (стандартный жест HelixToolkit по ПКМ).
         e.Handled = true;
 
-        _contextMenuTargetKind = hit.Value.Kind;
-        _contextMenuTargetTag = hit.Value.Tag;
-        
-        var menu = (ContextMenu)Resources[_contextMenuTargetKind == "Node" ? "ResultNodeContextMenu" : "ResultMemberContextMenu"];
+        if (target.IsNode)
+        {
+            _vm.SelectNode(target.Tag);
+            _contextMenuTargetTag = target.Tag.ToString();
+        }
+        else
+        {
+            _vm.SelectElement(target.Tag);
+            _contextMenuTargetTag = _vm.ResolveMemberTag(target.Tag);
+        }
+
+        var menu = (ContextMenu)Resources[target.IsNode ? "ResultNodeContextMenu" : "ResultMemberContextMenu"];
         menu.PlacementTarget = viewport;
         menu.IsOpen = true;
-        e.Handled = true;
     }
 
     void MemberShow2DCtx_Click(object sender, System.Windows.RoutedEventArgs e)
@@ -127,5 +226,23 @@ public partial class FemAnalysisResultView : UserControl
     void NodeValuesCtx_Click(object sender, System.Windows.RoutedEventArgs e)
     {
         if (_contextMenuTargetTag != null) _vm.RequestShowNodeValues(_contextMenuTargetTag);
+    }
+
+    void DisplacementsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.AddedItems.Count > 0 && e.AddedItems[0] is FemNodeDisplacement row)
+            _vm.SelectNode(row.NodeTag);
+    }
+
+    void ReactionsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.AddedItems.Count > 0 && e.AddedItems[0] is FemNodeReaction row)
+            _vm.SelectNode(row.NodeTag);
+    }
+
+    void ElementForcesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.AddedItems.Count > 0 && e.AddedItems[0] is FemElementEndForces row)
+            _vm.SelectElement(row.ElemTag);
     }
 }
