@@ -303,10 +303,14 @@ public partial class FemSchemaView3D : UserControl
         if (VM.BarGroups.Count > 0 || VM.ShellMesh != null)
             viewport.ZoomExtents(500);
 
+        // BuildEditProxies — раньше глифов нагрузок: их прозрачные (но пишущие в z-buffer)
+        // сферы-прокси для клика иначе перекрывают ещё не нарисованные видимые сферы узлов/труб
+        // стержней, отрисованные позже в том же кадре (WPF 3D не отключает запись глубины для
+        // прозрачных материалов) — узлы с нагрузкой визуально пропадали.
+        BuildEditProxies();
         BuildDiagramGlyphs();
         BuildMemberLoadGlyphs();
         BuildSectionGlyphs();
-        BuildEditProxies();
         ApplyGridVisuals();
         UpdateGroundPlane();
     }
