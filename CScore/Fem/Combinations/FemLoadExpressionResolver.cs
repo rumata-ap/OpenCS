@@ -55,7 +55,10 @@ public static class FemLoadExpressionResolver
                 QzStart = load.QzStart * factor,
                 QxEnd = load.QxEnd * factor,
                 QyEnd = load.QyEnd * factor,
-                QzEnd = load.QzEnd * factor
+                QzEnd = load.QzEnd * factor,
+                Mx = load.Mx * factor,
+                My = load.My * factor,
+                Mz = load.Mz * factor
             });
         }
 

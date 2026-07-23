@@ -81,4 +81,27 @@ public class FemLoadExpressionResolverTests
 
         Assert.Equal(-1400, Assert.Single(result.MemberLoads).QzEnd);
     }
+
+    [Fact]
+    public void Resolve_ScalesMemberLoadMomentComponents()
+    {
+        var cases = new List<FemLoadCase> { new() { Id = 1, Tag = "Q" } };
+        var memberLoads = new List<FemMemberLoad>
+        {
+            new() { Id = 10, LoadCaseId = 1, MemberId = 5, DistributionType = "point",
+                    Mx = 100, My = -50, Mz = 25 }
+        };
+        var expr = new FemLoadExpression
+        {
+            Mode = FemLoadExpressionMode.Sum,
+            Terms = [new FemLoadTerm { LoadCaseId = 1, Coefficient = 1.4 }]
+        };
+
+        var result = FemLoadExpressionResolver.Resolve(expr, cases, [], memberLoads);
+
+        var load = Assert.Single(result.MemberLoads);
+        Assert.Equal(140, load.Mx, 8);
+        Assert.Equal(-70, load.My, 8);
+        Assert.Equal(35, load.Mz, 8);
+    }
 }

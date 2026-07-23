@@ -105,9 +105,28 @@ public sealed class FemSp20CombinationAdapterTests
         var result = FemSp20CombinationAdapter.ToLoadings(
             loadCases, [new FemNode { Id = 10 }], [], [10], memberLoads);
 
-        Assert.All(result.Loadings, loading => Assert.Equal(12, loading.Forces.GetLength(1)));
+        Assert.All(result.Loadings, loading => Assert.Equal(15, loading.Forces.GetLength(1)));
         var qLoad = result.Loadings.Single(loading => loading.Name == "Q");
         Assert.Equal(-4, qLoad.Forces[0, 7]);
         Assert.Equal(-6, qLoad.Forces[0, 10]);
+    }
+
+    [Fact]
+    public void ToLoadings_IncludesMemberLoadMomentComponents()
+    {
+        var loadCase = new FemLoadCase { Id = 1, Tag = "Q", Sp20Type = "short_term" };
+        var memberLoad = new FemMemberLoad
+        {
+            Id = 7, LoadCaseId = 1, MemberId = 3, DistributionType = "point",
+            Mx = 300, My = 0, Mz = 0
+        };
+
+        var conversion = FemSp20CombinationAdapter.ToLoadings(
+            [loadCase], [], [], [], [memberLoad]);
+
+        var loading = Assert.Single(conversion.Loadings);
+        int index = Array.IndexOf(loading.ComponentNames, "MemberLoad7Mx");
+        Assert.True(index >= 0);
+        Assert.Equal(300, loading.Forces[0, index], 8);
     }
 }

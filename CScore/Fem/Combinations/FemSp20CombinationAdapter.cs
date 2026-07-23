@@ -53,7 +53,8 @@ public static class FemSp20CombinationAdapter
             {
                 $"MemberLoad{item.Load.Id}QxStart", $"MemberLoad{item.Load.Id}QyStart",
                 $"MemberLoad{item.Load.Id}QzStart", $"MemberLoad{item.Load.Id}QxEnd",
-                $"MemberLoad{item.Load.Id}QyEnd", $"MemberLoad{item.Load.Id}QzEnd"
+                $"MemberLoad{item.Load.Id}QyEnd", $"MemberLoad{item.Load.Id}QzEnd",
+                $"MemberLoad{item.Load.Id}Mx", $"MemberLoad{item.Load.Id}My", $"MemberLoad{item.Load.Id}Mz"
             }))
             .ToArray();
 
@@ -77,19 +78,22 @@ public static class FemSp20CombinationAdapter
                 loads.Where(load => load.LoadCaseId == loadCase.Id).ToArray(),
                 orderedNodeIds,
                 loadCase.Id);
-            var vector = new double[nodeVector.Length + memberDescriptors.Length * 6];
+            var vector = new double[nodeVector.Length + memberDescriptors.Length * 9];
             Array.Copy(nodeVector, vector, nodeVector.Length);
             for (int i = 0; i < memberDescriptors.Length; i++)
             {
                 var memberLoad = memberDescriptors[i].Load;
                 if (memberLoad.LoadCaseId != loadCase.Id) continue;
-                int offset = nodeVector.Length + i * 6;
+                int offset = nodeVector.Length + i * 9;
                 vector[offset] = memberLoad.QxStart;
                 vector[offset + 1] = memberLoad.QyStart;
                 vector[offset + 2] = memberLoad.QzStart;
                 vector[offset + 3] = memberLoad.QxEnd;
                 vector[offset + 4] = memberLoad.QyEnd;
                 vector[offset + 5] = memberLoad.QzEnd;
+                vector[offset + 6] = memberLoad.Mx;
+                vector[offset + 7] = memberLoad.My;
+                vector[offset + 8] = memberLoad.Mz;
             }
             var matrix = new double[1, vector.Length];
             for (int i = 0; i < vector.Length; i++)
