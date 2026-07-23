@@ -1509,6 +1509,10 @@
     <system:String x:Key="Fem3DShowSupports">Закрепления</system:String>
     <system:String x:Key="Fem3DShowLoads">Нагрузки</system:String>
     <system:String x:Key="Fem3DShowSectionGlyphs">Контуры сечений и локальные оси</system:String>
+    <system:String x:Key="Fem3DShowLoadValues">Значения нагрузок</system:String>
+    <system:String x:Key="FemUnitKN">кН</system:String>
+    <system:String x:Key="FemUnitKNm">кН·м</system:String>
+    <system:String x:Key="FemUnitKNPerM">кН/м</system:String>
     <system:String x:Key="Fem3DLoadDisplay">Показать</system:String>
     <system:String x:Key="FemCreateNodePanelTitle">Новый узел</system:String>
     <system:String x:Key="FemCreateNodeHint">Кликните в модели или введите координаты</system:String>

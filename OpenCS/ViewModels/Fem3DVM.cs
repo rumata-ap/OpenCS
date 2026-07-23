@@ -77,6 +77,14 @@ public class Fem3DVM : ViewModelBase
         set { if (_showSectionGlyphs == value) return; _showSectionGlyphs = value; OnPropertyChanged(); }
     }
 
+    bool _showLoadValues;
+    /// <summary>Показывать текстовые подписи значений нагрузок рядом со стрелками (узловых и на стержнях).</summary>
+    public bool ShowLoadValues
+    {
+        get => _showLoadValues;
+        set { if (_showLoadValues == value) return; _showLoadValues = value; OnPropertyChanged(); }
+    }
+
     FemDiagramLoadSource? _selectedDiagramLoadSource;
     public FemDiagramLoadSource? SelectedDiagramLoadSource
     {

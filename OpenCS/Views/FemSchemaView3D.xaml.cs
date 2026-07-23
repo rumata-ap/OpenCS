@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
+using CScore.Fem;
 using HelixToolkit.Wpf;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
@@ -223,7 +224,8 @@ public partial class FemSchemaView3D : UserControl
             e.PropertyName == nameof(Fem3DVM.MeshNodePoints) ||
             e.PropertyName == nameof(Fem3DVM.DiagramGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.MemberLoadGlyphs) ||
-            e.PropertyName == nameof(Fem3DVM.ShowSectionGlyphs))
+            e.PropertyName == nameof(Fem3DVM.ShowSectionGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.ShowLoadValues))
             BuildVisuals();
     }
 
@@ -331,13 +333,24 @@ public partial class FemSchemaView3D : UserControl
                     DrawRotationSupport(node, axis, side, up);
                     break;
                 case FemDiagramGlyphKind.Force:
-                    DrawForce(node, axis * glyph.Sign, side, up);
+                    DrawForce(node, axis * glyph.Sign, side, up,
+                        VM.ShowLoadValues ? FormatComponentValue(glyph.Component, glyph.Value, moment: false) : null);
                     break;
                 case FemDiagramGlyphKind.Moment:
-                    DrawMoment(node, axis * glyph.Sign, side, up);
+                    DrawMoment(node, axis * glyph.Sign, side, up,
+                        VM.ShowLoadValues ? FormatComponentValue(glyph.Component, glyph.Value, moment: true) : null);
                     break;
             }
         }
+    }
+
+    static string FormatComponentValue(string component, double valueNewtons, bool moment)
+    {
+        double kilo = moment
+            ? FemUnitConverter.NewtonMetersToKiloNewtonMeters(valueNewtons)
+            : FemUnitConverter.NewtonsToKiloNewtons(valueNewtons);
+        string unit = Loc.S(moment ? "FemUnitKNm" : "FemUnitKN");
+        return $"{component} = {kilo:0.##} {unit}";
     }
 
     void DrawTranslationSupport(Point3D node, Vector3D axis, Vector3D side, Vector3D up)
@@ -362,7 +375,7 @@ public partial class FemSchemaView3D : UserControl
         AddGlyphLines(Colors.MediumBlue, 2, [tip, tip - side * 0.1 - up * 0.06, tip, tip + side * 0.04 - up * 0.1]);
     }
 
-    void DrawForce(Point3D node, Vector3D direction, Vector3D side, Vector3D up)
+    void DrawForce(Point3D node, Vector3D direction, Vector3D side, Vector3D up, string? valueText)
     {
         var tip = node - direction * 0.16;
         var tail = node - direction * 0.72;
@@ -372,9 +385,10 @@ public partial class FemSchemaView3D : UserControl
              tip, tip - direction * 0.18 - side * 0.11,
              tip, tip - direction * 0.18 + up * 0.11,
              tip, tip - direction * 0.18 - up * 0.11]);
+        if (valueText != null) AddValueLabel(tail, valueText, Colors.Crimson);
     }
 
-    void DrawMoment(Point3D node, Vector3D axis, Vector3D side, Vector3D up)
+    void DrawMoment(Point3D node, Vector3D axis, Vector3D side, Vector3D up, string? valueText)
     {
         var points = new Point3DCollection();
         for (int i = 0; i <= 16; i++)
@@ -383,6 +397,7 @@ public partial class FemSchemaView3D : UserControl
             points.Add(node + side * (Math.Cos(angle) * 0.32) + up * (Math.Sin(angle) * 0.32));
         }
         AddGlyphLine(Colors.DarkOrange, 2.5, points);
+        if (valueText != null) AddValueLabel(node + side * 0.32 + up * 0.32, valueText, Colors.DarkOrange);
         var tip = points[^1];
         var tangent = Vector3D.CrossProduct(axis, tip - node);
         tangent.Normalize();
@@ -397,6 +412,15 @@ public partial class FemSchemaView3D : UserControl
     {
         if (points.Count < 2) return;
         viewport.Children.Add(new LinesVisual3D { Points = points, Color = color, Thickness = thickness });
+    }
+
+    void AddValueLabel(Point3D position, string text, Color color)
+    {
+        viewport.Children.Add(new BillboardTextVisual3D
+        {
+            Position = position, Text = text,
+            Foreground = new SolidColorBrush(color), Background = Brushes.White, FontSize = 10
+        });
     }
 
     /// <summary>Рисует стрелки распределённых и сосредоточенных нагрузок на активном участке стержня.</summary>
@@ -414,6 +438,7 @@ public partial class FemSchemaView3D : UserControl
                 // Сосредоточенная нагрузка: Start == End, стержень-касательная неизвестна —
                 // одна стрелка фиксированной длины в точке приложения.
                 DrawLoadArrow(glyph.Start, glyph.LoadAtStart, new Vector3D(0, 0, 1), 0.3);
+                if (VM.ShowLoadValues) AddMemberLoadValueLabel(glyph.Start, glyph.LoadAtStart, isIntensity: false);
                 continue;
             }
 
@@ -429,7 +454,23 @@ public partial class FemSchemaView3D : UserControl
                 double arrowLength = Math.Clamp(length * 0.22, 0.08, 0.35);
                 DrawLoadArrow(point, value, member, arrowLength);
             }
+            if (VM.ShowLoadValues)
+            {
+                AddMemberLoadValueLabel(glyph.Start, glyph.LoadAtStart, isIntensity: true);
+                if (glyph.LoadAtEnd != glyph.LoadAtStart)
+                    AddMemberLoadValueLabel(glyph.End, glyph.LoadAtEnd, isIntensity: true);
+            }
         }
+    }
+
+    /// <summary>Подпись модуля вектора нагрузки в кН (сосредоточенная) или кН/м (распределённая).</summary>
+    void AddMemberLoadValueLabel(Point3D position, Vector3D value, bool isIntensity)
+    {
+        double magnitude = value.Length;
+        if (!double.IsFinite(magnitude) || magnitude < 1e-12) return;
+        double kilo = FemUnitConverter.NewtonsToKiloNewtons(magnitude);
+        string unit = Loc.S(isIntensity ? "FemUnitKNPerM" : "FemUnitKN");
+        AddValueLabel(position, $"{kilo:0.##} {unit}", Colors.DarkGreen);
     }
 
     /// <summary>Рисует одну стрелку нагрузки в точке `point` в направлении `value`. `memberTangent» —

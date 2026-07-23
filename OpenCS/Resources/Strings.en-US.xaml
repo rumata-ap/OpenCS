@@ -1506,6 +1506,10 @@
     <system:String x:Key="Fem3DShowSupports">Supports</system:String>
     <system:String x:Key="Fem3DShowLoads">Loads</system:String>
     <system:String x:Key="Fem3DShowSectionGlyphs">Section contours and local axes</system:String>
+    <system:String x:Key="Fem3DShowLoadValues">Load values</system:String>
+    <system:String x:Key="FemUnitKN">kN</system:String>
+    <system:String x:Key="FemUnitKNm">kN·m</system:String>
+    <system:String x:Key="FemUnitKNPerM">kN/m</system:String>
     <system:String x:Key="Fem3DLoadDisplay">Display</system:String>
     <system:String x:Key="FemCreateNodePanelTitle">New node</system:String>
     <system:String x:Key="FemCreateNodeHint">Click in the model or type coordinates</system:String>

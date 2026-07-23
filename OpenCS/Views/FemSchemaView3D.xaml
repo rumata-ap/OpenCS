@@ -102,6 +102,8 @@
                               IsChecked="{Binding ShowLoadGlyphs, Mode=TwoWay}"/>
                     <MenuItem Header="{DynamicResource Fem3DShowSectionGlyphs}" IsCheckable="True"
                               IsChecked="{Binding ShowSectionGlyphs, Mode=TwoWay}"/>
+                    <MenuItem Header="{DynamicResource Fem3DShowLoadValues}" IsCheckable="True"
+                              IsChecked="{Binding ShowLoadValues, Mode=TwoWay}"/>
                 </MenuItem>
             </Menu>
             <TextBlock Text="{DynamicResource Fem3DLoadDisplay}" VerticalAlignment="Center" Margin="8,0,4,0"/>
