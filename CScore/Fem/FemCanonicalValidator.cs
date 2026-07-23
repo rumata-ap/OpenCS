@@ -18,7 +18,7 @@ public static class FemCanonicalValidator
     };
     static readonly HashSet<string> MemberLoadDistributionTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "uniform", "trapezoidal"
+        "uniform", "trapezoidal", "point"
     };
 
     /// <summary>Возвращает полный детерминированный список ошибок канонической модели.</summary>
@@ -141,12 +141,20 @@ public static class FemCanonicalValidator
                 errors.Add(new("member_load_offset_invalid",
                     $"Распределённая нагрузка {load.Id}: отступы должны быть конечными и неотрицательными."));
 
+            bool isPoint = load.DistributionType.Equals("point", StringComparison.OrdinalIgnoreCase);
+            if (isPoint && (!double.IsFinite(load.EndOffsetM) || load.EndOffsetM != 0))
+                errors.Add(new("member_load_point_end_offset_invalid",
+                    $"Сосредоточенная нагрузка {load.Id}: отступ от конца не используется и должен быть 0."));
+
             CheckMemberLoadFinite(load.Id, "QxStart", load.QxStart, errors);
             CheckMemberLoadFinite(load.Id, "QyStart", load.QyStart, errors);
             CheckMemberLoadFinite(load.Id, "QzStart", load.QzStart, errors);
             CheckMemberLoadFinite(load.Id, "QxEnd", load.QxEnd, errors);
             CheckMemberLoadFinite(load.Id, "QyEnd", load.QyEnd, errors);
             CheckMemberLoadFinite(load.Id, "QzEnd", load.QzEnd, errors);
+            CheckMemberLoadFinite(load.Id, "Mx", load.Mx, errors);
+            CheckMemberLoadFinite(load.Id, "My", load.My, errors);
+            CheckMemberLoadFinite(load.Id, "Mz", load.Mz, errors);
 
             if (load.DistributionType.Equals("uniform", StringComparison.OrdinalIgnoreCase) &&
                 (load.QxStart != load.QxEnd || load.QyStart != load.QyEnd || load.QzStart != load.QzEnd))
@@ -167,9 +175,12 @@ public static class FemCanonicalValidator
                 {
                     double dx = nodeJ.X - nodeI.X, dy = nodeJ.Y - nodeI.Y, dz = nodeJ.Z - nodeI.Z;
                     double length = Math.Sqrt(dx * dx + dy * dy + dz * dz);
-                    if (!double.IsFinite(length) || load.StartOffsetM + load.EndOffsetM >= length)
-                        errors.Add(new("member_load_interval_invalid",
-                            $"Распределённая нагрузка {load.Id}: участок приложения должен быть меньше длины стержня."));
+                    bool invalid = !double.IsFinite(length) ||
+                        (isPoint ? load.StartOffsetM > length : load.StartOffsetM + load.EndOffsetM >= length);
+                    if (invalid)
+                        errors.Add(new("member_load_interval_invalid", isPoint
+                            ? $"Сосредоточенная нагрузка {load.Id}: точка приложения должна быть в пределах длины стержня."
+                            : $"Распределённая нагрузка {load.Id}: участок приложения должен быть меньше длины стержня."));
                 }
             }
         }

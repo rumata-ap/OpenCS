@@ -64,6 +64,77 @@ public sealed class FemMemberLoadTests
     }
 
     [Fact]
+    public void Validator_AcceptsPointDistributionType()
+    {
+        var (schema, loadCase, member) = Fixture();
+        var load = new FemMemberLoad
+        {
+            Id = 4, SchemaId = 1, LoadCaseId = loadCase.Id, MemberId = member.Id,
+            DistributionType = "point", StartOffsetM = 1.0, EndOffsetM = 0,
+            QxStart = 100, QyStart = -200, QzStart = 300
+        };
+
+        var diagnostics = FemCanonicalValidator.Validate(
+            schema, [loadCase], [], [], [member], [load]);
+
+        Assert.DoesNotContain(diagnostics, d => d.Code == "member_load_distribution_invalid");
+    }
+
+    [Fact]
+    public void Validator_RejectsPointLoadWithNonZeroEndOffset()
+    {
+        var (schema, loadCase, member) = Fixture();
+        var load = new FemMemberLoad
+        {
+            Id = 4, SchemaId = 1, LoadCaseId = loadCase.Id, MemberId = member.Id,
+            DistributionType = "point", StartOffsetM = 1.0, EndOffsetM = 0.5
+        };
+
+        var diagnostics = FemCanonicalValidator.Validate(
+            schema, [loadCase], [], [], [member], [load]);
+
+        Assert.Contains(diagnostics, d => d.Code == "member_load_point_end_offset_invalid");
+    }
+
+    [Fact]
+    public void Validator_RejectsPointLoadBeyondMemberLength()
+    {
+        var (schema, loadCase, member) = Fixture();
+        member.NodeIdsJson = "[1,2]";
+        var nodes = new List<FemNode>
+        {
+            new() { Id = 1, NodeTag = "1", X = 0 },
+            new() { Id = 2, NodeTag = "2", X = 5 }
+        };
+        var load = new FemMemberLoad
+        {
+            Id = 4, SchemaId = 1, LoadCaseId = loadCase.Id, MemberId = member.Id,
+            DistributionType = "point", StartOffsetM = 10.0
+        };
+
+        var diagnostics = FemCanonicalValidator.Validate(
+            schema, [loadCase], nodes, [], [member], [load]);
+
+        Assert.Contains(diagnostics, d => d.Code == "member_load_interval_invalid");
+    }
+
+    [Fact]
+    public void Validator_RejectsNonFiniteMomentComponent()
+    {
+        var (schema, loadCase, member) = Fixture();
+        var load = new FemMemberLoad
+        {
+            Id = 4, SchemaId = 1, LoadCaseId = loadCase.Id, MemberId = member.Id,
+            DistributionType = "point", My = double.NaN
+        };
+
+        var diagnostics = FemCanonicalValidator.Validate(
+            schema, [loadCase], [], [], [member], [load]);
+
+        Assert.Contains(diagnostics, d => d.Code == "member_load_component_not_finite");
+    }
+
+    [Fact]
     public void SetMemberLoadCommand_IsUndoable()
     {
         var schema = new FemSchema { Id = 1 };

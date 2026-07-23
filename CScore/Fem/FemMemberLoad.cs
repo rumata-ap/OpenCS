@@ -29,4 +29,10 @@ public sealed class FemMemberLoad
     public double QxEnd { get; set; }
     public double QyEnd { get; set; }
     public double QzEnd { get; set; }
+
+    /// <summary>Компоненты сосредоточенного момента (только для DistributionType="point"), Н·м.
+    /// Применяются только если точка приложения совпадает с узлом расчётной сетки.</summary>
+    public double Mx { get; set; }
+    public double My { get; set; }
+    public double Mz { get; set; }
 }
