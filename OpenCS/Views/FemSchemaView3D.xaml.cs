@@ -340,17 +340,21 @@ public partial class FemSchemaView3D : UserControl
                     DrawRotationSupport(node, axis, side, up);
                     break;
                 case FemDiagramGlyphKind.Force:
-                    DrawForce(node, axis * glyph.Sign, side, up,
+                {
+                    var mid = DrawForce(node, axis * glyph.Sign, side, up,
                         VM.ShowLoadValues ? FormatComponentValue(glyph.Component, glyph.Value, moment: false) : null,
                         Colors.Crimson);
-                    AddNodeLoadPickTarget(node, glyph.NodeId);
+                    AddNodeLoadPickTarget(mid, glyph.NodeId, Colors.Crimson);
                     break;
+                }
                 case FemDiagramGlyphKind.Moment:
-                    DrawMoment(node, axis * glyph.Sign, side, up,
+                {
+                    var mid = DrawMoment(node, axis * glyph.Sign, side, up,
                         VM.ShowLoadValues ? FormatComponentValue(glyph.Component, glyph.Value, moment: true) : null,
                         Colors.DarkOrange);
-                    AddNodeLoadPickTarget(node, glyph.NodeId);
+                    AddNodeLoadPickTarget(mid, glyph.NodeId, Colors.DarkOrange);
                     break;
+                }
                 case FemDiagramGlyphKind.KinematicDisplacement:
                     DrawForce(node, axis * glyph.Sign, side, up,
                         VM.ShowLoadValues ? FormatKinematicValue(glyph.Component, glyph.Value, rotation: false) : null,
@@ -375,17 +379,20 @@ public partial class FemSchemaView3D : UserControl
         return $"{component} = {value:0.####} {unit}";
     }
 
-    /// <summary>Прозрачная сфера-прокси для выбора узловой нагрузки правым кликом (только в режиме
-    /// редактирования). Один и тот же узел может дать несколько прокси (по числу компонент) —
-    /// все ведут к одному и тому же узлу, что корректно для удаления/изменения нагрузки целиком.</summary>
-    void AddNodeLoadPickTarget(Point3D node, int nodeId)
+    /// <summary>Видимый маркер-«ручка» для выбора узловой нагрузки правым кликом (только в режиме
+    /// редактирования). Ставится в середине самой стрелки/петли глифа, а не в узле — не совпадает
+    /// по положению ни с узлом, ни с соседними элементами, поэтому можно рисовать непрозрачным,
+    /// не рискуя перекрыть что-то по глубине (WPF 3D пишет z-buffer и для прозрачного материала).
+    /// Один и тот же узел может дать несколько маркеров (по числу компонент) — все ведут к одному
+    /// и тому же узлу, что корректно для удаления/изменения нагрузки целиком.</summary>
+    void AddNodeLoadPickTarget(Point3D glyphMidpoint, int nodeId, Color color)
     {
         if (VM is not { EditMode: true }) return;
         string? nodeTag = Editor?.Session.Nodes.FirstOrDefault(n => n.Id == nodeId)?.NodeTag;
         if (nodeTag == null) return;
-        var hitSphere = new SphereVisual3D { Center = node, Radius = 0.15, Fill = new SolidColorBrush(Colors.Transparent) };
-        _loadPickTargets[hitSphere] = (true, nodeTag);
-        viewport.Children.Add(hitSphere);
+        var handle = new SphereVisual3D { Center = glyphMidpoint, Radius = 0.1, Fill = new SolidColorBrush(color) };
+        _loadPickTargets[handle] = (true, nodeTag);
+        viewport.Children.Add(handle);
     }
 
     static string FormatComponentValue(string component, double valueNewtons, bool moment)
@@ -419,7 +426,9 @@ public partial class FemSchemaView3D : UserControl
         AddGlyphLines(Colors.MediumBlue, 2, [tip, tip - side * 0.1 - up * 0.06, tip, tip + side * 0.04 - up * 0.1]);
     }
 
-    void DrawForce(Point3D node, Vector3D direction, Vector3D side, Vector3D up, string? valueText, Color color)
+    /// <summary>Рисует стрелку силы/кинематического перемещения; возвращает середину стрелки
+    /// (не узел и не её кончик) — устойчивая точка для прокси выбора правым кликом.</summary>
+    Point3D DrawForce(Point3D node, Vector3D direction, Vector3D side, Vector3D up, string? valueText, Color color)
     {
         var tip = node - direction * 0.16;
         var tail = node - direction * 0.72;
@@ -430,9 +439,12 @@ public partial class FemSchemaView3D : UserControl
              tip, tip - direction * 0.18 + up * 0.11,
              tip, tip - direction * 0.18 - up * 0.11]);
         if (valueText != null) AddValueLabel(tail, valueText, color);
+        return tip + (tail - tip) * 0.5;
     }
 
-    void DrawMoment(Point3D node, Vector3D axis, Vector3D side, Vector3D up, string? valueText, Color color)
+    /// <summary>Рисует петлю момента/кинематического поворота; возвращает точку на самой петле
+    /// (не узел) — устойчивая точка для прокси выбора правым кликом.</summary>
+    Point3D DrawMoment(Point3D node, Vector3D axis, Vector3D side, Vector3D up, string? valueText, Color color)
     {
         var points = new Point3DCollection();
         for (int i = 0; i <= 16; i++)
@@ -441,12 +453,14 @@ public partial class FemSchemaView3D : UserControl
             points.Add(node + side * (Math.Cos(angle) * 0.32) + up * (Math.Sin(angle) * 0.32));
         }
         AddGlyphLine(color, 2.5, points);
-        if (valueText != null) AddValueLabel(node + side * 0.32 + up * 0.32, valueText, color);
+        var loopMidpoint = node + side * 0.32 + up * 0.32;
+        if (valueText != null) AddValueLabel(loopMidpoint, valueText, color);
         var tip = points[^1];
         var tangent = Vector3D.CrossProduct(axis, tip - node);
         tangent.Normalize();
         AddGlyphLines(color, 2.5,
             [tip, tip - tangent * 0.15 + axis * 0.08, tip, tip - tangent * 0.15 - axis * 0.08]);
+        return loopMidpoint;
     }
 
     void AddGlyphLines(Color color, double thickness, IEnumerable<Point3D> points)
@@ -481,13 +495,14 @@ public partial class FemSchemaView3D : UserControl
             {
                 // Сосредоточенная нагрузка: Start == End, стержень-касательная неизвестна —
                 // одна стрелка фиксированной длины в точке приложения.
-                DrawLoadArrow(glyph.Start, glyph.LoadAtStart, new Vector3D(0, 0, 1), 0.3);
+                var pointMid = DrawLoadArrow(glyph.Start, glyph.LoadAtStart, new Vector3D(0, 0, 1), 0.3);
                 if (VM.ShowLoadValues) AddMemberLoadValueLabel(glyph.Start, glyph.LoadAtStart, isIntensity: false);
-                AddMemberLoadPickTarget(glyph.Start, glyph.MemberTag);
+                if (pointMid is { } mid) AddMemberLoadPickTarget(mid, glyph.MemberTag);
                 continue;
             }
 
             AddGlyphLine(Colors.DarkGreen, 2.5, [glyph.Start, glyph.End]);
+            Point3D? ribbonPickMidpoint = null;
             for (int i = 0; i <= 4; i++)
             {
                 double t = i / 4.0;
@@ -497,7 +512,10 @@ public partial class FemSchemaView3D : UserControl
                     glyph.LoadAtStart.Y + (glyph.LoadAtEnd.Y - glyph.LoadAtStart.Y) * t,
                     glyph.LoadAtStart.Z + (glyph.LoadAtEnd.Z - glyph.LoadAtStart.Z) * t);
                 double arrowLength = Math.Clamp(length * 0.22, 0.08, 0.35);
-                DrawLoadArrow(point, value, member, arrowLength);
+                var arrowMid = DrawLoadArrow(point, value, member, arrowLength);
+                // Берём середину первой отрисованной стрелки как точку прокси — устойчиво
+                // работает и для трапециевидной нагрузки, меняющей знак вдоль пролёта.
+                ribbonPickMidpoint ??= arrowMid;
             }
             if (VM.ShowLoadValues)
             {
@@ -505,18 +523,19 @@ public partial class FemSchemaView3D : UserControl
                 if (glyph.LoadAtEnd != glyph.LoadAtStart)
                     AddMemberLoadValueLabel(glyph.End, glyph.LoadAtEnd, isIntensity: true);
             }
-            AddMemberLoadPickTarget(glyph.Start + member * 0.5, glyph.MemberTag);
+            if (ribbonPickMidpoint is { } ribbonMid) AddMemberLoadPickTarget(ribbonMid, glyph.MemberTag);
         }
     }
 
-    /// <summary>Прозрачная сфера-прокси для выбора нагрузки стержня правым кликом (только в режиме
-    /// редактирования).</summary>
+    /// <summary>Видимый маркер-«ручка» для выбора нагрузки стержня правым кликом (только в режиме
+    /// редактирования). Ставится в середине стрелки, а не на оси стержня — не совпадает с трубкой
+    /// стержня, поэтому рисуется непрозрачным без риска перекрыть её по глубине.</summary>
     void AddMemberLoadPickTarget(Point3D position, string memberTag)
     {
         if (VM is not { EditMode: true }) return;
-        var hitSphere = new SphereVisual3D { Center = position, Radius = 0.15, Fill = new SolidColorBrush(Colors.Transparent) };
-        _loadPickTargets[hitSphere] = (false, memberTag);
-        viewport.Children.Add(hitSphere);
+        var handle = new SphereVisual3D { Center = position, Radius = 0.1, Fill = new SolidColorBrush(Colors.DarkGreen) };
+        _loadPickTargets[handle] = (false, memberTag);
+        viewport.Children.Add(handle);
     }
 
     /// <summary>Подпись модуля вектора нагрузки в кН (сосредоточенная) или кН/м (распределённая).</summary>
@@ -531,11 +550,12 @@ public partial class FemSchemaView3D : UserControl
 
     /// <summary>Рисует одну стрелку нагрузки в точке `point` в направлении `value`. `memberTangent» —
     /// касательная стержня для устойчивого выбора поперечного направления оперения стрелки;
-    /// при нулевой/параллельной касательной используется запасное глобальное направление.</summary>
-    void DrawLoadArrow(Point3D point, Vector3D value, Vector3D memberTangent, double arrowLength)
+    /// при нулевой/параллельной касательной используется запасное глобальное направление.
+    /// Возвращает середину стрелки (не null, если нагрузка нулевая — рисовать нечего).</summary>
+    Point3D? DrawLoadArrow(Point3D point, Vector3D value, Vector3D memberTangent, double arrowLength)
     {
         double magnitude = value.Length;
-        if (!double.IsFinite(magnitude) || magnitude < 1e-12) return;
+        if (!double.IsFinite(magnitude) || magnitude < 1e-12) return null;
 
         var direction = value;
         direction.Normalize();
@@ -552,6 +572,7 @@ public partial class FemSchemaView3D : UserControl
              tip - direction * arrowLength * 0.32 + side * arrowLength * 0.18,
              tip,
              tip - direction * arrowLength * 0.32 - side * arrowLength * 0.18]);
+        return tip + (tail - tip) * 0.5;
     }
 
     /// <summary>Рисует контуры сечений и положительные направления локальных Y/Z.</summary>
