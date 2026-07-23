@@ -33,8 +33,10 @@ public partial class FemSchemaView3D : UserControl
     LinesVisual3D?  _meshNodeGlyphVisual;
 
     readonly Dictionary<Visual3D, (bool IsNode, string Tag)> _pickTargets = new();
+    readonly Dictionary<Visual3D, (bool IsNodeLoad, string Tag)> _loadPickTargets = new();
     PointsVisual3D? _editNodesVisual;
     string? _contextMenuTargetTag;
+    (bool IsNodeLoad, string Tag)? _contextMenuLoadTarget;
 
     bool _createNodeMode;
     bool _createBarMode;
@@ -234,6 +236,7 @@ public partial class FemSchemaView3D : UserControl
         viewport.Children.Clear();
         _meshVisual = null;
         _meshNodeGlyphVisual = null;
+        _loadPickTargets.Clear();
         viewport.Children.Add(new DefaultLights());
 
         if (VM == null) return;
@@ -335,13 +338,28 @@ public partial class FemSchemaView3D : UserControl
                 case FemDiagramGlyphKind.Force:
                     DrawForce(node, axis * glyph.Sign, side, up,
                         VM.ShowLoadValues ? FormatComponentValue(glyph.Component, glyph.Value, moment: false) : null);
+                    AddNodeLoadPickTarget(node, glyph.NodeId);
                     break;
                 case FemDiagramGlyphKind.Moment:
                     DrawMoment(node, axis * glyph.Sign, side, up,
                         VM.ShowLoadValues ? FormatComponentValue(glyph.Component, glyph.Value, moment: true) : null);
+                    AddNodeLoadPickTarget(node, glyph.NodeId);
                     break;
             }
         }
+    }
+
+    /// <summary>Прозрачная сфера-прокси для выбора узловой нагрузки правым кликом (только в режиме
+    /// редактирования). Один и тот же узел может дать несколько прокси (по числу компонент) —
+    /// все ведут к одному и тому же узлу, что корректно для удаления/изменения нагрузки целиком.</summary>
+    void AddNodeLoadPickTarget(Point3D node, int nodeId)
+    {
+        if (VM is not { EditMode: true }) return;
+        string? nodeTag = Editor?.Session.Nodes.FirstOrDefault(n => n.Id == nodeId)?.NodeTag;
+        if (nodeTag == null) return;
+        var hitSphere = new SphereVisual3D { Center = node, Radius = 0.22, Fill = new SolidColorBrush(Colors.Transparent) };
+        _loadPickTargets[hitSphere] = (true, nodeTag);
+        viewport.Children.Add(hitSphere);
     }
 
     static string FormatComponentValue(string component, double valueNewtons, bool moment)
@@ -439,6 +457,7 @@ public partial class FemSchemaView3D : UserControl
                 // одна стрелка фиксированной длины в точке приложения.
                 DrawLoadArrow(glyph.Start, glyph.LoadAtStart, new Vector3D(0, 0, 1), 0.3);
                 if (VM.ShowLoadValues) AddMemberLoadValueLabel(glyph.Start, glyph.LoadAtStart, isIntensity: false);
+                AddMemberLoadPickTarget(glyph.Start, glyph.MemberTag);
                 continue;
             }
 
@@ -460,7 +479,18 @@ public partial class FemSchemaView3D : UserControl
                 if (glyph.LoadAtEnd != glyph.LoadAtStart)
                     AddMemberLoadValueLabel(glyph.End, glyph.LoadAtEnd, isIntensity: true);
             }
+            AddMemberLoadPickTarget(glyph.Start + member * 0.5, glyph.MemberTag);
         }
+    }
+
+    /// <summary>Прозрачная сфера-прокси для выбора нагрузки стержня правым кликом (только в режиме
+    /// редактирования).</summary>
+    void AddMemberLoadPickTarget(Point3D position, string memberTag)
+    {
+        if (VM is not { EditMode: true }) return;
+        var hitSphere = new SphereVisual3D { Center = position, Radius = 0.22, Fill = new SolidColorBrush(Colors.Transparent) };
+        _loadPickTargets[hitSphere] = (false, memberTag);
+        viewport.Children.Add(hitSphere);
     }
 
     /// <summary>Подпись модуля вектора нагрузки в кН (сосредоточенная) или кН/м (распределённая).</summary>
@@ -759,6 +789,29 @@ public partial class FemSchemaView3D : UserControl
         if (_createBarMode) return;
 
         var position = e.GetPosition(viewport);
+
+        (bool IsNodeLoad, string Tag)? loadHit = null;
+        HitTestResultBehavior LoadCallback(HitTestResult result)
+        {
+            if (result is RayMeshGeometry3DHitTestResult meshHit &&
+                _loadPickTargets.TryGetValue(meshHit.VisualHit, out var target))
+            {
+                loadHit = target;
+                return HitTestResultBehavior.Stop;
+            }
+            return HitTestResultBehavior.Continue;
+        }
+        VisualTreeHelper.HitTest(viewport, null, LoadCallback, new PointHitTestParameters(position));
+        if (loadHit is { } loadTarget)
+        {
+            _contextMenuLoadTarget = loadTarget;
+            var loadMenu = (ContextMenu)Resources["LoadContextMenu"];
+            loadMenu.PlacementTarget = viewport;
+            loadMenu.IsOpen = true;
+            e.Handled = true;
+            return;
+        }
+
         (bool IsNode, string Tag)? hit = null;
         HitTestResultBehavior Callback(HitTestResult result)
         {
@@ -778,6 +831,32 @@ public partial class FemSchemaView3D : UserControl
         menu.PlacementTarget = viewport;
         menu.IsOpen = true;
         e.Handled = true;
+    }
+
+    void LoadEditCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuLoadTarget is not { } target || Editor is not { } editor) return;
+        if (VM?.SelectedDiagramLoadSource?.LoadCase is { } loadCase)
+            editor.SelectedLoadCase = loadCase;
+        if (target.IsNodeLoad) OpenNodeLoadDialog(null, target.Tag);
+        else OpenMemberLoadDialog(null, target.Tag);
+    }
+
+    void LoadDeleteCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuLoadTarget is not { } target) return;
+        if (Editor is not { } editor || VM?.SelectedDiagramLoadSource?.LoadCase is not { } loadCase) return;
+
+        if (target.IsNodeLoad)
+        {
+            var node = editor.Session.Nodes.FirstOrDefault(n => n.NodeTag == target.Tag);
+            if (node != null) editor.DeleteNodeLoad(node, loadCase);
+        }
+        else
+        {
+            var member = editor.Session.Members.FirstOrDefault(m => m.ElemTag == target.Tag);
+            if (member != null) editor.DeleteMemberLoad(member, loadCase);
+        }
     }
 
     void MemberDeleteCtx_Click(object sender, RoutedEventArgs e)

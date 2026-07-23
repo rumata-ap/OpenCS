@@ -31,6 +31,10 @@
             <Separator/>
             <MenuItem Header="{DynamicResource FemNodePropertiesCtx}" Click="NodePropertiesCtx_Click"/>
         </ContextMenu>
+        <ContextMenu x:Key="LoadContextMenu">
+            <MenuItem Header="{DynamicResource FemLoadEditCtx}" Click="LoadEditCtx_Click"/>
+            <MenuItem Header="{DynamicResource FemLoadDeleteCtx}" Click="LoadDeleteCtx_Click"/>
+        </ContextMenu>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>

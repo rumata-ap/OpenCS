@@ -1510,6 +1510,8 @@
     <system:String x:Key="FemUnitKN">kN</system:String>
     <system:String x:Key="FemUnitKNm">kN·m</system:String>
     <system:String x:Key="FemUnitKNPerM">kN/m</system:String>
+    <system:String x:Key="FemLoadEditCtx">Edit load</system:String>
+    <system:String x:Key="FemLoadDeleteCtx">Delete load</system:String>
     <system:String x:Key="Fem3DLoadDisplay">Display</system:String>
     <system:String x:Key="FemCreateNodePanelTitle">New node</system:String>
     <system:String x:Key="FemCreateNodeHint">Click in the model or type coordinates</system:String>

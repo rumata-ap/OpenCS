@@ -1513,6 +1513,8 @@
     <system:String x:Key="FemUnitKN">кН</system:String>
     <system:String x:Key="FemUnitKNm">кН·м</system:String>
     <system:String x:Key="FemUnitKNPerM">кН/м</system:String>
+    <system:String x:Key="FemLoadEditCtx">Изменить нагрузку</system:String>
+    <system:String x:Key="FemLoadDeleteCtx">Удалить нагрузку</system:String>
     <system:String x:Key="Fem3DLoadDisplay">Показать</system:String>
     <system:String x:Key="FemCreateNodePanelTitle">Новый узел</system:String>
     <system:String x:Key="FemCreateNodeHint">Кликните в модели или введите координаты</system:String>

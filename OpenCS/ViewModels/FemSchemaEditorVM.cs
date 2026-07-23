@@ -193,6 +193,27 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         ? Session.MemberLoads.FirstOrDefault(load => load.LoadCaseId == loadCase.Id && load.MemberId == member.Id)
         : null;
 
+    /// <summary>Удаляет нагрузку заданного загружения с заданного стержня (для 3D-глифов,
+    /// где отображаемое загружение может отличаться от выбранного в панели свойств).</summary>
+    public bool DeleteMemberLoad(FemMember member, FemLoadCase loadCase)
+    {
+        var load = Session.MemberLoads.FirstOrDefault(item => item.LoadCaseId == loadCase.Id && item.MemberId == member.Id);
+        if (load == null) return false;
+        Session.Execute(new DeleteMemberLoadCommand(load));
+        RefreshCollections();
+        return true;
+    }
+
+    /// <summary>Удаляет узловую нагрузку заданного загружения с заданного узла (для 3D-глифов).</summary>
+    public bool DeleteNodeLoad(FemNode node, FemLoadCase loadCase)
+    {
+        var load = Session.NodeLoads.FirstOrDefault(item => item.LoadCaseId == loadCase.Id && item.NodeId == node.Id);
+        if (load == null) return false;
+        Session.Execute(new DeleteNodeLoadCommand(load));
+        RefreshCollections();
+        return true;
+    }
+
     /// <summary>Создаёт или обновляет распределённую или сосредоточенную нагрузку конструктивного стержня.</summary>
     public bool ApplyMemberLoad(
         double startOffsetM, double endOffsetM, string coordinateSystem, string distributionType,
