@@ -129,12 +129,18 @@ public sealed class FemLinearModelResolver
             meshNodes, meshElements, sourceNodes, sourceMembers, resolvedMemberLoads ?? []);
         errors.AddRange(distributed.Errors);
 
+        var points = new FemPointLoadResolver().Resolve(
+            meshNodes, meshElements, sourceNodes, sourceMembers, resolvedMemberLoads ?? []);
+        errors.AddRange(points.Errors);
+        loads.AddRange(points.NodalLoads);
+
         if (errors.Count > 0)
             return new FemLinearResolveResult(null, errors);
 
         var model = new FemLinearModel
         {
-            Nodes = nodes, Elements = elements, Loads = loads, DistributedLoads = distributed.Loads
+            Nodes = nodes, Elements = elements, Loads = loads, DistributedLoads = distributed.Loads,
+            PointLoads = points.ElementLoads
         };
         try { model.Validate(); }
         catch (InvalidOperationException ex) { return new FemLinearResolveResult(null, [ex.Message]); }

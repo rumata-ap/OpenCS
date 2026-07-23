@@ -142,4 +142,41 @@ public class FemLinearModelResolverTests
         Assert.Equal(1d / 6, load.AOverL, 8);
         Assert.Equal(5d / 6, load.BOverL, 8);
     }
+
+    [Fact]
+    public void Resolve_TransfersMemberPointLoadToModel()
+    {
+        var (mn, me, sn, sm, ld) = Console();
+        // Console(): один mesh-элемент [1,2], стержень длиной 3 м (X: 0..3).
+        var pointLoad = new FemMemberLoad
+        {
+            LoadCaseId = 1, MemberId = 1, CoordinateSystem = "local",
+            DistributionType = "point", StartOffsetM = 1.5, QyStart = -500
+        };
+
+        var r = new FemLinearModelResolver().Resolve(mn, me, sn, sm, ld, Props(), [pointLoad]);
+
+        Assert.True(r.Ok, string.Join("; ", r.Errors));
+        var element = Assert.Single(r.Model!.PointLoads);
+        Assert.Equal(1, element.ElementTag);
+        Assert.Equal(-500, element.Py, 8);
+        Assert.Equal(0.5, element.XOverL, 8);
+    }
+
+    [Fact]
+    public void Resolve_TransfersMemberPointMomentAtNodeToNodalLoad()
+    {
+        var (mn, me, sn, sm, ld) = Console();
+        var pointLoad = new FemMemberLoad
+        {
+            LoadCaseId = 1, MemberId = 1, CoordinateSystem = "global",
+            DistributionType = "point", StartOffsetM = 3, Mz = 750
+        };
+
+        var r = new FemLinearModelResolver().Resolve(mn, me, sn, sm, ld, Props(), [pointLoad]);
+
+        Assert.True(r.Ok, string.Join("; ", r.Errors));
+        Assert.Empty(r.Model!.PointLoads);
+        Assert.Contains(r.Model.Loads, l => l.NodeTag == 2 && l.Mz == 750);
+    }
 }

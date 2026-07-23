@@ -155,6 +155,11 @@ public sealed class FemNonlinearModelResolver
             meshNodes, meshElements, sourceNodes, sourceMembers, resolvedMemberLoads ?? []);
         errors.AddRange(distributed.Errors);
 
+        var points = new FemPointLoadResolver().Resolve(
+            meshNodes, meshElements, sourceNodes, sourceMembers, resolvedMemberLoads ?? []);
+        errors.AddRange(points.Errors);
+        loads.AddRange(points.NodalLoads);
+
         if (errors.Count > 0)
             return new FemNonlinearResolveResult(null, errors);
 
@@ -165,6 +170,7 @@ public sealed class FemNonlinearModelResolver
             Elements = elements,
             Loads = loads,
             DistributedLoads = distributed.Loads,
+            PointLoads = points.ElementLoads,
             LoadFactorStep = options.LoadFactorStep,
             MaxLoadFactor = options.MaxLoadFactor,
             RefinementDivisions = options.RefinementDivisions,
