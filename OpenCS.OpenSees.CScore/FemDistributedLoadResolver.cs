@@ -39,6 +39,7 @@ public sealed class FemDistributedLoadResolver
                 errors.Add($"Распределённая нагрузка {load.Id} ссылается на неизвестный стержень {load.MemberId}.");
                 continue;
             }
+            if (load.DistributionType.Equals("point", StringComparison.OrdinalIgnoreCase)) continue;
             if (load.CoordinateSystem is not ("local" or "global"))
             {
                 errors.Add($"Нагрузка {load.Id} стержня {member.ElemTag}: неизвестная система координат '{load.CoordinateSystem}'.");
