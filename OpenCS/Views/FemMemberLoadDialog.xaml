@@ -21,9 +21,11 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Margin="4,0,0,0">
                     <TextBlock Text="{DynamicResource FemMemberLoadDistribution}"/>
-                    <ComboBox x:Name="distributionCombo" SelectedValuePath="Tag">
+                    <ComboBox x:Name="distributionCombo" SelectedValuePath="Tag"
+                              SelectionChanged="DistributionCombo_SelectionChanged">
                         <ComboBoxItem Tag="uniform" Content="{DynamicResource FemMemberLoadUniform}"/>
                         <ComboBoxItem Tag="trapezoidal" Content="{DynamicResource FemMemberLoadTrapezoidal}"/>
+                        <ComboBoxItem Tag="point" Content="{DynamicResource FemMemberLoadPoint}"/>
                     </ComboBox>
                 </StackPanel>
             </Grid>
@@ -33,7 +35,7 @@
                     <TextBlock Text="{DynamicResource FemMemberLoadStartOffset}" TextWrapping="Wrap"/>
                     <TextBox x:Name="startOffsetBox"/>
                 </StackPanel>
-                <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                <StackPanel x:Name="endOffsetPanel" Grid.Column="1" Margin="4,0,0,0">
                     <TextBlock Text="{DynamicResource FemMemberLoadEndOffset}" TextWrapping="Wrap"/>
                     <TextBox x:Name="endOffsetBox"/>
                 </StackPanel>
@@ -45,7 +47,7 @@
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="70"/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="1" Text="{DynamicResource FemMemberLoadStart}" HorizontalAlignment="Center"/>
-                <TextBlock Grid.Column="2" Text="{DynamicResource FemMemberLoadEnd}" HorizontalAlignment="Center"/>
+                <TextBlock x:Name="endHeaderText" Grid.Column="2" Text="{DynamicResource FemMemberLoadEnd}" HorizontalAlignment="Center"/>
                 <TextBlock Grid.Row="1" Text="{DynamicResource FemMemberLoadQx}" VerticalAlignment="Center"/>
                 <TextBox x:Name="qxStartBox" Grid.Row="1" Grid.Column="1" Margin="2"/>
                 <TextBox x:Name="qxEndBox" Grid.Row="1" Grid.Column="2" Margin="2"/>
@@ -56,8 +58,22 @@
                 <TextBox x:Name="qzStartBox" Grid.Row="3" Grid.Column="1" Margin="2"/>
                 <TextBox x:Name="qzEndBox" Grid.Row="3" Grid.Column="2" Margin="2"/>
             </Grid>
-            <TextBlock Text="{DynamicResource FemMemberLoadUnitsHint}" Foreground="Gray"
+            <Grid x:Name="momentGrid" Visibility="Collapsed" Margin="0,4,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="70"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Row="0" Text="{DynamicResource FemMemberLoadMx}" VerticalAlignment="Center"/>
+                <TextBox x:Name="mxBox" Grid.Row="0" Grid.Column="1" Margin="2"/>
+                <TextBlock Grid.Row="1" Text="{DynamicResource FemMemberLoadMy}" VerticalAlignment="Center"/>
+                <TextBox x:Name="myBox" Grid.Row="1" Grid.Column="1" Margin="2"/>
+                <TextBlock Grid.Row="2" Text="{DynamicResource FemMemberLoadMz}" VerticalAlignment="Center"/>
+                <TextBox x:Name="mzBox" Grid.Row="2" Grid.Column="1" Margin="2"/>
+            </Grid>
+            <TextBlock x:Name="unitsHintUniform" Text="{DynamicResource FemMemberLoadUnitsHint}" Foreground="Gray"
                        FontSize="11" Margin="1,4,1,8"/>
+            <TextBlock x:Name="unitsHintPoint" Text="{DynamicResource FemMemberLoadUnitsHintPoint}" Foreground="Gray"
+                       FontSize="11" Margin="1,4,1,8" TextWrapping="Wrap" Visibility="Collapsed"/>
             <Button Content="{DynamicResource FemMemberLoadDialogApply}" Click="Apply_Click"/>
         </StackPanel>
     </ScrollViewer>

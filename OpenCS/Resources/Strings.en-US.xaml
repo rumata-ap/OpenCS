@@ -1600,6 +1600,11 @@
     <system:String x:Key="FemMemberLoadDistribution">Distribution</system:String>
     <system:String x:Key="FemMemberLoadUniform">Uniform</system:String>
     <system:String x:Key="FemMemberLoadTrapezoidal">Trapezoidal</system:String>
+    <system:String x:Key="FemMemberLoadPoint">Point</system:String>
+    <system:String x:Key="FemMemberLoadMx">Mx</system:String>
+    <system:String x:Key="FemMemberLoadMy">My</system:String>
+    <system:String x:Key="FemMemberLoadMz">Mz</system:String>
+    <system:String x:Key="FemMemberLoadUnitsHintPoint">Force in N, moment in N·m. Moment is only allowed at a mesh node (member ends or subdivision points).</system:String>
     <system:String x:Key="FemMemberLoadStartOffset">Offset from start, m</system:String>
     <system:String x:Key="FemMemberLoadEndOffset">Offset from end, m</system:String>
     <system:String x:Key="FemMemberLoadStart">Start</system:String>

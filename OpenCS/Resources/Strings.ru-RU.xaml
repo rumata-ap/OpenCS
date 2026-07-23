@@ -1603,6 +1603,11 @@
     <system:String x:Key="FemMemberLoadDistribution">Распределение</system:String>
     <system:String x:Key="FemMemberLoadUniform">Равномерная</system:String>
     <system:String x:Key="FemMemberLoadTrapezoidal">Трапециевидная</system:String>
+    <system:String x:Key="FemMemberLoadPoint">Сосредоточенная</system:String>
+    <system:String x:Key="FemMemberLoadMx">Mx</system:String>
+    <system:String x:Key="FemMemberLoadMy">My</system:String>
+    <system:String x:Key="FemMemberLoadMz">Mz</system:String>
+    <system:String x:Key="FemMemberLoadUnitsHintPoint">Сила — в Н, момент — в Н·м. Момент допустим только в узле расчётной сетки (концы стержня или точки разбиения).</system:String>
     <system:String x:Key="FemMemberLoadStartOffset">Отступ от начала, м</system:String>
     <system:String x:Key="FemMemberLoadEndOffset">Отступ от конца, м</system:String>
     <system:String x:Key="FemMemberLoadStart">Начало</system:String>

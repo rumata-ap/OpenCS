@@ -8,7 +8,7 @@ using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
-/// <summary>Диалог задания распределённой нагрузки выбранным стержням 3D-схемы.</summary>
+/// <summary>Диалог задания распределённой или сосредоточенной нагрузки выбранным стержням 3D-схемы.</summary>
 public partial class FemMemberLoadDialog : Window
 {
     readonly IReadOnlyList<FemMember> _members;
@@ -26,12 +26,34 @@ public partial class FemMemberLoadDialog : Window
         coordinateCombo.SelectedValue = "local";
         distributionCombo.SelectedValue = "uniform";
         LoadFields();
+        UpdateVisibility();
         _initializing = false;
     }
 
     void LoadCaseCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_initializing) LoadFields();
+    }
+
+    void DistributionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_initializing) UpdateVisibility();
+    }
+
+    bool IsPoint => (distributionCombo.SelectedValue as string) == "point";
+
+    void UpdateVisibility()
+    {
+        var pointVisibility = IsPoint ? Visibility.Visible : Visibility.Collapsed;
+        var nonPointVisibility = IsPoint ? Visibility.Collapsed : Visibility.Visible;
+        endOffsetPanel.Visibility = nonPointVisibility;
+        endHeaderText.Visibility = nonPointVisibility;
+        qxEndBox.Visibility = nonPointVisibility;
+        qyEndBox.Visibility = nonPointVisibility;
+        qzEndBox.Visibility = nonPointVisibility;
+        momentGrid.Visibility = pointVisibility;
+        unitsHintUniform.Visibility = nonPointVisibility;
+        unitsHintPoint.Visibility = pointVisibility;
     }
 
     void LoadFields()
@@ -50,6 +72,10 @@ public partial class FemMemberLoadDialog : Window
         qxEndBox.Text = Format(load?.QxEnd ?? 0);
         qyEndBox.Text = Format(load?.QyEnd ?? 0);
         qzEndBox.Text = Format(load?.QzEnd ?? 0);
+        mxBox.Text = Format(load?.Mx ?? 0);
+        myBox.Text = Format(load?.My ?? 0);
+        mzBox.Text = Format(load?.Mz ?? 0);
+        UpdateVisibility();
     }
 
     void Apply_Click(object sender, RoutedEventArgs e)
@@ -59,10 +85,15 @@ public partial class FemMemberLoadDialog : Window
             CultureInfo.CurrentCulture, out var value) ? value : 0;
         string coordinate = coordinateCombo.SelectedValue as string ?? "local";
         string distribution = distributionCombo.SelectedValue as string ?? "uniform";
+        bool isPoint = distribution == "point";
         double qxStart = Parse(qxStartBox), qyStart = Parse(qyStartBox), qzStart = Parse(qzStartBox);
-        double qxEnd = distribution == "uniform" ? qxStart : Parse(qxEndBox);
-        double qyEnd = distribution == "uniform" ? qyStart : Parse(qyEndBox);
-        double qzEnd = distribution == "uniform" ? qzStart : Parse(qzEndBox);
+        double qxEnd = isPoint ? 0 : distribution == "uniform" ? qxStart : Parse(qxEndBox);
+        double qyEnd = isPoint ? 0 : distribution == "uniform" ? qyStart : Parse(qyEndBox);
+        double qzEnd = isPoint ? 0 : distribution == "uniform" ? qzStart : Parse(qzEndBox);
+        double endOffset = isPoint ? 0 : Parse(endOffsetBox);
+        double mx = isPoint ? Parse(mxBox) : 0;
+        double my = isPoint ? Parse(myBox) : 0;
+        double mz = isPoint ? Parse(mzBox) : 0;
         int applied = 0;
 
         foreach (var member in _members.Where(member => member.Id != 0))
@@ -78,9 +109,10 @@ public partial class FemMemberLoadDialog : Window
                 CoordinateSystem = coordinate,
                 DistributionType = distribution,
                 StartOffsetM = Parse(startOffsetBox),
-                EndOffsetM = Parse(endOffsetBox),
+                EndOffsetM = endOffset,
                 QxStart = qxStart, QyStart = qyStart, QzStart = qzStart,
-                QxEnd = qxEnd, QyEnd = qyEnd, QzEnd = qzEnd
+                QxEnd = qxEnd, QyEnd = qyEnd, QzEnd = qzEnd,
+                Mx = mx, My = my, Mz = mz
             }));
             applied++;
         }
