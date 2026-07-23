@@ -33,6 +33,7 @@ public class Fem3DVM : ViewModelBase
     IReadOnlyList<FemLoadCase> _diagramLoadCases = [];
     IReadOnlyList<FemNodeLoad> _diagramNodeLoads = [];
     IReadOnlyList<FemMemberLoad> _diagramMemberLoads = [];
+    IReadOnlyList<FemKinematicLoad> _diagramKinematicLoads = [];
 
     bool   _isLoading = true;
     bool   _noData;
@@ -160,6 +161,7 @@ public class Fem3DVM : ViewModelBase
             _diagramLoadCases = _db.GetFemLoadCases(_schemaId);
             _diagramNodeLoads = _db.GetFemNodeLoads(_schemaId);
             _diagramMemberLoads = _db.GetFemMemberLoads(_schemaId);
+            _diagramKinematicLoads = _db.GetFemKinematicLoads(_schemaId);
             RefreshDiagramSources(_diagramLoadCases, []);
             if (_memberOnly == null && _highlightMember == null && !constructiveEmpty)
                 await LoadMeshOverlayAsync();
@@ -246,6 +248,7 @@ public class Fem3DVM : ViewModelBase
         _diagramLoadCases = session.LoadCases;
         _diagramNodeLoads = session.NodeLoads;
         _diagramMemberLoads = session.MemberLoads;
+        _diagramKinematicLoads = session.KinematicLoads;
         DiagramNodePositions = session.Nodes.ToDictionary(node => node.Id, node => new Point3D(node.X, node.Y, node.Z));
         RefreshDiagramSources(session.LoadCases, session.LoadDefinitions);
         RefreshDiagramGlyphs();
@@ -281,9 +284,9 @@ public class Fem3DVM : ViewModelBase
         {
             { LoadCase: { } loadCase } => FemLoadExpressionResolver.Resolve(
                 new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [loadCase.Id] },
-                [loadCase], _diagramNodeLoads, _diagramMemberLoads),
+                [loadCase], _diagramNodeLoads, _diagramMemberLoads, _diagramKinematicLoads),
             { Definition: { } definition } => FemLoadExpressionResolver.Resolve(
-                definition.GetExpression(), _diagramLoadCases, _diagramNodeLoads, _diagramMemberLoads),
+                definition.GetExpression(), _diagramLoadCases, _diagramNodeLoads, _diagramMemberLoads, _diagramKinematicLoads),
             _ => new FemResolvedLoads([], [], [])
         };
         var displayNodeLoads = resolved.NodeLoads
@@ -292,7 +295,9 @@ public class Fem3DVM : ViewModelBase
             .Select(load => new FemResolvedNodeLoad(
                 load.NodeId, load.Fx, load.Fy, load.Fz, load.Mx, load.My, load.Mz))
             .ToArray();
-        DiagramGlyphs = FemDiagramGlyphFactory.Create(_diagramNodes, displayNodeLoads, ShowSupportGlyphs, ShowLoadGlyphs);
+        var displayKinematicLoads = resolved.KinematicLoads.Where(load => load.Value != 0).ToArray();
+        DiagramGlyphs = FemDiagramGlyphFactory.Create(
+            _diagramNodes, displayNodeLoads, displayKinematicLoads, ShowSupportGlyphs, ShowLoadGlyphs);
         MemberLoadGlyphs = ShowLoadGlyphs
             ? FemMemberLoadGlyphFactory.Create(_diagramMembers, _diagramNodes, resolved.MemberLoads)
             : [];

@@ -39,7 +39,7 @@ public sealed class FemDiagramGlyphTests
     public void Factory_EmitsSeparateTranslationAndRotationSupportGlyphs()
     {
         var glyphs = FemDiagramGlyphFactory.Create(
-            [new FemNode { Id = 1, DofMask = 1 | 32 }], [], showSupports: true, showLoads: false);
+            [new FemNode { Id = 1, DofMask = 1 | 32 }], [], [], showSupports: true, showLoads: false);
 
         Assert.Contains(glyphs, glyph => glyph.Kind == FemDiagramGlyphKind.TranslationSupport && glyph.Axis == new Vector3D(1, 0, 0));
         Assert.Contains(glyphs, glyph => glyph.Kind == FemDiagramGlyphKind.RotationSupport && glyph.Axis == new Vector3D(0, 0, 1));
@@ -86,14 +86,39 @@ public sealed class FemDiagramGlyphTests
     {
         var load = new FemResolvedNodeLoad(1, 0, 0, -4, 0, 2, 0);
 
-        var loadsOnly = FemDiagramGlyphFactory.Create([], [load], showSupports: false, showLoads: true);
+        var loadsOnly = FemDiagramGlyphFactory.Create([], [load], [], showSupports: false, showLoads: true);
         var fz = Assert.Single(loadsOnly, glyph => glyph.Kind == FemDiagramGlyphKind.Force);
         Assert.Equal(new Vector3D(0, 0, 1), fz.Axis);
         Assert.Equal(-1, fz.Sign);
         Assert.Contains("Fz", fz.Label);
 
-        var hidden = FemDiagramGlyphFactory.Create([], [load], showSupports: false, showLoads: false);
+        var hidden = FemDiagramGlyphFactory.Create([], [load], [], showSupports: false, showLoads: false);
         Assert.Empty(hidden);
+    }
+
+    [Fact]
+    public void Factory_EmitsKinematicDisplacementAndRotationGlyphs()
+    {
+        var kinematicLoads = new[]
+        {
+            new FemKinematicLoad { NodeId = 1, Dof = 3, Value = 0.015 },
+            new FemKinematicLoad { NodeId = 1, Dof = 4, Value = 0.02 },
+            new FemKinematicLoad { NodeId = 1, Dof = 6, Value = 0 }
+        };
+
+        var glyphs = FemDiagramGlyphFactory.Create([], [], kinematicLoads, showSupports: false, showLoads: true);
+
+        var displacement = Assert.Single(glyphs, glyph => glyph.Kind == FemDiagramGlyphKind.KinematicDisplacement);
+        Assert.Equal(new Vector3D(0, 0, 1), displacement.Axis);
+        Assert.Equal("Uz", displacement.Component);
+        Assert.Equal(0.015, displacement.Value, 8);
+
+        var rotation = Assert.Single(glyphs, glyph => glyph.Kind == FemDiagramGlyphKind.KinematicRotation);
+        Assert.Equal(new Vector3D(1, 0, 0), rotation.Axis);
+        Assert.Equal("Rx", rotation.Component);
+
+        // Dof=6 со значением 0 не должен создавать глиф.
+        Assert.DoesNotContain(glyphs, glyph => glyph.Component == "Rz");
     }
 
     [Fact]

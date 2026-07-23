@@ -8,7 +8,9 @@ public enum FemDiagramGlyphKind
     TranslationSupport,
     RotationSupport,
     Force,
-    Moment
+    Moment,
+    KinematicDisplacement,
+    KinematicRotation
 }
 
 /// <summary>Независимое от Helix описание одного условного знака в 3D-сцене.</summary>

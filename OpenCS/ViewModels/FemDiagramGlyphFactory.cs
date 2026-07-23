@@ -16,10 +16,22 @@ public static class FemDiagramGlyphFactory
         (32, new(0, 0, 1), "Rz", FemDiagramGlyphKind.RotationSupport)
     ];
 
-    /// <summary>Создаёт знаки двух независимо отключаемых слоёв: закреплений и нагрузок.</summary>
+    static readonly (int Dof, Vector3D Axis, string Component, bool IsRotation)[] KinematicDofs =
+    [
+        (1, new(1, 0, 0), "Ux", false),
+        (2, new(0, 1, 0), "Uy", false),
+        (3, new(0, 0, 1), "Uz", false),
+        (4, new(1, 0, 0), "Rx", true),
+        (5, new(0, 1, 0), "Ry", true),
+        (6, new(0, 0, 1), "Rz", true)
+    ];
+
+    /// <summary>Создаёт знаки двух независимо отключаемых слоёв: закреплений и нагрузок
+    /// (силовых и кинематических — заданных перемещений/поворотов).</summary>
     public static IReadOnlyList<FemDiagramGlyph> Create(
         IReadOnlyList<FemNode> nodes,
         IReadOnlyList<FemResolvedNodeLoad> loads,
+        IReadOnlyList<FemKinematicLoad> kinematicLoads,
         bool showSupports,
         bool showLoads)
     {
@@ -44,6 +56,8 @@ public static class FemDiagramGlyphFactory
                 AddLoad(result, load.NodeId, new Vector3D(0, 1, 0), "My", load.My, true);
                 AddLoad(result, load.NodeId, new Vector3D(0, 0, 1), "Mz", load.Mz, true);
             }
+            foreach (var kinematic in kinematicLoads)
+                AddKinematic(result, kinematic);
         }
 
         return result;
@@ -54,5 +68,15 @@ public static class FemDiagramGlyphFactory
         if (value == 0) return;
         target.Add(new FemDiagramGlyph(moment ? FemDiagramGlyphKind.Moment : FemDiagramGlyphKind.Force,
             nodeId, axis, Math.Sign(value), component, value, false));
+    }
+
+    static void AddKinematic(List<FemDiagramGlyph> target, FemKinematicLoad load)
+    {
+        if (load.Value == 0) return;
+        var entry = KinematicDofs.FirstOrDefault(item => item.Dof == load.Dof);
+        if (entry.Component == null) return;
+        target.Add(new FemDiagramGlyph(
+            entry.IsRotation ? FemDiagramGlyphKind.KinematicRotation : FemDiagramGlyphKind.KinematicDisplacement,
+            load.NodeId, entry.Axis, Math.Sign(load.Value), entry.Component, load.Value, false));
     }
 }

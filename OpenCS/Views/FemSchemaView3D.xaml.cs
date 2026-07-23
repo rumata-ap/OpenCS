@@ -337,16 +337,38 @@ public partial class FemSchemaView3D : UserControl
                     break;
                 case FemDiagramGlyphKind.Force:
                     DrawForce(node, axis * glyph.Sign, side, up,
-                        VM.ShowLoadValues ? FormatComponentValue(glyph.Component, glyph.Value, moment: false) : null);
+                        VM.ShowLoadValues ? FormatComponentValue(glyph.Component, glyph.Value, moment: false) : null,
+                        Colors.Crimson);
                     AddNodeLoadPickTarget(node, glyph.NodeId);
                     break;
                 case FemDiagramGlyphKind.Moment:
                     DrawMoment(node, axis * glyph.Sign, side, up,
-                        VM.ShowLoadValues ? FormatComponentValue(glyph.Component, glyph.Value, moment: true) : null);
+                        VM.ShowLoadValues ? FormatComponentValue(glyph.Component, glyph.Value, moment: true) : null,
+                        Colors.DarkOrange);
                     AddNodeLoadPickTarget(node, glyph.NodeId);
+                    break;
+                case FemDiagramGlyphKind.KinematicDisplacement:
+                    DrawForce(node, axis * glyph.Sign, side, up,
+                        VM.ShowLoadValues ? FormatKinematicValue(glyph.Component, glyph.Value, rotation: false) : null,
+                        KinematicColor);
+                    break;
+                case FemDiagramGlyphKind.KinematicRotation:
+                    DrawMoment(node, axis * glyph.Sign, side, up,
+                        VM.ShowLoadValues ? FormatKinematicValue(glyph.Component, glyph.Value, rotation: true) : null,
+                        KinematicColor);
                     break;
             }
         }
+    }
+
+    /// <summary>Цвет глифов кинематических воздействий (заданных перемещений/поворотов) — тот же,
+    /// что и у иконки KinematicLoadTool на тулбаре, чтобы визуально связать инструмент и результат.</summary>
+    static readonly Color KinematicColor = Color.FromRgb(0x8E, 0x44, 0xAD);
+
+    static string FormatKinematicValue(string component, double value, bool rotation)
+    {
+        string unit = Loc.S(rotation ? "FemUnitRad" : "FemUnitM");
+        return $"{component} = {value:0.####} {unit}";
     }
 
     /// <summary>Прозрачная сфера-прокси для выбора узловой нагрузки правым кликом (только в режиме
@@ -393,20 +415,20 @@ public partial class FemSchemaView3D : UserControl
         AddGlyphLines(Colors.MediumBlue, 2, [tip, tip - side * 0.1 - up * 0.06, tip, tip + side * 0.04 - up * 0.1]);
     }
 
-    void DrawForce(Point3D node, Vector3D direction, Vector3D side, Vector3D up, string? valueText)
+    void DrawForce(Point3D node, Vector3D direction, Vector3D side, Vector3D up, string? valueText, Color color)
     {
         var tip = node - direction * 0.16;
         var tail = node - direction * 0.72;
-        AddGlyphLines(Colors.Crimson, 2.5,
+        AddGlyphLines(color, 2.5,
             [tail, tip,
              tip, tip - direction * 0.18 + side * 0.11,
              tip, tip - direction * 0.18 - side * 0.11,
              tip, tip - direction * 0.18 + up * 0.11,
              tip, tip - direction * 0.18 - up * 0.11]);
-        if (valueText != null) AddValueLabel(tail, valueText, Colors.Crimson);
+        if (valueText != null) AddValueLabel(tail, valueText, color);
     }
 
-    void DrawMoment(Point3D node, Vector3D axis, Vector3D side, Vector3D up, string? valueText)
+    void DrawMoment(Point3D node, Vector3D axis, Vector3D side, Vector3D up, string? valueText, Color color)
     {
         var points = new Point3DCollection();
         for (int i = 0; i <= 16; i++)
@@ -414,12 +436,12 @@ public partial class FemSchemaView3D : UserControl
             double angle = Math.PI * 1.65 * i / 16;
             points.Add(node + side * (Math.Cos(angle) * 0.32) + up * (Math.Sin(angle) * 0.32));
         }
-        AddGlyphLine(Colors.DarkOrange, 2.5, points);
-        if (valueText != null) AddValueLabel(node + side * 0.32 + up * 0.32, valueText, Colors.DarkOrange);
+        AddGlyphLine(color, 2.5, points);
+        if (valueText != null) AddValueLabel(node + side * 0.32 + up * 0.32, valueText, color);
         var tip = points[^1];
         var tangent = Vector3D.CrossProduct(axis, tip - node);
         tangent.Normalize();
-        AddGlyphLines(Colors.DarkOrange, 2.5,
+        AddGlyphLines(color, 2.5,
             [tip, tip - tangent * 0.15 + axis * 0.08, tip, tip - tangent * 0.15 - axis * 0.08]);
     }
 
