@@ -59,7 +59,7 @@ public sealed class FemLinearTclGenerator
                 L($"    eleLoad -ele {ld.ElementTag} -type -beamUniform {F(ld.WyStart)} {F(ld.WzStart)} {F(ld.WxStart)} {F(ld.AOverL)} {F(ld.BOverL)} {F(ld.WyEnd)} {F(ld.WzEnd)} {F(ld.WxEnd)}");
         }
         foreach (var ld in model.PointLoads)
-            L($"    eleLoad -ele {ld.ElementTag} -type -beamPoint {F(ld.Py)} {F(ld.Pz)} {F(ld.Px)} {F(ld.XOverL)}");
+            L($"    eleLoad -ele {ld.ElementTag} -type -beamPoint {F(ld.Py)} {F(ld.Pz)} {F(ld.XOverL)} {F(ld.Px)}");
         L("}");
         L();
 

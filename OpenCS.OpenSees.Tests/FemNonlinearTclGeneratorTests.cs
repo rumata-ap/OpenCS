@@ -114,12 +114,12 @@ public class FemNonlinearTclGeneratorTests
             MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
             Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
             GeomTransfKind = baseModel.GeomTransfKind,
-            PointLoads = [new FemLinearPointLoad(1, -1500, 250, 0, 0.4)]
+            PointLoads = [new FemLinearPointLoad(1, -1500, 250, 0, 0.5)]
         };
 
         string tcl = new FemNonlinearTclGenerator().Generate(model);
 
-        Assert.Contains("eleLoad -ele 1 -type -beamPoint -1500 250 0 0.4", tcl);
+        Assert.Contains("eleLoad -ele 1 -type -beamPoint -1500 250 0.5 0", tcl);
     }
 
     [Fact]
