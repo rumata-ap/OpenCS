@@ -1579,13 +1579,13 @@
     <system:String x:Key="FemLoadCaseDefaultTag">Load case</system:String>
     <system:String x:Key="FemNodeLoadHint">Select nodes in the 3D view and set load components.</system:String>
     <system:String x:Key="FemNodeLoadToolTip">Set nodal load for selected nodes</system:String>
-    <system:String x:Key="FemMemberLoadToolTip">Set distributed load for selected members</system:String>
+    <system:String x:Key="FemMemberLoadToolTip">Set load for selected members (distributed or point)</system:String>
     <system:String x:Key="FemNodeLoadCtx">Set nodal load</system:String>
-    <system:String x:Key="FemMemberLoadCtx">Set distributed load</system:String>
+    <system:String x:Key="FemMemberLoadCtx">Set member load</system:String>
     <system:String x:Key="FemNodeLoadSelectNodes">Select at least one node.</system:String>
     <system:String x:Key="FemMemberLoadSelectMembers">Select at least one member.</system:String>
     <system:String x:Key="FemNodeLoadDialogTitle">Nodal load</system:String>
-    <system:String x:Key="FemMemberLoadDialogTitle">Distributed member load</system:String>
+    <system:String x:Key="FemMemberLoadDialogTitle">Member load</system:String>
     <system:String x:Key="FemLoadSelectedCount">Selected objects: {0}</system:String>
     <system:String x:Key="FemNodeLoadDialogApply">Apply load</system:String>
     <system:String x:Key="FemMemberLoadDialogApply">Apply load</system:String>

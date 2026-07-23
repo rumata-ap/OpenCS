@@ -1582,13 +1582,13 @@
     <system:String x:Key="FemLoadCaseDefaultTag">Загружение</system:String>
     <system:String x:Key="FemNodeLoadHint">Выберите узлы в 3D-виде и задайте компоненты нагрузки.</system:String>
     <system:String x:Key="FemNodeLoadToolTip">Задать узловую нагрузку выбранным узлам</system:String>
-    <system:String x:Key="FemMemberLoadToolTip">Задать распределённую нагрузку выбранным стержням</system:String>
+    <system:String x:Key="FemMemberLoadToolTip">Задать нагрузку выбранным стержням (распределённую или сосредоточенную)</system:String>
     <system:String x:Key="FemNodeLoadCtx">Задать узловую нагрузку</system:String>
-    <system:String x:Key="FemMemberLoadCtx">Задать распределённую нагрузку</system:String>
+    <system:String x:Key="FemMemberLoadCtx">Задать нагрузку на стержень</system:String>
     <system:String x:Key="FemNodeLoadSelectNodes">Выберите хотя бы один узел.</system:String>
     <system:String x:Key="FemMemberLoadSelectMembers">Выберите хотя бы один стержень.</system:String>
     <system:String x:Key="FemNodeLoadDialogTitle">Узловая нагрузка</system:String>
-    <system:String x:Key="FemMemberLoadDialogTitle">Распределённая нагрузка на стержни</system:String>
+    <system:String x:Key="FemMemberLoadDialogTitle">Нагрузка на стержни</system:String>
     <system:String x:Key="FemLoadSelectedCount">Выбрано объектов: {0}</system:String>
     <system:String x:Key="FemNodeLoadDialogApply">Применить нагрузку</system:String>
     <system:String x:Key="FemMemberLoadDialogApply">Применить нагрузку</system:String>
