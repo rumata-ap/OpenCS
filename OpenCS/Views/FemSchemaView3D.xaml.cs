@@ -399,7 +399,7 @@ public partial class FemSchemaView3D : UserControl
         viewport.Children.Add(new LinesVisual3D { Points = points, Color = color, Thickness = thickness });
     }
 
-    /// <summary>Рисует стрелки распределённых нагрузок на активном участке стержня.</summary>
+    /// <summary>Рисует стрелки распределённых и сосредоточенных нагрузок на активном участке стержня.</summary>
     void BuildMemberLoadGlyphs()
     {
         if (VM is not { ShowLoadGlyphs: true }) return;
@@ -408,7 +408,14 @@ public partial class FemSchemaView3D : UserControl
         {
             var member = glyph.End - glyph.Start;
             double length = member.Length;
-            if (!double.IsFinite(length) || length < 1e-12) continue;
+
+            if (!double.IsFinite(length) || length < 1e-12)
+            {
+                // Сосредоточенная нагрузка: Start == End, стержень-касательная неизвестна —
+                // одна стрелка фиксированной длины в точке приложения.
+                DrawLoadArrow(glyph.Start, glyph.LoadAtStart, new Vector3D(0, 0, 1), 0.3);
+                continue;
+            }
 
             AddGlyphLine(Colors.DarkGreen, 2.5, [glyph.Start, glyph.End]);
             for (int i = 0; i <= 4; i++)
@@ -419,27 +426,35 @@ public partial class FemSchemaView3D : UserControl
                     glyph.LoadAtStart.X + (glyph.LoadAtEnd.X - glyph.LoadAtStart.X) * t,
                     glyph.LoadAtStart.Y + (glyph.LoadAtEnd.Y - glyph.LoadAtStart.Y) * t,
                     glyph.LoadAtStart.Z + (glyph.LoadAtEnd.Z - glyph.LoadAtStart.Z) * t);
-                double magnitude = value.Length;
-                if (!double.IsFinite(magnitude) || magnitude < 1e-12) continue;
-
-                var direction = value;
-                direction.Normalize();
                 double arrowLength = Math.Clamp(length * 0.22, 0.08, 0.35);
-                var side = Vector3D.CrossProduct(member, direction);
-                if (side.Length < 1e-10)
-                    side = Math.Abs(direction.Z) < 0.9
-                        ? Vector3D.CrossProduct(direction, new Vector3D(0, 0, 1))
-                        : Vector3D.CrossProduct(direction, new Vector3D(0, 1, 0));
-                side.Normalize();
-                var tip = point;
-                var tail = point - direction * arrowLength;
-                AddGlyphLines(Colors.DarkGreen, 2.2,
-                    [tail, tip,
-                     tip - direction * arrowLength * 0.32 + side * arrowLength * 0.18,
-                     tip,
-                     tip - direction * arrowLength * 0.32 - side * arrowLength * 0.18]);
+                DrawLoadArrow(point, value, member, arrowLength);
             }
         }
+    }
+
+    /// <summary>Рисует одну стрелку нагрузки в точке `point` в направлении `value`. `memberTangent» —
+    /// касательная стержня для устойчивого выбора поперечного направления оперения стрелки;
+    /// при нулевой/параллельной касательной используется запасное глобальное направление.</summary>
+    void DrawLoadArrow(Point3D point, Vector3D value, Vector3D memberTangent, double arrowLength)
+    {
+        double magnitude = value.Length;
+        if (!double.IsFinite(magnitude) || magnitude < 1e-12) return;
+
+        var direction = value;
+        direction.Normalize();
+        var side = Vector3D.CrossProduct(memberTangent, direction);
+        if (side.Length < 1e-10)
+            side = Math.Abs(direction.Z) < 0.9
+                ? Vector3D.CrossProduct(direction, new Vector3D(0, 0, 1))
+                : Vector3D.CrossProduct(direction, new Vector3D(0, 1, 0));
+        side.Normalize();
+        var tip = point;
+        var tail = point - direction * arrowLength;
+        AddGlyphLines(Colors.DarkGreen, 2.2,
+            [tail, tip,
+             tip - direction * arrowLength * 0.32 + side * arrowLength * 0.18,
+             tip,
+             tip - direction * arrowLength * 0.32 - side * arrowLength * 0.18]);
     }
 
     /// <summary>Рисует контуры сечений и положительные направления локальных Y/Z.</summary>
