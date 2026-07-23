@@ -50,6 +50,42 @@ public sealed class FemMemberLoadDatabaseTests
     }
 
     [Fact]
+    public void PointLoad_RoundTripsMomentComponentsThroughDatabase()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-point-load-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var db = new DatabaseService(path);
+            var schema = new FemSchema { Tag = "Point load test" };
+            db.SaveFemSchema(schema);
+            db.SaveFemTopology(schema.Id,
+                [new FemNode { SchemaId = schema.Id, NodeTag = "1" }, new FemNode { SchemaId = schema.Id, NodeTag = "2" }],
+                [new FemMember { SchemaId = schema.Id, ElemTag = "10", NodeIdsJson = "[1,2]" }], []);
+            var member = db.GetFemMembers(schema.Id).Single();
+            var loadCase = new FemLoadCase { SchemaId = schema.Id, Tag = "Q" };
+            db.SaveFemLoadCase(loadCase);
+            var load = new FemMemberLoad
+            {
+                SchemaId = schema.Id, LoadCaseId = loadCase.Id, MemberId = member.Id,
+                CoordinateSystem = "local", DistributionType = "point", StartOffsetM = 1.5,
+                QxStart = 10, QyStart = -20, QzStart = 30, Mx = 100, My = -200, Mz = 300
+            };
+
+            db.SaveFemMemberLoad(load);
+            var copy = db.GetFemMemberLoads(schema.Id).Single();
+
+            Assert.Equal("point", copy.DistributionType);
+            Assert.Equal(100, copy.Mx);
+            Assert.Equal(-200, copy.My);
+            Assert.Equal(300, copy.Mz);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void SaveFemSchemaEdit_RemapsTransientMemberAndLoadCaseReferences()
     {
         string path = Path.Combine(Path.GetTempPath(), $"opencs-member-load-edit-{Guid.NewGuid():N}.db");

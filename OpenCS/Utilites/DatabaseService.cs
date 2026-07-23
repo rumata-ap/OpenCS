@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-        const int CurrentSchemaVersion = 37;
+        const int CurrentSchemaVersion = 38;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -433,7 +433,10 @@ namespace OpenCS.Utilites
                 qz_start REAL NOT NULL DEFAULT 0,
                 qx_end REAL NOT NULL DEFAULT 0,
                 qy_end REAL NOT NULL DEFAULT 0,
-                qz_end REAL NOT NULL DEFAULT 0
+                qz_end REAL NOT NULL DEFAULT 0,
+                mx REAL NOT NULL DEFAULT 0,
+                my REAL NOT NULL DEFAULT 0,
+                mz REAL NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS fem_load_definitions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -521,6 +524,7 @@ namespace OpenCS.Utilites
                if (i == 34) { MigrateV35(); continue; }
                if (i == 35) { MigrateV36(); continue; }
                if (i == 36) { MigrateV37(); continue; }
+               if (i == 37) { MigrateV38(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -944,6 +948,17 @@ namespace OpenCS.Utilites
                 qz_end REAL NOT NULL DEFAULT 0
             );
          """);
+      }
+
+      /// <summary>Миграция v38: сосредоточенные нагрузки (момент) на конструктивных стержнях.</summary>
+      void MigrateV38()
+      {
+         if (!ColumnExists("fem_member_loads", "mx"))
+            MigExec("ALTER TABLE fem_member_loads ADD COLUMN mx REAL NOT NULL DEFAULT 0");
+         if (!ColumnExists("fem_member_loads", "my"))
+            MigExec("ALTER TABLE fem_member_loads ADD COLUMN my REAL NOT NULL DEFAULT 0");
+         if (!ColumnExists("fem_member_loads", "mz"))
+            MigExec("ALTER TABLE fem_member_loads ADD COLUMN mz REAL NOT NULL DEFAULT 0");
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -3218,7 +3233,7 @@ namespace OpenCS.Utilites
          cmd.CommandText = """
             SELECT id, load_case_id, member_id, coordinate_system, distribution_type,
                    start_offset_m, end_offset_m, qx_start, qy_start, qz_start,
-                   qx_end, qy_end, qz_end
+                   qx_end, qy_end, qz_end, mx, my, mz
             FROM fem_member_loads
             WHERE schema_id=@sid AND (@lc IS NULL OR load_case_id=@lc)
             ORDER BY id
@@ -3234,7 +3249,8 @@ namespace OpenCS.Utilites
                CoordinateSystem = r.GetString(3), DistributionType = r.GetString(4),
                StartOffsetM = r.GetDouble(5), EndOffsetM = r.GetDouble(6),
                QxStart = r.GetDouble(7), QyStart = r.GetDouble(8), QzStart = r.GetDouble(9),
-               QxEnd = r.GetDouble(10), QyEnd = r.GetDouble(11), QzEnd = r.GetDouble(12)
+               QxEnd = r.GetDouble(10), QyEnd = r.GetDouble(11), QzEnd = r.GetDouble(12),
+               Mx = r.GetDouble(13), My = r.GetDouble(14), Mz = r.GetDouble(15)
             });
          return result;
       }
@@ -3363,8 +3379,8 @@ namespace OpenCS.Utilites
                   INSERT INTO fem_member_loads
                      (schema_id, load_case_id, member_id, coordinate_system, distribution_type,
                       start_offset_m, end_offset_m, qx_start, qy_start, qz_start,
-                      qx_end, qy_end, qz_end)
-                  VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze);
+                      qx_end, qy_end, qz_end, mx, my, mz)
+                  VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze, @mx, @my, @mz);
                   SELECT last_insert_rowid();
                """;
                AddFemMemberLoadParameters(cmd, load);
@@ -3377,7 +3393,8 @@ namespace OpenCS.Utilites
                      coordinate_system=@cs, distribution_type=@dt,
                      start_offset_m=@so, end_offset_m=@eo,
                      qx_start=@qxs, qy_start=@qys, qz_start=@qzs,
-                     qx_end=@qxe, qy_end=@qye, qz_end=@qze
+                     qx_end=@qxe, qy_end=@qye, qz_end=@qze,
+                     mx=@mx, my=@my, mz=@mz
                   WHERE id=@id AND schema_id=@sid
                """;
                AddFemMemberLoadParameters(cmd, load);
@@ -3415,6 +3432,9 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@qxe", load.QxEnd);
          cmd.Parameters.AddWithValue("@qye", load.QyEnd);
          cmd.Parameters.AddWithValue("@qze", load.QzEnd);
+         cmd.Parameters.AddWithValue("@mx", load.Mx);
+         cmd.Parameters.AddWithValue("@my", load.My);
+         cmd.Parameters.AddWithValue("@mz", load.Mz);
       }
 
       static void AddFemNodeLoadParameters(SqliteCommand cmd, CScore.Fem.FemNodeLoad load)
@@ -3720,8 +3740,9 @@ namespace OpenCS.Utilites
             memberLoadCmd.CommandText = """
                INSERT INTO fem_member_loads
                   (schema_id, load_case_id, member_id, coordinate_system, distribution_type,
-                   start_offset_m, end_offset_m, qx_start, qy_start, qz_start, qx_end, qy_end, qz_end)
-               VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze)
+                   start_offset_m, end_offset_m, qx_start, qy_start, qz_start, qx_end, qy_end, qz_end,
+                   mx, my, mz)
+               VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze, @mx, @my, @mz)
             """;
             foreach (var (memberTag, load) in preservedMemberLoads)
             {
@@ -3739,6 +3760,9 @@ namespace OpenCS.Utilites
                memberLoadCmd.Parameters.AddWithValue("@qxe", load.QxEnd);
                memberLoadCmd.Parameters.AddWithValue("@qye", load.QyEnd);
                memberLoadCmd.Parameters.AddWithValue("@qze", load.QzEnd);
+               memberLoadCmd.Parameters.AddWithValue("@mx", load.Mx);
+               memberLoadCmd.Parameters.AddWithValue("@my", load.My);
+               memberLoadCmd.Parameters.AddWithValue("@mz", load.Mz);
                memberLoadCmd.ExecuteNonQuery();
             }
 
@@ -3993,8 +4017,8 @@ namespace OpenCS.Utilites
                   INSERT INTO fem_member_loads
                      (schema_id, load_case_id, member_id, coordinate_system, distribution_type,
                       start_offset_m, end_offset_m, qx_start, qy_start, qz_start,
-                      qx_end, qy_end, qz_end)
-                  VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze);
+                      qx_end, qy_end, qz_end, mx, my, mz)
+                  VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze, @mx, @my, @mz);
                   SELECT last_insert_rowid();
                """;
                foreach (var load in memberLoads)
@@ -4015,6 +4039,9 @@ namespace OpenCS.Utilites
                   memberLoadCmd.Parameters.AddWithValue("@qxe", load.QxEnd);
                   memberLoadCmd.Parameters.AddWithValue("@qye", load.QyEnd);
                   memberLoadCmd.Parameters.AddWithValue("@qze", load.QzEnd);
+                  memberLoadCmd.Parameters.AddWithValue("@mx", load.Mx);
+                  memberLoadCmd.Parameters.AddWithValue("@my", load.My);
+                  memberLoadCmd.Parameters.AddWithValue("@mz", load.Mz);
                   load.Id = (int)(long)memberLoadCmd.ExecuteScalar()!;
                   load.SchemaId = schemaId;
                   load.MemberId = memberId;
