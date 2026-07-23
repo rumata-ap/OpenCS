@@ -390,7 +390,7 @@ public partial class FemSchemaView3D : UserControl
         if (VM is not { EditMode: true }) return;
         string? nodeTag = Editor?.Session.Nodes.FirstOrDefault(n => n.Id == nodeId)?.NodeTag;
         if (nodeTag == null) return;
-        var handle = new SphereVisual3D { Center = glyphMidpoint, Radius = 0.1, Fill = new SolidColorBrush(color) };
+        var handle = new SphereVisual3D { Center = glyphMidpoint, Radius = 0.05, Fill = new SolidColorBrush(color) };
         _loadPickTargets[handle] = (true, nodeTag);
         viewport.Children.Add(handle);
     }
@@ -533,7 +533,7 @@ public partial class FemSchemaView3D : UserControl
     void AddMemberLoadPickTarget(Point3D position, string memberTag)
     {
         if (VM is not { EditMode: true }) return;
-        var handle = new SphereVisual3D { Center = position, Radius = 0.1, Fill = new SolidColorBrush(Colors.DarkGreen) };
+        var handle = new SphereVisual3D { Center = position, Radius = 0.05, Fill = new SolidColorBrush(Colors.DarkGreen) };
         _loadPickTargets[handle] = (false, memberTag);
         viewport.Children.Add(handle);
     }
