@@ -34,9 +34,11 @@ public partial class FemSchemaView3D : UserControl
 
     readonly Dictionary<Visual3D, (bool IsNode, string Tag)> _pickTargets = new();
     readonly Dictionary<Visual3D, (bool IsNodeLoad, string Tag)> _loadPickTargets = new();
+    readonly Dictionary<Visual3D, (string NodeTag, int Dof)> _kinematicPickTargets = new();
     PointsVisual3D? _editNodesVisual;
     string? _contextMenuTargetTag;
     (bool IsNodeLoad, string Tag)? _contextMenuLoadTarget;
+    (string NodeTag, int Dof)? _contextMenuKinematicTarget;
 
     bool _createNodeMode;
     bool _createBarMode;
@@ -237,6 +239,7 @@ public partial class FemSchemaView3D : UserControl
         _meshVisual = null;
         _meshNodeGlyphVisual = null;
         _loadPickTargets.Clear();
+        _kinematicPickTargets.Clear();
         viewport.Children.Add(new DefaultLights());
 
         if (VM == null) return;
@@ -356,15 +359,21 @@ public partial class FemSchemaView3D : UserControl
                     break;
                 }
                 case FemDiagramGlyphKind.KinematicDisplacement:
-                    DrawForce(node, axis * glyph.Sign, side, up,
+                {
+                    var mid = DrawForce(node, axis * glyph.Sign, side, up,
                         VM.ShowLoadValues ? FormatKinematicValue(glyph.Component, glyph.Value, rotation: false) : null,
                         KinematicColor);
+                    AddKinematicPickTarget(mid, glyph.NodeId, glyph.Component);
                     break;
+                }
                 case FemDiagramGlyphKind.KinematicRotation:
-                    DrawMoment(node, axis * glyph.Sign, side, up,
+                {
+                    var mid = DrawMoment(node, axis * glyph.Sign, side, up,
                         VM.ShowLoadValues ? FormatKinematicValue(glyph.Component, glyph.Value, rotation: true) : null,
                         KinematicColor);
+                    AddKinematicPickTarget(mid, glyph.NodeId, glyph.Component);
                     break;
+                }
             }
         }
     }
@@ -394,6 +403,25 @@ public partial class FemSchemaView3D : UserControl
         _loadPickTargets[handle] = (true, nodeTag);
         viewport.Children.Add(handle);
     }
+
+    /// <summary>Видимый маркер-«ручка» для выбора кинематического воздействия (заданного перемещения
+    /// или поворота) правым кликом. В отличие от узловой силовой нагрузки удаляется не целиком,
+    /// а по конкретной степени свободы — так же, как задаётся: в диалоге каждый DOF независим.</summary>
+    void AddKinematicPickTarget(Point3D glyphMidpoint, int nodeId, string component)
+    {
+        if (VM is not { EditMode: true }) return;
+        string? nodeTag = Editor?.Session.Nodes.FirstOrDefault(n => n.Id == nodeId)?.NodeTag;
+        int? dof = KinematicDof(component);
+        if (nodeTag == null || dof == null) return;
+        var handle = new SphereVisual3D { Center = glyphMidpoint, Radius = 0.05, Fill = new SolidColorBrush(KinematicColor) };
+        _kinematicPickTargets[handle] = (nodeTag, dof.Value);
+        viewport.Children.Add(handle);
+    }
+
+    static int? KinematicDof(string component) => component switch
+    {
+        "Ux" => 1, "Uy" => 2, "Uz" => 3, "Rx" => 4, "Ry" => 5, "Rz" => 6, _ => null
+    };
 
     static string FormatComponentValue(string component, double valueNewtons, bool moment)
     {
@@ -837,6 +865,29 @@ public partial class FemSchemaView3D : UserControl
 
         var position = e.GetPosition(viewport);
 
+        (string NodeTag, int Dof)? kinematicHit = null;
+        HitTestResultBehavior KinematicCallback(HitTestResult result)
+        {
+            if (result is RayMeshGeometry3DHitTestResult meshHit &&
+                _kinematicPickTargets.TryGetValue(meshHit.VisualHit, out var target))
+            {
+                kinematicHit = target;
+                return HitTestResultBehavior.Stop;
+            }
+            return HitTestResultBehavior.Continue;
+        }
+        VisualTreeHelper.HitTest(viewport, null, KinematicCallback, new PointHitTestParameters(position));
+        if (kinematicHit is { } kinematicTarget)
+        {
+            _contextMenuKinematicTarget = kinematicTarget;
+            _contextMenuLoadTarget = null;
+            var kinematicMenu = (ContextMenu)Resources["LoadContextMenu"];
+            kinematicMenu.PlacementTarget = viewport;
+            kinematicMenu.IsOpen = true;
+            e.Handled = true;
+            return;
+        }
+
         (bool IsNodeLoad, string Tag)? loadHit = null;
         HitTestResultBehavior LoadCallback(HitTestResult result)
         {
@@ -852,6 +903,7 @@ public partial class FemSchemaView3D : UserControl
         if (loadHit is { } loadTarget)
         {
             _contextMenuLoadTarget = loadTarget;
+            _contextMenuKinematicTarget = null;
             var loadMenu = (ContextMenu)Resources["LoadContextMenu"];
             loadMenu.PlacementTarget = viewport;
             loadMenu.IsOpen = true;
@@ -882,17 +934,31 @@ public partial class FemSchemaView3D : UserControl
 
     void LoadEditCtx_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextMenuLoadTarget is not { } target || Editor is not { } editor) return;
+        if (Editor is not { } editor) return;
         if (VM?.SelectedDiagramLoadSource?.LoadCase is { } loadCase)
             editor.SelectedLoadCase = loadCase;
+
+        if (_contextMenuKinematicTarget is { } kinematicTarget)
+        {
+            OpenKinematicLoadDialog(null, kinematicTarget.NodeTag);
+            return;
+        }
+        if (_contextMenuLoadTarget is not { } target) return;
         if (target.IsNodeLoad) OpenNodeLoadDialog(null, target.Tag);
         else OpenMemberLoadDialog(null, target.Tag);
     }
 
     void LoadDeleteCtx_Click(object sender, RoutedEventArgs e)
     {
-        if (_contextMenuLoadTarget is not { } target) return;
         if (Editor is not { } editor || VM?.SelectedDiagramLoadSource?.LoadCase is not { } loadCase) return;
+
+        if (_contextMenuKinematicTarget is { } kinematicTarget)
+        {
+            var kinematicNode = editor.Session.Nodes.FirstOrDefault(n => n.NodeTag == kinematicTarget.NodeTag);
+            if (kinematicNode != null) editor.DeleteKinematicLoad(kinematicNode, loadCase, kinematicTarget.Dof);
+            return;
+        }
+        if (_contextMenuLoadTarget is not { } target) return;
 
         if (target.IsNodeLoad)
         {
