@@ -66,15 +66,15 @@ public partial class FemMemberLoadDialog : Window
         distributionCombo.SelectedValue = load?.DistributionType ?? "uniform";
         startOffsetBox.Text = Format(load?.StartOffsetM ?? 0);
         endOffsetBox.Text = Format(load?.EndOffsetM ?? 0);
-        qxStartBox.Text = Format(load?.QxStart ?? 0);
-        qyStartBox.Text = Format(load?.QyStart ?? 0);
-        qzStartBox.Text = Format(load?.QzStart ?? 0);
-        qxEndBox.Text = Format(load?.QxEnd ?? 0);
-        qyEndBox.Text = Format(load?.QyEnd ?? 0);
-        qzEndBox.Text = Format(load?.QzEnd ?? 0);
-        mxBox.Text = Format(load?.Mx ?? 0);
-        myBox.Text = Format(load?.My ?? 0);
-        mzBox.Text = Format(load?.Mz ?? 0);
+        qxStartBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QxStart ?? 0));
+        qyStartBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QyStart ?? 0));
+        qzStartBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QzStart ?? 0));
+        qxEndBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QxEnd ?? 0));
+        qyEndBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QyEnd ?? 0));
+        qzEndBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QzEnd ?? 0));
+        mxBox.Text = Format(FemUnitConverter.NewtonMetersToKiloNewtonMeters(load?.Mx ?? 0));
+        myBox.Text = Format(FemUnitConverter.NewtonMetersToKiloNewtonMeters(load?.My ?? 0));
+        mzBox.Text = Format(FemUnitConverter.NewtonMetersToKiloNewtonMeters(load?.Mz ?? 0));
         UpdateVisibility();
     }
 
@@ -86,14 +86,16 @@ public partial class FemMemberLoadDialog : Window
         string coordinate = coordinateCombo.SelectedValue as string ?? "local";
         string distribution = distributionCombo.SelectedValue as string ?? "uniform";
         bool isPoint = distribution == "point";
-        double qxStart = Parse(qxStartBox), qyStart = Parse(qyStartBox), qzStart = Parse(qzStartBox);
-        double qxEnd = isPoint ? 0 : distribution == "uniform" ? qxStart : Parse(qxEndBox);
-        double qyEnd = isPoint ? 0 : distribution == "uniform" ? qyStart : Parse(qyEndBox);
-        double qzEnd = isPoint ? 0 : distribution == "uniform" ? qzStart : Parse(qzEndBox);
+        double qxStart = FemUnitConverter.KiloNewtonsToNewtons(Parse(qxStartBox));
+        double qyStart = FemUnitConverter.KiloNewtonsToNewtons(Parse(qyStartBox));
+        double qzStart = FemUnitConverter.KiloNewtonsToNewtons(Parse(qzStartBox));
+        double qxEnd = isPoint ? 0 : distribution == "uniform" ? qxStart : FemUnitConverter.KiloNewtonsToNewtons(Parse(qxEndBox));
+        double qyEnd = isPoint ? 0 : distribution == "uniform" ? qyStart : FemUnitConverter.KiloNewtonsToNewtons(Parse(qyEndBox));
+        double qzEnd = isPoint ? 0 : distribution == "uniform" ? qzStart : FemUnitConverter.KiloNewtonsToNewtons(Parse(qzEndBox));
         double endOffset = isPoint ? 0 : Parse(endOffsetBox);
-        double mx = isPoint ? Parse(mxBox) : 0;
-        double my = isPoint ? Parse(myBox) : 0;
-        double mz = isPoint ? Parse(mzBox) : 0;
+        double mx = isPoint ? FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(mxBox)) : 0;
+        double my = isPoint ? FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(myBox)) : 0;
+        double mz = isPoint ? FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(mzBox)) : 0;
         int applied = 0;
 
         foreach (var member in _members.Where(member => member.Id != 0))

@@ -193,10 +193,11 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         ? Session.MemberLoads.FirstOrDefault(load => load.LoadCaseId == loadCase.Id && load.MemberId == member.Id)
         : null;
 
-    /// <summary>Создаёт или обновляет распределённую нагрузку конструктивного стержня.</summary>
+    /// <summary>Создаёт или обновляет распределённую или сосредоточенную нагрузку конструктивного стержня.</summary>
     public bool ApplyMemberLoad(
         double startOffsetM, double endOffsetM, string coordinateSystem, string distributionType,
-        double qxStart, double qyStart, double qzStart, double qxEnd, double qyEnd, double qzEnd)
+        double qxStart, double qyStart, double qzStart, double qxEnd, double qyEnd, double qzEnd,
+        double mx = 0, double my = 0, double mz = 0)
     {
         if (SelectedLoadCase is not { } loadCase || SelectedLoadMember is not { } member || member.Id == 0)
             return false;
@@ -213,7 +214,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             StartOffsetM = startOffsetM,
             EndOffsetM = endOffsetM,
             QxStart = qxStart, QyStart = qyStart, QzStart = qzStart,
-            QxEnd = qxEnd, QyEnd = qyEnd, QzEnd = qzEnd
+            QxEnd = qxEnd, QyEnd = qyEnd, QzEnd = qzEnd,
+            Mx = mx, My = my, Mz = mz
         }));
         RefreshCollections();
         return true;

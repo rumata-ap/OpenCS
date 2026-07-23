@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using CScore.Fem;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
@@ -37,7 +38,13 @@ public partial class FemLoadCasesPanel : UserControl
     {
         if (Editor is not { } editor) return;
         double Parse(TextBox box) => double.TryParse(box.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : 0;
-        var skipped = editor.ApplyLoadToSelection(Parse(fxBox), Parse(fyBox), Parse(fzBox), Parse(mxBox), Parse(myBox), Parse(mzBox));
+        double fx = FemUnitConverter.KiloNewtonsToNewtons(Parse(fxBox));
+        double fy = FemUnitConverter.KiloNewtonsToNewtons(Parse(fyBox));
+        double fz = FemUnitConverter.KiloNewtonsToNewtons(Parse(fzBox));
+        double mx = FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(mxBox));
+        double my = FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(myBox));
+        double mz = FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(mzBox));
+        var skipped = editor.ApplyLoadToSelection(fx, fy, fz, mx, my, mz);
         if (skipped.Count > 0)
             MessageBox.Show(
                 string.Format(Loc.S("FemNodeLoadSkippedUnsaved"), string.Join(", ", skipped)),
@@ -90,6 +97,25 @@ public partial class FemLoadCasesPanel : UserControl
 
     void MemberLoadMemberChanged(object sender, SelectionChangedEventArgs e) => PopulateMemberLoad();
 
+    void MemberLoadDistributionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_updatingMemberLoad) UpdateMemberLoadVisibility();
+    }
+
+    bool IsMemberLoadPoint => (memberLoadDistributionCombo.SelectedValue as string) == "point";
+
+    void UpdateMemberLoadVisibility()
+    {
+        var pointVisibility = IsMemberLoadPoint ? Visibility.Visible : Visibility.Collapsed;
+        var nonPointVisibility = IsMemberLoadPoint ? Visibility.Collapsed : Visibility.Visible;
+        memberLoadEndOffsetPanel.Visibility = nonPointVisibility;
+        memberLoadEndHeaderText.Visibility = nonPointVisibility;
+        memberLoadQxEndBox.Visibility = nonPointVisibility;
+        memberLoadQyEndBox.Visibility = nonPointVisibility;
+        memberLoadQzEndBox.Visibility = nonPointVisibility;
+        memberLoadMomentGrid.Visibility = pointVisibility;
+    }
+
     void ApplyMemberLoad_Click(object sender, RoutedEventArgs e)
     {
         if (Editor is not { } editor) return;
@@ -99,15 +125,20 @@ public partial class FemLoadCasesPanel : UserControl
             ? value : 0;
         var coordinateSystem = memberLoadCoordinateCombo.SelectedValue as string ?? "local";
         var distributionType = memberLoadDistributionCombo.SelectedValue as string ?? "uniform";
-        var qxStart = Parse(memberLoadQxStartBox);
-        var qyStart = Parse(memberLoadQyStartBox);
-        var qzStart = Parse(memberLoadQzStartBox);
-        var qxEnd = distributionType == "uniform" ? qxStart : Parse(memberLoadQxEndBox);
-        var qyEnd = distributionType == "uniform" ? qyStart : Parse(memberLoadQyEndBox);
-        var qzEnd = distributionType == "uniform" ? qzStart : Parse(memberLoadQzEndBox);
+        bool isPoint = distributionType == "point";
+        var qxStart = FemUnitConverter.KiloNewtonsToNewtons(Parse(memberLoadQxStartBox));
+        var qyStart = FemUnitConverter.KiloNewtonsToNewtons(Parse(memberLoadQyStartBox));
+        var qzStart = FemUnitConverter.KiloNewtonsToNewtons(Parse(memberLoadQzStartBox));
+        var qxEnd = isPoint ? 0 : distributionType == "uniform" ? qxStart : FemUnitConverter.KiloNewtonsToNewtons(Parse(memberLoadQxEndBox));
+        var qyEnd = isPoint ? 0 : distributionType == "uniform" ? qyStart : FemUnitConverter.KiloNewtonsToNewtons(Parse(memberLoadQyEndBox));
+        var qzEnd = isPoint ? 0 : distributionType == "uniform" ? qzStart : FemUnitConverter.KiloNewtonsToNewtons(Parse(memberLoadQzEndBox));
+        var endOffset = isPoint ? 0 : Parse(memberLoadEndOffsetBox);
+        var mx = isPoint ? FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(memberLoadMxBox)) : 0;
+        var my = isPoint ? FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(memberLoadMyBox)) : 0;
+        var mz = isPoint ? FemUnitConverter.KiloNewtonMetersToNewtonMeters(Parse(memberLoadMzBox)) : 0;
         if (!editor.ApplyMemberLoad(
-                Parse(memberLoadStartOffsetBox), Parse(memberLoadEndOffsetBox), coordinateSystem, distributionType,
-                qxStart, qyStart, qzStart, qxEnd, qyEnd, qzEnd))
+                Parse(memberLoadStartOffsetBox), endOffset, coordinateSystem, distributionType,
+                qxStart, qyStart, qzStart, qxEnd, qyEnd, qzEnd, mx, my, mz))
             MessageBox.Show(Loc.S("FemMemberLoadSkippedUnsaved"), Loc.S("FemSaveBlockedTitle"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
         PopulateMemberLoad();
@@ -152,12 +183,16 @@ public partial class FemLoadCasesPanel : UserControl
             memberLoadDistributionCombo.SelectedValue = load?.DistributionType ?? "uniform";
             memberLoadStartOffsetBox.Text = Format(load?.StartOffsetM ?? 0);
             memberLoadEndOffsetBox.Text = Format(load?.EndOffsetM ?? 0);
-            memberLoadQxStartBox.Text = Format(load?.QxStart ?? 0);
-            memberLoadQyStartBox.Text = Format(load?.QyStart ?? 0);
-            memberLoadQzStartBox.Text = Format(load?.QzStart ?? 0);
-            memberLoadQxEndBox.Text = Format(load?.QxEnd ?? 0);
-            memberLoadQyEndBox.Text = Format(load?.QyEnd ?? 0);
-            memberLoadQzEndBox.Text = Format(load?.QzEnd ?? 0);
+            memberLoadQxStartBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QxStart ?? 0));
+            memberLoadQyStartBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QyStart ?? 0));
+            memberLoadQzStartBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QzStart ?? 0));
+            memberLoadQxEndBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QxEnd ?? 0));
+            memberLoadQyEndBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QyEnd ?? 0));
+            memberLoadQzEndBox.Text = Format(FemUnitConverter.NewtonsToKiloNewtons(load?.QzEnd ?? 0));
+            memberLoadMxBox.Text = Format(FemUnitConverter.NewtonMetersToKiloNewtonMeters(load?.Mx ?? 0));
+            memberLoadMyBox.Text = Format(FemUnitConverter.NewtonMetersToKiloNewtonMeters(load?.My ?? 0));
+            memberLoadMzBox.Text = Format(FemUnitConverter.NewtonMetersToKiloNewtonMeters(load?.Mz ?? 0));
+            UpdateMemberLoadVisibility();
         }
         finally { _updatingMemberLoad = false; }
     }

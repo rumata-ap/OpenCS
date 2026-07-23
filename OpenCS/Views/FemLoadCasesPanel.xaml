@@ -31,6 +31,7 @@
             <TextBox x:Name="myBox" Text="0" Margin="0,2,0,6"/>
             <TextBlock Text="{DynamicResource FemLoadMz}"/>
             <TextBox x:Name="mzBox" Text="0" Margin="0,2,0,6"/>
+            <TextBlock Text="{DynamicResource FemNodePropsLoadUnitsHint}" Foreground="Gray" FontSize="11" Margin="1,0,1,6" TextWrapping="Wrap"/>
             <Button Content="{DynamicResource FemApplyLoadToSelection}" Click="ApplyLoad_Click" Margin="0,8,0,0"/>
             <Expander Header="{DynamicResource FemLoadCaseSp20Parameters}" IsExpanded="False" Margin="0,12,0,0">
                 <Grid Margin="0,6,0,0">
@@ -82,9 +83,11 @@
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="4,0,0,0">
                                 <TextBlock Text="{DynamicResource FemMemberLoadDistribution}"/>
-                                <ComboBox x:Name="memberLoadDistributionCombo" SelectedValuePath="Tag">
+                                <ComboBox x:Name="memberLoadDistributionCombo" SelectedValuePath="Tag"
+                                          SelectionChanged="MemberLoadDistributionChanged">
                                     <ComboBoxItem Tag="uniform" Content="{DynamicResource FemMemberLoadUniform}"/>
                                     <ComboBoxItem Tag="trapezoidal" Content="{DynamicResource FemMemberLoadTrapezoidal}"/>
+                                    <ComboBoxItem Tag="point" Content="{DynamicResource FemMemberLoadPoint}"/>
                                 </ComboBox>
                             </StackPanel>
                         </Grid>
@@ -94,7 +97,7 @@
                                 <TextBlock Text="{DynamicResource FemMemberLoadStartOffset}" TextWrapping="Wrap"/>
                                 <TextBox x:Name="memberLoadStartOffsetBox" Text="0"/>
                             </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                            <StackPanel x:Name="memberLoadEndOffsetPanel" Grid.Column="1" Margin="4,0,0,0">
                                 <TextBlock Text="{DynamicResource FemMemberLoadEndOffset}" TextWrapping="Wrap"/>
                                 <TextBox x:Name="memberLoadEndOffsetBox" Text="0"/>
                             </StackPanel>
@@ -105,7 +108,7 @@
                                 <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Column="1" Text="{DynamicResource FemMemberLoadStart}" HorizontalAlignment="Center"/>
-                            <TextBlock Grid.Column="2" Text="{DynamicResource FemMemberLoadEnd}" HorizontalAlignment="Center"/>
+                            <TextBlock x:Name="memberLoadEndHeaderText" Grid.Column="2" Text="{DynamicResource FemMemberLoadEnd}" HorizontalAlignment="Center"/>
                             <TextBlock Grid.Row="1" Text="{DynamicResource FemMemberLoadQx}" VerticalAlignment="Center"/>
                             <TextBox Grid.Row="1" Grid.Column="1" x:Name="memberLoadQxStartBox" Margin="2"/>
                             <TextBox Grid.Row="1" Grid.Column="2" x:Name="memberLoadQxEndBox" Margin="2"/>
@@ -115,6 +118,18 @@
                             <TextBlock Grid.Row="3" Text="{DynamicResource FemMemberLoadQz}" VerticalAlignment="Center"/>
                             <TextBox Grid.Row="3" Grid.Column="1" x:Name="memberLoadQzStartBox" Margin="2"/>
                             <TextBox Grid.Row="3" Grid.Column="2" x:Name="memberLoadQzEndBox" Margin="2"/>
+                        </Grid>
+                        <Grid x:Name="memberLoadMomentGrid" Visibility="Collapsed" Margin="0,4,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="70"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Row="0" Text="{DynamicResource FemMemberLoadMx}" VerticalAlignment="Center"/>
+                            <TextBox x:Name="memberLoadMxBox" Grid.Row="0" Grid.Column="1" Margin="2"/>
+                            <TextBlock Grid.Row="1" Text="{DynamicResource FemMemberLoadMy}" VerticalAlignment="Center"/>
+                            <TextBox x:Name="memberLoadMyBox" Grid.Row="1" Grid.Column="1" Margin="2"/>
+                            <TextBlock Grid.Row="2" Text="{DynamicResource FemMemberLoadMz}" VerticalAlignment="Center"/>
+                            <TextBox x:Name="memberLoadMzBox" Grid.Row="2" Grid.Column="1" Margin="2"/>
                         </Grid>
                         <Button Content="{DynamicResource FemMemberLoadApply}" Click="ApplyMemberLoad_Click" Margin="0,8,0,0"/>
                         <Button Content="{DynamicResource FemMemberLoadDelete}" Click="DeleteMemberLoad_Click" Margin="0,4,0,0"/>

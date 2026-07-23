@@ -1592,10 +1592,10 @@
     <system:String x:Key="FemLoadSelectedCount">Выбрано объектов: {0}</system:String>
     <system:String x:Key="FemNodeLoadDialogApply">Применить нагрузку</system:String>
     <system:String x:Key="FemMemberLoadDialogApply">Применить нагрузку</system:String>
-    <system:String x:Key="FemMemberLoadUnitsHint">Интенсивности задаются в Н/м, отступы — в метрах.</system:String>
+    <system:String x:Key="FemMemberLoadUnitsHint">Интенсивности задаются в кН/м, отступы — в метрах.</system:String>
     <system:String x:Key="FemNodeLoadsTab">Узловая</system:String>
     <system:String x:Key="FemMemberLoadsTab">Стержневая</system:String>
-    <system:String x:Key="FemMemberLoadHint">Выберите загружение и стержень. Интенсивности задаются в Н/м.</system:String>
+    <system:String x:Key="FemMemberLoadHint">Выберите загружение и стержень. Интенсивности задаются в кН/м, сосредоточенная сила — в кН.</system:String>
     <system:String x:Key="FemMemberLoadMember">Стержень</system:String>
     <system:String x:Key="FemMemberLoadCoordinateSystem">Система координат</system:String>
     <system:String x:Key="FemMemberLoadLocal">Локальная</system:String>
@@ -1607,7 +1607,7 @@
     <system:String x:Key="FemMemberLoadMx">Mx</system:String>
     <system:String x:Key="FemMemberLoadMy">My</system:String>
     <system:String x:Key="FemMemberLoadMz">Mz</system:String>
-    <system:String x:Key="FemMemberLoadUnitsHintPoint">Сила — в Н, момент — в Н·м. Момент допустим только в узле расчётной сетки (концы стержня или точки разбиения).</system:String>
+    <system:String x:Key="FemMemberLoadUnitsHintPoint">Сила — в кН, момент — в кН·м. Момент допустим только в узле расчётной сетки (концы стержня или точки разбиения).</system:String>
     <system:String x:Key="FemMemberLoadStartOffset">Отступ от начала, м</system:String>
     <system:String x:Key="FemMemberLoadEndOffset">Отступ от конца, м</system:String>
     <system:String x:Key="FemMemberLoadStart">Начало</system:String>
