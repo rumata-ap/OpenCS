@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-        const int CurrentSchemaVersion = 36;
+        const int CurrentSchemaVersion = 37;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -419,6 +419,22 @@ namespace OpenCS.Utilites
                 my REAL NOT NULL DEFAULT 0,
                 mz REAL NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS fem_member_loads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                load_case_id INTEGER NOT NULL REFERENCES fem_load_cases(id) ON DELETE CASCADE,
+                member_id INTEGER NOT NULL REFERENCES fem_members(id) ON DELETE CASCADE,
+                coordinate_system TEXT NOT NULL DEFAULT 'local',
+                distribution_type TEXT NOT NULL DEFAULT 'uniform',
+                start_offset_m REAL NOT NULL DEFAULT 0,
+                end_offset_m REAL NOT NULL DEFAULT 0,
+                qx_start REAL NOT NULL DEFAULT 0,
+                qy_start REAL NOT NULL DEFAULT 0,
+                qz_start REAL NOT NULL DEFAULT 0,
+                qx_end REAL NOT NULL DEFAULT 0,
+                qy_end REAL NOT NULL DEFAULT 0,
+                qz_end REAL NOT NULL DEFAULT 0
+            );
             CREATE TABLE IF NOT EXISTS fem_load_definitions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
@@ -504,6 +520,7 @@ namespace OpenCS.Utilites
                if (i == 33) { MigrateV34(); continue; }
                if (i == 34) { MigrateV35(); continue; }
                if (i == 35) { MigrateV36(); continue; }
+               if (i == 36) { MigrateV37(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -904,6 +921,29 @@ namespace OpenCS.Utilites
       {
          if (!ColumnExists("fem_members", "rotation_deg"))
             MigExec("ALTER TABLE fem_members ADD COLUMN rotation_deg REAL NOT NULL DEFAULT 0");
+      }
+
+      /// <summary>Миграция v37: распределённые нагрузки на конструктивных стержнях.</summary>
+      void MigrateV37()
+      {
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS fem_member_loads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                load_case_id INTEGER NOT NULL REFERENCES fem_load_cases(id) ON DELETE CASCADE,
+                member_id INTEGER NOT NULL REFERENCES fem_members(id) ON DELETE CASCADE,
+                coordinate_system TEXT NOT NULL DEFAULT 'local',
+                distribution_type TEXT NOT NULL DEFAULT 'uniform',
+                start_offset_m REAL NOT NULL DEFAULT 0,
+                end_offset_m REAL NOT NULL DEFAULT 0,
+                qx_start REAL NOT NULL DEFAULT 0,
+                qy_start REAL NOT NULL DEFAULT 0,
+                qz_start REAL NOT NULL DEFAULT 0,
+                qx_end REAL NOT NULL DEFAULT 0,
+                qy_end REAL NOT NULL DEFAULT 0,
+                qz_end REAL NOT NULL DEFAULT 0
+            );
+         """);
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -3034,6 +3074,7 @@ namespace OpenCS.Utilites
                DELETE FROM fem_analyses           WHERE schema_id=@id;
                DELETE FROM fem_load_definitions   WHERE schema_id=@id;
                DELETE FROM fem_node_loads         WHERE schema_id=@id;
+               DELETE FROM fem_member_loads       WHERE schema_id=@id;
                DELETE FROM fem_load_cases         WHERE schema_id=@id;
                DELETE FROM fem_member_groups      WHERE schema_id=@id;
                DELETE FROM fem_elements           WHERE schema_id=@id;
@@ -3169,6 +3210,35 @@ namespace OpenCS.Utilites
          return result;
       }
 
+      /// <summary>Возвращает распределённые нагрузки конструктивных стержней схемы.</summary>
+      public List<CScore.Fem.FemMemberLoad> GetFemMemberLoads(int schemaId, int? loadCaseId = null)
+      {
+         var result = new List<CScore.Fem.FemMemberLoad>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, load_case_id, member_id, coordinate_system, distribution_type,
+                   start_offset_m, end_offset_m, qx_start, qy_start, qz_start,
+                   qx_end, qy_end, qz_end
+            FROM fem_member_loads
+            WHERE schema_id=@sid AND (@lc IS NULL OR load_case_id=@lc)
+            ORDER BY id
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@lc", (object?)loadCaseId ?? DBNull.Value);
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+            result.Add(new CScore.Fem.FemMemberLoad
+            {
+               Id = r.GetInt32(0), SchemaId = schemaId,
+               LoadCaseId = r.GetInt32(1), MemberId = r.GetInt32(2),
+               CoordinateSystem = r.GetString(3), DistributionType = r.GetString(4),
+               StartOffsetM = r.GetDouble(5), EndOffsetM = r.GetDouble(6),
+               QxStart = r.GetDouble(7), QyStart = r.GetDouble(8), QzStart = r.GetDouble(9),
+               QxEnd = r.GetDouble(10), QyEnd = r.GetDouble(11), QzEnd = r.GetDouble(12)
+            });
+         return result;
+      }
+
       public List<CScore.Fem.FemLoadDefinition> GetFemLoadDefinitions(int schemaId)
       {
          var result = new List<CScore.Fem.FemLoadDefinition>();
@@ -3277,6 +3347,74 @@ namespace OpenCS.Utilites
          cmd.CommandText = "DELETE FROM fem_node_loads WHERE id=@id";
          cmd.Parameters.AddWithValue("@id", load.Id);
          cmd.ExecuteNonQuery();
+      }
+
+      /// <summary>Сохраняет или обновляет распределённую нагрузку стержня.</summary>
+      public void SaveFemMemberLoad(CScore.Fem.FemMemberLoad load)
+      {
+         ValidateFemMemberLoadReferences(load);
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            if (load.Id == 0)
+            {
+               cmd.CommandText = """
+                  INSERT INTO fem_member_loads
+                     (schema_id, load_case_id, member_id, coordinate_system, distribution_type,
+                      start_offset_m, end_offset_m, qx_start, qy_start, qz_start,
+                      qx_end, qy_end, qz_end)
+                  VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze);
+                  SELECT last_insert_rowid();
+               """;
+               AddFemMemberLoadParameters(cmd, load);
+               load.Id = (int)(long)cmd.ExecuteScalar()!;
+            }
+            else
+            {
+               cmd.CommandText = """
+                  UPDATE fem_member_loads SET load_case_id=@lc, member_id=@mid,
+                     coordinate_system=@cs, distribution_type=@dt,
+                     start_offset_m=@so, end_offset_m=@eo,
+                     qx_start=@qxs, qy_start=@qys, qz_start=@qzs,
+                     qx_end=@qxe, qy_end=@qye, qz_end=@qze
+                  WHERE id=@id AND schema_id=@sid
+               """;
+               AddFemMemberLoadParameters(cmd, load);
+               cmd.Parameters.AddWithValue("@id", load.Id);
+               cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      /// <summary>Удаляет распределённую нагрузку стержня.</summary>
+      public void DeleteFemMemberLoad(CScore.Fem.FemMemberLoad load)
+      {
+         if (load.Id == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fem_member_loads WHERE id=@id AND schema_id=@sid";
+         cmd.Parameters.AddWithValue("@id", load.Id);
+         cmd.Parameters.AddWithValue("@sid", load.SchemaId);
+         cmd.ExecuteNonQuery();
+      }
+
+      static void AddFemMemberLoadParameters(SqliteCommand cmd, CScore.Fem.FemMemberLoad load)
+      {
+         cmd.Parameters.AddWithValue("@sid", load.SchemaId);
+         cmd.Parameters.AddWithValue("@lc", load.LoadCaseId);
+         cmd.Parameters.AddWithValue("@mid", load.MemberId);
+         cmd.Parameters.AddWithValue("@cs", load.CoordinateSystem);
+         cmd.Parameters.AddWithValue("@dt", load.DistributionType);
+         cmd.Parameters.AddWithValue("@so", load.StartOffsetM);
+         cmd.Parameters.AddWithValue("@eo", load.EndOffsetM);
+         cmd.Parameters.AddWithValue("@qxs", load.QxStart);
+         cmd.Parameters.AddWithValue("@qys", load.QyStart);
+         cmd.Parameters.AddWithValue("@qzs", load.QzStart);
+         cmd.Parameters.AddWithValue("@qxe", load.QxEnd);
+         cmd.Parameters.AddWithValue("@qye", load.QyEnd);
+         cmd.Parameters.AddWithValue("@qze", load.QzEnd);
       }
 
       static void AddFemNodeLoadParameters(SqliteCommand cmd, CScore.Fem.FemNodeLoad load)
@@ -3423,6 +3561,23 @@ namespace OpenCS.Utilites
             throw new InvalidOperationException("Узел, загружение и узловая нагрузка должны принадлежать одной FEM-схеме.");
       }
 
+      void ValidateFemMemberLoadReferences(CScore.Fem.FemMemberLoad load)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT
+              (SELECT schema_id FROM fem_members WHERE id=@mid),
+              (SELECT schema_id FROM fem_load_cases WHERE id=@lc)
+         """;
+         cmd.Parameters.AddWithValue("@mid", load.MemberId);
+         cmd.Parameters.AddWithValue("@lc", load.LoadCaseId);
+         using var r = cmd.ExecuteReader();
+         if (!r.Read() || r.IsDBNull(0) || r.IsDBNull(1))
+            throw new InvalidOperationException("Распределённая нагрузка ссылается на неизвестный стержень или загружение.");
+         if (r.GetInt32(0) != load.SchemaId || r.GetInt32(1) != load.SchemaId)
+            throw new InvalidOperationException("Стержень, загружение и распределённая нагрузка должны принадлежать одной FEM-схеме.");
+      }
+
       /// <summary>Массовая вставка узлов и элементов МКЭ-схемы. Существующие записи для schemaId удаляются.</summary>
       public void SaveFemTopology(
          int schemaId,
@@ -3431,6 +3586,7 @@ namespace OpenCS.Utilites
          IReadOnlyList<CScore.Fem.FemMemberGroup> memberGroups)
       {
          var oldNodesById = GetFemNodes(schemaId).ToDictionary(node => node.Id);
+         var oldMembersById = GetFemMembers(schemaId).ToDictionary(member => member.Id);
          var newTags = nodes.Select(node => node.NodeTag).ToList();
          if (newTags.Count != newTags.Distinct(StringComparer.Ordinal).Count())
             throw new InvalidOperationException("Теги узлов FEM-схемы должны быть уникальными.");
@@ -3445,12 +3601,23 @@ namespace OpenCS.Utilites
             preservedLoads.Add((oldNode.NodeTag, load));
          }
 
+         var preservedMemberLoads = new List<(string MemberTag, CScore.Fem.FemMemberLoad Load)>();
+         foreach (var load in GetFemMemberLoads(schemaId))
+         {
+            if (!oldMembersById.TryGetValue(load.MemberId, out var oldMember))
+               throw new InvalidOperationException($"Распределённая нагрузка {load.Id} ссылается на отсутствующий стержень.");
+            if (!members.Any(member => member.ElemTag == oldMember.ElemTag))
+               throw new InvalidOperationException($"Нельзя удалить нагруженный стержень с тегом '{oldMember.ElemTag}'.");
+            preservedMemberLoads.Add((oldMember.ElemTag, load));
+         }
+
          using var tx = _connection.BeginTransaction();
          try
          {
             using var delCmd = _connection.CreateCommand();
             delCmd.CommandText = """
                DELETE FROM fem_member_groups WHERE schema_id=@sid;
+               DELETE FROM fem_member_loads  WHERE schema_id=@sid;
                DELETE FROM fem_members       WHERE schema_id=@sid;
                DELETE FROM fem_node_loads WHERE schema_id=@sid;
                DELETE FROM fem_nodes    WHERE schema_id=@sid;
@@ -3516,7 +3683,8 @@ namespace OpenCS.Utilites
                INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                          cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
                                          target_mesh_length_m)
-               VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml)
+               VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml);
+               SELECT last_insert_rowid();
             """;
             elemCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
             elemCmd.Parameters.Add("@tag",  Microsoft.Data.Sqlite.SqliteType.Text);
@@ -3530,6 +3698,7 @@ namespace OpenCS.Utilites
             elemCmd.Parameters.Add("@gjv",  Microsoft.Data.Sqlite.SqliteType.Real);
             elemCmd.Parameters.Add("@gjt",  Microsoft.Data.Sqlite.SqliteType.Integer);
             elemCmd.Parameters.Add("@tml",  Microsoft.Data.Sqlite.SqliteType.Real);
+            var newMemberIds = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var e in members)
             {
                elemCmd.Parameters["@sid"].Value   = schemaId;
@@ -3544,7 +3713,33 @@ namespace OpenCS.Utilites
                elemCmd.Parameters["@gjv"].Value   = (object?)e.GjManualValue ?? DBNull.Value;
                elemCmd.Parameters["@gjt"].Value   = (object?)e.GjTorsionTaskId ?? DBNull.Value;
                elemCmd.Parameters["@tml"].Value   = (object?)e.TargetMeshLengthM ?? DBNull.Value;
-               elemCmd.ExecuteNonQuery();
+               newMemberIds[e.ElemTag] = (int)(long)elemCmd.ExecuteScalar()!;
+            }
+
+            using var memberLoadCmd = _connection.CreateCommand();
+            memberLoadCmd.CommandText = """
+               INSERT INTO fem_member_loads
+                  (schema_id, load_case_id, member_id, coordinate_system, distribution_type,
+                   start_offset_m, end_offset_m, qx_start, qy_start, qz_start, qx_end, qy_end, qz_end)
+               VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze)
+            """;
+            foreach (var (memberTag, load) in preservedMemberLoads)
+            {
+               memberLoadCmd.Parameters.Clear();
+               memberLoadCmd.Parameters.AddWithValue("@sid", schemaId);
+               memberLoadCmd.Parameters.AddWithValue("@lc", load.LoadCaseId);
+               memberLoadCmd.Parameters.AddWithValue("@mid", newMemberIds[memberTag]);
+               memberLoadCmd.Parameters.AddWithValue("@cs", load.CoordinateSystem);
+               memberLoadCmd.Parameters.AddWithValue("@dt", load.DistributionType);
+               memberLoadCmd.Parameters.AddWithValue("@so", load.StartOffsetM);
+               memberLoadCmd.Parameters.AddWithValue("@eo", load.EndOffsetM);
+               memberLoadCmd.Parameters.AddWithValue("@qxs", load.QxStart);
+               memberLoadCmd.Parameters.AddWithValue("@qys", load.QyStart);
+               memberLoadCmd.Parameters.AddWithValue("@qzs", load.QzStart);
+               memberLoadCmd.Parameters.AddWithValue("@qxe", load.QxEnd);
+               memberLoadCmd.Parameters.AddWithValue("@qye", load.QyEnd);
+               memberLoadCmd.Parameters.AddWithValue("@qze", load.QzEnd);
+               memberLoadCmd.ExecuteNonQuery();
             }
 
             var schema = FemSchemas.FirstOrDefault(s => s.Id == schemaId);
@@ -3618,6 +3813,18 @@ namespace OpenCS.Utilites
          IReadOnlyList<CScore.Fem.FemLoadCase>    loadCases,
          IReadOnlyList<CScore.Fem.FemNodeLoad>    nodeLoads,
          IReadOnlyList<CScore.Fem.FemLoadDefinition>? definitions = null)
+         => SaveFemSchemaEdit(schemaId, nodes, members, memberGroups, loadCases, nodeLoads, [], definitions);
+
+      /// <summary>Атомарно сохраняет FEM-схему вместе с узловыми и распределёнными нагрузками.</summary>
+      public void SaveFemSchemaEdit(
+         int schemaId,
+         IReadOnlyList<CScore.Fem.FemNode>        nodes,
+         IReadOnlyList<CScore.Fem.FemMember>      members,
+         IReadOnlyList<CScore.Fem.FemMemberGroup> memberGroups,
+         IReadOnlyList<CScore.Fem.FemLoadCase>    loadCases,
+         IReadOnlyList<CScore.Fem.FemNodeLoad>    nodeLoads,
+         IReadOnlyList<CScore.Fem.FemMemberLoad>  memberLoads,
+         IReadOnlyList<CScore.Fem.FemLoadDefinition>? definitions = null)
       {
          var newTags = nodes.Select(n => n.NodeTag).ToList();
          if (newTags.Count != newTags.Distinct(StringComparer.Ordinal).Count())
@@ -3630,6 +3837,7 @@ namespace OpenCS.Utilites
             {
                delCmd.CommandText = """
                   DELETE FROM fem_node_loads    WHERE schema_id=@sid;
+                  DELETE FROM fem_member_loads  WHERE schema_id=@sid;
                   DELETE FROM fem_load_definitions WHERE schema_id=@sid;
                   DELETE FROM fem_load_cases    WHERE schema_id=@sid;
                   DELETE FROM fem_member_groups WHERE schema_id=@sid;
@@ -3670,6 +3878,7 @@ namespace OpenCS.Utilites
                }
             }
 
+            var newMemberIdByOld = new Dictionary<int, int>();
             using (var elemCmd = _connection.CreateCommand())
             {
                elemCmd.CommandText = """
@@ -3708,6 +3917,7 @@ namespace OpenCS.Utilites
                   elemCmd.Parameters["@tml"].Value   = (object?)e.TargetMeshLengthM ?? DBNull.Value;
                   elemCmd.Parameters["@rot"].Value   = e.RotationDeg;
                   int newId = (int)(long)elemCmd.ExecuteScalar()!;
+                  newMemberIdByOld[e.Id] = newId;
                   e.Id = newId;
                   e.SchemaId = schemaId;
                }
@@ -3772,6 +3982,42 @@ namespace OpenCS.Utilites
                   loadCmd.Parameters.AddWithValue("@mz", load.Mz);
                   loadCmd.ExecuteNonQuery();
                   load.NodeId = nodeId;
+                  load.LoadCaseId = newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out var mappedLoadCaseId)
+                     ? mappedLoadCaseId : load.LoadCaseId;
+               }
+            }
+
+            using (var memberLoadCmd = _connection.CreateCommand())
+            {
+               memberLoadCmd.CommandText = """
+                  INSERT INTO fem_member_loads
+                     (schema_id, load_case_id, member_id, coordinate_system, distribution_type,
+                      start_offset_m, end_offset_m, qx_start, qy_start, qz_start,
+                      qx_end, qy_end, qz_end)
+                  VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze);
+                  SELECT last_insert_rowid();
+               """;
+               foreach (var load in memberLoads)
+               {
+                  if (!newMemberIdByOld.TryGetValue(load.MemberId, out int memberId))
+                     throw new InvalidOperationException($"Распределённая нагрузка ссылается на отсутствующий стержень {load.MemberId}.");
+                  memberLoadCmd.Parameters.Clear();
+                  memberLoadCmd.Parameters.AddWithValue("@sid", schemaId);
+                  memberLoadCmd.Parameters.AddWithValue("@lc", newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out var lcId) ? lcId : load.LoadCaseId);
+                  memberLoadCmd.Parameters.AddWithValue("@mid", memberId);
+                  memberLoadCmd.Parameters.AddWithValue("@cs", load.CoordinateSystem);
+                  memberLoadCmd.Parameters.AddWithValue("@dt", load.DistributionType);
+                  memberLoadCmd.Parameters.AddWithValue("@so", load.StartOffsetM);
+                  memberLoadCmd.Parameters.AddWithValue("@eo", load.EndOffsetM);
+                  memberLoadCmd.Parameters.AddWithValue("@qxs", load.QxStart);
+                  memberLoadCmd.Parameters.AddWithValue("@qys", load.QyStart);
+                  memberLoadCmd.Parameters.AddWithValue("@qzs", load.QzStart);
+                  memberLoadCmd.Parameters.AddWithValue("@qxe", load.QxEnd);
+                  memberLoadCmd.Parameters.AddWithValue("@qye", load.QyEnd);
+                  memberLoadCmd.Parameters.AddWithValue("@qze", load.QzEnd);
+                  load.Id = (int)(long)memberLoadCmd.ExecuteScalar()!;
+                  load.SchemaId = schemaId;
+                  load.MemberId = memberId;
                   load.LoadCaseId = newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out var mappedLoadCaseId)
                      ? mappedLoadCaseId : load.LoadCaseId;
                }

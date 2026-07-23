@@ -20,7 +20,8 @@ public sealed class FemNonlinearModelResolver
         IReadOnlyDictionary<int, Material> materials,
         IReadOnlyList<Diagramm>? customDiagramPool,
         CalcType calcType,
-        FemNonlinearAnalysisOptions options)
+        FemNonlinearAnalysisOptions options,
+        IReadOnlyList<FemMemberLoad>? resolvedMemberLoads = null)
     {
         var errors = new List<string>();
 
@@ -150,6 +151,10 @@ public sealed class FemNonlinearModelResolver
             loads.Add(new FemLinearNodalLoad(meshNode.Tag, l.Fx, l.Fy, l.Fz, l.Mx, l.My, l.Mz));
         }
 
+        var distributed = new FemDistributedLoadResolver().Resolve(
+            meshNodes, meshElements, sourceNodes, sourceMembers, resolvedMemberLoads ?? []);
+        errors.AddRange(distributed.Errors);
+
         if (errors.Count > 0)
             return new FemNonlinearResolveResult(null, errors);
 
@@ -159,6 +164,7 @@ public sealed class FemNonlinearModelResolver
             Sections = sectionsByKey.Values.ToDictionary(v => v.Tag, v => v.Model),
             Elements = elements,
             Loads = loads,
+            DistributedLoads = distributed.Loads,
             LoadFactorStep = options.LoadFactorStep,
             MaxLoadFactor = options.MaxLoadFactor,
             RefinementDivisions = options.RefinementDivisions,

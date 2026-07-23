@@ -73,6 +73,15 @@ public sealed class FemNonlinearTclGenerator
         L("pattern Plain 1 Linear {");
         foreach (var ld in model.Loads)
             L($"    load {ld.NodeTag} {F(ld.Fx)} {F(ld.Fy)} {F(ld.Fz)} {F(ld.Mx)} {F(ld.My)} {F(ld.Mz)}");
+        if (model.DistributedLoads.Count > 0 && model.GeomTransfKind == "Corotational")
+            throw new InvalidOperationException("Распределённые нагрузки не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
+        foreach (var ld in model.DistributedLoads)
+        {
+            if (IsFullUniform(ld))
+                L($"    eleLoad -ele {ld.ElementTag} -type -beamUniform {F(ld.WyStart)} {F(ld.WzStart)} {F(ld.WxStart)}");
+            else
+                L($"    eleLoad -ele {ld.ElementTag} -type -beamUniform {F(ld.WyStart)} {F(ld.WzStart)} {F(ld.WxStart)} {F(ld.AOverL)} {F(ld.BOverL)} {F(ld.WyEnd)} {F(ld.WzEnd)} {F(ld.WxEnd)}");
+        }
         L("}");
         L();
 
@@ -217,6 +226,10 @@ public sealed class FemNonlinearTclGenerator
             line("        }");
         }
     }
+
+    static bool IsFullUniform(FemLinearDistributedLoad load) =>
+        load.AOverL == 0 && load.BOverL == 1 &&
+        load.WyStart == load.WyEnd && load.WzStart == load.WzEnd && load.WxStart == load.WxEnd;
 
     static void EmitRecorderSnapshot(Action<string> line, IReadOnlyList<int> nodeTags,
         IReadOnlyList<int> restrainedTags, IReadOnlyList<int> elemTags)

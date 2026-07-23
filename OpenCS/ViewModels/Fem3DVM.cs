@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using CScore.Fem;
+using CScore.Fem.Combinations;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -28,7 +29,10 @@ public class Fem3DVM : ViewModelBase
     readonly FemMemberGroup? _highlightMember; // показывать всю схему, группа подсвечена
     long _meshOverlayRequestVersion;
     IReadOnlyList<FemNode> _diagramNodes = [];
+    IReadOnlyList<FemMember> _diagramMembers = [];
+    IReadOnlyList<FemLoadCase> _diagramLoadCases = [];
     IReadOnlyList<FemNodeLoad> _diagramNodeLoads = [];
+    IReadOnlyList<FemMemberLoad> _diagramMemberLoads = [];
 
     bool   _isLoading = true;
     bool   _noData;
@@ -46,6 +50,7 @@ public class Fem3DVM : ViewModelBase
     public Point3DCollection?  MeshLinePoints  { get; private set; }
     public Point3DCollection?  MeshNodePoints  { get; private set; }
     public IReadOnlyList<FemDiagramGlyph> DiagramGlyphs { get; private set; } = [];
+    public IReadOnlyList<FemMemberLoadGlyph> MemberLoadGlyphs { get; private set; } = [];
     public IReadOnlyList<FemSectionGlyph> SectionGlyphs { get; private set; } = [];
     public List<FemDiagramLoadSource> DiagramLoadSources { get; private set; } = [];
     public IReadOnlyDictionary<int, Point3D> DiagramNodePositions { get; private set; } = new Dictionary<int, Point3D>();
@@ -142,6 +147,12 @@ public class Fem3DVM : ViewModelBase
             }
 
             ApplyTopology(allNodes, allElements);
+            _diagramNodes = allNodes;
+            _diagramMembers = allElements;
+            _diagramLoadCases = _db.GetFemLoadCases(_schemaId);
+            _diagramNodeLoads = _db.GetFemNodeLoads(_schemaId);
+            _diagramMemberLoads = _db.GetFemMemberLoads(_schemaId);
+            RefreshDiagramSources(_diagramLoadCases, []);
             if (_memberOnly == null && _highlightMember == null && !constructiveEmpty)
                 await LoadMeshOverlayAsync();
         }
@@ -223,7 +234,10 @@ public class Fem3DVM : ViewModelBase
     {
         ApplyTopology(session.Nodes, session.Members);
         _diagramNodes = session.Nodes;
+        _diagramMembers = session.Members;
+        _diagramLoadCases = session.LoadCases;
         _diagramNodeLoads = session.NodeLoads;
+        _diagramMemberLoads = session.MemberLoads;
         DiagramNodePositions = session.Nodes.ToDictionary(node => node.Id, node => new Point3D(node.X, node.Y, node.Z));
         RefreshDiagramSources(session.LoadCases, session.LoadDefinitions);
         RefreshDiagramGlyphs();
@@ -255,14 +269,27 @@ public class Fem3DVM : ViewModelBase
 
     void RefreshDiagramGlyphs()
     {
-        IReadOnlyList<FemResolvedNodeLoad> loads = SelectedDiagramLoadSource switch
+        var resolved = SelectedDiagramLoadSource switch
         {
-            { LoadCase: { } loadCase } => FemLoadDisplayResolver.ResolveLoadCase(loadCase, _diagramNodeLoads),
-            { Definition: { } definition } => FemLoadDisplayResolver.ResolveDefinition(definition, _diagramNodeLoads),
-            _ => []
+            { LoadCase: { } loadCase } => FemLoadExpressionResolver.Resolve(
+                new FemLoadExpression { Mode = FemLoadExpressionMode.Single, LoadCaseIds = [loadCase.Id] },
+                [loadCase], _diagramNodeLoads, _diagramMemberLoads),
+            { Definition: { } definition } => FemLoadExpressionResolver.Resolve(
+                definition.GetExpression(), _diagramLoadCases, _diagramNodeLoads, _diagramMemberLoads),
+            _ => new FemResolvedLoads([], [])
         };
-        DiagramGlyphs = FemDiagramGlyphFactory.Create(_diagramNodes, loads, ShowSupportGlyphs, ShowLoadGlyphs);
+        var displayNodeLoads = resolved.NodeLoads
+            .Where(load => load.Fx != 0 || load.Fy != 0 || load.Fz != 0 ||
+                           load.Mx != 0 || load.My != 0 || load.Mz != 0)
+            .Select(load => new FemResolvedNodeLoad(
+                load.NodeId, load.Fx, load.Fy, load.Fz, load.Mx, load.My, load.Mz))
+            .ToArray();
+        DiagramGlyphs = FemDiagramGlyphFactory.Create(_diagramNodes, displayNodeLoads, ShowSupportGlyphs, ShowLoadGlyphs);
+        MemberLoadGlyphs = ShowLoadGlyphs
+            ? FemMemberLoadGlyphFactory.Create(_diagramMembers, _diagramNodes, resolved.MemberLoads)
+            : [];
         OnPropertyChanged(nameof(DiagramGlyphs));
+        OnPropertyChanged(nameof(MemberLoadGlyphs));
     }
 
     void ApplyTopology(List<FemNode> allNodes, List<FemMember> allElements)

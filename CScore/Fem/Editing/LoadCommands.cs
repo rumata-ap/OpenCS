@@ -46,18 +46,22 @@ public sealed class EditLoadCaseCommand(FemLoadCase target, FemLoadCase newValue
 public sealed class DeleteLoadCaseCommand(FemLoadCase loadCase) : IFemEditCommand
 {
     List<FemNodeLoad> _removedLoads = [];
+    List<FemMemberLoad> _removedMemberLoads = [];
 
     public void Do(FemSchemaEditSession session)
     {
         session.LoadCases.Remove(loadCase);
         _removedLoads = session.NodeLoads.Where(l => l.LoadCaseId == loadCase.Id).ToList();
         foreach (var l in _removedLoads) session.NodeLoads.Remove(l);
+        _removedMemberLoads = session.MemberLoads.Where(l => l.LoadCaseId == loadCase.Id).ToList();
+        foreach (var l in _removedMemberLoads) session.MemberLoads.Remove(l);
     }
 
     public void Undo(FemSchemaEditSession session)
     {
         session.LoadCases.Add(loadCase);
         foreach (var l in _removedLoads) session.NodeLoads.Add(l);
+        foreach (var l in _removedMemberLoads) session.MemberLoads.Add(l);
     }
 }
 
@@ -165,4 +169,68 @@ public sealed class DeleteNodeLoadCommand(FemNodeLoad load) : IFemEditCommand
 {
     public void Do(FemSchemaEditSession session) => session.NodeLoads.Remove(load);
     public void Undo(FemSchemaEditSession session) => session.NodeLoads.Add(load);
+}
+
+/// <summary>Создаёт или обновляет распределённую нагрузку конструктивного стержня. Обратимо.</summary>
+public sealed class SetMemberLoadCommand(FemMemberLoad values) : IFemEditCommand
+{
+    FemMemberLoad? _existing;
+    FemMemberLoad? _old;
+    FemMemberLoad? _created;
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _existing = session.MemberLoads.FirstOrDefault(load => load.Id == values.Id && values.Id != 0);
+        if (_existing != null)
+        {
+            _old = Snapshot(_existing);
+            Apply(_existing, values);
+        }
+        else
+        {
+            _created = Snapshot(values);
+            _created.SchemaId = session.Schema.Id;
+            session.MemberLoads.Add(_created);
+        }
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        if (_existing != null && _old != null)
+            Apply(_existing, _old);
+        else if (_created != null)
+            session.MemberLoads.Remove(_created);
+    }
+
+    static FemMemberLoad Snapshot(FemMemberLoad source) => new()
+    {
+        Id = source.Id, SchemaId = source.SchemaId, LoadCaseId = source.LoadCaseId,
+        MemberId = source.MemberId, CoordinateSystem = source.CoordinateSystem,
+        DistributionType = source.DistributionType, StartOffsetM = source.StartOffsetM,
+        EndOffsetM = source.EndOffsetM, QxStart = source.QxStart, QyStart = source.QyStart,
+        QzStart = source.QzStart, QxEnd = source.QxEnd, QyEnd = source.QyEnd, QzEnd = source.QzEnd
+    };
+
+    static void Apply(FemMemberLoad target, FemMemberLoad source)
+    {
+        target.LoadCaseId = source.LoadCaseId;
+        target.MemberId = source.MemberId;
+        target.CoordinateSystem = source.CoordinateSystem;
+        target.DistributionType = source.DistributionType;
+        target.StartOffsetM = source.StartOffsetM;
+        target.EndOffsetM = source.EndOffsetM;
+        target.QxStart = source.QxStart;
+        target.QyStart = source.QyStart;
+        target.QzStart = source.QzStart;
+        target.QxEnd = source.QxEnd;
+        target.QyEnd = source.QyEnd;
+        target.QzEnd = source.QzEnd;
+    }
+}
+
+/// <summary>Удаляет распределённую нагрузку с возможностью отмены.</summary>
+public sealed class DeleteMemberLoadCommand(FemMemberLoad load) : IFemEditCommand
+{
+    public void Do(FemSchemaEditSession session) => session.MemberLoads.Remove(load);
+    public void Undo(FemSchemaEditSession session) => session.MemberLoads.Add(load);
 }

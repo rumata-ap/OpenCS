@@ -18,7 +18,11 @@ public sealed record FemNonlinearWorkflowInput(
     IReadOnlyDictionary<int, Material> Materials,
     IReadOnlyList<Diagramm>? CustomDiagramPool,
     CalcType CalcType,
-    FemNonlinearAnalysisOptions Options);
+    FemNonlinearAnalysisOptions Options)
+{
+    /// <summary>Распределённые нагрузки конструктивных стержней после разрешения выражения.</summary>
+    public IReadOnlyList<FemMemberLoad> ResolvedMemberLoads { get; init; } = [];
+}
 
 /// <summary>Итог workflow: статус, типизированный результат, ошибки, сериализованный DataJson.</summary>
 public sealed record FemNonlinearWorkflowOutput(string Status, FemNonlinearResult? Result, IReadOnlyList<string> Errors, string DataJson);
@@ -35,7 +39,8 @@ public sealed class FemNonlinearAnalysisWorkflow
     {
         var resolve = new FemNonlinearModelResolver().Resolve(
             input.MeshNodes, input.MeshElements, input.SourceNodes, input.SourceMembers, input.ResolvedLoads,
-            input.Sections, input.Materials, input.CustomDiagramPool, input.CalcType, input.Options);
+            input.Sections, input.Materials, input.CustomDiagramPool, input.CalcType, input.Options,
+            input.ResolvedMemberLoads);
 
         if (!resolve.Ok)
         {

@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using HelixToolkit.Wpf;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using OpenCS.Views.Helpers;
 
@@ -221,6 +222,7 @@ public partial class FemSchemaView3D : UserControl
             e.PropertyName == nameof(Fem3DVM.MeshLinePoints) ||
             e.PropertyName == nameof(Fem3DVM.MeshNodePoints) ||
             e.PropertyName == nameof(Fem3DVM.DiagramGlyphs) ||
+            e.PropertyName == nameof(Fem3DVM.MemberLoadGlyphs) ||
             e.PropertyName == nameof(Fem3DVM.ShowSectionGlyphs))
             BuildVisuals();
     }
@@ -297,6 +299,7 @@ public partial class FemSchemaView3D : UserControl
             viewport.ZoomExtents(500);
 
         BuildDiagramGlyphs();
+        BuildMemberLoadGlyphs();
         BuildSectionGlyphs();
         BuildEditProxies();
         ApplyGridVisuals();
@@ -394,6 +397,49 @@ public partial class FemSchemaView3D : UserControl
     {
         if (points.Count < 2) return;
         viewport.Children.Add(new LinesVisual3D { Points = points, Color = color, Thickness = thickness });
+    }
+
+    /// <summary>Рисует стрелки распределённых нагрузок на активном участке стержня.</summary>
+    void BuildMemberLoadGlyphs()
+    {
+        if (VM is not { ShowLoadGlyphs: true }) return;
+
+        foreach (var glyph in VM.MemberLoadGlyphs)
+        {
+            var member = glyph.End - glyph.Start;
+            double length = member.Length;
+            if (!double.IsFinite(length) || length < 1e-12) continue;
+
+            AddGlyphLine(Colors.DarkGreen, 2.5, [glyph.Start, glyph.End]);
+            for (int i = 0; i <= 4; i++)
+            {
+                double t = i / 4.0;
+                var point = glyph.Start + member * t;
+                var value = new Vector3D(
+                    glyph.LoadAtStart.X + (glyph.LoadAtEnd.X - glyph.LoadAtStart.X) * t,
+                    glyph.LoadAtStart.Y + (glyph.LoadAtEnd.Y - glyph.LoadAtStart.Y) * t,
+                    glyph.LoadAtStart.Z + (glyph.LoadAtEnd.Z - glyph.LoadAtStart.Z) * t);
+                double magnitude = value.Length;
+                if (!double.IsFinite(magnitude) || magnitude < 1e-12) continue;
+
+                var direction = value;
+                direction.Normalize();
+                double arrowLength = Math.Clamp(length * 0.22, 0.08, 0.35);
+                var side = Vector3D.CrossProduct(member, direction);
+                if (side.Length < 1e-10)
+                    side = Math.Abs(direction.Z) < 0.9
+                        ? Vector3D.CrossProduct(direction, new Vector3D(0, 0, 1))
+                        : Vector3D.CrossProduct(direction, new Vector3D(0, 1, 0));
+                side.Normalize();
+                var tip = point;
+                var tail = point - direction * arrowLength;
+                AddGlyphLines(Colors.DarkGreen, 2.2,
+                    [tail, tip,
+                     tip - direction * arrowLength * 0.32 + side * arrowLength * 0.18,
+                     tip,
+                     tip - direction * arrowLength * 0.32 - side * arrowLength * 0.18]);
+            }
+        }
     }
 
     /// <summary>Рисует контуры сечений и положительные направления локальных Y/Z.</summary>
@@ -712,6 +758,49 @@ public partial class FemSchemaView3D : UserControl
     {
         if (_contextMenuTargetTag is not { } tag) return;
         MemberForcesRequested?.Invoke(tag);
+    }
+
+    void NodeLoadTool_Click(object sender, RoutedEventArgs e)
+        => OpenNodeLoadDialog(Editor?.Selection?.SelectedNodeTags, null);
+
+    void MemberLoadTool_Click(object sender, RoutedEventArgs e)
+        => OpenMemberLoadDialog(Editor?.Selection?.SelectedElemTags, null);
+
+    void NodeLoadCtx_Click(object sender, RoutedEventArgs e)
+        => OpenNodeLoadDialog(null, _contextMenuTargetTag);
+
+    void MemberLoadCtx_Click(object sender, RoutedEventArgs e)
+        => OpenMemberLoadDialog(null, _contextMenuTargetTag);
+
+    void OpenNodeLoadDialog(IEnumerable<string>? selectedTags, string? contextTag)
+    {
+        if (Editor is not { } editor) return;
+        var tags = selectedTags?.ToHashSet(StringComparer.Ordinal) ?? [];
+        if (tags.Count == 0 && contextTag is { } tag) tags.Add(tag);
+        var nodes = editor.Session.Nodes.Where(node => tags.Contains(node.NodeTag)).ToList();
+        if (nodes.Count == 0)
+        {
+            MessageBox.Show(Loc.S("FemNodeLoadSelectNodes"), Loc.S("FemNodeLoadToolTip"),
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        new FemNodeLoadDialog(nodes, editor) { Owner = Window.GetWindow(this) }.ShowDialog();
+    }
+
+    void OpenMemberLoadDialog(IEnumerable<string>? selectedTags, string? contextTag)
+    {
+        if (Editor is not { } editor) return;
+        var tags = selectedTags?.ToHashSet(StringComparer.Ordinal) ?? [];
+        if (tags.Count == 0 && contextTag is { } tag) tags.Add(tag);
+        var members = editor.Session.Members
+            .Where(member => member.ElemType == "beam" && tags.Contains(member.ElemTag)).ToList();
+        if (members.Count == 0)
+        {
+            MessageBox.Show(Loc.S("FemMemberLoadSelectMembers"), Loc.S("FemMemberLoadToolTip"),
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        new FemMemberLoadDialog(members, editor) { Owner = Window.GetWindow(this) }.ShowDialog();
     }
 
     public event Action<string>? MemberDeleteRequested;

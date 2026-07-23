@@ -143,4 +143,18 @@ public class FemNonlinearModelTests
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
     }
+
+    [Fact]
+    public void Validate_CorotationalWithDistributedLoad_Throws()
+    {
+        var valid = ValidModel();
+        var model = new FemNonlinearModel
+        {
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            DistributedLoads = [new FemLinearDistributedLoad(1, 0, -1000, 0, 0, -1000, 0, 0, 1)],
+            GeomTransfKind = "Corotational"
+        };
+
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
 }

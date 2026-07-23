@@ -6,6 +6,7 @@ public sealed class FemLinearModel
     public IReadOnlyList<FemLinearNode> Nodes { get; init; } = [];
     public IReadOnlyList<FemLinearElement> Elements { get; init; } = [];
     public IReadOnlyList<FemLinearNodalLoad> Loads { get; init; } = [];
+    public IReadOnlyList<FemLinearDistributedLoad> DistributedLoads { get; init; } = [];
 
     /// <summary>Проверяет целостность модели перед генерацией Tcl.</summary>
     public void Validate()
@@ -38,5 +39,17 @@ public sealed class FemLinearModel
         foreach (var l in Loads)
             if (!tags.Contains(l.NodeTag))
                 throw new InvalidOperationException($"Нагрузка ссылается на несуществующий узел {l.NodeTag}.");
+
+        foreach (var l in DistributedLoads)
+        {
+            if (!elemTags.Contains(l.ElementTag))
+                throw new InvalidOperationException($"Распределённая нагрузка ссылается на несуществующий элемент {l.ElementTag}.");
+            if (!double.IsFinite(l.WyStart) || !double.IsFinite(l.WzStart) || !double.IsFinite(l.WxStart) ||
+                !double.IsFinite(l.WyEnd) || !double.IsFinite(l.WzEnd) || !double.IsFinite(l.WxEnd))
+                throw new InvalidOperationException($"Распределённая нагрузка элемента {l.ElementTag}: интенсивности должны быть конечными.");
+            if (!double.IsFinite(l.AOverL) || !double.IsFinite(l.BOverL) ||
+                l.AOverL < 0 || l.BOverL > 1 || l.BOverL <= l.AOverL)
+                throw new InvalidOperationException($"Распределённая нагрузка элемента {l.ElementTag}: некорректный интервал приложения.");
+        }
     }
 }

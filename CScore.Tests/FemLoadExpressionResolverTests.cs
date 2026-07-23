@@ -33,4 +33,52 @@ public class FemLoadExpressionResolverTests
         var expr = new FemLoadExpression { Mode = FemLoadExpressionMode.Sp20 };
         Assert.Throws<NotSupportedException>(() => FemLoadExpressionResolver.Resolve(expr, Cases(), Loads()));
     }
+
+    [Fact]
+    public void Resolve_WithMemberLoads_ScalesMemberIntensityWithoutMergingIntervals()
+    {
+        var expr = new FemLoadExpression
+        {
+            Mode = FemLoadExpressionMode.Sum,
+            Terms = [new FemLoadTerm { LoadCaseId = 2, Coefficient = 2 }]
+        };
+        var memberLoads = new[]
+        {
+            new FemMemberLoad
+            {
+                Id = 5, SchemaId = 1, LoadCaseId = 2, MemberId = 10,
+                StartOffsetM = 1, EndOffsetM = 2, QyStart = -300, QyEnd = -500
+            }
+        };
+
+        var result = FemLoadExpressionResolver.Resolve(expr, Cases(), Loads(), memberLoads);
+
+        var load = Assert.Single(result.MemberLoads);
+        Assert.Equal(-600, load.QyStart);
+        Assert.Equal(-1000, load.QyEnd);
+        Assert.Equal(1, load.StartOffsetM);
+        Assert.Equal(2, load.EndOffsetM);
+    }
+
+    [Fact]
+    public void Resolve_Sp20Terms_AppliesMaterializedCoefficientsToMemberLoads()
+    {
+        var expr = new FemLoadExpression
+        {
+            Mode = FemLoadExpressionMode.Sp20,
+            Terms = [new FemLoadTerm { LoadCaseId = 1, Coefficient = 1.4 }]
+        };
+        var memberLoads = new[]
+        {
+            new FemMemberLoad
+            {
+                Id = 5, SchemaId = 1, LoadCaseId = 1, MemberId = 10,
+                QzStart = -1000, QzEnd = -1000
+            }
+        };
+
+        var result = FemLoadExpressionResolver.Resolve(expr, Cases(), Loads(), memberLoads);
+
+        Assert.Equal(-1400, Assert.Single(result.MemberLoads).QzEnd);
+    }
 }

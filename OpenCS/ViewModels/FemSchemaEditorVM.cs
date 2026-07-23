@@ -25,8 +25,11 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
     public ObservableCollection<FemNode>        Nodes        { get; } = [];
     public ObservableCollection<FemMember>      Members      { get; } = [];
+    /// <summary>Конструктивные стержни, доступные для задания распределённых нагрузок.</summary>
+    public IEnumerable<FemMember> BeamMembers => Members.Where(member => member.ElemType == "beam");
     public ObservableCollection<FemMemberGroup> MemberGroups { get; } = [];
     public ObservableCollection<FemLoadCase>    LoadCases    { get; } = [];
+    public ObservableCollection<FemMemberLoad>  MemberLoads  { get; } = [];
     public ObservableCollection<FemLoadDefinition> LoadDefinitions { get; } = [];
 
     /// <summary>Пул проектных сечений — источник для назначения FemMember.CrossSectionId.</summary>
@@ -152,7 +155,18 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     }
 
     FemLoadCase? _selectedLoadCase;
-    public FemLoadCase? SelectedLoadCase { get => _selectedLoadCase; set { _selectedLoadCase = value; OnPropertyChanged(); } }
+    public FemLoadCase? SelectedLoadCase
+    {
+        get => _selectedLoadCase;
+        set { _selectedLoadCase = value; OnPropertyChanged(); }
+    }
+    FemMember? _selectedLoadMember;
+    /// <summary>Стержень, выбранный в редакторе распределённой нагрузки.</summary>
+    public FemMember? SelectedLoadMember
+    {
+        get => _selectedLoadMember;
+        set { _selectedLoadMember = value; OnPropertyChanged(); }
+    }
     FemLoadDefinition? _selectedLoadDefinition;
     public FemLoadDefinition? SelectedLoadDefinition
     {
@@ -173,6 +187,45 @@ public sealed class FemSchemaEditorVM : ViewModelBase
                 Session.LoadCases.FirstOrDefault(loadCase => loadCase.Id == term.LoadCaseId)?.Tag ?? term.LoadCaseId.ToString(),
                 term.Coefficient))
             .ToArray() ?? [];
+
+    /// <summary>Возвращает нагрузку выбранного загружения на заданный конструктивный стержень.</summary>
+    public FemMemberLoad? FindMemberLoad(FemMember member) => SelectedLoadCase is { } loadCase
+        ? Session.MemberLoads.FirstOrDefault(load => load.LoadCaseId == loadCase.Id && load.MemberId == member.Id)
+        : null;
+
+    /// <summary>Создаёт или обновляет распределённую нагрузку конструктивного стержня.</summary>
+    public bool ApplyMemberLoad(
+        double startOffsetM, double endOffsetM, string coordinateSystem, string distributionType,
+        double qxStart, double qyStart, double qzStart, double qxEnd, double qyEnd, double qzEnd)
+    {
+        if (SelectedLoadCase is not { } loadCase || SelectedLoadMember is not { } member || member.Id == 0)
+            return false;
+
+        var existing = FindMemberLoad(member);
+        Session.Execute(new SetMemberLoadCommand(new FemMemberLoad
+        {
+            Id = existing?.Id ?? 0,
+            SchemaId = Session.Schema.Id,
+            LoadCaseId = loadCase.Id,
+            MemberId = member.Id,
+            CoordinateSystem = coordinateSystem,
+            DistributionType = distributionType,
+            StartOffsetM = startOffsetM,
+            EndOffsetM = endOffsetM,
+            QxStart = qxStart, QyStart = qyStart, QzStart = qzStart,
+            QxEnd = qxEnd, QyEnd = qyEnd, QzEnd = qzEnd
+        }));
+        RefreshCollections();
+        return true;
+    }
+
+    /// <summary>Удаляет нагрузку выбранного загружения с выбранного стержня.</summary>
+    public void DeleteMemberLoad()
+    {
+        if (SelectedLoadMember is not { } member || FindMemberLoad(member) is not { } load) return;
+        Session.Execute(new DeleteMemberLoadCommand(load));
+        RefreshCollections();
+    }
 
     IReadOnlyList<FemValidationDiagnostic> _diagnostics = [];
     public IReadOnlyList<FemValidationDiagnostic> Diagnostics { get => _diagnostics; private set { _diagnostics = value; OnPropertyChanged(); } }
@@ -209,6 +262,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         Session.MemberGroups.AddRange(schema.MemberGroups);
         Session.LoadCases.AddRange(schema.LoadCases);
         Session.NodeLoads.AddRange(_db.GetFemNodeLoads(schema.Id));
+        Session.MemberLoads.AddRange(_db.GetFemMemberLoads(schema.Id));
         Session.LoadDefinitions.AddRange(schema.LoadDefinitions);
         RefreshCollections();
 
@@ -336,14 +390,14 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     }
 
     /// <summary>Обновляет имя и параметры комбинаторики СП 20 выбранного исходного загружения.</summary>
-    public void UpdateSelectedLoadCase(
+    public bool UpdateSelectedLoadCase(
         string tag, string sp20Type, string? sp20Group,
         double? gammaFUnfav, double? gammaFFav, double? psi1, double? psi2)
     {
-        if (SelectedLoadCase is not { } loadCase) return;
+        if (SelectedLoadCase is not { } loadCase || !CanUseLoadCaseTag(tag, loadCase)) return false;
         Session.Execute(new EditLoadCaseCommand(loadCase, new FemLoadCase
         {
-            Tag = tag,
+            Tag = tag.Trim(),
             LoadType = loadCase.LoadType,
             Sp20Type = sp20Type,
             Sp20Group = string.IsNullOrWhiteSpace(sp20Group) ? null : sp20Group,
@@ -353,7 +407,45 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             Psi2 = psi2
         }));
         RefreshCollections();
+        return true;
     }
+
+    /// <summary>Переименовывает выбранное исходное загружение с проверкой уникальности.</summary>
+    public bool TryRenameSelectedLoadCase(string tag)
+    {
+        if (SelectedLoadCase is not { } loadCase || !CanUseLoadCaseTag(tag, loadCase)) return false;
+        Session.Execute(new EditLoadCaseCommand(loadCase, new FemLoadCase
+        {
+            Tag = tag.Trim(), LoadType = loadCase.LoadType, Sp20Type = loadCase.Sp20Type,
+            Sp20Group = loadCase.Sp20Group, GammaFUnfav = loadCase.GammaFUnfav,
+            GammaFFav = loadCase.GammaFFav, Psi1 = loadCase.Psi1, Psi2 = loadCase.Psi2
+        }));
+        RefreshCollections();
+        return true;
+    }
+
+    /// <summary>Переименовывает выбранную комбинацию с проверкой уникальности.</summary>
+    public bool TryRenameSelectedLoadDefinition(string tag)
+    {
+        if (SelectedLoadDefinition is not { } definition || !CanUseDefinitionTag(tag, definition)) return false;
+        Session.Execute(new EditLoadDefinitionCommand(definition, new FemLoadDefinition
+        {
+            Tag = tag.Trim(), Description = definition.Description, ExpressionJson = definition.ExpressionJson,
+            SourceKind = definition.SourceKind, CombinationType = definition.CombinationType
+        }));
+        RefreshCollections();
+        return true;
+    }
+
+    bool CanUseLoadCaseTag(string tag, FemLoadCase target) =>
+        !string.IsNullOrWhiteSpace(tag) &&
+        Session.LoadCases.All(loadCase => ReferenceEquals(loadCase, target) ||
+            !string.Equals(loadCase.Tag, tag.Trim(), StringComparison.Ordinal));
+
+    bool CanUseDefinitionTag(string tag, FemLoadDefinition target) =>
+        !string.IsNullOrWhiteSpace(tag) &&
+        Session.LoadDefinitions.All(definition => ReferenceEquals(definition, target) ||
+            !string.Equals(definition.Tag, tag.Trim(), StringComparison.Ordinal));
 
     /// <summary>Создаёт ручное определение, начав его текущим выбранным загружением.</summary>
     public void AddManualLoadDefinition(string tagPrefix)
@@ -446,7 +538,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public void GenerateSp20LoadDefinitions(string combinationType)
     {
         var definitions = FemLoadDefinitionFactory.CreateSp20(
-            Session.Schema, Session.LoadCases, Session.Nodes, Session.NodeLoads, combinationType);
+            Session.Schema, Session.LoadCases, Session.Nodes, Session.NodeLoads, combinationType, Session.MemberLoads);
         foreach (var definition in definitions)
         {
             var baseTag = definition.Tag;
@@ -517,6 +609,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         SyncList(Members, Session.Members);
         SyncList(MemberGroups, Session.MemberGroups);
         SyncList(LoadCases, Session.LoadCases);
+        SyncList(MemberLoads, Session.MemberLoads);
         SyncList(LoadDefinitions, Session.LoadDefinitions);
         OnPropertyChanged(nameof(Session));
 
@@ -527,8 +620,10 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         // устаревшие значения таких полей до следующей структурной пересборки коллекции.
         CollectionViewSource.GetDefaultView(Nodes).Refresh();
         CollectionViewSource.GetDefaultView(Members).Refresh();
+        OnPropertyChanged(nameof(BeamMembers));
         CollectionViewSource.GetDefaultView(MemberGroups).Refresh();
         CollectionViewSource.GetDefaultView(LoadCases).Refresh();
+        CollectionViewSource.GetDefaultView(MemberLoads).Refresh();
         CollectionViewSource.GetDefaultView(LoadDefinitions).Refresh();
         OnPropertyChanged(nameof(SelectedLoadDefinitionTerms));
     }
@@ -586,7 +681,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public bool Save()
     {
         Diagnostics = FemTopologyValidator.Validate(Session.Schema, Session.Nodes, Session.Members, Session.MemberGroups)
-            .Concat(FemCanonicalValidator.Validate(Session.Schema, Session.LoadCases, Session.Nodes, Session.NodeLoads))
+            .Concat(FemCanonicalValidator.Validate(Session.Schema, Session.LoadCases, Session.Nodes,
+                Session.NodeLoads, Session.Members, Session.MemberLoads))
             .Concat(FemLoadDefinitionValidator.Validate(Session.Schema, Session.LoadDefinitions, Session.LoadCases))
             .ToList();
         var errors = Diagnostics.Where(d => d.IsError).ToList();
@@ -597,7 +693,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         }
 
         _db.SaveFemSchemaEdit(Session.Schema.Id, Session.Nodes, Session.Members, Session.MemberGroups,
-            Session.LoadCases, Session.NodeLoads, Session.LoadDefinitions);
+            Session.LoadCases, Session.NodeLoads, Session.MemberLoads, Session.LoadDefinitions);
         Session.MarkSaved();
         RefreshCollections();
         return true;

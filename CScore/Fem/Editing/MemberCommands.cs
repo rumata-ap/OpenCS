@@ -10,10 +10,13 @@ public sealed class AddMemberCommand(FemMember member) : IFemEditCommand
 public sealed class DeleteMemberCommand(FemMember member) : IFemEditCommand
 {
     List<(FemMemberGroup group, string oldJson)> _groupEdits = [];
+    List<FemMemberLoad> _loadEdits = [];
 
     public void Do(FemSchemaEditSession session)
     {
         session.Members.Remove(member);
+        _loadEdits = session.MemberLoads.Where(load => load.MemberId == member.Id).ToList();
+        foreach (var load in _loadEdits) session.MemberLoads.Remove(load);
         _groupEdits = [];
         foreach (var group in session.MemberGroups)
         {
@@ -28,6 +31,7 @@ public sealed class DeleteMemberCommand(FemMember member) : IFemEditCommand
     public void Undo(FemSchemaEditSession session)
     {
         session.Members.Add(member);
+        foreach (var load in _loadEdits) session.MemberLoads.Add(load);
         foreach (var (group, oldJson) in _groupEdits) group.MemberTagsJson = oldJson;
     }
 }

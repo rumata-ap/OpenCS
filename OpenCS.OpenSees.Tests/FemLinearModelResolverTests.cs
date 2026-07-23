@@ -121,4 +121,25 @@ public class FemLinearModelResolverTests
         var r = new FemLinearModelResolver().Resolve(mn, me, sn, sm, ld, Props());
         Assert.False(r.Ok);
     }
+
+    [Fact]
+    public void Resolve_TransfersMemberDistributedLoadToModel()
+    {
+        var (mn, me, sn, sm, ld) = Console();
+        var memberLoad = new FemMemberLoad
+        {
+            LoadCaseId = 1, MemberId = 1, CoordinateSystem = "local",
+            DistributionType = "trapezoidal", StartOffsetM = 0.5, EndOffsetM = 0.5,
+            QyStart = -100, QyEnd = -300
+        };
+
+        var r = new FemLinearModelResolver().Resolve(mn, me, sn, sm, ld, Props(), [memberLoad]);
+
+        Assert.True(r.Ok, string.Join("; ", r.Errors));
+        var load = Assert.Single(r.Model!.DistributedLoads);
+        Assert.Equal(-100, load.WyStart, 8);
+        Assert.Equal(-300, load.WyEnd, 8);
+        Assert.Equal(1d / 6, load.AOverL, 8);
+        Assert.Equal(5d / 6, load.BOverL, 8);
+    }
 }

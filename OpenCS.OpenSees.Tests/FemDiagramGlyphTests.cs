@@ -47,6 +47,41 @@ public sealed class FemDiagramGlyphTests
     }
 
     [Fact]
+    public void ViewModel_SelectDiagramLoadCase_RendersMemberLoadGlyph()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-fem-member-glyph-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var db = new DatabaseService(path);
+            var schema = new FemSchema { Id = 1 };
+            var loadCase = new FemLoadCase { Id = 2, SchemaId = schema.Id, Tag = "G" };
+            var session = new FemSchemaEditSession(schema);
+            session.Nodes.Add(new FemNode { Id = 1, SchemaId = schema.Id, NodeTag = "1", X = 0 });
+            session.Nodes.Add(new FemNode { Id = 2, SchemaId = schema.Id, NodeTag = "2", X = 10 });
+            session.Members.Add(new FemMember { Id = 10, SchemaId = schema.Id, ElemTag = "10", NodeIdsJson = "[1,2]" });
+            session.LoadCases.Add(loadCase);
+            session.MemberLoads.Add(new FemMemberLoad
+            {
+                MemberId = 10, LoadCaseId = loadCase.Id, CoordinateSystem = "global",
+                DistributionType = "uniform", QzStart = -100
+            });
+            var viewModel = new Fem3DVM(schema, db) { EditMode = true };
+
+            viewModel.LoadFromSession(session);
+            viewModel.SelectDiagramLoadCase(loadCase);
+
+            var glyph = Assert.Single(viewModel.MemberLoadGlyphs);
+            Assert.Equal("10", glyph.MemberTag);
+            Assert.Equal(0, glyph.Start.X, 8);
+            Assert.Equal(10, glyph.End.X, 8);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Factory_UsesNegativeSignForNegativeForceAndHidesLayersIndependently()
     {
         var load = new FemResolvedNodeLoad(1, 0, 0, -4, 0, 2, 0);
@@ -59,5 +94,35 @@ public sealed class FemDiagramGlyphTests
 
         var hidden = FemDiagramGlyphFactory.Create([], [load], showSupports: false, showLoads: false);
         Assert.Empty(hidden);
+    }
+
+    [Fact]
+    public void MemberLoadFactory_UsesPartialSpanAndLocalAxisDirection()
+    {
+        var members = new[]
+        {
+            new FemMember { Id = 10, ElemTag = "10", ElemType = "beam", NodeIdsJson = "[1,2]" }
+        };
+        var nodes = new[]
+        {
+            new FemNode { Id = 1, NodeTag = "1", X = 0 },
+            new FemNode { Id = 2, NodeTag = "2", X = 10 }
+        };
+        var loads = new[]
+        {
+            new FemMemberLoad
+            {
+                MemberId = 10, CoordinateSystem = "local", DistributionType = "trapezoidal",
+                StartOffsetM = 2, EndOffsetM = 1, QyStart = -100, QyEnd = -300
+            }
+        };
+
+        var glyph = Assert.Single(FemMemberLoadGlyphFactory.Create(members, nodes, loads));
+
+        Assert.Equal(2, glyph.Start.X, 8);
+        Assert.Equal(9, glyph.End.X, 8);
+        Assert.Equal(0, glyph.LoadAtStart.X, 8);
+        Assert.Equal(-100, glyph.LoadAtStart.Z, 8);
+        Assert.Equal(-300, glyph.LoadAtEnd.Z, 8);
     }
 }

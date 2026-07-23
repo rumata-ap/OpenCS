@@ -15,7 +15,8 @@ public sealed class FemLinearModelResolver
         IReadOnlyList<FemNode> sourceNodes,
         IReadOnlyList<FemMember> sourceMembers,
         IReadOnlyList<FemNodeLoad> resolvedLoads,
-        IReadOnlyDictionary<int, GeoProps> sectionProps)
+        IReadOnlyDictionary<int, GeoProps> sectionProps,
+        IReadOnlyList<FemMemberLoad>? resolvedMemberLoads = null)
     {
         var errors = new List<string>();
 
@@ -124,10 +125,17 @@ public sealed class FemLinearModelResolver
             loads.Add(new FemLinearNodalLoad(meshNode.Tag, l.Fx, l.Fy, l.Fz, l.Mx, l.My, l.Mz));
         }
 
+        var distributed = new FemDistributedLoadResolver().Resolve(
+            meshNodes, meshElements, sourceNodes, sourceMembers, resolvedMemberLoads ?? []);
+        errors.AddRange(distributed.Errors);
+
         if (errors.Count > 0)
             return new FemLinearResolveResult(null, errors);
 
-        var model = new FemLinearModel { Nodes = nodes, Elements = elements, Loads = loads };
+        var model = new FemLinearModel
+        {
+            Nodes = nodes, Elements = elements, Loads = loads, DistributedLoads = distributed.Loads
+        };
         try { model.Validate(); }
         catch (InvalidOperationException ex) { return new FemLinearResolveResult(null, [ex.Message]); }
         return new FemLinearResolveResult(model, []);

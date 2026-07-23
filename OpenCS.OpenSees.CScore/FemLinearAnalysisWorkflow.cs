@@ -14,7 +14,11 @@ public sealed record FemLinearWorkflowInput(
     IReadOnlyList<FemNode> SourceNodes,
     IReadOnlyList<FemMember> SourceMembers,
     IReadOnlyList<FemNodeLoad> ResolvedLoads,
-    IReadOnlyDictionary<int, GeoProps> SectionProps);
+    IReadOnlyDictionary<int, GeoProps> SectionProps)
+{
+    /// <summary>Распределённые нагрузки конструктивных стержней после разрешения выражения.</summary>
+    public IReadOnlyList<FemMemberLoad> ResolvedMemberLoads { get; init; } = [];
+}
 
 /// <summary>Итог workflow: статус, типизированный результат, ошибки, сериализованный DataJson.</summary>
 public sealed record FemLinearWorkflowOutput(string Status, FemLinearResult? Result, IReadOnlyList<string> Errors, string DataJson);
@@ -30,7 +34,8 @@ public sealed class FemLinearAnalysisWorkflow
     public async Task<FemLinearWorkflowOutput> RunAsync(FemLinearWorkflowInput input, OpenSeesRunRequest processRequest, CancellationToken ct)
     {
         var resolve = new FemLinearModelResolver().Resolve(
-            input.MeshNodes, input.MeshElements, input.SourceNodes, input.SourceMembers, input.ResolvedLoads, input.SectionProps);
+            input.MeshNodes, input.MeshElements, input.SourceNodes, input.SourceMembers, input.ResolvedLoads,
+            input.SectionProps, input.ResolvedMemberLoads);
 
         if (!resolve.Ok)
         {

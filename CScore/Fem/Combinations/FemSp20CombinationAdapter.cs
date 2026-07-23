@@ -30,18 +30,31 @@ public static class FemSp20CombinationAdapter
         IReadOnlyList<FemLoadCase> loadCases,
         IReadOnlyList<FemNode> nodes,
         IReadOnlyList<FemNodeLoad> loads,
-        IReadOnlyList<int> orderedNodeIds)
+        IReadOnlyList<int> orderedNodeIds,
+        IReadOnlyList<FemMemberLoad>? memberLoads = null)
     {
         ArgumentNullException.ThrowIfNull(loadCases);
         ArgumentNullException.ThrowIfNull(nodes);
         ArgumentNullException.ThrowIfNull(loads);
         ArgumentNullException.ThrowIfNull(orderedNodeIds);
+        memberLoads ??= [];
 
         var warnings = new List<string>();
         var result = new List<Loading>();
         var names = new HashSet<string>(StringComparer.Ordinal);
+        var memberDescriptors = memberLoads
+            .Select((load, index) => (Load: load, Index: index))
+            .OrderBy(item => item.Load.Id)
+            .ThenBy(item => item.Index)
+            .ToArray();
         var components = orderedNodeIds
             .SelectMany(nodeId => ComponentPrefixes.Select(prefix => prefix + nodeId))
+            .Concat(memberDescriptors.SelectMany(item => new[]
+            {
+                $"MemberLoad{item.Load.Id}QxStart", $"MemberLoad{item.Load.Id}QyStart",
+                $"MemberLoad{item.Load.Id}QzStart", $"MemberLoad{item.Load.Id}QxEnd",
+                $"MemberLoad{item.Load.Id}QyEnd", $"MemberLoad{item.Load.Id}QzEnd"
+            }))
             .ToArray();
 
         foreach (var loadCase in loadCases)
@@ -59,11 +72,25 @@ public static class FemSp20CombinationAdapter
                 name = $"{name} #{loadCase.Id}";
             names.Add(name);
 
-            var vector = FemLoadVectorBuilder.Build(
+            var nodeVector = FemLoadVectorBuilder.Build(
                 nodes,
                 loads.Where(load => load.LoadCaseId == loadCase.Id).ToArray(),
                 orderedNodeIds,
                 loadCase.Id);
+            var vector = new double[nodeVector.Length + memberDescriptors.Length * 6];
+            Array.Copy(nodeVector, vector, nodeVector.Length);
+            for (int i = 0; i < memberDescriptors.Length; i++)
+            {
+                var memberLoad = memberDescriptors[i].Load;
+                if (memberLoad.LoadCaseId != loadCase.Id) continue;
+                int offset = nodeVector.Length + i * 6;
+                vector[offset] = memberLoad.QxStart;
+                vector[offset + 1] = memberLoad.QyStart;
+                vector[offset + 2] = memberLoad.QzStart;
+                vector[offset + 3] = memberLoad.QxEnd;
+                vector[offset + 4] = memberLoad.QyEnd;
+                vector[offset + 5] = memberLoad.QzEnd;
+            }
             var matrix = new double[1, vector.Length];
             for (int i = 0; i < vector.Length; i++)
                 matrix[0, i] = vector[i];
@@ -79,15 +106,16 @@ public static class FemSp20CombinationAdapter
         IReadOnlyList<FemLoadCase> loadCases,
         IReadOnlyList<FemNode> nodes,
         IReadOnlyList<FemNodeLoad> loads,
-        IReadOnlyList<int> orderedNodeIds)
+        IReadOnlyList<int> orderedNodeIds,
+        IReadOnlyList<FemMemberLoad>? memberLoads = null)
     {
-        var conversion = ToLoadings(loadCases, nodes, loads, orderedNodeIds);
+        var conversion = ToLoadings(loadCases, nodes, loads, orderedNodeIds, memberLoads);
         ThrowIfWarnings(conversion.Warnings);
         if (conversion.Loadings.Count == 0)
             throw new ArgumentException("Не выбрано ни одного загружения.", nameof(loadCases));
 
         var coefficients = loadCases.ToDictionary(loadCase => loadCase.Id, _ => 1.0);
-        var vector = new double[6 * orderedNodeIds.Count];
+        var vector = new double[conversion.Loadings[0].Forces.GetLength(1)];
         var active = new Dictionary<string, double>(StringComparer.Ordinal);
         for (int i = 0; i < conversion.Loadings.Count; i++)
         {
@@ -106,9 +134,10 @@ public static class FemSp20CombinationAdapter
         IReadOnlyList<FemNode> nodes,
         IReadOnlyList<FemNodeLoad> loads,
         IReadOnlyList<int> orderedNodeIds,
-        string combinationType = "fundamental")
+        string combinationType = "fundamental",
+        IReadOnlyList<FemMemberLoad>? memberLoads = null)
     {
-        var conversion = ToLoadings(loadCases, nodes, loads, orderedNodeIds);
+        var conversion = ToLoadings(loadCases, nodes, loads, orderedNodeIds, memberLoads);
         ThrowIfWarnings(conversion.Warnings);
         if (conversion.Loadings.Count == 0)
             return [];
@@ -132,7 +161,7 @@ public static class FemSp20CombinationAdapter
                 continue;
 
             var coefficients = new Dictionary<int, double>();
-            var vector = new double[6 * orderedNodeIds.Count];
+            var vector = new double[conversion.Loadings[0].Forces.GetLength(1)];
             foreach (var (name, coefficient) in generatedCase.Active)
             {
                 if (!loadingByName.TryGetValue(name, out var loading))

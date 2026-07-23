@@ -11,6 +11,7 @@ public sealed class FemNonlinearModel
         new Dictionary<int, OpenSeesSectionModel>();
     public IReadOnlyList<FemNonlinearElement> Elements { get; init; } = [];
     public IReadOnlyList<FemLinearNodalLoad> Loads { get; init; } = [];
+    public IReadOnlyList<FemLinearDistributedLoad> DistributedLoads { get; init; } = [];
 
     public double LoadFactorStep { get; init; } = 0.1;
     public double MaxLoadFactor { get; init; } = 10.0;
@@ -72,5 +73,19 @@ public sealed class FemNonlinearModel
         foreach (var l in Loads)
             if (!tags.Contains(l.NodeTag))
                 throw new InvalidOperationException($"Нагрузка ссылается на несуществующий узел {l.NodeTag}.");
+
+        foreach (var l in DistributedLoads)
+        {
+            if (!elemTags.Contains(l.ElementTag))
+                throw new InvalidOperationException($"Распределённая нагрузка ссылается на несуществующий элемент {l.ElementTag}.");
+            if (!double.IsFinite(l.WyStart) || !double.IsFinite(l.WzStart) || !double.IsFinite(l.WxStart) ||
+                !double.IsFinite(l.WyEnd) || !double.IsFinite(l.WzEnd) || !double.IsFinite(l.WxEnd))
+                throw new InvalidOperationException($"Распределённая нагрузка элемента {l.ElementTag}: интенсивности должны быть конечными.");
+            if (!double.IsFinite(l.AOverL) || !double.IsFinite(l.BOverL) ||
+                l.AOverL < 0 || l.BOverL > 1 || l.BOverL <= l.AOverL)
+                throw new InvalidOperationException($"Распределённая нагрузка элемента {l.ElementTag}: некорректный интервал приложения.");
+        }
+        if (GeomTransfKind == "Corotational" && DistributedLoads.Count > 0)
+            throw new InvalidOperationException("Распределённые нагрузки не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
     }
 }

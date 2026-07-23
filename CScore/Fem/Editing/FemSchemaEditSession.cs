@@ -10,6 +10,7 @@ public sealed class FemSchemaEditSession
     public List<FemMemberGroup> MemberGroups { get; } = [];
     public List<FemLoadCase>    LoadCases    { get; } = [];
     public List<FemNodeLoad>    NodeLoads    { get; } = [];
+    public List<FemMemberLoad>  MemberLoads  { get; } = [];
     public List<FemLoadDefinition> LoadDefinitions { get; } = [];
 
     readonly List<IFemEditCommand> _history = [];

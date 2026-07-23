@@ -1,0 +1,64 @@
+<Window x:Class="OpenCS.Views.FemMemberLoadDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource FemMemberLoadDialogTitle}"
+        Width="430" SizeToContent="Height" WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="14">
+            <TextBlock x:Name="selectionText" FontWeight="Bold" Margin="0,0,0,8"/>
+            <TextBlock Text="{DynamicResource FemNodePropsLoadCase}"/>
+            <ComboBox x:Name="loadCaseCombo" DisplayMemberPath="Tag"
+                      SelectionChanged="LoadCaseCombo_SelectionChanged" Margin="0,2,0,8"/>
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                    <TextBlock Text="{DynamicResource FemMemberLoadCoordinateSystem}"/>
+                    <ComboBox x:Name="coordinateCombo" SelectedValuePath="Tag">
+                        <ComboBoxItem Tag="local" Content="{DynamicResource FemMemberLoadLocal}"/>
+                        <ComboBoxItem Tag="global" Content="{DynamicResource FemMemberLoadGlobal}"/>
+                    </ComboBox>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                    <TextBlock Text="{DynamicResource FemMemberLoadDistribution}"/>
+                    <ComboBox x:Name="distributionCombo" SelectedValuePath="Tag">
+                        <ComboBoxItem Tag="uniform" Content="{DynamicResource FemMemberLoadUniform}"/>
+                        <ComboBoxItem Tag="trapezoidal" Content="{DynamicResource FemMemberLoadTrapezoidal}"/>
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                    <TextBlock Text="{DynamicResource FemMemberLoadStartOffset}" TextWrapping="Wrap"/>
+                    <TextBox x:Name="startOffsetBox"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                    <TextBlock Text="{DynamicResource FemMemberLoadEndOffset}" TextWrapping="Wrap"/>
+                    <TextBox x:Name="endOffsetBox"/>
+                </StackPanel>
+            </Grid>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="70"/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="1" Text="{DynamicResource FemMemberLoadStart}" HorizontalAlignment="Center"/>
+                <TextBlock Grid.Column="2" Text="{DynamicResource FemMemberLoadEnd}" HorizontalAlignment="Center"/>
+                <TextBlock Grid.Row="1" Text="{DynamicResource FemMemberLoadQx}" VerticalAlignment="Center"/>
+                <TextBox x:Name="qxStartBox" Grid.Row="1" Grid.Column="1" Margin="2"/>
+                <TextBox x:Name="qxEndBox" Grid.Row="1" Grid.Column="2" Margin="2"/>
+                <TextBlock Grid.Row="2" Text="{DynamicResource FemMemberLoadQy}" VerticalAlignment="Center"/>
+                <TextBox x:Name="qyStartBox" Grid.Row="2" Grid.Column="1" Margin="2"/>
+                <TextBox x:Name="qyEndBox" Grid.Row="2" Grid.Column="2" Margin="2"/>
+                <TextBlock Grid.Row="3" Text="{DynamicResource FemMemberLoadQz}" VerticalAlignment="Center"/>
+                <TextBox x:Name="qzStartBox" Grid.Row="3" Grid.Column="1" Margin="2"/>
+                <TextBox x:Name="qzEndBox" Grid.Row="3" Grid.Column="2" Margin="2"/>
+            </Grid>
+            <TextBlock Text="{DynamicResource FemMemberLoadUnitsHint}" Foreground="Gray"
+                       FontSize="11" Margin="1,4,1,8"/>
+            <Button Content="{DynamicResource FemMemberLoadDialogApply}" Click="Apply_Click"/>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

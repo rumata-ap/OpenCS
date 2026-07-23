@@ -88,4 +88,26 @@ public sealed class FemSp20CombinationAdapterTests
                 .Distinct(StringComparer.Ordinal).Count());
         Assert.Contains(combinations, combination => combination.Vector[2] > 0);
     }
+
+    [Fact]
+    public void ToLoadings_AppendsMemberLoadComponentsToEveryLoadCaseVector()
+    {
+        var loadCases = new[]
+        {
+            new FemLoadCase { Id = 1, Tag = "G", Sp20Type = "permanent" },
+            new FemLoadCase { Id = 2, Tag = "Q", Sp20Type = "short_term" }
+        };
+        var memberLoads = new[]
+        {
+            new FemMemberLoad { Id = 20, LoadCaseId = 2, MemberId = 10, QyStart = -4, QyEnd = -6 }
+        };
+
+        var result = FemSp20CombinationAdapter.ToLoadings(
+            loadCases, [new FemNode { Id = 10 }], [], [10], memberLoads);
+
+        Assert.All(result.Loadings, loading => Assert.Equal(12, loading.Forces.GetLength(1)));
+        var qLoad = result.Loadings.Single(loading => loading.Name == "Q");
+        Assert.Equal(-4, qLoad.Forces[0, 7]);
+        Assert.Equal(-6, qLoad.Forces[0, 10]);
+    }
 }

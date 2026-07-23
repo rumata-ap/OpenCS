@@ -29,13 +29,15 @@ public static class FemAnalysisExecutor
         var sourceMembers = db.GetFemMembers(schema.Id);
         var loadCases = db.GetFemLoadCases(schema.Id);
         var allLoads = db.GetFemNodeLoads(schema.Id);
+        var allMemberLoads = db.GetFemMemberLoads(schema.Id);
 
         string taskKind = analysis.Kind == "nonlinear" ? "fem_nonlinear" : "fem_linear";
 
-        IReadOnlyList<FemNodeLoad> resolvedLoads;
+        FemResolvedLoads resolved;
         try
         {
-            resolvedLoads = FemLoadExpressionResolver.Resolve(analysis.GetLoadExpression(), loadCases, allLoads);
+            resolved = FemLoadExpressionResolver.Resolve(
+                analysis.GetLoadExpression(), loadCases, allLoads, allMemberLoads);
         }
         catch (NotSupportedException ex)
         {
@@ -54,15 +56,15 @@ public static class FemAnalysisExecutor
 
         if (analysis.Kind == "nonlinear")
             return await RunNonlinearAsync(app, analysis, created, meshNodes, meshElems, sourceNodes, sourceMembers,
-                resolvedLoads, parameters, runRequest, ct);
+                resolved, parameters, runRequest, ct);
 
         return await RunLinearAsync(app, analysis, created, meshNodes, meshElems, sourceNodes, sourceMembers,
-            resolvedLoads, runRequest, ct);
+            resolved, runRequest, ct);
     }
 
     static async Task<CalcResult> RunLinearAsync(AppViewModel app, FemAnalysis analysis, string created,
         List<FemMeshNode> meshNodes, List<FemElement> meshElems, List<FemNode> sourceNodes, List<FemMember> sourceMembers,
-        IReadOnlyList<FemNodeLoad> resolvedLoads, OpenSeesRunRequest runRequest, CancellationToken ct)
+        FemResolvedLoads resolved, OpenSeesRunRequest runRequest, CancellationToken ct)
     {
         // GeoProps по каждому используемому сечению — из готовых (с фибрами) сечений проекта
         var sectionProps = new Dictionary<int, GeoProps>();
@@ -75,7 +77,9 @@ public static class FemAnalysisExecutor
             sectionProps[csId] = new GeoProps(section);
         }
 
-        var input = new FemLinearWorkflowInput(meshNodes, meshElems, sourceNodes, sourceMembers, resolvedLoads, sectionProps);
+        var input = new FemLinearWorkflowInput(meshNodes, meshElems, sourceNodes, sourceMembers,
+            resolved.NodeLoads, sectionProps)
+        { ResolvedMemberLoads = resolved.MemberLoads };
 
         var service = new FemLinearAnalysisService(
             new FemLinearTclGenerator(),
@@ -95,7 +99,7 @@ public static class FemAnalysisExecutor
 
     static async Task<CalcResult> RunNonlinearAsync(AppViewModel app, FemAnalysis analysis, string created,
         List<FemMeshNode> meshNodes, List<FemElement> meshElems, List<FemNode> sourceNodes, List<FemMember> sourceMembers,
-        IReadOnlyList<FemNodeLoad> resolvedLoads, FemAnalysisParams parameters, OpenSeesRunRequest runRequest, CancellationToken ct)
+        FemResolvedLoads resolved, FemAnalysisParams parameters, OpenSeesRunRequest runRequest, CancellationToken ct)
     {
         if (parameters.CalcType is not { } calcType)
             return Error(analysis, created, "Не выбран тип расчёта (CalcType) для нелинейной постановки.", "fem_nonlinear");
@@ -117,8 +121,9 @@ public static class FemAnalysisExecutor
             parameters.IntegrationPoints, parameters.ConvergenceTest);
 
         var input = new FemNonlinearWorkflowInput(
-            meshNodes, meshElems, sourceNodes, sourceMembers, resolvedLoads,
-            sections, materials, app.Diagrams, calcType, options);
+            meshNodes, meshElems, sourceNodes, sourceMembers, resolved.NodeLoads,
+            sections, materials, app.Diagrams, calcType, options)
+        { ResolvedMemberLoads = resolved.MemberLoads };
 
         var service = new FemNonlinearAnalysisService(
             new FemNonlinearTclGenerator(),

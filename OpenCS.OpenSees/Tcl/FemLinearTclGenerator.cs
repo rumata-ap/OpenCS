@@ -51,6 +51,13 @@ public sealed class FemLinearTclGenerator
         L("pattern Plain 1 Linear {");
         foreach (var ld in model.Loads)
             L($"    load {ld.NodeTag} {F(ld.Fx)} {F(ld.Fy)} {F(ld.Fz)} {F(ld.Mx)} {F(ld.My)} {F(ld.Mz)}");
+        foreach (var ld in model.DistributedLoads)
+        {
+            if (IsFullUniform(ld))
+                L($"    eleLoad -ele {ld.ElementTag} -type -beamUniform {F(ld.WyStart)} {F(ld.WzStart)} {F(ld.WxStart)}");
+            else
+                L($"    eleLoad -ele {ld.ElementTag} -type -beamUniform {F(ld.WyStart)} {F(ld.WzStart)} {F(ld.WxStart)} {F(ld.AOverL)} {F(ld.BOverL)} {F(ld.WyEnd)} {F(ld.WzEnd)} {F(ld.WxEnd)}");
+        }
         L("}");
         L();
 
@@ -88,4 +95,8 @@ public sealed class FemLinearTclGenerator
 
         return sb.ToString();
     }
+
+    static bool IsFullUniform(FemLinearDistributedLoad load) =>
+        load.AOverL == 0 && load.BOverL == 1 &&
+        load.WyStart == load.WyEnd && load.WzStart == load.WzEnd && load.WxStart == load.WxEnd;
 }

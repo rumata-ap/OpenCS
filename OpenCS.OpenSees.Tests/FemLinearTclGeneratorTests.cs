@@ -40,4 +40,26 @@ public class FemLinearTclGeneratorTests
         string tcl = new FemLinearTclGenerator().Generate(Console());
         Assert.Contains("fix 2 0 0 0 0 0 0", tcl);
     }
+
+    [Fact]
+    public void Generate_EmitsFullUniformAndPartialTrapezoidEleLoads()
+    {
+        var baseModel = Console();
+        var model = new FemLinearModel
+        {
+            Nodes = baseModel.Nodes,
+            Elements = baseModel.Elements,
+            Loads = baseModel.Loads,
+            DistributedLoads =
+            [
+                new FemLinearDistributedLoad(1, 0, -2000, 0, 0, -2000, 0, 0, 1),
+                new FemLinearDistributedLoad(1, -1000, 0, 0, -3000, 0, 0, 0.25, 0.75)
+            ]
+        };
+
+        string tcl = new FemLinearTclGenerator().Generate(model);
+
+        Assert.Contains("eleLoad -ele 1 -type -beamUniform 0 -2000 0", tcl);
+        Assert.Contains("eleLoad -ele 1 -type -beamUniform -1000 0 0 0.25 0.75 -3000 0 0", tcl);
+    }
 }

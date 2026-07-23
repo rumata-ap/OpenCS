@@ -11,11 +11,12 @@ public static class FemLoadDefinitionFactory
         IReadOnlyList<FemLoadCase> loadCases,
         IReadOnlyList<FemNode> nodes,
         IReadOnlyList<FemNodeLoad> loads,
-        string combinationType)
+        string combinationType,
+        IReadOnlyList<FemMemberLoad>? memberLoads = null)
     {
         var orderedNodeIds = nodes.Select(node => node.Id).OrderBy(id => id).ToArray();
         var combinations = FemSp20CombinationAdapter.BuildSp20(
-            loadCases, nodes, loads, orderedNodeIds, combinationType);
+            loadCases, nodes, loads, orderedNodeIds, combinationType, memberLoads);
 
         return combinations.Select(combination => new FemLoadDefinition
         {
