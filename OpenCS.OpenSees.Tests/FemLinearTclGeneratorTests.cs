@@ -79,4 +79,23 @@ public class FemLinearTclGeneratorTests
 
         Assert.Contains("eleLoad -ele 1 -type -beamPoint -1500 250 0.5 0", tcl);
     }
+
+    [Fact]
+    public void Generate_EmitsKinematicConstraintAlongsideForceLoad()
+    {
+        var baseModel = Console();
+        var model = new FemLinearModel
+        {
+            Nodes = baseModel.Nodes,
+            Elements = baseModel.Elements,
+            Loads = baseModel.Loads,
+            KinematicLoads = [new FemLinearKinematicLoad(2, 1, 0.015)]
+        };
+
+        string tcl = new FemLinearTclGenerator().Generate(model);
+
+        Assert.Single(model.KinematicLoads);
+        Assert.Contains("load 2 0 0 -1000 0 0 0", tcl);
+        Assert.Contains($"sp 2 1 {TclNumber.Format(0.015)}", tcl);
+    }
 }

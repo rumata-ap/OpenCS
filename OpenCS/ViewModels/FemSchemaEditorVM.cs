@@ -30,6 +30,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     public ObservableCollection<FemMemberGroup> MemberGroups { get; } = [];
     public ObservableCollection<FemLoadCase>    LoadCases    { get; } = [];
     public ObservableCollection<FemMemberLoad>  MemberLoads  { get; } = [];
+    public ObservableCollection<FemKinematicLoad> KinematicLoads { get; } = [];
     public ObservableCollection<FemLoadDefinition> LoadDefinitions { get; } = [];
 
     /// <summary>Пул проектных сечений — источник для назначения FemMember.CrossSectionId.</summary>
@@ -214,6 +215,38 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         return true;
     }
 
+    /// <summary>Создаёт или обновляет заданные перемещения/повороты выбранных узлов.</summary>
+    public int ApplyKinematicLoads(FemLoadCase loadCase, IEnumerable<FemNode> nodes,
+        IReadOnlyDictionary<int, double> values)
+    {
+        int applied = 0;
+        foreach (var node in nodes.Where(node => node.Id != 0))
+        {
+            for (int dof = 1; dof <= 6; dof++)
+            {
+                if (values.TryGetValue(dof, out var value))
+                    Session.Execute(new SetKinematicLoadCommand(loadCase.Id, node.Id, dof, value));
+                else if (Session.KinematicLoads.FirstOrDefault(load =>
+                             load.LoadCaseId == loadCase.Id && load.NodeId == node.Id && load.Dof == dof) is { } existing)
+                    Session.Execute(new DeleteKinematicLoadCommand(existing));
+            }
+            applied++;
+        }
+        if (applied > 0) RefreshCollections();
+        return applied;
+    }
+
+    /// <summary>Удаляет заданное перемещение или поворот узла.</summary>
+    public bool DeleteKinematicLoad(FemNode node, FemLoadCase loadCase, int dof)
+    {
+        var load = Session.KinematicLoads.FirstOrDefault(item =>
+            item.LoadCaseId == loadCase.Id && item.NodeId == node.Id && item.Dof == dof);
+        if (load == null) return false;
+        Session.Execute(new DeleteKinematicLoadCommand(load));
+        RefreshCollections();
+        return true;
+    }
+
     /// <summary>Создаёт или обновляет распределённую или сосредоточенную нагрузку конструктивного стержня.</summary>
     public bool ApplyMemberLoad(
         double startOffsetM, double endOffsetM, string coordinateSystem, string distributionType,
@@ -286,6 +319,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         Session.LoadCases.AddRange(schema.LoadCases);
         Session.NodeLoads.AddRange(_db.GetFemNodeLoads(schema.Id));
         Session.MemberLoads.AddRange(_db.GetFemMemberLoads(schema.Id));
+        Session.KinematicLoads.AddRange(_db.GetFemKinematicLoads(schema.Id));
         Session.LoadDefinitions.AddRange(schema.LoadDefinitions);
         RefreshCollections();
 
@@ -633,6 +667,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         SyncList(MemberGroups, Session.MemberGroups);
         SyncList(LoadCases, Session.LoadCases);
         SyncList(MemberLoads, Session.MemberLoads);
+        SyncList(KinematicLoads, Session.KinematicLoads);
         SyncList(LoadDefinitions, Session.LoadDefinitions);
         OnPropertyChanged(nameof(Session));
 
@@ -647,6 +682,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         CollectionViewSource.GetDefaultView(MemberGroups).Refresh();
         CollectionViewSource.GetDefaultView(LoadCases).Refresh();
         CollectionViewSource.GetDefaultView(MemberLoads).Refresh();
+        CollectionViewSource.GetDefaultView(KinematicLoads).Refresh();
         CollectionViewSource.GetDefaultView(LoadDefinitions).Refresh();
         OnPropertyChanged(nameof(SelectedLoadDefinitionTerms));
     }
@@ -705,7 +741,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     {
         Diagnostics = FemTopologyValidator.Validate(Session.Schema, Session.Nodes, Session.Members, Session.MemberGroups)
             .Concat(FemCanonicalValidator.Validate(Session.Schema, Session.LoadCases, Session.Nodes,
-                Session.NodeLoads, Session.Members, Session.MemberLoads))
+                Session.NodeLoads, Session.Members, Session.MemberLoads, Session.KinematicLoads))
             .Concat(FemLoadDefinitionValidator.Validate(Session.Schema, Session.LoadDefinitions, Session.LoadCases))
             .ToList();
         var errors = Diagnostics.Where(d => d.IsError).ToList();
@@ -716,7 +752,7 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         }
 
         _db.SaveFemSchemaEdit(Session.Schema.Id, Session.Nodes, Session.Members, Session.MemberGroups,
-            Session.LoadCases, Session.NodeLoads, Session.MemberLoads, Session.LoadDefinitions);
+            Session.LoadCases, Session.NodeLoads, Session.MemberLoads, Session.KinematicLoads, Session.LoadDefinitions);
         Session.MarkSaved();
         RefreshCollections();
         return true;

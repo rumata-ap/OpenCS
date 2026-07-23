@@ -18,6 +18,8 @@ public sealed record FemLinearWorkflowInput(
 {
     /// <summary>Распределённые нагрузки конструктивных стержней после разрешения выражения.</summary>
     public IReadOnlyList<FemMemberLoad> ResolvedMemberLoads { get; init; } = [];
+    /// <summary>Заданные перемещения и повороты узлов после разрешения выражения.</summary>
+    public IReadOnlyList<FemKinematicLoad> ResolvedKinematicLoads { get; init; } = [];
 }
 
 /// <summary>Итог workflow: статус, типизированный результат, ошибки, сериализованный DataJson.</summary>
@@ -35,7 +37,7 @@ public sealed class FemLinearAnalysisWorkflow
     {
         var resolve = new FemLinearModelResolver().Resolve(
             input.MeshNodes, input.MeshElements, input.SourceNodes, input.SourceMembers, input.ResolvedLoads,
-            input.SectionProps, input.ResolvedMemberLoads);
+            input.SectionProps, input.ResolvedMemberLoads, input.ResolvedKinematicLoads);
 
         if (!resolve.Ok)
         {

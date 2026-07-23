@@ -138,4 +138,24 @@ public class FemNonlinearTclGeneratorTests
 
         Assert.Throws<InvalidOperationException>(() => new FemNonlinearTclGenerator().Generate(model));
     }
+
+    [Fact]
+    public void Generate_EmitsKinematicConstraintAlongsideForceLoad()
+    {
+        var baseModel = Console();
+        var model = new FemNonlinearModel
+        {
+            Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
+            Loads = baseModel.Loads, LoadFactorStep = baseModel.LoadFactorStep,
+            MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
+            Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
+            GeomTransfKind = baseModel.GeomTransfKind,
+            KinematicLoads = [new FemLinearKinematicLoad(2, 1, 0.015)]
+        };
+
+        string tcl = new FemNonlinearTclGenerator().Generate(model);
+
+        Assert.Contains("load 2 0 0 -1000 0 0 0", tcl);
+        Assert.Contains($"sp 2 1 {TclNumber.Format(0.015)}", tcl);
+    }
 }

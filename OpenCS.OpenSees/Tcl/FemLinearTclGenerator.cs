@@ -60,6 +60,8 @@ public sealed class FemLinearTclGenerator
         }
         foreach (var ld in model.PointLoads)
             L($"    eleLoad -ele {ld.ElementTag} -type -beamPoint {F(ld.Py)} {F(ld.Pz)} {F(ld.XOverL)} {F(ld.Px)}");
+        foreach (var ld in model.KinematicLoads)
+            L($"    sp {ld.NodeTag} {ld.Dof} {F(ld.Value)}");
         L("}");
         L();
 
@@ -74,7 +76,8 @@ public sealed class FemLinearTclGenerator
 
         // Явная запись результатов
         var nodeTags = string.Join(' ', model.Nodes.Select(n => n.Tag));
-        var restrainedTags = string.Join(' ', model.Nodes.Where(n => n.Fixed.Any(f => f)).Select(n => n.Tag));
+        var restrainedTags = string.Join(' ', model.Nodes.Where(n => n.Fixed.Any(f => f)).Select(n => n.Tag)
+            .Concat(model.KinematicLoads.Select(load => load.NodeTag)).Distinct());
         var elemTags = string.Join(' ', model.Elements.Select(e => e.Tag));
 
         L($"set nodeTags {{{nodeTags}}}");

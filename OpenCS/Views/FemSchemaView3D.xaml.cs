@@ -898,11 +898,17 @@ public partial class FemSchemaView3D : UserControl
     void NodeLoadTool_Click(object sender, RoutedEventArgs e)
         => OpenNodeLoadDialog(Editor?.Selection?.SelectedNodeTags, null);
 
+    void KinematicLoadTool_Click(object sender, RoutedEventArgs e)
+        => OpenKinematicLoadDialog(Editor?.Selection?.SelectedNodeTags, null);
+
     void MemberLoadTool_Click(object sender, RoutedEventArgs e)
         => OpenMemberLoadDialog(Editor?.Selection?.SelectedElemTags, null);
 
     void NodeLoadCtx_Click(object sender, RoutedEventArgs e)
         => OpenNodeLoadDialog(null, _contextMenuTargetTag);
+
+    void KinematicLoadCtx_Click(object sender, RoutedEventArgs e)
+        => OpenKinematicLoadDialog(null, _contextMenuTargetTag);
 
     void MemberLoadCtx_Click(object sender, RoutedEventArgs e)
         => OpenMemberLoadDialog(null, _contextMenuTargetTag);
@@ -920,6 +926,21 @@ public partial class FemSchemaView3D : UserControl
             return;
         }
         new FemNodeLoadDialog(nodes, editor) { Owner = Window.GetWindow(this) }.ShowDialog();
+    }
+
+    void OpenKinematicLoadDialog(IEnumerable<string>? selectedTags, string? contextTag)
+    {
+        if (Editor is not { } editor) return;
+        var tags = selectedTags?.ToHashSet(StringComparer.Ordinal) ?? [];
+        if (tags.Count == 0 && contextTag is { } tag) tags.Add(tag);
+        var nodes = editor.Session.Nodes.Where(node => tags.Contains(node.NodeTag)).ToList();
+        if (nodes.Count == 0)
+        {
+            MessageBox.Show(Loc.S("FemNodeLoadSelectNodes"), Loc.S("FemKinematicLoadToolTip"),
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        new FemKinematicLoadDialog(nodes, editor) { Owner = Window.GetWindow(this) }.ShowDialog();
     }
 
     void OpenMemberLoadDialog(IEnumerable<string>? selectedTags, string? contextTag)

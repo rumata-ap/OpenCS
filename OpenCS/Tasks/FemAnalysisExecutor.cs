@@ -30,6 +30,7 @@ public static class FemAnalysisExecutor
         var loadCases = db.GetFemLoadCases(schema.Id);
         var allLoads = db.GetFemNodeLoads(schema.Id);
         var allMemberLoads = db.GetFemMemberLoads(schema.Id);
+        var allKinematicLoads = db.GetFemKinematicLoads(schema.Id);
 
         string taskKind = analysis.Kind == "nonlinear" ? "fem_nonlinear" : "fem_linear";
 
@@ -37,7 +38,7 @@ public static class FemAnalysisExecutor
         try
         {
             resolved = FemLoadExpressionResolver.Resolve(
-                analysis.GetLoadExpression(), loadCases, allLoads, allMemberLoads);
+                analysis.GetLoadExpression(), loadCases, allLoads, allMemberLoads, allKinematicLoads);
         }
         catch (NotSupportedException ex)
         {
@@ -79,7 +80,7 @@ public static class FemAnalysisExecutor
 
         var input = new FemLinearWorkflowInput(meshNodes, meshElems, sourceNodes, sourceMembers,
             resolved.NodeLoads, sectionProps)
-        { ResolvedMemberLoads = resolved.MemberLoads };
+        { ResolvedMemberLoads = resolved.MemberLoads, ResolvedKinematicLoads = resolved.KinematicLoads };
 
         var service = new FemLinearAnalysisService(
             new FemLinearTclGenerator(),
@@ -123,7 +124,7 @@ public static class FemAnalysisExecutor
         var input = new FemNonlinearWorkflowInput(
             meshNodes, meshElems, sourceNodes, sourceMembers, resolved.NodeLoads,
             sections, materials, app.Diagrams, calcType, options)
-        { ResolvedMemberLoads = resolved.MemberLoads };
+        { ResolvedMemberLoads = resolved.MemberLoads, ResolvedKinematicLoads = resolved.KinematicLoads };
 
         var service = new FemNonlinearAnalysisService(
             new FemNonlinearTclGenerator(),

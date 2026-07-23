@@ -1,0 +1,41 @@
+<Window x:Class="OpenCS.Views.FemKinematicLoadDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource FemKinematicLoadDialogTitle}"
+        Width="430" SizeToContent="Height" WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <StackPanel Margin="14">
+        <TextBlock x:Name="selectionText" FontWeight="Bold" Margin="0,0,0,8"/>
+        <TextBlock Text="{DynamicResource FemNodePropsLoadCase}"/>
+        <ComboBox x:Name="loadCaseCombo" DisplayMemberPath="Tag"
+                  SelectionChanged="LoadCaseCombo_SelectionChanged" Margin="0,2,0,8"/>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="28"/><ColumnDefinition Width="80"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            <CheckBox x:Name="uxCheck" Grid.Row="0" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadUx}" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBox x:Name="uxBox" Grid.Row="0" Grid.Column="2" Margin="2"/>
+            <CheckBox x:Name="uyCheck" Grid.Row="1" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadUy}" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBox x:Name="uyBox" Grid.Row="1" Grid.Column="2" Margin="2"/>
+            <CheckBox x:Name="uzCheck" Grid.Row="2" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadUz}" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBox x:Name="uzBox" Grid.Row="2" Grid.Column="2" Margin="2"/>
+            <CheckBox x:Name="rxCheck" Grid.Row="3" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadRx}" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBox x:Name="rxBox" Grid.Row="3" Grid.Column="2" Margin="2"/>
+            <CheckBox x:Name="ryCheck" Grid.Row="4" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadRy}" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBox x:Name="ryBox" Grid.Row="4" Grid.Column="2" Margin="2"/>
+            <CheckBox x:Name="rzCheck" Grid.Row="5" VerticalAlignment="Center"/>
+            <TextBlock Text="{DynamicResource FemKinematicLoadRz}" Grid.Row="5" Grid.Column="1" VerticalAlignment="Center"/>
+            <TextBox x:Name="rzBox" Grid.Row="5" Grid.Column="2" Margin="2"/>
+        </Grid>
+        <TextBlock Text="{DynamicResource FemKinematicLoadUnitsHint}" Foreground="Gray"
+                   FontSize="11" Margin="1,4,1,8" TextWrapping="Wrap"/>
+        <Button Content="{DynamicResource FemKinematicLoadDialogApply}" Click="Apply_Click"/>
+    </StackPanel>
+</Window>

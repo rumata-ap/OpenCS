@@ -21,7 +21,8 @@ public sealed class FemNonlinearModelResolver
         IReadOnlyList<Diagramm>? customDiagramPool,
         CalcType calcType,
         FemNonlinearAnalysisOptions options,
-        IReadOnlyList<FemMemberLoad>? resolvedMemberLoads = null)
+        IReadOnlyList<FemMemberLoad>? resolvedMemberLoads = null,
+        IReadOnlyList<FemKinematicLoad>? resolvedKinematicLoads = null)
     {
         var errors = new List<string>();
 
@@ -160,6 +161,22 @@ public sealed class FemNonlinearModelResolver
         errors.AddRange(points.Errors);
         loads.AddRange(points.NodalLoads);
 
+        var kinematicLoads = new List<FemLinearKinematicLoad>();
+        foreach (var load in resolvedKinematicLoads ?? [])
+        {
+            if (!srcNodeById.TryGetValue(load.NodeId, out var srcNode))
+            {
+                errors.Add($"Кинематическая нагрузка ссылается на неизвестный конструктивный узел {load.NodeId}.");
+                continue;
+            }
+            if (srcNode.NodeTag is not { Length: > 0 } srcTag || !meshNodeBySourceTag.TryGetValue(srcTag, out var meshNode))
+            {
+                errors.Add($"Кинематически нагруженный узел {srcNode.NodeTag} не имеет совпадающего узла сетки.");
+                continue;
+            }
+            kinematicLoads.Add(new FemLinearKinematicLoad(meshNode.Tag, load.Dof, load.Value));
+        }
+
         if (errors.Count > 0)
             return new FemNonlinearResolveResult(null, errors);
 
@@ -169,6 +186,7 @@ public sealed class FemNonlinearModelResolver
             Sections = sectionsByKey.Values.ToDictionary(v => v.Tag, v => v.Model),
             Elements = elements,
             Loads = loads,
+            KinematicLoads = kinematicLoads,
             DistributedLoads = distributed.Loads,
             PointLoads = points.ElementLoads,
             LoadFactorStep = options.LoadFactorStep,

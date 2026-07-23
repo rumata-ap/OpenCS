@@ -16,7 +16,8 @@ public sealed class FemLinearModelResolver
         IReadOnlyList<FemMember> sourceMembers,
         IReadOnlyList<FemNodeLoad> resolvedLoads,
         IReadOnlyDictionary<int, GeoProps> sectionProps,
-        IReadOnlyList<FemMemberLoad>? resolvedMemberLoads = null)
+        IReadOnlyList<FemMemberLoad>? resolvedMemberLoads = null,
+        IReadOnlyList<FemKinematicLoad>? resolvedKinematicLoads = null)
     {
         var errors = new List<string>();
 
@@ -134,12 +135,28 @@ public sealed class FemLinearModelResolver
         errors.AddRange(points.Errors);
         loads.AddRange(points.NodalLoads);
 
+        var kinematicLoads = new List<FemLinearKinematicLoad>();
+        foreach (var load in resolvedKinematicLoads ?? [])
+        {
+            if (!srcNodeById.TryGetValue(load.NodeId, out var srcNode))
+            {
+                errors.Add($"Кинематическая нагрузка ссылается на неизвестный конструктивный узел {load.NodeId}.");
+                continue;
+            }
+            if (srcNode.NodeTag is not { Length: > 0 } srcTag || !meshNodeBySourceTag.TryGetValue(srcTag, out var meshNode))
+            {
+                errors.Add($"Кинематически нагруженный узел {srcNode.NodeTag} не имеет совпадающего узла сетки.");
+                continue;
+            }
+            kinematicLoads.Add(new FemLinearKinematicLoad(meshNode.Tag, load.Dof, load.Value));
+        }
+
         if (errors.Count > 0)
             return new FemLinearResolveResult(null, errors);
 
         var model = new FemLinearModel
         {
-            Nodes = nodes, Elements = elements, Loads = loads, DistributedLoads = distributed.Loads,
+            Nodes = nodes, Elements = elements, Loads = loads, KinematicLoads = kinematicLoads, DistributedLoads = distributed.Loads,
             PointLoads = points.ElementLoads
         };
         try { model.Validate(); }

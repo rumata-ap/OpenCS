@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-        const int CurrentSchemaVersion = 38;
+        const int CurrentSchemaVersion = 39;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -438,6 +438,15 @@ namespace OpenCS.Utilites
                 my REAL NOT NULL DEFAULT 0,
                 mz REAL NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS fem_kinematic_loads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                load_case_id INTEGER NOT NULL REFERENCES fem_load_cases(id) ON DELETE CASCADE,
+                node_id INTEGER NOT NULL REFERENCES fem_nodes(id) ON DELETE CASCADE,
+                dof INTEGER NOT NULL,
+                value REAL NOT NULL DEFAULT 0,
+                UNIQUE(load_case_id, node_id, dof)
+            );
             CREATE TABLE IF NOT EXISTS fem_load_definitions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
@@ -525,6 +534,7 @@ namespace OpenCS.Utilites
                if (i == 35) { MigrateV36(); continue; }
                if (i == 36) { MigrateV37(); continue; }
                if (i == 37) { MigrateV38(); continue; }
+               if (i == 38) { MigrateV39(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -959,6 +969,22 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE fem_member_loads ADD COLUMN my REAL NOT NULL DEFAULT 0");
          if (!ColumnExists("fem_member_loads", "mz"))
             MigExec("ALTER TABLE fem_member_loads ADD COLUMN mz REAL NOT NULL DEFAULT 0");
+      }
+
+      /// <summary>Миграция v39: статические заданные перемещения и повороты узлов.</summary>
+      void MigrateV39()
+      {
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS fem_kinematic_loads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                load_case_id INTEGER NOT NULL REFERENCES fem_load_cases(id) ON DELETE CASCADE,
+                node_id INTEGER NOT NULL REFERENCES fem_nodes(id) ON DELETE CASCADE,
+                dof INTEGER NOT NULL,
+                value REAL NOT NULL DEFAULT 0,
+                UNIQUE(load_case_id, node_id, dof)
+            );
+         """);
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -3225,6 +3251,30 @@ namespace OpenCS.Utilites
          return result;
       }
 
+      /// <summary>Возвращает статические заданные перемещения и повороты узлов схемы.</summary>
+      public List<CScore.Fem.FemKinematicLoad> GetFemKinematicLoads(int schemaId, int? loadCaseId = null)
+      {
+         var result = new List<CScore.Fem.FemKinematicLoad>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, load_case_id, node_id, dof, value
+            FROM fem_kinematic_loads
+            WHERE schema_id=@sid AND (@lc IS NULL OR load_case_id=@lc)
+            ORDER BY id
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@lc", (object?)loadCaseId ?? DBNull.Value);
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+            result.Add(new CScore.Fem.FemKinematicLoad
+            {
+               Id = r.GetInt32(0), SchemaId = schemaId,
+               LoadCaseId = r.GetInt32(1), NodeId = r.GetInt32(2),
+               Dof = r.GetInt32(3), Value = r.GetDouble(4)
+            });
+         return result;
+      }
+
       /// <summary>Возвращает распределённые нагрузки конструктивных стержней схемы.</summary>
       public List<CScore.Fem.FemMemberLoad> GetFemMemberLoads(int schemaId, int? loadCaseId = null)
       {
@@ -3365,6 +3415,52 @@ namespace OpenCS.Utilites
          cmd.ExecuteNonQuery();
       }
 
+      /// <summary>Сохраняет или обновляет заданное перемещение/поворот узла.</summary>
+      public void SaveFemKinematicLoad(CScore.Fem.FemKinematicLoad load)
+      {
+         ValidateFemKinematicLoadReferences(load);
+         if (load.Dof is < 1 or > 6 || !double.IsFinite(load.Value))
+            throw new InvalidOperationException("Кинематическая нагрузка должна иметь DOF от 1 до 6 и конечное значение.");
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            using var cmd = _connection.CreateCommand();
+            if (load.Id == 0)
+            {
+               cmd.CommandText = """
+                  INSERT INTO fem_kinematic_loads (schema_id, load_case_id, node_id, dof, value)
+                  VALUES (@sid, @lc, @nid, @dof, @value);
+                  SELECT last_insert_rowid();
+               """;
+               AddFemKinematicLoadParameters(cmd, load);
+               load.Id = (int)(long)cmd.ExecuteScalar()!;
+            }
+            else
+            {
+               cmd.CommandText = """
+                  UPDATE fem_kinematic_loads SET load_case_id=@lc, node_id=@nid, dof=@dof, value=@value
+                  WHERE id=@id AND schema_id=@sid
+               """;
+               AddFemKinematicLoadParameters(cmd, load);
+               cmd.Parameters.AddWithValue("@id", load.Id);
+               cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      /// <summary>Удаляет заданное перемещение/поворот узла.</summary>
+      public void DeleteFemKinematicLoad(CScore.Fem.FemKinematicLoad load)
+      {
+         if (load.Id == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fem_kinematic_loads WHERE id=@id AND schema_id=@sid";
+         cmd.Parameters.AddWithValue("@id", load.Id);
+         cmd.Parameters.AddWithValue("@sid", load.SchemaId);
+         cmd.ExecuteNonQuery();
+      }
+
       /// <summary>Сохраняет или обновляет распределённую нагрузку стержня.</summary>
       public void SaveFemMemberLoad(CScore.Fem.FemMemberLoad load)
       {
@@ -3448,6 +3544,15 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@mx", load.Mx);
          cmd.Parameters.AddWithValue("@my", load.My);
          cmd.Parameters.AddWithValue("@mz", load.Mz);
+      }
+
+      static void AddFemKinematicLoadParameters(SqliteCommand cmd, CScore.Fem.FemKinematicLoad load)
+      {
+         cmd.Parameters.AddWithValue("@sid", load.SchemaId);
+         cmd.Parameters.AddWithValue("@lc", load.LoadCaseId);
+         cmd.Parameters.AddWithValue("@nid", load.NodeId);
+         cmd.Parameters.AddWithValue("@dof", load.Dof);
+         cmd.Parameters.AddWithValue("@value", load.Value);
       }
 
       public List<CScore.Fem.FemAnalysis> GetFemAnalyses(int schemaId)
@@ -3581,6 +3686,23 @@ namespace OpenCS.Utilites
             throw new InvalidOperationException("Узел, загружение и узловая нагрузка должны принадлежать одной FEM-схеме.");
       }
 
+      void ValidateFemKinematicLoadReferences(CScore.Fem.FemKinematicLoad load)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT
+              (SELECT schema_id FROM fem_nodes WHERE id=@nid),
+              (SELECT schema_id FROM fem_load_cases WHERE id=@lc)
+         """;
+         cmd.Parameters.AddWithValue("@nid", load.NodeId);
+         cmd.Parameters.AddWithValue("@lc", load.LoadCaseId);
+         using var r = cmd.ExecuteReader();
+         if (!r.Read() || r.IsDBNull(0) || r.IsDBNull(1))
+            throw new InvalidOperationException("Кинематическая нагрузка ссылается на неизвестный узел или загружение.");
+         if (r.GetInt32(0) != load.SchemaId || r.GetInt32(1) != load.SchemaId)
+            throw new InvalidOperationException("Узел, загружение и кинематическая нагрузка должны принадлежать одной FEM-схеме.");
+      }
+
       void ValidateFemMemberLoadReferences(CScore.Fem.FemMemberLoad load)
       {
          using var cmd = _connection.CreateCommand();
@@ -3621,6 +3743,16 @@ namespace OpenCS.Utilites
             preservedLoads.Add((oldNode.NodeTag, load));
          }
 
+         var preservedKinematicLoads = new List<(string NodeTag, CScore.Fem.FemKinematicLoad Load)>();
+         foreach (var load in GetFemKinematicLoads(schemaId))
+         {
+            if (!oldNodesById.TryGetValue(load.NodeId, out var oldNode))
+               throw new InvalidOperationException($"Кинематическая нагрузка {load.Id} ссылается на отсутствующий узел.");
+            if (!newTags.Contains(oldNode.NodeTag, StringComparer.Ordinal))
+               throw new InvalidOperationException($"Нельзя удалить узел с кинематической нагрузкой, тег '{oldNode.NodeTag}'.");
+            preservedKinematicLoads.Add((oldNode.NodeTag, load));
+         }
+
          var preservedMemberLoads = new List<(string MemberTag, CScore.Fem.FemMemberLoad Load)>();
          foreach (var load in GetFemMemberLoads(schemaId))
          {
@@ -3638,6 +3770,7 @@ namespace OpenCS.Utilites
             delCmd.CommandText = """
                DELETE FROM fem_member_groups WHERE schema_id=@sid;
                DELETE FROM fem_member_loads  WHERE schema_id=@sid;
+               DELETE FROM fem_kinematic_loads WHERE schema_id=@sid;
                DELETE FROM fem_members       WHERE schema_id=@sid;
                DELETE FROM fem_node_loads WHERE schema_id=@sid;
                DELETE FROM fem_nodes    WHERE schema_id=@sid;
@@ -3696,6 +3829,22 @@ namespace OpenCS.Utilites
                loadCmd.Parameters["@my"].Value  = load.My;
                loadCmd.Parameters["@mz"].Value  = load.Mz;
                loadCmd.ExecuteNonQuery();
+            }
+
+            using var kinematicLoadCmd = _connection.CreateCommand();
+            kinematicLoadCmd.CommandText = """
+               INSERT INTO fem_kinematic_loads (schema_id, load_case_id, node_id, dof, value)
+               VALUES (@sid, @lc, @nid, @dof, @value)
+            """;
+            foreach (var (nodeTag, load) in preservedKinematicLoads)
+            {
+               kinematicLoadCmd.Parameters.Clear();
+               kinematicLoadCmd.Parameters.AddWithValue("@sid", schemaId);
+               kinematicLoadCmd.Parameters.AddWithValue("@lc", load.LoadCaseId);
+               kinematicLoadCmd.Parameters.AddWithValue("@nid", newNodeIds[nodeTag]);
+               kinematicLoadCmd.Parameters.AddWithValue("@dof", load.Dof);
+               kinematicLoadCmd.Parameters.AddWithValue("@value", load.Value);
+               kinematicLoadCmd.ExecuteNonQuery();
             }
 
             using var elemCmd = _connection.CreateCommand();
@@ -3837,7 +3986,7 @@ namespace OpenCS.Utilites
          IReadOnlyList<CScore.Fem.FemLoadCase>    loadCases,
          IReadOnlyList<CScore.Fem.FemNodeLoad>    nodeLoads,
          IReadOnlyList<CScore.Fem.FemLoadDefinition>? definitions = null)
-         => SaveFemSchemaEdit(schemaId, nodes, members, memberGroups, loadCases, nodeLoads, [], definitions);
+         => SaveFemSchemaEdit(schemaId, nodes, members, memberGroups, loadCases, nodeLoads, [], [], definitions);
 
       /// <summary>Атомарно сохраняет FEM-схему вместе с узловыми и распределёнными нагрузками.</summary>
       public void SaveFemSchemaEdit(
@@ -3848,6 +3997,18 @@ namespace OpenCS.Utilites
          IReadOnlyList<CScore.Fem.FemLoadCase>    loadCases,
          IReadOnlyList<CScore.Fem.FemNodeLoad>    nodeLoads,
          IReadOnlyList<CScore.Fem.FemMemberLoad>  memberLoads,
+         IReadOnlyList<CScore.Fem.FemLoadDefinition>? definitions = null)
+         => SaveFemSchemaEdit(schemaId, nodes, members, memberGroups, loadCases, nodeLoads, memberLoads, [], definitions);
+
+      public void SaveFemSchemaEdit(
+         int schemaId,
+         IReadOnlyList<CScore.Fem.FemNode>        nodes,
+         IReadOnlyList<CScore.Fem.FemMember>      members,
+         IReadOnlyList<CScore.Fem.FemMemberGroup> memberGroups,
+         IReadOnlyList<CScore.Fem.FemLoadCase>    loadCases,
+         IReadOnlyList<CScore.Fem.FemNodeLoad>    nodeLoads,
+         IReadOnlyList<CScore.Fem.FemMemberLoad>  memberLoads,
+         IReadOnlyList<CScore.Fem.FemKinematicLoad> kinematicLoads,
          IReadOnlyList<CScore.Fem.FemLoadDefinition>? definitions = null)
       {
          var newTags = nodes.Select(n => n.NodeTag).ToList();
@@ -3862,6 +4023,7 @@ namespace OpenCS.Utilites
                delCmd.CommandText = """
                   DELETE FROM fem_node_loads    WHERE schema_id=@sid;
                   DELETE FROM fem_member_loads  WHERE schema_id=@sid;
+                  DELETE FROM fem_kinematic_loads WHERE schema_id=@sid;
                   DELETE FROM fem_load_definitions WHERE schema_id=@sid;
                   DELETE FROM fem_load_cases    WHERE schema_id=@sid;
                   DELETE FROM fem_member_groups WHERE schema_id=@sid;
@@ -4045,6 +4207,31 @@ namespace OpenCS.Utilites
                   load.Id = (int)(long)memberLoadCmd.ExecuteScalar()!;
                   load.SchemaId = schemaId;
                   load.MemberId = memberId;
+                  load.LoadCaseId = newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out var mappedLoadCaseId)
+                     ? mappedLoadCaseId : load.LoadCaseId;
+               }
+            }
+
+            using (var kinematicLoadCmd = _connection.CreateCommand())
+            {
+               kinematicLoadCmd.CommandText = """
+                  INSERT INTO fem_kinematic_loads (schema_id, load_case_id, node_id, dof, value)
+                  VALUES (@sid, @lc, @nid, @dof, @value);
+                  SELECT last_insert_rowid();
+               """;
+               foreach (var load in kinematicLoads)
+               {
+                  if (!newNodeIdByOld.TryGetValue(load.NodeId, out int nodeId))
+                     throw new InvalidOperationException($"Кинематическая нагрузка ссылается на отсутствующий узел {load.NodeId}.");
+                  kinematicLoadCmd.Parameters.Clear();
+                  kinematicLoadCmd.Parameters.AddWithValue("@sid", schemaId);
+                  kinematicLoadCmd.Parameters.AddWithValue("@lc", newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out var lcId) ? lcId : load.LoadCaseId);
+                  kinematicLoadCmd.Parameters.AddWithValue("@nid", nodeId);
+                  kinematicLoadCmd.Parameters.AddWithValue("@dof", load.Dof);
+                  kinematicLoadCmd.Parameters.AddWithValue("@value", load.Value);
+                  load.Id = (int)(long)kinematicLoadCmd.ExecuteScalar()!;
+                  load.SchemaId = schemaId;
+                  load.NodeId = nodeId;
                   load.LoadCaseId = newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out var mappedLoadCaseId)
                      ? mappedLoadCaseId : load.LoadCaseId;
                }

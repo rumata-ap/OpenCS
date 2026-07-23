@@ -18,6 +18,10 @@ public sealed class FemCanonicalDatabaseTests
             var node = new FemNode { Id = -1, SchemaId = schema.Id, NodeTag = "1" };
             var loadCase = new FemLoadCase { Id = -2, SchemaId = schema.Id, Tag = "G", Sp20Type = "permanent" };
             var nodeLoad = new FemNodeLoad { SchemaId = schema.Id, LoadCaseId = -2, NodeId = -1, Fz = -12 };
+            var kinematicLoad = new FemKinematicLoad
+            {
+                SchemaId = schema.Id, LoadCaseId = -2, NodeId = -1, Dof = 1, Value = 0.015
+            };
             var definition = new FemLoadDefinition { SchemaId = schema.Id, Tag = "C1" };
             definition.SetExpression(new FemLoadExpression
             {
@@ -25,16 +29,20 @@ public sealed class FemCanonicalDatabaseTests
                 Terms = [new FemLoadTerm { LoadCaseId = -2, Coefficient = 1 }]
             });
 
-            db.SaveFemSchemaEdit(schema.Id, [node], [], [], [loadCase], [nodeLoad], [definition]);
+            db.SaveFemSchemaEdit(schema.Id, [node], [], [], [loadCase], [nodeLoad], [], [kinematicLoad], [definition]);
 
             var savedLoadCase = db.GetFemLoadCases(schema.Id).Single();
             var savedNode = db.GetFemNodes(schema.Id).Single();
             var savedNodeLoad = db.GetFemNodeLoads(schema.Id).Single();
+            var savedKinematicLoad = db.GetFemKinematicLoads(schema.Id).Single();
             var savedDefinition = db.GetFemLoadDefinitions(schema.Id).Single();
             Assert.True(savedLoadCase.Id > 0);
             Assert.True(savedNode.Id > 0);
             Assert.Equal(savedLoadCase.Id, savedNodeLoad.LoadCaseId);
             Assert.Equal(savedNode.Id, savedNodeLoad.NodeId);
+            Assert.Equal(savedLoadCase.Id, savedKinematicLoad.LoadCaseId);
+            Assert.Equal(savedNode.Id, savedKinematicLoad.NodeId);
+            Assert.Equal(0.015, savedKinematicLoad.Value);
             Assert.Equal(savedLoadCase.Id, savedDefinition.GetExpression().Terms.Single().LoadCaseId);
         }
         finally

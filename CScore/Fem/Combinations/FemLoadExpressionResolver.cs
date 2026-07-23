@@ -13,12 +13,14 @@ public static class FemLoadExpressionResolver
         FemLoadExpression expr,
         IReadOnlyList<FemLoadCase> cases,
         IReadOnlyList<FemNodeLoad> allNodeLoads,
-        IReadOnlyList<FemMemberLoad> allMemberLoads)
+        IReadOnlyList<FemMemberLoad> allMemberLoads,
+        IReadOnlyList<FemKinematicLoad>? allKinematicLoads = null)
     {
         ArgumentNullException.ThrowIfNull(expr);
         ArgumentNullException.ThrowIfNull(cases);
         ArgumentNullException.ThrowIfNull(allNodeLoads);
         ArgumentNullException.ThrowIfNull(allMemberLoads);
+        allKinematicLoads ??= [];
 
         var factors = BuildFactors(expr, cases);
         var byNode = new Dictionary<int, FemNodeLoad>();
@@ -62,7 +64,21 @@ public static class FemLoadExpressionResolver
             });
         }
 
-        return new FemResolvedLoads(byNode.Values.ToList(), memberLoads);
+        var byKinematicDof = new Dictionary<(int NodeId, int Dof), FemKinematicLoad>();
+        foreach (var load in allKinematicLoads)
+        {
+            if (!factors.TryGetValue(load.LoadCaseId, out double factor)) continue;
+            if (!byKinematicDof.TryGetValue((load.NodeId, load.Dof), out var acc))
+                acc = new FemKinematicLoad
+                {
+                    SchemaId = load.SchemaId, LoadCaseId = 0,
+                    NodeId = load.NodeId, Dof = load.Dof
+                };
+            acc.Value += load.Value * factor;
+            byKinematicDof[(load.NodeId, load.Dof)] = acc;
+        }
+
+        return new FemResolvedLoads(byNode.Values.ToList(), memberLoads, byKinematicDof.Values.ToList());
     }
 
     static Dictionary<int, double> BuildFactors(FemLoadExpression expr, IReadOnlyList<FemLoadCase> cases)

@@ -86,6 +86,8 @@ public sealed class FemNonlinearTclGenerator
             throw new InvalidOperationException("Сосредоточенные нагрузки внутри элемента не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
         foreach (var ld in model.PointLoads)
             L($"    eleLoad -ele {ld.ElementTag} -type -beamPoint {F(ld.Py)} {F(ld.Pz)} {F(ld.XOverL)} {F(ld.Px)}");
+        foreach (var ld in model.KinematicLoads)
+            L($"    sp {ld.NodeTag} {ld.Dof} {F(ld.Value)}");
         L("}");
         L();
 
@@ -100,7 +102,8 @@ public sealed class FemNonlinearTclGenerator
         L();
 
         var nodeTags = model.Nodes.Select(n => n.Tag).ToList();
-        var restrainedTags = model.Nodes.Where(n => n.Fixed.Any(f => f)).Select(n => n.Tag).ToList();
+        var restrainedTags = model.Nodes.Where(n => n.Fixed.Any(f => f)).Select(n => n.Tag)
+            .Concat(model.KinematicLoads.Select(load => load.NodeTag)).Distinct().ToList();
         var elemTags = model.Elements.Select(e => e.Tag).ToList();
 
         // Используем Tcl-каналы вместо recorder Node/Element. В OpenSees 3.8.0

@@ -47,6 +47,7 @@ public sealed class DeleteLoadCaseCommand(FemLoadCase loadCase) : IFemEditComman
 {
     List<FemNodeLoad> _removedLoads = [];
     List<FemMemberLoad> _removedMemberLoads = [];
+    List<FemKinematicLoad> _removedKinematicLoads = [];
 
     public void Do(FemSchemaEditSession session)
     {
@@ -55,6 +56,8 @@ public sealed class DeleteLoadCaseCommand(FemLoadCase loadCase) : IFemEditComman
         foreach (var l in _removedLoads) session.NodeLoads.Remove(l);
         _removedMemberLoads = session.MemberLoads.Where(l => l.LoadCaseId == loadCase.Id).ToList();
         foreach (var l in _removedMemberLoads) session.MemberLoads.Remove(l);
+        _removedKinematicLoads = session.KinematicLoads.Where(l => l.LoadCaseId == loadCase.Id).ToList();
+        foreach (var l in _removedKinematicLoads) session.KinematicLoads.Remove(l);
     }
 
     public void Undo(FemSchemaEditSession session)
@@ -62,6 +65,7 @@ public sealed class DeleteLoadCaseCommand(FemLoadCase loadCase) : IFemEditComman
         session.LoadCases.Add(loadCase);
         foreach (var l in _removedLoads) session.NodeLoads.Add(l);
         foreach (var l in _removedMemberLoads) session.MemberLoads.Add(l);
+        foreach (var l in _removedKinematicLoads) session.KinematicLoads.Add(l);
     }
 }
 
@@ -169,6 +173,49 @@ public sealed class DeleteNodeLoadCommand(FemNodeLoad load) : IFemEditCommand
 {
     public void Do(FemSchemaEditSession session) => session.NodeLoads.Remove(load);
     public void Undo(FemSchemaEditSession session) => session.NodeLoads.Add(load);
+}
+
+/// <summary>Создаёт или обновляет заданное перемещение/поворот для пары (загружение, узел, DOF).</summary>
+public sealed class SetKinematicLoadCommand(int loadCaseId, int nodeId, int dof, double value) : IFemEditCommand
+{
+    FemKinematicLoad? _existing;
+    FemKinematicLoad? _old;
+    FemKinematicLoad? _created;
+
+    public void Do(FemSchemaEditSession session)
+    {
+        _existing = session.KinematicLoads.FirstOrDefault(load =>
+            load.LoadCaseId == loadCaseId && load.NodeId == nodeId && load.Dof == dof);
+        if (_existing != null)
+        {
+            _old = new FemKinematicLoad { Value = _existing.Value };
+            _existing.Value = value;
+        }
+        else
+        {
+            _created = new FemKinematicLoad
+            {
+                SchemaId = session.Schema.Id, LoadCaseId = loadCaseId,
+                NodeId = nodeId, Dof = dof, Value = value
+            };
+            session.KinematicLoads.Add(_created);
+        }
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        if (_existing != null && _old != null)
+            _existing.Value = _old.Value;
+        else if (_created != null)
+            session.KinematicLoads.Remove(_created);
+    }
+}
+
+/// <summary>Удаляет заданное перемещение или поворот с возможностью отмены.</summary>
+public sealed class DeleteKinematicLoadCommand(FemKinematicLoad load) : IFemEditCommand
+{
+    public void Do(FemSchemaEditSession session) => session.KinematicLoads.Remove(load);
+    public void Undo(FemSchemaEditSession session) => session.KinematicLoads.Add(load);
 }
 
 /// <summary>Создаёт или обновляет распределённую нагрузку конструктивного стержня. Обратимо.</summary>

@@ -199,4 +199,54 @@ public sealed class FemLinearIntegrationTests
             if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task Cantilever_MixedForceAndPrescribedDisplacement_UsesOneLoadPattern()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string root = Path.Combine(Path.GetTempPath(), "opencs-fem-linear-kinematic-integration", Guid.NewGuid().ToString("N"));
+
+        const double length = 3.0, area = 0.01, youngModulus = 2e11, axialForce = 1000.0,
+            prescribedUz = -0.001;
+        var model = new FemLinearModel
+        {
+            Nodes =
+            [
+                new FemLinearNode(1, 0, 0, 0, [true, true, true, true, true, true]),
+                new FemLinearNode(2, length, 0, 0, new bool[6]),
+            ],
+            Elements =
+            [
+                new FemLinearElement(1, 1, 2, area, youngModulus, 8e10, 1e-5,
+                    1e-5, 1e-5, (0, 0, 1)),
+            ],
+            Loads = [new FemLinearNodalLoad(2, axialForce, 0, 0, 0, 0, 0)],
+            KinematicLoads = [new FemLinearKinematicLoad(2, 3, prescribedUz)]
+        };
+
+        try
+        {
+            var result = await new FemLinearAnalysisService(
+                new FemLinearTclGenerator(),
+                new OpenSeesProcessRunner(),
+                new OpenSeesArtifactStore(root),
+                new FemLinearResultParser())
+                .RunAsync(model, new OpenSeesRunRequest
+                {
+                    ExecutablePath = executable,
+                    WorkingDirectory = Path.GetTempPath(),
+                    Timeout = TimeSpan.FromSeconds(30)
+                }, CancellationToken.None);
+
+            Assert.True(result.Status == "ok", $"status={result.Status}; diagnostics={string.Join(" | ", result.Diagnostics)}");
+            var tip = result.Displacements.Single(displacement => displacement.NodeTag == 2);
+            Assert.InRange(tip.Ux, axialForce * length / (youngModulus * area) - 1e-10,
+                axialForce * length / (youngModulus * area) + 1e-10);
+            Assert.InRange(tip.Uz, prescribedUz - 1e-10, prescribedUz + 1e-10);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
 }

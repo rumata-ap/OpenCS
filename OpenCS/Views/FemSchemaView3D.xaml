@@ -28,6 +28,7 @@
             <MenuItem Header="{DynamicResource FemNodeMoveCtx}" Click="NodeMoveCtx_Click"/>
             <MenuItem Header="{DynamicResource FemNodeCopyCtx}" Click="NodeCopyCtx_Click"/>
             <MenuItem Header="{DynamicResource FemNodeLoadCtx}" Click="NodeLoadCtx_Click"/>
+            <MenuItem Header="{DynamicResource FemKinematicLoadCtx}" Click="KinematicLoadCtx_Click"/>
             <Separator/>
             <MenuItem Header="{DynamicResource FemNodePropertiesCtx}" Click="NodePropertiesCtx_Click"/>
         </ContextMenu>
@@ -62,6 +63,16 @@
                         <Path Data="M12,18.5 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" Fill="#2C3E50"/>
                         <Path Data="M12,2 V10" Stroke="#E74C3C" StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                         <Path Data="M8,9 L12,15 L16,9 Z" Fill="#E74C3C"/>
+                    </Canvas>
+                </Viewbox>
+            </Button>
+            <Button Style="{StaticResource IconButton25}" Click="KinematicLoadTool_Click"
+                    ToolTip="{DynamicResource FemKinematicLoadToolTip}">
+                <Viewbox Width="20" Height="20">
+                    <Canvas Width="24" Height="24">
+                        <Path Data="M12,3 V21" Stroke="#2C3E50" StrokeThickness="1.5"/>
+                        <Path Data="M5,8 L12,3 L19,8" Stroke="#8E44AD" StrokeThickness="2" Fill="Transparent"/>
+                        <Path Data="M5,16 L12,21 L19,16" Stroke="#8E44AD" StrokeThickness="2" Fill="Transparent"/>
                     </Canvas>
                 </Viewbox>
             </Button>

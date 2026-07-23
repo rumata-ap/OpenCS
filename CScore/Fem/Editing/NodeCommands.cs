@@ -42,11 +42,13 @@ public sealed class SetDofMaskCommand(FemNode node, int mask) : IFemEditCommand
 }
 
 /// <summary>Удаляет узел и каскадно — ссылающиеся на него конструктивные элементы, узловые нагрузки
-/// и ссылки на удалённые элементы в FemMemberGroup.MemberTagsJson. Полностью обратимо.</summary>
+/// заданные перемещения/повороты и ссылки на удалённые элементы в FemMemberGroup.MemberTagsJson.
+/// Полностью обратимо.</summary>
 public sealed class DeleteNodeCommand(FemNode node) : IFemEditCommand
 {
     List<FemMember>   _removedMembers = [];
     List<FemNodeLoad> _removedLoads   = [];
+    List<FemKinematicLoad> _removedKinematicLoads = [];
     List<(FemMemberGroup group, string oldJson)> _groupEdits = [];
 
     public void Do(FemSchemaEditSession session)
@@ -62,6 +64,8 @@ public sealed class DeleteNodeCommand(FemNode node) : IFemEditCommand
 
         _removedLoads = session.NodeLoads.Where(l => l.NodeId == node.Id).ToList();
         foreach (var l in _removedLoads) session.NodeLoads.Remove(l);
+        _removedKinematicLoads = session.KinematicLoads.Where(l => l.NodeId == node.Id).ToList();
+        foreach (var l in _removedKinematicLoads) session.KinematicLoads.Remove(l);
 
         var removedMemberTags = _removedMembers.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
         _groupEdits = [];
@@ -80,6 +84,7 @@ public sealed class DeleteNodeCommand(FemNode node) : IFemEditCommand
         session.Nodes.Add(node);
         foreach (var e in _removedMembers) session.Members.Add(e);
         foreach (var l in _removedLoads) session.NodeLoads.Add(l);
+        foreach (var l in _removedKinematicLoads) session.KinematicLoads.Add(l);
         foreach (var (group, oldJson) in _groupEdits) group.MemberTagsJson = oldJson;
     }
 }
@@ -87,7 +92,8 @@ public sealed class DeleteNodeCommand(FemNode node) : IFemEditCommand
 /// <summary>Сшивает узлы конструктивного слоя, совпадающие по координатам (в пределах допуска
 /// FemMeshDiscretizer.CollinearToleranceM), в один узел на группу. Выживает узел с наименьшим
 /// числовым NodeTag; закрепления объединяются по ИЛИ; ссылки стержней переписываются на
-/// выжившего; узловые нагрузки переносятся (суммируясь при совпадении LoadCaseId). Полностью
+/// выжившего; узловые нагрузки переносятся (суммируясь при совпадении LoadCaseId), а заданные
+/// перемещения/повороты переносятся с устранением дубликатов по LoadCaseId и DOF. Полностью
 /// обратима. Узлы с нечисловым NodeTag в слиянии не участвуют.</summary>
 public sealed class MergeCoincidentNodesCommand : IFemEditCommand
 {
@@ -103,12 +109,16 @@ public sealed class MergeCoincidentNodesCommand : IFemEditCommand
     sealed record LoadMerge(
         FemNodeLoad SurvivingLoad, FemNodeLoad RemovedLoad,
         double OldFx, double OldFy, double OldFz, double OldMx, double OldMy, double OldMz);
+    sealed record KinematicReassign(FemKinematicLoad Load, int OldNodeId);
+    sealed record KinematicDuplicate(FemKinematicLoad RemovedLoad);
 
     List<FemNode> _removedNodes = [];
     List<DofMaskEdit> _dofMaskEdits = [];
     List<MemberEdit> _memberEdits = [];
     List<LoadReassign> _loadReassigns = [];
     List<LoadMerge> _loadMerges = [];
+    List<KinematicReassign> _kinematicReassigns = [];
+    List<KinematicDuplicate> _kinematicDuplicates = [];
 
     public void Do(FemSchemaEditSession session)
     {
@@ -117,6 +127,8 @@ public sealed class MergeCoincidentNodesCommand : IFemEditCommand
         _memberEdits = [];
         _loadReassigns = [];
         _loadMerges = [];
+        _kinematicReassigns = [];
+        _kinematicDuplicates = [];
         var report = new List<MergedGroup>();
 
         foreach (var group in GroupCoincidentNodes(session.Nodes))
@@ -165,6 +177,25 @@ public sealed class MergeCoincidentNodesCommand : IFemEditCommand
                     }
                 }
 
+                foreach (var load in session.KinematicLoads.Where(l => l.NodeId == node.Id).ToList())
+                {
+                    var existing = session.KinematicLoads.FirstOrDefault(l =>
+                        l.NodeId == survivor.Id && l.LoadCaseId == load.LoadCaseId && l.Dof == load.Dof);
+                    if (existing != null)
+                    {
+                        // Для одной точки и одной степени свободы после слияния допустимо
+                        // только одно заданное значение. Сохраняем значение выжившего узла;
+                        // валидатор схемы отдельно выявит исходное противоречие значений.
+                        _kinematicDuplicates.Add(new KinematicDuplicate(load));
+                        session.KinematicLoads.Remove(load);
+                    }
+                    else
+                    {
+                        _kinematicReassigns.Add(new KinematicReassign(load, load.NodeId));
+                        load.NodeId = survivor.Id;
+                    }
+                }
+
                 session.Nodes.Remove(node);
                 _removedNodes.Add(node);
             }
@@ -186,6 +217,11 @@ public sealed class MergeCoincidentNodesCommand : IFemEditCommand
             merge.SurvivingLoad.Mx = merge.OldMx; merge.SurvivingLoad.My = merge.OldMy; merge.SurvivingLoad.Mz = merge.OldMz;
             session.NodeLoads.Add(merge.RemovedLoad);
         }
+
+        foreach (var duplicate in _kinematicDuplicates)
+            session.KinematicLoads.Add(duplicate.RemovedLoad);
+        foreach (var reassign in _kinematicReassigns)
+            reassign.Load.NodeId = reassign.OldNodeId;
 
         // Восстанавливаем ссылки стержней в обратном порядке — один стержень мог быть переписан
         // дважды (оба конца оказались в разных слитых группах), и только реверс корректно

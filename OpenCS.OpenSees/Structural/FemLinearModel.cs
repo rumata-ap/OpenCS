@@ -8,6 +8,7 @@ public sealed class FemLinearModel
     public IReadOnlyList<FemLinearNodalLoad> Loads { get; init; } = [];
     public IReadOnlyList<FemLinearDistributedLoad> DistributedLoads { get; init; } = [];
     public IReadOnlyList<FemLinearPointLoad> PointLoads { get; init; } = [];
+    public IReadOnlyList<FemLinearKinematicLoad> KinematicLoads { get; init; } = [];
 
     /// <summary>Проверяет целостность модели перед генерацией Tcl.</summary>
     public void Validate()
@@ -40,6 +41,22 @@ public sealed class FemLinearModel
         foreach (var l in Loads)
             if (!tags.Contains(l.NodeTag))
                 throw new InvalidOperationException($"Нагрузка ссылается на несуществующий узел {l.NodeTag}.");
+
+        var kinematicDofs = new HashSet<(int NodeTag, int Dof)>();
+        foreach (var l in KinematicLoads)
+        {
+            if (!tags.Contains(l.NodeTag))
+                throw new InvalidOperationException($"Кинематическая нагрузка ссылается на несуществующий узел {l.NodeTag}.");
+            if (l.Dof is < 1 or > 6)
+                throw new InvalidOperationException($"Кинематическая нагрузка узла {l.NodeTag}: DOF должен быть от 1 до 6.");
+            if (!double.IsFinite(l.Value))
+                throw new InvalidOperationException($"Кинематическая нагрузка узла {l.NodeTag}: значение должно быть конечным.");
+            if (!kinematicDofs.Add((l.NodeTag, l.Dof)))
+                throw new InvalidOperationException($"Дублирующееся кинематическое воздействие узла {l.NodeTag}, DOF {l.Dof}.");
+            var node = Nodes.First(n => n.Tag == l.NodeTag);
+            if (node.Fixed[l.Dof - 1] && l.Value != 0)
+                throw new InvalidOperationException($"Кинематическая нагрузка узла {l.NodeTag}, DOF {l.Dof} конфликтует с закреплением.");
+        }
 
         foreach (var l in DistributedLoads)
         {

@@ -80,6 +80,56 @@ public sealed class MergeCoincidentNodesCommandTests
     }
 
     [Fact]
+    public void Do_KinematicLoads_AreReassignedToSurvivor()
+    {
+        var session = NewSession();
+        var n1 = new FemNode { Id = 1, NodeTag = "1", X = 0, Y = 0, Z = 0 };
+        var n2 = new FemNode { Id = 2, NodeTag = "2", X = 0, Y = 0, Z = 0 };
+        session.Nodes.AddRange([n1, n2]);
+        session.KinematicLoads.Add(new FemKinematicLoad
+        {
+            Id = 1, LoadCaseId = 1, NodeId = 2, Dof = 1, Value = 0.015
+        });
+
+        session.Execute(new MergeCoincidentNodesCommand());
+
+        var load = Assert.Single(session.KinematicLoads);
+        Assert.Equal(1, load.NodeId);
+        Assert.Equal(0.015, load.Value);
+
+        session.Undo();
+        Assert.Equal(2, session.Nodes.Count);
+        Assert.Equal(2, session.KinematicLoads.Single().NodeId);
+    }
+
+    [Fact]
+    public void Do_DuplicateKinematicLoads_KeepsSurvivorAndUndoRestoresDuplicate()
+    {
+        var session = NewSession();
+        session.Nodes.AddRange([
+            new FemNode { Id = 1, NodeTag = "1", X = 0, Y = 0, Z = 0 },
+            new FemNode { Id = 2, NodeTag = "2", X = 0, Y = 0, Z = 0 },
+        ]);
+        session.KinematicLoads.Add(new FemKinematicLoad
+        {
+            Id = 1, LoadCaseId = 1, NodeId = 1, Dof = 1, Value = 0.015
+        });
+        session.KinematicLoads.Add(new FemKinematicLoad
+        {
+            Id = 2, LoadCaseId = 1, NodeId = 2, Dof = 1, Value = 0.015
+        });
+
+        session.Execute(new MergeCoincidentNodesCommand());
+        Assert.Single(session.KinematicLoads);
+        Assert.Equal(1, session.KinematicLoads[0].NodeId);
+
+        session.Undo();
+        Assert.Equal(2, session.KinematicLoads.Count);
+        Assert.Contains(session.KinematicLoads, load => load.NodeId == 1);
+        Assert.Contains(session.KinematicLoads, load => load.NodeId == 2);
+    }
+
+    [Fact]
     public void Undo_FullyRestoresNodesMembersLoadsAndDofMask()
     {
         var session = NewSession();

@@ -94,14 +94,19 @@ public static class FemCanonicalValidator
         IReadOnlyList<FemNode> nodes,
         IReadOnlyList<FemNodeLoad> nodeLoads,
         IReadOnlyList<FemMember> members,
-        IReadOnlyList<FemMemberLoad> memberLoads)
+        IReadOnlyList<FemMemberLoad> memberLoads,
+        IReadOnlyList<FemKinematicLoad>? kinematicLoads = null)
     {
         ArgumentNullException.ThrowIfNull(members);
         ArgumentNullException.ThrowIfNull(memberLoads);
+        kinematicLoads ??= [];
 
         var errors = Validate(schema, loadCases, nodes, nodeLoads).ToList();
         var caseById = loadCases.Where(loadCase => loadCase.Id != 0)
             .GroupBy(loadCase => loadCase.Id)
+            .ToDictionary(group => group.Key, group => group.First());
+        var nodeById = nodes.Where(node => node.Id != 0)
+            .GroupBy(node => node.Id)
             .ToDictionary(group => group.Key, group => group.First());
         var memberById = BuildUniqueIndex(
             members, "member_id_duplicate", errors, skipZero: true);
@@ -110,6 +115,7 @@ public static class FemCanonicalValidator
             .GroupBy(node => node.NodeTag, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
         BuildUniqueIndex(memberLoads, "member_load_id_duplicate", errors, skipZero: true);
+        BuildUniqueIndex(kinematicLoads, "kinematic_load_id_duplicate", errors, skipZero: true);
 
         foreach (var member in members)
         {
@@ -185,6 +191,33 @@ public static class FemCanonicalValidator
             }
         }
 
+        var kinematicDofs = new HashSet<(int LoadCaseId, int NodeId, int Dof)>();
+        foreach (var load in kinematicLoads)
+        {
+            if (load.SchemaId != schema.Id)
+                errors.Add(new("kinematic_load_schema_mismatch",
+                    $"Кинематическая нагрузка {load.Id} принадлежит схеме {load.SchemaId}, ожидалась {schema.Id}."));
+            if (!caseById.ContainsKey(load.LoadCaseId))
+                errors.Add(new("load_case_missing",
+                    $"Кинематическая нагрузка {load.Id} ссылается на отсутствующее загружение {load.LoadCaseId}."));
+            if (!nodeById.ContainsKey(load.NodeId))
+                errors.Add(new("node_missing",
+                    $"Кинематическая нагрузка {load.Id} ссылается на отсутствующий узел {load.NodeId}."));
+            if (load.Dof is < 1 or > 6)
+                errors.Add(new("kinematic_dof_invalid",
+                    $"Кинематическая нагрузка {load.Id}: DOF должен быть от 1 до 6."));
+            if (!double.IsFinite(load.Value))
+                errors.Add(new("kinematic_value_not_finite",
+                    $"Значение кинематической нагрузки {load.Id} не является конечным числом."));
+            if (!kinematicDofs.Add((load.LoadCaseId, load.NodeId, load.Dof)))
+                errors.Add(new("kinematic_dof_duplicate",
+                    $"Кинематическая нагрузка для загружения {load.LoadCaseId}, узла {load.NodeId}, DOF {load.Dof} задана повторно."));
+            if (nodeById.TryGetValue(load.NodeId, out var node) && load.Dof is >= 1 and <= 6 &&
+                (node.DofMask & (1 << (load.Dof - 1))) != 0 && load.Value != 0)
+                errors.Add(new("kinematic_fixed_dof_conflict",
+                    $"Кинематическая нагрузка {load.Id} конфликтует с закреплением узла {load.NodeId}, DOF {load.Dof}."));
+        }
+
         return errors;
     }
 
@@ -226,6 +259,7 @@ public static class FemCanonicalValidator
                 FemNodeLoad load => load.Id,
                 FemMember member => member.Id,
                 FemMemberLoad load => load.Id,
+                FemKinematicLoad load => load.Id,
                 _ => throw new ArgumentException("Неподдерживаемый тип FEM-объекта.", nameof(items))
             };
             if (skipZero && id == 0) continue;

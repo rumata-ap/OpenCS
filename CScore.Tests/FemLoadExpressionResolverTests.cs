@@ -104,4 +104,25 @@ public class FemLoadExpressionResolverTests
         Assert.Equal(-70, load.My, 8);
         Assert.Equal(35, load.Mz, 8);
     }
+
+    [Fact]
+    public void Resolve_ScalesKinematicLoadsWithTheSameCombinationFactor()
+    {
+        var expression = new FemLoadExpression
+        {
+            Mode = FemLoadExpressionMode.Sum,
+            Terms = [new FemLoadTerm { LoadCaseId = 2, Coefficient = 1.5 }]
+        };
+        var result = FemLoadExpressionResolver.Resolve(
+            expression,
+            [new FemLoadCase { Id = 2 }],
+            [new FemNodeLoad { LoadCaseId = 2, NodeId = 10, Fx = 100 }],
+            [],
+            [new FemKinematicLoad { LoadCaseId = 2, NodeId = 10, Dof = 1, Value = 0.02 }]);
+
+        Assert.Equal(150, Assert.Single(result.NodeLoads).Fx);
+        var kinematic = Assert.Single(result.KinematicLoads);
+        Assert.Equal(1, kinematic.Dof);
+        Assert.Equal(0.03, kinematic.Value);
+    }
 }

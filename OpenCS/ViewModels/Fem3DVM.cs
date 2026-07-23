@@ -284,7 +284,7 @@ public class Fem3DVM : ViewModelBase
                 [loadCase], _diagramNodeLoads, _diagramMemberLoads),
             { Definition: { } definition } => FemLoadExpressionResolver.Resolve(
                 definition.GetExpression(), _diagramLoadCases, _diagramNodeLoads, _diagramMemberLoads),
-            _ => new FemResolvedLoads([], [])
+            _ => new FemResolvedLoads([], [], [])
         };
         var displayNodeLoads = resolved.NodeLoads
             .Where(load => load.Fx != 0 || load.Fy != 0 || load.Fz != 0 ||
