@@ -12,6 +12,7 @@ public sealed class FemNonlinearModel
     public IReadOnlyList<FemNonlinearElement> Elements { get; init; } = [];
     public IReadOnlyList<FemLinearNodalLoad> Loads { get; init; } = [];
     public IReadOnlyList<FemLinearDistributedLoad> DistributedLoads { get; init; } = [];
+    public IReadOnlyList<FemLinearPointLoad> PointLoads { get; init; } = [];
 
     public double LoadFactorStep { get; init; } = 0.1;
     public double MaxLoadFactor { get; init; } = 10.0;
@@ -85,7 +86,20 @@ public sealed class FemNonlinearModel
                 l.AOverL < 0 || l.BOverL > 1 || l.BOverL <= l.AOverL)
                 throw new InvalidOperationException($"Распределённая нагрузка элемента {l.ElementTag}: некорректный интервал приложения.");
         }
+
+        foreach (var l in PointLoads)
+        {
+            if (!elemTags.Contains(l.ElementTag))
+                throw new InvalidOperationException($"Сосредоточенная нагрузка ссылается на несуществующий элемент {l.ElementTag}.");
+            if (!double.IsFinite(l.Py) || !double.IsFinite(l.Pz) || !double.IsFinite(l.Px))
+                throw new InvalidOperationException($"Сосредоточенная нагрузка элемента {l.ElementTag}: компоненты должны быть конечными.");
+            if (!double.IsFinite(l.XOverL) || l.XOverL <= 0 || l.XOverL >= 1)
+                throw new InvalidOperationException($"Сосредоточенная нагрузка элемента {l.ElementTag}: xL должен быть строго между 0 и 1.");
+        }
+
         if (GeomTransfKind == "Corotational" && DistributedLoads.Count > 0)
             throw new InvalidOperationException("Распределённые нагрузки не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
+        if (GeomTransfKind == "Corotational" && PointLoads.Count > 0)
+            throw new InvalidOperationException("Сосредоточенные нагрузки внутри элемента не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
     }
 }

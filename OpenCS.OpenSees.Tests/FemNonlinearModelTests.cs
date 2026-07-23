@@ -157,4 +157,31 @@ public class FemNonlinearModelTests
 
         Assert.Throws<InvalidOperationException>(model.Validate);
     }
+
+    [Fact]
+    public void Validate_RejectsPointLoadOnMissingElement()
+    {
+        var valid = ValidModel();
+        var model = new FemNonlinearModel
+        {
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            PointLoads = [new FemLinearPointLoad(999, 10, 0, 0, 0.5)]
+        };
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_CorotationalWithPointLoad_Throws()
+    {
+        var valid = ValidModel();
+        var model = new FemNonlinearModel
+        {
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            PointLoads = [new FemLinearPointLoad(1, 10, 0, 0, 0.5)],
+            GeomTransfKind = "Corotational"
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(model.Validate);
+        Assert.Contains("Corotational", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }
