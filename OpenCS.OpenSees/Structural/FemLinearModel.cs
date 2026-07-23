@@ -7,6 +7,7 @@ public sealed class FemLinearModel
     public IReadOnlyList<FemLinearElement> Elements { get; init; } = [];
     public IReadOnlyList<FemLinearNodalLoad> Loads { get; init; } = [];
     public IReadOnlyList<FemLinearDistributedLoad> DistributedLoads { get; init; } = [];
+    public IReadOnlyList<FemLinearPointLoad> PointLoads { get; init; } = [];
 
     /// <summary>Проверяет целостность модели перед генерацией Tcl.</summary>
     public void Validate()
@@ -50,6 +51,16 @@ public sealed class FemLinearModel
             if (!double.IsFinite(l.AOverL) || !double.IsFinite(l.BOverL) ||
                 l.AOverL < 0 || l.BOverL > 1 || l.BOverL <= l.AOverL)
                 throw new InvalidOperationException($"Распределённая нагрузка элемента {l.ElementTag}: некорректный интервал приложения.");
+        }
+
+        foreach (var l in PointLoads)
+        {
+            if (!elemTags.Contains(l.ElementTag))
+                throw new InvalidOperationException($"Сосредоточенная нагрузка ссылается на несуществующий элемент {l.ElementTag}.");
+            if (!double.IsFinite(l.Py) || !double.IsFinite(l.Pz) || !double.IsFinite(l.Px))
+                throw new InvalidOperationException($"Сосредоточенная нагрузка элемента {l.ElementTag}: компоненты должны быть конечными.");
+            if (!double.IsFinite(l.XOverL) || l.XOverL <= 0 || l.XOverL >= 1)
+                throw new InvalidOperationException($"Сосредоточенная нагрузка элемента {l.ElementTag}: xL должен быть строго между 0 и 1.");
         }
     }
 }
