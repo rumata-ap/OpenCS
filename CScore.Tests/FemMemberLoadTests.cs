@@ -157,6 +157,30 @@ public sealed class FemMemberLoadTests
     }
 
     [Fact]
+    public void SetMemberLoadCommand_UndoRestoresMomentComponents()
+    {
+        var schema = new FemSchema { Id = 1 };
+        var session = new CScore.Fem.Editing.FemSchemaEditSession(schema);
+        session.MemberLoads.Add(new FemMemberLoad
+        {
+            Id = 7, SchemaId = 1, LoadCaseId = 2, MemberId = 3, DistributionType = "point",
+            StartOffsetM = 1, Mx = 500, My = -200, Mz = 0
+        });
+
+        var updated = new FemMemberLoad
+        {
+            Id = 7, LoadCaseId = 2, MemberId = 3,
+            DistributionType = "point", StartOffsetM = 1, Mx = 900
+        };
+        session.Execute(new CScore.Fem.Editing.SetMemberLoadCommand(updated));
+        Assert.Equal(900, session.MemberLoads.Single().Mx);
+
+        session.Undo();
+        Assert.Equal(500, session.MemberLoads.Single().Mx);
+        Assert.Equal(-200, session.MemberLoads.Single().My);
+    }
+
+    [Fact]
     public void DeleteLoadCaseCommand_RemovesAndRestoresMemberLoads()
     {
         var loadCase = new FemLoadCase { Id = 2, SchemaId = 1, Tag = "Q" };

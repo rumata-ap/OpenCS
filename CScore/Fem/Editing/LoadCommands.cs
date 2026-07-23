@@ -208,7 +208,8 @@ public sealed class SetMemberLoadCommand(FemMemberLoad values) : IFemEditCommand
         MemberId = source.MemberId, CoordinateSystem = source.CoordinateSystem,
         DistributionType = source.DistributionType, StartOffsetM = source.StartOffsetM,
         EndOffsetM = source.EndOffsetM, QxStart = source.QxStart, QyStart = source.QyStart,
-        QzStart = source.QzStart, QxEnd = source.QxEnd, QyEnd = source.QyEnd, QzEnd = source.QzEnd
+        QzStart = source.QzStart, QxEnd = source.QxEnd, QyEnd = source.QyEnd, QzEnd = source.QzEnd,
+        Mx = source.Mx, My = source.My, Mz = source.Mz
     };
 
     static void Apply(FemMemberLoad target, FemMemberLoad source)
@@ -225,6 +226,9 @@ public sealed class SetMemberLoadCommand(FemMemberLoad values) : IFemEditCommand
         target.QxEnd = source.QxEnd;
         target.QyEnd = source.QyEnd;
         target.QzEnd = source.QzEnd;
+        target.Mx = source.Mx;
+        target.My = source.My;
+        target.Mz = source.Mz;
     }
 }
 
