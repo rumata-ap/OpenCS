@@ -383,7 +383,7 @@ public partial class FemSchemaView3D : UserControl
         if (VM is not { EditMode: true }) return;
         string? nodeTag = Editor?.Session.Nodes.FirstOrDefault(n => n.Id == nodeId)?.NodeTag;
         if (nodeTag == null) return;
-        var hitSphere = new SphereVisual3D { Center = node, Radius = 0.22, Fill = new SolidColorBrush(Colors.Transparent) };
+        var hitSphere = new SphereVisual3D { Center = node, Radius = 0.15, Fill = new SolidColorBrush(Colors.Transparent) };
         _loadPickTargets[hitSphere] = (true, nodeTag);
         viewport.Children.Add(hitSphere);
     }
@@ -514,7 +514,7 @@ public partial class FemSchemaView3D : UserControl
     void AddMemberLoadPickTarget(Point3D position, string memberTag)
     {
         if (VM is not { EditMode: true }) return;
-        var hitSphere = new SphereVisual3D { Center = position, Radius = 0.22, Fill = new SolidColorBrush(Colors.Transparent) };
+        var hitSphere = new SphereVisual3D { Center = position, Radius = 0.15, Fill = new SolidColorBrush(Colors.Transparent) };
         _loadPickTargets[hitSphere] = (false, memberTag);
         viewport.Children.Add(hitSphere);
     }
