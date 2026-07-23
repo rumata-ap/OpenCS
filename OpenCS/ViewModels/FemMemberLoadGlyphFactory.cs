@@ -31,6 +31,17 @@ public static class FemMemberLoadGlyphFactory
             double length = delta.Length;
             if (!double.IsFinite(length) || length < 1e-12) continue;
 
+            if (load.DistributionType.Equals("point", StringComparison.OrdinalIgnoreCase))
+            {
+                double p = Math.Clamp(load.StartOffsetM / length, 0, 1);
+                var point = first + delta * p;
+                var force = ToGlobal(load, first, second, false);
+                result.Add(new FemMemberLoadGlyph(
+                    member.ElemTag, point, point, force, force,
+                    $"{member.ElemTag}: {load.CoordinateSystem}, точка"));
+                continue;
+            }
+
             Vector3D qStart = ToGlobal(load, first, second, false);
             Vector3D qEnd = load.DistributionType.Equals("uniform", StringComparison.OrdinalIgnoreCase)
                 ? qStart : ToGlobal(load, first, second, true);

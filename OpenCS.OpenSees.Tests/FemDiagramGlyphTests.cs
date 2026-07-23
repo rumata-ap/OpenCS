@@ -125,4 +125,28 @@ public sealed class FemDiagramGlyphTests
         Assert.Equal(-100, glyph.LoadAtStart.Z, 8);
         Assert.Equal(-300, glyph.LoadAtEnd.Z, 8);
     }
+
+    [Fact]
+    public void Create_PointLoadProducesArrowGlyphAtPosition()
+    {
+        var members = new List<FemMember> { new() { Id = 1, ElemTag = "10", ElemType = "beam", NodeIdsJson = "[1,2]" } };
+        var nodes = new List<FemNode>
+        {
+            new() { NodeTag = "1", X = 0, Y = 0, Z = 0 },
+            new() { NodeTag = "2", X = 10, Y = 0, Z = 0 }
+        };
+        var loads = new List<FemMemberLoad>
+        {
+            new() { MemberId = 1, DistributionType = "point", CoordinateSystem = "global",
+                    StartOffsetM = 4, QyStart = -1000 }
+        };
+
+        var glyphs = FemMemberLoadGlyphFactory.Create(members, nodes, loads);
+
+        var glyph = Assert.Single(glyphs);
+        Assert.Equal(glyph.Start, glyph.End);
+        Assert.Equal(4, glyph.Start.X, 8);
+        Assert.Equal(glyph.LoadAtStart, glyph.LoadAtEnd);
+        Assert.Equal(-1000, glyph.LoadAtStart.Y, 8);
+    }
 }
