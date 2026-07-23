@@ -102,4 +102,40 @@ public class FemNonlinearTclGeneratorTests
         Assert.Contains("integrationPoints", tcl);
         Assert.Contains("isRefinement", tcl);
     }
+
+    [Fact]
+    public void Generate_EmitsBeamPointEleLoad()
+    {
+        var baseModel = Console();
+        var model = new FemNonlinearModel
+        {
+            Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
+            Loads = baseModel.Loads, LoadFactorStep = baseModel.LoadFactorStep,
+            MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
+            Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
+            GeomTransfKind = baseModel.GeomTransfKind,
+            PointLoads = [new FemLinearPointLoad(1, -1500, 250, 0, 0.4)]
+        };
+
+        string tcl = new FemNonlinearTclGenerator().Generate(model);
+
+        Assert.Contains("eleLoad -ele 1 -type -beamPoint -1500 250 0 0.4", tcl);
+    }
+
+    [Fact]
+    public void Generate_ThrowsForCorotationalWithPointLoads()
+    {
+        var baseModel = Console();
+        var model = new FemNonlinearModel
+        {
+            Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
+            Loads = baseModel.Loads, LoadFactorStep = baseModel.LoadFactorStep,
+            MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
+            Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
+            GeomTransfKind = "Corotational",
+            PointLoads = [new FemLinearPointLoad(1, -1500, 0, 0, 0.4)]
+        };
+
+        Assert.Throws<InvalidOperationException>(() => new FemNonlinearTclGenerator().Generate(model));
+    }
 }

@@ -62,4 +62,21 @@ public class FemLinearTclGeneratorTests
         Assert.Contains("eleLoad -ele 1 -type -beamUniform 0 -2000 0", tcl);
         Assert.Contains("eleLoad -ele 1 -type -beamUniform -1000 0 0 0.25 0.75 -3000 0 0", tcl);
     }
+
+    [Fact]
+    public void Generate_EmitsBeamPointEleLoad()
+    {
+        var baseModel = Console();
+        var model = new FemLinearModel
+        {
+            Nodes = baseModel.Nodes,
+            Elements = baseModel.Elements,
+            Loads = baseModel.Loads,
+            PointLoads = [new FemLinearPointLoad(1, -1500, 250, 0, 0.4)]
+        };
+
+        string tcl = new FemLinearTclGenerator().Generate(model);
+
+        Assert.Contains("eleLoad -ele 1 -type -beamPoint -1500 250 0 0.4", tcl);
+    }
 }

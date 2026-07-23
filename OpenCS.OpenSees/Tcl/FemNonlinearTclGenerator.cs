@@ -82,6 +82,10 @@ public sealed class FemNonlinearTclGenerator
             else
                 L($"    eleLoad -ele {ld.ElementTag} -type -beamUniform {F(ld.WyStart)} {F(ld.WzStart)} {F(ld.WxStart)} {F(ld.AOverL)} {F(ld.BOverL)} {F(ld.WyEnd)} {F(ld.WzEnd)} {F(ld.WxEnd)}");
         }
+        if (model.PointLoads.Count > 0 && model.GeomTransfKind == "Corotational")
+            throw new InvalidOperationException("Сосредоточенные нагрузки внутри элемента не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
+        foreach (var ld in model.PointLoads)
+            L($"    eleLoad -ele {ld.ElementTag} -type -beamPoint {F(ld.Py)} {F(ld.Pz)} {F(ld.Px)} {F(ld.XOverL)}");
         L("}");
         L();
 
