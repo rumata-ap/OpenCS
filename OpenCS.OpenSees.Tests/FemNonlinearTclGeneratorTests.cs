@@ -139,6 +139,104 @@ public class FemNonlinearTclGeneratorTests
         Assert.Throws<InvalidOperationException>(() => new FemNonlinearTclGenerator().Generate(model));
     }
 
+    static FemNonlinearModel WithMaterial(OpenSeesMaterialDefinition material)
+    {
+        var n1 = new FemLinearNode(1, 0, 0, 0, [true, true, true, true, true, true]);
+        var n2 = new FemLinearNode(2, 3, 0, 0, new bool[6]);
+        var section = new OpenSeesSectionModel
+        {
+            Materials = [material],
+            Fibers = [new OpenSeesFiber(0.3, 0.2, 0.01, material.Tag)],
+            GJ = 1e6
+        };
+        return new FemNonlinearModel
+        {
+            Nodes = [n1, n2],
+            Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = section },
+            Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
+            Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
+            LoadFactorStep = 0.25, MaxLoadFactor = 1.0, RefinementDivisions = 10,
+            Tolerance = 1e-6, MaxIterations = 30, GeomTransfKind = "Linear"
+        };
+    }
+
+    [Fact]
+    public void Generate_EmitsConcrete01ForNativeSpecWithoutTension()
+    {
+        var material = new OpenSeesMaterialDefinition
+        {
+            Tag = 1,
+            Native = new Concrete01Spec(Fpc: -14_500_000, Epsc0: -0.002, Fpcu: -14_500_000, EpsU: -0.0035)
+        };
+
+        string tcl = new FemNonlinearTclGenerator().Generate(WithMaterial(material));
+
+        Assert.Contains(
+            $"uniaxialMaterial Concrete01 1 {TclNumber.Format(-14_500_000)} {TclNumber.Format(-0.002)} {TclNumber.Format(-14_500_000)} {TclNumber.Format(-0.0035)}",
+            tcl);
+        Assert.DoesNotContain("ElasticMultiLinear", tcl);
+    }
+
+    [Fact]
+    public void Generate_EmitsConcrete02ForNativeSpecWithTension()
+    {
+        var material = new OpenSeesMaterialDefinition
+        {
+            Tag = 1,
+            Native = new Concrete02Spec(
+                Fpc: -14_500_000, Epsc0: -0.002, Fpcu: -14_500_000, EpsU: -0.0035,
+                Lambda: 0.1, Ft: 1_050_000, Ets: 10_500_000_000)
+        };
+
+        string tcl = new FemNonlinearTclGenerator().Generate(WithMaterial(material));
+
+        Assert.Contains(
+            $"uniaxialMaterial Concrete02 1 {TclNumber.Format(-14_500_000)} {TclNumber.Format(-0.002)} "
+            + $"{TclNumber.Format(-14_500_000)} {TclNumber.Format(-0.0035)} {TclNumber.Format(0.1)} "
+            + $"{TclNumber.Format(1_050_000)} {TclNumber.Format(10_500_000_000)}",
+            tcl);
+    }
+
+    [Fact]
+    public void Generate_EmitsSteel02ForNativeSpec()
+    {
+        var material = new OpenSeesMaterialDefinition
+        {
+            Tag = 1,
+            Native = new Steel02Spec(Fy: 435_000_000, E0: 200_000_000_000, B: 0.01, R0: 18, CR1: 0.925, CR2: 0.15)
+        };
+
+        string tcl = new FemNonlinearTclGenerator().Generate(WithMaterial(material));
+
+        Assert.Contains(
+            $"uniaxialMaterial Steel02 1 {TclNumber.Format(435_000_000)} {TclNumber.Format(200_000_000_000)} "
+            + $"{TclNumber.Format(0.01)} {TclNumber.Format(18)} {TclNumber.Format(0.925)} {TclNumber.Format(0.15)}",
+            tcl);
+    }
+
+    [Fact]
+    public void Generate_EmitsSteel01ForNativeSpec()
+    {
+        var material = new OpenSeesMaterialDefinition
+        {
+            Tag = 1,
+            Native = new Steel01Spec(Fy: 435_000_000, E0: 200_000_000_000, B: 0.01)
+        };
+
+        string tcl = new FemNonlinearTclGenerator().Generate(WithMaterial(material));
+
+        Assert.Contains(
+            $"uniaxialMaterial Steel01 1 {TclNumber.Format(435_000_000)} {TclNumber.Format(200_000_000_000)} {TclNumber.Format(0.01)}",
+            tcl);
+    }
+
+    [Fact]
+    public void Generate_StillEmitsElasticMultiLinearWhenNativeIsNull()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("uniaxialMaterial ElasticMultiLinear 1", tcl);
+    }
+
     [Fact]
     public void Generate_EmitsKinematicConstraintAlongsideForceLoad()
     {
