@@ -200,6 +200,15 @@ namespace CScore
          }
       }
 
+      /// <summary>Характеристики материала для заданного вида расчёта (обёртка над C/CL/N/NL).</summary>
+      public MaterialChars? GetChars(CalcType calc) => calc switch
+      {
+         CalcType.C => C,
+         CalcType.CL => CL,
+         CalcType.N => N,
+         _ => NL
+      };
+
       /// <summary>
       /// Конструктор по умолчанию.
       /// </summary>
