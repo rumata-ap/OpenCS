@@ -1412,6 +1412,9 @@
     <system:String x:Key="FemAnalysisMaterialSourceLabel">Material diagram source</system:String>
     <system:String x:Key="FemMaterialSourceTranslated">CScore diagram translation</system:String>
     <system:String x:Key="FemMaterialSourceNative">Native OpenSees materials</system:String>
+    <system:String x:Key="FemAnalysisConcreteModelLabel">Concrete model</system:String>
+    <system:String x:Key="FemConcreteModelConcrete0102">Concrete01/02 (Kent-Scott-Park)</system:String>
+    <system:String x:Key="FemConcreteModelConcrete04">Concrete04 (Popovics)</system:String>
     <system:String x:Key="FemAnalysisSteelModelLabel">Steel/rebar model</system:String>
     <system:String x:Key="FemAnalysisSteelHardeningRatioLabel">Hardening ratio override b (blank = auto)</system:String>
     <system:String x:Key="FemResultTabHistory">History</system:String>

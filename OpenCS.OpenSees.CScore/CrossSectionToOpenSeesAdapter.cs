@@ -28,6 +28,9 @@ public static class CrossSectionToOpenSeesAdapter
         /// (по умолчанию) либо нативные параметрические материалы OpenSees.</summary>
         public MaterialSource MaterialSource { get; init; } = MaterialSource.Translated;
 
+        /// <summary>Модель бетона при <see cref="MaterialSource.Native"/>.</summary>
+        public ConcreteModelKind ConcreteModel { get; init; } = ConcreteModelKind.Concrete04;
+
         /// <summary>Модель стали/арматуры при <see cref="MaterialSource.Native"/>.</summary>
         public SteelModelKind SteelModel { get; init; } = SteelModelKind.Steel02;
 
@@ -80,7 +83,7 @@ public static class CrossSectionToOpenSeesAdapter
                     NativeMaterialSpec? native = options.MaterialSource == MaterialSource.Native
                         ? NativeMaterialMapper.Map(
                             material.GetChars(calc), material.Type, options.ConsiderConcreteTension,
-                            options.SteelModel, options.SteelHardeningRatioOverride)
+                            options.ConcreteModel, options.SteelModel, options.SteelHardeningRatioOverride)
                         : null;
 
                     if (native != null)

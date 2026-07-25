@@ -120,8 +120,8 @@ public static class FemAnalysisExecutor
             parameters.GeomTransfKind, parameters.LoadFactorStep, parameters.MaxLoadFactor,
             parameters.RefinementDivisions, parameters.Tolerance, parameters.MaxIterations,
             parameters.IntegrationPoints, parameters.ConvergenceTest, parameters.ConsiderConcreteTension,
-            Enum.Parse<MaterialSource>(parameters.MaterialSource), Enum.Parse<SteelModelKind>(parameters.SteelModel),
-            parameters.SteelHardeningRatioOverride);
+            Enum.Parse<MaterialSource>(parameters.MaterialSource), Enum.Parse<ConcreteModelKind>(parameters.ConcreteModel),
+            Enum.Parse<SteelModelKind>(parameters.SteelModel), parameters.SteelHardeningRatioOverride);
 
         var input = new FemNonlinearWorkflowInput(
             meshNodes, meshElems, sourceNodes, sourceMembers, resolved.NodeLoads,

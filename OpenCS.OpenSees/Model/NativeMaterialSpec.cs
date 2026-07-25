@@ -5,6 +5,18 @@ namespace OpenCS.OpenSees.Model;
 /// `uniaxialMaterial` без обхода через строки.</summary>
 public abstract record NativeMaterialSpec;
 
+/// <summary>uniaxialMaterial Concrete01 tag fpc epsc0 fpcu epsU — без растяжения (Kent-Scott-Park).
+/// Все величины в Па; fpc/epsc0/fpcu/epsU отрицательные (сжатие).</summary>
+public sealed record Concrete01Spec(double Fpc, double Epsc0, double Fpcu, double EpsU)
+    : NativeMaterialSpec;
+
+/// <summary>uniaxialMaterial Concrete02 tag fpc epsc0 fpcu epsU lambda ft Ets — Kent-Scott-Park
+/// с линейным размягчением при растяжении до плоского нуля. fpc/epsc0/fpcu/epsU отрицательные
+/// (сжатие), ft/Ets положительные (растяжение), все величины в Па (Ets — Па/ед.деформации).</summary>
+public sealed record Concrete02Spec(
+    double Fpc, double Epsc0, double Fpcu, double EpsU, double Lambda, double Ft, double Ets)
+    : NativeMaterialSpec;
+
 /// <summary>uniaxialMaterial Concrete04 tag fc ec ecu Ec [fct et beta] — модель Поповича на
 /// сжатие (Popovics 1973) + экспоненциальное затухание растяжения (не линейное до плоского нуля,
 /// как Concrete02, — экспонента асимптотически приближается к нулю, никогда не даёт буквально

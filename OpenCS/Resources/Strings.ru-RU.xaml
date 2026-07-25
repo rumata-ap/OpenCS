@@ -1415,6 +1415,9 @@
     <system:String x:Key="FemAnalysisMaterialSourceLabel">Источник диаграммы материала</system:String>
     <system:String x:Key="FemMaterialSourceTranslated">Перевод диаграммы CScore</system:String>
     <system:String x:Key="FemMaterialSourceNative">Нативные материалы OpenSees</system:String>
+    <system:String x:Key="FemAnalysisConcreteModelLabel">Модель бетона</system:String>
+    <system:String x:Key="FemConcreteModelConcrete0102">Concrete01/02 (Kent-Scott-Park)</system:String>
+    <system:String x:Key="FemConcreteModelConcrete04">Concrete04 (Popovics)</system:String>
     <system:String x:Key="FemAnalysisSteelModelLabel">Модель стали/арматуры</system:String>
     <system:String x:Key="FemAnalysisSteelHardeningRatioLabel">Переопределение упрочнения b (пусто = авто)</system:String>
     <system:String x:Key="FemResultTabHistory">История</system:String>

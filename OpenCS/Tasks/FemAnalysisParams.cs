@@ -5,7 +5,7 @@ using CScore;
 namespace OpenCS.Tasks;
 
 /// <summary>Параметры запуска FEM-расчёта (линейного и нелинейного), хранимые в FemAnalysis.ParamsJson.
-/// Поля CalcType/LoadFactorStep/MaxLoadFactor/RefinementDivisions/Tolerance/MaxIterations/GeomTransfKind/IntegrationPoints/ConsiderConcreteTension/MaterialSource/SteelModel/SteelHardeningRatioOverride
+/// Поля CalcType/LoadFactorStep/MaxLoadFactor/RefinementDivisions/Tolerance/MaxIterations/GeomTransfKind/IntegrationPoints/ConsiderConcreteTension/MaterialSource/ConcreteModel/SteelModel/SteelHardeningRatioOverride
 /// используются только при Kind="nonlinear".</summary>
 public sealed class FemAnalysisParams
 {
@@ -43,6 +43,9 @@ public sealed class FemAnalysisParams
     /// <summary>Источник диаграммы материала: "Translated" (перевод диаграммы CScore, по
     /// умолчанию) | "Native" (собственные параметрические материалы OpenSees).</summary>
     public string MaterialSource { get; set; } = "Translated";
+    /// <summary>Модель бетона при MaterialSource="Native": "Concrete0102" (Kent-Scott-Park,
+    /// Concrete02/01) | "Concrete04" (Popovics, по умолчанию).</summary>
+    public string ConcreteModel { get; set; } = "Concrete04";
     /// <summary>Модель стали/арматуры при MaterialSource="Native": "Steel01" | "Steel02".</summary>
     public string SteelModel { get; set; } = "Steel02";
     /// <summary>Переопределение отношения модуля упрочнения стали/арматуры к E0 при

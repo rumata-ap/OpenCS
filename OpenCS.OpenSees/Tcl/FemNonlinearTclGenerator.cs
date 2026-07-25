@@ -41,6 +41,10 @@ public sealed class FemNonlinearTclGenerator
             {
                 string materialCommand = mat.Native switch
                 {
+                    Concrete01Spec c1 =>
+                        $"uniaxialMaterial Concrete01 {mat.Tag} {F(c1.Fpc)} {F(c1.Epsc0)} {F(c1.Fpcu)} {F(c1.EpsU)}",
+                    Concrete02Spec c2 =>
+                        $"uniaxialMaterial Concrete02 {mat.Tag} {F(c2.Fpc)} {F(c2.Epsc0)} {F(c2.Fpcu)} {F(c2.EpsU)} {F(c2.Lambda)} {F(c2.Ft)} {F(c2.Ets)}",
                     Concrete04Spec c4 when c4.Fct is { } fct && c4.Et is { } et && c4.Beta is { } beta =>
                         $"uniaxialMaterial Concrete04 {mat.Tag} {F(c4.Fc)} {F(c4.Ec0)} {F(c4.Ecu)} {F(c4.Ec)} {F(fct)} {F(et)} {F(beta)}",
                     Concrete04Spec c4 =>

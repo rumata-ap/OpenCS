@@ -97,6 +97,37 @@ public static class OpenSeesSectionModelValidator
     {
         switch (native)
         {
+            case Concrete01Spec c1:
+                RequireFinite(c1.Fpc, materialTag, nameof(c1.Fpc));
+                RequireFinite(c1.Epsc0, materialTag, nameof(c1.Epsc0));
+                RequireFinite(c1.Fpcu, materialTag, nameof(c1.Fpcu));
+                RequireFinite(c1.EpsU, materialTag, nameof(c1.EpsU));
+                if (c1.Fpc >= 0)
+                    throw new ArgumentException($"Материал {materialTag}: Fpc должно быть отрицательным (сжатие).");
+                if (c1.Epsc0 >= 0)
+                    throw new ArgumentException($"Материал {materialTag}: Epsc0 должно быть отрицательным (сжатие).");
+                if (c1.EpsU >= c1.Epsc0)
+                    throw new ArgumentException($"Материал {materialTag}: EpsU должно быть более отрицательным, чем Epsc0.");
+                break;
+            case Concrete02Spec c2:
+                RequireFinite(c2.Fpc, materialTag, nameof(c2.Fpc));
+                RequireFinite(c2.Epsc0, materialTag, nameof(c2.Epsc0));
+                RequireFinite(c2.Fpcu, materialTag, nameof(c2.Fpcu));
+                RequireFinite(c2.EpsU, materialTag, nameof(c2.EpsU));
+                RequireFinite(c2.Lambda, materialTag, nameof(c2.Lambda));
+                RequireFinite(c2.Ft, materialTag, nameof(c2.Ft));
+                RequireFinite(c2.Ets, materialTag, nameof(c2.Ets));
+                if (c2.Fpc >= 0)
+                    throw new ArgumentException($"Материал {materialTag}: Fpc должно быть отрицательным (сжатие).");
+                if (c2.Epsc0 >= 0)
+                    throw new ArgumentException($"Материал {materialTag}: Epsc0 должно быть отрицательным (сжатие).");
+                if (c2.EpsU >= c2.Epsc0)
+                    throw new ArgumentException($"Материал {materialTag}: EpsU должно быть более отрицательным, чем Epsc0.");
+                if (c2.Ft <= 0)
+                    throw new ArgumentException($"Материал {materialTag}: Ft должно быть положительным (растяжение).");
+                if (c2.Ets <= 0)
+                    throw new ArgumentException($"Материал {materialTag}: Ets должно быть положительным.");
+                break;
             case Concrete04Spec c4:
                 RequireFinite(c4.Fc, materialTag, nameof(c4.Fc));
                 RequireFinite(c4.Ec0, materialTag, nameof(c4.Ec0));

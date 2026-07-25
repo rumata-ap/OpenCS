@@ -16,6 +16,8 @@ public sealed record FemNonlinearAnalysisOptions(
     bool ConsiderConcreteTension = true,
     // Источник диаграммы материала: перевод CScore (по умолчанию) либо нативные материалы OpenSees.
     MaterialSource MaterialSource = MaterialSource.Translated,
+    // Модель бетона при MaterialSource.Native.
+    ConcreteModelKind ConcreteModel = ConcreteModelKind.Concrete04,
     // Модель стали/арматуры при MaterialSource.Native.
     SteelModelKind SteelModel = SteelModelKind.Steel02,
     // Переопределение отношения модуля упрочнения стали/арматуры; null — автоматически.

@@ -27,8 +27,10 @@ public partial class FemAnalysisDialog : Window
         GeomTransfBox.ItemsSource = geomTransfOptions;
         ConvergenceTestBox.ItemsSource = convergenceTestOptions;
         var materialSourceOptions = BuildMaterialSourceOptions();
+        var concreteModelOptions = BuildConcreteModelOptions();
         var steelModelOptions = BuildSteelModelOptions();
         MaterialSourceBox.ItemsSource = materialSourceOptions;
+        ConcreteModelBox.ItemsSource = concreteModelOptions;
         SteelModelBox.ItemsSource = steelModelOptions;
         MaterialSourceBox.SelectionChanged += (_, _) => UpdateNativeMaterialPanelVisibility();
 
@@ -51,6 +53,7 @@ public partial class FemAnalysisDialog : Window
             IntegrationPointsBox.Text = pars.IntegrationPoints.ToString();
             ConsiderConcreteTensionCb.IsChecked = pars.ConsiderConcreteTension;
             MaterialSourceBox.SelectedItem = materialSourceOptions.FirstOrDefault(o => o.Value == pars.MaterialSource) ?? materialSourceOptions[0];
+            ConcreteModelBox.SelectedItem = concreteModelOptions.FirstOrDefault(o => o.Value == pars.ConcreteModel) ?? concreteModelOptions[1];
             SteelModelBox.SelectedItem = steelModelOptions.FirstOrDefault(o => o.Value == pars.SteelModel) ?? steelModelOptions[1];
             SteelHardeningRatioBox.Text = pars.SteelHardeningRatioOverride?.ToString(CultureInfo.InvariantCulture) ?? "";
 
@@ -64,6 +67,7 @@ public partial class FemAnalysisDialog : Window
             GeomTransfBox.SelectedItem = geomTransfOptions[0];
             ConvergenceTestBox.SelectedItem = convergenceTestOptions[0];
             MaterialSourceBox.SelectedItem = materialSourceOptions[0];
+            ConcreteModelBox.SelectedItem = concreteModelOptions[1];
             SteelModelBox.SelectedItem = steelModelOptions[1];
             if (LoadSourceBox.Items.Count > 0) LoadSourceBox.SelectedIndex = 0;
         }
@@ -94,6 +98,12 @@ public partial class FemAnalysisDialog : Window
     [
         new("Translated", Loc.S("FemMaterialSourceTranslated")),
         new("Native", Loc.S("FemMaterialSourceNative")),
+    ];
+
+    static List<ComboOption> BuildConcreteModelOptions() =>
+    [
+        new("Concrete0102", Loc.S("FemConcreteModelConcrete0102")),
+        new("Concrete04", Loc.S("FemConcreteModelConcrete04")),
     ];
 
     static List<ComboOption> BuildSteelModelOptions() =>
@@ -158,6 +168,7 @@ public partial class FemAnalysisDialog : Window
             pars.IntegrationPoints = int.TryParse(IntegrationPointsBox.Text, out var ip) && ip > 0 ? ip : 5;
             pars.ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true;
             pars.MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated";
+            pars.ConcreteModel = (ConcreteModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04";
             pars.SteelModel = (SteelModelBox.SelectedItem as ComboOption)?.Value ?? "Steel02";
             pars.SteelHardeningRatioOverride =
                 double.TryParse(SteelHardeningRatioBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var hardening)

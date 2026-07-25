@@ -62,7 +62,10 @@
             <ComboBox x:Name="MaterialSourceBox" DisplayMemberPath="Label"/>
 
             <StackPanel x:Name="NativeMaterialPanel" Visibility="Collapsed" Margin="0,8,0,0">
-                <TextBlock Text="{DynamicResource FemAnalysisSteelModelLabel}"/>
+                <TextBlock Text="{DynamicResource FemAnalysisConcreteModelLabel}"/>
+                <ComboBox x:Name="ConcreteModelBox" DisplayMemberPath="Label"/>
+
+                <TextBlock Text="{DynamicResource FemAnalysisSteelModelLabel}" Margin="0,8,0,0"/>
                 <ComboBox x:Name="SteelModelBox" DisplayMemberPath="Label"/>
 
                 <TextBlock Text="{DynamicResource FemAnalysisSteelHardeningRatioLabel}" Margin="0,8,0,0"/>

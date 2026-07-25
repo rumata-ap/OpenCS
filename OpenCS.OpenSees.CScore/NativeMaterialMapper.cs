@@ -3,6 +3,9 @@ using OpenCS.OpenSees.Model;
 
 namespace OpenCS.OpenSees.CScore;
 
+/// <summary>Модель бетона OpenSees для нативной параметризации.</summary>
+public enum ConcreteModelKind { Concrete0102, Concrete04 }
+
 /// <summary>Модель стали/арматуры OpenSees для нативной параметризации.</summary>
 public enum SteelModelKind { Steel01, Steel02 }
 
@@ -10,20 +13,33 @@ public enum SteelModelKind { Steel01, Steel02 }
 public enum MaterialSource { Translated, Native }
 
 /// <summary>Строит собственные (нативные) параметрические материалы OpenSees
-/// (Concrete04, Steel01/02) из характеристик материала CScore — в противовес
+/// (Concrete01/02/04, Steel01/02) из характеристик материала CScore — в противовес
 /// <see cref="MaterialDiagramMapper"/>, который транслирует диаграмму (Diagramm) в
 /// ElasticMultiLinear. См. docs/superpowers/specs/2026-07-25-opensees-native-materials-design.md
 /// для обоснования формул и границ применимости.
 ///
-/// Concrete04 (Попович на сжатие + экспоненциальное затухание растяжения), а не Concrete02
-/// (линейное размягчение до плоского нуля) — на реальном сценарии кинематических нагрузок
-/// Concrete02 не сходился (и даже падал при отключённом растяжении, Concrete01): линейная
-/// огибающая растяжения после исчерпания Ets неизбежно выходит на буквально плоский нулевой
-/// участок — та же вырожденная матрица гибкости, с которой начиналась вся история отладки этой
-/// сессии. Экспонента Concrete04 асимптотически стремится к нулю, никогда не давая плоского
-/// сегмента.</summary>
+/// Для бетона доступны две модели (<see cref="ConcreteModelKind"/>), выбираемые на постановке:
+/// <see cref="ConcreteModelKind.Concrete0102"/> (Kent-Scott-Park, линейное размягчение
+/// растяжения до плоского нуля — Concrete02, либо без растяжения — Concrete01) и
+/// <see cref="ConcreteModelKind.Concrete04"/> (Popovics на сжатие + экспоненциальное затухание
+/// растяжения, без плоского нулевого участка). На реальном сценарии кинематических нагрузок
+/// Concrete02/01 не сходились (Concrete01 — даже падал с access violation), Concrete04 сходится
+/// заметно устойчивее на умеренных деформациях, но полный сценарий с сильным трещинообразованием
+/// не сходится ни с одной из моделей (найден snap-through, требует integrator ArcLength — см.
+/// заметку сессии). Обе модели оставлены как выбор пользователя, а не одна «правильная».</summary>
 public static class NativeMaterialMapper
 {
+    /// <summary>Доля пиковой прочности бетона, сохраняющаяся на предельной деформации (fpcu/fpc)
+    /// для Concrete01/02. Concrete01/02 линейно снижают прочность между epsc0 и epsU — если
+    /// fpcu==fpc, этот участок становится плоским (нулевой наклон), что вырождает матрицу
+    /// гибкости сечения в forceBeamColumn. 0.2 — типовое значение из примеров OpenSees для
+    /// Kent-Park-подобной модели бетона.</summary>
+    private const double ConcreteResidualStrengthFraction = 0.2;
+    /// <summary>Наклон размягчения растяжения Concrete02 (Ets = Ft / ConcreteTensionSofteningStrainSpan)
+    /// — растянут на широкий диапазон деформаций (не на узкий упругий Et0), иначе наклон
+    /// получается таким же крутым, как восходящая упругая ветвь.</summary>
+    private const double ConcreteTensionSofteningStrainSpan = 0.002;
+    private const double ConcreteTensionLambda = 0.1;
     /// <summary>Экспоненциальный параметр затухания растяжения Concrete04 (beta) — контролирует
     /// скорость спада остаточного напряжения после предельной растяжимости Et. Фиксированное
     /// умеренное значение, не выносится в UI (по аналогии с Lambda/R0/cR1/cR2).</summary>
@@ -43,6 +59,7 @@ public static class NativeMaterialMapper
         MaterialChars? chars,
         MatType materialType,
         bool considerConcreteTension,
+        ConcreteModelKind concreteModel,
         SteelModelKind steelModel,
         double? steelHardeningRatioOverride)
     {
@@ -51,14 +68,40 @@ public static class NativeMaterialMapper
 
         return materialType switch
         {
-            MatType.Concrete => MapConcrete(chars, considerConcreteTension),
+            MatType.Concrete => MapConcrete(chars, considerConcreteTension, concreteModel),
             MatType.ReSteelF or MatType.ReSteelU or MatType.Steel =>
                 MapSteel(chars, materialType, steelModel, steelHardeningRatioOverride),
             _ => null
         };
     }
 
-    private static NativeMaterialSpec MapConcrete(MaterialChars chars, bool considerConcreteTension)
+    private static NativeMaterialSpec MapConcrete(
+        MaterialChars chars, bool considerConcreteTension, ConcreteModelKind concreteModel)
+    {
+        return concreteModel switch
+        {
+            ConcreteModelKind.Concrete0102 => MapConcrete0102(chars, considerConcreteTension),
+            ConcreteModelKind.Concrete04 => MapConcrete04(chars, considerConcreteTension),
+            _ => throw new ArgumentOutOfRangeException(nameof(concreteModel), concreteModel, "Неизвестная модель бетона.")
+        };
+    }
+
+    private static NativeMaterialSpec MapConcrete0102(MaterialChars chars, bool considerConcreteTension)
+    {
+        double fpc = CScoreUnitConverter.KilopascalsToPascals(chars.Fc);
+        double epsc0 = chars.Ec0;
+        double fpcu = fpc * ConcreteResidualStrengthFraction;
+        double epsU = chars.Ec2;
+
+        if (!considerConcreteTension)
+            return new Concrete01Spec(fpc, epsc0, fpcu, epsU);
+
+        double ft = CScoreUnitConverter.KilopascalsToPascals(chars.Ft);
+        double ets = ft / ConcreteTensionSofteningStrainSpan;
+        return new Concrete02Spec(fpc, epsc0, fpcu, epsU, ConcreteTensionLambda, ft, ets);
+    }
+
+    private static NativeMaterialSpec MapConcrete04(MaterialChars chars, bool considerConcreteTension)
     {
         double fc = CScoreUnitConverter.KilopascalsToPascals(chars.Fc);
         double ec0 = chars.Ec0;
