@@ -20,4 +20,10 @@ public sealed class OpenSeesMaterialDefinition
 
     /// <summary>Предупреждения о потере особенностей исходной модели.</summary>
     public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    /// <summary>Параметрическая спецификация материала OpenSees (Concrete01/02, Steel01/02).
+    /// `null` (по умолчанию) — материал описан только огибающими (ElasticMultiLinear), как раньше.
+    /// Когда задано, `PositiveEnvelope`/`NegativeEnvelope` остаются пустыми, а Tcl-генератор
+    /// эмитит параметрическую команду вместо ElasticMultiLinear.</summary>
+    public NativeMaterialSpec? Native { get; init; }
 }
