@@ -225,7 +225,9 @@ public class FemAnalysisResultVM : ViewModelBase
     }
 
     double _forceScale = 1.0;
-    /// <summary>Масштаб 3D-эпюры усилий.</summary>
+    /// <summary>Масштаб 3D-эпюры усилий, м на кН (а не на Н) — иначе при реалистичных нагрузках
+    /// (десятки кН = десятки тысяч Н) подбираемое значение округлялось до 0,00 в поле F2 и эпюра
+    /// пропадала целиком.</summary>
     public double ForceScale
     {
         get => _forceScale;
@@ -496,8 +498,8 @@ public class FemAnalysisResultVM : ViewModelBase
             if (!_forcesByElem.TryGetValue(g.Tag, out var f)) continue;
             var (vi, vj) = ComponentValues(f);
             var axis = OffsetAxis(g);
-            var offI = axis * (vi * _forceScale);
-            var offJ = axis * (vj * _forceScale);
+            var offI = axis * (vi / 1000.0 * _forceScale);
+            var offJ = axis * (vj / 1000.0 * _forceScale);
             segs.Add((g.Pi, g.Pj, offI, offJ));
 
             if (vi > maxV) { maxV = vi; maxPos = g.Pi + offI; }
@@ -521,7 +523,7 @@ public class FemAnalysisResultVM : ViewModelBase
         OnPropertyChanged(nameof(ForceMinLabelText));
     }
 
-    /// <summary>Масштаб эпюры: макс. |усилие| по всем компонентам → ≈10% габарита.</summary>
+    /// <summary>Масштаб эпюры (м на кН): макс. |усилие| по всем компонентам → ≈10% габарита.</summary>
     double SuggestForceScale()
     {
         if (_elementGeoms.Count == 0 || _forcesByElem.Count == 0) return 1.0;
@@ -530,6 +532,7 @@ public class FemAnalysisResultVM : ViewModelBase
             foreach (var v in new[] { f.Ni, f.Qyi, f.Qzi, f.Mxi, f.Myi, f.Mzi, f.Nj, f.Qyj, f.Qzj, f.Mxj, f.Myj, f.Mzj })
                 maxVal = System.Math.Max(maxVal, System.Math.Abs(v));
         if (maxVal <= 1e-12) return 1.0;
+        double maxValKN = maxVal / 1000.0;
 
         var xs = _originalByTag.Values;
         double dx = xs.Max(p => p.X) - xs.Min(p => p.X);
@@ -537,7 +540,7 @@ public class FemAnalysisResultVM : ViewModelBase
         double dz = xs.Max(p => p.Z) - xs.Min(p => p.Z);
         double diag = System.Math.Sqrt(dx * dx + dy * dy + dz * dz);
         if (diag <= 1e-9) return 1.0;
-        double val = 0.1 * diag / maxVal;
+        double val = 0.1 * diag / maxValKN;
         double rounded = System.Math.Round(val, 2);
         return rounded > 0 ? rounded : val;
     }
