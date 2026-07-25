@@ -1409,6 +1409,11 @@
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Integration points</system:String>
     <system:String x:Key="FemAnalysisConsiderConcreteTension">Consider concrete tension strength</system:String>
     <system:String x:Key="FemAnalysisConsiderConcreteTensionTip">When disabled, the OpenSees tension envelope for concrete is collapsed to a small residual slope with no real strength — the section is treated as already fully cracked, avoiding the sharp stiffness transition at cracking. Does not affect rebar/steel. Useful if the analysis fails to converge due to concrete cracking.</system:String>
+    <system:String x:Key="FemAnalysisMaterialSourceLabel">Material diagram source</system:String>
+    <system:String x:Key="FemMaterialSourceTranslated">CScore diagram translation</system:String>
+    <system:String x:Key="FemMaterialSourceNative">Native OpenSees materials</system:String>
+    <system:String x:Key="FemAnalysisSteelModelLabel">Steel/rebar model</system:String>
+    <system:String x:Key="FemAnalysisSteelHardeningRatioLabel">Hardening ratio override b (blank = auto)</system:String>
     <system:String x:Key="FemResultTabHistory">History</system:String>
     <system:String x:Key="FemResultStep">Step</system:String>
     <system:String x:Key="FemResultStepLabel">Step {0}/{1}, λ={2:F3} ({3})</system:String>

@@ -1412,6 +1412,11 @@
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Точки интегрирования</system:String>
     <system:String x:Key="FemAnalysisConsiderConcreteTension">Учитывать работу бетона на растяжение</system:String>
     <system:String x:Key="FemAnalysisConsiderConcreteTensionTip">При отключении огибающая растяжения бетона в OpenSees заменяется малым остаточным наклоном без прочности — сечение считается уже полностью растрескавшимся с самого начала, без резкого перехода жёсткости при трещинообразовании. На арматуру/сталь не влияет. Полезно, если расчёт не сходится из-за трещинообразования бетона.</system:String>
+    <system:String x:Key="FemAnalysisMaterialSourceLabel">Источник диаграммы материала</system:String>
+    <system:String x:Key="FemMaterialSourceTranslated">Перевод диаграммы CScore</system:String>
+    <system:String x:Key="FemMaterialSourceNative">Нативные материалы OpenSees</system:String>
+    <system:String x:Key="FemAnalysisSteelModelLabel">Модель стали/арматуры</system:String>
+    <system:String x:Key="FemAnalysisSteelHardeningRatioLabel">Переопределение упрочнения b (пусто = авто)</system:String>
     <system:String x:Key="FemResultTabHistory">История</system:String>
     <system:String x:Key="FemResultStep">Шаг</system:String>
     <system:String x:Key="FemResultStepLabel">Шаг {0}/{1}, λ={2:F3} ({3})</system:String>

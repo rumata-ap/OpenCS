@@ -57,6 +57,17 @@
                       Content="{DynamicResource FemAnalysisConsiderConcreteTension}"
                       ToolTip="{DynamicResource FemAnalysisConsiderConcreteTensionTip}"
                       IsChecked="True" Margin="0,8,0,0"/>
+
+            <TextBlock Text="{DynamicResource FemAnalysisMaterialSourceLabel}" Margin="0,8,0,0"/>
+            <ComboBox x:Name="MaterialSourceBox" DisplayMemberPath="Label"/>
+
+            <StackPanel x:Name="NativeMaterialPanel" Visibility="Collapsed" Margin="0,8,0,0">
+                <TextBlock Text="{DynamicResource FemAnalysisSteelModelLabel}"/>
+                <ComboBox x:Name="SteelModelBox" DisplayMemberPath="Label"/>
+
+                <TextBlock Text="{DynamicResource FemAnalysisSteelHardeningRatioLabel}" Margin="0,8,0,0"/>
+                <TextBox x:Name="SteelHardeningRatioBox" Text=""/>
+            </StackPanel>
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
