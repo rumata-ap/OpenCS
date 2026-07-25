@@ -4370,6 +4370,348 @@ namespace OpenCS.Utilites
          }
       }
 
+      /// <summary>Дублирует схему целиком: топология (узлы/стержни/группы), нагрузки (случаи +
+      /// узловые/распределённые/кинематические), определения нагрузок, сетка. НЕ копируются
+      /// постановки расчётов (fem_analyses) и чек-листы (fem_checks) — специфичны для конкретного
+      /// прогона/проверки. Теговые ссылки (node_ids_json у стержней и сетки, source_node_tag/
+      /// source_member_tag у сетки) копируются без изменений — они хранят числовой ТЕГ узла, а не
+      /// SQL id (см. CScore/Fem/FemMeshDiscretizer.cs), и не меняются при копировании. Настоящие
+      /// FK-столбцы (node_id/member_id/load_case_id в таблицах нагрузок, LoadCaseIds внутри
+      /// expression_json) пересчитываются через словари oldId→newId — по образцу SaveFemSchemaEdit.</summary>
+      public CScore.Fem.FemSchema DuplicateFemSchema(int sourceSchemaId, string newTag)
+      {
+         var sourceSchema = FemSchemas.FirstOrDefault(s => s.Id == sourceSchemaId)
+            ?? throw new InvalidOperationException($"Схема {sourceSchemaId} не найдена.");
+
+         var nodes           = GetFemNodes(sourceSchemaId);
+         var members         = GetFemMembers(sourceSchemaId);
+         var loadCases       = GetFemLoadCases(sourceSchemaId);
+         var nodeLoads       = GetFemNodeLoads(sourceSchemaId);
+         var memberLoads     = GetFemMemberLoads(sourceSchemaId);
+         var kinematicLoads  = GetFemKinematicLoads(sourceSchemaId);
+         var loadDefinitions = GetFemLoadDefinitions(sourceSchemaId);
+         var meshNodes       = GetFemMeshNodes(sourceSchemaId);
+         var meshElements    = GetFemMeshElements(sourceSchemaId);
+
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            var newSchema = new CScore.Fem.FemSchema
+            {
+               Tag = newTag,
+               SourceType = sourceSchema.SourceType,
+               Created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+            };
+            using (var schemaCmd = _connection.CreateCommand())
+            {
+               schemaCmd.CommandText = """
+                  INSERT INTO fem_schemas (tag, source_type, created)
+                  VALUES (@tag, @src, @created);
+                  SELECT last_insert_rowid();
+               """;
+               schemaCmd.Parameters.AddWithValue("@tag", newSchema.Tag);
+               schemaCmd.Parameters.AddWithValue("@src", newSchema.SourceType);
+               schemaCmd.Parameters.AddWithValue("@created", newSchema.Created);
+               newSchema.Id = (int)(long)schemaCmd.ExecuteScalar()!;
+            }
+            int newSchemaId = newSchema.Id;
+
+            var newNodeIdByOld = new Dictionary<int, int>();
+            using (var nodeCmd = _connection.CreateCommand())
+            {
+               nodeCmd.CommandText = """
+                  INSERT INTO fem_nodes (schema_id, node_tag, x, y, z, dof_mask)
+                  VALUES (@sid, @tag, @x, @y, @z, @dm);
+                  SELECT last_insert_rowid();
+               """;
+               nodeCmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
+               nodeCmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
+               nodeCmd.Parameters.Add("@x",   Microsoft.Data.Sqlite.SqliteType.Real);
+               nodeCmd.Parameters.Add("@y",   Microsoft.Data.Sqlite.SqliteType.Real);
+               nodeCmd.Parameters.Add("@z",   Microsoft.Data.Sqlite.SqliteType.Real);
+               nodeCmd.Parameters.Add("@dm",  Microsoft.Data.Sqlite.SqliteType.Integer);
+               foreach (var n in nodes)
+               {
+                  nodeCmd.Parameters["@sid"].Value = newSchemaId;
+                  nodeCmd.Parameters["@tag"].Value = n.NodeTag;
+                  nodeCmd.Parameters["@x"].Value   = n.X;
+                  nodeCmd.Parameters["@y"].Value   = n.Y;
+                  nodeCmd.Parameters["@z"].Value   = n.Z;
+                  nodeCmd.Parameters["@dm"].Value  = n.DofMask;
+                  int newId = (int)(long)nodeCmd.ExecuteScalar()!;
+                  newNodeIdByOld[n.Id] = newId;
+               }
+            }
+
+            var newMemberIdByOld = new Dictionary<int, int>();
+            using (var memberCmd = _connection.CreateCommand())
+            {
+               memberCmd.CommandText = """
+                  INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
+                                            cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
+                                            target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg)
+                  VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp, @rot);
+                  SELECT last_insert_rowid();
+               """;
+               memberCmd.Parameters.Add("@sid",  Microsoft.Data.Sqlite.SqliteType.Integer);
+               memberCmd.Parameters.Add("@tag",  Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@etype",Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@nids", Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@stag", Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@mtag", Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@thk",  Microsoft.Data.Sqlite.SqliteType.Real);
+               memberCmd.Parameters.Add("@csid", Microsoft.Data.Sqlite.SqliteType.Integer);
+               memberCmd.Parameters.Add("@gjs",  Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@gjv",  Microsoft.Data.Sqlite.SqliteType.Real);
+               memberCmd.Parameters.Add("@gjt",  Microsoft.Data.Sqlite.SqliteType.Integer);
+               memberCmd.Parameters.Add("@tml",  Microsoft.Data.Sqlite.SqliteType.Real);
+               memberCmd.Parameters.Add("@psid", Microsoft.Data.Sqlite.SqliteType.Integer);
+               memberCmd.Parameters.Add("@fsid", Microsoft.Data.Sqlite.SqliteType.Integer);
+               memberCmd.Parameters.Add("@dp",   Microsoft.Data.Sqlite.SqliteType.Text);
+               memberCmd.Parameters.Add("@rot",  Microsoft.Data.Sqlite.SqliteType.Real);
+               foreach (var m in members)
+               {
+                  memberCmd.Parameters["@sid"].Value   = newSchemaId;
+                  memberCmd.Parameters["@tag"].Value   = m.ElemTag;
+                  memberCmd.Parameters["@etype"].Value = m.ElemType;
+                  memberCmd.Parameters["@nids"].Value  = m.NodeIdsJson;
+                  memberCmd.Parameters["@stag"].Value  = (object?)m.SectionTag ?? DBNull.Value;
+                  memberCmd.Parameters["@mtag"].Value  = (object?)m.MaterialTag ?? DBNull.Value;
+                  memberCmd.Parameters["@thk"].Value   = m.ThicknessM.HasValue ? m.ThicknessM.Value : DBNull.Value;
+                  memberCmd.Parameters["@csid"].Value  = (object?)m.CrossSectionId ?? DBNull.Value;
+                  memberCmd.Parameters["@gjs"].Value   = m.GjStrategy;
+                  memberCmd.Parameters["@gjv"].Value   = m.GjManualValue.HasValue ? m.GjManualValue.Value : DBNull.Value;
+                  memberCmd.Parameters["@gjt"].Value   = (object?)m.GjTorsionTaskId ?? DBNull.Value;
+                  memberCmd.Parameters["@tml"].Value   = m.TargetMeshLengthM.HasValue ? m.TargetMeshLengthM.Value : DBNull.Value;
+                  memberCmd.Parameters["@psid"].Value  = (object?)m.PlateSectionId ?? DBNull.Value;
+                  memberCmd.Parameters["@fsid"].Value  = (object?)m.ForceSetId ?? DBNull.Value;
+                  memberCmd.Parameters["@dp"].Value    = (object?)m.DesignParamsJson ?? DBNull.Value;
+                  memberCmd.Parameters["@rot"].Value   = m.RotationDeg;
+                  int newId = (int)(long)memberCmd.ExecuteScalar()!;
+                  newMemberIdByOld[m.Id] = newId;
+               }
+            }
+
+            foreach (var g in sourceSchema.MemberGroups)
+            {
+               var groupCopy = new CScore.Fem.FemMemberGroup
+               {
+                  Tag = g.Tag, MemberType = g.MemberType, MemberTagsJson = g.MemberTagsJson,
+                  PlateSectionId = g.PlateSectionId, ForceSetId = g.ForceSetId, DesignParamsJson = g.DesignParamsJson
+               };
+               SaveFemMemberGroupCore(groupCopy, newSchemaId);
+               newSchema.MemberGroups.Add(groupCopy);
+            }
+
+            var newLoadCaseIdByOld = new Dictionary<int, int>();
+            using (var lcCmd = _connection.CreateCommand())
+            {
+               lcCmd.CommandText = """
+                  INSERT INTO fem_load_cases
+                     (schema_id, tag, load_type, sp20_type, sp20_group, gamma_f_unfav, gamma_f_fav, psi1, psi2)
+                  VALUES (@sid, @tag, @lt, @st, @sg, @gu, @gf, @p1, @p2);
+                  SELECT last_insert_rowid();
+               """;
+               foreach (var lc in loadCases)
+               {
+                  lcCmd.Parameters.Clear();
+                  lcCmd.Parameters.AddWithValue("@sid", newSchemaId);
+                  lcCmd.Parameters.AddWithValue("@tag", lc.Tag);
+                  lcCmd.Parameters.AddWithValue("@lt",  (object?)lc.LoadType ?? DBNull.Value);
+                  lcCmd.Parameters.AddWithValue("@st",  lc.Sp20Type);
+                  lcCmd.Parameters.AddWithValue("@sg",  (object?)lc.Sp20Group ?? DBNull.Value);
+                  lcCmd.Parameters.AddWithValue("@gu",  (object?)lc.GammaFUnfav ?? DBNull.Value);
+                  lcCmd.Parameters.AddWithValue("@gf",  (object?)lc.GammaFFav ?? DBNull.Value);
+                  lcCmd.Parameters.AddWithValue("@p1",  (object?)lc.Psi1 ?? DBNull.Value);
+                  lcCmd.Parameters.AddWithValue("@p2",  (object?)lc.Psi2 ?? DBNull.Value);
+                  int newId = (int)(long)lcCmd.ExecuteScalar()!;
+                  newLoadCaseIdByOld[lc.Id] = newId;
+                  newSchema.LoadCases.Add(new CScore.Fem.FemLoadCase
+                  {
+                     Id = newId, SchemaId = newSchemaId, Tag = lc.Tag, LoadType = lc.LoadType,
+                     Sp20Type = lc.Sp20Type, Sp20Group = lc.Sp20Group, GammaFUnfav = lc.GammaFUnfav,
+                     GammaFFav = lc.GammaFFav, Psi1 = lc.Psi1, Psi2 = lc.Psi2
+                  });
+               }
+            }
+
+            using (var nodeLoadCmd = _connection.CreateCommand())
+            {
+               nodeLoadCmd.CommandText = """
+                  INSERT INTO fem_node_loads (schema_id, load_case_id, node_id, fx, fy, fz, mx, my, mz)
+                  VALUES (@sid, @lc, @nid, @fx, @fy, @fz, @mx, @my, @mz)
+               """;
+               foreach (var load in nodeLoads)
+               {
+                  if (!newNodeIdByOld.TryGetValue(load.NodeId, out int nodeId))
+                     throw new InvalidOperationException($"Узловая нагрузка ссылается на отсутствующий узел {load.NodeId}.");
+                  if (!newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out int lcId))
+                     throw new InvalidOperationException($"Узловая нагрузка ссылается на отсутствующий случай нагружения {load.LoadCaseId}.");
+                  nodeLoadCmd.Parameters.Clear();
+                  nodeLoadCmd.Parameters.AddWithValue("@sid", newSchemaId);
+                  nodeLoadCmd.Parameters.AddWithValue("@lc", lcId);
+                  nodeLoadCmd.Parameters.AddWithValue("@nid", nodeId);
+                  nodeLoadCmd.Parameters.AddWithValue("@fx", load.Fx);
+                  nodeLoadCmd.Parameters.AddWithValue("@fy", load.Fy);
+                  nodeLoadCmd.Parameters.AddWithValue("@fz", load.Fz);
+                  nodeLoadCmd.Parameters.AddWithValue("@mx", load.Mx);
+                  nodeLoadCmd.Parameters.AddWithValue("@my", load.My);
+                  nodeLoadCmd.Parameters.AddWithValue("@mz", load.Mz);
+                  nodeLoadCmd.ExecuteNonQuery();
+               }
+            }
+
+            using (var memberLoadCmd = _connection.CreateCommand())
+            {
+               memberLoadCmd.CommandText = """
+                  INSERT INTO fem_member_loads
+                     (schema_id, load_case_id, member_id, coordinate_system, distribution_type,
+                      start_offset_m, end_offset_m, qx_start, qy_start, qz_start,
+                      qx_end, qy_end, qz_end, mx, my, mz)
+                  VALUES (@sid, @lc, @mid, @cs, @dt, @so, @eo, @qxs, @qys, @qzs, @qxe, @qye, @qze, @mx, @my, @mz)
+               """;
+               foreach (var load in memberLoads)
+               {
+                  if (!newMemberIdByOld.TryGetValue(load.MemberId, out int memberId))
+                     throw new InvalidOperationException($"Распределённая нагрузка ссылается на отсутствующий стержень {load.MemberId}.");
+                  if (!newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out int lcId))
+                     throw new InvalidOperationException($"Распределённая нагрузка ссылается на отсутствующий случай нагружения {load.LoadCaseId}.");
+                  memberLoadCmd.Parameters.Clear();
+                  memberLoadCmd.Parameters.AddWithValue("@sid", newSchemaId);
+                  memberLoadCmd.Parameters.AddWithValue("@lc", lcId);
+                  memberLoadCmd.Parameters.AddWithValue("@mid", memberId);
+                  memberLoadCmd.Parameters.AddWithValue("@cs", load.CoordinateSystem);
+                  memberLoadCmd.Parameters.AddWithValue("@dt", load.DistributionType);
+                  memberLoadCmd.Parameters.AddWithValue("@so", load.StartOffsetM);
+                  memberLoadCmd.Parameters.AddWithValue("@eo", load.EndOffsetM);
+                  memberLoadCmd.Parameters.AddWithValue("@qxs", load.QxStart);
+                  memberLoadCmd.Parameters.AddWithValue("@qys", load.QyStart);
+                  memberLoadCmd.Parameters.AddWithValue("@qzs", load.QzStart);
+                  memberLoadCmd.Parameters.AddWithValue("@qxe", load.QxEnd);
+                  memberLoadCmd.Parameters.AddWithValue("@qye", load.QyEnd);
+                  memberLoadCmd.Parameters.AddWithValue("@qze", load.QzEnd);
+                  memberLoadCmd.Parameters.AddWithValue("@mx", load.Mx);
+                  memberLoadCmd.Parameters.AddWithValue("@my", load.My);
+                  memberLoadCmd.Parameters.AddWithValue("@mz", load.Mz);
+                  memberLoadCmd.ExecuteNonQuery();
+               }
+            }
+
+            using (var kinematicLoadCmd = _connection.CreateCommand())
+            {
+               kinematicLoadCmd.CommandText = """
+                  INSERT INTO fem_kinematic_loads (schema_id, load_case_id, node_id, dof, value)
+                  VALUES (@sid, @lc, @nid, @dof, @value)
+               """;
+               foreach (var load in kinematicLoads)
+               {
+                  if (!newNodeIdByOld.TryGetValue(load.NodeId, out int nodeId))
+                     throw new InvalidOperationException($"Кинематическая нагрузка ссылается на отсутствующий узел {load.NodeId}.");
+                  if (!newLoadCaseIdByOld.TryGetValue(load.LoadCaseId, out int lcId))
+                     throw new InvalidOperationException($"Кинематическая нагрузка ссылается на отсутствующий случай нагружения {load.LoadCaseId}.");
+                  kinematicLoadCmd.Parameters.Clear();
+                  kinematicLoadCmd.Parameters.AddWithValue("@sid", newSchemaId);
+                  kinematicLoadCmd.Parameters.AddWithValue("@lc", lcId);
+                  kinematicLoadCmd.Parameters.AddWithValue("@nid", nodeId);
+                  kinematicLoadCmd.Parameters.AddWithValue("@dof", load.Dof);
+                  kinematicLoadCmd.Parameters.AddWithValue("@value", load.Value);
+                  kinematicLoadCmd.ExecuteNonQuery();
+               }
+            }
+
+            using (var definitionCmd = _connection.CreateCommand())
+            {
+               definitionCmd.CommandText = """
+                  INSERT INTO fem_load_definitions (schema_id, tag, description, expression_json, source_kind, combination_type)
+                  VALUES (@sid, @tag, @desc, @expr, @source, @type);
+                  SELECT last_insert_rowid();
+               """;
+               foreach (var def in loadDefinitions)
+               {
+                  var expression = def.GetExpression();
+                  var rewritten = new CScore.Fem.FemLoadExpression
+                  {
+                     Mode = expression.Mode,
+                     LoadCaseIds = expression.LoadCaseIds
+                        .Select(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id).ToList(),
+                     Terms = expression.Terms.Select(term => new CScore.Fem.FemLoadTerm
+                     {
+                        LoadCaseId = newLoadCaseIdByOld.TryGetValue(term.LoadCaseId, out var mapped) ? mapped : term.LoadCaseId,
+                        Coefficient = term.Coefficient
+                     }).ToList(),
+                     CombinationType = expression.CombinationType
+                  };
+                  string rewrittenJson = rewritten.ToJson();
+                  definitionCmd.Parameters.Clear();
+                  definitionCmd.Parameters.AddWithValue("@sid", newSchemaId);
+                  definitionCmd.Parameters.AddWithValue("@tag", def.Tag);
+                  definitionCmd.Parameters.AddWithValue("@desc", (object?)def.Description ?? DBNull.Value);
+                  definitionCmd.Parameters.AddWithValue("@expr", rewrittenJson);
+                  definitionCmd.Parameters.AddWithValue("@source", def.SourceKind);
+                  definitionCmd.Parameters.AddWithValue("@type", (object?)def.CombinationType ?? DBNull.Value);
+                  int newId = (int)(long)definitionCmd.ExecuteScalar()!;
+                  newSchema.LoadDefinitions.Add(new CScore.Fem.FemLoadDefinition
+                  {
+                     Id = newId, SchemaId = newSchemaId, Tag = def.Tag, Description = def.Description,
+                     ExpressionJson = rewrittenJson, SourceKind = def.SourceKind, CombinationType = def.CombinationType
+                  });
+               }
+            }
+
+            using (var meshNodeCmd = _connection.CreateCommand())
+            {
+               meshNodeCmd.CommandText = """
+                  INSERT INTO fem_mesh_nodes (schema_id, node_tag, x, y, z, source_node_tag, source_member_tag)
+                  VALUES (@sid, @tag, @x, @y, @z, @snt, @smt)
+               """;
+               foreach (var mn in meshNodes)
+               {
+                  meshNodeCmd.Parameters.Clear();
+                  meshNodeCmd.Parameters.AddWithValue("@sid", newSchemaId);
+                  meshNodeCmd.Parameters.AddWithValue("@tag", mn.NodeTag);
+                  meshNodeCmd.Parameters.AddWithValue("@x", mn.X);
+                  meshNodeCmd.Parameters.AddWithValue("@y", mn.Y);
+                  meshNodeCmd.Parameters.AddWithValue("@z", mn.Z);
+                  meshNodeCmd.Parameters.AddWithValue("@snt", (object?)mn.SourceNodeTag ?? DBNull.Value);
+                  meshNodeCmd.Parameters.AddWithValue("@smt", (object?)mn.SourceMemberTag ?? DBNull.Value);
+                  meshNodeCmd.ExecuteNonQuery();
+               }
+            }
+
+            using (var meshElemCmd = _connection.CreateCommand())
+            {
+               meshElemCmd.CommandText = """
+                  INSERT INTO fem_elements (schema_id, elem_tag, elem_type, node_ids_json, source_member_tag,
+                                             cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
+                                             section_tag, material_tag, thickness_m)
+                  VALUES (@sid, @tag, @etype, @nids, @smt, @csid, @gjs, @gjv, @gjt, @stag, @mtag, @thk)
+               """;
+               foreach (var el in meshElements)
+               {
+                  meshElemCmd.Parameters.Clear();
+                  meshElemCmd.Parameters.AddWithValue("@sid", newSchemaId);
+                  meshElemCmd.Parameters.AddWithValue("@tag", el.ElemTag);
+                  meshElemCmd.Parameters.AddWithValue("@etype", el.ElemType);
+                  meshElemCmd.Parameters.AddWithValue("@nids", el.NodeIdsJson);
+                  meshElemCmd.Parameters.AddWithValue("@smt", (object?)el.SourceMemberTag ?? DBNull.Value);
+                  meshElemCmd.Parameters.AddWithValue("@csid", (object?)el.CrossSectionId ?? DBNull.Value);
+                  meshElemCmd.Parameters.AddWithValue("@gjs", el.GjStrategy);
+                  meshElemCmd.Parameters.AddWithValue("@gjv", el.GjManualValue.HasValue ? el.GjManualValue.Value : DBNull.Value);
+                  meshElemCmd.Parameters.AddWithValue("@gjt", (object?)el.GjTorsionTaskId ?? DBNull.Value);
+                  meshElemCmd.Parameters.AddWithValue("@stag", (object?)el.SectionTag ?? DBNull.Value);
+                  meshElemCmd.Parameters.AddWithValue("@mtag", (object?)el.MaterialTag ?? DBNull.Value);
+                  meshElemCmd.Parameters.AddWithValue("@thk", el.ThicknessM.HasValue ? el.ThicknessM.Value : DBNull.Value);
+                  meshElemCmd.ExecuteNonQuery();
+               }
+            }
+
+            FemSchemas.Add(newSchema);
+            tx.Commit();
+            return newSchema;
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
       /// <summary>
       /// Создаёт заглушки FemMember для элементов из списка, которых ещё нет в схеме.
       /// Используется при импорте усилий из ЛИРЫ без предварительного импорта топологии.
