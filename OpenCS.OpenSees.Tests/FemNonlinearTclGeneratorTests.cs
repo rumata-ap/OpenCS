@@ -49,6 +49,17 @@ public class FemNonlinearTclGeneratorTests
     }
 
     [Fact]
+    public void Generate_LogsIterationCountAndFinalNormOnEachSuccessfulSubstep()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("fconfigure stdout -buffering line", tcl);
+        Assert.Contains("set iters [testIter]", tcl);
+        Assert.Contains("set finalNorm [lindex [testNorm] [expr {$iters - 1}]]", tcl);
+        Assert.Contains("puts \"step $stepIndex OK lambda=$currentLambda depth=$depth iters=$iters norm=$finalNorm\"", tcl);
+        Assert.Contains("puts \"step [expr {$stepIndex + 1}] FAILED lambda=$currentLambda\"", tcl);
+    }
+
+    [Fact]
     public void Generate_EmitsPlainNewtonAlgorithmWhenSelected()
     {
         var model = Console();

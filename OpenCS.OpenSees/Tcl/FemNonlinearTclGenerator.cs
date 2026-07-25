@@ -228,7 +228,9 @@ public sealed class FemNonlinearTclGenerator
         L("    if {$rc == 0} {");
         L("        incr stepIndex");
         L("        set currentLambda [getTime]");
-        L("        puts \"step $stepIndex lambda=$currentLambda depth=$depth\"");
+        L("        set iters [testIter]");
+        L("        set finalNorm [lindex [testNorm] [expr {$iters - 1}]]");
+        L("        puts \"step $stepIndex OK lambda=$currentLambda depth=$depth iters=$iters norm=$finalNorm\"");
         L("        writeCloseOnWrite step_status.out [list $stepIndex $currentLambda 1 [expr {$depth > 0}]]");
         EmitFiberStateWrites(L, model);
         L("        return 1");
