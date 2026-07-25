@@ -64,6 +64,17 @@
                 <TextBox Grid.Column="1" x:Name="MaxLoadFactorBox" Text="10" Height="22" VerticalContentAlignment="Center"/>
             </Grid>
 
+            <Grid Margin="0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="190"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisElementFormulationLabel}" VerticalAlignment="Center"
+                           ToolTip="{DynamicResource FemAnalysisElementFormulationTip}"/>
+                <ComboBox Grid.Column="1" x:Name="ElementFormulationBox" DisplayMemberPath="Label" Height="22" VerticalContentAlignment="Center"
+                          ToolTip="{DynamicResource FemAnalysisElementFormulationTip}"/>
+            </Grid>
+
             <GroupBox Header="{DynamicResource OpenSeesMaterialsGroup}" Margin="0,8,0,0">
                 <StackPanel Margin="4">
                     <CheckBox x:Name="ConsiderConcreteTensionCb"

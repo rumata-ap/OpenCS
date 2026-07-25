@@ -88,6 +88,26 @@ OpenCS.sln
 
 `CSTriangulation` references **Triangle.dll** (managed Triangle.NET, `TriangleNet.*` namespace) — **temporarily reinstated** as the engine behind `CSTriangulation.Ruppert.Triangulator` because the custom CDT+Refine implementation ignored `maxAngl` always, and `maxTrgArea` when the region had holes. The DLL is vendored at `CSTriangulation/libs/Triangle/Triangle.dll` (and must also be referenced directly — via the same `HintPath` — in every exe-output project that transitively needs it at runtime: `OpenCS`, `CSfea.Tests`, `StrainTest`, `TriTest`; a raw `Reference` declared only in `CSTriangulation.csproj` is copied to consumers' `bin/` but isn't added to their `.deps.json`). `TriangulationMethod.AdvancingFront` is unaffected (still the custom CSTriangulation port). See `docs/superpowers/specs/2026-07-11-ruppert-trianglenet-design.md` for details; the old `CDT.cs`/`Mesh.cs`/`Refine.cs` files remain in the repo, unused, for a future fix.
 
+## OpenSees
+
+OpenSees is available at a fixed path on both developer PCs. Use it for finite element analysis tasks (frame elements, pushover, dynamic analysis, etc.) when the built-in CSfea engine is not sufficient.
+
+```
+C:\Tools\OpenSees\bin\OpenSees.exe
+```
+
+Run a Tcl script:
+```powershell
+& "C:\Tools\OpenSees\bin\OpenSees.exe" script.tcl
+```
+
+Run inline commands via stdin:
+```powershell
+"wipe; model BasicBuilder -ndm 2 -ndf 3; puts 'OpenSees OK'; wipe" | & "C:\Tools\OpenSees\bin\OpenSees.exe"
+```
+
+Do not search for OpenSees in PATH or ask the user for the path — always use the hard-coded path above.
+
 ## Architecture
 
 - **Framework**: .NET 9.0, WPF (Windows-only, requires `net9.0-windows` TFM)

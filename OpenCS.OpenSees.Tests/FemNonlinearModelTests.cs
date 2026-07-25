@@ -133,6 +133,21 @@ public class FemNonlinearModelTests
     public void Validate_DefaultConvergenceTest_IsEnergyIncr() => Assert.Equal("EnergyIncr", ValidModel().ConvergenceTest);
 
     [Fact]
+    public void Validate_UnknownAlgorithm_Throws()
+    {
+        var valid = ValidModel();
+        var model = new FemNonlinearModel
+        {
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            Algorithm = "Nope"
+        };
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_DefaultAlgorithm_IsNewtonLineSearch() => Assert.Equal("NewtonLineSearch", ValidModel().Algorithm);
+
+    [Fact]
     public void Validate_ZeroIntegrationPoints_Throws()
     {
         var model = ValidModel();

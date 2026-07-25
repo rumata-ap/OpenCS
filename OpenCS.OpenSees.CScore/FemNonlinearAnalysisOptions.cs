@@ -23,7 +23,15 @@ public sealed record FemNonlinearAnalysisOptions(
     // Переопределение отношения модуля упрочнения стали/арматуры; null — автоматически.
     double? SteelHardeningRatioOverride = null,
     // Максимальная глубина рекурсивного дробления неудавшегося шага (см. FemNonlinearModel.MaxRefinementDepth).
-    int MaxRefinementDepth = 4)
+    int MaxRefinementDepth = 4,
+    // Формулировка стержневого элемента: "forceBeamColumn" (по умолчанию) | "dispBeamColumn"
+    // (см. FemNonlinearModel.ElementFormulation про устойчивость при строго нулевом хвосте
+    // растяжения бетона).
+    string ElementFormulation = "forceBeamColumn",
+    // Алгоритм решателя Ньютона: "Newton" | "NewtonLineSearch" (по умолчанию — см.
+    // FemNonlinearModel.Algorithm про эмпирическое ускорение сходимости на кинематических
+    // нагрузках).
+    string Algorithm = "NewtonLineSearch")
 {
     /// <summary>Legacy-конструктор для старых вызывающих мест: LoadSteps → шаг 1/LoadSteps, λmax=1.</summary>
     public FemNonlinearAnalysisOptions(

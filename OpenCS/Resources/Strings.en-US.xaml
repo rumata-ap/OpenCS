@@ -1417,6 +1417,10 @@
     <system:String x:Key="FemConvergenceEnergyIncr">Energy increment</system:String>
     <system:String x:Key="FemConvergenceNormUnbalance">Unbalanced force norm</system:String>
     <system:String x:Key="FemConvergenceNormDispIncr">Displacement increment norm</system:String>
+    <system:String x:Key="FemAnalysisAlgorithmLabel">Solver algorithm</system:String>
+    <system:String x:Key="FemAnalysisAlgorithmTip">NewtonLineSearch adds a line search inside each Newton iteration — it scales back the step when it would "overshoot" through an abrupt material-diagram discontinuity, instead of failing the iteration outright. On kinematic loads with an exact-zero concrete tension cutoff it converges markedly faster than plain Newton.</system:String>
+    <system:String x:Key="FemAlgorithmNewton">Newton</system:String>
+    <system:String x:Key="FemAlgorithmNewtonLineSearch">Newton with line search (NewtonLineSearch)</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Integration points</system:String>
     <system:String x:Key="FemAnalysisConsiderConcreteTension">Consider concrete tension strength</system:String>
     <system:String x:Key="FemAnalysisConsiderConcreteTensionTip">When disabled, the OpenSees tension envelope for concrete is collapsed to a strictly flat zero stress — the section is treated as already fully cracked. Does not affect rebar/steel. Useful if the analysis fails to converge due to concrete cracking; also try the dispBeamColumn element formulation below.</system:String>

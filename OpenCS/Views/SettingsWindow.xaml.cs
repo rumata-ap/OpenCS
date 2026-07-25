@@ -427,6 +427,7 @@ namespace OpenCS.Views
          SelectComboByTag(OpenSeesGeomTransfCombo, _calcSettings.OpenSeesGeomTransfKind);
          SelectComboByTag(OpenSeesConvergenceTestCombo, _calcSettings.OpenSeesConvergenceTest);
          OpenSeesIntegrationPointsBox.Text = _calcSettings.OpenSeesIntegrationPoints.ToString();
+         SelectComboByTag(OpenSeesAlgorithmCombo, _calcSettings.OpenSeesAlgorithm);
       }
 
       void HookOpenSeesControls()
@@ -462,6 +463,8 @@ namespace OpenCS.Views
          {
             if (int.TryParse(OpenSeesIntegrationPointsBox.Text, out var v) && v > 0) _calcSettings.OpenSeesIntegrationPoints = v;
          };
+         OpenSeesAlgorithmCombo.SelectionChanged += (_, _) =>
+            _calcSettings.OpenSeesAlgorithm = ComboTag(OpenSeesAlgorithmCombo) ?? "NewtonLineSearch";
       }
 
       static string? ComboTag(ComboBox combo) => (combo.SelectedItem as ComboBoxItem)?.Tag as string;

@@ -111,19 +111,34 @@ public class FemNonlinearResultParserTests
     }
 
     [Fact]
-    public void Parse_NulBytes_ReportsCorruptedOutput()
+    public void Parse_NulBytes_SubstitutesNaNForCorruptedRowAndKeepsOtherSteps()
     {
+        // Известная нестабильность OpenSees 3.8.0 на Windows: даже с отключённой буферизацией
+        // Tcl-канала изредка встречается блок нулевых байт внутри иначе корректной строки —
+        // судя по всему, баг внутри самого OpenSees.exe, а не в нашей генерации Tcl (проверено
+        // на реальных артефактах, см. FemNonlinearTclGenerator). Раньше это валило парсинг ВСЕГО
+        // файла (и всех остальных, честных шагов); теперь портится только содержимое одной
+        // строки — подставляются NaN, а остальные шаги остаются полностью пригодными.
         string dir = NewDir();
         try
         {
             WriteCommonFiles(dir,
-                stepStatus: "# step loadFactor converged isRefinement\n1 0.5 1 0\n",
-                disp: "0.5 0 0 0 0 0 0 0 0 0\0\0\0\n",
-                react: "0.5 0 0 500 0 0 0\n",
-                forces: "0.5 -100 0 500 0 300 0 100 0 -500 0 0 0\n");
+                stepStatus: "# step loadFactor converged isRefinement\n1 0.5 1 0\n2 1.0 1 0\n",
+                disp: "0.5 0 0 0 0 0 0 0 0 0\0\0\0\n" +
+                      "1.0 0 0 0 0 0 0 0 0 -0.002 0 0.004 0\n",
+                react: "0.5 0 0 500 0 0 0\n1.0 0 0 1000 0 0 0\n",
+                forces: "0.5 -100 0 500 0 300 0 100 0 -500 0 0 0\n" +
+                        "1.0 -200 0 1000 0 600 0 200 0 -1000 0 0 0\n");
 
-            var exception = Assert.Throws<OpenSeesResultException>(() => new FemNonlinearResultParser().Parse(dir));
-            Assert.Equal("CorruptedOutput", exception.Code);
+            var steps = new FemNonlinearResultParser().Parse(dir);
+
+            Assert.Equal(2, steps.Count);
+            Assert.True(steps[0].Converged);
+            Assert.Equal(2, steps[0].Displacements.Count);
+            Assert.True(double.IsNaN(steps[0].Displacements[1].Uz));
+
+            Assert.True(steps[1].Converged);
+            Assert.Equal(-0.002, steps[1].Displacements[1].Uz, 6);
         }
         finally { Directory.Delete(dir, recursive: true); }
     }

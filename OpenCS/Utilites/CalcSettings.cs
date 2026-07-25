@@ -187,6 +187,14 @@ namespace OpenCS.Utilites
       [JsonPropertyName("openSeesConvergenceTest")]
       public string OpenSeesConvergenceTest { get; set; } = "EnergyIncr";
 
+      /// <summary>Алгоритм решателя: "Newton" | "NewtonLineSearch" (line search внутри итерации —
+      /// масштабирует шаг Ньютона, если он "перелетает" через резкий разрыв диаграммы материала,
+      /// вместо провала итерации целиком; на реальном кинематическом сценарии с обрывом растяжения
+      /// бетона в строгий ноль довёл расчёт до конца там, где обычный Newton не успевал пройти и
+      /// трети пути за то же время — см. заметку в памяти проекта).</summary>
+      [JsonPropertyName("openSeesAlgorithm")]
+      public string OpenSeesAlgorithm { get; set; } = "NewtonLineSearch";
+
       /// <summary>Число точек интегрирования forceBeamColumn (нелинейный расчёт).</summary>
       [JsonPropertyName("openSeesIntegrationPoints")]
       public int OpenSeesIntegrationPoints { get; set; } = 5;
@@ -234,6 +242,7 @@ namespace OpenCS.Utilites
          OpenSeesMaxIterations    = OpenSeesMaxIterations,
          OpenSeesGeomTransfKind   = OpenSeesGeomTransfKind,
          OpenSeesConvergenceTest  = OpenSeesConvergenceTest,
+         OpenSeesAlgorithm        = OpenSeesAlgorithm,
          OpenSeesIntegrationPoints = OpenSeesIntegrationPoints,
       };
 

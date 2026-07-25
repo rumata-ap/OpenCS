@@ -496,6 +496,7 @@
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
                                     <RowDefinition Height="32"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource FemAnalysisRefinementDivisionsLabel}" VerticalAlignment="Center"/>
@@ -522,6 +523,13 @@
                                 </ComboBox>
                                 <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource FemAnalysisIntegrationPointsLabel}" VerticalAlignment="Center"/>
                                 <TextBox Grid.Row="6" Grid.Column="1" x:Name="OpenSeesIntegrationPointsBox" VerticalContentAlignment="Center" Margin="0,2"/>
+                                <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource FemAnalysisAlgorithmLabel}"
+                                           VerticalAlignment="Center" ToolTip="{DynamicResource FemAnalysisAlgorithmTip}"/>
+                                <ComboBox Grid.Row="7" Grid.Column="1" x:Name="OpenSeesAlgorithmCombo" VerticalContentAlignment="Center" Margin="0,2"
+                                          ToolTip="{DynamicResource FemAnalysisAlgorithmTip}">
+                                    <ComboBoxItem Tag="Newton" Content="{DynamicResource FemAlgorithmNewton}"/>
+                                    <ComboBoxItem Tag="NewtonLineSearch" Content="{DynamicResource FemAlgorithmNewtonLineSearch}"/>
+                                </ComboBox>
                             </Grid>
                         </GroupBox>
                     </StackPanel>

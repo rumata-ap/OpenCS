@@ -389,6 +389,26 @@ namespace OpenCS.ViewModels
             RebarMin = rebarVals.Count > 0 ? rebarVals.Min() : -1;
             RebarMax = rebarVals.Count > 0 ? rebarVals.Max() :  1;
 
+            // Карта напряжений по данным OpenSees (recordedFibers != null): растяжение и сжатие
+            // нормируются НЕЗАВИСИМО друг от друга (см. ColormapHelper.DivergingColor), а
+            // ElasticMultiLinear-огибающая бетона на растяжении после трещинообразования содержит
+            // намеренно малый ненулевой остаточный наклон (нужен OpenSees для устойчивости
+            // обращения матрицы гибкости сечения, см. MaterialDiagramMapper). Если сечение уже
+            // полностью растрескалось, этот остаток (единицы кПа) становится собственным локальным
+            // максимумом растянутой стороны и получает НАСЫЩЕННЫЙ цвет — визуально выглядит как
+            // значимое растягивающее напряжение, хотя оно на порядки меньше сжатия. Для карты по
+            // OpenSees обе стороны шкалы приводятся к общему масштабу (по модулю большей из двух),
+            // чтобы такой остаток корректно оставался почти белым на фоне реального сжатия.
+            if (mode == SectionPlotMode.Stress && recordedFibers != null)
+            {
+                double sharedScale = Math.Max(Math.Abs(ConcreteMin), Math.Abs(ConcreteMax));
+                if (sharedScale > 1e-10)
+                {
+                    ConcreteMin = -sharedScale;
+                    ConcreteMax = sharedScale;
+                }
+            }
+
             ConcreteColorBands = BuildColorBands(ConcreteMin, ConcreteMax, false);
             RebarColorBands    = BuildColorBands(RebarMin,    RebarMax,    true);
 

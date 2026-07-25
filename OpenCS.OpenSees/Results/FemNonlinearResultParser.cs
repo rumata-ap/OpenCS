@@ -115,8 +115,19 @@ public sealed class FemNonlinearResultParser
             var line = raw.Trim();
             if (line.Length == 0 || line.StartsWith('#')) continue;
             if (line.Contains('\0'))
-                throw new OpenSeesResultException("CorruptedOutput",
-                    $"{name} строка {lineNo}: найден нулевой байт; файл результата повреждён OpenSees.");
+            {
+                // Известная нестабильность OpenSees 3.8.0 на Windows: даже при отключённой
+                // буферизации Tcl-канала (см. FemNonlinearTclGenerator) изредка встречается блок
+                // нулевых байт внутри иначе корректной строки — судя по всему, баг внутри самого
+                // OpenSees.exe при интенсивных eleResponse-запросах, а не в нашей генерации Tcl.
+                // Число строк при этом остаётся верным (проверено: 47 строк на 47 сошедшихся
+                // шагов), портится только содержимое одной строки — поэтому не валим парсинг
+                // всего файла (и всех остальных, честных шагов) целиком, а подставляем NaN только
+                // для этой строки и продолжаем, сохраняя соответствие количества строк числу
+                // сошедшихся шагов в step_status.out.
+                rows.Add(Enumerable.Repeat(double.NaN, expectedCols).ToArray());
+                continue;
+            }
             var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length != expectedCols)
                 throw new OpenSeesResultException("WrongColumnCount", $"{name} строка {lineNo}: ожидалось {expectedCols} колонок, получено {parts.Length}.");

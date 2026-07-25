@@ -44,28 +44,44 @@ public class FemNonlinearTclGeneratorTests
         Assert.Contains("geomTransf PDelta", tcl);
         Assert.Contains("element forceBeamColumn 1 1 2 5 1", tcl);
         Assert.Contains("test EnergyIncr", tcl);
-        Assert.Contains("algorithm Newton", tcl);
+        Assert.Contains("algorithm NewtonLineSearch", tcl);
         Assert.Contains("integrator LoadControl", tcl);
     }
 
     [Fact]
-    public void Generate_EmitsTextSnapshotsBeforeStepLoopAndOrderFile()
+    public void Generate_EmitsPlainNewtonAlgorithmWhenSelected()
     {
+        var model = Console();
+        model = new FemNonlinearModel
+        {
+            Nodes = model.Nodes, Sections = model.Sections, Elements = model.Elements, Loads = model.Loads,
+            LoadFactorStep = model.LoadFactorStep, MaxLoadFactor = model.MaxLoadFactor,
+            RefinementDivisions = model.RefinementDivisions, Tolerance = model.Tolerance,
+            MaxIterations = model.MaxIterations, GeomTransfKind = model.GeomTransfKind,
+            Algorithm = "Newton"
+        };
+        string tcl = new FemNonlinearTclGenerator().Generate(model);
+        Assert.Contains("algorithm Newton", tcl);
+        Assert.DoesNotContain("algorithm NewtonLineSearch", tcl);
+    }
+
+    [Fact]
+    public void Generate_EmitsNativeRecordersWithCloseOnWriteBeforeStepLoopAndOrderFile()
+    {
+        // Штатные recorder Node/Element с -closeOnWrite заменили ручные Tcl-каналы
+        // (open/puts/close) для nonlinear_node_disp/reactions/element_forces — не держат файл
+        // открытым весь расчёт, что устранило класс порчи вывода на реальных сценариях (см.
+        // комментарий в FemNonlinearTclGenerator.Generate над recorder Node).
         string tcl = new FemNonlinearTclGenerator().Generate(Console());
-        Assert.DoesNotContain("recorder Node", tcl);
-        Assert.DoesNotContain("recorder Element", tcl);
-        Assert.Contains("set nonlinearNodeDisp [open nonlinear_node_disp.out w]", tcl);
-        Assert.Contains("set nonlinearNodeReactions [open nonlinear_node_reactions.out w]", tcl);
-        Assert.Contains("set nonlinearElementForces [open nonlinear_element_forces.out w]", tcl);
-        Assert.Contains("puts $nonlinearNodeDisp", tcl);
-        Assert.Contains("puts $nonlinearNodeReactions", tcl);
-        Assert.Contains("puts $nonlinearElementForces", tcl);
+        Assert.Contains("recorder Node -file nonlinear_node_disp.out -closeOnWrite -time -node 1 2 -dof 1 2 3 4 5 6 disp", tcl);
+        Assert.Contains("recorder Node -file nonlinear_node_reactions.out -closeOnWrite -time -node 1 -dof 1 2 3 4 5 6 reaction", tcl);
+        Assert.Contains("recorder Element -file nonlinear_element_forces.out -closeOnWrite -time -ele 1 localForce", tcl);
         Assert.Contains("recorder_order.json", tcl);
         Assert.Contains("\"nodeTags\":[1,2]", tcl);
         Assert.Contains("\"restrainedTags\":[1]", tcl);
         Assert.Contains("\"elemTags\":[1]", tcl);
 
-        int recorderIndex = tcl.IndexOf("set nonlinearNodeDisp", StringComparison.Ordinal);
+        int recorderIndex = tcl.IndexOf("recorder Node -file nonlinear_node_disp.out", StringComparison.Ordinal);
         int loopIndex = tcl.IndexOf("set currentLambda", StringComparison.Ordinal);
         Assert.True(recorderIndex < loopIndex && recorderIndex >= 0 && loopIndex >= 0);
     }

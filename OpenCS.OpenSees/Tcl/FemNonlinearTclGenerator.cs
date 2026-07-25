@@ -79,7 +79,7 @@ public sealed class FemNonlinearTclGenerator
         foreach (var e in model.Elements)
         {
             int t = transfByVec[e.Vecxz];
-            L($"element forceBeamColumn {e.Tag} {e.NodeI} {e.NodeJ} {e.NumIntegrationPoints} {e.SectionTag} {t}");
+            L($"element {model.ElementFormulation} {e.Tag} {e.NodeI} {e.NodeJ} {e.NumIntegrationPoints} {e.SectionTag} {t}");
         }
         L();
 
@@ -108,7 +108,7 @@ public sealed class FemNonlinearTclGenerator
         L("numberer RCM");
         L("system BandGeneral");
         L($"test {model.ConvergenceTest} {F(model.Tolerance)} {model.MaxIterations} 0");
-        L("algorithm Newton");
+        L($"algorithm {model.Algorithm}");
         // Интегратор должен быть задан до создания StaticAnalysis.
         L("integrator LoadControl 1.0");
         L("analysis Static");
@@ -119,13 +119,30 @@ public sealed class FemNonlinearTclGenerator
             .Concat(model.KinematicLoads.Select(load => load.NodeTag)).Distinct().ToList();
         var elemTags = model.Elements.Select(e => e.Tag).ToList();
 
-        // Используем Tcl-каналы вместо recorder Node/Element. В OpenSees 3.8.0
-        // большие серии eleResponse-запросов к fiber-секциям иногда оставляют
-        // нулевые байты в DataFileStream, из-за чего теряется вся строка шага.
-        L("set nonlinearNodeDisp [open nonlinear_node_disp.out w]");
+        // ИСТОРИЯ ПОРЧИ ВЫВОДА (три РАЗНЫХ подтверждённых на реальных артефактах паттерна на одном
+        // и том же классе бага, каждый раз в файле, который весь расчёт держал один открытый
+        // Tcl-канал под ручными eleResponse/nodeDisp-запросами): (1) блок РОВНО 4096 байт (размер
+        // буфера канала) нулей ПОСЕРЕДИНЕ иначе корректного числа; (2) уже при -buffering none —
+        // блок из нескольких тысяч нулевых байт, заменяющий ЦЕЛУЮ строку; (3) блок нулей ДЛИНОЙ
+        // РОВНО В БАЙТАХ РАВНОЙ замещённой строке — верный признак гонки на уровне записи файла в
+        // ОС, а не буферизации Tcl-канала. Итоговое решение — не патчить каждый новый паттерн
+        // порчи точечно, а убрать сам механизм риска: перейти на штатные OpenSees
+        // recorder Node/Element с -closeOnWrite (открывают файл заново на каждой записи вместо
+        // удержания хэндла открытым весь расчёт; проверено — поддерживается в этой сборке 3.8.0,
+        // и корректно сохраняет заданный порядок узлов/элементов в колонках, а не пересортировывает
+        // по тегу). recorder срабатывает автоматически на КАЖДОМ успешном analyze(), в т.ч. на
+        // под-шагах адаптивного дробления — это заменяет собой прежний ручной "фикс последнего
+        // дробного шага": теперь каждый успешный под-шаг логируется сам по себе, без отдельной
+        // ловли частичного прогресса при итоговом отказе.
+        L("proc writeCloseOnWrite {filename row} {");
+        L("    set ch [open $filename a]");
+        L("    puts $ch $row");
+        L("    close $ch");
+        L("}");
+        L($"recorder Node -file nonlinear_node_disp.out -closeOnWrite -time -node {string.Join(' ', nodeTags)} -dof 1 2 3 4 5 6 disp");
         if (restrainedTags.Count > 0)
-            L("set nonlinearNodeReactions [open nonlinear_node_reactions.out w]");
-        L("set nonlinearElementForces [open nonlinear_element_forces.out w]");
+            L($"recorder Node -file nonlinear_node_reactions.out -closeOnWrite -time -node {string.Join(' ', restrainedTags)} -dof 1 2 3 4 5 6 reaction");
+        L($"recorder Element -file nonlinear_element_forces.out -closeOnWrite -time -ele {string.Join(' ', elemTags)} localForce");
         L();
 
         // recorder_order.json — статический эхо-вывод уже известных на этапе генерации списков тегов,
@@ -143,6 +160,7 @@ public sealed class FemNonlinearTclGenerator
         // из исходной геометрии элемента.
         var nodeByTag = model.Nodes.ToDictionary(n => n.Tag);
         L("set sectionOrder [open nonlinear_section_order.json w]");
+        L("fconfigure $sectionOrder -buffering none");
         L("puts $sectionOrder \"{\\\"locations\\\":\\[\"");
         L("set sectionLocationFirst 1");
         foreach (var e in model.Elements.OrderBy(e => e.Tag))
@@ -174,9 +192,9 @@ public sealed class FemNonlinearTclGenerator
         L();
 
         L("set fiberStates [open nonlinear_fiber_states.out w]");
+        L("fconfigure $fiberStates -buffering none");
         L("puts $fiberStates {# step loadFactor elementTag integrationPoint fiberIndex stressPa strain}");
-        L("set stepStatus [open step_status.out w]");
-        L("puts $stepStatus {# step loadFactor converged isRefinement}");
+        L("writeCloseOnWrite step_status.out {# step loadFactor converged isRefinement}");
         L($"set loadFactorStep {F(model.LoadFactorStep)}");
         L($"set maxLoadFactor {F(model.MaxLoadFactor)}");
         L($"set refinementDivisions {model.RefinementDivisions}");
@@ -186,32 +204,31 @@ public sealed class FemNonlinearTclGenerator
         L("set analysisFailed 0");
         L();
 
-        // emitStepRecords — вызывается после каждого сошедшегося (под)шага, в т.ч. из рекурсии.
-        L("proc emitStepRecords {} {");
-        L("    global stepIndex currentLambda fiberStates nonlinearNodeDisp nonlinearElementForces" +
-            (restrainedTags.Count > 0 ? " nonlinearNodeReactions" : ""));
-        EmitFiberStateWrites(L, model);
-        EmitRecorderSnapshot(L, nodeTags, restrainedTags, elemTags);
-        L("}");
-        L();
-
-        // advanceTo — рекурсивное адаптивное дробление шага, БЕЗ записи результатов на
-        // промежуточных под-шагах: неудавшийся интервал [fromLambda, toLambda] делится на
-        // refinementDivisions частей и каждая пробуется отдельно (рекурсивно дробясь дальше
-        // при новой неудаче), вплоть до maxRefinementDepth. Один уровень дробления часто
-        // недостаточен для резкого падения жёсткости (трещинообразование/текучесть) — рекурсия
-        // ищет достаточно мелкий шаг адаптивно, оставаясь крупным там, где сходимость не
-        // проблема. Запись (emitStepRecords) — дорогая операция (полный обход волокон всех
-        // элементов), поэтому выполняется отдельно только для исходных контрольных точек
-        // loadFactorStep, а не для каждого внутреннего под-шага рекурсии — иначе на трудных
-        // участках объём записи и время расчёта раздуваются в разы.
-        L("set usedRefinement 0");
+        // advanceTo — рекурсивное адаптивное дробление шага: неудавшийся интервал
+        // [fromLambda, toLambda] делится на refinementDivisions частей и каждая пробуется отдельно
+        // (рекурсивно дробясь дальше при новой неудаче), вплоть до maxRefinementDepth. Один уровень
+        // дробления часто недостаточен для резкого падения жёсткости (трещинообразование/текучесть)
+        // — рекурсия ищет достаточно мелкий шаг адаптивно, оставаясь крупным там, где сходимость не
+        // проблема. КАЖДЫЙ успешный analyze() (на любой глубине, в т.ч. под-шаги дробления) сразу
+        // получает свою запись в step_status.out И полный обход волокон — осознанный выбор
+        // (пользователь предпочитает полноту данных по сечениям экономии времени расчёта): раньше
+        // обход волокон выполнялся только на контрольных точках loadFactorStep, чтобы не раздувать
+        // объём/время на трудных участках, но тогда для под-шагов дробления (которых в Steps теперь
+        // много — в т.ч. часто самый последний, наиболее нагруженный шаг) карта напряжений сечения
+        // оказывалась пустой — recordedFibers не находил соответствующей строки в
+        // nonlinear_fiber_states.out. Держит step_status/fiberStates/node_disp/reactions/
+        // element_forces в точном построчном соответствии — все пишутся на каждом успешном analyze().
         L("proc advanceTo {fromLambda toLambda depth} {");
-        L("    global refinementDivisions maxRefinementDepth usedRefinement");
-        L("    if {$depth > 0} { set usedRefinement 1 }");
+        L("    global refinementDivisions maxRefinementDepth stepIndex currentLambda fiberStates");
         L("    integrator LoadControl [expr {$toLambda - $fromLambda}]");
         L("    set rc [analyze 1]");
-        L("    if {$rc == 0} { return 1 }");
+        L("    if {$rc == 0} {");
+        L("        incr stepIndex");
+        L("        set currentLambda [getTime]");
+        L("        writeCloseOnWrite step_status.out [list $stepIndex $currentLambda 1 [expr {$depth > 0}]]");
+        EmitFiberStateWrites(L, model);
+        L("        return 1");
+        L("    }");
         L("    if {$depth >= $maxRefinementDepth} { return 0 }");
         L("    set piece [expr {($toLambda - $fromLambda) / double($refinementDivisions)}]");
         L("    for {set i 0} {$i < $refinementDivisions} {incr i} {");
@@ -226,24 +243,14 @@ public sealed class FemNonlinearTclGenerator
         L("while {$currentLambda < $maxLoadFactor - 1.0e-12} {");
         L("    set targetLambda [expr {min($currentLambda + $loadFactorStep, $maxLoadFactor)}]");
         L("    set fromLambda $currentLambda");
-        L("    set usedRefinement 0");
-        L("    if {[advanceTo $fromLambda $targetLambda 0]} {");
+        L("    if {![advanceTo $fromLambda $targetLambda 0]} {");
         L("        set currentLambda [getTime]");
-        L("        incr stepIndex");
-        L("        puts $stepStatus [list $stepIndex $currentLambda 1 $usedRefinement]");
-        L("        emitStepRecords");
-        L("    } else {");
-        L("        puts $stepStatus [list [expr {$stepIndex + 1}] $fromLambda 0 $usedRefinement]");
+        L("        writeCloseOnWrite step_status.out [list [expr {$stepIndex + 1}] $currentLambda 0 1]");
         L("        set analysisFailed 1");
         L("        break");
         L("    }");
         L("}");
-        L("close $nonlinearNodeDisp");
-        if (restrainedTags.Count > 0)
-            L("close $nonlinearNodeReactions");
-        L("close $nonlinearElementForces");
         L("close $fiberStates");
-        L("close $stepStatus");
         L();
 
         L("set marker [open completed.marker w]");
@@ -296,35 +303,6 @@ public sealed class FemNonlinearTclGenerator
     static bool IsFullUniform(FemLinearDistributedLoad load) =>
         load.AOverL == 0 && load.BOverL == 1 &&
         load.WyStart == load.WyEnd && load.WzStart == load.WzEnd && load.WxStart == load.WxEnd;
-
-    static void EmitRecorderSnapshot(Action<string> line, IReadOnlyList<int> nodeTags,
-        IReadOnlyList<int> restrainedTags, IReadOnlyList<int> elemTags)
-    {
-        line("        set nonlinearNodeDispRow [list [getTime]]");
-        foreach (int tag in nodeTags)
-            for (int dof = 1; dof <= 6; dof++)
-                line($"        lappend nonlinearNodeDispRow [lindex [nodeDisp {tag}] {dof - 1}]");
-        line("        puts $nonlinearNodeDisp $nonlinearNodeDispRow");
-
-        if (restrainedTags.Count > 0)
-        {
-            line("        reactions");
-            line("        set nonlinearNodeReactionRow [list [getTime]]");
-            foreach (int tag in restrainedTags)
-                for (int dof = 1; dof <= 6; dof++)
-                    line($"        lappend nonlinearNodeReactionRow [lindex [nodeReaction {tag}] {dof - 1}]");
-            line("        puts $nonlinearNodeReactions $nonlinearNodeReactionRow");
-        }
-
-        line("        set nonlinearElementForceRow [list [getTime]]");
-        foreach (int tag in elemTags)
-        {
-            line($"        foreach nonlinearElementForceValue [eleResponse {tag} localForce] {{");
-            line("            lappend nonlinearElementForceRow $nonlinearElementForceValue");
-            line("        }");
-        }
-        line("        puts $nonlinearElementForces $nonlinearElementForceRow");
-    }
 
     // Точки: отрицательная огибающая целиком + положительная без первой (общей) точки — тот же
     // приём, что и в SectionMomentCurvatureTclGenerator.

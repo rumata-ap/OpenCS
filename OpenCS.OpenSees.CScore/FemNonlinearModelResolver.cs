@@ -206,6 +206,8 @@ public sealed class FemNonlinearModelResolver
             MaxIterations = options.MaxIterations,
             GeomTransfKind = options.GeomTransfKind,
             ConvergenceTest = options.ConvergenceTest,
+            ElementFormulation = options.ElementFormulation,
+            Algorithm = options.Algorithm,
             CalcTypeName = calcType.ToString()
         };
         try { model.Validate(); }

@@ -31,6 +31,25 @@ public sealed class FemNonlinearModel
     /// <summary>Критерий сходимости Ньютона: "EnergyIncr" (по умолчанию, самый устойчивый —
     /// учитывает и невязку силы, и приращение перемещения) | "NormUnbalance" | "NormDispIncr".</summary>
     public string ConvergenceTest { get; init; } = "EnergyIncr";
+    /// <summary>Формулировка стержневого элемента: "forceBeamColumn" (по умолчанию, force-based —
+    /// точнее при распределённой нелинейности с меньшим числом элементов) | "dispBeamColumn"
+    /// (displacement-based). При определении состояния forceBeamColumn обращает матрицу ГИБКОСТИ
+    /// сечения на каждой точке интегрирования — если все фибры сечения одновременно попадают на
+    /// строго горизонтальный участок диаграммы (полностью растрескавшийся бетон при растяжении,
+    /// см. MaterialDiagramMapper), эта матрица вырождена и обращение падает с
+    /// "could not invert flexibility". dispBeamColumn вместо обращения напрямую интегрирует
+    /// жёсткость сечения (без инверсии) — вырожденное сечение просто не вносит вклада, а не
+    /// валит расчёт. Эмпирически на реальном кинематическом сценарии с обрывом растяжения в
+    /// строгий ноль dispBeamColumn сошёлся дальше и без единой ошибки обращения матрицы, тогда
+    /// как forceBeamColumn давал сотни таких ошибок — доступен как выбор на постановке именно
+    /// для таких сценариев.</summary>
+    public string ElementFormulation { get; init; } = "forceBeamColumn";
+    /// <summary>Алгоритм решателя Ньютона: "Newton" (обычный) | "NewtonLineSearch" (по умолчанию —
+    /// line search внутри итерации масштабирует шаг Ньютона, если он "перелетает" через резкий
+    /// разрыв диаграммы материала, вместо провала итерации целиком. Эмпирически на реальном
+    /// кинематическом сценарии с обрывом растяжения бетона в строгий ноль довёл расчёт до конца
+    /// там, где обычный Newton не успевал пройти и трети пути за то же время).</summary>
+    public string Algorithm { get; init; } = "NewtonLineSearch";
     /// <summary>Имя набора диаграмм CScore, использованного при построении fiber-сечения.</summary>
     public string CalcTypeName { get; init; } = "C";
 
@@ -56,6 +75,10 @@ public sealed class FemNonlinearModel
             throw new InvalidOperationException($"Неизвестная формулировка geomTransf «{GeomTransfKind}».");
         if (ConvergenceTest is not ("EnergyIncr" or "NormUnbalance" or "NormDispIncr"))
             throw new InvalidOperationException($"Неизвестный критерий сходимости «{ConvergenceTest}».");
+        if (ElementFormulation is not ("forceBeamColumn" or "dispBeamColumn"))
+            throw new InvalidOperationException($"Неизвестная формулировка элемента «{ElementFormulation}».");
+        if (Algorithm is not ("Newton" or "NewtonLineSearch"))
+            throw new InvalidOperationException($"Неизвестный алгоритм решателя «{Algorithm}».");
 
         var tags = new HashSet<int>();
         foreach (var n in Nodes)

@@ -22,10 +22,11 @@ public sealed class FemAnalysisParams
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? LoadSteps { get; set; }
     /// <summary>Учитывать ли работу бетона на растяжение в fiber-сечениях (на арматуру/сталь не
-    /// влияет). При отключении огибающая растяжения бетона заменяется малым остаточным наклоном
-    /// без прочности — сечение считается уже полностью растрескавшимся с самого начала, без
-    /// softening-участка, который на реальных сценариях может быть численно хрупок для
-    /// forceBeamColumn.</summary>
+    /// влияет). При отключении огибающая растяжения бетона заменяется строго горизонтальным
+    /// нулевым напряжением — сечение считается уже полностью растрескавшимся с самого начала.
+    /// Приоритет отдан корректному распределению напряжений над устойчивостью солвера — см.
+    /// <see cref="ElementFormulation"/> про dispBeamColumn как более устойчивый выбор именно для
+    /// этого случая.</summary>
     public bool ConsiderConcreteTension { get; set; } = true;
     /// <summary>Источник диаграммы материала: "Translated" (перевод диаграммы CScore, по
     /// умолчанию) | "Native" (собственные параметрические материалы OpenSees).</summary>
@@ -38,6 +39,13 @@ public sealed class FemAnalysisParams
     /// <summary>Переопределение отношения модуля упрочнения стали/арматуры к E0 при
     /// MaterialSource="Native". null — вычисляется автоматически из характеристик материала.</summary>
     public double? SteelHardeningRatioOverride { get; set; }
+    /// <summary>Формулировка стержневого элемента: "forceBeamColumn" (по умолчанию, force-based) |
+    /// "dispBeamColumn" (displacement-based, устойчивее к вырожденной матрице гибкости, когда все
+    /// фибры сечения одновременно попадают на строго горизонтальный (нулевой) хвост диаграммы —
+    /// характерно для кинематических нагрузок с полностью отключённым/оборванным растяжением
+    /// бетона). Эмпирически подтверждено: на реальном кинематическом сценарии dispBeamColumn
+    /// сошёлся дальше forceBeamColumn и без единой ошибки обращения матрицы.</summary>
+    public string ElementFormulation { get; set; } = "forceBeamColumn";
 
     public string ToJson() => JsonSerializer.Serialize(this);
     public static FemAnalysisParams Parse(string? json)

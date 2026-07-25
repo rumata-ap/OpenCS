@@ -8,14 +8,17 @@ public static class MaterialDiagramMapper
 {
     private const int SmoothSubdivisions = 4;
 
-    /// <summary>Доля характерного наклона/напряжения, которая придаётся хвостовому сегменту
-    /// огибающей для устойчивости обращения матрицы гибкости сечения (ElasticMultiLinear в
-    /// OpenSees экстраполирует за пределами заданных точек наклоном последнего сегмента; ровно
-    /// нулевой наклон делает касательную волокна точно нулевой). Используется в двух местах:
-    /// (1) <see cref="ApplyResidualTailSlope"/> — доля максимального наклона ветви, для плоских
-    /// хвостов, не связанных с растрескиванием бетона при растяжении; (2)
-    /// <see cref="AppendConcreteTensionRupture"/> — доля ПИКОВОЙ прочности на растяжение (а не
-    /// начального модуля упругости ветви) для остаточного наклона ПОСЛЕ обрыва в ноль.</summary>
+    /// <summary>Доля максимального наклона ветви, которая придаётся хвостовому сегменту огибающей
+    /// для устойчивости обращения матрицы гибкости сечения (ElasticMultiLinear в OpenSees
+    /// экстраполирует за пределами заданных точек наклоном последнего сегмента; ровно нулевой
+    /// наклон делает касательную волокна точно нулевой). Используется только в
+    /// <see cref="ApplyResidualTailSlope"/> — для плоских хвостов ветви СЖАТИЯ (плато
+    /// раздавливания) и ветви растяжения материалов, отличных от бетона (сталь/арматура). Ветвь
+    /// растяжения бетона (<see cref="AppendConcreteTensionRupture"/>,
+    /// <see cref="CollapseConcreteTensionBranch"/>) этот нудж намеренно НЕ получает: хвост там
+    /// строго горизонтален при нулевом напряжении (сечение реально растрескалось — приоритет
+    /// физической корректности распределения напряжений над устойчивостью солвера; см. риск
+    /// вырожденной матрицы гибкости в комментариях этих методов).</summary>
     private const double ResidualTailSlopeFraction = 1e-3;
 
     /// <summary>Относительный шаг деформации от предельной растяжимости бетона до точки обрыва
@@ -109,7 +112,7 @@ public static class MaterialDiagramMapper
         // для бетона огибающая растяжения получает явную точку обрыва вместо нуджа плато.
         if (diagram.MaterialType == MatType.Concrete && !considerConcreteTension)
         {
-            CollapseConcreteTensionBranch(positive, negative);
+            CollapseConcreteTensionBranch(positive);
             warnings.Add("Работа бетона на растяжение отключена настройкой расчёта — огибающая растяжения заменена малым остаточным наклоном без прочности (сечение считается уже полностью растрескавшимся).");
         }
         else if (diagram.MaterialType == MatType.Concrete)
@@ -161,44 +164,39 @@ public static class MaterialDiagramMapper
     /// <summary>Воспроизводит разрыв растяжения бетона в ноль из <see cref="Diagramm.Sig"/>
     /// (условие <c>eps &gt; It.X[^1]</c>) в огибающей OpenSees, которую <c>MaterialDiagramMapper</c>
     /// иначе никогда не сэмплирует за пределом <paramref name="ultimateTensileStrain"/>. Добавляет
-    /// две точки после текущего пика прочности: (1) обрыв в ноль сразу за пределом растяжимости —
-    /// полностью растрескавшееся сечение теряет способность воспринимать растяжение; (2) малый
-    /// положительный остаточный наклон на широком эталонном диапазоне деформаций, масштабированный
-    /// от ПИКОВОЙ прочности (а не от начального модуля упругости ветви), чтобы матрица гибкости
-    /// сечения оставалась обратимой, если волокно полностью растрескалось, без искусственного
-    /// набора прочности на растяжение после трещины.</summary>
+    /// две точки после текущего пика прочности: обрыв в ноль сразу за пределом растяжимости и
+    /// СТРОГО ГОРИЗОНТАЛЬНЫЙ хвост при нулевом напряжении на широком эталонном диапазоне
+    /// деформаций — полностью растрескавшееся сечение теряет способность воспринимать растяжение
+    /// НАВСЕГДА, без искусственного остаточного наклона. Осознанный выбор физической корректности
+    /// распределения напряжений над устойчивостью солвера (см. <see cref="ResidualTailSlopeFraction"/>):
+    /// нулевой наклон здесь может приводить к <c>ForceBeamColumn3d::update() -- could not invert
+    /// flexibility</c> в OpenSees, когда все волокна сечения одновременно попадают на этот
+    /// горизонтальный участок — это принято как известный риск, а не проглядели.</summary>
     private static void AppendConcreteTensionRupture(List<EnvelopePoint> positive, double ultimateTensileStrain)
     {
         if (positive.Count == 0) return;
 
-        double peakStressPa = positive[^1].StressPa;
         double strainStep = Math.Max(Math.Abs(ultimateTensileStrain), 1.0) * TensionRuptureStrainStepFraction;
         double ruptureStrain = ultimateTensileStrain + strainStep;
         double farStrain = ruptureStrain + PostRuptureReferenceStrainSpan;
-        double residualStressPa = Math.Abs(peakStressPa) * ResidualTailSlopeFraction;
 
         positive.Add(new EnvelopePoint(ruptureStrain, 0));
-        positive.Add(new EnvelopePoint(farStrain, residualStressPa));
+        positive.Add(new EnvelopePoint(farStrain, 0));
     }
 
-    /// <summary>Заменяет огибающую растяжения бетона на две точки — (0,0) и малый ненулевой
-    /// остаток — когда работа бетона на растяжение отключена настройкой расчёта
-    /// (<c>considerConcreteTension = false</c>). При сэмплировании диаграммы с <c>tenB=false</c>
-    /// все точки растяжения бетона уже равны нулю (см. <see cref="Diagramm.Sig"/>), поэтому сама
-    /// ветвь растяжения не может служить источником эталонного наклона — он берётся из ветви
-    /// СЖАТИЯ. Наклон масштабируется на характерную деформацию именно ветви сжатия (не на широкий
-    /// произвольный диапазон), иначе даже малая доля от огромного начального модуля упругости
-    /// бетона дала бы неоправданно большое абсолютное остаточное напряжение.</summary>
-    private static void CollapseConcreteTensionBranch(List<EnvelopePoint> positive, List<EnvelopePoint> negative)
+    /// <summary>Заменяет огибающую растяжения бетона на две точки — (0,0) и (<c>farStrain</c>,0) —
+    /// когда работа бетона на растяжение отключена настройкой расчёта
+    /// (<c>considerConcreteTension = false</c>): сечение считается уже полностью растрескавшимся,
+    /// поэтому напряжение растяжения бетона СТРОГО НОЛЬ на всём диапазоне деформаций, без
+    /// остаточного наклона. Осознанный выбор физической корректности распределения напряжений над
+    /// устойчивостью солвера — см. <see cref="AppendConcreteTensionRupture"/> и
+    /// <see cref="ResidualTailSlopeFraction"/> про тот же риск вырожденной матрицы гибкости в
+    /// OpenSees.</summary>
+    private static void CollapseConcreteTensionBranch(List<EnvelopePoint> positive)
     {
-        double referenceSlope = MaxAbsSlope(negative);
-        double referenceStrain = negative.Count > 0 ? Math.Abs(negative[0].Strain) : 0;
-        double farStrain = referenceStrain > 0 ? referenceStrain : PostRuptureReferenceStrainSpan;
-        double residualStressPa = referenceSlope > 0 ? referenceSlope * ResidualTailSlopeFraction * farStrain : 0;
-
         positive.Clear();
         positive.Add(new EnvelopePoint(0, 0));
-        positive.Add(new EnvelopePoint(farStrain, residualStressPa));
+        positive.Add(new EnvelopePoint(PostRuptureReferenceStrainSpan, 0));
     }
 
     /// <summary>Максимальный по модулю наклон среди сегментов упорядоченной по деформации
