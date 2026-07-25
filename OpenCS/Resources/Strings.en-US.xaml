@@ -78,6 +78,10 @@
    <system:String x:Key="PlotsTab">Plots</system:String>
    <system:String x:Key="CalcSettingsTab">Calculation</system:String>
    <system:String x:Key="CsvSettingsTab">CSV</system:String>
+   <system:String x:Key="OpenSeesSettingsTab">OpenSees</system:String>
+   <system:String x:Key="OpenSeesExecutableGroup">Executable</system:String>
+   <system:String x:Key="OpenSeesNonlinearGroup">Nonlinear scheme analysis</system:String>
+   <system:String x:Key="OpenSeesMaterialsGroup">Materials (nonlinear analysis)</system:String>
    <system:String x:Key="CalcSettingsGridGroup">Post-processor</system:String>
    <system:String x:Key="CalcSettingsGridDensity">Grid density (steps per max(w,h))</system:String>
    <system:String x:Key="CalcSettingsNewtonGroup">Newton iterations</system:String>
@@ -1395,6 +1399,7 @@
     <system:String x:Key="FemAnalysisCalcTypeLabel">Diagram type (CalcType)</system:String>
     <system:String x:Key="FemAnalysisLoadFactorStepLabel">Load-factor step λ</system:String>
     <system:String x:Key="FemAnalysisMaxLoadFactorLabel">Maximum load factor λ</system:String>
+    <system:String x:Key="FemAnalysisSolverSettingsHint">Solver settings (convergence, geomTransf, material source, etc.) — see the "OpenSees" tab in global settings.</system:String>
     <system:String x:Key="FemAnalysisRefinementDivisionsLabel">Divisions of last failed step</system:String>
     <system:String x:Key="FemAnalysisToleranceLabel">Convergence tolerance</system:String>
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Max iterations</system:String>

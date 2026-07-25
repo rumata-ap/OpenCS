@@ -5,52 +5,21 @@ using CScore;
 namespace OpenCS.Tasks;
 
 /// <summary>Параметры запуска FEM-расчёта (линейного и нелинейного), хранимые в FemAnalysis.ParamsJson.
-/// Поля CalcType/LoadFactorStep/MaxLoadFactor/RefinementDivisions/Tolerance/MaxIterations/GeomTransfKind/IntegrationPoints/ConsiderConcreteTension/MaterialSource/ConcreteModel/SteelModel/SteelHardeningRatioOverride
-/// используются только при Kind="nonlinear".</summary>
+/// Поле CalcType используется только при Kind="nonlinear". Solver-настройки OpenSees
+/// (исполняемый файл, таймаут, сходимость, источник/модель материалов и т.п.) — глобальные,
+/// см. <see cref="OpenCS.Utilites.CalcSettings"/> (вкладка «OpenSees» в диалоге настроек), а не
+/// хранятся в каждой постановке.</summary>
 public sealed class FemAnalysisParams
 {
-    public string? ExecutablePath { get; set; }
-    public int TimeoutSeconds { get; set; } = 120;
-
     /// <summary>Тип расчёта для выбора диаграмм материалов fiber-сечений (нелинейный расчёт).</summary>
     public CalcType? CalcType { get; set; }
     /// <summary>Шаг коэффициента пропорциональной нагрузки λ.</summary>
     public double LoadFactorStep { get; set; } = 0.1;
     /// <summary>Максимальный коэффициент пропорциональной нагрузки λ.</summary>
     public double MaxLoadFactor { get; set; } = 10.0;
-    /// <summary>Количество частей для уточнения последнего неудачного шага.</summary>
-    public int RefinementDivisions { get; set; } = 10;
     /// <summary>Старое число шагов; читается только из legacy JSON и не записывается в новый JSON.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? LoadSteps { get; set; }
-    /// <summary>Допуск критерия сходимости.</summary>
-    public double Tolerance { get; set; } = 1e-6;
-    /// <summary>Максимальное число итераций Ньютона на шаг.</summary>
-    public int MaxIterations { get; set; } = 50;
-    /// <summary>Формулировка geomTransf: "Linear" | "PDelta" | "Corotational".</summary>
-    public string GeomTransfKind { get; set; } = "Linear";
-    /// <summary>Критерий сходимости Ньютона: "EnergyIncr" (по умолчанию, самый устойчивый) |
-    /// "NormUnbalance" | "NormDispIncr".</summary>
-    public string ConvergenceTest { get; set; } = "EnergyIncr";
-    /// <summary>Число точек интегрирования forceBeamColumn.</summary>
-    public int IntegrationPoints { get; set; } = 5;
-    /// <summary>Учитывать ли работу бетона на растяжение в fiber-сечениях (на арматуру/сталь не
-    /// влияет). При отключении огибающая растяжения бетона заменяется малым остаточным наклоном
-    /// без прочности — сечение считается уже полностью растрескавшимся с самого начала, без
-    /// softening-участка, который на реальных сценариях может быть численно хрупок для
-    /// forceBeamColumn.</summary>
-    public bool ConsiderConcreteTension { get; set; } = true;
-    /// <summary>Источник диаграммы материала: "Translated" (перевод диаграммы CScore, по
-    /// умолчанию) | "Native" (собственные параметрические материалы OpenSees).</summary>
-    public string MaterialSource { get; set; } = "Translated";
-    /// <summary>Модель бетона при MaterialSource="Native": "Concrete0102" (Kent-Scott-Park,
-    /// Concrete02/01) | "Concrete04" (Popovics, по умолчанию).</summary>
-    public string ConcreteModel { get; set; } = "Concrete04";
-    /// <summary>Модель стали/арматуры при MaterialSource="Native": "Steel01" | "Steel02".</summary>
-    public string SteelModel { get; set; } = "Steel02";
-    /// <summary>Переопределение отношения модуля упрочнения стали/арматуры к E0 при
-    /// MaterialSource="Native". null — вычисляется автоматически из характеристик материала.</summary>
-    public double? SteelHardeningRatioOverride { get; set; }
 
     public string ToJson() => JsonSerializer.Serialize(this);
     public static FemAnalysisParams Parse(string? json)

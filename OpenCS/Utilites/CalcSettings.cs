@@ -148,6 +148,62 @@ namespace OpenCS.Utilites
       [JsonPropertyName("sp20GammaFA")]
       public double Sp20GammaFAccidental { get; set; } = 1.0;
 
+      // ── OpenSees (расчёт схемы: линейный и нелинейный) ──────────────────
+      // Solver-настройки нелинейного FEM-расчёта — по аналогии с NewtonTolerance/NewtonMaxIter
+      // выше (глобальные, не дублируются в каждой постановке FemAnalysis).
+
+      /// <summary>Путь к OpenSees.exe. Пусто — автоопределение (%OPENSEES_HOME%\bin, затем рядом с OpenCS.exe).</summary>
+      [JsonPropertyName("openSeesExecutablePath")]
+      public string? OpenSeesExecutablePath { get; set; }
+
+      /// <summary>Таймаут запуска OpenSees.exe, с.</summary>
+      [JsonPropertyName("openSeesTimeoutSeconds")]
+      public int OpenSeesTimeoutSeconds { get; set; } = 120;
+
+      /// <summary>Количество частей для уточнения последнего неудавшегося шага нагрузки (нелинейный расчёт).</summary>
+      [JsonPropertyName("openSeesRefinementDivisions")]
+      public int OpenSeesRefinementDivisions { get; set; } = 10;
+
+      /// <summary>Допуск критерия сходимости Ньютона (нелинейный расчёт).</summary>
+      [JsonPropertyName("openSeesTolerance")]
+      public double OpenSeesTolerance { get; set; } = 1e-6;
+
+      /// <summary>Максимальное число итераций Ньютона на шаг (нелинейный расчёт).</summary>
+      [JsonPropertyName("openSeesMaxIterations")]
+      public int OpenSeesMaxIterations { get; set; } = 50;
+
+      /// <summary>Формулировка geomTransf: "Linear" | "PDelta" | "Corotational".</summary>
+      [JsonPropertyName("openSeesGeomTransfKind")]
+      public string OpenSeesGeomTransfKind { get; set; } = "Linear";
+
+      /// <summary>Критерий сходимости Ньютона: "EnergyIncr" | "NormUnbalance" | "NormDispIncr".</summary>
+      [JsonPropertyName("openSeesConvergenceTest")]
+      public string OpenSeesConvergenceTest { get; set; } = "EnergyIncr";
+
+      /// <summary>Число точек интегрирования forceBeamColumn (нелинейный расчёт).</summary>
+      [JsonPropertyName("openSeesIntegrationPoints")]
+      public int OpenSeesIntegrationPoints { get; set; } = 5;
+
+      /// <summary>Учитывать ли работу бетона на растяжение в fiber-сечениях нелинейного расчёта.</summary>
+      [JsonPropertyName("openSeesConsiderConcreteTension")]
+      public bool OpenSeesConsiderConcreteTension { get; set; } = true;
+
+      /// <summary>Источник диаграммы материала: "Translated" | "Native".</summary>
+      [JsonPropertyName("openSeesMaterialSource")]
+      public string OpenSeesMaterialSource { get; set; } = "Translated";
+
+      /// <summary>Модель бетона при MaterialSource="Native": "Concrete0102" | "Concrete04".</summary>
+      [JsonPropertyName("openSeesConcreteModel")]
+      public string OpenSeesConcreteModel { get; set; } = "Concrete04";
+
+      /// <summary>Модель стали/арматуры при MaterialSource="Native": "Steel01" | "Steel02".</summary>
+      [JsonPropertyName("openSeesSteelModel")]
+      public string OpenSeesSteelModel { get; set; } = "Steel02";
+
+      /// <summary>Переопределение отношения модуля упрочнения стали/арматуры к E0; null — автоматически.</summary>
+      [JsonPropertyName("openSeesSteelHardeningRatioOverride")]
+      public double? OpenSeesSteelHardeningRatioOverride { get; set; }
+
       public static CalcSettings Default => new();
 
       public CalcSettings Clone() => new()
@@ -180,6 +236,19 @@ namespace OpenCS.Utilites
          Sp20GammaFLongTerm       = Sp20GammaFLongTerm,
          Sp20GammaFShortTerm      = Sp20GammaFShortTerm,
          Sp20GammaFAccidental     = Sp20GammaFAccidental,
+         OpenSeesExecutablePath   = OpenSeesExecutablePath,
+         OpenSeesTimeoutSeconds   = OpenSeesTimeoutSeconds,
+         OpenSeesRefinementDivisions = OpenSeesRefinementDivisions,
+         OpenSeesTolerance        = OpenSeesTolerance,
+         OpenSeesMaxIterations    = OpenSeesMaxIterations,
+         OpenSeesGeomTransfKind   = OpenSeesGeomTransfKind,
+         OpenSeesConvergenceTest  = OpenSeesConvergenceTest,
+         OpenSeesIntegrationPoints = OpenSeesIntegrationPoints,
+         OpenSeesConsiderConcreteTension = OpenSeesConsiderConcreteTension,
+         OpenSeesMaterialSource   = OpenSeesMaterialSource,
+         OpenSeesConcreteModel    = OpenSeesConcreteModel,
+         OpenSeesSteelModel       = OpenSeesSteelModel,
+         OpenSeesSteelHardeningRatioOverride = OpenSeesSteelHardeningRatioOverride,
       };
 
       /// <summary>Коэффициенты γf по умолчанию для комбинаторики СП 20.</summary>

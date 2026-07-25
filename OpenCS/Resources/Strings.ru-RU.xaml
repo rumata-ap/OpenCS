@@ -79,6 +79,10 @@
    <system:String x:Key="PlotsTab">Графики</system:String>
    <system:String x:Key="CalcSettingsTab">Расчёт</system:String>
    <system:String x:Key="CsvSettingsTab">CSV</system:String>
+   <system:String x:Key="OpenSeesSettingsTab">OpenSees</system:String>
+   <system:String x:Key="OpenSeesExecutableGroup">Исполняемый файл</system:String>
+   <system:String x:Key="OpenSeesNonlinearGroup">Нелинейный расчёт схемы</system:String>
+   <system:String x:Key="OpenSeesMaterialsGroup">Материалы (нелинейный расчёт)</system:String>
    <system:String x:Key="CalcSettingsGridGroup">Постпроцессор</system:String>
    <system:String x:Key="CalcSettingsGridDensity">Густота сетки (шагов по max(w,h))</system:String>
    <system:String x:Key="CalcSettingsNewtonGroup">Итерации Ньютона</system:String>
@@ -1398,6 +1402,7 @@
     <system:String x:Key="FemAnalysisCalcTypeLabel">Тип диаграмм (CalcType)</system:String>
     <system:String x:Key="FemAnalysisLoadFactorStepLabel">Шаг коэффициента нагрузки λ</system:String>
     <system:String x:Key="FemAnalysisMaxLoadFactorLabel">Максимальный коэффициент нагрузки λ</system:String>
+    <system:String x:Key="FemAnalysisSolverSettingsHint">Настройки решателя (сходимость, geomTransf, источник материалов и т.п.) — в общих настройках, вкладка «OpenSees».</system:String>
     <system:String x:Key="FemAnalysisRefinementDivisionsLabel">Делений последнего неудачного шага</system:String>
     <system:String x:Key="FemAnalysisToleranceLabel">Допуск невязки</system:String>
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Макс. число итераций</system:String>

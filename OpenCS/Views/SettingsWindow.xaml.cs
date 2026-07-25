@@ -52,6 +52,8 @@ namespace OpenCS.Views
           HookLiraControls();
           LoadAcadToUi();
           HookAcadControls();
+          LoadOpenSeesToUi();
+          HookOpenSeesControls();
        }
 
       void BuildPalette()
@@ -418,6 +420,87 @@ namespace OpenCS.Views
             if (int.TryParse(AcadArcSegBox.Text, out var v) && v >= 3)
                _acadSettings.ArcSegments = v;
          };
+      }
+
+      void LoadOpenSeesToUi()
+      {
+         OpenSeesExeBox.Text = _calcSettings.OpenSeesExecutablePath ?? "";
+         OpenSeesTimeoutBox.Text = _calcSettings.OpenSeesTimeoutSeconds.ToString();
+         OpenSeesRefinementDivisionsBox.Text = _calcSettings.OpenSeesRefinementDivisions.ToString();
+         OpenSeesToleranceBox.Text = _calcSettings.OpenSeesTolerance.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         OpenSeesMaxIterationsBox.Text = _calcSettings.OpenSeesMaxIterations.ToString();
+         SelectComboByTag(OpenSeesGeomTransfCombo, _calcSettings.OpenSeesGeomTransfKind);
+         SelectComboByTag(OpenSeesConvergenceTestCombo, _calcSettings.OpenSeesConvergenceTest);
+         OpenSeesIntegrationPointsBox.Text = _calcSettings.OpenSeesIntegrationPoints.ToString();
+         OpenSeesConsiderConcreteTensionCb.IsChecked = _calcSettings.OpenSeesConsiderConcreteTension;
+         SelectComboByTag(OpenSeesMaterialSourceCombo, _calcSettings.OpenSeesMaterialSource);
+         SelectComboByTag(OpenSeesConcreteModelCombo, _calcSettings.OpenSeesConcreteModel);
+         SelectComboByTag(OpenSeesSteelModelCombo, _calcSettings.OpenSeesSteelModel);
+         OpenSeesSteelHardeningRatioBox.Text = _calcSettings.OpenSeesSteelHardeningRatioOverride
+            ?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+         UpdateOpenSeesNativeMaterialPanelVisibility();
+      }
+
+      void HookOpenSeesControls()
+      {
+         OpenSeesExeBox.TextChanged += (_, _) =>
+            _calcSettings.OpenSeesExecutablePath = string.IsNullOrWhiteSpace(OpenSeesExeBox.Text) ? null : OpenSeesExeBox.Text.Trim();
+         OpenSeesTimeoutBox.TextChanged += (_, _) =>
+         {
+            if (int.TryParse(OpenSeesTimeoutBox.Text, out var v) && v > 0) _calcSettings.OpenSeesTimeoutSeconds = v;
+         };
+         OpenSeesRefinementDivisionsBox.TextChanged += (_, _) =>
+         {
+            if (int.TryParse(OpenSeesRefinementDivisionsBox.Text, out var v) && v > 0) _calcSettings.OpenSeesRefinementDivisions = v;
+         };
+         OpenSeesToleranceBox.TextChanged += (_, _) =>
+         {
+            if (double.TryParse(OpenSeesToleranceBox.Text, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+               _calcSettings.OpenSeesTolerance = v;
+         };
+         OpenSeesMaxIterationsBox.TextChanged += (_, _) =>
+         {
+            if (int.TryParse(OpenSeesMaxIterationsBox.Text, out var v) && v > 0) _calcSettings.OpenSeesMaxIterations = v;
+         };
+         OpenSeesGeomTransfCombo.SelectionChanged += (_, _) =>
+            _calcSettings.OpenSeesGeomTransfKind = ComboTag(OpenSeesGeomTransfCombo) ?? "Linear";
+         OpenSeesConvergenceTestCombo.SelectionChanged += (_, _) =>
+            _calcSettings.OpenSeesConvergenceTest = ComboTag(OpenSeesConvergenceTestCombo) ?? "EnergyIncr";
+         OpenSeesIntegrationPointsBox.TextChanged += (_, _) =>
+         {
+            if (int.TryParse(OpenSeesIntegrationPointsBox.Text, out var v) && v > 0) _calcSettings.OpenSeesIntegrationPoints = v;
+         };
+         OpenSeesConsiderConcreteTensionCb.Checked += (_, _) => _calcSettings.OpenSeesConsiderConcreteTension = true;
+         OpenSeesConsiderConcreteTensionCb.Unchecked += (_, _) => _calcSettings.OpenSeesConsiderConcreteTension = false;
+         OpenSeesMaterialSourceCombo.SelectionChanged += (_, _) =>
+         {
+            _calcSettings.OpenSeesMaterialSource = ComboTag(OpenSeesMaterialSourceCombo) ?? "Translated";
+            UpdateOpenSeesNativeMaterialPanelVisibility();
+         };
+         OpenSeesConcreteModelCombo.SelectionChanged += (_, _) =>
+            _calcSettings.OpenSeesConcreteModel = ComboTag(OpenSeesConcreteModelCombo) ?? "Concrete04";
+         OpenSeesSteelModelCombo.SelectionChanged += (_, _) =>
+            _calcSettings.OpenSeesSteelModel = ComboTag(OpenSeesSteelModelCombo) ?? "Steel02";
+         OpenSeesSteelHardeningRatioBox.TextChanged += (_, _) =>
+            _calcSettings.OpenSeesSteelHardeningRatioOverride =
+               double.TryParse(OpenSeesSteelHardeningRatioBox.Text, System.Globalization.NumberStyles.Float,
+                  System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
+      }
+
+      void UpdateOpenSeesNativeMaterialPanelVisibility()
+      {
+         OpenSeesNativeMaterialPanel.Visibility =
+            ComboTag(OpenSeesMaterialSourceCombo) == "Native" ? Visibility.Visible : Visibility.Collapsed;
+      }
+
+      static string? ComboTag(ComboBox combo) => (combo.SelectedItem as ComboBoxItem)?.Tag as string;
+
+      static void SelectComboByTag(ComboBox combo, string tag)
+      {
+         foreach (var item in combo.Items.OfType<ComboBoxItem>())
+            if (item.Tag as string == tag) { combo.SelectedItem = item; return; }
+         if (combo.Items.Count > 0) combo.SelectedIndex = 0;
       }
 
       void Reset_Click(object sender, RoutedEventArgs e)

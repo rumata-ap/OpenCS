@@ -46,18 +46,19 @@ public static class FemAnalysisExecutor
         }
 
         var parameters = FemAnalysisParams.Parse(analysis.ParamsJson);
+        var calcSettings = app.CalcSettings;
         var executable = new OpenSeesExecutableResolver(Path.Combine(AppContext.BaseDirectory, "OpenSees.exe"))
-            .Resolve(parameters.ExecutablePath ?? ResolveFromOpenSeesHome());
+            .Resolve(calcSettings.OpenSeesExecutablePath ?? ResolveFromOpenSeesHome());
         var runRequest = new OpenSeesRunRequest
         {
             ExecutablePath = executable.Path,
             WorkingDirectory = Path.GetTempPath(),
-            Timeout = TimeSpan.FromSeconds(parameters.TimeoutSeconds)
+            Timeout = TimeSpan.FromSeconds(calcSettings.OpenSeesTimeoutSeconds)
         };
 
         if (analysis.Kind == "nonlinear")
             return await RunNonlinearAsync(app, analysis, created, meshNodes, meshElems, sourceNodes, sourceMembers,
-                resolved, parameters, runRequest, ct);
+                resolved, parameters, calcSettings, runRequest, ct);
 
         return await RunLinearAsync(app, analysis, created, meshNodes, meshElems, sourceNodes, sourceMembers,
             resolved, runRequest, ct);
@@ -100,7 +101,8 @@ public static class FemAnalysisExecutor
 
     static async Task<CalcResult> RunNonlinearAsync(AppViewModel app, FemAnalysis analysis, string created,
         List<FemMeshNode> meshNodes, List<FemElement> meshElems, List<FemNode> sourceNodes, List<FemMember> sourceMembers,
-        FemResolvedLoads resolved, FemAnalysisParams parameters, OpenSeesRunRequest runRequest, CancellationToken ct)
+        FemResolvedLoads resolved, FemAnalysisParams parameters, Utilites.CalcSettings calcSettings,
+        OpenSeesRunRequest runRequest, CancellationToken ct)
     {
         if (parameters.CalcType is not { } calcType)
             return Error(analysis, created, "Не выбран тип расчёта (CalcType) для нелинейной постановки.", "fem_nonlinear");
@@ -117,11 +119,11 @@ public static class FemAnalysisExecutor
         }
         var materials = app.Materials.Where(m => m.Id != 0).ToDictionary(m => m.Id);
         var options = new FemNonlinearAnalysisOptions(
-            parameters.GeomTransfKind, parameters.LoadFactorStep, parameters.MaxLoadFactor,
-            parameters.RefinementDivisions, parameters.Tolerance, parameters.MaxIterations,
-            parameters.IntegrationPoints, parameters.ConvergenceTest, parameters.ConsiderConcreteTension,
-            Enum.Parse<MaterialSource>(parameters.MaterialSource), Enum.Parse<ConcreteModelKind>(parameters.ConcreteModel),
-            Enum.Parse<SteelModelKind>(parameters.SteelModel), parameters.SteelHardeningRatioOverride);
+            calcSettings.OpenSeesGeomTransfKind, parameters.LoadFactorStep, parameters.MaxLoadFactor,
+            calcSettings.OpenSeesRefinementDivisions, calcSettings.OpenSeesTolerance, calcSettings.OpenSeesMaxIterations,
+            calcSettings.OpenSeesIntegrationPoints, calcSettings.OpenSeesConvergenceTest, calcSettings.OpenSeesConsiderConcreteTension,
+            Enum.Parse<MaterialSource>(calcSettings.OpenSeesMaterialSource), Enum.Parse<ConcreteModelKind>(calcSettings.OpenSeesConcreteModel),
+            Enum.Parse<SteelModelKind>(calcSettings.OpenSeesSteelModel), calcSettings.OpenSeesSteelHardeningRatioOverride);
 
         var input = new FemNonlinearWorkflowInput(
             meshNodes, meshElems, sourceNodes, sourceMembers, resolved.NodeLoads,

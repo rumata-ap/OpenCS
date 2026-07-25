@@ -1,76 +1,69 @@
 <Window x:Class="OpenCS.Views.FemAnalysisDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="{DynamicResource FemAnalysisCreate}" Width="380" SizeToContent="Height"
+        Title="{DynamicResource FemAnalysisCreate}" Width="360" SizeToContent="Height"
         WindowStartupLocation="CenterOwner">
     <StackPanel Margin="12">
-        <TextBlock Text="{DynamicResource FemAnalysisTagLabel}"/>
-        <TextBox x:Name="TagBox" Text=""/>
+        <Grid Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisTagLabel}" VerticalAlignment="Center"/>
+            <TextBox Grid.Column="1" x:Name="TagBox" Text="" Height="22" VerticalContentAlignment="Center"/>
+        </Grid>
 
-        <TextBlock Text="{DynamicResource FemAnalysisKindLabel}" Margin="0,8,0,0"/>
-        <StackPanel Orientation="Horizontal">
-            <RadioButton x:Name="KindLinearRadio" Content="{DynamicResource FemAnalysisKindLinear}"
-                         GroupName="Kind" IsChecked="True" Checked="KindRadio_Changed" Margin="0,0,16,0"/>
-            <RadioButton x:Name="KindNonlinearRadio" Content="{DynamicResource FemAnalysisKindNonlinear}"
-                         GroupName="Kind" Checked="KindRadio_Changed"/>
-        </StackPanel>
-
-        <TextBlock Text="{DynamicResource FemAnalysisLoadLabel}" Margin="0,8,0,0"/>
-        <ComboBox x:Name="LoadSourceBox" DisplayMemberPath="Label"/>
-
-        <TextBlock Text="{DynamicResource FemAnalysisExeLabel}" Margin="0,8,0,0"/>
-        <TextBox x:Name="ExeBox" Text=""/>
-
-        <TextBlock Text="{DynamicResource FemAnalysisTimeoutLabel}" Margin="0,8,0,0"/>
-        <TextBox x:Name="TimeoutBox" Text="120"/>
-
-        <StackPanel x:Name="NonlinearPanel" Visibility="Collapsed" Margin="0,8,0,0">
-            <Separator Margin="0,4"/>
-            <TextBlock Text="{DynamicResource FemAnalysisCalcTypeLabel}"/>
-            <ComboBox x:Name="CalcTypeBox"/>
-
-            <TextBlock Text="{DynamicResource FemAnalysisLoadFactorStepLabel}" Margin="0,8,0,0"/>
-            <TextBox x:Name="LoadFactorStepBox" Text="0.1"/>
-
-            <TextBlock Text="{DynamicResource FemAnalysisMaxLoadFactorLabel}" Margin="0,8,0,0"/>
-            <TextBox x:Name="MaxLoadFactorBox" Text="10"/>
-
-            <TextBlock Text="{DynamicResource FemAnalysisRefinementDivisionsLabel}" Margin="0,8,0,0"/>
-            <TextBox x:Name="RefinementDivisionsBox" Text="10"/>
-
-            <TextBlock Text="{DynamicResource FemAnalysisToleranceLabel}" Margin="0,8,0,0"/>
-            <TextBox x:Name="ToleranceBox" Text="1E-06"/>
-
-            <TextBlock Text="{DynamicResource FemAnalysisMaxIterationsLabel}" Margin="0,8,0,0"/>
-            <TextBox x:Name="MaxIterationsBox" Text="50"/>
-
-            <TextBlock Text="{DynamicResource FemAnalysisGeomTransfLabel}" Margin="0,8,0,0"/>
-            <ComboBox x:Name="GeomTransfBox" DisplayMemberPath="Label"/>
-
-            <TextBlock Text="{DynamicResource FemAnalysisConvergenceTestLabel}" Margin="0,8,0,0"/>
-            <ComboBox x:Name="ConvergenceTestBox" DisplayMemberPath="Label"/>
-
-            <TextBlock Text="{DynamicResource FemAnalysisIntegrationPointsLabel}" Margin="0,8,0,0"/>
-            <TextBox x:Name="IntegrationPointsBox" Text="5"/>
-
-            <CheckBox x:Name="ConsiderConcreteTensionCb"
-                      Content="{DynamicResource FemAnalysisConsiderConcreteTension}"
-                      ToolTip="{DynamicResource FemAnalysisConsiderConcreteTensionTip}"
-                      IsChecked="True" Margin="0,8,0,0"/>
-
-            <TextBlock Text="{DynamicResource FemAnalysisMaterialSourceLabel}" Margin="0,8,0,0"/>
-            <ComboBox x:Name="MaterialSourceBox" DisplayMemberPath="Label"/>
-
-            <StackPanel x:Name="NativeMaterialPanel" Visibility="Collapsed" Margin="0,8,0,0">
-                <TextBlock Text="{DynamicResource FemAnalysisConcreteModelLabel}"/>
-                <ComboBox x:Name="ConcreteModelBox" DisplayMemberPath="Label"/>
-
-                <TextBlock Text="{DynamicResource FemAnalysisSteelModelLabel}" Margin="0,8,0,0"/>
-                <ComboBox x:Name="SteelModelBox" DisplayMemberPath="Label"/>
-
-                <TextBlock Text="{DynamicResource FemAnalysisSteelHardeningRatioLabel}" Margin="0,8,0,0"/>
-                <TextBox x:Name="SteelHardeningRatioBox" Text=""/>
+        <Grid Margin="0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisKindLabel}" VerticalAlignment="Center"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <RadioButton x:Name="KindLinearRadio" Content="{DynamicResource FemAnalysisKindLinear}"
+                             GroupName="Kind" IsChecked="True" Checked="KindRadio_Changed" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                <RadioButton x:Name="KindNonlinearRadio" Content="{DynamicResource FemAnalysisKindNonlinear}"
+                             GroupName="Kind" Checked="KindRadio_Changed" VerticalAlignment="Center"/>
             </StackPanel>
+        </Grid>
+
+        <Grid Margin="0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisLoadLabel}" VerticalAlignment="Center"/>
+            <ComboBox Grid.Column="1" x:Name="LoadSourceBox" DisplayMemberPath="Label" Height="22" VerticalContentAlignment="Center"/>
+        </Grid>
+
+        <StackPanel x:Name="NonlinearPanel" Visibility="Collapsed" Margin="0,4,0,0">
+            <Separator Margin="0,4"/>
+            <Grid Margin="0,2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisCalcTypeLabel}" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="1" x:Name="CalcTypeBox" Height="22" VerticalContentAlignment="Center"/>
+            </Grid>
+            <Grid Margin="0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisLoadFactorStepLabel}" VerticalAlignment="Center"/>
+                <TextBox Grid.Column="1" x:Name="LoadFactorStepBox" Text="0.1" Height="22" VerticalContentAlignment="Center"/>
+            </Grid>
+            <Grid Margin="0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisMaxLoadFactorLabel}" VerticalAlignment="Center"/>
+                <TextBox Grid.Column="1" x:Name="MaxLoadFactorBox" Text="10" Height="22" VerticalContentAlignment="Center"/>
+            </Grid>
+            <TextBlock Text="{DynamicResource FemAnalysisSolverSettingsHint}" Margin="0,8,0,0" TextWrapping="Wrap"
+                       FontStyle="Italic" Opacity="0.7" FontSize="11"/>
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">

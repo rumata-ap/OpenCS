@@ -7,7 +7,9 @@ using OpenCS.Utilites;
 
 namespace OpenCS.Views;
 
-/// <summary>Диалог создания постановки OpenSees-расчёта схемы (линейный/нелинейный).</summary>
+/// <summary>Диалог создания постановки OpenSees-расчёта схемы (линейный/нелинейный). Solver-
+/// настройки (исполняемый файл, сходимость, источник/модель материалов и т.п.) — глобальные,
+/// см. вкладку «OpenSees» в диалоге настроек (SettingsWindow).</summary>
 public partial class FemAnalysisDialog : Window
 {
     readonly FemSchema _schema;
@@ -22,17 +24,6 @@ public partial class FemAnalysisDialog : Window
         var sources = BuildLoadSources();
         LoadSourceBox.ItemsSource = sources;
         CalcTypeBox.ItemsSource = Enum.GetValues<CalcType>();
-        var geomTransfOptions = BuildGeomTransfOptions();
-        var convergenceTestOptions = BuildConvergenceTestOptions();
-        GeomTransfBox.ItemsSource = geomTransfOptions;
-        ConvergenceTestBox.ItemsSource = convergenceTestOptions;
-        var materialSourceOptions = BuildMaterialSourceOptions();
-        var concreteModelOptions = BuildConcreteModelOptions();
-        var steelModelOptions = BuildSteelModelOptions();
-        MaterialSourceBox.ItemsSource = materialSourceOptions;
-        ConcreteModelBox.ItemsSource = concreteModelOptions;
-        SteelModelBox.ItemsSource = steelModelOptions;
-        MaterialSourceBox.SelectionChanged += (_, _) => UpdateNativeMaterialPanelVisibility();
 
         if (existing != null)
         {
@@ -40,22 +31,9 @@ public partial class FemAnalysisDialog : Window
             TagBox.Text = existing.Tag;
             KindNonlinearRadio.IsChecked = existing.Kind == "nonlinear";
             var pars = FemAnalysisParams.Parse(existing.ParamsJson);
-            ExeBox.Text = pars.ExecutablePath;
-            TimeoutBox.Text = pars.TimeoutSeconds.ToString();
             CalcTypeBox.SelectedItem = pars.CalcType ?? CalcType.C;
             LoadFactorStepBox.Text = pars.LoadFactorStep.ToString(CultureInfo.InvariantCulture);
             MaxLoadFactorBox.Text = pars.MaxLoadFactor.ToString(CultureInfo.InvariantCulture);
-            RefinementDivisionsBox.Text = pars.RefinementDivisions.ToString(CultureInfo.InvariantCulture);
-            ToleranceBox.Text = pars.Tolerance.ToString(CultureInfo.InvariantCulture);
-            MaxIterationsBox.Text = pars.MaxIterations.ToString();
-            GeomTransfBox.SelectedItem = geomTransfOptions.FirstOrDefault(o => o.Value == pars.GeomTransfKind) ?? geomTransfOptions[0];
-            ConvergenceTestBox.SelectedItem = convergenceTestOptions.FirstOrDefault(o => o.Value == pars.ConvergenceTest) ?? convergenceTestOptions[0];
-            IntegrationPointsBox.Text = pars.IntegrationPoints.ToString();
-            ConsiderConcreteTensionCb.IsChecked = pars.ConsiderConcreteTension;
-            MaterialSourceBox.SelectedItem = materialSourceOptions.FirstOrDefault(o => o.Value == pars.MaterialSource) ?? materialSourceOptions[0];
-            ConcreteModelBox.SelectedItem = concreteModelOptions.FirstOrDefault(o => o.Value == pars.ConcreteModel) ?? concreteModelOptions[1];
-            SteelModelBox.SelectedItem = steelModelOptions.FirstOrDefault(o => o.Value == pars.SteelModel) ?? steelModelOptions[1];
-            SteelHardeningRatioBox.Text = pars.SteelHardeningRatioOverride?.ToString(CultureInfo.InvariantCulture) ?? "";
 
             var sel = sources.FirstOrDefault(s => s.Expr.ToJson() == existing.LoadExpressionJson);
             if (sel != null) LoadSourceBox.SelectedItem = sel;
@@ -64,53 +42,12 @@ public partial class FemAnalysisDialog : Window
         else
         {
             CalcTypeBox.SelectedItem = CalcType.C;
-            GeomTransfBox.SelectedItem = geomTransfOptions[0];
-            ConvergenceTestBox.SelectedItem = convergenceTestOptions[0];
-            MaterialSourceBox.SelectedItem = materialSourceOptions[0];
-            ConcreteModelBox.SelectedItem = concreteModelOptions[1];
-            SteelModelBox.SelectedItem = steelModelOptions[1];
             if (LoadSourceBox.Items.Count > 0) LoadSourceBox.SelectedIndex = 0;
         }
         UpdateNonlinearPanelVisibility();
-        UpdateNativeMaterialPanelVisibility();
     }
 
     sealed record LoadSource(string Label, FemLoadExpression Expr);
-
-    /// <summary>Пара «значение для Tcl/хранения» + «локализованная подпись для UI».</summary>
-    sealed record ComboOption(string Value, string Label);
-
-    static List<ComboOption> BuildGeomTransfOptions() =>
-    [
-        new("Linear", Loc.S("FemGeomTransfLinear")),
-        new("PDelta", Loc.S("FemGeomTransfPDelta")),
-        new("Corotational", Loc.S("FemGeomTransfCorotational")),
-    ];
-
-    static List<ComboOption> BuildConvergenceTestOptions() =>
-    [
-        new("EnergyIncr", Loc.S("FemConvergenceEnergyIncr")),
-        new("NormUnbalance", Loc.S("FemConvergenceNormUnbalance")),
-        new("NormDispIncr", Loc.S("FemConvergenceNormDispIncr")),
-    ];
-
-    static List<ComboOption> BuildMaterialSourceOptions() =>
-    [
-        new("Translated", Loc.S("FemMaterialSourceTranslated")),
-        new("Native", Loc.S("FemMaterialSourceNative")),
-    ];
-
-    static List<ComboOption> BuildConcreteModelOptions() =>
-    [
-        new("Concrete0102", Loc.S("FemConcreteModelConcrete0102")),
-        new("Concrete04", Loc.S("FemConcreteModelConcrete04")),
-    ];
-
-    static List<ComboOption> BuildSteelModelOptions() =>
-    [
-        new("Steel01", "Steel01"),
-        new("Steel02", "Steel02"),
-    ];
 
     List<LoadSource> BuildLoadSources()
     {
@@ -134,23 +71,12 @@ public partial class FemAnalysisDialog : Window
         NonlinearPanel.Visibility = KindNonlinearRadio.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    void UpdateNativeMaterialPanelVisibility()
-    {
-        if (NativeMaterialPanel == null) return;
-        NativeMaterialPanel.Visibility =
-            (MaterialSourceBox.SelectedItem as ComboOption)?.Value == "Native" ? Visibility.Visible : Visibility.Collapsed;
-    }
-
     void Ok_Click(object sender, RoutedEventArgs e)
     {
         if (LoadSourceBox.SelectedItem is not LoadSource src) { DialogResult = false; return; }
         bool isNonlinear = KindNonlinearRadio.IsChecked == true;
 
-        var pars = new FemAnalysisParams
-        {
-            ExecutablePath = string.IsNullOrWhiteSpace(ExeBox.Text) ? null : ExeBox.Text.Trim(),
-            TimeoutSeconds = int.TryParse(TimeoutBox.Text, out var t) && t > 0 ? t : 120
-        };
+        var pars = new FemAnalysisParams();
         if (isNonlinear)
         {
             pars.CalcType = CalcTypeBox.SelectedItem as CalcType? ?? CalcType.C;
@@ -158,21 +84,6 @@ public partial class FemAnalysisDialog : Window
                 ? loadStep : 0.1;
             pars.MaxLoadFactor = double.TryParse(MaxLoadFactorBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var maxLoad) && maxLoad >= pars.LoadFactorStep
                 ? maxLoad : Math.Max(10.0, pars.LoadFactorStep);
-            pars.RefinementDivisions = int.TryParse(RefinementDivisionsBox.Text, out var refinement) && refinement > 0
-                ? refinement : 10;
-            pars.Tolerance = double.TryParse(ToleranceBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var tol) && tol > 0
-                ? tol : 1e-6;
-            pars.MaxIterations = int.TryParse(MaxIterationsBox.Text, out var iters) && iters > 0 ? iters : 50;
-            pars.GeomTransfKind = (GeomTransfBox.SelectedItem as ComboOption)?.Value ?? "Linear";
-            pars.ConvergenceTest = (ConvergenceTestBox.SelectedItem as ComboOption)?.Value ?? "EnergyIncr";
-            pars.IntegrationPoints = int.TryParse(IntegrationPointsBox.Text, out var ip) && ip > 0 ? ip : 5;
-            pars.ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true;
-            pars.MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated";
-            pars.ConcreteModel = (ConcreteModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04";
-            pars.SteelModel = (SteelModelBox.SelectedItem as ComboOption)?.Value ?? "Steel02";
-            pars.SteelHardeningRatioOverride =
-                double.TryParse(SteelHardeningRatioBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var hardening)
-                    ? hardening : null;
         }
 
         Result = new FemAnalysis
