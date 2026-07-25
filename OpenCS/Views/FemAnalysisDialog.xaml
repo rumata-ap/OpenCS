@@ -1,12 +1,13 @@
 <Window x:Class="OpenCS.Views.FemAnalysisDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="{DynamicResource FemAnalysisCreate}" Width="360" SizeToContent="Height"
+        Title="{DynamicResource FemAnalysisCreate}" Width="500" SizeToContent="Height"
         WindowStartupLocation="CenterOwner">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="600">
     <StackPanel Margin="12">
         <Grid Margin="0,0,0,4">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="190"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisTagLabel}" VerticalAlignment="Center"/>
@@ -15,7 +16,7 @@
 
         <Grid Margin="0,4">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="190"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisKindLabel}" VerticalAlignment="Center"/>
@@ -29,7 +30,7 @@
 
         <Grid Margin="0,4">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="190"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisLoadLabel}" VerticalAlignment="Center"/>
@@ -40,7 +41,7 @@
             <Separator Margin="0,4"/>
             <Grid Margin="0,2">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="190"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisCalcTypeLabel}" VerticalAlignment="Center"/>
@@ -48,18 +49,18 @@
             </Grid>
             <Grid Margin="0,4">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="190"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisLoadFactorStepLabel}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisLoadFactorStepLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                 <TextBox Grid.Column="1" x:Name="LoadFactorStepBox" Text="0.1" Height="22" VerticalContentAlignment="Center"/>
             </Grid>
             <Grid Margin="0,4">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="190"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisMaxLoadFactorLabel}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisMaxLoadFactorLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                 <TextBox Grid.Column="1" x:Name="MaxLoadFactorBox" Text="10" Height="22" VerticalContentAlignment="Center"/>
             </Grid>
 
@@ -71,7 +72,7 @@
                               IsChecked="True" Margin="0,0,0,6"/>
                     <Grid Margin="0,0,0,6">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="130"/>
+                            <ColumnDefinition Width="190"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisMaterialSourceLabel}" VerticalAlignment="Center"/>
@@ -80,7 +81,7 @@
                     <StackPanel x:Name="NativeMaterialPanel" Visibility="Collapsed">
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="190"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisConcreteModelLabel}" VerticalAlignment="Center"/>
@@ -88,7 +89,7 @@
                         </Grid>
                         <Grid Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="190"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisSteelModelLabel}" VerticalAlignment="Center"/>
@@ -96,7 +97,7 @@
                         </Grid>
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="190"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisSteelHardeningRatioLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
@@ -115,4 +116,5 @@
             <Button Content="{DynamicResource Cancel}" Click="Cancel_Click" Padding="16,4" MinWidth="80" Margin="8,0,0,0"/>
         </StackPanel>
     </StackPanel>
+    </ScrollViewer>
 </Window>

@@ -1401,6 +1401,8 @@
     <system:String x:Key="FemAnalysisMaxLoadFactorLabel">Maximum load factor λ</system:String>
     <system:String x:Key="FemAnalysisSolverSettingsHint">Solver mechanics (executable, convergence, geomTransf, integration points) — see the "OpenSees" tab in global settings.</system:String>
     <system:String x:Key="FemAnalysisRefinementDivisionsLabel">Divisions of last failed step</system:String>
+    <system:String x:Key="OpenSeesMaxRefinementDepthLabel">Refinement depth</system:String>
+    <system:String x:Key="OpenSeesMaxRefinementDepthTip">Maximum recursion depth for refining a failed load step: at each level the interval is split into "Divisions of last failed step" parts; if those still fail to converge, they are split recursively further, up to this depth.</system:String>
     <system:String x:Key="FemAnalysisToleranceLabel">Convergence tolerance</system:String>
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Max iterations</system:String>
     <system:String x:Key="FemAnalysisGeomTransfLabel">Geometric nonlinearity</system:String>

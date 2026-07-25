@@ -201,6 +201,7 @@ public sealed class FemNonlinearModelResolver
             LoadFactorStep = options.LoadFactorStep,
             MaxLoadFactor = options.MaxLoadFactor,
             RefinementDivisions = options.RefinementDivisions,
+            MaxRefinementDepth = options.MaxRefinementDepth,
             Tolerance = options.Tolerance,
             MaxIterations = options.MaxIterations,
             GeomTransfKind = options.GeomTransfKind,

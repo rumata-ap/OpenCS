@@ -427,6 +427,7 @@ namespace OpenCS.Views
          OpenSeesExeBox.Text = _calcSettings.OpenSeesExecutablePath ?? "";
          OpenSeesTimeoutBox.Text = _calcSettings.OpenSeesTimeoutSeconds.ToString();
          OpenSeesRefinementDivisionsBox.Text = _calcSettings.OpenSeesRefinementDivisions.ToString();
+         OpenSeesMaxRefinementDepthBox.Text = _calcSettings.OpenSeesMaxRefinementDepth.ToString();
          OpenSeesToleranceBox.Text = _calcSettings.OpenSeesTolerance.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          OpenSeesMaxIterationsBox.Text = _calcSettings.OpenSeesMaxIterations.ToString();
          SelectComboByTag(OpenSeesGeomTransfCombo, _calcSettings.OpenSeesGeomTransfKind);
@@ -445,6 +446,10 @@ namespace OpenCS.Views
          OpenSeesRefinementDivisionsBox.TextChanged += (_, _) =>
          {
             if (int.TryParse(OpenSeesRefinementDivisionsBox.Text, out var v) && v > 0) _calcSettings.OpenSeesRefinementDivisions = v;
+         };
+         OpenSeesMaxRefinementDepthBox.TextChanged += (_, _) =>
+         {
+            if (int.TryParse(OpenSeesMaxRefinementDepthBox.Text, out var v) && v > 0) _calcSettings.OpenSeesMaxRefinementDepth = v;
          };
          OpenSeesToleranceBox.TextChanged += (_, _) =>
          {

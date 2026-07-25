@@ -21,7 +21,9 @@ public sealed record FemNonlinearAnalysisOptions(
     // Модель стали/арматуры при MaterialSource.Native.
     SteelModelKind SteelModel = SteelModelKind.Steel02,
     // Переопределение отношения модуля упрочнения стали/арматуры; null — автоматически.
-    double? SteelHardeningRatioOverride = null)
+    double? SteelHardeningRatioOverride = null,
+    // Максимальная глубина рекурсивного дробления неудавшегося шага (см. FemNonlinearModel.MaxRefinementDepth).
+    int MaxRefinementDepth = 4)
 {
     /// <summary>Legacy-конструктор для старых вызывающих мест: LoadSteps → шаг 1/LoadSteps, λmax=1.</summary>
     public FemNonlinearAnalysisOptions(

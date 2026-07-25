@@ -495,28 +495,33 @@
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
                                     <RowDefinition Height="32"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource FemAnalysisRefinementDivisionsLabel}" VerticalAlignment="Center"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" x:Name="OpenSeesRefinementDivisionsBox" VerticalContentAlignment="Center" Margin="0,2"/>
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FemAnalysisToleranceLabel}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="1" Grid.Column="1" x:Name="OpenSeesToleranceBox" VerticalContentAlignment="Center" Margin="0,2"/>
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FemAnalysisMaxIterationsLabel}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="2" Grid.Column="1" x:Name="OpenSeesMaxIterationsBox" VerticalContentAlignment="Center" Margin="0,2"/>
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource FemAnalysisGeomTransfLabel}" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Row="3" Grid.Column="1" x:Name="OpenSeesGeomTransfCombo" VerticalContentAlignment="Center" Margin="0,2">
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource OpenSeesMaxRefinementDepthLabel}"
+                                           VerticalAlignment="Center" ToolTip="{DynamicResource OpenSeesMaxRefinementDepthTip}"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" x:Name="OpenSeesMaxRefinementDepthBox" VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource OpenSeesMaxRefinementDepthTip}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FemAnalysisToleranceLabel}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" x:Name="OpenSeesToleranceBox" VerticalContentAlignment="Center" Margin="0,2"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource FemAnalysisMaxIterationsLabel}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" x:Name="OpenSeesMaxIterationsBox" VerticalContentAlignment="Center" Margin="0,2"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource FemAnalysisGeomTransfLabel}" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="4" Grid.Column="1" x:Name="OpenSeesGeomTransfCombo" VerticalContentAlignment="Center" Margin="0,2">
                                     <ComboBoxItem Tag="Linear" Content="{DynamicResource FemGeomTransfLinear}"/>
                                     <ComboBoxItem Tag="PDelta" Content="{DynamicResource FemGeomTransfPDelta}"/>
                                     <ComboBoxItem Tag="Corotational" Content="{DynamicResource FemGeomTransfCorotational}"/>
                                 </ComboBox>
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource FemAnalysisConvergenceTestLabel}" VerticalAlignment="Center"/>
-                                <ComboBox Grid.Row="4" Grid.Column="1" x:Name="OpenSeesConvergenceTestCombo" VerticalContentAlignment="Center" Margin="0,2">
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource FemAnalysisConvergenceTestLabel}" VerticalAlignment="Center"/>
+                                <ComboBox Grid.Row="5" Grid.Column="1" x:Name="OpenSeesConvergenceTestCombo" VerticalContentAlignment="Center" Margin="0,2">
                                     <ComboBoxItem Tag="EnergyIncr" Content="{DynamicResource FemConvergenceEnergyIncr}"/>
                                     <ComboBoxItem Tag="NormUnbalance" Content="{DynamicResource FemConvergenceNormUnbalance}"/>
                                     <ComboBoxItem Tag="NormDispIncr" Content="{DynamicResource FemConvergenceNormDispIncr}"/>
                                 </ComboBox>
-                                <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource FemAnalysisIntegrationPointsLabel}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="5" Grid.Column="1" x:Name="OpenSeesIntegrationPointsBox" VerticalContentAlignment="Center" Margin="0,2"/>
+                                <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource FemAnalysisIntegrationPointsLabel}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="6" Grid.Column="1" x:Name="OpenSeesIntegrationPointsBox" VerticalContentAlignment="Center" Margin="0,2"/>
                             </Grid>
                         </GroupBox>
                     </StackPanel>

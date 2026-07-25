@@ -160,9 +160,16 @@ namespace OpenCS.Utilites
       [JsonPropertyName("openSeesTimeoutSeconds")]
       public int OpenSeesTimeoutSeconds { get; set; } = 120;
 
-      /// <summary>Количество частей для уточнения последнего неудавшегося шага нагрузки (нелинейный расчёт).</summary>
+      /// <summary>Количество частей, на которое делится неудавшийся шаг нагрузки на каждом уровне
+      /// дробления (нелинейный расчёт).</summary>
       [JsonPropertyName("openSeesRefinementDivisions")]
       public int OpenSeesRefinementDivisions { get; set; } = 10;
+
+      /// <summary>Максимальная глубина рекурсивного дробления неудавшегося шага: на каждом уровне
+      /// интервал делится на OpenSeesRefinementDivisions частей; если и они не сходятся —
+      /// дробятся рекурсивно дальше, вплоть до этой глубины (нелинейный расчёт).</summary>
+      [JsonPropertyName("openSeesMaxRefinementDepth")]
+      public int OpenSeesMaxRefinementDepth { get; set; } = 4;
 
       /// <summary>Допуск критерия сходимости Ньютона (нелинейный расчёт).</summary>
       [JsonPropertyName("openSeesTolerance")]
@@ -222,6 +229,7 @@ namespace OpenCS.Utilites
          OpenSeesExecutablePath   = OpenSeesExecutablePath,
          OpenSeesTimeoutSeconds   = OpenSeesTimeoutSeconds,
          OpenSeesRefinementDivisions = OpenSeesRefinementDivisions,
+         OpenSeesMaxRefinementDepth = OpenSeesMaxRefinementDepth,
          OpenSeesTolerance        = OpenSeesTolerance,
          OpenSeesMaxIterations    = OpenSeesMaxIterations,
          OpenSeesGeomTransfKind   = OpenSeesGeomTransfKind,

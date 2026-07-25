@@ -1404,6 +1404,8 @@
     <system:String x:Key="FemAnalysisMaxLoadFactorLabel">Максимальный коэффициент нагрузки λ</system:String>
     <system:String x:Key="FemAnalysisSolverSettingsHint">Механика решателя (исполняемый файл, сходимость, geomTransf, точки интегрирования) — в общих настройках, вкладка «OpenSees».</system:String>
     <system:String x:Key="FemAnalysisRefinementDivisionsLabel">Делений последнего неудачного шага</system:String>
+    <system:String x:Key="OpenSeesMaxRefinementDepthLabel">Глубина дробления шага</system:String>
+    <system:String x:Key="OpenSeesMaxRefinementDepthTip">Максимальная глубина рекурсивного дробления неудавшегося шага нагрузки: на каждом уровне интервал делится на «Делений последнего неудачного шага» частей; если и они не сходятся — дробятся рекурсивно дальше, вплоть до этой глубины.</system:String>
     <system:String x:Key="FemAnalysisToleranceLabel">Допуск невязки</system:String>
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Макс. число итераций</system:String>
     <system:String x:Key="FemAnalysisGeomTransfLabel">Учёт геометрической нелинейности</system:String>
