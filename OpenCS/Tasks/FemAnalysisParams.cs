@@ -5,7 +5,7 @@ using CScore;
 namespace OpenCS.Tasks;
 
 /// <summary>Параметры запуска FEM-расчёта (линейного и нелинейного), хранимые в FemAnalysis.ParamsJson.
-/// Поля CalcType/LoadFactorStep/MaxLoadFactor/RefinementDivisions/Tolerance/MaxIterations/GeomTransfKind/IntegrationPoints/ConsiderConcreteTension
+/// Поля CalcType/LoadFactorStep/MaxLoadFactor/RefinementDivisions/Tolerance/MaxIterations/GeomTransfKind/IntegrationPoints/ConsiderConcreteTension/MaterialSource/SteelModel/SteelHardeningRatioOverride
 /// используются только при Kind="nonlinear".</summary>
 public sealed class FemAnalysisParams
 {
@@ -40,6 +40,14 @@ public sealed class FemAnalysisParams
     /// softening-участка, который на реальных сценариях может быть численно хрупок для
     /// forceBeamColumn.</summary>
     public bool ConsiderConcreteTension { get; set; } = true;
+    /// <summary>Источник диаграммы материала: "Translated" (перевод диаграммы CScore, по
+    /// умолчанию) | "Native" (собственные параметрические материалы OpenSees).</summary>
+    public string MaterialSource { get; set; } = "Translated";
+    /// <summary>Модель стали/арматуры при MaterialSource="Native": "Steel01" | "Steel02".</summary>
+    public string SteelModel { get; set; } = "Steel02";
+    /// <summary>Переопределение отношения модуля упрочнения стали/арматуры к E0 при
+    /// MaterialSource="Native". null — вычисляется автоматически из характеристик материала.</summary>
+    public double? SteelHardeningRatioOverride { get; set; }
 
     public string ToJson() => JsonSerializer.Serialize(this);
     public static FemAnalysisParams Parse(string? json)
