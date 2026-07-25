@@ -1,4 +1,6 @@
+using CScore;
 using OpenCS.OpenSees.Artifacts;
+using OpenCS.OpenSees.CScore;
 using OpenCS.OpenSees.Model;
 using OpenCS.OpenSees.Results;
 using OpenCS.OpenSees.Runtime;
@@ -197,6 +199,91 @@ public sealed class FemNonlinearIntegrationTests
 
             double uz2 = last.Displacements.Single(d => d.NodeTag == 2).Uz;
             Assert.InRange(uz2, -0.0201, -0.0199);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Cantilever_TinyTipLoad_NativeConcrete04_Converges()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string root = Path.Combine(Path.GetTempPath(), "opencs-fem-nonlinear-native-diag", Guid.NewGuid().ToString("N"));
+
+        Material concrete = new() { Id = 1, Tag = "B25", Type = MatType.Concrete, E = 30_000_000 };
+        foreach (CalcType calc in Enum.GetValues<CalcType>())
+        {
+            MaterialChars chars = new()
+            {
+                Type = MatType.Concrete, TypeCalc = calc, E = 30_000_000,
+                Fc = -14_500, Ft = 1_050, Ec0 = -0.002, Ec2 = -0.0035, Ec1Red = -0.0015,
+                Et0 = 0.0001, Et1Red = 0.00008, Et2 = 0.00015
+            };
+            switch (calc)
+            {
+                case CalcType.C: concrete.C = chars; break;
+                case CalcType.CL: concrete.CL = chars; break;
+                case CalcType.N: concrete.N = chars; break;
+                case CalcType.NL: concrete.NL = chars; break;
+            }
+        }
+
+        MaterialArea concreteArea = new()
+        {
+            Id = 1, Tag = "concrete", Material = concrete, MaterialId = concrete.Id,
+            DiagrammType = DiagrammType.L2,
+            Fibers =
+            [
+                new Fiber { X = -0.5, Y = -0.5, Area = 0.25, TypeFiber = FiberType.tri },
+                new Fiber { X = -0.5, Y = 0.5, Area = 0.25, TypeFiber = FiberType.tri },
+                new Fiber { X = 0.5, Y = -0.5, Area = 0.25, TypeFiber = FiberType.tri },
+                new Fiber { X = 0.5, Y = 0.5, Area = 0.25, TypeFiber = FiberType.tri }
+            ]
+        };
+        CrossSection crossSection = new() { Id = 1, Areas = [concreteArea] };
+
+        var adapterOptions = new CrossSectionToOpenSeesAdapter.Options
+        {
+            GJ = 1e6, MaterialSource = MaterialSource.Native, SteelModel = SteelModelKind.Steel02
+        };
+        var sectionModel = CrossSectionToOpenSeesAdapter.Build(
+            crossSection, CalcType.C, new Dictionary<int, Material> { [concrete.Id] = concrete },
+            customPool: null, adapterOptions);
+
+        // Тот же геометрия/нагрузка, что в Cantilever_SmallElasticTipLoad_MatchesBeamTheory, но
+        // с реальным бетоном (E=30 ГПа вместо E=2e8 Па заглушки) — деформация волокна будет
+        // на порядки меньше epsc0=0.002, глубоко в линейном участке.
+        var model = new FemNonlinearModel
+        {
+            Nodes =
+            [
+                new FemLinearNode(1, 0, 0, 0, [true, true, true, true, true, true]),
+                new FemLinearNode(2, 2.0, 0, 0, new bool[6]),
+            ],
+            Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = sectionModel },
+            Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
+            Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
+            LoadFactorStep = 0.25, MaxLoadFactor = 1.0, RefinementDivisions = 10,
+            Tolerance = 1e-8, MaxIterations = 30, GeomTransfKind = "Linear"
+        };
+
+        try
+        {
+            var result = await new FemNonlinearAnalysisService(
+                new FemNonlinearTclGenerator(),
+                new OpenSeesProcessRunner(),
+                new OpenSeesArtifactStore(root),
+                new FemNonlinearResultParser())
+                .RunAsync(model, new OpenSeesRunRequest
+                {
+                    ExecutablePath = executable,
+                    WorkingDirectory = Path.GetTempPath(),
+                    Timeout = TimeSpan.FromSeconds(30)
+                }, CancellationToken.None);
+
+            Assert.True(result.Status == "ok", $"status={result.Status}; diagnostics={string.Join(" | ", result.Diagnostics)}");
         }
         finally
         {

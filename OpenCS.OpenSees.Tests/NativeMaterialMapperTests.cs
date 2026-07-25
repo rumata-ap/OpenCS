@@ -32,34 +32,37 @@ public sealed class NativeMaterialMapperTests
     };
 
     [Fact]
-    public void Map_ConcreteWithTension_ReturnsConcrete02WithCorrectSignsAndUnits()
+    public void Map_ConcreteWithTension_ReturnsConcrete04WithCorrectSignsAndUnits()
     {
         var spec = NativeMaterialMapper.Map(
             ConcreteB25(), MatType.Concrete, considerConcreteTension: true,
             SteelModelKind.Steel02, steelHardeningRatioOverride: null);
 
-        var concrete02 = Assert.IsType<Concrete02Spec>(spec);
-        Assert.Equal(-14_500_000, concrete02.Fpc, 3);
-        Assert.Equal(-0.002, concrete02.Epsc0, 6);
-        Assert.Equal(-14_500_000, concrete02.Fpcu, 3);
-        Assert.Equal(-0.0035, concrete02.EpsU, 6);
-        Assert.Equal(0.1, concrete02.Lambda, 6);
-        Assert.Equal(1_050_000, concrete02.Ft, 3);
-        Assert.Equal(1_050_000 / 0.0001, concrete02.Ets, 3);
+        var concrete04 = Assert.IsType<Concrete04Spec>(spec);
+        Assert.Equal(-14_500_000, concrete04.Fc, 3);
+        Assert.Equal(-0.002, concrete04.Ec0, 6);
+        Assert.Equal(-0.0035, concrete04.Ecu, 6);
+        Assert.Equal(30_000_000_000, concrete04.Ec, 3);
+        Assert.Equal(1_050_000, concrete04.Fct);
+        Assert.Equal(0.00015, concrete04.Et);
+        Assert.Equal(0.1, concrete04.Beta);
     }
 
     [Fact]
-    public void Map_ConcreteWithoutTension_ReturnsConcrete01()
+    public void Map_ConcreteWithoutTension_ReturnsConcrete04WithNullTensionFields()
     {
         var spec = NativeMaterialMapper.Map(
             ConcreteB25(), MatType.Concrete, considerConcreteTension: false,
             SteelModelKind.Steel02, steelHardeningRatioOverride: null);
 
-        var concrete01 = Assert.IsType<Concrete01Spec>(spec);
-        Assert.Equal(-14_500_000, concrete01.Fpc, 3);
-        Assert.Equal(-0.002, concrete01.Epsc0, 6);
-        Assert.Equal(-14_500_000, concrete01.Fpcu, 3);
-        Assert.Equal(-0.0035, concrete01.EpsU, 6);
+        var concrete04 = Assert.IsType<Concrete04Spec>(spec);
+        Assert.Equal(-14_500_000, concrete04.Fc, 3);
+        Assert.Equal(-0.002, concrete04.Ec0, 6);
+        Assert.Equal(-0.0035, concrete04.Ecu, 6);
+        Assert.Equal(30_000_000_000, concrete04.Ec, 3);
+        Assert.Null(concrete04.Fct);
+        Assert.Null(concrete04.Et);
+        Assert.Null(concrete04.Beta);
     }
 
     [Fact]

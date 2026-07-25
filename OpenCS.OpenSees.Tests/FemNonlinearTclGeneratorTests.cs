@@ -161,39 +161,39 @@ public class FemNonlinearTclGeneratorTests
     }
 
     [Fact]
-    public void Generate_EmitsConcrete01ForNativeSpecWithoutTension()
+    public void Generate_EmitsConcrete04ForNativeSpecWithoutTension()
     {
         var material = new OpenSeesMaterialDefinition
         {
             Tag = 1,
-            Native = new Concrete01Spec(Fpc: -14_500_000, Epsc0: -0.002, Fpcu: -14_500_000, EpsU: -0.0035)
+            Native = new Concrete04Spec(Fc: -14_500_000, Ec0: -0.002, Ecu: -0.0035, Ec: 30_000_000_000, Fct: null, Et: null, Beta: null)
         };
 
         string tcl = new FemNonlinearTclGenerator().Generate(WithMaterial(material));
 
         Assert.Contains(
-            $"uniaxialMaterial Concrete01 1 {TclNumber.Format(-14_500_000)} {TclNumber.Format(-0.002)} {TclNumber.Format(-14_500_000)} {TclNumber.Format(-0.0035)}",
+            $"uniaxialMaterial Concrete04 1 {TclNumber.Format(-14_500_000)} {TclNumber.Format(-0.002)} {TclNumber.Format(-0.0035)} {TclNumber.Format(30_000_000_000)}",
             tcl);
         Assert.DoesNotContain("ElasticMultiLinear", tcl);
     }
 
     [Fact]
-    public void Generate_EmitsConcrete02ForNativeSpecWithTension()
+    public void Generate_EmitsConcrete04ForNativeSpecWithTension()
     {
         var material = new OpenSeesMaterialDefinition
         {
             Tag = 1,
-            Native = new Concrete02Spec(
-                Fpc: -14_500_000, Epsc0: -0.002, Fpcu: -14_500_000, EpsU: -0.0035,
-                Lambda: 0.1, Ft: 1_050_000, Ets: 10_500_000_000)
+            Native = new Concrete04Spec(
+                Fc: -14_500_000, Ec0: -0.002, Ecu: -0.0035, Ec: 30_000_000_000,
+                Fct: 1_050_000, Et: 0.00015, Beta: 0.1)
         };
 
         string tcl = new FemNonlinearTclGenerator().Generate(WithMaterial(material));
 
         Assert.Contains(
-            $"uniaxialMaterial Concrete02 1 {TclNumber.Format(-14_500_000)} {TclNumber.Format(-0.002)} "
-            + $"{TclNumber.Format(-14_500_000)} {TclNumber.Format(-0.0035)} {TclNumber.Format(0.1)} "
-            + $"{TclNumber.Format(1_050_000)} {TclNumber.Format(10_500_000_000)}",
+            $"uniaxialMaterial Concrete04 1 {TclNumber.Format(-14_500_000)} {TclNumber.Format(-0.002)} "
+            + $"{TclNumber.Format(-0.0035)} {TclNumber.Format(30_000_000_000)} "
+            + $"{TclNumber.Format(1_050_000)} {TclNumber.Format(0.00015)} {TclNumber.Format(0.1)}",
             tcl);
     }
 

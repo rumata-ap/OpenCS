@@ -20,7 +20,7 @@ public sealed class OpenSeesSectionModelValidatorTests
             Tag = 1,
             PositiveEnvelope = [],
             NegativeEnvelope = [],
-            Native = new Concrete01Spec(Fpc: -14_500_000, Epsc0: -0.002, Fpcu: -14_500_000, EpsU: -0.0035)
+            Native = new Concrete04Spec(Fc: -14_500_000, Ec0: -0.002, Ecu: -0.0035, Ec: 30_000_000_000, Fct: null, Et: null, Beta: null)
         });
 
         OpenSeesSectionModelValidator.Validate(model);
@@ -40,29 +40,30 @@ public sealed class OpenSeesSectionModelValidatorTests
     }
 
     [Theory]
-    [InlineData(0.0, -0.002, -14_500_000, -0.0035)]      // Fpc == 0
-    [InlineData(-14_500_000, 0.0, -14_500_000, -0.0035)] // Epsc0 >= 0
-    [InlineData(-14_500_000, -0.002, -14_500_000, -0.001)] // EpsU >= Epsc0 (не более отрицательное)
-    public void Validate_RejectsInvalidConcrete01Spec(double fpc, double epsc0, double fpcu, double epsU)
+    [InlineData(0.0, -0.002, -0.0035, 30_000_000_000)]      // Fc == 0
+    [InlineData(-14_500_000, 0.0, -0.0035, 30_000_000_000)] // Ec0 >= 0
+    [InlineData(-14_500_000, -0.002, -0.001, 30_000_000_000)] // Ecu >= Ec0 (не более отрицательное)
+    [InlineData(-14_500_000, -0.002, -0.0035, 0.0)]         // Ec <= 0
+    public void Validate_RejectsInvalidConcrete04SpecWithoutTension(double fc, double ec0, double ecu, double ec)
     {
         var model = ModelWithMaterial(new OpenSeesMaterialDefinition
         {
             Tag = 1,
-            Native = new Concrete01Spec(fpc, epsc0, fpcu, epsU)
+            Native = new Concrete04Spec(fc, ec0, ecu, ec, Fct: null, Et: null, Beta: null)
         });
 
         Assert.Throws<ArgumentException>(() => OpenSeesSectionModelValidator.Validate(model));
     }
 
     [Fact]
-    public void Validate_RejectsConcrete02SpecWithNonPositiveTension()
+    public void Validate_RejectsConcrete04SpecWithNonPositiveTension()
     {
         var model = ModelWithMaterial(new OpenSeesMaterialDefinition
         {
             Tag = 1,
-            Native = new Concrete02Spec(
-                Fpc: -14_500_000, Epsc0: -0.002, Fpcu: -14_500_000, EpsU: -0.0035,
-                Lambda: 0.1, Ft: 0, Ets: 1_000_000)
+            Native = new Concrete04Spec(
+                Fc: -14_500_000, Ec0: -0.002, Ecu: -0.0035, Ec: 30_000_000_000,
+                Fct: 0, Et: 0.00015, Beta: 0.1)
         });
 
         Assert.Throws<ArgumentException>(() => OpenSeesSectionModelValidator.Validate(model));

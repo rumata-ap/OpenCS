@@ -10,13 +10,24 @@ public enum SteelModelKind { Steel01, Steel02 }
 public enum MaterialSource { Translated, Native }
 
 /// <summary>Строит собственные (нативные) параметрические материалы OpenSees
-/// (Concrete01/02, Steel01/02) из характеристик материала CScore — в противовес
+/// (Concrete04, Steel01/02) из характеристик материала CScore — в противовес
 /// <see cref="MaterialDiagramMapper"/>, который транслирует диаграмму (Diagramm) в
 /// ElasticMultiLinear. См. docs/superpowers/specs/2026-07-25-opensees-native-materials-design.md
-/// для обоснования формул и границ применимости.</summary>
+/// для обоснования формул и границ применимости.
+///
+/// Concrete04 (Попович на сжатие + экспоненциальное затухание растяжения), а не Concrete02
+/// (линейное размягчение до плоского нуля) — на реальном сценарии кинематических нагрузок
+/// Concrete02 не сходился (и даже падал при отключённом растяжении, Concrete01): линейная
+/// огибающая растяжения после исчерпания Ets неизбежно выходит на буквально плоский нулевой
+/// участок — та же вырожденная матрица гибкости, с которой начиналась вся история отладки этой
+/// сессии. Экспонента Concrete04 асимптотически стремится к нулю, никогда не давая плоского
+/// сегмента.</summary>
 public static class NativeMaterialMapper
 {
-    private const double ConcreteTensionLambda = 0.1;
+    /// <summary>Экспоненциальный параметр затухания растяжения Concrete04 (beta) — контролирует
+    /// скорость спада остаточного напряжения после предельной растяжимости Et. Фиксированное
+    /// умеренное значение, не выносится в UI (по аналогии с Lambda/R0/cR1/cR2).</summary>
+    private const double ConcreteTensionBeta = 0.1;
     private const double Steel02R0 = 18;
     private const double Steel02CR1 = 0.925;
     private const double Steel02CR2 = 0.15;
@@ -49,17 +60,17 @@ public static class NativeMaterialMapper
 
     private static NativeMaterialSpec MapConcrete(MaterialChars chars, bool considerConcreteTension)
     {
-        double fpc = CScoreUnitConverter.KilopascalsToPascals(chars.Fc);
-        double epsc0 = chars.Ec0;
-        double fpcu = fpc;
-        double epsU = chars.Ec2;
+        double fc = CScoreUnitConverter.KilopascalsToPascals(chars.Fc);
+        double ec0 = chars.Ec0;
+        double ecu = chars.Ec2;
+        double ec = CScoreUnitConverter.KilopascalsToPascals(chars.E);
 
         if (!considerConcreteTension)
-            return new Concrete01Spec(fpc, epsc0, fpcu, epsU);
+            return new Concrete04Spec(fc, ec0, ecu, ec, Fct: null, Et: null, Beta: null);
 
-        double ft = CScoreUnitConverter.KilopascalsToPascals(chars.Ft);
-        double ets = ft / chars.Et0;
-        return new Concrete02Spec(fpc, epsc0, fpcu, epsU, ConcreteTensionLambda, ft, ets);
+        double fct = CScoreUnitConverter.KilopascalsToPascals(chars.Ft);
+        double et = chars.Et2;
+        return new Concrete04Spec(fc, ec0, ecu, ec, fct, et, ConcreteTensionBeta);
     }
 
     private static NativeMaterialSpec MapSteel(
