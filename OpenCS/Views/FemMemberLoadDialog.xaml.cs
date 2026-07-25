@@ -81,8 +81,7 @@ public partial class FemMemberLoadDialog : Window
     void Apply_Click(object sender, RoutedEventArgs e)
     {
         if (loadCaseCombo.SelectedItem is not FemLoadCase loadCase) return;
-        double Parse(TextBox box) => double.TryParse(box.Text, NumberStyles.Float,
-            CultureInfo.CurrentCulture, out var value) ? value : 0;
+        double Parse(TextBox box) => Pars.ParseAny(box.Text, out var value) ? value : 0;
         string coordinate = coordinateCombo.SelectedValue as string ?? "local";
         string distribution = distributionCombo.SelectedValue as string ?? "uniform";
         bool isPoint = distribution == "point";

@@ -3,6 +3,7 @@ using System.Windows;
 using CScore;
 using CScore.Fem;
 using CScore.Fem.Editing;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
@@ -69,7 +70,7 @@ public partial class FemMemberPropertiesDialog : Window
 
     void GjManualValue_LostFocus(object sender, RoutedEventArgs e)
     {
-        if (!double.TryParse(gjManualValueBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var valueKilo)) return;
+        if (!Pars.ParseAny(gjManualValueBox.Text, out var valueKilo)) return;
         var value = FemUnitConverter.KiloNewtonMetersSquaredToNewtonMetersSquared(valueKilo);
         _editorVm.Session.Execute(new SetMemberGjCommand(_member, "manual", value, null));
         _editorVm.RefreshCollections();

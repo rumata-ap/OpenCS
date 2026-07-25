@@ -121,16 +121,16 @@ namespace OpenCS.Views
          AxesColorBox.TextChanged += (_, _) => { _settings.AxesColor = AxesColorBox.Text; UpdateSwatch(AxesColorSwatch, AxesColorBox.Text); };
          DxfBgBox.TextChanged += (_, _) => { _settings.DxfCanvasBackground = DxfBgBox.Text; UpdateSwatch(DxfBgSwatch, DxfBgBox.Text); };
          CentroidColorBox.TextChanged += (_, _) => { _settings.CentroidColor = CentroidColorBox.Text; UpdateSwatch(CentroidSwatch, CentroidColorBox.Text); };
-         CentroidSzBox.TextChanged += (_, _) => { if (double.TryParse(CentroidSzBox.Text, out var v) && v > 0) _settings.CentroidSize = v; };
-         AxesFontSzBox.TextChanged += (_, _) => { if (double.TryParse(AxesFontSzBox.Text, out var v) && v > 0) _settings.AxesFontSize = v; };
-         ScaleXBox.TextChanged += (_, _) => { if (double.TryParse(ScaleXBox.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) _settings.ScaleX = v; };
-         ScaleYBox.TextChanged += (_, _) => { if (double.TryParse(ScaleYBox.Text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v)) _settings.ScaleY = v; };
-         CurveThBox.TextChanged += (_, _) => { if (double.TryParse(CurveThBox.Text, out var v) && v > 0) _settings.CurveThickness = v; };
-         MarkerSzBox.TextChanged += (_, _) => { if (double.TryParse(MarkerSzBox.Text, out var v) && v > 0) _settings.MarkerSize = v; };
-         FontSzBox.TextChanged += (_, _) => { if (double.TryParse(FontSzBox.Text, out var v) && v > 0) _settings.FontSize = v; };
+         CentroidSzBox.TextChanged += (_, _) => { if (Pars.ParseAny(CentroidSzBox.Text, out var v) && v > 0) _settings.CentroidSize = v; };
+         AxesFontSzBox.TextChanged += (_, _) => { if (Pars.ParseAny(AxesFontSzBox.Text, out var v) && v > 0) _settings.AxesFontSize = v; };
+         ScaleXBox.TextChanged += (_, _) => { if (Pars.ParseAny(ScaleXBox.Text, out var v)) _settings.ScaleX = v; };
+         ScaleYBox.TextChanged += (_, _) => { if (Pars.ParseAny(ScaleYBox.Text, out var v)) _settings.ScaleY = v; };
+         CurveThBox.TextChanged += (_, _) => { if (Pars.ParseAny(CurveThBox.Text, out var v) && v > 0) _settings.CurveThickness = v; };
+         MarkerSzBox.TextChanged += (_, _) => { if (Pars.ParseAny(MarkerSzBox.Text, out var v) && v > 0) _settings.MarkerSize = v; };
+         FontSzBox.TextChanged += (_, _) => { if (Pars.ParseAny(FontSzBox.Text, out var v) && v > 0) _settings.FontSize = v; };
          ShowGridCb.Checked += (_, _) => _settings.ShowGrid = true;
          ShowGridCb.Unchecked += (_, _) => _settings.ShowGrid = false;
-         GridThBox.TextChanged += (_, _) => { if (double.TryParse(GridThBox.Text, out var v) && v > 0) _settings.GridThickness = v; };
+         GridThBox.TextChanged += (_, _) => { if (Pars.ParseAny(GridThBox.Text, out var v) && v > 0) _settings.GridThickness = v; };
          TickCountBox.TextChanged += (_, _) => { if (int.TryParse(TickCountBox.Text, out var v) && v > 0) _settings.TickCount = v; };
          ShowLabelsCb.Checked += (_, _) => _settings.ShowPointLabels = true;
          ShowLabelsCb.Unchecked += (_, _) => _settings.ShowPointLabels = false;
@@ -242,8 +242,7 @@ namespace OpenCS.Views
          };
          NewtonTolBox.TextChanged += (_, _) =>
          {
-            if (double.TryParse(NewtonTolBox.Text, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+            if (Pars.ParseAny(NewtonTolBox.Text, out var v) && v > 0)
                _calcSettings.NewtonTolerance = v;
          };
          NewtonMaxIterBox.TextChanged += (_, _) =>
@@ -252,8 +251,7 @@ namespace OpenCS.Views
          };
          NewtonDeltaHBox.TextChanged += (_, _) =>
          {
-            if (double.TryParse(NewtonDeltaHBox.Text, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+            if (Pars.ParseAny(NewtonDeltaHBox.Text, out var v) && v > 0)
                _calcSettings.NewtonDeltaH = v;
          };
          NewtonJacobianCombo.SelectionChanged += (_, _) =>
@@ -269,7 +267,7 @@ namespace OpenCS.Views
          };
          HullThickBox.TextChanged += (_, _) =>
          {
-            if (double.TryParse(HullThickBox.Text, out var v) && v > 0) _calcSettings.HullThickness = v;
+            if (Pars.ParseAny(HullThickBox.Text, out var v) && v > 0) _calcSettings.HullThickness = v;
          };
          HoleColorBox.TextChanged += (_, _) =>
          {
@@ -278,7 +276,7 @@ namespace OpenCS.Views
          };
          HoleThickBox.TextChanged += (_, _) =>
          {
-            if (double.TryParse(HoleThickBox.Text, out var v) && v > 0) _calcSettings.HoleThickness = v;
+            if (Pars.ParseAny(HoleThickBox.Text, out var v) && v > 0) _calcSettings.HoleThickness = v;
          };
          NeutralAxisColorBox.TextChanged += (_, _) =>
          {
@@ -287,7 +285,7 @@ namespace OpenCS.Views
          };
          NeutralAxisThickBox.TextChanged += (_, _) =>
          {
-            if (double.TryParse(NeutralAxisThickBox.Text, out var v) && v > 0) _calcSettings.NeutralAxisThickness = v;
+            if (Pars.ParseAny(NeutralAxisThickBox.Text, out var v) && v > 0) _calcSettings.NeutralAxisThickness = v;
          };
          CentroidNdsColorBox.TextChanged += (_, _) =>
          {
@@ -296,22 +294,20 @@ namespace OpenCS.Views
          };
          CentroidNdsSizeBox.TextChanged += (_, _) =>
          {
-            if (double.TryParse(CentroidNdsSizeBox.Text, out var v) && v > 0) _calcSettings.CentroidNdsSize = v;
+            if (Pars.ParseAny(CentroidNdsSizeBox.Text, out var v) && v > 0) _calcSettings.CentroidNdsSize = v;
          };
          LabelFontSizeBox.TextChanged += (_, _) =>
          {
-            if (double.TryParse(LabelFontSizeBox.Text, out var v) && v > 0) _calcSettings.FiberLabelFontSize = v;
+            if (Pars.ParseAny(LabelFontSizeBox.Text, out var v) && v > 0) _calcSettings.FiberLabelFontSize = v;
          };
          Sp63EtaMinBox.TextChanged += (_, _) =>
          {
-            if (double.TryParse(Sp63EtaMinBox.Text, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0 && v < 1)
+            if (Pars.ParseAny(Sp63EtaMinBox.Text, out var v) && v > 0 && v < 1)
                _calcSettings.Sp63DescEtaMin = v;
          };
          ShellTolResBox.TextChanged += (_, _) =>
          {
-            if (double.TryParse(ShellTolResBox.Text, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+            if (Pars.ParseAny(ShellTolResBox.Text, out var v) && v > 0)
                _calcSettings.ShellNewtonTolRes = v;
          };
          HookSp20GammaBox(Sp20GammaGBox, v => _calcSettings.Sp20GammaFPermanent = v);
@@ -338,8 +334,7 @@ namespace OpenCS.Views
       {
          box.TextChanged += (_, _) =>
          {
-            if (double.TryParse(box.Text, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+            if (Pars.ParseAny(box.Text, out var v) && v > 0)
                setter(v);
          };
       }
@@ -411,8 +406,7 @@ namespace OpenCS.Views
          AcadArcFixedRb.Checked += (_, _) => _acadSettings.ArcDiscretizationMode = ArcDiscretization.FixedSegments;
          AcadArcChordBox.TextChanged += (_, _) =>
          {
-            if (double.TryParse(AcadArcChordBox.Text, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+            if (Pars.ParseAny(AcadArcChordBox.Text, out var v) && v > 0)
                _acadSettings.ArcChordLength = v;
          };
          AcadArcSegBox.TextChanged += (_, _) =>
@@ -453,8 +447,7 @@ namespace OpenCS.Views
          };
          OpenSeesToleranceBox.TextChanged += (_, _) =>
          {
-            if (double.TryParse(OpenSeesToleranceBox.Text, System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v) && v > 0)
+            if (Pars.ParseAny(OpenSeesToleranceBox.Text, out var v) && v > 0)
                _calcSettings.OpenSeesTolerance = v;
          };
          OpenSeesMaxIterationsBox.TextChanged += (_, _) =>

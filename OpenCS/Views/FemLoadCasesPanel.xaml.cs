@@ -37,7 +37,7 @@ public partial class FemLoadCasesPanel : UserControl
     void ApplyLoad_Click(object sender, RoutedEventArgs e)
     {
         if (Editor is not { } editor) return;
-        double Parse(TextBox box) => double.TryParse(box.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : 0;
+        double Parse(TextBox box) => Pars.ParseAny(box.Text, out var v) ? v : 0;
         double fx = FemUnitConverter.KiloNewtonsToNewtons(Parse(fxBox));
         double fy = FemUnitConverter.KiloNewtonsToNewtons(Parse(fyBox));
         double fz = FemUnitConverter.KiloNewtonsToNewtons(Parse(fzBox));
@@ -77,14 +77,14 @@ public partial class FemLoadCasesPanel : UserControl
 
     void SaveDefinitionTermCoefficient_Click(object sender, RoutedEventArgs e)
     {
-        if (Editor == null || !double.TryParse(definitionCoefficientBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var coefficient)) return;
+        if (Editor == null || !Pars.ParseAny(definitionCoefficientBox.Text, out var coefficient)) return;
         Editor.UpdateSelectedLoadDefinitionTermCoefficient(coefficient);
     }
 
     void SaveLoadCaseParameters_Click(object sender, RoutedEventArgs e)
     {
         if (Editor == null || loadCaseTypeCombo.SelectedValue is not string sp20Type) return;
-        double? ParseOptional(TextBox box) => double.TryParse(box.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) ? value : null;
+        double? ParseOptional(TextBox box) => Pars.ParseAny(box.Text, out var value) ? value : null;
         if (!Editor.UpdateSelectedLoadCase(loadCaseTagBox.Text, sp20Type, loadCaseGroupBox.Text,
             ParseOptional(gammaUnfavBox), ParseOptional(gammaFavBox), ParseOptional(psi1Box), ParseOptional(psi2Box)))
             MessageBox.Show(Loc.S("FemRenameInvalid"), Loc.S("FemRename"),
@@ -121,8 +121,7 @@ public partial class FemLoadCasesPanel : UserControl
         if (Editor is not { } editor) return;
         if (editor.SelectedLoadCase == null || editor.SelectedLoadMember == null) return;
 
-        double Parse(TextBox box) => double.TryParse(box.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var value)
-            ? value : 0;
+        double Parse(TextBox box) => Pars.ParseAny(box.Text, out var value) ? value : 0;
         var coordinateSystem = memberLoadCoordinateCombo.SelectedValue as string ?? "local";
         var distributionType = memberLoadDistributionCombo.SelectedValue as string ?? "uniform";
         bool isPoint = distributionType == "point";

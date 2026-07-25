@@ -49,8 +49,7 @@ public partial class FemNodeLoadDialog : Window
     void Apply_Click(object sender, RoutedEventArgs e)
     {
         if (loadCaseCombo.SelectedItem is not FemLoadCase loadCase) return;
-        double Parse(TextBox box) => double.TryParse(box.Text, NumberStyles.Float,
-            CultureInfo.CurrentCulture, out var value) ? value : 0;
+        double Parse(TextBox box) => Pars.ParseAny(box.Text, out var value) ? value : 0;
         double fx = FemUnitConverter.KiloNewtonsToNewtons(Parse(fxBox));
         double fy = FemUnitConverter.KiloNewtonsToNewtons(Parse(fyBox));
         double fz = FemUnitConverter.KiloNewtonsToNewtons(Parse(fzBox));

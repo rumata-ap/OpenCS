@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using CScore.Fem;
 using CScore.Fem.Editing;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
@@ -85,12 +86,12 @@ public partial class FemNodePropertiesDialog : Window
             MessageBox.Show((string)Application.Current.FindResource("FemNodeLoadSkippedUnsavedTitle"));
             return;
         }
-        if (!double.TryParse(fxBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var fxKilo)) fxKilo = 0;
-        if (!double.TryParse(fyBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var fyKilo)) fyKilo = 0;
-        if (!double.TryParse(fzBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var fzKilo)) fzKilo = 0;
-        if (!double.TryParse(mxBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var mxKilo)) mxKilo = 0;
-        if (!double.TryParse(myBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var myKilo)) myKilo = 0;
-        if (!double.TryParse(mzBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var mzKilo)) mzKilo = 0;
+        if (!Pars.ParseAny(fxBox.Text, out var fxKilo)) fxKilo = 0;
+        if (!Pars.ParseAny(fyBox.Text, out var fyKilo)) fyKilo = 0;
+        if (!Pars.ParseAny(fzBox.Text, out var fzKilo)) fzKilo = 0;
+        if (!Pars.ParseAny(mxBox.Text, out var mxKilo)) mxKilo = 0;
+        if (!Pars.ParseAny(myBox.Text, out var myKilo)) myKilo = 0;
+        if (!Pars.ParseAny(mzBox.Text, out var mzKilo)) mzKilo = 0;
         var fx = FemUnitConverter.KiloNewtonsToNewtons(fxKilo);
         var fy = FemUnitConverter.KiloNewtonsToNewtons(fyKilo);
         var fz = FemUnitConverter.KiloNewtonsToNewtons(fzKilo);

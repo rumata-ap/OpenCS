@@ -28,9 +28,11 @@ public partial class FemAnalysisDialog : Window
         var materialSourceOptions = BuildMaterialSourceOptions();
         var concreteModelOptions = BuildConcreteModelOptions();
         var steelModelOptions = BuildSteelModelOptions();
+        var elementFormulationOptions = BuildElementFormulationOptions();
         MaterialSourceBox.ItemsSource = materialSourceOptions;
         ConcreteModelBox.ItemsSource = concreteModelOptions;
         SteelModelBox.ItemsSource = steelModelOptions;
+        ElementFormulationBox.ItemsSource = elementFormulationOptions;
         MaterialSourceBox.SelectionChanged += (_, _) => UpdateNativeMaterialPanelVisibility();
 
         if (existing != null)
@@ -47,6 +49,7 @@ public partial class FemAnalysisDialog : Window
             ConcreteModelBox.SelectedItem = concreteModelOptions.FirstOrDefault(o => o.Value == pars.ConcreteModel) ?? concreteModelOptions[1];
             SteelModelBox.SelectedItem = steelModelOptions.FirstOrDefault(o => o.Value == pars.SteelModel) ?? steelModelOptions[1];
             SteelHardeningRatioBox.Text = pars.SteelHardeningRatioOverride?.ToString(CultureInfo.InvariantCulture) ?? "";
+            ElementFormulationBox.SelectedItem = elementFormulationOptions.FirstOrDefault(o => o.Value == pars.ElementFormulation) ?? elementFormulationOptions[0];
 
             var sel = sources.FirstOrDefault(s => s.Expr.ToJson() == existing.LoadExpressionJson);
             if (sel != null) LoadSourceBox.SelectedItem = sel;
@@ -58,6 +61,7 @@ public partial class FemAnalysisDialog : Window
             MaterialSourceBox.SelectedItem = materialSourceOptions[0];
             ConcreteModelBox.SelectedItem = concreteModelOptions[1];
             SteelModelBox.SelectedItem = steelModelOptions[1];
+            ElementFormulationBox.SelectedItem = elementFormulationOptions[0];
             if (LoadSourceBox.Items.Count > 0) LoadSourceBox.SelectedIndex = 0;
         }
         UpdateNonlinearPanelVisibility();
@@ -85,6 +89,12 @@ public partial class FemAnalysisDialog : Window
     [
         new("Steel01", "Steel01"),
         new("Steel02", "Steel02"),
+    ];
+
+    static List<ComboOption> BuildElementFormulationOptions() =>
+    [
+        new("forceBeamColumn", Loc.S("FemElementFormulationForce")),
+        new("dispBeamColumn", Loc.S("FemElementFormulationDisp")),
     ];
 
     List<LoadSource> BuildLoadSources()
@@ -125,17 +135,17 @@ public partial class FemAnalysisDialog : Window
         if (isNonlinear)
         {
             pars.CalcType = CalcTypeBox.SelectedItem as CalcType? ?? CalcType.C;
-            pars.LoadFactorStep = double.TryParse(LoadFactorStepBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var loadStep) && loadStep > 0
+            pars.LoadFactorStep = Pars.ParseAny(LoadFactorStepBox.Text, out var loadStep) && loadStep > 0
                 ? loadStep : 0.1;
-            pars.MaxLoadFactor = double.TryParse(MaxLoadFactorBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var maxLoad) && maxLoad >= pars.LoadFactorStep
+            pars.MaxLoadFactor = Pars.ParseAny(MaxLoadFactorBox.Text, out var maxLoad) && maxLoad >= pars.LoadFactorStep
                 ? maxLoad : Math.Max(10.0, pars.LoadFactorStep);
             pars.ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true;
             pars.MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated";
             pars.ConcreteModel = (ConcreteModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04";
             pars.SteelModel = (SteelModelBox.SelectedItem as ComboOption)?.Value ?? "Steel02";
             pars.SteelHardeningRatioOverride =
-                double.TryParse(SteelHardeningRatioBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var hardening)
-                    ? hardening : null;
+                Pars.ParseAny(SteelHardeningRatioBox.Text, out var hardening) ? hardening : null;
+            pars.ElementFormulation = (ElementFormulationBox.SelectedItem as ComboOption)?.Value ?? "forceBeamColumn";
         }
 
         Result = new FemAnalysis

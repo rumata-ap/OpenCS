@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows;
+using OpenCS.Utilites;
 
 namespace OpenCS.Views;
 
@@ -17,8 +18,7 @@ public partial class FemMemberRotationDialog : Window
 
     void Apply_Click(object sender, RoutedEventArgs e)
     {
-        if (!double.TryParse(angleBox.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var value) ||
-            !double.IsFinite(value))
+        if (!Pars.ParseAny(angleBox.Text, out var value) || !double.IsFinite(value))
         {
             MessageBox.Show(
                 (string)Application.Current.FindResource("FemMemberRotationInvalid"),

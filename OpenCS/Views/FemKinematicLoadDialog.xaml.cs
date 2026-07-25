@@ -53,8 +53,12 @@ public partial class FemKinematicLoadDialog : Window
         foreach (var (dof, field) in Fields().Select((field, index) => (index + 1, field)))
         {
             if (field.Check.IsChecked != true) continue;
-            if (double.TryParse(field.Box.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var value) &&
-                double.IsFinite(value))
+            // Pars.ParseAny принимает и точку, и запятую как десятичный разделитель — обычный
+            // double.TryParse(..., CultureInfo.CurrentCulture) ловит только ОДИН вариант (для
+            // ru-RU — запятую), и при вводе с другим разделителем молча проваливает парсинг:
+            // значение просто не попадает в values, а ApplyKinematicLoads в этом случае либо
+            // ничего не делает, либо удаляет уже существующее значение DOF — без единой ошибки.
+            if (Pars.ParseAny(field.Box.Text, out var value) && double.IsFinite(value))
                 values[dof] = value;
         }
 
