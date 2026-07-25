@@ -1072,6 +1072,17 @@
                                         CommandParameter="{Binding PlacementTarget.DataContext.Schema,
                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               <Separator/>
+                              <MenuItem Header="{DynamicResource FemSchemaDuplicate}"
+                                        Command="{Binding PlacementTarget.Tag.DuplicateFemSchemaCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemSchemaRename}"
+                                        Command="{Binding PlacementTarget.Tag.RenameFemSchemaCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <Separator/>
                               <MenuItem Header="{DynamicResource FemSchemaDelete}"
                                         Command="{Binding PlacementTarget.Tag.DeleteFemSchemaCommand,
                                                   RelativeSource={RelativeSource AncestorType=ContextMenu}}"

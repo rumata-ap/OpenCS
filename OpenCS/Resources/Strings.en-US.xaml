@@ -1290,6 +1290,10 @@
     <system:String x:Key="FemSchemas">Structural Schemas</system:String>
     <system:String x:Key="FemSchemaNew">New schema</system:String>
     <system:String x:Key="FemSchemaDelete">Delete schema</system:String>
+    <system:String x:Key="FemSchemaDuplicate">Duplicate schema</system:String>
+    <system:String x:Key="FemSchemaRename">Rename schema</system:String>
+    <system:String x:Key="FemSchemaRenameTitle">Rename schema</system:String>
+    <system:String x:Key="FemSchemaRenameLabel">New schema name:</system:String>
     <system:String x:Key="FemSchemaPageTitle">FEM schema:</system:String>
     <system:String x:Key="FemSchemaSource">Source</system:String>
     <system:String x:Key="FemMembersCount">Members</system:String>
@@ -1415,7 +1419,7 @@
     <system:String x:Key="FemConvergenceNormDispIncr">Displacement increment norm</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Integration points</system:String>
     <system:String x:Key="FemAnalysisConsiderConcreteTension">Consider concrete tension strength</system:String>
-    <system:String x:Key="FemAnalysisConsiderConcreteTensionTip">When disabled, the OpenSees tension envelope for concrete is collapsed to a small residual slope with no real strength — the section is treated as already fully cracked, avoiding the sharp stiffness transition at cracking. Does not affect rebar/steel. Useful if the analysis fails to converge due to concrete cracking.</system:String>
+    <system:String x:Key="FemAnalysisConsiderConcreteTensionTip">When disabled, the OpenSees tension envelope for concrete is collapsed to a strictly flat zero stress — the section is treated as already fully cracked. Does not affect rebar/steel. Useful if the analysis fails to converge due to concrete cracking; also try the dispBeamColumn element formulation below.</system:String>
     <system:String x:Key="FemAnalysisMaterialSourceLabel">Material diagram source</system:String>
     <system:String x:Key="FemMaterialSourceTranslated">CScore diagram translation</system:String>
     <system:String x:Key="FemMaterialSourceNative">Native OpenSees materials</system:String>
@@ -1424,6 +1428,10 @@
     <system:String x:Key="FemConcreteModelConcrete04">Concrete04 (Popovics)</system:String>
     <system:String x:Key="FemAnalysisSteelModelLabel">Steel/rebar model</system:String>
     <system:String x:Key="FemAnalysisSteelHardeningRatioLabel">Hardening ratio override b (blank = auto)</system:String>
+    <system:String x:Key="FemAnalysisElementFormulationLabel">Element formulation</system:String>
+    <system:String x:Key="FemAnalysisElementFormulationTip">forceBeamColumn (force-based, default) is more accurate for distributed nonlinearity with fewer elements, but inverts the section flexibility matrix — if every fiber in a section lands on a strictly flat (zero) segment of the diagram at once, that inversion fails with "could not invert flexibility". dispBeamColumn (displacement-based) never needs that inversion and is more robust in exactly that case — recommended when kinematic loading with a strictly zero concrete tension tail fails to converge.</system:String>
+    <system:String x:Key="FemElementFormulationForce">forceBeamColumn (force-based, default)</system:String>
+    <system:String x:Key="FemElementFormulationDisp">dispBeamColumn (displacement-based, more robust)</system:String>
     <system:String x:Key="FemResultTabHistory">History</system:String>
     <system:String x:Key="FemResultStep">Step</system:String>
     <system:String x:Key="FemResultStepLabel">Step {0}/{1}, λ={2:F3} ({3})</system:String>

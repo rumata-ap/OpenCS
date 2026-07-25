@@ -463,6 +463,10 @@ namespace OpenCS
       public ICommand NewFemSchemaCommand    { get; set; } = null!;
       /// <summary>Команда удаления МКЭ-схемы.</summary>
       public ICommand DeleteFemSchemaCommand { get; set; } = null!;
+      /// <summary>Команда дублирования МКЭ-схемы (топология, нагрузки, сетка; без постановок расчётов).</summary>
+      public ICommand DuplicateFemSchemaCommand { get; set; } = null!;
+      /// <summary>Команда переименования МКЭ-схемы.</summary>
+      public ICommand RenameFemSchemaCommand { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента МКЭ (без диалога).</summary>
       public ICommand NewFemMemberCommand       { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента через диалог ввода имени/типа/КЭ.</summary>
@@ -1214,6 +1218,8 @@ namespace OpenCS
 
          NewFemSchemaCommand    = new RelayCommand(_ => NewFemSchema());
          DeleteFemSchemaCommand = new RelayCommand(p => DeleteFemSchema(p as CScore.Fem.FemSchema));
+         DuplicateFemSchemaCommand = new RelayCommand(p => DuplicateFemSchema(p as CScore.Fem.FemSchema));
+         RenameFemSchemaCommand    = new RelayCommand(p => RenameFemSchema(p as CScore.Fem.FemSchema));
          NewFemMemberCommand       = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
          NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
          DeleteFemMemberCommand    = new RelayCommand(_ => DeleteFemMember());
@@ -2458,6 +2464,22 @@ namespace OpenCS
       void NewFemSchema()
       {
          var schema = new CScore.Fem.FemSchema { Tag = "Схема", SourceType = "internal" };
+         db.SaveFemSchema(schema);
+      }
+
+      void DuplicateFemSchema(CScore.Fem.FemSchema? schema)
+      {
+         if (schema == null) return;
+         db.DuplicateFemSchema(schema.Id, schema.Tag + " (копия)");
+      }
+
+      void RenameFemSchema(CScore.Fem.FemSchema? schema)
+      {
+         if (schema == null) return;
+         var dlg = new Views.Dialogs.TextInputDialog(
+            Loc.S("FemSchemaRenameTitle"), Loc.S("FemSchemaRenameLabel"), schema.Tag);
+         if (dlg.ShowDialog() != true) return;
+         schema.Tag = dlg.Value;
          db.SaveFemSchema(schema);
       }
 
