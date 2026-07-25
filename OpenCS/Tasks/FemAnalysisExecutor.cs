@@ -91,6 +91,7 @@ public static class FemAnalysisExecutor
         var workflow = new FemLinearAnalysisWorkflow(service);
 
         var output = await workflow.RunAsync(input, runRequest, ct);
+        LogOpenSeesDiagnostics(app, output.Status, output.Result?.Diagnostics);
 
         return new CalcResult
         {
@@ -124,7 +125,7 @@ public static class FemAnalysisExecutor
             calcSettings.OpenSeesIntegrationPoints, calcSettings.OpenSeesConvergenceTest, parameters.ConsiderConcreteTension,
             Enum.Parse<MaterialSource>(parameters.MaterialSource), Enum.Parse<ConcreteModelKind>(parameters.ConcreteModel),
             Enum.Parse<SteelModelKind>(parameters.SteelModel), parameters.SteelHardeningRatioOverride,
-            calcSettings.OpenSeesMaxRefinementDepth);
+            calcSettings.OpenSeesMaxRefinementDepth, parameters.ElementFormulation);
 
         var input = new FemNonlinearWorkflowInput(
             meshNodes, meshElems, sourceNodes, sourceMembers, resolved.NodeLoads,
@@ -139,6 +140,7 @@ public static class FemAnalysisExecutor
         var workflow = new FemNonlinearAnalysisWorkflow(service);
 
         var output = await workflow.RunAsync(input, runRequest, ct);
+        LogOpenSeesDiagnostics(app, output.Status, output.Result?.Diagnostics);
 
         return new CalcResult
         {
@@ -154,6 +156,16 @@ public static class FemAnalysisExecutor
         if (string.IsNullOrWhiteSpace(home)) return null;
         var candidate = Path.Combine(home, "bin", "OpenSees.exe");
         return File.Exists(candidate) ? candidate : null;
+    }
+
+    /// <summary>Пишет сырую диагностику OpenSees-прогона (stdout/stderr) в собственный лог OpenCS
+    /// одной записью — без построчной фильтрации, чтобы не потерять ничего и не усложнять код.</summary>
+    static void LogOpenSeesDiagnostics(AppViewModel app, string status, IReadOnlyList<string>? diagnostics)
+    {
+        if (diagnostics == null || diagnostics.Count == 0) return;
+        string text = string.Join(Environment.NewLine, diagnostics);
+        if (status == "ok") app.LogService.Info(text);
+        else app.LogService.Warning(text);
     }
 
     static CalcResult Error(FemAnalysis analysis, string created, string message, string taskKind) => new()
