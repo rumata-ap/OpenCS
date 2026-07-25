@@ -1407,6 +1407,8 @@
     <system:String x:Key="FemConvergenceNormUnbalance">Unbalanced force norm</system:String>
     <system:String x:Key="FemConvergenceNormDispIncr">Displacement increment norm</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Integration points</system:String>
+    <system:String x:Key="FemAnalysisConsiderConcreteTension">Consider concrete tension strength</system:String>
+    <system:String x:Key="FemAnalysisConsiderConcreteTensionTip">When disabled, the OpenSees tension envelope for concrete is collapsed to a small residual slope with no real strength — the section is treated as already fully cracked, avoiding the sharp stiffness transition at cracking. Does not affect rebar/steel. Useful if the analysis fails to converge due to concrete cracking.</system:String>
     <system:String x:Key="FemResultTabHistory">History</system:String>
     <system:String x:Key="FemResultStep">Step</system:String>
     <system:String x:Key="FemResultStepLabel">Step {0}/{1}, λ={2:F3} ({3})</system:String>

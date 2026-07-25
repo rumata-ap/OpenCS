@@ -18,6 +18,13 @@ public sealed class FemNonlinearModel
     public double LoadFactorStep { get; init; } = 0.1;
     public double MaxLoadFactor { get; init; } = 10.0;
     public int RefinementDivisions { get; init; } = 10;
+    /// <summary>Максимальная глубина рекурсивного дробления шага при отказе сходимости.
+    /// На каждом уровне неудачный интервал делится на RefinementDivisions частей;
+    /// если и они не сходятся — дробятся рекурсивно дальше, вплоть до этой глубины
+    /// (иначе шаг считается неустранимо неудавшимся). Один уровень (как было раньше)
+    /// часто недостаточен для резкого перехода жёсткости при трещинообразовании —
+    /// см. отладку кинематических нагрузок на неразрезной балке.</summary>
+    public int MaxRefinementDepth { get; init; } = 4;
     public double Tolerance { get; init; } = 1e-6;
     public int MaxIterations { get; init; } = 50;
     public string GeomTransfKind { get; init; } = "Linear";
@@ -41,6 +48,8 @@ public sealed class FemNonlinearModel
             throw new InvalidOperationException("Максимальный коэффициент нагрузки не может быть меньше шага.");
         if (RefinementDivisions <= 0)
             throw new InvalidOperationException("Количество делений шага должно быть положительным.");
+        if (MaxRefinementDepth <= 0)
+            throw new InvalidOperationException("Максимальная глубина дробления шага должна быть положительной.");
         if (Tolerance <= 0) throw new InvalidOperationException("Допуск невязки должен быть положительным.");
         if (MaxIterations <= 0) throw new InvalidOperationException("Максимальное число итераций должно быть положительным.");
         if (GeomTransfKind is not ("Linear" or "PDelta" or "Corotational"))

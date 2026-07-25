@@ -1,4 +1,5 @@
 using OpenCS.OpenSees.Artifacts;
+using OpenCS.OpenSees.Model;
 using OpenCS.OpenSees.Results;
 using OpenCS.OpenSees.Runtime;
 using OpenCS.OpenSees.Services;
@@ -91,6 +92,111 @@ public sealed class FemNonlinearIntegrationTests
             Assert.Equal(4, selectedStates.Select(s => s.StepIndex).Distinct().Count());
             Assert.DoesNotContain('\0', File.ReadAllText(
                 Path.Combine(result.ArtifactDirectory!, "nonlinear_node_disp.out")));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ContinuousBeam_KinematicMidspanDisplacement_CracksButConverges()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string root = Path.Combine(Path.GetTempPath(), "opencs-fem-nonlinear-kinematic", Guid.NewGuid().ToString("N"));
+
+        // Неразрезная балка на 3 опорах (0, 6, 12 м), вынужденное смещение -0.02 м (2 см)
+        // в серединах обоих пролётов (узлы 2 и 4) — воспроизводит реальный сценарий
+        // пользователя, где сечение реально трескается (не остаётся в линейном участке,
+        // в отличие от Cantilever_SmallElasticTipLoad_MatchesBeamTheory выше).
+        // Диаграмма бетона (сечение 1) — реальная СП63-подобная кривая с плоским хвостом
+        // и в растяжении (после трещинообразования, ε≈0.0001), и в сжатии (после
+        // раздавливания, ε≈-0.002…-0.0035); MaterialDiagramMapper придаёт этим хвостам
+        // малый ненулевой наклон, иначе ForceBeamColumn не может обратить матрицу
+        // гибкости сечения, как только волокна выходят на плато.
+        var concrete = new OpenSeesMaterialDefinition
+        {
+            Tag = 1,
+            NegativeEnvelope =
+            [
+                new EnvelopePoint(-0.0035, -14_511_250), new EnvelopePoint(-0.003125, -14_500_000),
+                new EnvelopePoint(-0.00275, -14_500_000), new EnvelopePoint(-0.002375, -14_500_000),
+                new EnvelopePoint(-0.002, -14_500_000), new EnvelopePoint(-0.0015725, -13_050_000),
+                new EnvelopePoint(-0.001145, -11_600_000), new EnvelopePoint(-0.0007175, -10_150_000),
+                new EnvelopePoint(-0.00029, -8_700_000), new EnvelopePoint(-0.0002175, -6_525_000),
+                new EnvelopePoint(-0.000145, -4_350_000), new EnvelopePoint(-0.0000725, -2_175_000),
+                new EnvelopePoint(0, 0)
+            ],
+            PositiveEnvelope =
+            [
+                new EnvelopePoint(0, 0), new EnvelopePoint(0.0000525, 157_500),
+                new EnvelopePoint(0.000105, 315_000), new EnvelopePoint(0.0001575, 472_500),
+                new EnvelopePoint(0.00021, 630_000), new EnvelopePoint(0.0004075, 735_000),
+                new EnvelopePoint(0.000605, 840_000), new EnvelopePoint(0.0008025, 945_000),
+                new EnvelopePoint(0.001, 1_050_000), new EnvelopePoint(0.001125, 1_050_000),
+                new EnvelopePoint(0.00125, 1_050_000), new EnvelopePoint(0.001375, 1_050_000),
+                new EnvelopePoint(0.0015, 1_050_375)
+            ]
+        };
+        var section = new OpenCS.OpenSees.Model.OpenSeesSectionModel
+        {
+            Materials = [concrete],
+            Fibers =
+            [
+                new OpenSeesFiber(-0.5, -0.5, 0.25, 1), new OpenSeesFiber(-0.5, 0.5, 0.25, 1),
+                new OpenSeesFiber(0.5, -0.5, 0.25, 1), new OpenSeesFiber(0.5, 0.5, 0.25, 1)
+            ],
+            GJ = 1e6
+        };
+
+        var model = new FemNonlinearModel
+        {
+            Nodes =
+            [
+                new FemLinearNode(1, 0, 0, 0, [true, true, true, true, false, true]),
+                new FemLinearNode(2, 3, 0, 0, [false, true, false, true, false, true]),
+                new FemLinearNode(3, 6, 0, 0, [false, true, true, true, false, true]),
+                new FemLinearNode(4, 9, 0, 0, [false, true, false, true, false, true]),
+                new FemLinearNode(5, 12, 0, 0, [false, true, true, true, false, true]),
+            ],
+            Sections = new Dictionary<int, OpenCS.OpenSees.Model.OpenSeesSectionModel> { [1] = section },
+            Elements =
+            [
+                new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
+                new FemNonlinearElement(2, 2, 3, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
+                new FemNonlinearElement(3, 3, 4, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
+                new FemNonlinearElement(4, 4, 5, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
+            ],
+            KinematicLoads =
+            [
+                new FemLinearKinematicLoad(2, 3, -0.02),
+                new FemLinearKinematicLoad(4, 3, -0.02),
+            ],
+            LoadFactorStep = 0.1, MaxLoadFactor = 1.0, RefinementDivisions = 10, MaxRefinementDepth = 4,
+            Tolerance = 1e-6, MaxIterations = 50, GeomTransfKind = "Linear"
+        };
+
+        try
+        {
+            var result = await new FemNonlinearAnalysisService(
+                new FemNonlinearTclGenerator(),
+                new OpenSeesProcessRunner(),
+                new OpenSeesArtifactStore(root),
+                new FemNonlinearResultParser())
+                .RunAsync(model, new OpenSeesRunRequest
+                {
+                    ExecutablePath = executable,
+                    WorkingDirectory = Path.GetTempPath(),
+                    Timeout = TimeSpan.FromSeconds(60)
+                }, CancellationToken.None);
+
+            Assert.True(result.Status == "ok", $"status={result.Status}; diagnostics={string.Join(" | ", result.Diagnostics)}");
+            var last = result.Steps[^1];
+            Assert.InRange(last.LoadFactor, 0.99, 1.01);
+            Assert.True(last.Converged);
+
+            double uz2 = last.Displacements.Single(d => d.NodeTag == 2).Uz;
+            Assert.InRange(uz2, -0.0201, -0.0199);
         }
         finally
         {

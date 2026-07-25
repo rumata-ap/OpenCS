@@ -19,6 +19,10 @@ public static class CrossSectionToOpenSeesAdapter
 
         /// <summary>Первый тег материала OpenSees.</summary>
         public int FirstMaterialTag { get; init; } = 1;
+
+        /// <summary>Учитывать ли работу бетона на растяжение (см.
+        /// <see cref="MaterialDiagramMapper.Map"/>). На арматуру/сталь не влияет.</summary>
+        public bool ConsiderConcreteTension { get; init; } = true;
     }
 
     /// <summary>Строит модель из уже подготовленных фибр без изменения исходного сечения.</summary>
@@ -66,7 +70,8 @@ public static class CrossSectionToOpenSeesAdapter
                         diagram,
                         materialTag,
                         sourceId.ToString(CultureInfo.InvariantCulture),
-                        material.Type);
+                        material.Type,
+                        options.ConsiderConcreteTension);
                 }
                 catch (CScoreMappingException)
                 {

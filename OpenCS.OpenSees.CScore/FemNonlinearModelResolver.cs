@@ -76,7 +76,12 @@ public sealed class FemNonlinearModelResolver
             try
             {
                 model = CrossSectionToOpenSeesAdapter.Build(section, calcType, materials, customDiagramPool,
-                    new CrossSectionToOpenSeesAdapter.Options { GJ = gj, FirstMaterialTag = nextMaterialTag });
+                    new CrossSectionToOpenSeesAdapter.Options
+                    {
+                        GJ = gj,
+                        FirstMaterialTag = nextMaterialTag,
+                        ConsiderConcreteTension = options.ConsiderConcreteTension
+                    });
             }
             catch (CScoreMappingException ex)
             {

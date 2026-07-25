@@ -167,40 +167,62 @@ public sealed class FemNonlinearTclGenerator
         L($"set loadFactorStep {F(model.LoadFactorStep)}");
         L($"set maxLoadFactor {F(model.MaxLoadFactor)}");
         L($"set refinementDivisions {model.RefinementDivisions}");
+        L($"set maxRefinementDepth {model.MaxRefinementDepth}");
         L("set currentLambda 0.0");
         L("set stepIndex 0");
         L("set analysisFailed 0");
+        L();
+
+        // emitStepRecords — вызывается после каждого сошедшегося (под)шага, в т.ч. из рекурсии.
+        L("proc emitStepRecords {} {");
+        L("    global stepIndex currentLambda fiberStates nonlinearNodeDisp nonlinearElementForces" +
+            (restrainedTags.Count > 0 ? " nonlinearNodeReactions" : ""));
+        EmitFiberStateWrites(L, model);
+        EmitRecorderSnapshot(L, nodeTags, restrainedTags, elemTags);
+        L("}");
+        L();
+
+        // advanceTo — рекурсивное адаптивное дробление шага, БЕЗ записи результатов на
+        // промежуточных под-шагах: неудавшийся интервал [fromLambda, toLambda] делится на
+        // refinementDivisions частей и каждая пробуется отдельно (рекурсивно дробясь дальше
+        // при новой неудаче), вплоть до maxRefinementDepth. Один уровень дробления часто
+        // недостаточен для резкого падения жёсткости (трещинообразование/текучесть) — рекурсия
+        // ищет достаточно мелкий шаг адаптивно, оставаясь крупным там, где сходимость не
+        // проблема. Запись (emitStepRecords) — дорогая операция (полный обход волокон всех
+        // элементов), поэтому выполняется отдельно только для исходных контрольных точек
+        // loadFactorStep, а не для каждого внутреннего под-шага рекурсии — иначе на трудных
+        // участках объём записи и время расчёта раздуваются в разы.
+        L("set usedRefinement 0");
+        L("proc advanceTo {fromLambda toLambda depth} {");
+        L("    global refinementDivisions maxRefinementDepth usedRefinement");
+        L("    if {$depth > 0} { set usedRefinement 1 }");
+        L("    integrator LoadControl [expr {$toLambda - $fromLambda}]");
+        L("    set rc [analyze 1]");
+        L("    if {$rc == 0} { return 1 }");
+        L("    if {$depth >= $maxRefinementDepth} { return 0 }");
+        L("    set piece [expr {($toLambda - $fromLambda) / double($refinementDivisions)}]");
+        L("    for {set i 0} {$i < $refinementDivisions} {incr i} {");
+        L("        set subFrom [expr {$fromLambda + $piece * $i}]");
+        L("        set subTo [expr {$fromLambda + $piece * ($i + 1)}]");
+        L("        if {![advanceTo $subFrom $subTo [expr {$depth + 1}]]} { return 0 }");
+        L("    }");
+        L("    return 1");
+        L("}");
+        L();
+
         L("while {$currentLambda < $maxLoadFactor - 1.0e-12} {");
         L("    set targetLambda [expr {min($currentLambda + $loadFactorStep, $maxLoadFactor)}]");
-        L("    set increment [expr {$targetLambda - $currentLambda}]");
-        L("    integrator LoadControl $increment");
-        L("    set rc [analyze 1]");
-        L("    if {$rc == 0} {");
+        L("    set fromLambda $currentLambda");
+        L("    set usedRefinement 0");
+        L("    if {[advanceTo $fromLambda $targetLambda 0]} {");
         L("        set currentLambda [getTime]");
         L("        incr stepIndex");
-        L("        puts $stepStatus [list $stepIndex $currentLambda 1 0]");
-        EmitFiberStateWrites(L, model);
-        EmitRecorderSnapshot(L, nodeTags, restrainedTags, elemTags);
+        L("        puts $stepStatus [list $stepIndex $currentLambda 1 $usedRefinement]");
+        L("        emitStepRecords");
         L("    } else {");
-        L("        set refinedIncrement [expr {($targetLambda - $currentLambda) / $refinementDivisions}]");
-        L("        set refinementFailed 0");
-        L("        for {set r 1} {$r <= $refinementDivisions} {incr r} {");
-        L("            integrator LoadControl $refinedIncrement");
-        L("            set refinedRc [analyze 1]");
-        L("            if {$refinedRc != 0} {");
-        L("                set failedLambda [expr {$currentLambda + $refinedIncrement * ($r - 1)}]");
-        L("                puts $stepStatus [list [expr {$stepIndex + 1}] $failedLambda 0 1]");
-        L("                set refinementFailed 1");
-        L("                set analysisFailed 1");
-        L("                break");
-        L("            }");
-        L("            set currentLambda [getTime]");
-        L("            incr stepIndex");
-        L("            puts $stepStatus [list $stepIndex $currentLambda 1 1]");
-        EmitFiberStateWrites(L, model);
-        EmitRecorderSnapshot(L, nodeTags, restrainedTags, elemTags);
-        L("        }");
-        L("        if {$refinementFailed == 1} {break}");
+        L("        puts $stepStatus [list [expr {$stepIndex + 1}] $fromLambda 0 $usedRefinement]");
+        L("        set analysisFailed 1");
+        L("        break");
         L("    }");
         L("}");
         L("close $nonlinearNodeDisp");
@@ -219,6 +241,19 @@ public sealed class FemNonlinearTclGenerator
         return sb.ToString();
     }
 
+    /// <summary>Число повторных попыток eleResponse при подозрении на порчу вывода OpenSees
+    /// (см. FiberQueryMaxValueLength) прежде чем строка волокна будет пропущена.</summary>
+    private const int FiberQueryMaxRetries = 3;
+
+    /// <summary>Максимальная длина каждого значения stressStrain в символах. OpenSees 3.8.0 при
+    /// очень большом суммарном числе eleResponse-запросов к волокнам (элементы × точки
+    /// интегрирования × волокна) иногда отдаёт вместо пары чисел испорченный ответ — вплоть до
+    /// серии нулевых байтов — из-за чего теряется не только эта строка, но и последующие
+    /// (см. отладку кинематических нагрузок на неразрезной балке, шаг терялся целиком).
+    /// Обычное отформатированное double короче 32 символов; более длинный ответ — верный признак
+    /// порчи, а не корректного числа.</summary>
+    private const int FiberQueryMaxValueLength = 32;
+
     static void EmitFiberStateWrites(Action<string> line, FemNonlinearModel model)
     {
         foreach (var e in model.Elements.OrderBy(e => e.Tag))
@@ -227,8 +262,19 @@ public sealed class FemNonlinearTclGenerator
             line($"        for {{set ip 1}} {{$ip <= {e.NumIntegrationPoints}}} {{incr ip}} {{");
             line($"            for {{set fiberIndex 0}} {{$fiberIndex < {section.Fibers.Count}}} {{incr fiberIndex}} {{");
             string fiberCoordinates = string.Join(' ', section.Fibers.Select(f => $"{TclNumber.Format(f.Y)} {TclNumber.Format(f.Z)}"));
-            line($"                set stressStrain [eleResponse {e.Tag} section $ip fiber [lindex {{{fiberCoordinates}}} [expr {{$fiberIndex * 2}}]] [lindex {{{fiberCoordinates}}} [expr {{$fiberIndex * 2 + 1}}]] stressStrain]");
-            line($"                if {{[llength $stressStrain] >= 2}} {{ puts $fiberStates [list $stepIndex $currentLambda {e.Tag} $ip $fiberIndex [lindex $stressStrain 0] [lindex $stressStrain 1]] }}");
+            string fiberQuery = $"eleResponse {e.Tag} section $ip fiber [lindex {{{fiberCoordinates}}} [expr {{$fiberIndex * 2}}]] [lindex {{{fiberCoordinates}}} [expr {{$fiberIndex * 2 + 1}}]] stressStrain";
+            string isValid = $"[llength $stressStrain] == 2 && [string length [lindex $stressStrain 0]] <= {FiberQueryMaxValueLength} && [string length [lindex $stressStrain 1]] <= {FiberQueryMaxValueLength}";
+            line($"                set stressStrain [{fiberQuery}]");
+            line($"                set fiberQueryAttempt 0");
+            line($"                while {{!({isValid}) && $fiberQueryAttempt < {FiberQueryMaxRetries}}} {{");
+            line($"                    incr fiberQueryAttempt");
+            line($"                    set stressStrain [{fiberQuery}]");
+            line("                }");
+            line($"                if {{{isValid}}} {{");
+            line($"                    puts $fiberStates [list $stepIndex $currentLambda {e.Tag} $ip $fiberIndex [lindex $stressStrain 0] [lindex $stressStrain 1]]");
+            line("                } else {");
+            line($"                    puts stderr \"WARNING: состояние волокна пропущено (подозрение на порчу вывода OpenSees) elem={e.Tag} ip=$ip fiber=$fiberIndex step=$stepIndex\"");
+            line("                }");
             line("            }");
             line("        }");
         }

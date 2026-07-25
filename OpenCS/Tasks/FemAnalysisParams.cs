@@ -5,8 +5,8 @@ using CScore;
 namespace OpenCS.Tasks;
 
 /// <summary>Параметры запуска FEM-расчёта (линейного и нелинейного), хранимые в FemAnalysis.ParamsJson.
-/// Поля CalcType/LoadFactorStep/MaxLoadFactor/RefinementDivisions/Tolerance/MaxIterations/GeomTransfKind/IntegrationPoints используются
-/// только при Kind="nonlinear".</summary>
+/// Поля CalcType/LoadFactorStep/MaxLoadFactor/RefinementDivisions/Tolerance/MaxIterations/GeomTransfKind/IntegrationPoints/ConsiderConcreteTension
+/// используются только при Kind="nonlinear".</summary>
 public sealed class FemAnalysisParams
 {
     public string? ExecutablePath { get; set; }
@@ -34,6 +34,12 @@ public sealed class FemAnalysisParams
     public string ConvergenceTest { get; set; } = "EnergyIncr";
     /// <summary>Число точек интегрирования forceBeamColumn.</summary>
     public int IntegrationPoints { get; set; } = 5;
+    /// <summary>Учитывать ли работу бетона на растяжение в fiber-сечениях (на арматуру/сталь не
+    /// влияет). При отключении огибающая растяжения бетона заменяется малым остаточным наклоном
+    /// без прочности — сечение считается уже полностью растрескавшимся с самого начала, без
+    /// softening-участка, который на реальных сценариях может быть численно хрупок для
+    /// forceBeamColumn.</summary>
+    public bool ConsiderConcreteTension { get; set; } = true;
 
     public string ToJson() => JsonSerializer.Serialize(this);
     public static FemAnalysisParams Parse(string? json)

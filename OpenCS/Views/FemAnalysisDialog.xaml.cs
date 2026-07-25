@@ -44,6 +44,7 @@ public partial class FemAnalysisDialog : Window
             GeomTransfBox.SelectedItem = geomTransfOptions.FirstOrDefault(o => o.Value == pars.GeomTransfKind) ?? geomTransfOptions[0];
             ConvergenceTestBox.SelectedItem = convergenceTestOptions.FirstOrDefault(o => o.Value == pars.ConvergenceTest) ?? convergenceTestOptions[0];
             IntegrationPointsBox.Text = pars.IntegrationPoints.ToString();
+            ConsiderConcreteTensionCb.IsChecked = pars.ConsiderConcreteTension;
 
             var sel = sources.FirstOrDefault(s => s.Expr.ToJson() == existing.LoadExpressionJson);
             if (sel != null) LoadSourceBox.SelectedItem = sel;
@@ -125,6 +126,7 @@ public partial class FemAnalysisDialog : Window
             pars.GeomTransfKind = (GeomTransfBox.SelectedItem as ComboOption)?.Value ?? "Linear";
             pars.ConvergenceTest = (ConvergenceTestBox.SelectedItem as ComboOption)?.Value ?? "EnergyIncr";
             pars.IntegrationPoints = int.TryParse(IntegrationPointsBox.Text, out var ip) && ip > 0 ? ip : 5;
+            pars.ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true;
         }
 
         Result = new FemAnalysis

@@ -1410,6 +1410,8 @@
     <system:String x:Key="FemConvergenceNormUnbalance">По норме небаланса сил</system:String>
     <system:String x:Key="FemConvergenceNormDispIncr">По норме приращения перемещений</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Точки интегрирования</system:String>
+    <system:String x:Key="FemAnalysisConsiderConcreteTension">Учитывать работу бетона на растяжение</system:String>
+    <system:String x:Key="FemAnalysisConsiderConcreteTensionTip">При отключении огибающая растяжения бетона в OpenSees заменяется малым остаточным наклоном без прочности — сечение считается уже полностью растрескавшимся с самого начала, без резкого перехода жёсткости при трещинообразовании. На арматуру/сталь не влияет. Полезно, если расчёт не сходится из-за трещинообразования бетона.</system:String>
     <system:String x:Key="FemResultTabHistory">История</system:String>
     <system:String x:Key="FemResultStep">Шаг</system:String>
     <system:String x:Key="FemResultStepLabel">Шаг {0}/{1}, λ={2:F3} ({3})</system:String>

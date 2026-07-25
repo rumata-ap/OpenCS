@@ -52,6 +52,11 @@
 
             <TextBlock Text="{DynamicResource FemAnalysisIntegrationPointsLabel}" Margin="0,8,0,0"/>
             <TextBox x:Name="IntegrationPointsBox" Text="5"/>
+
+            <CheckBox x:Name="ConsiderConcreteTensionCb"
+                      Content="{DynamicResource FemAnalysisConsiderConcreteTension}"
+                      ToolTip="{DynamicResource FemAnalysisConsiderConcreteTensionTip}"
+                      IsChecked="True" Margin="0,8,0,0"/>
         </StackPanel>
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">

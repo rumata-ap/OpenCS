@@ -11,7 +11,9 @@ public sealed record FemNonlinearAnalysisOptions(
     double Tolerance,
     int MaxIterations,
     int IntegrationPoints,
-    string ConvergenceTest = "EnergyIncr")
+    string ConvergenceTest = "EnergyIncr",
+    // Учитывать ли работу бетона на растяжение (см. CrossSectionToOpenSeesAdapter.Options.ConsiderConcreteTension).
+    bool ConsiderConcreteTension = true)
 {
     /// <summary>Legacy-конструктор для старых вызывающих мест: LoadSteps → шаг 1/LoadSteps, λmax=1.</summary>
     public FemNonlinearAnalysisOptions(

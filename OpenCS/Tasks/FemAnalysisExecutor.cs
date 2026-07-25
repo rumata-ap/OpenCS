@@ -119,7 +119,7 @@ public static class FemAnalysisExecutor
         var options = new FemNonlinearAnalysisOptions(
             parameters.GeomTransfKind, parameters.LoadFactorStep, parameters.MaxLoadFactor,
             parameters.RefinementDivisions, parameters.Tolerance, parameters.MaxIterations,
-            parameters.IntegrationPoints, parameters.ConvergenceTest);
+            parameters.IntegrationPoints, parameters.ConvergenceTest, parameters.ConsiderConcreteTension);
 
         var input = new FemNonlinearWorkflowInput(
             meshNodes, meshElems, sourceNodes, sourceMembers, resolved.NodeLoads,
