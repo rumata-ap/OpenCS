@@ -1,5 +1,6 @@
 using CScore;
 using OpenCS.OpenSees.CScore;
+using OpenCS.OpenSees.Model;
 using OpenCS.OpenSees.Tests.Fixtures;
 
 namespace OpenCS.OpenSees.Tests;
@@ -123,5 +124,54 @@ public sealed class CrossSectionAdapterTests
             new Dictionary<int, Material> { [incomplete.Id] = incomplete, [steel.Id] = steel },
             customPool: null,
             options: new CrossSectionToOpenSeesAdapter.Options()));
+    }
+
+    [Fact]
+    public void Adapter_UsesNativeMaterialWhenMaterialSourceIsNative()
+    {
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+
+        var model = CrossSectionToOpenSeesAdapter.Build(
+            section,
+            CalcType.C,
+            CrossSectionFixtures.Materials(concrete, steel),
+            customPool: null,
+            options: new CrossSectionToOpenSeesAdapter.Options { MaterialSource = MaterialSource.Native });
+
+        foreach (var material in model.Materials)
+        {
+            Assert.NotNull(material.Native);
+            Assert.Empty(material.PositiveEnvelope);
+            Assert.Empty(material.NegativeEnvelope);
+        }
+    }
+
+    [Fact]
+    public void Adapter_FallsBackToTranslatedDiagramForCustomMaterialInNativeMode()
+    {
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+
+        // Material.ResolveCustomDiagramms(pool) требует Type==Custom + запись в CustomDiagramIds,
+        // указывающую на Diagramm.Id в пуле (см. CScore/Material.cs).
+        concrete.BaseType = MatType.Concrete;
+        concrete.Type = MatType.Custom;
+        concrete.CustomDiagramIds[CalcType.C] = 42;
+        Diagramm customDiagram = new(
+            new CSmath.LSpline([-0.002, 0], [-2_000, 0]),
+            new CSmath.LSpline([0, 0.001], [0, 1_500]),
+            DiagrammType.Custom, MatType.Custom, "custom")
+        { Id = 42 };
+
+        var model = CrossSectionToOpenSeesAdapter.Build(
+            section,
+            CalcType.C,
+            CrossSectionFixtures.Materials(concrete, steel),
+            customPool: [customDiagram],
+            options: new CrossSectionToOpenSeesAdapter.Options { MaterialSource = MaterialSource.Native });
+
+        var concreteMaterial = model.Materials.First(m => m.SourceId == concrete.Id.ToString());
+        Assert.Null(concreteMaterial.Native);
+        Assert.NotEmpty(concreteMaterial.PositiveEnvelope);
+        Assert.Contains(concreteMaterial.Warnings, w => w.Contains("нативная", StringComparison.OrdinalIgnoreCase));
     }
 }

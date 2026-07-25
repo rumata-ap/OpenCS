@@ -200,14 +200,11 @@ namespace CScore
          }
       }
 
-      /// <summary>Характеристики материала для заданного вида расчёта (обёртка над C/CL/N/NL).</summary>
-      public MaterialChars? GetChars(CalcType calc) => calc switch
-      {
-         CalcType.C => C,
-         CalcType.CL => CL,
-         CalcType.N => N,
-         _ => NL
-      };
+      /// <summary>Характеристики материала для заданного вида расчёта. Читает напрямую из
+      /// внутреннего словаря <see cref="chars"/> — так же, как <see cref="GetDiagramms"/> — а не
+      /// из свойств C/CL/N/NL, чьи сеттеры не всегда синхронизируют список materialChars
+      /// (обновляют существующий элемент по индексу, но не добавляют новый).</summary>
+      public MaterialChars? GetChars(CalcType calc) => chars.TryGetValue(calc, out var value) ? value : null;
 
       /// <summary>
       /// Конструктор по умолчанию.

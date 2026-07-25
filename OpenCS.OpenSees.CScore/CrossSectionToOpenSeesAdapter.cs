@@ -23,6 +23,17 @@ public static class CrossSectionToOpenSeesAdapter
         /// <summary>Учитывать ли работу бетона на растяжение (см.
         /// <see cref="MaterialDiagramMapper.Map"/>). На арматуру/сталь не влияет.</summary>
         public bool ConsiderConcreteTension { get; init; } = true;
+
+        /// <summary>Источник построения диаграммы материала: перевод диаграммы CScore
+        /// (по умолчанию) либо нативные параметрические материалы OpenSees.</summary>
+        public MaterialSource MaterialSource { get; init; } = MaterialSource.Translated;
+
+        /// <summary>Модель стали/арматуры при <see cref="MaterialSource.Native"/>.</summary>
+        public SteelModelKind SteelModel { get; init; } = SteelModelKind.Steel02;
+
+        /// <summary>Явное переопределение отношения модуля упрочнения стали/арматуры к E0 при
+        /// <see cref="MaterialSource.Native"/>. <c>null</c> — вычисляется автоматически.</summary>
+        public double? SteelHardeningRatioOverride { get; init; }
     }
 
     /// <summary>Строит модель из уже подготовленных фибр без изменения исходного сечения.</summary>
@@ -66,12 +77,47 @@ public static class CrossSectionToOpenSeesAdapter
                 OpenSeesMaterialDefinition definition;
                 try
                 {
-                    definition = MaterialDiagramMapper.Map(
-                        diagram,
-                        materialTag,
-                        sourceId.ToString(CultureInfo.InvariantCulture),
-                        material.Type,
-                        options.ConsiderConcreteTension);
+                    NativeMaterialSpec? native = options.MaterialSource == MaterialSource.Native
+                        ? NativeMaterialMapper.Map(
+                            material.GetChars(calc), material.Type, options.ConsiderConcreteTension,
+                            options.SteelModel, options.SteelHardeningRatioOverride)
+                        : null;
+
+                    if (native != null)
+                    {
+                        definition = new OpenSeesMaterialDefinition
+                        {
+                            Tag = materialTag,
+                            SourceId = sourceId.ToString(CultureInfo.InvariantCulture),
+                            SourceType = material.Type.ToString(),
+                            Native = native,
+                            PositiveEnvelope = [],
+                            NegativeEnvelope = []
+                        };
+                    }
+                    else
+                    {
+                        definition = MaterialDiagramMapper.Map(
+                            diagram,
+                            materialTag,
+                            sourceId.ToString(CultureInfo.InvariantCulture),
+                            material.Type,
+                            options.ConsiderConcreteTension);
+
+                        if (options.MaterialSource == MaterialSource.Native)
+                        {
+                            definition = new OpenSeesMaterialDefinition
+                            {
+                                Tag = definition.Tag,
+                                SourceId = definition.SourceId,
+                                SourceType = definition.SourceType,
+                                PositiveEnvelope = definition.PositiveEnvelope,
+                                NegativeEnvelope = definition.NegativeEnvelope,
+                                Warnings = [.. definition.Warnings,
+                                    "Нативная параметризация недоступна для этого материала (Custom либо нет характеристик для данного вида расчёта) — использована переведённая диаграмма."]
+                            };
+                        }
+                    }
                 }
                 catch (CScoreMappingException)
                 {

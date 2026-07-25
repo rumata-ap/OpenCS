@@ -96,8 +96,10 @@ internal static class CrossSectionFixtures
                 Fc = compression,
                 Ry = tension,
                 Ru = tension,
+                Ec0 = -0.002,
                 Ec1Red = -0.0015,
                 Ec2 = -0.003,
+                Et0 = 0.0001,
                 Et1Red = 0.0001,
                 Et2 = 0.02
             };
