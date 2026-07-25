@@ -432,13 +432,6 @@ namespace OpenCS.Views
          SelectComboByTag(OpenSeesGeomTransfCombo, _calcSettings.OpenSeesGeomTransfKind);
          SelectComboByTag(OpenSeesConvergenceTestCombo, _calcSettings.OpenSeesConvergenceTest);
          OpenSeesIntegrationPointsBox.Text = _calcSettings.OpenSeesIntegrationPoints.ToString();
-         OpenSeesConsiderConcreteTensionCb.IsChecked = _calcSettings.OpenSeesConsiderConcreteTension;
-         SelectComboByTag(OpenSeesMaterialSourceCombo, _calcSettings.OpenSeesMaterialSource);
-         SelectComboByTag(OpenSeesConcreteModelCombo, _calcSettings.OpenSeesConcreteModel);
-         SelectComboByTag(OpenSeesSteelModelCombo, _calcSettings.OpenSeesSteelModel);
-         OpenSeesSteelHardeningRatioBox.Text = _calcSettings.OpenSeesSteelHardeningRatioOverride
-            ?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
-         UpdateOpenSeesNativeMaterialPanelVisibility();
       }
 
       void HookOpenSeesControls()
@@ -471,27 +464,6 @@ namespace OpenCS.Views
          {
             if (int.TryParse(OpenSeesIntegrationPointsBox.Text, out var v) && v > 0) _calcSettings.OpenSeesIntegrationPoints = v;
          };
-         OpenSeesConsiderConcreteTensionCb.Checked += (_, _) => _calcSettings.OpenSeesConsiderConcreteTension = true;
-         OpenSeesConsiderConcreteTensionCb.Unchecked += (_, _) => _calcSettings.OpenSeesConsiderConcreteTension = false;
-         OpenSeesMaterialSourceCombo.SelectionChanged += (_, _) =>
-         {
-            _calcSettings.OpenSeesMaterialSource = ComboTag(OpenSeesMaterialSourceCombo) ?? "Translated";
-            UpdateOpenSeesNativeMaterialPanelVisibility();
-         };
-         OpenSeesConcreteModelCombo.SelectionChanged += (_, _) =>
-            _calcSettings.OpenSeesConcreteModel = ComboTag(OpenSeesConcreteModelCombo) ?? "Concrete04";
-         OpenSeesSteelModelCombo.SelectionChanged += (_, _) =>
-            _calcSettings.OpenSeesSteelModel = ComboTag(OpenSeesSteelModelCombo) ?? "Steel02";
-         OpenSeesSteelHardeningRatioBox.TextChanged += (_, _) =>
-            _calcSettings.OpenSeesSteelHardeningRatioOverride =
-               double.TryParse(OpenSeesSteelHardeningRatioBox.Text, System.Globalization.NumberStyles.Float,
-                  System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
-      }
-
-      void UpdateOpenSeesNativeMaterialPanelVisibility()
-      {
-         OpenSeesNativeMaterialPanel.Visibility =
-            ComboTag(OpenSeesMaterialSourceCombo) == "Native" ? Visibility.Visible : Visibility.Collapsed;
       }
 
       static string? ComboTag(ComboBox combo) => (combo.SelectedItem as ComboBoxItem)?.Tag as string;

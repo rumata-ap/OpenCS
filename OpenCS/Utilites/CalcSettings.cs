@@ -184,25 +184,8 @@ namespace OpenCS.Utilites
       [JsonPropertyName("openSeesIntegrationPoints")]
       public int OpenSeesIntegrationPoints { get; set; } = 5;
 
-      /// <summary>Учитывать ли работу бетона на растяжение в fiber-сечениях нелинейного расчёта.</summary>
-      [JsonPropertyName("openSeesConsiderConcreteTension")]
-      public bool OpenSeesConsiderConcreteTension { get; set; } = true;
-
-      /// <summary>Источник диаграммы материала: "Translated" | "Native".</summary>
-      [JsonPropertyName("openSeesMaterialSource")]
-      public string OpenSeesMaterialSource { get; set; } = "Translated";
-
-      /// <summary>Модель бетона при MaterialSource="Native": "Concrete0102" | "Concrete04".</summary>
-      [JsonPropertyName("openSeesConcreteModel")]
-      public string OpenSeesConcreteModel { get; set; } = "Concrete04";
-
-      /// <summary>Модель стали/арматуры при MaterialSource="Native": "Steel01" | "Steel02".</summary>
-      [JsonPropertyName("openSeesSteelModel")]
-      public string OpenSeesSteelModel { get; set; } = "Steel02";
-
-      /// <summary>Переопределение отношения модуля упрочнения стали/арматуры к E0; null — автоматически.</summary>
-      [JsonPropertyName("openSeesSteelHardeningRatioOverride")]
-      public double? OpenSeesSteelHardeningRatioOverride { get; set; }
+      // Настройки материалов (учёт растяжения бетона, источник/модель) специфичны для конкретной
+      // постановки — хранятся в FemAnalysisParams, а не здесь (задаются в диалоге постановки).
 
       public static CalcSettings Default => new();
 
@@ -244,11 +227,6 @@ namespace OpenCS.Utilites
          OpenSeesGeomTransfKind   = OpenSeesGeomTransfKind,
          OpenSeesConvergenceTest  = OpenSeesConvergenceTest,
          OpenSeesIntegrationPoints = OpenSeesIntegrationPoints,
-         OpenSeesConsiderConcreteTension = OpenSeesConsiderConcreteTension,
-         OpenSeesMaterialSource   = OpenSeesMaterialSource,
-         OpenSeesConcreteModel    = OpenSeesConcreteModel,
-         OpenSeesSteelModel       = OpenSeesSteelModel,
-         OpenSeesSteelHardeningRatioOverride = OpenSeesSteelHardeningRatioOverride,
       };
 
       /// <summary>Коэффициенты γf по умолчанию для комбинаторики СП 20.</summary>

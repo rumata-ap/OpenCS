@@ -1399,7 +1399,7 @@
     <system:String x:Key="FemAnalysisCalcTypeLabel">Diagram type (CalcType)</system:String>
     <system:String x:Key="FemAnalysisLoadFactorStepLabel">Load-factor step λ</system:String>
     <system:String x:Key="FemAnalysisMaxLoadFactorLabel">Maximum load factor λ</system:String>
-    <system:String x:Key="FemAnalysisSolverSettingsHint">Solver settings (convergence, geomTransf, material source, etc.) — see the "OpenSees" tab in global settings.</system:String>
+    <system:String x:Key="FemAnalysisSolverSettingsHint">Solver mechanics (executable, convergence, geomTransf, integration points) — see the "OpenSees" tab in global settings.</system:String>
     <system:String x:Key="FemAnalysisRefinementDivisionsLabel">Divisions of last failed step</system:String>
     <system:String x:Key="FemAnalysisToleranceLabel">Convergence tolerance</system:String>
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Max iterations</system:String>

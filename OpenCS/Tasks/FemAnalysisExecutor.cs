@@ -121,9 +121,9 @@ public static class FemAnalysisExecutor
         var options = new FemNonlinearAnalysisOptions(
             calcSettings.OpenSeesGeomTransfKind, parameters.LoadFactorStep, parameters.MaxLoadFactor,
             calcSettings.OpenSeesRefinementDivisions, calcSettings.OpenSeesTolerance, calcSettings.OpenSeesMaxIterations,
-            calcSettings.OpenSeesIntegrationPoints, calcSettings.OpenSeesConvergenceTest, calcSettings.OpenSeesConsiderConcreteTension,
-            Enum.Parse<MaterialSource>(calcSettings.OpenSeesMaterialSource), Enum.Parse<ConcreteModelKind>(calcSettings.OpenSeesConcreteModel),
-            Enum.Parse<SteelModelKind>(calcSettings.OpenSeesSteelModel), calcSettings.OpenSeesSteelHardeningRatioOverride);
+            calcSettings.OpenSeesIntegrationPoints, calcSettings.OpenSeesConvergenceTest, parameters.ConsiderConcreteTension,
+            Enum.Parse<MaterialSource>(parameters.MaterialSource), Enum.Parse<ConcreteModelKind>(parameters.ConcreteModel),
+            Enum.Parse<SteelModelKind>(parameters.SteelModel), parameters.SteelHardeningRatioOverride);
 
         var input = new FemNonlinearWorkflowInput(
             meshNodes, meshElems, sourceNodes, sourceMembers, resolved.NodeLoads,

@@ -471,7 +471,7 @@
                             <Grid Margin="4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="260"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="28"/>
@@ -487,7 +487,7 @@
                             <Grid Margin="4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="260"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="28"/>
@@ -518,57 +518,6 @@
                                 <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource FemAnalysisIntegrationPointsLabel}" VerticalAlignment="Center"/>
                                 <TextBox Grid.Row="5" Grid.Column="1" x:Name="OpenSeesIntegrationPointsBox" VerticalContentAlignment="Center" Margin="0,2"/>
                             </Grid>
-                        </GroupBox>
-                        <GroupBox Header="{DynamicResource OpenSeesMaterialsGroup}" Margin="0,0,0,10">
-                            <StackPanel Margin="4">
-                                <CheckBox x:Name="OpenSeesConsiderConcreteTensionCb"
-                                          Content="{DynamicResource FemAnalysisConsiderConcreteTension}"
-                                          ToolTip="{DynamicResource FemAnalysisConsiderConcreteTensionTip}"
-                                          Margin="0,2,0,6"/>
-                                <Grid Margin="0,0,0,6">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="180"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisMaterialSourceLabel}" VerticalAlignment="Center"/>
-                                    <ComboBox Grid.Column="1" x:Name="OpenSeesMaterialSourceCombo" VerticalContentAlignment="Center">
-                                        <ComboBoxItem Tag="Translated" Content="{DynamicResource FemMaterialSourceTranslated}"/>
-                                        <ComboBoxItem Tag="Native" Content="{DynamicResource FemMaterialSourceNative}"/>
-                                    </ComboBox>
-                                </Grid>
-                                <StackPanel x:Name="OpenSeesNativeMaterialPanel">
-                                    <Grid Margin="0,0,0,6">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="180"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisConcreteModelLabel}" VerticalAlignment="Center"/>
-                                        <ComboBox Grid.Column="1" x:Name="OpenSeesConcreteModelCombo" VerticalContentAlignment="Center">
-                                            <ComboBoxItem Tag="Concrete0102" Content="{DynamicResource FemConcreteModelConcrete0102}"/>
-                                            <ComboBoxItem Tag="Concrete04" Content="{DynamicResource FemConcreteModelConcrete04}"/>
-                                        </ComboBox>
-                                    </Grid>
-                                    <Grid Margin="0,0,0,6">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="180"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisSteelModelLabel}" VerticalAlignment="Center"/>
-                                        <ComboBox Grid.Column="1" x:Name="OpenSeesSteelModelCombo" VerticalContentAlignment="Center">
-                                            <ComboBoxItem Tag="Steel01" Content="Steel01"/>
-                                            <ComboBoxItem Tag="Steel02" Content="Steel02"/>
-                                        </ComboBox>
-                                    </Grid>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="180"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisSteelHardeningRatioLabel}" VerticalAlignment="Center"/>
-                                        <TextBox Grid.Column="1" x:Name="OpenSeesSteelHardeningRatioBox" VerticalContentAlignment="Center"/>
-                                    </Grid>
-                                </StackPanel>
-                            </StackPanel>
                         </GroupBox>
                     </StackPanel>
                 </ScrollViewer>

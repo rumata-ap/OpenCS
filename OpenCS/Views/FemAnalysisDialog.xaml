@@ -62,6 +62,50 @@
                 <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisMaxLoadFactorLabel}" VerticalAlignment="Center"/>
                 <TextBox Grid.Column="1" x:Name="MaxLoadFactorBox" Text="10" Height="22" VerticalContentAlignment="Center"/>
             </Grid>
+
+            <GroupBox Header="{DynamicResource OpenSeesMaterialsGroup}" Margin="0,8,0,0">
+                <StackPanel Margin="4">
+                    <CheckBox x:Name="ConsiderConcreteTensionCb"
+                              Content="{DynamicResource FemAnalysisConsiderConcreteTension}"
+                              ToolTip="{DynamicResource FemAnalysisConsiderConcreteTensionTip}"
+                              IsChecked="True" Margin="0,0,0,6"/>
+                    <Grid Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisMaterialSourceLabel}" VerticalAlignment="Center"/>
+                        <ComboBox Grid.Column="1" x:Name="MaterialSourceBox" DisplayMemberPath="Label" Height="22" VerticalContentAlignment="Center"/>
+                    </Grid>
+                    <StackPanel x:Name="NativeMaterialPanel" Visibility="Collapsed">
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisConcreteModelLabel}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1" x:Name="ConcreteModelBox" DisplayMemberPath="Label" Height="22" VerticalContentAlignment="Center"/>
+                        </Grid>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisSteelModelLabel}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1" x:Name="SteelModelBox" DisplayMemberPath="Label" Height="22" VerticalContentAlignment="Center"/>
+                        </Grid>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisSteelHardeningRatioLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            <TextBox Grid.Column="1" x:Name="SteelHardeningRatioBox" Text="" Height="22" VerticalContentAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </GroupBox>
+
             <TextBlock Text="{DynamicResource FemAnalysisSolverSettingsHint}" Margin="0,8,0,0" TextWrapping="Wrap"
                        FontStyle="Italic" Opacity="0.7" FontSize="11"/>
         </StackPanel>

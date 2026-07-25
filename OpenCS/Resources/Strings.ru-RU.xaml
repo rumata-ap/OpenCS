@@ -1402,7 +1402,7 @@
     <system:String x:Key="FemAnalysisCalcTypeLabel">Тип диаграмм (CalcType)</system:String>
     <system:String x:Key="FemAnalysisLoadFactorStepLabel">Шаг коэффициента нагрузки λ</system:String>
     <system:String x:Key="FemAnalysisMaxLoadFactorLabel">Максимальный коэффициент нагрузки λ</system:String>
-    <system:String x:Key="FemAnalysisSolverSettingsHint">Настройки решателя (сходимость, geomTransf, источник материалов и т.п.) — в общих настройках, вкладка «OpenSees».</system:String>
+    <system:String x:Key="FemAnalysisSolverSettingsHint">Механика решателя (исполняемый файл, сходимость, geomTransf, точки интегрирования) — в общих настройках, вкладка «OpenSees».</system:String>
     <system:String x:Key="FemAnalysisRefinementDivisionsLabel">Делений последнего неудачного шага</system:String>
     <system:String x:Key="FemAnalysisToleranceLabel">Допуск невязки</system:String>
     <system:String x:Key="FemAnalysisMaxIterationsLabel">Макс. число итераций</system:String>

@@ -8,8 +8,9 @@ using OpenCS.Utilites;
 namespace OpenCS.Views;
 
 /// <summary>Диалог создания постановки OpenSees-расчёта схемы (линейный/нелинейный). Solver-
-/// настройки (исполняемый файл, сходимость, источник/модель материалов и т.п.) — глобальные,
-/// см. вкладку «OpenSees» в диалоге настроек (SettingsWindow).</summary>
+/// механика (исполняемый файл, сходимость, geomTransf и т.п.) — глобальная, см. вкладку
+/// «OpenSees» в диалоге настроек (SettingsWindow). Настройки материалов специфичны для
+/// конкретной постановки и хранятся здесь.</summary>
 public partial class FemAnalysisDialog : Window
 {
     readonly FemSchema _schema;
@@ -24,6 +25,13 @@ public partial class FemAnalysisDialog : Window
         var sources = BuildLoadSources();
         LoadSourceBox.ItemsSource = sources;
         CalcTypeBox.ItemsSource = Enum.GetValues<CalcType>();
+        var materialSourceOptions = BuildMaterialSourceOptions();
+        var concreteModelOptions = BuildConcreteModelOptions();
+        var steelModelOptions = BuildSteelModelOptions();
+        MaterialSourceBox.ItemsSource = materialSourceOptions;
+        ConcreteModelBox.ItemsSource = concreteModelOptions;
+        SteelModelBox.ItemsSource = steelModelOptions;
+        MaterialSourceBox.SelectionChanged += (_, _) => UpdateNativeMaterialPanelVisibility();
 
         if (existing != null)
         {
@@ -34,6 +42,11 @@ public partial class FemAnalysisDialog : Window
             CalcTypeBox.SelectedItem = pars.CalcType ?? CalcType.C;
             LoadFactorStepBox.Text = pars.LoadFactorStep.ToString(CultureInfo.InvariantCulture);
             MaxLoadFactorBox.Text = pars.MaxLoadFactor.ToString(CultureInfo.InvariantCulture);
+            ConsiderConcreteTensionCb.IsChecked = pars.ConsiderConcreteTension;
+            MaterialSourceBox.SelectedItem = materialSourceOptions.FirstOrDefault(o => o.Value == pars.MaterialSource) ?? materialSourceOptions[0];
+            ConcreteModelBox.SelectedItem = concreteModelOptions.FirstOrDefault(o => o.Value == pars.ConcreteModel) ?? concreteModelOptions[1];
+            SteelModelBox.SelectedItem = steelModelOptions.FirstOrDefault(o => o.Value == pars.SteelModel) ?? steelModelOptions[1];
+            SteelHardeningRatioBox.Text = pars.SteelHardeningRatioOverride?.ToString(CultureInfo.InvariantCulture) ?? "";
 
             var sel = sources.FirstOrDefault(s => s.Expr.ToJson() == existing.LoadExpressionJson);
             if (sel != null) LoadSourceBox.SelectedItem = sel;
@@ -42,12 +55,37 @@ public partial class FemAnalysisDialog : Window
         else
         {
             CalcTypeBox.SelectedItem = CalcType.C;
+            MaterialSourceBox.SelectedItem = materialSourceOptions[0];
+            ConcreteModelBox.SelectedItem = concreteModelOptions[1];
+            SteelModelBox.SelectedItem = steelModelOptions[1];
             if (LoadSourceBox.Items.Count > 0) LoadSourceBox.SelectedIndex = 0;
         }
         UpdateNonlinearPanelVisibility();
+        UpdateNativeMaterialPanelVisibility();
     }
 
     sealed record LoadSource(string Label, FemLoadExpression Expr);
+
+    /// <summary>Пара «значение для Tcl/хранения» + «локализованная подпись для UI».</summary>
+    sealed record ComboOption(string Value, string Label);
+
+    static List<ComboOption> BuildMaterialSourceOptions() =>
+    [
+        new("Translated", Loc.S("FemMaterialSourceTranslated")),
+        new("Native", Loc.S("FemMaterialSourceNative")),
+    ];
+
+    static List<ComboOption> BuildConcreteModelOptions() =>
+    [
+        new("Concrete0102", Loc.S("FemConcreteModelConcrete0102")),
+        new("Concrete04", Loc.S("FemConcreteModelConcrete04")),
+    ];
+
+    static List<ComboOption> BuildSteelModelOptions() =>
+    [
+        new("Steel01", "Steel01"),
+        new("Steel02", "Steel02"),
+    ];
 
     List<LoadSource> BuildLoadSources()
     {
@@ -71,6 +109,13 @@ public partial class FemAnalysisDialog : Window
         NonlinearPanel.Visibility = KindNonlinearRadio.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    void UpdateNativeMaterialPanelVisibility()
+    {
+        if (NativeMaterialPanel == null) return;
+        NativeMaterialPanel.Visibility =
+            (MaterialSourceBox.SelectedItem as ComboOption)?.Value == "Native" ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     void Ok_Click(object sender, RoutedEventArgs e)
     {
         if (LoadSourceBox.SelectedItem is not LoadSource src) { DialogResult = false; return; }
@@ -84,6 +129,13 @@ public partial class FemAnalysisDialog : Window
                 ? loadStep : 0.1;
             pars.MaxLoadFactor = double.TryParse(MaxLoadFactorBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var maxLoad) && maxLoad >= pars.LoadFactorStep
                 ? maxLoad : Math.Max(10.0, pars.LoadFactorStep);
+            pars.ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true;
+            pars.MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated";
+            pars.ConcreteModel = (ConcreteModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04";
+            pars.SteelModel = (SteelModelBox.SelectedItem as ComboOption)?.Value ?? "Steel02";
+            pars.SteelHardeningRatioOverride =
+                double.TryParse(SteelHardeningRatioBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var hardening)
+                    ? hardening : null;
         }
 
         Result = new FemAnalysis
