@@ -53,7 +53,8 @@ public static class FemAnalysisExecutor
         {
             ExecutablePath = executable.Path,
             WorkingDirectory = Path.GetTempPath(),
-            Timeout = TimeSpan.FromSeconds(calcSettings.OpenSeesTimeoutSeconds)
+            Timeout = TimeSpan.FromSeconds(calcSettings.OpenSeesTimeoutSeconds),
+            OnOutputLine = line => app.LogService.Info($"[{analysis.Tag}] {line}")
         };
 
         if (analysis.Kind == "nonlinear")

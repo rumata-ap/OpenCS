@@ -52,7 +52,8 @@ public sealed class FemNonlinearAnalysisService
             Arguments = processRequest.Arguments,
             WorkingDirectory = artifact.DirectoryPath,
             ScriptPath = artifact.ScriptPath,
-            Timeout = processRequest.Timeout
+            Timeout = processRequest.Timeout,
+            OnOutputLine = processRequest.OnOutputLine
         };
 
         OpenSeesRunResult run;

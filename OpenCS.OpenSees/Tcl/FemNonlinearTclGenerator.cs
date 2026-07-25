@@ -20,6 +20,9 @@ public sealed class FemNonlinearTclGenerator
 
         L("# OpenCS OpenSees нелинейный расчёт FEM-схемы");
         L("# Units: m, N, Pa");
+        // stdout при перенаправлении в процесс буферизуется целыми блоками (не построчно) —
+        // без этого puts-прогресс шагов доходил бы до живого лога OpenCS только пачками/в конце.
+        L("fconfigure stdout -buffering line");
         L("wipe");
         L("model basic -ndm 3 -ndf 6");
         L();
@@ -225,6 +228,7 @@ public sealed class FemNonlinearTclGenerator
         L("    if {$rc == 0} {");
         L("        incr stepIndex");
         L("        set currentLambda [getTime]");
+        L("        puts \"step $stepIndex lambda=$currentLambda depth=$depth\"");
         L("        writeCloseOnWrite step_status.out [list $stepIndex $currentLambda 1 [expr {$depth > 0}]]");
         EmitFiberStateWrites(L, model);
         L("        return 1");
@@ -245,6 +249,7 @@ public sealed class FemNonlinearTclGenerator
         L("    set fromLambda $currentLambda");
         L("    if {![advanceTo $fromLambda $targetLambda 0]} {");
         L("        set currentLambda [getTime]");
+        L("        puts \"step [expr {$stepIndex + 1}] FAILED lambda=$currentLambda\"");
         L("        writeCloseOnWrite step_status.out [list [expr {$stepIndex + 1}] $currentLambda 0 1]");
         L("        set analysisFailed 1");
         L("        break");

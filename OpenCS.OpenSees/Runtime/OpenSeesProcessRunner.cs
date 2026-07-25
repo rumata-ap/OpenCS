@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 
 namespace OpenCS.OpenSees.Runtime;
 
@@ -29,12 +30,27 @@ public sealed class OpenSeesProcessRunner : IOpenSeesProcessRunner
             startInfo.ArgumentList.Add(request.ScriptPath);
 
         using Process process = new() { StartInfo = startInfo, EnableRaisingEvents = true };
+        StringBuilder stdout = new();
+        StringBuilder stderr = new();
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data == null) return;
+            stdout.AppendLine(e.Data);
+            request.OnOutputLine?.Invoke(e.Data);
+        };
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data == null) return;
+            stderr.AppendLine(e.Data);
+            request.OnOutputLine?.Invoke(e.Data);
+        };
+
         Stopwatch stopwatch = Stopwatch.StartNew();
         if (!process.Start())
             throw new InvalidOperationException("Не удалось запустить OpenSees process.");
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
 
-        Task<string> stdoutTask = process.StandardOutput.ReadToEndAsync();
-        Task<string> stderrTask = process.StandardError.ReadToEndAsync();
         using CancellationTokenSource timeoutCancellation = new(request.Timeout);
         using CancellationTokenSource linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
@@ -54,15 +70,17 @@ public sealed class OpenSeesProcessRunner : IOpenSeesProcessRunner
             await process.WaitForExitAsync();
         }
 
-        string stdout = await stdoutTask;
-        string stderr = await stderrTask;
+        // Синхронный WaitForExit() (уже завершившийся процесс) гарантирует, что все буферизованные
+        // асинхронные строки OutputDataReceived/ErrorDataReceived доставлены до возврата — в отличие
+        // от WaitForExitAsync(), который такой гарантии не даёт.
+        process.WaitForExit();
         stopwatch.Stop();
 
         return new OpenSeesRunResult
         {
             ExitCode = process.ExitCode,
-            Stdout = stdout,
-            Stderr = stderr,
+            Stdout = stdout.ToString(),
+            Stderr = stderr.ToString(),
             Duration = stopwatch.Elapsed,
             TimedOut = timedOut,
             Cancelled = cancelled

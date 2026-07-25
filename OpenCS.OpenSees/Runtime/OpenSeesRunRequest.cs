@@ -18,6 +18,10 @@ public sealed class OpenSeesRunRequest
     /// <summary>Максимальная длительность процесса.</summary>
     public TimeSpan Timeout { get; init; } = TimeSpan.FromMinutes(5);
 
+    /// <summary>Необязательный колбэк, вызываемый на каждую строку stdout/stderr процесса по мере
+    /// её поступления (а не после завершения) — для живого лога хода расчёта в UI.</summary>
+    public Action<string>? OnOutputLine { get; init; }
+
     /// <summary>Проверяет обязательные параметры запуска.</summary>
     public void Validate()
     {
