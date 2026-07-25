@@ -13,7 +13,13 @@ public sealed record FemNonlinearAnalysisOptions(
     int IntegrationPoints,
     string ConvergenceTest = "EnergyIncr",
     // Учитывать ли работу бетона на растяжение (см. CrossSectionToOpenSeesAdapter.Options.ConsiderConcreteTension).
-    bool ConsiderConcreteTension = true)
+    bool ConsiderConcreteTension = true,
+    // Источник диаграммы материала: перевод CScore (по умолчанию) либо нативные материалы OpenSees.
+    MaterialSource MaterialSource = MaterialSource.Translated,
+    // Модель стали/арматуры при MaterialSource.Native.
+    SteelModelKind SteelModel = SteelModelKind.Steel02,
+    // Переопределение отношения модуля упрочнения стали/арматуры; null — автоматически.
+    double? SteelHardeningRatioOverride = null)
 {
     /// <summary>Legacy-конструктор для старых вызывающих мест: LoadSteps → шаг 1/LoadSteps, λmax=1.</summary>
     public FemNonlinearAnalysisOptions(

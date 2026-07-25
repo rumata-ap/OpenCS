@@ -80,7 +80,10 @@ public sealed class FemNonlinearModelResolver
                     {
                         GJ = gj,
                         FirstMaterialTag = nextMaterialTag,
-                        ConsiderConcreteTension = options.ConsiderConcreteTension
+                        ConsiderConcreteTension = options.ConsiderConcreteTension,
+                        MaterialSource = options.MaterialSource,
+                        SteelModel = options.SteelModel,
+                        SteelHardeningRatioOverride = options.SteelHardeningRatioOverride
                     });
             }
             catch (CScoreMappingException ex)
