@@ -43,6 +43,15 @@ public class FemMember : IFemCheckable
     /// угол — поворот по правилу правой руки вокруг локальной X (от узла I к узлу J).</summary>
     public double RotationDeg { get; set; }
 
+    /// <summary>FK → planar_regions.id. Геометрическая привязка плоского конструктивного
+    /// элемента (плита/стена). Null для элементов без PlanarRegion (стержни, старые импорты).</summary>
+    public int?   PlanarRegionId { get; set; }
+    /// <summary>Семантический тип плоского элемента: "plate" | "wall". Null для не-shell.</summary>
+    public string? Kind          { get; set; }
+    /// <summary>Источник Kind: "auto" (геометрическая классификация) | "manual" (ручной override).
+    /// Импортёр как источник — за рамками этого среза.</summary>
+    public string  KindSource    { get; set; } = "auto";
+
     string IFemCheckable.Tag => ElemTag;
 
     int[]? _nodeIds;
