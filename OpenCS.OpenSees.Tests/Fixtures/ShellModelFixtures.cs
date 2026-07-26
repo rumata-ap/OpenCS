@@ -14,6 +14,18 @@ internal static class ShellModelFixtures
     public static ShellOpenSeesModel T3Elastic(ShellIntegrationPolicy policy) => Create(
         ShellElementKind.ASDShellT3, policy, [1, 2, 3], 11);
 
+    /// <summary>Q4 patch со свободными узлами 2/3, нагруженными вертикальной силой (нетривиальный изгиб).</summary>
+    public static ShellOpenSeesModel Q4WithTipLoad() => Q4Elastic() with
+    {
+        Loads = [new(2, 0, 0, -1000, 0, 0, 0), new(3, 0, 0, -1000, 0, 0, 0)]
+    };
+
+    /// <summary>T3 patch со свободным узлом 3, нагруженным вертикальной силой.</summary>
+    public static ShellOpenSeesModel T3WithTipLoad(ShellIntegrationPolicy policy) => T3Elastic(policy) with
+    {
+        Loads = [new(3, 0, 0, -1000, 0, 0, 0)]
+    };
+
     private static ShellOpenSeesModel Create(
         ShellElementKind kind,
         ShellIntegrationPolicy policy,
@@ -21,13 +33,16 @@ internal static class ShellModelFixtures
         int elementTag)
     {
         const string fingerprint = "shell-fixture-section";
+        NormalizedShellNode[] allNodes = [
+            new(1, 0, 0, 0, Fixed(kind, 1), "fixture:1"),
+            new(2, 1, 0, 0, Fixed(kind, 2), "fixture:2"),
+            new(3, 1, 1, 0, Fixed(kind, 3), "fixture:3"),
+            new(4, 0, 1, 0, Fixed(kind, 4), "fixture:4")];
+        // Только узлы, реально входящие в connectivity элемента — иначе несвязанный узел
+        // с нулевой жёсткостью вырождает глобальную матрицу (см. находку по T3-фикстуре).
         return new ShellOpenSeesModel
         {
-            Nodes = [
-                new(1, 0, 0, 0, Fixed(kind, 1), "fixture:1"),
-                new(2, 1, 0, 0, Fixed(kind, 2), "fixture:2"),
-                new(3, 1, 1, 0, Fixed(kind, 3), "fixture:3"),
-                new(4, 0, 1, 0, Fixed(kind, 4), "fixture:4")],
+            Nodes = allNodes.Where(node => connectivity.Contains(node.Tag)).ToArray(),
             Materials = [new(1, "fixture:concrete", new ElasticIsotropicShellMaterialSpec(30e9, 0.25))],
             Sections = [new(20, "fixture:plate", 0.2, ShellFrame.Identity,
                 [

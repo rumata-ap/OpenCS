@@ -44,6 +44,50 @@ public sealed class ShellOpenSeesIntegrationTests
         await RunAndAssertAsync(executable, model);
     }
 
+    [Fact]
+    public async Task Q4WithTipLoad_ProducesNonZeroDisplacementAndSectionForces()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        var model = ShellModelFixtures.Q4WithTipLoad();
+        ShellResult result = await RunAndParseAsync(executable, model);
+
+        Assert.Contains(result.Displacements, d => Math.Abs(d.Uz) > 1e-9);
+        Assert.Contains(result.SectionResultants, s => Math.Abs(s.Mx) > 1e-9 || Math.Abs(s.My) > 1e-9);
+    }
+
+    [Fact]
+    public async Task T3WithTipLoad_ProducesNonZeroDisplacementAndSectionForces()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        var model = ShellModelFixtures.T3WithTipLoad(OpenCS.OpenSees.Structural.ShellIntegrationPolicy.Full);
+        ShellResult result = await RunAndParseAsync(executable, model);
+
+        Assert.Contains(result.Displacements, d => Math.Abs(d.Uz) > 1e-9);
+        Assert.Contains(result.SectionResultants, s => Math.Abs(s.Mx) > 1e-9 || Math.Abs(s.My) > 1e-9);
+    }
+
+    private static async Task<ShellResult> RunAndParseAsync(string executable, OpenCS.OpenSees.Structural.ShellOpenSeesModel model)
+    {
+        using var fixture = new ShellArtifactFixture();
+        string scriptPath = Path.Combine(fixture.Directory, "script.tcl");
+        File.WriteAllText(scriptPath, new ShellTclGenerator().Generate(model));
+
+        OpenSeesRunResult run = await new OpenSeesProcessRunner().RunAsync(
+            new OpenSeesRunRequest
+            {
+                ExecutablePath = executable,
+                WorkingDirectory = fixture.Directory,
+                ScriptPath = scriptPath,
+                Timeout = TimeSpan.FromSeconds(30)
+            }, CancellationToken.None);
+
+        Assert.Equal(0, run.ExitCode);
+        ShellResult result = new ShellResultParser().Parse(
+            fixture.Directory, model.Elements.ToDictionary(element => element.Tag));
+        Assert.Equal("completed", result.Status);
+        return result;
+    }
+
     private static async Task RunAndAssertAsync(
         string executable,
         OpenCS.OpenSees.Structural.ShellOpenSeesModel model)
