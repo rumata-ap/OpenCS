@@ -69,6 +69,27 @@ public sealed class ShellTclGenerator
         }
         L();
 
+        var beamTransfByVec = new Dictionary<(double, double, double), int>();
+        foreach (FemLinearElement beam in model.BeamElements)
+            if (!beamTransfByVec.ContainsKey(beam.Vecxz))
+            {
+                int tag = beamTransfByVec.Count + 1;
+                beamTransfByVec[beam.Vecxz] = tag;
+                L($"geomTransf Linear {tag} {F(beam.Vecxz.X)} {F(beam.Vecxz.Y)} {F(beam.Vecxz.Z)}");
+            }
+        foreach (FemLinearElement beam in model.BeamElements.OrderBy(beam => beam.Tag))
+        {
+            int transf = beamTransfByVec[beam.Vecxz];
+            L($"element elasticBeamColumn {beam.Tag} {beam.NodeI} {beam.NodeJ} {F(beam.A)} {F(beam.E)} {F(beam.G)} {F(beam.J)} {F(beam.Iy)} {F(beam.Iz)} {transf}");
+        }
+        L();
+
+        foreach (ShellEqualDofConstraint constraint in model.EqualDofConstraints.OrderBy(c => (c.MasterNode, c.SlaveNode)))
+            L($"equalDOF {constraint.MasterNode} {constraint.SlaveNode} {string.Join(' ', constraint.Dofs)}");
+        foreach (ShellRigidLinkConstraint constraint in model.RigidLinks.OrderBy(c => (c.MasterNode, c.SlaveNode)))
+            L($"rigidLink {(constraint.Type == ShellRigidLinkType.Bar ? "bar" : "beam")} {constraint.MasterNode} {constraint.SlaveNode}");
+        L();
+
         L("pattern Plain 1 Linear {");
         foreach (ShellNodalLoad load in model.Loads.OrderBy(load => load.NodeTag))
             L($"    load {load.NodeTag} {F(load.Fx)} {F(load.Fy)} {F(load.Fz)} {F(load.Mx)} {F(load.My)} {F(load.Mz)}");

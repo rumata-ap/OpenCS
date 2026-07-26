@@ -39,6 +39,25 @@ public sealed class ShellTclGeneratorTests
     }
 
     [Fact]
+    public void Generate_EmitsBeamElementsEqualDofAndRigidLink()
+    {
+        var baseModel = Q4Model();
+        var model = baseModel with
+        {
+            Nodes = baseModel.Nodes.Concat([
+                new(5, 2, 0, 1, new bool[6], null),
+                new(6, 2, 0, 0, new bool[6], null)]).ToArray(),
+            BeamElements = [new(100, 2, 5, 0.01, 200e9, 77e9, 1e-6, 1e-5, 1e-5, (1, 0, 0))],
+            EqualDofConstraints = [new(2, 6, [1, 2, 3, 4, 5, 6])]
+        };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        Assert.Contains("element elasticBeamColumn 100 2 5", script);
+        Assert.Contains("equalDOF 2 6 1 2 3 4 5 6", script);
+    }
+
+    [Fact]
     public void Generate_IsDeterministic()
     {
         var generator = new ShellTclGenerator();
