@@ -6,11 +6,9 @@ internal static class OpenSeesTestExecutable
 {
     public static string ResolveOrSkip()
     {
-        string? path = Environment.GetEnvironmentVariable("OPENSEES_EXE");
-        if (string.IsNullOrWhiteSpace(path))
-            throw SkipException.ForSkip("Задайте OPENSEES_EXE для opt-in OpenSees integration tests.");
+        const string path = @"C:\Tools\OpenSees\bin\OpenSees.exe";
         if (!File.Exists(path))
-            throw SkipException.ForSkip($"OpenSees executable не найден по OPENSEES_EXE: {path}");
+            throw SkipException.ForSkip($"OpenSees executable не найден по фиксированному пути: {path}");
 
         return Path.GetFullPath(path);
     }
