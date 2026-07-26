@@ -31,6 +31,52 @@ public sealed class ShellOpenSeesModelConnectionTests
         Assert.Contains("конечны", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void Validate_RejectsConflictingEqualDofOnSameSlaveDof()
+    {
+        var baseModel = MinimalQ4Model();
+        var model = baseModel with
+        {
+            Nodes = baseModel.Nodes.Concat([new(5, 2, 0, 0, new bool[6], null)]).ToArray(),
+            EqualDofConstraints = [
+                new(2, 5, [1, 2, 3]),
+                new(3, 5, [3, 4, 5])] // dof 3 узла 5 задан дважды разными master
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => model.Validate());
+
+        Assert.Contains("конфликт", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Validate_RejectsRigidLinkAndEqualDofOnSameSlaveDof()
+    {
+        var baseModel = MinimalQ4Model();
+        var model = baseModel with
+        {
+            Nodes = baseModel.Nodes.Concat([new(5, 2, 0, 0, new bool[6], null)]).ToArray(),
+            EqualDofConstraints = [new(2, 5, [1, 2, 3])],
+            RigidLinks = [new(3, 5, ShellRigidLinkType.Bar)] // тоже покрывает dof 1..3 узла 5
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => model.Validate());
+
+        Assert.Contains("конфликт", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Validate_AcceptsNonConflictingConnections()
+    {
+        var baseModel = MinimalQ4Model();
+        var model = baseModel with
+        {
+            Nodes = baseModel.Nodes.Concat([new(5, 1, 0, 1, new bool[6], null)]).ToArray(),
+            BeamElements = [new(100, 2, 5, 0.01, 200e9, 77e9, 1e-6, 1e-5, 1e-5, (1, 0, 0))]
+        };
+
+        model.Validate(); // не должно бросать
+    }
+
     internal static ShellOpenSeesModel MinimalQ4Model()
     {
         const string fingerprint = "conn-fixture-section";

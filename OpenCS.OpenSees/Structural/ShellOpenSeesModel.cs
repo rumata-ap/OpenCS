@@ -20,6 +20,15 @@ public sealed record ShellOpenSeesModel
     /// <summary>Узловые нагрузки модели.</summary>
     public IReadOnlyList<ShellNodalLoad> Loads { get; init; } = [];
 
+    /// <summary>Стержневые (beam) элементы, разделяющие узлы с shell-моделью.</summary>
+    public IReadOnlyList<FemLinearElement> BeamElements { get; init; } = [];
+
+    /// <summary>Связи equalDOF между узлами модели.</summary>
+    public IReadOnlyList<ShellEqualDofConstraint> EqualDofConstraints { get; init; } = [];
+
+    /// <summary>Жёсткие связи rigidLink между узлами модели.</summary>
+    public IReadOnlyList<ShellRigidLinkConstraint> RigidLinks { get; init; } = [];
+
     /// <summary>Проверяет topology, geometry, materials и section mappings.</summary>
     public void Validate()
     {
@@ -79,6 +88,53 @@ public sealed record ShellOpenSeesModel
             if (!double.IsFinite(load.Fx) || !double.IsFinite(load.Fy) || !double.IsFinite(load.Fz) ||
                 !double.IsFinite(load.Mx) || !double.IsFinite(load.My) || !double.IsFinite(load.Mz))
                 throw new InvalidOperationException($"Нагрузка узла {load.NodeTag}: компоненты должны быть конечны.");
+        }
+
+        foreach (FemLinearElement beam in BeamElements)
+        {
+            if (!elements.Add(beam.Tag))
+                throw new InvalidOperationException($"Дублирующийся tag элемента {beam.Tag} (shell/beam).");
+            if (!nodes.ContainsKey(beam.NodeI) || !nodes.ContainsKey(beam.NodeJ))
+                throw new InvalidOperationException($"Beam-элемент {beam.Tag} ссылается на неизвестный узел.");
+            if (beam.A <= 0 || beam.E <= 0)
+                throw new InvalidOperationException($"Beam-элемент {beam.Tag}: A и E должны быть положительны.");
+        }
+
+        var slaveDofCoverage = new Dictionary<(int Node, int Dof), string>();
+        void ClaimDof(int node, int dof, string owner)
+        {
+            var key = (node, dof);
+            if (slaveDofCoverage.TryGetValue(key, out string? existingOwner))
+                throw new InvalidOperationException(
+                    $"Конфликт связей: узел {node}, DOF {dof} одновременно задан «{existingOwner}» и «{owner}».");
+            slaveDofCoverage[key] = owner;
+        }
+
+        foreach (ShellEqualDofConstraint constraint in EqualDofConstraints)
+        {
+            if (!nodes.ContainsKey(constraint.MasterNode) || !nodes.ContainsKey(constraint.SlaveNode))
+                throw new InvalidOperationException($"equalDOF {constraint.MasterNode}-{constraint.SlaveNode} ссылается на неизвестный узел.");
+            if (constraint.MasterNode == constraint.SlaveNode)
+                throw new InvalidOperationException($"equalDOF: master и slave совпадают (узел {constraint.MasterNode}).");
+            if (constraint.Dofs is null || constraint.Dofs.Count == 0 || constraint.Dofs.Any(dof => dof is < 1 or > 6))
+                throw new InvalidOperationException($"equalDOF {constraint.MasterNode}-{constraint.SlaveNode}: DOF должны быть в диапазоне 1..6.");
+
+            string owner = $"equalDOF {constraint.MasterNode}->{constraint.SlaveNode}";
+            foreach (int dof in constraint.Dofs)
+                ClaimDof(constraint.SlaveNode, dof, owner);
+        }
+
+        foreach (ShellRigidLinkConstraint constraint in RigidLinks)
+        {
+            if (!nodes.ContainsKey(constraint.MasterNode) || !nodes.ContainsKey(constraint.SlaveNode))
+                throw new InvalidOperationException($"rigidLink {constraint.MasterNode}-{constraint.SlaveNode} ссылается на неизвестный узел.");
+            if (constraint.MasterNode == constraint.SlaveNode)
+                throw new InvalidOperationException($"rigidLink: master и slave совпадают (узел {constraint.MasterNode}).");
+
+            string owner = $"rigidLink {constraint.Type} {constraint.MasterNode}->{constraint.SlaveNode}";
+            int[] dofs = constraint.Type == ShellRigidLinkType.Bar ? [1, 2, 3] : [1, 2, 3, 4, 5, 6];
+            foreach (int dof in dofs)
+                ClaimDof(constraint.SlaveNode, dof, owner);
         }
     }
 
