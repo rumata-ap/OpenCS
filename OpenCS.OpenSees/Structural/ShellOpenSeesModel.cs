@@ -3,7 +3,7 @@ using OpenCS.OpenSees.Model;
 namespace OpenCS.OpenSees.Structural;
 
 /// <summary>Нормализованная shell-модель OpenSees без UI и persistence-зависимостей.</summary>
-public sealed class ShellOpenSeesModel
+public sealed record ShellOpenSeesModel
 {
     /// <summary>Узлы модели.</summary>
     public IReadOnlyList<NormalizedShellNode> Nodes { get; init; } = [];
@@ -16,6 +16,9 @@ public sealed class ShellOpenSeesModel
 
     /// <summary>Оболочечные элементы модели.</summary>
     public IReadOnlyList<NormalizedShellElement> Elements { get; init; } = [];
+
+    /// <summary>Узловые нагрузки модели.</summary>
+    public IReadOnlyList<ShellNodalLoad> Loads { get; init; } = [];
 
     /// <summary>Проверяет topology, geometry, materials и section mappings.</summary>
     public void Validate()
@@ -67,6 +70,15 @@ public sealed class ShellOpenSeesModel
                                StringComparison.Ordinal))
                 throw new InvalidOperationException(
                     $"Элемент {element.Tag}: fingerprint секции не совпадает с секцией {element.SectionTag}.");
+        }
+
+        foreach (ShellNodalLoad load in Loads)
+        {
+            if (!nodes.ContainsKey(load.NodeTag))
+                throw new InvalidOperationException($"Нагрузка ссылается на неизвестный узел {load.NodeTag}.");
+            if (!double.IsFinite(load.Fx) || !double.IsFinite(load.Fy) || !double.IsFinite(load.Fz) ||
+                !double.IsFinite(load.Mx) || !double.IsFinite(load.My) || !double.IsFinite(load.Mz))
+                throw new InvalidOperationException($"Нагрузка узла {load.NodeTag}: компоненты должны быть конечны.");
         }
     }
 
