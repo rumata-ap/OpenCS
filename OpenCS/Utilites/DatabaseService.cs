@@ -29,7 +29,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-        const int CurrentSchemaVersion = 39;
+        const int CurrentSchemaVersion = 40;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -341,6 +341,28 @@ namespace OpenCS.Utilites
                 z REAL NOT NULL DEFAULT 0,
                 dof_mask  INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS planar_regions (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id           INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                tag                 TEXT NOT NULL DEFAULT '',
+                wkt                 TEXT NOT NULL DEFAULT '',
+                frame_origin_x      REAL NOT NULL DEFAULT 0,
+                frame_origin_y      REAL NOT NULL DEFAULT 0,
+                frame_origin_z      REAL NOT NULL DEFAULT 0,
+                frame_local_x_x     REAL NOT NULL DEFAULT 1,
+                frame_local_x_y     REAL NOT NULL DEFAULT 0,
+                frame_local_x_z     REAL NOT NULL DEFAULT 0,
+                frame_local_y_x     REAL NOT NULL DEFAULT 0,
+                frame_local_y_y     REAL NOT NULL DEFAULT 1,
+                frame_local_y_z     REAL NOT NULL DEFAULT 0,
+                frame_local_z_x     REAL NOT NULL DEFAULT 0,
+                frame_local_z_y     REAL NOT NULL DEFAULT 0,
+                frame_local_z_z     REAL NOT NULL DEFAULT 1,
+                frame_is_recovered  INTEGER NOT NULL DEFAULT 1,
+                source_contour_id   INTEGER REFERENCES contours(id),
+                geometry_fingerprint TEXT NOT NULL DEFAULT '',
+                boundary_segments_json TEXT NOT NULL DEFAULT '[]'
+            );
             CREATE TABLE IF NOT EXISTS fem_members (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
                 schema_id     INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
@@ -358,7 +380,10 @@ namespace OpenCS.Utilites
                 plate_section_id   INTEGER REFERENCES plate_sections(id),
                 force_set_id       INTEGER REFERENCES force_sets(id),
                 design_params_json TEXT,
-                rotation_deg       REAL NOT NULL DEFAULT 0
+                rotation_deg       REAL NOT NULL DEFAULT 0,
+                planar_region_id   INTEGER REFERENCES planar_regions(id),
+                kind                TEXT,
+                kind_source         TEXT NOT NULL DEFAULT 'auto'
             );
             CREATE TABLE IF NOT EXISTS fem_mesh_nodes (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -535,6 +560,7 @@ namespace OpenCS.Utilites
                if (i == 36) { MigrateV37(); continue; }
                if (i == 37) { MigrateV38(); continue; }
                if (i == 38) { MigrateV39(); continue; }
+               if (i == 39) { MigrateV40(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -985,6 +1011,42 @@ namespace OpenCS.Utilites
                 UNIQUE(load_case_id, node_id, dof)
             );
          """);
+      }
+
+      /// <summary>Миграция v40: таблица planar_regions + planar_region_id/kind/kind_source на fem_members.</summary>
+      void MigrateV40()
+      {
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS planar_regions (
+                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                schema_id           INTEGER NOT NULL REFERENCES fem_schemas(id) ON DELETE CASCADE,
+                tag                 TEXT NOT NULL DEFAULT '',
+                wkt                 TEXT NOT NULL DEFAULT '',
+                frame_origin_x      REAL NOT NULL DEFAULT 0,
+                frame_origin_y      REAL NOT NULL DEFAULT 0,
+                frame_origin_z      REAL NOT NULL DEFAULT 0,
+                frame_local_x_x     REAL NOT NULL DEFAULT 1,
+                frame_local_x_y     REAL NOT NULL DEFAULT 0,
+                frame_local_x_z     REAL NOT NULL DEFAULT 0,
+                frame_local_y_x     REAL NOT NULL DEFAULT 0,
+                frame_local_y_y     REAL NOT NULL DEFAULT 1,
+                frame_local_y_z     REAL NOT NULL DEFAULT 0,
+                frame_local_z_x     REAL NOT NULL DEFAULT 0,
+                frame_local_z_y     REAL NOT NULL DEFAULT 0,
+                frame_local_z_z     REAL NOT NULL DEFAULT 1,
+                frame_is_recovered  INTEGER NOT NULL DEFAULT 1,
+                source_contour_id   INTEGER REFERENCES contours(id),
+                geometry_fingerprint TEXT NOT NULL DEFAULT '',
+                boundary_segments_json TEXT NOT NULL DEFAULT '[]'
+            );
+         """);
+
+         if (!ColumnExists("fem_members", "planar_region_id"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN planar_region_id INTEGER REFERENCES planar_regions(id)");
+         if (!ColumnExists("fem_members", "kind"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN kind TEXT");
+         if (!ColumnExists("fem_members", "kind_source"))
+            MigExec("ALTER TABLE fem_members ADD COLUMN kind_source TEXT NOT NULL DEFAULT 'auto'");
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -4774,7 +4836,7 @@ namespace OpenCS.Utilites
       {
          var result = new List<CScore.Fem.FemMember>();
          using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg FROM fem_members WHERE schema_id=@sid";
+         cmd.CommandText = "SELECT id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m, cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id, target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg, planar_region_id, kind, kind_source FROM fem_members WHERE schema_id=@sid";
          cmd.Parameters.AddWithValue("@sid", schemaId);
          using var rdr = cmd.ExecuteReader();
          while (rdr.Read())
@@ -4797,6 +4859,9 @@ namespace OpenCS.Utilites
                ForceSetId        = rdr.IsDBNull(13) ? null : rdr.GetInt32(13),
                DesignParamsJson  = rdr.IsDBNull(14) ? null : rdr.GetString(14),
                RotationDeg       = rdr.GetDouble(15),
+               PlanarRegionId    = rdr.IsDBNull(16) ? null : rdr.GetInt32(16),
+               Kind              = rdr.IsDBNull(17) ? null : rdr.GetString(17),
+               KindSource        = rdr.GetString(18),
             });
          return result;
       }
@@ -5028,8 +5093,10 @@ namespace OpenCS.Utilites
             cmd.CommandText = """
                INSERT INTO fem_members (schema_id, elem_tag, elem_type, node_ids_json, section_tag, material_tag, thickness_m,
                                          cross_section_id, gj_strategy, gj_manual_value, gj_torsion_task_id,
-                                         target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg)
-               VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp, @rot);
+                                         target_mesh_length_m, plate_section_id, force_set_id, design_params_json, rotation_deg,
+                                         planar_region_id, kind, kind_source)
+               VALUES (@sid, @tag, @etype, @nids, @stag, @mtag, @thk, @csid, @gjs, @gjv, @gjt, @tml, @psid, @fsid, @dp, @rot,
+                       @prid, @kind, @ksrc);
                SELECT last_insert_rowid();
             """;
             cmd.Parameters.AddWithValue("@sid",   m.SchemaId);
@@ -5048,6 +5115,9 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@rot",   m.RotationDeg);
+            cmd.Parameters.AddWithValue("@prid",  (object?)m.PlanarRegionId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@kind",  (object?)m.Kind ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ksrc",  m.KindSource);
             m.Id = (int)(long)cmd.ExecuteScalar()!;
          }
          else
@@ -5056,7 +5126,7 @@ namespace OpenCS.Utilites
                UPDATE fem_members SET elem_tag=@tag, elem_type=@etype, node_ids_json=@nids, section_tag=@stag,
                material_tag=@mtag, thickness_m=@thk, cross_section_id=@csid, gj_strategy=@gjs, gj_manual_value=@gjv,
                gj_torsion_task_id=@gjt, target_mesh_length_m=@tml, plate_section_id=@psid, force_set_id=@fsid,
-               design_params_json=@dp, rotation_deg=@rot
+               design_params_json=@dp, rotation_deg=@rot, planar_region_id=@prid, kind=@kind, kind_source=@ksrc
                WHERE id=@id
             """;
             cmd.Parameters.AddWithValue("@tag",   m.ElemTag);
@@ -5074,9 +5144,129 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@fsid",  (object?)m.ForceSetId       ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@dp",    (object?)m.DesignParamsJson ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@rot",   m.RotationDeg);
+            cmd.Parameters.AddWithValue("@prid",  (object?)m.PlanarRegionId ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@kind",  (object?)m.Kind ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@ksrc",  m.KindSource);
             cmd.Parameters.AddWithValue("@id",    m.Id);
             cmd.ExecuteNonQuery();
          }
+      }
+
+      public int AddPlanarRegion(CScore.Planar.PlanarRegion region, int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            INSERT INTO planar_regions
+               (schema_id, tag, wkt, frame_origin_x, frame_origin_y, frame_origin_z,
+                frame_local_x_x, frame_local_x_y, frame_local_x_z,
+                frame_local_y_x, frame_local_y_y, frame_local_y_z,
+                frame_local_z_x, frame_local_z_y, frame_local_z_z,
+                frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json)
+            VALUES
+               (@sid, @tag, @wkt, @fox, @foy, @foz,
+                @fxx, @fxy, @fxz, @fyx, @fyy, @fyz, @fzx, @fzy, @fzz,
+                @rec, @scid, @fp, @bsj);
+            SELECT last_insert_rowid();
+         """;
+         AddPlanarRegionParameters(cmd, region, schemaId);
+         region.Id = (int)(long)cmd.ExecuteScalar()!;
+         return region.Id;
+      }
+
+      public void UpdatePlanarRegion(CScore.Planar.PlanarRegion region, int schemaId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            UPDATE planar_regions SET tag=@tag, wkt=@wkt, frame_origin_x=@fox, frame_origin_y=@foy, frame_origin_z=@foz,
+               frame_local_x_x=@fxx, frame_local_x_y=@fxy, frame_local_x_z=@fxz,
+               frame_local_y_x=@fyx, frame_local_y_y=@fyy, frame_local_y_z=@fyz,
+               frame_local_z_x=@fzx, frame_local_z_y=@fzy, frame_local_z_z=@fzz,
+               frame_is_recovered=@rec, source_contour_id=@scid, geometry_fingerprint=@fp, boundary_segments_json=@bsj
+            WHERE id=@id
+         """;
+         AddPlanarRegionParameters(cmd, region, schemaId);
+         cmd.Parameters.AddWithValue("@id", region.Id);
+         cmd.ExecuteNonQuery();
+      }
+
+      static void AddPlanarRegionParameters(SqliteCommand cmd, CScore.Planar.PlanarRegion region, int schemaId)
+      {
+         var holes = region.Holes
+            .Select(h => Enumerable.Range(0, h.X.Count).Select(i => (h.X[i], h.Y[i])).ToList())
+            .ToList();
+         string wkt = WktHelper.PolygonToWKT(region.Hull.X, region.Hull.Y, holes.Count > 0 ? holes : null);
+         string segmentsJson = JsonSerializer.Serialize(region.BoundarySegments);
+
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         cmd.Parameters.AddWithValue("@tag", region.Tag);
+         cmd.Parameters.AddWithValue("@wkt", wkt);
+         cmd.Parameters.AddWithValue("@fox", region.Frame.Origin.X);
+         cmd.Parameters.AddWithValue("@foy", region.Frame.Origin.Y);
+         cmd.Parameters.AddWithValue("@foz", region.Frame.Origin.Z);
+         cmd.Parameters.AddWithValue("@fxx", region.Frame.LocalX.X);
+         cmd.Parameters.AddWithValue("@fxy", region.Frame.LocalX.Y);
+         cmd.Parameters.AddWithValue("@fxz", region.Frame.LocalX.Z);
+         cmd.Parameters.AddWithValue("@fyx", region.Frame.LocalY.X);
+         cmd.Parameters.AddWithValue("@fyy", region.Frame.LocalY.Y);
+         cmd.Parameters.AddWithValue("@fyz", region.Frame.LocalY.Z);
+         cmd.Parameters.AddWithValue("@fzx", region.Frame.LocalZ.X);
+         cmd.Parameters.AddWithValue("@fzy", region.Frame.LocalZ.Y);
+         cmd.Parameters.AddWithValue("@fzz", region.Frame.LocalZ.Z);
+         cmd.Parameters.AddWithValue("@rec", region.FrameIsRecovered ? 1 : 0);
+         cmd.Parameters.AddWithValue("@scid", (object?)region.SourceContourId ?? DBNull.Value);
+         cmd.Parameters.AddWithValue("@fp", region.GeometryFingerprint);
+         cmd.Parameters.AddWithValue("@bsj", segmentsJson);
+      }
+
+      public List<CScore.Planar.PlanarRegion> GetPlanarRegions(int schemaId)
+      {
+         var result = new List<CScore.Planar.PlanarRegion>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, tag, wkt, frame_origin_x, frame_origin_y, frame_origin_z,
+                   frame_local_x_x, frame_local_x_y, frame_local_x_z,
+                   frame_local_y_x, frame_local_y_y, frame_local_y_z,
+                   frame_local_z_x, frame_local_z_y, frame_local_z_z,
+                   frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json
+            FROM planar_regions WHERE schema_id=@sid
+         """;
+         cmd.Parameters.AddWithValue("@sid", schemaId);
+         using var rdr = cmd.ExecuteReader();
+         while (rdr.Read())
+         {
+            WktHelper.ParseWKTPolygon(rdr.GetString(2), out var ox, out var oy, out var holeXs, out var holeYs);
+
+            var region = new CScore.Planar.PlanarRegion
+            {
+               Id  = rdr.GetInt32(0),
+               Tag = rdr.GetString(1),
+               Frame = new CScore.Planar.Frame3D(
+                  new CScore.Planar.PlanarVector3(rdr.GetDouble(3), rdr.GetDouble(4), rdr.GetDouble(5)),
+                  new CScore.Planar.PlanarVector3(rdr.GetDouble(6), rdr.GetDouble(7), rdr.GetDouble(8)),
+                  new CScore.Planar.PlanarVector3(rdr.GetDouble(9), rdr.GetDouble(10), rdr.GetDouble(11)),
+                  new CScore.Planar.PlanarVector3(rdr.GetDouble(12), rdr.GetDouble(13), rdr.GetDouble(14))),
+               FrameIsRecovered = rdr.GetInt32(15) != 0,
+               SourceContourId  = rdr.IsDBNull(16) ? null : rdr.GetInt32(16),
+               GeometryFingerprint = rdr.GetString(17),
+            };
+            region.Contours.Add(new Contour { X = ox, Y = oy, Type = ContourType.Hull, Tag = region.Tag });
+            for (int i = 0; i < holeXs.Count; i++)
+               region.Contours.Add(new Contour { X = holeXs[i], Y = holeYs[i], Type = ContourType.Hole });
+
+            var segments = JsonSerializer.Deserialize<List<CScore.Planar.BoundarySegment>>(rdr.GetString(18));
+            if (segments != null) region.BoundarySegments = segments;
+
+            result.Add(region);
+         }
+         return result;
+      }
+
+      public void DeletePlanarRegion(int id)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM planar_regions WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", id);
+         cmd.ExecuteNonQuery();
       }
 
       public void SaveFemCheck(CScore.Fem.FemCheck check)
