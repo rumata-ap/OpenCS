@@ -28,6 +28,17 @@ public sealed class ShellTclGeneratorTests
     }
 
     [Fact]
+    public void Generate_EmitsPlainLinearLoadPattern()
+    {
+        var model = Q4Model() with { Loads = [new(2, 0, 0, -1000, 0, 0, 0)] };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        Assert.Contains("pattern Plain 1 Linear {", script);
+        Assert.Contains("load 2 0 0 -1000 0 0 0", script);
+    }
+
+    [Fact]
     public void Generate_IsDeterministic()
     {
         var generator = new ShellTclGenerator();
