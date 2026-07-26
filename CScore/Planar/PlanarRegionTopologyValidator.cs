@@ -6,7 +6,7 @@ public static class PlanarRegionTopologyValidator
 {
     public const double MinSignedArea = 1e-9;
 
-    public static (double[] X, double[] Y) ToOpenLoop(IReadOnlyList<double> x, IReadOnlyList<double> y)
+    public static (double[] X, double[] Y) ToOpenLoop(IList<double> x, IList<double> y)
     {
         int n = x.Count;
         if (n >= 2)
@@ -18,7 +18,7 @@ public static class PlanarRegionTopologyValidator
         return (x.Take(n).ToArray(), y.Take(n).ToArray());
     }
 
-    public static double SignedArea(IReadOnlyList<double> x, IReadOnlyList<double> y)
+    public static double SignedArea(IList<double> x, IList<double> y)
     {
         var (ox, oy) = ToOpenLoop(x, y);
         var poly = new double[ox.Length][];
@@ -26,7 +26,7 @@ public static class PlanarRegionTopologyValidator
         return GeometryUtils.SignedArea(poly);
     }
 
-    public static bool HasSelfIntersection(IReadOnlyList<double> x, IReadOnlyList<double> y)
+    public static bool HasSelfIntersection(IList<double> x, IList<double> y)
     {
         var (ox, oy) = ToOpenLoop(x, y);
         int n = ox.Length;
@@ -44,7 +44,7 @@ public static class PlanarRegionTopologyValidator
         return false;
     }
 
-    public static (double[] X, double[] Y) NormalizeWinding(IReadOnlyList<double> x, IReadOnlyList<double> y, bool ccw)
+    public static (double[] X, double[] Y) NormalizeWinding(IList<double> x, IList<double> y, bool ccw)
     {
         var (ox, oy) = ToOpenLoop(x, y);
         bool isCcw = SignedArea(ox, oy) > 0;
@@ -52,7 +52,7 @@ public static class PlanarRegionTopologyValidator
         return (ox.Reverse().ToArray(), oy.Reverse().ToArray());
     }
 
-    public static void ValidateLoop(IReadOnlyList<double> x, IReadOnlyList<double> y, string loopName)
+    public static void ValidateLoop(IList<double> x, IList<double> y, string loopName)
     {
         var (ox, oy) = ToOpenLoop(x, y);
         if (ox.Length < 3)
