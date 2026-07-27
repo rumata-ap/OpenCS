@@ -41,16 +41,28 @@ public partial class FemSchemaView3D : UserControl
     (string NodeTag, int Dof)? _contextMenuKinematicTarget;
 
     bool _createNodeMode;
-    bool _createBarMode;
+    bool _createBarMode, _createPlateMode, _createWallMode, _createSpatialPlateMode;
     string? _pendingBarFirstNode;
+    readonly List<string> _pendingFrameNodes = [];
     ModelVisual3D? _groundPlaneVisual;
     LinesVisual3D? _rubberBandVisual;
 
     public event Action<Point3D>? NodeCreateRequested;
     public event Action<string, string>? BarCreateRequested;
+    public event Action<string>? PlateFrameRequested;
+    public event Action<string, string>? WallFrameRequested;
+    public event Action<string, string, string>? SpatialPlateFrameRequested;
+
+    int RequiredFrameNodeCount =>
+        _createPlateMode ? 1 : _createWallMode ? 2 : _createSpatialPlateMode ? 3 : 0;
+
+    public void SetCreatePlateMode(bool value) { _createPlateMode = value; _pendingFrameNodes.Clear(); UpdateGroundPlane(); }
+    public void SetCreateWallMode(bool value) { _createWallMode = value; _pendingFrameNodes.Clear(); UpdateGroundPlane(); }
+    public void SetCreateSpatialPlateMode(bool value) { _createSpatialPlateMode = value; _pendingFrameNodes.Clear(); UpdateGroundPlane(); }
 
     /// <summary>Плоскость клика/наведения нужна и для создания узла, и для резиновой линии стержня.</summary>
-    bool NeedsGroundPlane => _createNodeMode || (_createBarMode && _pendingBarFirstNode != null);
+    bool NeedsGroundPlane => _createNodeMode || (_createBarMode && _pendingBarFirstNode != null)
+        || _createPlateMode || _createWallMode || _createSpatialPlateMode;
 
     public void SetCreateNodeMode(bool value)
     {
@@ -268,6 +280,13 @@ public partial class FemSchemaView3D : UserControl
         {
             var mat   = new DiffuseMaterial(new SolidColorBrush(Fem3DVM.ShellHiColor));
             var model = new GeometryModel3D(hiMesh, mat) { BackMaterial = mat };
+            viewport.Children.Add(new ModelVisual3D { Content = model });
+        }
+
+        if (VM.PlanarRegionMesh is { } prMesh)
+        {
+            var mat   = new DiffuseMaterial(new SolidColorBrush(Fem3DVM.PlanarRegionMeshColor));
+            var model = new GeometryModel3D(prMesh, mat) { BackMaterial = mat };
             viewport.Children.Add(new ModelVisual3D { Content = model });
         }
 
@@ -728,6 +747,20 @@ public partial class FemSchemaView3D : UserControl
 
         var pick = hits.FirstOrDefault(h => h.IsNode);
         if (pick.Tag == null) pick = hits[0];
+
+        if (_createPlateMode || _createWallMode || _createSpatialPlateMode)
+        {
+            if (!pick.IsNode) return;
+            if (!_pendingFrameNodes.Contains(pick.Tag)) _pendingFrameNodes.Add(pick.Tag);
+            if (_pendingFrameNodes.Count < RequiredFrameNodeCount) return;
+
+            if (_createPlateMode) PlateFrameRequested?.Invoke(_pendingFrameNodes[0]);
+            else if (_createWallMode) WallFrameRequested?.Invoke(_pendingFrameNodes[0], _pendingFrameNodes[1]);
+            else SpatialPlateFrameRequested?.Invoke(_pendingFrameNodes[0], _pendingFrameNodes[1], _pendingFrameNodes[2]);
+
+            _pendingFrameNodes.Clear();
+            return;
+        }
 
         if (_createBarMode)
         {
