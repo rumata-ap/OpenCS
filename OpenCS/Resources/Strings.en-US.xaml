@@ -1604,6 +1604,14 @@
     <system:String x:Key="PlanarRegionKindWall">Wall</system:String>
     <system:String x:Key="PlanarRegionPlateSectionLabel">Section</system:String>
     <system:String x:Key="PlanarRegionDiagnosticsLabel">Diagnostics</system:String>
+    <system:String x:Key="PlanarRegionGeoPropsGroupHeader">Geometric properties</system:String>
+    <system:String x:Key="PlanarRegionGeoPropsAreaLabel">Area, m²</system:String>
+    <system:String x:Key="PlanarRegionGeoPropsCentroidLabel">Centroid (X; Y), m</system:String>
+    <system:String x:Key="PlanarRegionGeoPropsIxLabel">Ix, m⁴</system:String>
+    <system:String x:Key="PlanarRegionGeoPropsIyLabel">Iy, m⁴</system:String>
+    <system:String x:Key="PlanarRegionGeoPropsIxyLabel">Ixy, m⁴</system:String>
+    <system:String x:Key="PlanarRegionTriangulateButton">Triangulate</system:String>
+    <system:String x:Key="PlanarRegionFitViewButton">Fit view</system:String>
     <system:String x:Key="FemShellKindColumn">Kind</system:String>
     <system:String x:Key="FemShellPlateSectionColumn">Section</system:String>
     <system:String x:Key="FemShellDelete">Delete</system:String>
