@@ -129,11 +129,13 @@ public partial class FemSchemaPage : UserControl
             _editorVm.Session.Members.RemoveAll(m => m.Id == saved.Id);
             _editorVm.Session.Members.Add(saved);
             _editorVm.RefreshCollections();
+            _fem3d.LoadFromSession(_editorVm.Session);
         }
         else if (dlg.DeletedMember is { } deleted)
         {
             _editorVm.Session.Members.RemoveAll(m => m.Id == deleted.Id);
             _editorVm.RefreshCollections();
+            _fem3d.LoadFromSession(_editorVm.Session);
         }
     }
 
@@ -155,6 +157,7 @@ public partial class FemSchemaPage : UserControl
 
         _editorVm.Session.Members.RemoveAll(m => m.Id == member.Id);
         _editorVm.RefreshCollections();
+        _fem3d.LoadFromSession(_editorVm.Session);
     }
 
     void OpenMemberRotation(string tag)
