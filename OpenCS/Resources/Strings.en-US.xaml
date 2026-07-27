@@ -1612,6 +1612,8 @@
     <system:String x:Key="PlanarRegionGeoPropsIxyLabel">Ixy, m⁴</system:String>
     <system:String x:Key="PlanarRegionTriangulateButton">Triangulate</system:String>
     <system:String x:Key="PlanarRegionFitViewButton">Fit view</system:String>
+    <system:String x:Key="PlanarRegionEditCtx">Edit</system:String>
+    <system:String x:Key="PlanarRegionDeleteCtx">Delete</system:String>
     <system:String x:Key="FemShellKindColumn">Kind</system:String>
     <system:String x:Key="FemShellPlateSectionColumn">Section</system:String>
     <system:String x:Key="FemShellDelete">Delete</system:String>

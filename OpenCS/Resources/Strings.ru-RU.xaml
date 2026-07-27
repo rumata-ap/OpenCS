@@ -1615,6 +1615,8 @@
     <system:String x:Key="PlanarRegionGeoPropsIxyLabel">Ixy, м⁴</system:String>
     <system:String x:Key="PlanarRegionTriangulateButton">Триангулировать</system:String>
     <system:String x:Key="PlanarRegionFitViewButton">Показать всё</system:String>
+    <system:String x:Key="PlanarRegionEditCtx">Изменить</system:String>
+    <system:String x:Key="PlanarRegionDeleteCtx">Удалить</system:String>
     <system:String x:Key="FemShellKindColumn">Тип</system:String>
     <system:String x:Key="FemShellPlateSectionColumn">Сечение</system:String>
     <system:String x:Key="FemShellDelete">Удалить</system:String>
