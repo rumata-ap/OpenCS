@@ -5152,6 +5152,15 @@ namespace OpenCS.Utilites
          }
       }
 
+      public void DeleteFemMember(CScore.Fem.FemMember m)
+      {
+         if (m.Id == 0) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fem_members WHERE id = @id";
+         cmd.Parameters.AddWithValue("@id", m.Id);
+         cmd.ExecuteNonQuery();
+      }
+
       public int AddPlanarRegion(CScore.Planar.PlanarRegion region, int schemaId)
       {
          using var cmd = _connection.CreateCommand();
