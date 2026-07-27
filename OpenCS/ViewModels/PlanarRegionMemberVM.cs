@@ -162,6 +162,16 @@ public class PlanarRegionMemberVM : ViewModelBase
         return clone;
     }
 
+    /// <summary>Пересинхронизирует Contour.Points из текущих X/Y сразу после прямой мутации
+    /// координат. Обязательно после любой правки X/Y напрямую: EnsurePoints (см. RefreshGeoProps)
+    /// пересинхронизирует Points только когда Points.Count не совпадает с X.Count — если Points уже
+    /// был построен один раз (например, побочным эффектом сеттера Hull при первом клонировании в
+    /// EnsureGeometryOwned, ещё до применения сдвига/масштаба/поворота), количество не меняется, и
+    /// GeoProps(Contour) (её конструктор безусловно вызывает contour.PointsToXYs()) молча
+    /// перезатирает X/Y устаревшими координатами из Points — сдвиг/масштаб/поворот откатывается
+    /// к моменту показа геометрических свойств.</summary>
+    static void SyncPointsFromXY(Contour c) => c.Points = c.XYsToPoints();
+
     /// <summary>Жёсткий сдвиг Hull+Holes на (dx, dy) в локальных координатах контура.</summary>
     public void TranslateGeometry(double dx, double dy)
     {
@@ -171,6 +181,7 @@ public class PlanarRegionMemberVM : ViewModelBase
             for (int i = 0; i < c.X.Count; i++) c.X[i] += dx;
             for (int i = 0; i < c.Y.Count; i++) c.Y[i] += dy;
             c.SetWKT();
+            SyncPointsFromXY(c);
         }
         if (Hull != null) Apply(Hull);
         foreach (var hole in Holes) Apply(hole);
@@ -186,6 +197,7 @@ public class PlanarRegionMemberVM : ViewModelBase
             for (int i = 0; i < c.X.Count; i++) c.X[i] *= factor;
             for (int i = 0; i < c.Y.Count; i++) c.Y[i] *= factor;
             c.SetWKT();
+            SyncPointsFromXY(c);
         }
         if (Hull != null) Apply(Hull);
         foreach (var hole in Holes) Apply(hole);
@@ -208,6 +220,7 @@ public class PlanarRegionMemberVM : ViewModelBase
                 c.Y[i] = x * sin + y * cos;
             }
             c.SetWKT();
+            SyncPointsFromXY(c);
         }
         if (Hull != null) Apply(Hull);
         foreach (var hole in Holes) Apply(hole);
