@@ -48,6 +48,7 @@ public class PlanarRegionMemberVM : ViewModelBase
         SetHullFromPoolCommand = new RelayCommand(o => SetHullFromPool(o as Contour));
         AddHoleCommand = new RelayCommand(o => AddHole(o as Contour));
         RemoveHoleCommand = new RelayCommand(o => RemoveHole(o as Contour));
+        TriangulateCommand = new RelayCommand(_ => Triangulate(), _ => Hull != null);
         SaveCommand = new RelayCommand(_ => Save());
         DeleteCommand = new RelayCommand(_ => Delete(), _ => _existingMember != null);
 
@@ -65,7 +66,7 @@ public class PlanarRegionMemberVM : ViewModelBase
     public string Tag { get => _tag; set { _tag = value; OnPropertyChanged(); } }
 
     Contour? _hull;
-    public Contour? Hull { get => _hull; set { _hull = value; OnPropertyChanged(); RefreshPlot(); } }
+    public Contour? Hull { get => _hull; set { _hull = value; OnPropertyChanged(); InvalidateTriangulation(); RefreshPlot(); } }
 
     public ObservableCollection<Contour> Holes { get; }
 
@@ -97,9 +98,18 @@ public class PlanarRegionMemberVM : ViewModelBase
     IReadOnlyList<PlotElement> _plotElements = [];
     public IReadOnlyList<PlotElement> PlotElements { get => _plotElements; private set { _plotElements = value; OnPropertyChanged(); } }
 
+    double _geoArea, _geoCentroidX, _geoCentroidY, _geoIx, _geoIy, _geoIxy;
+    public double GeoArea { get => _geoArea; private set { _geoArea = value; OnPropertyChanged(); } }
+    public double GeoCentroidX { get => _geoCentroidX; private set { _geoCentroidX = value; OnPropertyChanged(); } }
+    public double GeoCentroidY { get => _geoCentroidY; private set { _geoCentroidY = value; OnPropertyChanged(); } }
+    public double GeoIx { get => _geoIx; private set { _geoIx = value; OnPropertyChanged(); } }
+    public double GeoIy { get => _geoIy; private set { _geoIy = value; OnPropertyChanged(); } }
+    public double GeoIxy { get => _geoIxy; private set { _geoIxy = value; OnPropertyChanged(); } }
+
     public ICommand SetHullFromPoolCommand { get; }
     public ICommand AddHoleCommand { get; }
     public ICommand RemoveHoleCommand { get; }
+    public ICommand TriangulateCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand DeleteCommand { get; }
 
@@ -116,6 +126,7 @@ public class PlanarRegionMemberVM : ViewModelBase
     {
         if (contour == null || Holes.Contains(contour)) return;
         Holes.Add(contour);
+        InvalidateTriangulation();
         RefreshPlot();
     }
 
@@ -123,8 +134,13 @@ public class PlanarRegionMemberVM : ViewModelBase
     {
         if (contour == null) return;
         Holes.Remove(contour);
+        InvalidateTriangulation();
         RefreshPlot();
     }
+
+    List<PlotElement> _triangulationElements = [];
+
+    void InvalidateTriangulation() => _triangulationElements = [];
 
     void RefreshPlot()
     {
@@ -134,7 +150,62 @@ public class PlanarRegionMemberVM : ViewModelBase
         foreach (var hole in Holes)
             if (hole.X.Count >= 3)
                 elements.Add(new PolygonElement { Xs = [.. hole.X], Ys = [.. hole.Y], Fill = Brushes.White, Stroke = Brushes.Gray });
+        elements.AddRange(_triangulationElements);
         PlotElements = elements;
+        RefreshGeoProps();
+    }
+
+    void RefreshGeoProps()
+    {
+        if (Hull == null || Hull.X.Count < 3)
+        {
+            GeoArea = GeoCentroidX = GeoCentroidY = GeoIx = GeoIy = GeoIxy = 0;
+            return;
+        }
+
+        var net = new GeoProps(Hull);
+        foreach (var hole in Holes)
+            net -= new GeoProps(hole);
+
+        // ВАЖНО: net.Centroid — NaN при e=0 (баг GeoProps: EA=0 у обоих операндов → 0/0).
+        // Центроид считаем вручную из Sx/Sy/A.
+        GeoArea = net.A;
+        GeoCentroidX = net.A > 1e-12 ? net.Sy / net.A : 0;
+        GeoCentroidY = net.A > 1e-12 ? net.Sx / net.A : 0;
+        GeoIx = net.Ix;
+        GeoIy = net.Iy;
+        GeoIxy = net.Ixy;
+    }
+
+    void Triangulate()
+    {
+        if (Hull == null) return;
+
+        var (region, diagnostics) = PlanarRegionCreation.TryCreate(Hull, Holes, _frame, Tag);
+        Diagnostics = diagnostics;
+        if (region == null)
+        {
+            InvalidateTriangulation();
+            RefreshPlot();
+            return;
+        }
+
+        var (vertices, triangles) = PlanarRegionTriangulation.Triangulate(region);
+        var elements = new List<PlotElement>();
+        foreach (var (a, b, c) in triangles)
+        {
+            var pa = vertices[a]; var pb = vertices[b]; var pc = vertices[c];
+            elements.Add(new PolygonElement
+            {
+                Xs = [pa.X, pb.X, pc.X],
+                Ys = [pa.Y, pb.Y, pc.Y],
+                Fill = null,
+                Stroke = Brushes.DimGray,
+                StrokeThickness = 0.5
+            });
+        }
+        _triangulationElements = elements;
+        RefreshPlot();
     }
 
     void Save()
