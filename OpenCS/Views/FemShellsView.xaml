@@ -5,6 +5,8 @@
       <ToolBar DockPanel.Dock="Top">
          <Button Content="{DynamicResource FemGroupCreate}" Click="CreateGroup_Click"/>
          <Separator/>
+         <Button Content="{DynamicResource FemShellDelete}" Click="DeleteShell_Click"/>
+         <Separator/>
          <Button Content="{DynamicResource FemCheckAdd}"
                  Command="{Binding DataContext.AddFemCheckCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
       </ToolBar>
@@ -15,10 +17,12 @@
                 CanUserDeleteRows="False"
                 SelectionMode="Extended"
                 EnableRowVirtualization="True"
-                VirtualizingPanel.IsVirtualizing="True">
+                VirtualizingPanel.IsVirtualizing="True"
+                MouseDoubleClick="ShellsGrid_MouseDoubleClick">
          <DataGrid.Columns>
             <DataGridTextColumn Header="{DynamicResource FemElemTag}"  Binding="{Binding ElemTag}"    Width="80"/>
             <DataGridTextColumn Header="{DynamicResource FemSection}"  Binding="{Binding SectionTag}" Width="120"/>
+            <DataGridTextColumn Header="{DynamicResource FemShellKindColumn}" Binding="{Binding Kind}" Width="70"/>
             <DataGridTextColumn Header="{DynamicResource FemNodeTag1}" Binding="{Binding Node1}"      Width="80"/>
             <DataGridTextColumn Header="{DynamicResource FemNodeTag2}" Binding="{Binding Node2}"      Width="80"/>
             <DataGridTextColumn Header="{DynamicResource FemNodeTag3}" Binding="{Binding Node3}"      Width="80"/>
