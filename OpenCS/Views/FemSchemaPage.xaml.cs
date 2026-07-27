@@ -14,9 +14,13 @@ public partial class FemSchemaPage : UserControl
 {
     readonly FemSchemaEditorVM _editorVm;
     readonly Fem3DVM _fem3d;
+    readonly AppViewModel _app;
+    readonly FemSchema _schema;
 
     public FemSchemaPage(FemSchema schema, AppViewModel app)
     {
+        _app = app;
+        _schema = schema;
         InitializeComponent();
         _editorVm = new FemSchemaEditorVM(schema, app);
         app.RegisterFemSchemaEditor(_editorVm);
@@ -45,6 +49,21 @@ public partial class FemSchemaPage : UserControl
         view3D.BarCreateRequested  += (a, b) => _editorVm.CreateBarBetween(a, b, view3D.PendingBarSectionTag);
         view3D.CreateNodeModeCloseRequested += () => _editorVm.CreateNodeMode = false;
         view3D.CreateBarModeCloseRequested  += () => _editorVm.CreateBarMode  = false;
+        view3D.PlateFrameRequested += tag =>
+        {
+            var frame = _editorVm.BuildPlateFrame(tag);
+            if (frame != null) OpenPlanarRegionMemberDialog(frame);
+        };
+        view3D.WallFrameRequested += (a, b) =>
+        {
+            var frame = _editorVm.BuildWallFrame(a, b);
+            if (frame != null) OpenPlanarRegionMemberDialog(frame);
+        };
+        view3D.SpatialPlateFrameRequested += (a, b, c) =>
+        {
+            var frame = _editorVm.BuildSpatialPlateFrame(a, b, c);
+            if (frame != null) OpenPlanarRegionMemberDialog(frame);
+        };
         view3D.SetBarSectionItemsSource(_editorVm.CrossSections);
         view3D.MemberDeleteRequested += tag => _editorVm.DeleteMemberByTag(tag);
         view3D.MemberSplitRequested  += tag => _editorVm.SplitMemberByTag(tag);
@@ -68,6 +87,12 @@ public partial class FemSchemaPage : UserControl
                 view3D.SetCreateNodeMode(_editorVm.CreateNodeMode);
             else if (args.PropertyName == nameof(FemSchemaEditorVM.CreateBarMode))
                 view3D.SetCreateBarMode(_editorVm.CreateBarMode);
+            else if (args.PropertyName == nameof(FemSchemaEditorVM.CreatePlateMode))
+                view3D.SetCreatePlateMode(_editorVm.CreatePlateMode);
+            else if (args.PropertyName == nameof(FemSchemaEditorVM.CreateWallMode))
+                view3D.SetCreateWallMode(_editorVm.CreateWallMode);
+            else if (args.PropertyName == nameof(FemSchemaEditorVM.CreateSpatialPlateMode))
+                view3D.SetCreateSpatialPlateMode(_editorVm.CreateSpatialPlateMode);
             else if (args.PropertyName == nameof(FemSchemaEditorVM.Session) && !_fem3d.IsLoading)
                 _fem3d.LoadFromSession(_editorVm.Session);
         };
@@ -86,6 +111,24 @@ public partial class FemSchemaPage : UserControl
         var member = _editorVm.Session.Members.FirstOrDefault(m => m.ElemTag == tag);
         if (member == null) return;
         new FemMemberPropertiesDialog(member, _editorVm) { Owner = Window.GetWindow(this) }.Show();
+    }
+
+    void OpenPlanarRegionMemberDialog(CScore.Planar.Frame3D frame)
+    {
+        var dlg = new PlanarRegionMemberDialog(_app, _schema, frame) { Owner = Window.GetWindow(this) };
+        dlg.ShowDialog();
+
+        if (dlg.SavedMember is { } saved)
+        {
+            _editorVm.Session.Members.RemoveAll(m => m.Id == saved.Id);
+            _editorVm.Session.Members.Add(saved);
+            _editorVm.RefreshCollections();
+        }
+        else if (dlg.DeletedMember is { } deleted)
+        {
+            _editorVm.Session.Members.RemoveAll(m => m.Id == deleted.Id);
+            _editorVm.RefreshCollections();
+        }
     }
 
     void OpenMemberRotation(string tag)
