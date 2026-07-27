@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
+using CScore;
 using CScore.Fem;
 using CScore.Fem.Combinations;
 using CScore.Planar;
@@ -13,6 +14,10 @@ public record BarGroup(string Label, Color Color, Point3DCollection Points, doub
 
 /// <summary>Источник, по которому в 3D показываются узловые нагрузки.</summary>
 public sealed record FemDiagramLoadSource(string Label, FemLoadCase? LoadCase, FemLoadDefinition? Definition);
+
+/// <summary>Один плоский конструктивный элемент (плита/стена) для 3D-отображения — заливка,
+/// видимый контур (Hull+Holes) и тег для pick/выделения/контекстного меню.</summary>
+public sealed record PlanarRegionVisual(string ElemTag, MeshGeometry3D Mesh, Point3DCollection EdgePoints);
 
 /// <summary>ViewModel 3D-вида расчётной схемы или конструктивного элемента МКЭ.</summary>
 public class Fem3DVM : ViewModelBase
@@ -47,7 +52,7 @@ public class Fem3DVM : ViewModelBase
     public List<BarGroup>      BarGroups       { get; private set; } = [];
     public MeshGeometry3D?     ShellMesh       { get; private set; }
     public MeshGeometry3D?     HiShellMesh     { get; private set; }
-    public MeshGeometry3D?     PlanarRegionMesh { get; private set; }
+    public IReadOnlyList<PlanarRegionVisual> PlanarRegionVisuals { get; private set; } = [];
     public Point3DCollection?  ShellEdgePoints { get; private set; }
     public Point3DCollection?  NodePoints      { get; private set; }
     public Point3DCollection?  MeshLinePoints  { get; private set; }
@@ -333,7 +338,7 @@ public class Fem3DVM : ViewModelBase
             BarGroups        = [];
             ShellMesh        = null;
             HiShellMesh      = null;
-            PlanarRegionMesh = null;
+            PlanarRegionVisuals = [];
             ShellEdgePoints  = null;
             NodePoints       = null;
             NodeProxies      = [];
@@ -343,7 +348,7 @@ public class Fem3DVM : ViewModelBase
             OnPropertyChanged(nameof(BarGroups));
             OnPropertyChanged(nameof(ShellMesh));
             OnPropertyChanged(nameof(HiShellMesh));
-            OnPropertyChanged(nameof(PlanarRegionMesh));
+            OnPropertyChanged(nameof(PlanarRegionVisuals));
             OnPropertyChanged(nameof(ShellEdgePoints));
             OnPropertyChanged(nameof(NodePoints));
             OnPropertyChanged(nameof(SectionGlyphs));
@@ -356,7 +361,7 @@ public class Fem3DVM : ViewModelBase
             BarGroups        = [];
             ShellMesh        = null;
             HiShellMesh      = null;
-            PlanarRegionMesh = null;
+            PlanarRegionVisuals = [];
             ShellEdgePoints  = null;
             NodePoints       = new Point3DCollection(allNodes.Select(n => new Point3D(n.X, n.Y, n.Z)));
             NodeProxies      = allNodes.Select(n => (n.NodeTag, new Point3D(n.X, n.Y, n.Z))).ToList();
@@ -365,7 +370,7 @@ public class Fem3DVM : ViewModelBase
             OnPropertyChanged(nameof(BarGroups));
             OnPropertyChanged(nameof(ShellMesh));
             OnPropertyChanged(nameof(HiShellMesh));
-            OnPropertyChanged(nameof(PlanarRegionMesh));
+            OnPropertyChanged(nameof(PlanarRegionVisuals));
             OnPropertyChanged(nameof(ShellEdgePoints));
             OnPropertyChanged(nameof(NodePoints));
             OnPropertyChanged(nameof(SectionGlyphs));
@@ -402,7 +407,7 @@ public class Fem3DVM : ViewModelBase
             HiShellMesh = null;
         }
         ShellEdgePoints  = BuildShellEdges(nodeMap, elements);
-        PlanarRegionMesh = BuildPlanarRegionMesh(elements);
+        PlanarRegionVisuals = BuildPlanarRegionVisuals(elements);
         SectionGlyphs = FemSectionGlyphFactory.Create(elements, _db.CrossSections, nodeMap);
 
         // Узлы: в режиме просмотра — только реально используемые отображаемыми КЭ (меньше шума
@@ -430,7 +435,7 @@ public class Fem3DVM : ViewModelBase
         OnPropertyChanged(nameof(BarGroups));
         OnPropertyChanged(nameof(ShellMesh));
         OnPropertyChanged(nameof(HiShellMesh));
-        OnPropertyChanged(nameof(PlanarRegionMesh));
+        OnPropertyChanged(nameof(PlanarRegionVisuals));
         OnPropertyChanged(nameof(ShellEdgePoints));
         OnPropertyChanged(nameof(NodePoints));
         OnPropertyChanged(nameof(SectionGlyphs));
@@ -455,43 +460,54 @@ public class Fem3DVM : ViewModelBase
         return result;
     }
 
-    MeshGeometry3D? BuildPlanarRegionMesh(List<FemMember> elements)
+    List<PlanarRegionVisual> BuildPlanarRegionVisuals(List<FemMember> elements)
     {
-        var regionIds = elements
-            .Where(e => e.PlanarRegionId.HasValue)
-            .Select(e => e.PlanarRegionId!.Value)
-            .ToHashSet();
-        if (regionIds.Count == 0) return null;
+        var result = new List<PlanarRegionVisual>();
+        var regionMembers = elements.Where(e => e.PlanarRegionId.HasValue).ToList();
+        if (regionMembers.Count == 0) return result;
 
-        var regions = _db.GetPlanarRegions(_schemaId).Where(r => regionIds.Contains(r.Id)).ToList();
-        if (regions.Count == 0) return null;
+        var regionIds = regionMembers.Select(e => e.PlanarRegionId!.Value).ToHashSet();
+        var regionsById = _db.GetPlanarRegions(_schemaId)
+            .Where(r => regionIds.Contains(r.Id))
+            .ToDictionary(r => r.Id);
 
-        var positions = new Point3DCollection();
-        var indices   = new Int32Collection();
-
-        foreach (var region in regions)
+        foreach (var member in regionMembers)
         {
-            var (vertices, triangles) = PlanarRegionTriangulation.Triangulate(region);
-            int offset = positions.Count;
+            if (!regionsById.TryGetValue(member.PlanarRegionId!.Value, out var region)) continue;
+
             var o  = region.Frame.Origin;
             var lx = region.Frame.LocalX;
             var ly = region.Frame.LocalY;
+            Point3D ToWorld(double x, double y) => new(
+                o.X + lx.X * x + ly.X * y,
+                o.Y + lx.Y * x + ly.Y * y,
+                o.Z + lx.Z * x + ly.Z * y);
 
-            foreach (var (x, y) in vertices)
-                positions.Add(new Point3D(
-                    o.X + lx.X * x + ly.X * y,
-                    o.Y + lx.Y * x + ly.Y * y,
-                    o.Z + lx.Z * x + ly.Z * y));
+            var (vertices, triangles) = PlanarRegionTriangulation.Triangulate(region);
+            var positions = new Point3DCollection();
+            foreach (var (x, y) in vertices) positions.Add(ToWorld(x, y));
+            var indices = new Int32Collection();
+            foreach (var (a, b, c) in triangles) { indices.Add(a); indices.Add(b); indices.Add(c); }
+            var mesh = new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
 
-            foreach (var (a, b, c) in triangles)
+            var edgePoints = new Point3DCollection();
+            void AddLoop(Contour contour)
             {
-                indices.Add(offset + a);
-                indices.Add(offset + b);
-                indices.Add(offset + c);
+                int n = contour.X.Count - 1; // открытая форма — без дублирующей замыкающей вершины
+                for (int i = 0; i < n; i++)
+                {
+                    int j = (i + 1) % n;
+                    edgePoints.Add(ToWorld(contour.X[i], contour.Y[i]));
+                    edgePoints.Add(ToWorld(contour.X[j], contour.Y[j]));
+                }
             }
+            AddLoop(region.Hull);
+            foreach (var hole in region.Holes) AddLoop(hole);
+
+            result.Add(new PlanarRegionVisual(member.ElemTag, mesh, edgePoints));
         }
 
-        return new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
+        return result;
     }
 
     MeshGeometry3D? BuildShellMesh(Dictionary<string, Point3D> nodeMap, List<FemMember> elements)
