@@ -471,6 +471,12 @@ namespace OpenCS
       public ICommand NewFemMemberCommand       { get; set; } = null!;
       /// <summary>Команда создания нового конструктивного элемента через диалог ввода имени/типа/КЭ.</summary>
       public ICommand NewFemMemberDialogCommand { get; set; } = null!;
+      /// <summary>Команда включения режима создания плиты кликами по узлам в 3D-виде схемы.</summary>
+      public ICommand CreatePlateModeCommand { get; set; } = null!;
+      /// <summary>Команда включения режима создания стены кликами по узлам в 3D-виде схемы.</summary>
+      public ICommand CreateWallModeCommand { get; set; } = null!;
+      /// <summary>Команда включения режима создания произвольной пластины кликами по узлам.</summary>
+      public ICommand CreateSpatialPlateModeCommand { get; set; } = null!;
       /// <summary>Команда удаления конструктивного элемента МКЭ.</summary>
       public ICommand DeleteFemMemberCommand { get; set; } = null!;
       /// <summary>Команда добавления нормативной проверки к элементу.</summary>
@@ -1222,6 +1228,9 @@ namespace OpenCS
          RenameFemSchemaCommand    = new RelayCommand(p => RenameFemSchema(p as CScore.Fem.FemSchema));
          NewFemMemberCommand       = new RelayCommand(p => NewFemMember(p as CScore.Fem.FemSchema));
          NewFemMemberDialogCommand = new RelayCommand(p => NewFemMemberDialog(p as CScore.Fem.FemSchema));
+         CreatePlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "plate"));
+         CreateWallModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "wall"));
+         CreateSpatialPlateModeCommand = new RelayCommand(p => StartPlanarRegionCreateMode(p as CScore.Fem.FemSchema, "spatial"));
          DeleteFemMemberCommand    = new RelayCommand(_ => DeleteFemMember());
          AddFemCheckCommand     = new RelayCommand(p => AddFemCheck(p as CScore.Fem.FemMemberGroup));
          CreateFemAnalysisCommand = new RelayCommand(p => CreateFemAnalysis(p as CScore.Fem.FemSchema));
@@ -3101,6 +3110,24 @@ namespace OpenCS
          if (dlg.ShowDialog() != true) return;
          var ids = Views.LiraElemRangeDialog.ParseRange(dlg.Range);
          CreateFemMemberFromRange(schema, ids, dlg.MemberTag, dlg.MemberType);
+      }
+
+      /// <summary>Открывает/переключает 3D-вид указанной схемы и включает режим создания плоского
+      /// конструктивного элемента кликами по узлам — точка входа из контекстного меню узла
+      /// «Пластины» дерева (см. FemShellsSubNode). Тумблеры тулбара 3D-вида читают/пишут то же
+      /// самое свойство FemSchemaEditorVM.CreateXxxMode, поэтому остаются синхронизированы.</summary>
+      void StartPlanarRegionCreateMode(CScore.Fem.FemSchema? schema, string mode)
+      {
+         if (schema == null) return;
+         CurrentFemSchema = schema;
+         if (activeFemSchemaEditor == null) return;
+
+         switch (mode)
+         {
+            case "plate": activeFemSchemaEditor.CreatePlateMode = true; break;
+            case "wall": activeFemSchemaEditor.CreateWallMode = true; break;
+            case "spatial": activeFemSchemaEditor.CreateSpatialPlateMode = true; break;
+         }
       }
 
       void DeleteFemMember()

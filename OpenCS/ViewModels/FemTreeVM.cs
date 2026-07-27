@@ -335,6 +335,7 @@ public class FemShellsSubNode : FemSubNode, System.ComponentModel.INotifyPropert
     int _count;
     public int Count { get => _count; internal set { _count = value; PropertyChanged?.Invoke(this, new(nameof(Count))); } }
     internal FemSchemaTreeVM Owner { get; }
+    public FemSchema Schema => Owner.Schema;
     internal FemShellsSubNode(FemSchemaTreeVM owner) => Owner = owner;
 }
 

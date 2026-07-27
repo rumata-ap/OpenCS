@@ -1182,9 +1182,29 @@
                      </StackPanel>
                   </DataTemplate>
 
-                  <!-- Подузел «Пластины» — листовой, данные в DataGrid -->
+                  <!-- Подузел «Пластины» — листовой, данные в DataGrid; контекстное меню создания -->
                   <DataTemplate DataType="{x:Type vm:FemShellsSubNode}">
-                     <StackPanel Orientation="Horizontal">
+                     <StackPanel Orientation="Horizontal"
+                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                        <StackPanel.ContextMenu>
+                           <ContextMenu>
+                              <MenuItem Header="{DynamicResource FemCreatePlateMode}"
+                                        Command="{Binding PlacementTarget.Tag.CreatePlateModeCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemCreateWallMode}"
+                                        Command="{Binding PlacementTarget.Tag.CreateWallModeCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                              <MenuItem Header="{DynamicResource FemCreateSpatialPlateMode}"
+                                        Command="{Binding PlacementTarget.Tag.CreateSpatialPlateModeCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                        CommandParameter="{Binding PlacementTarget.DataContext.Schema,
+                                                          RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                           </ContextMenu>
+                        </StackPanel.ContextMenu>
                         <TextBlock Text="{DynamicResource FemShells}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
                                    Text="{Binding Count, StringFormat=({0})}"/>
