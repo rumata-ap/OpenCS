@@ -1615,6 +1615,10 @@
     <system:String x:Key="PlanarRegionGeoPropsIxyLabel">Ixy, м⁴</system:String>
     <system:String x:Key="PlanarRegionTriangulateButton">Триангулировать</system:String>
     <system:String x:Key="PlanarRegionFitViewButton">Показать всё</system:String>
+    <system:String x:Key="PlanarRegionPanTool">Переместить</system:String>
+    <system:String x:Key="PlanarRegionZoomTool">Масштаб</system:String>
+    <system:String x:Key="PlanarRegionRotateTool">Повернуть</system:String>
+    <system:String x:Key="PlanarRegionMeshToolStub">Расчётная сетка КЭ (Gmsh/Ruppert/фронтальный метод) — будет реализовано отдельно</system:String>
     <system:String x:Key="PlanarRegionEditCtx">Изменить</system:String>
     <system:String x:Key="PlanarRegionDeleteCtx">Удалить</system:String>
     <system:String x:Key="FemShellKindColumn">Тип</system:String>

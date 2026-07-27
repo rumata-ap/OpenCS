@@ -1,6 +1,7 @@
 using CScore.Fem;
 using CScore.Planar;
 using OpenCS.ViewModels;
+using OpenCS.Views.Helpers;
 
 namespace OpenCS.Views;
 
@@ -39,6 +40,27 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
     }
 
     void FitView_Click(object sender, System.Windows.RoutedEventArgs e) => preview.FitToView();
+
+    void PanTool_Checked(object sender, System.Windows.RoutedEventArgs e)
+    {
+        preview.Tool = PlanarRegionPreviewTool.Pan;
+        zoomToolButton.IsChecked = false;
+        rotateToolButton.IsChecked = false;
+    }
+
+    void ZoomTool_Checked(object sender, System.Windows.RoutedEventArgs e)
+    {
+        preview.Tool = PlanarRegionPreviewTool.Zoom;
+        panToolButton.IsChecked = false;
+        rotateToolButton.IsChecked = false;
+    }
+
+    void RotateTool_Checked(object sender, System.Windows.RoutedEventArgs e)
+    {
+        preview.Tool = PlanarRegionPreviewTool.Rotate;
+        panToolButton.IsChecked = false;
+        zoomToolButton.IsChecked = false;
+    }
 
     void UpdatePlot()
     {

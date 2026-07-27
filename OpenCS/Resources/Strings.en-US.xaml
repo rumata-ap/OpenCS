@@ -1612,6 +1612,10 @@
     <system:String x:Key="PlanarRegionGeoPropsIxyLabel">Ixy, m⁴</system:String>
     <system:String x:Key="PlanarRegionTriangulateButton">Triangulate</system:String>
     <system:String x:Key="PlanarRegionFitViewButton">Fit view</system:String>
+    <system:String x:Key="PlanarRegionPanTool">Pan</system:String>
+    <system:String x:Key="PlanarRegionZoomTool">Zoom</system:String>
+    <system:String x:Key="PlanarRegionRotateTool">Rotate</system:String>
+    <system:String x:Key="PlanarRegionMeshToolStub">FE mesh generation (Gmsh/Ruppert/frontal method) — to be implemented separately</system:String>
     <system:String x:Key="PlanarRegionEditCtx">Edit</system:String>
     <system:String x:Key="PlanarRegionDeleteCtx">Delete</system:String>
     <system:String x:Key="FemShellKindColumn">Kind</system:String>
