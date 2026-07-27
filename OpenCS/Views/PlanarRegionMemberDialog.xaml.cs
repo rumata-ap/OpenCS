@@ -16,6 +16,7 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
         FemMember? existingMember = null, PlanarRegion? existingRegion = null)
     {
         InitializeComponent();
+        panToolButton.IsChecked = true;
         _vm = new PlanarRegionMemberVM(app, schema, frame, existingMember, existingRegion);
         DataContext = _vm;
 
