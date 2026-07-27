@@ -38,10 +38,33 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     /// <summary>Все расчётные задачи проекта — отсюда фильтруются задачи кручения для GJ = Saint-Venant.</summary>
     public ObservableCollection<CalcTask> AllCalcTasks { get; }
 
-    bool _createNodeMode, _createBarMode;
+    bool _createNodeMode, _createBarMode, _createPlateMode, _createWallMode, _createSpatialPlateMode;
     bool _isDiscretizing;
-    public bool CreateNodeMode { get => _createNodeMode; set { _createNodeMode = value; if (value) CreateBarMode = false; OnPropertyChanged(); } }
-    public bool CreateBarMode  { get => _createBarMode;  set { _createBarMode  = value; if (value) CreateNodeMode = false; OnPropertyChanged(); } }
+    public bool CreateNodeMode
+    {
+        get => _createNodeMode;
+        set { _createNodeMode = value; if (value) { CreateBarMode = CreatePlateMode = CreateWallMode = CreateSpatialPlateMode = false; } OnPropertyChanged(); }
+    }
+    public bool CreateBarMode
+    {
+        get => _createBarMode;
+        set { _createBarMode = value; if (value) { CreateNodeMode = CreatePlateMode = CreateWallMode = CreateSpatialPlateMode = false; } OnPropertyChanged(); }
+    }
+    public bool CreatePlateMode
+    {
+        get => _createPlateMode;
+        set { _createPlateMode = value; if (value) { CreateNodeMode = CreateBarMode = CreateWallMode = CreateSpatialPlateMode = false; } OnPropertyChanged(); }
+    }
+    public bool CreateWallMode
+    {
+        get => _createWallMode;
+        set { _createWallMode = value; if (value) { CreateNodeMode = CreateBarMode = CreatePlateMode = CreateSpatialPlateMode = false; } OnPropertyChanged(); }
+    }
+    public bool CreateSpatialPlateMode
+    {
+        get => _createSpatialPlateMode;
+        set { _createSpatialPlateMode = value; if (value) { CreateNodeMode = CreateBarMode = CreatePlateMode = CreateWallMode = false; } OnPropertyChanged(); }
+    }
     public bool IsDiscretizing
     {
         get => _isDiscretizing;
@@ -353,6 +376,52 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             CrossSectionId = sectionId
         }));
         RefreshCollections();
+    }
+
+    public CScore.Planar.Frame3D? BuildPlateFrame(string nodeTag)
+    {
+        var node = Session.Nodes.FirstOrDefault(n => n.NodeTag == nodeTag);
+        if (node == null) return null;
+        return CScore.Planar.PlanarFrameBuilder.BuildPlateFrame(
+            new CScore.Planar.PlanarVector3(node.X, node.Y, node.Z));
+    }
+
+    public CScore.Planar.Frame3D? BuildWallFrame(string nodeTagA, string nodeTagB)
+    {
+        var a = Session.Nodes.FirstOrDefault(n => n.NodeTag == nodeTagA);
+        var b = Session.Nodes.FirstOrDefault(n => n.NodeTag == nodeTagB);
+        if (a == null || b == null) return null;
+        try
+        {
+            return CScore.Planar.PlanarFrameBuilder.BuildWallFrame(
+                new CScore.Planar.PlanarVector3(a.X, a.Y, a.Z),
+                new CScore.Planar.PlanarVector3(b.X, b.Y, b.Z));
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logService.Error(ex.Message);
+            return null;
+        }
+    }
+
+    public CScore.Planar.Frame3D? BuildSpatialPlateFrame(string nodeTagA, string nodeTagB, string nodeTagC)
+    {
+        var a = Session.Nodes.FirstOrDefault(n => n.NodeTag == nodeTagA);
+        var b = Session.Nodes.FirstOrDefault(n => n.NodeTag == nodeTagB);
+        var c = Session.Nodes.FirstOrDefault(n => n.NodeTag == nodeTagC);
+        if (a == null || b == null || c == null) return null;
+        try
+        {
+            return CScore.Planar.PlanarFrameBuilder.BuildSpatialPlateFrame(
+                new CScore.Planar.PlanarVector3(a.X, a.Y, a.Z),
+                new CScore.Planar.PlanarVector3(b.X, b.Y, b.Z),
+                new CScore.Planar.PlanarVector3(c.X, c.Y, c.Z));
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logService.Error(ex.Message);
+            return null;
+        }
     }
 
     public void DeleteMemberByTag(string elemTag)
