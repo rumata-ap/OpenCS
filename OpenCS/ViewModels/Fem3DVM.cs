@@ -3,6 +3,7 @@ using System.Windows.Media;
 using System.Windows.Media.Media3D;
 using CScore.Fem;
 using CScore.Fem.Combinations;
+using CScore.Planar;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
@@ -46,6 +47,7 @@ public class Fem3DVM : ViewModelBase
     public List<BarGroup>      BarGroups       { get; private set; } = [];
     public MeshGeometry3D?     ShellMesh       { get; private set; }
     public MeshGeometry3D?     HiShellMesh     { get; private set; }
+    public MeshGeometry3D?     PlanarRegionMesh { get; private set; }
     public Point3DCollection?  ShellEdgePoints { get; private set; }
     public Point3DCollection?  NodePoints      { get; private set; }
     public Point3DCollection?  MeshLinePoints  { get; private set; }
@@ -104,6 +106,7 @@ public class Fem3DVM : ViewModelBase
     public static Color ShellColor   => Color.FromArgb(180, 160, 190, 210);
     public static Color ShellBgColor => Color.FromArgb(100, 180, 180, 190);
     public static Color ShellHiColor => Color.FromArgb(210, 255, 100,  50);
+    public static Color PlanarRegionMeshColor => Color.FromArgb(150, 100, 149, 237);
 
     /// <summary>Режим схемы — показывает все КЭ, раскрашенные по жёсткости.</summary>
     public Fem3DVM(FemSchema schema, DatabaseService db)
@@ -327,18 +330,20 @@ public class Fem3DVM : ViewModelBase
         // и создаётся самый первый узел, поэтому там он никогда не показывается.
         if (!EditMode && (allNodes.Count == 0 || elements.Count == 0))
         {
-            BarGroups       = [];
-            ShellMesh       = null;
-            HiShellMesh     = null;
-            ShellEdgePoints = null;
-            NodePoints      = null;
-            NodeProxies     = [];
-            BarProxies      = [];
-            SectionGlyphs   = [];
-            NoData          = true;
+            BarGroups        = [];
+            ShellMesh        = null;
+            HiShellMesh      = null;
+            PlanarRegionMesh = null;
+            ShellEdgePoints  = null;
+            NodePoints       = null;
+            NodeProxies      = [];
+            BarProxies       = [];
+            SectionGlyphs    = [];
+            NoData           = true;
             OnPropertyChanged(nameof(BarGroups));
             OnPropertyChanged(nameof(ShellMesh));
             OnPropertyChanged(nameof(HiShellMesh));
+            OnPropertyChanged(nameof(PlanarRegionMesh));
             OnPropertyChanged(nameof(ShellEdgePoints));
             OnPropertyChanged(nameof(NodePoints));
             OnPropertyChanged(nameof(SectionGlyphs));
@@ -348,17 +353,19 @@ public class Fem3DVM : ViewModelBase
 
         if (EditMode && elements.Count == 0)
         {
-            BarGroups       = [];
-            ShellMesh       = null;
-            HiShellMesh     = null;
-            ShellEdgePoints = null;
-            NodePoints      = new Point3DCollection(allNodes.Select(n => new Point3D(n.X, n.Y, n.Z)));
-            NodeProxies     = allNodes.Select(n => (n.NodeTag, new Point3D(n.X, n.Y, n.Z))).ToList();
-            BarProxies      = [];
-            SectionGlyphs   = [];
+            BarGroups        = [];
+            ShellMesh        = null;
+            HiShellMesh      = null;
+            PlanarRegionMesh = null;
+            ShellEdgePoints  = null;
+            NodePoints       = new Point3DCollection(allNodes.Select(n => new Point3D(n.X, n.Y, n.Z)));
+            NodeProxies      = allNodes.Select(n => (n.NodeTag, new Point3D(n.X, n.Y, n.Z))).ToList();
+            BarProxies       = [];
+            SectionGlyphs    = [];
             OnPropertyChanged(nameof(BarGroups));
             OnPropertyChanged(nameof(ShellMesh));
             OnPropertyChanged(nameof(HiShellMesh));
+            OnPropertyChanged(nameof(PlanarRegionMesh));
             OnPropertyChanged(nameof(ShellEdgePoints));
             OnPropertyChanged(nameof(NodePoints));
             OnPropertyChanged(nameof(SectionGlyphs));
@@ -394,7 +401,8 @@ public class Fem3DVM : ViewModelBase
             ShellMesh   = BuildShellMesh(nodeMap, elements);
             HiShellMesh = null;
         }
-        ShellEdgePoints = BuildShellEdges(nodeMap, elements);
+        ShellEdgePoints  = BuildShellEdges(nodeMap, elements);
+        PlanarRegionMesh = BuildPlanarRegionMesh(elements);
         SectionGlyphs = FemSectionGlyphFactory.Create(elements, _db.CrossSections, nodeMap);
 
         // Узлы: в режиме просмотра — только реально используемые отображаемыми КЭ (меньше шума
@@ -422,6 +430,7 @@ public class Fem3DVM : ViewModelBase
         OnPropertyChanged(nameof(BarGroups));
         OnPropertyChanged(nameof(ShellMesh));
         OnPropertyChanged(nameof(HiShellMesh));
+        OnPropertyChanged(nameof(PlanarRegionMesh));
         OnPropertyChanged(nameof(ShellEdgePoints));
         OnPropertyChanged(nameof(NodePoints));
         OnPropertyChanged(nameof(SectionGlyphs));
@@ -444,6 +453,45 @@ public class Fem3DVM : ViewModelBase
         }
 
         return result;
+    }
+
+    MeshGeometry3D? BuildPlanarRegionMesh(List<FemMember> elements)
+    {
+        var regionIds = elements
+            .Where(e => e.PlanarRegionId.HasValue)
+            .Select(e => e.PlanarRegionId!.Value)
+            .ToHashSet();
+        if (regionIds.Count == 0) return null;
+
+        var regions = _db.GetPlanarRegions(_schemaId).Where(r => regionIds.Contains(r.Id)).ToList();
+        if (regions.Count == 0) return null;
+
+        var positions = new Point3DCollection();
+        var indices   = new Int32Collection();
+
+        foreach (var region in regions)
+        {
+            var (vertices, triangles) = PlanarRegionTriangulation.Triangulate(region);
+            int offset = positions.Count;
+            var o  = region.Frame.Origin;
+            var lx = region.Frame.LocalX;
+            var ly = region.Frame.LocalY;
+
+            foreach (var (x, y) in vertices)
+                positions.Add(new Point3D(
+                    o.X + lx.X * x + ly.X * y,
+                    o.Y + lx.Y * x + ly.Y * y,
+                    o.Z + lx.Z * x + ly.Z * y));
+
+            foreach (var (a, b, c) in triangles)
+            {
+                indices.Add(offset + a);
+                indices.Add(offset + b);
+                indices.Add(offset + c);
+            }
+        }
+
+        return new MeshGeometry3D { Positions = positions, TriangleIndices = indices };
     }
 
     MeshGeometry3D? BuildShellMesh(Dictionary<string, Point3D> nodeMap, List<FemMember> elements)
