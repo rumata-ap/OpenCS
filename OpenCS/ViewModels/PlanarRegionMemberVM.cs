@@ -163,6 +163,12 @@ public class PlanarRegionMemberVM : ViewModelBase
             return;
         }
 
+        // Contour, загруженный из БД (GetPlanarRegions), несёт только X/Y — Points пуст, а
+        // GeoProps(Contour) требует Points (внутренний PointsToXYs()). Синхронизируем перед
+        // вычислением — тот же приём, что уже используется в PlanarRegion.BuildClosedContour.
+        EnsurePoints(Hull);
+        foreach (var hole in Holes) EnsurePoints(hole);
+
         var net = new GeoProps(Hull);
         foreach (var hole in Holes)
             net -= new GeoProps(hole);
@@ -175,6 +181,12 @@ public class PlanarRegionMemberVM : ViewModelBase
         GeoIx = net.Ix;
         GeoIy = net.Iy;
         GeoIxy = net.Ixy;
+    }
+
+    static void EnsurePoints(Contour contour)
+    {
+        if (contour.Points.Count != contour.X.Count)
+            contour.Points = contour.XYsToPoints();
     }
 
     void Triangulate()
