@@ -1,0 +1,88 @@
+<Window x:Class="OpenCS.Views.PlanarRegionMemberDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:OpenCS.Views"
+        xmlns:conv="clr-namespace:OpenCS.Converters"
+        Title="{DynamicResource PlanarRegionMemberDialogTitle}"
+        Width="720" Height="560" WindowStartupLocation="CenterOwner">
+   <Window.Resources>
+      <conv:BoolToErrorBrushConverter x:Key="ErrorToBrush"/>
+   </Window.Resources>
+   <Grid>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="*"/>
+         <ColumnDefinition Width="300"/>
+      </Grid.ColumnDefinitions>
+
+      <Border Grid.Column="0" BorderThickness="0,0,1,0"
+              BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
+         <local:PlotCanvas x:Name="preview"/>
+      </Border>
+
+      <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+         <StackPanel Margin="8">
+
+            <TextBlock Text="{DynamicResource Tag}" Margin="0,0,0,2"/>
+            <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
+
+            <GroupBox Header="{DynamicResource Hull}" Margin="0,0,0,8">
+               <StackPanel Margin="4">
+                  <ComboBox x:Name="hullCombo" ItemsSource="{Binding ProjectContours}"
+                            DisplayMemberPath="Tag" Margin="0,0,0,4"/>
+                  <Button Content="{DynamicResource SelectFromPool}"
+                          Command="{Binding SetHullFromPoolCommand}"
+                          CommandParameter="{Binding SelectedItem, ElementName=hullCombo}"
+                          Padding="6,3" HorizontalAlignment="Left"/>
+                  <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="Gray"
+                             Text="{Binding Hull.Tag, FallbackValue='-'}"/>
+               </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource Holes}" Margin="0,0,0,8">
+               <StackPanel Margin="4">
+                  <ComboBox x:Name="holeCombo" ItemsSource="{Binding ProjectContours}"
+                            DisplayMemberPath="Tag" Margin="0,0,0,4"/>
+                  <Button Content="{DynamicResource AddHole}"
+                          Command="{Binding AddHoleCommand}"
+                          CommandParameter="{Binding SelectedItem, ElementName=holeCombo}"
+                          Padding="6,3" HorizontalAlignment="Left" Margin="0,0,0,4"/>
+                  <ListBox x:Name="holesList" ItemsSource="{Binding Holes}" DisplayMemberPath="Tag" Height="60"/>
+                  <Button Content="{DynamicResource Delete}"
+                          Command="{Binding RemoveHoleCommand}"
+                          CommandParameter="{Binding SelectedItem, ElementName=holesList}"
+                          Padding="6,3" HorizontalAlignment="Left" Margin="0,4,0,0"/>
+               </StackPanel>
+            </GroupBox>
+
+            <TextBlock Text="{DynamicResource PlanarRegionKindLabel}" Margin="0,0,0,2"/>
+            <ComboBox SelectedValue="{Binding Kind}" SelectedValuePath="Tag" Margin="0,0,0,8">
+               <ComboBoxItem Tag="plate" Content="{DynamicResource PlanarRegionKindPlate}"/>
+               <ComboBoxItem Tag="wall" Content="{DynamicResource PlanarRegionKindWall}"/>
+            </ComboBox>
+
+            <TextBlock Text="{DynamicResource PlanarRegionPlateSectionLabel}" Margin="0,0,0,2"/>
+            <ComboBox ItemsSource="{Binding ProjectPlateSections}"
+                      SelectedItem="{Binding PlateSection}"
+                      DisplayMemberPath="Tag" Margin="0,0,0,8"/>
+
+            <TextBlock Text="{DynamicResource PlanarRegionDiagnosticsLabel}" Margin="0,0,0,2"/>
+            <ListBox ItemsSource="{Binding Diagnostics}" Height="80" Margin="0,0,0,8">
+               <ListBox.ItemTemplate>
+                  <DataTemplate>
+                     <TextBlock Text="{Binding Message}"
+                                Foreground="{Binding IsError, Converter={StaticResource ErrorToBrush}}"
+                                TextWrapping="Wrap"/>
+                  </DataTemplate>
+               </ListBox.ItemTemplate>
+            </ListBox>
+
+            <StackPanel Orientation="Horizontal">
+               <Button Content="{DynamicResource Save}" Command="{Binding SaveCommand}"
+                       Padding="12,4" Margin="0,0,8,0"/>
+               <Button Content="{DynamicResource Delete}" Command="{Binding DeleteCommand}"
+                       Padding="12,4"/>
+            </StackPanel>
+         </StackPanel>
+      </ScrollViewer>
+   </Grid>
+</Window>
