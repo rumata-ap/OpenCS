@@ -64,6 +64,8 @@ public partial class FemSchemaPage : UserControl
             var frame = _editorVm.BuildSpatialPlateFrame(a, b, c);
             if (frame != null) OpenPlanarRegionMemberDialog(frame);
         };
+        view3D.PlanarRegionEditRequested += OpenPlanarRegionEdit;
+        view3D.PlanarRegionDeleteRequested += DeletePlanarRegionMember;
         view3D.SetBarSectionItemsSource(_editorVm.CrossSections);
         view3D.MemberDeleteRequested += tag => _editorVm.DeleteMemberByTag(tag);
         view3D.MemberSplitRequested  += tag => _editorVm.SplitMemberByTag(tag);
@@ -113,9 +115,13 @@ public partial class FemSchemaPage : UserControl
         new FemMemberPropertiesDialog(member, _editorVm) { Owner = Window.GetWindow(this) }.Show();
     }
 
-    void OpenPlanarRegionMemberDialog(CScore.Planar.Frame3D frame)
+    void OpenPlanarRegionMemberDialog(CScore.Planar.Frame3D frame,
+        FemMember? existingMember = null, CScore.Planar.PlanarRegion? existingRegion = null)
     {
-        var dlg = new PlanarRegionMemberDialog(_app, _schema, frame) { Owner = Window.GetWindow(this) };
+        var dlg = new PlanarRegionMemberDialog(_app, _schema, frame, existingMember, existingRegion)
+        {
+            Owner = Window.GetWindow(this)
+        };
         dlg.ShowDialog();
 
         if (dlg.SavedMember is { } saved)
@@ -129,6 +135,26 @@ public partial class FemSchemaPage : UserControl
             _editorVm.Session.Members.RemoveAll(m => m.Id == deleted.Id);
             _editorVm.RefreshCollections();
         }
+    }
+
+    void OpenPlanarRegionEdit(string elemTag)
+    {
+        var member = _editorVm.Session.Members.FirstOrDefault(m => m.ElemTag == elemTag);
+        if (member?.PlanarRegionId is not int regionId) return;
+        var region = _app.db.GetPlanarRegions(_schema.Id).FirstOrDefault(r => r.Id == regionId);
+        if (region == null) return;
+        OpenPlanarRegionMemberDialog(region.Frame, member, region);
+    }
+
+    void DeletePlanarRegionMember(string elemTag)
+    {
+        var member = _editorVm.Session.Members.FirstOrDefault(m => m.ElemTag == elemTag);
+        if (member == null) return;
+        _app.db.DeleteFemMember(member);
+        if (member.PlanarRegionId is int regionId) _app.db.DeletePlanarRegion(regionId);
+
+        _editorVm.Session.Members.RemoveAll(m => m.Id == member.Id);
+        _editorVm.RefreshCollections();
     }
 
     void OpenMemberRotation(string tag)
