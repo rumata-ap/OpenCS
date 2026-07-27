@@ -48,7 +48,6 @@ public class PlanarRegionMemberVM : ViewModelBase
         SetHullFromPoolCommand = new RelayCommand(o => SetHullFromPool(o as Contour));
         AddHoleCommand = new RelayCommand(o => AddHole(o as Contour));
         RemoveHoleCommand = new RelayCommand(o => RemoveHole(o as Contour));
-        TriangulateCommand = new RelayCommand(_ => Triangulate(), _ => Hull != null);
         SaveCommand = new RelayCommand(_ => Save());
         DeleteCommand = new RelayCommand(_ => Delete(), _ => _existingMember != null);
 
@@ -66,7 +65,7 @@ public class PlanarRegionMemberVM : ViewModelBase
     public string Tag { get => _tag; set { _tag = value; OnPropertyChanged(); } }
 
     Contour? _hull;
-    public Contour? Hull { get => _hull; set { _hull = value; OnPropertyChanged(); InvalidateTriangulation(); RefreshPlot(); } }
+    public Contour? Hull { get => _hull; set { _hull = value; OnPropertyChanged(); RefreshPlot(); } }
 
     public ObservableCollection<Contour> Holes { get; }
 
@@ -109,7 +108,6 @@ public class PlanarRegionMemberVM : ViewModelBase
     public ICommand SetHullFromPoolCommand { get; }
     public ICommand AddHoleCommand { get; }
     public ICommand RemoveHoleCommand { get; }
-    public ICommand TriangulateCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand DeleteCommand { get; }
 
@@ -126,7 +124,6 @@ public class PlanarRegionMemberVM : ViewModelBase
     {
         if (contour == null || Holes.Contains(contour)) return;
         Holes.Add(contour);
-        InvalidateTriangulation();
         RefreshPlot();
     }
 
@@ -134,13 +131,8 @@ public class PlanarRegionMemberVM : ViewModelBase
     {
         if (contour == null) return;
         Holes.Remove(contour);
-        InvalidateTriangulation();
         RefreshPlot();
     }
-
-    List<PlotElement> _triangulationElements = [];
-
-    void InvalidateTriangulation() => _triangulationElements = [];
 
     void RefreshPlot()
     {
@@ -150,7 +142,6 @@ public class PlanarRegionMemberVM : ViewModelBase
         foreach (var hole in Holes)
             if (hole.X.Count >= 3)
                 elements.Add(new PolygonElement { Xs = [.. hole.X], Ys = [.. hole.Y], Fill = Brushes.White, Stroke = Brushes.Gray });
-        elements.AddRange(_triangulationElements);
         PlotElements = elements;
         RefreshGeoProps();
     }
@@ -187,37 +178,6 @@ public class PlanarRegionMemberVM : ViewModelBase
     {
         if (contour.Points.Count != contour.X.Count)
             contour.Points = contour.XYsToPoints();
-    }
-
-    void Triangulate()
-    {
-        if (Hull == null) return;
-
-        var (region, diagnostics) = PlanarRegionCreation.TryCreate(Hull, Holes, _frame, Tag);
-        Diagnostics = diagnostics;
-        if (region == null)
-        {
-            InvalidateTriangulation();
-            RefreshPlot();
-            return;
-        }
-
-        var (vertices, triangles) = PlanarRegionTriangulation.Triangulate(region);
-        var elements = new List<PlotElement>();
-        foreach (var (a, b, c) in triangles)
-        {
-            var pa = vertices[a]; var pb = vertices[b]; var pc = vertices[c];
-            elements.Add(new PolygonElement
-            {
-                Xs = [pa.X, pb.X, pc.X],
-                Ys = [pa.Y, pb.Y, pc.Y],
-                Fill = null,
-                Stroke = Brushes.DimGray,
-                StrokeThickness = 0.5
-            });
-        }
-        _triangulationElements = elements;
-        RefreshPlot();
     }
 
     void Save()
