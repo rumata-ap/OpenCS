@@ -36,13 +36,9 @@
             <MenuItem Header="{DynamicResource FemLoadEditCtx}" Click="LoadEditCtx_Click"/>
             <MenuItem Header="{DynamicResource FemLoadDeleteCtx}" Click="LoadDeleteCtx_Click"/>
         </ContextMenu>
-        <ContextMenu x:Key="ViewportBackgroundContextMenu">
-            <MenuItem Header="{DynamicResource FemCreatePlateMode}" IsCheckable="True"
-                      IsChecked="{Binding Editor.CreatePlateMode, ElementName=root, Mode=TwoWay}"/>
-            <MenuItem Header="{DynamicResource FemCreateWallMode}" IsCheckable="True"
-                      IsChecked="{Binding Editor.CreateWallMode, ElementName=root, Mode=TwoWay}"/>
-            <MenuItem Header="{DynamicResource FemCreateSpatialPlateMode}" IsCheckable="True"
-                      IsChecked="{Binding Editor.CreateSpatialPlateMode, ElementName=root, Mode=TwoWay}"/>
+        <ContextMenu x:Key="PlanarRegionContextMenu">
+            <MenuItem Header="{DynamicResource PlanarRegionEditCtx}" Click="PlanarRegionEditCtx_Click"/>
+            <MenuItem Header="{DynamicResource PlanarRegionDeleteCtx}" Click="PlanarRegionDeleteCtx_Click"/>
         </ContextMenu>
     </UserControl.Resources>
     <Grid>
@@ -181,7 +177,6 @@
 
         <!-- 3D viewport -->
         <h:HelixViewport3D x:Name="viewport" Grid.Row="1"
-                           ContextMenu="{StaticResource ViewportBackgroundContextMenu}"
                            Background="White"
                            ShowCoordinateSystem="True"
                            ShowViewCube="True"

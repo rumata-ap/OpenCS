@@ -33,6 +33,7 @@ public partial class FemSchemaView3D : UserControl
     LinesVisual3D?  _meshNodeGlyphVisual;
 
     readonly Dictionary<Visual3D, (bool IsNode, string Tag)> _pickTargets = new();
+    readonly Dictionary<Visual3D, string> _planarRegionPickTargets = new();
     readonly Dictionary<Visual3D, (bool IsNodeLoad, string Tag)> _loadPickTargets = new();
     readonly Dictionary<Visual3D, (string NodeTag, int Dof)> _kinematicPickTargets = new();
     PointsVisual3D? _editNodesVisual;
@@ -52,6 +53,8 @@ public partial class FemSchemaView3D : UserControl
     public event Action<string>? PlateFrameRequested;
     public event Action<string, string>? WallFrameRequested;
     public event Action<string, string, string>? SpatialPlateFrameRequested;
+    public event Action<string>? PlanarRegionEditRequested;
+    public event Action<string>? PlanarRegionDeleteRequested;
 
     int RequiredFrameNodeCount =>
         _createPlateMode ? 1 : _createWallMode ? 2 : _createSpatialPlateMode ? 3 : 0;
@@ -283,11 +286,13 @@ public partial class FemSchemaView3D : UserControl
             viewport.Children.Add(new ModelVisual3D { Content = model });
         }
 
-        if (VM.PlanarRegionMesh is { } prMesh)
+        foreach (var pv in VM.PlanarRegionVisuals)
         {
             var mat   = new DiffuseMaterial(new SolidColorBrush(Fem3DVM.PlanarRegionMeshColor));
-            var model = new GeometryModel3D(prMesh, mat) { BackMaterial = mat };
+            var model = new GeometryModel3D(pv.Mesh, mat) { BackMaterial = mat };
             viewport.Children.Add(new ModelVisual3D { Content = model });
+
+            viewport.Children.Add(new LinesVisual3D { Points = pv.EdgePoints, Color = Colors.SteelBlue, Thickness = 1.2 });
         }
 
         _meshVisual = VM.MeshLinePoints is { Count: > 0 } meshPoints
@@ -671,6 +676,8 @@ public partial class FemSchemaView3D : UserControl
     {
         foreach (var visual in _pickTargets.Keys) viewport.Children.Remove(visual);
         _pickTargets.Clear();
+        foreach (var visual in _planarRegionPickTargets.Keys) viewport.Children.Remove(visual);
+        _planarRegionPickTargets.Clear();
         if (_editNodesVisual != null) { viewport.Children.Remove(_editNodesVisual); _editNodesVisual = null; }
         if (VM is not { EditMode: true } vm) return;
 
@@ -714,6 +721,17 @@ public partial class FemSchemaView3D : UserControl
             _pickTargets[pipe] = (false, tag);
             viewport.Children.Add(pipe);
         }
+
+        foreach (var pv in vm.PlanarRegionVisuals)
+        {
+            bool selected = vm.Selection?.SelectedElemTags.Contains(pv.ElemTag) == true;
+            var color = selected ? Colors.OrangeRed : Colors.Transparent;
+            var mat   = new DiffuseMaterial(new SolidColorBrush(color));
+            var model = new GeometryModel3D(pv.Mesh, mat) { BackMaterial = mat };
+            var visual = new ModelVisual3D { Content = model };
+            _planarRegionPickTargets[visual] = pv.ElemTag;
+            viewport.Children.Add(visual);
+        }
     }
 
     void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -742,8 +760,23 @@ public partial class FemSchemaView3D : UserControl
                 hits.Add(target);
             return HitTestResultBehavior.Continue;
         }
+        string? planarRegionHit = null;
+        HitTestResultBehavior PlanarRegionCallback(HitTestResult prResult)
+        {
+            if (prResult is RayMeshGeometry3DHitTestResult prMeshHit &&
+                _planarRegionPickTargets.TryGetValue(prMeshHit.VisualHit, out var prTag))
+                planarRegionHit = prTag;
+            return HitTestResultBehavior.Continue;
+        }
+
         VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
-        if (hits.Count == 0) return;
+        if (hits.Count == 0)
+        {
+            VisualTreeHelper.HitTest(viewport, null, PlanarRegionCallback, new PointHitTestParameters(position));
+            if (planarRegionHit != null && !_createPlateMode && !_createWallMode && !_createSpatialPlateMode && !_createBarMode)
+                selection.ToggleElement(planarRegionHit, Keyboard.Modifiers.HasFlag(ModifierKeys.Control));
+            return;
+        }
 
         var pick = hits.FirstOrDefault(h => h.IsNode);
         if (pick.Tag == null) pick = hits[0];
@@ -956,12 +989,34 @@ public partial class FemSchemaView3D : UserControl
             return HitTestResultBehavior.Continue;
         }
         VisualTreeHelper.HitTest(viewport, null, Callback, new PointHitTestParameters(position));
-        if (hit is not { } target) return;
+        if (hit is { } target)
+        {
+            _contextMenuTargetTag = target.Tag;
+            var menu = (ContextMenu)Resources[target.IsNode ? "NodeContextMenu" : "MemberContextMenu"];
+            menu.PlacementTarget = viewport;
+            menu.IsOpen = true;
+            e.Handled = true;
+            return;
+        }
 
-        _contextMenuTargetTag = target.Tag;
-        var menu = (ContextMenu)Resources[target.IsNode ? "NodeContextMenu" : "MemberContextMenu"];
-        menu.PlacementTarget = viewport;
-        menu.IsOpen = true;
+        string? planarRegionHit = null;
+        HitTestResultBehavior PlanarRegionCallback(HitTestResult prResult)
+        {
+            if (prResult is RayMeshGeometry3DHitTestResult prMeshHit &&
+                _planarRegionPickTargets.TryGetValue(prMeshHit.VisualHit, out var prTag))
+            {
+                planarRegionHit = prTag;
+                return HitTestResultBehavior.Stop;
+            }
+            return HitTestResultBehavior.Continue;
+        }
+        VisualTreeHelper.HitTest(viewport, null, PlanarRegionCallback, new PointHitTestParameters(position));
+        if (planarRegionHit is not { } prHitTag) return;
+
+        _contextMenuTargetTag = prHitTag;
+        var prMenu = (ContextMenu)Resources["PlanarRegionContextMenu"];
+        prMenu.PlacementTarget = viewport;
+        prMenu.IsOpen = true;
         e.Handled = true;
     }
 
@@ -1009,6 +1064,18 @@ public partial class FemSchemaView3D : UserControl
     {
         if (_contextMenuTargetTag is not { } tag) return;
         MemberDeleteRequested?.Invoke(tag);
+    }
+
+    void PlanarRegionEditCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        PlanarRegionEditRequested?.Invoke(tag);
+    }
+
+    void PlanarRegionDeleteCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        PlanarRegionDeleteRequested?.Invoke(tag);
     }
 
     void MemberSplitCtx_Click(object sender, RoutedEventArgs e)
