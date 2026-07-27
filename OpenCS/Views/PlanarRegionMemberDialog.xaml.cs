@@ -16,7 +16,6 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
         FemMember? existingMember = null, PlanarRegion? existingRegion = null)
     {
         InitializeComponent();
-        panToolButton.IsChecked = true;
         _vm = new PlanarRegionMemberVM(app, schema, frame, existingMember, existingRegion);
         DataContext = _vm;
 
@@ -42,25 +41,22 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
 
     void FitView_Click(object sender, System.Windows.RoutedEventArgs e) => preview.FitToView();
 
-    void PanTool_Checked(object sender, System.Windows.RoutedEventArgs e)
+    void MoveGeometry_Click(object sender, System.Windows.RoutedEventArgs e)
     {
-        preview.Tool = PlanarRegionPreviewTool.Pan;
-        zoomToolButton.IsChecked = false;
-        rotateToolButton.IsChecked = false;
+        var dlg = new GeometryTransformDialog(GeometryTransformKind.Move, "PlanarRegionPanTool") { Owner = this };
+        if (dlg.ShowDialog() == true) _vm.TranslateGeometry(dlg.Dx, dlg.Dy);
     }
 
-    void ZoomTool_Checked(object sender, System.Windows.RoutedEventArgs e)
+    void ScaleGeometry_Click(object sender, System.Windows.RoutedEventArgs e)
     {
-        preview.Tool = PlanarRegionPreviewTool.Zoom;
-        panToolButton.IsChecked = false;
-        rotateToolButton.IsChecked = false;
+        var dlg = new GeometryTransformDialog(GeometryTransformKind.Scale, "PlanarRegionZoomTool") { Owner = this };
+        if (dlg.ShowDialog() == true) _vm.ScaleGeometry(dlg.Factor);
     }
 
-    void RotateTool_Checked(object sender, System.Windows.RoutedEventArgs e)
+    void RotateGeometry_Click(object sender, System.Windows.RoutedEventArgs e)
     {
-        preview.Tool = PlanarRegionPreviewTool.Rotate;
-        panToolButton.IsChecked = false;
-        zoomToolButton.IsChecked = false;
+        var dlg = new GeometryTransformDialog(GeometryTransformKind.Rotate, "PlanarRegionRotateTool") { Owner = this };
+        if (dlg.ShowDialog() == true) _vm.RotateGeometryDegrees(dlg.AngleDeg);
     }
 
     void UpdatePlot()

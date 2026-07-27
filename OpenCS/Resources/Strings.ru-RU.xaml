@@ -1621,6 +1621,10 @@
     <system:String x:Key="PlanarRegionMeshToolStub">Расчётная сетка КЭ (Gmsh/Ruppert/фронтальный метод) — будет реализовано отдельно</system:String>
     <system:String x:Key="PlanarRegionEditCtx">Изменить</system:String>
     <system:String x:Key="PlanarRegionDeleteCtx">Удалить</system:String>
+    <system:String x:Key="GeometryTransformDx">ΔX, м</system:String>
+    <system:String x:Key="GeometryTransformDy">ΔY, м</system:String>
+    <system:String x:Key="GeometryTransformFactor">Коэффициент масштабирования</system:String>
+    <system:String x:Key="GeometryTransformAngleDeg">Угол поворота, °</system:String>
     <system:String x:Key="FemShellKindColumn">Тип</system:String>
     <system:String x:Key="FemShellPlateSectionColumn">Сечение</system:String>
     <system:String x:Key="FemShellDelete">Удалить</system:String>

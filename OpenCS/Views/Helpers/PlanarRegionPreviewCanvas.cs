@@ -1,4 +1,3 @@
-using OpenCS.Views;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
@@ -7,15 +6,12 @@ using System.Windows.Threading;
 
 namespace OpenCS.Views.Helpers;
 
-/// <summary>Активный инструмент взаимодействия с превью PlanarRegionPreviewCanvas — ровно один
-/// активен в любой момент (CAD-стиль). Колесо мыши зумирует независимо от выбранного инструмента.</summary>
-public enum PlanarRegionPreviewTool { Pan, Zoom, Rotate }
-
-/// <summary>Read-only превью списка PlotElement для PlanarRegionMemberDialog — pan/zoom/поворот
-/// вокруг Z как отдельные CAD-стиля инструменты, сетка с числовыми метками осей (экранно-
-/// выровненная — вращается только содержимое, не сетка). Автофит выполняется один раз при первом
-/// заполнении данными (или после Clear()) — последующие SetElements не сбрасывают пользовательский
-/// zoom/pan/поворот.</summary>
+/// <summary>Read-only превью списка PlotElement для PlanarRegionMemberDialog. Колесо мыши всегда
+/// масштабирует вид (чистая навигация камеры, геометрию Hull/Holes не трогает — геометрические
+/// правки выполняются через PlanarRegionMemberVM.TranslateGeometry/ScaleGeometry/RotateGeometryDegrees,
+/// вызываемые из диалоговых кнопок "Переместить"/"Масштаб"/"Повернуть"). Сетка с числовыми метками
+/// осей. Автофит выполняется один раз при первом заполнении данными (или после Clear()) —
+/// последующие SetElements не сбрасывают пользовательский zoom.</summary>
 public class PlanarRegionPreviewCanvas : FrameworkElement
 {
     IReadOnlyList<PlotElement>? _elements;
@@ -26,17 +22,6 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
     double _scale = 200;
     double _originX;
     double _originY;
-    double _rotation;       // радианы, вокруг (_pivotX, _pivotY)
-    double _pivotX, _pivotY;
-
-    public PlanarRegionPreviewTool Tool { get; set; } = PlanarRegionPreviewTool.Pan;
-
-    Point _dragStart;
-    Point _toolAnchorScreen;
-    (double X, double Y) _toolAnchorModel;
-    double _zoomBaseScale;
-    double _rotationBase;
-    bool _isDragging;
 
     public PlanarRegionPreviewCanvas()
     {
@@ -91,9 +76,6 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
         _originX = xMin - (modelW - (xMax - xMin)) / 2;
         _originY = yMin - (modelH - (yMax - yMin)) / 2;
 
-        _pivotX = (_xMin + _xMax) / 2;
-        _pivotY = (_yMin + _yMax) / 2;
-
         InvalidateVisual();
     }
 
@@ -118,46 +100,20 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
             el.Render(dc, ToScreen);
     }
 
-    /// <summary>Полная модель→экран трансформация (масштаб + смещение + поворот вокруг пивота) —
-    /// используется для содержимого (PlotElement).</summary>
     Point ToScreen(double mx, double my)
-    {
-        double dx = mx - _pivotX, dy = my - _pivotY;
-        double cosT = Math.Cos(_rotation), sinT = Math.Sin(_rotation);
-        double rx = _pivotX + dx * cosT - dy * sinT;
-        double ry = _pivotY + dx * sinT + dy * cosT;
-        return new Point(_scale * (rx - _originX), ActualHeight - _scale * (ry - _originY));
-    }
+        => new(_scale * (mx - _originX), ActualHeight - _scale * (my - _originY));
 
-    /// <summary>Обратная трансформация экран→модель (учитывает поворот) — для якоря зума под
-    /// курсором.</summary>
     (double X, double Y) ToModel(Point screen)
-    {
-        double rx = screen.X / _scale + _originX;
-        double ry = (ActualHeight - screen.Y) / _scale + _originY;
-        double dxp = rx - _pivotX, dyp = ry - _pivotY;
-        double cosT = Math.Cos(_rotation), sinT = Math.Sin(_rotation);
-        double dx = dxp * cosT + dyp * sinT;
-        double dy = -dxp * sinT + dyp * cosT;
-        return (_pivotX + dx, _pivotY + dy);
-    }
+        => (screen.X / _scale + _originX, (ActualHeight - screen.Y) / _scale + _originY);
 
     /// <summary>Подбирает _originX/_originY так, чтобы заданная модельная точка оказалась ровно в
-    /// заданной экранной точке — используется после изменения _scale, чтобы зум не «прыгал».</summary>
+    /// заданной экранной точке — используется после изменения _scale, чтобы зум колесом мыши не
+    /// «прыгал».</summary>
     void AnchorOn((double X, double Y) model, Point screenTarget)
     {
-        double dx = model.X - _pivotX, dy = model.Y - _pivotY;
-        double cosT = Math.Cos(_rotation), sinT = Math.Sin(_rotation);
-        double rx = _pivotX + dx * cosT - dy * sinT;
-        double ry = _pivotY + dx * sinT + dy * cosT;
-        _originX = rx - screenTarget.X / _scale;
-        _originY = ry - (ActualHeight - screenTarget.Y) / _scale;
+        _originX = model.X - screenTarget.X / _scale;
+        _originY = model.Y - (ActualHeight - screenTarget.Y) / _scale;
     }
-
-    /// <summary>Экранно-выровненная (без поворота) модель→экран — только для сетки/осей: сетка
-    /// намеренно не вращается вместе с содержимым (см. Global Constraints плана).</summary>
-    Point ToScreenUnrotated(double mx, double my)
-        => new(_scale * (mx - _originX), ActualHeight - _scale * (my - _originY));
 
     void DrawGridAndAxes(DrawingContext dc, double w, double h)
     {
@@ -170,12 +126,12 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
         var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(60, 0, 0, 0)), 0.5) { DashStyle = DashStyles.Dot };
         foreach (var x in ticksX)
         {
-            double px = ToScreenUnrotated(x, 0).X;
+            double px = ToScreen(x, 0).X;
             if (px > 0 && px < w) dc.DrawLine(gridPen, new Point(px, 0), new Point(px, h));
         }
         foreach (var y in ticksY)
         {
-            double py = ToScreenUnrotated(0, y).Y;
+            double py = ToScreen(0, y).Y;
             if (py > 0 && py < h) dc.DrawLine(gridPen, new Point(0, py), new Point(w, py));
         }
 
@@ -185,14 +141,14 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
         const double fontSize = 10;
         const double tickLen = 4, gap = 3;
 
-        double axisPxX = Clamp(ToScreenUnrotated(0, 0).X, 0, w);
-        double axisPxY = Clamp(ToScreenUnrotated(0, 0).Y, 0, h);
+        double axisPxX = Clamp(ToScreen(0, 0).X, 0, w);
+        double axisPxY = Clamp(ToScreen(0, 0).Y, 0, h);
         dc.DrawLine(axisPen, new Point(0, axisPxY), new Point(w, axisPxY));
         dc.DrawLine(axisPen, new Point(axisPxX, 0), new Point(axisPxX, h));
 
         foreach (var t in ticksX)
         {
-            double px = ToScreenUnrotated(t, 0).X;
+            double px = ToScreen(t, 0).X;
             if (px < 0 || px > w) continue;
             dc.DrawLine(tickPen, new Point(px, axisPxY - tickLen), new Point(px, axisPxY + tickLen));
             var ft = new FormattedText(FormatTick(t), CultureInfo.InvariantCulture,
@@ -202,7 +158,7 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
         }
         foreach (var t in ticksY)
         {
-            double py = ToScreenUnrotated(0, t).Y;
+            double py = ToScreen(0, t).Y;
             if (py < 0 || py > h) continue;
             dc.DrawLine(tickPen, new Point(axisPxX - tickLen, py), new Point(axisPxX + tickLen, py));
             var ft = new FormattedText(FormatTick(t), CultureInfo.InvariantCulture,
@@ -253,49 +209,5 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
         AnchorOn(before, pos);
         InvalidateVisual();
         e.Handled = true;
-    }
-
-    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
-    {
-        _dragStart = e.GetPosition(this);
-        _toolAnchorScreen = _dragStart;
-        _toolAnchorModel = ToModel(_dragStart);
-        _zoomBaseScale = _scale;
-        _rotationBase = _rotation;
-        _isDragging = true;
-        CaptureMouse();
-    }
-
-    protected override void OnMouseMove(MouseEventArgs e)
-    {
-        if (!_isDragging) return;
-        var pos = e.GetPosition(this);
-        double dx = pos.X - _dragStart.X;
-        double dy = pos.Y - _dragStart.Y;
-
-        switch (Tool)
-        {
-            case PlanarRegionPreviewTool.Pan:
-                _originX -= dx / _scale;
-                _originY += dy / _scale;
-                break;
-            case PlanarRegionPreviewTool.Zoom:
-                double factor = Math.Pow(1.01, -(pos.Y - _toolAnchorScreen.Y));
-                _scale = _zoomBaseScale * factor;
-                AnchorOn(_toolAnchorModel, _toolAnchorScreen);
-                break;
-            case PlanarRegionPreviewTool.Rotate:
-                _rotation = _rotationBase + (pos.X - _toolAnchorScreen.X) * 0.01;
-                break;
-        }
-
-        _dragStart = pos;
-        InvalidateVisual();
-    }
-
-    protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
-    {
-        _isDragging = false;
-        ReleaseMouseCapture();
     }
 }

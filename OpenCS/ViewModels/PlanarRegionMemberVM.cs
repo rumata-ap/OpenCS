@@ -134,6 +134,86 @@ public class PlanarRegionMemberVM : ViewModelBase
         RefreshPlot();
     }
 
+    bool _geometryOwned;
+
+    /// <summary>Hull/Holes до первой трансформации — те же ссылки, что лежат в пуле App.Contours
+    /// (см. SetHullFromPool/AddHole). Клонируем один раз, при первом вызове трансформации,
+    /// чтобы не портить контуры пула геометрическими правками, сделанными в этом диалоге.</summary>
+    void EnsureGeometryOwned()
+    {
+        if (_geometryOwned) return;
+        if (Hull != null) Hull = CloneContour(Hull);
+        for (int i = 0; i < Holes.Count; i++) Holes[i] = CloneContour(Holes[i]);
+        _geometryOwned = true;
+    }
+
+    static Contour CloneContour(Contour c)
+    {
+        var clone = new Contour
+        {
+            Tag = c.Tag,
+            Type = c.Type,
+            Num = c.Num,
+            GeometrySet = c.GeometrySet,
+            X = new List<double>(c.X),
+            Y = new List<double>(c.Y)
+        };
+        clone.SetWKT();
+        return clone;
+    }
+
+    /// <summary>Жёсткий сдвиг Hull+Holes на (dx, dy) в локальных координатах контура.</summary>
+    public void TranslateGeometry(double dx, double dy)
+    {
+        EnsureGeometryOwned();
+        void Apply(Contour c)
+        {
+            for (int i = 0; i < c.X.Count; i++) c.X[i] += dx;
+            for (int i = 0; i < c.Y.Count; i++) c.Y[i] += dy;
+            c.SetWKT();
+        }
+        if (Hull != null) Apply(Hull);
+        foreach (var hole in Holes) Apply(hole);
+        RefreshPlot();
+    }
+
+    /// <summary>Жёсткое масштабирование Hull+Holes вокруг начала локальных координат (0,0).</summary>
+    public void ScaleGeometry(double factor)
+    {
+        EnsureGeometryOwned();
+        void Apply(Contour c)
+        {
+            for (int i = 0; i < c.X.Count; i++) c.X[i] *= factor;
+            for (int i = 0; i < c.Y.Count; i++) c.Y[i] *= factor;
+            c.SetWKT();
+        }
+        if (Hull != null) Apply(Hull);
+        foreach (var hole in Holes) Apply(hole);
+        RefreshPlot();
+    }
+
+    /// <summary>Жёсткий поворот Hull+Holes вокруг начала локальных координат (0,0)
+    /// на угол в градусах (против часовой стрелки — стандартная математическая конвенция).</summary>
+    public void RotateGeometryDegrees(double angleDeg)
+    {
+        EnsureGeometryOwned();
+        double rad = angleDeg * Math.PI / 180.0;
+        double cos = Math.Cos(rad), sin = Math.Sin(rad);
+        void Apply(Contour c)
+        {
+            for (int i = 0; i < c.X.Count; i++)
+            {
+                double x = c.X[i], y = c.Y[i];
+                c.X[i] = x * cos - y * sin;
+                c.Y[i] = x * sin + y * cos;
+            }
+            c.SetWKT();
+        }
+        if (Hull != null) Apply(Hull);
+        foreach (var hole in Holes) Apply(hole);
+        RefreshPlot();
+    }
+
     void RefreshPlot()
     {
         var elements = new List<PlotElement>();
