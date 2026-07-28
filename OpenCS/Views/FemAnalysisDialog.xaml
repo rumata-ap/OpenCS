@@ -28,7 +28,7 @@
             </StackPanel>
         </Grid>
 
-        <Grid Margin="0,4">
+        <Grid x:Name="LoadSourceRow" Margin="0,4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="190"/>
                 <ColumnDefinition Width="*"/>
@@ -36,6 +36,26 @@
             <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisLoadLabel}" VerticalAlignment="Center"/>
             <ComboBox Grid.Column="1" x:Name="LoadSourceBox" DisplayMemberPath="Label" Height="22" VerticalContentAlignment="Center"/>
         </Grid>
+
+        <GroupBox x:Name="StagesGroup" Header="{DynamicResource FemAnalysisStagesLabel}" Visibility="Collapsed" Margin="0,4">
+            <StackPanel Margin="4">
+                <TextBlock Text="{DynamicResource FemAnalysisStagesHint}" TextWrapping="Wrap" Margin="0,0,0,6" FontSize="11" Opacity="0.8"/>
+                <DataGrid x:Name="StagesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
+                          Height="140" Margin="0,0,0,6">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="140"/>
+                        <DataGridComboBoxColumn x:Name="StagesSourceColumn" Header="{DynamicResource FemAnalysisLoadLabel}"
+                                                 DisplayMemberPath="Label" SelectedItemBinding="{Binding Source}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="{DynamicResource FemAnalysisStageAdd}" Click="AddStage_Click" Padding="8,2" Margin="0,0,4,0"/>
+                    <Button Content="{DynamicResource FemAnalysisStageRemove}" Click="RemoveStage_Click" Padding="8,2" Margin="0,0,4,0"/>
+                    <Button Content="{DynamicResource FemAnalysisStageMoveUp}" Click="MoveStageUp_Click" Padding="8,2" Margin="0,0,4,0"/>
+                    <Button Content="{DynamicResource FemAnalysisStageMoveDown}" Click="MoveStageDown_Click" Padding="8,2"/>
+                </StackPanel>
+            </StackPanel>
+        </GroupBox>
 
         <StackPanel x:Name="NonlinearPanel" Visibility="Collapsed" Margin="0,4,0,0">
             <Separator Margin="0,4"/>

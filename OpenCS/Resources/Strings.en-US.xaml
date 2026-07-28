@@ -1395,6 +1395,17 @@
     <system:String x:Key="FemAnalysisDone">Analysis "{0}" finished</system:String>
     <system:String x:Key="FemAnalysisTagLabel">Analysis name</system:String>
     <system:String x:Key="FemAnalysisLoadLabel">Load case</system:String>
+    <system:String x:Key="FemAnalysisStagesLabel">Loading stages</system:String>
+    <system:String x:Key="FemAnalysisStagesHint">Each stage adds its own load on top of the locked-in state of the previous stages (e.g. compress first, then bend).</system:String>
+    <system:String x:Key="FemAnalysisStageTagColumn">Stage</system:String>
+    <system:String x:Key="FemAnalysisStageAdd">Add</system:String>
+    <system:String x:Key="FemAnalysisStageRemove">Remove</system:String>
+    <system:String x:Key="FemAnalysisStageMoveUp">Up</system:String>
+    <system:String x:Key="FemAnalysisStageMoveDown">Down</system:String>
+    <system:String x:Key="FemAnalysisStageDefaultTag">Stage 1</system:String>
+    <system:String x:Key="FemAnalysisStageNumberedTag">Stage {0}</system:String>
+    <system:String x:Key="FemAnalysisStagesEmpty">Add at least one loading stage.</system:String>
+    <system:String x:Key="FemAnalysisStageMissingSource">Every stage must have a load source selected.</system:String>
     <system:String x:Key="FemAnalysisExeLabel">Path to OpenSees.exe (optional)</system:String>
     <system:String x:Key="FemAnalysisTimeoutLabel">Timeout, s</system:String>
     <system:String x:Key="FemAnalysisKindLabel">Analysis kind</system:String>
@@ -1439,6 +1450,7 @@
     <system:String x:Key="FemResultTabHistory">History</system:String>
     <system:String x:Key="FemResultStep">Step</system:String>
     <system:String x:Key="FemResultStepLabel">Step {0}/{1}, λ={2:F3} ({3})</system:String>
+    <system:String x:Key="FemResultStepLabelStaged">Step {0}/{1}, λ={2:F3} ({3}), stage "{4}"</system:String>
     <system:String x:Key="FemResultConverged">converged</system:String>
     <system:String x:Key="FemResultNotConverged">not converged</system:String>
     <system:String x:Key="FemResultTab3D">3D</system:String>

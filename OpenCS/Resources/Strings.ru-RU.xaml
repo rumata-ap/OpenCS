@@ -1398,6 +1398,17 @@
     <system:String x:Key="FemAnalysisDone">Расчёт «{0}» завершён</system:String>
     <system:String x:Key="FemAnalysisTagLabel">Имя расчёта</system:String>
     <system:String x:Key="FemAnalysisLoadLabel">Загружение</system:String>
+    <system:String x:Key="FemAnalysisStagesLabel">Стадии нагружения</system:String>
+    <system:String x:Key="FemAnalysisStagesHint">Каждая стадия добавляет свою нагрузку поверх зафиксированного НДС предыдущих (сначала сжатие, затем изгиб и т.д.).</system:String>
+    <system:String x:Key="FemAnalysisStageTagColumn">Стадия</system:String>
+    <system:String x:Key="FemAnalysisStageAdd">Добавить</system:String>
+    <system:String x:Key="FemAnalysisStageRemove">Удалить</system:String>
+    <system:String x:Key="FemAnalysisStageMoveUp">Вверх</system:String>
+    <system:String x:Key="FemAnalysisStageMoveDown">Вниз</system:String>
+    <system:String x:Key="FemAnalysisStageDefaultTag">Стадия 1</system:String>
+    <system:String x:Key="FemAnalysisStageNumberedTag">Стадия {0}</system:String>
+    <system:String x:Key="FemAnalysisStagesEmpty">Добавьте хотя бы одну стадию нагружения.</system:String>
+    <system:String x:Key="FemAnalysisStageMissingSource">У каждой стадии должен быть выбран источник нагрузки.</system:String>
     <system:String x:Key="FemAnalysisExeLabel">Путь к OpenSees.exe (необязательно)</system:String>
     <system:String x:Key="FemAnalysisTimeoutLabel">Таймаут, с</system:String>
     <system:String x:Key="FemAnalysisKindLabel">Тип расчёта</system:String>
@@ -1442,6 +1453,7 @@
     <system:String x:Key="FemResultTabHistory">История</system:String>
     <system:String x:Key="FemResultStep">Шаг</system:String>
     <system:String x:Key="FemResultStepLabel">Шаг {0}/{1}, λ={2:F3} ({3})</system:String>
+    <system:String x:Key="FemResultStepLabelStaged">Шаг {0}/{1}, λ={2:F3} ({3}), стадия «{4}»</system:String>
     <system:String x:Key="FemResultConverged">сошёлся</system:String>
     <system:String x:Key="FemResultNotConverged">не сошёлся</system:String>
     <system:String x:Key="FemResultTab3D">3D</system:String>

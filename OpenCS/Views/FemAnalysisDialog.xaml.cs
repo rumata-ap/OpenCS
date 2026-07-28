@@ -14,6 +14,8 @@ namespace OpenCS.Views;
 public partial class FemAnalysisDialog : Window
 {
     readonly FemSchema _schema;
+    readonly System.Collections.ObjectModel.ObservableCollection<StageRow> _stages = [];
+    List<LoadSource> _loadSources = [];
 
     /// <summary>Сформированная постановка (валидна после DialogResult == true).</summary>
     public FemAnalysis Result { get; private set; } = new();
@@ -23,7 +25,10 @@ public partial class FemAnalysisDialog : Window
         _schema = schema;
         InitializeComponent();
         var sources = BuildLoadSources();
+        _loadSources = sources;
         LoadSourceBox.ItemsSource = sources;
+        StagesGrid.ItemsSource = _stages;
+        StagesSourceColumn.ItemsSource = sources;
         CalcTypeBox.ItemsSource = Enum.GetValues<CalcType>();
         var materialSourceOptions = BuildMaterialSourceOptions();
         var concreteModelOptions = BuildConcreteModelOptions();
@@ -51,6 +56,15 @@ public partial class FemAnalysisDialog : Window
             SteelHardeningRatioBox.Text = pars.SteelHardeningRatioOverride?.ToString(CultureInfo.InvariantCulture) ?? "";
             ElementFormulationBox.SelectedItem = elementFormulationOptions.FirstOrDefault(o => o.Value == pars.ElementFormulation) ?? elementFormulationOptions[0];
 
+            if (KindNonlinearRadio.IsChecked == true)
+            {
+                foreach (var stage in pars.ResolveStages(existing))
+                {
+                    var match = sources.FirstOrDefault(s => s.Expr.ToJson() == stage.LoadExpressionJson);
+                    _stages.Add(new StageRow { Tag = stage.Tag, Source = match ?? sources.FirstOrDefault() });
+                }
+            }
+
             var sel = sources.FirstOrDefault(s => s.Expr.ToJson() == existing.LoadExpressionJson);
             if (sel != null) LoadSourceBox.SelectedItem = sel;
             else if (sources.Count > 0) LoadSourceBox.SelectedIndex = 0;
@@ -69,6 +83,14 @@ public partial class FemAnalysisDialog : Window
     }
 
     sealed record LoadSource(string Label, FemLoadExpression Expr);
+
+    /// <summary>Строка редактора стадий: имя + выбранный источник нагрузки (переиспользует
+    /// LoadSource — тот же список, что и для линейного расчёта).</summary>
+    sealed class StageRow
+    {
+        public string Tag { get; set; } = "";
+        public LoadSource? Source { get; set; }
+    }
 
     /// <summary>Пара «значение для Tcl/хранения» + «локализованная подпись для UI».</summary>
     sealed record ComboOption(string Value, string Label);
@@ -116,7 +138,38 @@ public partial class FemAnalysisDialog : Window
     void UpdateNonlinearPanelVisibility()
     {
         if (NonlinearPanel == null) return;
-        NonlinearPanel.Visibility = KindNonlinearRadio.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        bool nonlinear = KindNonlinearRadio.IsChecked == true;
+        NonlinearPanel.Visibility = nonlinear ? Visibility.Visible : Visibility.Collapsed;
+        LoadSourceRow.Visibility = nonlinear ? Visibility.Collapsed : Visibility.Visible;
+        StagesGroup.Visibility = nonlinear ? Visibility.Visible : Visibility.Collapsed;
+        if (nonlinear && _stages.Count == 0)
+            _stages.Add(new StageRow { Tag = Loc.S("FemAnalysisStageDefaultTag"), Source = LoadSourceBox.SelectedItem as LoadSource ?? _loadSources.FirstOrDefault() });
+    }
+
+    void AddStage_Click(object sender, RoutedEventArgs e)
+        => _stages.Add(new StageRow
+        {
+            Tag = string.Format(Loc.S("FemAnalysisStageNumberedTag"), _stages.Count + 1),
+            Source = _loadSources.FirstOrDefault()
+        });
+
+    void RemoveStage_Click(object sender, RoutedEventArgs e)
+    {
+        if (StagesGrid.SelectedItem is StageRow row) _stages.Remove(row);
+    }
+
+    void MoveStageUp_Click(object sender, RoutedEventArgs e)
+    {
+        if (StagesGrid.SelectedItem is not StageRow row) return;
+        int i = _stages.IndexOf(row);
+        if (i > 0) _stages.Move(i, i - 1);
+    }
+
+    void MoveStageDown_Click(object sender, RoutedEventArgs e)
+    {
+        if (StagesGrid.SelectedItem is not StageRow row) return;
+        int i = _stages.IndexOf(row);
+        if (i >= 0 && i < _stages.Count - 1) _stages.Move(i, i + 1);
     }
 
     void UpdateNativeMaterialPanelVisibility()
@@ -128,10 +181,25 @@ public partial class FemAnalysisDialog : Window
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
-        if (LoadSourceBox.SelectedItem is not LoadSource src) { DialogResult = false; return; }
         bool isNonlinear = KindNonlinearRadio.IsChecked == true;
 
+        if (isNonlinear && _stages.Count == 0)
+        {
+            MessageBox.Show(Loc.S("FemAnalysisStagesEmpty"), Loc.S("FemAnalysisCreate"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (isNonlinear && _stages.Any(s => s.Source == null))
+        {
+            MessageBox.Show(Loc.S("FemAnalysisStageMissingSource"), Loc.S("FemAnalysisCreate"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+        if (!isNonlinear && LoadSourceBox.SelectedItem is not LoadSource) { DialogResult = false; return; }
+
         var pars = new FemAnalysisParams();
+        string tag = TagBox.Text.Trim();
+        string loadExpressionJson;
         if (isNonlinear)
         {
             pars.CalcType = CalcTypeBox.SelectedItem as CalcType? ?? CalcType.C;
@@ -146,13 +214,22 @@ public partial class FemAnalysisDialog : Window
             pars.SteelHardeningRatioOverride =
                 Pars.ParseAny(SteelHardeningRatioBox.Text, out var hardening) ? hardening : null;
             pars.ElementFormulation = (ElementFormulationBox.SelectedItem as ComboOption)?.Value ?? "forceBeamColumn";
+            pars.Stages = _stages.Select(r => new FemAnalysisStage { Tag = r.Tag, LoadExpressionJson = r.Source!.Expr.ToJson() }).ToList();
+            loadExpressionJson = pars.Stages[0].LoadExpressionJson;
+            if (string.IsNullOrWhiteSpace(tag)) tag = pars.Stages[0].Tag;
+        }
+        else
+        {
+            var src = (LoadSource)LoadSourceBox.SelectedItem!;
+            loadExpressionJson = src.Expr.ToJson();
+            if (string.IsNullOrWhiteSpace(tag)) tag = src.Label;
         }
 
         Result = new FemAnalysis
         {
-            Tag = string.IsNullOrWhiteSpace(TagBox.Text) ? src.Label : TagBox.Text.Trim(),
+            Tag = tag,
             Kind = isNonlinear ? "nonlinear" : "linear",
-            LoadExpressionJson = src.Expr.ToJson(),
+            LoadExpressionJson = loadExpressionJson,
             ParamsJson = pars.ToJson()
         };
         DialogResult = true;
