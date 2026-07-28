@@ -36,7 +36,7 @@ public class FemNonlinearAnalysisWorkflowTests
             SourceNodes: [new FemNode { Id = 1, NodeTag = "1", DofMask = 63 },
                           new FemNode { Id = 2, NodeTag = "2", X = 3 }],
             SourceMembers: [new FemMember { ElemTag = "1", CrossSectionId = null, GjStrategy = "manual", GjManualValue = 1e6 }],
-            ResolvedLoads: [],
+            Stages: [],
             Sections: new Dictionary<int, CrossSection>(),
             Materials: new Dictionary<int, Material>(),
             CustomDiagramPool: null,

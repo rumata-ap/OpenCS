@@ -107,6 +107,7 @@ public sealed class FemNonlinearAnalysisService
             MaxLoadFactor = model.MaxLoadFactor,
             RefinementDivisions = model.RefinementDivisions,
             CalcTypeName = model.CalcTypeName,
+            StageTags = model.Stages.Select(s => s.Tag).ToList(),
             FiberStateFileName = File.Exists(Path.Combine(artifact.DirectoryPath, "nonlinear_fiber_states.out"))
                 ? "nonlinear_fiber_states.out" : null,
             SectionOrderFileName = File.Exists(Path.Combine(artifact.DirectoryPath, "nonlinear_section_order.json"))

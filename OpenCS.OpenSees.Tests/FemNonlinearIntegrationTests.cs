@@ -44,7 +44,7 @@ public sealed class FemNonlinearIntegrationTests
             ],
             Sections = new Dictionary<int, OpenCS.OpenSees.Model.OpenSeesSectionModel> { [1] = section },
             Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
-            Loads = [new FemLinearNodalLoad(2, 0, 0, P, 0, 0, 0)],
+            Stages = [new FemNonlinearStage { Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, P, 0, 0, 0)] }],
             LoadFactorStep = 0.25, MaxLoadFactor = 1.0, RefinementDivisions = 10,
             Tolerance = 1e-8, MaxIterations = 30, GeomTransfKind = "Linear"
         };
@@ -169,11 +169,15 @@ public sealed class FemNonlinearIntegrationTests
                 new FemNonlinearElement(3, 3, 4, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
                 new FemNonlinearElement(4, 4, 5, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
             ],
-            KinematicLoads =
-            [
-                new FemLinearKinematicLoad(2, 3, -0.02),
-                new FemLinearKinematicLoad(4, 3, -0.02),
-            ],
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1",
+                KinematicLoads =
+                [
+                    new FemLinearKinematicLoad(2, 3, -0.02),
+                    new FemLinearKinematicLoad(4, 3, -0.02),
+                ]
+            }],
             LoadFactorStep = 0.1, MaxLoadFactor = 1.0, RefinementDivisions = 10, MaxRefinementDepth = 4,
             Tolerance = 1e-6, MaxIterations = 50, GeomTransfKind = "Linear"
         };
@@ -264,7 +268,7 @@ public sealed class FemNonlinearIntegrationTests
             ],
             Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = sectionModel },
             Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
-            Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
+            Stages = [new FemNonlinearStage { Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)] }],
             LoadFactorStep = 0.25, MaxLoadFactor = 1.0, RefinementDivisions = 10,
             Tolerance = 1e-8, MaxIterations = 30, GeomTransfKind = "Linear"
         };
