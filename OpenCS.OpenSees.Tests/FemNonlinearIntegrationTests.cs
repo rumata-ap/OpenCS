@@ -294,4 +294,102 @@ public sealed class FemNonlinearIntegrationTests
             if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task LShapedFrame_CompressColumnThenBendBeam_PreservesStage1State()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string root = Path.Combine(Path.GetTempPath(), "opencs-fem-nonlinear-staged", Guid.NewGuid().ToString("N"));
+
+        // Г-образная рама: стойка узел 1 (заделка) — узел 2 (0,0,3), ригель узел 2 — узел 3 (3,0,3).
+        // Сечение — упругая заглушка (как в Cantilever_SmallElasticTipLoad_MatchesBeamTheory),
+        // чтобы результат был предсказуем аналитически и тест не зависел от нелинейности материала.
+        var baseSection = CrossSectionFixtures.SymmetricElasticSection();
+        var section = new OpenSeesSectionModel
+        {
+            Materials = baseSection.Materials,
+            Fibers = baseSection.Fibers,
+            GJ = 1e6
+        };
+
+        const double N = -50_000.0;    // стадия 1: сжатие стойки, Н (вдоль -Z, вниз на узел 2)
+        const double P = -10_000.0;    // стадия 2: нагрузка на ригель, Н (вдоль -Z, вниз на узел 3)
+
+        var model = new FemNonlinearModel
+        {
+            Nodes =
+            [
+                new FemLinearNode(1, 0, 0, 0, [true, true, true, true, true, true]),
+                new FemLinearNode(2, 0, 0, 3, new bool[6]),
+                new FemLinearNode(3, 3, 0, 3, new bool[6]),
+            ],
+            Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = section },
+            Elements =
+            [
+                new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 1, 0)),
+                new FemNonlinearElement(2, 2, 3, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
+            ],
+            Stages =
+            [
+                new FemNonlinearStage { Tag = "Сжатие стойки", Loads = [new FemLinearNodalLoad(2, 0, 0, N, 0, 0, 0)] },
+                new FemNonlinearStage { Tag = "Нагрузка на ригель", Loads = [new FemLinearNodalLoad(3, 0, 0, P, 0, 0, 0)] },
+            ],
+            LoadFactorStep = 0.5, MaxLoadFactor = 1.0, RefinementDivisions = 10,
+            Tolerance = 1e-8, MaxIterations = 30, GeomTransfKind = "Linear"
+        };
+
+        try
+        {
+            var result = await new FemNonlinearAnalysisService(
+                new FemNonlinearTclGenerator(),
+                new OpenSeesProcessRunner(),
+                new OpenSeesArtifactStore(root),
+                new FemNonlinearResultParser())
+                .RunAsync(model, new OpenSeesRunRequest
+                {
+                    ExecutablePath = executable,
+                    WorkingDirectory = Path.GetTempPath(),
+                    Timeout = TimeSpan.FromSeconds(30)
+                }, CancellationToken.None);
+
+            Assert.True(result.Status == "ok", $"status={result.Status}; diagnostics={string.Join(" | ", result.Diagnostics)}");
+            Assert.Equal(2, result.StageTags.Count);
+            Assert.Equal("Сжатие стойки", result.StageTags[0]);
+            Assert.Equal("Нагрузка на ригель", result.StageTags[1]);
+
+            // Все шаги стадии 1 — StageIndex=0, все шаги стадии 2 — StageIndex=1, границы не смешаны.
+            var stage1Steps = result.Steps.Where(s => s.StageIndex == 0).ToList();
+            var stage2Steps = result.Steps.Where(s => s.StageIndex == 1).ToList();
+            Assert.NotEmpty(stage1Steps);
+            Assert.NotEmpty(stage2Steps);
+            Assert.All(stage1Steps, s => Assert.True(s.StepIndex < stage2Steps.Min(s2 => s2.StepIndex)));
+
+            // Последний шаг стадии 1: осевая сила в стойке (элемент 1) по модулю ≈ |N| (заделка
+            // воспринимает сжатие целиком). Знак Ni в локальной системе forceBeamColumn не
+            // совпадает со знаком глобальной нагрузки N — сравниваем по модулю.
+            var lastStage1 = stage1Steps.Last(s => s.Converged);
+            double axialAfterStage1 = lastStage1.ElementForces.Single(f => f.ElemTag == 1).Ni;
+            Assert.InRange(System.Math.Abs(axialAfterStage1), System.Math.Abs(N) * 0.95, System.Math.Abs(N) * 1.05);
+
+            // Последний шаг стадии 2: осевая сила в стойке НЕ ослабевает (нагрузка ригеля добавляет
+            // изгиб/поперечную силу в стойку через жёсткий узел, но продольное сжатие стадии 1
+            // остаётся приложенным — |N| после стадии 2 не меньше, чем после стадии 1).
+            var lastStage2 = stage2Steps.Last(s => s.Converged);
+            double axialAfterStage2 = lastStage2.ElementForces.Single(f => f.ElemTag == 1).Ni;
+            Assert.True(System.Math.Abs(axialAfterStage2) >= System.Math.Abs(axialAfterStage1) * 0.99,
+                $"Осевая сила стойки не должна ослабевать после стадии 2: было {axialAfterStage1}, стало {axialAfterStage2}");
+
+            // Ригель нагружен только на стадии 2 — момент в ригеле (элемент 2) отсутствует после
+            // стадии 1 и появляется после стадии 2.
+            double beamMomentAfterStage1 = lastStage1.ElementForces.Single(f => f.ElemTag == 2).Myi;
+            double beamMomentAfterStage2 = lastStage2.ElementForces.Single(f => f.ElemTag == 2).Myi;
+            Assert.InRange(beamMomentAfterStage1, -1, 1);
+            Assert.True(System.Math.Abs(beamMomentAfterStage2) > 1000,
+                $"Момент ригеля после стадии 2 должен быть заметно ненулевым, получено {beamMomentAfterStage2}");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
 }
