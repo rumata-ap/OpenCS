@@ -44,7 +44,7 @@ public sealed class FemNonlinearResultParser
             {
                 results.Add(new FemNonlinearStepResult(s.StepIndex, s.LoadFactor, false, [], [], [])
                 {
-                    IsRefinement = s.IsRefinement
+                    IsRefinement = s.IsRefinement, StageIndex = s.StageIndex
                 });
                 continue;
             }
@@ -56,7 +56,7 @@ public sealed class FemNonlinearResultParser
             var forces = ToElementForces(forceRows[rowIndex], order.ElemTags);
             results.Add(new FemNonlinearStepResult(s.StepIndex, s.LoadFactor, true, disp, react, forces)
             {
-                IsRefinement = s.IsRefinement
+                IsRefinement = s.IsRefinement, StageIndex = s.StageIndex
             });
             rowIndex++;
         }
@@ -79,11 +79,11 @@ public sealed class FemNonlinearResultParser
         }
     }
 
-    static List<(int StepIndex, double LoadFactor, bool Converged, bool IsRefinement)> ParseStepStatus(string path)
+    static List<(int StepIndex, int StageIndex, double LoadFactor, bool Converged, bool IsRefinement)> ParseStepStatus(string path)
     {
         if (!File.Exists(path))
             throw new OpenSeesResultException("MissingFile", $"Файл step_status не найден: {path}");
-        var rows = new List<(int, double, bool, bool)>();
+        var rows = new List<(int, int, double, bool, bool)>();
         int lineNo = 0;
         foreach (var raw in File.ReadAllLines(path))
         {
@@ -91,15 +91,16 @@ public sealed class FemNonlinearResultParser
             var line = raw.Trim();
             if (line.Length == 0 || line.StartsWith('#')) continue;
             var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length != 4)
-                throw new OpenSeesResultException("WrongColumnCount", $"step_status строка {lineNo}: ожидалось 4 колонки, получено {parts.Length}.");
+            if (parts.Length != 5)
+                throw new OpenSeesResultException("WrongColumnCount", $"step_status строка {lineNo}: ожидалось 5 колонок, получено {parts.Length}.");
             if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var step) ||
-                !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var lf) ||
-                !int.TryParse(parts[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var convergedFlag) ||
-                !int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var refinementFlag) ||
+                !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var stage) ||
+                !double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var lf) ||
+                !int.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var convergedFlag) ||
+                !int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var refinementFlag) ||
                 (convergedFlag is not (0 or 1)) || (refinementFlag is not (0 or 1)))
                 throw new OpenSeesResultException("InvalidNumber", $"step_status строка {lineNo}: не удалось разобрать значения.");
-            rows.Add((step, lf, convergedFlag != 0, refinementFlag != 0));
+            rows.Add((step, stage, lf, convergedFlag != 0, refinementFlag != 0));
         }
         return rows;
     }

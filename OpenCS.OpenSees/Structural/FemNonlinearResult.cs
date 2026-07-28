@@ -12,6 +12,8 @@ public sealed record FemNonlinearStepResult(
 {
     /// <summary>Признак шага, выполненного при уточнении последнего неудачного интервала.</summary>
     public bool IsRefinement { get; init; }
+    /// <summary>Индекс стадии нагружения (0-based), к которой относится этот шаг.</summary>
+    public int StageIndex { get; init; }
 }
 
 /// <summary>Типизированный результат нелинейного расчёта FEM-схемы — полная история шагов.</summary>
@@ -39,4 +41,8 @@ public sealed class FemNonlinearResult
     public string? FiberStateFileName { get; init; }
     /// <summary>Имя файла порядка сечений и точек интегрирования.</summary>
     public string? SectionOrderFileName { get; init; }
+    /// <summary>Имена стадий нагружения в порядке приложения — по индексу совпадает с
+    /// FemNonlinearStepResult.StageIndex. Пусто для результатов, сериализованных до появления
+    /// стадийного нагружения.</summary>
+    public IReadOnlyList<string> StageTags { get; init; } = [];
 }

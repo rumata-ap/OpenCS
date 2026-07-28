@@ -31,7 +31,7 @@ public class FemNonlinearResultParserTests
         try
         {
             WriteCommonFiles(dir,
-                stepStatus: "# step loadFactor converged isRefinement\n1 0.5 1 0\n2 1.0 1 0\n",
+                stepStatus: "# step stageIndex loadFactor converged isRefinement\n1 0 0.5 1 0\n2 0 1.0 1 0\n",
                 disp: "0.5 0 0 0 0 0 0 0 0 -0.001 0 0.002 0\n" +
                       "1.0 0 0 0 0 0 0 0 0 -0.002 0 0.004 0\n",
                 react: "0.5 0 0 500 0 0 0\n1.0 0 0 1000 0 0 0\n",
@@ -43,6 +43,7 @@ public class FemNonlinearResultParserTests
             Assert.Equal(2, steps.Count);
             Assert.True(steps[0].Converged);
             Assert.Equal(0.5, steps[0].LoadFactor, 6);
+            Assert.Equal(0, steps[0].StageIndex);
             Assert.Equal(2, steps[0].Displacements.Count);
             Assert.Equal(2, steps[0].Displacements[1].NodeTag);
             Assert.Equal(-0.001, steps[0].Displacements[1].Uz, 6);
@@ -64,7 +65,7 @@ public class FemNonlinearResultParserTests
         try
         {
             WriteCommonFiles(dir,
-                stepStatus: "# step loadFactor converged isRefinement\n1 0.5 1 0\n2 0.5 0 1\n",   // шаг 2 не сошёлся
+                stepStatus: "# step stageIndex loadFactor converged isRefinement\n1 0 0.5 1 0\n2 0 0.5 0 1\n",   // шаг 2 не сошёлся
                 disp: "0.5 0 0 0 0 0 0 0 0 -0.001 0 0.002 0\n",                  // только 1 строка (сошедшийся шаг)
                 react: "0.5 0 0 500 0 0 0\n",
                 forces: "0.5 -100 0 500 0 300 0 100 0 -500 0 0 0\n");
@@ -99,7 +100,7 @@ public class FemNonlinearResultParserTests
         try
         {
             WriteCommonFiles(dir,
-                stepStatus: "# step loadFactor converged isRefinement\n1 0.5 1 0\n2 1.0 1 0\n",
+                stepStatus: "# step stageIndex loadFactor converged isRefinement\n1 0 0.5 1 0\n2 0 1.0 1 0\n",
                 disp: "0.5 0 0 0 0 0 0 0 0 -0.001 0 0.002 0\n",   // не хватает строки для шага 2
                 react: "0.5 0 0 500 0 0 0\n1.0 0 0 1000 0 0 0\n",
                 forces: "0.5 -100 0 500 0 300 0 100 0 -500 0 0 0\n" +
@@ -123,7 +124,7 @@ public class FemNonlinearResultParserTests
         try
         {
             WriteCommonFiles(dir,
-                stepStatus: "# step loadFactor converged isRefinement\n1 0.5 1 0\n2 1.0 1 0\n",
+                stepStatus: "# step stageIndex loadFactor converged isRefinement\n1 0 0.5 1 0\n2 0 1.0 1 0\n",
                 disp: "0.5 0 0 0 0 0 0 0 0 0\0\0\0\n" +
                       "1.0 0 0 0 0 0 0 0 0 -0.002 0 0.004 0\n",
                 react: "0.5 0 0 500 0 0 0\n1.0 0 0 1000 0 0 0\n",
@@ -150,7 +151,7 @@ public class FemNonlinearResultParserTests
         try
         {
             WriteCommonFiles(dir,
-                stepStatus: "# step loadFactor converged isRefinement\n1 0.2 1 0\n2 0.3 1 1\n3 0.4 0 1\n",
+                stepStatus: "# step stageIndex loadFactor converged isRefinement\n1 0 0.2 1 0\n2 0 0.3 1 1\n3 0 0.4 0 1\n",
                 disp: "0.2 0 0 0 0 0 0 0 0 -0.001 0 0.002 0\n" +
                       "0.3 0 0 0 0 0 0 0 0 -0.002 0 0.004 0\n",
                 react: "0.2 0 0 500 0 0 0\n0.3 0 0 600 0 0 0\n",
@@ -219,6 +220,29 @@ public class FemNonlinearResultParserTests
                 Assert.Equal(10, state.ElementTag);
                 Assert.Equal(1, state.IntegrationPoint);
             });
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void Parse_TwoStages_AssignsStageIndexPerStep()
+    {
+        string dir = NewDir();
+        try
+        {
+            WriteCommonFiles(dir,
+                stepStatus: "# step stageIndex loadFactor converged isRefinement\n1 0 1.0 1 0\n2 1 1.0 1 0\n",
+                disp: "0.5 0 0 0 0 0 0 0 0 -0.001 0 0.002 0\n" +
+                      "1.0 0 0 0 0 0 0 0 0 -0.002 0 0.004 0\n",
+                react: "0.5 0 0 500 0 0 0\n1.0 0 0 1000 0 0 0\n",
+                forces: "0.5 -100 0 500 0 300 0 100 0 -500 0 0 0\n" +
+                        "1.0 -200 0 1000 0 600 0 200 0 -1000 0 0 0\n");
+
+            var steps = new FemNonlinearResultParser().Parse(dir);
+
+            Assert.Equal(2, steps.Count);
+            Assert.Equal(0, steps[0].StageIndex);
+            Assert.Equal(1, steps[1].StageIndex);
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
