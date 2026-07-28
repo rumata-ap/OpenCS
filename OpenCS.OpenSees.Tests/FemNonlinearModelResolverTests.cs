@@ -51,8 +51,8 @@ public class FemNonlinearModelResolverTests
         var (mn, me, sn, sm, ld) = Console();
         var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
         var r = new FemNonlinearModelResolver().Resolve(
-            mn, me, sn, sm, ld, Sections(section), CrossSectionFixtures.Materials(concrete, steel),
-            customDiagramPool: null, CalcType.C, Options());
+            mn, me, sn, sm, [new FemNonlinearStageInput("Стадия 1", ld)], Sections(section),
+            CrossSectionFixtures.Materials(concrete, steel), customDiagramPool: null, CalcType.C, Options());
 
         Assert.True(r.Ok, string.Join("; ", r.Errors));
         Assert.Equal(2, r.Model!.Nodes.Count);
@@ -65,7 +65,8 @@ public class FemNonlinearModelResolverTests
         Assert.Equal((0d, -1d, 0d), e.Vecxz);
         Assert.Equal(1e6, r.Model.Sections[e.SectionTag].GJ, 3);
 
-        var load = Assert.Single(r.Model.Loads);
+        var stage = Assert.Single(r.Model.Stages);
+        var load = Assert.Single(stage.Loads);
         Assert.Equal(2, load.NodeTag);
         Assert.Equal(-1000, load.Fz, 6);
 
@@ -86,8 +87,8 @@ public class FemNonlinearModelResolverTests
 
         var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
         var r = new FemNonlinearModelResolver().Resolve(
-            mn, me, sn, sm, ld, Sections(section), CrossSectionFixtures.Materials(concrete, steel),
-            customDiagramPool: null, CalcType.C, Options());
+            mn, me, sn, sm, [new FemNonlinearStageInput("Стадия 1", ld)], Sections(section),
+            CrossSectionFixtures.Materials(concrete, steel), customDiagramPool: null, CalcType.C, Options());
 
         Assert.True(r.Ok, string.Join("; ", r.Errors));
         Assert.Equal(2, r.Model!.Elements.Count);
@@ -106,8 +107,8 @@ public class FemNonlinearModelResolverTests
 
         var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
         var r = new FemNonlinearModelResolver().Resolve(
-            mn, me, sn, sm, ld, Sections(section), CrossSectionFixtures.Materials(concrete, steel),
-            customDiagramPool: null, CalcType.C, Options());
+            mn, me, sn, sm, [new FemNonlinearStageInput("Стадия 1", ld)], Sections(section),
+            CrossSectionFixtures.Materials(concrete, steel), customDiagramPool: null, CalcType.C, Options());
 
         Assert.True(r.Ok, string.Join("; ", r.Errors));
         Assert.Equal(2, r.Model!.Sections.Count);   // разные GJ → разные fiber-секции
@@ -124,8 +125,8 @@ public class FemNonlinearModelResolverTests
     {
         var (mn, me, sn, sm, ld) = Console();
         var r = new FemNonlinearModelResolver().Resolve(
-            mn, me, sn, sm, ld, new Dictionary<int, CrossSection>(), new Dictionary<int, Material>(),
-            customDiagramPool: null, CalcType.C, Options());
+            mn, me, sn, sm, [new FemNonlinearStageInput("Стадия 1", ld)], new Dictionary<int, CrossSection>(),
+            new Dictionary<int, Material>(), customDiagramPool: null, CalcType.C, Options());
         Assert.False(r.Ok);
         Assert.Contains(r.Errors, x => x.Contains("готов", StringComparison.OrdinalIgnoreCase));
     }
@@ -137,8 +138,8 @@ public class FemNonlinearModelResolverTests
         sm[0].GjManualValue = null;
         var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
         var r = new FemNonlinearModelResolver().Resolve(
-            mn, me, sn, sm, ld, Sections(section), CrossSectionFixtures.Materials(concrete, steel),
-            customDiagramPool: null, CalcType.C, Options());
+            mn, me, sn, sm, [new FemNonlinearStageInput("Стадия 1", ld)], Sections(section),
+            CrossSectionFixtures.Materials(concrete, steel), customDiagramPool: null, CalcType.C, Options());
         Assert.False(r.Ok);
         Assert.Contains(r.Errors, x => x.Contains("GJ", StringComparison.OrdinalIgnoreCase));
     }
@@ -150,8 +151,8 @@ public class FemNonlinearModelResolverTests
         sm[0].GjStrategy = "saint_venant";
         var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
         var r = new FemNonlinearModelResolver().Resolve(
-            mn, me, sn, sm, ld, Sections(section), CrossSectionFixtures.Materials(concrete, steel),
-            customDiagramPool: null, CalcType.C, Options());
+            mn, me, sn, sm, [new FemNonlinearStageInput("Стадия 1", ld)], Sections(section),
+            CrossSectionFixtures.Materials(concrete, steel), customDiagramPool: null, CalcType.C, Options());
         Assert.False(r.Ok);
         Assert.Contains(r.Errors, x => x.Contains("отложен", StringComparison.OrdinalIgnoreCase));
     }
@@ -163,8 +164,29 @@ public class FemNonlinearModelResolverTests
         var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
         section.Areas[0].Fibers = [];
         var r = new FemNonlinearModelResolver().Resolve(
-            mn, me, sn, sm, ld, Sections(section), CrossSectionFixtures.Materials(concrete, steel),
-            customDiagramPool: null, CalcType.C, Options());
+            mn, me, sn, sm, [new FemNonlinearStageInput("Стадия 1", ld)], Sections(section),
+            CrossSectionFixtures.Materials(concrete, steel), customDiagramPool: null, CalcType.C, Options());
         Assert.False(r.Ok);
+    }
+
+    [Fact]
+    public void Resolve_TwoStages_BuildsModelWithTwoStagesInOrder()
+    {
+        var (mn, me, sn, sm, ld) = Console();
+        var secondStageLoads = new List<FemNodeLoad> { new() { Id = 2, LoadCaseId = 2, NodeId = 2, Fx = 500 } };
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+
+        var r = new FemNonlinearModelResolver().Resolve(
+            mn, me, sn, sm,
+            [new FemNonlinearStageInput("Сжатие", ld), new FemNonlinearStageInput("Изгиб", secondStageLoads)],
+            Sections(section), CrossSectionFixtures.Materials(concrete, steel),
+            customDiagramPool: null, CalcType.C, Options());
+
+        Assert.True(r.Ok, string.Join("; ", r.Errors));
+        Assert.Equal(2, r.Model!.Stages.Count);
+        Assert.Equal("Сжатие", r.Model.Stages[0].Tag);
+        Assert.Equal("Изгиб", r.Model.Stages[1].Tag);
+        Assert.Equal(-1000, r.Model.Stages[0].Loads.Single().Fz, 6);
+        Assert.Equal(500, r.Model.Stages[1].Loads.Single().Fx, 6);
     }
 }

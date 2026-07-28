@@ -15,14 +15,12 @@ public sealed class FemNonlinearModelResolver
         IReadOnlyList<FemElement> meshElements,
         IReadOnlyList<FemNode> sourceNodes,
         IReadOnlyList<FemMember> sourceMembers,
-        IReadOnlyList<FemNodeLoad> resolvedLoads,
+        IReadOnlyList<FemNonlinearStageInput> stages,
         IReadOnlyDictionary<int, CrossSection> sections,
         IReadOnlyDictionary<int, Material> materials,
         IReadOnlyList<Diagramm>? customDiagramPool,
         CalcType calcType,
-        FemNonlinearAnalysisOptions options,
-        IReadOnlyList<FemMemberLoad>? resolvedMemberLoads = null,
-        IReadOnlyList<FemKinematicLoad>? resolvedKinematicLoads = null)
+        FemNonlinearAnalysisOptions options)
     {
         var errors = new List<string>();
 
@@ -144,46 +142,57 @@ public sealed class FemNonlinearModelResolver
             elements.Add(new FemNonlinearElement(etag, ni.Tag, nj.Tag, sectionEntry.Tag, options.IntegrationPoints, vecxz));
         }
 
-        // Нагрузки (идентично FemLinearModelResolver)
-        var loads = new List<FemLinearNodalLoad>();
-        foreach (var l in resolvedLoads)
+        // Нагрузки по стадиям (та же логика резолва, что раньше применялась к единственному
+        // плоскому набору — теперь один раз на каждую стадию).
+        var resolvedStages = new List<FemNonlinearStage>();
+        foreach (var stageInput in stages)
         {
-            if (!srcNodeById.TryGetValue(l.NodeId, out var srcNode))
+            var loads = new List<FemLinearNodalLoad>();
+            foreach (var l in stageInput.Loads)
             {
-                errors.Add($"Нагрузка ссылается на неизвестный конструктивный узел {l.NodeId}.");
-                continue;
+                if (!srcNodeById.TryGetValue(l.NodeId, out var srcNode))
+                {
+                    errors.Add($"Стадия «{stageInput.Tag}»: нагрузка ссылается на неизвестный конструктивный узел {l.NodeId}.");
+                    continue;
+                }
+                if (srcNode.NodeTag is not { Length: > 0 } srcTag || !meshNodeBySourceTag.TryGetValue(srcTag, out var meshNode))
+                {
+                    errors.Add($"Стадия «{stageInput.Tag}»: нагруженный узел {srcNode.NodeTag} не имеет совпадающего узла сетки — приложить нагрузку невозможно.");
+                    continue;
+                }
+                loads.Add(new FemLinearNodalLoad(meshNode.Tag, l.Fx, l.Fy, l.Fz, l.Mx, l.My, l.Mz));
             }
-            if (srcNode.NodeTag is not { Length: > 0 } srcTag || !meshNodeBySourceTag.TryGetValue(srcTag, out var meshNode))
-            {
-                errors.Add($"Нагруженный узел {srcNode.NodeTag} не имеет совпадающего узла сетки — приложить нагрузку невозможно.");
-                continue;
-            }
-            loads.Add(new FemLinearNodalLoad(meshNode.Tag, l.Fx, l.Fy, l.Fz, l.Mx, l.My, l.Mz));
-        }
 
-        var distributed = new FemDistributedLoadResolver().Resolve(
-            meshNodes, meshElements, sourceNodes, sourceMembers, resolvedMemberLoads ?? []);
-        errors.AddRange(distributed.Errors);
+            var distributed = new FemDistributedLoadResolver().Resolve(
+                meshNodes, meshElements, sourceNodes, sourceMembers, stageInput.MemberLoads);
+            errors.AddRange(distributed.Errors);
 
-        var points = new FemPointLoadResolver().Resolve(
-            meshNodes, meshElements, sourceNodes, sourceMembers, resolvedMemberLoads ?? []);
-        errors.AddRange(points.Errors);
-        loads.AddRange(points.NodalLoads);
+            var points = new FemPointLoadResolver().Resolve(
+                meshNodes, meshElements, sourceNodes, sourceMembers, stageInput.MemberLoads);
+            errors.AddRange(points.Errors);
+            loads.AddRange(points.NodalLoads);
 
-        var kinematicLoads = new List<FemLinearKinematicLoad>();
-        foreach (var load in resolvedKinematicLoads ?? [])
-        {
-            if (!srcNodeById.TryGetValue(load.NodeId, out var srcNode))
+            var kinematicLoads = new List<FemLinearKinematicLoad>();
+            foreach (var load in stageInput.KinematicLoads)
             {
-                errors.Add($"Кинематическая нагрузка ссылается на неизвестный конструктивный узел {load.NodeId}.");
-                continue;
+                if (!srcNodeById.TryGetValue(load.NodeId, out var srcNode))
+                {
+                    errors.Add($"Стадия «{stageInput.Tag}»: кинематическая нагрузка ссылается на неизвестный конструктивный узел {load.NodeId}.");
+                    continue;
+                }
+                if (srcNode.NodeTag is not { Length: > 0 } srcTag || !meshNodeBySourceTag.TryGetValue(srcTag, out var meshNode))
+                {
+                    errors.Add($"Стадия «{stageInput.Tag}»: кинематически нагруженный узел {srcNode.NodeTag} не имеет совпадающего узла сетки.");
+                    continue;
+                }
+                kinematicLoads.Add(new FemLinearKinematicLoad(meshNode.Tag, load.Dof, load.Value));
             }
-            if (srcNode.NodeTag is not { Length: > 0 } srcTag || !meshNodeBySourceTag.TryGetValue(srcTag, out var meshNode))
+
+            resolvedStages.Add(new FemNonlinearStage
             {
-                errors.Add($"Кинематически нагруженный узел {srcNode.NodeTag} не имеет совпадающего узла сетки.");
-                continue;
-            }
-            kinematicLoads.Add(new FemLinearKinematicLoad(meshNode.Tag, load.Dof, load.Value));
+                Tag = stageInput.Tag, Loads = loads, DistributedLoads = distributed.Loads,
+                PointLoads = points.ElementLoads, KinematicLoads = kinematicLoads
+            });
         }
 
         if (errors.Count > 0)
@@ -194,10 +203,7 @@ public sealed class FemNonlinearModelResolver
             Nodes = nodes,
             Sections = sectionsByKey.Values.ToDictionary(v => v.Tag, v => v.Model),
             Elements = elements,
-            Loads = loads,
-            KinematicLoads = kinematicLoads,
-            DistributedLoads = distributed.Loads,
-            PointLoads = points.ElementLoads,
+            Stages = resolvedStages,
             LoadFactorStep = options.LoadFactorStep,
             MaxLoadFactor = options.MaxLoadFactor,
             RefinementDivisions = options.RefinementDivisions,
