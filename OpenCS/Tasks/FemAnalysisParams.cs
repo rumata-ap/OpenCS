@@ -10,6 +10,14 @@ namespace OpenCS.Tasks;
 /// конкретной постановки. Solver-механика (исполняемый файл, таймаут, сходимость, geomTransf,
 /// точки интегрирования) — глобальная, см. <see cref="OpenCS.Utilites.CalcSettings"/> (вкладка
 /// «OpenSees» в диалоге настроек), а не хранится в каждой постановке.</summary>
+/// <summary>Одна стадия нагружения нелинейной постановки: имя + выражение выбора загружения
+/// (сериализованный FemLoadExpression), резолвится независимо от остальных стадий.</summary>
+public sealed class FemAnalysisStage
+{
+    public string Tag { get; set; } = "";
+    public string LoadExpressionJson { get; set; } = "{}";
+}
+
 public sealed class FemAnalysisParams
 {
     /// <summary>Тип расчёта для выбора диаграмм материалов fiber-сечений (нелинейный расчёт).</summary>
@@ -46,6 +54,16 @@ public sealed class FemAnalysisParams
     /// бетона). Эмпирически подтверждено: на реальном кинематическом сценарии dispBeamColumn
     /// сошёлся дальше forceBeamColumn и без единой ошибки обращения матрицы.</summary>
     public string ElementFormulation { get; set; } = "forceBeamColumn";
+    /// <summary>Стадии нагружения нелинейной постановки в порядке приложения. Используется только
+    /// при Kind="nonlinear". Пусто для легаси-постановок, сохранённых до появления многостадийного
+    /// нагружения — см. ResolveStages.</summary>
+    public List<FemAnalysisStage> Stages { get; set; } = [];
+
+    /// <summary>Возвращает стадии постановки; если Stages пуст (легаси-постановка), синтезирует
+    /// одну стадию из единственного LoadExpressionJson постановки (историческое поведение до
+    /// появления многостадийного нагружения).</summary>
+    public IReadOnlyList<FemAnalysisStage> ResolveStages(CScore.Fem.FemAnalysis analysis) =>
+        Stages.Count > 0 ? Stages : [new FemAnalysisStage { Tag = analysis.Tag, LoadExpressionJson = analysis.LoadExpressionJson }];
 
     public string ToJson() => JsonSerializer.Serialize(this);
     public static FemAnalysisParams Parse(string? json)
