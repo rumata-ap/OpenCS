@@ -105,6 +105,10 @@ public class FemAnalysisResultVM : ViewModelBase
             if (Steps.Count == 0) return "";
             var s = Steps[SelectedStepIndex];
             string convergedText = s.Converged ? Loc.S("FemResultConverged") : Loc.S("FemResultNotConverged");
+            var stageTags = _nonlinearResult?.StageTags ?? [];
+            if (stageTags.Count > 1 && s.StageIndex >= 0 && s.StageIndex < stageTags.Count)
+                return string.Format(Loc.S("FemResultStepLabelStaged"),
+                    SelectedStepIndex + 1, Steps.Count, s.LoadFactor, convergedText, stageTags[s.StageIndex]);
             return string.Format(Loc.S("FemResultStepLabel"), SelectedStepIndex + 1, Steps.Count, s.LoadFactor, convergedText);
         }
     }
