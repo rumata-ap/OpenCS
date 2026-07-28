@@ -25,11 +25,23 @@ public class FemNonlinearModelTests
         Nodes = [Node(1, 0), Node(2, 1)],
         Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = Section() },
         Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
-        Loads = [new FemLinearNodalLoad(2, 1000, 0, 0, 0, 0, 0)]
+        Stages = [new FemNonlinearStage { Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 1000, 0, 0, 0, 0, 0)] }]
     };
 
     [Fact]
     public void Validate_ValidModel_DoesNotThrow() => ValidModel().Validate();
+
+    [Fact]
+    public void Validate_NoStages_Throws()
+    {
+        var valid = ValidModel();
+        var model = new FemNonlinearModel
+        {
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = []
+        };
+        var ex = Assert.Throws<InvalidOperationException>(model.Validate);
+        Assert.Contains("стади", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
 
     [Fact]
     public void Validate_ElementReferencesMissingSection_Throws()
@@ -37,7 +49,7 @@ public class FemNonlinearModelTests
         var model = ValidModel();
         model = new FemNonlinearModel
         {
-            Nodes = model.Nodes, Sections = model.Sections, Loads = model.Loads,
+            Nodes = model.Nodes, Sections = model.Sections, Stages = model.Stages,
             Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 99, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))]
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
@@ -49,7 +61,7 @@ public class FemNonlinearModelTests
         var model = ValidModel();
         model = new FemNonlinearModel
         {
-            Nodes = [Node(1, 0)], Sections = model.Sections, Loads = [],
+            Nodes = [Node(1, 0)], Sections = model.Sections, Stages = [],
             Elements = [new FemNonlinearElement(1, 1, 99, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))]
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
@@ -63,7 +75,7 @@ public class FemNonlinearModelTests
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
             LoadFactorStep = step
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
@@ -75,7 +87,7 @@ public class FemNonlinearModelTests
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
             LoadFactorStep = 0
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
@@ -87,7 +99,7 @@ public class FemNonlinearModelTests
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
             LoadFactorStep = 0.2, MaxLoadFactor = 0.1
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
@@ -99,7 +111,7 @@ public class FemNonlinearModelTests
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
             RefinementDivisions = 0
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
@@ -111,7 +123,7 @@ public class FemNonlinearModelTests
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
             GeomTransfKind = "Nope"
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
@@ -123,7 +135,7 @@ public class FemNonlinearModelTests
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
             ConvergenceTest = "Nope"
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
@@ -138,7 +150,7 @@ public class FemNonlinearModelTests
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
             Algorithm = "Nope"
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
@@ -153,7 +165,7 @@ public class FemNonlinearModelTests
         var model = ValidModel();
         model = new FemNonlinearModel
         {
-            Nodes = model.Nodes, Sections = model.Sections, Loads = model.Loads,
+            Nodes = model.Nodes, Sections = model.Sections, Stages = model.Stages,
             Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 0, Vecxz: (0, 0, 1))]
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
@@ -165,8 +177,12 @@ public class FemNonlinearModelTests
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
-            DistributedLoads = [new FemLinearDistributedLoad(1, 0, -1000, 0, 0, -1000, 0, 0, 1)],
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements,
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1", Loads = valid.Stages[0].Loads,
+                DistributedLoads = [new FemLinearDistributedLoad(1, 0, -1000, 0, 0, -1000, 0, 0, 1)]
+            }],
             GeomTransfKind = "Corotational"
         };
 
@@ -179,8 +195,12 @@ public class FemNonlinearModelTests
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
-            PointLoads = [new FemLinearPointLoad(999, 10, 0, 0, 0.5)]
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements,
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1", Loads = valid.Stages[0].Loads,
+                PointLoads = [new FemLinearPointLoad(999, 10, 0, 0, 0.5)]
+            }]
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
     }
@@ -191,12 +211,33 @@ public class FemNonlinearModelTests
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Loads = valid.Loads,
-            PointLoads = [new FemLinearPointLoad(1, 10, 0, 0, 0.5)],
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements,
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1", Loads = valid.Stages[0].Loads,
+                PointLoads = [new FemLinearPointLoad(1, 10, 0, 0, 0.5)]
+            }],
             GeomTransfKind = "Corotational"
         };
 
         var ex = Assert.Throws<InvalidOperationException>(model.Validate);
         Assert.Contains("Corotational", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Validate_DuplicateKinematicDofAcrossStages_Throws()
+    {
+        var valid = ValidModel();
+        var model = new FemNonlinearModel
+        {
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements,
+            Stages =
+            [
+                new FemNonlinearStage { Tag = "Стадия 1", KinematicLoads = [new FemLinearKinematicLoad(2, 3, 0.01)] },
+                new FemNonlinearStage { Tag = "Стадия 2", KinematicLoads = [new FemLinearKinematicLoad(2, 3, 0.02)] }
+            ]
+        };
+        var ex = Assert.Throws<InvalidOperationException>(model.Validate);
+        Assert.Contains("Дублирующееся", ex.Message);
     }
 }

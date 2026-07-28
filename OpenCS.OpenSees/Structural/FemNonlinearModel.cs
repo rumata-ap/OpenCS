@@ -10,10 +10,9 @@ public sealed class FemNonlinearModel
     public IReadOnlyDictionary<int, OpenSeesSectionModel> Sections { get; init; } =
         new Dictionary<int, OpenSeesSectionModel>();
     public IReadOnlyList<FemNonlinearElement> Elements { get; init; } = [];
-    public IReadOnlyList<FemLinearNodalLoad> Loads { get; init; } = [];
-    public IReadOnlyList<FemLinearDistributedLoad> DistributedLoads { get; init; } = [];
-    public IReadOnlyList<FemLinearPointLoad> PointLoads { get; init; } = [];
-    public IReadOnlyList<FemLinearKinematicLoad> KinematicLoads { get; init; } = [];
+    /// <summary>Стадии нагружения в порядке приложения (минимум одна). Каждая стадия — добавочный
+    /// набор нагрузок поверх зафиксированных предыдущих (см. FemNonlinearTclGenerator).</summary>
+    public IReadOnlyList<FemNonlinearStage> Stages { get; init; } = [];
 
     public double LoadFactorStep { get; init; } = 0.1;
     public double MaxLoadFactor { get; init; } = 10.0;
@@ -59,6 +58,7 @@ public sealed class FemNonlinearModel
         if (Nodes.Count == 0) throw new InvalidOperationException("Модель не содержит узлов.");
         if (Elements.Count == 0) throw new InvalidOperationException("Модель не содержит элементов.");
         if (Sections.Count == 0) throw new InvalidOperationException("Модель не содержит fiber-сечений.");
+        if (Stages.Count == 0) throw new InvalidOperationException("Модель не содержит ни одной стадии нагружения.");
         if (!double.IsFinite(LoadFactorStep) || LoadFactorStep <= 0)
             throw new InvalidOperationException("Шаг коэффициента нагрузки должен быть конечным и положительным.");
         if (!double.IsFinite(MaxLoadFactor) || MaxLoadFactor <= 0)
@@ -104,51 +104,57 @@ public sealed class FemNonlinearModel
                 throw new InvalidOperationException($"Элемент {e.Tag}: число точек интегрирования должно быть положительным.");
         }
 
-        foreach (var l in Loads)
-            if (!tags.Contains(l.NodeTag))
-                throw new InvalidOperationException($"Нагрузка ссылается на несуществующий узел {l.NodeTag}.");
-
         var kinematicDofs = new HashSet<(int NodeTag, int Dof)>();
-        foreach (var l in KinematicLoads)
+        bool anyDistributed = false, anyPoint = false;
+        foreach (var stage in Stages)
         {
-            if (!tags.Contains(l.NodeTag))
-                throw new InvalidOperationException($"Кинематическая нагрузка ссылается на несуществующий узел {l.NodeTag}.");
-            if (l.Dof is < 1 or > 6)
-                throw new InvalidOperationException($"Кинематическая нагрузка узла {l.NodeTag}: DOF должен быть от 1 до 6.");
-            if (!double.IsFinite(l.Value))
-                throw new InvalidOperationException($"Кинематическая нагрузка узла {l.NodeTag}: значение должно быть конечным.");
-            if (!kinematicDofs.Add((l.NodeTag, l.Dof)))
-                throw new InvalidOperationException($"Дублирующееся кинематическое воздействие узла {l.NodeTag}, DOF {l.Dof}.");
-            var node = Nodes.First(n => n.Tag == l.NodeTag);
-            if (node.Fixed[l.Dof - 1] && l.Value != 0)
-                throw new InvalidOperationException($"Кинематическая нагрузка узла {l.NodeTag}, DOF {l.Dof} конфликтует с закреплением.");
+            foreach (var l in stage.Loads)
+                if (!tags.Contains(l.NodeTag))
+                    throw new InvalidOperationException($"Нагрузка стадии «{stage.Tag}» ссылается на несуществующий узел {l.NodeTag}.");
+
+            foreach (var l in stage.KinematicLoads)
+            {
+                if (!tags.Contains(l.NodeTag))
+                    throw new InvalidOperationException($"Кинематическая нагрузка стадии «{stage.Tag}» ссылается на несуществующий узел {l.NodeTag}.");
+                if (l.Dof is < 1 or > 6)
+                    throw new InvalidOperationException($"Кинематическая нагрузка стадии «{stage.Tag}» узла {l.NodeTag}: DOF должен быть от 1 до 6.");
+                if (!double.IsFinite(l.Value))
+                    throw new InvalidOperationException($"Кинематическая нагрузка стадии «{stage.Tag}» узла {l.NodeTag}: значение должно быть конечным.");
+                if (!kinematicDofs.Add((l.NodeTag, l.Dof)))
+                    throw new InvalidOperationException($"Дублирующееся кинематическое воздействие узла {l.NodeTag}, DOF {l.Dof} (стадия «{stage.Tag}» конфликтует с более ранней стадией).");
+                var node = Nodes.First(n => n.Tag == l.NodeTag);
+                if (node.Fixed[l.Dof - 1] && l.Value != 0)
+                    throw new InvalidOperationException($"Кинематическая нагрузка стадии «{stage.Tag}» узла {l.NodeTag}, DOF {l.Dof} конфликтует с закреплением.");
+            }
+
+            foreach (var l in stage.DistributedLoads)
+            {
+                anyDistributed = true;
+                if (!elemTags.Contains(l.ElementTag))
+                    throw new InvalidOperationException($"Распределённая нагрузка стадии «{stage.Tag}» ссылается на несуществующий элемент {l.ElementTag}.");
+                if (!double.IsFinite(l.WyStart) || !double.IsFinite(l.WzStart) || !double.IsFinite(l.WxStart) ||
+                    !double.IsFinite(l.WyEnd) || !double.IsFinite(l.WzEnd) || !double.IsFinite(l.WxEnd))
+                    throw new InvalidOperationException($"Распределённая нагрузка стадии «{stage.Tag}» элемента {l.ElementTag}: интенсивности должны быть конечными.");
+                if (!double.IsFinite(l.AOverL) || !double.IsFinite(l.BOverL) ||
+                    l.AOverL < 0 || l.BOverL > 1 || l.BOverL <= l.AOverL)
+                    throw new InvalidOperationException($"Распределённая нагрузка стадии «{stage.Tag}» элемента {l.ElementTag}: некорректный интервал приложения.");
+            }
+
+            foreach (var l in stage.PointLoads)
+            {
+                anyPoint = true;
+                if (!elemTags.Contains(l.ElementTag))
+                    throw new InvalidOperationException($"Сосредоточенная нагрузка стадии «{stage.Tag}» ссылается на несуществующий элемент {l.ElementTag}.");
+                if (!double.IsFinite(l.Py) || !double.IsFinite(l.Pz) || !double.IsFinite(l.Px))
+                    throw new InvalidOperationException($"Сосредоточенная нагрузка стадии «{stage.Tag}» элемента {l.ElementTag}: компоненты должны быть конечными.");
+                if (!double.IsFinite(l.XOverL) || l.XOverL <= 0 || l.XOverL >= 1)
+                    throw new InvalidOperationException($"Сосредоточенная нагрузка стадии «{stage.Tag}» элемента {l.ElementTag}: xL должен быть строго между 0 и 1.");
+            }
         }
 
-        foreach (var l in DistributedLoads)
-        {
-            if (!elemTags.Contains(l.ElementTag))
-                throw new InvalidOperationException($"Распределённая нагрузка ссылается на несуществующий элемент {l.ElementTag}.");
-            if (!double.IsFinite(l.WyStart) || !double.IsFinite(l.WzStart) || !double.IsFinite(l.WxStart) ||
-                !double.IsFinite(l.WyEnd) || !double.IsFinite(l.WzEnd) || !double.IsFinite(l.WxEnd))
-                throw new InvalidOperationException($"Распределённая нагрузка элемента {l.ElementTag}: интенсивности должны быть конечными.");
-            if (!double.IsFinite(l.AOverL) || !double.IsFinite(l.BOverL) ||
-                l.AOverL < 0 || l.BOverL > 1 || l.BOverL <= l.AOverL)
-                throw new InvalidOperationException($"Распределённая нагрузка элемента {l.ElementTag}: некорректный интервал приложения.");
-        }
-
-        foreach (var l in PointLoads)
-        {
-            if (!elemTags.Contains(l.ElementTag))
-                throw new InvalidOperationException($"Сосредоточенная нагрузка ссылается на несуществующий элемент {l.ElementTag}.");
-            if (!double.IsFinite(l.Py) || !double.IsFinite(l.Pz) || !double.IsFinite(l.Px))
-                throw new InvalidOperationException($"Сосредоточенная нагрузка элемента {l.ElementTag}: компоненты должны быть конечными.");
-            if (!double.IsFinite(l.XOverL) || l.XOverL <= 0 || l.XOverL >= 1)
-                throw new InvalidOperationException($"Сосредоточенная нагрузка элемента {l.ElementTag}: xL должен быть строго между 0 и 1.");
-        }
-
-        if (GeomTransfKind == "Corotational" && DistributedLoads.Count > 0)
+        if (GeomTransfKind == "Corotational" && anyDistributed)
             throw new InvalidOperationException("Распределённые нагрузки не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
-        if (GeomTransfKind == "Corotational" && PointLoads.Count > 0)
+        if (GeomTransfKind == "Corotational" && anyPoint)
             throw new InvalidOperationException("Сосредоточенные нагрузки внутри элемента не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
     }
 }
