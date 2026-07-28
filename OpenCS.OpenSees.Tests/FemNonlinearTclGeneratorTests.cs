@@ -27,7 +27,7 @@ public class FemNonlinearTclGeneratorTests
             Nodes = [n1, n2],
             Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = section },
             Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
-            Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
+            Stages = [new FemNonlinearStage { Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)] }],
             LoadFactorStep = 0.25, MaxLoadFactor = 1.0, RefinementDivisions = 10,
             Tolerance = 1e-6, MaxIterations = 30, GeomTransfKind = "PDelta"
         };
@@ -55,8 +55,8 @@ public class FemNonlinearTclGeneratorTests
         Assert.Contains("fconfigure stdout -buffering line", tcl);
         Assert.Contains("set iters [testIter]", tcl);
         Assert.Contains("set finalNorm [lindex [testNorm] [expr {$iters - 1}]]", tcl);
-        Assert.Contains("puts \"step $stepIndex OK lambda=$currentLambda depth=$depth iters=$iters norm=$finalNorm\"", tcl);
-        Assert.Contains("puts \"step [expr {$stepIndex + 1}] FAILED lambda=$currentLambda\"", tcl);
+        Assert.Contains("puts \"step $stepIndex OK stage=$currentStageIndex lambda=$currentLambda depth=$depth iters=$iters norm=$finalNorm\"", tcl);
+        Assert.Contains("puts \"step [expr {$stepIndex + 1}] FAILED stage=$currentStageIndex lambda=$currentLambda\"", tcl);
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public class FemNonlinearTclGeneratorTests
         var model = Console();
         model = new FemNonlinearModel
         {
-            Nodes = model.Nodes, Sections = model.Sections, Elements = model.Elements, Loads = model.Loads,
+            Nodes = model.Nodes, Sections = model.Sections, Elements = model.Elements, Stages = model.Stages,
             LoadFactorStep = model.LoadFactorStep, MaxLoadFactor = model.MaxLoadFactor,
             RefinementDivisions = model.RefinementDivisions, Tolerance = model.Tolerance,
             MaxIterations = model.MaxIterations, GeomTransfKind = model.GeomTransfKind,
@@ -93,7 +93,7 @@ public class FemNonlinearTclGeneratorTests
         Assert.Contains("\"elemTags\":[1]", tcl);
 
         int recorderIndex = tcl.IndexOf("recorder Node -file nonlinear_node_disp.out", StringComparison.Ordinal);
-        int loopIndex = tcl.IndexOf("set currentLambda", StringComparison.Ordinal);
+        int loopIndex = tcl.IndexOf("set currentStageIndex", StringComparison.Ordinal);
         Assert.True(recorderIndex < loopIndex && recorderIndex >= 0 && loopIndex >= 0);
     }
 
@@ -137,11 +137,15 @@ public class FemNonlinearTclGeneratorTests
         var model = new FemNonlinearModel
         {
             Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
-            Loads = baseModel.Loads, LoadFactorStep = baseModel.LoadFactorStep,
+            LoadFactorStep = baseModel.LoadFactorStep,
             MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
             Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
             GeomTransfKind = baseModel.GeomTransfKind,
-            PointLoads = [new FemLinearPointLoad(1, -1500, 250, 0, 0.5)]
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1", Loads = baseModel.Stages[0].Loads,
+                PointLoads = [new FemLinearPointLoad(1, -1500, 250, 0, 0.5)]
+            }]
         };
 
         string tcl = new FemNonlinearTclGenerator().Generate(model);
@@ -156,11 +160,15 @@ public class FemNonlinearTclGeneratorTests
         var model = new FemNonlinearModel
         {
             Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
-            Loads = baseModel.Loads, LoadFactorStep = baseModel.LoadFactorStep,
+            LoadFactorStep = baseModel.LoadFactorStep,
             MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
             Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
             GeomTransfKind = "Corotational",
-            PointLoads = [new FemLinearPointLoad(1, -1500, 0, 0, 0.4)]
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1", Loads = baseModel.Stages[0].Loads,
+                PointLoads = [new FemLinearPointLoad(1, -1500, 0, 0, 0.4)]
+            }]
         };
 
         Assert.Throws<InvalidOperationException>(() => new FemNonlinearTclGenerator().Generate(model));
@@ -181,7 +189,7 @@ public class FemNonlinearTclGeneratorTests
             Nodes = [n1, n2],
             Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = section },
             Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
-            Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
+            Stages = [new FemNonlinearStage { Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)] }],
             LoadFactorStep = 0.25, MaxLoadFactor = 1.0, RefinementDivisions = 10,
             Tolerance = 1e-6, MaxIterations = 30, GeomTransfKind = "Linear"
         };
@@ -271,16 +279,57 @@ public class FemNonlinearTclGeneratorTests
         var model = new FemNonlinearModel
         {
             Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
-            Loads = baseModel.Loads, LoadFactorStep = baseModel.LoadFactorStep,
+            LoadFactorStep = baseModel.LoadFactorStep,
             MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
             Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
             GeomTransfKind = baseModel.GeomTransfKind,
-            KinematicLoads = [new FemLinearKinematicLoad(2, 1, 0.015)]
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1", Loads = baseModel.Stages[0].Loads,
+                KinematicLoads = [new FemLinearKinematicLoad(2, 1, 0.015)]
+            }]
         };
 
         string tcl = new FemNonlinearTclGenerator().Generate(model);
 
         Assert.Contains("load 2 0 0 -1000 0 0 0", tcl);
         Assert.Contains($"sp 2 1 {TclNumber.Format(0.015)}", tcl);
+    }
+
+    [Fact]
+    public void Generate_TwoStages_EmitsTwoPatternsWithLoadConstBetweenAndDistinctStageIndex()
+    {
+        var baseModel = Console();
+        var model = new FemNonlinearModel
+        {
+            Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
+            LoadFactorStep = baseModel.LoadFactorStep,
+            MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
+            Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
+            GeomTransfKind = baseModel.GeomTransfKind,
+            Stages =
+            [
+                new FemNonlinearStage { Tag = "Сжатие", Loads = [new FemLinearNodalLoad(2, -50000, 0, 0, 0, 0, 0)] },
+                new FemNonlinearStage { Tag = "Изгиб", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)] }
+            ]
+        };
+
+        string tcl = new FemNonlinearTclGenerator().Generate(model);
+
+        Assert.Contains("pattern Plain 1 Linear {", tcl);
+        Assert.Contains("pattern Plain 2 Linear {", tcl);
+        Assert.Contains("loadConst -time 0.0", tcl);
+        Assert.Contains("set currentStageIndex 0", tcl);
+        Assert.Contains("set currentStageIndex 1", tcl);
+        Assert.Contains("# step stageIndex loadFactor converged isRefinement", tcl);
+
+        int pattern1 = tcl.IndexOf("pattern Plain 1 Linear {", StringComparison.Ordinal);
+        int loadConst = tcl.IndexOf("loadConst -time 0.0", StringComparison.Ordinal);
+        int pattern2 = tcl.IndexOf("pattern Plain 2 Linear {", StringComparison.Ordinal);
+        Assert.True(pattern1 >= 0 && pattern1 < loadConst && loadConst < pattern2);
+
+        // Load 2-й стадии обёрнут в защиту "продолжать, только если первая стадия сошлась".
+        int guard = tcl.IndexOf("if {!$analysisFailed} {", StringComparison.Ordinal);
+        Assert.True(guard >= 0 && guard < loadConst);
     }
 }

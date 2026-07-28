@@ -86,40 +86,21 @@ public sealed class FemNonlinearTclGenerator
         }
         L();
 
-        L("pattern Plain 1 Linear {");
-        foreach (var ld in model.Loads)
-            L($"    load {ld.NodeTag} {F(ld.Fx)} {F(ld.Fy)} {F(ld.Fz)} {F(ld.Mx)} {F(ld.My)} {F(ld.Mz)}");
-        if (model.DistributedLoads.Count > 0 && model.GeomTransfKind == "Corotational")
-            throw new InvalidOperationException("Распределённые нагрузки не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
-        foreach (var ld in model.DistributedLoads)
-        {
-            if (IsFullUniform(ld))
-                L($"    eleLoad -ele {ld.ElementTag} -type -beamUniform {F(ld.WyStart)} {F(ld.WzStart)} {F(ld.WxStart)}");
-            else
-                L($"    eleLoad -ele {ld.ElementTag} -type -beamUniform {F(ld.WyStart)} {F(ld.WzStart)} {F(ld.WxStart)} {F(ld.AOverL)} {F(ld.BOverL)} {F(ld.WyEnd)} {F(ld.WzEnd)} {F(ld.WxEnd)}");
-        }
-        if (model.PointLoads.Count > 0 && model.GeomTransfKind == "Corotational")
-            throw new InvalidOperationException("Сосредоточенные нагрузки внутри элемента не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
-        foreach (var ld in model.PointLoads)
-            L($"    eleLoad -ele {ld.ElementTag} -type -beamPoint {F(ld.Py)} {F(ld.Pz)} {F(ld.XOverL)} {F(ld.Px)}");
-        foreach (var ld in model.KinematicLoads)
-            L($"    sp {ld.NodeTag} {ld.Dof} {F(ld.Value)}");
-        L("}");
-        L();
-
         L("constraints Transformation");
         L("numberer RCM");
         L("system BandGeneral");
         L($"test {model.ConvergenceTest} {F(model.Tolerance)} {model.MaxIterations} 0");
         L($"algorithm {model.Algorithm}");
-        // Интегратор должен быть задан до создания StaticAnalysis.
+        // Интегратор должен быть задан до создания StaticAnalysis. Паттерны стадий (см. цикл по
+        // model.Stages ниже) регистрируются уже после analysis Static — OpenSees подхватывает
+        // вновь определённый pattern в уже созданный Static-анализ на следующем analyze().
         L("integrator LoadControl 1.0");
         L("analysis Static");
         L();
 
         var nodeTags = model.Nodes.Select(n => n.Tag).ToList();
         var restrainedTags = model.Nodes.Where(n => n.Fixed.Any(f => f)).Select(n => n.Tag)
-            .Concat(model.KinematicLoads.Select(load => load.NodeTag)).Distinct().ToList();
+            .Concat(model.Stages.SelectMany(s => s.KinematicLoads).Select(load => load.NodeTag)).Distinct().ToList();
         var elemTags = model.Elements.Select(e => e.Tag).ToList();
 
         // ИСТОРИЯ ПОРЧИ ВЫВОДА (три РАЗНЫХ подтверждённых на реальных артефактах паттерна на одном
@@ -197,7 +178,7 @@ public sealed class FemNonlinearTclGenerator
         L("set fiberStates [open nonlinear_fiber_states.out w]");
         L("fconfigure $fiberStates -buffering none");
         L("puts $fiberStates {# step loadFactor elementTag integrationPoint fiberIndex stressPa strain}");
-        L("writeCloseOnWrite step_status.out {# step loadFactor converged isRefinement}");
+        L("writeCloseOnWrite step_status.out {# step stageIndex loadFactor converged isRefinement}");
         L($"set loadFactorStep {F(model.LoadFactorStep)}");
         L($"set maxLoadFactor {F(model.MaxLoadFactor)}");
         L($"set refinementDivisions {model.RefinementDivisions}");
@@ -205,6 +186,7 @@ public sealed class FemNonlinearTclGenerator
         L("set currentLambda 0.0");
         L("set stepIndex 0");
         L("set analysisFailed 0");
+        L("set currentStageIndex 0");
         L();
 
         // advanceTo — рекурсивное адаптивное дробление шага: неудавшийся интервал
@@ -222,7 +204,7 @@ public sealed class FemNonlinearTclGenerator
         // nonlinear_fiber_states.out. Держит step_status/fiberStates/node_disp/reactions/
         // element_forces в точном построчном соответствии — все пишутся на каждом успешном analyze().
         L("proc advanceTo {fromLambda toLambda depth} {");
-        L("    global refinementDivisions maxRefinementDepth stepIndex currentLambda fiberStates");
+        L("    global refinementDivisions maxRefinementDepth stepIndex currentLambda currentStageIndex fiberStates");
         L("    integrator LoadControl [expr {$toLambda - $fromLambda}]");
         L("    set rc [analyze 1]");
         L("    if {$rc == 0} {");
@@ -230,8 +212,8 @@ public sealed class FemNonlinearTclGenerator
         L("        set currentLambda [getTime]");
         L("        set iters [testIter]");
         L("        set finalNorm [lindex [testNorm] [expr {$iters - 1}]]");
-        L("        puts \"step $stepIndex OK lambda=$currentLambda depth=$depth iters=$iters norm=$finalNorm\"");
-        L("        writeCloseOnWrite step_status.out [list $stepIndex $currentLambda 1 [expr {$depth > 0}]]");
+        L("        puts \"step $stepIndex OK stage=$currentStageIndex lambda=$currentLambda depth=$depth iters=$iters norm=$finalNorm\"");
+        L("        writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 1 [expr {$depth > 0}]]");
         EmitFiberStateWrites(L, model);
         L("        return 1");
         L("    }");
@@ -246,17 +228,55 @@ public sealed class FemNonlinearTclGenerator
         L("}");
         L();
 
-        L("while {$currentLambda < $maxLoadFactor - 1.0e-12} {");
-        L("    set targetLambda [expr {min($currentLambda + $loadFactorStep, $maxLoadFactor)}]");
-        L("    set fromLambda $currentLambda");
-        L("    if {![advanceTo $fromLambda $targetLambda 0]} {");
-        L("        set currentLambda [getTime]");
-        L("        puts \"step [expr {$stepIndex + 1}] FAILED lambda=$currentLambda\"");
-        L("        writeCloseOnWrite step_status.out [list [expr {$stepIndex + 1}] $currentLambda 0 1]");
-        L("        set analysisFailed 1");
-        L("        break");
-        L("    }");
-        L("}");
+        for (int stageIdx = 0; stageIdx < model.Stages.Count; stageIdx++)
+        {
+            var stage = model.Stages[stageIdx];
+            int patternTag = stageIdx + 1;
+            bool guarded = stageIdx > 0;
+            string indent = guarded ? "    " : "";
+            if (guarded)
+            {
+                // Стадия >0 выполняется только если все предыдущие стадии сошлись; loadConst
+                // фиксирует накопленное НДС перед активацией добавочной нагрузки этой стадии.
+                L("if {!$analysisFailed} {");
+                L($"{indent}loadConst -time 0.0");
+            }
+            L($"{indent}# --- Стадия {patternTag}: {stage.Tag} ---");
+            L($"{indent}set currentStageIndex {stageIdx}");
+            L($"{indent}pattern Plain {patternTag} Linear {{");
+            foreach (var ld in stage.Loads)
+                L($"{indent}    load {ld.NodeTag} {F(ld.Fx)} {F(ld.Fy)} {F(ld.Fz)} {F(ld.Mx)} {F(ld.My)} {F(ld.Mz)}");
+            if (stage.DistributedLoads.Count > 0 && model.GeomTransfKind == "Corotational")
+                throw new InvalidOperationException("Распределённые нагрузки не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
+            foreach (var ld in stage.DistributedLoads)
+            {
+                if (IsFullUniform(ld))
+                    L($"{indent}    eleLoad -ele {ld.ElementTag} -type -beamUniform {F(ld.WyStart)} {F(ld.WzStart)} {F(ld.WxStart)}");
+                else
+                    L($"{indent}    eleLoad -ele {ld.ElementTag} -type -beamUniform {F(ld.WyStart)} {F(ld.WzStart)} {F(ld.WxStart)} {F(ld.AOverL)} {F(ld.BOverL)} {F(ld.WyEnd)} {F(ld.WzEnd)} {F(ld.WxEnd)}");
+            }
+            if (stage.PointLoads.Count > 0 && model.GeomTransfKind == "Corotational")
+                throw new InvalidOperationException("Сосредоточенные нагрузки внутри элемента не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
+            foreach (var ld in stage.PointLoads)
+                L($"{indent}    eleLoad -ele {ld.ElementTag} -type -beamPoint {F(ld.Py)} {F(ld.Pz)} {F(ld.XOverL)} {F(ld.Px)}");
+            foreach (var ld in stage.KinematicLoads)
+                L($"{indent}    sp {ld.NodeTag} {ld.Dof} {F(ld.Value)}");
+            L($"{indent}}}");
+            L($"{indent}set currentLambda 0.0");
+            L($"{indent}while {{$currentLambda < $maxLoadFactor - 1.0e-12}} {{");
+            L($"{indent}    set targetLambda [expr {{min($currentLambda + $loadFactorStep, $maxLoadFactor)}}]");
+            L($"{indent}    set fromLambda $currentLambda");
+            L($"{indent}    if {{![advanceTo $fromLambda $targetLambda 0]}} {{");
+            L($"{indent}        set currentLambda [getTime]");
+            L($"{indent}        puts \"step [expr {{$stepIndex + 1}}] FAILED stage=$currentStageIndex lambda=$currentLambda\"");
+            L($"{indent}        writeCloseOnWrite step_status.out [list [expr {{$stepIndex + 1}}] $currentStageIndex $currentLambda 0 1]");
+            L($"{indent}        set analysisFailed 1");
+            L($"{indent}        break");
+            L($"{indent}    }}");
+            L($"{indent}}}");
+            if (guarded) L("}");
+            L();
+        }
         L("close $fiberStates");
         L();
 
