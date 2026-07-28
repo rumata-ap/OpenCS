@@ -34,18 +34,35 @@ public static class FemAnalysisExecutor
 
         string taskKind = analysis.Kind == "nonlinear" ? "fem_nonlinear" : "fem_linear";
 
-        FemResolvedLoads resolved;
+        var parameters = FemAnalysisParams.Parse(analysis.ParamsJson);
+
+        FemResolvedLoads resolved = new([], [], []);
+        List<FemNonlinearStageInput> nonlinearStages = [];
         try
         {
-            resolved = FemLoadExpressionResolver.Resolve(
-                analysis.GetLoadExpression(), loadCases, allLoads, allMemberLoads, allKinematicLoads);
+            if (analysis.Kind == "nonlinear")
+            {
+                foreach (var stage in parameters.ResolveStages(analysis))
+                {
+                    var stageResolved = FemLoadExpressionResolver.Resolve(
+                        FemLoadExpression.Parse(stage.LoadExpressionJson), loadCases, allLoads, allMemberLoads, allKinematicLoads);
+                    nonlinearStages.Add(new FemNonlinearStageInput(stage.Tag, stageResolved.NodeLoads)
+                    {
+                        MemberLoads = stageResolved.MemberLoads, KinematicLoads = stageResolved.KinematicLoads
+                    });
+                }
+            }
+            else
+            {
+                resolved = FemLoadExpressionResolver.Resolve(
+                    analysis.GetLoadExpression(), loadCases, allLoads, allMemberLoads, allKinematicLoads);
+            }
         }
         catch (NotSupportedException ex)
         {
             return Error(analysis, created, ex.Message, taskKind);
         }
 
-        var parameters = FemAnalysisParams.Parse(analysis.ParamsJson);
         var calcSettings = app.CalcSettings;
         var executable = new OpenSeesExecutableResolver(Path.Combine(AppContext.BaseDirectory, "OpenSees.exe"))
             .Resolve(calcSettings.OpenSeesExecutablePath ?? ResolveFromOpenSeesHome());
@@ -59,7 +76,7 @@ public static class FemAnalysisExecutor
 
         if (analysis.Kind == "nonlinear")
             return await RunNonlinearAsync(app, analysis, created, meshNodes, meshElems, sourceNodes, sourceMembers,
-                resolved, parameters, calcSettings, runRequest, ct);
+                nonlinearStages, parameters, calcSettings, runRequest, ct);
 
         return await RunLinearAsync(app, analysis, created, meshNodes, meshElems, sourceNodes, sourceMembers,
             resolved, runRequest, ct);
@@ -103,7 +120,7 @@ public static class FemAnalysisExecutor
 
     static async Task<CalcResult> RunNonlinearAsync(AppViewModel app, FemAnalysis analysis, string created,
         List<FemMeshNode> meshNodes, List<FemElement> meshElems, List<FemNode> sourceNodes, List<FemMember> sourceMembers,
-        FemResolvedLoads resolved, FemAnalysisParams parameters, Utilites.CalcSettings calcSettings,
+        List<FemNonlinearStageInput> stages, FemAnalysisParams parameters, Utilites.CalcSettings calcSettings,
         OpenSeesRunRequest runRequest, CancellationToken ct)
     {
         if (parameters.CalcType is not { } calcType)
@@ -129,9 +146,8 @@ public static class FemAnalysisExecutor
             calcSettings.OpenSeesMaxRefinementDepth, parameters.ElementFormulation, calcSettings.OpenSeesAlgorithm);
 
         var input = new FemNonlinearWorkflowInput(
-            meshNodes, meshElems, sourceNodes, sourceMembers, resolved.NodeLoads,
-            sections, materials, app.Diagrams, calcType, options)
-        { ResolvedMemberLoads = resolved.MemberLoads, ResolvedKinematicLoads = resolved.KinematicLoads };
+            meshNodes, meshElems, sourceNodes, sourceMembers, stages,
+            sections, materials, app.Diagrams, calcType, options);
 
         var service = new FemNonlinearAnalysisService(
             new FemNonlinearTclGenerator(),
