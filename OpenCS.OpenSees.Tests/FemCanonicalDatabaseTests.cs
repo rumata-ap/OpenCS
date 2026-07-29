@@ -1,11 +1,73 @@
 using CScore.Fem;
 using Microsoft.Data.Sqlite;
+using OpenCS.Tasks;
 using OpenCS.Utilites;
 
 namespace OpenCS.OpenSees.Tests;
 
 public sealed class FemCanonicalDatabaseTests
 {
+    [Fact]
+    public void SaveFemSchemaEdit_RemapsStageExpressions()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-fem-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var db = new DatabaseService(path);
+            var schema = new FemSchema { Tag = "Stage expressions" };
+            db.SaveFemSchema(schema);
+
+            var analysis = new FemAnalysis
+            {
+                SchemaId = schema.Id,
+                Tag = "Staged",
+                Kind = "nonlinear",
+                LoadExpressionJson = new FemLoadExpression { LoadCaseIds = [-2] }.ToJson(),
+                ParamsJson = new FemAnalysisParams
+                {
+                    Stages =
+                    [
+                        new FemAnalysisStage
+                        {
+                            Tag = "Сжатие",
+                            LoadExpressionJson = new FemLoadExpression { LoadCaseIds = [-2] }.ToJson()
+                        },
+                        new FemAnalysisStage
+                        {
+                            Tag = "Изгиб",
+                            LoadExpressionJson = new FemLoadExpression { LoadCaseIds = [-3] }.ToJson()
+                        }
+                    ]
+                }.ToJson()
+            };
+            db.SaveFemAnalysis(analysis);
+
+            var node = new FemNode { Id = -1, SchemaId = schema.Id, NodeTag = "1" };
+            FemLoadCase[] loadCases =
+            [
+                new FemLoadCase { Id = -2, SchemaId = schema.Id, Tag = "G" },
+                new FemLoadCase { Id = -3, SchemaId = schema.Id, Tag = "Q" }
+            ];
+            db.SaveFemSchemaEdit(schema.Id, [node], [], [], loadCases, [], [], []);
+
+            var savedAnalysis = db.GetFemAnalysis(analysis.Id)!;
+            var stages = FemAnalysisParams.Parse(savedAnalysis.ParamsJson).Stages;
+            var savedLoadCases = db.GetFemLoadCases(schema.Id);
+            int savedLoadCaseGId = savedLoadCases.Single(loadCase => loadCase.Tag == "G").Id;
+            int savedLoadCaseQId = savedLoadCases.Single(loadCase => loadCase.Tag == "Q").Id;
+
+            Assert.All(savedLoadCases, loadCase => Assert.True(loadCase.Id > 0));
+            Assert.Equal(savedLoadCaseGId,
+                FemLoadExpression.Parse(stages[0].LoadExpressionJson).LoadCaseIds.Single());
+            Assert.Equal(savedLoadCaseQId,
+                FemLoadExpression.Parse(stages[1].LoadExpressionJson).LoadCaseIds.Single());
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
     [Fact]
     public void SaveFemSchemaEdit_RemapsTransientLoadAndDefinitionReferences()
     {

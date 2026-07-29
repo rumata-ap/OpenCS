@@ -1,8 +1,12 @@
 <Window x:Class="OpenCS.Views.FemAnalysisDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:util="clr-namespace:OpenCS.Utilites"
         Title="{DynamicResource FemAnalysisCreate}" Width="500" SizeToContent="Height"
         WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <util:AnyDoubleConverter x:Key="AnyDoubleConverter"/>
+    </Window.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="780">
     <StackPanel Margin="12">
         <Grid Margin="0,0,0,4">
@@ -46,8 +50,20 @@
                         <DataGridTextColumn Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="120"/>
                         <DataGridComboBoxColumn x:Name="StagesSourceColumn" Header="{DynamicResource FemAnalysisLoadLabel}"
                                                  DisplayMemberPath="Label" SelectedItemBinding="{Binding Source}" Width="*"/>
-                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" Binding="{Binding LoadFactorStep}" Width="70"/>
-                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageMaxLoadFactorColumn}" Binding="{Binding MaxLoadFactor}" Width="70"/>
+                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" Width="70">
+                            <DataGridTextColumn.Binding>
+                                <Binding Path="LoadFactorStep" Mode="TwoWay"
+                                         Converter="{StaticResource AnyDoubleConverter}"
+                                         UpdateSourceTrigger="LostFocus"/>
+                            </DataGridTextColumn.Binding>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageMaxLoadFactorColumn}" Width="70">
+                            <DataGridTextColumn.Binding>
+                                <Binding Path="MaxLoadFactor" Mode="TwoWay"
+                                         Converter="{StaticResource AnyDoubleConverter}"
+                                         UpdateSourceTrigger="LostFocus"/>
+                            </DataGridTextColumn.Binding>
+                        </DataGridTextColumn>
                     </DataGrid.Columns>
                 </DataGrid>
                 <StackPanel Orientation="Horizontal">
