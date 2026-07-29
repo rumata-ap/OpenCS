@@ -70,25 +70,16 @@ public class FemNonlinearModelTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void Validate_NonPositiveLegacyLoadFactorStep_Throws(double step)
+    public void Validate_NonPositiveStageLoadFactorStep_Throws(double step)
     {
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
-            LoadFactorStep = step
-        };
-        Assert.Throws<InvalidOperationException>(model.Validate);
-    }
-
-    [Fact]
-    public void Validate_NonPositiveLoadFactorStep_Throws()
-    {
-        var valid = ValidModel();
-        var model = new FemNonlinearModel
-        {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
-            LoadFactorStep = 0
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements,
+            Stages = [new FemNonlinearStage
+            {
+                Tag = valid.Stages[0].Tag, Loads = valid.Stages[0].Loads, LoadFactorStep = step
+            }]
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
     }
@@ -99,8 +90,12 @@ public class FemNonlinearModelTests
         var valid = ValidModel();
         var model = new FemNonlinearModel
         {
-            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
-            LoadFactorStep = 0.2, MaxLoadFactor = 0.1
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements,
+            Stages = [new FemNonlinearStage
+            {
+                Tag = valid.Stages[0].Tag, Loads = valid.Stages[0].Loads,
+                LoadFactorStep = 0.2, MaxLoadFactor = 0.1
+            }]
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
     }

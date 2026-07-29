@@ -10,7 +10,7 @@ namespace OpenCS.OpenSees.Tests;
 public class FemNonlinearModelResolverTests
 {
     static FemNonlinearAnalysisOptions Options() => new(
-        GeomTransfKind: "Linear", LoadFactorStep: 0.1, MaxLoadFactor: 1.0,
+        GeomTransfKind: "Linear",
         RefinementDivisions: 10, Tolerance: 1e-6, MaxIterations: 50, IntegrationPoints: 5);
 
     // Конструктивная консоль: узел 1 (заделка, dofMask=63) — узел 2 (свободен), 1 стержень, сечение #5.
@@ -51,7 +51,9 @@ public class FemNonlinearModelResolverTests
         var (mn, me, sn, sm, ld) = Console();
         var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
         var r = new FemNonlinearModelResolver().Resolve(
-            mn, me, sn, sm, [new FemNonlinearStageInput("Стадия 1", ld)], Sections(section),
+            mn, me, sn, sm,
+            [new FemNonlinearStageInput("Стадия 1", ld, LoadFactorStep: 0.1, MaxLoadFactor: 1.0)],
+            Sections(section),
             CrossSectionFixtures.Materials(concrete, steel), customDiagramPool: null, CalcType.C, Options());
 
         Assert.True(r.Ok, string.Join("; ", r.Errors));
@@ -69,9 +71,9 @@ public class FemNonlinearModelResolverTests
         var load = Assert.Single(stage.Loads);
         Assert.Equal(2, load.NodeTag);
         Assert.Equal(-1000, load.Fz, 6);
+        Assert.Equal(0.1, stage.LoadFactorStep, 12);
+        Assert.Equal(1.0, stage.MaxLoadFactor, 12);
 
-        Assert.Equal(0.1, r.Model.LoadFactorStep, 12);
-        Assert.Equal(1.0, r.Model.MaxLoadFactor, 12);
         Assert.Equal("Linear", r.Model.GeomTransfKind);
     }
 
@@ -178,7 +180,10 @@ public class FemNonlinearModelResolverTests
 
         var r = new FemNonlinearModelResolver().Resolve(
             mn, me, sn, sm,
-            [new FemNonlinearStageInput("Сжатие", ld), new FemNonlinearStageInput("Изгиб", secondStageLoads)],
+            [
+                new FemNonlinearStageInput("Сжатие", ld, LoadFactorStep: 0.2, MaxLoadFactor: 2.0),
+                new FemNonlinearStageInput("Изгиб", secondStageLoads, LoadFactorStep: 0.05, MaxLoadFactor: 5.0)
+            ],
             Sections(section), CrossSectionFixtures.Materials(concrete, steel),
             customDiagramPool: null, CalcType.C, Options());
 
@@ -188,5 +193,12 @@ public class FemNonlinearModelResolverTests
         Assert.Equal("Изгиб", r.Model.Stages[1].Tag);
         Assert.Equal(-1000, r.Model.Stages[0].Loads.Single().Fz, 6);
         Assert.Equal(500, r.Model.Stages[1].Loads.Single().Fx, 6);
+
+        // Разные Шаг/Предел λ по стадиям — резолвер должен пробросить их независимо, а не
+        // разделить общие значения из options.
+        Assert.Equal(0.2, r.Model.Stages[0].LoadFactorStep, 12);
+        Assert.Equal(2.0, r.Model.Stages[0].MaxLoadFactor, 12);
+        Assert.Equal(0.05, r.Model.Stages[1].LoadFactorStep, 12);
+        Assert.Equal(5.0, r.Model.Stages[1].MaxLoadFactor, 12);
     }
 }

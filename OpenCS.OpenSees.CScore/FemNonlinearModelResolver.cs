@@ -192,7 +192,8 @@ public sealed class FemNonlinearModelResolver
             resolvedStages.Add(new FemNonlinearStage
             {
                 Tag = stageInput.Tag, Loads = loads, DistributedLoads = distributed.Loads,
-                PointLoads = points.ElementLoads, KinematicLoads = kinematicLoads
+                PointLoads = points.ElementLoads, KinematicLoads = kinematicLoads,
+                LoadFactorStep = stageInput.LoadFactorStep, MaxLoadFactor = stageInput.MaxLoadFactor
             });
         }
 
@@ -205,8 +206,6 @@ public sealed class FemNonlinearModelResolver
             Sections = sectionsByKey.Values.ToDictionary(v => v.Tag, v => v.Model),
             Elements = elements,
             Stages = resolvedStages,
-            LoadFactorStep = options.LoadFactorStep,
-            MaxLoadFactor = options.MaxLoadFactor,
             RefinementDivisions = options.RefinementDivisions,
             MaxRefinementDepth = options.MaxRefinementDepth,
             Tolerance = options.Tolerance,

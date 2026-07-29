@@ -103,8 +103,6 @@ public sealed class FemNonlinearAnalysisService
             LastConvergedLoadFactor = steps.Where(s => s.Converged)
                 .Select(s => s.LoadFactor).DefaultIfEmpty(0).Max(),
             FailedLoadFactor = steps.FirstOrDefault(s => !s.Converged)?.LoadFactor,
-            LoadFactorStep = model.LoadFactorStep,
-            MaxLoadFactor = model.MaxLoadFactor,
             RefinementDivisions = model.RefinementDivisions,
             CalcTypeName = model.CalcTypeName,
             StageTags = model.Stages.Select(s => s.Tag).ToList(),

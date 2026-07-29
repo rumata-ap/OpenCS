@@ -46,7 +46,9 @@ public static class FemAnalysisExecutor
                 {
                     var stageResolved = FemLoadExpressionResolver.Resolve(
                         FemLoadExpression.Parse(stage.LoadExpressionJson), loadCases, allLoads, allMemberLoads, allKinematicLoads);
-                    nonlinearStages.Add(new FemNonlinearStageInput(stage.Tag, stageResolved.NodeLoads)
+                    nonlinearStages.Add(new FemNonlinearStageInput(
+                        stage.Tag, stageResolved.NodeLoads,
+                        stage.LoadFactorStep ?? 0.1, stage.MaxLoadFactor ?? 10.0)
                     {
                         MemberLoads = stageResolved.MemberLoads, KinematicLoads = stageResolved.KinematicLoads
                     });
@@ -138,7 +140,7 @@ public static class FemAnalysisExecutor
         }
         var materials = app.Materials.Where(m => m.Id != 0).ToDictionary(m => m.Id);
         var options = new FemNonlinearAnalysisOptions(
-            calcSettings.OpenSeesGeomTransfKind, parameters.LoadFactorStep, parameters.MaxLoadFactor,
+            calcSettings.OpenSeesGeomTransfKind,
             calcSettings.OpenSeesRefinementDivisions, calcSettings.OpenSeesTolerance, calcSettings.OpenSeesMaxIterations,
             calcSettings.OpenSeesIntegrationPoints, calcSettings.OpenSeesConvergenceTest, parameters.ConsiderConcreteTension,
             Enum.Parse<MaterialSource>(parameters.MaterialSource), Enum.Parse<ConcreteModelKind>(parameters.ConcreteModel),

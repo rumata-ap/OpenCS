@@ -4330,15 +4330,15 @@ namespace OpenCS.Utilites
 
             using (var analysisCmd = _connection.CreateCommand())
             {
-               analysisCmd.CommandText = "SELECT id, load_expression_json FROM fem_analyses WHERE schema_id=@sid";
+               analysisCmd.CommandText = "SELECT id, load_expression_json, params_json FROM fem_analyses WHERE schema_id=@sid";
                analysisCmd.Parameters.AddWithValue("@sid", schemaId);
-               var analysesToUpdate = new List<(int Id, string Json)>();
+               var analysesToUpdate = new List<(int Id, string Json, string ParamsJson)>();
                using (var rdr = analysisCmd.ExecuteReader())
                {
                   while (rdr.Read())
                   {
                      if (!rdr.IsDBNull(1))
-                        analysesToUpdate.Add((rdr.GetInt32(0), rdr.GetString(1)));
+                        analysesToUpdate.Add((rdr.GetInt32(0), rdr.GetString(1), rdr.IsDBNull(2) ? "{}" : rdr.GetString(2)));
                   }
                }
                foreach (var a in analysesToUpdate)
@@ -4359,11 +4359,40 @@ namespace OpenCS.Utilites
                      };
                      
                      var newJson = System.Text.Json.JsonSerializer.Serialize(rewritten);
-                     if (newJson != a.Json)
+                     string newParamsJson = a.ParamsJson;
+                     bool paramsChanged = false;
+                     var parameters = OpenCS.Tasks.FemAnalysisParams.Parse(a.ParamsJson);
+                     foreach (var stage in parameters.Stages)
+                     {
+                        var stageExpression = System.Text.Json.JsonSerializer.Deserialize<CScore.Fem.FemLoadExpression>(stage.LoadExpressionJson);
+                        if (stageExpression == null) continue;
+
+                        var rewrittenStage = new CScore.Fem.FemLoadExpression
+                        {
+                           Mode = stageExpression.Mode,
+                           LoadCaseIds = stageExpression.LoadCaseIds.Select(id => newLoadCaseIdByOld.TryGetValue(id, out var mapped) ? mapped : id).ToList(),
+                           Terms = stageExpression.Terms.Select(term => new CScore.Fem.FemLoadTerm
+                           {
+                              LoadCaseId = newLoadCaseIdByOld.TryGetValue(term.LoadCaseId, out var mapped) ? mapped : term.LoadCaseId,
+                              Coefficient = term.Coefficient
+                           }).ToList(),
+                           CombinationType = stageExpression.CombinationType
+                        };
+                        var newStageJson = System.Text.Json.JsonSerializer.Serialize(rewrittenStage);
+                        if (newStageJson != stage.LoadExpressionJson)
+                        {
+                           stage.LoadExpressionJson = newStageJson;
+                           paramsChanged = true;
+                        }
+                     }
+                     if (paramsChanged) newParamsJson = parameters.ToJson();
+
+                     if (newJson != a.Json || paramsChanged)
                      {
                         using var updateCmd = _connection.CreateCommand();
-                        updateCmd.CommandText = "UPDATE fem_analyses SET load_expression_json=@json WHERE id=@id";
+                        updateCmd.CommandText = "UPDATE fem_analyses SET load_expression_json=@json, params_json=@params WHERE id=@id";
                         updateCmd.Parameters.AddWithValue("@json", newJson);
+                        updateCmd.Parameters.AddWithValue("@params", newParamsJson);
                         updateCmd.Parameters.AddWithValue("@id", a.Id);
                         updateCmd.ExecuteNonQuery();
                         
@@ -4371,7 +4400,11 @@ namespace OpenCS.Utilites
                         if (sc != null)
                         {
                            var analysisObj = sc.Analyses.FirstOrDefault(an => an.Id == a.Id);
-                           if (analysisObj != null) analysisObj.LoadExpressionJson = newJson;
+                           if (analysisObj != null)
+                           {
+                              analysisObj.LoadExpressionJson = newJson;
+                              analysisObj.ParamsJson = newParamsJson;
+                           }
                         }
                      }
                   }

@@ -14,8 +14,6 @@ public sealed class FemNonlinearModel
     /// набор нагрузок поверх зафиксированных предыдущих (см. FemNonlinearTclGenerator).</summary>
     public IReadOnlyList<FemNonlinearStage> Stages { get; init; } = [];
 
-    public double LoadFactorStep { get; init; } = 0.1;
-    public double MaxLoadFactor { get; init; } = 10.0;
     public int RefinementDivisions { get; init; } = 10;
     /// <summary>Максимальная глубина рекурсивного дробления шага при отказе сходимости.
     /// На каждом уровне неудачный интервал делится на RefinementDivisions частей;
@@ -68,12 +66,6 @@ public sealed class FemNonlinearModel
         if (Elements.Count == 0) throw new InvalidOperationException("Модель не содержит элементов.");
         if (Sections.Count == 0) throw new InvalidOperationException("Модель не содержит fiber-сечений.");
         if (Stages.Count == 0) throw new InvalidOperationException("Модель не содержит ни одной стадии нагружения.");
-        if (!double.IsFinite(LoadFactorStep) || LoadFactorStep <= 0)
-            throw new InvalidOperationException("Шаг коэффициента нагрузки должен быть конечным и положительным.");
-        if (!double.IsFinite(MaxLoadFactor) || MaxLoadFactor <= 0)
-            throw new InvalidOperationException("Максимальный коэффициент нагрузки должен быть конечным и положительным.");
-        if (MaxLoadFactor < LoadFactorStep)
-            throw new InvalidOperationException("Максимальный коэффициент нагрузки не может быть меньше шага.");
         if (RefinementDivisions <= 0)
             throw new InvalidOperationException("Количество делений шага должно быть положительным.");
         if (MaxRefinementDepth <= 0)
@@ -117,6 +109,13 @@ public sealed class FemNonlinearModel
         bool anyDistributed = false, anyPoint = false;
         foreach (var stage in Stages)
         {
+            if (!double.IsFinite(stage.LoadFactorStep) || stage.LoadFactorStep <= 0)
+                throw new InvalidOperationException($"Стадия «{stage.Tag}»: шаг коэффициента нагрузки должен быть конечным и положительным.");
+            if (!double.IsFinite(stage.MaxLoadFactor) || stage.MaxLoadFactor <= 0)
+                throw new InvalidOperationException($"Стадия «{stage.Tag}»: максимальный коэффициент нагрузки должен быть конечным и положительным.");
+            if (stage.MaxLoadFactor < stage.LoadFactorStep)
+                throw new InvalidOperationException($"Стадия «{stage.Tag}»: максимальный коэффициент нагрузки не может быть меньше шага.");
+
             foreach (var l in stage.Loads)
                 if (!tags.Contains(l.NodeTag))
                     throw new InvalidOperationException($"Нагрузка стадии «{stage.Tag}» ссылается на несуществующий узел {l.NodeTag}.");

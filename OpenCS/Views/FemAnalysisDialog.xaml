@@ -1,8 +1,12 @@
 <Window x:Class="OpenCS.Views.FemAnalysisDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:util="clr-namespace:OpenCS.Utilites"
         Title="{DynamicResource FemAnalysisCreate}" Width="500" SizeToContent="Height"
         WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <util:AnyDoubleConverter x:Key="AnyDoubleConverter"/>
+    </Window.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="780">
     <StackPanel Margin="12">
         <Grid Margin="0,0,0,4">
@@ -43,9 +47,23 @@
                 <DataGrid x:Name="StagesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
                           Height="140" Margin="0,0,0,6">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="140"/>
+                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="120"/>
                         <DataGridComboBoxColumn x:Name="StagesSourceColumn" Header="{DynamicResource FemAnalysisLoadLabel}"
                                                  DisplayMemberPath="Label" SelectedItemBinding="{Binding Source}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" Width="70">
+                            <DataGridTextColumn.Binding>
+                                <Binding Path="LoadFactorStep" Mode="TwoWay"
+                                         Converter="{StaticResource AnyDoubleConverter}"
+                                         UpdateSourceTrigger="LostFocus"/>
+                            </DataGridTextColumn.Binding>
+                        </DataGridTextColumn>
+                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageMaxLoadFactorColumn}" Width="70">
+                            <DataGridTextColumn.Binding>
+                                <Binding Path="MaxLoadFactor" Mode="TwoWay"
+                                         Converter="{StaticResource AnyDoubleConverter}"
+                                         UpdateSourceTrigger="LostFocus"/>
+                            </DataGridTextColumn.Binding>
+                        </DataGridTextColumn>
                     </DataGrid.Columns>
                 </DataGrid>
                 <StackPanel Orientation="Horizontal">
@@ -67,23 +85,6 @@
                 <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisCalcTypeLabel}" VerticalAlignment="Center"/>
                 <ComboBox Grid.Column="1" x:Name="CalcTypeBox" Height="22" VerticalContentAlignment="Center"/>
             </Grid>
-            <Grid Margin="0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="190"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisLoadFactorStepLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                <TextBox Grid.Column="1" x:Name="LoadFactorStepBox" Text="0.1" Height="22" VerticalContentAlignment="Center"/>
-            </Grid>
-            <Grid Margin="0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="190"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisMaxLoadFactorLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                <TextBox Grid.Column="1" x:Name="MaxLoadFactorBox" Text="10" Height="22" VerticalContentAlignment="Center"/>
-            </Grid>
-
             <Grid Margin="0,4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="190"/>
