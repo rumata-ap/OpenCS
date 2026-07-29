@@ -16,6 +16,12 @@ public sealed class FemAnalysisStage
 {
     public string Tag { get; set; } = "";
     public string LoadExpressionJson { get; set; } = "{}";
+    /// <summary>Шаг коэффициента нагрузки λ этой стадии. null — легаси-стадия, сохранённая до
+    /// появления per-stage настройки; см. FemAnalysisParams.Parse (мигрирует из старого
+    /// глобального поля LoadFactorStep).</summary>
+    public double? LoadFactorStep { get; set; }
+    /// <summary>Максимальный коэффициент нагрузки λ этой стадии. null — см. LoadFactorStep.</summary>
+    public double? MaxLoadFactor { get; set; }
 }
 
 public sealed class FemAnalysisParams
@@ -70,7 +76,11 @@ public sealed class FemAnalysisParams
     /// одну стадию из единственного LoadExpressionJson постановки (историческое поведение до
     /// появления многостадийного нагружения).</summary>
     public IReadOnlyList<FemAnalysisStage> ResolveStages(CScore.Fem.FemAnalysis analysis) =>
-        Stages.Count > 0 ? Stages : [new FemAnalysisStage { Tag = analysis.Tag, LoadExpressionJson = analysis.LoadExpressionJson }];
+        Stages.Count > 0 ? Stages : [new FemAnalysisStage
+        {
+            Tag = analysis.Tag, LoadExpressionJson = analysis.LoadExpressionJson,
+            LoadFactorStep = LoadFactorStep, MaxLoadFactor = MaxLoadFactor
+        }];
 
     public string ToJson() => JsonSerializer.Serialize(this);
     public static FemAnalysisParams Parse(string? json)
@@ -81,6 +91,11 @@ public sealed class FemAnalysisParams
         if (!doc.RootElement.TryGetProperty("LoadFactorStep", out _) && result.LoadSteps is > 0)
             result.LoadFactorStep = 1.0 / result.LoadSteps.Value;
         result.LoadSteps = null;
+        foreach (var stage in result.Stages)
+        {
+            stage.LoadFactorStep ??= result.LoadFactorStep;
+            stage.MaxLoadFactor ??= result.MaxLoadFactor;
+        }
         return result;
     }
 }

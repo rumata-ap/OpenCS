@@ -36,6 +36,51 @@ public class FemAnalysisParamsTests
         var stage = Assert.Single(stages);
         Assert.Equal("Загружение 1", stage.Tag);
         Assert.Equal(analysis.LoadExpressionJson, stage.LoadExpressionJson);
+        Assert.Equal(pars.LoadFactorStep, stage.LoadFactorStep);
+        Assert.Equal(pars.MaxLoadFactor, stage.MaxLoadFactor);
+    }
+
+    [Fact]
+    public void Parse_LegacyStagesWithoutPerStageFields_MigratesGlobalValuesIntoEachStage()
+    {
+        // Легаси JSON: до появления per-stage LoadFactorStep/MaxLoadFactor стадии хранили
+        // только Tag/LoadExpressionJson, шаг/предел были едиными на постановку.
+        const string legacyJson = """
+        {
+            "LoadFactorStep": 0.05,
+            "MaxLoadFactor": 5.0,
+            "Stages": [
+                { "Tag": "Сжатие", "LoadExpressionJson": "{}" },
+                { "Tag": "Изгиб", "LoadExpressionJson": "{}" }
+            ]
+        }
+        """;
+
+        var parsed = FemAnalysisParams.Parse(legacyJson);
+
+        Assert.Equal(0.05, parsed.Stages[0].LoadFactorStep);
+        Assert.Equal(5.0, parsed.Stages[0].MaxLoadFactor);
+        Assert.Equal(0.05, parsed.Stages[1].LoadFactorStep);
+        Assert.Equal(5.0, parsed.Stages[1].MaxLoadFactor);
+    }
+
+    [Fact]
+    public void Parse_StagesWithOwnPerStageFields_DoesNotOverwriteThem()
+    {
+        const string json = """
+        {
+            "LoadFactorStep": 0.1,
+            "MaxLoadFactor": 10.0,
+            "Stages": [
+                { "Tag": "Сжатие", "LoadExpressionJson": "{}", "LoadFactorStep": 0.02, "MaxLoadFactor": 2.0 }
+            ]
+        }
+        """;
+
+        var parsed = FemAnalysisParams.Parse(json);
+
+        Assert.Equal(0.02, parsed.Stages[0].LoadFactorStep);
+        Assert.Equal(2.0, parsed.Stages[0].MaxLoadFactor);
     }
 
     [Fact]
