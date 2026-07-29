@@ -27,9 +27,12 @@ public class FemNonlinearTclGeneratorTests
             Nodes = [n1, n2],
             Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = section },
             Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
-            Stages = [new FemNonlinearStage { Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)] }],
-            LoadFactorStep = 0.25, MaxLoadFactor = 1.0, RefinementDivisions = 10,
-            Tolerance = 1e-6, MaxIterations = 30, GeomTransfKind = "PDelta"
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
+                LoadFactorStep = 0.25, MaxLoadFactor = 1.0
+            }],
+            RefinementDivisions = 10, Tolerance = 1e-6, MaxIterations = 30, GeomTransfKind = "PDelta"
         };
     }
 
@@ -66,7 +69,6 @@ public class FemNonlinearTclGeneratorTests
         model = new FemNonlinearModel
         {
             Nodes = model.Nodes, Sections = model.Sections, Elements = model.Elements, Stages = model.Stages,
-            LoadFactorStep = model.LoadFactorStep, MaxLoadFactor = model.MaxLoadFactor,
             RefinementDivisions = model.RefinementDivisions, Tolerance = model.Tolerance,
             MaxIterations = model.MaxIterations, GeomTransfKind = model.GeomTransfKind,
             Algorithm = "Newton"
@@ -137,8 +139,7 @@ public class FemNonlinearTclGeneratorTests
         var model = new FemNonlinearModel
         {
             Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
-            LoadFactorStep = baseModel.LoadFactorStep,
-            MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
+            RefinementDivisions = baseModel.RefinementDivisions,
             Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
             GeomTransfKind = baseModel.GeomTransfKind,
             Stages = [new FemNonlinearStage
@@ -160,8 +161,7 @@ public class FemNonlinearTclGeneratorTests
         var model = new FemNonlinearModel
         {
             Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
-            LoadFactorStep = baseModel.LoadFactorStep,
-            MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
+            RefinementDivisions = baseModel.RefinementDivisions,
             Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
             GeomTransfKind = "Corotational",
             Stages = [new FemNonlinearStage
@@ -189,9 +189,12 @@ public class FemNonlinearTclGeneratorTests
             Nodes = [n1, n2],
             Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = section },
             Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
-            Stages = [new FemNonlinearStage { Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)] }],
-            LoadFactorStep = 0.25, MaxLoadFactor = 1.0, RefinementDivisions = 10,
-            Tolerance = 1e-6, MaxIterations = 30, GeomTransfKind = "Linear"
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
+                LoadFactorStep = 0.25, MaxLoadFactor = 1.0
+            }],
+            RefinementDivisions = 10, Tolerance = 1e-6, MaxIterations = 30, GeomTransfKind = "Linear"
         };
     }
 
@@ -279,8 +282,7 @@ public class FemNonlinearTclGeneratorTests
         var model = new FemNonlinearModel
         {
             Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
-            LoadFactorStep = baseModel.LoadFactorStep,
-            MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
+            RefinementDivisions = baseModel.RefinementDivisions,
             Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
             GeomTransfKind = baseModel.GeomTransfKind,
             Stages = [new FemNonlinearStage
@@ -303,14 +305,21 @@ public class FemNonlinearTclGeneratorTests
         var model = new FemNonlinearModel
         {
             Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
-            LoadFactorStep = baseModel.LoadFactorStep,
-            MaxLoadFactor = baseModel.MaxLoadFactor, RefinementDivisions = baseModel.RefinementDivisions,
+            RefinementDivisions = baseModel.RefinementDivisions,
             Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
             GeomTransfKind = baseModel.GeomTransfKind,
             Stages =
             [
-                new FemNonlinearStage { Tag = "Сжатие", Loads = [new FemLinearNodalLoad(2, -50000, 0, 0, 0, 0, 0)] },
-                new FemNonlinearStage { Tag = "Изгиб", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)] }
+                new FemNonlinearStage
+                {
+                    Tag = "Сжатие", Loads = [new FemLinearNodalLoad(2, -50000, 0, 0, 0, 0, 0)],
+                    LoadFactorStep = 0.2, MaxLoadFactor = 2.0
+                },
+                new FemNonlinearStage
+                {
+                    Tag = "Изгиб", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
+                    LoadFactorStep = 0.05, MaxLoadFactor = 5.0
+                }
             ]
         };
 
@@ -331,5 +340,16 @@ public class FemNonlinearTclGeneratorTests
         // Load 2-й стадии обёрнут в защиту "продолжать, только если первая стадия сошлась".
         int guard = tcl.IndexOf("if {!$analysisFailed} {", StringComparison.Ordinal);
         Assert.True(guard >= 0 && guard < loadConst);
+
+        // Каждая стадия задаёт СВОИ Шаг/Предел λ, а не общие на весь расчёт.
+        int stage1Index = tcl.IndexOf("set currentStageIndex 0", StringComparison.Ordinal);
+        int stage2Index = tcl.IndexOf("set currentStageIndex 1", StringComparison.Ordinal);
+        int step1 = tcl.IndexOf("set loadFactorStep 0.2", StringComparison.Ordinal);
+        int max1 = tcl.IndexOf("set maxLoadFactor 2", StringComparison.Ordinal);
+        int step2 = tcl.IndexOf("set loadFactorStep 0.05", StringComparison.Ordinal);
+        int max2 = tcl.IndexOf("set maxLoadFactor 5", StringComparison.Ordinal);
+        Assert.True(step1 >= 0 && max1 >= 0 && step2 >= 0 && max2 >= 0);
+        Assert.True(stage1Index < step1 && step1 < pattern2);
+        Assert.True(stage2Index < step2);
     }
 }

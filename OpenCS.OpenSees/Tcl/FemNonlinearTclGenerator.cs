@@ -187,8 +187,6 @@ public sealed class FemNonlinearTclGenerator
             L("puts $fiberStates {# step loadFactor elementTag integrationPoint fiberIndex stressPa strain}");
         }
         L("writeCloseOnWrite step_status.out {# step stageIndex loadFactor converged isRefinement}");
-        L($"set loadFactorStep {F(model.LoadFactorStep)}");
-        L($"set maxLoadFactor {F(model.MaxLoadFactor)}");
         L($"set refinementDivisions {model.RefinementDivisions}");
         L($"set maxRefinementDepth {model.MaxRefinementDepth}");
         L("set currentLambda 0.0");
@@ -254,6 +252,8 @@ public sealed class FemNonlinearTclGenerator
             }
             L($"{indent}# --- Стадия {patternTag}: {stage.Tag} ---");
             L($"{indent}set currentStageIndex {stageIdx}");
+            L($"{indent}set loadFactorStep {F(stage.LoadFactorStep)}");
+            L($"{indent}set maxLoadFactor {F(stage.MaxLoadFactor)}");
             L($"{indent}pattern Plain {patternTag} Linear {{");
             foreach (var ld in stage.Loads)
                 L($"{indent}    load {ld.NodeTag} {F(ld.Fx)} {F(ld.Fy)} {F(ld.Fz)} {F(ld.Mx)} {F(ld.My)} {F(ld.Mz)}");
