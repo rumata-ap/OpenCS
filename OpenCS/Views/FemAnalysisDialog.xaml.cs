@@ -48,8 +48,6 @@ public partial class FemAnalysisDialog : Window
             TagBox.Text = existing.Tag;
             var pars = FemAnalysisParams.Parse(existing.ParamsJson);
             CalcTypeBox.SelectedItem = pars.CalcType ?? CalcType.C;
-            LoadFactorStepBox.Text = pars.LoadFactorStep.ToString(CultureInfo.InvariantCulture);
-            MaxLoadFactorBox.Text = pars.MaxLoadFactor.ToString(CultureInfo.InvariantCulture);
             ConsiderPhysicalNonlinearityCb.IsChecked = pars.ConsiderPhysicalNonlinearity;
             ConsiderConcreteTensionCb.IsChecked = pars.ConsiderConcreteTension;
             MaterialSourceBox.SelectedItem = materialSourceOptions.FirstOrDefault(o => o.Value == pars.MaterialSource) ?? materialSourceOptions[0];
@@ -64,7 +62,12 @@ public partial class FemAnalysisDialog : Window
                 foreach (var stage in pars.ResolveStages(existing))
                 {
                     var match = sources.FirstOrDefault(s => s.Expr.ToJson() == stage.LoadExpressionJson);
-                    _stages.Add(new StageRow { Tag = stage.Tag, Source = match ?? sources.FirstOrDefault() });
+                    _stages.Add(new StageRow
+                    {
+                        Tag = stage.Tag, Source = match ?? sources.FirstOrDefault(),
+                        LoadFactorStep = stage.LoadFactorStep ?? 0.1,
+                        MaxLoadFactor = stage.MaxLoadFactor ?? 10.0
+                    });
                 }
             }
             // Устанавливается ПОСЛЕ заполнения _stages: RadioButton.IsChecked=true синхронно
@@ -99,6 +102,8 @@ public partial class FemAnalysisDialog : Window
     {
         public string Tag { get; set; } = "";
         public LoadSource? Source { get; set; }
+        public double LoadFactorStep { get; set; } = 0.1;
+        public double MaxLoadFactor { get; set; } = 10.0;
     }
 
     /// <summary>Пара «значение для Tcl/хранения» + «локализованная подпись для UI».</summary>
@@ -156,11 +161,16 @@ public partial class FemAnalysisDialog : Window
     }
 
     void AddStage_Click(object sender, RoutedEventArgs e)
-        => _stages.Add(new StageRow
+    {
+        var last = _stages.LastOrDefault();
+        _stages.Add(new StageRow
         {
             Tag = string.Format(Loc.S("FemAnalysisStageNumberedTag"), _stages.Count + 1),
-            Source = _loadSources.FirstOrDefault()
+            Source = _loadSources.FirstOrDefault(),
+            LoadFactorStep = last?.LoadFactorStep ?? 0.1,
+            MaxLoadFactor = last?.MaxLoadFactor ?? 10.0
         });
+    }
 
     void RemoveStage_Click(object sender, RoutedEventArgs e)
     {
@@ -218,10 +228,6 @@ public partial class FemAnalysisDialog : Window
         if (isNonlinear)
         {
             pars.CalcType = CalcTypeBox.SelectedItem as CalcType? ?? CalcType.C;
-            pars.LoadFactorStep = Pars.ParseAny(LoadFactorStepBox.Text, out var loadStep) && loadStep > 0
-                ? loadStep : 0.1;
-            pars.MaxLoadFactor = Pars.ParseAny(MaxLoadFactorBox.Text, out var maxLoad) && maxLoad >= pars.LoadFactorStep
-                ? maxLoad : Math.Max(10.0, pars.LoadFactorStep);
             pars.ConsiderPhysicalNonlinearity = ConsiderPhysicalNonlinearityCb.IsChecked == true;
             pars.ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true;
             pars.MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated";
@@ -230,7 +236,16 @@ public partial class FemAnalysisDialog : Window
             pars.SteelHardeningRatioOverride =
                 Pars.ParseAny(SteelHardeningRatioBox.Text, out var hardening) ? hardening : null;
             pars.ElementFormulation = (ElementFormulationBox.SelectedItem as ComboOption)?.Value ?? "forceBeamColumn";
-            pars.Stages = _stages.Select(r => new FemAnalysisStage { Tag = r.Tag, LoadExpressionJson = r.Source!.Expr.ToJson() }).ToList();
+            pars.Stages = _stages.Select(r =>
+            {
+                double step = r.LoadFactorStep > 0 ? r.LoadFactorStep : 0.1;
+                double max = r.MaxLoadFactor >= step ? r.MaxLoadFactor : Math.Max(10.0, step);
+                return new FemAnalysisStage
+                {
+                    Tag = r.Tag, LoadExpressionJson = r.Source!.Expr.ToJson(),
+                    LoadFactorStep = step, MaxLoadFactor = max
+                };
+            }).ToList();
             loadExpressionJson = pars.Stages[0].LoadExpressionJson;
             if (string.IsNullOrWhiteSpace(tag)) tag = pars.Stages[0].Tag;
         }

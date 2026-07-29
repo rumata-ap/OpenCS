@@ -1406,6 +1406,8 @@
     <system:String x:Key="FemAnalysisStagesLabel">Стадии нагружения</system:String>
     <system:String x:Key="FemAnalysisStagesHint">Каждая стадия добавляет свою нагрузку поверх зафиксированного НДС предыдущих (сначала сжатие, затем изгиб и т.д.).</system:String>
     <system:String x:Key="FemAnalysisStageTagColumn">Стадия</system:String>
+    <system:String x:Key="FemAnalysisStageLoadFactorStepColumn">Шаг λ</system:String>
+    <system:String x:Key="FemAnalysisStageMaxLoadFactorColumn">Предел λ</system:String>
     <system:String x:Key="FemAnalysisStageAdd">Добавить</system:String>
     <system:String x:Key="FemAnalysisStageRemove">Удалить</system:String>
     <system:String x:Key="FemAnalysisStageMoveUp">Вверх</system:String>
@@ -1424,8 +1426,6 @@
     <system:String x:Key="FemAnalysisKindLinear">Линейный</system:String>
     <system:String x:Key="FemAnalysisKindNonlinear">Нелинейный</system:String>
     <system:String x:Key="FemAnalysisCalcTypeLabel">Тип диаграмм (CalcType)</system:String>
-    <system:String x:Key="FemAnalysisLoadFactorStepLabel">Шаг коэффициента нагрузки λ</system:String>
-    <system:String x:Key="FemAnalysisMaxLoadFactorLabel">Максимальный коэффициент нагрузки λ</system:String>
     <system:String x:Key="FemAnalysisSolverSettingsHint">Механика решателя (исполняемый файл, сходимость, geomTransf, точки интегрирования) — в общих настройках, вкладка «OpenSees».</system:String>
     <system:String x:Key="FemAnalysisRefinementDivisionsLabel">Делений последнего неудачного шага</system:String>
     <system:String x:Key="OpenSeesMaxRefinementDepthLabel">Глубина дробления шага</system:String>

@@ -43,9 +43,11 @@
                 <DataGrid x:Name="StagesGrid" AutoGenerateColumns="False" CanUserAddRows="False"
                           Height="140" Margin="0,0,0,6">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="140"/>
+                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageTagColumn}" Binding="{Binding Tag}" Width="120"/>
                         <DataGridComboBoxColumn x:Name="StagesSourceColumn" Header="{DynamicResource FemAnalysisLoadLabel}"
                                                  DisplayMemberPath="Label" SelectedItemBinding="{Binding Source}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageLoadFactorStepColumn}" Binding="{Binding LoadFactorStep}" Width="70"/>
+                        <DataGridTextColumn Header="{DynamicResource FemAnalysisStageMaxLoadFactorColumn}" Binding="{Binding MaxLoadFactor}" Width="70"/>
                     </DataGrid.Columns>
                 </DataGrid>
                 <StackPanel Orientation="Horizontal">
@@ -67,23 +69,6 @@
                 <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisCalcTypeLabel}" VerticalAlignment="Center"/>
                 <ComboBox Grid.Column="1" x:Name="CalcTypeBox" Height="22" VerticalContentAlignment="Center"/>
             </Grid>
-            <Grid Margin="0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="190"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisLoadFactorStepLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                <TextBox Grid.Column="1" x:Name="LoadFactorStepBox" Text="0.1" Height="22" VerticalContentAlignment="Center"/>
-            </Grid>
-            <Grid Margin="0,4">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="190"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisMaxLoadFactorLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                <TextBox Grid.Column="1" x:Name="MaxLoadFactorBox" Text="10" Height="22" VerticalContentAlignment="Center"/>
-            </Grid>
-
             <Grid Margin="0,4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="190"/>

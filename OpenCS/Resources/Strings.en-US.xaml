@@ -1403,6 +1403,8 @@
     <system:String x:Key="FemAnalysisStagesLabel">Loading stages</system:String>
     <system:String x:Key="FemAnalysisStagesHint">Each stage adds its own load on top of the locked-in state of the previous stages (e.g. compress first, then bend).</system:String>
     <system:String x:Key="FemAnalysisStageTagColumn">Stage</system:String>
+    <system:String x:Key="FemAnalysisStageLoadFactorStepColumn">Step λ</system:String>
+    <system:String x:Key="FemAnalysisStageMaxLoadFactorColumn">Limit λ</system:String>
     <system:String x:Key="FemAnalysisStageAdd">Add</system:String>
     <system:String x:Key="FemAnalysisStageRemove">Remove</system:String>
     <system:String x:Key="FemAnalysisStageMoveUp">Up</system:String>
@@ -1421,8 +1423,6 @@
     <system:String x:Key="FemAnalysisKindLinear">Linear</system:String>
     <system:String x:Key="FemAnalysisKindNonlinear">Nonlinear</system:String>
     <system:String x:Key="FemAnalysisCalcTypeLabel">Diagram type (CalcType)</system:String>
-    <system:String x:Key="FemAnalysisLoadFactorStepLabel">Load-factor step λ</system:String>
-    <system:String x:Key="FemAnalysisMaxLoadFactorLabel">Maximum load factor λ</system:String>
     <system:String x:Key="FemAnalysisSolverSettingsHint">Solver mechanics (executable, convergence, geomTransf, integration points) — see the "OpenSees" tab in global settings.</system:String>
     <system:String x:Key="FemAnalysisRefinementDivisionsLabel">Divisions of last failed step</system:String>
     <system:String x:Key="OpenSeesMaxRefinementDepthLabel">Refinement depth</system:String>
