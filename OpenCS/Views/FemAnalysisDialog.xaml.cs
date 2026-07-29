@@ -44,7 +44,6 @@ public partial class FemAnalysisDialog : Window
         {
             Title = Loc.S("FemAnalysisEdit");
             TagBox.Text = existing.Tag;
-            KindNonlinearRadio.IsChecked = existing.Kind == "nonlinear";
             var pars = FemAnalysisParams.Parse(existing.ParamsJson);
             CalcTypeBox.SelectedItem = pars.CalcType ?? CalcType.C;
             LoadFactorStepBox.Text = pars.LoadFactorStep.ToString(CultureInfo.InvariantCulture);
@@ -56,7 +55,8 @@ public partial class FemAnalysisDialog : Window
             SteelHardeningRatioBox.Text = pars.SteelHardeningRatioOverride?.ToString(CultureInfo.InvariantCulture) ?? "";
             ElementFormulationBox.SelectedItem = elementFormulationOptions.FirstOrDefault(o => o.Value == pars.ElementFormulation) ?? elementFormulationOptions[0];
 
-            if (KindNonlinearRadio.IsChecked == true)
+            bool isNonlinearExisting = existing.Kind == "nonlinear";
+            if (isNonlinearExisting)
             {
                 foreach (var stage in pars.ResolveStages(existing))
                 {
@@ -64,6 +64,11 @@ public partial class FemAnalysisDialog : Window
                     _stages.Add(new StageRow { Tag = stage.Tag, Source = match ?? sources.FirstOrDefault() });
                 }
             }
+            // Устанавливается ПОСЛЕ заполнения _stages: RadioButton.IsChecked=true синхронно
+            // поднимает Checked → UpdateNonlinearPanelVisibility, которая добавляет служебную
+            // стадию-заглушку, если _stages ещё пуст — иначе к уже смигрированным стадиям
+            // добавлялась лишняя дублирующая (баг: расчёт с одной стадией сохранялся с двумя).
+            KindNonlinearRadio.IsChecked = isNonlinearExisting;
 
             var sel = sources.FirstOrDefault(s => s.Expr.ToJson() == existing.LoadExpressionJson);
             if (sel != null) LoadSourceBox.SelectedItem = sel;
