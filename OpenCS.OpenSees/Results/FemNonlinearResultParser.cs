@@ -9,32 +9,31 @@ public sealed class FemNonlinearResultParser
 {
     sealed record RecorderOrder(int[] NodeTags, int[] RestrainedTags, int[] ElemTags);
 
-    /// <summary>Читает step_status.out, recorder_order.json и recorder-матрицы. Требует completed.marker.</summary>
+    /// <summary>Читает step_status.out, recorder_order.json и recorder-матрицы. completed.marker не
+    /// требуется: -closeOnWrite гарантирует, что каждый УЖЕ записанный шаг во всех recorder-файлах
+    /// целостен сам по себе (открывается/пишется/закрывается атомарно на каждом успешном analyze()),
+    /// поэтому при обрыве расчёта (таймаут, отмена, сбой) до финальной записи маркера сошедшиеся до
+    /// этого момента шаги остаются пригодными для показа — отбрасывать их всех целиком из-за
+    /// отсутствия маркера значит терять уже полученные, корректные данные.</summary>
     public IReadOnlyList<FemNonlinearStepResult> Parse(string directory)
     {
-        string marker = Path.Combine(directory, "completed.marker");
-        if (!File.Exists(marker) || new FileInfo(marker).Length == 0)
-            throw new OpenSeesResultException("MissingMarker", $"Файл завершения не найден или пуст: {marker}");
-
         var order = ParseOrder(Path.Combine(directory, "recorder_order.json"));
         var steps = ParseStepStatus(Path.Combine(directory, "step_status.out"));
 
-        int convergedCount = steps.Count(s => s.Converged);
         var dispRows = ParseMatrix(Path.Combine(directory, "nonlinear_node_disp.out"), 1 + order.NodeTags.Length * 6, "nonlinear_node_disp");
         var reactRows = order.RestrainedTags.Length > 0
             ? ParseMatrix(Path.Combine(directory, "nonlinear_node_reactions.out"), 1 + order.RestrainedTags.Length * 6, "nonlinear_node_reactions")
             : [];
         var forceRows = ParseMatrix(Path.Combine(directory, "nonlinear_element_forces.out"), 1 + order.ElemTags.Length * 12, "nonlinear_element_forces");
 
-        if (dispRows.Count != convergedCount)
-            throw new OpenSeesResultException("RowCountMismatch",
-                $"nonlinear_node_disp: ожидалось {convergedCount} строк (по числу сошедшихся шагов), получено {dispRows.Count}.");
-        if (forceRows.Count != convergedCount)
-            throw new OpenSeesResultException("RowCountMismatch",
-                $"nonlinear_element_forces: ожидалось {convergedCount} строк, получено {forceRows.Count}.");
-        if (order.RestrainedTags.Length > 0 && reactRows.Count != convergedCount)
-            throw new OpenSeesResultException("RowCountMismatch",
-                $"nonlinear_node_reactions: ожидалось {convergedCount} строк, получено {reactRows.Count}.");
+        // Recorder Node/Element пишут свою строку РАНЬШЕ, чем advanceTo успевает дописать
+        // соответствующую строку в step_status.out (см. FemNonlinearTclGenerator.advanceTo) — при
+        // обрыве процесса между этими двумя записями step_status.out может содержать на один
+        // "сошедшийся" шаг больше, чем recorder-файлы. available — число шагов, для которых точно
+        // есть согласованные данные во ВСЕХ файлах; шаги сверх этого (только при аварийном обрыве)
+        // молча опускаются, а не валят уже честно записанные предыдущие шаги.
+        int available = Math.Min(dispRows.Count, forceRows.Count);
+        if (order.RestrainedTags.Length > 0) available = Math.Min(available, reactRows.Count);
 
         var results = new List<FemNonlinearStepResult>(steps.Count);
         int rowIndex = 0;
@@ -46,6 +45,12 @@ public sealed class FemNonlinearResultParser
                 {
                     IsRefinement = s.IsRefinement, StageIndex = s.StageIndex
                 });
+                continue;
+            }
+
+            if (rowIndex >= available)
+            {
+                rowIndex++;
                 continue;
             }
 
@@ -108,13 +113,14 @@ public sealed class FemNonlinearResultParser
     static List<double[]> ParseMatrix(string path, int expectedCols, string name)
     {
         if (!File.Exists(path)) return [];
+        var lines = File.ReadAllLines(path)
+            .Select(raw => raw.Trim())
+            .Where(line => line.Length > 0 && !line.StartsWith('#'))
+            .ToList();
         var rows = new List<double[]>();
-        int lineNo = 0;
-        foreach (var raw in File.ReadAllLines(path))
+        for (int lineNo = 0; lineNo < lines.Count; lineNo++)
         {
-            lineNo++;
-            var line = raw.Trim();
-            if (line.Length == 0 || line.StartsWith('#')) continue;
+            var line = lines[lineNo];
             if (line.Contains('\0'))
             {
                 // Известная нестабильность OpenSees 3.8.0 на Windows: даже при отключённой
@@ -130,12 +136,22 @@ public sealed class FemNonlinearResultParser
                 continue;
             }
             var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length != expectedCols)
-                throw new OpenSeesResultException("WrongColumnCount", $"{name} строка {lineNo}: ожидалось {expectedCols} колонок, получено {parts.Length}.");
+            bool malformed = parts.Length != expectedCols;
             var values = new double[expectedCols];
-            for (int i = 0; i < expectedCols; i++)
-                if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out values[i]) || !double.IsFinite(values[i]))
-                    throw new OpenSeesResultException("InvalidNumber", $"{name} строка {lineNo}: поле {i} = «{parts[i]}».");
+            if (!malformed)
+                for (int i = 0; i < expectedCols; i++)
+                    if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out values[i]) || !double.IsFinite(values[i]))
+                    { malformed = true; break; }
+            if (malformed)
+            {
+                // Строка не разбирается КАК ОЖИДАЕТСЯ. Если это последняя строка файла — вероятная
+                // недописанная запись из-за обрыва процесса OpenSees (таймаут/сбой) в момент
+                // -closeOnWrite; отбрасываем только её, не валя все предыдущие честно записанные
+                // строки. Если же битая строка НЕ последняя — это реальная порча данных, а не
+                // обрыв в конце, и это остаётся жёсткой ошибкой.
+                if (lineNo == lines.Count - 1) break;
+                throw new OpenSeesResultException("WrongColumnCount", $"{name} строка {lineNo + 1}: не удалось разобрать значения.");
+            }
             rows.Add(values);
         }
         return rows;

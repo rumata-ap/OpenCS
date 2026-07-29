@@ -83,7 +83,7 @@ public class FemNonlinearResultParserTests
     }
 
     [Fact]
-    public void Parse_MissingMarker_Throws()
+    public void Parse_EmptyDirectory_Throws()
     {
         string dir = NewDir();
         try
@@ -94,8 +94,45 @@ public class FemNonlinearResultParserTests
     }
 
     [Fact]
-    public void Parse_RowCountMismatch_Throws()
+    public void Parse_MissingCompletedMarker_StillReturnsConsistentSteps()
     {
+        // Регрессия: процесс OpenSees убит по таймауту/сбою ДО записи completed.marker (не успел
+        // дойти до штатного завершения расчёта), но recorder-файлы (-closeOnWrite) уже содержат
+        // полностью согласованные строки для всех фактически сошедшихся шагов. Раньше отсутствие
+        // completed.marker выбрасывало ВСЕ эти уже полученные данные — см. реальный кейс: расчёт
+        // убит по 120-секундному таймауту возле точки потери устойчивости (λ≈2.2), при этом
+        // step_status.out/node_disp.out/element_forces.out содержали 44 полностью целых
+        // сошедшихся шага.
+        string dir = NewDir();
+        try
+        {
+            WriteCommonFiles(dir,
+                stepStatus: "# step stageIndex loadFactor converged isRefinement\n1 0 0.5 1 0\n2 0 1.0 1 0\n",
+                disp: "0.5 0 0 0 0 0 0 0 0 -0.001 0 0.002 0\n" +
+                      "1.0 0 0 0 0 0 0 0 0 -0.002 0 0.004 0\n",
+                react: "0.5 0 0 500 0 0 0\n1.0 0 0 1000 0 0 0\n",
+                forces: "0.5 -100 0 500 0 300 0 100 0 -500 0 0 0\n" +
+                        "1.0 -200 0 1000 0 600 0 200 0 -1000 0 0 0\n");
+            File.Delete(Path.Combine(dir, "completed.marker"));
+
+            var steps = new FemNonlinearResultParser().Parse(dir);
+
+            Assert.Equal(2, steps.Count);
+            Assert.True(steps[0].Converged);
+            Assert.True(steps[1].Converged);
+            Assert.Equal(1.0, steps[1].LoadFactor, 6);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void Parse_RowCountMismatch_DropsTrailingStepMissingRecorderData()
+    {
+        // Обрыв процесса OpenSees (таймаут/сбой) между recorder-записью и записью строки
+        // step_status.out для последнего шага — step_status.out указывает шаг сошедшимся, но
+        // recorder-файл не успел получить для него строку. Раньше это валило парсинг целиком
+        // (см. историю completed.marker); теперь такой "хвостовой" шаг молча опускается, а уже
+        // полученные предыдущие шаги остаются доступны.
         string dir = NewDir();
         try
         {
@@ -106,7 +143,11 @@ public class FemNonlinearResultParserTests
                 forces: "0.5 -100 0 500 0 300 0 100 0 -500 0 0 0\n" +
                         "1.0 -200 0 1000 0 600 0 200 0 -1000 0 0 0\n");
 
-            Assert.Throws<OpenSeesResultException>(() => new FemNonlinearResultParser().Parse(dir));
+            var steps = new FemNonlinearResultParser().Parse(dir);
+
+            var step = Assert.Single(steps);
+            Assert.True(step.Converged);
+            Assert.Equal(0.5, step.LoadFactor, 6);
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
