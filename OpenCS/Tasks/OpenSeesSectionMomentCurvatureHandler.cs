@@ -63,7 +63,7 @@ public sealed class OpenSeesSectionMomentCurvatureHandler : ITaskHandler
             SectionAnalysisService service = new(
                 new SectionMomentCurvatureTclGenerator(),
                 new OpenSeesProcessRunner(),
-                new OpenSeesArtifactStore(Path.Combine(AppContext.BaseDirectory, "OpenSeesArtifacts")));
+                new OpenSeesArtifactStore(settings.ResolveOpenSeesArtifactsPath()));
 
             SectionAnalysisResult analysis = service.RunAsync(
                 model,

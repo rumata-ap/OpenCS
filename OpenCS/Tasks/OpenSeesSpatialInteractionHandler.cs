@@ -71,7 +71,7 @@ public sealed class OpenSeesSpatialInteractionHandler : ITaskHandler
             SpatialSectionAnalysisService analysisExecutor = new(
                 new SpatialSectionTclGenerator(),
                 new OpenSeesProcessRunner(),
-                new OpenSeesArtifactStore(Path.Combine(AppContext.BaseDirectory, "OpenSeesArtifacts")));
+                new OpenSeesArtifactStore(settings.ResolveOpenSeesArtifactsPath()));
             SectionSpatialInteractionResult analysis = new SectionSpatialInteractionService(analysisExecutor)
                 .RunAsync(
                     model,

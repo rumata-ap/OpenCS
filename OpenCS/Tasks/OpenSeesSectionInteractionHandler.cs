@@ -66,7 +66,7 @@ public sealed class OpenSeesSectionInteractionHandler : ITaskHandler
             SectionAnalysisService analysisExecutor = new(
                 new SectionMomentCurvatureTclGenerator(),
                 new OpenSeesProcessRunner(),
-                new OpenSeesArtifactStore(Path.Combine(AppContext.BaseDirectory, "OpenSeesArtifacts")));
+                new OpenSeesArtifactStore(settings.ResolveOpenSeesArtifactsPath()));
             SectionInteractionResult analysis = new SectionInteractionService(analysisExecutor)
                 .RunAsync(
                     model,

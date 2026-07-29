@@ -160,6 +160,18 @@ namespace OpenCS.Utilites
       [JsonPropertyName("openSeesTimeoutSeconds")]
       public int OpenSeesTimeoutSeconds { get; set; } = 120;
 
+      /// <summary>Каталог артефактов запусков OpenSees (сгенерированные .tcl, логи, результаты).
+      /// Пусто — каталог "OpenSeesArtifacts" рядом с исполняемым файлом OpenCS.</summary>
+      [JsonPropertyName("openSeesArtifactsPath")]
+      public string? OpenSeesArtifactsPath { get; set; }
+
+      /// <summary>Разрешённый путь к каталогу артефактов OpenSees: заданный пользователем
+      /// или каталог "OpenSeesArtifacts" рядом с исполняемым файлом OpenCS по умолчанию.</summary>
+      public string ResolveOpenSeesArtifactsPath()
+         => string.IsNullOrWhiteSpace(OpenSeesArtifactsPath)
+            ? System.IO.Path.Combine(System.AppContext.BaseDirectory, "OpenSeesArtifacts")
+            : OpenSeesArtifactsPath;
+
       /// <summary>Количество частей, на которое делится неудавшийся шаг нагрузки на каждом уровне
       /// дробления (нелинейный расчёт).</summary>
       [JsonPropertyName("openSeesRefinementDivisions")]
@@ -236,6 +248,7 @@ namespace OpenCS.Utilites
          Sp20GammaFAccidental     = Sp20GammaFAccidental,
          OpenSeesExecutablePath   = OpenSeesExecutablePath,
          OpenSeesTimeoutSeconds   = OpenSeesTimeoutSeconds,
+         OpenSeesArtifactsPath    = OpenSeesArtifactsPath,
          OpenSeesRefinementDivisions = OpenSeesRefinementDivisions,
          OpenSeesMaxRefinementDepth = OpenSeesMaxRefinementDepth,
          OpenSeesTolerance        = OpenSeesTolerance,

@@ -27,5 +27,15 @@ namespace OpenCS.Services
          };
          return dialog.ShowDialog() == true ? dialog.FileName : null;
       }
+
+      public string? SelectFolder(string? title = null, string? initialDirectory = null)
+      {
+         var dialog = new OpenFolderDialog
+         {
+            Title = title ?? string.Empty,
+            InitialDirectory = initialDirectory ?? string.Empty
+         };
+         return dialog.ShowDialog() == true ? dialog.FolderName : null;
+      }
    }
 }

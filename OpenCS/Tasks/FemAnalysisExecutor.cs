@@ -104,7 +104,7 @@ public static class FemAnalysisExecutor
         var service = new FemLinearAnalysisService(
             new FemLinearTclGenerator(),
             new OpenSeesProcessRunner(),
-            new OpenSeesArtifactStore(Path.Combine(AppContext.BaseDirectory, "OpenSeesArtifacts")),
+            new OpenSeesArtifactStore(app.CalcSettings.ResolveOpenSeesArtifactsPath()),
             new FemLinearResultParser());
         var workflow = new FemLinearAnalysisWorkflow(service);
 
@@ -152,7 +152,7 @@ public static class FemAnalysisExecutor
         var service = new FemNonlinearAnalysisService(
             new FemNonlinearTclGenerator(),
             new OpenSeesProcessRunner(),
-            new OpenSeesArtifactStore(Path.Combine(AppContext.BaseDirectory, "OpenSeesArtifacts")),
+            new OpenSeesArtifactStore(calcSettings.ResolveOpenSeesArtifactsPath()),
             new FemNonlinearResultParser());
         var workflow = new FemNonlinearAnalysisWorkflow(service);
 

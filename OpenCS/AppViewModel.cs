@@ -913,6 +913,23 @@ namespace OpenCS
       /// <summary>Настройки прямого импорта из AutoCAD.</summary>
       public Utilites.AcadImportSettings AcadImportSettings { get; set; } = Utilites.AcadImportSettings.Default;
 
+      /// <summary>
+      /// Перечитывает все группы глобальных настроек из текущей БД (<see cref="db"/>) — вызывается
+      /// при старте приложения и при смене проекта (создание/открытие), чтобы настройки, сохранённые
+      /// в файле проекта, автоматически восстанавливались вместе с ним. Если в БД настроек нет
+      /// (новый/старый проект без сохранённых настроек) — используются значения по умолчанию.
+      /// </summary>
+      void LoadSettingsFromDb()
+      {
+         PlotSettings = db.LoadPlotSettings() ?? Utilites.PlotSettings.Default;
+         CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
+         CalcSettings = db.LoadCalcSettings() ?? Utilites.CalcSettings.Default;
+         LiraImportSettings = db.LoadLiraImportSettings() ?? Utilites.LiraImportSettings.Default;
+         AcadImportSettings = db.LoadAcadImportSettings() ?? Utilites.AcadImportSettings.Default;
+         ApplyPlotSettings();
+         NotifyCalcSettingsApplied();
+      }
+
       private int langID = 0;
       /// <summary>
       /// Идентификатор текущего языка: 0 — русский, 1 — английский.
@@ -974,11 +991,7 @@ namespace OpenCS
 
           db = new DatabaseService(GetTempDbPath());
           InitNewDatabase();
-          PlotSettings = db.LoadPlotSettings() ?? Utilites.PlotSettings.Default;
-          CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
-          CalcSettings = db.LoadCalcSettings() ?? Utilites.CalcSettings.Default;
-          LiraImportSettings = db.LoadLiraImportSettings() ?? Utilites.LiraImportSettings.Default;
-          AcadImportSettings = db.LoadAcadImportSettings() ?? Utilites.AcadImportSettings.Default;
+          LoadSettingsFromDb();
           InitializeCollections();
            InitializeCommands();
         }
@@ -1904,6 +1917,7 @@ namespace OpenCS
             InitNewDatabase();
             db.ClearCollections();
             RefreshAfterLoad();
+            LoadSettingsFromDb();
             CurrentProjectPath = null;
             OnPropertyChanged(nameof(ProjectTitle));
             OnPropertyChanged(nameof(ProjectFileName));
@@ -1934,6 +1948,7 @@ namespace OpenCS
             db.ClearCollections();
             db.LoadAll();
             RefreshAfterLoad();
+            LoadSettingsFromDb();
             CurrentProjectPath = path;
             OnPropertyChanged(nameof(ProjectTitle));
             OnPropertyChanged(nameof(ProjectFileName));

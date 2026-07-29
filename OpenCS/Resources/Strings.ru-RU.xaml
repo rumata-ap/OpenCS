@@ -1411,6 +1411,10 @@
     <system:String x:Key="FemAnalysisStageMissingSource">У каждой стадии должен быть выбран источник нагрузки.</system:String>
     <system:String x:Key="FemAnalysisExeLabel">Путь к OpenSees.exe (необязательно)</system:String>
     <system:String x:Key="FemAnalysisTimeoutLabel">Таймаут, с</system:String>
+    <system:String x:Key="OpenSeesArtifactsPathLabel">Каталог артефактов расчётов</system:String>
+    <system:String x:Key="OpenSeesArtifactsPathTip">Каталог для сгенерированных .tcl-скриптов, логов и результатов запусков OpenSees. Пусто — каталог "OpenSeesArtifacts" рядом с исполняемым файлом OpenCS.</system:String>
+    <system:String x:Key="BrowseEllipsis">…</system:String>
+    <system:String x:Key="OpenSeesExeFilter">OpenSees.exe|OpenSees.exe|Исполняемые файлы (*.exe)|*.exe|Все файлы (*.*)|*.*</system:String>
     <system:String x:Key="FemAnalysisKindLabel">Тип расчёта</system:String>
     <system:String x:Key="FemAnalysisKindLinear">Линейный</system:String>
     <system:String x:Key="FemAnalysisKindNonlinear">Нелинейный</system:String>

@@ -1408,6 +1408,10 @@
     <system:String x:Key="FemAnalysisStageMissingSource">Every stage must have a load source selected.</system:String>
     <system:String x:Key="FemAnalysisExeLabel">Path to OpenSees.exe (optional)</system:String>
     <system:String x:Key="FemAnalysisTimeoutLabel">Timeout, s</system:String>
+    <system:String x:Key="OpenSeesArtifactsPathLabel">Analysis artifacts folder</system:String>
+    <system:String x:Key="OpenSeesArtifactsPathTip">Folder for generated .tcl scripts, logs, and results of OpenSees runs. Empty — the "OpenSeesArtifacts" folder next to the OpenCS executable.</system:String>
+    <system:String x:Key="BrowseEllipsis">…</system:String>
+    <system:String x:Key="OpenSeesExeFilter">OpenSees.exe|OpenSees.exe|Executable files (*.exe)|*.exe|All files (*.*)|*.*</system:String>
     <system:String x:Key="FemAnalysisKindLabel">Analysis kind</system:String>
     <system:String x:Key="FemAnalysisKindLinear">Linear</system:String>
     <system:String x:Key="FemAnalysisKindNonlinear">Nonlinear</system:String>

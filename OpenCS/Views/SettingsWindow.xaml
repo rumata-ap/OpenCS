@@ -472,15 +472,27 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="260"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
                                     <RowDefinition Height="28"/>
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource FemAnalysisExeLabel}" VerticalAlignment="Center"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" x:Name="OpenSeesExeBox" VerticalContentAlignment="Center" Margin="0,2"/>
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FemAnalysisTimeoutLabel}" VerticalAlignment="Center"/>
-                                <TextBox Grid.Row="1" Grid.Column="1" x:Name="OpenSeesTimeoutBox" VerticalContentAlignment="Center" Margin="0,2"/>
+                                <Button Grid.Row="0" Grid.Column="2" x:Name="OpenSeesExeBrowseBtn"
+                                        Content="{DynamicResource BrowseEllipsis}" Click="OpenSeesExeBrowse_Click"
+                                        Width="30" Height="22" Margin="4,2,0,2"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource OpenSeesArtifactsPathLabel}"
+                                           VerticalAlignment="Center" ToolTip="{DynamicResource OpenSeesArtifactsPathTip}"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" x:Name="OpenSeesArtifactsPathBox" VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource OpenSeesArtifactsPathTip}"/>
+                                <Button Grid.Row="1" Grid.Column="2" x:Name="OpenSeesArtifactsPathBrowseBtn"
+                                        Content="{DynamicResource BrowseEllipsis}" Click="OpenSeesArtifactsPathBrowse_Click"
+                                        Width="30" Height="22" Margin="4,2,0,2"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FemAnalysisTimeoutLabel}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Row="2" Grid.Column="1" x:Name="OpenSeesTimeoutBox" VerticalContentAlignment="Center" Margin="0,2"/>
                             </Grid>
                         </GroupBox>
                         <GroupBox Header="{DynamicResource OpenSeesNonlinearGroup}" Margin="0,0,0,10">

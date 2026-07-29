@@ -420,6 +420,7 @@ namespace OpenCS.Views
       {
          OpenSeesExeBox.Text = _calcSettings.OpenSeesExecutablePath ?? "";
          OpenSeesTimeoutBox.Text = _calcSettings.OpenSeesTimeoutSeconds.ToString();
+         OpenSeesArtifactsPathBox.Text = _calcSettings.OpenSeesArtifactsPath ?? "";
          OpenSeesRefinementDivisionsBox.Text = _calcSettings.OpenSeesRefinementDivisions.ToString();
          OpenSeesMaxRefinementDepthBox.Text = _calcSettings.OpenSeesMaxRefinementDepth.ToString();
          OpenSeesToleranceBox.Text = _calcSettings.OpenSeesTolerance.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
@@ -438,6 +439,8 @@ namespace OpenCS.Views
          {
             if (int.TryParse(OpenSeesTimeoutBox.Text, out var v) && v > 0) _calcSettings.OpenSeesTimeoutSeconds = v;
          };
+         OpenSeesArtifactsPathBox.TextChanged += (_, _) =>
+            _calcSettings.OpenSeesArtifactsPath = string.IsNullOrWhiteSpace(OpenSeesArtifactsPathBox.Text) ? null : OpenSeesArtifactsPathBox.Text.Trim();
          OpenSeesRefinementDivisionsBox.TextChanged += (_, _) =>
          {
             if (int.TryParse(OpenSeesRefinementDivisionsBox.Text, out var v) && v > 0) _calcSettings.OpenSeesRefinementDivisions = v;
@@ -465,6 +468,19 @@ namespace OpenCS.Views
          };
          OpenSeesAlgorithmCombo.SelectionChanged += (_, _) =>
             _calcSettings.OpenSeesAlgorithm = ComboTag(OpenSeesAlgorithmCombo) ?? "NewtonLineSearch";
+      }
+
+      void OpenSeesExeBrowse_Click(object sender, RoutedEventArgs e)
+      {
+         var path = _mvm.FileDialogService.OpenFile(Loc.S("OpenSeesExeFilter"), Loc.S("FemAnalysisExeLabel"));
+         if (path is not null) OpenSeesExeBox.Text = path;
+      }
+
+      void OpenSeesArtifactsPathBrowse_Click(object sender, RoutedEventArgs e)
+      {
+         var initial = string.IsNullOrWhiteSpace(OpenSeesArtifactsPathBox.Text) ? null : OpenSeesArtifactsPathBox.Text.Trim();
+         var folder = _mvm.FileDialogService.SelectFolder(Loc.S("OpenSeesArtifactsPathLabel"), initial);
+         if (folder is not null) OpenSeesArtifactsPathBox.Text = folder;
       }
 
       static string? ComboTag(ComboBox combo) => (combo.SelectedItem as ComboBoxItem)?.Tag as string;
