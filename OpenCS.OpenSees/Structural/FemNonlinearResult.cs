@@ -29,10 +29,6 @@ public sealed class FemNonlinearResult
     public double LastConvergedLoadFactor { get; init; }
     /// <summary>Коэффициент первой неуспешной попытки.</summary>
     public double? FailedLoadFactor { get; init; }
-    /// <summary>Крупный шаг коэффициента нагрузки.</summary>
-    public double LoadFactorStep { get; init; }
-    /// <summary>Защитный максимум коэффициента нагрузки.</summary>
-    public double MaxLoadFactor { get; init; }
     /// <summary>Количество частей для уточнения неудачного шага.</summary>
     public int RefinementDivisions { get; init; }
     /// <summary>Имя CalcType, нужное для выбора диаграмм при визуализации сечения.</summary>

@@ -140,7 +140,7 @@ public static class FemAnalysisExecutor
         }
         var materials = app.Materials.Where(m => m.Id != 0).ToDictionary(m => m.Id);
         var options = new FemNonlinearAnalysisOptions(
-            calcSettings.OpenSeesGeomTransfKind, parameters.LoadFactorStep, parameters.MaxLoadFactor,
+            calcSettings.OpenSeesGeomTransfKind,
             calcSettings.OpenSeesRefinementDivisions, calcSettings.OpenSeesTolerance, calcSettings.OpenSeesMaxIterations,
             calcSettings.OpenSeesIntegrationPoints, calcSettings.OpenSeesConvergenceTest, parameters.ConsiderConcreteTension,
             Enum.Parse<MaterialSource>(parameters.MaterialSource), Enum.Parse<ConcreteModelKind>(parameters.ConcreteModel),

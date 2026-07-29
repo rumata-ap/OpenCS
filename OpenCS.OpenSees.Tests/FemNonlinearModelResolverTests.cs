@@ -10,7 +10,7 @@ namespace OpenCS.OpenSees.Tests;
 public class FemNonlinearModelResolverTests
 {
     static FemNonlinearAnalysisOptions Options() => new(
-        GeomTransfKind: "Linear", LoadFactorStep: 0.1, MaxLoadFactor: 1.0,
+        GeomTransfKind: "Linear",
         RefinementDivisions: 10, Tolerance: 1e-6, MaxIterations: 50, IntegrationPoints: 5);
 
     // Конструктивная консоль: узел 1 (заделка, dofMask=63) — узел 2 (свободен), 1 стержень, сечение #5.
