@@ -40,6 +40,11 @@ public sealed class FemNonlinearTclGenerator
         {
             int sectionTag = kv.Key;
             var section = kv.Value;
+            if (section.Elastic is { } elastic)
+            {
+                L($"section Elastic {sectionTag} {F(elastic.E)} {F(elastic.A)} {F(elastic.Iz)} {F(elastic.Iy)} 1 {F(elastic.GJ)}");
+                continue;
+            }
             foreach (var mat in section.Materials)
             {
                 string materialCommand = mat.Native switch

@@ -8,6 +8,17 @@ public static class OpenSeesSectionModelValidator
     {
         ArgumentNullException.ThrowIfNull(model);
 
+        if (model.Elastic is { } elastic)
+        {
+            if (model.Materials.Count != 0 || model.Fibers.Count != 0)
+            {
+                throw new ArgumentException(
+                    "Линейно-упругая секция (Elastic) не должна содержать материалы/волокна.", nameof(model));
+            }
+            ValidateElastic(elastic);
+            return;
+        }
+
         if (model.Materials.Count == 0)
         {
             throw new ArgumentException("Секция должна содержать хотя бы один материал.", nameof(model));
@@ -69,6 +80,20 @@ public static class OpenSeesSectionModelValidator
                     nameof(model));
             }
         }
+    }
+
+    private static void ValidateElastic(OpenSeesElasticSectionSpec elastic)
+    {
+        if (!double.IsFinite(elastic.E) || elastic.E <= 0)
+            throw new ArgumentException("Elastic-секция: модуль упругости E должен быть положительным.");
+        if (!double.IsFinite(elastic.A) || elastic.A <= 0)
+            throw new ArgumentException("Elastic-секция: площадь A должна быть положительной.");
+        if (!double.IsFinite(elastic.Iz) || elastic.Iz <= 0)
+            throw new ArgumentException("Elastic-секция: момент инерции Iz должен быть положительным.");
+        if (!double.IsFinite(elastic.Iy) || elastic.Iy <= 0)
+            throw new ArgumentException("Elastic-секция: момент инерции Iy должен быть положительным.");
+        if (!double.IsFinite(elastic.GJ) || elastic.GJ < 0)
+            throw new ArgumentException("Elastic-секция: GJ должно быть конечным и неотрицательным.");
     }
 
     private static void ValidateEnvelope(

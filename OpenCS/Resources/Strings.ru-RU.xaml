@@ -1445,6 +1445,8 @@
     <system:String x:Key="FemAlgorithmNewton">Newton</system:String>
     <system:String x:Key="FemAlgorithmNewtonLineSearch">Newton с линейным поиском (NewtonLineSearch)</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Точки интегрирования</system:String>
+    <system:String x:Key="FemAnalysisConsiderPhysicalNonlinearity">Учитывать физическую (материальную) нелинейность</system:String>
+    <system:String x:Key="FemAnalysisConsiderPhysicalNonlinearityTip">При отключении сечение строится не из волокон, а как единая линейно-упругая секция (section Elastic) с приведёнными (transformed) EA/EIz/EIy к модулю упругости материала с наибольшей площадью — материалы и волокна в модели полностью отсутствуют, диаграммы CScore не запрашиваются. Геометрическая нелинейность (P-Δ/большие перемещения) продолжает действовать как задано. Полезно, чтобы изолировать геометрические эффекты от материальных при отладке/верификации расчёта, либо для быстрого линейно-упругого прогона с большими перемещениями.</system:String>
     <system:String x:Key="FemAnalysisConsiderConcreteTension">Учитывать работу бетона на растяжение</system:String>
     <system:String x:Key="FemAnalysisConsiderConcreteTensionTip">При отключении огибающая растяжения бетона в OpenSees заменяется строго нулевым напряжением (горизонтальный участок) — сечение считается уже полностью растрескавшимся с самого начала. На арматуру/сталь не влияет. Полезно, если расчёт не сходится из-за трещинообразования бетона; при несходимости также попробуйте формулировку элемента dispBeamColumn ниже.</system:String>
     <system:String x:Key="FemAnalysisMaterialSourceLabel">Источник диаграммы материала</system:String>

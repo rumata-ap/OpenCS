@@ -37,7 +37,13 @@ public sealed record FemNonlinearAnalysisOptions(
     bool RecordFiberStates = true,
     // Ограничение записи волоконных состояний конкретными точками интегрирования вдоль длины
     // КАЖДОГО элемента; null — писать все точки (см. CalcSettings.OpenSeesFiberStatesIntegrationPoints).
-    IReadOnlySet<int>? FiberStatesIntegrationPoints = null)
+    IReadOnlySet<int>? FiberStatesIntegrationPoints = null,
+    // Учитывать ли физическую (материальную) нелинейность fiber-сечений. При false модель вообще не
+    // содержит fiber-сечений: в точках интегрирования используется линейно-упругая section Elastic
+    // (см. CrossSectionToOpenSeesAdapter.Options.ConsiderPhysicalNonlinearity) с приведёнными
+    // (transformed) EA/EIy/EIz исходного контурного/фиброво заданного сечения. Геометрическая
+    // нелинейность (GeomTransfKind) при этом не отключается.
+    bool ConsiderPhysicalNonlinearity = true)
 {
     /// <summary>Legacy-конструктор для старых вызывающих мест: LoadSteps → шаг 1/LoadSteps, λmax=1.</summary>
     public FemNonlinearAnalysisOptions(

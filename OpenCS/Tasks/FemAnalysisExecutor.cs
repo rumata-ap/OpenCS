@@ -144,7 +144,8 @@ public static class FemAnalysisExecutor
             Enum.Parse<MaterialSource>(parameters.MaterialSource), Enum.Parse<ConcreteModelKind>(parameters.ConcreteModel),
             Enum.Parse<SteelModelKind>(parameters.SteelModel), parameters.SteelHardeningRatioOverride,
             calcSettings.OpenSeesMaxRefinementDepth, parameters.ElementFormulation, calcSettings.OpenSeesAlgorithm,
-            calcSettings.OpenSeesRecordFiberStates, calcSettings.ResolveOpenSeesFiberStatesIntegrationPoints());
+            calcSettings.OpenSeesRecordFiberStates, calcSettings.ResolveOpenSeesFiberStatesIntegrationPoints(),
+            parameters.ConsiderPhysicalNonlinearity);
 
         var input = new FemNonlinearWorkflowInput(
             meshNodes, meshElems, sourceNodes, sourceMembers, stages,

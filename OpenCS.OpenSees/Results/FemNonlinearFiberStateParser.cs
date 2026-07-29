@@ -78,7 +78,9 @@ public sealed class FemNonlinearFiberStateParser
                 double distance = item.GetProperty("distanceFromElementStartM").GetDouble();
                 double length = item.GetProperty("elementLengthM").GetDouble();
                 double relative = item.GetProperty("relativePosition").GetDouble();
-                if (element <= 0 || ip <= 0 || section <= 0 || fiberCount is <= 0 ||
+                // fiberCount==0 — валидное значение для линейно-упругой (section Elastic) секции без
+                // волокон (физическая нелинейность отключена настройкой расчёта).
+                if (element <= 0 || ip <= 0 || section <= 0 || fiberCount is < 0 ||
                     !double.IsFinite(distance) || !double.IsFinite(length) || !double.IsFinite(relative) ||
                     length <= 0 || relative < -1e-9 || relative > 1 + 1e-9 || !keys.Add((element, ip)))
                     throw new OpenSeesResultException("InvalidSectionOrder", "Некорректная или повторная точка интегрирования.");

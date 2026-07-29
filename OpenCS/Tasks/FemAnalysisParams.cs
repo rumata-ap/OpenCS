@@ -36,6 +36,13 @@ public sealed class FemAnalysisParams
     /// <see cref="ElementFormulation"/> про dispBeamColumn как более устойчивый выбор именно для
     /// этого случая.</summary>
     public bool ConsiderConcreteTension { get; set; } = true;
+    /// <summary>Учитывать ли физическую (материальную) нелинейность fiber-сечений. При отключении
+    /// все материалы работают линейно-упруго (модуль E из характеристик материала, без
+    /// трещинообразования/текучести) независимо от MaterialSource/ConcreteModel/SteelModel —
+    /// геометрическая нелинейность (geomTransf) при этом продолжает действовать как задано.
+    /// Полезно, чтобы изолировать эффекты геометрической нелинейности (P-Δ/большие перемещения) от
+    /// материальных при отладке/верификации расчёта.</summary>
+    public bool ConsiderPhysicalNonlinearity { get; set; } = true;
     /// <summary>Источник диаграммы материала: "Translated" (перевод диаграммы CScore, по
     /// умолчанию) | "Native" (собственные параметрические материалы OpenSees).</summary>
     public string MaterialSource { get; set; } = "Translated";

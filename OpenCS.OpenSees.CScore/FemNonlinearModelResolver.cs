@@ -82,7 +82,8 @@ public sealed class FemNonlinearModelResolver
                         MaterialSource = options.MaterialSource,
                         ConcreteModel = options.ConcreteModel,
                         SteelModel = options.SteelModel,
-                        SteelHardeningRatioOverride = options.SteelHardeningRatioOverride
+                        SteelHardeningRatioOverride = options.SteelHardeningRatioOverride,
+                        ConsiderPhysicalNonlinearity = options.ConsiderPhysicalNonlinearity
                     });
             }
             catch (CScoreMappingException ex)

@@ -1442,6 +1442,8 @@
     <system:String x:Key="FemAlgorithmNewton">Newton</system:String>
     <system:String x:Key="FemAlgorithmNewtonLineSearch">Newton with line search (NewtonLineSearch)</system:String>
     <system:String x:Key="FemAnalysisIntegrationPointsLabel">Integration points</system:String>
+    <system:String x:Key="FemAnalysisConsiderPhysicalNonlinearity">Consider physical (material) nonlinearity</system:String>
+    <system:String x:Key="FemAnalysisConsiderPhysicalNonlinearityTip">When disabled, the section is built not from fibers but as a single linear-elastic section (section Elastic) with transformed EA/EIz/EIy relative to the elastic modulus of the material with the largest area — materials and fibers are absent from the model entirely, and CScore diagrams are never requested. Geometric nonlinearity (P-Δ/large displacement) keeps working as configured. Useful to isolate geometric effects from material ones during debugging/verification, or for a quick linear-elastic run with large displacements.</system:String>
     <system:String x:Key="FemAnalysisConsiderConcreteTension">Consider concrete tension strength</system:String>
     <system:String x:Key="FemAnalysisConsiderConcreteTensionTip">When disabled, the OpenSees tension envelope for concrete is collapsed to a strictly flat zero stress — the section is treated as already fully cracked. Does not affect rebar/steel. Useful if the analysis fails to converge due to concrete cracking; also try the dispBeamColumn element formulation below.</system:String>
     <system:String x:Key="FemAnalysisMaterialSourceLabel">Material diagram source</system:String>

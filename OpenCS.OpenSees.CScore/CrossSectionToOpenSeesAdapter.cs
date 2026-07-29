@@ -37,6 +37,15 @@ public static class CrossSectionToOpenSeesAdapter
         /// <summary>Явное переопределение отношения модуля упрочнения стали/арматуры к E0 при
         /// <see cref="MaterialSource.Native"/>. <c>null</c> — вычисляется автоматически.</summary>
         public double? SteelHardeningRatioOverride { get; init; }
+
+        /// <summary>Учитывать ли физическую (материальную) нелинейность. При <c>false</c> результат
+        /// вообще не содержит fiber-секции: строится единая линейно-упругая
+        /// <see cref="OpenSeesElasticSectionSpec"/> с приведёнными (transformed, к модулю упругости
+        /// материала с наибольшей суммарной площадью волокон) EA/EIz/EIy — без явных
+        /// материалов/волокон, диаграмма CScore не запрашивается вовсе. Игнорирует
+        /// <see cref="MaterialSource"/>/<see cref="ConcreteModel"/>/<see cref="SteelModel"/>/
+        /// <see cref="ConsiderConcreteTension"/>.</summary>
+        public bool ConsiderPhysicalNonlinearity { get; init; } = true;
     }
 
     /// <summary>Строит модель из уже подготовленных фибр без изменения исходного сечения.</summary>
@@ -56,6 +65,11 @@ public static class CrossSectionToOpenSeesAdapter
             throw new CScoreMappingException("Первый тег материала OpenSees должен быть положительным.");
         }
 
+        if (!options.ConsiderPhysicalNonlinearity)
+        {
+            return BuildElastic(section, calc, materials, options);
+        }
+
         List<OpenSeesMaterialDefinition> definitions = [];
         List<OpenSeesFiber> fibers = [];
         Dictionary<MaterialKey, int> tags = [];
@@ -69,7 +83,6 @@ public static class CrossSectionToOpenSeesAdapter
             }
 
             Material material = ResolveMaterial(area, materials);
-            Diagramm diagram = ResolveDiagram(area, material, calc, customPool);
             int customDiagramId = material.CustomDiagramIds.TryGetValue(calc, out int id) ? id : 0;
             int sourceId = material.Id != 0 ? material.Id : area.MaterialId;
             MaterialKey key = new(sourceId, material.Type, area.DiagrammType, calc, customDiagramId);
@@ -80,6 +93,7 @@ public static class CrossSectionToOpenSeesAdapter
                 OpenSeesMaterialDefinition definition;
                 try
                 {
+                    Diagramm diagram = ResolveDiagram(area, material, calc, customPool);
                     NativeMaterialSpec? native = options.MaterialSource == MaterialSource.Native
                         ? NativeMaterialMapper.Map(
                             material.GetChars(calc), material.Type, options.ConsiderConcreteTension,
@@ -162,6 +176,85 @@ public static class CrossSectionToOpenSeesAdapter
             GJ = options.GJ,
             Convention = options.Convention
         };
+        result.Validate();
+        return result;
+    }
+
+    /// <summary>Строит линейно-упругую (приведённую, transformed) секцию без явных материалов и
+    /// волокон — эталонный модуль упругости берётся у материала с наибольшей суммарной площадью
+    /// волокон (для типового ЖБ сечения — бетон матрицы), остальные материалы приводятся к нему
+    /// модульным отношением n = E_i / E_ref, взвешивая их площади волокон при накоплении
+    /// EA/EIz/EIy. Крутильная жёсткость GJ берётся готовой из <paramref name="options"/> — она уже
+    /// не зависит от диаграммы материала и в fiber-варианте секции.</summary>
+    private static OpenSeesSectionModel BuildElastic(
+        CrossSection section,
+        CalcType calc,
+        IReadOnlyDictionary<int, Material> materials,
+        Options options)
+    {
+        Dictionary<int, double> totalAreaByMaterial = [];
+        Dictionary<int, double> elasticModulusByMaterial = [];
+        foreach (MaterialArea area in section.Areas)
+        {
+            if (area.Fibers.Count == 0)
+            {
+                throw new CScoreMappingException(
+                    $"Область '{area.Tag}' (id={area.Id}) не содержит подготовленных fibers.");
+            }
+
+            Material material = ResolveMaterial(area, materials);
+            double areaSum = 0;
+            foreach (Fiber fiber in area.Fibers)
+            {
+                if (!double.IsFinite(fiber.Area) || fiber.Area <= 0)
+                {
+                    throw new CScoreMappingException(
+                        $"Область '{area.Tag}' (id={area.Id}), fiber: площадь должна быть положительной.");
+                }
+                areaSum += fiber.Area;
+            }
+
+            totalAreaByMaterial[material.Id] = totalAreaByMaterial.GetValueOrDefault(material.Id) + areaSum;
+            if (elasticModulusByMaterial.ContainsKey(material.Id))
+                continue;
+            MaterialChars chars = material.GetChars(calc)
+                ?? throw new CScoreMappingException(
+                    $"Область '{area.Tag}' (id={area.Id}): для материала отсутствуют характеристики вида расчёта {calc}.");
+            elasticModulusByMaterial.Add(material.Id, CScoreUnitConverter.KilopascalsToPascals(chars.E));
+        }
+
+        if (totalAreaByMaterial.Count == 0)
+        {
+            throw new CScoreMappingException("Сечение не содержит подготовленных fibers.");
+        }
+
+        int refMaterialId = totalAreaByMaterial.OrderByDescending(kv => kv.Value).First().Key;
+        double refModulusPa = elasticModulusByMaterial[refMaterialId];
+        if (!double.IsFinite(refModulusPa) || refModulusPa <= 0)
+        {
+            throw new CScoreMappingException(
+                "Эталонный модуль упругости для приведённого линейно-упругого сечения должен быть положительным.");
+        }
+
+        double transformedA = 0, transformedIz = 0, transformedIy = 0;
+        foreach (MaterialArea area in section.Areas)
+        {
+            Material material = ResolveMaterial(area, materials);
+            double modulusPa = elasticModulusByMaterial[material.Id];
+            double n = modulusPa / refModulusPa;
+            foreach (Fiber fiber in area.Fibers)
+            {
+                (double y, double z) = CScoreUnitConverter.ToOpenSeesCoordinates(
+                    fiber.X, fiber.Y, options.Convention);
+                double weightedArea = fiber.Area * n;
+                transformedA += weightedArea;
+                transformedIz += weightedArea * y * y;
+                transformedIy += weightedArea * z * z;
+            }
+        }
+
+        var elastic = new OpenSeesElasticSectionSpec(refModulusPa, transformedA, transformedIz, transformedIy, options.GJ);
+        OpenSeesSectionModel result = new() { Elastic = elastic, Convention = options.Convention };
         result.Validate();
         return result;
     }

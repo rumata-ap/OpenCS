@@ -39,6 +39,8 @@ public partial class FemAnalysisDialog : Window
         SteelModelBox.ItemsSource = steelModelOptions;
         ElementFormulationBox.ItemsSource = elementFormulationOptions;
         MaterialSourceBox.SelectionChanged += (_, _) => UpdateNativeMaterialPanelVisibility();
+        ConsiderPhysicalNonlinearityCb.Checked += (_, _) => UpdateMaterialNonlinearityPanelVisibility();
+        ConsiderPhysicalNonlinearityCb.Unchecked += (_, _) => UpdateMaterialNonlinearityPanelVisibility();
 
         if (existing != null)
         {
@@ -48,6 +50,7 @@ public partial class FemAnalysisDialog : Window
             CalcTypeBox.SelectedItem = pars.CalcType ?? CalcType.C;
             LoadFactorStepBox.Text = pars.LoadFactorStep.ToString(CultureInfo.InvariantCulture);
             MaxLoadFactorBox.Text = pars.MaxLoadFactor.ToString(CultureInfo.InvariantCulture);
+            ConsiderPhysicalNonlinearityCb.IsChecked = pars.ConsiderPhysicalNonlinearity;
             ConsiderConcreteTensionCb.IsChecked = pars.ConsiderConcreteTension;
             MaterialSourceBox.SelectedItem = materialSourceOptions.FirstOrDefault(o => o.Value == pars.MaterialSource) ?? materialSourceOptions[0];
             ConcreteModelBox.SelectedItem = concreteModelOptions.FirstOrDefault(o => o.Value == pars.ConcreteModel) ?? concreteModelOptions[1];
@@ -85,6 +88,7 @@ public partial class FemAnalysisDialog : Window
         }
         UpdateNonlinearPanelVisibility();
         UpdateNativeMaterialPanelVisibility();
+        UpdateMaterialNonlinearityPanelVisibility();
     }
 
     sealed record LoadSource(string Label, FemLoadExpression Expr);
@@ -184,6 +188,12 @@ public partial class FemAnalysisDialog : Window
             (MaterialSourceBox.SelectedItem as ComboOption)?.Value == "Native" ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    void UpdateMaterialNonlinearityPanelVisibility()
+    {
+        if (MaterialNonlinearityPanel == null) return;
+        MaterialNonlinearityPanel.IsEnabled = ConsiderPhysicalNonlinearityCb.IsChecked == true;
+    }
+
     void Ok_Click(object sender, RoutedEventArgs e)
     {
         bool isNonlinear = KindNonlinearRadio.IsChecked == true;
@@ -212,6 +222,7 @@ public partial class FemAnalysisDialog : Window
                 ? loadStep : 0.1;
             pars.MaxLoadFactor = Pars.ParseAny(MaxLoadFactorBox.Text, out var maxLoad) && maxLoad >= pars.LoadFactorStep
                 ? maxLoad : Math.Max(10.0, pars.LoadFactorStep);
+            pars.ConsiderPhysicalNonlinearity = ConsiderPhysicalNonlinearityCb.IsChecked == true;
             pars.ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true;
             pars.MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated";
             pars.ConcreteModel = (ConcreteModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04";
