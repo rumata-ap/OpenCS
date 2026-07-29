@@ -10,4 +10,8 @@ public sealed class FemNonlinearStage
     public IReadOnlyList<FemLinearDistributedLoad> DistributedLoads { get; init; } = [];
     public IReadOnlyList<FemLinearPointLoad> PointLoads { get; init; } = [];
     public IReadOnlyList<FemLinearKinematicLoad> KinematicLoads { get; init; } = [];
+    /// <summary>Шаг коэффициента нагрузки λ этой стадии (см. FemNonlinearTclGenerator).</summary>
+    public double LoadFactorStep { get; init; } = 0.1;
+    /// <summary>Максимальный коэффициент нагрузки λ этой стадии.</summary>
+    public double MaxLoadFactor { get; init; } = 10.0;
 }

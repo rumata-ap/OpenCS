@@ -46,7 +46,9 @@ public static class FemAnalysisExecutor
                 {
                     var stageResolved = FemLoadExpressionResolver.Resolve(
                         FemLoadExpression.Parse(stage.LoadExpressionJson), loadCases, allLoads, allMemberLoads, allKinematicLoads);
-                    nonlinearStages.Add(new FemNonlinearStageInput(stage.Tag, stageResolved.NodeLoads)
+                    nonlinearStages.Add(new FemNonlinearStageInput(
+                        stage.Tag, stageResolved.NodeLoads,
+                        stage.LoadFactorStep ?? 0.1, stage.MaxLoadFactor ?? 10.0)
                     {
                         MemberLoads = stageResolved.MemberLoads, KinematicLoads = stageResolved.KinematicLoads
                     });
