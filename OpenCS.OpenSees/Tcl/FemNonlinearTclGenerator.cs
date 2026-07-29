@@ -175,9 +175,12 @@ public sealed class FemNonlinearTclGenerator
         L("close $sectionOrder");
         L();
 
-        L("set fiberStates [open nonlinear_fiber_states.out w]");
-        L("fconfigure $fiberStates -buffering none");
-        L("puts $fiberStates {# step loadFactor elementTag integrationPoint fiberIndex stressPa strain}");
+        if (model.RecordFiberStates)
+        {
+            L("set fiberStates [open nonlinear_fiber_states.out w]");
+            L("fconfigure $fiberStates -buffering none");
+            L("puts $fiberStates {# step loadFactor elementTag integrationPoint fiberIndex stressPa strain}");
+        }
         L("writeCloseOnWrite step_status.out {# step stageIndex loadFactor converged isRefinement}");
         L($"set loadFactorStep {F(model.LoadFactorStep)}");
         L($"set maxLoadFactor {F(model.MaxLoadFactor)}");
@@ -204,7 +207,9 @@ public sealed class FemNonlinearTclGenerator
         // nonlinear_fiber_states.out. Держит step_status/fiberStates/node_disp/reactions/
         // element_forces в точном построчном соответствии — все пишутся на каждом успешном analyze().
         L("proc advanceTo {fromLambda toLambda depth} {");
-        L("    global refinementDivisions maxRefinementDepth stepIndex currentLambda currentStageIndex fiberStates");
+        L(model.RecordFiberStates
+            ? "    global refinementDivisions maxRefinementDepth stepIndex currentLambda currentStageIndex fiberStates"
+            : "    global refinementDivisions maxRefinementDepth stepIndex currentLambda currentStageIndex");
         L("    integrator LoadControl [expr {$toLambda - $fromLambda}]");
         L("    set rc [analyze 1]");
         L("    if {$rc == 0} {");
@@ -214,7 +219,8 @@ public sealed class FemNonlinearTclGenerator
         L("        set finalNorm [lindex [testNorm] [expr {$iters - 1}]]");
         L("        puts \"step $stepIndex OK stage=$currentStageIndex lambda=$currentLambda depth=$depth iters=$iters norm=$finalNorm\"");
         L("        writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 1 [expr {$depth > 0}]]");
-        EmitFiberStateWrites(L, model);
+        if (model.RecordFiberStates)
+            EmitFiberStateWrites(L, model);
         L("        return 1");
         L("    }");
         L("    if {$depth >= $maxRefinementDepth} { return 0 }");
@@ -277,7 +283,7 @@ public sealed class FemNonlinearTclGenerator
             if (guarded) L("}");
             L();
         }
-        L("close $fiberStates");
+        if (model.RecordFiberStates) L("close $fiberStates");
         L();
 
         L("set marker [open completed.marker w]");
@@ -306,7 +312,16 @@ public sealed class FemNonlinearTclGenerator
         foreach (var e in model.Elements.OrderBy(e => e.Tag))
         {
             var section = model.Sections[e.SectionTag];
-            line($"        for {{set ip 1}} {{$ip <= {e.NumIntegrationPoints}}} {{incr ip}} {{");
+            // FiberStatesIntegrationPoints ограничивает запись конкретными точками интегрирования
+            // (см. CalcSettings.OpenSeesFiberStatesIntegrationPoints) — null означает "все точки".
+            List<int>? selectedIps = model.FiberStatesIntegrationPoints is { } selected
+                ? selected.Where(ip => ip >= 1 && ip <= e.NumIntegrationPoints).OrderBy(ip => ip).ToList()
+                : null;
+            if (selectedIps is { Count: 0 }) continue;
+            if (selectedIps is null)
+                line($"        for {{set ip 1}} {{$ip <= {e.NumIntegrationPoints}}} {{incr ip}} {{");
+            else
+                line($"        foreach ip {{{string.Join(' ', selectedIps)}}} {{");
             line($"            for {{set fiberIndex 0}} {{$fiberIndex < {section.Fibers.Count}}} {{incr fiberIndex}} {{");
             string fiberCoordinates = string.Join(' ', section.Fibers.Select(f => $"{TclNumber.Format(f.Y)} {TclNumber.Format(f.Z)}"));
             string fiberQuery = $"eleResponse {e.Tag} section $ip fiber [lindex {{{fiberCoordinates}}} [expr {{$fiberIndex * 2}}]] [lindex {{{fiberCoordinates}}} [expr {{$fiberIndex * 2 + 1}}]] stressStrain";

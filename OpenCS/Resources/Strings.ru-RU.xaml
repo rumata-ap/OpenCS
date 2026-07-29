@@ -82,6 +82,11 @@
    <system:String x:Key="OpenSeesSettingsTab">OpenSees</system:String>
    <system:String x:Key="OpenSeesExecutableGroup">Исполняемый файл</system:String>
    <system:String x:Key="OpenSeesNonlinearGroup">Нелинейный расчёт схемы</system:String>
+   <system:String x:Key="OpenSeesFiberStatesGroup">Запись состояний волокон</system:String>
+   <system:String x:Key="OpenSeesRecordFiberStatesLabel">Записывать состояния волокон (σ, ε)</system:String>
+   <system:String x:Key="OpenSeesRecordFiberStatesTip">Пишет напряжения и деформации каждого волокна каждого сечения на каждом успешном шаге в nonlinear_fiber_states.out. Даёт детальную картину по волокнам на результатной вкладке, но при крупных моделях и большом числе шагов файл может достигать сотен МБ. Выключение экономит место и время расчёта, но данные по волокнам станут недоступны.</system:String>
+   <system:String x:Key="OpenSeesFiberStatesIntegrationPointsLabel">Точки интегрирования для записи</system:String>
+   <system:String x:Key="OpenSeesFiberStatesIntegrationPointsTip">Номера точек интегрирования вдоль длины каждого элемента (1-based, через запятую, напр. "1,3,5"). Пусто — писать все точки. Позволяет резко сократить объём файла, ограничившись, например, только крайними сечениями элементов.</system:String>
    <system:String x:Key="OpenSeesMaterialsGroup">Материалы (нелинейный расчёт)</system:String>
    <system:String x:Key="CalcSettingsGridGroup">Постпроцессор</system:String>
    <system:String x:Key="CalcSettingsGridDensity">Густота сетки (шагов по max(w,h))</system:String>

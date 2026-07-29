@@ -81,6 +81,11 @@
    <system:String x:Key="OpenSeesSettingsTab">OpenSees</system:String>
    <system:String x:Key="OpenSeesExecutableGroup">Executable</system:String>
    <system:String x:Key="OpenSeesNonlinearGroup">Nonlinear scheme analysis</system:String>
+   <system:String x:Key="OpenSeesFiberStatesGroup">Fiber state recording</system:String>
+   <system:String x:Key="OpenSeesRecordFiberStatesLabel">Record fiber states (σ, ε)</system:String>
+   <system:String x:Key="OpenSeesRecordFiberStatesTip">Writes stress and strain of every fiber of every section at every successful step to nonlinear_fiber_states.out. Gives a detailed fiber-level view on the result tab, but for large models with many steps the file can reach hundreds of MB. Disabling saves disk space and analysis time, but fiber data will no longer be available.</system:String>
+   <system:String x:Key="OpenSeesFiberStatesIntegrationPointsLabel">Integration points to record</system:String>
+   <system:String x:Key="OpenSeesFiberStatesIntegrationPointsTip">Integration point numbers along the length of each element (1-based, comma-separated, e.g. "1,3,5"). Empty — record all points. Lets you drastically shrink the file by limiting recording to, for example, just the end sections of elements.</system:String>
    <system:String x:Key="OpenSeesMaterialsGroup">Materials (nonlinear analysis)</system:String>
    <system:String x:Key="CalcSettingsGridGroup">Post-processor</system:String>
    <system:String x:Key="CalcSettingsGridDensity">Grid density (steps per max(w,h))</system:String>

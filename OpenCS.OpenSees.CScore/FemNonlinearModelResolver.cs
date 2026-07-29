@@ -214,7 +214,9 @@ public sealed class FemNonlinearModelResolver
             ConvergenceTest = options.ConvergenceTest,
             ElementFormulation = options.ElementFormulation,
             Algorithm = options.Algorithm,
-            CalcTypeName = calcType.ToString()
+            CalcTypeName = calcType.ToString(),
+            RecordFiberStates = options.RecordFiberStates,
+            FiberStatesIntegrationPoints = options.FiberStatesIntegrationPoints
         };
         try { model.Validate(); }
         catch (InvalidOperationException ex) { return new FemNonlinearResolveResult(null, [ex.Message]); }

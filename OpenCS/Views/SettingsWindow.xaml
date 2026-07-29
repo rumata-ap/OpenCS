@@ -544,6 +544,26 @@
                                 </ComboBox>
                             </Grid>
                         </GroupBox>
+                        <GroupBox Header="{DynamicResource OpenSeesFiberStatesGroup}" Margin="0,0,0,10">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="260"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                </Grid.RowDefinitions>
+                                <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" x:Name="OpenSeesRecordFiberStatesCb"
+                                          Content="{DynamicResource OpenSeesRecordFiberStatesLabel}"
+                                          ToolTip="{DynamicResource OpenSeesRecordFiberStatesTip}" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource OpenSeesFiberStatesIntegrationPointsLabel}"
+                                           VerticalAlignment="Center" ToolTip="{DynamicResource OpenSeesFiberStatesIntegrationPointsTip}"/>
+                                <TextBox Grid.Row="1" Grid.Column="1" x:Name="OpenSeesFiberStatesIntegrationPointsBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource OpenSeesFiberStatesIntegrationPointsTip}"/>
+                            </Grid>
+                        </GroupBox>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

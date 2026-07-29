@@ -31,7 +31,13 @@ public sealed record FemNonlinearAnalysisOptions(
     // Алгоритм решателя Ньютона: "Newton" | "NewtonLineSearch" (по умолчанию — см.
     // FemNonlinearModel.Algorithm про эмпирическое ускорение сходимости на кинематических
     // нагрузках).
-    string Algorithm = "NewtonLineSearch")
+    string Algorithm = "NewtonLineSearch",
+    // Записывать ли состояния (σ, ε) отдельных волокон в nonlinear_fiber_states.out (см.
+    // CalcSettings.OpenSeesRecordFiberStates — при крупных моделях файл может достигать сотен МБ).
+    bool RecordFiberStates = true,
+    // Ограничение записи волоконных состояний конкретными точками интегрирования вдоль длины
+    // КАЖДОГО элемента; null — писать все точки (см. CalcSettings.OpenSeesFiberStatesIntegrationPoints).
+    IReadOnlySet<int>? FiberStatesIntegrationPoints = null)
 {
     /// <summary>Legacy-конструктор для старых вызывающих мест: LoadSteps → шаг 1/LoadSteps, λmax=1.</summary>
     public FemNonlinearAnalysisOptions(

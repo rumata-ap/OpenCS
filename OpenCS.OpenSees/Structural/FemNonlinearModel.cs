@@ -52,6 +52,15 @@ public sealed class FemNonlinearModel
     /// <summary>Имя набора диаграмм CScore, использованного при построении fiber-сечения.</summary>
     public string CalcTypeName { get; init; } = "C";
 
+    /// <summary>Записывать ли состояния (σ, ε) отдельных волокон в nonlinear_fiber_states.out.
+    /// См. CalcSettings.OpenSeesRecordFiberStates.</summary>
+    public bool RecordFiberStates { get; init; } = true;
+
+    /// <summary>Ограничение записи волоконных состояний конкретными точками интегрирования вдоль
+    /// длины КАЖДОГО элемента (1-based номера); null — писать все точки элемента.
+    /// См. CalcSettings.OpenSeesFiberStatesIntegrationPoints.</summary>
+    public IReadOnlySet<int>? FiberStatesIntegrationPoints { get; init; }
+
     /// <summary>Проверяет целостность модели перед генерацией Tcl.</summary>
     public void Validate()
     {

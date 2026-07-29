@@ -211,6 +211,32 @@ namespace OpenCS.Utilites
       [JsonPropertyName("openSeesIntegrationPoints")]
       public int OpenSeesIntegrationPoints { get; set; } = 5;
 
+      /// <summary>Записывать ли состояния (σ, ε) отдельных волокон сечений в nonlinear_fiber_states.out
+      /// (нелинейный расчёт схемы). При крупных моделях и большом числе шагов/под-шагов дробления файл
+      /// может достигать сотен МБ (элементы × точки интегрирования × волокна × шаги); выключение
+      /// экономит место и время расчёта, но лишает результатную вкладку детальной картины по волокнам.</summary>
+      [JsonPropertyName("openSeesRecordFiberStates")]
+      public bool OpenSeesRecordFiberStates { get; set; } = true;
+
+      /// <summary>Ограничение записи волоконных состояний конкретными точками интегрирования вдоль
+      /// длины КАЖДОГО элемента (1-based номера через запятую, напр. "1,3,5"). Пусто/некорректно —
+      /// писать все точки интегрирования элемента (как раньше). Игнорируется при
+      /// OpenSeesRecordFiberStates=false.</summary>
+      [JsonPropertyName("openSeesFiberStatesIntegrationPoints")]
+      public string? OpenSeesFiberStatesIntegrationPoints { get; set; }
+
+      /// <summary>Разбирает <see cref="OpenSeesFiberStatesIntegrationPoints"/> в множество 1-based
+      /// номеров точек интегрирования; null — ограничения нет (писать все точки элемента).</summary>
+      public IReadOnlySet<int>? ResolveOpenSeesFiberStatesIntegrationPoints()
+      {
+         if (string.IsNullOrWhiteSpace(OpenSeesFiberStatesIntegrationPoints)) return null;
+         var points = new HashSet<int>();
+         foreach (var token in OpenSeesFiberStatesIntegrationPoints.Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries))
+            if (int.TryParse(token, out var v) && v > 0)
+               points.Add(v);
+         return points.Count > 0 ? points : null;
+      }
+
       // Настройки материалов (учёт растяжения бетона, источник/модель) специфичны для конкретной
       // постановки — хранятся в FemAnalysisParams, а не здесь (задаются в диалоге постановки).
 
@@ -257,6 +283,8 @@ namespace OpenCS.Utilites
          OpenSeesConvergenceTest  = OpenSeesConvergenceTest,
          OpenSeesAlgorithm        = OpenSeesAlgorithm,
          OpenSeesIntegrationPoints = OpenSeesIntegrationPoints,
+         OpenSeesRecordFiberStates = OpenSeesRecordFiberStates,
+         OpenSeesFiberStatesIntegrationPoints = OpenSeesFiberStatesIntegrationPoints,
       };
 
       /// <summary>Коэффициенты γf по умолчанию для комбинаторики СП 20.</summary>

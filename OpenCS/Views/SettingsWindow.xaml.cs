@@ -429,6 +429,9 @@ namespace OpenCS.Views
          SelectComboByTag(OpenSeesConvergenceTestCombo, _calcSettings.OpenSeesConvergenceTest);
          OpenSeesIntegrationPointsBox.Text = _calcSettings.OpenSeesIntegrationPoints.ToString();
          SelectComboByTag(OpenSeesAlgorithmCombo, _calcSettings.OpenSeesAlgorithm);
+         OpenSeesRecordFiberStatesCb.IsChecked = _calcSettings.OpenSeesRecordFiberStates;
+         OpenSeesFiberStatesIntegrationPointsBox.Text = _calcSettings.OpenSeesFiberStatesIntegrationPoints ?? "";
+         OpenSeesFiberStatesIntegrationPointsBox.IsEnabled = _calcSettings.OpenSeesRecordFiberStates;
       }
 
       void HookOpenSeesControls()
@@ -468,6 +471,19 @@ namespace OpenCS.Views
          };
          OpenSeesAlgorithmCombo.SelectionChanged += (_, _) =>
             _calcSettings.OpenSeesAlgorithm = ComboTag(OpenSeesAlgorithmCombo) ?? "NewtonLineSearch";
+         OpenSeesRecordFiberStatesCb.Checked += (_, _) =>
+         {
+            _calcSettings.OpenSeesRecordFiberStates = true;
+            OpenSeesFiberStatesIntegrationPointsBox.IsEnabled = true;
+         };
+         OpenSeesRecordFiberStatesCb.Unchecked += (_, _) =>
+         {
+            _calcSettings.OpenSeesRecordFiberStates = false;
+            OpenSeesFiberStatesIntegrationPointsBox.IsEnabled = false;
+         };
+         OpenSeesFiberStatesIntegrationPointsBox.TextChanged += (_, _) =>
+            _calcSettings.OpenSeesFiberStatesIntegrationPoints =
+               string.IsNullOrWhiteSpace(OpenSeesFiberStatesIntegrationPointsBox.Text) ? null : OpenSeesFiberStatesIntegrationPointsBox.Text.Trim();
       }
 
       void OpenSeesExeBrowse_Click(object sender, RoutedEventArgs e)
