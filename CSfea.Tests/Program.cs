@@ -63,6 +63,8 @@ LimitForceSolverTests.RunAll();
 
 PlateModelTests.RunAll();
 
+PlateRebarFieldShellResponseFactoryTests.RunAll();
+
 ShellStrainSolverTests.RunAll();
 
 BucklingTests.RunSimplySupportedPlate();
