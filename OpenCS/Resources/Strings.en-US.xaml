@@ -1632,6 +1632,7 @@
     <system:String x:Key="PlanarRegionKindPlate">Plate</system:String>
     <system:String x:Key="PlanarRegionKindWall">Wall</system:String>
     <system:String x:Key="PlanarRegionPlateSectionLabel">Section</system:String>
+    <system:String x:Key="PlanarRegionPlateSectionGeneratedHint">Generated automatically on the Reinforcement tab</system:String>
     <system:String x:Key="PlanarRegionDiagnosticsLabel">Diagnostics</system:String>
     <system:String x:Key="PlanarRegionGeoPropsGroupHeader">Geometric properties</system:String>
     <system:String x:Key="PlanarRegionGeoPropsAreaLabel">Area, m²</system:String>

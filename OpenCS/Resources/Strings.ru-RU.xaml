@@ -1635,6 +1635,7 @@
     <system:String x:Key="PlanarRegionKindPlate">Плита</system:String>
     <system:String x:Key="PlanarRegionKindWall">Стена</system:String>
     <system:String x:Key="PlanarRegionPlateSectionLabel">Сечение</system:String>
+    <system:String x:Key="PlanarRegionPlateSectionGeneratedHint">Генерируется автоматически на вкладке «Армирование»</system:String>
     <system:String x:Key="PlanarRegionDiagnosticsLabel">Диагностика</system:String>
     <system:String x:Key="PlanarRegionGeoPropsGroupHeader">Геометрические свойства</system:String>
     <system:String x:Key="PlanarRegionGeoPropsAreaLabel">Площадь, м²</system:String>

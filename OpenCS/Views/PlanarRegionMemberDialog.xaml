@@ -103,7 +103,72 @@
                   <TextBlock Text="{DynamicResource PlanarRegionPlateSectionLabel}" Margin="0,0,0,2"/>
                   <ComboBox ItemsSource="{Binding ProjectPlateSections}"
                             SelectedItem="{Binding PlateSection}"
-                            DisplayMemberPath="Tag" Margin="0,0,0,8"/>
+                            DisplayMemberPath="Tag" Margin="0,0,0,8"
+                            Visibility="{Binding HasZones, Converter={StaticResource InverseBoolToVisibility}}"/>
+
+                  <StackPanel Visibility="{Binding HasZones, Converter={StaticResource BoolToVisibility}}">
+                     <TextBlock Text="{Binding PlateSection.Tag}" FontWeight="Bold" Margin="0,0,0,2"/>
+                     <TextBlock Text="{DynamicResource PlanarRegionPlateSectionGeneratedHint}"
+                                FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                     <GroupBox Header="{DynamicResource PlateSectionGeometry}" Margin="0,0,0,8"
+                               DataContext="{Binding GeneratedSectionVM}">
+                        <Grid Margin="6">
+                           <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="140"/>
+                              <ColumnDefinition Width="*"/>
+                           </Grid.ColumnDefinitions>
+                           <Grid.RowDefinitions>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                           </Grid.RowDefinitions>
+                           <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource PlateThicknessMm}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                           <TextBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,4" Text="{Binding HMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G6}"/>
+                           <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource PlateNLayers}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                           <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,4" IsEnabled="{Binding IsLayered}" Text="{Binding NLayers, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+                     </GroupBox>
+
+                     <GroupBox Header="{DynamicResource PlateSectionMaterials}" Margin="0,0,0,8"
+                               DataContext="{Binding GeneratedSectionVM}">
+                        <Grid Margin="6">
+                           <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="140"/>
+                              <ColumnDefinition Width="*"/>
+                           </Grid.ColumnDefinitions>
+                           <Grid.RowDefinitions>
+                              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                           </Grid.RowDefinitions>
+
+                           <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Concrete}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                           <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,4"
+                                     ItemsSource="{Binding App.Concretes}" SelectedItem="{Binding ConcreteMaterial, Mode=TwoWay}" DisplayMemberPath="Tag"/>
+
+                           <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Reinforcement}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                           <ComboBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,4"
+                                     ItemsSource="{Binding App.Armatures}" SelectedItem="{Binding RebarMaterial, Mode=TwoWay}" DisplayMemberPath="Tag"/>
+
+                           <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource PlateConcreteDiagramType}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                           <ComboBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,4" SelectedValue="{Binding ConcreteDiagramType, Mode=TwoWay}" SelectedValuePath="Tag">
+                              <ComboBoxItem Tag="L2"   Content="{DynamicResource DiagramTypeL2}"/>
+                              <ComboBoxItem Tag="L3"   Content="{DynamicResource DiagramTypeL3}"/>
+                              <ComboBoxItem Tag="SP63" Content="{DynamicResource DiagramTypeSP63}"/>
+                              <ComboBoxItem Tag="EKB"  Content="{DynamicResource DiagramTypeEKB}"/>
+                              <ComboBoxItem Tag="SP35" Content="{DynamicResource DiagramTypeSP35}"/>
+                           </ComboBox>
+
+                           <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource PlateTensionConcrete}" VerticalAlignment="Center" Margin="0,0,8,4" ToolTip="{DynamicResource PlateTensionConcreteTip}"/>
+                           <CheckBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,4" IsChecked="{Binding TensionConcrete, Mode=TwoWay}" VerticalAlignment="Center" ToolTip="{DynamicResource PlateTensionConcreteTip}"/>
+
+                           <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource PlateSofteningModel}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                           <ComboBox Grid.Row="4" Grid.Column="1" Margin="0,0,0,4" ItemsSource="{Binding SofteningOptions}" SelectedIndex="{Binding SofteningIndex, Mode=TwoWay}"/>
+
+                           <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource PlateModel}" VerticalAlignment="Center" Margin="0,0,8,4"/>
+                           <ComboBox Grid.Row="5" Grid.Column="1" Margin="0,0,0,4" ItemsSource="{Binding PlateModelOptions}" SelectedValuePath="Key" DisplayMemberPath="Display" SelectedValue="{Binding PlateModel, Mode=TwoWay}"/>
+                        </Grid>
+                     </GroupBox>
+                  </StackPanel>
 
                   <TextBlock Text="{DynamicResource PlanarRegionDiagnosticsLabel}" Margin="0,0,0,2"/>
                   <ListBox ItemsSource="{Binding Diagnostics}" Height="80" Margin="0,0,0,8">
