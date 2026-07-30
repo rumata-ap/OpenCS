@@ -2313,9 +2313,6 @@ namespace OpenCS.Utilites
             var layersJson = r.GetString(13);
             var layers = JsonSerializer.Deserialize<List<PlateRebarLayer>>(layersJson, _jsonSettings);
             if (layers != null) ps.RebarLayers = layers;
-            var zonesJson = r.GetString(14);
-            var zones = JsonSerializer.Deserialize<List<RebarZone>>(zonesJson, _jsonSettings);
-            if (zones != null) ps.RebarZones = zones;
             PlateSections.Add(ps);
          }
       }
@@ -2323,7 +2320,7 @@ namespace OpenCS.Utilites
       public void SavePlateSection(PlateSection ps)
       {
          var layersJson = JsonSerializer.Serialize(ps.RebarLayers, _jsonSettings);
-         var zonesJson = JsonSerializer.Serialize(ps.RebarZones, _jsonSettings);
+         const string zonesJson = "[]"; // PlateSection.RebarZones удалено (см. PlanarRegion.RebarZones) — колонка мёртвая
          using var cmd = _connection.CreateCommand();
          bool isNew = ps.Id == 0;
          if (isNew)
