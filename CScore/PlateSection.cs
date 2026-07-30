@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CScore.PlateRebar;
 
 namespace CScore
 {
@@ -39,6 +40,13 @@ namespace CScore
       /// <summary>Id материала арматуры слоя. 0 = использовать глобальный RebarMaterialId.</summary>
       public int MaterialId { get; set; }
 
+      // ── Пространственное армирование (PlateRebarField) ──────────────────────
+      /// <summary>Техническая грань оболочки, к которой относится слой в контексте
+      /// PlateRebarField (не используется однородным расчётом PlateSection.Compute).</summary>
+      public RebarFace Face { get; set; } = RebarFace.PlusN;
+      /// <summary>Угол направлений X/Y слоя относительно локальной оси u поверхности, град.</summary>
+      public double Angle { get; set; }
+
       /// <summary>Обновить Asx/Asy из режима diameter_count / diameter_spacing.</summary>
       public void RecalcArea()
       {
@@ -64,6 +72,7 @@ namespace CScore
          InputMode = InputMode, DiameterX = DiameterX, DiameterY = DiameterY,
          CountPerMeterX = CountPerMeterX, CountPerMeterY = CountPerMeterY,
          SpacingX = SpacingX, SpacingY = SpacingY, MaterialId = MaterialId,
+         Face = Face, Angle = Angle,
       };
    }
 
