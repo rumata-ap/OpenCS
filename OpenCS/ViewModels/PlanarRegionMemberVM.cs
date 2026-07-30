@@ -40,6 +40,8 @@ public class PlanarRegionMemberVM : ViewModelBase
             foreach (var h in existingRegion.Holes) Holes.Add(h);
         }
 
+        _plateSectionOwned = RebarZones.Count > 0;
+
         string autoKind = PlanarKindClassifier.Classify(frame, out bool ambiguous);
         KindIsAmbiguous = ambiguous;
         _kind = existingMember?.Kind ?? autoKind;
@@ -82,6 +84,8 @@ public class PlanarRegionMemberVM : ViewModelBase
 
     public ObservableCollection<RebarZoneVM> RebarZones { get; }
 
+    public bool HasZones => RebarZones.Count > 0;
+
     RebarFace _activeRebarFace = RebarFace.MinusN;
     public RebarFace ActiveRebarFace
     {
@@ -115,8 +119,17 @@ public class PlanarRegionMemberVM : ViewModelBase
     public PlateSection? PlateSection
     {
         get => _plateSection;
-        set { _plateSection = value; OnPropertyChanged(); RefreshSectionRebarLayers(); }
+        set
+        {
+            _plateSection = value;
+            OnPropertyChanged();
+            GeneratedSectionVM = value != null ? new PlateSectionVM(value, _app) : null;
+            RefreshSectionRebarLayers();
+        }
     }
+
+    PlateSectionVM? _generatedSectionVM;
+    public PlateSectionVM? GeneratedSectionVM { get => _generatedSectionVM; private set { _generatedSectionVM = value; OnPropertyChanged(); } }
 
     public ObservableCollection<PlateRebarLayerVM> SelectedSectionRebarLayers { get; } = [];
 
@@ -194,21 +207,46 @@ public class PlanarRegionMemberVM : ViewModelBase
         RefreshPlot();
     }
 
+    bool _plateSectionOwned;
+
+    /// <summary>Клонирует текущее PlateSection в новую (Id=0) запись при первом появлении зоны —
+    /// по аналогии с EnsureGeometryOwned(): пока зон нет, PlateSection может быть общим, разделяемым
+    /// с другими элементами сечением; как только регион получает зону, ему нужна собственная копия,
+    /// которую можно свободно редактировать не задевая чужие элементы.</summary>
+    void EnsurePlateSectionOwned()
+    {
+        if (_plateSectionOwned) return;
+        PlateSection = PlateSection != null ? CloneAsNewSection(PlateSection) : new PlateSection();
+        _plateSectionOwned = true;
+    }
+
+    static PlateSection CloneAsNewSection(PlateSection source)
+    {
+        var clone = source.CloneForCalc();
+        clone.Id = 0;
+        return clone;
+    }
+
     void AddRebarZone()
     {
+        bool wasEmpty = RebarZones.Count == 0;
         var zone = new RebarZone { Name = $"Зона {RebarZones.Count + 1}", Face = ActiveRebarFace };
         var vm = new RebarZoneVM(zone, OnZoneChanged, _app.Armatures);
         RebarZones.Add(vm);
+        if (wasEmpty) EnsurePlateSectionOwned();
         RefreshFaceFilteredCollections();
         SelectedRebarZone = vm;
+        OnPropertyChanged(nameof(HasZones));
     }
 
     void DeleteRebarZone()
     {
         if (SelectedRebarZone == null) return;
         RebarZones.Remove(SelectedRebarZone);
+        if (RebarZones.Count == 0) _plateSectionOwned = false;
         RefreshFaceFilteredCollections();
         SelectedRebarZone = null;
+        OnPropertyChanged(nameof(HasZones));
     }
 
     void SetZonePolygonFromPool(Contour? contour)
@@ -228,7 +266,10 @@ public class PlanarRegionMemberVM : ViewModelBase
     void BatchAddZonesFromSet(string? geometrySet)
     {
         if (string.IsNullOrEmpty(geometrySet)) return;
-        foreach (var contour in ProjectContours.Where(c => c.GeometrySet == geometrySet))
+        var matches = ProjectContours.Where(c => c.GeometrySet == geometrySet).ToList();
+        if (matches.Count == 0) return;
+        bool wasEmpty = RebarZones.Count == 0;
+        foreach (var contour in matches)
         {
             var zone = new RebarZone
             {
@@ -238,8 +279,10 @@ public class PlanarRegionMemberVM : ViewModelBase
             };
             RebarZones.Add(new RebarZoneVM(zone, OnZoneChanged, _app.Armatures));
         }
+        if (wasEmpty) EnsurePlateSectionOwned();
         RefreshFaceFilteredCollections();
         RefreshPlot();
+        OnPropertyChanged(nameof(HasZones));
     }
 
     public void SelectZoneAtPoint(double x, double y)
@@ -252,6 +295,11 @@ public class PlanarRegionMemberVM : ViewModelBase
             if (CSTriangulation.GeometryUtils.PointInPolygon(x, y, pts)) { SelectedRebarZone = zone; return; }
         }
         SelectedRebarZone = null;
+    }
+
+    public void ApplyMaterialToSelectedZones(IEnumerable<RebarZoneVM> zones, Material? material)
+    {
+        foreach (var z in zones) z.Layout.RebarMaterial = material;
     }
 
     void OnZoneChanged()
@@ -522,6 +570,17 @@ public class PlanarRegionMemberVM : ViewModelBase
             _app.db.AddPlanarRegion(region, _schema.Id);
         }
 
+        if (PlateSection != null)
+        {
+            if (_plateSectionOwned)
+            {
+                PlateSection.Tag = Tag;
+                if (PlateSection.Num == 0)
+                    PlateSection.Num = _app.PlateSections.Count > 0 ? _app.PlateSections.Max(p => p.Num) + 1 : 1;
+            }
+            _app.db.SavePlateSection(PlateSection);
+        }
+
         var member = _existingMember ?? new FemMember { SchemaId = _schema.Id, ElemType = "shell", NodeIdsJson = "[]" };
         member.ElemTag = Tag;
         member.PlanarRegionId = region.Id;
@@ -529,8 +588,6 @@ public class PlanarRegionMemberVM : ViewModelBase
         member.KindSource = KindSource;
         member.PlateSectionId = PlateSection?.Id;
         _app.db.SaveFemMember(member);
-
-        if (PlateSection != null) _app.db.SavePlateSection(PlateSection);
 
         SaveCompleted?.Invoke(member);
     }
