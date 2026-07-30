@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CScore.PlateRebar;
 
 namespace CScore
 {
@@ -39,6 +40,13 @@ namespace CScore
       /// <summary>Id материала арматуры слоя. 0 = использовать глобальный RebarMaterialId.</summary>
       public int MaterialId { get; set; }
 
+      // ── Пространственное армирование (PlateRebarField) ──────────────────────
+      /// <summary>Техническая грань оболочки, к которой относится слой в контексте
+      /// PlateRebarField (не используется однородным расчётом PlateSection.Compute).</summary>
+      public RebarFace Face { get; set; } = RebarFace.PlusN;
+      /// <summary>Угол направлений X/Y слоя относительно локальной оси u поверхности, град.</summary>
+      public double Angle { get; set; }
+
       /// <summary>Обновить Asx/Asy из режима diameter_count / diameter_spacing.</summary>
       public void RecalcArea()
       {
@@ -64,6 +72,7 @@ namespace CScore
          InputMode = InputMode, DiameterX = DiameterX, DiameterY = DiameterY,
          CountPerMeterX = CountPerMeterX, CountPerMeterY = CountPerMeterY,
          SpacingX = SpacingX, SpacingY = SpacingY, MaterialId = MaterialId,
+         Face = Face, Angle = Angle,
       };
    }
 
@@ -94,6 +103,10 @@ namespace CScore
       // ── Арматурные слои ────────────────────────────────────────────────────
       /// <summary>Арматурные слои. Сериализуются как JSON-столбец в БД.</summary>
       public List<PlateRebarLayer> RebarLayers { get; set; } = [];
+
+      /// <summary>Пространственные зоны армирования (PlateRebarField.Zones). Сериализуются
+      /// как отдельный JSON-столбец в БД, независимо от RebarLayers.</summary>
+      public List<RebarZone> RebarZones { get; set; } = [];
 
       // ── Модель бетона ──────────────────────────────────────────────────────
       /// <summary>Учёт растяжения бетона.</summary>
@@ -128,6 +141,7 @@ namespace CScore
          SofteningEpsC2 = SofteningEpsC2, PlateModel = PlateModel,
          ConcreteDiagramType = ConcreteDiagramType,
          RebarLayers = RebarLayers.Select(l => l.Clone()).ToList(),
+         RebarZones = RebarZones.Select(z => z.Clone()).ToList(),
       };
 
       // ── Расчёт ─────────────────────────────────────────────────────────────
