@@ -4,6 +4,7 @@ using CScore.Planar;
 using CScore.PlateRebar;
 using OpenCS.Utilites;
 using OpenCS.Views;
+using OpenCS.Views.Helpers;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -100,7 +101,25 @@ public class PlanarRegionMemberVM : ViewModelBase
     /// базовая раскладка, шаг сетки). НЕ включает косметические правки (Name зоны).</summary>
     public bool RebarLayoutDirty { get => _rebarLayoutDirty; private set { _rebarLayoutDirty = value; OnPropertyChanged(); } }
 
-    void MarkRebarLayoutDirty() => RebarLayoutDirty = true;
+    void MarkRebarLayoutDirty() { RebarLayoutDirty = true; RefreshRebarPlotElements(); }
+
+    bool _showZoneRebarGlyphs = true;
+    /// <summary>Показывать штриховку/подпись слоя армирования у зон доп. армирования.
+    /// Состояние вида на сессию, не персистится.</summary>
+    public bool ShowZoneRebarGlyphs
+    {
+        get => _showZoneRebarGlyphs;
+        set { _showZoneRebarGlyphs = value; OnPropertyChanged(); RefreshRebarPlotElements(); }
+    }
+
+    bool _showBackgroundRebarGlyphs = true;
+    /// <summary>Показывать штриховку/подпись фонового (базового) слоя армирования.
+    /// Состояние вида на сессию, не персистится.</summary>
+    public bool ShowBackgroundRebarGlyphs
+    {
+        get => _showBackgroundRebarGlyphs;
+        set { _showBackgroundRebarGlyphs = value; OnPropertyChanged(); RefreshRebarPlotElements(); }
+    }
 
     RebarFace _activeRebarFace = RebarFace.MinusN;
     public RebarFace ActiveRebarFace
@@ -527,6 +546,26 @@ public class PlanarRegionMemberVM : ViewModelBase
             if (hole.X.Count >= 3)
                 elements.Add(new PolygonElement { Xs = [.. hole.X], Ys = [.. hole.Y], Fill = null, Stroke = Brushes.Gray, StrokeDashArray = [4, 2] });
 
+        if (ShowBackgroundRebarGlyphs && Hull != null && Hull.X.Count >= 3)
+        {
+            double uMin = Hull.X.Min(), uMax = Hull.X.Max();
+            double vMin = Hull.Y.Min(), vMax = Hull.Y.Max();
+            var bboxPoly = new List<(double U, double V)>
+            {
+                (uMin, vMin), (uMax, vMin), (uMax, vMax), (uMin, vMax)
+            };
+            foreach (var lvm in ActiveFaceSectionRebarLayers)
+            {
+                var glyphs = RebarGlyphBuilder.Build(bboxPoly, lvm.Model, lvm.RebarMaterial);
+                // Подпись фона — в угол bbox (со сдвигом внутрь), а не в центр,
+                // чтобы не перекрываться с подписями зон.
+                for (int i = 0; i < glyphs.Count; i++)
+                    if (glyphs[i] is TextElement t)
+                        glyphs[i] = t with { X = uMin + (uMax - uMin) * 0.03, Y = vMax - (vMax - vMin) * 0.03 };
+                elements.AddRange(glyphs);
+            }
+        }
+
         foreach (var zvm in ActiveFaceRebarZones)
         {
             var poly = zvm.Model.Polygon;
@@ -543,6 +582,12 @@ public class PlanarRegionMemberVM : ViewModelBase
                 Stroke = selected ? Brushes.Red : Brushes.DimGray,
                 StrokeThickness = selected ? 2 : 1
             });
+
+            if (ShowZoneRebarGlyphs)
+            {
+                var zonePoly = poly.Select(p => (p.U, p.V)).ToList();
+                elements.AddRange(RebarGlyphBuilder.Build(zonePoly, zvm.Model.Layout, zvm.Layout.RebarMaterial));
+            }
         }
         RebarPlotElements = elements;
     }
