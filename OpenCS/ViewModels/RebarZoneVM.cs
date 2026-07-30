@@ -11,17 +11,20 @@ public class RebarZoneVM : ViewModelBase
 {
     readonly RebarZone _model;
     readonly System.Action _onChanged;
+    readonly System.Action _markDirty;
 
-    public RebarZoneVM(RebarZone model, System.Action onChanged, IReadOnlyList<Material> armatures)
+    public RebarZoneVM(RebarZone model, System.Action onChanged, System.Action markDirty, IReadOnlyList<Material> armatures)
     {
         _model = model;
         _onChanged = onChanged;
+        _markDirty = markDirty;
         // Layout-поля (диаметр/шаг/z/материал) не влияют ни на полигон, ни на грань зоны — не должны
         // триггерить RefreshFaceFilteredCollections()/RefreshPlot() на каждое нажатие клавиши.
         // Иначе ActiveFaceRebarZones.Clear() внутри RefreshFaceFilteredCollections() на каждый символ
         // шлёт ListBox уведомление Reset, а Selector (ListBox) при Reset безусловно сбрасывает
         // SelectedItem — SelectedRebarZone обнуляется, панель редактирования зоны теряет DataContext.
-        Layout = new PlateRebarLayerVM(model.Layout, () => { }, armatures);
+        // Получают только лёгкий markDirty (без тяжёлого Refresh) — тот же принцип.
+        Layout = new PlateRebarLayerVM(model.Layout, markDirty, armatures);
     }
 
     public RebarZone Model => _model;
@@ -44,13 +47,13 @@ public class RebarZoneVM : ViewModelBase
     public string OperationKey
     {
         get => _model.Operation.ToString();
-        set { _model.Operation = System.Enum.Parse<RebarZoneOperation>(value); OnPropertyChanged(); }
+        set { _model.Operation = System.Enum.Parse<RebarZoneOperation>(value); OnPropertyChanged(); _markDirty(); }
     }
 
     public int Priority
     {
         get => _model.Priority;
-        set { _model.Priority = value; OnPropertyChanged(); }
+        set { _model.Priority = value; OnPropertyChanged(); _markDirty(); }
     }
 
     public int PointCount => _model.Polygon.Count;

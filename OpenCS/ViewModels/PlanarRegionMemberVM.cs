@@ -32,7 +32,7 @@ public class PlanarRegionMemberVM : ViewModelBase
 
         Holes = [];
         RebarZones = new ObservableCollection<RebarZoneVM>(
-            (existingRegion?.RebarZones ?? []).Select(z => new RebarZoneVM(z, OnZoneChanged, app.Armatures)));
+            (existingRegion?.RebarZones ?? []).Select(z => new RebarZoneVM(z, OnZoneChanged, MarkRebarLayoutDirty, app.Armatures)));
 
         if (existingRegion != null)
         {
@@ -41,6 +41,7 @@ public class PlanarRegionMemberVM : ViewModelBase
         }
 
         _plateSectionOwned = RebarZones.Count > 0;
+        _rebarSectionGridStep = existingRegion?.RebarSectionGridStep ?? 0.3;
 
         string autoKind = PlanarKindClassifier.Classify(frame, out bool ambiguous);
         KindIsAmbiguous = ambiguous;
@@ -58,6 +59,7 @@ public class PlanarRegionMemberVM : ViewModelBase
         DeleteRebarZoneCommand = new RelayCommand(_ => DeleteRebarZone(), _ => SelectedRebarZone != null);
         SetZonePolygonFromPoolCommand = new RelayCommand(o => SetZonePolygonFromPool(o as Contour));
         BatchAddZonesFromSetCommand = new RelayCommand(o => BatchAddZonesFromSet(o as string));
+        ComputeSectionCountCommand = new RelayCommand(_ => ComputeSectionCount(), _ => Hull != null && PlateSection != null);
         AddSectionRebarLayerCommand = new RelayCommand(_ => AddSectionRebarLayer(), _ => PlateSection != null);
         DeleteSectionRebarLayerCommand = new RelayCommand(_ => DeleteSectionRebarLayer(), _ => SelectedSectionRebarLayer != null);
         SaveCommand = new RelayCommand(_ => Save());
@@ -85,6 +87,20 @@ public class PlanarRegionMemberVM : ViewModelBase
     public ObservableCollection<RebarZoneVM> RebarZones { get; }
 
     public bool HasZones => RebarZones.Count > 0;
+
+    double _rebarSectionGridStep;
+    public double RebarSectionGridStep
+    {
+        get => _rebarSectionGridStep;
+        set { _rebarSectionGridStep = value; OnPropertyChanged(); RebarLayoutDirty = true; }
+    }
+
+    bool _rebarLayoutDirty;
+    /// <summary>Есть ли несохранённые правки, влияющие на резолв раскладки армирования (зоны,
+    /// базовая раскладка, шаг сетки). НЕ включает косметические правки (Name зоны).</summary>
+    public bool RebarLayoutDirty { get => _rebarLayoutDirty; private set { _rebarLayoutDirty = value; OnPropertyChanged(); } }
+
+    void MarkRebarLayoutDirty() => RebarLayoutDirty = true;
 
     RebarFace _activeRebarFace = RebarFace.MinusN;
     public RebarFace ActiveRebarFace
@@ -179,6 +195,7 @@ public class PlanarRegionMemberVM : ViewModelBase
     public ICommand DeleteRebarZoneCommand { get; }
     public ICommand SetZonePolygonFromPoolCommand { get; }
     public ICommand BatchAddZonesFromSetCommand { get; }
+    public ICommand ComputeSectionCountCommand { get; }
     public ICommand AddSectionRebarLayerCommand { get; }
     public ICommand DeleteSectionRebarLayerCommand { get; }
     public ICommand SaveCommand { get; }
@@ -229,9 +246,10 @@ public class PlanarRegionMemberVM : ViewModelBase
 
     void AddRebarZone()
     {
+        RebarLayoutDirty = true;
         bool wasEmpty = RebarZones.Count == 0;
         var zone = new RebarZone { Name = $"Зона {RebarZones.Count + 1}", Face = ActiveRebarFace };
-        var vm = new RebarZoneVM(zone, OnZoneChanged, _app.Armatures);
+        var vm = new RebarZoneVM(zone, OnZoneChanged, MarkRebarLayoutDirty, _app.Armatures);
         RebarZones.Add(vm);
         if (wasEmpty) EnsurePlateSectionOwned();
         RefreshFaceFilteredCollections();
@@ -242,6 +260,7 @@ public class PlanarRegionMemberVM : ViewModelBase
     void DeleteRebarZone()
     {
         if (SelectedRebarZone == null) return;
+        RebarLayoutDirty = true;
         RebarZones.Remove(SelectedRebarZone);
         if (RebarZones.Count == 0) _plateSectionOwned = false;
         RefreshFaceFilteredCollections();
@@ -268,6 +287,7 @@ public class PlanarRegionMemberVM : ViewModelBase
         if (string.IsNullOrEmpty(geometrySet)) return;
         var matches = ProjectContours.Where(c => c.GeometrySet == geometrySet).ToList();
         if (matches.Count == 0) return;
+        RebarLayoutDirty = true;
         bool wasEmpty = RebarZones.Count == 0;
         foreach (var contour in matches)
         {
@@ -277,7 +297,7 @@ public class PlanarRegionMemberVM : ViewModelBase
                 Face = ActiveRebarFace,
                 Polygon = RebarZonePolygonConverter.FromContour(contour),
             };
-            RebarZones.Add(new RebarZoneVM(zone, OnZoneChanged, _app.Armatures));
+            RebarZones.Add(new RebarZoneVM(zone, OnZoneChanged, MarkRebarLayoutDirty, _app.Armatures));
         }
         if (wasEmpty) EnsurePlateSectionOwned();
         RefreshFaceFilteredCollections();
@@ -302,8 +322,21 @@ public class PlanarRegionMemberVM : ViewModelBase
         foreach (var z in zones) z.Layout.RebarMaterial = material;
     }
 
+    PlateRebarField BuildRebarField() => new(PlateSection!.RebarLayers, [.. RebarZones.Select(z => z.Model)]);
+
+    void ComputeSectionCount()
+    {
+        if (Hull == null || PlateSection == null) return;
+        var combos = PlateRebarFieldGridResolver.Resolve(BuildRebarField(), Hull, Holes, RebarSectionGridStep);
+        System.Windows.MessageBox.Show(
+            string.Format(Loc.S("PlanarRegionRebarSectionCountResult"), combos.Count),
+            Loc.S("PlanarRegionRebarSectionCountTitle"),
+            System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+    }
+
     void OnZoneChanged()
     {
+        RebarLayoutDirty = true;
         RefreshFaceFilteredCollections();
         RefreshPlot();
     }
@@ -329,13 +362,14 @@ public class PlanarRegionMemberVM : ViewModelBase
         SelectedSectionRebarLayers.Clear();
         if (_plateSection != null)
             foreach (var l in _plateSection.RebarLayers)
-                SelectedSectionRebarLayers.Add(new PlateRebarLayerVM(l, () => { }, _app.Armatures));
+                SelectedSectionRebarLayers.Add(new PlateRebarLayerVM(l, MarkRebarLayoutDirty, _app.Armatures));
         RefreshFaceFilteredCollections();
     }
 
     void AddSectionRebarLayer()
     {
         if (PlateSection == null) return;
+        RebarLayoutDirty = true;
         var layer = new PlateRebarLayer
         {
             Name = $"Слой {SelectedSectionRebarLayers.Count + 1}",
@@ -348,7 +382,7 @@ public class PlanarRegionMemberVM : ViewModelBase
         };
         layer.RecalcArea();
         PlateSection.RebarLayers.Add(layer);
-        var vm = new PlateRebarLayerVM(layer, () => { }, _app.Armatures);
+        var vm = new PlateRebarLayerVM(layer, MarkRebarLayoutDirty, _app.Armatures);
         SelectedSectionRebarLayers.Add(vm);
         RefreshFaceFilteredCollections();
         SelectedSectionRebarLayer = vm;
@@ -357,6 +391,7 @@ public class PlanarRegionMemberVM : ViewModelBase
     void DeleteSectionRebarLayer()
     {
         if (SelectedSectionRebarLayer == null || PlateSection == null) return;
+        RebarLayoutDirty = true;
         PlateSection.RebarLayers.Remove(SelectedSectionRebarLayer.Model);
         SelectedSectionRebarLayers.Remove(SelectedSectionRebarLayer);
         RefreshFaceFilteredCollections();
@@ -595,6 +630,7 @@ public class PlanarRegionMemberVM : ViewModelBase
     void Delete()
     {
         if (_existingMember == null) return;
+        RebarLayoutDirty = false;
         _app.db.DeleteFemMember(_existingMember);
         if (_existingMember.PlanarRegionId is int prid) _app.db.DeletePlanarRegion(prid);
         DeleteCompleted?.Invoke(_existingMember);

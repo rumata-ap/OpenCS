@@ -1671,6 +1671,11 @@
     <system:String x:Key="PlanarRegionRebarFaceTopTab">Top</system:String>
     <system:String x:Key="PlanarRegionRebarZoneBatchAddFromSet">Add from DXF set</system:String>
     <system:String x:Key="PlanarRegionRebarZoneApplyMaterialToSelected">Apply material to selected</system:String>
+    <system:String x:Key="PlanarRegionRebarSectionGridStepLabel">Section computation step, m</system:String>
+    <system:String x:Key="PlanarRegionComputeSectionCountTool">Compute section count</system:String>
+    <system:String x:Key="PlanarRegionRebarSectionCountTitle">Section count</system:String>
+    <system:String x:Key="PlanarRegionRebarSectionCountResult">Found {0} unique sections (including background).</system:String>
+    <system:String x:Key="PlanarRegionRebarUnsavedChangesPrompt">There are unsaved reinforcement layout changes. Save before closing?</system:String>
     <system:String x:Key="GeometryTransformDx">ΔX, m</system:String>
     <system:String x:Key="GeometryTransformDy">ΔY, m</system:String>
     <system:String x:Key="GeometryTransformFactor">Scale factor</system:String>
