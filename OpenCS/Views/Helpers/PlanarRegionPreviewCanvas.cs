@@ -210,4 +210,14 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
         InvalidateVisual();
         e.Handled = true;
     }
+
+    public event Action<double, double>? ModelClicked;
+
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        if (ActualWidth < 2 || ActualHeight < 2) return;
+        var (x, y) = ToModel(e.GetPosition(this));
+        ModelClicked?.Invoke(x, y);
+    }
 }
