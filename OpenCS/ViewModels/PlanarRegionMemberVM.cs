@@ -55,6 +55,8 @@ public class PlanarRegionMemberVM : ViewModelBase
         AddRebarZoneCommand = new RelayCommand(_ => AddRebarZone());
         DeleteRebarZoneCommand = new RelayCommand(_ => DeleteRebarZone(), _ => SelectedRebarZone != null);
         SetZonePolygonFromPoolCommand = new RelayCommand(o => SetZonePolygonFromPool(o as Contour));
+        AddSectionRebarLayerCommand = new RelayCommand(_ => AddSectionRebarLayer(), _ => PlateSection != null);
+        DeleteSectionRebarLayerCommand = new RelayCommand(_ => DeleteSectionRebarLayer(), _ => SelectedSectionRebarLayer != null);
         SaveCommand = new RelayCommand(_ => Save());
         DeleteCommand = new RelayCommand(_ => Delete(), _ => _existingMember != null);
 
@@ -98,7 +100,27 @@ public class PlanarRegionMemberVM : ViewModelBase
     public bool KindIsAmbiguous { get; }
 
     PlateSection? _plateSection;
-    public PlateSection? PlateSection { get => _plateSection; set { _plateSection = value; OnPropertyChanged(); } }
+    public PlateSection? PlateSection
+    {
+        get => _plateSection;
+        set { _plateSection = value; OnPropertyChanged(); RefreshSectionRebarLayers(); }
+    }
+
+    public ObservableCollection<PlateRebarLayerVM> SelectedSectionRebarLayers { get; } = [];
+
+    PlateRebarLayerVM? _selectedSectionRebarLayer;
+    public PlateRebarLayerVM? SelectedSectionRebarLayer
+    {
+        get => _selectedSectionRebarLayer;
+        set { _selectedSectionRebarLayer = value; OnPropertyChanged(); }
+    }
+
+    public InputModeOption[] InputModeOptions { get; } =
+    [
+        new InputModeOption("diameter_spacing", Loc.S("PlateLayerModeSpacing")),
+        new InputModeOption("diameter_count",   Loc.S("PlateLayerModeCount")),
+        new InputModeOption("direct",           Loc.S("PlateLayerModeDirect")),
+    ];
 
     IReadOnlyList<FemValidationDiagnostic> _diagnostics = [];
     public IReadOnlyList<FemValidationDiagnostic> Diagnostics
@@ -127,6 +149,8 @@ public class PlanarRegionMemberVM : ViewModelBase
     public ICommand AddRebarZoneCommand { get; }
     public ICommand DeleteRebarZoneCommand { get; }
     public ICommand SetZonePolygonFromPoolCommand { get; }
+    public ICommand AddSectionRebarLayerCommand { get; }
+    public ICommand DeleteSectionRebarLayerCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand DeleteCommand { get; }
 
@@ -174,6 +198,41 @@ public class PlanarRegionMemberVM : ViewModelBase
         if (contour == null || SelectedRebarZone == null) return;
         SelectedRebarZone.SetPolygon(RebarZonePolygonConverter.FromContour(contour));
         RefreshPlot();
+    }
+
+    void RefreshSectionRebarLayers()
+    {
+        SelectedSectionRebarLayers.Clear();
+        if (_plateSection == null) return;
+        foreach (var l in _plateSection.RebarLayers)
+            SelectedSectionRebarLayers.Add(new PlateRebarLayerVM(l, () => { }));
+    }
+
+    void AddSectionRebarLayer()
+    {
+        if (PlateSection == null) return;
+        var layer = new PlateRebarLayer
+        {
+            Name = $"Слой {SelectedSectionRebarLayers.Count + 1}",
+            InputMode = "diameter_spacing",
+            DiameterX = 0.012, DiameterY = 0.012,
+            SpacingX = 0.2, SpacingY = 0.2,
+            Zsx = -(PlateSection.H / 2.0 - 0.03),
+            Zsy = -(PlateSection.H / 2.0 - 0.04),
+        };
+        layer.RecalcArea();
+        PlateSection.RebarLayers.Add(layer);
+        var vm = new PlateRebarLayerVM(layer, () => { });
+        SelectedSectionRebarLayers.Add(vm);
+        SelectedSectionRebarLayer = vm;
+    }
+
+    void DeleteSectionRebarLayer()
+    {
+        if (SelectedSectionRebarLayer == null || PlateSection == null) return;
+        PlateSection.RebarLayers.Remove(SelectedSectionRebarLayer.Model);
+        SelectedSectionRebarLayers.Remove(SelectedSectionRebarLayer);
+        SelectedSectionRebarLayer = null;
     }
 
     /// <summary>Жёсткий сдвиг полигона выбранной зоны на (du, dv) в локальных координатах региона.</summary>
@@ -386,6 +445,8 @@ public class PlanarRegionMemberVM : ViewModelBase
         member.KindSource = KindSource;
         member.PlateSectionId = PlateSection?.Id;
         _app.db.SaveFemMember(member);
+
+        if (PlateSection != null) _app.db.SavePlateSection(PlateSection);
 
         SaveCompleted?.Invoke(member);
     }
