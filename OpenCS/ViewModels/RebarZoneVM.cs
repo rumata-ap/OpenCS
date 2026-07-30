@@ -16,7 +16,12 @@ public class RebarZoneVM : ViewModelBase
     {
         _model = model;
         _onChanged = onChanged;
-        Layout = new PlateRebarLayerVM(model.Layout, onChanged, armatures);
+        // Layout-поля (диаметр/шаг/z/материал) не влияют ни на полигон, ни на грань зоны — не должны
+        // триггерить RefreshFaceFilteredCollections()/RefreshPlot() на каждое нажатие клавиши.
+        // Иначе ActiveFaceRebarZones.Clear() внутри RefreshFaceFilteredCollections() на каждый символ
+        // шлёт ListBox уведомление Reset, а Selector (ListBox) при Reset безусловно сбрасывает
+        // SelectedItem — SelectedRebarZone обнуляется, панель редактирования зоны теряет DataContext.
+        Layout = new PlateRebarLayerVM(model.Layout, () => { }, armatures);
     }
 
     public RebarZone Model => _model;
