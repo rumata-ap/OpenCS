@@ -16,7 +16,7 @@
          <Grid>
             <Grid.ColumnDefinitions>
                <ColumnDefinition Width="*"/>
-               <ColumnDefinition Width="300"/>
+               <ColumnDefinition Width="450"/>
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0">
@@ -222,13 +222,14 @@
          <Grid>
             <Grid.ColumnDefinitions>
                <ColumnDefinition Width="*"/>
-               <ColumnDefinition Width="300"/>
+               <ColumnDefinition Width="450"/>
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0">
                <Grid.RowDefinitions>
                   <RowDefinition Height="Auto"/>
                   <RowDefinition Height="*"/>
+                  <RowDefinition Height="Auto"/>
                </Grid.RowDefinitions>
                <ToolBar Grid.Row="0">
                   <Button Style="{StaticResource IconButton25}" Click="FitRebarView_Click"
@@ -257,6 +258,67 @@
                        BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
                   <helpers:PlanarRegionPreviewCanvas x:Name="rebarPreview"/>
                </Border>
+               <Border Grid.Row="2" BorderThickness="0,1,1,0"
+                       BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
+                  <StackPanel Margin="4">
+                     <TextBlock Text="{DynamicResource PlanarRegionRebarBaseLayoutHeader}" FontWeight="Bold" Margin="2,0,0,2"/>
+                     <DataGrid ItemsSource="{Binding ActiveFaceSectionRebarLayers}"
+                               SelectedItem="{Binding SelectedSectionRebarLayer, Mode=TwoWay}"
+                               AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                               SelectionMode="Single" SelectionUnit="FullRow"
+                               GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                               Height="100" VerticalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                           <DataGridTextColumn Header="{DynamicResource PlateLayerName}"
+                                               Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
+                           <DataGridComboBoxColumn Header="{DynamicResource PlateLayerMode}"
+                                                    SelectedValueBinding="{Binding InputMode, UpdateSourceTrigger=PropertyChanged}"
+                                                    SelectedValuePath="Key" DisplayMemberPath="Display" Width="120">
+                              <DataGridComboBoxColumn.EditingElementStyle>
+                                 <Style TargetType="ComboBox">
+                                    <Setter Property="ItemsSource" Value="{Binding DataContext.InputModeOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                                 </Style>
+                              </DataGridComboBoxColumn.EditingElementStyle>
+                              <DataGridComboBoxColumn.ElementStyle>
+                                 <Style TargetType="ComboBox">
+                                    <Setter Property="ItemsSource" Value="{Binding DataContext.InputModeOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                                 </Style>
+                              </DataGridComboBoxColumn.ElementStyle>
+                           </DataGridComboBoxColumn>
+                           <DataGridTextColumn Header="{DynamicResource PlateLayerDiamX}"
+                                               Binding="{Binding DiameterXMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
+                           <DataGridTextColumn Header="{DynamicResource PlateLayerSpacingX}"
+                                               Binding="{Binding SpacingXMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
+                           <DataGridTextColumn Header="{DynamicResource PlateLayerZsx}"
+                                               Binding="{Binding ZsxMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
+                           <DataGridTextColumn Header="{DynamicResource PlateLayerDiamY}"
+                                               Binding="{Binding DiameterYMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
+                           <DataGridTextColumn Header="{DynamicResource PlateLayerSpacingY}"
+                                               Binding="{Binding SpacingYMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
+                           <DataGridTextColumn Header="{DynamicResource PlateLayerZsy}"
+                                               Binding="{Binding ZsyMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
+                           <DataGridComboBoxColumn Header="{DynamicResource PlateLayerMaterial}"
+                                                    SelectedItemBinding="{Binding RebarMaterial}"
+                                                    DisplayMemberPath="Tag" Width="110">
+                              <DataGridComboBoxColumn.EditingElementStyle>
+                                 <Style TargetType="ComboBox">
+                                    <Setter Property="ItemsSource" Value="{Binding DataContext.ProjectArmatures, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                                 </Style>
+                              </DataGridComboBoxColumn.EditingElementStyle>
+                              <DataGridComboBoxColumn.ElementStyle>
+                                 <Style TargetType="ComboBox">
+                                    <Setter Property="ItemsSource" Value="{Binding DataContext.ProjectArmatures, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                                 </Style>
+                              </DataGridComboBoxColumn.ElementStyle>
+                           </DataGridComboBoxColumn>
+                        </DataGrid.Columns>
+                     </DataGrid>
+                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <Button Content="{DynamicResource AddRebarLayer}" Command="{Binding AddSectionRebarLayerCommand}" Padding="6,3" Margin="0,0,8,0"/>
+                        <Button Content="{DynamicResource DeleteRebarLayer}" Command="{Binding DeleteSectionRebarLayerCommand}" Padding="6,3"/>
+                     </StackPanel>
+                  </StackPanel>
+               </Border>
             </Grid>
 
             <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
@@ -266,66 +328,6 @@
                      <TabItem Header="{DynamicResource PlanarRegionRebarFaceBottomTab}" Tag="MinusN"/>
                      <TabItem Header="{DynamicResource PlanarRegionRebarFaceTopTab}" Tag="PlusN"/>
                   </TabControl>
-
-                  <GroupBox Header="{DynamicResource PlanarRegionRebarBaseLayoutHeader}" Margin="0,0,0,8">
-                     <StackPanel>
-                        <DataGrid ItemsSource="{Binding ActiveFaceSectionRebarLayers}"
-                                  SelectedItem="{Binding SelectedSectionRebarLayer, Mode=TwoWay}"
-                                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                                  SelectionMode="Single" SelectionUnit="FullRow"
-                                  GridLinesVisibility="Horizontal" HeadersVisibility="Column"
-                                  Margin="4" MaxHeight="180">
-                           <DataGrid.Columns>
-                              <DataGridTextColumn Header="{DynamicResource PlateLayerName}"
-                                                  Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="90"/>
-                              <DataGridComboBoxColumn Header="{DynamicResource PlateLayerMode}"
-                                                       SelectedValueBinding="{Binding InputMode, UpdateSourceTrigger=PropertyChanged}"
-                                                       SelectedValuePath="Key" DisplayMemberPath="Display" Width="120">
-                                 <DataGridComboBoxColumn.EditingElementStyle>
-                                    <Style TargetType="ComboBox">
-                                       <Setter Property="ItemsSource" Value="{Binding DataContext.InputModeOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
-                                    </Style>
-                                 </DataGridComboBoxColumn.EditingElementStyle>
-                                 <DataGridComboBoxColumn.ElementStyle>
-                                    <Style TargetType="ComboBox">
-                                       <Setter Property="ItemsSource" Value="{Binding DataContext.InputModeOptions, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
-                                    </Style>
-                                 </DataGridComboBoxColumn.ElementStyle>
-                              </DataGridComboBoxColumn>
-                              <DataGridTextColumn Header="{DynamicResource PlateLayerDiamX}"
-                                                  Binding="{Binding DiameterXMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
-                              <DataGridTextColumn Header="{DynamicResource PlateLayerSpacingX}"
-                                                  Binding="{Binding SpacingXMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
-                              <DataGridTextColumn Header="{DynamicResource PlateLayerZsx}"
-                                                  Binding="{Binding ZsxMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
-                              <DataGridTextColumn Header="{DynamicResource PlateLayerDiamY}"
-                                                  Binding="{Binding DiameterYMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
-                              <DataGridTextColumn Header="{DynamicResource PlateLayerSpacingY}"
-                                                  Binding="{Binding SpacingYMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
-                              <DataGridTextColumn Header="{DynamicResource PlateLayerZsy}"
-                                                  Binding="{Binding ZsyMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
-                              <DataGridComboBoxColumn Header="{DynamicResource PlateLayerMaterial}"
-                                                       SelectedItemBinding="{Binding RebarMaterial}"
-                                                       DisplayMemberPath="Tag" Width="110">
-                                 <DataGridComboBoxColumn.EditingElementStyle>
-                                    <Style TargetType="ComboBox">
-                                       <Setter Property="ItemsSource" Value="{Binding DataContext.ProjectArmatures, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
-                                    </Style>
-                                 </DataGridComboBoxColumn.EditingElementStyle>
-                                 <DataGridComboBoxColumn.ElementStyle>
-                                    <Style TargetType="ComboBox">
-                                       <Setter Property="ItemsSource" Value="{Binding DataContext.ProjectArmatures, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
-                                    </Style>
-                                 </DataGridComboBoxColumn.ElementStyle>
-                              </DataGridComboBoxColumn>
-                           </DataGrid.Columns>
-                        </DataGrid>
-                        <StackPanel Orientation="Horizontal" Margin="4,0,4,4">
-                           <Button Content="{DynamicResource AddRebarLayer}" Command="{Binding AddSectionRebarLayerCommand}" Padding="6,3" Margin="0,0,8,0"/>
-                           <Button Content="{DynamicResource DeleteRebarLayer}" Command="{Binding DeleteSectionRebarLayerCommand}" Padding="6,3"/>
-                        </StackPanel>
-                     </StackPanel>
-                  </GroupBox>
 
                   <GroupBox Header="{DynamicResource PlanarRegionRebarZonesHeader}" Margin="0,0,0,8">
                      <StackPanel Margin="4">
