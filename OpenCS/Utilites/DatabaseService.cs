@@ -1,6 +1,7 @@
 using CScore;
 using CScore.Fire;
 using CScore.Fire.Entities;
+using CScore.PlateRebar;
 using CSmath;
 
 using Microsoft.Data.Sqlite;
@@ -29,7 +30,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-        const int CurrentSchemaVersion = 40;
+        const int CurrentSchemaVersion = 41;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -225,7 +226,8 @@ namespace OpenCS.Utilites
                 softening_eps_c2     REAL NOT NULL DEFAULT 0.002,
                 plate_model           TEXT NOT NULL DEFAULT 'layered',
                 concrete_diagram_type TEXT NOT NULL DEFAULT 'L3',
-                rebar_layers_json     TEXT NOT NULL DEFAULT '[]'
+                rebar_layers_json     TEXT NOT NULL DEFAULT '[]',
+                rebar_zones_json      TEXT NOT NULL DEFAULT '[]'
             );
             CREATE TABLE IF NOT EXISTS material_areas (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -561,6 +563,7 @@ namespace OpenCS.Utilites
                if (i == 37) { MigrateV38(); continue; }
                if (i == 38) { MigrateV39(); continue; }
                if (i == 39) { MigrateV40(); continue; }
+               if (i == 40) { MigrateV41(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1047,6 +1050,13 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE fem_members ADD COLUMN kind TEXT");
          if (!ColumnExists("fem_members", "kind_source"))
             MigExec("ALTER TABLE fem_members ADD COLUMN kind_source TEXT NOT NULL DEFAULT 'auto'");
+      }
+
+      /// <summary>Миграция v41: rebar_zones_json в plate_sections (PlateRebarField.Zones).</summary>
+      void MigrateV41()
+      {
+         if (!ColumnExists("plate_sections", "rebar_zones_json"))
+            MigExec("ALTER TABLE plate_sections ADD COLUMN rebar_zones_json TEXT NOT NULL DEFAULT '[]'");
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -2277,7 +2287,8 @@ namespace OpenCS.Utilites
             SELECT id, num, tag, description, h, n_layers,
                    concrete_material_id, rebar_material_id,
                    tension_concrete, softening_model, softening_eps_c2,
-                   plate_model, concrete_diagram_type, rebar_layers_json
+                   plate_model, concrete_diagram_type, rebar_layers_json,
+                   rebar_zones_json
             FROM plate_sections ORDER BY num
          """;
          using var r = cmd.ExecuteReader();
@@ -2302,6 +2313,9 @@ namespace OpenCS.Utilites
             var layersJson = r.GetString(13);
             var layers = JsonSerializer.Deserialize<List<PlateRebarLayer>>(layersJson, _jsonSettings);
             if (layers != null) ps.RebarLayers = layers;
+            var zonesJson = r.GetString(14);
+            var zones = JsonSerializer.Deserialize<List<RebarZone>>(zonesJson, _jsonSettings);
+            if (zones != null) ps.RebarZones = zones;
             PlateSections.Add(ps);
          }
       }
@@ -2309,6 +2323,7 @@ namespace OpenCS.Utilites
       public void SavePlateSection(PlateSection ps)
       {
          var layersJson = JsonSerializer.Serialize(ps.RebarLayers, _jsonSettings);
+         var zonesJson = JsonSerializer.Serialize(ps.RebarZones, _jsonSettings);
          using var cmd = _connection.CreateCommand();
          bool isNew = ps.Id == 0;
          if (isNew)
@@ -2318,8 +2333,8 @@ namespace OpenCS.Utilites
                   (num, tag, description, h, n_layers,
                    concrete_material_id, rebar_material_id,
                    tension_concrete, softening_model, softening_eps_c2,
-                   plate_model, concrete_diagram_type, rebar_layers_json)
-               VALUES (@num,@tag,@desc,@h,@nl,@cmid,@rmid,@tc,@sm,@sec2,@pm,@cdtype,@rlj);
+                   plate_model, concrete_diagram_type, rebar_layers_json, rebar_zones_json)
+               VALUES (@num,@tag,@desc,@h,@nl,@cmid,@rmid,@tc,@sm,@sec2,@pm,@cdtype,@rlj,@rzj);
                SELECT last_insert_rowid();
             """;
          }
@@ -2330,7 +2345,8 @@ namespace OpenCS.Utilites
                   num=@num, tag=@tag, description=@desc, h=@h, n_layers=@nl,
                   concrete_material_id=@cmid, rebar_material_id=@rmid,
                   tension_concrete=@tc, softening_model=@sm, softening_eps_c2=@sec2,
-                  plate_model=@pm, concrete_diagram_type=@cdtype, rebar_layers_json=@rlj
+                  plate_model=@pm, concrete_diagram_type=@cdtype, rebar_layers_json=@rlj,
+                  rebar_zones_json=@rzj
                WHERE id=@id;
             """;
             cmd.Parameters.AddWithValue("@id", ps.Id);
@@ -2349,6 +2365,7 @@ namespace OpenCS.Utilites
             string.IsNullOrEmpty(ps.PlateModel) ? "layered" : ps.PlateModel);
          cmd.Parameters.AddWithValue("@cdtype", ps.ConcreteDiagramType.ToString());
          cmd.Parameters.AddWithValue("@rlj",  layersJson);
+         cmd.Parameters.AddWithValue("@rzj",  zonesJson);
          if (isNew) ps.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
 
