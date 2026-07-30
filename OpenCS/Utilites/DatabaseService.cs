@@ -30,7 +30,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-        const int CurrentSchemaVersion = 41;
+        const int CurrentSchemaVersion = 42;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -363,7 +363,8 @@ namespace OpenCS.Utilites
                 frame_is_recovered  INTEGER NOT NULL DEFAULT 1,
                 source_contour_id   INTEGER REFERENCES contours(id),
                 geometry_fingerprint TEXT NOT NULL DEFAULT '',
-                boundary_segments_json TEXT NOT NULL DEFAULT '[]'
+                boundary_segments_json TEXT NOT NULL DEFAULT '[]',
+                rebar_zones_json TEXT NOT NULL DEFAULT '[]'
             );
             CREATE TABLE IF NOT EXISTS fem_members (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -564,6 +565,7 @@ namespace OpenCS.Utilites
                if (i == 38) { MigrateV39(); continue; }
                if (i == 39) { MigrateV40(); continue; }
                if (i == 40) { MigrateV41(); continue; }
+               if (i == 41) { MigrateV42(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1057,6 +1059,14 @@ namespace OpenCS.Utilites
       {
          if (!ColumnExists("plate_sections", "rebar_zones_json"))
             MigExec("ALTER TABLE plate_sections ADD COLUMN rebar_zones_json TEXT NOT NULL DEFAULT '[]'");
+      }
+
+      /// <summary>Миграция v42: rebar_zones_json в planar_regions (перенесено с PlateSection —
+      /// зоны армирования привязаны к геометрии региона, не к переиспользуемому сечению).</summary>
+      void MigrateV42()
+      {
+         if (!ColumnExists("planar_regions", "rebar_zones_json"))
+            MigExec("ALTER TABLE planar_regions ADD COLUMN rebar_zones_json TEXT NOT NULL DEFAULT '[]'");
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -5217,11 +5227,12 @@ namespace OpenCS.Utilites
                 frame_local_x_x, frame_local_x_y, frame_local_x_z,
                 frame_local_y_x, frame_local_y_y, frame_local_y_z,
                 frame_local_z_x, frame_local_z_y, frame_local_z_z,
-                frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json)
+                frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json,
+                rebar_zones_json)
             VALUES
                (@sid, @tag, @wkt, @fox, @foy, @foz,
                 @fxx, @fxy, @fxz, @fyx, @fyy, @fyz, @fzx, @fzy, @fzz,
-                @rec, @scid, @fp, @bsj);
+                @rec, @scid, @fp, @bsj, @rzj);
             SELECT last_insert_rowid();
          """;
          AddPlanarRegionParameters(cmd, region, schemaId);
@@ -5237,7 +5248,8 @@ namespace OpenCS.Utilites
                frame_local_x_x=@fxx, frame_local_x_y=@fxy, frame_local_x_z=@fxz,
                frame_local_y_x=@fyx, frame_local_y_y=@fyy, frame_local_y_z=@fyz,
                frame_local_z_x=@fzx, frame_local_z_y=@fzy, frame_local_z_z=@fzz,
-               frame_is_recovered=@rec, source_contour_id=@scid, geometry_fingerprint=@fp, boundary_segments_json=@bsj
+               frame_is_recovered=@rec, source_contour_id=@scid, geometry_fingerprint=@fp, boundary_segments_json=@bsj,
+               rebar_zones_json=@rzj
             WHERE id=@id
          """;
          AddPlanarRegionParameters(cmd, region, schemaId);
@@ -5252,6 +5264,7 @@ namespace OpenCS.Utilites
             .ToList();
          string wkt = WktHelper.PolygonToWKT(region.Hull.X, region.Hull.Y, holes.Count > 0 ? holes : null);
          string segmentsJson = JsonSerializer.Serialize(region.BoundarySegments);
+         string zonesJson = JsonSerializer.Serialize(region.RebarZones);
 
          cmd.Parameters.AddWithValue("@sid", schemaId);
          cmd.Parameters.AddWithValue("@tag", region.Tag);
@@ -5272,6 +5285,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@scid", (object?)region.SourceContourId ?? DBNull.Value);
          cmd.Parameters.AddWithValue("@fp", region.GeometryFingerprint);
          cmd.Parameters.AddWithValue("@bsj", segmentsJson);
+         cmd.Parameters.AddWithValue("@rzj", zonesJson);
       }
 
       public List<CScore.Planar.PlanarRegion> GetPlanarRegions(int schemaId)
@@ -5283,7 +5297,8 @@ namespace OpenCS.Utilites
                    frame_local_x_x, frame_local_x_y, frame_local_x_z,
                    frame_local_y_x, frame_local_y_y, frame_local_y_z,
                    frame_local_z_x, frame_local_z_y, frame_local_z_z,
-                   frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json
+                   frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json,
+                   rebar_zones_json
             FROM planar_regions WHERE schema_id=@sid
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
@@ -5311,6 +5326,8 @@ namespace OpenCS.Utilites
 
             var segments = JsonSerializer.Deserialize<List<CScore.Planar.BoundarySegment>>(rdr.GetString(18));
             if (segments != null) region.BoundarySegments = segments;
+            var zones = JsonSerializer.Deserialize<List<CScore.PlateRebar.RebarZone>>(rdr.GetString(19));
+            if (zones != null) region.RebarZones = zones;
 
             result.Add(region);
          }
