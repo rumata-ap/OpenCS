@@ -21,13 +21,18 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
 
         _vm.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(PlanarRegionMemberVM.PlotElements))
-                UpdatePlot();
+            if (e.PropertyName == nameof(PlanarRegionMemberVM.GeometryPlotElements))
+                UpdateGeometryPlot();
+            if (e.PropertyName == nameof(PlanarRegionMemberVM.RebarPlotElements))
+                UpdateRebarPlot();
         };
         _vm.SaveCompleted += m => { SavedMember = m; DialogResult = true; Close(); };
         _vm.DeleteCompleted += m => { DeletedMember = m; DialogResult = true; Close(); };
 
-        UpdatePlot();
+        rebarPreview.ModelClicked += (x, y) => _vm.SelectZoneAtPoint(x, y);
+
+        UpdateGeometryPlot();
+        UpdateRebarPlot();
     }
 
     void Window_Loaded(object sender, System.Windows.RoutedEventArgs e)
@@ -59,6 +64,15 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
         if (dlg.ShowDialog() == true) _vm.RotateGeometryDegrees(dlg.AngleDeg);
     }
 
+    void FitRebarView_Click(object sender, System.Windows.RoutedEventArgs e) => rebarPreview.FitToView();
+
+    void RebarFaceTab_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (e.AddedItems.Count == 0) return;
+        if (e.AddedItems[0] is System.Windows.Controls.TabItem { Tag: string tag })
+            _vm.ActiveRebarFace = tag == "PlusN" ? CScore.PlateRebar.RebarFace.PlusN : CScore.PlateRebar.RebarFace.MinusN;
+    }
+
     void MoveZoneGeometry_Click(object sender, System.Windows.RoutedEventArgs e)
     {
         var dlg = new GeometryTransformDialog(GeometryTransformKind.Move, "PlanarRegionRebarZoneMoveTool") { Owner = this };
@@ -77,14 +91,26 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
         if (dlg.ShowDialog() == true) _vm.RotateZoneGeometryDegrees(dlg.AngleDeg);
     }
 
-    void UpdatePlot()
+    void UpdateGeometryPlot()
     {
-        var elements = _vm.PlotElements;
-        if (elements.Count == 0) { preview.Clear(); return; }
+        var elements = _vm.GeometryPlotElements;
+        var hull = _vm.Hull;
+        UpdatePlot(preview, elements, hull);
+    }
+
+    void UpdateRebarPlot()
+    {
+        var elements = _vm.RebarPlotElements;
+        var hull = _vm.Hull;
+        UpdatePlot(rebarPreview, elements, hull);
+    }
+
+    static void UpdatePlot(PlanarRegionPreviewCanvas canvas, System.Collections.Generic.IReadOnlyList<PlotElement> elements, CScore.Contour? hull)
+    {
+        if (elements.Count == 0) { canvas.Clear(); return; }
 
         double xMin = double.MaxValue, xMax = double.MinValue;
         double yMin = double.MaxValue, yMax = double.MinValue;
-        var hull = _vm.Hull;
         if (hull != null)
             for (int i = 0; i < hull.X.Count; i++)
             {
@@ -94,10 +120,10 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
                 if (hull.Y[i] > yMax) yMax = hull.Y[i];
             }
 
-        if (xMin > xMax) { preview.Clear(); return; }
+        if (xMin > xMax) { canvas.Clear(); return; }
         if (xMax - xMin < 1e-9) { xMin -= 0.1; xMax += 0.1; }
         if (yMax - yMin < 1e-9) { yMin -= 0.1; yMax += 0.1; }
 
-        preview.SetElements(elements, xMin, xMax, yMin, yMax);
+        canvas.SetElements(elements, xMin, xMax, yMin, yMax);
     }
 }
