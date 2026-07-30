@@ -1670,6 +1670,7 @@
     <system:String x:Key="PlanarRegionRebarFaceBottomTab">Bottom</system:String>
     <system:String x:Key="PlanarRegionRebarFaceTopTab">Top</system:String>
     <system:String x:Key="PlanarRegionRebarZoneBatchAddFromSet">Add from DXF set</system:String>
+    <system:String x:Key="PlanarRegionRebarZoneApplyMaterialToSelected">Apply material to selected</system:String>
     <system:String x:Key="GeometryTransformDx">ΔX, m</system:String>
     <system:String x:Key="GeometryTransformDy">ΔY, m</system:String>
     <system:String x:Key="GeometryTransformFactor">Scale factor</system:String>

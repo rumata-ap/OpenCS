@@ -91,6 +91,13 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
         if (dlg.ShowDialog() == true) _vm.RotateZoneGeometryDegrees(dlg.AngleDeg);
     }
 
+    void ApplyZoneMaterial_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        var zones = zonesList.SelectedItems.Cast<RebarZoneVM>().ToList();
+        var material = zoneBatchMaterialCombo.SelectedItem as CScore.Material;
+        _vm.ApplyMaterialToSelectedZones(zones, material);
+    }
+
     void UpdateGeometryPlot()
     {
         var elements = _vm.GeometryPlotElements;

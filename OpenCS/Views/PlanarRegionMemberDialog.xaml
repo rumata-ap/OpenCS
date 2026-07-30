@@ -331,10 +331,17 @@
                      <StackPanel Margin="4">
                         <ListBox x:Name="zonesList" ItemsSource="{Binding ActiveFaceRebarZones}"
                                  SelectedItem="{Binding SelectedRebarZone, Mode=TwoWay}"
+                                 SelectionMode="Extended"
                                  DisplayMemberPath="Name" Height="80" Margin="0,0,0,4"/>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                            <Button Content="{DynamicResource AddRebarZone}" Command="{Binding AddRebarZoneCommand}" Padding="6,3" Margin="0,0,8,0"/>
                            <Button Content="{DynamicResource Delete}" Command="{Binding DeleteRebarZoneCommand}" Padding="6,3"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                           <ComboBox x:Name="zoneBatchMaterialCombo" Width="140"
+                                     ItemsSource="{Binding ProjectArmatures}" DisplayMemberPath="Tag" Margin="0,0,8,0"/>
+                           <Button Content="{DynamicResource PlanarRegionRebarZoneApplyMaterialToSelected}"
+                                   Click="ApplyZoneMaterial_Click" Padding="6,3"/>
                         </StackPanel>
 
                         <TextBlock Text="{DynamicResource PlanarRegionRebarZonePolygonPool}" Margin="0,0,0,2"/>
@@ -382,6 +389,10 @@
 
                               <GroupBox Header="{DynamicResource PlateRebarLayers}">
                                  <StackPanel Margin="4">
+                                    <TextBlock Text="{DynamicResource PlateLayerMaterial}" Margin="0,0,0,2"/>
+                                    <ComboBox ItemsSource="{Binding DataContext.ProjectArmatures, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              SelectedItem="{Binding Layout.RebarMaterial, Mode=TwoWay}"
+                                              DisplayMemberPath="Tag" Margin="0,0,0,4"/>
                                     <TextBlock Text="{DynamicResource PlateLayerDiamX}" Margin="0,0,0,2"/>
                                     <TextBox Text="{Binding Layout.DiameterXMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Margin="0,0,0,4"/>
                                     <TextBlock Text="{DynamicResource PlateLayerSpacingX}" Margin="0,0,0,2"/>
