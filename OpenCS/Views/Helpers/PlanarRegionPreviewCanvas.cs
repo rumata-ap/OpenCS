@@ -220,4 +220,36 @@ public class PlanarRegionPreviewCanvas : FrameworkElement
         var (x, y) = ToModel(e.GetPosition(this));
         ModelClicked?.Invoke(x, y);
     }
+
+    bool _isPanning;
+    Point _panDragStart;
+
+    protected override void OnMouseDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.ChangedButton != MouseButton.Middle) return;
+        _isPanning = true;
+        _panDragStart = e.GetPosition(this);
+        CaptureMouse();
+        e.Handled = true;
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (!_isPanning || !IsMouseCaptured) return;
+        var pos = e.GetPosition(this);
+        _originX -= (pos.X - _panDragStart.X) / _scale;
+        _originY += (pos.Y - _panDragStart.Y) / _scale;
+        _panDragStart = pos;
+        InvalidateVisual();
+    }
+
+    protected override void OnMouseUp(MouseButtonEventArgs e)
+    {
+        base.OnMouseUp(e);
+        if (e.ChangedButton != MouseButton.Middle || !_isPanning) return;
+        _isPanning = false;
+        ReleaseMouseCapture();
+    }
 }
