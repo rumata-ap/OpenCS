@@ -47,4 +47,13 @@ public sealed class ShellSectionModelTests
         Assert.Equal("nDMaterial ElasticIsotropic 7 30000000000 0.25", spec.ToTcl(7));
         Assert.Equal(spec.Fingerprint, new ElasticIsotropicShellMaterialSpec(30e9, 0.25).Fingerprint);
     }
+
+    [Fact]
+    public void ElasticUniaxialMaterial_EmitsDeterministicUniaxialCommand()
+    {
+        var spec = new ElasticUniaxialShellMaterialSpec(200e9);
+
+        Assert.Equal("uniaxialMaterial Elastic 500 200000000000", spec.ToTcl(500));
+        Assert.Equal(spec.Fingerprint, new ElasticUniaxialShellMaterialSpec(200e9).Fingerprint);
+    }
 }

@@ -80,3 +80,25 @@ public sealed record PlateRebarShellMaterialSpec(int UniaxialMaterialTag, double
         return $"nDMaterial PlateRebar {tag} {UniaxialMaterialTag} {F(AngleDegrees)}";
     }
 }
+
+/// <summary>Упругий uniaxial-материал OpenSees — зависимость для UniaxialMaterialTag
+/// у ориентированного smeared-армирования (<see cref="PlateRebarShellMaterialSpec"/>).</summary>
+public sealed record ElasticUniaxialShellMaterialSpec(double E) : NativeShellMaterialSpec
+{
+    /// <inheritdoc />
+    public override string Kind => "Elastic";
+
+    /// <inheritdoc />
+    public override string Fingerprint => Hash(Kind, F(E));
+
+    /// <inheritdoc />
+    public override string ToTcl(int tag)
+    {
+        if (tag <= 0)
+            throw new InvalidOperationException("Tag shell-материала должен быть положительным.");
+        if (!double.IsFinite(E) || E <= 0)
+            throw new InvalidOperationException("Модуль E uniaxial-материала должен быть положительным и конечным.");
+
+        return $"uniaxialMaterial Elastic {tag} {F(E)}";
+    }
+}
