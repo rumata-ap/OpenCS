@@ -31,14 +31,14 @@ public class PlanarRegionMemberVM : ViewModelBase
         _existingRegion = existingRegion;
 
         Holes = [];
+        RebarZones = new ObservableCollection<RebarZoneVM>(
+            (existingRegion?.RebarZones ?? []).Select(z => new RebarZoneVM(z, RefreshPlot)));
+
         if (existingRegion != null)
         {
             Hull = existingRegion.Hull;
             foreach (var h in existingRegion.Holes) Holes.Add(h);
         }
-
-        RebarZones = new ObservableCollection<RebarZoneVM>(
-            (existingRegion?.RebarZones ?? []).Select(z => new RebarZoneVM(z, RefreshPlot)));
 
         string autoKind = PlanarKindClassifier.Classify(frame, out bool ambiguous);
         KindIsAmbiguous = ambiguous;
