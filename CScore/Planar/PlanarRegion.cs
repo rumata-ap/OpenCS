@@ -1,3 +1,5 @@
+using CScore.PlateRebar;
+
 namespace CScore.Planar;
 
 /// <summary>Нормализованный плоский конструктивный объект (плита/стена), независимый от
@@ -13,6 +15,10 @@ public sealed class PlanarRegion
     public List<BoundarySegment> BoundarySegments { get; set; } = [];
     public int? SourceContourId { get; set; }
     public string GeometryFingerprint { get; set; } = "";
+
+    /// <summary>Пространственные зоны армирования (PlateRebarField.Zones) — привязаны к
+    /// геометрии региона, а не к переиспользуемому PlateSection.</summary>
+    public List<RebarZone> RebarZones { get; set; } = [];
 
     public Contour Hull
     {

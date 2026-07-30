@@ -104,10 +104,6 @@ namespace CScore
       /// <summary>Арматурные слои. Сериализуются как JSON-столбец в БД.</summary>
       public List<PlateRebarLayer> RebarLayers { get; set; } = [];
 
-      /// <summary>Пространственные зоны армирования (PlateRebarField.Zones). Сериализуются
-      /// как отдельный JSON-столбец в БД, независимо от RebarLayers.</summary>
-      public List<RebarZone> RebarZones { get; set; } = [];
-
       // ── Модель бетона ──────────────────────────────────────────────────────
       /// <summary>Учёт растяжения бетона.</summary>
       public bool TensionConcrete { get; set; }
@@ -141,7 +137,6 @@ namespace CScore
          SofteningEpsC2 = SofteningEpsC2, PlateModel = PlateModel,
          ConcreteDiagramType = ConcreteDiagramType,
          RebarLayers = RebarLayers.Select(l => l.Clone()).ToList(),
-         RebarZones = RebarZones.Select(z => z.Clone()).ToList(),
       };
 
       // ── Расчёт ─────────────────────────────────────────────────────────────

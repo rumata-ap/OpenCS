@@ -1,5 +1,6 @@
 using CScore;
 using CScore.PlateRebar;
+using CScore.Planar;
 using Xunit;
 
 namespace CScore.Tests.PlateRebar;
@@ -13,8 +14,9 @@ public class PlateRebarFieldTests
         {
             RebarLayers = [new PlateRebarLayer { Name = "Top", Asx = 0.001 }],
         };
+        var region = new PlanarRegion();
 
-        var field = PlateRebarField.From(section);
+        var field = PlateRebarField.From(section, region);
 
         Assert.Single(field.BaseLayout);
         Assert.Equal("Top", field.BaseLayout[0].Name);
@@ -22,30 +24,25 @@ public class PlateRebarFieldTests
     }
 
     [Fact]
-    public void From_UsesSectionRebarZones()
+    public void From_UsesRegionRebarZones()
     {
-        var section = new PlateSection
+        var section = new PlateSection();
+        var region = new PlanarRegion
         {
             RebarZones = [new RebarZone { Name = "Zone A" }],
         };
 
-        var field = PlateRebarField.From(section);
+        var field = PlateRebarField.From(section, region);
 
         Assert.Single(field.Zones);
         Assert.Equal("Zone A", field.Zones[0].Name);
     }
 
     [Fact]
-    public void CloneForCalc_DeepCopiesRebarZones()
+    public void RegionRebarZones_DefaultsToEmptyList()
     {
-        var section = new PlateSection
-        {
-            RebarZones = [new RebarZone { Name = "Zone A", Priority = 3 }],
-        };
+        var region = new PlanarRegion();
 
-        var clone = section.CloneForCalc();
-        clone.RebarZones[0].Priority = 99;
-
-        Assert.Equal(3, section.RebarZones[0].Priority);
+        Assert.Empty(region.RebarZones);
     }
 }
