@@ -143,7 +143,7 @@ public static class FemAnalysisExecutor
             calcSettings.OpenSeesGeomTransfKind,
             calcSettings.OpenSeesRefinementDivisions, calcSettings.OpenSeesTolerance, calcSettings.OpenSeesMaxIterations,
             calcSettings.OpenSeesIntegrationPoints, calcSettings.OpenSeesConvergenceTest, parameters.ConsiderConcreteTension,
-            Enum.Parse<MaterialSource>(parameters.MaterialSource), Enum.Parse<ConcreteModelKind>(parameters.ConcreteModel),
+            Enum.Parse<MaterialSource>(parameters.MaterialSource), Enum.Parse<MainMaterialModelKind>(parameters.MainMaterialModel),
             Enum.Parse<SteelModelKind>(parameters.SteelModel), parameters.SteelHardeningRatioOverride,
             calcSettings.OpenSeesMaxRefinementDepth, parameters.ElementFormulation, calcSettings.OpenSeesAlgorithm,
             calcSettings.OpenSeesRecordFiberStates, calcSettings.ResolveOpenSeesFiberStatesIntegrationPoints(),

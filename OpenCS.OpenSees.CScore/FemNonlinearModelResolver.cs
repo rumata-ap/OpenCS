@@ -80,7 +80,7 @@ public sealed class FemNonlinearModelResolver
                         FirstMaterialTag = nextMaterialTag,
                         ConsiderConcreteTension = options.ConsiderConcreteTension,
                         MaterialSource = options.MaterialSource,
-                        ConcreteModel = options.ConcreteModel,
+                        MainMaterialModel = options.MainMaterialModel,
                         SteelModel = options.SteelModel,
                         SteelHardeningRatioOverride = options.SteelHardeningRatioOverride,
                         ConsiderPhysicalNonlinearity = options.ConsiderPhysicalNonlinearity

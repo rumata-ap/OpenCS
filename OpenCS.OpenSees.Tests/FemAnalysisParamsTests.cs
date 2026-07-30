@@ -94,4 +94,21 @@ public class FemAnalysisParamsTests
         var stage = Assert.Single(stages);
         Assert.Equal("A", stage.Tag);
     }
+
+    [Fact]
+    public void Parse_LegacyConcreteModel_MigratesToMainMaterialModel()
+    {
+        var parsed = FemAnalysisParams.Parse("{\"ConcreteModel\":\"Concrete0102\"}");
+
+        Assert.Equal("Concrete0102", parsed.MainMaterialModel);
+        Assert.DoesNotContain("ConcreteModel", parsed.ToJson(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NewParams_DefaultMainMaterialModelIsConcrete04()
+    {
+        var parsed = FemAnalysisParams.Parse("{}");
+
+        Assert.Equal("Concrete04", parsed.MainMaterialModel);
+    }
 }

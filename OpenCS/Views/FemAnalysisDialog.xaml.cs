@@ -31,11 +31,11 @@ public partial class FemAnalysisDialog : Window
         StagesSourceColumn.ItemsSource = sources;
         CalcTypeBox.ItemsSource = Enum.GetValues<CalcType>();
         var materialSourceOptions = BuildMaterialSourceOptions();
-        var concreteModelOptions = BuildConcreteModelOptions();
+        var mainMaterialModelOptions = BuildMainMaterialModelOptions();
         var steelModelOptions = BuildSteelModelOptions();
         var elementFormulationOptions = BuildElementFormulationOptions();
         MaterialSourceBox.ItemsSource = materialSourceOptions;
-        ConcreteModelBox.ItemsSource = concreteModelOptions;
+        MainMaterialModelBox.ItemsSource = mainMaterialModelOptions;
         SteelModelBox.ItemsSource = steelModelOptions;
         ElementFormulationBox.ItemsSource = elementFormulationOptions;
         MaterialSourceBox.SelectionChanged += (_, _) => UpdateNativeMaterialPanelVisibility();
@@ -51,7 +51,7 @@ public partial class FemAnalysisDialog : Window
             ConsiderPhysicalNonlinearityCb.IsChecked = pars.ConsiderPhysicalNonlinearity;
             ConsiderConcreteTensionCb.IsChecked = pars.ConsiderConcreteTension;
             MaterialSourceBox.SelectedItem = materialSourceOptions.FirstOrDefault(o => o.Value == pars.MaterialSource) ?? materialSourceOptions[0];
-            ConcreteModelBox.SelectedItem = concreteModelOptions.FirstOrDefault(o => o.Value == pars.ConcreteModel) ?? concreteModelOptions[1];
+            MainMaterialModelBox.SelectedItem = mainMaterialModelOptions.FirstOrDefault(o => o.Value == pars.MainMaterialModel) ?? mainMaterialModelOptions[1];
             SteelModelBox.SelectedItem = steelModelOptions.FirstOrDefault(o => o.Value == pars.SteelModel) ?? steelModelOptions[1];
             SteelHardeningRatioBox.Text = pars.SteelHardeningRatioOverride?.ToString(CultureInfo.InvariantCulture) ?? "";
             ElementFormulationBox.SelectedItem = elementFormulationOptions.FirstOrDefault(o => o.Value == pars.ElementFormulation) ?? elementFormulationOptions[0];
@@ -84,7 +84,7 @@ public partial class FemAnalysisDialog : Window
         {
             CalcTypeBox.SelectedItem = CalcType.C;
             MaterialSourceBox.SelectedItem = materialSourceOptions[0];
-            ConcreteModelBox.SelectedItem = concreteModelOptions[1];
+            MainMaterialModelBox.SelectedItem = mainMaterialModelOptions[1];
             SteelModelBox.SelectedItem = steelModelOptions[1];
             ElementFormulationBox.SelectedItem = elementFormulationOptions[0];
             if (LoadSourceBox.Items.Count > 0) LoadSourceBox.SelectedIndex = 0;
@@ -115,16 +115,18 @@ public partial class FemAnalysisDialog : Window
         new("Native", Loc.S("FemMaterialSourceNative")),
     ];
 
-    static List<ComboOption> BuildConcreteModelOptions() =>
+    static List<ComboOption> BuildMainMaterialModelOptions() =>
     [
-        new("Concrete0102", Loc.S("FemConcreteModelConcrete0102")),
-        new("Concrete04", Loc.S("FemConcreteModelConcrete04")),
+        new("Concrete0102", Loc.S("FemMainMaterialModelConcrete0102")),
+        new("Concrete04", Loc.S("FemMainMaterialModelConcrete04")),
+        new("Steel01", Loc.S("FemMainMaterialModelSteel01")),
+        new("Steel02", Loc.S("FemMainMaterialModelSteel02")),
     ];
 
     static List<ComboOption> BuildSteelModelOptions() =>
     [
-        new("Steel01", "Steel01"),
-        new("Steel02", "Steel02"),
+        new("Steel01", Loc.S("FemReinforcementModelSteel01")),
+        new("Steel02", Loc.S("FemReinforcementModelSteel02")),
     ];
 
     static List<ComboOption> BuildElementFormulationOptions() =>
@@ -231,7 +233,7 @@ public partial class FemAnalysisDialog : Window
             pars.ConsiderPhysicalNonlinearity = ConsiderPhysicalNonlinearityCb.IsChecked == true;
             pars.ConsiderConcreteTension = ConsiderConcreteTensionCb.IsChecked == true;
             pars.MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated";
-            pars.ConcreteModel = (ConcreteModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04";
+            pars.MainMaterialModel = (MainMaterialModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04";
             pars.SteelModel = (SteelModelBox.SelectedItem as ComboOption)?.Value ?? "Steel02";
             pars.SteelHardeningRatioOverride =
                 Pars.ParseAny(SteelHardeningRatioBox.Text, out var hardening) ? hardening : null;

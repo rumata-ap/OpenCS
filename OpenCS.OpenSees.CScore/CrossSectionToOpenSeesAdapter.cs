@@ -28,8 +28,8 @@ public static class CrossSectionToOpenSeesAdapter
         /// (по умолчанию) либо нативные параметрические материалы OpenSees.</summary>
         public MaterialSource MaterialSource { get; init; } = MaterialSource.Translated;
 
-        /// <summary>Модель бетона при <see cref="MaterialSource.Native"/>.</summary>
-        public ConcreteModelKind ConcreteModel { get; init; } = ConcreteModelKind.Concrete04;
+        /// <summary>Модель основной области при <see cref="MaterialSource.Native"/>.</summary>
+        public MainMaterialModelKind MainMaterialModel { get; init; } = MainMaterialModelKind.Concrete04;
 
         /// <summary>Модель стали/арматуры при <see cref="MaterialSource.Native"/>.</summary>
         public SteelModelKind SteelModel { get; init; } = SteelModelKind.Steel02;
@@ -43,7 +43,7 @@ public static class CrossSectionToOpenSeesAdapter
         /// <see cref="OpenSeesElasticSectionSpec"/> с приведёнными (transformed, к модулю упругости
         /// материала с наибольшей суммарной площадью волокон) EA/EIz/EIy — без явных
         /// материалов/волокон, диаграмма CScore не запрашивается вовсе. Игнорирует
-        /// <see cref="MaterialSource"/>/<see cref="ConcreteModel"/>/<see cref="SteelModel"/>/
+        /// <see cref="MaterialSource"/>/<see cref="MainMaterialModel"/>/<see cref="SteelModel"/>/
         /// <see cref="ConsiderConcreteTension"/>.</summary>
         public bool ConsiderPhysicalNonlinearity { get; init; } = true;
     }
@@ -94,10 +94,12 @@ public static class CrossSectionToOpenSeesAdapter
                 try
                 {
                     Diagramm diagram = ResolveDiagram(area, material, calc, customPool);
+                    bool isReinforcement = area.HostAreaId is not null;
                     NativeMaterialSpec? native = options.MaterialSource == MaterialSource.Native
                         ? NativeMaterialMapper.Map(
                             material.GetChars(calc), material.Type, options.ConsiderConcreteTension,
-                            options.ConcreteModel, options.SteelModel, options.SteelHardeningRatioOverride)
+                            options.MainMaterialModel, options.SteelModel, isReinforcement,
+                            options.SteelHardeningRatioOverride)
                         : null;
 
                     if (native != null)

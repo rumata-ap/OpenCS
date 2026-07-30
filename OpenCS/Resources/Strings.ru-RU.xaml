@@ -1452,10 +1452,16 @@
     <system:String x:Key="FemAnalysisMaterialSourceLabel">Источник диаграммы материала</system:String>
     <system:String x:Key="FemMaterialSourceTranslated">Перевод диаграммы CScore</system:String>
     <system:String x:Key="FemMaterialSourceNative">Нативные материалы OpenSees</system:String>
-    <system:String x:Key="FemAnalysisConcreteModelLabel">Модель бетона</system:String>
-    <system:String x:Key="FemConcreteModelConcrete0102">Concrete01/02 (Kent-Scott-Park)</system:String>
-    <system:String x:Key="FemConcreteModelConcrete04">Concrete04 (Popovics)</system:String>
+    <system:String x:Key="FemAnalysisMainMaterialGroup">Основной материал</system:String>
+    <system:String x:Key="FemAnalysisMainMaterialModelLabel">Диаграмма основного материала</system:String>
+    <system:String x:Key="FemMainMaterialModelConcrete0102">Concrete01/02 (Kent-Scott-Park)</system:String>
+    <system:String x:Key="FemMainMaterialModelConcrete04">Concrete04 (Popovics)</system:String>
+    <system:String x:Key="FemMainMaterialModelSteel01">Steel01 (двухлинейная сталь)</system:String>
+    <system:String x:Key="FemMainMaterialModelSteel02">Steel02 (Giuffré–Menegotto–Pinto)</system:String>
+    <system:String x:Key="FemAnalysisReinforcementGroup">Арматура</system:String>
     <system:String x:Key="FemAnalysisSteelModelLabel">Модель стали/арматуры</system:String>
+    <system:String x:Key="FemReinforcementModelSteel01">Steel01</system:String>
+    <system:String x:Key="FemReinforcementModelSteel02">Steel02</system:String>
     <system:String x:Key="FemAnalysisSteelHardeningRatioLabel">Переопределение упрочнения b (пусто = авто)</system:String>
     <system:String x:Key="FemAnalysisElementFormulationLabel">Формулировка элемента</system:String>
     <system:String x:Key="FemAnalysisElementFormulationTip">forceBeamColumn (force-based, по умолчанию) точнее при распределённой нелинейности с меньшим числом элементов, но обращает матрицу гибкости сечения — если все фибры сечения одновременно попадают на строго горизонтальный (нулевой) участок диаграммы, обращение падает с ошибкой "could not invert flexibility". dispBeamColumn (displacement-based) не требует этого обращения и устойчивее именно в таком случае — рекомендуется при несходимости кинематических нагрузок со строго нулевым хвостом растяжения бетона.</system:String>

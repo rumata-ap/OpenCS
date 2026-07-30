@@ -5,7 +5,7 @@ using CScore;
 namespace OpenCS.Tasks;
 
 /// <summary>Параметры запуска FEM-расчёта (линейного и нелинейного), хранимые в FemAnalysis.ParamsJson.
-/// Поля CalcType/ConsiderConcreteTension/MaterialSource/ConcreteModel/SteelModel/
+/// Поля CalcType/ConsiderConcreteTension/MaterialSource/MainMaterialModel/SteelModel/
 /// SteelHardeningRatioOverride используются только при Kind="nonlinear" и специфичны для
 /// конкретной постановки. Solver-механика (исполняемый файл, таймаут, сходимость, geomTransf,
 /// точки интегрирования) — глобальная, см. <see cref="OpenCS.Utilites.CalcSettings"/> (вкладка
@@ -44,7 +44,7 @@ public sealed class FemAnalysisParams
     public bool ConsiderConcreteTension { get; set; } = true;
     /// <summary>Учитывать ли физическую (материальную) нелинейность fiber-сечений. При отключении
     /// все материалы работают линейно-упруго (модуль E из характеристик материала, без
-    /// трещинообразования/текучести) независимо от MaterialSource/ConcreteModel/SteelModel —
+    /// трещинообразования/текучести) независимо от MaterialSource/MainMaterialModel/SteelModel —
     /// геометрическая нелинейность (geomTransf) при этом продолжает действовать как задано.
     /// Полезно, чтобы изолировать эффекты геометрической нелинейности (P-Δ/большие перемещения) от
     /// материальных при отладке/верификации расчёта.</summary>
@@ -52,9 +52,9 @@ public sealed class FemAnalysisParams
     /// <summary>Источник диаграммы материала: "Translated" (перевод диаграммы CScore, по
     /// умолчанию) | "Native" (собственные параметрические материалы OpenSees).</summary>
     public string MaterialSource { get; set; } = "Translated";
-    /// <summary>Модель бетона при MaterialSource="Native": "Concrete0102" (Kent-Scott-Park,
-    /// Concrete02/01) | "Concrete04" (Popovics, по умолчанию).</summary>
-    public string ConcreteModel { get; set; } = "Concrete04";
+    /// <summary>Нативная модель основной области при MaterialSource="Native":
+    /// "Concrete0102" (Kent-Scott-Park), "Concrete04" (Popovics), "Steel01" или "Steel02".</summary>
+    public string MainMaterialModel { get; set; } = "Concrete04";
     /// <summary>Модель стали/арматуры при MaterialSource="Native": "Steel01" | "Steel02".</summary>
     public string SteelModel { get; set; } = "Steel02";
     /// <summary>Переопределение отношения модуля упрочнения стали/арматуры к E0 при
@@ -88,6 +88,12 @@ public sealed class FemAnalysisParams
         if (string.IsNullOrWhiteSpace(json)) return new();
         var result = JsonSerializer.Deserialize<FemAnalysisParams>(json) ?? new();
         using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("MainMaterialModel", out _) &&
+            doc.RootElement.TryGetProperty("ConcreteModel", out var legacyConcreteModel) &&
+            legacyConcreteModel.ValueKind == JsonValueKind.String)
+        {
+            result.MainMaterialModel = legacyConcreteModel.GetString() ?? result.MainMaterialModel;
+        }
         if (!doc.RootElement.TryGetProperty("LoadFactorStep", out _) && result.LoadSteps is > 0)
             result.LoadFactorStep = 1.0 / result.LoadSteps.Value;
         result.LoadSteps = null;

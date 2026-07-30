@@ -174,4 +174,87 @@ public sealed class CrossSectionAdapterTests
         Assert.NotEmpty(concreteMaterial.PositiveEnvelope);
         Assert.Contains(concreteMaterial.Warnings, w => w.Contains("нативная", StringComparison.OrdinalIgnoreCase));
     }
+
+    [Fact]
+    public void Adapter_UsesSeparateMainAndRebarNativeModels()
+    {
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+
+        var model = CrossSectionToOpenSeesAdapter.Build(
+            section,
+            CalcType.C,
+            CrossSectionFixtures.Materials(concrete, steel),
+            customPool: null,
+            options: new CrossSectionToOpenSeesAdapter.Options
+            {
+                MaterialSource = MaterialSource.Native,
+                MainMaterialModel = MainMaterialModelKind.Concrete04,
+                SteelModel = SteelModelKind.Steel01
+            });
+
+        var concreteDefinition = Assert.Single(model.Materials, m => m.SourceId == concrete.Id.ToString());
+        var rebarDefinition = Assert.Single(model.Materials, m => m.SourceId == steel.Id.ToString());
+        Assert.IsType<Concrete04Spec>(concreteDefinition.Native);
+        Assert.IsType<Steel01Spec>(rebarDefinition.Native);
+    }
+
+    [Fact]
+    public void Adapter_UsesMainSteelModelForHostlessSteelArea()
+    {
+        var (_, _, steel) = CrossSectionFixtures.RectangularSection();
+        var steelArea = new MaterialArea
+        {
+            Id = 10,
+            Tag = "main-steel-area",
+            Material = steel,
+            MaterialId = steel.Id,
+            DiagrammType = DiagrammType.L2,
+            Fibers = [new Fiber { X = 0.2, Y = 0.3, Area = 0.01, TypeFiber = FiberType.poly }]
+        };
+        var section = new CrossSection { Areas = [steelArea] };
+
+        var model = CrossSectionToOpenSeesAdapter.Build(
+            section,
+            CalcType.C,
+            new Dictionary<int, Material> { [steel.Id] = steel },
+            customPool: null,
+            options: new CrossSectionToOpenSeesAdapter.Options
+            {
+                MaterialSource = MaterialSource.Native,
+                MainMaterialModel = MainMaterialModelKind.Steel01,
+                SteelModel = SteelModelKind.Steel02
+            });
+
+        Assert.IsType<Steel01Spec>(Assert.Single(model.Materials).Native);
+    }
+
+    [Fact]
+    public void Adapter_RejectsConcreteModelForHostlessSteelArea()
+    {
+        var (_, _, steel) = CrossSectionFixtures.RectangularSection();
+        var steelArea = new MaterialArea
+        {
+            Id = 10,
+            Tag = "main-steel-area",
+            Material = steel,
+            MaterialId = steel.Id,
+            DiagrammType = DiagrammType.L2,
+            Fibers = [new Fiber { X = 0.2, Y = 0.3, Area = 0.01, TypeFiber = FiberType.poly }]
+        };
+        var section = new CrossSection { Areas = [steelArea] };
+
+        var exception = Assert.Throws<CScoreMappingException>(() =>
+            CrossSectionToOpenSeesAdapter.Build(
+                section,
+                CalcType.C,
+                new Dictionary<int, Material> { [steel.Id] = steel },
+                customPool: null,
+                options: new CrossSectionToOpenSeesAdapter.Options
+                {
+                    MaterialSource = MaterialSource.Native,
+                    MainMaterialModel = MainMaterialModelKind.Concrete04
+                }));
+
+        Assert.Contains("стальной", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }

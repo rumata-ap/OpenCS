@@ -52,6 +52,73 @@ public class FemNonlinearTclGeneratorTests
     }
 
     [Fact]
+    public void Generate_EmitsAllSupportedNativeMaterialCommands()
+    {
+        var model = Console();
+        model = new FemNonlinearModel
+        {
+            Nodes = model.Nodes,
+            Sections = new Dictionary<int, OpenSeesSectionModel>
+            {
+                [1] = new OpenSeesSectionModel
+                {
+                    Materials =
+                    [
+                        new OpenSeesMaterialDefinition
+                        {
+                            Tag = 1,
+                            Native = new Concrete01Spec(-20e6, -0.002, -4e6, -0.0035)
+                        },
+                        new OpenSeesMaterialDefinition
+                        {
+                            Tag = 2,
+                            Native = new Concrete02Spec(-20e6, -0.002, -4e6, -0.0035, 0.1, 1e6, 5e8)
+                        },
+                        new OpenSeesMaterialDefinition
+                        {
+                            Tag = 3,
+                            Native = new Concrete04Spec(-20e6, -0.002, -0.0035, 30e9, 1e6, 0.00015, 0.1)
+                        },
+                        new OpenSeesMaterialDefinition
+                        {
+                            Tag = 4,
+                            Native = new Steel01Spec(500e6, 200e9, 0.01)
+                        },
+                        new OpenSeesMaterialDefinition
+                        {
+                            Tag = 5,
+                            Native = new Steel02Spec(500e6, 200e9, 0.01, 18, 0.925, 0.15)
+                        }
+                    ],
+                    Fibers =
+                    [
+                        new OpenSeesFiber(0, 0, 0.01, 1),
+                        new OpenSeesFiber(0, 0, 0.01, 2),
+                        new OpenSeesFiber(0, 0, 0.01, 3),
+                        new OpenSeesFiber(0, 0, 0.01, 4),
+                        new OpenSeesFiber(0, 0, 0.01, 5)
+                    ],
+                    GJ = 1e6
+                }
+            },
+            Elements = model.Elements,
+            Stages = model.Stages,
+            RefinementDivisions = model.RefinementDivisions,
+            Tolerance = model.Tolerance,
+            MaxIterations = model.MaxIterations,
+            GeomTransfKind = model.GeomTransfKind
+        };
+
+        string tcl = new FemNonlinearTclGenerator().Generate(model);
+
+        Assert.Contains("uniaxialMaterial Concrete01 1", tcl);
+        Assert.Contains("uniaxialMaterial Concrete02 2", tcl);
+        Assert.Contains("uniaxialMaterial Concrete04 3", tcl);
+        Assert.Contains("uniaxialMaterial Steel01 4", tcl);
+        Assert.Contains("uniaxialMaterial Steel02 5", tcl);
+    }
+
+    [Fact]
     public void Generate_LogsIterationCountAndFinalNormOnEachSuccessfulSubstep()
     {
         string tcl = new FemNonlinearTclGenerator().Generate(Console());

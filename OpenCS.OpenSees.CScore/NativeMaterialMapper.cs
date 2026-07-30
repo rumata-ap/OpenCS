@@ -9,6 +9,10 @@ public enum ConcreteModelKind { Concrete0102, Concrete04 }
 /// <summary>Модель стали/арматуры OpenSees для нативной параметризации.</summary>
 public enum SteelModelKind { Steel01, Steel02 }
 
+/// <summary>Нативная модель, выбираемая для основной полигональной области.
+/// Concrete-модели применимы к бетону, Steel-модели — к основной стальной области.</summary>
+public enum MainMaterialModelKind { Concrete0102, Concrete04, Steel01, Steel02 }
+
 /// <summary>Источник построения диаграммы материала для нелинейного FEM-расчёта.</summary>
 public enum MaterialSource { Translated, Native }
 
@@ -63,16 +67,73 @@ public static class NativeMaterialMapper
         SteelModelKind steelModel,
         double? steelHardeningRatioOverride)
     {
+        MainMaterialModelKind mainMaterialModel = materialType == MatType.Concrete
+            ? concreteModel == ConcreteModelKind.Concrete0102
+                ? MainMaterialModelKind.Concrete0102
+                : MainMaterialModelKind.Concrete04
+            : steelModel == SteelModelKind.Steel01
+                ? MainMaterialModelKind.Steel01
+                : MainMaterialModelKind.Steel02;
+
+        return Map(
+            chars,
+            materialType,
+            considerConcreteTension,
+            mainMaterialModel,
+            steelModel,
+            isReinforcement: materialType != MatType.Concrete,
+            steelHardeningRatioOverride);
+    }
+
+    /// <summary>Строит нативную модель с учётом роли области в fiber-сечении.
+    /// Основная область использует MainMaterialModel, вложенная область — SteelModel.</summary>
+    public static NativeMaterialSpec? Map(
+        MaterialChars? chars,
+        MatType materialType,
+        bool considerConcreteTension,
+        MainMaterialModelKind mainMaterialModel,
+        SteelModelKind steelModel,
+        bool isReinforcement,
+        double? steelHardeningRatioOverride)
+    {
         if (chars is null || materialType == MatType.Custom)
             return null;
 
-        return materialType switch
+        if (materialType == MatType.Concrete)
         {
-            MatType.Concrete => MapConcrete(chars, considerConcreteTension, concreteModel),
-            MatType.ReSteelF or MatType.ReSteelU or MatType.Steel =>
-                MapSteel(chars, materialType, steelModel, steelHardeningRatioOverride),
-            _ => null
-        };
+            if (mainMaterialModel is not
+                (MainMaterialModelKind.Concrete0102 or MainMaterialModelKind.Concrete04))
+            {
+                throw new CScoreMappingException(
+                    "Для бетонной основной области выбрана стальная нативная модель.");
+            }
+
+            var concreteModel = mainMaterialModel == MainMaterialModelKind.Concrete0102
+                ? ConcreteModelKind.Concrete0102
+                : ConcreteModelKind.Concrete04;
+            return MapConcrete(chars, considerConcreteTension, concreteModel);
+        }
+
+        if (materialType is MatType.ReSteelF or MatType.ReSteelU or MatType.Steel)
+        {
+            SteelModelKind selected = isReinforcement
+                ? steelModel
+                : mainMaterialModel switch
+                {
+                    MainMaterialModelKind.Steel01 => SteelModelKind.Steel01,
+                    MainMaterialModelKind.Steel02 => SteelModelKind.Steel02,
+                    _ => throw new CScoreMappingException(
+                        "Для стальной основной области выбрана бетонная нативная модель.")
+                };
+
+            return MapSteel(
+                chars,
+                materialType,
+                selected,
+                isReinforcement ? steelHardeningRatioOverride : null);
+        }
+
+        return null;
     }
 
     private static NativeMaterialSpec MapConcrete(

@@ -161,4 +161,38 @@ public sealed class NativeMaterialMapperTests
 
         Assert.Null(spec);
     }
+
+    [Fact]
+    public void Map_MainSteelWithSteel01_ReturnsSteel01()
+    {
+        var spec = NativeMaterialMapper.Map(
+            StructuralSteelC235(), MatType.Steel, considerConcreteTension: true,
+            MainMaterialModelKind.Steel01, SteelModelKind.Steel02,
+            isReinforcement: false, steelHardeningRatioOverride: null);
+
+        var steel = Assert.IsType<Steel01Spec>(spec);
+        Assert.Equal(230_000_000, steel.Fy, 3);
+    }
+
+    [Fact]
+    public void Map_MainSteelWithConcreteModel_ThrowsFamilyMismatch()
+    {
+        var exception = Assert.Throws<CScoreMappingException>(() => NativeMaterialMapper.Map(
+            StructuralSteelC235(), MatType.Steel, considerConcreteTension: true,
+            MainMaterialModelKind.Concrete04, SteelModelKind.Steel02,
+            isReinforcement: false, steelHardeningRatioOverride: null));
+
+        Assert.Contains("сталь", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Map_RebarUsesRebarModelEvenWhenMainModelIsSteel01()
+    {
+        var spec = NativeMaterialMapper.Map(
+            RebarA500(), MatType.ReSteelF, considerConcreteTension: true,
+            MainMaterialModelKind.Steel01, SteelModelKind.Steel02,
+            isReinforcement: true, steelHardeningRatioOverride: null);
+
+        Assert.IsType<Steel02Spec>(spec);
+    }
 }
