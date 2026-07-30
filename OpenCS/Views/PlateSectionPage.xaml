@@ -342,7 +342,7 @@
                         </DataGridTextColumn>
 
                         <DataGridComboBoxColumn Header="{DynamicResource PlateLayerMaterial}"
-                                                SelectedItemBinding="{Binding RebarMaterial}"
+                                                SelectedItemBinding="{Binding RebarMaterial, UpdateSourceTrigger=PropertyChanged}"
                                                 DisplayMemberPath="Tag" Width="110">
                            <DataGridComboBoxColumn.EditingElementStyle>
                               <Style TargetType="ComboBox">
