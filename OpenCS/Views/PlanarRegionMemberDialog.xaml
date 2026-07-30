@@ -259,6 +259,19 @@
                       <Path Data="M7,2H17A2,2 0 0,1 19,4V20A2,2 0 0,1 17,22H7A2,2 0 0,1 5,20V4A2,2 0 0,1 7,2M7,4V8H17V4H7M7,10V12H9V10H7M11,10V12H13V10H11M15,10V12H17V10H15M7,14V16H9V14H7M11,14V16H13V14H11M15,14V16H17V14H15M7,18V20H9V18H7M11,18V20H13V18H11M15,18V20H17V18H15Z"
                             Fill="Black" Stretch="Uniform" Margin="2"/>
                   </Button>
+                  <Separator/>
+                  <Menu>
+                     <MenuItem ToolTip="{DynamicResource PlanarRegionRebarDrawingFlags}">
+                        <MenuItem.Header>
+                           <Path Data="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z"
+                                 Fill="Black" Stretch="Uniform" Margin="2" Width="20" Height="20"/>
+                        </MenuItem.Header>
+                        <MenuItem Header="{DynamicResource PlanarRegionShowZoneRebarGlyphs}" IsCheckable="True"
+                                  IsChecked="{Binding ShowZoneRebarGlyphs, Mode=TwoWay}"/>
+                        <MenuItem Header="{DynamicResource PlanarRegionShowBackgroundRebarGlyphs}" IsCheckable="True"
+                                  IsChecked="{Binding ShowBackgroundRebarGlyphs, Mode=TwoWay}"/>
+                     </MenuItem>
+                  </Menu>
                </ToolBar>
                <Border Grid.Row="1" BorderThickness="0,0,1,0"
                        BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">

@@ -1679,6 +1679,9 @@
     <system:String x:Key="PlanarRegionRebarSectionCountTitle">Подсчёт сечений</system:String>
     <system:String x:Key="PlanarRegionRebarSectionCountResult">Найдено {0} уникальных сечений (включая фоновое).</system:String>
     <system:String x:Key="PlanarRegionRebarUnsavedChangesPrompt">Есть несохранённые изменения раскладки армирования. Сохранить перед закрытием?</system:String>
+    <system:String x:Key="PlanarRegionRebarDrawingFlags">Флаги отображения армирования</system:String>
+    <system:String x:Key="PlanarRegionShowZoneRebarGlyphs">Штриховка зон</system:String>
+    <system:String x:Key="PlanarRegionShowBackgroundRebarGlyphs">Штриховка фона</system:String>
     <system:String x:Key="GeometryTransformDx">ΔX, м</system:String>
     <system:String x:Key="GeometryTransformDy">ΔY, м</system:String>
     <system:String x:Key="GeometryTransformFactor">Коэффициент масштабирования</system:String>

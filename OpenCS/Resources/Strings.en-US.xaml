@@ -1676,6 +1676,9 @@
     <system:String x:Key="PlanarRegionRebarSectionCountTitle">Section count</system:String>
     <system:String x:Key="PlanarRegionRebarSectionCountResult">Found {0} unique sections (including background).</system:String>
     <system:String x:Key="PlanarRegionRebarUnsavedChangesPrompt">There are unsaved reinforcement layout changes. Save before closing?</system:String>
+    <system:String x:Key="PlanarRegionRebarDrawingFlags">Rebar display flags</system:String>
+    <system:String x:Key="PlanarRegionShowZoneRebarGlyphs">Zone hatching</system:String>
+    <system:String x:Key="PlanarRegionShowBackgroundRebarGlyphs">Background hatching</system:String>
     <system:String x:Key="GeometryTransformDx">ΔX, m</system:String>
     <system:String x:Key="GeometryTransformDy">ΔY, m</system:String>
     <system:String x:Key="GeometryTransformFactor">Scale factor</system:String>
