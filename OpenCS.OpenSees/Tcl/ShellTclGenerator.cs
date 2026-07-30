@@ -31,7 +31,13 @@ public sealed class ShellTclGenerator
             L($"fix {node.Tag} {string.Join(' ', node.Fixed.Select(fixedDof => fixedDof ? 1 : 0))}");
         L();
 
-        foreach (NativeShellMaterialDefinition material in model.Materials.OrderBy(material => material.Tag))
+        // PlateRebar nDMaterial ссылается на отдельно объявленный uniaxialMaterial по тегу —
+        // эта зависимость эмитируется первой независимо от численного соотношения тегов
+        // (сортировка по возрастанию Tag сама по себе не гарантирует порядок объявления).
+        IOrderedEnumerable<NativeShellMaterialDefinition> orderedMaterials = model.Materials
+            .OrderBy(material => material.Spec is PlateRebarShellMaterialSpec ? 1 : 0)
+            .ThenBy(material => material.Tag);
+        foreach (NativeShellMaterialDefinition material in orderedMaterials)
         {
             foreach (string auxiliary in material.Spec.AuxiliaryCommands)
                 L(auxiliary);

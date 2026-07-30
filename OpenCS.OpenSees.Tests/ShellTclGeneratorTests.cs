@@ -80,6 +80,33 @@ public sealed class ShellTclGeneratorTests
         Assert.Contains("три слоя", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void Generate_EmitsUniaxialDependencyBeforeReferencingPlateRebarMaterial()
+    {
+        // PlateRebar nDMaterial (tag 2) ссылается на uniaxialMaterial (tag 500) — тег
+        // зависимости больше тега ссылающегося материала, поэтому сортировка по возрастанию
+        // Tag сама по себе НЕ гарантирует порядок объявления; генератор обязан эмитировать
+        // зависимость раньше независимо от численного соотношения тегов.
+        var model = Q4Model() with
+        {
+            Materials =
+            [
+                new(1, "concrete", new ElasticIsotropicShellMaterialSpec(30e9, 0.2)),
+                new(2, "rebar", new PlateRebarShellMaterialSpec(500, 0)),
+                new(500, "rebar-uniaxial", new ElasticUniaxialShellMaterialSpec(200e9)),
+            ]
+        };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        int uniaxialIndex = script.IndexOf("uniaxialMaterial Elastic 500", StringComparison.Ordinal);
+        int plateRebarIndex = script.IndexOf("nDMaterial PlateRebar 2 500 0", StringComparison.Ordinal);
+
+        Assert.True(uniaxialIndex >= 0 && plateRebarIndex >= 0);
+        Assert.True(uniaxialIndex < plateRebarIndex,
+            $"uniaxialMaterial (index {uniaxialIndex}) должен быть объявлен раньше nDMaterial PlateRebar (index {plateRebarIndex})");
+    }
+
     private static ShellOpenSeesModel Q4Model() => Model(
         10,
         ShellElementKind.ASDShellQ4,
