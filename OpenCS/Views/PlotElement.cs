@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
 using CScore;
@@ -100,6 +101,32 @@ namespace OpenCS.Views
             var pt = toPixel(Xs[i], Ys[i]);
             dc.DrawEllipse(Fill, null, pt, half, half);
          }
+      }
+   }
+
+   /// <summary>Текстовая подпись в точке модели (u,v). Размер шрифта — в экранных
+   /// пикселях, не масштабируется зумом (как MarkerSize у MarkerElement).</summary>
+   public record TextElement : PlotElement
+   {
+      public double X { get; init; }
+      public double Y { get; init; }
+      public string Text { get; init; } = "";
+      public Brush Foreground { get; init; } = Brushes.Black;
+      /// <summary>Подложка под текст для читаемости поверх штриховки/заливки. null — без подложки.</summary>
+      public Brush? Background { get; init; } = new SolidColorBrush(Color.FromArgb(200, 255, 255, 255));
+      public double FontSize { get; init; } = 11;
+
+      public override void Render(DrawingContext dc, Func<double, double, Point> toPixel)
+      {
+         if (string.IsNullOrEmpty(Text)) return;
+         var anchor = toPixel(X, Y);
+         var ft = new FormattedText(Text, CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+            new Typeface("Segoe UI"), FontSize, Foreground, 1.0);
+         var origin = new Point(anchor.X - ft.Width / 2, anchor.Y - ft.Height / 2);
+         if (Background != null)
+            dc.DrawRectangle(Background, null,
+               new Rect(origin.X - 2, origin.Y - 1, ft.Width + 4, ft.Height + 2));
+         dc.DrawText(ft, origin);
       }
    }
 
