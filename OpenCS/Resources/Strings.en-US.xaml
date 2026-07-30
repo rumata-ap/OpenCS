@@ -1665,6 +1665,9 @@
     <system:String x:Key="PlanarRegionRebarZoneMoveTool">Move zone</system:String>
     <system:String x:Key="PlanarRegionRebarZoneZoomTool">Scale zone</system:String>
     <system:String x:Key="PlanarRegionRebarZoneRotateTool">Rotate zone</system:String>
+    <system:String x:Key="PlanarRegionRebarFaceBottomTab">Bottom</system:String>
+    <system:String x:Key="PlanarRegionRebarFaceTopTab">Top</system:String>
+    <system:String x:Key="PlanarRegionRebarZoneBatchAddFromSet">Add from DXF set</system:String>
     <system:String x:Key="GeometryTransformDx">ΔX, m</system:String>
     <system:String x:Key="GeometryTransformDy">ΔY, m</system:String>
     <system:String x:Key="GeometryTransformFactor">Scale factor</system:String>

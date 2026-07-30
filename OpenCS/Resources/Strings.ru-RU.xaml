@@ -1668,6 +1668,9 @@
     <system:String x:Key="PlanarRegionRebarZoneMoveTool">Переместить зону</system:String>
     <system:String x:Key="PlanarRegionRebarZoneZoomTool">Масштаб зоны</system:String>
     <system:String x:Key="PlanarRegionRebarZoneRotateTool">Повернуть зону</system:String>
+    <system:String x:Key="PlanarRegionRebarFaceBottomTab">Низ</system:String>
+    <system:String x:Key="PlanarRegionRebarFaceTopTab">Верх</system:String>
+    <system:String x:Key="PlanarRegionRebarZoneBatchAddFromSet">Добавить по набору</system:String>
     <system:String x:Key="GeometryTransformDx">ΔX, м</system:String>
     <system:String x:Key="GeometryTransformDy">ΔY, м</system:String>
     <system:String x:Key="GeometryTransformFactor">Коэффициент масштабирования</system:String>
