@@ -1,6 +1,7 @@
 using CScore;
 using CScore.Fem;
 using CScore.Planar;
+using CScore.PlateRebar;
 using OpenCS.Utilites;
 using OpenCS.Views;
 using System.Collections.ObjectModel;
@@ -36,6 +37,9 @@ public class PlanarRegionMemberVM : ViewModelBase
             foreach (var h in existingRegion.Holes) Holes.Add(h);
         }
 
+        RebarZones = new ObservableCollection<RebarZoneVM>(
+            (existingRegion?.RebarZones ?? []).Select(z => new RebarZoneVM(z, RefreshPlot)));
+
         string autoKind = PlanarKindClassifier.Classify(frame, out bool ambiguous);
         KindIsAmbiguous = ambiguous;
         _kind = existingMember?.Kind ?? autoKind;
@@ -48,6 +52,9 @@ public class PlanarRegionMemberVM : ViewModelBase
         SetHullFromPoolCommand = new RelayCommand(o => SetHullFromPool(o as Contour));
         AddHoleCommand = new RelayCommand(o => AddHole(o as Contour));
         RemoveHoleCommand = new RelayCommand(o => RemoveHole(o as Contour));
+        AddRebarZoneCommand = new RelayCommand(_ => AddRebarZone());
+        DeleteRebarZoneCommand = new RelayCommand(_ => DeleteRebarZone(), _ => SelectedRebarZone != null);
+        SetZonePolygonFromPoolCommand = new RelayCommand(o => SetZonePolygonFromPool(o as Contour));
         SaveCommand = new RelayCommand(_ => Save());
         DeleteCommand = new RelayCommand(_ => Delete(), _ => _existingMember != null);
 
@@ -68,6 +75,15 @@ public class PlanarRegionMemberVM : ViewModelBase
     public Contour? Hull { get => _hull; set { _hull = value; OnPropertyChanged(); RefreshPlot(); } }
 
     public ObservableCollection<Contour> Holes { get; }
+
+    public ObservableCollection<RebarZoneVM> RebarZones { get; }
+
+    RebarZoneVM? _selectedRebarZone;
+    public RebarZoneVM? SelectedRebarZone
+    {
+        get => _selectedRebarZone;
+        set { _selectedRebarZone = value; OnPropertyChanged(); RefreshPlot(); }
+    }
 
     string _kind;
     public string Kind
@@ -108,6 +124,9 @@ public class PlanarRegionMemberVM : ViewModelBase
     public ICommand SetHullFromPoolCommand { get; }
     public ICommand AddHoleCommand { get; }
     public ICommand RemoveHoleCommand { get; }
+    public ICommand AddRebarZoneCommand { get; }
+    public ICommand DeleteRebarZoneCommand { get; }
+    public ICommand SetZonePolygonFromPoolCommand { get; }
     public ICommand SaveCommand { get; }
     public ICommand DeleteCommand { get; }
 
@@ -131,6 +150,50 @@ public class PlanarRegionMemberVM : ViewModelBase
     {
         if (contour == null) return;
         Holes.Remove(contour);
+        RefreshPlot();
+    }
+
+    void AddRebarZone()
+    {
+        var zone = new RebarZone { Name = $"Зона {RebarZones.Count + 1}" };
+        var vm = new RebarZoneVM(zone, RefreshPlot);
+        RebarZones.Add(vm);
+        SelectedRebarZone = vm;
+    }
+
+    void DeleteRebarZone()
+    {
+        if (SelectedRebarZone == null) return;
+        RebarZones.Remove(SelectedRebarZone);
+        SelectedRebarZone = null;
+        RefreshPlot();
+    }
+
+    void SetZonePolygonFromPool(Contour? contour)
+    {
+        if (contour == null || SelectedRebarZone == null) return;
+        SelectedRebarZone.SetPolygon(RebarZonePolygonConverter.FromContour(contour));
+        RefreshPlot();
+    }
+
+    /// <summary>Жёсткий сдвиг полигона выбранной зоны на (du, dv) в локальных координатах региона.</summary>
+    public void TranslateZoneGeometry(double du, double dv)
+    {
+        SelectedRebarZone?.Translate(du, dv);
+        RefreshPlot();
+    }
+
+    /// <summary>Жёсткое масштабирование полигона выбранной зоны вокруг начала координат (0,0).</summary>
+    public void ScaleZoneGeometry(double factor)
+    {
+        SelectedRebarZone?.Scale(factor);
+        RefreshPlot();
+    }
+
+    /// <summary>Жёсткий поворот полигона выбранной зоны вокруг начала координат (0,0), градусы.</summary>
+    public void RotateZoneGeometryDegrees(double angleDeg)
+    {
+        SelectedRebarZone?.RotateDegrees(angleDeg);
         RefreshPlot();
     }
 
@@ -235,6 +298,25 @@ public class PlanarRegionMemberVM : ViewModelBase
         foreach (var hole in Holes)
             if (hole.X.Count >= 3)
                 elements.Add(new PolygonElement { Xs = [.. hole.X], Ys = [.. hole.Y], Fill = Brushes.White, Stroke = Brushes.Gray });
+
+        foreach (var zvm in RebarZones)
+        {
+            var poly = zvm.Model.Polygon;
+            if (poly.Count < 3) continue;
+            bool selected = zvm == SelectedRebarZone;
+            var fill = zvm.Model.Face == RebarFace.PlusN
+                ? new SolidColorBrush(Color.FromArgb(70, 255, 140, 0))
+                : new SolidColorBrush(Color.FromArgb(70, 0, 120, 255));
+            elements.Add(new PolygonElement
+            {
+                Xs = [.. poly.Select(p => p.U)],
+                Ys = [.. poly.Select(p => p.V)],
+                Fill = fill,
+                Stroke = selected ? Brushes.Red : Brushes.DimGray,
+                StrokeThickness = selected ? 2 : 1
+            });
+        }
+
         PlotElements = elements;
         RefreshGeoProps();
     }
@@ -284,6 +366,8 @@ public class PlanarRegionMemberVM : ViewModelBase
         var (region, diagnostics) = PlanarRegionCreation.TryCreate(Hull, Holes, _frame, Tag);
         Diagnostics = diagnostics;
         if (region == null) return;
+
+        region.RebarZones = [.. RebarZones.Select(vm => vm.Model)];
 
         if (_existingRegion != null)
         {
