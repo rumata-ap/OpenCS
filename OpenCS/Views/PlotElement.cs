@@ -44,6 +44,8 @@ namespace OpenCS.Views
       public Brush? Fill { get; init; }
       public Brush Stroke { get; init; } = Brushes.Black;
       public double StrokeThickness { get; init; } = 1;
+      /// <summary>Штрихи пунктира (см. Pen.DashStyle). null — сплошная линия (по умолчанию).</summary>
+      public double[]? StrokeDashArray { get; init; }
 
       public override void Render(DrawingContext dc, Func<double, double, Point> toPixel)
       {
@@ -55,10 +57,9 @@ namespace OpenCS.Views
          for (int i = 1; i < n; i++)
             ctx.LineTo(toPixel(Xs[i], Ys[i]), true, true);
          stream.Freeze();
-         if (Fill != null)
-            dc.DrawGeometry(Fill, new Pen(Stroke, StrokeThickness), stream);
-         else
-            dc.DrawGeometry(null, new Pen(Stroke, StrokeThickness), stream);
+         var pen = new Pen(Stroke, StrokeThickness);
+         if (StrokeDashArray != null) pen.DashStyle = new DashStyle([.. StrokeDashArray], 0);
+         dc.DrawGeometry(Fill, pen, stream);
       }
    }
 
