@@ -52,6 +52,51 @@ public sealed class PlateSectionOpenSeesMapperTests
         Assert.Contains("материал", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void MapMany_TwoSectionsWithIdenticalConcrete_ShareSingleConcreteMaterialTag()
+    {
+        var sectionA = new PlateSection { H = 0.2, NLayers = 2 };
+        var sectionB = new PlateSection { H = 0.3, NLayers = 2 };
+
+        var batch = PlateSectionOpenSeesMapper.MapMany(
+            [(sectionA, ShellFrame.Identity, 1), (sectionB, ShellFrame.Identity, 2)],
+            Resolver());
+
+        Assert.Equal(2, batch.Sections.Count);
+        Assert.Single(batch.Materials);
+        int concreteTag = batch.Materials[0].Tag;
+        Assert.All(batch.Sections, section =>
+            Assert.All(section.Layers.Where(x => x.Kind == ShellLayerKind.Concrete),
+                layer => Assert.Equal(concreteTag, layer.MaterialTag)));
+    }
+
+    [Fact]
+    public void MapMany_DistinctRebarLayouts_AddOneExtraMaterialNotDuplicateConcrete()
+    {
+        var sectionA = new PlateSection { H = 0.2, NLayers = 2 };
+        var sectionB = new PlateSection
+        {
+            H = 0.2, NLayers = 2,
+            RebarLayers = [new PlateRebarLayer { Asx = 0.001, Zsx = -0.09 }]
+        };
+
+        var batch = PlateSectionOpenSeesMapper.MapMany(
+            [(sectionA, ShellFrame.Identity, 1), (sectionB, ShellFrame.Identity, 2)], Resolver());
+
+        Assert.Equal(2, batch.Materials.Count);
+    }
+
+    [Fact]
+    public void MapMany_RejectsDuplicateSectionTag()
+    {
+        var section = new PlateSection { H = 0.2, NLayers = 2 };
+
+        var ex = Assert.Throws<CScoreMappingException>(() => PlateSectionOpenSeesMapper.MapMany(
+            [(section, ShellFrame.Identity, 5), (section, ShellFrame.Identity, 5)], Resolver()));
+
+        Assert.Contains("tag", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static IPlateSectionShellMaterialResolver Resolver() => new TestResolver();
 
     private sealed class TestResolver : IPlateSectionShellMaterialResolver

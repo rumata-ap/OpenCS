@@ -19,6 +19,63 @@ public static class PlateSectionOpenSeesMapper
         IPlateSectionShellMaterialResolver resolver,
         int sectionTag = 1)
     {
+        var byFingerprint = new Dictionary<string, NativeShellMaterialDefinition>(StringComparer.Ordinal);
+        var usedTags = new HashSet<int>();
+        var materials = new List<NativeShellMaterialDefinition>();
+
+        RCShellLayeredSection resultSection = BuildSection(
+            section, frame, sectionTag, resolver, byFingerprint, usedTags, materials, out List<string> diagnostics);
+
+        return new PlateSectionShellMappingResult(resultSection, materials, diagnostics);
+    }
+
+    /// <summary>Выполняет mapping нескольких PlateSection с ОДНИМ разделяемым регистром
+    /// материалов — корректный глобальный дедуп/нумерация тегов при нескольких секциях
+    /// в одной shell-модели (в отличие от нескольких независимых вызовов Map).</summary>
+    public static PlateSectionShellMappingResultBatch MapMany(
+        IReadOnlyList<(PlateSection Section, ShellFrame Frame, int SectionTag)> requests,
+        IPlateSectionShellMaterialResolver resolver)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+        ArgumentNullException.ThrowIfNull(resolver);
+        if (requests.Count == 0)
+            throw new CScoreMappingException("MapMany требует хотя бы один запрос.");
+
+        var byFingerprint = new Dictionary<string, NativeShellMaterialDefinition>(StringComparer.Ordinal);
+        var usedTags = new HashSet<int>();
+        var materials = new List<NativeShellMaterialDefinition>();
+        var sections = new List<RCShellLayeredSection>(requests.Count);
+        var diagnostics = new List<string>();
+        var usedSectionTags = new HashSet<int>();
+
+        foreach (var request in requests)
+        {
+            if (!usedSectionTags.Add(request.SectionTag))
+                throw new CScoreMappingException($"Дублирующийся tag shell-секции {request.SectionTag} в MapMany.");
+
+            RCShellLayeredSection built = BuildSection(
+                request.Section, request.Frame, request.SectionTag, resolver,
+                byFingerprint, usedTags, materials, out List<string> requestDiagnostics);
+            sections.Add(built);
+
+            foreach (string diagnostic in requestDiagnostics)
+                if (!diagnostics.Contains(diagnostic, StringComparer.Ordinal))
+                    diagnostics.Add(diagnostic);
+        }
+
+        return new PlateSectionShellMappingResultBatch(sections, materials, diagnostics);
+    }
+
+    private static RCShellLayeredSection BuildSection(
+        PlateSection section,
+        ShellFrame frame,
+        int sectionTag,
+        IPlateSectionShellMaterialResolver resolver,
+        Dictionary<string, NativeShellMaterialDefinition> byFingerprint,
+        HashSet<int> usedTags,
+        List<NativeShellMaterialDefinition> materials,
+        out List<string> diagnostics)
+    {
         ArgumentNullException.ThrowIfNull(section);
         ArgumentNullException.ThrowIfNull(frame);
         ArgumentNullException.ThrowIfNull(resolver);
@@ -43,9 +100,6 @@ public static class PlateSectionOpenSeesMapper
             () => resolver.ResolveConcrete(section.ConcreteMaterialId), "бетона");
         concrete.Validate();
 
-        var materials = new List<NativeShellMaterialDefinition>();
-        var byFingerprint = new Dictionary<string, NativeShellMaterialDefinition>(StringComparer.Ordinal);
-        var usedTags = new HashSet<int>();
         NativeShellMaterialDefinition concreteRegistered = Register(
             concrete, byFingerprint, usedTags, materials, concrete.Tag);
 
@@ -68,7 +122,7 @@ public static class PlateSectionOpenSeesMapper
         }
 
         bool hasRebar = false;
-        var diagnostics = new List<string>();
+        diagnostics = new List<string>();
         for (int sourceIndex = 0; sourceIndex < section.RebarLayers.Count; sourceIndex++)
         {
             PlateRebarLayer source = section.RebarLayers[sourceIndex];
@@ -159,7 +213,7 @@ public static class PlateSectionOpenSeesMapper
             diagnostics,
             sectionFingerprint);
         resultSection.Validate();
-        return new PlateSectionShellMappingResult(resultSection, materials, diagnostics);
+        return resultSection;
     }
 
     private static NativeShellMaterialDefinition ResolveMaterial(
