@@ -1,5 +1,6 @@
 using CScore.Fem;
 using CScore.Planar;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using OpenCS.Views.Helpers;
 
@@ -42,6 +43,24 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
             Width = Owner.ActualWidth;
             Height = Owner.ActualHeight;
         }
+    }
+
+    void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (!_vm.HasZones || !_vm.RebarLayoutDirty) return;
+
+        var result = System.Windows.MessageBox.Show(
+            Loc.S("PlanarRegionRebarUnsavedChangesPrompt"), Loc.S("Warning"),
+            System.Windows.MessageBoxButton.YesNoCancel, System.Windows.MessageBoxImage.Warning);
+
+        if (result == System.Windows.MessageBoxResult.Cancel) { e.Cancel = true; return; }
+        if (result == System.Windows.MessageBoxResult.Yes)
+        {
+            if (!_vm.TrySave(out var member)) { e.Cancel = true; return; }
+            SavedMember = member;
+            DialogResult = true;
+        }
+        // "Не сохранять" — ничего не делаем, закрытие продолжается без сохранения.
     }
 
     void FitView_Click(object sender, System.Windows.RoutedEventArgs e) => preview.FitToView();
