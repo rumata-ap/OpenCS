@@ -583,17 +583,28 @@ public class PlanarRegionMemberVM : ViewModelBase
 
     void Save()
     {
+        if (TrySave(out var member))
+            SaveCompleted?.Invoke(member!);
+    }
+
+    /// <summary>Сохраняет диалог без обязательного вызова SaveCompleted (которое закрывает окно) —
+    /// нужно отдельно от Save() для обработчика Window.Closing, где закрытие уже идёт своим
+    /// чередом и повторный Close() не требуется.</summary>
+    public bool TrySave(out FemMember? member)
+    {
+        member = null;
         if (Hull == null)
         {
             Diagnostics = [new FemValidationDiagnostic("planar_region_hull_missing", "Не выбран внешний контур.")];
-            return;
+            return false;
         }
 
         var (region, diagnostics) = PlanarRegionCreation.TryCreate(Hull, Holes, _frame, Tag);
         Diagnostics = diagnostics;
-        if (region == null) return;
+        if (region == null) return false;
 
         region.RebarZones = [.. RebarZones.Select(vm => vm.Model)];
+        region.RebarSectionGridStep = RebarSectionGridStep;
 
         if (_existingRegion != null)
         {
@@ -612,19 +623,68 @@ public class PlanarRegionMemberVM : ViewModelBase
                 PlateSection.Tag = Tag;
                 if (PlateSection.Num == 0)
                     PlateSection.Num = _app.PlateSections.Count > 0 ? _app.PlateSections.Max(p => p.Num) + 1 : 1;
+                PlateSection.GeneratedForRegionId = region.Id;
             }
             _app.db.SavePlateSection(PlateSection);
+
+            if (_plateSectionOwned)
+                GenerateRebarSectionCombinations(region, Hull);
         }
 
-        var member = _existingMember ?? new FemMember { SchemaId = _schema.Id, ElemType = "shell", NodeIdsJson = "[]" };
-        member.ElemTag = Tag;
-        member.PlanarRegionId = region.Id;
-        member.Kind = Kind;
-        member.KindSource = KindSource;
-        member.PlateSectionId = PlateSection?.Id;
-        _app.db.SaveFemMember(member);
+        var builtMember = _existingMember ?? new FemMember { SchemaId = _schema.Id, ElemType = "shell", NodeIdsJson = "[]" };
+        builtMember.ElemTag = Tag;
+        builtMember.PlanarRegionId = region.Id;
+        builtMember.Kind = Kind;
+        builtMember.KindSource = KindSource;
+        builtMember.PlateSectionId = PlateSection?.Id;
+        _app.db.SaveFemMember(builtMember);
 
-        SaveCompleted?.Invoke(member);
+        RebarLayoutDirty = false;
+        member = builtMember;
+        return true;
+    }
+
+    /// <summary>Генерирует/обновляет секции для всех уникальных комбинаций слоёв, кроме фоновой
+    /// (та уже сохранена выше как PlateSection среза 3). Matching — по fingerprint только среди
+    /// PlateSection этого же региона (GeneratedForRegionId == region.Id), без кросс-региональной
+    /// дедупликации. Секции, чья комбинация больше не встречается в текущей сетке, не удаляются —
+    /// остаются в дереве как есть.</summary>
+    void GenerateRebarSectionCombinations(PlanarRegion region, Contour hull)
+    {
+        var combos = PlateRebarFieldGridResolver.Resolve(BuildRebarField(), hull, Holes, RebarSectionGridStep);
+
+        string backgroundFingerprint = PlateRebarLayoutFingerprint.Compute(PlateSection!.RebarLayers);
+        var others = combos
+            .Where(c => c.Fingerprint != backgroundFingerprint)
+            .OrderBy(c => c.Fingerprint, StringComparer.Ordinal)
+            .ToList();
+
+        var existingForRegion = _app.PlateSections
+            .Where(ps => ps.GeneratedForRegionId == region.Id && ps.Id != PlateSection.Id)
+            .ToDictionary(ps => PlateRebarLayoutFingerprint.Compute(ps.RebarLayers));
+
+        for (int i = 0; i < others.Count; i++)
+        {
+            var combo = others[i];
+            string tag = $"{Tag} — комбинация {i + 1}";
+
+            if (existingForRegion.TryGetValue(combo.Fingerprint, out var existing))
+            {
+                existing.RebarLayers = [.. combo.Layers];
+                existing.Tag = tag;
+                _app.db.SavePlateSection(existing);
+            }
+            else
+            {
+                var generated = PlateSection.CloneForCalc();
+                generated.Id = 0;
+                generated.Tag = tag;
+                generated.Num = _app.PlateSections.Count > 0 ? _app.PlateSections.Max(p => p.Num) + 1 : 1;
+                generated.RebarLayers = [.. combo.Layers];
+                generated.GeneratedForRegionId = region.Id;
+                _app.db.SavePlateSection(generated);
+            }
+        }
     }
 
     void Delete()
