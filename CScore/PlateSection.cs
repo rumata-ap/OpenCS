@@ -87,6 +87,9 @@ namespace CScore
       public int    Num { get; set; }
       /// <summary>Название/обозначение сечения.</summary>
       public string Tag { get; set; } = "";
+      /// <summary>Id PlanarRegion, для которого это сечение сгенерировано автоматически по
+      /// раскладке зон армирования (срез 4). Null — обычная, не сгенерированная запись.</summary>
+      public int? GeneratedForRegionId { get; set; }
 
       // ── Геометрия ──────────────────────────────────────────────────────────
       /// <summary>Толщина плиты/стены, м.</summary>

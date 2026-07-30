@@ -20,6 +20,10 @@ public sealed class PlanarRegion
     /// геометрии региона, а не к переиспользуемому PlateSection.</summary>
     public List<RebarZone> RebarZones { get; set; } = [];
 
+    /// <summary>Шаг (в метрах) пробной ортогональной сетки точек, используемой для генерации
+    /// секций-комбинаций армирования (срез 4) — приближение будущей триангуляции.</summary>
+    public double RebarSectionGridStep { get; set; } = 0.3;
+
     public Contour Hull
     {
         get => Contours.First(c => c.Type == ContourType.Hull);

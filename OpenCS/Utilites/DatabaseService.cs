@@ -30,7 +30,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-        const int CurrentSchemaVersion = 42;
+        const int CurrentSchemaVersion = 43;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -227,7 +227,8 @@ namespace OpenCS.Utilites
                 plate_model           TEXT NOT NULL DEFAULT 'layered',
                 concrete_diagram_type TEXT NOT NULL DEFAULT 'L3',
                 rebar_layers_json     TEXT NOT NULL DEFAULT '[]',
-                rebar_zones_json      TEXT NOT NULL DEFAULT '[]'
+                rebar_zones_json      TEXT NOT NULL DEFAULT '[]',
+                generated_for_region_id INTEGER REFERENCES planar_regions(id)
             );
             CREATE TABLE IF NOT EXISTS material_areas (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -364,7 +365,8 @@ namespace OpenCS.Utilites
                 source_contour_id   INTEGER REFERENCES contours(id),
                 geometry_fingerprint TEXT NOT NULL DEFAULT '',
                 boundary_segments_json TEXT NOT NULL DEFAULT '[]',
-                rebar_zones_json TEXT NOT NULL DEFAULT '[]'
+                rebar_zones_json TEXT NOT NULL DEFAULT '[]',
+                rebar_section_grid_step REAL NOT NULL DEFAULT 0.3
             );
             CREATE TABLE IF NOT EXISTS fem_members (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -566,6 +568,7 @@ namespace OpenCS.Utilites
                if (i == 39) { MigrateV40(); continue; }
                if (i == 40) { MigrateV41(); continue; }
                if (i == 41) { MigrateV42(); continue; }
+               if (i == 42) { MigrateV43(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1067,6 +1070,16 @@ namespace OpenCS.Utilites
       {
          if (!ColumnExists("planar_regions", "rebar_zones_json"))
             MigExec("ALTER TABLE planar_regions ADD COLUMN rebar_zones_json TEXT NOT NULL DEFAULT '[]'");
+      }
+
+      /// <summary>Миграция v43: rebar_section_grid_step в planar_regions, generated_for_region_id
+      /// в plate_sections — генерация секций-комбинаций по пробной сетке точек (срез 4).</summary>
+      void MigrateV43()
+      {
+         if (!ColumnExists("planar_regions", "rebar_section_grid_step"))
+            MigExec("ALTER TABLE planar_regions ADD COLUMN rebar_section_grid_step REAL NOT NULL DEFAULT 0.3");
+         if (!ColumnExists("plate_sections", "generated_for_region_id"))
+            MigExec("ALTER TABLE plate_sections ADD COLUMN generated_for_region_id INTEGER REFERENCES planar_regions(id)");
       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -2298,7 +2311,7 @@ namespace OpenCS.Utilites
                    concrete_material_id, rebar_material_id,
                    tension_concrete, softening_model, softening_eps_c2,
                    plate_model, concrete_diagram_type, rebar_layers_json,
-                   rebar_zones_json
+                   rebar_zones_json, generated_for_region_id
             FROM plate_sections ORDER BY num
          """;
          using var r = cmd.ExecuteReader();
@@ -2319,6 +2332,7 @@ namespace OpenCS.Utilites
                PlateModel          = r.GetString(11),
                ConcreteDiagramType = Enum.TryParse<DiagrammType>(r.GetString(12), out var cdt)
                                      ? cdt : DiagrammType.L3,
+               GeneratedForRegionId = r.IsDBNull(15) ? null : r.GetInt32(15),
             };
             var layersJson = r.GetString(13);
             var layers = JsonSerializer.Deserialize<List<PlateRebarLayer>>(layersJson, _jsonSettings);
@@ -2340,8 +2354,9 @@ namespace OpenCS.Utilites
                   (num, tag, description, h, n_layers,
                    concrete_material_id, rebar_material_id,
                    tension_concrete, softening_model, softening_eps_c2,
-                   plate_model, concrete_diagram_type, rebar_layers_json, rebar_zones_json)
-               VALUES (@num,@tag,@desc,@h,@nl,@cmid,@rmid,@tc,@sm,@sec2,@pm,@cdtype,@rlj,@rzj);
+                   plate_model, concrete_diagram_type, rebar_layers_json, rebar_zones_json,
+                   generated_for_region_id)
+               VALUES (@num,@tag,@desc,@h,@nl,@cmid,@rmid,@tc,@sm,@sec2,@pm,@cdtype,@rlj,@rzj,@gfrid);
                SELECT last_insert_rowid();
             """;
          }
@@ -2353,7 +2368,7 @@ namespace OpenCS.Utilites
                   concrete_material_id=@cmid, rebar_material_id=@rmid,
                   tension_concrete=@tc, softening_model=@sm, softening_eps_c2=@sec2,
                   plate_model=@pm, concrete_diagram_type=@cdtype, rebar_layers_json=@rlj,
-                  rebar_zones_json=@rzj
+                  rebar_zones_json=@rzj, generated_for_region_id=@gfrid
                WHERE id=@id;
             """;
             cmd.Parameters.AddWithValue("@id", ps.Id);
@@ -2373,6 +2388,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@cdtype", ps.ConcreteDiagramType.ToString());
          cmd.Parameters.AddWithValue("@rlj",  layersJson);
          cmd.Parameters.AddWithValue("@rzj",  zonesJson);
+         cmd.Parameters.AddWithValue("@gfrid", (object?)ps.GeneratedForRegionId ?? DBNull.Value);
          if (isNew) ps.Id = (int)(long)cmd.ExecuteScalar()!;
          else cmd.ExecuteNonQuery();
 
@@ -5228,11 +5244,11 @@ namespace OpenCS.Utilites
                 frame_local_y_x, frame_local_y_y, frame_local_y_z,
                 frame_local_z_x, frame_local_z_y, frame_local_z_z,
                 frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json,
-                rebar_zones_json)
+                rebar_zones_json, rebar_section_grid_step)
             VALUES
                (@sid, @tag, @wkt, @fox, @foy, @foz,
                 @fxx, @fxy, @fxz, @fyx, @fyy, @fyz, @fzx, @fzy, @fzz,
-                @rec, @scid, @fp, @bsj, @rzj);
+                @rec, @scid, @fp, @bsj, @rzj, @rsgs);
             SELECT last_insert_rowid();
          """;
          AddPlanarRegionParameters(cmd, region, schemaId);
@@ -5249,7 +5265,7 @@ namespace OpenCS.Utilites
                frame_local_y_x=@fyx, frame_local_y_y=@fyy, frame_local_y_z=@fyz,
                frame_local_z_x=@fzx, frame_local_z_y=@fzy, frame_local_z_z=@fzz,
                frame_is_recovered=@rec, source_contour_id=@scid, geometry_fingerprint=@fp, boundary_segments_json=@bsj,
-               rebar_zones_json=@rzj
+               rebar_zones_json=@rzj, rebar_section_grid_step=@rsgs
             WHERE id=@id
          """;
          AddPlanarRegionParameters(cmd, region, schemaId);
@@ -5286,6 +5302,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@fp", region.GeometryFingerprint);
          cmd.Parameters.AddWithValue("@bsj", segmentsJson);
          cmd.Parameters.AddWithValue("@rzj", zonesJson);
+         cmd.Parameters.AddWithValue("@rsgs", region.RebarSectionGridStep);
       }
 
       public List<CScore.Planar.PlanarRegion> GetPlanarRegions(int schemaId)
@@ -5298,7 +5315,7 @@ namespace OpenCS.Utilites
                    frame_local_y_x, frame_local_y_y, frame_local_y_z,
                    frame_local_z_x, frame_local_z_y, frame_local_z_z,
                    frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json,
-                   rebar_zones_json
+                   rebar_zones_json, rebar_section_grid_step
             FROM planar_regions WHERE schema_id=@sid
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
@@ -5319,6 +5336,7 @@ namespace OpenCS.Utilites
                FrameIsRecovered = rdr.GetInt32(15) != 0,
                SourceContourId  = rdr.IsDBNull(16) ? null : rdr.GetInt32(16),
                GeometryFingerprint = rdr.GetString(17),
+               RebarSectionGridStep = rdr.IsDBNull(20) ? 0.3 : rdr.GetDouble(20),
             };
             region.Contours.Add(new Contour { X = ox, Y = oy, Type = ContourType.Hull, Tag = region.Tag });
             for (int i = 0; i < holeXs.Count; i++)
