@@ -59,6 +59,24 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
         if (dlg.ShowDialog() == true) _vm.RotateGeometryDegrees(dlg.AngleDeg);
     }
 
+    void MoveZoneGeometry_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        var dlg = new GeometryTransformDialog(GeometryTransformKind.Move, "PlanarRegionRebarZoneMoveTool") { Owner = this };
+        if (dlg.ShowDialog() == true) _vm.TranslateZoneGeometry(dlg.Dx, dlg.Dy);
+    }
+
+    void ScaleZoneGeometry_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        var dlg = new GeometryTransformDialog(GeometryTransformKind.Scale, "PlanarRegionRebarZoneZoomTool") { Owner = this };
+        if (dlg.ShowDialog() == true) _vm.ScaleZoneGeometry(dlg.Factor);
+    }
+
+    void RotateZoneGeometry_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        var dlg = new GeometryTransformDialog(GeometryTransformKind.Rotate, "PlanarRegionRebarZoneRotateTool") { Owner = this };
+        if (dlg.ShowDialog() == true) _vm.RotateZoneGeometryDegrees(dlg.AngleDeg);
+    }
+
     void UpdatePlot()
     {
         var elements = _vm.PlotElements;
