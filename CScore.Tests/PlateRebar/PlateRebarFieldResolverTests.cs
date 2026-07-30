@@ -141,4 +141,101 @@ public class PlateRebarFieldResolverTests
 
         Assert.Equal(r1.Layers.Select(l => l.Name), r2.Layers.Select(l => l.Name));
     }
+
+    [Fact]
+    public void Resolve_HigherPriorityZone_WinsOverLowerPriorityZone()
+    {
+        var baseLayout = new List<PlateRebarLayer> { new() { Name = "Base", Face = RebarFace.PlusN } };
+        var lowPriority = new RebarZone
+        {
+            Face = RebarFace.PlusN, Priority = 1, Operation = RebarZoneOperation.Replace,
+            Polygon = Square(0, 0, 2), Layout = new PlateRebarLayer { Name = "Low" },
+        };
+        var highPriority = new RebarZone
+        {
+            Face = RebarFace.PlusN, Priority = 2, Operation = RebarZoneOperation.Replace,
+            Polygon = Square(0, 0, 2), Layout = new PlateRebarLayer { Name = "High" },
+        };
+        var field = new PlateRebarField(baseLayout, [lowPriority, highPriority]);
+
+        var result = PlateRebarFieldResolver.Resolve(field, 1, 1);
+
+        Assert.Single(result.Layers);
+        Assert.Equal("High", result.Layers[0].Name);
+    }
+
+    [Fact]
+    public void Resolve_HigherPriorityAdd_AppliesAfterLowerPriorityReplace()
+    {
+        var baseLayout = new List<PlateRebarLayer> { new() { Name = "Base", Face = RebarFace.PlusN } };
+        var lowReplace = new RebarZone
+        {
+            Face = RebarFace.PlusN, Priority = 1, Operation = RebarZoneOperation.Replace,
+            Polygon = Square(0, 0, 2), Layout = new PlateRebarLayer { Name = "ReplacedBase" },
+        };
+        var highAdd = new RebarZone
+        {
+            Face = RebarFace.PlusN, Priority = 2, Operation = RebarZoneOperation.Add,
+            Polygon = Square(0, 0, 2), Layout = new PlateRebarLayer { Name = "Extra" },
+        };
+        var field = new PlateRebarField(baseLayout, [lowReplace, highAdd]);
+
+        var result = PlateRebarFieldResolver.Resolve(field, 1, 1);
+
+        Assert.Equal(2, result.Layers.Count);
+        Assert.Contains(result.Layers, l => l.Name == "ReplacedBase");
+        Assert.Contains(result.Layers, l => l.Name == "Extra");
+        Assert.DoesNotContain(result.Layers, l => l.Name == "Base");
+    }
+
+    [Fact]
+    public void Resolve_TwoZonesSamePriority_BothApplicable_ReportsConflictAndKeepsLowerPriorityResult()
+    {
+        var baseLayout = new List<PlateRebarLayer> { new() { Name = "Base", Face = RebarFace.PlusN } };
+        var zoneA = new RebarZone
+        {
+            Face = RebarFace.PlusN, Priority = 1, Operation = RebarZoneOperation.Replace,
+            Polygon = Square(0, 0, 2), Layout = new PlateRebarLayer { Name = "A" },
+        };
+        var zoneB = new RebarZone
+        {
+            Face = RebarFace.PlusN, Priority = 1, Operation = RebarZoneOperation.Replace,
+            Polygon = Square(0, 0, 2), Layout = new PlateRebarLayer { Name = "B" },
+        };
+        var field = new PlateRebarField(baseLayout, [zoneA, zoneB]);
+
+        var result = PlateRebarFieldResolver.Resolve(field, 1, 1);
+
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_rebar_zone_priority_conflict" && d.IsError);
+        Assert.Single(result.Layers);
+        Assert.Equal("Base", result.Layers[0].Name);
+    }
+
+    [Fact]
+    public void Resolve_ConflictAtOnePriority_StillAppliesOtherPriorityGroups()
+    {
+        var baseLayout = new List<PlateRebarLayer> { new() { Name = "Base", Face = RebarFace.PlusN } };
+        var conflictA = new RebarZone
+        {
+            Face = RebarFace.PlusN, Priority = 1, Operation = RebarZoneOperation.Replace,
+            Polygon = Square(0, 0, 2), Layout = new PlateRebarLayer { Name = "A" },
+        };
+        var conflictB = new RebarZone
+        {
+            Face = RebarFace.PlusN, Priority = 1, Operation = RebarZoneOperation.Replace,
+            Polygon = Square(0, 0, 2), Layout = new PlateRebarLayer { Name = "B" },
+        };
+        var higherAdd = new RebarZone
+        {
+            Face = RebarFace.PlusN, Priority = 2, Operation = RebarZoneOperation.Add,
+            Polygon = Square(0, 0, 2), Layout = new PlateRebarLayer { Name = "Extra" },
+        };
+        var field = new PlateRebarField(baseLayout, [conflictA, conflictB, higherAdd]);
+
+        var result = PlateRebarFieldResolver.Resolve(field, 1, 1);
+
+        Assert.Equal(2, result.Layers.Count);
+        Assert.Contains(result.Layers, l => l.Name == "Base");
+        Assert.Contains(result.Layers, l => l.Name == "Extra");
+    }
 }
