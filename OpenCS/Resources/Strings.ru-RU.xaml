@@ -670,6 +670,7 @@
    <system:String x:Key="PlateLayerModeSpacing">Ø + шаг</system:String>
    <system:String x:Key="PlateLayerModeCount">Ø + кол-во/м</system:String>
    <system:String x:Key="PlateLayerModeDirect">Прямой ввод A</system:String>
+   <system:String x:Key="PlateLayerMaterial">Материал</system:String>
    <system:String x:Key="PlateLayerDiamX">Ø X, мм</system:String>
    <system:String x:Key="PlateLayerSpacingX">Шаг X, мм</system:String>
    <system:String x:Key="PlateLayerCountX">Кол-во X, шт/м</system:String>

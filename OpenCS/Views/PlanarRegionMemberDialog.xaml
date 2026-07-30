@@ -304,6 +304,20 @@
                                                   Binding="{Binding SpacingYMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
                               <DataGridTextColumn Header="{DynamicResource PlateLayerZsy}"
                                                   Binding="{Binding ZsyMm, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}" Width="65"/>
+                              <DataGridComboBoxColumn Header="{DynamicResource PlateLayerMaterial}"
+                                                       SelectedItemBinding="{Binding RebarMaterial}"
+                                                       DisplayMemberPath="Tag" Width="110">
+                                 <DataGridComboBoxColumn.EditingElementStyle>
+                                    <Style TargetType="ComboBox">
+                                       <Setter Property="ItemsSource" Value="{Binding DataContext.ProjectArmatures, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                                    </Style>
+                                 </DataGridComboBoxColumn.EditingElementStyle>
+                                 <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox">
+                                       <Setter Property="ItemsSource" Value="{Binding DataContext.ProjectArmatures, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                                    </Style>
+                                 </DataGridComboBoxColumn.ElementStyle>
+                              </DataGridComboBoxColumn>
                            </DataGrid.Columns>
                         </DataGrid>
                         <StackPanel Orientation="Horizontal" Margin="4,0,4,4">

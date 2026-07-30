@@ -340,6 +340,21 @@
                               </Style>
                            </DataGridTextColumn.ElementStyle>
                         </DataGridTextColumn>
+
+                        <DataGridComboBoxColumn Header="{DynamicResource PlateLayerMaterial}"
+                                                SelectedItemBinding="{Binding RebarMaterial}"
+                                                DisplayMemberPath="Tag" Width="110">
+                           <DataGridComboBoxColumn.EditingElementStyle>
+                              <Style TargetType="ComboBox">
+                                 <Setter Property="ItemsSource" Value="{Binding DataContext.App.Armatures, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                              </Style>
+                           </DataGridComboBoxColumn.EditingElementStyle>
+                           <DataGridComboBoxColumn.ElementStyle>
+                              <Style TargetType="ComboBox">
+                                 <Setter Property="ItemsSource" Value="{Binding DataContext.App.Armatures, RelativeSource={RelativeSource AncestorType=DataGrid}}"/>
+                              </Style>
+                           </DataGridComboBoxColumn.ElementStyle>
+                        </DataGridComboBoxColumn>
                      </DataGrid.Columns>
                   </DataGrid>
 

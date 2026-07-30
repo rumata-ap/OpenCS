@@ -667,6 +667,7 @@
    <system:String x:Key="PlateLayerModeSpacing">Ø + spacing</system:String>
    <system:String x:Key="PlateLayerModeCount">Ø + count/m</system:String>
    <system:String x:Key="PlateLayerModeDirect">Direct A input</system:String>
+   <system:String x:Key="PlateLayerMaterial">Material</system:String>
    <system:String x:Key="PlateLayerDiamX">Ø X, mm</system:String>
    <system:String x:Key="PlateLayerSpacingX">Spacing X, mm</system:String>
    <system:String x:Key="PlateLayerCountX">Count X, /m</system:String>
