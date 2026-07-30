@@ -33,13 +33,25 @@ namespace OpenCS.ViewModels
       readonly PlateRebarLayer _model;
       readonly System.Action _onChanged;
 
-      public PlateRebarLayerVM(PlateRebarLayer model, System.Action onChanged)
+      readonly IReadOnlyList<Material> _armatures;
+
+      public PlateRebarLayerVM(PlateRebarLayer model, System.Action onChanged, IReadOnlyList<Material> armatures)
       {
          _model = model;
          _onChanged = onChanged;
+         _armatures = armatures;
+         _rebarMaterial = armatures.FirstOrDefault(m => m.Id == model.MaterialId);
       }
 
       public PlateRebarLayer Model => _model;
+
+      Material? _rebarMaterial;
+      /// <summary>Материал арматуры слоя. null (MaterialId=0) — использовать глобальный материал арматуры сечения.</summary>
+      public Material? RebarMaterial
+      {
+         get => _rebarMaterial;
+         set { _rebarMaterial = value; _model.MaterialId = value?.Id ?? 0; OnPropertyChanged(); _onChanged(); }
+      }
 
       public string Name
       {
@@ -129,7 +141,7 @@ namespace OpenCS.ViewModels
          App    = app;
 
          RebarLayers = new ObservableCollection<PlateRebarLayerVM>(
-            model.RebarLayers.ConvertAll(l => new PlateRebarLayerVM(l, () => { })));
+            model.RebarLayers.ConvertAll(l => new PlateRebarLayerVM(l, () => { }, app.Armatures)));
 
          ConcreteMaterial = app.Concretes.FirstOrDefault(m => m.Id == model.ConcreteMaterialId);
          RebarMaterial    = app.Armatures.FirstOrDefault(m => m.Id == model.RebarMaterialId);
@@ -278,7 +290,7 @@ namespace OpenCS.ViewModels
          };
          layer.RecalcArea();
          _model.RebarLayers.Add(layer);
-         var vm = new PlateRebarLayerVM(layer, () => { });
+         var vm = new PlateRebarLayerVM(layer, () => { }, App.Armatures);
          RebarLayers.Add(vm);
          SelectedRebarLayer = vm;
       }

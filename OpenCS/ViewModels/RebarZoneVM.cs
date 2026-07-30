@@ -1,3 +1,4 @@
+using CScore;
 using CScore.PlateRebar;
 using OpenCS.Utilites;
 
@@ -11,11 +12,11 @@ public class RebarZoneVM : ViewModelBase
     readonly RebarZone _model;
     readonly System.Action _onChanged;
 
-    public RebarZoneVM(RebarZone model, System.Action onChanged)
+    public RebarZoneVM(RebarZone model, System.Action onChanged, IReadOnlyList<Material> armatures)
     {
         _model = model;
         _onChanged = onChanged;
-        Layout = new PlateRebarLayerVM(model.Layout, onChanged);
+        Layout = new PlateRebarLayerVM(model.Layout, onChanged, armatures);
     }
 
     public RebarZone Model => _model;

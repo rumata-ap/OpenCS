@@ -32,7 +32,7 @@ public class PlanarRegionMemberVM : ViewModelBase
 
         Holes = [];
         RebarZones = new ObservableCollection<RebarZoneVM>(
-            (existingRegion?.RebarZones ?? []).Select(z => new RebarZoneVM(z, OnZoneChanged)));
+            (existingRegion?.RebarZones ?? []).Select(z => new RebarZoneVM(z, OnZoneChanged, app.Armatures)));
 
         if (existingRegion != null)
         {
@@ -143,6 +143,7 @@ public class PlanarRegionMemberVM : ViewModelBase
 
     public ObservableCollection<Contour> ProjectContours => _app.Contours;
     public ObservableCollection<PlateSection> ProjectPlateSections => _app.PlateSections;
+    public ObservableCollection<Material> ProjectArmatures => _app.Armatures;
 
     IReadOnlyList<PlotElement> _geometryPlotElements = [];
     public IReadOnlyList<PlotElement> GeometryPlotElements { get => _geometryPlotElements; private set { _geometryPlotElements = value; OnPropertyChanged(); } }
@@ -196,7 +197,7 @@ public class PlanarRegionMemberVM : ViewModelBase
     void AddRebarZone()
     {
         var zone = new RebarZone { Name = $"Зона {RebarZones.Count + 1}", Face = ActiveRebarFace };
-        var vm = new RebarZoneVM(zone, OnZoneChanged);
+        var vm = new RebarZoneVM(zone, OnZoneChanged, _app.Armatures);
         RebarZones.Add(vm);
         RefreshFaceFilteredCollections();
         SelectedRebarZone = vm;
@@ -235,7 +236,7 @@ public class PlanarRegionMemberVM : ViewModelBase
                 Face = ActiveRebarFace,
                 Polygon = RebarZonePolygonConverter.FromContour(contour),
             };
-            RebarZones.Add(new RebarZoneVM(zone, OnZoneChanged));
+            RebarZones.Add(new RebarZoneVM(zone, OnZoneChanged, _app.Armatures));
         }
         RefreshFaceFilteredCollections();
         RefreshPlot();
@@ -280,7 +281,7 @@ public class PlanarRegionMemberVM : ViewModelBase
         SelectedSectionRebarLayers.Clear();
         if (_plateSection != null)
             foreach (var l in _plateSection.RebarLayers)
-                SelectedSectionRebarLayers.Add(new PlateRebarLayerVM(l, () => { }));
+                SelectedSectionRebarLayers.Add(new PlateRebarLayerVM(l, () => { }, _app.Armatures));
         RefreshFaceFilteredCollections();
     }
 
@@ -299,7 +300,7 @@ public class PlanarRegionMemberVM : ViewModelBase
         };
         layer.RecalcArea();
         PlateSection.RebarLayers.Add(layer);
-        var vm = new PlateRebarLayerVM(layer, () => { });
+        var vm = new PlateRebarLayerVM(layer, () => { }, _app.Armatures);
         SelectedSectionRebarLayers.Add(vm);
         RefreshFaceFilteredCollections();
         SelectedSectionRebarLayer = vm;
