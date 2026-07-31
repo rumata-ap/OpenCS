@@ -28,6 +28,70 @@ public sealed class ShellTclGeneratorTests
     }
 
     [Fact]
+    public void Generate_CorotationalEmitsFlagBeforeLocalOnQ4()
+    {
+        var model = Q4Model() with { ShellCorotational = true };
+        var script = new ShellTclGenerator().Generate(model);
+        Assert.Contains("element ASDShellQ4 10 1 2 3 4 20 -corotational -local", script);
+    }
+
+    [Fact]
+    public void Generate_CorotationalEmitsFlagBeforeReducedIntegrationOnT3()
+    {
+        var model = T3ReducedModel() with { ShellCorotational = true };
+        var script = new ShellTclGenerator().Generate(model);
+        Assert.Contains("element ASDShellT3 11 1 2 3 20 -corotational -reducedIntegration -local", script);
+    }
+
+    [Fact]
+    public void Generate_DisabledEnhancedAssumedStrainEmitsNoeasOnQ4OnlyNotT3()
+    {
+        var model = Q4Model() with
+        {
+            EnhancedAssumedStrain = false,
+            Elements =
+            [
+                .. Q4Model().Elements,
+                new(11, ShellElementKind.ASDShellT3, [1, 2, 3], 20, "section-fingerprint",
+                    ShellFrame.Identity, ShellIntegrationPolicy.Full, null)
+            ]
+        };
+        var script = new ShellTclGenerator().Generate(model);
+        Assert.Contains("element ASDShellQ4 10 1 2 3 4 20 -noeas -local", script);
+        Assert.Contains("element ASDShellT3 11 1 2 3 20 -local", script);
+        Assert.DoesNotContain("ASDShellT3 11 1 2 3 20 -noeas", script);
+    }
+
+    [Fact]
+    public void Generate_DrillingStabilizationEmitsNumericValueOnQ4()
+    {
+        var model = Q4Model() with
+        {
+            Drilling = new DrillingPolicy { Mode = ShellDrillingMode.Stabilization, StabilizationValue = 0.001 }
+        };
+        var script = new ShellTclGenerator().Generate(model);
+        Assert.Contains($"element ASDShellQ4 10 1 2 3 4 20 -drillingStab {TclNumber.Format(0.001)} -local", script);
+    }
+
+    [Fact]
+    public void Generate_NonlinearDrillingEmitsFlagOnBothQ4AndT3()
+    {
+        var model = Q4Model() with
+        {
+            Elements =
+            [
+                .. Q4Model().Elements,
+                new(11, ShellElementKind.ASDShellT3, [1, 2, 3], 20, "section-fingerprint",
+                    ShellFrame.Identity, ShellIntegrationPolicy.Full, null)
+            ],
+            Drilling = new DrillingPolicy { Mode = ShellDrillingMode.NonlinearDrilling }
+        };
+        var script = new ShellTclGenerator().Generate(model);
+        Assert.Contains("element ASDShellQ4 10 1 2 3 4 20 -drillingNL -local", script);
+        Assert.Contains("element ASDShellT3 11 1 2 3 20 -drillingNL -local", script);
+    }
+
+    [Fact]
     public void Generate_EmitsPlainLinearLoadPattern()
     {
         var model = Q4Model() with

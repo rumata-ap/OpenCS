@@ -77,9 +77,27 @@ public sealed class ShellTclGenerator
             string command = element.Kind == ShellElementKind.ASDShellQ4
                 ? $"element ASDShellQ4 {element.Tag} {nodes} {element.SectionTag}"
                 : $"element ASDShellT3 {element.Tag} {nodes} {element.SectionTag}";
-            if (element.Kind == ShellElementKind.ASDShellT3 &&
-                element.IntegrationPolicy == ShellIntegrationPolicy.Reduced)
-                command += " -reducedIntegration";
+
+            if (model.ShellCorotational)
+                command += " -corotational";
+
+            if (element.Kind == ShellElementKind.ASDShellQ4)
+            {
+                if (!model.EnhancedAssumedStrain)
+                    command += " -noeas";
+                if (model.Drilling.Mode == ShellDrillingMode.Stabilization)
+                    command += $" -drillingStab {F(model.Drilling.StabilizationValue!.Value)}";
+                else if (model.Drilling.Mode == ShellDrillingMode.NonlinearDrilling)
+                    command += " -drillingNL";
+            }
+            else // ASDShellT3
+            {
+                if (element.IntegrationPolicy == ShellIntegrationPolicy.Reduced)
+                    command += " -reducedIntegration";
+                if (model.Drilling.Mode == ShellDrillingMode.NonlinearDrilling)
+                    command += " -drillingNL";
+            }
+
             command += $" -local {F(element.Frame.Ex.X)} {F(element.Frame.Ex.Y)} {F(element.Frame.Ex.Z)}";
             L(command);
         }
