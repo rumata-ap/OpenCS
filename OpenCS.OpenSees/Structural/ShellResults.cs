@@ -66,6 +66,9 @@ public sealed class ShellResult
     /// <summary>Диагностика parser-а.</summary>
     public IReadOnlyList<string> Diagnostics { get; init; } = [];
 
+    /// <summary>Каталог выборочных material-state recorder-файлов.</summary>
+    public ShellStateCatalog? StateCatalog { get; init; }
+
     /// <summary>Каталог артефактов расчёта.</summary>
     public string? ArtifactDirectory { get; init; }
 }

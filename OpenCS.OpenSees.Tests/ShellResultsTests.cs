@@ -16,4 +16,20 @@ public sealed class ShellResultsTests
 
         Assert.Equal(2, result.Steps.Count);
     }
+
+    [Fact]
+    public void ShellResult_CanCarryMaterialStateCatalogWithoutMaterializingStates()
+    {
+        var catalog = new ShellStateCatalog(
+            Version: 1,
+            ShellLayerGroups:
+            [new(1, 1, "stress", [10], "shell_layer_ip1_layer1_stress.out", 5)],
+            BeamFiberLocations: [],
+            OptionalResponses: []);
+
+        var result = new ShellResult { StateCatalog = catalog };
+
+        Assert.Same(catalog, result.StateCatalog);
+        Assert.Empty(result.Steps);
+    }
 }

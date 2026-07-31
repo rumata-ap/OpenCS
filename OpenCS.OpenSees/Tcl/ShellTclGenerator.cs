@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using OpenCS.OpenSees.Model;
 using OpenCS.OpenSees.Structural;
 
@@ -7,6 +8,9 @@ namespace OpenCS.OpenSees.Tcl;
 /// <summary>Генерирует детерминированный Tcl статического shell-расчёта OpenSees.</summary>
 public sealed class ShellTclGenerator
 {
+    private const int BeamFiberQueryMaxRetries = 3;
+    private const int BeamFiberQueryMaxValueLength = 32;
+
     /// <summary>Строит script.tcl из валидированной нормализованной shell-модели.</summary>
     public string Generate(ShellOpenSeesModel model)
     {
@@ -178,6 +182,39 @@ public sealed class ShellTclGenerator
         }
         L();
 
+        var shellLayerGroups = EmitShellLayerStateRecorders(model, L);
+        var beamFiberLocations = BuildBeamFiberLocations(model);
+        L();
+
+        string stateOrderJson = JsonSerializer.Serialize(new
+        {
+            version = 1,
+            shellLayerGroups = shellLayerGroups.Select(group => new
+            {
+                integrationPoint = group.IntegrationPoint,
+                layerIndex = group.LayerIndex,
+                responseKind = group.ResponseKind,
+                elementTags = group.ElementTags,
+                fileName = group.FileName,
+                componentCount = group.ComponentCount
+            }),
+            beamFiberLocations = beamFiberLocations.Select(location => new
+            {
+                elementTag = location.ElementTag,
+                integrationPoint = location.IntegrationPoint,
+                fiberIndex = location.FiberIndex,
+                sectionTag = location.SectionTag,
+                y = location.Y,
+                z = location.Z,
+                materialTag = location.MaterialTag
+            }),
+            optionalResponses = Array.Empty<string>()
+        });
+        L("set stateOrderFile [open state_order.json w]");
+        L("puts $stateOrderFile {" + stateOrderJson + "}");
+        L("close $stateOrderFile");
+        L();
+
         string sectionForceGroupsJson = string.Join(',', sectionForceGroups.Select(g =>
             "{\"point\":" + g.Point + ",\"elementTags\":[" + string.Join(',', g.ElementTags) +
             "],\"file\":\"" + g.FileName + "\"}"));
@@ -207,6 +244,7 @@ public sealed class ShellTclGenerator
         L("    if {$rc == 0} {");
         L("        incr stepIndex");
         L("        set currentLambda [getTime]");
+        EmitBeamFiberStateQueries(model, L, F);
         L("        writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 1 [expr {$depth > 0}]]");
         L("        return 1");
         L("    }");
@@ -263,6 +301,111 @@ public sealed class ShellTclGenerator
         L("wipe");
 
         return sb.ToString();
+    }
+
+    /// <summary>Эмитирует material recorder-группы по слоям LayeredShell и возвращает их catalog.</summary>
+    private static List<ShellLayerStateGroup> EmitShellLayerStateRecorders(
+        ShellOpenSeesModel model,
+        Action<string> line)
+    {
+        var groups = new List<ShellLayerStateGroup>();
+        if (!model.MaterialStateRecording.RecordShellLayers)
+            return groups;
+
+        var sections = model.Sections.ToDictionary(section => section.Tag);
+        int maxIp = model.Elements.Max(element => element.IntegrationPointCount);
+        int[] selectedIps = model.MaterialStateRecording.ShellIntegrationPoints is { } requestedIps
+            ? requestedIps.Distinct().OrderBy(ip => ip).ToArray()
+            : Enumerable.Range(1, maxIp).ToArray();
+
+        var layerCounts = model.Elements
+            .Select(element => sections[element.SectionTag].Layers.Count)
+            .Distinct()
+            .OrderBy(count => count)
+            .ToArray();
+        int maxLayer = layerCounts.Length == 0 ? 0 : layerCounts[^1];
+
+        foreach (int point in selectedIps)
+        {
+            if (point <= 0 || point > maxIp) continue;
+            for (int layer = 1; layer <= maxLayer; layer++)
+            {
+                int[] elementTags = model.Elements
+                    .Where(element => element.IntegrationPointCount >= point &&
+                                      sections[element.SectionTag].Layers.Count >= layer)
+                    .OrderBy(element => element.Tag)
+                    .Select(element => element.Tag)
+                    .ToArray();
+                if (elementTags.Length == 0) continue;
+
+                foreach (string response in new[] { "stress", "strain" })
+                {
+                    string fileName = $"shell_layer_ip{point}_layer{layer}_{response}.out";
+                    line($"recorder Element -file {fileName} -closeOnWrite -time -ele {string.Join(' ', elementTags)} material {point} fiber {layer} {response}");
+                    groups.Add(new ShellLayerStateGroup(point, layer, response, elementTags, fileName, 5));
+                }
+            }
+        }
+
+        return groups;
+    }
+
+    /// <summary>Возвращает детерминированный catalog положений nonlinear beam fibers.</summary>
+    private static List<ShellBeamFiberLocation> BuildBeamFiberLocations(ShellOpenSeesModel model)
+    {
+        var locations = new List<ShellBeamFiberLocation>();
+        if (!model.MaterialStateRecording.RecordBeamFibers)
+            return locations;
+
+        foreach (FemNonlinearElement element in model.NonlinearBeamElements.OrderBy(element => element.Tag))
+        {
+            OpenSeesSectionModel section = model.NonlinearBeamSections[element.SectionTag];
+            int[] ips = model.MaterialStateRecording.BeamIntegrationPoints is { } requestedIps
+                ? requestedIps.Distinct().Where(ip => ip >= 1 && ip <= element.NumIntegrationPoints).OrderBy(ip => ip).ToArray()
+                : Enumerable.Range(1, element.NumIntegrationPoints).ToArray();
+            int[] fibers = model.MaterialStateRecording.BeamFiberIndices is { } requestedFibers
+                ? requestedFibers.Distinct().Where(index => index >= 0 && index < section.Fibers.Count).OrderBy(index => index).ToArray()
+                : Enumerable.Range(0, section.Fibers.Count).ToArray();
+
+            foreach (int ip in ips)
+                foreach (int fiberIndex in fibers)
+                {
+                    OpenSeesFiber fiber = section.Fibers[fiberIndex];
+                    locations.Add(new ShellBeamFiberLocation(
+                        element.Tag, ip, fiberIndex, element.SectionTag,
+                        fiber.Y, fiber.Z, fiber.MaterialTag));
+                }
+        }
+
+        return locations;
+    }
+
+    /// <summary>Добавляет в успешный шаг Tcl-query состояния nonlinear beam fibers.</summary>
+    private static void EmitBeamFiberStateQueries(
+        ShellOpenSeesModel model,
+        Action<string> line,
+        Func<double, string> format)
+    {
+        if (!model.MaterialStateRecording.RecordBeamFibers || model.NonlinearBeamElements.Count == 0)
+            return;
+
+        foreach (ShellBeamFiberLocation location in BuildBeamFiberLocations(model))
+        {
+            string y = format(location.Y);
+            string z = format(location.Z);
+            string query = $"[eleResponse {location.ElementTag} section {location.IntegrationPoint} fiber {y} {z} stressStrain]";
+            line($"        set beamFiberStressStrain {query}");
+            line("        set beamFiberQueryAttempt 0");
+            line($"        while {{([llength $beamFiberStressStrain] != 2 || [string length [lindex $beamFiberStressStrain 0]] > {BeamFiberQueryMaxValueLength} || [string length [lindex $beamFiberStressStrain 1]] > {BeamFiberQueryMaxValueLength}) && $beamFiberQueryAttempt < {BeamFiberQueryMaxRetries}}} {{");
+            line("            incr beamFiberQueryAttempt");
+            line($"            set beamFiberStressStrain {query}");
+            line("        }");
+            line("        if {[llength $beamFiberStressStrain] == 2 && [string length [lindex $beamFiberStressStrain 0]] <= " + BeamFiberQueryMaxValueLength + " && [string length [lindex $beamFiberStressStrain 1]] <= " + BeamFiberQueryMaxValueLength + "} {");
+            line($"            writeCloseOnWrite shell_beam_fiber_states.out [list $stepIndex $currentStageIndex $currentLambda {location.ElementTag} {location.IntegrationPoint} {location.FiberIndex} [lindex $beamFiberStressStrain 0] [lindex $beamFiberStressStrain 1]]");
+            line("        } else {");
+            line($"            puts stderr \"WARNING: состояние beam fiber пропущено elem={location.ElementTag} ip={location.IntegrationPoint} fiber={location.FiberIndex} step=$stepIndex\"");
+            line("        }");
+        }
     }
 
     /// <summary>Возвращает материалы в порядке, где зависимость (DependsOnMaterialTag)

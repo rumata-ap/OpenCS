@@ -48,6 +48,9 @@ public sealed record ShellOpenSeesModel
     /// <summary>Единая на модель политика drilling-стабилизации shell-элементов.</summary>
     public DrillingPolicy Drilling { get; init; } = new();
 
+    /// <summary>Политика записи material states слоёв оболочки и fibers стержней.</summary>
+    public ShellStateRecordingPolicy MaterialStateRecording { get; init; } = new();
+
     /// <summary>Политика нелинейного Newton-анализа. Дефолт подтверждён вручную на реальном
     /// OpenSees 3.8.0 (срез 1) для shell-материалов.</summary>
     public NonlinearAnalysisPolicy Policy { get; init; } = new()
@@ -189,6 +192,7 @@ public sealed record ShellOpenSeesModel
         if (NonlinearBeamGeomTransfKind is not ("Linear" or "PDelta" or "Corotational"))
             throw new InvalidOperationException($"Неизвестная формулировка geomTransf нелинейного стержня «{NonlinearBeamGeomTransfKind}».");
         Policy.Validate();
+        MaterialStateRecording.Validate();
 
         Drilling.Validate();
         if (Drilling.Mode == ShellDrillingMode.Stabilization)

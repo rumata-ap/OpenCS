@@ -152,4 +152,35 @@ public sealed class ShellOpenSeesModelTests
         };
         model.Validate();
     }
+
+    [Fact]
+    public void Validate_RejectsNonPositiveMaterialStateFilterIndex()
+    {
+        var model = BaseModel() with
+        {
+            MaterialStateRecording = new ShellStateRecordingPolicy
+            {
+                ShellIntegrationPoints = [0]
+            }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(model.Validate);
+        Assert.Contains("material-state", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Validate_AcceptsSortedDistinctMaterialStateFilters()
+    {
+        var model = BaseModel() with
+        {
+            MaterialStateRecording = new ShellStateRecordingPolicy
+            {
+                ShellIntegrationPoints = [2, 1, 2],
+                BeamIntegrationPoints = [3, 1, 3],
+                BeamFiberIndices = [2, 0, 2]
+            }
+        };
+
+        model.Validate();
+    }
 }

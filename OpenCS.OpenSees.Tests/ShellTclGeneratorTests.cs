@@ -227,6 +227,35 @@ public sealed class ShellTclGeneratorTests
     }
 
     [Fact]
+    public void Generate_EmitsStageAwareBeamFiberStateQueriesAndCatalogLocations()
+    {
+        var baseModel = Q4Model();
+        var model = baseModel with
+        {
+            NonlinearBeamSections = new Dictionary<int, OpenSeesSectionModel>
+            {
+                [30] = new()
+                {
+                    GJ = 1000,
+                    Materials = [new() { Tag = 40, Native = new Steel01Spec(4e8, 2e11, 0.01) }],
+                    Fibers = [new(-0.1, -0.2, 0.001, 40), new(0.1, 0.2, 0.001, 40)]
+                }
+            },
+            NonlinearBeamElements = [new(200, 1, 2, 30, 3, (0, 1, 0))],
+            Stages = [new() { Tag = "stage-1", Loads = [new(3, 0, 0, -1000, 0, 0, 0)] }]
+        };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        Assert.Contains("shell_beam_fiber_states.out", script);
+        Assert.Contains("section 1 fiber", script);
+        Assert.Contains("stressStrain", script);
+        Assert.Contains("shell_beam_fiber_states.out [list $stepIndex $currentStageIndex $currentLambda 200", script);
+        Assert.Contains("\"beamFiberLocations\":[", script);
+        Assert.Contains("\"elementTag\":200", script);
+    }
+
+    [Fact]
     public void Generate_EmitsPerIntegrationPointSectionForceRecordersGroupedByPointCount()
     {
         var model = Q4Model() with
@@ -249,6 +278,40 @@ public sealed class ShellTclGeneratorTests
         Assert.Contains("recorder Element -file shell_section_forces_ip3.out -closeOnWrite -time -ele 10 11 material 3 force", script);
         Assert.Contains("recorder Element -file shell_section_forces_ip4.out -closeOnWrite -time -ele 10 material 4 force", script);
         Assert.Contains("\"sectionForceGroups\"", script);
+    }
+
+    [Fact]
+    public void Generate_EmitsShellLayerStressAndStrainRecordersWithoutQ4T3Collisions()
+    {
+        var q4 = Model(
+            10,
+            ShellElementKind.ASDShellQ4,
+            ShellIntegrationPolicy.Full,
+            [1, 2, 3, 4],
+            layerCount: 4);
+        var model = q4 with
+        {
+            Elements =
+            [
+                .. q4.Elements,
+                new(11, ShellElementKind.ASDShellT3, [1, 2, 3], 20, "section-fingerprint",
+                    ShellFrame.Identity, ShellIntegrationPolicy.Full, null)
+            ]
+        };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        Assert.Contains(
+            "recorder Element -file shell_layer_ip1_layer1_stress.out -closeOnWrite -time -ele 10 11 material 1 fiber 1 stress",
+            script);
+        Assert.Contains(
+            "recorder Element -file shell_layer_ip1_layer1_strain.out -closeOnWrite -time -ele 10 11 material 1 fiber 1 strain",
+            script);
+        Assert.Contains(
+            "recorder Element -file shell_layer_ip4_layer4_stress.out -closeOnWrite -time -ele 10 material 4 fiber 4 stress",
+            script);
+        Assert.DoesNotContain("shell_layer_ip4_layer4_stress.out -closeOnWrite -time -ele 10 11", script);
+        Assert.Contains("state_order.json", script);
     }
 
     [Fact]

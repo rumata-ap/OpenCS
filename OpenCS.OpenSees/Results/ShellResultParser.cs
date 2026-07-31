@@ -38,6 +38,9 @@ public sealed class ShellResultParser
         var sectionForceRowsByFile = order.SectionForceGroups.ToDictionary(
             g => g.File,
             g => ParseMatrix(Path.Combine(directory, g.File), 1 + g.ElementTags.Length * 8, g.File));
+        ShellStateCatalog? stateCatalog = File.Exists(Path.Combine(directory, "state_order.json"))
+            ? new ShellStateParser().ParseCatalog(directory)
+            : null;
 
         int available = dispRows.Count;
         available = Math.Min(available, order.RestrainedTags.Length > 0 ? reactRows.Count : available);
@@ -97,7 +100,8 @@ public sealed class ShellResultParser
             Reactions = last?.Reactions ?? [],
             ElementForces = last?.ElementForces ?? [],
             SectionResultants = last?.SectionResultants ?? [],
-            Diagnostics = []
+            Diagnostics = [],
+            StateCatalog = stateCatalog
         };
     }
 

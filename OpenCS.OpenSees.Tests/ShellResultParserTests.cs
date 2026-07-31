@@ -61,6 +61,30 @@ public sealed class ShellResultParserTests
     }
 
     [Fact]
+    public void Parse_LoadsMaterialStateCatalogWithoutEagerStateRows()
+    {
+        using var fixture = new ShellArtifactFixture();
+        WriteOneStepFixture(fixture);
+        fixture.Write("state_order.json", """
+        {
+          "version": 1,
+          "shellLayerGroups": [
+            { "integrationPoint": 1, "layerIndex": 1, "responseKind": "stress", "elementTags": [10], "fileName": "stress.out", "componentCount": 5 },
+            { "integrationPoint": 1, "layerIndex": 1, "responseKind": "strain", "elementTags": [10], "fileName": "strain.out", "componentCount": 5 }
+          ],
+          "beamFiberLocations": [],
+          "optionalResponses": []
+        }
+        """);
+
+        var result = new ShellResultParser().Parse(fixture.Directory, FixtureElements());
+
+        Assert.NotNull(result.StateCatalog);
+        Assert.Equal(2, result.StateCatalog!.ShellLayerGroups.Count);
+        Assert.Single(result.Steps);
+    }
+
+    [Fact]
     public void Parse_RejectsMissingRecorderOrder()
     {
         using var fixture = new ShellArtifactFixture();
