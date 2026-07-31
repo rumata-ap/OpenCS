@@ -1697,6 +1697,10 @@
     <system:String x:Key="PlanarDxfImportAddZonesButton">Добавить {0} зон</system:String>
     <system:String x:Key="PlanarDxfImportNothingSelected">Не выбрано ни одной зоны для добавления.</system:String>
     <system:String x:Key="PlanarRegionImportRebarZonesDxfTool">Импорт зон армирования из DXF</system:String>
+    <system:String x:Key="PlanarDxfImportGeometryTitle">Импорт геометрии из DXF</system:String>
+    <system:String x:Key="PlanarDxfImportHullColumn">Hull</system:String>
+    <system:String x:Key="PlanarDxfImportHoleColumn">Hole</system:String>
+    <system:String x:Key="PlanarDxfImportHullRequired">Выберите контур Hull для импорта геометрии.</system:String>
     <system:String x:Key="GeometryTransformDx">ΔX, м</system:String>
     <system:String x:Key="GeometryTransformDy">ΔY, м</system:String>
     <system:String x:Key="GeometryTransformFactor">Коэффициент масштабирования</system:String>

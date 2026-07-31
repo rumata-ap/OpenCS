@@ -1,0 +1,65 @@
+<Window x:Class="OpenCS.Views.PlanarGeometryDxfImportDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{DynamicResource PlanarDxfImportGeometryTitle}"
+        Width="560" Height="440" WindowStartupLocation="CenterOwner">
+   <Grid Margin="10">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+         <Button Content="{DynamicResource PlanarDxfImportOpenFile}" Command="{Binding OpenFileCommand}"
+                 Padding="6,3" Margin="0,0,8,0"/>
+         <TextBlock Text="{Binding FileName}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+         <TextBlock Text="{DynamicResource DxfUnits}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+         <ComboBox ItemsSource="{Binding Units}" SelectedIndex="{Binding UnitIdx}" Width="60"/>
+      </StackPanel>
+
+      <TextBlock Grid.Row="1" Text="{Binding SummaryText}" Margin="0,0,0,8"/>
+
+      <DataGrid Grid.Row="2" ItemsSource="{Binding Rows}" AutoGenerateColumns="False"
+                CanUserAddRows="False" Margin="0,0,0,8">
+         <DataGrid.RowStyle>
+            <Style TargetType="DataGridRow">
+               <Style.Triggers>
+                  <DataTrigger Binding="{Binding IsAccepted}" Value="False">
+                     <Setter Property="Foreground" Value="Gray"/>
+                  </DataTrigger>
+               </Style.Triggers>
+            </Style>
+         </DataGrid.RowStyle>
+         <DataGrid.Columns>
+            <DataGridTemplateColumn Header="{DynamicResource PlanarDxfImportHullColumn}" Width="60">
+               <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                     <RadioButton GroupName="HullGroup" IsChecked="{Binding IsHull, UpdateSourceTrigger=PropertyChanged}"
+                                  IsEnabled="{Binding IsAccepted}" HorizontalAlignment="Center"/>
+                  </DataTemplate>
+               </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridCheckBoxColumn Header="{DynamicResource PlanarDxfImportHoleColumn}"
+                                     Binding="{Binding IsHole, UpdateSourceTrigger=PropertyChanged}" Width="60">
+               <DataGridCheckBoxColumn.ElementStyle>
+                  <Style TargetType="CheckBox">
+                     <Setter Property="IsEnabled" Value="{Binding IsAccepted}"/>
+                     <Setter Property="HorizontalAlignment" Value="Center"/>
+                  </Style>
+               </DataGridCheckBoxColumn.ElementStyle>
+            </DataGridCheckBoxColumn>
+            <DataGridTextColumn Header="{DynamicResource PlanarDxfImportLayerColumn}" Binding="{Binding Layer}" IsReadOnly="True" Width="140"/>
+            <DataGridTextColumn Header="{DynamicResource PlanarDxfImportPointsColumn}" Binding="{Binding PointCount}" IsReadOnly="True" Width="70"/>
+            <DataGridTextColumn Header="{DynamicResource PlanarDxfImportStatusColumn}" Binding="{Binding StatusText}" IsReadOnly="True" Width="*"/>
+         </DataGrid.Columns>
+      </DataGrid>
+
+      <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+         <Button Content="{DynamicResource OK}" Click="Ok_Click" Padding="16,4" Margin="0,0,8,0"
+                 IsDefault="True" IsEnabled="{Binding CanImport}"/>
+         <Button Content="{DynamicResource Cancel}" Click="Cancel_Click" Padding="16,4" IsCancel="True"/>
+      </StackPanel>
+   </Grid>
+</Window>

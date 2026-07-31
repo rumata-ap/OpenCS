@@ -1694,6 +1694,10 @@
     <system:String x:Key="PlanarDxfImportAddZonesButton">Add {0} zones</system:String>
     <system:String x:Key="PlanarDxfImportNothingSelected">No zones selected to add.</system:String>
     <system:String x:Key="PlanarRegionImportRebarZonesDxfTool">Import rebar zones from DXF</system:String>
+    <system:String x:Key="PlanarDxfImportGeometryTitle">Import geometry from DXF</system:String>
+    <system:String x:Key="PlanarDxfImportHullColumn">Hull</system:String>
+    <system:String x:Key="PlanarDxfImportHoleColumn">Hole</system:String>
+    <system:String x:Key="PlanarDxfImportHullRequired">Select a Hull contour to import geometry.</system:String>
     <system:String x:Key="GeometryTransformDx">ΔX, m</system:String>
     <system:String x:Key="GeometryTransformDy">ΔY, m</system:String>
     <system:String x:Key="GeometryTransformFactor">Scale factor</system:String>
