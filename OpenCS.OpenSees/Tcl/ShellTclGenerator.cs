@@ -115,47 +115,132 @@ public sealed class ShellTclGenerator
             L($"rigidLink {(constraint.Type == ShellRigidLinkType.Bar ? "bar" : "beam")} {constraint.MasterNode} {constraint.SlaveNode}");
         L();
 
-        L("pattern Plain 1 Linear {");
-        foreach (ShellNodalLoad load in model.Stages.SelectMany(s => s.Loads).OrderBy(load => load.NodeTag))
-            L($"    load {load.NodeTag} {F(load.Fx)} {F(load.Fy)} {F(load.Fz)} {F(load.Mx)} {F(load.My)} {F(load.Mz)}");
-        L("}");
-        L();
-
         L("constraints Transformation");
         L("numberer RCM");
         L("system BandGeneral");
-        L("integrator LoadControl 1.0");
-        L("algorithm Linear");
+        L($"test {model.Policy.ConvergenceTest} {F(model.Policy.Tolerance)} {model.Policy.MaxIterations} 0");
+        L($"algorithm {model.Policy.Algorithm}");
         L("analysis Static");
-        L("set ok [analyze 1]");
         L();
 
-        string nodeTags = string.Join(' ', model.Nodes.OrderBy(node => node.Tag).Select(node => node.Tag));
-        string restrainedTags = string.Join(' ', model.Nodes
-            .Where(node => node.Fixed.Any(fixedDof => fixedDof))
-            .OrderBy(node => node.Tag)
-            .Select(node => node.Tag));
-        string elementTags = string.Join(' ', model.Elements.OrderBy(element => element.Tag).Select(element => element.Tag));
-        L($"set shell_node_tags {{{nodeTags}}}");
-        L($"set shell_restrained_tags {{{restrainedTags}}}");
-        L($"set shell_element_tags {{{elementTags}}}");
-        L("reactions");
-        L("set nf [open node_disp.out w]");
-        L("foreach n $shell_node_tags { puts $nf \"$n [nodeDisp $n 1] [nodeDisp $n 2] [nodeDisp $n 3] [nodeDisp $n 4] [nodeDisp $n 5] [nodeDisp $n 6]\" }");
-        L("close $nf");
-        L("set rf [open node_reactions.out w]");
-        L("foreach n $shell_restrained_tags { puts $rf \"$n [nodeReaction $n 1] [nodeReaction $n 2] [nodeReaction $n 3] [nodeReaction $n 4] [nodeReaction $n 5] [nodeReaction $n 6]\" }");
-        L("close $rf");
-        L("set ef [open element_forces.out w]");
-        L("foreach e $shell_element_tags { puts $ef \"$e [eleResponse $e force]\" }");
-        L("close $ef");
-        L("set shell_section_forces [open section_forces.out w]");
-        foreach (NormalizedShellElement element in model.Elements.OrderBy(element => element.Tag))
-            for (int point = 1; point <= element.IntegrationPointCount; point++)
-                L($"puts $shell_section_forces \"{element.Tag} {point} [eleResponse {element.Tag} material {point} force]\"");
-        L("close $shell_section_forces");
+        int[] nodeTags = model.Nodes.OrderBy(n => n.Tag).Select(n => n.Tag).ToArray();
+        int[] restrainedTags = model.Nodes.Where(n => n.Fixed.Any(f => f)).OrderBy(n => n.Tag).Select(n => n.Tag).ToArray();
+        int[] shellElementTags = model.Elements.OrderBy(e => e.Tag).Select(e => e.Tag).ToArray();
+        int[] nonlinearBeamTags = model.NonlinearBeamElements.OrderBy(e => e.Tag).Select(e => e.Tag).ToArray();
+
+        L("proc writeCloseOnWrite {filename row} {");
+        L("    set ch [open $filename a]");
+        L("    puts $ch $row");
+        L("    close $ch");
+        L("}");
+        L($"recorder Node -file shell_node_disp.out -closeOnWrite -time -node {string.Join(' ', nodeTags)} -dof 1 2 3 4 5 6 disp");
+        if (restrainedTags.Length > 0)
+            L($"recorder Node -file shell_node_reactions.out -closeOnWrite -time -node {string.Join(' ', restrainedTags)} -dof 1 2 3 4 5 6 reaction");
+        if (shellElementTags.Length > 0)
+            L($"recorder Element -file shell_element_forces.out -closeOnWrite -time -ele {string.Join(' ', shellElementTags)} force");
+        if (nonlinearBeamTags.Length > 0)
+            L($"recorder Element -file shell_beam_element_forces.out -closeOnWrite -time -ele {string.Join(' ', nonlinearBeamTags)} localForce");
+        L();
+
+        // Один recorder на КАЖДЫЙ индекс точки интегрирования (1..max), включающий все
+        // элементы, у которых есть эта точка (IntegrationPointCount >= point) — Q4=4, T3
+        // full=3, T3 reduced=1. Группировка строго по exact IntegrationPointCount давала бы
+        // коллизию имён файлов между группами (у обеих групп есть "точка 1"); порог "хотя бы
+        // N точек" даёт один файл на индекс точки без коллизий.
+        int maxIpCount = model.Elements.Count > 0 ? model.Elements.Max(e => e.IntegrationPointCount) : 0;
+        var sectionForceGroups = new List<(int Point, int[] ElementTags, string FileName)>();
+        for (int point = 1; point <= maxIpCount; point++)
+        {
+            int[] tags = model.Elements.Where(e => e.IntegrationPointCount >= point)
+                .OrderBy(e => e.Tag).Select(e => e.Tag).ToArray();
+            if (tags.Length == 0) continue;
+            string fileName = $"shell_section_forces_ip{point}.out";
+            L($"recorder Element -file {fileName} -closeOnWrite -time -ele {string.Join(' ', tags)} material {point} force");
+            sectionForceGroups.Add((point, tags, fileName));
+        }
+        L();
+
+        string sectionForceGroupsJson = string.Join(',', sectionForceGroups.Select(g =>
+            "{\"point\":" + g.Point + ",\"elementTags\":[" + string.Join(',', g.ElementTags) +
+            "],\"file\":\"" + g.FileName + "\"}"));
+        string orderJson = "{\"nodeTags\":[" + string.Join(',', nodeTags) +
+            "],\"restrainedTags\":[" + string.Join(',', restrainedTags) +
+            "],\"shellElementTags\":[" + string.Join(',', shellElementTags) +
+            "],\"nonlinearBeamElementTags\":[" + string.Join(',', nonlinearBeamTags) +
+            "],\"sectionForceGroups\":[" + sectionForceGroupsJson + "]}";
+        L("set orderFile [open recorder_order.json w]");
+        L("puts $orderFile {" + orderJson + "}");
+        L("close $orderFile");
+        L();
+
+        L("writeCloseOnWrite step_status.out {# step stageIndex loadFactor converged isRefinement}");
+        L($"set refinementDivisions {model.Policy.RefinementDivisions}");
+        L($"set maxRefinementDepth {model.Policy.MaxRefinementDepth}");
+        L("set currentLambda 0.0");
+        L("set stepIndex 0");
+        L("set analysisFailed 0");
+        L("set currentStageIndex 0");
+        L();
+
+        L("proc advanceTo {fromLambda toLambda depth} {");
+        L("    global refinementDivisions maxRefinementDepth stepIndex currentLambda currentStageIndex");
+        L("    integrator LoadControl [expr {$toLambda - $fromLambda}]");
+        L("    set rc [analyze 1]");
+        L("    if {$rc == 0} {");
+        L("        incr stepIndex");
+        L("        set currentLambda [getTime]");
+        L("        writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 1 [expr {$depth > 0}]]");
+        L("        return 1");
+        L("    }");
+        L("    if {$depth >= $maxRefinementDepth} { return 0 }");
+        L("    set piece [expr {($toLambda - $fromLambda) / double($refinementDivisions)}]");
+        L("    for {set i 0} {$i < $refinementDivisions} {incr i} {");
+        L("        set subFrom [expr {$fromLambda + $piece * $i}]");
+        L("        set subTo [expr {$fromLambda + $piece * ($i + 1)}]");
+        L("        if {![advanceTo $subFrom $subTo [expr {$depth + 1}]]} { return 0 }");
+        L("    }");
+        L("    return 1");
+        L("}");
+        L();
+
+        for (int stageIdx = 0; stageIdx < model.Stages.Count; stageIdx++)
+        {
+            ShellNonlinearStage stage = model.Stages[stageIdx];
+            int patternTag = stageIdx + 1;
+            bool guarded = stageIdx > 0;
+            string indent = guarded ? "    " : "";
+            if (guarded)
+            {
+                // Стадия >0 выполняется только если все предыдущие стадии сошлись; loadConst
+                // фиксирует накопленное НДС перед активацией добавочной нагрузки этой стадии.
+                L("if {!$analysisFailed} {");
+                L($"{indent}loadConst -time 0.0");
+            }
+            L($"{indent}# --- Стадия {patternTag}: {stage.Tag} ---");
+            L($"{indent}set currentStageIndex {stageIdx}");
+            L($"{indent}set loadFactorStep {F(stage.LoadFactorStep)}");
+            L($"{indent}set maxLoadFactor {F(stage.MaxLoadFactor)}");
+            L($"{indent}pattern Plain {patternTag} Linear {{");
+            foreach (ShellNodalLoad load in stage.Loads.OrderBy(load => load.NodeTag))
+                L($"{indent}    load {load.NodeTag} {F(load.Fx)} {F(load.Fy)} {F(load.Fz)} {F(load.Mx)} {F(load.My)} {F(load.Mz)}");
+            L($"{indent}}}");
+            L($"{indent}set currentLambda 0.0");
+            L($"{indent}while {{$currentLambda < $maxLoadFactor - 1.0e-12}} {{");
+            L($"{indent}    set targetLambda [expr {{min($currentLambda + $loadFactorStep, $maxLoadFactor)}}]");
+            L($"{indent}    set fromLambda $currentLambda");
+            L($"{indent}    if {{![advanceTo $fromLambda $targetLambda 0]}} {{");
+            L($"{indent}        set currentLambda [getTime]");
+            L($"{indent}        writeCloseOnWrite step_status.out [list [expr {{$stepIndex + 1}}] $currentStageIndex $currentLambda 0 1]");
+            L($"{indent}        set analysisFailed 1");
+            L($"{indent}        break");
+            L($"{indent}    }}");
+            L($"{indent}}}");
+            if (guarded) L("}");
+            L();
+        }
+
         L("set marker [open completed.marker w]");
-        L("puts $marker $ok");
+        L("puts $marker done");
         L("close $marker");
         L("wipe");
 

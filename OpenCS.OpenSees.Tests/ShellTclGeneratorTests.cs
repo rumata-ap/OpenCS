@@ -15,7 +15,7 @@ public sealed class ShellTclGeneratorTests
         Assert.Contains("section LayeredShell 20", script);
         Assert.Contains("element ASDShellQ4 10 1 2 3 4 20", script);
         Assert.Contains("-local 1 0 0", script);
-        Assert.Contains("set shell_section_forces", script);
+        Assert.Contains("recorder Node -file shell_node_disp.out", script);
     }
 
     [Fact]
@@ -160,6 +160,71 @@ public sealed class ShellTclGeneratorTests
         Assert.Contains("section Fiber 30 -GJ", script);
         Assert.Contains("fiber 0 0 0.001 40", script);
         Assert.Contains("element forceBeamColumn 200 1 2 3 30", script);
+    }
+
+    [Fact]
+    public void Generate_EmitsPerIntegrationPointSectionForceRecordersGroupedByPointCount()
+    {
+        var model = Q4Model() with
+        {
+            Elements =
+            [
+                .. Q4Model().Elements,
+                new(11, ShellElementKind.ASDShellT3, [1, 2, 3], 20, "section-fingerprint",
+                    ShellFrame.Identity, ShellIntegrationPolicy.Full, null)
+            ],
+            Stages = [new() { Tag = "stage-1", Loads = [new(2, 0, 0, -1000, 0, 0, 0)] }]
+        };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        // Q4 (элемент 10) имеет 4 точки, T3 full (элемент 11) — 3: точки 1..3 общие для
+        // обоих элементов (один recorder на точку, без коллизии имён файлов), точка 4 —
+        // только у Q4.
+        Assert.Contains("recorder Element -file shell_section_forces_ip1.out -closeOnWrite -time -ele 10 11 material 1 force", script);
+        Assert.Contains("recorder Element -file shell_section_forces_ip3.out -closeOnWrite -time -ele 10 11 material 3 force", script);
+        Assert.Contains("recorder Element -file shell_section_forces_ip4.out -closeOnWrite -time -ele 10 material 4 force", script);
+        Assert.Contains("\"sectionForceGroups\"", script);
+    }
+
+    [Fact]
+    public void Generate_EmitsAdaptiveNewtonLoopAndRecorders()
+    {
+        var model = Q4Model() with
+        {
+            Stages = [new() { Tag = "stage-1", LoadFactorStep = 0.2, MaxLoadFactor = 1.0,
+                Loads = [new(2, 0, 0, -1000, 0, 0, 0)] }]
+        };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        Assert.Contains("test NormDispIncr", script);
+        Assert.Contains("algorithm Newton", script);
+        Assert.Contains("proc advanceTo", script);
+        Assert.Contains("recorder Node -file shell_node_disp.out -closeOnWrite -time", script);
+        Assert.Contains("recorder Element -file shell_element_forces.out -closeOnWrite -time", script);
+        Assert.Contains("recorder_order.json", script);
+        Assert.Contains("step_status.out", script);
+        Assert.DoesNotContain("algorithm Linear", script);
+        Assert.DoesNotContain("set ok [analyze 1]", script);
+    }
+
+    [Fact]
+    public void Generate_MultipleStages_GuardsSubsequentStageOnPriorFailure()
+    {
+        var model = Q4Model() with
+        {
+            Stages =
+            [
+                new() { Tag = "dead-load", Loads = [new(2, 0, 0, -500, 0, 0, 0)] },
+                new() { Tag = "live-load", Loads = [new(3, 0, 0, -500, 0, 0, 0)] }
+            ]
+        };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        Assert.Contains("if {!$analysisFailed}", script);
+        Assert.Contains("loadConst -time 0.0", script);
     }
 
     private static ShellOpenSeesModel Q4Model() => Model(
