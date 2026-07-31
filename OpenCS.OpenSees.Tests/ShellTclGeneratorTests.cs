@@ -107,6 +107,33 @@ public sealed class ShellTclGeneratorTests
             $"uniaxialMaterial (index {uniaxialIndex}) должен быть объявлен раньше nDMaterial PlateRebar (index {plateRebarIndex})");
     }
 
+    [Fact]
+    public void Generate_OrdersConcreteWrapperAfterBaseDamageMaterial()
+    {
+        // PlateFromPlaneStress (tag 4) ссылается на PlasticDamageConcretePlaneStress (tag 8) —
+        // зависимость имеет БОЛЬШИЙ tag, чем зависимый от неё материал, аналогично
+        // существующему PlateRebar-кейсу, но для второй, независимой пары обёрток.
+        var model = Q4Model() with
+        {
+            Materials =
+            [
+                new(1, "fixture", new ElasticIsotropicShellMaterialSpec(30e9, 0.25)),
+                new(4, "concrete-wrapped", new PlateFromPlaneStressShellMaterialSpec(8, 1.25e10)),
+                new(8, "concrete-base", new PlasticDamageConcretePlaneStressShellMaterialSpec(
+                    3.0e10, 0.2, 3.0e6, 3.0e7, 0.6, 0.5, 2.0, 0.14)),
+            ]
+        };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        int baseIndex = script.IndexOf("nDMaterial PlasticDamageConcretePlaneStress 8", StringComparison.Ordinal);
+        int wrapperIndex = script.IndexOf("nDMaterial PlateFromPlaneStress 4 8", StringComparison.Ordinal);
+
+        Assert.True(baseIndex >= 0 && wrapperIndex >= 0);
+        Assert.True(baseIndex < wrapperIndex,
+            $"Базовый материал (index {baseIndex}) должен быть объявлен раньше обёртки (index {wrapperIndex})");
+    }
+
     private static ShellOpenSeesModel Q4Model() => Model(
         10,
         ShellElementKind.ASDShellQ4,

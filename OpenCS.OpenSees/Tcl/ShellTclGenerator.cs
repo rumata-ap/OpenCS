@@ -31,13 +31,11 @@ public sealed class ShellTclGenerator
             L($"fix {node.Tag} {string.Join(' ', node.Fixed.Select(fixedDof => fixedDof ? 1 : 0))}");
         L();
 
-        // PlateRebar nDMaterial ссылается на отдельно объявленный uniaxialMaterial по тегу —
-        // эта зависимость эмитируется первой независимо от численного соотношения тегов
-        // (сортировка по возрастанию Tag сама по себе не гарантирует порядок объявления).
-        IOrderedEnumerable<NativeShellMaterialDefinition> orderedMaterials = model.Materials
-            .OrderBy(material => material.Spec is PlateRebarShellMaterialSpec ? 1 : 0)
-            .ThenBy(material => material.Tag);
-        foreach (NativeShellMaterialDefinition material in orderedMaterials)
+        // Материалы могут ссылаться друг на друга по tag (PlateRebar → uniaxial,
+        // PlateFromPlaneStress → базовый plane-stress материал) — топологический порядок
+        // эмиссии, не порядок по Tag (зависимость может иметь БОЛЬШИЙ tag, чем зависимый от неё
+        // материал).
+        foreach (NativeShellMaterialDefinition material in TopologicalOrder(model.Materials))
         {
             foreach (string auxiliary in material.Spec.AuxiliaryCommands)
                 L(auxiliary);
@@ -141,5 +139,37 @@ public sealed class ShellTclGenerator
         L("wipe");
 
         return sb.ToString();
+    }
+
+    /// <summary>Возвращает материалы в порядке, где зависимость (DependsOnMaterialTag)
+    /// эмитируется раньше материала, который на неё ссылается — произвольная глубина цепочки
+    /// (алгоритм Кана по слоям готовности).</summary>
+    private static IEnumerable<NativeShellMaterialDefinition> TopologicalOrder(
+        IReadOnlyList<NativeShellMaterialDefinition> materials)
+    {
+        var remaining = materials.OrderBy(material => material.Tag).ToList();
+        var emitted = new HashSet<int>();
+        var ordered = new List<NativeShellMaterialDefinition>(materials.Count);
+
+        while (remaining.Count > 0)
+        {
+            List<NativeShellMaterialDefinition> ready = remaining
+                .Where(material => material.Spec.DependsOnMaterialTag is not int dependsOn || emitted.Contains(dependsOn))
+                .OrderBy(material => material.Tag)
+                .ToList();
+
+            if (ready.Count == 0)
+                throw new InvalidOperationException(
+                    "Обнаружена неразрешимая или циклическая зависимость shell-материалов.");
+
+            foreach (NativeShellMaterialDefinition material in ready)
+            {
+                ordered.Add(material);
+                emitted.Add(material.Tag);
+                remaining.Remove(material);
+            }
+        }
+
+        return ordered;
     }
 }
