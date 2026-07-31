@@ -5,56 +5,89 @@ namespace OpenCS.OpenSees.Tests;
 
 public sealed class ShellResultParserTests
 {
-    [Fact]
-    public void Parse_ReadsSectionResultantsAndIntegrationPoint()
-    {
-        using var fixture = new ShellArtifactFixture();
-        fixture.WriteMarker("0\n");
-        fixture.Write("node_disp.out", "1 0 0 0 0 0 0\n");
-        fixture.Write("node_reactions.out", "1 10 20 30 40 50 60\n");
-        fixture.Write("element_forces.out", "10 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24\n");
-        fixture.Write("section_forces.out", "10 1 1 2 3 4 5 6 7 8\n");
-
-        var result = new ShellResultParser().Parse(fixture.Directory, FixtureElements());
-
-        var force = Assert.Single(result.SectionResultants);
-        Assert.Equal(10, force.ElementTag);
-        Assert.Equal(1, force.IntegrationPoint);
-        Assert.Equal(4, force.Mx);
-        Assert.Equal(8, force.Qy);
-    }
-
-    [Fact]
-    public void Parse_TreatsOpenSeesAnalyzeZeroAsCompleted()
-    {
-        using var fixture = new ShellArtifactFixture();
-        fixture.WriteMarker("0\n");
-        fixture.Write("node_disp.out", "1 0 0 0 0 0 0\n");
-        fixture.Write("element_forces.out", "10 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24\n");
-        fixture.Write("section_forces.out", "10 1 1 2 3 4 5 6 7 8\n");
-
-        var result = new ShellResultParser().Parse(fixture.Directory, FixtureElements());
-
-        Assert.Equal("completed", result.Status);
-    }
-
-    [Fact]
-    public void Parse_RejectsMissingMarker()
-    {
-        using var fixture = new ShellArtifactFixture();
-
-        var ex = Assert.Throws<OpenSeesResultException>(() =>
-            new ShellResultParser().Parse(fixture.Directory, FixtureElements()));
-
-        Assert.Equal("MissingMarker", ex.Code);
-    }
-
     private static IReadOnlyDictionary<int, NormalizedShellElement> FixtureElements() =>
         new Dictionary<int, NormalizedShellElement>
         {
             [10] = new(10, ShellElementKind.ASDShellQ4, [1, 2, 3, 4], 20, "s",
                 ShellFrame.Identity, ShellIntegrationPolicy.Full, "fixture")
         };
+
+    private static void WriteOneStepFixture(ShellArtifactFixture fixture, int ipCount = 4)
+    {
+        fixture.Write("recorder_order.json",
+            "{\"nodeTags\":[1],\"restrainedTags\":[],\"shellElementTags\":[10]," +
+            "\"nonlinearBeamElementTags\":[],\"sectionForceGroups\":[" +
+            string.Join(',', Enumerable.Range(1, ipCount).Select(p =>
+                $"{{\"point\":{p},\"elementTags\":[10],\"file\":\"shell_section_forces_ip{p}.out\"}}")) +
+            "]}");
+        fixture.Write("step_status.out", "1 0 1.0 1 0\n");
+        fixture.Write("shell_node_disp.out", "1.0 0.001 0 0 0 0 0\n");
+        fixture.Write("shell_element_forces.out",
+            "1.0 " + string.Join(' ', Enumerable.Repeat("1", 24)) + "\n");
+        for (int p = 1; p <= ipCount; p++)
+            fixture.Write($"shell_section_forces_ip{p}.out", "1.0 1 2 3 4 5 6 7 8\n");
+        fixture.Write("completed.marker", "done\n");
+    }
+
+    [Fact]
+    public void Parse_ReadsSingleConvergedStep()
+    {
+        using var fixture = new ShellArtifactFixture();
+        WriteOneStepFixture(fixture);
+
+        var result = new ShellResultParser().Parse(fixture.Directory, FixtureElements());
+
+        var step = Assert.Single(result.Steps);
+        Assert.Equal(1, step.StepIndex);
+        Assert.Equal(1.0, step.LoadFactor);
+        Assert.True(step.Converged);
+        Assert.Single(step.Displacements);
+        Assert.Single(step.SectionResultants.Where(s => s.ElementTag == 10 && s.IntegrationPoint == 1));
+        Assert.Equal(4, step.SectionResultants.Count);
+    }
+
+    [Fact]
+    public void Parse_TopLevelViewsReflectLastStep()
+    {
+        using var fixture = new ShellArtifactFixture();
+        WriteOneStepFixture(fixture);
+
+        var result = new ShellResultParser().Parse(fixture.Directory, FixtureElements());
+
+        Assert.Equal("completed", result.Status);
+        Assert.Single(result.Displacements);
+        Assert.Equal(0.001, result.Displacements[0].Ux);
+        Assert.Equal(4, result.SectionResultants.Count);
+    }
+
+    [Fact]
+    public void Parse_RejectsMissingRecorderOrder()
+    {
+        using var fixture = new ShellArtifactFixture();
+
+        var ex = Assert.Throws<OpenSeesResultException>(() =>
+            new ShellResultParser().Parse(fixture.Directory, FixtureElements()));
+
+        Assert.Equal("MissingFile", ex.Code);
+    }
+
+    [Fact]
+    public void Parse_LastStepFailed_StatusIsNotConverged()
+    {
+        using var fixture = new ShellArtifactFixture();
+        fixture.Write("recorder_order.json",
+            "{\"nodeTags\":[1],\"restrainedTags\":[],\"shellElementTags\":[10]," +
+            "\"nonlinearBeamElementTags\":[],\"sectionForceGroups\":[]}");
+        fixture.Write("step_status.out", "1 0 1.0 0 1\n");
+        fixture.Write("completed.marker", "done\n");
+
+        var result = new ShellResultParser().Parse(fixture.Directory, FixtureElements());
+
+        Assert.Equal("not_converged", result.Status);
+        var step = Assert.Single(result.Steps);
+        Assert.False(step.Converged);
+        Assert.Empty(step.Displacements);
+    }
 }
 
 internal sealed class ShellArtifactFixture : IDisposable

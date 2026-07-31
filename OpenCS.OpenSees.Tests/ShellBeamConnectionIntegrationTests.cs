@@ -16,7 +16,12 @@ public sealed class ShellBeamConnectionIntegrationTests
         ShellResult result = await RunAsync(executable, ShellBeamConnectionFixtures.SharedNodeColumn());
 
         double reactionFx = result.Reactions.Sum(r => r.Fx);
-        Assert.True(Math.Abs(reactionFx + 1000) < 1e-6,
+        // Допуск ослаблен с 1e-6 до 1e-3 при переходе с точного одношагового линейного
+        // решения на итеративный адаптивный Newton-цикл (срез 2) — критерий сходимости
+        // NormDispIncr контролирует приращение перемещения, а не невязку силы напрямую,
+        // остаточная невязка силы порядка 1e-4 Н на нагрузке 1000 Н ожидаема и не является
+        // признаком ошибки.
+        Assert.True(Math.Abs(reactionFx + 1000) < 1e-3,
             $"Сумма реакций Fx должна уравновешивать нагрузку 1000 Н на вершине колонны, получено {reactionFx}");
     }
 
@@ -47,7 +52,8 @@ public sealed class ShellBeamConnectionIntegrationTests
         const double offsetZ = 0.5;
         const double appliedFx = 1000;
 
-        Assert.True(Math.Abs(reactionFx + appliedFx) < 1e-6,
+        // См. комментарий в SharedNodeColumn_GlobalEquilibriumHolds про ослабление допуска.
+        Assert.True(Math.Abs(reactionFx + appliedFx) < 1e-3,
             $"Сумма реакций Fx должна уравновешивать нагрузку {appliedFx} Н, получено {reactionFx}");
         Assert.True(Math.Abs(Math.Abs(reactionMomentY) - appliedFx * offsetZ) < 0.05 * appliedFx * offsetZ,
             $"Эксцентричная сила должна создавать момент ~Fx*offset={appliedFx * offsetZ} Н·м через rigidLink, получено {reactionMomentY}");
