@@ -1683,6 +1683,7 @@
     <system:String x:Key="PlanarDxfRejectNotClosed">Contour is not closed</system:String>
     <system:String x:Key="PlanarDxfRejectDegenerateArea">Degenerate area</system:String>
     <system:String x:Key="PlanarDxfRejectSelfIntersecting">Self-intersecting</system:String>
+    <system:String x:Key="PlanarDxfImportLoadError">Failed to open DXF file: {0}</system:String>
     <system:String x:Key="GeometryTransformDx">ΔX, m</system:String>
     <system:String x:Key="GeometryTransformDy">ΔY, m</system:String>
     <system:String x:Key="GeometryTransformFactor">Scale factor</system:String>
