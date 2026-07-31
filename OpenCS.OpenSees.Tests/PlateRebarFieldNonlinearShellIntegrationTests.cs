@@ -120,6 +120,133 @@ public sealed class PlateRebarFieldNonlinearShellIntegrationTests
             $"Зона армирования должна быть жёстче на сжатие: baseline={compressionBaseline:e3}, zone={compressionZone:e3}");
     }
 
+    [Fact]
+    public async Task PureBending_WithAsymmetricZoneRebar_CracksUnreinforcedFace()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+
+        var section = new PlateSection { H = 0.2, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+        var zoneTensionFace = new RebarZone
+        {
+            Face = RebarFace.PlusN, Operation = RebarZoneOperation.Add, Priority = 1,
+            Polygon = [new() { U = 0, V = 0 }, new() { U = 2, V = 0 }, new() { U = 2, V = 1 }, new() { U = 0, V = 1 }],
+            Layout = new PlateRebarLayer { Asx = 0.004, Zsx = 0.09, MaterialId = 2 },
+        };
+        var zoneCompressionFace = new RebarZone
+        {
+            Face = RebarFace.MinusN, Operation = RebarZoneOperation.Add, Priority = 1,
+            Polygon = [new() { U = 0, V = 4 }, new() { U = 2, V = 4 }, new() { U = 2, V = 5 }, new() { U = 0, V = 5 }],
+            Layout = new PlateRebarLayer { Asx = 0.004, Zsx = -0.09, MaterialId = 2 },
+        };
+        var field = new PlateRebarField([], [zoneTensionFace, zoneCompressionFace]);
+
+        // Центроиды 1/0.5 и 1/4.5 попадают только в свою зону — резолвер видит их независимо,
+        // как отдельные конструктивные элементы (см. PlateRebarFieldResolver.Resolve, вызывается
+        // на каждой грани отдельно). Реальная геометрия узлов ниже не связана с (u, v).
+        var centroids = new (int ElementId, double U, double V)[] { (200, 1, 0.5), (201, 1, 4.5) };
+        PlateRebarFieldShellMappingResult mapped = PlateRebarFieldOpenSeesMapper.MapMesh(
+            section, field, ShellFrame.Identity, NonlinearResolver(), centroids);
+        Assert.Equal(2, mapped.Sections.Count);
+
+        var sectionByTag = mapped.Sections.ToDictionary(s => s.Tag);
+        RCShellLayeredSection sectionTensionReinforced = sectionByTag[mapped.ElementSectionTag[200]];
+        RCShellLayeredSection sectionCompressionReinforced = sectionByTag[mapped.ElementSectionTag[201]];
+
+        // Статическая проверка (до любого запуска OpenSees): армирование действительно
+        // расположено на РАЗНЫХ гранях, а не задублировано на обеих.
+        Assert.Contains(sectionTensionReinforced.Layers, l => l.Kind == ShellLayerKind.RebarX && l.CenterZ > 0);
+        Assert.DoesNotContain(sectionTensionReinforced.Layers, l => l.Kind == ShellLayerKind.RebarX && l.CenterZ < 0);
+        Assert.Contains(sectionCompressionReinforced.Layers, l => l.Kind == ShellLayerKind.RebarX && l.CenterZ < 0);
+        Assert.DoesNotContain(sectionCompressionReinforced.Layers, l => l.Kind == ShellLayerKind.RebarX && l.CenterZ > 0);
+
+        // Геометрия и нагрузка — по образцу ShellReferenceFixtures.Q4EndMoment: чистый узловой
+        // момент на свободном крае, без сдвига. Положительный My на свободном крае растягивает
+        // грань +Z (+n) — см. CLAUDE.md, Sign Conventions, «Плиты». TipMomentEach подобран так,
+        // чтобы заведомо превысить момент трещинообразования: при Ft≈1.15 МПа (B25) и H=0.2 м
+        // упругий Mcr на метр ширины ~ Ft*H²/6 ≈ 7.7 кН·м/м — при меньшем моменте (изначально
+        // пробовался 500 Н·м) сечение остаётся упругим, и изгибная жёсткость не зависит от
+        // знака z (Σ E·A·z² симметрична), поэтому арматура сверху/снизу не давала разницы.
+        const double Length = 2.0, Width = 1.0, TipMomentEach = 6000.0;
+        NormalizedShellNode[] nodes =
+        [
+            new(1, 0, 0, 0, [true, true, true, true, true, true], "tension-face:fixed:1"),
+            new(2, Length, 0, 0, new bool[6], "tension-face:free:2"),
+            new(3, Length, Width, 0, new bool[6], "tension-face:free:3"),
+            new(4, 0, Width, 0, [true, true, true, true, true, true], "tension-face:fixed:4"),
+            new(5, 0, 0, 10, [true, true, true, true, true, true], "compression-face:fixed:5"),
+            new(6, Length, 0, 10, new bool[6], "compression-face:free:6"),
+            new(7, Length, Width, 10, new bool[6], "compression-face:free:7"),
+            new(8, 0, Width, 10, [true, true, true, true, true, true], "compression-face:fixed:8"),
+        ];
+
+        var model = new ShellOpenSeesModel
+        {
+            Nodes = nodes,
+            Materials = mapped.Materials,
+            Sections = mapped.Sections,
+            Elements =
+            [
+                new(200, ShellElementKind.ASDShellQ4, [1, 2, 3, 4], sectionTensionReinforced.Tag,
+                    sectionTensionReinforced.Fingerprint, ShellFrame.Identity, ShellIntegrationPolicy.Full, "bending:tension-face-reinforced"),
+                new(201, ShellElementKind.ASDShellQ4, [5, 6, 7, 8], sectionCompressionReinforced.Tag,
+                    sectionCompressionReinforced.Fingerprint, ShellFrame.Identity, ShellIntegrationPolicy.Full, "bending:compression-face-reinforced"),
+            ],
+            Stages =
+            [
+                new()
+                {
+                    Tag = "bending",
+                    LoadFactorStep = 0.01,
+                    MaxLoadFactor = 1.0,
+                    Loads =
+                    [
+                        new(2, 0, 0, 0, 0, TipMomentEach, 0), new(3, 0, 0, 0, 0, TipMomentEach, 0),
+                        new(6, 0, 0, 0, 0, TipMomentEach, 0), new(7, 0, 0, 0, 0, TipMomentEach, 0),
+                    ]
+                }
+            ]
+        };
+
+        using ShellIntegrationRun run = await RunAsync(executable, model);
+        ShellResult result = run.Result;
+
+        Assert.All(result.Steps, step => Assert.True(step.Converged, $"Шаг {step.StepIndex} не сошёлся."));
+        Assert.Equal(1.0, result.Steps[^1].LoadFactor, precision: 6);
+
+        double RyAverage(int firstFreeNodeTag) => result.Displacements
+            .Where(d => d.NodeTag == firstFreeNodeTag || d.NodeTag == firstFreeNodeTag + 1)
+            .Average(d => Math.Abs(d.Ry));
+
+        double rotationTensionReinforced = RyAverage(2);
+        double rotationCompressionReinforced = RyAverage(6);
+        Assert.True(rotationTensionReinforced < rotationCompressionReinforced,
+            $"Плита с арматурой на растянутой грани должна поворачиваться меньше под тем же моментом: " +
+            $"tensionReinforced={rotationTensionReinforced:e3}, compressionReinforced={rotationCompressionReinforced:e3}");
+
+        // Material state introspection (срез 4) — впервые применяется к секции, построенной
+        // PlateRebarFieldOpenSeesMapper (а не однородным PlateSectionOpenSeesMapper.Map, как во
+        // всех существующих ShellMaterialStateIntegrationTests). Само отсутствие исключения при
+        // парсинге уже подтверждает совместимость recorder/catalog-контракта с per-element
+        // секциями моста PlateRebarField.
+        Assert.NotNull(result.StateCatalog);
+        RCShellLayer tensionConcreteA = sectionTensionReinforced.Layers
+            .Where(l => l.Kind == ShellLayerKind.Concrete).OrderByDescending(l => l.CenterZ).First();
+        RCShellLayer tensionConcreteB = sectionCompressionReinforced.Layers
+            .Where(l => l.Kind == ShellLayerKind.Concrete).OrderByDescending(l => l.CenterZ).First();
+
+        int finalStepIndex = result.Steps.Last(step => step.Converged).StepIndex;
+        var stateParser = new ShellStateParser();
+        var stateA = stateParser.ParseShellLayers(
+            run.Directory, result.StateCatalog!, 200, 1, tensionConcreteA.Index + 1, finalStepIndex);
+        var stateB = stateParser.ParseShellLayers(
+            run.Directory, result.StateCatalog!, 201, 1, tensionConcreteB.Index + 1, finalStepIndex);
+
+        Assert.Single(stateA);
+        Assert.Single(stateB);
+        Assert.All(stateA[0].Stress, value => Assert.True(double.IsFinite(value)));
+        Assert.All(stateB[0].Stress, value => Assert.True(double.IsFinite(value)));
+    }
+
     /// <summary>Четыре независимых Q4-панели 1x1 м, каждая — нижний край (y=0) полностью
     /// зафиксирован, верхний край (y=1) свободен в плоскости (мембранная растяжение/сжатие)
     /// и зафиксирован из плоскости, как в ShellMaterialStateIntegrationTests.CreateNonlinearQ4Model.</summary>
