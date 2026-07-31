@@ -83,7 +83,9 @@ public sealed class PlateSectionOpenSeesMapperTests
         var batch = PlateSectionOpenSeesMapper.MapMany(
             [(sectionA, ShellFrame.Identity, 1), (sectionB, ShellFrame.Identity, 2)], Resolver());
 
-        Assert.Equal(2, batch.Materials.Count);
+        // concrete (общий для обеих секций) + цепочка армирования (uniaxial сталь + PlateRebar
+        // обёртка) — сектор B добавляет ровно одну цепочку, не дублирует бетон.
+        Assert.Equal(3, batch.Materials.Count);
     }
 
     [Fact]
@@ -101,19 +103,22 @@ public sealed class PlateSectionOpenSeesMapperTests
 
     private sealed class TestResolver : IPlateSectionShellMaterialResolver
     {
-        public NativeShellMaterialDefinition ResolveConcrete(int sourceMaterialId) =>
-            new(1, $"concrete:{sourceMaterialId}", new ElasticIsotropicShellMaterialSpec(30e9, 0.2));
+        public IReadOnlyList<NativeShellMaterialDefinition> ResolveConcrete(int sourceMaterialId) =>
+            [new(1, $"concrete:{sourceMaterialId}", new ElasticIsotropicShellMaterialSpec(30e9, 0.2))];
 
-        public NativeShellMaterialDefinition ResolveRebar(int sourceMaterialId) =>
-            new(2, $"rebar:{sourceMaterialId}", new PlateRebarShellMaterialSpec(5, 0));
+        public IReadOnlyList<NativeShellMaterialDefinition> ResolveRebar(int sourceMaterialId) =>
+        [
+            new(5, $"rebar:{sourceMaterialId}:uniaxial", new ElasticUniaxialShellMaterialSpec(200e9)),
+            new(2, $"rebar:{sourceMaterialId}:plate", new PlateRebarShellMaterialSpec(5, 0)),
+        ];
     }
 
     private sealed class MissingResolver : IPlateSectionShellMaterialResolver
     {
-        public NativeShellMaterialDefinition ResolveConcrete(int sourceMaterialId) =>
+        public IReadOnlyList<NativeShellMaterialDefinition> ResolveConcrete(int sourceMaterialId) =>
             throw new CScoreMappingException("Не разрешён материал бетона.");
 
-        public NativeShellMaterialDefinition ResolveRebar(int sourceMaterialId) =>
+        public IReadOnlyList<NativeShellMaterialDefinition> ResolveRebar(int sourceMaterialId) =>
             throw new CScoreMappingException("Не разрешён материал арматуры.");
     }
 }

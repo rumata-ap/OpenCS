@@ -13,11 +13,6 @@ namespace OpenCS.OpenSees.Tests;
 
 public sealed class PlateRebarFieldShellIntegrationTests
 {
-    // UniaxialMaterialTag фиксированный, заведомо выше диапазона автонумерации MapMesh
-    // (concrete=1, rebar-обёртка=2) — тег добавляется в модель вручную ниже, т.к.
-    // IPlateSectionShellMaterialResolver сегодня не умеет самостоятельно регистрировать
-    // зависимый uniaxialMaterial (см. design doc, раздел "Real OpenSees fixture").
-    private const int RebarUniaxialTag = 500;
     private const double RebarE = 200e9;
 
     [Fact]
@@ -49,12 +44,7 @@ public sealed class PlateRebarFieldShellIntegrationTests
 
         Assert.Equal(2, mapped.Sections.Count);
 
-        var materials = mapped.Materials
-            .Append(new NativeShellMaterialDefinition(
-                RebarUniaxialTag, "rebar:uniaxial", new ElasticUniaxialShellMaterialSpec(RebarE)))
-            .ToArray();
-
-        ShellOpenSeesModel model = BuildModel(mapped, materials);
+        ShellOpenSeesModel model = BuildModel(mapped);
         ShellResult result = await RunAsync(executable, model);
 
         double UzAverage(IEnumerable<int> freeNodes) => result.Displacements
@@ -68,9 +58,7 @@ public sealed class PlateRebarFieldShellIntegrationTests
             $"Элемент с доп. арматурой должен быть жёстче: uzBaseline={uzBaseline:e3}, uzReinforced={uzReinforced:e3}");
     }
 
-    private static ShellOpenSeesModel BuildModel(
-        PlateRebarFieldShellMappingResult mapped,
-        IReadOnlyList<NativeShellMaterialDefinition> materials)
+    private static ShellOpenSeesModel BuildModel(PlateRebarFieldShellMappingResult mapped)
     {
         var sectionByTag = mapped.Sections.ToDictionary(s => s.Tag);
         int tagBaseline = mapped.ElementSectionTag[100];
@@ -91,7 +79,7 @@ public sealed class PlateRebarFieldShellIntegrationTests
         return new ShellOpenSeesModel
         {
             Nodes = nodes,
-            Materials = materials,
+            Materials = mapped.Materials,
             Sections = mapped.Sections,
             Elements =
             [
@@ -132,10 +120,13 @@ public sealed class PlateRebarFieldShellIntegrationTests
 
     private sealed class RebarCapableResolver : IPlateSectionShellMaterialResolver
     {
-        public NativeShellMaterialDefinition ResolveConcrete(int sourceMaterialId) =>
-            new(1, $"concrete:{sourceMaterialId}", new ElasticIsotropicShellMaterialSpec(30e9, 0.2));
+        public IReadOnlyList<NativeShellMaterialDefinition> ResolveConcrete(int sourceMaterialId) =>
+            [new(1, $"concrete:{sourceMaterialId}", new ElasticIsotropicShellMaterialSpec(30e9, 0.2))];
 
-        public NativeShellMaterialDefinition ResolveRebar(int sourceMaterialId) =>
-            new(2, $"rebar:{sourceMaterialId}", new PlateRebarShellMaterialSpec(RebarUniaxialTag, 0));
+        public IReadOnlyList<NativeShellMaterialDefinition> ResolveRebar(int sourceMaterialId) =>
+        [
+            new(500, $"rebar:{sourceMaterialId}:uniaxial", new ElasticUniaxialShellMaterialSpec(RebarE)),
+            new(2, $"rebar:{sourceMaterialId}:plate", new PlateRebarShellMaterialSpec(500, 0)),
+        ];
     }
 }

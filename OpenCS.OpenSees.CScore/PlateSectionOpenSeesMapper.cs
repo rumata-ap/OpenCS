@@ -96,12 +96,10 @@ public static class PlateSectionOpenSeesMapper
             throw new CScoreMappingException("Локальный frame PlateSection не прошёл validation.", exception);
         }
 
-        NativeShellMaterialDefinition concrete = ResolveMaterial(
+        IReadOnlyList<NativeShellMaterialDefinition> concreteChain = ResolveMaterial(
             () => resolver.ResolveConcrete(section.ConcreteMaterialId), "бетона");
-        concrete.Validate();
-
-        NativeShellMaterialDefinition concreteRegistered = Register(
-            concrete, byFingerprint, usedTags, materials, concrete.Tag);
+        NativeShellMaterialDefinition concreteRegistered = RegisterChain(
+            concreteChain, concreteChain[^1].Tag, null, byFingerprint, usedTags, materials);
 
         int nextMaterialTag = usedTags.Count == 0 ? 1 : usedTags.Max() + 1;
         int nlayers = section.NLayers;
@@ -136,10 +134,10 @@ public static class PlateSectionOpenSeesMapper
                 hasRebar = true;
                 int sourceMaterialId = source.MaterialId != 0
                     ? source.MaterialId : section.RebarMaterialId;
-                NativeShellMaterialDefinition baseDefinition = ResolveMaterial(
+                IReadOnlyList<NativeShellMaterialDefinition> rebarChain = ResolveMaterial(
                     () => resolver.ResolveRebar(sourceMaterialId), "арматуры");
-                NativeShellMaterialDefinition oriented = Orient(
-                    baseDefinition, 0, nextMaterialTag, byFingerprint, usedTags, materials);
+                NativeShellMaterialDefinition oriented = RegisterChain(
+                    rebarChain, nextMaterialTag, 0, byFingerprint, usedTags, materials);
                 nextMaterialTag = Math.Max(nextMaterialTag, oriented.Tag + 1);
                 layers.Add(new RCShellLayer(
                     0, ShellLayerKind.RebarX, source.Zsx, source.Asx, oriented.Tag, 0,
@@ -151,10 +149,10 @@ public static class PlateSectionOpenSeesMapper
                 hasRebar = true;
                 int sourceMaterialId = source.MaterialId != 0
                     ? source.MaterialId : section.RebarMaterialId;
-                NativeShellMaterialDefinition baseDefinition = ResolveMaterial(
+                IReadOnlyList<NativeShellMaterialDefinition> rebarChain = ResolveMaterial(
                     () => resolver.ResolveRebar(sourceMaterialId), "арматуры");
-                NativeShellMaterialDefinition oriented = Orient(
-                    baseDefinition, 90, nextMaterialTag, byFingerprint, usedTags, materials);
+                NativeShellMaterialDefinition oriented = RegisterChain(
+                    rebarChain, nextMaterialTag, 90, byFingerprint, usedTags, materials);
                 nextMaterialTag = Math.Max(nextMaterialTag, oriented.Tag + 1);
                 layers.Add(new RCShellLayer(
                     0, ShellLayerKind.RebarY, source.Zsy, source.Asy, oriented.Tag, 90,
@@ -216,13 +214,16 @@ public static class PlateSectionOpenSeesMapper
         return resultSection;
     }
 
-    private static NativeShellMaterialDefinition ResolveMaterial(
-        Func<NativeShellMaterialDefinition> resolver,
+    private static IReadOnlyList<NativeShellMaterialDefinition> ResolveMaterial(
+        Func<IReadOnlyList<NativeShellMaterialDefinition>> resolver,
         string kind)
     {
         try
         {
-            return resolver() ?? throw new CScoreMappingException($"Не разрешён material {kind}.");
+            IReadOnlyList<NativeShellMaterialDefinition>? result = resolver();
+            if (result is null || result.Count == 0)
+                throw new CScoreMappingException($"Не разрешён material {kind}.");
+            return result;
         }
         catch (CScoreMappingException)
         {
@@ -255,18 +256,50 @@ public static class PlateSectionOpenSeesMapper
         return registered;
     }
 
-    private static NativeShellMaterialDefinition Orient(
-        NativeShellMaterialDefinition definition,
-        double direction,
-        int preferredTag,
+    /// <summary>Регистрирует цепочку зависимых материалов (база → обёртки) по порядку,
+    /// переписывая DependsOnMaterialTag каждого элемента на ФИНАЛЬНЫЙ tag предыдущего элемента
+    /// цепочки (резолвер не знает финальную нумерацию из-за глобальной дедупликации между
+    /// секциями в MapMany). Если orientLastAsDegrees задан и последний элемент —
+    /// PlateRebarShellMaterialSpec, переопределяет его AngleDegrees перед регистрацией.</summary>
+    private static NativeShellMaterialDefinition RegisterChain(
+        IReadOnlyList<NativeShellMaterialDefinition> chain,
+        int preferredLastTag,
+        double? orientLastAsDegrees,
         Dictionary<string, NativeShellMaterialDefinition> byFingerprint,
         HashSet<int> usedTags,
         List<NativeShellMaterialDefinition> materials)
     {
-        NativeShellMaterialDefinition oriented = definition.Spec is PlateRebarShellMaterialSpec plateRebar
-            ? definition with { Spec = plateRebar with { AngleDegrees = direction } }
-            : definition;
-        return Register(oriented, byFingerprint, usedTags, materials, preferredTag);
+        var resolvedTagByOriginal = new Dictionary<int, int>();
+        NativeShellMaterialDefinition? last = null;
+
+        for (int i = 0; i < chain.Count; i++)
+        {
+            NativeShellMaterialDefinition definition = chain[i];
+            NativeShellMaterialSpec spec = definition.Spec;
+
+            if (spec.DependsOnMaterialTag is int dependsOn)
+            {
+                if (!resolvedTagByOriginal.TryGetValue(dependsOn, out int finalDependsOn))
+                    throw new CScoreMappingException(
+                        $"Материал {definition.SourceId}: зависимость (tag {dependsOn}) не зарегистрирована раньше в цепочке резолвера.");
+                spec = spec.WithDependencyTag(finalDependsOn);
+            }
+
+            bool isLast = i == chain.Count - 1;
+            if (isLast && orientLastAsDegrees is double direction && spec is PlateRebarShellMaterialSpec plateRebar)
+                spec = plateRebar with { AngleDegrees = direction };
+
+            NativeShellMaterialDefinition toRegister = definition with { Spec = spec };
+            toRegister.Validate();
+            int preferredTag = isLast ? preferredLastTag : definition.Tag;
+            NativeShellMaterialDefinition registered = Register(
+                toRegister, byFingerprint, usedTags, materials, preferredTag);
+
+            resolvedTagByOriginal[definition.Tag] = registered.Tag;
+            last = registered;
+        }
+
+        return last ?? throw new CScoreMappingException("Резолвер вернул пустую цепочку shell-материалов.");
     }
 
     private static int NextTag(HashSet<int> usedTags)

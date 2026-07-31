@@ -66,10 +66,13 @@ public sealed class PlateRebarFieldOpenSeesMapperTests
 
     private sealed class TestResolver : IPlateSectionShellMaterialResolver
     {
-        public NativeShellMaterialDefinition ResolveConcrete(int sourceMaterialId) =>
-            new(1, $"concrete:{sourceMaterialId}", new ElasticIsotropicShellMaterialSpec(30e9, 0.2));
+        public IReadOnlyList<NativeShellMaterialDefinition> ResolveConcrete(int sourceMaterialId) =>
+            [new(1, $"concrete:{sourceMaterialId}", new ElasticIsotropicShellMaterialSpec(30e9, 0.2))];
 
-        public NativeShellMaterialDefinition ResolveRebar(int sourceMaterialId) =>
-            new(2, $"rebar:{sourceMaterialId}", new PlateRebarShellMaterialSpec(500, 0));
+        public IReadOnlyList<NativeShellMaterialDefinition> ResolveRebar(int sourceMaterialId) =>
+        [
+            new(500, $"rebar:{sourceMaterialId}:uniaxial", new ElasticUniaxialShellMaterialSpec(200e9)),
+            new(2, $"rebar:{sourceMaterialId}:plate", new PlateRebarShellMaterialSpec(500, 0)),
+        ];
     }
 }
