@@ -42,7 +42,7 @@ public sealed class ShellResultParserTests
         Assert.Equal(1.0, step.LoadFactor);
         Assert.True(step.Converged);
         Assert.Single(step.Displacements);
-        Assert.Single(step.SectionResultants.Where(s => s.ElementTag == 10 && s.IntegrationPoint == 1));
+        Assert.Single(step.SectionResultants, s => s.ElementTag == 10 && s.IntegrationPoint == 1);
         Assert.Equal(4, step.SectionResultants.Count);
     }
 
