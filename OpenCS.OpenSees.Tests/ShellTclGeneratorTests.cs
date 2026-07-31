@@ -137,6 +137,31 @@ public sealed class ShellTclGeneratorTests
             $"Базовый материал (index {baseIndex}) должен быть объявлен раньше обёртки (index {wrapperIndex})");
     }
 
+    [Fact]
+    public void Generate_EmitsNonlinearBeamMaterialSectionAndElement()
+    {
+        var model = Q4Model() with
+        {
+            NonlinearBeamSections = new Dictionary<int, OpenSeesSectionModel>
+            {
+                [30] = new()
+                {
+                    GJ = 1000,
+                    Materials = [new() { Tag = 40, Native = new Steel01Spec(4e8, 2e11, 0.01) }],
+                    Fibers = [new(0, 0, 0.001, 40)]
+                }
+            },
+            NonlinearBeamElements = [new(200, 1, 2, 30, 3, (0, 1, 0))]
+        };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        Assert.Contains("uniaxialMaterial Steel01 40", script);
+        Assert.Contains("section Fiber 30 -GJ", script);
+        Assert.Contains("fiber 0 0 0.001 40", script);
+        Assert.Contains("element forceBeamColumn 200 1 2 3 30", script);
+    }
+
     private static ShellOpenSeesModel Q4Model() => Model(
         10,
         ShellElementKind.ASDShellQ4,

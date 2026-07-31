@@ -43,6 +43,11 @@ public sealed class ShellTclGenerator
         }
         L();
 
+        foreach (KeyValuePair<int, OpenSeesSectionModel> beamSection in model.NonlinearBeamSections.OrderBy(kv => kv.Key))
+            foreach (OpenSeesMaterialDefinition mat in beamSection.Value.Materials)
+                L(NativeMaterialTclEmitter.ToTcl(mat, F));
+        L();
+
         foreach (RCShellLayeredSection section in model.Sections.OrderBy(section => section.Tag))
         {
             if (section.MappingMode is ShellMappingMode.Blocked or ShellMappingMode.ReferenceOnly)
@@ -56,6 +61,13 @@ public sealed class ShellTclGenerator
                 .OrderBy(layer => layer.Index)
                 .SelectMany(layer => new[] { layer.MaterialTag.ToString(), F(layer.Thickness) }));
             L($"section LayeredShell {section.Tag} {section.Layers.Count} {layerArgs}");
+        }
+        foreach (KeyValuePair<int, OpenSeesSectionModel> beamSection in model.NonlinearBeamSections.OrderBy(kv => kv.Key))
+        {
+            L($"section Fiber {beamSection.Key} -GJ {F(beamSection.Value.GJ)} {{");
+            foreach (OpenSeesFiber fiber in beamSection.Value.Fibers)
+                L($"    fiber {F(fiber.Y)} {F(fiber.Z)} {F(fiber.AreaM2)} {fiber.MaterialTag}");
+            L("}");
         }
         L();
 
@@ -73,18 +85,27 @@ public sealed class ShellTclGenerator
         }
         L();
 
-        var beamTransfByVec = new Dictionary<(double, double, double), int>();
-        foreach (FemLinearElement beam in model.BeamElements)
-            if (!beamTransfByVec.ContainsKey(beam.Vecxz))
+        var beamTransfByVec = new Dictionary<(double X, double Y, double Z, string Kind), int>();
+        int NextTransf((double, double, double) vecxz, string kind)
+        {
+            var key = (vecxz.Item1, vecxz.Item2, vecxz.Item3, kind);
+            if (!beamTransfByVec.TryGetValue(key, out int tag))
             {
-                int tag = beamTransfByVec.Count + 1;
-                beamTransfByVec[beam.Vecxz] = tag;
-                L($"geomTransf Linear {tag} {F(beam.Vecxz.X)} {F(beam.Vecxz.Y)} {F(beam.Vecxz.Z)}");
+                tag = beamTransfByVec.Count + 1;
+                beamTransfByVec[key] = tag;
+                L($"geomTransf {kind} {tag} {F(vecxz.Item1)} {F(vecxz.Item2)} {F(vecxz.Item3)}");
             }
+            return tag;
+        }
         foreach (FemLinearElement beam in model.BeamElements.OrderBy(beam => beam.Tag))
         {
-            int transf = beamTransfByVec[beam.Vecxz];
+            int transf = NextTransf(beam.Vecxz, "Linear");
             L($"element elasticBeamColumn {beam.Tag} {beam.NodeI} {beam.NodeJ} {F(beam.A)} {F(beam.E)} {F(beam.G)} {F(beam.J)} {F(beam.Iy)} {F(beam.Iz)} {transf}");
+        }
+        foreach (FemNonlinearElement beam in model.NonlinearBeamElements.OrderBy(beam => beam.Tag))
+        {
+            int transf = NextTransf(beam.Vecxz, model.NonlinearBeamGeomTransfKind);
+            L($"element {model.NonlinearBeamElementFormulation} {beam.Tag} {beam.NodeI} {beam.NodeJ} {beam.NumIntegrationPoints} {beam.SectionTag} {transf}");
         }
         L();
 
