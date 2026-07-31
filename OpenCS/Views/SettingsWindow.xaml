@@ -463,6 +463,24 @@
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
+            <!-- Вкладка «Gmsh» -->
+            <TabItem Header="{DynamicResource GmshSettingsTab}">
+                <StackPanel Margin="10">
+                    <GroupBox Header="{DynamicResource GmshExecutableGroup}">
+                        <Grid Margin="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{DynamicResource GmshExecutablePath}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" x:Name="GmshExeBox" VerticalContentAlignment="Center" Margin="0,2"/>
+                            <Button Grid.Column="2" Content="{DynamicResource BrowseEllipsis}" Click="GmshExeBrowse_Click"
+                                    Width="30" Height="22" Margin="4,2,0,2"/>
+                        </Grid>
+                    </GroupBox>
+                </StackPanel>
+            </TabItem>
             <!-- Вкладка «OpenSees» -->
             <TabItem Header="{DynamicResource OpenSeesSettingsTab}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">

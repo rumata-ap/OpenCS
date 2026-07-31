@@ -79,7 +79,11 @@
    <system:String x:Key="PlotsTab">Графики</system:String>
    <system:String x:Key="CalcSettingsTab">Расчёт</system:String>
    <system:String x:Key="CsvSettingsTab">CSV</system:String>
-   <system:String x:Key="OpenSeesSettingsTab">OpenSees</system:String>
+    <system:String x:Key="OpenSeesSettingsTab">OpenSees</system:String>
+    <system:String x:Key="GmshSettingsTab">Gmsh</system:String>
+    <system:String x:Key="GmshExecutableGroup">Исполняемый файл</system:String>
+    <system:String x:Key="GmshExecutablePath">Путь к gmsh.exe</system:String>
+    <system:String x:Key="GmshExeFilter">Gmsh (gmsh.exe)|gmsh.exe|Исполняемые файлы (*.exe)|*.exe</system:String>
    <system:String x:Key="OpenSeesExecutableGroup">Исполняемый файл</system:String>
    <system:String x:Key="OpenSeesNonlinearGroup">Нелинейный расчёт схемы</system:String>
    <system:String x:Key="OpenSeesFiberStatesGroup">Запись состояний волокон</system:String>

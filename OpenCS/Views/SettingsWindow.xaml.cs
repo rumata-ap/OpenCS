@@ -21,7 +21,8 @@ namespace OpenCS.Views
       readonly CalcSettings _calcSettings;
       readonly CsvExportSettings _csvSettings;
       readonly LiraImportSettings _liraSettings;
-      readonly AcadImportSettings _acadSettings;
+       readonly AcadImportSettings _acadSettings;
+       readonly GmshSettings _gmshSettings;
 
       static readonly string[] _palette =
       [
@@ -38,7 +39,8 @@ namespace OpenCS.Views
          _calcSettings = mvm.CalcSettings.Clone();
          _csvSettings = mvm.CsvSettings.Clone();
           _liraSettings = mvm.LiraImportSettings.Clone();
-          _acadSettings = mvm.AcadImportSettings.Clone();
+           _acadSettings = mvm.AcadImportSettings.Clone();
+           _gmshSettings = mvm.GmshSettings.Clone();
           Owner = Application.Current.MainWindow;
 
          LoadToUi();
@@ -53,7 +55,9 @@ namespace OpenCS.Views
           LoadAcadToUi();
           HookAcadControls();
           LoadOpenSeesToUi();
-          HookOpenSeesControls();
+           HookOpenSeesControls();
+           LoadGmshToUi();
+           HookGmshControls();
        }
 
       void BuildPalette()
@@ -193,8 +197,11 @@ namespace OpenCS.Views
           _mvm.LiraImportSettings = _liraSettings.Clone();
           _mvm.db.SaveLiraImportSettings(_mvm.LiraImportSettings);
 
-          _mvm.AcadImportSettings = _acadSettings.Clone();
-          _mvm.db.SaveAcadImportSettings(_mvm.AcadImportSettings);
+           _mvm.AcadImportSettings = _acadSettings.Clone();
+           _mvm.db.SaveAcadImportSettings(_mvm.AcadImportSettings);
+
+           _mvm.GmshSettings = _gmshSettings.Clone();
+           _mvm.db.SaveGmshSettings(_mvm.GmshSettings);
        }
 
       void Cancel_Click(object sender, RoutedEventArgs e)
@@ -492,12 +499,23 @@ namespace OpenCS.Views
          if (path is not null) OpenSeesExeBox.Text = path;
       }
 
-      void OpenSeesArtifactsPathBrowse_Click(object sender, RoutedEventArgs e)
+       void OpenSeesArtifactsPathBrowse_Click(object sender, RoutedEventArgs e)
       {
          var initial = string.IsNullOrWhiteSpace(OpenSeesArtifactsPathBox.Text) ? null : OpenSeesArtifactsPathBox.Text.Trim();
          var folder = _mvm.FileDialogService.SelectFolder(Loc.S("OpenSeesArtifactsPathLabel"), initial);
          if (folder is not null) OpenSeesArtifactsPathBox.Text = folder;
-      }
+       }
+
+       void LoadGmshToUi() => GmshExeBox.Text = _gmshSettings.ExecutablePath ?? "";
+
+       void HookGmshControls() => GmshExeBox.TextChanged += (_, _) =>
+          _gmshSettings.ExecutablePath = string.IsNullOrWhiteSpace(GmshExeBox.Text) ? null : GmshExeBox.Text.Trim();
+
+       void GmshExeBrowse_Click(object sender, RoutedEventArgs e)
+       {
+          var path = _mvm.FileDialogService.OpenFile(Loc.S("GmshExeFilter"), Loc.S("GmshExecutablePath"));
+          if (path is not null) GmshExeBox.Text = path;
+       }
 
       static string? ComboTag(ComboBox combo) => (combo.SelectedItem as ComboBoxItem)?.Tag as string;
 

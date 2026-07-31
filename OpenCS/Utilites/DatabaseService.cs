@@ -30,7 +30,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-        const int CurrentSchemaVersion = 43;
+         const int CurrentSchemaVersion = 44;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -56,14 +56,15 @@ namespace OpenCS.Utilites
       public ObservableCollection<CScore.Fem.FemSchema> FemSchemas { get; } = [];
       public ObservableCollection<CScore.Fem.FemCheck>  FemChecks  { get; } = [];
 
-      public DatabaseService(string dataSource)
-      {
-         _dataSource = dataSource;
-         _connection = OpenOrRecreate(dataSource);
-         SetDeleteJournalMode();
-         EnsureCreated();
-         Migrate();
-      }
+       public DatabaseService(string dataSource)
+       {
+          _dataSource = dataSource;
+          _connection = OpenOrRecreate(dataSource);
+          SetDeleteJournalMode();
+          EnsureCreated();
+          EnsurePlanarMeshTables();
+          Migrate();
+       }
 
       // Открывает файл БД; если он повреждён — удаляет и создаёт заново.
       static SqliteConnection OpenOrRecreate(string dataSource)
@@ -568,7 +569,8 @@ namespace OpenCS.Utilites
                if (i == 39) { MigrateV40(); continue; }
                if (i == 40) { MigrateV41(); continue; }
                if (i == 41) { MigrateV42(); continue; }
-               if (i == 42) { MigrateV43(); continue; }
+                if (i == 42) { MigrateV43(); continue; }
+                if (i == 43) { MigrateV44(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1074,13 +1076,48 @@ namespace OpenCS.Utilites
 
       /// <summary>Миграция v43: rebar_section_grid_step в planar_regions, generated_for_region_id
       /// в plate_sections — генерация секций-комбинаций по пробной сетке точек (срез 4).</summary>
-      void MigrateV43()
-      {
-         if (!ColumnExists("planar_regions", "rebar_section_grid_step"))
-            MigExec("ALTER TABLE planar_regions ADD COLUMN rebar_section_grid_step REAL NOT NULL DEFAULT 0.3");
-         if (!ColumnExists("plate_sections", "generated_for_region_id"))
-            MigExec("ALTER TABLE plate_sections ADD COLUMN generated_for_region_id INTEGER REFERENCES planar_regions(id)");
-      }
+       void MigrateV43()
+       {
+          if (!ColumnExists("planar_regions", "rebar_section_grid_step"))
+             MigExec("ALTER TABLE planar_regions ADD COLUMN rebar_section_grid_step REAL NOT NULL DEFAULT 0.3");
+          if (!ColumnExists("plate_sections", "generated_for_region_id"))
+             MigExec("ALTER TABLE plate_sections ADD COLUMN generated_for_region_id INTEGER REFERENCES planar_regions(id)");
+       }
+
+       /// <summary>Миграция v44: отдельные производные Gmsh-снимки плоских регионов.</summary>
+       void MigrateV44() => EnsurePlanarMeshTables();
+
+       void EnsurePlanarMeshTables()
+       {
+          MigExec("""
+             CREATE TABLE IF NOT EXISTS planar_mesh_snapshots (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 planar_region_id INTEGER NOT NULL REFERENCES planar_regions(id) ON DELETE CASCADE,
+                 input_fingerprint TEXT NOT NULL,
+                 is_calculable INTEGER NOT NULL DEFAULT 0,
+                 settings_json TEXT NOT NULL DEFAULT '{}',
+                 provenance_json TEXT NOT NULL DEFAULT '{}',
+                 diagnostics_json TEXT NOT NULL DEFAULT '[]'
+             );
+             CREATE INDEX IF NOT EXISTS idx_planar_mesh_snapshots_region_fingerprint
+                 ON planar_mesh_snapshots(planar_region_id, input_fingerprint);
+             CREATE TABLE IF NOT EXISTS planar_mesh_nodes (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 snapshot_id INTEGER NOT NULL REFERENCES planar_mesh_snapshots(id) ON DELETE CASCADE,
+                 node_index INTEGER NOT NULL,
+                 u REAL NOT NULL, v REAL NOT NULL, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL,
+                 UNIQUE(snapshot_id, node_index)
+             );
+             CREATE TABLE IF NOT EXISTS planar_mesh_elements (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 snapshot_id INTEGER NOT NULL REFERENCES planar_mesh_snapshots(id) ON DELETE CASCADE,
+                 element_index INTEGER NOT NULL,
+                 kind INTEGER NOT NULL,
+                 node_indices_json TEXT NOT NULL,
+                 UNIQUE(snapshot_id, element_index)
+             );
+          """);
+       }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
       void MigrateV26()
@@ -1119,6 +1156,7 @@ namespace OpenCS.Utilites
           }
           SetDeleteJournalMode();
           EnsureCreated();
+          EnsurePlanarMeshTables();
           Migrate();
       }
 
@@ -2926,7 +2964,7 @@ namespace OpenCS.Utilites
          return JsonSerializer.Deserialize<AcadImportSettings>(json) ?? AcadImportSettings.Default;
       }
 
-      public void SaveAcadImportSettings(AcadImportSettings s)
+       public void SaveAcadImportSettings(AcadImportSettings s)
       {
          var json = JsonSerializer.Serialize(s);
          var cmd = _connection.CreateCommand();
@@ -5352,13 +5390,119 @@ namespace OpenCS.Utilites
          return result;
       }
 
-      public void DeletePlanarRegion(int id)
-      {
+       public void DeletePlanarRegion(int id)
+       {
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = "DELETE FROM planar_regions WHERE id=@id";
          cmd.Parameters.AddWithValue("@id", id);
-         cmd.ExecuteNonQuery();
-      }
+          cmd.ExecuteNonQuery();
+       }
+
+       public GmshSettings LoadGmshSettings()
+       {
+          using var cmd = _connection.CreateCommand();
+          cmd.CommandText = "SELECT value_json FROM settings WHERE key='gmsh'";
+          var json = cmd.ExecuteScalar() as string;
+          if (json is null)
+          {
+             var settings = new GmshSettings();
+             SaveGmshSettings(settings);
+             return settings;
+          }
+          return JsonSerializer.Deserialize<GmshSettings>(json) ?? new GmshSettings();
+       }
+
+       public void SaveGmshSettings(GmshSettings settings)
+       {
+          using var cmd = _connection.CreateCommand();
+          cmd.CommandText = "INSERT OR REPLACE INTO settings (key, value_json) VALUES ('gmsh', $json)";
+          cmd.Parameters.AddWithValue("$json", JsonSerializer.Serialize(settings));
+          cmd.ExecuteNonQuery();
+       }
+
+       /// <summary>Сохраняет новый производный снимок сетки, не заменяя импортированную FEM-сетку.</summary>
+       public void SavePlanarMeshSnapshot(CScore.Planar.PlanarMeshSnapshot snapshot)
+       {
+          using var tx = _connection.BeginTransaction();
+          try
+          {
+             using var header = _connection.CreateCommand();
+             header.CommandText = """
+                INSERT INTO planar_mesh_snapshots
+                   (planar_region_id, input_fingerprint, is_calculable, settings_json, provenance_json, diagnostics_json)
+                VALUES (@region, @fingerprint, @calculable, @settings, @provenance, @diagnostics);
+                SELECT last_insert_rowid();
+             """;
+             header.Parameters.AddWithValue("@region", snapshot.RegionId);
+             header.Parameters.AddWithValue("@fingerprint", snapshot.InputFingerprint);
+             header.Parameters.AddWithValue("@calculable", snapshot.IsCalculable ? 1 : 0);
+             header.Parameters.AddWithValue("@settings", JsonSerializer.Serialize(snapshot.Settings, _jsonSettings));
+             header.Parameters.AddWithValue("@provenance", JsonSerializer.Serialize(snapshot.Provenance, _jsonSettings));
+             header.Parameters.AddWithValue("@diagnostics", JsonSerializer.Serialize(snapshot.Diagnostics, _jsonSettings));
+             snapshot.Id = (int)(long)header.ExecuteScalar()!;
+
+             using var node = _connection.CreateCommand();
+             node.CommandText = "INSERT INTO planar_mesh_nodes(snapshot_id,node_index,u,v,x,y,z) VALUES(@id,@index,@u,@v,@x,@y,@z)";
+             foreach (var item in snapshot.Nodes)
+             {
+                node.Parameters.Clear();
+                node.Parameters.AddWithValue("@id", snapshot.Id); node.Parameters.AddWithValue("@index", item.Index);
+                node.Parameters.AddWithValue("@u", item.U); node.Parameters.AddWithValue("@v", item.V);
+                node.Parameters.AddWithValue("@x", item.X); node.Parameters.AddWithValue("@y", item.Y); node.Parameters.AddWithValue("@z", item.Z);
+                node.ExecuteNonQuery();
+             }
+             using var element = _connection.CreateCommand();
+             element.CommandText = "INSERT INTO planar_mesh_elements(snapshot_id,element_index,kind,node_indices_json) VALUES(@id,@index,@kind,@nodes)";
+             foreach (var item in snapshot.Elements)
+             {
+                element.Parameters.Clear();
+                element.Parameters.AddWithValue("@id", snapshot.Id); element.Parameters.AddWithValue("@index", item.Index);
+                element.Parameters.AddWithValue("@kind", (int)item.Kind); element.Parameters.AddWithValue("@nodes", JsonSerializer.Serialize(item.NodeIndices, _jsonSettings));
+                element.ExecuteNonQuery();
+             }
+             tx.Commit();
+          }
+          catch { tx.Rollback(); throw; }
+       }
+
+       /// <summary>Возвращает все сохранённые снимки сетки региона без смешения с fem_mesh_*.</summary>
+       public List<CScore.Planar.PlanarMeshSnapshot> GetPlanarMeshSnapshots(int regionId)
+       {
+          var result = new List<CScore.Planar.PlanarMeshSnapshot>();
+          using var header = _connection.CreateCommand();
+          header.CommandText = "SELECT id,input_fingerprint,is_calculable,settings_json,provenance_json,diagnostics_json FROM planar_mesh_snapshots WHERE planar_region_id=@region ORDER BY id";
+          header.Parameters.AddWithValue("@region", regionId);
+          using var reader = header.ExecuteReader();
+          while (reader.Read())
+          {
+             var id = reader.GetInt32(0);
+             var nodes = new List<CScore.Planar.PlanarMeshNode>();
+             using (var command = _connection.CreateCommand())
+             {
+                command.CommandText = "SELECT node_index,u,v,x,y,z FROM planar_mesh_nodes WHERE snapshot_id=@id ORDER BY node_index";
+                command.Parameters.AddWithValue("@id", id);
+                using var rows = command.ExecuteReader();
+                while (rows.Read()) nodes.Add(new(rows.GetInt32(0), rows.GetDouble(1), rows.GetDouble(2), rows.GetDouble(3), rows.GetDouble(4), rows.GetDouble(5)));
+             }
+             var elements = new List<CScore.Planar.PlanarMeshElement>();
+             using (var command = _connection.CreateCommand())
+             {
+                command.CommandText = "SELECT element_index,kind,node_indices_json FROM planar_mesh_elements WHERE snapshot_id=@id ORDER BY element_index";
+                command.Parameters.AddWithValue("@id", id);
+                using var rows = command.ExecuteReader();
+                while (rows.Read()) elements.Add(new(rows.GetInt32(0), (CScore.Planar.PlanarMeshElementKind)rows.GetInt32(1), JsonSerializer.Deserialize<int[]>(rows.GetString(2)) ?? []));
+             }
+             result.Add(new CScore.Planar.PlanarMeshSnapshot
+             {
+                Id = id, RegionId = regionId, InputFingerprint = reader.GetString(1), IsCalculable = reader.GetInt32(2) != 0,
+                Settings = JsonSerializer.Deserialize<CScore.Planar.PlanarMeshSettings>(reader.GetString(3), _jsonSettings),
+                Provenance = JsonSerializer.Deserialize<CScore.Planar.PlanarMeshProvenance>(reader.GetString(4), _jsonSettings),
+                Diagnostics = JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(reader.GetString(5), _jsonSettings) ?? [],
+                Nodes = nodes, Elements = elements
+             });
+          }
+          return result;
+       }
 
       public void SaveFemCheck(CScore.Fem.FemCheck check)
       {

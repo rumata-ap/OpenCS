@@ -78,7 +78,11 @@
    <system:String x:Key="PlotsTab">Plots</system:String>
    <system:String x:Key="CalcSettingsTab">Calculation</system:String>
    <system:String x:Key="CsvSettingsTab">CSV</system:String>
-   <system:String x:Key="OpenSeesSettingsTab">OpenSees</system:String>
+    <system:String x:Key="OpenSeesSettingsTab">OpenSees</system:String>
+    <system:String x:Key="GmshSettingsTab">Gmsh</system:String>
+    <system:String x:Key="GmshExecutableGroup">Executable</system:String>
+    <system:String x:Key="GmshExecutablePath">Path to gmsh.exe</system:String>
+    <system:String x:Key="GmshExeFilter">Gmsh (gmsh.exe)|gmsh.exe|Executables (*.exe)|*.exe</system:String>
    <system:String x:Key="OpenSeesExecutableGroup">Executable</system:String>
    <system:String x:Key="OpenSeesNonlinearGroup">Nonlinear scheme analysis</system:String>
    <system:String x:Key="OpenSeesFiberStatesGroup">Fiber state recording</system:String>

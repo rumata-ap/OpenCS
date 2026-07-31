@@ -911,7 +911,10 @@ namespace OpenCS
       public Utilites.LiraImportSettings LiraImportSettings { get; set; } = Utilites.LiraImportSettings.Default;
 
       /// <summary>Настройки прямого импорта из AutoCAD.</summary>
-      public Utilites.AcadImportSettings AcadImportSettings { get; set; } = Utilites.AcadImportSettings.Default;
+       public Utilites.AcadImportSettings AcadImportSettings { get; set; } = Utilites.AcadImportSettings.Default;
+
+       /// <summary>Глобальные настройки внешнего генератора сетки Gmsh.</summary>
+       public Utilites.GmshSettings GmshSettings { get; set; } = new();
 
       /// <summary>
       /// Перечитывает все группы глобальных настроек из текущей БД (<see cref="db"/>) — вызывается
@@ -925,7 +928,8 @@ namespace OpenCS
          CsvSettings = db.LoadCsvSettings() ?? Utilites.CsvExportSettings.Default;
          CalcSettings = db.LoadCalcSettings() ?? Utilites.CalcSettings.Default;
          LiraImportSettings = db.LoadLiraImportSettings() ?? Utilites.LiraImportSettings.Default;
-         AcadImportSettings = db.LoadAcadImportSettings() ?? Utilites.AcadImportSettings.Default;
+          AcadImportSettings = db.LoadAcadImportSettings() ?? Utilites.AcadImportSettings.Default;
+          GmshSettings = db.LoadGmshSettings();
          ApplyPlotSettings();
          NotifyCalcSettingsApplied();
       }
