@@ -14,20 +14,7 @@ public sealed class FemNonlinearModel
     /// набор нагрузок поверх зафиксированных предыдущих (см. FemNonlinearTclGenerator).</summary>
     public IReadOnlyList<FemNonlinearStage> Stages { get; init; } = [];
 
-    public int RefinementDivisions { get; init; } = 10;
-    /// <summary>Максимальная глубина рекурсивного дробления шага при отказе сходимости.
-    /// На каждом уровне неудачный интервал делится на RefinementDivisions частей;
-    /// если и они не сходятся — дробятся рекурсивно дальше, вплоть до этой глубины
-    /// (иначе шаг считается неустранимо неудавшимся). Один уровень (как было раньше)
-    /// часто недостаточен для резкого перехода жёсткости при трещинообразовании —
-    /// см. отладку кинематических нагрузок на неразрезной балке.</summary>
-    public int MaxRefinementDepth { get; init; } = 4;
-    public double Tolerance { get; init; } = 1e-6;
-    public int MaxIterations { get; init; } = 50;
     public string GeomTransfKind { get; init; } = "Linear";
-    /// <summary>Критерий сходимости Ньютона: "EnergyIncr" (по умолчанию, самый устойчивый —
-    /// учитывает и невязку силы, и приращение перемещения) | "NormUnbalance" | "NormDispIncr".</summary>
-    public string ConvergenceTest { get; init; } = "EnergyIncr";
     /// <summary>Формулировка стержневого элемента: "forceBeamColumn" (по умолчанию, force-based —
     /// точнее при распределённой нелинейности с меньшим числом элементов) | "dispBeamColumn"
     /// (displacement-based). При определении состояния forceBeamColumn обращает матрицу ГИБКОСТИ
@@ -41,12 +28,9 @@ public sealed class FemNonlinearModel
     /// как forceBeamColumn давал сотни таких ошибок — доступен как выбор на постановке именно
     /// для таких сценариев.</summary>
     public string ElementFormulation { get; init; } = "forceBeamColumn";
-    /// <summary>Алгоритм решателя Ньютона: "Newton" (обычный) | "NewtonLineSearch" (по умолчанию —
-    /// line search внутри итерации масштабирует шаг Ньютона, если он "перелетает" через резкий
-    /// разрыв диаграммы материала, вместо провала итерации целиком. Эмпирически на реальном
-    /// кинематическом сценарии с обрывом растяжения бетона в строгий ноль довёл расчёт до конца
-    /// там, где обычный Newton не успевал пройти и трети пути за то же время).</summary>
-    public string Algorithm { get; init; } = "NewtonLineSearch";
+    /// <summary>Политика нелинейного Newton-анализа (допуск, критерий сходимости, алгоритм,
+    /// адаптивное дробление шага). См. NonlinearAnalysisPolicy — общий тип с ShellOpenSeesModel.</summary>
+    public NonlinearAnalysisPolicy Policy { get; init; } = new();
     /// <summary>Имя набора диаграмм CScore, использованного при построении fiber-сечения.</summary>
     public string CalcTypeName { get; init; } = "C";
 
@@ -66,20 +50,11 @@ public sealed class FemNonlinearModel
         if (Elements.Count == 0) throw new InvalidOperationException("Модель не содержит элементов.");
         if (Sections.Count == 0) throw new InvalidOperationException("Модель не содержит fiber-сечений.");
         if (Stages.Count == 0) throw new InvalidOperationException("Модель не содержит ни одной стадии нагружения.");
-        if (RefinementDivisions <= 0)
-            throw new InvalidOperationException("Количество делений шага должно быть положительным.");
-        if (MaxRefinementDepth <= 0)
-            throw new InvalidOperationException("Максимальная глубина дробления шага должна быть положительной.");
-        if (Tolerance <= 0) throw new InvalidOperationException("Допуск невязки должен быть положительным.");
-        if (MaxIterations <= 0) throw new InvalidOperationException("Максимальное число итераций должно быть положительным.");
+        Policy.Validate();
         if (GeomTransfKind is not ("Linear" or "PDelta" or "Corotational"))
             throw new InvalidOperationException($"Неизвестная формулировка geomTransf «{GeomTransfKind}».");
-        if (ConvergenceTest is not ("EnergyIncr" or "NormUnbalance" or "NormDispIncr"))
-            throw new InvalidOperationException($"Неизвестный критерий сходимости «{ConvergenceTest}».");
         if (ElementFormulation is not ("forceBeamColumn" or "dispBeamColumn"))
             throw new InvalidOperationException($"Неизвестная формулировка элемента «{ElementFormulation}».");
-        if (Algorithm is not ("Newton" or "NewtonLineSearch"))
-            throw new InvalidOperationException($"Неизвестный алгоритм решателя «{Algorithm}».");
 
         var tags = new HashSet<int>();
         foreach (var n in Nodes)

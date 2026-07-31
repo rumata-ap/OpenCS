@@ -49,8 +49,8 @@ public sealed class FemNonlinearIntegrationTests
                 Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, P, 0, 0, 0)],
                 LoadFactorStep = 0.25, MaxLoadFactor = 1.0
             }],
-            RefinementDivisions = 10,
-            Tolerance = 1e-8, MaxIterations = 30, GeomTransfKind = "Linear"
+            GeomTransfKind = "Linear",
+            Policy = new NonlinearAnalysisPolicy { RefinementDivisions = 10, Tolerance = 1e-8, MaxIterations = 30 }
         };
 
         try
@@ -183,8 +183,11 @@ public sealed class FemNonlinearIntegrationTests
                 ],
                 LoadFactorStep = 0.1, MaxLoadFactor = 1.0
             }],
-            RefinementDivisions = 10, MaxRefinementDepth = 4,
-            Tolerance = 1e-6, MaxIterations = 50, GeomTransfKind = "Linear"
+            GeomTransfKind = "Linear",
+            Policy = new NonlinearAnalysisPolicy
+            {
+                RefinementDivisions = 10, MaxRefinementDepth = 4, Tolerance = 1e-6, MaxIterations = 50
+            }
         };
 
         try
@@ -278,8 +281,8 @@ public sealed class FemNonlinearIntegrationTests
                 Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
                 LoadFactorStep = 0.25, MaxLoadFactor = 1.0
             }],
-            RefinementDivisions = 10,
-            Tolerance = 1e-8, MaxIterations = 30, GeomTransfKind = "Linear"
+            GeomTransfKind = "Linear",
+            Policy = new NonlinearAnalysisPolicy { RefinementDivisions = 10, Tolerance = 1e-8, MaxIterations = 30 }
         };
 
         try
@@ -351,8 +354,8 @@ public sealed class FemNonlinearIntegrationTests
                     LoadFactorStep = 0.5, MaxLoadFactor = 1.0
                 },
             ],
-            RefinementDivisions = 10,
-            Tolerance = 1e-8, MaxIterations = 30, GeomTransfKind = "Linear"
+            GeomTransfKind = "Linear",
+            Policy = new NonlinearAnalysisPolicy { RefinementDivisions = 10, Tolerance = 1e-8, MaxIterations = 30 }
         };
 
         try

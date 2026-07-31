@@ -206,14 +206,17 @@ public sealed class FemNonlinearModelResolver
             Sections = sectionsByKey.Values.ToDictionary(v => v.Tag, v => v.Model),
             Elements = elements,
             Stages = resolvedStages,
-            RefinementDivisions = options.RefinementDivisions,
-            MaxRefinementDepth = options.MaxRefinementDepth,
-            Tolerance = options.Tolerance,
-            MaxIterations = options.MaxIterations,
             GeomTransfKind = options.GeomTransfKind,
-            ConvergenceTest = options.ConvergenceTest,
             ElementFormulation = options.ElementFormulation,
-            Algorithm = options.Algorithm,
+            Policy = new NonlinearAnalysisPolicy
+            {
+                RefinementDivisions = options.RefinementDivisions,
+                MaxRefinementDepth = options.MaxRefinementDepth,
+                Tolerance = options.Tolerance,
+                MaxIterations = options.MaxIterations,
+                ConvergenceTest = options.ConvergenceTest,
+                Algorithm = options.Algorithm
+            },
             CalcTypeName = calcType.ToString(),
             RecordFiberStates = options.RecordFiberStates,
             FiberStatesIntegrationPoints = options.FiberStatesIntegrationPoints

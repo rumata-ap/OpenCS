@@ -103,7 +103,7 @@ public sealed class FemNonlinearAnalysisService
             LastConvergedLoadFactor = steps.Where(s => s.Converged)
                 .Select(s => s.LoadFactor).DefaultIfEmpty(0).Max(),
             FailedLoadFactor = steps.FirstOrDefault(s => !s.Converged)?.LoadFactor,
-            RefinementDivisions = model.RefinementDivisions,
+            RefinementDivisions = model.Policy.RefinementDivisions,
             CalcTypeName = model.CalcTypeName,
             StageTags = model.Stages.Select(s => s.Tag).ToList(),
             FiberStateFileName = File.Exists(Path.Combine(artifact.DirectoryPath, "nonlinear_fiber_states.out"))

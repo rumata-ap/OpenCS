@@ -94,8 +94,8 @@ public sealed class FemNonlinearTclGenerator
         L("constraints Transformation");
         L("numberer RCM");
         L("system BandGeneral");
-        L($"test {model.ConvergenceTest} {F(model.Tolerance)} {model.MaxIterations} 0");
-        L($"algorithm {model.Algorithm}");
+        L($"test {model.Policy.ConvergenceTest} {F(model.Policy.Tolerance)} {model.Policy.MaxIterations} 0");
+        L($"algorithm {model.Policy.Algorithm}");
         // Интегратор должен быть задан до создания StaticAnalysis. Паттерны стадий (см. цикл по
         // model.Stages ниже) регистрируются уже после analysis Static — OpenSees подхватывает
         // вновь определённый pattern в уже созданный Static-анализ на следующем analyze().
@@ -187,8 +187,8 @@ public sealed class FemNonlinearTclGenerator
             L("puts $fiberStates {# step loadFactor elementTag integrationPoint fiberIndex stressPa strain}");
         }
         L("writeCloseOnWrite step_status.out {# step stageIndex loadFactor converged isRefinement}");
-        L($"set refinementDivisions {model.RefinementDivisions}");
-        L($"set maxRefinementDepth {model.MaxRefinementDepth}");
+        L($"set refinementDivisions {model.Policy.RefinementDivisions}");
+        L($"set maxRefinementDepth {model.Policy.MaxRefinementDepth}");
         L("set currentLambda 0.0");
         L("set stepIndex 0");
         L("set analysisFailed 0");

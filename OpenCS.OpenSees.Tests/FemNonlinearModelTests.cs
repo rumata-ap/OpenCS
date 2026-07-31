@@ -107,7 +107,7 @@ public class FemNonlinearModelTests
         var model = new FemNonlinearModel
         {
             Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
-            RefinementDivisions = 0
+            Policy = new NonlinearAnalysisPolicy { RefinementDivisions = 0 }
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
     }
@@ -131,13 +131,13 @@ public class FemNonlinearModelTests
         var model = new FemNonlinearModel
         {
             Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
-            ConvergenceTest = "Nope"
+            Policy = new NonlinearAnalysisPolicy { ConvergenceTest = "Nope" }
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
     }
 
     [Fact]
-    public void Validate_DefaultConvergenceTest_IsEnergyIncr() => Assert.Equal("EnergyIncr", ValidModel().ConvergenceTest);
+    public void Validate_DefaultConvergenceTest_IsEnergyIncr() => Assert.Equal("EnergyIncr", ValidModel().Policy.ConvergenceTest);
 
     [Fact]
     public void Validate_UnknownAlgorithm_Throws()
@@ -146,13 +146,13 @@ public class FemNonlinearModelTests
         var model = new FemNonlinearModel
         {
             Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements, Stages = valid.Stages,
-            Algorithm = "Nope"
+            Policy = new NonlinearAnalysisPolicy { Algorithm = "Nope" }
         };
         Assert.Throws<InvalidOperationException>(model.Validate);
     }
 
     [Fact]
-    public void Validate_DefaultAlgorithm_IsNewtonLineSearch() => Assert.Equal("NewtonLineSearch", ValidModel().Algorithm);
+    public void Validate_DefaultAlgorithm_IsNewtonLineSearch() => Assert.Equal("NewtonLineSearch", ValidModel().Policy.Algorithm);
 
     [Fact]
     public void Validate_ZeroIntegrationPoints_Throws()

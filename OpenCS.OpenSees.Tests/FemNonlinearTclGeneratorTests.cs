@@ -32,7 +32,8 @@ public class FemNonlinearTclGeneratorTests
                 Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
                 LoadFactorStep = 0.25, MaxLoadFactor = 1.0
             }],
-            RefinementDivisions = 10, Tolerance = 1e-6, MaxIterations = 30, GeomTransfKind = "PDelta"
+            GeomTransfKind = "PDelta",
+            Policy = new NonlinearAnalysisPolicy { RefinementDivisions = 10, Tolerance = 1e-6, MaxIterations = 30 }
         };
     }
 
@@ -103,10 +104,8 @@ public class FemNonlinearTclGeneratorTests
             },
             Elements = model.Elements,
             Stages = model.Stages,
-            RefinementDivisions = model.RefinementDivisions,
-            Tolerance = model.Tolerance,
-            MaxIterations = model.MaxIterations,
-            GeomTransfKind = model.GeomTransfKind
+            GeomTransfKind = model.GeomTransfKind,
+            Policy = model.Policy
         };
 
         string tcl = new FemNonlinearTclGenerator().Generate(model);
@@ -136,9 +135,8 @@ public class FemNonlinearTclGeneratorTests
         model = new FemNonlinearModel
         {
             Nodes = model.Nodes, Sections = model.Sections, Elements = model.Elements, Stages = model.Stages,
-            RefinementDivisions = model.RefinementDivisions, Tolerance = model.Tolerance,
-            MaxIterations = model.MaxIterations, GeomTransfKind = model.GeomTransfKind,
-            Algorithm = "Newton"
+            GeomTransfKind = model.GeomTransfKind,
+            Policy = model.Policy with { Algorithm = "Newton" }
         };
         string tcl = new FemNonlinearTclGenerator().Generate(model);
         Assert.Contains("algorithm Newton", tcl);
@@ -206,9 +204,8 @@ public class FemNonlinearTclGeneratorTests
         var model = new FemNonlinearModel
         {
             Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
-            RefinementDivisions = baseModel.RefinementDivisions,
-            Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
             GeomTransfKind = baseModel.GeomTransfKind,
+            Policy = baseModel.Policy,
             Stages = [new FemNonlinearStage
             {
                 Tag = "Стадия 1", Loads = baseModel.Stages[0].Loads,
@@ -228,8 +225,7 @@ public class FemNonlinearTclGeneratorTests
         var model = new FemNonlinearModel
         {
             Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
-            RefinementDivisions = baseModel.RefinementDivisions,
-            Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
+            Policy = baseModel.Policy,
             GeomTransfKind = "Corotational",
             Stages = [new FemNonlinearStage
             {
@@ -261,7 +257,8 @@ public class FemNonlinearTclGeneratorTests
                 Tag = "Стадия 1", Loads = [new FemLinearNodalLoad(2, 0, 0, -1000, 0, 0, 0)],
                 LoadFactorStep = 0.25, MaxLoadFactor = 1.0
             }],
-            RefinementDivisions = 10, Tolerance = 1e-6, MaxIterations = 30, GeomTransfKind = "Linear"
+            GeomTransfKind = "Linear",
+            Policy = new NonlinearAnalysisPolicy { RefinementDivisions = 10, Tolerance = 1e-6, MaxIterations = 30 }
         };
     }
 
@@ -349,9 +346,8 @@ public class FemNonlinearTclGeneratorTests
         var model = new FemNonlinearModel
         {
             Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
-            RefinementDivisions = baseModel.RefinementDivisions,
-            Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
             GeomTransfKind = baseModel.GeomTransfKind,
+            Policy = baseModel.Policy,
             Stages = [new FemNonlinearStage
             {
                 Tag = "Стадия 1", Loads = baseModel.Stages[0].Loads,
@@ -372,9 +368,8 @@ public class FemNonlinearTclGeneratorTests
         var model = new FemNonlinearModel
         {
             Nodes = baseModel.Nodes, Sections = baseModel.Sections, Elements = baseModel.Elements,
-            RefinementDivisions = baseModel.RefinementDivisions,
-            Tolerance = baseModel.Tolerance, MaxIterations = baseModel.MaxIterations,
             GeomTransfKind = baseModel.GeomTransfKind,
+            Policy = baseModel.Policy,
             Stages =
             [
                 new FemNonlinearStage
