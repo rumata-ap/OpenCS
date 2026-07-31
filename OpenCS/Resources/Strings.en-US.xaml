@@ -1684,6 +1684,15 @@
     <system:String x:Key="PlanarDxfRejectDegenerateArea">Degenerate area</system:String>
     <system:String x:Key="PlanarDxfRejectSelfIntersecting">Self-intersecting</system:String>
     <system:String x:Key="PlanarDxfImportLoadError">Failed to open DXF file: {0}</system:String>
+    <system:String x:Key="PlanarDxfImportZonesTitle">Import rebar zones from DXF</system:String>
+    <system:String x:Key="PlanarDxfImportOpenFile">Open file...</system:String>
+    <system:String x:Key="PlanarDxfImportLayerColumn">Layer</system:String>
+    <system:String x:Key="PlanarDxfImportPointsColumn">Points</system:String>
+    <system:String x:Key="PlanarDxfImportStatusColumn">Status</system:String>
+    <system:String x:Key="PlanarDxfImportIncludeColumn">Include</system:String>
+    <system:String x:Key="PlanarDxfImportSummary">Accepted: {0}, rejected: {1}</system:String>
+    <system:String x:Key="PlanarDxfImportAddZonesButton">Add {0} zones</system:String>
+    <system:String x:Key="PlanarDxfImportNothingSelected">No zones selected to add.</system:String>
     <system:String x:Key="GeometryTransformDx">ΔX, m</system:String>
     <system:String x:Key="GeometryTransformDy">ΔY, m</system:String>
     <system:String x:Key="GeometryTransformFactor">Scale factor</system:String>

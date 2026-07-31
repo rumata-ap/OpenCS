@@ -1687,6 +1687,15 @@
     <system:String x:Key="PlanarDxfRejectDegenerateArea">Вырожденная площадь</system:String>
     <system:String x:Key="PlanarDxfRejectSelfIntersecting">Самопересечение</system:String>
     <system:String x:Key="PlanarDxfImportLoadError">Не удалось открыть DXF-файл: {0}</system:String>
+    <system:String x:Key="PlanarDxfImportZonesTitle">Импорт зон армирования из DXF</system:String>
+    <system:String x:Key="PlanarDxfImportOpenFile">Открыть файл...</system:String>
+    <system:String x:Key="PlanarDxfImportLayerColumn">Слой</system:String>
+    <system:String x:Key="PlanarDxfImportPointsColumn">Вершин</system:String>
+    <system:String x:Key="PlanarDxfImportStatusColumn">Статус</system:String>
+    <system:String x:Key="PlanarDxfImportIncludeColumn">Включить</system:String>
+    <system:String x:Key="PlanarDxfImportSummary">Принято: {0}, отклонено: {1}</system:String>
+    <system:String x:Key="PlanarDxfImportAddZonesButton">Добавить {0} зон</system:String>
+    <system:String x:Key="PlanarDxfImportNothingSelected">Не выбрано ни одной зоны для добавления.</system:String>
     <system:String x:Key="GeometryTransformDx">ΔX, м</system:String>
     <system:String x:Key="GeometryTransformDy">ΔY, м</system:String>
     <system:String x:Key="GeometryTransformFactor">Коэффициент масштабирования</system:String>
