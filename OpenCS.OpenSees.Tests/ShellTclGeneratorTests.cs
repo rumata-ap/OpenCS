@@ -30,7 +30,10 @@ public sealed class ShellTclGeneratorTests
     [Fact]
     public void Generate_EmitsPlainLinearLoadPattern()
     {
-        var model = Q4Model() with { Loads = [new(2, 0, 0, -1000, 0, 0, 0)] };
+        var model = Q4Model() with
+        {
+            Stages = [new() { Tag = "stage-1", Loads = [new(2, 0, 0, -1000, 0, 0, 0)] }]
+        };
 
         var script = new ShellTclGenerator().Generate(model);
 
@@ -174,7 +177,8 @@ public sealed class ShellTclGeneratorTests
                     $"concrete:{index}")).ToArray(),
                 ShellMappingMode.Exact, [], fingerprint)],
             Elements = [new(elementTag, kind, connectivity, 20, fingerprint,
-                ShellFrame.Identity, integration, "fixture")]
+                ShellFrame.Identity, integration, "fixture")],
+            Stages = [new() { Tag = "no-load" }]
         };
     }
 }

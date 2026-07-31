@@ -88,10 +88,13 @@ public sealed class PlateRebarFieldShellIntegrationTests
                 new(101, ShellElementKind.ASDShellQ4, [5, 6, 7, 8], tagReinforced,
                     sectionByTag[tagReinforced].Fingerprint, ShellFrame.Identity, ShellIntegrationPolicy.Full, "B"),
             ],
-            Loads =
+            Stages =
             [
-                new(2, 0, 0, -1000, 0, 0, 0), new(3, 0, 0, -1000, 0, 0, 0),
-                new(6, 0, 0, -1000, 0, 0, 0), new(7, 0, 0, -1000, 0, 0, 0),
+                new() { Tag = "stage-1", Loads =
+                [
+                    new(2, 0, 0, -1000, 0, 0, 0), new(3, 0, 0, -1000, 0, 0, 0),
+                    new(6, 0, 0, -1000, 0, 0, 0), new(7, 0, 0, -1000, 0, 0, 0),
+                ] }
             ]
         };
     }

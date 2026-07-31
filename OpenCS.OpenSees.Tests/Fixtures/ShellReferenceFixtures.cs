@@ -31,9 +31,9 @@ internal static class ShellReferenceFixtures
         Sections = [Section()],
         Elements = [new(10, ShellElementKind.ASDShellQ4, [1, 2, 3, 4], 20, Fingerprint,
             ShellFrame.Identity, ShellIntegrationPolicy.Full, "reference:q4")],
-        Loads = [
+        Stages = [new() { Tag = "stage-1", Loads = [
             new(2, 0, 0, 0, 0, TipMomentEach, 0),
-            new(3, 0, 0, 0, 0, TipMomentEach, 0)]
+            new(3, 0, 0, 0, 0, TipMomentEach, 0)] }]
     };
 
     public static ShellOpenSeesModel T3EndMoment(ShellIntegrationPolicy policy) => new()
@@ -46,7 +46,7 @@ internal static class ShellReferenceFixtures
         Sections = [Section()],
         Elements = [new(11, ShellElementKind.ASDShellT3, [1, 3, 4], 20, Fingerprint,
             ShellFrame.Identity, policy, "reference:t3")],
-        Loads = [new(3, 0, 0, 0, 0, 2 * TipMomentEach, 0)]
+        Stages = [new() { Tag = "stage-1", Loads = [new(3, 0, 0, 0, 0, 2 * TipMomentEach, 0)] }]
     };
 
     private static RCShellLayeredSection Section() => new(

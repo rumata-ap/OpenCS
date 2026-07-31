@@ -17,13 +17,14 @@ internal static class ShellModelFixtures
     /// <summary>Q4 patch со свободными узлами 2/3, нагруженными вертикальной силой (нетривиальный изгиб).</summary>
     public static ShellOpenSeesModel Q4WithTipLoad() => Q4Elastic() with
     {
-        Loads = [new(2, 0, 0, -1000, 0, 0, 0), new(3, 0, 0, -1000, 0, 0, 0)]
+        Stages = [new() { Tag = "stage-1",
+            Loads = [new(2, 0, 0, -1000, 0, 0, 0), new(3, 0, 0, -1000, 0, 0, 0)] }]
     };
 
     /// <summary>T3 patch со свободным узлом 3, нагруженным вертикальной силой.</summary>
     public static ShellOpenSeesModel T3WithTipLoad(ShellIntegrationPolicy policy) => T3Elastic(policy) with
     {
-        Loads = [new(3, 0, 0, -1000, 0, 0, 0)]
+        Stages = [new() { Tag = "stage-1", Loads = [new(3, 0, 0, -1000, 0, 0, 0)] }]
     };
 
     private static ShellOpenSeesModel Create(
@@ -53,7 +54,8 @@ internal static class ShellModelFixtures
                 ],
                 ShellMappingMode.Exact, [], fingerprint)],
             Elements = [new(elementTag, kind, connectivity, 20, fingerprint,
-                ShellFrame.Identity, policy, $"fixture:element:{elementTag}")]
+                ShellFrame.Identity, policy, $"fixture:element:{elementTag}")],
+            Stages = [new() { Tag = "no-load" }]
         };
     }
 

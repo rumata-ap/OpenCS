@@ -17,7 +17,7 @@ internal static class ShellBeamConnectionFixtures
         {
             Nodes = plate.Nodes.Concat([new(5, 1, 0, 1.0, new bool[6], "column-tip")]).ToArray(),
             BeamElements = [new(100, 2, 5, 0.01, 200e9, 77e9, 1e-6, 1e-5, 1e-5, (1, 0, 0))],
-            Loads = [new(5, 1000, 0, 0, 0, 0, 0)]
+            Stages = [new() { Tag = "stage-1", Loads = [new(5, 1000, 0, 0, 0, 0, 0)] }]
         };
     }
 
@@ -45,7 +45,7 @@ internal static class ShellBeamConnectionFixtures
             EqualDofConstraints = [
                 new(2, 6, [1, 2, 3, 4, 5, 6]),
                 new(3, 7, [1, 2, 3, 4, 5, 6])],
-            Loads = [new(8, 0, 0, -1000, 0, 0, 0), new(9, 0, 0, -1000, 0, 0, 0)]
+            Stages = [new() { Tag = "stage-1", Loads = [new(8, 0, 0, -1000, 0, 0, 0), new(9, 0, 0, -1000, 0, 0, 0)] }]
         };
     }
 
@@ -58,7 +58,7 @@ internal static class ShellBeamConnectionFixtures
         {
             Nodes = plate.Nodes.Concat([new(5, 1, 0, 0.5, new bool[6], "offset-node")]).ToArray(),
             RigidLinks = [new(2, 5, ShellRigidLinkType.Beam)],
-            Loads = [new(5, 1000, 0, 0, 0, 0, 0)]
+            Stages = [new() { Tag = "stage-1", Loads = [new(5, 1000, 0, 0, 0, 0, 0)] }]
         };
     }
 

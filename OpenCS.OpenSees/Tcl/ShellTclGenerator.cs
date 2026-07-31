@@ -95,7 +95,7 @@ public sealed class ShellTclGenerator
         L();
 
         L("pattern Plain 1 Linear {");
-        foreach (ShellNodalLoad load in model.Loads.OrderBy(load => load.NodeTag))
+        foreach (ShellNodalLoad load in model.Stages.SelectMany(s => s.Loads).OrderBy(load => load.NodeTag))
             L($"    load {load.NodeTag} {F(load.Fx)} {F(load.Fy)} {F(load.Fz)} {F(load.Mx)} {F(load.My)} {F(load.Mz)}");
         L("}");
         L();

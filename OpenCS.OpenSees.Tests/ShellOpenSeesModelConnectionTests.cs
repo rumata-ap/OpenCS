@@ -10,7 +10,7 @@ public sealed class ShellOpenSeesModelConnectionTests
     {
         var model = MinimalQ4Model() with
         {
-            Loads = [new ShellNodalLoad(999, 0, 0, -1000, 0, 0, 0)]
+            Stages = [new() { Tag = "stage-1", Loads = [new ShellNodalLoad(999, 0, 0, -1000, 0, 0, 0)] }]
         };
 
         var ex = Assert.Throws<InvalidOperationException>(() => model.Validate());
@@ -23,7 +23,7 @@ public sealed class ShellOpenSeesModelConnectionTests
     {
         var model = MinimalQ4Model() with
         {
-            Loads = [new ShellNodalLoad(2, 0, 0, double.NaN, 0, 0, 0)]
+            Stages = [new() { Tag = "stage-1", Loads = [new ShellNodalLoad(2, 0, 0, double.NaN, 0, 0, 0)] }]
         };
 
         var ex = Assert.Throws<InvalidOperationException>(() => model.Validate());
@@ -95,7 +95,8 @@ public sealed class ShellOpenSeesModelConnectionTests
                 ],
                 ShellMappingMode.Exact, [], fingerprint)],
             Elements = [new(10, ShellElementKind.ASDShellQ4, [1, 2, 3, 4], 20, fingerprint,
-                ShellFrame.Identity, ShellIntegrationPolicy.Full, null)]
+                ShellFrame.Identity, ShellIntegrationPolicy.Full, null)],
+            Stages = [new() { Tag = "no-load" }]
         };
     }
 }

@@ -17,8 +17,31 @@ public sealed record ShellOpenSeesModel
     /// <summary>Оболочечные элементы модели.</summary>
     public IReadOnlyList<NormalizedShellElement> Elements { get; init; } = [];
 
-    /// <summary>Узловые нагрузки модели.</summary>
-    public IReadOnlyList<ShellNodalLoad> Loads { get; init; } = [];
+    /// <summary>Стадии пропорционального нагружения (минимум одна).</summary>
+    public IReadOnlyList<ShellNonlinearStage> Stages { get; init; } = [];
+
+    /// <summary>Fiber-секции нелинейных стержней (общее тег-пространство с Sections —
+    /// see Validate). Переиспользует OpenSeesSectionModel из FemNonlinearModel.</summary>
+    public IReadOnlyDictionary<int, OpenSeesSectionModel> NonlinearBeamSections { get; init; } =
+        new Dictionary<int, OpenSeesSectionModel>();
+
+    /// <summary>Нелинейные fiber-стержни (forceBeamColumn/dispBeamColumn), с общими узлами с
+    /// остальной моделью — основа смешанной плитно-стержневой схемы.</summary>
+    public IReadOnlyList<FemNonlinearElement> NonlinearBeamElements { get; init; } = [];
+
+    /// <summary>"forceBeamColumn" (по умолчанию) | "dispBeamColumn".</summary>
+    public string NonlinearBeamElementFormulation { get; init; } = "forceBeamColumn";
+
+    /// <summary>"Linear" (по умолчанию) | "PDelta". Corotational — срез 3.</summary>
+    public string NonlinearBeamGeomTransfKind { get; init; } = "Linear";
+
+    /// <summary>Политика нелинейного Newton-анализа. Дефолт подтверждён вручную на реальном
+    /// OpenSees 3.8.0 (срез 1) для shell-материалов.</summary>
+    public NonlinearAnalysisPolicy Policy { get; init; } = new()
+    {
+        Tolerance = 1e-6, MaxIterations = 25, ConvergenceTest = "NormDispIncr",
+        Algorithm = "Newton", RefinementDivisions = 10, MaxRefinementDepth = 4
+    };
 
     /// <summary>Стержневые (beam) элементы, разделяющие узлы с shell-моделью.</summary>
     public IReadOnlyList<FemLinearElement> BeamElements { get; init; } = [];
@@ -81,13 +104,24 @@ public sealed record ShellOpenSeesModel
                     $"Элемент {element.Tag}: fingerprint секции не совпадает с секцией {element.SectionTag}.");
         }
 
-        foreach (ShellNodalLoad load in Loads)
+        if (Stages.Count == 0)
+            throw new InvalidOperationException("Shell-модель не содержит ни одной стадии нагружения.");
+        foreach (ShellNonlinearStage stage in Stages)
         {
-            if (!nodes.ContainsKey(load.NodeTag))
-                throw new InvalidOperationException($"Нагрузка ссылается на неизвестный узел {load.NodeTag}.");
-            if (!double.IsFinite(load.Fx) || !double.IsFinite(load.Fy) || !double.IsFinite(load.Fz) ||
-                !double.IsFinite(load.Mx) || !double.IsFinite(load.My) || !double.IsFinite(load.Mz))
-                throw new InvalidOperationException($"Нагрузка узла {load.NodeTag}: компоненты должны быть конечны.");
+            if (!double.IsFinite(stage.LoadFactorStep) || stage.LoadFactorStep <= 0)
+                throw new InvalidOperationException($"Стадия «{stage.Tag}»: шаг коэффициента нагрузки должен быть конечным и положительным.");
+            if (!double.IsFinite(stage.MaxLoadFactor) || stage.MaxLoadFactor <= 0)
+                throw new InvalidOperationException($"Стадия «{stage.Tag}»: максимальный коэффициент нагрузки должен быть конечным и положительным.");
+            if (stage.MaxLoadFactor < stage.LoadFactorStep)
+                throw new InvalidOperationException($"Стадия «{stage.Tag}»: максимальный коэффициент нагрузки не может быть меньше шага.");
+            foreach (ShellNodalLoad load in stage.Loads)
+            {
+                if (!nodes.ContainsKey(load.NodeTag))
+                    throw new InvalidOperationException($"Нагрузка стадии «{stage.Tag}» ссылается на неизвестный узел {load.NodeTag}.");
+                if (!double.IsFinite(load.Fx) || !double.IsFinite(load.Fy) || !double.IsFinite(load.Fz) ||
+                    !double.IsFinite(load.Mx) || !double.IsFinite(load.My) || !double.IsFinite(load.Mz))
+                    throw new InvalidOperationException($"Нагрузка узла {load.NodeTag} стадии «{stage.Tag}»: компоненты должны быть конечны.");
+            }
         }
 
         foreach (FemLinearElement beam in BeamElements)
@@ -135,6 +169,43 @@ public sealed record ShellOpenSeesModel
             int[] dofs = constraint.Type == ShellRigidLinkType.Bar ? [1, 2, 3] : [1, 2, 3, 4, 5, 6];
             foreach (int dof in dofs)
                 ClaimDof(constraint.SlaveNode, dof, owner);
+        }
+
+        if (NonlinearBeamElementFormulation is not ("forceBeamColumn" or "dispBeamColumn"))
+            throw new InvalidOperationException($"Неизвестная формулировка нелинейного стержня «{NonlinearBeamElementFormulation}».");
+        if (NonlinearBeamGeomTransfKind is not ("Linear" or "PDelta"))
+            throw new InvalidOperationException($"Неизвестная формулировка geomTransf нелинейного стержня «{NonlinearBeamGeomTransfKind}».");
+        Policy.Validate();
+
+        // Тег-пространство секций — общее для shell (LayeredShell) и нелинейных стержней
+        // (Fiber): в реальном OpenSees `section`-команды делят одно пространство тегов
+        // независимо от типа. sections (shell) уже заполнен выше в этом методе.
+        foreach (int beamSectionTag in NonlinearBeamSections.Keys)
+            if (sections.ContainsKey(beamSectionTag))
+                throw new InvalidOperationException($"Секция нелинейного стержня {beamSectionTag} конфликтует с shell-секцией того же тега.");
+
+        // Тег-пространство материалов — общее для shell (Materials, уже единый пул
+        // nDMaterial+uniaxial с среза 1) и beam-fiber uniaxialMaterial материалов.
+        var beamMaterialTags = new HashSet<int>();
+        foreach (OpenSeesSectionModel beamSection in NonlinearBeamSections.Values)
+            foreach (OpenSeesMaterialDefinition beamMaterial in beamSection.Materials)
+            {
+                if (materials.ContainsKey(beamMaterial.Tag))
+                    throw new InvalidOperationException($"Материал нелинейного стержня {beamMaterial.Tag} конфликтует с shell-материалом того же тега.");
+                if (!beamMaterialTags.Add(beamMaterial.Tag))
+                    throw new InvalidOperationException($"Дублирующийся tag материала нелинейного стержня {beamMaterial.Tag}.");
+            }
+
+        foreach (FemNonlinearElement beam in NonlinearBeamElements)
+        {
+            if (!elements.Add(beam.Tag))
+                throw new InvalidOperationException($"Дублирующийся tag элемента {beam.Tag} (нелинейный стержень).");
+            if (!nodes.ContainsKey(beam.NodeI) || !nodes.ContainsKey(beam.NodeJ))
+                throw new InvalidOperationException($"Нелинейный стержень {beam.Tag} ссылается на неизвестный узел.");
+            if (!NonlinearBeamSections.ContainsKey(beam.SectionTag))
+                throw new InvalidOperationException($"Нелинейный стержень {beam.Tag} ссылается на неизвестную секцию {beam.SectionTag}.");
+            if (beam.NumIntegrationPoints <= 0)
+                throw new InvalidOperationException($"Нелинейный стержень {beam.Tag}: число точек интегрирования должно быть положительным.");
         }
     }
 
