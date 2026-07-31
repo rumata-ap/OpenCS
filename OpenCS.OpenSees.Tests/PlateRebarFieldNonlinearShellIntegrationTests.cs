@@ -247,6 +247,95 @@ public sealed class PlateRebarFieldNonlinearShellIntegrationTests
         Assert.All(stateB[0].Stress, value => Assert.True(double.IsFinite(value)));
     }
 
+    [Fact]
+    public async Task ShellBeamJunction_WithZoneRebar_ConvergesAndTransfersForces()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+
+        var section = new PlateSection { H = 0.2, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+        var zone = new RebarZone
+        {
+            Face = RebarFace.PlusN, Operation = RebarZoneOperation.Replace, Priority = 1,
+            Polygon = [new() { U = 0, V = 0 }, new() { U = 2, V = 0 }, new() { U = 2, V = 2 }, new() { U = 0, V = 2 }],
+            Layout = new PlateRebarLayer { Asx = 0.004, Zsx = 0.09, MaterialId = 2 },
+        };
+        var field = new PlateRebarField([], [zone]);
+
+        // Единственный shell-элемент, его центроид (1,1) попадает внутрь зоны — секция плиты
+        // строится мостом PlateRebarField, а не однородным PlateSectionOpenSeesMapper.Map, как
+        // во всех существующих shell–beam junction тестах срезов 2–3.
+        var centroids = new (int ElementId, double U, double V)[] { (10, 1, 1) };
+        PlateRebarFieldShellMappingResult mapped = PlateRebarFieldOpenSeesMapper.MapMesh(
+            section, field, ShellFrame.Identity, NonlinearResolver(), centroids);
+        Assert.Single(mapped.Sections);
+        RCShellLayeredSection plateSection = mapped.Sections[0];
+
+        // Плита 1x1 м (узлы 1-4) + упругопластичная колонна (узел 5), растущая из общего узла 3
+        // плиты — общий узел доказывает, что shell и нелинейный fiber-стержень участвуют в ОДНОМ
+        // equilibrium-цикле (по образцу MixedShellBeamNonlinearIntegrationTests, но плита теперь
+        // построена через реальные зоны армирования).
+        NormalizedShellNode[] nodes =
+        [
+            new(1, 0, 0, 0, [true, true, true, true, true, true], null),
+            new(2, 1, 0, 0, [true, true, true, true, true, true], null),
+            new(3, 1, 1, 0, new bool[6], null),
+            new(4, 0, 1, 0, new bool[6], null),
+            new(5, 1, 1, -1, [true, true, true, true, true, true], "column-base"),
+        ];
+
+        var steelMaterial = new OpenSeesMaterialDefinition { Tag = 40, Native = new Steel01Spec(4e8, 2e11, 0.01) };
+        var columnSection = new OpenSeesSectionModel
+        {
+            GJ = 1e6,
+            Materials = [steelMaterial],
+            Fibers =
+            [
+                new(0.05, 0, 0.001, 40), new(-0.05, 0, 0.001, 40),
+                new(0, 0.05, 0.001, 40), new(0, -0.05, 0.001, 40),
+            ]
+        };
+
+        var model = new ShellOpenSeesModel
+        {
+            Nodes = nodes,
+            Materials = mapped.Materials,
+            Sections = mapped.Sections,
+            Elements = [new(10, ShellElementKind.ASDShellQ4, [1, 2, 3, 4], plateSection.Tag,
+                plateSection.Fingerprint, ShellFrame.Identity, ShellIntegrationPolicy.Full, "junction:plate")],
+            NonlinearBeamSections = new Dictionary<int, OpenSeesSectionModel> { [30] = columnSection },
+            NonlinearBeamElements = [new(100, 5, 3, 30, 3, (1, 0, 0))],
+            Stages =
+            [
+                new()
+                {
+                    Tag = "vertical-load",
+                    LoadFactorStep = 0.25,
+                    MaxLoadFactor = 1.0,
+                    Loads = [new(3, 0, 0, -20000, 0, 0, 0)]
+                }
+            ]
+        };
+
+        using ShellIntegrationRun run = await RunAsync(executable, model);
+        ShellResult result = run.Result;
+
+        Assert.All(result.Steps, step => Assert.True(step.Converged, $"Шаг {step.StepIndex} не сошёлся."));
+        Assert.True(result.Steps.Count >= 4, $"Ожидалось минимум 4 шага (λ 0.25→1.0), получено {result.Steps.Count}.");
+        Assert.Equal(1.0, result.Steps[^1].LoadFactor, precision: 6);
+
+        var finalBeamForces = result.Steps[^1].BeamElementForces;
+        Assert.NotEmpty(finalBeamForces);
+        Assert.All(finalBeamForces, forces =>
+        {
+            Assert.True(double.IsFinite(forces.Ni)); Assert.True(double.IsFinite(forces.Qyi));
+            Assert.True(double.IsFinite(forces.Qzi)); Assert.True(double.IsFinite(forces.Mxi));
+            Assert.True(double.IsFinite(forces.Myi)); Assert.True(double.IsFinite(forces.Mzi));
+            Assert.True(double.IsFinite(forces.Nj)); Assert.True(double.IsFinite(forces.Qyj));
+            Assert.True(double.IsFinite(forces.Qzj)); Assert.True(double.IsFinite(forces.Mxj));
+            Assert.True(double.IsFinite(forces.Myj)); Assert.True(double.IsFinite(forces.Mzj));
+        });
+    }
+
     /// <summary>Четыре независимых Q4-панели 1x1 м, каждая — нижний край (y=0) полностью
     /// зафиксирован, верхний край (y=1) свободен в плоскости (мембранная растяжение/сжатие)
     /// и зафиксирован из плоскости, как в ShellMaterialStateIntegrationTests.CreateNonlinearQ4Model.</summary>
