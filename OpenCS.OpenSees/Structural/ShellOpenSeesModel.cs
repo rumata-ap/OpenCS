@@ -32,8 +32,21 @@ public sealed record ShellOpenSeesModel
     /// <summary>"forceBeamColumn" (по умолчанию) | "dispBeamColumn".</summary>
     public string NonlinearBeamElementFormulation { get; init; } = "forceBeamColumn";
 
-    /// <summary>"Linear" (по умолчанию) | "PDelta". Corotational — срез 3.</summary>
+    /// <summary>"Linear" (по умолчанию) | "PDelta" | "Corotational".</summary>
     public string NonlinearBeamGeomTransfKind { get; init; } = "Linear";
+
+    /// <summary>Геометрическая нелинейность shell-элементов: включает -corotational у
+    /// ASDShellQ4/ASDShellT3. Независим от NonlinearBeamGeomTransfKind — стержни и оболочки
+    /// смешанной модели могут иметь разную кинематику.</summary>
+    public bool ShellCorotational { get; init; } = false;
+
+    /// <summary>Enhanced Assumed Strain у ASDShellQ4 (default true = поведение OpenSees без
+    /// флага). false эмитит -noeas. Не применяется к ASDShellT3 — у элемента нет такой опции,
+    /// поэтому false на T3 не эмитит ничего (тихий no-op, не ошибка).</summary>
+    public bool EnhancedAssumedStrain { get; init; } = true;
+
+    /// <summary>Единая на модель политика drilling-стабилизации shell-элементов.</summary>
+    public DrillingPolicy Drilling { get; init; } = new();
 
     /// <summary>Политика нелинейного Newton-анализа. Дефолт подтверждён вручную на реальном
     /// OpenSees 3.8.0 (срез 1) для shell-материалов.</summary>
@@ -173,9 +186,20 @@ public sealed record ShellOpenSeesModel
 
         if (NonlinearBeamElementFormulation is not ("forceBeamColumn" or "dispBeamColumn"))
             throw new InvalidOperationException($"Неизвестная формулировка нелинейного стержня «{NonlinearBeamElementFormulation}».");
-        if (NonlinearBeamGeomTransfKind is not ("Linear" or "PDelta"))
+        if (NonlinearBeamGeomTransfKind is not ("Linear" or "PDelta" or "Corotational"))
             throw new InvalidOperationException($"Неизвестная формулировка geomTransf нелинейного стержня «{NonlinearBeamGeomTransfKind}».");
         Policy.Validate();
+
+        Drilling.Validate();
+        if (Drilling.Mode == ShellDrillingMode.Stabilization)
+        {
+            List<int> t3Tags = Elements.Where(e => e.Kind == ShellElementKind.ASDShellT3)
+                .Select(e => e.Tag).ToList();
+            if (t3Tags.Count > 0)
+                throw new InvalidOperationException(
+                    $"DrillingPolicy.Stabilization несовместим с ASDShellT3 (нет численного " +
+                    $"-drillingStab у T3); конфликтующие теги: {string.Join(", ", t3Tags)}.");
+        }
 
         // Тег-пространство секций — общее для shell (LayeredShell) и нелинейных стержней
         // (Fiber): в реальном OpenSees `section`-команды делят одно пространство тегов

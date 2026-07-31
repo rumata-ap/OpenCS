@@ -100,4 +100,56 @@ public sealed class ShellOpenSeesModelTests
         };
         model.Validate();
     }
+
+    [Fact]
+    public void Validate_AcceptsShellCorotationalAndEnhancedAssumedStrainDefaults() => BaseModel().Validate();
+
+    [Fact]
+    public void Validate_AcceptsNonlinearBeamGeomTransfCorotational()
+    {
+        var model = BaseModel() with
+        {
+            NonlinearBeamSections = new Dictionary<int, OpenSeesSectionModel>
+            {
+                [30] = new() { GJ = 1, Materials = [new() { Tag = 40, Native = new Steel01Spec(4e8, 2e11, 0.01) }],
+                    Fibers = [new(0, 0, 0.001, 40)] }
+            },
+            NonlinearBeamElements = [new(100, 3, 4, 30, 3, (0, 1, 0))],
+            NonlinearBeamGeomTransfKind = "Corotational"
+        };
+        model.Validate();
+    }
+
+    [Fact]
+    public void Validate_RejectsDrillingStabilizationWithT3Element()
+    {
+        var model = BaseModel() with
+        {
+            Elements =
+            [
+                .. BaseModel().Elements,
+                new(11, ShellElementKind.ASDShellT3, [1, 2, 3], 20, Fingerprint,
+                    ShellFrame.Identity, ShellIntegrationPolicy.Full, null)
+            ],
+            Drilling = new DrillingPolicy { Mode = ShellDrillingMode.Stabilization, StabilizationValue = 0.001 }
+        };
+        var ex = Assert.Throws<InvalidOperationException>(model.Validate);
+        Assert.Contains("Stabilization", ex.Message);
+    }
+
+    [Fact]
+    public void Validate_AcceptsDrillingNonlinearDrillingWithMixedQ4T3()
+    {
+        var model = BaseModel() with
+        {
+            Elements =
+            [
+                .. BaseModel().Elements,
+                new(11, ShellElementKind.ASDShellT3, [1, 2, 3], 20, Fingerprint,
+                    ShellFrame.Identity, ShellIntegrationPolicy.Full, null)
+            ],
+            Drilling = new DrillingPolicy { Mode = ShellDrillingMode.NonlinearDrilling }
+        };
+        model.Validate();
+    }
 }
