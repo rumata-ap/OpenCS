@@ -1,5 +1,4 @@
 using System.Text;
-using OpenCS.OpenSees.Model;
 using OpenCS.OpenSees.Structural;
 
 namespace OpenCS.OpenSees.Tcl;
@@ -47,24 +46,7 @@ public sealed class FemNonlinearTclGenerator
             }
             foreach (var mat in section.Materials)
             {
-                string materialCommand = mat.Native switch
-                {
-                    Concrete01Spec c1 =>
-                        $"uniaxialMaterial Concrete01 {mat.Tag} {F(c1.Fpc)} {F(c1.Epsc0)} {F(c1.Fpcu)} {F(c1.EpsU)}",
-                    Concrete02Spec c2 =>
-                        $"uniaxialMaterial Concrete02 {mat.Tag} {F(c2.Fpc)} {F(c2.Epsc0)} {F(c2.Fpcu)} {F(c2.EpsU)} {F(c2.Lambda)} {F(c2.Ft)} {F(c2.Ets)}",
-                    Concrete04Spec c4 when c4.Fct is { } fct && c4.Et is { } et && c4.Beta is { } beta =>
-                        $"uniaxialMaterial Concrete04 {mat.Tag} {F(c4.Fc)} {F(c4.Ec0)} {F(c4.Ecu)} {F(c4.Ec)} {F(fct)} {F(et)} {F(beta)}",
-                    Concrete04Spec c4 =>
-                        $"uniaxialMaterial Concrete04 {mat.Tag} {F(c4.Fc)} {F(c4.Ec0)} {F(c4.Ecu)} {F(c4.Ec)}",
-                    Steel01Spec s1 =>
-                        $"uniaxialMaterial Steel01 {mat.Tag} {F(s1.Fy)} {F(s1.E0)} {F(s1.B)}",
-                    Steel02Spec s2 =>
-                        $"uniaxialMaterial Steel02 {mat.Tag} {F(s2.Fy)} {F(s2.E0)} {F(s2.B)} {F(s2.R0)} {F(s2.CR1)} {F(s2.CR2)}",
-                    null => BuildElasticMultiLinearCommand(mat, F),
-                    _ => throw new InvalidOperationException($"Неизвестный тип NativeMaterialSpec: {mat.Native.GetType().Name}.")
-                };
-                L(materialCommand);
+                L(NativeMaterialTclEmitter.ToTcl(mat, F));
             }
             L($"section Fiber {sectionTag} -GJ {F(section.GJ)} {{");
             foreach (var fiber in section.Fibers)
@@ -350,14 +332,4 @@ public sealed class FemNonlinearTclGenerator
     static bool IsFullUniform(FemLinearDistributedLoad load) =>
         load.AOverL == 0 && load.BOverL == 1 &&
         load.WyStart == load.WyEnd && load.WzStart == load.WzEnd && load.WxStart == load.WxEnd;
-
-    // Точки: отрицательная огибающая целиком + положительная без первой (общей) точки — тот же
-    // приём, что и в SectionMomentCurvatureTclGenerator.
-    private static string BuildElasticMultiLinearCommand(OpenSeesMaterialDefinition mat, Func<double, string> f)
-    {
-        var points = mat.NegativeEnvelope.Concat(mat.PositiveEnvelope.Skip(1)).ToList();
-        var strains = string.Join(' ', points.Select(p => f(p.Strain)));
-        var stresses = string.Join(' ', points.Select(p => f(p.StressPa)));
-        return $"uniaxialMaterial ElasticMultiLinear {mat.Tag} -strain {strains} -stress {stresses}";
-    }
 }
