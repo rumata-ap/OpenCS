@@ -324,6 +324,32 @@ public class PlanarRegionMemberVM : ViewModelBase
         OnPropertyChanged(nameof(HasZones));
     }
 
+    public OpenCS.Services.IFileDialogService FileDialogService => _app.FileDialogService;
+
+    /// <summary>Прямой DXF-импорт зон армирования (минуя пул App.Contours) — по одной RebarZone
+    /// на каждого включённого пользователем кандидата. Face берётся из текущей активной подвкладки
+    /// Низ/Верх, как и в существующем BatchAddZonesFromSet.</summary>
+    public void ImportDxfZones(IReadOnlyList<Utilites.PlanarDxfPolygonCandidate> candidates)
+    {
+        if (candidates.Count == 0) return;
+        RebarLayoutDirty = true;
+        bool wasEmpty = RebarZones.Count == 0;
+        foreach (var candidate in candidates)
+        {
+            var zone = new RebarZone
+            {
+                Name = candidate.Layer,
+                Face = ActiveRebarFace,
+                Polygon = [.. candidate.X.Zip(candidate.Y, (x, y) => new RebarZonePoint { U = x, V = y })],
+            };
+            RebarZones.Add(new RebarZoneVM(zone, OnZoneChanged, MarkRebarLayoutDirty, _app.Armatures));
+        }
+        if (wasEmpty) EnsurePlateSectionOwned();
+        RefreshFaceFilteredCollections();
+        RefreshPlot();
+        OnPropertyChanged(nameof(HasZones));
+    }
+
     public void SelectZoneAtPoint(double x, double y)
     {
         for (int i = ActiveFaceRebarZones.Count - 1; i >= 0; i--)

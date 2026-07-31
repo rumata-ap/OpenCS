@@ -110,6 +110,12 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
         if (dlg.ShowDialog() == true) _vm.RotateZoneGeometryDegrees(dlg.AngleDeg);
     }
 
+    void ImportRebarZonesFromDxf_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        var dlg = new RebarZoneDxfImportDialog(_vm.FileDialogService) { Owner = this };
+        if (dlg.ShowDialog() == true) _vm.ImportDxfZones(dlg.AcceptedIncluded);
+    }
+
     void ApplyZoneMaterial_Click(object sender, System.Windows.RoutedEventArgs e)
     {
         var zones = zonesList.SelectedItems.Cast<RebarZoneVM>().ToList();
