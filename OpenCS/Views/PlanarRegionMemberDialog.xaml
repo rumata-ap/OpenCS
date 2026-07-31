@@ -49,8 +49,7 @@
                   <Separator/>
                   <Button Style="{StaticResource IconButton25}" Click="ImportGeometryFromDxf_Click"
                           ToolTip="{DynamicResource PlanarRegionImportGeometryDxfTool}">
-                      <Path Data="M14,12L10,8V11H2V13H10V16M20,18V6A2,2 0 0,0 18,4H12V6H18V18H12V20H18A2,2 0 0,0 20,18Z"
-                            Fill="Black" Stretch="Uniform" Margin="2"/>
+                      <Image Source="{StaticResource di_import_dxf_xaml}" Stretch="Uniform" Margin="2"/>
                   </Button>
                   <Separator/>
                   <Button Style="{StaticResource IconButton25}" IsEnabled="False"
@@ -262,8 +261,7 @@
                   <Separator/>
                   <Button Style="{StaticResource IconButton25}" Click="ImportRebarZonesFromDxf_Click"
                           ToolTip="{DynamicResource PlanarRegionImportRebarZonesDxfTool}">
-                      <Path Data="M14,12L10,8V11H2V13H10V16M20,18V6A2,2 0 0,0 18,4H12V6H18V18H12V20H18A2,2 0 0,0 20,18Z"
-                            Fill="Black" Stretch="Uniform" Margin="2"/>
+                      <Image Source="{StaticResource di_import_dxf_xaml}" Stretch="Uniform" Margin="2"/>
                   </Button>
                   <Separator/>
                   <Button Style="{StaticResource IconButton25}" Command="{Binding ComputeSectionCountCommand}"
