@@ -83,6 +83,12 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
         if (dlg.ShowDialog() == true) _vm.RotateGeometryDegrees(dlg.AngleDeg);
     }
 
+    void ImportGeometryFromDxf_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        var dlg = new PlanarGeometryDxfImportDialog(_vm.FileDialogService) { Owner = this };
+        if (dlg.ShowDialog() == true) _vm.ImportGeometryFromDxf(dlg.Hull!, dlg.Holes);
+    }
+
     void FitRebarView_Click(object sender, System.Windows.RoutedEventArgs e) => rebarPreview.FitToView();
 
     void RebarFaceTab_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)

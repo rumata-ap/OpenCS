@@ -47,6 +47,12 @@
                             Fill="Black" Stretch="Uniform" Margin="2"/>
                   </Button>
                   <Separator/>
+                  <Button Style="{StaticResource IconButton25}" Click="ImportGeometryFromDxf_Click"
+                          ToolTip="{DynamicResource PlanarRegionImportGeometryDxfTool}">
+                      <Path Data="M14,12L10,8V11H2V13H10V16M20,18V6A2,2 0 0,0 18,4H12V6H18V18H12V20H18A2,2 0 0,0 20,18Z"
+                            Fill="Black" Stretch="Uniform" Margin="2"/>
+                  </Button>
+                  <Separator/>
                   <Button Style="{StaticResource IconButton25}" IsEnabled="False"
                           ToolTip="{DynamicResource PlanarRegionMeshToolStub}">
                       <Path Data="M12,2L1,21H23L12,2M12,6L19.53,19H4.47L12,6Z"

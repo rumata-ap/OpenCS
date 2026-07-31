@@ -350,6 +350,33 @@ public class PlanarRegionMemberVM : ViewModelBase
         OnPropertyChanged(nameof(HasZones));
     }
 
+    /// <summary>Прямой DXF-импорт геометрии региона (Hull заменяется, Holes добавляются к уже
+    /// существующим) — минуя пул App.Contours. Контуры уже приватные, никому не разделяемые —
+    /// _geometryOwned выставляется сразу, повторного клонирования при первой трансформации
+    /// (EnsureGeometryOwned) не требуется.</summary>
+    public void ImportGeometryFromDxf(Utilites.PlanarDxfPolygonCandidate hull, IReadOnlyList<Utilites.PlanarDxfPolygonCandidate> holes)
+    {
+        Hull = BuildOwnedContour(hull, ContourType.Hull);
+        foreach (var h in holes)
+            Holes.Add(BuildOwnedContour(h, ContourType.Hole));
+        _geometryOwned = true;
+        RefreshPlot();
+    }
+
+    static Contour BuildOwnedContour(Utilites.PlanarDxfPolygonCandidate candidate, ContourType type)
+    {
+        var (ox, oy) = PlanarRegionTopologyValidator.NormalizeWinding(candidate.X, candidate.Y, ccw: type == ContourType.Hull);
+        var contour = new Contour
+        {
+            Tag = candidate.Layer,
+            Type = type,
+            X = [.. ox],
+            Y = [.. oy],
+        };
+        contour.SetWKT();
+        return contour;
+    }
+
     public void SelectZoneAtPoint(double x, double y)
     {
         for (int i = ActiveFaceRebarZones.Count - 1; i >= 0; i--)
