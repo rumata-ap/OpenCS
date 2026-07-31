@@ -25,11 +25,31 @@ public sealed record ShellSectionResultants(
     double Qx,
     double Qy);
 
+/// <summary>Результат одного шага нагрузки нелинейного shell-расчёта. Для несошедшегося шага
+/// (Converged=false) списки пусты — состояние не было закоммичено.</summary>
+public sealed record RCShellStepResult(
+    int StepIndex,
+    int StageIndex,
+    double LoadFactor,
+    bool Converged,
+    IReadOnlyList<ShellNodeDisplacement> Displacements,
+    IReadOnlyList<ShellNodeReaction> Reactions,
+    IReadOnlyList<ShellElementNodalForces> ElementForces,
+    IReadOnlyList<ShellSectionResultants> SectionResultants,
+    IReadOnlyList<FemElementEndForces> BeamElementForces)
+{
+    /// <summary>Признак шага, выполненного при уточнении последнего неудачного интервала.</summary>
+    public bool IsRefinement { get; init; }
+}
+
 /// <summary>Типизированный результат shell-расчёта OpenSees.</summary>
 public sealed class ShellResult
 {
     /// <summary>Статус по completion marker.</summary>
     public string Status { get; init; } = "created";
+
+    /// <summary>Полная история шагов нагружения.</summary>
+    public IReadOnlyList<RCShellStepResult> Steps { get; init; } = [];
 
     /// <summary>Перемещения узлов.</summary>
     public IReadOnlyList<ShellNodeDisplacement> Displacements { get; init; } = [];
