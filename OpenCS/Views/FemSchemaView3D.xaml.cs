@@ -31,6 +31,8 @@ public partial class FemSchemaView3D : UserControl
     LinesVisual3D?  _shellEdgesVisual;
     LinesVisual3D?  _meshVisual;
     LinesVisual3D?  _meshNodeGlyphVisual;
+    LinesVisual3D?  _planarMeshEdgesVisual;
+    LinesVisual3D?  _planarMeshNodeGlyphVisual;
 
     readonly Dictionary<Visual3D, (bool IsNode, string Tag)> _pickTargets = new();
     readonly Dictionary<Visual3D, string> _planarRegionPickTargets = new();
@@ -224,6 +226,8 @@ public partial class FemSchemaView3D : UserControl
         _shellEdgesVisual = null;
         _meshVisual       = null;
         _meshNodeGlyphVisual = null;
+        _planarMeshEdgesVisual = null;
+        _planarMeshNodeGlyphVisual = null;
         viewport.Children.Clear();
 
         vm.PropertyChanged += OnVMPropertyChanged;
@@ -253,6 +257,8 @@ public partial class FemSchemaView3D : UserControl
         viewport.Children.Clear();
         _meshVisual = null;
         _meshNodeGlyphVisual = null;
+        _planarMeshEdgesVisual = null;
+        _planarMeshNodeGlyphVisual = null;
         _loadPickTargets.Clear();
         _kinematicPickTargets.Clear();
         viewport.Children.Add(new DefaultLights());
@@ -309,6 +315,12 @@ public partial class FemSchemaView3D : UserControl
         }
         _shellEdgesVisual = VM.ShellEdgePoints is { Count: > 0 } edgePts
             ? new LinesVisual3D { Points = edgePts, Color = Colors.DimGray, Thickness = 0.5 }
+            : null;
+        _planarMeshEdgesVisual = VM.PlanarRegionMeshEdgePoints is { Count: > 0 } prMeshEdges
+            ? new LinesVisual3D { Points = prMeshEdges, Color = Colors.DimGray, Thickness = 0.5 }
+            : null;
+        _planarMeshNodeGlyphVisual = VM.PlanarRegionMeshNodePoints is { Count: > 0 } prMeshNodes
+            ? new LinesVisual3D { Points = FemMeshNodeGlyphFactory.Create(prMeshNodes), Color = Colors.DeepSkyBlue, Thickness = 1.5 }
             : null;
 
         // В режиме редактирования узлы рисуются как сферы в BuildEditProxies (заодно кликабельные);
@@ -865,7 +877,9 @@ public partial class FemSchemaView3D : UserControl
             showGridCheck.IsChecked == true,
             _shellEdgesVisual,
             _meshVisual,
-            _meshNodeGlyphVisual);
+            _meshNodeGlyphVisual,
+            _planarMeshEdgesVisual,
+            _planarMeshNodeGlyphVisual);
     }
 
     void NodesToggle(object sender, RoutedEventArgs e)

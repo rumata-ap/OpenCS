@@ -9,13 +9,10 @@ public static class FemGridVisuals
     public static void Apply(
         ICollection<Visual3D> children,
         bool showGrid,
-        Visual3D? shellEdges,
-        Visual3D? mesh,
-        Visual3D? meshNodes)
+        params Visual3D?[] layers)
     {
         ArgumentNullException.ThrowIfNull(children);
 
-        Visual3D?[] layers = [shellEdges, mesh, meshNodes];
         foreach (var layer in layers)
         {
             if (layer == null) continue;
