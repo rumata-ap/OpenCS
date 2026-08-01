@@ -466,16 +466,74 @@
             <!-- Вкладка «Gmsh» -->
             <TabItem Header="{DynamicResource GmshSettingsTab}">
                 <StackPanel Margin="10">
-                    <GroupBox Header="{DynamicResource GmshExecutableGroup}">
+                    <GroupBox Header="{DynamicResource GmshExecutableGroup}" Margin="0,0,0,10">
                         <Grid Margin="4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="260"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{DynamicResource GmshExecutablePath}" VerticalAlignment="Center"/>
-                            <TextBox Grid.Column="1" x:Name="GmshExeBox" VerticalContentAlignment="Center" Margin="0,2"/>
-                            <Button Grid.Column="2" Content="{DynamicResource BrowseEllipsis}" Click="GmshExeBrowse_Click"
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="28"/>
+                                <RowDefinition Height="24"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource GmshExecutablePath}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" x:Name="GmshExeBox" VerticalContentAlignment="Center" Margin="0,2"/>
+                            <Button Grid.Row="0" Grid.Column="2" Content="{DynamicResource BrowseEllipsis}" Click="GmshExeBrowse_Click"
+                                    Width="30" Height="22" Margin="4,2,0,2"/>
+                            <Button Grid.Row="1" Grid.Column="0" x:Name="GmshCheckVersionBtn" Content="{DynamicResource GmshCheckVersionButton}"
+                                    Click="GmshCheckVersion_Click" HorizontalAlignment="Left" Padding="8,2" Margin="0,2,0,0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" x:Name="GmshVersionText"
+                                       VerticalAlignment="Center" FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="4,2,0,0"/>
+                        </Grid>
+                    </GroupBox>
+                    <GroupBox Header="{DynamicResource GmshElementModeLabel}" Margin="0,0,0,10">
+                        <Grid Margin="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="260"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="28"/>
+                                <RowDefinition Height="28"/>
+                                <RowDefinition Height="28"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource GmshAlgorithmLabel}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="0" Grid.Column="1" x:Name="GmshAlgorithmCombo" VerticalContentAlignment="Center" Margin="0,2">
+                                <ComboBoxItem Tag="1" Content="{DynamicResource GmshAlgorithmMeshAdapt}"/>
+                                <ComboBoxItem Tag="2" Content="{DynamicResource GmshAlgorithmAutomatic}"/>
+                                <ComboBoxItem Tag="5" Content="{DynamicResource GmshAlgorithmDelaunay}"/>
+                                <ComboBoxItem Tag="6" Content="{DynamicResource GmshAlgorithmFrontalDelaunay}"/>
+                                <ComboBoxItem Tag="8" Content="{DynamicResource GmshAlgorithmFrontalDelaunayQuads}"/>
+                                <ComboBoxItem Tag="9" Content="{DynamicResource GmshAlgorithmPackingParallelograms}"/>
+                            </ComboBox>
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource GmshElementModeLabel}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Row="1" Grid.Column="1" x:Name="GmshElementModeCombo" VerticalContentAlignment="Center" Margin="0,2">
+                                <ComboBoxItem Tag="Triangles" Content="{DynamicResource GmshElementModeTriangles}"/>
+                                <ComboBoxItem Tag="Quads" Content="{DynamicResource GmshElementModeQuads}"/>
+                                <ComboBoxItem Tag="Mixed" Content="{DynamicResource GmshElementModeMixed}"/>
+                            </ComboBox>
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource GmshTimeoutLabel}" VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" x:Name="GmshTimeoutBox" VerticalContentAlignment="Center" Margin="0,2"/>
+                        </Grid>
+                    </GroupBox>
+                    <GroupBox Header="{DynamicResource GmshArtifactsPathLabel}" Margin="0,0,0,10">
+                        <Grid Margin="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="28"/>
+                                <RowDefinition Height="28"/>
+                            </Grid.RowDefinitions>
+                            <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" x:Name="GmshKeepArtifactsCb"
+                                      Content="{DynamicResource GmshKeepArtifactsLabel}" ToolTip="{DynamicResource GmshKeepArtifactsTip}"
+                                      VerticalAlignment="Center"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" x:Name="GmshArtifactsPathBox" VerticalContentAlignment="Center" Margin="0,2"
+                                     ToolTip="{DynamicResource GmshArtifactsPathTip}"/>
+                            <Button Grid.Row="1" Grid.Column="2" Content="{DynamicResource BrowseEllipsis}" Click="GmshArtifactsPathBrowse_Click"
                                     Width="30" Height="22" Margin="4,2,0,2"/>
                         </Grid>
                     </GroupBox>

@@ -5,6 +5,7 @@ using LiraImportSettings = OpenCS.Utilites.LiraImportSettings;
 using AcadImportSettings = OpenCS.Utilites.AcadImportSettings;
 using ArcDiscretization = OpenCS.Utilites.ArcDiscretization;
 
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -506,15 +507,67 @@ namespace OpenCS.Views
          if (folder is not null) OpenSeesArtifactsPathBox.Text = folder;
        }
 
-       void LoadGmshToUi() => GmshExeBox.Text = _gmshSettings.ExecutablePath ?? "";
+       void LoadGmshToUi()
+       {
+          GmshExeBox.Text = _gmshSettings.ExecutablePath ?? "";
+          SelectComboByTag(GmshAlgorithmCombo, _gmshSettings.Algorithm.ToString());
+          SelectComboByTag(GmshElementModeCombo, _gmshSettings.ElementMode.ToString());
+          GmshTimeoutBox.Text = _gmshSettings.TimeoutSeconds.ToString();
+          GmshKeepArtifactsCb.IsChecked = _gmshSettings.KeepArtifacts;
+          GmshArtifactsPathBox.Text = _gmshSettings.ArtifactsPath ?? "";
+       }
 
-       void HookGmshControls() => GmshExeBox.TextChanged += (_, _) =>
-          _gmshSettings.ExecutablePath = string.IsNullOrWhiteSpace(GmshExeBox.Text) ? null : GmshExeBox.Text.Trim();
+       void HookGmshControls()
+       {
+          GmshExeBox.TextChanged += (_, _) =>
+             _gmshSettings.ExecutablePath = string.IsNullOrWhiteSpace(GmshExeBox.Text) ? null : GmshExeBox.Text.Trim();
+          GmshAlgorithmCombo.SelectionChanged += (_, _) =>
+             _gmshSettings.Algorithm = int.TryParse(ComboTag(GmshAlgorithmCombo), out var alg) ? alg : 6;
+          GmshElementModeCombo.SelectionChanged += (_, _) =>
+             _gmshSettings.ElementMode = Enum.TryParse<CScore.Planar.PlanarMeshElementMode>(ComboTag(GmshElementModeCombo), out var mode)
+                ? mode : CScore.Planar.PlanarMeshElementMode.Mixed;
+          GmshTimeoutBox.TextChanged += (_, _) =>
+          {
+             if (int.TryParse(GmshTimeoutBox.Text, out var v) && v > 0) _gmshSettings.TimeoutSeconds = v;
+          };
+          GmshKeepArtifactsCb.Checked   += (_, _) => _gmshSettings.KeepArtifacts = true;
+          GmshKeepArtifactsCb.Unchecked += (_, _) => _gmshSettings.KeepArtifacts = false;
+          GmshArtifactsPathBox.TextChanged += (_, _) =>
+             _gmshSettings.ArtifactsPath = string.IsNullOrWhiteSpace(GmshArtifactsPathBox.Text) ? null : GmshArtifactsPathBox.Text.Trim();
+       }
 
        void GmshExeBrowse_Click(object sender, RoutedEventArgs e)
        {
           var path = _mvm.FileDialogService.OpenFile(Loc.S("GmshExeFilter"), Loc.S("GmshExecutablePath"));
           if (path is not null) GmshExeBox.Text = path;
+       }
+
+       void GmshArtifactsPathBrowse_Click(object sender, RoutedEventArgs e)
+       {
+          var initial = string.IsNullOrWhiteSpace(GmshArtifactsPathBox.Text) ? null : GmshArtifactsPathBox.Text.Trim();
+          var folder = _mvm.FileDialogService.SelectFolder(Loc.S("GmshArtifactsPathLabel"), initial);
+          if (folder is not null) GmshArtifactsPathBox.Text = folder;
+       }
+
+       async void GmshCheckVersion_Click(object sender, RoutedEventArgs e)
+       {
+          GmshCheckVersionBtn.IsEnabled = false;
+          try
+          {
+             var explicitPath = string.IsNullOrWhiteSpace(GmshExeBox.Text) ? null : GmshExeBox.Text.Trim();
+             var executable = new OpenCS.Gmsh.Runtime.GmshExecutableResolver().Resolve(explicitPath);
+             var version = await OpenCS.Gmsh.Runtime.GmshProcessRunner.ReadVersionAsync(
+                executable.Path, TimeSpan.FromSeconds(10), CancellationToken.None);
+             GmshVersionText.Text = string.Format(Loc.S("GmshVersionResolvedFormat"), executable.Source, version);
+          }
+          catch (Exception ex) when (ex is FileNotFoundException or IOException or InvalidDataException)
+          {
+             GmshVersionText.Text = string.Format(Loc.S("GmshVersionNotFoundFormat"), ex.Message);
+          }
+          finally
+          {
+             GmshCheckVersionBtn.IsEnabled = true;
+          }
        }
 
       static string? ComboTag(ComboBox combo) => (combo.SelectedItem as ComboBoxItem)?.Tag as string;
