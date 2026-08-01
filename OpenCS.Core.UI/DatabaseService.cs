@@ -1305,7 +1305,7 @@ namespace OpenCS.Utilites
             fs.IsModified = false;
       }
 
-      internal void ClearCollections()
+      public void ClearCollections()
       {
          Materials.Clear();
          MaterialChars.Clear();

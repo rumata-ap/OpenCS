@@ -9,6 +9,8 @@ namespace OpenCS
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+            OpenCS.Utilites.Loc.ResourceResolver =
+                key => Application.Current?.TryFindResource(key) as string ?? null;
             DispatcherUnhandledException += OnDispatcherUnhandledException;
 
             // Явная загрузка HelixToolkit при старте — иначе при первом открытии

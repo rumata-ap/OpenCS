@@ -414,6 +414,7 @@
     <ProjectReference Include="..\CSfea.Torsion\CSfea.Torsion.csproj" />
     <ProjectReference Include="..\OpenCS.OpenSees\OpenCS.OpenSees.csproj" />
     <ProjectReference Include="..\OpenCS.OpenSees.CScore\OpenCS.OpenSees.CScore.csproj" />
+    <ProjectReference Include="..\OpenCS.Core.UI\OpenCS.Core.UI.csproj" />
   </ItemGroup>
 
   <ItemGroup>

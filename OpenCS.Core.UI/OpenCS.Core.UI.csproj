@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>OpenCS</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" Version="33.0.1" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CScore\CScore.csproj" />
+    <ProjectReference Include="..\CScore.Fire\CScore.Fire.csproj" />
+    <ProjectReference Include="..\CSfea.Torsion\CSfea.Torsion.csproj" />
+    <ProjectReference Include="..\OpenCS.OpenSees\OpenCS.OpenSees.csproj" />
+    <ProjectReference Include="..\OpenCS.OpenSees.CScore\OpenCS.OpenSees.CScore.csproj" />
+    <ProjectReference Include="..\OpenCS.Gmsh\OpenCS.Gmsh.csproj" />
+  </ItemGroup>
+
+</Project>

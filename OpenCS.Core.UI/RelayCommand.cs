@@ -4,14 +4,18 @@ namespace OpenCS.Utilites
 {
    public class RelayCommand : ICommand
    {
-      Action<object?> execute;
-      Func<object?, bool>? canExecute;
+       Action<object?> execute;
+       Func<object?, bool>? canExecute;
+       private event EventHandler? CanExecuteChangedCore;
 
-      public event EventHandler? CanExecuteChanged
-      {
-         add { CommandManager.RequerySuggested += value; }
-         remove { CommandManager.RequerySuggested -= value; }
-      }
+       public event EventHandler? CanExecuteChanged
+       {
+          add { }
+          remove { }
+       }
+
+      /// <summary>Уведомляет подписчиков о необходимости перезапроса CanExecute.</summary>
+      public void RaiseCanExecuteChanged() => CanExecuteChangedCore?.Invoke(this, EventArgs.Empty);
 
       public RelayCommand(Action<object?> execute, Func<object?, bool>? canExecute = null)
       {
