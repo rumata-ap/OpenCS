@@ -24,6 +24,7 @@
     <ProjectReference Include="..\OpenCS.OpenSees.CScore\OpenCS.OpenSees.CScore.csproj" />
     <ProjectReference Include="..\CScore\CScore.csproj" />
     <ProjectReference Include="..\OpenCS\OpenCS.csproj" />
+    <ProjectReference Include="..\OpenCS.Gmsh\OpenCS.Gmsh.csproj" />
   </ItemGroup>
 
 </Project>
