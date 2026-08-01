@@ -26,6 +26,8 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
                 UpdateGeometryPlot();
             if (e.PropertyName == nameof(PlanarRegionMemberVM.RebarPlotElements))
                 UpdateRebarPlot();
+            if (e.PropertyName == nameof(PlanarRegionMemberVM.ShowMesh))
+                meshToggleButton.IsChecked = _vm.ShowMesh;
         };
         _vm.SaveCompleted += m => { SavedMember = m; DialogResult = true; Close(); };
         _vm.DeleteCompleted += m => { DeletedMember = m; DialogResult = true; Close(); };
@@ -64,6 +66,12 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
     }
 
     void FitView_Click(object sender, System.Windows.RoutedEventArgs e) => preview.FitToView();
+
+    async void ToggleMesh_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        meshToggleButton.IsChecked = _vm.ShowMesh; // не даём WPF самостоятельно переключить состояние — им управляет VM
+        await _vm.ToggleMeshAsync();
+    }
 
     void MoveGeometry_Click(object sender, System.Windows.RoutedEventArgs e)
     {

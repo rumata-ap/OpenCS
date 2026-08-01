@@ -52,11 +52,17 @@
                       <Image Source="{StaticResource di_import_dxf_xaml}" Stretch="Uniform" Margin="2"/>
                   </Button>
                   <Separator/>
-                  <Button Style="{StaticResource IconButton25}" IsEnabled="False"
-                          ToolTip="{DynamicResource PlanarRegionMeshToolStub}">
+                  <ToggleButton x:Name="meshToggleButton" Style="{StaticResource IconButton25}"
+                          IsEnabled="{Binding CanBuildMesh}" Click="ToggleMesh_Click"
+                          ToolTip="{DynamicResource PlanarRegionMeshToolTip}"
+                          ToolTipService.ShowOnDisabled="True">
                       <Path Data="M12,2L1,21H23L12,2M12,6L19.53,19H4.47L12,6Z"
-                            Fill="Gray" Stretch="Uniform" Margin="2"/>
-                  </Button>
+                            Fill="Black" Stretch="Uniform" Margin="2"/>
+                  </ToggleButton>
+                  <TextBlock Text="{DynamicResource PlanarRegionMeshSizeLabel}" VerticalAlignment="Center" Margin="4,0,2,0"/>
+                  <TextBox Width="55" Height="22" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                           Text="{Binding MeshMaxElementSizeM, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                           ToolTip="{DynamicResource PlanarRegionMeshSizeTip}"/>
                </ToolBar>
                <Border Grid.Row="1" BorderThickness="0,0,1,0"
                        BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}">
