@@ -10,6 +10,12 @@
       <conv:BoolToErrorBrushConverter x:Key="ErrorToBrush"/>
       <conv:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
       <conv:NullToCollapsedVisibilityConverter x:Key="NullToCollapsedVisibilityConverter"/>
+      <Style x:Key="IconToggleButton25" TargetType="ToggleButton">
+         <Setter Property="Height" Value="25"/>
+         <Setter Property="Width" Value="25"/>
+         <Setter Property="BorderThickness" Value="0"/>
+         <Setter Property="Background" Value="Transparent"/>
+      </Style>
    </Window.Resources>
    <TabControl>
       <TabItem Header="{DynamicResource PlanarRegionTabGeometry}">
@@ -52,7 +58,7 @@
                       <Image Source="{StaticResource di_import_dxf_xaml}" Stretch="Uniform" Margin="2"/>
                   </Button>
                   <Separator/>
-                  <ToggleButton x:Name="meshToggleButton" Style="{StaticResource IconButton25}"
+                  <ToggleButton x:Name="meshToggleButton" Style="{StaticResource IconToggleButton25}"
                           IsEnabled="{Binding CanBuildMesh}" Click="ToggleMesh_Click"
                           ToolTip="{DynamicResource PlanarRegionMeshToolTip}"
                           ToolTipService.ShowOnDisabled="True">
