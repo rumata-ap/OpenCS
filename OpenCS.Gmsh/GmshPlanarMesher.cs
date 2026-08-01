@@ -13,7 +13,7 @@ namespace OpenCS.Gmsh;
 /// <summary>Строит сетку одного PlanarRegion внешним Gmsh в формате MSH 2.2 ASCII.</summary>
 public sealed class GmshPlanarMesher : IPlanarMesher
 {
-    const string GeneratorVersion = "gmsh-planar-v2";
+    public const string GeneratorVersion = "gmsh-planar-v2";
     const int OuterPhysicalGroup = 1001;
     const int HolePhysicalGroupBase = 1002;
     const int SurfacePhysicalGroup = 2001;
@@ -43,12 +43,12 @@ public sealed class GmshPlanarMesher : IPlanarMesher
             if (diagnostics.Any(d => d.IsError)) return Failed(request, diagnostics, provenance);
 
             executable = new GmshExecutableResolver(_options.BundledExecutablePath).Resolve(_options.ExecutablePath);
-            provenance = provenance with { ExecutablePath = executable.Path, GmshVersion = await ReadVersionAsync(executable.Path, _options.Timeout, cancellationToken) };
+            provenance = provenance with { ExecutablePath = executable.Path, GmshVersion = await GmshProcessRunner.ReadVersionAsync(executable.Path, _options.Timeout, cancellationToken) };
 
             var geoPath = Path.Combine(directory, "model.geo");
             var mshPath = Path.Combine(directory, "model.msh");
             await File.WriteAllTextAsync(geoPath, BuildGeo(request.Region, request.Settings), Encoding.UTF8, cancellationToken);
-            var result = await RunAsync(
+            var result = await GmshProcessRunner.RunAsync(
                 executable.Path,
                 directory,
                 [geoPath, "-2", "-format", "msh22", "-order", "1", "-o", mshPath],
@@ -148,58 +148,6 @@ public sealed class GmshPlanarMesher : IPlanarMesher
     {
         try { return PlanarMeshFingerprint.Compute(request.Region, request.Settings, provenance); }
         catch (InvalidOperationException) { return null; }
-    }
-
-    static async Task<string> ReadVersionAsync(string executable, TimeSpan timeout, CancellationToken cancellationToken)
-    {
-        var result = await RunAsync(executable, Environment.CurrentDirectory, ["-version"], timeout, cancellationToken);
-        var output = result.Output + Environment.NewLine + result.Error;
-        if (result.ExitCode != 0)
-            throw new IOException($"Не удалось определить версию Gmsh: код {result.ExitCode}.");
-        var match = Regex.Match(output, @"\b\d+\.\d+(?:\.\d+)?\b");
-        if (!match.Success)
-            throw new InvalidDataException("Gmsh не вернул распознаваемую версию.");
-        return match.Value;
-    }
-
-    static async Task<(int ExitCode, string Output, string Error)> RunAsync(
-        string executable,
-        string workingDirectory,
-        IReadOnlyList<string> arguments,
-        TimeSpan timeout,
-        CancellationToken cancellationToken)
-    {
-        var info = new ProcessStartInfo(executable)
-        {
-            WorkingDirectory = workingDirectory,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-        foreach (var argument in arguments) info.ArgumentList.Add(argument);
-        using var process = Process.Start(info) ?? throw new IOException("Не удалось запустить Gmsh.");
-        var output = process.StandardOutput.ReadToEndAsync();
-        var error = process.StandardError.ReadToEndAsync();
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        linked.CancelAfter(timeout);
-        try
-        {
-            await process.WaitForExitAsync(linked.Token);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
-            try { await process.WaitForExitAsync(); } catch { }
-            throw new GmshProcessTimeoutException(await output, await error);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
-            try { await process.WaitForExitAsync(); } catch { }
-            throw;
-        }
-        return (process.ExitCode, await output, await error);
     }
 
     static string BuildGeo(PlanarRegion region, PlanarMeshSettings settings)
@@ -441,16 +389,4 @@ public sealed class GmshPlanarMesher : IPlanarMesher
     static double ParseDouble(string value) => double.Parse(value, CultureInfo.InvariantCulture);
     static string Fmt(double value) => value.ToString("G17", CultureInfo.InvariantCulture);
     static double SignedArea(IReadOnlyList<PlanarMeshNode> nodes) => Enumerable.Range(0, nodes.Count).Sum(i => nodes[i].U * nodes[(i + 1) % nodes.Count].V - nodes[(i + 1) % nodes.Count].U * nodes[i].V) / 2;
-
-    sealed class GmshProcessTimeoutException : TimeoutException
-    {
-        public GmshProcessTimeoutException(string output, string error) : base("Gmsh process timed out.")
-        {
-            Output = output;
-            Error = error;
-        }
-
-        public string Output { get; }
-        public string Error { get; }
-    }
 }
