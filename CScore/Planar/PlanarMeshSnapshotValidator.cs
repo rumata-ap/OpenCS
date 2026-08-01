@@ -10,6 +10,8 @@ public static class PlanarMeshSnapshotValidator
         ArgumentNullException.ThrowIfNull(snapshot);
         var diagnostics = new List<FemValidationDiagnostic>();
         var nodes = new Dictionary<int, PlanarMeshNode>();
+        var elementIndices = new HashSet<int>();
+        var boundaryKeys = new HashSet<PlanarBoundaryKey>();
 
         foreach (var node in snapshot.Nodes)
         {
@@ -22,6 +24,8 @@ public static class PlanarMeshSnapshotValidator
 
         foreach (var element in snapshot.Elements)
         {
+            if (!elementIndices.Add(element.Index))
+                diagnostics.Add(new("planar_mesh_element_duplicate", $"Элемент сетки {element.Index} повторяется."));
             var expectedCount = element.Kind == PlanarMeshElementKind.Triangle3 ? 3 : 4;
             if (element.NodeIndices.Count != expectedCount)
             {
@@ -37,6 +41,21 @@ public static class PlanarMeshSnapshotValidator
 
             if (Math.Abs(SignedArea(element.NodeIndices.Select(index => nodes[index]).ToArray())) <= 1e-12)
                 diagnostics.Add(new("planar_mesh_element_degenerate", $"Элемент {element.Index} имеет нулевую площадь."));
+        }
+
+        foreach (var mapping in snapshot.BoundaryMappings)
+        {
+            if (!boundaryKeys.Add(mapping.Key))
+                diagnostics.Add(new("planar_mesh_boundary_duplicate", $"Отображение границы {mapping.Key.Loop}:{mapping.Key.HoleIndex}:{mapping.Key.StartVertex}-{mapping.Key.EndVertex} повторяется."));
+            if (mapping.NodeIndices.Count < 2)
+                diagnostics.Add(new("planar_mesh_boundary_node_count", "Цепочка граничного отображения должна содержать минимум два узла."));
+            for (var index = 0; index < mapping.NodeIndices.Count; index++)
+            {
+                if (!nodes.ContainsKey(mapping.NodeIndices[index]))
+                    diagnostics.Add(new("planar_mesh_boundary_unknown_node", $"Граничное отображение ссылается на отсутствующий узел {mapping.NodeIndices[index]}."));
+                if (index > 0 && mapping.NodeIndices[index] == mapping.NodeIndices[index - 1])
+                    diagnostics.Add(new("planar_mesh_boundary_repeated_node", "Цепочка граничного отображения содержит соседние одинаковые узлы."));
+            }
         }
 
         return diagnostics;

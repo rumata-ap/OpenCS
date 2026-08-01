@@ -30,7 +30,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-         const int CurrentSchemaVersion = 44;
+          const int CurrentSchemaVersion = 45;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -570,7 +570,8 @@ namespace OpenCS.Utilites
                if (i == 40) { MigrateV41(); continue; }
                if (i == 41) { MigrateV42(); continue; }
                 if (i == 42) { MigrateV43(); continue; }
-                if (i == 43) { MigrateV44(); continue; }
+                 if (i == 43) { MigrateV44(); continue; }
+                 if (i == 44) { MigrateV45(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1085,7 +1086,10 @@ namespace OpenCS.Utilites
        }
 
        /// <summary>Миграция v44: отдельные производные Gmsh-снимки плоских регионов.</summary>
-       void MigrateV44() => EnsurePlanarMeshTables();
+        void MigrateV44() => EnsurePlanarMeshTables();
+
+        /// <summary>Миграция v45: отображения исходных граничных сегментов на рёбра сетки.</summary>
+        void MigrateV45() => EnsurePlanarMeshTables();
 
        void EnsurePlanarMeshTables()
        {
@@ -1108,15 +1112,25 @@ namespace OpenCS.Utilites
                  u REAL NOT NULL, v REAL NOT NULL, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL,
                  UNIQUE(snapshot_id, node_index)
              );
-             CREATE TABLE IF NOT EXISTS planar_mesh_elements (
+              CREATE TABLE IF NOT EXISTS planar_mesh_elements (
                  id INTEGER PRIMARY KEY AUTOINCREMENT,
                  snapshot_id INTEGER NOT NULL REFERENCES planar_mesh_snapshots(id) ON DELETE CASCADE,
                  element_index INTEGER NOT NULL,
                  kind INTEGER NOT NULL,
                  node_indices_json TEXT NOT NULL,
-                 UNIQUE(snapshot_id, element_index)
-             );
-          """);
+                  UNIQUE(snapshot_id, element_index)
+              );
+              CREATE TABLE IF NOT EXISTS planar_mesh_boundary_mappings (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  snapshot_id INTEGER NOT NULL REFERENCES planar_mesh_snapshots(id) ON DELETE CASCADE,
+                  loop INTEGER NOT NULL,
+                  hole_index INTEGER NOT NULL,
+                  start_vertex INTEGER NOT NULL,
+                  end_vertex INTEGER NOT NULL,
+                  node_indices_json TEXT NOT NULL,
+                  UNIQUE(snapshot_id, loop, hole_index, start_vertex, end_vertex)
+              );
+           """);
        }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -1174,8 +1188,9 @@ namespace OpenCS.Utilites
           _connection = new SqliteConnection($"Data Source={newPath}");
           _connection.Open();
           SetDeleteJournalMode();
-          EnsureCreated();
-          Migrate();
+           EnsureCreated();
+           EnsurePlanarMeshTables();
+           Migrate();
       }
       /// </summary>
       static void RepairWal(string dbPath)
@@ -5453,14 +5468,27 @@ namespace OpenCS.Utilites
              }
              using var element = _connection.CreateCommand();
              element.CommandText = "INSERT INTO planar_mesh_elements(snapshot_id,element_index,kind,node_indices_json) VALUES(@id,@index,@kind,@nodes)";
-             foreach (var item in snapshot.Elements)
+              foreach (var item in snapshot.Elements)
              {
                 element.Parameters.Clear();
                 element.Parameters.AddWithValue("@id", snapshot.Id); element.Parameters.AddWithValue("@index", item.Index);
                 element.Parameters.AddWithValue("@kind", (int)item.Kind); element.Parameters.AddWithValue("@nodes", JsonSerializer.Serialize(item.NodeIndices, _jsonSettings));
-                element.ExecuteNonQuery();
-             }
-             tx.Commit();
+                 element.ExecuteNonQuery();
+              }
+              using var mapping = _connection.CreateCommand();
+              mapping.CommandText = "INSERT INTO planar_mesh_boundary_mappings(snapshot_id,loop,hole_index,start_vertex,end_vertex,node_indices_json) VALUES(@id,@loop,@hole,@start,@end,@nodes)";
+              foreach (var item in snapshot.BoundaryMappings)
+              {
+                 mapping.Parameters.Clear();
+                 mapping.Parameters.AddWithValue("@id", snapshot.Id);
+                 mapping.Parameters.AddWithValue("@loop", (int)item.Key.Loop);
+                 mapping.Parameters.AddWithValue("@hole", item.Key.HoleIndex);
+                 mapping.Parameters.AddWithValue("@start", item.Key.StartVertex);
+                 mapping.Parameters.AddWithValue("@end", item.Key.EndVertex);
+                 mapping.Parameters.AddWithValue("@nodes", JsonSerializer.Serialize(item.NodeIndices, _jsonSettings));
+                 mapping.ExecuteNonQuery();
+              }
+              tx.Commit();
           }
           catch { tx.Rollback(); throw; }
        }
@@ -5484,21 +5512,36 @@ namespace OpenCS.Utilites
                 using var rows = command.ExecuteReader();
                 while (rows.Read()) nodes.Add(new(rows.GetInt32(0), rows.GetDouble(1), rows.GetDouble(2), rows.GetDouble(3), rows.GetDouble(4), rows.GetDouble(5)));
              }
-             var elements = new List<CScore.Planar.PlanarMeshElement>();
+              var elements = new List<CScore.Planar.PlanarMeshElement>();
              using (var command = _connection.CreateCommand())
              {
                 command.CommandText = "SELECT element_index,kind,node_indices_json FROM planar_mesh_elements WHERE snapshot_id=@id ORDER BY element_index";
                 command.Parameters.AddWithValue("@id", id);
                 using var rows = command.ExecuteReader();
-                while (rows.Read()) elements.Add(new(rows.GetInt32(0), (CScore.Planar.PlanarMeshElementKind)rows.GetInt32(1), JsonSerializer.Deserialize<int[]>(rows.GetString(2)) ?? []));
-             }
-             result.Add(new CScore.Planar.PlanarMeshSnapshot
+                 while (rows.Read()) elements.Add(new(rows.GetInt32(0), (CScore.Planar.PlanarMeshElementKind)rows.GetInt32(1), JsonSerializer.Deserialize<int[]>(rows.GetString(2)) ?? []));
+              }
+              var mappings = new List<CScore.Planar.PlanarMeshBoundaryMapping>();
+              using (var command = _connection.CreateCommand())
+              {
+                 command.CommandText = "SELECT loop,hole_index,start_vertex,end_vertex,node_indices_json FROM planar_mesh_boundary_mappings WHERE snapshot_id=@id ORDER BY loop,hole_index,start_vertex";
+                 command.Parameters.AddWithValue("@id", id);
+                 using var rows = command.ExecuteReader();
+                 while (rows.Read())
+                 {
+                    mappings.Add(new()
+                    {
+                       Key = new((CScore.Planar.BoundaryLoop)rows.GetInt32(0), rows.GetInt32(1), rows.GetInt32(2), rows.GetInt32(3)),
+                       NodeIndices = JsonSerializer.Deserialize<int[]>(rows.GetString(4)) ?? []
+                    });
+                 }
+              }
+              result.Add(new CScore.Planar.PlanarMeshSnapshot
              {
                 Id = id, RegionId = regionId, InputFingerprint = reader.GetString(1), IsCalculable = reader.GetInt32(2) != 0,
                 Settings = JsonSerializer.Deserialize<CScore.Planar.PlanarMeshSettings>(reader.GetString(3), _jsonSettings),
                 Provenance = JsonSerializer.Deserialize<CScore.Planar.PlanarMeshProvenance>(reader.GetString(4), _jsonSettings),
                 Diagnostics = JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(reader.GetString(5), _jsonSettings) ?? [],
-                Nodes = nodes, Elements = elements
+                 Nodes = nodes, Elements = elements, BoundaryMappings = mappings
              });
           }
           return result;

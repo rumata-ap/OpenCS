@@ -7,11 +7,11 @@ namespace OpenCS.Gmsh.Tests;
 public sealed class GmshPlanarMesherTests
 {
     [Fact]
-    public async Task BuildAsync_MeshesRegionWithHole()
+    public async Task BuildAsync_MeshesNonConvexRegionWithHoleAndMapsBoundaries()
     {
         var region = PlanarRegion.CreateFromContour(
-            new Contour { X = [0, 2, 2, 0], Y = [0, 0, 2, 2] },
-            [new Contour { X = [0.75, 1.25, 1.25, 0.75], Y = [0.75, 0.75, 1.25, 1.25] }]);
+            new Contour { X = [0, 4, 4, 1, 1, 0], Y = [0, 0, 1, 1, 4, 4] },
+            [new Contour { X = [0.25, 0.75, 0.75, 0.25], Y = [2, 2, 3, 3] }]);
         var root = Path.Combine(Path.GetTempPath(), "opencs-gmsh-tests", Guid.NewGuid().ToString("N"));
 
         try
@@ -23,12 +23,24 @@ public sealed class GmshPlanarMesherTests
             });
 
             var snapshot = await mesher.BuildAsync(new PlanarMeshingRequest(region,
-                new PlanarMeshSettings(0.35, 6, PlanarMeshElementMode.Mixed)));
+                new PlanarMeshSettings(0.45, 6, PlanarMeshElementMode.Mixed)));
 
             Assert.True(snapshot.IsCalculable);
             Assert.NotEmpty(snapshot.Elements);
+            Assert.Equal(10, snapshot.BoundaryMappings.Count);
+            Assert.All(snapshot.BoundaryMappings, mapping => Assert.True(mapping.NodeIndices.Count >= 2));
             Assert.All(snapshot.Nodes, node => Assert.Equal(0, node.Z, 10));
-            Assert.DoesNotContain(snapshot.Nodes, node => node.U > 0.75 && node.U < 1.25 && node.V > 0.75 && node.V < 1.25);
+            Assert.DoesNotContain(snapshot.Elements, element =>
+            {
+                var centerU = element.NodeIndices.Average(index => snapshot.Nodes[index].U);
+                var centerV = element.NodeIndices.Average(index => snapshot.Nodes[index].V);
+                return centerU > 0.25 && centerU < 0.75 && centerV > 2 && centerV < 3;
+            });
+            Assert.Equal("4.15.2", snapshot.Provenance?.GmshVersion);
+            var artifactDirectory = Assert.IsType<string>(snapshot.Provenance?.ArtifactDirectory);
+            Assert.True(File.Exists(Path.Combine(artifactDirectory, "model.geo")));
+            Assert.True(File.Exists(Path.Combine(artifactDirectory, "model.msh")));
+            Assert.True(File.Exists(Path.Combine(artifactDirectory, "manifest.json")));
         }
         finally
         {

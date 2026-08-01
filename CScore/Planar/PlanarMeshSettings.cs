@@ -21,4 +21,8 @@ public sealed record PlanarMeshSettings(double MaxElementSizeM, int Algorithm, P
 }
 
 /// <summary>Данные окружения и генератора, входящие в воспроизводимый отпечаток сетки.</summary>
-public sealed record PlanarMeshProvenance(string GmshVersion, string GeneratorVersion);
+public sealed record PlanarMeshProvenance(string GmshVersion, string GeneratorVersion)
+{
+    public string? ExecutablePath { get; init; }
+    public string? ArtifactDirectory { get; init; }
+}
