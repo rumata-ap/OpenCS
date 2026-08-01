@@ -1,3 +1,4 @@
+using OpenCS.Utilites;
 using System.Windows;
 using System.Windows.Media;
 
@@ -28,7 +29,7 @@ public static class FireThermalMeshRenderer
 
         int n = Subdivisions;
         var gridP = new Point[(n + 1) * (n + 1)];
-        var gridC = new Color[(n + 1) * (n + 1)];
+        var gridC = new Argb[(n + 1) * (n + 1)];
 
         int Idx(int i, int j) => i * (n + 1) + j;
 
@@ -69,7 +70,7 @@ public static class FireThermalMeshRenderer
 
     static void DrawMicroTri(
         DrawingContext dc, Func<Point, Point> toScreen, Pen edgePen,
-        Point p0, Color c0, Point p1, Color c1, Point p2, Color c2)
+        Point p0, Argb c0, Point p1, Argb c1, Point p2, Argb c2)
     {
         double cx = (p0.X + p1.X + p2.X) / 3.0;
         double cy = (p0.Y + p1.Y + p2.Y) / 3.0;
@@ -77,7 +78,7 @@ public static class FireThermalMeshRenderer
             ColormapHelper.LerpColor(c0, c1, 0.5),
             c2,
             1.0 / 3.0);
-        var brush = new SolidColorBrush(cc);
+        var brush = new SolidColorBrush(Color.FromArgb(cc.A, cc.R, cc.G, cc.B));
         var g = new StreamGeometry();
         using var ctx = g.Open();
         ctx.BeginFigure(toScreen(p0), true, true);

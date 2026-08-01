@@ -7,7 +7,6 @@ using System.Globalization;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media;
 
 namespace OpenCS.ViewModels;
 
@@ -37,12 +36,12 @@ public sealed record FirePreviewRebarDraw(Point Center, double RadiusM);
 /// <summary>ViewModel интерактивного превью огневого сечения (ГУ + сетка МКЭ).</summary>
 public sealed class FirePreviewVM : ViewModelBase
 {
-    static readonly Brush s_fireBrush = CreateFrozenBrush(224, 32, 32);
-    static readonly Brush s_ambientBrush = CreateFrozenBrush(32, 80, 220);
-    static readonly Brush s_adiabaticBrush = CreateFrozenBrush(128, 128, 128);
-    static readonly Brush s_fillBrush = CreateFrozenBrush(240, 240, 240, alpha: 80);
-    static readonly Brush s_holeFillBrush = CreateFrozenBrush(200, 200, 200, alpha: 50);
-    static readonly Brush s_rebarFill = CreateFrozenBrush(204, 51, 51);
+    static readonly Argb s_fireBrush = Argb.FromRgb(224, 32, 32);
+    static readonly Argb s_ambientBrush = Argb.FromRgb(32, 80, 220);
+    static readonly Argb s_adiabaticBrush = Argb.FromRgb(128, 128, 128);
+    static readonly Argb s_fillBrush = Argb.FromArgb(80, 240, 240, 240);
+    static readonly Argb s_holeFillBrush = Argb.FromArgb(50, 200, 200, 200);
+    static readonly Argb s_rebarFill = Argb.FromRgb(204, 51, 51);
 
     int _meshBuildToken;
 
@@ -444,34 +443,27 @@ public sealed class FirePreviewVM : ViewModelBase
         OnPropertyChanged(nameof(NeedRedraw));
     }
 
-    public static Brush BrushForBc(string bcType) => bcType switch
+    public static Argb BrushForBc(string bcType) => bcType switch
     {
         "fire" => s_fireBrush,
         "ambient" => s_ambientBrush,
         _ => s_adiabaticBrush
     };
 
-    public static Brush OuterFillBrush => s_fillBrush;
-    public static Brush HoleFillBrush => s_holeFillBrush;
-    public static Brush RebarFillBrush => s_rebarFill;
-    public static Brush MeshMidsideNodeBrush => s_meshMidsideBrush;
+    public static Argb OuterFillBrush => s_fillBrush;
+    public static Argb HoleFillBrush => s_holeFillBrush;
+    public static Argb RebarFillBrush => s_rebarFill;
+    public static Argb MeshMidsideNodeBrush => s_meshMidsideBrush;
 
-    static readonly Brush s_meshMidsideBrush = CreateFrozenBrush(20, 60, 160);
+    static readonly Argb s_meshMidsideBrush = Argb.FromRgb(20, 60, 160);
 
-    public static Color MeshColorForAngle(double minAngleDeg)
+    public static Argb MeshColorForAngle(double minAngleDeg)
     {
         double t = Math.Clamp(minAngleDeg / 60.0, 0, 1);
         byte r = (byte)(255 * (1 - t) + 50 * t);
         byte g = (byte)(50 * (1 - t) + 200 * t);
         byte b = (byte)(50 * (1 - t) + 50 * t);
-        return Color.FromArgb(180, r, g, b);
-    }
-
-    static Brush CreateFrozenBrush(byte r, byte g, byte b, byte alpha = 255)
-    {
-        var br = new SolidColorBrush(Color.FromArgb(alpha, r, g, b));
-        br.Freeze();
-        return br;
+        return Argb.FromArgb(180, r, g, b);
     }
 
     static bool NearlyEqual(double a, double b) => Math.Abs(a - b) <= 1e-12;

@@ -11,6 +11,8 @@ namespace OpenCS
             base.OnStartup(e);
             OpenCS.Utilites.Loc.ResourceResolver =
                 key => Application.Current?.TryFindResource(key) as string ?? null;
+            OpenCS.Services.UiServices.Dialogs = new OpenCS.Services.WpfDialogService();
+            OpenCS.Services.UiServices.Dispatcher = new OpenCS.Services.WpfDispatcherService();
             DispatcherUnhandledException += OnDispatcherUnhandledException;
 
             // Явная загрузка HelixToolkit при старте — иначе при первом открытии

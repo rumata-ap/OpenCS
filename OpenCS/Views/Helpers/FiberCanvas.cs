@@ -1,3 +1,4 @@
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using System;
 using System.Collections.Generic;
@@ -164,10 +165,12 @@ namespace OpenCS.Views.Helpers
                 if (p.Y < yMin) yMin = p.Y; if (p.Y > yMax) yMax = p.Y;
             }
 
+            void ExpandMm(Point2D p) => Expand(new Point(p.X, p.Y));
+
             foreach (var f in vm.ConcreteFibers)
-                foreach (var p in f.Vertices) Expand(p);
+                foreach (var p in f.Vertices) ExpandMm(p);
             foreach (var a in vm.NoMeshAreas)
-                foreach (var p in a.Hull) Expand(p);
+                foreach (var p in a.Hull) ExpandMm(p);
             foreach (var r in vm.RebarFibers)
             {
                 Expand(new Point(r.Center.X - r.RadiusMm, r.Center.Y - r.RadiusMm));
@@ -195,6 +198,8 @@ namespace OpenCS.Views.Helpers
         // Y инвертируется: модельная ось Y вверх, экранная — вниз
         internal Point ToScreen(Point model) =>
             new(model.X * _scale + _tx, -model.Y * _scale + _ty);
+
+        internal Point ToScreen(Point2D model) => ToScreen(new Point(model.X, model.Y));
 
         internal Point ToModel(Point screen) =>
             new((screen.X - _tx) / _scale, -(screen.Y - _ty) / _scale);
@@ -279,7 +284,7 @@ namespace OpenCS.Views.Helpers
                                 vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
                             var c1 = ColormapHelper.GetColor(f.GradientMax.val,
                                 vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
-                            var lgb = new LinearGradientBrush(c0, c1,
+                            var lgb = new LinearGradientBrush(ToColor(c0), ToColor(c1),
                                 ToScreen(f.GradientMin.pt), ToScreen(f.GradientMax.pt));
                             lgb.MappingMode = BrushMappingMode.Absolute;
                             brush = lgb;
@@ -289,7 +294,7 @@ namespace OpenCS.Views.Helpers
                             var color = smoothColormap
                                 ? ColormapHelper.GetColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar)
                                 : ColormapHelper.GetDiscreteColor(f.Value, vm.ConcreteMin, vm.ConcreteMax, f.IsRebar);
-                            brush = new SolidColorBrush(color);
+                            brush = new SolidColorBrush(ToColor(color));
                         }
                         dc.DrawGeometry(brush, _transparentPen, BuildPathWithHoles(f.Vertices, f.Holes));
                     }
@@ -317,8 +322,8 @@ namespace OpenCS.Views.Helpers
                 {
                     var center = ToScreen(r.Center);
                     double radius = r.RadiusMm * _scale;
-                    var brush = new SolidColorBrush(
-                        ColormapHelper.GetDiscreteColor(r.Value, vm.RebarMin, vm.RebarMax, true));
+                    var brush = new SolidColorBrush(ToColor(
+                        ColormapHelper.GetDiscreteColor(r.Value, vm.RebarMin, vm.RebarMax, true)));
                     dc.DrawEllipse(brush, _outlinePen, center, radius, radius);
                 }
             }
@@ -371,7 +376,7 @@ namespace OpenCS.Views.Helpers
                     ? ColormapHelper.GetColor(mcVal, vm.ConcreteMin, vm.ConcreteMax, false)
                     : ColormapHelper.GetDiscreteColor(mcVal, vm.ConcreteMin, vm.ConcreteMax, false);
                 double r = (vm.FiberLabelFontSize + 1) / 2.0;
-                dc.DrawEllipse(new SolidColorBrush(mcColor), _outlinePen, sc, r, r);
+                dc.DrawEllipse(new SolidColorBrush(ToColor(mcColor)), _outlinePen, sc, r, r);
                 // Подпись: σ в режиме напряжений, ε в режиме деформаций
                 string label = vm.Mode == SectionPlotMode.Stress
                     ? $"{mcSig:+0.0;-0.0} МПа"
@@ -434,7 +439,7 @@ namespace OpenCS.Views.Helpers
             }
         }
 
-        Geometry BuildPath(IReadOnlyList<Point> vertices)
+        Geometry BuildPath(IReadOnlyList<Point2D> vertices)
         {
             var geom = new StreamGeometry();
             using var ctx = geom.Open();
@@ -445,7 +450,7 @@ namespace OpenCS.Views.Helpers
             return geom;
         }
 
-        Geometry BuildPathWithHoles(IReadOnlyList<Point> outer, IReadOnlyList<IReadOnlyList<Point>> holes)
+        Geometry BuildPathWithHoles(IReadOnlyList<Point2D> outer, IReadOnlyList<IReadOnlyList<Point2D>> holes)
         {
             if (holes.Count == 0) return BuildPath(outer);
             var geom = new StreamGeometry { FillRule = FillRule.EvenOdd };
@@ -503,6 +508,8 @@ namespace OpenCS.Views.Helpers
             catch { return Brushes.Black; }
         }
 
+        static Color ToColor(Argb c) => Color.FromArgb(c.A, c.R, c.G, c.B);
+
         static Pen MakePen(string colorHex, double thickness)
         {
             var pen = new Pen(ParseBrush(colorHex), thickness);
@@ -518,7 +525,7 @@ namespace OpenCS.Views.Helpers
             return pen;
         }
 
-        Geometry BuildHolesGeometry(IReadOnlyList<IReadOnlyList<Point>> holes)
+        Geometry BuildHolesGeometry(IReadOnlyList<IReadOnlyList<Point2D>> holes)
         {
             if (holes.Count == 0) return Geometry.Empty;
             var group = new GeometryGroup();
@@ -557,7 +564,9 @@ namespace OpenCS.Views.Helpers
                     for (int i = 1; i < verts.Count - 1; i++)
                     {
                         tris.Add(new SmoothFieldBitmap.TriVal(
-                            verts[0], verts[i], verts[i + 1],
+                            new Point(verts[0].X, verts[0].Y),
+                            new Point(verts[i].X, verts[i].Y),
+                            new Point(verts[i + 1].X, verts[i + 1].Y),
                             vals[0], vals[i], vals[i + 1]));
                     }
                 }
@@ -565,7 +574,7 @@ namespace OpenCS.Views.Helpers
                 if (tris.Count == 0) return;
 
                 var pixels = SmoothFieldBitmap.Build(tris, vmin, vmax,
-                    (val, min, max) => ColormapHelper.GetColor(val, min, max, false));
+                    (val, min, max) => ToColor(ColormapHelper.GetColor(val, min, max, false)));
                 var raster = pixels?.Freeze();
                 Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
                 {
@@ -771,7 +780,7 @@ namespace OpenCS.Views.Helpers
             }
         }
 
-        static bool PointInPoly(Point p, IReadOnlyList<Point> v)
+        static bool PointInPoly(Point p, IReadOnlyList<Point2D> v)
         {
             int n = v.Count; bool inside = false;
             for (int i = 0, j = n - 1; i < n; j = i++)

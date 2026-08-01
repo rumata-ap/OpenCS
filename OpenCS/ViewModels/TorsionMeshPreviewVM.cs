@@ -183,8 +183,11 @@ public sealed class TorsionMeshPreviewVM : ViewModelBase
         return Math.Min(Angle(a, b, c), Math.Min(Angle(b, c, a), Angle(c, a, b)));
     }
 
-    public static Color MeshColorForAngle(double minAngleDeg) =>
-        FirePreviewVM.MeshColorForAngle(minAngleDeg);
+    public static Color MeshColorForAngle(double minAngleDeg)
+    {
+        var c = FirePreviewVM.MeshColorForAngle(minAngleDeg);
+        return Color.FromArgb(c.A, c.R, c.G, c.B);
+    }
 
     static Brush CreateFrozenBrush(byte r, byte g, byte b, byte alpha = 255)
     {

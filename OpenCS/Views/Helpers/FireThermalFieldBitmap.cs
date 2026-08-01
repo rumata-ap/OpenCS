@@ -167,7 +167,8 @@ public static class FireThermalFieldBitmap
                 if (!InsideTri(mx, my, p0, p1, p2, area)) continue;
 
                 double tv = BarycentricT(mx, my, p0, p1, p2, area, t0, t1, t2);
-                SetPixel(px, bw, i, j, ColormapHelper.GetThermalColor(tv, vmin, vmax));
+                var cc = ColormapHelper.GetThermalColor(tv, vmin, vmax);
+                SetPixel(px, bw, i, j, Color.FromArgb(cc.A, cc.R, cc.G, cc.B));
             }
         }
     }

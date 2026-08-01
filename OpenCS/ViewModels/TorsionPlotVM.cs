@@ -89,8 +89,11 @@ public sealed class TorsionPlotVM : ViewModelBase
         FitAllCommand = new RelayCommand(_ => FitAllRequested?.Invoke());
     }
 
-    public Color GetColor(double val) =>
-        ColormapHelper.GetThermalColor(val, _vmin, _vmax);
+    public Color GetColor(double val)
+    {
+        var c = ColormapHelper.GetThermalColor(val, _vmin, _vmax);
+        return Color.FromArgb(c.A, c.R, c.G, c.B);
+    }
 
     public string FormatValue(double v)
     {
@@ -131,7 +134,8 @@ public sealed class TorsionPlotVM : ViewModelBase
             double center = vmin + (b + 0.5) * step;
             var color = ColormapHelper.GetThermalDiscreteColor(center, vmin, vmax, NumBands);
             string label = center.ToString("G3", System.Globalization.CultureInfo.InvariantCulture);
-            bands.Add(new ColorBand(new SolidColorBrush(color), label));
+            bands.Add(new ColorBand(
+                Color.FromArgb(color.A, color.R, color.G, color.B).ToString(), label));
         }
         return bands;
     }

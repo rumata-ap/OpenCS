@@ -1,3 +1,4 @@
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using OpenCS.Views.Helpers;
 using System;
@@ -130,7 +131,8 @@ public sealed class FireMeshCanvas : FrameworkElement
 
             if (tris.Count == 0) return;
 
-            var pixels = SmoothFieldBitmap.Build(tris, vmin, vmax, ColormapHelper.GetThermalColor);
+            var pixels = SmoothFieldBitmap.Build(tris, vmin, vmax,
+                (v, mn, mx) => ToColor(ColormapHelper.GetThermalColor(v, mn, mx)));
             var raster = pixels?.Freeze();
             Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
             {
@@ -252,7 +254,7 @@ public sealed class FireMeshCanvas : FrameworkElement
         double xMin = double.MaxValue, xMax = double.MinValue;
         double yMin = double.MaxValue, yMax = double.MinValue;
 
-        void Expand(Point p)
+        void Expand(Point2D p)
         {
             if (p.X < xMin) xMin = p.X;
             if (p.X > xMax) xMax = p.X;
@@ -272,8 +274,8 @@ public sealed class FireMeshCanvas : FrameworkElement
         }
         foreach (var r in vm.Points)
         {
-            Expand(new Point(r.CenterMm.X - r.RadiusMm, r.CenterMm.Y - r.RadiusMm));
-            Expand(new Point(r.CenterMm.X + r.RadiusMm, r.CenterMm.Y + r.RadiusMm));
+            Expand(new Point2D(r.CenterMm.X - r.RadiusMm, r.CenterMm.Y - r.RadiusMm));
+            Expand(new Point2D(r.CenterMm.X + r.RadiusMm, r.CenterMm.Y + r.RadiusMm));
         }
         foreach (var contour in vm.SectionContours)
             foreach (var p in contour.PointsMm)
@@ -302,7 +304,10 @@ public sealed class FireMeshCanvas : FrameworkElement
     }
 
     Point ToScreen(Point model) => new(model.X * _scale + _tx, -model.Y * _scale + _ty);
+    Point ToScreen(Point2D model) => ToScreen(new Point(model.X, model.Y));
     Point ToModel(Point screen) => new((screen.X - _tx) / _scale, -(screen.Y - _ty) / _scale);
+
+    static Color ToColor(Argb c) => Color.FromArgb(c.A, c.R, c.G, c.B);
 
     protected override void OnRender(DrawingContext dc)
     {
@@ -352,9 +357,9 @@ public sealed class FireMeshCanvas : FrameworkElement
         {
             var center = ToScreen(r.CenterMm);
             double radius = r.RadiusMm * _scale;
-            var brush = new SolidColorBrush(useThermal
+            var brush = new SolidColorBrush(ToColor(useThermal
                 ? ColormapHelper.GetThermalColor(r.Value, vm.ValueMin, vm.ValueMax)
-                : ColormapHelper.GetDiscreteColor(r.Value, vm.ValueMin, vm.ValueMax, true, FireMeshPlotVM.NumBands));
+                : ColormapHelper.GetDiscreteColor(r.Value, vm.ValueMin, vm.ValueMax, true, FireMeshPlotVM.NumBands)));
             dc.DrawEllipse(brush, _outlinePen, center, radius, radius);
         }
 
@@ -428,9 +433,9 @@ public sealed class FireMeshCanvas : FrameworkElement
             ?? vm.Mode is FireMeshPlotMode.Temperature or FireMeshPlotMode.Gamma;
         foreach (var t in vm.Triangles)
         {
-            var brush = new SolidColorBrush(useThermal
+            var brush = new SolidColorBrush(ToColor(useThermal
                 ? ColormapHelper.GetThermalDiscreteColor(t.Value, vm.ValueMin, vm.ValueMax, FireMeshPlotVM.NumBands)
-                : ColormapHelper.GetDiscreteColor(t.Value, vm.ValueMin, vm.ValueMax, false, FireMeshPlotVM.NumBands));
+                : ColormapHelper.GetDiscreteColor(t.Value, vm.ValueMin, vm.ValueMax, false, FireMeshPlotVM.NumBands)));
             dc.DrawGeometry(brush, _transparentPen, BuildPathScreen(t.VerticesMm, ToScreen));
         }
     }
@@ -516,20 +521,21 @@ public sealed class FireMeshCanvas : FrameworkElement
         return null;
     }
 
-    static bool PointInTri(Point p, IReadOnlyList<Point> tri)
+    static bool PointInTri(Point p, IReadOnlyList<Point2D> tri)
     {
         if (tri.Count < 3) return false;
-        static double Sign(Point a, Point b, Point c)
-            => (a.X - c.X) * (b.Y - c.Y) - (b.X - c.X) * (a.Y - c.Y);
-        double d1 = Sign(p, tri[0], tri[1]);
-        double d2 = Sign(p, tri[1], tri[2]);
-        double d3 = Sign(p, tri[2], tri[0]);
+        double d1 = Sign2(p.X, p.Y, tri[0], tri[1]);
+        double d2 = Sign2(p.X, p.Y, tri[1], tri[2]);
+        double d3 = Sign2(p.X, p.Y, tri[2], tri[0]);
         bool hasNeg = d1 < 0 || d2 < 0 || d3 < 0;
         bool hasPos = d1 > 0 || d2 > 0 || d3 > 0;
         return !(hasNeg && hasPos);
     }
 
-    static Geometry BuildPathScreen(IReadOnlyList<Point> vertsMm, Func<Point, Point> toScreen)
+    static double Sign2(double px, double py, Point2D a, Point2D b)
+        => (px - a.X) * (b.Y - a.Y) - (b.X - a.X) * (py - a.Y);
+
+    static Geometry BuildPathScreen(IReadOnlyList<Point2D> vertsMm, Func<Point2D, Point> toScreen)
     {
         var g = new StreamGeometry();
         using var ctx = g.Open();

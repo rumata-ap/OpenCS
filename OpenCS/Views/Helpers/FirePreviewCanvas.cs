@@ -149,6 +149,8 @@ public sealed class FirePreviewCanvas : FrameworkElement
     Point ToScreen(Point model) => new(model.X * _scale + _tx, -model.Y * _scale + _ty);
     Point ToModel(Point screen) => new((screen.X - _tx) / _scale, -(screen.Y - _ty) / _scale);
 
+    static Brush ToBrush(Argb c) => new SolidColorBrush(Color.FromArgb(c.A, c.R, c.G, c.B));
+
     protected override void OnRender(DrawingContext dc)
     {
         dc.DrawRectangle(SystemColors.WindowBrush, null, new Rect(0, 0, ActualWidth, ActualHeight));
@@ -156,12 +158,12 @@ public sealed class FirePreviewCanvas : FrameworkElement
         if (vm == null || !vm.HasGeometry) return;
 
         if (vm.OuterHull.Count >= 3)
-            dc.DrawGeometry(FirePreviewVM.OuterFillBrush, null, BuildPathScreen(vm.OuterHull));
+            dc.DrawGeometry(ToBrush(FirePreviewVM.OuterFillBrush), null, BuildPathScreen(vm.OuterHull));
 
         foreach (var hole in vm.Holes)
         {
             if (hole.Vertices.Count >= 3)
-                dc.DrawGeometry(FirePreviewVM.HoleFillBrush, null, BuildPathScreen(hole.Vertices));
+                dc.DrawGeometry(ToBrush(FirePreviewVM.HoleFillBrush), null, BuildPathScreen(hole.Vertices));
         }
 
         if (vm.ShowMesh)
@@ -169,7 +171,7 @@ public sealed class FirePreviewCanvas : FrameworkElement
             foreach (var t in vm.MeshTriangles)
             {
                 var color = FirePreviewVM.MeshColorForAngle(t.MinAngleDeg);
-                var brush = new SolidColorBrush(color);
+                var brush = ToBrush(color);
                 dc.DrawGeometry(brush, _meshEdgePen, BuildPathScreen(t.Vertices));
             }
 
@@ -179,7 +181,7 @@ public sealed class FirePreviewCanvas : FrameworkElement
                 {
                     var c = ToScreen(p);
                     dc.DrawEllipse(
-                        FirePreviewVM.MeshMidsideNodeBrush,
+                        ToBrush(FirePreviewVM.MeshMidsideNodeBrush),
                         _meshMidsidePen,
                         c,
                         MeshMidsideNodeRadiusPx,
@@ -203,7 +205,7 @@ public sealed class FirePreviewCanvas : FrameworkElement
         {
             var center = ToScreen(r.Center);
             double radius = r.RadiusM * _scale;
-            dc.DrawEllipse(FirePreviewVM.RebarFillBrush, _outlinePen, center, radius, radius);
+            dc.DrawEllipse(ToBrush(FirePreviewVM.RebarFillBrush), _outlinePen, center, radius, radius);
         }
 
         if (vm.IsManualBc)
@@ -220,7 +222,7 @@ public sealed class FirePreviewCanvas : FrameworkElement
 
     void DrawEdge(DrawingContext dc, FirePreviewEdgeDraw e, FirePreviewVM vm)
     {
-        var brush = FirePreviewVM.BrushForBc(e.BcType);
+        var brush = ToBrush(FirePreviewVM.BrushForBc(e.BcType));
         var pen = new Pen(brush, 3);
         var a = ToScreen(e.A);
         var b = ToScreen(e.B);
