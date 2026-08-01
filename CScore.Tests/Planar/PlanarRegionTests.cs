@@ -31,6 +31,14 @@ public class PlanarRegionTests
     }
 
     [Fact]
+    public void CreateFromContour_DefaultsMeshMaxElementSizeM()
+    {
+        var region = PlanarRegion.CreateFromContour(OpenSquareContour());
+
+        Assert.Equal(0.2, region.MeshMaxElementSizeM);
+    }
+
+    [Fact]
     public void CreateFromContour_RecoversFrameWhenNoneProvided()
     {
         var region = PlanarRegion.CreateFromContour(OpenSquareContour());

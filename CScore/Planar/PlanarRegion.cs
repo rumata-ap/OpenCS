@@ -24,6 +24,11 @@ public sealed class PlanarRegion
     /// секций-комбинаций армирования (срез 4) — приближение будущей триангуляции.</summary>
     public double RebarSectionGridStep { get; set; } = 0.3;
 
+    /// <summary>Характерный размер элемента Gmsh-сетки этого региона, м (срез 2 дорожной карты
+    /// Gmsh). Единственная per-region настройка сетки — остальные (алгоритм, режим элементов,
+    /// timeout) берутся из глобальных GmshSettings в момент построения.</summary>
+    public double MeshMaxElementSizeM { get; set; } = 0.2;
+
     public Contour Hull
     {
         get => Contours.First(c => c.Type == ContourType.Hull);
