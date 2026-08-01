@@ -57,6 +57,12 @@ public class Fem3DVM : ViewModelBase
     public Point3DCollection?  NodePoints      { get; private set; }
     public Point3DCollection?  MeshLinePoints  { get; private set; }
     public Point3DCollection?  MeshNodePoints  { get; private set; }
+    /// <summary>Рёбра настоящей Gmsh-сетки (срез 2 дорожной карты Gmsh) регионов с актуальным
+    /// расчётным PlanarMeshSnapshot — отдельно от MeshLinePoints (та — дискретизация стержней
+    /// из fem_mesh_* таблиц, источник другой). Управляется тем же showGridCheck, что и остальные
+    /// слои расчётной сетки.</summary>
+    public Point3DCollection?  PlanarRegionMeshEdgePoints { get; private set; }
+    public Point3DCollection?  PlanarRegionMeshNodePoints { get; private set; }
     public IReadOnlyList<FemDiagramGlyph> DiagramGlyphs { get; private set; } = [];
     public IReadOnlyList<FemMemberLoadGlyph> MemberLoadGlyphs { get; private set; } = [];
     public IReadOnlyList<FemSectionGlyph> SectionGlyphs { get; private set; } = [];
@@ -341,6 +347,8 @@ public class Fem3DVM : ViewModelBase
             PlanarRegionVisuals = [];
             ShellEdgePoints  = null;
             NodePoints       = null;
+            PlanarRegionMeshEdgePoints = null;
+            PlanarRegionMeshNodePoints = null;
             NodeProxies      = [];
             BarProxies       = [];
             SectionGlyphs    = [];
@@ -351,6 +359,8 @@ public class Fem3DVM : ViewModelBase
             OnPropertyChanged(nameof(PlanarRegionVisuals));
             OnPropertyChanged(nameof(ShellEdgePoints));
             OnPropertyChanged(nameof(NodePoints));
+            OnPropertyChanged(nameof(PlanarRegionMeshEdgePoints));
+            OnPropertyChanged(nameof(PlanarRegionMeshNodePoints));
             OnPropertyChanged(nameof(SectionGlyphs));
             return;
         }
@@ -364,6 +374,8 @@ public class Fem3DVM : ViewModelBase
             PlanarRegionVisuals = [];
             ShellEdgePoints  = null;
             NodePoints       = new Point3DCollection(allNodes.Select(n => new Point3D(n.X, n.Y, n.Z)));
+            PlanarRegionMeshEdgePoints = null;
+            PlanarRegionMeshNodePoints = null;
             NodeProxies      = allNodes.Select(n => (n.NodeTag, new Point3D(n.X, n.Y, n.Z))).ToList();
             BarProxies       = [];
             SectionGlyphs    = [];
@@ -373,6 +385,8 @@ public class Fem3DVM : ViewModelBase
             OnPropertyChanged(nameof(PlanarRegionVisuals));
             OnPropertyChanged(nameof(ShellEdgePoints));
             OnPropertyChanged(nameof(NodePoints));
+            OnPropertyChanged(nameof(PlanarRegionMeshEdgePoints));
+            OnPropertyChanged(nameof(PlanarRegionMeshNodePoints));
             OnPropertyChanged(nameof(SectionGlyphs));
             return;
         }
@@ -408,6 +422,7 @@ public class Fem3DVM : ViewModelBase
         }
         ShellEdgePoints  = BuildShellEdges(nodeMap, elements);
         PlanarRegionVisuals = BuildPlanarRegionVisuals(elements);
+        (PlanarRegionMeshEdgePoints, PlanarRegionMeshNodePoints) = BuildPlanarRegionMeshOverlay(elements);
         SectionGlyphs = FemSectionGlyphFactory.Create(elements, _db.CrossSections, nodeMap);
 
         // Узлы: в режиме просмотра — только реально используемые отображаемыми КЭ (меньше шума
@@ -438,6 +453,8 @@ public class Fem3DVM : ViewModelBase
         OnPropertyChanged(nameof(PlanarRegionVisuals));
         OnPropertyChanged(nameof(ShellEdgePoints));
         OnPropertyChanged(nameof(NodePoints));
+        OnPropertyChanged(nameof(PlanarRegionMeshEdgePoints));
+        OnPropertyChanged(nameof(PlanarRegionMeshNodePoints));
         OnPropertyChanged(nameof(SectionGlyphs));
     }
 
@@ -508,6 +525,42 @@ public class Fem3DVM : ViewModelBase
         }
 
         return result;
+    }
+
+    /// <summary>Строит оверлей настоящей Gmsh-сетки (рёбра+узлы) для всех регионов схемы, у
+    /// которых есть последний расчётный (IsCalculable) PlanarMeshSnapshot. Координаты берутся
+    /// напрямую из PlanarMeshNode.X/Y/Z — они уже в глобальной системе (см.
+    /// GmshPlanarMesher.ParseMsh22), пересчёт через Frame не нужен.</summary>
+    (Point3DCollection? Edges, Point3DCollection? Nodes) BuildPlanarRegionMeshOverlay(List<FemMember> elements)
+    {
+        var regionIds = elements
+            .Where(e => e.PlanarRegionId.HasValue)
+            .Select(e => e.PlanarRegionId!.Value)
+            .Distinct()
+            .ToList();
+        if (regionIds.Count == 0) return (null, null);
+
+        var edgePoints = new Point3DCollection();
+        var nodePoints = new Point3DCollection();
+
+        foreach (var regionId in regionIds)
+        {
+            var snapshot = _db.GetPlanarMeshSnapshots(regionId).LastOrDefault(s => s.IsCalculable);
+            if (snapshot == null) continue;
+
+            foreach (var (a, b) in CScore.Planar.PlanarMeshEdgeExtractor.ExtractEdges(snapshot))
+            {
+                var na = snapshot.Nodes[a];
+                var nb = snapshot.Nodes[b];
+                edgePoints.Add(new Point3D(na.X, na.Y, na.Z));
+                edgePoints.Add(new Point3D(nb.X, nb.Y, nb.Z));
+            }
+            foreach (var node in snapshot.Nodes)
+                nodePoints.Add(new Point3D(node.X, node.Y, node.Z));
+        }
+
+        if (edgePoints.Count == 0) return (null, null);
+        return (edgePoints, nodePoints);
     }
 
     MeshGeometry3D? BuildShellMesh(Dictionary<string, Point3D> nodeMap, List<FemMember> elements)
