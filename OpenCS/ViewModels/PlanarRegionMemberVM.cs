@@ -2,10 +2,13 @@ using CScore;
 using CScore.Fem;
 using CScore.Planar;
 using CScore.PlateRebar;
+using OpenCS.Gmsh;
+using OpenCS.Gmsh.Runtime;
 using OpenCS.Utilites;
 using OpenCS.Views;
 using OpenCS.Views.Helpers;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -21,6 +24,7 @@ public class PlanarRegionMemberVM : ViewModelBase
     readonly Frame3D _frame;
     readonly FemMember? _existingMember;
     readonly PlanarRegion? _existingRegion;
+    PlanarMeshSnapshot? _meshSnapshot;
 
     public PlanarRegionMemberVM(AppViewModel app, FemSchema schema, Frame3D frame,
         FemMember? existingMember = null, PlanarRegion? existingRegion = null)
@@ -43,6 +47,7 @@ public class PlanarRegionMemberVM : ViewModelBase
 
         _plateSectionOwned = RebarZones.Count > 0;
         _rebarSectionGridStep = existingRegion?.RebarSectionGridStep ?? 0.3;
+        _meshMaxElementSizeM = existingRegion?.MeshMaxElementSizeM ?? 0.2;
 
         string autoKind = PlanarKindClassifier.Classify(frame, out bool ambiguous);
         KindIsAmbiguous = ambiguous;
@@ -100,6 +105,17 @@ public class PlanarRegionMemberVM : ViewModelBase
     /// <summary>Есть ли несохранённые правки, влияющие на резолв раскладки армирования (зоны,
     /// базовая раскладка, шаг сетки). НЕ включает косметические правки (Name зоны).</summary>
     public bool RebarLayoutDirty { get => _rebarLayoutDirty; private set { _rebarLayoutDirty = value; OnPropertyChanged(); } }
+
+    double _meshMaxElementSizeM;
+    public double MeshMaxElementSizeM { get => _meshMaxElementSizeM; set { _meshMaxElementSizeM = value; OnPropertyChanged(); } }
+
+    /// <summary>Построение/показ сетки доступны только для уже сохранённого региона — диалог
+    /// закрывается сразу после Save, поэтому свежесозданный регион нужно сначала сохранить и
+    /// открыть заново.</summary>
+    public bool CanBuildMesh => _existingRegion != null;
+
+    bool _showMesh;
+    public bool ShowMesh { get => _showMesh; private set { _showMesh = value; OnPropertyChanged(); RefreshGeometryPlotElements(); } }
 
     void MarkRebarLayoutDirty() { RebarLayoutDirty = true; RefreshRebarPlotElements(); }
 
@@ -587,7 +603,25 @@ public class PlanarRegionMemberVM : ViewModelBase
         foreach (var hole in Holes)
             if (hole.X.Count >= 3)
                 elements.Add(new PolygonElement { Xs = [.. hole.X], Ys = [.. hole.Y], Fill = Brushes.White, Stroke = Brushes.Gray });
+
+        if (ShowMesh && _meshSnapshot != null)
+            elements.Add(BuildMeshEdgesPlotElement(_meshSnapshot));
+
         GeometryPlotElements = elements;
+    }
+
+    static PlotElement BuildMeshEdgesPlotElement(PlanarMeshSnapshot snapshot)
+    {
+        var edges = PlanarMeshEdgeExtractor.ExtractEdges(snapshot);
+        var xs = new double[edges.Count * 2];
+        var ys = new double[edges.Count * 2];
+        for (int i = 0; i < edges.Count; i++)
+        {
+            var (a, b) = edges[i];
+            xs[2 * i] = snapshot.Nodes[a].U; ys[2 * i] = snapshot.Nodes[a].V;
+            xs[2 * i + 1] = snapshot.Nodes[b].U; ys[2 * i + 1] = snapshot.Nodes[b].V;
+        }
+        return new LineSegmentsElement { Xs = xs, Ys = ys, Stroke = Brushes.Gray, StrokeThickness = 0.6 };
     }
 
     void RefreshRebarPlotElements()
@@ -792,5 +826,112 @@ public class PlanarRegionMemberVM : ViewModelBase
         _app.db.DeleteFemMember(_existingMember);
         if (_existingMember.PlanarRegionId is int prid) _app.db.DeletePlanarRegion(prid);
         DeleteCompleted?.Invoke(_existingMember);
+    }
+
+    /// <summary>Состояние-автомат тумблера сетки тулбара (см. PlanarRegionMemberDialog):
+    /// повторный клик во время построения — отмена; включение при отсутствующей/нерасчётной
+    /// сетке — построение; включение при расчётной сетке — проверка актуальности и, если
+    /// устарела, пересборка; выключение — только скрывает оверлей.</summary>
+    public async Task ToggleMeshAsync()
+    {
+        if (!CanBuildMesh) return;
+        if (_app.IsBusy) { _app.CancelBusy(); return; }
+        if (ShowMesh) { ShowMesh = false; return; }
+
+        var snapshot = _app.db.GetPlanarMeshSnapshots(_existingRegion!.Id).LastOrDefault();
+        bool needsBuild = snapshot == null || !snapshot.IsCalculable;
+        if (!needsBuild) needsBuild = await IsStaleAsync(snapshot!);
+        if (needsBuild)
+        {
+            snapshot = await BuildMeshAsync();
+            if (snapshot == null || !snapshot.IsCalculable) return;
+        }
+
+        _meshSnapshot = snapshot;
+        ShowMesh = true;
+    }
+
+    async Task<bool> IsStaleAsync(PlanarMeshSnapshot snapshot)
+    {
+        try
+        {
+            var executable = new GmshExecutableResolver().Resolve(_app.GmshSettings.ExecutablePath);
+            var version = await GmshProcessRunner.ReadVersionAsync(executable.Path, TimeSpan.FromSeconds(10), CancellationToken.None);
+            var settings = new PlanarMeshSettings(MeshMaxElementSizeM, _app.GmshSettings.Algorithm, _app.GmshSettings.ElementMode);
+            var provenance = new PlanarMeshProvenance(version, GmshPlanarMesher.GeneratorVersion);
+            var fingerprint = PlanarMeshFingerprint.Compute(_existingRegion!, settings, provenance);
+            bool actual = fingerprint == snapshot.InputFingerprint;
+            _app.LogService.Info(string.Format(Loc.S(actual ? "PlanarRegionMeshActual" : "PlanarRegionMeshStale"), Tag));
+            return !actual;
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or IOException or InvalidDataException or TimeoutException or OperationCanceledException)
+        {
+            _app.LogService.Warning(string.Format(Loc.S("PlanarRegionMeshCheckFailed"), ex.Message));
+            return false;
+        }
+    }
+
+    async Task<PlanarMeshSnapshot?> BuildMeshAsync()
+    {
+        var gmshSettings = _app.GmshSettings;
+        var options = new GmshPlanarMesherOptions
+        {
+            ExecutablePath = gmshSettings.ExecutablePath,
+            ArtifactRoot = gmshSettings.ResolveArtifactsPath(),
+            Timeout = TimeSpan.FromSeconds(gmshSettings.TimeoutSeconds)
+        };
+        var meshSettings = new PlanarMeshSettings(MeshMaxElementSizeM, gmshSettings.Algorithm, gmshSettings.ElementMode);
+        var mesher = new GmshPlanarMesher(options);
+        var request = new PlanarMeshingRequest(_existingRegion!, meshSettings);
+
+        var cts = _app.BeginBusyWithCancellation(string.Format(Loc.S("PlanarRegionMeshBuilding"), Tag), indeterminate: true);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            var snapshot = await mesher.BuildAsync(request, cts.Token);
+            sw.Stop();
+            _app.db.SavePlanarMeshSnapshot(snapshot);
+
+            foreach (var diag in snapshot.Diagnostics)
+                if (diag.IsError) _app.LogService.Error(diag.Message); else _app.LogService.Warning(diag.Message);
+
+            if (snapshot.IsCalculable)
+            {
+                int t3 = snapshot.Elements.Count(e => e.Kind == PlanarMeshElementKind.Triangle3);
+                int q4 = snapshot.Elements.Count(e => e.Kind == PlanarMeshElementKind.Quadrangle4);
+                _app.LogService.Info(string.Format(Loc.S("PlanarRegionMeshBuilt"), snapshot.Nodes.Count, t3, q4, sw.Elapsed.TotalSeconds));
+
+                if (!gmshSettings.KeepArtifacts && snapshot.Provenance?.ArtifactDirectory is { } dir && Directory.Exists(dir))
+                {
+                    try { Directory.Delete(dir, recursive: true); }
+                    catch (IOException) { } catch (UnauthorizedAccessException) { }
+                }
+            }
+            else
+            {
+                _app.LogService.Warning(string.Format(Loc.S("PlanarRegionMeshFailed"), Tag));
+            }
+
+            if (snapshot.Provenance?.ArtifactDirectory is { } artifactDir)
+                _app.LogService.Info($"{Loc.S("FemResultArtifacts")} {artifactDir}");
+
+            _app.EndBusy(string.Format(Loc.S("PlanarRegionMeshDone"), Tag));
+            return snapshot;
+        }
+        catch (OperationCanceledException)
+        {
+            _app.LogService.Info(Loc.S("PlanarRegionMeshCancelled"));
+            _app.EndBusy(Loc.S("PlanarRegionMeshCancelled"));
+            return null;
+        }
+        catch (Exception ex)
+        {
+            // Catch-all по образцу AppViewModel.RunFemAnalysis: без него необработанное
+            // исключение (например, сбой SavePlanarMeshSnapshot) оставит _app.IsBusy залипшим
+            // навсегда и уронит async void обработчик клика в PlanarRegionMemberDialog.
+            _app.LogService.Error(ex.Message);
+            _app.EndBusy();
+            return null;
+        }
     }
 }
