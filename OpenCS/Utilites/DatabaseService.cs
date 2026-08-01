@@ -30,7 +30,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-          const int CurrentSchemaVersion = 45;
+          const int CurrentSchemaVersion = 46;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -367,7 +367,8 @@ namespace OpenCS.Utilites
                 geometry_fingerprint TEXT NOT NULL DEFAULT '',
                 boundary_segments_json TEXT NOT NULL DEFAULT '[]',
                 rebar_zones_json TEXT NOT NULL DEFAULT '[]',
-                rebar_section_grid_step REAL NOT NULL DEFAULT 0.3
+                rebar_section_grid_step REAL NOT NULL DEFAULT 0.3,
+                mesh_max_element_size_m REAL NOT NULL DEFAULT 0.2
             );
             CREATE TABLE IF NOT EXISTS fem_members (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -572,6 +573,7 @@ namespace OpenCS.Utilites
                 if (i == 42) { MigrateV43(); continue; }
                  if (i == 43) { MigrateV44(); continue; }
                  if (i == 44) { MigrateV45(); continue; }
+                 if (i == 45) { MigrateV46(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1090,6 +1092,14 @@ namespace OpenCS.Utilites
 
         /// <summary>Миграция v45: отображения исходных граничных сегментов на рёбра сетки.</summary>
         void MigrateV45() => EnsurePlanarMeshTables();
+
+        /// <summary>Миграция v46: mesh_max_element_size_m в planar_regions (срез 2 Gmsh-сетки —
+        /// единственная per-region настройка сетки).</summary>
+        void MigrateV46()
+        {
+            if (!ColumnExists("planar_regions", "mesh_max_element_size_m"))
+                MigExec("ALTER TABLE planar_regions ADD COLUMN mesh_max_element_size_m REAL NOT NULL DEFAULT 0.2");
+        }
 
        void EnsurePlanarMeshTables()
        {
@@ -5297,11 +5307,11 @@ namespace OpenCS.Utilites
                 frame_local_y_x, frame_local_y_y, frame_local_y_z,
                 frame_local_z_x, frame_local_z_y, frame_local_z_z,
                 frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json,
-                rebar_zones_json, rebar_section_grid_step)
+                rebar_zones_json, rebar_section_grid_step, mesh_max_element_size_m)
             VALUES
                (@sid, @tag, @wkt, @fox, @foy, @foz,
                 @fxx, @fxy, @fxz, @fyx, @fyy, @fyz, @fzx, @fzy, @fzz,
-                @rec, @scid, @fp, @bsj, @rzj, @rsgs);
+                @rec, @scid, @fp, @bsj, @rzj, @rsgs, @mmes);
             SELECT last_insert_rowid();
          """;
          AddPlanarRegionParameters(cmd, region, schemaId);
@@ -5318,7 +5328,7 @@ namespace OpenCS.Utilites
                frame_local_y_x=@fyx, frame_local_y_y=@fyy, frame_local_y_z=@fyz,
                frame_local_z_x=@fzx, frame_local_z_y=@fzy, frame_local_z_z=@fzz,
                frame_is_recovered=@rec, source_contour_id=@scid, geometry_fingerprint=@fp, boundary_segments_json=@bsj,
-               rebar_zones_json=@rzj, rebar_section_grid_step=@rsgs
+               rebar_zones_json=@rzj, rebar_section_grid_step=@rsgs, mesh_max_element_size_m=@mmes
             WHERE id=@id
          """;
          AddPlanarRegionParameters(cmd, region, schemaId);
@@ -5356,6 +5366,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@bsj", segmentsJson);
          cmd.Parameters.AddWithValue("@rzj", zonesJson);
          cmd.Parameters.AddWithValue("@rsgs", region.RebarSectionGridStep);
+         cmd.Parameters.AddWithValue("@mmes", region.MeshMaxElementSizeM);
       }
 
       public List<CScore.Planar.PlanarRegion> GetPlanarRegions(int schemaId)
@@ -5368,7 +5379,7 @@ namespace OpenCS.Utilites
                    frame_local_y_x, frame_local_y_y, frame_local_y_z,
                    frame_local_z_x, frame_local_z_y, frame_local_z_z,
                    frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json,
-                   rebar_zones_json, rebar_section_grid_step
+                   rebar_zones_json, rebar_section_grid_step, mesh_max_element_size_m
             FROM planar_regions WHERE schema_id=@sid
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
@@ -5390,6 +5401,7 @@ namespace OpenCS.Utilites
                SourceContourId  = rdr.IsDBNull(16) ? null : rdr.GetInt32(16),
                GeometryFingerprint = rdr.GetString(17),
                RebarSectionGridStep = rdr.IsDBNull(20) ? 0.3 : rdr.GetDouble(20),
+               MeshMaxElementSizeM = rdr.IsDBNull(21) ? 0.2 : rdr.GetDouble(21),
             };
             region.Contours.Add(new Contour { X = ox, Y = oy, Type = ContourType.Hull, Tag = region.Tag });
             for (int i = 0; i < holeXs.Count; i++)

@@ -50,4 +50,27 @@ public sealed class PlanarMeshPersistenceTests
             if (File.Exists(path)) File.Delete(path);
         }
     }
+
+    [Fact]
+    public void AddPlanarRegion_RoundTripsMeshMaxElementSizeM()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"opencs-gmsh-region-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var db = new DatabaseService(path);
+            var schema = new FemSchema { Tag = "test" };
+            db.SaveFemSchema(schema);
+            var region = PlanarRegion.CreateFromContour(new Contour { X = [0, 1, 1, 0], Y = [0, 0, 1, 1] });
+            region.MeshMaxElementSizeM = 0.35;
+
+            db.AddPlanarRegion(region, schema.Id);
+            var loaded = Assert.Single(db.GetPlanarRegions(schema.Id));
+
+            Assert.Equal(0.35, loaded.MeshMaxElementSizeM);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
 }
