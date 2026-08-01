@@ -67,6 +67,8 @@ PlateRebarFieldShellResponseFactoryTests.RunAll();
 
 PlanarMeshSnapshotShellMeshAdapterTests.RunAll();
 
+PlanarMeshCSfeaPatchTests.RunAll();
+
 ShellStrainSolverTests.RunAll();
 
 BucklingTests.RunSimplySupportedPlate();
