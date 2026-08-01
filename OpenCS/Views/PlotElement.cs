@@ -38,6 +38,26 @@ namespace OpenCS.Views
       }
    }
 
+   /// <summary>Набор несвязанных отрезков — пары точек (Xs[2i],Ys[2i])-(Xs[2i+1],Ys[2i+1]).
+   /// В отличие от ScatterElement (одна непрерывная ломаная), каждая пара рисуется отдельным
+   /// DrawLine — подходит для рёбер конечно-элементной сетки, не образующих единый контур.</summary>
+   public record LineSegmentsElement : PlotElement
+   {
+      public double[] Xs { get; init; } = [];
+      public double[] Ys { get; init; } = [];
+      public Brush Stroke { get; init; } = Brushes.Gray;
+      public double StrokeThickness { get; init; } = 0.6;
+
+      public override void Render(DrawingContext dc, Func<double, double, Point> toPixel)
+      {
+         int n = Math.Min(Xs.Length, Ys.Length);
+         if (n < 2) return;
+         var pen = new Pen(Stroke, StrokeThickness);
+         for (int i = 0; i + 1 < n; i += 2)
+            dc.DrawLine(pen, toPixel(Xs[i], Ys[i]), toPixel(Xs[i + 1], Ys[i + 1]));
+      }
+   }
+
    public record PolygonElement : PlotElement
    {
       public double[] Xs { get; init; } = [];
