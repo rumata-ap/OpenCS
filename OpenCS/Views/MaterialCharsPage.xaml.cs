@@ -9,7 +9,7 @@ using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-   public partial class MaterialCharsPage : UserControl
+   public partial class MaterialCharsPage : UserControl, OpenCS.ViewModels.IContentPage
    {
       readonly AppViewModel mvm;
       readonly Material parentMaterial;

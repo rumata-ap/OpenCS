@@ -3,7 +3,7 @@ using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
-public partial class FemNodesView : UserControl
+public partial class FemNodesView : UserControl, OpenCS.ViewModels.IContentPage
 {
     internal FemNodesView(FemNodesSubNode node)
     {

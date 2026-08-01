@@ -19,7 +19,7 @@ namespace OpenCS.Views
    /// <summary>
    /// Базовое представление огневого сечения с запуском теплового расчёта.
    /// </summary>
-   public partial class FireSectionView : UserControl
+   public partial class FireSectionView : UserControl, OpenCS.ViewModels.IContentPage
    {
       readonly FireSectionViewModel _vm;
       FireThermalResultView? _thermalResultView;

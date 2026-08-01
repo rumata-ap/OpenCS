@@ -9,7 +9,7 @@ using System.Windows.Input;
 
 namespace OpenCS.Views
 {
-   public partial class PlateSectionPage : UserControl
+   public partial class PlateSectionPage : UserControl, OpenCS.ViewModels.IContentPage
    {
       public PlateSectionPage(AppViewModel app)
       {

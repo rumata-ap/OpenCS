@@ -22,4 +22,11 @@
     <ProjectReference Include="..\OpenCS.Gmsh\OpenCS.Gmsh.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="Interop.LiraSaprRes">
+      <HintPath>..\OpenCS\Interop\Interop.LiraSaprRes.dll</HintPath>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+    </Reference>
+  </ItemGroup>
+
 </Project>

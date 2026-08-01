@@ -15,10 +15,13 @@ public sealed record FemLoadDefinitionTermView(int LoadCaseId, string LoadCaseTa
 /// <summary>ViewModel редактора FEM-схемы: держит сессию, выбор, режимы создания и сохранение.
 /// Nodes/Elements/Members/LoadCases — ObservableCollection-зеркала Session.* (та же ссылка на
 /// доменные объекты), пересинхронизируемые после каждой команды, чтобы гриды видели изменения.</summary>
-public sealed class FemSchemaEditorVM : ViewModelBase
+public sealed class FemSchemaEditorVM : ViewModelBase, IFemSchemaEditor
 {
     readonly DatabaseService _db;
     readonly ILogService _logService;
+
+    /// <inheritdoc/>
+    public bool IsDirty => Session.IsDirty;
 
     public FemSchemaEditSession Session   { get; }
     public FemSchemaSelectionVM Selection { get; } = new();

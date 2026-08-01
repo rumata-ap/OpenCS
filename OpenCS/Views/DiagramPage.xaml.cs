@@ -13,7 +13,7 @@ using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-    public partial class DiagramPage : UserControl
+    public partial class DiagramPage : UserControl, OpenCS.ViewModels.IContentPage
     {
         readonly AppViewModel _mvm;
         readonly DiagramEditVM _vm;

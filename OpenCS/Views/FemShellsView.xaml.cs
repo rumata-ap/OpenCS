@@ -6,7 +6,7 @@ using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
-public partial class FemShellsView : UserControl
+public partial class FemShellsView : UserControl, OpenCS.ViewModels.IContentPage
 {
     readonly FemShellsSubNode _node;
     readonly AppViewModel     _app;

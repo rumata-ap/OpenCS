@@ -9,5 +9,11 @@ namespace OpenCS.Services
 
       /// <summary>Маршалинг в UI-поток (WPF Dispatcher / Avalonia Dispatcher.UIThread).</summary>
       public static IDispatcherService Dispatcher { get; set; } = null!;
+
+      /// <summary>Фабрика страниц и диалогов (WPF сейчас / Avalonia позже).</summary>
+      public static IAppPageFactory Pages { get; set; } = null!;
+
+      /// <summary>Платформенное окружение приложения (главное окно, язык, завершение).</summary>
+      public static IAppController AppController { get; set; } = null!;
    }
 }

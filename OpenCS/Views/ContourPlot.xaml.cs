@@ -7,7 +7,7 @@ namespace OpenCS.Views
    /// <summary>
    /// Логика взаимодействия для ContourPlot.xaml
    /// </summary>
-   public partial class ContourPlot : UserControl
+   public partial class ContourPlot : UserControl, OpenCS.ViewModels.IContentPage
    {
       public ContourPlot(AppViewModel mvm, bool isSaved = true)
       {

@@ -4,7 +4,7 @@ using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-   public partial class TwoStageSectionEditorPage : UserControl
+   public partial class TwoStageSectionEditorPage : UserControl, OpenCS.ViewModels.IContentPage
    {
       TwoStageSectionVM _vm = null!;
 

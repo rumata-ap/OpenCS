@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 
 namespace OpenCS.Services
 {
@@ -20,5 +21,7 @@ namespace OpenCS.Services
          action();
          return Task.CompletedTask;
       }
+
+      public void InvalidateRequerySuggested() => CommandManager.InvalidateRequerySuggested();
    }
 }

@@ -4,7 +4,7 @@ using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-   public partial class MaterialAreaPage : UserControl
+   public partial class MaterialAreaPage : UserControl, OpenCS.ViewModels.IContentPage
    {
       MaterialAreaVM _vm;
 

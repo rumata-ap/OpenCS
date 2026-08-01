@@ -5,7 +5,7 @@ using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
-public partial class FemBarsView : UserControl
+public partial class FemBarsView : UserControl, OpenCS.ViewModels.IContentPage
 {
     readonly FemBarsSubNode _node;
     readonly AppViewModel   _app;

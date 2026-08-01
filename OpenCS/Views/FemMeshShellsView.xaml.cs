@@ -3,7 +3,7 @@ using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
-public partial class FemMeshShellsView : UserControl
+public partial class FemMeshShellsView : UserControl, OpenCS.ViewModels.IContentPage
 {
     internal FemMeshShellsView(FemMeshShellsSubNode node)
     {

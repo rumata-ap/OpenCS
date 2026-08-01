@@ -3,7 +3,7 @@ using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-   public partial class ShellForceSetPage : UserControl
+   public partial class ShellForceSetPage : UserControl, OpenCS.ViewModels.IContentPage
    {
       public ShellForceSetPage(CScore.ForceSet model, AppViewModel app)
       {

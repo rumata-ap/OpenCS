@@ -9,7 +9,7 @@ namespace OpenCS.Views
    /// Страница импорта геометрии из DXF. Связывает <see cref="FromDxfVM"/> с
    /// <see cref="DxfInteractiveView"/> через колбэки (без code-behind ссылок на ListBox).
    /// </summary>
-   public partial class FromDxfPage : UserControl
+   public partial class FromDxfPage : UserControl, OpenCS.ViewModels.IContentPage
    {
       public FromDxfPage(AppViewModel mvm, string fileName)
       {

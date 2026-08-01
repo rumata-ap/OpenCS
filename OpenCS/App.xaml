@@ -1,9 +1,10 @@
-﻿<Application x:Class="OpenCS.App"
+<Application x:Class="OpenCS.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:OpenCS"
              xmlns:core="clr-namespace:CScore;assembly=CScore"
              xmlns:vm="clr-namespace:OpenCS.ViewModels"
+             xmlns:corevm="clr-namespace:OpenCS.ViewModels;assembly=OpenCS.Core.UI"
              xmlns:conv="clr-namespace:OpenCS.Converters"
              xmlns:sys="clr-namespace:System;assembly=mscorlib"
              StartupUri="MainWindow.xaml">
@@ -62,7 +63,7 @@
             </StackPanel>
          </DataTemplate>
 
-         <DataTemplate  x:Key="ContourBig" DataType="{x:Type vm:ContourVM}">
+         <DataTemplate  x:Key="ContourBig" DataType="{x:Type corevm:ContourVM}">
             <Border BorderBrush="#BFC1C2" CornerRadius="7" BorderThickness="1">
                <StackPanel Margin="3">
                   <Image Source="{Binding DI}" Margin="3" Width="70" Height="70"/>
@@ -78,7 +79,7 @@
             </Border>
          </DataTemplate>
 
-         <HierarchicalDataTemplate x:Key="ContourSmall" DataType="{x:Type vm:ContourVM}" ItemsSource="{Binding Points}">
+         <HierarchicalDataTemplate x:Key="ContourSmall" DataType="{x:Type corevm:ContourVM}" ItemsSource="{Binding Points}">
             <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
                <Image Source="/Images/contours__32.png"/>
                <TextBlock Text="{Binding Num, StringFormat={}{0:D2}}" Margin="5,0,0,0"/>

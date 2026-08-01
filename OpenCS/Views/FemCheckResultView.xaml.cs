@@ -6,7 +6,7 @@ using System.Windows.Media;
 
 namespace OpenCS.Views;
 
-public partial class FemCheckResultView : UserControl
+public partial class FemCheckResultView : UserControl, OpenCS.ViewModels.IContentPage
 {
     public FemCheckResultView(CScore.CalcResult result)
     {

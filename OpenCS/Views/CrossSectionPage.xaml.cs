@@ -4,7 +4,7 @@ using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-   public partial class CrossSectionPage : UserControl
+   public partial class CrossSectionPage : UserControl, OpenCS.ViewModels.IContentPage
    {
       CrossSectionVM _vm = null!;
 

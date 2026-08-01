@@ -26,7 +26,7 @@ namespace OpenCS.ViewModels
       {
          _model = model;
          App = app;
-         RemoveAreaCommand       = new RelayCommand(_ => App.RemoveMaterialArea(this));
+         RemoveAreaCommand       = new RelayCommand(_ => App.RemoveMaterialArea(Model));
          SetHullFromPoolCommand  = new RelayCommand(o => SetHullFromPool(o as Contour));
          ClearHullCommand        = new RelayCommand(_ => ClearHull());
          AddHoleCommand          = new RelayCommand(o => AddHole(o as Contour));

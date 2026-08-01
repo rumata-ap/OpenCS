@@ -5,7 +5,7 @@ using OpenCS.ViewModels;
 
 namespace OpenCS.Views
 {
-   public partial class CalcTasksPage : UserControl
+   public partial class CalcTasksPage : UserControl, OpenCS.ViewModels.IContentPage
    {
       public CalcTasksPage(AppViewModel app, CalcTask? initialTask = null)
       {

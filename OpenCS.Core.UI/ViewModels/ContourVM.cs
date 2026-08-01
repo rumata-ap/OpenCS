@@ -5,15 +5,12 @@ using CsvHelper.Configuration;
 
 using OpenCS.Services;
 using OpenCS.Utilites;
-using OpenCS.Views.Dialogs;
 
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Globalization;
 using System.IO;
-using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media;
 
 namespace OpenCS.ViewModels
 {
@@ -235,12 +232,6 @@ namespace OpenCS.ViewModels
       /// координат отдельной точки.
       /// </summary>
       public StressPoint? Point { get => point; set { point = value; OnPropertyChanged(); } }
-
-      /// <summary>
-      /// Изображение контура (DrawingImage), получаемое путём вызова
-      /// <see cref="Contour.Draw()"/>. Используется для привязки в представлении.
-      /// </summary>
-      public DrawingImage? DI { get { return Contour.Draw(); } }
 
       /// <summary>
       /// Команда привязки для перенумерации точек контура.
@@ -499,53 +490,49 @@ namespace OpenCS.ViewModels
           OnPropertyChanged(nameof(NeedsClosingHint));
        }
 
-       void CloseContour(object? o = null)
-       {
-          if (!Contour.TryClose())
-          {
-             MessageBox.Show(Loc.S("ContourTooFewPoints"), Loc.S("Warning"),
-                 MessageBoxButton.OK, MessageBoxImage.Warning);
-             return;
-          }
-          RenumPoint();
-          RefreshPlot();
-          NotifyContourGeometryChanged();
-          mvm?.LogService.Info(Loc.S("ContourClosedLog"));
-       }
+      void CloseContour(object? o = null)
+      {
+         if (!Contour.TryClose())
+         {
+            UiServices.Dialogs.ShowWarning("ContourTooFewPoints", "Warning");
+            return;
+         }
+         RenumPoint();
+         RefreshPlot();
+         NotifyContourGeometryChanged();
+         mvm?.LogService.Info(Loc.S("ContourClosedLog"));
+      }
 
        /// <summary>
        /// Замыкает контур при необходимости, обновляет WKT и проверяет минимальное число вершин.
        /// </summary>
-       bool PrepareContourForSave()
-       {
-          if (Contour.Points.Count < 3)
-          {
-             MessageBox.Show(Loc.S("ContourTooFewPoints"), Loc.S("Warning"),
-                 MessageBoxButton.OK, MessageBoxImage.Warning);
-             return false;
-          }
-          if (!Contour.TryClose())
-          {
-             MessageBox.Show(Loc.S("ContourTooFewPoints"), Loc.S("Warning"),
-                 MessageBoxButton.OK, MessageBoxImage.Warning);
-             return false;
-          }
-          RenumPoint();
-          RefreshPlot();
-          NotifyContourGeometryChanged();
-          return true;
-       }
+      bool PrepareContourForSave()
+      {
+         if (Contour.Points.Count < 3)
+         {
+            UiServices.Dialogs.ShowWarning("ContourTooFewPoints", "Warning");
+            return false;
+         }
+         if (!Contour.TryClose())
+         {
+            UiServices.Dialogs.ShowWarning("ContourTooFewPoints", "Warning");
+            return false;
+         }
+         RenumPoint();
+         RefreshPlot();
+         NotifyContourGeometryChanged();
+         return true;
+      }
 
-       /// <summary>
-       /// Предупреждает, если вершин контура меньше требуемого минимума.
-       /// </summary>
-       bool WarnContourVerticesBelow(int minCount)
-       {
-          if (Contour.Points.Count >= minCount) return false;
-          MessageBox.Show(Loc.S("ContourTooFewPoints"), Loc.S("Warning"),
-              MessageBoxButton.OK, MessageBoxImage.Warning);
-          return true;
-       }
+      /// <summary>
+      /// Предупреждает, если вершин контура меньше требуемого минимума.
+      /// </summary>
+      bool WarnContourVerticesBelow(int minCount)
+      {
+         if (Contour.Points.Count >= minCount) return false;
+         UiServices.Dialogs.ShowWarning("ContourTooFewPoints", "Warning");
+         return true;
+      }
 
        /// <summary>Синхронизирует Points → X/Y → WKT и обновляет таблицу координат.</summary>
        void ApplyContourGeometryChange()
@@ -575,18 +562,19 @@ namespace OpenCS.ViewModels
           mvm.MarkDirty(SaveCategory.Contours);
        }
 
-       void Translate()
-       {
-           if (WarnContourVerticesBelow(4)) return;
+      void Translate()
+      {
+          if (WarnContourVerticesBelow(4)) return;
 
-           var dlg = new Views.Dialogs.DoubleInputDialog(
-               "Сдвиг контура",
-               "Смещение по X (м):",
-               "Смещение по Y (м):");
-           if (dlg.ShowDialog() != true) return;
+          var dlg = UiServices.Pages.ShowDoubleInputDialog(
+              "Сдвиг контура",
+              "Смещение по X (м):",
+              "Смещение по Y (м):",
+              0.0, 0.0);
+          if (dlg == null) return;
 
-           double dx = dlg.Value1, dy = dlg.Value2;
-           if (dx == 0 && dy == 0) return;
+          double dx = dlg.Value.X, dy = dlg.Value.Y;
+          if (dx == 0 && dy == 0) return;
 
            foreach (var p in Contour.Points)
            {
@@ -599,25 +587,25 @@ namespace OpenCS.ViewModels
            mvm.LogService.Info($"Контур сдвинут на ({dx}, {dy})");
        }
 
-       void Scale()
-       {
-           if (WarnContourVerticesBelow(4)) return;
+      void Scale()
+      {
+          if (WarnContourVerticesBelow(4)) return;
 
-           var dlg = new Views.Dialogs.DoubleInputDialog(
-               "Масштабирование контура",
-               "Коэффициент по X:",
-               "Коэффициент по Y:",
-               1.0, 1.0);
-           if (dlg.ShowDialog() != true) return;
+          var dlg = UiServices.Pages.ShowDoubleInputDialog(
+              "Масштабирование контура",
+              "Коэффициент по X:",
+              "Коэффициент по Y:",
+              1.0, 1.0);
+          if (dlg == null) return;
 
-           double sx = dlg.Value1, sy = dlg.Value2;
-           if (sx <= 0 || sy <= 0)
-           {
-               MessageBox.Show("Коэффициенты масштабирования должны быть положительными.",
-                   "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
-               return;
-           }
-           if (sx == 1 && sy == 1) return;
+          double sx = dlg.Value.X, sy = dlg.Value.Y;
+          if (sx <= 0 || sy <= 0)
+          {
+              UiServices.Dialogs.ShowWarningText(
+                  "Коэффициенты масштабирования должны быть положительными.", "Ошибка");
+              return;
+          }
+          if (sx == 1 && sy == 1) return;
 
            ApplyContourGeometryChange();
            var props = new GeoProps(Contour);
@@ -637,13 +625,12 @@ namespace OpenCS.ViewModels
 
        void RefreshPlot() => CanvasRefreshRequested?.Invoke();
 
-       void ShowProperties()
-       {
-          if (WarnContourVerticesBelow(4)) return;
-          ApplyContourGeometryChange();
-          var dlg = new Views.Dialogs.ContourPropsWindow(Contour, Tag);
-          dlg.ShowDialog();
-       }
+      void ShowProperties()
+      {
+         if (WarnContourVerticesBelow(4)) return;
+         ApplyContourGeometryChange();
+         UiServices.Pages.ShowContourPropsWindow(Contour, Tag);
+      }
 
       /// <summary>
       /// Перенумеровывает точки контура начиная с 1 и сохраняет изменения в базу данных.

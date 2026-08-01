@@ -11,7 +11,7 @@ using OpenCS.Views.Helpers;
 namespace OpenCS.Views;
 
 /// <summary>Хост 2D-эпюр усилий одного конструктивного стержня с выбором компоненты.</summary>
-public partial class FemMemberForceView : UserControl
+public partial class FemMemberForceView : UserControl, OpenCS.ViewModels.IContentPage
 {
     /// <summary>Дуговые координаты элемента и его концевые усилия.</summary>
     readonly record struct ElemArc(double Si, double Sj, FemElementEndForces Forces);

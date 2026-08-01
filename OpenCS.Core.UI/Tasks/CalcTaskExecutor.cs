@@ -1,7 +1,7 @@
-using System.Windows;
 using CScore;
+using OpenCS.Services;
 using OpenCS.Utilites;
-using OpenCS.Views;
+using OpenCS.ViewModels;
 
 namespace OpenCS.Tasks;
 
@@ -60,7 +60,7 @@ public static class CalcTaskExecutor
             app.LogService.Info(done);
             onResultsChanged?.Invoke();
             if (navigateToResult)
-                app.CurrentPage = new CalcResultView(result, app);
+                app.CurrentPage = UiServices.Pages.CreateCalcResultPage(result);
             app.EndBusy(done);
         }
         catch (OperationCanceledException)
@@ -71,8 +71,7 @@ public static class CalcTaskExecutor
         catch (Exception ex)
         {
             app.EndBusy();
-            MessageBox.Show(ex.Message, Loc.S("Error"),
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(ex.Message, Loc.S("Error"));
         }
     }
 
@@ -85,8 +84,7 @@ public static class CalcTaskExecutor
         var sec = app.CrossSections.FirstOrDefault(s => s.Id == ct.SectionId);
         if (sec == null)
         {
-            MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"));
             return false;
         }
         section = sec;
@@ -100,8 +98,7 @@ public static class CalcTaskExecutor
             fi = CalcTaskForceHelper.ResolveSingleForces(ct, app.BarForceSets);
             if (fi == null)
             {
-                MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                UiServices.Dialogs.ShowErrorText(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"));
                 return false;
             }
             return true;
@@ -113,8 +110,7 @@ public static class CalcTaskExecutor
             return true;
         }
 
-        MessageBox.Show(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"),
-            MessageBoxButton.OK, MessageBoxImage.Error);
+        UiServices.Dialogs.ShowErrorText(Loc.S("CalcTaskForceItemNotFound"), Loc.S("Error"));
         return false;
     }
 }

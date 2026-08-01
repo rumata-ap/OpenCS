@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using CScore;
 using CScore.Fem;
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 

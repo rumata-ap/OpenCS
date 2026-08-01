@@ -9,7 +9,7 @@ using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
 
-public partial class FemMemberEditorPage : UserControl
+public partial class FemMemberEditorPage : UserControl, OpenCS.ViewModels.IContentPage
 {
     readonly FemMemberGroup _member;
     readonly AppViewModel   _app;

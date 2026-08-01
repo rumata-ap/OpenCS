@@ -5,6 +5,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="clr-namespace:OpenCS.Views"
              xmlns:vm="clr-namespace:OpenCS.ViewModels"
+             xmlns:corevm="clr-namespace:OpenCS.ViewModels;assembly=OpenCS.Core.UI"
              mc:Ignorable="d"
              d:DesignHeight="450" d:DesignWidth="800">
 
@@ -28,17 +29,17 @@
             <RadioButton Content="{DynamicResource DxfModeHull}"
                          IsChecked="{Binding SelectMode,
                             Converter={StaticResource EnumToBoolConverter},
-                            ConverterParameter={x:Static vm:DxfRole.Hull}}"
+                            ConverterParameter={x:Static corevm:DxfRole.Hull}}"
                          GroupName="DxfMode" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
             <RadioButton Content="{DynamicResource DxfModeHole}"
                          IsChecked="{Binding SelectMode,
                             Converter={StaticResource EnumToBoolConverter},
-                            ConverterParameter={x:Static vm:DxfRole.Hole}}"
+                            ConverterParameter={x:Static corevm:DxfRole.Hole}}"
                          GroupName="DxfMode" Margin="0,0,8,0" VerticalContentAlignment="Center"/>
             <RadioButton Content="{DynamicResource DxfModeRebarGroup}"
                          IsChecked="{Binding SelectMode,
                             Converter={StaticResource EnumToBoolConverter},
-                            ConverterParameter={x:Static vm:DxfRole.RebarGroup}}"
+                            ConverterParameter={x:Static corevm:DxfRole.RebarGroup}}"
                          GroupName="DxfMode" VerticalContentAlignment="Center"/>
          </StackPanel>
       </DockPanel>
@@ -81,7 +82,7 @@
                      <ItemsControl ItemsSource="{Binding HullPrimitive,
                                    Converter={StaticResource NullableToList}}">
                         <ItemsControl.ItemTemplate>
-                           <DataTemplate DataType="{x:Type vm:DxfPrimitive}">
+                           <DataTemplate DataType="{x:Type corevm:DxfPrimitive}">
                               <DockPanel>
                                  <Button DockPanel.Dock="Right" Content="×" Width="20" Height="20"
                                          Command="{Binding DataContext.ClearRoleCommand,
@@ -100,7 +101,7 @@
                <GroupBox Header="{DynamicResource DxfRightHoles}" Margin="0,0,0,4">
                   <ItemsControl ItemsSource="{Binding HolePrimitives}">
                      <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="{x:Type vm:DxfPrimitive}">
+                        <DataTemplate DataType="{x:Type corevm:DxfPrimitive}">
                            <DockPanel>
                               <Button DockPanel.Dock="Right" Content="×" Width="20" Height="20"
                                       Command="{Binding DataContext.ClearRoleCommand,
@@ -129,7 +130,7 @@
                      <!-- Список стержней с номером группы -->
                      <ItemsControl ItemsSource="{Binding GroupBarPrimitives}">
                         <ItemsControl.ItemTemplate>
-                           <DataTemplate DataType="{x:Type vm:DxfPrimitive}">
+                           <DataTemplate DataType="{x:Type corevm:DxfPrimitive}">
                               <DockPanel>
                                  <Button DockPanel.Dock="Right" Content="×" Width="20" Height="20"
                                          Command="{Binding DataContext.ClearRoleCommand,

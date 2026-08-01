@@ -9,6 +9,7 @@ using OpenCS.OpenSees.Results;
 using OpenCS.OpenSees.Runtime;
 using OpenCS.OpenSees.Services;
 using OpenCS.OpenSees.Tcl;
+using OpenCS.ViewModels;
 
 namespace OpenCS.Tasks;
 

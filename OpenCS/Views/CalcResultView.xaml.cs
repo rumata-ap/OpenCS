@@ -8,7 +8,7 @@ using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-    public partial class CalcResultView : UserControl
+    public partial class CalcResultView : UserControl, OpenCS.ViewModels.IContentPage
     {
         SectionCutWindowService? _cutWindow;
 

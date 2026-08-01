@@ -7,7 +7,7 @@ using System.Windows.Threading;
 namespace OpenCS.Views
 {
     /// <summary>Страница редактора группы арматурных стержней.</summary>
-    public partial class RebarGroupEditorPage : UserControl
+    public partial class RebarGroupEditorPage : UserControl, OpenCS.ViewModels.IContentPage
     {
         RebarGroupEditorVM? _vm;
 

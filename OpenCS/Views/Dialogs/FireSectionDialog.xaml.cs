@@ -1,6 +1,7 @@
 using CScore;
 using CScore.Fire.Entities;
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;

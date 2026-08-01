@@ -10,6 +10,7 @@
         xmlns:fire="clr-namespace:CScore.Fire.Entities;assembly=CScore.Fire"
         xmlns:col="clr-namespace:System.Collections;assembly=mscorlib"
         xmlns:vm="clr-namespace:OpenCS.ViewModels"
+        xmlns:corevm="clr-namespace:OpenCS.ViewModels;assembly=OpenCS.Core.UI"
         xmlns:fem="clr-namespace:CScore.Fem;assembly=CScore"
         mc:Ignorable="d"
         Title="{Binding ProjectTitle}" WindowStartupLocation="CenterScreen" Height="850" Width="1500"
@@ -649,7 +650,7 @@
                      </HierarchicalDataTemplate>
 
                      <!-- Группа «Усиление»: папка с двухстадийными сечениями -->
-                     <HierarchicalDataTemplate DataType="{x:Type local:SectionTreeGroup}"
+                     <HierarchicalDataTemplate DataType="{x:Type corevm:SectionTreeGroup}"
                                                ItemsSource="{Binding Items}">
                         <StackPanel Orientation="Horizontal" Margin="2"
                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
@@ -691,7 +692,7 @@
                      </HierarchicalDataTemplate>
 
                      <!-- Группа «Пластины»: папка с PlateSection -->
-                     <HierarchicalDataTemplate DataType="{x:Type local:PlateSectionTreeGroup}"
+                     <HierarchicalDataTemplate DataType="{x:Type corevm:PlateSectionTreeGroup}"
                                                ItemsSource="{Binding Items}">
                         <StackPanel Orientation="Horizontal" Margin="2"
                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
@@ -918,7 +919,7 @@
                         </StackPanel>
                      </HierarchicalDataTemplate>
 
-                     <HierarchicalDataTemplate DataType="{x:Type vm:CalcTaskVM}"
+                     <HierarchicalDataTemplate DataType="{x:Type corevm:CalcTaskVM}"
                                                ItemsSource="{Binding Results}">
                         <StackPanel Orientation="Horizontal"
                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
@@ -1008,7 +1009,7 @@
                <TreeView.Resources>
 
                   <!-- Корневой узел «Расчётные схемы» — схемы внутри тоже развёрнуты -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemSchemasGroupNode}"
+                  <HierarchicalDataTemplate DataType="{x:Type corevm:FemSchemasGroupNode}"
                                             ItemsSource="{Binding Schemas}">
                      <HierarchicalDataTemplate.ItemContainerStyle>
                         <Style TargetType="TreeViewItem">
@@ -1019,7 +1020,7 @@
                   </HierarchicalDataTemplate>
 
                   <!-- Корневой узел «МКЭ-проверки» — содержит 4 подгруппы -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemChecksRootNode}"
+                  <HierarchicalDataTemplate DataType="{x:Type corevm:FemChecksRootNode}"
                                             ItemsSource="{Binding Groups}">
                      <StackPanel Orientation="Horizontal"
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
@@ -1042,7 +1043,7 @@
                   </HierarchicalDataTemplate>
 
                   <!-- Подгруппа (1-я ГПС / 2-я ГПС / Огнестойкость / Прочие) -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemChecksSubGroupNode}"
+                  <HierarchicalDataTemplate DataType="{x:Type corevm:FemChecksSubGroupNode}"
                                             ItemsSource="{Binding Checks}">
                      <StackPanel Orientation="Horizontal"
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
@@ -1060,7 +1061,7 @@
                   </HierarchicalDataTemplate>
 
                   <!-- FemSchemaTreeVM — обёртка схемы с 4 подузлами -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemSchemaTreeVM}"
+                  <HierarchicalDataTemplate DataType="{x:Type corevm:FemSchemaTreeVM}"
                                             ItemsSource="{Binding SubNodes}">
                      <StackPanel Orientation="Horizontal" Margin="2"
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
@@ -1101,7 +1102,7 @@
                   </HierarchicalDataTemplate>
 
                   <!-- Подузел «Узлы» — листовой, данные в DataGrid -->
-                  <DataTemplate DataType="{x:Type vm:FemNodesSubNode}">
+                  <DataTemplate DataType="{x:Type corevm:FemNodesSubNode}">
                      <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{DynamicResource FemNodes}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
@@ -1110,14 +1111,14 @@
                   </DataTemplate>
 
                   <!-- Подузел «Сетка конечных элементов» — отдельный слепок, не меняет конструктивную модель -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemMeshSnapshotSubNode}"
+                  <HierarchicalDataTemplate DataType="{x:Type corevm:FemMeshSnapshotSubNode}"
                                             ItemsSource="{Binding Children}">
                      <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{DynamicResource FemMeshSnapshot}"/>
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
-                  <DataTemplate DataType="{x:Type vm:FemMeshNodesSubNode}">
+                  <DataTemplate DataType="{x:Type corevm:FemMeshNodesSubNode}">
                      <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{DynamicResource FemNodes}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
@@ -1126,7 +1127,7 @@
                   </DataTemplate>
 
                   <!-- Подузел «Элементы» mesh-слепка — два дочерних: Стержни и Пластины -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemMeshElementsSubNode}"
+                  <HierarchicalDataTemplate DataType="{x:Type corevm:FemMeshElementsSubNode}"
                                             ItemsSource="{Binding Children}">
                      <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{DynamicResource FemMeshElements}"/>
@@ -1141,7 +1142,7 @@
                      </StackPanel>
                   </HierarchicalDataTemplate>
 
-                  <DataTemplate DataType="{x:Type vm:FemMeshBarsSubNode}">
+                  <DataTemplate DataType="{x:Type corevm:FemMeshBarsSubNode}">
                      <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{DynamicResource FemMeshBars}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
@@ -1149,7 +1150,7 @@
                      </StackPanel>
                   </DataTemplate>
 
-                  <DataTemplate DataType="{x:Type vm:FemMeshShellsSubNode}">
+                  <DataTemplate DataType="{x:Type corevm:FemMeshShellsSubNode}">
                      <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{DynamicResource FemMeshShells}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
@@ -1158,7 +1159,7 @@
                   </DataTemplate>
 
                   <!-- Подузел «Конечные элементы» — два дочерних: Стержни и Пластины -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemElementsSubNode}"
+                  <HierarchicalDataTemplate DataType="{x:Type corevm:FemElementsSubNode}"
                                             ItemsSource="{Binding Children}">
                      <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{DynamicResource FemElements}"/>
@@ -1174,7 +1175,7 @@
                   </HierarchicalDataTemplate>
 
                   <!-- Подузел «Стержни» — листовой, данные в DataGrid -->
-                  <DataTemplate DataType="{x:Type vm:FemBarsSubNode}">
+                  <DataTemplate DataType="{x:Type corevm:FemBarsSubNode}">
                      <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{DynamicResource FemBars}"/>
                         <TextBlock Foreground="Gray" Margin="4,0,0,0"
@@ -1183,7 +1184,7 @@
                   </DataTemplate>
 
                   <!-- Подузел «Пластины» — листовой, данные в DataGrid; контекстное меню создания -->
-                  <DataTemplate DataType="{x:Type vm:FemShellsSubNode}">
+                  <DataTemplate DataType="{x:Type corevm:FemShellsSubNode}">
                      <StackPanel Orientation="Horizontal"
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                         <StackPanel.ContextMenu>
@@ -1212,7 +1213,7 @@
                   </DataTemplate>
 
                   <!-- Подузел «Конструктивные элементы» с дочерними FemMember -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemMembersSubNode}"
+                  <HierarchicalDataTemplate DataType="{x:Type corevm:FemMembersSubNode}"
                                             ItemsSource="{Binding Members}">
                      <StackPanel Orientation="Horizontal" Margin="2"
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
@@ -1259,7 +1260,7 @@
                      </StackPanel>
                   </DataTemplate>
 
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemForcesSubNode}"
+                  <HierarchicalDataTemplate DataType="{x:Type corevm:FemForcesSubNode}"
                                             ItemsSource="{Binding ForceSets}"
                                             ItemTemplate="{StaticResource FemForceSetTemplate}">
                      <StackPanel Orientation="Horizontal" Margin="2"
@@ -1357,7 +1358,7 @@
                   </DataTemplate>
 
                   <!-- FemAnalysesSubNode -->
-                  <HierarchicalDataTemplate DataType="{x:Type vm:FemAnalysesSubNode}"
+                  <HierarchicalDataTemplate DataType="{x:Type corevm:FemAnalysesSubNode}"
                                             ItemsSource="{Binding Analyses}">
                      <StackPanel Orientation="Horizontal" Margin="2"
                                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">

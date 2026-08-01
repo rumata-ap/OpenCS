@@ -1,4 +1,5 @@
 using OpenCS.Utilites;
+using OpenCS.ViewModels;
 using CalcSettings = OpenCS.Utilites.CalcSettings;
 using CsvExportSettings = OpenCS.Utilites.CsvExportSettings;
 using LiraImportSettings = OpenCS.Utilites.LiraImportSettings;

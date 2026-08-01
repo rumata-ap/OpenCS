@@ -13,7 +13,7 @@ using OpenCS.ViewModels;
 namespace OpenCS.Views;
 
 /// <summary>Результатная вкладка линейного OpenSees-расчёта FEM-схемы: 3D-деформация и таблицы.</summary>
-public partial class FemAnalysisResultView : UserControl
+public partial class FemAnalysisResultView : UserControl, OpenCS.ViewModels.IContentPage
 {
     /// <summary>Порог, после которого picking по отдельным узлам/элементам отключается (как в
     /// FemSchemaView3D) — на больших моделях O(N) Visual3D вешают UI.</summary>

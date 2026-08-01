@@ -8,7 +8,7 @@ using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-   public partial class MaterialPage : UserControl
+   public partial class MaterialPage : UserControl, OpenCS.ViewModels.IContentPage
    {
       public MaterialPage(Material material, AppViewModel mvm, MaterialVM? existingVm = null)
       {

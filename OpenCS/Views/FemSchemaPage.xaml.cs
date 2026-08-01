@@ -10,7 +10,7 @@ using CScore.Fem.Editing;
 
 namespace OpenCS.Views;
 
-public partial class FemSchemaPage : UserControl
+public partial class FemSchemaPage : UserControl, OpenCS.ViewModels.IContentPage
 {
     readonly FemSchemaEditorVM _editorVm;
     readonly Fem3DVM _fem3d;

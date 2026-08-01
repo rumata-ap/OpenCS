@@ -1,4 +1,4 @@
-﻿using CScore;
+using CScore;
 
 using System;
 using System.Collections.Generic;
@@ -13,6 +13,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+
+using OpenCS.ViewModels;
 
 namespace OpenCS.Views
 {

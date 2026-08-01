@@ -3,7 +3,7 @@ using System.Windows.Controls;
 
 namespace OpenCS.Views
 {
-   public partial class BarForceSetPage : UserControl
+   public partial class BarForceSetPage : UserControl, OpenCS.ViewModels.IContentPage
    {
       public BarForceSetPage(CScore.ForceSet model, AppViewModel app)
       {

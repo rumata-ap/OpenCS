@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:OpenCS.Views"
-             xmlns:vm="clr-namespace:OpenCS.ViewModels">
+             xmlns:vm="clr-namespace:OpenCS.ViewModels"
+             xmlns:corevm="clr-namespace:OpenCS.ViewModels;assembly=OpenCS.Core.UI">
 
    <Grid>
       <Grid.ColumnDefinitions>
@@ -199,7 +200,7 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                <ItemsControl ItemsSource="{Binding Edges}">
                   <ItemsControl.ItemTemplate>
-                     <DataTemplate DataType="{x:Type vm:EdgeItem}">
+                     <DataTemplate DataType="{x:Type corevm:EdgeItem}">
                         <DockPanel Margin="2">
                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                               <Button Content="+" Width="20" Height="20" Padding="0"
@@ -224,7 +225,7 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                <ItemsControl ItemsSource="{Binding Bars}">
                   <ItemsControl.ItemTemplate>
-                     <DataTemplate DataType="{x:Type vm:BarItem}">
+                     <DataTemplate DataType="{x:Type corevm:BarItem}">
                         <DockPanel Margin="1">
                            <Button DockPanel.Dock="Right" Content="×" Width="18" Height="18"
                                    Padding="0"

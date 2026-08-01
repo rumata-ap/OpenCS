@@ -8,13 +8,9 @@ using CScore.Import;
 using CScore.Fire.Entities;
 using OpenCS.Services;
 using OpenCS.Tasks;
-using OpenCS.ViewModels;
 using OpenCS.Utilites;
-using OpenCS.Views;
 
 using System.Collections.Specialized;
-using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using System.IO;
 
@@ -25,7 +21,7 @@ using netDxf;
 using netDxf.Entities;
 using netDxf.Tables;
 
-namespace OpenCS
+namespace OpenCS.ViewModels
 {
    /// <summary>
    /// Главная модель представления приложения. Центральный узел MVVM-архитектуры,
@@ -37,9 +33,9 @@ namespace OpenCS
    {
       /// <summary>
       /// Сервис работы с базой данных SQLite, используемый для загрузки, сохранения
-      /// и удаления доменных объектов. Доступен внутри сборки для дочерних ViewModel.
+      /// и удаления доменных объектов. Доступен дочерним ViewModel и GUI-проекту.
       /// </summary>
-      internal DatabaseService db = null!;
+      public DatabaseService db = null!;
 
       /// <summary>
       /// Коллекция материалов типа «Бетон», отфильтрованная из <see cref="Materials"/>.
@@ -81,10 +77,10 @@ namespace OpenCS
       ObservableCollection<ContourVM> contoursLive = null!;
 
       /// <summary>
-      /// Текущая страница (UserControl), отображаемая в области содержимого главного окна.
+      /// Текущая страница (IContentPage), отображаемая в области содержимого главного окна.
       /// Используется для навигации между представлениями.
       /// </summary>
-      UserControl currentPage = null!;
+      IContentPage currentPage = null!;
 
       /// <summary>
       /// Текущий выбранный материал. При изменении открывает страницу редактирования материала.
@@ -95,12 +91,6 @@ namespace OpenCS
       /// Текущий выбранный контур (ViewModel). При изменении открывает страницу контура.
       /// </summary>
       ContourVM? currentContour;
-
-      /// <summary>
-      /// Элемент дерева навигации, связанный с текущим представлением.
-      /// Используется внутренне для синхронизации выделения в TreeView.
-      /// </summary>
-      internal TreeViewItem treeItem = null!;
 
       /// <summary>
       /// Текущая выбранная диаграмма. При установке значения открывает страницу диаграммы.
@@ -115,7 +105,7 @@ namespace OpenCS
       PlateSection? currentPlateSection;
       FireSectionDef? currentFireSection;
       CScore.Fem.FemSchema? currentFemSchema;
-      ViewModels.FemSchemaEditorVM? activeFemSchemaEditor;
+      IFemSchemaEditor? activeFemSchemaEditor;
       CScore.Fem.FemMemberGroup? currentFemMember;
       CScore.Fem.FemCheck?  currentFemCheck;
 
@@ -287,19 +277,19 @@ namespace OpenCS
       /// </summary>
       public CrossSection? CurrentCrossSection
       {
-         get => currentCrossSection;
-         set
-         {
-            currentCrossSection = value;
-            if (value is TwoStageSection tss)
-               CurrentPage = new Views.TwoStageSectionEditorPage(tss, this);
-            else if (value != null)
-               CurrentPage = new Views.CrossSectionPage(value, this);
-            else
-               CurrentPage = null!;
-            OnPropertyChanged();
-         }
-      }
+          get => currentCrossSection;
+          set
+          {
+             currentCrossSection = value;
+             if (value is TwoStageSection tss)
+                CurrentPage = UiServices.Pages.CreateTwoStageSectionEditorPage(tss);
+             else if (value != null)
+                CurrentPage = UiServices.Pages.CreateCrossSectionPage(value);
+             else
+                CurrentPage = null!;
+             OnPropertyChanged();
+          }
+       }
 
       /// <summary>Коллекция самостоятельных MaterialArea проекта.</summary>
       public ObservableCollection<MaterialArea> MaterialAreas { get; set; } = null!;
@@ -319,8 +309,9 @@ namespace OpenCS
       /// <summary>Плитные сечения для дерева (синхронизируется с PlateSections).</summary>
       public ObservableCollection<PlateSection> PlateSectionsLive { get; } = [];
 
-      /// <summary>Объединённая коллекция для дерева сечений: обычные + Усиление + Пластины.</summary>
-      public System.Windows.Data.CompositeCollection SectionTreeItems { get; }
+      /// <summary>Объединённая коллекция для дерева сечений: обычные + Усиление + Пластины.
+      /// Структуру заполняет GUI (см. <see cref="IAppPageFactory.InitializeSectionTree"/>).</summary>
+      public System.Collections.IList SectionTreeItems { get; set; } = null!;
 
       /// <summary>Наборы расчётных усилий.</summary>
       public ObservableCollection<ForceSet> ForceSets { get; set; } = null!;
@@ -363,7 +354,7 @@ namespace OpenCS
          {
             currentPlateSection = value;
             CurrentPage = value != null
-               ? new Views.PlateSectionPage(value, this)
+               ? UiServices.Pages.CreatePlateSectionPage(value)
                : null!;
             OnPropertyChanged();
          }
@@ -377,7 +368,7 @@ namespace OpenCS
          {
             currentFireSection = value;
             CurrentPage = value != null
-               ? new Views.FireSectionView(value, this)
+               ? UiServices.Pages.CreateFireSectionPage(value)
                : null!;
             OnPropertyChanged();
          }
@@ -389,22 +380,22 @@ namespace OpenCS
          get => currentFemSchema;
          set
          {
-            if (ReferenceEquals(value, currentFemSchema) && currentPage is Views.FemSchemaPage)
+            if (ReferenceEquals(value, currentFemSchema) && currentPage is IFemSchemaPage)
                return;
             if (!TryLeaveFemSchemaEditor())
                return;
 
             currentFemSchema = value;
-            CurrentPage = value != null ? new Views.FemSchemaPage(value, this) : null!;
+            CurrentPage = value != null ? UiServices.Pages.CreateFemSchemaPage(value) : null!;
             OnPropertyChanged();
          }
       }
 
       /// <summary>Регистрирует редактор FEM, пока его сессия существует в памяти.</summary>
-      public void RegisterFemSchemaEditor(ViewModels.FemSchemaEditorVM editor) => activeFemSchemaEditor = editor;
+      public void RegisterFemSchemaEditor(IFemSchemaEditor editor) => activeFemSchemaEditor = editor;
 
       /// <summary>Снимает регистрацию редактора FEM при закрытии его страницы.</summary>
-      public void UnregisterFemSchemaEditor(ViewModels.FemSchemaEditorVM editor)
+      public void UnregisterFemSchemaEditor(IFemSchemaEditor editor)
       {
          if (ReferenceEquals(activeFemSchemaEditor, editor))
             activeFemSchemaEditor = null;
@@ -413,21 +404,17 @@ namespace OpenCS
       bool TryLeaveFemSchemaEditor()
       {
          var editor = activeFemSchemaEditor;
-         if (editor == null || !editor.Session.IsDirty)
+         if (editor == null || !editor.IsDirty)
             return true;
 
-         var result = MessageBox.Show(
-            Loc.S("ConfirmSaveOnExit"),
-            Loc.S("Confirmation"),
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
+         var result = UiServices.Dialogs.ConfirmCancel("ConfirmSaveOnExit", "Confirmation");
 
-         if (result == MessageBoxResult.Cancel)
+         if (result == MsgResult.None)
             return false;
-         if (result == MessageBoxResult.Yes)
+         if (result == MsgResult.Yes)
          {
             editor.Save();
-            if (editor.Session.IsDirty)
+            if (editor.IsDirty)
                return false;
          }
 
@@ -443,7 +430,7 @@ namespace OpenCS
          {
             currentFemMember = value;
             if (value != null)
-               CurrentPage = new Views.FemMemberEditorPage(value, this);
+               CurrentPage = UiServices.Pages.CreateFemMemberEditorPage(value);
             OnPropertyChanged();
          }
       }
@@ -574,45 +561,45 @@ namespace OpenCS
       /// <summary>Текущий выбранный набор усилий стержня. При установке открывает BarForceSetPage.</summary>
       public ForceSet? CurrentBarForceSet
       {
-         get => currentBarForceSet;
-         set
-         {
-            currentBarForceSet = value;
-            CurrentPage = value != null
-               ? new Views.BarForceSetPage(value, this)
-               : null!;
-            OnPropertyChanged();
-         }
-      }
+          get => currentBarForceSet;
+          set
+          {
+             currentBarForceSet = value;
+             CurrentPage = value != null
+                ? UiServices.Pages.CreateBarForceSetPage(value)
+                : null!;
+             OnPropertyChanged();
+          }
+       }
 
       /// <summary>Текущий выбранный набор усилий пластины. При установке открывает ShellForceSetPage.</summary>
       public ForceSet? CurrentShellForceSet
       {
-         get => currentShellForceSet;
-         set
-         {
-            currentShellForceSet = value;
-            CurrentPage = value != null
-               ? new Views.ShellForceSetPage(value, this)
-               : null!;
-            OnPropertyChanged();
-         }
-      }
+          get => currentShellForceSet;
+          set
+          {
+             currentShellForceSet = value;
+             CurrentPage = value != null
+                ? UiServices.Pages.CreateShellForceSetPage(value)
+                : null!;
+             OnPropertyChanged();
+          }
+       }
 
       /// <summary>Текущая выбранная MaterialArea. Открывает MaterialAreaPage.</summary>
       public MaterialArea? CurrentMaterialArea
       {
-         get => currentMaterialArea;
-         set
-         {
-            currentMaterialArea = value;
-            if (value != null)
-               CurrentPage = value.Category == AreaCategory.RebarGroup
-                  ? (System.Windows.Controls.UserControl)new Views.RebarGroupEditorPage(value, this)
-                  : new Views.MaterialAreaPage(value, this);
-            OnPropertyChanged();
-         }
-      }
+          get => currentMaterialArea;
+          set
+          {
+             currentMaterialArea = value;
+             if (value != null)
+                CurrentPage = value.Category == AreaCategory.RebarGroup
+                   ? UiServices.Pages.CreateRebarGroupEditorPage(value)
+                   : UiServices.Pages.CreateMaterialAreaPage(value);
+             OnPropertyChanged();
+          }
+       }
 
       /// <summary>Команда создания новой полигональной области.</summary>
       public ICommand NewAreaCommand { get; set; } = null!;
@@ -677,7 +664,7 @@ namespace OpenCS
       /// При изменении значения вызывается <c>OnPropertyChanged()</c> для обновления привязки.
       /// Используется для навигации между представлениями (контур, материал, область и т.д.).
       /// </summary>
-      public UserControl CurrentPage
+      public IContentPage CurrentPage
       {
          get => currentPage;
          set
@@ -692,31 +679,9 @@ namespace OpenCS
 
       /// <summary>
       /// Заголовок текущей вьюхи для отображения в GroupBox центральной области.
+      /// Вычисляется GUI-фабрикой (WPF: switch по типам страниц).
       /// </summary>
-      public string CurrentPageTitle => currentPage switch
-      {
-          Views.ContourPlot               => Loc.S("VT_Contour"),
-          Views.MaterialPage              => Loc.S("VT_Material"),
-          Views.MaterialAreaPage          => Loc.S("VT_MaterialArea"),
-          Views.RebarGroupEditorPage      => Loc.S("VT_RebarGroup"),
-          Views.CrossSectionPage          => Loc.S("VT_CrossSection"),
-          Views.TwoStageSectionEditorPage => Loc.S("VT_TwoStageSection"),
-          Views.PlateSectionPage          => Loc.S("VT_PlateSection"),
-          Views.BarForceSetPage           => Loc.S("VT_BarForceSet"),
-          Views.ShellForceSetPage         => Loc.S("VT_ShellForceSet"),
-          Views.FromDxfPage               => Loc.S("VT_FromDxf"),
-          Views.DiagramPage               => Loc.S("VT_Diagram"),
-          Views.CirclesView               => Loc.S("VT_Circles"),
-          Views.CalcTasksPage             => Loc.S("VT_CalcTasks"),
-          Views.CalcResultView            => Loc.S("VT_CalcResult"),
-          Views.FireSectionView           => Loc.S("VT_FireSection"),
-          Views.FemNodesView              => Loc.S("FemNodes"),
-          Views.FemBarsView               => Loc.S("FemBars"),
-          Views.FemShellsView             => Loc.S("FemShells"),
-          Views.FemAnalysisResultView     => Loc.S("VT_FemAnalysisResult"),
-          Views.FemMemberForceView        => Loc.S("VT_FemMemberForce"),
-          _                               => ""
-      };
+      public string CurrentPageTitle => UiServices.Pages.GetPageTitle(currentPage);
       /// <summary>
       /// Текущий выбранный материал. При установке значения автоматически открывает
       /// страницу редактирования материала через <see cref="OnSelectMaterial"/>.
@@ -733,32 +698,32 @@ namespace OpenCS
       /// </summary>
       public ContourVM? CurrentContour
       {
-         get => currentContour;
-         set
-         {
-            currentContour = value;
-            if (value != null)
-               CurrentPage = new ContourPlot(this, isSaved: value.Contour.Points.Count >= 4);
-            else
-               CurrentPage = null!;
-            OnPropertyChanged();
-         }
-      }
+          get => currentContour;
+          set
+          {
+             currentContour = value;
+             if (value != null)
+                CurrentPage = UiServices.Pages.CreateContourPlotPage(value.Contour.Points.Count >= 4);
+             else
+                CurrentPage = null!;
+             OnPropertyChanged();
+          }
+       }
 
       /// <summary>
       /// Текущая выбранная диаграмма. При установке значения открывает страницу диаграммы.
       /// </summary>
       public Diagramm? CurrentDiagram
       {
-         get => currentDiagram;
-         set
-         {
-            currentDiagram = value;
-            if (value != null)
-               CurrentPage = new DiagramPage(value, this);
-            OnPropertyChanged();
-         }
-      }
+          get => currentDiagram;
+          set
+          {
+             currentDiagram = value;
+             if (value != null)
+                CurrentPage = UiServices.Pages.CreateDiagramPage(value, isNew: false);
+             OnPropertyChanged();
+          }
+       }
 
       /// <summary>Команда создания новой пустой диаграммы σ(ε).</summary>
       public ICommand AddDiagramCommand { get; set; } = null!;
@@ -952,26 +917,7 @@ namespace OpenCS
       /// </summary>
       void SetLanguageDictionary(int lang)
       {
-         var dicts = Application.Current.Resources.MergedDictionaries
-             .Where(d => d.Source != null &&
-                        (d.Source.OriginalString.Contains("Strings.en-US") ||
-                         d.Source.OriginalString.Contains("Strings.ru-RU")))
-             .ToList();
-
-         foreach (var d in dicts)
-            Application.Current.Resources.MergedDictionaries.Remove(d);
-
-         ResourceDictionary dict = new();
-         switch (lang)
-         {
-            case 0:
-               dict.Source = new Uri("Resources/Strings.ru-RU.xaml", UriKind.Relative);
-               break;
-            case 1:
-               dict.Source = new Uri("Resources/Strings.en-US.xaml", UriKind.Relative);
-               break;
-         }
-         Application.Current.Resources.MergedDictionaries.Add(dict);
+         UiServices.Pages.ApplyLanguage(lang);
          LangID = lang;
       }
 
@@ -984,14 +930,9 @@ namespace OpenCS
       /// <param name="fileDialogService">Сервис файловых диалогов, инжектируемый в ViewModel.</param>
        public AppViewModel(ILogService logService, IFileDialogService fileDialogService)
        {
-          LogService = logService;
-          FileDialogService = fileDialogService;
-          SectionTreeItems = new System.Windows.Data.CompositeCollection
-          {
-             new System.Windows.Data.CollectionContainer { Collection = FiberSectionsLive },
-             new SectionTreeGroup(TwoStageSectionsLive),
-             new PlateSectionTreeGroup(PlateSectionsLive),
-          };
+           LogService = logService;
+           FileDialogService = fileDialogService;
+           UiServices.Pages.InitializeSectionTree(this);
 
           db = new DatabaseService(GetTempDbPath());
           InitNewDatabase();
@@ -1016,10 +957,7 @@ namespace OpenCS
       /// </summary>
       private void Exit(object? o = null)
       {
-         if (Application.Current.MainWindow != null)
-            Application.Current.MainWindow.Close();
-         else
-            Application.Current.Shutdown();
+         UiServices.Pages.ShutdownApplication();
       }
 
       void VacuumDb()
@@ -1053,18 +991,14 @@ namespace OpenCS
             return true;
          }
 
-         var result = MessageBox.Show(
-            Loc.S("ConfirmSaveOnExit"),
-            Loc.S("Confirmation"),
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
+         var result = UiServices.Dialogs.ConfirmCancel(Loc.S("ConfirmSaveOnExit"), Loc.S("Confirmation"));
 
-         if (result == MessageBoxResult.Yes)
+         if (result == MsgResult.Yes)
          {
             SaveProjectInternal();
             return CurrentProjectPath != null;
          }
-         if (result == MessageBoxResult.No)
+         if (result == MsgResult.No)
             return true;
 
          return false;
@@ -1188,7 +1122,7 @@ namespace OpenCS
          SaveAsProjectCommand = new RelayCommand(SaveAsProject);
           ExitCommand = new RelayCommand(Exit);
           VacuumDbCommand = new RelayCommand(_ => VacuumDb());
-         OpenSettingsCommand = new RelayCommand(_ => new Views.SettingsWindow(this).ShowDialog());
+         OpenSettingsCommand = new RelayCommand(_ => UiServices.Pages.ShowSettingsWindow(this));
          SetLanguageCommand = new RelayCommand(SetLanguage);
          NewCrossSectionCommand    = new RelayCommand(_ => NewCrossSection());
          EditCrossSectionCommand   = new RelayCommand(_ => EditCrossSection());
@@ -1213,7 +1147,7 @@ namespace OpenCS
          NewFireSectionCommand        = new RelayCommand(_ => NewFireSection());
          DeleteFireSectionCommand     = new RelayCommand(_ => DeleteFireSection());
          RenameFireSectionCommand     = new RelayCommand(_ => RenameFireSection());
-         OpenCalcTasksCommand         = new RelayCommand(_ => CurrentPage = new Views.CalcTasksPage(this));
+          OpenCalcTasksCommand         = new RelayCommand(_ => CurrentPage = UiServices.Pages.CreateCalcTasksPage());
          CancelBusyCommand            = new RelayCommand(_ => CancelBusy(), _ => IsBusy);
          NewCalcTaskCommand    = new RelayCommand(p => NewCalcTask(p as string));
          RunCalcTaskCommand    = new RelayCommand(p => _ = RunCalcTaskAsync(p as CalcTask), p => p is CalcTask && !IsBusy);
@@ -1294,14 +1228,8 @@ namespace OpenCS
       /// </summary>
       public void ApplyPlotSettings()
       {
-         if (CurrentPage is Views.ContourPlot cp && cp.DataContext is ViewModels.ContourVM cvm)
-            cvm.PlotService?.ApplySettings(PlotSettings);
-         if (CurrentPage is Views.MaterialAreaPage map)
-            map.RefreshPlotSettings();
-         if (CurrentPage is Views.CrossSectionPage csp)
-            csp.RefreshPlotSettings();
-         if (CurrentPage is Views.RebarGroupEditorPage rgp)
-            rgp.RefreshPlotSettings();
+         if (CurrentPage is IPlotSettingsApplicable app)
+            app.ApplyPlotSettings(PlotSettings);
          DxfBgApplied?.Invoke(PlotSettings.DxfCanvasBackground);
          NotifyPlotSettingsApplied();
       }
@@ -1312,7 +1240,7 @@ namespace OpenCS
       /// </summary>
        void NewMaterial(object? o = null)
        {
-          CurrentPage = new MaterialPage(new Material(0), this);
+          CurrentPage = UiServices.Pages.CreateMaterialPage(new Material(0));
        }
 
        /// <summary>
@@ -1321,14 +1249,9 @@ namespace OpenCS
        /// открывает окно хранилища материалов с вкладкой, соответствующей
        /// типу материала (0=бетон, 1=арматура, 2=сталь).
        /// </summary>
-       internal void NewMaterialFromSource(int tabIndex)
+       public void NewMaterialFromSource(int tabIndex)
        {
-          var material = new Material(0);
-          var vm = new MaterialVM() { Material = material, mvm = this };
-          CurrentPage = new MaterialPage(material, this, vm);
-
-          var window = new Views.FromDataSourceWindow(vm, tabIndex);
-          window.ShowDialog();
+          CurrentPage = UiServices.Pages.CreateMaterialFromSourcePage(tabIndex);
        }
 
       /// <summary>
@@ -1344,7 +1267,7 @@ namespace OpenCS
             Ic           = new CSmath.LSpline(new[] { -0.003, 0.0 }, new[] { -30.0, 0.0 }),
             It           = new CSmath.LSpline(new[] { 0.0, 0.001  }, new[] {   0.0, 15.0 })
          };
-         CurrentPage = new Views.DiagramPage(d, this, isNew: true);
+         CurrentPage = UiServices.Pages.CreateDiagramPage(d, isNew: true);
       }
 
       /// <summary>
@@ -1358,8 +1281,8 @@ namespace OpenCS
 
       void NewContourFromTemplateRect()
       {
-         var dlg = new Views.Dialogs.TemplateRectDialog();
-         if (dlg.ShowDialog() != true) return;
+         var dlg = UiServices.Pages.ShowTemplateRectDialog();
+         if (dlg == null) return;
          var pts = TemplatePoints.RectPoints(dlg.WidthMm / 1000.0, dlg.HeightMm / 1000.0);
          var contour = MakeContourFromPoints(pts, dlg.ContourName);
          LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
@@ -1367,8 +1290,8 @@ namespace OpenCS
 
       void NewContourFromTemplateTee()
       {
-         var dlg = new Views.Dialogs.TemplateTeeDialog();
-         if (dlg.ShowDialog() != true) return;
+         var dlg = UiServices.Pages.ShowTemplateTeeDialog();
+         if (dlg == null) return;
          var pts = TemplatePoints.TeePoints(dlg.WidthMm / 1000.0, dlg.HeightMm / 1000.0,
              dlg.TwMm / 1000.0, dlg.TfMm / 1000.0);
          var contour = MakeContourFromPoints(pts, dlg.ContourName);
@@ -1377,8 +1300,8 @@ namespace OpenCS
 
       void NewContourFromTemplateIBeam()
       {
-         var dlg = new Views.Dialogs.TemplateIBeamDialog();
-         if (dlg.ShowDialog() != true) return;
+         var dlg = UiServices.Pages.ShowTemplateIBeamDialog();
+         if (dlg == null) return;
          var pts = TemplatePoints.IBeamPoints(dlg.HeightMm / 1000.0, dlg.WidthMm / 1000.0,
              dlg.TwMm / 1000.0, dlg.TfMm / 1000.0);
          var contour = MakeContourFromPoints(pts, dlg.ContourName);
@@ -1387,8 +1310,8 @@ namespace OpenCS
 
       void NewContourFromTemplateAngle()
       {
-         var dlg = new Views.Dialogs.TemplateAngleDialog();
-         if (dlg.ShowDialog() != true) return;
+         var dlg = UiServices.Pages.ShowTemplateAngleDialog();
+         if (dlg == null) return;
          var pts = TemplatePoints.AnglePoints(dlg.WidthMm / 1000.0, dlg.HeightMm / 1000.0,
              dlg.TwMm / 1000.0, dlg.TfMm / 1000.0);
          var contour = MakeContourFromPoints(pts, dlg.ContourName);
@@ -1397,8 +1320,8 @@ namespace OpenCS
 
       void NewContourFromTemplateCircle()
       {
-         var dlg = new Views.Dialogs.TemplateCircleDialog();
-         if (dlg.ShowDialog() != true) return;
+         var dlg = UiServices.Pages.ShowTemplateCircleDialog();
+         if (dlg == null) return;
          var pts = TemplatePoints.CirclePoints(dlg.DiameterMm / 1000.0, dlg.Segments);
          var contour = MakeContourFromPoints(pts, dlg.ContourName);
          LogService.Info(string.Format(Loc.S("ContourCreated"), contour.Tag));
@@ -1406,8 +1329,8 @@ namespace OpenCS
 
       void NewContourFromSortament()
       {
-         var dlg = new Views.Dialogs.ProfilePolyDialog();
-         if (dlg.ShowDialog() != true) return;
+         var dlg = UiServices.Pages.ShowProfilePolyDialog();
+         if (dlg == null) return;
 
          var pdb = new Utilites.ProfileDB();
          var profile = pdb.GetProfile(dlg.ShapeType, dlg.ProfileId);
@@ -1481,15 +1404,12 @@ namespace OpenCS
       {
          CurrentPage = null!;
          if (CurrentMaterial == null) return;
-         System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
-         System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
-          var res = System.Windows.MessageBox.Show(Loc.S("ConfirmDeleteMaterial"), Loc.S("Warning"), mbb, ic);
-          if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
+         if (!UiServices.Dialogs.Confirm("ConfirmDeleteMaterial", "Warning")) return;
 
-          string t = currentMaterial!.Tag;
-          db.DeleteMaterial(CurrentMaterial);
+         string t = currentMaterial!.Tag;
+         db.DeleteMaterial(CurrentMaterial);
 
-          LogService.Info(string.Format(Loc.S("MaterialDeleted"), t));
+         LogService.Info(string.Format(Loc.S("MaterialDeleted"), t));
       }
 
       /// <summary>
@@ -1501,10 +1421,7 @@ namespace OpenCS
       {
          CurrentPage = null!;
          if (CurrentContour == null) return;
-         System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
-         System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
-          var res = System.Windows.MessageBox.Show(Loc.S("ConfirmDeleteContour"), Loc.S("Warning"), mbb, ic);
-          if (res == System.Windows.MessageBoxResult.No || res == System.Windows.MessageBoxResult.Cancel) return;
+         if (!UiServices.Dialogs.Confirm("ConfirmDeleteContour", "Warning")) return;
 
          string t = currentContour!.Tag;
          db.DeleteContour(currentContour.Contour);
@@ -1522,14 +1439,14 @@ namespace OpenCS
             filter: "Файл обмена чертежами (*.dxf)|*.dxf",
             title: "Импорт данных из файла DXF");
          if (string.IsNullOrEmpty(fileName)) return;
-         CurrentPage = new FromDxfPage(this, fileName);
+         CurrentPage = UiServices.Pages.CreateFromDxfPage(fileName);
       }
 
       private void AddCircle(object? _ = null)
       {
-         var dlg = new Views.Dialogs.CircleDialog();
-         if (dlg.ShowDialog() != true) return;
-         var cp = new CircleP(dlg.X, dlg.Y, dlg.Radius);
+         var dlg = UiServices.Pages.ShowCircleDialog();
+         if (dlg == null) return;
+         var cp = new CircleP(dlg.Value.X, dlg.Value.Y, dlg.Value.Radius);
          db.SaveCircle(cp);
          Circles.Add(cp);
          this.CirclesRenumber();
@@ -1539,9 +1456,7 @@ namespace OpenCS
       private void DeleteCircle(CircleP? cp)
       {
          if (cp == null) return;
-         var res = MessageBox.Show(Loc.S("ConfirmDeleteCircle"), Loc.S("Confirmation"),
-            MessageBoxButton.YesNo, MessageBoxImage.Warning);
-         if (res != MessageBoxResult.Yes) return;
+         if (!UiServices.Dialogs.Confirm("ConfirmDeleteCircle", "Confirmation")) return;
          db.DeleteCircle(cp);
          Circles.Remove(cp);
          this.CirclesRenumber();
@@ -1859,10 +1774,7 @@ namespace OpenCS
          var import = LiraImporter.ImportFile(fileName, mode, LiraImportSettings.ToOptions());
          if (!import.Success)
          {
-            System.Windows.MessageBox.Show(
-               import.Error ?? Loc.S("ImportLiraFailed"),
-               Loc.S("ImportLiraErrorTitle"),
-               MessageBoxButton.OK, MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(import.Error ?? Loc.S("ImportLiraFailed"), Loc.S("ImportLiraErrorTitle"));
             return;
          }
 
@@ -2035,7 +1947,7 @@ namespace OpenCS
       /// <see cref="Concretes"/>, <see cref="Armatures"/> и <see cref="Steels"/>,
       /// затем перенумеровывает материалы.
       /// </summary>
-      internal void MaterialsSort()
+      public void MaterialsSort()
       {
          var c = from m in Materials where m.Type == MatType.Concrete select m;
          Concretes.Clear(); Concretes.AddRange(c);
@@ -2055,9 +1967,8 @@ namespace OpenCS
       public void OnSelectMaterial()
       {
          if (CurrentMaterial == null) return;
-         CurrentPage = new MaterialPage(CurrentMaterial, this);
-         MaterialVM vm = (MaterialVM)CurrentPage.DataContext;
-         vm.IsSaved = true;
+         CurrentPage = UiServices.Pages.CreateMaterialPage(CurrentMaterial);
+         UiServices.Pages.MarkMaterialPageSaved(CurrentPage);
       }
 
       /// <summary>
@@ -2136,31 +2047,27 @@ namespace OpenCS
       void NewCrossSection()
       {
          currentCrossSection = null;
-         CurrentPage = new Views.CrossSectionPage(this);
+         CurrentPage = UiServices.Pages.CreateCrossSectionPage();
       }
 
       void NewTwoStageSection()
       {
          currentCrossSection = null;
-         CurrentPage = new Views.TwoStageSectionEditorPage(this);
+         CurrentPage = UiServices.Pages.CreateTwoStageSectionEditorPage();
       }
 
       void EditCrossSection()
       {
          if (currentCrossSection == null) return;
          CurrentPage = currentCrossSection is TwoStageSection tss
-            ? (System.Windows.Controls.UserControl)new Views.TwoStageSectionEditorPage(tss, this)
-            : new Views.CrossSectionPage(currentCrossSection, this);
+            ? UiServices.Pages.CreateTwoStageSectionEditorPage(tss)
+            : UiServices.Pages.CreateCrossSectionPage(currentCrossSection);
       }
 
       void DeleteCrossSection()
       {
          if (currentCrossSection == null) return;
-         System.Windows.MessageBoxImage ic = System.Windows.MessageBoxImage.Warning;
-         System.Windows.MessageBoxButton mbb = System.Windows.MessageBoxButton.YesNo;
-         var res = System.Windows.MessageBox.Show(
-            Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"), mbb, ic);
-         if (res != System.Windows.MessageBoxResult.Yes) return;
+         if (!UiServices.Dialogs.Confirm("ConfirmDeleteRegion", "Warning")) return;
 
          db.DeleteCrossSection(currentCrossSection);
          CrossSectionsLive = new(CrossSections);
@@ -2171,45 +2078,37 @@ namespace OpenCS
          OnPropertyChanged(nameof(CurrentCrossSection));
       }
 
-      public void RemoveMaterialArea(ViewModels.MaterialAreaVM vm)
+      public void RemoveMaterialArea(CScore.MaterialArea area)
       {
-         var sec = CrossSections.FirstOrDefault(s => s.Areas.Contains(vm.Model));
+         var sec = CrossSections.FirstOrDefault(s => s.Areas.Contains(area));
          if (sec == null) return;
-         sec.Areas.Remove(vm.Model);
+         sec.Areas.Remove(area);
          MarkDirty(SaveCategory.CrossSections);
       }
 
       void NewBarForceSet()
       {
          currentBarForceSet = null;
-         CurrentPage = new Views.BarForceSetPage(this);
+         CurrentPage = UiServices.Pages.CreateBarForceSetPage();
       }
 
       void NewShellForceSet()
       {
          currentShellForceSet = null;
-         CurrentPage = new Views.ShellForceSetPage(this);
+         CurrentPage = UiServices.Pages.CreateShellForceSetPage();
       }
 
       void OpenSP20CombinationsDialog(string kind)
       {
          var sets = kind == "shell" ? ShellForceSets : BarForceSets;
-         var dlg = new Views.SP20Dialog(sets, this)
-         {
-            Owner = System.Windows.Application.Current.MainWindow
-         };
-         dlg.ShowDialog();
+         UiServices.Pages.ShowSp20Dialog(sets, this);
       }
 
       void DeleteForceSet(CScore.ForceSet? target = null)
       {
          var fs = target ?? currentBarForceSet ?? currentShellForceSet;
          if (fs == null) return;
-         var res = System.Windows.MessageBox.Show(
-            Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"),
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Warning);
-         if (res != System.Windows.MessageBoxResult.Yes) return;
+         if (!UiServices.Dialogs.Confirm("ConfirmDeleteRegion", "Warning")) return;
          db.DeleteForceSet(fs);
          if (fs == currentBarForceSet)
          {
@@ -2291,7 +2190,7 @@ namespace OpenCS
             Tag = $"Область {MaterialAreas.Count + 1}",
             Category = AreaCategory.Region
          };
-         CurrentPage = new Views.MaterialAreaPage(area, this);
+         CurrentPage = UiServices.Pages.CreateMaterialAreaPage(area);
       }
 
       void NewRebarGroup()
@@ -2301,7 +2200,7 @@ namespace OpenCS
             Tag = $"Группа {RebarGroupsLive.Count + 1}",
             Category = AreaCategory.RebarGroup
          };
-         CurrentPage = new Views.RebarGroupEditorPage(area, this);
+         CurrentPage = UiServices.Pages.CreateRebarGroupEditorPage(area);
       }
 
       void DeleteMaterialArea()
@@ -2317,18 +2216,14 @@ namespace OpenCS
       void NewPlateSection()
       {
          currentPlateSection = null;
-         CurrentPage = new Views.PlateSectionPage(this);
+         CurrentPage = UiServices.Pages.CreatePlateSectionPage();
       }
 
       void DeletePlateSection(CScore.PlateSection? target = null)
       {
          var ps = target ?? currentPlateSection;
          if (ps == null) return;
-         var res = System.Windows.MessageBox.Show(
-            Loc.S("ConfirmDeleteRegion"), Loc.S("Warning"),
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Warning);
-         if (res != System.Windows.MessageBoxResult.Yes) return;
+         if (!UiServices.Dialogs.Confirm("ConfirmDeleteRegion", "Warning")) return;
          db.DeletePlateSection(ps);
          if (ps == currentPlateSection)
          {
@@ -2368,13 +2263,9 @@ namespace OpenCS
 
       void NewFireSection()
       {
-         var dlg = new Views.Dialogs.FireSectionDialog(this)
-         {
-            Owner = Application.Current.MainWindow
-         };
-         if (dlg.ShowDialog() != true || dlg.Result == null) return;
+         var section = UiServices.Pages.ShowFireSectionDialog(this, null);
+         if (section == null) return;
 
-         var section = dlg.Result;
          section.Num = FireSections.Count > 0 ? FireSections.Max(s => s.Num) + 1 : 1;
          db.SaveFireSection(section);
          RenumberFireSections();
@@ -2384,13 +2275,9 @@ namespace OpenCS
       void RenameFireSection()
       {
          if (CurrentFireSection == null) return;
-         var dlg = new Views.Dialogs.FireSectionDialog(this, CurrentFireSection)
-         {
-            Owner = Application.Current.MainWindow
-         };
-         if (dlg.ShowDialog() != true || dlg.Result == null) return;
+         var updated = UiServices.Pages.ShowFireSectionDialog(this, CurrentFireSection);
+         if (updated == null) return;
 
-         var updated = dlg.Result;
          CurrentFireSection.Tag = updated.Tag;
          CurrentFireSection.SectionId = updated.SectionId;
          CurrentFireSection.FireDurationMin = updated.FireDurationMin;
@@ -2402,18 +2289,13 @@ namespace OpenCS
          db.SaveFireSection(CurrentFireSection);
          OnPropertyChanged(nameof(FireSections));
          OnPropertyChanged(nameof(CurrentFireSection));
-         CurrentPage = new Views.FireSectionView(CurrentFireSection, this);
+         CurrentPage = UiServices.Pages.CreateFireSectionPage(CurrentFireSection);
       }
 
       void DeleteFireSection()
       {
          if (CurrentFireSection == null) return;
-         var res = MessageBox.Show(
-            Loc.S("FireSection_ConfirmDelete"),
-            Loc.S("Warning"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-         if (res != MessageBoxResult.Yes) return;
+         if (!UiServices.Dialogs.Confirm("FireSection_ConfirmDelete", "Warning")) return;
 
          int deletedId = CurrentFireSection.Id;
          db.DeleteFireSection(deletedId);
@@ -2424,12 +2306,8 @@ namespace OpenCS
 
       void NewCalcTask(string? groupKey = null)
       {
-         var dlg = new CalcTaskPropsDialog(this, groupKey: groupKey)
-         {
-            Owner = Application.Current.MainWindow
-         };
-         if (dlg.ShowDialog() != true || dlg.Result == null) return;
-         var ct = dlg.Result;
+         var ct = UiServices.Pages.ShowCalcTaskDialog(this, existing: null, groupKey);
+         if (ct == null) return;
          ct.Num = CalcTasks.Count > 0 ? CalcTasks.Max(t => t.Num) + 1 : 1;
          db.SaveCalcTask(ct);
          LogService.Info(string.Format(Loc.S("CalcTaskCreated"), ct.Tag));
@@ -2444,12 +2322,8 @@ namespace OpenCS
       void EditCalcTask(CalcTask? ct)
       {
          if (ct == null) return;
-         var dlg = new CalcTaskPropsDialog(this, ct)
-         {
-            Owner = Application.Current.MainWindow
-         };
-         if (dlg.ShowDialog() != true || dlg.Result == null) return;
-         var src = dlg.Result;
+         var src = UiServices.Pages.ShowCalcTaskDialog(this, ct);
+         if (src == null) return;
          ct.Tag         = src.Tag;
          ct.Kind        = src.Kind;
          ct.SectionId   = src.SectionId;
@@ -2464,18 +2338,14 @@ namespace OpenCS
       void DeleteCalcTask(CalcTask? ct)
       {
          if (ct == null) return;
-         var res = MessageBox.Show(Loc.S("ConfirmDeleteCalcTask"), Loc.S("Warning"),
-            MessageBoxButton.YesNo, MessageBoxImage.Warning);
-         if (res != MessageBoxResult.Yes) return;
+         if (!UiServices.Dialogs.Confirm("ConfirmDeleteCalcTask", "Warning")) return;
          db.DeleteCalcTask(ct);
       }
 
       void DeleteCalcResults(CalcTask? ct)
       {
          if (ct == null) return;
-         var res = MessageBox.Show(string.Format(Loc.S("ConfirmDeleteCalcResults"), ct.Tag), Loc.S("Warning"),
-            MessageBoxButton.YesNo, MessageBoxImage.Warning);
-         if (res != MessageBoxResult.Yes) return;
+         if (!UiServices.Dialogs.Confirm(string.Format(Loc.S("ConfirmDeleteCalcResults"), ct.Tag), "Warning")) return;
          db.DeleteCalcResultsByTaskId(ct.Id);
       }
 
@@ -2504,10 +2374,10 @@ namespace OpenCS
       void RenameFemSchema(CScore.Fem.FemSchema? schema)
       {
          if (schema == null) return;
-         var dlg = new Views.Dialogs.TextInputDialog(
+         var value = UiServices.Pages.ShowTextInputDialog(
             Loc.S("FemSchemaRenameTitle"), Loc.S("FemSchemaRenameLabel"), schema.Tag);
-         if (dlg.ShowDialog() != true) return;
-         schema.Tag = dlg.Value;
+         if (value == null) return;
+         schema.Tag = value;
          db.SaveFemSchema(schema);
       }
 
@@ -2556,10 +2426,7 @@ namespace OpenCS
          }
          catch (Exception ex)
          {
-            System.Windows.MessageBox.Show(ex.Message,
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(ex.Message, Loc.S("ImportLiraErrorTitle"));
          }
       }
 
@@ -2601,10 +2468,7 @@ namespace OpenCS
          }
          catch (Exception ex)
          {
-            System.Windows.MessageBox.Show(ex.Message,
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(ex.Message, Loc.S("ImportLiraErrorTitle"));
          }
       }
 
@@ -2618,10 +2482,7 @@ namespace OpenCS
          var import = CScore.Import.ScadTextParser.Parse(fileName);
          if (!import.Success)
          {
-            System.Windows.MessageBox.Show(
-               import.Error ?? Loc.S("ImportScadFailed"),
-               Loc.S("ImportScadErrorTitle"),
-               MessageBoxButton.OK, MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(import.Error ?? Loc.S("ImportScadFailed"), Loc.S("ImportScadErrorTitle"));
             return;
          }
 
@@ -2666,10 +2527,7 @@ namespace OpenCS
             if (!import.Success)
             {
                EndBusy();
-               System.Windows.MessageBox.Show(
-                  import.Error ?? "Ошибка импорта RSU2",
-                  Loc.S("ImportScadErrorTitle"),
-                  MessageBoxButton.OK, MessageBoxImage.Error);
+               UiServices.Dialogs.ShowErrorText(import.Error ?? "Ошибка импорта RSU2", Loc.S("ImportScadErrorTitle"));
                return;
             }
 
@@ -2689,8 +2547,7 @@ namespace OpenCS
          catch (Exception ex)
          {
             EndBusy();
-            System.Windows.MessageBox.Show(ex.Message, Loc.S("ImportScadErrorTitle"),
-               MessageBoxButton.OK, MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(ex.Message, Loc.S("ImportScadErrorTitle"));
          }
       }
 
@@ -2718,22 +2575,18 @@ namespace OpenCS
             catch { /* ignore bad json */ }
          }
 
-         var dlg = new Views.ScadForceImportDialog(seed) { Owner = System.Windows.Application.Current.MainWindow };
-         if (dlg.ShowDialog() != true) return;
+         var dlg = UiServices.Pages.ShowScadForceImportDialog(seed);
+         if (dlg == null) return;
 
          HashSet<int> elementIds = [];
          if (!dlg.ImportAllElements)
          {
             if (!CScore.Import.ScadElementIdParser.TryParse(dlg.ElementText, out elementIds, out var parseError))
             {
-               System.Windows.MessageBox.Show(
-                  parseError ?? Loc.S("ImportScadFailed"),
-                  Loc.S("ImportScadErrorTitle"),
-                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               UiServices.Dialogs.ShowErrorText(parseError ?? Loc.S("ImportScadFailed"), Loc.S("ImportScadErrorTitle"));
                return;
             }
          }
-
          // Толщина пластин: A из XLS (внутри импортёра) поверх B из FEM-схемы; иначе поле диалога.
          var thicknessFromTopology = new Dictionary<int, double>();
          var schemaForThk = currentFemMember != null
@@ -2772,11 +2625,11 @@ namespace OpenCS
             if (!import.Success)
             {
                EndBusy();
-               System.Windows.MessageBox.Show(
-                  import.Error ?? import.Warning ?? Loc.S("ImportScadForcesNoRows"),
-                  Loc.S("ImportScadErrorTitle"),
-                  MessageBoxButton.OK,
-                  import.Error != null ? MessageBoxImage.Error : MessageBoxImage.Warning);
+               var importMessage = import.Error ?? import.Warning ?? Loc.S("ImportScadForcesNoRows");
+               if (import.Error != null)
+                  UiServices.Dialogs.ShowErrorText(importMessage, Loc.S("ImportScadErrorTitle"));
+               else
+                  UiServices.Dialogs.ShowWarningText(importMessage, Loc.S("ImportScadErrorTitle"));
                return;
             }
 
@@ -2804,8 +2657,7 @@ namespace OpenCS
          catch (Exception ex)
          {
             EndBusy();
-            System.Windows.MessageBox.Show(ex.Message, Loc.S("ImportScadErrorTitle"),
-               MessageBoxButton.OK, MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(ex.Message, Loc.S("ImportScadErrorTitle"));
          }
       }
 
@@ -2881,10 +2733,7 @@ namespace OpenCS
                LogService.Error("ДИАГНОСТИКА ЛираСАПР COM:\n" + msg);
                msg = msg.Split('\n')[0] + "\n\nПодробности — в журнале событий.";
             }
-            System.Windows.MessageBox.Show(msg,
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(msg, Loc.S("ImportLiraErrorTitle"));
          }
       }
 
@@ -2892,11 +2741,7 @@ namespace OpenCS
       {
          if (currentFemMember == null)
          {
-            System.Windows.MessageBox.Show(
-               Loc.S("ImportLiraForcesNoMember"),
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Warning);
+            UiServices.Dialogs.ShowWarningText(Loc.S("ImportLiraForcesNoMember"), Loc.S("ImportLiraErrorTitle"));
             return;
          }
 
@@ -2905,11 +2750,7 @@ namespace OpenCS
 
          if (elemIds.Length == 0)
          {
-            System.Windows.MessageBox.Show(
-               Loc.S("ImportLiraForcesNoElements"),
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Warning);
+            UiServices.Dialogs.ShowWarningText(Loc.S("ImportLiraForcesNoElements"), Loc.S("ImportLiraErrorTitle"));
             return;
          }
 
@@ -2938,10 +2779,7 @@ namespace OpenCS
          catch (Exception ex)
          {
             EndBusy();
-            System.Windows.MessageBox.Show(ex.Message,
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(ex.Message, Loc.S("ImportLiraErrorTitle"));
          }
       }
 
@@ -2949,11 +2787,7 @@ namespace OpenCS
       {
          if (currentFemMember == null)
          {
-            System.Windows.MessageBox.Show(
-               Loc.S("ImportLiraForcesNoMember"),
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Warning);
+            UiServices.Dialogs.ShowWarningText(Loc.S("ImportLiraForcesNoMember"), Loc.S("ImportLiraErrorTitle"));
             return;
          }
 
@@ -2962,11 +2796,7 @@ namespace OpenCS
 
          if (elemIds.Length == 0)
          {
-            System.Windows.MessageBox.Show(
-               Loc.S("ImportLiraForcesNoElements"),
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Warning);
+            UiServices.Dialogs.ShowWarningText(Loc.S("ImportLiraForcesNoElements"), Loc.S("ImportLiraErrorTitle"));
             return;
          }
 
@@ -2995,10 +2825,7 @@ namespace OpenCS
          catch (Exception ex)
          {
             EndBusy();
-            System.Windows.MessageBox.Show(ex.Message,
-               Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK,
-               System.Windows.MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(ex.Message, Loc.S("ImportLiraErrorTitle"));
          }
       }
 
@@ -3006,16 +2833,14 @@ namespace OpenCS
       {
          if (currentFemMember == null)
          {
-            System.Windows.MessageBox.Show(Loc.S("ImportLiraForcesNoMember"), Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            UiServices.Dialogs.ShowWarningText(Loc.S("ImportLiraForcesNoMember"), Loc.S("ImportLiraErrorTitle"));
             return;
          }
 
          var elemIds = System.Text.Json.JsonSerializer.Deserialize<int[]>(currentFemMember.MemberTagsJson) ?? [];
          if (elemIds.Length == 0)
          {
-            System.Windows.MessageBox.Show(Loc.S("ImportLiraForcesNoElements"), Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+            UiServices.Dialogs.ShowWarningText(Loc.S("ImportLiraForcesNoElements"), Loc.S("ImportLiraErrorTitle"));
             return;
          }
 
@@ -3040,8 +2865,7 @@ namespace OpenCS
          catch (Exception ex)
          {
             EndBusy();
-            System.Windows.MessageBox.Show(ex.Message, Loc.S("ImportLiraErrorTitle"),
-               System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            UiServices.Dialogs.ShowErrorText(ex.Message, Loc.S("ImportLiraErrorTitle"));
          }
       }
 
@@ -3064,7 +2888,7 @@ namespace OpenCS
          IsBusyProgressIndeterminate = indeterminate;
          BusyProgress = 0;
          IsBusy = true;
-         System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+         UiServices.Dispatcher.InvalidateRequerySuggested();
       }
 
       public CancellationTokenSource BeginBusyWithCancellation(string message, bool indeterminate = true)
@@ -3094,7 +2918,7 @@ namespace OpenCS
          IsBusyProgressIndeterminate = true;
          BusyProgress = 0;
          StatusMessage = message ?? "";
-         System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+         UiServices.Dispatcher.InvalidateRequerySuggested();
       }
 
       // COM-объекты ЛИРЫ требуют STA; ThreadPool-потоки — MTA, поэтому запускаем в отдельном STA-потоке.
@@ -3125,9 +2949,9 @@ namespace OpenCS
       {
          schema ??= currentFemSchema;
          if (schema == null) return;
-         var dlg = new Views.FemMemberDialog();
-         if (dlg.ShowDialog() != true) return;
-         var ids = Views.LiraElemRangeDialog.ParseRange(dlg.Range);
+         var dlg = UiServices.Pages.ShowFemMemberDialog();
+         if (dlg == null) return;
+         var ids = Utilites.LiraRangeParser.Parse(dlg.Range);
          CreateFemMemberFromRange(schema, ids, dlg.MemberTag, dlg.MemberType);
       }
 
@@ -3239,17 +3063,16 @@ namespace OpenCS
 
       void AddFemCheck(CScore.Fem.FemMemberGroup? member)
       {
-         var dlg = new Views.FemCheckDialog(this);
-         if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
-         var check = dlg.ResultCheck;
+         var check = UiServices.Pages.ShowFemCheckCreateDialog(this, sls: false);
+         if (check == null) return;
          db.SaveFemCheck(check);
       }
 
       void AddSlsFemCheck()
       {
-         var dlg = new Views.FemSlsCheckDialog(this);
-         if (dlg.ShowDialog() != true || dlg.ResultCheck == null) return;
-         db.SaveFemCheck(dlg.ResultCheck);
+         var check = UiServices.Pages.ShowFemCheckCreateDialog(this, sls: true);
+         if (check == null) return;
+         db.SaveFemCheck(check);
       }
 
       void EditFemCheck(CScore.Fem.FemCheck? check)
@@ -3259,17 +3082,7 @@ namespace OpenCS
 
          bool isSls = check.NormCode == "rc_plate_check"
                       && CScore.Fem.PlateCheckParams.Parse(check.ParamsJson).CheckGroup == "sls";
-
-         if (isSls)
-         {
-             var dlg = new Views.FemSlsCheckDialog(this, check);
-             if (dlg.ShowDialog() != true) return;
-         }
-         else
-         {
-             var dlg = new Views.FemCheckDialog(this, check);
-             if (dlg.ShowDialog() != true) return;
-         }
+         UiServices.Pages.ShowFemCheckEditDialog(this, check, isSls);
          db.SaveFemCheck(check);
       }
 
@@ -3351,7 +3164,7 @@ namespace OpenCS
          db.SaveFemCheck(check);
 
          CurrentFemCheck = check;
-         CurrentPage = new Views.FemCheckResultView(result);
+         CurrentPage = UiServices.Pages.CreateFemCheckResultPage(result);
          LogService.Info($"FemCheck «{check.DisplayTag}»: {result.Status}");
       }
 
@@ -3359,12 +3172,8 @@ namespace OpenCS
       {
          schema ??= currentFemSchema;
          if (schema == null) return;
-         var dlg = new Views.FemAnalysisDialog(schema)
-         {
-            Owner = System.Windows.Application.Current.MainWindow
-         };
-         if (dlg.ShowDialog() != true) return;
-         var analysis = dlg.Result;
+         var analysis = UiServices.Pages.ShowFemAnalysisDialog(schema);
+         if (analysis == null) return;
          analysis.SchemaId = schema.Id;
          db.SaveFemAnalysis(analysis);   // добавит в schema.Analyses
       }
@@ -3375,23 +3184,20 @@ namespace OpenCS
          var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
          if (schema == null) return;
 
-         var dlg = new Views.FemAnalysisDialog(schema, analysis)
-         {
-            Owner = System.Windows.Application.Current.MainWindow
-         };
-         if (dlg.ShowDialog() != true) return;
-         bool changed = analysis.Tag != dlg.Result.Tag ||
-            analysis.Kind != dlg.Result.Kind ||
-            analysis.LoadExpressionJson != dlg.Result.LoadExpressionJson ||
-            analysis.ParamsJson != dlg.Result.ParamsJson;
-         analysis.Tag = dlg.Result.Tag;
-         analysis.Kind = dlg.Result.Kind;
-         analysis.LoadExpressionJson = dlg.Result.LoadExpressionJson;
-         analysis.ParamsJson = dlg.Result.ParamsJson;
+         var src = UiServices.Pages.ShowFemAnalysisDialog(schema, analysis);
+         if (src == null) return;
+         bool changed = analysis.Tag != src.Tag ||
+            analysis.Kind != src.Kind ||
+            analysis.LoadExpressionJson != src.LoadExpressionJson ||
+            analysis.ParamsJson != src.ParamsJson;
+         analysis.Tag = src.Tag;
+         analysis.Kind = src.Kind;
+         analysis.LoadExpressionJson = src.LoadExpressionJson;
+         analysis.ParamsJson = src.ParamsJson;
          if (changed)
             analysis.InvalidateResult();
          db.SaveFemAnalysis(analysis);
-         CommandManager.InvalidateRequerySuggested();
+         UiServices.Dispatcher.InvalidateRequerySuggested();
       }
 
       void ViewFemAnalysisResult(CScore.Fem.FemAnalysis? analysis)
@@ -3402,17 +3208,18 @@ namespace OpenCS
          var result = db.GetCalcResultById(resultId);
          if (result == null) return;
 
-         var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
-         vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag, result);
-         vm.GoToSectionRequested += tag => {
-            var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
-            if (member != null && member.CrossSectionId.HasValue) {
-               var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
-               if (section != null) CurrentCrossSection = section;
-            }
-         };
-         vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
-         CurrentPage = new Views.FemAnalysisResultView(vm);
+         FemAnalysisResultPage page = null!;
+         page = UiServices.Pages.CreateFemAnalysisResultPage(result, this, schema,
+            tag => ShowMemberForceDiagram(schema, tag, result),
+            tag => {
+               var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
+               if (member != null && member.CrossSectionId.HasValue) {
+                  var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
+                  if (section != null) CurrentCrossSection = section;
+               }
+            },
+            tag => ShowFemNodeResult(page.Handle, tag));
+         CurrentPage = page.Page;
       }
 
       async Task RunFemAnalysis(CScore.Fem.FemAnalysis? analysis)
@@ -3433,17 +3240,18 @@ namespace OpenCS
             analysis.Status   = result.Status;
             db.SaveFemAnalysis(analysis);
 
-            var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
-            vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag, result);
-            vm.GoToSectionRequested += tag => {
-               var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
-               if (member != null && member.CrossSectionId.HasValue) {
-                  var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
-                  if (section != null) CurrentCrossSection = section;
-               }
-            };
-            vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
-            
+            FemAnalysisResultPage page = null!;
+            page = UiServices.Pages.CreateFemAnalysisResultPage(result, this, schema,
+               tag => ShowMemberForceDiagram(schema, tag, result),
+               tag => {
+                  var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
+                  if (member != null && member.CrossSectionId.HasValue) {
+                     var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
+                     if (section != null) CurrentCrossSection = section;
+                  }
+               },
+               tag => ShowFemNodeResult(page.Handle, tag));
+
             var statusKey = result.Status switch
             {
                 "ok" => "CalcResultOk",
@@ -3460,14 +3268,14 @@ namespace OpenCS
             else
                 LogService.Error(done);
 
-            if (vm.Diagnostics.Count > 0)
-                foreach (var diag in vm.Diagnostics)
+            if (page.Handle.Diagnostics.Count > 0)
+                foreach (var diag in page.Handle.Diagnostics)
                     LogService.Warning($"[{analysis.Tag}] {diag}");
             
-            if (vm.HasArtifacts)
-                LogService.Info($"[{analysis.Tag}] {Loc.S("FemResultArtifacts")} {vm.ArtifactDirectory}");
+            if (page.Handle.HasArtifacts)
+                LogService.Info($"[{analysis.Tag}] {Loc.S("FemResultArtifacts")} {page.Handle.ArtifactDirectory}");
 
-            CurrentPage = new Views.FemAnalysisResultView(vm);
+            CurrentPage = page.Page;
             EndBusy(string.Format(Loc.S("FemAnalysisDone"), analysis.Tag));
          }
          catch (OperationCanceledException)
@@ -3491,9 +3299,9 @@ namespace OpenCS
          db.DeleteFemAnalysis(analysis);
       }
 
-      void ShowFemNodeResult(ViewModels.FemAnalysisResultVM vm, string tag)
+      void ShowFemNodeResult(IFemAnalysisResultHandle handle, string tag)
       {
-         if (!vm.TryGetNodeResult(tag, out var point, out var displacement, out var reaction))
+         if (!handle.TryGetNodeResult(tag, out var point, out var displacement, out var reaction))
             return;
 
          var lines = new List<string>
@@ -3505,7 +3313,7 @@ namespace OpenCS
          if (reaction is { } r)
             lines.Add(string.Format(Loc.S("FemResultNodeReactions"),
                r.Rx / 1000, r.Ry / 1000, r.Rz / 1000, r.Mx / 1000, r.My / 1000, r.Mz / 1000));
-         MessageBox.Show(string.Join(Environment.NewLine, lines), Loc.S("FemResultNodeTitle"));
+         UiServices.Dialogs.ShowInfoText(string.Join(Environment.NewLine, lines), Loc.S("FemResultNodeTitle"));
       }
 
       /// <summary>Открывает 2D-эпюры усилий по одному конструктивному стержню
@@ -3524,11 +3332,11 @@ namespace OpenCS
             LogService.Warning(Loc.S("FemMemberForceNoResult"));
             return;
          }
-         CurrentPage = new Views.FemMemberForceView(db, schema, memberTag, cr);
+         CurrentPage = UiServices.Pages.CreateFemMemberForcePage(db, schema, memberTag, cr);
       }
 
       void ShowMemberForceDiagram(CScore.Fem.FemSchema schema, string memberTag, CalcResult result)
-         => CurrentPage = new Views.FemMemberForceView(db, schema, memberTag, result);
+         => CurrentPage = UiServices.Pages.CreateFemMemberForcePage(db, schema, memberTag, result);
 
       void DeleteFemCheck(CScore.Fem.FemCheck? check = null)
       {
@@ -3544,11 +3352,7 @@ namespace OpenCS
 
       void DeleteAllFemChecks()
       {
-         var res = MessageBox.Show(
-            Loc.S("FemCheckDeleteAllConfirm"),
-            Loc.S("Confirmation"),
-            MessageBoxButton.YesNo, MessageBoxImage.Warning);
-         if (res != MessageBoxResult.Yes) return;
+         if (!UiServices.Dialogs.Confirm("FemCheckDeleteAllConfirm", "Confirmation")) return;
          db.DeleteAllFemChecks();
          currentFemCheck = null;
          CurrentPage = null!;
@@ -3562,12 +3366,8 @@ namespace OpenCS
          var sets = ForceSets.Where(fs => fs.SourceSchemaId == schema.Id).ToList();
          if (sets.Count == 0) return;
 
-         var res = System.Windows.MessageBox.Show(
-            string.Format(Loc.S("ConfirmDeleteFemForceSets"), sets.Count, schema.Tag),
-            Loc.S("Warning"),
-            System.Windows.MessageBoxButton.YesNo,
-            System.Windows.MessageBoxImage.Warning);
-         if (res != System.Windows.MessageBoxResult.Yes) return;
+         if (!UiServices.Dialogs.Confirm(
+            string.Format(Loc.S("ConfirmDeleteFemForceSets"), sets.Count, schema.Tag), "Warning")) return;
 
          foreach (var fs in sets)
              db.DeleteForceSet(fs);
@@ -3581,19 +3381,11 @@ namespace OpenCS
           var sets = ForceSets.Where(fs => fs.SourceSchemaId == schema.Id).ToList();
           if (sets.Count == 0) return;
 
-          var dlg = new Views.DeleteForceSetsDialog(sets);
-          dlg.Owner = System.Windows.Application.Current.MainWindow;
-          if (dlg.ShowDialog() != true) return;
+          var selected = UiServices.Pages.ShowDeleteForceSetsDialog(sets);
+          if (selected == null || selected.Count == 0) return;
 
-          var selected = dlg.SelectedSets;
-          if (selected.Count == 0) return;
-
-          var res = System.Windows.MessageBox.Show(
-             string.Format(Loc.S("DeleteSelectedForceSetsConfirm"), selected.Count),
-             Loc.S("Warning"),
-             System.Windows.MessageBoxButton.YesNo,
-             System.Windows.MessageBoxImage.Warning);
-          if (res != System.Windows.MessageBoxResult.Yes) return;
+          if (!UiServices.Dialogs.Confirm(
+             string.Format(Loc.S("DeleteSelectedForceSetsConfirm"), selected.Count), "Warning")) return;
 
            foreach (var fs in selected)
               db.DeleteForceSet(fs);
@@ -3604,19 +3396,11 @@ namespace OpenCS
            var sets = ForceSets.Where(fs => fs.Kind == kind).ToList();
            if (sets.Count == 0) return;
 
-           var dlg = new Views.DeleteForceSetsDialog(sets);
-           dlg.Owner = System.Windows.Application.Current.MainWindow;
-           if (dlg.ShowDialog() != true) return;
+           var selected = UiServices.Pages.ShowDeleteForceSetsDialog(sets);
+           if (selected == null || selected.Count == 0) return;
 
-           var selected = dlg.SelectedSets;
-           if (selected.Count == 0) return;
-
-           var res = System.Windows.MessageBox.Show(
-              string.Format(Loc.S("DeleteSelectedForceSetsConfirm"), selected.Count),
-              Loc.S("Warning"),
-              System.Windows.MessageBoxButton.YesNo,
-              System.Windows.MessageBoxImage.Warning);
-           if (res != System.Windows.MessageBoxResult.Yes) return;
+           if (!UiServices.Dialogs.Confirm(
+              string.Format(Loc.S("DeleteSelectedForceSetsConfirm"), selected.Count), "Warning")) return;
 
             foreach (var fs in selected)
             {
@@ -3639,12 +3423,8 @@ namespace OpenCS
             var sets = ForceSets.Where(fs => fs.Kind == kind).ToList();
             if (sets.Count == 0) return;
 
-            var res = System.Windows.MessageBox.Show(
-               string.Format(Loc.S("ConfirmDeleteAllForceSets"), sets.Count),
-               Loc.S("Warning"),
-               System.Windows.MessageBoxButton.YesNo,
-               System.Windows.MessageBoxImage.Warning);
-            if (res != System.Windows.MessageBoxResult.Yes) return;
+            if (!UiServices.Dialogs.Confirm(
+               string.Format(Loc.S("ConfirmDeleteAllForceSets"), sets.Count), "Warning")) return;
 
             foreach (var fs in sets)
             {

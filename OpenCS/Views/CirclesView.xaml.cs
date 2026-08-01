@@ -3,10 +3,12 @@ using CScore;
 using System.Windows.Controls;
 using System.Windows.Threading;
 
+using OpenCS.ViewModels;
+
 namespace OpenCS.Views
 {
    /// <summary>Табличное представление коллекции окружностей проекта.</summary>
-   public partial class CirclesView : UserControl
+   public partial class CirclesView : UserControl, OpenCS.ViewModels.IContentPage
    {
       AppViewModel mvm;
 
