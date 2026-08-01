@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
         xmlns:conv="clr-namespace:OpenCS.Converters"
+        xmlns:util="clr-namespace:OpenCS.Utilites"
         Title="{DynamicResource PlanarRegionMemberDialogTitle}"
         Width="720" Height="560" WindowStartupLocation="CenterOwner"
         Loaded="Window_Loaded" Closing="Window_Closing">
@@ -16,6 +17,7 @@
          <Setter Property="BorderThickness" Value="0"/>
          <Setter Property="Background" Value="Transparent"/>
       </Style>
+      <util:AnyDoubleConverter x:Key="AnyDoubleConverter"/>
    </Window.Resources>
    <TabControl>
       <TabItem Header="{DynamicResource PlanarRegionTabGeometry}">
@@ -67,7 +69,7 @@
                   </ToggleButton>
                   <TextBlock Text="{DynamicResource PlanarRegionMeshSizeLabel}" VerticalAlignment="Center" Margin="4,0,2,0"/>
                   <TextBox Width="55" Height="22" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                           Text="{Binding MeshMaxElementSizeM, UpdateSourceTrigger=PropertyChanged, StringFormat=G4}"
+                           Text="{Binding MeshMaxElementSizeM, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource AnyDoubleConverter}}"
                            ToolTip="{DynamicResource PlanarRegionMeshSizeTip}"/>
                </ToolBar>
                <Border Grid.Row="1" BorderThickness="0,0,1,0"
