@@ -107,12 +107,31 @@ public class PlanarRegionMemberVM : ViewModelBase
     public bool RebarLayoutDirty { get => _rebarLayoutDirty; private set { _rebarLayoutDirty = value; OnPropertyChanged(); } }
 
     double _meshMaxElementSizeM;
-    public double MeshMaxElementSizeM { get => _meshMaxElementSizeM; set { _meshMaxElementSizeM = value; OnPropertyChanged(); } }
+    /// <summary>Сеттер игнорирует повторную установку того же значения — иначе безусловный
+    /// OnPropertyChanged на каждое нажатие клавиши заставляет WPF реформатировать TextBox.Text
+    /// через AnyDoubleConverter прямо во время набора и стирать только что введённый разделитель
+    /// дробной части («0.» откатывается обратно в «0» раньше, чем пользователь допечатает «3»).</summary>
+    public double MeshMaxElementSizeM
+    {
+        get => _meshMaxElementSizeM;
+        set
+        {
+            if (_meshMaxElementSizeM == value) return;
+            _meshMaxElementSizeM = value;
+            OnPropertyChanged();
+        }
+    }
 
     /// <summary>Построение/показ сетки доступны только для уже сохранённого региона — диалог
     /// закрывается сразу после Save, поэтому свежесозданный регион нужно сначала сохранить и
     /// открыть заново.</summary>
     public bool CanBuildMesh => _existingRegion != null;
+
+    /// <summary>Изменился ли размер элемента сетки относительно последнего сохранённого значения
+    /// региона — использованный при последней сборке snapshot размер мог отличаться от того, что
+    /// сохранён в БД, если пользователь не нажал «Сохранить». Используется для предупреждения при
+    /// закрытии диалога (см. PlanarRegionMemberDialog.Window_Closing).</summary>
+    public bool MeshSizeDirty => _existingRegion != null && MeshMaxElementSizeM != _existingRegion.MeshMaxElementSizeM;
 
     bool _showMesh;
     public bool ShowMesh { get => _showMesh; private set { _showMesh = value; OnPropertyChanged(); RefreshGeometryPlotElements(); } }
@@ -737,6 +756,7 @@ public class PlanarRegionMemberVM : ViewModelBase
 
         region.RebarZones = [.. RebarZones.Select(vm => vm.Model)];
         region.RebarSectionGridStep = RebarSectionGridStep;
+        region.MeshMaxElementSizeM = MeshMaxElementSizeM;
 
         if (_existingRegion != null)
         {

@@ -49,10 +49,14 @@ public partial class PlanarRegionMemberDialog : System.Windows.Window
 
     void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        if (!_vm.HasZones || !_vm.RebarLayoutDirty) return;
+        bool rebarDirty = _vm.HasZones && _vm.RebarLayoutDirty;
+        if (!rebarDirty && !_vm.MeshSizeDirty) return;
 
+        string prompt = rebarDirty
+            ? Loc.S("PlanarRegionRebarUnsavedChangesPrompt")
+            : Loc.S("PlanarRegionUnsavedChangesPrompt");
         var result = System.Windows.MessageBox.Show(
-            Loc.S("PlanarRegionRebarUnsavedChangesPrompt"), Loc.S("Warning"),
+            prompt, Loc.S("Warning"),
             System.Windows.MessageBoxButton.YesNoCancel, System.Windows.MessageBoxImage.Warning);
 
         if (result == System.Windows.MessageBoxResult.Cancel) { e.Cancel = true; return; }
