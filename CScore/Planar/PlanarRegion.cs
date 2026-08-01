@@ -73,8 +73,7 @@ public sealed class PlanarRegion
         }
         else
         {
-            var zeros = new double[hx.Length];
-            region.Frame = Frame3D.FromPolygon(hx, hy, zeros);
+            region.Frame = Frame3D.Identity;
             region.FrameIsRecovered = true;
         }
 

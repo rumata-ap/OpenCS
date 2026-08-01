@@ -43,7 +43,7 @@ public static class PlanarRegionValidator
         if (region.FrameIsRecovered)
             diagnostics.Add(new FemValidationDiagnostic(
                 "planar_region_frame_recovered",
-                "Локальная система координат восстановлена автоматически по геометрии, а не импортирована.",
+                "Локальная система координат не задана явно; принята глобальная 2D-рамка по умолчанию.",
                 IsError: false));
 
         if (region.BoundarySegments.Count == 0)

@@ -44,7 +44,23 @@ public class PlanarRegionTests
         var region = PlanarRegion.CreateFromContour(OpenSquareContour());
 
         Assert.True(region.FrameIsRecovered);
+        Assert.Equal(Frame3D.Identity, region.Frame);
         Assert.True(Math.Abs(region.Frame.LocalZ.Z - 1.0) < 1e-9);
+    }
+
+    [Fact]
+    public void CreateFromContour_WithRecoveredFrame_KeepsContourCoordinatesInIdentityPlane()
+    {
+        var source = new Contour { X = [10, 12, 12, 10], Y = [20, 20, 21, 21] };
+
+        var region = PlanarRegion.CreateFromContour(source);
+
+        Assert.Equal(source.X, region.Hull.X.Take(4));
+        Assert.Equal(source.Y, region.Hull.Y.Take(4));
+        Assert.Equal(PlanarVector3.Zero, region.Frame.Origin);
+        Assert.Equal(new PlanarVector3(1, 0, 0), region.Frame.LocalX);
+        Assert.Equal(new PlanarVector3(0, 1, 0), region.Frame.LocalY);
+        Assert.Equal(new PlanarVector3(0, 0, 1), region.Frame.LocalZ);
     }
 
     [Fact]
