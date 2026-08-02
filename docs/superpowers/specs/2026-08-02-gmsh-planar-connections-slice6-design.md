@@ -46,8 +46,10 @@
 tag. Список точек является открытой polyline; направление от первой точки к последней
 значимо.
 
-`PlanarConnection` содержит стабильный `Id`, `Tag`, два locus-а, mesh mode и единый
-`MatchingToleranceM`. Locus-ы не содержат ссылок на живые `PlanarRegion`; регионы
+`PlanarConnection` содержит положительный integer `Id`, назначенный при сохранении,
+`Tag`, два locus-а, mesh mode и единый `MatchingToleranceM`. Несохранённая связь с `Id == 0`
+не может запускать meshing workflow; это исключает коллизию request-local IDs. Locus-ы не
+содержат ссылок на живые `PlanarRegion`; регионы
 разрешаются через IDs при orchestration. Это позволяет сохранять связь отдельно от
 конкретных объектов и явно диагностировать удалённые регионы.
 
