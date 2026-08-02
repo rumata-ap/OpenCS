@@ -80,7 +80,7 @@ public static class PlanarMeshSnapshotValidator
                     diagnostics.Add(new("planar_mesh_constraint_edge_duplicate", $"Constraint mapping '{mapping.ConstraintObjectId}' содержит повторяющееся edge."));
             }
 
-            foreach (var elementIndex in mapping.CurveElementIndices.Concat(mapping.RegionElementIndices))
+            foreach (var elementIndex in mapping.RegionElementIndices)
                 if (!elementIndices.Contains(elementIndex))
                     diagnostics.Add(new("planar_mesh_constraint_element_unknown", $"Constraint mapping ссылается на неизвестный элемент {elementIndex}."));
             foreach (var nodeIndex in mapping.RegionNodeIndices)

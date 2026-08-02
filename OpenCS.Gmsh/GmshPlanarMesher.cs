@@ -6,6 +6,9 @@ using System.Text.RegularExpressions;
 using CScore;
 using CScore.Fem;
 using CScore.Planar;
+using OpenCS.Gmsh.Generation;
+using OpenCS.Gmsh.Mapping;
+using OpenCS.Gmsh.Parsing;
 using OpenCS.Gmsh.Runtime;
 
 namespace OpenCS.Gmsh;
@@ -13,7 +16,7 @@ namespace OpenCS.Gmsh;
 /// <summary>Строит сетку одного PlanarRegion внешним Gmsh в формате MSH 2.2 ASCII.</summary>
 public sealed class GmshPlanarMesher : IPlanarMesher
 {
-    public const string GeneratorVersion = "gmsh-planar-v2";
+    public const string GeneratorVersion = "gmsh-planar-v3-msh41";
     const int OuterPhysicalGroup = 1001;
     const int HolePhysicalGroupBase = 1002;
     const int SurfacePhysicalGroup = 2001;
@@ -47,22 +50,24 @@ public sealed class GmshPlanarMesher : IPlanarMesher
 
             var geoPath = Path.Combine(directory, "model.geo");
             var mshPath = Path.Combine(directory, "model.msh");
-            await File.WriteAllTextAsync(geoPath, BuildGeo(request.Region, request.Settings), Encoding.UTF8, cancellationToken);
+            await File.WriteAllTextAsync(geoPath, GmshPlanarGeoBuilder.Build(request.Region, request.Settings), Encoding.UTF8, cancellationToken);
             var result = await GmshProcessRunner.RunAsync(
                 executable.Path,
                 directory,
-                [geoPath, "-2", "-format", "msh22", "-order", "1", "-o", mshPath],
+                [geoPath, "-2", "-format", "msh41", "-order", "1", "-o", mshPath],
                 _options.Timeout,
                 cancellationToken);
             await File.WriteAllTextAsync(Path.Combine(directory, "stdout.log"), result.Output, cancellationToken);
             await File.WriteAllTextAsync(Path.Combine(directory, "stderr.log"), result.Error, cancellationToken);
             if (result.ExitCode != 0 || !File.Exists(mshPath))
             {
-                diagnostics.Add(new("gmsh_process_failed", $"Gmsh завершился с кодом {result.ExitCode}."));
+                var error = string.IsNullOrWhiteSpace(result.Error) ? "" : $" {result.Error.Trim()}";
+                diagnostics.Add(new("gmsh_process_failed", $"Gmsh завершился с кодом {result.ExitCode}.{error}"));
                 return Failed(request, diagnostics, provenance);
             }
 
-            var parsed = ParseMsh22(await File.ReadAllLinesAsync(mshPath, cancellationToken), request.Region.Frame, request.Region);
+            var msh = GmshMsh41Reader.Read(await File.ReadAllTextAsync(mshPath, cancellationToken));
+            var parsed = ParseMsh41(msh, request.Region.Frame, request.Region);
             diagnostics.AddRange(parsed.Diagnostics);
             var snapshot = new PlanarMeshSnapshot
             {
@@ -74,7 +79,10 @@ public sealed class GmshPlanarMesher : IPlanarMesher
                 Diagnostics = diagnostics,
                 Nodes = parsed.Nodes,
                 Elements = parsed.Elements,
-                BoundaryMappings = parsed.BoundaryMappings
+                BoundaryMappings = parsed.BoundaryMappings,
+                EntityProvenance = parsed.EntityProvenance,
+                ConstraintMappings = parsed.ConstraintMappings,
+                MeshFormatVersion = "msh41"
             };
             diagnostics.AddRange(PlanarMeshSnapshotValidator.Validate(snapshot));
             return new PlanarMeshSnapshot
@@ -87,7 +95,10 @@ public sealed class GmshPlanarMesher : IPlanarMesher
                 Diagnostics = diagnostics,
                 Nodes = snapshot.Nodes,
                 Elements = snapshot.Elements,
-                BoundaryMappings = snapshot.BoundaryMappings
+                BoundaryMappings = snapshot.BoundaryMappings,
+                MeshFormatVersion = snapshot.MeshFormatVersion,
+                EntityProvenance = snapshot.EntityProvenance,
+                ConstraintMappings = snapshot.ConstraintMappings
             };
         }
         catch (GmshProcessTimeoutException ex)
@@ -150,41 +161,65 @@ public sealed class GmshPlanarMesher : IPlanarMesher
         catch (InvalidOperationException) { return null; }
     }
 
-    static string BuildGeo(PlanarRegion region, PlanarMeshSettings settings)
+    static string BuildGeo(PlanarRegion region, PlanarMeshSettings settings) =>
+        GmshPlanarGeoBuilder.Build(region, settings);
+
+    static (IReadOnlyList<PlanarMeshNode> Nodes, IReadOnlyList<PlanarMeshElement> Elements,
+        IReadOnlyList<PlanarMeshBoundaryMapping> BoundaryMappings,
+        IReadOnlyList<PlanarMeshEntityProvenance> EntityProvenance,
+        IReadOnlyList<PlanarConstraintMeshMapping> ConstraintMappings,
+        IReadOnlyList<FemValidationDiagnostic> Diagnostics)
+        ParseMsh41(GmshMsh41Document document, Frame3D frame, PlanarRegion region)
     {
-        var result = new StringBuilder();
-        result.AppendLine("Mesh.ElementOrder = 1;");
-        result.AppendLine($"Mesh.Algorithm = {settings.Algorithm};");
-        result.AppendLine($"Mesh.CharacteristicLengthMax = {settings.MaxElementSizeM.ToString("G17", CultureInfo.InvariantCulture)};");
-        if (settings.ElementMode is PlanarMeshElementMode.Quads or PlanarMeshElementMode.Mixed)
-            result.AppendLine("Mesh.RecombineAll = 1;");
-
-        var loops = new List<int>();
-        var point = 1;
-        var line = 1;
-        var holeIndex = 0;
-        foreach (var contour in region.Contours)
+        var rawNodes = document.Nodes.ToDictionary(node => node.RawId);
+        var ids = rawNodes.Keys.OrderBy(id => id).ToArray();
+        var indices = ids.Select((id, dense) => (id, dense)).ToDictionary(pair => pair.id, pair => pair.dense);
+        var nodes = ids.Select((id, dense) =>
         {
-            var (x, y) = PlanarRegionTopologyValidator.ToOpenLoop(contour.X, contour.Y);
-            var points = Enumerable.Range(point, x.Length).ToArray();
-            for (var i = 0; i < points.Length; i++)
-                result.AppendLine($"Point({points[i]}) = {{{Fmt(x[i])}, {Fmt(y[i])}, 0, {Fmt(settings.MaxElementSizeM)}}};");
+            var node = rawNodes[id];
+            var global = frame.Origin + frame.LocalX * node.X + frame.LocalY * node.Y;
+            return new PlanarMeshNode(dense, node.X, node.Y, global.X, global.Y, global.Z);
+        }).ToArray();
 
-            var lines = Enumerable.Range(line, x.Length).ToArray();
-            for (var i = 0; i < lines.Length; i++)
-                result.AppendLine($"Line({lines[i]}) = {{{points[i]}, {points[(i + 1) % points.Length]}}};");
-            var loop = loops.Count + 1;
-            result.AppendLine($"Curve Loop({loop}) = {{{string.Join(", ", lines)}}};");
-            var physical = contour.Type == ContourType.Hull ? OuterPhysicalGroup : HolePhysicalGroupBase + holeIndex++;
-            result.AppendLine($"Physical Curve({physical}) = {{{string.Join(", ", lines)}}};");
-            loops.Add(loop);
-            point += x.Length;
-            line += x.Length;
+        var diagnostics = document.Diagnostics.ToList();
+        var elements = new List<PlanarMeshElement>();
+        var boundaryEdges = new Dictionary<PlanarBoundaryKey, List<(int A, int B)>>();
+        var expectedLines = BoundaryLineMap(region);
+        foreach (var item in document.Elements)
+        {
+            if (item.ElementType == 1)
+            {
+                if (item.RawNodeIds.Count != 2) throw new InvalidDataException("Некорректная связность граничного элемента MSH 4.1.");
+                if (!expectedLines.TryGetValue((int)item.EntityTag, out var key)) continue;
+                if (item.PhysicalGroup != PhysicalGroup(key))
+                    diagnostics.Add(new("gmsh_boundary_physical_group_mismatch", $"Граничный entity {item.EntityTag} имеет physical group {item.PhysicalGroup}, ожидался {PhysicalGroup(key)}."));
+                var a = DenseIndex41(item.RawNodeIds[0], indices);
+                var b = DenseIndex41(item.RawNodeIds[1], indices);
+                if (!boundaryEdges.TryGetValue(key, out var edgeList)) boundaryEdges[key] = edgeList = [];
+                edgeList.Add((a, b));
+                continue;
+            }
+
+            if (item.ElementType is not (2 or 3)) continue;
+            var expectedCount = item.ElementType == 2 ? 3 : 4;
+            if (item.RawNodeIds.Count != expectedCount) throw new InvalidDataException("Некорректная связность shell-элемента MSH 4.1.");
+            var connectivity = item.RawNodeIds.Select(raw => DenseIndex41(raw, indices)).ToArray();
+            if (SignedArea(connectivity.Select(index => nodes[index]).ToArray()) < 0) Array.Reverse(connectivity);
+            elements.Add(new(elements.Count, expectedCount == 3 ? PlanarMeshElementKind.Triangle3 : PlanarMeshElementKind.Quadrangle4, connectivity));
         }
-        result.AppendLine($"Plane Surface(1) = {{{string.Join(", ", loops)}}};");
-        result.AppendLine($"Physical Surface({SurfacePhysicalGroup}) = {{1}};");
-        return result.ToString();
+
+        if (elements.Count == 0)
+            diagnostics.Add(new("gmsh_mesh_empty", "Gmsh не вернул ни одного T3 или Q4 элемента."));
+        var mappings = BuildBoundaryMappings(expectedLines, boundaryEdges, nodes, region, diagnostics);
+        var constraintResult = PlanarConstraintMeshMapper.Map(region, document, nodes, elements);
+        diagnostics.AddRange(constraintResult.Diagnostics.Where(diagnostic => !document.Diagnostics.Contains(diagnostic)));
+        return (nodes, elements, mappings,
+            constraintResult.Mappings.SelectMany(mapping => mapping.EntityProvenance).Distinct().ToArray(),
+            constraintResult.Mappings, diagnostics);
     }
+
+    static int DenseIndex41(long rawId, IReadOnlyDictionary<long, int> indices) =>
+        indices.TryGetValue(rawId, out var index) ? index : throw new InvalidDataException($"Элемент MSH ссылается на неизвестный узел {rawId}.");
 
     static (IReadOnlyList<PlanarMeshNode> Nodes, IReadOnlyList<PlanarMeshElement> Elements,
         IReadOnlyList<PlanarMeshBoundaryMapping> BoundaryMappings, IReadOnlyList<FemValidationDiagnostic> Diagnostics)

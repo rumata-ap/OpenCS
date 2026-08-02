@@ -111,14 +111,14 @@ public static class GmshMsh41Reader
     {
         for (var i = 0; i < count; i++)
         {
-            var values = Split(NextRequired(lines, ref index, "$Entities row")).Select(ParseLong).ToArray();
+            var values = Split(NextRequired(lines, ref index, "$Entities row"));
             var physicalCountIndex = dimension == 0 ? 4 : 7;
             if (values.Length <= physicalCountIndex) throw new InvalidDataException("Некорректная строка $Entities.");
-            var physicalCount = checked((int)values[physicalCountIndex]);
+            var physicalCount = ParseInt(values[physicalCountIndex]);
             if (physicalCount < 0 || values.Length < physicalCountIndex + 1 + physicalCount)
                 throw new InvalidDataException("Некорректный список physical groups в $Entities.");
-            var physicalGroups = values.Skip(physicalCountIndex + 1).Take(physicalCount).Select(checked((long value) => checked((int)value))).ToArray();
-            entities.Add((dimension, values[0]), new EntityInfo(physicalGroups));
+            var physicalGroups = values.Skip(physicalCountIndex + 1).Take(physicalCount).Select(ParseInt).ToArray();
+            entities.Add((dimension, ParseLong(values[0])), new EntityInfo(physicalGroups));
         }
     }
 
