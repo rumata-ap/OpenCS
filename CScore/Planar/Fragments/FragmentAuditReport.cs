@@ -12,6 +12,8 @@ namespace CScore.Planar.Fragments
 
     /// <summary>
     /// Автоматический отчёт проверки качества фрагмента и нормативного аудита по СП 63.13330.
+    /// Проверяет 4 группы критериев: геометрия/сетка, баланс сил на срезах, сходимость и
+    /// энергетика, нормативные пределы деформаций.
     /// </summary>
     public class FragmentAuditReport
     {
@@ -30,42 +32,33 @@ namespace CScore.Planar.Fragments
                 return report;
             }
 
-            if (!result.IsConverged)
-            {
-                report.Verdict = FragmentAuditVerdict.Invalid;
-                report.Issues.Add("Нелинейный расчёт в OpenSees не сошёлся.");
-            }
+            // Группа 1: геометрия и сетка.
+            foreach (var diagnostic in result.MeshDiagnostics)
+                report.Issues.Add($"Геометрия/сетка: {diagnostic}");
 
-            // 1. Проверка равновесия сил на срезах (допуск 1%)
+            // Группа 2: баланс сил на срезах (допуск 1%) + диагностики резолва воздействий.
+            foreach (var diagnostic in result.BoundaryDiagnostics)
+                report.Issues.Add($"Граничные воздействия: {diagnostic}");
             if (result.ForceUnbalanceRatio > 0.01)
-            {
-                report.Verdict = FragmentAuditVerdict.Invalid;
                 report.Issues.Add($"Невязка сил на срезах {result.ForceUnbalanceRatio * 100:F2}% превышает допуск 1.0%.");
-            }
             else if (result.ForceUnbalanceRatio > 0.005)
-            {
                 report.Warnings.Add($"Невязка сил на срезах {result.ForceUnbalanceRatio * 100:F2}% требует внимания.");
-            }
 
-            // 2. Проверка предела сжатия бетона по СП 63.13330 (eps_b >= -0.0035)
+            // Группа 3: сходимость и энергетика.
+            if (!result.IsConverged)
+                report.Issues.Add("Нелинейный расчёт в OpenSees не сошёлся.");
+            if (result.EnergyConfidence == "Unavailable")
+                report.Warnings.Add("Недостаточно данных для оценки энергетического баланса (EnergyConfidence=Unavailable).");
+
+            // Группа 4: нормативные пределы СП 63.13330.
             if (result.MaxConcreteCompressionStrain < -0.0035)
-            {
-                report.Verdict = FragmentAuditVerdict.Invalid;
                 report.Issues.Add($"Предельная деформация сжатия бетона {result.MaxConcreteCompressionStrain:F5} превышает допуск СП 63.13330 (-0.0035).");
-            }
-
-            // 3. Проверка предела растяжения арматуры по СП 63.13330 (eps_s <= 0.025)
             if (result.MaxRebarTensileStrain > 0.025)
-            {
-                report.Verdict = FragmentAuditVerdict.Invalid;
                 report.Issues.Add($"Предельная деформация растяжения арматуры {result.MaxRebarTensileStrain:F5} превышает допуск СП 63.13330 (0.025).");
-            }
 
-            if (report.Verdict == FragmentAuditVerdict.Valid && report.Warnings.Count > 0)
-            {
-                report.Verdict = FragmentAuditVerdict.Warning;
-            }
-
+            report.Verdict = report.Issues.Count > 0
+                ? FragmentAuditVerdict.Invalid
+                : (report.Warnings.Count > 0 ? FragmentAuditVerdict.Warning : FragmentAuditVerdict.Valid);
             return report;
         }
     }

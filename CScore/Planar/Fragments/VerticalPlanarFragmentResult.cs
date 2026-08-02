@@ -22,6 +22,18 @@ namespace CScore.Planar.Fragments
     {
         public int FragmentId { get; set; }
         public bool IsConverged { get; set; }
+
+        /// <summary>Блокирующие диагностики построения Gmsh-сетки (пусто = сетка расчётна).</summary>
+        public List<string> MeshDiagnostics { get; set; } = new List<string>();
+
+        /// <summary>Блокирующие диагностики резолва/маппинга граничных воздействий (пусто = ок).</summary>
+        public List<string> BoundaryDiagnostics { get; set; } = new List<string>();
+
+        /// <summary>Уровень достоверности energy audit: "NativeResponse"/"StateIntegral"/
+        /// "ExternalWorkOnly"/"Unavailable" (зеркалит OpenCS.OpenSees.Audit.ShellEnergyConfidence
+        /// строкой — CScore не ссылается на OpenCS.OpenSees).</summary>
+        public string EnergyConfidence { get; set; } = "Unavailable";
+
         /// <summary>
         /// Максимальная деформация сжатия бетона (отрицательная величина, по СП 63 предельное значение eps_b >= -0.0035).
         /// </summary>
