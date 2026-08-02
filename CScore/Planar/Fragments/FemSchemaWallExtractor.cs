@@ -31,16 +31,12 @@ namespace CScore.Planar.Fragments
             // Перевод 3D-узлов в локальные координаты (u, v)
             List<double> xCoords = new List<double>();
             List<double> yCoords = new List<double>();
-            List<PlanarPoint2D> pts2D = new List<PlanarPoint2D>();
 
             foreach (var node in nodes)
             {
                 var delta = new PlanarVector3(node.X, node.Y, node.Z) - frame.Origin;
-                double u = delta.Dot(frame.LocalX);
-                double v = delta.Dot(frame.LocalY);
-                xCoords.Add(u);
-                yCoords.Add(v);
-                pts2D.Add(new PlanarPoint2D(u, v));
+                xCoords.Add(delta.Dot(frame.LocalX));
+                yCoords.Add(delta.Dot(frame.LocalY));
             }
 
             var sourceContour = new Contour
@@ -54,33 +50,12 @@ namespace CScore.Planar.Fragments
             var region = PlanarRegion.CreateFromContour(sourceContour, frame: frame, tag: fragmentName);
             region.Id = member.Id;
 
-            double minY = yCoords.Min();
-            double maxY = yCoords.Max();
-
-            var bottomPts = pts2D.Where(p => Math.Abs(p.V - minY) < 1e-4).OrderBy(p => p.U).ToList();
-            var topPts = pts2D.Where(p => Math.Abs(p.V - maxY) < 1e-4).OrderBy(p => p.U).ToList();
-
-            var bottomCut = new PlanarCutInterface
-            {
-                Id = $"wall_{member.Id}_bottom",
-                Kind = PlanarCutInterfaceKind.BottomCut,
-                Geometry = new PlanarConstraintGeometry(
-                    PlanarConstraintGeometryKind.Curve,
-                    bottomPts.Count >= 2 ? bottomPts : new List<PlanarPoint2D> { pts2D[0], pts2D[1] }),
-                NormalFromFragmentToOmittedSide = new PlanarVector3(0, -1, 0),
-                Frame = frame
-            };
-
-            var topCut = new PlanarCutInterface
-            {
-                Id = $"wall_{member.Id}_top",
-                Kind = PlanarCutInterfaceKind.TopCut,
-                Geometry = new PlanarConstraintGeometry(
-                    PlanarConstraintGeometryKind.Curve,
-                    topPts.Count >= 2 ? topPts : new List<PlanarPoint2D> { pts2D[2], pts2D[3 % pts2D.Count] }),
-                NormalFromFragmentToOmittedSide = new PlanarVector3(0, 1, 0),
-                Frame = frame
-            };
+            var bottomCut = BuildEdgeCut(
+                region, PlanarCutInterfaceKind.BottomCut, $"wall_{member.Id}_bottom",
+                selectMin: true, normal: new PlanarVector3(0, -1, 0), frame: frame);
+            var topCut = BuildEdgeCut(
+                region, PlanarCutInterfaceKind.TopCut, $"wall_{member.Id}_top",
+                selectMin: false, normal: new PlanarVector3(0, 1, 0), frame: frame);
 
             return new VerticalPlanarFragment
             {
@@ -90,6 +65,45 @@ namespace CScore.Planar.Fragments
                 BottomCut = bottomCut,
                 TopCut = topCut,
                 StageConfig = FragmentStageConfig.CreateDefault1Stage()
+            };
+        }
+
+        /// <summary>Строит cut interface на реальном ребре Hull региона (минимальная либо
+        /// максимальная V-координата) через PlanarBoundaryKey — не через embedded-кривую,
+        /// совпадающую с уже существующей границей.</summary>
+        static PlanarCutInterface BuildEdgeCut(
+            PlanarRegion region, PlanarCutInterfaceKind kind, string id,
+            bool selectMin, PlanarVector3 normal, Frame3D frame)
+        {
+            Contour hull = region.Hull ?? throw new InvalidOperationException(
+                "PlanarRegion.CreateFromContour должен был создать Hull.");
+            // Hull.X/Y замкнуты (последняя точка дублирует первую) — рабочий диапазон [0, Count-2].
+            int openCount = hull.Y.Count - 1;
+            double target = selectMin ? hull.Y.Take(openCount).Min() : hull.Y.Take(openCount).Max();
+            var matches = Enumerable.Range(0, openCount)
+                .Where(i => Math.Abs(hull.Y[i] - target) < 1e-6)
+                .ToList();
+            if (matches.Count != 2)
+                throw new InvalidOperationException(
+                    $"Ожидалось ровно 2 вершины на {(selectMin ? "нижнем" : "верхнем")} ребре стены, найдено {matches.Count}. " +
+                    "FemSchemaWallExtractor поддерживает только прямоугольные стеновые панели.");
+
+            int start = matches[0];
+            int end = matches[1];
+            var points = new List<PlanarPoint2D>
+            {
+                new PlanarPoint2D(hull.X[start], hull.Y[start]),
+                new PlanarPoint2D(hull.X[end], hull.Y[end])
+            };
+
+            return new PlanarCutInterface
+            {
+                Id = id,
+                Kind = kind,
+                Geometry = new PlanarConstraintGeometry(PlanarConstraintGeometryKind.Curve, points),
+                NormalFromFragmentToOmittedSide = normal,
+                Frame = frame,
+                BoundaryKey = new PlanarBoundaryKey(BoundaryLoop.Outer, 0, start, end)
             };
         }
     }

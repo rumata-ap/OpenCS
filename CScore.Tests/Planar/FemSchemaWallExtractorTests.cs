@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using CScore.Fem;
 using CScore.Planar;
 using CScore.Planar.Fragments;
@@ -39,8 +40,30 @@ namespace CScore.Tests.Planar
             Assert.NotNull(fragment.Region);
             Assert.NotNull(fragment.BottomCut);
             Assert.NotNull(fragment.TopCut);
-            Assert.Equal(PlanarCutInterfaceKind.BottomCut, fragment.BottomCut.Kind);
-            Assert.Equal(PlanarCutInterfaceKind.TopCut, fragment.TopCut.Kind);
+            Assert.Equal(PlanarCutInterfaceKind.BottomCut, fragment.BottomCut!.Kind);
+            Assert.Equal(PlanarCutInterfaceKind.TopCut, fragment.TopCut!.Kind);
+
+            // BoundaryKey должен указывать на РЕАЛЬНОЕ ребро Hull региона (не embedded curve).
+            Assert.NotNull(fragment.BottomCut.BoundaryKey);
+            Assert.NotNull(fragment.TopCut.BoundaryKey);
+            Assert.Equal(BoundaryLoop.Outer, fragment.BottomCut.BoundaryKey!.Loop);
+            Assert.Equal(BoundaryLoop.Outer, fragment.TopCut.BoundaryKey!.Loop);
+            Assert.Null(fragment.BottomCut.MeshConstraintId);
+            Assert.Null(fragment.TopCut.MeshConstraintId);
+
+            // Вершины BottomCut.BoundaryKey должны лежать на минимальной V (низ стены),
+            // TopCut — на максимальной V (верх стены), в нормализованном Hull региона.
+            var hull = fragment.Region!.Hull!;
+            double minY = hull.Y.Take(hull.Y.Count - 1).Min();
+            double maxY = hull.Y.Take(hull.Y.Count - 1).Max();
+            int bStart = fragment.BottomCut.BoundaryKey.StartVertex;
+            int bEnd = fragment.BottomCut.BoundaryKey.EndVertex;
+            Assert.True(System.Math.Abs(hull.Y[bStart] - minY) < 1e-9);
+            Assert.True(System.Math.Abs(hull.Y[bEnd] - minY) < 1e-9);
+            int tStart = fragment.TopCut.BoundaryKey.StartVertex;
+            int tEnd = fragment.TopCut.BoundaryKey.EndVertex;
+            Assert.True(System.Math.Abs(hull.Y[tStart] - maxY) < 1e-9);
+            Assert.True(System.Math.Abs(hull.Y[tEnd] - maxY) < 1e-9);
         }
     }
 }
