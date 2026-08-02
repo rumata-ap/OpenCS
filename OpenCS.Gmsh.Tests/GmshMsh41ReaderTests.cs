@@ -35,7 +35,7 @@ public sealed class GmshMsh41ReaderTests
     [Fact]
     public void Read_ReportsUnsupportedElementType()
     {
-        var document = GmshMsh41Reader.Read(ValidMixedFixture.Replace("2 1 2 1\n2 1 2 3", "2 1 4 1\n2 1 2 3 4"));
+        var document = GmshMsh41Reader.Read(Normalize(ValidMixedFixture).Replace("2 1 2 1\n2 1 2 3", "2 1 4 1\n2 1 2 3 4"));
 
         Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "gmsh_unsupported_element");
         Assert.False(document.IsCalculable);
@@ -54,7 +54,7 @@ public sealed class GmshMsh41ReaderTests
     [Fact]
     public void Read_RejectsDuplicateNodeTags()
     {
-        var duplicate = ValidMixedFixture.Replace("1\n2\n3\n4\n0 0 0", "1\n2\n2\n4\n0 0 0");
+        var duplicate = Normalize(ValidMixedFixture).Replace("1\n2\n3\n4\n0 0 0", "1\n2\n2\n4\n0 0 0");
 
         Assert.Throws<InvalidDataException>(() => GmshMsh41Reader.Read(duplicate));
     }
@@ -102,4 +102,6 @@ public sealed class GmshMsh41ReaderTests
         3 1 2 3 4
         $EndElements
         """;
+
+    static string Normalize(string fixture) => fixture.Replace("\r\n", "\n", StringComparison.Ordinal);
 }
