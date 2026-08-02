@@ -12,6 +12,7 @@ public static class PlanarMeshSnapshotValidator
         var nodes = new Dictionary<int, PlanarMeshNode>();
         var elementIndices = new HashSet<int>();
         var boundaryKeys = new HashSet<PlanarBoundaryKey>();
+        var constraintIds = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var node in snapshot.Nodes)
         {
@@ -56,6 +57,52 @@ public static class PlanarMeshSnapshotValidator
                 if (index > 0 && mapping.NodeIndices[index] == mapping.NodeIndices[index - 1])
                     diagnostics.Add(new("planar_mesh_boundary_repeated_node", "Цепочка граничного отображения содержит соседние одинаковые узлы."));
             }
+        }
+
+        foreach (var mapping in snapshot.ConstraintMappings)
+        {
+            if (string.IsNullOrWhiteSpace(mapping.ConstraintObjectId) || !constraintIds.Add(mapping.ConstraintObjectId))
+                diagnostics.Add(new("planar_mesh_constraint_duplicate", $"Constraint mapping '{mapping.ConstraintObjectId}' пуст или повторяется."));
+
+            if (mapping.PointNodeIndices.Count > 1)
+                diagnostics.Add(new("planar_mesh_constraint_point_cardinality", $"Constraint mapping '{mapping.ConstraintObjectId}' имеет более одного point node."));
+            foreach (var nodeIndex in mapping.PointNodeIndices)
+                if (!nodes.ContainsKey(nodeIndex))
+                    diagnostics.Add(new("planar_mesh_constraint_point_unknown_node", $"Constraint mapping ссылается на неизвестный point node {nodeIndex}."));
+
+            var edges = new HashSet<(int A, int B)>();
+            foreach (var edge in mapping.OrderedCurveEdges)
+            {
+                if (!nodes.ContainsKey(edge.A) || !nodes.ContainsKey(edge.B))
+                    diagnostics.Add(new("planar_mesh_constraint_edge_unknown_node", $"Constraint mapping '{mapping.ConstraintObjectId}' содержит edge с неизвестным узлом."));
+                var normalized = edge.A <= edge.B ? (edge.A, edge.B) : (edge.B, edge.A);
+                if (!edges.Add(normalized))
+                    diagnostics.Add(new("planar_mesh_constraint_edge_duplicate", $"Constraint mapping '{mapping.ConstraintObjectId}' содержит повторяющееся edge."));
+            }
+
+            foreach (var elementIndex in mapping.CurveElementIndices.Concat(mapping.RegionElementIndices))
+                if (!elementIndices.Contains(elementIndex))
+                    diagnostics.Add(new("planar_mesh_constraint_element_unknown", $"Constraint mapping ссылается на неизвестный элемент {elementIndex}."));
+            foreach (var nodeIndex in mapping.RegionNodeIndices)
+                if (!nodes.ContainsKey(nodeIndex))
+                    diagnostics.Add(new("planar_mesh_constraint_region_unknown_node", $"Constraint mapping ссылается на неизвестный region node {nodeIndex}."));
+
+            foreach (var provenance in mapping.EntityProvenance)
+            {
+                if (string.IsNullOrWhiteSpace(provenance.LogicalConstraintId))
+                    diagnostics.Add(new("planar_mesh_entity_constraint_id_missing", "Entity provenance не содержит logical constraint ID."));
+                if (provenance.EntityDimension is < 0 or > 3 || provenance.EntityTag <= 0)
+                    diagnostics.Add(new("planar_mesh_entity_invalid", "Entity provenance содержит недопустимые dimension или tag."));
+            }
+            diagnostics.AddRange(mapping.Diagnostics);
+        }
+
+        foreach (var provenance in snapshot.EntityProvenance)
+        {
+            if (string.IsNullOrWhiteSpace(provenance.LogicalConstraintId))
+                diagnostics.Add(new("planar_mesh_entity_constraint_id_missing", "Entity provenance не содержит logical constraint ID."));
+            if (provenance.EntityDimension is < 0 or > 3 || provenance.EntityTag <= 0)
+                diagnostics.Add(new("planar_mesh_entity_invalid", "Entity provenance содержит недопустимые dimension или tag."));
         }
 
         return diagnostics;

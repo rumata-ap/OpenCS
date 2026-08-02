@@ -38,4 +38,7 @@ public sealed class PlanarMeshSnapshot
     public IReadOnlyList<PlanarMeshNode> Nodes { get; init; } = [];
     public IReadOnlyList<PlanarMeshElement> Elements { get; init; } = [];
     public IReadOnlyList<PlanarMeshBoundaryMapping> BoundaryMappings { get; init; } = [];
+    public string MeshFormatVersion { get; init; } = "msh22";
+    public IReadOnlyList<PlanarMeshEntityProvenance> EntityProvenance { get; init; } = [];
+    public IReadOnlyList<PlanarConstraintMeshMapping> ConstraintMappings { get; init; } = [];
 }
