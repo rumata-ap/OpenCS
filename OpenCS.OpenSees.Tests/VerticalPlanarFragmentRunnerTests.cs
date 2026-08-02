@@ -79,19 +79,12 @@ namespace OpenCS.OpenSees.Tests
                 var (concrete, rebar) = NonlinearMaterials();
                 var lookup = new Dictionary<int, Material> { [1] = concrete, [2] = rebar };
 
+                // BottomCut.ModeByDof = PreserveSupport (см. BuildFragment) -> реальный OpenSees
+                // `fix`, а не `sp`-констрейнт на нулевое перемещение. Шаблон нужен только чтобы
+                // Runner вызвал mapping pipeline для этого cut interface — действий в нём нет.
                 fragment.BoundaryTemplates["bottom"] = new PlanarBoundaryActionSet
                 {
-                    SourceMode = PlanarBoundaryActionSourceMode.Template,
-                    KinematicActions =
-                    [
-                        new PlanarBoundaryKinematicAction
-                        {
-                            InterfaceId = "bottom",
-                            DofMask = PlanarDofMask.UX | PlanarDofMask.UY | PlanarDofMask.UZ |
-                                      PlanarDofMask.RX | PlanarDofMask.RY | PlanarDofMask.RZ,
-                            Samples = [new(0, PlanarVector3.Zero, PlanarVector3.Zero)]
-                        }
-                    ]
+                    SourceMode = PlanarBoundaryActionSourceMode.Template
                 };
                 fragment.BoundaryTemplates["top"] = new PlanarBoundaryActionSet
                 {
@@ -102,14 +95,14 @@ namespace OpenCS.OpenSees.Tests
                         {
                             InterfaceId = "top",
                             DofMask = PlanarDofMask.UZ,
-                            Samples = [new(0, new PlanarVector3(0, 0, -10000), PlanarVector3.Zero),
-                                       new(1, new PlanarVector3(0, 0, -10000), PlanarVector3.Zero)]
+                            Samples = [new(0, new PlanarVector3(0, 0, -2000), PlanarVector3.Zero),
+                                       new(1, new PlanarVector3(0, 0, -2000), PlanarVector3.Zero)]
                         }
                     ]
                 };
 
                 var result = await new VerticalPlanarFragmentRunner().RunAsync(
-                    fragment, mesher, new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+                    fragment, mesher, new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Quads),
                     id => lookup.GetValueOrDefault(id), CalcType.C, openSeesExecutable, CancellationToken.None);
 
                 Assert.Empty(result.MeshDiagnostics);
@@ -148,14 +141,23 @@ namespace OpenCS.OpenSees.Tests
                 FragmentId = 1,
                 Name = "Runner Test Wall",
                 Region = region,
-                Section = new PlateSection { H = 0.2, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 },
+                Section = new PlateSection
+                {
+                    H = 0.2, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2,
+                    RebarLayers =
+                    [
+                        new PlateRebarLayer { Asx = 0.0006, Asy = 0.0006, Zsx = 0.08, Zsy = 0.08, MaterialId = 2 },
+                        new PlateRebarLayer { Asx = 0.0006, Asy = 0.0006, Zsx = -0.08, Zsy = -0.08, MaterialId = 2 }
+                    ]
+                },
                 BottomCut = new PlanarCutInterface
                 {
                     Id = "bottom", Kind = PlanarCutInterfaceKind.BottomCut,
                     Geometry = new PlanarConstraintGeometry(PlanarConstraintGeometryKind.Curve,
                         [new(0, 0), new(2, 0)]),
                     NormalFromFragmentToOmittedSide = new(0, -1, 0),
-                    BoundaryKey = bottomKey
+                    BoundaryKey = bottomKey,
+                    ModeByDof = PlanarBoundaryModeByDof.All(PlanarBoundaryDofMode.PreserveSupport)
                 },
                 TopCut = new PlanarCutInterface
                 {

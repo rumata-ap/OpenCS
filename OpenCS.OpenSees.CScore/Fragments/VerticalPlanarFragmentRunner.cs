@@ -53,11 +53,13 @@ namespace OpenCS.OpenSees.CScore.Fragments
             if (built.MeshDiagnostics.Count > 0)
             {
                 result.MeshDiagnostics = built.MeshDiagnostics;
+                result.AuditReport = new FragmentAuditReport().Audit(fragment, result);
                 return result;
             }
             if (built.BoundaryDiagnostics.Count > 0)
             {
                 result.BoundaryDiagnostics = built.BoundaryDiagnostics;
+                result.AuditReport = new FragmentAuditReport().Audit(fragment, result);
                 return result;
             }
 
@@ -72,15 +74,36 @@ namespace OpenCS.OpenSees.CScore.Fragments
             ShellAnalysisRunResult run = await runner.RunAsync(
                 built.Model!, openSeesExecutablePath, cancellationToken);
 
-            result.IsConverged = run.Outcome == ShellAnalysisOutcome.Completed;
-            if (!result.IsConverged)
+            bool executionCompleted = run.Outcome == ShellAnalysisOutcome.Completed;
+            if (!executionCompleted)
             {
+                result.IsConverged = false;
                 result.BoundaryDiagnostics = [run.ErrorMessage ?? $"OpenSees outcome: {run.Outcome}."];
+                result.AuditReport = new FragmentAuditReport().Audit(fragment, result);
                 return result;
             }
 
             ShellResult shellResult = run.Result!;
             RCShellStepResult lastStep = shellResult.Steps.Last(step => step.Converged);
+            int lastStageIndex = fragment.StageConfig.Stages.Count - 1;
+
+            // ShellAnalysisRunner.DetermineOutcome считает Completed уже при ЛЮБОМ сошедшемся
+            // шаге — этого недостаточно: последняя стадия должна дойти до полной нагрузки
+            // (LoadFactor == 1.0), иначе "сошедшийся" результат может относиться к малой доле
+            // заданного воздействия и давать ложно благополучные деформации.
+            result.IsConverged = lastStep.StageIndex == lastStageIndex &&
+                Math.Abs(lastStep.LoadFactor - 1.0) < 1e-6;
+            if (!result.IsConverged)
+            {
+                result.BoundaryDiagnostics =
+                [
+                    $"Нелинейный расчёт не достиг полной нагрузки: последний сошедшийся шаг — " +
+                    $"стадия {lastStep.StageIndex + 1} из {fragment.StageConfig.Stages.Count}, " +
+                    $"LoadFactor={lastStep.LoadFactor:F3}."
+                ];
+                result.AuditReport = new FragmentAuditReport().Audit(fragment, result);
+                return result;
+            }
 
             double minConcreteStrain = 0;
             double maxRebarStrain = 0;
@@ -98,19 +121,24 @@ namespace OpenCS.OpenSees.CScore.Fragments
                             group.IntegrationPoint, group.LayerIndex, lastStep.StepIndex);
                         foreach (var state in states)
                         {
-                            double strainComponent = state.Strain[0];
+                            // Компоненты 0/1 — нормальные деформации ε11/ε22 (локальные оси
+                            // материала слоя); нагрузка может доминировать по любой из них в
+                            // зависимости от ориентации фрагмента, поэтому берём экстремум по
+                            // обеим, а не только по ε11.
+                            double eps11 = state.Strain[0];
+                            double eps22 = state.Strain[1];
                             bool isConcrete = state.ShellLayerKind == ShellLayerKind.Concrete;
                             if (isConcrete)
-                                minConcreteStrain = Math.Min(minConcreteStrain, strainComponent);
+                                minConcreteStrain = Math.Min(minConcreteStrain, Math.Min(eps11, eps22));
                             else
-                                maxRebarStrain = Math.Max(maxRebarStrain, strainComponent);
+                                maxRebarStrain = Math.Max(maxRebarStrain, Math.Max(eps11, eps22));
                             layerStates.Add(new LayerMaterialState
                             {
                                 ElementId = elementTag,
                                 LayerIndex = group.LayerIndex,
                                 LayerKind = state.ShellLayerKind.ToString(),
                                 Stress = state.Stress[0],
-                                Strain = strainComponent
+                                Strain = isConcrete ? Math.Min(eps11, eps22) : Math.Max(eps11, eps22)
                             });
                         }
                     }
@@ -189,7 +217,29 @@ namespace OpenCS.OpenSees.CScore.Fragments
                     LoadFactorStep = fragment.StageConfig.Stages[i].Solver.InitialStep,
                     MaxLoadFactor = 1.0
                 });
-            model = model with { Stages = stages };
+
+            // ShellOpenSeesModel.Policy — единая на модель настройка Newton-анализа (нет
+            // per-stage policy в контракте), поэтому берём SolverParameters первой стадии.
+            // Damage/softening бетонные материалы (PlasticDamageConcretePlaneStress) заметно
+            // хуже сходятся на дефолтном plain Newton, чем на line search — для этого и
+            // существует FragmentStage.Solver.Algorithm="NewtonWithLineSearch" по умолчанию.
+            SolverParameters solverParams = fragment.StageConfig.Stages.Count > 0
+                ? fragment.StageConfig.Stages[0].Solver
+                : new SolverParameters();
+            string openSeesAlgorithm = solverParams.Algorithm switch
+            {
+                "Newton" => "Newton",
+                _ => "NewtonLineSearch"
+            };
+            model = model with
+            {
+                Stages = stages,
+                Policy = model.Policy with
+                {
+                    Algorithm = openSeesAlgorithm,
+                    MaxIterations = solverParams.MaxIterations
+                }
+            };
 
             var stageDiagnostics = new List<string>();
             double appliedTotal = 0, mappedDeltaTotal = 0;
