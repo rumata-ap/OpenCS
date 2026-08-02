@@ -135,11 +135,15 @@ public sealed class PlanarMeshPersistenceTests
                 ConstraintMappings =
                 [
                     new()
-                    {
-                        ConstraintObjectId = "point-1",
-                        PointNodeIndices = [0],
-                        EntityProvenance = [new("point-1", 0, 9, 3001, "constraint:point-1:point")]
-                    }
+                     {
+                         ConstraintObjectId = "point-1",
+                         PointNodeIndices = [0],
+                         EntityProvenance = [new("point-1", 0, 9, 3001, "constraint:point-1:point")],
+                         SourceReferences = [new(10, "bar", [21], ["e21"], [1, 2], ["1", "2"])],
+                         StructuralRelations = [new(10, "bar", [21], ["e21"],
+                             new PlanarMasterReference("fem-member", "10"), PlanarStructuralKind.EmbeddedMember,
+                             PlanarDofMask.UX | PlanarDofMask.UY | PlanarDofMask.UZ)]
+                     }
                 ]
             };
 
@@ -149,8 +153,10 @@ public sealed class PlanarMeshPersistenceTests
             Assert.Equal("msh41", loaded.MeshFormatVersion);
             Assert.Equal("point-1", Assert.Single(loaded.EntityProvenance).LogicalConstraintId);
             var mapping = Assert.Single(loaded.ConstraintMappings);
-            Assert.Equal("point-1", mapping.ConstraintObjectId);
-            Assert.Equal([0], mapping.PointNodeIndices);
+             Assert.Equal("point-1", mapping.ConstraintObjectId);
+             Assert.Equal([0], mapping.PointNodeIndices);
+             Assert.Equal([21], mapping.SourceReferences.Single().ElementIds);
+             Assert.Equal(PlanarStructuralKind.EmbeddedMember, mapping.StructuralRelations.Single().Kind);
         }
         finally
         {
@@ -159,7 +165,7 @@ public sealed class PlanarMeshPersistenceTests
     }
 
     [Fact]
-    public void DatabaseService_MigratesSchema46To47Idempotently()
+    public void DatabaseService_MigratesSchema47To48Idempotently()
     {
         var path = Path.Combine(Path.GetTempPath(), $"opencs-gmsh-migration-{Guid.NewGuid():N}.db");
         try
@@ -169,7 +175,7 @@ public sealed class PlanarMeshPersistenceTests
             {
                 connection.Open();
                 using var command = connection.CreateCommand();
-                command.CommandText = "UPDATE settings SET value_json='46' WHERE key='schema_version'";
+                 command.CommandText = "UPDATE settings SET value_json='47' WHERE key='schema_version'";
                 command.ExecuteNonQuery();
             }
 
@@ -179,7 +185,7 @@ public sealed class PlanarMeshPersistenceTests
                 command.Open();
                 using var schema = command.CreateCommand();
                 schema.CommandText = "SELECT value_json FROM settings WHERE key='schema_version'";
-                Assert.Equal("47", schema.ExecuteScalar()?.ToString());
+                 Assert.Equal("48", schema.ExecuteScalar()?.ToString());
             }
         }
         finally

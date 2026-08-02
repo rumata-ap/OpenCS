@@ -32,6 +32,8 @@ public static class PlanarGeometryFingerprint
         foreach (var constraint in (constraintObjects ?? []).OrderBy(item => item.Id, StringComparer.Ordinal))
         {
             parts.Add($"constraint:{constraint.Id}:{constraint.Tag}:{constraint.Geometry.Kind}:{Fmt(constraint.ToleranceM)}");
+            if (constraint.IsDerived)
+                parts.Add("derived:true");
             foreach (var point in constraint.Geometry.Points)
                 parts.Add($"point:{Fmt(point.U)},{Fmt(point.V)}");
 
@@ -49,6 +51,26 @@ public static class PlanarGeometryFingerprint
             if (constraint.StructuralFrame is not null)
                 parts.Add($"object-frame:{FrameFingerprint(constraint.StructuralFrame)}");
             parts.Add($"source:{constraint.Provenance ?? ""}");
+
+            foreach (var source in (constraint.SourceReferences ?? []).OrderBy(item => item.MemberId).ThenBy(item => item.MemberTag, StringComparer.Ordinal))
+            {
+                parts.Add($"source-ref:{source.MemberId}:{source.MemberTag}");
+                foreach (var id in source.ElementIds.OrderBy(id => id)) parts.Add($"source-element-id:{id}");
+                foreach (var tag in source.ElementTags.OrderBy(tag => tag, StringComparer.Ordinal)) parts.Add($"source-element-tag:{tag}");
+                foreach (var id in source.NodeIds.OrderBy(id => id)) parts.Add($"source-node-id:{id}");
+                foreach (var tag in source.NodeTags.OrderBy(tag => tag, StringComparer.Ordinal)) parts.Add($"source-node-tag:{tag}");
+            }
+
+            foreach (var relation in (constraint.StructuralRelations ?? [])
+                         .OrderBy(item => item.SourceMemberId)
+                         .ThenBy(item => item.SourceMemberTag, StringComparer.Ordinal))
+            {
+                parts.Add($"relation:{relation.SourceMemberId}:{relation.SourceMemberTag}:{relation.Kind}:{relation.DofMask}");
+                foreach (var id in relation.SourceElementIds.OrderBy(id => id)) parts.Add($"relation-element-id:{id}");
+                foreach (var tag in relation.SourceElementTags.OrderBy(tag => tag, StringComparer.Ordinal)) parts.Add($"relation-element-tag:{tag}");
+                if (relation.MasterReference is not null)
+                    parts.Add($"relation-master:{relation.MasterReference.Provider}:{relation.MasterReference.Key}");
+            }
         }
 
         return Hash(string.Join("|", parts));

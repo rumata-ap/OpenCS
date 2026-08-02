@@ -49,6 +49,25 @@ public sealed record PlanarStructuralFacet(
 /// <summary>Независимая mesh facet constraint-объекта.</summary>
 public sealed record PlanarMeshFacet(PlanarMeshKind Kind);
 
+/// <summary>Источник геометрии constraint-а в FEM topology.</summary>
+public sealed record PlanarSourceReference(
+    int MemberId,
+    string MemberTag,
+    IReadOnlyList<int> ElementIds,
+    IReadOnlyList<string> ElementTags,
+    IReadOnlyList<int> NodeIds,
+    IReadOnlyList<string> NodeTags);
+
+/// <summary>Structural relation constraint-а с исходным FEM-member.</summary>
+public sealed record PlanarStructuralRelation(
+    int SourceMemberId,
+    string SourceMemberTag,
+    IReadOnlyList<int> SourceElementIds,
+    IReadOnlyList<string> SourceElementTags,
+    PlanarMasterReference? MasterReference,
+    PlanarStructuralKind Kind,
+    PlanarDofMask DofMask);
+
 /// <summary>Внутренняя точка, линия или область PlanarRegion, которая может быть включена в
 /// топологию производной Gmsh-сетки и позднее получить structural interpretation.</summary>
 public sealed class PlanarConstraintObject
@@ -65,6 +84,12 @@ public sealed class PlanarConstraintObject
     public Frame3D? StructuralFrame { get; set; }
     public double ToleranceM { get; set; } = 1e-9;
     public string? Provenance { get; set; }
+    /// <summary>Признак объекта, полученного автоматически из FEM topology.</summary>
+    public bool IsDerived { get; set; }
+    /// <summary>Все исходные FEM-объекты, вошедшие в общий geometry locus.</summary>
+    public List<PlanarSourceReference> SourceReferences { get; set; } = [];
+    /// <summary>Все structural relations общего geometry locus.</summary>
+    public List<PlanarStructuralRelation> StructuralRelations { get; set; } = [];
 
     public static PlanarConstraintObject Point(
         string id,

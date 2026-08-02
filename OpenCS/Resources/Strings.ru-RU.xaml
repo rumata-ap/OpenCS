@@ -114,6 +114,7 @@
     <system:String x:Key="PlanarRegionMeshActual">Сетка «{0}» актуальна</system:String>
     <system:String x:Key="PlanarRegionMeshStale">Сетка «{0}» устарела, пересобираю</system:String>
     <system:String x:Key="PlanarRegionMeshCheckFailed">Не удалось проверить актуальность сетки: {0}</system:String>
+    <system:String x:Key="PlanarRegionConstraintsDerived">Автоматические связи «{0}»: {1} узлов-источников, {2} точек, {3} линий, {4} source members</system:String>
    <system:String x:Key="OpenSeesExecutableGroup">Исполняемый файл</system:String>
    <system:String x:Key="OpenSeesNonlinearGroup">Нелинейный расчёт схемы</system:String>
    <system:String x:Key="OpenSeesFiberStatesGroup">Запись состояний волокон</system:String>

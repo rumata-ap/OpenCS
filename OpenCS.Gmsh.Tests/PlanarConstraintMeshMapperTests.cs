@@ -74,4 +74,37 @@ public sealed class PlanarConstraintMeshMapperTests
         Assert.False(result.IsCalculable);
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "planar_constraint_curve_endpoint_missing");
     }
+
+    [Fact]
+    public void Map_CarriesDerivedSourceProvenanceIntoSnapshotMapping()
+    {
+        var region = PlanarRegion.CreateFromContour(new Contour { X = [0, 4, 4, 0], Y = [0, 0, 4, 4] });
+        var constraint = PlanarConstraintObject.Point(
+            "derived:point",
+            new(1, 1),
+            new PlanarStructuralFacet(
+                PlanarStructuralKind.EmbeddedMember,
+                new PlanarMasterReference("fem-member", "10"),
+                PlanarDofMask.UX | PlanarDofMask.UY | PlanarDofMask.UZ),
+            new PlanarMeshFacet(PlanarMeshKind.EmbeddedPoint));
+        constraint.IsDerived = true;
+        constraint.SourceReferences =
+        [new PlanarSourceReference(10, "bar", [21], ["e21"], [1, 2], ["1", "2"] )];
+        constraint.StructuralRelations =
+        [new PlanarStructuralRelation(10, "bar", [21], ["e21"],
+            new PlanarMasterReference("fem-member", "10"), PlanarStructuralKind.EmbeddedMember,
+            PlanarDofMask.UX | PlanarDofMask.UY | PlanarDofMask.UZ)];
+        var document = new GmshMsh41Document
+        {
+            Nodes = [new(10, 1, 1, 0)],
+            Elements = [new(100, 0, 1, 15, [10], 3001, "constraint:derived:point:point")]
+        };
+        PlanarMeshNode[] nodes = [new(0, 1, 1, 1, 1, 0)];
+
+        var result = PlanarConstraintMeshMapper.Map(region, document, nodes, [], [constraint]);
+
+        var mapping = Assert.Single(result.Mappings);
+        Assert.Equal([21], mapping.SourceReferences.Single().ElementIds);
+        Assert.Equal(PlanarStructuralKind.EmbeddedMember, mapping.StructuralRelations.Single().Kind);
+    }
 }

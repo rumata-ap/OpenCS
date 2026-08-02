@@ -30,7 +30,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-           const int CurrentSchemaVersion = 47;
+            const int CurrentSchemaVersion = 48;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -574,8 +574,9 @@ namespace OpenCS.Utilites
                 if (i == 42) { MigrateV43(); continue; }
                  if (i == 43) { MigrateV44(); continue; }
                  if (i == 44) { MigrateV45(); continue; }
-                  if (i == 45) { MigrateV46(); continue; }
-                  if (i == 46) { MigrateV47(); continue; }
+                   if (i == 45) { MigrateV46(); continue; }
+                   if (i == 46) { MigrateV47(); continue; }
+                   if (i == 47) { MigrateV48(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1104,7 +1105,7 @@ namespace OpenCS.Utilites
        }
 
        /// <summary>Миграция v47: внутренние constraint-объекты и mappings MSH 4.1.</summary>
-       void MigrateV47()
+        void MigrateV47()
        {
            if (!ColumnExists("planar_regions", "constraint_objects_json"))
                MigExec("ALTER TABLE planar_regions ADD COLUMN constraint_objects_json TEXT NOT NULL DEFAULT '[]'");
@@ -1112,8 +1113,17 @@ namespace OpenCS.Utilites
                MigExec("ALTER TABLE planar_mesh_snapshots ADD COLUMN mesh_format_version TEXT NOT NULL DEFAULT 'msh22'");
            if (!ColumnExists("planar_mesh_snapshots", "entity_provenance_json"))
                MigExec("ALTER TABLE planar_mesh_snapshots ADD COLUMN entity_provenance_json TEXT NOT NULL DEFAULT '[]'");
-           EnsurePlanarConstraintMappingTable();
-       }
+            EnsurePlanarConstraintMappingTable();
+        }
+
+        /// <summary>Миграция v48: source provenance derived constraint mappings.</summary>
+        void MigrateV48()
+        {
+            if (!ColumnExists("planar_mesh_constraint_mappings", "source_references_json"))
+                MigExec("ALTER TABLE planar_mesh_constraint_mappings ADD COLUMN source_references_json TEXT NOT NULL DEFAULT '[]'");
+            if (!ColumnExists("planar_mesh_constraint_mappings", "structural_relations_json"))
+                MigExec("ALTER TABLE planar_mesh_constraint_mappings ADD COLUMN structural_relations_json TEXT NOT NULL DEFAULT '[]'");
+        }
 
        void EnsurePlanarMeshTables()
        {
@@ -1171,10 +1181,12 @@ namespace OpenCS.Utilites
                  ordered_curve_edges_json TEXT NOT NULL DEFAULT '[]',
                  curve_element_indices_json TEXT NOT NULL DEFAULT '[]',
                  region_node_indices_json TEXT NOT NULL DEFAULT '[]',
-                 region_element_indices_json TEXT NOT NULL DEFAULT '[]',
-                 entity_provenance_json TEXT NOT NULL DEFAULT '[]',
-                 diagnostics_json TEXT NOT NULL DEFAULT '[]',
-                 UNIQUE(snapshot_id, constraint_id)
+                  region_element_indices_json TEXT NOT NULL DEFAULT '[]',
+                  entity_provenance_json TEXT NOT NULL DEFAULT '[]',
+                  diagnostics_json TEXT NOT NULL DEFAULT '[]',
+                  source_references_json TEXT NOT NULL DEFAULT '[]',
+                  structural_relations_json TEXT NOT NULL DEFAULT '[]',
+                  UNIQUE(snapshot_id, constraint_id)
              );
           """);
        }
@@ -5553,8 +5565,8 @@ namespace OpenCS.Utilites
                   INSERT INTO planar_mesh_constraint_mappings
                      (snapshot_id, constraint_id, point_node_indices_json, ordered_curve_edges_json,
                       curve_element_indices_json, region_node_indices_json, region_element_indices_json,
-                      entity_provenance_json, diagnostics_json)
-                  VALUES (@id, @constraint, @point, @edges, @curveElements, @regionNodes, @regionElements, @entities, @diagnostics)
+                       entity_provenance_json, diagnostics_json, source_references_json, structural_relations_json)
+                   VALUES (@id, @constraint, @point, @edges, @curveElements, @regionNodes, @regionElements, @entities, @diagnostics, @sources, @relations)
                """;
                foreach (var item in snapshot.ConstraintMappings)
                {
@@ -5566,8 +5578,10 @@ namespace OpenCS.Utilites
                   constraintMapping.Parameters.AddWithValue("@curveElements", JsonSerializer.Serialize(item.CurveElementIndices, _jsonSettings));
                   constraintMapping.Parameters.AddWithValue("@regionNodes", JsonSerializer.Serialize(item.RegionNodeIndices, _jsonSettings));
                   constraintMapping.Parameters.AddWithValue("@regionElements", JsonSerializer.Serialize(item.RegionElementIndices, _jsonSettings));
-                  constraintMapping.Parameters.AddWithValue("@entities", JsonSerializer.Serialize(item.EntityProvenance, _jsonSettings));
-                  constraintMapping.Parameters.AddWithValue("@diagnostics", JsonSerializer.Serialize(item.Diagnostics, _jsonSettings));
+                   constraintMapping.Parameters.AddWithValue("@entities", JsonSerializer.Serialize(item.EntityProvenance, _jsonSettings));
+                   constraintMapping.Parameters.AddWithValue("@diagnostics", JsonSerializer.Serialize(item.Diagnostics, _jsonSettings));
+                   constraintMapping.Parameters.AddWithValue("@sources", JsonSerializer.Serialize(item.SourceReferences, _jsonSettings));
+                   constraintMapping.Parameters.AddWithValue("@relations", JsonSerializer.Serialize(item.StructuralRelations, _jsonSettings));
                   constraintMapping.ExecuteNonQuery();
                }
                tx.Commit();
@@ -5622,8 +5636,8 @@ namespace OpenCS.Utilites
                {
                   command.CommandText = """
                      SELECT constraint_id, point_node_indices_json, ordered_curve_edges_json,
-                            curve_element_indices_json, region_node_indices_json, region_element_indices_json,
-                            entity_provenance_json, diagnostics_json
+                             curve_element_indices_json, region_node_indices_json, region_element_indices_json,
+                             entity_provenance_json, diagnostics_json, source_references_json, structural_relations_json
                      FROM planar_mesh_constraint_mappings
                      WHERE snapshot_id=@id ORDER BY constraint_id
                   """;
@@ -5638,9 +5652,11 @@ namespace OpenCS.Utilites
                         OrderedCurveEdges = JsonSerializer.Deserialize<CScore.Planar.PlanarMeshEdge[]>(rows.GetString(2), _jsonSettings) ?? [],
                         CurveElementIndices = JsonSerializer.Deserialize<int[]>(rows.GetString(3), _jsonSettings) ?? [],
                         RegionNodeIndices = JsonSerializer.Deserialize<int[]>(rows.GetString(4), _jsonSettings) ?? [],
-                        RegionElementIndices = JsonSerializer.Deserialize<int[]>(rows.GetString(5), _jsonSettings) ?? [],
-                        EntityProvenance = JsonSerializer.Deserialize<CScore.Planar.PlanarMeshEntityProvenance[]>(rows.GetString(6), _jsonSettings) ?? [],
-                        Diagnostics = JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(rows.GetString(7), _jsonSettings) ?? []
+                         RegionElementIndices = JsonSerializer.Deserialize<int[]>(rows.GetString(5), _jsonSettings) ?? [],
+                         EntityProvenance = JsonSerializer.Deserialize<CScore.Planar.PlanarMeshEntityProvenance[]>(rows.GetString(6), _jsonSettings) ?? [],
+                         Diagnostics = JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(rows.GetString(7), _jsonSettings) ?? [],
+                         SourceReferences = JsonSerializer.Deserialize<CScore.Planar.PlanarSourceReference[]>(rows.IsDBNull(8) ? "[]" : rows.GetString(8), _jsonSettings) ?? [],
+                         StructuralRelations = JsonSerializer.Deserialize<CScore.Planar.PlanarStructuralRelation[]>(rows.IsDBNull(9) ? "[]" : rows.GetString(9), _jsonSettings) ?? []
                      });
                   }
                }

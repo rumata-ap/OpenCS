@@ -875,11 +875,13 @@ public class PlanarRegionMemberVM : ViewModelBase
     {
         try
         {
+            var derivation = BuildDerivedConstraints();
+            if (derivation.Diagnostics.Any(diagnostic => diagnostic.IsError)) return true;
             var executable = new GmshExecutableResolver().Resolve(_app.GmshSettings.ExecutablePath);
             var version = await GmshProcessRunner.ReadVersionAsync(executable.Path, TimeSpan.FromSeconds(10), CancellationToken.None);
             var settings = new PlanarMeshSettings(MeshMaxElementSizeM, _app.GmshSettings.Algorithm, _app.GmshSettings.ElementMode);
             var provenance = new PlanarMeshProvenance(version, GmshPlanarMesher.GeneratorVersion);
-            var fingerprint = PlanarMeshFingerprint.Compute(_existingRegion!, settings, provenance);
+            var fingerprint = PlanarMeshFingerprint.Compute(_existingRegion!, settings, provenance, derivation.SourceFingerprint);
             bool actual = fingerprint == snapshot.InputFingerprint;
             _app.LogService.Info(string.Format(Loc.S(actual ? "PlanarRegionMeshActual" : "PlanarRegionMeshStale"), Tag));
             return !actual;
@@ -889,6 +891,75 @@ public class PlanarRegionMemberVM : ViewModelBase
             _app.LogService.Warning(string.Format(Loc.S("PlanarRegionMeshCheckFailed"), ex.Message));
             return false;
         }
+    }
+
+    DerivedPlanarConstraintSet BuildDerivedConstraints()
+    {
+        var diagnostics = new List<FemValidationDiagnostic>();
+        var sourceNodes = _app.db.GetFemNodes(_schema.Id);
+        var sourceMembers = _app.db.GetFemMembers(_schema.Id);
+        var meshNodes = _app.db.GetFemMeshNodes(_schema.Id);
+        var meshElements = _app.db.GetFemMeshElements(_schema.Id);
+
+        var nodesByTag = sourceNodes.ToDictionary(node => node.NodeTag, StringComparer.Ordinal);
+        foreach (var meshNode in meshNodes)
+        {
+            if (nodesByTag.TryGetValue(meshNode.NodeTag, out var sourceNode))
+            {
+                if (Math.Abs(sourceNode.X - meshNode.X) > 1e-9 ||
+                    Math.Abs(sourceNode.Y - meshNode.Y) > 1e-9 ||
+                    Math.Abs(sourceNode.Z - meshNode.Z) > 1e-9)
+                    diagnostics.Add(new("planar_constraint_node_tag_coordinate_conflict",
+                        $"Тег mesh-узла '{meshNode.NodeTag}' имеет координаты, отличающиеся от source FEM-узла."));
+                continue;
+            }
+
+            nodesByTag.Add(meshNode.NodeTag, new FemNode
+            {
+                Id = meshNode.Id,
+                SchemaId = meshNode.SchemaId,
+                NodeTag = meshNode.NodeTag,
+                X = meshNode.X,
+                Y = meshNode.Y,
+                Z = meshNode.Z
+            });
+        }
+
+        var topology = new FemSchemaTopology(_schema.Id, nodesByTag.Values, sourceMembers, meshElements);
+        var derived = PlanarConstraintDeriver.Derive(topology, _existingRegion!, CreateConstraintDerivationOptions());
+        if (diagnostics.Count == 0) return derived;
+
+        return new DerivedPlanarConstraintSet
+        {
+            Constraints = derived.Constraints,
+            SourceFingerprint = derived.SourceFingerprint,
+            Diagnostics = diagnostics.Concat(derived.Diagnostics).ToArray(),
+            SourceNodeCount = derived.SourceNodeCount,
+            PointLocusCount = derived.PointLocusCount,
+            CurveLocusCount = derived.CurveLocusCount,
+            SourceMemberCount = derived.SourceMemberCount
+        };
+    }
+
+    static PlanarConstraintDerivationOptions CreateConstraintDerivationOptions() => new();
+
+    (IReadOnlyList<PlanarConstraintObject> Constraints, IReadOnlyList<FemValidationDiagnostic> Diagnostics) BuildEffectiveConstraints(
+        DerivedPlanarConstraintSet derived)
+    {
+        var constraints = _existingRegion!.ConstraintObjects.ToList();
+        var diagnostics = derived.Diagnostics.ToList();
+        var ids = constraints.Select(constraint => constraint.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var constraint in derived.Constraints.OrderBy(constraint => constraint.Id, StringComparer.Ordinal))
+        {
+            if (!ids.Add(constraint.Id))
+            {
+                diagnostics.Add(new("planar_constraint_derived_id_duplicate",
+                    $"Derived constraint ID '{constraint.Id}' совпадает с ручным constraint-объектом."));
+                continue;
+            }
+            constraints.Add(constraint);
+        }
+        return (constraints, diagnostics);
     }
 
     async Task<PlanarMeshSnapshot?> BuildMeshAsync()
@@ -902,7 +973,21 @@ public class PlanarRegionMemberVM : ViewModelBase
         };
         var meshSettings = new PlanarMeshSettings(MeshMaxElementSizeM, gmshSettings.Algorithm, gmshSettings.ElementMode);
         var mesher = new GmshPlanarMesher(options);
-        var request = new PlanarMeshingRequest(_existingRegion!, meshSettings);
+        var derived = BuildDerivedConstraints();
+        var effective = BuildEffectiveConstraints(derived);
+        _app.LogService.Info(string.Format(
+            Loc.S("PlanarRegionConstraintsDerived"),
+            Tag,
+            derived.SourceNodeCount,
+            derived.PointLocusCount,
+            derived.CurveLocusCount,
+            derived.SourceMemberCount));
+        var request = new PlanarMeshingRequest(
+            _existingRegion!,
+            meshSettings,
+            effective.Constraints,
+            derived.SourceFingerprint,
+            effective.Diagnostics);
 
         var cts = _app.BeginBusyWithCancellation(string.Format(Loc.S("PlanarRegionMeshBuilding"), Tag), indeterminate: true);
         var sw = System.Diagnostics.Stopwatch.StartNew();

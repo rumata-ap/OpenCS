@@ -37,6 +37,28 @@ public sealed class GmshPlanarGeoBuilderTests
         Assert.Contains("In Surface {1};", geo);
     }
 
+    [Fact]
+    public void Build_UsesExplicitRequestConstraintsInsteadOfRegionConstraints()
+    {
+        var region = PlanarRegion.CreateFromContour(new Contour
+        {
+            X = [0, 4, 4, 0],
+            Y = [0, 0, 4, 4]
+        });
+        var constraint = PlanarConstraintObject.Point(
+            "derived-point",
+            new(2, 2),
+            new PlanarStructuralFacet(PlanarStructuralKind.EmbeddedMember),
+            new PlanarMeshFacet(PlanarMeshKind.EmbeddedPoint));
+
+        var geo = GmshPlanarGeoBuilder.Build(
+            region,
+            new PlanarMeshSettings(0.25, 6, PlanarMeshElementMode.Mixed),
+            [constraint]);
+
+        Assert.Contains("constraint:derived-point:point", geo);
+    }
+
     static PlanarRegion RegionWithConstraints()
     {
         var region = PlanarRegion.CreateFromContour(new Contour

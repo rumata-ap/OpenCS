@@ -19,7 +19,8 @@ public static class PlanarConstraintMeshMapper
         PlanarRegion region,
         GmshMsh41Document document,
         IReadOnlyList<PlanarMeshNode> nodes,
-        IReadOnlyList<PlanarMeshElement> elements)
+        IReadOnlyList<PlanarMeshElement> elements,
+        IReadOnlyList<PlanarConstraintObject>? constraintObjects = null)
     {
         ArgumentNullException.ThrowIfNull(region);
         ArgumentNullException.ThrowIfNull(document);
@@ -33,7 +34,7 @@ public static class PlanarConstraintMeshMapper
         var shellElements = document.Elements.Where(IsShell).Select((element, index) => (element, index)).ToArray();
         var mappings = new List<PlanarConstraintMeshMapping>();
 
-        foreach (var constraint in region.ConstraintObjects.OrderBy(item => item.Id, StringComparer.Ordinal))
+        foreach (var constraint in (constraintObjects ?? region.ConstraintObjects).OrderBy(item => item.Id, StringComparer.Ordinal))
         {
             var localDiagnostics = new List<FemValidationDiagnostic>();
             var mapped = constraint.Geometry.Kind switch
@@ -52,6 +53,8 @@ public static class PlanarConstraintMeshMapper
                 RegionNodeIndices = mapped.RegionNodeIndices,
                 RegionElementIndices = mapped.RegionElementIndices,
                 EntityProvenance = mapped.EntityProvenance,
+                SourceReferences = constraint.SourceReferences ?? [],
+                StructuralRelations = constraint.StructuralRelations ?? [],
                 Diagnostics = localDiagnostics
             };
             mappings.Add(mapping);
