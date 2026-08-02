@@ -43,6 +43,32 @@ namespace OpenCS.OpenSees.Tests
             Assert.NotEmpty(result.BoundaryDiagnostics);
         }
 
+        [Fact]
+        public async Task RunAsync_WithMissingBoundaryTemplate_ReturnsBoundaryDiagnosticsAndDoesNotRunOpenSees()
+        {
+            var fragment = BuildFragment(); // без BoundaryTemplates — намеренно пусто
+            var mesher = new FakeMesher(calculable: true);
+            var (concrete, rebar) = NonlinearMaterials();
+            var lookup = new Dictionary<int, Material> { [1] = concrete, [2] = rebar };
+
+            var result = await new VerticalPlanarFragmentRunner().RunAsync(
+                fragment, mesher, DefaultSettings(), id => lookup.GetValueOrDefault(id), CalcType.C,
+                openSeesExecutablePath: "unused.exe", CancellationToken.None);
+
+            Assert.False(result.IsConverged);
+            Assert.NotEmpty(result.BoundaryDiagnostics);
+            Assert.Contains(result.BoundaryDiagnostics, d => d.Contains("planar_boundary_provider_missing")
+                || d.Contains("template", System.StringComparison.OrdinalIgnoreCase));
+        }
+
+        static (Material Concrete, Material Rebar) NonlinearMaterials() =>
+        (
+            new Material { Id = 1, Tag = "B25", Type = MatType.Concrete,
+                C = new MaterialChars { E = 30_000_000, Fc = -17_000, Ft = 1_150, Ec0 = -0.002, Ec2 = -0.0035 } },
+            new Material { Id = 2, Tag = "A400", Type = MatType.ReSteelF,
+                C = new MaterialChars { E = 200_000_000, Ft = 355_000, Ru = 500_000, Et2 = 0.05 } }
+        );
+
         static VerticalPlanarFragment BuildFragment()
         {
             var contour = new Contour { Id = 1, Tag = "wall", X = [0, 2, 2, 0], Y = [0, 0, 3, 3] };
