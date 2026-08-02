@@ -146,7 +146,9 @@ public sealed class ShellTclGenerator
         L();
 
         int[] nodeTags = model.Nodes.OrderBy(n => n.Tag).Select(n => n.Tag).ToArray();
-        int[] restrainedTags = model.Nodes.Where(n => n.Fixed.Any(f => f)).OrderBy(n => n.Tag).Select(n => n.Tag).ToArray();
+        int[] restrainedTags = model.Nodes.Where(n => n.Fixed.Any(f => f)).OrderBy(n => n.Tag).Select(n => n.Tag)
+            .Concat(model.Stages.SelectMany(stage => stage.KinematicLoads).Select(load => load.NodeTag))
+            .Distinct().OrderBy(tag => tag).ToArray();
         int[] shellElementTags = model.Elements.OrderBy(e => e.Tag).Select(e => e.Tag).ToArray();
         int[] nonlinearBeamTags = model.NonlinearBeamElements.OrderBy(e => e.Tag).Select(e => e.Tag).ToArray();
 
@@ -279,6 +281,8 @@ public sealed class ShellTclGenerator
             L($"{indent}pattern Plain {patternTag} Linear {{");
             foreach (ShellNodalLoad load in stage.Loads.OrderBy(load => load.NodeTag))
                 L($"{indent}    load {load.NodeTag} {F(load.Fx)} {F(load.Fy)} {F(load.Fz)} {F(load.Mx)} {F(load.My)} {F(load.Mz)}");
+            foreach (ShellKinematicLoad load in stage.KinematicLoads.OrderBy(load => (load.NodeTag, load.Dof)))
+                L($"{indent}    sp {load.NodeTag} {load.Dof} {F(load.Value)}");
             L($"{indent}}}");
             L($"{indent}set currentLambda 0.0");
             L($"{indent}while {{$currentLambda < $maxLoadFactor - 1.0e-12}} {{");

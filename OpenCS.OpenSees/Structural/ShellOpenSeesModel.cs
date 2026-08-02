@@ -138,6 +138,18 @@ public sealed record ShellOpenSeesModel
                     !double.IsFinite(load.Mx) || !double.IsFinite(load.My) || !double.IsFinite(load.Mz))
                     throw new InvalidOperationException($"Нагрузка узла {load.NodeTag} стадии «{stage.Tag}»: компоненты должны быть конечны.");
             }
+
+            var kinematicDofs = new HashSet<(int NodeTag, int Dof)>();
+            foreach (ShellKinematicLoad load in stage.KinematicLoads)
+            {
+                if (!nodes.TryGetValue(load.NodeTag, out NormalizedShellNode? node))
+                    throw new InvalidOperationException($"Kinematic load стадии «{stage.Tag}» ссылается на неизвестный узел {load.NodeTag}.");
+                load.Validate();
+                if (!kinematicDofs.Add((load.NodeTag, load.Dof)))
+                    throw new InvalidOperationException($"Duplicate kinematic load стадии «{stage.Tag}» для узла {load.NodeTag}, DOF {load.Dof}.");
+                if (node.Fixed[load.Dof - 1])
+                    throw new InvalidOperationException($"Kinematic load стадии «{stage.Tag}» конфликтует с fixed DOF узла {load.NodeTag}, DOF {load.Dof}.");
+            }
         }
 
         foreach (FemLinearElement beam in BeamElements)

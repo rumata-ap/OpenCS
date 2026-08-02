@@ -67,6 +67,7 @@ PlateRebarFieldShellResponseFactoryTests.RunAll();
 
 PlanarMeshSnapshotShellMeshAdapterTests.RunAll();
 PlanarLoadShellMeshAdapterTests.RunAll();
+PlanarBoundaryActionShellMeshAdapterTests.RunAll();
 
 PlanarMeshCSfeaPatchTests.RunAll();
 
