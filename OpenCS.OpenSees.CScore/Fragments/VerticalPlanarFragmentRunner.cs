@@ -7,7 +7,14 @@ using CScore;
 using CScore.Planar;
 using CScore.Planar.Fragments;
 using CScore.PlateRebar;
+using OpenCS.OpenSees.Artifacts;
+using OpenCS.OpenSees.Audit;
+using OpenCS.OpenSees.Model;
+using OpenCS.OpenSees.Results;
+using OpenCS.OpenSees.Runtime;
 using OpenCS.OpenSees.Structural;
+using OpenCS.OpenSees.Tcl;
+using ShellResult = OpenCS.OpenSees.Structural.ShellResult;
 
 namespace OpenCS.OpenSees.CScore.Fragments
 {
@@ -54,8 +61,75 @@ namespace OpenCS.OpenSees.CScore.Fragments
                 return result;
             }
 
-            // Шаги 5-9 (реальный прогон OpenSees, послойные состояния, баланс, энергетика,
-            // аудит) реализуются в Task 6.
+            var runner = new ShellAnalysisRunner(
+                new ShellTclGenerator(),
+                new OpenSeesArtifactStore(System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "opencs-fragment-artifacts")),
+                new OpenSeesProcessRunner(),
+                new ShellResultParser(),
+                TimeSpan.FromSeconds(120));
+
+            ShellAnalysisRunResult run = await runner.RunAsync(
+                built.Model!, openSeesExecutablePath, cancellationToken);
+
+            result.IsConverged = run.Outcome == ShellAnalysisOutcome.Completed;
+            if (!result.IsConverged)
+            {
+                result.BoundaryDiagnostics = [run.ErrorMessage ?? $"OpenSees outcome: {run.Outcome}."];
+                return result;
+            }
+
+            ShellResult shellResult = run.Result!;
+            RCShellStepResult lastStep = shellResult.Steps.Last(step => step.Converged);
+
+            double minConcreteStrain = 0;
+            double maxRebarStrain = 0;
+            var layerStates = new List<LayerMaterialState>();
+            if (shellResult.StateCatalog is { } catalog)
+            {
+                var stateParser = new ShellStateParser();
+                var stressGroups = catalog.ShellLayerGroups.Where(g => g.ResponseKind == "stress");
+                foreach (var group in stressGroups)
+                {
+                    foreach (int elementTag in group.ElementTags)
+                    {
+                        var states = stateParser.ParseShellLayers(
+                            run.ArtifactDirectory!, catalog, elementTag,
+                            group.IntegrationPoint, group.LayerIndex, lastStep.StepIndex);
+                        foreach (var state in states)
+                        {
+                            double strainComponent = state.Strain[0];
+                            bool isConcrete = state.ShellLayerKind == ShellLayerKind.Concrete;
+                            if (isConcrete)
+                                minConcreteStrain = Math.Min(minConcreteStrain, strainComponent);
+                            else
+                                maxRebarStrain = Math.Max(maxRebarStrain, strainComponent);
+                            layerStates.Add(new LayerMaterialState
+                            {
+                                ElementId = elementTag,
+                                LayerIndex = group.LayerIndex,
+                                LayerKind = state.ShellLayerKind.ToString(),
+                                Stress = state.Stress[0],
+                                Strain = strainComponent
+                            });
+                        }
+                    }
+                }
+            }
+            result.MaxConcreteCompressionStrain = minConcreteStrain;
+            result.MaxRebarTensileStrain = maxRebarStrain;
+            result.LayerStates = layerStates;
+
+            // Баланс уже посчитан по каждому cut interface на каждой стадии внутри
+            // BuildModelAsync и возвращён как ModelBuildOutcome.ForceUnbalanceRatio.
+            result.ForceUnbalanceRatio = built.ForceUnbalanceRatio;
+
+            result.EnergyConfidence = ShellEnergyAuditor.DetermineConfidence(
+                hasNativeEnergyResponse: false,
+                hasStateIntegralData: false,
+                hasLoadHistory: shellResult.Steps.Any(s => s.Converged)).ToString();
+
+            result.AuditReport = new FragmentAuditReport().Audit(fragment, result);
             return result;
         }
 

@@ -7,6 +7,7 @@ using CScore.Planar;
 using CScore.Planar.Fragments;
 using CSmath;
 using OpenCS.OpenSees.CScore.Fragments;
+using OpenCS.OpenSees.Tests.Fixtures;
 using Xunit;
 
 namespace OpenCS.OpenSees.Tests
@@ -59,6 +60,72 @@ namespace OpenCS.OpenSees.Tests
             Assert.NotEmpty(result.BoundaryDiagnostics);
             Assert.Contains(result.BoundaryDiagnostics, d => d.Contains("planar_boundary_provider_missing")
                 || d.Contains("template", System.StringComparison.OrdinalIgnoreCase));
+        }
+
+        [Fact]
+        public async Task RunAsync_WithRealGmshAndOpenSees_ProducesNonHardcodedResult()
+        {
+            string openSeesExecutable = OpenSeesTestExecutable.ResolveOrSkip();
+            string gmshRoot = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "opencs-fragment-runner-smoke", System.Guid.NewGuid().ToString("N"));
+            try
+            {
+                var mesher = new OpenCS.Gmsh.GmshPlanarMesher(new OpenCS.Gmsh.GmshPlanarMesherOptions
+                {
+                    ExecutablePath = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe",
+                    ArtifactRoot = gmshRoot
+                });
+                var fragment = BuildFragment(); // 2x3 м прямоугольная стена без проёма
+                var (concrete, rebar) = NonlinearMaterials();
+                var lookup = new Dictionary<int, Material> { [1] = concrete, [2] = rebar };
+
+                fragment.BoundaryTemplates["bottom"] = new PlanarBoundaryActionSet
+                {
+                    SourceMode = PlanarBoundaryActionSourceMode.Template,
+                    KinematicActions =
+                    [
+                        new PlanarBoundaryKinematicAction
+                        {
+                            InterfaceId = "bottom",
+                            DofMask = PlanarDofMask.UX | PlanarDofMask.UY | PlanarDofMask.UZ |
+                                      PlanarDofMask.RX | PlanarDofMask.RY | PlanarDofMask.RZ,
+                            Samples = [new(0, PlanarVector3.Zero, PlanarVector3.Zero)]
+                        }
+                    ]
+                };
+                fragment.BoundaryTemplates["top"] = new PlanarBoundaryActionSet
+                {
+                    SourceMode = PlanarBoundaryActionSourceMode.Template,
+                    ForceActions =
+                    [
+                        new PlanarBoundaryForceAction
+                        {
+                            InterfaceId = "top",
+                            DofMask = PlanarDofMask.UZ,
+                            Samples = [new(0, new PlanarVector3(0, 0, -10000), PlanarVector3.Zero),
+                                       new(1, new PlanarVector3(0, 0, -10000), PlanarVector3.Zero)]
+                        }
+                    ]
+                };
+
+                var result = await new VerticalPlanarFragmentRunner().RunAsync(
+                    fragment, mesher, new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+                    id => lookup.GetValueOrDefault(id), CalcType.C, openSeesExecutable, CancellationToken.None);
+
+                Assert.Empty(result.MeshDiagnostics);
+                Assert.Empty(result.BoundaryDiagnostics);
+                Assert.True(result.IsConverged, "Реальный расчёт должен сойтись на простой прямоугольной стене.");
+                Assert.NotEqual(-0.0015, result.MaxConcreteCompressionStrain);
+                Assert.NotEqual(0.0020, result.MaxRebarTensileStrain);
+                Assert.NotEqual(0.001, result.ForceUnbalanceRatio);
+                Assert.True(double.IsFinite(result.MaxConcreteCompressionStrain));
+                Assert.True(double.IsFinite(result.MaxRebarTensileStrain));
+                Assert.NotEmpty(result.LayerStates);
+            }
+            finally
+            {
+                if (System.IO.Directory.Exists(gmshRoot)) System.IO.Directory.Delete(gmshRoot, recursive: true);
+            }
         }
 
         static (Material Concrete, Material Rebar) NonlinearMaterials() =>
