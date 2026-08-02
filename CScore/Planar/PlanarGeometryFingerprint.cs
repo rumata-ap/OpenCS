@@ -9,7 +9,11 @@ namespace CScore.Planar;
 /// идентична PlateSectionOpenSeesMapper.Fingerprint (OpenCS.OpenSees.CScore).</summary>
 public static class PlanarGeometryFingerprint
 {
-    public static string Compute(IReadOnlyList<Contour> contours, Frame3D frame, IReadOnlyList<BoundarySegment> boundarySegments)
+    public static string Compute(
+        IReadOnlyList<Contour> contours,
+        Frame3D frame,
+        IReadOnlyList<BoundarySegment> boundarySegments,
+        IReadOnlyList<PlanarConstraintObject>? constraintObjects = null)
     {
         var parts = new List<string>();
 
@@ -24,6 +28,28 @@ public static class PlanarGeometryFingerprint
 
         foreach (var seg in boundarySegments)
             parts.Add($"{seg.Loop}:{seg.HoleIndex}:{seg.StartVertex}:{seg.EndVertex}:{seg.Role}");
+
+        foreach (var constraint in (constraintObjects ?? []).OrderBy(item => item.Id, StringComparer.Ordinal))
+        {
+            parts.Add($"constraint:{constraint.Id}:{constraint.Tag}:{constraint.Geometry.Kind}:{Fmt(constraint.ToleranceM)}");
+            foreach (var point in constraint.Geometry.Points)
+                parts.Add($"point:{Fmt(point.U)},{Fmt(point.V)}");
+
+            var structural = constraint.StructuralFacet;
+            parts.Add($"structural:{structural.Kind}:{structural.DofMask}");
+            if (structural.MasterReference is not null)
+                parts.Add($"master:{structural.MasterReference.Provider}:{structural.MasterReference.Key}");
+            if (structural.Frame is not null)
+                parts.Add($"structural-frame:{FrameFingerprint(structural.Frame)}");
+
+            parts.Add($"mesh:{constraint.MeshFacet.Kind}");
+            if (constraint.MasterReference is not null)
+                parts.Add($"object-master:{constraint.MasterReference.Provider}:{constraint.MasterReference.Key}");
+            parts.Add($"object-dof:{constraint.DofMask}");
+            if (constraint.StructuralFrame is not null)
+                parts.Add($"object-frame:{FrameFingerprint(constraint.StructuralFrame)}");
+            parts.Add($"source:{constraint.Provenance ?? ""}");
+        }
 
         return Hash(string.Join("|", parts));
     }

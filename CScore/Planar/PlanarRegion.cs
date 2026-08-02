@@ -13,6 +13,8 @@ public sealed class PlanarRegion
     public Frame3D Frame { get; set; } = Frame3D.Identity;
     public bool FrameIsRecovered { get; set; }
     public List<BoundarySegment> BoundarySegments { get; set; } = [];
+    /// <summary>Внутренние mesh-loci и будущие structural constraints региона.</summary>
+    public List<PlanarConstraintObject> ConstraintObjects { get; set; } = [];
     public int? SourceContourId { get; set; }
     public string GeometryFingerprint { get; set; } = "";
 
@@ -42,7 +44,7 @@ public sealed class PlanarRegion
     public IEnumerable<Contour> Holes => Contours.Where(c => c.Type == ContourType.Hole);
 
     public void RecalcFingerprint() =>
-        GeometryFingerprint = PlanarGeometryFingerprint.Compute(Contours, Frame, BoundarySegments);
+        GeometryFingerprint = PlanarGeometryFingerprint.Compute(Contours, Frame, BoundarySegments, ConstraintObjects);
 
     public static PlanarRegion CreateFromContour(
         Contour source, IEnumerable<Contour>? holes = null, Frame3D? frame = null, string tag = "")

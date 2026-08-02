@@ -52,6 +52,15 @@ public static class PlanarRegionValidator
                 "Рёбра контура не размечены (роль unclassified).",
                 IsError: false));
 
+        try
+        {
+            diagnostics.AddRange(PlanarConstraintValidator.Validate(region, region.ConstraintObjects));
+        }
+        catch (InvalidOperationException ex)
+        {
+            diagnostics.Add(new FemValidationDiagnostic("planar_constraint_host_invalid", ex.Message));
+        }
+
         return diagnostics;
     }
 }
