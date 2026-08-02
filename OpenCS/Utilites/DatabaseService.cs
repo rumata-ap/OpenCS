@@ -6096,6 +6096,37 @@ namespace OpenCS.Utilites
          return JsonSerializer.Deserialize<VerticalPlanarFragment>(json, _jsonSettings);
       }
 
+      public void SaveVerticalPlanarFragmentResult(int fragmentId, string snapshotFingerprint, VerticalPlanarFragmentResult result)
+      {
+         if (result == null) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            INSERT INTO planar_wall_fragment_results
+               (fragment_id, snapshot_fingerprint, result_json, audit_report_json, computed_at)
+            VALUES (@fragmentId, @fingerprint, @resultJson, @auditJson, @computed);
+         """;
+         cmd.Parameters.AddWithValue("@fragmentId", fragmentId);
+         cmd.Parameters.AddWithValue("@fingerprint", snapshotFingerprint);
+         cmd.Parameters.AddWithValue("@resultJson", JsonSerializer.Serialize(result, _jsonSettings));
+         cmd.Parameters.AddWithValue("@auditJson", JsonSerializer.Serialize(result.AuditReport, _jsonSettings));
+         cmd.Parameters.AddWithValue("@computed", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+         cmd.ExecuteNonQuery();
+      }
+
+      public VerticalPlanarFragmentResult? GetLatestVerticalPlanarFragmentResult(int fragmentId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT result_json FROM planar_wall_fragment_results
+            WHERE fragment_id = @fragmentId
+            ORDER BY id DESC LIMIT 1;
+         """;
+         cmd.Parameters.AddWithValue("@fragmentId", fragmentId);
+         var json = cmd.ExecuteScalar() as string;
+         if (string.IsNullOrEmpty(json)) return null;
+         return JsonSerializer.Deserialize<VerticalPlanarFragmentResult>(json, _jsonSettings);
+      }
+
       #endregion
 
       public void Dispose()
