@@ -30,7 +30,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-          const int CurrentSchemaVersion = 46;
+           const int CurrentSchemaVersion = 47;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -364,11 +364,12 @@ namespace OpenCS.Utilites
                 frame_local_z_z     REAL NOT NULL DEFAULT 1,
                 frame_is_recovered  INTEGER NOT NULL DEFAULT 1,
                 source_contour_id   INTEGER REFERENCES contours(id),
-                geometry_fingerprint TEXT NOT NULL DEFAULT '',
-                boundary_segments_json TEXT NOT NULL DEFAULT '[]',
-                rebar_zones_json TEXT NOT NULL DEFAULT '[]',
-                rebar_section_grid_step REAL NOT NULL DEFAULT 0.3,
-                mesh_max_element_size_m REAL NOT NULL DEFAULT 0.2
+                 geometry_fingerprint TEXT NOT NULL DEFAULT '',
+                 boundary_segments_json TEXT NOT NULL DEFAULT '[]',
+                 rebar_zones_json TEXT NOT NULL DEFAULT '[]',
+                 rebar_section_grid_step REAL NOT NULL DEFAULT 0.3,
+                 mesh_max_element_size_m REAL NOT NULL DEFAULT 0.2,
+                 constraint_objects_json TEXT NOT NULL DEFAULT '[]'
             );
             CREATE TABLE IF NOT EXISTS fem_members (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -573,7 +574,8 @@ namespace OpenCS.Utilites
                 if (i == 42) { MigrateV43(); continue; }
                  if (i == 43) { MigrateV44(); continue; }
                  if (i == 44) { MigrateV45(); continue; }
-                 if (i == 45) { MigrateV46(); continue; }
+                  if (i == 45) { MigrateV46(); continue; }
+                  if (i == 46) { MigrateV47(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1095,23 +1097,37 @@ namespace OpenCS.Utilites
 
         /// <summary>Миграция v46: mesh_max_element_size_m в planar_regions (срез 2 Gmsh-сетки —
         /// единственная per-region настройка сетки).</summary>
-        void MigrateV46()
-        {
-            if (!ColumnExists("planar_regions", "mesh_max_element_size_m"))
-                MigExec("ALTER TABLE planar_regions ADD COLUMN mesh_max_element_size_m REAL NOT NULL DEFAULT 0.2");
-        }
+       void MigrateV46()
+       {
+           if (!ColumnExists("planar_regions", "mesh_max_element_size_m"))
+               MigExec("ALTER TABLE planar_regions ADD COLUMN mesh_max_element_size_m REAL NOT NULL DEFAULT 0.2");
+       }
+
+       /// <summary>Миграция v47: внутренние constraint-объекты и mappings MSH 4.1.</summary>
+       void MigrateV47()
+       {
+           if (!ColumnExists("planar_regions", "constraint_objects_json"))
+               MigExec("ALTER TABLE planar_regions ADD COLUMN constraint_objects_json TEXT NOT NULL DEFAULT '[]'");
+           if (!ColumnExists("planar_mesh_snapshots", "mesh_format_version"))
+               MigExec("ALTER TABLE planar_mesh_snapshots ADD COLUMN mesh_format_version TEXT NOT NULL DEFAULT 'msh22'");
+           if (!ColumnExists("planar_mesh_snapshots", "entity_provenance_json"))
+               MigExec("ALTER TABLE planar_mesh_snapshots ADD COLUMN entity_provenance_json TEXT NOT NULL DEFAULT '[]'");
+           EnsurePlanarConstraintMappingTable();
+       }
 
        void EnsurePlanarMeshTables()
        {
           MigExec("""
-             CREATE TABLE IF NOT EXISTS planar_mesh_snapshots (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                 planar_region_id INTEGER NOT NULL REFERENCES planar_regions(id) ON DELETE CASCADE,
-                 input_fingerprint TEXT NOT NULL,
-                 is_calculable INTEGER NOT NULL DEFAULT 0,
-                 settings_json TEXT NOT NULL DEFAULT '{}',
-                 provenance_json TEXT NOT NULL DEFAULT '{}',
-                 diagnostics_json TEXT NOT NULL DEFAULT '[]'
+              CREATE TABLE IF NOT EXISTS planar_mesh_snapshots (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  planar_region_id INTEGER NOT NULL REFERENCES planar_regions(id) ON DELETE CASCADE,
+                  input_fingerprint TEXT NOT NULL,
+                  is_calculable INTEGER NOT NULL DEFAULT 0,
+                  settings_json TEXT NOT NULL DEFAULT '{}',
+                  provenance_json TEXT NOT NULL DEFAULT '{}',
+                  diagnostics_json TEXT NOT NULL DEFAULT '[]',
+                  mesh_format_version TEXT NOT NULL DEFAULT 'msh22',
+                  entity_provenance_json TEXT NOT NULL DEFAULT '[]'
              );
              CREATE INDEX IF NOT EXISTS idx_planar_mesh_snapshots_region_fingerprint
                  ON planar_mesh_snapshots(planar_region_id, input_fingerprint);
@@ -1139,8 +1155,28 @@ namespace OpenCS.Utilites
                   end_vertex INTEGER NOT NULL,
                   node_indices_json TEXT NOT NULL,
                   UNIQUE(snapshot_id, loop, hole_index, start_vertex, end_vertex)
-              );
-           """);
+               );
+            """);
+           EnsurePlanarConstraintMappingTable();
+       }
+
+       void EnsurePlanarConstraintMappingTable()
+       {
+          MigExec("""
+             CREATE TABLE IF NOT EXISTS planar_mesh_constraint_mappings (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 snapshot_id INTEGER NOT NULL REFERENCES planar_mesh_snapshots(id) ON DELETE CASCADE,
+                 constraint_id TEXT NOT NULL,
+                 point_node_indices_json TEXT NOT NULL DEFAULT '[]',
+                 ordered_curve_edges_json TEXT NOT NULL DEFAULT '[]',
+                 curve_element_indices_json TEXT NOT NULL DEFAULT '[]',
+                 region_node_indices_json TEXT NOT NULL DEFAULT '[]',
+                 region_element_indices_json TEXT NOT NULL DEFAULT '[]',
+                 entity_provenance_json TEXT NOT NULL DEFAULT '[]',
+                 diagnostics_json TEXT NOT NULL DEFAULT '[]',
+                 UNIQUE(snapshot_id, constraint_id)
+             );
+          """);
        }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
@@ -5306,12 +5342,12 @@ namespace OpenCS.Utilites
                 frame_local_x_x, frame_local_x_y, frame_local_x_z,
                 frame_local_y_x, frame_local_y_y, frame_local_y_z,
                 frame_local_z_x, frame_local_z_y, frame_local_z_z,
-                frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json,
-                rebar_zones_json, rebar_section_grid_step, mesh_max_element_size_m)
+                 frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json,
+                 rebar_zones_json, rebar_section_grid_step, mesh_max_element_size_m, constraint_objects_json)
             VALUES
                (@sid, @tag, @wkt, @fox, @foy, @foz,
                 @fxx, @fxy, @fxz, @fyx, @fyy, @fyz, @fzx, @fzy, @fzz,
-                @rec, @scid, @fp, @bsj, @rzj, @rsgs, @mmes);
+                 @rec, @scid, @fp, @bsj, @rzj, @rsgs, @mmes, @coj);
             SELECT last_insert_rowid();
          """;
          AddPlanarRegionParameters(cmd, region, schemaId);
@@ -5328,7 +5364,8 @@ namespace OpenCS.Utilites
                frame_local_y_x=@fyx, frame_local_y_y=@fyy, frame_local_y_z=@fyz,
                frame_local_z_x=@fzx, frame_local_z_y=@fzy, frame_local_z_z=@fzz,
                frame_is_recovered=@rec, source_contour_id=@scid, geometry_fingerprint=@fp, boundary_segments_json=@bsj,
-               rebar_zones_json=@rzj, rebar_section_grid_step=@rsgs, mesh_max_element_size_m=@mmes
+                rebar_zones_json=@rzj, rebar_section_grid_step=@rsgs, mesh_max_element_size_m=@mmes
+                , constraint_objects_json=@coj
             WHERE id=@id
          """;
          AddPlanarRegionParameters(cmd, region, schemaId);
@@ -5338,12 +5375,14 @@ namespace OpenCS.Utilites
 
       static void AddPlanarRegionParameters(SqliteCommand cmd, CScore.Planar.PlanarRegion region, int schemaId)
       {
+          region.RecalcFingerprint();
          var holes = region.Holes
             .Select(h => Enumerable.Range(0, h.X.Count).Select(i => (h.X[i], h.Y[i])).ToList())
             .ToList();
          string wkt = WktHelper.PolygonToWKT(region.Hull.X, region.Hull.Y, holes.Count > 0 ? holes : null);
          string segmentsJson = JsonSerializer.Serialize(region.BoundarySegments);
-         string zonesJson = JsonSerializer.Serialize(region.RebarZones);
+          string zonesJson = JsonSerializer.Serialize(region.RebarZones);
+          string constraintsJson = JsonSerializer.Serialize(region.ConstraintObjects, _jsonSettings);
 
          cmd.Parameters.AddWithValue("@sid", schemaId);
          cmd.Parameters.AddWithValue("@tag", region.Tag);
@@ -5366,7 +5405,8 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@bsj", segmentsJson);
          cmd.Parameters.AddWithValue("@rzj", zonesJson);
          cmd.Parameters.AddWithValue("@rsgs", region.RebarSectionGridStep);
-         cmd.Parameters.AddWithValue("@mmes", region.MeshMaxElementSizeM);
+          cmd.Parameters.AddWithValue("@mmes", region.MeshMaxElementSizeM);
+          cmd.Parameters.AddWithValue("@coj", constraintsJson);
       }
 
       public List<CScore.Planar.PlanarRegion> GetPlanarRegions(int schemaId)
@@ -5379,7 +5419,8 @@ namespace OpenCS.Utilites
                    frame_local_y_x, frame_local_y_y, frame_local_y_z,
                    frame_local_z_x, frame_local_z_y, frame_local_z_z,
                    frame_is_recovered, source_contour_id, geometry_fingerprint, boundary_segments_json,
-                   rebar_zones_json, rebar_section_grid_step, mesh_max_element_size_m
+                    rebar_zones_json, rebar_section_grid_step, mesh_max_element_size_m
+                    , constraint_objects_json
             FROM planar_regions WHERE schema_id=@sid
          """;
          cmd.Parameters.AddWithValue("@sid", schemaId);
@@ -5401,8 +5442,8 @@ namespace OpenCS.Utilites
                SourceContourId  = rdr.IsDBNull(16) ? null : rdr.GetInt32(16),
                GeometryFingerprint = rdr.GetString(17),
                RebarSectionGridStep = rdr.IsDBNull(20) ? 0.3 : rdr.GetDouble(20),
-               MeshMaxElementSizeM = rdr.IsDBNull(21) ? 0.2 : rdr.GetDouble(21),
-            };
+             MeshMaxElementSizeM = rdr.IsDBNull(21) ? 0.2 : rdr.GetDouble(21),
+             };
             region.Contours.Add(new Contour { X = ox, Y = oy, Type = ContourType.Hull, Tag = region.Tag });
             for (int i = 0; i < holeXs.Count; i++)
                region.Contours.Add(new Contour { X = holeXs[i], Y = holeYs[i], Type = ContourType.Hole });
@@ -5410,7 +5451,10 @@ namespace OpenCS.Utilites
             var segments = JsonSerializer.Deserialize<List<CScore.Planar.BoundarySegment>>(rdr.GetString(18));
             if (segments != null) region.BoundarySegments = segments;
             var zones = JsonSerializer.Deserialize<List<CScore.PlateRebar.RebarZone>>(rdr.GetString(19));
-            if (zones != null) region.RebarZones = zones;
+             if (zones != null) region.RebarZones = zones;
+             var constraints = JsonSerializer.Deserialize<List<CScore.Planar.PlanarConstraintObject>>(
+                rdr.IsDBNull(22) ? "[]" : rdr.GetString(22), _jsonSettings);
+             if (constraints != null) region.ConstraintObjects = constraints;
 
             result.Add(region);
          }
@@ -5456,16 +5500,20 @@ namespace OpenCS.Utilites
              using var header = _connection.CreateCommand();
              header.CommandText = """
                 INSERT INTO planar_mesh_snapshots
-                   (planar_region_id, input_fingerprint, is_calculable, settings_json, provenance_json, diagnostics_json)
-                VALUES (@region, @fingerprint, @calculable, @settings, @provenance, @diagnostics);
+                    (planar_region_id, input_fingerprint, is_calculable, settings_json, provenance_json, diagnostics_json,
+                     mesh_format_version, entity_provenance_json)
+                 VALUES (@region, @fingerprint, @calculable, @settings, @provenance, @diagnostics,
+                         @format, @entities);
                 SELECT last_insert_rowid();
              """;
              header.Parameters.AddWithValue("@region", snapshot.RegionId);
              header.Parameters.AddWithValue("@fingerprint", snapshot.InputFingerprint);
              header.Parameters.AddWithValue("@calculable", snapshot.IsCalculable ? 1 : 0);
              header.Parameters.AddWithValue("@settings", JsonSerializer.Serialize(snapshot.Settings, _jsonSettings));
-             header.Parameters.AddWithValue("@provenance", JsonSerializer.Serialize(snapshot.Provenance, _jsonSettings));
-             header.Parameters.AddWithValue("@diagnostics", JsonSerializer.Serialize(snapshot.Diagnostics, _jsonSettings));
+              header.Parameters.AddWithValue("@provenance", JsonSerializer.Serialize(snapshot.Provenance, _jsonSettings));
+              header.Parameters.AddWithValue("@diagnostics", JsonSerializer.Serialize(snapshot.Diagnostics, _jsonSettings));
+              header.Parameters.AddWithValue("@format", snapshot.MeshFormatVersion);
+              header.Parameters.AddWithValue("@entities", JsonSerializer.Serialize(snapshot.EntityProvenance, _jsonSettings));
              snapshot.Id = (int)(long)header.ExecuteScalar()!;
 
              using var node = _connection.CreateCommand();
@@ -5489,7 +5537,7 @@ namespace OpenCS.Utilites
               }
               using var mapping = _connection.CreateCommand();
               mapping.CommandText = "INSERT INTO planar_mesh_boundary_mappings(snapshot_id,loop,hole_index,start_vertex,end_vertex,node_indices_json) VALUES(@id,@loop,@hole,@start,@end,@nodes)";
-              foreach (var item in snapshot.BoundaryMappings)
+               foreach (var item in snapshot.BoundaryMappings)
               {
                  mapping.Parameters.Clear();
                  mapping.Parameters.AddWithValue("@id", snapshot.Id);
@@ -5498,9 +5546,31 @@ namespace OpenCS.Utilites
                  mapping.Parameters.AddWithValue("@start", item.Key.StartVertex);
                  mapping.Parameters.AddWithValue("@end", item.Key.EndVertex);
                  mapping.Parameters.AddWithValue("@nodes", JsonSerializer.Serialize(item.NodeIndices, _jsonSettings));
-                 mapping.ExecuteNonQuery();
-              }
-              tx.Commit();
+                  mapping.ExecuteNonQuery();
+               }
+               using var constraintMapping = _connection.CreateCommand();
+               constraintMapping.CommandText = """
+                  INSERT INTO planar_mesh_constraint_mappings
+                     (snapshot_id, constraint_id, point_node_indices_json, ordered_curve_edges_json,
+                      curve_element_indices_json, region_node_indices_json, region_element_indices_json,
+                      entity_provenance_json, diagnostics_json)
+                  VALUES (@id, @constraint, @point, @edges, @curveElements, @regionNodes, @regionElements, @entities, @diagnostics)
+               """;
+               foreach (var item in snapshot.ConstraintMappings)
+               {
+                  constraintMapping.Parameters.Clear();
+                  constraintMapping.Parameters.AddWithValue("@id", snapshot.Id);
+                  constraintMapping.Parameters.AddWithValue("@constraint", item.ConstraintObjectId);
+                  constraintMapping.Parameters.AddWithValue("@point", JsonSerializer.Serialize(item.PointNodeIndices, _jsonSettings));
+                  constraintMapping.Parameters.AddWithValue("@edges", JsonSerializer.Serialize(item.OrderedCurveEdges, _jsonSettings));
+                  constraintMapping.Parameters.AddWithValue("@curveElements", JsonSerializer.Serialize(item.CurveElementIndices, _jsonSettings));
+                  constraintMapping.Parameters.AddWithValue("@regionNodes", JsonSerializer.Serialize(item.RegionNodeIndices, _jsonSettings));
+                  constraintMapping.Parameters.AddWithValue("@regionElements", JsonSerializer.Serialize(item.RegionElementIndices, _jsonSettings));
+                  constraintMapping.Parameters.AddWithValue("@entities", JsonSerializer.Serialize(item.EntityProvenance, _jsonSettings));
+                  constraintMapping.Parameters.AddWithValue("@diagnostics", JsonSerializer.Serialize(item.Diagnostics, _jsonSettings));
+                  constraintMapping.ExecuteNonQuery();
+               }
+               tx.Commit();
           }
           catch { tx.Rollback(); throw; }
        }
@@ -5510,7 +5580,7 @@ namespace OpenCS.Utilites
        {
           var result = new List<CScore.Planar.PlanarMeshSnapshot>();
           using var header = _connection.CreateCommand();
-          header.CommandText = "SELECT id,input_fingerprint,is_calculable,settings_json,provenance_json,diagnostics_json FROM planar_mesh_snapshots WHERE planar_region_id=@region ORDER BY id";
+           header.CommandText = "SELECT id,input_fingerprint,is_calculable,settings_json,provenance_json,diagnostics_json,mesh_format_version,entity_provenance_json FROM planar_mesh_snapshots WHERE planar_region_id=@region ORDER BY id";
           header.Parameters.AddWithValue("@region", regionId);
           using var reader = header.ExecuteReader();
           while (reader.Read())
@@ -5532,7 +5602,7 @@ namespace OpenCS.Utilites
                 using var rows = command.ExecuteReader();
                  while (rows.Read()) elements.Add(new(rows.GetInt32(0), (CScore.Planar.PlanarMeshElementKind)rows.GetInt32(1), JsonSerializer.Deserialize<int[]>(rows.GetString(2)) ?? []));
               }
-              var mappings = new List<CScore.Planar.PlanarMeshBoundaryMapping>();
+               var mappings = new List<CScore.Planar.PlanarMeshBoundaryMapping>();
               using (var command = _connection.CreateCommand())
               {
                  command.CommandText = "SELECT loop,hole_index,start_vertex,end_vertex,node_indices_json FROM planar_mesh_boundary_mappings WHERE snapshot_id=@id ORDER BY loop,hole_index,start_vertex";
@@ -5546,14 +5616,43 @@ namespace OpenCS.Utilites
                        NodeIndices = JsonSerializer.Deserialize<int[]>(rows.GetString(4)) ?? []
                     });
                  }
-              }
-              result.Add(new CScore.Planar.PlanarMeshSnapshot
+               }
+               var constraintMappings = new List<CScore.Planar.PlanarConstraintMeshMapping>();
+               using (var command = _connection.CreateCommand())
+               {
+                  command.CommandText = """
+                     SELECT constraint_id, point_node_indices_json, ordered_curve_edges_json,
+                            curve_element_indices_json, region_node_indices_json, region_element_indices_json,
+                            entity_provenance_json, diagnostics_json
+                     FROM planar_mesh_constraint_mappings
+                     WHERE snapshot_id=@id ORDER BY constraint_id
+                  """;
+                  command.Parameters.AddWithValue("@id", id);
+                  using var rows = command.ExecuteReader();
+                  while (rows.Read())
+                  {
+                     constraintMappings.Add(new()
+                     {
+                        ConstraintObjectId = rows.GetString(0),
+                        PointNodeIndices = JsonSerializer.Deserialize<int[]>(rows.GetString(1), _jsonSettings) ?? [],
+                        OrderedCurveEdges = JsonSerializer.Deserialize<CScore.Planar.PlanarMeshEdge[]>(rows.GetString(2), _jsonSettings) ?? [],
+                        CurveElementIndices = JsonSerializer.Deserialize<int[]>(rows.GetString(3), _jsonSettings) ?? [],
+                        RegionNodeIndices = JsonSerializer.Deserialize<int[]>(rows.GetString(4), _jsonSettings) ?? [],
+                        RegionElementIndices = JsonSerializer.Deserialize<int[]>(rows.GetString(5), _jsonSettings) ?? [],
+                        EntityProvenance = JsonSerializer.Deserialize<CScore.Planar.PlanarMeshEntityProvenance[]>(rows.GetString(6), _jsonSettings) ?? [],
+                        Diagnostics = JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(rows.GetString(7), _jsonSettings) ?? []
+                     });
+                  }
+               }
+               result.Add(new CScore.Planar.PlanarMeshSnapshot
              {
                 Id = id, RegionId = regionId, InputFingerprint = reader.GetString(1), IsCalculable = reader.GetInt32(2) != 0,
                 Settings = JsonSerializer.Deserialize<CScore.Planar.PlanarMeshSettings>(reader.GetString(3), _jsonSettings),
                 Provenance = JsonSerializer.Deserialize<CScore.Planar.PlanarMeshProvenance>(reader.GetString(4), _jsonSettings),
-                Diagnostics = JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(reader.GetString(5), _jsonSettings) ?? [],
-                 Nodes = nodes, Elements = elements, BoundaryMappings = mappings
+                 Diagnostics = JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(reader.GetString(5), _jsonSettings) ?? [],
+                 MeshFormatVersion = reader.IsDBNull(6) ? "msh22" : reader.GetString(6),
+                 EntityProvenance = JsonSerializer.Deserialize<List<CScore.Planar.PlanarMeshEntityProvenance>>(reader.IsDBNull(7) ? "[]" : reader.GetString(7), _jsonSettings) ?? [],
+                 Nodes = nodes, Elements = elements, BoundaryMappings = mappings, ConstraintMappings = constraintMappings
              });
           }
           return result;

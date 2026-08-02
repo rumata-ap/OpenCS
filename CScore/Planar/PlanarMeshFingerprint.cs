@@ -15,7 +15,8 @@ public static class PlanarMeshFingerprint
         settings.Validate();
 
         var source = string.Join("|",
-            "planar-mesh-v1",
+            "planar-mesh-v2",
+            "msh41",
             region.GeometryFingerprint,
             Format(settings.MaxElementSizeM),
             settings.Algorithm.ToString(CultureInfo.InvariantCulture),

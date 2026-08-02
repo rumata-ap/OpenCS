@@ -29,5 +29,18 @@ public class PlanarMeshFingerprintTests
             provenance with { GmshVersion = "4.16.0" }));
         Assert.NotEqual(baseline, PlanarMeshFingerprint.Compute(region, settings,
             provenance with { GeneratorVersion = "geo-v2" }));
+
+        var constrainedRegion = PlanarRegion.CreateFromContour(new Contour
+        {
+            X = [0, 2, 2, 0],
+            Y = [0, 0, 1, 1]
+        });
+        constrainedRegion.ConstraintObjects.Add(PlanarConstraintObject.Point(
+            "point-1", new(0.5, 0.5),
+            new PlanarStructuralFacet(PlanarStructuralKind.None),
+            new PlanarMeshFacet(PlanarMeshKind.EmbeddedPoint)));
+        constrainedRegion.RecalcFingerprint();
+
+        Assert.NotEqual(baseline, PlanarMeshFingerprint.Compute(constrainedRegion, settings, provenance));
     }
 }
