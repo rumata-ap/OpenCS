@@ -213,10 +213,25 @@ public sealed class GmshPlanarMesher : IPlanarMesher
         var mappings = BuildBoundaryMappings(expectedLines, boundaryEdges, nodes, region, diagnostics);
         var constraintResult = PlanarConstraintMeshMapper.Map(region, document, nodes, elements);
         diagnostics.AddRange(constraintResult.Diagnostics.Where(diagnostic => !document.Diagnostics.Contains(diagnostic)));
-        return (nodes, elements, mappings,
-            constraintResult.Mappings.SelectMany(mapping => mapping.EntityProvenance).Distinct().ToArray(),
+        var entityProvenance = HostEntityProvenance(document)
+            .Concat(constraintResult.Mappings.SelectMany(mapping => mapping.EntityProvenance))
+            .Distinct()
+            .ToArray();
+        return (nodes, elements, mappings, entityProvenance,
             constraintResult.Mappings, diagnostics);
     }
+
+    static IReadOnlyList<PlanarMeshEntityProvenance> HostEntityProvenance(GmshMsh41Document document) =>
+        document.Elements
+            .Where(element => element.ElementType is (1 or 2 or 3) && element.PhysicalName.StartsWith("host:", StringComparison.Ordinal))
+            .Select(element => new PlanarMeshEntityProvenance(
+                element.PhysicalName,
+                element.EntityDimension,
+                checked((int)element.EntityTag),
+                element.PhysicalGroup,
+                element.PhysicalName))
+            .Distinct()
+            .ToArray();
 
     static int DenseIndex41(long rawId, IReadOnlyDictionary<long, int> indices) =>
         indices.TryGetValue(rawId, out var index) ? index : throw new InvalidDataException($"Элемент MSH ссылается на неизвестный узел {rawId}.");

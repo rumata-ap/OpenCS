@@ -52,7 +52,6 @@ public static class GmshPlanarGeoBuilder
             loop++;
         }
 
-        var host = contours.Single(contour => contour.Type == ContourType.Hull);
         result.AppendLine($"Plane Surface(1) = {{{string.Join(", ", contours.Select(contour => contour.LoopId))}}};");
         result.AppendLine($"Physical Surface(\"host:surface\", {SurfacePhysicalGroup}) = {{1}};");
 

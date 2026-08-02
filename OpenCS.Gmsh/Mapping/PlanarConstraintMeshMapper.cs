@@ -31,7 +31,6 @@ public static class PlanarConstraintMeshMapper
             .Select((node, index) => (node.RawId, Index: index))
             .ToDictionary(pair => pair.RawId, pair => pair.Index);
         var shellElements = document.Elements.Where(IsShell).Select((element, index) => (element, index)).ToArray();
-        var shellIndexByRawId = shellElements.ToDictionary(pair => pair.element.RawId, pair => pair.index);
         var mappings = new List<PlanarConstraintMeshMapping>();
 
         foreach (var constraint in region.ConstraintObjects.OrderBy(item => item.Id, StringComparer.Ordinal))
@@ -41,7 +40,7 @@ public static class PlanarConstraintMeshMapper
             {
                 PlanarConstraintGeometryKind.Point => MapPoint(constraint, document, nodes, rawToDense, localDiagnostics),
                 PlanarConstraintGeometryKind.Curve => MapCurve(constraint, document, nodes, rawToDense, localDiagnostics),
-                PlanarConstraintGeometryKind.Region => MapRegion(constraint, document, nodes, rawToDense, shellIndexByRawId, shellElements, elements, localDiagnostics),
+                PlanarConstraintGeometryKind.Region => MapRegion(constraint, document, nodes, shellElements, elements, localDiagnostics),
                 _ => new PartialMapping()
             };
             var mapping = new PlanarConstraintMeshMapping
@@ -159,8 +158,6 @@ public static class PlanarConstraintMeshMapper
         PlanarConstraintObject constraint,
         GmshMsh41Document document,
         IReadOnlyList<PlanarMeshNode> nodes,
-        IReadOnlyDictionary<long, int> rawToDense,
-        IReadOnlyDictionary<long, int> shellIndexByRawId,
         IReadOnlyList<(GmshMsh41Element element, int index)> shellElements,
         IReadOnlyList<PlanarMeshElement> snapshotElements,
         ICollection<FemValidationDiagnostic> diagnostics)

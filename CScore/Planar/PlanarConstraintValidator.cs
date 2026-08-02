@@ -91,11 +91,11 @@ public static class PlanarConstraintValidator
             return;
         }
 
-        if (facet.Kind is PlanarStructuralKind.RigidBody or PlanarStructuralKind.PointMpc or PlanarStructuralKind.EmbeddedMember &&
+        if (facet.Kind is (PlanarStructuralKind.RigidBody or PlanarStructuralKind.PointMpc or PlanarStructuralKind.EmbeddedMember) &&
             (facet.MasterReference is null || string.IsNullOrWhiteSpace(facet.MasterReference.Provider) || string.IsNullOrWhiteSpace(facet.MasterReference.Key)))
             diagnostics.Add(new("planar_constraint_master_reference_missing", $"Constraint '{constraint.Id}' требует master reference."));
 
-        if (facet.Kind is PlanarStructuralKind.Support or PlanarStructuralKind.Symmetry && facet.DofMask == PlanarDofMask.None)
+        if (facet.Kind is (PlanarStructuralKind.Support or PlanarStructuralKind.Symmetry) && facet.DofMask == PlanarDofMask.None)
             diagnostics.Add(new("planar_constraint_dof_mask_missing", $"Constraint '{constraint.Id}' требует непустую DOF mask."));
 
         if (facet.Frame is not null)
@@ -111,8 +111,8 @@ public static class PlanarConstraintValidator
     static bool IsCompatible(PlanarConstraintGeometryKind geometry, PlanarMeshKind mesh) =>
         mesh == PlanarMeshKind.None ||
         geometry == PlanarConstraintGeometryKind.Point && mesh == PlanarMeshKind.EmbeddedPoint ||
-        geometry == PlanarConstraintGeometryKind.Curve && mesh is PlanarMeshKind.EmbeddedCurve or PlanarMeshKind.ConformingPartition ||
-        geometry == PlanarConstraintGeometryKind.Region && mesh is PlanarMeshKind.EmbeddedRegion or PlanarMeshKind.ConformingPartition;
+        geometry == PlanarConstraintGeometryKind.Curve && mesh is (PlanarMeshKind.EmbeddedCurve or PlanarMeshKind.ConformingPartition) ||
+        geometry == PlanarConstraintGeometryKind.Region && mesh is (PlanarMeshKind.EmbeddedRegion or PlanarMeshKind.ConformingPartition);
 
     static IReadOnlyList<PlanarPoint2D> OpenLoop(Contour contour)
     {
