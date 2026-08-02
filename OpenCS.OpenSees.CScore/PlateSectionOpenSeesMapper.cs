@@ -128,6 +128,9 @@ public static class PlateSectionOpenSeesMapper
             ValidateRebarCoordinate(source.Zsy, section.H, sourceIndex, "Zsy");
             ValidateArea(source.Asx, sourceIndex, "Asx");
             ValidateArea(source.Asy, sourceIndex, "Asy");
+            ValidateRebarAngle(source.Angle, sourceIndex);
+            double angleX = NormalizeDegrees(source.Angle);
+            double angleY = NormalizeDegrees(source.Angle + 90.0);
 
             if (source.Asx > 0)
             {
@@ -137,10 +140,10 @@ public static class PlateSectionOpenSeesMapper
                 IReadOnlyList<NativeShellMaterialDefinition> rebarChain = ResolveMaterial(
                     () => resolver.ResolveRebar(sourceMaterialId), "арматуры");
                 NativeShellMaterialDefinition oriented = RegisterChain(
-                    rebarChain, nextMaterialTag, 0, byFingerprint, usedTags, materials);
+                    rebarChain, nextMaterialTag, angleX, byFingerprint, usedTags, materials);
                 nextMaterialTag = Math.Max(nextMaterialTag, oriented.Tag + 1);
                 layers.Add(new RCShellLayer(
-                    0, ShellLayerKind.RebarX, source.Zsx, source.Asx, oriented.Tag, 0,
+                    0, ShellLayerKind.RebarX, source.Zsx, source.Asx, oriented.Tag, angleX,
                     $"rebar:{sourceIndex}:x"));
             }
 
@@ -152,10 +155,10 @@ public static class PlateSectionOpenSeesMapper
                 IReadOnlyList<NativeShellMaterialDefinition> rebarChain = ResolveMaterial(
                     () => resolver.ResolveRebar(sourceMaterialId), "арматуры");
                 NativeShellMaterialDefinition oriented = RegisterChain(
-                    rebarChain, nextMaterialTag, 90, byFingerprint, usedTags, materials);
+                    rebarChain, nextMaterialTag, angleY, byFingerprint, usedTags, materials);
                 nextMaterialTag = Math.Max(nextMaterialTag, oriented.Tag + 1);
                 layers.Add(new RCShellLayer(
-                    0, ShellLayerKind.RebarY, source.Zsy, source.Asy, oriented.Tag, 90,
+                    0, ShellLayerKind.RebarY, source.Zsy, source.Asy, oriented.Tag, angleY,
                     $"rebar:{sourceIndex}:y"));
             }
         }
@@ -185,7 +188,9 @@ public static class PlateSectionOpenSeesMapper
                 layer.Asy.ToString("G17", CultureInfo.InvariantCulture),
                 layer.Zsx.ToString("G17", CultureInfo.InvariantCulture),
                 layer.Zsy.ToString("G17", CultureInfo.InvariantCulture),
-                layer.MaterialId.ToString(CultureInfo.InvariantCulture)))));
+                layer.MaterialId.ToString(CultureInfo.InvariantCulture),
+                layer.Angle.ToString("G17", CultureInfo.InvariantCulture),
+                layer.Face.ToString()))));
         string sectionFingerprint = Fingerprint(
             sourceFingerprint,
             FrameFingerprint(frame),
@@ -327,6 +332,21 @@ public static class PlateSectionOpenSeesMapper
     {
         if (!double.IsFinite(value) || Math.Abs(value) > thickness / 2.0 + ZTolerance)
             throw new CScoreMappingException($"Арматурный слой {index}: {name} выходит за физическую толщину PlateSection.");
+    }
+
+    private static void ValidateRebarAngle(double value, int index)
+    {
+        if (!double.IsFinite(value))
+            throw new CScoreMappingException(
+                $"rebar_angle_invalid: арматурный слой {index}: угол должен быть конечным.");
+    }
+
+    private static double NormalizeDegrees(double degrees)
+    {
+        double value = degrees % 360.0;
+        if (value >= 180.0) value -= 360.0;
+        if (value < -180.0) value += 360.0;
+        return value;
     }
 
     private static string FrameFingerprint(ShellFrame frame) => string.Join(",",

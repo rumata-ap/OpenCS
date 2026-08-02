@@ -2,6 +2,7 @@ using OpenCS.OpenSees.CScore;
 using OpenCS.OpenSees.Model;
 using OpenCS.OpenSees.Structural;
 using CScore;
+using CScore.PlateRebar;
 
 namespace OpenCS.OpenSees.Tests;
 
@@ -97,6 +98,89 @@ public sealed class PlateSectionOpenSeesMapperTests
             [(section, ShellFrame.Identity, 5), (section, ShellFrame.Identity, 5)], Resolver()));
 
         Assert.Contains("tag", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Map_RebarAngle45_MapsXAt45AndYAt135Degrees()
+    {
+        var section = new PlateSection
+        {
+            H = 0.2,
+            NLayers = 2,
+            RebarLayers = [
+                new PlateRebarLayer { Asx = 0.001, Asy = 0.002, Zsx = -0.07, Zsy = 0.07, Angle = 45.0 }
+            ]
+        };
+        var result = PlateSectionOpenSeesMapper.Map(section, ShellFrame.Identity, Resolver());
+
+        Assert.Contains(result.Section.Layers,
+            x => x.Kind == ShellLayerKind.RebarX && x.DirectionDegrees == 45.0 && x.CenterZ == -0.07);
+        Assert.Contains(result.Section.Layers,
+            x => x.Kind == ShellLayerKind.RebarY && x.DirectionDegrees == 135.0 && x.CenterZ == 0.07);
+
+        var angles = result.Materials
+            .Select(m => m.Spec)
+            .OfType<PlateRebarShellMaterialSpec>()
+            .Select(s => s.AngleDegrees)
+            .OrderBy(a => a)
+            .ToArray();
+        Assert.Equal([45.0, 135.0], angles);
+    }
+
+    [Fact]
+    public void Map_RebarAngle200_NormalizesToMinus160AndMinus70()
+    {
+        var section = new PlateSection
+        {
+            H = 0.2,
+            NLayers = 2,
+            RebarLayers = [
+                new PlateRebarLayer { Asx = 0.001, Asy = 0.001, Zsx = -0.07, Zsy = 0.07, Angle = 200.0 }
+            ]
+        };
+        var result = PlateSectionOpenSeesMapper.Map(section, ShellFrame.Identity, Resolver());
+
+        Assert.Contains(result.Section.Layers,
+            x => x.Kind == ShellLayerKind.RebarX && x.DirectionDegrees == -160.0);
+        Assert.Contains(result.Section.Layers,
+            x => x.Kind == ShellLayerKind.RebarY && x.DirectionDegrees == -70.0);
+    }
+
+    [Fact]
+    public void Map_NonFiniteRebarAngle_ThrowsRebarAngleInvalid()
+    {
+        var section = new PlateSection
+        {
+            H = 0.2,
+            NLayers = 2,
+            RebarLayers = [
+                new PlateRebarLayer { Asx = 0.001, Zsx = -0.07, Angle = double.NaN }
+            ]
+        };
+
+        var ex = Assert.Throws<CScoreMappingException>(() =>
+            PlateSectionOpenSeesMapper.Map(section, ShellFrame.Identity, Resolver()));
+
+        Assert.Contains("rebar_angle_invalid", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Map_RebarAngleAndFace_ChangeSourceAndSectionFingerprint()
+    {
+        var angle0 = MapWithRebar(new PlateRebarLayer { Asx = 0.001, Zsx = -0.07, Angle = 0.0 });
+        var angle30 = MapWithRebar(new PlateRebarLayer { Asx = 0.001, Zsx = -0.07, Angle = 30.0 });
+        var minusFace = MapWithRebar(new PlateRebarLayer { Asx = 0.001, Zsx = -0.07, Face = RebarFace.MinusN });
+
+        Assert.NotEqual(angle0.SourcePlateSectionFingerprint, angle30.SourcePlateSectionFingerprint);
+        Assert.NotEqual(angle0.Fingerprint, angle30.Fingerprint);
+        Assert.NotEqual(angle0.SourcePlateSectionFingerprint, minusFace.SourcePlateSectionFingerprint);
+        Assert.NotEqual(angle0.Fingerprint, minusFace.Fingerprint);
+    }
+
+    private static RCShellLayeredSection MapWithRebar(PlateRebarLayer layer)
+    {
+        var section = new PlateSection { H = 0.2, NLayers = 2, RebarLayers = [layer] };
+        return PlateSectionOpenSeesMapper.Map(section, ShellFrame.Identity, Resolver()).Section;
     }
 
     private static IPlateSectionShellMaterialResolver Resolver() => new TestResolver();
