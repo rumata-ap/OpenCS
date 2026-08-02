@@ -163,8 +163,8 @@ public sealed class ShellStateParser
         StepStatus? targetStep = FindSuccessfulStep(directory, stepIndex, out int rowIndex);
         if (targetStep is null) return [];
 
-        ShellLayerStateGroup stressGroup = FindLayerGroup(catalog, integrationPoint, layerIndex, "stress");
-        ShellLayerStateGroup strainGroup = FindLayerGroup(catalog, integrationPoint, layerIndex, "strain");
+        ShellLayerStateGroup stressGroup = FindLayerGroup(catalog, elementTag, integrationPoint, layerIndex, "stress");
+        ShellLayerStateGroup strainGroup = FindLayerGroup(catalog, elementTag, integrationPoint, layerIndex, "strain");
         int stressElementIndex = FindElementIndex(stressGroup, elementTag);
         int strainElementIndex = FindElementIndex(strainGroup, elementTag);
         double[] stressRow = ParseMatrixRow(directory, stressGroup, rowIndex);
@@ -245,9 +245,10 @@ public sealed class ShellStateParser
     }
 
     private static ShellLayerStateGroup FindLayerGroup(
-        ShellStateCatalog catalog, int integrationPoint, int layerIndex, string response)
+        ShellStateCatalog catalog, int elementTag, int integrationPoint, int layerIndex, string response)
     {
         return catalog.ShellLayerGroups.SingleOrDefault(group =>
+                   group.ElementTags.Contains(elementTag) &&
                    group.IntegrationPoint == integrationPoint &&
                    group.LayerIndex == layerIndex &&
                    string.Equals(group.ResponseKind, response, StringComparison.OrdinalIgnoreCase))

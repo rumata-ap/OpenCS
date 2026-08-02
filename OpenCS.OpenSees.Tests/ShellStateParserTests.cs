@@ -259,6 +259,58 @@ public sealed class ShellStateParserTests
         }
     }
 
+    [Fact]
+    public void ParseShellLayers_V2_SelectsGroupByElementSection()
+    {
+        string directory = CreateTempDirectory();
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "state_order.json"), """
+            {
+              "version": 2,
+              "shellLayerGroups": [
+                { "sectionTag": 20, "integrationPoint": 1, "layerIndex": 1, "responseKind": "stress",
+                  "elementTags": [10], "fileName": "s20-stress.out", "componentCount": 5, "unit": "Pa",
+                  "materialTag": 1, "layerKind": "Concrete", "sourceId": "a:0",
+                  "centerZ": -0.05, "thickness": 0.1, "sectionFingerprint": "fp-a" },
+                { "sectionTag": 20, "integrationPoint": 1, "layerIndex": 1, "responseKind": "strain",
+                  "elementTags": [10], "fileName": "s20-strain.out", "componentCount": 5, "unit": "1",
+                  "materialTag": 1, "layerKind": "Concrete", "sourceId": "a:0",
+                  "centerZ": -0.05, "thickness": 0.1, "sectionFingerprint": "fp-a" },
+                { "sectionTag": 21, "integrationPoint": 1, "layerIndex": 1, "responseKind": "stress",
+                  "elementTags": [11], "fileName": "s21-stress.out", "componentCount": 5, "unit": "Pa",
+                  "materialTag": 2, "layerKind": "RebarX", "sourceId": "b:0",
+                  "centerZ": 0.05, "thickness": 0.01, "sectionFingerprint": "fp-b" },
+                { "sectionTag": 21, "integrationPoint": 1, "layerIndex": 1, "responseKind": "strain",
+                  "elementTags": [11], "fileName": "s21-strain.out", "componentCount": 5, "unit": "1",
+                  "materialTag": 2, "layerKind": "RebarX", "sourceId": "b:0",
+                  "centerZ": 0.05, "thickness": 0.01, "sectionFingerprint": "fp-b" }
+              ],
+              "beamFiberLocations": [],
+              "optionalResponses": []
+            }
+            """);
+            File.WriteAllText(Path.Combine(directory, "step_status.out"), "1 0 1.0 1 0\n");
+            File.WriteAllText(Path.Combine(directory, "s20-stress.out"), "1.0 1 2 3 4 5\n");
+            File.WriteAllText(Path.Combine(directory, "s20-strain.out"), "1.0 0.1 0.2 0.3 0.4 0.5\n");
+            File.WriteAllText(Path.Combine(directory, "s21-stress.out"), "1.0 11 12 13 14 15\n");
+            File.WriteAllText(Path.Combine(directory, "s21-strain.out"), "1.0 1.1 1.2 1.3 1.4 1.5\n");
+
+            var parser = new ShellStateParser();
+            var states = parser.ParseShellLayers(directory, parser.ParseCatalog(directory), 11, 1, 1, 1);
+
+            var state = Assert.Single(states);
+            Assert.Equal(2, state.MaterialTag);
+            Assert.Equal(ShellLayerKind.RebarX, state.ShellLayerKind);
+            Assert.Equal(21, state.CatalogGroup!.SectionTag);
+            Assert.Equal("b:0", state.CatalogGroup.SourceId);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private static string CreateTempDirectory()
     {
         string path = Path.Combine(Path.GetTempPath(), "opencs-shell-state-tests", Guid.NewGuid().ToString("N"));
