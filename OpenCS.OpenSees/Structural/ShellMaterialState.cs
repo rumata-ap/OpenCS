@@ -85,6 +85,9 @@ public sealed record RCShellLayerState
     /// <summary>Необязательные сырые native response-векторы.</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<double>> OptionalResponses { get; }
 
+    /// <summary>Ссылка на полный catalog entry с provenance (sourceId, centerZ, thickness, fingerprint).</summary>
+    public ShellLayerStateGroup? CatalogGroup { get; }
+
     /// <summary>Создаёт состояние shell layer и проверяет размерность response.</summary>
     public RCShellLayerState(
         RCShellMaterialStateKey key,
@@ -92,7 +95,8 @@ public sealed record RCShellLayerState
         ShellLayerKind ShellLayerKind,
         IReadOnlyList<double> Stress,
         IReadOnlyList<double> Strain,
-        IReadOnlyDictionary<string, IReadOnlyList<double>>? OptionalResponses = null)
+        IReadOnlyDictionary<string, IReadOnlyList<double>>? OptionalResponses = null,
+        ShellLayerStateGroup? CatalogGroup = null)
     {
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(Stress);
@@ -108,6 +112,7 @@ public sealed record RCShellLayerState
         this.ShellLayerKind = ShellLayerKind;
         this.Stress = Stress.ToArray();
         this.Strain = Strain.ToArray();
+        this.CatalogGroup = CatalogGroup;
         this.OptionalResponses = OptionalResponses is null
             ? new Dictionary<string, IReadOnlyList<double>>()
             : OptionalResponses.ToDictionary(
@@ -149,7 +154,17 @@ public sealed record RCShellBeamFiberState
     }
 }
 
-/// <summary>Группа shell recorder для одного IP, слоя и response.</summary>
+/// <summary>Происхождение metadata material-state catalog: v2 — полное, v1 — legacy без provenance.</summary>
+public enum ShellStateCatalogProvenanceKind
+{
+    /// <summary>Catalog v2 с полной identity metadata (MaterialTag, LayerKind, SourceId, ...).</summary>
+    V2WithProvenance,
+
+    /// <summary>Legacy v1 без metadata — строгий audit и typed mapping не принимают.</summary>
+    V1LegacyMissing
+}
+
+/// <summary>Группа shell recorder для одной секции, IP, слоя и response (state_order v2).</summary>
 public sealed record ShellLayerStateGroup(
     int IntegrationPoint,
     int LayerIndex,
@@ -158,11 +173,29 @@ public sealed record ShellLayerStateGroup(
     string FileName,
     int ComponentCount)
 {
-    /// <summary>Tag материала слоя, если записан в catalog.</summary>
+    /// <summary>Tag слоистой секции OpenSees (v2, обязателен).</summary>
+    public int? SectionTag { get; init; }
+
+    /// <summary>Tag материала слоя (v2, обязателен; v1 — null, defaults запрещены).</summary>
     public int? MaterialTag { get; init; }
 
-    /// <summary>Назначение слоя, если записано в catalog.</summary>
+    /// <summary>Назначение слоя (v2, обязательно; v1 — null).</summary>
     public ShellLayerKind? LayerKind { get; init; }
+
+    /// <summary>Стабильный SourceId исходного слоя (v2).</summary>
+    public string? SourceId { get; init; }
+
+    /// <summary>Координата центра слоя, м (v2).</summary>
+    public double? CenterZ { get; init; }
+
+    /// <summary>Эквивалентная толщина слоя, м (v2; у арматуры — smeared толщина из As).</summary>
+    public double? Thickness { get; init; }
+
+    /// <summary>Fingerprint исходного PlateSection/layout (v2).</summary>
+    public string? SectionFingerprint { get; init; }
+
+    /// <summary>Единицы response (v2).</summary>
+    public string? Unit { get; init; }
 }
 
 /// <summary>Положение beam fiber, описанное в material-state catalog.</summary>
@@ -180,7 +213,14 @@ public sealed record ShellStateCatalog(
     int Version,
     IReadOnlyList<ShellLayerStateGroup> ShellLayerGroups,
     IReadOnlyList<ShellBeamFiberLocation> BeamFiberLocations,
-    IReadOnlyList<string> OptionalResponses);
+    IReadOnlyList<string> OptionalResponses)
+{
+    /// <summary>Происхождение metadata: v2 — полное, v1 — legacy missing.</summary>
+    public ShellStateCatalogProvenanceKind ProvenanceKind =>
+        Version >= 2
+            ? ShellStateCatalogProvenanceKind.V2WithProvenance
+            : ShellStateCatalogProvenanceKind.V1LegacyMissing;
+}
 
 /// <summary>Политика записи shell-layer и beam-fiber material states.</summary>
 public sealed record ShellStateRecordingPolicy
