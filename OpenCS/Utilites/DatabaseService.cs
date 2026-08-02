@@ -2,6 +2,7 @@ using CScore;
 using CScore.Fire;
 using CScore.Fire.Entities;
 using CScore.PlateRebar;
+using CScore.Planar.Fragments;
 using CSmath;
 
 using Microsoft.Data.Sqlite;
@@ -30,7 +31,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-             const int CurrentSchemaVersion = 49;
+             const int CurrentSchemaVersion = 50;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -516,6 +517,8 @@ namespace OpenCS.Utilites
                 element_id          INTEGER
             );";
          cmd.ExecuteNonQuery();
+
+         MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
          // по таблицам, которые EnsureCreated уже создал в финальном виде.
@@ -6044,6 +6047,53 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("@fid",     femCheckId);
          r.Id = (int)(long)cmd.ExecuteScalar()!;
          CalcResults.Add(r);
+      }
+
+      /// <summary>Миграция v50: таблицы для хранения агрегатов фрагментов стен и их результатов.</summary>
+      void MigrateV50()
+      {
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS planar_wall_fragments (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                fragment_json TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS planar_wall_fragment_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fragment_id INTEGER NOT NULL,
+                snapshot_fingerprint TEXT NOT NULL,
+                result_json TEXT NOT NULL,
+                audit_report_json TEXT NOT NULL,
+                computed_at TEXT NOT NULL,
+                FOREIGN KEY(fragment_id) REFERENCES planar_wall_fragments(id) ON DELETE CASCADE
+            );
+         """);
+      }
+
+      public void SaveVerticalPlanarFragment(VerticalPlanarFragment fragment)
+      {
+         if (fragment == null) return;
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            INSERT OR REPLACE INTO planar_wall_fragments (id, name, fragment_json, created_at)
+            VALUES (@id, @name, @json, @created);
+         """;
+         cmd.Parameters.AddWithValue("@id", fragment.FragmentId);
+         cmd.Parameters.AddWithValue("@name", fragment.Name);
+         cmd.Parameters.AddWithValue("@json", JsonSerializer.Serialize(fragment, _jsonSettings));
+         cmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+         cmd.ExecuteNonQuery();
+      }
+
+      public VerticalPlanarFragment? GetVerticalPlanarFragment(int fragmentId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT fragment_json FROM planar_wall_fragments WHERE id = @id";
+         cmd.Parameters.AddWithValue("@id", fragmentId);
+         var json = cmd.ExecuteScalar() as string;
+         if (string.IsNullOrEmpty(json)) return null;
+         return JsonSerializer.Deserialize<VerticalPlanarFragment>(json, _jsonSettings);
       }
 
       #endregion

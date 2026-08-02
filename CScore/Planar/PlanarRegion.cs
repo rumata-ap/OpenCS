@@ -31,16 +31,18 @@ public sealed class PlanarRegion
     /// timeout) берутся из глобальных GmshSettings в момент построения.</summary>
     public double MeshMaxElementSizeM { get; set; } = 0.2;
 
-    public Contour Hull
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Contour? Hull
     {
-        get => Contours.First(c => c.Type == ContourType.Hull);
+        get => Contours.FirstOrDefault(c => c.Type == ContourType.Hull);
         set
         {
             int idx = Contours.FindIndex(c => c.Type == ContourType.Hull);
-            if (idx >= 0) Contours[idx] = value; else Contours.Insert(0, value);
+            if (idx >= 0) Contours[idx] = value; else if (value != null) Contours.Insert(0, value);
         }
     }
 
+    [System.Text.Json.Serialization.JsonIgnore]
     public IEnumerable<Contour> Holes => Contours.Where(c => c.Type == ContourType.Hole);
 
     public void RecalcFingerprint() =>
