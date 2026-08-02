@@ -115,14 +115,15 @@ geometry/mesh facet.
 `PlanarConnectionMeshMapping` хранит:
 
 - connection ID и mesh mode;
-- IDs и input fingerprints двух snapshots;
+- connection fingerprint, IDs и input fingerprints двух snapshots;
 - mapping каждой стороны: region ID, constraint ID, ordered node indices и ordered edges;
 - ориентацию стороны относительно канонической кривой;
 - фактические 3D-координаты и cumulative arclength/нормированный параметр `s` nodes;
 - exact node pairs, когда chains имеют однозначное попарное соответствие;
 - diagnostics и `IsCalculable`.
 
-`PlanarConnectionMapper`:
+`PlanarConnectionMapper` принимает connection, оба текущих `PlanarRegion` (для
+local-to-global transform) и оба snapshots:
 
 1. Проверяет, что оба snapshot расчётны, принадлежат ожидающим регионам и проходят
    `PlanarMeshSnapshotValidator`.
@@ -187,6 +188,7 @@ Request-local connection constraints не записываются в
 Минимальный набор blocking codes:
 
 - `planar_connection_id_duplicate`;
+- `planar_connection_id_invalid`;
 - `planar_connection_region_unknown`;
 - `planar_connection_same_region`;
 - `planar_connection_locus_invalid`;
