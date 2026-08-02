@@ -69,6 +69,10 @@ public sealed class PlanarConnectionGraph
             : $"{second}|{first}";
     }
 
-    static string LocusKey(ConnectionLocus locus) =>
-        $"{locus.RegionId}:{string.Join(';', locus.Points.Select(point => $"{point.U:G17},{point.V:G17}"))}";
+    static string LocusKey(ConnectionLocus locus)
+    {
+        var forward = string.Join(';', locus.Points.Select(point => $"{point.U:G17},{point.V:G17}"));
+        var reverse = string.Join(';', locus.Points.Reverse().Select(point => $"{point.U:G17},{point.V:G17}"));
+        return $"{locus.RegionId}:{(string.CompareOrdinal(forward, reverse) <= 0 ? forward : reverse)}";
+    }
 }

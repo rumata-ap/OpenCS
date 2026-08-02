@@ -124,10 +124,29 @@ public sealed class PlanarConnectionTests
         var diagnostics = graph.Validate(new Dictionary<int, PlanarRegion>
         {
             [10] = Region(10),
-            [20] = Region(20)
+            [20] = RegionB(20)
         });
 
         Assert.Contains(diagnostics, item => item.Code == "planar_connection_id_duplicate");
+    }
+
+    [Fact]
+    public void Graph_RejectsDuplicateSpatialLocusWithReversedPoints()
+    {
+        var first = Connection(PlanarConnectionMeshMode.EmbeddedLocus);
+        var second = Connection(PlanarConnectionMeshMode.EmbeddedLocus);
+        second.Id = 8;
+        second.SideA = new ConnectionLocus(10, second.SideA.Points.Reverse().ToArray());
+        second.SideB = new ConnectionLocus(20, second.SideB.Points.Reverse().ToArray());
+        var graph = new PlanarConnectionGraph { Connections = [first, second] };
+
+        var diagnostics = graph.Validate(new Dictionary<int, PlanarRegion>
+        {
+            [10] = Region(10),
+            [20] = RegionB(20)
+        });
+
+        Assert.Contains(diagnostics, item => item.Code == "planar_connection_spatial_duplicate");
     }
 
     static PlanarConnection Connection(
@@ -146,6 +165,19 @@ public sealed class PlanarConnectionTests
     {
         var region = PlanarRegion.CreateFromContour(
             new Contour { X = [0, 4, 4, 0], Y = [0, 0, 4, 4] });
+        region.Id = id;
+        return region;
+    }
+
+    static PlanarRegion RegionB(int id)
+    {
+        var region = PlanarRegion.CreateFromContour(
+            new Contour { X = [0, 4, 4, 0], Y = [-1, -1, 1, 1] },
+            frame: new Frame3D(
+                new(2, 0, 0),
+                new(0, 1, 0),
+                new(0, 0, 1),
+                new(1, 0, 0)));
         region.Id = id;
         return region;
     }
