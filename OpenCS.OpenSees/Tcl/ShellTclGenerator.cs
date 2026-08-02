@@ -190,15 +190,23 @@ public sealed class ShellTclGenerator
 
         string stateOrderJson = JsonSerializer.Serialize(new
         {
-            version = 1,
+            version = 2,
             shellLayerGroups = shellLayerGroups.Select(group => new
             {
+                sectionTag = group.SectionTag,
                 integrationPoint = group.IntegrationPoint,
                 layerIndex = group.LayerIndex,
                 responseKind = group.ResponseKind,
                 elementTags = group.ElementTags,
                 fileName = group.FileName,
-                componentCount = group.ComponentCount
+                componentCount = group.ComponentCount,
+                unit = group.Unit,
+                materialTag = group.MaterialTag,
+                layerKind = group.LayerKind!.Value.ToString(),
+                sourceId = group.SourceId,
+                centerZ = group.CenterZ,
+                thickness = group.Thickness,
+                sectionFingerprint = group.SectionFingerprint
             }),
             beamFiberLocations = beamFiberLocations.Select(location => new
             {
@@ -210,7 +218,7 @@ public sealed class ShellTclGenerator
                 z = location.Z,
                 materialTag = location.MaterialTag
             }),
-            optionalResponses = Array.Empty<string>()
+            optionalResponses = model.MaterialStateRecording.OptionalResponses ?? []
         });
         L("set stateOrderFile [open state_order.json w]");
         L("puts $stateOrderFile {" + stateOrderJson + "}");
@@ -307,7 +315,8 @@ public sealed class ShellTclGenerator
         return sb.ToString();
     }
 
-    /// <summary>Эмитирует material recorder-группы по слоям LayeredShell и возвращает их catalog.</summary>
+    /// <summary>Эмитирует material recorder-группы по слоям LayeredShell с group identity
+    /// (sectionTag, integrationPoint, layerIndex, responseKind) и возвращает v2 catalog.</summary>
     private static List<ShellLayerStateGroup> EmitShellLayerStateRecorders(
         ShellOpenSeesModel model,
         Action<string> line)
@@ -317,42 +326,81 @@ public sealed class ShellTclGenerator
             return groups;
 
         var sections = model.Sections.ToDictionary(section => section.Tag);
+        var materials = model.Materials.ToDictionary(material => material.Tag);
         int maxIp = model.Elements.Max(element => element.IntegrationPointCount);
         int[] selectedIps = model.MaterialStateRecording.ShellIntegrationPoints is { } requestedIps
             ? requestedIps.Distinct().OrderBy(ip => ip).ToArray()
             : Enumerable.Range(1, maxIp).ToArray();
 
-        var layerCounts = model.Elements
-            .Select(element => sections[element.SectionTag].Layers.Count)
-            .Distinct()
-            .OrderBy(count => count)
-            .ToArray();
-        int maxLayer = layerCounts.Length == 0 ? 0 : layerCounts[^1];
-
-        foreach (int point in selectedIps)
+        var optionalResponses = model.MaterialStateRecording.OptionalResponses ?? [];
+        foreach (int sectionTag in model.Elements.Select(element => element.SectionTag).Distinct().OrderBy(tag => tag))
         {
-            if (point <= 0 || point > maxIp) continue;
-            for (int layer = 1; layer <= maxLayer; layer++)
+            RCShellLayeredSection section = sections[sectionTag];
+            for (int layerIndex = 1; layerIndex <= section.Layers.Count; layerIndex++)
             {
-                int[] elementTags = model.Elements
-                    .Where(element => element.IntegrationPointCount >= point &&
-                                      sections[element.SectionTag].Layers.Count >= layer)
-                    .OrderBy(element => element.Tag)
-                    .Select(element => element.Tag)
-                    .ToArray();
-                if (elementTags.Length == 0) continue;
+                RCShellLayer layer = section.Layers[layerIndex - 1];
+                NativeShellMaterialDefinition material = materials[layer.MaterialTag];
 
-                foreach (string response in new[] { "stress", "strain" })
+                foreach (int point in selectedIps)
                 {
-                    string fileName = $"shell_layer_ip{point}_layer{layer}_{response}.out";
-                    line($"recorder Element -file {fileName} -closeOnWrite -time -ele {string.Join(' ', elementTags)} material {point} fiber {layer} {response}");
-                    groups.Add(new ShellLayerStateGroup(point, layer, response, elementTags, fileName, 5));
+                    int[] elementTags = model.Elements
+                        .Where(element => element.SectionTag == sectionTag && element.IntegrationPointCount >= point)
+                        .OrderBy(element => element.Tag)
+                        .Select(element => element.Tag)
+                        .ToArray();
+                    if (elementTags.Length == 0) continue;
+
+                    foreach (string response in RequestedResponses(section, layer, material, optionalResponses))
+                    {
+                        (int ComponentCount, string Unit) contract = ResponseContract(material, response);
+                        string fileName = $"shell_layer_s{sectionTag}_ip{point}_layer{layerIndex}_{response}.out";
+                        line($"recorder Element -file {fileName} -closeOnWrite -time -ele {string.Join(' ', elementTags)} material {point} fiber {layerIndex} {response}");
+                        groups.Add(new ShellLayerStateGroup(point, layerIndex, response, elementTags, fileName, contract.ComponentCount)
+                        {
+                            SectionTag = sectionTag,
+                            MaterialTag = layer.MaterialTag,
+                            LayerKind = layer.Kind,
+                            SourceId = layer.SourceId,
+                            CenterZ = layer.CenterZ,
+                            Thickness = layer.Thickness,
+                            SectionFingerprint = section.Fingerprint,
+                            Unit = contract.Unit
+                        });
+                    }
                 }
             }
         }
 
         return groups;
     }
+
+    /// <summary>Возвращает обязательные stress/strain и запрошенные optional responses.
+    /// Неподдерживаемый optional response блокирует генерацию Tcl.</summary>
+    private static IEnumerable<string> RequestedResponses(
+        RCShellLayeredSection section,
+        RCShellLayer layer,
+        NativeShellMaterialDefinition material,
+        IReadOnlyList<string> optionalResponses)
+    {
+        foreach (string response in optionalResponses)
+        {
+            if (!material.Spec.HasResponse(response))
+                throw new InvalidOperationException(
+                    $"unsupported_shell_response: слой {layer.SourceId} (секция {section.Tag}) не поддерживает response «{response}».");
+        }
+
+        return new[] { "stress", "strain" }.Concat(optionalResponses);
+    }
+
+    /// <summary>Возвращает число компонент и единицы native response.</summary>
+    private static (int ComponentCount, string Unit) ResponseContract(
+        NativeShellMaterialDefinition material,
+        string response) =>
+        material.Spec.Capabilities.Single(capability =>
+            string.Equals(capability.ResponseName, response, StringComparison.Ordinal)) is { } contract
+                ? (contract.ComponentCount, contract.Unit)
+                : throw new InvalidOperationException(
+                    $"unsupported_shell_response: материал {material.Tag} не поддерживает «{response}».");
 
     /// <summary>Возвращает детерминированный catalog положений nonlinear beam fibers.</summary>
     private static List<ShellBeamFiberLocation> BuildBeamFiberLocations(ShellOpenSeesModel model)
@@ -365,11 +413,20 @@ public sealed class ShellTclGenerator
         {
             OpenSeesSectionModel section = model.NonlinearBeamSections[element.SectionTag];
             int[] ips = model.MaterialStateRecording.BeamIntegrationPoints is { } requestedIps
-                ? requestedIps.Distinct().Where(ip => ip >= 1 && ip <= element.NumIntegrationPoints).OrderBy(ip => ip).ToArray()
+                ? requestedIps.Distinct().OrderBy(ip => ip).ToArray()
                 : Enumerable.Range(1, element.NumIntegrationPoints).ToArray();
             int[] fibers = model.MaterialStateRecording.BeamFiberIndices is { } requestedFibers
-                ? requestedFibers.Distinct().Where(index => index >= 0 && index < section.Fibers.Count).OrderBy(index => index).ToArray()
+                ? requestedFibers.Distinct().OrderBy(index => index).ToArray()
                 : Enumerable.Range(0, section.Fibers.Count).ToArray();
+
+            foreach (int ip in ips)
+                if (ip < 1 || ip > element.NumIntegrationPoints)
+                    throw new InvalidOperationException(
+                        $"recording_selection_invalid: IP {ip} не существует у beam-элемента {element.Tag} (число IP {element.NumIntegrationPoints}).");
+            foreach (int fiberIndex in fibers)
+                if (fiberIndex < 0 || fiberIndex >= section.Fibers.Count)
+                    throw new InvalidOperationException(
+                        $"recording_selection_invalid: fiber {fiberIndex} не существует в секции {element.SectionTag} (число fibers {section.Fibers.Count}).");
 
             foreach (int ip in ips)
                 foreach (int fiberIndex in fibers)

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using OpenCS.OpenSees.Model;
 using OpenCS.OpenSees.Structural;
 
@@ -23,8 +24,14 @@ public sealed class ShellStateParser
         List<int>? ElementTags,
         string? FileName,
         int ComponentCount,
+        int? SectionTag,
         int? MaterialTag,
-        ShellLayerKind? LayerKind);
+        ShellLayerKind? LayerKind,
+        string? SourceId,
+        double? CenterZ,
+        double? Thickness,
+        string? SectionFingerprint,
+        string? Unit);
 
     private sealed record BeamLocationDto(
         int ElementTag,
@@ -46,31 +53,62 @@ public sealed class ShellStateParser
         try
         {
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            options.Converters.Add(new JsonStringEnumConverter());
             CatalogDto dto = JsonSerializer.Deserialize<CatalogDto>(File.ReadAllText(path), options)
                 ?? throw new OpenSeesResultException("InvalidStateOrder", "material-state catalog пуст.");
-            if (dto.Version <= 0)
-                throw new OpenSeesResultException("InvalidStateOrder", "Некорректная версия material-state catalog.");
+
+            bool isV2 = dto.Version >= 2;
+            if (dto.Version is not (1 or 2))
+                throw new OpenSeesResultException("InvalidStateOrder", $"Неподдерживаемая версия material-state catalog: {dto.Version}.");
 
             var groups = (dto.ShellLayerGroups ?? []).Select(group =>
             {
                 if (group.IntegrationPoint <= 0 || group.LayerIndex <= 0 ||
-                    group.ComponentCount != 5 || group.ResponseKind is not ("stress" or "strain") ||
+                    string.IsNullOrWhiteSpace(group.ResponseKind) ||
                     string.IsNullOrWhiteSpace(group.FileName) || group.ElementTags is null ||
                     group.ElementTags.Count == 0 || group.ElementTags.Any(tag => tag <= 0) ||
-                    group.ElementTags.Distinct().Count() != group.ElementTags.Count)
+                    group.ElementTags.Distinct().Count() != group.ElementTags.Count ||
+                    (!isV2 && (group.ComponentCount != 5 || group.ResponseKind is not ("stress" or "strain"))))
                     throw new OpenSeesResultException("InvalidStateOrder", "Некорректная shell material-state recorder group.");
+                if (isV2)
+                {
+                    if (group.SectionTag is not (> 0))
+                        throw new OpenSeesResultException("InvalidStateOrder", "v2 group: отсутствует sectionTag.");
+                    if (group.MaterialTag is not (> 0))
+                        throw new OpenSeesResultException("InvalidStateOrder", "v2 group: отсутствует materialTag.");
+                    if (group.LayerKind is null)
+                        throw new OpenSeesResultException("InvalidStateOrder", "v2 group: отсутствует layerKind.");
+                    if (string.IsNullOrWhiteSpace(group.SourceId))
+                        throw new OpenSeesResultException("InvalidStateOrder", "v2 group: отсутствует sourceId.");
+                    if (group.CenterZ is not double centerZ || !double.IsFinite(centerZ))
+                        throw new OpenSeesResultException("InvalidStateOrder", "v2 group: некорректный centerZ.");
+                    if (group.Thickness is not double thickness || !double.IsFinite(thickness) || thickness <= 0)
+                        throw new OpenSeesResultException("InvalidStateOrder", "v2 group: некорректная толщина.");
+                    if (string.IsNullOrWhiteSpace(group.SectionFingerprint))
+                        throw new OpenSeesResultException("InvalidStateOrder", "v2 group: отсутствует sectionFingerprint.");
+                    if (string.IsNullOrWhiteSpace(group.Unit))
+                        throw new OpenSeesResultException("InvalidStateOrder", "v2 group: отсутствует unit.");
+                    if (group.ComponentCount <= 0)
+                        throw new OpenSeesResultException("InvalidStateOrder", "v2 group: некорректный componentCount.");
+                }
                 EnsureSafePath(directory, group.FileName);
                 return new ShellLayerStateGroup(
-                    group.IntegrationPoint, group.LayerIndex, group.ResponseKind,
+                    group.IntegrationPoint, group.LayerIndex, group.ResponseKind!,
                     group.ElementTags, group.FileName, group.ComponentCount)
                 {
+                    SectionTag = group.SectionTag,
                     MaterialTag = group.MaterialTag,
-                    LayerKind = group.LayerKind
+                    LayerKind = group.LayerKind,
+                    SourceId = group.SourceId,
+                    CenterZ = group.CenterZ,
+                    Thickness = group.Thickness,
+                    SectionFingerprint = group.SectionFingerprint,
+                    Unit = group.Unit
                 };
             }).ToArray();
 
             var duplicateGroups = groups
-                .GroupBy(group => (group.IntegrationPoint, group.LayerIndex, group.ResponseKind))
+                .GroupBy(group => (group.SectionTag ?? 0, group.IntegrationPoint, group.LayerIndex, group.ResponseKind))
                 .FirstOrDefault(group => group.Count() > 1);
             if (duplicateGroups is not null)
                 throw new OpenSeesResultException("DuplicateStateGroup", "В material-state catalog повторяется shell recorder group.");
@@ -125,12 +163,17 @@ public sealed class ShellStateParser
         StepStatus? targetStep = FindSuccessfulStep(directory, stepIndex, out int rowIndex);
         if (targetStep is null) return [];
 
-        ShellLayerStateGroup stressGroup = FindLayerGroup(catalog, integrationPoint, layerIndex, "stress");
-        ShellLayerStateGroup strainGroup = FindLayerGroup(catalog, integrationPoint, layerIndex, "strain");
+        ShellLayerStateGroup stressGroup = FindLayerGroup(catalog, elementTag, integrationPoint, layerIndex, "stress");
+        ShellLayerStateGroup strainGroup = FindLayerGroup(catalog, elementTag, integrationPoint, layerIndex, "strain");
         int stressElementIndex = FindElementIndex(stressGroup, elementTag);
         int strainElementIndex = FindElementIndex(strainGroup, elementTag);
         double[] stressRow = ParseMatrixRow(directory, stressGroup, rowIndex);
         double[] strainRow = ParseMatrixRow(directory, strainGroup, rowIndex);
+
+        if (stressGroup.SectionTag is null || stressGroup.MaterialTag is not (> 0) ||
+            stressGroup.LayerKind is null || string.IsNullOrWhiteSpace(stressGroup.SourceId))
+            throw new OpenSeesResultException("state_catalog_provenance_missing",
+                "Material-state catalog не содержит provenance (v1 legacy); строгий разбор состояния невозможен.");
 
         return
         [
@@ -139,10 +182,11 @@ public sealed class ShellStateParser
                     targetStep.StepIndex, targetStep.StageIndex, targetStep.LoadFactor,
                     elementTag, integrationPoint, layerIndex,
                     ShellMaterialStateLocationKind.ShellLayer),
-                stressGroup.MaterialTag ?? strainGroup.MaterialTag ?? 1,
-                stressGroup.LayerKind ?? strainGroup.LayerKind ?? ShellLayerKind.Concrete,
+                stressGroup.MaterialTag!.Value,
+                stressGroup.LayerKind!.Value,
                 stressRow[(1 + stressElementIndex * 5)..(1 + (stressElementIndex + 1) * 5)],
-                strainRow[(1 + strainElementIndex * 5)..(1 + (strainElementIndex + 1) * 5)])
+                strainRow[(1 + strainElementIndex * 5)..(1 + (strainElementIndex + 1) * 5)],
+                CatalogGroup: stressGroup)
         ];
     }
 
@@ -201,9 +245,10 @@ public sealed class ShellStateParser
     }
 
     private static ShellLayerStateGroup FindLayerGroup(
-        ShellStateCatalog catalog, int integrationPoint, int layerIndex, string response)
+        ShellStateCatalog catalog, int elementTag, int integrationPoint, int layerIndex, string response)
     {
         return catalog.ShellLayerGroups.SingleOrDefault(group =>
+                   group.ElementTags.Contains(elementTag) &&
                    group.IntegrationPoint == integrationPoint &&
                    group.LayerIndex == layerIndex &&
                    string.Equals(group.ResponseKind, response, StringComparison.OrdinalIgnoreCase))

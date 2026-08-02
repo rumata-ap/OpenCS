@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using OpenCS.OpenSees.Tcl;
@@ -38,7 +39,50 @@ public abstract record NativeShellMaterialSpec
         string canonical = string.Join("|", parts);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
     }
+
+    /// <summary>Описания native response capabilities материала.</summary>
+    public abstract IReadOnlyList<NativeResponseCapability> Capabilities { get; }
+
+    /// <summary>Проверяет, объявлен ли материалом response с указанным именем.</summary>
+    public bool HasResponse(string responseName) =>
+        Capabilities.Any(capability =>
+            string.Equals(capability.ResponseName, responseName, StringComparison.Ordinal));
+
+    /// <summary>Стандартный набор обязательных shell stress/strain capabilities с явным raw-порядком
+    /// компонент и сопряжённой парой для state-integral energy.</summary>
+    protected static IReadOnlyList<NativeResponseCapability> RequiredShellStressStrain() =>
+    [
+        new("stress", "stress", 5, "Pa", true, [],
+            [new("stress", "strain")], ["sigma_x", "sigma_y", "tau_xy", "tau_xz", "tau_yz"]),
+        new("strain", "strain", 5, "1", true, [], [],
+            ["epsilon_x", "epsilon_y", "gamma_xy", "gamma_xz", "gamma_yz"])
+    ];
+
+    /// <summary>Стандартный набор обязательных uniaxial stress/strain capabilities (одна компонента)
+    /// для uniaxial-материалов shell (Elastic, Steel01, Steel02).</summary>
+    protected static IReadOnlyList<NativeResponseCapability> RequiredUniaxialStressStrain() =>
+    [
+        new("stress", "stress", 1, "Pa", true, [], [new("stress", "strain")], ["stress"]),
+        new("strain", "strain", 1, "1", true, [], [], ["strain"])
+    ];
 }
+
+/// <summary>Описание capability одного native response материала: имя, контракт Tcl-запроса,
+/// число компонент, единицы, обязательность и сопряжённые stress/strain пары для
+/// state-integral energy. Контракт задаётся backend adapter-ом, а не пользователем.</summary>
+public sealed record NativeResponseCapability(
+    string ResponseName,
+    string TclQueryContract,
+    int ComponentCount,
+    string Unit,
+    bool IsRequired,
+    IReadOnlyList<string> Warnings,
+    IReadOnlyList<NativeResponseConjugatePair> ConjugatePairs,
+    IReadOnlyList<string>? ComponentNames = null);
+
+/// <summary>Сопряжённая пара response-имён (например stress/strain) для численной интеграции
+/// state integral energy. Отсутствие пары означает, что StateIntegral недоступен.</summary>
+public sealed record NativeResponseConjugatePair(string StressResponse, string StrainResponse);
 
 /// <summary>Упругий isotropic nD-материал OpenSees.</summary>
 public sealed record ElasticIsotropicShellMaterialSpec(double E, double Nu) : NativeShellMaterialSpec
@@ -48,6 +92,9 @@ public sealed record ElasticIsotropicShellMaterialSpec(double E, double Nu) : Na
 
     /// <inheritdoc />
     public override string Fingerprint => Hash(Kind, F(E), F(Nu));
+
+    /// <inheritdoc />
+    public override IReadOnlyList<NativeResponseCapability> Capabilities => RequiredShellStressStrain();
 
     /// <inheritdoc />
     public override string ToTcl(int tag)
@@ -79,6 +126,16 @@ public sealed record PlateRebarShellMaterialSpec(int UniaxialMaterialTag, double
         UniaxialMaterialTag.ToString(CultureInfo.InvariantCulture), F(AngleDegrees));
 
     /// <inheritdoc />
+    public override IReadOnlyList<NativeResponseCapability> Capabilities =>
+    [
+        new("stress", "stress", 5, "Pa", true,
+            ["Smeared-арматура задана отдельными native слоями; точное сохранение z-координаты LayeredShell требует отдельной capability-проверки."],
+            [new("stress", "strain")], ["sigma_x", "sigma_y", "tau_xy", "tau_xz", "tau_yz"]),
+        new("strain", "strain", 5, "1", true, [], [],
+            ["epsilon_x", "epsilon_y", "gamma_xy", "gamma_xz", "gamma_yz"])
+    ];
+
+    /// <inheritdoc />
     public override string ToTcl(int tag)
     {
         if (tag <= 0 || UniaxialMaterialTag <= 0)
@@ -106,6 +163,9 @@ public sealed record ElasticUniaxialShellMaterialSpec(double E) : NativeShellMat
 
     /// <inheritdoc />
     public override string Fingerprint => Hash(Kind, F(E));
+
+    /// <inheritdoc />
+    public override IReadOnlyList<NativeResponseCapability> Capabilities => RequiredUniaxialStressStrain();
 
     /// <inheritdoc />
     public override string ToTcl(int tag)
@@ -136,6 +196,9 @@ public sealed record PlasticDamageConcretePlaneStressShellMaterialSpec(
     /// <inheritdoc />
     public override string Fingerprint =>
         Hash(Kind, F(E), F(Nu), F(Ft), F(Fc), F(Beta), F(Ap), F(An), F(Bn));
+
+    /// <inheritdoc />
+    public override IReadOnlyList<NativeResponseCapability> Capabilities => RequiredShellStressStrain();
 
     /// <inheritdoc />
     public override string ToTcl(int tag)
@@ -184,6 +247,9 @@ public sealed record PlateFromPlaneStressShellMaterialSpec(int BaseMaterialTag, 
         this with { BaseMaterialTag = tag };
 
     /// <inheritdoc />
+    public override IReadOnlyList<NativeResponseCapability> Capabilities => RequiredShellStressStrain();
+
+    /// <inheritdoc />
     public override string ToTcl(int tag)
     {
         if (tag <= 0 || BaseMaterialTag <= 0)
@@ -207,6 +273,9 @@ public sealed record Steel01UniaxialShellMaterialSpec(double Fy, double E0, doub
 
     /// <inheritdoc />
     public override string Fingerprint => Hash(Kind, F(Fy), F(E0), F(B));
+
+    /// <inheritdoc />
+    public override IReadOnlyList<NativeResponseCapability> Capabilities => RequiredUniaxialStressStrain();
 
     /// <inheritdoc />
     public override string ToTcl(int tag)
@@ -237,6 +306,9 @@ public sealed record Steel02UniaxialShellMaterialSpec(
 
     /// <inheritdoc />
     public override string Fingerprint => Hash(Kind, F(Fy), F(E0), F(B), F(R0), F(CR1), F(CR2));
+
+    /// <inheritdoc />
+    public override IReadOnlyList<NativeResponseCapability> Capabilities => RequiredUniaxialStressStrain();
 
     /// <inheritdoc />
     public override string ToTcl(int tag)

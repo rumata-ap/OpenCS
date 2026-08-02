@@ -302,16 +302,113 @@ public sealed class ShellTclGeneratorTests
         var script = new ShellTclGenerator().Generate(model);
 
         Assert.Contains(
-            "recorder Element -file shell_layer_ip1_layer1_stress.out -closeOnWrite -time -ele 10 11 material 1 fiber 1 stress",
+            "recorder Element -file shell_layer_s20_ip1_layer1_stress.out -closeOnWrite -time -ele 10 11 material 1 fiber 1 stress",
             script);
         Assert.Contains(
-            "recorder Element -file shell_layer_ip1_layer1_strain.out -closeOnWrite -time -ele 10 11 material 1 fiber 1 strain",
+            "recorder Element -file shell_layer_s20_ip1_layer1_strain.out -closeOnWrite -time -ele 10 11 material 1 fiber 1 strain",
             script);
         Assert.Contains(
-            "recorder Element -file shell_layer_ip4_layer4_stress.out -closeOnWrite -time -ele 10 material 4 fiber 4 stress",
+            "recorder Element -file shell_layer_s20_ip4_layer4_stress.out -closeOnWrite -time -ele 10 material 4 fiber 4 stress",
             script);
-        Assert.DoesNotContain("shell_layer_ip4_layer4_stress.out -closeOnWrite -time -ele 10 11", script);
+        Assert.DoesNotContain("shell_layer_s20_ip4_layer4_stress.out -closeOnWrite -time -ele 10 11", script);
+        Assert.Contains("\"version\":2", script);
         Assert.Contains("state_order.json", script);
+    }
+
+    [Fact]
+    public void Generate_TwoSectionsWithSameLayerCount_EmitsSeparateRecorderGroups()
+    {
+        var baseModel = Q4Model();
+        var model = baseModel with
+        {
+            Sections =
+            [
+                baseModel.Sections[0],
+                new(21, "plate-b", 0.2, ShellFrame.Identity,
+                    baseModel.Sections[0].Layers.Select((layer, i) => layer with
+                    {
+                        MaterialTag = 1,
+                        SourceId = $"concrete-b:{i}"
+                    }).ToArray(),
+                    ShellMappingMode.Exact, [], "section-fingerprint-b")
+            ],
+            Materials = baseModel.Materials,
+            Elements =
+            [
+                baseModel.Elements[0],
+                new(11, ShellElementKind.ASDShellQ4, [1, 2, 3, 4], 21, "section-fingerprint-b",
+                    ShellFrame.Identity, ShellIntegrationPolicy.Full, null)
+            ]
+        };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        Assert.Contains("recorder Element -file shell_layer_s20_ip1_layer1_stress.out -closeOnWrite -time -ele 10 material 1 fiber 1 stress", script);
+        Assert.Contains("recorder Element -file shell_layer_s21_ip1_layer1_stress.out -closeOnWrite -time -ele 11 material 1 fiber 1 stress", script);
+        Assert.DoesNotContain("shell_layer_s20_ip1_layer1_stress.out -closeOnWrite -time -ele 10 11", script);
+    }
+
+    [Fact]
+    public void Generate_StateOrderV2CarriesProvenanceMetadata()
+    {
+        var script = new ShellTclGenerator().Generate(Q4Model());
+
+        Assert.Contains("\"version\":2", script);
+        Assert.Contains("\"sectionTag\":20", script);
+        Assert.Contains("\"layerKind\":\"Concrete\"", script);
+        Assert.Contains("\"sourceId\":\"concrete:", script);
+        Assert.Contains("\"sectionFingerprint\":\"section-fingerprint\"", script);
+        Assert.Contains("\"centerZ\":", script);
+        Assert.Contains("\"thickness\":", script);
+        Assert.Contains("\"unit\":\"Pa\"", script);
+    }
+
+    [Fact]
+    public void Generate_RequestedUnsupportedOptionalResponse_ThrowsUnsupportedShellResponse()
+    {
+        var model = Q4Model() with
+        {
+            MaterialStateRecording = new ShellStateRecordingPolicy
+            {
+                OptionalResponses = ["tangent"]
+            }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => new ShellTclGenerator().Generate(model));
+
+        Assert.Contains("unsupported_shell_response", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Generate_RejectsShellIpOutsideModelRange()
+    {
+        var model = Q4Model() with
+        {
+            MaterialStateRecording = new ShellStateRecordingPolicy { ShellIntegrationPoints = [9] }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => new ShellTclGenerator().Generate(model));
+
+        Assert.Contains("recording_selection_invalid", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Generate_RejectsBeamFiberSelectionOutsideSectionFibers()
+    {
+        var model = Q4Model() with
+        {
+            NonlinearBeamSections = new Dictionary<int, OpenSeesSectionModel>
+            {
+                [30] = new() { GJ = 1000, Materials = [new() { Tag = 40, Native = new Steel01Spec(4e8, 2e11, 0.01) }],
+                    Fibers = [new(0, 0, 0.001, 40)] }
+            },
+            NonlinearBeamElements = [new(200, 1, 2, 30, 3, (0, 1, 0))],
+            MaterialStateRecording = new ShellStateRecordingPolicy { BeamFiberIndices = [1] }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => new ShellTclGenerator().Generate(model));
+
+        Assert.Contains("recording_selection_invalid", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
