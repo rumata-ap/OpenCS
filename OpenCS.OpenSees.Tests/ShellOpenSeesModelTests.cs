@@ -183,4 +183,78 @@ public sealed class ShellOpenSeesModelTests
 
         model.Validate();
     }
+
+    [Fact]
+    public void Validate_RejectsExplicitShellIpMissingFromSomeElement()
+    {
+        var model = BaseModel() with
+        {
+            Elements =
+            [
+                .. BaseModel().Elements,
+                new(11, ShellElementKind.ASDShellT3, [1, 2, 3], 20, Fingerprint,
+                    ShellFrame.Identity, ShellIntegrationPolicy.Full, null)
+            ],
+            MaterialStateRecording = new ShellStateRecordingPolicy { ShellIntegrationPoints = [4] }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(model.Validate);
+
+        Assert.Contains("recording_selection_invalid", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Validate_AcceptsExplicitShellIpExistingInAllElements()
+    {
+        var model = BaseModel() with
+        {
+            Elements =
+            [
+                .. BaseModel().Elements,
+                new(11, ShellElementKind.ASDShellT3, [1, 2, 3], 20, Fingerprint,
+                    ShellFrame.Identity, ShellIntegrationPolicy.Full, null)
+            ],
+            MaterialStateRecording = new ShellStateRecordingPolicy { ShellIntegrationPoints = [1] }
+        };
+
+        model.Validate();
+    }
+
+    [Fact]
+    public void Validate_RejectsBeamIpBeyondElementCount()
+    {
+        var model = BaseModel() with
+        {
+            NonlinearBeamSections = new Dictionary<int, OpenSeesSectionModel>
+            {
+                [30] = new() { GJ = 1000, Materials = [new() { Tag = 40, Native = new Steel01Spec(4e8, 2e11, 0.01) }],
+                    Fibers = [new(0, 0, 0.001, 40)] }
+            },
+            NonlinearBeamElements = [new(100, 3, 4, 30, 3, (0, 1, 0))],
+            MaterialStateRecording = new ShellStateRecordingPolicy { BeamIntegrationPoints = [4] }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(model.Validate);
+
+        Assert.Contains("recording_selection_invalid", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Validate_RejectsBeamFiberIndexBeyondSectionFibers()
+    {
+        var model = BaseModel() with
+        {
+            NonlinearBeamSections = new Dictionary<int, OpenSeesSectionModel>
+            {
+                [30] = new() { GJ = 1000, Materials = [new() { Tag = 40, Native = new Steel01Spec(4e8, 2e11, 0.01) }],
+                    Fibers = [new(0, 0, 0.001, 40)] }
+            },
+            NonlinearBeamElements = [new(100, 3, 4, 30, 3, (0, 1, 0))],
+            MaterialStateRecording = new ShellStateRecordingPolicy { BeamFiberIndices = [1] }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(model.Validate);
+
+        Assert.Contains("recording_selection_invalid", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
 }

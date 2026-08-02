@@ -413,11 +413,20 @@ public sealed class ShellTclGenerator
         {
             OpenSeesSectionModel section = model.NonlinearBeamSections[element.SectionTag];
             int[] ips = model.MaterialStateRecording.BeamIntegrationPoints is { } requestedIps
-                ? requestedIps.Distinct().Where(ip => ip >= 1 && ip <= element.NumIntegrationPoints).OrderBy(ip => ip).ToArray()
+                ? requestedIps.Distinct().OrderBy(ip => ip).ToArray()
                 : Enumerable.Range(1, element.NumIntegrationPoints).ToArray();
             int[] fibers = model.MaterialStateRecording.BeamFiberIndices is { } requestedFibers
-                ? requestedFibers.Distinct().Where(index => index >= 0 && index < section.Fibers.Count).OrderBy(index => index).ToArray()
+                ? requestedFibers.Distinct().OrderBy(index => index).ToArray()
                 : Enumerable.Range(0, section.Fibers.Count).ToArray();
+
+            foreach (int ip in ips)
+                if (ip < 1 || ip > element.NumIntegrationPoints)
+                    throw new InvalidOperationException(
+                        $"recording_selection_invalid: IP {ip} не существует у beam-элемента {element.Tag} (число IP {element.NumIntegrationPoints}).");
+            foreach (int fiberIndex in fibers)
+                if (fiberIndex < 0 || fiberIndex >= section.Fibers.Count)
+                    throw new InvalidOperationException(
+                        $"recording_selection_invalid: fiber {fiberIndex} не существует в секции {element.SectionTag} (число fibers {section.Fibers.Count}).");
 
             foreach (int ip in ips)
                 foreach (int fiberIndex in fibers)

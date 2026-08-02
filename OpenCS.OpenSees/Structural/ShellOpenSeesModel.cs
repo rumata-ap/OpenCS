@@ -205,6 +205,7 @@ public sealed record ShellOpenSeesModel
             throw new InvalidOperationException($"Неизвестная формулировка geomTransf нелинейного стержня «{NonlinearBeamGeomTransfKind}».");
         Policy.Validate();
         MaterialStateRecording.Validate();
+        ValidateRecordingPolicy();
 
         Drilling.Validate();
         if (Drilling.Mode == ShellDrillingMode.Stabilization)
@@ -246,6 +247,44 @@ public sealed record ShellOpenSeesModel
                 throw new InvalidOperationException($"Нелинейный стержень {beam.Tag} ссылается на неизвестную секцию {beam.SectionTag}.");
             if (beam.NumIntegrationPoints <= 0)
                 throw new InvalidOperationException($"Нелинейный стержень {beam.Tag}: число точек интегрирования должно быть положительным.");
+        }
+    }
+
+    /// <summary>Строго проверяет явный выбор material-state recording против topology модели.
+    /// Явленные shell/beam IP и beam fiber должны существовать у всей заявленной области.</summary>
+    private void ValidateRecordingPolicy()
+    {
+        if (MaterialStateRecording.RecordShellLayers && MaterialStateRecording.ShellIntegrationPoints is { } shellIps)
+        {
+            foreach (NormalizedShellElement element in Elements)
+            {
+                if (shellIps.Any(ip => ip > element.IntegrationPointCount))
+                    throw new InvalidOperationException(
+                        $"recording_selection_invalid: shell IP {string.Join(",", shellIps)} не существует у элемента {element.Tag} (число IP {element.IntegrationPointCount}).");
+            }
+        }
+
+        if (!MaterialStateRecording.RecordBeamFibers)
+            return;
+
+        if (MaterialStateRecording.BeamIntegrationPoints is { } beamIps)
+        {
+            foreach (FemNonlinearElement beam in NonlinearBeamElements)
+            {
+                if (beamIps.Any(ip => ip > beam.NumIntegrationPoints))
+                    throw new InvalidOperationException(
+                        $"recording_selection_invalid: beam IP {string.Join(",", beamIps)} не существует у элемента {beam.Tag} (число IP {beam.NumIntegrationPoints}).");
+            }
+        }
+
+        if (MaterialStateRecording.BeamFiberIndices is { } fiberIndices)
+        {
+            foreach (OpenSeesSectionModel section in NonlinearBeamSections.Values)
+            {
+                if (fiberIndices.Any(index => index >= section.Fibers.Count))
+                    throw new InvalidOperationException(
+                        $"recording_selection_invalid: beam fiber index {string.Join(",", fiberIndices)} не существует в секции (число fibers {section.Fibers.Count}).");
+            }
         }
     }
 

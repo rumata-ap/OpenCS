@@ -380,6 +380,38 @@ public sealed class ShellTclGeneratorTests
     }
 
     [Fact]
+    public void Generate_RejectsShellIpOutsideModelRange()
+    {
+        var model = Q4Model() with
+        {
+            MaterialStateRecording = new ShellStateRecordingPolicy { ShellIntegrationPoints = [9] }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => new ShellTclGenerator().Generate(model));
+
+        Assert.Contains("recording_selection_invalid", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Generate_RejectsBeamFiberSelectionOutsideSectionFibers()
+    {
+        var model = Q4Model() with
+        {
+            NonlinearBeamSections = new Dictionary<int, OpenSeesSectionModel>
+            {
+                [30] = new() { GJ = 1000, Materials = [new() { Tag = 40, Native = new Steel01Spec(4e8, 2e11, 0.01) }],
+                    Fibers = [new(0, 0, 0.001, 40)] }
+            },
+            NonlinearBeamElements = [new(200, 1, 2, 30, 3, (0, 1, 0))],
+            MaterialStateRecording = new ShellStateRecordingPolicy { BeamFiberIndices = [1] }
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => new ShellTclGenerator().Generate(model));
+
+        Assert.Contains("recording_selection_invalid", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Generate_EmitsAdaptiveNewtonLoopAndRecorders()
     {
         var model = Q4Model() with
