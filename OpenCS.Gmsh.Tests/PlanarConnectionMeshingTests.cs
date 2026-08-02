@@ -57,6 +57,45 @@ public sealed class PlanarConnectionMeshingTests
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "planar_connection_id_invalid");
     }
 
+    [Fact]
+    public async Task BuildAsync_RealGmshBuildsTwoIndependentSnapshotsAndMapping()
+    {
+        var sideA = RegionA(10);
+        var sideB = RegionB(20);
+        var connection = Connection(PlanarConnectionMeshMode.EmbeddedLocus);
+        var root = Path.Combine(Path.GetTempPath(), "opencs-gmsh-connection", Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            var mesher = new GmshPlanarMesher(new GmshPlanarMesherOptions
+            {
+                ExecutablePath = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe",
+                ArtifactRoot = root
+            });
+            var result = await new PlanarConnectionMeshingWorkflow(mesher).BuildAsync(
+                connection,
+                sideA,
+                new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+                sideB,
+                new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed));
+
+            Assert.True(result.IsCalculable, string.Join(Environment.NewLine, result.Diagnostics));
+            Assert.Equal("msh41", result.SideA!.MeshFormatVersion);
+            Assert.Equal("msh41", result.SideB!.MeshFormatVersion);
+            Assert.Contains(result.SideA.ConstraintMappings, mapping => mapping.ConstraintObjectId == "connection:7:region:10");
+            Assert.Contains(result.SideB.ConstraintMappings, mapping => mapping.ConstraintObjectId == "connection:7:region:20");
+            Assert.Equal(PlanarConnectionOrientation.Reverse, result.Mapping!.SideB.Orientation);
+            Assert.NotEmpty(result.SideA.EntityProvenance);
+            Assert.NotEmpty(result.SideB.EntityProvenance);
+            Assert.Contains(result.SideA.EntityProvenance, item => item.LogicalConstraintId == "connection:7:region:10");
+            Assert.Contains(result.SideB.EntityProvenance, item => item.LogicalConstraintId == "connection:7:region:20");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     static void AssertRequest(
         PlanarMeshingRequest request,
         int regionId,
