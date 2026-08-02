@@ -165,7 +165,7 @@ public sealed class PlanarMeshPersistenceTests
     }
 
     [Fact]
-    public void DatabaseService_MigratesSchema47To48Idempotently()
+    public void DatabaseService_MigratesSchema47To49Idempotently()
     {
         var path = Path.Combine(Path.GetTempPath(), $"opencs-gmsh-migration-{Guid.NewGuid():N}.db");
         try
@@ -185,7 +185,7 @@ public sealed class PlanarMeshPersistenceTests
                 command.Open();
                 using var schema = command.CreateCommand();
                 schema.CommandText = "SELECT value_json FROM settings WHERE key='schema_version'";
-                 Assert.Equal("48", schema.ExecuteScalar()?.ToString());
+                 Assert.Equal("49", schema.ExecuteScalar()?.ToString());
             }
         }
         finally

@@ -30,6 +30,8 @@ public sealed class PlanarConnection
     public ConnectionLocus SideB { get; set; } = new(0, []);
     public PlanarConnectionMeshMode MeshMode { get; set; } = PlanarConnectionMeshMode.EmbeddedLocus;
     public double MatchingToleranceM { get; set; } = 1e-8;
+    /// <summary>Сохранённый fingerprint source contract, обновляемый при persistence.</summary>
+    public string Fingerprint { get; set; } = "";
 }
 
 /// <summary>Набор connections с graph-level проверкой идентичности и ссылок на регионы.</summary>

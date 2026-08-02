@@ -30,7 +30,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-            const int CurrentSchemaVersion = 48;
+             const int CurrentSchemaVersion = 49;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -63,6 +63,7 @@ namespace OpenCS.Utilites
           SetDeleteJournalMode();
           EnsureCreated();
           EnsurePlanarMeshTables();
+          EnsurePlanarConnectionTables();
           Migrate();
        }
 
@@ -576,7 +577,8 @@ namespace OpenCS.Utilites
                  if (i == 44) { MigrateV45(); continue; }
                    if (i == 45) { MigrateV46(); continue; }
                    if (i == 46) { MigrateV47(); continue; }
-                   if (i == 47) { MigrateV48(); continue; }
+                    if (i == 47) { MigrateV48(); continue; }
+                    if (i == 48) { MigrateV49(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1117,13 +1119,16 @@ namespace OpenCS.Utilites
         }
 
         /// <summary>Миграция v48: source provenance derived constraint mappings.</summary>
-        void MigrateV48()
-        {
-            if (!ColumnExists("planar_mesh_constraint_mappings", "source_references_json"))
-                MigExec("ALTER TABLE planar_mesh_constraint_mappings ADD COLUMN source_references_json TEXT NOT NULL DEFAULT '[]'");
-            if (!ColumnExists("planar_mesh_constraint_mappings", "structural_relations_json"))
-                MigExec("ALTER TABLE planar_mesh_constraint_mappings ADD COLUMN structural_relations_json TEXT NOT NULL DEFAULT '[]'");
-        }
+         void MigrateV48()
+         {
+             if (!ColumnExists("planar_mesh_constraint_mappings", "source_references_json"))
+                 MigExec("ALTER TABLE planar_mesh_constraint_mappings ADD COLUMN source_references_json TEXT NOT NULL DEFAULT '[]'");
+             if (!ColumnExists("planar_mesh_constraint_mappings", "structural_relations_json"))
+                 MigExec("ALTER TABLE planar_mesh_constraint_mappings ADD COLUMN structural_relations_json TEXT NOT NULL DEFAULT '[]'");
+         }
+
+         /// <summary>Миграция v49: source connections и mappings двух независимых meshes.</summary>
+         void MigrateV49() => EnsurePlanarConnectionTables();
 
        void EnsurePlanarMeshTables()
        {
@@ -1170,9 +1175,9 @@ namespace OpenCS.Utilites
            EnsurePlanarConstraintMappingTable();
        }
 
-       void EnsurePlanarConstraintMappingTable()
-       {
-          MigExec("""
+        void EnsurePlanarConstraintMappingTable()
+        {
+           MigExec("""
              CREATE TABLE IF NOT EXISTS planar_mesh_constraint_mappings (
                  id INTEGER PRIMARY KEY AUTOINCREMENT,
                  snapshot_id INTEGER NOT NULL REFERENCES planar_mesh_snapshots(id) ON DELETE CASCADE,
@@ -1188,8 +1193,45 @@ namespace OpenCS.Utilites
                   structural_relations_json TEXT NOT NULL DEFAULT '[]',
                   UNIQUE(snapshot_id, constraint_id)
              );
-          """);
-       }
+           """);
+        }
+
+        void EnsurePlanarConnectionTables()
+        {
+           MigExec("""
+              CREATE TABLE IF NOT EXISTS planar_connections (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  region_a_id INTEGER NOT NULL REFERENCES planar_regions(id) ON DELETE CASCADE,
+                  region_b_id INTEGER NOT NULL REFERENCES planar_regions(id) ON DELETE CASCADE,
+                  tag TEXT NOT NULL DEFAULT '',
+                  locus_a_json TEXT NOT NULL DEFAULT '{}',
+                  locus_b_json TEXT NOT NULL DEFAULT '{}',
+                  mesh_mode INTEGER NOT NULL DEFAULT 1,
+                  matching_tolerance_m REAL NOT NULL DEFAULT 1e-8,
+                  fingerprint TEXT NOT NULL DEFAULT ''
+              );
+              CREATE INDEX IF NOT EXISTS idx_planar_connections_region_a
+                  ON planar_connections(region_a_id);
+              CREATE INDEX IF NOT EXISTS idx_planar_connections_region_b
+                  ON planar_connections(region_b_id);
+              CREATE TABLE IF NOT EXISTS planar_connection_mappings (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  connection_id INTEGER NOT NULL REFERENCES planar_connections(id) ON DELETE CASCADE,
+                  snapshot_a_id INTEGER NOT NULL REFERENCES planar_mesh_snapshots(id) ON DELETE CASCADE,
+                  snapshot_b_id INTEGER NOT NULL REFERENCES planar_mesh_snapshots(id) ON DELETE CASCADE,
+                  connection_fingerprint TEXT NOT NULL DEFAULT '',
+                  snapshot_a_fingerprint TEXT NOT NULL DEFAULT '',
+                  snapshot_b_fingerprint TEXT NOT NULL DEFAULT '',
+                  mesh_mode INTEGER NOT NULL DEFAULT 1,
+                  mapping_json TEXT NOT NULL DEFAULT '{}',
+                  diagnostics_json TEXT NOT NULL DEFAULT '[]',
+                  is_calculable INTEGER NOT NULL DEFAULT 0,
+                  UNIQUE(connection_id, snapshot_a_id, snapshot_b_id)
+              );
+              CREATE INDEX IF NOT EXISTS idx_planar_connection_mappings_connection
+                  ON planar_connection_mappings(connection_id);
+           """);
+        }
 
       /// <summary>Миграция v26: tag, force_set_ids_json, calc_type_override в fem_checks.</summary>
       void MigrateV26()
@@ -1248,6 +1290,7 @@ namespace OpenCS.Utilites
           SetDeleteJournalMode();
            EnsureCreated();
            EnsurePlanarMeshTables();
+           EnsurePlanarConnectionTables();
            Migrate();
       }
       /// </summary>
@@ -5475,10 +5518,209 @@ namespace OpenCS.Utilites
 
        public void DeletePlanarRegion(int id)
        {
-         using var cmd = _connection.CreateCommand();
-         cmd.CommandText = "DELETE FROM planar_regions WHERE id=@id";
-         cmd.Parameters.AddWithValue("@id", id);
-          cmd.ExecuteNonQuery();
+          using var tx = _connection.BeginTransaction();
+          try
+          {
+             using (var mappings = _connection.CreateCommand())
+             {
+                mappings.CommandText = "DELETE FROM planar_connection_mappings WHERE connection_id IN (SELECT id FROM planar_connections WHERE region_a_id=@id OR region_b_id=@id)";
+                mappings.Parameters.AddWithValue("@id", id);
+                mappings.ExecuteNonQuery();
+             }
+             using (var connections = _connection.CreateCommand())
+             {
+                connections.CommandText = "DELETE FROM planar_connections WHERE region_a_id=@id OR region_b_id=@id";
+                connections.Parameters.AddWithValue("@id", id);
+                connections.ExecuteNonQuery();
+             }
+             using (var region = _connection.CreateCommand())
+             {
+                region.CommandText = "DELETE FROM planar_regions WHERE id=@id";
+                region.Parameters.AddWithValue("@id", id);
+                region.ExecuteNonQuery();
+             }
+             tx.Commit();
+          }
+          catch
+          {
+             tx.Rollback();
+             throw;
+          }
+       }
+
+       /// <summary>Добавляет source connection и назначает ему SQLite ID.</summary>
+       public int AddPlanarConnection(CScore.Planar.PlanarConnection connection)
+       {
+          ArgumentNullException.ThrowIfNull(connection);
+          using var tx = _connection.BeginTransaction();
+          try
+          {
+             using var command = _connection.CreateCommand();
+             command.CommandText = """
+                INSERT INTO planar_connections
+                   (id, region_a_id, region_b_id, tag, locus_a_json, locus_b_json, mesh_mode, matching_tolerance_m, fingerprint)
+                VALUES (@id, @regionA, @regionB, @tag, @locusA, @locusB, @mode, @tolerance, @fingerprint);
+                SELECT last_insert_rowid();
+             """;
+             command.Parameters.AddWithValue("@id", connection.Id > 0 ? connection.Id : (object)DBNull.Value);
+             command.Parameters.AddWithValue("@regionA", connection.SideA.RegionId);
+             command.Parameters.AddWithValue("@regionB", connection.SideB.RegionId);
+             command.Parameters.AddWithValue("@tag", connection.Tag);
+             command.Parameters.AddWithValue("@locusA", JsonSerializer.Serialize(connection.SideA, _jsonSettings));
+             command.Parameters.AddWithValue("@locusB", JsonSerializer.Serialize(connection.SideB, _jsonSettings));
+             command.Parameters.AddWithValue("@mode", (int)connection.MeshMode);
+             command.Parameters.AddWithValue("@tolerance", connection.MatchingToleranceM);
+             command.Parameters.AddWithValue("@fingerprint", "");
+             connection.Id = (int)(long)command.ExecuteScalar()!;
+             connection.Fingerprint = CScore.Planar.PlanarConnectionFingerprint.Compute(connection);
+             using var fingerprint = _connection.CreateCommand();
+             fingerprint.CommandText = "UPDATE planar_connections SET fingerprint=@fingerprint WHERE id=@id";
+             fingerprint.Parameters.AddWithValue("@fingerprint", connection.Fingerprint);
+             fingerprint.Parameters.AddWithValue("@id", connection.Id);
+             fingerprint.ExecuteNonQuery();
+             tx.Commit();
+             return connection.Id;
+          }
+          catch
+          {
+             tx.Rollback();
+             throw;
+          }
+       }
+
+       /// <summary>Обновляет source contract уже сохранённой связи.</summary>
+       public void UpdatePlanarConnection(CScore.Planar.PlanarConnection connection)
+       {
+          ArgumentNullException.ThrowIfNull(connection);
+          if (connection.Id <= 0) throw new ArgumentException("Connection должен иметь положительный ID.", nameof(connection));
+          connection.Fingerprint = CScore.Planar.PlanarConnectionFingerprint.Compute(connection);
+          using var command = _connection.CreateCommand();
+          command.CommandText = """
+             UPDATE planar_connections SET region_a_id=@regionA, region_b_id=@regionB, tag=@tag,
+                locus_a_json=@locusA, locus_b_json=@locusB, mesh_mode=@mode,
+                matching_tolerance_m=@tolerance, fingerprint=@fingerprint
+             WHERE id=@id
+          """;
+          command.Parameters.AddWithValue("@id", connection.Id);
+          command.Parameters.AddWithValue("@regionA", connection.SideA.RegionId);
+          command.Parameters.AddWithValue("@regionB", connection.SideB.RegionId);
+          command.Parameters.AddWithValue("@tag", connection.Tag);
+          command.Parameters.AddWithValue("@locusA", JsonSerializer.Serialize(connection.SideA, _jsonSettings));
+          command.Parameters.AddWithValue("@locusB", JsonSerializer.Serialize(connection.SideB, _jsonSettings));
+          command.Parameters.AddWithValue("@mode", (int)connection.MeshMode);
+          command.Parameters.AddWithValue("@tolerance", connection.MatchingToleranceM);
+          command.Parameters.AddWithValue("@fingerprint", connection.Fingerprint);
+          command.ExecuteNonQuery();
+       }
+
+       /// <summary>Возвращает связи, относящиеся к FEM schema через их регионы.</summary>
+       public List<CScore.Planar.PlanarConnection> GetPlanarConnections(int schemaId)
+       {
+          var result = new List<CScore.Planar.PlanarConnection>();
+          using var command = _connection.CreateCommand();
+          command.CommandText = """
+             SELECT c.id, c.tag, c.region_a_id, c.region_b_id, c.locus_a_json, c.locus_b_json,
+                    c.mesh_mode, c.matching_tolerance_m, c.fingerprint
+             FROM planar_connections c
+             JOIN planar_regions a ON a.id=c.region_a_id
+             JOIN planar_regions b ON b.id=c.region_b_id
+             WHERE a.schema_id=@schema AND b.schema_id=@schema
+             ORDER BY c.id
+          """;
+          command.Parameters.AddWithValue("@schema", schemaId);
+          using var reader = command.ExecuteReader();
+          while (reader.Read())
+          {
+             result.Add(new CScore.Planar.PlanarConnection
+             {
+                Id = reader.GetInt32(0),
+                Tag = reader.GetString(1),
+                SideA = JsonSerializer.Deserialize<CScore.Planar.ConnectionLocus>(reader.GetString(4), _jsonSettings) ?? new( reader.GetInt32(2), []),
+                SideB = JsonSerializer.Deserialize<CScore.Planar.ConnectionLocus>(reader.GetString(5), _jsonSettings) ?? new( reader.GetInt32(3), []),
+                MeshMode = (CScore.Planar.PlanarConnectionMeshMode)reader.GetInt32(6),
+                MatchingToleranceM = reader.GetDouble(7),
+                Fingerprint = reader.GetString(8)
+             });
+          }
+          return result;
+       }
+
+       /// <summary>Удаляет connection и его производные mappings.</summary>
+       public void DeletePlanarConnection(int id)
+       {
+          using var tx = _connection.BeginTransaction();
+          try
+          {
+             using (var mappings = _connection.CreateCommand())
+             {
+                mappings.CommandText = "DELETE FROM planar_connection_mappings WHERE connection_id=@id";
+                mappings.Parameters.AddWithValue("@id", id);
+                mappings.ExecuteNonQuery();
+             }
+             using (var connection = _connection.CreateCommand())
+             {
+                connection.CommandText = "DELETE FROM planar_connections WHERE id=@id";
+                connection.Parameters.AddWithValue("@id", id);
+                connection.ExecuteNonQuery();
+             }
+             tx.Commit();
+          }
+          catch
+          {
+             tx.Rollback();
+             throw;
+          }
+       }
+
+       /// <summary>Сохраняет mapping connection и его provenance атомарно.</summary>
+       public void SavePlanarConnectionMeshMapping(CScore.Planar.PlanarConnectionMeshMapping mapping)
+       {
+          ArgumentNullException.ThrowIfNull(mapping);
+          using var command = _connection.CreateCommand();
+          command.CommandText = """
+             INSERT INTO planar_connection_mappings
+                (connection_id, snapshot_a_id, snapshot_b_id, connection_fingerprint,
+                 snapshot_a_fingerprint, snapshot_b_fingerprint, mesh_mode, mapping_json,
+                 diagnostics_json, is_calculable)
+             VALUES (@connection, @snapshotA, @snapshotB, @connectionFingerprint,
+                     @snapshotAFingerprint, @snapshotBFingerprint, @mode, @mapping,
+                     @diagnostics, @calculable)
+             ON CONFLICT(connection_id, snapshot_a_id, snapshot_b_id) DO UPDATE SET
+                 connection_fingerprint=excluded.connection_fingerprint,
+                 snapshot_a_fingerprint=excluded.snapshot_a_fingerprint,
+                 snapshot_b_fingerprint=excluded.snapshot_b_fingerprint,
+                 mesh_mode=excluded.mesh_mode,
+                 mapping_json=excluded.mapping_json,
+                 diagnostics_json=excluded.diagnostics_json,
+                 is_calculable=excluded.is_calculable
+          """;
+          command.Parameters.AddWithValue("@connection", mapping.ConnectionId);
+          command.Parameters.AddWithValue("@snapshotA", mapping.SideASnapshotId);
+          command.Parameters.AddWithValue("@snapshotB", mapping.SideBSnapshotId);
+          command.Parameters.AddWithValue("@connectionFingerprint", mapping.ConnectionFingerprint);
+          command.Parameters.AddWithValue("@snapshotAFingerprint", mapping.SideAFingerprint);
+          command.Parameters.AddWithValue("@snapshotBFingerprint", mapping.SideBFingerprint);
+          command.Parameters.AddWithValue("@mode", (int)mapping.MeshMode);
+          command.Parameters.AddWithValue("@mapping", JsonSerializer.Serialize(mapping, _jsonSettings));
+          command.Parameters.AddWithValue("@diagnostics", JsonSerializer.Serialize(mapping.Diagnostics, _jsonSettings));
+          command.Parameters.AddWithValue("@calculable", mapping.IsCalculable ? 1 : 0);
+          command.ExecuteNonQuery();
+       }
+
+       /// <summary>Возвращает все mappings конкретной связи, включая старые snapshots.</summary>
+       public List<CScore.Planar.PlanarConnectionMeshMapping> GetPlanarConnectionMeshMappings(int connectionId)
+       {
+          var result = new List<CScore.Planar.PlanarConnectionMeshMapping>();
+          using var command = _connection.CreateCommand();
+          command.CommandText = "SELECT mapping_json FROM planar_connection_mappings WHERE connection_id=@connection ORDER BY id";
+          command.Parameters.AddWithValue("@connection", connectionId);
+          using var reader = command.ExecuteReader();
+          while (reader.Read())
+          {
+             var mapping = JsonSerializer.Deserialize<CScore.Planar.PlanarConnectionMeshMapping>(reader.GetString(0), _jsonSettings);
+             if (mapping is not null) result.Add(mapping);
+          }
+          return result;
        }
 
        public GmshSettings LoadGmshSettings()
