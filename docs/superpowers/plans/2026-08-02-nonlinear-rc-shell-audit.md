@@ -1,6 +1,6 @@
 # Nonlinear RC-shell audit: provenance, equilibrium, regularization и mesh sensitivity — Implementation Plan
 
-> **Для agentic workers:** REQUIRED SUB-SKILL: Use superpawers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Для agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Закрыть технические пробелы nonlinear RC-shell pipeline на базе OpenSees: передача угла армирования, однозначный material/layer provenance, capability-описания optional native responses, strict recording validation, проверка равновесия сил/моментов/реакций/resultants/energy, явный regularization contract и воспроизводимый coarse/medium/fine mesh sensitivity study — без WPF, SQLite и UI.
 
@@ -37,7 +37,7 @@
 | `Audit/ShellAuditReport.cs` | Типизированный `ShellAuditReport` (verdict, equilibrium, energy, regularization, sensitivity, diagnostics). |
 | `Audit/IShellAnalysisRunner.cs` | `ShellAnalysisRunResult`, `IShellAnalysisRunner.RunAsync` (генерация→запуск→парсинг, никогда не верит только `Status`). |
 | `Audit/ShellAnalysisRunner.cs` | Реализация обёртки над generator/artifact store/`IOpenSeesProcessRunner`/`ShellResultParser`. |
-| `Audit/ShellSensitivity.cs` | `ShellSensitivityLevel`, `ShellSensitivityCase`, `IShellSensitivityCaseFactory`. |
+| `Audit/ShellSensitivity.cs` | `ShellSensitivityCase`, `IShellSensitivityCaseFactory` (enum `ShellSensitivityLevel` объявляется в policy-файле Task 6 как базовый тип для policy). |
 | `Audit/ShellSensitivityRunner.cs` | Три уровня, сравнение метрик, verdict rules, проверка различных fingerprints. |
 | `Audit/ShellMeshSensitivityReport.cs` | `ShellMeshSensitivityReport`, `ShellSensitivityCaseReport`. |
 
@@ -308,6 +308,21 @@ public void ElasticIsotropic_DeclaresRequiredStressAndStrainCapabilities()
 }
 
 [Fact]
+public void NativeShellMaterialSpec_DeclaresUnitsComponentOrderAndConjugatePair()
+{
+    var spec = new ElasticIsotropicShellMaterialSpec(30e9, 0.2);
+
+    NativeResponseCapability stress = Assert.Single(spec.Capabilities, c => c.ResponseName == "stress");
+    NativeResponseCapability strain = Assert.Single(spec.Capabilities, c => c.ResponseName == "strain");
+
+    Assert.Equal("Pa", stress.Unit);
+    Assert.Equal("1", strain.Unit);
+    Assert.Equal(["sigma_x", "sigma_y", "tau_xy", "tau_xz", "tau_yz"], stress.ComponentNames);
+    Assert.Equal(["epsilon_x", "epsilon_y", "gamma_xy", "gamma_xz", "gamma_yz"], strain.ComponentNames);
+    Assert.Contains(stress.ConjugatePairs, pair => pair is { StressResponse: "stress", StrainResponse: "strain" });
+}
+
+[Fact]
 public void PlasticDamageConcrete_DoesNotFakeDamageCrackOrEnergyCapabilities()
 {
     var spec = new PlasticDamageConcretePlaneStressShellMaterialSpec(
@@ -358,7 +373,8 @@ public sealed record NativeResponseCapability(
     string Unit,
     bool IsRequired,
     IReadOnlyList<string> Warnings,
-    IReadOnlyList<NativeResponseConjugatePair> ConjugatePairs);
+    IReadOnlyList<NativeResponseConjugatePair> ConjugatePairs,
+    IReadOnlyList<string>? ComponentNames = null);
 
 /// <summary>Сопряжённая пара response-имён (например stress/strain) для численной интеграции
 /// state integral energy. Отсутствие пары означает, что StateIntegral недоступен.</summary>
@@ -376,11 +392,14 @@ public bool HasResponse(string responseName) =>
     Capabilities.Any(capability =>
         string.Equals(capability.ResponseName, responseName, StringComparison.Ordinal));
 
-/// <summary>Стандартный набор обязательных shell stress/strain capabilities (5 компонент, Па).</summary>
+/// <summary>Стандартный набор обязательных shell stress/strain capabilities с явным raw-порядком
+/// компонент и сопряжённой парой для state-integral energy.</summary>
 protected static IReadOnlyList<NativeResponseCapability> RequiredShellStressStrain() =>
 [
-    new("stress", "stress", 5, "Pa", true, [], []),
-    new("strain", "strain", 5, "Pa", true, [], [])
+    new("stress", "stress", 5, "Pa", true, [],
+        [new("stress", "strain")], ["sigma_x", "sigma_y", "tau_xy", "tau_xz", "tau_yz"]),
+    new("strain", "strain", 5, "1", true, [], [],
+        ["epsilon_x", "epsilon_y", "gamma_xy", "gamma_xz", "gamma_yz"])
 ];
 ```
 
@@ -396,8 +415,10 @@ public override IReadOnlyList<NativeResponseCapability> Capabilities => Required
 public override IReadOnlyList<NativeResponseCapability> Capabilities =>
 [
     new("stress", "stress", 5, "Pa", true,
-        ["Smeared-арматура задана отдельными native слоями; точное сохранение z-координаты LayeredShell требует отдельной capability-проверки."], []),
-    new("strain", "strain", 5, "Pa", true, [], [])
+        ["Smeared-арматура задана отдельными native слоями; точное сохранение z-координаты LayeredShell требует отдельной capability-проверки."],
+        [new("stress", "strain")], ["sigma_x", "sigma_y", "tau_xy", "tau_xz", "tau_yz"]),
+    new("strain", "strain", 5, "1", true, [], [],
+        ["epsilon_x", "epsilon_y", "gamma_xy", "gamma_xz", "gamma_yz"])
 ];
 ```
 
@@ -406,8 +427,8 @@ public override IReadOnlyList<NativeResponseCapability> Capabilities =>
 ```csharp
 protected static IReadOnlyList<NativeResponseCapability> RequiredUniaxialStressStrain() =>
 [
-    new("stress", "stress", 1, "Pa", true, [], []),
-    new("strain", "strain", 1, "Pa", true, [], [])
+    new("stress", "stress", 1, "Pa", true, [], [new("stress", "strain")], ["stress"]),
+    new("strain", "strain", 1, "1", true, [], [], ["strain"])
 ];
 ```
 
@@ -747,6 +768,17 @@ public sealed record ShellStateCatalog(
         string? Unit);
 ```
 
+В начале `ParseCatalog` сохранить `PropertyNameCaseInsensitive = true` и зарегистрировать
+строковый enum converter, потому что generator v2 эмитит `layerKind = "Concrete"`, а DTO
+использует `ShellLayerKind?`:
+
+```csharp
+using System.Text.Json.Serialization;
+
+var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+options.Converters.Add(new JsonStringEnumConverter());
+```
+
 В `ParseCatalog` заменить блок разбора групп:
 
 ```csharp
@@ -761,7 +793,7 @@ public sealed record ShellStateCatalog(
                     string.IsNullOrWhiteSpace(group.FileName) || group.ElementTags is null ||
                     group.ElementTags.Count == 0 || group.ElementTags.Any(tag => tag <= 0) ||
                     group.ElementTags.Distinct().Count() != group.ElementTags.Count ||
-                    (group.ResponseKind is not ("stress" or "strain") && group.ResponseKind is not null && isV2 == false))
+                    (!isV2 && (group.ComponentCount != 5 || group.ResponseKind is not ("stress" or "strain"))))
                     throw new OpenSeesResultException("InvalidStateOrder", "Некорректная shell material-state recorder group.");
                 if (isV2)
                 {
@@ -801,7 +833,10 @@ public sealed record ShellStateCatalog(
             }).ToArray();
 ```
 
-Примечание: условие про `ResponseKind` упрощено — для v2 допускаются любые непустые responseKind (optional groups), для v1 сохраняется прежнее ограничение `stress|strain` (обратная совместимость). Заменить блок duplicate-проверки на identity по 4 полям (для v1 `SectionTag` = null → 0):
+Примечание: для v2 допускаются любые непустые responseKind (optional groups), а для v1
+сохраняются прежние ограничения `stress|strain` и `ComponentCount == 5` (обратная
+совместимость). Заменить блок duplicate-проверки на identity по 4 полям (для v1
+`SectionTag` = null → 0):
 
 ```csharp
             var duplicateGroups = groups
@@ -995,17 +1030,13 @@ Expected: FAIL — `OptionalResponses` не существует в policy (comp
             {
                 RCShellLayer layer = section.Layers[layerIndex - 1];
                 NativeShellMaterialDefinition material = materials[layer.MaterialTag];
-                int[] elementTags = model.Elements
-                    .Where(element => element.SectionTag == sectionTag && element.IntegrationPointCount >= maxIp)
-                    .OrderBy(element => element.Tag)
-                    .Select(element => element.Tag)
-                    .ToArray();
 
                 foreach (int point in selectedIps)
                 {
-                    int[] pointElementTags = elementTags
-                        .Where(tag => model.Elements.Single(e => e.Tag == tag).IntegrationPointCount >= point)
-                        .OrderBy(tag => tag)
+                    int[] pointElementTags = model.Elements
+                        .Where(element => element.SectionTag == sectionTag && element.IntegrationPointCount >= point)
+                        .OrderBy(element => element.Tag)
+                        .Select(element => element.Tag)
                         .ToArray();
                     if (pointElementTags.Length == 0) continue;
 
@@ -1365,6 +1396,23 @@ public sealed class ShellAuditPolicyTests
     }
 
     [Fact]
+    public void AuditPolicy_FingerprintChangesWhenRegularizationChanges()
+    {
+        var none = new ShellAuditPolicy
+        {
+            Regularization = new ShellRegularizationPolicy { Mode = ShellRegularizationMode.None }
+        };
+        var crackBand = none with
+        {
+            Regularization = new ShellRegularizationPolicy { Mode = ShellRegularizationMode.CrackBand }
+        };
+
+        Assert.NotEqual(none.Fingerprint, crackBand.Fingerprint);
+        Assert.NotEqual("", none.Fingerprint);
+        Assert.NotEqual("", crackBand.Fingerprint);
+    }
+
+    [Fact]
     public void Preflight_StrictCrackBand_WithoutAdapter_BlocksWithRegularizationUnsupported()
     {
         var policy = new ShellAuditPolicy
@@ -1593,6 +1641,19 @@ public sealed class ShellRegularizationCapability
 ```csharp
 namespace OpenCS.OpenSees.Audit;
 
+/// <summary>Уровень mesh sensitivity, используемый policy и factory.</summary>
+public enum ShellSensitivityLevel
+{
+    /// <summary>Грубая сетка.</summary>
+    Coarse,
+
+    /// <summary>Средняя сетка.</summary>
+    Medium,
+
+    /// <summary>Мелкая сетка.</summary>
+    Fine
+}
+
 /// <summary>Режим аудита: строгий блокирует verdict при невыполненных обязательных требованиях,
 /// diagnostic-only превращает их в Warning.</summary>
 public enum ShellAuditMode
@@ -1667,9 +1728,29 @@ public sealed record ShellAuditPolicy
     public double SensitivityRelativeTolerance { get; init; } = 0.1;
 
     /// <summary>Fingerprint содержательных настроек политики — изменение меняет fingerprint среза.</summary>
-    public string Fingerprint { get; init; } = "";
+    public string Fingerprint => ComputeFingerprint();
+
+    private string ComputeFingerprint()
+    {
+        string canonical = string.Join("|",
+            Mode,
+            AbsoluteEquilibriumTolerance.ToString("G17", CultureInfo.InvariantCulture),
+            RelativeEquilibriumTolerance.ToString("G17", CultureInfo.InvariantCulture),
+            string.Join(",", RequiredResponses),
+            MinEnergyConfidence,
+            Regularization.Mode,
+            Regularization.Method,
+            string.Join(",", SensitivityLevels),
+            SensitivityRelativeTolerance.ToString("G17", CultureInfo.InvariantCulture));
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(canonical))).ToLowerInvariant();
+    }
 }
 ```
+
+Для этого блока добавить `using System.Globalization;`, `using System.Security.Cryptography;` и
+`using System.Text;`. `Fingerprint` не является init-полем: он всегда пересчитывается из
+канонических настроек, поэтому `with`-копия с другой regularization policy получает другой
+fingerprint.
 
 Создать `OpenCS.OpenSees/Audit/ShellAuditPreflight.cs`:
 
@@ -1796,10 +1877,15 @@ public sealed class ShellEquilibriumAuditorTests
             }
         };
 
-        ShellResultant applied = ShellEquilibriumAuditor.AppliedResultantAtStep(stages, 0, 0.5);
+        var nodes = new Dictionary<int, NormalizedShellNode>
+        {
+            [2] = new(2, 1, 0, 0, new bool[6], null)
+        };
+        ShellResultant applied = ShellEquilibriumAuditor.AppliedResultantAtStep(stages, 0, 0.5, nodes);
 
         Assert.Equal(0, applied.Fx, 12);
         Assert.Equal(-500, applied.Fz, 12);
+        Assert.Equal(500, applied.My, 12);
     }
 
     [Fact]
@@ -1813,7 +1899,12 @@ public sealed class ShellEquilibriumAuditorTests
                 Loads = [new ShellNodalLoad(3, 0, 0, -300, 0, 0, 0)] }
         };
 
-        ShellResultant applied = ShellEquilibriumAuditor.AppliedResultantAtStep(stages, 1, 0.5);
+        var nodes = new Dictionary<int, NormalizedShellNode>
+        {
+            [2] = new(2, 0, 0, 0, new bool[6], null),
+            [3] = new(3, 0, 0, 0, new bool[6], null)
+        };
+        ShellResultant applied = ShellEquilibriumAuditor.AppliedResultantAtStep(stages, 1, 0.5, nodes);
 
         // P = Pstage[0]*MaxLoadFactor[0] + Pstage[1]*0.5 = -500*2 + (-300)*0.5 = -1150
         Assert.Equal(-1150, applied.Fz, 12);
@@ -1826,7 +1917,7 @@ public sealed class ShellEquilibriumAuditorTests
         ShellResultant force = ShellResultantMath.NodalForce(2, 0, 0, new ShellResultant(0, 0, 1000, 0, 0, 0));
 
         Assert.Equal(0, force.Fx, 12);
-        Assert.Equal(0, force.Fz, 12);
+        Assert.Equal(1000, force.Fz, 12);
         Assert.Equal(-2000, force.My, 12);
     }
 
@@ -1954,22 +2045,31 @@ public static class ShellEquilibriumAuditor
     public static ShellResultant AppliedResultantAtStep(
         IReadOnlyList<ShellNonlinearStage> stages,
         int stageIndex,
-        double loadFactor)
+        double loadFactor,
+        IReadOnlyDictionary<int, NormalizedShellNode> nodes)
     {
+        ArgumentNullException.ThrowIfNull(nodes);
         ShellResultant total = ShellResultant.Zero;
         for (int i = 0; i < stages.Count && i < stageIndex; i++)
-            total += StageResultant(stages[i]) * stages[i].MaxLoadFactor;
+            total += StageResultant(stages[i], nodes) * stages[i].MaxLoadFactor;
         if (stageIndex >= 0 && stageIndex < stages.Count)
-            total += StageResultant(stages[stageIndex]) * loadFactor;
+            total += StageResultant(stages[stageIndex], nodes) * loadFactor;
         return total;
     }
 
-    /// <summary>Суммарный шестикомпонентный resultant узловых нагрузок стадии.</summary>
-    private static ShellResultant StageResultant(ShellNonlinearStage stage)
+    /// <summary>Суммарный resultant узловых нагрузок стадии с моментом относительно глобального
+    /// начала: r × F + M.</summary>
+    private static ShellResultant StageResultant(
+        ShellNonlinearStage stage,
+        IReadOnlyDictionary<int, NormalizedShellNode> nodes)
     {
         ShellResultant sum = ShellResultant.Zero;
         foreach (ShellNodalLoad load in stage.Loads)
-            sum += new ShellResultant(load.Fx, load.Fy, load.Fz, load.Mx, load.My, load.Mz);
+        {
+            NormalizedShellNode node = nodes[load.NodeTag];
+            sum += ShellResultantMath.NodalForce(node.X, node.Y, node.Z,
+                new ShellResultant(load.Fx, load.Fy, load.Fz, load.Mx, load.My, load.Mz));
+        }
         return sum;
     }
 
@@ -2105,6 +2205,22 @@ public sealed class ShellEnergyAuditorTests
     }
 
     [Fact]
+    public void StateIntegral_UsesExplicitConjugateComponentPairs()
+    {
+        var samples = new[]
+        {
+            new ShellMaterialEnergySample([0, 0, 0, 0, 0], [0, 0, 0, 0, 0], 2.0),
+            new ShellMaterialEnergySample([100, 50, 0, 0, 0], [0.01, 0.02, 0, 0, 0], 2.0)
+        };
+
+        double work = ShellEnergyAuditor.StateIntegral(
+            samples,
+            [(StressIndex: 0, StrainIndex: 0), (StressIndex: 1, StrainIndex: 1)]);
+
+        Assert.Equal(2.0, work, 12);
+    }
+
+    [Fact]
     public void KinematicReactionWork_SumsForceTimesDisplacementOverNodes()
     {
         var step = new RCShellStepResult(
@@ -2159,6 +2275,12 @@ public enum ShellEnergyConfidence
 /// по всем узлам на этом шаге.</summary>
 public sealed record ShellEnergySample(double LoadFactor, double WorkDot);
 
+/// <summary>Состояние stress/strain одного material layer с весом element/IP/layer.</summary>
+public sealed record ShellMaterialEnergySample(
+    IReadOnlyList<double> Stress,
+    IReadOnlyList<double> Strain,
+    double Weight);
+
 /// <summary>Energy audit: определение confidence и численная интеграция внешней/кинематической работы (§10).</summary>
 public static class ShellEnergyAuditor
 {
@@ -2188,6 +2310,38 @@ public static class ShellEnergyAuditor
             ShellEnergySample current = samples[i];
             work += 0.5 * (previous.WorkDot + current.WorkDot) * (current.LoadFactor - previous.LoadFactor);
         }
+        return work;
+    }
+
+    /// <summary>Интегрирует stress · dStrain только по явно заданным сопряжённым индексам.
+    /// Не делает предположений о raw-порядке пяти компонентов.</summary>
+    public static double StateIntegral(
+        IReadOnlyList<ShellMaterialEnergySample> samples,
+        IReadOnlyList<(int StressIndex, int StrainIndex)> conjugatePairs)
+    {
+        if (samples.Count < 2 || conjugatePairs.Count == 0)
+            return 0;
+
+        double work = 0;
+        for (int i = 1; i < samples.Count; i++)
+        {
+            ShellMaterialEnergySample previous = samples[i - 1];
+            ShellMaterialEnergySample current = samples[i];
+            if (!double.IsFinite(current.Weight) || current.Weight < 0)
+                throw new ArgumentException("Вес material energy sample должен быть конечным и неотрицательным.", nameof(samples));
+
+            foreach ((int stressIndex, int strainIndex) in conjugatePairs)
+            {
+                if (stressIndex < 0 || stressIndex >= previous.Stress.Count ||
+                    stressIndex >= current.Stress.Count || strainIndex < 0 ||
+                    strainIndex >= previous.Strain.Count || strainIndex >= current.Strain.Count)
+                    throw new ArgumentException("Индекс сопряжённой stress/strain пары выходит за размерность sample.", nameof(conjugatePairs));
+
+                work += 0.5 * (previous.Stress[stressIndex] + current.Stress[stressIndex]) *
+                    (current.Strain[strainIndex] - previous.Strain[strainIndex]) * current.Weight;
+            }
+        }
+
         return work;
     }
 
@@ -2221,7 +2375,9 @@ dotnet test OpenCS.OpenSees.Tests --filter "FullyQualifiedName~ShellEnergyAudito
 dotnet build OpenCS.sln
 ```
 
-Expected: PASS; build успешен. `ExternalWork` — трапеции 25 + 87.5 = 112.5; `KinematicReactionWork` — 1000·0.001 = 1.0.
+Expected: PASS; build успешен. `ExternalWork` — трапеции 25 + 87.5 = 112.5;
+`StateIntegral` — 0.5·100·0.01·2 + 0.5·50·0.02·2 = 2.0;
+`KinematicReactionWork` — 1000·0.001 = 1.0.
 
 - [ ] **Step 5: Commit**
 
@@ -2986,19 +3142,6 @@ using OpenCS.OpenSees.Structural;
 
 namespace OpenCS.OpenSees.Audit;
 
-/// <summary>Уровень mesh sensitivity (coarse/medium/fine).</summary>
-public enum ShellSensitivityLevel
-{
-    /// <summary>Грубая сетка.</summary>
-    Coarse,
-
-    /// <summary>Средняя сетка.</summary>
-    Medium,
-
-    /// <summary>Мелкая сетка.</summary>
-    Fine
-}
-
 /// <summary>Один sensitivity-запуск: уровень, модель и fingerprint источника сетки.
 /// Fingerprint ОБЯЗАН различаться между запусками — иначе это не сравнение разных сеток.</summary>
 public sealed record ShellSensitivityCase(
@@ -3204,6 +3347,25 @@ public sealed class ShellAuditReportTests
     }
 
     [Fact]
+    public void AuditReportStoresTypedAuditOutputs()
+    {
+        var report = new ShellAuditReport(
+            ShellAuditVerdict.Warning,
+            new ShellAuditPreflightResult(true, []),
+            [],
+            ShellEnergyConfidence.ExternalWorkOnly,
+            ExternalWork: 12.5,
+            RegularizationApplied: false,
+            SupportedRegularizationModes: [],
+            Sensitivity: null,
+            Diagnostics: []);
+
+        Assert.Equal(ShellAuditVerdict.Warning, report.Verdict);
+        Assert.Equal(12.5, report.ExternalWork, 12);
+        Assert.False(report.RegularizationApplied);
+    }
+
+    [Fact]
     public void Resolve_EverythingPasses_ReturnsPassed()
     {
         ShellAuditVerdict verdict = ShellAuditVerdictResolver.Resolve(
@@ -3356,7 +3518,10 @@ public sealed class ShellAuditOpenSeesIntegrationTests
         {
             H = 0.2,
             NLayers = 2,
-            RebarLayers = [new PlateRebarLayer { Asx = 0.001, Zsx = -0.07, Angle = 45.0 }]
+            RebarLayers = [new PlateRebarLayer
+            {
+                Asx = 0.001, Asy = 0.002, Zsx = -0.07, Zsy = 0.07, Angle = 45.0
+            }]
         };
         PlateSectionShellMappingResult mapped = PlateSectionOpenSeesMapper.Map(
             section, ShellFrame.Identity, new RebarCapableResolver());
@@ -3505,7 +3670,8 @@ public sealed class ShellAuditOpenSeesIntegrationTests
     {
         RCShellStepResult last = result.Steps.Last(step => step.Converged);
         ShellResultant applied = ShellEquilibriumAuditor.AppliedResultantAtStep(
-            model.Stages, last.StageIndex, last.LoadFactor);
+            model.Stages, last.StageIndex, last.LoadFactor,
+            model.Nodes.ToDictionary(node => node.Tag));
         ShellResultant reaction = ShellEquilibriumAuditor.ReactionResultant(
             last.Reactions, model.Nodes.ToDictionary(node => node.Tag));
         return ShellEquilibriumAuditor.Evaluate(
@@ -3613,7 +3779,7 @@ public sealed class ShellAuditOpenSeesIntegrationTests
         int firstTop = subdivisions * grid + 1;
         var loads = new List<ShellNodalLoad>(grid);
         for (int j = 0; j < grid; j++)
-            loads.Add(new ShellNodalLoad(firstTop + j, 0, 0, -1000.0 / subdivisions, 0, 0, 0));
+            loads.Add(new ShellNodalLoad(firstTop + j, 0, 0, -1000.0 / grid, 0, 0, 0));
 
         return new ShellOpenSeesModel
         {
@@ -3792,3 +3958,37 @@ Expected: ветка `feature/nonlinear-rc-shell-audit`; 13 коммитов з�
 git add -A
 git commit -m "fix(audit): address final regression findings"
 ```
+
+## Review
+
+**Verdict: PASS** после исправлений reviewer-а.
+
+План повторно сверён с утверждённой спецификацией и текущими API репозитория. Исправлены
+замечания reviewer-а:
+
+- исправлена опечатка `superpawers` → `superpowers` в обязательной sub-skill директиве;
+- для v1 catalog явно сохранена проверка `ComponentCount == 5` и ограничение response-имён
+  `stress|strain`;
+- `ShellAuditPolicy.Fingerprint` теперь вычисляется из канонических настроек, а не хранится
+  пустым init-полем; добавлен regression test для изменения regularization policy;
+- native capability descriptor получил `ComponentNames`, корректные units (`Pa` для stress,
+  `1` для strain) и stress/strain conjugate pair;
+- Task 8 теперь содержит реализуемый `StateIntegral` test и минимальный trapezoid
+  implementation с явными component pairs;
+- исправлена группировка v2 recorder groups: элементы выбираются по текущему `point`, а не
+  по глобальному `maxIp`, поэтому T3/Q4 applicability не теряется.
+- `ShellSensitivityLevel` перенесён в Task 6, чтобы policy компилировалась до Task 11;
+- исправлены ожидаемые значения `NodalForce` и `StateIntegral`, а deterministic mesh smoke
+  сохраняет одинаковую суммарную нагрузку на coarse/medium/fine;
+- добавлен тест, который материализует и проверяет типизированный `ShellAuditReport`.
+- в реальном тесте `RebarAngle45` добавлены ненулевые `Asy/Zsy`, поэтому проверка направления
+  `φ+90° = 135°` действительно создаёт второй слой.
+- `AppliedResultantAtStep` теперь получает node coordinates и применяет `r × F + M`, как и
+  reaction resultant; `EquilibriumOf` и unit tests передают одну и ту же node map.
+- в Task 3 явно зарегистрирован `JsonStringEnumConverter`, чтобы строковой `layerKind` из
+  v2 generator корректно разбирался в `ShellLayerKind?` DTO parser-а.
+
+Оставшиеся ограничения намеренные и соответствуют spec: текущие native materials не объявляют
+непроверенные tangent/damage/crack/energy/regularization capabilities; strict audit в таком
+случае выдаёт blocking diagnostics, а DiagnosticOnly — warning. План не добавляет UI, SQLite
+или скрытый Gmsh remesh.
