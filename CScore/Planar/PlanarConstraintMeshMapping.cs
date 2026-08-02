@@ -15,5 +15,7 @@ public sealed class PlanarConstraintMeshMapping
     public IReadOnlyList<int> RegionNodeIndices { get; init; } = [];
     public IReadOnlyList<int> RegionElementIndices { get; init; } = [];
     public IReadOnlyList<PlanarMeshEntityProvenance> EntityProvenance { get; init; } = [];
+    public IReadOnlyList<PlanarSourceReference> SourceReferences { get; init; } = [];
+    public IReadOnlyList<PlanarStructuralRelation> StructuralRelations { get; init; } = [];
     public IReadOnlyList<FemValidationDiagnostic> Diagnostics { get; init; } = [];
 }

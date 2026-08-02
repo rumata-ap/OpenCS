@@ -13,7 +13,10 @@ public static class GmshPlanarGeoBuilder
     const int SurfacePhysicalGroup = 2001;
     const int ConstraintPhysicalGroupBase = 3001;
 
-    public static string Build(PlanarRegion region, PlanarMeshSettings settings)
+    public static string Build(
+        PlanarRegion region,
+        PlanarMeshSettings settings,
+        IReadOnlyList<PlanarConstraintObject>? constraintObjects = null)
     {
         ArgumentNullException.ThrowIfNull(region);
         ArgumentNullException.ThrowIfNull(settings);
@@ -59,7 +62,7 @@ public static class GmshPlanarGeoBuilder
         var nextLine = line;
         var nextLoop = loop;
         var physicalGroup = ConstraintPhysicalGroupBase;
-        foreach (var constraint in region.ConstraintObjects.OrderBy(item => item.Id, StringComparer.Ordinal))
+        foreach (var constraint in (constraintObjects ?? region.ConstraintObjects).OrderBy(item => item.Id, StringComparer.Ordinal))
         {
             var group = physicalGroup++;
             var name = SafeName(constraint.Id);

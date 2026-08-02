@@ -16,7 +16,7 @@ namespace OpenCS.Gmsh;
 /// <summary>Строит сетку одного PlanarRegion внешним Gmsh в формате MSH 2.2 ASCII.</summary>
 public sealed class GmshPlanarMesher : IPlanarMesher
 {
-    public const string GeneratorVersion = "gmsh-planar-v3-msh41";
+    public const string GeneratorVersion = "gmsh-planar-v4-fem-driven-constraints";
     const int OuterPhysicalGroup = 1001;
     const int HolePhysicalGroupBase = 1002;
     const int SurfacePhysicalGroup = 2001;
@@ -31,6 +31,9 @@ public sealed class GmshPlanarMesher : IPlanarMesher
     {
         ArgumentNullException.ThrowIfNull(request);
         var diagnostics = PlanarRegionValidator.Validate(request.Region).ToList();
+        diagnostics.AddRange(request.EffectivePreflightDiagnostics);
+        if (request.ConstraintObjects is not null)
+            diagnostics.AddRange(PlanarConstraintValidator.Validate(request.Region, request.EffectiveConstraintObjects));
         try { request.Settings.Validate(); }
         catch (InvalidOperationException ex) { diagnostics.Add(new("planar_mesh_settings_invalid", ex.Message)); }
         if (_options.Timeout <= TimeSpan.Zero)
@@ -50,7 +53,7 @@ public sealed class GmshPlanarMesher : IPlanarMesher
 
             var geoPath = Path.Combine(directory, "model.geo");
             var mshPath = Path.Combine(directory, "model.msh");
-            await File.WriteAllTextAsync(geoPath, GmshPlanarGeoBuilder.Build(request.Region, request.Settings), Encoding.UTF8, cancellationToken);
+            await File.WriteAllTextAsync(geoPath, GmshPlanarGeoBuilder.Build(request.Region, request.Settings, request.EffectiveConstraintObjects), Encoding.UTF8, cancellationToken);
             var result = await GmshProcessRunner.RunAsync(
                 executable.Path,
                 directory,
@@ -67,12 +70,12 @@ public sealed class GmshPlanarMesher : IPlanarMesher
             }
 
             var msh = GmshMsh41Reader.Read(await File.ReadAllTextAsync(mshPath, cancellationToken));
-            var parsed = ParseMsh41(msh, request.Region.Frame, request.Region);
+            var parsed = ParseMsh41(msh, request.Region.Frame, request.Region, request.EffectiveConstraintObjects);
             diagnostics.AddRange(parsed.Diagnostics);
             var snapshot = new PlanarMeshSnapshot
             {
                 RegionId = request.Region.Id,
-                InputFingerprint = PlanarMeshFingerprint.Compute(request.Region, request.Settings, provenance),
+                InputFingerprint = PlanarMeshFingerprint.Compute(request.Region, request.Settings, provenance, request.ConstraintSourceFingerprint),
                 IsCalculable = false,
                 Settings = request.Settings,
                 Provenance = provenance,
@@ -148,7 +151,7 @@ public sealed class GmshPlanarMesher : IPlanarMesher
     static PlanarMeshSnapshot Failed(PlanarMeshingRequest request, IReadOnlyList<FemValidationDiagnostic> diagnostics, PlanarMeshProvenance provenance) => new()
     {
         RegionId = request.Region.Id,
-        InputFingerprint = TryComputeFingerprint(request, provenance) ?? request.Region.GeometryFingerprint,
+         InputFingerprint = TryComputeFingerprint(request, provenance) ?? request.Region.GeometryFingerprint,
         IsCalculable = false,
         Settings = request.Settings,
         Provenance = provenance,
@@ -157,7 +160,7 @@ public sealed class GmshPlanarMesher : IPlanarMesher
 
     static string? TryComputeFingerprint(PlanarMeshingRequest request, PlanarMeshProvenance provenance)
     {
-        try { return PlanarMeshFingerprint.Compute(request.Region, request.Settings, provenance); }
+        try { return PlanarMeshFingerprint.Compute(request.Region, request.Settings, provenance, request.ConstraintSourceFingerprint); }
         catch (InvalidOperationException) { return null; }
     }
 
@@ -167,9 +170,13 @@ public sealed class GmshPlanarMesher : IPlanarMesher
     static (IReadOnlyList<PlanarMeshNode> Nodes, IReadOnlyList<PlanarMeshElement> Elements,
         IReadOnlyList<PlanarMeshBoundaryMapping> BoundaryMappings,
         IReadOnlyList<PlanarMeshEntityProvenance> EntityProvenance,
-        IReadOnlyList<PlanarConstraintMeshMapping> ConstraintMappings,
-        IReadOnlyList<FemValidationDiagnostic> Diagnostics)
-        ParseMsh41(GmshMsh41Document document, Frame3D frame, PlanarRegion region)
+         IReadOnlyList<PlanarConstraintMeshMapping> ConstraintMappings,
+         IReadOnlyList<FemValidationDiagnostic> Diagnostics)
+         ParseMsh41(
+             GmshMsh41Document document,
+             Frame3D frame,
+             PlanarRegion region,
+             IReadOnlyList<PlanarConstraintObject> constraintObjects)
     {
         var rawNodes = document.Nodes.ToDictionary(node => node.RawId);
         var ids = rawNodes.Keys.OrderBy(id => id).ToArray();
@@ -211,7 +218,7 @@ public sealed class GmshPlanarMesher : IPlanarMesher
         if (elements.Count == 0)
             diagnostics.Add(new("gmsh_mesh_empty", "Gmsh не вернул ни одного T3 или Q4 элемента."));
         var mappings = BuildBoundaryMappings(expectedLines, boundaryEdges, nodes, region, diagnostics);
-        var constraintResult = PlanarConstraintMeshMapper.Map(region, document, nodes, elements);
+         var constraintResult = PlanarConstraintMeshMapper.Map(region, document, nodes, elements, constraintObjects);
         diagnostics.AddRange(constraintResult.Diagnostics.Where(diagnostic => !document.Diagnostics.Contains(diagnostic)));
         var entityProvenance = HostEntityProvenance(document)
             .Concat(constraintResult.Mappings.SelectMany(mapping => mapping.EntityProvenance))

@@ -113,6 +113,7 @@
     <system:String x:Key="PlanarRegionMeshActual">Mesh "{0}" is up to date</system:String>
     <system:String x:Key="PlanarRegionMeshStale">Mesh "{0}" is stale, rebuilding</system:String>
     <system:String x:Key="PlanarRegionMeshCheckFailed">Could not check mesh freshness: {0}</system:String>
+    <system:String x:Key="PlanarRegionConstraintsDerived">Automatic constraints for "{0}": {1} source nodes, {2} points, {3} curves, {4} source members</system:String>
    <system:String x:Key="OpenSeesExecutableGroup">Executable</system:String>
    <system:String x:Key="OpenSeesNonlinearGroup">Nonlinear scheme analysis</system:String>
    <system:String x:Key="OpenSeesFiberStatesGroup">Fiber state recording</system:String>

@@ -1,4 +1,5 @@
 using CScore;
+using CScore.Fem;
 using CScore.Planar;
 using OpenCS.Gmsh;
 
@@ -41,6 +42,36 @@ public sealed class GmshPlanarMesherTests
             Assert.True(File.Exists(Path.Combine(artifactDirectory, "model.geo")));
             Assert.True(File.Exists(Path.Combine(artifactDirectory, "model.msh")));
             Assert.True(File.Exists(Path.Combine(artifactDirectory, "manifest.json")));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task BuildAsync_DoesNotLaunchGmshWhenPreflightHasBlockingDiagnostic()
+    {
+        var region = PlanarRegion.CreateFromContour(new Contour { X = [0, 1, 1, 0], Y = [0, 0, 1, 1] });
+        var root = Path.Combine(Path.GetTempPath(), "opencs-gmsh-preflight", Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            var mesher = new GmshPlanarMesher(new GmshPlanarMesherOptions
+            {
+                ExecutablePath = Path.Combine(root, "missing-gmsh.exe"),
+                ArtifactRoot = root
+            });
+            var snapshot = await mesher.BuildAsync(new PlanarMeshingRequest(
+                region,
+                new PlanarMeshSettings(0.25, 6, PlanarMeshElementMode.Mixed),
+                [],
+                "source",
+                [new FemValidationDiagnostic("preflight_blocked", "blocked")]));
+
+            Assert.False(snapshot.IsCalculable);
+            Assert.Contains(snapshot.Diagnostics, diagnostic => diagnostic.Code == "preflight_blocked");
+            Assert.DoesNotContain(snapshot.Diagnostics, diagnostic => diagnostic.Code == "gmsh_executable_not_found");
         }
         finally
         {
