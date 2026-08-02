@@ -240,6 +240,10 @@ public sealed record ShellStateRecordingPolicy
     /// <summary>Выбранные 0-based индексы fiber; null означает все fibers.</summary>
     public IReadOnlyList<int>? BeamFiberIndices { get; init; }
 
+    /// <summary>Opt-in optional response-имена native shell material (например tangent).
+    /// Пустое значение означает, что записываются только обязательные stress/strain.</summary>
+    public IReadOnlyList<string>? OptionalResponses { get; init; }
+
     /// <summary>Проверяет индексы policy.</summary>
     public void Validate()
     {
