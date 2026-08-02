@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using CScore;
 using CScore.Planar;
 using CScore.Planar.Fragments;
 using CSmath;
@@ -61,6 +62,24 @@ namespace CScore.Tests.Planar
             Assert.NotNull(fragment.BottomCut);
             Assert.NotNull(fragment.TopCut);
             Assert.Equal(2, fragment.StageConfig.Stages.Count);
+        }
+
+        [Fact]
+        public void VerticalPlanarFragment_SectionAndBoundaryTemplates_AreSettable()
+        {
+            var section = new PlateSection { H = 0.2, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+            var template = new PlanarBoundaryActionSet { SourceMode = PlanarBoundaryActionSourceMode.Template };
+
+            var fragment = new VerticalPlanarFragment
+            {
+                FragmentId = 1,
+                Name = "Wall",
+                Section = section,
+                BoundaryTemplates = new Dictionary<string, PlanarBoundaryActionSet> { ["top"] = template }
+            };
+
+            Assert.Same(section, fragment.Section);
+            Assert.Same(template, fragment.BoundaryTemplates["top"]);
         }
     }
 }
