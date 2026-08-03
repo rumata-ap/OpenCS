@@ -137,15 +137,46 @@ namespace OpenCS.OpenSees.CScore
                          .ThenBy(item => item.material.SourceId, StringComparer.Ordinal))
                 RegisterMaterial(side, material);
 
-            foreach (var (side, material) in allMaterials
-                         .Where(item => item.material.Spec.DependsOnMaterialTag is int)
-                         .OrderBy(item => item.material.SourceId, StringComparer.Ordinal))
+            // Зависимые материалы обрабатываются топологически итеративно: pending продвигается
+            // только когда (side, originalDependencyTag) уже замаплен на финальный тег. При
+            // продвижении dependency переписывается через WithDependencyTag, а fingerprint
+            // берётся вычисляемым (Spec.Fingerprint) — поэтому два зависимых материала с одной
+            // и той же финальной базой корректно дедуплицируются. Если pending не продвигается
+            // (нет прогресса за проход) — блокирующая диагностика, broken material НЕ
+            // регистрируется (никакой тихой fallback-регистрации с сырым dependency tag).
+            var pendingDependent = allMaterials
+                .Where(item => item.material.Spec.DependsOnMaterialTag is int)
+                .OrderBy(item => item.material.SourceId, StringComparer.Ordinal)
+                .ToList();
+            while (pendingDependent.Count > 0)
             {
-                int dependency = material.Spec.DependsOnMaterialTag!.Value;
-                if (materialTagMap.TryGetValue((side, dependency), out int finalDependency))
-                    RegisterMaterial(side, material with { Spec = material.Spec.WithDependencyTag(finalDependency) });
-                else
-                    RegisterMaterial(side, material);
+                var deferred = new List<(string Side, NativeShellMaterialDefinition Material)>();
+                bool advanced = false;
+                foreach (var (side, material) in pendingDependent)
+                {
+                    int dependency = material.Spec.DependsOnMaterialTag!.Value;
+                    if (materialTagMap.TryGetValue((side, dependency), out int finalDependency))
+                    {
+                        RegisterMaterial(side, material with
+                        {
+                            Spec = material.Spec.WithDependencyTag(finalDependency)
+                        });
+                        advanced = true;
+                    }
+                    else
+                    {
+                        deferred.Add((side, material));
+                    }
+                }
+                if (!advanced)
+                {
+                    foreach (var (side, material) in deferred)
+                        diagnostics.Add(new("floor_junction_material_dependency_missing",
+                            $"Материал {material.SourceId} (сторона {side}) ссылается на не зарегистрированную " +
+                            $"зависимость (material tag {material.Spec.DependsOnMaterialTag})."));
+                    return Empty(diagnostics);
+                }
+                pendingDependent = deferred;
             }
 
             // 4. Merge секций: material tags слоёв remap-ятся через side-специфичную карту,
@@ -160,7 +191,10 @@ namespace OpenCS.OpenSees.CScore
             var sectionProvenance = new Dictionary<int, string>();
             int nextSectionTag = 1;
 
-            var remappedSections = new List<(string Side, RCShellLayeredSection Source, RCShellLayeredSection Remapped)>();
+            // Fingerprint каждой remapped-секции вычисляется один раз (RecalcFingerprint зависит
+            // только от финальных material tags, уже зафиксированных выше), после чего
+            // используется и в сортировке, и в теле цикла.
+            var remappedSections = new List<(string Side, RCShellLayeredSection Source, RCShellLayeredSection Remapped, string Fingerprint)>();
             foreach (var (side, section) in plate.Model.Sections
                          .Select(section => (side: "plate", section: section))
                          .Concat(wall.Model.Sections.Select(section => (side: "wall", section: section))))
@@ -180,16 +214,17 @@ namespace OpenCS.OpenSees.CScore
                 }
                 if (!resolved)
                     continue;
-                remappedSections.Add((side, section, section with { Layers = layers }));
+                var remapped = section with { Layers = layers };
+                remappedSections.Add((side, section, remapped,
+                    PlateSectionOpenSeesMapper.RecalcFingerprint(remapped, finalMaterials)));
             }
             if (diagnostics.Any(diagnostic => diagnostic.IsError))
                 return Empty(diagnostics);
 
-            foreach (var (side, source, remapped) in remappedSections
-                         .OrderBy(item => PlateSectionOpenSeesMapper.RecalcFingerprint(item.Remapped, finalMaterials), StringComparer.Ordinal)
+            foreach (var (side, source, remapped, fingerprint) in remappedSections
+                         .OrderBy(item => item.Fingerprint, StringComparer.Ordinal)
                          .ThenBy(item => item.Remapped.SourcePlateSectionFingerprint, StringComparer.Ordinal))
             {
-                string fingerprint = PlateSectionOpenSeesMapper.RecalcFingerprint(remapped, finalMaterials);
                 if (sectionByFingerprint.TryGetValue(fingerprint, out RCShellLayeredSection? existing))
                 {
                     sectionTagMap[(side, source.Tag)] = existing.Tag;
@@ -334,6 +369,15 @@ namespace OpenCS.OpenSees.CScore
                     if (!materialTags.Contains(layer.MaterialTag))
                         diagnostics.Add(new("floor_junction_tag_collision",
                             $"Секция {section.Tag}, слой {layer.Index} ссылается на неизвестный материал {layer.MaterialTag}."));
+            // Замыкание зависимостей материалов: каждый финальный DependsOnMaterialTag должен
+            // существовать в финальном наборе material tags — иначе в модель попадает битая
+            // ссылка, которую OpenSees не сможет собрать. Защитный слой поверх итеративного
+            // merge (резолвер обычно гарантирует closure, но это не инвариант навсегда).
+            foreach (var material in materials)
+                if (material.Spec.DependsOnMaterialTag is int dependency && !materialTags.Contains(dependency))
+                    diagnostics.Add(new("floor_junction_material_dependency_missing",
+                        $"Материал {material.Tag} ({material.SourceId}) ссылается на не существующий " +
+                        $"dependency tag {dependency}."));
             return diagnostics;
         }
 

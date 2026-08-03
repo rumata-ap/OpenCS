@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 using CScore;
 using CScore.Fem;
 using CScore.Planar;
@@ -261,7 +262,77 @@ public sealed class FloorJunctionShellModelAssemblerTests
             value.Contains("fp:", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void Assemble_MergesSharedMaterialAcrossDifferentFrames_KeepsSectionsSeparate()
+    {
+        var (plateSnapshot, wallSnapshot) = Snapshots();
+        // Plate — identity frame (PlateRegion() без явного frame), wall — перпендикулярный
+        // WallFrame. Frame-часть fingerprint'а секции различается -> две секции, но материал
+        // (не зависит от frame) у них общий -> один shared material.
+        var result = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(), PlateSection(),
+            wallSnapshot, WallRegion(), PlateSection(),
+            new ConcreteOnlyResolver(), ConformingMapping());
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+        Assert.Equal(2, result.Model.Sections.Count);
+        Assert.Single(result.Model.Materials);
+        int sharedMaterialTag = result.Model.Materials[0].Tag;
+        Assert.All(result.Model.Sections, section =>
+            Assert.All(section.Layers, layer => Assert.Equal(sharedMaterialTag, layer.MaterialTag)));
+        Assert.Equal(2, result.SectionProvenance.Count);
+        Assert.Single(result.MaterialProvenance);
+    }
+
+    [Fact]
+    public void CheckTagCollisions_RejectsMaterialDependencyOnMissingTag()
+    {
+        // Dependent material ссылается на tag, которого нет в финальном наборе материалов:
+        // блокирующая диагностика, а не тихий успех (defense-in-depth поверх итеративного
+        // merge — RegisterChain резолвера обычно гарантирует closure, поэтому ветку
+        // недостижимо воспроизвести через валидный вход).
+        IReadOnlyList<NativeShellMaterialDefinition> materials =
+        [
+            new(2, "rebar:1:plate", new PlateRebarShellMaterialSpec(99, 0))
+        ];
+
+        var diagnostics = CheckTagCollisions([], [], materials, []);
+
+        Assert.Contains(diagnostics,
+            d => d.Code == "floor_junction_material_dependency_missing" && d.IsError);
+    }
+
+    [Fact]
+    public void CheckTagCollisions_AcceptsMaterialDependencyOnRegisteredTag()
+    {
+        IReadOnlyList<NativeShellMaterialDefinition> materials =
+        [
+            new(1, "rebar:1:uniaxial", new ElasticUniaxialShellMaterialSpec(200e9)),
+            new(2, "rebar:1:plate", new PlateRebarShellMaterialSpec(1, 0))
+        ];
+
+        var diagnostics = CheckTagCollisions([], [], materials, []);
+
+        Assert.DoesNotContain(diagnostics, d => d.Code == "floor_junction_material_dependency_missing");
+    }
+
     // --- fixtures ---
+
+    /// <summary>Вызывает private CheckTagCollisions через reflection: покрывает защитный путь
+    /// диагностики неразрешённой зависимости материала, который недостижим через валидный
+    /// вход assembler-а (RegisterChain резолвера гарантирует closure внутри цепочки).</summary>
+    static IReadOnlyList<FemValidationDiagnostic> CheckTagCollisions(
+        IReadOnlyList<NormalizedShellNode> nodes,
+        IReadOnlyList<NormalizedShellElement> elements,
+        IReadOnlyList<NativeShellMaterialDefinition> materials,
+        IReadOnlyList<RCShellLayeredSection> sections)
+    {
+        var method = typeof(FloorJunctionShellModelAssembler).GetMethod(
+            "CheckTagCollisions", BindingFlags.Static | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("CheckTagCollisions не найден.");
+        return (IReadOnlyList<FemValidationDiagnostic>)method.Invoke(
+            null, [nodes, elements, materials, sections])!;
+    }
 
     static string Diagnostics(FloorJunctionShellAssemblyResult result) =>
         string.Join(Environment.NewLine, result.Diagnostics.Select(d => $"{d.Code}: {d.Message}"));
