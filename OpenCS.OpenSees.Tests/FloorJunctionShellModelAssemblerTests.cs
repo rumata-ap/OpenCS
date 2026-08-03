@@ -124,6 +124,46 @@ public sealed class FloorJunctionShellModelAssemblerTests
     }
 
     [Fact]
+    public void Assemble_RemapsPlateRebarDependencyToFinalTagAndDeduplicatesDependentChain()
+    {
+        var (plateSnapshot, wallSnapshot) = Snapshots();
+        // Обе стороны: одинаковый frame-consistent WallFrame, одинаковое армированное
+        // сечение и RebarCapableResolver. Dependent цепочка арматуры (uniaxial -> PlateRebar)
+        // идентична на обеих сторонах и должна быть дедуплицирована в один материал, а
+        // UniaxialMaterialTag итогового PlateRebar переписан с raw source tag на финальный.
+        var frame = WallFrame();
+        var result = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(frame), RebarPlateSection(),
+            wallSnapshot, WallRegion(frame), RebarPlateSection(),
+            new RebarCapableResolver(), ConformingMapping());
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+
+        var materials = result.Model.Materials;
+        // Дедупликация идентичных dependent цепочек: по одному бетону, uniaxial и PlateRebar
+        // вместо дублей «plate+wall» при старом раздельном диапазоне тегов.
+        Assert.Single(materials, material => material.Spec is ElasticIsotropicShellMaterialSpec);
+        Assert.Single(materials, material => material.Spec is ElasticUniaxialShellMaterialSpec);
+        Assert.Single(materials, material => material.Spec is PlateRebarShellMaterialSpec);
+
+        var plateRebar = Assert.Single(materials, material => material.Spec is PlateRebarShellMaterialSpec);
+        var uniaxial = Assert.Single(materials, material => material.Spec is ElasticUniaxialShellMaterialSpec);
+        var plateRebarSpec = Assert.IsType<PlateRebarShellMaterialSpec>(plateRebar.Spec);
+
+        // Dependency переписан на существующий финальный tag uniaxial-материала, а не
+        // оставлен raw source tag резолвера (500) — иначе сборка OpenSees упадёт.
+        Assert.Equal(uniaxial.Tag, plateRebarSpec.UniaxialMaterialTag);
+        Assert.Contains(materials, material =>
+            material.Tag == plateRebarSpec.UniaxialMaterialTag &&
+            material.Spec is ElasticUniaxialShellMaterialSpec);
+
+        // Все MaterialTags слоёв секций существуют в финальном наборе материалов.
+        var materialTags = materials.Select(material => material.Tag).ToHashSet();
+        Assert.All(result.Model.Sections, section =>
+            Assert.All(section.Layers, layer => Assert.Contains(layer.MaterialTag, materialTags)));
+    }
+
+    [Fact]
     public void Assemble_RejectsMappingWithErrorDiagnostics()
     {
         var (plateSnapshot, wallSnapshot) = Snapshots();
