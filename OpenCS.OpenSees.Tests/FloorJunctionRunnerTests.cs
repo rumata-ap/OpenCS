@@ -16,9 +16,10 @@ using Xunit;
 
 namespace OpenCS.OpenSees.Tests;
 
-/// <summary>Preflight-тесты FloorJunctionRunner: доменная валидация -> двухсторонний Gmsh
-/// workflow -> assembly -> stages -> boundary pipeline. Анализ (Task 11) здесь не выполняется;
-/// на всех negative ветках инъецируемый IShellAnalysisRunner не вызывается.</summary>
+/// <summary>Тесты FloorJunctionRunner: доменная валидация -> двухсторонний Gmsh workflow ->
+/// assembly -> stages -> boundary pipeline -> нелинейный прогон (Task 11). На negative
+/// preflight-ветках инъецируемый IShellAnalysisRunner не вызывается; analysis-тесты вызывают
+/// его и проверяют результаты.</summary>
 public sealed class FloorJunctionRunnerTests
 {
     [Fact]

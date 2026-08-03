@@ -249,7 +249,7 @@ namespace OpenCS.OpenSees.CScore.Fragments
             try { model.Validate(); }
             catch (InvalidOperationException ex)
             {
-                result.AssemblyDiagnostics = [$"floor_junction_tag_collision: {ex.Message}"];
+                result.AssemblyDiagnostics = [$"floor_junction_model_validation_failed: {ex.Message}"];
                 result.AuditReport = new FloorJunctionAuditReport().Audit(fragment, result);
                 return result;
             }
@@ -341,7 +341,7 @@ namespace OpenCS.OpenSees.CScore.Fragments
 
             // Приложенная нагрузка финального шага — это сумма всех активных стадий:
             // завершённые стадии вносят MaxLoadFactor, текущая стадия — текущий LoadFactor
-            // (та же семантика, что у ShellEquilibriumAuditor.AppliedResultAtStep). Только
+            // (та же семантика, что у ShellEquilibriumAuditor.AppliedResultantAtStep). Только
             // нагрузка последней стадии давала ложный баланс при многостадийном нагружении.
             if (lastStep.StageIndex < 0 || lastStep.StageIndex >= model.Stages.Count)
             {
