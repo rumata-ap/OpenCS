@@ -24,11 +24,10 @@ namespace OpenCS.OpenSees.CScore
     }
 
     /// <summary>Собирает два независимых PlanarMeshSnapshot в одну ShellOpenSeesModel:
-    /// детерминированный remap node/element/section/material tags, пересчёт fingerprints после
-    /// финальных тегов и equalDOF на exact pairs (plate master -> wall slave). Не меняет исходные
-    /// snapshots; Gmsh/domain IDs не используются как OpenSees tags. На текущем шаге материалы и
-    /// секции двух сторон НЕ дедуплицируются — каждой стороне выделяется свой непересекающийся
-    /// диапазон тегов (merge добавляется в Task 8).</summary>
+    /// детерминированный remap node/element/section/material tags, merge-дедупликация
+    /// идентичных материалов и секций по fingerprints (с пересчётом после финальной
+    /// нумерации тегов) и equalDOF на exact pairs (plate master -> wall slave). Не меняет
+    /// исходные snapshots; Gmsh/domain IDs не используются как OpenSees tags.</summary>
     public static class FloorJunctionShellModelAssembler
     {
         public static FloorJunctionShellAssemblyResult Assemble(
@@ -94,59 +93,158 @@ namespace OpenCS.OpenSees.CScore
                 .ToArray();
             var nodes = plate.Model.Nodes.Concat(remappedWallNodes).ToArray();
 
-            // 2. Element remap: plate 1..Mp, wall Mp+1..Mp+Mw; wall node tags + offset.
+            // 2. Element tag remap (только теги; section tags и fingerprints перезаписываются
+            //    в шаге 5 после merge секций).
             var plateElementIndexToTag = plate.ElementIndexToTag;
             var wallElementIndexToTag = wall.ElementIndexToTag.ToDictionary(
                 pair => pair.Key, pair => pair.Value + plateElementCount);
-            var wallSectionFingerprintByTag = wall.Model.Sections.ToDictionary(
-                section => section.Tag, section => section.Fingerprint);
-            NormalizedShellElement[] remappedWallElements = wall.Model.Elements
-                .Select(element => element with
+
+            // 3. Merge материалов: независимые определения — в детерминированном порядке
+            //    fingerprint/исходного тега, зависимые — после финальных тегов баз с
+            //    переписанным DependsOnMaterialTag (через WithDependencyTag) и пересчитанным
+            //    Spec.Fingerprint. Идентичные финальные fingerprints дедуплицируются в один
+            //    материал; ключ (side, sourceTag) сохраняет происхождение для remap секций.
+            var materialTagMap = new Dictionary<(string Side, int SourceTag), int>();
+            var materialByFingerprint = new Dictionary<string, NativeShellMaterialDefinition>(StringComparer.Ordinal);
+            var finalMaterials = new List<NativeShellMaterialDefinition>();
+            var materialProvenance = new Dictionary<int, string>();
+            int nextMaterialTag = 1;
+
+            void RegisterMaterial(string side, NativeShellMaterialDefinition definition)
+            {
+                string fingerprint = definition.Fingerprint;
+                if (materialByFingerprint.TryGetValue(fingerprint, out NativeShellMaterialDefinition? existing))
                 {
-                    Tag = element.Tag + plateElementCount,
-                    NodeTags = element.NodeTags.Select(tag => tag + wallNodeTagOffset).ToList(),
-                    SectionTag = element.SectionTag + plate.Model.Sections.Count,
-                    // Промежуточный fingerprint из wall-секции; при внутренней несогласованности
-                    // (секция не найдена) оставляем значение элемента — финальную проверку и
-                    // перезапись выполняет CheckTagCollisions + шаг 4 ниже.
-                    SectionFingerprint = wallSectionFingerprintByTag.TryGetValue(
-                        element.SectionTag, out string? fingerprint)
-                        ? fingerprint
-                        : element.SectionFingerprint
+                    materialTagMap[(side, definition.Tag)] = existing.Tag;
+                    return;
+                }
+                NativeShellMaterialDefinition registered = definition with { Tag = nextMaterialTag++ };
+                registered.Validate();
+                materialByFingerprint[fingerprint] = registered;
+                finalMaterials.Add(registered);
+                materialTagMap[(side, definition.Tag)] = registered.Tag;
+                materialProvenance[registered.Tag] = $"{side}|source:{definition.SourceId}|fp:{fingerprint}";
+            }
+
+            var allMaterials = plate.Model.Materials
+                .Select(material => (side: "plate", material: material))
+                .Concat(wall.Model.Materials.Select(material => (side: "wall", material: material)))
+                .ToList();
+
+            foreach (var (side, material) in allMaterials
+                         .Where(item => item.material.Spec.DependsOnMaterialTag is null)
+                         .OrderBy(item => item.material.Fingerprint, StringComparer.Ordinal)
+                         .ThenBy(item => item.material.SourceId, StringComparer.Ordinal))
+                RegisterMaterial(side, material);
+
+            foreach (var (side, material) in allMaterials
+                         .Where(item => item.material.Spec.DependsOnMaterialTag is int)
+                         .OrderBy(item => item.material.SourceId, StringComparer.Ordinal))
+            {
+                int dependency = material.Spec.DependsOnMaterialTag!.Value;
+                if (materialTagMap.TryGetValue((side, dependency), out int finalDependency))
+                    RegisterMaterial(side, material with { Spec = material.Spec.WithDependencyTag(finalDependency) });
+                else
+                    RegisterMaterial(side, material);
+            }
+
+            // 4. Merge секций: material tags слоёв remap-ятся через side-специфичную карту,
+            //    финальный fingerprint пересчитывается через RecalcFingerprint после финальных
+            //    material tags, идентичные fingerprints дедуплицируются. Детерминированный
+            //    порядок: по пересчитанному fingerprint, затем по fingerprint исходного
+            //    PlateSection. Неразрешённые material tags добавляют диагностику (не
+            //    проглатываются как успех).
+            var sectionTagMap = new Dictionary<(string Side, int SourceTag), int>();
+            var sectionByFingerprint = new Dictionary<string, RCShellLayeredSection>(StringComparer.Ordinal);
+            var finalSections = new List<RCShellLayeredSection>();
+            var sectionProvenance = new Dictionary<int, string>();
+            int nextSectionTag = 1;
+
+            var remappedSections = new List<(string Side, RCShellLayeredSection Source, RCShellLayeredSection Remapped)>();
+            foreach (var (side, section) in plate.Model.Sections
+                         .Select(section => (side: "plate", section: section))
+                         .Concat(wall.Model.Sections.Select(section => (side: "wall", section: section))))
+            {
+                bool resolved = true;
+                var layers = new List<RCShellLayer>(section.Layers.Count);
+                foreach (RCShellLayer layer in section.Layers)
+                {
+                    if (!materialTagMap.TryGetValue((side, layer.MaterialTag), out int finalMaterialTag))
+                    {
+                        diagnostics.Add(new("floor_junction_tag_collision",
+                            $"Секция {section.Tag} (сторона {side}): слой {layer.Index} ссылается на неразрешённый material tag {layer.MaterialTag}."));
+                        resolved = false;
+                        break;
+                    }
+                    layers.Add(layer with { MaterialTag = finalMaterialTag });
+                }
+                if (!resolved)
+                    continue;
+                remappedSections.Add((side, section, section with { Layers = layers }));
+            }
+            if (diagnostics.Any(diagnostic => diagnostic.IsError))
+                return Empty(diagnostics);
+
+            foreach (var (side, source, remapped) in remappedSections
+                         .OrderBy(item => PlateSectionOpenSeesMapper.RecalcFingerprint(item.Remapped, finalMaterials), StringComparer.Ordinal)
+                         .ThenBy(item => item.Remapped.SourcePlateSectionFingerprint, StringComparer.Ordinal))
+            {
+                string fingerprint = PlateSectionOpenSeesMapper.RecalcFingerprint(remapped, finalMaterials);
+                if (sectionByFingerprint.TryGetValue(fingerprint, out RCShellLayeredSection? existing))
+                {
+                    sectionTagMap[(side, source.Tag)] = existing.Tag;
+                    continue;
+                }
+                RCShellLayeredSection registered = remapped with { Tag = nextSectionTag++, Fingerprint = fingerprint };
+                registered.Validate();
+                sectionByFingerprint[fingerprint] = registered;
+                finalSections.Add(registered);
+                sectionTagMap[(side, source.Tag)] = registered.Tag;
+                sectionProvenance[registered.Tag] = $"{side}|source:{source.SourcePlateSectionFingerprint}|fp:{fingerprint}";
+            }
+
+            var materials = finalMaterials;
+            var sections = finalSections;
+
+            // 5. Remap элементов ОБЕИХ сторон на финальные section tags и fingerprints.
+            var sectionByTag = sections.ToDictionary(section => section.Tag);
+            NormalizedShellElement[] remappedWallElements = wall.Model.Elements
+                .Select(element =>
+                {
+                    if (!sectionTagMap.TryGetValue(("wall", element.SectionTag), out int finalSectionTag))
+                    {
+                        diagnostics.Add(new("floor_junction_tag_collision",
+                            $"Wall-элемент {element.Tag} ссылается на неразрешённую секцию {element.SectionTag}."));
+                        return element;
+                    }
+                    return element with
+                    {
+                        Tag = element.Tag + plateElementCount,
+                        NodeTags = element.NodeTags.Select(tag => tag + wallNodeTagOffset).ToList(),
+                        SectionTag = finalSectionTag,
+                        SectionFingerprint = sectionByTag[finalSectionTag].Fingerprint
+                    };
                 })
                 .ToArray();
-            var elements = plate.Model.Elements.Concat(remappedWallElements).ToArray();
-
-            // 3. Материалы/секции: на этом шаге — непересекающиеся диапазоны (merge в Task 8).
-            int plateMaterialCount = plate.Model.Materials.Count;
-            var materials = plate.Model.Materials.Concat(
-                wall.Model.Materials.Select(material => material with
+            NormalizedShellElement[] remappedPlateElements = plate.Model.Elements
+                .Select(element =>
                 {
-                    Tag = material.Tag + plateMaterialCount,
-                    Spec = material.Spec.DependsOnMaterialTag is int dependency
-                        ? material.Spec.WithDependencyTag(dependency + plateMaterialCount)
-                        : material.Spec
-                })).ToArray();
-            var wallSections = wall.Model.Sections.Select(section =>
-            {
-                var layers = section.Layers.Select(layer => layer with
-                {
-                    MaterialTag = layer.MaterialTag + plateMaterialCount
-                }).ToList();
-                var shifted = section with { Tag = section.Tag + plate.Model.Sections.Count, Layers = layers };
-                return shifted with { Fingerprint = PlateSectionOpenSeesMapper.RecalcFingerprint(shifted, materials) };
-            }).ToArray();
-            var sections = plate.Model.Sections.Concat(wallSections).ToArray();
-
-            // 4. Обновить SectionFingerprint wall-элементов на пересчитанный fingerprint секции.
-            var sectionByTag = sections.ToDictionary(section => section.Tag);
-            elements = elements
-                .Select(element => sectionByTag.TryGetValue(element.SectionTag, out var target)
-                    ? element with { SectionFingerprint = target.Fingerprint }
-                    : element)
+                    if (!sectionTagMap.TryGetValue(("plate", element.SectionTag), out int finalSectionTag))
+                    {
+                        diagnostics.Add(new("floor_junction_tag_collision",
+                            $"Plate-элемент {element.Tag} ссылается на неразрешённую секцию {element.SectionTag}."));
+                        return element;
+                    }
+                    return element with
+                    {
+                        SectionTag = finalSectionTag,
+                        SectionFingerprint = sectionByTag[finalSectionTag].Fingerprint
+                    };
+                })
                 .ToArray();
+            var elements = remappedPlateElements.Concat(remappedWallElements).ToArray();
 
-            // 5. Junction pairs + equalDOF (plate master -> wall slave).
+            // 6. Junction pairs + equalDOF (plate master -> wall slave).
             var junctionPairs = new List<(int PlateNodeTag, int WallNodeTag)>();
             var slaveDofCoverage = new Dictionary<(int Node, int Dof), string>();
             var equalDofs = new List<ShellEqualDofConstraint>();
@@ -172,7 +270,7 @@ namespace OpenCS.OpenSees.CScore
                 equalDofs.Add(new(plateTag, wallTag, [1, 2, 3, 4, 5, 6]));
             }
 
-            // 6. Проверка коллизий тегов в общем namespace.
+            // 7. Проверка коллизий тегов в общем namespace.
             diagnostics.AddRange(CheckTagCollisions(nodes, elements, materials, sections));
 
             if (diagnostics.Any(d => d.IsError))
@@ -186,11 +284,6 @@ namespace OpenCS.OpenSees.CScore
                 Elements = elements.OrderBy(element => element.Tag).ToArray(),
                 EqualDofConstraints = equalDofs
             };
-
-            var materialProvenance = materials.ToDictionary(
-                material => material.Tag, material => $"source:{material.SourceId}|fp:{material.Fingerprint}");
-            var sectionProvenance = sections.ToDictionary(
-                section => section.Tag, section => $"source:{section.SourcePlateSectionFingerprint}|fp:{section.Fingerprint}");
 
             return new FloorJunctionShellAssemblyResult(
                 model,

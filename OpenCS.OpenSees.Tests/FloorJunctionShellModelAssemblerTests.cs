@@ -168,6 +168,99 @@ public sealed class FloorJunctionShellModelAssemblerTests
         Assert.Contains(result.Diagnostics, d => d.Code == "floor_junction_connection_mapping_missing");
     }
 
+    [Fact]
+    public void Assemble_DeduplicatesIdenticalSectionsAndMaterialsAcrossSides()
+    {
+        var (plateSnapshot, wallSnapshot) = Snapshots();
+        // Обе стороны: одинаковый frame (frame-consistent), одинаковая секция и одинаковый
+        // resolver -> один материал и одна секция, на которую ссылаются ВСЕ элементы.
+        var frame = WallFrame();
+        var result = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(frame), PlateSection(),
+            wallSnapshot, WallRegion(frame), PlateSection(),
+            new ConcreteOnlyResolver(), ConformingMapping());
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+        Assert.Single(result.Model.Sections);
+        Assert.Single(result.Model.Materials);
+        Assert.All(result.Model.Elements, element =>
+            Assert.Equal(result.Model.Sections[0].Tag, element.SectionTag));
+        Assert.All(result.Model.Elements, element =>
+            Assert.Equal(result.Model.Sections[0].Fingerprint, element.SectionFingerprint));
+    }
+
+    [Fact]
+    public void Assemble_KeepsDifferentDefinitionsSeparate()
+    {
+        var (plateSnapshot, wallSnapshot) = Snapshots();
+        var wallSection = new PlateSection { H = 0.3, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+
+        var result = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(), PlateSection(),
+            wallSnapshot, WallRegion(), wallSection,
+            new ConcreteOnlyResolver(), ConformingMapping());
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+        Assert.Equal(2, result.Model.Sections.Count);
+        var plateSectionTags = result.Model.Elements
+            .Where(element => result.PlateElementIndexToTag.Values.Contains(element.Tag))
+            .Select(element => element.SectionTag).Distinct().ToArray();
+        var wallSectionTags = result.Model.Elements
+            .Where(element => result.WallElementIndexToTag.Values.Contains(element.Tag))
+            .Select(element => element.SectionTag).Distinct().ToArray();
+        Assert.Single(plateSectionTags);
+        Assert.Single(wallSectionTags);
+        Assert.NotEqual(plateSectionTags[0], wallSectionTags[0]);
+    }
+
+    [Fact]
+    public void Assemble_IsDeterministicAcrossRepeatedCalls()
+    {
+        var (plateSnapshot, wallSnapshot) = Snapshots();
+        var frame = WallFrame();
+        var first = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(frame), PlateSection(),
+            wallSnapshot, WallRegion(frame), PlateSection(),
+            new ConcreteOnlyResolver(), ConformingMapping());
+        var second = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(frame), PlateSection(),
+            wallSnapshot, WallRegion(frame), PlateSection(),
+            new ConcreteOnlyResolver(), ConformingMapping());
+
+        Assert.Equal(
+            first.Model.Sections.Select(section => section.Tag).ToArray(),
+            second.Model.Sections.Select(section => section.Tag).ToArray());
+        Assert.Equal(
+            first.Model.Materials.Select(material => material.Tag).ToArray(),
+            second.Model.Materials.Select(material => material.Tag).ToArray());
+        Assert.Equal(
+            first.JunctionPairs.ToArray(),
+            second.JunctionPairs.ToArray());
+    }
+
+    [Fact]
+    public void Assemble_ReportsSectionAndMaterialProvenance()
+    {
+        var (plateSnapshot, wallSnapshot) = Snapshots();
+        var frame = WallFrame();
+        var result = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(frame), PlateSection(),
+            wallSnapshot, WallRegion(frame), PlateSection(),
+            new ConcreteOnlyResolver(), ConformingMapping());
+
+        Assert.Single(result.SectionProvenance);
+        Assert.Single(result.MaterialProvenance);
+        // Каждая запись provenance: «сторона|source:...|fp:...».
+        Assert.Contains(result.SectionProvenance.Values, value =>
+            value.Contains("|", StringComparison.Ordinal) &&
+            value.Contains("source:", StringComparison.Ordinal) &&
+            value.Contains("fp:", StringComparison.Ordinal));
+        Assert.Contains(result.MaterialProvenance.Values, value =>
+            value.Contains("plate|", StringComparison.Ordinal) &&
+            value.Contains("source:", StringComparison.Ordinal) &&
+            value.Contains("fp:", StringComparison.Ordinal));
+    }
+
     // --- fixtures ---
 
     static string Diagnostics(FloorJunctionShellAssemblyResult result) =>
@@ -274,10 +367,14 @@ public sealed class FloorJunctionShellModelAssemblerTests
         return (plate, wall);
     }
 
-    static PlanarRegion PlateRegion()
+    /// <summary>Frame, согласованный со стеночным snapshot: (U,V) -> (2, U, V) (см. Snapshots()).</summary>
+    static Frame3D WallFrame() =>
+        new(new(2, 0, 0), new(0, 1, 0), new(0, 0, 1), new(1, 0, 0));
+
+    static PlanarRegion PlateRegion(Frame3D? frame = null)
     {
         var region = PlanarRegion.CreateFromContour(
-            new Contour { X = [0, 4, 4, 0], Y = [0, 0, 4, 4] });
+            new Contour { X = [0, 4, 4, 0], Y = [0, 0, 4, 4] }, frame: frame);
         region.Id = 10;
         return region;
     }
@@ -286,7 +383,7 @@ public sealed class FloorJunctionShellModelAssemblerTests
     {
         var region = PlanarRegion.CreateFromContour(
             new Contour { X = [0, 4, 4, 0], Y = [0, 0, 3, 3] },
-            frame: frame ?? new Frame3D(new(2, 0, 0), new(0, 1, 0), new(0, 0, 1), new(1, 0, 0)));
+            frame: frame ?? WallFrame());
         region.Id = 20;
         return region;
     }
