@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CScore\CScore.csproj" />
     <ProjectReference Include="..\OpenCS.OpenSees\OpenCS.OpenSees.csproj" />
+    <ProjectReference Include="..\OpenCS.Gmsh\OpenCS.Gmsh.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
