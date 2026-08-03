@@ -44,8 +44,8 @@ public sealed class SectionInteractionService
                     new SectionAnalysisRequest
                     {
                         AxialForceN = axialForce,
-                        MaxCurvature = request.MaxCurvature,
-                        Increments = request.Increments,
+                        CurvatureStep = request.CurvatureStep,
+                        MaxSteps = request.MaxSteps,
                         Axis = request.Axis,
                         Convention = request.Convention
                     },

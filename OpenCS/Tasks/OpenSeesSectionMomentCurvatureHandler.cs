@@ -47,15 +47,14 @@ public sealed class OpenSeesSectionMomentCurvatureHandler : ITaskHandler
                 ctx?.Database?.Diagrams,
                 new CrossSectionToOpenSeesAdapter.Options());
 
-            OpenSeesExecutableInfo executable = new OpenSeesExecutableResolver(
-                Path.Combine(AppContext.BaseDirectory, "OpenSees.exe"))
+            OpenSeesExecutableInfo executable = new OpenSeesExecutableResolver()
                 .Resolve(parameters.ExecutablePath);
 
             SectionAnalysisRequest request = new()
             {
                 AxialForceN = CScoreUnitConverter.KiloNewtonsToNewtons(item.N),
-                MaxCurvature = parameters.MaxCurvature,
-                Increments = parameters.Increments,
+                CurvatureStep = parameters.CurvatureStep,
+                MaxSteps = parameters.MaxSteps,
                 Axis = axis,
                 Convention = model.Convention
             };

@@ -130,18 +130,22 @@ public sealed class OpenSeesSpatialInteractionResultVM : ViewModelBase
 
     /// <summary>Кривизна Mx выбранной точки.</summary>
     public IReadOnlyList<double> HistoryCurvatureMx => SelectedPoint?.HistoryRows
+        .Where(row => row.Converged)
         .Select(row => row.CurvatureMx).ToArray() ?? [];
 
     /// <summary>Кривизна My выбранной точки.</summary>
     public IReadOnlyList<double> HistoryCurvatureMy => SelectedPoint?.HistoryRows
+        .Where(row => row.Converged)
         .Select(row => row.CurvatureMy).ToArray() ?? [];
 
     /// <summary>Момент Mx истории выбранной точки в кН·м.</summary>
     public IReadOnlyList<double> HistoryMomentMxKnM => SelectedPoint?.HistoryRows
+        .Where(row => row.Converged)
         .Select(row => row.MomentMxNm / 1000.0).ToArray() ?? [];
 
     /// <summary>Момент My истории выбранной точки в кН·м.</summary>
     public IReadOnlyList<double> HistoryMomentMyKnM => SelectedPoint?.HistoryRows
+        .Where(row => row.Converged)
         .Select(row => row.MomentMyNm / 1000.0).ToArray() ?? [];
 
     /// <summary>Строки таблицы углов выбранной группы.</summary>

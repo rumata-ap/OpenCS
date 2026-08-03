@@ -93,12 +93,12 @@ public sealed class SpatialSectionTclGenerator : ISpatialSectionTclGenerator
         AppendLine(script);
 
         AppendLine(script, "pattern Plain 2 Linear {");
-        AppendLine(script, "    sp 2 5 ", TclNumber.Format(request.CurvatureMyAtMax));
-        AppendLine(script, "    sp 2 6 ", TclNumber.Format(request.CurvatureMxAtMax));
+        AppendLine(script, "    sp 2 5 ", TclNumber.Format(request.CurvatureMyStep));
+        AppendLine(script, "    sp 2 6 ", TclNumber.Format(request.CurvatureMxStep));
         AppendLine(script, "}");
-        AppendLine(script, "integrator LoadControl ", TclNumber.Format(1.0 / request.Increments));
+        AppendLine(script, "integrator LoadControl 1.0");
         AppendLine(script, "set step 0");
-        AppendLine(script, "for {set i 1} {$i <= ", request.Increments.ToString(), "} {incr i} {");
+        AppendLine(script, "for {set i 1} {$i <= ", request.MaxSteps.ToString(), "} {incr i} {");
         AppendLine(script, "    set rc [analyze 1]");
         AppendLine(script, "    set step [expr {$step + 1}]");
         AppendLine(script, "    set forces [eleResponse 1 section 1 force]");

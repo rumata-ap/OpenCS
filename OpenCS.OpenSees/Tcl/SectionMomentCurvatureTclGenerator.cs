@@ -38,12 +38,13 @@ public sealed class SectionMomentCurvatureTclGenerator : IOpenSeesTclGenerator
         AppendLine(script, "section Fiber 1 -GJ ", TclNumber.Format(model.GJ), " {");
         foreach (OpenSeesFiber fiber in model.Fibers)
         {
+            (double fiberY, double fiberZ) = FiberCoordinates(fiber, request.Axis);
             AppendLine(
                 script,
                 "fiber ",
-                TclNumber.Format(fiber.Y),
+                TclNumber.Format(fiberY),
                 " ",
-                TclNumber.Format(fiber.Z),
+                TclNumber.Format(fiberZ),
                 " ",
                 TclNumber.Format(fiber.AreaM2),
                 " ",
@@ -61,19 +62,20 @@ public sealed class SectionMomentCurvatureTclGenerator : IOpenSeesTclGenerator
         AppendLine(script, "numberer Plain");
         AppendLine(script, "system BandGeneral");
         AppendLine(script, "test NormUnbalance 1.0e-8 50 0");
-        AppendLine(script, "algorithm Newton");
+        AppendLine(script, "algorithm NewtonLineSearch");
         AppendLine(script, "analysis Static");
         AppendLine(script, "");
 
         AppendLine(script, "set sectionHistory [open section_history.out w]");
         AppendLine(script, "puts $sectionHistory {# step loadFactor axialForceN bendingMomentNm axialStrain curvature converged residual}");
         OpenSeesFiber firstFiber = model.Fibers[0];
+        (double firstFiberY, double firstFiberZ) = FiberCoordinates(firstFiber, request.Axis);
         AppendLine(
             script,
             "recorder Element -file fiber_history.out -time -ele 1 section 1 fiber ",
-            TclNumber.Format(firstFiber.Y),
+            TclNumber.Format(firstFiberY),
             " ",
-            TclNumber.Format(firstFiber.Z),
+            TclNumber.Format(firstFiberZ),
             " stressStrain");
         AppendLine(script, "recorder Node -file node_history.out -time -node 2 -dof 1 3 disp");
         AppendLine(script, "");
@@ -90,10 +92,9 @@ public sealed class SectionMomentCurvatureTclGenerator : IOpenSeesTclGenerator
         AppendLine(script, "pattern Plain 2 Linear {");
         AppendLine(script, "    load 2 0 0 1");
         AppendLine(script, "}");
-        AppendLine(script, "set curvatureStep ", TclNumber.Format(request.MaxCurvature / request.Increments));
-        AppendLine(script, "integrator DisplacementControl 2 3 ", TclNumber.Format(request.MaxCurvature / request.Increments));
+        AppendLine(script, "integrator DisplacementControl 2 3 ", TclNumber.Format(request.CurvatureStep));
         AppendLine(script, "set step 0");
-        AppendLine(script, "for {set i 1} {$i <= ", request.Increments.ToString(), "} {incr i} {");
+        AppendLine(script, "for {set i 1} {$i <= ", request.MaxSteps.ToString(), "} {incr i} {");
         AppendLine(script, "    set rc [analyze 1]");
         AppendLine(script, "    set step [expr {$step + 1}]");
         AppendLine(script, "    set forces [eleResponse 1 section 1 force]");
@@ -127,4 +128,10 @@ public sealed class SectionMomentCurvatureTclGenerator : IOpenSeesTclGenerator
         Append(builder, values);
         builder.AppendLine();
     }
+
+    private static (double Y, double Z) FiberCoordinates(
+        OpenSeesFiber fiber,
+        SectionBendingAxis axis) => axis == SectionBendingAxis.My
+            ? (fiber.Z, fiber.Y)
+            : (fiber.Y, fiber.Z);
 }

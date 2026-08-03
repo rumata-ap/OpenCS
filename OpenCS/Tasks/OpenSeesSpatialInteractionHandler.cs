@@ -51,8 +51,7 @@ public sealed class OpenSeesSpatialInteractionHandler : ITaskHandler
                 ctx.Database.Diagrams,
                 new CrossSectionToOpenSeesAdapter.Options());
 
-            OpenSeesExecutableInfo executable = new OpenSeesExecutableResolver(
-                Path.Combine(AppContext.BaseDirectory, "OpenSees.exe"))
+            OpenSeesExecutableInfo executable = new OpenSeesExecutableResolver()
                 .Resolve(parameters.ExecutablePath);
 
             SectionSpatialInteractionRequest request = new()
@@ -63,8 +62,8 @@ public sealed class OpenSeesSpatialInteractionHandler : ITaskHandler
                 AdditionalAxialSlices = parameters.AdditionalAxialSlices,
                 DemandPoints = OpenSeesSpatialInteractionParams.ExtractDemandPoints(forceSet),
                 AngleStepDegrees = parameters.AngleStepDegrees,
-                MaxCurvature = parameters.MaxCurvature,
-                Increments = parameters.Increments,
+                CurvatureStep = parameters.CurvatureStep,
+                MaxSteps = parameters.MaxSteps,
                 Convention = model.Convention
             };
 

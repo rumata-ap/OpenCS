@@ -11,33 +11,33 @@ public sealed class SpatialSectionAnalysisRequest
     /// <summary>Направление луча в градусах: 0° соответствует +Mx.</summary>
     public double AngleDegrees { get; init; }
 
-    /// <summary>Максимальная длина радиального луча кривизны в 1/м.</summary>
-    public double MaxCurvature { get; init; } = 0.01;
+    /// <summary>Приращение кривизны радиального луча на одном шаге в 1/м.</summary>
+    public double CurvatureStep { get; init; } = 0.0005;
 
-    /// <summary>Количество радиальных шагов.</summary>
-    public int Increments { get; init; } = 20;
+    /// <summary>Максимальное число радиальных шагов.</summary>
+    public int MaxSteps { get; init; } = 200;
 
     /// <summary>Соглашение координат модели.</summary>
     public OpenSeesCoordinateConvention Convention { get; init; } =
         OpenSeesCoordinateConvention.CScoreDefault;
 
-    /// <summary>Кривизна, сопряжённая с Mx, на конце луча.</summary>
-    public double CurvatureMxAtMax => MaxCurvature * Math.Cos(AngleDegrees * Math.PI / 180.0);
+    /// <summary>Кривизна Mx на одном шаге луча.</summary>
+    public double CurvatureMxStep => CurvatureStep * Math.Cos(AngleDegrees * Math.PI / 180.0);
 
-    /// <summary>Кривизна, сопряжённая с My, на конце луча.</summary>
-    public double CurvatureMyAtMax => MaxCurvature * Math.Sin(AngleDegrees * Math.PI / 180.0);
+    /// <summary>Кривизна My на одном шаге луча.</summary>
+    public double CurvatureMyStep => CurvatureStep * Math.Sin(AngleDegrees * Math.PI / 180.0);
 
     /// <summary>Создаёт нормализованный запрос одного луча.</summary>
     public static SpatialSectionAnalysisRequest At(
         double axialForceN,
         double angleDegrees,
-        double maxCurvature,
-        int increments) => new()
+        double curvatureStep,
+        int maxSteps) => new()
         {
             AxialForceN = axialForceN,
             AngleDegrees = angleDegrees,
-            MaxCurvature = maxCurvature,
-            Increments = increments
+            CurvatureStep = curvatureStep,
+            MaxSteps = maxSteps
         };
 
     /// <summary>Проверяет конечность и диапазоны параметров одного луча.</summary>
@@ -47,9 +47,9 @@ public sealed class SpatialSectionAnalysisRequest
             throw new ArgumentException("AxialForceN must be finite.", nameof(AxialForceN));
         if (!double.IsFinite(AngleDegrees) || AngleDegrees < 0 || AngleDegrees >= 360)
             throw new ArgumentException("AngleDegrees must be in [0, 360).", nameof(AngleDegrees));
-        if (!double.IsFinite(MaxCurvature) || MaxCurvature <= 0)
-            throw new ArgumentException("MaxCurvature must be positive and finite.", nameof(MaxCurvature));
-        if (Increments <= 0)
-            throw new ArgumentException("Increments must be positive.", nameof(Increments));
+        if (!double.IsFinite(CurvatureStep) || CurvatureStep <= 0)
+            throw new ArgumentException("CurvatureStep must be positive and finite.", nameof(CurvatureStep));
+        if (MaxSteps <= 0)
+            throw new ArgumentException("MaxSteps must be positive.", nameof(MaxSteps));
     }
 }

@@ -15,8 +15,8 @@ public sealed class SpatialTclGeneratorTests
         {
             AxialForceN = 1_000,
             AngleDegrees = 90,
-            MaxCurvature = 0.01,
-            Increments = 2
+            CurvatureStep = 0.0005,
+            MaxSteps = 2
         };
 
         string script = new SpatialSectionTclGenerator().Generate(model, request);
@@ -61,8 +61,8 @@ public sealed class SpatialTclGeneratorTests
                 {
                     AxialForceN = 1_000.5,
                     AngleDegrees = 0,
-                    MaxCurvature = 0.0015,
-                    Increments = 3
+                    CurvatureStep = 0.0015,
+                    MaxSteps = 3
                 });
 
             Assert.DoesNotContain("1000,5", script);
@@ -81,7 +81,7 @@ public sealed class SpatialTclGeneratorTests
     {
         string script = new SpatialSectionTclGenerator().Generate(
             CreateModel(),
-            new SpatialSectionAnalysisRequest { AxialForceN = 1_000, Increments = 1 });
+            new SpatialSectionAnalysisRequest { AxialForceN = 1_000, MaxSteps = 1 });
 
         Assert.DoesNotContain("..", script);
         Assert.DoesNotContain("C:\\", script, StringComparison.OrdinalIgnoreCase);

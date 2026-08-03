@@ -189,8 +189,8 @@ public sealed class SectionSpatialInteractionService
                     {
                         AxialForceN = axialForceN,
                         AngleDegrees = angle,
-                        MaxCurvature = request.MaxCurvature,
-                        Increments = request.Increments,
+                        CurvatureStep = request.CurvatureStep,
+                        MaxSteps = request.MaxSteps,
                         Convention = request.Convention
                     },
                     processRequest,

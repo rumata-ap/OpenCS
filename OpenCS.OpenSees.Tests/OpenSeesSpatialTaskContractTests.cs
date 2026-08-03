@@ -11,11 +11,11 @@ public sealed class OpenSeesSpatialTaskContractTests
     public void ParamsJson_contract_parses_spatial_options()
     {
         OpenSeesSpatialInteractionParams parameters = OpenSeesSpatialInteractionParams.Parse(
-            "{\"angleStepDegrees\":45,\"maxCurvature\":0.01,\"increments\":20,\"timeoutSeconds\":300,\"executablePath\":\"C:/OpenSees.exe\"}");
+            "{\"angleStepDegrees\":45,\"curvatureStep\":0.0005,\"maxSteps\":20,\"timeoutSeconds\":300,\"executablePath\":\"C:/OpenSees.exe\"}");
 
         Assert.Equal(45, parameters.AngleStepDegrees);
-        Assert.Equal(0.01, parameters.MaxCurvature);
-        Assert.Equal(20, parameters.Increments);
+        Assert.Equal(0.0005, parameters.CurvatureStep);
+        Assert.Equal(20, parameters.MaxSteps);
         Assert.Equal(300, parameters.TimeoutSeconds);
         Assert.Equal("C:/OpenSees.exe", parameters.ExecutablePath);
         Assert.Equal(2, parameters.AdditionalAxialSlices);
@@ -27,15 +27,15 @@ public sealed class OpenSeesSpatialTaskContractTests
         OpenSeesSpatialInteractionParams defaults = OpenSeesSpatialInteractionParams.Parse("{}");
 
         Assert.Equal(45, defaults.AngleStepDegrees);
-        Assert.True(defaults.MaxCurvature > 0);
-        Assert.True(defaults.Increments > 0);
+        Assert.True(defaults.CurvatureStep > 0);
+        Assert.True(defaults.MaxSteps > 0);
         Assert.True(defaults.TimeoutSeconds > 0);
         Assert.Equal(2, defaults.AdditionalAxialSlices);
 
         Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"angleStepDegrees\":7}"));
         Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"angleStepDegrees\":0}"));
-        Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"maxCurvature\":0}"));
-        Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"increments\":0}"));
+        Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"curvatureStep\":0}"));
+        Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"maxSteps\":0}"));
         Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"timeoutSeconds\":-1}"));
         Assert.Throws<ArgumentException>(() => OpenSeesSpatialInteractionParams.Parse("{\"additionalAxialSlices\":-1}"));
     }
@@ -106,14 +106,15 @@ public sealed class OpenSeesSpatialTaskContractTests
         string json = new OpenSeesSpatialInteractionParams
         {
             AngleStepDegrees = 90,
-            MaxCurvature = 0.02,
-            Increments = 40,
+            CurvatureStep = 0.0005,
+            MaxSteps = 40,
             TimeoutSeconds = 90,
             ExecutablePath = "C:/OpenSees.exe"
         }.ToJson();
 
         Assert.Contains("\"angleStepDegrees\":90", json);
-        Assert.Contains("\"maxCurvature\":0.02", json);
+        Assert.Contains("\"curvatureStep\":0.0005", json);
+        Assert.Contains("\"maxSteps\":40", json);
         Assert.DoesNotContain("axialForces", json, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("forceSet", json, StringComparison.OrdinalIgnoreCase);
     }

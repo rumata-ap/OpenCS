@@ -8,11 +8,11 @@ public sealed class SectionAnalysisRequest
     /// <summary>Продольная сила в Н.</summary>
     public double AxialForceN { get; init; }
 
-    /// <summary>Максимальная кривизна в 1/м.</summary>
-    public double MaxCurvature { get; init; }
+    /// <summary>Приращение кривизны на одном шаге в 1/м.</summary>
+    public double CurvatureStep { get; init; } = 0.0005;
 
-    /// <summary>Количество шагов кривизны.</summary>
-    public int Increments { get; init; } = 20;
+    /// <summary>Максимальное число шагов до принудительной остановки.</summary>
+    public int MaxSteps { get; init; } = 200;
 
     /// <summary>Выбранное направление изгиба в системе CScore.</summary>
     public SectionBendingAxis Axis { get; init; } = SectionBendingAxis.Mx;
@@ -24,10 +24,10 @@ public sealed class SectionAnalysisRequest
     /// <summary>Проверяет положительность параметров пошагового анализа.</summary>
     public void Validate()
     {
-        if (!double.IsFinite(AxialForceN) || !double.IsFinite(MaxCurvature) || MaxCurvature <= 0)
-            throw new ArgumentException("MaxCurvature должно быть положительным и конечным.", nameof(MaxCurvature));
-        if (Increments <= 0)
-            throw new ArgumentException("Increments должно быть положительным.", nameof(Increments));
+        if (!double.IsFinite(AxialForceN) || !double.IsFinite(CurvatureStep) || CurvatureStep <= 0)
+            throw new ArgumentException("CurvatureStep должно быть положительным и конечным.", nameof(CurvatureStep));
+        if (MaxSteps <= 0)
+            throw new ArgumentException("MaxSteps должно быть положительным.", nameof(MaxSteps));
     }
 }
 

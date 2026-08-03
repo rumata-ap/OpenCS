@@ -1,5 +1,6 @@
 using System.Windows;
 using CScore;
+using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.Views;
 
@@ -57,7 +58,22 @@ public static class CalcTaskExecutor
                 _ => "CalcResultError"
             };
             string done = string.Format(Loc.S(statusKey), task.Tag);
-            app.LogService.Info(done);
+            LogLevel level = CalcResultLogHelper.ResolveLevel(result);
+            if (level == LogLevel.Error)
+            {
+                string detail = CalcResultLogHelper.ExtractDetail(result);
+                if (!string.IsNullOrWhiteSpace(detail))
+                    done = string.Format(Loc.S("CalcResultErrorWithDetail"), task.Tag, detail);
+                app.LogService.Error(done);
+            }
+            else if (level == LogLevel.Warning)
+            {
+                app.LogService.Warning(done);
+            }
+            else
+            {
+                app.LogService.Info(done);
+            }
             onResultsChanged?.Invoke();
             if (navigateToResult)
                 app.CurrentPage = new CalcResultView(result, app);

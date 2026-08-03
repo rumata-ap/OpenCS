@@ -17,11 +17,11 @@ public sealed class SectionSpatialInteractionRequest
     /// <summary>Шаг полного оборота лучей в градусах.</summary>
     public double AngleStepDegrees { get; init; } = 45;
 
-    /// <summary>Максимальная длина каждого луча кривизны в 1/м.</summary>
-    public double MaxCurvature { get; init; } = 0.01;
+    /// <summary>Приращение кривизны каждого луча на одном шаге в 1/м.</summary>
+    public double CurvatureStep { get; init; } = 0.0005;
 
-    /// <summary>Количество радиальных шагов каждого луча.</summary>
-    public int Increments { get; init; } = 20;
+    /// <summary>Максимальное число радиальных шагов каждого луча.</summary>
+    public int MaxSteps { get; init; } = 200;
 
     /// <summary>Соглашение координат модели.</summary>
     public OpenSeesCoordinateConvention Convention { get; init; } =
@@ -47,10 +47,10 @@ public sealed class SectionSpatialInteractionRequest
         double roundedCount = Math.Round(count);
         if (roundedCount < 1 || Math.Abs(count - roundedCount) > 1e-9 * Math.Max(1, Math.Abs(count)))
             throw new ArgumentException("AngleStepDegrees must divide 360 degrees.", nameof(AngleStepDegrees));
-        if (!double.IsFinite(MaxCurvature) || MaxCurvature <= 0)
-            throw new ArgumentException("MaxCurvature must be positive and finite.", nameof(MaxCurvature));
-        if (Increments <= 0)
-            throw new ArgumentException("Increments must be positive.", nameof(Increments));
+        if (!double.IsFinite(CurvatureStep) || CurvatureStep <= 0)
+            throw new ArgumentException("CurvatureStep must be positive and finite.", nameof(CurvatureStep));
+        if (MaxSteps <= 0)
+            throw new ArgumentException("MaxSteps must be positive.", nameof(MaxSteps));
     }
 
     /// <summary>Генерирует углы от 0 до 360 градусов без дубликата 360.</summary>

@@ -49,6 +49,39 @@ public sealed class OpenSeesSpatialInteractionResultVMTests
     }
 
     [Fact]
+    public void VM_excludes_failed_terminal_step_from_history_series()
+    {
+        SectionSpatialInteractionPoint point = new()
+        {
+            AxialForceN = 100_000,
+            AngleDegrees = 0,
+            MomentMxNm = 1_000,
+            MomentMyNm = 2_000,
+            CurvatureMx = 0.0005,
+            CurvatureMy = 0.001,
+            Status = "not_converged",
+            HistoryRows =
+            [
+                new SpatialSectionHistoryRow { Step = 1, MomentMxNm = 1_000, MomentMyNm = 2_000, CurvatureMx = 0.0005, CurvatureMy = 0.001, Converged = true },
+                new SpatialSectionHistoryRow { Step = 2, MomentMxNm = 2_000, MomentMyNm = 4_000, CurvatureMx = 0.001, CurvatureMy = 0.002, Converged = false }
+            ]
+        };
+
+        OpenSeesSpatialInteractionResultVM vm = new(new CalcResult
+        {
+            Status = "not_converged",
+            DataJson = JsonSerializer.Serialize(new SectionSpatialInteractionResult
+            {
+                Status = "not_converged",
+                Points = [point]
+            })
+        });
+
+        Assert.Equal(new[] { 0.0005 }, vm.HistoryCurvatureMx);
+        Assert.Equal(new[] { 1d }, vm.HistoryMomentMxKnM);
+    }
+
+    [Fact]
     public void VM_handles_error_and_empty_results_without_throwing()
     {
         OpenSeesSpatialInteractionResultVM error = new(new CalcResult

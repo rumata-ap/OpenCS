@@ -66,7 +66,7 @@ public static class FemAnalysisExecutor
         }
 
         var calcSettings = app.CalcSettings;
-        var executable = new OpenSeesExecutableResolver(Path.Combine(AppContext.BaseDirectory, "OpenSees.exe"))
+        var executable = new OpenSeesExecutableResolver()
             .Resolve(calcSettings.OpenSeesExecutablePath ?? ResolveFromOpenSeesHome());
         var runRequest = new OpenSeesRunRequest
         {

@@ -96,12 +96,17 @@ public sealed class CrossSectionAdapterTests
         var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
         section.Areas[0].Fibers = [];
 
-        Assert.Throws<CScoreMappingException>(() => CrossSectionToOpenSeesAdapter.Build(
-            section,
-            CalcType.C,
-            CrossSectionFixtures.Materials(concrete, steel),
-            customPool: null,
-            options: new CrossSectionToOpenSeesAdapter.Options()));
+        CScoreMappingException exception = Assert.Throws<CScoreMappingException>(() =>
+            CrossSectionToOpenSeesAdapter.Build(
+                section,
+                CalcType.C,
+                CrossSectionFixtures.Materials(concrete, steel),
+                customPool: null,
+                options: new CrossSectionToOpenSeesAdapter.Options()));
+
+        Assert.Contains("OpenSees", exception.Message);
+        Assert.Contains("фибровой сетки", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("контур", exception.Message, StringComparison.OrdinalIgnoreCase);
 
         section.Areas[0].Fibers = [new Fiber { X = 0, Y = 0, Area = 0.01 }];
         section.Areas[0].Material = null;

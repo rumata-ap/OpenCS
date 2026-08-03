@@ -13,27 +13,27 @@ public sealed class SectionInteractionTests
         SectionInteractionRequest valid = new()
         {
             AxialForcesN = [-100_000, 0, 100_000],
-            MaxCurvature = 0.01,
-            Increments = 20
+            CurvatureStep = 0.0005,
+            MaxSteps = 20
         };
 
         valid.Validate();
 
         Assert.Throws<ArgumentException>(() => new SectionInteractionRequest
         {
-            AxialForcesN = [], MaxCurvature = 0.01, Increments = 20
+            AxialForcesN = [], CurvatureStep = 0.0005, MaxSteps = 20
         }.Validate());
         Assert.Throws<ArgumentException>(() => new SectionInteractionRequest
         {
-            AxialForcesN = [0, double.NaN], MaxCurvature = 0.01, Increments = 20
+            AxialForcesN = [0, double.NaN], CurvatureStep = 0.0005, MaxSteps = 20
         }.Validate());
         Assert.Throws<ArgumentException>(() => new SectionInteractionRequest
         {
-            AxialForcesN = [0, 0], MaxCurvature = 0.01, Increments = 20
+            AxialForcesN = [0, 0], CurvatureStep = 0.0005, MaxSteps = 20
         }.Validate());
         Assert.Throws<ArgumentException>(() => new SectionInteractionRequest
         {
-            AxialForcesN = [0], MaxCurvature = 0, Increments = 20
+            AxialForcesN = [0], CurvatureStep = 0, MaxSteps = 20
         }.Validate());
     }
 
@@ -96,7 +96,7 @@ public sealed class SectionInteractionTests
 
         SectionInteractionResult result = await new SectionInteractionService(executor).RunAsync(
             ValidModel(),
-            new SectionInteractionRequest { AxialForcesN = [100, -200, 300], MaxCurvature = 0.01, Increments = 2 },
+            new SectionInteractionRequest { AxialForcesN = [100, -200, 300], CurvatureStep = 0.0005, MaxSteps = 2 },
             new OpenSeesRunRequest { ExecutablePath = "OpenSees.exe" },
             CancellationToken.None);
 

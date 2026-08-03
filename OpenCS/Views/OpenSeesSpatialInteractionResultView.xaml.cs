@@ -22,6 +22,7 @@ public partial class OpenSeesSpatialInteractionResultView : UserControl
         _vm.PropertyChanged += OnVmPropertyChanged;
         _polarPlot = new WpfPlotService(PolarPlot);
         _historyPlot = new WpfPlotService(HistoryPlot);
+        _historyPlot.SetOriginReferenceAxesVisibility(showXAxis: true, showYAxis: false);
         Loaded += (_, _) => Redraw();
         Unloaded += (_, _) => _vm.PropertyChanged -= OnVmPropertyChanged;
     }
@@ -36,8 +37,6 @@ public partial class OpenSeesSpatialInteractionResultView : UserControl
         _polarPlot.Clear();
         _polarPlot.EnableSquareAxes();
         _polarPlot.SetTitle(Loc.S("OpenSeesSpatialPolarTitle"));
-        _polarPlot.SetXLabel(Loc.S("OpenSeesSpatialMxAxis"));
-        _polarPlot.SetYLabel(Loc.S("OpenSeesSpatialMyAxis"));
 
         var polar = _vm.PolarMxKnM.Zip(_vm.PolarMyKnM, (mx, my) => (mx, my))
             .Where(item => item.mx.HasValue && item.my.HasValue)
@@ -58,8 +57,6 @@ public partial class OpenSeesSpatialInteractionResultView : UserControl
 
         _historyPlot.Clear();
         _historyPlot.SetTitle(Loc.S("OpenSeesSpatialHistoryTitle"));
-        _historyPlot.SetXLabel(Loc.S("OpenSeesSpatialCurvatureAxis"));
-        _historyPlot.SetYLabel(Loc.S("OpenSeesSpatialMomentAxis"));
         double[] kx = _vm.HistoryCurvatureMx.ToArray();
         double[] ky = _vm.HistoryCurvatureMy.ToArray();
         double[] mx = _vm.HistoryMomentMxKnM.ToArray();

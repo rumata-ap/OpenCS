@@ -79,7 +79,9 @@ public static class CrossSectionToOpenSeesAdapter
             if (area.Fibers.Count == 0)
             {
                 throw new CScoreMappingException(
-                    $"Область '{area.Tag}' (id={area.Id}) не содержит подготовленных fibers.");
+                    $"Область '{area.Tag}' (id={area.Id}) не содержит подготовленной фибровой сетки. " +
+                    "Для расчёта сечения через OpenSees необходимо заранее построить и сохранить " +
+                    "сетку фибр; одного геометрического контура и точечных фибр арматуры недостаточно.");
             }
 
             Material material = ResolveMaterial(area, materials);

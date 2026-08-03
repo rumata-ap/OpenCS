@@ -29,8 +29,8 @@ public sealed class SpatialSectionAnalysisServiceTests
                 {
                     AxialForceN = 1_000,
                     AngleDegrees = 90,
-                    MaxCurvature = 0.01,
-                    Increments = 2
+                    CurvatureStep = 0.01,
+                    MaxSteps = 2
                 },
                 CreateProcessRequest(),
                 CancellationToken.None);

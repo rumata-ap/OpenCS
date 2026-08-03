@@ -11,10 +11,10 @@ public sealed class OpenSeesTaskContractTests
     public void ParamsJson_contract_parses_moment_curvature_options()
     {
         OpenSeesSectionParams parameters = OpenSeesSectionParams.Parse(
-            "{\"maxCurvature\":0.02,\"increments\":40,\"axis\":\"My\",\"timeoutSeconds\":90,\"executablePath\":\"C:/OpenSees.exe\"}");
+            "{\"curvatureStep\":0.0005,\"maxSteps\":40,\"axis\":\"My\",\"timeoutSeconds\":90,\"executablePath\":\"C:/OpenSees.exe\"}");
 
-        Assert.Equal(0.02, parameters.MaxCurvature);
-        Assert.Equal(40, parameters.Increments);
+        Assert.Equal(0.0005, parameters.CurvatureStep);
+        Assert.Equal(40, parameters.MaxSteps);
         Assert.Equal("My", parameters.Axis);
         Assert.Equal(90, parameters.TimeoutSeconds);
         Assert.Equal("C:/OpenSees.exe", parameters.ExecutablePath);
@@ -25,12 +25,22 @@ public sealed class OpenSeesTaskContractTests
     {
         OpenSeesSectionParams defaults = OpenSeesSectionParams.Parse("{}");
 
-        Assert.True(defaults.MaxCurvature > 0);
-        Assert.True(defaults.Increments > 0);
+        Assert.True(defaults.CurvatureStep > 0);
+        Assert.True(defaults.MaxSteps > 0);
         Assert.True(defaults.TimeoutSeconds > 0);
 
-        Assert.Throws<ArgumentException>(() => OpenSeesSectionParams.Parse("{\"increments\":0}"));
+        Assert.Throws<ArgumentException>(() => OpenSeesSectionParams.Parse("{\"maxSteps\":0}"));
         Assert.Throws<ArgumentException>(() => OpenSeesSectionParams.Parse("{\"timeoutSeconds\":-1}"));
+    }
+
+    [Fact]
+    public void ParamsJson_contract_migrates_legacy_maximum_curvature_options()
+    {
+        OpenSeesSectionParams parameters = OpenSeesSectionParams.Parse(
+            "{\"maxCurvature\":0.01,\"increments\":20}");
+
+        Assert.Equal(0.0005, parameters.CurvatureStep);
+        Assert.Equal(200, parameters.MaxSteps);
     }
 
     [Fact]
@@ -44,11 +54,11 @@ public sealed class OpenSeesTaskContractTests
     public void ParamsJson_contract_parses_N_M_options_in_kilonewtons()
     {
         OpenSeesSectionInteractionParams parameters = OpenSeesSectionInteractionParams.Parse(
-            "{\"axialForces\":[-1000,0,1000],\"maxCurvature\":0.02,\"increments\":40,\"axis\":\"My\",\"timeoutSeconds\":90,\"executablePath\":\"C:/OpenSees.exe\"}");
+            "{\"axialForces\":[-1000,0,1000],\"curvatureStep\":0.0005,\"maxSteps\":40,\"axis\":\"My\",\"timeoutSeconds\":90,\"executablePath\":\"C:/OpenSees.exe\"}");
 
         Assert.Equal(new[] { -1000d, 0d, 1000d }, parameters.AxialForcesKn);
-        Assert.Equal(0.02, parameters.MaxCurvature);
-        Assert.Equal(40, parameters.Increments);
+        Assert.Equal(0.0005, parameters.CurvatureStep);
+        Assert.Equal(40, parameters.MaxSteps);
         Assert.Equal("My", parameters.Axis);
         Assert.Equal(90, parameters.TimeoutSeconds);
         Assert.Equal("C:/OpenSees.exe", parameters.ExecutablePath);
@@ -60,13 +70,13 @@ public sealed class OpenSeesTaskContractTests
         OpenSeesSectionInteractionParams defaults = OpenSeesSectionInteractionParams.Parse("{}");
 
         Assert.Equal(new[] { 0d }, defaults.AxialForcesKn);
-        Assert.True(defaults.MaxCurvature > 0);
-        Assert.True(defaults.Increments > 0);
+        Assert.True(defaults.CurvatureStep > 0);
+        Assert.True(defaults.MaxSteps > 0);
         Assert.True(defaults.TimeoutSeconds > 0);
 
         Assert.Throws<ArgumentException>(() => OpenSeesSectionInteractionParams.Parse("{\"axialForces\":[]}"));
         Assert.Throws<ArgumentException>(() => OpenSeesSectionInteractionParams.Parse("{\"axialForces\":[0,0]}"));
-        Assert.Throws<ArgumentException>(() => OpenSeesSectionInteractionParams.Parse("{\"increments\":0}"));
+        Assert.Throws<ArgumentException>(() => OpenSeesSectionInteractionParams.Parse("{\"maxSteps\":0}"));
         Assert.Throws<ArgumentException>(() => OpenSeesSectionInteractionParams.Parse("{\"timeoutSeconds\":-1}"));
         Assert.Throws<ArgumentException>(() => OpenSeesSectionInteractionParams.Parse("{\"axis\":\"Mz\"}"));
     }

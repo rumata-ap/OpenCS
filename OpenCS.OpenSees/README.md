@@ -8,7 +8,7 @@ Backend запускает внешний Tcl-интерпретатор OpenSee
 $env:OPENSEES_EXE = 'C:\path\to\OpenSees.exe'
 ```
 
-Явный `executablePath` в `ParamsJson` имеет приоритет над `OPENSEES_EXE`; затем используется bundled путь рядом с приложением.
+Явный `executablePath` в `ParamsJson` имеет приоритет над `OPENSEES_EXE`; если они не заданы, используется штатный путь `C:\Tools\OpenSees\bin\OpenSees.exe`.
 
 ## Поддерживаемый сценарий stage 0–1
 

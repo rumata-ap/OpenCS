@@ -98,9 +98,11 @@ namespace OpenCS.Services
          _canvas.ApplySettings(settings);
       }
 
-      public void ShowLegend(bool show = true) { }
-      public void EnableSquareAxes() { _squareAxes = true; }
-      public void AutoScale() { _autoScale = true; }
+       public void ShowLegend(bool show = true) { }
+       public void EnableSquareAxes() { _squareAxes = true; }
+       public void SetOriginReferenceAxesVisibility(bool showXAxis, bool showYAxis) =>
+          _canvas.SetOriginReferenceAxesVisibility(showXAxis, showYAxis);
+       public void AutoScale() { _autoScale = true; }
       public void SetAxisLimits(double xMin, double xMax, double yMin, double yMax)
       {
          _xMin = xMin; _xMax = xMax;

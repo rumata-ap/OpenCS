@@ -1,8 +1,11 @@
 namespace OpenCS.OpenSees.Runtime;
 
-/// <summary>Разрешает путь к OpenSees с явным и bundled приоритетами.</summary>
+/// <summary>Разрешает путь к OpenSees с явным, environment и штатным приоритетами.</summary>
 public sealed class OpenSeesExecutableResolver
 {
+    /// <summary>Штатный путь OpenSees на компьютерах разработчика.</summary>
+    public const string DefaultExecutablePath = @"C:\Tools\OpenSees\bin\OpenSees.exe";
+
     private readonly string? _bundledPath;
     private readonly string _environmentVariableName;
 
@@ -11,7 +14,7 @@ public sealed class OpenSeesExecutableResolver
         string? bundledPath = null,
         string environmentVariableName = "OPENSEES_EXE")
     {
-        _bundledPath = bundledPath;
+        _bundledPath = bundledPath ?? DefaultExecutablePath;
         _environmentVariableName = environmentVariableName;
     }
 
@@ -29,7 +32,8 @@ public sealed class OpenSeesExecutableResolver
             return new OpenSeesExecutableInfo { Path = bundledResolved, Source = "bundled" };
 
         throw new FileNotFoundException(
-            $"OpenSees executable не найден. Укажите путь явным параметром, {_environmentVariableName} или bundled путь.");
+            $"OpenSees executable не найден. Укажите путь явным параметром, {_environmentVariableName} " +
+            $"или проверьте штатный путь {DefaultExecutablePath}.");
     }
 
     /// <summary>Запускает команду версии и сохраняет raw stdout/stderr без разбора формата.</summary>

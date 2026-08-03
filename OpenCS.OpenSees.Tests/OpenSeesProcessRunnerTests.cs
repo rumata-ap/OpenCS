@@ -1,6 +1,7 @@
 using System.Text.Json;
 using OpenCS.OpenSees.Artifacts;
 using OpenCS.OpenSees.Runtime;
+using OpenCS.OpenSees.Tests.Fixtures;
 
 namespace OpenCS.OpenSees.Tests;
 
@@ -121,6 +122,24 @@ public sealed class OpenSeesProcessRunnerTests
         {
             Environment.SetEnvironmentVariable("OPENSEES_EXE", oldEnvironment);
             File.Delete(bundled);
+        }
+    }
+
+    [Fact]
+    public void Resolver_uses_project_default_path_without_configuration()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string? oldEnvironment = Environment.GetEnvironmentVariable("OPENSEES_EXE");
+        try
+        {
+            Environment.SetEnvironmentVariable("OPENSEES_EXE", null);
+            OpenSeesExecutableInfo info = new OpenSeesExecutableResolver().Resolve(null);
+
+            Assert.Equal(Path.GetFullPath(executable), info.Path);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("OPENSEES_EXE", oldEnvironment);
         }
     }
 

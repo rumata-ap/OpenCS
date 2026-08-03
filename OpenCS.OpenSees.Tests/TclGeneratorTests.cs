@@ -14,8 +14,8 @@ public sealed class TclGeneratorTests
         SectionAnalysisRequest request = new()
         {
             AxialForceN = 1_000,
-            MaxCurvature = 0.01,
-            Increments = 2,
+            CurvatureStep = 0.0005,
+            MaxSteps = 2,
             Axis = SectionBendingAxis.Mx
         };
 
@@ -27,11 +27,30 @@ public sealed class TclGeneratorTests
         Assert.Contains("node 1 0 0", script);
         Assert.Contains("node 2 0 0", script);
         Assert.Contains("element zeroLengthSection 1 1 2 1", script);
-        Assert.Contains($"integrator DisplacementControl 2 3 {TclNumber.Format(0.005)}", script);
+        Assert.Contains($"integrator DisplacementControl 2 3 {TclNumber.Format(0.0005)}", script);
+        Assert.Contains("algorithm NewtonLineSearch", script);
         Assert.Contains("section_history.out", script);
         Assert.Contains("fiber_history.out", script);
         Assert.Contains("completed.marker", script);
         Assert.Contains("wipe", script);
+    }
+
+    [Fact]
+    public void Generator_maps_my_to_cscore_x_coordinate()
+    {
+        string script = new SectionMomentCurvatureTclGenerator().Generate(
+            CreateModel(),
+            new SectionAnalysisRequest
+            {
+                CurvatureStep = 0.0005,
+                MaxSteps = 2,
+                Axis = SectionBendingAxis.My
+            });
+
+        Assert.Contains($"fiber {TclNumber.Format(0.2)} {TclNumber.Format(0.3)} {TclNumber.Format(0.01)} 1", script);
+        Assert.Contains(
+            $"recorder Element -file fiber_history.out -time -ele 1 section 1 fiber {TclNumber.Format(0.2)} {TclNumber.Format(0.3)} stressStrain",
+            script);
     }
 
     [Fact]
@@ -44,10 +63,10 @@ public sealed class TclGeneratorTests
 
             string script = new SectionMomentCurvatureTclGenerator().Generate(
                 CreateModel(),
-                new SectionAnalysisRequest { MaxCurvature = 0.0015, Increments = 3 });
+                new SectionAnalysisRequest { CurvatureStep = 0.0015, MaxSteps = 3 });
 
             Assert.DoesNotContain("0,0015", script);
-            Assert.Contains(TclNumber.Format(0.0005), script);
+            Assert.Contains(TclNumber.Format(0.0015), script);
         }
         finally
         {
@@ -56,11 +75,27 @@ public sealed class TclGeneratorTests
     }
 
     [Fact]
+    public void Generator_uses_requested_curvature_step_and_stops_after_first_failed_step()
+    {
+        string script = new SectionMomentCurvatureTclGenerator().Generate(
+            CreateModel(),
+            new SectionAnalysisRequest
+            {
+                CurvatureStep = 0.001,
+                MaxSteps = 2
+            });
+
+        Assert.Contains($"integrator DisplacementControl 2 3 {TclNumber.Format(0.001)}", script);
+        Assert.Contains("for {set i 1} {$i <= 2} {incr i}", script);
+        Assert.Contains("if {$rc != 0} {break}", script);
+    }
+
+    [Fact]
     public void Generator_contains_only_relative_fixed_artifact_file_names()
     {
         string script = new SectionMomentCurvatureTclGenerator().Generate(
             CreateModel(),
-            new SectionAnalysisRequest { MaxCurvature = 0.001, Increments = 1 });
+            new SectionAnalysisRequest { CurvatureStep = 0.001, MaxSteps = 1 });
 
         Assert.DoesNotContain("..", script);
         Assert.DoesNotContain("C:\\", script, StringComparison.OrdinalIgnoreCase);

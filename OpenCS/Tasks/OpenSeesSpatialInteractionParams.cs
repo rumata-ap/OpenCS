@@ -19,13 +19,13 @@ public sealed class OpenSeesSpatialInteractionParams
     [JsonPropertyName("additionalAxialSlices")]
     public int AdditionalAxialSlices { get; init; } = 2;
 
-    /// <summary>Максимальная длина каждого луча кривизны в 1/м.</summary>
-    [JsonPropertyName("maxCurvature")]
-    public double MaxCurvature { get; init; } = 0.01;
+    /// <summary>Приращение кривизны каждого луча на одном шаге в 1/м.</summary>
+    [JsonPropertyName("curvatureStep")]
+    public double CurvatureStep { get; init; } = 0.0005;
 
-    /// <summary>Количество радиальных шагов каждого луча.</summary>
-    [JsonPropertyName("increments")]
-    public int Increments { get; init; } = 20;
+    /// <summary>Максимальное число шагов каждого луча до принудительной остановки.</summary>
+    [JsonPropertyName("maxSteps")]
+    public int MaxSteps { get; init; } = 200;
 
     /// <summary>Таймаут каждого внешнего запуска в секундах.</summary>
     [JsonPropertyName("timeoutSeconds")]
@@ -59,10 +59,12 @@ public sealed class OpenSeesSpatialInteractionParams
             Math.Abs(angleCount - roundedAngleCount) > 1e-9 * Math.Max(1, Math.Abs(angleCount)))
             throw new ArgumentException("AngleStepDegrees must divide 360 degrees.", nameof(json));
 
-        if (!double.IsFinite(result.MaxCurvature) || result.MaxCurvature <= 0)
-            throw new ArgumentException("MaxCurvature must be positive and finite.", nameof(json));
-        if (result.Increments <= 0)
-            throw new ArgumentException("Increments must be positive.", nameof(json));
+        (double curvatureStep, int maxSteps) = OpenSeesCurvatureParameterMigration.Resolve(
+            json, result.CurvatureStep, result.MaxSteps);
+        if (!double.IsFinite(curvatureStep) || curvatureStep <= 0)
+            throw new ArgumentException("CurvatureStep must be positive and finite.", nameof(json));
+        if (maxSteps <= 0)
+            throw new ArgumentException("MaxSteps must be positive.", nameof(json));
         if (result.TimeoutSeconds <= 0)
             throw new ArgumentException("TimeoutSeconds must be positive.", nameof(json));
 
@@ -70,8 +72,8 @@ public sealed class OpenSeesSpatialInteractionParams
         {
             AngleStepDegrees = result.AngleStepDegrees,
             AdditionalAxialSlices = result.AdditionalAxialSlices,
-            MaxCurvature = result.MaxCurvature,
-            Increments = result.Increments,
+            CurvatureStep = curvatureStep,
+            MaxSteps = maxSteps,
             TimeoutSeconds = result.TimeoutSeconds,
             ExecutablePath = result.ExecutablePath
         };

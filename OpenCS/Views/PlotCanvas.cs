@@ -17,9 +17,13 @@ namespace OpenCS.Views
       private string? _title, _xLabel, _yLabel;
       private PlotSettings _settings = PlotSettings.Default;
 
-      private double _scale   = 200;
+      private double _scaleX = 200;
+      private double _scaleY = 200;
       private double _originX = 0;
       private double _originY = 0;
+      private bool _squareAxes;
+      private bool _showOriginXAxis = true;
+      private bool _showOriginYAxis = true;
 
       private (double x, double y, double px, double py)? _picked;
 
@@ -32,6 +36,14 @@ namespace OpenCS.Views
       public void ApplySettings(PlotSettings s)
       {
          _settings = s;
+         InvalidateVisual();
+      }
+
+      /// <summary>Настраивает видимость дополнительных опорных осей в начале координат.</summary>
+      public void SetOriginReferenceAxesVisibility(bool showXAxis, bool showYAxis)
+      {
+         _showOriginXAxis = showXAxis;
+         _showOriginYAxis = showYAxis;
          InvalidateVisual();
       }
 
@@ -95,10 +107,11 @@ namespace OpenCS.Views
 
          double sx = w / (xMax - xMin);
          double sy = h / (yMax - yMin);
-         _scale = Math.Min(sx, sy);
+         _scaleX = _squareAxes ? Math.Min(sx, sy) : sx;
+         _scaleY = _squareAxes ? Math.Min(sx, sy) : sy;
 
-         double modelW = w / _scale;
-         double modelH = h / _scale;
+         double modelW = w / _scaleX;
+         double modelH = h / _scaleY;
          _originX = xMin - (modelW - (xMax - xMin)) / 2;
          _originY = yMin - (modelH - (yMax - yMin)) / 2;
       }
@@ -144,9 +157,9 @@ namespace OpenCS.Views
          if (!settings.ShowGrid) return;
 
          double xMin = _originX;
-         double xMax = _originX + w / _scale;
+         double xMax = _originX + w / _scaleX;
          double yMin = _originY;
-         double yMax = _originY + h / _scale;
+         double yMax = _originY + h / _scaleY;
 
          var ticksX = NiceTicks(xMin, xMax, settings.TickCount);
          var ticksY = NiceTicks(yMin, yMax, settings.TickCount);
@@ -197,6 +210,7 @@ namespace OpenCS.Views
          _elements = elements;
          _xMin = xMin; _xMax = xMax;
          _yMin = yMin; _yMax = yMax;
+         _squareAxes = squareAxes;
          _hasBounds = true;
          _xLabel = xLabel;
          _yLabel = yLabel;
@@ -208,6 +222,7 @@ namespace OpenCS.Views
       {
          _elements = null;
          _hasBounds = false;
+         _squareAxes = false;
          _title = _xLabel = _yLabel = null;
          _picked = null;
          InvalidateVisual();
@@ -218,9 +233,9 @@ namespace OpenCS.Views
          var settings = _settings;
 
          double xMin = _originX;
-         double xMax = _originX + w / _scale;
+         double xMax = _originX + w / _scaleX;
          double yMin = _originY;
-         double yMax = _originY + h / _scale;
+         double yMax = _originY + h / _scaleY;
 
          var brush = ParseBrush(settings.AxesColor);
          var axisPen = new Pen(brush, 1);
@@ -330,8 +345,8 @@ namespace OpenCS.Views
 
          double px0 = ToScreen(0, 0).X;
          double py0 = ToScreen(0, 0).Y;
-         bool showVertical = px0 >= 0 && px0 <= w;
-         bool showHorizontal = py0 >= 0 && py0 <= h;
+          bool showVertical = _showOriginYAxis && px0 >= 0 && px0 <= w;
+          bool showHorizontal = _showOriginXAxis && py0 >= 0 && py0 <= h;
          if (!showVertical && !showHorizontal) return;
 
          var xBrush = Brushes.ForestGreen;
@@ -387,12 +402,12 @@ namespace OpenCS.Views
       }
 
       private Point ToScreen(double mx, double my)
-         => new(_scale * (mx - _originX),
-                RenderSize.Height - _scale * (my - _originY));
+         => new(_scaleX * (mx - _originX),
+                RenderSize.Height - _scaleY * (my - _originY));
 
       private (double X, double Y) ToModel(Point sp)
-         => (sp.X / _scale + _originX,
-             (RenderSize.Height - sp.Y) / _scale + _originY);
+         => (sp.X / _scaleX + _originX,
+             (RenderSize.Height - sp.Y) / _scaleY + _originY);
 
       protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
       {

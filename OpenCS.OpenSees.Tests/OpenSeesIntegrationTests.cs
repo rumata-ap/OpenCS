@@ -23,7 +23,7 @@ public sealed class OpenSeesIntegrationTests
                 new OpenSeesProcessRunner(),
                 new OpenSeesArtifactStore(root)).RunAsync(
                     model,
-                    new SectionAnalysisRequest { MaxCurvature = 1e-5, Increments = 2 },
+                    new SectionAnalysisRequest { CurvatureStep = 1e-5, MaxSteps = 2 },
                     new OpenSeesRunRequest
                     {
                         ExecutablePath = executable,
@@ -78,7 +78,7 @@ public sealed class OpenSeesIntegrationTests
                             new OpenSeesFiber(0.5, 0, 0.5, 1)
                         ]
                     },
-                    new SectionAnalysisRequest { MaxCurvature = 0.002, Increments = 1 },
+                    new SectionAnalysisRequest { CurvatureStep = 0.002, MaxSteps = 1 },
                     new OpenSeesRunRequest
                     {
                         ExecutablePath = executable,
@@ -114,8 +114,8 @@ public sealed class OpenSeesIntegrationTests
                 new SectionInteractionRequest
                 {
                     AxialForcesN = [-100_000, 0, 100_000],
-                    MaxCurvature = 1e-5,
-                    Increments = 2
+                    CurvatureStep = 1e-5,
+                    MaxSteps = 2
                 },
                 new OpenSeesRunRequest
                 {

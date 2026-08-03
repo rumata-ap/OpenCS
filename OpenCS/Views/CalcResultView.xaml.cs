@@ -16,6 +16,12 @@ namespace OpenCS.Views
     {
         var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
 
+        if (task?.Kind == "opensees_section_moment_curvature")
+        {
+            Content = new OpenSeesSectionMomentCurvatureResultView(result);
+            return;
+        }
+
         if (task?.Kind == "opensees_section_interaction_n_mx_my")
         {
             Content = new OpenSeesSpatialInteractionResultView(result);

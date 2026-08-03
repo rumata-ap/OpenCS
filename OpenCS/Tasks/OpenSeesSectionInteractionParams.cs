@@ -10,11 +10,11 @@ public sealed class OpenSeesSectionInteractionParams
     [JsonPropertyName("axialForces")]
     public IReadOnlyList<double> AxialForcesKn { get; init; } = [0];
 
-    /// <summary>Максимальная кривизна каждой точки в 1/м.</summary>
-    public double MaxCurvature { get; init; } = 0.01;
+    /// <summary>Приращение кривизны каждой точки на одном шаге в 1/м.</summary>
+    public double CurvatureStep { get; init; } = 0.0005;
 
-    /// <summary>Количество шагов кривизны.</summary>
-    public int Increments { get; init; } = 20;
+    /// <summary>Максимальное число шагов каждой точки до принудительной остановки.</summary>
+    public int MaxSteps { get; init; } = 200;
 
     /// <summary>Направление изгиба: Mx или My.</summary>
     public string Axis { get; init; } = "Mx";
@@ -40,10 +40,12 @@ public sealed class OpenSeesSectionInteractionParams
             throw new ArgumentException("AxialForces must contain finite values.", nameof(json));
         if (result.AxialForcesKn.Count != result.AxialForcesKn.Distinct().Count())
             throw new ArgumentException("AxialForces must not contain duplicates.", nameof(json));
-        if (!double.IsFinite(result.MaxCurvature) || result.MaxCurvature <= 0)
-            throw new ArgumentException("MaxCurvature must be positive and finite.", nameof(json));
-        if (result.Increments <= 0)
-            throw new ArgumentException("Increments must be positive.", nameof(json));
+        (double curvatureStep, int maxSteps) = OpenSeesCurvatureParameterMigration.Resolve(
+            json, result.CurvatureStep, result.MaxSteps);
+        if (!double.IsFinite(curvatureStep) || curvatureStep <= 0)
+            throw new ArgumentException("CurvatureStep must be positive and finite.", nameof(json));
+        if (maxSteps <= 0)
+            throw new ArgumentException("MaxSteps must be positive.", nameof(json));
         if (result.TimeoutSeconds <= 0)
             throw new ArgumentException("TimeoutSeconds must be positive.", nameof(json));
 
@@ -55,8 +57,8 @@ public sealed class OpenSeesSectionInteractionParams
         return new OpenSeesSectionInteractionParams
         {
             AxialForcesKn = result.AxialForcesKn.ToArray(),
-            MaxCurvature = result.MaxCurvature,
-            Increments = result.Increments,
+            CurvatureStep = curvatureStep,
+            MaxSteps = maxSteps,
             Axis = axis.Equals("My", StringComparison.OrdinalIgnoreCase) ? "My" : "Mx",
             TimeoutSeconds = result.TimeoutSeconds,
             ExecutablePath = result.ExecutablePath

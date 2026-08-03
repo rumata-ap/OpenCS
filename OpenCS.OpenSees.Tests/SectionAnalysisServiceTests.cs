@@ -25,7 +25,7 @@ public sealed class SectionAnalysisServiceTests
 
             SectionAnalysisResult result = await service.RunAsync(
                 CreateModel(),
-                new SectionAnalysisRequest { MaxCurvature = 0.01, Increments = 1 },
+                new SectionAnalysisRequest { CurvatureStep = 0.01, MaxSteps = 1 },
                 new OpenSeesRunRequest
                 {
                     ExecutablePath = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
@@ -60,7 +60,7 @@ public sealed class SectionAnalysisServiceTests
 
             SectionAnalysisResult result = await service.RunAsync(
                 CreateModel(),
-                new SectionAnalysisRequest { MaxCurvature = 0.01, Increments = 1 },
+                new SectionAnalysisRequest { CurvatureStep = 0.01, MaxSteps = 1 },
                 new OpenSeesRunRequest
                 {
                     ExecutablePath = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",

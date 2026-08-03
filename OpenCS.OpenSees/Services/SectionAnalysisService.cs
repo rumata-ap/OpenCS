@@ -110,6 +110,8 @@ public sealed class SectionAnalysisService : ISectionAnalysisExecutor
         }
 
         bool converged = rows.Count > 0 && rows.All(row => row.Converged);
+        if (converged && rows.Count >= request.MaxSteps)
+            diagnostics.Add($"Достигнут защитный предел шагов кривизны ({request.MaxSteps}); потеря сходимости не обнаружена.");
         string status = runResult.ExitCode == 0 && !runResult.TimedOut && !runResult.Cancelled && converged
             ? "ok"
             : "not_converged";

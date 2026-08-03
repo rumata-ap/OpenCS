@@ -14,8 +14,8 @@ public sealed class SpatialInteractionTests
         {
             AxialForcesN = [-100_000, 0, 100_000],
             AngleStepDegrees = 45,
-            MaxCurvature = 0.01,
-            Increments = 20
+            CurvatureStep = 0.0005,
+            MaxSteps = 20
         };
 
         request.Validate();
@@ -32,8 +32,8 @@ public sealed class SpatialInteractionTests
         {
             AxialForcesN = [0],
             AngleStepDegrees = 7,
-            MaxCurvature = 0.01,
-            Increments = 20
+            CurvatureStep = 0.0005,
+            MaxSteps = 20
         };
 
         Assert.Throws<ArgumentException>(() => request.Validate());
@@ -45,10 +45,10 @@ public sealed class SpatialInteractionTests
         SpatialSectionAnalysisRequest zero = SpatialSectionAnalysisRequest.At(0, 0, 0.01, 20);
         SpatialSectionAnalysisRequest ninety = SpatialSectionAnalysisRequest.At(0, 90, 0.01, 20);
 
-        Assert.Equal(0.01, zero.CurvatureMxAtMax, 12);
-        Assert.Equal(0, zero.CurvatureMyAtMax, 12);
-        Assert.Equal(0, ninety.CurvatureMxAtMax, 12);
-        Assert.Equal(0.01, ninety.CurvatureMyAtMax, 12);
+        Assert.Equal(0.01, zero.CurvatureMxStep, 12);
+        Assert.Equal(0, zero.CurvatureMyStep, 12);
+        Assert.Equal(0, ninety.CurvatureMxStep, 12);
+        Assert.Equal(0.01, ninety.CurvatureMyStep, 12);
     }
 
     [Fact]
@@ -183,8 +183,8 @@ public sealed class SpatialInteractionTests
                 AxialForcesN = [100_000, -200_000],
                 AdditionalAxialSlices = 0,
                 AngleStepDegrees = 90,
-                MaxCurvature = 0.01,
-                Increments = 2
+                CurvatureStep = 0.0005,
+                MaxSteps = 2
             },
             new OpenSeesRunRequest { ExecutablePath = "OpenSees.exe" },
             CancellationToken.None);

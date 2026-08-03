@@ -119,14 +119,50 @@
                   <Grid>
                      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                      <TextBlock Text="{DynamicResource OpenSeesSpatialPolarTitle}" Style="{DynamicResource OpenSeesSpatialPanelHeaderStyle}"/>
-                     <h:PlotCanvas Grid.Row="1" x:Name="PolarPlot"/>
+                      <Grid Grid.Row="1">
+                         <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                         </Grid.RowDefinitions>
+                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                         </Grid.ColumnDefinitions>
+                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialMyAxis}"
+                                    VerticalAlignment="Center" Margin="0,0,8,0">
+                            <TextBlock.LayoutTransform>
+                               <RotateTransform Angle="-90"/>
+                            </TextBlock.LayoutTransform>
+                         </TextBlock>
+                         <h:PlotCanvas Grid.Row="0" Grid.Column="1" x:Name="PolarPlot"/>
+                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{DynamicResource OpenSeesSpatialMxAxis}"
+                                    HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                      </Grid>
                   </Grid>
                </Border>
                <Border Grid.Column="1" Style="{DynamicResource OpenSeesSpatialPanelStyle}" Margin="6,0,0,0">
                   <Grid>
                      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                      <TextBlock Text="{DynamicResource OpenSeesSpatialHistoryTitle}" Style="{DynamicResource OpenSeesSpatialPanelHeaderStyle}"/>
-                     <h:PlotCanvas Grid.Row="1" x:Name="HistoryPlot"/>
+                      <Grid Grid.Row="1">
+                         <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                         </Grid.RowDefinitions>
+                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                         </Grid.ColumnDefinitions>
+                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialMomentAxis}"
+                                    VerticalAlignment="Center" Margin="0,0,8,0">
+                            <TextBlock.LayoutTransform>
+                               <RotateTransform Angle="-90"/>
+                            </TextBlock.LayoutTransform>
+                         </TextBlock>
+                         <h:PlotCanvas Grid.Row="0" Grid.Column="1" x:Name="HistoryPlot"/>
+                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{DynamicResource OpenSeesSpatialCurvatureAxis}"
+                                    HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                      </Grid>
                   </Grid>
                </Border>
             </Grid>

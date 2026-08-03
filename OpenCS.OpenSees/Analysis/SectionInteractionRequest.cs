@@ -8,11 +8,11 @@ public sealed class SectionInteractionRequest
     /// <summary>Упорядоченный список продольных сил в Н.</summary>
     public IReadOnlyList<double> AxialForcesN { get; init; } = [];
 
-    /// <summary>Максимальная кривизна каждой внутренней moment-curvature задачи в 1/м.</summary>
-    public double MaxCurvature { get; init; } = 0.01;
+    /// <summary>Приращение кривизны каждой внутренней задачи на одном шаге в 1/м.</summary>
+    public double CurvatureStep { get; init; } = 0.0005;
 
-    /// <summary>Количество шагов кривизны каждой внутренней задачи.</summary>
-    public int Increments { get; init; } = 20;
+    /// <summary>Максимальное число шагов каждой внутренней задачи.</summary>
+    public int MaxSteps { get; init; } = 200;
 
     /// <summary>Выбранная изгибающая компонента CScore.</summary>
     public SectionBendingAxis Axis { get; init; } = SectionBendingAxis.Mx;
@@ -28,9 +28,9 @@ public sealed class SectionInteractionRequest
             throw new ArgumentException("AxialForcesN must contain finite values.", nameof(AxialForcesN));
         if (AxialForcesN.Count != AxialForcesN.Distinct().Count())
             throw new ArgumentException("AxialForcesN must not contain duplicates.", nameof(AxialForcesN));
-        if (!double.IsFinite(MaxCurvature) || MaxCurvature <= 0)
-            throw new ArgumentException("MaxCurvature must be positive and finite.", nameof(MaxCurvature));
-        if (Increments <= 0)
-            throw new ArgumentException("Increments must be positive.", nameof(Increments));
+        if (!double.IsFinite(CurvatureStep) || CurvatureStep <= 0)
+            throw new ArgumentException("CurvatureStep must be positive and finite.", nameof(CurvatureStep));
+        if (MaxSteps <= 0)
+            throw new ArgumentException("MaxSteps must be positive.", nameof(MaxSteps));
     }
 }

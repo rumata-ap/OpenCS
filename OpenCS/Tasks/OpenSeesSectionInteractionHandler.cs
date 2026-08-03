@@ -48,8 +48,7 @@ public sealed class OpenSeesSectionInteractionHandler : ITaskHandler
                 ctx?.Database?.Diagrams,
                 new CrossSectionToOpenSeesAdapter.Options());
 
-            OpenSeesExecutableInfo executable = new OpenSeesExecutableResolver(
-                Path.Combine(AppContext.BaseDirectory, "OpenSees.exe"))
+            OpenSeesExecutableInfo executable = new OpenSeesExecutableResolver()
                 .Resolve(parameters.ExecutablePath);
 
             SectionInteractionRequest request = new()
@@ -57,8 +56,8 @@ public sealed class OpenSeesSectionInteractionHandler : ITaskHandler
                 AxialForcesN = parameters.AxialForcesKn
                     .Select(CScoreUnitConverter.KiloNewtonsToNewtons)
                     .ToArray(),
-                MaxCurvature = parameters.MaxCurvature,
-                Increments = parameters.Increments,
+                CurvatureStep = parameters.CurvatureStep,
+                MaxSteps = parameters.MaxSteps,
                 Axis = axis,
                 Convention = model.Convention
             };

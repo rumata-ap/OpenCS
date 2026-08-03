@@ -61,8 +61,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string manualMy = "0";
     string openSeesSpatialAngleStep = "45";
     string openSeesSpatialAdditionalSlices = "2";
-    string openSeesSpatialMaxCurvature = "0.01";
-    string openSeesSpatialIncrements = "20";
+     string openSeesCurvatureStep = "0.0005";
+     string openSeesMaxSteps = "200";
     string openSeesSpatialTimeoutSeconds = "300";
     string openSeesSpatialExecutablePath = "";
     // Eta (п. 8.1.15 СП63.13330)
@@ -605,16 +605,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       set { openSeesSpatialAdditionalSlices = value; OnPropertyChanged(); OnPropertyChanged(nameof(OpenSeesSpatialPointCount)); }
    }
 
-   public string OpenSeesMaxCurvature
+    public string OpenSeesCurvatureStep
    {
-      get => openSeesSpatialMaxCurvature;
-      set { openSeesSpatialMaxCurvature = value; OnPropertyChanged(); }
+      get => openSeesCurvatureStep;
+      set { openSeesCurvatureStep = value; OnPropertyChanged(); }
    }
 
-   public string OpenSeesIncrements
+    public string OpenSeesMaxSteps
    {
-      get => openSeesSpatialIncrements;
-      set { openSeesSpatialIncrements = value; OnPropertyChanged(); }
+      get => openSeesMaxSteps;
+      set { openSeesMaxSteps = value; OnPropertyChanged(); }
    }
 
    public string OpenSeesTimeoutSeconds
@@ -1014,8 +1014,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             var inv = System.Globalization.CultureInfo.InvariantCulture;
             OpenSeesAngleStepDegrees = spatial.AngleStepDegrees.ToString("G6", inv);
             OpenSeesAdditionalAxialSlices = spatial.AdditionalAxialSlices.ToString(inv);
-            OpenSeesMaxCurvature = spatial.MaxCurvature.ToString("G6", inv);
-            OpenSeesIncrements = spatial.Increments.ToString(inv);
+             OpenSeesCurvatureStep = spatial.CurvatureStep.ToString("G6", inv);
+             OpenSeesMaxSteps = spatial.MaxSteps.ToString(inv);
             OpenSeesTimeoutSeconds = spatial.TimeoutSeconds.ToString(inv);
             OpenSeesExecutablePath = spatial.ExecutablePath ?? "";
             SelectedForceSet = ForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
@@ -1344,9 +1344,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          if (!double.TryParse(ParseNumberText(OpenSeesAngleStepDegrees),
                  System.Globalization.NumberStyles.Float, inv, out double angleStep) ||
              !int.TryParse((OpenSeesAdditionalAxialSlices ?? "").Trim(), out int additionalAxialSlices) ||
-             !double.TryParse(ParseNumberText(OpenSeesMaxCurvature),
-                 System.Globalization.NumberStyles.Float, inv, out double maxCurvature) ||
-             !int.TryParse((OpenSeesIncrements ?? "").Trim(), out int increments) ||
+              !double.TryParse(ParseNumberText(OpenSeesCurvatureStep),
+                  System.Globalization.NumberStyles.Float, inv, out double curvatureStep) ||
+              !int.TryParse((OpenSeesMaxSteps ?? "").Trim(), out int maxSteps) ||
              !int.TryParse((OpenSeesTimeoutSeconds ?? "").Trim(), out int timeoutSeconds))
          {
             MessageBox.Show(Loc.S("OpenSeesSpatialInvalidParams"), Loc.S("Warning"),
@@ -1361,8 +1361,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             {
                AngleStepDegrees = angleStep,
                AdditionalAxialSlices = additionalAxialSlices,
-               MaxCurvature = maxCurvature,
-               Increments = increments,
+                CurvatureStep = curvatureStep,
+                MaxSteps = maxSteps,
                TimeoutSeconds = timeoutSeconds,
                ExecutablePath = string.IsNullOrWhiteSpace(OpenSeesExecutablePath)
                   ? null

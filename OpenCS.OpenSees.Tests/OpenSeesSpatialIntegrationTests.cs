@@ -26,8 +26,8 @@ public sealed class OpenSeesSpatialIntegrationTests
                 {
                     AxialForcesN = [0],
                     AngleStepDegrees = 90,
-                    MaxCurvature = 1e-5,
-                    Increments = 2
+                    CurvatureStep = 1e-5,
+                    MaxSteps = 2
                 },
                 new OpenSeesRunRequest
                 {

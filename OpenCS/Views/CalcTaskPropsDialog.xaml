@@ -192,15 +192,17 @@
                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding OpenSeesAdditionalAxialSlices, UpdateSourceTrigger=PropertyChanged}"
                         Margin="0,0,0,4" ToolTip="{DynamicResource OpenSeesSpatialAdditionalSlicesHint}"/>
 
-               <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialMaxCurvature}"
-                          VerticalAlignment="Center" Margin="0,0,4,4"/>
-               <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding OpenSeesMaxCurvature, UpdateSourceTrigger=PropertyChanged}"
-                        Margin="0,0,0,4"/>
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialCurvatureStep}"
+                           VerticalAlignment="Center" Margin="0,0,4,4"
+                           ToolTip="{DynamicResource OpenSeesSpatialCurvatureStepHint}"/>
+                <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding OpenSeesCurvatureStep, UpdateSourceTrigger=PropertyChanged}"
+                         Margin="0,0,0,4" ToolTip="{DynamicResource OpenSeesSpatialCurvatureStepHint}"/>
 
-               <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialIncrements}"
-                          VerticalAlignment="Center" Margin="0,0,4,4"/>
-               <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding OpenSeesIncrements, UpdateSourceTrigger=PropertyChanged}"
-                        Margin="0,0,0,4"/>
+                <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialMaxSteps}"
+                           VerticalAlignment="Center" Margin="0,0,4,4"
+                           ToolTip="{DynamicResource OpenSeesSpatialMaxStepsHint}"/>
+                <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding OpenSeesMaxSteps, UpdateSourceTrigger=PropertyChanged}"
+                         Margin="0,0,0,4" ToolTip="{DynamicResource OpenSeesSpatialMaxStepsHint}"/>
 
                <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource OpenSeesSpatialTimeout}"
                           VerticalAlignment="Center" Margin="0,0,4,4"/>
