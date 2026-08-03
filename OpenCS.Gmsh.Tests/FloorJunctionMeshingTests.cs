@@ -111,6 +111,63 @@ public sealed class FloorJunctionMeshingTests
         Assert.Contains(diagnostics, item => item.Code == "planar_connection_fingerprint_stale");
     }
 
+    [Fact]
+    public async Task BuildAsync_RealGmshBuildsTwoConformingSnapshotsForPerpendicularPlateAndWall()
+    {
+        // Одинаковые PlanarMeshSettings обеих сторон + явные Frame3D — единственный способ
+        // получить согласованное разбиение независимых embedded curves (см. Risks #5).
+        var plate = RegionA(10);
+        var wall = RegionB(20);
+        var connection = Connection(PlanarConnectionMeshMode.ConformingPartition);
+        var root = Path.Combine(Path.GetTempPath(), "opencs-gmsh-floor-junction", Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            var mesher = new GmshPlanarMesher(new GmshPlanarMesherOptions
+            {
+                ExecutablePath = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe",
+                ArtifactRoot = root
+            });
+            var result = await new PlanarConnectionMeshingWorkflow(mesher).BuildAsync(
+                connection,
+                plate,
+                new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+                wall,
+                new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+                sourceFingerprintA: "fem-plate",
+                sourceFingerprintB: "fem-wall");
+
+            Assert.True(result.IsCalculable,
+                "ConformingPartition на реальном Gmsh: " +
+                string.Join(Environment.NewLine, result.Diagnostics));
+            Assert.Equal("msh41", result.SideA!.MeshFormatVersion);
+            Assert.Equal("msh41", result.SideB!.MeshFormatVersion);
+            Assert.Contains(result.SideA.ConstraintMappings,
+                mapping => mapping.ConstraintObjectId == "connection:7:region:10");
+            Assert.Contains(result.SideB.ConstraintMappings,
+                mapping => mapping.ConstraintObjectId == "connection:7:region:20");
+
+            var mapping = Assert.IsType<PlanarConnectionMeshMapping>(result.Mapping);
+            Assert.NotEmpty(mapping.ExactNodePairs);
+            // Позиции пар совпадают в глобальном пространстве; ориентация цепочек нормализована.
+            Assert.All(mapping.ExactNodePairs, pair =>
+            {
+                var a = result.SideA!.Nodes.First(n => n.Index == pair.SideANodeIndex);
+                var b = result.SideB!.Nodes.First(n => n.Index == pair.SideBNodeIndex);
+                double distance = Math.Sqrt(
+                    Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2) + Math.Pow(a.Z - b.Z, 2));
+                Assert.True(distance <= connection.MatchingToleranceM,
+                    $"Пара {pair.SideANodeIndex}->{pair.SideBNodeIndex} не совпадает: {distance:G6} м");
+            });
+            Assert.NotEmpty(result.SideA.EntityProvenance);
+            Assert.NotEmpty(result.SideB.EntityProvenance);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     static PlanarMeshSnapshot CopySnapshotWithFingerprint(
         PlanarMeshSnapshot source, string inputFingerprint) => new()
     {
