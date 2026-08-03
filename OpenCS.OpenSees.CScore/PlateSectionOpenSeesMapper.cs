@@ -66,6 +66,61 @@ public static class PlateSectionOpenSeesMapper
         return new PlateSectionShellMappingResultBatch(sections, materials, diagnostics);
     }
 
+    /// <summary>Пересчитывает fingerprint слоистой shell-секции по финальным material tags.
+    /// Материалы секции определяются транзитивным замыканием зависимостей тегов слоёв
+    /// (NativeShellMaterialDefinition.Spec.DependsOnMaterialTag), поэтому метод можно вызывать
+    /// с любым (возможно большим) списком материалов — посторонние материалы не влияют на
+    /// результат. Используется после детерминированной перенумеровки тегов
+    /// (FloorJunctionShellModelAssembler) и повторяет алгоритм BuildSection 1-в-1, не допуская
+    /// расхождения семантики fingerprint секции.</summary>
+    public static string RecalcFingerprint(
+        RCShellLayeredSection section,
+        IReadOnlyList<NativeShellMaterialDefinition> materials)
+    {
+        ArgumentNullException.ThrowIfNull(section);
+        ArgumentNullException.ThrowIfNull(materials);
+        section.Validate();
+
+        var needed = new HashSet<int>(section.Layers.Select(layer => layer.MaterialTag));
+        bool changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (NativeShellMaterialDefinition material in materials)
+            {
+                if (!needed.Contains(material.Tag) || material.Spec.DependsOnMaterialTag is not int dependency)
+                    continue;
+                if (needed.Add(dependency)) changed = true;
+            }
+        }
+
+        NativeShellMaterialDefinition[] orderedMaterials = materials
+            .Where(material => needed.Contains(material.Tag))
+            .OrderBy(material => material.Tag)
+            .ToArray();
+        RCShellLayer[] orderedLayers = section.Layers
+            .OrderBy(layer => layer.CenterZ)
+            .ThenBy(layer => LayerOrder(layer.Kind))
+            .ThenBy(layer => layer.SourceId, StringComparer.Ordinal)
+            .Select((layer, index) => layer with { Index = index })
+            .ToArray();
+
+        return Fingerprint(
+            section.SourcePlateSectionFingerprint,
+            FrameFingerprint(section.Frame),
+            section.MappingMode.ToString(),
+            string.Join(";", orderedLayers.Select(layer => string.Join(",",
+                layer.Index,
+                layer.Kind,
+                layer.CenterZ.ToString("G17", CultureInfo.InvariantCulture),
+                layer.Thickness.ToString("G17", CultureInfo.InvariantCulture),
+                layer.MaterialTag,
+                layer.DirectionDegrees.ToString("G17", CultureInfo.InvariantCulture),
+                layer.SourceId))),
+            string.Join(";", orderedMaterials.Select(material =>
+                $"{material.Tag}:{material.Fingerprint}")));
+    }
+
     private static RCShellLayeredSection BuildSection(
         PlateSection section,
         ShellFrame frame,
