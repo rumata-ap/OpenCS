@@ -186,6 +186,66 @@ namespace CScore.Tests.Planar
             Assert.Contains(diagnostics, d => d.Code == "floor_junction_boundary_template_missing");
         }
 
+        [Fact]
+        public void Validate_RejectsMissingConnection()
+        {
+            var fragment = BuildValidFragment();
+            fragment.Connection = null!; // намеренно: валидатор должен вернуть connection_missing
+
+            var diagnostics = fragment.Validate();
+
+            Assert.Contains(diagnostics, d => d.Code == "floor_junction_connection_missing");
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-5)]
+        public void Validate_RejectsNonPositivePlateRegionId(int id)
+        {
+            var fragment = BuildValidFragment();
+            fragment.PlateRegion.Id = id;
+
+            var diagnostics = fragment.Validate();
+
+            Assert.Contains(diagnostics, d => d.Code == "floor_junction_region_mismatch");
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-5)]
+        public void Validate_RejectsNonPositiveWallRegionId(int id)
+        {
+            var fragment = BuildValidFragment();
+            fragment.WallRegion.Id = id;
+
+            var diagnostics = fragment.Validate();
+
+            Assert.Contains(diagnostics, d => d.Code == "floor_junction_region_mismatch");
+        }
+
+        [Fact]
+        public void Validate_OrphanTemplateDiagnosticsAreOrdinalOrdered()
+        {
+            var fragment = BuildValidFragment();
+            // Вставляем orphan-ключи в порядке, отличном от Ordinal-сортировки.
+            foreach (var key in new[] { "z", "a", "m" })
+                fragment.BoundaryTemplates[key] = new PlanarBoundaryActionSet
+                    { SourceMode = PlanarBoundaryActionSourceMode.Template };
+
+            var diagnostics = fragment.Validate();
+
+            var orphanMessages = diagnostics
+                .Where(d => d.Code == "floor_junction_boundary_template_missing")
+                .Select(d => d.Message)
+                .ToArray();
+            Assert.Equal(new[]
+            {
+                "Template 'a' не соответствует ни одному boundary.",
+                "Template 'm' не соответствует ни одному boundary.",
+                "Template 'z' не соответствует ни одному boundary.",
+            }, orphanMessages);
+        }
+
         static FloorJunctionFragment BuildValidFragment()
         {
             var plate = PlanarRegion.CreateFromContour(

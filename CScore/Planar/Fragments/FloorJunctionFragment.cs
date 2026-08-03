@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using CScore;
 using CScore.Fem;
 using CScore.Planar;
@@ -97,7 +98,7 @@ namespace CScore.Planar.Fragments
                     diagnostics.Add(new("floor_junction_boundary_template_missing",
                         $"Для boundary '{boundary.Id}' не задан template в BoundaryTemplates."));
             }
-            foreach (var key in templateKeys)
+            foreach (var key in templateKeys.OrderBy(k => k, System.StringComparer.Ordinal))
                 if (boundaryIds.Contains(key) == false)
                     diagnostics.Add(new("floor_junction_boundary_template_missing",
                         $"Template '{key}' не соответствует ни одному boundary."));
