@@ -1,4 +1,5 @@
 using CScore;
+using CScore.Fem;
 using CScore.Planar;
 using CScore.Planar.Fragments;
 using OpenCS.OpenSees.CScore;
@@ -196,6 +197,41 @@ public sealed class MultiStoryColumnShellModelAssemblerTests
 
         Assert.False(result.IsCalculable);
         Assert.Contains(result.Diagnostics, d => d.Code == "multistory_column_anchor_node_missing");
+    }
+
+    [Fact]
+    public void Assemble_RejectsColumnSectionTagCollisionWithShellSection()
+    {
+        // Искусственно совпадающие теги невозможно получить через нормальный allocator (он
+        // всегда продолжает нумерацию) — тест защитного пути через прямой вызов
+        // CheckTagCollisions, как и у FloorJunctionShellModelAssemblerTests.
+        var diagnostics = CheckTagCollisions(
+            nodes: [new NormalizedShellNode(1, 0, 0, 0, [false, false, false, false, false, false], null)],
+            elements: [],
+            materials: [],
+            sections: [],
+            beamSections: new Dictionary<int, OpenSeesSectionModel>
+            {
+                [1] = new OpenSeesSectionModel { Materials = [], Fibers = [] }
+            },
+            shellSectionTags: [1]);
+
+        Assert.Contains(diagnostics, d => d.Code == "multistory_column_tag_collision");
+    }
+
+    static IReadOnlyList<FemValidationDiagnostic> CheckTagCollisions(
+        IReadOnlyList<NormalizedShellNode> nodes,
+        IReadOnlyList<NormalizedShellElement> elements,
+        IReadOnlyList<NativeShellMaterialDefinition> materials,
+        IReadOnlyList<RCShellLayeredSection> sections,
+        IReadOnlyDictionary<int, OpenSeesSectionModel> beamSections,
+        IReadOnlyList<int> shellSectionTags)
+    {
+        var method = typeof(MultiStoryColumnShellModelAssembler).GetMethod(
+            "CheckTagCollisions", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException("CheckTagCollisions не найден.");
+        return (IReadOnlyList<FemValidationDiagnostic>)method.Invoke(
+            null, [nodes, elements, materials, sections, beamSections, shellSectionTags])!;
     }
 
     // --- fixtures (переиспользуются в Tasks 6-9) ---

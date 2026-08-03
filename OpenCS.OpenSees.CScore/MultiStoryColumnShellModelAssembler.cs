@@ -300,6 +300,15 @@ public static class MultiStoryColumnShellModelAssembler
                     allNodes[i] = allNodes[i] with { Fixed = [true, true, true, true, true, true] };
         }
 
+        // Шаг 7: tag collision checks (defense-in-depth поверх allocator-а, аналогично
+        // FloorJunctionShellModelAssembler.CheckTagCollisions). shellSectionTags — пусто:
+        // finalSections уже даёт полный список тегов через собственный цикл ниже, повторный
+        // сид тем же списком даёт ложные "дублирующиеся" срабатывания на каждой секции.
+        diagnostics.AddRange(CheckTagCollisions(
+            allNodes, allElements, finalMaterials, finalSections, nonlinearBeamSections,
+            shellSectionTags: []));
+        if (diagnostics.Any(d => d.IsError)) return Empty(diagnostics);
+
         var model = new ShellOpenSeesModel
         {
             Nodes = allNodes,
@@ -321,4 +330,48 @@ public static class MultiStoryColumnShellModelAssembler
         new(new ShellOpenSeesModel(), new Dictionary<string, IReadOnlyDictionary<int, int>>(),
             new Dictionary<string, IReadOnlyDictionary<int, int>>(), new Dictionary<string, int>(),
             new Dictionary<int, string>(), new Dictionary<int, string>(), diagnostics);
+
+    static IReadOnlyList<FemValidationDiagnostic> CheckTagCollisions(
+        IReadOnlyList<NormalizedShellNode> nodes,
+        IReadOnlyList<NormalizedShellElement> elements,
+        IReadOnlyList<NativeShellMaterialDefinition> materials,
+        IReadOnlyList<RCShellLayeredSection> sections,
+        IReadOnlyDictionary<int, OpenSeesSectionModel> beamSections,
+        IReadOnlyList<int> shellSectionTags)
+    {
+        var diagnostics = new List<FemValidationDiagnostic>();
+
+        var nodeTags = new HashSet<int>();
+        foreach (var node in nodes)
+            if (!nodeTags.Add(node.Tag))
+                diagnostics.Add(new("multistory_column_tag_collision", $"Дублирующийся tag узла {node.Tag}."));
+
+        var elementTags = new HashSet<int>();
+        foreach (var element in elements)
+            if (!elementTags.Add(element.Tag))
+                diagnostics.Add(new("multistory_column_tag_collision", $"Дублирующийся tag элемента {element.Tag}."));
+
+        var materialTags = new HashSet<int>();
+        foreach (var material in materials)
+            if (!materialTags.Add(material.Tag))
+                diagnostics.Add(new("multistory_column_tag_collision", $"Дублирующийся tag материала {material.Tag}."));
+
+        var sectionTags = new HashSet<int>(shellSectionTags);
+        foreach (var section in sections)
+            if (!sectionTags.Add(section.Tag))
+                diagnostics.Add(new("multistory_column_tag_collision", $"Дублирующийся tag секции {section.Tag}."));
+
+        foreach (var (beamSectionTag, beamSection) in beamSections)
+        {
+            if (!sectionTags.Add(beamSectionTag))
+                diagnostics.Add(new("multistory_column_tag_collision",
+                    $"Секция нелинейного стержня {beamSectionTag} конфликтует с shell-секцией того же тега."));
+            foreach (var beamMaterial in beamSection.Materials)
+                if (!materialTags.Add(beamMaterial.Tag))
+                    diagnostics.Add(new("multistory_column_tag_collision",
+                        $"Материал нелинейного стержня {beamMaterial.Tag} конфликтует с shell-материалом того же тега."));
+        }
+
+        return diagnostics;
+    }
 }
