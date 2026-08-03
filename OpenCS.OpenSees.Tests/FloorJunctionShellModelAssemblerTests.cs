@@ -356,6 +356,24 @@ public sealed class FloorJunctionShellModelAssemblerTests
         Assert.DoesNotContain(diagnostics, d => d.Code == "floor_junction_material_dependency_missing");
     }
 
+    [Fact]
+    public void Assemble_ResultModelValidatesAfterStagesAreAdded()
+    {
+        var (plateSnapshot, wallSnapshot) = Snapshots();
+        var result = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(), PlateSection(),
+            wallSnapshot, WallRegion(), PlateSection(),
+            new ConcreteOnlyResolver(), ConformingMapping());
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+        // Модель без Stages не самодостаточна для Validate() — стадии добавляет runner.
+        var validated = result.Model with
+        {
+            Stages = [new ShellNonlinearStage { Tag = "stage-1" }]
+        };
+        validated.Validate(); // не должно бросать
+    }
+
     // --- fixtures ---
 
     /// <summary>Вызывает private CheckTagCollisions через reflection: покрывает защитный путь
