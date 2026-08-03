@@ -1,16 +1,18 @@
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace CScore.Planar.Fragments
 {
     /// <summary>
     /// Аудит результата floor junction: verdict не может быть Valid при наличии любых blocking
-    /// diagnostics (сетка, сборка, boundary pipeline, расчёт) или если расчёт не достиг полной
-    /// нагрузки.
+    /// diagnostics (сетка, сборка, boundary pipeline, расчёт), невязки mapping внешней границы
+    /// или если расчёт не достиг полной нагрузки.
     /// </summary>
     public class FloorJunctionAuditReport
     {
-        /// <summary>Вердикт по итогам аудита (Valid/Warning/Invalid).</summary>
-        public FragmentAuditVerdict Verdict { get; set; } = FragmentAuditVerdict.Valid;
+        /// <summary>Вердикт по итогам аудита (Valid/Warning/Invalid). По умолчанию Invalid:
+        /// Valid выставляется только методом <c>Audit</c> для чистого и сошедшегося результата.</summary>
+        public FragmentAuditVerdict Verdict { get; set; } = FragmentAuditVerdict.Invalid;
         /// <summary>Блокирующие замечания (любое из них делает verdict Invalid).</summary>
         public List<string> Issues { get; set; } = new List<string>();
         /// <summary>Предупреждения, не влияющие на допустимость результата.</summary>
@@ -37,11 +39,20 @@ namespace CScore.Planar.Fragments
                 report.Issues.Add($"Расчёт: {diagnostic}");
             if (!result.IsConverged)
                 report.Issues.Add("Нелинейный расчёт не достиг полной нагрузки.");
+            if (!double.IsFinite(result.BoundaryForceUnbalanceRatio) ||
+                result.BoundaryForceUnbalanceRatio > 1e-3)
+                report.Issues.Add(
+                    $"Невязка mapping внешней границы {FormatUnbalance(result.BoundaryForceUnbalanceRatio)} " +
+                    $"превышает допуск 0.1%.");
 
             report.Verdict = report.Issues.Count > 0
                 ? FragmentAuditVerdict.Invalid
                 : FragmentAuditVerdict.Valid;
             return report;
         }
+
+        static string FormatUnbalance(double ratio) => double.IsFinite(ratio)
+            ? $"{ratio * 100:F2}%"
+            : ratio.ToString(CultureInfo.InvariantCulture);
     }
 }

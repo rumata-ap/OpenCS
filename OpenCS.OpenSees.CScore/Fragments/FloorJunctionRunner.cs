@@ -105,8 +105,9 @@ namespace OpenCS.OpenSees.CScore.Fragments
                 result.AuditReport = new FloorJunctionAuditReport().Audit(fragment, result);
                 return result;
             }
-            // Provenance snapshot-а (Gmsh/Generator версии) доступен через plateSnapshot.Provenance;
-            // каталога артефактов в контракте snapshot нет (API difference от раннего плана).
+            // Provenance snapshot-а (Gmsh/Generator версии) и каталог Gmsh-артефактов доступен
+            // через plateSnapshot.Provenance.ArtifactDirectory.
+            result.GmshArtifactDirectory = plateSnapshot.Provenance?.ArtifactDirectory;
 
             // 3. Assembly двух shell-моделей в одну.
             var resolver = new PlateSectionShellMaterialResolver(

@@ -111,8 +111,8 @@ namespace CScore.Planar.Fragments
 
         /// <summary>Хэш-отпечаток актуальности параметров агрегата: IDs, геометрические fingerprints
         /// обоих регионов, connection fingerprint, секции с арматурными слоями, boundary contracts,
-        /// mesh settings обеих сторон и stage configuration. Используется только в памяти и в
-        /// результате расчёта (schema migration вне среза).</summary>
+        /// mesh settings обеих сторон и stage configuration. Хранится только в памяти: FloorJunctionResult
+        /// не содержит отпечаток, в БД в рамках этого среза он не персистится.</summary>
         public string GetFingerprint(PlanarMeshSettings plateMeshSettings, PlanarMeshSettings wallMeshSettings)
         {
             var values = new List<string>
@@ -198,6 +198,11 @@ namespace CScore.Planar.Fragments
         static string CutFingerprint(PlanarCutInterface? cut)
         {
             if (cut is null) return "null";
+            Frame3D frame = cut.Frame;
+            var boundaryKey = cut.BoundaryKey is null
+                ? "null"
+                : $"{cut.BoundaryKey.Loop}:{cut.BoundaryKey.HoleIndex}:" +
+                  $"{cut.BoundaryKey.StartVertex}:{cut.BoundaryKey.EndVertex}";
             return string.Join(";", new[]
             {
                 cut.Id,
@@ -208,7 +213,15 @@ namespace CScore.Planar.Fragments
                 Fmt(cut.NormalFromFragmentToOmittedSide.Y),
                 Fmt(cut.NormalFromFragmentToOmittedSide.Z),
                 cut.ModeByDof.ToString(),
-                cut.MeshConstraintId ?? string.Empty
+                cut.MeshConstraintId ?? string.Empty,
+                // Frame в G17 invariant: Origin + все три оси базиса.
+                Fmt(frame.Origin.X), Fmt(frame.Origin.Y), Fmt(frame.Origin.Z),
+                Fmt(frame.LocalX.X), Fmt(frame.LocalX.Y), Fmt(frame.LocalX.Z),
+                Fmt(frame.LocalY.X), Fmt(frame.LocalY.Y), Fmt(frame.LocalY.Z),
+                Fmt(frame.LocalZ.X), Fmt(frame.LocalZ.Y), Fmt(frame.LocalZ.Z),
+                Fmt(cut.ToleranceM),
+                boundaryKey,
+                cut.OmittedSideReference ?? string.Empty
             });
         }
 

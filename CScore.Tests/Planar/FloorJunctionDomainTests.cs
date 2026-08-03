@@ -295,6 +295,42 @@ namespace CScore.Tests.Planar
         }
 
         [Fact]
+        public void AuditReport_DefaultVerdictIsInvalid()
+        {
+            var report = new FloorJunctionAuditReport();
+
+            Assert.Equal(FragmentAuditVerdict.Invalid, report.Verdict);
+            Assert.Empty(report.Issues);
+            Assert.Empty(report.Warnings);
+        }
+
+        [Fact]
+        public void Audit_WithBoundaryForceUnbalanceRatioAboveTolerance_ReturnsInvalid()
+        {
+            var fragment = BuildValidFragment();
+            var result = new FloorJunctionResult { FragmentId = 1, IsConverged = true };
+            result.BoundaryForceUnbalanceRatio = 0.01;
+
+            var report = new FloorJunctionAuditReport().Audit(fragment, result);
+
+            Assert.Equal(FragmentAuditVerdict.Invalid, report.Verdict);
+            Assert.Contains(report.Issues, issue => issue.Contains("Невязка mapping внешней границы"));
+        }
+
+        [Fact]
+        public void Audit_WithNonFiniteBoundaryForceUnbalanceRatio_ReturnsInvalid()
+        {
+            var fragment = BuildValidFragment();
+            var result = new FloorJunctionResult { FragmentId = 1, IsConverged = true };
+            result.BoundaryForceUnbalanceRatio = double.NaN;
+
+            var report = new FloorJunctionAuditReport().Audit(fragment, result);
+
+            Assert.Equal(FragmentAuditVerdict.Invalid, report.Verdict);
+            Assert.Contains(report.Issues, issue => issue.Contains("Невязка mapping внешней границы"));
+        }
+
+        [Fact]
         public void Result_DefaultAuditReportIsNotValid()
         {
             var result = new FloorJunctionResult { FragmentId = 1 };
@@ -366,6 +402,49 @@ namespace CScore.Tests.Planar
                 fragment.BoundaryTemplates[key] = templates[key];
 
             Assert.Equal(ordered, fragment.GetFingerprint(settings, settings));
+        }
+
+        [Fact]
+        public void GetFingerprint_ChangesWhenCutFrameOrToleranceChanges()
+        {
+            var fragment = BuildValidFragment();
+            var settings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed);
+            var baseline = fragment.GetFingerprint(settings, settings);
+            var originalCut = fragment.Boundaries[0].Cut;
+
+            // Frame — init-only, поэтому меняем cut целиком через replacement PlanarCutInterface.
+            fragment.Boundaries[0].Cut = new PlanarCutInterface
+            {
+                Id = originalCut.Id,
+                Kind = originalCut.Kind,
+                Geometry = originalCut.Geometry,
+                NormalFromFragmentToOmittedSide = originalCut.NormalFromFragmentToOmittedSide,
+                Frame = new Frame3D(
+                    new PlanarVector3(1, 0, 0), new PlanarVector3(1, 0, 0),
+                    new PlanarVector3(0, 1, 0), new PlanarVector3(0, 0, 1)),
+                ModeByDof = originalCut.ModeByDof,
+                MeshConstraintId = originalCut.MeshConstraintId,
+                BoundaryKey = originalCut.BoundaryKey,
+                OmittedSideReference = originalCut.OmittedSideReference,
+                ToleranceM = originalCut.ToleranceM
+            };
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+
+            // Восстанавливаем frame, меняем ToleranceM.
+            fragment.Boundaries[0].Cut = new PlanarCutInterface
+            {
+                Id = originalCut.Id,
+                Kind = originalCut.Kind,
+                Geometry = originalCut.Geometry,
+                NormalFromFragmentToOmittedSide = originalCut.NormalFromFragmentToOmittedSide,
+                Frame = originalCut.Frame,
+                ModeByDof = originalCut.ModeByDof,
+                MeshConstraintId = originalCut.MeshConstraintId,
+                BoundaryKey = originalCut.BoundaryKey,
+                OmittedSideReference = originalCut.OmittedSideReference,
+                ToleranceM = 1e-6
+            };
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
         }
 
         [Fact]
