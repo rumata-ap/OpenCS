@@ -174,5 +174,92 @@ namespace CScore.Tests.Planar
             };
             return fragment;
         }
+
+        [Fact]
+        public void GetFingerprint_IsDeterministic()
+        {
+            var fragment = BuildValidFragment();
+            var settings = MeshSettingsFor(fragment);
+
+            var first = fragment.GetFingerprint(settings);
+            var second = fragment.GetFingerprint(settings);
+
+            Assert.Equal(first, second);
+            Assert.NotEmpty(first);
+        }
+
+        [Fact]
+        public void GetFingerprint_ChangesWhenLevelSectionOrAnchorChanges()
+        {
+            var fragment = BuildValidFragment();
+            var settings = MeshSettingsFor(fragment);
+            var baseline = fragment.GetFingerprint(settings);
+
+            fragment.Levels[0].PlateSection = new PlateSection
+                { H = 0.3, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings));
+
+            fragment.Levels[0].PlateSection = new PlateSection
+                { H = 0.2, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+            fragment.Levels[0].ColumnAnchorLocalXY = (2.5, 2);
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings));
+        }
+
+        [Fact]
+        public void GetFingerprint_ChangesWhenSegmentGjOrVecxzChanges()
+        {
+            var fragment = BuildValidFragment();
+            var settings = MeshSettingsFor(fragment);
+            var baseline = fragment.GetFingerprint(settings);
+
+            fragment.Segments[0].GJ = 2000;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings));
+            fragment.Segments[0].GJ = 1000;
+
+            fragment.Segments[0].Vecxz = (0, 1, 0);
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings));
+        }
+
+        [Fact]
+        public void GetFingerprint_ChangesWhenBaseSupportOrFormulationChanges()
+        {
+            var fragment = BuildValidFragment();
+            var settings = MeshSettingsFor(fragment);
+            var baseline = fragment.GetFingerprint(settings);
+
+            fragment.BaseSupport = ColumnBaseFixity.None;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings));
+            fragment.BaseSupport = ColumnBaseFixity.Fixed;
+
+            fragment.GeomTransfKind = "Linear";
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings));
+            fragment.GeomTransfKind = "PDelta";
+
+            fragment.ElementFormulation = "dispBeamColumn";
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings));
+        }
+
+        [Fact]
+        public void GetFingerprint_ChangesWhenMeshSettingsChange()
+        {
+            var fragment = BuildValidFragment();
+            var settings = MeshSettingsFor(fragment);
+            var baseline = fragment.GetFingerprint(settings);
+
+            var changed = new Dictionary<string, PlanarMeshSettings>(settings)
+            {
+                ["level-1"] = new PlanarMeshSettings(0.3, 6, PlanarMeshElementMode.Mixed)
+            };
+            Assert.NotEqual(baseline, fragment.GetFingerprint(changed));
+        }
+
+        static Dictionary<string, PlanarMeshSettings> MeshSettingsFor(MultiStoryColumnFragment fragment)
+        {
+            var settings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed);
+            var byLevel = new Dictionary<string, PlanarMeshSettings>();
+            foreach (var level in fragment.Levels)
+                byLevel[level.Id] = settings;
+            return byLevel;
+        }
     }
 }

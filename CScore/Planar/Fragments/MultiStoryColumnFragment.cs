@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using CScore.Fem;
 
 namespace CScore.Planar.Fragments
@@ -126,5 +129,128 @@ namespace CScore.Planar.Fragments
 
             return diagnostics;
         }
+
+        /// <summary>Хэш-отпечаток актуальности параметров агрегата: fragment id; для каждого
+        /// уровня — GeometryFingerprint региона, PlateSection, ColumnAnchorLocalXY, внешние
+        /// границы и mesh settings; для каждого сегмента — CrossSection identity, GJ, Vecxz;
+        /// BaseSupport; GeomTransfKind/ElementFormulation; StageConfig; все boundary-action
+        /// templates. Хранится только в памяти — schema migration в этот срез не входит.</summary>
+        public string GetFingerprint(IReadOnlyDictionary<string, PlanarMeshSettings> levelMeshSettings)
+        {
+            var values = new List<string> { "multistory-column-v1", FragmentId.ToString(CultureInfo.InvariantCulture) };
+
+            foreach (var level in Levels ?? new List<ColumnFloorLevel>())
+            {
+                values.Add(level.Id);
+                values.Add(level.PlateRegion?.GeometryFingerprint ?? "null");
+                values.Add(SectionFingerprint(level.PlateSection));
+                values.Add($"{Fmt(level.ColumnAnchorLocalXY.U)}:{Fmt(level.ColumnAnchorLocalXY.V)}");
+                values.Add(string.Join(";", (level.Boundaries ?? new List<FloorJunctionBoundary>())
+                    .OrderBy(b => b.Id, StringComparer.Ordinal)
+                    .Select(b => $"{b.Id}:{b.RegionId}:{CutFingerprint(b.Cut)}")));
+                values.Add(levelMeshSettings.TryGetValue(level.Id, out var settings)
+                    ? MeshSettingsFingerprint(settings) : "null");
+            }
+
+            foreach (var segment in Segments ?? new List<ColumnSegment>())
+            {
+                values.Add(segment.Id);
+                values.Add($"{segment.Section?.Id.ToString(CultureInfo.InvariantCulture) ?? "null"}:" +
+                    $"{segment.Section?.Tag ?? "null"}:{segment.Section?.Areas.Count ?? 0}");
+                values.Add(Fmt(segment.GJ));
+                values.Add($"{Fmt(segment.Vecxz.X)}:{Fmt(segment.Vecxz.Y)}:{Fmt(segment.Vecxz.Z)}");
+                values.Add(segment.NumIntegrationPoints.ToString(CultureInfo.InvariantCulture));
+            }
+
+            values.Add(BaseSupport.ToString());
+            values.Add(GeomTransfKind);
+            values.Add(ElementFormulation);
+            values.Add(string.Join(";", (StageConfig?.Stages ?? new List<FragmentStage>()).Select(stage =>
+                $"{stage.StageIndex}:{stage.Name ?? string.Empty}:{Fmt(stage.SurfaceLoadScale)}:" +
+                $"{Fmt(stage.CutInterfaceScale)}:{SolverFingerprint(stage.Solver)}")));
+            values.Add(string.Join(";", (BoundaryTemplates ?? new Dictionary<string, PlanarBoundaryActionSet>())
+                .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                .Select(pair => pair.Value is null
+                    ? $"{pair.Key}:null"
+                    : $"{pair.Key}:{PlanarBoundaryActionFingerprint.Compute(
+                        new PlanarBoundaryActionProviderResult
+                        {
+                            SourceMode = pair.Value.SourceMode,
+                            ForceActions = pair.Value.ForceActions,
+                            KinematicActions = pair.Value.KinematicActions,
+                            SourceReferences = pair.Value.SourceReferences
+                        },
+                        BoundaryById(pair.Key)?.Cut ?? new PlanarCutInterface { Id = pair.Key })}")));
+
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("|", values)));
+            return Convert.ToHexString(hash).ToLowerInvariant();
+        }
+
+        FloorJunctionBoundary? BoundaryById(string id) =>
+            (Levels ?? new List<ColumnFloorLevel>())
+                .SelectMany(level => level.Boundaries ?? new List<FloorJunctionBoundary>())
+                .SingleOrDefault(boundary => string.Equals(boundary.Id, id, StringComparison.Ordinal));
+
+        static string SectionFingerprint(PlateSection? section)
+        {
+            if (section is null) return "null";
+            var rebar = (section.RebarLayers ?? new List<PlateRebarLayer>()).Select(layer =>
+                $"{Fmt(layer.Asx)},{Fmt(layer.Asy)},{Fmt(layer.Zsx)},{Fmt(layer.Zsy)},{layer.MaterialId},{Fmt(layer.Angle)}");
+            return string.Join(";", new[]
+            {
+                section.H.ToString("G17", CultureInfo.InvariantCulture),
+                section.NLayers.ToString(CultureInfo.InvariantCulture),
+                section.ConcreteMaterialId.ToString(CultureInfo.InvariantCulture),
+                section.RebarMaterialId.ToString(CultureInfo.InvariantCulture),
+                section.TensionConcrete ? "1" : "0",
+                section.SofteningModel,
+                Fmt(section.SofteningEpsC2),
+                section.PlateModel,
+                section.ConcreteDiagramType.ToString(),
+                string.Join(";", rebar)
+            });
+        }
+
+        static string SolverFingerprint(SolverParameters? solver)
+        {
+            if (solver is null) return "null";
+            return string.Join(":", new[]
+            {
+                solver.Algorithm ?? string.Empty, Fmt(solver.EnergyTolerance), Fmt(solver.UnbalanceTolerance),
+                solver.MaxIterations.ToString(CultureInfo.InvariantCulture),
+                Fmt(solver.InitialStep), Fmt(solver.MinStep), Fmt(solver.MaxStep)
+            });
+        }
+
+        static string CutFingerprint(PlanarCutInterface? cut)
+        {
+            if (cut is null) return "null";
+            Frame3D frame = cut.Frame;
+            var boundaryKey = cut.BoundaryKey is null
+                ? "null"
+                : $"{cut.BoundaryKey.Loop}:{cut.BoundaryKey.HoleIndex}:{cut.BoundaryKey.StartVertex}:{cut.BoundaryKey.EndVertex}";
+            return string.Join(";", new[]
+            {
+                cut.Id, cut.Kind.ToString(),
+                string.Join(",", (cut.Geometry?.Points ?? new List<PlanarPoint2D>())
+                    .Select(point => $"{Fmt(point.U)},{Fmt(point.V)}")),
+                Fmt(cut.NormalFromFragmentToOmittedSide.X), Fmt(cut.NormalFromFragmentToOmittedSide.Y),
+                Fmt(cut.NormalFromFragmentToOmittedSide.Z), cut.ModeByDof.ToString(),
+                cut.MeshConstraintId ?? string.Empty,
+                Fmt(frame.Origin.X), Fmt(frame.Origin.Y), Fmt(frame.Origin.Z),
+                Fmt(frame.LocalX.X), Fmt(frame.LocalX.Y), Fmt(frame.LocalX.Z),
+                Fmt(frame.LocalY.X), Fmt(frame.LocalY.Y), Fmt(frame.LocalY.Z),
+                Fmt(frame.LocalZ.X), Fmt(frame.LocalZ.Y), Fmt(frame.LocalZ.Z),
+                Fmt(cut.ToleranceM), boundaryKey, cut.OmittedSideReference ?? string.Empty
+            });
+        }
+
+        static string MeshSettingsFingerprint(PlanarMeshSettings? settings)
+        {
+            if (settings is null) return "null";
+            return $"{Fmt(settings.MaxElementSizeM)}:{settings.Algorithm}:{settings.ElementMode}";
+        }
+
+        static string Fmt(double value) => value.ToString("G17", CultureInfo.InvariantCulture);
     }
 }
