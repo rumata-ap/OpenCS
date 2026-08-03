@@ -55,6 +55,9 @@ namespace OpenCS.OpenSees.CScore
                 diagnostics.Add(new("floor_junction_snapshot_not_calculable", "Plate snapshot нерасчётен."));
             if (!wallSnapshot.IsCalculable)
                 diagnostics.Add(new("floor_junction_snapshot_not_calculable", "Wall snapshot нерасчётен."));
+            // Диагностики самого connection mapping: сохраняем все (включая warning), но расчёт
+            // блокируем только если среди них есть error (mapping.IsCalculable == false).
+            diagnostics.AddRange(mapping.Diagnostics);
             if (mapping.MeshMode != PlanarConnectionMeshMode.ConformingPartition)
                 diagnostics.Add(new("floor_junction_mesh_mode_unsupported",
                     $"MeshMode {mapping.MeshMode} не поддерживается; требуется ConformingPartition."));
@@ -70,10 +73,11 @@ namespace OpenCS.OpenSees.CScore
 
             diagnostics.AddRange(plate.RebarDiagnostics.Select(item => item.Diagnostic));
             diagnostics.AddRange(wall.RebarDiagnostics.Select(item => item.Diagnostic));
+            // Mapping-сообщения (например про smeared rebar) — информационные, не блокируют расчёт.
             diagnostics.AddRange(plate.MappingDiagnostics.Select(message =>
-                new FemValidationDiagnostic("floor_junction_tag_collision", $"Plate mapping: {message}")));
+                new FemValidationDiagnostic("floor_junction_mapping_warning", $"Plate mapping: {message}", IsError: false)));
             diagnostics.AddRange(wall.MappingDiagnostics.Select(message =>
-                new FemValidationDiagnostic("floor_junction_tag_collision", $"Wall mapping: {message}")));
+                new FemValidationDiagnostic("floor_junction_mapping_warning", $"Wall mapping: {message}", IsError: false)));
             if (diagnostics.Any(diagnostic => diagnostic.IsError))
                 return Empty(diagnostics);
 
@@ -94,14 +98,21 @@ namespace OpenCS.OpenSees.CScore
             var plateElementIndexToTag = plate.ElementIndexToTag;
             var wallElementIndexToTag = wall.ElementIndexToTag.ToDictionary(
                 pair => pair.Key, pair => pair.Value + plateElementCount);
+            var wallSectionFingerprintByTag = wall.Model.Sections.ToDictionary(
+                section => section.Tag, section => section.Fingerprint);
             NormalizedShellElement[] remappedWallElements = wall.Model.Elements
                 .Select(element => element with
                 {
                     Tag = element.Tag + plateElementCount,
                     NodeTags = element.NodeTags.Select(tag => tag + wallNodeTagOffset).ToList(),
                     SectionTag = element.SectionTag + plate.Model.Sections.Count,
-                    SectionFingerprint = wall.Model.Sections
-                        .First(section => section.Tag == element.SectionTag).Fingerprint
+                    // Промежуточный fingerprint из wall-секции; при внутренней несогласованности
+                    // (секция не найдена) оставляем значение элемента — финальную проверку и
+                    // перезапись выполняет CheckTagCollisions + шаг 4 ниже.
+                    SectionFingerprint = wallSectionFingerprintByTag.TryGetValue(
+                        element.SectionTag, out string? fingerprint)
+                        ? fingerprint
+                        : element.SectionFingerprint
                 })
                 .ToArray();
             var elements = plate.Model.Elements.Concat(remappedWallElements).ToArray();

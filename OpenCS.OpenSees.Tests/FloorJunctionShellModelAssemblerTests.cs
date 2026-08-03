@@ -1,6 +1,8 @@
 using System.Linq;
 using CScore;
+using CScore.Fem;
 using CScore.Planar;
+using CScore.PlateRebar;
 using OpenCS.OpenSees.CScore;
 using OpenCS.OpenSees.Model;
 using OpenCS.OpenSees.Structural;
@@ -20,7 +22,7 @@ public sealed class FloorJunctionShellModelAssemblerTests
 
         var result = FloorJunctionShellModelAssembler.Assemble(
             plateSnapshot, PlateRegion(), PlateSection(),
-            wallSnapshot, WallRegion(Frame3D.Identity), PlateSection(),
+            wallSnapshot, WallRegion(), PlateSection(),
             new ConcreteOnlyResolver(), mapping);
 
         Assert.True(result.IsCalculable, Diagnostics(result));
@@ -36,7 +38,7 @@ public sealed class FloorJunctionShellModelAssemblerTests
         var (plateSnapshot, wallSnapshot) = Snapshots();
         var result = FloorJunctionShellModelAssembler.Assemble(
             plateSnapshot, PlateRegion(), PlateSection(),
-            wallSnapshot, WallRegion(Frame3D.Identity), PlateSection(),
+            wallSnapshot, WallRegion(), PlateSection(),
             new ConcreteOnlyResolver(), ConformingMapping());
 
         Assert.Equal(6, result.PlateNodeIndexToTag.Count);
@@ -50,7 +52,7 @@ public sealed class FloorJunctionShellModelAssemblerTests
         var (plateSnapshot, wallSnapshot) = Snapshots();
         var result = FloorJunctionShellModelAssembler.Assemble(
             plateSnapshot, PlateRegion(), PlateSection(),
-            wallSnapshot, WallRegion(Frame3D.Identity), PlateSection(),
+            wallSnapshot, WallRegion(), PlateSection(),
             new ConcreteOnlyResolver(), ConformingMapping());
 
         Assert.NotEmpty(result.JunctionPairs);
@@ -78,7 +80,7 @@ public sealed class FloorJunctionShellModelAssemblerTests
 
         var result = FloorJunctionShellModelAssembler.Assemble(
             plateSnapshot, PlateRegion(), PlateSection(),
-            wallSnapshot, WallRegion(Frame3D.Identity), PlateSection(),
+            wallSnapshot, WallRegion(), PlateSection(),
             new ConcreteOnlyResolver(), mapping);
 
         Assert.False(result.IsCalculable);
@@ -99,6 +101,71 @@ public sealed class FloorJunctionShellModelAssemblerTests
 
         Assert.False(result.IsCalculable);
         Assert.Contains(result.Diagnostics, d => d.Code == "floor_junction_mesh_mode_unsupported");
+    }
+
+    [Fact]
+    public void Assemble_MappingWarning_DoesNotBlockCalculation()
+    {
+        // Информационные mapping-сообщения (например про smeared rebar) не должны
+        // превращаться в блокирующие ошибки сборки.
+        var (plateSnapshot, wallSnapshot) = Snapshots();
+
+        var result = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(), RebarPlateSection(),
+            wallSnapshot, WallRegion(), PlateSection(),
+            new RebarCapableResolver(), ConformingMapping());
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+        Assert.Contains(result.Diagnostics,
+            d => d.Code == "floor_junction_mapping_warning" && !d.IsError);
+        Assert.DoesNotContain(result.Diagnostics,
+            d => d.Code == "floor_junction_tag_collision" && d.Message.Contains("mapping"));
+    }
+
+    [Fact]
+    public void Assemble_RejectsMappingWithErrorDiagnostics()
+    {
+        var (plateSnapshot, wallSnapshot) = Snapshots();
+        var mapping = CopyMapping(
+            ConformingMapping(),
+            diagnostics: [new FemValidationDiagnostic("floor_junction_mapping_error", "mapping failed")]);
+
+        var result = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(), PlateSection(),
+            wallSnapshot, WallRegion(), PlateSection(),
+            new ConcreteOnlyResolver(), mapping);
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "floor_junction_mapping_error" && d.IsError);
+    }
+
+    [Fact]
+    public void Assemble_RejectsNonCalculableSnapshot()
+    {
+        var (plateSnapshot, wallSnapshot) = Snapshots();
+        var result = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(), PlateSection(),
+            WithIsCalculable(wallSnapshot, isCalculable: false), WallRegion(), PlateSection(),
+            new ConcreteOnlyResolver(), ConformingMapping());
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "floor_junction_snapshot_not_calculable");
+    }
+
+    [Fact]
+    public void Assemble_ReportsMissingExactPairNodes()
+    {
+        var (plateSnapshot, wallSnapshot) = Snapshots();
+        var mapping = CopyMapping(
+            ConformingMapping(), exactNodePairs: [new(99, 99, 0)]);
+
+        var result = FloorJunctionShellModelAssembler.Assemble(
+            plateSnapshot, PlateRegion(), PlateSection(),
+            wallSnapshot, WallRegion(), PlateSection(),
+            new ConcreteOnlyResolver(), mapping);
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "floor_junction_connection_mapping_missing");
     }
 
     // --- fixtures ---
@@ -133,7 +200,8 @@ public sealed class FloorJunctionShellModelAssemblerTests
     static PlanarConnectionMeshMapping CopyMapping(
         PlanarConnectionMeshMapping source,
         PlanarConnectionMeshMode? meshMode = null,
-        IReadOnlyList<PlanarConnectionNodePair>? exactNodePairs = null) => new()
+        IReadOnlyList<PlanarConnectionNodePair>? exactNodePairs = null,
+        IReadOnlyList<FemValidationDiagnostic>? diagnostics = null) => new()
     {
         ConnectionId = source.ConnectionId,
         ConnectionFingerprint = source.ConnectionFingerprint,
@@ -145,7 +213,24 @@ public sealed class FloorJunctionShellModelAssemblerTests
         SideA = source.SideA,
         SideB = source.SideB,
         ExactNodePairs = exactNodePairs ?? source.ExactNodePairs,
-        Diagnostics = source.Diagnostics
+        Diagnostics = diagnostics ?? source.Diagnostics
+    };
+
+    static PlanarMeshSnapshot WithIsCalculable(PlanarMeshSnapshot source, bool isCalculable) => new()
+    {
+        Id = source.Id,
+        RegionId = source.RegionId,
+        InputFingerprint = source.InputFingerprint,
+        IsCalculable = isCalculable,
+        Settings = source.Settings,
+        Provenance = source.Provenance,
+        Diagnostics = source.Diagnostics,
+        Nodes = source.Nodes,
+        Elements = source.Elements,
+        BoundaryMappings = source.BoundaryMappings,
+        MeshFormatVersion = source.MeshFormatVersion,
+        EntityProvenance = source.EntityProvenance,
+        ConstraintMappings = source.ConstraintMappings,
     };
 
     static (PlanarMeshSnapshot Plate, PlanarMeshSnapshot Wall) Snapshots()
@@ -209,6 +294,12 @@ public sealed class FloorJunctionShellModelAssemblerTests
     static PlateSection PlateSection() =>
         new() { H = 0.2, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
 
+    static PlateSection RebarPlateSection() => new()
+    {
+        H = 0.2, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2,
+        RebarLayers = [new PlateRebarLayer { Asx = 0.001, Zsx = -0.09 }]
+    };
+
     sealed class ConcreteOnlyResolver : IPlateSectionShellMaterialResolver
     {
         public IReadOnlyList<NativeShellMaterialDefinition> ResolveConcrete(int sourceMaterialId) =>
@@ -216,5 +307,17 @@ public sealed class FloorJunctionShellModelAssemblerTests
 
         public IReadOnlyList<NativeShellMaterialDefinition> ResolveRebar(int sourceMaterialId) =>
             throw new NotSupportedException("Тест не использует армирование.");
+    }
+
+    sealed class RebarCapableResolver : IPlateSectionShellMaterialResolver
+    {
+        public IReadOnlyList<NativeShellMaterialDefinition> ResolveConcrete(int sourceMaterialId) =>
+            [new(1, $"concrete:{sourceMaterialId}", new ElasticIsotropicShellMaterialSpec(30e9, 0.2))];
+
+        public IReadOnlyList<NativeShellMaterialDefinition> ResolveRebar(int sourceMaterialId) =>
+        [
+            new(500, $"rebar:{sourceMaterialId}:uniaxial", new ElasticUniaxialShellMaterialSpec(200e9)),
+            new(2, $"rebar:{sourceMaterialId}:plate", new PlateRebarShellMaterialSpec(500, 0)),
+        ];
     }
 }
