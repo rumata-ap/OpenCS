@@ -246,6 +246,133 @@ namespace CScore.Tests.Planar
             }, orphanMessages);
         }
 
+        [Fact]
+        public void Audit_WithNoBlockingDiagnosticsAndConverged_ReturnsValid()
+        {
+            var fragment = BuildValidFragment();
+            var result = new FloorJunctionResult { FragmentId = 1, IsConverged = true };
+
+            var report = new FloorJunctionAuditReport().Audit(fragment, result);
+
+            Assert.Equal(FragmentAuditVerdict.Valid, report.Verdict);
+            Assert.Empty(report.Issues);
+        }
+
+        [Fact]
+        public void Audit_WithNullResult_ReturnsInvalid()
+        {
+            var fragment = BuildValidFragment();
+
+            var report = new FloorJunctionAuditReport().Audit(fragment, null!);
+
+            Assert.Equal(FragmentAuditVerdict.Invalid, report.Verdict);
+            Assert.NotEmpty(report.Issues);
+        }
+
+        [Fact]
+        public void Audit_WithMeshDiagnostics_ReturnsInvalid()
+        {
+            var fragment = BuildValidFragment();
+            var result = new FloorJunctionResult { FragmentId = 1, IsConverged = true };
+            result.MeshDiagnostics.Add("planar_connection_conforming_partition_mismatch: узлы не совпадают.");
+
+            var report = new FloorJunctionAuditReport().Audit(fragment, result);
+
+            Assert.Equal(FragmentAuditVerdict.Invalid, report.Verdict);
+            Assert.NotEmpty(report.Issues);
+        }
+
+        [Fact]
+        public void Audit_WithIncompleteAnalysis_ReturnsInvalid()
+        {
+            var fragment = BuildValidFragment();
+            var result = new FloorJunctionResult { FragmentId = 1, IsConverged = false };
+            result.AnalysisDiagnostics.Add("floor_junction_analysis_incomplete: LoadFactor=0.5.");
+
+            var report = new FloorJunctionAuditReport().Audit(fragment, result);
+
+            Assert.Equal(FragmentAuditVerdict.Invalid, report.Verdict);
+        }
+
+        [Fact]
+        public void GetFingerprint_IsDeterministic()
+        {
+            var fragment = BuildValidFragment();
+            var settings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed);
+
+            var first = fragment.GetFingerprint(settings, settings);
+            var second = fragment.GetFingerprint(settings, settings);
+
+            Assert.Equal(first, second);
+            Assert.NotEmpty(first);
+        }
+
+        [Fact]
+        public void GetFingerprint_ChangesWhenSectionOrConnectionOrSettingsChange()
+        {
+            var fragment = BuildValidFragment();
+            var settings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed);
+            var baseline = fragment.GetFingerprint(settings, settings);
+
+            fragment.PlateSection = new PlateSection { H = 0.3, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+
+            fragment.PlateSection = new PlateSection { H = 0.2, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+            fragment.Connection.MatchingToleranceM = 1e-6;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+
+            fragment.Connection.MatchingToleranceM = 1e-8;
+            var otherSettings = new PlanarMeshSettings(0.4, 6, PlanarMeshElementMode.Quads);
+            Assert.NotEqual(baseline, fragment.GetFingerprint(otherSettings, settings));
+        }
+
+        [Fact]
+        public void GetFingerprint_IsIndependentOfBoundaryAndTemplateOrder()
+        {
+            var fragment = BuildValidFragment();
+            fragment.Boundaries.Add(new FloorJunctionBoundary
+            {
+                Id = "wall-side",
+                RegionId = 20,
+                Cut = new PlanarCutInterface
+                {
+                    Id = "wall-side",
+                    Geometry = new PlanarConstraintGeometry(PlanarConstraintGeometryKind.Curve,
+                        [new PlanarPoint2D(0, 0), new PlanarPoint2D(4, 0)]),
+                    NormalFromFragmentToOmittedSide = new PlanarVector3(0, -1, 0),
+                    BoundaryKey = new PlanarBoundaryKey(BoundaryLoop.Outer, 0, 3, 0),
+                    ModeByDof = PlanarBoundaryModeByDof.All(PlanarBoundaryDofMode.PreserveSupport)
+                }
+            });
+            fragment.BoundaryTemplates["wall-side"] = new PlanarBoundaryActionSet
+                { SourceMode = PlanarBoundaryActionSourceMode.Template };
+            var settings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed);
+            var ordered = fragment.GetFingerprint(settings, settings);
+
+            fragment.Boundaries.Reverse();
+            var templates = fragment.BoundaryTemplates;
+            var reversedKeys = templates.Keys.OrderByDescending(k => k).ToArray();
+            fragment.BoundaryTemplates = new Dictionary<string, PlanarBoundaryActionSet>();
+            foreach (var key in reversedKeys)
+                fragment.BoundaryTemplates[key] = templates[key];
+
+            Assert.Equal(ordered, fragment.GetFingerprint(settings, settings));
+        }
+
+        [Fact]
+        public void Result_ContainsExpectedSections()
+        {
+            var result = new FloorJunctionResult { FragmentId = 7 };
+            result.InterfaceContinuity.Add(new InterfaceContinuityItem(5, 11, 1e-9, 1e-10));
+            result.ForceBalance = new FloorJunctionForceBalance(8000, 8000.0001, 1e-8);
+            result.ProvenanceMap[5] = "plate|source:concrete:1";
+
+            Assert.False(result.IsConverged);
+            Assert.Single(result.InterfaceContinuity);
+            Assert.Equal(8000, result.ForceBalance!.AppliedLoadMagnitude);
+            Assert.Equal("plate|source:concrete:1", result.ProvenanceMap[5]);
+        }
+
         static FloorJunctionFragment BuildValidFragment()
         {
             var plate = PlanarRegion.CreateFromContour(
