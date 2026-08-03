@@ -177,6 +177,61 @@ public sealed class PlateSectionOpenSeesMapperTests
         Assert.NotEqual(angle0.Fingerprint, minusFace.Fingerprint);
     }
 
+    [Fact]
+    public void RecalcFingerprint_ForUnchangedSection_EqualsStoredFingerprint()
+    {
+        var section = new PlateSection { H = 0.2, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+        var mapped = PlateSectionOpenSeesMapper.Map(section, ShellFrame.Identity, Resolver(), sectionTag: 1);
+
+        string recalculated = PlateSectionOpenSeesMapper.RecalcFingerprint(
+            mapped.Section, mapped.Materials);
+
+        Assert.Equal(mapped.Section.Fingerprint, recalculated);
+    }
+
+    [Fact]
+    public void RecalcFingerprint_ChangesWhenLayerMaterialTagChanges()
+    {
+        var section = new PlateSection { H = 0.2, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+        var mapped = PlateSectionOpenSeesMapper.Map(section, ShellFrame.Identity, Resolver(), sectionTag: 1);
+
+        var withOtherMaterial = mapped.Section with
+        {
+            Layers = mapped.Section.Layers.Select(layer =>
+                layer with { MaterialTag = 99 }).ToList()
+        };
+
+        Assert.NotEqual(
+            mapped.Section.Fingerprint,
+            PlateSectionOpenSeesMapper.RecalcFingerprint(withOtherMaterial, mapped.Materials));
+    }
+
+    [Fact]
+    public void RecalcFingerprint_IncludesTransitiveDependenciesAndExcludesIrrelevantMaterials()
+    {
+        // Арматурный слой ссылается на PlateRebar-обёртку (tag 2), которая зависит от
+        // uniaxial-базы (tag 5) — транзитивное замыкание обязано включить базу в fingerprint.
+        var section = new PlateSection
+        {
+            H = 0.2,
+            NLayers = 2,
+            ConcreteMaterialId = 1,
+            RebarMaterialId = 2,
+            RebarLayers = [new PlateRebarLayer { Asx = 0.001, Zsx = -0.07 }]
+        };
+        var mapped = PlateSectionOpenSeesMapper.Map(section, ShellFrame.Identity, Resolver(), sectionTag: 1);
+
+        // Посторонний материал, не используемый ни одним слоем (прямо или транзитивно),
+        // не должен попасть в fingerprint.
+        var irrelevant = new NativeShellMaterialDefinition(
+            77, "irrelevant", new ElasticIsotropicShellMaterialSpec(3e9, 0.25));
+        var materials = mapped.Materials.Concat([irrelevant]).ToArray();
+
+        string recalculated = PlateSectionOpenSeesMapper.RecalcFingerprint(mapped.Section, materials);
+
+        Assert.Equal(mapped.Section.Fingerprint, recalculated);
+    }
+
     private static RCShellLayeredSection MapWithRebar(PlateRebarLayer layer)
     {
         var section = new PlateSection { H = 0.2, NLayers = 2, RebarLayers = [layer] };
