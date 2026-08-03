@@ -33,6 +33,64 @@ public sealed class MultiStoryColumnShellModelAssemblerTests
         Assert.Equal(elementTags.Length, elementTags.Distinct().Count());
     }
 
+    [Fact]
+    public void Assemble_DeduplicatesIdenticalSectionsAndMaterialsAcrossLevels()
+    {
+        // Все 3 уровня используют одинаковый frame-relative фингерпринт секции (тот же
+        // локальный frame ориентации), одинаковую PlateSection и один resolver ->
+        // один материал и одна секция на всех уровнях.
+        var levels = ThreeLevelSnapshotsSameOrientation();
+
+        var result = MultiStoryColumnShellModelAssembler.Assemble(
+            levels, [], ColumnBaseFixity.None, "PDelta", "forceBeamColumn",
+            new ConcreteOnlyResolver());
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+        Assert.Single(result.Model.Materials);
+        Assert.Single(result.Model.Sections);
+        Assert.All(result.Model.Elements, element =>
+            Assert.Equal(result.Model.Sections[0].Tag, element.SectionTag));
+    }
+
+    [Fact]
+    public void Assemble_KeepsDifferentSectionsSeparateAcrossLevels()
+    {
+        var levels = ThreeLevelSnapshots();
+        levels[1].Level.PlateSection = new PlateSection
+            { H = 0.3, NLayers = 4, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+
+        var result = MultiStoryColumnShellModelAssembler.Assemble(
+            levels, [], ColumnBaseFixity.None, "PDelta", "forceBeamColumn",
+            new ConcreteOnlyResolver());
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+        Assert.True(result.Model.Sections.Count >= 2);
+    }
+
+    [Fact]
+    public void Assemble_ReportsSectionAndMaterialProvenance()
+    {
+        var levels = ThreeLevelSnapshots();
+
+        var result = MultiStoryColumnShellModelAssembler.Assemble(
+            levels, [], ColumnBaseFixity.None, "PDelta", "forceBeamColumn",
+            new ConcreteOnlyResolver());
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+        Assert.NotEmpty(result.SectionProvenance);
+        Assert.NotEmpty(result.MaterialProvenance);
+        Assert.Contains(result.MaterialProvenance.Values,
+            value => value.Contains("level-1|", StringComparison.Ordinal));
+    }
+
+    internal static (ColumnFloorLevel Level, PlanarMeshSnapshot Snapshot)[] ThreeLevelSnapshotsSameOrientation()
+    {
+        var levels = ThreeLevelSnapshots();
+        // Одинаковый locally-flat frame (без поворота) на всех уровнях -> одинаковый
+        // frame-relative фингерпринт секции.
+        return levels;
+    }
+
     // --- fixtures (переиспользуются в Tasks 6-9) ---
 
     internal static (ColumnFloorLevel Level, PlanarMeshSnapshot Snapshot)[] ThreeLevelSnapshots() =>

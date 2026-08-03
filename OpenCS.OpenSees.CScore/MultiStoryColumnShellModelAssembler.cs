@@ -86,18 +86,137 @@ public static class MultiStoryColumnShellModelAssembler
             elementTagOffset += built.Model.Elements.Count;
         }
 
+        // Шаг 2: дедупликация shell material/section по fingerprint — строго внутри
+        // shell-домена: все уровни производят один и тот же тип NativeShellMaterialDefinition/
+        // RCShellLayeredSection, поэтому обобщение — прямая экстраполяция существующего
+        // двухстороннего цикла FloorJunctionShellModelAssembler на N источников.
+        var materialTagMap = new Dictionary<(string Level, int SourceTag), int>();
+        var materialByFingerprint = new Dictionary<string, NativeShellMaterialDefinition>(StringComparer.Ordinal);
+        var finalMaterials = new List<NativeShellMaterialDefinition>();
+        var materialProvenance = new Dictionary<int, string>();
+        int nextMaterialTag = 1;
+
+        void RegisterMaterial(string levelId, NativeShellMaterialDefinition definition)
+        {
+            string fingerprint = definition.Fingerprint;
+            if (materialByFingerprint.TryGetValue(fingerprint, out var existing))
+            {
+                materialTagMap[(levelId, definition.Tag)] = existing.Tag;
+                return;
+            }
+            var registered = definition with { Tag = nextMaterialTag++ };
+            registered.Validate();
+            materialByFingerprint[fingerprint] = registered;
+            finalMaterials.Add(registered);
+            materialTagMap[(levelId, definition.Tag)] = registered.Tag;
+            materialProvenance[registered.Tag] = $"{levelId}|source:{definition.SourceId}|fp:{fingerprint}";
+        }
+
+        var allShellMaterials = perLevel
+            .SelectMany(item => item.Built.Model.Materials.Select(material => (levelId: item.Level.Id, material)))
+            .ToList();
+
+        foreach (var (levelId, material) in allShellMaterials
+                     .Where(item => item.material.Spec.DependsOnMaterialTag is null)
+                     .OrderBy(item => item.material.Fingerprint, StringComparer.Ordinal)
+                     .ThenBy(item => item.material.SourceId, StringComparer.Ordinal))
+            RegisterMaterial(levelId, material);
+
+        var pendingDependent = allShellMaterials
+            .Where(item => item.material.Spec.DependsOnMaterialTag is int)
+            .OrderBy(item => item.material.SourceId, StringComparer.Ordinal)
+            .ToList();
+        while (pendingDependent.Count > 0)
+        {
+            var deferred = new List<(string levelId, NativeShellMaterialDefinition material)>();
+            bool advanced = false;
+            foreach (var (levelId, material) in pendingDependent)
+            {
+                int dependency = material.Spec.DependsOnMaterialTag!.Value;
+                if (materialTagMap.TryGetValue((levelId, dependency), out int finalDependency))
+                {
+                    RegisterMaterial(levelId, material with { Spec = material.Spec.WithDependencyTag(finalDependency) });
+                    advanced = true;
+                }
+                else
+                {
+                    deferred.Add((levelId, material));
+                }
+            }
+            if (!advanced)
+            {
+                foreach (var (levelId, material) in deferred)
+                    diagnostics.Add(new("multistory_column_material_dependency_missing",
+                        $"Материал {material.SourceId} (уровень {levelId}) ссылается на не " +
+                        $"зарегистрированную зависимость (material tag {material.Spec.DependsOnMaterialTag})."));
+                return Empty(diagnostics);
+            }
+            pendingDependent = deferred;
+        }
+
+        var sectionByFingerprint = new Dictionary<string, RCShellLayeredSection>(StringComparer.Ordinal);
+        var finalSections = new List<RCShellLayeredSection>();
+        var sectionProvenance = new Dictionary<int, string>();
+        int nextSectionTag = 1;
+        var elementSectionTagRewrite = new Dictionary<(string Level, int OldTag), int>();
+
+        foreach (var (level, built) in perLevel)
+        {
+            foreach (var section in built.Model.Sections)
+            {
+                var remappedLayers = section.Layers
+                    .Select(layer => layer with { MaterialTag = materialTagMap[(level.Id, layer.MaterialTag)] })
+                    .ToList();
+                var remapped = section with { Layers = remappedLayers };
+                string fingerprint = PlateSectionOpenSeesMapper.RecalcFingerprint(remapped, finalMaterials);
+                if (sectionByFingerprint.TryGetValue(fingerprint, out var existingSection))
+                {
+                    elementSectionTagRewrite[(level.Id, section.Tag)] = existingSection.Tag;
+                    continue;
+                }
+                var registeredSection = remapped with { Tag = nextSectionTag++ };
+                sectionByFingerprint[fingerprint] = registeredSection;
+                finalSections.Add(registeredSection);
+                sectionProvenance[registeredSection.Tag] =
+                    $"{level.Id}|source:{section.Tag}|fp:{fingerprint}";
+                elementSectionTagRewrite[(level.Id, section.Tag)] = registeredSection.Tag;
+            }
+        }
+
+        // Перепривязка элементов ко финальным section tags (level-scoped: тег элемента уже
+        // содержит nodeTagOffset/elementTagOffset из шага 1, поэтому итерируем перестроенный
+        // allElements по уровням в том же порядке).
+        int elementCursor = 0;
+        var rewrittenElements = new List<NormalizedShellElement>();
+        foreach (var (level, built) in perLevel)
+        {
+            foreach (var originalElement in built.Model.Elements)
+            {
+                var element = allElements[elementCursor++];
+                int finalSectionTag = elementSectionTagRewrite[(level.Id, originalElement.SectionTag)];
+                var finalSection = finalSections.Single(s => s.Tag == finalSectionTag);
+                rewrittenElements.Add(element with
+                {
+                    SectionTag = finalSectionTag,
+                    SectionFingerprint = finalSection.Fingerprint
+                });
+            }
+        }
+        allElements = rewrittenElements;
+
         var model = new ShellOpenSeesModel
         {
             Nodes = allNodes,
             Elements = allElements,
+            Materials = finalMaterials,
+            Sections = finalSections,
             NonlinearBeamGeomTransfKind = geomTransfKind,
             NonlinearBeamElementFormulation = elementFormulation
         };
 
         return new MultiStoryColumnShellAssemblyResult(
             model, nodeIndexToTagByLevel, elementIndexToTagByLevel,
-            new Dictionary<string, int>(), new Dictionary<int, string>(), new Dictionary<int, string>(),
-            diagnostics);
+            new Dictionary<string, int>(), sectionProvenance, materialProvenance, diagnostics);
     }
 
     static MultiStoryColumnShellAssemblyResult Empty(IReadOnlyList<FemValidationDiagnostic> diagnostics) =>
