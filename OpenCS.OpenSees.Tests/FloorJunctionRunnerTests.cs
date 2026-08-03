@@ -119,11 +119,14 @@ public sealed class FloorJunctionRunnerTests
         var mesher = new JunctionFakeMesher();
         var analysisRunner = new FakeAnalysisRunner(model =>
         {
-            // Все узлы — нулевые перемещения (continuity ок), реакции = нагрузки (balance ок).
+            // Все узлы — нулевые перемещения (continuity ок), реакции = -нагрузки (balance ок).
+            // Знак: реальный OpenSees reaction recorder возвращает силы опор на конструкцию —
+            // противоположные приложенной нагрузке, поэтому баланс означает reaction == -applied
+            // (residual = reaction + applied ≈ 0), как в ShellEquilibriumAuditor.
             var displacements = model.Nodes
                 .Select(node => new ShellNodeDisplacement(node.Tag, 0, 0, 0, 0, 0, 0)).ToList();
             var reactions = model.Stages[0].Loads
-                .Select(load => new ShellNodeReaction(load.NodeTag, load.Fx, load.Fy, load.Fz, 0, 0, 0))
+                .Select(load => new ShellNodeReaction(load.NodeTag, -load.Fx, -load.Fy, -load.Fz, 0, 0, 0))
                 .ToList();
             return CompletedResult(1.0, displacements, reactions);
         });
@@ -150,14 +153,16 @@ public sealed class FloorJunctionRunnerTests
         var analysisRunner = new FakeAnalysisRunner(model =>
         {
             // Финальный шаг — стадия 2 (индекс 1) при полной нагрузке. Реакции равны
-            // суммарной нагрузке ОБЕИХ стадий (stage 1 + stage 2); код, берущий только
-            // model.Stages[lastStep.StageIndex].Loads, сравнил бы их лишь с нагрузкой
-            // стадии 2 и дал бы невязку (баг фиксируется регрессионным тестом).
+            // суммарной нагрузке ОБЕИХ стадий (stage 1 + stage 2) с обратным знаком
+            // (реакции = -applied, конвенция реального OpenSees reaction recorder; residual =
+            // reaction + applied ≈ 0); код, берущий только model.Stages[lastStep.StageIndex].Loads,
+            // сравнил бы их лишь с нагрузкой стадии 2 и дал бы невязку
+            // (баг фиксируется регрессионным тестом).
             var displacements = model.Nodes
                 .Select(node => new ShellNodeDisplacement(node.Tag, 0, 0, 0, 0, 0, 0)).ToList();
             var reactions = model.Stages
                 .SelectMany(stage => stage.Loads)
-                .Select(load => new ShellNodeReaction(load.NodeTag, load.Fx, load.Fy, load.Fz, 0, 0, 0))
+                .Select(load => new ShellNodeReaction(load.NodeTag, -load.Fx, -load.Fy, -load.Fz, 0, 0, 0))
                 .ToList();
             return CompletedResult(1.0, displacements, reactions, stageIndex: 1);
         });

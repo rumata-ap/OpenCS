@@ -365,9 +365,13 @@ namespace OpenCS.OpenSees.CScore.Fragments
             double rz = lastStep.Reactions.Sum(reaction => reaction.Fz);
             double appliedMagnitude = Math.Sqrt(loadFx * loadFx + loadFy * loadFy + loadFz * loadFz);
             double reactionMagnitude = Math.Sqrt(rx * rx + ry * ry + rz * rz);
-            double delta = Math.Sqrt((rx - loadFx) * (rx - loadFx) +
-                                     (ry - loadFy) * (ry - loadFy) +
-                                     (rz - loadFz) * (rz - loadFz));
+            // OpenSees reaction recorder возвращает силы реакций с знаком, противоположным
+            // приложенной нагрузке (силы опор на конструкцию), поэтому residual = reaction + applied —
+            // та же конвенция, что у ShellEquilibriumAuditor.Evaluate. Суммирование (reaction - applied)
+            // давало бы при идеальном балансе невязку 200%.
+            double delta = Math.Sqrt((rx + loadFx) * (rx + loadFx) +
+                                     (ry + loadFy) * (ry + loadFy) +
+                                     (rz + loadFz) * (rz + loadFz));
             double unbalance = delta / Math.Max(1.0, appliedMagnitude);
             // ForceBalance записывается даже при нарушении баланса — результат для аудита и UI.
             result.ForceBalance = new FloorJunctionForceBalance(appliedMagnitude, reactionMagnitude, unbalance);
