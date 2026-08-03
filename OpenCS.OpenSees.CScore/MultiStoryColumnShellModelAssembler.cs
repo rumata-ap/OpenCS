@@ -251,6 +251,55 @@ public static class MultiStoryColumnShellModelAssembler
         }
         if (diagnostics.Count > 0) return Empty(diagnostics);
 
+        // Шаг 4: anchor node resolution — embedded-point узел каждого уровня -> финальный
+        // remapped тег.
+        var anchorNodeTagByLevel = new Dictionary<string, int>();
+        for (int levelIndex = 0; levelIndex < levels.Count; levelIndex++)
+        {
+            var (level, snapshot) = levels[levelIndex];
+            var mapping = snapshot.ConstraintMappings
+                .FirstOrDefault(m => string.Equals(m.ConstraintObjectId, "anchor", StringComparison.Ordinal));
+            if (mapping is null || mapping.PointNodeIndices.Count != 1)
+            {
+                diagnostics.Add(new("multistory_column_anchor_node_missing",
+                    $"Уровень '{level.Id}': embedded-point узел оси колонны не найден в snapshot."));
+                continue;
+            }
+            int snapshotNodeIndex = mapping.PointNodeIndices[0];
+            if (!nodeIndexToTagByLevel[level.Id].TryGetValue(snapshotNodeIndex, out int anchorTag))
+            {
+                diagnostics.Add(new("multistory_column_anchor_node_missing",
+                    $"Уровень '{level.Id}': anchor snapshot node index {snapshotNodeIndex} " +
+                    $"отсутствует в remapped node index."));
+                continue;
+            }
+            anchorNodeTagByLevel[level.Id] = anchorTag;
+        }
+        if (diagnostics.Count > 0) return Empty(diagnostics);
+
+        // Шаг 5: балочные элементы колонны между anchor-узлами соседних уровней — новых узлов
+        // не создаётся, NodeI/NodeJ совпадают с anchor-тегами.
+        var nonlinearBeamElements = new List<FemNonlinearElement>();
+        int beamElementTag = elementTagOffset + 1;
+        for (int segmentIndex = 0; segmentIndex < segments.Count; segmentIndex++)
+        {
+            var segment = segments[segmentIndex];
+            int nodeI = anchorNodeTagByLevel[levels[segmentIndex].Level.Id];
+            int nodeJ = anchorNodeTagByLevel[levels[segmentIndex + 1].Level.Id];
+            nonlinearBeamElements.Add(new FemNonlinearElement(
+                beamElementTag++, nodeI, nodeJ,
+                beamSectionTagBySegmentId[segment.Id], segment.NumIntegrationPoints, segment.Vecxz));
+        }
+
+        // Шаг 6: заделка низа — полная 6-DOF фиксация на AnchorNodeTag нижнего уровня.
+        if (baseSupport == ColumnBaseFixity.Fixed && levels.Count > 0)
+        {
+            int bottomAnchorTag = anchorNodeTagByLevel[levels[0].Level.Id];
+            for (int i = 0; i < allNodes.Count; i++)
+                if (allNodes[i].Tag == bottomAnchorTag)
+                    allNodes[i] = allNodes[i] with { Fixed = [true, true, true, true, true, true] };
+        }
+
         var model = new ShellOpenSeesModel
         {
             Nodes = allNodes,
@@ -258,13 +307,14 @@ public static class MultiStoryColumnShellModelAssembler
             Materials = finalMaterials,
             Sections = finalSections,
             NonlinearBeamSections = nonlinearBeamSections,
+            NonlinearBeamElements = nonlinearBeamElements,
             NonlinearBeamGeomTransfKind = geomTransfKind,
             NonlinearBeamElementFormulation = elementFormulation
         };
 
         return new MultiStoryColumnShellAssemblyResult(
             model, nodeIndexToTagByLevel, elementIndexToTagByLevel,
-            new Dictionary<string, int>(), sectionProvenance, materialProvenance, diagnostics);
+            anchorNodeTagByLevel, sectionProvenance, materialProvenance, diagnostics);
     }
 
     static MultiStoryColumnShellAssemblyResult Empty(IReadOnlyList<FemValidationDiagnostic> diagnostics) =>

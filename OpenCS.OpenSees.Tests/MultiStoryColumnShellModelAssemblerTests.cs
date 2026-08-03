@@ -117,6 +117,87 @@ public sealed class MultiStoryColumnShellModelAssemblerTests
             Assert.All(section.Materials, material => Assert.True(material.Tag > shellMaxMaterialTag)));
     }
 
+    [Fact]
+    public void Assemble_ResolvesAnchorNodeTagsAndBuildsBeamElementsBetweenLevels()
+    {
+        var levels = ThreeLevelSnapshots();
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+        var materials = CrossSectionFixtures.Materials(concrete, steel);
+        var segments = new List<ColumnSegment>
+        {
+            new() { Id = "seg-1", Section = section, GJ = 1000 },
+            new() { Id = "seg-2", Section = section, GJ = 1000 }
+        };
+
+        var result = MultiStoryColumnShellModelAssembler.Assemble(
+            levels, segments, ColumnBaseFixity.None, "PDelta", "forceBeamColumn",
+            new ConcreteOnlyResolver(), CalcType.C, id => materials.GetValueOrDefault(id));
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+        Assert.Equal(3, result.AnchorNodeTagByLevel.Count);
+        int anchor1 = result.AnchorNodeTagByLevel["level-1"];
+        int anchor2 = result.AnchorNodeTagByLevel["level-2"];
+        int anchor3 = result.AnchorNodeTagByLevel["level-3"];
+        Assert.Equal(2, result.Model.NonlinearBeamElements.Count);
+        Assert.Contains(result.Model.NonlinearBeamElements,
+            beam => beam.NodeI == anchor1 && beam.NodeJ == anchor2);
+        Assert.Contains(result.Model.NonlinearBeamElements,
+            beam => beam.NodeI == anchor2 && beam.NodeJ == anchor3);
+        // Новых узлов у колонны не создаётся — концы сегментов совпадают с anchor-узлами уровней.
+        Assert.Equal(18, result.Model.Nodes.Count);
+    }
+
+    [Fact]
+    public void Assemble_FixedBaseSupportFixesAllSixDofsOnBottomAnchorNode()
+    {
+        var levels = ThreeLevelSnapshots();
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+        var materials = CrossSectionFixtures.Materials(concrete, steel);
+        var segments = new List<ColumnSegment>
+        {
+            new() { Id = "seg-1", Section = section, GJ = 1000 },
+            new() { Id = "seg-2", Section = section, GJ = 1000 }
+        };
+
+        var result = MultiStoryColumnShellModelAssembler.Assemble(
+            levels, segments, ColumnBaseFixity.Fixed, "PDelta", "forceBeamColumn",
+            new ConcreteOnlyResolver(), CalcType.C, id => materials.GetValueOrDefault(id));
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+        int bottomAnchor = result.AnchorNodeTagByLevel["level-1"];
+        var bottomNode = result.Model.Nodes.Single(node => node.Tag == bottomAnchor);
+        Assert.All(bottomNode.Fixed, flag => Assert.True(flag));
+        int topAnchor = result.AnchorNodeTagByLevel["level-3"];
+        var topNode = result.Model.Nodes.Single(node => node.Tag == topAnchor);
+        Assert.All(topNode.Fixed, flag => Assert.False(flag));
+    }
+
+    [Fact]
+    public void Assemble_ReportsMissingAnchorNode()
+    {
+        var levels = ThreeLevelSnapshots();
+        // Убираем ConstraintMappings у первого уровня -> anchor не резолвится. ConstraintMappings
+        // init-only (PlanarMeshSnapshot — обычный класс, не record) -> пересобираем snapshot целиком.
+        var withoutAnchor = new PlanarMeshSnapshot
+        {
+            Id = levels[0].Snapshot.Id,
+            RegionId = levels[0].Snapshot.RegionId,
+            InputFingerprint = levels[0].Snapshot.InputFingerprint,
+            IsCalculable = levels[0].Snapshot.IsCalculable,
+            Nodes = levels[0].Snapshot.Nodes,
+            Elements = levels[0].Snapshot.Elements,
+            ConstraintMappings = []
+        };
+        levels[0] = (levels[0].Level, withoutAnchor);
+
+        var result = MultiStoryColumnShellModelAssembler.Assemble(
+            levels, [], ColumnBaseFixity.None, "PDelta", "forceBeamColumn",
+            new ConcreteOnlyResolver());
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "multistory_column_anchor_node_missing");
+    }
+
     // --- fixtures (переиспользуются в Tasks 6-9) ---
 
     internal static (ColumnFloorLevel Level, PlanarMeshSnapshot Snapshot)[] ThreeLevelSnapshots() =>
