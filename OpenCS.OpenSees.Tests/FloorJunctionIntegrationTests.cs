@@ -74,6 +74,11 @@ public sealed class FloorJunctionIntegrationTests
             // Boundary pipeline: mapped нагрузки сходятся с applied в пределах 0.1%.
             Assert.True(result.BoundaryForceUnbalanceRatio <= 1e-3,
                 $"Boundary unbalance ratio {result.BoundaryForceUnbalanceRatio * 100:F3}% превышает допуск 0.1%.");
+
+            // Gmsh-артефакты: реальный GmshPlanarMesher всегда пишет файлы в каталог,
+            // фиксируемый в Provenance.ArtifactDirectory plate snapshot-а.
+            Assert.False(string.IsNullOrEmpty(result.GmshArtifactDirectory),
+                "Реальный Gmsh-конвейер должен заполнить GmshArtifactDirectory.");
         }
         finally
         {

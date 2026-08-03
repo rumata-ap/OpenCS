@@ -22,6 +22,10 @@ namespace OpenCS.OpenSees.Tests;
 /// его и проверяют результаты.</summary>
 public sealed class FloorJunctionRunnerTests
 {
+    /// <summary>Детерминированный fake каталог Gmsh-артефактов, возвращаемый JunctionFakeMesher
+    /// в Provenance.ArtifactDirectory обеих сторон.</summary>
+    const string FakeGmshArtifactDirectory = @"C:\temp\opencs-floor-junction-fake\plate-artifacts";
+
     [Fact]
     public async Task RunAsync_WithInvalidDomain_ReturnsAssemblyDiagnosticsAndDoesNotRunOpenSees()
     {
@@ -110,6 +114,9 @@ public sealed class FloorJunctionRunnerTests
         Assert.Contains(result.AnalysisDiagnostics, d => d.Contains("floor_junction_analysis_incomplete"));
         Assert.Equal(FragmentAuditVerdict.Invalid, result.AuditReport.Verdict);
         Assert.Equal(1, analysisRunner.CallCount);
+        // Ранний выход на этапе расчёта (после получения snapshots и сборки) не должен
+        // терять каталог Gmsh-артефактов из Provenance plate snapshot-а.
+        Assert.Equal(FakeGmshArtifactDirectory, result.GmshArtifactDirectory);
     }
 
     [Fact]
@@ -142,6 +149,8 @@ public sealed class FloorJunctionRunnerTests
         Assert.NotNull(result.ForceBalance);
         Assert.True(result.ForceBalance!.RelativeUnbalance < 1e-3);
         Assert.NotEmpty(result.ProvenanceMap);
+        // Каталог Gmsh-артефактов берётся из Provenance plate snapshot-а.
+        Assert.Equal(FakeGmshArtifactDirectory, result.GmshArtifactDirectory);
     }
 
     [Fact]
@@ -512,6 +521,12 @@ public sealed class FloorJunctionRunnerTests
                 RegionId = request.Region.Id,
                 InputFingerprint = request.Region.Id == 10 ? "snapshot-a" : "snapshot-b",
                 IsCalculable = true,
+                Provenance = new PlanarMeshProvenance("fake-4.15.2", "fake-generator-v4")
+                {
+                    ArtifactDirectory = isPlate
+                        ? FakeGmshArtifactDirectory
+                        : @"C:\temp\opencs-floor-junction-fake\wall-artifacts"
+                },
                 Nodes = nodes,
                 Elements = elements,
                 ConstraintMappings = constraintMappings,

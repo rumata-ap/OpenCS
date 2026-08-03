@@ -91,6 +91,10 @@ namespace OpenCS.OpenSees.CScore.Fragments
             PlanarMeshSnapshot plateSnapshot = meshing.SideA!;
             PlanarMeshSnapshot wallSnapshot = meshing.SideB!;
             PlanarConnectionMeshMapping mapping = meshing.Mapping!;
+            // Каталог Gmsh-артефактов доступен через plateSnapshot.Provenance.ArtifactDirectory
+            // сразу после получения snapshots: любой последующий ранний выход (включая stale
+            // mapping по ValidateCurrent) должен сохранять путь к уже построенным артефактам.
+            result.GmshArtifactDirectory = plateSnapshot.Provenance?.ArtifactDirectory;
             var currentMappingDiagnostics = PlanarConnectionMapper.ValidateCurrent(
                 fragment.Connection,
                 fragment.PlateRegion,
@@ -105,9 +109,6 @@ namespace OpenCS.OpenSees.CScore.Fragments
                 result.AuditReport = new FloorJunctionAuditReport().Audit(fragment, result);
                 return result;
             }
-            // Provenance snapshot-а (Gmsh/Generator версии) и каталог Gmsh-артефактов доступен
-            // через plateSnapshot.Provenance.ArtifactDirectory.
-            result.GmshArtifactDirectory = plateSnapshot.Provenance?.ArtifactDirectory;
 
             // 3. Assembly двух shell-моделей в одну.
             var resolver = new PlateSectionShellMaterialResolver(

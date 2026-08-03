@@ -318,7 +318,21 @@ namespace CScore.Tests.Planar
         }
 
         [Fact]
-        public void Audit_WithNonFiniteBoundaryForceUnbalanceRatio_ReturnsInvalid()
+        public void Audit_WithBoundaryForceUnbalanceRatioAtTolerance_ReturnsValid()
+        {
+            var fragment = BuildValidFragment();
+            var result = new FloorJunctionResult { FragmentId = 1, IsConverged = true };
+            // Точный допуск 0.1% (1e-3) нарушением не является: порог блокирования — строго >.
+            result.BoundaryForceUnbalanceRatio = 1e-3;
+
+            var report = new FloorJunctionAuditReport().Audit(fragment, result);
+
+            Assert.Equal(FragmentAuditVerdict.Valid, report.Verdict);
+            Assert.Empty(report.Issues);
+        }
+
+        [Fact]
+        public void Audit_WithNonFiniteBoundaryForceUnbalanceRatio_ReturnsInvalidWithNonFiniteMessage()
         {
             var fragment = BuildValidFragment();
             var result = new FloorJunctionResult { FragmentId = 1, IsConverged = true };
@@ -327,7 +341,22 @@ namespace CScore.Tests.Planar
             var report = new FloorJunctionAuditReport().Audit(fragment, result);
 
             Assert.Equal(FragmentAuditVerdict.Invalid, report.Verdict);
-            Assert.Contains(report.Issues, issue => issue.Contains("Невязка mapping внешней границы"));
+            Assert.Contains(report.Issues,
+                issue => issue == "Невязка mapping внешней границы не является конечной.");
+        }
+
+        [Fact]
+        public void Audit_WithInfiniteBoundaryForceUnbalanceRatio_ReturnsInvalidWithNonFiniteMessage()
+        {
+            var fragment = BuildValidFragment();
+            var result = new FloorJunctionResult { FragmentId = 1, IsConverged = true };
+            result.BoundaryForceUnbalanceRatio = double.PositiveInfinity;
+
+            var report = new FloorJunctionAuditReport().Audit(fragment, result);
+
+            Assert.Equal(FragmentAuditVerdict.Invalid, report.Verdict);
+            Assert.Contains(report.Issues,
+                issue => issue == "Невязка mapping внешней границы не является конечной.");
         }
 
         [Fact]

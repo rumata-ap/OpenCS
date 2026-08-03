@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Globalization;
 
 namespace CScore.Planar.Fragments
 {
@@ -39,8 +38,9 @@ namespace CScore.Planar.Fragments
                 report.Issues.Add($"Расчёт: {diagnostic}");
             if (!result.IsConverged)
                 report.Issues.Add("Нелинейный расчёт не достиг полной нагрузки.");
-            if (!double.IsFinite(result.BoundaryForceUnbalanceRatio) ||
-                result.BoundaryForceUnbalanceRatio > 1e-3)
+            if (!double.IsFinite(result.BoundaryForceUnbalanceRatio))
+                report.Issues.Add("Невязка mapping внешней границы не является конечной.");
+            else if (result.BoundaryForceUnbalanceRatio > 1e-3)
                 report.Issues.Add(
                     $"Невязка mapping внешней границы {FormatUnbalance(result.BoundaryForceUnbalanceRatio)} " +
                     $"превышает допуск 0.1%.");
@@ -51,8 +51,6 @@ namespace CScore.Planar.Fragments
             return report;
         }
 
-        static string FormatUnbalance(double ratio) => double.IsFinite(ratio)
-            ? $"{ratio * 100:F2}%"
-            : ratio.ToString(CultureInfo.InvariantCulture);
+        static string FormatUnbalance(double ratio) => $"{ratio * 100:F2}%";
     }
 }
