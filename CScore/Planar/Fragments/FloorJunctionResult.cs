@@ -56,7 +56,9 @@ namespace CScore.Planar.Fragments
         /// <summary>Junction-пары в assembly tags (plate master, wall slave).</summary>
         public List<(int PlateNodeTag, int WallNodeTag)> JunctionPairs { get; set; } = new List<(int, int)>();
 
-        /// <summary>Итоговый отчёт аудита результата (по умолчанию нерасчётный Valid).</summary>
-        public FloorJunctionAuditReport AuditReport { get; set; } = new FloorJunctionAuditReport();
+        /// <summary>Итоговый отчёт аудита результата. По умолчанию Verdict=Invalid и не содержит
+        /// замечаний; Valid выставляется только методом <c>Audit</c> для чистых и сошедшихся результатов.</summary>
+        public FloorJunctionAuditReport AuditReport { get; set; } =
+            new FloorJunctionAuditReport { Verdict = FragmentAuditVerdict.Invalid };
     }
 }

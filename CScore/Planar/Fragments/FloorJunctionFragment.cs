@@ -93,8 +93,7 @@ namespace CScore.Planar.Fragments
                         $"Boundary '{boundary.Id}' ссылается на junction mapping как на cut boundary."));
             }
 
-            var templateKeys = BoundaryTemplates?.Keys ??
-                new Dictionary<string, PlanarBoundaryActionSet>().Keys;
+            var templateKeys = BoundaryTemplates?.Keys ?? Enumerable.Empty<string>();
             foreach (var boundary in Boundaries ?? new List<FloorJunctionBoundary>())
             {
                 if (boundary is null || string.IsNullOrWhiteSpace(boundary.Id)) continue;
@@ -140,8 +139,9 @@ namespace CScore.Planar.Fragments
                 MeshSettingsFingerprint(plateMeshSettings),
                 MeshSettingsFingerprint(wallMeshSettings),
                 string.Join(";", (StageConfig?.Stages ?? new List<FragmentStage>()).Select(stage =>
-                    $"{stage.StageIndex}:{Fmt(stage.SurfaceLoadScale)}:{Fmt(stage.CutInterfaceScale)}:" +
-                    $"{stage.Solver?.Algorithm ?? string.Empty}:{stage.Solver?.MaxIterations ?? 0}"))
+                    $"{stage.StageIndex}:{stage.Name ?? string.Empty}:" +
+                    $"{Fmt(stage.SurfaceLoadScale)}:{Fmt(stage.CutInterfaceScale)}:" +
+                    SolverFingerprint(stage.Solver)))
             };
 
             byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("|", values)));
@@ -171,7 +171,27 @@ namespace CScore.Planar.Fragments
                 section.NLayers.ToString(CultureInfo.InvariantCulture),
                 section.ConcreteMaterialId.ToString(CultureInfo.InvariantCulture),
                 section.RebarMaterialId.ToString(CultureInfo.InvariantCulture),
+                section.TensionConcrete ? "1" : "0",
+                section.SofteningModel,
+                Fmt(section.SofteningEpsC2),
+                section.PlateModel,
+                section.ConcreteDiagramType.ToString(),
                 string.Join(";", rebar)
+            });
+        }
+
+        static string SolverFingerprint(SolverParameters? solver)
+        {
+            if (solver is null) return "null";
+            return string.Join(":", new[]
+            {
+                solver.Algorithm ?? string.Empty,
+                Fmt(solver.EnergyTolerance),
+                Fmt(solver.UnbalanceTolerance),
+                solver.MaxIterations.ToString(CultureInfo.InvariantCulture),
+                Fmt(solver.InitialStep),
+                Fmt(solver.MinStep),
+                Fmt(solver.MaxStep)
             });
         }
 

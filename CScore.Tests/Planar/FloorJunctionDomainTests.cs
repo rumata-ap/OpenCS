@@ -295,6 +295,15 @@ namespace CScore.Tests.Planar
         }
 
         [Fact]
+        public void Result_DefaultAuditReportIsNotValid()
+        {
+            var result = new FloorJunctionResult { FragmentId = 1 };
+
+            Assert.Equal(FragmentAuditVerdict.Invalid, result.AuditReport.Verdict);
+            Assert.Empty(result.AuditReport.Issues);
+        }
+
+        [Fact]
         public void GetFingerprint_IsDeterministic()
         {
             var fragment = BuildValidFragment();
@@ -357,6 +366,137 @@ namespace CScore.Tests.Planar
                 fragment.BoundaryTemplates[key] = templates[key];
 
             Assert.Equal(ordered, fragment.GetFingerprint(settings, settings));
+        }
+
+        [Fact]
+        public void GetFingerprint_ChangesWhenSectionConstitutiveParametersChange()
+        {
+            var fragment = BuildValidFragment();
+            var settings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed);
+            var baseline = fragment.GetFingerprint(settings, settings);
+
+            // TensionConcrete
+            fragment.PlateSection.TensionConcrete = true;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            fragment.PlateSection.TensionConcrete = false;
+
+            // SofteningModel
+            fragment.PlateSection.SofteningModel = "vecchio_collins";
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            fragment.PlateSection.SofteningModel = "";
+
+            // SofteningEpsC2
+            fragment.PlateSection.SofteningEpsC2 = 0.0025;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            fragment.PlateSection.SofteningEpsC2 = 0.002;
+
+            // PlateModel
+            fragment.PlateSection.PlateModel = "char1d_principal";
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            fragment.PlateSection.PlateModel = "layered";
+
+            // ConcreteDiagramType
+            fragment.PlateSection.ConcreteDiagramType = DiagrammType.L2;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+        }
+
+        [Fact]
+        public void GetFingerprint_ChangesWhenWallSectionConstitutiveParametersChange()
+        {
+            var fragment = BuildValidFragment();
+            var settings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed);
+            var baseline = fragment.GetFingerprint(settings, settings);
+
+            fragment.WallSection.SofteningModel = "vecchio_collins";
+
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+        }
+
+        [Fact]
+        public void GetFingerprint_ChangesWhenStageParametersChange()
+        {
+            var fragment = BuildValidFragment();
+            var settings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed);
+            var baseline = fragment.GetFingerprint(settings, settings);
+            var stage = fragment.StageConfig.Stages[0];
+
+            // StageIndex
+            stage.StageIndex = 2;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            stage.StageIndex = 1;
+
+            // Name
+            stage.Name = "Renamed stage";
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            stage.Name = "Full Monotonic Stage";
+
+            // SurfaceLoadScale
+            stage.SurfaceLoadScale = 0.75;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            stage.SurfaceLoadScale = 1.0;
+
+            // CutInterfaceScale
+            stage.CutInterfaceScale = 0.5;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            stage.CutInterfaceScale = 1.0;
+        }
+
+        [Fact]
+        public void GetFingerprint_ChangesWhenSolverParametersChange()
+        {
+            var fragment = BuildValidFragment();
+            var settings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed);
+            var baseline = fragment.GetFingerprint(settings, settings);
+            var solver = fragment.StageConfig.Stages[0].Solver;
+
+            // Algorithm
+            solver.Algorithm = "Newton";
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            solver.Algorithm = "NewtonWithLineSearch";
+
+            // EnergyTolerance
+            solver.EnergyTolerance = 1e-7;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            solver.EnergyTolerance = 1e-6;
+
+            // UnbalanceTolerance
+            solver.UnbalanceTolerance = 1e-5;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            solver.UnbalanceTolerance = 1e-4;
+
+            // MaxIterations
+            solver.MaxIterations = 50;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            solver.MaxIterations = 40;
+
+            // InitialStep
+            solver.InitialStep = 0.05;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            solver.InitialStep = 0.1;
+
+            // MinStep
+            solver.MinStep = 1e-6;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            solver.MinStep = 1e-5;
+
+            // MaxStep
+            solver.MaxStep = 0.1;
+            Assert.NotEqual(baseline, fragment.GetFingerprint(settings, settings));
+            solver.MaxStep = 0.2;
+        }
+
+        [Fact]
+        public void GetFingerprint_NullSolverIsHandledDeterministically()
+        {
+            var fragment = BuildValidFragment();
+            fragment.StageConfig.Stages[0].Solver = null!;
+            var settings = new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed);
+
+            var first = fragment.GetFingerprint(settings, settings);
+            var second = fragment.GetFingerprint(settings, settings);
+
+            Assert.Equal(first, second);
+            Assert.NotEmpty(first);
         }
 
         [Fact]
