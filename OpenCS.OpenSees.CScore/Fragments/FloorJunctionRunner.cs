@@ -6,8 +6,13 @@ using System.Threading.Tasks;
 using CScore;
 using CScore.Planar;
 using CScore.Planar.Fragments;
+using OpenCS.OpenSees.Artifacts;
 using OpenCS.OpenSees.Audit;
+using OpenCS.OpenSees.Results;
+using OpenCS.OpenSees.Runtime;
 using OpenCS.OpenSees.Structural;
+using OpenCS.OpenSees.Tcl;
+using ShellResult = OpenCS.OpenSees.Structural.ShellResult;
 
 namespace OpenCS.OpenSees.CScore.Fragments
 {
@@ -249,10 +254,119 @@ namespace OpenCS.OpenSees.CScore.Fragments
                 return result;
             }
 
-            // 7-10: нелинейный прогон и result checks реализуются в Task 11.
-            result.IsConverged = false;
-            result.AnalysisDiagnostics =
-                ["floor_junction_analysis_incomplete: шаг анализа реализуется в Task 11."];
+            // 7. ShellAnalysisRunner (инъецируемый; default — concrete ShellAnalysisRunner).
+            IShellAnalysisRunner runner = _analysisRunner ?? new ShellAnalysisRunner(
+                new ShellTclGenerator(),
+                new OpenSeesArtifactStore(
+                    System.IO.Path.Combine(System.IO.Path.GetTempPath(), "opencs-floor-junction-artifacts")),
+                new OpenSeesProcessRunner(),
+                new ShellResultParser(),
+                TimeSpan.FromSeconds(120));
+            ShellAnalysisRunResult run = await runner.RunAsync(
+                model, openSeesExecutablePath, cancellationToken);
+            if (run.Outcome != ShellAnalysisOutcome.Completed)
+            {
+                result.IsConverged = false;
+                result.AnalysisDiagnostics = [run.ErrorMessage ?? $"OpenSees outcome: {run.Outcome}."];
+                result.AuditReport = new FloorJunctionAuditReport().Audit(fragment, result);
+                return result;
+            }
+            result.OpenSeesArtifactDirectory = run.ArtifactDirectory;
+            ShellResult shellResult = run.Result!;
+
+            // 8. Последний сошедшийся шаг полной нагрузки (последняя стадия + LoadFactor == 1.0).
+            //    Отсутствие сошедшихся шагов — блокирующая диагностика, не исключение.
+            RCShellStepResult? lastStep = shellResult.Steps.LastOrDefault(step => step.Converged);
+            int lastStageIndex = fragment.StageConfig.Stages.Count - 1;
+            if (lastStep is null)
+            {
+                result.IsConverged = false;
+                result.AnalysisDiagnostics =
+                    ["floor_junction_analysis_incomplete: ни один шаг нелинейного расчёта не сошёлся."];
+                result.AuditReport = new FloorJunctionAuditReport().Audit(fragment, result);
+                return result;
+            }
+            result.IsConverged = lastStep.StageIndex == lastStageIndex &&
+                Math.Abs(lastStep.LoadFactor - 1.0) < 1e-6;
+            if (!result.IsConverged)
+            {
+                result.AnalysisDiagnostics =
+                [
+                    $"floor_junction_analysis_incomplete: последний сошедшийся шаг — стадия " +
+                    $"{lastStep.StageIndex + 1} из {fragment.StageConfig.Stages.Count}, " +
+                    $"LoadFactor={lastStep.LoadFactor:F3}."
+                ];
+                result.AuditReport = new FloorJunctionAuditReport().Audit(fragment, result);
+                return result;
+            }
+
+            // 9. Result checks: interface continuity (1e-6 м / 1e-6 рад) и force balance (relative 1e-3).
+            const double continuityToleranceM = 1e-6;
+            const double continuityToleranceRad = 1e-6;
+            var continuityItems = new List<InterfaceContinuityItem>();
+            var continuityDiagnostics = new List<string>();
+            foreach ((int plateNodeTag, int wallNodeTag) in assembled.JunctionPairs)
+            {
+                ShellNodeDisplacement? plateDisp = lastStep.Displacements
+                    .FirstOrDefault(item => item.NodeTag == plateNodeTag);
+                ShellNodeDisplacement? wallDisp = lastStep.Displacements
+                    .FirstOrDefault(item => item.NodeTag == wallNodeTag);
+                // Отсутствующая запись перемещений — блокирующая диагностика расчёта,
+                // а не необработанное First()-исключение.
+                if (plateDisp is null || wallDisp is null)
+                {
+                    continuityDiagnostics.Add(
+                        $"floor_junction_analysis_incomplete: отсутствуют перемещения узлов " +
+                        $"junction-пары {plateNodeTag}->{wallNodeTag}.");
+                    continue;
+                }
+                double dU = Math.Max(Math.Abs(plateDisp.Ux - wallDisp.Ux),
+                    Math.Max(Math.Abs(plateDisp.Uy - wallDisp.Uy), Math.Abs(plateDisp.Uz - wallDisp.Uz)));
+                double dR = Math.Max(Math.Abs(plateDisp.Rx - wallDisp.Rx),
+                    Math.Max(Math.Abs(plateDisp.Ry - wallDisp.Ry), Math.Abs(plateDisp.Rz - wallDisp.Rz)));
+                continuityItems.Add(new InterfaceContinuityItem(plateNodeTag, wallNodeTag, dU, dR));
+                if (dU > continuityToleranceM || dR > continuityToleranceRad)
+                    continuityDiagnostics.Add(
+                        $"floor_junction_interface_continuity_failed: пара {plateNodeTag}->{wallNodeTag}: " +
+                        $"|ΔU|={dU:G6} м, |ΔR|={dR:G6} рад.");
+            }
+            result.InterfaceContinuity = continuityItems;
+            if (continuityDiagnostics.Count > 0)
+            {
+                result.IsConverged = false;
+                result.AnalysisDiagnostics = continuityDiagnostics;
+                result.AuditReport = new FloorJunctionAuditReport().Audit(fragment, result);
+                return result;
+            }
+
+            var lastStage = model.Stages[lastStep.StageIndex];
+            double loadFx = lastStage.Loads.Sum(load => load.Fx);
+            double loadFy = lastStage.Loads.Sum(load => load.Fy);
+            double loadFz = lastStage.Loads.Sum(load => load.Fz);
+            double rx = lastStep.Reactions.Sum(reaction => reaction.Fx);
+            double ry = lastStep.Reactions.Sum(reaction => reaction.Fy);
+            double rz = lastStep.Reactions.Sum(reaction => reaction.Fz);
+            double appliedMagnitude = Math.Sqrt(loadFx * loadFx + loadFy * loadFy + loadFz * loadFz);
+            double reactionMagnitude = Math.Sqrt(rx * rx + ry * ry + rz * rz);
+            double delta = Math.Sqrt((rx - loadFx) * (rx - loadFx) +
+                                     (ry - loadFy) * (ry - loadFy) +
+                                     (rz - loadFz) * (rz - loadFz));
+            double unbalance = delta / Math.Max(1.0, appliedMagnitude);
+            // ForceBalance записывается даже при нарушении баланса — результат для аудита и UI.
+            result.ForceBalance = new FloorJunctionForceBalance(appliedMagnitude, reactionMagnitude, unbalance);
+            if (unbalance > 1e-3)
+            {
+                result.IsConverged = false;
+                result.AnalysisDiagnostics =
+                [
+                    $"floor_junction_force_balance_failed: невязка {unbalance * 100:F2}% превышает допуск 0.1% " +
+                    $"(приложено {appliedMagnitude:G6}, реакции {reactionMagnitude:G6})."
+                ];
+                result.AuditReport = new FloorJunctionAuditReport().Audit(fragment, result);
+                return result;
+            }
+
+            // 10. Аудит.
             result.AuditReport = new FloorJunctionAuditReport().Audit(fragment, result);
             return result;
         }

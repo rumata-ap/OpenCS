@@ -90,6 +90,164 @@ public sealed class FloorJunctionRunnerTests
         Assert.Empty(result.BoundaryDiagnostics);
     }
 
+    [Fact]
+    public async Task RunAsync_WithIncompleteLoadFactor_ReportsAnalysisIncompleteAndInvalidAudit()
+    {
+        var fragment = BuildJunctionFragment();
+        var mesher = new JunctionFakeMesher();
+        var analysisRunner = new FakeAnalysisRunner(_ => CompletedResult(0.5, [], []));
+
+        var result = await new FloorJunctionRunner(analysisRunner).RunAsync(
+            fragment, mesher, Settings(), Settings(), LookupMaterial,
+            CalcType.C, "unused.exe", CancellationToken.None);
+
+        Assert.False(result.IsConverged);
+        Assert.Contains(result.AnalysisDiagnostics, d => d.Contains("floor_junction_analysis_incomplete"));
+        Assert.Equal(FragmentAuditVerdict.Invalid, result.AuditReport.Verdict);
+        Assert.Equal(1, analysisRunner.CallCount);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithFullLoadAndConsistentResults_ConvergesAndPassesChecks()
+    {
+        var fragment = BuildJunctionFragment();
+        var mesher = new JunctionFakeMesher();
+        var analysisRunner = new FakeAnalysisRunner(model =>
+        {
+            // Все узлы — нулевые перемещения (continuity ок), реакции = нагрузки (balance ок).
+            var displacements = model.Nodes
+                .Select(node => new ShellNodeDisplacement(node.Tag, 0, 0, 0, 0, 0, 0)).ToList();
+            var reactions = model.Stages[0].Loads
+                .Select(load => new ShellNodeReaction(load.NodeTag, load.Fx, load.Fy, load.Fz, 0, 0, 0))
+                .ToList();
+            return CompletedResult(1.0, displacements, reactions);
+        });
+
+        var result = await new FloorJunctionRunner(analysisRunner).RunAsync(
+            fragment, mesher, Settings(), Settings(), LookupMaterial,
+            CalcType.C, "unused.exe", CancellationToken.None);
+
+        Assert.True(result.IsConverged);
+        Assert.Empty(result.AnalysisDiagnostics);
+        Assert.Equal(FragmentAuditVerdict.Valid, result.AuditReport.Verdict);
+        Assert.NotEmpty(result.InterfaceContinuity);
+        Assert.NotNull(result.ForceBalance);
+        Assert.True(result.ForceBalance!.RelativeUnbalance < 1e-3);
+        Assert.NotEmpty(result.ProvenanceMap);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithInterfaceContinuityViolation_ReportsContinuityFailed()
+    {
+        var fragment = BuildJunctionFragment();
+        var mesher = new JunctionFakeMesher();
+        var analysisRunner = new FakeAnalysisRunner(model =>
+        {
+            // Пара (6, 11): wall-узел 11 сдвинут на 0.01 м по Uz относительно plate-узла 6.
+            var displacements = model.Nodes
+                .Select(node => node.Tag == 11
+                    ? new ShellNodeDisplacement(11, 0, 0, 0.01, 0, 0, 0)
+                    : new ShellNodeDisplacement(node.Tag, 0, 0, 0, 0, 0, 0)).ToList();
+            var reactions = model.Stages[0].Loads
+                .Select(load => new ShellNodeReaction(load.NodeTag, load.Fx, load.Fy, load.Fz, 0, 0, 0))
+                .ToList();
+            return CompletedResult(1.0, displacements, reactions);
+        });
+
+        var result = await new FloorJunctionRunner(analysisRunner).RunAsync(
+            fragment, mesher, Settings(), Settings(), LookupMaterial,
+            CalcType.C, "unused.exe", CancellationToken.None);
+
+        Assert.False(result.IsConverged);
+        Assert.Contains(result.AnalysisDiagnostics, d => d.Contains("floor_junction_interface_continuity_failed"));
+        Assert.Equal(FragmentAuditVerdict.Invalid, result.AuditReport.Verdict);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithForceBalanceViolation_ReportsBalanceFailed()
+    {
+        var fragment = BuildJunctionFragment();
+        var mesher = new JunctionFakeMesher();
+        var analysisRunner = new FakeAnalysisRunner(model =>
+        {
+            // Пустые реакции -> суммарная невязка равна всей нагрузке -> баланс нарушен.
+            var displacements = model.Nodes
+                .Select(node => new ShellNodeDisplacement(node.Tag, 0, 0, 0, 0, 0, 0)).ToList();
+            return CompletedResult(1.0, displacements, []);
+        });
+
+        var result = await new FloorJunctionRunner(analysisRunner).RunAsync(
+            fragment, mesher, Settings(), Settings(), LookupMaterial,
+            CalcType.C, "unused.exe", CancellationToken.None);
+
+        Assert.False(result.IsConverged);
+        Assert.Contains(result.AnalysisDiagnostics, d => d.Contains("floor_junction_force_balance_failed"));
+        Assert.Equal(FragmentAuditVerdict.Invalid, result.AuditReport.Verdict);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithExecutionFailure_ReturnsAnalysisDiagnostics()
+    {
+        var fragment = BuildJunctionFragment();
+        var mesher = new JunctionFakeMesher();
+        var analysisRunner = new FakeAnalysisRunner(_ => new ShellAnalysisRunResult(
+            ShellAnalysisOutcome.ExecutionFailed, null, null, "OpenSees crashed"));
+
+        var result = await new FloorJunctionRunner(analysisRunner).RunAsync(
+            fragment, mesher, Settings(), Settings(), LookupMaterial,
+            CalcType.C, "unused.exe", CancellationToken.None);
+
+        Assert.False(result.IsConverged);
+        Assert.NotEmpty(result.AnalysisDiagnostics);
+        Assert.Contains(result.AnalysisDiagnostics, d => d.Contains("OpenSees crashed"));
+        Assert.Equal(1, analysisRunner.CallCount);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithoutConvergedSteps_ReturnsBlockingAnalysisDiagnosticAndDoesNotThrow()
+    {
+        var fragment = BuildJunctionFragment();
+        var mesher = new JunctionFakeMesher();
+        var analysisRunner = new FakeAnalysisRunner(_ => NotConvergedResult());
+
+        var result = await new FloorJunctionRunner(analysisRunner).RunAsync(
+            fragment, mesher, Settings(), Settings(), LookupMaterial,
+            CalcType.C, "unused.exe", CancellationToken.None);
+
+        Assert.False(result.IsConverged);
+        Assert.Contains(result.AnalysisDiagnostics, d => d.Contains("floor_junction_analysis_incomplete"));
+        Assert.Equal(FragmentAuditVerdict.Invalid, result.AuditReport.Verdict);
+        Assert.Equal(1, analysisRunner.CallCount);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithMissingDisplacementRecord_ReturnsBlockingAnalysisDiagnostic()
+    {
+        var fragment = BuildJunctionFragment();
+        var mesher = new JunctionFakeMesher();
+        var analysisRunner = new FakeAnalysisRunner(model =>
+        {
+            // Записи перемещений есть только для plate-узлов (tag <= 6) — у wall-узлов
+            // junction-пар (10, 11) записей нет, First() должен стать диагностикой, а не исключением.
+            var displacements = model.Nodes
+                .Where(node => node.Tag <= 6)
+                .Select(node => new ShellNodeDisplacement(node.Tag, 0, 0, 0, 0, 0, 0)).ToList();
+            var reactions = model.Stages[0].Loads
+                .Select(load => new ShellNodeReaction(load.NodeTag, load.Fx, load.Fy, load.Fz, 0, 0, 0))
+                .ToList();
+            return CompletedResult(1.0, displacements, reactions);
+        });
+
+        var result = await new FloorJunctionRunner(analysisRunner).RunAsync(
+            fragment, mesher, Settings(), Settings(), LookupMaterial,
+            CalcType.C, "unused.exe", CancellationToken.None);
+
+        Assert.False(result.IsConverged);
+        Assert.Contains(result.AnalysisDiagnostics, d => d.Contains("floor_junction_analysis_incomplete"));
+        Assert.Equal(FragmentAuditVerdict.Invalid, result.AuditReport.Verdict);
+        Assert.Equal(1, analysisRunner.CallCount);
+    }
+
     // --- fixtures (общие для Task 10 и 11) ---
 
     static (Material Concrete, Material Rebar) Materials() =>
@@ -123,6 +281,21 @@ public sealed class FloorJunctionRunnerTests
             ],
             Displacements = displacements,
             Reactions = reactions
+        },
+        @"C:\temp\fake-artifacts",
+        null);
+
+    static ShellAnalysisRunResult NotConvergedResult() => new(
+        ShellAnalysisOutcome.Completed,
+        new ShellResult
+        {
+            Status = "completed",
+            Steps =
+            [
+                new RCShellStepResult(0, 0, 0.5, false, [], [], [], [], [])
+            ],
+            Displacements = [],
+            Reactions = []
         },
         @"C:\temp\fake-artifacts",
         null);
