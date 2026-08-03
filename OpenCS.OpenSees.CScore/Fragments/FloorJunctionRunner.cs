@@ -339,10 +339,27 @@ namespace OpenCS.OpenSees.CScore.Fragments
                 return result;
             }
 
-            var lastStage = model.Stages[lastStep.StageIndex];
-            double loadFx = lastStage.Loads.Sum(load => load.Fx);
-            double loadFy = lastStage.Loads.Sum(load => load.Fy);
-            double loadFz = lastStage.Loads.Sum(load => load.Fz);
+            // Приложенная нагрузка финального шага — это сумма всех активных стадий:
+            // завершённые стадии вносят MaxLoadFactor, текущая стадия — текущий LoadFactor
+            // (та же семантика, что у ShellEquilibriumAuditor.AppliedResultAtStep). Только
+            // нагрузка последней стадии давала ложный баланс при многостадийном нагружении.
+            if (lastStep.StageIndex < 0 || lastStep.StageIndex >= model.Stages.Count)
+            {
+                result.IsConverged = false;
+                result.AnalysisDiagnostics =
+                [
+                    $"floor_junction_analysis_incomplete: шаг ссылается на несуществующую стадию " +
+                    $"{lastStep.StageIndex + 1} из {model.Stages.Count}."
+                ];
+                result.AuditReport = new FloorJunctionAuditReport().Audit(fragment, result);
+                return result;
+            }
+            var nodesByTag = model.Nodes.ToDictionary(node => node.Tag);
+            ShellResultant appliedResultant = ShellEquilibriumAuditor.AppliedResultantAtStep(
+                model.Stages, lastStep.StageIndex, lastStep.LoadFactor, nodesByTag);
+            double loadFx = appliedResultant.Fx;
+            double loadFy = appliedResultant.Fy;
+            double loadFz = appliedResultant.Fz;
             double rx = lastStep.Reactions.Sum(reaction => reaction.Fx);
             double ry = lastStep.Reactions.Sum(reaction => reaction.Fy);
             double rz = lastStep.Reactions.Sum(reaction => reaction.Fz);

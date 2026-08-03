@@ -84,10 +84,14 @@ public sealed class FloorJunctionRunnerTests
             fragment, mesher, Settings(), Settings(), LookupMaterial,
             CalcType.C, "unused.exe", CancellationToken.None);
 
-        // Шаг анализа реализуется в Task 11 — здесь важен только preflight без ошибок.
+        // Preflight-диагностики пусты, анализ запущен ровно один раз. Fake возвращает пустые
+        // записи перемещений, поэтому результат анализа неполон (blocking diagnostic), а не
+        // ошибочно «сходится».
         Assert.Empty(result.MeshDiagnostics);
         Assert.Empty(result.AssemblyDiagnostics);
         Assert.Empty(result.BoundaryDiagnostics);
+        Assert.Equal(1, analysisRunner.CallCount);
+        Assert.Contains(result.AnalysisDiagnostics, d => d.Contains("floor_junction_analysis_incomplete"));
     }
 
     [Fact]
@@ -137,13 +141,46 @@ public sealed class FloorJunctionRunnerTests
     }
 
     [Fact]
+    public async Task RunAsync_WithTwoStages_BalancesLoadsAcrossAllStages()
+    {
+        var fragment = BuildJunctionFragment();
+        fragment.StageConfig = FragmentStageConfig.CreateDefault2Stage();
+        var mesher = new JunctionFakeMesher();
+        var analysisRunner = new FakeAnalysisRunner(model =>
+        {
+            // Финальный шаг — стадия 2 (индекс 1) при полной нагрузке. Реакции равны
+            // суммарной нагрузке ОБЕИХ стадий (stage 1 + stage 2); код, берущий только
+            // model.Stages[lastStep.StageIndex].Loads, сравнил бы их лишь с нагрузкой
+            // стадии 2 и дал бы невязку (баг фиксируется регрессионным тестом).
+            var displacements = model.Nodes
+                .Select(node => new ShellNodeDisplacement(node.Tag, 0, 0, 0, 0, 0, 0)).ToList();
+            var reactions = model.Stages
+                .SelectMany(stage => stage.Loads)
+                .Select(load => new ShellNodeReaction(load.NodeTag, load.Fx, load.Fy, load.Fz, 0, 0, 0))
+                .ToList();
+            return CompletedResult(1.0, displacements, reactions, stageIndex: 1);
+        });
+
+        var result = await new FloorJunctionRunner(analysisRunner).RunAsync(
+            fragment, mesher, Settings(), Settings(), LookupMaterial,
+            CalcType.C, "unused.exe", CancellationToken.None);
+
+        Assert.True(result.IsConverged);
+        Assert.Empty(result.AnalysisDiagnostics);
+        Assert.Equal(FragmentAuditVerdict.Valid, result.AuditReport.Verdict);
+        Assert.NotEmpty(result.InterfaceContinuity);
+        Assert.NotNull(result.ForceBalance);
+        Assert.True(result.ForceBalance!.RelativeUnbalance < 1e-3);
+    }
+
+    [Fact]
     public async Task RunAsync_WithInterfaceContinuityViolation_ReportsContinuityFailed()
     {
         var fragment = BuildJunctionFragment();
         var mesher = new JunctionFakeMesher();
         var analysisRunner = new FakeAnalysisRunner(model =>
         {
-            // Пара (6, 11): wall-узел 11 сдвинут на 0.01 м по Uz относительно plate-узла 6.
+            // Пара (5, 11): wall-узел 11 сдвинут на 0.01 м по Uz относительно plate-узла 5.
             var displacements = model.Nodes
                 .Select(node => node.Tag == 11
                     ? new ShellNodeDisplacement(11, 0, 0, 0.01, 0, 0, 0)
@@ -228,7 +265,7 @@ public sealed class FloorJunctionRunnerTests
         var analysisRunner = new FakeAnalysisRunner(model =>
         {
             // Записи перемещений есть только для plate-узлов (tag <= 6) — у wall-узлов
-            // junction-пар (10, 11) записей нет, First() должен стать диагностикой, а не исключением.
+            // junction-пар (11, 12) записей нет, First() должен стать диагностикой, а не исключением.
             var displacements = model.Nodes
                 .Where(node => node.Tag <= 6)
                 .Select(node => new ShellNodeDisplacement(node.Tag, 0, 0, 0, 0, 0, 0)).ToList();
@@ -270,14 +307,15 @@ public sealed class FloorJunctionRunnerTests
     static ShellAnalysisRunResult CompletedResult(
         double loadFactor,
         IReadOnlyList<ShellNodeDisplacement> displacements,
-        IReadOnlyList<ShellNodeReaction> reactions) => new(
+        IReadOnlyList<ShellNodeReaction> reactions,
+        int stageIndex = 0) => new(
         ShellAnalysisOutcome.Completed,
         new ShellResult
         {
             Status = "completed",
             Steps =
             [
-                new RCShellStepResult(0, 0, loadFactor, true, displacements, reactions, [], [], [])
+                new RCShellStepResult(0, stageIndex, loadFactor, true, displacements, reactions, [], [], [])
             ],
             Displacements = displacements,
             Reactions = reactions
