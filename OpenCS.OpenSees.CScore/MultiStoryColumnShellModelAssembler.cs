@@ -204,12 +204,60 @@ public static class MultiStoryColumnShellModelAssembler
         }
         allElements = rewrittenElements;
 
+        // Шаг 3: секции/материалы балочных сегментов колонны через CrossSectionToOpenSeesAdapter —
+        // без дедупа с shell и между сегментами (OpenSeesMaterialDefinition структурно другой тип,
+        // общего дедуп-пула с NativeShellMaterialDefinition нет и быть не может). Теги продолжают
+        // сквозную нумерацию после материалов/секций всех уровней.
+        var nonlinearBeamSections = new Dictionary<int, OpenSeesSectionModel>();
+        var beamSectionTagBySegmentId = new Dictionary<string, int>();
+        int nextBeamMaterialTag = nextMaterialTag;
+        int nextBeamSectionTag = nextSectionTag;
+        foreach (var segment in segments)
+        {
+            var materialIds = segment.Section.Areas.Select(area => area.MaterialId).Distinct();
+            var segmentMaterials = new Dictionary<int, Material>();
+            bool segmentHasMissingMaterial = false;
+            foreach (int materialId in materialIds)
+            {
+                Material? material = lookupMaterial?.Invoke(materialId);
+                if (material is null)
+                {
+                    diagnostics.Add(new("multistory_column_segment_material_missing",
+                        $"Сегмент '{segment.Id}': материал {materialId} не найден."));
+                    segmentHasMissingMaterial = true;
+                    continue;
+                }
+                segmentMaterials[materialId] = material;
+            }
+            // Немедленный выход, а не «continue» по общему diagnostics.Count: локальный флаг
+            // не даёт CrossSectionToOpenSeesAdapter.Build получить неполный materials dictionary
+            // ни для этого, ни (по ошибке) для последующих сегментов — тот же паттерн раннего
+            // выхода, что и у material dependency missing в Task 6.
+            if (segmentHasMissingMaterial) return Empty(diagnostics);
+
+            var options = new CrossSectionToOpenSeesAdapter.Options
+            {
+                GJ = segment.GJ,
+                FirstMaterialTag = nextBeamMaterialTag
+            };
+            OpenSeesSectionModel built = CrossSectionToOpenSeesAdapter.Build(
+                segment.Section, calcType, segmentMaterials, customDiagramPool, options);
+            nextBeamMaterialTag += built.Materials.Count;
+
+            int sectionTag = nextBeamSectionTag++;
+            nonlinearBeamSections[sectionTag] = built;
+            beamSectionTagBySegmentId[segment.Id] = sectionTag;
+            sectionProvenance[sectionTag] = $"column-segment:{segment.Id}|source:{segment.Id}";
+        }
+        if (diagnostics.Count > 0) return Empty(diagnostics);
+
         var model = new ShellOpenSeesModel
         {
             Nodes = allNodes,
             Elements = allElements,
             Materials = finalMaterials,
             Sections = finalSections,
+            NonlinearBeamSections = nonlinearBeamSections,
             NonlinearBeamGeomTransfKind = geomTransfKind,
             NonlinearBeamElementFormulation = elementFormulation
         };

@@ -4,6 +4,7 @@ using CScore.Planar.Fragments;
 using OpenCS.OpenSees.CScore;
 using OpenCS.OpenSees.Model;
 using OpenCS.OpenSees.Structural;
+using OpenCS.OpenSees.Tests.Fixtures;
 using Xunit;
 
 namespace OpenCS.OpenSees.Tests;
@@ -89,6 +90,31 @@ public sealed class MultiStoryColumnShellModelAssemblerTests
         // Одинаковый locally-flat frame (без поворота) на всех уровнях -> одинаковый
         // frame-relative фингерпринт секции.
         return levels;
+    }
+
+    [Fact]
+    public void Assemble_AddsColumnSegmentSectionsWithTagsAfterShellRange()
+    {
+        var levels = ThreeLevelSnapshots();
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+        var materials = CrossSectionFixtures.Materials(concrete, steel);
+        var segments = new List<ColumnSegment>
+        {
+            new() { Id = "seg-1", Section = section, GJ = 1000 },
+            new() { Id = "seg-2", Section = section, GJ = 1000 }
+        };
+
+        var result = MultiStoryColumnShellModelAssembler.Assemble(
+            levels, segments, ColumnBaseFixity.None, "PDelta", "forceBeamColumn",
+            new ConcreteOnlyResolver(), CalcType.C, id => materials.GetValueOrDefault(id));
+
+        Assert.True(result.IsCalculable, Diagnostics(result));
+        Assert.Equal(2, result.Model.NonlinearBeamSections.Count);
+        int shellMaxSectionTag = result.Model.Sections.Count == 0 ? 0 : result.Model.Sections.Max(s => s.Tag);
+        int shellMaxMaterialTag = result.Model.Materials.Count == 0 ? 0 : result.Model.Materials.Max(m => m.Tag);
+        Assert.All(result.Model.NonlinearBeamSections.Keys, tag => Assert.True(tag > shellMaxSectionTag));
+        Assert.All(result.Model.NonlinearBeamSections.Values, section =>
+            Assert.All(section.Materials, material => Assert.True(material.Tag > shellMaxMaterialTag)));
     }
 
     // --- fixtures (переиспользуются в Tasks 6-9) ---
