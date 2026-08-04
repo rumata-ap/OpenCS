@@ -11,6 +11,8 @@ public sealed class ShellSimplParams
     [JsonPropertyName("mx")]   public double Mx { get; set; }
     [JsonPropertyName("my")]   public double My { get; set; }
     [JsonPropertyName("mxy")]  public double Mxy { get; set; }
+    [JsonPropertyName("auto_stress_to_force")]
+    public bool AutoStressToForce { get; set; } = true;
     [JsonPropertyName("step_deg")]    public double StepDeg { get; set; } = 10.0;
     [JsonPropertyName("acrc_lim_mm")] public double AcrcLimMm { get; set; } = 0.3;
     [JsonPropertyName("phi1")] public double Phi1 { get; set; } = 1.0;

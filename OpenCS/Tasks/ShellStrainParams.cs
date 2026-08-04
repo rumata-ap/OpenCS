@@ -12,6 +12,8 @@ public sealed class ShellStrainParams
     [JsonPropertyName("mx")]  public double Mx { get; set; }
     [JsonPropertyName("my")]  public double My { get; set; }
     [JsonPropertyName("mxy")] public double Mxy { get; set; }
+    [JsonPropertyName("auto_stress_to_force")]
+    public bool AutoStressToForce { get; set; } = true;
     [JsonPropertyName("tol_res")] public double TolRes { get; set; } = 1e-3;
     /// <summary>0 — брать из глобальных настроек (NewtonMaxIter).</summary>
     [JsonPropertyName("max_iter")]
