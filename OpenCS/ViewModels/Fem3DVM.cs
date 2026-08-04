@@ -194,6 +194,7 @@ public class Fem3DVM : ViewModelBase
 
     static FemMember ToFemMember(FemElement e) => new()
     {
+        Id = e.Id,
         ElemTag = e.ElemTag, ElemType = e.ElemType, NodeIdsJson = e.NodeIdsJson,
         SectionTag = e.SectionTag, MaterialTag = e.MaterialTag, ThicknessM = e.ThicknessM,
     };
