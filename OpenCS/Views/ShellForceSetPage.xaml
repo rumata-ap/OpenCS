@@ -30,11 +30,11 @@
             </Grid.ColumnDefinitions>
 
             <GroupBox Grid.Column="0" Header="{DynamicResource ShellForceConvertGroupTitle}"
-                      Margin="0,0,8,0" Padding="8,6,8,8" VerticalAlignment="Top">
-               <StackPanel>
+                      Margin="0,0,8,0" Padding="8,6,8,8">
+               <StackPanel VerticalAlignment="Top">
                   <TextBlock Text="{DynamicResource ShellForceThicknessLabel}" Margin="0,0,0,4"/>
                   <TextBox Text="{Binding ThicknessM, UpdateSourceTrigger=PropertyChanged}"
-                           Width="100" HorizontalAlignment="Left"
+                           HorizontalAlignment="Stretch" MinWidth="120"
                            VerticalContentAlignment="Center" Margin="0,0,0,8"/>
                   <Button Content="{DynamicResource ShellForceConvertBtn}"
                           Command="{Binding ConvertStressToForceCommand}"
