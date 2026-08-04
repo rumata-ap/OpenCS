@@ -155,6 +155,27 @@ public sealed class MultiStoryColumnRunnerTests
     }
 
     [Fact]
+    public async Task RunAsync_PopulatesFiberAndLayerStatesAndForceBalanceOnConvergence()
+    {
+        var fragment = ValidFragment();
+        var mesher = new RecordingMesher();
+        var fakeRunner = new FakeShellAnalysisRunner(ShellAnalysisOutcome.Completed,
+            steps: [new RCShellStepResult(0, 0, 1.0, true, [], [], [], [], [])]);
+
+        var result = await new MultiStoryColumnRunner(fakeRunner).RunAsync(
+            fragment, mesher, level => new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+            LookupMaterial, CalcType.C, "opensees.exe", CancellationToken.None);
+
+        Assert.True(result.IsConverged);
+        Assert.NotNull(result.ForceBalance);
+        // StateCatalog в этом fake-прогоне не задан -> экстремумы остаются нулевыми, но поля
+        // должны существовать и не бросать при доступе (регресс на отсутствие NRE).
+        Assert.Equal(0, result.MaxConcreteCompressionStrain);
+        Assert.Equal(0, result.MaxRebarTensileStrain);
+        Assert.Equal(FragmentAuditVerdict.Valid, result.AuditReport.Verdict);
+    }
+
+    [Fact]
     public async Task RunAsync_ReturnsAuditedResultOnMeshFailure()
     {
         var fragment = ValidFragment();

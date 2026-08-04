@@ -9,6 +9,7 @@ using CScore.Planar.Fragments;
 using OpenCS.OpenSees.Artifacts;
 using OpenCS.OpenSees.Audit;
 using OpenCS.OpenSees.CScore;
+using OpenCS.OpenSees.Model;
 using OpenCS.OpenSees.Results;
 using OpenCS.OpenSees.Runtime;
 using OpenCS.OpenSees.Structural;
@@ -345,6 +346,97 @@ public class MultiStoryColumnRunner
             result.AuditReport = new MultiStoryColumnAuditReport().Audit(fragment, result);
             return result;
         }
+
+        var nodesByTag = built.Model!.Nodes.ToDictionary(node => node.Tag);
+        ShellResultant appliedResultant = ShellEquilibriumAuditor.AppliedResultantAtStep(
+            built.Model.Stages, lastStep!.StageIndex, lastStep.LoadFactor, nodesByTag);
+        double loadFx = appliedResultant.Fx, loadFy = appliedResultant.Fy, loadFz = appliedResultant.Fz;
+        double rx = lastStep.Reactions.Sum(reaction => reaction.Fx);
+        double ry = lastStep.Reactions.Sum(reaction => reaction.Fy);
+        double rz = lastStep.Reactions.Sum(reaction => reaction.Fz);
+        double appliedMagnitude = Math.Sqrt(loadFx * loadFx + loadFy * loadFy + loadFz * loadFz);
+        double reactionMagnitude = Math.Sqrt(rx * rx + ry * ry + rz * rz);
+        // OpenSees reaction recorder возвращает силы реакций с знаком, противоположным приложенной
+        // нагрузке (силы опор на конструкцию), поэтому residual = reaction + applied, а не
+        // |reactionMagnitude - appliedMagnitude| — та же конвенция, что в FloorJunctionRunner.
+        double delta = Math.Sqrt((rx + loadFx) * (rx + loadFx) +
+                                  (ry + loadFy) * (ry + loadFy) +
+                                  (rz + loadFz) * (rz + loadFz));
+        double relativeUnbalance = delta / Math.Max(1.0, appliedMagnitude);
+        result.ForceBalance = new FloorJunctionForceBalance(appliedMagnitude, reactionMagnitude, relativeUnbalance);
+
+        double minConcreteStrain = 0;
+        double maxRebarStrain = 0;
+        var layerStates = new List<LayerMaterialState>();
+        var fiberStates = new List<ColumnFiberState>();
+        if (shellResult.StateCatalog is { } catalog)
+        {
+            var stateParser = new ShellStateParser();
+
+            foreach (var group in catalog.ShellLayerGroups.Where(g => g.ResponseKind == "stress"))
+                foreach (int elementTag in group.ElementTags)
+                    foreach (var state in stateParser.ParseShellLayers(
+                        run.ArtifactDirectory!, catalog, elementTag,
+                        group.IntegrationPoint, group.LayerIndex, lastStep.StepIndex))
+                    {
+                        double eps11 = state.Strain[0];
+                        double eps22 = state.Strain[1];
+                        bool isConcrete = state.ShellLayerKind == ShellLayerKind.Concrete;
+                        if (isConcrete)
+                            minConcreteStrain = Math.Min(minConcreteStrain, Math.Min(eps11, eps22));
+                        else
+                            maxRebarStrain = Math.Max(maxRebarStrain, Math.Max(eps11, eps22));
+                        layerStates.Add(new LayerMaterialState
+                        {
+                            ElementId = elementTag,
+                            LayerIndex = group.LayerIndex,
+                            LayerKind = state.ShellLayerKind.ToString(),
+                            Stress = state.Stress[0],
+                            Strain = isConcrete ? Math.Min(eps11, eps22) : Math.Max(eps11, eps22)
+                        });
+                    }
+
+            var beamSectionsByTag = built.Model.NonlinearBeamSections;
+            var segmentIdByElementTag = fragment.Segments
+                .Zip(built.Model.NonlinearBeamElements, (segment, element) => (segment.Id, element.Tag))
+                .ToDictionary(pair => pair.Tag, pair => pair.Id);
+            foreach (var location in catalog.BeamFiberLocations)
+            {
+                if (!segmentIdByElementTag.TryGetValue(location.ElementTag, out string? segmentId))
+                    continue;
+                foreach (var fiberState in stateParser.ParseBeamFibers(
+                    run.ArtifactDirectory!, catalog, location.ElementTag,
+                    location.IntegrationPoint, location.FiberIndex, lastStep.StepIndex))
+                {
+                    string sourceType = beamSectionsByTag.TryGetValue(location.SectionTag, out var section)
+                        ? section.Materials.FirstOrDefault(m => m.Tag == location.MaterialTag)?.SourceType ?? "Unknown"
+                        : "Unknown";
+                    bool isConcrete = sourceType == "Concrete";
+                    if (isConcrete)
+                        minConcreteStrain = Math.Min(minConcreteStrain, fiberState.Strain);
+                    else
+                        maxRebarStrain = Math.Max(maxRebarStrain, fiberState.Strain);
+                    fiberStates.Add(new ColumnFiberState
+                    {
+                        SegmentId = segmentId!,
+                        ElementTag = location.ElementTag,
+                        FiberIndex = location.FiberIndex,
+                        Kind = sourceType,
+                        Stress = fiberState.StressPa,
+                        Strain = fiberState.Strain
+                    });
+                }
+            }
+        }
+        result.MaxConcreteCompressionStrain = minConcreteStrain;
+        result.MaxRebarTensileStrain = maxRebarStrain;
+        result.LayerStates = layerStates;
+        result.FiberStates = fiberStates;
+
+        result.EnergyConfidence = ShellEnergyAuditor.DetermineConfidence(
+            hasNativeEnergyResponse: false,
+            hasStateIntegralData: false,
+            hasLoadHistory: shellResult.Steps.Any(s => s.Converged)).ToString();
 
         result.AuditReport = new MultiStoryColumnAuditReport().Audit(fragment, result);
         return result;
