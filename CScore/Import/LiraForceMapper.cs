@@ -24,12 +24,13 @@ namespace CScore.Import
       {
          double sf = units.ShellForce;
          double sm = units.ShellMoment;
+         double st = units.Stress;
          double sign = opt.InvertShellBendingMoments ? -1.0 : 1.0;
          return new ShellLoadItem
          {
-            Nx  = Get(src, "NX") * sf,
-            Ny  = Get(src, "NY") * sf,
-            Nxy = Get(src, "TXY") * sf,
+            SigmaX = Get(src, "NX") * st,
+            SigmaY = Get(src, "NY") * st,
+            TauXY  = Get(src, "TXY") * st,
             Mx  = Get(src, "MX") * sm * sign,
             My  = Get(src, "MY") * sm * sign,
             Mxy = Get(src, "MXY") * sm * sign,
