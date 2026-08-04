@@ -61,7 +61,8 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                     if (ctx?.CancellationToken.IsCancellationRequested == true) { state.Stop(); return; }
                     var clone = plate.CloneForCalc();
                     var si = items[i];
-                    double[] tgt = { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy };
+                    var (nx, ny, nxy) = p.AutoStressToForce ? si.ResolveN(plate.H) : (si.Nx, si.Ny, si.Nxy);
+                    double[] tgt = { nx, ny, nxy, si.Mx, si.My, si.Mxy };
                     var r = new ShellStrainSolver(clone, cDiag, rDiag, layerDiags,
                         tolRes: tolRes, maxIter: maxIter,
                         hDiff: hDiff, centralJacobian: central,
@@ -81,7 +82,10 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                     hDiff: hDiff, centralJacobian: central,
                     tensionOverride: tensionOverride);
                 var targets = items.Select(si =>
-                    new[] { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy }).ToList();
+                {
+                    var (nx, ny, nxy) = p.AutoStressToForce ? si.ResolveN(plate.H) : (si.Nx, si.Ny, si.Nxy);
+                    return new[] { nx, ny, nxy, si.Mx, si.My, si.Mxy };
+                }).ToList();
                 var results = solver.SolveMany(targets);
                 for (int i = 0; i < total; i++)
                 {
@@ -101,7 +105,8 @@ public sealed class ShellStrainBatchHandler : ITaskHandler
                 for (int i = 0; i < total; i++)
                 {
                     var si = items[i];
-                    double[] tgt = { si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy };
+                    var (nx, ny, nxy) = p.AutoStressToForce ? si.ResolveN(plate.H) : (si.Nx, si.Ny, si.Nxy);
+                    double[] tgt = { nx, ny, nxy, si.Mx, si.My, si.Mxy };
                     var r = solver.SolveRobust(tgt, concrete, rebar, task.CalcType);
                     converged[i] = r.Converged;
                     rows[i] = BuildRow(si.Num, si.Label, r);

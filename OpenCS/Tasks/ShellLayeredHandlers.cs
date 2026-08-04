@@ -129,12 +129,22 @@ public sealed class ShellLayeredUlsBatchHandler : ITaskHandler
             if (forceSet.ShellItems.Count == 0)
                 throw new InvalidOperationException($"Набор усилий «{forceSet.Tag}» не содержит строк для пластин.");
 
+            var p = ShellStrainParams.Parse(task.ParamsJson);
             var rows = new List<object>(forceSet.ShellItems.Count);
             int passedCount = 0;
 
             foreach (var si in forceSet.ShellItems)
             {
-                var chk = ShellLayeredCheck.CheckUls(plate, si, concreteMat, rebarMat,
+                var (nx, ny, nxy) = p.AutoStressToForce ? si.ResolveN(plate.H) : (si.Nx, si.Ny, si.Nxy);
+                var resolved = new ShellLoadItem
+                {
+                    Num = si.Num, Label = si.Label,
+                    Nx = nx, Ny = ny, Nxy = nxy,
+                    Mx = si.Mx, My = si.My, Mxy = si.Mxy,
+                    Qx = si.Qx, Qy = si.Qy,
+                };
+
+                var chk = ShellLayeredCheck.CheckUls(plate, resolved, concreteMat, rebarMat,
                     task.CalcType, plate.ConcreteDiagramType,
                     out _, out _, out _,
                     tensionOverride: settings.ConsiderConcreteTensionUls);

@@ -122,8 +122,9 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
 
             foreach (var si in forceSet.ShellItems)
             {
+                var (nx, ny, nxy) = sp.AutoStressToForce ? si.ResolveN(plateSection.H) : (si.Nx, si.Ny, si.Nxy);
                 var solveParams = new ShellSimplSolver.SolveParams(
-                    si.Nx, si.Ny, si.Nxy, si.Mx, si.My, si.Mxy,
+                    nx, ny, nxy, si.Mx, si.My, si.Mxy,
                     KindId, sp.StepDeg, sp.AcrcLimMm, sp.Phi1, sp.Phi2
                 );
                 var result = ShellSimplSolver.Solve(
