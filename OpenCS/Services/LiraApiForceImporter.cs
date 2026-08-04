@@ -24,7 +24,7 @@ static class LiraApiForceImporter
     {
         if (elementIds.Count == 0) return [];
 
-        var (documentName, toKn, lcNames) = GetDocumentInfo(settings);
+        var (documentName, toKn, lengthToM, lcNames) = GetDocumentInfo(settings);
         var result = CreateResultsAccessObject();
 
         var req = (LiraLoadCaseForcesRequest)result.CreateNewRequest(
@@ -33,7 +33,7 @@ static class LiraApiForceImporter
         req.Elements.AddFromString(BuildRange(elementIds));
 
         var resp = result.LoadCaseForces((LiraLoadCaseForcesRequest)req);
-        return ParseForcesResponse(resp, schema, elementIds, toKn, settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag, lcNames);
+        return ParseForcesResponse(resp, schema, elementIds, toKn, lengthToM, settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag, lcNames);
     }
 
     /// <summary>Читает усилия от РСН (расчётные сочетания нагрузок) — НС и ПС.</summary>
@@ -46,7 +46,7 @@ static class LiraApiForceImporter
     {
         if (elementIds.Count == 0) return [];
 
-        var (documentName, toKn, _) = GetDocumentInfo(settings);
+        var (documentName, toKn, lengthToM, _) = GetDocumentInfo(settings);
         var result = CreateResultsAccessObject();
 
         var req = (LiraLoadCombinationForcesRequest)result.CreateNewRequest(
@@ -63,7 +63,7 @@ static class LiraApiForceImporter
         req.LoadCombinationLimitState.Item[3] = (int)LiraLimitStateForcesEnum.kLiraLimitStateForces_ServiceabilityLongTerm;
 
         var resp = result.LoadCombinationForces((LiraLoadCombinationForcesRequest)req);
-        return ParseCombinationForcesResponse(resp, schema, elementIds, toKn,
+        return ParseCombinationForcesResponse(resp, schema, elementIds, toKn, lengthToM,
             settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag);
     }
 
@@ -77,7 +77,7 @@ static class LiraApiForceImporter
     {
         if (elementIds.Count == 0) return [];
 
-        var (documentName, toKn, _) = GetDocumentInfo(settings);
+        var (documentName, toKn, lengthToM, _) = GetDocumentInfo(settings);
         var result = CreateResultsAccessObject();
 
         var req = (LiraDesignCombinationForcesRequest)result.CreateNewRequest(
@@ -87,18 +87,20 @@ static class LiraApiForceImporter
         req.DesignCombinationTable = combinationTable;
 
         var resp = result.DesignCombinationForces((LiraDesignCombinationForcesRequest)req);
-        return ParseDesignForcesResponse(resp, schema, elementIds, toKn,
+        return ParseDesignForcesResponse(resp, schema, elementIds, toKn, lengthToM,
             settings.InvertBarBendingMoments, settings.InvertShellBendingMoments, memberTag);
     }
 
     // ------------------------------------------------------------------ helpers
 
     /// <summary>
-    /// Получает имя активного документа и коэффициент пересчёта усилий в кН (кН/м).
-    /// LiraUnitsForceEnum: 0=г, 1=кг, 2=тс, 3=Н, 4=кН, 5=МН, 6=фунт, 7=kips.
-    /// LiraUnitsGeometryEnum для знаменателя: 0=м, 1=см, 2=мм (используется при ×форс / ÷геом).
+    /// Получает имя активного документа, коэффициент пересчёта усилий в кН (кН/м) и коэффициент
+    /// длины в метры (для домножения/деления погонных величин по правилам ниже).
+    /// LiraUnitsForceEnum (справочное имя из комментариев ЛИРА COM API, не типизированный C#-enum в этом
+    /// проекте): 0=г, 1=кг, 2=тс, 3=Н, 4=кН, 5=МН, 6=фунт, 7=kips.
+    /// LiraUnitsGeometryEnum: 0=м, 1=см, 2=мм (эмпирически подтверждено по реальным координатам узлов).
     /// </summary>
-    static (string docName, double toKn, Dictionary<int,string> lcNames) GetDocumentInfo(LiraImportSettings settings)
+    static (string docName, double toKn, double lengthToM, Dictionary<int,string> lcNames) GetDocumentInfo(LiraImportSettings settings)
     {
         var appType = Type.GetTypeFromProgID("LiraSapr.Application")
             ?? throw new InvalidOperationException(
@@ -120,24 +122,33 @@ static class LiraApiForceImporter
             int f1 = (int)lira.MeasurementUnits.Forces1;
             forceToKn = f1 switch
             {
-                0 => 1e-6,                      // г → кН
-                1 => 1e-3,                      // кг → кН
-                2 => settings.TonToKnFactor,    // тс → кН (9.80665 или 10.0 по настройкам)
-                3 => 1e-3,                      // Н → кН
-                4 => 1.0,                       // кН → кН
-                5 => 1000.0,                    // МН → кН
-                6 => 0.004448,                  // фунт → кН
-                7 => 4.44822,                   // kips → кН
+                0 => settings.TonToKnFactor / 1e6,  // г → кН (через g; не показывается как выбор ни в одном UI, но COM-документ теоретически может быть так настроен)
+                1 => settings.TonToKnFactor / 1e3,  // кг → кН (через g, как тс)
+                2 => settings.TonToKnFactor,         // тс → кН
+                3 => 1e-3,                            // Н → кН
+                4 => 1.0,                             // кН → кН
+                5 => 1000.0,                          // МН → кН
+                6 => 0.0044482216,                    // фунт → кН
+                7 => 4.4482216,                       // kips → кН
                 _ => 1.0
             };
         }
         catch { forceToKn = 1.0; }
 
+        // Коэффициент: единица длины ЛИРА → метры
+        double lengthToM;
+        try
+        {
+            int g = (int)lira.MeasurementUnits.Geometry;
+            lengthToM = g switch { 0 => 1.0, 1 => 0.01, 2 => 0.001, _ => 1.0 };
+        }
+        catch { lengthToM = 1.0; }
+
         Dictionary<int, string> lcNames;
         try { lcNames = LiraApiSchemaReader.ReadLoadCaseNames(lira.ActiveDocument); }
         catch { lcNames = []; }
 
-        return (docName, forceToKn, lcNames);
+        return (docName, forceToKn, lengthToM, lcNames);
     }
 
     static LiraResultsAccess CreateResultsAccessObject() => new LiraResultsAccessClass();
@@ -147,6 +158,7 @@ static class LiraApiForceImporter
         FemSchema schema,
         IReadOnlyList<int> elementIds,
         double toKn,
+        double lengthToM,
         bool invertBarMoments,
         bool invertShellMoments,
         string memberTag,
@@ -190,22 +202,25 @@ static class LiraApiForceImporter
                     {
                         if (family == LiraElementFamilyEnum.kLiraFamily_Plate)
                         {
-                            double nx  = resp.GetPlateNx (elemId, sec, lcNum) * toKn;
-                            double ny  = resp.GetPlateNy (elemId, sec, lcNum) * toKn;
-                            double nxy = resp.GetPlateTxy(elemId, sec, lcNum) * toKn;
+                            // σx/σy/τxy — «сила/длина²»: делим на lengthToM в квадрате.
+                            // Qx/Qy — «сила/длина»: делим на lengthToM в первой степени.
+                            // Mx/My/Mxy — «сила·длина/длина», длина сокращается — без коррекции.
+                            double sigmaX = resp.GetPlateNx (elemId, sec, lcNum) * toKn / (lengthToM * lengthToM);
+                            double sigmaY = resp.GetPlateNy (elemId, sec, lcNum) * toKn / (lengthToM * lengthToM);
+                            double tauXy  = resp.GetPlateTxy(elemId, sec, lcNum) * toKn / (lengthToM * lengthToM);
                             double mx  = resp.GetPlateMx (elemId, sec, lcNum) * toKn;
                             double my  = resp.GetPlateMy (elemId, sec, lcNum) * toKn;
                             double mxy = resp.GetPlateMxy(elemId, sec, lcNum) * toKn;
-                            double qx  = resp.GetPlateQx (elemId, sec, lcNum) * toKn;
-                            double qy  = resp.GetPlateQy (elemId, sec, lcNum) * toKn;
+                            double qx  = resp.GetPlateQx (elemId, sec, lcNum) * toKn / lengthToM;
+                            double qy  = resp.GetPlateQy (elemId, sec, lcNum) * toKn / lengthToM;
                             // Фильтр: элементы без результатов ЛИРА возвращает как точные нули
-                            if (nx == 0 && ny == 0 && nxy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
+                            if (sigmaX == 0 && sigmaY == 0 && tauXy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
                                 continue;
                             double shellSign = invertShellMoments ? -1.0 : 1.0;
                             fs.ShellItems.Add(new ShellLoadItem
                             {
                                 Num = itemNum++, Label = $"э.{elemId}",
-                                Nx = nx, Ny = ny, Nxy = nxy,
+                                SigmaX = sigmaX, SigmaY = sigmaY, TauXY = tauXy,
                                 Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                 Qx = qx, Qy = qy,
                             });
@@ -245,6 +260,7 @@ static class LiraApiForceImporter
         FemSchema schema,
         IReadOnlyList<int> elementIds,
         double toKn,
+        double lengthToM,
         bool invertBarMoments,
         bool invertShellMoments,
         string memberTag)
@@ -296,21 +312,21 @@ static class LiraApiForceImporter
                         {
                             if (family == LiraElementFamilyEnum.kLiraFamily_Plate)
                             {
-                                double nx  = resp.GetPlateNx (elemId, sec, lcNum, ls) * toKn;
-                                double ny  = resp.GetPlateNy (elemId, sec, lcNum, ls) * toKn;
-                                double nxy = resp.GetPlateTxy(elemId, sec, lcNum, ls) * toKn;
+                                double sigmaX = resp.GetPlateNx (elemId, sec, lcNum, ls) * toKn / (lengthToM * lengthToM);
+                                double sigmaY = resp.GetPlateNy (elemId, sec, lcNum, ls) * toKn / (lengthToM * lengthToM);
+                                double tauXy  = resp.GetPlateTxy(elemId, sec, lcNum, ls) * toKn / (lengthToM * lengthToM);
                                 double mx  = resp.GetPlateMx (elemId, sec, lcNum, ls) * toKn;
                                 double my  = resp.GetPlateMy (elemId, sec, lcNum, ls) * toKn;
                                 double mxy = resp.GetPlateMxy(elemId, sec, lcNum, ls) * toKn;
-                                double qx  = resp.GetPlateQx (elemId, sec, lcNum, ls) * toKn;
-                                double qy  = resp.GetPlateQy (elemId, sec, lcNum, ls) * toKn;
-                                if (nx == 0 && ny == 0 && nxy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
+                                double qx  = resp.GetPlateQx (elemId, sec, lcNum, ls) * toKn / lengthToM;
+                                double qy  = resp.GetPlateQy (elemId, sec, lcNum, ls) * toKn / lengthToM;
+                                if (sigmaX == 0 && sigmaY == 0 && tauXy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
                                     continue;
                                 double shellSign = invertShellMoments ? -1.0 : 1.0;
                                 fs.ShellItems.Add(new ShellLoadItem
                                 {
                                     Num = itemNum++, Label = $"э.{elemId}",
-                                    Nx = nx, Ny = ny, Nxy = nxy,
+                                    SigmaX = sigmaX, SigmaY = sigmaY, TauXY = tauXy,
                                     Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                     Qx = qx, Qy = qy,
                                 });
@@ -351,6 +367,7 @@ static class LiraApiForceImporter
         FemSchema schema,
         IReadOnlyList<int> elementIds,
         double toKn,
+        double lengthToM,
         bool invertBarMoments,
         bool invertShellMoments,
         string memberTag)
@@ -402,21 +419,21 @@ static class LiraApiForceImporter
                         {
                             if (family == LiraElementFamilyEnum.kLiraFamily_Plate)
                             {
-                                double nx  = resp.GetPlateNx (elemId, sec, ls, dcf) * toKn;
-                                double ny  = resp.GetPlateNy (elemId, sec, ls, dcf) * toKn;
-                                double nxy = resp.GetPlateTxy(elemId, sec, ls, dcf) * toKn;
+                                double sigmaX = resp.GetPlateNx (elemId, sec, ls, dcf) * toKn / (lengthToM * lengthToM);
+                                double sigmaY = resp.GetPlateNy (elemId, sec, ls, dcf) * toKn / (lengthToM * lengthToM);
+                                double tauXy  = resp.GetPlateTxy(elemId, sec, ls, dcf) * toKn / (lengthToM * lengthToM);
                                 double mx  = resp.GetPlateMx (elemId, sec, ls, dcf) * toKn;
                                 double my  = resp.GetPlateMy (elemId, sec, ls, dcf) * toKn;
                                 double mxy = resp.GetPlateMxy(elemId, sec, ls, dcf) * toKn;
-                                double qx  = resp.GetPlateQx (elemId, sec, ls, dcf) * toKn;
-                                double qy  = resp.GetPlateQy (elemId, sec, ls, dcf) * toKn;
-                                if (nx == 0 && ny == 0 && nxy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
+                                double qx  = resp.GetPlateQx (elemId, sec, ls, dcf) * toKn / lengthToM;
+                                double qy  = resp.GetPlateQy (elemId, sec, ls, dcf) * toKn / lengthToM;
+                                if (sigmaX == 0 && sigmaY == 0 && tauXy == 0 && mx == 0 && my == 0 && mxy == 0 && qx == 0 && qy == 0)
                                     continue;
                                 double shellSign = invertShellMoments ? -1.0 : 1.0;
                                 fs.ShellItems.Add(new ShellLoadItem
                                 {
                                     Num = itemNum++, Label = $"э.{elemId} к{dcf}",
-                                    Nx = nx, Ny = ny, Nxy = nxy,
+                                    SigmaX = sigmaX, SigmaY = sigmaY, TauXY = tauXy,
                                     Mx = mx * shellSign, My = my * shellSign, Mxy = mxy * shellSign,
                                     Qx = qx, Qy = qy,
                                 });
