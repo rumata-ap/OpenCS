@@ -46,6 +46,30 @@ namespace CScore
       public double Mxy { get; set; }   // крутящий погонный момент, кН·м/м
       public double Qx  { get; set; }   // поперечная погонная сила Qx, кН/м
       public double Qy  { get; set; }   // поперечная погонная сила Qy, кН/м
+
+      /// <summary>Импортированное нормальное напряжение σx, кПа. Null — не источник-напряжение (Nx уже погонное усилие).</summary>
+      public double? SigmaX { get; set; }
+      /// <summary>Импортированное нормальное напряжение σy, кПа.</summary>
+      public double? SigmaY { get; set; }
+      /// <summary>Импортированное касательное напряжение τxy, кПа.</summary>
+      public double? TauXY  { get; set; }
+
+      /// <summary>
+      /// Возвращает погонные Nx/Ny/Nxy: если задан хотя бы один из SigmaX/SigmaY/TauXY — считает
+      /// все три компонента заново как σ·h (кПа·м = кН/м; отсутствующий компонент = 0 напряжения),
+      /// иначе возвращает хранимые Nx/Ny/Nxy как есть.
+      /// ВАЖНО: пока Sigma заполнены, они — источник правды. Любое ручное значение Nx/Ny/Nxy
+      /// в строке будет молча перезаписано этим методом при следующем вызове (кнопка «Напряжения
+      /// → усилия» в наборе, автопересчёт в расчётной задаче) — редактирование Nx напрямую в этом
+      /// состоянии имеет смысл только как временный просмотр, не как постоянное переопределение.
+      /// UI делает Nx/Ny/Nxy визуально недоступными для правки, пока Sigma заданы.
+      /// </summary>
+      public (double Nx, double Ny, double Nxy) ResolveN(double thicknessM)
+      {
+         if (SigmaX is null && SigmaY is null && TauXY is null)
+            return (Nx, Ny, Nxy);
+         return ((SigmaX ?? 0) * thicknessM, (SigmaY ?? 0) * thicknessM, (TauXY ?? 0) * thicknessM);
+      }
    }
 
    /// <summary>
