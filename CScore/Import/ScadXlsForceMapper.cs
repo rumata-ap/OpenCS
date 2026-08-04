@@ -27,26 +27,29 @@ public static class ScadXlsForceMapper
     }
 
     /// <summary>
-    /// SCAD: sX,sY,txy — напряжения (Т/м²); Nx=sX·h и т.д. (h в м → Т/м), затем × TonToKnFactor.
-    /// Mx,My,Mxy,Qx,Qy — уже погонные (Т·м/м, Т/м), только смена единиц.
+    /// SCAD: sX,sY,txy — напряжения (сила/длина² в единицах листа); пишутся в SigmaX/SigmaY/TauXY
+    /// (кПа = кН/м²), с коррекцией TonToKnFactor и LengthM (если длина листа не метры).
+    /// Домножение на толщину — отдельным шагом (ResolveN).
+    /// Mx,My,Mxy — «сила×длина/длина», длина сокращается, коррекции по LengthM не требуют.
+    /// Qx,Qy — «сила/длина», требуют коррекции на LengthM (как Sigma, но в первой степени).
     /// </summary>
     public static ShellLoadItem MapShell(
         double sx, double sy, double txy, double mx, double my, double mxy,
-        double qx, double qy, double thicknessM, ScadXlsImportOptions opt)
+        double qx, double qy, ScadXlsImportOptions opt)
     {
         double f = opt.TonToKnFactor;
-        double h = thicknessM;
+        double lenM = opt.LengthM > 0 ? opt.LengthM : 1.0;
         double sign = opt.InvertShellBendingMoments ? -1.0 : 1.0;
         return new ShellLoadItem
         {
-            Nx  = sx * h * f,
-            Ny  = sy * h * f,
-            Nxy = txy * h * f,
+            SigmaX = sx * f / (lenM * lenM),
+            SigmaY = sy * f / (lenM * lenM),
+            TauXY  = txy * f / (lenM * lenM),
             Mx  = mx * f * sign,
             My  = my * f * sign,
             Mxy = mxy * f * sign,
-            Qx  = qx * f,
-            Qy  = qy * f,
+            Qx  = qx * f / lenM,
+            Qy  = qy * f / lenM,
         };
     }
 }

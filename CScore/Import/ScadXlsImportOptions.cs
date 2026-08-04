@@ -4,6 +4,10 @@ namespace CScore.Import;
 public class ScadXlsImportOptions
 {
     public double TonToKnFactor { get; set; } = 9.80665;
+
+    /// <summary>Единица длины листа в метрах (см «Единицы длины для силовых факторов»). По умолчанию 1.0 (метры).</summary>
+    public double LengthM { get; set; } = 1.0;
+
     public bool InvertBarBendingMoments { get; set; } = true;
 
     /// <summary>Инвертировать знаки изгибающих/крутящего моментов Mx/My/Mxy для пластин.</summary>

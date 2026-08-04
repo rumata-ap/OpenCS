@@ -477,13 +477,6 @@ public static class ScadXlsForceImporter
             if (!TryReadShellForces(row, layout, out var forces))
                 continue;
 
-            double h = options.ResolveThicknessM(elem);
-            if (h <= 0)
-            {
-                result.Error ??= "Не задана толщина пластины (поле диалога или таблица жёсткостей).";
-                continue;
-            }
-
             string key = $"shell:{lc}";
             string tag = layout.IsCombination
                 ? CombinationTag(lc, loadCaseNames)
@@ -491,7 +484,7 @@ public static class ScadXlsForceImporter
             var fs = GetOrCreateSet(sets, key, "shell", tag);
             var item = ScadXlsForceMapper.MapShell(
                 forces.sx, forces.sy, forces.txy, forces.mx, forces.my, forces.mxy,
-                forces.qx, forces.qy, h, options);
+                forces.qx, forces.qy, options);
             item.Label = FormatShellLabel(elem, secText, form, crit: null);
             fs.ShellItems.Add(item);
             result.RowsMatched++;
@@ -573,18 +566,11 @@ public static class ScadXlsForceImporter
             if (!TryReadShellForces(row, layout, out var forces))
                 continue;
 
-            double h = options.ResolveThicknessM(lastElem);
-            if (h <= 0)
-            {
-                result.Error ??= "Не задана толщина пластины (поле диалога или таблица жёсткостей).";
-                continue;
-            }
-
             string key = $"shell:{type}";
             var fs = GetOrCreateSet(sets, key, "shell", $"РСУ_{type}");
             var item = ScadXlsForceMapper.MapShell(
                 forces.sx, forces.sy, forces.txy, forces.mx, forces.my, forces.mxy,
-                forces.qx, forces.qy, h, options);
+                forces.qx, forces.qy, options);
             item.Label = FormatShellLabel(lastElem, lastSec, form: null, crit);
             fs.ShellItems.Add(item);
             result.RowsMatched++;
