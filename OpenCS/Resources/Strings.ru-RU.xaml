@@ -1231,6 +1231,7 @@
     <system:String x:Key="TtColMinLoss">Проверка п. 9.1.10: суммарные потери должны быть ≥ 100 МПа. «!» — потери меньше нормы</system:String>
     <system:String x:Key="CalcTaskSelectPlateSection">Выберите плитное сечение</system:String>
     <system:String x:Key="CalcTaskPlatePanelHeader">Усилия пластины</system:String>
+    <system:String x:Key="CalcTaskAutoStressToForce">Автопересчёт напряжений в усилия</system:String>
     <system:String x:Key="ShellStrainTitle">Плоскость деформаций пластины</system:String>
     <system:String x:Key="ShellStrainIterations">Итераций</system:String>
     <system:String x:Key="ShellStrainResidual">Невязка</system:String>

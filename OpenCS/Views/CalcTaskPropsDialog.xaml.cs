@@ -73,6 +73,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     PlateSection? selectedShellSimplSection;
     ForceSet? selectedShellForceSet;
     ShellLoadItem? selectedShellForceItem;
+    bool autoStressToForce = true;
     string shellSimplNx = "0", shellSimplNy = "0", shellSimplNxy = "0";
     string shellSimplMx = "0", shellSimplMy = "0", shellSimplMxy = "0";
     string shellSimplStepDeg = "10";
@@ -463,18 +464,39 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        set
        {
            selectedShellForceItem = value;
-           if (value != null)
-           {
-               var inv = System.Globalization.CultureInfo.InvariantCulture;
-               ShellSimplNx  = value.Nx.ToString("G6", inv);
-               ShellSimplNy  = value.Ny.ToString("G6", inv);
-               ShellSimplNxy = value.Nxy.ToString("G6", inv);
-               ShellSimplMx  = value.Mx.ToString("G6", inv);
-               ShellSimplMy  = value.My.ToString("G6", inv);
-               ShellSimplMxy = value.Mxy.ToString("G6", inv);
-           }
+           ApplyShellForceItemPrefill();
            OnPropertyChanged();
        }
+   }
+
+   public bool AutoStressToForce
+   {
+      get => autoStressToForce;
+      set { autoStressToForce = value; OnPropertyChanged(); ApplyShellForceItemPrefill(); }
+   }
+
+   /// <summary>
+   /// Заполняет ShellSimplNx/Ny/Nxy/Mx/My/Mxy из текущего SelectedShellForceItem. Nx/Ny/Nxy —
+   /// через ResolveN(h) при включённом AutoStressToForce и известной толщине сечения, иначе —
+   /// хранимые Nx/Ny/Nxy как есть. Вызывается и при смене строки набора, и при переключении
+   /// чекбокса — без этого снятие галки оставляло бы в полях устаревшее σ·h до следующего
+   /// пере-выбора строки.
+   /// </summary>
+   void ApplyShellForceItemPrefill()
+   {
+       if (selectedShellForceItem is not { } value) return;
+
+       var inv = System.Globalization.CultureInfo.InvariantCulture;
+       double h = SelectedShellSimplSection?.H ?? 0;
+       var (nx, ny, nxy) = AutoStressToForce && h > 0
+           ? value.ResolveN(h)
+           : (value.Nx, value.Ny, value.Nxy);
+       ShellSimplNx  = nx.ToString("G6", inv);
+       ShellSimplNy  = ny.ToString("G6", inv);
+       ShellSimplNxy = nxy.ToString("G6", inv);
+       ShellSimplMx  = value.Mx.ToString("G6", inv);
+       ShellSimplMy  = value.My.ToString("G6", inv);
+       ShellSimplMxy = value.Mxy.ToString("G6", inv);
    }
 
    public ObservableCollection<ShellLoadItem> ShellForceItems { get; } = [];
@@ -1494,7 +1516,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   ForceSetId = SelectedShellForceSet.Id,
                   ForceItemId = 0,
                   CalcType = SelectedCalcType,
-                  ParamsJson = JsonSerializer.Serialize(new ShellStrainParams())
+                  ParamsJson = JsonSerializer.Serialize(new ShellStrainParams { AutoStressToForce = AutoStressToForce })
               };
               _window.DialogResult = true;
               return;
@@ -1517,7 +1539,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               CalcType = SelectedCalcType,
               ParamsJson = JsonSerializer.Serialize(new ShellStrainParams
               {
-                  Nx = snx, Ny = sny, Nxy = snxy, Mx = smx, My = smy, Mxy = smxy
+                  Nx = snx, Ny = sny, Nxy = snxy, Mx = smx, My = smy, Mxy = smxy,
+                  AutoStressToForce = AutoStressToForce
               })
           };
           _window.DialogResult = true;
@@ -1550,7 +1573,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   ForceSetId = SelectedShellForceSet.Id,
                   ForceItemId = 0,
                   CalcType = SelectedCalcType,
-                  ParamsJson = JsonSerializer.Serialize(new ShellStrainParams())
+                  ParamsJson = JsonSerializer.Serialize(new ShellStrainParams { AutoStressToForce = AutoStressToForce })
               };
               _window.DialogResult = true;
               return;
@@ -1573,7 +1596,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               CalcType = SelectedCalcType,
               ParamsJson = JsonSerializer.Serialize(new ShellStrainParams
               {
-                  Nx = snx, Ny = sny, Nxy = snxy, Mx = smx, My = smy, Mxy = smxy
+                  Nx = snx, Ny = sny, Nxy = snxy, Mx = smx, My = smy, Mxy = smxy,
+                  AutoStressToForce = AutoStressToForce
               })
           };
           _window.DialogResult = true;
@@ -1614,7 +1638,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   ParamsJson = JsonSerializer.Serialize(new ShellSimplParams
                   {
                       StepDeg = stepDeg, AcrcLimMm = acrcLim,
-                      Phi1 = phi1, Phi2 = phi2
+                      Phi1 = phi1, Phi2 = phi2,
+                      AutoStressToForce = AutoStressToForce
                   })
               };
               _window.DialogResult = true;
@@ -1641,7 +1666,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   Nx = nx, Ny = ny, Nxy = nxy,
                   Mx = mx, My = my, Mxy = mxy,
                   StepDeg = stepDeg, AcrcLimMm = acrcLim,
-                  Phi1 = phi1, Phi2 = phi2
+                  Phi1 = phi1, Phi2 = phi2,
+                  AutoStressToForce = AutoStressToForce
               })
           };
           _window.DialogResult = true;

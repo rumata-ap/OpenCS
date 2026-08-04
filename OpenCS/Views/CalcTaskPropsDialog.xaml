@@ -407,6 +407,9 @@
                <ComboBox ItemsSource="{Binding ShellForceSets}"
                          SelectedItem="{Binding SelectedShellForceSet}"
                          DisplayMemberPath="Tag" Margin="0,0,0,4"/>
+               <CheckBox Content="{DynamicResource CalcTaskAutoStressToForce}"
+                         IsChecked="{Binding AutoStressToForce}"
+                         Margin="0,0,0,4"/>
                <Grid Margin="0,0,0,2">
                   <TextBox Text="{Binding ShellForceItemFilter, UpdateSourceTrigger=PropertyChanged}"
                            ToolTip="{DynamicResource ForceItemFilterHint}"/>

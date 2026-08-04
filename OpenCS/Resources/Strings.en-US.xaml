@@ -1228,6 +1228,7 @@
     <system:String x:Key="TtColMinLoss">Check §9.1.10: total losses must be ≥ 100 MPa. '!' = below minimum</system:String>
     <system:String x:Key="CalcTaskSelectPlateSection">Select a plate section</system:String>
     <system:String x:Key="CalcTaskPlatePanelHeader">Plate forces</system:String>
+    <system:String x:Key="CalcTaskAutoStressToForce">Auto-convert stresses to forces</system:String>
     <system:String x:Key="ShellStrainTitle">Plate strain plane</system:String>
     <system:String x:Key="ShellStrainIterations">Iterations</system:String>
     <system:String x:Key="ShellStrainResidual">Residual</system:String>
