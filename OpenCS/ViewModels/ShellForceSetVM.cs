@@ -84,7 +84,8 @@ namespace OpenCS.ViewModels
             Label = newLabel,
             Nx = src.Nx, Ny = src.Ny, Nxy = src.Nxy,
             Mx = src.Mx, My = src.My, Mxy = src.Mxy,
-            Qx = src.Qx, Qy = src.Qy
+            Qx = src.Qx, Qy = src.Qy,
+            SigmaX = src.SigmaX, SigmaY = src.SigmaY, TauXY = src.TauXY,
          };
          int idx = _model.ShellItems.IndexOf(src);
          if (idx >= 0) _model.ShellItems.Insert(idx + 1, item);

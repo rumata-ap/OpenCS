@@ -75,5 +75,30 @@ namespace OpenCS.ViewModels
          get => _model.Qy;
          set { _model.Qy = value; Touch(); OnPropertyChanged(); }
       }
+
+      public double? SigmaX
+      {
+         get => _model.SigmaX;
+         set { _model.SigmaX = value; Touch(); OnPropertyChanged(); OnPropertyChanged(nameof(HasSigma)); }
+      }
+
+      public double? SigmaY
+      {
+         get => _model.SigmaY;
+         set { _model.SigmaY = value; Touch(); OnPropertyChanged(); OnPropertyChanged(nameof(HasSigma)); }
+      }
+
+      public double? TauXY
+      {
+         get => _model.TauXY;
+         set { _model.TauXY = value; Touch(); OnPropertyChanged(); OnPropertyChanged(nameof(HasSigma)); }
+      }
+
+      /// <summary>
+      /// true, если хотя бы один Sigma-компонент задан — в этом состоянии Nx/Ny/Nxy пересчитываются
+      /// заново из Sigma при каждом ResolveN (кнопка «Напряжения → усилия», автопересчёт в задачах),
+      /// поэтому UI делает соответствующие ячейки недоступными для прямого редактирования.
+      /// </summary>
+      public bool HasSigma => _model.SigmaX is not null || _model.SigmaY is not null || _model.TauXY is not null;
    }
 }
