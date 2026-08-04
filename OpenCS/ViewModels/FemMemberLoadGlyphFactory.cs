@@ -17,7 +17,11 @@ public static class FemMemberLoadGlyphFactory
         var nodeMap = nodes
             .Where(node => !string.IsNullOrWhiteSpace(node.NodeTag))
             .ToDictionary(node => node.NodeTag, node => new Point3D(node.X, node.Y, node.Z), StringComparer.Ordinal);
-        var memberById = members.ToDictionary(member => member.Id);
+        // Новые конструктивные стержни до сохранения имеют Id == 0. Их может быть несколько,
+        // но нагрузки на них ещё не существуют, поэтому не включаем их в индекс по БД-Id.
+        var memberById = members
+            .Where(member => member.Id != 0)
+            .ToDictionary(member => member.Id);
         var result = new List<FemMemberLoadGlyph>();
 
         foreach (var load in loads)
