@@ -2,9 +2,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CScore;
 using CScore.Planar;
 using CScore.Planar.Fragments;
 using OpenCS.OpenSees.Audit;
+using OpenCS.OpenSees.CScore;
+using OpenCS.OpenSees.Structural;
 
 namespace OpenCS.OpenSees.CScore.Fragments;
 
@@ -70,5 +73,107 @@ public class MultiStoryColumnRunner
         }
 
         return new LevelSnapshotsOutcome(levels, diagnostics, gmshArtifactDirectory);
+    }
+
+    internal sealed record ModelBuildOutcome(
+        ShellOpenSeesModel? Model,
+        IReadOnlyDictionary<string, int> AnchorNodeTagByLevel,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<int, int>> NodeIndexToTagByLevel,
+        List<string> MeshDiagnostics,
+        List<string> AssemblyDiagnostics,
+        string? GmshArtifactDirectory = null);
+
+    internal async Task<ModelBuildOutcome> BuildModelAsync(
+        MultiStoryColumnFragment fragment,
+        IPlanarMesher mesher,
+        System.Func<ColumnFloorLevel, PlanarMeshSettings> meshSettingsFor,
+        System.Func<int, Material?> lookupMaterial,
+        CalcType calcType,
+        CancellationToken cancellationToken)
+    {
+        LevelSnapshotsOutcome snapshots = await BuildLevelSnapshotsAsync(
+            fragment, mesher, meshSettingsFor, cancellationToken);
+        if (snapshots.Diagnostics.Count > 0)
+            return new(null, new Dictionary<string, int>(),
+                new Dictionary<string, IReadOnlyDictionary<int, int>>(), snapshots.Diagnostics, [],
+                snapshots.GmshArtifactDirectory);
+
+        var resolver = new PlateSectionShellMaterialResolver(
+            lookupMaterial, calcType, SteelModelKind.Steel02, null);
+        MultiStoryColumnShellAssemblyResult assembled = MultiStoryColumnShellModelAssembler.Assemble(
+            snapshots.Levels, fragment.Segments, fragment.BaseSupport,
+            fragment.GeomTransfKind, fragment.ElementFormulation,
+            resolver, calcType, lookupMaterial);
+        if (!assembled.IsCalculable)
+            return new(null, new Dictionary<string, int>(),
+                new Dictionary<string, IReadOnlyDictionary<int, int>>(), [],
+                assembled.Diagnostics.Select(d => $"{d.Code}: {d.Message}").ToList(),
+                snapshots.GmshArtifactDirectory);
+
+        var model = assembled.Model;
+        var levelSnapshotById = snapshots.Levels.ToDictionary(item => item.Level.Id, item => item.Snapshot);
+        var loadDiagnostics = new List<string>();
+        var stages = new List<ShellNonlinearStage>();
+        for (int i = 0; i < fragment.StageConfig.Stages.Count; i++)
+        {
+            var stageConfig = fragment.StageConfig.Stages[i];
+            var stageLoads = new List<ShellNodalLoad>();
+            foreach (var level in fragment.Levels)
+            {
+                if (level.Loads.Count == 0) continue;
+                // Map(Frame3D, ...) вместо Map(PlanarRegion, ...): этот срез допускает только
+                // PlanarLoad.Point на anchor-узле, которому не нужен boundary contract
+                // (PlanarBoundaryContractMapper) — используется overload без него, чтобы
+                // отсутствие/неполнота внешних boundary ролей уровня не блокировала точечную
+                // нагрузку на колонну.
+                PlanarLoadMappingResult mapped = PlanarLoadMapper.Map(
+                    level.PlateRegion.Frame, levelSnapshotById[level.Id], level.Loads);
+                if (!mapped.IsCalculable)
+                {
+                    loadDiagnostics.AddRange(mapped.Diagnostics.Select(
+                        d => $"stage {i + 1}, level {level.Id}: {d.Message}"));
+                    continue;
+                }
+                foreach (var load in PlanarLoadOpenSeesAdapter.Map(mapped, assembled.NodeIndexToTagByLevel[level.Id]))
+                    stageLoads.Add(load with
+                    {
+                        Fx = load.Fx * stageConfig.SurfaceLoadScale,
+                        Fy = load.Fy * stageConfig.SurfaceLoadScale,
+                        Fz = load.Fz * stageConfig.SurfaceLoadScale
+                    });
+            }
+            stages.Add(new ShellNonlinearStage
+            {
+                Tag = $"stage-{i + 1}",
+                Loads = stageLoads,
+                LoadFactorStep = stageConfig.Solver.InitialStep,
+                MaxLoadFactor = 1.0
+            });
+        }
+        if (loadDiagnostics.Count > 0)
+            return new(null, new Dictionary<string, int>(),
+                new Dictionary<string, IReadOnlyDictionary<int, int>>(), [], loadDiagnostics,
+                snapshots.GmshArtifactDirectory);
+
+        SolverParameters solverParams = fragment.StageConfig.Stages.Count > 0
+            ? fragment.StageConfig.Stages[0].Solver
+            : new SolverParameters();
+        string openSeesAlgorithm = solverParams.Algorithm switch
+        {
+            "Newton" => "Newton",
+            _ => "NewtonLineSearch"
+        };
+        model = model with
+        {
+            Stages = stages,
+            Policy = model.Policy with
+            {
+                Algorithm = openSeesAlgorithm,
+                MaxIterations = solverParams.MaxIterations
+            }
+        };
+
+        return new(model, assembled.AnchorNodeTagByLevel, assembled.NodeIndexToTagByLevel, [], [],
+            snapshots.GmshArtifactDirectory);
     }
 }

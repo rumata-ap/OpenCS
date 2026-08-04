@@ -49,6 +49,51 @@ public sealed class MultiStoryColumnRunnerTests
         Assert.NotEmpty(built.Diagnostics);
     }
 
+    [Fact]
+    public async Task BuildModelAsync_AssemblesModelWithStagesAndPolicyFromFirstStage()
+    {
+        var fragment = ValidFragment();
+        var mesher = new RecordingMesher();
+
+        var built = await new MultiStoryColumnRunner().BuildModelAsync(
+            fragment, mesher, level => new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+            LookupMaterial, CalcType.C, CancellationToken.None);
+
+        Assert.Empty(built.MeshDiagnostics);
+        Assert.Empty(built.AssemblyDiagnostics);
+        Assert.NotNull(built.Model);
+        Assert.Single(built.Model!.Stages);
+        Assert.True(built.Model.Policy.Algorithm is "Newton" or "NewtonLineSearch");
+    }
+
+    [Fact]
+    public async Task BuildModelAsync_MapsPlanarPointLoadToShellNodalLoadOnAnchorNode()
+    {
+        // RecordingMesher.BuildAsync даёт anchor-узел с Index=5 (U=2, V=2) — совпадает с
+        // ColumnAnchorLocalXY уровня (см. MakeLevel), поэтому PlanarLoad.Point с
+        // PointU=2/PointV=2 резолвится в этот же узел без ambiguity.
+        var fragment = ValidFragment();
+        fragment.Levels[^1].Loads.Add(new PlanarLoad
+        {
+            Tag = "top-axial",
+            Kind = PlanarLoadKind.Point,
+            CoordinateSystem = PlanarLoadCoordinateSystem.Global,
+            Components = new PlanarVector3(0, 0, -1000),
+            PointU = 2, PointV = 2
+        });
+        var mesher = new RecordingMesher();
+
+        var built = await new MultiStoryColumnRunner().BuildModelAsync(
+            fragment, mesher, level => new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+            LookupMaterial, CalcType.C, CancellationToken.None);
+
+        Assert.Empty(built.AssemblyDiagnostics);
+        Assert.NotNull(built.Model);
+        var stageLoads = built.Model!.Stages[0].Loads;
+        int topAnchorTag = built.NodeIndexToTagByLevel[fragment.Levels[^1].Id][5];
+        Assert.Contains(stageLoads, load => load.NodeTag == topAnchorTag && load.Fz == -1000);
+    }
+
     internal static MultiStoryColumnFragment ValidFragment()
     {
         var level1 = MakeLevel("level-1", 1, 0);
@@ -81,6 +126,25 @@ public sealed class MultiStoryColumnRunnerTests
         };
     }
 
+    // id 1/2 — shell-материалы плиты (ConcreteMaterialId/RebarMaterialId в MakeLevel);
+    // id 10/20 — балочные материалы сегмента (CrossSectionFixtures.RectangularSection) —
+    // раздельные пространства id, оба нужны одному lookupMaterial.
+    static (Material Concrete, Material Rebar) ShellMaterials() =>
+    (
+        new Material { Id = 1, Tag = "B25", Type = MatType.Concrete,
+            C = new MaterialChars { E = 30_000_000, Fc = -17_000, Ft = 1_150, Ec0 = -0.002, Ec2 = -0.0035 } },
+        new Material { Id = 2, Tag = "A400", Type = MatType.ReSteelF,
+            C = new MaterialChars { E = 200_000_000, Ft = 355_000, Ru = 500_000, Et2 = 0.05 } }
+    );
+
+    static Material? LookupMaterial(int id)
+    {
+        if (id == 1) return ShellMaterials().Concrete;
+        if (id == 2) return ShellMaterials().Rebar;
+        var (_, concrete, steel) = CrossSectionFixtures.RectangularSection();
+        return CrossSectionFixtures.Materials(concrete, steel).GetValueOrDefault(id);
+    }
+
     sealed class RecordingMesher : IPlanarMesher
     {
         readonly bool _isCalculable;
@@ -91,6 +155,10 @@ public sealed class MultiStoryColumnRunnerTests
         public Task<PlanarMeshSnapshot> BuildAsync(PlanarMeshingRequest request, CancellationToken cancellationToken)
         {
             Requests.Add(request);
+            // Узел должен совпадать с глобальным Z уровня (frame.Origin.Z), иначе
+            // PlanarLoadMapper.MapPoint (frame.Origin + LocalX*U + LocalY*V) не найдёт anchor-узел
+            // ни для одного уровня, кроме originZ=0.
+            double originZ = request.Region.Frame.Origin.Z;
             return Task.FromResult(new PlanarMeshSnapshot
             {
                 Id = Requests.Count,
@@ -100,19 +168,32 @@ public sealed class MultiStoryColumnRunnerTests
                 Diagnostics = _isCalculable
                     ? []
                     : [new FemValidationDiagnostic("planar_connection_snapshot_not_calculable", "Снапшот не расчётен.")],
-                // Индексы 0/1 — левое ребро контура (0,0)-(0,4), используется тестом boundary
-                // pipeline (Task 12) через request-local constraint "level-1-fix"; индекс 2 —
+                // Полный квадратный контур (0,0)-(4,0)-(4,4)-(0,4) с двумя Quadrangle4 через
+                // среднюю точку (2,1)/(2,2) — тот же fixture pattern, что и
+                // MultiStoryColumnShellModelAssemblerTests.LevelSnapshot, нужен для реальной
+                // сборки shell-модели в Task 11 (адаптеру нужен непустой список центроидов).
+                // Индексы 0/3 — левое ребро контура (0,0)-(0,4), используется тестом boundary
+                // pipeline (Task 12) через request-local constraint "level-1-fix"; индекс 5 —
                 // anchor-узел (2,2), совпадает с ColumnAnchorLocalXY во всех фикстурах этого файла.
-                Nodes = [new(0, 0, 0, 0, 0, 0), new(1, 0, 4, 0, 4, 0), new(2, 2, 2, 2, 2, 0)],
-                Elements = [],
+                Nodes =
+                [
+                    new(0, 0, 0, 0, 0, originZ), new(1, 4, 0, 4, 0, originZ),
+                    new(2, 4, 4, 4, 4, originZ), new(3, 0, 4, 0, 4, originZ),
+                    new(4, 2, 1, 2, 1, originZ), new(5, 2, 2, 2, 2, originZ)
+                ],
+                Elements =
+                [
+                    new(0, PlanarMeshElementKind.Quadrangle4, [0, 4, 5, 3]),
+                    new(1, PlanarMeshElementKind.Quadrangle4, [4, 1, 2, 5])
+                ],
                 ConstraintMappings = _isCalculable
                     ?
                     [
-                        new PlanarConstraintMeshMapping { ConstraintObjectId = "anchor", PointNodeIndices = [2] },
+                        new PlanarConstraintMeshMapping { ConstraintObjectId = "anchor", PointNodeIndices = [5] },
                         new PlanarConstraintMeshMapping
                         {
                             ConstraintObjectId = "level-1-fix",
-                            OrderedCurveEdges = [new PlanarMeshEdge(0, 1)]
+                            OrderedCurveEdges = [new PlanarMeshEdge(0, 3)]
                         }
                     ]
                     : []
