@@ -533,7 +533,7 @@
    <system:String x:Key="RenameForceSet">Переименовать / вид загружения...</system:String>
    <system:String x:Key="DuplicateForceSet">Дублировать набор</system:String>
    <system:String x:Key="DeleteForceSetItem">Удалить набор</system:String>
-   <system:String x:Key="ForceSetPropsTitle">Вид загружения (СП20)</system:String>
+   <system:String x:Key="ForceSetPropsTitle">Комбинаторика по СП20</system:String>
    <system:String x:Key="ForceLoadCurrentName">Набор:</system:String>
    <system:String x:Key="ForceLoadTitleLabel">Название:</system:String>
    <system:String x:Key="ForceLoadKindLabel">Вид загружения:</system:String>
@@ -587,6 +587,14 @@
    <system:String x:Key="ShellForceColMxy">Mxy, кН·м/м</system:String>
    <system:String x:Key="ShellForceColQx">Qx, кН/м</system:String>
    <system:String x:Key="ShellForceColQy">Qy, кН/м</system:String>
+   <system:String x:Key="ShellForceColSigmaX">σx, кПа</system:String>
+   <system:String x:Key="ShellForceColSigmaY">σy, кПа</system:String>
+   <system:String x:Key="ShellForceColTauXY">τxy, кПа</system:String>
+   <system:String x:Key="ShellForceConvertGroupTitle">Пересчёт напряжений в усилия</system:String>
+   <system:String x:Key="ShellForceThicknessLabel">Толщина, м</system:String>
+   <system:String x:Key="ShellForceConvertBtn">Напряжения → усилия</system:String>
+   <system:String x:Key="ShellForceConvertBtnHint">Заново вычисляет Nx/Ny/Nxy = σ·h для всех строк с заданными σx/σy/τxy, используя указанную толщину. Строки без σ не затрагиваются.</system:String>
+   <system:String x:Key="ShellForceNxLockedHint">Значение вычисляется из σ·h (кнопка «Напряжения → усилия» или автопересчёт в расчётной задаче) — редактируйте σ, а не это поле.</system:String>
    <system:String x:Key="ImportCsvBtn">Импорт CSV</system:String>
    <system:String x:Key="ExportCsvBtn">Экспорт CSV</system:String>
     <system:String x:Key="ImportMenu">Импорт</system:String>

@@ -18,6 +18,7 @@ namespace OpenCS.ViewModels
       readonly ForceSet _model;
       readonly Action _touchSet;
       ShellLoadItemVM? _selectedItem;
+      string _thicknessM = "0.2";
 
       public ShellForceSetVM(ForceSet model, AppViewModel app)
       {
@@ -35,6 +36,7 @@ namespace OpenCS.ViewModels
          SaveCommand          = new RelayCommand(_ => Save());
          ExportCsvCommand     = new RelayCommand(_ => ExportCsv());
          ImportCsvCommand     = new RelayCommand(_ => ImportCsv());
+         ConvertStressToForceCommand = new RelayCommand(_ => ConvertStressToForce());
          App.PlotSettingsApplied += OnPlotSettingsApplied;
       }
 
@@ -63,6 +65,14 @@ namespace OpenCS.ViewModels
       public ICommand SaveCommand          { get; }
       public ICommand ExportCsvCommand     { get; }
       public ICommand ImportCsvCommand     { get; }
+      public ICommand ConvertStressToForceCommand { get; }
+
+      /// <summary>Толщина для кнопки «Напряжения → усилия», м. Не персистентна (не сохраняется в БД).</summary>
+      public string ThicknessM
+      {
+         get => _thicknessM;
+         set { _thicknessM = value; OnPropertyChanged(); }
+      }
 
       void AddItem()
       {
@@ -100,6 +110,25 @@ namespace OpenCS.ViewModels
          App.TouchForceSet(_model);
       }
 
+      void ConvertStressToForce()
+      {
+         if (!double.TryParse(ThicknessM, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double h) || h <= 0)
+            return;
+
+         bool changed = false;
+         foreach (var vm in Items)
+         {
+            var model = vm.Model;
+            if (model.SigmaX is null && model.SigmaY is null && model.TauXY is null)
+               continue;
+            var (nx, ny, nxy) = model.ResolveN(h);
+            vm.Nx = nx; vm.Ny = ny; vm.Nxy = nxy;
+            changed = true;
+         }
+         if (changed) App.TouchForceSet(_model);
+      }
+
       void DeleteItem()
       {
          if (_selectedItem == null) return;
@@ -119,7 +148,7 @@ namespace OpenCS.ViewModels
          using var writer = new StreamWriter(path, false, System.Text.Encoding.UTF8);
          using var csv    = new CsvWriter(writer, cfg);
 
-         foreach (var col in new[] { "Label", "Nx", "Ny", "Nxy", "Mx", "My", "Mxy", "Qx", "Qy" })
+         foreach (var col in new[] { "Label", "Nx", "Ny", "Nxy", "Mx", "My", "Mxy", "Qx", "Qy", "SigmaX", "SigmaY", "TauXY" })
             csv.WriteField(col);
          csv.NextRecord();
 
@@ -129,6 +158,7 @@ namespace OpenCS.ViewModels
             csv.WriteField(item.Nx);  csv.WriteField(item.Ny);  csv.WriteField(item.Nxy);
             csv.WriteField(item.Mx);  csv.WriteField(item.My);  csv.WriteField(item.Mxy);
             csv.WriteField(item.Qx);  csv.WriteField(item.Qy);
+            csv.WriteField(item.SigmaX); csv.WriteField(item.SigmaY); csv.WriteField(item.TauXY);
             csv.NextRecord();
          }
       }
@@ -161,6 +191,9 @@ namespace OpenCS.ViewModels
                      Nx  = GetDouble(csv, "Nx"),  Ny  = GetDouble(csv, "Ny"),  Nxy = GetDouble(csv, "Nxy"),
                      Mx  = GetDouble(csv, "Mx"),  My  = GetDouble(csv, "My"),  Mxy = GetDouble(csv, "Mxy"),
                      Qx  = GetDouble(csv, "Qx"),  Qy  = GetDouble(csv, "Qy"),
+                     SigmaX = GetNullableDouble(csv, "SigmaX"),
+                     SigmaY = GetNullableDouble(csv, "SigmaY"),
+                     TauXY  = GetNullableDouble(csv, "TauXY"),
                   });
                }
             }
@@ -187,6 +220,14 @@ namespace OpenCS.ViewModels
 
       static double GetDouble(CsvReader csv, string field)
          => csv.TryGetField<double>(field, out var v) ? v : 0.0;
+
+      static double? GetNullableDouble(CsvReader csv, string field)
+      {
+         if (!csv.TryGetField<string>(field, out var raw) || string.IsNullOrWhiteSpace(raw))
+            return null;
+         return double.TryParse(raw, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
+      }
 
       public void Save()
       {

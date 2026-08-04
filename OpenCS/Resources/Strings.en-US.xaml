@@ -530,7 +530,7 @@
    <system:String x:Key="RenameForceSet">Rename / load type...</system:String>
    <system:String x:Key="DuplicateForceSet">Duplicate Set</system:String>
    <system:String x:Key="DeleteForceSetItem">Delete Set</system:String>
-   <system:String x:Key="ForceSetPropsTitle">Load Type (SP20)</system:String>
+   <system:String x:Key="ForceSetPropsTitle">SP20 Combinatorics</system:String>
    <system:String x:Key="ForceLoadCurrentName">Set:</system:String>
    <system:String x:Key="ForceLoadTitleLabel">Name:</system:String>
    <system:String x:Key="ForceLoadKindLabel">Load type:</system:String>
@@ -584,6 +584,14 @@
    <system:String x:Key="ShellForceColMxy">Mxy, kN·m/m</system:String>
    <system:String x:Key="ShellForceColQx">Qx, kN/m</system:String>
    <system:String x:Key="ShellForceColQy">Qy, kN/m</system:String>
+   <system:String x:Key="ShellForceColSigmaX">σx, kPa</system:String>
+   <system:String x:Key="ShellForceColSigmaY">σy, kPa</system:String>
+   <system:String x:Key="ShellForceColTauXY">τxy, kPa</system:String>
+   <system:String x:Key="ShellForceConvertGroupTitle">Convert Stresses to Forces</system:String>
+   <system:String x:Key="ShellForceThicknessLabel">Thickness, m</system:String>
+   <system:String x:Key="ShellForceConvertBtn">Stresses → Forces</system:String>
+   <system:String x:Key="ShellForceConvertBtnHint">Recomputes Nx/Ny/Nxy = σ·h for every row with σx/σy/τxy set, using the thickness above. Rows without σ are left untouched.</system:String>
+   <system:String x:Key="ShellForceNxLockedHint">Derived from σ·h (via the "Stresses → Forces" button or auto-recalc in a calc task) — edit σ instead of this field.</system:String>
    <system:String x:Key="ImportCsvBtn">Import CSV</system:String>
    <system:String x:Key="ExportCsvBtn">Export CSV</system:String>
     <system:String x:Key="ImportMenu">Import</system:String>

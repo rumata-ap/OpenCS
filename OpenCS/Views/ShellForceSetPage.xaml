@@ -15,6 +15,7 @@
    <Grid>
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
          <RowDefinition Height="*"/>
          <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
@@ -28,8 +29,23 @@
          </GroupBox>
       </Border>
 
+      <!-- Пересчёт напряжений в усилия -->
+      <GroupBox Grid.Row="1" Header="{DynamicResource ShellForceConvertGroupTitle}"
+                Margin="4,4,4,0" Padding="8,6,8,8">
+         <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{DynamicResource ShellForceThicknessLabel}"
+                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBox Text="{Binding ThicknessM, UpdateSourceTrigger=PropertyChanged}"
+                     Width="80" VerticalContentAlignment="Center" Margin="0,0,12,0"/>
+            <Button Content="{DynamicResource ShellForceConvertBtn}"
+                    Command="{Binding ConvertStressToForceCommand}"
+                    ToolTip="{DynamicResource ShellForceConvertBtnHint}"
+                    Padding="10,4"/>
+         </StackPanel>
+      </GroupBox>
+
       <!-- Таблица усилий пластины и справка по знакам -->
-      <Grid Grid.Row="1" Margin="4,4,4,0">
+      <Grid Grid.Row="2" Margin="4,4,4,0">
          <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="280"/>
@@ -76,6 +92,16 @@
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ShellForceColNx}"/>
                </DataGridTextColumn.Header>
+               <DataGridTextColumn.CellStyle>
+                  <Style TargetType="DataGridCell">
+                     <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasSigma}" Value="True">
+                           <Setter Property="IsEnabled" Value="False"/>
+                           <Setter Property="ToolTip" Value="{DynamicResource ShellForceNxLockedHint}"/>
+                        </DataTrigger>
+                     </Style.Triggers>
+                  </Style>
+               </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
 
             <DataGridTextColumn Binding="{Binding Ny, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
@@ -85,6 +111,16 @@
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ShellForceColNy}"/>
                </DataGridTextColumn.Header>
+               <DataGridTextColumn.CellStyle>
+                  <Style TargetType="DataGridCell">
+                     <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasSigma}" Value="True">
+                           <Setter Property="IsEnabled" Value="False"/>
+                           <Setter Property="ToolTip" Value="{DynamicResource ShellForceNxLockedHint}"/>
+                        </DataTrigger>
+                     </Style.Triggers>
+                  </Style>
+               </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
 
             <DataGridTextColumn Binding="{Binding Nxy, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
@@ -94,6 +130,16 @@
                <DataGridTextColumn.Header>
                   <TextBlock Text="{DynamicResource ShellForceColNxy}"/>
                </DataGridTextColumn.Header>
+               <DataGridTextColumn.CellStyle>
+                  <Style TargetType="DataGridCell">
+                     <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasSigma}" Value="True">
+                           <Setter Property="IsEnabled" Value="False"/>
+                           <Setter Property="ToolTip" Value="{DynamicResource ShellForceNxLockedHint}"/>
+                        </DataTrigger>
+                     </Style.Triggers>
+                  </Style>
+               </DataGridTextColumn.CellStyle>
             </DataGridTextColumn>
 
             <DataGridTextColumn Binding="{Binding Mx, StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
@@ -141,6 +187,33 @@
                </DataGridTextColumn.Header>
             </DataGridTextColumn>
 
+            <DataGridTextColumn Binding="{Binding SigmaX, TargetNullValue='', StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+                                Width="80"
+                                ElementStyle="{StaticResource ForceValueX}"
+                                EditingElementStyle="{StaticResource ForceEditX}">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ShellForceColSigmaX}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+
+            <DataGridTextColumn Binding="{Binding SigmaY, TargetNullValue='', StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+                                Width="80"
+                                ElementStyle="{StaticResource ForceValueY}"
+                                EditingElementStyle="{StaticResource ForceEditY}">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ShellForceColSigmaY}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+
+            <DataGridTextColumn Binding="{Binding TauXY, TargetNullValue='', StringFormat=G6, UpdateSourceTrigger=PropertyChanged}"
+                                Width="80"
+                                ElementStyle="{StaticResource ForceValueTau}"
+                                EditingElementStyle="{StaticResource ForceEditTau}">
+               <DataGridTextColumn.Header>
+                  <TextBlock Text="{DynamicResource ShellForceColTauXY}"/>
+               </DataGridTextColumn.Header>
+            </DataGridTextColumn>
+
          </DataGrid.Columns>
       </DataGrid>
 
@@ -152,7 +225,7 @@
       </Grid>
 
       <!-- Кнопки внизу -->
-      <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="4,4,4,4">
+      <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="4,4,4,4">
          <Button Style="{StaticResource IconButton25}"
                  Command="{Binding AddItemCommand}"
                  ToolTip="{DynamicResource AddForceItem}"
