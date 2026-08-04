@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -5,9 +6,14 @@ using System.Threading.Tasks;
 using CScore;
 using CScore.Planar;
 using CScore.Planar.Fragments;
+using OpenCS.OpenSees.Artifacts;
 using OpenCS.OpenSees.Audit;
 using OpenCS.OpenSees.CScore;
+using OpenCS.OpenSees.Results;
+using OpenCS.OpenSees.Runtime;
 using OpenCS.OpenSees.Structural;
+using OpenCS.OpenSees.Tcl;
+using ShellResult = OpenCS.OpenSees.Structural.ShellResult;
 
 namespace OpenCS.OpenSees.CScore.Fragments;
 
@@ -258,5 +264,89 @@ public class MultiStoryColumnRunner
 
         return new(model, assembled.AnchorNodeTagByLevel, assembled.NodeIndexToTagByLevel, [], [],
             snapshots.GmshArtifactDirectory, mappedDeltaTotal / System.Math.Max(1.0, appliedTotal));
+    }
+
+    public async Task<MultiStoryColumnResult> RunAsync(
+        MultiStoryColumnFragment fragment,
+        IPlanarMesher mesher,
+        Func<ColumnFloorLevel, PlanarMeshSettings> meshSettingsFor,
+        Func<int, Material?> lookupMaterial,
+        CalcType calcType,
+        string openSeesExecutablePath,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(fragment);
+        ArgumentNullException.ThrowIfNull(mesher);
+        ArgumentNullException.ThrowIfNull(lookupMaterial);
+
+        var result = new MultiStoryColumnResult { FragmentId = fragment.FragmentId };
+
+        var domainDiagnostics = fragment.Validate();
+        if (domainDiagnostics.Any(d => d.IsError))
+        {
+            result.AssemblyDiagnostics = domainDiagnostics.Select(d => $"{d.Code}: {d.Message}").ToList();
+            result.AuditReport = new MultiStoryColumnAuditReport().Audit(fragment, result);
+            return result;
+        }
+
+        ModelBuildOutcome built = await BuildModelAsync(
+            fragment, mesher, meshSettingsFor, lookupMaterial, calcType, cancellationToken);
+        result.GmshArtifactDirectory = built.GmshArtifactDirectory;
+
+        if (built.MeshDiagnostics.Count > 0)
+        {
+            result.MeshDiagnostics = built.MeshDiagnostics;
+            result.AuditReport = new MultiStoryColumnAuditReport().Audit(fragment, result);
+            return result;
+        }
+        if (built.AssemblyDiagnostics.Count > 0)
+        {
+            result.AssemblyDiagnostics = built.AssemblyDiagnostics;
+            result.AuditReport = new MultiStoryColumnAuditReport().Audit(fragment, result);
+            return result;
+        }
+
+        IShellAnalysisRunner runner = _analysisRunner ?? new ShellAnalysisRunner(
+            new ShellTclGenerator(),
+            new OpenSeesArtifactStore(System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "opencs-multistory-column-artifacts")),
+            new OpenSeesProcessRunner(),
+            new ShellResultParser(),
+            TimeSpan.FromSeconds(180));
+
+        ShellAnalysisRunResult run = await runner.RunAsync(
+            built.Model!, openSeesExecutablePath, cancellationToken);
+        result.OpenSeesArtifactDirectory = run.ArtifactDirectory;
+
+        bool executionCompleted = run.Outcome == ShellAnalysisOutcome.Completed;
+        if (!executionCompleted)
+        {
+            result.IsConverged = false;
+            result.AnalysisDiagnostics = [run.ErrorMessage ?? $"OpenSees outcome: {run.Outcome}."];
+            result.AuditReport = new MultiStoryColumnAuditReport().Audit(fragment, result);
+            return result;
+        }
+
+        ShellResult shellResult = run.Result!;
+        RCShellStepResult? lastStep = shellResult.Steps.LastOrDefault(step => step.Converged);
+        int lastStageIndex = fragment.StageConfig.Stages.Count - 1;
+        result.IsConverged = lastStep is not null &&
+            lastStep.StageIndex == lastStageIndex && Math.Abs(lastStep.LoadFactor - 1.0) < 1e-6;
+        if (!result.IsConverged)
+        {
+            result.AnalysisDiagnostics =
+            [
+                lastStep is null
+                    ? "multistory_column_analysis_incomplete: ни один шаг не сошёлся."
+                    : $"multistory_column_analysis_incomplete: последний сошедшийся шаг — стадия " +
+                      $"{lastStep.StageIndex + 1} из {fragment.StageConfig.Stages.Count}, " +
+                      $"LoadFactor={lastStep.LoadFactor:F3}."
+            ];
+            result.AuditReport = new MultiStoryColumnAuditReport().Audit(fragment, result);
+            return result;
+        }
+
+        result.AuditReport = new MultiStoryColumnAuditReport().Audit(fragment, result);
+        return result;
     }
 }

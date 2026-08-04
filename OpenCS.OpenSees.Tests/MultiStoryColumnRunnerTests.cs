@@ -7,9 +7,13 @@ using CScore;
 using CScore.Fem;
 using CScore.Planar;
 using CScore.Planar.Fragments;
+using OpenCS.OpenSees.Audit;
 using OpenCS.OpenSees.CScore;
 using OpenCS.OpenSees.CScore.Fragments;
+using OpenCS.OpenSees.Results;
+using OpenCS.OpenSees.Structural;
 using OpenCS.OpenSees.Tests.Fixtures;
+using ShellResult = OpenCS.OpenSees.Structural.ShellResult;
 using Xunit;
 
 namespace OpenCS.OpenSees.Tests;
@@ -148,6 +152,74 @@ public sealed class MultiStoryColumnRunnerTests
 
         Assert.Null(built.Model);
         Assert.NotEmpty(built.AssemblyDiagnostics);
+    }
+
+    [Fact]
+    public async Task RunAsync_ReturnsAuditedResultOnMeshFailure()
+    {
+        var fragment = ValidFragment();
+        var mesher = new RecordingMesher(isCalculable: false);
+
+        var result = await new MultiStoryColumnRunner().RunAsync(
+            fragment, mesher, level => new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+            LookupMaterial, CalcType.C, "opensees.exe", CancellationToken.None);
+
+        Assert.False(result.IsConverged);
+        Assert.NotEmpty(result.MeshDiagnostics);
+        Assert.Equal(FragmentAuditVerdict.Invalid, result.AuditReport.Verdict);
+    }
+
+    [Fact]
+    public async Task RunAsync_ReturnsIncompleteWhenLastConvergedStepIsNotFullLoadOnLastStage()
+    {
+        var fragment = ValidFragment();
+        var mesher = new RecordingMesher();
+        var fakeRunner = new FakeShellAnalysisRunner(ShellAnalysisOutcome.Completed,
+            steps: [new RCShellStepResult(0, 0, 0.5, true, [], [], [], [], [])]);
+
+        var result = await new MultiStoryColumnRunner(fakeRunner).RunAsync(
+            fragment, mesher, level => new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+            LookupMaterial, CalcType.C, "opensees.exe", CancellationToken.None);
+
+        Assert.False(result.IsConverged);
+        Assert.NotEmpty(result.AnalysisDiagnostics);
+        Assert.Equal(FragmentAuditVerdict.Invalid, result.AuditReport.Verdict);
+    }
+
+    [Fact]
+    public async Task RunAsync_ReturnsConvergedWhenLastStepIsFullLoadOnLastStage()
+    {
+        var fragment = ValidFragment();
+        var mesher = new RecordingMesher();
+        var fakeRunner = new FakeShellAnalysisRunner(ShellAnalysisOutcome.Completed,
+            steps: [new RCShellStepResult(0, 0, 1.0, true, [], [], [], [], [])]);
+
+        var result = await new MultiStoryColumnRunner(fakeRunner).RunAsync(
+            fragment, mesher, level => new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+            LookupMaterial, CalcType.C, "opensees.exe", CancellationToken.None);
+
+        Assert.True(result.IsConverged);
+    }
+
+    sealed class FakeShellAnalysisRunner : IShellAnalysisRunner
+    {
+        readonly ShellAnalysisOutcome _outcome;
+        readonly IReadOnlyList<RCShellStepResult> _steps;
+
+        public FakeShellAnalysisRunner(ShellAnalysisOutcome outcome, IReadOnlyList<RCShellStepResult> steps)
+        {
+            _outcome = outcome;
+            _steps = steps;
+        }
+
+        public Task<ShellAnalysisRunResult> RunAsync(
+            ShellOpenSeesModel model, string executablePath, CancellationToken cancellationToken) =>
+            Task.FromResult(new ShellAnalysisRunResult(
+                _outcome,
+                _outcome == ShellAnalysisOutcome.Completed
+                    ? new ShellResult { Steps = _steps, Status = "completed" }
+                    : null,
+                "artifacts", null));
     }
 
     internal static MultiStoryColumnFragment ValidFragment()
