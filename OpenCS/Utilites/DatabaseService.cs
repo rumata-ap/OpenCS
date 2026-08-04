@@ -31,7 +31,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-             const int CurrentSchemaVersion = 50;
+             const int CurrentSchemaVersion = 51;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -213,7 +213,10 @@ namespace OpenCS.Utilites
                 my      REAL NOT NULL DEFAULT 0,
                 mxy     REAL NOT NULL DEFAULT 0,
                 qx      REAL NOT NULL DEFAULT 0,
-                qy      REAL NOT NULL DEFAULT 0
+                qy      REAL NOT NULL DEFAULT 0,
+                sigma_x REAL,
+                sigma_y REAL,
+                tau_xy  REAL
             );
             CREATE TABLE IF NOT EXISTS plate_sections (
                 id                   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -582,6 +585,7 @@ namespace OpenCS.Utilites
                    if (i == 46) { MigrateV47(); continue; }
                     if (i == 47) { MigrateV48(); continue; }
                     if (i == 48) { MigrateV49(); continue; }
+                    if (i == 50) { MigrateV51(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1132,6 +1136,17 @@ namespace OpenCS.Utilites
 
          /// <summary>Миграция v49: source connections и mappings двух независимых meshes.</summary>
          void MigrateV49() => EnsurePlanarConnectionTables();
+
+         /// <summary>Миграция v51: сырые импортированные напряжения σx/σy/τxy для пластинчатых наборов усилий.</summary>
+         void MigrateV51()
+         {
+             if (!ColumnExists("force_shell_items", "sigma_x"))
+                 MigExec("ALTER TABLE force_shell_items ADD COLUMN sigma_x REAL");
+             if (!ColumnExists("force_shell_items", "sigma_y"))
+                 MigExec("ALTER TABLE force_shell_items ADD COLUMN sigma_y REAL");
+             if (!ColumnExists("force_shell_items", "tau_xy"))
+                 MigExec("ALTER TABLE force_shell_items ADD COLUMN tau_xy REAL");
+         }
 
        void EnsurePlanarMeshTables()
        {
@@ -2257,7 +2272,7 @@ namespace OpenCS.Utilites
          }
          using (var cmd = _connection.CreateCommand())
          {
-            cmd.CommandText = "SELECT id, set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy FROM force_shell_items ORDER BY set_id, num";
+            cmd.CommandText = "SELECT id, set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy FROM force_shell_items ORDER BY set_id, num";
             using var r = cmd.ExecuteReader();
             while (r.Read())
             {
@@ -2265,17 +2280,20 @@ namespace OpenCS.Utilites
                if (!sets.TryGetValue(setId, out var fs)) continue;
                fs.ShellItems.Add(new ShellLoadItem
                {
-                  Id    = r.GetInt32(0),
-                  Num   = r.GetInt32(2),
-                  Label = r.GetString(3),
-                  Nx    = r.GetDouble(4),
-                  Ny    = r.GetDouble(5),
-                  Nxy   = r.GetDouble(6),
-                  Mx    = r.GetDouble(7),
-                  My    = r.GetDouble(8),
-                  Mxy   = r.GetDouble(9),
-                  Qx    = r.GetDouble(10),
-                  Qy    = r.GetDouble(11),
+                  Id      = r.GetInt32(0),
+                  Num     = r.GetInt32(2),
+                  Label   = r.GetString(3),
+                  Nx      = r.GetDouble(4),
+                  Ny      = r.GetDouble(5),
+                  Nxy     = r.GetDouble(6),
+                  Mx      = r.GetDouble(7),
+                  My      = r.GetDouble(8),
+                  Mxy     = r.GetDouble(9),
+                  Qx      = r.GetDouble(10),
+                  Qy      = r.GetDouble(11),
+                  SigmaX  = r.IsDBNull(12) ? null : r.GetDouble(12),
+                  SigmaY  = r.IsDBNull(13) ? null : r.GetDouble(13),
+                  TauXY   = r.IsDBNull(14) ? null : r.GetDouble(14),
                });
             }
          }
@@ -2383,8 +2401,8 @@ namespace OpenCS.Utilites
             if (item.Id != 0)
             {
                ins.CommandText = """
-                  INSERT INTO force_shell_items (id, set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy)
-                  VALUES (@id, @sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy);
+                  INSERT INTO force_shell_items (id, set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy)
+                  VALUES (@id, @sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy, @sx, @sy, @txy);
                   SELECT last_insert_rowid();
                """;
                ins.Parameters.AddWithValue("@id", item.Id);
@@ -2392,8 +2410,8 @@ namespace OpenCS.Utilites
             else
             {
                ins.CommandText = """
-                  INSERT INTO force_shell_items (set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy)
-                  VALUES (@sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy);
+                  INSERT INTO force_shell_items (set_id, num, label, nx, ny, nxy, mx, my, mxy, qx, qy, sigma_x, sigma_y, tau_xy)
+                  VALUES (@sid, @num, @lbl, @nx, @ny, @nxy, @mx, @my, @mxy, @qx, @qy, @sx, @sy, @txy);
                   SELECT last_insert_rowid();
                """;
             }
@@ -2408,6 +2426,9 @@ namespace OpenCS.Utilites
             ins.Parameters.AddWithValue("@mxy", item.Mxy);
             ins.Parameters.AddWithValue("@qx",  item.Qx);
             ins.Parameters.AddWithValue("@qy",  item.Qy);
+            ins.Parameters.AddWithValue("@sx",  (object?)item.SigmaX ?? DBNull.Value);
+            ins.Parameters.AddWithValue("@sy",  (object?)item.SigmaY ?? DBNull.Value);
+            ins.Parameters.AddWithValue("@txy", (object?)item.TauXY  ?? DBNull.Value);
             item.Id = (int)(long)ins.ExecuteScalar()!;
          }
          fs.IsModified = false;
