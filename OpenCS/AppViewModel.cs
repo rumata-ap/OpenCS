@@ -2734,21 +2734,6 @@ namespace OpenCS
             }
          }
 
-         // Толщина пластин: A из XLS (внутри импортёра) поверх B из FEM-схемы; иначе поле диалога.
-         var thicknessFromTopology = new Dictionary<int, double>();
-         var schemaForThk = currentFemMember != null
-            ? FemSchemas.FirstOrDefault(s => s.Id == currentFemMember.SchemaId)
-            : currentFemSchema;
-         if (schemaForThk != null)
-         {
-            foreach (var el in db.GetFemMembers(schemaForThk.Id))
-            {
-               if (el.ThicknessM is not > 0) continue;
-               if (!int.TryParse(el.ElemTag, out int scadId)) continue;
-               thicknessFromTopology[scadId] = el.ThicknessM.Value;
-            }
-         }
-
          var options = new CScore.Import.ScadXlsImportOptions
          {
             TonToKnFactor = LiraImportSettings.TonToKnFactor,
@@ -2756,8 +2741,6 @@ namespace OpenCS
             InvertShellBendingMoments = LiraImportSettings.InvertShellBendingMoments,
             ElementIds = elementIds,
             ImportAllElements = dlg.ImportAllElements,
-            DefaultThicknessM = dlg.ThicknessMm / 1000.0,
-            ElementThicknessM = thicknessFromTopology,
          };
 
          BeginBusy(Loc.S("ImportScadForcesStarted"), indeterminate: false);

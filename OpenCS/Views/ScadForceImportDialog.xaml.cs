@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using CScore.Import;
@@ -12,8 +11,6 @@ public partial class ScadForceImportDialog : Window
 
     public string ElementText { get; private set; } = "";
     public bool ImportAllElements { get; private set; }
-    /// <summary>Толщина пластины из диалога, мм.</summary>
-    public double ThicknessMm { get; private set; }
 
     public ScadForceImportDialog(string? initialElementsFromMember = null)
     {
@@ -26,7 +23,6 @@ public partial class ScadForceImportDialog : Window
     }
 
     void ElementsBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateOkEnabled();
-    void ThicknessBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateOkEnabled();
 
     void AllElements_Changed(object sender, RoutedEventArgs e)
     {
@@ -52,10 +48,7 @@ public partial class ScadForceImportDialog : Window
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
-        if (!TryParseThicknessMm(out double mm))
-            return;
         ImportAllElements = AllElementsCheck.IsChecked == true;
-        ThicknessMm = mm;
         if (!ImportAllElements)
         {
             if (!ScadElementIdParser.TryParse(ElementsBox.Text, out _, out _))
@@ -79,15 +72,8 @@ public partial class ScadForceImportDialog : Window
     void UpdateOkEnabled()
     {
         if (OkButton == null) return; // TextChanged во время InitializeComponent
-        bool thicknessOk = TryParseThicknessMm(out _);
         bool elementsOk = AllElementsCheck.IsChecked == true
             || ScadElementIdParser.TryParse(ElementsBox.Text, out _, out _);
-        OkButton.IsEnabled = thicknessOk && elementsOk;
-    }
-
-    bool TryParseThicknessMm(out double mm)
-    {
-        string s = (ThicknessBox.Text ?? "").Trim().Replace(',', '.');
-        return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out mm) && mm > 0;
+        OkButton.IsEnabled = elementsOk;
     }
 }

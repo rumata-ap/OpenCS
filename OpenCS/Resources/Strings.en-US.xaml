@@ -630,7 +630,6 @@
    <system:String x:Key="ScadForceImportElementsLabel">Element numbers (e.g. 12, 15-20)</system:String>
    <system:String x:Key="ScadForceImportFromMember">From FemMember</system:String>
    <system:String x:Key="ScadForceImportAllElements">For all model elements</system:String>
-   <system:String x:Key="ScadForceImportThicknessLabel">Plate thickness (mm), if missing in stiffnesses:</system:String>
    <system:String x:Key="ScadForceImportOk">OK</system:String>
    <system:String x:Key="ScadForceImportCancel">Cancel</system:String>
    <system:String x:Key="ScadForceImportNoMember">No design member selected, or its FE list is empty.</system:String>

@@ -633,7 +633,6 @@
    <system:String x:Key="ScadForceImportElementsLabel">Номера элементов (например: 12, 15-20)</system:String>
    <system:String x:Key="ScadForceImportFromMember">Из FemMember</system:String>
    <system:String x:Key="ScadForceImportAllElements">Для всех элементов схемы</system:String>
-   <system:String x:Key="ScadForceImportThicknessLabel">Толщина пластины (мм), если нет в жёсткостях:</system:String>
    <system:String x:Key="ScadForceImportOk">OK</system:String>
    <system:String x:Key="ScadForceImportCancel">Отмена</system:String>
    <system:String x:Key="ScadForceImportNoMember">Нет выбранного конструктивного элемента или у него пустой список КЭ.</system:String>

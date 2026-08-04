@@ -11,7 +11,6 @@
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="Auto"/>
          <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
          <RowDefinition Height="*"/>
          <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
@@ -40,20 +39,7 @@
                 Checked="AllElements_Changed"
                 Unchecked="AllElements_Changed"/>
 
-      <DockPanel Grid.Row="3" LastChildFill="True" Margin="0,0,0,8">
-         <TextBlock DockPanel.Dock="Left"
-                    Text="{DynamicResource ScadForceImportThicknessLabel}"
-                    VerticalAlignment="Center"
-                    Margin="0,0,8,0"/>
-         <TextBox x:Name="ThicknessBox"
-                  Width="100"
-                  HorizontalAlignment="Left"
-                  VerticalContentAlignment="Center"
-                  Text="200"
-                  TextChanged="ThicknessBox_TextChanged"/>
-      </DockPanel>
-
-      <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+      <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
          <Button x:Name="OkButton"
                  Content="{DynamicResource ScadForceImportOk}"
                  IsDefault="True"
