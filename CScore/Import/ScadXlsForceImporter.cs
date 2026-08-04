@@ -42,21 +42,27 @@ public static class ScadXlsForceImporter
             if (layout == null || !MatchesMode(mode, layout.Kind))
                 continue;
 
+            double sheetForceFactor = TryParseScadForceUnitFactor(sheet.Cells, options.TonToKnFactor) ?? options.TonToKnFactor;
+            double sheetLengthFactor = TryParseScadLengthFactor(sheet.Cells) ?? options.LengthM;
+            var sheetOptions = (sheetForceFactor != options.TonToKnFactor || sheetLengthFactor != options.LengthM)
+                ? options.WithUnits(sheetForceFactor, sheetLengthFactor)
+                : options;
+
             forceSheets++;
             result.SheetsRead++;
             if (layout.IsShell)
             {
                 if (mode == ScadXlsImportMode.Rsu)
-                    ImportShellRsuSheet(sheet.Cells, layout, options, sets, result);
+                    ImportShellRsuSheet(sheet.Cells, layout, sheetOptions, sets, result);
                 else
-                    ImportShellLoadCaseSheet(sheet.Cells, layout, options, loadCaseNames, sets, result);
+                    ImportShellLoadCaseSheet(sheet.Cells, layout, sheetOptions, loadCaseNames, sets, result);
             }
             else
             {
                 if (mode == ScadXlsImportMode.Rsu)
-                    ImportRsuSheet(sheet.Cells, layout, options, sets, result);
+                    ImportRsuSheet(sheet.Cells, layout, sheetOptions, sets, result);
                 else
-                    ImportLoadCaseSheet(sheet.Cells, layout, options, loadCaseNames, sets, result);
+                    ImportLoadCaseSheet(sheet.Cells, layout, sheetOptions, loadCaseNames, sets, result);
             }
         }
 
@@ -124,8 +130,6 @@ public static class ScadXlsForceImporter
             var loadCaseNames = new Dictionary<int, string>();
             var combinationNames = new Dictionary<int, string>();
             var sheets = new List<ScadXlsSheetData>();
-            var elemToStiff = new Dictionary<int, int>();
-            var stiffToThickness = new Dictionary<int, double>();
             int sheetIndex = 0;
             do
             {
@@ -159,20 +163,6 @@ public static class ScadXlsForceImporter
                     continue;
                 }
 
-                if (IsElementsSheet(title, cells))
-                {
-                    var full = ReadRemainingAsNewList(cells, reader);
-                    ParseElementStiffnessIds(full, elemToStiff);
-                    continue;
-                }
-
-                if (LooksLikeStiffnessThicknessSheet(title, name, cells))
-                {
-                    var full = ReadRemainingAsNewList(cells, reader);
-                    ParseStiffnessThicknesses(full, stiffToThickness);
-                    continue;
-                }
-
                 var layout = DetectLayout(cells);
                 if (layout == null || !MatchesMode(mode, layout.Kind))
                     continue;
@@ -182,18 +172,12 @@ public static class ScadXlsForceImporter
             }
             while (reader.NextResult());
 
-            var mergedThickness = MergeThicknessMaps(
-                topology: options.ElementThicknessM,
-                xlsElemToStiff: elemToStiff,
-                xlsStiffToH: stiffToThickness);
             var opts = new ScadXlsImportOptions
             {
                 TonToKnFactor = options.TonToKnFactor,
                 InvertBarBendingMoments = options.InvertBarBendingMoments,
                 ElementIds = options.ElementIds,
                 ImportAllElements = options.ImportAllElements,
-                DefaultThicknessM = options.DefaultThicknessM,
-                ElementThicknessM = mergedThickness,
             };
 
             var namesForMode = mode == ScadXlsImportMode.Combinations
@@ -687,120 +671,46 @@ public static class ScadXlsForceImporter
         => title.Contains("Имена комбинаций", StringComparison.OrdinalIgnoreCase)
            || name.Contains("Имена комбинаций", StringComparison.OrdinalIgnoreCase);
 
-    static bool IsElementsSheet(string title, IReadOnlyList<IReadOnlyList<string>> probe)
+    /// <summary>
+    /// Ищет в первых строках листа «- Силы: <ед>» и переводит найденную единицу в коэффициент
+    /// к кН. Null, если строка не найдена или единица не распознана (тогда используется
+    /// options.TonToKnFactor как раньше).
+    /// </summary>
+    internal static double? TryParseScadForceUnitFactor(IReadOnlyList<IReadOnlyList<string>> cells, double tonFactor)
     {
-        if (!title.Contains("Элемент", StringComparison.OrdinalIgnoreCase))
-            return false;
-        for (int r = 0; r < Math.Min(8, probe.Count); r++)
+        const string marker = "Силы:";
+        foreach (var row in cells.Take(10))
         {
-            if (FindCol(probe[r], "жестк") >= 0)
-                return true;
-        }
-        return false;
-    }
-
-    static bool LooksLikeStiffnessThicknessSheet(string title, string name, IReadOnlyList<IReadOnlyList<string>> probe)
-    {
-        string blob = title + " " + name;
-        bool nameHint = blob.Contains("Жестк", StringComparison.OrdinalIgnoreCase)
-                        || blob.Contains("жестк", StringComparison.OrdinalIgnoreCase);
-        for (int r = 0; r < Math.Min(12, probe.Count); r++)
-        {
-            int thk = FindCol(probe[r], "толщ");
-            int id = FindCol(probe[r], "номер");
-            if (id < 0) id = FindCol(probe[r], "№");
-            if (id < 0) id = FindCol(probe[r], "Тип");
-            if (thk >= 0 && (nameHint || id >= 0))
-                return true;
-        }
-        return false;
-    }
-
-    static void ParseElementStiffnessIds(
-        IReadOnlyList<IReadOnlyList<string>> cells, Dictionary<int, int> elemToStiff)
-    {
-        int header = -1, colElem = -1, colStiff = -1;
-        for (int r = 0; r < Math.Min(10, cells.Count); r++)
-        {
-            int e = FindCol(cells[r], "Номер элемента");
-            if (e < 0) e = IndexOfExact(cells[r], "Номер элемента");
-            if (e < 0 && Cell(cells[r], 0).Contains("Номер", StringComparison.OrdinalIgnoreCase))
-                e = 0;
-            int s = FindCol(cells[r], "жестк");
-            if (e >= 0 && s >= 0)
+            foreach (var cellText in row)
             {
-                header = r; colElem = e; colStiff = s;
-                break;
+                int idx = cellText.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+                if (idx < 0) continue;
+                string token = cellText[(idx + marker.Length)..].Trim();
+                return UnitTokens.ForceToKn(token, tonFactor);
             }
         }
-        if (header < 0) return;
-        for (int r = header + 1; r < cells.Count; r++)
-        {
-            if (!TryParseInt(Cell(cells[r], colElem), out int elem))
-                continue;
-            if (!TryParseInt(Cell(cells[r], colStiff), out int stiff))
-                continue;
-            elemToStiff[elem] = stiff;
-        }
+        return null;
     }
 
-    static void ParseStiffnessThicknesses(
-        IReadOnlyList<IReadOnlyList<string>> cells, Dictionary<int, double> stiffToH)
+    /// <summary>
+    /// Ищет в первых строках листа «- Единицы длины для силовых факторов: <ед>» и переводит
+    /// найденную единицу в метры. Null, если строка не найдена или единица не распознана
+    /// (тогда используется ScadXlsImportOptions.LengthM=1.0, т.е. метры).
+    /// </summary>
+    internal static double? TryParseScadLengthFactor(IReadOnlyList<IReadOnlyList<string>> cells)
     {
-        int header = -1, colId = -1, colH = -1;
-        for (int r = 0; r < Math.Min(15, cells.Count); r++)
+        const string marker = "Единицы длины для силовых факторов:";
+        foreach (var row in cells.Take(10))
         {
-            int h = FindCol(cells[r], "толщ");
-            if (h < 0) continue;
-            int id = FindCol(cells[r], "номер");
-            if (id < 0) id = FindCol(cells[r], "№");
-            if (id < 0) id = FindCol(cells[r], "Тип");
-            if (id < 0) id = 0;
-            header = r; colId = id; colH = h;
-            break;
-        }
-        if (header < 0) return;
-
-        // единицы: если в шапке «мм» — делим на 1000
-        bool mm = false;
-        for (int r = 0; r <= header; r++)
-        {
-            for (int c = 0; c < cells[r].Count; c++)
+            foreach (var cellText in row)
             {
-                if (Cell(cells[r], c).Contains("мм", StringComparison.OrdinalIgnoreCase))
-                    mm = true;
+                int idx = cellText.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+                if (idx < 0) continue;
+                string token = cellText[(idx + marker.Length)..].Trim();
+                return UnitTokens.LengthToM(token);
             }
         }
-
-        for (int r = header + 1; r < cells.Count; r++)
-        {
-            if (!TryParseInt(Cell(cells[r], colId), out int id))
-                continue;
-            if (!TryParseDouble(Cell(cells[r], colH), out double h) || h <= 0)
-                continue;
-            if (mm) h /= 1000.0;
-            stiffToH[id] = h;
-        }
-    }
-
-    /// <summary>Приоритет: толщина из XLS (A) перекрывает топологию (B).</summary>
-    static Dictionary<int, double> MergeThicknessMaps(
-        IReadOnlyDictionary<int, double> topology,
-        IReadOnlyDictionary<int, int> xlsElemToStiff,
-        IReadOnlyDictionary<int, double> xlsStiffToH)
-    {
-        var map = new Dictionary<int, double>();
-        foreach (var kv in topology)
-        {
-            if (kv.Value > 0)
-                map[kv.Key] = kv.Value;
-        }
-        foreach (var (elem, stiffId) in xlsElemToStiff)
-        {
-            if (xlsStiffToH.TryGetValue(stiffId, out double h) && h > 0)
-                map[elem] = h;
-        }
-        return map;
+        return null;
     }
 
     static void ParseLoadCaseNames(IReadOnlyList<IReadOnlyList<string>> cells, Dictionary<int, string> map)

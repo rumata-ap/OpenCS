@@ -185,7 +185,6 @@ public class ScadXlsForceImporterTests
             TonToKnFactor = 1.0,
             InvertBarBendingMoments = false,
             ElementIds = new HashSet<int> { 1, 15 },
-            DefaultThicknessM = 0.2,
         };
         var names = new Dictionary<int, string> { [2] = "DEAD" };
 
@@ -199,7 +198,8 @@ public class ScadXlsForceImporterTests
         var shell = Assert.Single(result.ForceSets, fs => fs.Tag == "DEAD" && fs.Kind == "shell");
         Assert.Single(shell.ShellItems);
         Assert.Equal("15_Центр", shell.ShellItems[0].Label);
-        Assert.Equal(0.2, shell.ShellItems[0].Nx); // sX=1 × h=0.2
+        Assert.Equal(0.0, shell.ShellItems[0].Nx);
+        Assert.Equal(1.0, shell.ShellItems[0].SigmaX!.Value); // sX=1, no thickness applied at import
         Assert.Equal(0.0, shell.ShellItems[0].Qx);
     }
 
@@ -223,8 +223,6 @@ public class ScadXlsForceImporterTests
         {
             TonToKnFactor = 1.0,
             ElementIds = new HashSet<int> { 20 },
-            DefaultThicknessM = 0.5,
-            ElementThicknessM = new Dictionary<int, double> { [20] = 0.2 }, // per-КЭ перекрывает default
         };
         var result = ScadXlsForceImporter.ImportBarSheets(
             ScadXlsImportMode.Rsu, opt, new Dictionary<int, string>(), [sheet]);
@@ -234,20 +232,8 @@ public class ScadXlsForceImporterTests
         Assert.Equal("shell", fs.Kind);
         Assert.Equal("РСУ_C", fs.Tag);
         Assert.Equal(2, fs.ShellItems.Count);
-        Assert.Contains(fs.ShellItems, i => i.Label == "20_Центр_К1" && i.Nx == 1.1 * 0.2 && i.Qx == 0.7 && i.Qy == 0.8);
+        Assert.Contains(fs.ShellItems, i => i.Label == "20_Центр_К1" && i.Nx == 0 && i.SigmaX == 1.1 && i.Qx == 0.7 && i.Qy == 0.8);
         Assert.Contains(fs.ShellItems, i => i.Label == "20_Центр_К2");
-    }
-
-    [Fact]
-    public void ResolveThicknessM_PrefersElementMap_ThenDefault()
-    {
-        var opt = new ScadXlsImportOptions
-        {
-            DefaultThicknessM = 0.3,
-            ElementThicknessM = new Dictionary<int, double> { [5] = 0.15 },
-        };
-        Assert.Equal(0.15, opt.ResolveThicknessM(5));
-        Assert.Equal(0.3, opt.ResolveThicknessM(9));
     }
 
     static ScadXlsSheetData BarCombinationSheet() => new()
@@ -284,7 +270,6 @@ public class ScadXlsForceImporterTests
             TonToKnFactor = 1.0,
             InvertBarBendingMoments = false,
             ElementIds = new HashSet<int> { 1, 15 },
-            DefaultThicknessM = 0.2,
         };
         var result = ScadXlsForceImporter.ImportBarSheets(
             ScadXlsImportMode.Combinations, opt,
@@ -304,7 +289,8 @@ public class ScadXlsForceImporterTests
 
         var shell = Assert.Single(result.ForceSets, fs => fs.Kind == "shell");
         Assert.Equal("РСН 1", shell.Tag);
-        Assert.Equal(0.2, Assert.Single(shell.ShellItems).Nx, 12);
+        Assert.Equal(0.0, Assert.Single(shell.ShellItems).Nx, 12);
+        Assert.Equal(1.0, Assert.Single(shell.ShellItems).SigmaX!.Value, 12);
     }
 
     [Fact]

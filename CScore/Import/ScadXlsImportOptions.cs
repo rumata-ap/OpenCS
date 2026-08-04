@@ -17,20 +17,16 @@ public class ScadXlsImportOptions
     /// <summary>Импортировать все элементы листа (игнорировать ElementIds).</summary>
     public bool ImportAllElements { get; set; }
 
-    /// <summary>Толщина по умолчанию, м (поле диалога). Fallback, если нет h у КЭ.</summary>
-    public double DefaultThicknessM { get; set; }
-
-    /// <summary>Толщины по номеру КЭ SCAD (из FEM-топологии / XLS), м.</summary>
-    public IReadOnlyDictionary<int, double> ElementThicknessM { get; set; }
-        = new Dictionary<int, double>();
-
     public static ScadXlsImportOptions Default => new();
 
-    /// <summary>Толщина для КЭ: карта → default. 0 если ничего не задано.</summary>
-    public double ResolveThicknessM(int elementId)
+    /// <summary>Клон с другими единицами (силы/длины), определёнными по конкретному листу.</summary>
+    public ScadXlsImportOptions WithUnits(double tonToKnFactor, double lengthM) => new()
     {
-        if (ElementThicknessM.TryGetValue(elementId, out double h) && h > 0)
-            return h;
-        return DefaultThicknessM > 0 ? DefaultThicknessM : 0;
-    }
+        TonToKnFactor = tonToKnFactor,
+        LengthM = lengthM,
+        InvertBarBendingMoments = InvertBarBendingMoments,
+        InvertShellBendingMoments = InvertShellBendingMoments,
+        ElementIds = ElementIds,
+        ImportAllElements = ImportAllElements,
+    };
 }
