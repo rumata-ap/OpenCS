@@ -1229,6 +1229,10 @@
     <system:String x:Key="CalcTaskSelectPlateSection">Select a plate section</system:String>
     <system:String x:Key="CalcTaskPlatePanelHeader">Plate forces</system:String>
     <system:String x:Key="CalcTaskAutoStressToForce">Auto-convert stresses to forces</system:String>
+    <system:String x:Key="MigrateLiraStressForceSets">Fix imported Lira forces...</system:String>
+    <system:String x:Key="MigrateLiraStressForceSetsConfirm">Found force sets imported from Lira where Nx/Ny/Nxy may contain stresses instead of forces: {0}. Move them into σx/σy/τxy and zero out Nx/Ny/Nxy (afterwards use the "Stresses → Forces" button or auto-recalc in calc tasks)?</system:String>
+    <system:String x:Key="MigrateLiraStressForceSetsDone">Fixed force sets: {0} (rows: {1}).</system:String>
+    <system:String x:Key="MigrateLiraStressForceSetsNone">No matching force sets found.</system:String>
     <system:String x:Key="ShellStrainTitle">Plate strain plane</system:String>
     <system:String x:Key="ShellStrainIterations">Iterations</system:String>
     <system:String x:Key="ShellStrainResidual">Residual</system:String>

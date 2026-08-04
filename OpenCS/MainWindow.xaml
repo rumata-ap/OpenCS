@@ -138,6 +138,7 @@
             <MenuItem Header="{DynamicResource Settings}" Command="{Binding OpenSettingsCommand}" />
             <Separator />
             <MenuItem Header="{DynamicResource VacuumDb}" Command="{Binding VacuumDbCommand}" />
+            <MenuItem Header="{DynamicResource MigrateLiraStressForceSets}" Command="{Binding MigrateLiraStressForceSetsCommand}" />
             <Separator />
             <MenuItem Header="{DynamicResource Exit}" Command="{Binding ExitCommand}" />
          </MenuItem>

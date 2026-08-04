@@ -876,6 +876,9 @@ namespace OpenCS
       /// <summary>Команда сжатия БД (SQLite VACUUM).</summary>
       public ICommand VacuumDbCommand { get; set; } = null!;
 
+      /// <summary>Одноразовая миграция наборов усилий ЛИРА, где Nx/Ny/Nxy содержат напряжения.</summary>
+      public ICommand MigrateLiraStressForceSetsCommand { get; set; } = null!;
+
       /// <summary>
       /// Глобальные настройки отображения графиков (цвета, сетка, подписи).
       /// </summary>
@@ -1029,6 +1032,63 @@ namespace OpenCS
          long sizeAfter = db.GetDbSizeBytes();
          long savedKb = (sizeBefore - sizeAfter) / 1024;
          LogService.Info(string.Format(Loc.S("VacuumDbDone"), sizeBefore / 1024, sizeAfter / 1024, savedKb));
+      }
+
+      /// <summary>
+      /// Одноразовая миграция: наборы усилий, импортированные из ЛИРЫ — либо напрямую
+      /// (ForceSet.SourceType == "lira", HTML-путь), либо через COM API (SourceType == "fea"
+      /// + SourceSchemaId → FemSchema.SourceType == "lira") — ДО фикса σ→N, где Nx/Ny/Nxy сейчас
+      /// фактически содержат напряжения. Переносит текущие Nx/Ny/Nxy → SigmaX/SigmaY/TauXY и
+      /// обнуляет Nx/Ny/Nxy — дальше пользователь жмёт «Напряжения → усилия» в наборе или
+      /// полагается на автопересчёт в расчётных задачах.
+      /// </summary>
+      void MigrateLiraStressForceSets()
+      {
+         var liraSchemaIds = FemSchemas.Where(s => s.SourceType == "lira").Select(s => s.Id).ToHashSet();
+         bool IsLiraSourced(ForceSet fs) =>
+            fs.SourceType == "lira"
+            || (fs.SourceType == "fea" && fs.SourceSchemaId.HasValue && liraSchemaIds.Contains(fs.SourceSchemaId.Value));
+
+         var candidates = ForceSets
+            .Where(fs => fs.Kind == "shell"
+                      && IsLiraSourced(fs)
+                      && fs.ShellItems.Any(i => i.SigmaX is null && i.SigmaY is null && i.TauXY is null
+                                              && (i.Nx != 0 || i.Ny != 0 || i.Nxy != 0)))
+            .ToList();
+
+         if (candidates.Count == 0)
+         {
+            System.Windows.MessageBox.Show(Loc.S("MigrateLiraStressForceSetsNone"),
+               Loc.S("MigrateLiraStressForceSets"),
+               MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+         }
+
+         var confirm = System.Windows.MessageBox.Show(
+            string.Format(Loc.S("MigrateLiraStressForceSetsConfirm"), candidates.Count),
+            Loc.S("MigrateLiraStressForceSets"),
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+         if (confirm != MessageBoxResult.Yes) return;
+
+         int rowsFixed = 0;
+         foreach (var fs in candidates)
+         {
+            bool touched = false;
+            foreach (var item in fs.ShellItems)
+            {
+               if (item.SigmaX is not null || item.SigmaY is not null || item.TauXY is not null) continue;
+               if (item.Nx == 0 && item.Ny == 0 && item.Nxy == 0) continue;
+               item.SigmaX = item.Nx;
+               item.SigmaY = item.Ny;
+               item.TauXY  = item.Nxy;
+               item.Nx = 0; item.Ny = 0; item.Nxy = 0;
+               touched = true;
+               rowsFixed++;
+            }
+            if (touched) db.SaveForceSet(fs);
+         }
+
+         LogService.Info(string.Format(Loc.S("MigrateLiraStressForceSetsDone"), candidates.Count, rowsFixed));
       }
 
       /// <summary>
@@ -1188,6 +1248,7 @@ namespace OpenCS
          SaveAsProjectCommand = new RelayCommand(SaveAsProject);
           ExitCommand = new RelayCommand(Exit);
           VacuumDbCommand = new RelayCommand(_ => VacuumDb());
+         MigrateLiraStressForceSetsCommand = new RelayCommand(_ => MigrateLiraStressForceSets());
          OpenSettingsCommand = new RelayCommand(_ => new Views.SettingsWindow(this).ShowDialog());
          SetLanguageCommand = new RelayCommand(SetLanguage);
          NewCrossSectionCommand    = new RelayCommand(_ => NewCrossSection());

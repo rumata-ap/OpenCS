@@ -1232,6 +1232,10 @@
     <system:String x:Key="CalcTaskSelectPlateSection">Выберите плитное сечение</system:String>
     <system:String x:Key="CalcTaskPlatePanelHeader">Усилия пластины</system:String>
     <system:String x:Key="CalcTaskAutoStressToForce">Автопересчёт напряжений в усилия</system:String>
+    <system:String x:Key="MigrateLiraStressForceSets">Исправить импортированные усилия ЛИРА...</system:String>
+    <system:String x:Key="MigrateLiraStressForceSetsConfirm">Найдено наборов усилий, импортированных из ЛИРЫ, где Nx/Ny/Nxy могут содержать напряжения вместо усилий: {0}. Перенести их в поля σx/σy/τxy и обнулить Nx/Ny/Nxy (дальше — кнопка «Напряжения → усилия» или автопересчёт в расчётных задачах)?</system:String>
+    <system:String x:Key="MigrateLiraStressForceSetsDone">Исправлено наборов: {0} (строк: {1}).</system:String>
+    <system:String x:Key="MigrateLiraStressForceSetsNone">Подходящих наборов не найдено.</system:String>
     <system:String x:Key="ShellStrainTitle">Плоскость деформаций пластины</system:String>
     <system:String x:Key="ShellStrainIterations">Итераций</system:String>
     <system:String x:Key="ShellStrainResidual">Невязка</system:String>

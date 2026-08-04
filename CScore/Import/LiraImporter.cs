@@ -44,8 +44,9 @@ namespace CScore.Import
          {
             var fs = new ForceSet
             {
-               Kind = kind == LiraElementKind.Shell ? "shell" : "bar",
-               Tag  = name,
+               Kind       = kind == LiraElementKind.Shell ? "shell" : "bar",
+               Tag        = name,
+               SourceType = "lira",
             };
             int num = 1;
             foreach (var (label, forceDict) in columns.OrderBy(c => c.Key, StringComparer.Ordinal))
@@ -84,8 +85,9 @@ namespace CScore.Import
          var kind = rows[0].Kind;
          var fs = new ForceSet
          {
-            Kind = kind == LiraElementKind.Shell ? "shell" : "bar",
-            Tag  = $"РСУ: {scheme}",
+            Kind       = kind == LiraElementKind.Shell ? "shell" : "bar",
+            Tag        = $"РСУ: {scheme}",
+            SourceType = "lira",
          };
          int num = 1;
          foreach (var (label, _, forceDict) in rows)
