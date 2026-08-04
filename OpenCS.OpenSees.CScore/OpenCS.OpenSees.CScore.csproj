@@ -12,4 +12,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenCS.OpenSees.Tests" />
+  </ItemGroup>
+
 </Project>
