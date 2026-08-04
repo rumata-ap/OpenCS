@@ -81,7 +81,8 @@ public class MultiStoryColumnRunner
         IReadOnlyDictionary<string, IReadOnlyDictionary<int, int>> NodeIndexToTagByLevel,
         List<string> MeshDiagnostics,
         List<string> AssemblyDiagnostics,
-        string? GmshArtifactDirectory = null);
+        string? GmshArtifactDirectory = null,
+        double ForceUnbalanceRatio = 0);
 
     internal async Task<ModelBuildOutcome> BuildModelAsync(
         MultiStoryColumnFragment fragment,
@@ -173,7 +174,89 @@ public class MultiStoryColumnRunner
             }
         };
 
+        var stageDiagnostics = new List<string>();
+        double appliedTotal = 0, mappedDeltaTotal = 0;
+        var levelById = snapshots.Levels.ToDictionary(item => item.Level.Id, item => item.Snapshot);
+        for (int stageIndex = 0; stageIndex < fragment.StageConfig.Stages.Count; stageIndex++)
+        {
+            var stage = fragment.StageConfig.Stages[stageIndex];
+            foreach (var (level, _) in snapshots.Levels)
+            {
+                var snapshot = levelById[level.Id];
+                var nodeMap = assembled.NodeIndexToTagByLevel[level.Id];
+                foreach (var boundary in level.Boundaries)
+                {
+                    if (!fragment.BoundaryTemplates.TryGetValue(boundary.Id, out var template))
+                    {
+                        stageDiagnostics.Add(
+                            $"stage {stageIndex + 1}, {boundary.Id}: multistory_column_boundary_template_missing — " +
+                            $"для boundary '{boundary.Id}' не задан template.");
+                        continue;
+                    }
+
+                    var cutMapped = PlanarCutInterfaceMeshMapper.Map(boundary.Cut, snapshot);
+                    if (!cutMapped.IsCalculable || cutMapped.Mapping is null)
+                    {
+                        stageDiagnostics.AddRange(cutMapped.Diagnostics.Select(
+                            d => $"stage {stageIndex + 1}, {boundary.Id}: {d.Message}"));
+                        continue;
+                    }
+
+                    var scaled = PlanarBoundaryActionSetScaling.Scale(template, stage.CutInterfaceScale);
+                    var request = new PlanarBoundaryActionRequest
+                    {
+                        Interface = boundary.Cut,
+                        SourceMode = PlanarBoundaryActionSourceMode.Template,
+                        TargetFrame = boundary.Cut.Frame
+                    };
+                    var resolved = new PlanarBoundaryActionResolver().Resolve(
+                        request, parentProvider: null, new PlanarBoundaryTemplateProvider(scaled));
+                    if (!resolved.IsCalculable)
+                    {
+                        stageDiagnostics.AddRange(resolved.Diagnostics.Select(
+                            d => $"stage {stageIndex + 1}, {boundary.Id}: {d.Message}"));
+                        continue;
+                    }
+
+                    var actionSet = new PlanarBoundaryActionSet
+                    {
+                        SourceMode = resolved.SourceMode,
+                        ForceActions = resolved.ForceActions,
+                        KinematicActions = resolved.KinematicActions,
+                        SourceReferences = resolved.SourceReferences,
+                        Diagnostics = resolved.Diagnostics
+                    };
+                    var mapped = PlanarBoundaryActionMeshMapper.Map(
+                        boundary.Cut, snapshot, actionSet, cutMapped.Mapping);
+                    if (!mapped.IsCalculable)
+                    {
+                        stageDiagnostics.AddRange(mapped.Diagnostics.Select(
+                            d => $"stage {stageIndex + 1}, {boundary.Id}: {d.Message}"));
+                        continue;
+                    }
+
+                    var applied = PlanarBoundaryActionOpenSeesAdapter.Apply(
+                        model, mapped, nodeMap, stageIndex: stageIndex);
+                    if (applied.Model is null)
+                    {
+                        stageDiagnostics.AddRange(applied.Diagnostics.Select(
+                            d => $"stage {stageIndex + 1}, {boundary.Id}: {d.Message}"));
+                        continue;
+                    }
+                    model = applied.Model;
+
+                    appliedTotal += mapped.AppliedForceGlobal.Length;
+                    mappedDeltaTotal += (mapped.MappedForceGlobal - mapped.AppliedForceGlobal).Length;
+                }
+            }
+        }
+
+        if (stageDiagnostics.Count > 0)
+            return new(null, new Dictionary<string, int>(),
+                new Dictionary<string, IReadOnlyDictionary<int, int>>(), [], stageDiagnostics,
+                snapshots.GmshArtifactDirectory);
+
         return new(model, assembled.AnchorNodeTagByLevel, assembled.NodeIndexToTagByLevel, [], [],
-            snapshots.GmshArtifactDirectory);
+            snapshots.GmshArtifactDirectory, mappedDeltaTotal / System.Math.Max(1.0, appliedTotal));
     }
 }

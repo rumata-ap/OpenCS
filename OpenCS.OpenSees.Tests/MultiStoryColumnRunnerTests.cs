@@ -94,6 +94,62 @@ public sealed class MultiStoryColumnRunnerTests
         Assert.Contains(stageLoads, load => load.NodeTag == topAnchorTag && load.Fz == -1000);
     }
 
+    [Fact]
+    public async Task BuildModelAsync_AppliesBoundaryTemplateActionsPerLevel()
+    {
+        var fragment = ValidFragment();
+        fragment.Levels[0].Boundaries.Add(new FloorJunctionBoundary
+        {
+            Id = "level-1-fix",
+            RegionId = fragment.Levels[0].PlateRegion.Id,
+            Cut = new PlanarCutInterface
+            {
+                Id = "level-1-fix",
+                Geometry = new PlanarConstraintGeometry(PlanarConstraintGeometryKind.Curve,
+                    [new PlanarPoint2D(0, 0), new PlanarPoint2D(0, 4)]),
+                NormalFromFragmentToOmittedSide = new PlanarVector3(-1, 0, 0),
+                // MeshConstraintId (не BoundaryKey): RecordingMesher — fake mesher без реального
+                // Gmsh, поэтому у fake-снапшота нет BoundaryMappings, только request-local
+                // ConstraintMappings — тот же mapping-путь, что PlanarCutInterfaceMeshMapper.Map
+                // использует для constraint-объектов срезов 5/5.1/6 (см. RecordingMesher выше:
+                // ConstraintObjectId "level-1-fix" -> OrderedCurveEdges [(0,3)]).
+                MeshConstraintId = "level-1-fix",
+                ModeByDof = PlanarBoundaryModeByDof.All(PlanarBoundaryDofMode.PreserveSupport)
+            }
+        });
+        fragment.BoundaryTemplates["level-1-fix"] = new PlanarBoundaryActionSet
+            { SourceMode = PlanarBoundaryActionSourceMode.Template };
+        var mesher = new RecordingMesher();
+
+        var built = await new MultiStoryColumnRunner().BuildModelAsync(
+            fragment, mesher, level => new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+            LookupMaterial, CalcType.C, CancellationToken.None);
+
+        Assert.Empty(built.AssemblyDiagnostics);
+        Assert.NotNull(built.Model);
+    }
+
+    [Fact]
+    public async Task BuildModelAsync_ReportsMissingBoundaryTemplateAsDiagnostic()
+    {
+        var fragment = ValidFragment();
+        fragment.Levels[0].Boundaries.Add(new FloorJunctionBoundary
+        {
+            Id = "level-1-fix",
+            RegionId = fragment.Levels[0].PlateRegion.Id,
+            Cut = new PlanarCutInterface { Id = "level-1-fix" }
+        });
+        // Намеренно НЕ добавляем template в fragment.BoundaryTemplates.
+        var mesher = new RecordingMesher();
+
+        var built = await new MultiStoryColumnRunner().BuildModelAsync(
+            fragment, mesher, level => new PlanarMeshSettings(0.5, 6, PlanarMeshElementMode.Mixed),
+            LookupMaterial, CalcType.C, CancellationToken.None);
+
+        Assert.Null(built.Model);
+        Assert.NotEmpty(built.AssemblyDiagnostics);
+    }
+
     internal static MultiStoryColumnFragment ValidFragment()
     {
         var level1 = MakeLevel("level-1", 1, 0);
