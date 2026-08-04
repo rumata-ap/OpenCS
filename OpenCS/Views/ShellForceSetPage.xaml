@@ -15,37 +15,43 @@
    <Grid>
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
          <RowDefinition Height="*"/>
          <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
 
-      <!-- Параметры СП20 -->
+      <!-- Пересчёт напряжений в усилия (слева) + Параметры СП20 (справа) -->
       <Border Grid.Row="0" BorderThickness="0,0,0,1"
               BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
               Padding="8,6">
-         <GroupBox Header="{DynamicResource ForceSetPropsTitle}" Padding="8,6,8,8">
-            <local:ForceSetSp20Panel DataContext="{Binding Sp20}"/>
-         </GroupBox>
+         <Grid>
+            <Grid.ColumnDefinitions>
+               <ColumnDefinition Width="Auto"/>
+               <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <GroupBox Grid.Column="0" Header="{DynamicResource ShellForceConvertGroupTitle}"
+                      Margin="0,0,8,0" Padding="8,6,8,8" VerticalAlignment="Top">
+               <StackPanel>
+                  <TextBlock Text="{DynamicResource ShellForceThicknessLabel}" Margin="0,0,0,4"/>
+                  <TextBox Text="{Binding ThicknessM, UpdateSourceTrigger=PropertyChanged}"
+                           Width="100" HorizontalAlignment="Left"
+                           VerticalContentAlignment="Center" Margin="0,0,0,8"/>
+                  <Button Content="{DynamicResource ShellForceConvertBtn}"
+                          Command="{Binding ConvertStressToForceCommand}"
+                          ToolTip="{DynamicResource ShellForceConvertBtnHint}"
+                          HorizontalAlignment="Stretch"
+                          Padding="10,4"/>
+               </StackPanel>
+            </GroupBox>
+
+            <GroupBox Grid.Column="1" Header="{DynamicResource ForceSetPropsTitle}" Padding="8,6,8,8">
+               <local:ForceSetSp20Panel DataContext="{Binding Sp20}"/>
+            </GroupBox>
+         </Grid>
       </Border>
 
-      <!-- Пересчёт напряжений в усилия -->
-      <GroupBox Grid.Row="1" Header="{DynamicResource ShellForceConvertGroupTitle}"
-                Margin="4,4,4,0" Padding="8,6,8,8">
-         <StackPanel Orientation="Horizontal">
-            <TextBlock Text="{DynamicResource ShellForceThicknessLabel}"
-                       VerticalAlignment="Center" Margin="0,0,8,0"/>
-            <TextBox Text="{Binding ThicknessM, UpdateSourceTrigger=PropertyChanged}"
-                     Width="80" VerticalContentAlignment="Center" Margin="0,0,12,0"/>
-            <Button Content="{DynamicResource ShellForceConvertBtn}"
-                    Command="{Binding ConvertStressToForceCommand}"
-                    ToolTip="{DynamicResource ShellForceConvertBtnHint}"
-                    Padding="10,4"/>
-         </StackPanel>
-      </GroupBox>
-
       <!-- Таблица усилий пластины и справка по знакам -->
-      <Grid Grid.Row="2" Margin="4,4,4,0">
+      <Grid Grid.Row="1" Margin="4,4,4,0">
          <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="280"/>
@@ -225,7 +231,7 @@
       </Grid>
 
       <!-- Кнопки внизу -->
-      <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="4,4,4,4">
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="4,4,4,4">
          <Button Style="{StaticResource IconButton25}"
                  Command="{Binding AddItemCommand}"
                  ToolTip="{DynamicResource AddForceItem}"
