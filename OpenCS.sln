@@ -39,6 +39,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenCS.Gmsh", "OpenCS.Gmsh\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenCS.Gmsh.Tests", "OpenCS.Gmsh.Tests\OpenCS.Gmsh.Tests.csproj", "{58DBAA2C-66A4-4BE5-89C7-D42C85041B7D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenCS.Tests", "OpenCS.Tests\OpenCS.Tests.csproj", "{C1E2F3A4-B5C6-47D8-9E0F-1234567890AB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

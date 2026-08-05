@@ -20,6 +20,7 @@ BeamTests.RunCrRollup3D();
 SolverTests.RunCrossValidation();
 
 CScoreBridgeTests.RunAll();
+EquivalentBeamResponseTests.RunAll();
 
 FireCurvesTests.RunAll();
 

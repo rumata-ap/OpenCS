@@ -2,6 +2,7 @@ using CScore;
 using CScore.Fire;
 using CScore.Fire.Entities;
 using CScore.PlateRebar;
+using CScore.PlateStrip;
 using CScore.Planar.Fragments;
 using CSmath;
 
@@ -31,7 +32,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-             const int CurrentSchemaVersion = 51;
+              const int CurrentSchemaVersion = 52;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -50,7 +51,8 @@ namespace OpenCS.Utilites
       public ObservableCollection<CrossSection> CrossSections { get; } = [];
       public ObservableCollection<MaterialArea> MaterialAreas { get; } = [];
       public ObservableCollection<ForceSet> ForceSets { get; } = [];
-      public ObservableCollection<PlateSection> PlateSections { get; } = [];
+       public ObservableCollection<PlateSection> PlateSections { get; } = [];
+       public ObservableCollection<EquivalentSection> EquivalentSections { get; } = [];
       public ObservableCollection<FireSectionDef> FireSections { get; } = [];
       public ObservableCollection<CalcTask> CalcTasks { get; } = [];
       public ObservableCollection<CalcResult> CalcResults  { get; } = [];
@@ -218,7 +220,7 @@ namespace OpenCS.Utilites
                 sigma_y REAL,
                 tau_xy  REAL
             );
-            CREATE TABLE IF NOT EXISTS plate_sections (
+             CREATE TABLE IF NOT EXISTS plate_sections (
                 id                   INTEGER PRIMARY KEY AUTOINCREMENT,
                 num                  INTEGER NOT NULL DEFAULT 0,
                 tag                  TEXT NOT NULL DEFAULT '',
@@ -234,9 +236,30 @@ namespace OpenCS.Utilites
                 concrete_diagram_type TEXT NOT NULL DEFAULT 'L3',
                 rebar_layers_json     TEXT NOT NULL DEFAULT '[]',
                 rebar_zones_json      TEXT NOT NULL DEFAULT '[]',
-                generated_for_region_id INTEGER REFERENCES planar_regions(id)
-            );
-            CREATE TABLE IF NOT EXISTS material_areas (
+                 generated_for_region_id INTEGER REFERENCES planar_regions(id)
+             );
+             CREATE TABLE IF NOT EXISTS equivalent_sections (
+                 id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                 num                     INTEGER NOT NULL DEFAULT 0,
+                 tag                     TEXT NOT NULL DEFAULT '',
+                 description             TEXT,
+                 source_schema_id        INTEGER NOT NULL DEFAULT 0,
+                 source_region_id        INTEGER NOT NULL DEFAULT 0,
+                 source_plate_section_id INTEGER NOT NULL DEFAULT 0,
+                 source_kind             TEXT NOT NULL DEFAULT 'PlateSectionTangentSnapshot',
+                 reduction_policy        TEXT NOT NULL DEFAULT 'ConstitutiveIntegration',
+                 width_integration_points INTEGER NOT NULL DEFAULT 2,
+                 strip_json              TEXT NOT NULL DEFAULT '{}',
+                 embedding_json          TEXT NOT NULL DEFAULT '{}',
+                 linearization_json      TEXT NOT NULL DEFAULT '{}',
+                 tangent_json            TEXT NOT NULL DEFAULT '[]',
+                 diagnostics_json        TEXT NOT NULL DEFAULT '[]',
+                 input_fingerprint       TEXT NOT NULL DEFAULT '',
+                 result_fingerprint      TEXT NOT NULL DEFAULT '',
+                 is_calculable           INTEGER NOT NULL DEFAULT 0,
+                 is_stale                INTEGER NOT NULL DEFAULT 0
+             );
+             CREATE TABLE IF NOT EXISTS material_areas (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
                 section_id       INTEGER,
                 num              INTEGER NOT NULL DEFAULT 0,
@@ -585,7 +608,8 @@ namespace OpenCS.Utilites
                    if (i == 46) { MigrateV47(); continue; }
                     if (i == 47) { MigrateV48(); continue; }
                     if (i == 48) { MigrateV49(); continue; }
-                    if (i == 50) { MigrateV51(); continue; }
+                     if (i == 50) { MigrateV51(); continue; }
+                     if (i == 51) { MigrateV52(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1138,17 +1162,42 @@ namespace OpenCS.Utilites
          void MigrateV49() => EnsurePlanarConnectionTables();
 
          /// <summary>Миграция v51: сырые импортированные напряжения σx/σy/τxy для пластинчатых наборов усилий.</summary>
-         void MigrateV51()
-         {
+          void MigrateV51()
+          {
              if (!ColumnExists("force_shell_items", "sigma_x"))
                  MigExec("ALTER TABLE force_shell_items ADD COLUMN sigma_x REAL");
              if (!ColumnExists("force_shell_items", "sigma_y"))
                  MigExec("ALTER TABLE force_shell_items ADD COLUMN sigma_y REAL");
-             if (!ColumnExists("force_shell_items", "tau_xy"))
-                 MigExec("ALTER TABLE force_shell_items ADD COLUMN tau_xy REAL");
-         }
+              if (!ColumnExists("force_shell_items", "tau_xy"))
+                  MigExec("ALTER TABLE force_shell_items ADD COLUMN tau_xy REAL");
+          }
 
-       void EnsurePlanarMeshTables()
+          /// <summary>Миграция v52: сохраняемые эквивалентные сечения полосы плиты.</summary>
+          void MigrateV52() => MigExec("""
+              CREATE TABLE IF NOT EXISTS equivalent_sections (
+                  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                  num                     INTEGER NOT NULL DEFAULT 0,
+                  tag                     TEXT NOT NULL DEFAULT '',
+                  description             TEXT,
+                  source_schema_id        INTEGER NOT NULL DEFAULT 0,
+                  source_region_id        INTEGER NOT NULL DEFAULT 0,
+                  source_plate_section_id INTEGER NOT NULL DEFAULT 0,
+                  source_kind             TEXT NOT NULL DEFAULT 'PlateSectionTangentSnapshot',
+                  reduction_policy        TEXT NOT NULL DEFAULT 'ConstitutiveIntegration',
+                  width_integration_points INTEGER NOT NULL DEFAULT 2,
+                  strip_json              TEXT NOT NULL DEFAULT '{}',
+                  embedding_json          TEXT NOT NULL DEFAULT '{}',
+                  linearization_json      TEXT NOT NULL DEFAULT '{}',
+                  tangent_json            TEXT NOT NULL DEFAULT '[]',
+                  diagnostics_json        TEXT NOT NULL DEFAULT '[]',
+                  input_fingerprint       TEXT NOT NULL DEFAULT '',
+                  result_fingerprint      TEXT NOT NULL DEFAULT '',
+                  is_calculable           INTEGER NOT NULL DEFAULT 0,
+                  is_stale                INTEGER NOT NULL DEFAULT 0
+              );
+          """);
+
+        void EnsurePlanarMeshTables()
        {
           MigExec("""
               CREATE TABLE IF NOT EXISTS planar_mesh_snapshots (
@@ -1281,7 +1330,8 @@ namespace OpenCS.Utilites
           {
              _connection.Open();
           }
-          catch (SqliteException ex) when (ex.SqliteErrorCode == 26)
+
+           catch (SqliteException ex) when (ex.SqliteErrorCode == 26)
           {
              _connection.Dispose();
              throw new Exception("File is not a valid SQLite database. It may have been corrupted during a previous save operation.");
@@ -1386,10 +1436,14 @@ namespace OpenCS.Utilites
             if (fs.IsModified)
                SaveForceSet(fs);
          }
-         if (_pendingSave.HasFlag(SaveCategory.PlateSections))
-         {
-            foreach (var ps in PlateSections) SavePlateSection(ps);
-         }
+          if (_pendingSave.HasFlag(SaveCategory.PlateSections))
+          {
+             foreach (var ps in PlateSections) SavePlateSection(ps);
+          }
+          if (_pendingSave.HasFlag(SaveCategory.EquivalentSections))
+          {
+             foreach (var es in EquivalentSections) SaveEquivalentSection(es);
+          }
          if (_pendingSave.HasFlag(SaveCategory.FireSections))
          {
             foreach (var fire in FireSections) SaveFireSection(fire);
@@ -1425,7 +1479,8 @@ namespace OpenCS.Utilites
          Diagrams.Clear();
          CrossSections.Clear();
          ForceSets.Clear();
-         PlateSections.Clear();
+          PlateSections.Clear();
+          EquivalentSections.Clear();
          FireSections.Clear();
          MaterialAreas.Clear();
          CalcTasks.Clear();
@@ -1451,7 +1506,8 @@ namespace OpenCS.Utilites
          LoadCrossSections();
          ResolveReferencesForCrossSections();
          LoadForceSets();
-         LoadPlateSections();
+          LoadPlateSections();
+          LoadEquivalentSections();
          LoadFireSections();
          LoadCalcTasks();
          LoadCalcResults();
@@ -2585,6 +2641,164 @@ namespace OpenCS.Utilites
       }
 
       #endregion
+
+       #region EquivalentSections
+
+       void LoadEquivalentSections()
+       {
+          EquivalentSections.Clear();
+          using var cmd = _connection.CreateCommand();
+          cmd.CommandText = """
+             SELECT id, num, tag, description,
+                    source_schema_id, source_region_id, source_plate_section_id,
+                    source_kind, reduction_policy, width_integration_points,
+                    strip_json, tangent_json, diagnostics_json,
+                    input_fingerprint, result_fingerprint, is_calculable, is_stale
+             FROM equivalent_sections ORDER BY num, id
+          """;
+          using var reader = cmd.ExecuteReader();
+          while (reader.Read())
+          {
+             var strip = JsonSerializer.Deserialize<PlateStripBeamAnalogy>(reader.GetString(10), _jsonSettings)
+                         ?? new PlateStripBeamAnalogy();
+             var tangent = DeserializeMatrix(reader.GetString(11), 3, 3);
+             var diagnostics = JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(
+                                  reader.GetString(12), _jsonSettings) ?? [];
+             var equivalent = new EquivalentSection
+             {
+                Id = reader.GetInt32(0),
+                Num = reader.GetInt32(1),
+                Tag = reader.GetString(2),
+                Description = reader.IsDBNull(3) ? "" : reader.GetString(3),
+                SourceSchemaId = reader.GetInt32(4),
+                SourceRegionId = reader.GetInt32(5),
+                SourcePlateSectionId = reader.GetInt32(6),
+                SourceKind = Enum.TryParse<EquivalentSectionSourceKind>(reader.GetString(7), out var sourceKind)
+                             ? sourceKind : EquivalentSectionSourceKind.PlateSectionTangentSnapshot,
+                ReductionPolicy = Enum.TryParse<ReductionPolicy>(reader.GetString(8), out var policy)
+                                  ? policy : ReductionPolicy.ConstitutiveIntegration,
+                WidthIntegrationPoints = reader.GetInt32(9),
+                Strip = strip,
+                BeamTangent = tangent,
+                EA = tangent[0, 0],
+                EIy = tangent[1, 1],
+                EIz = tangent[2, 2],
+                Diagnostics = diagnostics,
+                InputFingerprint = reader.GetString(13),
+                ResultFingerprint = reader.GetString(14),
+                IsCalculable = reader.GetInt32(15) != 0,
+                IsStale = reader.GetInt32(16) != 0
+             };
+             EquivalentSections.Add(equivalent);
+          }
+       }
+
+       public void SaveEquivalentSection(EquivalentSection equivalent)
+       {
+          ArgumentNullException.ThrowIfNull(equivalent);
+          var stripJson = JsonSerializer.Serialize(equivalent.Strip, _jsonSettings);
+          var tangentJson = JsonSerializer.Serialize(MatrixToJagged(equivalent.BeamTangent), _jsonSettings);
+          var diagnosticsJson = JsonSerializer.Serialize(equivalent.Diagnostics, _jsonSettings);
+          const string embeddingJson = "{}";
+          const string linearizationJson = "{}";
+          bool isNew = equivalent.Id == 0;
+
+          using var cmd = _connection.CreateCommand();
+          if (isNew)
+          {
+             cmd.CommandText = """
+                INSERT INTO equivalent_sections
+                   (num, tag, description, source_schema_id, source_region_id,
+                    source_plate_section_id, source_kind, reduction_policy,
+                    width_integration_points, strip_json, embedding_json, linearization_json,
+                    tangent_json, diagnostics_json, input_fingerprint, result_fingerprint,
+                    is_calculable, is_stale)
+                VALUES (@num,@tag,@description,@schema,@region,@plate,@sourceKind,@policy,
+                        @points,@strip,@embedding,@linearization,@tangent,@diagnostics,
+                        @input,@result,@calculable,@stale);
+                SELECT last_insert_rowid();
+             """;
+          }
+          else
+          {
+             cmd.CommandText = """
+                UPDATE equivalent_sections SET
+                   num=@num, tag=@tag, description=@description,
+                   source_schema_id=@schema, source_region_id=@region,
+                   source_plate_section_id=@plate, source_kind=@sourceKind,
+                   reduction_policy=@policy, width_integration_points=@points,
+                   strip_json=@strip, embedding_json=@embedding, linearization_json=@linearization,
+                   tangent_json=@tangent, diagnostics_json=@diagnostics,
+                   input_fingerprint=@input, result_fingerprint=@result,
+                   is_calculable=@calculable, is_stale=@stale
+                WHERE id=@id;
+             """;
+             cmd.Parameters.AddWithValue("@id", equivalent.Id);
+          }
+          cmd.Parameters.AddWithValue("@num", equivalent.Num);
+          cmd.Parameters.AddWithValue("@tag", equivalent.Tag);
+          cmd.Parameters.AddWithValue("@description", (object?)equivalent.Description ?? DBNull.Value);
+          cmd.Parameters.AddWithValue("@schema", equivalent.SourceSchemaId);
+          cmd.Parameters.AddWithValue("@region", equivalent.SourceRegionId);
+          cmd.Parameters.AddWithValue("@plate", equivalent.SourcePlateSectionId);
+          cmd.Parameters.AddWithValue("@sourceKind", equivalent.SourceKind.ToString());
+          cmd.Parameters.AddWithValue("@policy", equivalent.ReductionPolicy.ToString());
+          cmd.Parameters.AddWithValue("@points", equivalent.WidthIntegrationPoints);
+          cmd.Parameters.AddWithValue("@strip", stripJson);
+          cmd.Parameters.AddWithValue("@embedding", embeddingJson);
+          cmd.Parameters.AddWithValue("@linearization", linearizationJson);
+          cmd.Parameters.AddWithValue("@tangent", tangentJson);
+          cmd.Parameters.AddWithValue("@diagnostics", diagnosticsJson);
+          cmd.Parameters.AddWithValue("@input", equivalent.InputFingerprint);
+          cmd.Parameters.AddWithValue("@result", equivalent.ResultFingerprint);
+          cmd.Parameters.AddWithValue("@calculable", equivalent.IsCalculable ? 1 : 0);
+          cmd.Parameters.AddWithValue("@stale", equivalent.IsStale ? 1 : 0);
+          if (isNew)
+             equivalent.Id = (int)(long)cmd.ExecuteScalar()!;
+          else
+             cmd.ExecuteNonQuery();
+          if (isNew && !EquivalentSections.Contains(equivalent))
+             EquivalentSections.Add(equivalent);
+       }
+
+       public void DeleteEquivalentSection(EquivalentSection equivalent)
+       {
+          ArgumentNullException.ThrowIfNull(equivalent);
+          if (equivalent.Id == 0)
+          {
+             EquivalentSections.Remove(equivalent);
+             return;
+          }
+          using var cmd = _connection.CreateCommand();
+          cmd.CommandText = "DELETE FROM equivalent_sections WHERE id=@id";
+          cmd.Parameters.AddWithValue("@id", equivalent.Id);
+          cmd.ExecuteNonQuery();
+          EquivalentSections.Remove(equivalent);
+       }
+
+       static double[][] MatrixToJagged(double[,] matrix)
+       {
+          var result = new double[matrix.GetLength(0)][];
+          for (int i = 0; i < result.Length; i++)
+          {
+             result[i] = new double[matrix.GetLength(1)];
+             for (int j = 0; j < result[i].Length; j++) result[i][j] = matrix[i, j];
+          }
+          return result;
+       }
+
+       static double[,] DeserializeMatrix(string json, int rows, int columns)
+       {
+          var jagged = JsonSerializer.Deserialize<double[][]>(json, _jsonSettings);
+          var matrix = new double[rows, columns];
+          if (jagged == null) return matrix;
+          for (int i = 0; i < Math.Min(rows, jagged.Length); i++)
+             for (int j = 0; j < Math.Min(columns, jagged[i].Length); j++)
+                matrix[i, j] = jagged[i][j];
+          return matrix;
+       }
+
+       #endregion
 
       #region FireSections
 

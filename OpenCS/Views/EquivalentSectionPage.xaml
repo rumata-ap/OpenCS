@@ -1,0 +1,112 @@
+<UserControl x:Class="OpenCS.Views.EquivalentSectionPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:OpenCS.ViewModels">
+   <Grid>
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <Border Grid.Row="0" BorderThickness="0,0,0,1"
+              BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+              Padding="8,6">
+         <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{DynamicResource Tag}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <TextBlock Text="{Binding Tag}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,16,0"/>
+            <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+            <Button Content="{DynamicResource RecalculateEquivalentSection}"
+                    Command="{Binding RecalculateCommand}" Margin="0,0,8,0"/>
+            <Button Content="{DynamicResource DeleteEquivalentSection}"
+                    Command="{Binding DeleteCommand}"/>
+         </StackPanel>
+      </Border>
+
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+         <StackPanel Margin="10">
+            <GroupBox Header="{DynamicResource EquivalentSectionSource}" Margin="0,0,0,8">
+               <Grid Margin="6">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="190"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Text="{DynamicResource EquivalentSectionSourceSchema}"/>
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SourceSchemaId}"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource EquivalentSectionSourceRegion}"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SourceRegionId}"/>
+                  <TextBlock Grid.Row="2" Text="{DynamicResource EquivalentSectionSourcePlate}"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SourcePlateSectionId}"/>
+                  <TextBlock Grid.Row="3" Text="{DynamicResource EquivalentSectionSourceKind}"/>
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SourceKindText}"/>
+               </Grid>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource EquivalentSectionGeometry}" Margin="0,0,0,8">
+               <Grid Margin="6">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Text="{DynamicResource EquivalentSectionWidth}"/>
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding WidthM, StringFormat={}{0:G8}}"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource EquivalentSectionLength}"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LengthM, StringFormat={}{0:G8}}"/>
+               </Grid>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource EquivalentSectionPolicy}" Margin="0,0,0,8">
+               <Grid Margin="6">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Text="{DynamicResource EquivalentSectionPolicy}"/>
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding PolicyText}"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource EquivalentSectionIntegrationPoints}"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding WidthIntegrationPoints}"/>
+               </Grid>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource EquivalentSectionStiffness}" Margin="0,0,0,8">
+               <Grid Margin="6">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Text="{DynamicResource EquivalentSectionEA}"/>
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding EA, StringFormat={}{0:G8}}"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource EquivalentSectionEIy}"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EIy, StringFormat={}{0:G8}}"/>
+                  <TextBlock Grid.Row="2" Text="{DynamicResource EquivalentSectionEIz}"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding EIz, StringFormat={}{0:G8}}"/>
+                  <TextBlock Grid.Row="3" Text="{DynamicResource EquivalentSectionGJ}"/>
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding GJ, StringFormat={}{0:G8}}"/>
+               </Grid>
+            </GroupBox>
+
+            <TextBlock Text="{DynamicResource EquivalentSectionUnitNotice}" Foreground="DarkSlateGray" Margin="0,0,0,4" TextWrapping="Wrap"/>
+            <TextBlock Text="{DynamicResource EquivalentSectionNoTorsion}" Foreground="DarkSlateGray" Margin="0,0,0,4" TextWrapping="Wrap"/>
+            <TextBlock Text="{DynamicResource EquivalentSectionKinematicNotice}" Foreground="DarkSlateGray" Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+            <GroupBox Header="{DynamicResource EquivalentSectionMatrix}" Margin="0,0,0,8">
+               <DataGrid ItemsSource="{Binding MatrixRows}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" Margin="4">
+                  <DataGrid.Columns>
+                     <DataGridTextColumn Header="" Binding="{Binding Label}" Width="80"/>
+                     <DataGridTextColumn Header="{DynamicResource EquivalentSectionMatrixColumn0}" Binding="{Binding K0, StringFormat={}{0:G8}}" Width="*"/>
+                     <DataGridTextColumn Header="{DynamicResource EquivalentSectionMatrixColumn1}" Binding="{Binding K1, StringFormat={}{0:G8}}" Width="*"/>
+                     <DataGridTextColumn Header="{DynamicResource EquivalentSectionMatrixColumn2}" Binding="{Binding K2, StringFormat={}{0:G8}}" Width="*"/>
+                  </DataGrid.Columns>
+               </DataGrid>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource EquivalentSectionDiagnostics}">
+               <ItemsControl ItemsSource="{Binding Diagnostics}" Margin="6">
+                  <ItemsControl.ItemTemplate>
+                     <DataTemplate>
+                        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                     </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+               </ItemsControl>
+            </GroupBox>
+         </StackPanel>
+      </ScrollViewer>
+   </Grid>
+</UserControl>

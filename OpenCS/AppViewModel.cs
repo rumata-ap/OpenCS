@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Text.Json;
 
 using CScore;
+using CScore.PlateStrip;
 using CScore.Import;
 using CScore.Fire.Entities;
 using OpenCS.Services;
@@ -110,10 +111,11 @@ namespace OpenCS
       CrossSection? currentCrossSection;
       ObservableCollection<CrossSection> crossSectionsLive = [];
       MaterialArea? currentMaterialArea;
-      ForceSet? currentBarForceSet;
-      ForceSet? currentShellForceSet;
-      PlateSection? currentPlateSection;
-      FireSectionDef? currentFireSection;
+       ForceSet? currentBarForceSet;
+       ForceSet? currentShellForceSet;
+       PlateSection? currentPlateSection;
+       EquivalentSection? currentEquivalentSection;
+       FireSectionDef? currentFireSection;
       CScore.Fem.FemSchema? currentFemSchema;
       ViewModels.FemSchemaEditorVM? activeFemSchemaEditor;
       CScore.Fem.FemMemberGroup? currentFemMember;
@@ -316,8 +318,11 @@ namespace OpenCS
       /// <summary>Двухстадийные сечения (TwoStageSection).</summary>
       public ObservableCollection<CrossSection> TwoStageSectionsLive { get; } = [];
 
-      /// <summary>Плитные сечения для дерева (синхронизируется с PlateSections).</summary>
-      public ObservableCollection<PlateSection> PlateSectionsLive { get; } = [];
+       /// <summary>Плитные сечения для дерева (синхронизируется с PlateSections).</summary>
+       public ObservableCollection<PlateSection> PlateSectionsLive { get; } = [];
+
+       /// <summary>Эквивалентные сечения полос плиты для дерева проекта.</summary>
+       public ObservableCollection<EquivalentSection> EquivalentSectionsLive { get; } = [];
 
       /// <summary>Объединённая коллекция для дерева сечений: обычные + Усиление + Пластины.</summary>
       public System.Windows.Data.CompositeCollection SectionTreeItems { get; }
@@ -349,14 +354,17 @@ namespace OpenCS
       /// <summary>Наборы усилий для пластин (Kind="shell").</summary>
       public ObservableCollection<ForceSet> ShellForceSets { get; set; } = null!;
 
-      /// <summary>Плитные сечения.</summary>
-      public ObservableCollection<PlateSection> PlateSections { get; set; } = null!;
+       /// <summary>Плитные сечения.</summary>
+       public ObservableCollection<PlateSection> PlateSections { get; set; } = null!;
+
+       /// <summary>Сохранённые эквивалентные сечения полос плиты.</summary>
+       public ObservableCollection<EquivalentSection> EquivalentSections { get; set; } = null!;
 
       /// <summary>Огневые сечения проекта.</summary>
       public ObservableCollection<FireSectionDef> FireSections { get; set; } = null!;
 
       /// <summary>Текущее выбранное плитное сечение. При установке открывает PlateSectionPage.</summary>
-      public PlateSection? CurrentPlateSection
+       public PlateSection? CurrentPlateSection
       {
          get => currentPlateSection;
          set
@@ -543,8 +551,12 @@ namespace OpenCS
       public ICommand NewPlateSectionCommand { get; set; } = null!;
       /// <summary>Команда удаления плитного сечения (параметр PlateSection или текущее).</summary>
       public ICommand DeletePlateSectionCommand { get; set; } = null!;
-      /// <summary>Команда дублирования плитного сечения (параметр PlateSection).</summary>
-      public ICommand DuplicatePlateSectionCommand { get; set; } = null!;
+       /// <summary>Команда дублирования плитного сечения (параметр PlateSection).</summary>
+       public ICommand DuplicatePlateSectionCommand { get; set; } = null!;
+       /// <summary>Команда удаления эквивалентного сечения.</summary>
+       public ICommand DeleteEquivalentSectionCommand { get; set; } = null!;
+       /// <summary>Команда повторного расчёта эквивалентного сечения.</summary>
+       public ICommand RecalculateEquivalentSectionCommand { get; set; } = null!;
 
       /// <summary>Команда открытия страницы расчётных задач.</summary>
       public ICommand OpenCalcTasksCommand { get; set; } = null!;
@@ -991,10 +1003,11 @@ namespace OpenCS
           FileDialogService = fileDialogService;
           SectionTreeItems = new System.Windows.Data.CompositeCollection
           {
-             new System.Windows.Data.CollectionContainer { Collection = FiberSectionsLive },
-             new SectionTreeGroup(TwoStageSectionsLive),
-             new PlateSectionTreeGroup(PlateSectionsLive),
-          };
+              new System.Windows.Data.CollectionContainer { Collection = FiberSectionsLive },
+              new SectionTreeGroup(TwoStageSectionsLive),
+              new PlateSectionTreeGroup(PlateSectionsLive),
+              new EquivalentSectionTreeGroup(EquivalentSectionsLive),
+           };
 
           db = new DatabaseService(GetTempDbPath());
           InitNewDatabase();
@@ -1196,10 +1209,14 @@ namespace OpenCS
                   ShellForceSets.Remove(fs);
                }
          };
-         PlateSections = db.PlateSections;
-         PlateSections.CollectionChanged += (_, _) => { RefreshPlateSectionsLive(); MarkDirty(SaveCategory.PlateSections); };
-         RefreshPlateSectionsLive();
-         FireSections = db.FireSections;
+          PlateSections = db.PlateSections;
+          PlateSections.CollectionChanged += (_, _) => { RefreshPlateSectionsLive(); MarkDirty(SaveCategory.PlateSections); };
+          RefreshPlateSectionsLive();
+          EquivalentSections = db.EquivalentSections;
+          EquivalentSections.CollectionChanged += (_, _) => { RefreshEquivalentSectionsLive(); MarkDirty(SaveCategory.EquivalentSections); };
+          RefreshEquivalentSectionsLive();
+          RefreshEquivalentSectionsStale();
+          FireSections = db.FireSections;
          FireSections.CollectionChanged += (_, _) =>
          {
             RenumberFireSections();
@@ -1268,9 +1285,11 @@ namespace OpenCS
          DeleteSelectedShellForceSetsCommand = new RelayCommand(_ => DeleteSelectedForceSets(kind: "shell"));
          DeleteAllBarForceSetsCommand   = new RelayCommand(_ => DeleteAllForceSets(kind: "bar"));
          DeleteAllShellForceSetsCommand = new RelayCommand(_ => DeleteAllForceSets(kind: "shell"));
-         NewPlateSectionCommand       = new RelayCommand(_ => NewPlateSection());
-         DeletePlateSectionCommand    = new RelayCommand(p => DeletePlateSection(p as CScore.PlateSection));
-         DuplicatePlateSectionCommand = new RelayCommand(p => DuplicatePlateSection(p as CScore.PlateSection));
+          NewPlateSectionCommand       = new RelayCommand(_ => NewPlateSection());
+          DeletePlateSectionCommand    = new RelayCommand(p => DeletePlateSection(p as CScore.PlateSection));
+          DuplicatePlateSectionCommand = new RelayCommand(p => DuplicatePlateSection(p as CScore.PlateSection));
+          DeleteEquivalentSectionCommand = new RelayCommand(p => DeleteEquivalentSection(p as EquivalentSection));
+          RecalculateEquivalentSectionCommand = new RelayCommand(p => RecalculateEquivalentSection(p as EquivalentSection));
          NewFireSectionCommand        = new RelayCommand(_ => NewFireSection());
          DeleteFireSectionCommand     = new RelayCommand(_ => DeleteFireSection());
          RenameFireSectionCommand     = new RelayCommand(_ => RenameFireSection());
@@ -1694,6 +1713,20 @@ namespace OpenCS
           }
        }
 
+       /// <summary>Текущее выбранное эквивалентное сечение.</summary>
+       public EquivalentSection? CurrentEquivalentSection
+       {
+          get => currentEquivalentSection;
+          set
+          {
+             currentEquivalentSection = value;
+             CurrentPage = value != null
+                ? new Views.EquivalentSectionPage(value, this)
+                : null!;
+             OnPropertyChanged();
+          }
+       }
+
       private void ImportAcadRegions(object? _ = null)
       {
          var s = AcadImportSettings;
@@ -1945,16 +1978,18 @@ namespace OpenCS
          CurrentContour = null;
          currentCrossSection = null;
          currentMaterialArea = null;
-         currentBarForceSet   = null;
-         currentShellForceSet = null;
-         currentPlateSection  = null;
-         currentFireSection   = null;
+          currentBarForceSet   = null;
+          currentShellForceSet = null;
+          currentPlateSection  = null;
+          currentEquivalentSection = null;
+          currentFireSection   = null;
          OnPropertyChanged(nameof(CurrentCrossSection));
          OnPropertyChanged(nameof(CurrentMaterialArea));
          OnPropertyChanged(nameof(CurrentBarForceSet));
-         OnPropertyChanged(nameof(CurrentShellForceSet));
-         OnPropertyChanged(nameof(CurrentPlateSection));
-         OnPropertyChanged(nameof(CurrentFireSection));
+          OnPropertyChanged(nameof(CurrentShellForceSet));
+          OnPropertyChanged(nameof(CurrentPlateSection));
+          OnPropertyChanged(nameof(CurrentEquivalentSection));
+          OnPropertyChanged(nameof(CurrentFireSection));
          CalcTasks   = db.CalcTasks;
          CalcResults = db.CalcResults;
          FemSchemas  = db.FemSchemas;
@@ -1966,9 +2001,11 @@ namespace OpenCS
          DiagramsLive = [.. Diagrams];
          CrossSectionsLive = new(CrossSections); CrossSectionsRenumber();
          RefreshMaterialAreaLiveCollections();
-         RefreshSectionLiveCollections();
-         RefreshPlateSectionsLive();
-         ClearDirty();
+          RefreshSectionLiveCollections();
+          RefreshPlateSectionsLive();
+          RefreshEquivalentSectionsLive();
+          ClearDirty();
+          RefreshEquivalentSectionsStale();
       }
 
       /// <summary>
@@ -2332,12 +2369,35 @@ namespace OpenCS
             TwoStageSectionsLive.Add(s);
       }
 
-      void RefreshPlateSectionsLive()
-      {
-         PlateSectionsLive.Clear();
-         foreach (var ps in PlateSections)
-            PlateSectionsLive.Add(ps);
-      }
+       void RefreshPlateSectionsLive()
+       {
+          PlateSectionsLive.Clear();
+          foreach (var ps in PlateSections)
+             PlateSectionsLive.Add(ps);
+       }
+
+       void RefreshEquivalentSectionsLive()
+       {
+          EquivalentSectionsLive.Clear();
+          foreach (var equivalent in EquivalentSections)
+             EquivalentSectionsLive.Add(equivalent);
+       }
+
+       void RefreshEquivalentSectionsStale()
+       {
+          var materials = Materials
+             .Where(m => m.Id != 0)
+             .ToDictionary(m => m.Id);
+          var service = new EquivalentSectionProjectService(db, materials);
+          bool changed = false;
+          foreach (var equivalent in EquivalentSections)
+          {
+             var sourceSection = PlateSections.FirstOrDefault(s => s.Id == equivalent.SourcePlateSectionId);
+             changed |= service.RefreshStale(equivalent, sourceSection, CalcType.C);
+          }
+          if (changed)
+             MarkDirty(SaveCategory.EquivalentSections);
+       }
 
       void RenumberFireSections()
       {
@@ -2381,8 +2441,8 @@ namespace OpenCS
          CurrentPage = new Views.PlateSectionPage(this);
       }
 
-      void DeletePlateSection(CScore.PlateSection? target = null)
-      {
+       void DeletePlateSection(CScore.PlateSection? target = null)
+       {
          var ps = target ?? currentPlateSection;
          if (ps == null) return;
          var res = System.Windows.MessageBox.Show(
@@ -2396,10 +2456,52 @@ namespace OpenCS
             currentPlateSection = null;
             CurrentPage = null!;
             OnPropertyChanged(nameof(CurrentPlateSection));
-         }
-      }
+          }
+       }
 
-      void DuplicatePlateSection(CScore.PlateSection? src)
+       void DeleteEquivalentSection(EquivalentSection? target = null)
+       {
+          var equivalent = target ?? currentEquivalentSection;
+          if (equivalent == null) return;
+          db.DeleteEquivalentSection(equivalent);
+          if (equivalent == currentEquivalentSection)
+          {
+             currentEquivalentSection = null;
+             CurrentPage = null!;
+             OnPropertyChanged(nameof(CurrentEquivalentSection));
+          }
+       }
+
+       void RecalculateEquivalentSection(EquivalentSection? target = null)
+       {
+          var equivalent = target ?? currentEquivalentSection;
+          if (equivalent == null) return;
+          var sourceSection = PlateSections.FirstOrDefault(s => s.Id == equivalent.SourcePlateSectionId);
+          if (sourceSection == null)
+          {
+             LogService.Warning(Loc.S("EquivalentSectionSourceNotFound"));
+             return;
+          }
+
+          var materials = Materials
+             .Where(m => m.Id != 0)
+             .ToDictionary(m => m.Id);
+          var service = new EquivalentSectionProjectService(db, materials);
+          var result = service.BuildAndSave(
+             equivalent.Strip, equivalent.SourceSchemaId, sourceSection,
+             CalcType.C, equivalent.ReductionPolicy,
+             equivalent.WidthIntegrationPoints, equivalent);
+          if (result.Section != null)
+          {
+             currentEquivalentSection = result.Section;
+             CurrentPage = new Views.EquivalentSectionPage(result.Section, this);
+             OnPropertyChanged(nameof(CurrentEquivalentSection));
+          }
+          if (!result.IsCalculable)
+             LogService.Warning(Loc.S("EquivalentSectionRecalculateFailed"));
+       }
+
+       void DuplicatePlateSection(CScore.PlateSection? src)
       {
          if (src == null) return;
          var copy = new CScore.PlateSection
@@ -3722,6 +3824,14 @@ namespace OpenCS
    {
       public System.Collections.ObjectModel.ObservableCollection<CScore.PlateSection> Items { get; }
       public PlateSectionTreeGroup(System.Collections.ObjectModel.ObservableCollection<CScore.PlateSection> items)
+          => Items = items;
+   }
+
+   /// <summary>Маркерный объект группы «Эквивалентные сечения» в дереве проекта.</summary>
+   public sealed class EquivalentSectionTreeGroup
+   {
+      public System.Collections.ObjectModel.ObservableCollection<CScore.PlateStrip.EquivalentSection> Items { get; }
+      public EquivalentSectionTreeGroup(System.Collections.ObjectModel.ObservableCollection<CScore.PlateStrip.EquivalentSection> items)
          => Items = items;
    }
 }

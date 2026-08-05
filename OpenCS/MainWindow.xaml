@@ -7,6 +7,7 @@
         xmlns:local="clr-namespace:OpenCS"
         xmlns:views="clr-namespace:OpenCS.Views"
         xmlns:core="clr-namespace:CScore;assembly=CScore"
+        xmlns:strip="clr-namespace:CScore.PlateStrip;assembly=CScore"
         xmlns:fire="clr-namespace:CScore.Fire.Entities;assembly=CScore.Fire"
         xmlns:col="clr-namespace:System.Collections;assembly=mscorlib"
         xmlns:vm="clr-namespace:OpenCS.ViewModels"
@@ -740,9 +741,47 @@
                               </StackPanel>
                            </DataTemplate>
                         </HierarchicalDataTemplate.ItemTemplate>
-                     </HierarchicalDataTemplate>
+                      </HierarchicalDataTemplate>
 
-                  </TreeViewItem.Resources>
+                      <!-- Сохранённые эквивалентные сечения полос плиты -->
+                      <HierarchicalDataTemplate DataType="{x:Type local:EquivalentSectionTreeGroup}"
+                                                ItemsSource="{Binding Items}">
+                         <StackPanel Orientation="Horizontal" Margin="2"
+                                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                            <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
+                                  Fill="DarkCyan"
+                                  Data="M2,2 H14 V5 H5 V8 H12 V11 H5 V14 H2 Z"/>
+                            <TextBlock Text="{DynamicResource EquivalentSections}"/>
+                         </StackPanel>
+                         <HierarchicalDataTemplate.ItemTemplate>
+                             <DataTemplate DataType="{x:Type strip:EquivalentSection}">
+                               <StackPanel Orientation="Horizontal" Margin="1"
+                                           Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                                  <StackPanel.ContextMenu>
+                                     <ContextMenu>
+                                        <MenuItem Header="{DynamicResource RecalculateEquivalentSection}"
+                                                  Command="{Binding PlacementTarget.Tag.RecalculateEquivalentSectionCommand,
+                                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                  CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                        <Separator/>
+                                        <MenuItem Header="{DynamicResource DeleteEquivalentSection}"
+                                                  Command="{Binding PlacementTarget.Tag.DeleteEquivalentSectionCommand,
+                                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                  CommandParameter="{Binding PlacementTarget.DataContext,
+                                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                     </ContextMenu>
+                                  </StackPanel.ContextMenu>
+                                  <Path Width="12" Height="12" Stretch="Uniform" Margin="0,0,4,0"
+                                        Fill="DarkCyan"
+                                        Data="M1,2 H15 V14 H1 Z M4,5 H12 M4,8 H12 M4,11 H9"/>
+                                  <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                               </StackPanel>
+                            </DataTemplate>
+                         </HierarchicalDataTemplate.ItemTemplate>
+                      </HierarchicalDataTemplate>
+
+                   </TreeViewItem.Resources>
                </TreeViewItem>
 
                <TreeViewItem x:Name="fireNode" ItemsSource="{Binding FireSections}" IsExpanded="True">

@@ -123,12 +123,17 @@ namespace OpenCS
                 vm.CurrentBarForceSet = forceSetItem;
           }
 
-          if (e.NewValue is CScore.PlateSection plateSectionItem)
-          {
-             vm.CurrentPlateSection = plateSectionItem;
-          }
+           if (e.NewValue is CScore.PlateSection plateSectionItem)
+           {
+              vm.CurrentPlateSection = plateSectionItem;
+           }
 
-          if (e.NewValue is FireSectionDef fireSectionItem)
+           if (e.NewValue is CScore.PlateStrip.EquivalentSection equivalentSectionItem)
+           {
+              vm.CurrentEquivalentSection = equivalentSectionItem;
+           }
+
+           if (e.NewValue is FireSectionDef fireSectionItem)
           {
              vm.CurrentFireSection = fireSectionItem;
           }

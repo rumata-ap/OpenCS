@@ -18,7 +18,9 @@ public enum SaveCategory
     PlateSections = 1 << 5,
     FireSections  = 1 << 6,
     CalcTasks     = 1 << 7,
+    EquivalentSections = 1 << 8,
 
     /// <summary>Все категории SaveAll (кроме ForceSet).</summary>
-    All = Materials | Contours | Circles | Diagrams | CrossSections | PlateSections | FireSections | CalcTasks
+    All = Materials | Contours | Circles | Diagrams | CrossSections | PlateSections | FireSections |
+          CalcTasks | EquivalentSections
 }
