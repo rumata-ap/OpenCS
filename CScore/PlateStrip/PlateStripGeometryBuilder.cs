@@ -47,8 +47,26 @@ public static class PlateStripGeometryBuilder
         double axisDirU = axisU / length, axisDirV = axisV / length;
         double perpU = -axisDirV, perpV = axisDirU;
 
+        if (!SegmentIntersectsHull(region.Hull.X, region.Hull.Y, startUv, endUv))
+            return Fail("plate_strip_outside_region", "Ось полосы (CenterLine) не пересекает Hull региона.");
+
         var hullLocal = ToStripLocal(region.Hull.X, region.Hull.Y, startUv, axisDirU, axisDirV, perpU, perpV);
         var hullParts = ClipToStrip(hullLocal, length, explicitWidthM);
+
+        // hullParts.Count == 0 здесь означает, что CenterLine касается границы Hull только
+        // тангенциально (в вершине/вдоль ребра), без реальной площади пересечения —
+        // SegmentIntersectsHull выше это пропускает (пересечение отрезка с контуром — не то
+        // же самое, что положительная площадь клиппированного полигона). Тот же код
+        // диагностики: с инженерной точки зрения это тоже "нет пригодного материала полосы".
+        // Умышленно не покрыт отдельным тестом (см. plate_strip_degenerate_polygon в Global
+        // Constraints/спеке) — надёжный тест этой ветки потребовал бы точного совпадения с
+        // границей на грани double-точности, к тому же PointInPolygon/SegmentsIntersect не
+        // гарантируют консистентного поведения ровно на границе.
+        if (hullParts.Count == 0)
+            return Fail("plate_strip_outside_region", "Ось полосы не пересекает Hull региона.");
+        if (hullParts.Count > 1)
+            return Fail("plate_strip_non_contiguous",
+                "Клиппинг полосы по Hull региона даёт несвязный результат — разбиение на span fragments не входит в этот срез.");
 
         var candidate = hullParts[0];
         var polygon = candidate.Select(p => ToRegionUv(p, startUv, axisDirU, axisDirV, perpU, perpV)).ToList();
@@ -136,4 +154,23 @@ public static class PlateStripGeometryBuilder
 
     static PlateStripBuildResult Fail(string code, string message) =>
         new(false, null, [new FemValidationDiagnostic(code, message)]);
+
+    static bool SegmentIntersectsHull(IList<double> hullX, IList<double> hullY, PlanarPoint2D a, PlanarPoint2D b)
+    {
+        var (hx, hy) = PlanarRegionTopologyValidator.ToOpenLoop(hullX, hullY);
+        var poly = new double[hx.Length][];
+        for (int i = 0; i < hx.Length; i++) poly[i] = [hx[i], hy[i]];
+
+        if (CSTriangulation.GeometryUtils.PointInPolygon(a.U, a.V, poly)) return true;
+        if (CSTriangulation.GeometryUtils.PointInPolygon(b.U, b.V, poly)) return true;
+
+        int n = hx.Length;
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            if (CSTriangulation.GeometryUtils.SegmentsIntersect(a.U, a.V, b.U, b.V, hx[i], hy[i], hx[j], hy[j]))
+                return true;
+        }
+        return false;
+    }
 }
