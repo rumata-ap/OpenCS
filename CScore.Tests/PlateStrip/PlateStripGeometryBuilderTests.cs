@@ -92,6 +92,54 @@ public sealed class PlateStripGeometryBuilderTests
         Assert.Empty(result.Diagnostics);
     }
 
+    [Fact]
+    public void Build_RotatedRegionFrame_ProjectsConsistently()
+    {
+        var regionFrame = new Frame3D(
+            new PlanarVector3(10, 20, 30),
+            new PlanarVector3(0, 1, 0),
+            new PlanarVector3(0, 0, 1),
+            new PlanarVector3(1, 0, 0));
+        var region = PlanarRegion.CreateFromContour(
+            new Contour { X = [-10, 10, 10, -10], Y = [-10, -10, 10, 10] }, frame: regionFrame);
+
+        var start = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(10, 21, 32) } };
+        var end = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(10, 25, 32) } };
+
+        var result = PlateStripGeometryBuilder.Build("strip-rot", region, start, end, 2.0);
+
+        Assert.True(result.IsCalculable, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.Message)));
+        var analogy = result.Analogy!;
+        Assert.Equal(4.0, analogy.Geometry.LengthM, 9);
+        Assert.Equal(new[] { new PlanarPoint2D(1, 2), new PlanarPoint2D(5, 2) }, analogy.Geometry.CenterLine);
+        Assert.Equal(new PlanarVector3(10, 21, 32), analogy.StripFrame.Origin);
+        Assert.Equal(new PlanarVector3(0, 1, 0), analogy.StripFrame.LocalX);
+        Assert.Equal(new PlanarVector3(0, 0, 1), analogy.StripFrame.LocalY);
+        Assert.Equal(new PlanarVector3(1, 0, 0), analogy.StripFrame.LocalZ);
+    }
+
+    [Fact]
+    public void Build_SupportOffsetAlongNormal_ProjectsOntoMidplane()
+    {
+        var regionFrame = new Frame3D(
+            new PlanarVector3(10, 20, 30),
+            new PlanarVector3(0, 1, 0),
+            new PlanarVector3(0, 0, 1),
+            new PlanarVector3(1, 0, 0));
+        var region = PlanarRegion.CreateFromContour(
+            new Contour { X = [-10, 10, 10, -10], Y = [-10, -10, 10, 10] }, frame: regionFrame);
+
+        // Опоры со смещением +5 и -3 вдоль нормали региона (LocalZ = глобальная X) —
+        // ось колонны, продолжающаяся выше/ниже средней плоскости плиты.
+        var start = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(15, 21, 32) } };
+        var end = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(7, 25, 32) } };
+
+        var result = PlateStripGeometryBuilder.Build("strip-offplane", region, start, end, 2.0);
+
+        Assert.True(result.IsCalculable, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.Message)));
+        Assert.Equal(new[] { new PlanarPoint2D(1, 2), new PlanarPoint2D(5, 2) }, result.Analogy!.Geometry.CenterLine);
+    }
+
     static bool Close(PlanarPoint2D a, PlanarPoint2D b, double tol = 1e-9) =>
         Math.Abs(a.U - b.U) < tol && Math.Abs(a.V - b.V) < tol;
 
