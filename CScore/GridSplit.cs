@@ -109,7 +109,7 @@ namespace CScore
          return inside;
       }
 
-      static List<(double X, double Y)> RemoveSpikes(List<(double X, double Y)> verts)
+      public static List<(double X, double Y)> RemoveSpikes(List<(double X, double Y)> verts)
       {
          if (verts.Count < 3) return verts;
 
@@ -267,7 +267,7 @@ namespace CScore
          output.Add(verts);
       }
 
-      static List<List<(double X, double Y)>> SplitWoundPolygon(
+      public static List<List<(double X, double Y)>> SplitWoundPolygon(
          List<(double X, double Y)> verts, double x0, double x1, double y0, double y1)
       {
          var output = new List<List<(double X, double Y)>>();
