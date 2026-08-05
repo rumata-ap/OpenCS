@@ -140,6 +140,61 @@ public sealed class PlateStripGeometryBuilderTests
         Assert.Equal(new[] { new PlanarPoint2D(1, 2), new PlanarPoint2D(5, 2) }, result.Analogy!.Geometry.CenterLine);
     }
 
+    [Fact]
+    public void Build_NonFiniteSupportOrigin_ReturnsInvalidInputDiagnostic()
+    {
+        var region = Region();
+        var start = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(double.NaN, 5, 0) } };
+        var end = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(8, 5, 0) } };
+
+        var result = PlateStripGeometryBuilder.Build("strip-nan-origin", region, start, end, 2.0);
+
+        Assert.False(result.IsCalculable);
+        Assert.Null(result.Analogy);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_invalid_input");
+    }
+
+    [Fact]
+    public void Build_NonFiniteWidth_ReturnsInvalidInputDiagnostic()
+    {
+        var region = Region();
+        var start = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(2, 5, 0) } };
+        var end = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(8, 5, 0) } };
+
+        var result = PlateStripGeometryBuilder.Build("strip-nan-width", region, start, end, double.NaN);
+
+        Assert.False(result.IsCalculable);
+        Assert.Null(result.Analogy);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_invalid_input");
+    }
+
+    [Fact]
+    public void Build_CoincidentSupports_ReturnsDegenerateAxisDiagnostic()
+    {
+        var region = Region();
+        var locus = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(2, 5, 0) } };
+
+        var result = PlateStripGeometryBuilder.Build("strip-degenerate", region, locus, locus, 2.0);
+
+        Assert.False(result.IsCalculable);
+        Assert.Null(result.Analogy);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_degenerate_axis");
+    }
+
+    [Fact]
+    public void Build_NonPositiveWidth_ReturnsInvalidWidthDiagnostic()
+    {
+        var region = Region();
+        var start = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(2, 5, 0) } };
+        var end = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(8, 5, 0) } };
+
+        var result = PlateStripGeometryBuilder.Build("strip-zerowidth", region, start, end, 0.0);
+
+        Assert.False(result.IsCalculable);
+        Assert.Null(result.Analogy);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_invalid_width");
+    }
+
     static bool Close(PlanarPoint2D a, PlanarPoint2D b, double tol = 1e-9) =>
         Math.Abs(a.U - b.U) < tol && Math.Abs(a.V - b.V) < tol;
 

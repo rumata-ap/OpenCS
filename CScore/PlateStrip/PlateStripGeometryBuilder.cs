@@ -17,6 +17,8 @@ public sealed record PlateStripBuildResult(
 /// docs/superpowers/specs/2026-08-05-plate-strip-beam-analogy-slice1-design.md.</summary>
 public static class PlateStripGeometryBuilder
 {
+    const double MinAxisLengthM = 1e-6;
+
     public static PlateStripBuildResult Build(
         string id, PlanarRegion region, SupportLocus start, SupportLocus end, double explicitWidthM)
     {
@@ -26,12 +28,21 @@ public static class PlateStripGeometryBuilder
         if (region.Hull is null)
             throw new ArgumentException("У региона отсутствует Hull.", nameof(region));
 
+        if (!start.Frame.Origin.IsFinite || !end.Frame.Origin.IsFinite || !double.IsFinite(explicitWidthM))
+            return Fail("plate_strip_invalid_input",
+                "Координаты опор или ширина полосы не являются конечными числами.");
+
         var startUv = ProjectToRegionPlane(region.Frame, start.Frame.Origin);
         var endUv = ProjectToRegionPlane(region.Frame, end.Frame.Origin);
 
         double axisU = endUv.U - startUv.U;
         double axisV = endUv.V - startUv.V;
         double length = Math.Sqrt(axisU * axisU + axisV * axisV);
+        if (!(length >= MinAxisLengthM))
+            return Fail("plate_strip_degenerate_axis",
+                "Опоры совпадают или практически совпадают в плоскости региона — ось полосы вырождена.");
+        if (!(explicitWidthM > 0))
+            return Fail("plate_strip_invalid_width", "ExplicitWidthM должна быть положительной.");
 
         double axisDirU = axisU / length, axisDirV = axisV / length;
         double perpU = -axisDirV, perpV = axisDirU;
@@ -122,4 +133,7 @@ public static class PlateStripGeometryBuilder
         var spikeless = GridSplit.RemoveSpikes(clip);
         return GridSplit.SplitWoundPolygon(spikeless, 0, length, -widthM / 2, widthM / 2);
     }
+
+    static PlateStripBuildResult Fail(string code, string message) =>
+        new(false, null, [new FemValidationDiagnostic(code, message)]);
 }
