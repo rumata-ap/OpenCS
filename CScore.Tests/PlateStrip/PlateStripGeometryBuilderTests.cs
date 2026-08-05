@@ -273,6 +273,70 @@ public sealed class PlateStripGeometryBuilderTests
         Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_non_contiguous");
     }
 
+    [Fact]
+    public void Build_HoleInsideCorridor_ReturnsCrossesHoleDiagnostic()
+    {
+        var region = Region(holes: [new Contour { X = [4, 6, 6, 4], Y = [4.5, 4.5, 5.5, 5.5] }]);
+        var start = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(2, 5, 0) } };
+        var end = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(8, 5, 0) } };
+
+        var result = PlateStripGeometryBuilder.Build("strip-hole", region, start, end, 2.0);
+
+        Assert.False(result.IsCalculable);
+        Assert.Null(result.Analogy);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_crosses_hole");
+    }
+
+    [Fact]
+    public void Build_HoleOutsideCorridor_SucceedsNormally()
+    {
+        var region = Region(holes: [new Contour { X = [8.5, 9.5, 9.5, 8.5], Y = [8.5, 8.5, 9.5, 9.5] }]);
+        var start = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(2, 5, 0) } };
+        var end = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(8, 5, 0) } };
+
+        var result = PlateStripGeometryBuilder.Build("strip-hole-clear", region, start, end, 2.0);
+
+        Assert.True(result.IsCalculable, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.Message)));
+        Assert.Equal(4, result.Analogy!.Geometry.Polygon.Count);
+    }
+
+    [Fact]
+    public void Build_ConcaveHoleInsideCorridor_ReturnsCrossesHoleDiagnostic()
+    {
+        // U-образное (вогнутое) отверстие, целиком внутри коридора u∈[2,8], v∈[4,6].
+        var region = Region(holes:
+        [
+            new Contour
+            {
+                X = [3, 7, 7, 5.5, 5.5, 4.5, 4.5, 3],
+                Y = [4.2, 4.2, 5.8, 5.8, 4.8, 4.8, 5.8, 5.8]
+            }
+        ]);
+        var start = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(2, 5, 0) } };
+        var end = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(8, 5, 0) } };
+
+        var result = PlateStripGeometryBuilder.Build("strip-hole-concave", region, start, end, 2.0);
+
+        Assert.False(result.IsCalculable);
+        Assert.Null(result.Analogy);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_crosses_hole");
+    }
+
+    [Fact]
+    public void Build_HoleTouchesCorridorBoundaryOnly_SucceedsNormally()
+    {
+        // Отверстие целиком за пределами коридора (u >= 8), левое ребро лежит ровно на
+        // границе коридора u=8 — касание без положительной площади пересечения не считается
+        // пересечением (отличие от Build_HoleInsideCorridor... с реальным перекрытием).
+        var region = Region(holes: [new Contour { X = [8, 9, 9, 8], Y = [4, 4, 6, 6] }]);
+        var start = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(2, 5, 0) } };
+        var end = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(8, 5, 0) } };
+
+        var result = PlateStripGeometryBuilder.Build("strip-hole-touching", region, start, end, 2.0);
+
+        Assert.True(result.IsCalculable, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.Message)));
+    }
+
     static bool Close(PlanarPoint2D a, PlanarPoint2D b, double tol = 1e-9) =>
         Math.Abs(a.U - b.U) < tol && Math.Abs(a.V - b.V) < tol;
 

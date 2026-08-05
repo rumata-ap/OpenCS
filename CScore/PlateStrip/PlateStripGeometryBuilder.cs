@@ -68,6 +68,15 @@ public static class PlateStripGeometryBuilder
             return Fail("plate_strip_non_contiguous",
                 "Клиппинг полосы по Hull региона даёт несвязный результат — разбиение на span fragments не входит в этот срез.");
 
+        foreach (var hole in region.Holes)
+        {
+            var holeLocal = ToStripLocal(hole.X, hole.Y, startUv, axisDirU, axisDirV, perpU, perpV);
+            holeLocal.Reverse(); // Holes — CW по конвенции региона; переворачиваем в CCW (как GridSplit.Slice)
+            var holeParts = ClipToStrip(holeLocal, length, explicitWidthM);
+            if (holeParts.Count > 0)
+                return Fail("plate_strip_crosses_hole", "Полоса пересекает отверстие региона.");
+        }
+
         var candidate = hullParts[0];
         var polygon = candidate.Select(p => ToRegionUv(p, startUv, axisDirU, axisDirV, perpU, perpV)).ToList();
         var stripFrame = BuildStripFrame(region.Frame, startUv, axisDirU, axisDirV);
