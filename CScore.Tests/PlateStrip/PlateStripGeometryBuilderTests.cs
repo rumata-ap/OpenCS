@@ -59,4 +59,42 @@ public sealed class PlateStripGeometryBuilderTests
         Assert.Equal(2, analogy.ExplicitWidthM);
         Assert.Equal("abc", analogy.Fingerprint);
     }
+
+    [Fact]
+    public void Build_HappyPath_ProducesRectangleStripInsideHull()
+    {
+        var region = Region();
+        var start = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(2, 5, 0) } };
+        var end = new SupportLocus { Frame = Frame3D.Identity with { Origin = new PlanarVector3(8, 5, 0) } };
+
+        var result = PlateStripGeometryBuilder.Build("strip-1", region, start, end, 2.0);
+
+        Assert.True(result.IsCalculable, string.Join(Environment.NewLine, result.Diagnostics.Select(d => d.Message)));
+        var analogy = result.Analogy!;
+        Assert.Equal(6.0, analogy.Geometry.LengthM, 9);
+        Assert.Equal(new[] { new PlanarPoint2D(2, 5), new PlanarPoint2D(8, 5) }, analogy.Geometry.CenterLine);
+        Assert.Equal(new PlanarVector3(2, 5, 0), analogy.StripFrame.Origin);
+        Assert.Equal(new PlanarVector3(1, 0, 0), analogy.StripFrame.LocalX);
+        Assert.Equal(new PlanarVector3(0, 1, 0), analogy.StripFrame.LocalY);
+        Assert.Equal(new PlanarVector3(0, 0, 1), analogy.StripFrame.LocalZ);
+
+        var corners = new[] { new PlanarPoint2D(2, 4), new PlanarPoint2D(8, 4), new PlanarPoint2D(8, 6), new PlanarPoint2D(2, 6) };
+        Assert.Equal(4, analogy.Geometry.Polygon.Count);
+        foreach (var corner in corners)
+            Assert.Contains(analogy.Geometry.Polygon, p => Close(p, corner));
+
+        Assert.Equal(2, analogy.Geometry.LeftBoundary.Count);
+        Assert.All(analogy.Geometry.LeftBoundary, p => Assert.Equal(6.0, p.V, 9));
+        Assert.Equal(2, analogy.Geometry.RightBoundary.Count);
+        Assert.All(analogy.Geometry.RightBoundary, p => Assert.Equal(4.0, p.V, 9));
+
+        Assert.Equal(PlateStripFingerprint.Compute(region, start, end, 2.0), analogy.Fingerprint);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    static bool Close(PlanarPoint2D a, PlanarPoint2D b, double tol = 1e-9) =>
+        Math.Abs(a.U - b.U) < tol && Math.Abs(a.V - b.V) < tol;
+
+    static PlanarRegion Region(IEnumerable<Contour>? holes = null) =>
+        PlanarRegion.CreateFromContour(new Contour { X = [0, 10, 10, 0], Y = [0, 0, 10, 10] }, holes);
 }
