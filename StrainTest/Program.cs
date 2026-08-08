@@ -1,6 +1,42 @@
 using System.Globalization;
 using CScore;
 
+if (args.Any(a => string.Equals(a, "--example47-crack-width-8232-tension", StringComparison.OrdinalIgnoreCase)))
+{
+    Example47CrackWidth.Run(includeConcreteTension: true);
+    return;
+}
+
+if (args.Any(a => string.Equals(a, "--example47-crack-width-8232", StringComparison.OrdinalIgnoreCase)))
+{
+    Example47CrackWidth.Run();
+    return;
+}
+
+if (args.Any(a => string.Equals(a, "--example47-moment-curvature-8232", StringComparison.OrdinalIgnoreCase)))
+{
+    Example47Curvature.RunMomentCurvature();
+    return;
+}
+
+if (args.Any(a => string.Equals(a, "--example47-moment-curvature-8232-tension", StringComparison.OrdinalIgnoreCase)))
+{
+    Example47Curvature.RunMomentCurvature();
+    return;
+}
+
+if (args.Any(a => string.Equals(a, "--example47-8232-tension", StringComparison.OrdinalIgnoreCase)))
+{
+    Example47Curvature.Run(includeConcreteTension: true);
+    return;
+}
+
+if (args.Any(a => string.Equals(a, "--example47-8232", StringComparison.OrdinalIgnoreCase)))
+{
+    Example47Curvature.Run();
+    return;
+}
+
 // Тест сходимости StrainSolver
 // Прямоугольное ЖБ сечение 0.3×0.6 м, бетон B30, без сеточных фибр
 
