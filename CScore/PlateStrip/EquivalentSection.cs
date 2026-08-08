@@ -12,6 +12,10 @@ public sealed class EquivalentSection
     public int SourceSchemaId { get; set; }
     public int SourceRegionId { get; set; }
     public int SourcePlateSectionId { get; set; }
+    /// <summary>Снимок PlanarRegion.GeometryFingerprint на момент последней успешной сборки.</summary>
+    public string SourceRegionFingerprint { get; set; } = "";
+    /// <summary>Доля длины полосы (0..1), на которой резолвится раскладка армирования по ширине.</summary>
+    public double SpanStationFraction { get; set; } = 0.5;
     public PlateStripBeamAnalogy Strip { get; set; } = new();
     public ReductionPolicy ReductionPolicy { get; set; }
     public EquivalentSectionSourceKind SourceKind { get; set; }
