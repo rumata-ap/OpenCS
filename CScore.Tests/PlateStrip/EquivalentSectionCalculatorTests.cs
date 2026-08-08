@@ -1,3 +1,4 @@
+using System.Linq;
 using CScore.PlateStrip;
 using Xunit;
 
@@ -47,30 +48,93 @@ public sealed class EquivalentSectionCalculatorTests
     }
 
     [Fact]
+    public void ConstitutiveIntegration_WithDifferentWidthSources_UsesEachAtItsOwnGaussPoint()
+    {
+        var stiff = Source(a00: 2000.0, d00: 300.0);
+        var soft = Source(a00: 200.0, d00: 30.0);
+
+        var uniform = EquivalentSectionCalculator.Build(
+            Analogy(), stiff, [stiff, stiff], ReductionPolicy.ConstitutiveIntegration, 2);
+        var mixed = EquivalentSectionCalculator.Build(
+            Analogy(), stiff, [stiff, soft], ReductionPolicy.ConstitutiveIntegration, 2);
+
+        Assert.True(uniform.IsCalculable);
+        Assert.True(mixed.IsCalculable);
+        Assert.NotEqual(uniform.Section!.BeamTangent[0, 0], mixed.Section!.BeamTangent[0, 0]);
+    }
+
+    [Fact]
     public void Calculator_RejectsNonPositiveWidth()
     {
         var analogy = Analogy(0.0);
+        var source = Source();
 
         var result = EquivalentSectionCalculator.Build(
-            analogy, Source(), ReductionPolicy.ConstitutiveIntegration, 2);
+            analogy, source, [source, source], ReductionPolicy.ConstitutiveIntegration, 2);
 
         Assert.False(result.IsCalculable);
         Assert.Null(result.Section);
         Assert.Contains(result.Diagnostics, d => d.Code == "equivalent_section_invalid_width");
     }
 
-    static EquivalentSectionBuildResult Build(ReductionPolicy policy)
-        => EquivalentSectionCalculator.Build(Analogy(), Source(), policy, 2);
+    [Fact]
+    public void Calculator_RejectsNullCenterlineSource_RegardlessOfPolicy()
+    {
+        var result = EquivalentSectionCalculator.Build(
+            Analogy(), null, null, ReductionPolicy.DirectUniaxial, 2);
 
-    static ConstantLinearPlateSectionResponse Source()
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "equivalent_section_missing_source");
+    }
+
+    [Fact]
+    public void Calculator_DirectUniaxial_IgnoresWidthSourcesIfProvided()
+    {
+        var source = Source();
+
+        var result = EquivalentSectionCalculator.Build(
+            Analogy(), source, [source, source], ReductionPolicy.DirectUniaxial, 2);
+
+        Assert.True(result.IsCalculable);
+    }
+
+    [Fact]
+    public void Calculator_ConstitutiveIntegration_RejectsWidthSourceCountMismatch()
+    {
+        var source = Source();
+
+        var result = EquivalentSectionCalculator.Build(
+            Analogy(), source, [source], ReductionPolicy.ConstitutiveIntegration, 2);
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "equivalent_section_source_count_mismatch");
+    }
+
+    [Fact]
+    public void WidthGaussPoints_ReturnsPhysicallyScaledPointsAndWeights()
+    {
+        var (v, weights) = EquivalentSectionCalculator.WidthGaussPoints(2.0, 2);
+
+        Assert.Equal(2, v.Length);
+        Assert.All(v, x => Assert.InRange(x, -1.0, 1.0));
+        Assert.Equal(2.0, weights.Sum(), 9);
+    }
+
+    static EquivalentSectionBuildResult Build(ReductionPolicy policy)
+    {
+        var source = Source();
+        return EquivalentSectionCalculator.Build(Analogy(), source, [source, source], policy, 2);
+    }
+
+    static ConstantLinearPlateSectionResponse Source(double a00 = 1000.0, double d00 = 300.0)
     {
         var a = new double[3, 3];
         var b = new double[3, 3];
         var d = new double[3, 3];
         var ass = new double[2, 2];
-        a[0, 0] = 1000.0;
+        a[0, 0] = a00;
         b[0, 0] = 20.0;
-        d[0, 0] = 300.0;
+        d[0, 0] = d00;
         a[1, 1] = 500.0;
         d[1, 1] = 100.0;
         ass[0, 0] = ass[1, 1] = 400.0;

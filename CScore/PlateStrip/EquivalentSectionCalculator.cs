@@ -9,13 +9,14 @@ public static class EquivalentSectionCalculator
 
     public static EquivalentSectionBuildResult Build(
         PlateStripBeamAnalogy? analogy,
-        IPlateSectionResponse? source,
+        IPlateSectionResponse? centerlineSource,
+        IReadOnlyList<IPlateSectionResponse>? widthSources,
         ReductionPolicy policy,
         int widthIntegrationPoints = 2)
     {
         if (analogy == null)
             return Fail("equivalent_section_invalid_strip", "Геометрия полосы не задана.");
-        if (source == null)
+        if (centerlineSource == null)
             return Fail("equivalent_section_missing_source", "Источник плитного отклика не задан.");
         if (!(analogy.ExplicitWidthM > 0.0) || !double.IsFinite(analogy.ExplicitWidthM))
             return Fail("equivalent_section_invalid_width", "Ширина полосы должна быть конечной и положительной.");
@@ -24,7 +25,7 @@ public static class EquivalentSectionCalculator
         if (widthIntegrationPoints < 2 || widthIntegrationPoints > 32)
             return Fail("equivalent_section_invalid_quadrature", "Число точек интегрирования должно быть от 2 до 32.");
 
-        var tangent = source.Tangent(ShellStrainState.Zero);
+        var tangent = centerlineSource.Tangent(ShellStrainState.Zero);
         var h = PlateSectionResponseMath.BuildH(tangent.A, tangent.B, tangent.D);
         List<FemValidationDiagnostic> diagnostics;
         double[,]? kBeam;
@@ -34,7 +35,10 @@ public static class EquivalentSectionCalculator
                 kBeam = Direct(h, analogy.ExplicitWidthM, out diagnostics);
                 break;
             case ReductionPolicy.ConstitutiveIntegration:
-                kBeam = Integrate(source, analogy.ExplicitWidthM, widthIntegrationPoints, out diagnostics);
+                if (widthSources == null || widthSources.Count != widthIntegrationPoints)
+                    return Fail("equivalent_section_source_count_mismatch",
+                        "Число источников по ширине должно совпадать с числом точек интегрирования.");
+                kBeam = Integrate(widthSources, analogy.ExplicitWidthM, widthIntegrationPoints, out diagnostics);
                 break;
             default:
                 return Fail("equivalent_section_unsupported_policy", "Выбранная политика редукции не поддерживается.");
@@ -49,7 +53,7 @@ public static class EquivalentSectionCalculator
             SourceRegionId = analogy.SourceRegionId,
             Strip = analogy,
             ReductionPolicy = policy,
-            SourceKind = source.SourceKind,
+            SourceKind = centerlineSource.SourceKind,
             WidthIntegrationPoints = widthIntegrationPoints,
             BeamTangent = kBeam,
             EA = kBeam[0, 0],
@@ -57,11 +61,25 @@ public static class EquivalentSectionCalculator
             EIz = kBeam[2, 2],
             IsCalculable = true,
             Diagnostics = diagnostics,
-            InputFingerprint = EquivalentSectionFingerprint.Compute(
-                analogy, source, policy, widthIntegrationPoints),
             ResultFingerprint = EquivalentSectionFingerprint.ComputeResult(kBeam)
         };
         return new(true, section, diagnostics);
+    }
+
+    /// <summary>Физически масштабированные точки/веса квадратуры Гаусса–Лежандра по ширине
+    /// полосы: v ∈ [-width/2, +width/2], сумма весов = width. Общая точка правды для
+    /// интегрирования здесь и для резолва пространственного армирования вызывающей стороной.</summary>
+    public static (double[] V, double[] Weights) WidthGaussPoints(double width, int n)
+    {
+        var (points, weights) = GaussLegendre(n);
+        var v = new double[n];
+        var w = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            v[i] = points[i] * width / 2.0;
+            w[i] = weights[i] * width / 2.0;
+        }
+        return (v, w);
     }
 
     static double[,] Direct(double[,] h, double width, out List<FemValidationDiagnostic> diagnostics)
@@ -91,20 +109,20 @@ public static class EquivalentSectionCalculator
         return result;
     }
 
-    static double[,] Integrate(IPlateSectionResponse source, double width, int pointCount,
+    static double[,] Integrate(IReadOnlyList<IPlateSectionResponse> sources, double width, int pointCount,
                                out List<FemValidationDiagnostic> diagnostics)
     {
         diagnostics = [];
         var embedding = new StripKinematicEmbedding(width);
         var result = new double[3, 3];
-        var (points, weights) = GaussLegendre(pointCount);
-        for (int g = 0; g < points.Length; g++)
+        var (vs, weights) = WidthGaussPoints(width, pointCount);
+        for (int g = 0; g < vs.Length; g++)
         {
-            double v = points[g] * width / 2.0;
-            double weight = weights[g] * width / 2.0;
+            double v = vs[g];
+            double weight = weights[g];
             var b = embedding.Matrix(v);
             var shellState = embedding.Map(BeamStrainState.Zero, v);
-            var tangent = source.Tangent(shellState);
+            var tangent = sources[g].Tangent(shellState);
             var h = PlateSectionResponseMath.BuildH(tangent.A, tangent.B, tangent.D);
             for (int a = 0; a < 3; a++)
             for (int c = 0; c < 3; c++)
