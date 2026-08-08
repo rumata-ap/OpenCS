@@ -2460,6 +2460,11 @@ namespace OpenCS
        {
           var equivalent = target ?? currentEquivalentSection;
           if (equivalent == null) return;
+          var res = System.Windows.MessageBox.Show(
+             Loc.S("ConfirmDeleteEquivalentSection"), Loc.S("Warning"),
+             System.Windows.MessageBoxButton.YesNo,
+             System.Windows.MessageBoxImage.Warning);
+          if (res != System.Windows.MessageBoxResult.Yes) return;
           db.DeleteEquivalentSection(equivalent);
           if (equivalent == currentEquivalentSection)
           {

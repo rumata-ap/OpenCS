@@ -733,6 +733,8 @@
     <system:String x:Key="EquivalentSectionMatrixColumn0">ε0</system:String>
     <system:String x:Key="EquivalentSectionMatrixColumn1">κy</system:String>
     <system:String x:Key="EquivalentSectionMatrixColumn2">κz</system:String>
+    <system:String x:Key="EquivalentSectionStationFraction">Span station u/L:</system:String>
+    <system:String x:Key="ConfirmDeleteEquivalentSection">Permanently delete the selected equivalent section?</system:String>
    <system:String x:Key="PlateThicknessMm">Thickness h, mm:</system:String>
    <system:String x:Key="PlateNLayers">Concrete layers:</system:String>
    <system:String x:Key="PlateTensionConcrete">Concrete tension</system:String>

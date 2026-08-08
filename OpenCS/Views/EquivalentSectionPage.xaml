@@ -48,11 +48,14 @@
             <GroupBox Header="{DynamicResource EquivalentSectionGeometry}" Margin="0,0,0,8">
                <Grid Margin="6">
                   <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
                   <TextBlock Grid.Row="0" Text="{DynamicResource EquivalentSectionWidth}"/>
                   <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding WidthM, StringFormat={}{0:G8}}"/>
                   <TextBlock Grid.Row="1" Text="{DynamicResource EquivalentSectionLength}"/>
                   <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LengthM, StringFormat={}{0:G8}}"/>
+                  <TextBlock Grid.Row="2" Text="{DynamicResource EquivalentSectionStationFraction}"/>
+                  <TextBox Grid.Row="2" Grid.Column="1" Width="100" HorizontalAlignment="Left"
+                           Text="{Binding SpanStationFraction, StringFormat={}{0:G4}}"/>
                </Grid>
             </GroupBox>
 

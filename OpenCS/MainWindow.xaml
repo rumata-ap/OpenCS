@@ -776,6 +776,25 @@
                                         Fill="DarkCyan"
                                         Data="M1,2 H15 V14 H1 Z M4,5 H12 M4,8 H12 M4,11 H9"/>
                                   <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                                  <TextBlock Text=" №" Foreground="Gray"/>
+                                  <TextBlock Text="{Binding Num}" Foreground="Gray"/>
+                                  <TextBlock VerticalAlignment="Center" Margin="6,0,0,0">
+                                     <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                           <Setter Property="Text" Value=""/>
+                                           <Style.Triggers>
+                                              <DataTrigger Binding="{Binding IsStale}" Value="True">
+                                                 <Setter Property="Text" Value="{DynamicResource EquivalentSectionStatusStale}"/>
+                                                 <Setter Property="Foreground" Value="DarkOrange"/>
+                                              </DataTrigger>
+                                              <DataTrigger Binding="{Binding IsCalculable}" Value="False">
+                                                 <Setter Property="Text" Value="{DynamicResource EquivalentSectionStatusError}"/>
+                                                 <Setter Property="Foreground" Value="Red"/>
+                                              </DataTrigger>
+                                           </Style.Triggers>
+                                        </Style>
+                                     </TextBlock.Style>
+                                  </TextBlock>
                                </StackPanel>
                             </DataTemplate>
                          </HierarchicalDataTemplate.ItemTemplate>

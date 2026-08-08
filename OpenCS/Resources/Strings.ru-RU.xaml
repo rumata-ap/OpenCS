@@ -736,6 +736,8 @@
     <system:String x:Key="EquivalentSectionMatrixColumn0">ε0</system:String>
     <system:String x:Key="EquivalentSectionMatrixColumn1">κy</system:String>
     <system:String x:Key="EquivalentSectionMatrixColumn2">κz</system:String>
+    <system:String x:Key="EquivalentSectionStationFraction">Станция u/L:</system:String>
+    <system:String x:Key="ConfirmDeleteEquivalentSection">Удалить безвозвратно выбранное эквивалентное сечение?</system:String>
    <system:String x:Key="PlateThicknessMm">Толщина h, мм:</system:String>
    <system:String x:Key="PlateNLayers">Число слоёв бетона:</system:String>
    <system:String x:Key="PlateTensionConcrete">Учёт растяжения бетона</system:String>

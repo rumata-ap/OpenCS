@@ -36,6 +36,11 @@ public sealed class EquivalentSectionVM : ViewModelBase
     public double WidthM => Model.Strip.ExplicitWidthM;
     public double LengthM => Model.Strip.Geometry.LengthM;
     public int WidthIntegrationPoints => Model.WidthIntegrationPoints;
+    public double SpanStationFraction
+    {
+        get => Model.SpanStationFraction;
+        set { Model.SpanStationFraction = value; OnPropertyChanged(); }
+    }
     public double EA => Model.EA;
     public double EIy => Model.EIy;
     public double EIz => Model.EIz;
