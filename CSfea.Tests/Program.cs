@@ -21,6 +21,7 @@ SolverTests.RunCrossValidation();
 
 CScoreBridgeTests.RunAll();
 EquivalentBeamResponseTests.RunAll();
+EquivalentBeamAnalogyE2ETests.RunAll();
 
 FireCurvesTests.RunAll();
 
