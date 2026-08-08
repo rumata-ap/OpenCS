@@ -2391,10 +2391,7 @@ namespace OpenCS
           var service = new EquivalentSectionProjectService(db, materials);
           bool changed = false;
           foreach (var equivalent in EquivalentSections)
-          {
-             var sourceSection = PlateSections.FirstOrDefault(s => s.Id == equivalent.SourcePlateSectionId);
-             changed |= service.RefreshStale(equivalent, sourceSection, CalcType.C);
-          }
+             changed |= service.RefreshStale(equivalent, CalcType.C);
           if (changed)
              MarkDirty(SaveCategory.EquivalentSections);
        }
@@ -2476,21 +2473,15 @@ namespace OpenCS
        {
           var equivalent = target ?? currentEquivalentSection;
           if (equivalent == null) return;
-          var sourceSection = PlateSections.FirstOrDefault(s => s.Id == equivalent.SourcePlateSectionId);
-          if (sourceSection == null)
-          {
-             LogService.Warning(Loc.S("EquivalentSectionSourceNotFound"));
-             return;
-          }
 
           var materials = Materials
              .Where(m => m.Id != 0)
              .ToDictionary(m => m.Id);
           var service = new EquivalentSectionProjectService(db, materials);
           var result = service.BuildAndSave(
-             equivalent.Strip, equivalent.SourceSchemaId, sourceSection,
-             CalcType.C, equivalent.ReductionPolicy,
-             equivalent.WidthIntegrationPoints, equivalent);
+             equivalent.Strip, equivalent.SourceSchemaId, equivalent.SourceRegionId,
+             CalcType.C, equivalent.ReductionPolicy, equivalent.WidthIntegrationPoints,
+             equivalent.SpanStationFraction, equivalent);
           if (result.Section != null)
           {
              currentEquivalentSection = result.Section;

@@ -726,7 +726,6 @@
     <system:String x:Key="EquivalentSectionUnitNotice">At the FEM boundary, stiffnesses are scaled from kN/kN·m² to N/N·m².</system:String>
     <system:String x:Key="EquivalentSectionNoTorsion">Torsion is not reduced in this slice: GJ = 0.</system:String>
     <system:String x:Key="EquivalentSectionKinematicNotice">Kinematic restriction: ε0y, γ0xy, κy and κxy are fixed at zero.</system:String>
-    <system:String x:Key="EquivalentSectionSourceNotFound">The source plate section was not found.</system:String>
     <system:String x:Key="EquivalentSectionRecalculateFailed">Equivalent section recalculation failed.</system:String>
     <system:String x:Key="EquivalentSectionMatrixRow0">ε0</system:String>
     <system:String x:Key="EquivalentSectionMatrixRow1">κy</system:String>

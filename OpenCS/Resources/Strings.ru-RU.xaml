@@ -729,7 +729,6 @@
     <system:String x:Key="EquivalentSectionUnitNotice">На границе с МКЭ жёсткости масштабируются из кН/кН·м² в Н/Н·м².</system:String>
     <system:String x:Key="EquivalentSectionNoTorsion">Кручение в этом срезе не редуцируется: GJ = 0.</system:String>
     <system:String x:Key="EquivalentSectionKinematicNotice">Ограничение кинематики: ε0y, γ0xy, κy и κxy принимаются равными нулю.</system:String>
-    <system:String x:Key="EquivalentSectionSourceNotFound">Исходное плитное сечение не найдено.</system:String>
     <system:String x:Key="EquivalentSectionRecalculateFailed">Пересчёт эквивалентного сечения не выполнен.</system:String>
     <system:String x:Key="EquivalentSectionMatrixRow0">ε0</system:String>
     <system:String x:Key="EquivalentSectionMatrixRow1">κy</system:String>
