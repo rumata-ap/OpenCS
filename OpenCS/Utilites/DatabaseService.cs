@@ -32,7 +32,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-              const int CurrentSchemaVersion = 52;
+              const int CurrentSchemaVersion = 53;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -257,7 +257,9 @@ namespace OpenCS.Utilites
                  input_fingerprint       TEXT NOT NULL DEFAULT '',
                  result_fingerprint      TEXT NOT NULL DEFAULT '',
                  is_calculable           INTEGER NOT NULL DEFAULT 0,
-                 is_stale                INTEGER NOT NULL DEFAULT 0
+                 is_stale                INTEGER NOT NULL DEFAULT 0,
+                 span_station_fraction   REAL NOT NULL DEFAULT 0.5,
+                 source_region_fingerprint TEXT NOT NULL DEFAULT ''
              );
              CREATE TABLE IF NOT EXISTS material_areas (
                 id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -610,6 +612,7 @@ namespace OpenCS.Utilites
                     if (i == 48) { MigrateV49(); continue; }
                      if (i == 50) { MigrateV51(); continue; }
                      if (i == 51) { MigrateV52(); continue; }
+                     if (i == 52) { MigrateV53(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1196,6 +1199,16 @@ namespace OpenCS.Utilites
                   is_stale                INTEGER NOT NULL DEFAULT 0
               );
           """);
+
+          /// <summary>Миграция v53: провенанс/резолвер эквивалентного сечения — станция по
+          /// длине полосы и снимок fingerprint исходного PlanarRegion.</summary>
+          void MigrateV53()
+          {
+             if (!ColumnExists("equivalent_sections", "span_station_fraction"))
+                MigExec("ALTER TABLE equivalent_sections ADD COLUMN span_station_fraction REAL NOT NULL DEFAULT 0.5");
+             if (!ColumnExists("equivalent_sections", "source_region_fingerprint"))
+                MigExec("ALTER TABLE equivalent_sections ADD COLUMN source_region_fingerprint TEXT NOT NULL DEFAULT ''");
+          }
 
         void EnsurePlanarMeshTables()
        {
@@ -2653,7 +2666,8 @@ namespace OpenCS.Utilites
                     source_schema_id, source_region_id, source_plate_section_id,
                     source_kind, reduction_policy, width_integration_points,
                     strip_json, tangent_json, diagnostics_json,
-                    input_fingerprint, result_fingerprint, is_calculable, is_stale
+                    input_fingerprint, result_fingerprint, is_calculable, is_stale,
+                    span_station_fraction, source_region_fingerprint
              FROM equivalent_sections ORDER BY num, id
           """;
           using var reader = cmd.ExecuteReader();
@@ -2687,7 +2701,9 @@ namespace OpenCS.Utilites
                 InputFingerprint = reader.GetString(13),
                 ResultFingerprint = reader.GetString(14),
                 IsCalculable = reader.GetInt32(15) != 0,
-                IsStale = reader.GetInt32(16) != 0
+                IsStale = reader.GetInt32(16) != 0,
+                SpanStationFraction = reader.GetDouble(17),
+                SourceRegionFingerprint = reader.GetString(18)
              };
              EquivalentSections.Add(equivalent);
           }
@@ -2712,10 +2728,10 @@ namespace OpenCS.Utilites
                     source_plate_section_id, source_kind, reduction_policy,
                     width_integration_points, strip_json, embedding_json, linearization_json,
                     tangent_json, diagnostics_json, input_fingerprint, result_fingerprint,
-                    is_calculable, is_stale)
+                    is_calculable, is_stale, span_station_fraction, source_region_fingerprint)
                 VALUES (@num,@tag,@description,@schema,@region,@plate,@sourceKind,@policy,
                         @points,@strip,@embedding,@linearization,@tangent,@diagnostics,
-                        @input,@result,@calculable,@stale);
+                        @input,@result,@calculable,@stale,@station,@regionFp);
                 SELECT last_insert_rowid();
              """;
           }
@@ -2730,7 +2746,8 @@ namespace OpenCS.Utilites
                    strip_json=@strip, embedding_json=@embedding, linearization_json=@linearization,
                    tangent_json=@tangent, diagnostics_json=@diagnostics,
                    input_fingerprint=@input, result_fingerprint=@result,
-                   is_calculable=@calculable, is_stale=@stale
+                   is_calculable=@calculable, is_stale=@stale,
+                   span_station_fraction=@station, source_region_fingerprint=@regionFp
                 WHERE id=@id;
              """;
              cmd.Parameters.AddWithValue("@id", equivalent.Id);
@@ -2753,6 +2770,8 @@ namespace OpenCS.Utilites
           cmd.Parameters.AddWithValue("@result", equivalent.ResultFingerprint);
           cmd.Parameters.AddWithValue("@calculable", equivalent.IsCalculable ? 1 : 0);
           cmd.Parameters.AddWithValue("@stale", equivalent.IsStale ? 1 : 0);
+          cmd.Parameters.AddWithValue("@station", equivalent.SpanStationFraction);
+          cmd.Parameters.AddWithValue("@regionFp", equivalent.SourceRegionFingerprint);
           if (isNew)
              equivalent.Id = (int)(long)cmd.ExecuteScalar()!;
           else

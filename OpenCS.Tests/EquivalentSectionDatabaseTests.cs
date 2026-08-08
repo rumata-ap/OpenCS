@@ -28,6 +28,8 @@ public sealed class EquivalentSectionDatabaseTests
             Assert.Equal(original.ResultFingerprint, actual.ResultFingerprint);
             Assert.Equal(original.BeamTangent[0, 1], actual.BeamTangent[0, 1], 12);
             Assert.Contains(actual.Diagnostics, d => d.Code == "test_warning");
+            Assert.Equal(original.SourceRegionFingerprint, actual.SourceRegionFingerprint);
+            Assert.Equal(original.SpanStationFraction, actual.SpanStationFraction, 12);
 
             loaded.Dispose();
             source.Dispose();
@@ -72,6 +74,8 @@ public sealed class EquivalentSectionDatabaseTests
         SourceSchemaId = 7,
         SourceRegionId = 11,
         SourcePlateSectionId = 13,
+        SourceRegionFingerprint = "region-fp-test",
+        SpanStationFraction = 0.75,
         Strip = new PlateStripBeamAnalogy
         {
             Id = "strip-1",
