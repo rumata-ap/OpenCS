@@ -73,4 +73,28 @@ internal static class PlateSectionResponseMath
             As = Clone(ass)
         };
     }
+
+    /// <summary>Сравнивает две касательные с относительно-абсолютным допуском по всем четырём
+    /// блокам A/B/D/As. Общая точка правды для PlateSectionTangentSnapshot и
+    /// ShellMeshPatchPreflight (обе проверяют линейность материала пробами касательной).</summary>
+    public static bool CloseTangent(PlateShellTangentResult a, PlateShellTangentResult b,
+                                    double relativeTolerance, double absoluteTolerance)
+    {
+        return CloseBlock(a.A, b.A, relativeTolerance, absoluteTolerance) &&
+               CloseBlock(a.B, b.B, relativeTolerance, absoluteTolerance) &&
+               CloseBlock(a.D, b.D, relativeTolerance, absoluteTolerance) &&
+               CloseBlock(a.As, b.As, relativeTolerance, absoluteTolerance);
+    }
+
+    public static bool CloseBlock(double[,] a, double[,] b, double relativeTolerance, double absoluteTolerance)
+    {
+        for (int i = 0; i < a.GetLength(0); i++)
+        for (int j = 0; j < a.GetLength(1); j++)
+        {
+            double scale = Math.Max(Math.Abs(a[i, j]), Math.Abs(b[i, j]));
+            if (Math.Abs(a[i, j] - b[i, j]) > absoluteTolerance + relativeTolerance * scale)
+                return false;
+        }
+        return true;
+    }
 }

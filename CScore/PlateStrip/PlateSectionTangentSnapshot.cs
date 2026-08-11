@@ -116,7 +116,7 @@ public sealed class PlateSectionTangentSnapshot : IPlateSectionResponse
             var probe = section.ComputeTangent(
                 probeStates[i], concreteDiagram, rebarDiagram, layerDiagrams,
                 tensionOverride: true);
-            if (!CloseTangent(baseTangent, probe, relativeTolerance, absoluteTolerance))
+            if (!PlateSectionResponseMath.CloseTangent(baseTangent, probe, relativeTolerance, absoluteTolerance))
             {
                 diagnostics.Add(new(
                     "equivalent_section_state_dependent_source",
@@ -138,27 +138,6 @@ public sealed class PlateSectionTangentSnapshot : IPlateSectionResponse
         Math.Abs(resultants.Nx) > tolerance || Math.Abs(resultants.Ny) > tolerance ||
         Math.Abs(resultants.Nxy) > tolerance || Math.Abs(resultants.Mx) > tolerance ||
         Math.Abs(resultants.My) > tolerance || Math.Abs(resultants.Mxy) > tolerance;
-
-    static bool CloseTangent(PlateShellTangentResult a, PlateShellTangentResult b,
-                             double relativeTolerance, double absoluteTolerance)
-    {
-        return CloseBlock(a.A, b.A, relativeTolerance, absoluteTolerance) &&
-               CloseBlock(a.B, b.B, relativeTolerance, absoluteTolerance) &&
-               CloseBlock(a.D, b.D, relativeTolerance, absoluteTolerance) &&
-               CloseBlock(a.As, b.As, relativeTolerance, absoluteTolerance);
-    }
-
-    static bool CloseBlock(double[,] a, double[,] b, double relativeTolerance, double absoluteTolerance)
-    {
-        for (int i = 0; i < a.GetLength(0); i++)
-        for (int j = 0; j < a.GetLength(1); j++)
-        {
-            double scale = Math.Max(Math.Abs(a[i, j]), Math.Abs(b[i, j]));
-            if (Math.Abs(a[i, j] - b[i, j]) > absoluteTolerance + relativeTolerance * scale)
-                return false;
-        }
-        return true;
-    }
 
     static string BuildFingerprint(PlateSection section, Diagramm concrete, Diagramm rebar,
                                    IReadOnlyList<Diagramm?>? layerDiagrams, PlateShellTangentResult tangent)
