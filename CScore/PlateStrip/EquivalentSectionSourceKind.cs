@@ -7,5 +7,13 @@ public enum EquivalentSectionSourceKind
     ConstantLinear,
 
     /// <summary>Касательная PlateSection, замороженная в нулевом состоянии.</summary>
-    PlateSectionTangentSnapshot
+    PlateSectionTangentSnapshot,
+
+    /// <summary>RVE-гомогенизация через реальный OpenSees.exe (Срез 3b) — только для
+    /// widthSources контрольной проверки, никогда не EquivalentSection.SourceKind.</summary>
+    ShellMeshOpenSees,
+
+    /// <summary>RVE-гомогенизация через реальный CSfea.Core.ShellMesh (Срез 3b) — только для
+    /// widthSources контрольной проверки, никогда не EquivalentSection.SourceKind.</summary>
+    ShellMeshCsfea,
 }
