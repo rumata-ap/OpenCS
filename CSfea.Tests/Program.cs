@@ -73,6 +73,8 @@ PlanarBoundaryActionShellMeshAdapterTests.RunAll();
 
 PlanarMeshCSfeaPatchTests.RunAll();
 
+LinearDirichletSystemTests.RunAll();
+
 ShellStrainSolverTests.RunAll();
 
 BucklingTests.RunSimplySupportedPlate();
