@@ -75,6 +75,10 @@ PlanarMeshCSfeaPatchTests.RunAll();
 
 LinearDirichletSystemTests.RunAll();
 
+Shell3Tests.RunAll();
+
+ShellMeshPatchPostprocessorTests.RunAll();
+
 ShellStrainSolverTests.RunAll();
 
 BucklingTests.RunSimplySupportedPlate();

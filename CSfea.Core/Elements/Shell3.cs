@@ -43,11 +43,18 @@ public static class Shell3
         if (detJ <= 0.0)
             throw new ArgumentException("Отрицательный якобиан в Shell3.");
         double area = 0.5 * detJ;
-        // dN_dx = dN · invJ (3,2)
+        // dN_dx = dN · invJ^T (3,2). j[a,b] = ∂x_b/∂ξ_a — уже транспонированный Якобиан
+        // (не стандартный J[b,a] = ∂x_b/∂ξ_a переставлен), поэтому invJ = (J_std^-1)^T и
+        // градиент физической производной вычисляется через invJ[k,a], а не invJ[a,k].
+        // Баг (переставленные индексы) был незаметен на осеориентированном каноническом
+        // треугольнике (0,0),(1,0),(0,1) — там J=I и invJ симметрична — но давал неверный
+        // (даже с точностью до вращения на 90°) CST-отклик на скошенных/повёрнутых треугольниках:
+        // тождество Σ dNdx[i,0]·x_i = 1 нарушалось. Обнаружено при разработке Task 7
+        // ShellMeshPatchPostprocessor (Срез 3b, RVE-патч на реальном Gmsh-мешинге).
         var dNdx = new double[3, 2];
         for (int i = 0; i < 3; i++)
             for (int k = 0; k < 2; k++)
-                dNdx[i, k] = dn[i, 0] * invJ[0, k] + dn[i, 1] * invJ[1, k];
+                dNdx[i, k] = dn[i, 0] * invJ[k, 0] + dn[i, 1] * invJ[k, 1];
         return (dNdx, area, j);
     }
 
