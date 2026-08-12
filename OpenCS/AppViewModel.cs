@@ -3501,7 +3501,7 @@ namespace OpenCS
       {
          schema ??= currentFemSchema;
          if (schema == null) return;
-         var dlg = new Views.FemAnalysisDialog(schema)
+         var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id))
          {
             Owner = System.Windows.Application.Current.MainWindow
          };
@@ -3517,7 +3517,7 @@ namespace OpenCS
          var schema = FemSchemas.FirstOrDefault(s => s.Id == analysis.SchemaId);
          if (schema == null) return;
 
-         var dlg = new Views.FemAnalysisDialog(schema, analysis)
+         var dlg = new Views.FemAnalysisDialog(schema, db.GetFemNodes(schema.Id), analysis)
          {
             Owner = System.Windows.Application.Current.MainWindow
          };
