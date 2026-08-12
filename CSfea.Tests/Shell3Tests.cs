@@ -13,6 +13,34 @@ public static class Shell3Tests
         TestHarness.Section("Shell3.Geometry: полнота градиента dN/dx на скошенном треугольнике");
         SkewedTriangle_ReproducesLinearFieldGradientExactly();
         AxisAlignedCanonicalTriangle_StillCorrect();
+
+        TestHarness.Section("Shell4.Jacobian: полнота градиента dN/dx на искажённом четырёхугольнике");
+        Shell4_DistortedQuad_ReproducesLinearFieldGradientExactly();
+    }
+
+    /// <summary>Тот же баг переставленных индексов invJ, что в Shell3.Geometry, был независимо
+    /// продублирован в Shell4.Jacobian — найден при том же расследовании (RVE-патч давал
+    /// неверные Nx/Ny/Nxy с mixed-меш Gmsh, содержащим Q4).</summary>
+    static void Shell4_DistortedQuad_ReproducesLinearFieldGradientExactly()
+    {
+        double[,] xy = { { 0, 0 }, { 1, 0 }, { 1.3, 1 }, { 0, 0.7 } };
+        var (n, dNdxi) = Shell4.Shape(0.0, 0.0);
+        var (dNdx, detJ, _, _) = Shell4.Jacobian(xy, dNdxi);
+
+        double sumDxX = 0, sumDyY = 0, sumDxY = 0, sumDyX = 0;
+        for (int i = 0; i < 4; i++)
+        {
+            sumDxX += dNdx[i, 0] * xy[i, 0];
+            sumDyY += dNdx[i, 1] * xy[i, 1];
+            sumDxY += dNdx[i, 0] * xy[i, 1];
+            sumDyX += dNdx[i, 1] * xy[i, 0];
+        }
+
+        TestHarness.Check("Σ dN/dx · x = 1", Math.Abs(sumDxX - 1.0) < 1e-10, $"value={sumDxX}");
+        TestHarness.Check("Σ dN/dy · y = 1", Math.Abs(sumDyY - 1.0) < 1e-10, $"value={sumDyY}");
+        TestHarness.Check("Σ dN/dx · y = 0", Math.Abs(sumDxY) < 1e-10, $"value={sumDxY}");
+        TestHarness.Check("Σ dN/dy · x = 0", Math.Abs(sumDyX) < 1e-10, $"value={sumDyX}");
+        TestHarness.Check("detJ > 0", detJ > 0, $"detJ={detJ}");
     }
 
     static void SkewedTriangle_ReproducesLinearFieldGradientExactly()

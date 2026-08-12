@@ -54,11 +54,15 @@ public static class Shell4
         var invJ = DenseLinAlg.Inverse2x2(j, out double detJ);
         if (detJ <= 0.0)
             throw new ArgumentException("Отрицательный якобиан (плохая форма элемента).");
-        // dN_dx = dN_dxi · invJ  (4,2)
+        // dN_dx = dN_dxi · invJ^T (4,2). j[a,b] = Σdn[i,a]·xy[i,b] — уже транспонированный
+        // Якобиан (как в Shell3.Geometry, см. фикс там же), поэтому градиент физической
+        // производной вычисляется через invJ[k,a], а не invJ[a,k] (те же переставленные
+        // индексы были незаметны на осеориентированных Q4, но давали неверный мембранно-
+        // изгибный отклик на искажённых/повёрнутых четырёхугольниках).
         var dNdx = new double[4, 2];
         for (int i = 0; i < 4; i++)
             for (int k = 0; k < 2; k++)
-                dNdx[i, k] = dNdxi[i, 0] * invJ[0, k] + dNdxi[i, 1] * invJ[1, k];
+                dNdx[i, k] = dNdxi[i, 0] * invJ[k, 0] + dNdxi[i, 1] * invJ[k, 1];
         return (dNdx, detJ, j, invJ);
     }
 
