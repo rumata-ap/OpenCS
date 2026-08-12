@@ -9,7 +9,7 @@ public static class PlanarRegionTriangulation
 {
     public static ((double X, double Y)[] Vertices, (int A, int B, int C)[] Triangles) Triangulate(PlanarRegion region)
     {
-        var outer = ToOpenLoop(region.Hull);
+        var outer = ToOpenLoop(region.RequireHull());
         var holes = region.Holes.Select(ToOpenLoop).ToArray();
 
         var result = Triangulator.FromPolygon(outer, holes, new TriangulationParams { DoRefine = false });

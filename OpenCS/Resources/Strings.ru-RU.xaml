@@ -1502,6 +1502,29 @@
     <system:String x:Key="FemAnalysisStageMoveDown">Вниз</system:String>
     <system:String x:Key="FemAnalysisStageDefaultTag">Стадия 1</system:String>
     <system:String x:Key="FemAnalysisStageNumberedTag">Стадия {0}</system:String>
+    <system:String x:Key="FemAnalysisStagePathControlColumn">Режим</system:String>
+    <system:String x:Key="FemAnalysisStagePathControlConfigure">Настроить…</system:String>
+    <system:String x:Key="FemPathControlModeLoadControl">LoadControl</system:String>
+    <system:String x:Key="FemPathControlModeDisplacementControl">DisplacementControl</system:String>
+    <system:String x:Key="FemPathControlModeArcLength">ArcLength</system:String>
+    <system:String x:Key="FemPathControlDialogTitle">Управление траекторией</system:String>
+    <system:String x:Key="FemPathControlContinuationEnable">Продолжить через DisplacementControl/ArcLength при потере сходимости</system:String>
+    <system:String x:Key="FemPathControlDisplacementGroup">Параметры DisplacementControl</system:String>
+    <system:String x:Key="FemPathControlArcLengthGroup">Параметры ArcLength</system:String>
+    <system:String x:Key="FemPathControlNodeLabel">Контрольный узел</system:String>
+    <system:String x:Key="FemPathControlDofLabel">Степень свободы (DOF)</system:String>
+    <system:String x:Key="FemPathControlInitialIncrementLabel">Начальный шаг (модуль), м/рад</system:String>
+    <system:String x:Key="FemPathControlMinIncrementLabel">Минимальный шаг (модуль), м/рад</system:String>
+    <system:String x:Key="FemPathControlMaxIncrementLabel">Максимальный шаг (модуль), м/рад</system:String>
+    <system:String x:Key="FemPathControlTargetDisplacementLabel">Целевое перемещение, м/рад</system:String>
+    <system:String x:Key="FemPathControlTargetDisplacementTip">Абсолютное значение перемещения узла, не приращение относительно начала стадии. Единица зависит от выбранной DOF: м для Ux/Uy/Uz, рад для Rx/Ry/Rz.</system:String>
+    <system:String x:Key="FemPathControlMaxStepsLabel">Максимальное число шагов</system:String>
+    <system:String x:Key="FemPathControlArcLengthSLabel">Шаг дуги s, м/рад</system:String>
+    <system:String x:Key="FemPathControlArcLengthAlphaLabel">Коэффициент alpha</system:String>
+    <system:String x:Key="FemPathControlArcLengthMinSLabel">Минимальный шаг дуги, м/рад</system:String>
+    <system:String x:Key="FemPathControlMonitorNodeLabel">Узел мониторинга</system:String>
+    <system:String x:Key="FemPathControlMonitorNodeTip">Используется только для построения графика λ–u в результатах, не как управляющий DOF.</system:String>
+    <system:String x:Key="FemPathControlInvalidFields">Заполните все поля корректными числовыми значениями.</system:String>
     <system:String x:Key="FemAnalysisStagesEmpty">Добавьте хотя бы одну стадию нагружения.</system:String>
     <system:String x:Key="FemAnalysisStageMissingSource">У каждой стадии должен быть выбран источник нагрузки.</system:String>
     <system:String x:Key="FemAnalysisExeLabel">Путь к OpenSees.exe (необязательно)</system:String>
@@ -1557,8 +1580,15 @@
     <system:String x:Key="FemElementFormulationDisp">dispBeamColumn (displacement-based, устойчивее)</system:String>
     <system:String x:Key="FemResultTabHistory">История</system:String>
     <system:String x:Key="FemResultStep">Шаг</system:String>
+    <system:String x:Key="FemResultStepAxisLabel">Шаг</system:String>
+    <system:String x:Key="FemResultLoadFactorAxisLabel">λ, коэфф. нагрузки</system:String>
+    <system:String x:Key="FemResultControlDisplacementAxisLabel">Перемещение узла u, м/рад</system:String>
     <system:String x:Key="FemResultStepLabel">Шаг {0}/{1}, λ={2:F3} ({3})</system:String>
     <system:String x:Key="FemResultStepLabelStaged">Шаг {0}/{1}, λ={2:F3} ({3}), стадия «{4}»</system:String>
+    <system:String x:Key="FemResultStopReasonNoConvergence">Расчёт остановлен: не достигнута сходимость</system:String>
+    <system:String x:Key="FemResultStopReasonMinIncrementReached">Расчёт остановлен: исчерпан минимальный шаг перемещения</system:String>
+    <system:String x:Key="FemResultStopReasonMinArcLengthReached">Расчёт остановлен: исчерпана минимальная длина дуги</system:String>
+    <system:String x:Key="FemResultStopReasonUnknown">Расчёт остановлен: {0}</system:String>
     <system:String x:Key="FemResultConverged">сошёлся</system:String>
     <system:String x:Key="FemResultNotConverged">не сошёлся</system:String>
     <system:String x:Key="FemResultTab3D">3D</system:String>

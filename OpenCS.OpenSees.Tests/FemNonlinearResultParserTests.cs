@@ -287,4 +287,216 @@ public class FemNonlinearResultParserTests
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
+
+    [Fact]
+    public void ParseStepStatus_SixColumnRow_ReadsStopReason()
+    {
+        string dir = NewDir();
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "recorder_order.json"), "{\"nodeTags\":[],\"restrainedTags\":[],\"elemTags\":[]}");
+            File.WriteAllText(Path.Combine(dir, "step_status.out"), "1 0 0.5 0 1 min_increment_reached\n");
+            File.WriteAllText(Path.Combine(dir, "nonlinear_node_disp.out"), "");
+            File.WriteAllText(Path.Combine(dir, "nonlinear_element_forces.out"), "");
+
+            var steps = new FemNonlinearResultParser().Parse(dir);
+            var step = Assert.Single(steps);
+            Assert.False(step.Converged);
+            Assert.Equal("min_increment_reached", step.StopReason);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseStepStatus_SixColumnRowWithConvergedTrue_Throws()
+    {
+        string dir = NewDir();
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "recorder_order.json"), "{\"nodeTags\":[],\"restrainedTags\":[],\"elemTags\":[]}");
+            File.WriteAllText(Path.Combine(dir, "step_status.out"), "1 0 0.5 1 0 unexpected_reason\n");
+            File.WriteAllText(Path.Combine(dir, "nonlinear_node_disp.out"), "0.5\n");
+            File.WriteAllText(Path.Combine(dir, "nonlinear_element_forces.out"), "0.5\n");
+
+            Assert.Throws<OpenSeesResultException>(() => new FemNonlinearResultParser().Parse(dir));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseStepStatus_UnknownStopReason_DoesNotThrow()
+    {
+        string dir = NewDir();
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "recorder_order.json"), "{\"nodeTags\":[],\"restrainedTags\":[],\"elemTags\":[]}");
+            File.WriteAllText(Path.Combine(dir, "step_status.out"), "1 0 0.5 0 1 some_future_reason\n");
+            File.WriteAllText(Path.Combine(dir, "nonlinear_node_disp.out"), "");
+            File.WriteAllText(Path.Combine(dir, "nonlinear_element_forces.out"), "");
+
+            var steps = new FemNonlinearResultParser().Parse(dir);
+            Assert.Equal("some_future_reason", steps[0].StopReason);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseSwitches_MissingFile_ReturnsEmpty()
+    {
+        string dir = NewDir();
+        try
+        {
+            Assert.Empty(new FemNonlinearResultParser().ParseSwitches(Path.Combine(dir, "path_control_switches.out")));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseSwitches_ValidFile_ReturnsRecords()
+    {
+        string dir = NewDir();
+        try
+        {
+            var path = Path.Combine(dir, "path_control_switches.out");
+            File.WriteAllText(path, "0 7\n1 15\n");
+            var switches = new FemNonlinearResultParser().ParseSwitches(path);
+            Assert.Equal(2, switches.Count);
+            Assert.Equal(0, switches[0].StageIndex);
+            Assert.Equal(7, switches[0].AtStepIndex);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseSwitches_AtStepIndexBelowOne_Throws()
+    {
+        string dir = NewDir();
+        try
+        {
+            var path = Path.Combine(dir, "path_control_switches.out");
+            File.WriteAllText(path, "0 0\n");
+            Assert.Throws<OpenSeesResultException>(() => new FemNonlinearResultParser().ParseSwitches(path));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseSwitches_DuplicateStageIndex_Throws()
+    {
+        string dir = NewDir();
+        try
+        {
+            var path = Path.Combine(dir, "path_control_switches.out");
+            File.WriteAllText(path, "0 5\n0 9\n");
+            Assert.Throws<OpenSeesResultException>(() => new FemNonlinearResultParser().ParseSwitches(path));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseSwitches_NonNumericValue_Throws()
+    {
+        string dir = NewDir();
+        try
+        {
+            var path = Path.Combine(dir, "path_control_switches.out");
+            File.WriteAllText(path, "0 abc\n");
+            Assert.Throws<OpenSeesResultException>(() => new FemNonlinearResultParser().ParseSwitches(path));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseStageCompletions_MissingFile_ReturnsEmpty()
+    {
+        string dir = NewDir();
+        try
+        {
+            Assert.Empty(new FemNonlinearResultParser().ParseStageCompletions(Path.Combine(dir, "path_control_stage_status.out")));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseStageCompletions_ValidFile_ReturnsRecords()
+    {
+        string dir = NewDir();
+        try
+        {
+            var path = Path.Combine(dir, "path_control_stage_status.out");
+            File.WriteAllText(path, "0 load_control_completed\n1 target_reached\n");
+            var completions = new FemNonlinearResultParser().ParseStageCompletions(path);
+            Assert.Equal(2, completions.Count);
+            Assert.Equal("target_reached", completions[1].Reason);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseStageCompletions_DuplicateStageIndex_Throws()
+    {
+        string dir = NewDir();
+        try
+        {
+            var path = Path.Combine(dir, "path_control_stage_status.out");
+            File.WriteAllText(path, "0 ok\n0 failed\n");
+            Assert.Throws<OpenSeesResultException>(() => new FemNonlinearResultParser().ParseStageCompletions(path));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseStageCompletions_NegativeStageIndex_Throws()
+    {
+        string dir = NewDir();
+        try
+        {
+            var path = Path.Combine(dir, "path_control_stage_status.out");
+            File.WriteAllText(path, "-1 failed\n");
+            Assert.Throws<OpenSeesResultException>(() => new FemNonlinearResultParser().ParseStageCompletions(path));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseStageCompletions_NonNumericStageIndex_Throws()
+    {
+        string dir = NewDir();
+        try
+        {
+            var path = Path.Combine(dir, "path_control_stage_status.out");
+            File.WriteAllText(path, "abc load_control_completed\n");
+            Assert.Throws<OpenSeesResultException>(() => new FemNonlinearResultParser().ParseStageCompletions(path));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseStageCompletions_StageIndexWithoutReason_Throws()
+    {
+        string dir = NewDir();
+        try
+        {
+            var path = Path.Combine(dir, "path_control_stage_status.out");
+            File.WriteAllText(path, "0\n");
+            Assert.Throws<OpenSeesResultException>(() => new FemNonlinearResultParser().ParseStageCompletions(path));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
+    public void ParseStageCompletions_FewerRowsThanStagesModel_IsNotParserResponsibility()
+    {
+        // Парсер не знает число стадий модели — неполнота проверяется вызывающей стороной
+        // (FemNonlinearAnalysisService), не здесь. Парсер просто возвращает то, что есть.
+        string dir = NewDir();
+        try
+        {
+            var path = Path.Combine(dir, "path_control_stage_status.out");
+            File.WriteAllText(path, "0 load_control_completed\n");
+            var completions = new FemNonlinearResultParser().ParseStageCompletions(path);
+            Assert.Single(completions);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
 }

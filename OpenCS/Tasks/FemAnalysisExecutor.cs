@@ -42,17 +42,7 @@ public static class FemAnalysisExecutor
         {
             if (analysis.Kind == "nonlinear")
             {
-                foreach (var stage in parameters.ResolveStages(analysis))
-                {
-                    var stageResolved = FemLoadExpressionResolver.Resolve(
-                        FemLoadExpression.Parse(stage.LoadExpressionJson), loadCases, allLoads, allMemberLoads, allKinematicLoads);
-                    nonlinearStages.Add(new FemNonlinearStageInput(
-                        stage.Tag, stageResolved.NodeLoads,
-                        stage.LoadFactorStep ?? 0.1, stage.MaxLoadFactor ?? 10.0)
-                    {
-                        MemberLoads = stageResolved.MemberLoads, KinematicLoads = stageResolved.KinematicLoads
-                    });
-                }
+                nonlinearStages = BuildNonlinearStages(parameters, analysis, loadCases, allLoads, allMemberLoads, allKinematicLoads);
             }
             else
             {
@@ -82,6 +72,33 @@ public static class FemAnalysisExecutor
 
         return await RunLinearAsync(app, analysis, created, meshNodes, meshElems, sourceNodes, sourceMembers,
             resolved, runRequest, ct);
+    }
+
+    /// <summary>Резолвит нагрузки и способ управления траекторией по стадиям нелинейной
+    /// постановки. Не обращается к БД — все аргументы уже загружены вызывающей стороной.
+    /// Бросает NotSupportedException (тег стадии в сообщении) на некорректное выражение
+    /// нагрузки или на неполный/неизвестный DTO path control (FemAnalysisPathControlMapper)
+    /// — вызывающая сторона (RunAsync) перехватывает её в одном общем try/catch.</summary>
+    public static List<FemNonlinearStageInput> BuildNonlinearStages(
+        FemAnalysisParams parameters, FemAnalysis analysis,
+        List<FemLoadCase> loadCases, List<FemNodeLoad> allLoads,
+        List<FemMemberLoad> allMemberLoads, List<FemKinematicLoad> allKinematicLoads)
+    {
+        var nonlinearStages = new List<FemNonlinearStageInput>();
+        foreach (var stage in parameters.ResolveStages(analysis))
+        {
+            var stageResolved = FemLoadExpressionResolver.Resolve(
+                FemLoadExpression.Parse(stage.LoadExpressionJson), loadCases, allLoads, allMemberLoads, allKinematicLoads);
+            var pathControl = FemAnalysisPathControlMapper.Resolve(stage.PathControl, stage.ContinueWith, stage.Tag);
+            nonlinearStages.Add(new FemNonlinearStageInput(
+                stage.Tag, stageResolved.NodeLoads,
+                stage.LoadFactorStep ?? 0.1, stage.MaxLoadFactor ?? 10.0)
+            {
+                MemberLoads = stageResolved.MemberLoads, KinematicLoads = stageResolved.KinematicLoads,
+                PathControl = pathControl
+            });
+        }
+        return nonlinearStages;
     }
 
     static async Task<CalcResult> RunLinearAsync(AppViewModel app, FemAnalysis analysis, string created,

@@ -5691,7 +5691,8 @@ namespace OpenCS.Utilites
          var holes = region.Holes
             .Select(h => Enumerable.Range(0, h.X.Count).Select(i => (h.X[i], h.Y[i])).ToList())
             .ToList();
-         string wkt = WktHelper.PolygonToWKT(region.Hull.X, region.Hull.Y, holes.Count > 0 ? holes : null);
+         var hull = region.RequireHull();
+         string wkt = WktHelper.PolygonToWKT(hull.X, hull.Y, holes.Count > 0 ? holes : null);
          string segmentsJson = JsonSerializer.Serialize(region.BoundarySegments);
           string zonesJson = JsonSerializer.Serialize(region.RebarZones);
           string constraintsJson = JsonSerializer.Serialize(region.ConstraintObjects, _jsonSettings);

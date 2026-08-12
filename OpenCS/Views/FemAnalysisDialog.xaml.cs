@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Controls;
 using CScore;
 using CScore.Fem;
+using OpenCS.OpenSees.CScore;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
 
@@ -14,21 +16,24 @@ namespace OpenCS.Views;
 public partial class FemAnalysisDialog : Window
 {
     readonly FemSchema _schema;
+    readonly IReadOnlyList<FemNode> _nodes;
     readonly System.Collections.ObjectModel.ObservableCollection<StageRow> _stages = [];
     List<LoadSource> _loadSources = [];
 
     /// <summary>Сформированная постановка (валидна после DialogResult == true).</summary>
     public FemAnalysis Result { get; private set; } = new();
 
-    public FemAnalysisDialog(FemSchema schema, FemAnalysis? existing = null)
+    public FemAnalysisDialog(FemSchema schema, IReadOnlyList<FemNode> nodes, FemAnalysis? existing = null)
     {
         _schema = schema;
+        _nodes = nodes;
         InitializeComponent();
         var sources = BuildLoadSources();
         _loadSources = sources;
         LoadSourceBox.ItemsSource = sources;
         StagesGrid.ItemsSource = _stages;
         StagesSourceColumn.ItemsSource = sources;
+        StagesPathControlColumn.ItemsSource = BuildPathControlModeOptions();
         CalcTypeBox.ItemsSource = Enum.GetValues<CalcType>();
         var materialSourceOptions = BuildMaterialSourceOptions();
         var mainMaterialModelOptions = BuildMainMaterialModelOptions();
@@ -62,12 +67,15 @@ public partial class FemAnalysisDialog : Window
                 foreach (var stage in pars.ResolveStages(existing))
                 {
                     var match = sources.FirstOrDefault(s => s.Expr.ToJson() == stage.LoadExpressionJson);
-                    _stages.Add(new StageRow
+                    var row = new StageRow
                     {
                         Tag = stage.Tag, Source = match ?? sources.FirstOrDefault(),
                         LoadFactorStep = stage.LoadFactorStep ?? 0.1,
                         MaxLoadFactor = stage.MaxLoadFactor ?? 10.0
-                    });
+                    };
+                    ApplyPathControlDto(row, stage.PathControl, isContinuation: false);
+                    ApplyPathControlDto(row, stage.ContinueWith, isContinuation: true);
+                    _stages.Add(row);
                 }
             }
             // Устанавливается ПОСЛЕ заполнения _stages: RadioButton.IsChecked=true синхронно
@@ -94,20 +102,54 @@ public partial class FemAnalysisDialog : Window
         UpdateMaterialNonlinearityPanelVisibility();
     }
 
-    sealed record LoadSource(string Label, FemLoadExpression Expr);
+    internal sealed record LoadSource(string Label, FemLoadExpression Expr);
 
-    /// <summary>Строка редактора стадий: имя + выбранный источник нагрузки (переиспользует
-    /// LoadSource — тот же список, что и для линейного расчёта).</summary>
-    sealed class StageRow
+    /// <summary>Пара «значение для Tcl/хранения» + «локализованная подпись для UI».
+    /// `internal`, не default `private` — нужен извне сборки-члена `FemAnalysisDialog`:
+    /// `FemPathControlDialog` (отдельный класс того же namespace, другого файла) читает
+    /// `StageRow.PathControlMode`/`ContinueWithMode` (тип `ComboOption`) и создаёт новые
+    /// значения этого типа.</summary>
+    internal sealed record ComboOption(string Value, string Label);
+
+    static List<ComboOption> BuildPathControlModeOptions() =>
+    [
+        new("LoadControl", Loc.S("FemPathControlModeLoadControl")),
+        new("DisplacementControl", Loc.S("FemPathControlModeDisplacementControl")),
+        new("ArcLength", Loc.S("FemPathControlModeArcLength")),
+    ];
+
+    /// <summary>Строка редактора стадий: имя + выбранный источник нагрузки + способ
+    /// управления траекторией. PathControlMode — единственное свойство с уведомлением
+    /// (INotifyPropertyChanged) — на него реагирует CellStyle-триггер, затемняющий колонки
+    /// «Шаг λ»/«Предел λ» для не-LoadControl режимов; остальные свойства читает только код
+    /// сборки при Ok_Click, реактивность им не нужна.</summary>
+    internal sealed class StageRow : System.ComponentModel.INotifyPropertyChanged
     {
         public string Tag { get; set; } = "";
         public LoadSource? Source { get; set; }
         public double LoadFactorStep { get; set; } = 0.1;
         public double MaxLoadFactor { get; set; } = 10.0;
-    }
 
-    /// <summary>Пара «значение для Tcl/хранения» + «локализованная подпись для UI».</summary>
-    sealed record ComboOption(string Value, string Label);
+        ComboOption _pathControlMode = BuildPathControlModeOptions()[0];
+        public ComboOption PathControlMode
+        {
+            get => _pathControlMode;
+            set
+            {
+                if (Equals(value, _pathControlMode)) return;
+                _pathControlMode = value;
+                PropertyChanged?.Invoke(this, new(nameof(PathControlMode)));
+            }
+        }
+
+        public FemDisplacementControlInput? DisplacementControl { get; set; }
+        public FemArcLengthInput? ArcLength { get; set; }
+        public ComboOption? ContinueWithMode { get; set; }
+        public FemDisplacementControlInput? ContinueWithDisplacementControl { get; set; }
+        public FemArcLengthInput? ContinueWithArcLength { get; set; }
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    }
 
     static List<ComboOption> BuildMaterialSourceOptions() =>
     [
@@ -134,6 +176,55 @@ public partial class FemAnalysisDialog : Window
         new("forceBeamColumn", Loc.S("FemElementFormulationForce")),
         new("dispBeamColumn", Loc.S("FemElementFormulationDisp")),
     ];
+
+    static void ApplyPathControlDto(StageRow row, FemAnalysisPathControl? dto, bool isContinuation)
+    {
+        if (dto == null) return;
+        var options = BuildPathControlModeOptions();
+        var option = options.FirstOrDefault(o => o.Value == dto.Mode) ?? options[0];
+        var dc = dto.ControlNodeId is { } nid && dto.ControlDof is { } cd && dto.InitialIncrement is { } ii &&
+                 dto.MinIncrement is { } mi && dto.MaxIncrement is { } ma && dto.TargetDisplacement is { } td && dto.MaxSteps is { } ms
+            ? new FemDisplacementControlInput(nid, cd, ii, mi, ma, td, ms) : null;
+        var al = dto.ArcLengthS is { } s && dto.ArcLengthAlpha is { } alpha && dto.ArcLengthMinS is { } mins &&
+                 dto.MaxSteps is { } ms2 && dto.MonitorNodeId is { } mnid && dto.MonitorDof is { } mdof
+            ? new FemArcLengthInput(s, alpha, mins, ms2, mnid, mdof) : null;
+
+        if (isContinuation)
+        {
+            row.ContinueWithMode = option;
+            row.ContinueWithDisplacementControl = dc;
+            row.ContinueWithArcLength = al;
+        }
+        else
+        {
+            row.PathControlMode = option;
+            row.DisplacementControl = dc;
+            row.ArcLength = al;
+        }
+    }
+
+    static FemAnalysisPathControl BuildPathControlDto(ComboOption mode, FemDisplacementControlInput? dc, FemArcLengthInput? al) => new()
+    {
+        Mode = mode.Value,
+        ControlNodeId = dc?.ControlNodeId, ControlDof = dc?.ControlDof,
+        InitialIncrement = dc?.InitialIncrement, MinIncrement = dc?.MinIncrement, MaxIncrement = dc?.MaxIncrement,
+        TargetDisplacement = dc?.TargetDisplacement, MaxSteps = dc?.MaxSteps ?? al?.MaxSteps,
+        ArcLengthS = al?.S, ArcLengthAlpha = al?.Alpha, ArcLengthMinS = al?.MinS,
+        MonitorNodeId = al?.MonitorNodeId, MonitorDof = al?.MonitorDof
+    };
+
+    void ConfigurePathControl_Click(object sender, RoutedEventArgs e)
+    {
+        // Клик по кнопке в той же строке не проходит через обычную навигацию между ячейками
+        // DataGrid, поэтому только что выбранный в ComboBoxColumn режим может быть ещё не
+        // протолкнут в StageRow.PathControlMode — принудительно завершаем редактирование ячейки.
+        StagesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        StagesGrid.CommitEdit(DataGridEditingUnit.Row, true);
+
+        if ((sender as FrameworkElement)?.Tag is not StageRow row) return;
+        var dlg = new FemPathControlDialog(row, _nodes) { Owner = this };
+        dlg.ShowDialog();
+    }
 
     List<LoadSource> BuildLoadSources()
     {
@@ -208,6 +299,9 @@ public partial class FemAnalysisDialog : Window
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
+        StagesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        StagesGrid.CommitEdit(DataGridEditingUnit.Row, true);
+
         bool isNonlinear = KindNonlinearRadio.IsChecked == true;
 
         if (isNonlinear && _stages.Count == 0)
@@ -245,7 +339,10 @@ public partial class FemAnalysisDialog : Window
                 return new FemAnalysisStage
                 {
                     Tag = r.Tag, LoadExpressionJson = r.Source!.Expr.ToJson(),
-                    LoadFactorStep = step, MaxLoadFactor = max
+                    LoadFactorStep = step, MaxLoadFactor = max,
+                    PathControl = BuildPathControlDto(r.PathControlMode, r.DisplacementControl, r.ArcLength),
+                    ContinueWith = r.ContinueWithMode == null ? null
+                        : BuildPathControlDto(r.ContinueWithMode, r.ContinueWithDisplacementControl, r.ContinueWithArcLength)
                 };
             }).ToList();
             loadExpressionJson = pars.Stages[0].LoadExpressionJson;

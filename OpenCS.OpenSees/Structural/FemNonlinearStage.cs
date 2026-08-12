@@ -14,4 +14,7 @@ public sealed class FemNonlinearStage
     public double LoadFactorStep { get; init; } = 0.1;
     /// <summary>Максимальный коэффициент нагрузки λ этой стадии.</summary>
     public double MaxLoadFactor { get; init; } = 10.0;
+    /// <summary>Способ продвижения по траектории этой стадии. Default — LoadControl без
+    /// continuation, воспроизводит поведение до появления этой фичи один-в-один.</summary>
+    public FemPathControlSettings PathControl { get; init; } = new();
 }

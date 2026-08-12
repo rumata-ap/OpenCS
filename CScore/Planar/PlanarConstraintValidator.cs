@@ -16,7 +16,7 @@ public static class PlanarConstraintValidator
 
         var diagnostics = new List<FemValidationDiagnostic>();
         var ids = new HashSet<string>(StringComparer.Ordinal);
-        var hull = OpenLoop(region.Hull);
+        var hull = OpenLoop(region.RequireHull());
         var holes = region.Holes.Select(OpenLoop).ToArray();
 
         foreach (var constraint in constraints)

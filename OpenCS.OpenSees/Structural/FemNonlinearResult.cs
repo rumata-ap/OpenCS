@@ -14,6 +14,11 @@ public sealed record FemNonlinearStepResult(
     public bool IsRefinement { get; init; }
     /// <summary>Индекс стадии нагружения (0-based), к которой относится этот шаг.</summary>
     public int StageIndex { get; init; }
+    /// <summary>Причина остановки — заполняется только когда Converged=false (настоящий
+    /// отказ analyze() после исчерпания backoff). Известные значения: "no_convergence",
+    /// "min_increment_reached", "min_arclength_reached"; незнакомые строки (будущие версии
+    /// генератора) не отклоняются — см. FemNonlinearResultParser.</summary>
+    public string? StopReason { get; init; }
 }
 
 /// <summary>Типизированный результат нелинейного расчёта FEM-схемы — полная история шагов.</summary>
@@ -41,4 +46,35 @@ public sealed class FemNonlinearResult
     /// FemNonlinearStepResult.StageIndex. Пусто для результатов, сериализованных до появления
     /// стадийного нагружения.</summary>
     public IReadOnlyList<string> StageTags { get; init; } = [];
+
+    /// <summary>Настройки способа управления траекторией по стадиям — по индексу совпадает
+    /// со StageTags. Пусто для результатов, сериализованных до появления этой фичи (см.
+    /// FemAnalysisResultVM — код читающий это поле обязан считать пустой/короткий список
+    /// эквивалентом "неизвестно", не бросать IndexOutOfRangeException).</summary>
+    public IReadOnlyList<FemPathControlSettings?> StagePathControls { get; init; } = [];
+
+    /// <summary>Моменты фактического переключения LoadControl → continuation-режим.
+    /// Пусто, если ни одна стадия не переключалась (или результат сериализован до
+    /// появления фичи).</summary>
+    public IReadOnlyList<FemPathControlSwitch> PathControlSwitches { get; init; } = [];
+
+    /// <summary>Типизированная причина завершения каждой стадии — ровно по одной записи
+    /// на каждый индекс стадии модели при штатном завершении расчёта.</summary>
+    public IReadOnlyList<FemStageCompletion> StageCompletions { get; init; } = [];
 }
+
+/// <summary>Момент фактического переключения LoadControl → continuation-режим внутри
+/// стадии. Не хранит узел/DOF — они полностью определяются
+/// FemNonlinearResult.StagePathControls[StageIndex].ContinueWith...; AtStepIndex —
+/// глобальный 1-based индекс первого шага, фактически выполненного continuation-
+/// процедурой (значение stepIndex+1 в момент непосредственно перед вызовом). В редком
+/// edge-case (continuation-узел уже на целевом перемещении в момент переключения) под
+/// этим индексом строки в step_status.out может не быть — не ошибка, см.
+/// FemAnalysisResultVM.</summary>
+public sealed record FemPathControlSwitch(int StageIndex, int AtStepIndex);
+
+/// <summary>Типизированная причина завершения одной стадии. Известные "успешные" значения
+/// перечислены в FemNonlinearAnalysisService.SuccessfulStageReasons; всё остальное
+/// (включая "failed", "not_run_due_to_previous_failure" и незнакомые будущие строки) —
+/// не считается успехом.</summary>
+public sealed record FemStageCompletion(int StageIndex, string Reason);

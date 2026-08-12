@@ -204,18 +204,34 @@
 
             <!-- История (только нелинейный расчёт) -->
             <TabItem Header="{DynamicResource FemResultTabHistory}" Visibility="{Binding IsNonlinear, Converter={StaticResource BoolToVis}}">
-                <helpers:FemLoadFactorCanvas x:Name="loadFactorCanvas"/>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <helpers:FemLoadFactorCanvas Grid.Row="0" x:Name="loadFactorCanvas"
+                        XAxisLabel="{DynamicResource FemResultStepAxisLabel}"
+                        YAxisLabel="{DynamicResource FemResultLoadFactorAxisLabel}"/>
+                    <helpers:FemLoadFactorCanvas Grid.Row="1" x:Name="controlDispCanvas" Height="120" Margin="0,4,0,0"
+                        XAxisLabel="{DynamicResource FemResultControlDisplacementAxisLabel}"
+                        YAxisLabel="{DynamicResource FemResultLoadFactorAxisLabel}"
+                        Visibility="{Binding HasControlDisplacementChart, Converter={StaticResource BoolToVis}}"/>
+                </Grid>
             </TabItem>
         </TabControl>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="4"
+        <StackPanel Grid.Row="1" Margin="4"
                     Visibility="{Binding IsNonlinear, Converter={StaticResource BoolToVis}}">
-            <TextBlock Text="{DynamicResource FemResultStep}" VerticalAlignment="Center"/>
-            <Slider x:Name="stepSlider" Width="220" Margin="8,0"
-                    Minimum="0" Maximum="{Binding MaxStepIndex}"
-                    Value="{Binding SelectedStepIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                    IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"/>
-            <TextBlock Text="{Binding CurrentStepLabel}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{DynamicResource FemResultStep}" VerticalAlignment="Center"/>
+                <Slider x:Name="stepSlider" Width="220" Margin="8,0"
+                        Minimum="0" Maximum="{Binding MaxStepIndex}"
+                        Value="{Binding SelectedStepIndex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        IsSnapToTickEnabled="True" TickFrequency="1" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding CurrentStepLabel}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </StackPanel>
+            <TextBlock x:Name="stopReasonText" Text="{Binding StopReasonText}" Foreground="Crimson" Margin="0,4,0,0" TextWrapping="Wrap"
+                       Visibility="{Binding HasStopReason, Converter={StaticResource BoolToVis}}"/>
         </StackPanel>
     </Grid>
 </UserControl>

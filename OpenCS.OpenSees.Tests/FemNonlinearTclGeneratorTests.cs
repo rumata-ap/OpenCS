@@ -414,4 +414,174 @@ public class FemNonlinearTclGeneratorTests
         Assert.True(stage1Index < step1 && step1 < pattern2);
         Assert.True(stage2Index < step2);
     }
+
+    [Fact]
+    public void Generate_AlwaysEmitsAdvanceDisplacementProc()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("proc advanceDisplacement {nodeTag dof targetDisp initIncr minIncr maxIncr maxSteps}", tcl);
+        Assert.Contains("integrator DisplacementControl $nodeTag $dof $incr 4 $dUmin $dUmax", tcl);
+        Assert.Contains("set lastPathControlReason", tcl);
+    }
+
+    [Fact]
+    public void Generate_AdvanceDisplacement_ChecksTargetReachedBeforeMaxSteps()
+    {
+        // Регрессия на исправленный приоритет target_reached над max_steps_reached: причина
+        // должна проверяться ПОСЛЕ выхода из цикла независимо от того, что его завершило.
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        int procIdx = tcl.IndexOf("proc advanceDisplacement", StringComparison.Ordinal);
+        Assert.True(procIdx >= 0);
+        string proc = tcl[procIdx..];
+        int targetReachedIdx = proc.IndexOf("set targetReached", StringComparison.Ordinal);
+        int maxStepsReachedIdx = proc.IndexOf("\"max_steps_reached\"", StringComparison.Ordinal);
+        Assert.True(targetReachedIdx >= 0 && targetReachedIdx < maxStepsReachedIdx,
+            "targetReached должен вычисляться до присвоения причины max_steps_reached");
+    }
+
+    [Fact]
+    public void Generate_AdvanceDisplacement_ZeroStepBranchSetsCorrectReason()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("zero_step_target_already_reached", tcl);
+    }
+
+    [Fact]
+    public void Generate_AdvanceDisplacement_SignedDUminDUmaxOrdering()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("set dUmin [expr {$dir > 0 ? $minIncr : -$maxIncr}]", tcl);
+        Assert.Contains("set dUmax [expr {$dir > 0 ? $maxIncr : -$minIncr}]", tcl);
+    }
+
+    [Fact]
+    public void Generate_AlwaysEmitsAdvanceArcLengthProc()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("proc advanceArcLength {s alpha minS maxSteps}", tcl);
+        Assert.Contains("integrator ArcLength $curS $alpha", tcl);
+    }
+
+    [Fact]
+    public void Generate_AdvanceArcLength_SuccessAlwaysMaxStepsReached()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        int idx = tcl.IndexOf("proc advanceArcLength", StringComparison.Ordinal);
+        string proc = tcl[idx..];
+        Assert.Contains("set lastPathControlReason \"max_steps_reached\"", proc);
+        Assert.DoesNotContain("target_reached", proc);
+    }
+
+    [Fact]
+    public void Generate_AdvanceArcLength_NoRowWrittenOnPlainMaxStepsExhaustion()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        int idx = tcl.IndexOf("proc advanceArcLength", StringComparison.Ordinal);
+        int end = tcl.IndexOf("\n}\n", idx, StringComparison.Ordinal);
+        string proc = tcl[idx..end];
+        int successWrites = CountOccurrences(proc, "writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 1");
+        int failWrites = CountOccurrences(proc, "min_arclength_reached]");
+        Assert.Equal(1, successWrites);
+        Assert.Equal(1, failWrites);
+    }
+
+    static int CountOccurrences(string haystack, string needle)
+    {
+        int count = 0, idx = 0;
+        while ((idx = haystack.IndexOf(needle, idx, StringComparison.Ordinal)) >= 0) { count++; idx += needle.Length; }
+        return count;
+    }
+
+    static FemNonlinearModel WithPathControl(FemPathControlMode mode,
+        FemDisplacementControlSettings? dc = null, FemArcLengthSettings? al = null,
+        FemPathControlMode? continueWithMode = null,
+        FemDisplacementControlSettings? continueWithDc = null,
+        FemArcLengthSettings? continueWithAl = null)
+    {
+        var m = Console();
+        return new FemNonlinearModel
+        {
+            Nodes = m.Nodes, Sections = m.Sections, Elements = m.Elements,
+            Stages = [new FemNonlinearStage
+            {
+                Tag = m.Stages[0].Tag, Loads = m.Stages[0].Loads,
+                LoadFactorStep = m.Stages[0].LoadFactorStep, MaxLoadFactor = m.Stages[0].MaxLoadFactor,
+                PathControl = new FemPathControlSettings(mode, dc, al, continueWithMode, continueWithDc, continueWithAl)
+            }],
+            GeomTransfKind = m.GeomTransfKind, Policy = m.Policy
+        };
+    }
+
+    [Fact]
+    public void Generate_DirectDisplacementControlStage_CallsAdvanceDisplacementOnce()
+    {
+        var dc = new FemDisplacementControlSettings(2, 3, 0.001, 0.0001, 0.01, -0.05, 200);
+        string tcl = new FemNonlinearTclGenerator().Generate(WithPathControl(FemPathControlMode.DisplacementControl, dc: dc));
+        // TclNumber.Format использует G17 (полная точность round-trip) — не хардкодим
+        // "чистое" -0.05, строим ожидаемую подстроку той же функцией, что и генератор.
+        string expected = $"advanceDisplacement 2 3 {TclNumber.Format(-0.05)} {TclNumber.Format(0.001)} {TclNumber.Format(0.0001)} {TclNumber.Format(0.01)} 200";
+        Assert.Contains(expected, tcl);
+        Assert.DoesNotContain("while {$currentLambda < $maxLoadFactor", tcl);
+    }
+
+    [Fact]
+    public void Generate_DirectDisplacementControlStage_WritesStageCompletionRow()
+    {
+        var dc = new FemDisplacementControlSettings(2, 3, 0.001, 0.0001, 0.01, -0.05, 200);
+        string tcl = new FemNonlinearTclGenerator().Generate(WithPathControl(FemPathControlMode.DisplacementControl, dc: dc));
+        Assert.Contains("writeCloseOnWrite path_control_stage_status.out", tcl);
+        Assert.Contains("$lastPathControlReason", tcl);
+    }
+
+    [Fact]
+    public void Generate_DirectArcLengthStage_CallsAdvanceArcLengthOnce()
+    {
+        var al = new FemArcLengthSettings(0.01, 1.0, 0.001, 100, 2, 3);
+        string tcl = new FemNonlinearTclGenerator().Generate(WithPathControl(FemPathControlMode.ArcLength, al: al));
+        Assert.Contains($"advanceArcLength {TclNumber.Format(0.01)} {TclNumber.Format(1.0)} {TclNumber.Format(0.001)} 100", tcl);
+    }
+
+    [Fact]
+    public void Generate_LoadControlWithoutContinuation_WritesLoadControlCompletedReason()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("load_control_completed", tcl);
+    }
+
+    [Fact]
+    public void Generate_LoadControlWithContinuation_SwitchesWithoutInterimFailedRow()
+    {
+        var cdc = new FemDisplacementControlSettings(2, 3, 0.001, 0.0001, 0.01, -0.05, 200);
+        string tcl = new FemNonlinearTclGenerator().Generate(
+            WithPathControl(FemPathControlMode.LoadControl, continueWithMode: FemPathControlMode.DisplacementControl, continueWithDc: cdc));
+
+        Assert.Contains("set switchAtStep [expr {$stepIndex + 1}]", tcl);
+        Assert.Contains("writeCloseOnWrite path_control_switches.out [list 0 $switchAtStep]", tcl);
+        string expected = $"advanceDisplacement 2 3 {TclNumber.Format(-0.05)} {TclNumber.Format(0.001)} {TclNumber.Format(0.0001)} {TclNumber.Format(0.01)} 200";
+        Assert.Contains(expected, tcl);
+        Assert.Contains("continuation_$lastPathControlReason", tcl);
+
+        int advanceToFailIdx = tcl.IndexOf("if {![advanceTo $fromLambda $targetLambda 0]}", StringComparison.Ordinal);
+        int switchIdx = tcl.IndexOf("switchAtStep", StringComparison.Ordinal);
+        Assert.True(advanceToFailIdx >= 0 && switchIdx > advanceToFailIdx);
+        string betweenFailAndSwitch = tcl[advanceToFailIdx..switchIdx];
+        Assert.DoesNotContain("writeCloseOnWrite step_status.out [list [expr {$stepIndex + 1}] $currentStageIndex $currentLambda 0 1]", betweenFailAndSwitch);
+    }
+
+    [Fact]
+    public void Generate_SkippedStageAfterFailure_WritesNotRunReason()
+    {
+        var m = Console();
+        var failingStage = new FemNonlinearStage { Tag = "Стадия 1", Loads = m.Stages[0].Loads };
+        var secondStage = new FemNonlinearStage { Tag = "Стадия 2", Loads = m.Stages[0].Loads };
+        var model = new FemNonlinearModel
+        {
+            Nodes = m.Nodes, Sections = m.Sections, Elements = m.Elements,
+            Stages = [failingStage, secondStage], GeomTransfKind = m.GeomTransfKind, Policy = m.Policy
+        };
+        string tcl = new FemNonlinearTclGenerator().Generate(model);
+        Assert.Contains("not_run_due_to_previous_failure", tcl);
+        int stage2Guard = tcl.IndexOf("if {!$analysisFailed} {", StringComparison.Ordinal);
+        Assert.True(stage2Guard >= 0);
+    }
 }

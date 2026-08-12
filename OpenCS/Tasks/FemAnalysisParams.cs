@@ -12,6 +12,27 @@ namespace OpenCS.Tasks;
 /// «OpenSees» в диалоге настроек), а не хранится в каждой постановке.</summary>
 /// <summary>Одна стадия нагружения нелинейной постановки: имя + выражение выбора загружения
 /// (сериализованный FemLoadExpression), резолвится независимо от остальных стадий.</summary>
+/// <summary>DTO настроек управления траекторией одной стадии, на NodeId схемы. Один и тот
+/// же тип используется и для прямого режима (FemAnalysisStage.PathControl), и для
+/// continuation (FemAnalysisStage.ContinueWith) — единый контракт вместо плоского набора
+/// ContinueWith*-полей.</summary>
+public sealed class FemAnalysisPathControl
+{
+    public string Mode { get; set; } = "LoadControl"; // LoadControl|DisplacementControl|ArcLength
+    public int? ControlNodeId { get; set; }
+    public int? ControlDof { get; set; }
+    public double? InitialIncrement { get; set; }
+    public double? MinIncrement { get; set; }
+    public double? MaxIncrement { get; set; }
+    public double? TargetDisplacement { get; set; }
+    public int? MaxSteps { get; set; }
+    public double? ArcLengthS { get; set; }
+    public double? ArcLengthAlpha { get; set; }
+    public double? ArcLengthMinS { get; set; }
+    public int? MonitorNodeId { get; set; }
+    public int? MonitorDof { get; set; }
+}
+
 public sealed class FemAnalysisStage
 {
     public string Tag { get; set; } = "";
@@ -22,6 +43,10 @@ public sealed class FemAnalysisStage
     public double? LoadFactorStep { get; set; }
     /// <summary>Максимальный коэффициент нагрузки λ этой стадии. null — см. LoadFactorStep.</summary>
     public double? MaxLoadFactor { get; set; }
+    /// <summary>Способ управления траекторией; null → LoadControl без continuation (legacy JSON).</summary>
+    public FemAnalysisPathControl? PathControl { get; set; }
+    /// <summary>Настройки продолжения; осмысленны только при PathControl?.Mode == "LoadControl"/null.</summary>
+    public FemAnalysisPathControl? ContinueWith { get; set; }
 }
 
 public sealed class FemAnalysisParams

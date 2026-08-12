@@ -2,6 +2,7 @@ using System.Text.Json;
 using CScore;
 using CScore.Fem;
 using OpenCS.OpenSees.CScore;
+using OpenCS.OpenSees.Structural;
 using OpenCS.OpenSees.Tests.Fixtures;
 using Xunit;
 
@@ -200,5 +201,60 @@ public class FemNonlinearModelResolverTests
         Assert.Equal(2.0, r.Model.Stages[0].MaxLoadFactor, 12);
         Assert.Equal(0.05, r.Model.Stages[1].LoadFactorStep, 12);
         Assert.Equal(5.0, r.Model.Stages[1].MaxLoadFactor, 12);
+    }
+
+    [Fact]
+    public void Resolve_DisplacementControlPathControl_ResolvesNodeIdToMeshTag()
+    {
+        var (mn, me, sn, sm, ld) = Console();
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+        var pathControl = new FemPathControlInput(
+            FemPathControlMode.DisplacementControl,
+            DisplacementControl: new FemDisplacementControlInput(
+                ControlNodeId: 2, ControlDof: 3,
+                InitialIncrement: 0.001, MinIncrement: 0.0001, MaxIncrement: 0.01,
+                TargetDisplacement: -0.05, MaxSteps: 200));
+        var r = new FemNonlinearModelResolver().Resolve(
+            mn, me, sn, sm,
+            [new FemNonlinearStageInput("Стадия 1", ld, LoadFactorStep: 0.1, MaxLoadFactor: 1.0) { PathControl = pathControl }],
+            Sections(section), CrossSectionFixtures.Materials(concrete, steel), customDiagramPool: null, CalcType.C, Options());
+
+        Assert.True(r.Ok, string.Join("; ", r.Errors));
+        var stage = Assert.Single(r.Model!.Stages);
+        Assert.Equal(FemPathControlMode.DisplacementControl, stage.PathControl.Mode);
+        Assert.Equal(2, stage.PathControl.DisplacementControl!.ControlNodeTag);
+        Assert.Equal(3, stage.PathControl.DisplacementControl.ControlDof);
+        Assert.Equal(-0.05, stage.PathControl.DisplacementControl.TargetDisplacement, 12);
+    }
+
+    [Fact]
+    public void Resolve_PathControlReferencesUnknownNode_ReturnsError()
+    {
+        var (mn, me, sn, sm, ld) = Console();
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+        var pathControl = new FemPathControlInput(
+            FemPathControlMode.DisplacementControl,
+            DisplacementControl: new FemDisplacementControlInput(999, 1, 0.001, 0.0001, 0.01, 0.05, 200));
+        var r = new FemNonlinearModelResolver().Resolve(
+            mn, me, sn, sm,
+            [new FemNonlinearStageInput("Стадия 1", ld, LoadFactorStep: 0.1, MaxLoadFactor: 1.0) { PathControl = pathControl }],
+            Sections(section), CrossSectionFixtures.Materials(concrete, steel), customDiagramPool: null, CalcType.C, Options());
+
+        Assert.False(r.Ok);
+        Assert.Contains(r.Errors, e => e.Contains("Стадия"));
+    }
+
+    [Fact]
+    public void Resolve_NoPathControl_DefaultsToLoadControl()
+    {
+        var (mn, me, sn, sm, ld) = Console();
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+        var r = new FemNonlinearModelResolver().Resolve(
+            mn, me, sn, sm,
+            [new FemNonlinearStageInput("Стадия 1", ld, LoadFactorStep: 0.1, MaxLoadFactor: 1.0)],
+            Sections(section), CrossSectionFixtures.Materials(concrete, steel), customDiagramPool: null, CalcType.C, Options());
+
+        Assert.True(r.Ok, string.Join("; ", r.Errors));
+        Assert.Equal(FemPathControlMode.LoadControl, r.Model!.Stages[0].PathControl.Mode);
     }
 }

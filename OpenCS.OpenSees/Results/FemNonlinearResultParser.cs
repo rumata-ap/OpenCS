@@ -43,7 +43,7 @@ public sealed class FemNonlinearResultParser
             {
                 results.Add(new FemNonlinearStepResult(s.StepIndex, s.LoadFactor, false, [], [], [])
                 {
-                    IsRefinement = s.IsRefinement, StageIndex = s.StageIndex
+                    IsRefinement = s.IsRefinement, StageIndex = s.StageIndex, StopReason = s.StopReason
                 });
                 continue;
             }
@@ -84,11 +84,11 @@ public sealed class FemNonlinearResultParser
         }
     }
 
-    static List<(int StepIndex, int StageIndex, double LoadFactor, bool Converged, bool IsRefinement)> ParseStepStatus(string path)
+    static List<(int StepIndex, int StageIndex, double LoadFactor, bool Converged, bool IsRefinement, string? StopReason)> ParseStepStatus(string path)
     {
         if (!File.Exists(path))
             throw new OpenSeesResultException("MissingFile", $"Файл step_status не найден: {path}");
-        var rows = new List<(int, int, double, bool, bool)>();
+        var rows = new List<(int, int, double, bool, bool, string?)>();
         int lineNo = 0;
         foreach (var raw in File.ReadAllLines(path))
         {
@@ -96,8 +96,8 @@ public sealed class FemNonlinearResultParser
             var line = raw.Trim();
             if (line.Length == 0 || line.StartsWith('#')) continue;
             var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length != 5)
-                throw new OpenSeesResultException("WrongColumnCount", $"step_status строка {lineNo}: ожидалось 5 колонок, получено {parts.Length}.");
+            if (parts.Length is not (5 or 6))
+                throw new OpenSeesResultException("WrongColumnCount", $"step_status строка {lineNo}: ожидалось 5 или 6 колонок, получено {parts.Length}.");
             if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var step) ||
                 !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var stage) ||
                 !double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var lf) ||
@@ -105,9 +105,74 @@ public sealed class FemNonlinearResultParser
                 !int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var refinementFlag) ||
                 (convergedFlag is not (0 or 1)) || (refinementFlag is not (0 or 1)))
                 throw new OpenSeesResultException("InvalidNumber", $"step_status строка {lineNo}: не удалось разобрать значения.");
-            rows.Add((step, stage, lf, convergedFlag != 0, refinementFlag != 0));
+            if (parts.Length == 6 && convergedFlag == 1)
+                throw new OpenSeesResultException("UnexpectedStopReason", $"step_status строка {lineNo}: причина остановки указана для сошедшегося шага.");
+            string? reason = parts.Length == 6 ? parts[5] : null;
+            rows.Add((step, stage, lf, convergedFlag != 0, refinementFlag != 0, reason));
         }
         return rows;
+    }
+
+    /// <summary>Разбирает path_control_switches.out (stageIndex atStepIndex). Отсутствие
+    /// файла — легитимно (ни одна стадия не переключалась), возвращает пустой список.
+    /// Дублирующийся stageIndex или atStepIndex &lt; 1 — структурная порча артефакта,
+    /// бросает исключение (эти файлы участвуют в статусе расчёта, молча пропускать нельзя).</summary>
+    public IReadOnlyList<FemPathControlSwitch> ParseSwitches(string path)
+    {
+        if (!File.Exists(path)) return [];
+        var seen = new HashSet<int>();
+        var result = new List<FemPathControlSwitch>();
+        int lineNo = 0;
+        foreach (var raw in File.ReadAllLines(path))
+        {
+            lineNo++;
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2 ||
+                !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var stageIndex) ||
+                !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var atStepIndex))
+                throw new OpenSeesResultException("InvalidSwitchRecord", $"path_control_switches.out строка {lineNo}: не удалось разобрать значения.");
+            if (atStepIndex < 1)
+                throw new OpenSeesResultException("InvalidSwitchRecord", $"path_control_switches.out строка {lineNo}: atStepIndex должен быть >= 1.");
+            if (!seen.Add(stageIndex))
+                throw new OpenSeesResultException("DuplicateSwitchRecord", $"path_control_switches.out строка {lineNo}: повторное переключение стадии {stageIndex}.");
+            result.Add(new FemPathControlSwitch(stageIndex, atStepIndex));
+        }
+        return result;
+    }
+
+    /// <summary>Разбирает path_control_stage_status.out (stageIndex reason). Отсутствие
+    /// файла — легитимно (обрыв процесса до первой стадии), возвращает пустой список.
+    /// Дублирующийся или отрицательный stageIndex — структурная порча, бросает исключение.
+    /// Полнота множества индексов относительно числа стадий модели — не забота парсера
+    /// (он не знает модель), проверяется в FemNonlinearAnalysisService.</summary>
+    public IReadOnlyList<FemStageCompletion> ParseStageCompletions(string path)
+    {
+        if (!File.Exists(path)) return [];
+        var seen = new HashSet<int>();
+        var result = new List<FemStageCompletion>();
+        int lineNo = 0;
+        foreach (var raw in File.ReadAllLines(path))
+        {
+            lineNo++;
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            // Без ограничения count: причина (Reason) всегда однословный Tcl-токен без
+            // пробелов по контракту генератора ("load_control_completed",
+            // "no_convergence", "not_run_due_to_previous_failure" и т.п.) — строка без
+            // хотя бы двух непустых токенов естественно отклоняется как WrongColumnCount.
+            var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length != 2 ||
+                !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var stageIndex))
+                throw new OpenSeesResultException("InvalidStageStatus", $"path_control_stage_status.out строка {lineNo}: не удалось разобрать значения.");
+            if (stageIndex < 0)
+                throw new OpenSeesResultException("InvalidStageStatus", $"path_control_stage_status.out строка {lineNo}: stageIndex не может быть отрицательным.");
+            if (!seen.Add(stageIndex))
+                throw new OpenSeesResultException("DuplicateStageStatus", $"path_control_stage_status.out строка {lineNo}: повторная запись для стадии {stageIndex}.");
+            result.Add(new FemStageCompletion(stageIndex, parts[1].Trim()));
+        }
+        return result;
     }
 
     static List<double[]> ParseMatrix(string path, int expectedCols, string name)

@@ -219,6 +219,93 @@ public sealed class FemNonlinearTclGenerator
         L("}");
         L();
 
+        L("set lastPathControlReason \"\"");
+        L();
+        L("proc advanceDisplacement {nodeTag dof targetDisp initIncr minIncr maxIncr maxSteps} {");
+        L(model.RecordFiberStates
+            ? "    global stepIndex currentLambda currentStageIndex fiberStates lastPathControlReason"
+            : "    global stepIndex currentLambda currentStageIndex lastPathControlReason");
+        L("    set dispStart [nodeDisp $nodeTag $dof]");
+        L("    if {[expr {abs($targetDisp - $dispStart) < 1e-12}]} {");
+        L("        puts \"stage=$currentStageIndex DisplacementControl: target already reached at stage start (disp=$dispStart)\"");
+        L("        set lastPathControlReason \"zero_step_target_already_reached\"");
+        L("        return 1");
+        L("    }");
+        L("    set dir [expr {$targetDisp > $dispStart ? 1.0 : -1.0}]");
+        L("    set incr [expr {$dir * $initIncr}]");
+        // dUmin/dUmax упорядочены dUmin <= dUmax В ПОДПИСАННЫХ единицах — при dir=-1 это
+        // -maxIncr/-minIncr, а НЕ dir*minIncr/dir*maxIncr (тот порядок переворачивается).
+        L("    set dUmin [expr {$dir > 0 ? $minIncr : -$maxIncr}]");
+        L("    set dUmax [expr {$dir > 0 ? $maxIncr : -$minIncr}]");
+        L("    integrator DisplacementControl $nodeTag $dof $incr 4 $dUmin $dUmax");
+        L("    set steps 0");
+        L("    while {($dir > 0 ? [nodeDisp $nodeTag $dof] < $targetDisp : [nodeDisp $nodeTag $dof] > $targetDisp)");
+        L("           && $steps < $maxSteps} {");
+        L("        set rc [analyze 1]");
+        L("        if {$rc == 0} {");
+        L("            incr stepIndex");
+        L("            incr steps");
+        L("            set currentLambda [getTime]");
+        L("            writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 1 0]");
+        if (model.RecordFiberStates) EmitFiberStateWrites(L, model);
+        L("            continue");
+        L("        }");
+        L("        set incr [expr {$incr / 2.0}]");
+        L("        if {[expr {abs($incr) < $minIncr}]} {");
+        L("            incr stepIndex");
+        L("            puts \"step $stepIndex FAILED stage=$currentStageIndex lambda=$currentLambda reason=min_increment_reached\"");
+        L("            writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 0 1 min_increment_reached]");
+        L("            set lastPathControlReason \"failed\"");
+        L("            return 0");
+        L("        }");
+        L("        integrator DisplacementControl $nodeTag $dof $incr 4 $dUmin $dUmax");
+        L("    }");
+        // Причина проверяется ПОСЛЕ цикла НЕЗАВИСИМО от того, какая часть условия while
+        // сработала — target_reached приоритетнее max_steps_reached, если оба истинны
+        // одновременно (последний разрешённый шаг попал точно в цель).
+        L("    set targetReached [expr {$dir > 0 ? [nodeDisp $nodeTag $dof] >= $targetDisp : [nodeDisp $nodeTag $dof] <= $targetDisp}]");
+        L("    if {$targetReached} {");
+        L("        set lastPathControlReason \"target_reached\"");
+        L("    } else {");
+        L("        puts \"stage=$currentStageIndex DisplacementControl reached maxSteps=$maxSteps before target (disp=[nodeDisp $nodeTag $dof])\"");
+        L("        set lastPathControlReason \"max_steps_reached\"");
+        L("    }");
+        L("    return 1");
+        L("}");
+        L();
+
+        L("proc advanceArcLength {s alpha minS maxSteps} {");
+        L(model.RecordFiberStates
+            ? "    global stepIndex currentLambda currentStageIndex fiberStates lastPathControlReason"
+            : "    global stepIndex currentLambda currentStageIndex lastPathControlReason");
+        L("    set curS $s");
+        L("    integrator ArcLength $curS $alpha");
+        L("    set steps 0");
+        L("    while {$steps < $maxSteps} {");
+        L("        set rc [analyze 1]");
+        L("        if {$rc == 0} {");
+        L("            incr stepIndex");
+        L("            incr steps");
+        L("            set currentLambda [getTime]");
+        L("            writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 1 [expr {$curS != $s}]]");
+        if (model.RecordFiberStates) EmitFiberStateWrites(L, model);
+        L("            continue");
+        L("        }");
+        L("        set curS [expr {$curS / 2.0}]");
+        L("        if {[expr {abs($curS) < $minS}]} {");
+        L("            incr stepIndex");
+        L("            puts \"step $stepIndex FAILED stage=$currentStageIndex lambda=$currentLambda reason=min_arclength_reached\"");
+        L("            writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 0 1 min_arclength_reached]");
+        L("            set lastPathControlReason \"failed\"");
+        L("            return 0");
+        L("        }");
+        L("        integrator ArcLength $curS $alpha");
+        L("    }");
+        L("    set lastPathControlReason \"max_steps_reached\"");
+        L("    return 1");
+        L("}");
+        L();
+
         for (int stageIdx = 0; stageIdx < model.Stages.Count; stageIdx++)
         {
             var stage = model.Stages[stageIdx];
@@ -229,6 +316,9 @@ public sealed class FemNonlinearTclGenerator
             {
                 // Стадия >0 выполняется только если все предыдущие стадии сошлись; loadConst
                 // фиксирует накопленное НДС перед активацией добавочной нагрузки этой стадии.
+                // Пропущенная (не выполненная) стадия всё равно обязана получить свою запись
+                // в path_control_stage_status.out — иначе инвариант "ровно одна запись на
+                // каждый индекс стадии модели" нарушается для незавершённого расчёта.
                 L("if {!$analysisFailed} {");
                 L($"{indent}loadConst -time 0.0");
             }
@@ -254,20 +344,112 @@ public sealed class FemNonlinearTclGenerator
                 L($"{indent}    eleLoad -ele {ld.ElementTag} -type -beamPoint {F(ld.Py)} {F(ld.Pz)} {F(ld.XOverL)} {F(ld.Px)}");
             foreach (var ld in stage.KinematicLoads)
                 L($"{indent}    sp {ld.NodeTag} {ld.Dof} {F(ld.Value)}");
+
+            var pc = stage.PathControl;
+            // integrator DisplacementControl/ArcLength требует НЕНУЛЕВОЙ референсной нагрузки
+            // в активном паттерне ("DisplacementControl::domainChanged() - zero reference load"/
+            // "ArcLength::domainChanged() - zero reference load" — оба падают с ошибкой ДО первого
+            // analyze(), если пользователь не задал ни одной нагрузки для этой стадии). Явный
+            // единичный референс-load в направлении control/monitor DOF гарантирует ненулевую
+            // референсную нагрузку независимо от stage.Loads; знак не важен — фактическое
+            // направление продвижения задаёт подписанный incr в advanceDisplacement (см. Task 5),
+            // а не знак референсной нагрузки. Добавляется и для continuation (ContinueWithMode) —
+            // паттерн стадии создаётся один раз в начале и переиспользуется при переключении,
+            // так что референс должен быть готов заранее, а не только при отказе LoadControl.
+            if (pc.Mode == FemPathControlMode.DisplacementControl)
+                L($"{indent}    load {pc.DisplacementControl!.ControlNodeTag} {ReferenceLoadVector(pc.DisplacementControl.ControlDof)}");
+            else if (pc.Mode == FemPathControlMode.ArcLength)
+                L($"{indent}    load {pc.ArcLength!.MonitorNodeTag} {ReferenceLoadVector(pc.ArcLength.MonitorDof)}");
+            if (pc.ContinueWithMode == FemPathControlMode.DisplacementControl)
+                L($"{indent}    load {pc.ContinueWithDisplacementControl!.ControlNodeTag} {ReferenceLoadVector(pc.ContinueWithDisplacementControl.ControlDof)}");
+            else if (pc.ContinueWithMode == FemPathControlMode.ArcLength)
+                L($"{indent}    load {pc.ContinueWithArcLength!.MonitorNodeTag} {ReferenceLoadVector(pc.ContinueWithArcLength.MonitorDof)}");
             L($"{indent}}}");
-            L($"{indent}set currentLambda 0.0");
-            L($"{indent}while {{$currentLambda < $maxLoadFactor - 1.0e-12}} {{");
-            L($"{indent}    set targetLambda [expr {{min($currentLambda + $loadFactorStep, $maxLoadFactor)}}]");
-            L($"{indent}    set fromLambda $currentLambda");
-            L($"{indent}    if {{![advanceTo $fromLambda $targetLambda 0]}} {{");
-            L($"{indent}        set currentLambda [getTime]");
-            L($"{indent}        puts \"step [expr {{$stepIndex + 1}}] FAILED stage=$currentStageIndex lambda=$currentLambda\"");
-            L($"{indent}        writeCloseOnWrite step_status.out [list [expr {{$stepIndex + 1}}] $currentStageIndex $currentLambda 0 1]");
-            L($"{indent}        set analysisFailed 1");
-            L($"{indent}        break");
-            L($"{indent}    }}");
-            L($"{indent}}}");
-            if (guarded) L("}");
+            switch (pc.Mode)
+            {
+                case FemPathControlMode.DisplacementControl:
+                {
+                    var dc = pc.DisplacementControl!;
+                    L($"{indent}set pcOk [advanceDisplacement {dc.ControlNodeTag} {dc.ControlDof} {F(dc.TargetDisplacement)} {F(dc.InitialIncrement)} {F(dc.MinIncrement)} {F(dc.MaxIncrement)} {dc.MaxSteps}]");
+                    L($"{indent}if {{$pcOk}} {{");
+                    L($"{indent}    writeCloseOnWrite path_control_stage_status.out [list {stageIdx} $lastPathControlReason]");
+                    L($"{indent}}} else {{");
+                    L($"{indent}    writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"failed\"]");
+                    L($"{indent}    set analysisFailed 1");
+                    L($"{indent}}}");
+                    break;
+                }
+                case FemPathControlMode.ArcLength:
+                {
+                    var al = pc.ArcLength!;
+                    L($"{indent}set pcOk [advanceArcLength {F(al.S)} {F(al.Alpha)} {F(al.MinS)} {al.MaxSteps}]");
+                    L($"{indent}if {{$pcOk}} {{");
+                    L($"{indent}    writeCloseOnWrite path_control_stage_status.out [list {stageIdx} $lastPathControlReason]");
+                    L($"{indent}}} else {{");
+                    L($"{indent}    writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"failed\"]");
+                    L($"{indent}    set analysisFailed 1");
+                    L($"{indent}}}");
+                    break;
+                }
+                case FemPathControlMode.LoadControl: // возможно с continuation
+                {
+                    L($"{indent}set currentLambda 0.0");
+                    L($"{indent}set stageOk 1");
+                    L($"{indent}while {{$currentLambda < $maxLoadFactor - 1.0e-12}} {{");
+                    L($"{indent}    set targetLambda [expr {{min($currentLambda + $loadFactorStep, $maxLoadFactor)}}]");
+                    L($"{indent}    set fromLambda $currentLambda");
+                    L($"{indent}    if {{![advanceTo $fromLambda $targetLambda 0]}} {{");
+                    L($"{indent}        set currentLambda [getTime]");
+                    if (pc.ContinueWithMode is { } continueMode)
+                    {
+                        L($"{indent}        set switchAtStep [expr {{$stepIndex + 1}}]");
+                        L($"{indent}        writeCloseOnWrite path_control_switches.out [list {stageIdx} $switchAtStep]");
+                        L($"{indent}        puts \"stage={stageIdx} switching to {continueMode} at lambda=$currentLambda\"");
+                        if (continueMode == FemPathControlMode.DisplacementControl)
+                        {
+                            var cdc = pc.ContinueWithDisplacementControl!;
+                            L($"{indent}        set pcOk [advanceDisplacement {cdc.ControlNodeTag} {cdc.ControlDof} {F(cdc.TargetDisplacement)} {F(cdc.InitialIncrement)} {F(cdc.MinIncrement)} {F(cdc.MaxIncrement)} {cdc.MaxSteps}]");
+                        }
+                        else
+                        {
+                            var cal = pc.ContinueWithArcLength!;
+                            L($"{indent}        set pcOk [advanceArcLength {F(cal.S)} {F(cal.Alpha)} {F(cal.MinS)} {cal.MaxSteps}]");
+                        }
+                        L($"{indent}        if {{$pcOk}} {{");
+                        L($"{indent}            writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"continuation_$lastPathControlReason\"]");
+                        L($"{indent}        }} else {{");
+                        L($"{indent}            writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"failed\"]");
+                        L($"{indent}            set analysisFailed 1");
+                        L($"{indent}        }}");
+                    }
+                    else
+                    {
+                        L($"{indent}        puts \"step [expr {{$stepIndex + 1}}] FAILED stage=$currentStageIndex lambda=$currentLambda\"");
+                        L($"{indent}        writeCloseOnWrite step_status.out [list [expr {{$stepIndex + 1}}] $currentStageIndex $currentLambda 0 1 no_convergence]");
+                        L($"{indent}        writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"failed\"]");
+                        L($"{indent}        set analysisFailed 1");
+                    }
+                    L($"{indent}        set stageOk 0");
+                    L($"{indent}        break");
+                    L($"{indent}    }}");
+                    L($"{indent}}}");
+                    L($"{indent}if {{$stageOk}} {{ writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"load_control_completed\"] }}");
+                    break;
+                }
+                default:
+                    // Enum.IsDefined уже отклоняет неопределённые значения FemPathControlMode
+                    // в FemNonlinearModel.Validate() (вызывается первой строкой Generate()) —
+                    // эта ветка недостижима при штатном вызове, но остаётся явной
+                    // defense-in-depth проверкой, а не молчаливым фолбэком на LoadControl.
+                    throw new InvalidOperationException($"Стадия «{stage.Tag}»: неизвестный режим управления траекторией «{pc.Mode}».");
+            }
+
+            if (guarded)
+            {
+                L("} else {");
+                L($"    writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"not_run_due_to_previous_failure\"]");
+                L("}");
+            }
             L();
         }
         if (model.RecordFiberStates) L("close $fiberStates");
@@ -332,4 +514,10 @@ public sealed class FemNonlinearTclGenerator
     static bool IsFullUniform(FemLinearDistributedLoad load) =>
         load.AOverL == 0 && load.BOverL == 1 &&
         load.WyStart == load.WyEnd && load.WzStart == load.WzEnd && load.WxStart == load.WxEnd;
+
+    /// <summary>Шесть компонент узловой нагрузки (Fx Fy Fz Mx My Mz) с единицей в позиции
+    /// dof (1-based) и нулями в остальных — референсная нагрузка для DisplacementControl/
+    /// ArcLength (см. вызывающий код).</summary>
+    static string ReferenceLoadVector(int dof) =>
+        string.Join(' ', Enumerable.Range(1, 6).Select(i => i == dof ? "1.0" : "0.0"));
 }

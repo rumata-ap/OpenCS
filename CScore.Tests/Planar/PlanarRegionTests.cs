@@ -20,14 +20,14 @@ public class PlanarRegionTests
 
         var region = PlanarRegion.CreateFromContour(clockwise);
 
-        Assert.True(PlanarRegionTopologyValidator.SignedArea(region.Hull.X, region.Hull.Y) > 0);
+        Assert.True(PlanarRegionTopologyValidator.SignedArea(region.RequireHull().X, region.RequireHull().Y) > 0);
     }
 
     [Fact]
     public void CreateFromContour_SetsContourTypeHullOnOuterContour()
     {
         var region = PlanarRegion.CreateFromContour(OpenSquareContour());
-        Assert.Equal(ContourType.Hull, region.Hull.Type);
+        Assert.Equal(ContourType.Hull, region.RequireHull().Type);
     }
 
     [Fact]
@@ -55,8 +55,8 @@ public class PlanarRegionTests
 
         var region = PlanarRegion.CreateFromContour(source);
 
-        Assert.Equal(source.X, region.Hull.X.Take(4));
-        Assert.Equal(source.Y, region.Hull.Y.Take(4));
+        Assert.Equal(source.X, region.RequireHull().X.Take(4));
+        Assert.Equal(source.Y, region.RequireHull().Y.Take(4));
         Assert.Equal(PlanarVector3.Zero, region.Frame.Origin);
         Assert.Equal(new PlanarVector3(1, 0, 0), region.Frame.LocalX);
         Assert.Equal(new PlanarVector3(0, 1, 0), region.Frame.LocalY);
@@ -93,7 +93,7 @@ public class PlanarRegionTests
 
         source.X[0] = 999;
 
-        Assert.NotEqual(999, region.Hull.X[0]);
+        Assert.NotEqual(999, region.RequireHull().X[0]);
     }
 
     [Fact]
