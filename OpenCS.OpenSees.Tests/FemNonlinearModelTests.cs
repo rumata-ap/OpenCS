@@ -235,4 +235,131 @@ public class FemNonlinearModelTests
         var ex = Assert.Throws<InvalidOperationException>(model.Validate);
         Assert.Contains("Дублирующееся", ex.Message);
     }
+
+    static FemNonlinearModel ModelWithPathControl(FemPathControlSettings pc)
+    {
+        var valid = ValidModel();
+        return new FemNonlinearModel
+        {
+            Nodes = valid.Nodes, Sections = valid.Sections, Elements = valid.Elements,
+            Stages = [new FemNonlinearStage
+            {
+                Tag = valid.Stages[0].Tag, Loads = valid.Stages[0].Loads, PathControl = pc
+            }]
+        };
+    }
+
+    [Fact]
+    public void Validate_DisplacementControlModeWithoutSettings_Throws()
+    {
+        var model = ModelWithPathControl(new FemPathControlSettings(FemPathControlMode.DisplacementControl));
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_ArcLengthModeWithoutSettings_Throws()
+    {
+        var model = ModelWithPathControl(new FemPathControlSettings(FemPathControlMode.ArcLength));
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_DisplacementControlValid_DoesNotThrow()
+    {
+        var dc = new FemDisplacementControlSettings(
+            ControlNodeTag: 2, ControlDof: 1,
+            InitialIncrement: 0.001, MinIncrement: 0.0001, MaxIncrement: 0.01,
+            TargetDisplacement: 0.05, MaxSteps: 200);
+        var model = ModelWithPathControl(new FemPathControlSettings(FemPathControlMode.DisplacementControl, DisplacementControl: dc));
+        model.Validate();
+    }
+
+    [Fact]
+    public void Validate_DisplacementControlDofFixed_Throws()
+    {
+        var fixedNode = new FemLinearNode(1, 0, 0, 0, [true, false, false, false, false, false]);
+        var valid = ValidModel();
+        var model = new FemNonlinearModel
+        {
+            Nodes = [fixedNode, valid.Nodes[1]], Sections = valid.Sections, Elements = valid.Elements,
+            Stages = [new FemNonlinearStage
+            {
+                Tag = valid.Stages[0].Tag, Loads = valid.Stages[0].Loads,
+                PathControl = new FemPathControlSettings(FemPathControlMode.DisplacementControl,
+                    DisplacementControl: new FemDisplacementControlSettings(1, 1, 0.001, 0.0001, 0.01, 0.05, 200))
+            }]
+        };
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void Validate_DisplacementControlNonFiniteTarget_Throws(double target)
+    {
+        var dc = new FemDisplacementControlSettings(2, 1, 0.001, 0.0001, 0.01, target, 200);
+        var model = ModelWithPathControl(new FemPathControlSettings(FemPathControlMode.DisplacementControl, DisplacementControl: dc));
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_DisplacementControlMinAboveMax_Throws()
+    {
+        var dc = new FemDisplacementControlSettings(2, 1, 0.001, 0.02, 0.01, 0.05, 200); // Min > Max
+        var model = ModelWithPathControl(new FemPathControlSettings(FemPathControlMode.DisplacementControl, DisplacementControl: dc));
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_ArcLengthValid_DoesNotThrow()
+    {
+        var al = new FemArcLengthSettings(S: 0.01, Alpha: 1.0, MinS: 0.001, MaxSteps: 100, MonitorNodeTag: 2, MonitorDof: 1);
+        var model = ModelWithPathControl(new FemPathControlSettings(FemPathControlMode.ArcLength, ArcLength: al));
+        model.Validate();
+    }
+
+    [Fact]
+    public void Validate_ContinueWithModeWithoutSettings_Throws()
+    {
+        var model = ModelWithPathControl(new FemPathControlSettings(
+            FemPathControlMode.LoadControl, ContinueWithMode: FemPathControlMode.DisplacementControl));
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_ContinueWithOnNonLoadControlMode_Throws()
+    {
+        var dc = new FemDisplacementControlSettings(2, 1, 0.001, 0.0001, 0.01, 0.05, 200);
+        var model = ModelWithPathControl(new FemPathControlSettings(
+            FemPathControlMode.DisplacementControl, DisplacementControl: dc,
+            ContinueWithMode: FemPathControlMode.ArcLength,
+            ContinueWithArcLength: new FemArcLengthSettings(0.01, 1.0, 0.001, 100, 2, 1)));
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_UndefinedModeEnumValue_Throws()
+    {
+        var model = ModelWithPathControl(new FemPathControlSettings((FemPathControlMode)99));
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_DisplacementControlModeWithArcLengthSettings_Throws()
+    {
+        var dc = new FemDisplacementControlSettings(2, 1, 0.001, 0.0001, 0.01, 0.05, 200);
+        var al = new FemArcLengthSettings(0.01, 1.0, 0.001, 100, 2, 1);
+        var model = ModelWithPathControl(new FemPathControlSettings(
+            FemPathControlMode.DisplacementControl, DisplacementControl: dc, ArcLength: al));
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
+
+    [Fact]
+    public void Validate_ContinueWithSettingsWithoutContinueWithMode_Throws()
+    {
+        var cdc = new FemDisplacementControlSettings(2, 1, 0.001, 0.0001, 0.01, 0.05, 200);
+        var model = ModelWithPathControl(new FemPathControlSettings(
+            FemPathControlMode.LoadControl, ContinueWithDisplacementControl: cdc));
+        Assert.Throws<InvalidOperationException>(model.Validate);
+    }
 }

@@ -133,11 +133,109 @@ public sealed class FemNonlinearModel
                 if (!double.IsFinite(l.XOverL) || l.XOverL <= 0 || l.XOverL >= 1)
                     throw new InvalidOperationException($"Сосредоточенная нагрузка стадии «{stage.Tag}» элемента {l.ElementTag}: xL должен быть строго между 0 и 1.");
             }
+
+            ValidatePathControl(stage.PathControl, stage.Tag, tags, Nodes);
         }
 
         if (GeomTransfKind == "Corotational" && anyDistributed)
             throw new InvalidOperationException("Распределённые нагрузки не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
         if (GeomTransfKind == "Corotational" && anyPoint)
             throw new InvalidOperationException("Сосредоточенные нагрузки внутри элемента не поддерживаются для 3D forceBeamColumn с geomTransf Corotational.");
+    }
+
+    static void ValidatePathControl(FemPathControlSettings pc, string stageTag, HashSet<int> nodeTags, IReadOnlyList<FemLinearNode> nodes)
+    {
+        // Enum.IsDefined отклоняет значения вне трёх определённых режимов (например,
+        // (FemPathControlMode)99) явной ошибкой — без этой проверки switch ниже пропустил
+        // бы такое значение молча через отсутствующую ветку как эквивалент LoadControl.
+        if (!Enum.IsDefined(pc.Mode))
+            throw new InvalidOperationException($"Стадия «{stageTag}»: неизвестный режим управления траекторией «{pc.Mode}».");
+
+        switch (pc.Mode)
+        {
+            case FemPathControlMode.DisplacementControl:
+                if (pc.DisplacementControl is not { } dc)
+                    throw new InvalidOperationException($"Стадия «{stageTag}»: режим DisplacementControl требует заданных параметров.");
+                ValidateDisplacementControl(dc, stageTag, nodeTags, nodes);
+                if (pc.ArcLength != null)
+                    throw new InvalidOperationException($"Стадия «{stageTag}»: заданы параметры ArcLength при режиме DisplacementControl.");
+                break;
+            case FemPathControlMode.ArcLength:
+                if (pc.ArcLength is not { } al)
+                    throw new InvalidOperationException($"Стадия «{stageTag}»: режим ArcLength требует заданных параметров.");
+                ValidateArcLength(al, stageTag, nodeTags, nodes);
+                if (pc.DisplacementControl != null)
+                    throw new InvalidOperationException($"Стадия «{stageTag}»: заданы параметры DisplacementControl при режиме ArcLength.");
+                break;
+            case FemPathControlMode.LoadControl:
+                if (pc.DisplacementControl != null || pc.ArcLength != null)
+                    throw new InvalidOperationException($"Стадия «{stageTag}»: заданы параметры DisplacementControl/ArcLength при режиме LoadControl.");
+                break;
+        }
+
+        if (pc.ContinueWithMode is { } continueMode)
+        {
+            if (!Enum.IsDefined(continueMode))
+                throw new InvalidOperationException($"Стадия «{stageTag}»: неизвестный режим продолжения «{continueMode}».");
+            if (pc.Mode != FemPathControlMode.LoadControl)
+                throw new InvalidOperationException($"Стадия «{stageTag}»: продолжение (continuation) допустимо только для LoadControl.");
+            switch (continueMode)
+            {
+                case FemPathControlMode.DisplacementControl:
+                    if (pc.ContinueWithDisplacementControl is not { } cdc)
+                        throw new InvalidOperationException($"Стадия «{stageTag}»: продолжение DisplacementControl требует заданных параметров.");
+                    ValidateDisplacementControl(cdc, stageTag, nodeTags, nodes);
+                    if (pc.ContinueWithArcLength != null)
+                        throw new InvalidOperationException($"Стадия «{stageTag}»: заданы параметры продолжения ArcLength при continuation-режиме DisplacementControl.");
+                    break;
+                case FemPathControlMode.ArcLength:
+                    if (pc.ContinueWithArcLength is not { } cal)
+                        throw new InvalidOperationException($"Стадия «{stageTag}»: продолжение ArcLength требует заданных параметров.");
+                    ValidateArcLength(cal, stageTag, nodeTags, nodes);
+                    if (pc.ContinueWithDisplacementControl != null)
+                        throw new InvalidOperationException($"Стадия «{stageTag}»: заданы параметры продолжения DisplacementControl при continuation-режиме ArcLength.");
+                    break;
+                default:
+                    throw new InvalidOperationException($"Стадия «{stageTag}»: продолжение LoadControl→LoadControl не имеет смысла.");
+            }
+        }
+        else if (pc.ContinueWithDisplacementControl != null || pc.ContinueWithArcLength != null)
+        {
+            throw new InvalidOperationException($"Стадия «{stageTag}»: заданы параметры продолжения без ContinueWithMode.");
+        }
+    }
+
+    static void ValidateDisplacementControl(FemDisplacementControlSettings dc, string stageTag, HashSet<int> nodeTags, IReadOnlyList<FemLinearNode> nodes)
+    {
+        ValidateControlDof(dc.ControlNodeTag, dc.ControlDof, stageTag, nodeTags, nodes);
+        if (!double.IsFinite(dc.InitialIncrement) || !double.IsFinite(dc.MinIncrement) ||
+            !double.IsFinite(dc.MaxIncrement) || !double.IsFinite(dc.TargetDisplacement))
+            throw new InvalidOperationException($"Стадия «{stageTag}»: параметры DisplacementControl должны быть конечными числами.");
+        if (dc.MinIncrement <= 0 || dc.MinIncrement > dc.InitialIncrement || dc.InitialIncrement > dc.MaxIncrement)
+            throw new InvalidOperationException($"Стадия «{stageTag}»: должно быть 0 < MinIncrement <= InitialIncrement <= MaxIncrement.");
+        if (dc.MaxSteps <= 0)
+            throw new InvalidOperationException($"Стадия «{stageTag}»: MaxSteps должен быть положительным.");
+    }
+
+    static void ValidateArcLength(FemArcLengthSettings al, string stageTag, HashSet<int> nodeTags, IReadOnlyList<FemLinearNode> nodes)
+    {
+        ValidateControlDof(al.MonitorNodeTag, al.MonitorDof, stageTag, nodeTags, nodes);
+        if (!double.IsFinite(al.S) || !double.IsFinite(al.Alpha) || !double.IsFinite(al.MinS))
+            throw new InvalidOperationException($"Стадия «{stageTag}»: параметры ArcLength должны быть конечными числами.");
+        if (al.S <= 0 || al.Alpha <= 0 || al.MinS <= 0 || al.MinS > al.S)
+            throw new InvalidOperationException($"Стадия «{stageTag}»: должно быть 0 < MinS <= S и Alpha > 0.");
+        if (al.MaxSteps <= 0)
+            throw new InvalidOperationException($"Стадия «{stageTag}»: MaxSteps должен быть положительным.");
+    }
+
+    static void ValidateControlDof(int nodeTag, int dof, string stageTag, HashSet<int> nodeTags, IReadOnlyList<FemLinearNode> nodes)
+    {
+        if (!nodeTags.Contains(nodeTag))
+            throw new InvalidOperationException($"Стадия «{stageTag}»: узел {nodeTag} не найден.");
+        if (dof is < 1 or > 6)
+            throw new InvalidOperationException($"Стадия «{stageTag}»: DOF должен быть от 1 до 6.");
+        var node = nodes.First(n => n.Tag == nodeTag);
+        if (node.Fixed[dof - 1])
+            throw new InvalidOperationException($"Стадия «{stageTag}»: узел {nodeTag}, DOF {dof} закреплён — не может использоваться как контрольный/мониторинговый.");
     }
 }
