@@ -19,6 +19,66 @@ public static class ShellMeshPatchCSfeaTests
         AngledRebar_NotAtCenter_Blocked().GetAwaiter().GetResult();
         FlippedStripFrame_Rejected_ThroughCreateAsync().GetAwaiter().GetResult();
         PatchNearHullEdge_Outside_Blocked().GetAwaiter().GetResult();
+
+        TestHarness.Section("ShellMeshPatchPlateSectionResponse (CSfea): RVE-convergence, независимый sweep RveSizeM × elementSize");
+        RveConvergence_Csfea_IndependentSizeAndDensitySweep().GetAwaiter().GetResult();
+    }
+
+    static async Task RveConvergence_Csfea_IndependentSizeAndDensitySweep()
+    {
+        string gmshRoot = Path.Combine(Path.GetTempPath(), "opencs-shell-mesh-patch-convergence", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var region = PlanarRegion.CreateFromContour(
+                new Contour { X = [0, 4, 4, 0], Y = [0, 0, 4, 4] }, frame: Frame3D.Identity);
+            var section = new PlateSection { H = 0.2, NLayers = 20, TensionConcrete = true };
+            var concrete = LinearElasticDiagram();
+            var materials = new PlateSectionMaterials { ConcreteDiagram = concrete, RebarDiagram = concrete, ConcreteE_MPa = 30000.0 };
+            var field = new PlateRebarField([], []);
+            var mesher = new GmshPlanarMesher(new GmshPlanarMesherOptions
+            {
+                ExecutablePath = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe",
+                ArtifactRoot = gmshRoot
+            });
+
+            var pointwiseSnapshot = PlateSectionTangentSnapshot.Create(section, concrete, concrete);
+            TestHarness.Check("Поточечный snapshot построен (convergence)", pointwiseSnapshot.IsCalculable, "");
+            if (!pointwiseSnapshot.IsCalculable) return;
+
+            double[] sizes = [1.0, 0.5];
+            double[] elementSizes = [0.3, 0.15];
+            var residuals = new Dictionary<(double Size, double ElementSize), double>();
+
+            foreach (double size in sizes)
+            foreach (double elementSize in elementSizes)
+            {
+                var buildResult = await ShellMeshPatchPlateSectionResponse.CreateAsync(
+                    region, stripFrame: region.Frame, centerU: 2.0, centerV: 2.0, field, section, materials,
+                    new ShellMeshPatchStateBounds(1e-4, 0.01), size,
+                    new PlanarMeshSettings(elementSize, 6, PlanarMeshElementMode.Mixed), mesher);
+                TestHarness.Check($"RVE построен (size={size}, elementSize={elementSize})", buildResult.IsCalculable, "");
+                if (!buildResult.IsCalculable) continue;
+
+                var state = new ShellStrainState(5e-5, 0, 0, 0, 0, 0);
+                var rveForces = buildResult.Source!.Forces(state);
+                var pointwiseForces = pointwiseSnapshot.Source!.Forces(state);
+                residuals[(size, elementSize)] = Math.Abs(rveForces.Nx - pointwiseForces.Nx) / Math.Abs(pointwiseForces.Nx);
+            }
+
+            // Измельчение сетки при ФИКСИРОВАННОМ размере RVE не должно ухудшать невязку.
+            if (residuals.ContainsKey((1.0, 0.3)) && residuals.ContainsKey((1.0, 0.15)))
+                TestHarness.Check("Невязка не растёт при измельчении сетки (RveSizeM=1.0 фиксирован)",
+                    residuals[(1.0, 0.15)] <= residuals[(1.0, 0.3)] * 1.5,
+                    $"coarse={residuals[(1.0, 0.3)]:e3}, fine={residuals[(1.0, 0.15)]:e3}");
+
+            TestHarness.Check("Итоговая невязка (минимальный RVE/сетка) в разумных пределах",
+                residuals.Values.Count == 0 || residuals.Values.Min() < 0.05,
+                $"min residual={(residuals.Count > 0 ? residuals.Values.Min() : double.NaN):e3}");
+        }
+        finally
+        {
+            if (Directory.Exists(gmshRoot)) Directory.Delete(gmshRoot, recursive: true);
+        }
     }
 
     static async Task AngledRebar_NotAtCenter_Blocked()

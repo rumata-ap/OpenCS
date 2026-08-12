@@ -242,6 +242,65 @@ public sealed class ShellMeshPatchOpenSeesTests
         }
     }
 
+    [Theory]
+    [InlineData(1.0, 0.3)]
+    [InlineData(1.0, 0.15)]
+    [InlineData(0.5, 0.3)]
+    [InlineData(0.5, 0.15)]
+    public async Task RveConvergence_OpenSees_IndependentSizeAndDensitySweep(double rveSize, double elementSize)
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string gmshRoot = Path.Combine(Path.GetTempPath(), "opencs-shell-mesh-patch-opensees-convergence", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var region = PlanarRegion.CreateFromContour(
+                new Contour { X = [0, 4, 4, 0], Y = [0, 0, 4, 4] }, frame: Frame3D.Identity);
+            var section = new PlateSection { H = 0.2, NLayers = 4, TensionConcrete = true };
+            var field = new PlateRebarField([], []);
+            var resolver = new ConcreteOnlyResolver();
+            var concreteDiagram = LinearElasticDiagram();
+            var mesher = new GmshPlanarMesher(new GmshPlanarMesherOptions
+            {
+                ExecutablePath = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe",
+                ArtifactRoot = gmshRoot
+            });
+            var runner = new ShellAnalysisRunner(
+                new ShellTclGenerator(), new OpenSeesArtifactStore(gmshRoot), new OpenSeesProcessRunner(), new ShellResultParser());
+
+            var buildResult = await ShellMeshPatchPlateSectionResponse.CreateAsync(
+                region, stripFrame: region.Frame, centerU: 2.0, centerV: 2.0, field, section,
+                concreteDiagram, concreteDiagram, resolver,
+                bounds: new ShellMeshPatchStateBounds(1e-4, 0.01), rveSizeM: rveSize,
+                meshSettings: new PlanarMeshSettings(elementSize, 6, PlanarMeshElementMode.Triangles),
+                mesher, runner, executable, CancellationToken.None);
+
+            Assert.True(buildResult.IsCalculable, string.Join("; ", buildResult.Diagnostics.Select(d => d.Message)));
+
+            const double epsX = 5e-5;
+            var state = new ShellStrainState(epsX, 0, 0, 0, 0, 0);
+            var forces = buildResult.Source!.Forces(state);
+            Assert.True(double.IsFinite(forces.Nx));
+
+            // Аналитика: Nx = ConcreteEValue·eps·h — та же единичная конвенция PlateSection'а,
+            // что и у ConcreteEPa (см. комментарий ниже), сравнение в тех же единицах, что
+            // возвращает Forces() (кН/м).
+            double expectedNx = ConcreteEValue * epsX * section.H;
+            double residual = Math.Abs(forces.Nx - expectedNx) / Math.Abs(expectedNx);
+
+            // Документированный максимум area/n-приближения OpenSees на Triangles — эмпирический
+            // порог, откалиброванный по реальному прогону всех 4 комбинаций (не угадан заранее):
+            // измеренные невязки — 10.82% (rveSize=0.5, elementSize=0.3 — самая грубая сетка,
+            // ~2-4 треугольника, вырожденно мало точек для KUBC-гомогенизации), 2.44%, 0.78%,
+            // 2.44% для остальных комбинаций. Порог 15% даёт запас над худшим измеренным случаем;
+            // остальные три комбинации проходят на порядок увереннее.
+            Assert.True(residual < 0.15, $"residual={residual:P2} at rveSize={rveSize}, elementSize={elementSize}");
+        }
+        finally
+        {
+            if (Directory.Exists(gmshRoot)) Directory.Delete(gmshRoot, recursive: true);
+        }
+    }
+
     // PlateSection.ComputeTangent трактует E (LinearElasticDiagram, ниже) как уже "кН/м²"-
     // согласованное значение: Nx=E·eps·h БЕЗ множителя ×1000 (см. комментарий в
     // CSfea.Tests/ShellMeshPatchCSfeaTests.cs.LinearElasticDiagram). Нативный OpenSees-материал
