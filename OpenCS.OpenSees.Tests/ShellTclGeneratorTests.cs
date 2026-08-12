@@ -133,6 +133,33 @@ public sealed class ShellTclGeneratorTests
     }
 
     [Fact]
+    public void Generate_KinematicLoadOnFreeDof_EmitsSpCommand()
+    {
+        // Регрессия на существующее поведение ShellKinematicLoad/sp, на которое опирается
+        // RVE-патч адаптер (Срез 3b, OpenCS.OpenSees.CScore.ShellMeshPatchPlateSectionResponse):
+        // KUBC задаёт предписанные перемещения через sp на СВОБОДНЫХ узлах (узел 3 не зафиксирован
+        // ни по одному DOF в Q4Model()).
+        var model = Q4Model() with
+        {
+            Stages = [new() { Tag = "stage-1", KinematicLoads = [new(3, 2, 0.005)] }]
+        };
+
+        var script = new ShellTclGenerator().Generate(model);
+
+        Assert.Contains($"sp 3 2 {TclNumber.Format(0.005)}", script);
+    }
+
+    [Fact]
+    public void Generate_FixedNode_EmitsFixCommand()
+    {
+        // Узлы 1,2 в Q4Model() зафиксированы по всем 6 DOF.
+        var script = new ShellTclGenerator().Generate(Q4Model());
+
+        Assert.Contains("fix 1 1 1 1 1 1 1", script);
+        Assert.Contains("fix 2 1 1 1 1 1 1", script);
+    }
+
+    [Fact]
     public void Generate_RejectsLayeredShellWithFewerThanThreeLayers()
     {
         var model = Model(
