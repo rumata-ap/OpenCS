@@ -1556,6 +1556,10 @@
     <system:String x:Key="FemResultStep">Step</system:String>
     <system:String x:Key="FemResultStepLabel">Step {0}/{1}, λ={2:F3} ({3})</system:String>
     <system:String x:Key="FemResultStepLabelStaged">Step {0}/{1}, λ={2:F3} ({3}), stage "{4}"</system:String>
+    <system:String x:Key="FemResultStopReasonNoConvergence">Analysis stopped: convergence not reached</system:String>
+    <system:String x:Key="FemResultStopReasonMinIncrementReached">Analysis stopped: minimum displacement increment exhausted</system:String>
+    <system:String x:Key="FemResultStopReasonMinArcLengthReached">Analysis stopped: minimum arc length exhausted</system:String>
+    <system:String x:Key="FemResultStopReasonUnknown">Analysis stopped: {0}</system:String>
     <system:String x:Key="FemResultConverged">converged</system:String>
     <system:String x:Key="FemResultNotConverged">not converged</system:String>
     <system:String x:Key="FemResultTab3D">3D</system:String>

@@ -36,6 +36,17 @@ public class FemAnalysisResultVM : ViewModelBase
     public IReadOnlyList<FemNonlinearStepResult> Steps { get; }
     /// <summary>Точки для графика load-factor по шагам.</summary>
     public IReadOnlyList<FemLoadFactorPoint> LoadFactorPoints { get; }
+
+    /// <summary>Точки графика λ–перемещение контрольного/мониторингового узла — той же
+    /// длины и в том же порядке, что Steps (см. ControlDisplacementPointsBuilder).</summary>
+    public IReadOnlyList<(double X, double Y, bool Converged, int SegmentId)> ControlDisplacementPoints { get; }
+    public bool HasControlDisplacementChart => ControlDisplacementPoints.Any(p => double.IsFinite(p.X));
+
+    /// <summary>Локализованная причина последнего несошедшегося шага; пусто, если расчёт
+    /// сошёлся полностью или остановился штатно (тогда причины из step_status.out нет).</summary>
+    public string StopReasonText { get; }
+    public bool HasStopReason => !string.IsNullOrEmpty(StopReasonText);
+
     /// <summary>Каталог точек интегрирования, доступных для просмотра fiber-состояния.</summary>
     public IReadOnlyList<FemSectionLocationRow> SectionLocations { get; private set; } = [];
     public bool HasSectionResults => SectionLocations.Count > 0;
@@ -304,6 +315,10 @@ public class FemAnalysisResultVM : ViewModelBase
                 : [];
         }
         LoadFactorPoints = Steps.Select(s => new FemLoadFactorPoint(s.StepIndex, s.LoadFactor, s.Converged)).ToList();
+        ControlDisplacementPoints = ControlDisplacementPointsBuilder.Build(
+            Steps, _nonlinearResult?.StagePathControls ?? [], _nonlinearResult?.PathControlSwitches ?? [])
+            .Select(p => (p.X, p.Y, p.Converged, p.SegmentId)).ToList();
+        StopReasonText = BuildStopReasonText(Steps);
 
         // Геометрия из mesh-снимка схемы
         foreach (var n in db.GetFemMeshNodes(schema.Id))
@@ -642,6 +657,19 @@ public class FemAnalysisResultVM : ViewModelBase
         }
         catch (JsonException) { }
         return list;
+    }
+
+    static string BuildStopReasonText(IReadOnlyList<FemNonlinearStepResult> steps)
+    {
+        var lastFailed = steps.LastOrDefault(s => !s.Converged);
+        if (lastFailed?.StopReason is not { } reason) return "";
+        return reason switch
+        {
+            "no_convergence" => Loc.S("FemResultStopReasonNoConvergence"),
+            "min_increment_reached" => Loc.S("FemResultStopReasonMinIncrementReached"),
+            "min_arclength_reached" => Loc.S("FemResultStopReasonMinArcLengthReached"),
+            _ => string.Format(Loc.S("FemResultStopReasonUnknown"), reason)
+        };
     }
 }
 

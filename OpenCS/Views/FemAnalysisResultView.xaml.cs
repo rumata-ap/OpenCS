@@ -57,18 +57,22 @@ public partial class FemAnalysisResultView : UserControl
         BuildPickTargets();
         BuildLoadFactorCanvas();
         loadFactorCanvas.StepClicked += idx => _vm.SelectedStepIndex = idx;
+        controlDispCanvas.StepClicked += idx => _vm.SelectedStepIndex = idx;
         _vm.PropertyChanged += OnVmPropertyChanged;
         viewport.MouseLeftButtonDown += Viewport_MouseLeftButtonDown;
     }
 
-    void BuildLoadFactorCanvas() =>
-        loadFactorCanvas.SetData(_vm.LoadFactorPoints.Select(p => (p.Step, p.LoadFactor, p.Converged)).ToList(), _vm.SelectedStepIndex);
+    void BuildLoadFactorCanvas()
+    {
+        loadFactorCanvas.SetData(_vm.LoadFactorPoints.Select(p => ((double)p.Step, p.LoadFactor, p.Converged, 0)).ToList(), _vm.SelectedStepIndex);
+        controlDispCanvas.SetData(_vm.ControlDisplacementPoints, _vm.SelectedStepIndex);
+    }
 
     void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedStepIndex))
         {
-            loadFactorCanvas.SetData(_vm.LoadFactorPoints.Select(p => (p.Step, p.LoadFactor, p.Converged)).ToList(), _vm.SelectedStepIndex);
+            BuildLoadFactorCanvas();
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedLines) && _deformed is not null)
         {

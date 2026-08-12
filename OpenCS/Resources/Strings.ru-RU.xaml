@@ -1559,6 +1559,10 @@
     <system:String x:Key="FemResultStep">Шаг</system:String>
     <system:String x:Key="FemResultStepLabel">Шаг {0}/{1}, λ={2:F3} ({3})</system:String>
     <system:String x:Key="FemResultStepLabelStaged">Шаг {0}/{1}, λ={2:F3} ({3}), стадия «{4}»</system:String>
+    <system:String x:Key="FemResultStopReasonNoConvergence">Расчёт остановлен: не достигнута сходимость</system:String>
+    <system:String x:Key="FemResultStopReasonMinIncrementReached">Расчёт остановлен: исчерпан минимальный шаг перемещения</system:String>
+    <system:String x:Key="FemResultStopReasonMinArcLengthReached">Расчёт остановлен: исчерпана минимальная длина дуги</system:String>
+    <system:String x:Key="FemResultStopReasonUnknown">Расчёт остановлен: {0}</system:String>
     <system:String x:Key="FemResultConverged">сошёлся</system:String>
     <system:String x:Key="FemResultNotConverged">не сошёлся</system:String>
     <system:String x:Key="FemResultTab3D">3D</system:String>
