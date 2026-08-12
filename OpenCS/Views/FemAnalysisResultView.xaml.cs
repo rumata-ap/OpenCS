@@ -7,6 +7,7 @@ using System.Windows.Media.Media3D;
 using CScore;
 using CScore.Fem;
 using HelixToolkit.Wpf;
+using OpenCS.OpenSees.CScore;
 using OpenCS.OpenSees.Structural;
 using OpenCS.ViewModels;
 
@@ -42,9 +43,14 @@ public partial class FemAnalysisResultView : UserControl
     BillboardTextVisual3D? _forceMaxLabel;
     BillboardTextVisual3D? _forceMinLabel;
 
-    readonly Dictionary<Visual3D, (bool IsNode, int Tag)> _pickTargets = new();
+    sealed record PickTarget(bool IsNode, int Tag, FemSectionLocationRow? SectionRow);
+
+    readonly Dictionary<Visual3D, PickTarget> _pickTargets = new();
     readonly Dictionary<int, SphereVisual3D> _nodeSpheresByTag = new();
     readonly Dictionary<int, PipeVisual3D> _elemPipesByTag = new();
+    PointsVisual3D? _ipAvailableVisual;
+    PointsVisual3D? _ipUnavailableVisual;
+    readonly Dictionary<FemSectionLocationRow, SphereVisual3D> _ipPickSpheresByRow = new();
 
     bool _highlightWholeMember = true;
 
@@ -59,6 +65,7 @@ public partial class FemAnalysisResultView : UserControl
         loadFactorCanvas.StepClicked += idx => _vm.SelectedStepIndex = idx;
         controlDispCanvas.StepClicked += idx => _vm.SelectedStepIndex = idx;
         _vm.PropertyChanged += OnVmPropertyChanged;
+        BuildIpMarkers();
         viewport.MouseLeftButtonDown += Viewport_MouseLeftButtonDown;
     }
 
@@ -93,6 +100,14 @@ public partial class FemAnalysisResultView : UserControl
         else if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedElementSegments))
         {
             BuildPickTargets();
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.SectionMarkers))
+        {
+            BuildIpMarkers();
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedSectionLocation))
+        {
+            UpdateIpHighlight();
         }
         else if (e.PropertyName is nameof(FemAnalysisResultVM.SelectedNodeTag) or nameof(FemAnalysisResultVM.SelectedElemTag))
         {
@@ -209,7 +224,7 @@ public partial class FemAnalysisResultView : UserControl
                 Center = pos, Radius = nodeRadius,
                 Fill = new SolidColorBrush(IsNodeHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent)
             };
-            _pickTargets[sphere] = (true, tag);
+            _pickTargets[sphere] = new PickTarget(true, tag, null);
             _nodeSpheresByTag[tag] = sphere;
             viewport.Children.Add(sphere);
         }
@@ -221,7 +236,7 @@ public partial class FemAnalysisResultView : UserControl
                 Point1 = p0, Point2 = p1, Diameter = elemDiameter,
                 Fill = new SolidColorBrush(IsElemHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent)
             };
-            _pickTargets[pipe] = (false, tag);
+            _pickTargets[pipe] = new PickTarget(false, tag, null);
             _elemPipesByTag[tag] = pipe;
             viewport.Children.Add(pipe);
         }
@@ -246,9 +261,9 @@ public partial class FemAnalysisResultView : UserControl
             pipe.Fill = new SolidColorBrush(IsElemHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent);
     }
 
-    (bool IsNode, int Tag)? HitTestPick(System.Windows.Point position)
+    (bool IsNode, int Tag, FemSectionLocationRow? SectionRow)? HitTestPick(System.Windows.Point position)
     {
-        (bool IsNode, int Tag)? hit = null;
+        (bool IsNode, int Tag, FemSectionLocationRow? SectionRow)? hit = null;
         double bestDistance = double.MaxValue;
         HitTestResultBehavior Callback(HitTestResult result)
         {
@@ -259,7 +274,7 @@ public partial class FemAnalysisResultView : UserControl
                 rayHit.DistanceToRayOrigin < bestDistance)
             {
                 bestDistance = rayHit.DistanceToRayOrigin;
-                hit = target;
+                hit = (target.IsNode, target.Tag, target.SectionRow);
             }
             return HitTestResultBehavior.Continue;
         }
@@ -272,6 +287,13 @@ public partial class FemAnalysisResultView : UserControl
         var hit = HitTestPick(e.GetPosition(viewport));
         if (hit is not { } target) { _vm.SelectNode(null); return; }
 
+        if (target.SectionRow is { } row)
+        {
+            _vm.SelectSectionLocation(row);
+            _vm.RequestSectionState(row);
+            return;
+        }
+
         if (target.IsNode)
             _vm.SelectNode(_vm.SelectedNodeTag == target.Tag ? null : target.Tag);
         else
@@ -282,6 +304,7 @@ public partial class FemAnalysisResultView : UserControl
     {
         var hit = HitTestPick(e.GetPosition(viewport));
         if (hit is not { } target) return;
+        if (target.SectionRow != null) return;
 
         // Попадание по узлу/элементу — блокируем вращение камеры (стандартный жест HelixToolkit по ПКМ).
         e.Handled = true;
@@ -334,4 +357,68 @@ public partial class FemAnalysisResultView : UserControl
         if (e.AddedItems.Count > 0 && e.AddedItems[0] is FemElementEndForces row)
             _vm.SelectElement(row.ElemTag);
     }
+
+    void IpMarkersToggle(object sender, System.Windows.RoutedEventArgs e)
+    {
+        BuildIpMarkers();
+    }
+
+    void BuildIpMarkers()
+    {
+        if (_ipAvailableVisual != null) { viewport.Children.Remove(_ipAvailableVisual); _ipAvailableVisual = null; }
+        if (_ipUnavailableVisual != null) { viewport.Children.Remove(_ipUnavailableVisual); _ipUnavailableVisual = null; }
+        foreach (var sphere in _ipPickSpheresByRow.Values) viewport.Children.Remove(sphere);
+        _ipPickSpheresByRow.Clear();
+        foreach (var key in _pickTargets.Keys.Where(k => _pickTargets[k].SectionRow != null).ToList())
+            _pickTargets.Remove(key);
+
+        if (showIpMarkersCheck.IsChecked != true) return;
+
+        var available = new Point3DCollection();
+        var unavailable = new Point3DCollection();
+        foreach (var m in _vm.SectionMarkers)
+            (m.Location.IsStateAvailable ? available : unavailable).Add(m.Point);
+        if (available.Count > 0)
+        {
+            _ipAvailableVisual = new PointsVisual3D { Color = Colors.SeaGreen, Size = 7, Points = available };
+            viewport.Children.Add(_ipAvailableVisual);
+        }
+        if (unavailable.Count > 0)
+        {
+            _ipUnavailableVisual = new PointsVisual3D { Color = Colors.Gray, Size = 7, Points = unavailable };
+            viewport.Children.Add(_ipUnavailableVisual);
+        }
+
+        if (_vm.SectionMarkers.Count > PickTargetThreshold) return;
+        double avgSegmentLength = _vm.DeformedElementSegments.Count > 0
+            ? _vm.DeformedElementSegments.Average(s => (s.P1 - s.P0).Length)
+            : 1.0;
+        double ipRadius = System.Math.Clamp(avgSegmentLength * NodePickRadiusFactor, NodePickRadiusMin, NodePickRadiusMax);
+        foreach (var m in _vm.SectionMarkers)
+        {
+            var sphere = new SphereVisual3D
+            {
+                Center = m.Point,
+                Radius = ipRadius,
+                Fill = new SolidColorBrush(IsSectionHighlighted(m.Location) ? Colors.OrangeRed : Colors.Transparent)
+            };
+            _pickTargets[sphere] = new PickTarget(false, 0, m.Location);
+            _ipPickSpheresByRow[m.Location] = sphere;
+            viewport.Children.Add(sphere);
+        }
+    }
+
+    bool IsSectionHighlighted(FemSectionLocationRow row) => Equals(_vm.SelectedSectionLocation, row);
+
+    void UpdateIpHighlight()
+    {
+        foreach (var (row, sphere) in _ipPickSpheresByRow)
+            sphere.Fill = new SolidColorBrush(IsSectionHighlighted(row) ? Colors.OrangeRed : Colors.Transparent);
+    }
+
+    void OpenSectionState_Click(object sender, System.Windows.RoutedEventArgs e)
+        => _vm.RequestSectionState(_vm.SelectedSectionLocation);
+
+    void SectionGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        => _vm.RequestSectionState(_vm.SelectedSectionLocation);
 }

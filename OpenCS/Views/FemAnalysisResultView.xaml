@@ -65,6 +65,13 @@
                             <Path Data="M4,11H20V13H4V11M2,7A2,2 0 0,1 4,5H20A2,2 0 0,1 22,7V17A2,2 0 0,1 20,19H4A2,2 0 0,1 2,17V7M4,7V17H20V7H4Z" Fill="Black" Stretch="Uniform" Margin="2"/>
                         </ToggleButton>
                         <Separator/>
+                        <ToggleButton x:Name="showIpMarkersCheck" Style="{StaticResource IconToggleButton25}"
+                                      IsChecked="True" ToolTip="{DynamicResource FemResultShowSectionPoints}"
+                                      Visibility="{Binding HasSectionResults, Converter={StaticResource BoolToVis}}"
+                                      Checked="IpMarkersToggle" Unchecked="IpMarkersToggle">
+                            <Path Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6Z" Fill="SeaGreen" Stretch="Uniform" Margin="2"/>
+                        </ToggleButton>
+                        <Separator/>
                         <TextBlock Text="{DynamicResource FemResultForceComponent}" VerticalAlignment="Center" Margin="4,0,2,0"/>
                         <ComboBox Width="90" Margin="4,0" VerticalAlignment="Center"
                                   ItemsSource="{Binding ForceComponents}"
@@ -156,11 +163,11 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="150"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="{DynamicResource FemResultSectionPoint}" Margin="6,6,6,2"/>
                     <DataGrid Grid.Row="1" Margin="6,2" ItemsSource="{Binding SectionLocations}"
                               SelectedItem="{Binding SelectedSectionLocation, Mode=TwoWay}"
+                              MouseDoubleClick="SectionGrid_MouseDoubleClick"
                               AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="{DynamicResource FemResultSectionMember}" Binding="{Binding SourceMemberTag}"/>
@@ -179,26 +186,11 @@
                             <TextBlock DockPanel.Dock="Left" Text="{DynamicResource FemResultSectionStart}"/>
                             <TextBlock DockPanel.Dock="Right" Text="{DynamicResource FemResultSectionEnd}"/>
                         </DockPanel>
+                        <Button Content="{DynamicResource FemResultOpenSectionState}"
+                                Click="OpenSectionState_Click" Padding="12,4"
+                                IsEnabled="{Binding CanRequestSectionState}"
+                                HorizontalAlignment="Left" Margin="0,6,0,0"/>
                     </StackPanel>
-                    <Grid Grid.Row="3" Visibility="{Binding HasSelectedSectionState, Converter={StaticResource BoolToVis}}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid Grid.Column="0">
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="{DynamicResource FemResultSectionStress}" Margin="6,2"/>
-                            <local:SectionPlotView Grid.Row="1" DataContext="{Binding SectionStressPlot}"/>
-                        </Grid>
-                        <Grid Grid.Column="1">
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="{DynamicResource FemResultSectionStrain}" Margin="6,2"/>
-                            <local:SectionPlotView Grid.Row="1" DataContext="{Binding SectionStrainPlot}"/>
-                        </Grid>
-                    </Grid>
-                    <TextBlock Grid.Row="3" Text="{DynamicResource FemResultSectionUnavailable}"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Visibility="{Binding HasSelectedSectionState, Converter={StaticResource InverseBoolToVisibility}}"/>
                 </Grid>
             </TabItem>
 
