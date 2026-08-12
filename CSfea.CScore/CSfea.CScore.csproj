@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\CScore\CScore.csproj" />
     <ProjectReference Include="..\CSfea.Core\CSfea.Core.csproj" />
+    <ProjectReference Include="..\OpenCS.Gmsh\OpenCS.Gmsh.csproj" />
   </ItemGroup>
 
 </Project>

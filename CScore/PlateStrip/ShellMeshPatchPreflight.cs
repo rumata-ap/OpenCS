@@ -9,7 +9,11 @@ public sealed record ShellMeshPatchPreflightResult(
 /// <summary>Расширяет принцип PlateSectionTangentSnapshot.Create (малая проба у нуля) пробами
 /// на границах заявленного рабочего диапазона состояния (ShellMeshPatchStateBounds) — малая
 /// проба у нуля не ловит материал, линейный у нуля, но с изломом диаграммы в рабочем диапазоне
-/// (см. спеку, раздел «Расширенный linear-only preflight»).</summary>
+/// (см. спеку, раздел «Расширенный linear-only preflight»). absoluteTolerance по умолчанию —
+/// 1e-6, не 1e-8: PlateSection.ComputeTangent сам строит A/B/D через численное дифференцирование
+/// (fdStep по умолчанию 1e-7), и теоретически нулевые элементы B-блока (симметричное сечение)
+/// несут собственный шум порядка 1e-8, растущий линейно с E материала — при 1e-8 preflight ложно
+/// отклонял заведомо линейные материалы реалистичного масштаба (эмпирически подтверждено).</summary>
 public static class ShellMeshPatchPreflight
 {
     public static ShellMeshPatchPreflightResult CheckLinear(
@@ -19,7 +23,7 @@ public static class ShellMeshPatchPreflight
         IReadOnlyList<Diagramm?>? layerDiagrams,
         ShellMeshPatchStateBounds bounds,
         double relativeTolerance = 1e-4,
-        double absoluteTolerance = 1e-8,
+        double absoluteTolerance = 1e-6,
         int pointsPerAxis = 3)
     {
         ArgumentNullException.ThrowIfNull(section);

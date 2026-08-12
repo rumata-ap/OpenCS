@@ -79,6 +79,8 @@ Shell3Tests.RunAll();
 
 ShellMeshPatchPostprocessorTests.RunAll();
 
+ShellMeshPatchCSfeaTests.RunAll();
+
 ShellStrainSolverTests.RunAll();
 
 BucklingTests.RunSimplySupportedPlate();
