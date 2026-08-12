@@ -274,6 +274,38 @@ public sealed class FemNonlinearTclGenerator
         L("}");
         L();
 
+        L("proc advanceArcLength {s alpha minS maxSteps} {");
+        L(model.RecordFiberStates
+            ? "    global stepIndex currentLambda currentStageIndex fiberStates lastPathControlReason"
+            : "    global stepIndex currentLambda currentStageIndex lastPathControlReason");
+        L("    set curS $s");
+        L("    integrator ArcLength $curS $alpha");
+        L("    set steps 0");
+        L("    while {$steps < $maxSteps} {");
+        L("        set rc [analyze 1]");
+        L("        if {$rc == 0} {");
+        L("            incr stepIndex");
+        L("            incr steps");
+        L("            set currentLambda [getTime]");
+        L("            writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 1 [expr {$curS != $s}]]");
+        if (model.RecordFiberStates) EmitFiberStateWrites(L, model);
+        L("            continue");
+        L("        }");
+        L("        set curS [expr {$curS / 2.0}]");
+        L("        if {[expr {abs($curS) < $minS}]} {");
+        L("            incr stepIndex");
+        L("            puts \"step $stepIndex FAILED stage=$currentStageIndex lambda=$currentLambda reason=min_arclength_reached\"");
+        L("            writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 0 1 min_arclength_reached]");
+        L("            set lastPathControlReason \"failed\"");
+        L("            return 0");
+        L("        }");
+        L("        integrator ArcLength $curS $alpha");
+        L("    }");
+        L("    set lastPathControlReason \"max_steps_reached\"");
+        L("    return 1");
+        L("}");
+        L();
+
         for (int stageIdx = 0; stageIdx < model.Stages.Count; stageIdx++)
         {
             var stage = model.Stages[stageIdx];

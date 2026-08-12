@@ -453,4 +453,42 @@ public class FemNonlinearTclGeneratorTests
         Assert.Contains("set dUmin [expr {$dir > 0 ? $minIncr : -$maxIncr}]", tcl);
         Assert.Contains("set dUmax [expr {$dir > 0 ? $maxIncr : -$minIncr}]", tcl);
     }
+
+    [Fact]
+    public void Generate_AlwaysEmitsAdvanceArcLengthProc()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("proc advanceArcLength {s alpha minS maxSteps}", tcl);
+        Assert.Contains("integrator ArcLength $curS $alpha", tcl);
+    }
+
+    [Fact]
+    public void Generate_AdvanceArcLength_SuccessAlwaysMaxStepsReached()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        int idx = tcl.IndexOf("proc advanceArcLength", StringComparison.Ordinal);
+        string proc = tcl[idx..];
+        Assert.Contains("set lastPathControlReason \"max_steps_reached\"", proc);
+        Assert.DoesNotContain("target_reached", proc);
+    }
+
+    [Fact]
+    public void Generate_AdvanceArcLength_NoRowWrittenOnPlainMaxStepsExhaustion()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        int idx = tcl.IndexOf("proc advanceArcLength", StringComparison.Ordinal);
+        int end = tcl.IndexOf("\n}\n", idx, StringComparison.Ordinal);
+        string proc = tcl[idx..end];
+        int successWrites = CountOccurrences(proc, "writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 1");
+        int failWrites = CountOccurrences(proc, "min_arclength_reached]");
+        Assert.Equal(1, successWrites);
+        Assert.Equal(1, failWrites);
+    }
+
+    static int CountOccurrences(string haystack, string needle)
+    {
+        int count = 0, idx = 0;
+        while ((idx = haystack.IndexOf(needle, idx, StringComparison.Ordinal)) >= 0) { count++; idx += needle.Length; }
+        return count;
+    }
 }
