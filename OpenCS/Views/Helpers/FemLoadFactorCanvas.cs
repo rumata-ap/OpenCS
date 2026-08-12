@@ -23,6 +23,31 @@ public sealed class FemLoadFactorCanvas : Canvas
         MouseLeftButtonDown += OnClick;
     }
 
+    /// <summary>Подпись оси X (например, «Шаг» или «Перемещение, м/рад») — рисуется под осью,
+    /// по центру. Пустая строка/null — подпись не рисуется. DependencyProperty — нужно для
+    /// биндинга через DynamicResource (переключение языка UI вживую).</summary>
+    public static readonly DependencyProperty XAxisLabelProperty = DependencyProperty.Register(
+        nameof(XAxisLabel), typeof(string), typeof(FemLoadFactorCanvas),
+        new PropertyMetadata(null, (d, _) => ((FemLoadFactorCanvas)d).Redraw()));
+
+    public string? XAxisLabel
+    {
+        get => (string?)GetValue(XAxisLabelProperty);
+        set => SetValue(XAxisLabelProperty, value);
+    }
+
+    /// <summary>Подпись оси Y (например, «λ, коэфф. нагрузки») — рисуется в верхнем левом углу
+    /// холста. Пустая строка/null — подпись не рисуется.</summary>
+    public static readonly DependencyProperty YAxisLabelProperty = DependencyProperty.Register(
+        nameof(YAxisLabel), typeof(string), typeof(FemLoadFactorCanvas),
+        new PropertyMetadata(null, (d, _) => ((FemLoadFactorCanvas)d).Redraw()));
+
+    public string? YAxisLabel
+    {
+        get => (string?)GetValue(YAxisLabelProperty);
+        set => SetValue(YAxisLabelProperty, value);
+    }
+
     /// <summary>Поднимается при клике по точке графика — позиционный индекс в списке,
     /// переданном в SetData (совпадает со Steps в вызывающей VM).</summary>
     public event Action<int>? StepClicked;
@@ -34,7 +59,12 @@ public sealed class FemLoadFactorCanvas : Canvas
         Redraw();
     }
 
-    const double AxisMargin = 30;
+    const double AxisMargin = 40;
+
+    /// <summary>Компактное представление значения деления оси — 3 значащих цифры, при малых
+    /// величинах (например, шаг DisplacementControl ~1e-5 м) автоматически переходит на
+    /// экспоненциальную запись, чтобы не показывать «0».</summary>
+    static string FormatAxisValue(double v) => v.ToString("G3", System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>Группирует индексы точек с конечными координатами в последовательные
     /// пробеги одинакового SegmentId — каждый пробег рисуется отдельным Polyline (переход
@@ -80,6 +110,42 @@ public sealed class FemLoadFactorCanvas : Canvas
 
         Children.Add(new Line { X1 = x0, Y1 = y0, X2 = x1, Y2 = y0, Stroke = Brushes.Black, StrokeThickness = 1 });
         Children.Add(new Line { X1 = x0, Y1 = y0, X2 = x0, Y2 = y1, Stroke = Brushes.Black, StrokeThickness = 1 });
+
+        void AddText(string text, double left, double top, double fontSize, Brush brush, bool rightAlign = false)
+        {
+            var tb = new TextBlock { Text = text, FontSize = fontSize, Foreground = brush };
+            if (rightAlign)
+            {
+                tb.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                left -= tb.DesiredSize.Width;
+            }
+            SetLeft(tb, Math.Max(0, left));
+            SetTop(tb, top);
+            Children.Add(tb);
+        }
+
+        // значения на концах осей
+        AddText(FormatAxisValue(minX), x0, y0 + 2, 9, Brushes.Gray);
+        AddText(FormatAxisValue(maxX), x1, y0 + 2, 9, Brushes.Gray, rightAlign: true);
+        AddText(FormatAxisValue(maxY), 2, y1 - 2, 9, Brushes.Gray);
+        AddText(FormatAxisValue(minY), 2, y0 - 12, 9, Brushes.Gray);
+
+        // подписи осей — центр X снизу, верхний левый угол для Y
+        if (!string.IsNullOrEmpty(XAxisLabel))
+        {
+            var xLabel = new TextBlock { Text = XAxisLabel, FontSize = 10, Foreground = Brushes.DimGray };
+            xLabel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            SetLeft(xLabel, Math.Max(0, (x0 + x1) / 2 - xLabel.DesiredSize.Width / 2));
+            SetTop(xLabel, ActualHeight - AxisMargin + 16);
+            Children.Add(xLabel);
+        }
+        if (!string.IsNullOrEmpty(YAxisLabel))
+        {
+            var yLabel = new TextBlock { Text = YAxisLabel, FontSize = 10, Foreground = Brushes.DimGray };
+            SetLeft(yLabel, 2);
+            SetTop(yLabel, 2);
+            Children.Add(yLabel);
+        }
 
         foreach (var group in GroupBySegment(_points))
         {

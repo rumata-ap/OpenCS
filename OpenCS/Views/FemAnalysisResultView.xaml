@@ -204,11 +204,19 @@
 
             <!-- История (только нелинейный расчёт) -->
             <TabItem Header="{DynamicResource FemResultTabHistory}" Visibility="{Binding IsNonlinear, Converter={StaticResource BoolToVis}}">
-                <StackPanel>
-                    <helpers:FemLoadFactorCanvas x:Name="loadFactorCanvas"/>
-                    <helpers:FemLoadFactorCanvas x:Name="controlDispCanvas" Height="120" Margin="0,4,0,0"
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <helpers:FemLoadFactorCanvas Grid.Row="0" x:Name="loadFactorCanvas"
+                        XAxisLabel="{DynamicResource FemResultStepAxisLabel}"
+                        YAxisLabel="{DynamicResource FemResultLoadFactorAxisLabel}"/>
+                    <helpers:FemLoadFactorCanvas Grid.Row="1" x:Name="controlDispCanvas" Height="120" Margin="0,4,0,0"
+                        XAxisLabel="{DynamicResource FemResultControlDisplacementAxisLabel}"
+                        YAxisLabel="{DynamicResource FemResultLoadFactorAxisLabel}"
                         Visibility="{Binding HasControlDisplacementChart, Converter={StaticResource BoolToVis}}"/>
-                </StackPanel>
+                </Grid>
             </TabItem>
         </TabControl>
 

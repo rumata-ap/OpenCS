@@ -1510,15 +1510,15 @@
     <system:String x:Key="FemPathControlArcLengthGroup">ArcLength Parameters</system:String>
     <system:String x:Key="FemPathControlNodeLabel">Control node</system:String>
     <system:String x:Key="FemPathControlDofLabel">Degree of freedom (DOF)</system:String>
-    <system:String x:Key="FemPathControlInitialIncrementLabel">Initial increment (magnitude)</system:String>
-    <system:String x:Key="FemPathControlMinIncrementLabel">Minimum increment (magnitude)</system:String>
-    <system:String x:Key="FemPathControlMaxIncrementLabel">Maximum increment (magnitude)</system:String>
-    <system:String x:Key="FemPathControlTargetDisplacementLabel">Target displacement</system:String>
-    <system:String x:Key="FemPathControlTargetDisplacementTip">Absolute node displacement value, not an increment relative to the stage start.</system:String>
+    <system:String x:Key="FemPathControlInitialIncrementLabel">Initial increment (magnitude), m/rad</system:String>
+    <system:String x:Key="FemPathControlMinIncrementLabel">Minimum increment (magnitude), m/rad</system:String>
+    <system:String x:Key="FemPathControlMaxIncrementLabel">Maximum increment (magnitude), m/rad</system:String>
+    <system:String x:Key="FemPathControlTargetDisplacementLabel">Target displacement, m/rad</system:String>
+    <system:String x:Key="FemPathControlTargetDisplacementTip">Absolute node displacement value, not an increment relative to the stage start. Unit depends on the selected DOF: m for Ux/Uy/Uz, rad for Rx/Ry/Rz.</system:String>
     <system:String x:Key="FemPathControlMaxStepsLabel">Maximum number of steps</system:String>
-    <system:String x:Key="FemPathControlArcLengthSLabel">Arc length step s</system:String>
+    <system:String x:Key="FemPathControlArcLengthSLabel">Arc length step s, m/rad</system:String>
     <system:String x:Key="FemPathControlArcLengthAlphaLabel">Alpha coefficient</system:String>
-    <system:String x:Key="FemPathControlArcLengthMinSLabel">Minimum arc length step</system:String>
+    <system:String x:Key="FemPathControlArcLengthMinSLabel">Minimum arc length step, m/rad</system:String>
     <system:String x:Key="FemPathControlMonitorNodeLabel">Monitor node</system:String>
     <system:String x:Key="FemPathControlMonitorNodeTip">Used only to build the λ–u chart in results, not as a controlling DOF.</system:String>
     <system:String x:Key="FemPathControlInvalidFields">Fill in all fields with valid numeric values.</system:String>
@@ -1577,6 +1577,9 @@
     <system:String x:Key="FemElementFormulationDisp">dispBeamColumn (displacement-based, more robust)</system:String>
     <system:String x:Key="FemResultTabHistory">History</system:String>
     <system:String x:Key="FemResultStep">Step</system:String>
+    <system:String x:Key="FemResultStepAxisLabel">Step</system:String>
+    <system:String x:Key="FemResultLoadFactorAxisLabel">λ, load factor</system:String>
+    <system:String x:Key="FemResultControlDisplacementAxisLabel">Node displacement u, m/rad</system:String>
     <system:String x:Key="FemResultStepLabel">Step {0}/{1}, λ={2:F3} ({3})</system:String>
     <system:String x:Key="FemResultStepLabelStaged">Step {0}/{1}, λ={2:F3} ({3}), stage "{4}"</system:String>
     <system:String x:Key="FemResultStopReasonNoConvergence">Analysis stopped: convergence not reached</system:String>

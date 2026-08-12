@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows;
+using System.Windows.Controls;
 using CScore;
 using CScore.Fem;
 using OpenCS.OpenSees.CScore;
@@ -214,6 +215,12 @@ public partial class FemAnalysisDialog : Window
 
     void ConfigurePathControl_Click(object sender, RoutedEventArgs e)
     {
+        // Клик по кнопке в той же строке не проходит через обычную навигацию между ячейками
+        // DataGrid, поэтому только что выбранный в ComboBoxColumn режим может быть ещё не
+        // протолкнут в StageRow.PathControlMode — принудительно завершаем редактирование ячейки.
+        StagesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        StagesGrid.CommitEdit(DataGridEditingUnit.Row, true);
+
         if ((sender as FrameworkElement)?.Tag is not StageRow row) return;
         var dlg = new FemPathControlDialog(row, _nodes) { Owner = this };
         dlg.ShowDialog();
@@ -292,6 +299,9 @@ public partial class FemAnalysisDialog : Window
 
     void Ok_Click(object sender, RoutedEventArgs e)
     {
+        StagesGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        StagesGrid.CommitEdit(DataGridEditingUnit.Row, true);
+
         bool isNonlinear = KindNonlinearRadio.IsChecked == true;
 
         if (isNonlinear && _stages.Count == 0)
