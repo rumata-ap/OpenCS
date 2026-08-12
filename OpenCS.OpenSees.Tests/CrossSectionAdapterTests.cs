@@ -262,4 +262,32 @@ public sealed class CrossSectionAdapterTests
 
         Assert.Contains("стальной", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void Adapter_uses_configured_sp63_descending_branch()
+    {
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+        section.Areas[0].DiagrammType = DiagrammType.SP63;
+        foreach (var calc in Enum.GetValues<CalcType>())
+            concrete.GetChars(calc)!.Et1 = 0.00005;
+
+        var options = new CrossSectionToOpenSeesAdapter.Options
+        {
+            ConsiderConcreteTension = false,
+            Sp63EtaMin = 0.2
+        };
+
+        var model = CrossSectionToOpenSeesAdapter.Build(
+            section,
+            CalcType.C,
+            CrossSectionFixtures.Materials(concrete, steel),
+            customPool: null,
+            options: options);
+
+        var actualMinStrain = Assert.Single(model.Materials, m => m.SourceId == concrete.Id.ToString())
+            .NegativeEnvelope.Min(point => point.Strain);
+        var expectedMinStrain = concrete.GetDiagramms(DiagrammType.SP63, 0.2)![CalcType.C].Ic!.X.Min();
+
+        Assert.Equal(expectedMinStrain, actualMinStrain, 12);
+    }
 }

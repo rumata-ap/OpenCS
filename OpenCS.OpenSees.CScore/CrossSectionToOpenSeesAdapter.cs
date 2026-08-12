@@ -46,6 +46,11 @@ public static class CrossSectionToOpenSeesAdapter
         /// <see cref="MaterialSource"/>/<see cref="MainMaterialModel"/>/<see cref="SteelModel"/>/
         /// <see cref="ConsiderConcreteTension"/>.</summary>
         public bool ConsiderPhysicalNonlinearity { get; init; } = true;
+
+        /// <summary>Минимальное отношение напряжения к пиковому на ниспадающей ветви
+        /// криволинейной диаграммы бетона СП 63.13330. Применяется только к
+        /// <see cref="DiagrammType.SP63"/>.</summary>
+        public double Sp63EtaMin { get; init; } = 0.85;
     }
 
     /// <summary>Строит модель из уже подготовленных фибр без изменения исходного сечения.</summary>
@@ -95,7 +100,7 @@ public static class CrossSectionToOpenSeesAdapter
                 OpenSeesMaterialDefinition definition;
                 try
                 {
-                    Diagramm diagram = ResolveDiagram(area, material, calc, customPool);
+                    Diagramm diagram = ResolveDiagram(area, material, calc, customPool, options.Sp63EtaMin);
                     bool isReinforcement = area.HostAreaId is not null;
                     NativeMaterialSpec? native = options.MaterialSource == MaterialSource.Native
                         ? NativeMaterialMapper.Map(
@@ -281,7 +286,8 @@ public static class CrossSectionToOpenSeesAdapter
         MaterialArea area,
         Material material,
         CalcType calc,
-        IReadOnlyList<Diagramm>? customPool)
+        IReadOnlyList<Diagramm>? customPool,
+        double sp63EtaMin)
     {
         try
         {
@@ -294,7 +300,7 @@ public static class CrossSectionToOpenSeesAdapter
             }
             else
             {
-                diagrams = material.GetDiagramms(area.DiagrammType);
+                diagrams = material.GetDiagramms(area.DiagrammType, sp63EtaMin);
             }
 
             if (diagrams == null || !diagrams.TryGetValue(calc, out Diagramm? diagram))

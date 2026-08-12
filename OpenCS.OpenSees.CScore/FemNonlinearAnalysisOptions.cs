@@ -41,4 +41,6 @@ public sealed record FemNonlinearAnalysisOptions(
     // (см. CrossSectionToOpenSeesAdapter.Options.ConsiderPhysicalNonlinearity) с приведёнными
     // (transformed) EA/EIy/EIz исходного контурного/фиброво заданного сечения. Геометрическая
     // нелинейность (GeomTransfKind) при этом не отключается.
-    bool ConsiderPhysicalNonlinearity = true);
+    bool ConsiderPhysicalNonlinearity = true,
+    // Минимальное отношение напряжения к пиковому на ниспадающей ветви бетона СП 63.13330.
+    double Sp63EtaMin = 0.85);

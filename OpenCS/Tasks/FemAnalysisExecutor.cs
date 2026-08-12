@@ -147,7 +147,8 @@ public static class FemAnalysisExecutor
             Enum.Parse<SteelModelKind>(parameters.SteelModel), parameters.SteelHardeningRatioOverride,
             calcSettings.OpenSeesMaxRefinementDepth, parameters.ElementFormulation, calcSettings.OpenSeesAlgorithm,
             calcSettings.OpenSeesRecordFiberStates, calcSettings.ResolveOpenSeesFiberStatesIntegrationPoints(),
-            parameters.ConsiderPhysicalNonlinearity);
+            parameters.ConsiderPhysicalNonlinearity,
+            calcSettings.Sp63DescEtaMin);
 
         var input = new FemNonlinearWorkflowInput(
             meshNodes, meshElems, sourceNodes, sourceMembers, stages,
