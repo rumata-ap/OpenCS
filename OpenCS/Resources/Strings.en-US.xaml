@@ -2196,4 +2196,10 @@
     <system:String x:Key="OpenSeesSpatialStatusNotConverged">Not converged</system:String>
     <system:String x:Key="OpenSeesSpatialStatusError">Error</system:String>
     <system:String x:Key="OpenSeesSpatialResultEmpty">No spatial result points.</system:String>
+    <system:String x:Key="FemResultShowSectionPoints">Show integration points</system:String>
+    <system:String x:Key="FemResultOpenSectionState">Open section state</system:String>
+    <system:String x:Key="FemSectionStateWindowTitle">Section state: member {0}, integration point {1} — {2}</system:String>
+    <system:String x:Key="FemSectionStateSummaryTitle">Member {0} · IP {1}</system:String>
+    <system:String x:Key="FemMemberForceSectionState">View section state</system:String>
+    <system:String x:Key="FemResultSectionIpMarker">IP {0}</system:String>
   </ResourceDictionary>
