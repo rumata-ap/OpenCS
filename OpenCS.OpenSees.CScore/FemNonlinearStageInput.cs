@@ -12,4 +12,7 @@ public sealed record FemNonlinearStageInput(
 {
     public IReadOnlyList<FemMemberLoad> MemberLoads { get; init; } = [];
     public IReadOnlyList<FemKinematicLoad> KinematicLoads { get; init; } = [];
+    /// <summary>Способ управления траекторией этой стадии; null → LoadControl без
+    /// continuation (совпадает с default FemPathControlInput).</summary>
+    public FemPathControlInput? PathControl { get; init; }
 }
