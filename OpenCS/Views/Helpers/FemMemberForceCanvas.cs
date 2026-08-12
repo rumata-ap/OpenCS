@@ -10,13 +10,24 @@ using OpenCS.Utilites;
 
 namespace OpenCS.Views.Helpers;
 
-/// <summary>2D-эпюра выбранной компоненты усилия вдоль одного конструктивного стержня.</summary>
+/// <summary>2D-эпюра выбранной компоненты усилия вдоль одного конструктивного стержня
+/// с маркерами точек интегрирования.</summary>
 public sealed class FemMemberForceCanvas : Canvas
 {
     /// <summary>Сегмент эпюры: дуговые координаты концов и значения усилия.</summary>
     public readonly record struct Segment(double S0, double S1, double V0, double V1);
 
+    /// <summary>Маркер точки интегрирования на эпюре.</summary>
+    public readonly record struct Marker(double S, bool Available, object Key, string Label);
+
+    /// <summary>Клик ЛКМ по маркеру ТИ.</summary>
+    public event Action<object>? MarkerClicked;
+    /// <summary>Клик ПКМ по маркеру ТИ (вызов контекстного меню).</summary>
+    public event Action<object>? MarkerContextMenuRequested;
+
     IReadOnlyList<Segment> _segments = [];
+    IReadOnlyList<Marker> _markers = [];
+    object? _selectedMarkerKey;
     string _title = "";
 
     private readonly Line _hoverLine;
@@ -41,6 +52,8 @@ public sealed class FemMemberForceCanvas : Canvas
 
         MouseMove += OnMouseMove;
         MouseLeave += OnMouseLeave;
+        MouseLeftButtonDown += OnMouseLeftButtonDown;
+        MouseRightButtonDown += OnMouseRightButtonDown;
     }
 
     /// <summary>Задаёт данные эпюры и перерисовывает.</summary>
@@ -48,6 +61,20 @@ public sealed class FemMemberForceCanvas : Canvas
     {
         _segments = segments ?? [];
         _title = title ?? "";
+        Redraw();
+    }
+
+    /// <summary>Задаёт маркеры точек интегрирования и перерисовывает.</summary>
+    public void SetMarkers(IReadOnlyList<Marker> markers)
+    {
+        _markers = markers ?? [];
+        Redraw();
+    }
+
+    /// <summary>Выделяет маркер с заданным ключом (null — снять выделение).</summary>
+    public void SelectMarker(object? key)
+    {
+        _selectedMarkerKey = key;
         Redraw();
     }
 
@@ -74,13 +101,13 @@ public sealed class FemMemberForceCanvas : Canvas
             ? _segments.SelectMany(s => new[] { System.Math.Abs(s.V0), System.Math.Abs(s.V1) }).DefaultIfEmpty(0).Max()
             : 0;
 
-        // Заголовок
         AddText(_title, _x0, 6, Brushes.Black, 13, true);
 
         if (_sSpan <= 1e-9 || _vMax <= 1e-12)
         {
             AddText(Loc.S("FemNoData"), _x0, _axisY - 8, Brushes.Gray, 12, false);
             DrawAxis(_x0, _x1, _axisY);
+            DrawMarkers();
             EnsureHoverOverlays();
             return;
         }
@@ -110,12 +137,64 @@ public sealed class FemMemberForceCanvas : Canvas
         }
 
         DrawAxis(_x0, _x1, _axisY);
+        DrawMarkers();
 
-        // Подписи экстремумов
         AddText(_vMax.ToString("G4", CultureInfo.InvariantCulture), _x1 - 60, MapY(_vMax) - 16, Brushes.Black, 11, false);
         AddText((-_vMax).ToString("G4", CultureInfo.InvariantCulture), _x1 - 60, MapY(-_vMax) + 2, Brushes.Black, 11, false);
 
         EnsureHoverOverlays();
+    }
+
+    void DrawMarkers()
+    {
+        if (_markers.Count == 0 || _sSpan <= 1e-9) return;
+        foreach (var m in _markers)
+        {
+            bool selected = Equals(_selectedMarkerKey, m.Key);
+            var brush = selected ? Brushes.OrangeRed : m.Available ? Brushes.SeaGreen : Brushes.Gray;
+            double size = selected ? 12 : 9;
+            double mx = _x0 + (m.S - _sMin) / _sSpan * (_x1 - _x0);
+            var ellipse = new Ellipse { Width = size, Height = size, Fill = brush };
+            SetLeft(ellipse, mx - size / 2);
+            SetTop(ellipse, _axisY - size / 2);
+            Children.Add(ellipse);
+        }
+    }
+
+    bool TryHitMarker(Point pos, out Marker marker)
+    {
+        foreach (var m in _markers)
+        {
+            if (_sSpan <= 1e-9) break;
+            double mx = _x0 + (m.S - _sMin) / _sSpan * (_x1 - _x0);
+            if (System.Math.Abs(pos.X - mx) <= 14 && System.Math.Abs(pos.Y - _axisY) <= 14)
+            {
+                marker = m;
+                return true;
+            }
+        }
+        marker = default;
+        return false;
+    }
+
+    void OnMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (TryHitMarker(e.GetPosition(this), out var marker))
+        {
+            _selectedMarkerKey = marker.Key;
+            Redraw();
+            MarkerClicked?.Invoke(marker.Key);
+        }
+    }
+
+    void OnMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (TryHitMarker(e.GetPosition(this), out var marker))
+        {
+            _selectedMarkerKey = marker.Key;
+            Redraw();
+            MarkerContextMenuRequested?.Invoke(marker.Key);
+        }
     }
 
     void EnsureHoverOverlays()
@@ -129,9 +208,20 @@ public sealed class FemMemberForceCanvas : Canvas
 
     void OnMouseMove(object sender, MouseEventArgs e)
     {
+        var pos = e.GetPosition(this);
+        if (TryHitMarker(pos, out var hovered))
+        {
+            _hoverLine.Visibility = Visibility.Collapsed;
+            _hoverZLabel.Visibility = Visibility.Collapsed;
+            _hoverVLabel.Text = hovered.Label;
+            double mx = _x0 + (hovered.S - _sMin) / _sSpan * (_x1 - _x0);
+            SetLeft(_hoverVLabel, mx + 8);
+            SetTop(_hoverVLabel, _axisY - 26);
+            _hoverVLabel.Visibility = Visibility.Visible;
+            return;
+        }
         if (_segments.Count == 0 || _sSpan <= 1e-9 || _vMax <= 1e-12) { HideHover(); return; }
 
-        var pos = e.GetPosition(this);
         if (pos.X < _x0 || pos.X > _x1 || pos.Y < 0 || pos.Y > ActualHeight)
         { HideHover(); return; }
 
