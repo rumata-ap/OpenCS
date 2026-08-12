@@ -414,4 +414,43 @@ public class FemNonlinearTclGeneratorTests
         Assert.True(stage1Index < step1 && step1 < pattern2);
         Assert.True(stage2Index < step2);
     }
+
+    [Fact]
+    public void Generate_AlwaysEmitsAdvanceDisplacementProc()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("proc advanceDisplacement {nodeTag dof targetDisp initIncr minIncr maxIncr maxSteps}", tcl);
+        Assert.Contains("integrator DisplacementControl $nodeTag $dof $incr 4 $dUmin $dUmax", tcl);
+        Assert.Contains("set lastPathControlReason", tcl);
+    }
+
+    [Fact]
+    public void Generate_AdvanceDisplacement_ChecksTargetReachedBeforeMaxSteps()
+    {
+        // Регрессия на исправленный приоритет target_reached над max_steps_reached: причина
+        // должна проверяться ПОСЛЕ выхода из цикла независимо от того, что его завершило.
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        int procIdx = tcl.IndexOf("proc advanceDisplacement", StringComparison.Ordinal);
+        Assert.True(procIdx >= 0);
+        string proc = tcl[procIdx..];
+        int targetReachedIdx = proc.IndexOf("set targetReached", StringComparison.Ordinal);
+        int maxStepsReachedIdx = proc.IndexOf("\"max_steps_reached\"", StringComparison.Ordinal);
+        Assert.True(targetReachedIdx >= 0 && targetReachedIdx < maxStepsReachedIdx,
+            "targetReached должен вычисляться до присвоения причины max_steps_reached");
+    }
+
+    [Fact]
+    public void Generate_AdvanceDisplacement_ZeroStepBranchSetsCorrectReason()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("zero_step_target_already_reached", tcl);
+    }
+
+    [Fact]
+    public void Generate_AdvanceDisplacement_SignedDUminDUmaxOrdering()
+    {
+        string tcl = new FemNonlinearTclGenerator().Generate(Console());
+        Assert.Contains("set dUmin [expr {$dir > 0 ? $minIncr : -$maxIncr}]", tcl);
+        Assert.Contains("set dUmax [expr {$dir > 0 ? $maxIncr : -$minIncr}]", tcl);
+    }
 }

@@ -219,6 +219,61 @@ public sealed class FemNonlinearTclGenerator
         L("}");
         L();
 
+        L("set lastPathControlReason \"\"");
+        L();
+        L("proc advanceDisplacement {nodeTag dof targetDisp initIncr minIncr maxIncr maxSteps} {");
+        L(model.RecordFiberStates
+            ? "    global stepIndex currentLambda currentStageIndex fiberStates lastPathControlReason"
+            : "    global stepIndex currentLambda currentStageIndex lastPathControlReason");
+        L("    set dispStart [nodeDisp $nodeTag $dof]");
+        L("    if {[expr {abs($targetDisp - $dispStart) < 1e-12}]} {");
+        L("        puts \"stage=$currentStageIndex DisplacementControl: target already reached at stage start (disp=$dispStart)\"");
+        L("        set lastPathControlReason \"zero_step_target_already_reached\"");
+        L("        return 1");
+        L("    }");
+        L("    set dir [expr {$targetDisp > $dispStart ? 1.0 : -1.0}]");
+        L("    set incr [expr {$dir * $initIncr}]");
+        // dUmin/dUmax упорядочены dUmin <= dUmax В ПОДПИСАННЫХ единицах — при dir=-1 это
+        // -maxIncr/-minIncr, а НЕ dir*minIncr/dir*maxIncr (тот порядок переворачивается).
+        L("    set dUmin [expr {$dir > 0 ? $minIncr : -$maxIncr}]");
+        L("    set dUmax [expr {$dir > 0 ? $maxIncr : -$minIncr}]");
+        L("    integrator DisplacementControl $nodeTag $dof $incr 4 $dUmin $dUmax");
+        L("    set steps 0");
+        L("    while {($dir > 0 ? [nodeDisp $nodeTag $dof] < $targetDisp : [nodeDisp $nodeTag $dof] > $targetDisp)");
+        L("           && $steps < $maxSteps} {");
+        L("        set rc [analyze 1]");
+        L("        if {$rc == 0} {");
+        L("            incr stepIndex");
+        L("            incr steps");
+        L("            set currentLambda [getTime]");
+        L("            writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 1 0]");
+        if (model.RecordFiberStates) EmitFiberStateWrites(L, model);
+        L("            continue");
+        L("        }");
+        L("        set incr [expr {$incr / 2.0}]");
+        L("        if {[expr {abs($incr) < $minIncr}]} {");
+        L("            incr stepIndex");
+        L("            puts \"step $stepIndex FAILED stage=$currentStageIndex lambda=$currentLambda reason=min_increment_reached\"");
+        L("            writeCloseOnWrite step_status.out [list $stepIndex $currentStageIndex $currentLambda 0 1 min_increment_reached]");
+        L("            set lastPathControlReason \"failed\"");
+        L("            return 0");
+        L("        }");
+        L("        integrator DisplacementControl $nodeTag $dof $incr 4 $dUmin $dUmax");
+        L("    }");
+        // Причина проверяется ПОСЛЕ цикла НЕЗАВИСИМО от того, какая часть условия while
+        // сработала — target_reached приоритетнее max_steps_reached, если оба истинны
+        // одновременно (последний разрешённый шаг попал точно в цель).
+        L("    set targetReached [expr {$dir > 0 ? [nodeDisp $nodeTag $dof] >= $targetDisp : [nodeDisp $nodeTag $dof] <= $targetDisp}]");
+        L("    if {$targetReached} {");
+        L("        set lastPathControlReason \"target_reached\"");
+        L("    } else {");
+        L("        puts \"stage=$currentStageIndex DisplacementControl reached maxSteps=$maxSteps before target (disp=[nodeDisp $nodeTag $dof])\"");
+        L("        set lastPathControlReason \"max_steps_reached\"");
+        L("    }");
+        L("    return 1");
+        L("}");
+        L();
+
         for (int stageIdx = 0; stageIdx < model.Stages.Count; stageIdx++)
         {
             var stage = model.Stages[stageIdx];
