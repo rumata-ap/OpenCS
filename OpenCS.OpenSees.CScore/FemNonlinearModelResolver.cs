@@ -190,11 +190,14 @@ public sealed class FemNonlinearModelResolver
                 kinematicLoads.Add(new FemLinearKinematicLoad(meshNode.Tag, load.Dof, load.Value));
             }
 
+            var resolvedPathControl = ResolvePathControl(stageInput.PathControl, stageInput.Tag, srcNodeById, meshNodeBySourceTag, errors);
+
             resolvedStages.Add(new FemNonlinearStage
             {
                 Tag = stageInput.Tag, Loads = loads, DistributedLoads = distributed.Loads,
                 PointLoads = points.ElementLoads, KinematicLoads = kinematicLoads,
-                LoadFactorStep = stageInput.LoadFactorStep, MaxLoadFactor = stageInput.MaxLoadFactor
+                LoadFactorStep = stageInput.LoadFactorStep, MaxLoadFactor = stageInput.MaxLoadFactor,
+                PathControl = resolvedPathControl
             });
         }
 
@@ -225,5 +228,68 @@ public sealed class FemNonlinearModelResolver
         try { model.Validate(); }
         catch (InvalidOperationException ex) { return new FemNonlinearResolveResult(null, [ex.Message]); }
         return new FemNonlinearResolveResult(model, []);
+    }
+
+    static FemPathControlSettings ResolvePathControl(
+        FemPathControlInput? input, string stageTag,
+        Dictionary<int, FemNode> srcNodeById, Dictionary<string, FemLinearNode> meshNodeBySourceTag,
+        List<string> errors)
+    {
+        if (input == null) return new FemPathControlSettings();
+
+        int errorsBefore = errors.Count;
+        FemDisplacementControlSettings? dc = input.DisplacementControl is { } dcIn
+            ? ResolveDisplacementControl(dcIn, stageTag, srcNodeById, meshNodeBySourceTag, errors) : null;
+        FemArcLengthSettings? al = input.ArcLength is { } alIn
+            ? ResolveArcLength(alIn, stageTag, srcNodeById, meshNodeBySourceTag, errors) : null;
+        FemDisplacementControlSettings? cdc = input.ContinueWithDisplacementControl is { } cdcIn
+            ? ResolveDisplacementControl(cdcIn, stageTag, srcNodeById, meshNodeBySourceTag, errors) : null;
+        FemArcLengthSettings? cal = input.ContinueWithArcLength is { } calIn
+            ? ResolveArcLength(calIn, stageTag, srcNodeById, meshNodeBySourceTag, errors) : null;
+
+        if (errors.Count > errorsBefore) return new FemPathControlSettings(); // ошибки уже собраны, значение не используется — Resolve вернёт !Ok
+
+        return new FemPathControlSettings(input.Mode, dc, al, input.ContinueWithMode, cdc, cal);
+    }
+
+    static FemDisplacementControlSettings? ResolveDisplacementControl(
+        FemDisplacementControlInput input, string stageTag,
+        Dictionary<int, FemNode> srcNodeById, Dictionary<string, FemLinearNode> meshNodeBySourceTag,
+        List<string> errors)
+    {
+        if (!TryResolveNodeTag(input.ControlNodeId, stageTag, srcNodeById, meshNodeBySourceTag, errors, out int meshTag))
+            return null;
+        return new FemDisplacementControlSettings(meshTag, input.ControlDof,
+            input.InitialIncrement, input.MinIncrement, input.MaxIncrement, input.TargetDisplacement, input.MaxSteps);
+    }
+
+    static FemArcLengthSettings? ResolveArcLength(
+        FemArcLengthInput input, string stageTag,
+        Dictionary<int, FemNode> srcNodeById, Dictionary<string, FemLinearNode> meshNodeBySourceTag,
+        List<string> errors)
+    {
+        if (!TryResolveNodeTag(input.MonitorNodeId, stageTag, srcNodeById, meshNodeBySourceTag, errors, out int meshTag))
+            return null;
+        return new FemArcLengthSettings(input.S, input.Alpha, input.MinS, input.MaxSteps, meshTag, input.MonitorDof);
+    }
+
+    static bool TryResolveNodeTag(
+        int nodeId, string stageTag,
+        Dictionary<int, FemNode> srcNodeById, Dictionary<string, FemLinearNode> meshNodeBySourceTag,
+        List<string> errors, out int meshTag)
+    {
+        meshTag = 0;
+        if (!srcNodeById.TryGetValue(nodeId, out var srcNode))
+        {
+            errors.Add($"Стадия «{stageTag}»: узел управления траекторией ссылается на неизвестный конструктивный узел {nodeId}.");
+            return false;
+        }
+        if (srcNode.NodeTag is not { Length: > 0 } srcTag || !meshNodeBySourceTag.TryGetValue(srcTag, out var meshNode))
+        {
+            errors.Add($"Стадия «{stageTag}»: узел управления траекторией {srcNode.NodeTag} не имеет совпадающего узла сетки.");
+            return false;
+        }
+        meshTag = meshNode.Tag;
+        return true;
     }
 }
