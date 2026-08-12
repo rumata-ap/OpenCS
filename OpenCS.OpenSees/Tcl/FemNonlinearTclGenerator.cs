@@ -316,6 +316,9 @@ public sealed class FemNonlinearTclGenerator
             {
                 // Стадия >0 выполняется только если все предыдущие стадии сошлись; loadConst
                 // фиксирует накопленное НДС перед активацией добавочной нагрузки этой стадии.
+                // Пропущенная (не выполненная) стадия всё равно обязана получить свою запись
+                // в path_control_stage_status.out — иначе инвариант "ровно одна запись на
+                // каждый индекс стадии модели" нарушается для незавершённого расчёта.
                 L("if {!$analysisFailed} {");
                 L($"{indent}loadConst -time 0.0");
             }
@@ -342,19 +345,93 @@ public sealed class FemNonlinearTclGenerator
             foreach (var ld in stage.KinematicLoads)
                 L($"{indent}    sp {ld.NodeTag} {ld.Dof} {F(ld.Value)}");
             L($"{indent}}}");
-            L($"{indent}set currentLambda 0.0");
-            L($"{indent}while {{$currentLambda < $maxLoadFactor - 1.0e-12}} {{");
-            L($"{indent}    set targetLambda [expr {{min($currentLambda + $loadFactorStep, $maxLoadFactor)}}]");
-            L($"{indent}    set fromLambda $currentLambda");
-            L($"{indent}    if {{![advanceTo $fromLambda $targetLambda 0]}} {{");
-            L($"{indent}        set currentLambda [getTime]");
-            L($"{indent}        puts \"step [expr {{$stepIndex + 1}}] FAILED stage=$currentStageIndex lambda=$currentLambda\"");
-            L($"{indent}        writeCloseOnWrite step_status.out [list [expr {{$stepIndex + 1}}] $currentStageIndex $currentLambda 0 1]");
-            L($"{indent}        set analysisFailed 1");
-            L($"{indent}        break");
-            L($"{indent}    }}");
-            L($"{indent}}}");
-            if (guarded) L("}");
+
+            var pc = stage.PathControl;
+            switch (pc.Mode)
+            {
+                case FemPathControlMode.DisplacementControl:
+                {
+                    var dc = pc.DisplacementControl!;
+                    L($"{indent}set pcOk [advanceDisplacement {dc.ControlNodeTag} {dc.ControlDof} {F(dc.TargetDisplacement)} {F(dc.InitialIncrement)} {F(dc.MinIncrement)} {F(dc.MaxIncrement)} {dc.MaxSteps}]");
+                    L($"{indent}if {{$pcOk}} {{");
+                    L($"{indent}    writeCloseOnWrite path_control_stage_status.out [list {stageIdx} $lastPathControlReason]");
+                    L($"{indent}}} else {{");
+                    L($"{indent}    writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"failed\"]");
+                    L($"{indent}    set analysisFailed 1");
+                    L($"{indent}}}");
+                    break;
+                }
+                case FemPathControlMode.ArcLength:
+                {
+                    var al = pc.ArcLength!;
+                    L($"{indent}set pcOk [advanceArcLength {F(al.S)} {F(al.Alpha)} {F(al.MinS)} {al.MaxSteps}]");
+                    L($"{indent}if {{$pcOk}} {{");
+                    L($"{indent}    writeCloseOnWrite path_control_stage_status.out [list {stageIdx} $lastPathControlReason]");
+                    L($"{indent}}} else {{");
+                    L($"{indent}    writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"failed\"]");
+                    L($"{indent}    set analysisFailed 1");
+                    L($"{indent}}}");
+                    break;
+                }
+                case FemPathControlMode.LoadControl: // возможно с continuation
+                {
+                    L($"{indent}set currentLambda 0.0");
+                    L($"{indent}set stageOk 1");
+                    L($"{indent}while {{$currentLambda < $maxLoadFactor - 1.0e-12}} {{");
+                    L($"{indent}    set targetLambda [expr {{min($currentLambda + $loadFactorStep, $maxLoadFactor)}}]");
+                    L($"{indent}    set fromLambda $currentLambda");
+                    L($"{indent}    if {{![advanceTo $fromLambda $targetLambda 0]}} {{");
+                    L($"{indent}        set currentLambda [getTime]");
+                    if (pc.ContinueWithMode is { } continueMode)
+                    {
+                        L($"{indent}        set switchAtStep [expr {{$stepIndex + 1}}]");
+                        L($"{indent}        writeCloseOnWrite path_control_switches.out [list {stageIdx} $switchAtStep]");
+                        L($"{indent}        puts \"stage={stageIdx} switching to {continueMode} at lambda=$currentLambda\"");
+                        if (continueMode == FemPathControlMode.DisplacementControl)
+                        {
+                            var cdc = pc.ContinueWithDisplacementControl!;
+                            L($"{indent}        set pcOk [advanceDisplacement {cdc.ControlNodeTag} {cdc.ControlDof} {F(cdc.TargetDisplacement)} {F(cdc.InitialIncrement)} {F(cdc.MinIncrement)} {F(cdc.MaxIncrement)} {cdc.MaxSteps}]");
+                        }
+                        else
+                        {
+                            var cal = pc.ContinueWithArcLength!;
+                            L($"{indent}        set pcOk [advanceArcLength {F(cal.S)} {F(cal.Alpha)} {F(cal.MinS)} {cal.MaxSteps}]");
+                        }
+                        L($"{indent}        if {{$pcOk}} {{");
+                        L($"{indent}            writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"continuation_$lastPathControlReason\"]");
+                        L($"{indent}        }} else {{");
+                        L($"{indent}            writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"failed\"]");
+                        L($"{indent}            set analysisFailed 1");
+                        L($"{indent}        }}");
+                    }
+                    else
+                    {
+                        L($"{indent}        puts \"step [expr {{$stepIndex + 1}}] FAILED stage=$currentStageIndex lambda=$currentLambda\"");
+                        L($"{indent}        writeCloseOnWrite step_status.out [list [expr {{$stepIndex + 1}}] $currentStageIndex $currentLambda 0 1 no_convergence]");
+                        L($"{indent}        writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"failed\"]");
+                        L($"{indent}        set analysisFailed 1");
+                    }
+                    L($"{indent}        set stageOk 0");
+                    L($"{indent}        break");
+                    L($"{indent}    }}");
+                    L($"{indent}}}");
+                    L($"{indent}if {{$stageOk}} {{ writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"load_control_completed\"] }}");
+                    break;
+                }
+                default:
+                    // Enum.IsDefined уже отклоняет неопределённые значения FemPathControlMode
+                    // в FemNonlinearModel.Validate() (вызывается первой строкой Generate()) —
+                    // эта ветка недостижима при штатном вызове, но остаётся явной
+                    // defense-in-depth проверкой, а не молчаливым фолбэком на LoadControl.
+                    throw new InvalidOperationException($"Стадия «{stage.Tag}»: неизвестный режим управления траекторией «{pc.Mode}».");
+            }
+
+            if (guarded)
+            {
+                L("} else {");
+                L($"    writeCloseOnWrite path_control_stage_status.out [list {stageIdx} \"not_run_due_to_previous_failure\"]");
+                L("}");
+            }
             L();
         }
         if (model.RecordFiberStates) L("close $fiberStates");
