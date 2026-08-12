@@ -344,9 +344,27 @@ public sealed class FemNonlinearTclGenerator
                 L($"{indent}    eleLoad -ele {ld.ElementTag} -type -beamPoint {F(ld.Py)} {F(ld.Pz)} {F(ld.XOverL)} {F(ld.Px)}");
             foreach (var ld in stage.KinematicLoads)
                 L($"{indent}    sp {ld.NodeTag} {ld.Dof} {F(ld.Value)}");
-            L($"{indent}}}");
 
             var pc = stage.PathControl;
+            // integrator DisplacementControl/ArcLength требует НЕНУЛЕВОЙ референсной нагрузки
+            // в активном паттерне ("DisplacementControl::domainChanged() - zero reference load"/
+            // "ArcLength::domainChanged() - zero reference load" — оба падают с ошибкой ДО первого
+            // analyze(), если пользователь не задал ни одной нагрузки для этой стадии). Явный
+            // единичный референс-load в направлении control/monitor DOF гарантирует ненулевую
+            // референсную нагрузку независимо от stage.Loads; знак не важен — фактическое
+            // направление продвижения задаёт подписанный incr в advanceDisplacement (см. Task 5),
+            // а не знак референсной нагрузки. Добавляется и для continuation (ContinueWithMode) —
+            // паттерн стадии создаётся один раз в начале и переиспользуется при переключении,
+            // так что референс должен быть готов заранее, а не только при отказе LoadControl.
+            if (pc.Mode == FemPathControlMode.DisplacementControl)
+                L($"{indent}    load {pc.DisplacementControl!.ControlNodeTag} {ReferenceLoadVector(pc.DisplacementControl.ControlDof)}");
+            else if (pc.Mode == FemPathControlMode.ArcLength)
+                L($"{indent}    load {pc.ArcLength!.MonitorNodeTag} {ReferenceLoadVector(pc.ArcLength.MonitorDof)}");
+            if (pc.ContinueWithMode == FemPathControlMode.DisplacementControl)
+                L($"{indent}    load {pc.ContinueWithDisplacementControl!.ControlNodeTag} {ReferenceLoadVector(pc.ContinueWithDisplacementControl.ControlDof)}");
+            else if (pc.ContinueWithMode == FemPathControlMode.ArcLength)
+                L($"{indent}    load {pc.ContinueWithArcLength!.MonitorNodeTag} {ReferenceLoadVector(pc.ContinueWithArcLength.MonitorDof)}");
+            L($"{indent}}}");
             switch (pc.Mode)
             {
                 case FemPathControlMode.DisplacementControl:
@@ -496,4 +514,10 @@ public sealed class FemNonlinearTclGenerator
     static bool IsFullUniform(FemLinearDistributedLoad load) =>
         load.AOverL == 0 && load.BOverL == 1 &&
         load.WyStart == load.WyEnd && load.WzStart == load.WzEnd && load.WxStart == load.WxEnd;
+
+    /// <summary>Шесть компонент узловой нагрузки (Fx Fy Fz Mx My Mz) с единицей в позиции
+    /// dof (1-based) и нулями в остальных — референсная нагрузка для DisplacementControl/
+    /// ArcLength (см. вызывающий код).</summary>
+    static string ReferenceLoadVector(int dof) =>
+        string.Join(' ', Enumerable.Range(1, 6).Select(i => i == dof ? "1.0" : "0.0"));
 }

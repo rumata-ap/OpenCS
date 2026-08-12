@@ -8,6 +8,7 @@ using OpenCS.OpenSees.Services;
 using OpenCS.OpenSees.Structural;
 using OpenCS.OpenSees.Tcl;
 using OpenCS.OpenSees.Tests.Fixtures;
+using OpenCS.ViewModels;
 using Xunit;
 
 namespace OpenCS.OpenSees.Tests;
@@ -406,6 +407,290 @@ public sealed class FemNonlinearIntegrationTests
             Assert.InRange(beamMomentAfterStage1, -1, 1);
             Assert.True(System.Math.Abs(beamMomentAfterStage2) > 1000,
                 $"Момент ригеля после стадии 2 должен быть заметно ненулевым, получено {beamMomentAfterStage2}");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Cantilever_DisplacementControl_ReachesTargetExactlyOnLastAllowedStep()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string root = Path.Combine(Path.GetTempPath(), "opencs-fem-nonlinear-dc-target", Guid.NewGuid().ToString("N"));
+
+        var baseSection = CrossSectionFixtures.SymmetricElasticSection();
+        var section = new OpenSeesSectionModel { Materials = baseSection.Materials, Fibers = baseSection.Fibers, GJ = 1e6 };
+        var model = new FemNonlinearModel
+        {
+            Nodes =
+            [
+                new FemLinearNode(1, 0, 0, 0, [true, true, true, true, true, true]),
+                new FemLinearNode(2, 2.0, 0, 0, new bool[6]),
+            ],
+            Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = section },
+            Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1",
+                PathControl = new FemPathControlSettings(FemPathControlMode.DisplacementControl,
+                    DisplacementControl: new FemDisplacementControlSettings(
+                        ControlNodeTag: 2, ControlDof: 3,
+                        InitialIncrement: 1e-5, MinIncrement: 1e-5, MaxIncrement: 1e-5,
+                        TargetDisplacement: -0.000095, MaxSteps: 10))
+            }],
+            GeomTransfKind = "Linear",
+            Policy = new NonlinearAnalysisPolicy { RefinementDivisions = 10, Tolerance = 1e-10, MaxIterations = 30 }
+        };
+
+        try
+        {
+            var result = await new FemNonlinearAnalysisService(
+                new FemNonlinearTclGenerator(), new OpenSeesProcessRunner(),
+                new OpenSeesArtifactStore(root), new FemNonlinearResultParser())
+                .RunAsync(model, new OpenSeesRunRequest
+                {
+                    ExecutablePath = executable, WorkingDirectory = Path.GetTempPath(), Timeout = TimeSpan.FromSeconds(30)
+                }, CancellationToken.None);
+
+            Assert.True(result.Status == "ok", $"status={result.Status}; diagnostics={string.Join(" | ", result.Diagnostics)}");
+            Assert.Equal(10, result.Steps.Count);
+            Assert.All(result.Steps, s => Assert.True(s.Converged));
+
+            double finalUz = result.Steps[^1].Displacements.Single(d => d.NodeTag == 2).Uz;
+            Assert.InRange(finalUz, -0.0001001, -0.0000999);
+
+            var completion = Assert.Single(result.StageCompletions);
+            Assert.Equal("target_reached", completion.Reason);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Cantilever_ArcLength_ReachesMaxStepsWithExactReasonAndStepCount()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string root = Path.Combine(Path.GetTempPath(), "opencs-fem-nonlinear-al-maxsteps", Guid.NewGuid().ToString("N"));
+
+        var baseSection = CrossSectionFixtures.SymmetricElasticSection();
+        var section = new OpenSeesSectionModel { Materials = baseSection.Materials, Fibers = baseSection.Fibers, GJ = 1e6 };
+        var model = new FemNonlinearModel
+        {
+            Nodes =
+            [
+                new FemLinearNode(1, 0, 0, 0, [true, true, true, true, true, true]),
+                new FemLinearNode(2, 2.0, 0, 0, new bool[6]),
+            ],
+            Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = section },
+            Elements = [new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1))],
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1",
+                PathControl = new FemPathControlSettings(FemPathControlMode.ArcLength,
+                    ArcLength: new FemArcLengthSettings(S: 1e-5, Alpha: 1.0, MinS: 1e-7, MaxSteps: 5, MonitorNodeTag: 2, MonitorDof: 3))
+            }],
+            GeomTransfKind = "Linear",
+            Policy = new NonlinearAnalysisPolicy { RefinementDivisions = 10, Tolerance = 1e-10, MaxIterations = 30 }
+        };
+
+        try
+        {
+            var result = await new FemNonlinearAnalysisService(
+                new FemNonlinearTclGenerator(), new OpenSeesProcessRunner(),
+                new OpenSeesArtifactStore(root), new FemNonlinearResultParser())
+                .RunAsync(model, new OpenSeesRunRequest
+                {
+                    ExecutablePath = executable, WorkingDirectory = Path.GetTempPath(), Timeout = TimeSpan.FromSeconds(30)
+                }, CancellationToken.None);
+
+            Assert.True(result.Status == "ok", $"status={result.Status}; diagnostics={string.Join(" | ", result.Diagnostics)}");
+            Assert.Equal(5, result.Steps.Count);
+            Assert.All(result.Steps, s => Assert.True(s.Converged));
+            var completion = Assert.Single(result.StageCompletions);
+            Assert.Equal("max_steps_reached", completion.Reason);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ContinuousBeam_LoadControlContinuationToDisplacementControl_ActuallySwitches()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string root = Path.Combine(Path.GetTempPath(), "opencs-fem-nonlinear-continuation", Guid.NewGuid().ToString("N"));
+
+        // Тот же трескающийся бетон, что ContinuousBeam_KinematicMidspanDisplacement_CracksButConverges.
+        var concrete = new OpenSeesMaterialDefinition
+        {
+            Tag = 1,
+            NegativeEnvelope =
+            [
+                new EnvelopePoint(-0.0035, -14_511_250), new EnvelopePoint(-0.003125, -14_500_000),
+                new EnvelopePoint(-0.00275, -14_500_000), new EnvelopePoint(-0.002375, -14_500_000),
+                new EnvelopePoint(-0.002, -14_500_000), new EnvelopePoint(-0.0015725, -13_050_000),
+                new EnvelopePoint(-0.001145, -11_600_000), new EnvelopePoint(-0.0007175, -10_150_000),
+                new EnvelopePoint(-0.00029, -8_700_000), new EnvelopePoint(-0.0002175, -6_525_000),
+                new EnvelopePoint(-0.000145, -4_350_000), new EnvelopePoint(-0.0000725, -2_175_000),
+                new EnvelopePoint(0, 0)
+            ],
+            PositiveEnvelope =
+            [
+                new EnvelopePoint(0, 0), new EnvelopePoint(0.0000525, 157_500),
+                new EnvelopePoint(0.000105, 315_000), new EnvelopePoint(0.0001575, 472_500),
+                new EnvelopePoint(0.00021, 630_000), new EnvelopePoint(0.0004075, 735_000),
+                new EnvelopePoint(0.000605, 840_000), new EnvelopePoint(0.0008025, 945_000),
+                new EnvelopePoint(0.001, 1_050_000), new EnvelopePoint(0.001125, 1_050_000),
+                new EnvelopePoint(0.00125, 1_050_000), new EnvelopePoint(0.001375, 1_050_000),
+                new EnvelopePoint(0.0015, 1_050_375)
+            ]
+        };
+        var section = new OpenSeesSectionModel
+        {
+            Materials = [concrete],
+            Fibers =
+            [
+                new OpenSeesFiber(-0.5, -0.5, 0.25, 1), new OpenSeesFiber(-0.5, 0.5, 0.25, 1),
+                new OpenSeesFiber(0.5, -0.5, 0.25, 1), new OpenSeesFiber(0.5, 0.5, 0.25, 1)
+            ],
+            GJ = 1e6
+        };
+        var model = new FemNonlinearModel
+        {
+            Nodes =
+            [
+                new FemLinearNode(1, 0, 0, 0, [true, true, true, true, false, true]),
+                new FemLinearNode(2, 3, 0, 0, new bool[6]),
+                new FemLinearNode(3, 6, 0, 0, [false, true, true, true, false, true]),
+                new FemLinearNode(4, 9, 0, 0, new bool[6]),
+                new FemLinearNode(5, 12, 0, 0, [false, true, true, true, false, true]),
+            ],
+            Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = section },
+            Elements =
+            [
+                new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
+                new FemNonlinearElement(2, 2, 3, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
+                new FemNonlinearElement(3, 3, 4, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
+                new FemNonlinearElement(4, 4, 5, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
+            ],
+            // Узловая сила вниз в серединах пролётов вместо кинематического sp — освобождает
+            // DOF 3 узлов 2/4 для DisplacementControl continuation.
+            Stages = [new FemNonlinearStage
+            {
+                Tag = "Стадия 1",
+                Loads = [new FemLinearNodalLoad(2, 0, 0, -400_000, 0, 0, 0), new FemLinearNodalLoad(4, 0, 0, -400_000, 0, 0, 0)],
+                // Один грубый шаг на всю нагрузку, минимальное дробление — заведомо недостаточно
+                // для того же сечения, которое известно сходится при LoadFactorStep=0.1.
+                LoadFactorStep = 1.0, MaxLoadFactor = 1.0,
+                PathControl = new FemPathControlSettings(FemPathControlMode.LoadControl,
+                    ContinueWithMode: FemPathControlMode.DisplacementControl,
+                    ContinueWithDisplacementControl: new FemDisplacementControlSettings(
+                        ControlNodeTag: 2, ControlDof: 3,
+                        InitialIncrement: 0.0005, MinIncrement: 0.00005, MaxIncrement: 0.002,
+                        TargetDisplacement: -0.02, MaxSteps: 200))
+            }],
+            GeomTransfKind = "Linear",
+            Policy = new NonlinearAnalysisPolicy
+            {
+                RefinementDivisions = 2, MaxRefinementDepth = 1, Tolerance = 1e-6, MaxIterations = 50
+            }
+        };
+
+        try
+        {
+            var result = await new FemNonlinearAnalysisService(
+                new FemNonlinearTclGenerator(), new OpenSeesProcessRunner(),
+                new OpenSeesArtifactStore(root), new FemNonlinearResultParser())
+                .RunAsync(model, new OpenSeesRunRequest
+                {
+                    ExecutablePath = executable, WorkingDirectory = Path.GetTempPath(), Timeout = TimeSpan.FromSeconds(60)
+                }, CancellationToken.None);
+
+            Assert.True(result.Status == "ok", $"status={result.Status}; diagnostics={string.Join(" | ", result.Diagnostics)}");
+
+            // Ключевая проверка: continuation ДЕЙСТВИТЕЛЬНО сработал, а не "LoadControl случайно
+            // сошёлся и до переключения не дошло".
+            Assert.NotEmpty(result.PathControlSwitches);
+            var completion = Assert.Single(result.StageCompletions);
+            Assert.StartsWith("continuation_", completion.Reason);
+
+            Assert.DoesNotContain(result.Steps, s => !s.Converged);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task LShapedFrame_TwoDirectDisplacementControlStagesDifferentNodes_ProducesTwoSegments()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string root = Path.Combine(Path.GetTempPath(), "opencs-fem-nonlinear-dc-segments", Guid.NewGuid().ToString("N"));
+
+        var baseSection = CrossSectionFixtures.SymmetricElasticSection();
+        var section = new OpenSeesSectionModel { Materials = baseSection.Materials, Fibers = baseSection.Fibers, GJ = 1e6 };
+        var model = new FemNonlinearModel
+        {
+            Nodes =
+            [
+                new FemLinearNode(1, 0, 0, 0, [true, true, true, true, true, true]),
+                new FemLinearNode(2, 0, 0, 3, new bool[6]),
+                new FemLinearNode(3, 3, 0, 3, new bool[6]),
+            ],
+            Sections = new Dictionary<int, OpenSeesSectionModel> { [1] = section },
+            Elements =
+            [
+                new FemNonlinearElement(1, 1, 2, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 1, 0)),
+                new FemNonlinearElement(2, 2, 3, SectionTag: 1, NumIntegrationPoints: 5, Vecxz: (0, 0, 1)),
+            ],
+            Stages =
+            [
+                new FemNonlinearStage
+                {
+                    Tag = "Стадия 1: узел 2",
+                    PathControl = new FemPathControlSettings(FemPathControlMode.DisplacementControl,
+                        DisplacementControl: new FemDisplacementControlSettings(2, 3, 1e-5, 1e-5, 1e-5, -0.0001, 10))
+                },
+                new FemNonlinearStage
+                {
+                    // Узел 3 связан с узлом 2 жёсткой рамой (короткий пролёт 3 м) — при push
+                    // узла 2 вниз узел 3 почти повторяет то же перемещение через изгибную
+                    // податливость ригеля. Цель стадии 2 взята заметно больше (-0.001 против
+                    // -0.0001 стадии 1), чтобы она НЕ оказалась уже достигнутой одним лишь
+                    // эффектом связанности стадии 1 (иначе стадия 2 делала бы 0 шагов —
+                    // zero_step_target_already_reached — и сегментировать было бы нечего).
+                    Tag = "Стадия 2: узел 3",
+                    PathControl = new FemPathControlSettings(FemPathControlMode.DisplacementControl,
+                        DisplacementControl: new FemDisplacementControlSettings(3, 3, 1e-5, 1e-5, 1e-5, -0.001, 200))
+                },
+            ],
+            GeomTransfKind = "Linear",
+            Policy = new NonlinearAnalysisPolicy { RefinementDivisions = 10, Tolerance = 1e-10, MaxIterations = 30 }
+        };
+
+        try
+        {
+            var result = await new FemNonlinearAnalysisService(
+                new FemNonlinearTclGenerator(), new OpenSeesProcessRunner(),
+                new OpenSeesArtifactStore(root), new FemNonlinearResultParser())
+                .RunAsync(model, new OpenSeesRunRequest
+                {
+                    ExecutablePath = executable, WorkingDirectory = Path.GetTempPath(), Timeout = TimeSpan.FromSeconds(30)
+                }, CancellationToken.None);
+
+            Assert.True(result.Status == "ok", $"status={result.Status}; diagnostics={string.Join(" | ", result.Diagnostics)}");
+            Assert.Equal(2, result.StageCompletions.Count);
+            Assert.All(result.StageCompletions, c => Assert.Equal("target_reached", c.Reason));
+
+            var points = ControlDisplacementPointsBuilder.Build(result.Steps, result.StagePathControls, result.PathControlSwitches);
+            var segmentIds = points.Where(p => double.IsFinite(p.X)).Select(p => p.SegmentId).Distinct().ToList();
+            Assert.True(segmentIds.Count >= 2, "две стадии с разными control-узлами должны дать минимум два разных сегмента графика");
         }
         finally
         {
