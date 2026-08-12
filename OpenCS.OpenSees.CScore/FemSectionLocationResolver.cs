@@ -13,6 +13,7 @@ public sealed record FemSectionLocationRow(
     double PositionFromMemberStartM,
     double MemberLengthM,
     double RelativePosition,
+    double ElementLocalNormalized,
     bool IsStateAvailable);
 
 /// <summary>Строит каталог fiber-сечений по mesh-элементам и фактическим положениям OpenSees.</summary>
@@ -75,6 +76,8 @@ public sealed class FemSectionLocationResolver
                 if (!locationsByElement.TryGetValue(segment.ElementTag, out var locations)) continue;
                 foreach (var location in locations)
                 {
+                    double elementLocalNormalized =
+                        Math.Clamp(location.DistanceFromElementStartM / segment.Length, 0, 1);
                     double localDistance = Math.Clamp(location.DistanceFromElementStartM, 0, segment.Length);
                     if (reversed) localDistance = segment.Length - localDistance;
                     double position = start + localDistance;
@@ -86,6 +89,7 @@ public sealed class FemSectionLocationResolver
                         position,
                         memberLength,
                         memberLength > 0 ? position / memberLength : 0,
+                        elementLocalNormalized,
                         availableStates.Contains((segment.ElementTag, location.IntegrationPoint))));
                 }
             }

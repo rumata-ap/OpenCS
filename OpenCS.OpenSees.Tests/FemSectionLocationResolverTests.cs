@@ -41,6 +41,8 @@ public sealed class FemSectionLocationResolverTests
         Assert.Equal(2.0, rows[0].MemberLengthM, 8);
         Assert.Equal(0.25, rows[0].RelativePosition, 8);
         Assert.Equal(0.75, rows[1].RelativePosition, 8);
+        Assert.Equal(0.5, rows[0].ElementLocalNormalized, 8);
+        Assert.Equal(0.5, rows[1].ElementLocalNormalized, 8);
     }
 
     [Fact]
@@ -70,5 +72,34 @@ public sealed class FemSectionLocationResolverTests
 
         Assert.Equal(0.75, row.PositionFromMemberStartM, 8);
         Assert.Equal(0.75, row.RelativePosition, 8);
+        Assert.Equal(0.25, row.ElementLocalNormalized, 8);
+    }
+
+    [Fact]
+    public void Resolve_DistanceBeyondElementLength_ClampsElementLocalNormalized()
+    {
+        var nodes = new List<FemMeshNode>
+        {
+            new() { NodeTag = "1", X = 0 },
+            new() { NodeTag = "2", X = 1 }
+        };
+        var elements = new List<FemElement>
+        {
+            new() { ElemTag = "10", NodeIdsJson = "[1,2]", SourceMemberTag = "M" }
+        };
+        var members = new List<FemMember>
+        {
+            new() { ElemTag = "M", NodeIdsJson = "[1,2]" }
+        };
+        var locations = new List<FemNonlinearSectionLocation>
+        {
+            new(10, 1, 1, 5, 2.5, 1.0, 2.5)
+        };
+
+        var row = Assert.Single(new FemSectionLocationResolver().Resolve(
+            nodes, elements, members, locations,
+            new HashSet<(int ElementTag, int IntegrationPoint)> { (10, 1) }));
+
+        Assert.Equal(1.0, row.ElementLocalNormalized, 8);
     }
 }
