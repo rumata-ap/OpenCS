@@ -519,7 +519,7 @@ public static class PlanarConstraintDeriver
     static List<PlanarPoint2D[]> ClipCoplanarSegment(PlanarPoint2D a, PlanarPoint2D b, PlanarRegion region, PlanarConstraintDerivationOptions options)
     {
         var parameters = new List<double> { 0, 1 };
-        foreach (var polygon in new[] { region.Hull }.Concat(region.Holes))
+        foreach (var polygon in new[] { region.RequireHull() }.Concat(region.Holes))
         {
             var (x, y) = PlanarRegionTopologyValidator.ToOpenLoop(polygon.X, polygon.Y);
             for (var i = 0; i < x.Length; i++)
@@ -574,7 +574,7 @@ public static class PlanarConstraintDeriver
     {
         if (Math.Abs(point.W) > options.PlaneToleranceM) return false;
         var p = new PlanarPoint2D(point.U, point.V);
-        if (!IsInsideOrOn(p, region.Hull, options.GeometryToleranceM)) return false;
+        if (!IsInsideOrOn(p, region.RequireHull(), options.GeometryToleranceM)) return false;
         return !region.Holes.Any(hole => IsInsideOrOn(p, hole, options.GeometryToleranceM));
     }
 

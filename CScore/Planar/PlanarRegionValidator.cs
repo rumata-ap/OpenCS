@@ -8,13 +8,20 @@ public static class PlanarRegionValidator
     {
         var diagnostics = new List<FemValidationDiagnostic>();
 
-        try
+        if (region.Hull is { } hull)
         {
-            PlanarRegionTopologyValidator.ValidateLoop(region.Hull.X, region.Hull.Y, "внешний контур");
+            try
+            {
+                PlanarRegionTopologyValidator.ValidateLoop(hull.X, hull.Y, "внешний контур");
+            }
+            catch (InvalidOperationException ex)
+            {
+                diagnostics.Add(new FemValidationDiagnostic("planar_region_outer_contour_invalid", ex.Message));
+            }
         }
-        catch (InvalidOperationException ex)
+        else
         {
-            diagnostics.Add(new FemValidationDiagnostic("planar_region_outer_contour_invalid", ex.Message));
+            diagnostics.Add(new FemValidationDiagnostic("planar_region_outer_contour_invalid", "Внешний контур (Hull) не задан."));
         }
 
         int holeIndex = 0;

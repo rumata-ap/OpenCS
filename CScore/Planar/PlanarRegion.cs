@@ -38,9 +38,17 @@ public sealed class PlanarRegion
         set
         {
             int idx = Contours.FindIndex(c => c.Type == ContourType.Hull);
-            if (idx >= 0) Contours[idx] = value; else if (value != null) Contours.Insert(0, value);
+            if (value is null) { if (idx >= 0) Contours.RemoveAt(idx); }
+            else if (idx >= 0) Contours[idx] = value;
+            else Contours.Insert(0, value);
         }
     }
+
+    /// <summary>Внешний контур региона, гарантированно ненулевой. Бросает исключение, если
+    /// Hull ещё не задан — используется там, где отсутствие внешнего контура является ошибкой,
+    /// а не штатным промежуточным состоянием.</summary>
+    public Contour RequireHull() =>
+        Hull ?? throw new InvalidOperationException($"PlanarRegion '{Tag}' не имеет внешнего контура (Hull).");
 
     [System.Text.Json.Serialization.JsonIgnore]
     public IEnumerable<Contour> Holes => Contours.Where(c => c.Type == ContourType.Hole);

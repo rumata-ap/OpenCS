@@ -519,7 +519,7 @@ public class Fem3DVM : ViewModelBase
                     edgePoints.Add(ToWorld(contour.X[j], contour.Y[j]));
                 }
             }
-            AddLoop(region.Hull);
+            AddLoop(region.RequireHull());
             foreach (var hole in region.Holes) AddLoop(hole);
 
             result.Add(new PlanarRegionVisual(member.ElemTag, mesh, edgePoints));
