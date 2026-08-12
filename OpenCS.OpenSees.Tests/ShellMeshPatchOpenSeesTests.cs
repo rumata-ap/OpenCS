@@ -120,6 +120,128 @@ public sealed class ShellMeshPatchOpenSeesTests
         }
     }
 
+    [Fact]
+    public async Task AngledRebar_NotAtCenter_Blocked()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string gmshRoot = Path.Combine(Path.GetTempPath(), "opencs-shell-mesh-patch-opensees-angled", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var region = PlanarRegion.CreateFromContour(
+                new Contour { X = [0, 4, 4, 0], Y = [0, 0, 4, 4] }, frame: Frame3D.Identity);
+            var section = new PlateSection { H = 0.2, NLayers = 4, TensionConcrete = true };
+            var resolver = new ConcreteOnlyResolver();
+            var concreteDiagram = LinearElasticDiagram();
+            var mesher = new GmshPlanarMesher(new GmshPlanarMesherOptions
+            {
+                ExecutablePath = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe",
+                ArtifactRoot = gmshRoot
+            });
+            var runner = new ShellAnalysisRunner(
+                new ShellTclGenerator(), new OpenSeesArtifactStore(gmshRoot), new OpenSeesProcessRunner(), new ShellResultParser());
+
+            // Зона с Angle=30 смещена от центра патча (2.0, 2.0) — та же геометрия, что в
+            // CSfea-версии (Task 12).
+            var zone = new RebarZone
+            {
+                Face = RebarFace.PlusN, Priority = 1, Operation = RebarZoneOperation.Add,
+                Polygon = [new() { U = 2.3, V = 2.3 }, new() { U = 3.0, V = 2.3 }, new() { U = 3.0, V = 3.0 }, new() { U = 2.3, V = 3.0 }],
+                Layout = new PlateRebarLayer { Asx = 0.001, Angle = 30.0 },
+            };
+            var field = new PlateRebarField(BaseLayout: [], Zones: [zone]);
+
+            var result = await ShellMeshPatchPlateSectionResponse.CreateAsync(
+                region, stripFrame: region.Frame, centerU: 2.0, centerV: 2.0, field, section,
+                concreteDiagram, concreteDiagram, resolver,
+                new ShellMeshPatchStateBounds(1e-4, 0.01), rveSizeM: 1.0,
+                new PlanarMeshSettings(0.3, 6, PlanarMeshElementMode.Triangles), mesher, runner, executable, CancellationToken.None);
+
+            Assert.False(result.IsCalculable);
+            Assert.Contains(result.Diagnostics, d => d.Code == "shell_mesh_patch_angled_rebar_unsupported");
+        }
+        finally
+        {
+            if (Directory.Exists(gmshRoot)) Directory.Delete(gmshRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task FlippedStripFrame_Rejected_ThroughCreateAsync()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string gmshRoot = Path.Combine(Path.GetTempPath(), "opencs-shell-mesh-patch-opensees-flipped", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var region = PlanarRegion.CreateFromContour(
+                new Contour { X = [0, 4, 4, 0], Y = [0, 0, 4, 4] }, frame: Frame3D.Identity);
+            var section = new PlateSection { H = 0.2, NLayers = 4, TensionConcrete = true };
+            var field = new PlateRebarField([], []);
+            var resolver = new ConcreteOnlyResolver();
+            var concreteDiagram = LinearElasticDiagram();
+            var mesher = new GmshPlanarMesher(new GmshPlanarMesherOptions
+            {
+                ExecutablePath = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe",
+                ArtifactRoot = gmshRoot
+            });
+            var runner = new ShellAnalysisRunner(
+                new ShellTclGenerator(), new OpenSeesArtifactStore(gmshRoot), new OpenSeesProcessRunner(), new ShellResultParser());
+            var flippedFrame = new Frame3D(
+                PlanarVector3.Zero,
+                new PlanarVector3(-1, 0, 0),
+                new PlanarVector3(0, -1, 0),
+                new PlanarVector3(0, 0, 1));
+
+            var result = await ShellMeshPatchPlateSectionResponse.CreateAsync(
+                region, stripFrame: flippedFrame, centerU: 2.0, centerV: 2.0, field, section,
+                concreteDiagram, concreteDiagram, resolver,
+                new ShellMeshPatchStateBounds(1e-4, 0.01), rveSizeM: 1.0,
+                new PlanarMeshSettings(0.3, 6, PlanarMeshElementMode.Triangles), mesher, runner, executable, CancellationToken.None);
+
+            Assert.False(result.IsCalculable);
+            Assert.Contains(result.Diagnostics, d => d.Code == "shell_mesh_patch_frame_mismatch");
+        }
+        finally
+        {
+            if (Directory.Exists(gmshRoot)) Directory.Delete(gmshRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task PatchNearHullEdge_Outside_Blocked()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string gmshRoot = Path.Combine(Path.GetTempPath(), "opencs-shell-mesh-patch-opensees-outside", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var region = PlanarRegion.CreateFromContour(
+                new Contour { X = [0, 4, 4, 0], Y = [0, 0, 4, 4] }, frame: Frame3D.Identity);
+            var section = new PlateSection { H = 0.2, NLayers = 4, TensionConcrete = true };
+            var field = new PlateRebarField([], []);
+            var resolver = new ConcreteOnlyResolver();
+            var concreteDiagram = LinearElasticDiagram();
+            var mesher = new GmshPlanarMesher(new GmshPlanarMesherOptions
+            {
+                ExecutablePath = @"C:\Tools\gmsh-4.15.2-Windows64\gmsh.exe",
+                ArtifactRoot = gmshRoot
+            });
+            var runner = new ShellAnalysisRunner(
+                new ShellTclGenerator(), new OpenSeesArtifactStore(gmshRoot), new OpenSeesProcessRunner(), new ShellResultParser());
+
+            var result = await ShellMeshPatchPlateSectionResponse.CreateAsync(
+                region, stripFrame: region.Frame, centerU: 0.2, centerV: 2.0, field, section,
+                concreteDiagram, concreteDiagram, resolver,
+                new ShellMeshPatchStateBounds(1e-4, 0.01), rveSizeM: 1.0,
+                new PlanarMeshSettings(0.3, 6, PlanarMeshElementMode.Triangles), mesher, runner, executable, CancellationToken.None);
+
+            Assert.False(result.IsCalculable);
+            Assert.Contains(result.Diagnostics, d => d.Code == "shell_mesh_patch_outside_region");
+        }
+        finally
+        {
+            if (Directory.Exists(gmshRoot)) Directory.Delete(gmshRoot, recursive: true);
+        }
+    }
+
     // PlateSection.ComputeTangent трактует E (LinearElasticDiagram, ниже) как уже "кН/м²"-
     // согласованное значение: Nx=E·eps·h БЕЗ множителя ×1000 (см. комментарий в
     // CSfea.Tests/ShellMeshPatchCSfeaTests.cs.LinearElasticDiagram). Нативный OpenSees-материал
