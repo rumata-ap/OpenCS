@@ -41,7 +41,7 @@ public static class StripLoadMapper
         {
             case PlanarLoadKind.Boundary:
                 diagnostics.Add(new("plate_strip_load_kind_unsupported",
-                    $"Краевая нагрузка «{load.Tag}» не поддерживается в этом срезе (StripBoundaryInterface — Срез 5)."));
+                    $"Краевая нагрузка «{load.Tag}» не поддерживается в этом срезе (StripBoundaryInterface — Срез 7)."));
                 return new(false, diagnostics, null);
 
             case PlanarLoadKind.Surface:
