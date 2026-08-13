@@ -571,6 +571,28 @@
                                 <TextBox Grid.Row="2" Grid.Column="1" x:Name="OpenSeesTimeoutBox" VerticalContentAlignment="Center" Margin="0,2"/>
                             </Grid>
                         </GroupBox>
+                        <GroupBox Header="{DynamicResource OpenSeesGjGroup}" Margin="0,0,0,10">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="260"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="32"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource OpenSeesDefaultGjLabel}"
+                                           VerticalAlignment="Center" ToolTip="{DynamicResource OpenSeesDefaultGjTip}"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" x:Name="OpenSeesDefaultGjBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource OpenSeesDefaultGjTip}"/>
+                                <CheckBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                          x:Name="OpenSeesAutoGjFromSectionCb"
+                                          Content="{DynamicResource OpenSeesAutoGjFromSectionLabel}"
+                                          ToolTip="{DynamicResource OpenSeesDefaultGjTip}"
+                                          VerticalAlignment="Center"/>
+                            </Grid>
+                        </GroupBox>
                         <GroupBox Header="{DynamicResource OpenSeesNonlinearGroup}" Margin="0,0,0,10">
                             <Grid Margin="4">
                                 <Grid.ColumnDefinitions>

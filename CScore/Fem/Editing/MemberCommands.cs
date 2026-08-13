@@ -74,6 +74,61 @@ public sealed class SetMemberGjCommand(FemMember member, string strategy, double
     }
 }
 
+/// <summary>Новое состояние GJ одного конструктивного стержня для составной команды.</summary>
+public readonly record struct MemberGjAssignment(
+    FemMember Member,
+    string Strategy,
+    double? ManualValue,
+    int? TorsionTaskId);
+
+/// <summary>Атомарно применяет новые состояния GJ к нескольким стержням и поддерживает undo/redo.</summary>
+public sealed class SetMembersGjCommand : IFemEditCommand
+{
+    readonly IReadOnlyList<MemberGjAssignment> _assignments;
+    List<OldGjState> _oldStates = [];
+    bool _captured;
+
+    public SetMembersGjCommand(IReadOnlyList<MemberGjAssignment> assignments)
+    {
+        ArgumentNullException.ThrowIfNull(assignments);
+        _assignments = assignments.ToArray();
+    }
+
+    public void Do(FemSchemaEditSession session)
+    {
+        if (!_captured)
+        {
+            _oldStates = _assignments
+                .Select(a => new OldGjState(a.Member, a.Member.GjStrategy, a.Member.GjManualValue, a.Member.GjTorsionTaskId))
+                .ToList();
+            _captured = true;
+        }
+
+        foreach (var assignment in _assignments)
+        {
+            assignment.Member.GjStrategy = assignment.Strategy;
+            assignment.Member.GjManualValue = assignment.ManualValue;
+            assignment.Member.GjTorsionTaskId = assignment.TorsionTaskId;
+        }
+    }
+
+    public void Undo(FemSchemaEditSession session)
+    {
+        foreach (var old in _oldStates)
+        {
+            old.Member.GjStrategy = old.Strategy;
+            old.Member.GjManualValue = old.ManualValue;
+            old.Member.GjTorsionTaskId = old.TorsionTaskId;
+        }
+    }
+
+    readonly record struct OldGjState(
+        FemMember Member,
+        string Strategy,
+        double? ManualValue,
+        int? TorsionTaskId);
+}
+
 public sealed class SetMemberRotationCommand(FemMember member, double rotationDeg) : IFemEditCommand
 {
     double _old;

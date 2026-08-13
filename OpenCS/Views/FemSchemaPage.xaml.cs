@@ -7,6 +7,7 @@ using OpenCS.Utilites;
 using OpenCS.ViewModels;
 using System.Windows.Controls;
 using CScore.Fem.Editing;
+using OpenCS.Services;
 
 namespace OpenCS.Views;
 
@@ -108,6 +109,36 @@ public partial class FemSchemaPage : UserControl
 
     void CreateMember_Click(object sender, RoutedEventArgs e)
         => _editorVm.CreateMemberGroupFromElements(barsGrid.SelectedItems.OfType<FemMember>());
+
+    void AssignMissingGj_Click(object sender, RoutedEventArgs e)
+        => ExecuteGjBatch(FemGjBatchMode.MissingOnly, confirmOverwrite: false);
+
+    void RecalculateGj_Click(object sender, RoutedEventArgs e)
+        => ExecuteGjBatch(FemGjBatchMode.RecalculateManual, confirmOverwrite: true);
+
+    void ExecuteGjBatch(FemGjBatchMode mode, bool confirmOverwrite)
+    {
+        var members = barsGrid.SelectedItems.OfType<FemMember>().ToArray();
+        if (members.Length == 0) members = _editorVm.Members.ToArray();
+
+        var plan = _editorVm.PreviewGjBatch(members, mode);
+        if (confirmOverwrite && plan.Assigned > 0 && MessageBox.Show(
+                Window.GetWindow(this),
+                string.Format(Loc.S("FemGjRecalculateConfirm"), plan.Assigned),
+                Loc.S("FemGjRecalculateTitle"),
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+
+        _editorVm.ApplyGjBatch(plan);
+        MessageBox.Show(
+            Window.GetWindow(this),
+            string.Format(Loc.S("FemGjBatchSummary"),
+                plan.Assigned, plan.Fallback, plan.SkippedSaintVenant, plan.SkippedNoSection),
+            Loc.S("FemGjBatchTitle"),
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
 
     void OpenMemberProperties(string tag)
     {

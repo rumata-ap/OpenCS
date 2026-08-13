@@ -152,6 +152,17 @@ namespace OpenCS.Utilites
       // Solver-настройки нелинейного FEM-расчёта — по аналогии с NewtonTolerance/NewtonMaxIter
       // выше (глобальные, не дублируются в каждой постановке FemAnalysis).
 
+      /// <summary>Безопасное значение крутильной жёсткости GJ по умолчанию, кН·м².</summary>
+      public const double DefaultOpenSeesGjKnm2 = 1e7;
+
+      /// <summary>Резервное значение GJ для новых стержней, кН·м².</summary>
+      [JsonPropertyName("openSeesDefaultGjKnm2")]
+      public double OpenSeesDefaultGjKnm2 { get; set; } = DefaultOpenSeesGjKnm2;
+
+      /// <summary>Оценивать ли GJ нового стержня по назначенному поперечному сечению.</summary>
+      [JsonPropertyName("openSeesAutoGjFromSection")]
+      public bool OpenSeesAutoGjFromSection { get; set; } = true;
+
       /// <summary>Путь к OpenSees.exe. Пусто — автоопределение (%OPENSEES_HOME%\bin, затем рядом с OpenCS.exe).</summary>
       [JsonPropertyName("openSeesExecutablePath")]
       public string? OpenSeesExecutablePath { get; set; }
@@ -272,6 +283,8 @@ namespace OpenCS.Utilites
          Sp20GammaFLongTerm       = Sp20GammaFLongTerm,
          Sp20GammaFShortTerm      = Sp20GammaFShortTerm,
          Sp20GammaFAccidental     = Sp20GammaFAccidental,
+         OpenSeesDefaultGjKnm2    = OpenSeesDefaultGjKnm2,
+         OpenSeesAutoGjFromSection = OpenSeesAutoGjFromSection,
          OpenSeesExecutablePath   = OpenSeesExecutablePath,
          OpenSeesTimeoutSeconds   = OpenSeesTimeoutSeconds,
          OpenSeesArtifactsPath    = OpenSeesArtifactsPath,

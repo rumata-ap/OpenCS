@@ -115,6 +115,11 @@
     <system:String x:Key="PlanarRegionMeshCheckFailed">Could not check mesh freshness: {0}</system:String>
     <system:String x:Key="PlanarRegionConstraintsDerived">Automatic constraints for "{0}": {1} source nodes, {2} points, {3} curves, {4} source members</system:String>
    <system:String x:Key="OpenSeesExecutableGroup">Executable</system:String>
+   <system:String x:Key="OpenSeesGjGroup">Member torsional stiffness</system:String>
+   <system:String x:Key="OpenSeesDefaultGjLabel">Default GJ, kN·m²</system:String>
+   <system:String x:Key="OpenSeesDefaultGjTip">Fallback value for new manual members when GJ cannot be estimated from the section. An excessively large value can worsen matrix conditioning.</system:String>
+   <system:String x:Key="OpenSeesAutoGjFromSectionLabel">Estimate GJ from the assigned section</system:String>
+   <system:String x:Key="OpenSeesDefaultGjInvalid">Enter a finite positive GJ value.</system:String>
    <system:String x:Key="OpenSeesNonlinearGroup">Nonlinear scheme analysis</system:String>
    <system:String x:Key="OpenSeesFiberStatesGroup">Fiber state recording</system:String>
    <system:String x:Key="OpenSeesRecordFiberStatesLabel">Record fiber states (σ, ε)</system:String>
@@ -1848,6 +1853,14 @@
     <system:String x:Key="FemGjUnits">kN·m²</system:String>
     <system:String x:Key="FemGjSaintVenant">From torsion task (Saint-Venant)</system:String>
     <system:String x:Key="FemCreateMemberFromSelection">Create member from selection</system:String>
+    <system:String x:Key="FemGjAssignMissing">Assign missing GJ</system:String>
+    <system:String x:Key="FemGjAssignMissingTip">Assign the default GJ to manual beam members without a valid value.</system:String>
+    <system:String x:Key="FemGjRecalculate">Recalculate GJ from sections</system:String>
+    <system:String x:Key="FemGjRecalculateTip">Recalculate GJ from assigned sections for manual beam members.</system:String>
+    <system:String x:Key="FemGjRecalculateTitle">GJ recalculation</system:String>
+    <system:String x:Key="FemGjRecalculateConfirm">Overwrite GJ for {0} members?</system:String>
+    <system:String x:Key="FemGjBatchTitle">Batch GJ assignment</system:String>
+    <system:String x:Key="FemGjBatchSummary">Assigned: {0}; fallback: {1}; Saint-Venant skipped: {2}; no section: {3}.</system:String>
     <system:String x:Key="FemLoadCasesTab">Load cases</system:String>
     <system:String x:Key="FemLoadCaseNew">New load case</system:String>
     <system:String x:Key="FemRename">Rename</system:String>

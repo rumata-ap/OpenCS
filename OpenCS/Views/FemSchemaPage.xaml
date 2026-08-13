@@ -43,6 +43,11 @@
                     <ToggleButton Content="{DynamicResource FemCreateBarMode}" IsChecked="{Binding CreateBarMode}"/>
                     <Separator/>
                     <Button Content="{DynamicResource FemCreateMemberFromSelection}" Click="CreateMember_Click"/>
+                    <Separator/>
+                    <Button Content="{DynamicResource FemGjAssignMissing}" Click="AssignMissingGj_Click"
+                            ToolTip="{DynamicResource FemGjAssignMissingTip}"/>
+                    <Button Content="{DynamicResource FemGjRecalculate}" Click="RecalculateGj_Click"
+                            ToolTip="{DynamicResource FemGjRecalculateTip}"/>
                 </ToolBar>
                 <DataGrid ItemsSource="{Binding Members}" AutoGenerateColumns="False" IsReadOnly="True"
                           SelectionMode="Extended" x:Name="barsGrid">

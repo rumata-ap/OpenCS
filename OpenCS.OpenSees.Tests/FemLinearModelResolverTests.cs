@@ -74,6 +74,19 @@ public class FemLinearModelResolverTests
     }
 
     [Fact]
+    public void Resolve_MaterializedGjKeepsNewtonMetersSquared()
+    {
+        var (mn, me, sn, sm, ld) = Console();
+        sm[0].GjManualValue = 1e10;
+        me[0].GjManualValue = 1e10;
+
+        var r = new FemLinearModelResolver().Resolve(mn, me, sn, sm, ld, Props());
+
+        Assert.True(r.Ok, string.Join("; ", r.Errors));
+        Assert.Equal(1e10, r.Model!.Elements.Single().G, 6);
+    }
+
+    [Fact]
     public void Resolve_MissingSection_ReportsError()
     {
         var (mn, me, sn, sm, ld) = Console();

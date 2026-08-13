@@ -73,4 +73,26 @@ public sealed class FemFragmentClipboardTests
         Assert.Single(session.Members);
         Assert.Single(session.MemberGroups);
     }
+
+    [Fact]
+    public void Paste_PreservesSaintVenantTaskReference()
+    {
+        var session = new FemSchemaEditSession(new FemSchema { Id = 1 });
+        session.Nodes.Add(new FemNode { Id = 1, NodeTag = "1", X = 0 });
+        session.Nodes.Add(new FemNode { Id = 2, NodeTag = "2", X = 1 });
+        session.Members.Add(new FemMember
+        {
+            Id = 1, ElemTag = "1", NodeIdsJson = "[1,2]",
+            GjStrategy = "saint_venant", GjTorsionTaskId = 42
+        });
+
+        var snapshot = FemFragmentClipboard.Copy(
+            session, new HashSet<string> { "1", "2" }, new HashSet<string> { "1" });
+        session.Execute(new PasteFragmentCommand(snapshot, 0, 0, 0));
+
+        var pasted = session.Members.Single(member => member.ElemTag == "2");
+        Assert.Equal("saint_venant", pasted.GjStrategy);
+        Assert.Null(pasted.GjManualValue);
+        Assert.Equal(42, pasted.GjTorsionTaskId);
+    }
 }

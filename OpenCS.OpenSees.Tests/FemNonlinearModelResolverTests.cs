@@ -80,6 +80,22 @@ public class FemNonlinearModelResolverTests
     }
 
     [Fact]
+    public void Resolve_MaterializedGjKeepsNewtonMetersSquared()
+    {
+        var (mn, me, sn, sm, ld) = Console(gj: 1e10);
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+
+        var r = new FemNonlinearModelResolver().Resolve(
+            mn, me, sn, sm,
+            [new FemNonlinearStageInput("Стадия 1", ld, LoadFactorStep: 0.1, MaxLoadFactor: 1.0)],
+            Sections(section),
+            CrossSectionFixtures.Materials(concrete, steel), customDiagramPool: null, CalcType.C, Options());
+
+        Assert.True(r.Ok, string.Join("; ", r.Errors));
+        Assert.Equal(1e10, r.Model!.Sections.Single().Value.GJ, 6);
+    }
+
+    [Fact]
     public void Resolve_PropagatesHardeningAndNeighboringOptions()
     {
         var (mn, me, sn, sm, ld) = Console();

@@ -426,6 +426,10 @@ namespace OpenCS.Views
 
       void LoadOpenSeesToUi()
       {
+         if (!double.IsFinite(_calcSettings.OpenSeesDefaultGjKnm2) || _calcSettings.OpenSeesDefaultGjKnm2 <= 0)
+            _calcSettings.OpenSeesDefaultGjKnm2 = CalcSettings.DefaultOpenSeesGjKnm2;
+         OpenSeesDefaultGjBox.Text = _calcSettings.OpenSeesDefaultGjKnm2.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
+         OpenSeesAutoGjFromSectionCb.IsChecked = _calcSettings.OpenSeesAutoGjFromSection;
          OpenSeesExeBox.Text = _calcSettings.OpenSeesExecutablePath ?? "";
          OpenSeesTimeoutBox.Text = _calcSettings.OpenSeesTimeoutSeconds.ToString();
          OpenSeesArtifactsPathBox.Text = _calcSettings.OpenSeesArtifactsPath ?? "";
@@ -444,6 +448,20 @@ namespace OpenCS.Views
 
       void HookOpenSeesControls()
       {
+         OpenSeesDefaultGjBox.TextChanged += (_, _) =>
+         {
+            if (Pars.ParseAny(OpenSeesDefaultGjBox.Text, out var v) && double.IsFinite(v) && v > 0)
+               _calcSettings.OpenSeesDefaultGjKnm2 = v;
+         };
+         OpenSeesDefaultGjBox.LostFocus += (_, _) =>
+         {
+            if (Pars.ParseAny(OpenSeesDefaultGjBox.Text, out var v) && double.IsFinite(v) && v > 0) return;
+            MessageBox.Show(Loc.S("OpenSeesDefaultGjInvalid"), Loc.S("OpenSeesSettingsTab"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            OpenSeesDefaultGjBox.Text = _calcSettings.OpenSeesDefaultGjKnm2.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
+         };
+         OpenSeesAutoGjFromSectionCb.Checked += (_, _) => _calcSettings.OpenSeesAutoGjFromSection = true;
+         OpenSeesAutoGjFromSectionCb.Unchecked += (_, _) => _calcSettings.OpenSeesAutoGjFromSection = false;
          OpenSeesExeBox.TextChanged += (_, _) =>
             _calcSettings.OpenSeesExecutablePath = string.IsNullOrWhiteSpace(OpenSeesExeBox.Text) ? null : OpenSeesExeBox.Text.Trim();
          OpenSeesTimeoutBox.TextChanged += (_, _) =>

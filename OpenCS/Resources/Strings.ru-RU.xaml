@@ -116,6 +116,11 @@
     <system:String x:Key="PlanarRegionMeshCheckFailed">Не удалось проверить актуальность сетки: {0}</system:String>
     <system:String x:Key="PlanarRegionConstraintsDerived">Автоматические связи «{0}»: {1} узлов-источников, {2} точек, {3} линий, {4} source members</system:String>
    <system:String x:Key="OpenSeesExecutableGroup">Исполняемый файл</system:String>
+   <system:String x:Key="OpenSeesGjGroup">Крутильная жёсткость стержней</system:String>
+   <system:String x:Key="OpenSeesDefaultGjLabel">GJ по умолчанию, кН·м²</system:String>
+   <system:String x:Key="OpenSeesDefaultGjTip">Резервное значение для новых manual-стержней, если GJ не удалось оценить по сечению. Слишком большое значение может ухудшить обусловленность матрицы.</system:String>
+   <system:String x:Key="OpenSeesAutoGjFromSectionLabel">Оценивать GJ по заданному сечению</system:String>
+   <system:String x:Key="OpenSeesDefaultGjInvalid">Введите конечное положительное значение GJ.</system:String>
    <system:String x:Key="OpenSeesNonlinearGroup">Нелинейный расчёт схемы</system:String>
    <system:String x:Key="OpenSeesFiberStatesGroup">Запись состояний волокон</system:String>
    <system:String x:Key="OpenSeesRecordFiberStatesLabel">Записывать состояния волокон (σ, ε)</system:String>
@@ -1851,6 +1856,14 @@
     <system:String x:Key="FemGjUnits">кН·м²</system:String>
     <system:String x:Key="FemGjSaintVenant">По задаче кручения (Сен-Венан)</system:String>
     <system:String x:Key="FemCreateMemberFromSelection">Создать элемент из выбранных</system:String>
+    <system:String x:Key="FemGjAssignMissing">Назначить GJ незаданным</system:String>
+    <system:String x:Key="FemGjAssignMissingTip">Назначить GJ по умолчанию незаданным manual-стержням.</system:String>
+    <system:String x:Key="FemGjRecalculate">Пересчитать GJ по сечениям</system:String>
+    <system:String x:Key="FemGjRecalculateTip">Пересчитать GJ по назначенным сечениям у manual-стержней.</system:String>
+    <system:String x:Key="FemGjRecalculateTitle">Пересчёт GJ</system:String>
+    <system:String x:Key="FemGjRecalculateConfirm">Перезаписать GJ у стержней: {0}?</system:String>
+    <system:String x:Key="FemGjBatchTitle">Массовое назначение GJ</system:String>
+    <system:String x:Key="FemGjBatchSummary">Назначено: {0}; fallback: {1}; пропущено Сен-Венан: {2}; без сечения: {3}.</system:String>
     <system:String x:Key="FemLoadCasesTab">Загружения</system:String>
     <system:String x:Key="FemLoadCaseNew">Новое загружение</system:String>
     <system:String x:Key="FemRename">Переименовать</system:String>

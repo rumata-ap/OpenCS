@@ -19,6 +19,8 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 {
     readonly DatabaseService _db;
     readonly ILogService _logService;
+    readonly FemMemberFactory _memberFactory;
+    readonly FemGjBatchPlanner _gjBatchPlanner;
 
     public FemSchemaEditSession Session   { get; }
     public FemSchemaSelectionVM Selection { get; } = new();
@@ -333,6 +335,9 @@ public sealed class FemSchemaEditorVM : ViewModelBase
     {
         _db = app.db;
         _logService = app.LogService;
+        var gjResolver = new FemGjDefaultResolver(() => app.CalcSettings);
+        _memberFactory = new FemMemberFactory(gjResolver);
+        _gjBatchPlanner = new FemGjBatchPlanner(gjResolver);
         CrossSections = app.CrossSections;
         AllCalcTasks  = app.CalcTasks;
         Session = new FemSchemaEditSession(schema);
@@ -381,16 +386,36 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         var tag = FemTopologyValidator.NextElemTag(Session.Members);
         var json = System.Text.Json.JsonSerializer.Serialize(new[] { int.Parse(nodeTagA), int.Parse(nodeTagB) });
         int? sectionId = null;
+        CrossSection? section = null;
         if (sectionTag != null)
         {
             var cs = CrossSections.FirstOrDefault(s => s.Tag == sectionTag);
-            if (cs != null) sectionId = cs.Id;
+            if (cs != null)
+            {
+                sectionId = cs.Id;
+                section = cs;
+            }
         }
-        Session.Execute(new AddMemberCommand(new FemMember
-        {
-            SchemaId = Session.Schema.Id, ElemTag = tag, ElemType = "beam", NodeIdsJson = json,
-            CrossSectionId = sectionId
-        }));
+        Session.Execute(new AddMemberCommand(
+            _memberFactory.CreateBeam(Session.Schema.Id, tag, json, sectionId, section)));
+        RefreshCollections();
+    }
+
+    /// <summary>Строит предварительный план массового назначения GJ без изменения схемы.</summary>
+    public FemGjBatchPlan PreviewGjBatch(IEnumerable<FemMember> members, FemGjBatchMode mode)
+    {
+        var sections = CrossSections
+            .GroupBy(section => section.Id)
+            .ToDictionary(group => group.Key, group => group.First());
+        return _gjBatchPlanner.Build(members, sections, mode);
+    }
+
+    /// <summary>Применяет заранее подготовленный план массового назначения GJ одной undo-командой.</summary>
+    public void ApplyGjBatch(FemGjBatchPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        if (plan.Assignments.Count == 0) return;
+        Session.Execute(new SetMembersGjCommand(plan.Assignments));
         RefreshCollections();
     }
 
