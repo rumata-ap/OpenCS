@@ -86,6 +86,10 @@ public class FemAnalysisResultVM : ViewModelBase
     /// <summary>Событие запроса окна состояния сечения (обрабатывает AppViewModel).</summary>
     public event Action<FemSectionStateRequest>? SectionStateRequested;
 
+    /// <summary>Событие уведомления о недоступном состоянии выбранной ТИ (ключ строки
+    /// локализации) — рейзится, когда окно состояния открыть невозможно.</summary>
+    public event Action<string>? SectionStateUnavailable;
+
     /// <summary>Выбирает ТИ (например, кликом по 3D-маркеру) и сбрасывает выбор узла/элемента.</summary>
     public void SelectSectionLocation(FemSectionLocationRow? row)
     {
@@ -95,30 +99,48 @@ public class FemAnalysisResultVM : ViewModelBase
         SelectedSectionLocation = row;
     }
 
-    /// <summary>Запрашивает окно состояния для ТИ; при недоступных данных ничего не делает.</summary>
+    /// <summary>Запрашивает окно состояния для ТИ; при недоступных данных рейзит
+    /// <see cref="SectionStateUnavailable"/> вместо окна.</summary>
     public void RequestSectionState(FemSectionLocationRow? row)
     {
-        if (row is not { IsStateAvailable: true } selected) return;
-        if (_nonlinearResult == null || string.IsNullOrWhiteSpace(_fiberStatePath) || Steps.Count == 0) return;
-        if (!_sectionIdByElement.TryGetValue(selected.MeshElementTag, out int? sectionId) || sectionId is not int id)
+        if (row == null) return;
+        if (!row.IsStateAvailable)
+        {
+            SectionStateUnavailable?.Invoke("FemSectionStateUnavailable");
             return;
+        }
+        if (_nonlinearResult == null || string.IsNullOrWhiteSpace(_fiberStatePath) || Steps.Count == 0)
+        {
+            SectionStateUnavailable?.Invoke("FemSectionStateUnavailable");
+            return;
+        }
+        if (!_sectionIdByElement.TryGetValue(row.MeshElementTag, out int? sectionId) || sectionId is not int id)
+        {
+            SectionStateUnavailable?.Invoke("FemSectionStateUnavailable");
+            return;
+        }
         var step = Steps[SelectedStepIndex];
         IReadOnlyDictionary<int, (double StressPa, double Strain)> recorded;
         try
         {
             var states = new FemNonlinearFiberStateParser().ParseSection(
-                _fiberStatePath, selected.MeshElementTag, selected.IntegrationPoint);
+                _fiberStatePath, row.MeshElementTag, row.IntegrationPoint);
             recorded = states
                 .Where(s => s.StepIndex == step.StepIndex)
                 .ToDictionary(s => s.FiberIndex, s => (s.StressPa, s.Strain));
         }
         catch (OpenSeesResultException)
         {
+            SectionStateUnavailable?.Invoke("FemSectionStateUnavailable");
             return;
         }
-        if (recorded.Count == 0) return;
+        if (recorded.Count == 0)
+        {
+            SectionStateUnavailable?.Invoke("FemSectionStateUnavailable");
+            return;
+        }
         SectionStateRequested?.Invoke(new FemSectionStateRequest(
-            selected,
+            row,
             id,
             _nonlinearResult.CalcTypeName,
             recorded,

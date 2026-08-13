@@ -2202,4 +2202,5 @@
     <system:String x:Key="FemSectionStateSummaryTitle">Member {0} · IP {1}</system:String>
     <system:String x:Key="FemMemberForceSectionState">View section state</system:String>
     <system:String x:Key="FemResultSectionIpMarker">IP {0}</system:String>
+    <system:String x:Key="FemSectionStateUnavailable">The section state was not recorded for the selected integration point.</system:String>
   </ResourceDictionary>

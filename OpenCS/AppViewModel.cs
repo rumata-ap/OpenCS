@@ -3678,17 +3678,24 @@ namespace OpenCS
          var title = string.Format(Loc.S("FemSectionStateWindowTitle"),
             request.Location.SourceMemberTag, request.Location.IntegrationPoint, request.StepLabel);
 
-         if (_femSectionStateWindow == null)
+         if (_femSectionStateWindow == null || !_femSectionStateWindow.IsVisible)
          {
             _femSectionStateWindow = new Views.FemSectionStateWindow
             {
                Owner = System.Windows.Application.Current.MainWindow
             };
+            // После Close окно WPF нельзя переоткрыть — забываем ссылку и создаём новое.
+            _femSectionStateWindow.Closed += (_, _) => _femSectionStateWindow = null;
             _femSectionStateWindow.Show();
          }
          _femSectionStateWindow.ShowContent(summaryVm, stressVm, strainVm, title);
          _femSectionStateWindow.Activate();
       }
+
+      /// <summary>Показывает предупреждение о недоступном состоянии сечения ТИ.</summary>
+      void ShowSectionStateUnavailable(string key)
+         => MessageBox.Show(Loc.S(key), Loc.S("Warning"),
+            System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
 
       /// <summary>Общие подписки событий результатного VM FEM-расчёта (все места создания).</summary>
       void AttachFemResultVmEvents(ViewModels.FemAnalysisResultVM vm, CScore.Fem.FemSchema schema)
@@ -3703,6 +3710,7 @@ namespace OpenCS
          };
          vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
          vm.SectionStateRequested += OpenFemSectionState;
+         vm.SectionStateUnavailable += ShowSectionStateUnavailable;
       }
 
       void DeleteFemCheck(CScore.Fem.FemCheck? check = null)

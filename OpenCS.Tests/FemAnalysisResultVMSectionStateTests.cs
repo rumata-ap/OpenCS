@@ -107,4 +107,21 @@ public class FemAnalysisResultVMSectionStateTests
         }
         finally { db.Dispose(); Directory.Delete(dir, true); }
     }
+
+    [Fact]
+    public void RequestSectionState_UnavailableLocation_RaisesUnavailableNotice()
+    {
+        var (db, dir) = Setup(out var vm);
+        try
+        {
+            var unavailable = new FemSectionLocationRow("M1", 10, 1, 2, 1.0, 2.0, 0.5, 0.5, false);
+            string? notice = null;
+            vm.SectionStateUnavailable += key => notice = key;
+
+            vm.RequestSectionState(unavailable);
+
+            Assert.Equal("FemSectionStateUnavailable", notice);
+        }
+        finally { db.Dispose(); Directory.Delete(dir, true); }
+    }
 }
