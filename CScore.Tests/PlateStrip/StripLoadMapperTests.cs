@@ -206,6 +206,71 @@ public sealed class StripLoadMapperTests
         Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_outside_strip");
     }
 
+    [Fact]
+    public void MapSelfWeight_FlatStrip_ProducesNegativeQz()
+    {
+        var result = StripLoadMapper.MapSelfWeight(Analogy(), plateThicknessM: 0.2, unitWeightKnM3: 25.0);
+
+        Assert.True(result.IsCalculable);
+        Assert.Equal(StripLoadKind.DistributedUniform, result.Load!.Kind);
+        Assert.Equal(0.0, result.Load.StationStartFraction);
+        Assert.Equal(1.0, result.Load.StationEndFraction);
+        Assert.Equal(0.0, result.Load.QxKnM, 9);
+        Assert.Equal(0.0, result.Load.QyKnM, 9);
+        Assert.Equal(-10.0, result.Load.QzKnM, 9); // -25 * 0.2 * 2 м ширины
+    }
+
+    [Fact]
+    public void MapSelfWeight_VerticalWallStrip_GravityAlwaysGlobalMinusZ()
+    {
+        var analogy = Analogy();
+        // Стена: StripFrame.LocalZ (нормаль полосы) горизонтальна, не совпадает с глобальным Z.
+        analogy.StripFrame = new Frame3D(
+            PlanarVector3.Zero,
+            new PlanarVector3(0, 0, 1),   // пролёт полосы — по вертикали
+            new PlanarVector3(1, 0, 0),   // ширина полосы — горизонтальна
+            new PlanarVector3(0, 1, 0));  // нормаль стены — горизонтальна
+
+        var result = StripLoadMapper.MapSelfWeight(analogy, plateThicknessM: 0.2, unitWeightKnM3: 25.0);
+
+        Assert.True(result.IsCalculable);
+        // Глобальный (0,0,-w) в этих осях: X-компонента (вдоль LocalX=(0,0,1)) = -w, Y и Z = 0.
+        Assert.Equal(-10.0, result.Load!.QxKnM, 9);
+        Assert.Equal(0.0, result.Load.QyKnM, 9);
+        Assert.Equal(0.0, result.Load.QzKnM, 9);
+    }
+
+    [Fact]
+    public void MapSelfWeight_NegativeUnitWeight_ReturnsDiagnostic()
+    {
+        var result = StripLoadMapper.MapSelfWeight(Analogy(), plateThicknessM: 0.2, unitWeightKnM3: -1.0);
+
+        Assert.False(result.IsCalculable);
+        Assert.Null(result.Load);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_negative_unit_weight");
+    }
+
+    [Fact]
+    public void MapSelfWeight_NonPositiveThickness_ReturnsInvalidInputDiagnostic()
+    {
+        var result = StripLoadMapper.MapSelfWeight(Analogy(), plateThicknessM: 0.0, unitWeightKnM3: 25.0);
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_invalid_input");
+    }
+
+    [Fact]
+    public void MapSelfWeight_DegenerateGeometry_ReturnsInvalidGeometryDiagnostic()
+    {
+        var analogy = Analogy();
+        analogy.Geometry = new PlateStripGeometry { LengthM = 0.0 };
+
+        var result = StripLoadMapper.MapSelfWeight(analogy, plateThicknessM: 0.2, unitWeightKnM3: 25.0);
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_invalid_geometry");
+    }
+
     internal static PlateStripBeamAnalogy Analogy(double width = 2.0, double lengthM = 6.0) => new()
     {
         Id = "strip-1",

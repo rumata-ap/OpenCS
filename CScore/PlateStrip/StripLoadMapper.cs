@@ -57,6 +57,48 @@ public static class StripLoadMapper
         }
     }
 
+    public static StripLoadMappingResult MapSelfWeight(
+        PlateStripBeamAnalogy analogy,
+        double plateThicknessM,
+        double unitWeightKnM3,
+        string sourceTag = "self_weight")
+    {
+        ArgumentNullException.ThrowIfNull(analogy);
+        var diagnostics = new List<FemValidationDiagnostic>();
+
+        if (!TryValidateStripGeometry(analogy, diagnostics))
+            return new(false, diagnostics, null);
+
+        if (!double.IsFinite(unitWeightKnM3) || unitWeightKnM3 < 0.0)
+        {
+            diagnostics.Add(new("plate_strip_load_negative_unit_weight",
+                $"Удельный вес «{sourceTag}» должен быть конечным и неотрицательным."));
+            return new(false, diagnostics, null);
+        }
+        if (!double.IsFinite(plateThicknessM) || plateThicknessM <= 0.0)
+        {
+            diagnostics.Add(new("plate_strip_load_invalid_input",
+                $"Толщина плиты для «{sourceTag}» должна быть конечной и положительной."));
+            return new(false, diagnostics, null);
+        }
+
+        double qzGlobal = -unitWeightKnM3 * plateThicknessM * analogy.ExplicitWidthM;
+        var local = PlanarBoundaryFrameConverter.ToLocalVector(
+            analogy.StripFrame, new PlanarVector3(0.0, 0.0, qzGlobal));
+
+        var result = new StripLoad
+        {
+            Kind = StripLoadKind.DistributedUniform,
+            SourceTag = sourceTag,
+            StationStartFraction = 0.0,
+            StationEndFraction = 1.0,
+            QxKnM = local.X,
+            QyKnM = local.Y,
+            QzKnM = local.Z
+        };
+        return new(true, diagnostics, result);
+    }
+
     static StripLoadMappingResult MapSurface(
         Frame3D regionFrame, PlateStripBeamAnalogy analogy, PlanarLoad load,
         List<FemValidationDiagnostic> diagnostics)
