@@ -2199,4 +2199,12 @@
     <system:String x:Key="OpenSeesSpatialStatusNotConverged">Нет сходимости</system:String>
     <system:String x:Key="OpenSeesSpatialStatusError">Ошибка</system:String>
     <system:String x:Key="OpenSeesSpatialResultEmpty">Нет точек пространственного результата.</system:String>
+    <system:String x:Key="FemResultShowSectionPoints">Показать точки интегрирования</system:String>
+    <system:String x:Key="FemResultOpenSectionState">Открыть состояние сечения</system:String>
+    <system:String x:Key="FemSectionStateWindowTitle">Состояние сечения: стержень {0}, точка интегрирования {1} — {2}</system:String>
+    <system:String x:Key="FemSectionStateSummaryTitle">Стержень {0} · ТИ {1}</system:String>
+    <system:String x:Key="FemMemberForceSectionState">Просмотр состояния сечения</system:String>
+    <system:String x:Key="FemResultSectionIpMarker">ТИ {0}</system:String>
+    <system:String x:Key="FemSectionStateUnavailable">Для выбранной точки интегрирования состояние сечения не сохранялось при расчёте.</system:String>
+    <system:String x:Key="FemSectionStateLoading">Чтение данных состояния сечения…</system:String>
   </ResourceDictionary>

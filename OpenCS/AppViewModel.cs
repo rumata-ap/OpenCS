@@ -120,6 +120,7 @@ namespace OpenCS
       ViewModels.FemSchemaEditorVM? activeFemSchemaEditor;
       CScore.Fem.FemMemberGroup? currentFemMember;
       CScore.Fem.FemCheck?  currentFemCheck;
+      Views.FemSectionStateWindow? _femSectionStateWindow;
 
       /// <summary>
       /// Путь к текущему файлу проекта. null если проект ещё не был сохранён.
@@ -3545,15 +3546,7 @@ namespace OpenCS
          if (result == null) return;
 
          var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
-         vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag, result);
-         vm.GoToSectionRequested += tag => {
-            var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
-            if (member != null && member.CrossSectionId.HasValue) {
-               var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
-               if (section != null) CurrentCrossSection = section;
-            }
-         };
-         vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
+         AttachFemResultVmEvents(vm, schema);
          CurrentPage = new Views.FemAnalysisResultView(vm);
       }
 
@@ -3576,15 +3569,7 @@ namespace OpenCS
             db.SaveFemAnalysis(analysis);
 
             var vm = new ViewModels.FemAnalysisResultVM(result, db, schema);
-            vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag, result);
-            vm.GoToSectionRequested += tag => {
-               var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
-               if (member != null && member.CrossSectionId.HasValue) {
-                  var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
-                  if (section != null) CurrentCrossSection = section;
-               }
-            };
-            vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
+            AttachFemResultVmEvents(vm, schema);
             
             var statusKey = result.Status switch
             {
@@ -3666,11 +3651,94 @@ namespace OpenCS
             LogService.Warning(Loc.S("FemMemberForceNoResult"));
             return;
          }
-         CurrentPage = new Views.FemMemberForceView(db, schema, memberTag, cr);
+         var vm = new ViewModels.FemAnalysisResultVM(cr, db, schema);
+         AttachFemResultVmEvents(vm, schema);
+         CurrentPage = new Views.FemMemberForceView(db, schema, memberTag, vm);
       }
 
-      void ShowMemberForceDiagram(CScore.Fem.FemSchema schema, string memberTag, CalcResult result)
-         => CurrentPage = new Views.FemMemberForceView(db, schema, memberTag, result);
+      void ShowMemberForceDiagram(CScore.Fem.FemSchema schema, string memberTag, ViewModels.FemAnalysisResultVM vm)
+         => CurrentPage = new Views.FemMemberForceView(db, schema, memberTag, vm);
+
+      /// <summary>Открывает (или обновляет) немодальное окно состояния сечения в точке
+      /// интегрирования нелинейного FEM-результата OpenSees. Чтение волокон — фоновым
+      /// потоком, на время чтения в статусбаре показывается индикатор занятости.</summary>
+      async void OpenFemSectionState(ViewModels.FemSectionStateRequest request)
+      {
+         var section = db.CrossSections.FirstOrDefault(s => s.Id == request.SectionId);
+         if (section == null) return;
+
+         BeginBusy(Loc.S("FemSectionStateLoading"), indeterminate: true);
+         IReadOnlyDictionary<int, (double StressPa, double Strain)> recorded;
+         try
+         {
+            recorded = await System.Threading.Tasks.Task.Run(request.LoadRecordedFibers);
+         }
+         finally
+         {
+            EndBusy();
+         }
+
+         if (recorded.Count == 0)
+         {
+            ShowSectionStateUnavailable("FemSectionStateUnavailable");
+            return;
+         }
+
+         var calcType = Enum.TryParse<CalcType>(request.CalcTypeName, out var parsed) ? parsed : CalcType.C;
+         section.ResolveAndBuildDiagramms(CalcSettings.Sp63DescEtaMin,
+            pool: Diagrams,
+            rebarDifferentialDiagram: CalcSettings.RebarDifferentialDiagram);
+         var summary = OpenCS.OpenSees.CScore.FemRecordedSectionReducer.Reduce(section, calcType, recorded);
+         var summaryVm = new ViewModels.FemSectionSummaryVM(request, summary, recorded);
+         bool ten = CalcSettings.ResolveConcreteTension(calcType);
+         var cutVm = new ViewModels.SectionCutVM(section, summary.Plane, calcType, FileDialogService, ten)
+         {
+            WindowTitleSuffix = string.Format(Loc.S("FemSectionStateSummaryTitle"),
+               request.Location.SourceMemberTag, request.Location.IntegrationPoint)
+         };
+         var stressVm = new ViewModels.SectionPlotVM(section, summary.Plane, calcType,
+            ViewModels.SectionPlotMode.Stress, CalcSettings, ten, recordedFibers: recorded);
+         var strainVm = new ViewModels.SectionPlotVM(section, summary.Plane, calcType,
+            ViewModels.SectionPlotMode.Strain, CalcSettings, ten, recordedFibers: recorded);
+         stressVm.CutVM = cutVm;
+         strainVm.CutVM = cutVm;
+         var title = string.Format(Loc.S("FemSectionStateWindowTitle"),
+            request.Location.SourceMemberTag, request.Location.IntegrationPoint, request.StepLabel);
+
+         if (_femSectionStateWindow == null || !_femSectionStateWindow.IsVisible)
+         {
+            _femSectionStateWindow = new Views.FemSectionStateWindow
+            {
+               Owner = System.Windows.Application.Current.MainWindow
+            };
+            // После Close окно WPF нельзя переоткрыть — забываем ссылку и создаём новое.
+            _femSectionStateWindow.Closed += (_, _) => _femSectionStateWindow = null;
+            _femSectionStateWindow.Show();
+         }
+         _femSectionStateWindow.ShowContent(summaryVm, stressVm, strainVm, cutVm, CalcSettings, title);
+         _femSectionStateWindow.Activate();
+      }
+
+      /// <summary>Показывает предупреждение о недоступном состоянии сечения ТИ.</summary>
+      void ShowSectionStateUnavailable(string key)
+         => MessageBox.Show(Loc.S(key), Loc.S("Warning"),
+            System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+
+      /// <summary>Общие подписки событий результатного VM FEM-расчёта (все места создания).</summary>
+      void AttachFemResultVmEvents(ViewModels.FemAnalysisResultVM vm, CScore.Fem.FemSchema schema)
+      {
+         vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag, vm);
+         vm.GoToSectionRequested += tag => {
+            var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
+            if (member != null && member.CrossSectionId.HasValue) {
+               var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
+               if (section != null) CurrentCrossSection = section;
+            }
+         };
+         vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
+         vm.SectionStateRequested += OpenFemSectionState;
+         vm.SectionStateUnavailable += ShowSectionStateUnavailable;
+      }
 
       void DeleteFemCheck(CScore.Fem.FemCheck? check = null)
       {

@@ -40,15 +40,15 @@
             <Separator Margin="0,0,10,0" Style="{x:Null}"
                        Width="1" Height="16" Background="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"/>
             <ToggleButton Content="{DynamicResource SectionCutButton}"
-                          IsChecked="{Binding CutVM.IsActive}"
+                          IsChecked="{Binding CutVM.IsActive, FallbackValue=False}"
                           Padding="8,2" Margin="0,0,10,0"/>
             <StackPanel Orientation="Horizontal"
                         Visibility="{Binding CutVM.IsActive, Converter={StaticResource BoolToVisibility}}">
                <RadioButton Content="{DynamicResource SectionCutModeGradient}"
-                            IsChecked="{Binding CutVM.Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static cs:CutMode.GradientSnap}}"
+                            IsChecked="{Binding CutVM.Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static cs:CutMode.GradientSnap}, FallbackValue=False}"
                             GroupName="CutMode" VerticalAlignment="Center" Margin="0,0,8,0"/>
                <RadioButton Content="{DynamicResource SectionCutModeFree}"
-                            IsChecked="{Binding CutVM.Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static cs:CutMode.Free}}"
+                            IsChecked="{Binding CutVM.Mode, Converter={StaticResource EnumToBoolConverter}, ConverterParameter={x:Static cs:CutMode.Free}, FallbackValue=False}"
                             GroupName="CutMode" VerticalAlignment="Center"/>
             </StackPanel>
          </StackPanel>
@@ -97,7 +97,7 @@
                <h:FiberCanvas x:Name="FiberCanvasElement" ViewModel="{Binding}"/>
                <h:SectionCutOverlay Host="{Binding ElementName=FiberCanvasElement}"
                                      CutViewModel="{Binding CutVM}"
-                                     IsHitTestVisible="{Binding CutVM.IsActive}"/>
+                                     IsHitTestVisible="{Binding CutVM.IsActive, FallbackValue=False, TargetNullValue=False}"/>
             </Grid>
          </Border>
 

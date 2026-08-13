@@ -60,12 +60,14 @@ public class FemAnalysisResultVM : ViewModelBase
         {
             if (Equals(value, _selectedSectionLocation)) return;
             _selectedSectionLocation = value;
-            LoadSelectedFiberStates();
-            RebuildSectionPlots();
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedSectionPositionLabel));
+            OnPropertyChanged(nameof(CanRequestSectionState));
         }
     }
+
+    /// <summary>Можно ли запросить окно состояния для выбранной ТИ.</summary>
+    public bool CanRequestSectionState => SelectedSectionLocation?.IsStateAvailable == true;
 
     /// <summary>Положение выбранного сечения в метрах и долях длины стержня.</summary>
     public string SelectedSectionPositionLabel => _selectedSectionLocation == null
@@ -74,12 +76,77 @@ public class FemAnalysisResultVM : ViewModelBase
             _selectedSectionLocation.PositionFromMemberStartM,
             _selectedSectionLocation.MemberLengthM,
             _selectedSectionLocation.RelativePosition);
-    public bool HasSelectedSectionState => SectionStressPlot != null && SectionStrainPlot != null;
 
-    /// <summary>Карта напряжений выбранного сечения.</summary>
-    public SectionPlotVM? SectionStressPlot { get; private set; }
-    /// <summary>Карта деформаций выбранного сечения.</summary>
-    public SectionPlotVM? SectionStrainPlot { get; private set; }
+    /// <summary>Маркер точки интегрирования на деформированной схеме.</summary>
+    public sealed record FemSectionMarker(FemSectionLocationRow Location, Point3D Point);
+
+    /// <summary>Маркеры всех точек интегрирования на деформированной схеме.</summary>
+    public IReadOnlyList<FemSectionMarker> SectionMarkers { get; private set; } = [];
+
+    /// <summary>Событие запроса окна состояния сечения (обрабатывает AppViewModel).</summary>
+    public event Action<FemSectionStateRequest>? SectionStateRequested;
+
+    /// <summary>Событие уведомления о недоступном состоянии выбранной ТИ (ключ строки
+    /// локализации) — рейзится, когда окно состояния открыть невозможно.</summary>
+    public event Action<string>? SectionStateUnavailable;
+
+    /// <summary>Выбирает ТИ (например, кликом по 3D-маркеру) и сбрасывает выбор узла/элемента.</summary>
+    public void SelectSectionLocation(FemSectionLocationRow? row)
+    {
+        _selectedNodeTag = null;
+        _selectedElemTag = null;
+        NotifySelectionChanged();
+        SelectedSectionLocation = row;
+    }
+
+    /// <summary>Запрашивает окно состояния для ТИ; при недоступных данных рейзит
+    /// <see cref="SectionStateUnavailable"/> вместо окна. Чтение волокон ленивое —
+    /// выполняется фоновым потоком обработчиком события.</summary>
+    public void RequestSectionState(FemSectionLocationRow? row)
+    {
+        if (row == null) return;
+        if (!row.IsStateAvailable)
+        {
+            SectionStateUnavailable?.Invoke("FemSectionStateUnavailable");
+            return;
+        }
+        if (_nonlinearResult == null || string.IsNullOrWhiteSpace(_fiberStatePath) || Steps.Count == 0)
+        {
+            SectionStateUnavailable?.Invoke("FemSectionStateUnavailable");
+            return;
+        }
+        if (!_sectionIdByElement.TryGetValue(row.MeshElementTag, out int? sectionId) || sectionId is not int id)
+        {
+            SectionStateUnavailable?.Invoke("FemSectionStateUnavailable");
+            return;
+        }
+        var step = Steps[SelectedStepIndex];
+        SectionStateRequested?.Invoke(new FemSectionStateRequest(
+            row,
+            id,
+            _nonlinearResult.CalcTypeName,
+            () => LoadRecordedFibers(row, step.StepIndex),
+            CurrentStepLabel,
+            step.Converged,
+            SelectedSectionPositionLabel));
+    }
+
+    IReadOnlyDictionary<int, (double StressPa, double Strain)> LoadRecordedFibers(
+        FemSectionLocationRow row, int stepIndex)
+    {
+        try
+        {
+            var states = new FemNonlinearFiberStateParser().ParseSection(
+                _fiberStatePath!, row.MeshElementTag, row.IntegrationPoint);
+            return states
+                .Where(s => s.StepIndex == stepIndex)
+                .ToDictionary(s => s.FiberIndex, s => (s.StressPa, s.Strain));
+        }
+        catch (OpenSeesResultException)
+        {
+            return new Dictionary<int, (double StressPa, double Strain)>();
+        }
+    }
     /// <summary>Верхняя граница слайдера шага.</summary>
     public int MaxStepIndex => Math.Max(0, Steps.Count - 1);
 
@@ -96,7 +163,6 @@ public class FemAnalysisResultVM : ViewModelBase
             ApplyStepData();
             RebuildDeformed();
             RebuildForceDiagram();
-            RebuildSectionPlots();
             OnPropertyChanged();
             OnPropertyChanged(nameof(Displacements));
             OnPropertyChanged(nameof(Reactions));
@@ -149,7 +215,6 @@ public class FemAnalysisResultVM : ViewModelBase
     readonly DatabaseService _database;
     readonly Dictionary<int, int?> _sectionIdByElement = [];
     FemNonlinearResult? _nonlinearResult;
-    IReadOnlyList<FemNonlinearFiberState> _fiberStates = [];
     string? _fiberStatePath;
 
     /// <summary>Точки линий исходной (недеформированной) схемы, парами.</summary>
@@ -367,7 +432,6 @@ public class FemAnalysisResultVM : ViewModelBase
 
         _forceScale = SuggestForceScale();
         RebuildForceDiagram();
-        RebuildSectionPlots();
     }
 
     void LoadSectionResultData(
@@ -398,85 +462,15 @@ public class FemAnalysisResultVM : ViewModelBase
             OnPropertyChanged(nameof(SectionLocations));
             OnPropertyChanged(nameof(HasSectionResults));
             _selectedSectionLocation = SectionLocations.FirstOrDefault(x => x.IsStateAvailable);
-            LoadSelectedFiberStates();
             OnPropertyChanged(nameof(SelectedSectionLocation));
             OnPropertyChanged(nameof(SelectedSectionPositionLabel));
         }
         catch (OpenSeesResultException)
         {
             // Дополнительные файлы не должны скрывать остальные результаты FEM.
-            _fiberStates = [];
             _fiberStatePath = null;
             SectionLocations = [];
         }
-    }
-
-    void LoadSelectedFiberStates()
-    {
-        _fiberStates = [];
-        if (_selectedSectionLocation is not { IsStateAvailable: true } selected ||
-            string.IsNullOrWhiteSpace(_fiberStatePath)) return;
-        try
-        {
-            _fiberStates = new FemNonlinearFiberStateParser().ParseSection(
-                _fiberStatePath, selected.MeshElementTag, selected.IntegrationPoint);
-        }
-        catch (OpenSeesResultException)
-        {
-            _fiberStates = [];
-        }
-    }
-
-    void RebuildSectionPlots()
-    {
-        SectionStressPlot = null;
-        SectionStrainPlot = null;
-        var selected = _selectedSectionLocation;
-        if (selected == null || !selected.IsStateAvailable || _fiberStates.Count == 0 || Steps.Count == 0)
-        {
-            OnPropertyChanged(nameof(SectionStressPlot));
-            OnPropertyChanged(nameof(SectionStrainPlot));
-            OnPropertyChanged(nameof(HasSelectedSectionState));
-            return;
-        }
-        if (!_sectionIdByElement.TryGetValue(selected.MeshElementTag, out int? sectionId) || sectionId is not int id)
-        {
-            NotifySectionPlotsChanged();
-            return;
-        }
-        var section = _database.CrossSections.FirstOrDefault(s => s.Id == id);
-        if (section == null)
-        {
-            NotifySectionPlotsChanged();
-            return;
-        }
-
-        int step = Steps[SelectedStepIndex].StepIndex;
-        var recorded = _fiberStates
-            .Where(s => s.StepIndex == step &&
-                        s.ElementTag == selected.MeshElementTag &&
-                        s.IntegrationPoint == selected.IntegrationPoint)
-            .ToDictionary(s => s.FiberIndex, s => (s.StressPa, s.Strain));
-        if (recorded.Count == 0)
-        {
-            NotifySectionPlotsChanged();
-            return;
-        }
-        var calcType = Enum.TryParse<CalcType>(_nonlinearResult?.CalcTypeName, out var parsedCalcType)
-            ? parsedCalcType : CalcType.C;
-        var curvature = new Kurvature();
-        SectionStressPlot = new SectionPlotVM(section, curvature, calcType, SectionPlotMode.Stress,
-            recordedFibers: recorded);
-        SectionStrainPlot = new SectionPlotVM(section, curvature, calcType, SectionPlotMode.Strain,
-            recordedFibers: recorded);
-        NotifySectionPlotsChanged();
-    }
-
-    void NotifySectionPlotsChanged()
-    {
-        OnPropertyChanged(nameof(SectionStressPlot));
-        OnPropertyChanged(nameof(SectionStrainPlot));
-        OnPropertyChanged(nameof(HasSelectedSectionState));
     }
 
     static (Vector3D Ey, Vector3D Ez) LocalFrame(Point3D pi, Point3D pj, double rotationDeg)
@@ -592,6 +586,24 @@ public class FemAnalysisResultVM : ViewModelBase
             .Select(eg => (eg.Tag, Deformed(eg.Ni), Deformed(eg.Nj)))
             .ToList();
         OnPropertyChanged(nameof(DeformedElementSegments));
+
+        SectionMarkers = BuildSectionMarkers();
+        OnPropertyChanged(nameof(SectionMarkers));
+    }
+
+    IReadOnlyList<FemSectionMarker> BuildSectionMarkers()
+    {
+        var result = new List<FemSectionMarker>();
+        foreach (var row in SectionLocations)
+        {
+            var geom = _elementGeoms.FirstOrDefault(g => g.Tag == row.MeshElementTag);
+            if (geom.Tag != row.MeshElementTag) continue;
+            double t = row.ElementLocalNormalized;
+            var a = Deformed(geom.Ni);
+            var b = Deformed(geom.Nj);
+            result.Add(new FemSectionMarker(row, a + (b - a) * t));
+        }
+        return result;
     }
 
     Point3D Deformed(int tag)
