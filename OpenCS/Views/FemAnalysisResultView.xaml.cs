@@ -344,7 +344,7 @@ public partial class FemAnalysisResultView : UserControl
 
     void MemberSectionCtx_Click(object sender, System.Windows.RoutedEventArgs e)
     {
-        if (_contextMenuTargetTag != null) _vm.RequestGoToSection(_contextMenuTargetTag);
+        if (_contextMenuTargetTag != null) _vm.RequestShowMemberSection(_contextMenuTargetTag);
     }
 
     void NodeValuesCtx_Click(object sender, System.Windows.RoutedEventArgs e)

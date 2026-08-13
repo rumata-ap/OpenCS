@@ -2,6 +2,7 @@ using CScore;
 using OpenCS.Converters;
 using OpenCS.Utilites;
 using OpenCS.Views;
+using OpenCS.Views.Helpers;
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -74,10 +75,7 @@ namespace OpenCS.ViewModels
 
       public void RefreshPlot()
       {
-         var elements = new List<PlotElement>();
-         foreach (var avm in Stage1Areas.Concat(Stage2Areas))
-            CrossSectionVM.AddAreaElements(elements, avm.Model);
-         PlotElements = elements;
+         PlotElements = CrossSectionPlotBuilder.Build(_model).Elements;
          OnPropertyChanged(nameof(PlotElements));
       }
 

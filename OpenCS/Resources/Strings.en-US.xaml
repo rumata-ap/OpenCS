@@ -940,7 +940,7 @@
     <system:String x:Key="FemAnalysisEdit">Edit analysis</system:String>
     <system:String x:Key="FemAnalysisViewResult">View result</system:String>
     <system:String x:Key="FemResultMember2D">Show 2D diagram</system:String>
-    <system:String x:Key="FemResultMemberSection">Go to section</system:String>
+    <system:String x:Key="FemResultMemberSection">Show cross-section</system:String>
     <system:String x:Key="FemResultNodeValues">Show node values</system:String>
     <system:String x:Key="FemResultNodeTitle">Node result</system:String>
     <system:String x:Key="FemResultNodeCoordinates">Coordinates, m: ({0:F3}; {1:F3}; {2:F3})</system:String>
@@ -1641,7 +1641,11 @@
     <system:String x:Key="FemColForceMzj">Mz(j), kN·m</system:String>
     <system:String x:Key="FemMemberForceComponent">Component:</system:String>
     <system:String x:Key="FemMemberForceTitle">{1} diagram — member {0}</system:String>
+    <system:String x:Key="FemMemberForceDialogTitle">Local diagrams — member {0}</system:String>
+    <system:String x:Key="FemMemberSectionDialogTitle">Cross-section — {0}</system:String>
     <system:String x:Key="FemMemberForceNoResult">No successful OpenSees analysis for this schema</system:String>
+    <system:String x:Key="FemMemberSectionNotAssigned">No cross-section is assigned to the structural member.</system:String>
+    <system:String x:Key="FemMemberSectionNotFound">The assigned cross-section was not found in the project.</system:String>
     <system:String x:Key="ImportLiraSchemaFromApi">Import topology from LIRA SAPR (COM)…</system:String>
     <system:String x:Key="ImportLiraSchemaFromFile">Import schema from .lir file…</system:String>
     <system:String x:Key="ImportLiraSchemaFromFileTitle">LIRA SAPR file (.lir)</system:String>

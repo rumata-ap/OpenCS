@@ -3657,7 +3657,38 @@ namespace OpenCS
       }
 
       void ShowMemberForceDiagram(CScore.Fem.FemSchema schema, string memberTag, ViewModels.FemAnalysisResultVM vm)
-         => CurrentPage = new Views.FemMemberForceView(db, schema, memberTag, vm);
+      {
+         var dialog = new Views.FemMemberForceDialog(db, schema, memberTag, vm)
+         {
+            Owner = System.Windows.Application.Current.MainWindow
+         };
+         dialog.ShowDialog();
+      }
+
+      /// <summary>Открывает read-only preview поперечного сечения конструктивного стержня
+      /// из контекстного меню результата OpenSees.</summary>
+      void ShowFemMemberSectionDialog(CScore.Fem.FemSchema schema, string memberTag)
+      {
+         var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == memberTag);
+         if (member?.CrossSectionId is not int sectionId)
+         {
+            ShowSectionStateUnavailable("FemMemberSectionNotAssigned");
+            return;
+         }
+
+         var section = db.CrossSections.FirstOrDefault(s => s.Id == sectionId);
+         if (section == null)
+         {
+            ShowSectionStateUnavailable("FemMemberSectionNotFound");
+            return;
+         }
+
+         var dialog = new Views.FemMemberSectionDialog(section, PlotSettings)
+         {
+            Owner = System.Windows.Application.Current.MainWindow
+         };
+         dialog.ShowDialog();
+      }
 
       /// <summary>Открывает (или обновляет) немодальное окно состояния сечения в точке
       /// интегрирования нелинейного FEM-результата OpenSees. Чтение волокон — фоновым
@@ -3728,13 +3759,7 @@ namespace OpenCS
       void AttachFemResultVmEvents(ViewModels.FemAnalysisResultVM vm, CScore.Fem.FemSchema schema)
       {
          vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag, vm);
-         vm.GoToSectionRequested += tag => {
-            var member = db.GetFemMembers(schema.Id).FirstOrDefault(m => m.ElemTag == tag);
-            if (member != null && member.CrossSectionId.HasValue) {
-               var section = db.CrossSections.FirstOrDefault(s => s.Id == member.CrossSectionId.Value);
-               if (section != null) CurrentCrossSection = section;
-            }
-         };
+         vm.ShowMemberSectionRequested += tag => ShowFemMemberSectionDialog(schema, tag);
          vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
          vm.SectionStateRequested += OpenFemSectionState;
          vm.SectionStateUnavailable += ShowSectionStateUnavailable;

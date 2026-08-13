@@ -1,0 +1,9 @@
+<Window x:Class="OpenCS.Views.FemMemberForceDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        MinWidth="760" MinHeight="500"
+        Width="960" Height="620"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+    <ContentControl x:Name="ContentHost"/>
+</Window>

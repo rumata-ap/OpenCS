@@ -331,11 +331,13 @@ public class FemAnalysisResultVM : ViewModelBase
     public System.Windows.Input.ICommand ResetForceScaleCommand { get; }
 
     public event Action<string>? ShowMemberForceRequested;
-    public event Action<string>? GoToSectionRequested;
+    /// <summary>Событие запроса read-only просмотра поперечного сечения стержня.</summary>
+    public event Action<string>? ShowMemberSectionRequested;
     public event Action<string>? ShowNodeValuesRequested;
 
     public void RequestShowMemberForce(string tag) => ShowMemberForceRequested?.Invoke(tag);
-    public void RequestGoToSection(string tag) => GoToSectionRequested?.Invoke(tag);
+    /// <summary>Запрашивает read-only просмотр поперечного сечения стержня.</summary>
+    public void RequestShowMemberSection(string tag) => ShowMemberSectionRequested?.Invoke(tag);
     public void RequestShowNodeValues(string tag) => ShowNodeValuesRequested?.Invoke(tag);
 
     /// <summary>Возвращает координаты, перемещения и реакции узла из результата.</summary>

@@ -1,14 +1,13 @@
 using CScore;
-using OpenCS.Converters;
 using OpenCS.Utilites;
 using OpenCS.Views;
+using OpenCS.Views.Helpers;
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows.Input;
-using System.Windows.Media;
 
 namespace OpenCS.ViewModels
 {
@@ -67,43 +66,8 @@ namespace OpenCS.ViewModels
 
       public void RefreshPlot()
       {
-         var elements = new List<PlotElement>();
-         foreach (var avm in Areas)
-            AddAreaElements(elements, avm.Model);
-         PlotElements = elements;
+         PlotElements = CrossSectionPlotBuilder.Build(_model).Elements;
          OnPropertyChanged(nameof(PlotElements));
-      }
-
-      internal static void AddAreaElements(List<PlotElement> elements, MaterialArea area)
-      {
-         var hull = area.Hull;
-         var brush = MatTypeToBrushConverter.GetBrush(area.Material?.Type ?? MatType.None);
-         var fill  = new SolidColorBrush(Color.FromArgb(120, brush.Color.R, brush.Color.G, brush.Color.B));
-         if (hull != null && hull.X.Count > 0)
-            elements.Add(new PolygonElement
-            {
-               Xs = [.. hull.X], Ys = [.. hull.Y],
-               Fill = fill, Stroke = brush, StrokeThickness = 1.5
-            });
-         var meshFibers = area.Fibers
-            .Where(f => f.TypeFiber is FiberType.poly or FiberType.tri)
-            .ToArray();
-         if (meshFibers.Length > 0)
-            elements.Add(new FiberMeshElement { Fibers = meshFibers, ShowCentroids = false, Fill = null });
-         foreach (var hole in area.Holes)
-            if (hole.X.Count > 0)
-               elements.Add(new PolygonElement
-               {
-                  Xs = [.. hole.X], Ys = [.. hole.Y],
-                  Fill = Brushes.White, Stroke = Brushes.Gray, StrokeThickness = 1
-               });
-
-         foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
-            elements.Add(new CircleElement
-            {
-               X = f.X, Y = f.Y, Radius = f.Diameter / 2,
-               Fill = Brushes.OrangeRed, Stroke = Brushes.DarkRed, StrokeThickness = 0.5
-            });
       }
 
       void AddFromPool(MaterialArea? area)

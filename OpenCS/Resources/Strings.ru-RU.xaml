@@ -943,7 +943,7 @@
     <system:String x:Key="FemAnalysisEdit">Редактировать постановку</system:String>
     <system:String x:Key="FemAnalysisViewResult">Показать результат</system:String>
     <system:String x:Key="FemResultMember2D">Показать 2D-эпюру</system:String>
-    <system:String x:Key="FemResultMemberSection">Перейти к сечению</system:String>
+    <system:String x:Key="FemResultMemberSection">Показать поперечное сечение</system:String>
     <system:String x:Key="FemResultNodeValues">Показать значения в узле</system:String>
     <system:String x:Key="FemResultNodeTitle">Результат в узле</system:String>
     <system:String x:Key="FemResultNodeCoordinates">Координаты, м: ({0:F3}; {1:F3}; {2:F3})</system:String>
@@ -1644,7 +1644,11 @@
     <system:String x:Key="FemColForceMzj">Mz(j), кН·м</system:String>
     <system:String x:Key="FemMemberForceComponent">Компонента:</system:String>
     <system:String x:Key="FemMemberForceTitle">Эпюра {1} — стержень {0}</system:String>
+    <system:String x:Key="FemMemberForceDialogTitle">Локальные эпюры — стержень {0}</system:String>
+    <system:String x:Key="FemMemberSectionDialogTitle">Поперечное сечение — {0}</system:String>
     <system:String x:Key="FemMemberForceNoResult">Нет успешного расчёта OpenSees для этой схемы</system:String>
+    <system:String x:Key="FemMemberSectionNotAssigned">Для конструктивного стержня не назначено поперечное сечение.</system:String>
+    <system:String x:Key="FemMemberSectionNotFound">Назначенное поперечное сечение не найдено в проекте.</system:String>
     <system:String x:Key="ImportLiraSchemaFromApi">Импорт топологии из ЛираСАПР (COM)…</system:String>
     <system:String x:Key="ImportLiraSchemaFromFile">Импорт схемы из .lir файла…</system:String>
     <system:String x:Key="ImportLiraSchemaFromFileTitle">Файл ЛираСАПР (.lir)</system:String>
