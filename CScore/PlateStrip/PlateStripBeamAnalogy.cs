@@ -16,4 +16,5 @@ public sealed class PlateStripBeamAnalogy
     public PlateStripGeometry Geometry { get; set; } = new();
     public double ExplicitWidthM { get; set; }
     public string Fingerprint { get; set; } = "";
+    public ShellReplacementPolicy Policy { get; set; } = ShellReplacementPolicy.DiagnosticOnly;
 }
