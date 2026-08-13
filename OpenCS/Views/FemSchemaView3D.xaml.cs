@@ -181,6 +181,14 @@ public partial class FemSchemaView3D : UserControl
 
     void Viewport_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Delete && Keyboard.Modifiers == ModifierKeys.None &&
+            Editor?.Selection?.SelectedNodeTags is { Count: > 0 } selectedNodes)
+        {
+            NodeDeleteRequested?.Invoke(selectedNodes.ToArray());
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key != Key.Escape) return;
         if (_createBarMode && _pendingBarFirstNode != null)
         {
@@ -749,6 +757,7 @@ public partial class FemSchemaView3D : UserControl
     void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (VM is not { EditMode: true } vm) return;
+        viewport.Focus();
         var position = e.GetPosition(viewport);
 
         if (_createNodeMode)
@@ -1217,7 +1226,14 @@ public partial class FemSchemaView3D : UserControl
         NodePropertiesRequested?.Invoke(tag);
     }
 
+    void NodeDeleteCtx_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag is not { } tag) return;
+        NodeDeleteRequested?.Invoke([tag]);
+    }
+
     public event Action<string, double, double, double>? NodeMoveRequested;
     public event Action<string, double, double, double>? NodeCopyRequested;
     public event Action<string>? NodePropertiesRequested;
+    public event Action<IReadOnlyList<string>>? NodeDeleteRequested;
 }

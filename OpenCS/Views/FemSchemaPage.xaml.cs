@@ -75,6 +75,7 @@ public partial class FemSchemaPage : UserControl
         view3D.MemberForcesRequested      += tag => app.ShowMemberForceDiagram(schema, tag);
         view3D.NodeMoveRequested += (tag, dx, dy, dz) => _editorVm.MoveNodeByTag(tag, dx, dy, dz);
         view3D.NodeCopyRequested += (tag, dx, dy, dz) => _editorVm.CopyNodeByTag(tag, dx, dy, dz);
+        view3D.NodeDeleteRequested += ConfirmAndDeleteNodes;
         view3D.NodePropertiesRequested += tag =>
         {
             var node = _editorVm.Session.Nodes.FirstOrDefault(n => n.NodeTag == tag);
@@ -113,6 +114,26 @@ public partial class FemSchemaPage : UserControl
         var member = _editorVm.Session.Members.FirstOrDefault(m => m.ElemTag == tag);
         if (member == null) return;
         new FemMemberPropertiesDialog(member, _editorVm) { Owner = Window.GetWindow(this) }.Show();
+    }
+
+    void ConfirmAndDeleteNodes(IReadOnlyList<string> nodeTags)
+    {
+        var impact = _editorVm.GetNodeDeletionImpact(nodeTags);
+        if (impact.NodeCount == 0) return;
+
+        string resourceKey = impact.NodeCount == 1
+            ? "FemNodeDeleteConfirm"
+            : "FemNodesDeleteConfirm";
+        string message = impact.NodeCount == 1
+            ? string.Format(Loc.S(resourceKey), nodeTags[0], impact.MemberCount)
+            : string.Format(Loc.S(resourceKey), impact.NodeCount, impact.MemberCount);
+
+        if (MessageBox.Show(
+                Window.GetWindow(this), message, Loc.S("FemNodeDeleteConfirmTitle"),
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+
+        _editorVm.DeleteNodesByTags(nodeTags);
     }
 
     void OpenPlanarRegionMemberDialog(CScore.Planar.Frame3D frame,

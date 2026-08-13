@@ -1714,6 +1714,10 @@
     <system:String x:Key="FemNodeMoveCtx">Сместить…</system:String>
     <system:String x:Key="FemNodeCopyCtx">Копировать…</system:String>
     <system:String x:Key="FemNodePropertiesCtx">Свойства…</system:String>
+    <system:String x:Key="FemNodeDeleteCtx">Удалить узел</system:String>
+    <system:String x:Key="FemNodeDeleteConfirmTitle">Удаление узла</system:String>
+    <system:String x:Key="FemNodeDeleteConfirm">Удалить узел «{0}»? Также будут удалены примыкающие конструктивные элементы: {1}.</system:String>
+    <system:String x:Key="FemNodesDeleteConfirm">Удалить выбранные узлы ({0})? Также будут удалены примыкающие конструктивные элементы: {1}.</system:String>
     <system:String x:Key="FemNodeOffsetMoveTitle">Сместить узел</system:String>
     <system:String x:Key="FemNodeOffsetCopyTitle">Копировать узел</system:String>
     <system:String x:Key="FemNodeOffsetDx">dX, м</system:String>

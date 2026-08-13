@@ -40,18 +40,22 @@ public sealed class FemSchemaEditSession
         _position++;
     }
 
-    public void Undo()
+    public IFemEditCommand? Undo()
     {
-        if (!CanUndo) return;
+        if (!CanUndo) return null;
         _position--;
-        _history[_position].Undo(this);
+        var command = _history[_position];
+        command.Undo(this);
+        return command;
     }
 
-    public void Redo()
+    public IFemEditCommand? Redo()
     {
-        if (!CanRedo) return;
-        _history[_position].Do(this);
+        if (!CanRedo) return null;
+        var command = _history[_position];
+        command.Do(this);
         _position++;
+        return command;
     }
 
     /// <summary>Сбрасывает историю после успешного сохранения (данные в сессии остаются как «чистое» состояние).</summary>

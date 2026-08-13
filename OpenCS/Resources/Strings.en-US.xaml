@@ -1711,6 +1711,10 @@
     <system:String x:Key="FemNodeMoveCtx">Move…</system:String>
     <system:String x:Key="FemNodeCopyCtx">Copy…</system:String>
     <system:String x:Key="FemNodePropertiesCtx">Properties…</system:String>
+    <system:String x:Key="FemNodeDeleteCtx">Delete node</system:String>
+    <system:String x:Key="FemNodeDeleteConfirmTitle">Delete node</system:String>
+    <system:String x:Key="FemNodeDeleteConfirm">Delete node “{0}”? Connected structural members will also be deleted: {1}.</system:String>
+    <system:String x:Key="FemNodesDeleteConfirm">Delete selected nodes ({0})? Connected structural members will also be deleted: {1}.</system:String>
     <system:String x:Key="FemNodeOffsetMoveTitle">Move node</system:String>
     <system:String x:Key="FemNodeOffsetCopyTitle">Copy node</system:String>
     <system:String x:Key="FemNodeOffsetDx">dX, m</system:String>

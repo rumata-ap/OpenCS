@@ -82,4 +82,103 @@ public sealed class FemSchemaEditSessionNodeTests
         Assert.Single(session.NodeLoads);
         Assert.Equal("[1]", session.MemberGroups[0].MemberTagsJson);
     }
+
+    [Fact]
+    public void DeleteNodeCommand_CascadesToMemberLoads_AndUndoRestoresAll()
+    {
+        var session = NewSession();
+        var n1 = new FemNode { Id = 101, NodeTag = "1" };
+        var n2 = new FemNode { Id = 102, NodeTag = "2" };
+        var n3 = new FemNode { Id = 103, NodeTag = "3" };
+        session.Nodes.AddRange([n1, n2, n3]);
+        session.Members.AddRange([
+            new FemMember { Id = 201, ElemTag = "1", NodeIdsJson = "[1,2]" },
+            new FemMember { Id = 202, ElemTag = "2", NodeIdsJson = "[2,3]" }
+        ]);
+        session.MemberGroups.Add(new FemMemberGroup { Id = 1, Tag = "M1", MemberTagsJson = "[1,2]" });
+        session.NodeLoads.Add(new FemNodeLoad { Id = 301, NodeId = 102, Fz = 5 });
+        session.KinematicLoads.Add(new FemKinematicLoad { Id = 302, NodeId = 102, Dof = 3, Value = 0.01 });
+        session.MemberLoads.AddRange([
+            new FemMemberLoad { Id = 401, MemberId = 201, QzStart = 1 },
+            new FemMemberLoad { Id = 402, MemberId = 202, QzEnd = 2 }
+        ]);
+
+        session.Execute(new DeleteNodeCommand(n2));
+
+        Assert.DoesNotContain(n2, session.Nodes);
+        Assert.Empty(session.Members);
+        Assert.Empty(session.MemberLoads);
+        Assert.Empty(session.NodeLoads);
+        Assert.Empty(session.KinematicLoads);
+        Assert.Equal("[]", session.MemberGroups[0].MemberTagsJson);
+
+        session.Undo();
+
+        Assert.Equal(3, session.Nodes.Count);
+        Assert.Equal(2, session.Members.Count);
+        Assert.Equal(2, session.MemberLoads.Count);
+        Assert.Single(session.NodeLoads);
+        Assert.Single(session.KinematicLoads);
+        Assert.Equal("[1,2]", session.MemberGroups[0].MemberTagsJson);
+    }
+
+    [Fact]
+    public void DeleteNodesCommand_RemovesSharedMemberOnce_AndUndoRedoRestoresOnce()
+    {
+        var session = NewSession();
+        var n1 = new FemNode { Id = 101, NodeTag = "1" };
+        var n2 = new FemNode { Id = 102, NodeTag = "2" };
+        session.Nodes.AddRange([n1, n2]);
+        var member = new FemMember { Id = 201, ElemTag = "1", NodeIdsJson = "[1,2]" };
+        session.Members.Add(member);
+        session.MemberLoads.Add(new FemMemberLoad { Id = 301, MemberId = member.Id, QzStart = 3 });
+        session.MarkSaved();
+
+        session.Execute(new DeleteNodesCommand([n1, n2]));
+        Assert.Empty(session.Nodes);
+        Assert.Empty(session.Members);
+        Assert.Empty(session.MemberLoads);
+
+        session.Undo();
+        Assert.Equal(2, session.Nodes.Count);
+        Assert.Single(session.Members);
+        Assert.Same(member, session.Members[0]);
+        Assert.Single(session.MemberLoads);
+        Assert.False(session.CanUndo);
+        Assert.True(session.CanRedo);
+
+        session.Redo();
+        Assert.Empty(session.Members);
+        Assert.Empty(session.MemberLoads);
+    }
+
+    [Fact]
+    public void DeleteNodesCommand_Preview_DoesNotMutateSession()
+    {
+        var session = NewSession();
+        var n1 = new FemNode { Id = 101, NodeTag = "1" };
+        var n2 = new FemNode { Id = 102, NodeTag = "2" };
+        session.Nodes.AddRange([n1, n2]);
+        session.Members.Add(new FemMember { Id = 201, ElemTag = "1", NodeIdsJson = "[1,2]" });
+
+        var impact = DeleteNodesCommand.Preview(session, [n1]);
+
+        Assert.Equal(1, impact.NodeCount);
+        Assert.Equal(1, impact.MemberCount);
+        Assert.Equal(2, session.Nodes.Count);
+        Assert.Single(session.Members);
+    }
+
+    [Fact]
+    public void DeleteNodeCommand_RemovesUnsavedAdjacentMember()
+    {
+        var session = NewSession();
+        var node = new FemNode { Id = 101, NodeTag = "1" };
+        session.Nodes.Add(node);
+        session.Members.Add(new FemMember { Id = 0, ElemTag = "1", NodeIdsJson = "[1,2]" });
+
+        session.Execute(new DeleteNodeCommand(node));
+
+        Assert.Empty(session.Members);
+    }
 }

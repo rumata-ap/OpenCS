@@ -41,34 +41,58 @@ public sealed class SetDofMaskCommand(FemNode node, int mask) : IFemEditCommand
     public void Undo(FemSchemaEditSession session) => node.DofMask = _oldMask;
 }
 
-/// <summary>Удаляет узел и каскадно — ссылающиеся на него конструктивные элементы, узловые нагрузки
-/// заданные перемещения/повороты и ссылки на удалённые элементы в FemMemberGroup.MemberTagsJson.
-/// Полностью обратимо.</summary>
-public sealed class DeleteNodeCommand(FemNode node) : IFemEditCommand
+/// <summary>Количество объектов, которые будут затронуты удалением узлов FEM-схемы.</summary>
+public readonly record struct FemNodeDeletionImpact(int NodeCount, int MemberCount);
+
+/// <summary>Удаляет один или несколько узлов и каскадно связанные с ними данные.
+/// Общие для нескольких узлов элементы и нагрузки обрабатываются только один раз.</summary>
+public sealed class DeleteNodesCommand : IFemEditCommand
 {
-    List<FemMember>   _removedMembers = [];
-    List<FemNodeLoad> _removedLoads   = [];
+    sealed record DeletionTargets(
+        List<FemNode> Nodes,
+        List<FemMember> Members,
+        List<FemNodeLoad> NodeLoads,
+        List<FemKinematicLoad> KinematicLoads,
+        List<FemMemberLoad> MemberLoads);
+
+    readonly List<FemNode> _candidates;
+    List<FemNode> _removedNodes = [];
+    List<FemMember> _removedMembers = [];
+    List<FemNodeLoad> _removedNodeLoads = [];
     List<FemKinematicLoad> _removedKinematicLoads = [];
+    List<FemMemberLoad> _removedMemberLoads = [];
     List<(FemMemberGroup group, string oldJson)> _groupEdits = [];
+
+    public DeleteNodesCommand(IEnumerable<FemNode> nodes)
+        => _candidates = nodes.Distinct().ToList();
+
+    /// <summary>Возвращает количество узлов и конструктивных элементов, которые будут удалены.
+    /// Метод не изменяет состояние сессии.</summary>
+    public static FemNodeDeletionImpact Preview(FemSchemaEditSession session, IEnumerable<FemNode> nodes)
+    {
+        var targets = CollectTargets(session, nodes);
+        return new FemNodeDeletionImpact(targets.Nodes.Count, targets.Members.Count);
+    }
 
     public void Do(FemSchemaEditSession session)
     {
-        session.Nodes.Remove(node);
-
-        // NodeIdsJson хранит NodeTag узла как число, не БД-Id (см. FemTopologyValidator).
-        int nodeTagId = int.Parse(node.NodeTag);
-        _removedMembers = session.Members
-            .Where(e => (JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? []).Contains(nodeTagId))
-            .ToList();
-        foreach (var e in _removedMembers) session.Members.Remove(e);
-
-        _removedLoads = session.NodeLoads.Where(l => l.NodeId == node.Id).ToList();
-        foreach (var l in _removedLoads) session.NodeLoads.Remove(l);
-        _removedKinematicLoads = session.KinematicLoads.Where(l => l.NodeId == node.Id).ToList();
-        foreach (var l in _removedKinematicLoads) session.KinematicLoads.Remove(l);
-
-        var removedMemberTags = _removedMembers.Select(e => e.ElemTag).ToHashSet(StringComparer.Ordinal);
+        var targets = CollectTargets(session, _candidates);
+        _removedNodes = targets.Nodes;
+        _removedMembers = targets.Members;
+        _removedNodeLoads = targets.NodeLoads;
+        _removedKinematicLoads = targets.KinematicLoads;
+        _removedMemberLoads = targets.MemberLoads;
         _groupEdits = [];
+
+        foreach (var node in _removedNodes) session.Nodes.Remove(node);
+        foreach (var member in _removedMembers) session.Members.Remove(member);
+        foreach (var load in _removedNodeLoads) session.NodeLoads.Remove(load);
+        foreach (var load in _removedKinematicLoads) session.KinematicLoads.Remove(load);
+        foreach (var load in _removedMemberLoads) session.MemberLoads.Remove(load);
+
+        var removedMemberTags = _removedMembers
+            .Select(member => member.ElemTag)
+            .ToHashSet(StringComparer.Ordinal);
         foreach (var group in session.MemberGroups)
         {
             var ids = JsonSerializer.Deserialize<int[]>(group.MemberTagsJson) ?? [];
@@ -81,12 +105,44 @@ public sealed class DeleteNodeCommand(FemNode node) : IFemEditCommand
 
     public void Undo(FemSchemaEditSession session)
     {
-        session.Nodes.Add(node);
-        foreach (var e in _removedMembers) session.Members.Add(e);
-        foreach (var l in _removedLoads) session.NodeLoads.Add(l);
-        foreach (var l in _removedKinematicLoads) session.KinematicLoads.Add(l);
+        foreach (var node in _removedNodes) session.Nodes.Add(node);
+        foreach (var member in _removedMembers) session.Members.Add(member);
+        foreach (var load in _removedNodeLoads) session.NodeLoads.Add(load);
+        foreach (var load in _removedKinematicLoads) session.KinematicLoads.Add(load);
+        foreach (var load in _removedMemberLoads) session.MemberLoads.Add(load);
         foreach (var (group, oldJson) in _groupEdits) group.MemberTagsJson = oldJson;
     }
+
+    static DeletionTargets CollectTargets(FemSchemaEditSession session, IEnumerable<FemNode> candidates)
+    {
+        var nodes = candidates
+            .Where(session.Nodes.Contains)
+            .Distinct()
+            .ToList();
+        var nodeIds = nodes.Select(node => node.Id).ToHashSet();
+        var nodeTagIds = nodes.Select(node => int.Parse(node.NodeTag)).ToHashSet();
+        var members = session.Members
+            .Where(member => (JsonSerializer.Deserialize<int[]>(member.NodeIdsJson) ?? [])
+                .Any(nodeTagIds.Contains))
+            .ToList();
+        var memberIds = members.Select(member => member.Id).ToHashSet();
+
+        return new DeletionTargets(
+            nodes,
+            members,
+            session.NodeLoads.Where(load => nodeIds.Contains(load.NodeId)).ToList(),
+            session.KinematicLoads.Where(load => nodeIds.Contains(load.NodeId)).ToList(),
+            session.MemberLoads.Where(load => memberIds.Contains(load.MemberId)).ToList());
+    }
+}
+
+/// <summary>Удаляет один узел и каскадно связанные с ним данные. Полностью обратимо.</summary>
+public sealed class DeleteNodeCommand(FemNode node) : IFemEditCommand
+{
+    readonly DeleteNodesCommand _inner = new([node]);
+
+    public void Do(FemSchemaEditSession session) => _inner.Do(session);
+    public void Undo(FemSchemaEditSession session) => _inner.Undo(session);
 }
 
 /// <summary>Сшивает узлы конструктивного слоя, совпадающие по координатам (в пределах допуска

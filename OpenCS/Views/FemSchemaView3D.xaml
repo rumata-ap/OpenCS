@@ -31,6 +31,8 @@
             <MenuItem Header="{DynamicResource FemKinematicLoadCtx}" Click="KinematicLoadCtx_Click"/>
             <Separator/>
             <MenuItem Header="{DynamicResource FemNodePropertiesCtx}" Click="NodePropertiesCtx_Click"/>
+            <Separator/>
+            <MenuItem Header="{DynamicResource FemNodeDeleteCtx}" Click="NodeDeleteCtx_Click"/>
         </ContextMenu>
         <ContextMenu x:Key="LoadContextMenu">
             <MenuItem Header="{DynamicResource FemLoadEditCtx}" Click="LoadEditCtx_Click"/>

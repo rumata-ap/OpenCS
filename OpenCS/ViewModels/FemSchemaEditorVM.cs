@@ -346,11 +346,27 @@ public sealed class FemSchemaEditorVM : ViewModelBase
         Session.LoadDefinitions.AddRange(schema.LoadDefinitions);
         RefreshCollections();
 
-        UndoCommand = new RelayCommand(_ => { Session.Undo(); RefreshCollections(); }, _ => Session.CanUndo);
-        RedoCommand = new RelayCommand(_ => { Session.Redo(); RefreshCollections(); }, _ => Session.CanRedo);
+        UndoCommand = new RelayCommand(_ => UndoHistoryStep(), _ => Session.CanUndo);
+        RedoCommand = new RelayCommand(_ => RedoHistoryStep(), _ => Session.CanRedo);
         SaveCommand = new RelayCommand(_ => Save(), _ => Session.IsDirty);
         DiscretizeCommand = new RelayCommand(_ => Discretize(), _ => !IsDiscretizing);
         MergeNodesCommand = new RelayCommand(_ => _logService.Info(MergeCoincidentNodes()));
+    }
+
+    void UndoHistoryStep()
+    {
+        var command = Session.Undo();
+        if (command is DeleteNodeCommand or DeleteNodesCommand)
+            Selection.Clear();
+        RefreshCollections();
+    }
+
+    void RedoHistoryStep()
+    {
+        var command = Session.Redo();
+        if (command is DeleteNodeCommand or DeleteNodesCommand)
+            Selection.Clear();
+        RefreshCollections();
     }
 
     public void CreateNodeAt(double x, double y, double z)
@@ -376,6 +392,32 @@ public sealed class FemSchemaEditorVM : ViewModelBase
             CrossSectionId = sectionId
         }));
         RefreshCollections();
+    }
+
+    List<FemNode> ResolveNodes(IEnumerable<string> nodeTags) => nodeTags
+        .Where(tag => !string.IsNullOrWhiteSpace(tag))
+        .Distinct(StringComparer.Ordinal)
+        .Select(tag => Session.Nodes.FirstOrDefault(node => node.NodeTag == tag))
+        .OfType<FemNode>()
+        .ToList();
+
+    /// <summary>Возвращает количество узлов и элементов, затрагиваемых удалением заданных тегов.</summary>
+    public FemNodeDeletionImpact GetNodeDeletionImpact(IEnumerable<string> nodeTags)
+        => DeleteNodesCommand.Preview(Session, ResolveNodes(nodeTags));
+
+    /// <summary>Удаляет заданные узлы вместе с примыкающими элементами и связанными данными.
+    /// Операция записывается в историю одной командой.</summary>
+    public bool DeleteNodesByTags(IEnumerable<string> nodeTags)
+    {
+        var nodes = ResolveNodes(nodeTags);
+        if (nodes.Count == 0) return false;
+
+        Session.Execute(nodes.Count == 1
+            ? new DeleteNodeCommand(nodes[0])
+            : new DeleteNodesCommand(nodes));
+        Selection.Clear();
+        RefreshCollections();
+        return true;
     }
 
     public CScore.Planar.Frame3D? BuildPlateFrame(string nodeTag)
