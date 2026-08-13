@@ -365,6 +365,9 @@ public partial class FemAnalysisResultView : UserControl
 
     void BuildIpMarkers()
     {
+        // Тумблер с IsChecked="True" срабатывает ещё во время InitializeComponent
+        // (до присваивания _vm в конструкторе) — в этот момент маркеры строить нечего.
+        if (_vm == null) return;
         if (_ipAvailableVisual != null) { viewport.Children.Remove(_ipAvailableVisual); _ipAvailableVisual = null; }
         if (_ipUnavailableVisual != null) { viewport.Children.Remove(_ipUnavailableVisual); _ipUnavailableVisual = null; }
         foreach (var sphere in _ipPickSpheresByRow.Values) viewport.Children.Remove(sphere);
