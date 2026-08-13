@@ -50,6 +50,8 @@ public static class StripLoadConsistentNodalProjection
         {
             if (load.Kind == StripLoadKind.DistributedUniform)
                 AccumulateDistributed(load, lengthM, stationFractions, elements);
+            else
+                AccumulatePoint(load, lengthM, stationFractions, elements);
         }
 
         var totalForce = new double[3];
@@ -93,6 +95,44 @@ public static class StripLoadConsistentNodalProjection
                 n, vy, vz, my, mz,
                 n, vy, vz, -my, -mz);
         }
+    }
+
+    static void AccumulatePoint(
+        StripLoad load, double lengthM, IReadOnlyList<double> stations, StripElementNodalLoad[] elements)
+    {
+        int i = FindElementIndex(load.StationFraction, stations);
+        double le = (stations[i + 1] - stations[i]) * lengthM;
+        double a = (load.StationFraction - stations[i]) * lengthM;
+        double b = le - a;
+
+        double n1 = load.PxKn * b / le;
+        double n2 = load.PxKn * a / le;
+
+        double vz1 = load.PzKn * b * b * (le + 2 * a) / (le * le * le);
+        double my1 = load.PzKn * a * b * b / (le * le);
+        double vz2 = load.PzKn * a * a * (le + 2 * b) / (le * le * le);
+        double my2 = -load.PzKn * a * a * b / (le * le);
+
+        double vy1 = load.PyKn * b * b * (le + 2 * a) / (le * le * le);
+        double mz1 = load.PyKn * a * b * b / (le * le);
+        double vy2 = load.PyKn * a * a * (le + 2 * b) / (le * le * le);
+        double mz2 = -load.PyKn * a * a * b / (le * le);
+
+        double m0 = load.MzKnM;
+        vy1 += -6.0 * m0 * a * b / (le * le * le);
+        mz1 += m0 * b * (le - 3.0 * a) / (le * le);
+        vy2 += 6.0 * m0 * a * b / (le * le * le);
+        mz2 += m0 * a * (a - 2.0 * b) / (le * le);
+
+        elements[i] += new StripElementNodalLoad(n1, vy1, vz1, my1, mz1, n2, vy2, vz2, my2, mz2);
+    }
+
+    static int FindElementIndex(double stationFraction, IReadOnlyList<double> stations)
+    {
+        for (int i = 0; i < stations.Count - 2; i++)
+            if (stationFraction < stations[i + 1])
+                return i;
+        return stations.Count - 2; // последний элемент, включая правую границу
     }
 
     static void AccumulateTotals(

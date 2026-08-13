@@ -85,4 +85,86 @@ public sealed class StripLoadConsistentNodalProjectionTests
         Assert.Equal(2.0 * 6.0, totalN, 9);   // Qx * lengthM
         Assert.Equal(-1.0 * 6.0, totalVy, 9); // Qy * lengthM
     }
+
+    [Fact]
+    public void Project_PointAxialLoad_MidElement_LinearSplit()
+    {
+        var load = new StripLoad
+        {
+            Kind = StripLoadKind.Point,
+            SourceTag = "px",
+            StationFraction = 0.5,
+            PxKn = 12.0
+        };
+
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([load]), 6.0, [0.0, 1.0]);
+
+        Assert.True(result.IsCalculable);
+        Assert.Equal(6.0, result.Elements[0].N1, 9);
+        Assert.Equal(6.0, result.Elements[0].N2, 9);
+    }
+
+    [Fact]
+    public void Project_PointTransverseLoad_Midspan_MatchesClassicFixedEndFormula()
+    {
+        var load = new StripLoad
+        {
+            Kind = StripLoadKind.Point,
+            SourceTag = "pz",
+            StationFraction = 0.5,
+            PzKn = -8.0
+        };
+
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([load]), 6.0, [0.0, 1.0]);
+
+        var e = result.Elements[0];
+        Assert.Equal(-4.0, e.Vz1, 9);  // P/2
+        Assert.Equal(-4.0, e.Vz2, 9);
+        Assert.Equal(-6.0, e.My1, 9);  // P*L/8 = -8*6/8
+        Assert.Equal(6.0, e.My2, 9);
+    }
+
+    [Fact]
+    public void Project_AppliedMzAtNode_TransfersFullyToThatNode()
+    {
+        var load = new StripLoad
+        {
+            Kind = StripLoadKind.Point,
+            SourceTag = "mz-at-node",
+            StationFraction = 0.0,
+            MzKnM = 5.0
+        };
+
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([load]), 6.0, [0.0, 1.0]);
+
+        var e = result.Elements[0];
+        Assert.Equal(5.0, e.Mz1, 9);
+        Assert.Equal(0.0, e.Mz2, 9);
+        Assert.Equal(0.0, e.Vy1, 9);
+        Assert.Equal(0.0, e.Vy2, 9);
+    }
+
+    [Fact]
+    public void Project_PointExactlyOnInteriorStation_BelongsToRightElement()
+    {
+        var load = new StripLoad
+        {
+            Kind = StripLoadKind.Point,
+            SourceTag = "px-boundary",
+            StationFraction = 0.5,
+            PxKn = 10.0
+        };
+
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([load]), 6.0, [0.0, 0.5, 1.0]);
+
+        // a=0 в элементе [0.5,1.0] -> вся сила в N1 этого элемента, элемент [0,0.5] не затронут.
+        Assert.Equal(0.0, result.Elements[0].N1, 9);
+        Assert.Equal(0.0, result.Elements[0].N2, 9);
+        Assert.Equal(10.0, result.Elements[1].N1, 9);
+        Assert.Equal(0.0, result.Elements[1].N2, 9);
+    }
 }
