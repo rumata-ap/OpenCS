@@ -3671,10 +3671,18 @@ namespace OpenCS
             rebarDifferentialDiagram: CalcSettings.RebarDifferentialDiagram);
          var summary = OpenCS.OpenSees.CScore.FemRecordedSectionReducer.Reduce(section, calcType, request.RecordedFibers);
          var summaryVm = new ViewModels.FemSectionSummaryVM(request, summary);
+         bool ten = CalcSettings.ResolveConcreteTension(calcType);
+         var cutVm = new ViewModels.SectionCutVM(section, summary.Plane, calcType, FileDialogService, ten)
+         {
+            WindowTitleSuffix = string.Format(Loc.S("FemSectionStateSummaryTitle"),
+               request.Location.SourceMemberTag, request.Location.IntegrationPoint)
+         };
          var stressVm = new ViewModels.SectionPlotVM(section, summary.Plane, calcType,
-            ViewModels.SectionPlotMode.Stress, CalcSettings, recordedFibers: request.RecordedFibers);
+            ViewModels.SectionPlotMode.Stress, CalcSettings, ten, recordedFibers: request.RecordedFibers);
          var strainVm = new ViewModels.SectionPlotVM(section, summary.Plane, calcType,
-            ViewModels.SectionPlotMode.Strain, CalcSettings, recordedFibers: request.RecordedFibers);
+            ViewModels.SectionPlotMode.Strain, CalcSettings, ten, recordedFibers: request.RecordedFibers);
+         stressVm.CutVM = cutVm;
+         strainVm.CutVM = cutVm;
          var title = string.Format(Loc.S("FemSectionStateWindowTitle"),
             request.Location.SourceMemberTag, request.Location.IntegrationPoint, request.StepLabel);
 
@@ -3688,7 +3696,7 @@ namespace OpenCS
             _femSectionStateWindow.Closed += (_, _) => _femSectionStateWindow = null;
             _femSectionStateWindow.Show();
          }
-         _femSectionStateWindow.ShowContent(summaryVm, stressVm, strainVm, title);
+         _femSectionStateWindow.ShowContent(summaryVm, stressVm, strainVm, cutVm, CalcSettings, title);
          _femSectionStateWindow.Activate();
       }
 

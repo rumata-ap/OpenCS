@@ -200,6 +200,7 @@ public partial class FemAnalysisResultView : UserControl
     }
 
     string? _contextMenuTargetTag;
+    FemSectionLocationRow? _contextMenuSectionRow;
 
     void BuildPickTargets()
     {
@@ -290,7 +291,6 @@ public partial class FemAnalysisResultView : UserControl
         if (target.SectionRow is { } row)
         {
             _vm.SelectSectionLocation(row);
-            _vm.RequestSectionState(row);
             return;
         }
 
@@ -304,7 +304,19 @@ public partial class FemAnalysisResultView : UserControl
     {
         var hit = HitTestPick(e.GetPosition(viewport));
         if (hit is not { } target) return;
-        if (target.SectionRow != null) return;
+
+        if (target.SectionRow is { } row)
+        {
+            // Попадание по маркеру ТИ — блокируем вращение камеры и открываем контекстное меню.
+            e.Handled = true;
+            _vm.SelectSectionLocation(row);
+            _contextMenuSectionRow = row;
+            var sectionMenu = (ContextMenu)Resources["ResultSectionContextMenu"];
+            ((MenuItem)sectionMenu.Items[0]).IsEnabled = row.IsStateAvailable;
+            sectionMenu.PlacementTarget = viewport;
+            sectionMenu.IsOpen = true;
+            return;
+        }
 
         // Попадание по узлу/элементу — блокируем вращение камеры (стандартный жест HelixToolkit по ПКМ).
         e.Handled = true;
@@ -338,6 +350,11 @@ public partial class FemAnalysisResultView : UserControl
     void NodeValuesCtx_Click(object sender, System.Windows.RoutedEventArgs e)
     {
         if (_contextMenuTargetTag != null) _vm.RequestShowNodeValues(_contextMenuTargetTag);
+    }
+
+    void SectionStateCtx_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (_contextMenuSectionRow != null) _vm.RequestSectionState(_contextMenuSectionRow);
     }
 
     void DisplacementsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)

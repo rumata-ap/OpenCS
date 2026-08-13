@@ -32,6 +32,9 @@
         <ContextMenu x:Key="ResultNodeContextMenu">
             <MenuItem Header="{DynamicResource FemResultNodeValues}" Click="NodeValuesCtx_Click"/>
         </ContextMenu>
+        <ContextMenu x:Key="ResultSectionContextMenu">
+            <MenuItem Header="{DynamicResource FemMemberForceSectionState}" Click="SectionStateCtx_Click"/>
+        </ContextMenu>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -66,7 +69,7 @@
                         </ToggleButton>
                         <Separator/>
                         <ToggleButton x:Name="showIpMarkersCheck" Style="{StaticResource IconToggleButton25}"
-                                      IsChecked="True" ToolTip="{DynamicResource FemResultShowSectionPoints}"
+                                      IsChecked="False" ToolTip="{DynamicResource FemResultShowSectionPoints}"
                                       Visibility="{Binding HasSectionResults, Converter={StaticResource BoolToVis}}"
                                       Checked="IpMarkersToggle" Unchecked="IpMarkersToggle">
                             <Path Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,6A6,6 0 0,1 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6Z" Fill="SeaGreen" Stretch="Uniform" Margin="2"/>
