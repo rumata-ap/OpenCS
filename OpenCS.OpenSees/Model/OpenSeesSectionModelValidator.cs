@@ -187,8 +187,8 @@ public static class OpenSeesSectionModelValidator
                     throw new ArgumentException($"Материал {materialTag}: Fy должно быть положительным.");
                 if (s1.E0 <= 0)
                     throw new ArgumentException($"Материал {materialTag}: E0 должно быть положительным.");
-                if (s1.B <= 0 || s1.B >= 1)
-                    throw new ArgumentException($"Материал {materialTag}: b должно быть в диапазоне (0, 1).");
+                if (s1.B < 0 || s1.B >= 1)
+                    throw new ArgumentException($"Материал {materialTag}: b должно быть в диапазоне [0, 1).");
                 break;
             case Steel02Spec s2:
                 RequireFinite(s2.Fy, materialTag, nameof(s2.Fy));
@@ -201,8 +201,8 @@ public static class OpenSeesSectionModelValidator
                     throw new ArgumentException($"Материал {materialTag}: Fy должно быть положительным.");
                 if (s2.E0 <= 0)
                     throw new ArgumentException($"Материал {materialTag}: E0 должно быть положительным.");
-                if (s2.B <= 0 || s2.B >= 1)
-                    throw new ArgumentException($"Материал {materialTag}: b должно быть в диапазоне (0, 1).");
+                if (s2.B < 0 || s2.B >= 1)
+                    throw new ArgumentException($"Материал {materialTag}: b должно быть в диапазоне [0, 1).");
                 break;
             default:
                 throw new ArgumentException($"Материал {materialTag}: неизвестный тип NativeMaterialSpec «{native.GetType().Name}».");

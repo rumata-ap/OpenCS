@@ -85,6 +85,10 @@ public sealed class FemAnalysisParams
     /// <summary>Переопределение отношения модуля упрочнения стали/арматуры к E0 при
     /// MaterialSource="Native". null — вычисляется автоматически из характеристик материала.</summary>
     public double? SteelHardeningRatioOverride { get; set; }
+    /// <summary>Абсолютный модуль упрочнения арматуры после текучести в МПа для нелинейного
+    /// OpenSees-расчёта. Ноль задаёт горизонтальный хвост диаграммы; null означает, что поле
+    /// отсутствовало в legacy JSON и постановка ещё не пересохранялась с этой настройкой.</summary>
+    public double? SteelHardeningModulusMpa { get; set; } = 0;
     /// <summary>Формулировка стержневого элемента: "forceBeamColumn" (по умолчанию, force-based) |
     /// "dispBeamColumn" (displacement-based, устойчивее к вырожденной матрице гибкости, когда все
     /// фибры сечения одновременно попадают на строго горизонтальный (нулевой) хвост диаграммы —
@@ -113,6 +117,8 @@ public sealed class FemAnalysisParams
         if (string.IsNullOrWhiteSpace(json)) return new();
         var result = JsonSerializer.Deserialize<FemAnalysisParams>(json) ?? new();
         using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty(nameof(SteelHardeningModulusMpa), out _))
+            result.SteelHardeningModulusMpa = null;
         if (!doc.RootElement.TryGetProperty("MainMaterialModel", out _) &&
             doc.RootElement.TryGetProperty("ConcreteModel", out var legacyConcreteModel) &&
             legacyConcreteModel.ValueKind == JsonValueKind.String)

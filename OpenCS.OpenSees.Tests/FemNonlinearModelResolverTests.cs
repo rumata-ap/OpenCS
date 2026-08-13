@@ -2,6 +2,7 @@ using System.Text.Json;
 using CScore;
 using CScore.Fem;
 using OpenCS.OpenSees.CScore;
+using OpenCS.OpenSees.Model;
 using OpenCS.OpenSees.Structural;
 using OpenCS.OpenSees.Tests.Fixtures;
 using Xunit;
@@ -76,6 +77,38 @@ public class FemNonlinearModelResolverTests
         Assert.Equal(1.0, stage.MaxLoadFactor, 12);
 
         Assert.Equal("Linear", r.Model.GeomTransfKind);
+    }
+
+    [Fact]
+    public void Resolve_PropagatesHardeningAndNeighboringOptions()
+    {
+        var (mn, me, sn, sm, ld) = Console();
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+        var options = Options() with
+        {
+            SteelHardeningModulusMpa = 0,
+            MaxRefinementDepth = 7,
+            ElementFormulation = "dispBeamColumn",
+            Algorithm = "Newton"
+        };
+
+        var r = new FemNonlinearModelResolver().Resolve(
+            mn, me, sn, sm,
+            [new FemNonlinearStageInput("Стадия 1", ld)],
+            Sections(section),
+            CrossSectionFixtures.Materials(concrete, steel),
+            customDiagramPool: null,
+            CalcType.C,
+            options);
+
+        Assert.True(r.Ok, string.Join("; ", r.Errors));
+        var rebar = Assert.Single(r.Model!.Sections.Single().Value.Materials,
+            material => material.SourceId == steel.Id.ToString());
+        Assert.Equal(0, TailSlope(rebar.PositiveEnvelope, positive: true), 12);
+        Assert.Equal(0, TailSlope(rebar.NegativeEnvelope, positive: false), 12);
+        Assert.Equal(7, r.Model.Policy.MaxRefinementDepth);
+        Assert.Equal("dispBeamColumn", r.Model.ElementFormulation);
+        Assert.Equal("Newton", r.Model.Policy.Algorithm);
     }
 
     [Fact]
@@ -256,5 +289,13 @@ public class FemNonlinearModelResolverTests
 
         Assert.True(r.Ok, string.Join("; ", r.Errors));
         Assert.Equal(FemPathControlMode.LoadControl, r.Model!.Stages[0].PathControl.Mode);
+    }
+
+    private static double TailSlope(IReadOnlyList<EnvelopePoint> points, bool positive)
+    {
+        List<EnvelopePoint> ordered = points.OrderBy(point => point.Strain).ToList();
+        EnvelopePoint first = positive ? ordered[^2] : ordered[0];
+        EnvelopePoint second = positive ? ordered[^1] : ordered[1];
+        return (second.StressPa - first.StressPa) / (second.Strain - first.Strain);
     }
 }

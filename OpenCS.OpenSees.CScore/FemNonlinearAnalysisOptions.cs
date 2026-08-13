@@ -43,4 +43,6 @@ public sealed record FemNonlinearAnalysisOptions(
     // нелинейность (GeomTransfKind) при этом не отключается.
     bool ConsiderPhysicalNonlinearity = true,
     // Минимальное отношение напряжения к пиковому на ниспадающей ветви бетона СП 63.13330.
-    double Sp63EtaMin = 0.85);
+    double Sp63EtaMin = 0.85,
+    // Абсолютный модуль упрочнения арматуры в МПа; null — legacy-постановка без нового поля.
+    double? SteelHardeningModulusMpa = 0);

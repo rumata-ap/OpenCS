@@ -1574,6 +1574,8 @@
     <system:String x:Key="FemReinforcementModelSteel01">Steel01</system:String>
     <system:String x:Key="FemReinforcementModelSteel02">Steel02</system:String>
     <system:String x:Key="FemAnalysisSteelHardeningRatioLabel">Переопределение упрочнения b (пусто = авто)</system:String>
+    <system:String x:Key="FemAnalysisSteelHardeningModulusLabel">Модуль упрочнения арматуры, МПа</system:String>
+    <system:String x:Key="FemAnalysisSteelHardeningModulusTip">Касательный модуль после текучести. 0 задаёт горизонтальный хвост диаграммы; для нативной модели преобразуется в b = E_hard/E0.</system:String>
     <system:String x:Key="FemAnalysisElementFormulationLabel">Формулировка элемента</system:String>
     <system:String x:Key="FemAnalysisElementFormulationTip">forceBeamColumn (force-based, по умолчанию) точнее при распределённой нелинейности с меньшим числом элементов, но обращает матрицу гибкости сечения — если все фибры сечения одновременно попадают на строго горизонтальный (нулевой) участок диаграммы, обращение падает с ошибкой "could not invert flexibility". dispBeamColumn (displacement-based) не требует этого обращения и устойчивее именно в таком случае — рекомендуется при несходимости кинематических нагрузок со строго нулевым хвостом растяжения бетона.</system:String>
     <system:String x:Key="FemElementFormulationForce">forceBeamColumn (force-based, по умолчанию)</system:String>

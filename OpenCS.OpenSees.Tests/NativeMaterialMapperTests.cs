@@ -129,6 +129,44 @@ public sealed class NativeMaterialMapperTests
     }
 
     [Fact]
+    public void Map_RebarAbsoluteHardeningZero_ReturnsZeroB()
+    {
+        var spec = NativeMaterialMapper.Map(
+            RebarA500(), MatType.ReSteelF, true,
+            ConcreteModelKind.Concrete04, SteelModelKind.Steel02,
+            steelHardeningRatioOverride: null,
+            steelHardeningModulusPa: 0);
+
+        Assert.Equal(0, Assert.IsType<Steel02Spec>(spec).B, 12);
+    }
+
+    [Fact]
+    public void Map_RebarAbsoluteHardeningConvertsPaToRatio()
+    {
+        var spec = NativeMaterialMapper.Map(
+            RebarA500(), MatType.ReSteelF, true,
+            ConcreteModelKind.Concrete04, SteelModelKind.Steel01,
+            steelHardeningRatioOverride: null,
+            steelHardeningModulusPa: 1_000_000);
+
+        Assert.Equal(1_000_000d / 200_000_000_000d,
+            Assert.IsType<Steel01Spec>(spec).B, 12);
+    }
+
+    [Theory]
+    [InlineData(-1.0)]
+    [InlineData(double.NaN)]
+    [InlineData(200_000_000_000d)]
+    public void Map_RebarAbsoluteHardeningRejectsInvalidValues(double hardeningPa)
+    {
+        Assert.Throws<CScoreMappingException>(() => NativeMaterialMapper.Map(
+            RebarA500(), MatType.ReSteelF, true,
+            ConcreteModelKind.Concrete04, SteelModelKind.Steel02,
+            steelHardeningRatioOverride: null,
+            steelHardeningModulusPa: hardeningPa));
+    }
+
+    [Fact]
     public void Map_SteelHardeningOverride_TakesPrecedenceOverDerivation()
     {
         var spec = NativeMaterialMapper.Map(

@@ -45,12 +45,16 @@ public static class MaterialDiagramMapper
     /// <see cref="AppendConcreteTensionRupture"/>): не требует softening-участка, который на
     /// реальных сценариях оказался численно хрупок для forceBeamColumn (не универсальная ширина
     /// обрыва — см. историю отладки кинематических нагрузок).</param>
+    /// <param name="steelHardeningModulusPa">Явный модуль упрочнения арматуры в Па. Применяется
+    /// только к L2-диаграммам стальных материалов; при <c>null</c> сохраняется legacy-нудж
+    /// горизонтального хвоста.</param>
     public static OpenSeesMaterialDefinition Map(
         Diagramm diagram,
         int tag,
         string sourceId,
         MatType sourceType,
-        bool considerConcreteTension = true)
+        bool considerConcreteTension = true,
+        double? steelHardeningModulusPa = null)
     {
         ArgumentNullException.ThrowIfNull(diagram);
 
@@ -104,6 +108,17 @@ public static class MaterialDiagramMapper
             throw new CScoreMappingException("Диаграмма должна иметь обе ветви относительно ε=0.");
         }
 
+        if (steelHardeningModulusPa is { } hardening &&
+            (!double.IsFinite(hardening) || hardening < 0))
+        {
+            throw new CScoreMappingException(
+                "Модуль упрочнения арматуры должен быть конечным и неотрицательным.");
+        }
+
+        bool useConfiguredSteelHardening = steelHardeningModulusPa is { } &&
+            diagram.Type == DiagrammType.L2 &&
+            sourceType is MatType.ReSteelF or MatType.ReSteelU or MatType.Steel;
+
         List<string> warnings = ["Сохранена только монотонная огибающая исходной диаграммы."];
         // Экстраполируемый край: у positive это последняя (наибольшая ε) точка,
         // у negative — первая (наименьшая, самая отрицательная ε) точка.
@@ -120,11 +135,19 @@ public static class MaterialDiagramMapper
             AppendConcreteTensionRupture(positive, diagram.It.X[^1]);
             warnings.Add("К огибающей растяжения добавлен явный обрыв напряжения в ноль на пределе растяжимости бетона (трещинообразование), с малым остаточным наклоном за ним для устойчивости обращения матрицы гибкости.");
         }
+        else if (useConfiguredSteelHardening)
+        {
+            ApplyConfiguredTailSlope(positive, extrapolateAtStart: false, steelHardeningModulusPa!.Value);
+        }
         else if (ApplyResidualTailSlope(positive, extrapolateAtStart: false))
         {
             warnings.Add("Хвост огибающей растяжения был строго горизонтальным — добавлен малый ненулевой наклон для устойчивости обращения матрицы гибкости.");
         }
-        if (ApplyResidualTailSlope(negative, extrapolateAtStart: true))
+        if (useConfiguredSteelHardening)
+        {
+            ApplyConfiguredTailSlope(negative, extrapolateAtStart: true, steelHardeningModulusPa!.Value);
+        }
+        else if (ApplyResidualTailSlope(negative, extrapolateAtStart: true))
             warnings.Add("Хвост огибающей сжатия был строго горизонтальным — добавлен малый ненулевой наклон для устойчивости обращения матрицы гибкости.");
 
         return new OpenSeesMaterialDefinition
@@ -159,6 +182,28 @@ public static class MaterialDiagramMapper
         double nudgedStress = ordered[neighbor].StressPa + referenceSlope * ResidualTailSlopeFraction * dStrain;
         ordered[edge] = ordered[edge] with { StressPa = nudgedStress };
         return true;
+    }
+
+    /// <summary>Задаёт точный наклон экстремального сегмента огибающей, который OpenSees
+    /// использует при экстраполяции за пределами таблицы.</summary>
+    private static void ApplyConfiguredTailSlope(
+        List<EnvelopePoint> ordered,
+        bool extrapolateAtStart,
+        double hardeningModulusPa)
+    {
+        if (ordered.Count < 2)
+            return;
+
+        int edge = extrapolateAtStart ? 0 : ordered.Count - 1;
+        int neighbor = extrapolateAtStart ? 1 : ordered.Count - 2;
+        double dStrain = ordered[edge].Strain - ordered[neighbor].Strain;
+        if (dStrain == 0)
+            return;
+
+        ordered[edge] = ordered[edge] with
+        {
+            StressPa = ordered[neighbor].StressPa + hardeningModulusPa * dStrain
+        };
     }
 
     /// <summary>Воспроизводит разрыв растяжения бетона в ноль из <see cref="Diagramm.Sig"/>

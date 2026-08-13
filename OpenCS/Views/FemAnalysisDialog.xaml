@@ -174,17 +174,22 @@
                                         <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisSteelModelLabel}" VerticalAlignment="Center"/>
                                         <ComboBox Grid.Column="1" x:Name="SteelModelBox" DisplayMemberPath="Label" Height="22" VerticalContentAlignment="Center"/>
                                     </Grid>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="190"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{DynamicResource FemAnalysisSteelHardeningRatioLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                                        <TextBox Grid.Column="1" x:Name="SteelHardeningRatioBox" Text="" Height="22" VerticalContentAlignment="Center"/>
-                                    </Grid>
                                 </StackPanel>
                             </GroupBox>
                         </StackPanel>
+                        <Grid Margin="0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="190"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0"
+                                       Text="{DynamicResource FemAnalysisSteelHardeningModulusLabel}"
+                                       ToolTip="{DynamicResource FemAnalysisSteelHardeningModulusTip}"
+                                       TextWrapping="Wrap" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" x:Name="SteelHardeningModulusBox" Text="0"
+                                     Height="22" VerticalContentAlignment="Center"
+                                     ToolTip="{DynamicResource FemAnalysisSteelHardeningModulusTip}"/>
+                        </Grid>
                     </StackPanel>
                 </StackPanel>
             </GroupBox>

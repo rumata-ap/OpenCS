@@ -65,7 +65,8 @@ public static class NativeMaterialMapper
         bool considerConcreteTension,
         ConcreteModelKind concreteModel,
         SteelModelKind steelModel,
-        double? steelHardeningRatioOverride)
+        double? steelHardeningRatioOverride,
+        double? steelHardeningModulusPa = null)
     {
         MainMaterialModelKind mainMaterialModel = materialType == MatType.Concrete
             ? concreteModel == ConcreteModelKind.Concrete0102
@@ -82,7 +83,8 @@ public static class NativeMaterialMapper
             mainMaterialModel,
             steelModel,
             isReinforcement: materialType != MatType.Concrete,
-            steelHardeningRatioOverride);
+            steelHardeningRatioOverride,
+            steelHardeningModulusPa);
     }
 
     /// <summary>Строит нативную модель с учётом роли области в fiber-сечении.
@@ -94,7 +96,8 @@ public static class NativeMaterialMapper
         MainMaterialModelKind mainMaterialModel,
         SteelModelKind steelModel,
         bool isReinforcement,
-        double? steelHardeningRatioOverride)
+        double? steelHardeningRatioOverride,
+        double? steelHardeningModulusPa = null)
     {
         if (chars is null || materialType == MatType.Custom)
             return null;
@@ -130,7 +133,8 @@ public static class NativeMaterialMapper
                 chars,
                 materialType,
                 selected,
-                isReinforcement ? steelHardeningRatioOverride : null);
+                isReinforcement ? steelHardeningRatioOverride : null,
+                isReinforcement ? steelHardeningModulusPa : null);
         }
 
         return null;
@@ -178,12 +182,16 @@ public static class NativeMaterialMapper
     }
 
     private static NativeMaterialSpec MapSteel(
-        MaterialChars chars, MatType materialType, SteelModelKind steelModel, double? hardeningOverride)
+        MaterialChars chars,
+        MatType materialType,
+        SteelModelKind steelModel,
+        double? hardeningOverride,
+        double? hardeningModulusPa)
     {
         double fyKpa = materialType == MatType.Steel ? chars.Ry : chars.Ft;
         double fy = CScoreUnitConverter.KilopascalsToPascals(fyKpa);
         double e0 = CScoreUnitConverter.KilopascalsToPascals(chars.E);
-        double b = ResolveHardeningRatio(chars, fyKpa, hardeningOverride);
+        double b = ResolveHardeningRatio(chars, fyKpa, hardeningOverride, hardeningModulusPa);
 
         return steelModel switch
         {
@@ -193,8 +201,25 @@ public static class NativeMaterialMapper
         };
     }
 
-    private static double ResolveHardeningRatio(MaterialChars chars, double fyKpa, double? overrideValue)
+    private static double ResolveHardeningRatio(
+        MaterialChars chars,
+        double fyKpa,
+        double? overrideValue,
+        double? hardeningModulusPa)
     {
+        if (hardeningModulusPa is { } hardening)
+        {
+            double e0Pa = CScoreUnitConverter.KilopascalsToPascals(chars.E);
+            if (!double.IsFinite(hardening) || hardening < 0 ||
+                !double.IsFinite(e0Pa) || e0Pa <= 0 || hardening >= e0Pa)
+            {
+                throw new CScoreMappingException(
+                    "Модуль упрочнения арматуры должен быть конечным, неотрицательным и меньше E0.");
+            }
+
+            return hardening / e0Pa;
+        }
+
         if (overrideValue is { } value)
             return value;
 

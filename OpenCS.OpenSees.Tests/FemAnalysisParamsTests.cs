@@ -111,4 +111,35 @@ public class FemAnalysisParamsTests
 
         Assert.Equal("Concrete04", parsed.MainMaterialModel);
     }
+
+    [Fact]
+    public void NewParams_DefaultSteelHardeningModulusIsZero()
+        => Assert.Equal(0, new FemAnalysisParams().SteelHardeningModulusMpa);
+
+    [Fact]
+    public void SteelHardeningModulus_RoundTripsInJson()
+    {
+        var parsed = FemAnalysisParams.Parse(
+            new FemAnalysisParams { SteelHardeningModulusMpa = 1.25 }.ToJson());
+
+        Assert.Equal(1.25, parsed.SteelHardeningModulusMpa);
+    }
+
+    [Fact]
+    public void LegacyJsonWithoutSteelHardeningModulusKeepsNullSentinel()
+    {
+        var parsed = FemAnalysisParams.Parse("{\"SteelHardeningRatioOverride\":0.01}");
+
+        Assert.Null(parsed.SteelHardeningModulusMpa);
+        Assert.Equal(0.01, parsed.SteelHardeningRatioOverride);
+    }
+
+    [Fact]
+    public void ToJson_ContainsSteelHardeningModulusProperty()
+    {
+        string json = new FemAnalysisParams().ToJson();
+
+        Assert.Contains("SteelHardeningModulusMpa", json, StringComparison.Ordinal);
+        Assert.Contains("0", json, StringComparison.Ordinal);
+    }
 }

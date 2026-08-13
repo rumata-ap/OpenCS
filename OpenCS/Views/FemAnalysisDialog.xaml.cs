@@ -58,7 +58,7 @@ public partial class FemAnalysisDialog : Window
             MaterialSourceBox.SelectedItem = materialSourceOptions.FirstOrDefault(o => o.Value == pars.MaterialSource) ?? materialSourceOptions[0];
             MainMaterialModelBox.SelectedItem = mainMaterialModelOptions.FirstOrDefault(o => o.Value == pars.MainMaterialModel) ?? mainMaterialModelOptions[1];
             SteelModelBox.SelectedItem = steelModelOptions.FirstOrDefault(o => o.Value == pars.SteelModel) ?? steelModelOptions[1];
-            SteelHardeningRatioBox.Text = pars.SteelHardeningRatioOverride?.ToString(CultureInfo.InvariantCulture) ?? "";
+            SteelHardeningModulusBox.Text = pars.SteelHardeningModulusMpa?.ToString(CultureInfo.InvariantCulture) ?? "";
             ElementFormulationBox.SelectedItem = elementFormulationOptions.FirstOrDefault(o => o.Value == pars.ElementFormulation) ?? elementFormulationOptions[0];
 
             bool isNonlinearExisting = existing.Kind == "nonlinear";
@@ -329,8 +329,11 @@ public partial class FemAnalysisDialog : Window
             pars.MaterialSource = (MaterialSourceBox.SelectedItem as ComboOption)?.Value ?? "Translated";
             pars.MainMaterialModel = (MainMaterialModelBox.SelectedItem as ComboOption)?.Value ?? "Concrete04";
             pars.SteelModel = (SteelModelBox.SelectedItem as ComboOption)?.Value ?? "Steel02";
-            pars.SteelHardeningRatioOverride =
-                Pars.ParseAny(SteelHardeningRatioBox.Text, out var hardening) ? hardening : null;
+            pars.SteelHardeningModulusMpa =
+                Pars.ParseAny(SteelHardeningModulusBox.Text, out var hardening) &&
+                double.IsFinite(hardening) && hardening >= 0
+                    ? hardening
+                    : 0;
             pars.ElementFormulation = (ElementFormulationBox.SelectedItem as ComboOption)?.Value ?? "forceBeamColumn";
             pars.Stages = _stages.Select(r =>
             {

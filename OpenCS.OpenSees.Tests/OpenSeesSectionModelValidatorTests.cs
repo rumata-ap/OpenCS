@@ -72,7 +72,7 @@ public sealed class OpenSeesSectionModelValidatorTests
     [Theory]
     [InlineData(0.0, 200_000_000_000, 0.01)]   // Fy <= 0
     [InlineData(435_000_000, 0.0, 0.01)]       // E0 <= 0
-    [InlineData(435_000_000, 200_000_000_000, 0.0)]  // b <= 0
+    [InlineData(435_000_000, 200_000_000_000, -0.001)] // b < 0
     [InlineData(435_000_000, 200_000_000_000, 1.0)]  // b >= 1
     public void Validate_RejectsInvalidSteel01Spec(double fy, double e0, double b)
     {
@@ -83,5 +83,21 @@ public sealed class OpenSeesSectionModelValidatorTests
         });
 
         Assert.Throws<ArgumentException>(() => OpenSeesSectionModelValidator.Validate(model));
+    }
+
+    [Fact]
+    public void Validate_AllowsZeroHardeningForSteel01AndSteel02()
+    {
+        OpenSeesSectionModelValidator.Validate(ModelWithMaterial(new OpenSeesMaterialDefinition
+        {
+            Tag = 1,
+            Native = new Steel01Spec(435_000_000, 200_000_000_000, 0)
+        }));
+
+        OpenSeesSectionModelValidator.Validate(ModelWithMaterial(new OpenSeesMaterialDefinition
+        {
+            Tag = 2,
+            Native = new Steel02Spec(435_000_000, 200_000_000_000, 0, 18, 0.925, 0.15)
+        }));
     }
 }

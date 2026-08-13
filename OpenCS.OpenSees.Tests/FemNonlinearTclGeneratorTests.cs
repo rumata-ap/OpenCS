@@ -333,6 +333,23 @@ public class FemNonlinearTclGeneratorTests
     }
 
     [Fact]
+    public void Generate_EmitsZeroSteelHardeningRatio()
+    {
+        var material = new OpenSeesMaterialDefinition
+        {
+            Tag = 1,
+            Native = new Steel01Spec(Fy: 435_000_000, E0: 200_000_000_000, B: 0)
+        };
+
+        string tcl = new FemNonlinearTclGenerator().Generate(WithMaterial(material));
+
+        Assert.Contains(
+            $"uniaxialMaterial Steel01 1 {TclNumber.Format(435_000_000)} " +
+            $"{TclNumber.Format(200_000_000_000)} {TclNumber.Format(0)}",
+            tcl);
+    }
+
+    [Fact]
     public void Generate_StillEmitsElasticMultiLinearWhenNativeIsNull()
     {
         string tcl = new FemNonlinearTclGenerator().Generate(Console());

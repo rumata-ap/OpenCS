@@ -83,6 +83,9 @@ public sealed class FemNonlinearModelResolver
                         MainMaterialModel = options.MainMaterialModel,
                         SteelModel = options.SteelModel,
                         SteelHardeningRatioOverride = options.SteelHardeningRatioOverride,
+                        SteelHardeningModulusPa = options.SteelHardeningModulusMpa is { } hardeningMpa
+                            ? hardeningMpa * 1_000_000
+                            : null,
                         ConsiderPhysicalNonlinearity = options.ConsiderPhysicalNonlinearity,
                         Sp63EtaMin = options.Sp63EtaMin
                     });

@@ -38,6 +38,10 @@ public static class CrossSectionToOpenSeesAdapter
         /// <see cref="MaterialSource.Native"/>. <c>null</c> — вычисляется автоматически.</summary>
         public double? SteelHardeningRatioOverride { get; init; }
 
+        /// <summary>Абсолютный модуль упрочнения арматуры в Па. Применяется только к вложенным
+        /// стальным L2-диаграммам; <c>null</c> сохраняет legacy-поведение.</summary>
+        public double? SteelHardeningModulusPa { get; init; }
+
         /// <summary>Учитывать ли физическую (материальную) нелинейность. При <c>false</c> результат
         /// вообще не содержит fiber-секции: строится единая линейно-упругая
         /// <see cref="OpenSeesElasticSectionSpec"/> с приведёнными (transformed, к модулю упругости
@@ -102,11 +106,15 @@ public static class CrossSectionToOpenSeesAdapter
                 {
                     Diagramm diagram = ResolveDiagram(area, material, calc, customPool, options.Sp63EtaMin);
                     bool isReinforcement = area.HostAreaId is not null;
+                    double? rebarHardeningPa = isReinforcement
+                        ? options.SteelHardeningModulusPa
+                        : null;
                     NativeMaterialSpec? native = options.MaterialSource == MaterialSource.Native
                         ? NativeMaterialMapper.Map(
                             material.GetChars(calc), material.Type, options.ConsiderConcreteTension,
                             options.MainMaterialModel, options.SteelModel, isReinforcement,
-                            options.SteelHardeningRatioOverride)
+                            options.SteelHardeningRatioOverride,
+                            steelHardeningModulusPa: rebarHardeningPa)
                         : null;
 
                     if (native != null)
@@ -128,7 +136,8 @@ public static class CrossSectionToOpenSeesAdapter
                             materialTag,
                             sourceId.ToString(CultureInfo.InvariantCulture),
                             material.Type,
-                            options.ConsiderConcreteTension);
+                            options.ConsiderConcreteTension,
+                            steelHardeningModulusPa: rebarHardeningPa);
 
                         if (options.MaterialSource == MaterialSource.Native)
                         {

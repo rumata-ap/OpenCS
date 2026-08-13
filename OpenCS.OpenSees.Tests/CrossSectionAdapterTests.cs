@@ -73,6 +73,43 @@ public sealed class CrossSectionAdapterTests
     }
 
     [Fact]
+    public void Adapter_UsesConfiguredZeroHardeningOnlyForNestedRebar()
+    {
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+
+        var model = CrossSectionToOpenSeesAdapter.Build(
+            section,
+            CalcType.C,
+            CrossSectionFixtures.Materials(concrete, steel),
+            customPool: null,
+            options: new CrossSectionToOpenSeesAdapter.Options { SteelHardeningModulusPa = 0 });
+
+        var rebar = Assert.Single(model.Materials, material => material.SourceId == steel.Id.ToString());
+        Assert.Equal(0, TailSlope(rebar.PositiveEnvelope, positive: true), 12);
+        Assert.Equal(0, TailSlope(rebar.NegativeEnvelope, positive: false), 12);
+    }
+
+    [Fact]
+    public void Adapter_UsesConfiguredZeroHardeningForNativeNestedRebar()
+    {
+        var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
+
+        var model = CrossSectionToOpenSeesAdapter.Build(
+            section,
+            CalcType.C,
+            CrossSectionFixtures.Materials(concrete, steel),
+            customPool: null,
+            options: new CrossSectionToOpenSeesAdapter.Options
+            {
+                MaterialSource = MaterialSource.Native,
+                SteelHardeningModulusPa = 0
+            });
+
+        Assert.Equal(0, Assert.IsType<Steel02Spec>(
+            Assert.Single(model.Materials, material => material.SourceId == steel.Id.ToString()).Native).B, 12);
+    }
+
+    [Fact]
     public void Adapter_reports_area_and_fiber_for_invalid_prepared_fiber()
     {
         var (section, concrete, steel) = CrossSectionFixtures.RectangularSection();
@@ -227,10 +264,12 @@ public sealed class CrossSectionAdapterTests
             {
                 MaterialSource = MaterialSource.Native,
                 MainMaterialModel = MainMaterialModelKind.Steel01,
-                SteelModel = SteelModelKind.Steel02
+                SteelModel = SteelModelKind.Steel02,
+                SteelHardeningModulusPa = 0
             });
 
-        Assert.IsType<Steel01Spec>(Assert.Single(model.Materials).Native);
+        var native = Assert.IsType<Steel01Spec>(Assert.Single(model.Materials).Native);
+        Assert.NotEqual(0, native.B);
     }
 
     [Fact]
@@ -289,5 +328,13 @@ public sealed class CrossSectionAdapterTests
         var expectedMinStrain = concrete.GetDiagramms(DiagrammType.SP63, 0.2)![CalcType.C].Ic!.X.Min();
 
         Assert.Equal(expectedMinStrain, actualMinStrain, 12);
+    }
+
+    private static double TailSlope(IReadOnlyList<EnvelopePoint> points, bool positive)
+    {
+        List<EnvelopePoint> ordered = points.OrderBy(point => point.Strain).ToList();
+        EnvelopePoint first = positive ? ordered[^2] : ordered[0];
+        EnvelopePoint second = positive ? ordered[^1] : ordered[1];
+        return (second.StressPa - first.StressPa) / (second.Strain - first.Strain);
     }
 }

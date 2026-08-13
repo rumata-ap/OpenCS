@@ -73,6 +73,69 @@ public sealed class MaterialDiagramMapperTests
     }
 
     [Fact]
+    public void Configured_zero_hardening_keeps_both_rebar_tails_horizontal()
+    {
+        OpenSeesMaterialDefinition result = MaterialDiagramMapper.Map(
+            CreateL2RebarDiagram(),
+            tag: 5,
+            sourceId: "rebar",
+            sourceType: MatType.ReSteelF,
+            steelHardeningModulusPa: 0);
+
+        Assert.Equal(0, TailSlope(result.PositiveEnvelope, positive: true), 12);
+        Assert.Equal(0, TailSlope(result.NegativeEnvelope, positive: false), 12);
+    }
+
+    [Fact]
+    public void Configured_hardening_sets_exact_rebar_tail_slope()
+    {
+        const double hardeningPa = 250_000_000;
+        OpenSeesMaterialDefinition result = MaterialDiagramMapper.Map(
+            CreateL2RebarDiagram(),
+            tag: 5,
+            sourceId: "rebar",
+            sourceType: MatType.ReSteelF,
+            steelHardeningModulusPa: hardeningPa);
+
+        Assert.Equal(hardeningPa, TailSlope(result.PositiveEnvelope, positive: true), 6);
+        Assert.Equal(hardeningPa, TailSlope(result.NegativeEnvelope, positive: false), 6);
+    }
+
+    [Fact]
+    public void Legacy_l3_rebar_tail_keeps_residual_slope()
+    {
+        OpenSeesMaterialDefinition result = MaterialDiagramMapper.Map(
+            CreateL3RebarDiagram(),
+            tag: 6,
+            sourceId: "rebar-l3",
+            sourceType: MatType.ReSteelF);
+
+        Assert.NotEqual(0, TailSlope(result.PositiveEnvelope, positive: true));
+        Assert.NotEqual(0, TailSlope(result.NegativeEnvelope, positive: false));
+    }
+
+    [Fact]
+    public void Explicit_hardening_does_not_change_non_l2_rebar_tail()
+    {
+        OpenSeesMaterialDefinition legacy = MaterialDiagramMapper.Map(
+            CreateL3RebarDiagram(),
+            tag: 7,
+            sourceId: "rebar-l3",
+            sourceType: MatType.ReSteelF);
+        OpenSeesMaterialDefinition configured = MaterialDiagramMapper.Map(
+            CreateL3RebarDiagram(),
+            tag: 8,
+            sourceId: "rebar-l3",
+            sourceType: MatType.ReSteelF,
+            steelHardeningModulusPa: 0);
+
+        Assert.Equal(TailSlope(legacy.PositiveEnvelope, positive: true),
+            TailSlope(configured.PositiveEnvelope, positive: true), 12);
+        Assert.Equal(TailSlope(legacy.NegativeEnvelope, positive: false),
+            TailSlope(configured.NegativeEnvelope, positive: false), 12);
+    }
+
+    [Fact]
     public void Concrete_tension_branch_ruptures_to_zero_beyond_ultimate_strain_and_stays_exactly_zero()
     {
         // Воспроизводит Diagramm.Sig(): при ε > It.X[^1] бетон на растяжении обрывается в ноль
@@ -201,5 +264,27 @@ public sealed class MaterialDiagramMapperTests
             MatType.Concrete,
             type.ToString())
         { };
+    }
+
+    private static Diagramm CreateL2RebarDiagram() => new(
+        new LSpline([-0.025, -0.002175, 0], [-435_000, -435_000, 0]),
+        new LSpline([0, 0.002175, 0.025], [0, 435_000, 435_000]),
+        DiagrammType.L2,
+        MatType.ReSteelF,
+        "L2 rebar");
+
+    private static Diagramm CreateL3RebarDiagram() => new(
+        new LSpline([-0.025, -0.002175, 0], [-435_000, -435_000, 0]),
+        new LSpline([0, 0.002175, 0.025], [0, 435_000, 435_000]),
+        DiagrammType.L3,
+        MatType.ReSteelF,
+        "L3 rebar");
+
+    private static double TailSlope(IReadOnlyList<EnvelopePoint> points, bool positive)
+    {
+        List<EnvelopePoint> ordered = points.OrderBy(point => point.Strain).ToList();
+        EnvelopePoint first = positive ? ordered[^2] : ordered[0];
+        EnvelopePoint second = positive ? ordered[^1] : ordered[1];
+        return (second.StressPa - first.StressPa) / (second.Strain - first.Strain);
     }
 }

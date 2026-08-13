@@ -157,15 +157,25 @@ public static class FemAnalysisExecutor
         }
         var materials = app.Materials.Where(m => m.Id != 0).ToDictionary(m => m.Id);
         var options = new FemNonlinearAnalysisOptions(
-            calcSettings.OpenSeesGeomTransfKind,
-            calcSettings.OpenSeesRefinementDivisions, calcSettings.OpenSeesTolerance, calcSettings.OpenSeesMaxIterations,
-            calcSettings.OpenSeesIntegrationPoints, calcSettings.OpenSeesConvergenceTest, parameters.ConsiderConcreteTension,
-            Enum.Parse<MaterialSource>(parameters.MaterialSource), Enum.Parse<MainMaterialModelKind>(parameters.MainMaterialModel),
-            Enum.Parse<SteelModelKind>(parameters.SteelModel), parameters.SteelHardeningRatioOverride,
-            calcSettings.OpenSeesMaxRefinementDepth, parameters.ElementFormulation, calcSettings.OpenSeesAlgorithm,
-            calcSettings.OpenSeesRecordFiberStates, calcSettings.ResolveOpenSeesFiberStatesIntegrationPoints(),
-            parameters.ConsiderPhysicalNonlinearity,
-            calcSettings.Sp63DescEtaMin);
+            GeomTransfKind: calcSettings.OpenSeesGeomTransfKind,
+            RefinementDivisions: calcSettings.OpenSeesRefinementDivisions,
+            Tolerance: calcSettings.OpenSeesTolerance,
+            MaxIterations: calcSettings.OpenSeesMaxIterations,
+            IntegrationPoints: calcSettings.OpenSeesIntegrationPoints,
+            ConvergenceTest: calcSettings.OpenSeesConvergenceTest,
+            ConsiderConcreteTension: parameters.ConsiderConcreteTension,
+            MaterialSource: Enum.Parse<MaterialSource>(parameters.MaterialSource),
+            MainMaterialModel: Enum.Parse<MainMaterialModelKind>(parameters.MainMaterialModel),
+            SteelModel: Enum.Parse<SteelModelKind>(parameters.SteelModel),
+            SteelHardeningRatioOverride: parameters.SteelHardeningRatioOverride,
+            MaxRefinementDepth: calcSettings.OpenSeesMaxRefinementDepth,
+            ElementFormulation: parameters.ElementFormulation,
+            Algorithm: calcSettings.OpenSeesAlgorithm,
+            RecordFiberStates: calcSettings.OpenSeesRecordFiberStates,
+            FiberStatesIntegrationPoints: calcSettings.ResolveOpenSeesFiberStatesIntegrationPoints(),
+            ConsiderPhysicalNonlinearity: parameters.ConsiderPhysicalNonlinearity,
+            Sp63EtaMin: calcSettings.Sp63DescEtaMin,
+            SteelHardeningModulusMpa: parameters.SteelHardeningModulusMpa);
 
         var input = new FemNonlinearWorkflowInput(
             meshNodes, meshElems, sourceNodes, sourceMembers, stages,
