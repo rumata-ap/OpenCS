@@ -2206,4 +2206,5 @@
     <system:String x:Key="FemMemberForceSectionState">Просмотр состояния сечения</system:String>
     <system:String x:Key="FemResultSectionIpMarker">ТИ {0}</system:String>
     <system:String x:Key="FemSectionStateUnavailable">Для выбранной точки интегрирования состояние сечения не сохранялось при расчёте.</system:String>
+    <system:String x:Key="FemSectionStateLoading">Чтение данных состояния сечения…</system:String>
   </ResourceDictionary>

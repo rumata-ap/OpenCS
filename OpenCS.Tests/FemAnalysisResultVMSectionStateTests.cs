@@ -84,9 +84,10 @@ public class FemAnalysisResultVMSectionStateTests
 
             Assert.NotNull(received);
             Assert.Equal(42, received!.SectionId);
-            Assert.Equal(2, received.RecordedFibers.Count);
-            Assert.Equal(1500000.0, received.RecordedFibers[0].StressPa);
-            Assert.Equal(0.001, received.RecordedFibers[1].Strain, 12);
+            var recorded = received.LoadRecordedFibers();
+            Assert.Equal(2, recorded.Count);
+            Assert.Equal(1500000.0, recorded[0].StressPa);
+            Assert.Equal(0.001, recorded[1].Strain, 12);
         }
         finally { db.Dispose(); Directory.Delete(dir, true); }
     }

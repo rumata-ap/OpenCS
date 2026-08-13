@@ -75,7 +75,10 @@ public class FemSectionSummaryVM
     public bool ShowRebarAreaNote => false;
     public string RebarAreaNote => "";
 
-    public FemSectionSummaryVM(FemSectionStateRequest request, FemRecordedSectionSummary summary)
+    public FemSectionSummaryVM(
+        FemSectionStateRequest request,
+        FemRecordedSectionSummary summary,
+        IReadOnlyDictionary<int, (double StressPa, double Strain)> recorded)
     {
         TaskTag = string.Format(Loc.S("FemSectionStateSummaryTitle"),
             request.Location.SourceMemberTag, request.Location.IntegrationPoint);
@@ -91,7 +94,7 @@ public class FemSectionSummaryVM
         MxText = $"{summary.Mx / 1000:+0.000;-0.000} {Loc.S("UnitKNm")}";
         MyText = $"{summary.My / 1000:+0.000;-0.000} {Loc.S("UnitKNm")}";
 
-        HasExtremes = request.RecordedFibers.Count > 0;
+        HasExtremes = recorded.Count > 0;
         EpsMinText = HasExtremes ? $"{summary.EpsMin:+0.00000;-0.00000}" : "—";
         EpsMaxText = HasExtremes ? $"{summary.EpsMax:+0.00000;-0.00000}" : "—";
 

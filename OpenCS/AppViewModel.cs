@@ -3660,17 +3660,36 @@ namespace OpenCS
          => CurrentPage = new Views.FemMemberForceView(db, schema, memberTag, vm);
 
       /// <summary>Открывает (или обновляет) немодальное окно состояния сечения в точке
-      /// интегрирования нелинейного FEM-результата OpenSees.</summary>
-      void OpenFemSectionState(ViewModels.FemSectionStateRequest request)
+      /// интегрирования нелинейного FEM-результата OpenSees. Чтение волокон — фоновым
+      /// потоком, на время чтения в статусбаре показывается индикатор занятости.</summary>
+      async void OpenFemSectionState(ViewModels.FemSectionStateRequest request)
       {
          var section = db.CrossSections.FirstOrDefault(s => s.Id == request.SectionId);
          if (section == null) return;
+
+         BeginBusy(Loc.S("FemSectionStateLoading"), indeterminate: true);
+         IReadOnlyDictionary<int, (double StressPa, double Strain)> recorded;
+         try
+         {
+            recorded = await System.Threading.Tasks.Task.Run(request.LoadRecordedFibers);
+         }
+         finally
+         {
+            EndBusy();
+         }
+
+         if (recorded.Count == 0)
+         {
+            ShowSectionStateUnavailable("FemSectionStateUnavailable");
+            return;
+         }
+
          var calcType = Enum.TryParse<CalcType>(request.CalcTypeName, out var parsed) ? parsed : CalcType.C;
          section.ResolveAndBuildDiagramms(CalcSettings.Sp63DescEtaMin,
             pool: Diagrams,
             rebarDifferentialDiagram: CalcSettings.RebarDifferentialDiagram);
-         var summary = OpenCS.OpenSees.CScore.FemRecordedSectionReducer.Reduce(section, calcType, request.RecordedFibers);
-         var summaryVm = new ViewModels.FemSectionSummaryVM(request, summary);
+         var summary = OpenCS.OpenSees.CScore.FemRecordedSectionReducer.Reduce(section, calcType, recorded);
+         var summaryVm = new ViewModels.FemSectionSummaryVM(request, summary, recorded);
          bool ten = CalcSettings.ResolveConcreteTension(calcType);
          var cutVm = new ViewModels.SectionCutVM(section, summary.Plane, calcType, FileDialogService, ten)
          {
@@ -3678,9 +3697,9 @@ namespace OpenCS
                request.Location.SourceMemberTag, request.Location.IntegrationPoint)
          };
          var stressVm = new ViewModels.SectionPlotVM(section, summary.Plane, calcType,
-            ViewModels.SectionPlotMode.Stress, CalcSettings, ten, recordedFibers: request.RecordedFibers);
+            ViewModels.SectionPlotMode.Stress, CalcSettings, ten, recordedFibers: recorded);
          var strainVm = new ViewModels.SectionPlotVM(section, summary.Plane, calcType,
-            ViewModels.SectionPlotMode.Strain, CalcSettings, ten, recordedFibers: request.RecordedFibers);
+            ViewModels.SectionPlotMode.Strain, CalcSettings, ten, recordedFibers: recorded);
          stressVm.CutVM = cutVm;
          strainVm.CutVM = cutVm;
          var title = string.Format(Loc.S("FemSectionStateWindowTitle"),

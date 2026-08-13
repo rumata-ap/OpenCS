@@ -100,7 +100,8 @@ public class FemAnalysisResultVM : ViewModelBase
     }
 
     /// <summary>Запрашивает окно состояния для ТИ; при недоступных данных рейзит
-    /// <see cref="SectionStateUnavailable"/> вместо окна.</summary>
+    /// <see cref="SectionStateUnavailable"/> вместо окна. Чтение волокон ленивое —
+    /// выполняется фоновым потоком обработчиком события.</summary>
     public void RequestSectionState(FemSectionLocationRow? row)
     {
         if (row == null) return;
@@ -120,33 +121,31 @@ public class FemAnalysisResultVM : ViewModelBase
             return;
         }
         var step = Steps[SelectedStepIndex];
-        IReadOnlyDictionary<int, (double StressPa, double Strain)> recorded;
-        try
-        {
-            var states = new FemNonlinearFiberStateParser().ParseSection(
-                _fiberStatePath, row.MeshElementTag, row.IntegrationPoint);
-            recorded = states
-                .Where(s => s.StepIndex == step.StepIndex)
-                .ToDictionary(s => s.FiberIndex, s => (s.StressPa, s.Strain));
-        }
-        catch (OpenSeesResultException)
-        {
-            SectionStateUnavailable?.Invoke("FemSectionStateUnavailable");
-            return;
-        }
-        if (recorded.Count == 0)
-        {
-            SectionStateUnavailable?.Invoke("FemSectionStateUnavailable");
-            return;
-        }
         SectionStateRequested?.Invoke(new FemSectionStateRequest(
             row,
             id,
             _nonlinearResult.CalcTypeName,
-            recorded,
+            () => LoadRecordedFibers(row, step.StepIndex),
             CurrentStepLabel,
             step.Converged,
             SelectedSectionPositionLabel));
+    }
+
+    IReadOnlyDictionary<int, (double StressPa, double Strain)> LoadRecordedFibers(
+        FemSectionLocationRow row, int stepIndex)
+    {
+        try
+        {
+            var states = new FemNonlinearFiberStateParser().ParseSection(
+                _fiberStatePath!, row.MeshElementTag, row.IntegrationPoint);
+            return states
+                .Where(s => s.StepIndex == stepIndex)
+                .ToDictionary(s => s.FiberIndex, s => (s.StressPa, s.Strain));
+        }
+        catch (OpenSeesResultException)
+        {
+            return new Dictionary<int, (double StressPa, double Strain)>();
+        }
     }
     /// <summary>Верхняя граница слайдера шага.</summary>
     public int MaxStepIndex => Math.Max(0, Steps.Count - 1);
