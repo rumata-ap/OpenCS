@@ -78,7 +78,52 @@ public static class StripLoadMapper
     static StripLoadMappingResult MapPoint(
         Frame3D regionFrame, PlateStripBeamAnalogy analogy, PlanarLoad load,
         double torqueToleranceKnM, List<FemValidationDiagnostic> diagnostics)
-        => throw new NotImplementedException();
+    {
+        var regionPoint = new PlanarVector3(load.PointU, load.PointV, 0.0);
+        var globalPoint = PlanarBoundaryFrameConverter.ToGlobalPoint(regionFrame, regionPoint);
+        var stripPoint = PlanarBoundaryFrameConverter.ToLocalPoint(analogy.StripFrame, globalPoint);
+
+        double lengthM = analogy.Geometry.LengthM;
+        double stationFraction = stripPoint.X / lengthM;
+        double v = stripPoint.Y;
+        double stationToleranceFraction = load.PointToleranceM / lengthM;
+        double halfWidth = analogy.ExplicitWidthM / 2.0;
+
+        if (stationFraction < -stationToleranceFraction || stationFraction > 1.0 + stationToleranceFraction ||
+            Math.Abs(v) > halfWidth + load.PointToleranceM)
+        {
+            diagnostics.Add(new("plate_strip_load_outside_strip",
+                $"Точка нагрузки «{load.Tag}» вне коридора полосы «{analogy.Id}»."));
+            return new(false, diagnostics, null);
+        }
+        stationFraction = Math.Clamp(stationFraction, 0.0, 1.0);
+
+        var force = ToStripLocalVector(regionFrame, analogy.StripFrame, load.Components, load.CoordinateSystem);
+        double px = force.X, py = force.Y, pz = force.Z;
+        double mx = v * pz;
+        double mz = -v * px;
+
+        if (Math.Abs(mx) > torqueToleranceKnM)
+        {
+            diagnostics.Add(new("plate_strip_load_produces_torque",
+                $"Точечная нагрузка «{load.Tag}» с эксцентриситетом v={v:G6} даёт крутящий момент " +
+                $"Mx={mx:G6} кН·м — не редуцируется текущей стержневой моделью (TorsionalStiffness=0)."));
+            return new(false, diagnostics, null);
+        }
+
+        var result = new StripLoad
+        {
+            Kind = StripLoadKind.Point,
+            SourceTag = load.Tag,
+            StationFraction = stationFraction,
+            PxKn = px,
+            PyKn = py,
+            PzKn = pz,
+            MxKnM = mx,
+            MzKnM = mz
+        };
+        return new(true, diagnostics, result);
+    }
 
     static bool TryValidateRegionFrame(Frame3D regionFrame, List<FemValidationDiagnostic> diagnostics)
     {

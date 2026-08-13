@@ -108,6 +108,104 @@ public sealed class StripLoadMapperTests
         Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_invalid_input");
     }
 
+    [Fact]
+    public void Map_PointOnAxis_NoTorqueNoEccentricMoment()
+    {
+        var load = new PlanarLoad
+        {
+            Tag = "point-axis",
+            Kind = PlanarLoadKind.Point,
+            Components = new PlanarVector3(0.0, 0.0, -10.0),
+            PointU = 3.0,
+            PointV = 0.0
+        };
+
+        var result = StripLoadMapper.Map(Frame3D.Identity, Analogy(), load);
+
+        Assert.True(result.IsCalculable);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(StripLoadKind.Point, result.Load!.Kind);
+        Assert.Equal(0.5, result.Load.StationFraction, 9); // 3 м / 6 м пролёта
+        Assert.Equal(-10.0, result.Load.PzKn, 9);
+        Assert.Equal(0.0, result.Load.MxKnM, 9);
+        Assert.Equal(0.0, result.Load.MzKnM, 9);
+    }
+
+    [Fact]
+    public void Map_PointEccentricWithNormalForce_BlocksTorque()
+    {
+        var load = new PlanarLoad
+        {
+            Tag = "point-ecc-z",
+            Kind = PlanarLoadKind.Point,
+            Components = new PlanarVector3(0.0, 0.0, -10.0),
+            PointU = 3.0,
+            PointV = 0.5
+        };
+
+        var result = StripLoadMapper.Map(Frame3D.Identity, Analogy(), load);
+
+        Assert.False(result.IsCalculable);
+        Assert.Null(result.Load);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_produces_torque");
+    }
+
+    [Fact]
+    public void Map_PointEccentricWithAxialForceOnly_ProducesMzNotBlocked()
+    {
+        var load = new PlanarLoad
+        {
+            Tag = "point-ecc-x",
+            Kind = PlanarLoadKind.Point,
+            Components = new PlanarVector3(8.0, 0.0, 0.0),
+            PointU = 3.0,
+            PointV = 0.5
+        };
+
+        var result = StripLoadMapper.Map(Frame3D.Identity, Analogy(), load);
+
+        Assert.True(result.IsCalculable);
+        Assert.Equal(8.0, result.Load!.PxKn, 9);
+        Assert.Equal(0.0, result.Load.MxKnM, 9);
+        Assert.Equal(-4.0, result.Load.MzKnM, 9); // Mz = -v*Px = -0.5*8
+    }
+
+    [Fact]
+    public void Map_PointOutsideStripByStation_ReturnsOutsideStripDiagnostic()
+    {
+        var load = new PlanarLoad
+        {
+            Tag = "point-far",
+            Kind = PlanarLoadKind.Point,
+            Components = new PlanarVector3(0, 0, -1.0),
+            PointU = 100.0,
+            PointV = 0.0
+        };
+
+        var result = StripLoadMapper.Map(Frame3D.Identity, Analogy(), load);
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_outside_strip");
+    }
+
+    [Fact]
+    public void Map_PointOutsideStripByWidth_ReturnsOutsideStripDiagnostic()
+    {
+        var load = new PlanarLoad
+        {
+            Tag = "point-wide",
+            Kind = PlanarLoadKind.Point,
+            Components = new PlanarVector3(0, 0, -1.0),
+            PointU = 3.0,
+            PointV = 5.0
+        };
+
+        var result = StripLoadMapper.Map(Frame3D.Identity, Analogy(), load);
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_outside_strip");
+    }
+
     internal static PlateStripBeamAnalogy Analogy(double width = 2.0, double lengthM = 6.0) => new()
     {
         Id = "strip-1",
