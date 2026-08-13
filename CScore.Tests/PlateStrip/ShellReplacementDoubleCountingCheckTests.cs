@@ -103,4 +103,81 @@ public sealed class ShellReplacementDoubleCountingCheckTests
 
         Assert.Throws<ArgumentNullException>(() => ShellReplacementDoubleCountingCheck.CheckLoads(manifest, null!));
     }
+
+    [Fact]
+    public void CheckStiffness_TwoReplaceShellRegion_SameRegion_OverlappingCorridors_ReturnsDiagnostic()
+    {
+        var a = new ShellReplacementManifest("strip-a", 10, ShellReplacementPolicy.ReplaceShellRegion, Rect(0, -1, 6, 1), []);
+        var b = new ShellReplacementManifest("strip-b", 10, ShellReplacementPolicy.ReplaceShellRegion, Rect(0, 0, 6, 2), []);
+
+        var result = ShellReplacementDoubleCountingCheck.CheckStiffness([a, b]);
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_shell_replacement_stiffness_double_count");
+    }
+
+    [Fact]
+    public void CheckStiffness_TwoReplaceShellRegion_SameRegion_DisjointCorridors_NoDiagnostics()
+    {
+        var a = new ShellReplacementManifest("strip-a", 10, ShellReplacementPolicy.ReplaceShellRegion, Rect(0, -3, 6, -1), []);
+        var b = new ShellReplacementManifest("strip-b", 10, ShellReplacementPolicy.ReplaceShellRegion, Rect(0, 1, 6, 3), []);
+
+        var result = ShellReplacementDoubleCountingCheck.CheckStiffness([a, b]);
+
+        Assert.True(result.IsCalculable);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void CheckStiffness_TwoReplaceShellRegion_DifferentRegions_NumericallyOverlapping_NoDiagnostics()
+    {
+        var a = new ShellReplacementManifest("strip-a", 10, ShellReplacementPolicy.ReplaceShellRegion, Rect(0, -1, 6, 1), []);
+        var b = new ShellReplacementManifest("strip-b", 20, ShellReplacementPolicy.ReplaceShellRegion, Rect(0, -1, 6, 1), []);
+
+        var result = ShellReplacementDoubleCountingCheck.CheckStiffness([a, b]);
+
+        Assert.True(result.IsCalculable);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void CheckStiffness_ReplaceShellRegionAndDiagnosticOnly_SameRegion_OverlappingCorridors_NoDiagnostics()
+    {
+        var a = new ShellReplacementManifest("strip-a", 10, ShellReplacementPolicy.ReplaceShellRegion, Rect(0, -1, 6, 1), []);
+        var b = new ShellReplacementManifest("strip-b", 10, ShellReplacementPolicy.DiagnosticOnly, Rect(0, -1, 6, 1), []);
+
+        var result = ShellReplacementDoubleCountingCheck.CheckStiffness([a, b]);
+
+        Assert.True(result.IsCalculable);
+        Assert.Empty(result.Diagnostics);
+    }
+
+    [Fact]
+    public void CheckStiffness_DegeneratePolygon_ReturnsInvalidInputDiagnostic()
+    {
+        var a = new ShellReplacementManifest(
+            "strip-a", 10, ShellReplacementPolicy.ReplaceShellRegion,
+            [new PlanarPoint2D(0, 0), new PlanarPoint2D(1, 1)], []);
+
+        var result = ShellReplacementDoubleCountingCheck.CheckStiffness([a]);
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_shell_replacement_invalid_input");
+    }
+
+    [Fact]
+    public void CheckStiffness_SingleOrEmptyManifestList_NoDiagnostics()
+    {
+        var a = new ShellReplacementManifest("strip-a", 10, ShellReplacementPolicy.ReplaceShellRegion, Rect(0, -1, 6, 1), []);
+
+        Assert.True(ShellReplacementDoubleCountingCheck.CheckStiffness([a]).IsCalculable);
+        Assert.True(ShellReplacementDoubleCountingCheck.CheckStiffness([]).IsCalculable);
+    }
+
+    [Fact]
+    public void CheckStiffness_NullManifests_Throws() =>
+        Assert.Throws<ArgumentNullException>(() => ShellReplacementDoubleCountingCheck.CheckStiffness(null!));
+
+    static IReadOnlyList<PlanarPoint2D> Rect(double u0, double v0, double u1, double v1) =>
+        [new(u0, v0), new(u1, v0), new(u1, v1), new(u0, v1)];
 }

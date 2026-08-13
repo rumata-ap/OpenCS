@@ -1,4 +1,5 @@
 using CScore.Fem;
+using CScore.Planar;
 
 namespace CScore.PlateStrip;
 
@@ -52,5 +53,73 @@ public static class ShellReplacementDoubleCountingCheck
         }
 
         return new(diagnostics.All(d => !d.IsError), diagnostics);
+    }
+
+    /// <summary>Обнаруживает пересечение коридоров нескольких полос с ReplaceShellRegion на
+    /// одном SourceRegionId — только такие записи претендуют на замену жёсткости.
+    /// DiagnosticOnly-записи и записи с разных регионов в проверку не входят (регионы плиты по
+    /// построению не пересекаются — коридор полосы клиппирован по Hull своего региона, Срез 1
+    /// — так что коридоры разных регионов физически не могут пересекаться).</summary>
+    public static ShellReplacementCheckResult CheckStiffness(IReadOnlyList<ShellReplacementManifest> manifests)
+    {
+        ArgumentNullException.ThrowIfNull(manifests);
+        var diagnostics = new List<FemValidationDiagnostic>();
+
+        var candidates = manifests.Where(m => m.Policy == ShellReplacementPolicy.ReplaceShellRegion).ToList();
+
+        foreach (var manifest in candidates)
+        {
+            if (manifest.ReplacedRegionPolygon.Count < 3 || manifest.ReplacedRegionPolygon.Any(p => !p.IsFinite))
+                diagnostics.Add(new("plate_strip_shell_replacement_invalid_input",
+                    $"Полоса «{manifest.StripId}» имеет вырожденный коридор (< 3 точек или нечисловые координаты)."));
+        }
+
+        var comparable = candidates
+            .Where(m => m.ReplacedRegionPolygon.Count >= 3 && m.ReplacedRegionPolygon.All(p => p.IsFinite))
+            .GroupBy(m => m.SourceRegionId);
+
+        foreach (var group in comparable)
+        {
+            var list = group.ToList();
+            for (int i = 0; i < list.Count; i++)
+                for (int j = i + 1; j < list.Count; j++)
+                    if (PolygonsOverlap(list[i].ReplacedRegionPolygon, list[j].ReplacedRegionPolygon))
+                        diagnostics.Add(new("plate_strip_shell_replacement_stiffness_double_count",
+                            $"Полосы «{list[i].StripId}» и «{list[j].StripId}» с политикой ReplaceShellRegion " +
+                            $"на регионе {group.Key} имеют пересекающиеся коридоры — двойной учёт жёсткости."));
+        }
+
+        return new(diagnostics.All(d => !d.IsError), diagnostics);
+    }
+
+    /// <summary>Пересечение по аналогии с PlateStripGeometryBuilder.SegmentIntersectsHull (Срез
+    /// 1): вершина внутри ИЛИ рёбра пересекаются — необходимо и достаточно для невырожденных
+    /// простых полигонов (включая полное вложение). Поведение ровно на границе (только касание)
+    /// намеренно консервативно (PointInPolygon/SegmentsIntersect не гарантируют строгую
+    /// семантику там) — false positive безопаснее false negative для проверки двойного
+    /// учёта.</summary>
+    static bool PolygonsOverlap(IReadOnlyList<PlanarPoint2D> a, IReadOnlyList<PlanarPoint2D> b)
+    {
+        double[][] polyA = a.Select(p => new[] { p.U, p.V }).ToArray();
+        double[][] polyB = b.Select(p => new[] { p.U, p.V }).ToArray();
+
+        foreach (var p in a)
+            if (CSTriangulation.GeometryUtils.PointInPolygon(p.U, p.V, polyB)) return true;
+        foreach (var p in b)
+            if (CSTriangulation.GeometryUtils.PointInPolygon(p.U, p.V, polyA)) return true;
+
+        for (int i = 0; i < polyA.Length; i++)
+        {
+            int i2 = (i + 1) % polyA.Length;
+            for (int j = 0; j < polyB.Length; j++)
+            {
+                int j2 = (j + 1) % polyB.Length;
+                if (CSTriangulation.GeometryUtils.SegmentsIntersect(
+                        polyA[i][0], polyA[i][1], polyA[i2][0], polyA[i2][1],
+                        polyB[j][0], polyB[j][1], polyB[j2][0], polyB[j2][1]))
+                    return true;
+            }
+        }
+        return false;
     }
 }
