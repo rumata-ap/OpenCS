@@ -48,6 +48,23 @@ public static class StripLoadConsistentNodalProjection
 
         foreach (StripLoad load in loads.Loads)
         {
+            try
+            {
+                load.Validate();
+            }
+            catch (ArgumentException ex)
+            {
+                diagnostics.Add(new("plate_strip_load_invalid_input", ex.Message));
+                continue;
+            }
+
+            if (Math.Abs(load.MxKnM) > torqueToleranceKnM)
+            {
+                diagnostics.Add(new("plate_strip_load_produces_torque",
+                    $"StripLoad «{load.SourceTag}» имеет |MxKnM|={Math.Abs(load.MxKnM):G6} вне допуска."));
+                continue;
+            }
+
             if (load.Kind == StripLoadKind.DistributedUniform)
                 AccumulateDistributed(load, lengthM, stationFractions, elements);
             else
@@ -60,7 +77,7 @@ public static class StripLoadConsistentNodalProjection
             AccumulateTotals(elements[i], stationFractions[i] * lengthM, stationFractions[i + 1] * lengthM,
                 totalForce, totalMoment);
 
-        return new(true, diagnostics, elements, totalForce, totalMoment);
+        return new(diagnostics.All(d => !d.IsError), diagnostics, elements, totalForce, totalMoment);
     }
 
     static bool IsValidStationList(IReadOnlyList<double> stations)

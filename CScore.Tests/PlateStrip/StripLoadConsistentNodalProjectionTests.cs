@@ -167,4 +167,94 @@ public sealed class StripLoadConsistentNodalProjectionTests
         Assert.Equal(10.0, result.Elements[1].N1, 9);
         Assert.Equal(0.0, result.Elements[1].N2, 9);
     }
+
+    [Fact]
+    public void Project_EmptyLoadSet_ReturnsZeroedElements()
+    {
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([]), 6.0, [0.0, 0.5, 1.0]);
+
+        Assert.True(result.IsCalculable);
+        Assert.Equal(2, result.Elements.Count);
+        Assert.All(result.Elements, e => Assert.Equal(StripElementNodalLoad.Zero, e));
+        Assert.Equal(new[] { 0.0, 0.0, 0.0 }, result.TotalForceCheck);
+        Assert.Equal(new[] { 0.0, 0.0, 0.0 }, result.TotalMomentCheck);
+    }
+
+    [Fact]
+    public void Project_InvalidStripLoadComponent_ReturnsInvalidInputDiagnosticAndSkipsIt()
+    {
+        var bad = new StripLoad { Kind = StripLoadKind.DistributedUniform, QzKnM = double.NaN };
+        var good = new StripLoad
+        {
+            Kind = StripLoadKind.DistributedUniform,
+            StationStartFraction = 0.0,
+            StationEndFraction = 1.0,
+            QxKnM = 1.0
+        };
+
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([bad, good]), 6.0, [0.0, 1.0]);
+
+        // Диагностика по одной невалидной нагрузке делает ВЕСЬ результат IsCalculable=false
+        // (как PlanarLoadMapper.MapCore: IsCalculable = diagnostics.All(d => !d.IsError), а
+        // IsError по умолчанию true) — но валидная нагрузка всё равно лумпится в Elements,
+        // чтобы вызывающий код видел частичный результат при отладке.
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_invalid_input");
+        Assert.Equal(6.0, result.Elements[0].N1 + result.Elements[0].N2, 9); // good всё равно применён
+    }
+
+    [Fact]
+    public void Project_StripLoadWithExcessiveMx_ReturnsTorqueDiagnostic()
+    {
+        var badTorque = new StripLoad
+        {
+            Kind = StripLoadKind.Point,
+            SourceTag = "manually-constructed",
+            StationFraction = 0.5,
+            PzKn = -10.0,
+            MxKnM = 5.0 // сконструировано в обход Map, не проверено там
+        };
+
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([badTorque]), 6.0, [0.0, 1.0]);
+
+        Assert.False(result.IsCalculable);
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_produces_torque");
+        Assert.Equal(0.0, result.Elements[0].Vz1, 9); // нагрузка с недопустимым Mx не лумпится
+    }
+
+    [Fact]
+    public void Project_UniformAndPointCombined_TotalsMatchDirectIntegration()
+    {
+        var udl = new StripLoad
+        {
+            Kind = StripLoadKind.DistributedUniform,
+            SourceTag = "udl",
+            StationStartFraction = 0.0,
+            StationEndFraction = 1.0,
+            QzKnM = -2.0
+        };
+        var point = new StripLoad
+        {
+            Kind = StripLoadKind.Point,
+            SourceTag = "point",
+            StationFraction = 0.25,
+            PzKn = -5.0
+        };
+
+        double lengthM = 8.0;
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([udl, point]), lengthM, [0.0, 0.25, 0.6, 1.0]);
+
+        double totalVz = result.TotalForceCheck[2];
+        Assert.Equal(udl.QzKnM * lengthM + point.PzKn, totalVz, 6);
+
+        // My относительно station=0: вклад силы Fz на позиции s — "-s*Fz" (см. M=r×F в спеке).
+        // Для равномерной Qz на всём [0,L]: -∫₀ᴸ s·Qz ds = -Qz·L²/2.
+        double expectedMy = -udl.QzKnM * lengthM * lengthM / 2.0
+            - point.StationFraction * lengthM * point.PzKn;
+        Assert.Equal(expectedMy, result.TotalMomentCheck[1], 6);
+    }
 }
