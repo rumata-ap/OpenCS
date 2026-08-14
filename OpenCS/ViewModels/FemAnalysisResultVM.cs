@@ -34,7 +34,7 @@ public class FemAnalysisResultVM : ViewModelBase
     public IReadOnlyList<FemNodalComponent> NodalComponents { get; } =
         Enum.GetValues<FemNodalComponent>();
 
-    FemNodalComponent _selectedNodalComponent = FemNodalComponent.Ux;
+    FemNodalComponent _selectedNodalComponent = FemNodalComponent.Uz;
     /// <summary>Компонента, значение которой показывается рядом с узлами в 3D-виде.</summary>
     public FemNodalComponent SelectedNodalComponent
     {

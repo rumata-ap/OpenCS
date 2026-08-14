@@ -58,7 +58,7 @@ public class FemAnalysisResultVM3DDisplayTests
             vm.ShowDeformedNodes = false;
             vm.ShowNodeResultValues = false;
             vm.ShowForceDiagram = false;
-            Assert.Equal(FemNodalComponent.Ux, vm.SelectedNodalComponent);
+            Assert.Equal(FemNodalComponent.Uz, vm.SelectedNodalComponent);
             vm.SelectedNodalComponent = FemNodalComponent.Rz;
             Assert.False(vm.ShowDeformedSchema);
             Assert.False(vm.ShowDeformedNodes);

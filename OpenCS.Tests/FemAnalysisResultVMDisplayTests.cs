@@ -42,6 +42,16 @@ public class FemAnalysisResultVMDisplayTests
                 new CalcResult { Status = "ok", DataJson = JsonSerializer.Serialize(linear) },
                 db, schema);
 
+            // Регрессия для значения по умолчанию: строки должны быть уже в мм
+            // сразу после создания VM, до первого изменения ComboBox.
+            Assert.Equal(FemLengthUnit.Millimeters, vm.DisplacementLengthUnit);
+            Assert.Equal(1.0, vm.DisplayedDisplacements[0].Ux, 12);
+            var initialLabel = FemNodeResultLabelDataBuilder.Build(
+                vm.DisplayedDisplacements,
+                FemNodalComponent.Ux,
+                vm.DisplacementDisplayMode).Single(label => label.NodeTag == 1);
+            Assert.Equal(vm.DisplayedDisplacements[0].Ux, initialLabel.Value, 12);
+
             var changed = new List<string?>();
             vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
