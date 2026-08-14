@@ -36,6 +36,10 @@ public class FemAnalysisResultVM3DDisplayTests
                 new CalcResult { Status = "ok", DataJson = JsonSerializer.Serialize(linear) },
                 db, schema);
 
+            Assert.Equal(FemDisplacementDisplayMode.ExtremesOnly, vm.DisplacementDisplayMode);
+            Assert.False(vm.ShowNodeResultValues);
+            Assert.False(vm.ShowForceDiagram);
+
             Assert.Equal(0.01, vm.ForceScale, 12);
             vm.SelectedForceComponent = FemForceComponent.N;
             Assert.Equal(0.1, vm.ForceScale, 12);

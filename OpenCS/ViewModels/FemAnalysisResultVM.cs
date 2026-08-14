@@ -42,7 +42,7 @@ public class FemAnalysisResultVM : ViewModelBase
         set { if (value == _selectedNodalComponent) return; _selectedNodalComponent = value; OnPropertyChanged(); }
     }
 
-    FemDisplacementDisplayMode _displacementDisplayMode = FemDisplacementDisplayMode.AllNodes;
+    FemDisplacementDisplayMode _displacementDisplayMode = FemDisplacementDisplayMode.ExtremesOnly;
     /// <summary>Режим отображения всех узлов или только узловых экстремумов по стержням.</summary>
     public FemDisplacementDisplayMode DisplacementDisplayMode
     {
@@ -305,7 +305,7 @@ public class FemAnalysisResultVM : ViewModelBase
         set { if (value == _showDeformedNodes) return; _showDeformedNodes = value; OnPropertyChanged(); }
     }
 
-    bool _showNodeResultValues = true;
+    bool _showNodeResultValues;
     /// <summary>Видимость подписей глобальных перемещений и поворотов узлов в 3D-виде.</summary>
     public bool ShowNodeResultValues
     {
@@ -313,7 +313,7 @@ public class FemAnalysisResultVM : ViewModelBase
         set { if (value == _showNodeResultValues) return; _showNodeResultValues = value; OnPropertyChanged(); }
     }
 
-    bool _showForceDiagram = true;
+    bool _showForceDiagram;
     /// <summary>Видимость силовой эпюры и её экстремальных подписей в 3D-виде.</summary>
     public bool ShowForceDiagram
     {
