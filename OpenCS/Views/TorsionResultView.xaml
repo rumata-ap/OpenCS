@@ -48,6 +48,9 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                      </Grid.RowDefinitions>
 
                      <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource TorsionIt}" Foreground="Gray"/>
@@ -114,7 +117,22 @@
                      <TextBlock Grid.Row="13" Grid.Column="0" Text="{DynamicResource TorsionElementSize}" Foreground="Gray"/>
                      <TextBlock Grid.Row="13" Grid.Column="1" Text="{Binding ElementSizeText, Mode=OneWay}" FontFamily="Consolas"/>
 
-                     <TextBlock Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2" Foreground="DarkOrange" Margin="0,6,0,0"
+                     <TextBlock Grid.Row="14" Grid.Column="0" Text="{DynamicResource TorsionSigmaZzRange}" Foreground="Gray"
+                                Visibility="{Binding HasCombinedStress, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Grid.Row="14" Grid.Column="1" Text="{Binding SigmaZzRangeText, Mode=OneWay}" FontFamily="Consolas"
+                                Visibility="{Binding HasCombinedStress, Converter={StaticResource BoolToVisibility}}"/>
+
+                     <TextBlock Grid.Row="15" Grid.Column="0" Text="{DynamicResource TorsionSigmaVmMax}" Foreground="Gray"
+                                Visibility="{Binding HasCombinedStress, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Grid.Row="15" Grid.Column="1" Text="{Binding SigmaVmMaxText, Mode=OneWay}" FontFamily="Consolas"
+                                Visibility="{Binding HasCombinedStress, Converter={StaticResource BoolToVisibility}}"/>
+
+                     <TextBlock Grid.Row="16" Grid.Column="0" Text="{DynamicResource TorsionSigma11Max}" Foreground="Gray"
+                                Visibility="{Binding HasCombinedStress, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Grid.Row="16" Grid.Column="1" Text="{Binding Sigma11MaxText, Mode=OneWay}" FontFamily="Consolas"
+                                Visibility="{Binding HasCombinedStress, Converter={StaticResource BoolToVisibility}}"/>
+
+                     <TextBlock Grid.Row="17" Grid.Column="0" Grid.ColumnSpan="2" Foreground="DarkOrange" Margin="0,6,0,0"
                                 Visibility="{Binding IsSingular, Converter={StaticResource BoolToVisibility}}">
                         <Run Text="{DynamicResource TorsionSingular}"/>
                      </TextBlock>
@@ -157,6 +175,21 @@
       <TabItem Header="{DynamicResource TorsionTabShearForces}"
                Visibility="{Binding HasShearForcesPlot, Converter={StaticResource BoolToVisibility}}">
          <local:TorsionPlotView DataContext="{Binding ShearForcesPlot}"/>
+      </TabItem>
+
+      <TabItem Header="{DynamicResource TorsionTabSigmaZz}"
+               Visibility="{Binding HasCombinedStress, Converter={StaticResource BoolToVisibility}}">
+         <local:TorsionPlotView DataContext="{Binding SigmaZzPlot}"/>
+      </TabItem>
+
+      <TabItem Header="{DynamicResource TorsionTabSigmaVm}"
+               Visibility="{Binding HasCombinedStress, Converter={StaticResource BoolToVisibility}}">
+         <local:TorsionPlotView DataContext="{Binding SigmaVmPlot}"/>
+      </TabItem>
+
+      <TabItem Header="{DynamicResource TorsionTabSigma11}"
+               Visibility="{Binding HasCombinedStress, Converter={StaticResource BoolToVisibility}}">
+         <local:TorsionPlotView DataContext="{Binding Sigma11Plot}"/>
       </TabItem>
 
       <TabItem Header="{DynamicResource TorsionTabPotential}">

@@ -89,6 +89,8 @@ public static class TorsionFemSolver
             NodeX        = mesh.NodesX,
             NodeY        = mesh.NodesY,
             TauUnitField = tauUnit,
+            TauUnitFieldX = tauX,
+            TauUnitFieldY = tauY,
             PotentialField = phi,
             WarpingField = sc.Warping,
             WarpingConstant = sc.WarpingConstant,

@@ -29,8 +29,11 @@ public abstract class TorsionHandlerBase : ITaskHandler
             var baseMat = TorsionMaterialHelper.ResolveBaseMaterial(section);
             double gMpa = TorsionMaterialHelper.ShearModulusMpa(baseMat);
             double mkKNm = ResolveMk(p, item);
-            double vxKN = ResolveShear(item.Vx, p.VxKN);
-            double vyKN = ResolveShear(item.Vy, p.VyKN);
+            double vxKN = ResolveForce(item.Vx, p.VxKN);
+            double vyKN = ResolveForce(item.Vy, p.VyKN);
+            double nKN = ResolveForce(item.N, p.NkN);
+            double mxKNm = ResolveForce(item.Mx, p.MxKNm);
+            double myKNm = ResolveForce(item.My, p.MyKNm);
             double nu = TorsionMaterialHelper.PoissonRatio(baseMat?.Type ?? MatType.Concrete);
 
             TorsionProps props;
@@ -77,14 +80,14 @@ public abstract class TorsionHandlerBase : ITaskHandler
             // однородного сечения силовая упругая задача даёт τ, не зависящее от модуля
             // упругости (как и σ от N/M, τ от T) — см. док TorsionShearStressPostprocessor.
             bool hasShearForces = Math.Abs(vxKN) > 1e-12 || Math.Abs(vyKN) > 1e-12;
-            double[]? tauShearMagField = null;
+            double[]? tauShearX = null, tauShearY = null, tauShearMagField = null;
             double tauShearMax = double.NaN;
             if (hasShearForces && double.IsFinite(props.ShearDeltaS) &&
                 props.ShearVxUnitFieldX != null && props.ShearVxUnitFieldY != null &&
                 props.ShearVyUnitFieldX != null && props.ShearVyUnitFieldY != null)
             {
                 double vxN = vxKN * 1e3, vyN = vyKN * 1e3;
-                var (tauShearX, tauShearY) = TorsionShearStressPostprocessor.Combine(
+                (tauShearX, tauShearY) = TorsionShearStressPostprocessor.Combine(
                     props.ShearVxUnitFieldX, props.ShearVxUnitFieldY,
                     props.ShearVyUnitFieldX, props.ShearVyUnitFieldY,
                     props.ShearDeltaS, vxN, vyN);
@@ -95,6 +98,54 @@ public abstract class TorsionHandlerBase : ITaskHandler
                     double mag = Math.Sqrt(tauShearX[i] * tauShearX[i] + tauShearY[i] * tauShearY[i]);
                     tauShearMagField[i] = mag;
                     if (mag > tauShearMax) tauShearMax = mag;
+                }
+            }
+
+            // Комбинированные напряжения: σzz(N,Mx,My) — простая механика материалов (не зависит
+            // от E), + τ(T,Vx,Vy) векторно (компоненты, не только магнитуда) → σvm, σ11 (главное
+            // растягивающее). Только МКЭ (нужны узловые координаты и компоненты τ от T).
+            bool hasCombinedStress = (Math.Abs(nKN) > 1e-12 || Math.Abs(mxKNm) > 1e-12 || Math.Abs(myKNm) > 1e-12
+                    || Math.Abs(mkKNm) > 1e-12 || hasShearForces)
+                && props.NodeX != null && props.NodeY != null;
+            double[]? sigmaZzField = null, sigmaVmField = null, sigma11Field = null;
+            double sigmaZzMax = double.NaN, sigmaZzMin = double.NaN, sigmaVmMax = double.NaN, sigma11Max = double.NaN;
+            if (hasCombinedStress)
+            {
+                var (xc, yc, geoArea, ixx, iyy, ixy) = TorsionGeoMoments.Compute(boundary);
+                double nN = nKN * 1e3, mxNm = mxKNm * 1e3, myNm = myKNm * 1e3;
+                bool hasTorsionTau = double.IsFinite(twistRate) && props.TauUnitFieldX != null && props.TauUnitFieldY != null;
+                double gPaForTau = gMpa * 1e6;
+
+                int nNodes = props.NodeX!.Length;
+                sigmaZzField = new double[nNodes];
+                sigmaVmField = new double[nNodes];
+                sigma11Field = new double[nNodes];
+                for (int i = 0; i < nNodes; i++)
+                {
+                    double sigmaZz = CombinedStress.SigmaZz(props.NodeX[i], props.NodeY![i], xc, yc,
+                        geoArea, ixx, iyy, ixy, nN, mxNm, myNm);
+
+                    double tauX = 0.0, tauY = 0.0;
+                    if (hasTorsionTau)
+                    {
+                        tauX += gPaForTau * twistRate * props.TauUnitFieldX![i];
+                        tauY += gPaForTau * twistRate * props.TauUnitFieldY![i];
+                    }
+                    if (tauShearX != null && tauShearY != null)
+                    {
+                        tauX += tauShearX[i];
+                        tauY += tauShearY[i];
+                    }
+
+                    var (sigVm, sig11, _) = CombinedStress.Combine(sigmaZz, tauX, tauY);
+
+                    sigmaZzField[i] = sigmaZz;
+                    sigmaVmField[i] = sigVm;
+                    sigma11Field[i] = sig11;
+                    if (double.IsNaN(sigmaZzMax) || sigmaZz > sigmaZzMax) sigmaZzMax = sigmaZz;
+                    if (double.IsNaN(sigmaZzMin) || sigmaZz < sigmaZzMin) sigmaZzMin = sigmaZz;
+                    if (double.IsNaN(sigmaVmMax) || sigVm > sigmaVmMax) sigmaVmMax = sigVm;
+                    if (double.IsNaN(sigma11Max) || sig11 > sigma11Max) sigma11Max = sig11;
                 }
             }
 
@@ -127,10 +178,20 @@ public abstract class TorsionHandlerBase : ITaskHandler
                 shear_from_force_set = Math.Abs(item.Vx) > 1e-12 || Math.Abs(item.Vy) > 1e-12,
                 warping_constant_m6 = TorsionJsonHelper.Finite(props.WarpingConstant),
                 tau_shear_max_Pa = TorsionJsonHelper.Finite(tauShearMax),
+                n_kn = nKN,
+                mx_knm = mxKNm,
+                my_knm = myKNm,
+                sigma_zz_max_Pa = TorsionJsonHelper.Finite(sigmaZzMax),
+                sigma_zz_min_Pa = TorsionJsonHelper.Finite(sigmaZzMin),
+                sigma_vm_max_Pa = TorsionJsonHelper.Finite(sigmaVmMax),
+                sigma_11_max_Pa = TorsionJsonHelper.Finite(sigma11Max),
                 node_x = props.NodeX,
                 node_y = props.NodeY,
                 tau_unit = TorsionJsonHelper.FiniteArray(props.TauUnitField),
                 tau_shear = TorsionJsonHelper.FiniteArray(tauShearMagField),
+                sigma_zz = TorsionJsonHelper.FiniteArray(sigmaZzField),
+                sigma_vm = TorsionJsonHelper.FiniteArray(sigmaVmField),
+                sigma_11 = TorsionJsonHelper.FiniteArray(sigma11Field),
                 potential = TorsionJsonHelper.FiniteArray(props.PotentialField),
                 triangles = props.Triangles,
                 boundary_x = props.BoundaryX,
@@ -174,6 +235,6 @@ public abstract class TorsionHandlerBase : ITaskHandler
         return p.MkKNm > 0 ? p.MkKNm : 0;
     }
 
-    /// <summary>Vx/Vy: значение из строки набора усилий, иначе ручное значение из ParamsJson (со знаком).</summary>
-    static double ResolveShear(double itemV, double paramV) => Math.Abs(itemV) > 1e-12 ? itemV : paramV;
+    /// <summary>Значение из строки набора усилий, иначе ручное значение из ParamsJson (со знаком).</summary>
+    static double ResolveForce(double itemV, double paramV) => Math.Abs(itemV) > 1e-12 ? itemV : paramV;
 }

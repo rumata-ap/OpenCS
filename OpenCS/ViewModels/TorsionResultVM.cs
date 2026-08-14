@@ -33,6 +33,10 @@ public sealed class TorsionResultVM : ViewModelBase
     public bool HasWarpingConstant { get; }
     public string ShearFromForcesMaxText { get; } = "";
     public bool HasShearFromForces { get; }
+    public string SigmaZzRangeText { get; } = "";
+    public string SigmaVmMaxText { get; } = "";
+    public string Sigma11MaxText { get; } = "";
+    public bool HasCombinedStress { get; }
     public string TwistRateText { get; }
     public bool HasTwistRate { get; }
     public string ElementsText { get; }
@@ -54,6 +58,9 @@ public sealed class TorsionResultVM : ViewModelBase
     public TorsionPlotVM PotentialPlot { get; }
     public TorsionPlotVM? ShearForcesPlot { get; }
     public bool HasShearForcesPlot { get; }
+    public TorsionPlotVM? SigmaZzPlot { get; }
+    public TorsionPlotVM? SigmaVmPlot { get; }
+    public TorsionPlotVM? Sigma11Plot { get; }
     public bool HasPlots { get; }
 
     public TorsionResultVM(CalcResult r)
@@ -144,6 +151,14 @@ public sealed class TorsionResultVM : ViewModelBase
             ? $"{data.TauShearMaxMpa.ToString("F2", inv)} МПа"
             : "—";
 
+        HasCombinedStress = data.HasCombinedStress;
+        if (HasCombinedStress)
+        {
+            SigmaZzRangeText = $"{data.SigmaZzMinMpa.ToString("F2", inv)} … {data.SigmaZzMaxMpa.ToString("F2", inv)} МПа";
+            SigmaVmMaxText = $"{data.SigmaVmMaxMpa.ToString("F2", inv)} МПа";
+            Sigma11MaxText = $"{data.Sigma11MaxMpa.ToString("F2", inv)} МПа";
+        }
+
         IsSingular = data.Singular;
 
         HasPlots = data.HasFieldMesh || data.HasBoundaryField ||
@@ -152,6 +167,12 @@ public sealed class TorsionResultVM : ViewModelBase
         PotentialPlot = new TorsionPlotVM(data, TorsionFieldMode.Potential);
         HasShearForcesPlot = data.HasShearFromForces;
         ShearForcesPlot = HasShearForcesPlot ? new TorsionPlotVM(data, TorsionFieldMode.ShearForces) : null;
+        if (HasCombinedStress)
+        {
+            SigmaZzPlot = new TorsionPlotVM(data, TorsionFieldMode.CombinedSigmaZz);
+            SigmaVmPlot = new TorsionPlotVM(data, TorsionFieldMode.CombinedSigmaVm);
+            Sigma11Plot = new TorsionPlotVM(data, TorsionFieldMode.CombinedSigma11);
+        }
 
         ShowAutoConverge = data.AutoConverge && data.ConvergenceHMm != null && data.ConvergenceItMm4 != null;
         if (ShowAutoConverge)

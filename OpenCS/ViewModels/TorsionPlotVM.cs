@@ -58,9 +58,8 @@ public sealed class TorsionPlotVM : ViewModelBase
 
     public TorsionFieldMode ActiveMode => BaseMode switch
     {
-        TorsionFieldMode.Potential => TorsionFieldMode.Potential,
-        TorsionFieldMode.ShearForces => TorsionFieldMode.ShearForces,
-        _ => _showPhysicalTau ? TorsionFieldMode.TauMpa : TorsionFieldMode.TauUnit
+        TorsionFieldMode.TauUnit => _showPhysicalTau ? TorsionFieldMode.TauMpa : TorsionFieldMode.TauUnit,
+        _ => BaseMode
     };
 
     public int NeedRedraw { get; private set; }
@@ -122,6 +121,9 @@ public sealed class TorsionPlotVM : ViewModelBase
         TorsionFieldMode.Potential => Loc.S("TorsionUnitPotential"),
         TorsionFieldMode.TauMpa => "МПа",
         TorsionFieldMode.ShearForces => "МПа",
+        TorsionFieldMode.CombinedSigmaZz => "МПа",
+        TorsionFieldMode.CombinedSigmaVm => "МПа",
+        TorsionFieldMode.CombinedSigma11 => "МПа",
         _ => "мм²"
     };
 
@@ -211,7 +213,14 @@ public sealed class TorsionPlotVM : ViewModelBase
     static Point? FindTauMaxPoint(TorsionResultData data, TorsionFieldMode mode)
     {
         if (mode == TorsionFieldMode.Potential) return null;
-        var field = mode == TorsionFieldMode.ShearForces ? data.TauShearMpa : data.TauUnit;
+        var field = mode switch
+        {
+            TorsionFieldMode.ShearForces => data.TauShearMpa,
+            TorsionFieldMode.CombinedSigmaZz => data.SigmaZzMpa,
+            TorsionFieldMode.CombinedSigmaVm => data.SigmaVmMpa,
+            TorsionFieldMode.CombinedSigma11 => data.Sigma11Mpa,
+            _ => data.TauUnit
+        };
         if (field == null || data.NodeXM == null || data.NodeYM == null) return null;
 
         int best = -1;

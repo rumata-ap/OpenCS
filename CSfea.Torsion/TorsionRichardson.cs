@@ -54,6 +54,8 @@ public sealed class TorsionAutoConvergeResult
             ShearVyUnitFieldX = finest.ShearVyUnitFieldX,
             ShearVyUnitFieldY = finest.ShearVyUnitFieldY,
             TauUnitMax = finest.TauUnitMax,
+            TauUnitFieldX = finest.TauUnitFieldX,
+            TauUnitFieldY = finest.TauUnitFieldY,
             NodeX = finest.NodeX,
             NodeY = finest.NodeY,
             TauUnitField = finest.TauUnitField,

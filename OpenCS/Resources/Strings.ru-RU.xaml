@@ -2000,6 +2000,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TorsionShearCenterTrefftz">Центр кручения (Трефтц)</system:String>
     <system:String x:Key="TorsionWarpingConstant">Секториальная жёсткость Iω (γ)</system:String>
     <system:String x:Key="TorsionShearFromForcesMax">Макс. касательное напряжение от Vx,Vy</system:String>
+    <system:String x:Key="TorsionSigmaZzRange">σzz (N,Mx,My), мин…макс</system:String>
+    <system:String x:Key="TorsionSigmaVmMax">Макс. напряжение по Мизесу σvm</system:String>
+    <system:String x:Key="TorsionSigma11Max">Макс. главное растягивающее σ11</system:String>
     <system:String x:Key="TorsionTauMax">Макс. касательное напряжение τ_max</system:String>
     <system:String x:Key="TorsionElements">Число элементов</system:String>
     <system:String x:Key="TorsionMethod">Метод</system:String>
@@ -2024,6 +2027,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TorsionMk">Крутящий момент Mk, кН·м</system:String>
     <system:String x:Key="TorsionTabTau">τ/(GΘ)</system:String>
     <system:String x:Key="TorsionTabShearForces">τ (Vx,Vy)</system:String>
+    <system:String x:Key="TorsionTabSigmaZz">σzz</system:String>
+    <system:String x:Key="TorsionTabSigmaVm">σvm (Мизес)</system:String>
+    <system:String x:Key="TorsionTabSigma11">σ11 (главное)</system:String>
     <system:String x:Key="TorsionTabPotential">φ / ω</system:String>
     <system:String x:Key="TorsionGIt">Жёсткость G·It</system:String>
     <system:String x:Key="TorsionTwistRate">Удельный угол закручивания Θ</system:String>

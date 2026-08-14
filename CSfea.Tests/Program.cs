@@ -169,4 +169,9 @@ TorsionTests.FemShearCenterChannelVsBem();
 TorsionTests.FemWarpingConstantCircleIsZero();
 TorsionTests.FemShearUnitFieldsEquilibriumRectangle();
 
+TorsionTests.FemTauUnitFieldXyMatchesMagnitude();
+TorsionTests.CombinedStressSigmaZzPureAxial();
+TorsionTests.CombinedStressSigmaZzPureBendingSymmetricRectangle();
+TorsionTests.CombinedStressCombineKnownCases();
+
 return TestHarness.Summary();

@@ -31,8 +31,15 @@ public sealed class TorsionProps
     /// <summary>Координаты Y узлов поля.</summary>
     public double[]? NodeY { get; init; }
 
-    /// <summary>Поле безразмерного касательного напряжения τ/(GΘ).</summary>
+    /// <summary>Поле безразмерного касательного напряжения τ/(GΘ) (магнитуда).</summary>
     public double[]? TauUnitField { get; init; }
+
+    /// <summary>Компонента X безразмерного τ/(GΘ) от кручения (только МКЭ; нужна для векторного
+    /// суммирования с τ от Vx/Vy при вычислении комбинированных напряжений).</summary>
+    public double[]? TauUnitFieldX { get; init; }
+
+    /// <summary>Компонента Y безразмерного τ/(GΘ) от кручения (только МКЭ).</summary>
+    public double[]? TauUnitFieldY { get; init; }
 
     /// <summary>Поле потенциала: МГЭ — депланация ω на границе; МКЭ — функция Прандтля φ в узлах.</summary>
     public double[]? PotentialField { get; init; }

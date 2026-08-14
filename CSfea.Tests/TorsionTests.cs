@@ -857,5 +857,90 @@ public static class TorsionTests
         TestHarness.Check("∫τx dA ≈ 0 (нагрузка Vy)", Math.Abs(intTauXvy) < 0.05, $"∫τx={intTauXvy:E4}");
         TestHarness.CheckRel("∫τy dA ≈ Vy=1 (нагрузка Vy)", intTauYvy, 1.0, 0.05);
     }
+
+    public static void FemTauUnitFieldXyMatchesMagnitude()
+    {
+        TestHarness.Section("МКЭ: компоненты TauUnitFieldX/Y согласованы с магнитудой TauUnitField (круг)");
+        double r = 0.5;
+        int n = 64;
+        double[] ox = new double[n], oy = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            double a = 2.0 * Math.PI * i / n;
+            ox[i] = r * Math.Cos(a); oy[i] = r * Math.Sin(a);
+        }
+        var boundary = new TorsionBoundary(ox, oy);
+        var props = TorsionFemSolver.Solve(boundary, maxElementSize: 0.1);
+
+        TestHarness.Check("TauUnitFieldX задано", props.TauUnitFieldX != null);
+        TestHarness.Check("TauUnitFieldY задано", props.TauUnitFieldY != null);
+        double maxErr = 0.0;
+        for (int i = 0; i < props.TauUnitField!.Length; i++)
+        {
+            double mag = Math.Sqrt(props.TauUnitFieldX![i] * props.TauUnitFieldX[i] + props.TauUnitFieldY![i] * props.TauUnitFieldY[i]);
+            maxErr = Math.Max(maxErr, Math.Abs(mag - props.TauUnitField[i]));
+        }
+        TestHarness.Check("max|√(X²+Y²) − magnitude| ≈ 0", maxErr < 1e-9, $"maxErr={maxErr:E3}");
+    }
+
+    public static void CombinedStressSigmaZzPureAxial()
+    {
+        TestHarness.Section("CombinedStress.SigmaZz: чистое N даёт равномерное σ=N/A");
+        double b = 0.2, h = 0.4;
+        var boundary = new TorsionBoundary(
+            new[] { -b / 2, b / 2, b / 2, -b / 2 },
+            new[] { -h / 2, -h / 2, h / 2, h / 2 });
+        var (xc, yc, area, ixx, iyy, ixy) = TorsionGeoMoments.Compute(boundary);
+        double n = 100.0;
+        double s1 = CombinedStress.SigmaZz(0.03, 0.07, xc, yc, area, ixx, iyy, ixy, n, 0, 0);
+        double s2 = CombinedStress.SigmaZz(-0.08, -0.15, xc, yc, area, ixx, iyy, ixy, n, 0, 0);
+        TestHarness.CheckRel("σ(N) в произвольной точке 1 ≈ N/A", s1, n / area, 1e-9);
+        TestHarness.CheckRel("σ(N) в произвольной точке 2 ≈ N/A (равномерно)", s2, n / area, 1e-9);
+    }
+
+    public static void CombinedStressSigmaZzPureBendingSymmetricRectangle()
+    {
+        TestHarness.Section("CombinedStress.SigmaZz: чистые Mx,My на симметричном прямоугольнике (Ixy=0) — крайнее волокно = M/W");
+        double b = 0.2, h = 0.4;
+        var boundary = new TorsionBoundary(
+            new[] { -b / 2, b / 2, b / 2, -b / 2 },
+            new[] { -h / 2, -h / 2, h / 2, h / 2 });
+        var (xc, yc, area, ixx, iyy, ixy) = TorsionGeoMoments.Compute(boundary);
+        TestHarness.Check("Ixy ≈ 0 (симметрия)", Math.Abs(ixy) < 1e-15 * ixx);
+
+        double mx = 12.0;
+        double wx = ixx / (h / 2.0);
+        double sigTopMx = CombinedStress.SigmaZz(0, h / 2.0, xc, yc, area, ixx, iyy, ixy, 0, mx, 0);
+        double sigBotMx = CombinedStress.SigmaZz(0, -h / 2.0, xc, yc, area, ixx, iyy, ixy, 0, mx, 0);
+        TestHarness.CheckRel("σ(Mx) при y=+h/2 ≈ Mx/Wx (растяжение верха — Mx>0)", sigTopMx, mx / wx, 1e-9);
+        TestHarness.CheckRel("σ(Mx) при y=-h/2 ≈ -Mx/Wx", sigBotMx, -mx / wx, 1e-9);
+
+        double my = 7.0;
+        double wy = iyy / (b / 2.0);
+        double sigRightMy = CombinedStress.SigmaZz(b / 2.0, 0, xc, yc, area, ixx, iyy, ixy, 0, 0, my);
+        double sigLeftMy = CombinedStress.SigmaZz(-b / 2.0, 0, xc, yc, area, ixx, iyy, ixy, 0, 0, my);
+        TestHarness.CheckRel("σ(My) при x=+b/2 ≈ My/Wy (растяжение грани x>0 — My>0)", sigRightMy, my / wy, 1e-9);
+        TestHarness.CheckRel("σ(My) при x=-b/2 ≈ -My/Wy", sigLeftMy, -my / wy, 1e-9);
+    }
+
+    public static void CombinedStressCombineKnownCases()
+    {
+        TestHarness.Section("CombinedStress.Combine: von Mises и главные напряжения — известные частные случаи");
+        // Чистое σzz (τ=0): σ11=σzz (σzz>0), σ33=0, σvm=|σzz|.
+        var (vm1, s11a, s33a) = CombinedStress.Combine(100.0, 0.0, 0.0);
+        TestHarness.CheckRel("Чистое σzz>0: σvm ≈ σzz", vm1, 100.0, 1e-9);
+        TestHarness.CheckRel("Чистое σzz>0: σ11 ≈ σzz", s11a, 100.0, 1e-9);
+        TestHarness.Check("Чистое σzz>0: σ33 ≈ 0", Math.Abs(s33a) < 1e-9);
+
+        // Чистый сдвиг (σzz=0): σ11=τ, σ33=-τ, σvm=√3·τ.
+        var (vm2, s11b, s33b) = CombinedStress.Combine(0.0, 40.0, 30.0); // τ_result=50
+        TestHarness.CheckRel("Чистый сдвиг: σvm ≈ √3·τ", vm2, Math.Sqrt(3.0) * 50.0, 1e-9);
+        TestHarness.CheckRel("Чистый сдвиг: σ11 ≈ τ", s11b, 50.0, 1e-9);
+        TestHarness.CheckRel("Чистый сдвиг: σ33 ≈ −τ", s33b, -50.0, 1e-9);
+
+        // Общий случай: σ11 ≥ σ33 всегда, σ11-σ33 = 2·√((σzz/2)²+τ²).
+        var (_, s11c, s33c) = CombinedStress.Combine(-60.0, 10.0, 20.0);
+        TestHarness.Check("σ11 ≥ σ33", s11c >= s33c);
+    }
 }
 

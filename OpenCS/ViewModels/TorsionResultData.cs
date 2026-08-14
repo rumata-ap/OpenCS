@@ -44,6 +44,12 @@ public sealed class TorsionResultData
     public double TauShearMaxMpa { get; }
     public bool HasShearFromForces { get; }
 
+    public double SigmaZzMaxMpa { get; }
+    public double SigmaZzMinMpa { get; }
+    public double SigmaVmMaxMpa { get; }
+    public double Sigma11MaxMpa { get; }
+    public bool HasCombinedStress { get; }
+
     public IReadOnlyList<Point> OuterHullMm { get; }
     public IReadOnlyList<IReadOnlyList<Point>> HolesMm { get; }
 
@@ -51,6 +57,9 @@ public sealed class TorsionResultData
     public double[]? NodeYM { get; }
     public double[]? TauUnit { get; }
     public double[]? TauShearMpa { get; }
+    public double[]? SigmaZzMpa { get; }
+    public double[]? SigmaVmMpa { get; }
+    public double[]? Sigma11Mpa { get; }
     public double[]? Potential { get; }
     public int[][]? Triangles { get; }
     public double[]? BoundaryXM { get; }
@@ -75,7 +84,9 @@ public sealed class TorsionResultData
         double? scOrderX, double? scOrderY, bool scExtrapolated,
         string femOrder,
         double warpingConstantMm6, bool hasWarpingConstant,
-        double tauShearMaxMpa, bool hasShearFromForces, double[]? tauShearMpa)
+        double tauShearMaxMpa, bool hasShearFromForces, double[]? tauShearMpa,
+        double sigmaZzMaxMpa, double sigmaZzMinMpa, double sigmaVmMaxMpa, double sigma11MaxMpa,
+        bool hasCombinedStress, double[]? sigmaZzMpa, double[]? sigmaVmMpa, double[]? sigma11Mpa)
     {
         Method = method;
         FemOrder = femOrder;
@@ -121,6 +132,14 @@ public sealed class TorsionResultData
         TauShearMaxMpa = tauShearMaxMpa;
         HasShearFromForces = hasShearFromForces;
         TauShearMpa = tauShearMpa;
+        SigmaZzMaxMpa = sigmaZzMaxMpa;
+        SigmaZzMinMpa = sigmaZzMinMpa;
+        SigmaVmMaxMpa = sigmaVmMaxMpa;
+        Sigma11MaxMpa = sigma11MaxMpa;
+        HasCombinedStress = hasCombinedStress;
+        SigmaZzMpa = sigmaZzMpa;
+        SigmaVmMpa = sigmaVmMpa;
+        Sigma11Mpa = sigma11Mpa;
     }
 
     public static TorsionResultData FromCalcResult(CScore.CalcResult r)
@@ -178,6 +197,22 @@ public sealed class TorsionResultData
             bool hasShearForces = double.IsFinite(tauShearMaxMpa) && tauShearPa != null;
             double[]? tauShearMpa = tauShearPa?.Select(v => v / 1e6).ToArray();
 
+            double sigmaZzMaxMpa = root.TryGetProperty("sigma_zz_max_Pa", out var szzMax) && double.IsFinite(szzMax.GetDouble())
+                ? szzMax.GetDouble() / 1e6 : double.NaN;
+            double sigmaZzMinMpa = root.TryGetProperty("sigma_zz_min_Pa", out var szzMin) && double.IsFinite(szzMin.GetDouble())
+                ? szzMin.GetDouble() / 1e6 : double.NaN;
+            double sigmaVmMaxMpa = root.TryGetProperty("sigma_vm_max_Pa", out var svmMax) && double.IsFinite(svmMax.GetDouble())
+                ? svmMax.GetDouble() / 1e6 : double.NaN;
+            double sigma11MaxMpa = root.TryGetProperty("sigma_11_max_Pa", out var s11Max) && double.IsFinite(s11Max.GetDouble())
+                ? s11Max.GetDouble() / 1e6 : double.NaN;
+            double[]? sigmaZzPa = ParseDoubleArray(root, "sigma_zz");
+            double[]? sigmaVmPa = ParseDoubleArray(root, "sigma_vm");
+            double[]? sigma11Pa = ParseDoubleArray(root, "sigma_11");
+            bool hasCombinedStress = double.IsFinite(sigmaVmMaxMpa) && sigmaZzPa != null;
+            double[]? sigmaZzMpa = sigmaZzPa?.Select(v => v / 1e6).ToArray();
+            double[]? sigmaVmMpa = sigmaVmPa?.Select(v => v / 1e6).ToArray();
+            double[]? sigma11Mpa = sigma11Pa?.Select(v => v / 1e6).ToArray();
+
             return new TorsionResultData(
                 method, r.Status ?? "",
                 itMm4, scx, scy, hasSc,
@@ -199,7 +234,9 @@ public sealed class TorsionResultData
                 ParseDoubleArray(root, "convergence_it_mm4"),
                 itOrder, itExtrapolated,
                 scOrderX, scOrderY, scExtrapolated, femOrder,
-                warpingMm6, hasWarping, tauShearMaxMpa, hasShearForces, tauShearMpa);
+                warpingMm6, hasWarping, tauShearMaxMpa, hasShearForces, tauShearMpa,
+                sigmaZzMaxMpa, sigmaZzMinMpa, sigmaVmMaxMpa, sigma11MaxMpa,
+                hasCombinedStress, sigmaZzMpa, sigmaVmMpa, sigma11Mpa);
         }
         catch
         {
@@ -214,7 +251,8 @@ public sealed class TorsionResultData
             [], [],
             null, null, null, null, null, null, null, null,
             false, null, null, null, false, null, null, false, "",
-            double.NaN, false, double.NaN, false, null);
+            double.NaN, false, double.NaN, false, null,
+            double.NaN, double.NaN, double.NaN, double.NaN, false, null, null, null);
 
     static double? ParseNullableDouble(JsonElement root, string key)
         => root.TryGetProperty(key, out var v) && v.ValueKind is JsonValueKind.Number ? v.GetDouble() : null;
@@ -298,6 +336,12 @@ public sealed class TorsionResultData
             return Potential?[i] ?? double.NaN;
         if (mode == TorsionFieldMode.ShearForces)
             return TauShearMpa?[i] ?? double.NaN;
+        if (mode == TorsionFieldMode.CombinedSigmaZz)
+            return SigmaZzMpa?[i] ?? double.NaN;
+        if (mode == TorsionFieldMode.CombinedSigmaVm)
+            return SigmaVmMpa?[i] ?? double.NaN;
+        if (mode == TorsionFieldMode.CombinedSigma11)
+            return Sigma11Mpa?[i] ?? double.NaN;
         double tu = TauUnit?[i] ?? double.NaN;
         return mode switch
         {
@@ -338,5 +382,8 @@ public enum TorsionFieldMode
     TauUnit,
     TauMpa,
     Potential,
-    ShearForces
+    ShearForces,
+    CombinedSigmaZz,
+    CombinedSigmaVm,
+    CombinedSigma11
 }
