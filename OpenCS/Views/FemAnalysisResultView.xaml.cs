@@ -63,6 +63,8 @@ public partial class FemAnalysisResultView : UserControl
         DataContext = _vm;
         displacementModeBox.ItemsSource = System.Enum.GetValues<FemDisplacementDisplayMode>();
         displacementModeBox.SelectedItem = _vm.DisplacementDisplayMode;
+        displacementMode3DBox.ItemsSource = System.Enum.GetValues<FemDisplacementDisplayMode>();
+        displacementMode3DBox.SelectedItem = _vm.DisplacementDisplayMode;
         displacementLengthUnitBox.ItemsSource = System.Enum.GetValues<FemLengthUnit>();
         displacementLengthUnitBox.SelectedItem = _vm.DisplacementLengthUnit;
         rotationDisplayScaleBox.ItemsSource = System.Enum.GetValues<FemRotationScale>();
@@ -107,6 +109,10 @@ public partial class FemAnalysisResultView : UserControl
             UpdateNodeResultLabels();
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.ShowNodeResultValues))
+        {
+            UpdateNodeResultLabels();
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedNodalComponent))
         {
             UpdateNodeResultLabels();
         }
@@ -264,7 +270,10 @@ public partial class FemAnalysisResultView : UserControl
 
         if (!_vm.ShowNodeResultValues || !_vm.HasGeometry) return;
 
-        foreach (FemNodeResultLabelData labelData in FemNodeResultLabelDataBuilder.Build(_vm.DisplayedDisplacements))
+        foreach (FemNodeResultLabelData labelData in FemNodeResultLabelDataBuilder.Build(
+            _vm.DisplayedDisplacements,
+            _vm.SelectedNodalComponent,
+            _vm.DisplacementDisplayMode))
         {
             if (!_vm.DeformedNodesByTag.TryGetValue(labelData.NodeTag, out Point3D position))
                 continue;
@@ -284,20 +293,21 @@ public partial class FemAnalysisResultView : UserControl
 
     string FormatNodeResultLabel(FemNodeResultLabelData labelData)
     {
-        FemNodeDisplacementRow row = labelData.Row;
-        string lengthUnit = Loc.S($"FemLength{_vm.DisplacementLengthUnit}");
-        string rotationScale = Loc.S($"FemRotationScale{_vm.RotationDisplayScale}");
+        string component = Loc.S($"FemResultNodal{labelData.Component}");
+        string unit = labelData.Component is FemNodalComponent.Ux
+            or FemNodalComponent.Uy
+            or FemNodalComponent.Uz
+            ? Loc.S($"FemLength{_vm.DisplacementLengthUnit}")
+            : string.Format(
+                Loc.S("FemRotationDisplayUnit"),
+                Loc.S("FemUnitRad"),
+                (int)_vm.RotationDisplayScale);
         return string.Format(
-            Loc.S("Fem3DNodeResultFormat"),
+            Loc.S("Fem3DNodeResultValueFormat"),
             labelData.NodeTag,
-            lengthUnit,
-            row.Ux,
-            row.Uy,
-            row.Uz,
-            rotationScale,
-            row.Rx,
-            row.Ry,
-            row.Rz);
+            component,
+            labelData.Value,
+            unit);
     }
 
     string? _contextMenuTargetTag;
@@ -478,6 +488,18 @@ public partial class FemAnalysisResultView : UserControl
     {
         if (displacementModeBox.SelectedItem is FemDisplacementDisplayMode mode)
             _vm.DisplacementDisplayMode = mode;
+    }
+
+    void DisplacementMode3DBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (displacementMode3DBox.SelectedItem is FemDisplacementDisplayMode mode)
+            _vm.DisplacementDisplayMode = mode;
+    }
+
+    void NodalComponent3DBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (nodalComponent3DBox.SelectedItem is FemNodalComponent component)
+            _vm.SelectedNodalComponent = component;
     }
 
     void DisplacementLengthUnitBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

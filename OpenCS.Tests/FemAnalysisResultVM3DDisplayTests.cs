@@ -52,9 +52,12 @@ public class FemAnalysisResultVM3DDisplayTests
             vm.ShowDeformedSchema = false;
             vm.ShowDeformedNodes = false;
             vm.ShowNodeResultValues = false;
+            Assert.Equal(FemNodalComponent.Ux, vm.SelectedNodalComponent);
+            vm.SelectedNodalComponent = FemNodalComponent.Rz;
             Assert.False(vm.ShowDeformedSchema);
             Assert.False(vm.ShowDeformedNodes);
             Assert.False(vm.ShowNodeResultValues);
+            Assert.Equal(FemNodalComponent.Rz, vm.SelectedNodalComponent);
         }
         finally
         {

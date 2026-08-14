@@ -68,16 +68,42 @@ public class FemResultDisplayTests
             new FemNodeDisplacementRow("M1", 1, 3, 0, 0, 0, 0, 0, [])
         };
 
-        var labels = FemNodeResultLabelDataBuilder.Build(rows);
+        var labels = FemNodeResultLabelDataBuilder.Build(
+            rows,
+            FemNodalComponent.Ux,
+            FemDisplacementDisplayMode.AllNodes);
 
         Assert.Equal(new[] { 1, 2 }, labels.Select(label => label.NodeTag));
         Assert.Equal("M1", labels[1].Row.MemberTag);
-        Assert.Equal(1.0, labels[1].Row.Ux, 12);
+        Assert.Equal(FemNodalComponent.Ux, labels[1].Component);
+        Assert.Equal(1.0, labels[1].Value, 12);
     }
 
     [Fact]
     public void BuildNodeResultLabels_ReturnsEmptyForEmptyTable()
     {
-        Assert.Empty(FemNodeResultLabelDataBuilder.Build([]));
+        Assert.Empty(FemNodeResultLabelDataBuilder.Build(
+            [],
+            FemNodalComponent.Ux,
+            FemDisplacementDisplayMode.AllNodes));
+    }
+
+    [Fact]
+    public void BuildNodeResultLabels_ExtremesModeKeepsOnlySelectedComponentExtremes()
+    {
+        var rows = new[]
+        {
+            new FemNodeDisplacementRow("M1", 1, 3, 0, 0, 0, 0, 0, [FemNodalComponent.Ux]),
+            new FemNodeDisplacementRow("M1", 2, 2, 0, 0, 0, 0, 0, [FemNodalComponent.Uy]),
+            new FemNodeDisplacementRow("M2", 2, 1, 0, 0, 0, 0, 0, [FemNodalComponent.Ux])
+        };
+
+        var labels = FemNodeResultLabelDataBuilder.Build(
+            rows,
+            FemNodalComponent.Ux,
+            FemDisplacementDisplayMode.ExtremesOnly);
+
+        Assert.Equal(new[] { 1, 2 }, labels.Select(label => label.NodeTag));
+        Assert.Equal(new[] { 3.0, 1.0 }, labels.Select(label => label.Value));
     }
 }

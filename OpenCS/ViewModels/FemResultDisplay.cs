@@ -383,8 +383,12 @@ public sealed record FemNodeDisplacementRow(
     double Rz,
     IReadOnlyList<FemNodalComponent> ExtremeComponents);
 
-/// <summary>Данные одной 3D-подписи узлового результата.</summary>
-public sealed record FemNodeResultLabelData(int NodeTag, FemNodeDisplacementRow Row);
+/// <summary>Данные одной 3D-подписи выбранной узловой компоненты.</summary>
+public sealed record FemNodeResultLabelData(
+    int NodeTag,
+    FemNodeDisplacementRow Row,
+    FemNodalComponent Component,
+    double Value);
 
 /// <summary>Подготавливает уникальные подписи для узлового слоя 3D-вида.</summary>
 public static class FemNodeResultLabelDataBuilder
@@ -394,15 +398,35 @@ public static class FemNodeResultLabelDataBuilder
     /// присутствовать в таблице несколько раз — для каждого конструктивного стержня.
     /// </summary>
     public static IReadOnlyList<FemNodeResultLabelData> Build(
-        IReadOnlyList<FemNodeDisplacementRow> rows) => rows
+        IReadOnlyList<FemNodeDisplacementRow> rows,
+        FemNodalComponent component,
+        FemDisplacementDisplayMode mode)
+    {
+        IEnumerable<FemNodeDisplacementRow> candidates = mode == FemDisplacementDisplayMode.ExtremesOnly
+            ? rows.Where(row => row.ExtremeComponents.Contains(component))
+            : rows;
+
+        return candidates
         .GroupBy(row => row.NodeTag)
         .Select(group => group
             .OrderBy(row => row.MemberTag ?? string.Empty, StringComparer.Ordinal)
             .ThenBy(row => row.NodeTag)
             .First())
         .OrderBy(label => label.NodeTag)
-        .Select(row => new FemNodeResultLabelData(row.NodeTag, row))
+        .Select(row => new FemNodeResultLabelData(row.NodeTag, row, component, Read(row, component)))
         .ToList();
+    }
+
+    static double Read(FemNodeDisplacementRow row, FemNodalComponent component) => component switch
+    {
+        FemNodalComponent.Ux => row.Ux,
+        FemNodalComponent.Uy => row.Uy,
+        FemNodalComponent.Uz => row.Uz,
+        FemNodalComponent.Rx => row.Rx,
+        FemNodalComponent.Ry => row.Ry,
+        FemNodalComponent.Rz => row.Rz,
+        _ => 0.0
+    };
 }
 
 /// <summary>Строит полную или экстремальную таблицу узловых результатов.</summary>

@@ -30,6 +30,18 @@ public class FemAnalysisResultVM : ViewModelBase
     /// <summary>Строки таблицы перемещений в выбранных единицах и режиме фильтра.</summary>
     public IReadOnlyList<FemNodeDisplacementRow> DisplayedDisplacements { get; private set; } = [];
 
+    /// <summary>Глобальные компоненты перемещений и поворотов для подписи узлов в 3D-виде.</summary>
+    public IReadOnlyList<FemNodalComponent> NodalComponents { get; } =
+        Enum.GetValues<FemNodalComponent>();
+
+    FemNodalComponent _selectedNodalComponent = FemNodalComponent.Ux;
+    /// <summary>Компонента, значение которой показывается рядом с узлами в 3D-виде.</summary>
+    public FemNodalComponent SelectedNodalComponent
+    {
+        get => _selectedNodalComponent;
+        set { if (value == _selectedNodalComponent) return; _selectedNodalComponent = value; OnPropertyChanged(); }
+    }
+
     FemDisplacementDisplayMode _displacementDisplayMode = FemDisplacementDisplayMode.AllNodes;
     /// <summary>Режим отображения всех узлов или только узловых экстремумов по стержням.</summary>
     public FemDisplacementDisplayMode DisplacementDisplayMode
