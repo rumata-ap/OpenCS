@@ -94,8 +94,8 @@ public sealed class FemMemberForceCanvas : Canvas
         _x0 = margin; _x1 = w - margin;
         _axisY = h / 2;
 
-        _sMax = _segments.Count > 0 ? _segments.Max(s => s.S1) : 0;
-        _sMin = _segments.Count > 0 ? _segments.Min(s => s.S0) : 0;
+        _sMax = _segments.Count > 0 ? _segments.Max(s => System.Math.Max(s.S0, s.S1)) : 0;
+        _sMin = _segments.Count > 0 ? _segments.Min(s => System.Math.Min(s.S0, s.S1)) : 0;
         _sSpan = _sMax - _sMin;
         _vMax = _segments.Count > 0
             ? _segments.SelectMany(s => new[] { System.Math.Abs(s.V0), System.Math.Abs(s.V1) }).DefaultIfEmpty(0).Max()
@@ -232,7 +232,9 @@ public sealed class FemMemberForceCanvas : Canvas
         bool found = false;
         foreach (var seg in _segments)
         {
-            if (s >= seg.S0 && s <= seg.S1)
+            double segMin = System.Math.Min(seg.S0, seg.S1);
+            double segMax = System.Math.Max(seg.S0, seg.S1);
+            if (s >= segMin && s <= segMax)
             {
                 double span = seg.S1 - seg.S0;
                 v = span > 1e-9 ? seg.V0 + (s - seg.S0) / span * (seg.V1 - seg.V0) : seg.V0;
