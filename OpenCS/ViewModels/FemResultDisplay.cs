@@ -364,3 +364,117 @@ public static class FemDiagramValueScaler
         return new FemDiagramSeries(segments);
     }
 }
+
+/// <summary>Строка отображаемой таблицы глобальных перемещений узла.</summary>
+public sealed record FemNodeDisplacementRow(
+    string? MemberTag,
+    int NodeTag,
+    double Ux,
+    double Uy,
+    double Uz,
+    double Rx,
+    double Ry,
+    double Rz,
+    IReadOnlyList<FemNodalComponent> ExtremeComponents);
+
+/// <summary>Строит полную или экстремальную таблицу узловых результатов.</summary>
+public static class FemDisplacementTableBuilder
+{
+    /// <summary>
+    /// Возвращает отображаемые строки. Экстремумы выбираются по сырым значениям,
+    /// после чего все шесть компонент переводятся в выбранные единицы.
+    /// </summary>
+    public static IReadOnlyList<FemNodeDisplacementRow> Build(
+        IReadOnlyList<FemNodeDisplacement> values,
+        IReadOnlyDictionary<string, IReadOnlyList<int>> memberNodes,
+        FemDisplacementDisplayMode mode,
+        FemLengthUnit lengthUnit,
+        FemRotationScale rotationScale)
+    {
+        var rawByTag = values
+            .GroupBy(value => value.NodeTag)
+            .ToDictionary(group => group.Key, group => group.Last());
+
+        if (mode == FemDisplacementDisplayMode.AllNodes)
+            return values.Select(value => ToRow(null, value, [], lengthUnit, rotationScale)).ToList();
+
+        var reasons = new Dictionary<(string MemberTag, int NodeTag), HashSet<FemNodalComponent>>();
+        foreach ((string memberTag, IReadOnlyList<int> nodeTags) in memberNodes.OrderBy(item => item.Key, StringComparer.Ordinal))
+        {
+            var candidates = nodeTags
+                .Distinct()
+                .Where(rawByTag.ContainsKey)
+                .Select(nodeTag => rawByTag[nodeTag])
+                .ToList();
+            foreach (FemNodalComponent component in Enum.GetValues<FemNodalComponent>())
+            {
+                var finite = candidates
+                    .Where(value => double.IsFinite(Read(value, component)))
+                    .ToList();
+                if (finite.Count == 0) continue;
+
+                FemNodeDisplacement min = finite
+                    .OrderBy(value => Read(value, component))
+                    .ThenBy(value => value.NodeTag)
+                    .First();
+                FemNodeDisplacement max = finite
+                    .OrderByDescending(value => Read(value, component))
+                    .ThenBy(value => value.NodeTag)
+                    .First();
+                AddReason(reasons, memberTag, min.NodeTag, component);
+                AddReason(reasons, memberTag, max.NodeTag, component);
+            }
+        }
+
+        return reasons
+            .OrderBy(item => item.Key.MemberTag, StringComparer.Ordinal)
+            .ThenBy(item => item.Key.NodeTag)
+            .Select(item => ToRow(
+                item.Key.MemberTag,
+                rawByTag[item.Key.NodeTag],
+                item.Value.OrderBy(component => component).ToArray(),
+                lengthUnit,
+                rotationScale))
+            .ToList();
+    }
+
+    static void AddReason(
+        IDictionary<(string MemberTag, int NodeTag), HashSet<FemNodalComponent>> reasons,
+        string memberTag,
+        int nodeTag,
+        FemNodalComponent component)
+    {
+        var key = (memberTag, nodeTag);
+        if (!reasons.TryGetValue(key, out HashSet<FemNodalComponent>? components))
+            reasons[key] = components = [];
+        components.Add(component);
+    }
+
+    static FemNodeDisplacementRow ToRow(
+        string? memberTag,
+        FemNodeDisplacement value,
+        IReadOnlyList<FemNodalComponent> extremeComponents,
+        FemLengthUnit lengthUnit,
+        FemRotationScale rotationScale) =>
+        new(
+            memberTag,
+            value.NodeTag,
+            FemResultDisplayConverter.ToLength(value.Ux, lengthUnit),
+            FemResultDisplayConverter.ToLength(value.Uy, lengthUnit),
+            FemResultDisplayConverter.ToLength(value.Uz, lengthUnit),
+            FemResultDisplayConverter.ToRotation(value.Rx, rotationScale),
+            FemResultDisplayConverter.ToRotation(value.Ry, rotationScale),
+            FemResultDisplayConverter.ToRotation(value.Rz, rotationScale),
+            extremeComponents);
+
+    static double Read(FemNodeDisplacement value, FemNodalComponent component) => component switch
+    {
+        FemNodalComponent.Ux => value.Ux,
+        FemNodalComponent.Uy => value.Uy,
+        FemNodalComponent.Uz => value.Uz,
+        FemNodalComponent.Rx => value.Rx,
+        FemNodalComponent.Ry => value.Ry,
+        FemNodalComponent.Rz => value.Rz,
+        _ => 0.0
+    };
+}
