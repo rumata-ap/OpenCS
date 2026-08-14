@@ -36,6 +36,42 @@ public static class SteelSectionTests
         TestHarness.CheckRel("Centroid.Y", section.Centroid.Y, 0, 1e-6);
     }
 
+    public static void RunPlasticModulusRectangle()
+    {
+        TestHarness.Section("SteelPlasticSection: прямоугольник — Wpl=b·h²/4, ПНО на центроиде");
+        double b = 0.2, h = 0.4;
+        var section = new SteelSection
+        {
+            OuterContour =
+            [
+                (-b / 2, -h / 2), (b / 2, -h / 2), (b / 2, h / 2), (-b / 2, h / 2)
+            ]
+        };
+        var r = SteelPlasticSection.Compute(section);
+        double expectedWpl = b * h * h / 4.0;
+        TestHarness.CheckRel("WplX = b·h²/4", r.WplX, expectedWpl, 1e-6);
+        TestHarness.CheckRel("WplY = h·b²/4", r.WplY, h * b * b / 4.0, 1e-6);
+        TestHarness.Check("YPna ≈ 0 (центроид, симметрия)", Math.Abs(r.YPna) < 1e-6, $"YPna={r.YPna:E3}");
+        TestHarness.Check("XPna ≈ 0 (центроид, симметрия)", Math.Abs(r.XPna) < 1e-6, $"XPna={r.XPna:E3}");
+        // Форм-фактор для прямоугольника ровно 1.5 (Wpl/Wel = (b h²/4)/(b h²/6) = 1.5).
+        double wel = b * h * h / 6.0;
+        TestHarness.CheckRel("Форм-фактор Wpl/Wel = 1.5", r.WplX / wel, 1.5, 1e-6);
+    }
+
+    public static void RunPlasticModulusIBeam()
+    {
+        TestHarness.Section("SteelPlasticSection: двутавр — сверка с ручной формулой Wpl = b·tf·(h−tf) + tw·hw²/4");
+        double h = 0.300, b = 0.126, tw = 0.0064, tf = 0.0108;
+        var section = SteelSection.FromIBeam(h, b, tw, tf);
+        var r = SteelPlasticSection.Compute(section);
+
+        double hw = h - 2 * tf;
+        double expectedWplX = b * tf * (h - tf) + tw * hw * hw / 4.0;
+        TestHarness.CheckRel("WplX (двутавр)", r.WplX, expectedWplX, 1e-3);
+        TestHarness.Check("YPna ≈ 0 (симметрия сечения)", Math.Abs(r.YPna) < 1e-6, $"YPna={r.YPna:E3}");
+        TestHarness.Check("WplX > Wel,x (форм-фактор > 1)", r.WplX > section.Wx);
+    }
+
     /// <summary>
     /// Прямая проверка GeoProps на простом прямоугольнике.
     /// </summary>

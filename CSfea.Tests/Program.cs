@@ -95,6 +95,8 @@ ThermalBenchmark.RunAll();
 
 SteelSectionTests.RunGeoPropsDirect();
 SteelSectionTests.RunIBeamProperties();
+SteelSectionTests.RunPlasticModulusRectangle();
+SteelSectionTests.RunPlasticModulusIBeam();
 SteelCheckerTests.RunSimpleCompressionCheck();
 
 SteelClassifierTests.RunAll();

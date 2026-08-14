@@ -14,6 +14,7 @@ public class SteelSection
 {
     private GeoProps? _geoProps;
     private SteelClassifier.Result? _classification;
+    private SteelPlasticSection.Result? _plastic;
     private double _xMin = double.MaxValue, _xMax = double.MinValue;
     private double _yMin = double.MaxValue, _yMax = double.MinValue;
 
@@ -59,6 +60,15 @@ public class SteelSection
     /// <summary>Момент сопротивления Y [м³] (наибольшее).</summary>
     public double Wy => Geo.Iy / Math.Max(Math.Abs(_xMax - Geo.Centroid.X),
                                            Math.Abs(Geo.Centroid.X - _xMin));
+
+    /// <summary>Пластический момент сопротивления относительно оси X [м³] (класс 1 сечения по СП16).</summary>
+    public double WplX => Plastic.WplX;
+
+    /// <summary>Пластический момент сопротивления относительно оси Y [м³] (класс 1 сечения по СП16).</summary>
+    public double WplY => Plastic.WplY;
+
+    /// <summary>Пластическая нейтральная ось (см. <see cref="SteelPlasticSection"/>), ленивое вычисление.</summary>
+    public SteelPlasticSection.Result Plastic => _plastic ??= SteelPlasticSection.Compute(this);
 
     /// <summary>
     /// Момент сопротивления кручению [м³].
