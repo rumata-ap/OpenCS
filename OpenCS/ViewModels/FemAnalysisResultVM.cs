@@ -27,6 +27,51 @@ public class FemAnalysisResultVM : ViewModelBase
     public IReadOnlyList<FemNodeReaction> Reactions { get; private set; } = [];
     public IReadOnlyList<FemElementEndForces> ElementForces { get; private set; } = [];
 
+    /// <summary>Строки таблицы перемещений в выбранных единицах и режиме фильтра.</summary>
+    public IReadOnlyList<FemNodeDisplacementRow> DisplayedDisplacements { get; private set; } = [];
+
+    FemDisplacementDisplayMode _displacementDisplayMode = FemDisplacementDisplayMode.AllNodes;
+    /// <summary>Режим отображения всех узлов или только узловых экстремумов по стержням.</summary>
+    public FemDisplacementDisplayMode DisplacementDisplayMode
+    {
+        get => _displacementDisplayMode;
+        set
+        {
+            if (value == _displacementDisplayMode) return;
+            _displacementDisplayMode = value;
+            RebuildDisplayedDisplacements();
+            OnPropertyChanged();
+        }
+    }
+
+    FemLengthUnit _displacementLengthUnit = FemLengthUnit.Meters;
+    /// <summary>Единица отображения линейных перемещений.</summary>
+    public FemLengthUnit DisplacementLengthUnit
+    {
+        get => _displacementLengthUnit;
+        set
+        {
+            if (value == _displacementLengthUnit) return;
+            _displacementLengthUnit = value;
+            RebuildDisplayedDisplacements();
+            OnPropertyChanged();
+        }
+    }
+
+    FemRotationScale _rotationDisplayScale = FemRotationScale.One;
+    /// <summary>Коэффициент отображения углов поворота в радианах.</summary>
+    public FemRotationScale RotationDisplayScale
+    {
+        get => _rotationDisplayScale;
+        set
+        {
+            if (value == _rotationDisplayScale) return;
+            _rotationDisplayScale = value;
+            RebuildDisplayedDisplacements();
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>Точка графика «коэффициент нагрузки по шагам» для результатной вкладки.</summary>
     public sealed record FemLoadFactorPoint(int Step, double LoadFactor, bool Converged);
 
@@ -197,6 +242,8 @@ public class FemAnalysisResultVM : ViewModelBase
         Reactions = step.Reactions;
         ElementForces = step.ElementForces;
 
+        RebuildDisplayedDisplacements();
+
         _dispByTag.Clear();
         foreach (var d in Displacements) _dispByTag[d.NodeTag] = new Vector3D(d.Ux, d.Uy, d.Uz);
 
@@ -214,6 +261,9 @@ public class FemAnalysisResultVM : ViewModelBase
     readonly Dictionary<int, FemElementEndForces> _forcesByElem = [];
     readonly DatabaseService _database;
     readonly Dictionary<int, int?> _sectionIdByElement = [];
+    /// <summary>Узлы mesh-элементов, сгруппированные по конструктивному стержню.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<int>> MemberNodes { get; private set; } =
+        new Dictionary<string, IReadOnlyList<int>>(StringComparer.Ordinal);
     FemNonlinearResult? _nonlinearResult;
     string? _fiberStatePath;
 
@@ -262,6 +312,7 @@ public class FemAnalysisResultVM : ViewModelBase
         OnPropertyChanged(nameof(SelectedNodeTag));
         OnPropertyChanged(nameof(SelectedElemTag));
         OnPropertyChanged(nameof(SelectedDisplacementRow));
+        OnPropertyChanged(nameof(SelectedDisplayedDisplacementRow));
         OnPropertyChanged(nameof(SelectedReactionRow));
         OnPropertyChanged(nameof(SelectedForceRow));
     }
@@ -269,6 +320,11 @@ public class FemAnalysisResultVM : ViewModelBase
     /// <summary>Строка таблицы «Перемещения», соответствующая выбранному узлу (для подсветки грида).</summary>
     public FemNodeDisplacement? SelectedDisplacementRow =>
         _selectedNodeTag is int tag ? Displacements.FirstOrDefault(d => d.NodeTag == tag) : null;
+    /// <summary>Строка отображаемой таблицы, соответствующая выбранному узлу.</summary>
+    public FemNodeDisplacementRow? SelectedDisplayedDisplacementRow =>
+        _selectedNodeTag is int tag
+            ? DisplayedDisplacements.FirstOrDefault(row => row.NodeTag == tag)
+            : null;
     /// <summary>Строка таблицы «Реакции», соответствующая выбранному узлу (для подсветки грида).</summary>
     public FemNodeReaction? SelectedReactionRow =>
         _selectedNodeTag is int tag ? Reactions.FirstOrDefault(r => r.NodeTag == tag) : null;
@@ -395,6 +451,8 @@ public class FemAnalysisResultVM : ViewModelBase
         var meshNodes = db.GetFemMeshNodes(schema.Id);
         var meshElements = db.GetFemMeshElements(schema.Id);
         var sourceMembers = db.GetFemMembers(schema.Id);
+        MemberNodes = BuildMemberNodes(meshElements);
+        OnPropertyChanged(nameof(MemberNodes));
         foreach (var e in meshElements)
         {
             var ends = JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? [];
@@ -434,6 +492,39 @@ public class FemAnalysisResultVM : ViewModelBase
 
         _forceScale = SuggestForceScale();
         RebuildForceDiagram();
+    }
+
+    static IReadOnlyDictionary<string, IReadOnlyList<int>> BuildMemberNodes(
+        IReadOnlyList<FemElement> meshElements)
+    {
+        var byMember = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
+        foreach (FemElement element in meshElements)
+        {
+            if (string.IsNullOrWhiteSpace(element.SourceMemberTag)) continue;
+            var ends = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson) ?? [];
+            if (ends.Length != 2) continue;
+            if (!byMember.TryGetValue(element.SourceMemberTag, out HashSet<int>? nodeTags))
+                byMember[element.SourceMemberTag] = nodeTags = [];
+            nodeTags.Add(ends[0]);
+            nodeTags.Add(ends[1]);
+        }
+
+        return byMember.ToDictionary(
+            item => item.Key,
+            item => (IReadOnlyList<int>)item.Value.OrderBy(tag => tag).ToArray(),
+            StringComparer.Ordinal);
+    }
+
+    void RebuildDisplayedDisplacements()
+    {
+        DisplayedDisplacements = FemDisplacementTableBuilder.Build(
+            Displacements,
+            MemberNodes,
+            DisplacementDisplayMode,
+            DisplacementLengthUnit,
+            RotationDisplayScale);
+        OnPropertyChanged(nameof(DisplayedDisplacements));
+        OnPropertyChanged(nameof(SelectedDisplayedDisplacementRow));
     }
 
     void LoadSectionResultData(
