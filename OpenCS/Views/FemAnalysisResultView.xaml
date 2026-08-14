@@ -79,26 +79,6 @@
                                       ToolTip="{DynamicResource Fem3DShowNodeResultValues}">
                             <Path Data="M4,4H20V6H4V4M4,8H20V10H4V8M4,12H14V14H4V12M4,16H20V18H4V16Z" Fill="DarkSlateBlue" Stretch="Uniform" Margin="2"/>
                         </ToggleButton>
-                        <TextBlock Text="{DynamicResource FemResultLengthUnit}" VerticalAlignment="Center" Margin="6,0,2,0"/>
-                        <ComboBox x:Name="displacementLengthUnit3DBox" Width="58" Margin="4,0" VerticalAlignment="Center"
-                                  SelectedItem="{Binding DisplacementLengthUnit, Mode=TwoWay}"
-                                  SelectionChanged="DisplacementLengthUnit3DBox_SelectionChanged">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Converter={StaticResource LengthUnitLabelConv}}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock Text="{DynamicResource FemResultRotationScale}" VerticalAlignment="Center" Margin="6,0,2,0"/>
-                        <ComboBox x:Name="rotationDisplayScale3DBox" Width="58" Margin="4,0" VerticalAlignment="Center"
-                                  SelectedItem="{Binding RotationDisplayScale, Mode=TwoWay}"
-                                  SelectionChanged="RotationDisplayScale3DBox_SelectionChanged">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Converter={StaticResource RotationScaleLabelConv}}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
                         <TextBlock Text="{DynamicResource Fem3DNodalComponent}" VerticalAlignment="Center" Margin="6,0,2,0"/>
                         <ComboBox x:Name="nodalComponent3DBox" Width="62" Margin="4,0" VerticalAlignment="Center"
                                   ItemsSource="{Binding NodalComponents}"
@@ -107,16 +87,6 @@
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Converter={StaticResource NodalComponentLabelConv}}"/>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                        <TextBlock Text="{DynamicResource Fem3DDisplacementDisplayMode}" VerticalAlignment="Center" Margin="6,0,2,0"/>
-                        <ComboBox x:Name="displacementMode3DBox" Width="112" Margin="4,0" VerticalAlignment="Center"
-                                  SelectedItem="{Binding DisplacementDisplayMode, Mode=TwoWay}"
-                                  SelectionChanged="DisplacementMode3DBox_SelectionChanged">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Converter={StaticResource DisplacementModeLabelConv}}"/>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>

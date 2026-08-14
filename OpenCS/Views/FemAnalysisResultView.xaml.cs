@@ -64,16 +64,10 @@ public partial class FemAnalysisResultView : UserControl
         DataContext = _vm;
         displacementModeBox.ItemsSource = System.Enum.GetValues<FemDisplacementDisplayMode>();
         displacementModeBox.SelectedItem = _vm.DisplacementDisplayMode;
-        displacementMode3DBox.ItemsSource = System.Enum.GetValues<FemDisplacementDisplayMode>();
-        displacementMode3DBox.SelectedItem = _vm.DisplacementDisplayMode;
         displacementLengthUnitBox.ItemsSource = System.Enum.GetValues<FemLengthUnit>();
         displacementLengthUnitBox.SelectedItem = _vm.DisplacementLengthUnit;
-        displacementLengthUnit3DBox.ItemsSource = System.Enum.GetValues<FemLengthUnit>();
-        displacementLengthUnit3DBox.SelectedItem = _vm.DisplacementLengthUnit;
         rotationDisplayScaleBox.ItemsSource = System.Enum.GetValues<FemRotationScale>();
         rotationDisplayScaleBox.SelectedItem = _vm.RotationDisplayScale;
-        rotationDisplayScale3DBox.ItemsSource = System.Enum.GetValues<FemRotationScale>();
-        rotationDisplayScale3DBox.SelectedItem = _vm.RotationDisplayScale;
         UpdateDisplacementTableColumns();
         BuildViewport();
         BuildPickTargets();
@@ -545,12 +539,6 @@ public partial class FemAnalysisResultView : UserControl
             _vm.DisplacementDisplayMode = mode;
     }
 
-    void DisplacementMode3DBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (displacementMode3DBox.SelectedItem is FemDisplacementDisplayMode mode)
-            _vm.DisplacementDisplayMode = mode;
-    }
-
     void NodalComponent3DBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (nodalComponent3DBox.SelectedItem is FemNodalComponent component)
@@ -563,21 +551,9 @@ public partial class FemAnalysisResultView : UserControl
             _vm.DisplacementLengthUnit = unit;
     }
 
-    void DisplacementLengthUnit3DBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (displacementLengthUnit3DBox.SelectedItem is FemLengthUnit unit)
-            _vm.DisplacementLengthUnit = unit;
-    }
-
     void RotationDisplayScaleBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (rotationDisplayScaleBox.SelectedItem is FemRotationScale scale)
-            _vm.RotationDisplayScale = scale;
-    }
-
-    void RotationDisplayScale3DBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (rotationDisplayScale3DBox.SelectedItem is FemRotationScale scale)
             _vm.RotationDisplayScale = scale;
     }
 
