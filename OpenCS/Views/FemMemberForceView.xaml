@@ -5,6 +5,10 @@
              xmlns:helpers="clr-namespace:OpenCS.Views.Helpers">
     <UserControl.Resources>
         <u:FemForceComponentLabelConverter x:Key="ForceComponentLabelConv"/>
+        <u:FemResultGroupLabelConverter x:Key="ResultGroupLabelConv"/>
+        <u:FemNodalComponentLabelConverter x:Key="NodalComponentLabelConv"/>
+        <u:FemLengthUnitLabelConverter x:Key="LengthUnitLabelConv"/>
+        <u:FemRotationScaleLabelConverter x:Key="RotationScaleLabelConv"/>
     </UserControl.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -13,15 +17,59 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="6">
-            <TextBlock Text="{DynamicResource FemMemberForceComponent}" VerticalAlignment="Center"/>
-            <ComboBox x:Name="componentBox" Width="100" Margin="6,0"
-                      SelectionChanged="ComponentBox_SelectionChanged">
+            <TextBlock Text="{DynamicResource FemResultGroup}" VerticalAlignment="Center"/>
+            <ComboBox x:Name="groupBox" Width="145" Margin="6,0"
+                      SelectionChanged="GroupBox_SelectionChanged">
                 <ComboBox.ItemTemplate>
                     <DataTemplate>
-                        <TextBlock Text="{Binding Converter={StaticResource ForceComponentLabelConv}}"/>
+                        <TextBlock Text="{Binding Converter={StaticResource ResultGroupLabelConv}}"/>
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
+            <StackPanel x:Name="forceComponentPanel" Orientation="Horizontal">
+                <TextBlock Text="{DynamicResource FemMemberForceComponent}" VerticalAlignment="Center"/>
+                <ComboBox x:Name="componentBox" Width="100" Margin="6,0"
+                      SelectionChanged="ComponentBox_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource ForceComponentLabelConv}}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+            <StackPanel x:Name="nodalComponentPanel" Orientation="Horizontal">
+                <TextBlock Text="{DynamicResource FemResultDisplacementComponent}" VerticalAlignment="Center"/>
+                <ComboBox x:Name="nodalComponentBox" Width="90" Margin="6,0"
+                          SelectionChanged="NodalComponentBox_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource NodalComponentLabelConv}}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+            <StackPanel x:Name="lengthUnitPanel" Orientation="Horizontal">
+                <TextBlock Text="{DynamicResource FemResultLengthUnit}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                <ComboBox x:Name="lengthUnitBox" Width="85" Margin="6,0"
+                          SelectionChanged="LengthUnitBox_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource LengthUnitLabelConv}}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+            <StackPanel x:Name="rotationScalePanel" Orientation="Horizontal">
+                <TextBlock Text="{DynamicResource FemResultRotationScale}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                <ComboBox x:Name="rotationScaleBox" Width="80" Margin="6,0"
+                          SelectionChanged="RotationScaleBox_SelectionChanged">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource RotationScaleLabelConv}}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
         </StackPanel>
         <Border Grid.Row="1" BorderBrush="#DDD" BorderThickness="1" Margin="6">
             <helpers:FemMemberForceCanvas x:Name="canvas"/>

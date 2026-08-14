@@ -10,6 +10,11 @@
         <u:AnyDoubleConverter x:Key="AnyDoubleConv"/>
         <u:NToKNConvert x:Key="NToKN"/>
         <u:FemForceComponentLabelConverter x:Key="ForceComponentLabelConv"/>
+        <u:FemLengthUnitLabelConverter x:Key="LengthUnitLabelConv"/>
+        <u:FemRotationScaleLabelConverter x:Key="RotationScaleLabelConv"/>
+        <u:FemNodalComponentLabelConverter x:Key="NodalComponentLabelConv"/>
+        <u:FemDisplacementDisplayModeLabelConverter x:Key="DisplacementModeLabelConv"/>
+        <u:FemExtremeComponentsLabelConverter x:Key="ExtremeComponentsLabelConv"/>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <Style x:Key="IconToggleButton25" TargetType="ToggleButton">
             <Setter Property="Height" Value="25"/>
@@ -51,21 +56,49 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <ToolBar Grid.Row="0">
-                        <TextBlock Text="{DynamicResource FemResultDeformScale}" VerticalAlignment="Center" Margin="4,0,2,0"/>
+                        <TextBlock Text="{DynamicResource Fem3DDisplacementScale}" VerticalAlignment="Center" Margin="4,0,2,0"/>
                         <TextBox Width="65" Text="{Binding DeformScale, Converter={StaticResource AnyDoubleConv}, ConverterParameter=F2, UpdateSourceTrigger=PropertyChanged, Delay=500}" VerticalAlignment="Center" TextAlignment="Center" Margin="4,0"/>
                         <Button Style="{StaticResource IconButton25}" ToolTip="{DynamicResource FemResetScale}" Command="{Binding ResetDeformScaleCommand}">
                             <Path Data="M12,6V9L16,5L12,1V4A8,8 0 0,0 4,12C4,14.21 4.9,16.21 6.34,17.65L7.76,16.24C6.67,15.15 6,13.66 6,12A6,6 0 0,1 12,6Z" Fill="Black" Stretch="Uniform" Margin="2"/>
                         </Button>
                         <Separator/>
+                        <ToggleButton x:Name="showDeformedSchemaCheck" Style="{StaticResource IconToggleButton25}"
+                                      IsChecked="{Binding ShowDeformedSchema, Mode=TwoWay}"
+                                      ToolTip="{DynamicResource Fem3DShowDeformedSchema}"
+                                      Checked="DeformedVisibilityToggle" Unchecked="DeformedVisibilityToggle">
+                            <Path Data="M4,11H20V13H4V11M2,7A2,2 0 0,1 4,5H20A2,2 0 0,1 22,7V17A2,2 0 0,1 20,19H4A2,2 0 0,1 2,17V7M4,7V17H20V7H4Z" Fill="SteelBlue" Stretch="Uniform" Margin="2"/>
+                        </ToggleButton>
                         <ToggleButton x:Name="showNodesCheck" Style="{StaticResource IconToggleButton25}"
-                                      IsChecked="True" ToolTip="{DynamicResource Fem3DShowNodes}"
+                                      IsChecked="{Binding ShowDeformedNodes, Mode=TwoWay}"
+                                      ToolTip="{DynamicResource Fem3DShowDeformedNodes}"
                                       Checked="NodesToggle" Unchecked="NodesToggle">
                             <Path Data="M12,4A2.5,2.5 0 0,1 14.5,6.5A2.5,2.5 0 0,1 12,9A2.5,2.5 0 0,1 9.5,6.5A2.5,2.5 0 0,1 12,4M5.5,14A2.5,2.5 0 0,1 8,16.5A2.5,2.5 0 0,1 5.5,19A2.5,2.5 0 0,1 3,16.5A2.5,2.5 0 0,1 5.5,14M18.5,14A2.5,2.5 0 0,1 21,16.5A2.5,2.5 0 0,1 18.5,19A2.5,2.5 0 0,1 16,16.5A2.5,2.5 0 0,1 18.5,14Z" Fill="Black" Stretch="Uniform" Margin="2"/>
                         </ToggleButton>
+                        <ToggleButton x:Name="showNodeValuesCheck" Style="{StaticResource IconToggleButton25}"
+                                      IsChecked="{Binding ShowNodeResultValues, Mode=TwoWay}"
+                                      ToolTip="{DynamicResource Fem3DShowNodeResultValues}">
+                            <Path Data="M4,4H20V6H4V4M4,8H20V10H4V8M4,12H14V14H4V12M4,16H20V18H4V16Z" Fill="DarkSlateBlue" Stretch="Uniform" Margin="2"/>
+                        </ToggleButton>
+                        <TextBlock Text="{DynamicResource Fem3DNodalComponent}" VerticalAlignment="Center" Margin="6,0,2,0"/>
+                        <ComboBox x:Name="nodalComponent3DBox" Width="62" Margin="4,0" VerticalAlignment="Center"
+                                  ItemsSource="{Binding NodalComponents}"
+                                  SelectedItem="{Binding SelectedNodalComponent, Mode=TwoWay}"
+                                  SelectionChanged="NodalComponent3DBox_SelectionChanged">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource NodalComponentLabelConv}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                         <ToggleButton x:Name="highlightWholeMemberCheck" Style="{StaticResource IconToggleButton25}"
                                       IsChecked="True" ToolTip="{DynamicResource FemResultHighlightWholeMember}"
                                       Checked="HighlightWholeMemberToggle" Unchecked="HighlightWholeMemberToggle">
                             <Path Data="M4,11H20V13H4V11M2,7A2,2 0 0,1 4,5H20A2,2 0 0,1 22,7V17A2,2 0 0,1 20,19H4A2,2 0 0,1 2,17V7M4,7V17H20V7H4Z" Fill="Black" Stretch="Uniform" Margin="2"/>
+                        </ToggleButton>
+                        <ToggleButton x:Name="showForceDiagramCheck" Style="{StaticResource IconToggleButton25}"
+                                      IsChecked="{Binding ShowForceDiagram, Mode=TwoWay}"
+                                      ToolTip="{DynamicResource Fem3DShowForceDiagram}">
+                            <Path Data="M3,17H5V7H3V17M7,20H9V4H7V20M11,15H13V9H11V15M15,18H17V6H15V18M19,13H21V11H19V13Z" Fill="Teal" Stretch="Uniform" Margin="2"/>
                         </ToggleButton>
                         <Separator/>
                         <ToggleButton x:Name="showIpMarkersCheck" Style="{StaticResource IconToggleButton25}"
@@ -100,20 +133,60 @@
 
             <!-- Перемещения -->
             <TabItem Header="{DynamicResource FemResultTabDisp}">
-                <DataGrid x:Name="displacementsGrid" ItemsSource="{Binding Displacements}" AutoGenerateColumns="False"
-                          IsReadOnly="True" CanUserAddRows="False"
-                          SelectedItem="{Binding SelectedDisplacementRow, Mode=OneWay}"
-                          SelectionChanged="DisplacementsGrid_SelectionChanged">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding NodeTag}"/>
-                        <DataGridTextColumn Header="{DynamicResource FemColDispUx}" Binding="{Binding Ux, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="{DynamicResource FemColDispUy}" Binding="{Binding Uy, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="{DynamicResource FemColDispUz}" Binding="{Binding Uz, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="{DynamicResource FemColDispRx}" Binding="{Binding Rx, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="{DynamicResource FemColDispRy}" Binding="{Binding Ry, StringFormat=G6}"/>
-                        <DataGridTextColumn Header="{DynamicResource FemColDispRz}" Binding="{Binding Rz, StringFormat=G6}"/>
-                    </DataGrid.Columns>
-                </DataGrid>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="6">
+                        <TextBlock Text="{DynamicResource FemResultDisplayMode}" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="displacementModeBox" Width="150" Margin="6,0"
+                                  SelectedItem="{Binding DisplacementDisplayMode, Mode=TwoWay}"
+                                  SelectionChanged="DisplacementModeBox_SelectionChanged">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource DisplacementModeLabelConv}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="{DynamicResource FemResultLengthUnit}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                        <ComboBox x:Name="displacementLengthUnitBox" Width="80" Margin="6,0"
+                                  SelectedItem="{Binding DisplacementLengthUnit, Mode=TwoWay}"
+                                  SelectionChanged="DisplacementLengthUnitBox_SelectionChanged">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource LengthUnitLabelConv}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="{DynamicResource FemResultRotationScale}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                        <ComboBox x:Name="rotationDisplayScaleBox" Width="80" Margin="6,0"
+                                  SelectedItem="{Binding RotationDisplayScale, Mode=TwoWay}"
+                                  SelectionChanged="RotationDisplayScaleBox_SelectionChanged">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource RotationScaleLabelConv}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <DataGrid Grid.Row="1" x:Name="displacementsGrid" ItemsSource="{Binding DisplayedDisplacements}" AutoGenerateColumns="False"
+                              IsReadOnly="True" CanUserAddRows="False"
+                              SelectedItem="{Binding SelectedDisplayedDisplacementRow, Mode=OneWay}"
+                              SelectionChanged="DisplacementsGrid_SelectionChanged">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="{DynamicResource FemColNode}" Binding="{Binding NodeTag}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemColMember}" Binding="{Binding MemberTag}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemColDispUx}" Binding="{Binding Ux, StringFormat=G6}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemColDispUy}" Binding="{Binding Uy, StringFormat=G6}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemColDispUz}" Binding="{Binding Uz, StringFormat=G6}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemColDispRx}" Binding="{Binding Rx, StringFormat=G6}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemColDispRy}" Binding="{Binding Ry, StringFormat=G6}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemColDispRz}" Binding="{Binding Rz, StringFormat=G6}"/>
+                            <DataGridTextColumn Header="{DynamicResource FemColExtremeComponents}" Binding="{Binding ExtremeComponents, Converter={StaticResource ExtremeComponentsLabelConv}}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
             </TabItem>
 
             <!-- Реакции -->

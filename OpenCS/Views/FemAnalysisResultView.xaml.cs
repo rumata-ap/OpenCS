@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -9,6 +10,7 @@ using CScore.Fem;
 using HelixToolkit.Wpf;
 using OpenCS.OpenSees.CScore;
 using OpenCS.OpenSees.Structural;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
@@ -42,6 +44,7 @@ public partial class FemAnalysisResultView : UserControl
     MeshGeometryVisual3D? _forceRibbon;
     BillboardTextVisual3D? _forceMaxLabel;
     BillboardTextVisual3D? _forceMinLabel;
+    readonly Dictionary<int, BillboardTextVisual3D> _nodeResultLabels = new();
 
     sealed record PickTarget(bool IsNode, int Tag, FemSectionLocationRow? SectionRow);
 
@@ -59,6 +62,13 @@ public partial class FemAnalysisResultView : UserControl
         InitializeComponent();
         _vm = vm;
         DataContext = _vm;
+        displacementModeBox.ItemsSource = System.Enum.GetValues<FemDisplacementDisplayMode>();
+        displacementModeBox.SelectedItem = _vm.DisplacementDisplayMode;
+        displacementLengthUnitBox.ItemsSource = System.Enum.GetValues<FemLengthUnit>();
+        displacementLengthUnitBox.SelectedItem = _vm.DisplacementLengthUnit;
+        rotationDisplayScaleBox.ItemsSource = System.Enum.GetValues<FemRotationScale>();
+        rotationDisplayScaleBox.SelectedItem = _vm.RotationDisplayScale;
+        UpdateDisplacementTableColumns();
         BuildViewport();
         BuildPickTargets();
         BuildLoadFactorCanvas();
@@ -66,7 +76,9 @@ public partial class FemAnalysisResultView : UserControl
         controlDispCanvas.StepClicked += idx => _vm.SelectedStepIndex = idx;
         _vm.PropertyChanged += OnVmPropertyChanged;
         BuildIpMarkers();
+        UpdateNodeResultLabels();
         viewport.MouseLeftButtonDown += Viewport_MouseLeftButtonDown;
+        viewport.CameraChanged += (_, _) => UpdateNodeResultLabels();
     }
 
     void BuildLoadFactorCanvas()
@@ -85,9 +97,29 @@ public partial class FemAnalysisResultView : UserControl
         {
             _deformed.Points = _vm.DeformedLines;
         }
+        else if (e.PropertyName is nameof(FemAnalysisResultVM.ShowDeformedSchema)
+            or nameof(FemAnalysisResultVM.ShowDeformedNodes))
+        {
+            UpdateDeformedVisibility();
+            if (e.PropertyName == nameof(FemAnalysisResultVM.ShowDeformedNodes))
+                RebuildInteractiveTargets();
+        }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedNodes) && _nodesVisual is not null)
         {
-            _nodesVisual.Points = showNodesCheck.IsChecked == true ? _vm.DeformedNodes : null!;
+            _nodesVisual.Points = _vm.DeformedNodes;
+            UpdateNodeResultLabels();
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.ShowNodeResultValues))
+        {
+            UpdateNodeResultLabels();
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.ShowForceDiagram))
+        {
+            UpdateForceVisibility();
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedNodalComponent))
+        {
+            UpdateNodeResultLabels();
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.ForceDiagramMesh) && _forceRibbon is not null)
         {
@@ -99,7 +131,7 @@ public partial class FemAnalysisResultView : UserControl
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedElementSegments))
         {
-            BuildPickTargets();
+            RebuildInteractiveTargets();
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.SectionMarkers))
         {
@@ -113,9 +145,19 @@ public partial class FemAnalysisResultView : UserControl
         {
             UpdateSelectionHighlight();
         }
-        else if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedDisplacementRow) && _vm.SelectedDisplacementRow is { } dispRow)
+        else if (e.PropertyName is nameof(FemAnalysisResultVM.SelectedDisplayedDisplacementRow)
+            or nameof(FemAnalysisResultVM.SelectedDisplacementRow))
         {
-            displacementsGrid.ScrollIntoView(dispRow);
+            if (_vm.SelectedDisplayedDisplacementRow is { } dispRow)
+                displacementsGrid.ScrollIntoView(dispRow);
+        }
+        else if (e.PropertyName is nameof(FemAnalysisResultVM.DisplayedDisplacements)
+            or nameof(FemAnalysisResultVM.DisplacementDisplayMode)
+            or nameof(FemAnalysisResultVM.DisplacementLengthUnit)
+            or nameof(FemAnalysisResultVM.RotationDisplayScale))
+        {
+            UpdateDisplacementTableColumns();
+            UpdateNodeResultLabels();
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedReactionRow) && _vm.SelectedReactionRow is { } reactRow)
         {
@@ -129,8 +171,32 @@ public partial class FemAnalysisResultView : UserControl
 
     void NodesToggle(object sender, System.Windows.RoutedEventArgs e)
     {
-        if (_nodesVisual != null && sender is ToggleButton tb)
-            _nodesVisual.Points = tb.IsChecked == true ? _vm.DeformedNodes : null!;
+        if (sender is ToggleButton tb && tb.IsChecked is bool isChecked)
+            _vm.ShowDeformedNodes = isChecked;
+        UpdateDeformedVisibility();
+    }
+
+    void DeformedVisibilityToggle(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (sender is ToggleButton tb && tb.IsChecked is bool isChecked)
+            _vm.ShowDeformedSchema = isChecked;
+        UpdateDeformedVisibility();
+    }
+
+    void UpdateDeformedVisibility()
+    {
+        if (_deformed is not null)
+        {
+            bool attached = viewport.Children.Contains(_deformed);
+            if (_vm.ShowDeformedSchema && !attached) viewport.Children.Add(_deformed);
+            else if (!_vm.ShowDeformedSchema && attached) viewport.Children.Remove(_deformed);
+        }
+        if (_nodesVisual is not null)
+        {
+            bool attached = viewport.Children.Contains(_nodesVisual);
+            if (_vm.ShowDeformedNodes && !attached) viewport.Children.Add(_nodesVisual);
+            else if (!_vm.ShowDeformedNodes && attached) viewport.Children.Remove(_nodesVisual);
+        }
     }
 
     void HighlightWholeMemberToggle(object sender, System.Windows.RoutedEventArgs e)
@@ -149,6 +215,7 @@ public partial class FemAnalysisResultView : UserControl
         viewport.Children.Add(_deformed);
         _nodesVisual = new PointsVisual3D { Color = Colors.DarkSlateGray, Size = 5, Points = _vm.DeformedNodes };
         viewport.Children.Add(_nodesVisual);
+        UpdateDeformedVisibility();
         _forceRibbon = new MeshGeometryVisual3D
         {
             MeshGeometry = _vm.ForceDiagramMesh,
@@ -169,6 +236,7 @@ public partial class FemAnalysisResultView : UserControl
         viewport.Children.Add(_forceMaxLabel);
         viewport.Children.Add(_forceMinLabel);
         UpdateForceLabels();
+        UpdateForceVisibility();
 
         viewport.ZoomExtents();
     }
@@ -199,8 +267,107 @@ public partial class FemAnalysisResultView : UserControl
         }
     }
 
+    void UpdateForceVisibility()
+    {
+        Visual3D?[] visuals = [_forceRibbon, _forceMaxLabel, _forceMinLabel];
+        foreach (Visual3D? visual in visuals)
+        {
+            if (visual is null) continue;
+            bool attached = viewport.Children.Contains(visual);
+            if (_vm.ShowForceDiagram && !attached) viewport.Children.Add(visual);
+            else if (!_vm.ShowForceDiagram && attached) viewport.Children.Remove(visual);
+        }
+
+        // Если лента была включена повторно, она добавилась после старых подписей;
+        // перенесём узловые значения обратно на передний план.
+        if (_vm.ShowForceDiagram)
+            UpdateNodeResultLabels();
+    }
+
+    void UpdateNodeResultLabels()
+    {
+        foreach (BillboardTextVisual3D label in _nodeResultLabels.Values)
+            viewport.Children.Remove(label);
+        _nodeResultLabels.Clear();
+
+        if (!_vm.ShowNodeResultValues || !_vm.HasGeometry) return;
+
+        double offset = GetNodeLabelOffset();
+
+        foreach (FemNodeResultLabelData labelData in FemNodeResultLabelDataBuilder.Build(
+            _vm.DisplayedDisplacements,
+            _vm.SelectedNodalComponent,
+            _vm.DisplacementDisplayMode))
+        {
+            if (!_vm.DeformedNodesByTag.TryGetValue(labelData.NodeTag, out Point3D position))
+                continue;
+
+            var label = new BillboardTextVisual3D
+            {
+                Position = GetNodeLabelPosition(position, offset),
+                Text = FormatNodeResultLabel(labelData),
+                Foreground = Brushes.Black,
+                Background = new SolidColorBrush(Color.FromArgb(235, 255, 255, 255)),
+                BorderBrush = Brushes.DimGray,
+                BorderThickness = new Thickness(1),
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                Padding = new Thickness(3, 1, 3, 1)
+            };
+            _nodeResultLabels[labelData.NodeTag] = label;
+            viewport.Children.Add(label);
+        }
+    }
+
+    string FormatNodeResultLabel(FemNodeResultLabelData labelData)
+    {
+        bool isLength = labelData.Component is FemNodalComponent.Ux
+            or FemNodalComponent.Uy
+            or FemNodalComponent.Uz;
+        string unit = isLength
+            ? Loc.S($"FemLength{_vm.DisplacementLengthUnit}")
+            : string.Format(
+                Loc.S("FemRotationDisplayUnit"),
+                Loc.S("FemUnitRad"),
+                (int)_vm.RotationDisplayScale);
+        string value = labelData.Value.ToString(
+            isLength ? FemResultDisplayConverter.LengthValueFormat(_vm.DisplacementLengthUnit) : "G6",
+            CultureInfo.CurrentCulture);
+        return string.Format(
+            Loc.S("Fem3DNodeResultValueFormat"),
+            value,
+            unit);
+    }
+
+    double GetNodeLabelOffset()
+    {
+        double average = _vm.DeformedElementSegments.Count > 0
+            ? _vm.DeformedElementSegments.Average(segment => (segment.P1 - segment.P0).Length)
+            : 1.0;
+        return System.Math.Clamp(average * 0.25, 0.03, 1.0);
+    }
+
+    Point3D GetNodeLabelPosition(Point3D node, double offset)
+    {
+        Vector3D down = new(0, -1, 0);
+        if (viewport.Camera is ProjectionCamera camera && camera.UpDirection.LengthSquared > 1e-12)
+        {
+            down = -camera.UpDirection;
+            down.Normalize();
+        }
+        return node + down * offset;
+    }
+
     string? _contextMenuTargetTag;
     FemSectionLocationRow? _contextMenuSectionRow;
+
+    void RebuildInteractiveTargets()
+    {
+        BuildPickTargets();
+        if (showIpMarkersCheck.IsChecked == true)
+            BuildIpMarkers();
+        UpdateNodeResultLabels();
+    }
 
     void BuildPickTargets()
     {
@@ -218,16 +385,19 @@ public partial class FemAnalysisResultView : UserControl
         double nodeRadius = System.Math.Clamp(avgSegmentLength * NodePickRadiusFactor, NodePickRadiusMin, NodePickRadiusMax);
         double elemDiameter = System.Math.Clamp(avgSegmentLength * ElemPickDiameterFactor, ElemPickDiameterMin, ElemPickDiameterMax);
 
-        foreach (var (tag, pos) in _vm.DeformedNodesByTag)
+        if (_vm.ShowDeformedNodes)
         {
-            var sphere = new SphereVisual3D
+            foreach (var (tag, pos) in _vm.DeformedNodesByTag)
             {
-                Center = pos, Radius = nodeRadius,
-                Fill = new SolidColorBrush(IsNodeHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent)
-            };
-            _pickTargets[sphere] = new PickTarget(true, tag, null);
-            _nodeSpheresByTag[tag] = sphere;
-            viewport.Children.Add(sphere);
+                var sphere = new SphereVisual3D
+                {
+                    Center = pos, Radius = nodeRadius,
+                    Fill = new SolidColorBrush(IsNodeHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent)
+                };
+                _pickTargets[sphere] = new PickTarget(true, tag, null);
+                _nodeSpheresByTag[tag] = sphere;
+                viewport.Children.Add(sphere);
+            }
         }
 
         foreach (var (tag, p0, p1) in _vm.DeformedElementSegments)
@@ -359,8 +529,50 @@ public partial class FemAnalysisResultView : UserControl
 
     void DisplacementsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (e.AddedItems.Count > 0 && e.AddedItems[0] is FemNodeDisplacement row)
+        if (e.AddedItems.Count > 0 && e.AddedItems[0] is FemNodeDisplacementRow row)
             _vm.SelectNode(row.NodeTag);
+    }
+
+    void DisplacementModeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (displacementModeBox.SelectedItem is FemDisplacementDisplayMode mode)
+            _vm.DisplacementDisplayMode = mode;
+    }
+
+    void NodalComponent3DBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (nodalComponent3DBox.SelectedItem is FemNodalComponent component)
+            _vm.SelectedNodalComponent = component;
+    }
+
+    void DisplacementLengthUnitBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (displacementLengthUnitBox.SelectedItem is FemLengthUnit unit)
+            _vm.DisplacementLengthUnit = unit;
+    }
+
+    void RotationDisplayScaleBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (rotationDisplayScaleBox.SelectedItem is FemRotationScale scale)
+            _vm.RotationDisplayScale = scale;
+    }
+
+    void UpdateDisplacementTableColumns()
+    {
+        if (displacementsGrid.Columns.Count < 9) return;
+        bool extremes = _vm.DisplacementDisplayMode == FemDisplacementDisplayMode.ExtremesOnly;
+        displacementsGrid.Columns[1].Visibility = extremes ? Visibility.Visible : Visibility.Collapsed;
+        displacementsGrid.Columns[8].Visibility = extremes ? Visibility.Visible : Visibility.Collapsed;
+
+        string lengthUnit = Loc.S($"FemLength{_vm.DisplacementLengthUnit}");
+        string rotationUnit = string.Format(Loc.S("FemRotationDisplayUnit"),
+            Loc.S("FemUnitRad"), (int)_vm.RotationDisplayScale);
+        displacementsGrid.Columns[2].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalUx"), lengthUnit);
+        displacementsGrid.Columns[3].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalUy"), lengthUnit);
+        displacementsGrid.Columns[4].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalUz"), lengthUnit);
+        displacementsGrid.Columns[5].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalRx"), rotationUnit);
+        displacementsGrid.Columns[6].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalRy"), rotationUnit);
+        displacementsGrid.Columns[7].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalRz"), rotationUnit);
     }
 
     void ReactionsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -392,7 +604,11 @@ public partial class FemAnalysisResultView : UserControl
         foreach (var key in _pickTargets.Keys.Where(k => _pickTargets[k].SectionRow != null).ToList())
             _pickTargets.Remove(key);
 
-        if (showIpMarkersCheck.IsChecked != true) return;
+        if (showIpMarkersCheck.IsChecked != true)
+        {
+            UpdateNodeResultLabels();
+            return;
+        }
 
         var available = new Point3DCollection();
         var unavailable = new Point3DCollection();
@@ -409,7 +625,11 @@ public partial class FemAnalysisResultView : UserControl
             viewport.Children.Add(_ipUnavailableVisual);
         }
 
-        if (_vm.SectionMarkers.Count > PickTargetThreshold) return;
+        if (_vm.SectionMarkers.Count > PickTargetThreshold)
+        {
+            UpdateNodeResultLabels();
+            return;
+        }
         double avgSegmentLength = _vm.DeformedElementSegments.Count > 0
             ? _vm.DeformedElementSegments.Average(s => (s.P1 - s.P0).Length)
             : 1.0;
@@ -426,6 +646,7 @@ public partial class FemAnalysisResultView : UserControl
             _ipPickSpheresByRow[m.Location] = sphere;
             viewport.Children.Add(sphere);
         }
+        UpdateNodeResultLabels();
     }
 
     bool IsSectionHighlighted(FemSectionLocationRow row) => Equals(_vm.SelectedSectionLocation, row);

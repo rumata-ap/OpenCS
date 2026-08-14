@@ -22,7 +22,11 @@ public partial class FemMemberForceView : UserControl
     readonly List<ElemArc> _elements = [];
     readonly string _memberTag;
     readonly FemAnalysisResultVM _vm;
+    FemMemberGeometryContext? _geometryContext;
     FemSectionLocationRow? _menuTargetRow;
+
+    /// <summary>Выбранная группа результата в плоском просмотре.</summary>
+    public FemResultGroup SelectedGroup { get; private set; } = FemResultGroup.Forces;
 
     public FemMemberForceView(DatabaseService db, FemSchema schema, string memberTag, FemAnalysisResultVM vm)
     {
@@ -35,6 +39,15 @@ public partial class FemMemberForceView : UserControl
 
         componentBox.ItemsSource = System.Enum.GetValues<FemForceComponent>();
         componentBox.SelectedItem = FemForceComponent.Mz;
+        groupBox.ItemsSource = System.Enum.GetValues<FemResultGroup>();
+        groupBox.SelectedItem = SelectedGroup;
+        nodalComponentBox.ItemsSource = System.Enum.GetValues<FemNodalComponent>();
+        nodalComponentBox.SelectedItem = FemNodalComponent.Ux;
+        lengthUnitBox.ItemsSource = System.Enum.GetValues<FemLengthUnit>();
+        lengthUnitBox.SelectedItem = _vm.DisplacementLengthUnit;
+        rotationScaleBox.ItemsSource = System.Enum.GetValues<FemRotationScale>();
+        rotationScaleBox.SelectedItem = _vm.RotationDisplayScale;
+        UpdateGroupControls();
 
         canvas.MarkerClicked += OnMarkerClicked;
         canvas.MarkerContextMenuRequested += OnMarkerContextMenuRequested;
@@ -47,7 +60,9 @@ public partial class FemMemberForceView : UserControl
 
     void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedStepIndex))
+        if (e.PropertyName is nameof(FemAnalysisResultVM.SelectedStepIndex)
+            or nameof(FemAnalysisResultVM.DisplacementLengthUnit)
+            or nameof(FemAnalysisResultVM.RotationDisplayScale))
             RefreshDiagram();
     }
 
@@ -59,6 +74,7 @@ public partial class FemMemberForceView : UserControl
 
         var (start, dir) = MemberAxis(db, schema, memberTag, meshPos);
 
+        var geometryElements = new List<FemMemberMeshElement>();
         foreach (var e in db.GetFemMeshElements(schema.Id))
         {
             if (e.SourceMemberTag != memberTag) continue;
@@ -69,8 +85,10 @@ public partial class FemMemberForceView : UserControl
             double si = Vector3D.DotProduct(pa - start, dir);
             double sj = Vector3D.DotProduct(pb - start, dir);
             _elements.Add(new ElemArc(etag, si, sj));
+            geometryElements.Add(new FemMemberMeshElement(etag, ends[0], ends[1], pa, pb));
         }
         _elements.Sort((a, b) => System.Math.Min(a.Si, a.Sj).CompareTo(System.Math.Min(b.Si, b.Sj)));
+        _geometryContext = new FemMemberGeometryContext(memberTag, start, dir, geometryElements);
     }
 
     static (Point3D Start, Vector3D Dir) MemberAxis(
@@ -96,24 +114,87 @@ public partial class FemMemberForceView : UserControl
         return (new Point3D(), new Vector3D(1, 0, 0));
     }
 
+    void GroupBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (groupBox.SelectedItem is not FemResultGroup group) return;
+        SelectedGroup = group;
+        UpdateGroupControls();
+        RefreshDiagram();
+    }
+
     void ComponentBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshDiagram();
+
+    void NodalComponentBox_SelectionChanged(object sender, SelectionChangedEventArgs e) => RefreshDiagram();
+
+    void LengthUnitBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (lengthUnitBox.SelectedItem is FemLengthUnit unit)
+            _vm.DisplacementLengthUnit = unit;
+    }
+
+    void RotationScaleBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (rotationScaleBox.SelectedItem is FemRotationScale scale)
+            _vm.RotationDisplayScale = scale;
+    }
+
+    void UpdateGroupControls()
+    {
+        bool forces = SelectedGroup == FemResultGroup.Forces;
+        forceComponentPanel.Visibility = forces ? Visibility.Visible : Visibility.Collapsed;
+        nodalComponentPanel.Visibility = forces ? Visibility.Collapsed : Visibility.Visible;
+        lengthUnitPanel.Visibility = SelectedGroup == FemResultGroup.Displacements
+            ? Visibility.Visible : Visibility.Collapsed;
+        rotationScalePanel.Visibility = SelectedGroup == FemResultGroup.Rotations
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     void RefreshDiagram()
     {
-        if (componentBox.SelectedItem is not FemForceComponent comp) return;
+        if (_geometryContext is null) return;
+
         var forcesByElem = _vm.ElementForces.ToDictionary(f => f.ElemTag);
-        var segs = _elements
-            .Where(el => forcesByElem.ContainsKey(el.Tag))
-            .Select(el =>
-            {
-                var (vi, vj) = ComponentValues(comp, forcesByElem[el.Tag]);
-                return new FemMemberForceCanvas.Segment(el.Si, el.Sj, vi / 1000, vj / 1000);
-            })
+        var displacementsByNode = _vm.Displacements.ToDictionary(d => d.NodeTag);
+        FemDiagramSeries series = SelectedGroup switch
+        {
+            FemResultGroup.Forces when componentBox.SelectedItem is FemForceComponent forceComponent =>
+                FemMemberResultSeriesBuilder.BuildForces(_geometryContext, forcesByElem, forceComponent),
+            FemResultGroup.Displacements when nodalComponentBox.SelectedItem is FemNodalComponent displacementComponent =>
+                FemMemberResultSeriesBuilder.BuildNodal(_geometryContext, displacementsByNode, displacementComponent),
+            FemResultGroup.Rotations when nodalComponentBox.SelectedItem is FemNodalComponent rotationComponent =>
+                FemMemberResultSeriesBuilder.BuildNodal(_geometryContext, displacementsByNode, rotationComponent),
+            _ => FemDiagramSeries.Empty
+        };
+        FemDiagramSeries displaySeries = FemDiagramValueScaler.Scale(
+            series, SelectedGroup, _vm.DisplacementLengthUnit, _vm.RotationDisplayScale);
+        var segments = displaySeries.Segments
+            .Select(segment => new FemMemberForceCanvas.Segment(
+                segment.S0, segment.S1, segment.Value0, segment.Value1))
             .ToList();
-        bool isForce = comp is FemForceComponent.N or FemForceComponent.Qy or FemForceComponent.Qz;
-        string unit = isForce ? Loc.S("UnitKN") : Loc.S("UnitKNm");
-        string title = string.Format(Loc.S("FemMemberForceTitle"), _memberTag, comp) + $", {unit}";
-        canvas.SetData(segs, title);
+        canvas.SetData(segments, BuildTitle());
+    }
+
+    string BuildTitle()
+    {
+        if (SelectedGroup == FemResultGroup.Forces)
+        {
+            var component = (FemForceComponent)componentBox.SelectedItem!;
+            bool isForce = component is FemForceComponent.N or FemForceComponent.Qy or FemForceComponent.Qz;
+            string unit = isForce ? Loc.S("UnitKN") : Loc.S("UnitKNm");
+            return string.Format(Loc.S("FemMemberForceTitleWithUnit"), _memberTag, component, unit);
+        }
+
+        var nodalComponent = (FemNodalComponent)nodalComponentBox.SelectedItem!;
+        string group = SelectedGroup == FemResultGroup.Displacements
+            ? Loc.S("FemResultGroupDisplacements")
+            : Loc.S("FemResultGroupRotations");
+        string componentText = Loc.S($"FemResultNodal{nodalComponent}");
+        string unitText = SelectedGroup == FemResultGroup.Displacements
+            ? Loc.S($"FemLength{_vm.DisplacementLengthUnit}")
+            : string.Format(Loc.S("FemRotationDisplayUnit"),
+                Loc.S("FemUnitRad"), (int)_vm.RotationDisplayScale);
+        return string.Format(Loc.S("FemMemberResultDiagramTitle"),
+            _memberTag, group, componentText, unitText);
     }
 
     void RefreshMarkers()
@@ -158,14 +239,4 @@ public partial class FemMemberForceView : UserControl
         if (_menuTargetRow != null) _vm.RequestSectionState(_menuTargetRow);
     }
 
-    static (double Vi, double Vj) ComponentValues(FemForceComponent comp, FemElementEndForces f) => comp switch
-    {
-        FemForceComponent.N  => (-f.Ni,  f.Nj),
-        FemForceComponent.Qy => (-f.Qyi, f.Qyj),
-        FemForceComponent.Qz => (-f.Qzi, f.Qzj),
-        FemForceComponent.Mx => (-f.Mxi, f.Mxj),
-        FemForceComponent.My => (f.Myi, -f.Myj),
-        FemForceComponent.Mz => (f.Mzi, -f.Mzj),
-        _ => (0, 0)
-    };
 }

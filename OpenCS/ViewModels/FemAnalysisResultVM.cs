@@ -27,6 +27,63 @@ public class FemAnalysisResultVM : ViewModelBase
     public IReadOnlyList<FemNodeReaction> Reactions { get; private set; } = [];
     public IReadOnlyList<FemElementEndForces> ElementForces { get; private set; } = [];
 
+    /// <summary>Строки таблицы перемещений в выбранных единицах и режиме фильтра.</summary>
+    public IReadOnlyList<FemNodeDisplacementRow> DisplayedDisplacements { get; private set; } = [];
+
+    /// <summary>Глобальные компоненты перемещений и поворотов для подписи узлов в 3D-виде.</summary>
+    public IReadOnlyList<FemNodalComponent> NodalComponents { get; } =
+        Enum.GetValues<FemNodalComponent>();
+
+    FemNodalComponent _selectedNodalComponent = FemNodalComponent.Uz;
+    /// <summary>Компонента, значение которой показывается рядом с узлами в 3D-виде.</summary>
+    public FemNodalComponent SelectedNodalComponent
+    {
+        get => _selectedNodalComponent;
+        set { if (value == _selectedNodalComponent) return; _selectedNodalComponent = value; OnPropertyChanged(); }
+    }
+
+    FemDisplacementDisplayMode _displacementDisplayMode = FemDisplacementDisplayMode.ExtremesOnly;
+    /// <summary>Режим отображения всех узлов или только узловых экстремумов по стержням.</summary>
+    public FemDisplacementDisplayMode DisplacementDisplayMode
+    {
+        get => _displacementDisplayMode;
+        set
+        {
+            if (value == _displacementDisplayMode) return;
+            _displacementDisplayMode = value;
+            RebuildDisplayedDisplacements();
+            OnPropertyChanged();
+        }
+    }
+
+    FemLengthUnit _displacementLengthUnit = FemLengthUnit.Millimeters;
+    /// <summary>Единица отображения линейных перемещений.</summary>
+    public FemLengthUnit DisplacementLengthUnit
+    {
+        get => _displacementLengthUnit;
+        set
+        {
+            if (value == _displacementLengthUnit) return;
+            _displacementLengthUnit = value;
+            RebuildDisplayedDisplacements();
+            OnPropertyChanged();
+        }
+    }
+
+    FemRotationScale _rotationDisplayScale = FemRotationScale.One;
+    /// <summary>Коэффициент отображения углов поворота в радианах.</summary>
+    public FemRotationScale RotationDisplayScale
+    {
+        get => _rotationDisplayScale;
+        set
+        {
+            if (value == _rotationDisplayScale) return;
+            _rotationDisplayScale = value;
+            RebuildDisplayedDisplacements();
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>Точка графика «коэффициент нагрузки по шагам» для результатной вкладки.</summary>
     public sealed record FemLoadFactorPoint(int Step, double LoadFactor, bool Converged);
 
@@ -167,6 +224,7 @@ public class FemAnalysisResultVM : ViewModelBase
             OnPropertyChanged(nameof(Displacements));
             OnPropertyChanged(nameof(Reactions));
             OnPropertyChanged(nameof(ElementForces));
+            OnPropertyChanged(nameof(ForceScale));
             OnPropertyChanged(nameof(SelectedDisplacementRow));
             OnPropertyChanged(nameof(SelectedReactionRow));
             OnPropertyChanged(nameof(SelectedForceRow));
@@ -197,11 +255,15 @@ public class FemAnalysisResultVM : ViewModelBase
         Reactions = step.Reactions;
         ElementForces = step.ElementForces;
 
+        RebuildDisplayedDisplacements();
+
         _dispByTag.Clear();
         foreach (var d in Displacements) _dispByTag[d.NodeTag] = new Vector3D(d.Ux, d.Uy, d.Uz);
 
         _forcesByElem.Clear();
         foreach (var f in ElementForces) _forcesByElem[f.ElemTag] = f;
+
+        RefreshAutomaticForceScales();
     }
 
     readonly Dictionary<int, Point3D> _originalByTag = [];
@@ -214,6 +276,9 @@ public class FemAnalysisResultVM : ViewModelBase
     readonly Dictionary<int, FemElementEndForces> _forcesByElem = [];
     readonly DatabaseService _database;
     readonly Dictionary<int, int?> _sectionIdByElement = [];
+    /// <summary>Узлы mesh-элементов, сгруппированные по конструктивному стержню.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<int>> MemberNodes { get; private set; } =
+        new Dictionary<string, IReadOnlyList<int>>(StringComparer.Ordinal);
     FemNonlinearResult? _nonlinearResult;
     string? _fiberStatePath;
 
@@ -223,6 +288,38 @@ public class FemAnalysisResultVM : ViewModelBase
     public Point3DCollection DeformedLines { get; private set; } = [];
     /// <summary>Точки узлов деформированной схемы.</summary>
     public Point3DCollection DeformedNodes { get; private set; } = [];
+
+    bool _showDeformedSchema = true;
+    /// <summary>Видимость линий деформированной схемы в 3D-виде.</summary>
+    public bool ShowDeformedSchema
+    {
+        get => _showDeformedSchema;
+        set { if (value == _showDeformedSchema) return; _showDeformedSchema = value; OnPropertyChanged(); }
+    }
+
+    bool _showDeformedNodes = true;
+    /// <summary>Видимость узловых маркеров деформированной линии в 3D-виде.</summary>
+    public bool ShowDeformedNodes
+    {
+        get => _showDeformedNodes;
+        set { if (value == _showDeformedNodes) return; _showDeformedNodes = value; OnPropertyChanged(); }
+    }
+
+    bool _showNodeResultValues;
+    /// <summary>Видимость подписей глобальных перемещений и поворотов узлов в 3D-виде.</summary>
+    public bool ShowNodeResultValues
+    {
+        get => _showNodeResultValues;
+        set { if (value == _showNodeResultValues) return; _showNodeResultValues = value; OnPropertyChanged(); }
+    }
+
+    bool _showForceDiagram;
+    /// <summary>Видимость силовой эпюры и её экстремальных подписей в 3D-виде.</summary>
+    public bool ShowForceDiagram
+    {
+        get => _showForceDiagram;
+        set { if (value == _showForceDiagram) return; _showForceDiagram = value; OnPropertyChanged(); }
+    }
     /// <summary>Деформированные координаты узлов по тегу mesh-узла — для pick targets в 3D-виде.</summary>
     public IReadOnlyDictionary<int, Point3D> DeformedNodesByTag { get; private set; } = new Dictionary<int, Point3D>();
     /// <summary>Деформированные концы каждого mesh-элемента (тег, конец i, конец j) — для pick targets в 3D-виде.</summary>
@@ -262,6 +359,7 @@ public class FemAnalysisResultVM : ViewModelBase
         OnPropertyChanged(nameof(SelectedNodeTag));
         OnPropertyChanged(nameof(SelectedElemTag));
         OnPropertyChanged(nameof(SelectedDisplacementRow));
+        OnPropertyChanged(nameof(SelectedDisplayedDisplacementRow));
         OnPropertyChanged(nameof(SelectedReactionRow));
         OnPropertyChanged(nameof(SelectedForceRow));
     }
@@ -269,6 +367,11 @@ public class FemAnalysisResultVM : ViewModelBase
     /// <summary>Строка таблицы «Перемещения», соответствующая выбранному узлу (для подсветки грида).</summary>
     public FemNodeDisplacement? SelectedDisplacementRow =>
         _selectedNodeTag is int tag ? Displacements.FirstOrDefault(d => d.NodeTag == tag) : null;
+    /// <summary>Строка отображаемой таблицы, соответствующая выбранному узлу.</summary>
+    public FemNodeDisplacementRow? SelectedDisplayedDisplacementRow =>
+        _selectedNodeTag is int tag
+            ? DisplayedDisplacements.FirstOrDefault(row => row.NodeTag == tag)
+            : null;
     /// <summary>Строка таблицы «Реакции», соответствующая выбранному узлу (для подсветки грида).</summary>
     public FemNodeReaction? SelectedReactionRow =>
         _selectedNodeTag is int tag ? Reactions.FirstOrDefault(r => r.NodeTag == tag) : null;
@@ -297,21 +400,41 @@ public class FemAnalysisResultVM : ViewModelBase
          FemForceComponent.Mx, FemForceComponent.My, FemForceComponent.Mz];
 
     FemForceComponent _selectedForceComponent = FemForceComponent.Mz;
+    readonly FemForceScaleState _forceScaleState = new();
+    bool _suppressForceScaleManualMark;
     /// <summary>Выбранная компонента усилия для 3D-эпюры.</summary>
     public FemForceComponent SelectedForceComponent
     {
         get => _selectedForceComponent;
-        set { if (value == _selectedForceComponent) return; _selectedForceComponent = value; RebuildForceDiagram(); OnPropertyChanged(); }
+        set
+        {
+            if (value == _selectedForceComponent) return;
+            _selectedForceComponent = value;
+            RebuildForceDiagram();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ForceScale));
+        }
     }
 
-    double _forceScale = 1.0;
     /// <summary>Масштаб 3D-эпюры усилий, м на кН (а не на Н) — иначе при реалистичных нагрузках
     /// (десятки кН = десятки тысяч Н) подбираемое значение округлялось до 0,00 в поле F2 и эпюра
     /// пропадала целиком.</summary>
     public double ForceScale
     {
-        get => _forceScale;
-        set { if (!FemScaleInput.IsValid(value) || value == _forceScale) return; _forceScale = value; RebuildForceDiagram(); OnPropertyChanged(); }
+        get => _forceScaleState.Get(_selectedForceComponent, () => SuggestForceScale(_selectedForceComponent));
+        set
+        {
+            if (!FemScaleInput.IsValid(value)) return;
+            if (_suppressForceScaleManualMark)
+            {
+                _forceScaleState.SetAutomatic(_selectedForceComponent, value);
+                return;
+            }
+            if (_forceScaleState.IsManual(_selectedForceComponent) && value == ForceScale) return;
+            _forceScaleState.SetManual(_selectedForceComponent, value);
+            RebuildForceDiagram();
+            OnPropertyChanged();
+        }
     }
 
     /// <summary>Геометрия ленты выбранной эпюры. Никогда не null — RebuildForceDiagram
@@ -358,7 +481,7 @@ public class FemAnalysisResultVM : ViewModelBase
     {
         _database = db;
         ResetDeformScaleCommand = new RelayCommand(_ => DeformScale = SuggestScale());
-        ResetForceScaleCommand = new RelayCommand(_ => ForceScale = SuggestForceScale());
+        ResetForceScaleCommand = new RelayCommand(_ => ResetSelectedForceScale());
 
         Status = result.Status;
 
@@ -395,6 +518,8 @@ public class FemAnalysisResultVM : ViewModelBase
         var meshNodes = db.GetFemMeshNodes(schema.Id);
         var meshElements = db.GetFemMeshElements(schema.Id);
         var sourceMembers = db.GetFemMembers(schema.Id);
+        MemberNodes = BuildMemberNodes(meshElements);
+        OnPropertyChanged(nameof(MemberNodes));
         foreach (var e in meshElements)
         {
             var ends = JsonSerializer.Deserialize<int[]>(e.NodeIdsJson) ?? [];
@@ -432,8 +557,41 @@ public class FemAnalysisResultVM : ViewModelBase
         _deformScale = SuggestScale();
         RebuildDeformed();
 
-        _forceScale = SuggestForceScale();
+        RefreshAutomaticForceScales();
         RebuildForceDiagram();
+    }
+
+    static IReadOnlyDictionary<string, IReadOnlyList<int>> BuildMemberNodes(
+        IReadOnlyList<FemElement> meshElements)
+    {
+        var byMember = new Dictionary<string, HashSet<int>>(StringComparer.Ordinal);
+        foreach (FemElement element in meshElements)
+        {
+            if (string.IsNullOrWhiteSpace(element.SourceMemberTag)) continue;
+            var ends = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson) ?? [];
+            if (ends.Length != 2) continue;
+            if (!byMember.TryGetValue(element.SourceMemberTag, out HashSet<int>? nodeTags))
+                byMember[element.SourceMemberTag] = nodeTags = [];
+            nodeTags.Add(ends[0]);
+            nodeTags.Add(ends[1]);
+        }
+
+        return byMember.ToDictionary(
+            item => item.Key,
+            item => (IReadOnlyList<int>)item.Value.OrderBy(tag => tag).ToArray(),
+            StringComparer.Ordinal);
+    }
+
+    void RebuildDisplayedDisplacements()
+    {
+        DisplayedDisplacements = FemDisplacementTableBuilder.Build(
+            Displacements,
+            MemberNodes,
+            DisplacementDisplayMode,
+            DisplacementLengthUnit,
+            RotationDisplayScale);
+        OnPropertyChanged(nameof(DisplayedDisplacements));
+        OnPropertyChanged(nameof(SelectedDisplayedDisplacementRow));
     }
 
     void LoadSectionResultData(
@@ -486,7 +644,7 @@ public class FemAnalysisResultVM : ViewModelBase
     }
 
     /// <summary>Значения выбранной компоненты на концах i и j (внутреннее усилие, непрерывное по узлу).</summary>
-    (double Vi, double Vj) ComponentValues(FemElementEndForces f) => _selectedForceComponent switch
+    static (double Vi, double Vj) ComponentValues(FemElementEndForces f, FemForceComponent component) => component switch
     {
         FemForceComponent.N  => (-f.Ni,  f.Nj),
         FemForceComponent.Qy => (-f.Qyi, f.Qyj),
@@ -506,15 +664,16 @@ public class FemAnalysisResultVM : ViewModelBase
     void RebuildForceDiagram()
     {
         var segs = new List<(Point3D, Point3D, Vector3D, Vector3D)>();
+        double forceScale = ForceScale;
         double maxV = double.NegativeInfinity, minV = double.PositiveInfinity;
         Point3D maxPos = default, minPos = default;
         foreach (var g in _elementGeoms)
         {
             if (!_forcesByElem.TryGetValue(g.Tag, out var f)) continue;
-            var (vi, vj) = ComponentValues(f);
+            var (vi, vj) = ComponentValues(f, _selectedForceComponent);
             var axis = OffsetAxis(g);
-            var offI = axis * (vi / 1000.0 * _forceScale);
-            var offJ = axis * (vj / 1000.0 * _forceScale);
+            var offI = axis * (vi / 1000.0 * forceScale);
+            var offJ = axis * (vj / 1000.0 * forceScale);
             segs.Add((g.Pi, g.Pj, offI, offJ));
 
             if (vi > maxV) { maxV = vi; maxPos = g.Pi + offI; }
@@ -538,26 +697,58 @@ public class FemAnalysisResultVM : ViewModelBase
         OnPropertyChanged(nameof(ForceMinLabelText));
     }
 
-    /// <summary>Масштаб эпюры (м на кН): макс. |усилие| по всем компонентам → ≈10% габарита.</summary>
-    double SuggestForceScale()
+    void RefreshAutomaticForceScales()
     {
-        if (_elementGeoms.Count == 0 || _forcesByElem.Count == 0) return 1.0;
-        double maxVal = 0;
-        foreach (var f in _forcesByElem.Values)
-            foreach (var v in new[] { f.Ni, f.Qyi, f.Qzi, f.Mxi, f.Myi, f.Mzi, f.Nj, f.Qyj, f.Qzj, f.Mxj, f.Myj, f.Mzj })
-                maxVal = System.Math.Max(maxVal, System.Math.Abs(v));
-        if (maxVal <= 1e-12) return 1.0;
-        double maxValKN = maxVal / 1000.0;
+        foreach (FemForceComponent component in ForceComponents)
+            SetAutomaticForceScale(component, SuggestForceScale(component));
+    }
+
+    void SetAutomaticForceScale(FemForceComponent component, double value)
+    {
+        FemForceComponent previous = _selectedForceComponent;
+        bool previousSuppress = _suppressForceScaleManualMark;
+        try
+        {
+            _suppressForceScaleManualMark = true;
+            _selectedForceComponent = component;
+            ForceScale = value;
+        }
+        finally
+        {
+            _selectedForceComponent = previous;
+            _suppressForceScaleManualMark = previousSuppress;
+        }
+    }
+
+    void ResetSelectedForceScale()
+    {
+        _forceScaleState.Reset(
+            _selectedForceComponent,
+            () => SuggestForceScale(_selectedForceComponent));
+        RebuildForceDiagram();
+        OnPropertyChanged(nameof(ForceScale));
+    }
+
+    /// <summary>Масштаб эпюры (м на кН) для одной конкретной компоненты.</summary>
+    double SuggestForceScale(FemForceComponent component)
+    {
+        if (_elementGeoms.Count == 0 || _forcesByElem.Count == 0 || _originalByTag.Count == 0)
+            return 1.0;
+
+        var values = _forcesByElem.Values
+            .SelectMany(force =>
+            {
+                var (value0, value1) = ComponentValues(force, component);
+                return new[] { value0, value1 };
+            })
+            .ToList();
 
         var xs = _originalByTag.Values;
         double dx = xs.Max(p => p.X) - xs.Min(p => p.X);
         double dy = xs.Max(p => p.Y) - xs.Min(p => p.Y);
         double dz = xs.Max(p => p.Z) - xs.Min(p => p.Z);
         double diag = System.Math.Sqrt(dx * dx + dy * dy + dz * dz);
-        if (diag <= 1e-9) return 1.0;
-        double val = 0.1 * diag / maxValKN;
-        double rounded = System.Math.Round(val, 2);
-        return rounded > 0 ? rounded : val;
+        return FemForceScaleCalculator.Suggest(diag, values);
     }
 
     void RebuildDeformed()
