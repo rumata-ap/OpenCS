@@ -1995,6 +1995,8 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TorsionIt">Torsion constant It</system:String>
     <system:String x:Key="TorsionShearCenter">Shear center</system:String>
     <system:String x:Key="TorsionShearCenterTrefftz">Shear center (Trefftz)</system:String>
+    <system:String x:Key="TorsionWarpingConstant">Warping constant Iω (γ)</system:String>
+    <system:String x:Key="TorsionShearFromForcesMax">Max shear stress from Vx,Vy</system:String>
     <system:String x:Key="TorsionTauMax">Max shear stress τ_max</system:String>
     <system:String x:Key="TorsionElements">Number of elements</system:String>
     <system:String x:Key="TorsionMethod">Method</system:String>
@@ -2012,8 +2014,13 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TorsionMkFromSet">Mk = T from force set</system:String>
     <system:String x:Key="TorsionMkManual">Mk manual, kN·m</system:String>
     <system:String x:Key="TorsionMkHint">Torque T is taken from the selected force-set row; the field above is a fallback when no set is selected.</system:String>
+    <system:String x:Key="TorsionVxFromSet">Vx from force set</system:String>
+    <system:String x:Key="TorsionVxManual">Vx manual, kN</system:String>
+    <system:String x:Key="TorsionVyFromSet">Vy from force set</system:String>
+    <system:String x:Key="TorsionVyManual">Vy manual, kN</system:String>
     <system:String x:Key="TorsionMk">Torque Mk, kN·m</system:String>
     <system:String x:Key="TorsionTabTau">τ/(GΘ)</system:String>
+    <system:String x:Key="TorsionTabShearForces">τ (Vx,Vy)</system:String>
     <system:String x:Key="TorsionTabPotential">φ / ω</system:String>
     <system:String x:Key="TorsionGIt">Stiffness G·It</system:String>
     <system:String x:Key="TorsionTwistRate">Twist rate Θ</system:String>

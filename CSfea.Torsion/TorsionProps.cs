@@ -40,6 +40,24 @@ public sealed class TorsionProps
     /// <summary>Поле функции депланации ω в узлах сетки (только МКЭ; определено с точностью до аддитивной константы).</summary>
     public double[]? WarpingField { get; init; }
 
+    /// <summary>Секториальная жёсткость (константа депланации) γ=Iω, единицы длины⁶ (только МКЭ; МГЭ — NaN).</summary>
+    public double WarpingConstant { get; init; } = double.NaN;
+
+    /// <summary>Δs — сдвиговый коэффициент сечения (только МКЭ; МГЭ — NaN), см. <see cref="TorsionShearStressPostprocessor.Combine"/>.</summary>
+    public double ShearDeltaS { get; init; } = double.NaN;
+
+    /// <summary>Единичное поле τx от Vx (без множителя E·Vx/Δs), в узлах сетки (только МКЭ).</summary>
+    public double[]? ShearVxUnitFieldX { get; init; }
+
+    /// <summary>Единичное поле τy от Vx (без множителя E·Vx/Δs), в узлах сетки (только МКЭ).</summary>
+    public double[]? ShearVxUnitFieldY { get; init; }
+
+    /// <summary>Единичное поле τx от Vy (без множителя E·Vy/Δs), в узлах сетки (только МКЭ).</summary>
+    public double[]? ShearVyUnitFieldX { get; init; }
+
+    /// <summary>Единичное поле τy от Vy (без множителя E·Vy/Δs), в узлах сетки (только МКЭ).</summary>
+    public double[]? ShearVyUnitFieldY { get; init; }
+
     /// <summary>Флаг вырожденности СЛАУ (МГЭ).</summary>
     public bool Singular { get; init; }
 

@@ -11,7 +11,7 @@ internal static class WarpingAssembler
 {
     /// <summary>4-точечная квадратура на треугольнике, точная для полиномов степени ≤3.
     /// Веса даны в соглашении «сумма = площадь эталонного треугольника = 0.5» (как в PrandtlTri6).</summary>
-    static readonly (double L1, double L2, double W)[] Quad4 =
+    internal static readonly (double L1, double L2, double W)[] Quad4 =
     [
         (1.0 / 3.0, 1.0 / 3.0, -9.0 / 32.0),
         (0.6, 0.2, 25.0 / 96.0),
@@ -78,9 +78,7 @@ internal static class WarpingAssembler
             double y = l1 * coords[1] + l2 * coords[3] + l3 * coords[5];
             double xr = x - xc, yr = y - yc;
 
-            double r = xr * xr - yr * yr, q = 2.0 * xr * yr;
-            double d1 = ixx * r - ixy * q, d2 = ixy * r + ixx * q;
-            double h1 = -ixy * r + iyy * q, h2 = -iyy * r - ixy * q;
+            var (d1, d2, h1, h2) = ShearParams(xr, yr, ixx, iyy, ixy);
 
             for (int i = 0; i < nodesPerElement; i++)
             {
@@ -101,5 +99,16 @@ internal static class WarpingAssembler
             FWarp = fWarp, FPsi = fPsi, FPhi = fPhi, MX = mX, MY = mY,
             ScXint = scXint, ScYint = scYint
         };
+    }
+
+    /// <summary>Параметры сдвига Пилки (r=xr²−yr², q=2·xr·yr; d1,d2 — для ψ, h1,h2 — для φ)
+    /// в точке (xr,yr), заданной относительно центроида сечения.</summary>
+    internal static (double d1, double d2, double h1, double h2) ShearParams(
+        double xr, double yr, double ixx, double iyy, double ixy)
+    {
+        double r = xr * xr - yr * yr, q = 2.0 * xr * yr;
+        double d1 = ixx * r - ixy * q, d2 = ixy * r + ixx * q;
+        double h1 = -ixy * r + iyy * q, h2 = -iyy * r - ixy * q;
+        return (d1, d2, h1, h2);
     }
 }

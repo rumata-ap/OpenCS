@@ -695,6 +695,10 @@
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
 
                   <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
@@ -773,10 +777,46 @@
                                 FontSize="11" TextWrapping="Wrap"/>
                   </StackPanel>
 
-                  <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource TorsionFemOrder}"
+                  <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource TorsionVxFromSet}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding HasTorsionVxFromSet, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Grid.Row="9" Grid.Column="1" FontFamily="Consolas" FontWeight="SemiBold"
+                             Margin="0,0,0,4"
+                             Visibility="{Binding HasTorsionVxFromSet, Converter={StaticResource BoolToVisibility}}">
+                     <Run Text="{Binding TorsionVxFromSetText, Mode=OneWay}"/>
+                     <Run Text=" кН"/>
+                  </TextBlock>
+
+                  <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource TorsionVxManual}"
+                             VerticalAlignment="Top" Margin="0,0,4,4"
+                             Visibility="{Binding ShowTorsionManualVx, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="10" Grid.Column="1"
+                           Text="{Binding TorsionVx, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"
+                           Visibility="{Binding ShowTorsionManualVx, Converter={StaticResource BoolToVisibility}}"/>
+
+                  <TextBlock Grid.Row="11" Grid.Column="0" Text="{DynamicResource TorsionVyFromSet}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding HasTorsionVyFromSet, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Grid.Row="11" Grid.Column="1" FontFamily="Consolas" FontWeight="SemiBold"
+                             Margin="0,0,0,4"
+                             Visibility="{Binding HasTorsionVyFromSet, Converter={StaticResource BoolToVisibility}}">
+                     <Run Text="{Binding TorsionVyFromSetText, Mode=OneWay}"/>
+                     <Run Text=" кН"/>
+                  </TextBlock>
+
+                  <TextBlock Grid.Row="12" Grid.Column="0" Text="{DynamicResource TorsionVyManual}"
+                             VerticalAlignment="Top" Margin="0,0,4,4"
+                             Visibility="{Binding ShowTorsionManualVy, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="12" Grid.Column="1"
+                           Text="{Binding TorsionVy, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"
+                           Visibility="{Binding ShowTorsionManualVy, Converter={StaticResource BoolToVisibility}}"/>
+
+                  <TextBlock Grid.Row="13" Grid.Column="0" Text="{DynamicResource TorsionFemOrder}"
                              VerticalAlignment="Center" Margin="0,0,4,4"
                              Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}"/>
-                  <ComboBox Grid.Row="9" Grid.Column="1" Margin="0,0,0,4"
+                  <ComboBox Grid.Row="13" Grid.Column="1" Margin="0,0,0,4"
                             SelectedIndex="{Binding TorsionFemOrderIndex}"
                             ToolTip="{DynamicResource TorsionFemOrderHint}"
                             Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}">

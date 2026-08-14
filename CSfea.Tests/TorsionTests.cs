@@ -520,9 +520,10 @@ public static class TorsionTests
         TestHarness.Section("TorsionGeoMoments: швеллер симметричен относительно y=H/2 — Ixy строго 0, центроид точен");
         double B = 0.1, H = 0.2, t = 0.02;
         var boundary = SampleChannelBoundary(B, H, t);
-        var (xc, yc, ixx, iyy, ixy) = TorsionGeoMoments.Compute(boundary);
+        var (xc, yc, area, ixx, iyy, ixy) = TorsionGeoMoments.Compute(boundary);
         double areaExpect = 2 * B * t + t * (H - 2 * t);
         double xcExpect = (2 * B * t * (B / 2.0) + t * (H - 2 * t) * (t / 2.0)) / areaExpect;
+        TestHarness.CheckRel("Area", area, areaExpect, 1e-9);
         TestHarness.CheckRel("Xc", xc, xcExpect, 1e-9);
         TestHarness.CheckRel("Yc = H/2", yc, H / 2.0, 1e-9);
         TestHarness.Check("Ixy ≈ 0 (точная симметрия относительно y=H/2)", Math.Abs(ixy) < 1e-15 * ixx,
@@ -794,6 +795,60 @@ public static class TorsionTests
         TestHarness.Check("It конечен", double.IsFinite(props.It));
         TestHarness.Check($"Решение за разумное время (было: не завершалось за несколько минут)",
             sw.ElapsedMilliseconds < 20000, $"ms={sw.ElapsedMilliseconds}, nNodes={props.NodeX!.Length}");
+    }
+
+    public static void FemWarpingConstantCircleIsZero()
+    {
+        TestHarness.Section("МКЭ: секториальная жёсткость γ=Iω круга — депланация ω≡0 (осесимметрия), γ≈0");
+        double r = 0.5; // м
+        int n = 64;
+        double[] ox = new double[n], oy = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            double a = 2.0 * Math.PI * i / n;
+            ox[i] = r * Math.Cos(a); oy[i] = r * Math.Sin(a);
+        }
+        var boundary = new TorsionBoundary(ox, oy);
+        var props = TorsionFemSolver.Solve(boundary, maxElementSize: 0.05, nu: 0.3);
+        double scale = Math.Pow(r, 6); // характерный масштаб γ (длина⁶)
+        TestHarness.Check("γ конечна", double.IsFinite(props.WarpingConstant), $"γ={props.WarpingConstant:E4}");
+        TestHarness.Check("γ ≈ 0 (круг: ω≡0)", Math.Abs(props.WarpingConstant) < 0.01 * scale,
+            $"γ={props.WarpingConstant:E4}, шкала={scale:E4}");
+    }
+
+    public static void FemShearUnitFieldsEquilibriumRectangle()
+    {
+        TestHarness.Section("МКЭ: равновесие единичных полей τ от Vx/Vy — ∫τ dA = V (E=1) для прямоугольника");
+        double b = 0.2, h = 0.4;
+        var boundary = new TorsionBoundary(
+            new[] { -b / 2, b / 2, b / 2, -b / 2 },
+            new[] { -h / 2, -h / 2, h / 2, h / 2 });
+        var props = TorsionFemSolver.Solve(boundary, maxElementSize: 0.03, nu: 0.3);
+
+        TestHarness.Check("ShearDeltaS конечна и > 0", double.IsFinite(props.ShearDeltaS) && props.ShearDeltaS > 0,
+            $"Δs={props.ShearDeltaS:E4}");
+        TestHarness.Check("Поля VxUnit заданы", props.ShearVxUnitFieldX != null && props.ShearVxUnitFieldY != null);
+        TestHarness.Check("Поля VyUnit заданы", props.ShearVyUnitFieldX != null && props.ShearVyUnitFieldY != null);
+
+        var mesh = MeshBuilder.Build(boundary, 0.03, TriangulationMethod.AdvancingFront);
+
+        // Vx=1, Vy=0, E=1: ∫τx dA ≈ 1, ∫τy dA ≈ 0 (равновесие — резюме нагрузки по определению).
+        var (tauXvx, tauYvx) = TorsionShearStressPostprocessor.Combine(
+            props.ShearVxUnitFieldX!, props.ShearVxUnitFieldY!, props.ShearVyUnitFieldX!, props.ShearVyUnitFieldY!,
+            props.ShearDeltaS, e: 1.0, vx: 1.0, vy: 0.0);
+        double intTauXvx = TorsionPostprocessor.IntegrateField(mesh, tauXvx);
+        double intTauYvx = TorsionPostprocessor.IntegrateField(mesh, tauYvx);
+        TestHarness.CheckRel("∫τx dA ≈ Vx=1 (нагрузка Vx)", intTauXvx, 1.0, 0.05);
+        TestHarness.Check("∫τy dA ≈ 0 (нагрузка Vx)", Math.Abs(intTauYvx) < 0.05, $"∫τy={intTauYvx:E4}");
+
+        // Vx=0, Vy=1, E=1: ∫τy dA ≈ 1, ∫τx dA ≈ 0.
+        var (tauXvy, tauYvy) = TorsionShearStressPostprocessor.Combine(
+            props.ShearVxUnitFieldX!, props.ShearVxUnitFieldY!, props.ShearVyUnitFieldX!, props.ShearVyUnitFieldY!,
+            props.ShearDeltaS, e: 1.0, vx: 0.0, vy: 1.0);
+        double intTauXvy = TorsionPostprocessor.IntegrateField(mesh, tauXvy);
+        double intTauYvy = TorsionPostprocessor.IntegrateField(mesh, tauYvy);
+        TestHarness.Check("∫τx dA ≈ 0 (нагрузка Vy)", Math.Abs(intTauXvy) < 0.05, $"∫τx={intTauXvy:E4}");
+        TestHarness.CheckRel("∫τy dA ≈ Vy=1 (нагрузка Vy)", intTauYvy, 1.0, 0.05);
     }
 }
 

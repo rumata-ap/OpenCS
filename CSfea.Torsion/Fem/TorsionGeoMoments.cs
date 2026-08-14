@@ -10,8 +10,8 @@ namespace CSfea.Torsion;
 /// </summary>
 public static class TorsionGeoMoments
 {
-    /// <summary>Центроид (Xc, Yc) и центральные моменты Ixx=∫y²dA, Iyy=∫x²dA, Ixy=∫xy dA.</summary>
-    public static (double Xc, double Yc, double Ixx, double Iyy, double Ixy) Compute(TorsionBoundary boundary)
+    /// <summary>Площадь, центроид (Xc, Yc) и центральные моменты Ixx=∫y²dA, Iyy=∫x²dA, Ixy=∫xy dA.</summary>
+    public static (double Xc, double Yc, double Area, double Ixx, double Iyy, double Ixy) Compute(TorsionBoundary boundary)
     {
         double area = 0.0, sx = 0.0, sy = 0.0;
         double ixO = 0.0, iyO = 0.0, ixyO = 0.0; // относительно начала координат
@@ -26,7 +26,7 @@ public static class TorsionGeoMoments
         double ixx = ixO / 12.0 - area * yc * yc;
         double iyy = iyO / 12.0 - area * xc * xc;
         double ixy = ixyO / 24.0 - area * xc * yc;
-        return (xc, yc, ixx, iyy, ixy);
+        return (xc, yc, area, ixx, iyy, ixy);
     }
 
     static void AccumulateLoop(double[] x, double[] y,

@@ -18,11 +18,14 @@ internal static class TorsionShearCenterSolver
         public required double TrefftzX { get; init; }
         public required double TrefftzY { get; init; }
         public required double[] Warping { get; init; }
+        public required double WarpingConstant { get; init; }
+        public required double DeltaS { get; init; }
+        public required TorsionShearStressPostprocessor.UnitFields ShearUnitFields { get; init; }
     }
 
     internal static Result Compute(TorsionBoundary boundary, TorsionMesh mesh, CooMatrix k, double nu)
     {
-        var (xc, yc, ixx, iyy, ixy) = TorsionGeoMoments.Compute(boundary);
+        var (xc, yc, area, ixx, iyy, ixy) = TorsionGeoMoments.Compute(boundary);
         int ndof = mesh.NodesX.Length;
 
         var fWarp = new double[ndof];
@@ -74,11 +77,22 @@ internal static class TorsionShearCenterSolver
         double xSt = (ixy * ixOmega - iyy * iyOmega) / denom;
         double ySt = (ixx * ixOmega - ixy * iyOmega) / denom;
 
+        // Секториальная жёсткость γ=Iω (порт warping_analysis из sectionproperties/section.py):
+        // γ = ∫ω²dA − (∫ω dA)²/A − ySe·I_xω + xSe·I_yω (xSe,ySe — локальные, от центроида).
+        double qOmega = TorsionPostprocessor.IntegrateField(mesh, omega);
+        double iOmegaSq = TorsionPostprocessor.IntegrateFieldSquared(mesh, omega);
+        double gamma = iOmegaSq - qOmega * qOmega / area - ySe * ixOmega + xSe * iyOmega;
+
+        var shearFields = TorsionShearStressPostprocessor.Compute(mesh, psi, phi, xc, yc, ixx, iyy, ixy, nu);
+
         return new Result
         {
             ElasticX = xc + xSe, ElasticY = yc + ySe,
             TrefftzX = xc + xSt, TrefftzY = yc + ySt,
-            Warping = omega
+            Warping = omega,
+            WarpingConstant = gamma,
+            DeltaS = deltaS,
+            ShearUnitFields = shearFields
         };
     }
 

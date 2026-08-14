@@ -166,4 +166,7 @@ TorsionTests.FemShearCenterRectangleSymmetricAtCentroid();
 TorsionTests.GeoMomentsChannelSymmetricIxyIsZero();
 TorsionTests.FemShearCenterChannelVsBem();
 
+TorsionTests.FemWarpingConstantCircleIsZero();
+TorsionTests.FemShearUnitFieldsEquilibriumRectangle();
+
 return TestHarness.Summary();

@@ -14,7 +14,7 @@ public sealed class TorsionPlotVM : ViewModelBase
 {
     public TorsionFieldMode BaseMode { get; }
     public bool IsTauTab => BaseMode != TorsionFieldMode.Potential;
-    public bool CanShowPhysicalTau => IsTauTab && _data.HasPhysicalTau;
+    public bool CanShowPhysicalTau => BaseMode == TorsionFieldMode.TauUnit && _data.HasPhysicalTau;
 
     public IReadOnlyList<Point> OuterHullMm { get; }
     public IReadOnlyList<IReadOnlyList<Point>> HolesMm { get; }
@@ -56,10 +56,12 @@ public sealed class TorsionPlotVM : ViewModelBase
         }
     }
 
-    public TorsionFieldMode ActiveMode =>
-        BaseMode == TorsionFieldMode.Potential
-            ? TorsionFieldMode.Potential
-            : (_showPhysicalTau ? TorsionFieldMode.TauMpa : TorsionFieldMode.TauUnit);
+    public TorsionFieldMode ActiveMode => BaseMode switch
+    {
+        TorsionFieldMode.Potential => TorsionFieldMode.Potential,
+        TorsionFieldMode.ShearForces => TorsionFieldMode.ShearForces,
+        _ => _showPhysicalTau ? TorsionFieldMode.TauMpa : TorsionFieldMode.TauUnit
+    };
 
     public int NeedRedraw { get; private set; }
     public ICommand FitAllCommand { get; }
@@ -119,6 +121,7 @@ public sealed class TorsionPlotVM : ViewModelBase
     {
         TorsionFieldMode.Potential => Loc.S("TorsionUnitPotential"),
         TorsionFieldMode.TauMpa => "МПа",
+        TorsionFieldMode.ShearForces => "МПа",
         _ => "мм²"
     };
 
@@ -208,13 +211,14 @@ public sealed class TorsionPlotVM : ViewModelBase
     static Point? FindTauMaxPoint(TorsionResultData data, TorsionFieldMode mode)
     {
         if (mode == TorsionFieldMode.Potential) return null;
-        if (data.TauUnit == null || data.NodeXM == null || data.NodeYM == null) return null;
+        var field = mode == TorsionFieldMode.ShearForces ? data.TauShearMpa : data.TauUnit;
+        if (field == null || data.NodeXM == null || data.NodeYM == null) return null;
 
         int best = -1;
         double bestVal = -1;
-        for (int i = 0; i < data.TauUnit.Length; i++)
+        for (int i = 0; i < field.Length; i++)
         {
-            double v = Math.Abs(data.TauUnit[i]);
+            double v = Math.Abs(field[i]);
             if (v > bestVal) { bestVal = v; best = i; }
         }
         if (best < 0) return null;

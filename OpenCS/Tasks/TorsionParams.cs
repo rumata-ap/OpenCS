@@ -20,6 +20,16 @@ public sealed class TorsionParams
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public double MkKNm { get; set; }
 
+    /// <summary>Поперечная сила Vx, кН (опционально, ручной ввод — если не задана Vx в наборе усилий).</summary>
+    [JsonPropertyName("vx_kn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double VxKN { get; set; }
+
+    /// <summary>Поперечная сила Vy, кН (опционально, ручной ввод — если не задана Vy в наборе усилий).</summary>
+    [JsonPropertyName("vy_kn")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double VyKN { get; set; }
+
     /// <summary>Метод триангуляции области (по умолчанию AdvancingFront).</summary>
     [JsonPropertyName("triangulation")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]

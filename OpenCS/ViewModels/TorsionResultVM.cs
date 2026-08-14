@@ -29,6 +29,10 @@ public sealed class TorsionResultVM : ViewModelBase
     public bool HasShearCenterTrefftz { get; }
     public string TauMaxText { get; }
     public string TauUnitMaxText { get; }
+    public string WarpingConstantText { get; } = "";
+    public bool HasWarpingConstant { get; }
+    public string ShearFromForcesMaxText { get; } = "";
+    public bool HasShearFromForces { get; }
     public string TwistRateText { get; }
     public bool HasTwistRate { get; }
     public string ElementsText { get; }
@@ -48,6 +52,8 @@ public sealed class TorsionResultVM : ViewModelBase
 
     public TorsionPlotVM TauPlot { get; }
     public TorsionPlotVM PotentialPlot { get; }
+    public TorsionPlotVM? ShearForcesPlot { get; }
+    public bool HasShearForcesPlot { get; }
     public bool HasPlots { get; }
 
     public TorsionResultVM(CalcResult r)
@@ -128,12 +134,24 @@ public sealed class TorsionResultVM : ViewModelBase
             ? $"{(data.ElementSizeM * 1000).ToString("F1", inv)} мм ({data.ElementSizeM.ToString("G4", inv)} м)"
             : "—";
 
+        HasWarpingConstant = data.HasWarpingConstant;
+        WarpingConstantText = HasWarpingConstant
+            ? $"{data.WarpingConstantMm6.ToString("G4", inv)} мм⁶"
+            : "—";
+
+        HasShearFromForces = data.HasShearFromForces;
+        ShearFromForcesMaxText = HasShearFromForces
+            ? $"{data.TauShearMaxMpa.ToString("F2", inv)} МПа"
+            : "—";
+
         IsSingular = data.Singular;
 
         HasPlots = data.HasFieldMesh || data.HasBoundaryField ||
                    (data.NodeXM != null && data.TauUnit != null);
         TauPlot = new TorsionPlotVM(data, TorsionFieldMode.TauUnit);
         PotentialPlot = new TorsionPlotVM(data, TorsionFieldMode.Potential);
+        HasShearForcesPlot = data.HasShearFromForces;
+        ShearForcesPlot = HasShearForcesPlot ? new TorsionPlotVM(data, TorsionFieldMode.ShearForces) : null;
 
         ShowAutoConverge = data.AutoConverge && data.ConvergenceHMm != null && data.ConvergenceItMm4 != null;
         if (ShowAutoConverge)

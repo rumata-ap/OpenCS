@@ -1998,6 +1998,8 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TorsionIt">Постоянная кручения It</system:String>
     <system:String x:Key="TorsionShearCenter">Центр кручения</system:String>
     <system:String x:Key="TorsionShearCenterTrefftz">Центр кручения (Трефтц)</system:String>
+    <system:String x:Key="TorsionWarpingConstant">Секториальная жёсткость Iω (γ)</system:String>
+    <system:String x:Key="TorsionShearFromForcesMax">Макс. касательное напряжение от Vx,Vy</system:String>
     <system:String x:Key="TorsionTauMax">Макс. касательное напряжение τ_max</system:String>
     <system:String x:Key="TorsionElements">Число элементов</system:String>
     <system:String x:Key="TorsionMethod">Метод</system:String>
@@ -2015,8 +2017,13 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TorsionMkFromSet">Mk = T из набора</system:String>
     <system:String x:Key="TorsionMkManual">Mk вручную, кН·м</system:String>
     <system:String x:Key="TorsionMkHint">Крутящий момент T берётся из выбранной строки набора усилий; поле ниже — запасной вариант, если строка не выбрана.</system:String>
+    <system:String x:Key="TorsionVxFromSet">Vx из набора</system:String>
+    <system:String x:Key="TorsionVxManual">Vx вручную, кН</system:String>
+    <system:String x:Key="TorsionVyFromSet">Vy из набора</system:String>
+    <system:String x:Key="TorsionVyManual">Vy вручную, кН</system:String>
     <system:String x:Key="TorsionMk">Крутящий момент Mk, кН·м</system:String>
     <system:String x:Key="TorsionTabTau">τ/(GΘ)</system:String>
+    <system:String x:Key="TorsionTabShearForces">τ (Vx,Vy)</system:String>
     <system:String x:Key="TorsionTabPotential">φ / ω</system:String>
     <system:String x:Key="TorsionGIt">Жёсткость G·It</system:String>
     <system:String x:Key="TorsionTwistRate">Удельный угол закручивания Θ</system:String>

@@ -39,12 +39,18 @@ public sealed class TorsionResultData
     public double? ShearCenterOrderY { get; }
     public bool ShearCenterExtrapolated { get; }
 
+    public double WarpingConstantMm6 { get; }
+    public bool HasWarpingConstant { get; }
+    public double TauShearMaxMpa { get; }
+    public bool HasShearFromForces { get; }
+
     public IReadOnlyList<Point> OuterHullMm { get; }
     public IReadOnlyList<IReadOnlyList<Point>> HolesMm { get; }
 
     public double[]? NodeXM { get; }
     public double[]? NodeYM { get; }
     public double[]? TauUnit { get; }
+    public double[]? TauShearMpa { get; }
     public double[]? Potential { get; }
     public int[][]? Triangles { get; }
     public double[]? BoundaryXM { get; }
@@ -67,7 +73,9 @@ public sealed class TorsionResultData
         bool autoConverge, double[]? convergenceHMm, double[]? convergenceItMm4,
         double? itOrder, bool itExtrapolated,
         double? scOrderX, double? scOrderY, bool scExtrapolated,
-        string femOrder)
+        string femOrder,
+        double warpingConstantMm6, bool hasWarpingConstant,
+        double tauShearMaxMpa, bool hasShearFromForces, double[]? tauShearMpa)
     {
         Method = method;
         FemOrder = femOrder;
@@ -108,6 +116,11 @@ public sealed class TorsionResultData
         ShearCenterOrderX = scOrderX;
         ShearCenterOrderY = scOrderY;
         ShearCenterExtrapolated = scExtrapolated;
+        WarpingConstantMm6 = warpingConstantMm6;
+        HasWarpingConstant = hasWarpingConstant;
+        TauShearMaxMpa = tauShearMaxMpa;
+        HasShearFromForces = hasShearFromForces;
+        TauShearMpa = tauShearMpa;
     }
 
     public static TorsionResultData FromCalcResult(CScore.CalcResult r)
@@ -156,6 +169,15 @@ public sealed class TorsionResultData
             double? scOrderY = ParseNullableDouble(root, "shear_center_order_y");
             bool scExtrapolated = root.TryGetProperty("shear_center_extrapolated", out var se) && se.ValueKind == JsonValueKind.True;
 
+            double warpingM6 = root.TryGetProperty("warping_constant_m6", out var wc) ? wc.GetDouble() : double.NaN;
+            double warpingMm6 = double.IsFinite(warpingM6) ? warpingM6 * 1e18 : double.NaN;
+            bool hasWarping = method == "fem" && double.IsFinite(warpingMm6);
+            double tauShearMaxMpa = root.TryGetProperty("tau_shear_max_Pa", out var tsm) && double.IsFinite(tsm.GetDouble())
+                ? tsm.GetDouble() / 1e6 : double.NaN;
+            double[]? tauShearPa = ParseDoubleArray(root, "tau_shear");
+            bool hasShearForces = double.IsFinite(tauShearMaxMpa) && tauShearPa != null;
+            double[]? tauShearMpa = tauShearPa?.Select(v => v / 1e6).ToArray();
+
             return new TorsionResultData(
                 method, r.Status ?? "",
                 itMm4, scx, scy, hasSc,
@@ -176,7 +198,8 @@ public sealed class TorsionResultData
                 ParseDoubleArray(root, "convergence_h_mm"),
                 ParseDoubleArray(root, "convergence_it_mm4"),
                 itOrder, itExtrapolated,
-                scOrderX, scOrderY, scExtrapolated, femOrder);
+                scOrderX, scOrderY, scExtrapolated, femOrder,
+                warpingMm6, hasWarping, tauShearMaxMpa, hasShearForces, tauShearMpa);
         }
         catch
         {
@@ -190,7 +213,8 @@ public sealed class TorsionResultData
             double.NaN, double.NaN, false, double.NaN, 0, 0, 0, 0, double.NaN, false, error,
             [], [],
             null, null, null, null, null, null, null, null,
-            false, null, null, null, false, null, null, false, "");
+            false, null, null, null, false, null, null, false, "",
+            double.NaN, false, double.NaN, false, null);
 
     static double? ParseNullableDouble(JsonElement root, string key)
         => root.TryGetProperty(key, out var v) && v.ValueKind is JsonValueKind.Number ? v.GetDouble() : null;
@@ -272,6 +296,8 @@ public sealed class TorsionResultData
     {
         if (mode == TorsionFieldMode.Potential)
             return Potential?[i] ?? double.NaN;
+        if (mode == TorsionFieldMode.ShearForces)
+            return TauShearMpa?[i] ?? double.NaN;
         double tu = TauUnit?[i] ?? double.NaN;
         return mode switch
         {
@@ -311,5 +337,6 @@ public enum TorsionFieldMode
 {
     TauUnit,
     TauMpa,
-    Potential
+    Potential,
+    ShearForces
 }
