@@ -104,6 +104,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string steelBetaM = "1.0", steelGammaM = "1.025";
     string torsionElementSize = "0.05", torsionMk = "";
     string torsionVx = "", torsionVy = "";
+    string torsionN = "", torsionMx = "", torsionMy = "";
     string torsionAutoH0 = "0.05";
     string torsionAutoRuns = "3";
     double _lastTorsionLmin = double.NaN;
@@ -716,6 +717,15 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       OnPropertyChanged(nameof(TorsionVyFromSetText));
       OnPropertyChanged(nameof(HasTorsionVyFromSet));
       OnPropertyChanged(nameof(ShowTorsionManualVy));
+      OnPropertyChanged(nameof(TorsionNFromSetText));
+      OnPropertyChanged(nameof(HasTorsionNFromSet));
+      OnPropertyChanged(nameof(ShowTorsionManualN));
+      OnPropertyChanged(nameof(TorsionMxFromSetText));
+      OnPropertyChanged(nameof(HasTorsionMxFromSet));
+      OnPropertyChanged(nameof(ShowTorsionManualMx));
+      OnPropertyChanged(nameof(TorsionMyFromSetText));
+      OnPropertyChanged(nameof(HasTorsionMyFromSet));
+      OnPropertyChanged(nameof(ShowTorsionManualMy));
    }
 
    public LoadItem? SelectedForceItem
@@ -834,6 +844,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     public string TorsionMk { get => torsionMk; set { torsionMk = value; OnPropertyChanged(); } }
     public string TorsionVx { get => torsionVx; set { torsionVx = value; OnPropertyChanged(); } }
     public string TorsionVy { get => torsionVy; set { torsionVy = value; OnPropertyChanged(); } }
+    public string TorsionN { get => torsionN; set { torsionN = value; OnPropertyChanged(); } }
+    public string TorsionMx { get => torsionMx; set { torsionMx = value; OnPropertyChanged(); } }
+    public string TorsionMy { get => torsionMy; set { torsionMy = value; OnPropertyChanged(); } }
 
     public string TorsionAutoH0
     {
@@ -935,6 +948,45 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    }
    public bool HasTorsionVyFromSet => IsTorsionFem && selectedForceItem != null;
    public bool ShowTorsionManualVy => IsTorsionFem && selectedForceItem == null;
+
+   /// <summary>N из выбранной строки набора усилий, кН (только МКЭ — используется для комбинированных напряжений).</summary>
+   public string TorsionNFromSetText
+   {
+      get
+      {
+         if (selectedForceItem == null) return "—";
+         var inv = System.Globalization.CultureInfo.InvariantCulture;
+         return selectedForceItem.N.ToString("G6", inv);
+      }
+   }
+   public bool HasTorsionNFromSet => IsTorsionFem && selectedForceItem != null;
+   public bool ShowTorsionManualN => IsTorsionFem && selectedForceItem == null;
+
+   /// <summary>Mx из выбранной строки набора усилий, кН·м (только МКЭ — используется для комбинированных напряжений).</summary>
+   public string TorsionMxFromSetText
+   {
+      get
+      {
+         if (selectedForceItem == null) return "—";
+         var inv = System.Globalization.CultureInfo.InvariantCulture;
+         return selectedForceItem.Mx.ToString("G6", inv);
+      }
+   }
+   public bool HasTorsionMxFromSet => IsTorsionFem && selectedForceItem != null;
+   public bool ShowTorsionManualMx => IsTorsionFem && selectedForceItem == null;
+
+   /// <summary>My из выбранной строки набора усилий, кН·м (только МКЭ — используется для комбинированных напряжений).</summary>
+   public string TorsionMyFromSetText
+   {
+      get
+      {
+         if (selectedForceItem == null) return "—";
+         var inv = System.Globalization.CultureInfo.InvariantCulture;
+         return selectedForceItem.My.ToString("G6", inv);
+      }
+   }
+   public bool HasTorsionMyFromSet => IsTorsionFem && selectedForceItem != null;
+   public bool ShowTorsionManualMy => IsTorsionFem && selectedForceItem == null;
 
    public List<CalcTaskKindItem> AvailableKinds { get; } =
    [
@@ -1248,6 +1300,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               if (tp.MkKNm != 0) TorsionMk = tp.MkKNm.ToString("G6", inv);
               if (tp.VxKN != 0) TorsionVx = tp.VxKN.ToString("G6", inv);
               if (tp.VyKN != 0) TorsionVy = tp.VyKN.ToString("G6", inv);
+              if (tp.NkN != 0) TorsionN = tp.NkN.ToString("G6", inv);
+              if (tp.MxKNm != 0) TorsionMx = tp.MxKNm.ToString("G6", inv);
+              if (tp.MyKNm != 0) TorsionMy = tp.MyKNm.ToString("G6", inv);
               TorsionTriangulationIndex = tp.Triangulation == CSTriangulation.TriangulationMethod.Ruppert ? 1 : 0;
               TorsionAutoConverge = tp.AutoConverge;
               TorsionFemOrderIndex = tp.FemOrder == "quadratic" ? 1 : 0;
@@ -1815,6 +1870,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           double.TryParse(TorsionMk, System.Globalization.NumberStyles.Float, inv, out var mkManual);
           double.TryParse(TorsionVx, System.Globalization.NumberStyles.Float, inv, out var vxManual);
           double.TryParse(TorsionVy, System.Globalization.NumberStyles.Float, inv, out var vyManual);
+          double.TryParse(TorsionN, System.Globalization.NumberStyles.Float, inv, out var nManual);
+          double.TryParse(TorsionMx, System.Globalization.NumberStyles.Float, inv, out var mxManual);
+          double.TryParse(TorsionMy, System.Globalization.NumberStyles.Float, inv, out var myManual);
 
           double autoH0 = 0;
           int autoRuns = 0;
@@ -1856,6 +1914,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   MkKNm = mkManual,
                   VxKN = vxManual,
                   VyKN = vyManual,
+                  NkN = nManual,
+                  MxKNm = mxManual,
+                  MyKNm = myManual,
                   Triangulation = _torsionTriangulationIndex == 0
                       ? CSTriangulation.TriangulationMethod.AdvancingFront
                       : CSTriangulation.TriangulationMethod.Ruppert,

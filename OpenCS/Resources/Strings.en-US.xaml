@@ -2021,6 +2021,12 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TorsionVxManual">Vx manual, kN</system:String>
     <system:String x:Key="TorsionVyFromSet">Vy from force set</system:String>
     <system:String x:Key="TorsionVyManual">Vy manual, kN</system:String>
+    <system:String x:Key="TorsionNFromSet">N from force set</system:String>
+    <system:String x:Key="TorsionNManual">N manual, kN</system:String>
+    <system:String x:Key="TorsionMxFromSet">Mx from force set</system:String>
+    <system:String x:Key="TorsionMxManual">Mx manual, kN·m</system:String>
+    <system:String x:Key="TorsionMyFromSet">My from force set</system:String>
+    <system:String x:Key="TorsionMyManual">My manual, kN·m</system:String>
     <system:String x:Key="TorsionMk">Torque Mk, kN·m</system:String>
     <system:String x:Key="TorsionTabTau">τ/(GΘ)</system:String>
     <system:String x:Key="TorsionTabShearForces">τ (Vx,Vy)</system:String>

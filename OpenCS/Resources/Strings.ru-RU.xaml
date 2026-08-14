@@ -2024,6 +2024,12 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TorsionVxManual">Vx вручную, кН</system:String>
     <system:String x:Key="TorsionVyFromSet">Vy из набора</system:String>
     <system:String x:Key="TorsionVyManual">Vy вручную, кН</system:String>
+    <system:String x:Key="TorsionNFromSet">N из набора</system:String>
+    <system:String x:Key="TorsionNManual">N вручную, кН</system:String>
+    <system:String x:Key="TorsionMxFromSet">Mx из набора</system:String>
+    <system:String x:Key="TorsionMxManual">Mx вручную, кН·м</system:String>
+    <system:String x:Key="TorsionMyFromSet">My из набора</system:String>
+    <system:String x:Key="TorsionMyManual">My вручную, кН·м</system:String>
     <system:String x:Key="TorsionMk">Крутящий момент Mk, кН·м</system:String>
     <system:String x:Key="TorsionTabTau">τ/(GΘ)</system:String>
     <system:String x:Key="TorsionTabShearForces">τ (Vx,Vy)</system:String>

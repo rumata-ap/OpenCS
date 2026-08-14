@@ -699,6 +699,12 @@
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
 
                   <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
@@ -813,10 +819,64 @@
                            Margin="0,0,0,4"
                            Visibility="{Binding ShowTorsionManualVy, Converter={StaticResource BoolToVisibility}}"/>
 
-                  <TextBlock Grid.Row="13" Grid.Column="0" Text="{DynamicResource TorsionFemOrder}"
+                  <TextBlock Grid.Row="13" Grid.Column="0" Text="{DynamicResource TorsionNFromSet}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding HasTorsionNFromSet, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Grid.Row="13" Grid.Column="1" FontFamily="Consolas" FontWeight="SemiBold"
+                             Margin="0,0,0,4"
+                             Visibility="{Binding HasTorsionNFromSet, Converter={StaticResource BoolToVisibility}}">
+                     <Run Text="{Binding TorsionNFromSetText, Mode=OneWay}"/>
+                     <Run Text=" кН"/>
+                  </TextBlock>
+
+                  <TextBlock Grid.Row="14" Grid.Column="0" Text="{DynamicResource TorsionNManual}"
+                             VerticalAlignment="Top" Margin="0,0,4,4"
+                             Visibility="{Binding ShowTorsionManualN, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="14" Grid.Column="1"
+                           Text="{Binding TorsionN, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"
+                           Visibility="{Binding ShowTorsionManualN, Converter={StaticResource BoolToVisibility}}"/>
+
+                  <TextBlock Grid.Row="15" Grid.Column="0" Text="{DynamicResource TorsionMxFromSet}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding HasTorsionMxFromSet, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Grid.Row="15" Grid.Column="1" FontFamily="Consolas" FontWeight="SemiBold"
+                             Margin="0,0,0,4"
+                             Visibility="{Binding HasTorsionMxFromSet, Converter={StaticResource BoolToVisibility}}">
+                     <Run Text="{Binding TorsionMxFromSetText, Mode=OneWay}"/>
+                     <Run Text=" кН·м"/>
+                  </TextBlock>
+
+                  <TextBlock Grid.Row="16" Grid.Column="0" Text="{DynamicResource TorsionMxManual}"
+                             VerticalAlignment="Top" Margin="0,0,4,4"
+                             Visibility="{Binding ShowTorsionManualMx, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="16" Grid.Column="1"
+                           Text="{Binding TorsionMx, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"
+                           Visibility="{Binding ShowTorsionManualMx, Converter={StaticResource BoolToVisibility}}"/>
+
+                  <TextBlock Grid.Row="17" Grid.Column="0" Text="{DynamicResource TorsionMyFromSet}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding HasTorsionMyFromSet, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBlock Grid.Row="17" Grid.Column="1" FontFamily="Consolas" FontWeight="SemiBold"
+                             Margin="0,0,0,4"
+                             Visibility="{Binding HasTorsionMyFromSet, Converter={StaticResource BoolToVisibility}}">
+                     <Run Text="{Binding TorsionMyFromSetText, Mode=OneWay}"/>
+                     <Run Text=" кН·м"/>
+                  </TextBlock>
+
+                  <TextBlock Grid.Row="18" Grid.Column="0" Text="{DynamicResource TorsionMyManual}"
+                             VerticalAlignment="Top" Margin="0,0,4,4"
+                             Visibility="{Binding ShowTorsionManualMy, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="18" Grid.Column="1"
+                           Text="{Binding TorsionMy, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"
+                           Visibility="{Binding ShowTorsionManualMy, Converter={StaticResource BoolToVisibility}}"/>
+
+                  <TextBlock Grid.Row="19" Grid.Column="0" Text="{DynamicResource TorsionFemOrder}"
                              VerticalAlignment="Center" Margin="0,0,4,4"
                              Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}"/>
-                  <ComboBox Grid.Row="13" Grid.Column="1" Margin="0,0,0,4"
+                  <ComboBox Grid.Row="19" Grid.Column="1" Margin="0,0,0,4"
                             SelectedIndex="{Binding TorsionFemOrderIndex}"
                             ToolTip="{DynamicResource TorsionFemOrderHint}"
                             Visibility="{Binding IsTorsionFem, Converter={StaticResource BoolToVisibility}}">
