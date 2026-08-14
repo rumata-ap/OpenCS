@@ -73,21 +73,21 @@ public abstract class TorsionHandlerBase : ITaskHandler
                 tauMax = gPa * twistRate * props.TauUnitMax;
             }
 
-            // Касательные напряжения от Vx/Vy (Тимошенко) — только МКЭ, требует E материала.
-            double eMpa = baseMat?.E ?? 0;
+            // Касательные напряжения от Vx/Vy (Тимошенко) — только МКЭ. E не участвует: для
+            // однородного сечения силовая упругая задача даёт τ, не зависящее от модуля
+            // упругости (как и σ от N/M, τ от T) — см. док TorsionShearStressPostprocessor.
             bool hasShearForces = Math.Abs(vxKN) > 1e-12 || Math.Abs(vyKN) > 1e-12;
             double[]? tauShearMagField = null;
             double tauShearMax = double.NaN;
-            if (hasShearForces && eMpa > 0 && double.IsFinite(props.ShearDeltaS) &&
+            if (hasShearForces && double.IsFinite(props.ShearDeltaS) &&
                 props.ShearVxUnitFieldX != null && props.ShearVxUnitFieldY != null &&
                 props.ShearVyUnitFieldX != null && props.ShearVyUnitFieldY != null)
             {
-                double ePa = eMpa * 1e6;
                 double vxN = vxKN * 1e3, vyN = vyKN * 1e3;
                 var (tauShearX, tauShearY) = TorsionShearStressPostprocessor.Combine(
                     props.ShearVxUnitFieldX, props.ShearVxUnitFieldY,
                     props.ShearVyUnitFieldX, props.ShearVyUnitFieldY,
-                    props.ShearDeltaS, ePa, vxN, vyN);
+                    props.ShearDeltaS, vxN, vyN);
                 tauShearMagField = new double[tauShearX.Length];
                 tauShearMax = 0.0;
                 for (int i = 0; i < tauShearX.Length; i++)

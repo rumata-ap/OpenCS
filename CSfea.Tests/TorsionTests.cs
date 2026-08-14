@@ -816,9 +816,16 @@ public static class TorsionTests
             $"γ={props.WarpingConstant:E4}, шкала={scale:E4}");
     }
 
+    /// <summary>
+    /// Также служит регресс-тестом на баг 2026-08-15: физическая τ от Vx/Vy не должна зависеть
+    /// от E (силовая, а не деформационная, упругая задача — как и σ от N/M, τ от T; E сокращается
+    /// аналитически). Раньше Combine принимала параметр e и ошибочно на него домножала — теперь
+    /// сигнатура E не принимает вовсе, так что регрессия невозможна на уровне компиляции;
+    /// это равновесие остаётся единственной содержательной проверкой корректности порта.
+    /// </summary>
     public static void FemShearUnitFieldsEquilibriumRectangle()
     {
-        TestHarness.Section("МКЭ: равновесие единичных полей τ от Vx/Vy — ∫τ dA = V (E=1) для прямоугольника");
+        TestHarness.Section("МКЭ: равновесие единичных полей τ от Vx/Vy — ∫τ dA = V для прямоугольника");
         double b = 0.2, h = 0.4;
         var boundary = new TorsionBoundary(
             new[] { -b / 2, b / 2, b / 2, -b / 2 },
@@ -832,19 +839,19 @@ public static class TorsionTests
 
         var mesh = MeshBuilder.Build(boundary, 0.03, TriangulationMethod.AdvancingFront);
 
-        // Vx=1, Vy=0, E=1: ∫τx dA ≈ 1, ∫τy dA ≈ 0 (равновесие — резюме нагрузки по определению).
+        // Vx=1, Vy=0: ∫τx dA ≈ 1, ∫τy dA ≈ 0 (равновесие — резюме нагрузки по определению).
         var (tauXvx, tauYvx) = TorsionShearStressPostprocessor.Combine(
             props.ShearVxUnitFieldX!, props.ShearVxUnitFieldY!, props.ShearVyUnitFieldX!, props.ShearVyUnitFieldY!,
-            props.ShearDeltaS, e: 1.0, vx: 1.0, vy: 0.0);
+            props.ShearDeltaS, vx: 1.0, vy: 0.0);
         double intTauXvx = TorsionPostprocessor.IntegrateField(mesh, tauXvx);
         double intTauYvx = TorsionPostprocessor.IntegrateField(mesh, tauYvx);
         TestHarness.CheckRel("∫τx dA ≈ Vx=1 (нагрузка Vx)", intTauXvx, 1.0, 0.05);
         TestHarness.Check("∫τy dA ≈ 0 (нагрузка Vx)", Math.Abs(intTauYvx) < 0.05, $"∫τy={intTauYvx:E4}");
 
-        // Vx=0, Vy=1, E=1: ∫τy dA ≈ 1, ∫τx dA ≈ 0.
+        // Vx=0, Vy=1: ∫τy dA ≈ 1, ∫τx dA ≈ 0.
         var (tauXvy, tauYvy) = TorsionShearStressPostprocessor.Combine(
             props.ShearVxUnitFieldX!, props.ShearVxUnitFieldY!, props.ShearVyUnitFieldX!, props.ShearVyUnitFieldY!,
-            props.ShearDeltaS, e: 1.0, vx: 0.0, vy: 1.0);
+            props.ShearDeltaS, vx: 0.0, vy: 1.0);
         double intTauXvy = TorsionPostprocessor.IntegrateField(mesh, tauXvy);
         double intTauYvy = TorsionPostprocessor.IntegrateField(mesh, tauYvy);
         TestHarness.Check("∫τx dA ≈ 0 (нагрузка Vy)", Math.Abs(intTauXvy) < 0.05, $"∫τx={intTauXvy:E4}");

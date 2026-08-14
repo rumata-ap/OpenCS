@@ -3,9 +3,16 @@ namespace CSfea.Torsion;
 /// <summary>
 /// Касательные напряжения от поперечных сил Vx/Vy (формулировка Тимошенко, порт
 /// <c>element_stress</c> из sectionproperties/fea.py). Единичные узловые поля (без множителя
-/// E·V/Δs — эти величины известны только на уровне конкретной задачи/загружения, не решателя)
+/// V/Δs — величина V известна только на уровне конкретной задачи/загружения, не решателя)
 /// вычисляются в <see cref="TorsionShearCenterSolver"/> из уже решённых полей ψ,φ; здесь —
-/// только их физическая суперпозиция для заданных E, Vx, Vy.
+/// только их физическая суперпозиция для заданных Vx, Vy.
+///
+/// В исходной формуле sectionproperties (<c>sig_zx_vx = E·Vx/Δs·(...)</c>) присутствует явный
+/// множитель E, но там Δs и ψ,φ — модуль-взвешенные величины (∝E¹ и ∝E² соответственно для
+/// однородного материала), тогда как наши Δs,ψ,φ вычислены как чисто геометрические (неявно
+/// E≡1). При подстановке E сокращается полностью: τ от силовой (не деформационной) упругой
+/// задачи для однородного сечения не зависит от E — как и σ от N/M (простая механика материалов)
+/// и τ от кручения T (уже было верно реализовано без E). Отсюда — никакого параметра E здесь нет.
 /// </summary>
 public static class TorsionShearStressPostprocessor
 {
@@ -43,16 +50,17 @@ public static class TorsionShearStressPostprocessor
     }
 
     /// <summary>
-    /// Физическая суперпозиция единичных полей: τx,τy = E/Δs·(Vx·VxUnit + Vy·VyUnit).
-    /// Единицы — согласованные с входными (например, E в Па, Vx/Vy в Н, геометрия в м → τ в Па).
+    /// Физическая суперпозиция единичных полей: τx,τy = (Vx·VxUnit + Vy·VyUnit)/Δs.
+    /// Единицы — согласованные с входными (например, Vx/Vy в Н, геометрия в м → τ в Па).
+    /// Без множителя E — см. обоснование в доке класса.
     /// </summary>
     public static (double[] tauX, double[] tauY) Combine(
         double[] vxUnitX, double[] vxUnitY, double[] vyUnitX, double[] vyUnitY,
-        double deltaS, double e, double vx, double vy)
+        double deltaS, double vx, double vy)
     {
         int n = vxUnitX.Length;
         var tauX = new double[n]; var tauY = new double[n];
-        double kx = e * vx / deltaS, ky = e * vy / deltaS;
+        double kx = vx / deltaS, ky = vy / deltaS;
         for (int i = 0; i < n; i++)
         {
             tauX[i] = kx * vxUnitX[i] + ky * vyUnitX[i];
