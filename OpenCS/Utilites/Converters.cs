@@ -208,4 +208,33 @@ namespace OpenCS.Utilites
       public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
          Binding.DoNothing;
    }
+
+   /// <summary>Подпись фильтра узловой таблицы результатов.</summary>
+   public class FemDisplacementDisplayModeLabelConverter : IValueConverter
+   {
+      public object Convert(object value, Type targetType, object parameter, CultureInfo culture) => value switch
+      {
+         OpenCS.ViewModels.FemDisplacementDisplayMode.AllNodes => Loc.S("FemDisplayAllNodes"),
+         OpenCS.ViewModels.FemDisplacementDisplayMode.ExtremesOnly => Loc.S("FemDisplayExtremesOnly"),
+         _ => value?.ToString() ?? ""
+      };
+
+      public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+         Binding.DoNothing;
+   }
+
+   /// <summary>Локализует список компонент, по которым строка выбрана как экстремальная.</summary>
+   public class FemExtremeComponentsLabelConverter : IValueConverter
+   {
+      public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+      {
+         if (value is not IEnumerable<OpenCS.ViewModels.FemNodalComponent> components)
+            return value?.ToString() ?? "";
+         return string.Join(", ", components.Select(component =>
+            Loc.S($"FemResultNodal{component}")));
+      }
+
+      public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+         Binding.DoNothing;
+   }
 }

@@ -9,6 +9,7 @@ using CScore.Fem;
 using HelixToolkit.Wpf;
 using OpenCS.OpenSees.CScore;
 using OpenCS.OpenSees.Structural;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
 namespace OpenCS.Views;
@@ -59,6 +60,13 @@ public partial class FemAnalysisResultView : UserControl
         InitializeComponent();
         _vm = vm;
         DataContext = _vm;
+        displacementModeBox.ItemsSource = System.Enum.GetValues<FemDisplacementDisplayMode>();
+        displacementModeBox.SelectedItem = _vm.DisplacementDisplayMode;
+        displacementLengthUnitBox.ItemsSource = System.Enum.GetValues<FemLengthUnit>();
+        displacementLengthUnitBox.SelectedItem = _vm.DisplacementLengthUnit;
+        rotationDisplayScaleBox.ItemsSource = System.Enum.GetValues<FemRotationScale>();
+        rotationDisplayScaleBox.SelectedItem = _vm.RotationDisplayScale;
+        UpdateDisplacementTableColumns();
         BuildViewport();
         BuildPickTargets();
         BuildLoadFactorCanvas();
@@ -85,9 +93,14 @@ public partial class FemAnalysisResultView : UserControl
         {
             _deformed.Points = _vm.DeformedLines;
         }
+        else if (e.PropertyName is nameof(FemAnalysisResultVM.ShowDeformedSchema)
+            or nameof(FemAnalysisResultVM.ShowDeformedNodes))
+        {
+            UpdateDeformedVisibility();
+        }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedNodes) && _nodesVisual is not null)
         {
-            _nodesVisual.Points = showNodesCheck.IsChecked == true ? _vm.DeformedNodes : null!;
+            _nodesVisual.Points = _vm.DeformedNodes;
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.ForceDiagramMesh) && _forceRibbon is not null)
         {
@@ -113,9 +126,18 @@ public partial class FemAnalysisResultView : UserControl
         {
             UpdateSelectionHighlight();
         }
-        else if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedDisplacementRow) && _vm.SelectedDisplacementRow is { } dispRow)
+        else if (e.PropertyName is nameof(FemAnalysisResultVM.SelectedDisplayedDisplacementRow)
+            or nameof(FemAnalysisResultVM.SelectedDisplacementRow))
         {
-            displacementsGrid.ScrollIntoView(dispRow);
+            if (_vm.SelectedDisplayedDisplacementRow is { } dispRow)
+                displacementsGrid.ScrollIntoView(dispRow);
+        }
+        else if (e.PropertyName is nameof(FemAnalysisResultVM.DisplayedDisplacements)
+            or nameof(FemAnalysisResultVM.DisplacementDisplayMode)
+            or nameof(FemAnalysisResultVM.DisplacementLengthUnit)
+            or nameof(FemAnalysisResultVM.RotationDisplayScale))
+        {
+            UpdateDisplacementTableColumns();
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedReactionRow) && _vm.SelectedReactionRow is { } reactRow)
         {
@@ -129,8 +151,32 @@ public partial class FemAnalysisResultView : UserControl
 
     void NodesToggle(object sender, System.Windows.RoutedEventArgs e)
     {
-        if (_nodesVisual != null && sender is ToggleButton tb)
-            _nodesVisual.Points = tb.IsChecked == true ? _vm.DeformedNodes : null!;
+        if (sender is ToggleButton tb && tb.IsChecked is bool isChecked)
+            _vm.ShowDeformedNodes = isChecked;
+        UpdateDeformedVisibility();
+    }
+
+    void DeformedVisibilityToggle(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (sender is ToggleButton tb && tb.IsChecked is bool isChecked)
+            _vm.ShowDeformedSchema = isChecked;
+        UpdateDeformedVisibility();
+    }
+
+    void UpdateDeformedVisibility()
+    {
+        if (_deformed is not null)
+        {
+            bool attached = viewport.Children.Contains(_deformed);
+            if (_vm.ShowDeformedSchema && !attached) viewport.Children.Add(_deformed);
+            else if (!_vm.ShowDeformedSchema && attached) viewport.Children.Remove(_deformed);
+        }
+        if (_nodesVisual is not null)
+        {
+            bool attached = viewport.Children.Contains(_nodesVisual);
+            if (_vm.ShowDeformedNodes && !attached) viewport.Children.Add(_nodesVisual);
+            else if (!_vm.ShowDeformedNodes && attached) viewport.Children.Remove(_nodesVisual);
+        }
     }
 
     void HighlightWholeMemberToggle(object sender, System.Windows.RoutedEventArgs e)
@@ -149,6 +195,7 @@ public partial class FemAnalysisResultView : UserControl
         viewport.Children.Add(_deformed);
         _nodesVisual = new PointsVisual3D { Color = Colors.DarkSlateGray, Size = 5, Points = _vm.DeformedNodes };
         viewport.Children.Add(_nodesVisual);
+        UpdateDeformedVisibility();
         _forceRibbon = new MeshGeometryVisual3D
         {
             MeshGeometry = _vm.ForceDiagramMesh,
@@ -359,8 +406,44 @@ public partial class FemAnalysisResultView : UserControl
 
     void DisplacementsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (e.AddedItems.Count > 0 && e.AddedItems[0] is FemNodeDisplacement row)
+        if (e.AddedItems.Count > 0 && e.AddedItems[0] is FemNodeDisplacementRow row)
             _vm.SelectNode(row.NodeTag);
+    }
+
+    void DisplacementModeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (displacementModeBox.SelectedItem is FemDisplacementDisplayMode mode)
+            _vm.DisplacementDisplayMode = mode;
+    }
+
+    void DisplacementLengthUnitBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (displacementLengthUnitBox.SelectedItem is FemLengthUnit unit)
+            _vm.DisplacementLengthUnit = unit;
+    }
+
+    void RotationDisplayScaleBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (rotationDisplayScaleBox.SelectedItem is FemRotationScale scale)
+            _vm.RotationDisplayScale = scale;
+    }
+
+    void UpdateDisplacementTableColumns()
+    {
+        if (displacementsGrid.Columns.Count < 9) return;
+        bool extremes = _vm.DisplacementDisplayMode == FemDisplacementDisplayMode.ExtremesOnly;
+        displacementsGrid.Columns[1].Visibility = extremes ? Visibility.Visible : Visibility.Collapsed;
+        displacementsGrid.Columns[8].Visibility = extremes ? Visibility.Visible : Visibility.Collapsed;
+
+        string lengthUnit = Loc.S($"FemLength{_vm.DisplacementLengthUnit}");
+        string rotationUnit = string.Format(Loc.S("FemRotationDisplayUnit"),
+            Loc.S("FemUnitRad"), (int)_vm.RotationDisplayScale);
+        displacementsGrid.Columns[2].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalUx"), lengthUnit);
+        displacementsGrid.Columns[3].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalUy"), lengthUnit);
+        displacementsGrid.Columns[4].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalUz"), lengthUnit);
+        displacementsGrid.Columns[5].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalRx"), rotationUnit);
+        displacementsGrid.Columns[6].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalRy"), rotationUnit);
+        displacementsGrid.Columns[7].Header = string.Format(Loc.S("FemResultColumnHeader"), Loc.S("FemResultNodalRz"), rotationUnit);
     }
 
     void ReactionsGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)

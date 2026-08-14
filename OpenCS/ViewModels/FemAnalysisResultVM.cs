@@ -372,6 +372,7 @@ public class FemAnalysisResultVM : ViewModelBase
 
     FemForceComponent _selectedForceComponent = FemForceComponent.Mz;
     readonly FemForceScaleState _forceScaleState = new();
+    bool _suppressForceScaleManualMark;
     /// <summary>Выбранная компонента усилия для 3D-эпюры.</summary>
     public FemForceComponent SelectedForceComponent
     {
@@ -395,6 +396,11 @@ public class FemAnalysisResultVM : ViewModelBase
         set
         {
             if (!FemScaleInput.IsValid(value)) return;
+            if (_suppressForceScaleManualMark)
+            {
+                _forceScaleState.SetAutomatic(_selectedForceComponent, value);
+                return;
+            }
             if (_forceScaleState.IsManual(_selectedForceComponent) && value == ForceScale) return;
             _forceScaleState.SetManual(_selectedForceComponent, value);
             RebuildForceDiagram();
@@ -664,8 +670,25 @@ public class FemAnalysisResultVM : ViewModelBase
 
     void RefreshAutomaticForceScales()
     {
-        _forceScaleState.RefreshAutomatic(
-            ForceComponents.Select(component => (component, SuggestForceScale(component))).ToArray());
+        foreach (FemForceComponent component in ForceComponents)
+            SetAutomaticForceScale(component, SuggestForceScale(component));
+    }
+
+    void SetAutomaticForceScale(FemForceComponent component, double value)
+    {
+        FemForceComponent previous = _selectedForceComponent;
+        bool previousSuppress = _suppressForceScaleManualMark;
+        try
+        {
+            _suppressForceScaleManualMark = true;
+            _selectedForceComponent = component;
+            ForceScale = value;
+        }
+        finally
+        {
+            _selectedForceComponent = previous;
+            _suppressForceScaleManualMark = previousSuppress;
+        }
     }
 
     void ResetSelectedForceScale()

@@ -107,6 +107,13 @@ public sealed class FemForceScaleState
     public void SetManual(FemForceComponent component, double value) =>
         _values[component] = new ScaleEntry(Normalize(value), true);
 
+    /// <summary>Записывает автоматический масштаб, не снимая ручной override.</summary>
+    public void SetAutomatic(FemForceComponent component, double value)
+    {
+        if (_values.TryGetValue(component, out ScaleEntry entry) && entry.IsManual) return;
+        _values[component] = new ScaleEntry(Normalize(value), false);
+    }
+
     /// <summary>Сбрасывает ручное значение и записывает новый автоматический масштаб.</summary>
     public void Reset(FemForceComponent component, Func<double> automaticFactory) =>
         _values[component] = new ScaleEntry(Normalize(automaticFactory()), false);
@@ -115,10 +122,7 @@ public sealed class FemForceScaleState
     public void RefreshAutomatic(params (FemForceComponent Component, double Value)[] values)
     {
         foreach ((FemForceComponent component, double value) in values)
-        {
-            if (!_values.TryGetValue(component, out ScaleEntry entry) || !entry.IsManual)
-                _values[component] = new ScaleEntry(Normalize(value), false);
-        }
+            SetAutomatic(component, value);
     }
 
     /// <summary>Показывает, задан ли для компоненты ручной масштаб.</summary>

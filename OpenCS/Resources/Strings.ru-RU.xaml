@@ -1624,10 +1624,16 @@
     <system:String x:Key="FemResultDisplacementComponent">Компонента:</system:String>
     <system:String x:Key="FemResultLengthUnit">Единица длины:</system:String>
     <system:String x:Key="FemResultRotationScale">Масштаб поворота:</system:String>
+    <system:String x:Key="FemResultDisplayMode">Показывать:</system:String>
+    <system:String x:Key="FemDisplayAllNodes">Все узлы</system:String>
+    <system:String x:Key="FemDisplayExtremesOnly">Только экстремумы</system:String>
     <system:String x:Key="FemResultStatus">Статус:</system:String>
     <system:String x:Key="FemResultArtifacts">Артефакты:</system:String>
     <system:String x:Key="FemColNode">Узел</system:String>
     <system:String x:Key="FemColElement">Элемент</system:String>
+    <system:String x:Key="FemColMember">Стержень</system:String>
+    <system:String x:Key="FemColExtremeComponents">Экстремальные компоненты</system:String>
+    <system:String x:Key="FemResultColumnHeader">{0}, {1}</system:String>
     <system:String x:Key="UnitKN">кН</system:String>
     <system:String x:Key="UnitKNm">кН·м</system:String>
     <system:String x:Key="FemColDispUx">Ux, м</system:String>

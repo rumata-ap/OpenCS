@@ -1621,10 +1621,16 @@
     <system:String x:Key="FemResultDisplacementComponent">Component:</system:String>
     <system:String x:Key="FemResultLengthUnit">Length unit:</system:String>
     <system:String x:Key="FemResultRotationScale">Rotation scale:</system:String>
+    <system:String x:Key="FemResultDisplayMode">Show:</system:String>
+    <system:String x:Key="FemDisplayAllNodes">All nodes</system:String>
+    <system:String x:Key="FemDisplayExtremesOnly">Extremes only</system:String>
     <system:String x:Key="FemResultStatus">Status:</system:String>
     <system:String x:Key="FemResultArtifacts">Artifacts:</system:String>
     <system:String x:Key="FemColNode">Node</system:String>
     <system:String x:Key="FemColElement">Element</system:String>
+    <system:String x:Key="FemColMember">Member</system:String>
+    <system:String x:Key="FemColExtremeComponents">Extreme components</system:String>
+    <system:String x:Key="FemResultColumnHeader">{0}, {1}</system:String>
     <system:String x:Key="UnitKN">kN</system:String>
     <system:String x:Key="UnitKNm">kN·m</system:String>
     <system:String x:Key="FemColDispUx">Ux, m</system:String>
