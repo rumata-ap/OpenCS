@@ -25,12 +25,16 @@ public static class TorsionFemSolver
 {
     /// <summary>
     /// Вычислить характеристики кручения. Корректно работает на многосвязных областях
-    /// (полые сечения с произвольным числом отверстий).
-    /// ShearCenterX/Y = NaN (φ-формулировка центр кручения не даёт).
+    /// (полые сечения с произвольным числом отверстий). It — из функции Прандтля φ.
+    /// ShearCenterX/Y — центр кручения по депланационной формулировке (elasticity-подход,
+    /// см. <see cref="TorsionShearCenterSolver"/>); ShearCenterTrefftzX/Y — тот же центр
+    /// по подходу Трефтца (не использует ν). <paramref name="nu"/> — коэффициент Пуассона,
+    /// нужен только для elasticity-подхода к центру кручения (на It и φ не влияет).
     /// </summary>
     public static TorsionProps Solve(TorsionBoundary boundary, double maxElementSize,
         TriangulationMethod triangulation = TriangulationMethod.AdvancingFront,
-        FemElementOrder order = FemElementOrder.Linear)
+        FemElementOrder order = FemElementOrder.Linear,
+        double nu = 0.2)
     {
         var mesh = MeshBuilder.Build(boundary, maxElementSize, triangulation);
         if (order == FemElementOrder.Quadratic)
@@ -72,16 +76,21 @@ public static class TorsionFemSolver
             if (tauUnit[i] > tauMax) tauMax = tauUnit[i];
         }
 
+        var sc = TorsionShearCenterSolver.Compute(boundary, mesh, K, nu);
+
         return new TorsionProps
         {
             It           = it,
-            ShearCenterX = double.NaN,
-            ShearCenterY = double.NaN,
+            ShearCenterX = sc.ElasticX,
+            ShearCenterY = sc.ElasticY,
+            ShearCenterTrefftzX = sc.TrefftzX,
+            ShearCenterTrefftzY = sc.TrefftzY,
             TauUnitMax   = tauMax,
             NodeX        = mesh.NodesX,
             NodeY        = mesh.NodesY,
             TauUnitField = tauUnit,
             PotentialField = phi,
+            WarpingField = sc.Warping,
             Triangles    = mesh.Triangles,
             Singular     = false,
             NElements    = mesh.Triangles.Length,
@@ -250,7 +259,7 @@ public static class TorsionFemSolver
     /// Возвращает функцию решения A·x=b, пригодную для многократного вызова с разными b
     /// по одной факторизации (нужно для Schur-дополнения условий Бредта).
     /// </summary>
-    private static Func<double[], double[]> FactorizeSpd(CscMatrix a)
+    internal static Func<double[], double[]> FactorizeSpd(CscMatrix a)
     {
         var chol = new SparseCholeskySolver();
         try

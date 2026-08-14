@@ -490,6 +490,71 @@ public static class TorsionTests
         TestHarness.CheckRel("It МГЭ (полая труба, ≤8%)", bem.It, exact, 0.08);
     }
 
+    public static void FemShearCenterRectangleSymmetricAtCentroid()
+    {
+        TestHarness.Section("МКЭ: центр кручения прямоугольника (симметрия) — elasticity и Трефтц ≈ центроид");
+        double b = 0.2, h = 0.4;
+        var boundary = new TorsionBoundary(
+            new[] { -b / 2, b / 2, b / 2, -b / 2 },
+            new[] { -h / 2, -h / 2, h / 2, h / 2 });
+        var fem = TorsionFemSolver.Solve(boundary, maxElementSize: 0.03, nu: 0.3);
+        double tol = 0.01 * Math.Max(b, h); // 1% от габарита
+        TestHarness.Check("ShearCenterX (elasticity) ≈ 0", Math.Abs(fem.ShearCenterX) < tol,
+            $"x={fem.ShearCenterX:F5}");
+        TestHarness.Check("ShearCenterY (elasticity) ≈ 0", Math.Abs(fem.ShearCenterY) < tol,
+            $"y={fem.ShearCenterY:F5}");
+        TestHarness.Check("ShearCenterTrefftzX ≈ 0", Math.Abs(fem.ShearCenterTrefftzX) < tol,
+            $"x={fem.ShearCenterTrefftzX:F5}");
+        TestHarness.Check("ShearCenterTrefftzY ≈ 0", Math.Abs(fem.ShearCenterTrefftzY) < tol,
+            $"y={fem.ShearCenterTrefftzY:F5}");
+    }
+
+    /// <summary>C-образный (швеллер) контур: центроид не совпадает с центром кручения по X.</summary>
+    static TorsionBoundary SampleChannelBoundary(double B, double H, double t)
+        => new(
+            new[] { 0.0, B, B, t, t, B, B, 0.0 },
+            new[] { 0.0, 0.0, t, t, H - t, H - t, H, H });
+
+    public static void GeoMomentsChannelSymmetricIxyIsZero()
+    {
+        TestHarness.Section("TorsionGeoMoments: швеллер симметричен относительно y=H/2 — Ixy строго 0, центроид точен");
+        double B = 0.1, H = 0.2, t = 0.02;
+        var boundary = SampleChannelBoundary(B, H, t);
+        var (xc, yc, ixx, iyy, ixy) = TorsionGeoMoments.Compute(boundary);
+        double areaExpect = 2 * B * t + t * (H - 2 * t);
+        double xcExpect = (2 * B * t * (B / 2.0) + t * (H - 2 * t) * (t / 2.0)) / areaExpect;
+        TestHarness.CheckRel("Xc", xc, xcExpect, 1e-9);
+        TestHarness.CheckRel("Yc = H/2", yc, H / 2.0, 1e-9);
+        TestHarness.Check("Ixy ≈ 0 (точная симметрия относительно y=H/2)", Math.Abs(ixy) < 1e-15 * ixx,
+            $"ixy={ixy:E6}, ixx={ixx:E6}");
+        TestHarness.Check("Ixx, Iyy > 0", ixx > 0 && iyy > 0);
+    }
+
+    public static void FemShearCenterChannelVsBem()
+    {
+        TestHarness.Section("МКЭ vs МГЭ: центр кручения швеллера (независимая перекрёстная проверка)");
+        double B = 0.1, H = 0.2, t = 0.02;
+        var boundary = SampleChannelBoundary(B, H, t);
+        var bem = TorsionBemSolver.Solve(boundary, maxElementSize: 0.005);
+        var fem = TorsionFemSolver.Solve(boundary, maxElementSize: 0.005, nu: 0.3);
+
+        TestHarness.Check("МГЭ не сингулярна", !bem.Singular);
+        // Форма симметрична относительно горизонтальной оси y=H/2 — центр кручения обеих
+        // веток должен лежать на этой оси независимо от метода (допуск учитывает дискретизацию).
+        double tolY = 0.02 * H;
+        TestHarness.Check("МГЭ: ShearCenterY ≈ H/2", Math.Abs(bem.ShearCenterY - H / 2.0) < tolY,
+            $"y={bem.ShearCenterY:F5}");
+        TestHarness.Check("МКЭ (elasticity): ShearCenterY ≈ H/2", Math.Abs(fem.ShearCenterY - H / 2.0) < tolY,
+            $"y={fem.ShearCenterY:F5}");
+        TestHarness.Check("МКЭ (Трефтц): ShearCenterY ≈ H/2", Math.Abs(fem.ShearCenterTrefftzY - H / 2.0) < tolY,
+            $"y={fem.ShearCenterTrefftzY:F5}");
+
+        // Независимая перекрёстная проверка по X между МГЭ и МКЭ (оба метода решают одну и ту же
+        // краевую задачу разными способами — согласие подтверждает корректность обеих реализаций).
+        TestHarness.CheckRel("ShearCenterX: МГЭ vs МКЭ (elasticity, ≤10%)", fem.ShearCenterX, bem.ShearCenterX, 0.10);
+        TestHarness.CheckRel("ShearCenterX: МГЭ vs МКЭ (Трефтц, ≤10%)", fem.ShearCenterTrefftzX, bem.ShearCenterX, 0.10);
+    }
+
     static readonly double[] UnitTri6 =
     [
         0, 0, 1, 0, 0, 1,

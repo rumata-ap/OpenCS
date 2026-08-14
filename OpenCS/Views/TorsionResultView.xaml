@@ -45,6 +45,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                      </Grid.RowDefinitions>
 
                      <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource TorsionIt}" Foreground="Gray"/>
@@ -79,24 +80,29 @@
                      <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource TorsionShearCenter}" Foreground="Gray"/>
                      <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding ShearCenterText, Mode=OneWay}" FontFamily="Consolas"/>
 
-                     <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource TorsionTauUnitMax}" Foreground="Gray"/>
-                     <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding TauUnitMaxText, Mode=OneWay}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource TorsionShearCenterTrefftz}" Foreground="Gray"
+                                Visibility="{Binding HasShearCenterTrefftz, Converter={StaticResource BoolToVisibility}}"/>
+                     <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding ShearCenterTrefftzText, Mode=OneWay}" FontFamily="Consolas"
+                                Visibility="{Binding HasShearCenterTrefftz, Converter={StaticResource BoolToVisibility}}"/>
 
-                     <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource TorsionTauMax}" Foreground="Gray"/>
-                     <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding TauMaxText, Mode=OneWay}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource TorsionTauUnitMax}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding TauUnitMaxText, Mode=OneWay}" FontFamily="Consolas"/>
 
-                     <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource TorsionTwistRate}" Foreground="Gray"
+                     <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource TorsionTauMax}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding TauMaxText, Mode=OneWay}" FontFamily="Consolas"/>
+
+                     <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource TorsionTwistRate}" Foreground="Gray"
                                 Visibility="{Binding HasTwistRate, Converter={StaticResource BoolToVisibility}}"/>
-                     <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding TwistRateText, Mode=OneWay}" FontFamily="Consolas"
+                     <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding TwistRateText, Mode=OneWay}" FontFamily="Consolas"
                                 Visibility="{Binding HasTwistRate, Converter={StaticResource BoolToVisibility}}"/>
 
-                     <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource TorsionElements}" Foreground="Gray"/>
-                     <TextBlock Grid.Row="9" Grid.Column="1" Text="{Binding ElementsText, Mode=OneWay}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource TorsionElements}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding ElementsText, Mode=OneWay}" FontFamily="Consolas"/>
 
-                     <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource TorsionElementSize}" Foreground="Gray"/>
-                     <TextBlock Grid.Row="10" Grid.Column="1" Text="{Binding ElementSizeText, Mode=OneWay}" FontFamily="Consolas"/>
+                     <TextBlock Grid.Row="11" Grid.Column="0" Text="{DynamicResource TorsionElementSize}" Foreground="Gray"/>
+                     <TextBlock Grid.Row="11" Grid.Column="1" Text="{Binding ElementSizeText, Mode=OneWay}" FontFamily="Consolas"/>
 
-                     <TextBlock Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2" Foreground="DarkOrange" Margin="0,6,0,0"
+                     <TextBlock Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2" Foreground="DarkOrange" Margin="0,6,0,0"
                                 Visibility="{Binding IsSingular, Converter={StaticResource BoolToVisibility}}">
                         <Run Text="{DynamicResource TorsionSingular}"/>
                      </TextBlock>

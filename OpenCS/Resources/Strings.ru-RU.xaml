@@ -1997,6 +1997,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TorsionTabSummary">Сводка</system:String>
     <system:String x:Key="TorsionIt">Постоянная кручения It</system:String>
     <system:String x:Key="TorsionShearCenter">Центр кручения</system:String>
+    <system:String x:Key="TorsionShearCenterTrefftz">Центр кручения (Трефтц)</system:String>
     <system:String x:Key="TorsionTauMax">Макс. касательное напряжение τ_max</system:String>
     <system:String x:Key="TorsionElements">Число элементов</system:String>
     <system:String x:Key="TorsionMethod">Метод</system:String>

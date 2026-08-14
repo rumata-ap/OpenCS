@@ -45,6 +45,8 @@ public sealed class TorsionAutoConvergeResult
             It = It,
             ShearCenterX = ShearCenterX,
             ShearCenterY = ShearCenterY,
+            ShearCenterTrefftzX = finest.ShearCenterTrefftzX,
+            ShearCenterTrefftzY = finest.ShearCenterTrefftzY,
             TauUnitMax = finest.TauUnitMax,
             NodeX = finest.NodeX,
             NodeY = finest.NodeY,
@@ -91,7 +93,8 @@ public static class TorsionRichardson
         int nRuns = 3,
         CancellationToken ct = default,
         Action<int, int, double>? onStepCompleted = null,
-        bool parallel = true)
+        bool parallel = true,
+        double nu = 0.2)
     {
         double hStart = h0 ?? TorsionBoundaryMetrics.MinEdgeLength(boundary);
         if (!double.IsFinite(hStart) || hStart <= 0.0)
@@ -104,7 +107,7 @@ public static class TorsionRichardson
         void RunOne(int i)
         {
             ct.ThrowIfCancellationRequested();
-            propsArr[i] = TorsionSolver.Solve(boundary, method, sizes[i], triangulation, femOrder, ct);
+            propsArr[i] = TorsionSolver.Solve(boundary, method, sizes[i], triangulation, femOrder, ct, nu);
             int done = Interlocked.Increment(ref completed);
             onStepCompleted?.Invoke(done, sizes.Length, sizes[i]);
         }

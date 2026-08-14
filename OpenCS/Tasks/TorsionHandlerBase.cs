@@ -26,6 +26,11 @@ public abstract class TorsionHandlerBase : ITaskHandler
             var area = section.Areas[0];
             var boundary = area.FromMaterialArea();
 
+            var baseMat = TorsionMaterialHelper.ResolveBaseMaterial(section);
+            double gMpa = TorsionMaterialHelper.ShearModulusMpa(baseMat);
+            double mkKNm = ResolveMk(p, item);
+            double nu = TorsionMaterialHelper.PoissonRatio(baseMat?.Type ?? MatType.Concrete);
+
             TorsionProps props;
             TorsionAutoConvergeResult? autoConverge = null;
             double elemSizeM;
@@ -46,7 +51,7 @@ public abstract class TorsionHandlerBase : ITaskHandler
                     });
                 }
                 autoConverge = TorsionRichardson.SolveAutoConverge(
-                    boundary, Method, p.Triangulation, femOrder, h0, nRuns, ct, onStep);
+                    boundary, Method, p.Triangulation, femOrder, h0, nRuns, ct, onStep, nu: nu);
                 props = autoConverge.ToTorsionProps();
                 elemSizeM = autoConverge.Steps[^1].ElementSize;
             }
@@ -54,12 +59,8 @@ public abstract class TorsionHandlerBase : ITaskHandler
             {
                 ct.ThrowIfCancellationRequested();
                 elemSizeM = p.ElementSize > 0 ? p.ElementSize : 0.05;
-                props = TorsionSolver.Solve(boundary, Method, elemSizeM, p.Triangulation, femOrder, ct);
+                props = TorsionSolver.Solve(boundary, Method, elemSizeM, p.Triangulation, femOrder, ct, nu);
             }
-
-            var baseMat = TorsionMaterialHelper.ResolveBaseMaterial(section);
-            double gMpa = TorsionMaterialHelper.ShearModulusMpa(baseMat);
-            double mkKNm = ResolveMk(p, item);
 
             double tauMax = double.NaN, twistRate = double.NaN;
             if (gMpa > 0 && props.It > 0 && mkKNm > 0)
@@ -81,6 +82,8 @@ public abstract class TorsionHandlerBase : ITaskHandler
                 It_mm4 = props.It * 1e12,
                 shear_center_x_m = TorsionJsonHelper.Finite(props.ShearCenterX),
                 shear_center_y_m = TorsionJsonHelper.Finite(props.ShearCenterY),
+                shear_center_trefftz_x_m = TorsionJsonHelper.Finite(props.ShearCenterTrefftzX),
+                shear_center_trefftz_y_m = TorsionJsonHelper.Finite(props.ShearCenterTrefftzY),
                 tau_unit_max = props.TauUnitMax,
                 tau_unit_max_mm2 = props.TauUnitMax * 1e6,
                 n_elements = props.NElements,

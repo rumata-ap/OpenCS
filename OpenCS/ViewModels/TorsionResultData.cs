@@ -15,6 +15,9 @@ public sealed class TorsionResultData
     public double ShearCenterXmm { get; }
     public double ShearCenterYmm { get; }
     public bool HasShearCenter { get; }
+    public double ShearCenterTrefftzXmm { get; }
+    public double ShearCenterTrefftzYmm { get; }
+    public bool HasShearCenterTrefftz { get; }
     public double TauUnitMaxMm2 { get; }
     public double TauMaxMpa { get; }
     public bool HasPhysicalTau { get; }
@@ -54,6 +57,7 @@ public sealed class TorsionResultData
     TorsionResultData(
         string method, string status,
         double itMm4, double scXmm, double scYmm, bool hasSc,
+        double scTrefftzXmm, double scTrefftzYmm, bool hasScTrefftz,
         double tauUnitMaxMm2, double tauMaxMpa, bool hasPhysicalTau,
         double twistRate, double gMpa, double eMpa, double mkKNm,
         int nElements, double elementSizeM, bool singular, string? error,
@@ -72,6 +76,9 @@ public sealed class TorsionResultData
         ShearCenterXmm = scXmm;
         ShearCenterYmm = scYmm;
         HasShearCenter = hasSc;
+        ShearCenterTrefftzXmm = scTrefftzXmm;
+        ShearCenterTrefftzYmm = scTrefftzYmm;
+        HasShearCenterTrefftz = hasScTrefftz;
         TauUnitMaxMm2 = tauUnitMaxMm2;
         TauMaxMpa = tauMaxMpa;
         HasPhysicalTau = hasPhysicalTau;
@@ -121,6 +128,9 @@ public sealed class TorsionResultData
             double scx = root.TryGetProperty("shear_center_x_m", out var sx) ? sx.GetDouble() * 1000.0 : double.NaN;
             double scy = root.TryGetProperty("shear_center_y_m", out var sy) ? sy.GetDouble() * 1000.0 : double.NaN;
             bool hasSc = double.IsFinite(scx) && double.IsFinite(scy);
+            double scTx = root.TryGetProperty("shear_center_trefftz_x_m", out var stx) ? stx.GetDouble() * 1000.0 : double.NaN;
+            double scTy = root.TryGetProperty("shear_center_trefftz_y_m", out var sty) ? sty.GetDouble() * 1000.0 : double.NaN;
+            bool hasScT = double.IsFinite(scTx) && double.IsFinite(scTy);
             double tauUnitMax = root.TryGetProperty("tau_unit_max_mm2", out var tum)
                 ? tum.GetDouble()
                 : (root.TryGetProperty("tau_unit_max", out var tu) ? tu.GetDouble() * 1e6 : double.NaN);
@@ -149,6 +159,7 @@ public sealed class TorsionResultData
             return new TorsionResultData(
                 method, r.Status ?? "",
                 itMm4, scx, scy, hasSc,
+                scTx, scTy, hasScT,
                 tauUnitMax, tauMaxMpa, hasPhys,
                 twist, gMpa, eMpa, mkKNm,
                 nEl, es, singular, null,
@@ -175,6 +186,7 @@ public sealed class TorsionResultData
 
     static TorsionResultData Empty(string status, string? error = null) =>
         new("", status, double.NaN, double.NaN, double.NaN, false,
+            double.NaN, double.NaN, false,
             double.NaN, double.NaN, false, double.NaN, 0, 0, 0, 0, double.NaN, false, error,
             [], [],
             null, null, null, null, null, null, null, null,

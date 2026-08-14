@@ -1994,6 +1994,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TorsionTabSummary">Summary</system:String>
     <system:String x:Key="TorsionIt">Torsion constant It</system:String>
     <system:String x:Key="TorsionShearCenter">Shear center</system:String>
+    <system:String x:Key="TorsionShearCenterTrefftz">Shear center (Trefftz)</system:String>
     <system:String x:Key="TorsionTauMax">Max shear stress τ_max</system:String>
     <system:String x:Key="TorsionElements">Number of elements</system:String>
     <system:String x:Key="TorsionMethod">Method</system:String>

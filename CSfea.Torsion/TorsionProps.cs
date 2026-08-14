@@ -16,6 +16,12 @@ public sealed class TorsionProps
     /// <summary>Координата Y центра кручения (МГЭ всегда; МКЭ — NaN).</summary>
     public double ShearCenterY { get; init; } = double.NaN;
 
+    /// <summary>Координата X центра кручения по подходу Трефтца (только МКЭ; МГЭ — NaN).</summary>
+    public double ShearCenterTrefftzX { get; init; } = double.NaN;
+
+    /// <summary>Координата Y центра кручения по подходу Трефтца (только МКЭ; МГЭ — NaN).</summary>
+    public double ShearCenterTrefftzY { get; init; } = double.NaN;
+
     /// <summary>Максимальное безразмерное касательное напряжение max|τ/(GΘ)|, единицы длины².</summary>
     public double TauUnitMax { get; init; }
 
@@ -30,6 +36,9 @@ public sealed class TorsionProps
 
     /// <summary>Поле потенциала: МГЭ — депланация ω на границе; МКЭ — функция Прандтля φ в узлах.</summary>
     public double[]? PotentialField { get; init; }
+
+    /// <summary>Поле функции депланации ω в узлах сетки (только МКЭ; определено с точностью до аддитивной константы).</summary>
+    public double[]? WarpingField { get; init; }
 
     /// <summary>Флаг вырожденности СЛАУ (МГЭ).</summary>
     public bool Singular { get; init; }

@@ -110,7 +110,7 @@ public static class PrandtlTri6
         return (dphidx, dphidy);
     }
 
-    static void ShapeFunctionDerivatives(double l1, double l2, Span<double> dNdL1, Span<double> dNdL2)
+    internal static void ShapeFunctionDerivatives(double l1, double l2, Span<double> dNdL1, Span<double> dNdL2)
     {
         double l3 = 1.0 - l1 - l2;
         dNdL1[0] = 4.0 * l1 - 1.0;
@@ -128,7 +128,7 @@ public static class PrandtlTri6
     }
 
     /// <summary>Субпараметрический якобиан: геометрия — линейный треугольник (3 вершины).</summary>
-    static double Jacobian(
+    internal static double Jacobian(
         ReadOnlySpan<double> coords, ReadOnlySpan<double> dNdL1, ReadOnlySpan<double> dNdL2,
         Span<double> dNdx, Span<double> dNdy)
     {

@@ -162,4 +162,8 @@ TorsionTests.TorsionSolverFemOrderDefaultIsLinear();
 TorsionTests.ConvergenceOrderT3VsT6();
 TorsionTests.FemT6ConcaveFrameSolvesWithinTimeout();
 
+TorsionTests.FemShearCenterRectangleSymmetricAtCentroid();
+TorsionTests.GeoMomentsChannelSymmetricIxyIsZero();
+TorsionTests.FemShearCenterChannelVsBem();
+
 return TestHarness.Summary();

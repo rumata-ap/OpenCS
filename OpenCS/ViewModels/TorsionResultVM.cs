@@ -25,6 +25,8 @@ public sealed class TorsionResultVM : ViewModelBase
     public string MkText { get; }
     public bool HasMk { get; }
     public string ShearCenterText { get; }
+    public string ShearCenterTrefftzText { get; } = "";
+    public bool HasShearCenterTrefftz { get; }
     public string TauMaxText { get; }
     public string TauUnitMaxText { get; }
     public string TwistRateText { get; }
@@ -103,6 +105,10 @@ public sealed class TorsionResultVM : ViewModelBase
         ShearCenterText = data.HasShearCenter
             ? $"({data.ShearCenterXmm:F1}; {data.ShearCenterYmm:F1})"
             : (data.IsFem ? Loc.S("TorsionShearCenterFemNa") : "—");
+
+        HasShearCenterTrefftz = data.HasShearCenterTrefftz;
+        if (HasShearCenterTrefftz)
+            ShearCenterTrefftzText = $"({data.ShearCenterTrefftzXmm:F1}; {data.ShearCenterTrefftzYmm:F1})";
 
         TauUnitMaxText = double.IsFinite(data.TauUnitMaxMm2)
             ? $"{data.TauUnitMaxMm2.ToString("G4", inv)} мм²"
