@@ -79,6 +79,26 @@
                                       ToolTip="{DynamicResource Fem3DShowNodeResultValues}">
                             <Path Data="M4,4H20V6H4V4M4,8H20V10H4V8M4,12H14V14H4V12M4,16H20V18H4V16Z" Fill="DarkSlateBlue" Stretch="Uniform" Margin="2"/>
                         </ToggleButton>
+                        <TextBlock Text="{DynamicResource FemResultLengthUnit}" VerticalAlignment="Center" Margin="6,0,2,0"/>
+                        <ComboBox x:Name="displacementLengthUnit3DBox" Width="58" Margin="4,0" VerticalAlignment="Center"
+                                  SelectedItem="{Binding DisplacementLengthUnit, Mode=TwoWay}"
+                                  SelectionChanged="DisplacementLengthUnit3DBox_SelectionChanged">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource LengthUnitLabelConv}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="{DynamicResource FemResultRotationScale}" VerticalAlignment="Center" Margin="6,0,2,0"/>
+                        <ComboBox x:Name="rotationDisplayScale3DBox" Width="58" Margin="4,0" VerticalAlignment="Center"
+                                  SelectedItem="{Binding RotationDisplayScale, Mode=TwoWay}"
+                                  SelectionChanged="RotationDisplayScale3DBox_SelectionChanged">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource RotationScaleLabelConv}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
                         <TextBlock Text="{DynamicResource Fem3DNodalComponent}" VerticalAlignment="Center" Margin="6,0,2,0"/>
                         <ComboBox x:Name="nodalComponent3DBox" Width="62" Margin="4,0" VerticalAlignment="Center"
                                   ItemsSource="{Binding NodalComponents}"
@@ -104,6 +124,11 @@
                                       IsChecked="True" ToolTip="{DynamicResource FemResultHighlightWholeMember}"
                                       Checked="HighlightWholeMemberToggle" Unchecked="HighlightWholeMemberToggle">
                             <Path Data="M4,11H20V13H4V11M2,7A2,2 0 0,1 4,5H20A2,2 0 0,1 22,7V17A2,2 0 0,1 20,19H4A2,2 0 0,1 2,17V7M4,7V17H20V7H4Z" Fill="Black" Stretch="Uniform" Margin="2"/>
+                        </ToggleButton>
+                        <ToggleButton x:Name="showForceDiagramCheck" Style="{StaticResource IconToggleButton25}"
+                                      IsChecked="{Binding ShowForceDiagram, Mode=TwoWay}"
+                                      ToolTip="{DynamicResource Fem3DShowForceDiagram}">
+                            <Path Data="M3,17H5V7H3V17M7,20H9V4H7V20M11,15H13V9H11V15M15,18H17V6H15V18M19,13H21V11H19V13Z" Fill="Teal" Stretch="Uniform" Margin="2"/>
                         </ToggleButton>
                         <Separator/>
                         <ToggleButton x:Name="showIpMarkersCheck" Style="{StaticResource IconToggleButton25}"
@@ -156,6 +181,7 @@
                         </ComboBox>
                         <TextBlock Text="{DynamicResource FemResultLengthUnit}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                         <ComboBox x:Name="displacementLengthUnitBox" Width="80" Margin="6,0"
+                                  SelectedItem="{Binding DisplacementLengthUnit, Mode=TwoWay}"
                                   SelectionChanged="DisplacementLengthUnitBox_SelectionChanged">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
@@ -165,6 +191,7 @@
                         </ComboBox>
                         <TextBlock Text="{DynamicResource FemResultRotationScale}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                         <ComboBox x:Name="rotationDisplayScaleBox" Width="80" Margin="6,0"
+                                  SelectedItem="{Binding RotationDisplayScale, Mode=TwoWay}"
                                   SelectionChanged="RotationDisplayScaleBox_SelectionChanged">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>

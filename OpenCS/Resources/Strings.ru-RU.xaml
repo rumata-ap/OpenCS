@@ -1617,7 +1617,8 @@
     <system:String x:Key="Fem3DDisplacementScale">Масштаб перемещений:</system:String>
     <system:String x:Key="Fem3DNodalComponent">Компонента:</system:String>
     <system:String x:Key="Fem3DDisplacementDisplayMode">Значения:</system:String>
-    <system:String x:Key="Fem3DNodeResultValueFormat">Узел {0}: {1} = {2:G6} {3}</system:String>
+    <system:String x:Key="Fem3DNodeResultValueFormat">{0:G6} {1}</system:String>
+    <system:String x:Key="Fem3DShowForceDiagram">Силовые эпюры</system:String>
     <system:String x:Key="FemResultHighlightWholeMember">Выбор по конструктивному стержню</system:String>
     <system:String x:Key="FemResultForceComponent">Эпюра:</system:String>
     <system:String x:Key="FemResultForceScale">Масштаб эпюры:</system:String>

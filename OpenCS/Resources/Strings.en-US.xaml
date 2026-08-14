@@ -1614,7 +1614,8 @@
     <system:String x:Key="Fem3DDisplacementScale">Displacement scale:</system:String>
     <system:String x:Key="Fem3DNodalComponent">Component:</system:String>
     <system:String x:Key="Fem3DDisplacementDisplayMode">Values:</system:String>
-    <system:String x:Key="Fem3DNodeResultValueFormat">Node {0}: {1} = {2:G6} {3}</system:String>
+    <system:String x:Key="Fem3DNodeResultValueFormat">{0:G6} {1}</system:String>
+    <system:String x:Key="Fem3DShowForceDiagram">Force diagrams</system:String>
     <system:String x:Key="FemResultHighlightWholeMember">Select by structural member</system:String>
     <system:String x:Key="FemResultForceComponent">Diagram:</system:String>
     <system:String x:Key="FemResultForceScale">Diagram scale:</system:String>
