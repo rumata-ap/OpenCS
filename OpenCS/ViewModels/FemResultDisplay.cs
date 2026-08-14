@@ -50,6 +50,15 @@ public static class FemResultDisplayConverter
             _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, null)
         });
 
+    /// <summary>Возвращает формат округления длины для 3D-подписи.</summary>
+    public static string LengthValueFormat(FemLengthUnit unit) => unit switch
+    {
+        FemLengthUnit.Millimeters => "F1",
+        FemLengthUnit.Centimeters => "F2",
+        FemLengthUnit.Meters => "F4",
+        _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, null)
+    };
+
     /// <summary>Переводит радианное значение поворота в выбранный масштаб.</summary>
     public static double ToRotation(double radians, FemRotationScale scale) => ConvertRotation(radians, scale);
 

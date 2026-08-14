@@ -56,7 +56,7 @@ public class FemAnalysisResultVM : ViewModelBase
         }
     }
 
-    FemLengthUnit _displacementLengthUnit = FemLengthUnit.Meters;
+    FemLengthUnit _displacementLengthUnit = FemLengthUnit.Millimeters;
     /// <summary>Единица отображения линейных перемещений.</summary>
     public FemLengthUnit DisplacementLengthUnit
     {

@@ -16,6 +16,15 @@ public class FemResultDisplayTests
     }
 
     [Theory]
+    [InlineData(FemLengthUnit.Meters, "F4")]
+    [InlineData(FemLengthUnit.Centimeters, "F2")]
+    [InlineData(FemLengthUnit.Millimeters, "F1")]
+    public void LengthValueFormat_UsesRequestedPrecisionFor3DLabels(FemLengthUnit unit, string expected)
+    {
+        Assert.Equal(expected, FemResultDisplayConverter.LengthValueFormat(unit));
+    }
+
+    [Theory]
     [InlineData(FemRotationScale.One, 0.25)]
     [InlineData(FemRotationScale.OneHundred, 25.0)]
     [InlineData(FemRotationScale.OneThousand, 250.0)]

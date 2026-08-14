@@ -37,6 +37,7 @@ public class FemAnalysisResultVM3DDisplayTests
                 db, schema);
 
             Assert.Equal(FemDisplacementDisplayMode.ExtremesOnly, vm.DisplacementDisplayMode);
+            Assert.Equal(FemLengthUnit.Millimeters, vm.DisplacementLengthUnit);
             Assert.False(vm.ShowNodeResultValues);
             Assert.False(vm.ShowForceDiagram);
 

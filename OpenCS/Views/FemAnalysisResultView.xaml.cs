@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -326,17 +327,21 @@ public partial class FemAnalysisResultView : UserControl
 
     string FormatNodeResultLabel(FemNodeResultLabelData labelData)
     {
-        string unit = labelData.Component is FemNodalComponent.Ux
+        bool isLength = labelData.Component is FemNodalComponent.Ux
             or FemNodalComponent.Uy
-            or FemNodalComponent.Uz
+            or FemNodalComponent.Uz;
+        string unit = isLength
             ? Loc.S($"FemLength{_vm.DisplacementLengthUnit}")
             : string.Format(
                 Loc.S("FemRotationDisplayUnit"),
                 Loc.S("FemUnitRad"),
                 (int)_vm.RotationDisplayScale);
+        string value = labelData.Value.ToString(
+            isLength ? FemResultDisplayConverter.LengthValueFormat(_vm.DisplacementLengthUnit) : "G6",
+            CultureInfo.CurrentCulture);
         return string.Format(
             Loc.S("Fem3DNodeResultValueFormat"),
-            labelData.Value,
+            value,
             unit);
     }
 
