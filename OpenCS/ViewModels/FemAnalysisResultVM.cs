@@ -212,6 +212,7 @@ public class FemAnalysisResultVM : ViewModelBase
             OnPropertyChanged(nameof(Displacements));
             OnPropertyChanged(nameof(Reactions));
             OnPropertyChanged(nameof(ElementForces));
+            OnPropertyChanged(nameof(ForceScale));
             OnPropertyChanged(nameof(SelectedDisplacementRow));
             OnPropertyChanged(nameof(SelectedReactionRow));
             OnPropertyChanged(nameof(SelectedForceRow));

@@ -82,7 +82,9 @@ public static class FemForceScaleCalculator
 
         double maxValueKN = maxValue / 1000.0;
         double result = 0.1 * geometryDiagonalM / maxValueKN;
-        return double.IsFinite(result) && result > 0 ? result : 1.0;
+        if (!double.IsFinite(result) || result <= 0) return 1.0;
+        double rounded = Math.Round(result, 2);
+        return rounded > 0 ? rounded : result;
     }
 }
 
