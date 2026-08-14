@@ -29,7 +29,9 @@ public sealed class OpenSeesArtifactStore
                 continue;
 
             Directory.CreateDirectory(directory);
-            return new OpenSeesArtifact(directory);
+            // Каталог с кириллицей в пути OpenSees.exe не откроет (ANSI-кодовая страница
+            // Tcl-рантайма) — подменяем на ASCII-safe короткое 8.3-имя, если оно доступно.
+            return new OpenSeesArtifact(WindowsShortPath.TryMakeAsciiSafe(directory));
         }
 
         throw new IOException("Не удалось создать уникальный каталог артефактов.");

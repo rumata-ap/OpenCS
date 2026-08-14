@@ -470,6 +470,12 @@ namespace OpenCS.Views
          };
          OpenSeesArtifactsPathBox.TextChanged += (_, _) =>
             _calcSettings.OpenSeesArtifactsPath = string.IsNullOrWhiteSpace(OpenSeesArtifactsPathBox.Text) ? null : OpenSeesArtifactsPathBox.Text.Trim();
+         OpenSeesArtifactsPathBox.LostFocus += (_, _) =>
+         {
+            if (!OpenCS.OpenSees.Runtime.WindowsShortPath.IsAsciiSafe(OpenSeesArtifactsPathBox.Text))
+               MessageBox.Show(Loc.S("OpenSeesArtifactsPathNonAsciiWarning"), Loc.S("OpenSeesSettingsTab"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+         };
          OpenSeesRefinementDivisionsBox.TextChanged += (_, _) =>
          {
             if (int.TryParse(OpenSeesRefinementDivisionsBox.Text, out var v) && v > 0) _calcSettings.OpenSeesRefinementDivisions = v;

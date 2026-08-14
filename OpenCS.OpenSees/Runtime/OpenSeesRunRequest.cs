@@ -29,6 +29,17 @@ public sealed class OpenSeesRunRequest
             throw new ArgumentException("Не задан путь к OpenSees executable.", nameof(ExecutablePath));
         if (string.IsNullOrWhiteSpace(WorkingDirectory) || !Directory.Exists(WorkingDirectory))
             throw new ArgumentException("Рабочий каталог процесса не существует.", nameof(WorkingDirectory));
+        if (!WindowsShortPath.IsAsciiSafe(WorkingDirectory))
+            throw new ArgumentException(
+                "Каталог артефактов OpenSees содержит символы вне ASCII (например, кириллицу) — " +
+                "OpenSees.exe не может открыть по нему файлы, а автоматический переход на короткое " +
+                "8.3-имя пути не удался (вероятно, отключены на этом томе). Измените каталог артефактов " +
+                "OpenSees в настройках на путь без кириллицы/юникода.", nameof(WorkingDirectory));
+        if (ScriptPath is not null && !WindowsShortPath.IsAsciiSafe(ScriptPath))
+            throw new ArgumentException(
+                "Путь к Tcl-сценарию OpenSees содержит символы вне ASCII (например, кириллицу) — " +
+                "OpenSees.exe не может его открыть. Измените каталог артефактов OpenSees в настройках " +
+                "на путь без кириллицы/юникода.", nameof(ScriptPath));
         if (Timeout <= TimeSpan.Zero)
             throw new ArgumentException("Timeout должен быть положительным.", nameof(Timeout));
     }

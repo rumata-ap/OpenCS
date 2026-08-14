@@ -1533,6 +1533,7 @@
     <system:String x:Key="FemAnalysisTimeoutLabel">Timeout, s</system:String>
     <system:String x:Key="OpenSeesArtifactsPathLabel">Analysis artifacts folder</system:String>
     <system:String x:Key="OpenSeesArtifactsPathTip">Folder for generated .tcl scripts, logs, and results of OpenSees runs. Empty — the "OpenSeesArtifacts" folder next to the OpenCS executable.</system:String>
+    <system:String x:Key="OpenSeesArtifactsPathNonAsciiWarning">The path contains Cyrillic or other non-ASCII characters. OpenSees.exe cannot open such paths directly (its Tcl runtime uses the ANSI code page); OpenCS will try to substitute a short Windows path automatically, but this does not work on every drive. Choose a path without Cyrillic/Unicode characters instead (e.g. "C:\OpenSeesArtifacts").</system:String>
     <system:String x:Key="BrowseEllipsis">…</system:String>
     <system:String x:Key="OpenSeesExeFilter">OpenSees.exe|OpenSees.exe|Executable files (*.exe)|*.exe|All files (*.*)|*.*</system:String>
     <system:String x:Key="FemAnalysisKindLabel">Analysis kind</system:String>

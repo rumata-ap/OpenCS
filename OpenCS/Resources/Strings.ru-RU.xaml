@@ -1536,6 +1536,7 @@
     <system:String x:Key="FemAnalysisTimeoutLabel">Таймаут, с</system:String>
     <system:String x:Key="OpenSeesArtifactsPathLabel">Каталог артефактов расчётов</system:String>
     <system:String x:Key="OpenSeesArtifactsPathTip">Каталог для сгенерированных .tcl-скриптов, логов и результатов запусков OpenSees. Пусто — каталог "OpenSeesArtifacts" рядом с исполняемым файлом OpenCS.</system:String>
+    <system:String x:Key="OpenSeesArtifactsPathNonAsciiWarning">Путь содержит кириллицу или другие не-ASCII символы. OpenSees.exe не умеет открывать такие пути напрямую (ANSI-кодировка Tcl-рантайма); OpenCS попытается автоматически подставить короткое Windows-имя пути, но это срабатывает не на всех дисках. Рекомендуется выбрать путь без кириллицы/юникода (например, "C:\OpenSeesArtifacts").</system:String>
     <system:String x:Key="BrowseEllipsis">…</system:String>
     <system:String x:Key="OpenSeesExeFilter">OpenSees.exe|OpenSees.exe|Исполняемые файлы (*.exe)|*.exe|Все файлы (*.*)|*.*</system:String>
     <system:String x:Key="FemAnalysisKindLabel">Тип расчёта</system:String>
