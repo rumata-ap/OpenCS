@@ -1,3 +1,6 @@
+using System.Windows.Media.Media3D;
+using OpenCS.OpenSees.Structural;
+
 namespace OpenCS.ViewModels;
 
 /// <summary>Единица отображения линейных результатов, хранящихся в метрах.</summary>
@@ -35,6 +38,9 @@ public enum FemDisplacementDisplayMode
 public static class FemResultDisplayConverter
 {
     /// <summary>Переводит длину из метров в выбранную единицу.</summary>
+    public static double ToLength(double meters, FemLengthUnit unit) => ConvertLength(meters, unit);
+
+    /// <summary>Переводит длину из метров в выбранную единицу.</summary>
     public static double ConvertLength(double meters, FemLengthUnit unit) =>
         meters * (unit switch
         {
@@ -43,6 +49,9 @@ public static class FemResultDisplayConverter
             FemLengthUnit.Meters => 1.0,
             _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, null)
         });
+
+    /// <summary>Переводит радианное значение поворота в выбранный масштаб.</summary>
+    public static double ToRotation(double radians, FemRotationScale scale) => ConvertRotation(radians, scale);
 
     /// <summary>Переводит радианное значение поворота в выбранный масштаб.</summary>
     public static double ConvertRotation(double radians, FemRotationScale scale) =>
@@ -120,4 +129,238 @@ public sealed class FemForceScaleState
         double.IsFinite(value) && value > 0 ? value : 1.0;
 
     readonly record struct ScaleEntry(double Value, bool IsManual);
+}
+
+/// <summary>Конечный mesh-элемент стержня с координатами его концов.</summary>
+public sealed record FemMemberMeshElement(
+    int ElementTag,
+    int NodeITag,
+    int NodeJTag,
+    Point3D PointI,
+    Point3D PointJ);
+
+/// <summary>Геометрический контекст одного конструктивного стержня для построения эпюр.</summary>
+public sealed record FemMemberGeometryContext(
+    string MemberTag,
+    Point3D Origin,
+    Vector3D Direction,
+    IReadOnlyList<FemMemberMeshElement> Elements);
+
+/// <summary>Линейный сегмент эпюры в дуговых координатах стержня.</summary>
+public sealed record FemDiagramSegment(
+    int ElementTag,
+    double S0,
+    double S1,
+    double Value0,
+    double Value1);
+
+/// <summary>Экстремальное значение эпюры с указанием mesh-элемента и положения.</summary>
+public sealed record FemDiagramExtremum(
+    int ElementTag,
+    double Position,
+    double Value,
+    bool IsMaximum);
+
+/// <summary>Набор сегментов одной эпюры и её глобальные экстремумы.</summary>
+public sealed class FemDiagramSeries
+{
+    /// <summary>Сегменты эпюры, отсортированные по дуговой координате.</summary>
+    public IReadOnlyList<FemDiagramSegment> Segments { get; }
+
+    /// <summary>Минимум и максимум по значениям концов всех сегментов.</summary>
+    public IReadOnlyList<FemDiagramExtremum> Extrema { get; }
+
+    /// <summary>Пустая эпюра без сегментов и экстремумов.</summary>
+    public static FemDiagramSeries Empty { get; } = new([]);
+
+    /// <summary>Создаёт ряд и вычисляет его экстремумы по сырым значениям.</summary>
+    public FemDiagramSeries(IReadOnlyList<FemDiagramSegment> segments)
+    {
+        Segments = segments;
+        Extrema = BuildExtrema(segments);
+    }
+
+    static IReadOnlyList<FemDiagramExtremum> BuildExtrema(IReadOnlyList<FemDiagramSegment> segments)
+    {
+        var samples = segments
+            .SelectMany(segment => new[]
+            {
+                new Sample(segment.ElementTag, segment.S0, segment.Value0),
+                new Sample(segment.ElementTag, segment.S1, segment.Value1)
+            })
+            .Where(sample => double.IsFinite(sample.Value))
+            .ToList();
+        if (samples.Count == 0) return [];
+
+        Sample min = samples
+            .OrderBy(sample => sample.Value)
+            .ThenBy(sample => sample.ElementTag)
+            .ThenBy(sample => sample.Position)
+            .First();
+        Sample max = samples
+            .OrderByDescending(sample => sample.Value)
+            .ThenBy(sample => sample.ElementTag)
+            .ThenBy(sample => sample.Position)
+            .First();
+        return
+        [
+            new FemDiagramExtremum(min.ElementTag, min.Position, min.Value, false),
+            new FemDiagramExtremum(max.ElementTag, max.Position, max.Value, true)
+        ];
+    }
+
+    readonly record struct Sample(int ElementTag, double Position, double Value);
+}
+
+/// <summary>Компонента узлового результата в глобальной системе координат.</summary>
+public enum FemNodalComponent
+{
+    /// <summary>Перемещение по глобальной оси X.</summary>
+    Ux,
+    /// <summary>Перемещение по глобальной оси Y.</summary>
+    Uy,
+    /// <summary>Перемещение по глобальной оси Z.</summary>
+    Uz,
+    /// <summary>Поворот вокруг глобальной оси X.</summary>
+    Rx,
+    /// <summary>Поворот вокруг глобальной оси Y.</summary>
+    Ry,
+    /// <summary>Поворот вокруг глобальной оси Z.</summary>
+    Rz
+}
+
+/// <summary>Группа результата, определяющая правило перевода значений для графика.</summary>
+public enum FemResultGroup
+{
+    /// <summary>Силы и моменты: Н и Н·м переводятся в кН и кН·м.</summary>
+    Forces,
+    /// <summary>Глобальные линейные перемещения.</summary>
+    Displacements,
+    /// <summary>Глобальные углы поворота.</summary>
+    Rotations
+}
+
+/// <summary>Строит общие ряды силовых и узловых результатов одного стержня.</summary>
+public static class FemMemberResultSeriesBuilder
+{
+    /// <summary>Строит силовую эпюру по концевым результатам mesh-элементов.</summary>
+    public static FemDiagramSeries BuildForces(
+        FemMemberGeometryContext context,
+        IReadOnlyDictionary<int, FemElementEndForces> values,
+        FemForceComponent component)
+    {
+        var segments = new List<FemDiagramSegment>();
+        foreach (FemMemberMeshElement element in context.Elements)
+        {
+            if (!values.TryGetValue(element.ElementTag, out FemElementEndForces? force))
+                continue;
+
+            var (value0, value1) = ReadForce(force, component);
+            AddSegment(segments, context, element, value0, value1);
+        }
+
+        return new FemDiagramSeries(SortSegments(segments));
+    }
+
+    /// <summary>Строит эпюру глобальной узловой компоненты по результатам узлов.</summary>
+    public static FemDiagramSeries BuildNodal(
+        FemMemberGeometryContext context,
+        IReadOnlyDictionary<int, FemNodeDisplacement> values,
+        FemNodalComponent component)
+    {
+        var segments = new List<FemDiagramSegment>();
+        foreach (FemMemberMeshElement element in context.Elements)
+        {
+            if (!values.TryGetValue(element.NodeITag, out FemNodeDisplacement? value0) ||
+                !values.TryGetValue(element.NodeJTag, out FemNodeDisplacement? value1))
+                continue;
+
+            AddSegment(segments, context, element, ReadNodal(value0, component), ReadNodal(value1, component));
+        }
+
+        return new FemDiagramSeries(SortSegments(segments));
+    }
+
+    static void AddSegment(
+        ICollection<FemDiagramSegment> segments,
+        FemMemberGeometryContext context,
+        FemMemberMeshElement element,
+        double value0,
+        double value1)
+    {
+        if (!double.IsFinite(value0) || !double.IsFinite(value1)) return;
+        segments.Add(new FemDiagramSegment(
+            element.ElementTag,
+            ArcCoordinate(context, element.PointI),
+            ArcCoordinate(context, element.PointJ),
+            value0,
+            value1));
+    }
+
+    static IReadOnlyList<FemDiagramSegment> SortSegments(IEnumerable<FemDiagramSegment> segments) =>
+        segments
+            .OrderBy(segment => Math.Min(segment.S0, segment.S1))
+            .ThenBy(segment => Math.Max(segment.S0, segment.S1))
+            .ThenBy(segment => segment.ElementTag)
+            .ToList();
+
+    static double ArcCoordinate(FemMemberGeometryContext context, Point3D point)
+    {
+        Vector3D direction = context.Direction;
+        if (direction.Length <= 1e-12) direction = new Vector3D(1, 0, 0);
+        else direction.Normalize();
+        return Vector3D.DotProduct(point - context.Origin, direction);
+    }
+
+    static (double Value0, double Value1) ReadForce(FemElementEndForces force, FemForceComponent component) => component switch
+    {
+        FemForceComponent.N => (-force.Ni, force.Nj),
+        FemForceComponent.Qy => (-force.Qyi, force.Qyj),
+        FemForceComponent.Qz => (-force.Qzi, force.Qzj),
+        FemForceComponent.Mx => (-force.Mxi, force.Mxj),
+        FemForceComponent.My => (force.Myi, -force.Myj),
+        FemForceComponent.Mz => (force.Mzi, -force.Mzj),
+        _ => (0, 0)
+    };
+
+    static double ReadNodal(FemNodeDisplacement value, FemNodalComponent component) => component switch
+    {
+        FemNodalComponent.Ux => value.Ux,
+        FemNodalComponent.Uy => value.Uy,
+        FemNodalComponent.Uz => value.Uz,
+        FemNodalComponent.Rx => value.Rx,
+        FemNodalComponent.Ry => value.Ry,
+        FemNodalComponent.Rz => value.Rz,
+        _ => 0.0
+    };
+}
+
+/// <summary>Переводит готовый ряд эпюры в единицы выбранной группы результата.</summary>
+public static class FemDiagramValueScaler
+{
+    /// <summary>Возвращает новый ряд, не изменяя исходные сырые значения.</summary>
+    public static FemDiagramSeries Scale(
+        FemDiagramSeries series,
+        FemResultGroup group,
+        FemLengthUnit lengthUnit,
+        FemRotationScale rotationScale)
+    {
+        double ScaleValue(double value) => group switch
+        {
+            FemResultGroup.Forces => value / 1000.0,
+            FemResultGroup.Displacements => FemResultDisplayConverter.ToLength(value, lengthUnit),
+            FemResultGroup.Rotations => FemResultDisplayConverter.ToRotation(value, rotationScale),
+            _ => value
+        };
+
+        var segments = series.Segments
+            .Select(segment => new FemDiagramSegment(
+                segment.ElementTag,
+                segment.S0,
+                segment.S1,
+                ScaleValue(segment.Value0),
+                ScaleValue(segment.Value1)))
+            .ToList();
+        return new FemDiagramSeries(segments);
+    }
 }
