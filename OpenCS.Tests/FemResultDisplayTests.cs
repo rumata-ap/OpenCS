@@ -57,4 +57,27 @@ public class FemResultDisplayTests
         Assert.Equal(0.25, state.Get(FemForceComponent.N, () => 1.0), 12);
         Assert.False(state.IsManual(FemForceComponent.N));
     }
+
+    [Fact]
+    public void BuildNodeResultLabels_UsesOneDisplayedRowPerNode()
+    {
+        var rows = new[]
+        {
+            new FemNodeDisplacementRow("M2", 2, 2, 0, 0, 0, 0, 0, []),
+            new FemNodeDisplacementRow("M1", 2, 1, 0, 0, 0, 0, 0, []),
+            new FemNodeDisplacementRow("M1", 1, 3, 0, 0, 0, 0, 0, [])
+        };
+
+        var labels = FemNodeResultLabelDataBuilder.Build(rows);
+
+        Assert.Equal(new[] { 1, 2 }, labels.Select(label => label.NodeTag));
+        Assert.Equal("M1", labels[1].Row.MemberTag);
+        Assert.Equal(1.0, labels[1].Row.Ux, 12);
+    }
+
+    [Fact]
+    public void BuildNodeResultLabels_ReturnsEmptyForEmptyTable()
+    {
+        Assert.Empty(FemNodeResultLabelDataBuilder.Build([]));
+    }
 }

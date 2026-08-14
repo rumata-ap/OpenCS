@@ -292,6 +292,14 @@ public class FemAnalysisResultVM : ViewModelBase
         get => _showDeformedNodes;
         set { if (value == _showDeformedNodes) return; _showDeformedNodes = value; OnPropertyChanged(); }
     }
+
+    bool _showNodeResultValues = true;
+    /// <summary>Видимость подписей глобальных перемещений и поворотов узлов в 3D-виде.</summary>
+    public bool ShowNodeResultValues
+    {
+        get => _showNodeResultValues;
+        set { if (value == _showNodeResultValues) return; _showNodeResultValues = value; OnPropertyChanged(); }
+    }
     /// <summary>Деформированные координаты узлов по тегу mesh-узла — для pick targets в 3D-виде.</summary>
     public IReadOnlyDictionary<int, Point3D> DeformedNodesByTag { get; private set; } = new Dictionary<int, Point3D>();
     /// <summary>Деформированные концы каждого mesh-элемента (тег, конец i, конец j) — для pick targets в 3D-виде.</summary>

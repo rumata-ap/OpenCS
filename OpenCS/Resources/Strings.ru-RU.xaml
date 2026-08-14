@@ -1703,6 +1703,10 @@
     <system:String x:Key="Fem3DShowNodes">Узлы</system:String>
     <system:String x:Key="Fem3DShowDeformedSchema">Деформированная схема</system:String>
     <system:String x:Key="Fem3DShowDeformedNodes">Узловые маркеры деформированной линии</system:String>
+    <system:String x:Key="Fem3DShowNodeResultValues">Значения перемещений и поворотов в узлах</system:String>
+    <system:String x:Key="Fem3DNodeResultFormat">Узел {0}
+U ({1}): Ux={2:G4}; Uy={3:G4}; Uz={4:G4}
+R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowGrid">Сетка</system:String>
     <system:String x:Key="FemDiscretize">Дискретизировать</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Целевая длина КЭ, м</system:String>

@@ -43,6 +43,7 @@ public partial class FemAnalysisResultView : UserControl
     MeshGeometryVisual3D? _forceRibbon;
     BillboardTextVisual3D? _forceMaxLabel;
     BillboardTextVisual3D? _forceMinLabel;
+    readonly Dictionary<int, BillboardTextVisual3D> _nodeResultLabels = new();
 
     sealed record PickTarget(bool IsNode, int Tag, FemSectionLocationRow? SectionRow);
 
@@ -97,10 +98,17 @@ public partial class FemAnalysisResultView : UserControl
             or nameof(FemAnalysisResultVM.ShowDeformedNodes))
         {
             UpdateDeformedVisibility();
+            if (e.PropertyName == nameof(FemAnalysisResultVM.ShowDeformedNodes))
+                RebuildInteractiveTargets();
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedNodes) && _nodesVisual is not null)
         {
             _nodesVisual.Points = _vm.DeformedNodes;
+            UpdateNodeResultLabels();
+        }
+        else if (e.PropertyName == nameof(FemAnalysisResultVM.ShowNodeResultValues))
+        {
+            UpdateNodeResultLabels();
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.ForceDiagramMesh) && _forceRibbon is not null)
         {
@@ -112,7 +120,7 @@ public partial class FemAnalysisResultView : UserControl
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.DeformedElementSegments))
         {
-            BuildPickTargets();
+            RebuildInteractiveTargets();
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.SectionMarkers))
         {
@@ -138,6 +146,7 @@ public partial class FemAnalysisResultView : UserControl
             or nameof(FemAnalysisResultVM.RotationDisplayScale))
         {
             UpdateDisplacementTableColumns();
+            UpdateNodeResultLabels();
         }
         else if (e.PropertyName == nameof(FemAnalysisResultVM.SelectedReactionRow) && _vm.SelectedReactionRow is { } reactRow)
         {
@@ -216,6 +225,7 @@ public partial class FemAnalysisResultView : UserControl
         viewport.Children.Add(_forceMaxLabel);
         viewport.Children.Add(_forceMinLabel);
         UpdateForceLabels();
+        UpdateNodeResultLabels();
 
         viewport.ZoomExtents();
     }
@@ -246,8 +256,59 @@ public partial class FemAnalysisResultView : UserControl
         }
     }
 
+    void UpdateNodeResultLabels()
+    {
+        foreach (BillboardTextVisual3D label in _nodeResultLabels.Values)
+            viewport.Children.Remove(label);
+        _nodeResultLabels.Clear();
+
+        if (!_vm.ShowNodeResultValues || !_vm.HasGeometry) return;
+
+        foreach (FemNodeResultLabelData labelData in FemNodeResultLabelDataBuilder.Build(_vm.DisplayedDisplacements))
+        {
+            if (!_vm.DeformedNodesByTag.TryGetValue(labelData.NodeTag, out Point3D position))
+                continue;
+
+            var label = new BillboardTextVisual3D
+            {
+                Position = position,
+                Text = FormatNodeResultLabel(labelData),
+                Foreground = Brushes.Black,
+                Background = Brushes.White,
+                FontSize = 10
+            };
+            _nodeResultLabels[labelData.NodeTag] = label;
+            viewport.Children.Add(label);
+        }
+    }
+
+    string FormatNodeResultLabel(FemNodeResultLabelData labelData)
+    {
+        FemNodeDisplacementRow row = labelData.Row;
+        string lengthUnit = Loc.S($"FemLength{_vm.DisplacementLengthUnit}");
+        string rotationScale = Loc.S($"FemRotationScale{_vm.RotationDisplayScale}");
+        return string.Format(
+            Loc.S("Fem3DNodeResultFormat"),
+            labelData.NodeTag,
+            lengthUnit,
+            row.Ux,
+            row.Uy,
+            row.Uz,
+            rotationScale,
+            row.Rx,
+            row.Ry,
+            row.Rz);
+    }
+
     string? _contextMenuTargetTag;
     FemSectionLocationRow? _contextMenuSectionRow;
+
+    void RebuildInteractiveTargets()
+    {
+        BuildPickTargets();
+        if (showIpMarkersCheck.IsChecked == true)
+            BuildIpMarkers();
+    }
 
     void BuildPickTargets()
     {
@@ -265,16 +326,19 @@ public partial class FemAnalysisResultView : UserControl
         double nodeRadius = System.Math.Clamp(avgSegmentLength * NodePickRadiusFactor, NodePickRadiusMin, NodePickRadiusMax);
         double elemDiameter = System.Math.Clamp(avgSegmentLength * ElemPickDiameterFactor, ElemPickDiameterMin, ElemPickDiameterMax);
 
-        foreach (var (tag, pos) in _vm.DeformedNodesByTag)
+        if (_vm.ShowDeformedNodes)
         {
-            var sphere = new SphereVisual3D
+            foreach (var (tag, pos) in _vm.DeformedNodesByTag)
             {
-                Center = pos, Radius = nodeRadius,
-                Fill = new SolidColorBrush(IsNodeHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent)
-            };
-            _pickTargets[sphere] = new PickTarget(true, tag, null);
-            _nodeSpheresByTag[tag] = sphere;
-            viewport.Children.Add(sphere);
+                var sphere = new SphereVisual3D
+                {
+                    Center = pos, Radius = nodeRadius,
+                    Fill = new SolidColorBrush(IsNodeHighlighted(tag) ? Colors.OrangeRed : Colors.Transparent)
+                };
+                _pickTargets[sphere] = new PickTarget(true, tag, null);
+                _nodeSpheresByTag[tag] = sphere;
+                viewport.Children.Add(sphere);
+            }
         }
 
         foreach (var (tag, p0, p1) in _vm.DeformedElementSegments)

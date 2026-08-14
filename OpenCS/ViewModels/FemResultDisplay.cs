@@ -383,6 +383,28 @@ public sealed record FemNodeDisplacementRow(
     double Rz,
     IReadOnlyList<FemNodalComponent> ExtremeComponents);
 
+/// <summary>Данные одной 3D-подписи узлового результата.</summary>
+public sealed record FemNodeResultLabelData(int NodeTag, FemNodeDisplacementRow Row);
+
+/// <summary>Подготавливает уникальные подписи для узлового слоя 3D-вида.</summary>
+public static class FemNodeResultLabelDataBuilder
+{
+    /// <summary>
+    /// Оставляет одну строку на узел. В режиме экстремумов один общий узел может
+    /// присутствовать в таблице несколько раз — для каждого конструктивного стержня.
+    /// </summary>
+    public static IReadOnlyList<FemNodeResultLabelData> Build(
+        IReadOnlyList<FemNodeDisplacementRow> rows) => rows
+        .GroupBy(row => row.NodeTag)
+        .Select(group => group
+            .OrderBy(row => row.MemberTag ?? string.Empty, StringComparer.Ordinal)
+            .ThenBy(row => row.NodeTag)
+            .First())
+        .OrderBy(label => label.NodeTag)
+        .Select(row => new FemNodeResultLabelData(row.NodeTag, row))
+        .ToList();
+}
+
 /// <summary>Строит полную или экстремальную таблицу узловых результатов.</summary>
 public static class FemDisplacementTableBuilder
 {

@@ -51,8 +51,10 @@ public class FemAnalysisResultVM3DDisplayTests
 
             vm.ShowDeformedSchema = false;
             vm.ShowDeformedNodes = false;
+            vm.ShowNodeResultValues = false;
             Assert.False(vm.ShowDeformedSchema);
             Assert.False(vm.ShowDeformedNodes);
+            Assert.False(vm.ShowNodeResultValues);
         }
         finally
         {

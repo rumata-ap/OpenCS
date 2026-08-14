@@ -1700,6 +1700,10 @@
     <system:String x:Key="Fem3DShowNodes">Nodes</system:String>
     <system:String x:Key="Fem3DShowDeformedSchema">Deformed scheme</system:String>
     <system:String x:Key="Fem3DShowDeformedNodes">Deformed-line node markers</system:String>
+    <system:String x:Key="Fem3DShowNodeResultValues">Nodal displacement and rotation values</system:String>
+    <system:String x:Key="Fem3DNodeResultFormat">Node {0}
+U ({1}): Ux={2:G4}; Uy={3:G4}; Uz={4:G4}
+R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="Fem3DShowGrid">Grid</system:String>
     <system:String x:Key="FemDiscretize">Discretize</system:String>
     <system:String x:Key="FemDiscretizeTargetLength">Target mesh element length, m</system:String>
