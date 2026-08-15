@@ -504,6 +504,8 @@ public partial class FemAnalysisResultView : UserControl
 
         var menu = (ContextMenu)Resources[target.IsNode ? "ResultNodeContextMenu" : "ResultMemberContextMenu"];
         menu.PlacementTarget = viewport;
+        if (!target.IsNode && menu.Items.OfType<MenuItem>().FirstOrDefault(item => item.Name == "createMemberForceSetMenu") is MenuItem createMenu)
+            createMenu.IsEnabled = _contextMenuTargetTag is not null && _vm.CanCreateMemberForceSet(_contextMenuTargetTag);
         menu.IsOpen = true;
     }
 
@@ -515,6 +517,11 @@ public partial class FemAnalysisResultView : UserControl
     void MemberSectionCtx_Click(object sender, System.Windows.RoutedEventArgs e)
     {
         if (_contextMenuTargetTag != null) _vm.RequestShowMemberSection(_contextMenuTargetTag);
+    }
+
+    void MemberCreateForceSetCtx_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        if (_contextMenuTargetTag != null) _vm.RequestCreateMemberForceSet(_contextMenuTargetTag);
     }
 
     void NodeValuesCtx_Click(object sender, System.Windows.RoutedEventArgs e)

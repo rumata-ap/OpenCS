@@ -32,6 +32,9 @@
         </Style>
         <ContextMenu x:Key="ResultMemberContextMenu">
             <MenuItem Header="{DynamicResource FemResultMember2D}" Click="MemberShow2DCtx_Click"/>
+            <MenuItem x:Name="createMemberForceSetMenu"
+                      Header="{DynamicResource FemResultMemberCreateForceSet}"
+                      Click="MemberCreateForceSetCtx_Click" />
             <MenuItem Header="{DynamicResource FemResultMemberSection}" Click="MemberSectionCtx_Click"/>
         </ContextMenu>
         <ContextMenu x:Key="ResultNodeContextMenu">

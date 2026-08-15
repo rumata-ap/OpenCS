@@ -3690,6 +3690,67 @@ namespace OpenCS
          dialog.ShowDialog();
       }
 
+      /// <summary>Строит preview и сохраняет набор усилий выбранного стержня текущего шага.</summary>
+      void CreateMemberForceSet(
+         CScore.Fem.FemSchema schema,
+         string memberTag,
+         ViewModels.FemAnalysisResultVM vm)
+      {
+         var member = db.GetFemMembers(schema.Id)
+            .FirstOrDefault(item => item.ElemTag == memberTag);
+         if (member is null)
+         {
+            ShowFemForceSetError(ViewModels.FemMemberForceSetBuildError.MemberNotFound);
+            return;
+         }
+
+         var build = ViewModels.FemMemberForceSetBuilder.Build(
+            vm.BuildMemberForceSetInput(member));
+         if (!build.IsSuccess)
+         {
+            ShowFemForceSetError(build.Error);
+            return;
+         }
+
+         var dialog = new Views.FemMemberForceSetPreviewDialog(build.Preview!)
+         {
+            Owner = System.Windows.Application.Current?.MainWindow
+         };
+         if (dialog.ShowDialog() != true || dialog.Result is not { } selection)
+            return;
+
+         var forceSet = ViewModels.FemMemberForceSetFactory.Create(
+            schema, member, build.Preview!, selection, ForceSets);
+         db.SaveForceSet(forceSet);
+         ForceSets.Add(forceSet);
+      }
+
+      /// <summary>Показывает локализованную ошибку построения preview набора.</summary>
+      void ShowFemForceSetError(ViewModels.FemMemberForceSetBuildError error)
+      {
+         if (error == ViewModels.FemMemberForceSetBuildError.None) return;
+         string key = error switch
+         {
+            ViewModels.FemMemberForceSetBuildError.MemberNotFound => "FemForceSetMemberNotFound",
+            ViewModels.FemMemberForceSetBuildError.MissingSourceNode => "FemForceSetMissingSourceNode",
+            ViewModels.FemMemberForceSetBuildError.CannotOrientMember => "FemForceSetCannotOrient",
+            ViewModels.FemMemberForceSetBuildError.NoMeshElements => "FemForceSetNoMeshElements",
+            ViewModels.FemMemberForceSetBuildError.MissingMeshNode => "FemForceSetMissingMeshNode",
+            ViewModels.FemMemberForceSetBuildError.MissingElementForce => "FemForceSetMissingForce",
+            ViewModels.FemMemberForceSetBuildError.NonFiniteForce => "FemForceSetNonFiniteForce",
+            ViewModels.FemMemberForceSetBuildError.ReusedElement => "FemForceSetReusedElement",
+            ViewModels.FemMemberForceSetBuildError.DuplicateElementPair => "FemForceSetDuplicateElementPair",
+            ViewModels.FemMemberForceSetBuildError.EqualElementNodes => "FemForceSetEqualElementNodes",
+            ViewModels.FemMemberForceSetBuildError.ZeroLengthElement => "FemForceSetZeroElementLength",
+            ViewModels.FemMemberForceSetBuildError.NotConvergedStep => "FemForceSetNotConverged",
+            _ => "FemForceSetInvalidTopology"
+         };
+         System.Windows.MessageBox.Show(
+            Loc.S(key), Loc.S("Warning"),
+            System.Windows.MessageBoxButton.OK,
+            System.Windows.MessageBoxImage.Warning);
+      }
+
       /// <summary>Открывает (или обновляет) немодальное окно состояния сечения в точке
       /// интегрирования нелинейного FEM-результата OpenSees. Чтение волокон — фоновым
       /// потоком, на время чтения в статусбаре показывается индикатор занятости.</summary>
@@ -3760,6 +3821,7 @@ namespace OpenCS
       {
          vm.ShowMemberForceRequested += tag => ShowMemberForceDiagram(schema, tag, vm);
          vm.ShowMemberSectionRequested += tag => ShowFemMemberSectionDialog(schema, tag);
+         vm.CreateMemberForceSetRequested += tag => CreateMemberForceSet(schema, tag, vm);
          vm.ShowNodeValuesRequested += tag => ShowFemNodeResult(vm, tag);
          vm.SectionStateRequested += OpenFemSectionState;
          vm.SectionStateUnavailable += ShowSectionStateUnavailable;
