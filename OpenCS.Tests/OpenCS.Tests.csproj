@@ -20,4 +20,13 @@
     <ProjectReference Include="..\CScore\CScore.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\OpenCS\Resources\Strings.ru-RU.xaml"
+          Link="Resources\Strings.ru-RU.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\OpenCS\Resources\Strings.en-US.xaml"
+          Link="Resources\Strings.en-US.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
