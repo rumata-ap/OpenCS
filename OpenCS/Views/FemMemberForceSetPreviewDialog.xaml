@@ -1,0 +1,104 @@
+<Window x:Class="OpenCS.Views.FemMemberForceSetPreviewDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:u="clr-namespace:OpenCS.Utilites"
+        MinWidth="900" MinHeight="520" Width="1100" Height="700"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Title="{DynamicResource FemForceSetPreviewTitle}">
+    <Window.Resources>
+        <u:FemForceSourceSideLabelConverter x:Key="ForceSourceSideLabelConv"/>
+    </Window.Resources>
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{DynamicResource FemForceSetPreviewSchema}" Margin="0,0,6,0"/>
+            <TextBlock Grid.Column="1" Text="{Binding SchemaTag}" Margin="0,0,16,0"/>
+            <TextBlock Grid.Column="2" Text="{DynamicResource FemForceSetPreviewMember}" Margin="0,0,6,0"/>
+            <TextBlock Grid.Column="3" Text="{Binding MemberTag}"/>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="240"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{DynamicResource FemForceSetPreviewStep}" Margin="0,0,6,0"/>
+            <TextBlock Grid.Column="1" Text="{Binding StepLabel}" Margin="0,0,16,0"/>
+            <TextBlock Grid.Column="2" Text="{DynamicResource FemForceSetPreviewTag}" Margin="0,0,6,0"/>
+            <TextBox Grid.Column="3" Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"/>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <Grid Grid.Row="0" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{DynamicResource FemForceSetPreviewDescription}" Margin="0,0,6,0"/>
+                <TextBox Grid.Column="1" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}"/>
+            </Grid>
+
+            <DataGrid Grid.Row="1" x:Name="RowsGrid" ItemsSource="{Binding Rows}"
+                      AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="False"
+                      HeadersVisibility="Column" SelectionUnit="FullRow">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="{DynamicResource FemForceSetPreviewNode}" Binding="{Binding MeshNodeTag}" IsReadOnly="True" Width="85"/>
+                    <DataGridTextColumn Header="{DynamicResource FemForceSetPreviewPosition}" Binding="{Binding PositionS, StringFormat=F6}" IsReadOnly="True" Width="95"/>
+                    <DataGridTemplateColumn Header="{DynamicResource FemForceSetPreviewSource}" Width="130">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding SelectedSource, Converter={StaticResource ForceSourceSideLabelConv}}"/>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                        <DataGridTemplateColumn.CellEditingTemplate>
+                            <DataTemplate>
+                                <ComboBox ItemsSource="{Binding SourceOptions}" SelectedItem="{Binding SelectedSource, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource ForceSourceSideLabelConv}}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellEditingTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="{DynamicResource FemForceSetPreviewN}" Binding="{Binding N, StringFormat=G6}" IsReadOnly="True" Width="90"/>
+                    <DataGridTextColumn Header="{DynamicResource FemForceSetPreviewMx}" Binding="{Binding Mx, StringFormat=G6}" IsReadOnly="True" Width="90"/>
+                    <DataGridTextColumn Header="{DynamicResource FemForceSetPreviewMy}" Binding="{Binding My, StringFormat=G6}" IsReadOnly="True" Width="90"/>
+                    <DataGridTextColumn Header="{DynamicResource FemForceSetPreviewVx}" Binding="{Binding Vx, StringFormat=G6}" IsReadOnly="True" Width="90"/>
+                    <DataGridTextColumn Header="{DynamicResource FemForceSetPreviewVy}" Binding="{Binding Vy, StringFormat=G6}" IsReadOnly="True" Width="90"/>
+                    <DataGridTextColumn Header="{DynamicResource FemForceSetPreviewT}" Binding="{Binding T, StringFormat=G6}" IsReadOnly="True" Width="90"/>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <TextBlock Grid.Row="2" Text="{DynamicResource FemForceSetPreviewUnits}" Margin="0,8,0,0"/>
+        </Grid>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button x:Name="SaveButton" Content="{DynamicResource FemForceSetSave}" IsDefault="True"
+                    IsEnabled="{Binding CanSave}" Click="Save_Click" Padding="16,4" Margin="0,0,8,0"/>
+            <Button x:Name="CancelButton" Content="{DynamicResource FemForceSetCancel}" IsCancel="True"
+                    Click="Cancel_Click" Padding="16,4"/>
+        </StackPanel>
+    </Grid>
+</Window>

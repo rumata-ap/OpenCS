@@ -146,6 +146,24 @@ namespace OpenCS.Utilites
          Binding.DoNothing;
    }
 
+   /// <summary>Локализованная подпись стороны внутреннего mesh-узла.</summary>
+   public class FemForceSourceSideLabelConverter : IValueConverter
+   {
+      public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+         value is OpenCS.ViewModels.FemForceSourceSide side
+            ? Loc.S(side switch
+            {
+               OpenCS.ViewModels.FemForceSourceSide.Only => "FemForceSetSourceOnly",
+               OpenCS.ViewModels.FemForceSourceSide.Left => "FemForceSetSourceLeft",
+               OpenCS.ViewModels.FemForceSourceSide.Right => "FemForceSetSourceRight",
+               _ => "FemForceSetSourceOnly"
+            })
+            : "";
+
+      public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+         Binding.DoNothing;
+   }
+
    /// <summary>Подпись группы результата в просмотре 2D-эпюры.</summary>
    public class FemResultGroupLabelConverter : IValueConverter
    {
