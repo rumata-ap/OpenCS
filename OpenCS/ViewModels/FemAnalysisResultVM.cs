@@ -147,6 +147,41 @@ public class FemAnalysisResultVM : ViewModelBase
     /// локализации) — рейзится, когда окно состояния открыть невозможно.</summary>
     public event Action<string>? SectionStateUnavailable;
 
+    /// <summary>Событие запроса создания набора усилий выбранного конструктивного стержня.</summary>
+    public event Action<string>? CreateMemberForceSetRequested;
+
+    /// <summary>Проверяет готовность текущего шага для команды создания набора.</summary>
+    public bool CanCreateMemberForceSet(string memberTag)
+    {
+        if (string.IsNullOrWhiteSpace(memberTag) || Steps.Count == 0)
+            return false;
+        return Steps[SelectedStepIndex].Converged;
+    }
+
+    /// <summary>Запрашивает создание набора усилий для конструктивного стержня.</summary>
+    public void RequestCreateMemberForceSet(string memberTag)
+    {
+        if (CanCreateMemberForceSet(memberTag))
+            CreateMemberForceSetRequested?.Invoke(memberTag);
+    }
+
+    /// <summary>Собирает входные данные builder-а для текущего выбранного шага.</summary>
+    public FemMemberForceSetBuildInput BuildMemberForceSetInput(FemMember member)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        var step = Steps[SelectedStepIndex];
+        return new FemMemberForceSetBuildInput(
+            _schema,
+            member,
+            _database.GetFemNodes(_schema.Id),
+            _database.GetFemMeshNodes(_schema.Id),
+            _database.GetFemMeshElements(_schema.Id),
+            step.ElementForces,
+            SelectedStepIndex,
+            CurrentStepLabel,
+            step.Converged);
+    }
+
     /// <summary>Выбирает ТИ (например, кликом по 3D-маркеру) и сбрасывает выбор узла/элемента.</summary>
     public void SelectSectionLocation(FemSectionLocationRow? row)
     {
@@ -275,6 +310,7 @@ public class FemAnalysisResultVM : ViewModelBase
     readonly List<ElementGeom> _elementGeoms = [];
     readonly Dictionary<int, FemElementEndForces> _forcesByElem = [];
     readonly DatabaseService _database;
+    readonly FemSchema _schema;
     readonly Dictionary<int, int?> _sectionIdByElement = [];
     /// <summary>Узлы mesh-элементов, сгруппированные по конструктивному стержню.</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<int>> MemberNodes { get; private set; } =
@@ -480,6 +516,7 @@ public class FemAnalysisResultVM : ViewModelBase
     public FemAnalysisResultVM(CalcResult result, DatabaseService db, FemSchema schema)
     {
         _database = db;
+        _schema = schema;
         ResetDeformScaleCommand = new RelayCommand(_ => DeformScale = SuggestScale());
         ResetForceScaleCommand = new RelayCommand(_ => ResetSelectedForceScale());
 
