@@ -21,4 +21,7 @@ public sealed class SectionResult
     /// null, если жёсткость не вычислялась.
     /// </summary>
     public double[,]? Tangent { get; init; }
+
+    /// <summary>Действия заданного преднапряжения относительно точки отсчёта.</summary>
+    public PrestressActionsResult? Prestress { get; init; }
 }

@@ -97,8 +97,10 @@ public sealed class StrainStateBatchVM : ViewModelBase
                         bool slenderY = etaEl.TryGetProperty("slenderY", out var syEl) && syEl.GetBoolean();
                         bool stableX  = !etaEl.TryGetProperty("stableX", out var stxEl) || stxEl.GetBoolean();
                         bool stableY  = !etaEl.TryGetProperty("stableY", out var styEl) || styEl.GetBoolean();
-                        double etaXv  = etaEl.TryGetProperty("etaX", out var exEl) ? exEl.GetDouble() : 1.0;
-                        double etaYv  = etaEl.TryGetProperty("etaY", out var eyEl) ? eyEl.GetDouble() : 1.0;
+                        double etaXv  = etaEl.TryGetProperty("etaX", out var exEl)
+                            && exEl.ValueKind == JsonValueKind.Number ? exEl.GetDouble() : 1.0;
+                        double etaYv  = etaEl.TryGetProperty("etaY", out var eyEl)
+                            && eyEl.ValueKind == JsonValueKind.Number ? eyEl.GetDouble() : 1.0;
                         etaXText = FormatEta(etaXv, slenderX, stableX);
                         etaYText = FormatEta(etaYv, slenderY, stableY);
                     }

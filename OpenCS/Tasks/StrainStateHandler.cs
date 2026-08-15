@@ -64,31 +64,36 @@ namespace OpenCS.Tasks
                   slendernessThreshold,
                   mxOriginal,
                   myOriginal,
-                  l0x              = Math.Round(wiring.X.L0, 4),
-                  hx               = Math.Round(wiring.X.H,  4),
-                  slendernessX     = wiring.X.H > 1e-9 ? Math.Round(wiring.X.L0 / wiring.X.H, 2) : (double?)null,
+                  l0x              = StrainStateJsonHelper.FiniteRounded(wiring.X.L0, 4),
+                  hx               = StrainStateJsonHelper.FiniteRounded(wiring.X.H,  4),
+                  slendernessX     = wiring.X.H > 1e-9
+                     ? StrainStateJsonHelper.FiniteRounded(wiring.X.L0 / wiring.X.H, 2)
+                     : (double?)null,
                   dX               = double.IsFinite(wiring.X.D) ? Math.Round(wiring.X.D, 2) : (double?)null,
-                  etaX             = Math.Round(wiring.X.Eta, 6),
+                  etaX             = StrainStateJsonHelper.FiniteRounded(wiring.X.Eta, 6),
                   ncrX             = double.IsFinite(wiring.X.Ncr) ? Math.Round(wiring.X.Ncr, 4) : (double?)null,
                   slenderX         = wiring.X.Slender,
                   stableX          = wiring.X.Stable,
                   extrapolationFailedX = wiring.X.ExtrapolationFailed,
-                  etaHistoryX      = wiring.X.EtaHistory.Select(e => Math.Round(e, 6)).ToArray(),
-                  l0y              = Math.Round(wiring.Y.L0, 4),
-                  hy               = Math.Round(wiring.Y.H,  4),
-                  slendernessY     = wiring.Y.H > 1e-9 ? Math.Round(wiring.Y.L0 / wiring.Y.H, 2) : (double?)null,
+                  etaHistoryX      = StrainStateJsonHelper.FiniteRoundedArray(wiring.X.EtaHistory, 6),
+                  l0y              = StrainStateJsonHelper.FiniteRounded(wiring.Y.L0, 4),
+                  hy               = StrainStateJsonHelper.FiniteRounded(wiring.Y.H,  4),
+                  slendernessY     = wiring.Y.H > 1e-9
+                     ? StrainStateJsonHelper.FiniteRounded(wiring.Y.L0 / wiring.Y.H, 2)
+                     : (double?)null,
                   dY               = double.IsFinite(wiring.Y.D) ? Math.Round(wiring.Y.D, 2) : (double?)null,
-                  etaY             = Math.Round(wiring.Y.Eta, 6),
+                  etaY             = StrainStateJsonHelper.FiniteRounded(wiring.Y.Eta, 6),
                   ncrY             = double.IsFinite(wiring.Y.Ncr) ? Math.Round(wiring.Y.Ncr, 4) : (double?)null,
                   slenderY         = wiring.Y.Slender,
                   stableY          = wiring.Y.Stable,
                   extrapolationFailedY = wiring.Y.ExtrapolationFailed,
-                  etaHistoryY      = wiring.Y.EtaHistory.Select(e => Math.Round(e, 6)).ToArray(),
+                  etaHistoryY      = StrainStateJsonHelper.FiniteRoundedArray(wiring.Y.EtaHistory, 6),
                };
             }
 
             var k      = solver.Solve(nTarget, mxTarget, myTarget);
             var result = section.Integral(k, task.CalcType, ten);
+            var prestress = section.PrestressActions();
 
             var data = new
             {
@@ -104,6 +109,7 @@ namespace OpenCS.Tasks
                N_result   = Math.Round(result.N,  4),
                Mx_result  = Math.Round(result.Mx, 4),
                My_result  = Math.Round(result.My, 4),
+               prestress  = PrestressActionsJsonModel.From(prestress),
                eta        = etaData
             };
 

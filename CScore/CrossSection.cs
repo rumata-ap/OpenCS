@@ -24,6 +24,15 @@ namespace CScore
        public override string ToString() => $"{Num:D3}#CrossSection : {Tag}";
 
        /// <summary>
+       /// Вычисляет номинальные и эффективные действия преднапряжения по группам точечных фибр.
+       /// По умолчанию моменты считаются относительно приведённого центра сечения.
+       /// </summary>
+       /// <param name="referencePoint">Явная точка отсчёта моментов; null — центр GeoProps.</param>
+       /// <returns>Результат действий по группам и их интегральные суммы.</returns>
+       public virtual PrestressActionsResult PrestressActions(XY? referencePoint = null) =>
+          PrestressActionsCalculator.Calculate(this, referencePoint);
+
+       /// <summary>
        /// Перечисляет пары (область, эффективная плоскость деформаций) при базовой кривизне
        /// <paramref name="baseK"/>. Базовая реализация возвращает (area, baseK) для каждой
        /// области из <see cref="Areas"/>. Производные классы (например, <see cref="TwoStageSection"/>)
@@ -270,8 +279,15 @@ namespace CScore
                                    bool computeStiffness = true, double fdStep = 1e-7)
       {
          var f0 = Integral(k, calc, ten, ca);
+         var prestress = PrestressActions();
          if (!computeStiffness)
-            return new SectionResult { N = f0.N, Mx = f0.Mx, My = f0.My };
+            return new SectionResult
+            {
+               N = f0.N,
+               Mx = f0.Mx,
+               My = f0.My,
+               Prestress = prestress,
+            };
 
          const int n = 3;
          var j = new double[n, n];
@@ -291,7 +307,14 @@ namespace CScore
                j[row, col] = (fPert[row] - fBase[row]) / h;
          }
 
-         return new SectionResult { N = f0.N, Mx = f0.Mx, My = f0.My, Tangent = j };
+         return new SectionResult
+         {
+            N = f0.N,
+            Mx = f0.Mx,
+            My = f0.My,
+            Tangent = j,
+            Prestress = prestress,
+         };
       }
    }
 }

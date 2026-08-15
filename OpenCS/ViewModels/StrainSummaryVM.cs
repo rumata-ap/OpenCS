@@ -28,6 +28,17 @@ namespace OpenCS.ViewModels
         public string MxText { get; }
         public string MyText { get; }
 
+        // ── Действия преднапряжения ───────────────────────────────────
+        public bool HasPrestress { get; private set; }
+        public string PrestressReferenceText { get; private set; } = "—";
+        public string PrestressNominalNText { get; private set; } = "—";
+        public string PrestressNominalMxText { get; private set; } = "—";
+        public string PrestressNominalMyText { get; private set; } = "—";
+        public string PrestressEffectiveNText { get; private set; } = "—";
+        public string PrestressEffectiveMxText { get; private set; } = "—";
+        public string PrestressEffectiveMyText { get; private set; } = "—";
+        public ObservableCollection<PrestressRow> PrestressRows { get; } = [];
+
         // ── Влияние прогиба (η, п. 8.1.15 СП63.13330) ──────────────────
         public bool   EtaEnabled { get; }
         public string EtaModeText { get; }
@@ -88,6 +99,7 @@ namespace OpenCS.ViewModels
         public string RebarAreaNote    { get; }
 
         public record RebarRow(int Num, string X, string Y, string Eps, string Sigma);
+        public record PrestressRow(string Tag, string Area, string Sigma, string Nominal, string Effective);
 
         public StrainSummaryVM(CalcResult result, CrossSection section, CalcType calcType, CalcSettings? settings = null, bool ten = true)
         {
@@ -125,6 +137,8 @@ namespace OpenCS.ViewModels
             MxText = $"{mxt:+0.000;-0.000} → {mxr:+0.000;-0.000}  кН·м  ({Pct(mxt, mxr)})";
             MyText = $"{myt:+0.000;-0.000} → {myr:+0.000;-0.000}  кН·м  ({Pct(myt, myr)})";
 
+            ReadPrestress(root);
+
             // η (п. 8.1.15 СП63.13330) — присутствует, только если задача считала поправку
             EtaEnabled = root.TryGetProperty("eta", out var etaEl) && etaEl.ValueKind != JsonValueKind.Null;
             if (EtaEnabled)
@@ -145,8 +159,8 @@ namespace OpenCS.ViewModels
                 bool slenderY = etaEl.TryGetProperty("slenderY", out var syEl) && syEl.GetBoolean();
                 bool stableX  = !etaEl.TryGetProperty("stableX", out var stxEl) || stxEl.GetBoolean();
                 bool stableY  = !etaEl.TryGetProperty("stableY", out var styEl) || styEl.GetBoolean();
-                double etaXv  = etaEl.TryGetProperty("etaX", out var exEl) ? exEl.GetDouble() : 1.0;
-                double etaYv  = etaEl.TryGetProperty("etaY", out var eyEl) ? eyEl.GetDouble() : 1.0;
+                double etaXv  = ReadFiniteDouble(etaEl, "etaX", 1.0);
+                double etaYv  = ReadFiniteDouble(etaEl, "etaY", 1.0);
                 double? ncrX  = etaEl.TryGetProperty("ncrX", out var nxEl) && nxEl.ValueKind != JsonValueKind.Null ? nxEl.GetDouble() : null;
                 double? ncrY  = etaEl.TryGetProperty("ncrY", out var nyEl) && nyEl.ValueKind != JsonValueKind.Null ? nyEl.GetDouble() : null;
                 bool extrapFailedX = etaEl.TryGetProperty("extrapolationFailedX", out var efxEl) && efxEl.GetBoolean();
@@ -260,6 +274,80 @@ namespace OpenCS.ViewModels
 
         static string FmtRatio(double v)
             => double.IsNaN(v) || double.IsInfinity(v) ? "—" : $"{v:0.000}";
+
+        void ReadPrestress(JsonElement root)
+        {
+            if (!root.TryGetProperty("prestress", out var prestress) ||
+                !prestress.TryGetProperty("groups", out var groups) ||
+                groups.ValueKind != JsonValueKind.Array || groups.GetArrayLength() == 0)
+            {
+                HasPrestress = false;
+                return;
+            }
+
+            HasPrestress = true;
+
+            if (prestress.TryGetProperty("reference", out var reference))
+            {
+                double x = ReadDouble(reference, "x_m");
+                double y = ReadDouble(reference, "y_m");
+                PrestressReferenceText = $"x = {x:+0.000;-0.000}; y = {y:+0.000;-0.000}  м";
+            }
+
+            if (prestress.TryGetProperty("nominal", out var nominal))
+            {
+                PrestressNominalNText = FormatForce(nominal, "N_kN", "кН");
+                PrestressNominalMxText = FormatForce(nominal, "Mx_kNm", "кН·м");
+                PrestressNominalMyText = FormatForce(nominal, "My_kNm", "кН·м");
+            }
+
+            if (prestress.TryGetProperty("effective", out var effective))
+            {
+                PrestressEffectiveNText = FormatForce(effective, "N_kN", "кН");
+                PrestressEffectiveMxText = FormatForce(effective, "Mx_kNm", "кН·м");
+                PrestressEffectiveMyText = FormatForce(effective, "My_kNm", "кН·м");
+            }
+
+            foreach (var group in groups.EnumerateArray())
+            {
+                string tag = group.TryGetProperty("tag", out var tagEl) ? tagEl.GetString() ?? "" : "";
+                double area = ReadDouble(group, "area_m2");
+                double sigma = ReadDouble(group, "sigSp_MPa");
+                group.TryGetProperty("nominal", out var groupNominal);
+                group.TryGetProperty("effective", out var groupEffective);
+
+                PrestressRows.Add(new PrestressRow(
+                    tag,
+                    $"{area:0.000000} м²",
+                    $"{sigma:+0.0;-0.0} МПа",
+                    FormatVector(groupNominal),
+                    FormatVector(groupEffective)));
+            }
+        }
+
+        static double ReadDouble(JsonElement parent, string name)
+            => parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number
+                ? value.GetDouble()
+                : 0.0;
+
+        static double ReadFiniteDouble(JsonElement parent, string name, double fallback)
+        {
+            if (!parent.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.Number)
+                return fallback;
+            double number = value.GetDouble();
+            return double.IsFinite(number) ? number : fallback;
+        }
+
+        static string FormatForce(JsonElement vector, string name, string unit)
+            => $"{ReadDouble(vector, name):+0.000;-0.000}  {unit}";
+
+        static string FormatVector(JsonElement vector)
+        {
+            double n = ReadDouble(vector, "N_kN");
+            double mx = ReadDouble(vector, "Mx_kNm");
+            double my = ReadDouble(vector, "My_kNm");
+            return $"N={n:+0.0;-0.0}; Mx={mx:+0.0;-0.0}; My={my:+0.0;-0.0}";
+        }
 
         /// <summary>Значение η для одной оси (п. 8.1.15 СП63.13330).</summary>
         static string FormatEta(double eta, bool slender, bool stable)
