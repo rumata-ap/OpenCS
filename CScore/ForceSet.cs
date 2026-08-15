@@ -95,7 +95,8 @@ namespace CScore
       /// <summary>Tag конструктивного элемента в расчётной схеме.</summary>
       public string? SourceElementTag { get; set; }
 
-      /// <summary>FK → fem_members.id. Null для ручного ввода.</summary>
+      /// <summary>FK → fem_members.id; для OpenSees FEA указывает на исходный конструктивный
+      /// стержень, для ручного набора равен null.</summary>
       public int?    SourceMemberId   { get; set; }
 
       /// <summary>FK → fem_members.id. Набор усилий одного конструктивного элемента (в отличие
