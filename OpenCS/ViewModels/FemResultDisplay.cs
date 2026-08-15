@@ -270,7 +270,10 @@ public static class FemMemberResultSeriesBuilder
             if (!values.TryGetValue(element.ElementTag, out FemElementEndForces? force))
                 continue;
 
-            var (value0, value1) = ReadForce(force, component);
+            FemForceEndpointPair pair = FemForceEndpointConverter.Convert(
+                force, FemForceEndpointSignPolicy.OpenSeesDefault);
+            double value0 = FemForceEndpointConverter.ReadComponent(pair.Start, component);
+            double value1 = FemForceEndpointConverter.ReadComponent(pair.End, component);
             AddSegment(segments, context, element, value0, value1);
         }
 
@@ -326,17 +329,6 @@ public static class FemMemberResultSeriesBuilder
         else direction.Normalize();
         return Vector3D.DotProduct(point - context.Origin, direction);
     }
-
-    static (double Value0, double Value1) ReadForce(FemElementEndForces force, FemForceComponent component) => component switch
-    {
-        FemForceComponent.N => (-force.Ni, force.Nj),
-        FemForceComponent.Qy => (-force.Qyi, force.Qyj),
-        FemForceComponent.Qz => (-force.Qzi, force.Qzj),
-        FemForceComponent.Mx => (-force.Mxi, force.Mxj),
-        FemForceComponent.My => (force.Myi, -force.Myj),
-        FemForceComponent.Mz => (force.Mzi, -force.Mzj),
-        _ => (0, 0)
-    };
 
     static double ReadNodal(FemNodeDisplacement value, FemNodalComponent component) => component switch
     {

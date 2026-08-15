@@ -86,6 +86,35 @@ public class FemMemberResultSeriesBuilderTests
     }
 
     [Fact]
+    public void BuildForces_AndLoadItemUseTheSameCanonicalEndpointValues()
+    {
+        var force = new FemElementEndForces(
+            7, 1000, 2000, 3000, 4000, 5000, 6000,
+            7000, 8000, 9000, 10000, 11000, 12000);
+        var context = Context(new FemMemberMeshElement(7, 1, 2, Point(0), Point(1)));
+        var canonical = FemForceEndpointConverter.Convert(
+            force, FemForceEndpointSignPolicy.OpenSeesDefault).Start;
+        var item = FemForceEndpointConverter.ToLoadItem(canonical, 1, "node 1");
+
+        foreach (var component in Enum.GetValues<FemForceComponent>())
+        {
+            var series = FemMemberResultSeriesBuilder.BuildForces(
+                context, new Dictionary<int, FemElementEndForces> { [7] = force }, component);
+            Assert.Equal(
+                FemForceEndpointConverter.ReadComponent(canonical, component),
+                Assert.Single(series.Segments).Value0,
+                12);
+        }
+
+        Assert.Equal(canonical.N / 1000.0, item.N, 12);
+        Assert.Equal(canonical.Mz / 1000.0, item.Mx, 12);
+        Assert.Equal(canonical.My / 1000.0, item.My, 12);
+        Assert.Equal(canonical.Qz / 1000.0, item.Vx, 12);
+        Assert.Equal(canonical.Qy / 1000.0, item.Vy, 12);
+        Assert.Equal(canonical.Mx / 1000.0, item.T, 12);
+    }
+
+    [Fact]
     public void Scale_ConvertsDisplacementsAndRotationsWithoutMutatingRawSeries()
     {
         var raw = new FemDiagramSeries([

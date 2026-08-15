@@ -643,18 +643,6 @@ public class FemAnalysisResultVM : ViewModelBase
                 new Vector3D(frame.Z.X, frame.Z.Y, frame.Z.Z));
     }
 
-    /// <summary>Значения выбранной компоненты на концах i и j (внутреннее усилие, непрерывное по узлу).</summary>
-    static (double Vi, double Vj) ComponentValues(FemElementEndForces f, FemForceComponent component) => component switch
-    {
-        FemForceComponent.N  => (-f.Ni,  f.Nj),
-        FemForceComponent.Qy => (-f.Qyi, f.Qyj),
-        FemForceComponent.Qz => (-f.Qzi, f.Qzj),
-        FemForceComponent.Mx => (-f.Mxi, f.Mxj),
-        FemForceComponent.My => (f.Myi, -f.Myj),
-        FemForceComponent.Mz => (f.Mzi, -f.Mzj),
-        _ => (0, 0)
-    };
-
     Vector3D OffsetAxis(ElementGeom g) => _selectedForceComponent switch
     {
         FemForceComponent.Qy or FemForceComponent.Mz => g.Ey,
@@ -670,7 +658,10 @@ public class FemAnalysisResultVM : ViewModelBase
         foreach (var g in _elementGeoms)
         {
             if (!_forcesByElem.TryGetValue(g.Tag, out var f)) continue;
-            var (vi, vj) = ComponentValues(f, _selectedForceComponent);
+            FemForceEndpointPair pair = FemForceEndpointConverter.Convert(
+                f, FemForceEndpointSignPolicy.OpenSeesDefault);
+            double vi = FemForceEndpointConverter.ReadComponent(pair.Start, _selectedForceComponent);
+            double vj = FemForceEndpointConverter.ReadComponent(pair.End, _selectedForceComponent);
             var axis = OffsetAxis(g);
             var offI = axis * (vi / 1000.0 * forceScale);
             var offJ = axis * (vj / 1000.0 * forceScale);
@@ -738,8 +729,13 @@ public class FemAnalysisResultVM : ViewModelBase
         var values = _forcesByElem.Values
             .SelectMany(force =>
             {
-                var (value0, value1) = ComponentValues(force, component);
-                return new[] { value0, value1 };
+                FemForceEndpointPair pair = FemForceEndpointConverter.Convert(
+                    force, FemForceEndpointSignPolicy.OpenSeesDefault);
+                return new[]
+                {
+                    FemForceEndpointConverter.ReadComponent(pair.Start, component),
+                    FemForceEndpointConverter.ReadComponent(pair.End, component)
+                };
             })
             .ToList();
 
