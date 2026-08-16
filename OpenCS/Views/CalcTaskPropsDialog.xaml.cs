@@ -1112,6 +1112,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        new() { Id = "steel_torsion",            Label = Loc.S("CalcTaskKind_steel_torsion"),            GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_constructive",       Label = Loc.S("CalcTaskKind_steel_constructive"),       GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       // Прочее
+      new() { Id = "moment_curvature_biaxial", Label = Loc.S("CalcTaskKind_moment_curvature_biaxial"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "torsion_bem",              Label = Loc.S("CalcTaskKind_torsion_bem"),              GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "torsion_fem",              Label = Loc.S("CalcTaskKind_torsion_fem"),              GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       // 2-я ГПС
@@ -1125,7 +1126,6 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "crack_width_batch",  Label = Loc.S("CalcTaskKind_crack_width_batch"),  GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "total_curvature",       Label = Loc.S("CalcTaskKind_total_curvature"),       GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "total_curvature_batch", Label = Loc.S("CalcTaskKind_total_curvature_batch"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
-      new() { Id = "moment_curvature_biaxial", Label = Loc.S("CalcTaskKind_moment_curvature_biaxial"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       // Огнестойкость
       new() { Id = "fire_r_check",             Label = Loc.S("CalcTaskKind_fire_r_check"),             GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
       new() { Id = "fire_r_check_batch",       Label = Loc.S("CalcTaskKind_fire_r_check_batch"),       GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
@@ -1166,7 +1166,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                    : [CalcType.C, CalcType.CL];
            if (IsShellLayered)
                return [CalcType.C, CalcType.CL];
-           if (IsCracking || IsCrackingBatch || IsCrackWidthAny || IsTotalCurvatureAny || IsMomentCurvatureBiaxial)
+           if (IsCracking || IsCrackingBatch || IsCrackWidthAny || IsTotalCurvatureAny)
                return [CalcType.N, CalcType.NL];
            return CalcTypes;
        }

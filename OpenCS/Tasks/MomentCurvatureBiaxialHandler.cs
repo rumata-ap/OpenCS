@@ -31,7 +31,10 @@ public sealed class MomentCurvatureBiaxialHandler : ITaskHandler
                 ? CurvatureNMode.Proportional
                 : CurvatureNMode.Constant;
 
-            var calcCrc = task.CalcType is CalcType.N or CalcType.NL ? task.CalcType : CalcType.N;
+            // Задача не ограничена 2-й ГПС (N/NL) — трещинообразование, текучесть и предел
+            // несущей способности можно строить и на диаграммах 1-й ГПС (C/CL), поэтому
+            // выбранный пользователем CalcType передаётся решателю напрямую, без подмены.
+            var calcCrc = task.CalcType;
             var solver = new BiaxialCurvatureCurveSolver(section,
                 calcCrc: calcCrc, calcService: calcCrc,
                 solverTol: settings.NewtonTolerance,
