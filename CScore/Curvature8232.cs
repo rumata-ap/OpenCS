@@ -20,6 +20,19 @@ public static class Curvature8232
         return Math.Clamp(1.0 / (1.0 + 0.8 * epsCrc / eps), 0.0, 1.0);
     }
 
+    /// <summary>Возвращает напряжение арматуры после поправки σ/ψs.</summary>
+    /// <param name="diagramStress">Напряжение по диаграмме материала.</param>
+    /// <param name="psiS">Коэффициент ψs по п. 8.2.32.</param>
+    public static double CorrectedStress(double diagramStress, double psiS)
+    {
+        if (!double.IsFinite(diagramStress)
+            || !double.IsFinite(psiS)
+            || psiS <= 0.0)
+            return diagramStress;
+
+        return diagramStress / psiS;
+    }
+
     /// <summary>
     /// Вычисляет альтернативный коэффициент по п. 8.2.18 при замене
     /// отношения напряжений соответствующим отношением деформаций:

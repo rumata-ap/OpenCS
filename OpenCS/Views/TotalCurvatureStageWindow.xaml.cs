@@ -25,6 +25,10 @@ public partial class TotalCurvatureStageWindow : Window
             pool: app.Diagrams,
             rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
         section.SetEps(stage.Plane, stage.CalcType, stage.ConcreteTension);
+        var rebarFibers = section.EnumerateAreas(stage.Plane)
+            .SelectMany(item => item.area.Fibers)
+            .Where(fiber => fiber.TypeFiber == FiberType.point)
+            .ToList();
 
         string? RebarTooltip(double xM, double yM)
         {
@@ -39,6 +43,12 @@ public partial class TotalCurvatureStageWindow : Window
 
             return nearest.Value.Applicable
                 ? string.Format(Loc.S("TotalCurvature_PsiSFormat"), nearest.Value.PsiS)
+                    + "\n"
+                    + string.Format(
+                        Loc.S("TotalCurvature_PsiSCorrectedStressFormat"),
+                        Curvature8232.CorrectedStress(
+                            NearestStressMpa(rebarFibers, xM, yM),
+                            nearest.Value.PsiS))
                 : Loc.S("TotalCurvature_PsiSNotApplicable");
         }
 
@@ -65,6 +75,18 @@ public partial class TotalCurvatureStageWindow : Window
         _cutWindow.Bind(cutVm, SectionPlotMode.Stress);
         MainTabs.SelectionChanged += OnTabSelectionChanged;
         Closed += (_, _) => _cutWindow?.Dispose();
+    }
+
+    static double NearestStressMpa(
+        IReadOnlyList<Fiber> fibers, double xM, double yM)
+    {
+        var nearest = fibers
+            .Select(fiber => (Fiber: fiber,
+                Distance: Math.Sqrt((fiber.X - xM) * (fiber.X - xM)
+                    + (fiber.Y - yM) * (fiber.Y - yM))))
+            .OrderBy(item => item.Distance)
+            .FirstOrDefault();
+        return nearest.Fiber?.Sig / 1000.0 ?? 0.0;
     }
 
     void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -2361,6 +2361,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_StagePlotTooltip">Открыть графические поля напряжений и деформаций этой составляющей</system:String>
     <system:String x:Key="TotalCurvature_StageStarTooltip">Звёздочка означает учёт ψs по п. 8.2.32 СП 63.13330</system:String>
     <system:String x:Key="TotalCurvature_PsiSFormat">ψs (п. 8.2.32) = {0:0.000}</system:String>
+    <system:String x:Key="TotalCurvature_PsiSCorrectedStressFormat">σ / ψs = {0:0.0} МПа</system:String>
     <system:String x:Key="TotalCurvature_PsiSNotApplicable">ψs (п. 8.2.32) = 1.000; стержень не растянут или коэффициент не применяется</system:String>
     <system:String x:Key="TotalCurvature_GraphicsUnavailable">Графическое поле для этой стадии недоступно.</system:String>
     <system:String x:Key="TotalCurvature_InputHeader">Нагрузка</system:String>

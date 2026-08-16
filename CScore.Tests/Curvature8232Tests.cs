@@ -25,6 +25,12 @@ public sealed class Curvature8232Tests
     }
 
     [Fact]
+    public void CorrectedStress_DividesDiagramStressByPsiS()
+    {
+        Assert.Equal(613.079, Curvature8232.CorrectedStress(450.0, 0.734), 3);
+    }
+
+    [Fact]
     public void PsiSFromStrainRatio_UsesFormulaFromClause8218()
     {
         double expected = 1.0 - 0.8 * 0.00010 / 0.00050;

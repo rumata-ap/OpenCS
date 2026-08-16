@@ -2358,6 +2358,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_StagePlotTooltip">Open stress and strain fields for this component</system:String>
     <system:String x:Key="TotalCurvature_StageStarTooltip">The asterisk means ψs from clause 8.2.32 of SP 63.13330 is applied</system:String>
     <system:String x:Key="TotalCurvature_PsiSFormat">ψs (clause 8.2.32) = {0:0.000}</system:String>
+    <system:String x:Key="TotalCurvature_PsiSCorrectedStressFormat">σ / ψs = {0:0.0} MPa</system:String>
     <system:String x:Key="TotalCurvature_PsiSNotApplicable">ψs (clause 8.2.32) = 1.000; bar is not in tension or not applicable</system:String>
     <system:String x:Key="TotalCurvature_GraphicsUnavailable">The graphical field for this stage is unavailable.</system:String>
     <system:String x:Key="TotalCurvature_InputHeader">Load</system:String>
