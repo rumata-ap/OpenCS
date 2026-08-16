@@ -94,6 +94,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    LoadItem? crackWidthLongForceItem;
    string _crackWidthLongForceItemFilter = "";
    string totalCurvatureForcesMode = "total_only";
+   string momentCurvatureNMode = "constant";
+   bool momentCurvatureUsePsi = true;
    string totalCurvatureLongShare = "0.7";
    string totalCurvatureManualMxLong = "0";
    string totalCurvatureManualMyLong = "0";
@@ -186,7 +188,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    public bool IsLimitSingle  => IsLimitSingleKind(Kind);
    public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || IsSteelCheck
-      || IsCracking || IsCrackWidth || IsTotalCurvature;
+      || IsCracking || IsCrackWidth || IsTotalCurvature || IsMomentCurvatureBiaxial;
 
    static bool IsLimitSingleKind(string kind)
       => kind is "limit_force" or "limit_moment" or "limit_axial";
@@ -239,6 +241,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(IsTotalCurvature));
          OnPropertyChanged(nameof(IsTotalCurvatureBatch));
          OnPropertyChanged(nameof(IsTotalCurvatureAny));
+         OnPropertyChanged(nameof(IsMomentCurvatureBiaxial));
            OnPropertyChanged(nameof(IsOpenSeesSpatialInteraction));
            OnPropertyChanged(nameof(OpenSeesForceSetNPreview));
            OnPropertyChanged(nameof(OpenSeesSpatialPointCount));
@@ -328,6 +331,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsTotalCurvature));
             OnPropertyChanged(nameof(IsTotalCurvatureBatch));
             OnPropertyChanged(nameof(IsTotalCurvatureAny));
+         OnPropertyChanged(nameof(IsMomentCurvatureBiaxial));
             OnPropertyChanged(nameof(IsOpenSeesSpatialInteraction));
             OnPropertyChanged(nameof(OpenSeesForceSetNPreview));
             OnPropertyChanged(nameof(OpenSeesSpatialPointCount));
@@ -400,6 +404,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsTotalCurvature      => Kind == "total_curvature";
    public bool IsTotalCurvatureBatch => Kind == "total_curvature_batch";
    public bool IsTotalCurvatureAny   => IsTotalCurvature || IsTotalCurvatureBatch;
+   public bool IsMomentCurvatureBiaxial => Kind == "moment_curvature_biaxial";
    public bool IsOpenSeesSpatialInteraction => Kind == "opensees_section_interaction_n_mx_my";
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
       && !IsOpenSeesSpatialInteraction
@@ -637,6 +642,24 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    public bool ShowTotalCurvatureShare  => TotalCurvatureForcesMode == "share";
    public bool ShowTotalCurvatureManual => IsTotalCurvature && TotalCurvatureForcesMode == "manual";
+
+   public string MomentCurvatureNMode
+   {
+      get => momentCurvatureNMode;
+      set { momentCurvatureNMode = value; OnPropertyChanged(); }
+   }
+
+   public bool MomentCurvatureUsePsi
+   {
+      get => momentCurvatureUsePsi;
+      set { momentCurvatureUsePsi = value; OnPropertyChanged(); }
+   }
+
+   public List<CalcTaskSolverItem> MomentCurvatureNModeItems { get; } =
+   [
+      new() { Id = "constant",     Label = Loc.S("MomentCurvature_NMode_constant") },
+      new() { Id = "proportional", Label = Loc.S("MomentCurvature_NMode_proportional") },
+   ];
 
    // Переиспользует существующую публичную коллекцию ForceSets (тот же список,
    // что и у стандартного picker'а) — отдельная коллекция не нужна.
@@ -1102,6 +1125,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "crack_width_batch",  Label = Loc.S("CalcTaskKind_crack_width_batch"),  GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "total_curvature",       Label = Loc.S("CalcTaskKind_total_curvature"),       GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "total_curvature_batch", Label = Loc.S("CalcTaskKind_total_curvature_batch"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "moment_curvature_biaxial", Label = Loc.S("CalcTaskKind_moment_curvature_biaxial"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       // Огнестойкость
       new() { Id = "fire_r_check",             Label = Loc.S("CalcTaskKind_fire_r_check"),             GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
       new() { Id = "fire_r_check_batch",       Label = Loc.S("CalcTaskKind_fire_r_check_batch"),       GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
@@ -1142,7 +1166,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                    : [CalcType.C, CalcType.CL];
            if (IsShellLayered)
                return [CalcType.C, CalcType.CL];
-           if (IsCracking || IsCrackingBatch || IsCrackWidthAny || IsTotalCurvatureAny)
+           if (IsCracking || IsCrackingBatch || IsCrackWidthAny || IsTotalCurvatureAny || IsMomentCurvatureBiaxial)
                return [CalcType.N, CalcType.NL];
            return CalcTypes;
        }
@@ -1375,6 +1399,17 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              if (tcp.N.HasValue)  ManualN  = tcp.N.Value.ToString("G6", inv);
              if (tcp.Mx.HasValue) ManualMx = tcp.Mx.Value.ToString("G6", inv);
              if (tcp.My.HasValue) ManualMy = tcp.My.Value.ToString("G6", inv);
+          }
+
+          if (existing.Kind == "moment_curvature_biaxial")
+          {
+             var mcp = MomentCurvatureBiaxialTaskParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             MomentCurvatureNMode = mcp.NMode;
+             MomentCurvatureUsePsi = mcp.UsePsi;
+             if (mcp.N.HasValue)  ManualN  = mcp.N.Value.ToString("G6", inv);
+             if (mcp.Mx.HasValue) ManualMx = mcp.Mx.Value.ToString("G6", inv);
+             if (mcp.My.HasValue) ManualMy = mcp.My.Value.ToString("G6", inv);
           }
 
           if (IsTorsion && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
@@ -2006,6 +2041,41 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             ForceItemId = 0,
             CalcType = SelectedCalcType,
             ParamsJson = tcp.ToJson()
+         };
+         _window.DialogResult = true;
+         return;
+      }
+
+      if (IsMomentCurvatureBiaxial)
+      {
+         if (SelectedSection == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         var invMc = System.Globalization.CultureInfo.InvariantCulture;
+         double.TryParse(ManualN, System.Globalization.NumberStyles.Float, invMc, out var mcN);
+         double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, invMc, out var mcMx);
+         double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, invMc, out var mcMy);
+
+         var mcp = new MomentCurvatureBiaxialTaskParams
+         {
+            N = mcN, Mx = mcMx, My = mcMy,
+            NMode = MomentCurvatureNMode,
+            UsePsi = MomentCurvatureUsePsi
+         };
+
+         Result = new CalcTask
+         {
+            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Kind = Kind,
+            SectionId = SelectedSection.Id,
+            ForceSetId = 0,
+            ForceItemId = 0,
+            CalcType = SelectedCalcType,
+            ParamsJson = mcp.ToJson()
          };
          _window.DialogResult = true;
          return;

@@ -1039,6 +1039,19 @@
          </GroupBox>
       </StackPanel>
 
+      <StackPanel Grid.Row="17" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsMomentCurvatureBiaxial, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource CalcTaskKind_moment_curvature_biaxial}" Margin="0,8,0,0">
+            <StackPanel Margin="4" Orientation="Horizontal">
+               <TextBlock Text="{DynamicResource MomentCurvature_NModeLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+               <ComboBox ItemsSource="{Binding MomentCurvatureNModeItems}" DisplayMemberPath="Label" SelectedValuePath="Id"
+                         SelectedValue="{Binding MomentCurvatureNMode}" Width="160" Margin="0,0,16,0"/>
+               <CheckBox Content="{DynamicResource MomentCurvature_UsePsiLabel}"
+                         IsChecked="{Binding MomentCurvatureUsePsi}" VerticalAlignment="Center"/>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
+
       <StackPanel Grid.Row="18" Grid.Column="0" Grid.ColumnSpan="2"
                   Orientation="Horizontal" HorizontalAlignment="Right">
          <Button Content="{DynamicResource OK}"
