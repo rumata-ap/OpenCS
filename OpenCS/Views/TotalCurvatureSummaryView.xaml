@@ -64,6 +64,92 @@
             <TextBlock Text="{Binding Stage3Text}"/>
          </StackPanel>
 
+         <GroupBox Header="{DynamicResource ResultStiffness}"
+                   Margin="0,10,0,6" Padding="8,4"
+                   Visibility="{Binding HasStiffness, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+               <TextBlock Text="{DynamicResource TotalCurvature_StiffnessNote}"
+                          Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,6"/>
+               <ItemsControl ItemsSource="{Binding StiffnessRows}">
+                  <ItemsControl.ItemTemplate>
+                     <DataTemplate>
+                        <StackPanel Margin="0,0,0,8">
+                           <TextBlock Text="{Binding StageLabel}" FontWeight="Bold" Margin="0,0,0,2"/>
+                           <Grid>
+                              <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="110"/>
+                                 <ColumnDefinition Width="*"/>
+                                 <ColumnDefinition Width="110"/>
+                                 <ColumnDefinition Width="*"/>
+                              </Grid.ColumnDefinitions>
+                              <Grid.RowDefinitions>
+                                 <RowDefinition Height="Auto"/>
+                                 <RowDefinition Height="Auto"/>
+                                 <RowDefinition Height="Auto"/>
+                                 <RowDefinition Height="Auto"/>
+                                 <RowDefinition Height="Auto"/>
+                              </Grid.RowDefinitions>
+                              <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource TotalCurvature_StiffnessXc}" Foreground="Gray" Margin="0,1"/>
+                              <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding XcText}" FontFamily="Consolas" Margin="0,1"/>
+                              <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource TotalCurvature_StiffnessYc}" Foreground="Gray" Margin="0,1"/>
+                              <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding YcText}" FontFamily="Consolas" Margin="0,1"/>
+                              <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource TotalCurvature_StiffnessEA}" Foreground="Gray" Margin="0,1"/>
+                              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EAText}" FontFamily="Consolas" Margin="0,1"/>
+                              <TextBlock Grid.Row="1" Grid.Column="2" Text="{DynamicResource TotalCurvature_StiffnessEIy0}" Foreground="Gray" Margin="0,1"/>
+                              <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding EIy0Text}" FontFamily="Consolas" Margin="0,1"/>
+                              <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource TotalCurvature_StiffnessEIz0}" Foreground="Gray" Margin="0,1"/>
+                              <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding EIz0Text}" FontFamily="Consolas" Margin="0,1"/>
+                              <TextBlock Grid.Row="2" Grid.Column="2" Text="{DynamicResource TotalCurvature_StiffnessEIyc}" Foreground="Gray" Margin="0,1"/>
+                              <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding EIycText}" FontFamily="Consolas" Margin="0,1"/>
+                              <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource TotalCurvature_StiffnessEIzc}" Foreground="Gray" Margin="0,1"/>
+                              <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding EIzcText}" FontFamily="Consolas" Margin="0,1"/>
+                           </Grid>
+                        </StackPanel>
+                     </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+               </ItemsControl>
+            </StackPanel>
+         </GroupBox>
+
+         <GroupBox Header="{DynamicResource ResultElasticStiffness}"
+                   Margin="0,0,0,6" Padding="8,4"
+                   Visibility="{Binding HasStiffness, Converter={StaticResource BoolToVisibility}}">
+            <ItemsControl ItemsSource="{Binding StiffnessRows}">
+               <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                     <StackPanel Margin="0,0,0,8">
+                        <TextBlock Text="{Binding StageLabel}" FontWeight="Bold" Margin="0,0,0,2"/>
+                        <Grid>
+                           <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="110"/>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="110"/>
+                              <ColumnDefinition Width="*"/>
+                           </Grid.ColumnDefinitions>
+                           <Grid.RowDefinitions>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                              <RowDefinition Height="Auto"/>
+                           </Grid.RowDefinitions>
+                           <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource TotalCurvature_StiffnessEAel}" Foreground="Gray" Margin="0,1"/>
+                           <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding EAelText}" FontFamily="Consolas" Margin="0,1"/>
+                           <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource TotalCurvature_StiffnessEIyel}" Foreground="Gray" Margin="0,1"/>
+                           <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding EIyelText}" FontFamily="Consolas" Margin="0,1"/>
+                           <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource TotalCurvature_StiffnessEIzel}" Foreground="Gray" Margin="0,1"/>
+                           <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding EIzelText}" FontFamily="Consolas" Margin="0,1"/>
+                           <TextBlock Grid.Row="1" Grid.Column="2" Text="{DynamicResource TotalCurvature_StiffnessPhiEA}" Foreground="Gray" Margin="0,1"/>
+                           <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding PhiEAText}" FontFamily="Consolas" Margin="0,1"/>
+                           <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource TotalCurvature_StiffnessPhiEIy}" Foreground="Gray" Margin="0,1"/>
+                           <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PhiEIyText}" FontFamily="Consolas" Margin="0,1"/>
+                           <TextBlock Grid.Row="2" Grid.Column="2" Text="{DynamicResource TotalCurvature_StiffnessPhiEIz}" Foreground="Gray" Margin="0,1"/>
+                           <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding PhiEIzText}" FontFamily="Consolas" Margin="0,1"/>
+                        </Grid>
+                     </StackPanel>
+                  </DataTemplate>
+               </ItemsControl.ItemTemplate>
+            </ItemsControl>
+         </GroupBox>
+
          <TextBlock Text="{DynamicResource TotalCurvature_ResultHeader}" FontWeight="Bold" Margin="0,10,0,4"/>
          <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKyFullColon}"/><Run Text="{Binding KyFullText, Mode=OneWay}"/></TextBlock>
          <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKzFullColon}"/><Run Text="{Binding KzFullText, Mode=OneWay}"/></TextBlock>

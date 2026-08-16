@@ -21,7 +21,9 @@ public partial class TotalCurvatureResultView : UserControl
         _app = app;
         _task = task;
         InitializeComponent();
-        SummaryView.DataContext = new TotalCurvatureSummaryVM(result);
+        var section = _app.CrossSections.FirstOrDefault(s => s.Id == _task.SectionId);
+        SummaryView.DataContext = new TotalCurvatureSummaryVM(
+            result, section, _app.CalcSettings, _app.Diagrams);
         SummaryView.StagePlotRequested += OnStagePlotRequested;
     }
 

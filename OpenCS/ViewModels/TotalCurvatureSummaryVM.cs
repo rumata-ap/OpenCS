@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Windows.Media;
 using CScore;
@@ -49,7 +51,23 @@ public sealed class TotalCurvatureSummaryVM : ViewModelBase
     public string KFullText { get; } = Loc.S("TotalCurvature_Empty");
     public bool AllConverged { get; }
 
-    public TotalCurvatureSummaryVM(CalcResult result)
+    /// <summary>Жёсткости каждой рассчитанной стадии с учётом σ/ψs в растянутой арматуре.</summary>
+    public ObservableCollection<TotalCurvatureStiffnessRow> StiffnessRows { get; } = [];
+    public bool HasStiffness => StiffnessRows.Count > 0;
+
+    public sealed record TotalCurvatureStiffnessRow(
+        string StageLabel,
+        string XcText, string YcText,
+        string EAText, string EIy0Text, string EIz0Text,
+        string EIycText, string EIzcText,
+        string EAelText, string EIyelText, string EIzelText,
+        string PhiEAText, string PhiEIyText, string PhiEIzText);
+
+    public TotalCurvatureSummaryVM(
+        CalcResult result,
+        CrossSection? section = null,
+        CalcSettings? settings = null,
+        IReadOnlyList<Diagramm>? diagramPool = null)
     {
         TaskTag = result.TaskTag;
         CreatedText = result.Created;
@@ -124,6 +142,8 @@ public sealed class TotalCurvatureSummaryVM : ViewModelBase
                 CanPlotStage3 = HasPlotData(stage3);
             }
 
+            BuildStiffnessRows(root, section, settings, diagramPool);
+
             KyFullText = NumRaw(root, "ky_full");
             KzFullText = NumRaw(root, "kz_full");
             KFullText = NumRaw(root, "k_full");
@@ -174,4 +194,75 @@ public sealed class TotalCurvatureSummaryVM : ViewModelBase
         && stage.TryGetProperty("kz", out var kz) && kz.ValueKind == JsonValueKind.Number
         && stage.TryGetProperty("converged", out var converged)
         && converged.ValueKind == JsonValueKind.True && converged.GetBoolean();
+
+    static void AddStiffnessRow(
+        ObservableCollection<TotalCurvatureStiffnessRow> rows,
+        TotalCurvatureStageVM stage,
+        SectionStiffnessResult stiffness)
+    {
+        rows.Add(new TotalCurvatureStiffnessRow(
+            stage.Label,
+            $"{stiffness.Xc_mm:+0.0;-0.0}  мм",
+            $"{stiffness.Yc_mm:+0.0;-0.0}  мм",
+            $"{stiffness.EA_kN:F0}  кН",
+            $"{stiffness.EIy0_kNm2:F2}  кН·м²",
+            $"{stiffness.EIz0_kNm2:F2}  кН·м²",
+            $"{stiffness.EIyc_kNm2:F2}  кН·м²",
+            $"{stiffness.EIzc_kNm2:F2}  кН·м²",
+            $"{stiffness.EAel_kN:F0}  кН",
+            $"{stiffness.EIyel_kNm2:F2}  кН·м²",
+            $"{stiffness.EIzel_kNm2:F2}  кН·м²",
+            FmtRatio(stiffness.PhiEA),
+            FmtRatio(stiffness.PhiEIy),
+            FmtRatio(stiffness.PhiEIz)));
+    }
+
+    static string FmtRatio(double value) =>
+        double.IsNaN(value) || double.IsInfinity(value)
+            ? Loc.S("TotalCurvature_Empty")
+            : $"{value:0.000}";
+
+    void BuildStiffnessRows(
+        JsonElement root,
+        CrossSection? section,
+        CalcSettings? settings,
+        IReadOnlyList<Diagramm>? diagramPool)
+    {
+        if (section == null)
+            return;
+
+        try
+        {
+            var actualSettings = settings ?? CalcSettings.Default;
+            section.ResolveAndBuildDiagramms(
+                actualSettings.Sp63DescEtaMin,
+                pool: diagramPool,
+                rebarDifferentialDiagram: actualSettings.RebarDifferentialDiagram);
+
+            for (int number = 1; number <= 3; number++)
+            {
+                var stage = TotalCurvatureStageVM.Parse(root, number, Cracked);
+                if (stage == null || !stage.Converged)
+                    continue;
+
+                section.SetEps(stage.Plane, stage.CalcType, stage.ConcreteTension);
+                var stiffness = SectionStiffnessCalculator.Compute(
+                    section,
+                    stage.Plane,
+                    stage.CalcType,
+                    actualSettings.GridDensity,
+                    stage.ConcreteTension,
+                    effectiveStressKpaByFiber: stage.EffectiveStressKpa,
+                    effectiveStrainByFiber: fiber => fiber.Eps + fiber.Eps_p);
+                if (stiffness.HasValue)
+                    AddStiffnessRow(StiffnessRows, stage, stiffness.Value);
+            }
+        }
+        catch
+        {
+            // Сводка результата должна оставаться доступной даже для старого
+            // результата или повреждённой геометрии, где жёсткости не построить.
+            StiffnessRows.Clear();
+        }
+    }
 }

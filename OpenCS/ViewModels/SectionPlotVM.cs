@@ -148,7 +148,9 @@ namespace OpenCS.ViewModels
         /// значения по плоскому индексу волокна, если результат получен из нелинейного FEM-расчёта.</summary>
         public SectionPlotVM(CrossSection section, Kurvature k, CalcType calcType, SectionPlotMode mode,
             CalcSettings? settings = null, bool ten = true, Func<double, double, string?>? extraRebarTooltip = null,
-            IReadOnlyDictionary<int, (double StressPa, double Strain)>? recordedFibers = null)
+            IReadOnlyDictionary<int, (double StressPa, double Strain)>? recordedFibers = null,
+            Func<Fiber, double>? effectiveRebarStressKpa = null,
+            Func<Fiber, double>? effectiveRebarStrain = null)
         {
             Mode = mode;
 
@@ -344,7 +346,10 @@ namespace OpenCS.ViewModels
                         f.Diameter / 2.0 * 1000,
                         val, tip, rSigMpa, f.Eps, rAreaMm2));
                     // Центр тяжести НДС
-                    double esf = Math.Abs(fiberEps) > 1e-9 ? Math.Abs(rSigMpa / fiberEps) : E0;
+                    double centroidSigMpa = effectiveRebarStressKpa?.Invoke(f) / 1000.0 ?? rSigMpa;
+                    double centroidEps = effectiveRebarStrain?.Invoke(f) ?? fiberEps;
+                    double esf = Math.Abs(centroidEps) > 1e-9
+                        ? Math.Abs(centroidSigMpa / centroidEps) : E0;
                     double amm2f = f.Area * 1e6;
                     ea_c  += esf * amm2f;
                     esy_c += esf * amm2f * f.X * 1000;

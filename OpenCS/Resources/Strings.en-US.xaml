@@ -2389,6 +2389,21 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_StageNotConverged">not converged</system:String>
     <system:String x:Key="TotalCurvature_Empty">—</system:String>
     <system:String x:Key="TotalCurvature_ResultHeader">Total curvature</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessNote">For starred stages, tensioned reinforcement uses σ* = σ/ψs per clause 8.2.32 of SP 63.13330.</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessStage">Stage</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessXc">xc</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessYc">yc</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEA">EA</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIy0">EIy₀</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIz0">EIz₀</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIyc">EIy (centroid)</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIzc">EIz (centroid)</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEAel">EA, elastic</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIyel">EIy, elastic</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIzel">EIz, elastic</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessPhiEA">φEA</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessPhiEIy">φEIy</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessPhiEIz">φEIz</system:String>
     <system:String x:Key="TotalCurvature_ColCracked">Cracked</system:String>
     <system:String x:Key="TotalCurvature_ColKyFull">κy, 1/m</system:String>
     <system:String x:Key="TotalCurvature_ColN">N, kN</system:String>

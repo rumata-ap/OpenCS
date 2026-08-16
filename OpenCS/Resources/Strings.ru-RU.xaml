@@ -2392,6 +2392,21 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_StageNotConverged">не сошлось</system:String>
     <system:String x:Key="TotalCurvature_Empty">—</system:String>
     <system:String x:Key="TotalCurvature_ResultHeader">Полная кривизна</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessNote">Для стадий со звёздочкой в растянутой арматуре принято σ* = σ/ψs по п. 8.2.32 СП 63.13330.</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessStage">Стадия</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessXc">xc</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessYc">yc</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEA">EA</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIy0">EIy₀</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIz0">EIz₀</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIyc">EIy (ц.т.)</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIzc">EIz (ц.т.)</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEAel">EA, упр.</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIyel">EIy, упр.</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessEIzel">EIz, упр.</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessPhiEA">φEA</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessPhiEIy">φEIy</system:String>
+    <system:String x:Key="TotalCurvature_StiffnessPhiEIz">φEIz</system:String>
     <system:String x:Key="TotalCurvature_ColCracked">Трещины</system:String>
     <system:String x:Key="TotalCurvature_ColKyFull">κy, 1/м</system:String>
     <system:String x:Key="TotalCurvature_ColN">N, кН</system:String>

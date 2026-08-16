@@ -216,23 +216,23 @@ namespace OpenCS.ViewModels
             EpsMaxText  = epsMax.HasValue ? $"{epsMax.Value:+0.000000;-0.000000}" : "—";
 
             // Жёсткости
-            var stiff = ComputeStiffness(section, k, calcType, gridDensity, ten);
+            var stiff = SectionStiffnessCalculator.Compute(section, k, calcType, gridDensity, ten);
             HasStiffness = stiff != null;
-            if (stiff != null)
+            if (stiff is SectionStiffnessResult value)
             {
-                XcText   = $"{stiff.Xc_mm:+0.0;-0.0}  мм";
-                YcText   = $"{stiff.Yc_mm:+0.0;-0.0}  мм";
-                EAText   = $"{stiff.EA_kN:F0}  кН";
-                EIy0Text = $"{stiff.EIy0_kNm2:F2}  кН·м²";
-                EIz0Text = $"{stiff.EIz0_kNm2:F2}  кН·м²";
-                EIycText = $"{stiff.EIyc_kNm2:F2}  кН·м²";
-                EIzcText = $"{stiff.EIzc_kNm2:F2}  кН·м²";
-                EAelText   = $"{stiff.EAel_kN:F0}  кН";
-                EIyelText  = $"{stiff.EIyel_kNm2:F2}  кН·м²";
-                EIzelText  = $"{stiff.EIzel_kNm2:F2}  кН·м²";
-                PhiEAText  = FmtRatio(stiff.PhiEA);
-                PhiEIyText = FmtRatio(stiff.PhiEIy);
-                PhiEIzText = FmtRatio(stiff.PhiEIz);
+                XcText   = $"{value.Xc_mm:+0.0;-0.0}  мм";
+                YcText   = $"{value.Yc_mm:+0.0;-0.0}  мм";
+                EAText   = $"{value.EA_kN:F0}  кН";
+                EIy0Text = $"{value.EIy0_kNm2:F2}  кН·м²";
+                EIz0Text = $"{value.EIz0_kNm2:F2}  кН·м²";
+                EIycText = $"{value.EIyc_kNm2:F2}  кН·м²";
+                EIzcText = $"{value.EIzc_kNm2:F2}  кН·м²";
+                EAelText   = $"{value.EAel_kN:F0}  кН";
+                EIyelText  = $"{value.EIyel_kNm2:F2}  кН·м²";
+                EIzelText  = $"{value.EIzel_kNm2:F2}  кН·м²";
+                PhiEAText  = FmtRatio(value.PhiEA);
+                PhiEIyText = FmtRatio(value.PhiEIy);
+                PhiEIzText = FmtRatio(value.PhiEIz);
             }
             else
             {

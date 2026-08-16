@@ -30,6 +30,34 @@ public sealed class TotalCurvatureStageVM
     /// <summary>Индивидуальные значения ψs по стержням.</summary>
     public IReadOnlyList<TotalCurvatureRebarPsiVM> PsiSByRebar { get; }
 
+    /// <summary>Возвращает ψs для фибры арматуры текущей стадии.</summary>
+    public double PsiSFor(Fiber fiber)
+    {
+        double bestDistance2 = double.PositiveInfinity;
+        TotalCurvatureRebarPsiVM? best = null;
+        foreach (var value in PsiSByRebar)
+        {
+            double dx = value.X - fiber.X;
+            double dy = value.Y - fiber.Y;
+            double distance2 = dx * dx + dy * dy;
+            if (distance2 < bestDistance2)
+            {
+                bestDistance2 = distance2;
+                best = value;
+            }
+        }
+
+        // Координаты сохраняются в метрах; 1e-8 м — запас только на
+        // погрешность сериализации, а не поиск другого стержня.
+        return best != null && bestDistance2 <= 1e-16 && best.Applicable
+            ? best.PsiS
+            : 1.0;
+    }
+
+    /// <summary>Эффективное напряжение стержня в кПа для равновесия и жёсткости.</summary>
+    public double EffectiveStressKpa(Fiber fiber) =>
+        Curvature8232.CorrectedStress(fiber.Sig, PsiSFor(fiber));
+
     TotalCurvatureStageVM(
         int number, string label, Kurvature plane, CalcType calcType,
         bool concreteTension, bool converged,

@@ -55,10 +55,14 @@ public partial class TotalCurvatureStageWindow : Window
         var settings = app.CalcSettings;
         var stressVm = new SectionPlotVM(section, stage.Plane, stage.CalcType,
             SectionPlotMode.Stress, settings, stage.ConcreteTension,
-            extraRebarTooltip: RebarTooltip);
+            extraRebarTooltip: RebarTooltip,
+            effectiveRebarStressKpa: stage.EffectiveStressKpa,
+            effectiveRebarStrain: fiber => fiber.Eps + fiber.Eps_p);
         var strainVm = new SectionPlotVM(section, stage.Plane, stage.CalcType,
             SectionPlotMode.Strain, settings, stage.ConcreteTension,
-            extraRebarTooltip: RebarTooltip);
+            extraRebarTooltip: RebarTooltip,
+            effectiveRebarStressKpa: stage.EffectiveStressKpa,
+            effectiveRebarStrain: fiber => fiber.Eps + fiber.Eps_p);
 
         var cutVm = new SectionCutVM(section, stage.Plane, stage.CalcType,
             app.FileDialogService, stage.ConcreteTension)
