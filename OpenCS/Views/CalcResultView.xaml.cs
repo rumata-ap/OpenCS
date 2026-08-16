@@ -80,12 +80,13 @@ namespace OpenCS.Views
             return;
         }
 
-        if (task?.Kind is "cracking" or "crack_width" or "total_curvature")
+        if (task?.Kind is "cracking" or "crack_width" or "total_curvature" or "moment_curvature_biaxial")
         {
             Content = task.Kind switch
             {
                 "cracking" => new CrackingResultView(result, app, task),
                 "crack_width" => new CrackWidthResultView(result, app, task),
+                "moment_curvature_biaxial" => new MomentCurvatureBiaxialResultView(result, app, task),
                 _ => new TotalCurvatureResultView(result, app, task)
             };
             return;

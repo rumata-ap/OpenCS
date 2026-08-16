@@ -1,0 +1,86 @@
+<UserControl x:Class="OpenCS.Views.MomentCurvatureBiaxialResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:h="clr-namespace:OpenCS.Views">
+   <Grid Margin="14">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <StackPanel Grid.Row="0" Margin="0,0,0,10">
+         <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{Binding TaskTag}" FontSize="16" FontWeight="SemiBold" Margin="0,0,10,0"/>
+            <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+         </StackPanel>
+         <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,2,0,0"/>
+      </StackPanel>
+
+      <Grid Grid.Row="1" Margin="0,0,0,12">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+         </Grid.ColumnDefinitions>
+         <Border Grid.Column="0" BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" BorderThickness="1" Padding="10,8" Margin="0,0,6,0">
+            <StackPanel>
+               <TextBlock Text="{DynamicResource MomentCurvature_NModeLabel}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="11"/>
+               <TextBlock Text="{Binding NModeText}" FontWeight="SemiBold" FontSize="15" Margin="0,4,0,0"/>
+            </StackPanel>
+         </Border>
+         <Border Grid.Column="1" BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" BorderThickness="1" Padding="10,8" Margin="0,0,6,0">
+            <StackPanel>
+               <TextBlock Text="{DynamicResource MomentCurvature_UsePsiLabel}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="11"/>
+               <TextBlock Text="{Binding UsePsi}" FontWeight="SemiBold" FontSize="15" Margin="0,4,0,0"/>
+            </StackPanel>
+         </Border>
+         <Border Grid.Column="2" BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" BorderThickness="1" Padding="10,8">
+            <StackPanel>
+               <TextBlock Text="{DynamicResource MomentCurvature_ConvergedCountLabel}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="11"/>
+               <TextBlock Text="{Binding ConvergedCountText}" FontWeight="SemiBold" FontSize="15" Margin="0,4,0,0"/>
+            </StackPanel>
+         </Border>
+      </Grid>
+
+      <TabControl Grid.Row="2">
+         <TabItem Header="{DynamicResource MomentCurvature_TabCurvatureX}"
+                   Visibility="{Binding HasMx, Converter={StaticResource BoolToVisibility}}">
+            <h:PlotCanvas x:Name="CurvatureMomentXPlot"/>
+         </TabItem>
+         <TabItem Header="{DynamicResource MomentCurvature_TabCurvatureY}"
+                   Visibility="{Binding HasMy, Converter={StaticResource BoolToVisibility}}">
+            <h:PlotCanvas x:Name="CurvatureMomentYPlot"/>
+         </TabItem>
+         <TabItem Header="{DynamicResource MomentCurvature_TabStiffnessN}">
+            <h:PlotCanvas x:Name="StiffnessNPlot"/>
+         </TabItem>
+         <TabItem Header="{DynamicResource MomentCurvature_TabStiffnessX}"
+                   Visibility="{Binding HasMx, Converter={StaticResource BoolToVisibility}}">
+            <h:PlotCanvas x:Name="StiffnessMxPlot"/>
+         </TabItem>
+         <TabItem Header="{DynamicResource MomentCurvature_TabStiffnessY}"
+                   Visibility="{Binding HasMy, Converter={StaticResource BoolToVisibility}}">
+            <h:PlotCanvas x:Name="StiffnessMyPlot"/>
+         </TabItem>
+         <TabItem Header="{DynamicResource MomentCurvature_TabPoints}">
+            <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" RowHeight="26">
+               <DataGrid.Columns>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColSegment}" Binding="{Binding Segment}" Width="70"/>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColN}" Binding="{Binding N, StringFormat={}{0:0.###}}" Width="90"/>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColMx}" Binding="{Binding Mx, StringFormat={}{0:0.###}}" Width="90"/>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColMy}" Binding="{Binding My, StringFormat={}{0:0.###}}" Width="90"/>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColKy}" Binding="{Binding Ky, StringFormat={}{0:0.#####}}" Width="110"/>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColKz}" Binding="{Binding Kz, StringFormat={}{0:0.#####}}" Width="110"/>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColConverged}" Binding="{Binding Converged}" Width="90"/>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColClipped}" Binding="{Binding Clipped}" Width="*"/>
+               </DataGrid.Columns>
+            </DataGrid>
+         </TabItem>
+         <TabItem Header="{DynamicResource MomentCurvature_TabDiagnostics}"
+                   Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding ErrorText}" Foreground="DarkRed" TextWrapping="Wrap" Margin="10"/>
+         </TabItem>
+      </TabControl>
+   </Grid>
+</UserControl>
