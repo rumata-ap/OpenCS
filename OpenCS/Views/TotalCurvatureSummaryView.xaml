@@ -13,16 +13,16 @@
          <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,0,0,10"/>
 
          <TextBlock Text="{DynamicResource TotalCurvature_InputHeader}" FontWeight="Bold" Margin="0,0,0,4"/>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelNColon}"/><Run Text="{Binding NText}"/></TextBlock>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMxLongColon}"/><Run Text="{Binding MxLongText}"/></TextBlock>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMxTotalColon}"/><Run Text="{Binding MxTotalText}"/></TextBlock>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMyLongColon}"/><Run Text="{Binding MyLongText}"/></TextBlock>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMyTotalColon}"/><Run Text="{Binding MyTotalText}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelNColon}"/><Run Text="{Binding NText, Mode=OneWay}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMxLongColon}"/><Run Text="{Binding MxLongText, Mode=OneWay}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMxTotalColon}"/><Run Text="{Binding MxTotalText, Mode=OneWay}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMyLongColon}"/><Run Text="{Binding MyLongText, Mode=OneWay}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMyTotalColon}"/><Run Text="{Binding MyTotalText, Mode=OneWay}"/></TextBlock>
 
          <TextBlock Text="{Binding CrackedText}" FontWeight="Bold" Margin="0,10,0,4"/>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMcrcColon}"/><Run Text="{Binding McrcText}"/></TextBlock>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMxCrcColon}"/><Run Text="{Binding MxCrcText}"/></TextBlock>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMyCrcColon}"/><Run Text="{Binding MyCrcText}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMcrcColon}"/><Run Text="{Binding McrcText, Mode=OneWay}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMxCrcColon}"/><Run Text="{Binding MxCrcText, Mode=OneWay}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMyCrcColon}"/><Run Text="{Binding MyCrcText, Mode=OneWay}"/></TextBlock>
 
          <TextBlock Text="{Binding Stage1Label}" FontWeight="Bold" Margin="0,10,0,2"
                     Visibility="{Binding HasStage1, Converter={StaticResource BoolToVisibility}}"/>
@@ -38,9 +38,9 @@
                     Visibility="{Binding HasStage3, Converter={StaticResource BoolToVisibility}}"/>
 
          <TextBlock Text="{DynamicResource TotalCurvature_ResultHeader}" FontWeight="Bold" Margin="0,10,0,4"/>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKyFullColon}"/><Run Text="{Binding KyFullText}"/></TextBlock>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKzFullColon}"/><Run Text="{Binding KzFullText}"/></TextBlock>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKFullColon}"/><Run Text="{Binding KFullText}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKyFullColon}"/><Run Text="{Binding KyFullText, Mode=OneWay}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKzFullColon}"/><Run Text="{Binding KzFullText, Mode=OneWay}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKFullColon}"/><Run Text="{Binding KFullText, Mode=OneWay}"/></TextBlock>
 
          <TextBlock Text="{Binding ErrorText}" Foreground="DarkRed" TextWrapping="Wrap" Margin="0,8,0,0"
                     Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
