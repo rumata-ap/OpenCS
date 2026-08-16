@@ -2416,4 +2416,40 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_BatchNeedDatabase">Для пакетной задачи полной кривизны требуется контекст базы данных.</system:String>
     <system:String x:Key="TotalCurvature_ForceSetNotFound">Набор усилий с идентификатором {0} не найден.</system:String>
     <system:String x:Key="TotalCurvature_ForceSetEmpty">Выбранный набор усилий пуст — расчёт невозможен.</system:String>
+
+    <system:String x:Key="CalcTaskKind_moment_curvature_biaxial">Кривизна-момент (двухплоскостной изгиб)</system:String>
+    <system:String x:Key="MomentCurvature_NMode_constant">N = const</system:String>
+    <system:String x:Key="MomentCurvature_NMode_proportional">N пропорционально лучу</system:String>
+    <system:String x:Key="MomentCurvature_NModeLabel">Режим N</system:String>
+    <system:String x:Key="MomentCurvature_UsePsiLabel">Учитывать ψs по 8.2.32</system:String>
+    <system:String x:Key="MomentCurvature_NModeConstant">N = const</system:String>
+    <system:String x:Key="MomentCurvature_NModeProportional">N пропорционально лучу</system:String>
+    <system:String x:Key="MomentCurvature_StatusOk">Сошлось</system:String>
+    <system:String x:Key="MomentCurvature_StatusPartial">Частично (см. точки)</system:String>
+    <system:String x:Key="MomentCurvature_ConvergedCountLabel">Сошлось точек</system:String>
+    <system:String x:Key="MomentCurvature_TabCurvatureX">Кривизна-момент, X</system:String>
+    <system:String x:Key="MomentCurvature_TabCurvatureY">Кривизна-момент, Y</system:String>
+    <system:String x:Key="MomentCurvature_TabStiffnessN">Жёсткость, N</system:String>
+    <system:String x:Key="MomentCurvature_TabStiffnessX">Жёсткость, Mx</system:String>
+    <system:String x:Key="MomentCurvature_TabStiffnessY">Жёсткость, My</system:String>
+    <system:String x:Key="MomentCurvature_TabPoints">Точки</system:String>
+    <system:String x:Key="MomentCurvature_TabDiagnostics">Диагностика</system:String>
+    <system:String x:Key="MomentCurvature_ColSegment">Уч.</system:String>
+    <system:String x:Key="MomentCurvature_ColN">N, кН</system:String>
+    <system:String x:Key="MomentCurvature_ColMx">Mx, кН·м</system:String>
+    <system:String x:Key="MomentCurvature_ColMy">My, кН·м</system:String>
+    <system:String x:Key="MomentCurvature_ColKy">κy, 1/м</system:String>
+    <system:String x:Key="MomentCurvature_ColKz">κz, 1/м</system:String>
+    <system:String x:Key="MomentCurvature_ColConverged">Сошлось</system:String>
+    <system:String x:Key="MomentCurvature_ColClipped">Обрезано</system:String>
+    <system:String x:Key="MomentCurvature_PlotCurvatureXTitle">Кривизна κy — момент Mx</system:String>
+    <system:String x:Key="MomentCurvature_PlotCurvatureYTitle">Кривизна κz — момент My</system:String>
+    <system:String x:Key="MomentCurvature_PlotStiffnessNTitle">N — коэффициент к начальной жёсткости</system:String>
+    <system:String x:Key="MomentCurvature_PlotStiffnessXTitle">Mx — коэффициент к начальной жёсткости</system:String>
+    <system:String x:Key="MomentCurvature_PlotStiffnessYTitle">My — коэффициент к начальной жёсткости</system:String>
+    <system:String x:Key="MomentCurvature_AxisCurvature">κ, 1/м</system:String>
+    <system:String x:Key="MomentCurvature_AxisMomentX">Mx, кН·м</system:String>
+    <system:String x:Key="MomentCurvature_AxisMomentY">My, кН·м</system:String>
+    <system:String x:Key="MomentCurvature_AxisN">N, кН</system:String>
+    <system:String x:Key="MomentCurvature_AxisStiffnessRatio">B/B0</system:String>
   </ResourceDictionary>

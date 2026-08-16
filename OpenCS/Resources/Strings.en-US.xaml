@@ -2413,4 +2413,40 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_BatchNeedDatabase">A database context is required for the total-curvature batch task.</system:String>
     <system:String x:Key="TotalCurvature_ForceSetNotFound">Force set with id {0} was not found.</system:String>
     <system:String x:Key="TotalCurvature_ForceSetEmpty">The selected force set is empty — calculation is impossible.</system:String>
+
+    <system:String x:Key="CalcTaskKind_moment_curvature_biaxial">Moment-curvature (biaxial bending)</system:String>
+    <system:String x:Key="MomentCurvature_NMode_constant">N = const</system:String>
+    <system:String x:Key="MomentCurvature_NMode_proportional">N proportional to ray</system:String>
+    <system:String x:Key="MomentCurvature_NModeLabel">N mode</system:String>
+    <system:String x:Key="MomentCurvature_UsePsiLabel">Apply ψs (8.2.32)</system:String>
+    <system:String x:Key="MomentCurvature_NModeConstant">N = const</system:String>
+    <system:String x:Key="MomentCurvature_NModeProportional">N proportional to ray</system:String>
+    <system:String x:Key="MomentCurvature_StatusOk">Converged</system:String>
+    <system:String x:Key="MomentCurvature_StatusPartial">Partial (see points)</system:String>
+    <system:String x:Key="MomentCurvature_ConvergedCountLabel">Converged points</system:String>
+    <system:String x:Key="MomentCurvature_TabCurvatureX">Curvature-moment, X</system:String>
+    <system:String x:Key="MomentCurvature_TabCurvatureY">Curvature-moment, Y</system:String>
+    <system:String x:Key="MomentCurvature_TabStiffnessN">Stiffness, N</system:String>
+    <system:String x:Key="MomentCurvature_TabStiffnessX">Stiffness, Mx</system:String>
+    <system:String x:Key="MomentCurvature_TabStiffnessY">Stiffness, My</system:String>
+    <system:String x:Key="MomentCurvature_TabPoints">Points</system:String>
+    <system:String x:Key="MomentCurvature_TabDiagnostics">Diagnostics</system:String>
+    <system:String x:Key="MomentCurvature_ColSegment">Seg.</system:String>
+    <system:String x:Key="MomentCurvature_ColN">N, kN</system:String>
+    <system:String x:Key="MomentCurvature_ColMx">Mx, kN·m</system:String>
+    <system:String x:Key="MomentCurvature_ColMy">My, kN·m</system:String>
+    <system:String x:Key="MomentCurvature_ColKy">κy, 1/m</system:String>
+    <system:String x:Key="MomentCurvature_ColKz">κz, 1/m</system:String>
+    <system:String x:Key="MomentCurvature_ColConverged">Converged</system:String>
+    <system:String x:Key="MomentCurvature_ColClipped">Clipped</system:String>
+    <system:String x:Key="MomentCurvature_PlotCurvatureXTitle">Curvature κy — moment Mx</system:String>
+    <system:String x:Key="MomentCurvature_PlotCurvatureYTitle">Curvature κz — moment My</system:String>
+    <system:String x:Key="MomentCurvature_PlotStiffnessNTitle">N — ratio to initial stiffness</system:String>
+    <system:String x:Key="MomentCurvature_PlotStiffnessXTitle">Mx — ratio to initial stiffness</system:String>
+    <system:String x:Key="MomentCurvature_PlotStiffnessYTitle">My — ratio to initial stiffness</system:String>
+    <system:String x:Key="MomentCurvature_AxisCurvature">κ, 1/m</system:String>
+    <system:String x:Key="MomentCurvature_AxisMomentX">Mx, kN·m</system:String>
+    <system:String x:Key="MomentCurvature_AxisMomentY">My, kN·m</system:String>
+    <system:String x:Key="MomentCurvature_AxisN">N, kN</system:String>
+    <system:String x:Key="MomentCurvature_AxisStiffnessRatio">B/B0</system:String>
   </ResourceDictionary>
