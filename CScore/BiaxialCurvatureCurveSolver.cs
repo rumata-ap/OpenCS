@@ -566,6 +566,13 @@ public sealed class BiaxialCurvatureCurveSolver
         BiaxialCurvatureCurveResult result, double N0, double Mx0, double My0,
         CurvatureNMode nMode, double uky, double ukz)
     {
+        // Cracking заполняется здесь (Converged=false), ДО возможного throw ниже — так
+        // result.Cracking остаётся ненулевым в обеих ветках этого пути (N не достижимо ни при
+        // какой кривизне -> "error" ниже, либо трещина не найдена, но N достижимо -> "partial"/
+        // "error" по Ultimate). Единообразие важно для вызывающей стороны (UI/тесты), которая
+        // не обязана знать, какая именно причина привела к "error" на uncracked-пути.
+        result.Cracking = new BiaxialCurveScanPoint { Converged = false };
+
         double tUltimate;
         try
         {
@@ -599,7 +606,6 @@ public sealed class BiaxialCurvatureCurveSolver
             _cancellationToken.ThrowIfCancellationRequested();
         }
         result.Points.AddRange(points);
-        result.Cracking = new BiaxialCurveScanPoint { Converged = false };
         result.Ultimate = points.Count > 0 ? points[^1] : null;
         result.Status = result.Ultimate is { Converged: true } ? "partial" : "error";
         return result;

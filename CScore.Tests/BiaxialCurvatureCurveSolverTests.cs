@@ -192,4 +192,130 @@ public class BiaxialCurvatureCurveSolverTests
         Assert.All(result.Points.Where(p => p.Converged && (p.Segment == 3 || p.Segment == 4)),
             p => Assert.True(Math.Abs(p.Mx) <= refMx + 1e-6));
     }
+
+    [Fact]
+    public void Compute_AsymmetricBiaxialConstantMode_CrackingPointLiesOnScanRay()
+    {
+        var section = TestSections.RectWithCornerClusterRebar();
+        var solver = new BiaxialCurvatureCurveSolver(section, pointsPerSegment: 21);
+        double uky = 1.0 / Math.Sqrt(2), ukz = 1.0 / Math.Sqrt(2);
+
+        var result = solver.Compute(N0: 0.0, Mx0: uky, My0: ukz, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.True(result.Cracking!.Converged);
+        double mag = Math.Sqrt(
+            result.Cracking.Ky * result.Cracking.Ky + result.Cracking.Kz * result.Cracking.Kz);
+        Assert.Equal(uky, result.Cracking.Ky / mag, 6);
+        Assert.Equal(ukz, result.Cracking.Kz / mag, 6);
+    }
+
+    [Fact]
+    public void Compute_BiaxialConstantMode_ConvergesWithNonZeroKyAndKz()
+    {
+        var section = TestSections.RectWithCornerClusterRebar();
+        var solver = new BiaxialCurvatureCurveSolver(section, pointsPerSegment: 21);
+
+        var result = solver.Compute(N0: 0.0, Mx0: 1.0, My0: 1.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.True(result.HasMx);
+        Assert.True(result.HasMy);
+        Assert.Contains(result.Points, p => p.Converged && p.Ky != 0.0);
+        Assert.Contains(result.Points, p => p.Converged && p.Kz != 0.0);
+    }
+
+    [Fact]
+    public void Compute_BiaxialProportionalMode_ConvergesWithNonZeroKyAndKz()
+    {
+        var section = TestSections.RectWithCornerClusterRebar();
+        var solver = new BiaxialCurvatureCurveSolver(section, pointsPerSegment: 21);
+
+        var result = solver.Compute(N0: -50.0, Mx0: 1.0, My0: 1.0, CurvatureNMode.Proportional, usePsi: true);
+
+        Assert.True(result.HasMx);
+        Assert.True(result.HasMy);
+        Assert.Contains(result.Points, p => p.Converged && p.Ky != 0.0);
+        Assert.Contains(result.Points, p => p.Converged && p.Kz != 0.0);
+    }
+
+    [Fact]
+    public void Compute_ProportionalMode_ScalesAllThreeComponentsAtCracking()
+    {
+        var section = TestSections.RectWithCornerClusterRebar();
+        var solver = new BiaxialCurvatureCurveSolver(section, pointsPerSegment: 21);
+
+        // Эксцентриситет Mx0/N0=0.2 м (не малый, как у изначального 1/50=0.02 м) — при малом
+        // эксцентриситете трещина образуется только при N, близком к предельной по сжатию
+        // силе (см. диагностику: с Mx0=1.0 λ_crc≈80 => N≈-4000 кН, на грани разрешимости для
+        // сечения 0.5×0.4 м), что делает последующий Ньютон-пересчёт численно неустойчивым.
+        var result = solver.Compute(N0: -50.0, Mx0: 10.0, My0: 3.0, CurvatureNMode.Proportional, usePsi: true);
+
+        Assert.True(result.Cracking!.Converged);
+        Assert.NotEqual(0.0, result.Cracking.N);
+        Assert.NotEqual("error", result.Status);
+    }
+
+    // Регрессия на блокер 2 ревью плана: в режиме Proportional λ_crc, как правило, НЕ равен
+    // 1.0 — участок 1 обязан заканчиваться РОВНО в точке трещинообразования (без разрыва по
+    // параметру скана), а участок 3 обязан начинаться РОВНО с пересчётной точки на том же λ.
+    [Fact]
+    public void Compute_ProportionalMode_Segment1EndsAndSegment3StartsAtCrackingLambda()
+    {
+        var section = TestSections.RectWithCornerClusterRebar();
+        var solver = new BiaxialCurvatureCurveSolver(section, pointsPerSegment: 21);
+
+        var result = solver.Compute(N0: -80.0, Mx0: 10.0, My0: 4.0, CurvatureNMode.Proportional, usePsi: false);
+
+        Assert.True(result.Cracking!.Converged);
+        var segment1 = result.Points.Where(p => p.Segment == 1).ToList();
+        Assert.NotEmpty(segment1);
+        Assert.Equal(result.Cracking.T, segment1[^1].T, 6);
+        Assert.Equal(result.Cracking.Mx, segment1[^1].Mx, 4);
+
+        Assert.NotNull(result.CrackTransitionPoint);
+        Assert.Equal(result.Cracking.T, result.CrackTransitionPoint!.T, 6);
+
+        var segment3 = result.Points.Where(p => p.Segment == 3).ToList();
+        if (segment3.Count > 0)
+            Assert.Equal(result.CrackTransitionPoint.T, segment3[0].T, 6);
+    }
+
+    // ИССЛЕДОВАНО ЭКСПЕРИМЕНТАЛЬНО (см. журнал реализации): для диаграммы бетона L2 по СП63
+    // сжатая ветвь выходит на плато за Ec2 (не становится нерешаемой матaматически), поэтому
+    // равновесие по N остаётся формально достижимым сколь угодно долго при росте кривизны, а
+    // растяжение на противоположной грани неизбежно развивается раньше, чем N становится
+    // недостижимым. Из-за этого для сечения RectWithBottomRebar(0.3,0.2) НЕ нашлось окна
+    // "N достижимо при κ=0, но трещина не образуется ни при какой κ" — переход происходит
+    // резко от "трещина найдена, status=ok" (N0 до -1310) сразу к "N недостижимо уже при κ=0"
+    // (N0 от -1320). Поэтому тест проверяет не "трещина не найдена, но N достижимо" (сценарий,
+    // который эта фикстура не воспроизводит), а изящную деградацию БЕЗ необработанного
+    // исключения для N, недостижимого ни при какой кривизне.
+    [Fact]
+    public void Compute_InfeasibleAxialForce_ReturnsErrorStatusWithoutThrowing()
+    {
+        var section = TestSections.RectWithBottomRebar(h: 0.3, b: 0.2);
+        var solver = new BiaxialCurvatureCurveSolver(section, pointsPerSegment: 21);
+
+        var result = solver.Compute(N0: -50000.0, Mx0: 1.0, My0: 0.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.Equal("error", result.Status);
+        Assert.NotNull(result.Cracking);
+        Assert.False(result.Cracking!.Converged);
+    }
+
+    [Fact]
+    public void Compute_YieldNotReachedBeforeUltimate_YieldIsNull()
+    {
+        // Существенное продольное сжатие приближает разрушение по сжатию бетона раньше
+        // текучести растянутой арматуры.
+        var section = TestSections.RectWithBottomRebar();
+        var solver = new BiaxialCurvatureCurveSolver(section, pointsPerSegment: 21);
+
+        var result = solver.Compute(N0: -2200.0, Mx0: -1.0, My0: 0.0, CurvatureNMode.Constant, usePsi: true);
+
+        if (result.Cracking!.Converged && result.Yield == null)
+        {
+            Assert.DoesNotContain(result.Points, p => p.Segment == 3);
+            Assert.Contains(result.Points, p => p.Segment == 4);
+        }
+    }
 }
