@@ -20,11 +20,13 @@ namespace CScore
       readonly int          _maxIter;
       readonly double       _h;
       readonly bool         _central;
+      readonly Func<Kurvature, Load> _evaluate;
 
       public StrainSolver(CrossSection section, CalcType calc = CalcType.C,
                           bool ten = true, bool ca = true,
                           double tol = 0.5, int maxIter = 60, double h = 1e-7,
-                          bool centralJacobian = true)
+                          bool centralJacobian = true,
+                          Func<Kurvature, Load>? evaluate = null)
       {
          _section = section;
          _calc    = calc;
@@ -34,6 +36,7 @@ namespace CScore
          _maxIter = maxIter;
          _h       = h;
          _central = centralJacobian;
+         _evaluate = evaluate ?? (k => _section.Integral(k, _calc, _ten, _ca));
       }
 
       /// <summary>
@@ -55,7 +58,7 @@ namespace CScore
 
          for (int iter = 0; iter < _maxIter; iter++)
          {
-            var f0 = _section.Integral(k, _calc, _ten, _ca);
+            var f0 = _evaluate(k);
             double r0 = f0.N  - nTarget;
             double r1 = f0.Mx - mxTarget;
             double r2 = f0.My - myTarget;
@@ -75,10 +78,10 @@ namespace CScore
             };
             for (int j = 0; j < 3; j++)
             {
-               var fp = _section.Integral(k + axes[j], _calc, _ten, _ca);
+               var fp = _evaluate(k + axes[j]);
                if (_central)
                {
-                  var fm = _section.Integral(k - axes[j], _calc, _ten, _ca);
+                  var fm = _evaluate(k - axes[j]);
                   J[0, j] = (fp.N  - fm.N)  / (2 * _h);
                   J[1, j] = (fp.Mx - fm.Mx) / (2 * _h);
                   J[2, j] = (fp.My - fm.My) / (2 * _h);

@@ -87,12 +87,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string crackWidthForcesMode = "total_only";
     string crackWidthLongShare = "0.7";
     bool crackWidthLongPartUseNL;
-    string crackWidthManualNLong = "0";
-    string crackWidthManualMxLong = "0";
-    string crackWidthManualMyLong = "0";
-    ForceSet? crackWidthLongForceSet;
-    LoadItem? crackWidthLongForceItem;
-    string _crackWidthLongForceItemFilter = "";
+   string crackWidthManualNLong = "0";
+   string crackWidthManualMxLong = "0";
+   string crackWidthManualMyLong = "0";
+   ForceSet? crackWidthLongForceSet;
+   LoadItem? crackWidthLongForceItem;
+   string _crackWidthLongForceItemFilter = "";
+   string totalCurvatureForcesMode = "total_only";
+   string totalCurvatureLongShare = "0.7";
+   string totalCurvatureManualMxLong = "0";
+   string totalCurvatureManualMyLong = "0";
    ForceSet? stage1Set, stage2Set;
    LoadItem? stage1Item, stage2Item;
    bool stage1UseManual, stage2UseManual;
@@ -181,7 +185,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool ShowEtaAutoPsiHint => SupportsEta && IsCrackWidthAny;
 
    public bool IsLimitSingle  => IsLimitSingleKind(Kind);
-   public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || IsSteelCheck || IsCracking || IsCrackWidth;
+   public bool ShowManualForces => Kind == "strain_state" || IsLimitSingle || IsSteelCheck
+      || IsCracking || IsCrackWidth || IsTotalCurvature;
 
    static bool IsLimitSingleKind(string kind)
       => kind is "limit_force" or "limit_moment" or "limit_axial";
@@ -229,8 +234,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(IsCracking));
          OnPropertyChanged(nameof(IsCrackingBatch));
          OnPropertyChanged(nameof(IsCrackWidth));
-           OnPropertyChanged(nameof(IsCrackWidthBatch));
-           OnPropertyChanged(nameof(IsCrackWidthAny));
+         OnPropertyChanged(nameof(IsCrackWidthBatch));
+         OnPropertyChanged(nameof(IsCrackWidthAny));
+         OnPropertyChanged(nameof(IsTotalCurvature));
+         OnPropertyChanged(nameof(IsTotalCurvatureBatch));
+         OnPropertyChanged(nameof(IsTotalCurvatureAny));
            OnPropertyChanged(nameof(IsOpenSeesSpatialInteraction));
            OnPropertyChanged(nameof(OpenSeesForceSetNPreview));
            OnPropertyChanged(nameof(OpenSeesSpatialPointCount));
@@ -242,6 +250,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(ShowCrackWidthManual));
          OnPropertyChanged(nameof(ShowCrackWidthForceItemLong));
          OnPropertyChanged(nameof(ShowCrackWidthTwoSets));
+         OnPropertyChanged(nameof(TotalCurvatureForcesModeItems));
+         if (TotalCurvatureForcesModeItems.TrueForAll(i => i.Id != TotalCurvatureForcesMode))
+            TotalCurvatureForcesMode = "total_only";
+         OnPropertyChanged(nameof(ShowTotalCurvatureShare));
+         OnPropertyChanged(nameof(ShowTotalCurvatureManual));
          OnPropertyChanged(nameof(IsTorsion));
          OnPropertyChanged(nameof(IsTorsionFem));
          OnPropertyChanged(nameof(ShowManualForces));
@@ -312,6 +325,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(IsCrackWidth));
             OnPropertyChanged(nameof(IsCrackWidthBatch));
             OnPropertyChanged(nameof(IsCrackWidthAny));
+            OnPropertyChanged(nameof(IsTotalCurvature));
+            OnPropertyChanged(nameof(IsTotalCurvatureBatch));
+            OnPropertyChanged(nameof(IsTotalCurvatureAny));
             OnPropertyChanged(nameof(IsOpenSeesSpatialInteraction));
             OnPropertyChanged(nameof(OpenSeesForceSetNPreview));
             OnPropertyChanged(nameof(OpenSeesSpatialPointCount));
@@ -322,6 +338,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged(nameof(ShowCrackWidthManual));
             OnPropertyChanged(nameof(ShowCrackWidthForceItemLong));
             OnPropertyChanged(nameof(ShowCrackWidthTwoSets));
+            OnPropertyChanged(nameof(TotalCurvatureForcesModeItems));
+            if (TotalCurvatureForcesModeItems.TrueForAll(i => i.Id != TotalCurvatureForcesMode))
+               TotalCurvatureForcesMode = "total_only";
+            OnPropertyChanged(nameof(ShowTotalCurvatureShare));
+            OnPropertyChanged(nameof(ShowTotalCurvatureManual));
             OnPropertyChanged(nameof(IsTorsion));
             OnPropertyChanged(nameof(IsTorsionFem));
             OnPropertyChanged(nameof(ShowManualForces));
@@ -376,10 +397,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsCrackWidth      => Kind == "crack_width";
    public bool IsCrackWidthBatch => Kind == "crack_width_batch";
    public bool IsCrackWidthAny   => IsCrackWidth || IsCrackWidthBatch;
+   public bool IsTotalCurvature      => Kind == "total_curvature";
+   public bool IsTotalCurvatureBatch => Kind == "total_curvature_batch";
+   public bool IsTotalCurvatureAny   => IsTotalCurvature || IsTotalCurvatureBatch;
    public bool IsOpenSeesSpatialInteraction => Kind == "opensees_section_interaction_n_mx_my";
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
       && !IsOpenSeesSpatialInteraction
-      && !IsCrackingBatch && !IsCrackWidthBatch;
+      && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch;
    public bool ShowSolverMethod => IsLimitKind;
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
@@ -569,6 +593,50 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool ShowCrackWidthManual        => IsCrackWidth && CrackWidthForcesMode == "manual";
    public bool ShowCrackWidthForceItemLong => IsCrackWidth && CrackWidthForcesMode == "force_item_long";
    public bool ShowCrackWidthTwoSets       => IsCrackWidthBatch && CrackWidthForcesMode == "two_sets";
+
+   public string TotalCurvatureForcesMode
+   {
+      get => totalCurvatureForcesMode;
+      set
+      {
+         totalCurvatureForcesMode = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowTotalCurvatureShare));
+         OnPropertyChanged(nameof(ShowTotalCurvatureManual));
+      }
+   }
+
+   public string TotalCurvatureLongShare
+   {
+      get => totalCurvatureLongShare;
+      set { totalCurvatureLongShare = value; OnPropertyChanged(); }
+   }
+
+   public string TotalCurvatureManualMxLong
+   {
+      get => totalCurvatureManualMxLong;
+      set { totalCurvatureManualMxLong = value; OnPropertyChanged(); }
+   }
+
+   public string TotalCurvatureManualMyLong
+   {
+      get => totalCurvatureManualMyLong;
+      set { totalCurvatureManualMyLong = value; OnPropertyChanged(); }
+   }
+
+   public List<CalcTaskSolverItem> TotalCurvatureForcesModeItems => IsTotalCurvatureBatch
+      ? [
+           new() { Id = "total_only", Label = Loc.S("TotalCurvature_Mode_total_only") },
+           new() { Id = "share",      Label = Loc.S("TotalCurvature_Mode_share") },
+        ]
+      : [
+           new() { Id = "total_only", Label = Loc.S("TotalCurvature_Mode_total_only") },
+           new() { Id = "share",      Label = Loc.S("TotalCurvature_Mode_share") },
+           new() { Id = "manual",     Label = Loc.S("TotalCurvature_Mode_manual") },
+        ];
+
+   public bool ShowTotalCurvatureShare  => TotalCurvatureForcesMode == "share";
+   public bool ShowTotalCurvatureManual => IsTotalCurvature && TotalCurvatureForcesMode == "manual";
 
    // Переиспользует существующую публичную коллекцию ForceSets (тот же список,
    // что и у стандартного picker'а) — отдельная коллекция не нужна.
@@ -1032,6 +1100,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "cracking_batch",     Label = Loc.S("CalcTaskKind_cracking_batch"),     GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "crack_width",        Label = Loc.S("CalcTaskKind_crack_width"),        GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "crack_width_batch",  Label = Loc.S("CalcTaskKind_crack_width_batch"),  GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "total_curvature",       Label = Loc.S("CalcTaskKind_total_curvature"),       GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "total_curvature_batch", Label = Loc.S("CalcTaskKind_total_curvature_batch"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       // Огнестойкость
       new() { Id = "fire_r_check",             Label = Loc.S("CalcTaskKind_fire_r_check"),             GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
       new() { Id = "fire_r_check_batch",       Label = Loc.S("CalcTaskKind_fire_r_check_batch"),       GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
@@ -1072,7 +1142,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                    : [CalcType.C, CalcType.CL];
            if (IsShellLayered)
                return [CalcType.C, CalcType.CL];
-           if (IsCracking || IsCrackingBatch || IsCrackWidthAny)
+           if (IsCracking || IsCrackingBatch || IsCrackWidthAny || IsTotalCurvatureAny)
                return [CalcType.N, CalcType.NL];
            return CalcTypes;
        }
@@ -1290,6 +1360,21 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              if (cwp.N.HasValue)  ManualN  = cwp.N.Value.ToString("G6", inv);
              if (cwp.Mx.HasValue) ManualMx = cwp.Mx.Value.ToString("G6", inv);
              if (cwp.My.HasValue) ManualMy = cwp.My.Value.ToString("G6", inv);
+          }
+
+          if (existing.Kind is "total_curvature" or "total_curvature_batch")
+          {
+             var tcp = TotalCurvatureTaskParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             TotalCurvatureForcesMode = tcp.ForcesMode;
+             TotalCurvatureLongShare = tcp.LongShare.ToString("G6", inv);
+             if (tcp.MxLongManual.HasValue)
+                TotalCurvatureManualMxLong = tcp.MxLongManual.Value.ToString("G6", inv);
+             if (tcp.MyLongManual.HasValue)
+                TotalCurvatureManualMyLong = tcp.MyLongManual.Value.ToString("G6", inv);
+             if (tcp.N.HasValue)  ManualN  = tcp.N.Value.ToString("G6", inv);
+             if (tcp.Mx.HasValue) ManualMx = tcp.Mx.Value.ToString("G6", inv);
+             if (tcp.My.HasValue) ManualMy = tcp.My.Value.ToString("G6", inv);
           }
 
           if (IsTorsion && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
@@ -1850,6 +1935,77 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             ForceItemId = 0,
             CalcType = SelectedCalcType,
             ParamsJson = MergeCrackParamsWithEta(cwp)
+         };
+         _window.DialogResult = true;
+         return;
+      }
+
+      if (IsTotalCurvatureAny)
+      {
+         if (SelectedSection == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         var invTc = System.Globalization.CultureInfo.InvariantCulture;
+         double.TryParse(TotalCurvatureLongShare,
+            System.Globalization.NumberStyles.Float, invTc, out var longShare);
+         var tcp = new TotalCurvatureTaskParams
+         {
+            ForcesMode = TotalCurvatureForcesMode,
+            LongShare = longShare
+         };
+
+         if (IsTotalCurvatureBatch)
+         {
+            if (SelectedForceSet == null)
+            {
+               MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+               return;
+            }
+
+            Result = new CalcTask
+            {
+               Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+               Kind = Kind,
+               SectionId = SelectedSection.Id,
+               ForceSetId = SelectedForceSet.Id,
+               ForceItemId = 0,
+               CalcType = SelectedCalcType,
+               ParamsJson = tcp.ToJson()
+            };
+            _window.DialogResult = true;
+            return;
+         }
+
+         double.TryParse(ManualN, System.Globalization.NumberStyles.Float, invTc, out var nTotal);
+         double.TryParse(ManualMx, System.Globalization.NumberStyles.Float, invTc, out var mxTotal);
+         double.TryParse(ManualMy, System.Globalization.NumberStyles.Float, invTc, out var myTotal);
+         tcp.N = nTotal;
+         tcp.Mx = mxTotal;
+         tcp.My = myTotal;
+         if (TotalCurvatureForcesMode == "manual")
+         {
+            double.TryParse(TotalCurvatureManualMxLong,
+               System.Globalization.NumberStyles.Float, invTc, out var mxLongManual);
+            double.TryParse(TotalCurvatureManualMyLong,
+               System.Globalization.NumberStyles.Float, invTc, out var myLongManual);
+            tcp.MxLongManual = mxLongManual;
+            tcp.MyLongManual = myLongManual;
+         }
+
+         Result = new CalcTask
+         {
+            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Kind = Kind,
+            SectionId = SelectedSection.Id,
+            ForceSetId = 0,
+            ForceItemId = 0,
+            CalcType = SelectedCalcType,
+            ParamsJson = tcp.ToJson()
          };
          _window.DialogResult = true;
          return;

@@ -47,7 +47,7 @@
          <RowDefinition Height="Auto"/> <!-- 14 Eta -->
          <RowDefinition Height="Auto"/> <!-- 15 Torsion -->
          <RowDefinition Height="Auto"/> <!-- 16 Crack width -->
-         <RowDefinition Height="16"/>   <!-- 17 spacer -->
+         <RowDefinition Height="Auto"/> <!-- 17 Total curvature -->
          <RowDefinition Height="Auto"/> <!-- 18 OK/Cancel -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
@@ -1005,6 +1005,35 @@
                             ItemsSource="{Binding CrackWidthLongForceItemsView}"
                             SelectedItem="{Binding SelectedCrackWidthLongForceItem}"
                             DisplayMemberPath="Label" Margin="0,0,0,4"/>
+               </StackPanel>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
+
+      <StackPanel Grid.Row="17" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsTotalCurvatureAny, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource TotalCurvatureParamsHeader}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <TextBlock Text="{DynamicResource TotalCurvature_ForcesMode}"/>
+               <ComboBox ItemsSource="{Binding TotalCurvatureForcesModeItems}"
+                         SelectedValue="{Binding TotalCurvatureForcesMode}"
+                         SelectedValuePath="Id"
+                         DisplayMemberPath="Label"
+                         Margin="0,0,0,4"/>
+
+               <StackPanel Visibility="{Binding ShowTotalCurvatureShare, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource TotalCurvature_LongShare}"/>
+                  <TextBox Text="{Binding TotalCurvatureLongShare, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
+               </StackPanel>
+
+               <StackPanel Visibility="{Binding ShowTotalCurvatureManual, Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource TotalCurvature_ManualMxLong}"/>
+                  <TextBox Text="{Binding TotalCurvatureManualMxLong, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,2"/>
+                  <TextBlock Text="{DynamicResource TotalCurvature_ManualMyLong}"/>
+                  <TextBox Text="{Binding TotalCurvatureManualMyLong, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
                </StackPanel>
             </StackPanel>
          </GroupBox>

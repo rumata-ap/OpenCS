@@ -58,7 +58,7 @@ namespace OpenCS.Views
             or "shell_strain_state_batch"
             or "shell_layered_uls_batch"
             or "strength_ndm_batch"
-            or "cracking_batch" or "crack_width_batch")
+            or "cracking_batch" or "crack_width_batch" or "total_curvature_batch")
         {
             Content = task.Kind switch
             {
@@ -72,6 +72,7 @@ namespace OpenCS.Views
                 "shell_layered_uls_batch"  => new ShellStrainBatchResultView(result, app, task),
                 "cracking_batch"       => new CrackingBatchResultView(result, app, task),
                 "crack_width_batch"    => new CrackWidthBatchResultView(result, app, task),
+                "total_curvature_batch" => new TotalCurvatureBatchResultView(result),
                 _ when task.Kind.StartsWith("shell_simpl_") && task.Kind.EndsWith("_batch")
                                        => new ShellSimplBatchResultView(result, task, app),
                 _                      => new FireRCheckResultView(result, app, task)
@@ -79,11 +80,14 @@ namespace OpenCS.Views
             return;
         }
 
-        if (task?.Kind is "cracking" or "crack_width")
+        if (task?.Kind is "cracking" or "crack_width" or "total_curvature")
         {
-            Content = task.Kind == "cracking"
-                ? new CrackingResultView(result, app, task)
-                : new CrackWidthResultView(result, app, task);
+            Content = task.Kind switch
+            {
+                "cracking" => new CrackingResultView(result, app, task),
+                "crack_width" => new CrackWidthResultView(result, app, task),
+                _ => new TotalCurvatureResultView(result)
+            };
             return;
         }
 

@@ -1,0 +1,49 @@
+<UserControl x:Class="OpenCS.Views.TotalCurvatureSummaryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+   <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="12,8">
+         <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+            <TextBlock Text="{Binding TaskTag}" FontSize="14" FontWeight="Bold"
+                       Margin="0,0,10,0" VerticalAlignment="Center"/>
+            <TextBlock Text="{Binding StatusText}" FontSize="13"
+                       Foreground="{Binding StatusBrush}" VerticalAlignment="Center"/>
+         </StackPanel>
+         <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,0,0,10"/>
+
+         <TextBlock Text="{DynamicResource TotalCurvature_InputHeader}" FontWeight="Bold" Margin="0,0,0,4"/>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelNColon}"/><Run Text="{Binding NText}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMxLongColon}"/><Run Text="{Binding MxLongText}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMxTotalColon}"/><Run Text="{Binding MxTotalText}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMyLongColon}"/><Run Text="{Binding MyLongText}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMyTotalColon}"/><Run Text="{Binding MyTotalText}"/></TextBlock>
+
+         <TextBlock Text="{Binding CrackedText}" FontWeight="Bold" Margin="0,10,0,4"/>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMcrcColon}"/><Run Text="{Binding McrcText}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMxCrcColon}"/><Run Text="{Binding MxCrcText}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMyCrcColon}"/><Run Text="{Binding MyCrcText}"/></TextBlock>
+
+         <TextBlock Text="{Binding Stage1Label}" FontWeight="Bold" Margin="0,10,0,2"
+                    Visibility="{Binding HasStage1, Converter={StaticResource BoolToVisibility}}"/>
+         <TextBlock Text="{Binding Stage1Text}"
+                    Visibility="{Binding HasStage1, Converter={StaticResource BoolToVisibility}}"/>
+         <TextBlock Text="{Binding Stage2Label}" FontWeight="Bold" Margin="0,10,0,2"
+                    Visibility="{Binding HasStage2, Converter={StaticResource BoolToVisibility}}"/>
+         <TextBlock Text="{Binding Stage2Text}"
+                    Visibility="{Binding HasStage2, Converter={StaticResource BoolToVisibility}}"/>
+         <TextBlock Text="{Binding Stage3Label}" FontWeight="Bold" Margin="0,10,0,2"
+                    Visibility="{Binding HasStage3, Converter={StaticResource BoolToVisibility}}"/>
+         <TextBlock Text="{Binding Stage3Text}"
+                    Visibility="{Binding HasStage3, Converter={StaticResource BoolToVisibility}}"/>
+
+         <TextBlock Text="{DynamicResource TotalCurvature_ResultHeader}" FontWeight="Bold" Margin="0,10,0,4"/>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKyFullColon}"/><Run Text="{Binding KyFullText}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKzFullColon}"/><Run Text="{Binding KzFullText}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKFullColon}"/><Run Text="{Binding KFullText}"/></TextBlock>
+
+         <TextBlock Text="{Binding ErrorText}" Foreground="DarkRed" TextWrapping="Wrap" Margin="0,8,0,0"
+                    Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
+      </StackPanel>
+   </ScrollViewer>
+</UserControl>

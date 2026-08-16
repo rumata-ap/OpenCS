@@ -70,7 +70,7 @@ public sealed class CrackingSolver
 
         foreach (var area in _section.Areas)
         {
-            if (area.Material?.Type != MatType.Concrete) continue;
+            if (!IsConcreteArea(area)) continue;
             if (!area.Diagramms.TryGetValue(_calcCrc, out var dgr)) continue;
             if (dgr.It.X.Length == 0) continue;
             return dgr.It.X.Max();
@@ -87,7 +87,7 @@ public sealed class CrackingSolver
         bool found = false;
         foreach (var area in _section.Areas)
         {
-            if (area.Material?.Type != MatType.Concrete) continue;
+            if (!IsConcreteArea(area)) continue;
             if (area.Hull == null) continue;
             var xs = area.Hull.X;
             var ys = area.Hull.Y;
@@ -173,7 +173,12 @@ public sealed class CrackingSolver
         }
 
         double k = 0.5 * (a + b);
-        bool converged = Math.Abs(bestEps - epsLimit) <= _bisectTol * 10.0;
+        // Для дискретного волоконного сечения последняя бетонная фибра может
+        // перейти через Et2 скачком: между двумя соседними состояниями нет
+        // плоскости с epsMax ровно равной epsLimit. Узкий интервал бисекции
+        // уже является достаточным свидетельством найденной границы.
+        bool converged = Math.Abs(bestEps - epsLimit) <= _bisectTol * 10.0 ||
+                         Math.Abs(b - a) <= _bisectTol * 10.0;
 
         return new CrackingSolverResult
         {
@@ -186,4 +191,8 @@ public sealed class CrackingSolver
             EpsMaxTension = bestEps
         };
     }
+
+    static bool IsConcreteArea(MaterialArea area) =>
+        area.Material?.Type == MatType.Concrete ||
+        (area.Material?.Type == MatType.Custom && area.Material.BaseType == MatType.Concrete);
 }
