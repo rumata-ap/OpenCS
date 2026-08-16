@@ -54,6 +54,7 @@ namespace OpenCS.Tasks
          ["crack_width_batch"]    = new CrackWidthBatchHandler(),
          ["total_curvature"]      = new TotalCurvatureHandler(),
          ["total_curvature_batch"] = new TotalCurvatureBatchHandler(),
+         ["moment_curvature_biaxial"] = new MomentCurvatureBiaxialHandler(),
          ["opensees_section_moment_curvature"] = new OpenSeesSectionMomentCurvatureHandler(),
          ["opensees_section_interaction_nm"] = new OpenSeesSectionInteractionHandler(),
          ["opensees_section_interaction_n_mx_my"] = new OpenSeesSpatialInteractionHandler(),

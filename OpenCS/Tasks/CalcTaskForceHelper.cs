@@ -10,7 +10,7 @@ internal static class CalcTaskForceHelper
 
    internal static bool UsesManualForces(CalcTask task)
       => task.Kind == "strain_state" || task.Kind == "cracking" || task.Kind == "crack_width"
-         || task.Kind == "total_curvature"
+         || task.Kind == "total_curvature" || task.Kind == "moment_curvature_biaxial"
          || IsLimitSingleKind(task.Kind);
 
    /// <summary>Задачи, для которых не нужна строка стержневого набора усилий (batch / ParamsJson / оболочки / сталь).</summary>
@@ -51,6 +51,9 @@ internal static class CalcTaskForceHelper
 
       if (task.Kind == "total_curvature")
          return TotalCurvatureTaskParams.Parse(task.ParamsJson).ToLoadItem();
+
+      if (task.Kind == "moment_curvature_biaxial")
+         return MomentCurvatureBiaxialTaskParams.Parse(task.ParamsJson).ToLoadItem();
 
       try
       {
