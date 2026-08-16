@@ -19,8 +19,36 @@ public sealed class CurvatureStageResult
     /// <summary>Найденная плоскость деформаций.</summary>
     public Kurvature Plane { get; set; }
 
+    /// <summary>Тип диаграммы материала, использованный для стадии.</summary>
+    public CalcType CalcType { get; set; } = CalcType.N;
+
+    /// <summary>Учитывается ли растяжение бетона на стадии.</summary>
+    public bool ConcreteTension { get; set; }
+
+    /// <summary>Индивидуальные коэффициенты ψs для стержней арматуры.</summary>
+    public IReadOnlyList<CurvatureRebarPsi> PsiSByRebar { get; set; } = [];
+
     /// <summary>Признак сходимости решателя стадии.</summary>
     public bool Converged { get; set; }
+}
+
+/// <summary>Коэффициент работы отдельного стержня между трещинами.</summary>
+public sealed class CurvatureRebarPsi
+{
+    /// <summary>Порядковый номер стержня, если он сохранён в модели.</summary>
+    public int? Num { get; init; }
+
+    /// <summary>Координата центра стержня X, м.</summary>
+    public double X { get; init; }
+
+    /// <summary>Координата центра стержня Y, м.</summary>
+    public double Y { get; init; }
+
+    /// <summary>Коэффициент ψs по п. 8.2.32 СП 63.13330.</summary>
+    public double PsiS { get; init; } = 1.0;
+
+    /// <summary>Применим ли коэффициент к данному стержню.</summary>
+    public bool Applicable { get; init; }
 }
 
 /// <summary>
@@ -167,6 +195,8 @@ public sealed class TotalCurvatureSolver
             Mx = mx,
             My = my,
             Plane = plane,
+            CalcType = calc,
+            ConcreteTension = true,
             Converged = solver.Converged
         };
     }
@@ -189,8 +219,47 @@ public sealed class TotalCurvatureSolver
             Mx = mx,
             My = my,
             Plane = plane,
+            CalcType = calc,
+            ConcreteTension = ten,
+            PsiSByRebar = BuildPsiSByRebar(_section, plane, epsCrc),
             Converged = solver.Converged
         };
+    }
+
+    static IReadOnlyList<CurvatureRebarPsi> BuildPsiSByRebar(
+        CrossSection section, Kurvature plane,
+        IReadOnlyDictionary<Fiber, double> epsCrcByFiber)
+    {
+        var result = new List<CurvatureRebarPsi>();
+        foreach (var (area, _) in section.EnumerateAreas(plane))
+        {
+            if (area.Material?.Type is not (MatType.ReSteelF or MatType.ReSteelU))
+                continue;
+
+            foreach (var fiber in area.Fibers)
+            {
+                if (fiber.TypeFiber != FiberType.point)
+                    continue;
+
+                double eps = plane.e0 + plane.ky * fiber.Y + plane.kz * fiber.X + fiber.Eps_p;
+                double epsCrc = 0.0;
+                bool applicable = eps > 0.0
+                    && epsCrcByFiber.TryGetValue(fiber, out epsCrc)
+                    && double.IsFinite(epsCrc)
+                    && epsCrc > 0.0;
+                double psi = applicable ? Curvature8232.PsiS(epsCrc, eps) : 1.0;
+
+                result.Add(new CurvatureRebarPsi
+                {
+                    Num = fiber.Num > 0 ? fiber.Num : null,
+                    X = fiber.X,
+                    Y = fiber.Y,
+                    PsiS = psi,
+                    Applicable = applicable
+                });
+            }
+        }
+        return result;
     }
 
     static (double mx, double my) MomentDirection(

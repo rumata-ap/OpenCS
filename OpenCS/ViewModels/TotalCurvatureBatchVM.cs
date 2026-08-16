@@ -21,7 +21,9 @@ public sealed class TotalCurvatureBatchVM : ViewModelBase
     public ObservableCollection<BatchRow> Rows { get; } = [];
 
     public sealed record BatchRow(
-        int Num, string Label, string NText, string MxTotalText, string McrcText,
+        int Num, string Label, double N, double MxTotal, double MyTotal,
+        double MxLong, double MyLong, string NText, string MxTotalText, string MyTotalText,
+        string McrcText,
         string CrackedText, string KyFullText, string StatusText, bool IsConverged);
 
     public TotalCurvatureBatchVM(CalcResult result)
@@ -71,11 +73,22 @@ public sealed class TotalCurvatureBatchVM : ViewModelBase
                         && convergedValue.GetBoolean();
                     bool cracked = row.TryGetProperty("cracked", out var crackedValue)
                         && crackedValue.GetBoolean();
+                    double n = Number(row, "N");
+                    double mxTotal = Number(row, "Mx_total");
+                    double myTotal = Number(row, "My_total");
+                    double mxLong = Number(row, "Mx_long");
+                    double myLong = Number(row, "My_long");
                     Rows.Add(new BatchRow(
                         Num: BatchResultRowHelper.RowNum(row, index),
                         Label: Str(row, "label"),
-                        NText: Num(row, "N", 4),
-                        MxTotalText: Num(row, "Mx_total", 4),
+                        N: n,
+                        MxTotal: mxTotal,
+                        MyTotal: myTotal,
+                        MxLong: mxLong,
+                        MyLong: myLong,
+                        NText: Format(n, 4),
+                        MxTotalText: Format(mxTotal, 4),
+                        MyTotalText: Format(myTotal, 4),
                         McrcText: Num(row, "Mcrc", 4),
                         CrackedText: cracked
                             ? Loc.S("TotalCurvature_Cracked")
@@ -104,6 +117,14 @@ public sealed class TotalCurvatureBatchVM : ViewModelBase
 
     static string Num(JsonElement element, string key, int significantDigits) =>
         element.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.Number
-            ? value.GetDouble().ToString($"G{significantDigits}", CultureInfo.InvariantCulture)
+            ? Format(value.GetDouble(), significantDigits)
             : Loc.S("TotalCurvature_Empty");
+
+    static double Number(JsonElement element, string key) =>
+        element.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.Number
+            ? value.GetDouble()
+            : 0.0;
+
+    static string Format(double value, int significantDigits) =>
+        value.ToString($"G{significantDigits}", CultureInfo.InvariantCulture);
 }

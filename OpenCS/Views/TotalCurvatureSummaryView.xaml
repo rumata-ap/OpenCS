@@ -24,18 +24,45 @@
          <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMxCrcColon}"/><Run Text="{Binding MxCrcText, Mode=OneWay}"/></TextBlock>
          <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelMyCrcColon}"/><Run Text="{Binding MyCrcText, Mode=OneWay}"/></TextBlock>
 
-         <TextBlock Text="{Binding Stage1Label}" FontWeight="Bold" Margin="0,10,0,2"
-                    Visibility="{Binding HasStage1, Converter={StaticResource BoolToVisibility}}"/>
-         <TextBlock Text="{Binding Stage1Text}"
-                    Visibility="{Binding HasStage1, Converter={StaticResource BoolToVisibility}}"/>
-         <TextBlock Text="{Binding Stage2Label}" FontWeight="Bold" Margin="0,10,0,2"
-                    Visibility="{Binding HasStage2, Converter={StaticResource BoolToVisibility}}"/>
-         <TextBlock Text="{Binding Stage2Text}"
-                    Visibility="{Binding HasStage2, Converter={StaticResource BoolToVisibility}}"/>
-         <TextBlock Text="{Binding Stage3Label}" FontWeight="Bold" Margin="0,10,0,2"
-                    Visibility="{Binding HasStage3, Converter={StaticResource BoolToVisibility}}"/>
-         <TextBlock Text="{Binding Stage3Text}"
-                    Visibility="{Binding HasStage3, Converter={StaticResource BoolToVisibility}}"/>
+         <StackPanel Margin="0,10,0,2"
+                     Visibility="{Binding HasStage1, Converter={StaticResource BoolToVisibility}}">
+            <DockPanel>
+               <Button DockPanel.Dock="Right" Content="{DynamicResource TotalCurvature_StagePlotButton}"
+                       ToolTip="{Binding Stage1PlotTooltip}"
+                       IsEnabled="{Binding CanPlotStage1, Mode=OneWay}"
+                       Click="StagePlot_Click" Tag="1"
+                       Padding="8,3" Margin="12,0,0,0"/>
+               <TextBlock Text="{Binding Stage1Label}" FontWeight="Bold"
+                          VerticalAlignment="Center"/>
+            </DockPanel>
+            <TextBlock Text="{Binding Stage1Text}"/>
+         </StackPanel>
+         <StackPanel Margin="0,10,0,2"
+                     Visibility="{Binding HasStage2, Converter={StaticResource BoolToVisibility}}">
+            <DockPanel>
+               <Button DockPanel.Dock="Right" Content="{DynamicResource TotalCurvature_StagePlotButton}"
+                       ToolTip="{Binding Stage2PlotTooltip}"
+                       IsEnabled="{Binding CanPlotStage2, Mode=OneWay}"
+                       Click="StagePlot_Click" Tag="2"
+                       Padding="8,3" Margin="12,0,0,0"/>
+               <TextBlock Text="{Binding Stage2Label}" FontWeight="Bold"
+                          VerticalAlignment="Center"/>
+            </DockPanel>
+            <TextBlock Text="{Binding Stage2Text}"/>
+         </StackPanel>
+         <StackPanel Margin="0,10,0,2"
+                     Visibility="{Binding HasStage3, Converter={StaticResource BoolToVisibility}}">
+            <DockPanel>
+               <Button DockPanel.Dock="Right" Content="{DynamicResource TotalCurvature_StagePlotButton}"
+                       ToolTip="{Binding Stage3PlotTooltip}"
+                       IsEnabled="{Binding CanPlotStage3, Mode=OneWay}"
+                       Click="StagePlot_Click" Tag="3"
+                       Padding="8,3" Margin="12,0,0,0"/>
+               <TextBlock Text="{Binding Stage3Label}" FontWeight="Bold"
+                          VerticalAlignment="Center"/>
+            </DockPanel>
+            <TextBlock Text="{Binding Stage3Text}"/>
+         </StackPanel>
 
          <TextBlock Text="{DynamicResource TotalCurvature_ResultHeader}" FontWeight="Bold" Margin="0,10,0,4"/>
          <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKyFullColon}"/><Run Text="{Binding KyFullText, Mode=OneWay}"/></TextBlock>

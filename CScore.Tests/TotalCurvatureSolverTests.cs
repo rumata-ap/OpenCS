@@ -181,6 +181,12 @@ public class TotalCurvatureSolverTests
         Assert.True(result.Stage1!.Converged);
         Assert.True(result.Stage2!.Converged);
         Assert.True(result.AllConverged);
+        Assert.Equal(CalcType.N, result.Stage1.CalcType);
+        Assert.Equal(CalcType.NL, result.Stage2.CalcType);
+        Assert.True(result.Stage1.ConcreteTension);
+        Assert.True(result.Stage2.ConcreteTension);
+        Assert.Empty(result.Stage1.PsiSByRebar);
+        Assert.Empty(result.Stage2.PsiSByRebar);
         Assert.Equal(result.Stage1.Plane.ky + result.Stage2.Plane.ky, result.KyFull, 10);
         Assert.True(result.KyFull < 0.0);
     }
@@ -199,6 +205,17 @@ public class TotalCurvatureSolverTests
         Assert.NotNull(result.Stage3);
         Assert.True(result.Stage1!.Converged && result.Stage2!.Converged && result.Stage3!.Converged);
         Assert.True(result.AllConverged);
+        Assert.Equal(CalcType.N, result.Stage1.CalcType);
+        Assert.Equal(CalcType.N, result.Stage2.CalcType);
+        Assert.Equal(CalcType.NL, result.Stage3.CalcType);
+        Assert.False(result.Stage1.ConcreteTension);
+        Assert.False(result.Stage2.ConcreteTension);
+        Assert.False(result.Stage3.ConcreteTension);
+        Assert.NotEmpty(result.Stage1.PsiSByRebar);
+        Assert.NotEmpty(result.Stage2.PsiSByRebar);
+        Assert.NotEmpty(result.Stage3.PsiSByRebar);
+        Assert.All(result.Stage1.PsiSByRebar, psi =>
+            Assert.True(psi.PsiS > 0.0 && psi.PsiS <= 1.0));
         Assert.True(result.KyFull < 0.0);
         Assert.Equal(0.0, result.KzFull, 6);
 

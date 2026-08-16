@@ -72,7 +72,7 @@ namespace OpenCS.Views
                 "shell_layered_uls_batch"  => new ShellStrainBatchResultView(result, app, task),
                 "cracking_batch"       => new CrackingBatchResultView(result, app, task),
                 "crack_width_batch"    => new CrackWidthBatchResultView(result, app, task),
-                "total_curvature_batch" => new TotalCurvatureBatchResultView(result),
+                "total_curvature_batch" => new TotalCurvatureBatchResultView(result, app, task),
                 _ when task.Kind.StartsWith("shell_simpl_") && task.Kind.EndsWith("_batch")
                                        => new ShellSimplBatchResultView(result, task, app),
                 _                      => new FireRCheckResultView(result, app, task)
@@ -86,7 +86,7 @@ namespace OpenCS.Views
             {
                 "cracking" => new CrackingResultView(result, app, task),
                 "crack_width" => new CrackWidthResultView(result, app, task),
-                _ => new TotalCurvatureResultView(result)
+                _ => new TotalCurvatureResultView(result, app, task)
             };
             return;
         }

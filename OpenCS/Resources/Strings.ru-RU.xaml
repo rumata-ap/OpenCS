@@ -2351,6 +2351,18 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_Stage2_Cracked">Стадия 2: непродолжительно, длительная часть</system:String>
     <system:String x:Key="TotalCurvature_Stage2_Uncracked">Стадия 2: продолжительно, длительная часть</system:String>
     <system:String x:Key="TotalCurvature_Stage3">Стадия 3: продолжительно, длительная часть</system:String>
+    <system:String x:Key="TotalCurvature_Stage1_UncrackedLabel">σ–ε N — кратковременная составляющая</system:String>
+    <system:String x:Key="TotalCurvature_Stage2_UncrackedLabel">σ–ε NL — длительная составляющая</system:String>
+    <system:String x:Key="TotalCurvature_Stage1_CrackedLabel">σ–ε N* — вся нагрузка, с трещинами</system:String>
+    <system:String x:Key="TotalCurvature_Stage2_CrackedLabel">σ–ε N* — длительная составляющая, с трещинами</system:String>
+    <system:String x:Key="TotalCurvature_Stage3_CrackedLabel">σ–ε NL* — длительная составляющая, с трещинами</system:String>
+    <system:String x:Key="TotalCurvature_StagePlotTitle">Поля напряжений и деформаций</system:String>
+    <system:String x:Key="TotalCurvature_StagePlotButton">Открыть поле σ–ε</system:String>
+    <system:String x:Key="TotalCurvature_StagePlotTooltip">Открыть графические поля напряжений и деформаций этой составляющей</system:String>
+    <system:String x:Key="TotalCurvature_StageStarTooltip">Звёздочка означает учёт ψs по п. 8.2.32 СП 63.13330</system:String>
+    <system:String x:Key="TotalCurvature_PsiSFormat">ψs (п. 8.2.32) = {0:0.000}</system:String>
+    <system:String x:Key="TotalCurvature_PsiSNotApplicable">ψs (п. 8.2.32) = 1.000; стержень не растянут или коэффициент не применяется</system:String>
+    <system:String x:Key="TotalCurvature_GraphicsUnavailable">Графическое поле для этой стадии недоступно.</system:String>
     <system:String x:Key="TotalCurvature_InputHeader">Нагрузка</system:String>
     <system:String x:Key="TotalCurvature_LabelN">N</system:String>
     <system:String x:Key="TotalCurvature_LabelMxLong">Mx длительное</system:String>
@@ -2383,6 +2395,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_ColKyFull">κy, 1/м</system:String>
     <system:String x:Key="TotalCurvature_ColN">N, кН</system:String>
     <system:String x:Key="TotalCurvature_ColMxTotal">Mx, кН·м</system:String>
+    <system:String x:Key="TotalCurvature_ColMyTotal">My, кН·м</system:String>
     <system:String x:Key="TotalCurvatureBatch_SummaryFormat">Всего: {0}, сошлось: {1}, не сошлось: {2}</system:String>
     <system:String x:Key="TotalCurvature_BatchNeedDatabase">Для пакетной задачи полной кривизны требуется контекст базы данных.</system:String>
     <system:String x:Key="TotalCurvature_ForceSetNotFound">Набор усилий с идентификатором {0} не найден.</system:String>

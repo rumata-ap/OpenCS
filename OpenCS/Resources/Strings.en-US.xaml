@@ -2348,6 +2348,18 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_Stage2_Cracked">Stage 2: short-term, long-term part</system:String>
     <system:String x:Key="TotalCurvature_Stage2_Uncracked">Stage 2: long-term, long-term part</system:String>
     <system:String x:Key="TotalCurvature_Stage3">Stage 3: long-term, long-term part</system:String>
+    <system:String x:Key="TotalCurvature_Stage1_UncrackedLabel">σ–ε N — short-term component</system:String>
+    <system:String x:Key="TotalCurvature_Stage2_UncrackedLabel">σ–ε NL — long-term component</system:String>
+    <system:String x:Key="TotalCurvature_Stage1_CrackedLabel">σ–ε N* — total load, cracked section</system:String>
+    <system:String x:Key="TotalCurvature_Stage2_CrackedLabel">σ–ε N* — long-term component, cracked section</system:String>
+    <system:String x:Key="TotalCurvature_Stage3_CrackedLabel">σ–ε NL* — long-term component, cracked section</system:String>
+    <system:String x:Key="TotalCurvature_StagePlotTitle">Stress and strain fields</system:String>
+    <system:String x:Key="TotalCurvature_StagePlotButton">Open σ–ε field</system:String>
+    <system:String x:Key="TotalCurvature_StagePlotTooltip">Open stress and strain fields for this component</system:String>
+    <system:String x:Key="TotalCurvature_StageStarTooltip">The asterisk means ψs from clause 8.2.32 of SP 63.13330 is applied</system:String>
+    <system:String x:Key="TotalCurvature_PsiSFormat">ψs (clause 8.2.32) = {0:0.000}</system:String>
+    <system:String x:Key="TotalCurvature_PsiSNotApplicable">ψs (clause 8.2.32) = 1.000; bar is not in tension or not applicable</system:String>
+    <system:String x:Key="TotalCurvature_GraphicsUnavailable">The graphical field for this stage is unavailable.</system:String>
     <system:String x:Key="TotalCurvature_InputHeader">Load</system:String>
     <system:String x:Key="TotalCurvature_LabelN">N</system:String>
     <system:String x:Key="TotalCurvature_LabelMxLong">Mx long-term</system:String>
@@ -2380,6 +2392,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="TotalCurvature_ColKyFull">κy, 1/m</system:String>
     <system:String x:Key="TotalCurvature_ColN">N, kN</system:String>
     <system:String x:Key="TotalCurvature_ColMxTotal">Mx, kN·m</system:String>
+    <system:String x:Key="TotalCurvature_ColMyTotal">My, kN·m</system:String>
     <system:String x:Key="TotalCurvatureBatch_SummaryFormat">Total: {0}, converged: {1}, not converged: {2}</system:String>
     <system:String x:Key="TotalCurvature_BatchNeedDatabase">A database context is required for the total-curvature batch task.</system:String>
     <system:String x:Key="TotalCurvature_ForceSetNotFound">Force set with id {0} was not found.</system:String>

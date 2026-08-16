@@ -29,12 +29,18 @@ public sealed class TotalCurvatureSummaryVM : ViewModelBase
     public string MyCrcText { get; } = Loc.S("TotalCurvature_Empty");
 
     public bool HasStage1 { get; }
+    public bool CanPlotStage1 { get; }
+    public string Stage1PlotTooltip { get; } = "";
     public string Stage1Label { get; } = "";
     public string Stage1Text { get; } = Loc.S("TotalCurvature_Empty");
     public bool HasStage2 { get; }
+    public bool CanPlotStage2 { get; }
+    public string Stage2PlotTooltip { get; } = "";
     public string Stage2Label { get; } = "";
     public string Stage2Text { get; } = Loc.S("TotalCurvature_Empty");
     public bool HasStage3 { get; }
+    public bool CanPlotStage3 { get; }
+    public string Stage3PlotTooltip { get; } = "";
     public string Stage3Label { get; } = "";
     public string Stage3Text { get; } = Loc.S("TotalCurvature_Empty");
 
@@ -78,6 +84,14 @@ public sealed class TotalCurvatureSummaryVM : ViewModelBase
             MyLongText = NumUnit(root, "My_long", "Unit_kNm");
             MyTotalText = NumUnit(root, "My_total", "Unit_kNm");
 
+            string plotTooltip = Cracked
+                ? Loc.S("TotalCurvature_StageStarTooltip") + ". "
+                    + Loc.S("TotalCurvature_StagePlotTooltip")
+                : Loc.S("TotalCurvature_StagePlotTooltip");
+            Stage1PlotTooltip = plotTooltip;
+            Stage2PlotTooltip = plotTooltip;
+            Stage3PlotTooltip = plotTooltip;
+
             CrackedText = Cracked
                 ? Loc.S("TotalCurvature_Cracked")
                 : Loc.S("TotalCurvature_NotCracked");
@@ -89,26 +103,25 @@ public sealed class TotalCurvatureSummaryVM : ViewModelBase
                 && stage1.ValueKind == JsonValueKind.Object)
             {
                 HasStage1 = true;
-                Stage1Label = Cracked
-                    ? Loc.S("TotalCurvature_Stage1_Cracked")
-                    : Loc.S("TotalCurvature_Stage1_Uncracked");
+                Stage1Label = TotalCurvatureStageVM.LabelFor(1, Cracked);
                 Stage1Text = StageText(stage1);
+                CanPlotStage1 = HasPlotData(stage1);
             }
             if (root.TryGetProperty("stage2", out var stage2)
                 && stage2.ValueKind == JsonValueKind.Object)
             {
                 HasStage2 = true;
-                Stage2Label = Cracked
-                    ? Loc.S("TotalCurvature_Stage2_Cracked")
-                    : Loc.S("TotalCurvature_Stage2_Uncracked");
+                Stage2Label = TotalCurvatureStageVM.LabelFor(2, Cracked);
                 Stage2Text = StageText(stage2);
+                CanPlotStage2 = HasPlotData(stage2);
             }
             if (root.TryGetProperty("stage3", out var stage3)
                 && stage3.ValueKind == JsonValueKind.Object)
             {
                 HasStage3 = true;
-                Stage3Label = Loc.S("TotalCurvature_Stage3");
+                Stage3Label = TotalCurvatureStageVM.LabelFor(3, Cracked);
                 Stage3Text = StageText(stage3);
+                CanPlotStage3 = HasPlotData(stage3);
             }
 
             KyFullText = NumRaw(root, "ky_full");
@@ -154,4 +167,11 @@ public sealed class TotalCurvatureSummaryVM : ViewModelBase
         element.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.Number
             ? value.GetDouble().ToString(format, CultureInfo.InvariantCulture)
             : Loc.S("TotalCurvature_Empty");
+
+    static bool HasPlotData(JsonElement stage) =>
+        stage.TryGetProperty("e0", out var e0) && e0.ValueKind == JsonValueKind.Number
+        && stage.TryGetProperty("ky", out var ky) && ky.ValueKind == JsonValueKind.Number
+        && stage.TryGetProperty("kz", out var kz) && kz.ValueKind == JsonValueKind.Number
+        && stage.TryGetProperty("converged", out var converged)
+        && converged.ValueKind == JsonValueKind.True && converged.GetBoolean();
 }

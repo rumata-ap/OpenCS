@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text.Json;
 using CScore;
 using OpenCS.Utilites;
@@ -104,8 +105,19 @@ internal static class TotalCurvatureJson
     {
         Mx = Math.Round(stage.Mx, 4),
         My = Math.Round(stage.My, 4),
+        e0 = Math.Round(stage.Plane.e0, 10),
         ky = Math.Round(stage.Plane.ky, 8),
         kz = Math.Round(stage.Plane.kz, 8),
+        calc_type = stage.CalcType.ToString(),
+        concrete_tension = stage.ConcreteTension,
+        psi_s_by_rebar = stage.PsiSByRebar.Select(rebar => new
+        {
+            num = rebar.Num,
+            x = Math.Round(rebar.X, 8),
+            y = Math.Round(rebar.Y, 8),
+            psi_s = Math.Round(rebar.PsiS, 3),
+            applicable = rebar.Applicable
+        }),
         converged = stage.Converged
     };
 }
