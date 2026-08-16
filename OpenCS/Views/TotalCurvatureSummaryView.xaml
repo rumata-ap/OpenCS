@@ -64,6 +64,11 @@
             <TextBlock Text="{Binding Stage3Text}"/>
          </StackPanel>
 
+         <TextBlock Text="{DynamicResource TotalCurvature_ResultHeader}" FontWeight="Bold" Margin="0,10,0,4"/>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKyFullColon}"/><Run Text="{Binding KyFullText, Mode=OneWay}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKzFullColon}"/><Run Text="{Binding KzFullText, Mode=OneWay}"/></TextBlock>
+         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKFullColon}"/><Run Text="{Binding KFullText, Mode=OneWay}"/></TextBlock>
+
          <GroupBox Header="{DynamicResource ResultStiffness}"
                    Margin="0,10,0,6" Padding="8,4"
                    Visibility="{Binding HasStiffness, Converter={StaticResource BoolToVisibility}}">
@@ -149,11 +154,6 @@
                </ItemsControl.ItemTemplate>
             </ItemsControl>
          </GroupBox>
-
-         <TextBlock Text="{DynamicResource TotalCurvature_ResultHeader}" FontWeight="Bold" Margin="0,10,0,4"/>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKyFullColon}"/><Run Text="{Binding KyFullText, Mode=OneWay}"/></TextBlock>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKzFullColon}"/><Run Text="{Binding KzFullText, Mode=OneWay}"/></TextBlock>
-         <TextBlock><Run Text="{DynamicResource TotalCurvature_LabelKFullColon}"/><Run Text="{Binding KFullText, Mode=OneWay}"/></TextBlock>
 
          <TextBlock Text="{Binding ErrorText}" Foreground="DarkRed" TextWrapping="Wrap" Margin="0,8,0,0"
                     Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}"/>
