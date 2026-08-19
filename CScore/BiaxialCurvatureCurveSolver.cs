@@ -276,6 +276,17 @@ public sealed class BiaxialCurvatureCurveSolver
         LimitForceResult ult4;
         double n2ForUltimate;
         double mx2 = transition.Mx, my2 = transition.My;
+        // Для одноосного входа (Mx0=0 или My0=0) соответствующая компонента точки 2 — чистый
+        // численный шум порядка 1e-13 (StrainSolver сошёлся к цели, включающей такой же шум
+        // из точки 1, а не к точному нулю). Downstream-солверы (LimitForceSolverFast,
+        // GoverningPinSolverFast) трактуют (mx2,my2) как НАПРАВЛЕНИЕ через отношение Mx/My —
+        // почти-нулевая, но не точно нулевая компонента делает это отношение вырожденным и
+        // приводит к сходимости в паразитный корень (кривизна отличается в разы, появляется
+        // ложная Kz≠0 у симметричного сечения). Обнуляем по known-input HasMx/HasMy, а не по
+        // произвольному эпсилону — так корректно и для истинно малых, но НЕ нулевых входных
+        // моментов двухплоскостного изгиба.
+        if (!result.HasMx) mx2 = 0.0;
+        if (!result.HasMy) my2 = 0.0;
         try
         {
             var ult4Solver = new LimitForceSolverFast(_section, _calcService, ten: false);

@@ -167,7 +167,13 @@ public class BiaxialCurvatureCurveSolverTests
 
     // N0/Mx0 эмпирически подобраны (план Task 15, Step 3): при Mx0=-60 на этом же N0 сжатый
     // пин петли "предел раньше трещины" вырождается (комбинация N/M у самой границы incapacity
-    // сечения) — Mx0=-30 даёт устойчивую полную развёртку (12 = 1 + (10+1)).
+    // сечения). Уточнение по факту диагностики 2026-08-19 (реальный проект пользователя,
+    // "точка4 не совпадает"/"всплеск в петле"): исходный фолбэк CompressionPinSolverFast решал
+    // на нецелевое (N,Mx,My) без учёта epsPin (давал "12", но с грубо неверными значениями
+    // внутренних точек — сам скачок момента у пользователя); честная бисекция по epsPin,
+    // заякоренная на локальной линейной оценке k0 (не на глобальный [0,1], который может
+    // задевать чужую физическую ветвь), плюс тай-брейк выбора pin-вершины при нулевой стартовой
+    // кривизне — восстанавливают честную сходимость всех 10 точек. 12 = 1 + (10+1).
     [Fact]
     public void Compute_PointsCount_NoCrackingCase()
     {
@@ -178,7 +184,7 @@ public class BiaxialCurvatureCurveSolverTests
         var result = solver.Compute(-3500.0, -30.0, 0.0, CurvatureNMode.Constant, usePsi: false);
 
         Assert.Null(result.Cracking);
-        Assert.Equal(12, result.Points.Count); // 1 + (10+1)
+        Assert.Equal(12, result.Points.Count);
     }
 
     [Fact]
