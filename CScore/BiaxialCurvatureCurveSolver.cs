@@ -270,9 +270,227 @@ public sealed class BiaxialCurvatureCurveSolver
             compressionPin, N0, Mx0, My0, nMode, crackPoint, epsCompressAtCrack, epsCompressAtT2, transition));
         _cancellationToken.ThrowIfCancellationRequested();
 
-        // ... уч. "3"/"4" / точка3/точка4 — Task 8-9 продолжают этот метод отсюда.
-        throw new NotImplementedException("Продолжение конвейера — см. Task 8-9.");
+        // Точка 4 — LimitForceSolverFast, направление ОТ ТОЧКИ 2 (не от исходного (Mx0,My0)).
+        LimitForceResult ult4;
+        double n2ForUltimate;
+        double mx2 = transition.Mx, my2 = transition.My;
+        try
+        {
+            var ult4Solver = new LimitForceSolverFast(_section, _calcService, ten: false);
+            if (nMode == CurvatureNMode.Constant)
+            {
+                n2ForUltimate = N0;
+                ult4 = ult4Solver.MomentFactor(N0, mx2, my2);
+            }
+            else
+            {
+                n2ForUltimate = transition.N;
+                ult4 = ult4Solver.AllFactor(transition.N, mx2, my2);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            result.Status = "partial";
+            return result;
+        }
+
+        if (!ult4.Converged || ult4.StrainPlane is not Kurvature ult4Plane)
+        {
+            result.Status = "partial";
+            return result;
+        }
+
+        var ultimateReference = new BiaxialCurveScanPoint
+        {
+            N = ult4.NLimit, Mx = ult4.MxLimit, My = ult4.MyLimit,
+            E0 = ult4Plane.e0, Ky = ult4Plane.ky, Kz = ult4Plane.kz,
+            T = 1.0, Segment = 4, Converged = true
+        };
+        result.UltimateReference = ultimateReference;
+
+        // Точка 3 (текучесть) — если существует.
+        double yieldStrain = MinRebarYieldStrain();
+        var governingSolver = new GoverningPinSolverFast(_section, _calcService, ten: false,
+            hDiff: _solverH, newtonMaxIter: _solverMaxIter);
+        var epsCrcForMain = usePsi ? EpsCrcByFiber(transition) : null;
+        double dNdk34 = nMode == CurvatureNMode.Constant ? 0.0 : n2ForUltimate;
+
+        BiaxialCurveScanPoint? yieldPoint = null;
+        if (!double.IsPositiveInfinity(yieldStrain))
+        {
+            double yieldUtilization = ResolveYieldUtilizationAtUltimate(ult4Plane, yieldStrain);
+            if (yieldUtilization is > 0 and < 1)
+            {
+                var yieldResult = governingSolver.Solve(yieldUtilization, n2ForUltimate, mx2, my2, dNdk34,
+                    new Kurvature { e0 = transition.E0, ky = transition.Ky, kz = transition.Kz }, epsCrcForMain);
+                if (yieldResult.Converged)
+                {
+                    yieldPoint = new BiaxialCurveScanPoint
+                    {
+                        N = yieldResult.Load.N, Mx = yieldResult.Load.Mx, My = yieldResult.Load.My,
+                        E0 = yieldResult.Plane.e0, Ky = yieldResult.Plane.ky, Kz = yieldResult.Plane.kz,
+                        T = yieldUtilization, Segment = 3, Converged = true,
+                        PsiActive = epsCrcForMain != null
+                    };
+                }
+            }
+        }
+        result.Yield = yieldPoint;
+
+        var seedAtTransition = new Kurvature { e0 = transition.E0, ky = transition.Ky, kz = transition.Kz };
+        if (yieldPoint != null)
+        {
+            var seg3 = BuildGoverningSweep(governingSolver, n2ForUltimate, mx2, my2, dNdk34,
+                0.0, yieldPoint.T, seedAtTransition, epsCrcForMain, segment: 3,
+                startPoint: transition, endpoint: yieldPoint);
+            result.Points.AddRange(seg3);
+        }
+
+        var seg4From = yieldPoint?.T ?? 0.0;
+        var seg4StartPoint = yieldPoint ?? transition;
+        var seg4Seed = new Kurvature { e0 = seg4StartPoint.E0, ky = seg4StartPoint.Ky, kz = seg4StartPoint.Kz };
+        var ultimatePoint = FlagNonPhysical(
+            BuildUltimatePoint(governingSolver, n2ForUltimate, mx2, my2, dNdk34, seg4Seed, epsCrcForMain, ultimateReference),
+            ultimateReference, usePsi);
+        var seg4 = BuildGoverningSweep(governingSolver, n2ForUltimate, mx2, my2, dNdk34,
+            seg4From, 1.0, seg4Seed, epsCrcForMain, segment: 4,
+            startPoint: seg4StartPoint, endpoint: ultimatePoint);
+        result.Points.AddRange(seg4);
+        result.Ultimate = ultimatePoint;
+
+        result.Status = result.Ultimate is { Converged: true } ? "ok" : "partial";
+        return result;
     }
+
+    /// <summary>Доля использования точки 4 (по определению 1.0) относительно governing критерия
+    /// точки 4, ПЕРЕСЧИТАННАЯ в "доля использования по Ry/E у governing-стержня арматуры" — если
+    /// governing точки 4 сама арматура, это совпадает с 1.0 не всегда (Ry/E меньше EpsSu), поэтому
+    /// доля для точки 3 вычисляется независимо, через прямую проверку деформации governing-стержня
+    /// НА ПЛОСКОСТИ точки 4: если она уже превышает Ry/E, значит текучесть наступает раньше точки 4
+    /// (обычный случай), доля = Ry/E / eps_у_governing_на_плоскости_точки4.</summary>
+    double ResolveYieldUtilizationAtUltimate(Kurvature at, double yieldStrain)
+    {
+        double maxRebarStrainAtUltimate = 0.0;
+        foreach (var (area, ka) in _section.EnumerateAreas(at))
+        {
+            if (area.Material?.Type is not (MatType.ReSteelF or MatType.ReSteelU)) continue;
+            foreach (var fiber in area.Fibers)
+            {
+                if (fiber.TypeFiber != FiberType.point) continue;
+                double eps = ka.e0 + ka.ky * fiber.Y + ka.kz * fiber.X + fiber.Eps_p;
+                if (eps > maxRebarStrainAtUltimate) maxRebarStrainAtUltimate = eps;
+            }
+        }
+        if (maxRebarStrainAtUltimate <= yieldStrain) return -1.0; // текучесть не наступает
+        return yieldStrain / maxRebarStrainAtUltimate;
+    }
+
+    BiaxialCurveScanPoint BuildUltimatePoint(
+        GoverningPinSolverFast solver, double n, double mx, double my, double dNdk, Kurvature seed,
+        IReadOnlyDictionary<Fiber, double>? epsCrc, BiaxialCurveScanPoint reference)
+    {
+        if (epsCrc == null)
+        {
+            // usePsi=false — Ultimate физически совпадает с UltimateReference (тот же ten=false,
+            // без ψs, то же направление/N) — переиспользуем без повторного решения.
+            return new BiaxialCurveScanPoint
+            {
+                N = reference.N, Mx = reference.Mx, My = reference.My,
+                E0 = reference.E0, Ky = reference.Ky, Kz = reference.Kz,
+                T = 1.0, Segment = 4, Converged = true
+            };
+        }
+        var result = solver.Solve(1.0, n, mx, my, dNdk, seed, epsCrc);
+        return new BiaxialCurveScanPoint
+        {
+            N = result.Load.N, Mx = result.Load.Mx, My = result.Load.My,
+            E0 = result.Plane.e0, Ky = result.Plane.ky, Kz = result.Plane.kz,
+            T = 1.0, Segment = 4, Converged = result.Converged, PsiActive = true
+        };
+    }
+
+    /// <summary>
+    /// Строит уч. "3"/"4" (`startPoint` → `endpoint`). В ByCurvature — управляющий пин-Ньютон,
+    /// цель `(n,mx,my)` — фиксированное НАПРАВЛЕНИЕ (от точки 2), масштаб определяется μ. В
+    /// ByMoment — интерполяция ОТ `startPoint.Mx/My/N` (не от нуля) ДО `endpoint.Mx/My/N` —
+    /// интерполяция по N автоматически корректна и для Proportional N (N уже отражён в самих
+    /// startPoint/endpoint, вычисленных с учётом режима).
+    /// </summary>
+    List<BiaxialCurveScanPoint> BuildGoverningSweep(
+        GoverningPinSolverFast solver, double n, double mx, double my, double dNdk,
+        double muFrom, double muTo, Kurvature seed, IReadOnlyDictionary<Fiber, double>? epsCrc,
+        int segment, BiaxialCurveScanPoint startPoint, BiaxialCurveScanPoint endpoint)
+    {
+        var points = new List<BiaxialCurveScanPoint>(_auxPointsPerSegment);
+        if (_stepMode == CurveStepMode.ByMoment)
+        {
+            var solverS = new StrainSolver(_section, _calcService, ten: false, ca: true,
+                tol: _solverTol, maxIter: _solverMaxIter, h: _solverH, centralJacobian: _centralJacobian,
+                evaluate: epsCrc == null ? null : k => Curvature8232.ApplyPsiCorrection(_section, k, _section.Integral(k, _calcService, false, true), epsCrc));
+            for (int i = 1; i <= _auxPointsPerSegment; i++)
+            {
+                double frac = (double)i / (_auxPointsPerSegment + 1);
+                double nT = startPoint.N + frac * (endpoint.N - startPoint.N);
+                double mxT = startPoint.Mx + frac * (endpoint.Mx - startPoint.Mx);
+                double myT = startPoint.My + frac * (endpoint.My - startPoint.My);
+                var plane = solverS.Solve(nT, mxT, myT, seed);
+                if (!solverS.Converged) continue;
+                seed = plane;
+                var load = epsCrc == null
+                    ? _section.Integral(plane, _calcService, ten: false, ca: true)
+                    : Curvature8232.ApplyPsiCorrection(_section, plane, _section.Integral(plane, _calcService, false, true), epsCrc);
+                points.Add(new BiaxialCurveScanPoint
+                {
+                    N = load.N, Mx = load.Mx, My = load.My,
+                    E0 = plane.e0, Ky = plane.ky, Kz = plane.kz,
+                    T = muFrom + frac * (muTo - muFrom), Segment = segment, Converged = true,
+                    PsiActive = epsCrc != null
+                });
+                _cancellationToken.ThrowIfCancellationRequested();
+            }
+            points.Add(endpoint);
+            return points;
+        }
+
+        for (int i = 1; i <= _auxPointsPerSegment; i++)
+        {
+            double frac = (double)i / (_auxPointsPerSegment + 1);
+            double mu = muFrom + frac * (muTo - muFrom);
+            var res = solver.Solve(mu, n, mx, my, dNdk, seed, epsCrc);
+            if (!res.Converged) continue;
+            seed = res.Plane;
+            points.Add(new BiaxialCurveScanPoint
+            {
+                N = res.Load.N, Mx = res.Load.Mx, My = res.Load.My,
+                E0 = res.Plane.e0, Ky = res.Plane.ky, Kz = res.Plane.kz,
+                T = mu, Segment = segment, Converged = true, PsiActive = epsCrc != null
+            });
+            _cancellationToken.ThrowIfCancellationRequested();
+        }
+        points.Add(endpoint);
+        return points;
+    }
+
+    /// <summary>Заменяет `EpsCrcByFiber` из старой реализации — сигнатура/поведение идентичны.</summary>
+    Dictionary<Fiber, double> EpsCrcByFiber(BiaxialCurveScanPoint postCrackPoint)
+    {
+        var map = new Dictionary<Fiber, double>(ReferenceEqualityComparer.Instance);
+        var k = new Kurvature { e0 = postCrackPoint.E0, ky = postCrackPoint.Ky, kz = postCrackPoint.Kz };
+        foreach (var (area, ka) in _section.EnumerateAreas(k))
+        {
+            if (area.Material?.Type is not (MatType.ReSteelF or MatType.ReSteelU)) continue;
+            foreach (var fiber in area.Fibers)
+            {
+                if (fiber.TypeFiber != FiberType.point) continue;
+                map[fiber] = ka.e0 + ka.ky * fiber.Y + ka.kz * fiber.X + fiber.Eps_p;
+            }
+        }
+        return map;
+    }
+
+    // Заглушка Task 8 — реализуется в Task 9 (NonPhysical: флаг без урезания значений).
+    static BiaxialCurveScanPoint FlagNonPhysical(
+        BiaxialCurveScanPoint point, BiaxialCurveScanPoint reference, bool usePsi) => point;
 
     /// <summary>
     /// Строит уч. "1" (0 → конечная точка `endpoint`) равномерной развёрткой параметра между
@@ -487,24 +705,6 @@ public sealed class BiaxialCurvatureCurveSolver
             }
         }
         return max;
-    }
-
-    // Принимает ПОСТтрещинную плоскость (transition), не дотрещинную (crackPoint) —
-    // см. комментарий у вызова в Compute.
-    Dictionary<Fiber, double> EpsCrcByFiber(BiaxialCurveScanPoint postCrackPoint)
-    {
-        var map = new Dictionary<Fiber, double>(ReferenceEqualityComparer.Instance);
-        var k = new Kurvature { e0 = postCrackPoint.E0, ky = postCrackPoint.Ky, kz = postCrackPoint.Kz };
-        foreach (var (area, ka) in _section.EnumerateAreas(k))
-        {
-            if (area.Material?.Type is not (MatType.ReSteelF or MatType.ReSteelU)) continue;
-            foreach (var fiber in area.Fibers)
-            {
-                if (fiber.TypeFiber != FiberType.point) continue;
-                map[fiber] = ka.e0 + ka.ky * fiber.Y + ka.kz * fiber.X + fiber.Eps_p;
-            }
-        }
-        return map;
     }
 
     (double ea0, double b0x, double b0y) ComputeElasticStiffness()
