@@ -28,6 +28,14 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
         _stiffnessMxPlot = new WpfPlotService(StiffnessMxPlot);
         _stiffnessMyPlot = new WpfPlotService(StiffnessMyPlot);
 
+        // Опорные линии начала координат (X/Y) мешают чтению графиков — данные здесь
+        // всегда в одном (положительном) квадранте, отдельная разметка нуля избыточна.
+        _curvatureXPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+        _curvatureYPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+        _stiffnessNPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+        _stiffnessMxPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+        _stiffnessMyPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+
         Loaded += (_, _) => Redraw();
     }
 
@@ -41,6 +49,12 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
             _curvatureXPlot.SetYLabel(Loc.S("MomentCurvature_AxisMomentX"));
             if (_viewModel.CurvatureYSeries.Length > 1)
                 _curvatureXPlot.AddScatter(_viewModel.CurvatureYSeries, _viewModel.MomentXSeries, color: "#2F5597");
+            if (_viewModel.CurvatureYSeriesFaded.Length > 1)
+                _curvatureXPlot.AddScatter(_viewModel.CurvatureYSeriesFaded, _viewModel.MomentXSeriesFaded, color: "#BFBFBF");
+            AddControlMarker(_curvatureXPlot, _viewModel.Cracking, p => p.Ky, p => p.Mx, "#ED7D31");
+            AddControlMarker(_curvatureXPlot, _viewModel.CrackTransition, p => p.Ky, p => p.Mx, "#ED7D31");
+            AddControlMarker(_curvatureXPlot, _viewModel.Yield, p => p.Ky, p => p.Mx, "#FFC000");
+            AddControlMarker(_curvatureXPlot, _viewModel.Ultimate, p => p.Ky, p => p.Mx, "#C00000");
             _curvatureXPlot.Refresh();
         }
 
@@ -52,6 +66,12 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
             _curvatureYPlot.SetYLabel(Loc.S("MomentCurvature_AxisMomentY"));
             if (_viewModel.CurvatureZSeries.Length > 1)
                 _curvatureYPlot.AddScatter(_viewModel.CurvatureZSeries, _viewModel.MomentYSeries, color: "#548235");
+            if (_viewModel.CurvatureZSeriesFaded.Length > 1)
+                _curvatureYPlot.AddScatter(_viewModel.CurvatureZSeriesFaded, _viewModel.MomentYSeriesFaded, color: "#BFBFBF");
+            AddControlMarker(_curvatureYPlot, _viewModel.Cracking, p => p.Kz, p => p.My, "#ED7D31");
+            AddControlMarker(_curvatureYPlot, _viewModel.CrackTransition, p => p.Kz, p => p.My, "#ED7D31");
+            AddControlMarker(_curvatureYPlot, _viewModel.Yield, p => p.Kz, p => p.My, "#FFC000");
+            AddControlMarker(_curvatureYPlot, _viewModel.Ultimate, p => p.Kz, p => p.My, "#C00000");
             _curvatureYPlot.Refresh();
         }
 
@@ -84,5 +104,14 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
                 _stiffnessMyPlot.AddScatter(_viewModel.MyStiffnessAxis, _viewModel.MyStiffnessRatio, color: "#548235");
             _stiffnessMyPlot.Refresh();
         }
+    }
+
+    static void AddControlMarker(
+        WpfPlotService plot, MomentCurvatureBiaxialPointRow? point,
+        Func<MomentCurvatureBiaxialPointRow, double> curvature, Func<MomentCurvatureBiaxialPointRow, double> moment,
+        string color)
+    {
+        if (point == null) return;
+        plot.AddMarkers([Math.Abs(curvature(point))], [Math.Abs(moment(point))], markerSize: 6, color: color);
     }
 }
