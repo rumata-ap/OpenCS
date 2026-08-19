@@ -24,6 +24,27 @@ public sealed class MomentCurvatureBiaxialTaskParams
     /// <summary>Учитывать ли ψs по 8.2.32 на уч. 3-4 (см. спеку, решение 5).</summary>
     public bool UsePsi { get; set; } = true;
 
+    /// <summary>Число вспомогательных точек на участок диаграммы (null → дефолт 10 в солвере).</summary>
+    public int? AuxPointsPerSegment { get; set; }
+
+    /// <summary>Режим расстановки вспомогательных точек: "curvature" или "moment".</summary>
+    public string StepMode { get; set; } = "curvature";
+
+    /// <summary>Резолвит <see cref="StepMode"/> в enum, неизвестное/пустое значение → ByCurvature.</summary>
+    public CurveStepMode ResolveStepMode() => StepMode?.Trim().ToLowerInvariant() switch
+    {
+        "moment" => CurveStepMode.ByMoment,
+        _ => CurveStepMode.ByCurvature
+    };
+
+    /// <summary>Резолвит <see cref="AuxPointsPerSegment"/>: null → 10, отрицательное → 0.</summary>
+    public int ResolveAuxPointsPerSegment() => AuxPointsPerSegment switch
+    {
+        null => 10,
+        < 0 => 0,
+        var v => v.Value
+    };
+
     /// <summary>Разобрать JSON-параметры задачи.</summary>
     public static MomentCurvatureBiaxialTaskParams Parse(string? json)
     {

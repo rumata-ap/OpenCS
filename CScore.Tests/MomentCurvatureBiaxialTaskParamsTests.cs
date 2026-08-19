@@ -63,4 +63,41 @@ public class MomentCurvatureBiaxialTaskParamsTests
         Assert.Equal("constant", p.NMode);
         Assert.True(p.UsePsi);
     }
+
+    [Fact]
+    public void Parse_MissingAuxPointsAndStepMode_UsesDefaults()
+    {
+        var p = MomentCurvatureBiaxialTaskParams.Parse("{}");
+        Assert.Null(p.AuxPointsPerSegment);
+        Assert.Equal("curvature", p.StepMode);
+        Assert.Equal(CurveStepMode.ByCurvature, p.ResolveStepMode());
+    }
+
+    [Fact]
+    public void Parse_UnknownStepMode_ResolvesToByCurvature()
+    {
+        var p = MomentCurvatureBiaxialTaskParams.Parse("""{"StepMode":"garbage"}""");
+        Assert.Equal(CurveStepMode.ByCurvature, p.ResolveStepMode());
+    }
+
+    [Fact]
+    public void Parse_MomentStepMode_ResolvesToByMoment()
+    {
+        var p = MomentCurvatureBiaxialTaskParams.Parse("""{"StepMode":"moment"}""");
+        Assert.Equal(CurveStepMode.ByMoment, p.ResolveStepMode());
+    }
+
+    [Fact]
+    public void ResolveAuxPoints_NegativeValue_ClampsToZero()
+    {
+        var p = new MomentCurvatureBiaxialTaskParams { AuxPointsPerSegment = -5 };
+        Assert.Equal(0, p.ResolveAuxPointsPerSegment());
+    }
+
+    [Fact]
+    public void ResolveAuxPoints_Null_DefaultsTo10()
+    {
+        var p = new MomentCurvatureBiaxialTaskParams();
+        Assert.Equal(10, p.ResolveAuxPointsPerSegment());
+    }
 }
