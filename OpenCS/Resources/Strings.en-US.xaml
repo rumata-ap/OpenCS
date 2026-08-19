@@ -2419,6 +2419,10 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_NMode_proportional">N proportional to ray</system:String>
     <system:String x:Key="MomentCurvature_NModeLabel">N mode</system:String>
     <system:String x:Key="MomentCurvature_UsePsiLabel">Apply ψs (8.2.32)</system:String>
+    <system:String x:Key="MomentCurvature_AuxPointsLabel">Auxiliary points per segment</system:String>
+    <system:String x:Key="MomentCurvature_StepModeLabel">Point placement mode</system:String>
+    <system:String x:Key="MomentCurvature_StepMode_curvature">By curvature</system:String>
+    <system:String x:Key="MomentCurvature_StepMode_moment">By moment/force</system:String>
     <system:String x:Key="MomentCurvature_NModeConstant">N = const</system:String>
     <system:String x:Key="MomentCurvature_NModeProportional">N proportional to ray</system:String>
     <system:String x:Key="MomentCurvature_StatusOk">Converged</system:String>

@@ -1047,7 +1047,13 @@
                <ComboBox ItemsSource="{Binding MomentCurvatureNModeItems}" DisplayMemberPath="Label" SelectedValuePath="Id"
                          SelectedValue="{Binding MomentCurvatureNMode}" Width="160" Margin="0,0,16,0"/>
                <CheckBox Content="{DynamicResource MomentCurvature_UsePsiLabel}"
-                         IsChecked="{Binding MomentCurvatureUsePsi}" VerticalAlignment="Center"/>
+                         IsChecked="{Binding MomentCurvatureUsePsi}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+               <TextBlock Text="{DynamicResource MomentCurvature_AuxPointsLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+               <TextBox Text="{Binding MomentCurvatureAuxPointsText, UpdateSourceTrigger=PropertyChanged}"
+                        Width="60" Margin="0,0,16,0"/>
+               <TextBlock Text="{DynamicResource MomentCurvature_StepModeLabel}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+               <ComboBox ItemsSource="{Binding MomentCurvatureStepModeItems}" DisplayMemberPath="Label" SelectedValuePath="Id"
+                         SelectedValue="{Binding MomentCurvatureStepMode}" Width="160"/>
             </StackPanel>
          </GroupBox>
       </StackPanel>

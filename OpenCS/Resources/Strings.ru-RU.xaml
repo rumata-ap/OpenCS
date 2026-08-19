@@ -2422,6 +2422,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_NMode_proportional">N пропорционально лучу</system:String>
     <system:String x:Key="MomentCurvature_NModeLabel">Режим N</system:String>
     <system:String x:Key="MomentCurvature_UsePsiLabel">Учитывать ψs по 8.2.32</system:String>
+    <system:String x:Key="MomentCurvature_AuxPointsLabel">Число вспомогательных точек на участок</system:String>
+    <system:String x:Key="MomentCurvature_StepModeLabel">Режим расстановки точек</system:String>
+    <system:String x:Key="MomentCurvature_StepMode_curvature">По кривизне</system:String>
+    <system:String x:Key="MomentCurvature_StepMode_moment">По моменту/усилию</system:String>
     <system:String x:Key="MomentCurvature_NModeConstant">N = const</system:String>
     <system:String x:Key="MomentCurvature_NModeProportional">N пропорционально лучу</system:String>
     <system:String x:Key="MomentCurvature_StatusOk">Сошлось</system:String>

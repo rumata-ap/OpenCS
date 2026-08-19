@@ -96,6 +96,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string totalCurvatureForcesMode = "total_only";
    string momentCurvatureNMode = "constant";
    bool momentCurvatureUsePsi = true;
+   string momentCurvatureAuxPointsText = "10";
+   string momentCurvatureStepMode = "curvature";
    string totalCurvatureLongShare = "0.7";
    string totalCurvatureManualMxLong = "0";
    string totalCurvatureManualMyLong = "0";
@@ -659,6 +661,25 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    [
       new() { Id = "constant",     Label = Loc.S("MomentCurvature_NMode_constant") },
       new() { Id = "proportional", Label = Loc.S("MomentCurvature_NMode_proportional") },
+   ];
+
+   public string MomentCurvatureAuxPointsText
+   {
+      get => momentCurvatureAuxPointsText;
+      set { momentCurvatureAuxPointsText = value; OnPropertyChanged(); }
+   }
+   /// <summary>Разобранное значение для сохранения — невалидный/пустой ввод → 10 (дефолт солвера).</summary>
+   public int MomentCurvatureAuxPointsValue =>
+      int.TryParse(MomentCurvatureAuxPointsText, out int v) && v >= 0 ? v : 10;
+   public string MomentCurvatureStepMode
+   {
+      get => momentCurvatureStepMode;
+      set { momentCurvatureStepMode = value; OnPropertyChanged(); }
+   }
+   public List<CalcTaskSolverItem> MomentCurvatureStepModeItems { get; } =
+   [
+      new() { Id = "curvature", Label = Loc.S("MomentCurvature_StepMode_curvature") },
+      new() { Id = "moment",    Label = Loc.S("MomentCurvature_StepMode_moment") },
    ];
 
    // Переиспользует существующую публичную коллекцию ForceSets (тот же список,
@@ -1407,6 +1428,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              var inv = System.Globalization.CultureInfo.InvariantCulture;
              MomentCurvatureNMode = mcp.NMode;
              MomentCurvatureUsePsi = mcp.UsePsi;
+             MomentCurvatureAuxPointsText = (mcp.AuxPointsPerSegment ?? 10).ToString();
+             MomentCurvatureStepMode = mcp.StepMode;
              if (mcp.N.HasValue)  ManualN  = mcp.N.Value.ToString("G6", inv);
              if (mcp.Mx.HasValue) ManualMx = mcp.Mx.Value.ToString("G6", inv);
              if (mcp.My.HasValue) ManualMy = mcp.My.Value.ToString("G6", inv);
@@ -2064,7 +2087,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          {
             N = mcN, Mx = mcMx, My = mcMy,
             NMode = MomentCurvatureNMode,
-            UsePsi = MomentCurvatureUsePsi
+            UsePsi = MomentCurvatureUsePsi,
+            AuxPointsPerSegment = MomentCurvatureAuxPointsValue,
+            StepMode = MomentCurvatureStepMode
          };
 
          Result = new CalcTask
