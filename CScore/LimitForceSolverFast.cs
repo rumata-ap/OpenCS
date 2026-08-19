@@ -161,8 +161,9 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
          }
       }
 
-      var (kx, ky, k, nIter, conv, spFinal) = Newton(xA, yA, kx0, ky0, k0,
-         nFn, mxFn, myFn, dNdk, dMxdk, dMydk, _epsCu);
+      var pinned1 = PinnedEquilibriumNewton.Solve(Forces, xA, yA, _epsCu, kx0, ky0, k0,
+         nFn, mxFn, myFn, dNdk, dMxdk, dMydk, _yRef, _xRef, _hDiff, _maxIter, _relTol);
+      var (kx, ky, k, nIter, conv, spFinal) = (pinned1.Kx, pinned1.Ky, pinned1.K, pinned1.Iterations, pinned1.Converged, pinned1.Plane);
 
       // Отклонить вырожденное решение Ньютона (kx,ky→∞, k→0): силы и цель → 0,
       // невязка ложно мала. Физическая допустимость проверяется в IsValidSolution.
@@ -559,8 +560,9 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
          .First();
 
       double k0 = 1.0;
-      var (kx, ky, k, nIter, conv, sp) = Newton(best.rb.X, best.rb.Y, guess.kz, guess.ky, k0,
-         nFn, mxFn, myFn, dNdk, dMxdk, dMydk, best.rb.EpsSu);
+      var pinned2 = PinnedEquilibriumNewton.Solve(Forces, best.rb.X, best.rb.Y, best.rb.EpsSu, guess.kz, guess.ky, k0,
+         nFn, mxFn, myFn, dNdk, dMxdk, dMydk, _yRef, _xRef, _hDiff, _maxIter, _relTol);
+      var (kx, ky, k, nIter, conv, sp) = (pinned2.Kx, pinned2.Ky, pinned2.K, pinned2.Iterations, pinned2.Converged, pinned2.Plane);
 
       if (!conv)
          return null;
@@ -609,91 +611,19 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
          double lam = Math.Abs(epsR) > 1e-15 ? epsSu / epsR : 0.5;
          lam = Math.Clamp(lam, 0.01, 2.0);
 
-         var res = Newton(xR, yR, kxCur * lam, kyCur * lam, Math.Max(kCur * lam, 1e-3),
-            nFn, mxFn, myFn, dNdk, dMxdk, dMydk, epsSu);
-         totalIter += res.nIter;
-         if (!res.conv)
+         var res = PinnedEquilibriumNewton.Solve(Forces, xR, yR, epsSu, kxCur * lam, kyCur * lam, Math.Max(kCur * lam, 1e-3),
+            nFn, mxFn, myFn, dNdk, dMxdk, dMydk, _yRef, _xRef, _hDiff, _maxIter, _relTol);
+         totalIter += res.Iterations;
+         if (!res.Converged)
             return (kxCur * lam, kyCur * lam, Math.Max(kCur * lam, 1e-3), totalIter, false, spCur);
 
-         kxCur = res.kx; kyCur = res.ky; kCur = res.k; spCur = res.sp;
+         kxCur = res.Kx; kyCur = res.Ky; kCur = res.K; spCur = res.Plane;
          gov = Gov(spCur);
          if (gov is null)
             break;
       }
 
       return (kxCur, kyCur, kCur, totalIter, true, spCur);
-   }
-
-   (double kx, double ky, double k, int nIter, bool conv, Kurvature sp) Newton(
-      double xA, double yA,
-      double kx0, double ky0, double k0,
-      Func<double, double> nFn, Func<double, double> mxFn, Func<double, double> myFn,
-      double dNdk, double dMxdk, double dMydk,
-      double epsPin)
-   {
-      double yr = _yRef, xr = _xRef, ke = Math.Max(Math.Abs(k0), 1e-6);
-      double Kx = kx0 * yr, Ky = ky0 * xr, K = k0 / ke;
-      double h = _hDiff;
-      Kurvature sp = MakeSp(kx0, ky0, xA, yA, epsPin);
-
-      for (int nIter = 1; nIter <= _maxIter; nIter++)
-      {
-         Unscale(Kx, Ky, K, yr, xr, ke, out double kx, out double ky, out double k);
-         sp = MakeSp(kx, ky, xA, yA, epsPin);
-         var f0 = Forces(sp);
-         double g0 = f0.N - nFn(k);
-         double g1 = f0.Mx - mxFn(k);
-         double g2 = f0.My - myFn(k);
-         double norm = Math.Sqrt(g0 * g0 + g1 * g1 + g2 * g2);
-         if (norm <= ResidualTol(k, nFn, mxFn, myFn))
-            return (kx, ky, k, nIter, true, sp);
-
-         double hKx = Kx != 0 ? Math.Max(h, Math.Abs(Kx) * 1e-4) : h;
-         double hKy = Ky != 0 ? Math.Max(h, Math.Abs(Ky) * 1e-4) : h;
-
-         Unscale(Kx + hKx, Ky, K, yr, xr, ke, out double kxH, out double kyH, out _);
-         var fKx = Forces(MakeSp(kxH, kyH, xA, yA, epsPin));
-         Unscale(Kx, Ky + hKy, K, yr, xr, ke, out kxH, out kyH, out _);
-         var fKy = Forces(MakeSp(kxH, kyH, xA, yA, epsPin));
-         double[,] j = new double[3, 3]
-         {
-            { (fKx.N - f0.N) / hKx, (fKy.N - f0.N) / hKy, -dNdk * ke },
-            { (fKx.Mx - f0.Mx) / hKx, (fKy.Mx - f0.Mx) / hKy, -dMxdk * ke },
-            { (fKx.My - f0.My) / hKx, (fKy.My - f0.My) / hKy, -dMydk * ke },
-         };
-
-         if (!GaussSolve(j, [-g0, -g1, -g2], out double[] delta))
-         {
-            for (int i = 0; i < 3; i++) j[i, i] += 1e-4;
-            if (!GaussSolve(j, [-g0, -g1, -g2], out delta))
-               return (kx, ky, k, nIter, false, sp);
-         }
-
-         double alpha = 1.0;
-         for (int ls = 0; ls < 8; ls++)
-         {
-            double Ktry = K + alpha * delta[2];
-            if (Ktry <= 0) { alpha *= 0.5; continue; }
-            Unscale(Kx + alpha * delta[0], Ky + alpha * delta[1], Ktry, yr, xr, ke,
-               out double kxn, out double kyn, out double kn);
-            var fn = Forces(MakeSp(kxn, kyn, xA, yA, epsPin));
-            double normNew = Math.Sqrt(
-               Math.Pow(fn.N - nFn(kn), 2) +
-               Math.Pow(fn.Mx - mxFn(kn), 2) +
-               Math.Pow(fn.My - myFn(kn), 2));
-            if (normNew < norm)
-               break;
-            alpha *= 0.5;
-         }
-
-         Kx += alpha * delta[0];
-         Ky += alpha * delta[1];
-         K  += alpha * delta[2];
-      }
-
-      Unscale(Kx, Ky, K, yr, xr, ke, out double kxf, out double kyf, out double kf);
-      sp = MakeSp(kxf, kyf, xA, yA, epsPin);
-      return (kxf, kyf, kf, _maxIter, false, sp);
    }
 
    LimitForceResult? SolveSingleDriver(
@@ -995,48 +925,4 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       k = K * ke;
    }
 
-   static bool GaussSolve(double[,] a, double[] b, out double[] x)
-   {
-      x = new double[3];
-      double[,] m = (double[,])a.Clone();
-      double[] v = (double[])b.Clone();
-      const int n = 3;
-
-      for (int col = 0; col < n; col++)
-      {
-         int pivot = col;
-         for (int row = col + 1; row < n; row++)
-            if (Math.Abs(m[row, col]) > Math.Abs(m[pivot, col]))
-               pivot = row;
-
-         double pivVal = m[pivot, col];
-         if (!double.IsFinite(pivVal) || Math.Abs(pivVal) < 1e-15)
-            return false;
-
-         if (pivot != col)
-         {
-            for (int k2 = 0; k2 < n; k2++)
-               (m[col, k2], m[pivot, k2]) = (m[pivot, k2], m[col, k2]);
-            (v[col], v[pivot]) = (v[pivot], v[col]);
-         }
-
-         for (int row = col + 1; row < n; row++)
-         {
-            double factor = m[row, col] / m[col, col];
-            for (int k2 = col; k2 < n; k2++)
-               m[row, k2] -= factor * m[col, k2];
-            v[row] -= factor * v[col];
-         }
-      }
-
-      for (int row = n - 1; row >= 0; row--)
-      {
-         double sum = v[row];
-         for (int k2 = row + 1; k2 < n; k2++)
-            sum -= m[row, k2] * x[k2];
-         x[row] = sum / m[row, row];
-      }
-
-      return true;
-   }
 }
