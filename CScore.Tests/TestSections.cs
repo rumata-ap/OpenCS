@@ -203,4 +203,92 @@ internal static class TestSections
         section.ResolveAndBuildDiagramms(0.85, pool: null, rebarDifferentialDiagram: false);
         return section;
     }
+
+    /// <summary>
+    /// Уникальное сечение "Пример 47" (1150×300 мм, 6Ø14 понизу) — общая fixture, ранее
+    /// продублированная как приватный <c>BuildUniaxialSection</c> внутри
+    /// <c>BiaxialCurvatureCurveSolverTests</c>; вынесено сюда для переиспользования новыми
+    /// тестами пин-решателей (см. план 2026-08-19-biaxial-curve-pin-solvers.md, Task 2 Step 1a).
+    /// </summary>
+    public static CrossSection Example47()
+    {
+        const double Height = 0.300;
+        const double Width = 1.150;
+        const double RebarDepth = 0.042;
+        const double RebarDiameter = 0.014;
+        const double RebarArea = 923e-6;
+
+        var concreteMaterial = new Material
+        {
+            Id = 101, Tag = "B15", Type = MatType.Concrete, E = 24_000_000.0,
+            MaterialChars =
+            [
+                Example47ConcreteChars(CalcType.C, false), Example47ConcreteChars(CalcType.CL, true),
+                Example47ConcreteChars(CalcType.N, false), Example47ConcreteChars(CalcType.NL, true),
+            ]
+        };
+
+        var x = new[] { -Width / 2, Width / 2, Width / 2, -Width / 2, -Width / 2 };
+        var y = new[] { -Height / 2, -Height / 2, Height / 2, Height / 2, -Height / 2 };
+        var concrete = new MaterialArea
+        {
+            Id = 101, Tag = "Бетон B15", Category = AreaCategory.Region,
+            Material = concreteMaterial, MaterialId = concreteMaterial.Id,
+            DiagrammType = DiagrammType.L3, Hull = new Contour(x, y, "hull")
+        };
+        concrete.SetWKT();
+        concrete.SliceXY(nx: 24, ny: 12);
+
+        var steelMaterial = new Material
+        {
+            Id = 102, Tag = "A400", Type = MatType.ReSteelF, E = 200_000_000.0,
+            MaterialChars =
+            [
+                Example47RebarChars(CalcType.C), Example47RebarChars(CalcType.CL),
+                Example47RebarChars(CalcType.N), Example47RebarChars(CalcType.NL),
+            ]
+        };
+
+        var rebar = new MaterialArea
+        {
+            Id = 102, Tag = "6Ø14 снизу", Category = AreaCategory.RebarGroup,
+            Material = steelMaterial, MaterialId = steelMaterial.Id,
+            DiagrammType = DiagrammType.L2, HostArea = concrete, HostAreaId = concrete.Id
+        };
+        double yBar = -Height / 2 + RebarDepth;
+        double barArea = RebarArea / 6.0;
+        for (int i = 0; i < 6; i++)
+        {
+            var bar = Fiber.CreatePoint(RebarDiameter, -0.45 + i * 0.18, yBar);
+            bar.Area = barArea;
+            rebar.Fibers.Add(bar);
+        }
+
+        var section = new CrossSection { Id = 101, Tag = "Пример 47", Areas = [concrete, rebar] };
+        section.ResolveAndBuildDiagramms(rebarDifferentialDiagram: false);
+        return section;
+    }
+
+    static MaterialChars Example47ConcreteChars(CalcType calc, bool longTerm) => longTerm
+        ? new MaterialChars
+        {
+            Type = MatType.Concrete, TypeCalc = calc,
+            Fc = -11_000, Ft = 1_100, E = 9_090_909.091,
+            Ec0 = -0.0034, Ec1 = -0.00121, Ec2 = -0.0048, Ec1Red = -0.0028,
+            Et1Red = 0.00022, Et0 = 0.00024, Et1 = 0.000121, Et2 = 0.00031
+        }
+        : new MaterialChars
+        {
+            Type = MatType.Concrete, TypeCalc = calc,
+            Fc = -11_000, Ft = 1_100, E = 24_000_000,
+            Ec0 = -0.002, Ec1 = -0.000275, Ec2 = -0.0035, Ec1Red = -0.0015,
+            Et1Red = 0.00008, Et0 = 0.0001, Et1 = 0.0000275, Et2 = 0.00015
+        };
+
+    static MaterialChars Example47RebarChars(CalcType calc) => new()
+    {
+        Type = MatType.ReSteelF, TypeCalc = calc,
+        Fc = -400_000, Ft = 400_000, Ry = 400_000, E = 200_000_000,
+        Ec2 = -0.0035, Et2 = 0.025
+    };
 }
