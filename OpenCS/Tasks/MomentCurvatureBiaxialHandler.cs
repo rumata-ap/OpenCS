@@ -106,6 +106,6 @@ internal static class MomentCurvatureBiaxialJson
         segment = p.Segment,
         converged = p.Converged,
         psi_active = p.PsiActive,
-        clipped = p.Clipped
+        non_physical = p.NonPhysical
     };
 }

@@ -38,8 +38,10 @@ public sealed class BiaxialCurveScanPoint
     public int Segment { get; set; }
     public bool Converged { get; set; }
     public bool PsiActive { get; set; }
-    /// <summary>true, если Mx/My обрезаны по эталонному пределу без ψs (см. решение 5 спеки).</summary>
-    public bool Clipped { get; set; }
+    /// <summary>true, если |Mx| или |My| превышают эталонный предел без ψs (UltimateReference) —
+    /// значение точки НЕ изменяется, это только визуальная маркировка "посчитано, но не имеет
+    /// физического смысла".</summary>
+    public bool NonPhysical { get; set; }
 }
 
 /// <summary>Результат расчёта составной диаграммы кривизна-момент для двухплоскостного изгиба.</summary>
@@ -342,7 +344,7 @@ public sealed class BiaxialCurvatureCurveSolver
         {
             var seg3 = BuildGoverningSweep(governingSolver, n2ForUltimate, mx2, my2, dNdk34,
                 0.0, yieldPoint.T, seedAtTransition, epsCrcForMain, segment: 3,
-                startPoint: transition, endpoint: yieldPoint);
+                startPoint: transition, endpoint: yieldPoint, flagReference: ultimateReference, usePsi: usePsi);
             result.Points.AddRange(seg3);
         }
 
@@ -354,7 +356,7 @@ public sealed class BiaxialCurvatureCurveSolver
             ultimateReference, usePsi);
         var seg4 = BuildGoverningSweep(governingSolver, n2ForUltimate, mx2, my2, dNdk34,
             seg4From, 1.0, seg4Seed, epsCrcForMain, segment: 4,
-            startPoint: seg4StartPoint, endpoint: ultimatePoint);
+            startPoint: seg4StartPoint, endpoint: ultimatePoint, flagReference: ultimateReference, usePsi: usePsi);
         result.Points.AddRange(seg4);
         result.Ultimate = ultimatePoint;
 
@@ -419,9 +421,13 @@ public sealed class BiaxialCurvatureCurveSolver
     List<BiaxialCurveScanPoint> BuildGoverningSweep(
         GoverningPinSolverFast solver, double n, double mx, double my, double dNdk,
         double muFrom, double muTo, Kurvature seed, IReadOnlyDictionary<Fiber, double>? epsCrc,
-        int segment, BiaxialCurveScanPoint startPoint, BiaxialCurveScanPoint endpoint)
+        int segment, BiaxialCurveScanPoint startPoint, BiaxialCurveScanPoint endpoint,
+        BiaxialCurveScanPoint? flagReference = null, bool usePsi = false)
     {
         var points = new List<BiaxialCurveScanPoint>(_auxPointsPerSegment);
+        BiaxialCurveScanPoint Flag(BiaxialCurveScanPoint p) =>
+            flagReference != null ? FlagNonPhysical(p, flagReference, usePsi) : p;
+
         if (_stepMode == CurveStepMode.ByMoment)
         {
             var solverS = new StrainSolver(_section, _calcService, ten: false, ca: true,
@@ -439,13 +445,13 @@ public sealed class BiaxialCurvatureCurveSolver
                 var load = epsCrc == null
                     ? _section.Integral(plane, _calcService, ten: false, ca: true)
                     : Curvature8232.ApplyPsiCorrection(_section, plane, _section.Integral(plane, _calcService, false, true), epsCrc);
-                points.Add(new BiaxialCurveScanPoint
+                points.Add(Flag(new BiaxialCurveScanPoint
                 {
                     N = load.N, Mx = load.Mx, My = load.My,
                     E0 = plane.e0, Ky = plane.ky, Kz = plane.kz,
                     T = muFrom + frac * (muTo - muFrom), Segment = segment, Converged = true,
                     PsiActive = epsCrc != null
-                });
+                }));
                 _cancellationToken.ThrowIfCancellationRequested();
             }
             points.Add(endpoint);
@@ -459,12 +465,12 @@ public sealed class BiaxialCurvatureCurveSolver
             var res = solver.Solve(mu, n, mx, my, dNdk, seed, epsCrc);
             if (!res.Converged) continue;
             seed = res.Plane;
-            points.Add(new BiaxialCurveScanPoint
+            points.Add(Flag(new BiaxialCurveScanPoint
             {
                 N = res.Load.N, Mx = res.Load.Mx, My = res.Load.My,
                 E0 = res.Plane.e0, Ky = res.Plane.ky, Kz = res.Plane.kz,
                 T = mu, Segment = segment, Converged = true, PsiActive = epsCrc != null
-            });
+            }));
             _cancellationToken.ThrowIfCancellationRequested();
         }
         points.Add(endpoint);
@@ -488,9 +494,16 @@ public sealed class BiaxialCurvatureCurveSolver
         return map;
     }
 
-    // Заглушка Task 8 — реализуется в Task 9 (NonPhysical: флаг без урезания значений).
     static BiaxialCurveScanPoint FlagNonPhysical(
-        BiaxialCurveScanPoint point, BiaxialCurveScanPoint reference, bool usePsi) => point;
+        BiaxialCurveScanPoint point, BiaxialCurveScanPoint reference, bool usePsi)
+    {
+        if (usePsi && point.Converged && reference.Converged)
+        {
+            if (Math.Abs(point.Mx) > Math.Abs(reference.Mx) || Math.Abs(point.My) > Math.Abs(reference.My))
+                point.NonPhysical = true;
+        }
+        return point;
+    }
 
     /// <summary>
     /// Строит уч. "1" (0 → конечная точка `endpoint`) равномерной развёрткой параметра между

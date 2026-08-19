@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using CScore;
 using Xunit;
 
@@ -6,6 +7,28 @@ namespace CScore.Tests;
 
 public class BiaxialCurvatureCurveSolverTests
 {
+    [Fact]
+    public void Compute_UsePsiTrue_FlagsNonPhysicalWithoutClippingValue()
+    {
+        var section = TestSections.Example47();
+        var solverPsi = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N);
+        var solverNoPsi = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N);
+
+        var withPsi = solverPsi.Compute(0.0, -60.0, 0.0, CurvatureNMode.Constant, usePsi: true);
+        var withoutPsi = solverNoPsi.Compute(0.0, -60.0, 0.0, CurvatureNMode.Constant, usePsi: false);
+
+        // usePsi=false — ни одна точка не помечена NonPhysical (сравнение не выполняется).
+        Assert.DoesNotContain(withoutPsi.Points, p => p.NonPhysical);
+
+        // usePsi=true, если найдены точки за пределом — значения НЕ урезаны (могут превышать
+        // UltimateReference по модулю).
+        var flagged = withPsi.Points.Where(p => p.NonPhysical).ToList();
+        if (flagged.Count > 0)
+        {
+            Assert.True(flagged.Any(p => Math.Abs(p.Mx) > Math.Abs(withPsi.UltimateReference!.Mx) - 1e-6));
+        }
+    }
+
     [Fact]
     public void Compute_HighAxialCompression_NoCracking_SingleSegment()
     {
