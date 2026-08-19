@@ -238,8 +238,40 @@ public sealed class BiaxialCurvatureCurveSolver
         result.Points.AddRange(BuildTensionSweep(tensionPin, N0, Mx0, My0, nMode, 0.0, crackT, crackPoint));
         _cancellationToken.ThrowIfCancellationRequested();
 
-        // ... точка 2 / петля / уч. "3"/"4" — Task 7-9 продолжают этот метод отсюда.
-        throw new NotImplementedException("Продолжение конвейера — см. Task 7.");
+        // Точка 2 — прямое равновесие на векторе усилий точки 1, ten=false, без ψs, без поиска.
+        var point2Solver = new StrainSolver(_section, _calcService, ten: false, ca: true,
+            tol: _solverTol, maxIter: _solverMaxIter, h: _solverH, centralJacobian: _centralJacobian);
+        var plane2 = point2Solver.Solve(crackPoint.N, crackPoint.Mx, crackPoint.My,
+            new Kurvature { e0 = crackPoint.E0, ky = crackPoint.Ky, kz = crackPoint.Kz });
+        if (!point2Solver.Converged)
+        {
+            result.Status = "partial";
+            return result;
+        }
+        var load2 = _section.Integral(plane2, _calcService, ten: false, ca: true);
+        var transition = new BiaxialCurveScanPoint
+        {
+            N = load2.N, Mx = load2.Mx, My = load2.My,
+            E0 = plane2.e0, Ky = plane2.ky, Kz = plane2.kz,
+            T = 0.0, // T точки 2 — не в единицах уч.1/петли (офф-рэй), не используется как
+                     // t-граница для уч.3/4 (там используется μ, не T)
+            Segment = 2, Converged = true
+        };
+        result.CrackTransitionPoint = transition;
+
+        // Петля: сжатый пин, ten=true, продолжение направления/N-режима уч."1", от eps сжатия
+        // в точке1 до eps сжатия в точке2.
+        double epsCompressAtCrack = ExtremeContourConcreteStrain(
+            new Kurvature { e0 = crackPoint.E0, ky = crackPoint.Ky, kz = crackPoint.Kz });
+        double epsCompressAtT2 = ExtremeContourConcreteStrain(plane2);
+        var compressionPin = new CompressionPinSolverFast(_section, _calcCrc, ten: true,
+            hDiff: _solverH, newtonMaxIter: _solverMaxIter);
+        result.Points.AddRange(BuildCompressionSweep(
+            compressionPin, N0, Mx0, My0, nMode, crackPoint, epsCompressAtCrack, epsCompressAtT2, transition));
+        _cancellationToken.ThrowIfCancellationRequested();
+
+        // ... уч. "3"/"4" / точка3/точка4 — Task 8-9 продолжают этот метод отсюда.
+        throw new NotImplementedException("Продолжение конвейера — см. Task 8-9.");
     }
 
     /// <summary>
