@@ -108,7 +108,8 @@ public sealed class CrackingSolver
             "в сечении нет бетонной MaterialArea с построенной диаграммой для заданного CalcType.");
     }
 
-    double MaxTensionStrain(Kurvature k)
+    /// <summary>Максимальная растягивающая деформация бетона по контуру при заданной плоскости.</summary>
+    public double MaxTensionStrain(Kurvature k)
     {
         double max = 0.0;
         bool found = false;

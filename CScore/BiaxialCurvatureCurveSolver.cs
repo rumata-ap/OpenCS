@@ -114,7 +114,250 @@ public sealed class BiaxialCurvatureCurveSolver
     public BiaxialCurvatureCurveResult Compute(
         double N0, double Mx0, double My0, CurvatureNMode nMode, bool usePsi)
     {
-        throw new NotImplementedException("Пайплайн переписывается в Task 6-9.");
+        var result = new BiaxialCurvatureCurveResult
+        {
+            HasMx = Math.Abs(Mx0) > DirectionEps,
+            HasMy = Math.Abs(My0) > DirectionEps,
+            NMode = nMode,
+            UsePsi = usePsi
+        };
+
+        if (!result.HasMx && !result.HasMy)
+        {
+            result.Status = "error";
+            return result;
+        }
+
+        (result.Ea0, result.B0x, result.B0y) = ComputeElasticStiffness();
+
+        // Предпроверка "предел раньше трещины" (ten=true LimitForceSolverFast) — точный
+        // event-solve, см. спеку "Обнаружение нет трещины / предел раньше трещины".
+        var tensionCracker = new CrackingSolver(_section, _calcCrc, solverTol: _solverTol, solverMaxIter: _solverMaxIter, solverH: _solverH);
+        double tensionLimit;
+        try { tensionLimit = tensionCracker.TensionLimit(); }
+        catch (InvalidOperationException)
+        {
+            result.Status = "error";
+            return result;
+        }
+
+        LimitForceResult? ultTen = null;
+        try
+        {
+            var tenSolver = new LimitForceSolverFast(_section, _calcCrc, ten: true);
+            ultTen = nMode == CurvatureNMode.Constant
+                ? tenSolver.MomentFactor(N0, Mx0, My0)
+                : tenSolver.AllFactor(N0, Mx0, My0);
+        }
+        catch (InvalidOperationException) { ultTen = null; }
+
+        // Точка "0" (t=0, Ky=Kz=0) — чисто осевое равновесие (Ky=Kz=0 фиксированы, не через
+        // пин-Ньютон — пин с epsPin=0 при ненулевом целевом моменте в общем случае не имеет
+        // решения, т.к. при нулевой деформации в экстремальной точке сечение либо всё
+        // растянуто, либо всё сжато, что несовместимо с произвольным (Mx,My)). Решается
+        // одномерно: e0 из N(e0)=N_target при Ky=Kz=0. N_target = N0 (Constant) или 0.0
+        // (Proportional, т.к. в этом режиме t=0 соответствует λ=0).
+        double zeroTargetN = nMode == CurvatureNMode.Constant ? N0 : 0.0;
+        CurvatureEquilibriumResult zeroEq;
+        try
+        {
+            zeroEq = CurvatureEquilibrium8232.Solve(
+                e0 => _section.Integral(new Kurvature { e0 = e0, ky = 0, kz = 0 }, _calcCrc, ten: true, ca: true),
+                targetN: zeroTargetN, tolerance: _solverTol, maxIterations: 100);
+        }
+        catch (InvalidOperationException)
+        {
+            result.Status = "error";
+            return result;
+        }
+        if (!zeroEq.Converged)
+        {
+            result.Status = "error";
+            return result;
+        }
+        var zeroPoint = new BiaxialCurveScanPoint
+        {
+            N = zeroEq.Load.N, Mx = zeroEq.Load.Mx, My = zeroEq.Load.My,
+            E0 = zeroEq.E0, Ky = 0.0, Kz = 0.0, T = 0.0, Segment = 1, Converged = true
+        };
+        result.Points.Add(zeroPoint);
+
+        if (ultTen is { Converged: true, StrainPlane: Kurvature ultTenPlane } &&
+            tensionCracker.MaxTensionStrain(ultTenPlane) < tensionLimit)
+        {
+            // Сечение исчерпывает несущую способность раньше образования трещины — единственный
+            // узел результата. Развёртка — СЖАТЫЙ пин (не растянутый), "аналогично петле":
+            // TensionPinSolverFast здесь физически неприменим (тот же аргумент, что и для
+            // точки 0 — целевой момент несовместим с epsPin вблизи нуля на растянутой стороне).
+            var load = _section.Integral(ultTenPlane, _calcCrc, ten: true, ca: true);
+            var single = new BiaxialCurveScanPoint
+            {
+                N = load.N, Mx = load.Mx, My = load.My,
+                E0 = ultTenPlane.e0, Ky = ultTenPlane.ky, Kz = ultTenPlane.kz,
+                T = nMode == CurvatureNMode.Constant
+                    ? Math.Sqrt(ultTenPlane.ky * ultTenPlane.ky + ultTenPlane.kz * ultTenPlane.kz)
+                    : ultTen!.Factor,
+                Segment = 1, Converged = true
+            };
+            result.Cracking = null;
+            result.CrackTransitionPoint = null;
+            result.Yield = null;
+            result.Ultimate = single;
+            result.UltimateReference = single;
+
+            double epsCompressAtZero = ExtremeContourConcreteStrain(new Kurvature { e0 = zeroPoint.E0, ky = 0, kz = 0 });
+            double epsCompressAtUlt = ExtremeContourConcreteStrain(ultTenPlane);
+            var compressionPinNoCrack = new CompressionPinSolverFast(_section, _calcCrc, ten: true,
+                hDiff: _solverH, newtonMaxIter: _solverMaxIter);
+            result.Points.AddRange(BuildCompressionSweep(
+                compressionPinNoCrack, N0, Mx0, My0, nMode, zeroPoint, epsCompressAtZero, epsCompressAtUlt, single));
+            result.Status = "ok";
+            return result;
+        }
+
+        // Обычный путь: точка 1 через развёртку растянутого пина.
+        var tensionPin = new TensionPinSolverFast(_section, _calcCrc, solverTol: _solverTol, newtonMaxIter: _solverMaxIter, hDiff: _solverH);
+        double dNdkCrack = nMode == CurvatureNMode.Constant ? 0.0 : N0;
+        var crack = tensionPin.Solve(tensionLimit, N0, Mx0, My0, dNdkCrack, seed: null);
+        if (!crack.Converged)
+        {
+            result.Status = "error";
+            return result;
+        }
+
+        double crackT = nMode == CurvatureNMode.Constant
+            ? Math.Sqrt(crack.Plane.ky * crack.Plane.ky + crack.Plane.kz * crack.Plane.kz)
+            : SolveLambdaForCrack(crack, N0, Mx0, My0);
+        var crackPoint = new BiaxialCurveScanPoint
+        {
+            N = crack.Load.N, Mx = crack.Load.Mx, My = crack.Load.My,
+            E0 = crack.Plane.e0, Ky = crack.Plane.ky, Kz = crack.Plane.kz,
+            T = crackT, Segment = 1, Converged = true
+        };
+        result.Cracking = crackPoint;
+        result.Points.AddRange(BuildTensionSweep(tensionPin, N0, Mx0, My0, nMode, 0.0, crackT, crackPoint));
+        _cancellationToken.ThrowIfCancellationRequested();
+
+        // ... точка 2 / петля / уч. "3"/"4" — Task 7-9 продолжают этот метод отсюда.
+        throw new NotImplementedException("Продолжение конвейера — см. Task 7.");
+    }
+
+    /// <summary>
+    /// Строит уч. "1" (0 → конечная точка `endpoint`) равномерной развёрткой параметра между
+    /// начальной точкой (epsPin=0 у растянутого пина) и конечной. В ByMoment — прямые
+    /// `StrainSolver.Solve` на целевых векторах момента, интерполированных от 0 до `endpoint`
+    /// (уч. "1" физически начинается в нуле — для уч. "3"/"4", начинающихся НЕ с нуля, такая
+    /// же формула была бы ошибочной, см. Task 8, там начало интерполируется явно).
+    /// </summary>
+    List<BiaxialCurveScanPoint> BuildTensionSweep(
+        TensionPinSolverFast solver, double N0, double Mx0, double My0, CurvatureNMode nMode,
+        double epsPinFrom, double tEndKnown, BiaxialCurveScanPoint endpoint)
+    {
+        var points = new List<BiaxialCurveScanPoint>(_auxPointsPerSegment);
+        if (_stepMode == CurveStepMode.ByMoment)
+        {
+            // Один StrainSolver на весь участок (не по одному на итерацию).
+            var solverS = new StrainSolver(_section, _calcCrc, ten: true, ca: true, tol: _solverTol, maxIter: _solverMaxIter, h: _solverH, centralJacobian: _centralJacobian);
+            for (int i = 1; i <= _auxPointsPerSegment; i++)
+            {
+                double frac = (double)i / (_auxPointsPerSegment + 1);
+                double mxT = frac * endpoint.Mx, myT = frac * endpoint.My;
+                double nT = nMode == CurvatureNMode.Constant ? N0 : frac * N0;
+                var plane = solverS.Solve(nT, mxT, myT);
+                if (!solverS.Converged) continue;
+                var load = _section.Integral(plane, _calcCrc, ten: true, ca: true);
+                points.Add(new BiaxialCurveScanPoint
+                {
+                    N = load.N, Mx = load.Mx, My = load.My,
+                    E0 = plane.e0, Ky = plane.ky, Kz = plane.kz,
+                    T = frac * endpoint.T, Segment = 1, Converged = true
+                });
+                _cancellationToken.ThrowIfCancellationRequested();
+            }
+            points.Add(endpoint);
+            return points;
+        }
+
+        // ByCurvature: развёртка epsPin, определяемая через T конечной точки.
+        double epsPinTo = EndpointTensionEps(endpoint);
+        double dNdk = nMode == CurvatureNMode.Constant ? 0.0 : N0;
+        Kurvature? seed = null;
+        for (int i = 1; i <= _auxPointsPerSegment; i++)
+        {
+            double frac = (double)i / (_auxPointsPerSegment + 1);
+            double epsPin = epsPinFrom + frac * (epsPinTo - epsPinFrom);
+            var point = solver.Solve(epsPin, N0, Mx0, My0, dNdk, seed);
+            if (!point.Converged) continue;
+            seed = point.Plane;
+            points.Add(new BiaxialCurveScanPoint
+            {
+                N = point.Load.N, Mx = point.Load.Mx, My = point.Load.My,
+                E0 = point.Plane.e0, Ky = point.Plane.ky, Kz = point.Plane.kz,
+                T = frac * endpoint.T, Segment = 1, Converged = true
+            });
+            _cancellationToken.ThrowIfCancellationRequested();
+        }
+        points.Add(endpoint);
+        return points;
+    }
+
+    static double EndpointTensionEps(BiaxialCurveScanPoint endpoint)
+    {
+        // Деформация в вершине endpoint's собственной плоскости, взятая как e0 — приближение
+        // epsPin конечной точки без хранения дополнительного поля в BiaxialCurveScanPoint;
+        // конечная точка (i=N_aux+1) в любом случае подставляется явно как endpoint, не
+        // пересчитывается.
+        return endpoint.E0;
+    }
+
+    double SolveLambdaForCrack(PinPointResult crack, double N0, double Mx0, double My0)
+    {
+        double denom = N0 * N0 + Mx0 * Mx0 + My0 * My0;
+        if (denom < 1e-30) return 0.0;
+        return (crack.Load.N * N0 + crack.Load.Mx * Mx0 + crack.Load.My * My0) / denom;
+    }
+
+    /// <summary>
+    /// Строит участок со сжатым пином, `ten=true`, продолжением направления/N-режима уч. "1"
+    /// (используется дважды: веткой "предел раньше трещины" в этом же методе, где
+    /// <paramref name="fromPoint"/> — точка 0, и петлёй в Task 7, где <paramref name="fromPoint"/>
+    /// — точка 1). `endpoint.T` уже известен заранее — этот метод только расставляет внутренние
+    /// точки между `fromPoint.T` и `endpoint.T`.
+    /// </summary>
+    List<BiaxialCurveScanPoint> BuildCompressionSweep(
+        CompressionPinSolverFast solver, double N0, double Mx0, double My0, CurvatureNMode nMode,
+        BiaxialCurveScanPoint fromPoint, double epsFrom, double epsTo, BiaxialCurveScanPoint endpoint)
+    {
+        var points = new List<BiaxialCurveScanPoint>(_auxPointsPerSegment);
+        if (_stepMode == CurveStepMode.ByMoment)
+        {
+            // Петля/"предел раньше трещины" в ByMoment не строится вообще (нестабильна) —
+            // прямая линия fromPoint→endpoint.
+            points.Add(endpoint);
+            return points;
+        }
+
+        double endpointT = Math.Sqrt(endpoint.Ky * endpoint.Ky + endpoint.Kz * endpoint.Kz);
+        double dNdk = nMode == CurvatureNMode.Constant ? 0.0 : N0;
+        Kurvature? seed = new Kurvature { e0 = fromPoint.E0, ky = fromPoint.Ky, kz = fromPoint.Kz };
+        for (int i = 1; i <= _auxPointsPerSegment; i++)
+        {
+            double frac = (double)i / (_auxPointsPerSegment + 1);
+            double epsPin = epsFrom + frac * (epsTo - epsFrom);
+            var point = solver.Solve(epsPin, N0, Mx0, My0, dNdk, seed);
+            if (!point.Converged) continue;
+            seed = point.Plane;
+            points.Add(new BiaxialCurveScanPoint
+            {
+                N = point.Load.N, Mx = point.Load.Mx, My = point.Load.My,
+                E0 = point.Plane.e0, Ky = point.Plane.ky, Kz = point.Plane.kz,
+                T = fromPoint.T + frac * (endpointT - fromPoint.T),
+                Segment = 2, Converged = true
+            });
+            _cancellationToken.ThrowIfCancellationRequested();
+        }
+        points.Add(endpoint);
+        return points;
     }
 
     bool IsAtUltimateStrain(BiaxialCurveScanPoint point)
