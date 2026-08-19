@@ -1,5 +1,7 @@
 using System;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using CScore;
 using Xunit;
 
@@ -122,5 +124,73 @@ public class BiaxialCurvatureCurveSolverTests
         Assert.True(Math.Abs(result.CrackTransitionPoint.Kz) > 1e-9);
         double point2CurvatureRatio = result.CrackTransitionPoint.Ky / result.CrackTransitionPoint.Kz;
         Assert.NotEqual(Math.Round(inputMomentRatio, 1), Math.Round(point2CurvatureRatio, 1));
+    }
+
+    // Формула Points.Count (auxPointsPerSegment=10 по умолчанию в этих тестах):
+    // ByCurvature: 1(точка0) + 10(уч.1) + 1(точка1) + 10(петля) + 1(точка2)
+    //              + [10(уч.3) + 1(точка3)] + 10(уч.4) + 1(точка4)
+    //   без точки3: 3*10+4 = 34; с точкой3: 34+10+1 = 45.
+    // ByMoment: петля НЕ строится (только endpoint точка2) — на 10 меньше, чем ByCurvature:
+    //   без точки3: 2*10+4 = 24; с точкой3: 24+10+1 = 35.
+    // Example47() при N=0/Mx=-60 — недоармированное сечение, текучесть арматуры наступает
+    // раньше исчерпания (точка3 есть); RectWithBottomRebar(diam:0.010) при N=0/Mx=-30 — нет
+    // (эмпирически подобрано, см. план Task 15).
+    [Theory]
+    [InlineData(CurveStepMode.ByCurvature, true, 45)]
+    [InlineData(CurveStepMode.ByMoment, true, 35)]
+    public void Compute_PointsCount_MatchesFormula_WithYieldPoint(CurveStepMode mode, bool expectYield, int expectedCount)
+    {
+        var section = TestSections.Example47();
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 10, stepMode: mode);
+
+        var result = solver.Compute(0.0, -60.0, 0.0, CurvatureNMode.Constant, usePsi: false);
+
+        Assert.Equal(expectYield, result.Yield != null);
+        Assert.Equal(expectedCount, result.Points.Count);
+    }
+
+    [Theory]
+    [InlineData(CurveStepMode.ByCurvature, 34)]
+    [InlineData(CurveStepMode.ByMoment, 24)]
+    public void Compute_PointsCount_MatchesFormula_WithoutYieldPoint(CurveStepMode mode, int expectedCount)
+    {
+        var section = TestSections.RectWithBottomRebar(diam: 0.010);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 10, stepMode: mode);
+
+        var result = solver.Compute(0.0, -30.0, 0.0, CurvatureNMode.Constant, usePsi: false);
+
+        Assert.Null(result.Yield);
+        Assert.Equal(expectedCount, result.Points.Count);
+    }
+
+    // N0/Mx0 эмпирически подобраны (план Task 15, Step 3): при Mx0=-60 на этом же N0 сжатый
+    // пин петли "предел раньше трещины" вырождается (комбинация N/M у самой границы incapacity
+    // сечения) — Mx0=-30 даёт устойчивую полную развёртку (12 = 1 + (10+1)).
+    [Fact]
+    public void Compute_PointsCount_NoCrackingCase()
+    {
+        var section = TestSections.Example47();
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 10);
+
+        var result = solver.Compute(-3500.0, -30.0, 0.0, CurvatureNMode.Constant, usePsi: false);
+
+        Assert.Null(result.Cracking);
+        Assert.Equal(12, result.Points.Count); // 1 + (10+1)
+    }
+
+    [Fact]
+    public void SourceFile_ContainsNoEuclideanMomentNorm_OutsideFallbackPaths()
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "CScore", "BiaxialCurvatureCurveSolver.cs");
+        Assert.True(File.Exists(path), $"Файл не найден по пути: {Path.GetFullPath(path)}");
+        string src = File.ReadAllText(path);
+        // Единственное легитимное место с sqrt(Mx*Mx+My*My)-подобной нормой — CrackingSolver.cs
+        // (не этот файл), проверяем ИМЕННО BiaxialCurvatureCurveSolver.cs.
+        bool hasNorm = Regex.IsMatch(
+            src, @"Sqrt\s*\(\s*Mx\s*\*\s*Mx\s*\+\s*My\s*\*\s*My\s*\)", RegexOptions.IgnoreCase);
+        Assert.False(hasNorm, "BiaxialCurvatureCurveSolver.cs не должен содержать sqrt(Mx²+My²) — см. спеку.");
     }
 }
