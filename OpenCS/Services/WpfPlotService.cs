@@ -79,7 +79,7 @@ namespace OpenCS.Services
          });
       }
 
-      public void AddMarkers(double[] xs, double[] ys, float markerSize = 4, string? color = null, string? label = null)
+      public void AddMarkers(double[] xs, double[] ys, float markerSize = 0, string? color = null, string? label = null)
       {
          if (xs == null || ys == null || xs.Length == 0) return;
          UpdateBounds(xs, ys);
@@ -87,7 +87,7 @@ namespace OpenCS.Services
          {
             Xs = xs, Ys = ys,
             Fill = ParseColor(color ?? _settings.MarkerFill),
-            MarkerSize = _settings.MarkerSize,
+            MarkerSize = markerSize > 0 ? markerSize : _settings.MarkerSize,
             Label = label
          });
       }

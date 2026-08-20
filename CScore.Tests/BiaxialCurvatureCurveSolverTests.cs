@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using CScore;
 using Xunit;
@@ -77,6 +78,142 @@ public class BiaxialCurvatureCurveSolverTests
     }
 
     [Fact]
+    public void Compute_ByCurvature_Segment1DoesNotRunBackward()
+    {
+        var section = TestSections.RectWithBottomRebar(diam: 0.020);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 10, stepMode: CurveStepMode.ByCurvature);
+
+        var result = solver.Compute(-1000.0, -100.0, 20.0, CurvatureNMode.Proportional, usePsi: false);
+        var curvature = result.Points
+            .Where(p => p.Segment == 1)
+            .Select(p => Math.Abs(p.Ky))
+            .ToList();
+
+        Assert.True(curvature.Count >= 3);
+        for (int i = 1; i < curvature.Count; i++)
+            Assert.True(curvature[i] >= curvature[i - 1] - 1e-9,
+                $"Участок 1 пошёл назад на индексе {i}: {curvature[i - 1]} -> {curvature[i]}");
+    }
+
+    [Fact]
+    public void Compute_ByCurvature_Segment4DoesNotStartBelowTransitionPoint()
+    {
+        var section = TestSections.RectWithBottomRebar(diam: 0.010);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 10, stepMode: CurveStepMode.ByCurvature);
+
+        var result = solver.Compute(0.0, -30.0, 0.0, CurvatureNMode.Constant, usePsi: false);
+        var transitionIndex = result.Points.FindLastIndex(p => p.Segment == 2);
+        var firstSegment4Index = result.Points.FindIndex(p => p.Segment == 4);
+
+        Assert.True(transitionIndex >= 0);
+        Assert.True(firstSegment4Index > transitionIndex);
+        Assert.True(
+            Math.Abs(result.Points[firstSegment4Index].Ky) >= Math.Abs(result.Points[transitionIndex].Ky) - 1e-9,
+            $"Участок 4 начинается ниже точки 2: {result.Points[transitionIndex].Ky} -> {result.Points[firstSegment4Index].Ky}");
+    }
+
+    [Fact]
+    public void Compute_SymmetricSection_GoverningPinDoesNotCreateCrossCurvature()
+    {
+        var section = TestSections.Example47();
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 10, stepMode: CurveStepMode.ByCurvature);
+
+        var result = solver.Compute(0.0, -60.0, 0.0, CurvatureNMode.Constant, usePsi: false);
+        var segment4 = result.Points.Where(p => p.Segment == 4).ToList();
+
+        Assert.NotEmpty(segment4);
+        Assert.All(segment4, point => Assert.True(Math.Abs(point.Kz) <= 1e-9,
+            $"Симметричное сечение получило kz={point.Kz} при My=0"));
+    }
+
+    [Fact]
+    public void Compute_SymmetricSection_Segment4DoesNotBacktrack()
+    {
+        var section = TestSections.Example47();
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 10, stepMode: CurveStepMode.ByCurvature);
+
+        var result = solver.Compute(0.0, -60.0, 0.0, CurvatureNMode.Constant, usePsi: false);
+        var curvature = result.Points
+            .Where(p => p.Segment == 4)
+            .Select(p => Math.Abs(p.Ky))
+            .ToList();
+
+        Assert.True(curvature.Count >= 3);
+        for (int i = 1; i < curvature.Count; i++)
+            Assert.True(curvature[i] >= curvature[i - 1] - 1e-9,
+                $"Участок 4 пошёл назад на индексе {i}: {curvature[i - 1]} -> {curvature[i]}");
+    }
+
+    [Fact]
+    public void Compute_CalcC_RebarWithFtButNoRyStillFindsYieldPoint()
+    {
+        var section = TestSections.Example47();
+        var rebar = section.Areas.Single(area => area.Material?.Type == MatType.ReSteelF);
+        var chars = rebar.Material!.C!;
+        chars.Ry = 0.0;
+        chars.Et0 = 0.0;
+        section.ResolveAndBuildDiagramms(0.85, pool: null, rebarDifferentialDiagram: false);
+
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.C, calcService: CalcType.C,
+            auxPointsPerSegment: 10, stepMode: CurveStepMode.ByCurvature);
+
+        var result = solver.Compute(0.0, -60.0, 0.0, CurvatureNMode.Constant, usePsi: false);
+
+        Assert.NotNull(result.Yield);
+        Assert.Equal(3, result.Yield!.Segment);
+    }
+
+    [Fact]
+    public void Compute_YieldPoint_IsAtActualRebarYieldStrain()
+    {
+        var section = TestSections.Example47();
+        var rebar = section.Areas.Single(area => area.Material?.Type == MatType.ReSteelF);
+        var chars = rebar.Material!.N!;
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 10, stepMode: CurveStepMode.ByCurvature);
+
+        var result = solver.Compute(0.0, -60.0, 0.0, CurvatureNMode.Constant, usePsi: false);
+
+        Assert.NotNull(result.Yield);
+        double maxRebarStrain = section.EnumerateAreas(new Kurvature
+            {
+                e0 = result.Yield!.E0,
+                ky = result.Yield.Ky,
+                kz = result.Yield.Kz
+            })
+            .Where(pair => pair.area.Material?.Type is MatType.ReSteelF or MatType.ReSteelU)
+            .SelectMany(pair => pair.area.Fibers
+                .Where(fiber => fiber.TypeFiber == FiberType.point)
+                .Select(fiber => pair.k.e0 + pair.k.ky * fiber.Y + pair.k.kz * fiber.X + fiber.Eps_p))
+            .Max();
+
+        Assert.InRange(maxRebarStrain, chars.Ft / chars.E - 1e-6, chars.Ft / chars.E + 1e-6);
+    }
+
+    [Fact]
+    public void RebarYieldStrain_UsesTensileResistanceOverElasticModulus()
+    {
+        var method = typeof(BiaxialCurvatureCurveSolver).GetMethod(
+            "RebarYieldStrain", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var chars = new MaterialChars
+        {
+            Ft = 348_000.0,
+            Ry = 400_000.0,
+            E = 200_000_000.0
+        };
+
+        var strain = (double)method!.Invoke(null, [MatType.ReSteelF, chars])!;
+
+        Assert.Equal(chars.Ft / chars.E, strain, precision: 12);
+    }
+
+    [Fact]
     public void Compute_NormalCase_FullPipeline_ReachesUltimate()
     {
         var section = TestSections.Example47();
@@ -133,8 +270,8 @@ public class BiaxialCurvatureCurveSolverTests
     // ByMoment: петля НЕ строится (только endpoint точка2) — на 10 меньше, чем ByCurvature:
     //   без точки3: 2*10+4 = 24; с точкой3: 24+10+1 = 35.
     // Example47() при N=0/Mx=-60 — недоармированное сечение, текучесть арматуры наступает
-    // раньше исчерпания (точка3 есть); RectWithBottomRebar(diam:0.010) при N=0/Mx=-30 — нет
-    // (эмпирически подобрано, см. план Task 15).
+    // раньше исчерпания (точка3 есть). Для RectWithBottomRebar(diam:0.010) при N=0/Mx=-30
+    // после перехода на Ft/E точка3 также есть: арматура A500 достигает Ft/E до предела.
     [Theory]
     [InlineData(CurveStepMode.ByCurvature, true, 45)]
     [InlineData(CurveStepMode.ByMoment, true, 35)]
@@ -151,9 +288,9 @@ public class BiaxialCurvatureCurveSolverTests
     }
 
     [Theory]
-    [InlineData(CurveStepMode.ByCurvature, 34)]
-    [InlineData(CurveStepMode.ByMoment, 24)]
-    public void Compute_PointsCount_MatchesFormula_WithoutYieldPoint(CurveStepMode mode, int expectedCount)
+    [InlineData(CurveStepMode.ByCurvature, 45)]
+    [InlineData(CurveStepMode.ByMoment, 35)]
+    public void Compute_PointsCount_MatchesFormula_WithFtOverEYieldPoint(CurveStepMode mode, int expectedCount)
     {
         var section = TestSections.RectWithBottomRebar(diam: 0.010);
         var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
@@ -161,7 +298,7 @@ public class BiaxialCurvatureCurveSolverTests
 
         var result = solver.Compute(0.0, -30.0, 0.0, CurvatureNMode.Constant, usePsi: false);
 
-        Assert.Null(result.Yield);
+        Assert.NotNull(result.Yield);
         Assert.Equal(expectedCount, result.Points.Count);
     }
 

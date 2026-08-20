@@ -57,6 +57,18 @@ public static class CurvatureEquilibrium8232
         if (!OppositeSigns(loResidual, hiResidual))
             throw new InvalidOperationException("Не удалось заключить равновесное ε0 в скобки");
 
+        // Критерий остановки только по невязке N опасен там, где dN/de0 локально мал (типично
+        // сразу после трещины — часть бетонных фибр уже перешла на нисходящую ветвь
+        // растяжения, вклад в жёсткость по N почти нулевой): |N-target|<=tolerance тогда
+        // выполняется на широком диапазоне e0, и бисекция может остановиться в любой его
+        // точке — соседние точки скана (с чуть разной κ, но близким seed-продолжением e0)
+        // получают заметно разные e0/Mx, хотя обе формально "сошлись" — визуально это пила на
+        // графике кривизна-момент (см. пилообразный уч. "2" в реальной задаче пользователя,
+        // 2026-08-17). Фикс — не выходить раньше, чем сам интервал [lo,hi] сузится до
+        // domainTolerance (доля от фактической начальной ширины скобки, с учётом возможных
+        // расширений выше) — это гарантирует стабильно точный e0 независимо от локальной
+        // формы N(e0), а не только "достаточно малую" невязку.
+        double domainTolerance = (hi - lo) * 1e-10;
         Load lastLoad = loLoad;
         double lastE0 = lo;
         double lastResidual = Math.Abs(loResidual);
@@ -69,7 +81,7 @@ public static class CurvatureEquilibrium8232
             if (!double.IsFinite(lastResidual))
                 throw new InvalidOperationException("Вычислитель равновесия вернул недопустимую силу N");
 
-            if (Math.Abs(lastResidual) <= tolerance)
+            if (Math.Abs(lastResidual) <= tolerance && (hi - lo) <= domainTolerance)
                 return new CurvatureEquilibriumResult(lastE0, lastLoad, true, iteration, Math.Abs(lastResidual));
 
             if (SameSign(lastResidual, loResidual))

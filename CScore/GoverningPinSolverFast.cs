@@ -114,7 +114,8 @@ public sealed class GoverningPinSolverFast
                 return SolveFallback(n, mx, my, dNdk, xA, yA, epsPin, seed, epsCrc, governing);
 
             var (newXA, newYA, newEpsLimit, newGoverning) = FindGoverningPin(pinned.Plane);
-            if (newGoverning == governing || (Math.Abs(newXA - xA) < 1e-9 && Math.Abs(newYA - yA) < 1e-9))
+            bool samePin = Math.Abs(newXA - xA) < 1e-9 && Math.Abs(newYA - yA) < 1e-9;
+            if (newGoverning == governing && samePin)
             {
                 var f = ForcesAt(pinned.Plane, epsCrc);
                 return new GoverningPinResult(

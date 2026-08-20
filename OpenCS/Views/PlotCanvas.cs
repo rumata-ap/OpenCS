@@ -1,4 +1,4 @@
-﻿using OpenCS.Utilites;
+using OpenCS.Utilites;
 
 using System;
 using System.Collections.Generic;
@@ -25,12 +25,24 @@ namespace OpenCS.Views
       private bool _showOriginXAxis = true;
       private bool _showOriginYAxis = true;
 
+      // Область холста, отведённая под сами данные (без полей под подписи осей) —
+      // вычисляется заново на каждый OnRender в ComputePlotRect.
+      private Rect _plotRect;
+
+      // Ручной масштаб (Ctrl+колесо) — переопределяет автоподбор границ по данным до
+      // следующего Draw() с новыми данными (см. Draw()).
+      private double? _zoomXMin, _zoomXMax, _zoomYMin, _zoomYMax;
+
+      const double ZoomStep = 1.15;
+      const double MinZoomSpanFraction = 1e-4;
+
       private (double x, double y, double px, double py)? _picked;
 
       public PlotCanvas()
       {
          ClipToBounds = true;
          IsHitTestVisible = true;
+         Focusable = true;
       }
 
       public void ApplySettings(PlotSettings s)
@@ -58,15 +70,24 @@ namespace OpenCS.Views
          dc.DrawRectangle(ParseBrush(_settings.Background), null, new Rect(0, 0, w, h));
 
          if (_hasBounds)
-            ComputeFit(w, h);
+         {
+            _plotRect = ComputePlotRect(w, h);
+            ComputeFit();
+         }
+         else
+         {
+            _plotRect = new Rect(0, 0, w, h);
+         }
 
          if (_settings.ShowGrid && _hasBounds)
-            DrawGrid(dc, w, h);
+            DrawGrid(dc);
 
          if (_elements != null && _elements.Count > 0 && _hasBounds)
          {
+            dc.PushClip(new RectangleGeometry(_plotRect));
             foreach (var el in _elements)
                el.Render(dc, ToScreen);
+            dc.Pop();
 
             if (_picked.HasValue)
             {
@@ -95,23 +116,66 @@ namespace OpenCS.Views
          if (_title != null) DrawTitle(dc, w);
       }
 
-      private void ComputeFit(double w, double h)
+      /// <summary>
+      /// Прямоугольник холста, отведённый под сами данные — по краям (снизу под подписи
+      /// значений X и заголовок оси X, слева под подписи значений Y и заголовок оси Y, сверху
+      /// под заголовок графика) вычитаются поля, чтобы подписи никогда не рисовались поверх
+      /// кривых внутри графика, а были снаружи области данных.
+      /// </summary>
+      private Rect ComputePlotRect(double w, double h)
       {
-         double xMin = _xMin, xMax = _xMax;
-         double yMin = _yMin, yMax = _yMax;
+         const double edgePad = 6;
+         const double tickLen = 4;
+         const double gap = 4;
+         const double tickLabelHeight = 16;
+         const double titleAreaHeight = 15;
+
+         double left = edgePad, right = edgePad + 4, top = edgePad, bottom = edgePad;
+
+         if (_title != null) top += titleAreaHeight;
+
+         if (_settings.ShowAxesValues)
+         {
+            double padX = (_xMax - _xMin) * 0.05 + 0.0001;
+            double padY = (_yMax - _yMin) * 0.05 + 0.0001;
+            var ticksY = NiceTicks((_yMin - padY), (_yMax + padY), _settings.TickCount);
+            var typeface = new Typeface("Segoe UI");
+            double maxTickW = 0;
+            foreach (var t in ticksY)
+            {
+               var ft = new FormattedText(FormatTick(t), CultureInfo.CurrentCulture,
+                  FlowDirection.LeftToRight, typeface, _settings.AxesFontSize, Brushes.Black, 96);
+               if (ft.Width > maxTickW) maxTickW = ft.Width;
+            }
+            left += tickLen + gap + maxTickW;
+            bottom += tickLen + gap + tickLabelHeight;
+         }
+
+         if (_xLabel != null) bottom += gap + titleAreaHeight;
+         if (_yLabel != null) left += gap + titleAreaHeight;
+
+         double pw = Math.Max(10, w - left - right);
+         double ph = Math.Max(10, h - top - bottom);
+         return new Rect(left, top, pw, ph);
+      }
+
+      private void ComputeFit()
+      {
+         double xMin = _zoomXMin ?? _xMin, xMax = _zoomXMax ?? _xMax;
+         double yMin = _zoomYMin ?? _yMin, yMax = _zoomYMax ?? _yMax;
 
          double padX = (xMax - xMin) * 0.05 + 0.0001;
          double padY = (yMax - yMin) * 0.05 + 0.0001;
          xMin -= padX; xMax += padX;
          yMin -= padY; yMax += padY;
 
-         double sx = w / (xMax - xMin);
-         double sy = h / (yMax - yMin);
+         double sx = _plotRect.Width / (xMax - xMin);
+         double sy = _plotRect.Height / (yMax - yMin);
          _scaleX = _squareAxes ? Math.Min(sx, sy) : sx;
          _scaleY = _squareAxes ? Math.Min(sx, sy) : sy;
 
-         double modelW = w / _scaleX;
-         double modelH = h / _scaleY;
+         double modelW = _plotRect.Width / _scaleX;
+         double modelH = _plotRect.Height / _scaleY;
          _originX = xMin - (modelW - (xMax - xMin)) / 2;
          _originY = yMin - (modelH - (yMax - yMin)) / 2;
       }
@@ -151,15 +215,15 @@ namespace OpenCS.Views
          }
       }
 
-      private void DrawGrid(DrawingContext dc, double w, double h)
+      private void DrawGrid(DrawingContext dc)
       {
          var settings = _settings;
          if (!settings.ShowGrid) return;
 
          double xMin = _originX;
-         double xMax = _originX + w / _scaleX;
+         double xMax = _originX + _plotRect.Width / _scaleX;
          double yMin = _originY;
-         double yMax = _originY + h / _scaleY;
+         double yMax = _originY + _plotRect.Height / _scaleY;
 
          var ticksX = NiceTicks(xMin, xMax, settings.TickCount);
          var ticksY = NiceTicks(yMin, yMax, settings.TickCount);
@@ -171,14 +235,14 @@ namespace OpenCS.Views
          foreach (var x in ticksX)
          {
             double px = ToScreen(x, 0).X;
-            if (px > 0 && px < w)
-               dc.DrawLine(pen, new Point(px, 0), new Point(px, h));
+            if (px >= _plotRect.Left && px <= _plotRect.Right)
+               dc.DrawLine(pen, new Point(px, _plotRect.Top), new Point(px, _plotRect.Bottom));
          }
          foreach (var y in ticksY)
          {
             double py = ToScreen(0, y).Y;
-            if (py > 0 && py < h)
-               dc.DrawLine(pen, new Point(0, py), new Point(w, py));
+            if (py >= _plotRect.Top && py <= _plotRect.Bottom)
+               dc.DrawLine(pen, new Point(_plotRect.Left, py), new Point(_plotRect.Right, py));
          }
       }
 
@@ -215,6 +279,7 @@ namespace OpenCS.Views
          _xLabel = xLabel;
          _yLabel = yLabel;
          _title = title;
+         _zoomXMin = _zoomXMax = _zoomYMin = _zoomYMax = null;
          InvalidateVisual();
       }
 
@@ -225,6 +290,7 @@ namespace OpenCS.Views
          _squareAxes = false;
          _title = _xLabel = _yLabel = null;
          _picked = null;
+         _zoomXMin = _zoomXMax = _zoomYMin = _zoomYMax = null;
          InvalidateVisual();
       }
 
@@ -233,9 +299,9 @@ namespace OpenCS.Views
          var settings = _settings;
 
          double xMin = _originX;
-         double xMax = _originX + w / _scaleX;
+         double xMax = _originX + _plotRect.Width / _scaleX;
          double yMin = _originY;
-         double yMax = _originY + h / _scaleY;
+         double yMax = _originY + _plotRect.Height / _scaleY;
 
          var brush = ParseBrush(settings.AxesColor);
          var axisPen = new Pen(brush, 1);
@@ -246,17 +312,17 @@ namespace OpenCS.Views
          double axisPxX, axisPxY;
          if (settings.AxesAtOrigin)
          {
-            axisPxX = Clamp(ToScreen(0, 0).X, 0, w);
-            axisPxY = Clamp(ToScreen(0, 0).Y, 0, h);
+            axisPxX = Clamp(ToScreen(0, 0).X, _plotRect.Left, _plotRect.Right);
+            axisPxY = Clamp(ToScreen(0, 0).Y, _plotRect.Top, _plotRect.Bottom);
          }
          else
          {
-            axisPxX = 0;
-            axisPxY = h;
+            axisPxX = _plotRect.Left;
+            axisPxY = _plotRect.Bottom;
          }
 
-         dc.DrawLine(axisPen, new Point(0, axisPxY), new Point(w, axisPxY));
-         dc.DrawLine(axisPen, new Point(axisPxX, 0), new Point(axisPxX, h));
+         dc.DrawLine(axisPen, new Point(_plotRect.Left, axisPxY), new Point(_plotRect.Right, axisPxY));
+         dc.DrawLine(axisPen, new Point(axisPxX, _plotRect.Top), new Point(axisPxX, _plotRect.Bottom));
 
          DrawOriginReferenceAxes(dc, w, h);
 
@@ -268,65 +334,51 @@ namespace OpenCS.Views
          const double tickLen = 4;
          const double gap = 4;
 
+         // Подписи значений всегда рисуются СНАРУЖИ области данных (в отведённых полях
+         // ComputePlotRect) — независимо от того, где физически проходит линия оси
+         // (например, при AxesAtOrigin ось может пересекать данные посередине).
          foreach (var t in ticksX)
          {
-            var sp = ToScreen(t, 0);
-            double px = sp.X;
-            if (px < 0 || px > w) continue;
-            double ty = axisPxY;
-            dc.DrawLine(tickPen, new Point(px, ty - tickLen), new Point(px, ty + tickLen));
+            double px = ToScreen(t, 0).X;
+            if (px < _plotRect.Left || px > _plotRect.Right) continue;
+            dc.DrawLine(tickPen, new Point(px, axisPxY - tickLen), new Point(px, axisPxY + tickLen));
             var label = FormatTick(t);
             var ft = new FormattedText(label,
                CultureInfo.CurrentCulture,
                FlowDirection.LeftToRight, typeface, fontSize, brush, 96);
-            double lx = px - ft.Width / 2;
-            double ly;
-            if (ty + tickLen + gap + ft.Height <= h)
-               ly = ty + tickLen + gap;
-            else
-               ly = ty - tickLen - gap - ft.Height;
-            if (lx < 0) lx = 0;
-            if (lx + ft.Width > w) lx = w - ft.Width;
-            if (ly < 0) ly = 0;
-            if (ly + ft.Height > h) ly = h - ft.Height;
+            double lx = Clamp(px - ft.Width / 2, 0, Math.Max(0, w - ft.Width));
+            double ly = _plotRect.Bottom + tickLen + gap;
             dc.DrawText(ft, new Point(lx, ly));
          }
 
          foreach (var t in ticksY)
          {
-            var sp = ToScreen(0, t);
-            double py = sp.Y;
-            if (py < 0 || py > h) continue;
-            double tx = axisPxX;
-            dc.DrawLine(tickPen, new Point(tx - tickLen, py), new Point(tx + tickLen, py));
+            double py = ToScreen(0, t).Y;
+            if (py < _plotRect.Top || py > _plotRect.Bottom) continue;
+            dc.DrawLine(tickPen, new Point(axisPxX - tickLen, py), new Point(axisPxX + tickLen, py));
             var label = FormatTick(t);
             var ft = new FormattedText(label,
                CultureInfo.CurrentCulture,
                FlowDirection.LeftToRight, typeface, fontSize, brush, 96);
-            double lx, ly = py - ft.Height / 2;
-            if (tx - ft.Width - tickLen - gap >= 0)
-               lx = tx - ft.Width - tickLen - gap;
-            else
-               lx = tx + tickLen + gap;
-            if (lx < 0) lx = 0;
-            if (lx + ft.Width > w) lx = w - ft.Width;
-            if (ly < 0) ly = 0;
-            if (ly + ft.Height > h) ly = h - ft.Height;
+            double lx = _plotRect.Left - tickLen - gap - ft.Width;
+            double ly = Clamp(py - ft.Height / 2, 0, Math.Max(0, h - ft.Height));
             dc.DrawText(ft, new Point(lx, ly));
          }
 
+         // Заголовки осей — за подписями значений, на самом краю холста (дальше от данных,
+         // чем сами числа), см. запрос "надписи осей с противоположных сторон от осей".
          if (_xLabel != null)
          {
             var ft = new FormattedText(_xLabel, CultureInfo.CurrentCulture,
                FlowDirection.LeftToRight, typeface, 11, brush, 96);
-            dc.DrawText(ft, new Point((w - ft.Width) / 2, h - ft.Height - 2));
+            dc.DrawText(ft, new Point(_plotRect.Left + (_plotRect.Width - ft.Width) / 2, h - ft.Height - 2));
          }
          if (_yLabel != null)
          {
             var ft = new FormattedText(_yLabel, CultureInfo.CurrentCulture,
                FlowDirection.LeftToRight, typeface, 11, brush, 96);
             dc.PushTransform(new RotateTransform(-90));
-            dc.DrawText(ft, new Point(-h / 2 - ft.Width / 2, 2));
+            dc.DrawText(ft, new Point(-(_plotRect.Top + _plotRect.Height / 2) - ft.Width / 2, 2));
             dc.Pop();
          }
       }
@@ -345,8 +397,8 @@ namespace OpenCS.Views
 
          double px0 = ToScreen(0, 0).X;
          double py0 = ToScreen(0, 0).Y;
-          bool showVertical = _showOriginYAxis && px0 >= 0 && px0 <= w;
-          bool showHorizontal = _showOriginXAxis && py0 >= 0 && py0 <= h;
+          bool showVertical = _showOriginYAxis && px0 >= _plotRect.Left && px0 <= _plotRect.Right;
+          bool showHorizontal = _showOriginXAxis && py0 >= _plotRect.Top && py0 <= _plotRect.Bottom;
          if (!showVertical && !showHorizontal) return;
 
          var xBrush = Brushes.ForestGreen;
@@ -373,9 +425,9 @@ namespace OpenCS.Views
             var ft = new FormattedText(Loc.S("AxisLabelX"), CultureInfo.CurrentCulture,
                FlowDirection.LeftToRight, typeface, fontSize, xBrush, 96);
             double ly = py0 - ft.Height - 2;
-            if (ly < outerPad) ly = Math.Min(h - ft.Height - outerPad, py0 + 2);
-            double leftLabelX = outerPad;
-            double rightLabelX = w - ft.Width - outerPad;
+            if (ly < _plotRect.Top + outerPad) ly = Math.Min(_plotRect.Bottom - ft.Height - outerPad, py0 + 2);
+            double leftLabelX = _plotRect.Left + outerPad;
+            double rightLabelX = _plotRect.Right - ft.Width - outerPad;
             double lineStartX = leftLabelX + ft.Width + lineGap;
             double lineEndX = rightLabelX - lineGap;
             if (lineEndX > lineStartX)
@@ -389,9 +441,9 @@ namespace OpenCS.Views
             var ft = new FormattedText(Loc.S("AxisLabelY"), CultureInfo.CurrentCulture,
                FlowDirection.LeftToRight, typeface, fontSize, yBrush, 96);
             double lx = px0 + 4;
-            if (lx + ft.Width > w - outerPad) lx = Math.Max(outerPad, px0 - ft.Width - 4);
-            double topLabelY = outerPad;
-            double bottomLabelY = h - ft.Height - outerPad;
+            if (lx + ft.Width > _plotRect.Right - outerPad) lx = Math.Max(_plotRect.Left + outerPad, px0 - ft.Width - 4);
+            double topLabelY = _plotRect.Top + outerPad;
+            double bottomLabelY = _plotRect.Bottom - ft.Height - outerPad;
             double lineStartY = topLabelY + ft.Height + lineGap;
             double lineEndY = bottomLabelY - lineGap;
             if (lineEndY > lineStartY)
@@ -402,16 +454,24 @@ namespace OpenCS.Views
       }
 
       private Point ToScreen(double mx, double my)
-         => new(_scaleX * (mx - _originX),
-                RenderSize.Height - _scaleY * (my - _originY));
+         => new(_plotRect.X + _scaleX * (mx - _originX),
+                _plotRect.Y + _plotRect.Height - _scaleY * (my - _originY));
 
       private (double X, double Y) ToModel(Point sp)
-         => (sp.X / _scaleX + _originX,
-             (RenderSize.Height - sp.Y) / _scaleY + _originY);
+         => ((sp.X - _plotRect.X) / _scaleX + _originX,
+             (_plotRect.Y + _plotRect.Height - sp.Y) / _scaleY + _originY);
 
       protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
       {
          base.OnMouseLeftButtonDown(e);
+         Focus();
+         if (_hasBounds && e.ClickCount == 2)
+         {
+            _zoomXMin = _zoomXMax = _zoomYMin = _zoomYMax = null;
+            InvalidateVisual();
+            return;
+         }
+
          if (!_settings.ShowTooltips || !_hasBounds || _elements == null) return;
 
          var pos = e.GetPosition(this);
@@ -468,6 +528,86 @@ namespace OpenCS.Views
             _picked = null;
             InvalidateVisual();
          }
+      }
+
+      /// <summary>
+      /// Ctrl+колесо мыши — масштабирование вокруг точки под курсором (в модельных
+      /// координатах), не затрагивая другие сценарии прокрутки (скролл вкладок/страницы
+      /// колесом без Ctrl работает как обычно). По умолчанию растягивается только ось X
+      /// (например, кривизна на графиках кривизна-момент) — ось Y всегда остаётся по
+      /// полным данным, чтобы масштаб менялся именно "по ширине". Для графиков с
+      /// квадратными осями (<see cref="EnableSquareAxes"/> у сервиса, например полярная
+      /// диаграмма биаксиального взаимодействия) масштабируются обе оси синхронно — там
+      /// раздельный зум исказил бы геометрический смысл графика. Увеличение — без
+      /// ограничения, уменьшение — не дальше исходного (полного) масштаба; при
+      /// достижении/превышении исходного масштаба зум по соответствующей оси сбрасывается
+      /// в автоподбор. Двойной клик сбрасывает масштаб по обеим осям сразу.
+      /// </summary>
+      protected override void OnMouseWheel(MouseWheelEventArgs e)
+      {
+         base.OnMouseWheel(e);
+         if (!_hasBounds) return;
+         if (Keyboard.Modifiers != ModifierKeys.Control) return;
+
+         var pos = e.GetPosition(this);
+         if (pos.X < _plotRect.Left || pos.X > _plotRect.Right ||
+             pos.Y < _plotRect.Top || pos.Y > _plotRect.Bottom)
+         {
+            e.Handled = true;
+            return;
+         }
+
+         var (mx, my) = ToModel(pos);
+         double factor = e.Delta > 0 ? 1.0 / ZoomStep : ZoomStep;
+
+         bool okX = ZoomAxis(mx, factor, _originX, _originX + _plotRect.Width / _scaleX,
+            _xMin, _xMax, out double? newXMin, out double? newXMax);
+         if (!okX) { e.Handled = true; return; }
+         _zoomXMin = newXMin; _zoomXMax = newXMax;
+
+         if (_squareAxes)
+         {
+            bool okY = ZoomAxis(my, factor, _originY, _originY + _plotRect.Height / _scaleY,
+               _yMin, _yMax, out double? newYMin, out double? newYMax);
+            if (!okY) { e.Handled = true; return; }
+            _zoomYMin = newYMin; _zoomYMax = newYMax;
+         }
+
+         InvalidateVisual();
+         e.Handled = true;
+      }
+
+      /// <summary>
+      /// Считает новый диапазон одной оси при масштабировании вокруг точки anchor.
+      /// Возвращает false, если новый диапазон вырожден (дальше увеличивать некуда).
+      /// Диапазон, равный или шире исходного (dataMin..dataMax с тем же паддингом, что и
+      /// автоподбор), приводится к null (автоподбор) — уменьшение масштаба дальше исходного
+      /// не идёт.
+      /// </summary>
+      static bool ZoomAxis(
+         double anchor, double factor, double curMin, double curMax,
+         double dataMin, double dataMax, out double? newMin, out double? newMax)
+      {
+         double newLo = anchor - (anchor - curMin) * factor;
+         double newHi = anchor + (curMax - anchor) * factor;
+         double fullSpan = Math.Max((dataMax - dataMin) * 1.1 + 0.0002, 1e-9);
+         double newSpan = newHi - newLo;
+
+         if (newSpan < fullSpan * MinZoomSpanFraction)
+         {
+            newMin = null; newMax = null;
+            return false;
+         }
+
+         if (newSpan >= fullSpan)
+         {
+            newMin = null; newMax = null;
+         }
+         else
+         {
+            newMin = newLo; newMax = newHi;
+         }
+         return true;
       }
 
       static string FormatTick(double v)
