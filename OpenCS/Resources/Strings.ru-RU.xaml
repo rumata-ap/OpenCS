@@ -2445,7 +2445,9 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_ColKy">κy, 1/м</system:String>
     <system:String x:Key="MomentCurvature_ColKz">κz, 1/м</system:String>
     <system:String x:Key="MomentCurvature_ColConverged">Сошлось</system:String>
-    <system:String x:Key="MomentCurvature_ColClipped">Обрезано</system:String>
+    <system:String x:Key="MomentCurvature_ColLimitStatus">Статус предельного усилия</system:String>
+    <system:String x:Key="MomentCurvature_NonPhysicalStatus">Превышено предельное усилие</system:String>
+    <system:String x:Key="MomentCurvature_PhysicalStatus">В пределах предельного усилия</system:String>
     <system:String x:Key="MomentCurvature_PlotCurvatureXTitle">Кривизна κy — момент Mx</system:String>
     <system:String x:Key="MomentCurvature_PlotCurvatureYTitle">Кривизна κz — момент My</system:String>
     <system:String x:Key="MomentCurvature_PlotStiffnessNTitle">N — коэффициент к начальной жёсткости</system:String>

@@ -28,8 +28,32 @@ public class BiaxialCurvatureCurveSolverTests
         var flagged = withPsi.Points.Where(p => p.NonPhysical).ToList();
         if (flagged.Count > 0)
         {
-            Assert.True(flagged.Any(p => Math.Abs(p.Mx) > Math.Abs(withPsi.UltimateReference!.Mx) - 1e-6));
+            Assert.Contains(flagged, p => Math.Abs(p.Mx) > Math.Abs(withPsi.UltimateReference!.Mx) - 1e-6);
         }
+    }
+
+    [Fact]
+    public void Compute_UsePsiTrue_MarksPointWhenEitherMomentComponentExceedsReference()
+    {
+        var section = TestSections.Example47();
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N);
+
+        var result = solver.Compute(0.0, -60.0, -20.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.NotNull(result.UltimateReference);
+        var reference = result.UltimateReference!;
+        var overLimit = result.Points.Where(p => p.Converged &&
+            (Math.Abs(p.Mx) > Math.Abs(reference.Mx) || Math.Abs(p.My) > Math.Abs(reference.My)))
+            .ToList();
+
+        Assert.NotEmpty(overLimit);
+        Assert.All(overLimit, point => Assert.True(point.NonPhysical));
+        Assert.All(result.Points.Where(p => p.Converged), point =>
+        {
+            bool exceeds = Math.Abs(point.Mx) > Math.Abs(reference.Mx) ||
+                           Math.Abs(point.My) > Math.Abs(reference.My);
+            Assert.Equal(exceeds, point.NonPhysical);
+        });
     }
 
     [Fact]

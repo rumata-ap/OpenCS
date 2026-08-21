@@ -55,6 +55,9 @@ public sealed record RebarSeriesResult(
     double[] MomentEps, double[] Eps, double[] MomentEpsFaded, double[] EpsFaded,
     double[] MomentSigma, double[] Sigma, double[] MomentSigmaFaded, double[] SigmaFaded);
 
+/// <summary>Непрерывный фрагмент серии графика с одинаковым физическим статусом точек.</summary>
+public sealed record MomentCurvaturePlotSeries(double[] X, double[] Y);
+
 /// <summary>ViewModel результата задачи «Кривизна-момент (двухплоскостной изгиб)».</summary>
 public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
 {
@@ -84,6 +87,11 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
     public double[] MomentXSeriesFaded { get; private set; } = [];
     public double[] CurvatureZSeriesFaded { get; private set; } = [];
     public double[] MomentYSeriesFaded { get; private set; } = [];
+
+    public IReadOnlyList<MomentCurvaturePlotSeries> CurvatureYSeriesParts { get; private set; } = [];
+    public IReadOnlyList<MomentCurvaturePlotSeries> CurvatureYSeriesFadedParts { get; private set; } = [];
+    public IReadOnlyList<MomentCurvaturePlotSeries> CurvatureZSeriesParts { get; private set; } = [];
+    public IReadOnlyList<MomentCurvaturePlotSeries> CurvatureZSeriesFadedParts { get; private set; } = [];
 
     public double[] NStiffnessAxis { get; private set; } = [];
     public double[] NStiffnessRatio { get; private set; } = [];
@@ -204,6 +212,10 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
                 SplitByNonPhysical(mxRows, r => r.NonPhysical, r => Math.Abs(r.Ky), r => Math.Abs(r.Mx));
             (CurvatureZSeries, MomentYSeries, CurvatureZSeriesFaded, MomentYSeriesFaded) =
                 SplitByNonPhysical(myRows, r => r.NonPhysical, r => Math.Abs(r.Kz), r => Math.Abs(r.My));
+            (CurvatureYSeriesParts, CurvatureYSeriesFadedParts) =
+                SplitByNonPhysicalRuns(mxRows, r => r.NonPhysical, r => Math.Abs(r.Ky), r => Math.Abs(r.Mx));
+            (CurvatureZSeriesParts, CurvatureZSeriesFadedParts) =
+                SplitByNonPhysicalRuns(myRows, r => r.NonPhysical, r => Math.Abs(r.Kz), r => Math.Abs(r.My));
             NStiffnessAxis = nAxis.ToArray();
             NStiffnessRatio = nRatio.ToArray();
             MxStiffnessAxis = mxAxis.ToArray();
@@ -322,6 +334,52 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
             faded.ConvertAll(r => xSel(r)).ToArray(), faded.ConvertAll(r => ySel(r)).ToArray());
     }
 
+    static (IReadOnlyList<MomentCurvaturePlotSeries> physical,
+        IReadOnlyList<MomentCurvaturePlotSeries> nonPhysical) SplitByNonPhysicalRuns<T>(
+        IReadOnlyList<T> rows, Func<T, bool> nonPhysical,
+        Func<T, double> xSel, Func<T, double> ySel)
+    {
+        var physical = new List<MomentCurvaturePlotSeries>();
+        var nonPhysicalParts = new List<MomentCurvaturePlotSeries>();
+        if (rows.Count == 0) return (physical, nonPhysicalParts);
+
+        if (rows.Count == 1)
+        {
+            AddRun(nonPhysical(rows[0]), [rows[0]]);
+            return (physical, nonPhysicalParts);
+        }
+
+        var run = new List<T> { rows[0], rows[1] };
+        bool runNonPhysical = nonPhysical(rows[0]) || nonPhysical(rows[1]);
+        for (int i = 2; i < rows.Count; i++)
+        {
+            bool segmentNonPhysical = nonPhysical(rows[i - 1]) || nonPhysical(rows[i]);
+            if (segmentNonPhysical != runNonPhysical)
+            {
+                AddRun(runNonPhysical, run);
+
+                // Общая граничная точка сохраняет геометрию перехода между цветами.
+                run = [rows[i - 1], rows[i]];
+                runNonPhysical = segmentNonPhysical;
+            }
+            else
+            {
+                run.Add(rows[i]);
+            }
+        }
+        AddRun(runNonPhysical, run);
+
+        return (physical, nonPhysicalParts);
+
+        void AddRun(bool isNonPhysical, List<T> points)
+        {
+            var series = new MomentCurvaturePlotSeries(
+                points.ConvertAll(x => xSel(x)).ToArray(),
+                points.ConvertAll(y => ySel(y)).ToArray());
+            (isNonPhysical ? nonPhysicalParts : physical).Add(series);
+        }
+    }
+
     static MomentCurvatureBiaxialPointRow? TryParseControlPoint(JsonElement root, string key)
     {
         if (!root.TryGetProperty(key, out var el) || el.ValueKind != JsonValueKind.Object) return null;
@@ -356,6 +414,11 @@ public sealed class MomentCurvatureBiaxialPointRow
     public bool Converged { get; init; }
     public bool PsiActive { get; init; }
     public bool NonPhysical { get; init; }
+
+    /// <summary>Локализованный статус превышения эталонного предельного усилия.</summary>
+    public string LimitStatusText => NonPhysical
+        ? Loc.S("MomentCurvature_NonPhysicalStatus")
+        : Loc.S("MomentCurvature_PhysicalStatus");
 
     public static MomentCurvatureBiaxialPointRow Parse(JsonElement p) => new()
     {
