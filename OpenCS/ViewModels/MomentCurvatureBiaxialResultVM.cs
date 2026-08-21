@@ -1,12 +1,59 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Text.Json;
 using System.Windows.Media;
 using CScore;
 using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
+
+/// <summary>Один выбираемый стержень (точечное волокно арматуры) для графиков деформация/напряжение-момент.</summary>
+public sealed class RebarOption : ViewModelBase
+{
+    /// <summary>Порядковый номер стержня (сквозная нумерация по всем областям, как в StrainSummaryVM).</summary>
+    public int Index { get; }
+    public string Label { get; }
+    public Brush ColorBrush { get; }
+    internal Fiber Fiber { get; }
+
+    bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value) return;
+            _isSelected = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public RebarOption(int index, Fiber fiber, string label, string colorHex)
+    {
+        Index = index;
+        Fiber = fiber;
+        Label = label;
+        var brush = (SolidColorBrush)new BrushConverter().ConvertFromString(colorHex)!;
+        brush.Freeze();
+        ColorBrush = brush;
+    }
+}
+
+/// <summary>Одна точка траектории деформации/напряжения выбранного стержня.</summary>
+public sealed class RebarSeriesPoint
+{
+    public double MomentAbs { get; init; }
+    public double Eps { get; init; }
+    public double SigmaMPa { get; init; }
+    public bool NonPhysical { get; init; }
+}
+
+/// <summary>Готовые для отрисовки серии (физическая + блёклая часть) деформации и напряжения стержня.</summary>
+public sealed record RebarSeriesResult(
+    double[] MomentEps, double[] Eps, double[] MomentEpsFaded, double[] EpsFaded,
+    double[] MomentSigma, double[] Sigma, double[] MomentSigmaFaded, double[] SigmaFaded);
 
 /// <summary>ViewModel результата задачи «Кривизна-момент (двухплоскостной изгиб)».</summary>
 public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
@@ -21,6 +68,7 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
     public bool HasMx { get; }
     public bool HasMy { get; }
     public bool UsePsi { get; }
+    public string UsePsiText => UsePsi ? Loc.S("MomentCurvature_Yes") : Loc.S("MomentCurvature_No");
     public string NModeText { get; } = "";
 
     public ObservableCollection<MomentCurvatureBiaxialPointRow> Rows { get; } = [];
@@ -49,11 +97,28 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
     public MomentCurvatureBiaxialPointRow? Yield { get; private set; }
     public MomentCurvatureBiaxialPointRow? Ultimate { get; private set; }
 
-    public MomentCurvatureBiaxialResultVM(CalcResult result)
+    readonly CrossSection? _section;
+    readonly CalcType _calcType;
+
+    /// <summary>Палитра для наложения кривых нескольких стержней (matplotlib tab10).</summary>
+    static readonly string[] RebarPalette =
+    [
+        "#1F77B4", "#FF7F0E", "#2CA02C", "#D62728", "#9467BD",
+        "#8C564B", "#E377C2", "#7F7F7F", "#BCBD22", "#17BECF"
+    ];
+
+    public ObservableCollection<RebarOption> RebarOptions { get; } = [];
+    public bool HasRebarData => RebarOptions.Count > 0;
+
+    public MomentCurvatureBiaxialResultVM(CalcResult result, CrossSection? section = null,
+        CalcType calcType = CalcType.C, CalcSettings? settings = null,
+        IReadOnlyList<Diagramm>? diagramPool = null)
     {
         ArgumentNullException.ThrowIfNull(result);
         TaskTag = result.TaskTag;
         CreatedText = result.Created;
+        _section = section;
+        _calcType = calcType;
 
         if (result.Status == "error")
         {
@@ -136,9 +201,9 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
             Ultimate = TryParseControlPoint(root, "ultimate");
 
             (CurvatureYSeries, MomentXSeries, CurvatureYSeriesFaded, MomentXSeriesFaded) =
-                SplitByNonPhysical(mxRows, r => Math.Abs(r.Ky), r => Math.Abs(r.Mx));
+                SplitByNonPhysical(mxRows, r => r.NonPhysical, r => Math.Abs(r.Ky), r => Math.Abs(r.Mx));
             (CurvatureZSeries, MomentYSeries, CurvatureZSeriesFaded, MomentYSeriesFaded) =
-                SplitByNonPhysical(myRows, r => Math.Abs(r.Kz), r => Math.Abs(r.My));
+                SplitByNonPhysical(myRows, r => r.NonPhysical, r => Math.Abs(r.Kz), r => Math.Abs(r.My));
             NStiffnessAxis = nAxis.ToArray();
             NStiffnessRatio = nRatio.ToArray();
             MxStiffnessAxis = mxAxis.ToArray();
@@ -167,13 +232,85 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
             StatusText = Loc.S("CalcResultErrorLabel");
             StatusBrush = Brushes.Firebrick;
         }
+
+        if (section != null)
+            BuildRebarOptions(section, settings, diagramPool);
     }
 
-    static (double[] x, double[] y, double[] xFaded, double[] yFaded) SplitByNonPhysical(
-        List<MomentCurvatureBiaxialPointRow> rows,
-        Func<MomentCurvatureBiaxialPointRow, double> xSel, Func<MomentCurvatureBiaxialPointRow, double> ySel)
+    void BuildRebarOptions(CrossSection section, CalcSettings? settings, IReadOnlyList<Diagramm>? diagramPool)
     {
-        int firstFlagged = rows.FindIndex(r => r.NonPhysical);
+        try
+        {
+            var actualSettings = settings ?? CalcSettings.Default;
+            section.ResolveAndBuildDiagramms(actualSettings.Sp63DescEtaMin,
+                pool: diagramPool, rebarDifferentialDiagram: actualSettings.RebarDifferentialDiagram);
+
+            var zero = new Kurvature { e0 = 0, ky = 0, kz = 0 };
+            int index = 1;
+            foreach (var (area, _) in section.EnumerateAreas(zero))
+                foreach (var fiber in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
+                {
+                    string tag = string.IsNullOrWhiteSpace(area.Tag) ? Loc.S("MomentCurvature_RebarDefaultTag") : area.Tag;
+                    string label = $"№{index} ({fiber.X * 1000:0.#}; {fiber.Y * 1000:0.#})  мм — {tag}";
+                    RebarOptions.Add(new RebarOption(index, fiber, label, RebarPalette[(index - 1) % RebarPalette.Length]));
+                    index++;
+                }
+        }
+        catch
+        {
+            RebarOptions.Clear();
+        }
+    }
+
+    /// <summary>Строит траекторию деформации/напряжения выбранного стержня по уже посчитанным
+    /// точкам кривой (E0/Ky/Kz) — солвер и JSON-контракт задачи не меняются.</summary>
+    public RebarSeriesResult? BuildRebarSeries(RebarOption option, bool useMx)
+    {
+        if (_section == null) return null;
+
+        var points = new List<RebarSeriesPoint>();
+        foreach (var row in Rows)
+        {
+            if (!row.Converged) continue;
+            var k = new Kurvature { e0 = row.E0, ky = row.Ky, kz = row.Kz };
+            bool ten = row.Segment <= 2;
+            _section.SetEps(k, _calcType, ten, true);
+            points.Add(new RebarSeriesPoint
+            {
+                MomentAbs = Math.Abs(useMx ? row.Mx : row.My),
+                Eps = option.Fiber.Eps,
+                SigmaMPa = option.Fiber.Sig / 1000.0,
+                NonPhysical = row.NonPhysical
+            });
+        }
+        if (points.Count < 2) return null;
+
+        var (momentEps, eps, momentEpsFaded, epsFaded) =
+            SplitByNonPhysical(points, p => p.NonPhysical, p => p.MomentAbs, p => p.Eps);
+        var (momentSigma, sigma, momentSigmaFaded, sigmaFaded) =
+            SplitByNonPhysical(points, p => p.NonPhysical, p => p.MomentAbs, p => p.SigmaMPa);
+
+        return new RebarSeriesResult(
+            momentEps, eps, momentEpsFaded, epsFaded,
+            momentSigma, sigma, momentSigmaFaded, sigmaFaded);
+    }
+
+    /// <summary>Деформация/напряжение выбранного стержня в одной контрольной точке (трещина/текучесть/предел).</summary>
+    public (double momentAbs, double eps, double sigmaMPa)? RebarValueAt(
+        RebarOption option, MomentCurvatureBiaxialPointRow? point, bool useMx)
+    {
+        if (_section == null || point == null) return null;
+        var k = new Kurvature { e0 = point.E0, ky = point.Ky, kz = point.Kz };
+        bool ten = point.Segment <= 2;
+        _section.SetEps(k, _calcType, ten, true);
+        return (Math.Abs(useMx ? point.Mx : point.My), option.Fiber.Eps, option.Fiber.Sig / 1000.0);
+    }
+
+    static (double[] x, double[] y, double[] xFaded, double[] yFaded) SplitByNonPhysical<T>(
+        List<T> rows, Func<T, bool> nonPhysical,
+        Func<T, double> xSel, Func<T, double> ySel)
+    {
+        int firstFlagged = rows.FindIndex(r => nonPhysical(r));
         if (firstFlagged < 0)
             return (rows.ConvertAll(r => xSel(r)).ToArray(), rows.ConvertAll(r => ySel(r)).ToArray(), [], []);
 

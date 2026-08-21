@@ -2453,4 +2453,18 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_AxisMomentY">My, kN·m</system:String>
     <system:String x:Key="MomentCurvature_AxisN">N, kN</system:String>
     <system:String x:Key="MomentCurvature_AxisStiffnessRatio">B/B0</system:String>
+    <system:String x:Key="MomentCurvature_TabRebarStrain">Rebar strain</system:String>
+    <system:String x:Key="MomentCurvature_TabRebarStress">Rebar stress</system:String>
+    <system:String x:Key="MomentCurvature_RebarDefaultTag">Rebar</system:String>
+    <system:String x:Key="MomentCurvature_RebarPickerHeader">Bars</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStrainXTitle">Rebar strain — moment Mx</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStrainYTitle">Rebar strain — moment My</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStressXTitle">Rebar stress — moment Mx</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStressYTitle">Rebar stress — moment My</system:String>
+    <system:String x:Key="MomentCurvature_AxisRebarStrain">εs</system:String>
+    <system:String x:Key="MomentCurvature_AxisRebarStress">σs, MPa</system:String>
+    <system:String x:Key="MomentCurvature_SubTabMx">Mx</system:String>
+    <system:String x:Key="MomentCurvature_SubTabMy">My</system:String>
+    <system:String x:Key="MomentCurvature_Yes">Yes</system:String>
+    <system:String x:Key="MomentCurvature_No">No</system:String>
   </ResourceDictionary>

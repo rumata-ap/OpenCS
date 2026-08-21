@@ -5,37 +5,38 @@
    <Grid Margin="14">
       <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/>
-         <RowDefinition Height="Auto"/>
          <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
-      <StackPanel Grid.Row="0" Margin="0,0,0,10">
-         <StackPanel Orientation="Horizontal">
-            <TextBlock Text="{Binding TaskTag}" FontSize="16" FontWeight="SemiBold" Margin="0,0,10,0"/>
-            <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
-         </StackPanel>
-         <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,2,0,0"/>
-      </StackPanel>
-
-      <Grid Grid.Row="1" Margin="0,0,0,12">
+      <Grid Grid.Row="0" Margin="0,0,0,12">
          <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
          </Grid.ColumnDefinitions>
-         <Border Grid.Column="0" BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" BorderThickness="1" Padding="10,8" Margin="0,0,6,0">
+
+         <StackPanel Grid.Column="0" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal">
+               <TextBlock Text="{Binding TaskTag}" FontSize="16" FontWeight="SemiBold" Margin="0,0,10,0"/>
+               <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            </StackPanel>
+            <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,2,0,0"/>
+         </StackPanel>
+
+         <Border Grid.Column="1" Width="160" BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" BorderThickness="1" Padding="10,8" Margin="6,0,0,0">
             <StackPanel>
                <TextBlock Text="{DynamicResource MomentCurvature_NModeLabel}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="11"/>
                <TextBlock Text="{Binding NModeText}" FontWeight="SemiBold" FontSize="15" Margin="0,4,0,0"/>
             </StackPanel>
          </Border>
-         <Border Grid.Column="1" BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" BorderThickness="1" Padding="10,8" Margin="0,0,6,0">
+         <Border Grid.Column="2" Width="160" BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" BorderThickness="1" Padding="10,8" Margin="6,0,0,0">
             <StackPanel>
                <TextBlock Text="{DynamicResource MomentCurvature_UsePsiLabel}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="11"/>
-               <TextBlock Text="{Binding UsePsi}" FontWeight="SemiBold" FontSize="15" Margin="0,4,0,0"/>
+               <TextBlock Text="{Binding UsePsiText}" FontWeight="SemiBold" FontSize="15" Margin="0,4,0,0"/>
             </StackPanel>
          </Border>
-         <Border Grid.Column="2" BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" BorderThickness="1" Padding="10,8">
+         <Border Grid.Column="3" Width="160" BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" BorderThickness="1" Padding="10,8" Margin="6,0,0,0">
             <StackPanel>
                <TextBlock Text="{DynamicResource MomentCurvature_ConvergedCountLabel}" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" FontSize="11"/>
                <TextBlock Text="{Binding ConvergedCountText}" FontWeight="SemiBold" FontSize="15" Margin="0,4,0,0"/>
@@ -43,7 +44,7 @@
          </Border>
       </Grid>
 
-      <TabControl Grid.Row="2">
+      <TabControl Grid.Row="1">
          <TabItem Header="{DynamicResource MomentCurvature_TabCurvatureX}"
                    Visibility="{Binding HasMx, Converter={StaticResource BoolToVisibility}}">
             <h:PlotCanvas x:Name="CurvatureMomentXPlot"/>
@@ -62,6 +63,74 @@
          <TabItem Header="{DynamicResource MomentCurvature_TabStiffnessY}"
                    Visibility="{Binding HasMy, Converter={StaticResource BoolToVisibility}}">
             <h:PlotCanvas x:Name="StiffnessMyPlot"/>
+         </TabItem>
+         <TabItem Header="{DynamicResource MomentCurvature_TabRebarStrain}"
+                   Visibility="{Binding HasRebarData, Converter={StaticResource BoolToVisibility}}">
+            <Grid>
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="260"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <DockPanel Grid.Column="0" Margin="0,0,8,0">
+                  <TextBlock DockPanel.Dock="Top" Text="{DynamicResource MomentCurvature_RebarPickerHeader}"
+                             FontWeight="SemiBold" Margin="0,0,0,4"/>
+                  <ListBox x:Name="RebarStrainList" ItemsSource="{Binding RebarOptions}" BorderThickness="1">
+                     <ListBox.ItemTemplate>
+                        <DataTemplate>
+                           <StackPanel Orientation="Horizontal" Margin="2">
+                              <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center"/>
+                              <Border Background="{Binding ColorBrush}" Width="12" Height="12" Margin="6,0,6,0"/>
+                              <TextBlock Text="{Binding Label}" VerticalAlignment="Center" FontSize="12"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </ListBox.ItemTemplate>
+                  </ListBox>
+               </DockPanel>
+               <TabControl Grid.Column="1" TabStripPlacement="Bottom">
+                  <TabItem Header="{DynamicResource MomentCurvature_SubTabMx}"
+                            Visibility="{Binding HasMx, Converter={StaticResource BoolToVisibility}}">
+                     <h:PlotCanvas x:Name="RebarStrainMxPlot"/>
+                  </TabItem>
+                  <TabItem Header="{DynamicResource MomentCurvature_SubTabMy}"
+                            Visibility="{Binding HasMy, Converter={StaticResource BoolToVisibility}}">
+                     <h:PlotCanvas x:Name="RebarStrainMyPlot"/>
+                  </TabItem>
+               </TabControl>
+            </Grid>
+         </TabItem>
+         <TabItem Header="{DynamicResource MomentCurvature_TabRebarStress}"
+                   Visibility="{Binding HasRebarData, Converter={StaticResource BoolToVisibility}}">
+            <Grid>
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="260"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <DockPanel Grid.Column="0" Margin="0,0,8,0">
+                  <TextBlock DockPanel.Dock="Top" Text="{DynamicResource MomentCurvature_RebarPickerHeader}"
+                             FontWeight="SemiBold" Margin="0,0,0,4"/>
+                  <ListBox x:Name="RebarStressList" ItemsSource="{Binding RebarOptions}" BorderThickness="1">
+                     <ListBox.ItemTemplate>
+                        <DataTemplate>
+                           <StackPanel Orientation="Horizontal" Margin="2">
+                              <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center"/>
+                              <Border Background="{Binding ColorBrush}" Width="12" Height="12" Margin="6,0,6,0"/>
+                              <TextBlock Text="{Binding Label}" VerticalAlignment="Center" FontSize="12"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </ListBox.ItemTemplate>
+                  </ListBox>
+               </DockPanel>
+               <TabControl Grid.Column="1" TabStripPlacement="Bottom">
+                  <TabItem Header="{DynamicResource MomentCurvature_SubTabMx}"
+                            Visibility="{Binding HasMx, Converter={StaticResource BoolToVisibility}}">
+                     <h:PlotCanvas x:Name="RebarStressMxPlot"/>
+                  </TabItem>
+                  <TabItem Header="{DynamicResource MomentCurvature_SubTabMy}"
+                            Visibility="{Binding HasMy, Converter={StaticResource BoolToVisibility}}">
+                     <h:PlotCanvas x:Name="RebarStressMyPlot"/>
+                  </TabItem>
+               </TabControl>
+            </Grid>
          </TabItem>
          <TabItem Header="{DynamicResource MomentCurvature_TabPoints}">
             <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" RowHeight="26">

@@ -15,11 +15,16 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
     readonly WpfPlotService _stiffnessNPlot;
     readonly WpfPlotService _stiffnessMxPlot;
     readonly WpfPlotService _stiffnessMyPlot;
+    readonly WpfPlotService _rebarStrainMxPlot;
+    readonly WpfPlotService _rebarStrainMyPlot;
+    readonly WpfPlotService _rebarStressMxPlot;
+    readonly WpfPlotService _rebarStressMyPlot;
 
     public MomentCurvatureBiaxialResultView(CalcResult result, AppViewModel app, CalcTask task)
     {
         InitializeComponent();
-        _viewModel = new MomentCurvatureBiaxialResultVM(result);
+        var section = app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId);
+        _viewModel = new MomentCurvatureBiaxialResultVM(result, section, task.CalcType, app.CalcSettings, app.Diagrams);
         DataContext = _viewModel;
 
         _curvatureXPlot = new WpfPlotService(CurvatureMomentXPlot);
@@ -27,6 +32,10 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
         _stiffnessNPlot = new WpfPlotService(StiffnessNPlot);
         _stiffnessMxPlot = new WpfPlotService(StiffnessMxPlot);
         _stiffnessMyPlot = new WpfPlotService(StiffnessMyPlot);
+        _rebarStrainMxPlot = new WpfPlotService(RebarStrainMxPlot);
+        _rebarStrainMyPlot = new WpfPlotService(RebarStrainMyPlot);
+        _rebarStressMxPlot = new WpfPlotService(RebarStressMxPlot);
+        _rebarStressMyPlot = new WpfPlotService(RebarStressMyPlot);
 
         // Опорные линии начала координат (X/Y) мешают чтению графиков — данные здесь
         // всегда в одном (положительном) квадранте, отдельная разметка нуля избыточна.
@@ -35,6 +44,14 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
         _stiffnessNPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
         _stiffnessMxPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
         _stiffnessMyPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+        _rebarStrainMxPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+        _rebarStrainMyPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+        _rebarStressMxPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+        _rebarStressMyPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+
+        // Перерисовка при переключении чекбоксов стержней (общая коллекция для обеих вкладок).
+        foreach (var option in _viewModel.RebarOptions)
+            option.PropertyChanged += (_, _) => Redraw();
 
         Loaded += (_, _) => Redraw();
     }
@@ -110,6 +127,70 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
                 _stiffnessMyPlot.AddScatter(_viewModel.MyStiffnessAxis, _viewModel.MyStiffnessRatio, color: "#548235");
             _stiffnessMyPlot.Refresh();
         }
+
+        var selected = _viewModel.RebarOptions.Where(o => o.IsSelected).ToList();
+
+        if (_viewModel.HasMx)
+        {
+            RedrawRebarPlot(_rebarStrainMxPlot, selected, useMx: true, useStress: false,
+                title: Loc.S("MomentCurvature_PlotRebarStrainXTitle"), xLabel: Loc.S("MomentCurvature_AxisRebarStrain"),
+                yLabel: Loc.S("MomentCurvature_AxisMomentX"));
+            RedrawRebarPlot(_rebarStressMxPlot, selected, useMx: true, useStress: true,
+                title: Loc.S("MomentCurvature_PlotRebarStressXTitle"), xLabel: Loc.S("MomentCurvature_AxisRebarStress"),
+                yLabel: Loc.S("MomentCurvature_AxisMomentX"));
+        }
+
+        if (_viewModel.HasMy)
+        {
+            RedrawRebarPlot(_rebarStrainMyPlot, selected, useMx: false, useStress: false,
+                title: Loc.S("MomentCurvature_PlotRebarStrainYTitle"), xLabel: Loc.S("MomentCurvature_AxisRebarStrain"),
+                yLabel: Loc.S("MomentCurvature_AxisMomentY"));
+            RedrawRebarPlot(_rebarStressMyPlot, selected, useMx: false, useStress: true,
+                title: Loc.S("MomentCurvature_PlotRebarStressYTitle"), xLabel: Loc.S("MomentCurvature_AxisRebarStress"),
+                yLabel: Loc.S("MomentCurvature_AxisMomentY"));
+        }
+    }
+
+    void RedrawRebarPlot(WpfPlotService plot, List<RebarOption> selected, bool useMx, bool useStress,
+        string title, string xLabel, string yLabel)
+    {
+        plot.Clear();
+        plot.SetTitle(title);
+        plot.SetXLabel(xLabel);
+        plot.SetYLabel(yLabel);
+
+        foreach (var option in selected)
+        {
+            var series = _viewModel.BuildRebarSeries(option, useMx);
+            if (series == null) continue;
+
+            string color = ((System.Windows.Media.SolidColorBrush)option.ColorBrush).Color.ToString();
+            var (mainMoment, mainValue, fadedMoment, fadedValue) = useStress
+                ? (series.MomentSigma, series.Sigma, series.MomentSigmaFaded, series.SigmaFaded)
+                : (series.MomentEps, series.Eps, series.MomentEpsFaded, series.EpsFaded);
+
+            // Деформация/напряжение — ось X, момент — ось Y (по просьбе пользователя).
+            if (mainMoment.Length > 1)
+                plot.AddScatter(mainValue, mainMoment, color: color);
+            if (fadedMoment.Length > 1)
+                plot.AddScatter(fadedValue, fadedMoment, color: "#BFBFBF");
+
+            AddRebarControlMarker(plot, option, _viewModel.Cracking, useMx, useStress, color);
+            AddRebarControlMarker(plot, option, _viewModel.CrackTransition, useMx, useStress, color);
+            AddRebarControlMarker(plot, option, _viewModel.Yield, useMx, useStress, color);
+            AddRebarControlMarker(plot, option, _viewModel.Ultimate, useMx, useStress, color);
+        }
+
+        plot.Refresh();
+    }
+
+    void AddRebarControlMarker(WpfPlotService plot, RebarOption option, MomentCurvatureBiaxialPointRow? point,
+        bool useMx, bool useStress, string color)
+    {
+        var value = _viewModel.RebarValueAt(option, point, useMx);
+        if (value == null) return;
+        double x = useStress ? value.Value.sigmaMPa : value.Value.eps;
+        plot.AddMarkers([x], [value.Value.momentAbs], markerSize: 7, color: color);
     }
 
     static (List<MomentCurvatureBiaxialPointRow> Main, List<MomentCurvatureBiaxialPointRow> Auxiliary)

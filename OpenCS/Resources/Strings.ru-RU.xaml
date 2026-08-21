@@ -2456,4 +2456,18 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_AxisMomentY">My, кН·м</system:String>
     <system:String x:Key="MomentCurvature_AxisN">N, кН</system:String>
     <system:String x:Key="MomentCurvature_AxisStiffnessRatio">B/B0</system:String>
+    <system:String x:Key="MomentCurvature_TabRebarStrain">Деформации арматуры</system:String>
+    <system:String x:Key="MomentCurvature_TabRebarStress">Напряжения арматуры</system:String>
+    <system:String x:Key="MomentCurvature_RebarDefaultTag">Арматура</system:String>
+    <system:String x:Key="MomentCurvature_RebarPickerHeader">Стержни</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStrainXTitle">Деформация арматуры — момент Mx</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStrainYTitle">Деформация арматуры — момент My</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStressXTitle">Напряжение арматуры — момент Mx</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStressYTitle">Напряжение арматуры — момент My</system:String>
+    <system:String x:Key="MomentCurvature_AxisRebarStrain">εs</system:String>
+    <system:String x:Key="MomentCurvature_AxisRebarStress">σs, МПа</system:String>
+    <system:String x:Key="MomentCurvature_SubTabMx">Mx</system:String>
+    <system:String x:Key="MomentCurvature_SubTabMy">My</system:String>
+    <system:String x:Key="MomentCurvature_Yes">Да</system:String>
+    <system:String x:Key="MomentCurvature_No">Нет</system:String>
   </ResourceDictionary>
