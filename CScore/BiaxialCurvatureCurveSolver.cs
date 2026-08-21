@@ -213,6 +213,7 @@ public sealed class BiaxialCurvatureCurveSolver
                 hDiff: _solverH, newtonMaxIter: _solverMaxIter);
             result.Points.AddRange(BuildCompressionSweep(
                 compressionPinNoCrack, N0, Mx0, My0, nMode, zeroPoint, epsCompressAtZero, epsCompressAtUlt, single));
+            MarkNonPhysicalPoints(result);
             result.Status = "ok";
             return result;
         }
@@ -370,6 +371,7 @@ public sealed class BiaxialCurvatureCurveSolver
                 startPoint: seg4StartPoint, endpoint: ultimatePoint, flagReference: ultimateReference, usePsi: usePsi);
         result.Points.AddRange(seg4);
         result.Ultimate = ultimatePoint;
+        MarkNonPhysicalPoints(result);
 
         result.Status = result.Ultimate is { Converged: true } ? "ok" : "partial";
         return result;
@@ -442,7 +444,7 @@ public sealed class BiaxialCurvatureCurveSolver
             _cancellationToken.ThrowIfCancellationRequested();
         }
 
-        points.Add(endpoint);
+        points.Add(FlagNonPhysical(endpoint, flagReference, usePsi));
         return points;
     }
 
@@ -595,7 +597,7 @@ public sealed class BiaxialCurvatureCurveSolver
                 }));
                 _cancellationToken.ThrowIfCancellationRequested();
             }
-            points.Add(endpoint);
+            points.Add(Flag(endpoint));
             return points;
         }
 
@@ -614,7 +616,7 @@ public sealed class BiaxialCurvatureCurveSolver
             }));
             _cancellationToken.ThrowIfCancellationRequested();
         }
-        points.Add(endpoint);
+        points.Add(Flag(endpoint));
         return points;
     }
 
@@ -644,6 +646,15 @@ public sealed class BiaxialCurvatureCurveSolver
                 point.NonPhysical = true;
         }
         return point;
+    }
+
+    void MarkNonPhysicalPoints(BiaxialCurvatureCurveResult result)
+    {
+        if (!result.UsePsi || result.UltimateReference is not { Converged: true } reference)
+            return;
+
+        foreach (var point in result.Points)
+            FlagNonPhysical(point, reference, usePsi: true);
     }
 
     /// <summary>

@@ -134,6 +134,15 @@
          </TabItem>
          <TabItem Header="{DynamicResource MomentCurvature_TabPoints}">
             <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" RowHeight="26">
+               <DataGrid.RowStyle>
+                  <Style TargetType="DataGridRow">
+                     <Style.Triggers>
+                        <DataTrigger Binding="{Binding NonPhysical}" Value="True">
+                           <Setter Property="Foreground" Value="#BFBFBF"/>
+                        </DataTrigger>
+                     </Style.Triggers>
+                  </Style>
+               </DataGrid.RowStyle>
                <DataGrid.Columns>
                   <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColSegment}" Binding="{Binding Segment}" Width="70"/>
                   <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColN}" Binding="{Binding N, StringFormat={}{0:0.###}}" Width="90"/>
@@ -142,7 +151,7 @@
                   <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColKy}" Binding="{Binding Ky, StringFormat={}{0:0.#####}}" Width="110"/>
                   <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColKz}" Binding="{Binding Kz, StringFormat={}{0:0.#####}}" Width="110"/>
                   <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColConverged}" Binding="{Binding Converged}" Width="90"/>
-                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColClipped}" Binding="{Binding Clipped}" Width="*"/>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColLimitStatus}" Binding="{Binding LimitStatusText}" Width="*"/>
                </DataGrid.Columns>
             </DataGrid>
          </TabItem>

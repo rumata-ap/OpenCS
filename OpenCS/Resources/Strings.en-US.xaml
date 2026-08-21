@@ -2442,7 +2442,9 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_ColKy">κy, 1/m</system:String>
     <system:String x:Key="MomentCurvature_ColKz">κz, 1/m</system:String>
     <system:String x:Key="MomentCurvature_ColConverged">Converged</system:String>
-    <system:String x:Key="MomentCurvature_ColClipped">Clipped</system:String>
+    <system:String x:Key="MomentCurvature_ColLimitStatus">Ultimate force status</system:String>
+    <system:String x:Key="MomentCurvature_NonPhysicalStatus">Ultimate force exceeded</system:String>
+    <system:String x:Key="MomentCurvature_PhysicalStatus">Within ultimate force</system:String>
     <system:String x:Key="MomentCurvature_PlotCurvatureXTitle">Curvature κy — moment Mx</system:String>
     <system:String x:Key="MomentCurvature_PlotCurvatureYTitle">Curvature κz — moment My</system:String>
     <system:String x:Key="MomentCurvature_PlotStiffnessNTitle">N — ratio to initial stiffness</system:String>
