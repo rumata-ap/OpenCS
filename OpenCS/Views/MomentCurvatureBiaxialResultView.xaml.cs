@@ -1,5 +1,8 @@
 using System.Windows.Controls;
+using System.IO;
+using System.Windows;
 using CScore;
+using Microsoft.Win32;
 using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
@@ -21,10 +24,12 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
     readonly WpfPlotService _rebarStrainMyPlot;
     readonly WpfPlotService _rebarStressMxPlot;
     readonly WpfPlotService _rebarStressMyPlot;
+    readonly AppViewModel _app;
 
     public MomentCurvatureBiaxialResultView(CalcResult result, AppViewModel app, CalcTask task)
     {
         InitializeComponent();
+        _app = app;
         var section = app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId);
         _viewModel = new MomentCurvatureBiaxialResultVM(result, section, task.CalcType, app.CalcSettings, app.Diagrams);
         DataContext = _viewModel;
@@ -38,6 +43,7 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
         _rebarStrainMyPlot = new WpfPlotService(RebarStrainMyPlot);
         _rebarStressMxPlot = new WpfPlotService(RebarStressMxPlot);
         _rebarStressMyPlot = new WpfPlotService(RebarStressMyPlot);
+        ConfigureExportMenus();
 
         // Опорные линии начала координат (X/Y) мешают чтению графиков — данные здесь
         // всегда в одном (положительном) квадранте, отдельная разметка нуля избыточна.
@@ -55,7 +61,60 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
         foreach (var option in _viewModel.RebarOptions)
             option.PropertyChanged += (_, _) => Redraw();
 
+        // Селектор режима общий для вкладок деформаций и напряжений — перерисовываем обе.
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MomentCurvatureBiaxialResultVM.SelectedRebarStressMode))
+                Redraw();
+        };
+
         Loaded += (_, _) => Redraw();
+    }
+
+    /// <summary>Подключает единое контекстное меню экспорта ко всем графикам результата.</summary>
+    void ConfigureExportMenus()
+    {
+        CurvatureMomentXPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_curvature_mx.png", exportCsv: ExportPointsCsv);
+        CurvatureMomentYPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_curvature_my.png", exportCsv: ExportPointsCsv);
+        StiffnessNPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_stiffness_n.png");
+        StiffnessMxPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_stiffness_mx.png");
+        StiffnessMyPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_stiffness_my.png");
+        RebarStrainMxPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_rebar_strain_mx.png");
+        RebarStrainMyPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_rebar_strain_my.png");
+        RebarStressMxPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_rebar_stress_mx.png");
+        RebarStressMyPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_rebar_stress_my.png");
+    }
+
+    /// <summary>Экспортирует полный набор расчётных точек κ–M с глобальными настройками CSV.</summary>
+    void ExportPointsCsv()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = Loc.S("PlotCsvFilter"),
+            DefaultExt = ".csv",
+            FileName = $"{_viewModel.TaskTag}_moment_curvature_points.csv"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            string[] headers =
+            [
+                Loc.S("MomentCurvature_ColSegment"), Loc.S("MomentCurvature_ColN"),
+                Loc.S("MomentCurvature_ColMx"), Loc.S("MomentCurvature_ColMy"),
+                Loc.S("MomentCurvature_ColE0"), Loc.S("MomentCurvature_CsvColKy"),
+                Loc.S("MomentCurvature_CsvColKz"), Loc.S("MomentCurvature_ColConverged"),
+                Loc.S("MomentCurvature_CsvColPsiActive"), Loc.S("MomentCurvature_ColNonPhysical")
+            ];
+            using var writer = new StreamWriter(dialog.FileName, false,
+                MomentCurvatureCsvExporter.ResolveEncoding(_app.CsvSettings.Encoding));
+            MomentCurvatureCsvExporter.Write(writer, _viewModel.Rows, _app.CsvSettings, headers);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(string.Format(Loc.S("PlotExportError"), ex.Message), Loc.S("Error"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     void Redraw()

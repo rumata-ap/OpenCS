@@ -208,7 +208,14 @@
    <!-- DiagramPage -->
    <system:String x:Key="Chart">График</system:String>
    <system:String x:Key="Data">Данные</system:String>
-   <system:String x:Key="ExportCsv">Экспорт в CSV...</system:String>
+    <system:String x:Key="ExportCsv">Экспорт в CSV...</system:String>
+    <system:String x:Key="PlotCopy">Копировать график</system:String>
+    <system:String x:Key="PlotSavePng">Сохранить PNG...</system:String>
+    <system:String x:Key="PlotExportCsv">Экспорт точек CSV...</system:String>
+    <system:String x:Key="PlotCopyFailed">Не удалось скопировать график в буфер обмена.</system:String>
+    <system:String x:Key="PlotExportError">Не удалось выполнить экспорт: {0}</system:String>
+    <system:String x:Key="PlotPngFilter">Изображение PNG (*.png)|*.png</system:String>
+    <system:String x:Key="PlotCsvFilter">Файл CSV (*.csv)|*.csv</system:String>
    <system:String x:Key="Close">Закрыть</system:String>
 
    <!-- DiagramSelectWindow -->
@@ -2444,6 +2451,11 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_ColMy">My, кН·м</system:String>
     <system:String x:Key="MomentCurvature_ColKy">κy, 1/м</system:String>
     <system:String x:Key="MomentCurvature_ColKz">κz, 1/м</system:String>
+    <system:String x:Key="MomentCurvature_ColE0">e0</system:String>
+    <system:String x:Key="MomentCurvature_ColPsiActive">ψs активно</system:String>
+    <system:String x:Key="MomentCurvature_CsvColKy">Ky, 1/м</system:String>
+    <system:String x:Key="MomentCurvature_CsvColKz">Kz, 1/м</system:String>
+    <system:String x:Key="MomentCurvature_CsvColPsiActive">Psi_s активно</system:String>
     <system:String x:Key="MomentCurvature_ColConverged">Сошлось</system:String>
     <system:String x:Key="MomentCurvature_ColLimitStatus">Статус предельного усилия</system:String>
     <system:String x:Key="MomentCurvature_NonPhysicalStatus">Превышено предельное усилие</system:String>
@@ -2459,6 +2471,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_AxisN">N, кН</system:String>
     <system:String x:Key="MomentCurvature_AxisStiffnessRatio">B/B0</system:String>
     <system:String x:Key="MomentCurvature_ColNonPhysical">Нефизичная точка</system:String>
+    <system:String x:Key="MomentCurvature_RebarStressModeHeader">Режим отрисовки (ψs)</system:String>
+    <system:String x:Key="MomentCurvature_RebarStressModeAverage">Средняя деформация</system:String>
+    <system:String x:Key="MomentCurvature_RebarStressModeCrack">В трещине, по диаграмме</system:String>
+    <system:String x:Key="MomentCurvature_RebarStressModePsi">В трещине, σ поделено на ψs</system:String>
     <system:String x:Key="MomentCurvature_TabRebarStrain">Деформации арматуры</system:String>
     <system:String x:Key="MomentCurvature_TabRebarStress">Напряжения арматуры</system:String>
     <system:String x:Key="MomentCurvature_RebarDefaultTag">Арматура</system:String>

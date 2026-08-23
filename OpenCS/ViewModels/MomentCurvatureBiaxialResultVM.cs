@@ -9,6 +9,30 @@ using OpenCS.Utilites;
 
 namespace OpenCS.ViewModels;
 
+/// <summary>
+/// Как показывать деформацию/напряжение стержня на графиках, когда ψs учтён в равновесии.
+/// Влияет ТОЛЬКО на отрисовку — решатель и JSON-контракт задачи не зависят от выбора.
+/// </summary>
+public enum RebarStressMode
+{
+    /// <summary>εs из плоскости решения, σ = σ(εs) по диаграмме — средняя деформация участка между трещинами.</summary>
+    AverageStrain,
+
+    /// <summary>εs,crc = εs + 0,8·εcrc (деформация В ТРЕЩИНЕ), σ снимается с диаграммы при ней — то,
+    /// что решатель кладёт в равновесие; ограничено Rs.</summary>
+    CrackStrain,
+
+    /// <summary>εs,crc, но σ = σ(εs)/ψs — буквальная формула п. 8.2.32. За площадкой текучести даёт
+    /// σ &gt; Rs (физически невозможное напряжение), поэтому режим диагностический.</summary>
+    DividedByPsi
+}
+
+/// <summary>Пункт выпадающего списка выбора <see cref="RebarStressMode"/>.</summary>
+public sealed record RebarStressModeOption(RebarStressMode Mode, string Label)
+{
+    public override string ToString() => Label;
+}
+
 /// <summary>Один выбираемый стержень (точечное волокно арматуры) для графиков деформация/напряжение-момент.</summary>
 public sealed class RebarOption : ViewModelBase
 {
@@ -17,6 +41,10 @@ public sealed class RebarOption : ViewModelBase
     public string Label { get; }
     public Brush ColorBrush { get; }
     internal Fiber Fiber { get; }
+
+    /// <summary>Диаграмма σ(ε) области стержня — нужна, чтобы снять напряжение при
+    /// произвольной деформации (режим «в трещине»), а не только при деформации плоскости.</summary>
+    internal Diagramm? Diagram { get; }
 
     bool _isSelected;
     public bool IsSelected
@@ -30,11 +58,12 @@ public sealed class RebarOption : ViewModelBase
         }
     }
 
-    public RebarOption(int index, Fiber fiber, string label, string colorHex)
+    public RebarOption(int index, Fiber fiber, string label, string colorHex, Diagramm? diagram = null)
     {
         Index = index;
         Fiber = fiber;
         Label = label;
+        Diagram = diagram;
         var brush = (SolidColorBrush)new BrushConverter().ConvertFromString(colorHex)!;
         brush.Freeze();
         ColorBrush = brush;
@@ -117,6 +146,29 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
 
     public ObservableCollection<RebarOption> RebarOptions { get; } = [];
     public bool HasRebarData => RebarOptions.Count > 0;
+
+    /// <summary>Режимы отрисовки графиков арматуры. Осмысленны только при <see cref="UsePsi"/>:
+    /// без ψs все три дают одну кривую, поэтому селектор в представлении скрыт.</summary>
+    public IReadOnlyList<RebarStressModeOption> RebarStressModes { get; } =
+    [
+        new(RebarStressMode.AverageStrain, Loc.S("MomentCurvature_RebarStressModeAverage")),
+        new(RebarStressMode.CrackStrain, Loc.S("MomentCurvature_RebarStressModeCrack")),
+        new(RebarStressMode.DividedByPsi, Loc.S("MomentCurvature_RebarStressModePsi")),
+    ];
+
+    RebarStressModeOption? _selectedRebarStressMode;
+
+    /// <summary>Выбранный режим; по умолчанию — средняя деформация (прежнее поведение графиков).</summary>
+    public RebarStressModeOption SelectedRebarStressMode
+    {
+        get => _selectedRebarStressMode ??= RebarStressModes[0];
+        set
+        {
+            if (value == null || Equals(_selectedRebarStressMode, value)) return;
+            _selectedRebarStressMode = value;
+            OnPropertyChanged();
+        }
+    }
 
     public MomentCurvatureBiaxialResultVM(CalcResult result, CrossSection? section = null,
         CalcType calcType = CalcType.C, CalcSettings? settings = null,
@@ -267,7 +319,9 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
                 {
                     string tag = string.IsNullOrWhiteSpace(area.Tag) ? Loc.S("MomentCurvature_RebarDefaultTag") : area.Tag;
                     string label = $"№{index} ({fiber.X * 1000:0.#}; {fiber.Y * 1000:0.#})  мм — {tag}";
-                    RebarOptions.Add(new RebarOption(index, fiber, label, RebarPalette[(index - 1) % RebarPalette.Length]));
+                    RebarOptions.Add(new RebarOption(index, fiber, label,
+                        RebarPalette[(index - 1) % RebarPalette.Length],
+                        area.Diagramms.GetValueOrDefault(_calcType)));
                     index++;
                 }
         }
@@ -283,19 +337,20 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
     {
         if (_section == null) return null;
 
+        double epsCrc = EpsCrcFor(option);
+        var mode = SelectedRebarStressMode.Mode;
+
         var points = new List<RebarSeriesPoint>();
         foreach (var row in Rows)
         {
             if (!row.Converged) continue;
             if (UsePsi && row.Segment == 2) continue;
-            var k = new Kurvature { e0 = row.E0, ky = row.Ky, kz = row.Kz };
-            bool ten = row.Segment <= 2;
-            _section.SetEps(k, _calcType, ten, true);
+            var value = EvaluateRebar(option, row, epsCrc, mode);
             points.Add(new RebarSeriesPoint
             {
                 MomentAbs = Math.Abs(useMx ? row.Mx : row.My),
-                Eps = option.Fiber.Eps,
-                SigmaMPa = option.Fiber.Sig / 1000.0,
+                Eps = value.Eps,
+                SigmaMPa = value.SigmaMPa,
                 NonPhysical = row.NonPhysical
             });
         }
@@ -316,10 +371,55 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
         RebarOption option, MomentCurvatureBiaxialPointRow? point, bool useMx)
     {
         if (_section == null || point == null) return null;
-        var k = new Kurvature { e0 = point.E0, ky = point.Ky, kz = point.Kz };
-        bool ten = point.Segment <= 2;
-        _section.SetEps(k, _calcType, ten, true);
-        return (Math.Abs(useMx ? point.Mx : point.My), option.Fiber.Eps, option.Fiber.Sig / 1000.0);
+        var (eps, sigmaMPa) = EvaluateRebar(option, point, EpsCrcFor(option), SelectedRebarStressMode.Mode);
+        return (Math.Abs(useMx ? point.Mx : point.My), eps, sigmaMPa);
+    }
+
+    /// <summary>
+    /// Деформация и напряжение стержня в одной точке кривой согласно выбранному режиму.
+    /// </summary>
+    /// <remarks>
+    /// Поправка применяется только там, где ψs реально работает: точка помечена
+    /// <c>psi_active</c>, стержень растянут и εcrc определена. Иначе (уч. 1 до трещины, сжатый
+    /// стержень, отсутствие точки 2) все три режима дают одно и то же — деформацию плоскости.
+    /// </remarks>
+    (double Eps, double SigmaMPa) EvaluateRebar(
+        RebarOption option, MomentCurvatureBiaxialPointRow row, double epsCrc, RebarStressMode mode)
+    {
+        var k = new Kurvature { e0 = row.E0, ky = row.Ky, kz = row.Kz };
+        bool ten = row.Segment <= 2;
+        _section!.SetEps(k, _calcType, ten, true);
+
+        double eps = option.Fiber.Eps + option.Fiber.Eps_p;
+        double sigmaMPa = option.Fiber.Sig / 1000.0;
+
+        bool applicable = mode != RebarStressMode.AverageStrain
+            && row.PsiActive && eps > 0.0 && epsCrc > 0.0 && option.Diagram != null;
+        if (!applicable)
+            return (eps, sigmaMPa);
+
+        double psi = Curvature8232.PsiS(epsCrc, eps);
+        if (psi <= 0.0 || psi >= 1.0 - 1e-12)
+            return (eps, sigmaMPa);
+
+        double epsCrack = eps / psi;   // ≡ eps + 0,8·epsCrc
+        double sigma = mode == RebarStressMode.CrackStrain
+            ? option.Diagram!.SigValue(epsCrack)
+            : option.Fiber.Sig / psi;
+        return (epsCrack, sigma / 1000.0);
+    }
+
+    /// <summary>
+    /// Деформация стержня в точке образования трещины (точка 2) — та же величина, что
+    /// `BiaxialCurvatureCurveSolver.EpsCrcByFiber` кладёт в поправку ψs. Считается из уже
+    /// разобранной контрольной точки, поэтому JSON-контракт задачи расширять не нужно.
+    /// </summary>
+    double EpsCrcFor(RebarOption option)
+    {
+        if (_section == null || CrackTransition is not { } transition) return 0.0;
+        var k = new Kurvature { e0 = transition.E0, ky = transition.Ky, kz = transition.Kz };
+        _section.SetEps(k, _calcType, true, true);
+        return option.Fiber.Eps + option.Fiber.Eps_p;
     }
 
     static (double[] x, double[] y, double[] xFaded, double[] yFaded) SplitByNonPhysical<T>(

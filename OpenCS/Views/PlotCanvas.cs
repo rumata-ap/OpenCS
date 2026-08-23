@@ -1,11 +1,14 @@
 using OpenCS.Utilites;
+using OpenCS.Services;
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using Microsoft.Win32;
 
 namespace OpenCS.Views
 {
@@ -43,6 +46,59 @@ namespace OpenCS.Views
          ClipToBounds = true;
          IsHitTestVisible = true;
          Focusable = true;
+      }
+
+      /// <summary>Настраивает контекстное меню копирования и экспорта текущего вида графика.</summary>
+      public void ConfigureExportMenu(string pngFileName, Action? exportCsv = null)
+      {
+         var menu = new ContextMenu();
+
+         var copyItem = new MenuItem();
+         copyItem.SetResourceReference(HeaderedItemsControl.HeaderProperty, "PlotCopy");
+         copyItem.Click += (_, _) =>
+         {
+            if (!SectionCutEmfClipboard.TryCopy(this))
+               MessageBox.Show(Loc.S("PlotCopyFailed"), Loc.S("Error"),
+                  MessageBoxButton.OK, MessageBoxImage.Warning);
+         };
+
+         var pngItem = new MenuItem();
+         pngItem.SetResourceReference(HeaderedItemsControl.HeaderProperty, "PlotSavePng");
+         pngItem.Click += (_, _) => SavePng(pngFileName);
+
+         menu.Items.Add(copyItem);
+         menu.Items.Add(pngItem);
+
+         if (exportCsv != null)
+         {
+            var csvItem = new MenuItem();
+            csvItem.SetResourceReference(HeaderedItemsControl.HeaderProperty, "PlotExportCsv");
+            csvItem.Click += (_, _) => exportCsv();
+            menu.Items.Add(csvItem);
+         }
+
+         ContextMenu = menu;
+      }
+
+      void SavePng(string fileName)
+      {
+         var dialog = new SaveFileDialog
+         {
+            Filter = Loc.S("PlotPngFilter"),
+            DefaultExt = ".png",
+            FileName = fileName
+         };
+         if (dialog.ShowDialog() != true) return;
+
+         try
+         {
+            SectionCutExporter.ExportPng(this, dialog.FileName);
+         }
+         catch (Exception ex)
+         {
+            MessageBox.Show(string.Format(Loc.S("PlotExportError"), ex.Message), Loc.S("Error"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+         }
       }
 
       public void ApplySettings(PlotSettings s)

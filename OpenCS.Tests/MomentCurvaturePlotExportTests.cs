@@ -1,0 +1,45 @@
+using Xunit;
+
+namespace OpenCS.Tests;
+
+/// <summary>Регрессионные проверки экспорта графиков результата «кривизна–момент».</summary>
+public sealed class MomentCurvaturePlotExportTests
+{
+    [Fact]
+    public void ResultView_ConfiguresExportMenuForEveryPlot()
+    {
+        string root = FindWorkspaceRoot();
+        string plotCanvas = File.ReadAllText(Path.Combine(root, "OpenCS", "Views", "PlotCanvas.cs"));
+        string resultView = File.ReadAllText(Path.Combine(root, "OpenCS", "Views", "MomentCurvatureBiaxialResultView.xaml.cs"));
+
+        Assert.Contains("ConfigureExportMenu", plotCanvas);
+        Assert.Contains("SectionCutEmfClipboard.TryCopy", plotCanvas);
+        Assert.Contains("SectionCutExporter.ExportPng", plotCanvas);
+        Assert.Contains("MomentCurvature_CsvColKy", resultView);
+        Assert.Contains("MomentCurvature_CsvColKz", resultView);
+        Assert.Contains("MomentCurvature_CsvColPsiActive", resultView);
+        Assert.Equal(9, Count(resultView, ".ConfigureExportMenu("));
+        Assert.Equal(2, Count(resultView, "exportCsv: ExportPointsCsv"));
+    }
+
+    static int Count(string source, string value)
+    {
+        int count = 0;
+        for (int index = 0; (index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0; index += value.Length)
+            count++;
+        return count;
+    }
+
+    static string FindWorkspaceRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "OpenCS.sln")))
+                return directory.FullName;
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Не найден корень рабочего пространства OpenCS.");
+    }
+}

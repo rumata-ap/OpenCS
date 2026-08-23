@@ -207,7 +207,14 @@
    <!-- DiagramPage -->
    <system:String x:Key="Chart">Chart</system:String>
    <system:String x:Key="Data">Data</system:String>
-   <system:String x:Key="ExportCsv">Export to CSV...</system:String>
+    <system:String x:Key="ExportCsv">Export to CSV...</system:String>
+    <system:String x:Key="PlotCopy">Copy chart</system:String>
+    <system:String x:Key="PlotSavePng">Save PNG...</system:String>
+    <system:String x:Key="PlotExportCsv">Export CSV points...</system:String>
+    <system:String x:Key="PlotCopyFailed">Could not copy the chart to the clipboard.</system:String>
+    <system:String x:Key="PlotExportError">Could not export: {0}</system:String>
+    <system:String x:Key="PlotPngFilter">PNG image (*.png)|*.png</system:String>
+    <system:String x:Key="PlotCsvFilter">CSV file (*.csv)|*.csv</system:String>
    <system:String x:Key="Close">Close</system:String>
 
    <!-- DiagramSelectWindow -->
@@ -2441,6 +2448,11 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_ColMy">My, kN·m</system:String>
     <system:String x:Key="MomentCurvature_ColKy">κy, 1/m</system:String>
     <system:String x:Key="MomentCurvature_ColKz">κz, 1/m</system:String>
+    <system:String x:Key="MomentCurvature_ColE0">e0</system:String>
+    <system:String x:Key="MomentCurvature_ColPsiActive">ψs active</system:String>
+    <system:String x:Key="MomentCurvature_CsvColKy">Ky, 1/m</system:String>
+    <system:String x:Key="MomentCurvature_CsvColKz">Kz, 1/m</system:String>
+    <system:String x:Key="MomentCurvature_CsvColPsiActive">Psi_s active</system:String>
     <system:String x:Key="MomentCurvature_ColConverged">Converged</system:String>
     <system:String x:Key="MomentCurvature_ColLimitStatus">Ultimate force status</system:String>
     <system:String x:Key="MomentCurvature_NonPhysicalStatus">Ultimate force exceeded</system:String>
@@ -2456,6 +2468,10 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_AxisN">N, kN</system:String>
     <system:String x:Key="MomentCurvature_AxisStiffnessRatio">B/B0</system:String>
     <system:String x:Key="MomentCurvature_ColNonPhysical">Non-physical point</system:String>
+    <system:String x:Key="MomentCurvature_RebarStressModeHeader">Plot mode (ψs)</system:String>
+    <system:String x:Key="MomentCurvature_RebarStressModeAverage">Average strain</system:String>
+    <system:String x:Key="MomentCurvature_RebarStressModeCrack">At the crack, from diagram</system:String>
+    <system:String x:Key="MomentCurvature_RebarStressModePsi">At the crack, σ divided by ψs</system:String>
     <system:String x:Key="MomentCurvature_TabRebarStrain">Rebar strain</system:String>
     <system:String x:Key="MomentCurvature_TabRebarStress">Rebar stress</system:String>
     <system:String x:Key="MomentCurvature_RebarDefaultTag">Rebar</system:String>
