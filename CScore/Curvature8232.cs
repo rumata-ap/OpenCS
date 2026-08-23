@@ -51,13 +51,23 @@ public static class Curvature8232
     }
 
     /// <summary>
-    /// Корректирует вклад растянутой арматуры в равновесие делением на ψs
-    /// по п. 8.2.32 СП 63.13330. Метод вызывается после <see cref="CrossSection.Integral"/>
-    /// и использует уже вычисленные поля фибр.
+    /// Корректирует вклад растянутой арматуры в равновесие по п. 8.2.32 СП 63.13330.
+    /// Метод вызывается после <see cref="CrossSection.Integral"/> и использует уже
+    /// вычисленные поля фибр.
     /// </summary>
+    /// <remarks>
+    /// Плоскость <paramref name="k"/> — плоскость СРЕДНИХ деформаций, поэтому деформация
+    /// стержня в трещине равна εs,crc = εs/ψs = εs + 0,8·εcrc (тождество для
+    /// <see cref="PsiS"/>). Напряжение берётся С ДИАГРАММЫ материала при этой деформации,
+    /// а не делением σ(εs)/ψs: на линейном участке результат совпадает, но за площадкой
+    /// текучести деление дало бы σ &gt; Rs — физически невозможное напряжение, из-за которого
+    /// момент кривой ψs превышал предельную несущую способность сечения.
+    /// Если диаграмма для <paramref name="calc"/> недоступна (например, в модульных тестах
+    /// с вручную заданными σ), используется прежнее масштабирование σ/ψs.
+    /// </remarks>
     public static Load ApplyPsiCorrection(
         CrossSection section, Kurvature k, Load baseLoad,
-        IReadOnlyDictionary<Fiber, double> epsCrcByFiber)
+        IReadOnlyDictionary<Fiber, double> epsCrcByFiber, CalcType calc)
     {
         ArgumentNullException.ThrowIfNull(section);
         ArgumentNullException.ThrowIfNull(epsCrcByFiber);
@@ -70,6 +80,8 @@ public static class Curvature8232
         {
             if (area.Material?.Type is not (MatType.ReSteelF or MatType.ReSteelU))
                 continue;
+
+            area.Diagramms.TryGetValue(calc, out var dgr);
 
             foreach (var fiber in area.Fibers)
             {
@@ -86,13 +98,29 @@ public static class Curvature8232
                     continue;
 
                 double scale = 1.0 / psi;
-                double addN = fiber.N * (scale - 1.0);
-                double addMx = fiber.Mx * (scale - 1.0);
-                double addMy = fiber.My * (scale - 1.0);
+                double sigCrc;
+                double e2Crc;
+                if (dgr != null)
+                {
+                    // εs,crc = εs/ψs — деформация стержня В ТРЕЩИНЕ; σ снимается с диаграммы,
+                    // поэтому за площадкой текучести поправка сама собой затухает.
+                    // dεs,crc/dεs = 1, значит касательный модуль переносится без масштаба.
+                    sigCrc = dgr.Sig(eps * scale, out e2Crc);
+                }
+                else
+                {
+                    sigCrc = fiber.Sig * scale;
+                    e2Crc = fiber.E2 * scale;
+                }
 
-                fiber.Sig *= scale;
-                fiber.E2 *= scale;
-                fiber.E *= scale;
+                double dSig = sigCrc - fiber.Sig;
+                double addN = dSig * fiber.Area;
+                double addMx = addN * fiber.Y;
+                double addMy = addN * fiber.X;
+
+                fiber.Sig = sigCrc;
+                fiber.E2 = e2Crc;
+                fiber.E = sigCrc / eps;
                 fiber.N += addN;
                 fiber.Mx += addMx;
                 fiber.My += addMy;

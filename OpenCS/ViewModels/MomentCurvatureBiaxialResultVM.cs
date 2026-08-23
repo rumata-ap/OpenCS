@@ -175,8 +175,11 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
                         // Графики строятся по модулю — направление луча момента/кривизны
                         // задаётся знаком входной нагрузки и само по себе не информативно,
                         // пользователь ожидает вид |κ|-|M| независимо от знака Mx0/My0.
-                        if (HasMx) mxRows.Add(row);
-                        if (HasMy) myRows.Add(row);
+                        // Участок 2 — вспомогательная пересчётная петля. При включённом ψs
+                        // она не является частью основной кривой (Example 47: петля показана
+                        // отдельно, а основная ψs-ветвь продолжается от Mcrc).
+                        if (HasMx && (!UsePsi || row.Segment != 2)) mxRows.Add(row);
+                        if (HasMy && (!UsePsi || row.Segment != 2)) myRows.Add(row);
 
                         // Первая точка траектории (κ≈0/λ≈0) исключается из секанс-серий —
                         // секущая жёсткость там неопределена (0/0). См. спеку, решение 7.
@@ -284,6 +287,7 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
         foreach (var row in Rows)
         {
             if (!row.Converged) continue;
+            if (UsePsi && row.Segment == 2) continue;
             var k = new Kurvature { e0 = row.E0, ky = row.Ky, kz = row.Kz };
             bool ten = row.Segment <= 2;
             _section.SetEps(k, _calcType, ten, true);

@@ -207,12 +207,23 @@ public sealed class TotalCurvatureSolver
     {
         const bool ten = false;
         const bool ca = true;
-        var solver = new StrainSolver(_section, calc, ten, ca,
+        StrainSolver NewSolver() => new(_section, calc, ten, ca,
             tol: _solverTol, maxIter: _solverMaxIter, h: _solverH,
             centralJacobian: _centralJacobian,
             evaluate: k => Curvature8232.ApplyPsiCorrection(
-                _section, k, _section.Integral(k, calc, ten, ca), epsCrc));
+                _section, k, _section.Integral(k, calc, ten, ca), epsCrc, calc));
+
+        var solver = NewSolver();
         var plane = solver.Solve(n, mx, my, seed);
+        if (!solver.Converged)
+        {
+            // Seed предыдущей стадии может лежать на площадке текучести арматуры в трещине,
+            // где dM/dκ ≈ 0 и якобиан вырожден — недемпфированный Ньютон улетает. Повторная
+            // попытка из упругой оценки для ЭТОЙ цели сходится в тот же корень.
+            solver = NewSolver();
+            plane = solver.Solve(n, mx, my,
+                FiniteGuess(_section.Guess(new Load { N = n, Mx = mx, My = my })));
+        }
         return new CurvatureStageResult
         {
             N = n,

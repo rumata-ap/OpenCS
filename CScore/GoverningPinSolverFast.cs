@@ -134,7 +134,7 @@ public sealed class GoverningPinSolverFast
     (double N, double Mx, double My) ForcesAt(Kurvature k, IReadOnlyDictionary<Fiber, double>? epsCrc)
     {
         var raw = _section.Integral(k, _calc, ten: _ten, ca: true);
-        var load = epsCrc == null ? raw : Curvature8232.ApplyPsiCorrection(_section, k, raw, epsCrc);
+        var load = epsCrc == null ? raw : Curvature8232.ApplyPsiCorrection(_section, k, raw, epsCrc, _calc);
         return (load.N, load.Mx, load.My);
     }
 
@@ -174,7 +174,7 @@ public sealed class GoverningPinSolverFast
     {
         Func<Kurvature, Load>? evaluate = epsCrc == null
             ? null
-            : k => Curvature8232.ApplyPsiCorrection(_section, k, _section.Integral(k, _calc, _ten, true), epsCrc);
+            : k => Curvature8232.ApplyPsiCorrection(_section, k, _section.Integral(k, _calc, _ten, true), epsCrc, _calc);
 
         (Kurvature plane, double epsAtPin, bool ok) EvalAtK(double k)
         {

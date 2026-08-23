@@ -60,7 +60,7 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
 
     void Redraw()
     {
-        var (mainRows, auxiliaryRows) = SplitPointRows(_viewModel.Rows);
+        var (mainRows, auxiliaryRows) = SplitPointRows(_viewModel.Rows, _viewModel.UsePsi);
 
         if (_viewModel.HasMx)
         {
@@ -73,7 +73,8 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
             AddPointMarkers(_curvatureXPlot, mainRows, p => p.Ky, p => p.Mx, "#2F5597", NonPhysicalColor, 9);
             AddPointMarkers(_curvatureXPlot, auxiliaryRows, p => p.Ky, p => p.Mx, "#2F5597", NonPhysicalColor, 6);
             AddControlMarker(_curvatureXPlot, _viewModel.Cracking, p => p.Ky, p => p.Mx, "#ED7D31", 9);
-            AddControlMarker(_curvatureXPlot, _viewModel.CrackTransition, p => p.Ky, p => p.Mx, "#ED7D31", 9);
+            if (!_viewModel.UsePsi)
+                AddControlMarker(_curvatureXPlot, _viewModel.CrackTransition, p => p.Ky, p => p.Mx, "#ED7D31", 9);
             AddControlMarker(_curvatureXPlot, _viewModel.Yield, p => p.Ky, p => p.Mx, "#FFC000", 9);
             AddControlMarker(_curvatureXPlot, _viewModel.Ultimate, p => p.Ky, p => p.Mx, "#C00000", 9);
             _curvatureXPlot.Refresh();
@@ -90,7 +91,8 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
             AddPointMarkers(_curvatureYPlot, mainRows, p => p.Kz, p => p.My, "#548235", NonPhysicalColor, 9);
             AddPointMarkers(_curvatureYPlot, auxiliaryRows, p => p.Kz, p => p.My, "#548235", NonPhysicalColor, 6);
             AddControlMarker(_curvatureYPlot, _viewModel.Cracking, p => p.Kz, p => p.My, "#ED7D31", 9);
-            AddControlMarker(_curvatureYPlot, _viewModel.CrackTransition, p => p.Kz, p => p.My, "#ED7D31", 9);
+            if (!_viewModel.UsePsi)
+                AddControlMarker(_curvatureYPlot, _viewModel.CrackTransition, p => p.Kz, p => p.My, "#ED7D31", 9);
             AddControlMarker(_curvatureYPlot, _viewModel.Yield, p => p.Kz, p => p.My, "#FFC000", 9);
             AddControlMarker(_curvatureYPlot, _viewModel.Ultimate, p => p.Kz, p => p.My, "#C00000", 9);
             _curvatureYPlot.Refresh();
@@ -174,7 +176,8 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
                 plot.AddScatter(fadedValue, fadedMoment, color: NonPhysicalColor);
 
             AddRebarControlMarker(plot, option, _viewModel.Cracking, useMx, useStress, color);
-            AddRebarControlMarker(plot, option, _viewModel.CrackTransition, useMx, useStress, color);
+            if (!_viewModel.UsePsi)
+                AddRebarControlMarker(plot, option, _viewModel.CrackTransition, useMx, useStress, color);
             AddRebarControlMarker(plot, option, _viewModel.Yield, useMx, useStress, color);
             AddRebarControlMarker(plot, option, _viewModel.Ultimate, useMx, useStress, color);
         }
@@ -201,9 +204,9 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
     }
 
     static (List<MomentCurvatureBiaxialPointRow> Main, List<MomentCurvatureBiaxialPointRow> Auxiliary)
-        SplitPointRows(IReadOnlyList<MomentCurvatureBiaxialPointRow> rows)
+        SplitPointRows(IReadOnlyList<MomentCurvatureBiaxialPointRow> rows, bool usePsi)
     {
-        var converged = rows.Where(row => row.Converged).ToList();
+        var converged = rows.Where(row => row.Converged && (!usePsi || row.Segment != 2)).ToList();
         var main = new List<MomentCurvatureBiaxialPointRow>();
         var auxiliary = new List<MomentCurvatureBiaxialPointRow>();
 

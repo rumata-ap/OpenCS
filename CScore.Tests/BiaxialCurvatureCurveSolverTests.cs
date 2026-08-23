@@ -33,7 +33,7 @@ public class BiaxialCurvatureCurveSolverTests
     }
 
     [Fact]
-    public void Compute_UsePsiTrue_MarksPointWhenEitherMomentComponentExceedsReference()
+    public void Compute_UsePsiTrue_MarksPointByMomentMagnitudeNotByComponent()
     {
         var section = TestSections.Example47();
         var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N);
@@ -42,18 +42,109 @@ public class BiaxialCurvatureCurveSolverTests
 
         Assert.NotNull(result.UltimateReference);
         var reference = result.UltimateReference!;
-        var overLimit = result.Points.Where(p => p.Converged &&
-            (Math.Abs(p.Mx) > Math.Abs(reference.Mx) || Math.Abs(p.My) > Math.Abs(reference.My)))
-            .ToList();
+        double referenceMagnitude = Math.Sqrt(
+            reference.Mx * reference.Mx + reference.My * reference.My);
 
-        Assert.NotEmpty(overLimit);
-        Assert.All(overLimit, point => Assert.True(point.NonPhysical));
         Assert.All(result.Points.Where(p => p.Converged), point =>
         {
-            bool exceeds = Math.Abs(point.Mx) > Math.Abs(reference.Mx) ||
-                           Math.Abs(point.My) > Math.Abs(reference.My);
-            Assert.Equal(exceeds, point.NonPhysical);
+            double magnitude = Math.Sqrt(point.Mx * point.Mx + point.My * point.My);
+            Assert.Equal(magnitude > referenceMagnitude * 1.01, point.NonPhysical);
         });
+    }
+
+    [Theory]
+    [InlineData(-60.0, 0.0)]
+    [InlineData(0.0, -20.0)]
+    [InlineData(-60.0, -20.0)]
+    public void Compute_UsePsiTrue_DoesNotMarkWholeCurveNonPhysical(double mx0, double my0)
+    {
+        // Регрессия: покомпонентное сравнение с нулевым эталоном (одноосный вход) помечало
+        // нефизичной КАЖДУЮ точку — численный шум ~1e-13 в обнулённой компоненте всегда
+        // «превышал» ровно нулевой эталон, и весь график уходил в серое.
+        var section = TestSections.Example47();
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 10, stepMode: CurveStepMode.ByCurvature);
+
+        var result = solver.Compute(0.0, mx0, my0, CurvatureNMode.Constant, usePsi: true);
+
+        var converged = result.Points.Where(p => p.Converged).ToList();
+        Assert.NotEmpty(converged);
+        Assert.DoesNotContain(converged, p => p.NonPhysical);
+    }
+
+    [Theory]
+    [InlineData(-60.0, 0.0)]
+    [InlineData(-60.0, -20.0)]
+    public void Compute_UsePsiTrue_MomentStaysWithinUltimateReference(double mx0, double my0)
+    {
+        // ψs-поправка берёт напряжение с диаграммы при εs,crc, поэтому за площадкой текучести
+        // она затухает и кривая не может превысить предельную несущую способность сечения.
+        var section = TestSections.Example47();
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 10, stepMode: CurveStepMode.ByCurvature);
+
+        var result = solver.Compute(0.0, mx0, my0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.Equal("ok", result.Status);
+        var reference = result.UltimateReference!;
+        double referenceMagnitude = Math.Sqrt(
+            reference.Mx * reference.Mx + reference.My * reference.My);
+        foreach (var point in result.Points.Where(p => p.Converged))
+        {
+            double magnitude = Math.Sqrt(point.Mx * point.Mx + point.My * point.My);
+            Assert.True(magnitude <= referenceMagnitude * 1.01,
+                $"|M| = {magnitude:F3} превышает предел {referenceMagnitude:F3} (уч. {point.Segment})");
+        }
+    }
+
+    [Fact]
+    public void Compute_UsePsiTrue_MainCurveDoesNotIncludeTransitionLoop()
+    {
+        var section = TestSections.Example47();
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 10, stepMode: CurveStepMode.ByCurvature);
+
+        var result = solver.Compute(0.0, -60.0, 0.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.DoesNotContain(result.Points, p => p.Segment == 2);
+        Assert.Contains(result.Points, p => p.PsiActive && (p.Segment is 3 or 4));
+
+        var firstPsiPoint = result.Points.First(p => p.PsiActive && (p.Segment is 3 or 4));
+        Assert.True(Math.Abs(firstPsiPoint.Ky) > Math.Abs(result.Cracking!.Ky));
+        Assert.True(Math.Abs(firstPsiPoint.Ky) < Math.Abs(result.CrackTransitionPoint!.Ky));
+    }
+
+    [Fact]
+    public void Compute_ByCurvature_CrackLoopWalksCurvatureForward()
+    {
+        // Регрессия «перехлёст на уч. 1-2»: петля разворачивалась по деформации сжатия
+        // бетона. В зоне раскрытия трещины этот параметр почти стационарен и многозначен —
+        // точки выходили не по порядку (первая сразу у конца петли, следующая ЛЕВЕЕ точки
+        // трещинообразования), и ломаная графика пересекала сама себя. Слоистая сетка
+        // (1×50) — та же, что в реальном сечении пользователя, на ней эффект воспроизводится.
+        var section = TestSections.Example47();
+        section.Areas.First(a => a.Material?.Type == MatType.Concrete).SliceXY(nx: 1, ny: 50);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.C, calcService: CalcType.C,
+            auxPointsPerSegment: 10, stepMode: CurveStepMode.ByCurvature);
+
+        var result = solver.Compute(0.0, -50.0, 0.0, CurvatureNMode.Constant, usePsi: false);
+
+        var loop = result.Points.Where(p => p.Segment == 2 && p.Converged).ToList();
+        Assert.NotEmpty(loop);
+
+        double transitionCurvature = Math.Abs(result.CrackTransitionPoint!.Ky);
+        double previous = Math.Abs(result.Cracking!.Ky);
+        foreach (var point in loop)
+        {
+            double curvature = Math.Abs(point.Ky);
+            Assert.True(curvature > previous,
+                $"|κ| = {curvature:E4} не больше предыдущей {previous:E4} — точки петли не по порядку");
+            Assert.True(curvature <= transitionCurvature * (1.0 + 1e-9),
+                $"|κ| = {curvature:E4} выходит за точку восстановления момента {transitionCurvature:E4}");
+            previous = curvature;
+        }
+
+        Assert.Equal(result.CrackTransitionPoint!.Ky, loop[^1].Ky, 12);
     }
 
     [Fact]

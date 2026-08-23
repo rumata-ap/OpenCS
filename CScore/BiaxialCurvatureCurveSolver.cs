@@ -263,15 +263,12 @@ public sealed class BiaxialCurvatureCurveSolver
         };
         result.CrackTransitionPoint = transition;
 
-        // Петля: сжатый пин, ten=true, продолжение направления/N-режима уч."1", от eps сжатия
-        // в точке1 до eps сжатия в точке2.
-        double epsCompressAtCrack = ExtremeContourConcreteStrain(
-            new Kurvature { e0 = crackPoint.E0, ky = crackPoint.Ky, kz = crackPoint.Kz });
-        double epsCompressAtT2 = ExtremeContourConcreteStrain(plane2);
-        var compressionPin = new CompressionPinSolverFast(_section, _calcCrc, ten: true,
-            hDiff: _solverH, newtonMaxIter: _solverMaxIter);
-        result.Points.AddRange(BuildCompressionSweep(
-            compressionPin, N0, Mx0, My0, nMode, crackPoint, epsCompressAtCrack, epsCompressAtT2, transition));
+        // Петля нужна как отдельная диагностическая ветвь только для режима без ψs.
+        // При включённом ψs точка 2 всё равно рассчитывается ниже: из неё берутся εs,crc,
+        // но основная кривая должна продолжаться от точки образования трещины, как в
+        // Example47Curvature, а не рисовать вспомогательный участок 1→2.
+        if (!usePsi)
+            result.Points.AddRange(BuildCrackLoopSweep(crackPoint, transition, nMode));
         _cancellationToken.ThrowIfCancellationRequested();
 
         // Точка 4 — LimitForceSolverFast, направление ОТ ТОЧКИ 2 (не от исходного (Mx0,My0)).
@@ -330,9 +327,13 @@ public sealed class BiaxialCurvatureCurveSolver
         var epsCrcForMain = usePsi ? EpsCrcByFiber(transition) : null;
         double dNdk34 = nMode == CurvatureNMode.Constant ? 0.0 : n2ForUltimate;
 
-        var seedAtTransition = new Kurvature { e0 = transition.E0, ky = transition.Ky, kz = transition.Kz };
+        var mainStartPoint = usePsi ? crackPoint : transition;
+        var seedAtMainStart = new Kurvature
+        {
+            e0 = mainStartPoint.E0, ky = mainStartPoint.Ky, kz = mainStartPoint.Kz
+        };
         var ultimatePoint = FlagNonPhysical(
-            BuildUltimatePoint(governingSolver, n2ForUltimate, mx2, my2, dNdk34, seedAtTransition, epsCrcForMain, ultimateReference),
+            BuildUltimatePoint(governingSolver, n2ForUltimate, mx2, my2, dNdk34, seedAtMainStart, epsCrcForMain, ultimateReference),
             ultimateReference, usePsi);
 
         BiaxialCurveScanPoint? yieldPoint = null;
@@ -340,7 +341,7 @@ public sealed class BiaxialCurvatureCurveSolver
         if (!double.IsPositiveInfinity(yieldStrain))
         {
             var yieldEvent = FindYieldPointAlongCurvaturePath(
-                transition, ultimatePoint, nMode, yieldStrain, epsCrcForMain);
+                mainStartPoint, ultimatePoint, nMode, yieldStrain, epsCrcForMain);
             if (yieldEvent is { } found)
             {
                 yieldPathFraction = found.Fraction;
@@ -352,16 +353,16 @@ public sealed class BiaxialCurvatureCurveSolver
         if (yieldPoint != null)
         {
             var seg3 = _stepMode == CurveStepMode.ByCurvature
-                ? BuildCurvatureSweep(nMode, transition, yieldPoint, epsCrcForMain,
+                ? BuildCurvatureSweep(nMode, mainStartPoint, yieldPoint, epsCrcForMain,
                     segment: 3, flagReference: ultimateReference, usePsi: usePsi)
                 : BuildGoverningSweep(governingSolver, n2ForUltimate, mx2, my2, dNdk34,
-                    1.0, yieldPathFraction, seedAtTransition, epsCrcForMain, segment: 3,
-                    startPoint: transition, endpoint: yieldPoint, flagReference: ultimateReference, usePsi: usePsi);
+                    1.0, yieldPathFraction, seedAtMainStart, epsCrcForMain, segment: 3,
+                    startPoint: mainStartPoint, endpoint: yieldPoint, flagReference: ultimateReference, usePsi: usePsi);
             result.Points.AddRange(seg3);
         }
 
         var seg4From = yieldPoint?.T ?? 0.0;
-        var seg4StartPoint = yieldPoint ?? transition;
+        var seg4StartPoint = yieldPoint ?? mainStartPoint;
         var seg4Seed = new Kurvature { e0 = seg4StartPoint.E0, ky = seg4StartPoint.Ky, kz = seg4StartPoint.Kz };
         var seg4 = _stepMode == CurveStepMode.ByCurvature
             ? BuildCurvatureSweep(nMode, seg4StartPoint, ultimatePoint, epsCrcForMain,
@@ -379,7 +380,7 @@ public sealed class BiaxialCurvatureCurveSolver
 
     /// <summary>
     /// Находит первое пересечение фактической растягивающей деформации арматуры с Ft/E на
-    /// кривизной траектории от точки 2 до точки 4. В отличие от governing-пина этот поиск
+    /// кривизной траектории от основной посттрещинной точки до точки 4. В отличие от governing-пина этот поиск
     /// проверяет именно деформацию арматуры, поэтому контрольная точка 3 не подменяется
     /// состоянием сжатого бетона.
     /// </summary>
@@ -448,10 +449,15 @@ public sealed class BiaxialCurvatureCurveSolver
         return points;
     }
 
+    /// <param name="ten">Учитывать работу бетона на растяжение. `false` — посттрещинная
+    /// модель уч. "3"/"4"; `true` — ДОтрещинная, продолжение уч. "1" внутри петли уч. "2".</param>
+    /// <param name="calc">Тип расчёта диаграмм; `null` — <see cref="_calcService"/>.</param>
     BiaxialCurveScanPoint? SolveCurvaturePathPoint(
         BiaxialCurveScanPoint start, BiaxialCurveScanPoint endpoint, double fraction,
-        CurvatureNMode nMode, IReadOnlyDictionary<Fiber, double>? epsCrc, int segment)
+        CurvatureNMode nMode, IReadOnlyDictionary<Fiber, double>? epsCrc, int segment,
+        bool ten = false, CalcType? calc = null)
     {
+        var calcType = calc ?? _calcService;
         double ky = start.Ky + fraction * (endpoint.Ky - start.Ky);
         double kz = start.Kz + fraction * (endpoint.Kz - start.Kz);
         double initialE0 = start.E0 + fraction * (endpoint.E0 - start.E0);
@@ -462,8 +468,8 @@ public sealed class BiaxialCurvatureCurveSolver
         Load Evaluate(double e0)
         {
             var k = new Kurvature { e0 = e0, ky = ky, kz = kz };
-            var raw = _section.Integral(k, _calcService, ten: false, ca: true);
-            return epsCrc == null ? raw : Curvature8232.ApplyPsiCorrection(_section, k, raw, epsCrc);
+            var raw = _section.Integral(k, calcType, ten: ten, ca: true);
+            return epsCrc == null ? raw : Curvature8232.ApplyPsiCorrection(_section, k, raw, epsCrc, calcType);
         }
 
         CurvatureEquilibriumResult equilibrium;
@@ -517,40 +523,35 @@ public sealed class BiaxialCurvatureCurveSolver
         GoverningPinSolverFast solver, double n, double mx, double my, double dNdk, Kurvature seed,
         IReadOnlyDictionary<Fiber, double>? epsCrc, BiaxialCurveScanPoint reference)
     {
-        if (epsCrc == null)
+        // Терминальная точка должна быть продолжением той же pin-ветви, что и
+        // промежуточные точки участка. LimitForceSolverFast решает ту же задачу, но
+        // может выбрать другой равновесный корень при нелинейной диаграмме материала;
+        // подстановка его плоскости в конец скана создаёт обратный ход по кривизне.
+        var pinResult = solver.Solve(1.0, n, mx, my, dNdk, seed, epsCrc);
+        if (!pinResult.Converged)
         {
-            // Терминальная точка должна быть продолжением той же pin-ветви, что и
-            // промежуточные точки участка. LimitForceSolverFast решает ту же задачу, но
-            // может выбрать другой равновесный корень при нелинейной диаграмме материала;
-            // подстановка его плоскости в конец скана создаёт обратный ход по кривизне.
-            var pinResult = solver.Solve(1.0, n, mx, my, dNdk, seed, epsCrc);
-            if (!pinResult.Converged)
-            {
-                var referenceSeed = new Kurvature { e0 = reference.E0, ky = reference.Ky, kz = reference.Kz };
-                pinResult = solver.Solve(1.0, n, mx, my, dNdk, referenceSeed, epsCrc);
-            }
-            if (!pinResult.Converged)
-            {
-                return new BiaxialCurveScanPoint
-                {
-                    N = reference.N, Mx = reference.Mx, My = reference.My,
-                    E0 = reference.E0, Ky = reference.Ky, Kz = reference.Kz,
-                    T = 1.0, Segment = 4, Converged = true
-                };
-            }
+            // Seed начала участка — кривизна на порядок-два меньше предельной; пин-Ньютон
+            // из неё расходится тем чаще, чем ближе диаграмма к площадке текучести (усилие
+            // арматуры перестаёт зависеть от кривизны). Вторая попытка — из эталонной
+            // предельной плоскости. Ветвь с ψs страдает этим так же, как и без ψs: при
+            // ψs→1 у предельного состояния обе задачи почти совпадают.
+            var referenceSeed = new Kurvature { e0 = reference.E0, ky = reference.Ky, kz = reference.Kz };
+            pinResult = solver.Solve(1.0, n, mx, my, dNdk, referenceSeed, epsCrc);
+        }
+        if (!pinResult.Converged)
+        {
             return new BiaxialCurveScanPoint
             {
-                N = pinResult.Load.N, Mx = pinResult.Load.Mx, My = pinResult.Load.My,
-                E0 = pinResult.Plane.e0, Ky = pinResult.Plane.ky, Kz = pinResult.Plane.kz,
-                T = 1.0, Segment = 4, Converged = pinResult.Converged
+                N = reference.N, Mx = reference.Mx, My = reference.My,
+                E0 = reference.E0, Ky = reference.Ky, Kz = reference.Kz,
+                T = 1.0, Segment = 4, Converged = true, PsiActive = epsCrc != null
             };
         }
-        var result = solver.Solve(1.0, n, mx, my, dNdk, seed, epsCrc);
         return new BiaxialCurveScanPoint
         {
-            N = result.Load.N, Mx = result.Load.Mx, My = result.Load.My,
-            E0 = result.Plane.e0, Ky = result.Plane.ky, Kz = result.Plane.kz,
-            T = 1.0, Segment = 4, Converged = result.Converged, PsiActive = true
+            N = pinResult.Load.N, Mx = pinResult.Load.Mx, My = pinResult.Load.My,
+            E0 = pinResult.Plane.e0, Ky = pinResult.Plane.ky, Kz = pinResult.Plane.kz,
+            T = 1.0, Segment = 4, Converged = pinResult.Converged, PsiActive = epsCrc != null
         };
     }
 
@@ -575,7 +576,7 @@ public sealed class BiaxialCurvatureCurveSolver
         {
             var solverS = new StrainSolver(_section, _calcService, ten: false, ca: true,
                 tol: _solverTol, maxIter: _solverMaxIter, h: _solverH, centralJacobian: _centralJacobian,
-                evaluate: epsCrc == null ? null : k => Curvature8232.ApplyPsiCorrection(_section, k, _section.Integral(k, _calcService, false, true), epsCrc));
+                evaluate: epsCrc == null ? null : k => Curvature8232.ApplyPsiCorrection(_section, k, _section.Integral(k, _calcService, false, true), epsCrc, _calcService));
             for (int i = 1; i <= _auxPointsPerSegment; i++)
             {
                 double frac = (double)i / (_auxPointsPerSegment + 1);
@@ -587,7 +588,7 @@ public sealed class BiaxialCurvatureCurveSolver
                 seed = plane;
                 var load = epsCrc == null
                     ? _section.Integral(plane, _calcService, ten: false, ca: true)
-                    : Curvature8232.ApplyPsiCorrection(_section, plane, _section.Integral(plane, _calcService, false, true), epsCrc);
+                    : Curvature8232.ApplyPsiCorrection(_section, plane, _section.Integral(plane, _calcService, false, true), epsCrc, _calcService);
                 points.Add(Flag(new BiaxialCurveScanPoint
                 {
                     N = load.N, Mx = load.Mx, My = load.My,
@@ -637,14 +638,33 @@ public sealed class BiaxialCurvatureCurveSolver
         return map;
     }
 
+    /// <summary>
+    /// Относительный запас, на который модуль момента точки должен превысить эталонный
+    /// предел, чтобы точка считалась нефизичной. Ultimate (пин-Ньютон) и UltimateReference
+    /// (LimitForceSolverFast) решают одну задачу разными методами и штатно расходятся на
+    /// доли процента; без запаса весь предельный участок кривой помечался бы серым.
+    /// </summary>
+    const double NonPhysicalMarginRel = 0.01;
+
     static BiaxialCurveScanPoint FlagNonPhysical(
         BiaxialCurveScanPoint point, BiaxialCurveScanPoint reference, bool usePsi)
     {
-        if (usePsi && point.Converged && reference.Converged)
-        {
-            if (Math.Abs(point.Mx) > Math.Abs(reference.Mx) || Math.Abs(point.My) > Math.Abs(reference.My))
-                point.NonPhysical = true;
-        }
+        if (!usePsi || !point.Converged || !reference.Converged)
+            return point;
+
+        // Сравнение ведётся по МОДУЛЮ вектора момента, а не покомпонентно.
+        // Покомпонентное сравнение вырождается при одноосном входе: у эталона обнулённая
+        // компонента (см. HasMx/HasMy выше) равна ровно нулю, а у точек кривой в ней остаётся
+        // численный шум ~1e-13 — условие |My| > |ref.My| срабатывало для КАЖДОЙ точки, и весь
+        // график уходил в серое.
+        double referenceMagnitude = Math.Sqrt(
+            reference.Mx * reference.Mx + reference.My * reference.My);
+        if (!(referenceMagnitude > 0.0))
+            return point;
+
+        double magnitude = Math.Sqrt(point.Mx * point.Mx + point.My * point.My);
+        if (magnitude > referenceMagnitude * (1.0 + NonPhysicalMarginRel))
+            point.NonPhysical = true;
         return point;
     }
 
@@ -730,6 +750,12 @@ public sealed class BiaxialCurvatureCurveSolver
     /// — точка 1). `endpoint.T` уже известен заранее — этот метод только расставляет внутренние
     /// точки между `fromPoint.T` и `endpoint.T`.
     /// </summary>
+    /// <summary>
+    /// Развёртка по крайней деформации СЖАТИЯ бетона. Используется только в ветви
+    /// «предел раньше трещины» (единственный уч. "1" от нулевой кривизны до предельной):
+    /// там сечение не растрескивается, εb монотонна и однозначна. Для петли уч. "2" эта
+    /// параметризация непригодна — см. <see cref="BuildCrackLoopSweep"/>.
+    /// </summary>
     List<BiaxialCurveScanPoint> BuildCompressionSweep(
         CompressionPinSolverFast solver, double N0, double Mx0, double My0, CurvatureNMode nMode,
         BiaxialCurveScanPoint fromPoint, double epsFrom, double epsTo, BiaxialCurveScanPoint endpoint)
@@ -737,8 +763,6 @@ public sealed class BiaxialCurvatureCurveSolver
         var points = new List<BiaxialCurveScanPoint>(_auxPointsPerSegment);
         if (_stepMode == CurveStepMode.ByMoment)
         {
-            // Петля/"предел раньше трещины" в ByMoment не строится вообще (нестабильна) —
-            // прямая линия fromPoint→endpoint.
             points.Add(endpoint);
             return points;
         }
@@ -765,6 +789,44 @@ public sealed class BiaxialCurvatureCurveSolver
         points.Add(endpoint);
         return points;
     }
+
+    /// <summary>
+    /// Строит уч. "2" — петлю между точкой трещинообразования и точкой восстановления
+    /// момента — равномерной развёрткой ПО КРИВИЗНЕ, ДОтрещинной моделью
+    /// (`ten=true`, `_calcCrc`): уч. "2" физически продолжает уч. "1" за κcrc.
+    /// </summary>
+    /// <remarks>
+    /// Прежняя развёртка шла по крайней деформации СЖАТИЯ бетона. В зоне раскрытия трещины
+    /// этот параметр почти стационарен и многозначен (одному εb отвечает несколько
+    /// равновесий), поэтому пин-Ньютон возвращал точки не по порядку: первая приходилась
+    /// сразу на конец петли, следующая — левее самой точки трещинообразования. Ломаная
+    /// графика пересекала сама себя. Кривизна монотонна по построению, поэтому такой
+    /// развёртке перехлёст недоступен в принципе — как и на уч. "3"/"4".
+    /// В ByMoment петля не строится вообще (нестабильна) — прямая до `endpoint`.
+    /// </remarks>
+    List<BiaxialCurveScanPoint> BuildCrackLoopSweep(
+        BiaxialCurveScanPoint fromPoint, BiaxialCurveScanPoint endpoint, CurvatureNMode nMode)
+    {
+        var points = new List<BiaxialCurveScanPoint>(_auxPointsPerSegment + 1);
+        if (_stepMode == CurveStepMode.ByMoment)
+        {
+            points.Add(endpoint);
+            return points;
+        }
+
+        for (int i = 1; i <= _auxPointsPerSegment; i++)
+        {
+            double fraction = (double)i / (_auxPointsPerSegment + 1);
+            var point = SolveCurvaturePathPoint(fromPoint, endpoint, fraction, nMode,
+                epsCrc: null, segment: 2, ten: true, calc: _calcCrc);
+            if (point != null) points.Add(point);
+            _cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        points.Add(endpoint);
+        return points;
+    }
+
 
     /// <summary>Возвращает нормированную степень использования управляющей точки в состоянии.</summary>
     double GoverningUtilization(BiaxialCurveScanPoint point)
