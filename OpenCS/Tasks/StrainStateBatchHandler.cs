@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -32,7 +32,7 @@ public sealed class StrainStateBatchHandler : ITaskHandler
 
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx.Database.Diagrams,
-                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
             bool ten = settings.ResolveConcreteTension(task.CalcType);
 
             var etaParams = LimitForceParams.Parse(task.ParamsJson);

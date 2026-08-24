@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using CScore;
 using CScore.Fem;
 using OpenCS.OpenSees.Model;
@@ -87,7 +87,8 @@ public sealed class FemNonlinearModelResolver
                             ? hardeningMpa * 1_000_000
                             : null,
                         ConsiderPhysicalNonlinearity = options.ConsiderPhysicalNonlinearity,
-                        Sp63EtaMin = options.Sp63EtaMin
+                        Sp63EtaMin = options.Sp63EtaMin,
+                        EkbEtaMin = options.EkbEtaMin
                     });
             }
             catch (CScoreMappingException ex)

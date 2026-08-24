@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text.Json;
@@ -237,7 +237,7 @@ public sealed class TotalCurvatureSummaryVM : ViewModelBase
             section.ResolveAndBuildDiagramms(
                 actualSettings.Sp63DescEtaMin,
                 pool: diagramPool,
-                rebarDifferentialDiagram: actualSettings.RebarDifferentialDiagram);
+                rebarDifferentialDiagram: actualSettings.RebarDifferentialDiagram, ekbEtaMin: actualSettings.EkbDescEtaMin);
 
             for (int number = 1; number <= 3; number++)
             {

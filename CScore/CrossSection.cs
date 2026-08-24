@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Serialization;
@@ -242,19 +242,21 @@ namespace CScore
       /// <param name="sp63EtaMin">Нижняя граница нисходящей ветви SP63 (η_min, по умолчанию 0.85).</param>
       /// <param name="pool">Пул диаграмм проекта — пробрасывается в MaterialArea для Custom-материалов.</param>
       /// <param name="rebarDifferentialDiagram">Разностная диаграмма σ_st − σ_bc для арматуры в бетоне.</param>
+      /// <param name="ekbEtaMin">Нижняя граница нисходящей ветви EKB (η_min, по умолчанию 0.05).</param>
       public void ResolveAndBuildDiagramms(double sp63EtaMin = 0.85,
                                             IReadOnlyList<Diagramm>? pool = null,
-                                            bool rebarDifferentialDiagram = true)
+                                            bool rebarDifferentialDiagram = true,
+                                            double ekbEtaMin = 0.05)
       {
          foreach (var area in Areas)
             if (area.HostAreaId == null)
-               area.ResolveAndBuildDiagramms(sp63EtaMin, pool, rebarDifferentialDiagram);
+               area.ResolveAndBuildDiagramms(sp63EtaMin, pool, rebarDifferentialDiagram, ekbEtaMin);
 
          foreach (var area in Areas)
             if (area.HostAreaId != null)
             {
                area.HostArea = Areas.Find(a => a.Id == area.HostAreaId);
-               area.ResolveAndBuildDiagramms(sp63EtaMin, pool, rebarDifferentialDiagram);
+               area.ResolveAndBuildDiagramms(sp63EtaMin, pool, rebarDifferentialDiagram, ekbEtaMin);
             }
       }
 

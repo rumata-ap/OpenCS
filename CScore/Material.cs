@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using System;
@@ -264,14 +264,16 @@ namespace CScore
       /// <param name="type">Тип диаграммы (L2 — двухлинейная, L3 — трёхлинейная, SP63 — криволинейная).</param>
       /// <returns>Словарь: ключ — <see cref="CalcType"/>, значение — <see cref="Diagramm"/>.</returns>
       /// <param name="sp63EtaMin">Нижняя граница нисходящей ветви для SP63 (η_min, по умолчанию 0.85).</param>
-      public Dictionary<CalcType, Diagramm>? GetDiagramms(DiagrammType type, double sp63EtaMin = 0.85)
+      /// <param name="ekbEtaMin">Нижняя граница нисходящей ветви для EKB (η_min, по умолчанию 0.05).</param>
+      public Dictionary<CalcType, Diagramm>? GetDiagramms(DiagrammType type, double sp63EtaMin = 0.85,
+                                                          double ekbEtaMin = 0.05)
       {
          switch (type)
          {
             case DiagrammType.L2:   return GetD2L();
             case DiagrammType.L3:   return GetD3L();
             case DiagrammType.SP63: return GetDCL(sp63EtaMin);
-            case DiagrammType.EKB:  return GetDEKB();
+            case DiagrammType.EKB:  return GetDEKB(ekbEtaMin);
             case DiagrammType.SP35: return GetDSP35();
             case DiagrammType.SP16: return GetDSP16();
          }
@@ -330,12 +332,12 @@ namespace CScore
          return res;
       }
 
-      Dictionary<CalcType, Diagramm> GetDEKB() => new()
+      Dictionary<CalcType, Diagramm> GetDEKB(double etaMin = 0.05) => new()
       {
-         { CalcType.C,  chars[CalcType.C ].DEKB() },
-         { CalcType.CL, chars[CalcType.CL].DEKB() },
-         { CalcType.N,  chars[CalcType.N ].DEKB() },
-         { CalcType.NL, chars[CalcType.NL].DEKB() },
+         { CalcType.C,  chars[CalcType.C ].DEKB(etaMin) },
+         { CalcType.CL, chars[CalcType.CL].DEKB(etaMin) },
+         { CalcType.N,  chars[CalcType.N ].DEKB(etaMin) },
+         { CalcType.NL, chars[CalcType.NL].DEKB(etaMin) },
       };
 
       Dictionary<CalcType, Diagramm> GetDSP35() => new()

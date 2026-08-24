@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -310,7 +310,7 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
         {
             var actualSettings = settings ?? CalcSettings.Default;
             section.ResolveAndBuildDiagramms(actualSettings.Sp63DescEtaMin,
-                pool: diagramPool, rebarDifferentialDiagram: actualSettings.RebarDifferentialDiagram);
+                pool: diagramPool, rebarDifferentialDiagram: actualSettings.RebarDifferentialDiagram, ekbEtaMin: actualSettings.EkbDescEtaMin);
 
             var zero = new Kurvature { e0 = 0, ky = 0, kz = 0 };
             int index = 1;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -36,7 +36,7 @@ public sealed class StrengthNDMBatchHandler : ITaskHandler
 
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx.Database.Diagrams,
-                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
             bool ten = settings.ResolveConcreteTension(task.CalcType);
 
             var items = forceSet.Items;

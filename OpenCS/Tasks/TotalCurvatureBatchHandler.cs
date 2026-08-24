@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -33,7 +33,7 @@ public sealed class TotalCurvatureBatchHandler : ITaskHandler
 
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx.Database.Diagrams,
-                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
 
             var parameters = TotalCurvatureTaskParams.Parse(task.ParamsJson);
             var calcCrc = task.CalcType is CalcType.N or CalcType.NL

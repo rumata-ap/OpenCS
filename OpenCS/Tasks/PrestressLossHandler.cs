@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text.Json;
 using CScore;
 using CScore.PrestressLoss;
@@ -18,7 +18,7 @@ public class PrestressLossHandler : ITaskHandler
         {
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx?.Database?.Diagrams,
-                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
 
             var p = JsonSerializer.Deserialize<PrestressLossParams>(task.ParamsJson)
                     ?? new PrestressLossParams();

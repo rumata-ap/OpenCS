@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using CScore;
 using CScore.Fire;
@@ -62,7 +62,7 @@ public sealed class FireRCheckHandler : ITaskHandler
                 : ctx.Database.GetLatestFireThermalResultId(p.FireSectionId);
 
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx?.Database?.Diagrams,
-               rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+               rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
             FireCheckResult check = FireRCheck.Run(
                 thermal,
                 section,
@@ -76,7 +76,7 @@ public sealed class FireRCheckHandler : ITaskHandler
                 thermalId,
                 settings.Sp63DescEtaMin,
                 settings.RebarDifferentialDiagram,
-                ctx?.Database?.Diagrams);
+                ctx?.Database?.Diagrams, settings.EkbDescEtaMin);
 
             var data = new
             {

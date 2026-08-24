@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -128,6 +128,7 @@ public sealed class CrackWidthSolver
     readonly double _acrcUltLong;
     readonly double _acrcUltShort;
     readonly double _sp63EtaMin;
+    readonly double _ekbEtaMin;
     readonly double _solverTol;
     readonly PsiSMethod _psiSMethod;
 
@@ -141,7 +142,8 @@ public sealed class CrackWidthSolver
         double acrcUltShort = 0.4,
         double sp63EtaMin = 0.85,
         double solverTol = 0.5,
-        PsiSMethod psiSMethod = PsiSMethod.Stress8138)
+        PsiSMethod psiSMethod = PsiSMethod.Stress8138,
+        double ekbEtaMin = 0.05)
     {
         _section = section ?? throw new ArgumentNullException(nameof(section));
         _calcCrc = calcCrc;
@@ -151,6 +153,7 @@ public sealed class CrackWidthSolver
         _acrcUltLong = acrcUltLong;
         _acrcUltShort = acrcUltShort;
         _sp63EtaMin = sp63EtaMin;
+        _ekbEtaMin = ekbEtaMin;
         _solverTol = solverTol;
         _psiSMethod = psiSMethod;
     }
@@ -361,7 +364,7 @@ public sealed class CrackWidthSolver
         foreach (var (area, ka) in section.EnumerateAreas(k))
         {
             if (!IsRebar(area)) continue;
-            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin);
+            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
             if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcType, out var ownDgr)) continue;
 
             foreach (var f in area.Fibers)
@@ -385,7 +388,7 @@ public sealed class CrackWidthSolver
         foreach (var (area, ka) in section.EnumerateAreas(k))
         {
             if (!IsRebar(area)) continue;
-            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin);
+            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
             if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcType, out var ownDgr)) continue;
 
             foreach (var f in area.Fibers)
@@ -426,7 +429,7 @@ public sealed class CrackWidthSolver
         foreach (var (area, ka) in _section.EnumerateAreas(k))
         {
             if (!IsRebar(area)) continue;
-            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin);
+            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
             if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcType, out var ownDgr)) continue;
 
             foreach (var f in area.Fibers)
@@ -562,7 +565,7 @@ public sealed class CrackWidthSolver
         foreach (var (area, ka) in _section.EnumerateAreas(planeLong))
         {
             if (!IsRebar(area)) continue;
-            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin);
+            var ownDiagrams = area.Material!.GetDiagramms(area.DiagrammType, _sp63EtaMin, _ekbEtaMin);
             if (ownDiagrams == null || !ownDiagrams.TryGetValue(calcServiceLong, out var ownDgrLong)) continue;
             bool hasShortDgr = ownDiagrams.TryGetValue(calcService, out var ownDgrShort);
 

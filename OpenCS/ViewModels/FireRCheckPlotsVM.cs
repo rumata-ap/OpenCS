@@ -1,4 +1,4 @@
-using CScore;
+﻿using CScore;
 using CScore.Fire;
 using CScore.Fire.Entities;
 using OpenCS.Utilites;
@@ -45,7 +45,7 @@ public sealed class FireRCheckPlotsVM
             return;
 
         section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin, pool: app.Diagrams,
-            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
+            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
 
         int snapIdx = (int)FireResultJson.Dbl(d, "snapshot_index", -1);
         var fiber = FireFiberSection.FromThermalResult(thermal, section, snapIdx);

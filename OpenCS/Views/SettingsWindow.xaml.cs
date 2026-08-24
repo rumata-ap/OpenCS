@@ -1,4 +1,4 @@
-using OpenCS.Utilites;
+﻿using OpenCS.Utilites;
 using CalcSettings = OpenCS.Utilites.CalcSettings;
 using CsvExportSettings = OpenCS.Utilites.CsvExportSettings;
 using LiraImportSettings = OpenCS.Utilites.LiraImportSettings;
@@ -227,6 +227,7 @@ namespace OpenCS.Views
          CentroidNdsSizeBox.Text   = _calcSettings.CentroidNdsSize.ToString("F0");
          LabelFontSizeBox.Text     = _calcSettings.FiberLabelFontSize.ToString("F0");
          Sp63EtaMinBox.Text        = _calcSettings.Sp63DescEtaMin.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         EkbEtaMinBox.Text         = _calcSettings.EkbDescEtaMin.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          NewtonJacobianCombo.SelectedIndex = _calcSettings.NewtonJacobian == "central" ? 1 : 0;
          ShellTolResBox.Text         = _calcSettings.ShellNewtonTolRes.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          Sp20GammaGBox.Text          = _calcSettings.Sp20GammaFPermanent.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
@@ -312,6 +313,11 @@ namespace OpenCS.Views
          {
             if (Pars.ParseAny(Sp63EtaMinBox.Text, out var v) && v > 0 && v < 1)
                _calcSettings.Sp63DescEtaMin = v;
+         };
+         EkbEtaMinBox.TextChanged += (_, _) =>
+         {
+            if (Pars.ParseAny(EkbEtaMinBox.Text, out var v) && v > 0 && v < 1)
+               _calcSettings.EkbDescEtaMin = v;
          };
          ShellTolResBox.TextChanged += (_, _) =>
          {

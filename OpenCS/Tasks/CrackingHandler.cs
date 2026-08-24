@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text.Json;
 using CScore;
 using OpenCS.Utilites;
@@ -20,7 +20,7 @@ public sealed class CrackingHandler : ITaskHandler
         {
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx?.Database?.Diagrams,
-                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
 
             double mag = Math.Sqrt(item.Mx * item.Mx + item.My * item.My);
             double dmx = mag > 1e-12 ? item.Mx / mag : 1.0;

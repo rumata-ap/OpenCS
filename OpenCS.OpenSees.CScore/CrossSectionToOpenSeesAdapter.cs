@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using CScore;
 using OpenCS.OpenSees.Model;
 
@@ -55,6 +55,11 @@ public static class CrossSectionToOpenSeesAdapter
         /// криволинейной диаграммы бетона СП 63.13330. Применяется только к
         /// <see cref="DiagrammType.SP63"/>.</summary>
         public double Sp63EtaMin { get; init; } = 0.85;
+
+        /// <summary>Минимальное отношение напряжения к пиковому на ниспадающей ветви
+        /// диаграммы ЕКБ (CEB-FIP MC90). Применяется только к
+        /// <see cref="DiagrammType.EKB"/>.</summary>
+        public double EkbEtaMin { get; init; } = 0.05;
     }
 
     /// <summary>Строит модель из уже подготовленных фибр без изменения исходного сечения.</summary>
@@ -104,7 +109,7 @@ public static class CrossSectionToOpenSeesAdapter
                 OpenSeesMaterialDefinition definition;
                 try
                 {
-                    Diagramm diagram = ResolveDiagram(area, material, calc, customPool, options.Sp63EtaMin);
+                    Diagramm diagram = ResolveDiagram(area, material, calc, customPool, options.Sp63EtaMin, options.EkbEtaMin);
                     bool isReinforcement = area.HostAreaId is not null;
                     double? rebarHardeningPa = isReinforcement
                         ? options.SteelHardeningModulusPa
@@ -296,7 +301,8 @@ public static class CrossSectionToOpenSeesAdapter
         Material material,
         CalcType calc,
         IReadOnlyList<Diagramm>? customPool,
-        double sp63EtaMin)
+        double sp63EtaMin,
+        double ekbEtaMin)
     {
         try
         {
@@ -309,7 +315,7 @@ public static class CrossSectionToOpenSeesAdapter
             }
             else
             {
-                diagrams = material.GetDiagramms(area.DiagrammType, sp63EtaMin);
+                diagrams = material.GetDiagramms(area.DiagrammType, sp63EtaMin, ekbEtaMin);
             }
 
             if (diagrams == null || !diagrams.TryGetValue(calc, out Diagramm? diagram))

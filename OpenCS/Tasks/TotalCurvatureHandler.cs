@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text.Json;
 using CScore;
@@ -23,7 +23,7 @@ public sealed class TotalCurvatureHandler : ITaskHandler
         {
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx?.Database?.Diagrams,
-                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
 
             var parameters = TotalCurvatureTaskParams.Parse(task.ParamsJson);
             double nTotal = item.N;

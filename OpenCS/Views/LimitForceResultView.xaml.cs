@@ -1,4 +1,4 @@
-using CScore;
+﻿using CScore;
 using OpenCS.Services;
 using OpenCS.ViewModels;
 using System.Linq;
@@ -21,7 +21,7 @@ public partial class LimitForceResultView : UserControl
             return;
 
         section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin, pool: app.Diagrams,
-            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
+            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
         var settings = app.CalcSettings;
         bool ten = settings.ResolveConcreteTension(task.CalcType);
         var k = ParseKurvature(result.DataJson);

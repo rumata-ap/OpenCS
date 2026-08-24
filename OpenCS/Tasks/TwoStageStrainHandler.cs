@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text.Json;
 using CScore;
@@ -30,9 +30,9 @@ public sealed class TwoStageStrainHandler : ITaskHandler
          var f2 = TwoStageForceResolver.Resolve(p.Stage2, ctx.Database.ForceSets).Single();
 
          tss.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
-            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
          tss.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx.Database.Diagrams,
-            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
          bool ten = settings.ResolveConcreteTension(task.CalcType);
 
          // Этап 1: решаем сечение этапа 1 как обычное CrossSection → κ1

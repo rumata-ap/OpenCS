@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Text.Json;
 using System.Windows.Controls;
 using CScore;
@@ -28,7 +28,7 @@ public partial class CrackingResultView : UserControl
         }
 
         section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin, pool: app.Diagrams,
-            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
+            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
         section.SetEps(k.Value, CalcType.CL, ten: true);
 
         var settings = app.CalcSettings;

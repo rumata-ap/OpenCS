@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -29,7 +29,7 @@ static class LimitForceTaskHelper
       try
       {
          section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
-            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
          var solver = LimitForceSolvers.Create(section, task.CalcType,
             LimitForceParams.Parse(task.ParamsJson),
             newtonTol: settings.NewtonTolerance,
@@ -67,7 +67,7 @@ static class LimitForceTaskHelper
                $"Набор усилий id={task.ForceSetId} не найден.");
 
          section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
-            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
          var parameters = LimitForceParams.Parse(task.ParamsJson);
          var items = forceSet.Items;
          int total = items.Count;

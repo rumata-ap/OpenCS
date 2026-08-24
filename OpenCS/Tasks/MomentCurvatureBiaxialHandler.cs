@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text.Json;
 using CScore;
@@ -24,7 +24,7 @@ public sealed class MomentCurvatureBiaxialHandler : ITaskHandler
         {
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx?.Database?.Diagrams,
-                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
 
             var parameters = MomentCurvatureBiaxialTaskParams.Parse(task.ParamsJson);
             var nMode = parameters.NMode == "proportional"

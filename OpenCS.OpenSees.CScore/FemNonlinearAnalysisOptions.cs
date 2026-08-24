@@ -1,4 +1,4 @@
-namespace OpenCS.OpenSees.CScore;
+﻿namespace OpenCS.OpenSees.CScore;
 
 /// <summary>Настройки нелинейного расчёта, задаваемые на постановке (FemAnalysisParams):
 /// формулировка geomTransf, уточнение, критерий сходимости, точки интегрирования. Шаг/предел
@@ -45,4 +45,6 @@ public sealed record FemNonlinearAnalysisOptions(
     // Минимальное отношение напряжения к пиковому на ниспадающей ветви бетона СП 63.13330.
     double Sp63EtaMin = 0.85,
     // Абсолютный модуль упрочнения арматуры в МПа; null — legacy-постановка без нового поля.
-    double? SteelHardeningModulusMpa = 0);
+    double? SteelHardeningModulusMpa = 0,
+    // Минимальное отношение напряжения к пиковому на ниспадающей ветви бетона ЕКБ (CEB-FIP MC90).
+    double EkbEtaMin = 0.05);

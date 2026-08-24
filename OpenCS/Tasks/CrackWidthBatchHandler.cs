@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -29,7 +29,7 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
 
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx.Database.Diagrams,
-                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
 
             var p = CrackWidthTaskParams.Parse(task.ParamsJson);
 
@@ -51,7 +51,7 @@ public sealed class CrackWidthBatchHandler : ITaskHandler
                 phi2: p.Phi2,
                 acrcUltLong: p.AcrcUltLong, acrcUltShort: p.AcrcUltShort,
                 sp63EtaMin: settings.Sp63DescEtaMin,
-                psiSMethod: settings.ResolvePsiSMethod());
+                psiSMethod: settings.ResolvePsiSMethod(), ekbEtaMin: settings.EkbDescEtaMin);
 
             var etaParams = LimitForceParams.Parse(task.ParamsJson);
             double etaThreshold = etaParams.EtaSlendernessThreshold

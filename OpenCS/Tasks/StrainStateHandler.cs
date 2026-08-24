@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text.Json;
 using CScore;
@@ -24,7 +24,7 @@ namespace OpenCS.Tasks
          {
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx?.Database?.Diagrams,
-                rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
 
             double nTarget    = item.N;
             double mxOriginal = item.Mx; // LoadItem.Mx → Load.Mx (∫σ·y·dA, момент относительно X)

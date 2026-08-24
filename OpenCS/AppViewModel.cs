@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Linq;
 using System.Globalization;
 using System.Text.Json;
@@ -3779,7 +3779,7 @@ namespace OpenCS
          var calcType = Enum.TryParse<CalcType>(request.CalcTypeName, out var parsed) ? parsed : CalcType.C;
          section.ResolveAndBuildDiagramms(CalcSettings.Sp63DescEtaMin,
             pool: Diagrams,
-            rebarDifferentialDiagram: CalcSettings.RebarDifferentialDiagram);
+            rebarDifferentialDiagram: CalcSettings.RebarDifferentialDiagram, ekbEtaMin: CalcSettings.EkbDescEtaMin);
          var summary = OpenCS.OpenSees.CScore.FemRecordedSectionReducer.Reduce(section, calcType, recorded);
          var summaryVm = new ViewModels.FemSectionSummaryVM(request, summary, recorded);
          bool ten = CalcSettings.ResolveConcreteTension(calcType);

@@ -363,39 +363,93 @@ namespace CScore
       }
 
       /// <summary>
-      /// Нелинейная диаграмма бетона по EN 1992-1-1 §3.1.5 (формула Сарджина, ЕКБ).
+      /// Нелинейная диаграмма бетона по EN 1992-1-1 §3.1.5 (формула Сарджина, ЕКБ)
+      /// с нисходящей ветвью по CEB-FIP MC90, ур. (2.1-19) … (2.1-21).
       /// Ветвь растяжения — трёхлинейная, как в DCL.
       /// </summary>
-      public Diagramm DEKB()
+      /// <param name="etaMin">
+      /// Нижняя граница нисходящей ветви по уровню напряжений η = σ/Rb (по умолчанию 0.05).
+      /// Кривая строится до σ = etaMin·Rb, затем гасится по касательной до нуля.
+      /// Переход с ур. (2.1-18) на (2.1-20) происходит на εc,lim, где σ = 0.5·Rb,
+      /// поэтому при etaMin ≥ 0.5 участок (2.1-20) не строится.
+      /// </param>
+      /// <remarks>
+      /// В отличие от L2/L3/SP35, <see cref="Ec2"/> здесь НЕ ограничивает ветвь сжатия:
+      /// длину нисходящей ветви задаёт <paramref name="etaMin"/>.
+      /// </remarks>
+      public Diagramm DEKB(double etaMin = 0.05)
       {
          if (Type != MatType.Concrete)
             throw new ArgumentException("Диаграмма ЕКБ только для бетона");
 
          double Rb  = Math.Abs(Fc);
          double ec1 = Math.Abs(Ec0);   // деформация в вершине кривой (εc1)
-         double ecu = Math.Abs(Ec2);   // предельная деформация (εcu1)
          double E   = this.E;
 
-         double k     = 1.05 * E * ec1 / Rb;
-         double etaU  = ecu / ec1;     // η на предельной деформации
+         if (ec1 <= 0 || Rb <= 0)
+            throw new ArgumentException("Диаграмма ЕКБ: требуются Fc < 0 и Ec0 < 0");
 
-         // Восходящая ветвь (0..1) + нисходящая (1..etaU) — одним проходом
-         const int N = 60;
-         var xs = new List<double>(N + 2);
-         var ys = new List<double>(N + 2);
+         etaMin = Math.Max(1e-3, Math.Min(0.99, etaMin));
 
-         for (int i = 0; i <= N; i++)
+         double k = 1.05 * E * ec1 / Rb;   // = Eci/Ec1 в терминах MC90 ур. (2.1-18)
+
+         // εc,lim по MC90 (2.1-19): точка, где ур. (2.1-18) даёт σ = -0.5·Rb.
+         double h      = 0.5 * k / 2.0 + 0.5;              // ½·(½·k + 1)
+         double disc   = h * h - 0.5;
+         double etaLim = disc >= 0 ? h + Math.Sqrt(disc) : double.PositiveInfinity;
+
+         var xs = new List<double>();
+         var ys = new List<double>();
+
+         // Участок (2.1-18): восходящая ветвь + нисходящая до εc,lim либо до σ = etaMin·Rb.
+         double etaSarginEnd = Math.Min(etaLim, SarginEta(k, etaMin));
+         const int N1 = 100;
+         var etas1 = new List<double>(N1 + 2);
+         for (int i = 0; i <= N1; i++) etas1.Add(etaSarginEnd * i / N1);
+         if (etaSarginEnd > 1.0) etas1.Add(1.0);   // вершина кривой — всегда узел
+         etas1.Sort();
+         foreach (double eta in etas1)
          {
-            double eta  = etaU * i / N;
-            double denom = 1.0 + (k - 2.0) * eta;
-            double sig  = denom < 1e-12 ? Rb : Rb * (k * eta - eta * eta) / denom;
-            sig = Math.Max(0.0, sig);   // не уходить в отрицательные за пределами кривой
             xs.Add(-eta * ec1);
-            ys.Add(-sig);
+            ys.Add(-Sargin(k, eta) * Rb);
          }
-         // Сентинель слева: продление последнего значения без экстраполяции
-         xs.Insert(0, xs[0] - 0.01);
-         ys.Insert(0, ys[0]);
+
+         // Участок (2.1-20): от εc,lim до σ = etaMin·Rb. Существует только при etaMin < 0.5.
+         double xi = 4.0 * (etaLim * etaLim * (k - 2.0) + 2.0 * etaLim - k)
+                   / Math.Pow(etaLim * (k - 2.0) + 1.0, 2.0);
+         double a  = xi / etaLim - 2.0 / (etaLim * etaLim);
+         double b  = 4.0 / etaLim - xi;
+
+         double etaEnd = etaSarginEnd;
+         if (etaSarginEnd >= etaLim && a > 0)
+         {
+            // a·η² + b·η = 1/etaMin  →  наибольший корень
+            double d2 = b * b + 4.0 * a / etaMin;
+            double root = d2 > 0 ? (-b + Math.Sqrt(d2)) / (2.0 * a) : double.NaN;
+            if (root > etaLim)
+            {
+               const int N2 = 60;
+               for (int i = 1; i <= N2; i++)
+               {
+                  double eta = etaLim + (root - etaLim) * i / N2;
+                  xs.Add(-eta * ec1);
+                  ys.Add(-Rb / (a * eta * eta + b * eta));
+               }
+               etaEnd = root;
+            }
+         }
+
+         // Гашение до нуля по касательной в конечной точке — без вертикального обрыва,
+         // на котором кубический сплайн даёт выброс в область растяжения.
+         double sigEnd   = -ys[^1];
+         double slope    = TangentPerEta(k, a, b, etaLim, etaEnd, Rb);
+         double etaZero  = etaEnd + (slope > 1e-12 ? sigEnd / slope : 0.5 * etaEnd);
+         xs.Add(-etaZero * ec1);
+         ys.Add(0.0);
+
+         // Сентинель: плоский нулевой хвост, иначе CSpline экстраполирует кубикой.
+         xs.Add(-etaZero * ec1 - 0.01);
+         ys.Add(0.0);
 
          var sorted = xs.Zip(ys, (x, y) => (x, y)).OrderBy(p => p.x).ToList();
          var dedup  = new List<(double x, double y)>();
@@ -403,10 +457,52 @@ namespace CScore
             if (dedup.Count == 0 || Math.Abs(p.x - dedup[^1].x) > 1e-14)
                dedup.Add(p);
 
+         // Кусочно-линейная интерполяция по плотной выборке: кубический сплайн
+         // на изломе у нулевого хвоста даёт выброс в область растяжения,
+         // а за пределами диапазона — кубическую экстраполяцию.
          return new Diagramm(
-            new CSmath.CSpline(dedup.Select(p => p.x), dedup.Select(p => p.y)),
+            new CSmath.LSpline(dedup.Select(p => p.x).ToArray(), dedup.Select(p => p.y).ToArray()),
             TensionTrilinear(), DiagrammType.EKB, Type,
-            "Нелинейная EN 1992-1-1 §3.1.5 / ЕКБ (бетон)");
+            "Нелинейная EN 1992-1-1 §3.1.5 / ЕКБ, нисх. ветвь MC90 (бетон)");
+      }
+
+      /// <summary>
+      /// Кривая Сарджина, MC90 ур. (2.1-18), в долях от Rb: σ/Rb при η = εc/εc1.
+      /// </summary>
+      static double Sargin(double k, double eta)
+      {
+         double denom = 1.0 + (k - 2.0) * eta;
+         if (Math.Abs(denom) < 1e-12) return 1.0;
+         return Math.Max(0.0, (k * eta - eta * eta) / denom);
+      }
+
+      /// <summary>
+      /// η на нисходящей части кривой Сарджина, где σ/Rb = <paramref name="level"/>.
+      /// Корень уравнения η² - [k - level·(k-2)]·η + level = 0 (больший из двух).
+      /// Возвращает +∞, если уровень недостижим.
+      /// </summary>
+      static double SarginEta(double k, double level)
+      {
+         double bb   = k - level * (k - 2.0);
+         double disc = bb * bb - 4.0 * level;
+         return disc >= 0 ? 0.5 * (bb + Math.Sqrt(disc)) : double.PositiveInfinity;
+      }
+
+      /// <summary>
+      /// Модуль скорости спада |dσ/dη| в конечной точке нисходящей ветви —
+      /// по ур. (2.1-20), если ветвь дошла до участка MC90, иначе по (2.1-18).
+      /// </summary>
+      static double TangentPerEta(double k, double a, double b, double etaLim, double etaEnd, double Rb)
+      {
+         if (etaEnd > etaLim)
+         {
+            double q = a * etaEnd * etaEnd + b * etaEnd;
+            return Rb * (2.0 * a * etaEnd + b) / (q * q);
+         }
+
+         double denom = 1.0 + (k - 2.0) * etaEnd;
+         double num   = (k - 2.0 * etaEnd) * denom - (k * etaEnd - etaEnd * etaEnd) * (k - 2.0);
+         return -Rb * num / (denom * denom);
       }
 
       /// <summary>

@@ -1,4 +1,4 @@
-using CScore;
+﻿using CScore;
 using OpenCS.Converters;
 using OpenCS.Utilites;
 using OpenCS.Views;
@@ -56,7 +56,7 @@ namespace OpenCS.ViewModels
             _model.Material = value;
             _model.MaterialId = value?.Id ?? 0;
             _model.ResolveAndBuildDiagramms(App.CalcSettings.Sp63DescEtaMin, pool: App.db.Diagrams,
-               rebarDifferentialDiagram: App.CalcSettings.RebarDifferentialDiagram);
+               rebarDifferentialDiagram: App.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: App.CalcSettings.EkbDescEtaMin);
             OnPropertyChanged();
             OnPropertyChanged(nameof(MaterialType));
             OnPropertyChanged(nameof(IsCustomMaterial));
@@ -119,7 +119,7 @@ namespace OpenCS.ViewModels
          {
             _model.DiagrammType = value;
             _model.ResolveAndBuildDiagramms(App.CalcSettings.Sp63DescEtaMin, pool: App.db.Diagrams,
-               rebarDifferentialDiagram: App.CalcSettings.RebarDifferentialDiagram);
+               rebarDifferentialDiagram: App.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: App.CalcSettings.EkbDescEtaMin);
             OnPropertyChanged();
          }
       }

@@ -1,4 +1,4 @@
-using CScore;
+﻿using CScore;
 using CScore.Fire.Entities;
 
 namespace CScore.Fire;
@@ -21,12 +21,13 @@ public static class FireRCheckFiber
         int? thermalResultId = null,
         double sp63EtaMin = 0.85,
         bool rebarDifferentialDiagram = true,
-        IReadOnlyList<Diagramm>? diagramPool = null)
+        IReadOnlyList<Diagramm>? diagramPool = null,
+        double ekbEtaMin = 0.05)
     {
         ArgumentNullException.ThrowIfNull(thermal);
         ArgumentNullException.ThrowIfNull(section);
 
-        section.ResolveAndBuildDiagramms(sp63EtaMin, diagramPool, rebarDifferentialDiagram);
+        section.ResolveAndBuildDiagramms(sp63EtaMin, diagramPool, rebarDifferentialDiagram, ekbEtaMin);
         var fiber = FireFiberSection.FromThermalResult(thermal, section, snapshotIndex);
         var solver = new LimitForceSolver(fiber, fiber.SourceSection, calc);
         LimitForceResult res = solver.AllFactor(n, mx, my);

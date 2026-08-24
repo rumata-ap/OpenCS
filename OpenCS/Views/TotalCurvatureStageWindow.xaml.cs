@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -23,7 +23,7 @@ public partial class TotalCurvatureStageWindow : Window
         Title = $"{stage.Label} — {Loc.S("TotalCurvature_StagePlotTitle")}";
         section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
             pool: app.Diagrams,
-            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
+            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
         section.SetEps(stage.Plane, stage.CalcType, stage.ConcreteTension);
         var rebarFibers = section.EnumerateAreas(stage.Plane)
             .SelectMany(item => item.area.Fibers)

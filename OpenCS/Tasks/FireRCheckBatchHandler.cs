@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using CScore;
 using CScore.Fire;
 using CScore.Fire.Entities;
@@ -42,7 +42,7 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                 : ctx.Database.GetLatestFireThermalResultId(p.FireSectionId);
 
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx?.Database?.Diagrams,
-               rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+               rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
 
             var rows = new List<object>();
             bool allPassed = true;
@@ -63,7 +63,7 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                     thermalId,
                     settings.Sp63DescEtaMin,
                     settings.RebarDifferentialDiagram,
-                    ctx?.Database?.Diagrams);
+                    ctx?.Database?.Diagrams, settings.EkbDescEtaMin);
 
                 if (!check.Passed)
                     allPassed = false;

@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using CScore.Combinations;
 
 namespace OpenCS.Utilites
@@ -63,6 +63,14 @@ namespace OpenCS.Utilites
       /// </summary>
       [JsonPropertyName("sp63DescEtaMin")]
       public double Sp63DescEtaMin { get; set; } = 0.85;
+
+      /// <summary>
+      /// Нижняя граница нисходящей ветви диаграммы ЕКБ (уровень напряжений η = σ/Rb).
+      /// Кривая MC90 строится до σ = η·Rb; переход с ур. (2.1-18) на (2.1-20)
+      /// происходит при η = 0.5, поэтому при η ≥ 0.5 участок (2.1-20) не строится.
+      /// </summary>
+      [JsonPropertyName("ekbDescEtaMin")]
+      public double EkbDescEtaMin { get; set; } = 0.05;
 
       /// <summary>
       /// Параллельное выполнение пакетных задач прочности/жёсткости (Parallel.For).
@@ -271,6 +279,7 @@ namespace OpenCS.Utilites
          FiberLabelFontSize    = FiberLabelFontSize,
          SectionCutWindow      = SectionCutWindow.Clone(),
          Sp63DescEtaMin        = Sp63DescEtaMin,
+         EkbDescEtaMin         = EkbDescEtaMin,
          BatchParallel         = BatchParallel,
          ShellWarmStart        = ShellWarmStart,
          ShellNewtonTolRes     = ShellNewtonTolRes,

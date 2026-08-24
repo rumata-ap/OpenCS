@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -37,9 +37,9 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
                $"Число строк наборов этапов не совпадает: этап 1 = {s1Items.Count}, этап 2 = {s2Items.Count}.");
 
          tss.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: db.Diagrams,
-            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
          tss.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: db.Diagrams,
-            rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+            rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
          bool ten = settings.ResolveConcreteTension(task.CalcType);
 
          int total = s2Items.Count;
@@ -60,9 +60,9 @@ public sealed class TwoStageStrainBatchHandler : ITaskHandler
          {
             var clone = (TwoStageSection)tss.CloneForCalc();
             clone.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: db.Diagrams,
-               rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+               rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
             clone.Stage1.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: db.Diagrams,
-               rebarDifferentialDiagram: settings.RebarDifferentialDiagram);
+               rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
 
             Kurvature k1;
             if (sharedK1.HasValue)

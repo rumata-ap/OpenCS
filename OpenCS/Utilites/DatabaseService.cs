@@ -1,4 +1,4 @@
-using CScore;
+﻿using CScore;
 using CScore.Fire;
 using CScore.Fire.Entities;
 using CScore.PlateRebar;
@@ -1682,10 +1682,10 @@ namespace OpenCS.Utilites
          foreach (var sec in CrossSections)
          {
             sec.ResolveAndBuildDiagramms(calc.Sp63DescEtaMin, pool: Diagrams,
-               rebarDifferentialDiagram: calc.RebarDifferentialDiagram);
+               rebarDifferentialDiagram: calc.RebarDifferentialDiagram, ekbEtaMin: calc.EkbDescEtaMin);
             if (sec is TwoStageSection tss)
                tss.Stage1.ResolveAndBuildDiagramms(calc.Sp63DescEtaMin, pool: Diagrams,
-                  rebarDifferentialDiagram: calc.RebarDifferentialDiagram);
+                  rebarDifferentialDiagram: calc.RebarDifferentialDiagram, ekbEtaMin: calc.EkbDescEtaMin);
          }
       }
 
@@ -1805,7 +1805,7 @@ namespace OpenCS.Utilites
                }
             }
             area.ResolveAndBuildDiagramms(calc.Sp63DescEtaMin, pool: Diagrams,
-               rebarDifferentialDiagram: calc.RebarDifferentialDiagram);
+               rebarDifferentialDiagram: calc.RebarDifferentialDiagram, ekbEtaMin: calc.EkbDescEtaMin);
          }
       }
 

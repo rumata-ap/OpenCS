@@ -1,4 +1,4 @@
-using CScore;
+﻿using CScore;
 using OpenCS.Services;
 using OpenCS.ViewModels;
 using System.Linq;
@@ -120,10 +120,10 @@ namespace OpenCS.Views
             {
                 tss.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
                     pool: app.Diagrams,
-                    rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
+                    rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
                 tss.Stage1.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
                     pool: app.Diagrams,
-                    rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
+                    rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
                 Content = new TwoStageCalcResultView(result, tss, task.CalcType, app.CalcSettings, app.FileDialogService);
                 return;
             }
@@ -148,7 +148,7 @@ namespace OpenCS.Views
             // Подготовить сечение: диаграммы + SetEps по плоскости из результата
             section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
                 pool: app.Diagrams,
-                rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram);
+                rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
 
             var k = ParseKurvature(result.DataJson);
             var settings = app.CalcSettings;

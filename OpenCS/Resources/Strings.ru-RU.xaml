@@ -1,4 +1,4 @@
-<ResourceDictionary
+﻿<ResourceDictionary
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:system="clr-namespace:System;assembly=mscorlib">
@@ -139,6 +139,8 @@
    <system:String x:Key="CalcSettingsJacobianCentral">Центральная (central)</system:String>
    <system:String x:Key="CalcSettingsSp63EtaMin">Нисх. ветвь СП63: η_min</system:String>
    <system:String x:Key="CalcSettingsSp63EtaMinTip">Нижняя граница нисходящей ветви криволинейной диаграммы бетона. По СП 63.13330 п. Г.1 — не менее 0.85</system:String>
+   <system:String x:Key="CalcSettingsEkbEtaMin">Нисх. ветвь ЕКБ: η_min</system:String>
+   <system:String x:Key="CalcSettingsEkbEtaMinTip">Нижняя граница нисходящей ветви диаграммы ЕКБ (η = σ/Rb). Ветвь по CEB-FIP MC90 ур. (2.1-20) начинается при η = 0.5, поэтому при η ≥ 0.5 она не строится. По умолчанию 0.05</system:String>
    <system:String x:Key="CalcSettingsShellTolRes">Точность (пластины)</system:String>
    <system:String x:Key="CalcSettingsShellTolResTip">Относительный допуск Ньютона для пластинчатых сечений: ‖невязка‖ / (1 + ‖усилия‖). Рекомендуется 1e-3.</system:String>
    <system:String x:Key="PlotSettingsForceSetColorize">Раскраска значений усилий в наборах по осям</system:String>

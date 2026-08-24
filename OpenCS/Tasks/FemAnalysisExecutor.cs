@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 using CScore;
 using CScore.Fem;
@@ -175,7 +175,8 @@ public static class FemAnalysisExecutor
             FiberStatesIntegrationPoints: calcSettings.ResolveOpenSeesFiberStatesIntegrationPoints(),
             ConsiderPhysicalNonlinearity: parameters.ConsiderPhysicalNonlinearity,
             Sp63EtaMin: calcSettings.Sp63DescEtaMin,
-            SteelHardeningModulusMpa: parameters.SteelHardeningModulusMpa);
+            SteelHardeningModulusMpa: parameters.SteelHardeningModulusMpa,
+            EkbEtaMin: calcSettings.EkbDescEtaMin);
 
         var input = new FemNonlinearWorkflowInput(
             meshNodes, meshElems, sourceNodes, sourceMembers, stages,
