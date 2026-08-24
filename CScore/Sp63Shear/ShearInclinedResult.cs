@@ -47,6 +47,24 @@ public sealed class ShearInclinedResult
     /// <summary>Оговорки и предупреждения для отчёта.</summary>
     public required IReadOnlyList<string> Warnings { get; init; }
 
-    /// <summary>Наибольший коэффициент использования среди проверок.</summary>
+    /// <summary>
+    /// Наибольший коэффициент использования среди всех проверок, включая упрощённые
+    /// (8.60) и (8.63′). Упрощённые условия дают нижнюю оценку несущей способности и
+    /// нередко оказываются жёстче точных, поэтому итоговый вердикт по ним — в запас.
+    /// </summary>
     public double Utilization => Details.Count == 0 ? 0.0 : Details.Max(d => d.Ratio);
+
+    /// <summary>
+    /// Коэффициент использования только по точным проверкам (8.55), (8.56) и (8.63) —
+    /// без упрощённых условий. Показывается в отчёте рядом с <see cref="Utilization"/>,
+    /// чтобы было видно, вердикт определён точным расчётом или его нижней оценкой.
+    /// </summary>
+    public double UtilizationExact
+    {
+        get
+        {
+            var exact = Details.Where(d => d.Formula is "8.55" or "8.56" or "8.63").ToList();
+            return exact.Count == 0 ? 0.0 : exact.Max(d => d.Ratio);
+        }
+    }
 }
