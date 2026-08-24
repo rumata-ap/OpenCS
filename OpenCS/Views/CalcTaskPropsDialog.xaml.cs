@@ -262,6 +262,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          OnPropertyChanged(nameof(ShowTotalCurvatureManual));
          OnPropertyChanged(nameof(IsTorsion));
          OnPropertyChanged(nameof(IsTorsionFem));
+         OnPropertyChanged(nameof(IsShearInclined));
+         OnPropertyChanged(nameof(IsShearInclinedBatch));
          OnPropertyChanged(nameof(ShowManualForces));
          OnPropertyChanged(nameof(IsStrainState));
          OnPropertyChanged(nameof(SupportsEta));
@@ -396,6 +398,45 @@ public class CalcTaskPropsDlgVM : ViewModelBase
         "steel_tension_bending" or "steel_shear" or
         "steel_torsion" or "steel_constructive";
    public bool IsTorsion => Kind is "torsion_bem" or "torsion_fem";
+
+   /// <summary>Задача расчёта наклонных сечений по СП 63 (одиночная или пакетная).</summary>
+   public bool IsShearInclined => Kind is "shear_inclined" or "shear_inclined_batch";
+
+   /// <summary>Пакетный расчёт наклонных сечений по набору усилий.</summary>
+   public bool IsShearInclinedBatch => Kind == "shear_inclined_batch";
+
+   /// <summary>Источник усилий: "constant" | "uniform_load" | "fem_profile".</summary>
+   public string ShearForceSource { get; set; } = "constant";
+   /// <summary>Тип элемента для режима φn.</summary>
+   public string ShearElementKind { get; set; } = "bending_unstressed";
+   /// <summary>Равномерная нагрузка q, кН/м.</summary>
+   public string ShearDistributedLoad { get; set; } = "0";
+   /// <summary>Расстояние до опоры, м.</summary>
+   public string ShearDistanceToSupport { get; set; } = "0";
+   /// <summary>Направление к опоре.</summary>
+   public string ShearSupportDirection { get; set; } = "auto";
+   /// <summary>Начало участка является опорой.</summary>
+   public bool ShearSupportAtStart { get; set; } = true;
+   /// <summary>Конец участка является опорой.</summary>
+   public bool ShearSupportAtEnd { get; set; } = true;
+   /// <summary>Шаг стоянок, м; 0 — авто.</summary>
+   public string ShearStationStep { get; set; } = "0";
+   /// <summary>Шаг перебора проекции C, м; 0 — авто.</summary>
+   public string ShearProjectionStep { get; set; } = "0";
+   /// <summary>Индекс шага нелинейного расчёта FEM; пусто — последний сошедшийся.</summary>
+   public string ShearFemStepIndex { get; set; } = "";
+   /// <summary>Рассчитываемые плоскости.</summary>
+   public string ShearPlanes { get; set; } = "both";
+   /// <summary>Выполнять проверки по 8.1.35.</summary>
+   public bool ShearCheckMoment { get; set; } = true;
+   /// <summary>Длина приопорной зоны проверки момента, м.</summary>
+   public string ShearMomentZoneLength { get; set; } = "0";
+   /// <summary>Координаты обрывов арматуры, разделённые пробелами.</summary>
+   public string ShearBarCutoffsText { get; set; } = "";
+   /// <summary>Коэффициент включения продольной арматуры k.</summary>
+   public string ShearAnchorageFactor { get; set; } = "1";
+   /// <summary>Подтверждение требований 10.3; без него хомуты не учитываются.</summary>
+   public bool ShearConstructiveConfirmed { get; set; }
    public bool IsTorsionFem => Kind == "torsion_fem";
    public TorsionMeshPreviewVM TorsionMeshPreview { get; } = new();
    public bool IsCracking      => Kind == "cracking";
@@ -410,7 +451,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsOpenSeesSpatialInteraction => Kind == "opensees_section_interaction_n_mx_my";
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
       && !IsOpenSeesSpatialInteraction
-      && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch;
+      && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch
+      && !IsShearInclinedBatch;
    public bool ShowSolverMethod => IsLimitKind;
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
@@ -1132,6 +1174,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        new() { Id = "steel_shear",              Label = Loc.S("CalcTaskKind_steel_shear"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_torsion",            Label = Loc.S("CalcTaskKind_steel_torsion"),            GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_constructive",       Label = Loc.S("CalcTaskKind_steel_constructive"),       GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
+       new() { Id = "shear_inclined",           Label = Loc.S("CalcTaskKind_shear_inclined"),           GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+       new() { Id = "shear_inclined_batch",     Label = Loc.S("CalcTaskKind_shear_inclined_batch"),     GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       // Прочее
       new() { Id = "moment_curvature_biaxial", Label = Loc.S("CalcTaskKind_moment_curvature_biaxial"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "torsion_bem",              Label = Loc.S("CalcTaskKind_torsion_bem"),              GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
@@ -1457,6 +1501,29 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               }
               if (tp.AutoRuns >= 2)
                   TorsionAutoRuns = tp.AutoRuns.ToString(inv);
+          }
+
+          if (IsShearInclined && !string.IsNullOrWhiteSpace(existing.ParamsJson)
+              && existing.ParamsJson != "{}")
+          {
+              var sip = ShearInclinedParams.Parse(existing.ParamsJson);
+              var inv = System.Globalization.CultureInfo.InvariantCulture;
+              ShearForceSource = sip.ForceSource;
+              ShearElementKind = sip.ElementKind;
+              ShearDistributedLoad = sip.DistributedLoad.ToString("G6", inv);
+              ShearDistanceToSupport = sip.DistanceToSupport.ToString("G6", inv);
+              ShearSupportDirection = sip.SupportDirection;
+              ShearSupportAtStart = sip.SupportAtStart;
+              ShearSupportAtEnd = sip.SupportAtEnd;
+              ShearStationStep = sip.StationStep.ToString("G6", inv);
+              ShearProjectionStep = sip.ProjectionStep.ToString("G6", inv);
+              ShearFemStepIndex = sip.FemStepIndex?.ToString(inv) ?? "";
+              ShearPlanes = sip.Planes;
+              ShearCheckMoment = sip.CheckMoment;
+              ShearMomentZoneLength = sip.MomentZoneLength.ToString("G6", inv);
+              ShearBarCutoffsText = string.Join(' ', sip.BarCutoffs.Select(c => c.ToString("G6", inv)));
+              ShearAnchorageFactor = sip.AnchorageFactor.ToString("G6", inv);
+              ShearConstructiveConfirmed = sip.ConstructiveRequirements103Confirmed;
           }
 
           NotifyTorsionForceProps();
@@ -2332,6 +2399,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           paramsJson = lfp.ToJson();
        }
 
+       if (IsShearInclined)
+          paramsJson = BuildShearInclinedParams().ToJson();
+
       Result = new CalcTask
       {
          Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
@@ -2368,6 +2438,46 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          if (double.TryParse(EtaPsiX, System.Globalization.NumberStyles.Float, inv, out var psix)) lfp.EtaPsiX = psix;
          if (double.TryParse(EtaPsiY, System.Globalization.NumberStyles.Float, inv, out var psiy)) lfp.EtaPsiY = psiy;
       }
+   }
+
+   /// <summary>Собирает параметры задачи расчёта наклонных сечений из полей диалога.</summary>
+   ShearInclinedParams BuildShearInclinedParams()
+   {
+      var inv = System.Globalization.CultureInfo.InvariantCulture;
+      var style = System.Globalization.NumberStyles.Float;
+
+      double Num(string text) =>
+         double.TryParse(text, style, inv, out var value) ? value : 0.0;
+
+      var cutoffs = (ShearBarCutoffsText ?? "")
+         .Split([' ', ';', ','], StringSplitOptions.RemoveEmptyEntries)
+         .Select(part => double.TryParse(part, style, inv, out var value) ? value : double.NaN)
+         .Where(double.IsFinite)
+         .ToArray();
+
+      int? femStep = int.TryParse(ShearFemStepIndex, style, inv, out var stepValue)
+         ? (int)stepValue
+         : null;
+
+      return new ShearInclinedParams
+      {
+         ForceSource = ShearForceSource,
+         ElementKind = ShearElementKind,
+         DistributedLoad = Num(ShearDistributedLoad),
+         DistanceToSupport = Num(ShearDistanceToSupport),
+         SupportDirection = ShearSupportDirection,
+         SupportAtStart = ShearSupportAtStart,
+         SupportAtEnd = ShearSupportAtEnd,
+         StationStep = Num(ShearStationStep),
+         ProjectionStep = Num(ShearProjectionStep),
+         FemStepIndex = femStep,
+         Planes = ShearPlanes,
+         CheckMoment = ShearCheckMoment,
+         MomentZoneLength = Num(ShearMomentZoneLength),
+         BarCutoffs = cutoffs,
+         AnchorageFactor = Num(ShearAnchorageFactor),
+         ConstructiveRequirements103Confirmed = ShearConstructiveConfirmed
+      };
    }
 
    /// <summary>Объединяет ParamsJson трещин с полями η (если включены).</summary>

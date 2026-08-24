@@ -1397,6 +1397,74 @@
     <system:String x:Key="CalcTaskKind_steel_torsion">Кручение</system:String>
     <system:String x:Key="CalcTaskKind_steel_constructive">Конструктивные</system:String>
 
+    <!-- Наклонные сечения по СП 63.13330 -->
+    <system:String x:Key="CalcTaskKind_shear_inclined">Наклонные сечения</system:String>
+    <system:String x:Key="CalcTaskKind_shear_inclined_batch">Наклонные сечения (набор)</system:String>
+
+    <system:String x:Key="ShearInclinedForceSource">Источник усилий</system:String>
+    <system:String x:Key="ShearInclinedSourceConstant">Постоянные усилия</system:String>
+    <system:String x:Key="ShearInclinedSourceUniform">Равномерная нагрузка</system:String>
+    <system:String x:Key="ShearInclinedSourceFem">Эпюра FEM</system:String>
+    <system:String x:Key="ShearInclinedElementKind">Тип элемента</system:String>
+    <system:String x:Key="ShearInclinedElementBending">Изгибаемый ненапрягаемый (φn = 1)</system:String>
+    <system:String x:Key="ShearInclinedElementOther">Иной (φn по 8.1.34)</system:String>
+    <system:String x:Key="ShearInclinedDistributedLoad">Нагрузка q, кН/м</system:String>
+    <system:String x:Key="ShearInclinedDistanceToSupport">Расстояние до опоры, м</system:String>
+    <system:String x:Key="ShearInclinedSupportDirection">Направление к опоре</system:String>
+    <system:String x:Key="ShearInclinedDirectionAuto">Автоматически (худшее)</system:String>
+    <system:String x:Key="ShearInclinedDirectionForward">В сторону возрастания s</system:String>
+    <system:String x:Key="ShearInclinedDirectionBackward">В сторону убывания s</system:String>
+    <system:String x:Key="ShearInclinedSupportAtStart">Опора в начале участка</system:String>
+    <system:String x:Key="ShearInclinedSupportAtEnd">Опора в конце участка</system:String>
+    <system:String x:Key="ShearInclinedStationStep">Шаг стоянок, м</system:String>
+    <system:String x:Key="ShearInclinedStationStepHint">Рекомендуется h0/4…h0/2; 0 — автоматически</system:String>
+    <system:String x:Key="ShearInclinedProjectionStep">Шаг перебора C, м</system:String>
+    <system:String x:Key="ShearInclinedProjectionStepHint">Рекомендуется h0/200…h0/20; 0 — автоматически</system:String>
+    <system:String x:Key="ShearInclinedFemStep">Шаг расчёта FEM</system:String>
+    <system:String x:Key="ShearInclinedFemStepHint">Пусто — последний сошедшийся шаг</system:String>
+    <system:String x:Key="ShearInclinedPlanes">Плоскости</system:String>
+    <system:String x:Key="ShearInclinedPlanesBoth">Обе (Vy и Vx)</system:String>
+    <system:String x:Key="ShearInclinedPlaneVy">Только Vy</system:String>
+    <system:String x:Key="ShearInclinedPlaneVx">Только Vx</system:String>
+    <system:String x:Key="ShearInclinedCheckMoment">Проверять момент в наклонном сечении (8.1.35)</system:String>
+    <system:String x:Key="ShearInclinedMomentZone">Длина приопорной зоны, м</system:String>
+    <system:String x:Key="ShearInclinedBarCutoffs">Обрывы арматуры, м (через пробел)</system:String>
+    <system:String x:Key="ShearInclinedAnchorageFactor">Коэффициент включения арматуры k</system:String>
+    <system:String x:Key="ShearInclinedConstructiveConfirm">Конструктивные требования 10.3 соблюдены</system:String>
+    <system:String x:Key="ShearInclinedConstructiveHint">Без подтверждения хомуты в расчёт не включаются (qsw = 0)</system:String>
+    <system:String x:Key="ShearInclinedOverrides">Переопределения расчётных величин</system:String>
+
+    <system:String x:Key="ShearInclinedGroupStrip">Полоса между наклонными сечениями (8.1.32)</system:String>
+    <system:String x:Key="ShearInclinedGroupShear">Наклонное сечение на действие поперечной силы (8.1.33)</system:String>
+    <system:String x:Key="ShearInclinedGroupMoment">Наклонное сечение на действие момента (8.1.35)</system:String>
+    <system:String x:Key="ShearInclinedInputsTitle">Исходные данные</system:String>
+    <system:String x:Key="ShearInclinedCautionsTitle">Оговорки</system:String>
+    <system:String x:Key="ShearInclinedAuto">авто</system:String>
+    <system:String x:Key="ShearInclinedManual">задано</system:String>
+    <system:String x:Key="ShearInclinedStationsTitle">Стоянки вдоль элемента</system:String>
+    <system:String x:Key="ShearInclinedEtaChartTitle">Коэффициент использования по длине</system:String>
+    <system:String x:Key="ShearInclinedProjectionChartTitle">Несущая способность по длине проекции C</system:String>
+    <system:String x:Key="ShearInclinedShowProjection">Диаграмма по проекции C</system:String>
+    <system:String x:Key="ShearInclinedExactUtilization">Коэффициент по точным проверкам</system:String>
+    <system:String x:Key="ShearInclinedColumnS">s, м</system:String>
+    <system:String x:Key="ShearInclinedColumnQ">Q, кН</system:String>
+    <system:String x:Key="ShearInclinedColumnM">M, кН·м</system:String>
+    <system:String x:Key="ShearInclinedColumnQb">Qb, кН</system:String>
+    <system:String x:Key="ShearInclinedColumnQsw">Qsw, кН</system:String>
+    <system:String x:Key="ShearInclinedColumnC">C, м</system:String>
+    <system:String x:Key="ShearInclinedColumnEta">η по Q</system:String>
+    <system:String x:Key="ShearInclinedColumnEtaM">η по M</system:String>
+    <system:String x:Key="ShearInclinedColumnCMoment">C по M, м</system:String>
+    <system:String x:Key="ShearInclinedColumnMApplied">M в точке 0, кН·м</system:String>
+    <system:String x:Key="ShearInclinedColumnTensionSide">Растянутая грань</system:String>
+    <system:String x:Key="ShearInclinedColumnPlane">Плоскость</system:String>
+    <system:String x:Key="ShearInclinedColumnLabel">Строка усилий</system:String>
+    <system:String x:Key="ShearInclinedColumnUtilization">Коэфф. использования</system:String>
+    <system:String x:Key="ShearInclinedColumnWorst">Худшая проверка</system:String>
+    <system:String x:Key="ShearInclinedColumnStatus">Результат</system:String>
+    <system:String x:Key="ShearInclinedPassed">ПРОЙДЕНО</system:String>
+    <system:String x:Key="ShearInclinedFailed">НЕ ПРОЙДЕНО</system:String>
+
     <!-- Вкладки панели дерева -->
     <system:String x:Key="ProjectTab">Проект</system:String>
     <system:String x:Key="FemTab">МКЭ</system:String>

@@ -223,6 +223,84 @@
          </StackPanel>
       </StackPanel>
 
+      <!-- Параметры расчёта наклонных сечений по СП 63.13330 -->
+      <StackPanel Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding IsShearInclined, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource CalcTaskKind_shear_inclined}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <TextBlock Text="{DynamicResource ShearInclinedForceSource}" Margin="0,0,0,2"/>
+               <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding ShearForceSource}">
+                  <ComboBoxItem Tag="constant"     Content="{DynamicResource ShearInclinedSourceConstant}"/>
+                  <ComboBoxItem Tag="uniform_load" Content="{DynamicResource ShearInclinedSourceUniform}"/>
+                  <ComboBoxItem Tag="fem_profile"  Content="{DynamicResource ShearInclinedSourceFem}"/>
+               </ComboBox>
+
+               <TextBlock Text="{DynamicResource ShearInclinedElementKind}" Margin="0,8,0,2"/>
+               <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding ShearElementKind}">
+                  <ComboBoxItem Tag="bending_unstressed" Content="{DynamicResource ShearInclinedElementBending}"/>
+                  <ComboBoxItem Tag="other"              Content="{DynamicResource ShearInclinedElementOther}"/>
+               </ComboBox>
+
+               <TextBlock Text="{DynamicResource ShearInclinedDistributedLoad}" Margin="0,8,0,2"/>
+               <TextBox Text="{Binding ShearDistributedLoad, UpdateSourceTrigger=PropertyChanged}"/>
+
+               <TextBlock Text="{DynamicResource ShearInclinedDistanceToSupport}" Margin="0,8,0,2"/>
+               <TextBox Text="{Binding ShearDistanceToSupport, UpdateSourceTrigger=PropertyChanged}"/>
+
+               <TextBlock Text="{DynamicResource ShearInclinedSupportDirection}" Margin="0,8,0,2"/>
+               <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding ShearSupportDirection}">
+                  <ComboBoxItem Tag="auto"     Content="{DynamicResource ShearInclinedDirectionAuto}"/>
+                  <ComboBoxItem Tag="forward"  Content="{DynamicResource ShearInclinedDirectionForward}"/>
+                  <ComboBoxItem Tag="backward" Content="{DynamicResource ShearInclinedDirectionBackward}"/>
+               </ComboBox>
+
+               <CheckBox Content="{DynamicResource ShearInclinedSupportAtStart}" Margin="0,8,0,0"
+                         IsChecked="{Binding ShearSupportAtStart}"/>
+               <CheckBox Content="{DynamicResource ShearInclinedSupportAtEnd}" Margin="0,4,0,0"
+                         IsChecked="{Binding ShearSupportAtEnd}"/>
+
+               <TextBlock Text="{DynamicResource ShearInclinedStationStep}" Margin="0,8,0,2"/>
+               <TextBox Text="{Binding ShearStationStep, UpdateSourceTrigger=PropertyChanged}"
+                        ToolTip="{DynamicResource ShearInclinedStationStepHint}"/>
+               <TextBlock Text="{DynamicResource ShearInclinedStationStepHint}" FontSize="11" Foreground="Gray"/>
+
+               <TextBlock Text="{DynamicResource ShearInclinedProjectionStep}" Margin="0,8,0,2"/>
+               <TextBox Text="{Binding ShearProjectionStep, UpdateSourceTrigger=PropertyChanged}"
+                        ToolTip="{DynamicResource ShearInclinedProjectionStepHint}"/>
+               <TextBlock Text="{DynamicResource ShearInclinedProjectionStepHint}" FontSize="11" Foreground="Gray"/>
+
+               <TextBlock Text="{DynamicResource ShearInclinedFemStep}" Margin="0,8,0,2"/>
+               <TextBox Text="{Binding ShearFemStepIndex, UpdateSourceTrigger=PropertyChanged}"
+                        ToolTip="{DynamicResource ShearInclinedFemStepHint}"/>
+               <TextBlock Text="{DynamicResource ShearInclinedFemStepHint}" FontSize="11" Foreground="Gray"/>
+
+               <TextBlock Text="{DynamicResource ShearInclinedPlanes}" Margin="0,8,0,2"/>
+               <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding ShearPlanes}">
+                  <ComboBoxItem Tag="both" Content="{DynamicResource ShearInclinedPlanesBoth}"/>
+                  <ComboBoxItem Tag="vy"   Content="{DynamicResource ShearInclinedPlaneVy}"/>
+                  <ComboBoxItem Tag="vx"   Content="{DynamicResource ShearInclinedPlaneVx}"/>
+               </ComboBox>
+
+               <CheckBox Content="{DynamicResource ShearInclinedCheckMoment}" Margin="0,8,0,0"
+                         IsChecked="{Binding ShearCheckMoment}"/>
+
+               <TextBlock Text="{DynamicResource ShearInclinedMomentZone}" Margin="0,8,0,2"/>
+               <TextBox Text="{Binding ShearMomentZoneLength, UpdateSourceTrigger=PropertyChanged}"/>
+
+               <TextBlock Text="{DynamicResource ShearInclinedBarCutoffs}" Margin="0,8,0,2"/>
+               <TextBox Text="{Binding ShearBarCutoffsText, UpdateSourceTrigger=PropertyChanged}"/>
+
+               <TextBlock Text="{DynamicResource ShearInclinedAnchorageFactor}" Margin="0,8,0,2"/>
+               <TextBox Text="{Binding ShearAnchorageFactor, UpdateSourceTrigger=PropertyChanged}"/>
+
+               <CheckBox Content="{DynamicResource ShearInclinedConstructiveConfirm}" Margin="0,8,0,0"
+                         IsChecked="{Binding ShearConstructiveConfirmed}"/>
+               <TextBlock Text="{DynamicResource ShearInclinedConstructiveHint}"
+                          FontSize="11" Foreground="Gray" TextWrapping="Wrap"/>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
+
       <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
                  Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
