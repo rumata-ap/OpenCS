@@ -26,7 +26,13 @@ public class CheckDetail
     public string NormReference { get; set; } = "";
     public double Applied { get; set; }
     public double Allowable { get; set; }
-    public double Ratio => Allowable > 0 ? Applied / Allowable : 0;
+    /// <summary>
+    /// Коэффициент использования. При нулевой несущей способности и ненулевом усилии
+    /// возвращает +∞ — иначе проверка выглядела бы пройденной.
+    /// </summary>
+    public double Ratio => Allowable > 0
+        ? Applied / Allowable
+        : (Applied > 0 ? double.PositiveInfinity : 0);
     public bool Passed => Ratio <= 1.0;
     /// <summary>Переменные расчёта (для отчёта: φ, λ̄, η и т.д.).</summary>
     public Dictionary<string, double> Variables { get; set; } = [];
