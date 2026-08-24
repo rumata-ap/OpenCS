@@ -21,7 +21,7 @@ namespace OpenCS.Utilites
    /// Управляет подключением к БД, создаёт таблицы и выполняет CRUD-операции
    /// через параметризованный SQL. Вложенные коллекции сериализуются в JSON-колонки.
    /// </summary>
-   public class DatabaseService : IDisposable
+   public partial class DatabaseService : IDisposable
    {
       private SqliteConnection _connection;
       private string _dataSource;
@@ -32,7 +32,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-              const int CurrentSchemaVersion = 53;
+      const int CurrentSchemaVersion = 54;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -301,6 +301,19 @@ namespace OpenCS.Utilites
                 area    REAL NOT NULL DEFAULT 0,
                 wkt     TEXT,
                 eps_p   REAL NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS material_area_closed_stirrup_groups (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                area_id     INTEGER NOT NULL REFERENCES material_areas(id) ON DELETE CASCADE,
+                material_id INTEGER NOT NULL REFERENCES materials(id),
+                spacing_m   REAL NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS material_area_closed_stirrup_loops (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id       INTEGER NOT NULL REFERENCES material_area_closed_stirrup_groups(id) ON DELETE CASCADE,
+                centerline_wkt TEXT NOT NULL,
+                bar_area_m2    REAL NOT NULL,
+                bar_diameter_m REAL NOT NULL
             );
             CREATE TABLE IF NOT EXISTS calc_tasks (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -613,6 +626,7 @@ namespace OpenCS.Utilites
                      if (i == 50) { MigrateV51(); continue; }
                      if (i == 51) { MigrateV52(); continue; }
                      if (i == 52) { MigrateV53(); continue; }
+               if (i == 53) { MigrateV54(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1324,6 +1338,22 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE fem_checks ADD COLUMN calc_type_override TEXT");
       }
 
+      void MigrateV54() => MigExec("""
+         CREATE TABLE IF NOT EXISTS material_area_closed_stirrup_groups (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             area_id INTEGER NOT NULL REFERENCES material_areas(id) ON DELETE CASCADE,
+             material_id INTEGER NOT NULL REFERENCES materials(id),
+             spacing_m REAL NOT NULL
+         );
+         CREATE TABLE IF NOT EXISTS material_area_closed_stirrup_loops (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             group_id INTEGER NOT NULL REFERENCES material_area_closed_stirrup_groups(id) ON DELETE CASCADE,
+             centerline_wkt TEXT NOT NULL,
+             bar_area_m2 REAL NOT NULL,
+             bar_diameter_m REAL NOT NULL
+         );
+         """);
+
       /// <summary>Миграция v24: plate_section_id в fem_members.</summary>
       void MigrateV24()
       {
@@ -1689,104 +1719,6 @@ namespace OpenCS.Utilites
          }
       }
 
-      void LoadMaterialAreas()
-      {
-         MaterialAreas.Clear();
-         using var conn = new SqliteConnection($"Data Source={_dataSource}");
-         conn.Open();
-         using var cmd = conn.CreateCommand();
-         cmd.CommandText = """
-            SELECT id, num, tag, description, material_id,
-                   host_area_id, diagramm_type, nx, ny, wkt, category, pool_contour_id,
-                   mesh_method, mesh_max_area, mesh_min_angle, mesh_max_edge_len, mesh_smooth_iter,
-                   sig_sp, gamma_sp
-            FROM material_areas
-            WHERE section_id IS NULL
-            ORDER BY num
-         """;
-         using var r = cmd.ExecuteReader();
-         while (r.Read())
-         {
-            var area = new MaterialArea
-            {
-               Id           = r.GetInt32(0),
-               Num          = r.GetInt32(1),
-               Tag          = r.GetString(2),
-               Description  = r.IsDBNull(3) ? null : r.GetString(3),
-               MaterialId   = r.IsDBNull(4) ? 0 : r.GetInt32(4),
-               HostAreaId   = r.IsDBNull(5) ? null : r.GetInt32(5),
-               DiagrammType = Enum.Parse<DiagrammType>(r.GetString(6)),
-               NX           = r.GetInt32(7),
-               NY           = r.GetInt32(8),
-               WKT          = r.IsDBNull(9) ? null : r.GetString(9),
-               Category      = Enum.TryParse<AreaCategory>(r.GetString(10), ignoreCase: true, out var cat) ? cat : AreaCategory.RebarGroup,
-               PoolContourId = r.IsDBNull(11) ? null : r.GetInt32(11),
-               MeshMethod    = Enum.TryParse<CScore.MeshMethod>(r.IsDBNull(12) ? "grid" : r.GetString(12), ignoreCase: true, out var mm) ? mm : CScore.MeshMethod.Grid,
-               MeshMaxArea    = r.IsDBNull(13) ? 0.01 : r.GetDouble(13),
-               MeshMinAngle   = r.IsDBNull(14) ? 30.0 : r.GetDouble(14),
-               MeshMaxEdgeLen = r.IsDBNull(15) ? 0.0  : r.GetDouble(15),
-               MeshSmoothIter = r.IsDBNull(16) ? 5    : r.GetInt32(16),
-               SigSp          = r.IsDBNull(17) ? 0.0  : r.GetDouble(17),
-               GammaSp        = r.IsDBNull(18) ? 1.0  : r.GetDouble(18)
-            };
-            if (area.WKT != null)
-            {
-               WktHelper.ParseWKTPolygon(area.WKT,
-                  out var outerX, out var outerY, out var holeXs, out var holeYs);
-               if (outerX.Count >= 5)
-                  area.Contours.Add(new Contour(outerX, outerY, "hull") { Type = ContourType.Hull });
-               if (holeXs != null)
-                  for (int j = 0; j < holeXs.Count; j++)
-                     if (holeXs[j].Count >= 5)
-                        area.Contours.Add(new Contour(holeXs[j], holeYs[j], $"hole{j}") { Type = ContourType.Hole });
-            }
-            MaterialAreas.Add(area);
-         }
-         LoadPointFibersForAreas(MaterialAreas, conn);
-         LoadMeshFibersForAreas(MaterialAreas, conn);
-      }
-
-      void LoadPointFibersForAreas(System.Collections.Generic.IEnumerable<MaterialArea> areas, SqliteConnection conn)
-      {
-         var dict = new System.Collections.Generic.Dictionary<int, MaterialArea>();
-         foreach (var a in areas) dict[a.Id] = a;
-         if (dict.Count == 0) return;
-         using var cmd = conn.CreateCommand();
-         cmd.CommandText = $"SELECT area_id, x, y, area, diameter, eps_p FROM point_fibers WHERE area_id IN ({string.Join(",", dict.Keys)})";
-         using var r = cmd.ExecuteReader();
-         while (r.Read())
-         {
-            if (!dict.TryGetValue(r.GetInt32(0), out var area)) continue;
-            area.Fibers.Add(new Fiber(r.GetDouble(1), r.GetDouble(2))
-            {
-               Area = r.GetDouble(3), Diameter = r.GetDouble(4),
-               Eps_p = r.GetDouble(5), TypeFiber = FiberType.point
-            });
-         }
-      }
-
-      void LoadMeshFibersForAreas(System.Collections.Generic.IEnumerable<MaterialArea> areas, SqliteConnection conn)
-      {
-         var dict = new System.Collections.Generic.Dictionary<int, MaterialArea>();
-         foreach (var a in areas) dict[a.Id] = a;
-         if (dict.Count == 0) return;
-         using var cmd = conn.CreateCommand();
-         cmd.CommandText = $"SELECT area_id, type, x, y, area, wkt, eps_p FROM mesh_fibers WHERE area_id IN ({string.Join(",", dict.Keys)})";
-         using var r = cmd.ExecuteReader();
-         while (r.Read())
-         {
-            if (!dict.TryGetValue(r.GetInt32(0), out var area)) continue;
-            var fiber = new Fiber(r.GetDouble(2), r.GetDouble(3))
-            {
-               TypeFiber = Enum.TryParse<FiberType>(r.GetString(1), out var ft) ? ft : FiberType.poly,
-               Area      = r.GetDouble(4),
-               WKT       = r.IsDBNull(5) ? null : r.GetString(5),
-               Eps_p     = r.GetDouble(6)
-            };
-            area.Fibers.Add(fiber);
-         }
-      }
-
       void ResolveReferencesForStandaloneAreas()
       {
          var calc = LoadCalcSettings();
@@ -1807,167 +1739,6 @@ namespace OpenCS.Utilites
             area.ResolveAndBuildDiagramms(calc.Sp63DescEtaMin, pool: Diagrams,
                rebarDifferentialDiagram: calc.RebarDifferentialDiagram);
          }
-      }
-
-      public void SaveMaterialArea(MaterialArea area)
-      {
-         using var conn = new SqliteConnection($"Data Source={_dataSource}");
-         conn.Open();
-         // В отличие от _connection, это отдельное соединение открывается заново на каждый вызов
-         // и по умолчанию (в отличие от _connection) имеет PRAGMA foreign_keys=ON (значение по
-         // умолчанию у e_sqlite3), из-за чего вставка MaterialArea со ссылкой на ещё не
-         // сохранённые material/host_area/contour падала с "FOREIGN KEY constraint failed".
-         using (var fkCmd = conn.CreateCommand())
-         {
-            fkCmd.CommandText = "PRAGMA foreign_keys=OFF";
-            fkCmd.ExecuteNonQuery();
-         }
-         using var tx = conn.BeginTransaction();
-         bool isNew = area.Id == 0;
-         using (var cmd = conn.CreateCommand())
-         {
-            if (isNew)
-            {
-               cmd.CommandText = """
-                  INSERT INTO material_areas
-                     (num, tag, description, material_id, host_area_id,
-                      diagramm_type, nx, ny, wkt, category, pool_contour_id,
-                      mesh_method, mesh_max_area, mesh_min_angle, mesh_max_edge_len, mesh_smooth_iter,
-                      sig_sp, gamma_sp)
-                  VALUES (@num,@tag,@desc,@mid,@hid,@dtype,@nx,@ny,@wkt,@cat,@pcid,
-                          @mmethod,@mmaxarea,@mminangle,@mmaxedge,@msmoothiter,
-                          @sigsp,@gammasp);
-                  SELECT last_insert_rowid();
-               """;
-            }
-            else
-            {
-               cmd.CommandText = """
-                  UPDATE material_areas SET
-                     num=@num, tag=@tag, description=@desc, material_id=@mid,
-                     host_area_id=@hid, diagramm_type=@dtype, nx=@nx, ny=@ny,
-                     wkt=@wkt, category=@cat, pool_contour_id=@pcid,
-                     mesh_method=@mmethod, mesh_max_area=@mmaxarea, mesh_min_angle=@mminangle,
-                     mesh_max_edge_len=@mmaxedge, mesh_smooth_iter=@msmoothiter,
-                     sig_sp=@sigsp, gamma_sp=@gammasp
-                  WHERE id=@id;
-               """;
-               cmd.Parameters.AddWithValue("@id", area.Id);
-            }
-            cmd.Parameters.AddWithValue("@num",   area.Num);
-            cmd.Parameters.AddWithValue("@tag",   area.Tag);
-            cmd.Parameters.AddWithValue("@desc",  (object?)area.Description ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@mid",   area.MaterialId == 0 ? DBNull.Value : (object)area.MaterialId);
-            cmd.Parameters.AddWithValue("@hid",   (object?)area.HostAreaId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@dtype", area.DiagrammType.ToString());
-            cmd.Parameters.AddWithValue("@nx",    area.NX);
-            cmd.Parameters.AddWithValue("@ny",    area.NY);
-            cmd.Parameters.AddWithValue("@wkt",   (object?)area.WKT ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@cat",   area.Category.ToString().ToLowerInvariant());
-            cmd.Parameters.AddWithValue("@pcid",  (object?)area.PoolContourId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@mmethod",    area.MeshMethod.ToString().ToLowerInvariant());
-            cmd.Parameters.AddWithValue("@mmaxarea",    area.MeshMaxArea);
-            cmd.Parameters.AddWithValue("@mminangle",   area.MeshMinAngle);
-            cmd.Parameters.AddWithValue("@mmaxedge",    area.MeshMaxEdgeLen);
-            cmd.Parameters.AddWithValue("@msmoothiter", area.MeshSmoothIter);
-            cmd.Parameters.AddWithValue("@sigsp",       area.SigSp);
-            cmd.Parameters.AddWithValue("@gammasp",     area.GammaSp);
-            if (isNew) area.Id = (int)(long)cmd.ExecuteScalar()!;
-            else cmd.ExecuteNonQuery();
-         }
-         using (var cmd = conn.CreateCommand())
-         {
-            cmd.CommandText = "DELETE FROM point_fibers WHERE area_id = @aid";
-            cmd.Parameters.AddWithValue("@aid", area.Id);
-            cmd.ExecuteNonQuery();
-         }
-         foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
-         {
-            using var fc = conn.CreateCommand();
-            fc.CommandText = "INSERT INTO point_fibers(area_id,x,y,area,diameter,eps_p) VALUES(@aid,@x,@y,@a,@d,@ep)";
-            fc.Parameters.AddWithValue("@aid", area.Id);
-            fc.Parameters.AddWithValue("@x",   f.X);
-            fc.Parameters.AddWithValue("@y",   f.Y);
-            fc.Parameters.AddWithValue("@a",   f.Area);
-            fc.Parameters.AddWithValue("@d",   f.Diameter);
-            fc.Parameters.AddWithValue("@ep",  f.Eps_p);
-            fc.ExecuteNonQuery();
-         }
-         tx.Commit();
-         if (isNew && !MaterialAreas.Contains(area))
-            MaterialAreas.Add(area);
-      }
-
-      /// <summary>Удаляет область и её волокна (point_fibers/mesh_fibers) — те же ON DELETE
-      /// CASCADE в схеме, не выполняющиеся при PRAGMA foreign_keys=OFF (см. DeleteFemSchema).</summary>
-      public void DeleteMaterialArea(MaterialArea area)
-      {
-         if (area.Id == 0) { MaterialAreas.Remove(area); return; }
-         using var tx = _connection.BeginTransaction();
-         try
-         {
-            using var cmd = _connection.CreateCommand();
-            cmd.CommandText = """
-               DELETE FROM point_fibers   WHERE area_id=@id;
-               DELETE FROM mesh_fibers    WHERE area_id=@id;
-               DELETE FROM material_areas WHERE id=@id;
-            """;
-            cmd.Parameters.AddWithValue("@id", area.Id);
-            cmd.ExecuteNonQuery();
-            tx.Commit();
-         }
-         catch { tx.Rollback(); throw; }
-         MaterialAreas.Remove(area);
-      }
-
-      /// <summary>
-      /// Сохраняет сеточные волокна (poly/tri) области: обновляет параметры сетки
-      /// в material_areas, удаляет старые записи mesh_fibers, добавляет новые.
-      /// </summary>
-      public void SaveMeshFibers(MaterialArea area)
-      {
-         if (area.Id == 0) return;
-         using var tx = _connection.BeginTransaction();
-
-         using (var cmd = _connection.CreateCommand())
-         {
-            cmd.CommandText = """
-               UPDATE material_areas
-               SET mesh_method=@mm, mesh_max_area=@ma, mesh_min_angle=@mi,
-                   mesh_max_edge_len=@me, mesh_smooth_iter=@ms
-               WHERE id=@id
-            """;
-            cmd.Parameters.AddWithValue("@id", area.Id);
-            cmd.Parameters.AddWithValue("@mm", area.MeshMethod.ToString().ToLowerInvariant());
-            cmd.Parameters.AddWithValue("@ma", area.MeshMaxArea);
-            cmd.Parameters.AddWithValue("@mi", area.MeshMinAngle);
-            cmd.Parameters.AddWithValue("@me", area.MeshMaxEdgeLen);
-            cmd.Parameters.AddWithValue("@ms", area.MeshSmoothIter);
-            cmd.ExecuteNonQuery();
-         }
-
-         using (var cmd = _connection.CreateCommand())
-         {
-            cmd.CommandText = "DELETE FROM mesh_fibers WHERE area_id=@aid";
-            cmd.Parameters.AddWithValue("@aid", area.Id);
-            cmd.ExecuteNonQuery();
-         }
-
-         foreach (var f in area.Fibers.Where(f => f.TypeFiber is FiberType.poly or FiberType.tri))
-         {
-            using var fc = _connection.CreateCommand();
-            fc.CommandText = "INSERT INTO mesh_fibers(area_id,type,x,y,area,wkt,eps_p) VALUES(@aid,@t,@x,@y,@a,@wkt,@ep)";
-            fc.Parameters.AddWithValue("@aid", area.Id);
-            fc.Parameters.AddWithValue("@t",   f.TypeFiber.ToString());
-            fc.Parameters.AddWithValue("@x",   f.X);
-            fc.Parameters.AddWithValue("@y",   f.Y);
-            fc.Parameters.AddWithValue("@a",   f.Area);
-            fc.Parameters.AddWithValue("@wkt", (object?)f.WKT ?? DBNull.Value);
-            fc.Parameters.AddWithValue("@ep",  f.Eps_p);
-            fc.ExecuteNonQuery();
-         }
-
-         tx.Commit();
       }
 
       void LoadDiagrams()

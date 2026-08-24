@@ -48,6 +48,9 @@ namespace CScore
       /// </summary>
       public List<Fiber> Fibers { get; set; } = [];
 
+      /// <summary>Группы равномерно расположенных замкнутых хомутов полигональной области.</summary>
+      public List<ClosedStirrupGroup> ClosedStirrups { get; set; } = [];
+
       /// <summary>
       /// Диаграммы работы материала по видам расчёта.
       /// Для арматурных областей с HostArea — разностные (σ_steel − σ_concrete).
@@ -340,7 +343,8 @@ namespace CScore
             HostAreaId = HostAreaId,
             Diagramms = new Dictionary<CalcType, Diagramm>(Diagramms),
             Contours = [.. Contours],
-            Fibers = Fibers.Select(f => f.Clone()).ToList()
+            Fibers = Fibers.Select(f => f.Clone()).ToList(),
+            ClosedStirrups = ClosedStirrups.Select(group => group.Clone(preserveId: false)).ToList()
          };
       }
 
@@ -376,7 +380,8 @@ namespace CScore
          PoolContour    = PoolContour,
          Diagramms      = Diagramms,
          Contours       = Contours.Select(c => c.CloneForCalc()).ToList(),
-         Fibers         = Fibers.Select(f => f.CloneForCalc()).ToList()
+         Fibers         = Fibers.Select(f => f.CloneForCalc()).ToList(),
+         ClosedStirrups = ClosedStirrups.Select(group => group.Clone(preserveId: true)).ToList()
       };
 
       /// <summary>

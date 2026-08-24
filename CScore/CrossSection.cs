@@ -316,5 +316,62 @@ namespace CScore
             Prestress = prestress,
          };
       }
+
+      /// <summary>
+      /// Вычисляет обобщённый ответ стержневого сечения с двумя компонентами поперечного сдвига.
+      /// Первые три компоненты делегируются существующей модели нормальных плоских сечений.
+      /// </summary>
+      public ShearSectionResult ComputeShearResponse(
+         ShearSectionDeformation deformation,
+         SectionResponseOptions options,
+         CalcType calc = CalcType.C,
+         bool ten = true,
+         bool ca = true,
+         bool computeStiffness = true,
+         double fdStep = 1e-7)
+      {
+         ArgumentNullException.ThrowIfNull(options);
+         options.Validate(deformation);
+
+         var normalResult = Compute(new Kurvature
+         {
+            e0 = deformation.AxialStrain,
+            ky = deformation.CurvatureY,
+            kz = deformation.CurvatureZ
+         }, calc, ten, ca, computeStiffness, fdStep);
+
+         double vy = 0.0, vz = 0.0;
+         if (options.Theory == SectionResponseTheory.ElasticTimoshenko)
+         {
+            var elastic = options.ElasticShear!;
+            vy = elastic.G * elastic.ShearAreaY * deformation.ShearStrainY;
+            vz = elastic.G * elastic.ShearAreaZ * deformation.ShearStrainZ;
+         }
+
+         double[,]? tangent = null;
+         if (normalResult.Tangent != null)
+         {
+            tangent = new double[5, 5];
+            for (int row = 0; row < 3; row++)
+            for (int column = 0; column < 3; column++)
+               tangent[row, column] = normalResult.Tangent[row, column];
+
+            if (options.Theory == SectionResponseTheory.ElasticTimoshenko)
+            {
+               var elastic = options.ElasticShear!;
+               tangent[3, 3] = elastic.G * elastic.ShearAreaY;
+               tangent[4, 4] = elastic.G * elastic.ShearAreaZ;
+            }
+         }
+
+         return new ShearSectionResult
+         {
+            Deformation = deformation,
+            Forces = new ShearSectionForces(normalResult.N, normalResult.Mx, normalResult.My, vy, vz),
+            Theory = options.Theory,
+            Tangent = tangent,
+            Prestress = normalResult.Prestress
+         };
+      }
    }
 }
