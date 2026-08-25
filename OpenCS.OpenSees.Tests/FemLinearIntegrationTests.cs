@@ -14,6 +14,57 @@ namespace OpenCS.OpenSees.Tests;
 public sealed class FemLinearIntegrationTests
 {
     [Fact]
+    public async Task TimoshenkoCantilever_TransverseTipLoad_MatchesBendingAndShearDeflection()
+    {
+        string executable = OpenSeesTestExecutable.ResolveOrSkip();
+        string root = Path.Combine(Path.GetTempPath(), "opencs-fem-linear-timoshenko-integration", Guid.NewGuid().ToString("N"));
+
+        // Консоль вдоль X. Сила Fz действует по локальной z, поэтому участвуют Iy и Avz.
+        const double length = 3.0, youngModulus = 2e11, shearModulus = 8e10,
+            inertiaY = 8.333e-6, shearAreaZ = 1e-6, loadZ = -1000.0;
+        var model = new FemLinearModel
+        {
+            Nodes =
+            [
+                new FemLinearNode(1, 0, 0, 0, [true, true, true, true, true, true]),
+                new FemLinearNode(2, length, 0, 0, new bool[6]),
+            ],
+            Elements =
+            [
+                new FemLinearElement(1, 1, 2, A: 0.01, E: youngModulus, G: shearModulus,
+                    J: 1e-5, Iy: inertiaY, Iz: inertiaY, Vecxz: (0, 0, 1),
+                    Avy: 0.004, Avz: shearAreaZ),
+            ],
+            Loads = [new FemLinearNodalLoad(2, 0, 0, loadZ, 0, 0, 0)],
+        };
+
+        try
+        {
+            var result = await new FemLinearAnalysisService(
+                new FemLinearTclGenerator(),
+                new OpenSeesProcessRunner(),
+                new OpenSeesArtifactStore(root),
+                new FemLinearResultParser())
+                .RunAsync(model, new OpenSeesRunRequest
+                {
+                    ExecutablePath = executable,
+                    WorkingDirectory = Path.GetTempPath(),
+                    Timeout = TimeSpan.FromSeconds(30)
+                }, CancellationToken.None);
+
+            Assert.True(result.Status == "ok", $"status={result.Status}; diagnostics={string.Join(" | ", result.Diagnostics)}");
+            double expectedUz = loadZ * (length * length * length / (3.0 * youngModulus * inertiaY) +
+                length / (shearModulus * shearAreaZ));
+            double actualUz = result.Displacements.Single(displacement => displacement.NodeTag == 2).Uz;
+            Assert.InRange(actualUz, expectedUz * 1.01, expectedUz * 0.99);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Cantilever_TransverseTipLoad_MatchesBeamTheory()
     {
         string executable = OpenSeesTestExecutable.ResolveOrSkip();

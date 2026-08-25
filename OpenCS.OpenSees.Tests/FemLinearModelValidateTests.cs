@@ -45,4 +45,34 @@ public class FemLinearModelValidateTests
         };
         withLoad.Validate();
     }
+
+    [Fact]
+    public void Validate_RejectsOnlyOneShearArea()
+    {
+        var model = BaseModel();
+        var invalid = new FemLinearModel
+        {
+            Nodes = model.Nodes,
+            Elements = [model.Elements.Single() with { Avy = 0.015 }]
+        };
+
+        Assert.Throws<InvalidOperationException>(() => invalid.Validate());
+    }
+
+    [Theory]
+    [InlineData(0.0, 0.012)]
+    [InlineData(0.015, 0.0)]
+    [InlineData(-0.015, 0.012)]
+    [InlineData(0.015, double.NaN)]
+    public void Validate_RejectsNonpositiveOrNonfiniteShearAreas(double avy, double avz)
+    {
+        var model = BaseModel();
+        var invalid = new FemLinearModel
+        {
+            Nodes = model.Nodes,
+            Elements = [model.Elements.Single() with { Avy = avy, Avz = avz }]
+        };
+
+        Assert.Throws<InvalidOperationException>(() => invalid.Validate());
+    }
 }

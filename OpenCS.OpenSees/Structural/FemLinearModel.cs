@@ -36,6 +36,12 @@ public sealed class FemLinearModel
                 throw new InvalidOperationException($"Элемент {e.Tag} ссылается на несуществующий узел.");
             if (e.A <= 0 || e.E <= 0)
                 throw new InvalidOperationException($"Элемент {e.Tag}: A и E должны быть положительны.");
+            if (e.Avy.HasValue != e.Avz.HasValue)
+                throw new InvalidOperationException($"Элемент {e.Tag}: сдвиговые площади Avy и Avz задаются только парой.");
+            if (e.Avy is double avy && (!double.IsFinite(avy) || avy <= 0.0))
+                throw new InvalidOperationException($"Элемент {e.Tag}: Avy должна быть конечной и строго положительной.");
+            if (e.Avz is double avz && (!double.IsFinite(avz) || avz <= 0.0))
+                throw new InvalidOperationException($"Элемент {e.Tag}: Avz должна быть конечной и строго положительной.");
         }
 
         foreach (var l in Loads)

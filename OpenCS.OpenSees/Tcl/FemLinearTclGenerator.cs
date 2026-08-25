@@ -44,7 +44,10 @@ public sealed class FemLinearTclGenerator
         foreach (var e in model.Elements)
         {
             int t = transfByVec[e.Vecxz];
-            L($"element elasticBeamColumn {e.Tag} {e.NodeI} {e.NodeJ} {F(e.A)} {F(e.E)} {F(e.G)} {F(e.J)} {F(e.Iy)} {F(e.Iz)} {t}");
+            if (e.Avy is double avy && e.Avz is double avz)
+                L($"element ElasticTimoshenkoBeam {e.Tag} {e.NodeI} {e.NodeJ} {F(e.E)} {F(e.G)} {F(e.A)} {F(e.J)} {F(e.Iy)} {F(e.Iz)} {F(avy)} {F(avz)} {t}");
+            else
+                L($"element elasticBeamColumn {e.Tag} {e.NodeI} {e.NodeJ} {F(e.A)} {F(e.E)} {F(e.G)} {F(e.J)} {F(e.Iy)} {F(e.Iz)} {t}");
         }
         L();
 

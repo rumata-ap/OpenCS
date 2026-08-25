@@ -35,6 +35,7 @@ public sealed class SpatialTclGeneratorTests
         Assert.Contains("set curvatureMy [lindex [nodeDisp 2 5] 0]", script);
         Assert.Contains("load 2 1000 0 0 0 0 0", script);
         Assert.DoesNotContain("-ndm 2 -ndf 3", script);
+        Assert.DoesNotContain("ElasticTimoshenkoBeam", script);
 
         int firstFiber = script.IndexOf(
             $"fiber {TclNumber.Format(0.3)} {TclNumber.Format(0.2)} {TclNumber.Format(0.01)} 1",
