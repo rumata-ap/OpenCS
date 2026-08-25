@@ -43,6 +43,7 @@ public sealed class MomentCurvatureBiaxialHandler : ITaskHandler
                 centralJacobian: settings.NewtonJacobian == "central",
                 auxPointsPerSegment: parameters.ResolveAuxPointsPerSegment(),
                 stepMode: parameters.ResolveStepMode(),
+                elasticBaseWithoutRebar: settings.ElasticStiffnessWithoutRebar,
                 cancellationToken: ctx?.CancellationToken ?? default);
 
             var result = solver.Compute(item.N, item.Mx, item.My, nMode, parameters.UsePsi);

@@ -152,6 +152,8 @@
    <system:String x:Key="CalcSettingsPsiSMethodStrain">§8.2.32 — strain ratio</system:String>
    <system:String x:Key="CalcSettingsPsiSMethodTip">How ψs (non-uniform strain distribution of tensioned rebar between cracks) is computed in crack-width tasks: from the stress ratio σs,crc/σs (formula 8.138, §8.2.18 — the standard approach) or from the strain ratio εs,crc/εs (deformation-model formula, §8.2.32). For elastic rebar the strain-based variant gives a slightly larger ψs (and hence crack width) under the same loading.</system:String>
    <system:String x:Key="CalcSettingsConsiderConcreteTensionUls">Account for concrete tension in ULS (limit state 1) checks</system:String>
+   <system:String x:Key="CalcSettingsElasticStiffnessWithoutRebar">Baseline elastic stiffness excludes rebar</system:String>
+   <system:String x:Key="CalcSettingsElasticStiffnessWithoutRebarTip">Baseline (EA, EI) used to normalize the stiffness reduction factors of the moment-curvature task. When enabled, the baseline is the bare elastic concrete section without rebar — it then matches the linear member stiffness of an elastic FEA model, where rebar is not modelled, so the factors transfer directly. When disabled, the baseline is the transformed concrete + rebar section.</system:String>
    <system:String x:Key="CalcSettingsConsiderConcreteTensionUlsTip">Affects limit-force and strain-plane search for CalcType C/CL — for both bar and plate sections. Does not affect SLS (N/NL). For plates, overrides the section page's "Concrete tension" flag only in this mode.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Batch Tasks</system:String>
    <system:String x:Key="CalcSettingsShearInclinedGroup">Inclined Sections (SP 63, 8.1.32–8.1.35)</system:String>

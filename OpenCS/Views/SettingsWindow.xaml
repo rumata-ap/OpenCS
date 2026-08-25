@@ -373,6 +373,10 @@
                                           Content="{DynamicResource CalcSettingsConsiderConcreteTensionUls}"
                                           ToolTip="{DynamicResource CalcSettingsConsiderConcreteTensionUlsTip}"
                                           Margin="4,2,4,6"/>
+                                <CheckBox x:Name="ElasticStiffnessWithoutRebarCb"
+                                          Content="{DynamicResource CalcSettingsElasticStiffnessWithoutRebar}"
+                                          ToolTip="{DynamicResource CalcSettingsElasticStiffnessWithoutRebarTip}"
+                                          Margin="4,2,4,6"/>
                                 <Grid Margin="4,2,4,6">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>

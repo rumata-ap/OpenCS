@@ -65,6 +65,26 @@ namespace CScore
       /// </summary>
       public virtual Load Integral(Kurvature k, CalcType calc = CalcType.C,
                                     bool ten = true, bool ca = true)
+         => IntegralOf(k, include: null, calc, ten, ca);
+
+      /// <summary>
+      /// Интеграл по подмножеству областей: учитываются только те, для которых
+      /// <paramref name="include"/> вернул `true`. `null` — все области (полный интеграл,
+      /// см. <see cref="Integral(Kurvature, CalcType, bool, bool)"/>).
+      /// Нужен для базовых жёсткостей, считаемых по части сечения (например, упругая
+      /// жёсткость голого бетона без арматуры).
+      /// </summary>
+      /// <param name="preferContour">
+      /// Считать полигонные области контурным интегралом (теорема Грина) ДАЖЕ при наличии
+      /// сеточных фибр. Обычный интеграл идёт по фибрам, и результат тогда зависит от
+      /// густоты сетки: полосовая сетка из n рядов занижает момент инерции в (1 − 1/n²) раз.
+      /// Для базовых упругих жёсткостей это недопустимо — они должны быть чисто
+      /// геометрическими, поэтому там путь принудительно контурный.
+      /// </param>
+      public Load IntegralOf(Kurvature k, Func<MaterialArea, bool>? include,
+                              CalcType calc = CalcType.C,
+                              bool ten = true, bool ca = true,
+                              bool preferContour = false)
       {
          double N = 0, Mx = 0, My = 0;
          // EnumerateAreas даёт пары (область, эффективная плоскость деформаций ka).
@@ -73,20 +93,27 @@ namespace CScore
          // одинаково для любого производного сечения.
          foreach (var (area, ka) in EnumerateAreas(k))
          {
+            if (include != null && !include(area)) continue;
+
             bool hasMeshFibers = area.Fibers.Any(f => f.TypeFiber != FiberType.point);
 
-            if (!hasMeshFibers && area.Hull != null && area.Diagramms.ContainsKey(calc))
+            if ((!hasMeshFibers || preferContour) && area.Hull != null && area.Diagramms.ContainsKey(calc))
             {
                // Контурный путь для полигонной части
                var (n, mx, my) = area.ContourIntegral(ka, calc, ten, ca);
                N += n; Mx += mx; My += my;
 
-               // Точечные фибры в этой области (если есть) — через SetEps
+               // Точечные фибры в этой области (если есть) — через SetEps.
+               // Сеточные пропускаются: полигон уже учтён контурным интегралом, и при
+               // preferContour их суммирование было бы двойным счётом.
                if (area.Fibers.Count > 0)
                {
                   area.SetEps(ka, calc, ten, ca);
                   foreach (var f in area.Fibers)
-                  { N += f.N; Mx += f.Mx; My += f.My; }
+                  {
+                     if (f.TypeFiber != FiberType.point) continue;
+                     N += f.N; Mx += f.Mx; My += f.My;
+                  }
                }
             }
             else

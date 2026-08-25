@@ -116,6 +116,16 @@ namespace OpenCS.Utilites
       public bool ConsiderConcreteTensionUls { get; set; } = false;
 
       /// <summary>
+      /// База упругой жёсткости (EA, EI), на которую нормируются коэффициенты снижения
+      /// жёсткости в задаче «кривизна-момент». При true — только упругое бетонное сечение,
+      /// без арматуры: так база совпадает с линейными жёсткостями стержня в упругом МКЭ,
+      /// где арматура не задаётся, и коэффициенты можно переносить в МКЭ-модель напрямую.
+      /// При false — приведённое сечение бетон + арматура.
+      /// </summary>
+      [JsonPropertyName("elasticStiffnessWithoutRebar")]
+      public bool ElasticStiffnessWithoutRebar { get; set; } = true;
+
+      /// <summary>
       /// Разрешить ли учёт растяжения бетона для стержневого сечения при данном виде
       /// расчёта: для C/CL — по значению <see cref="ConsiderConcreteTensionUls"/>,
       /// для N/NL — всегда true (без изменений).
@@ -311,6 +321,7 @@ namespace OpenCS.Utilites
          SmoothColormap        = SmoothColormap,
          RebarDifferentialDiagram = RebarDifferentialDiagram,
          ConsiderConcreteTensionUls = ConsiderConcreteTensionUls,
+         ElasticStiffnessWithoutRebar = ElasticStiffnessWithoutRebar,
          CrackWidthPsiSMethod  = CrackWidthPsiSMethod,
          ShearStationStep      = ShearStationStep,
          ShearProjectionStep   = ShearProjectionStep,
