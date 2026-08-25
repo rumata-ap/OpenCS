@@ -166,6 +166,9 @@
                   <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColMy}" Binding="{Binding My, StringFormat={}{0:0.###}}" Width="90"/>
                   <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColKy}" Binding="{Binding Ky, StringFormat={}{0:0.#####}}" Width="110"/>
                   <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColKz}" Binding="{Binding Kz, StringFormat={}{0:0.#####}}" Width="110"/>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColNStiffnessRatio}" Binding="{Binding NStiffnessRatio, StringFormat={}{0:0.###}}" Width="120"/>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColMxStiffnessRatio}" Binding="{Binding MxStiffnessRatio, StringFormat={}{0:0.###}}" Width="135"/>
+                  <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColMyStiffnessRatio}" Binding="{Binding MyStiffnessRatio, StringFormat={}{0:0.###}}" Width="135"/>
                   <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColConverged}" Binding="{Binding Converged}" Width="90"/>
                   <DataGridTextColumn Header="{DynamicResource MomentCurvature_ColLimitStatus}" Binding="{Binding LimitStatusText}" Width="*"/>
                </DataGrid.Columns>

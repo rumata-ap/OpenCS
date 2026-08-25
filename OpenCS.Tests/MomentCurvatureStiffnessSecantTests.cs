@@ -75,4 +75,74 @@ public sealed class MomentCurvatureStiffnessSecantTests
 
         Assert.Equal(new[] { 0.8 }, viewModel.MxStiffnessRatio);
     }
+
+    [Fact]
+    public void PointRows_ExposeTheSameStiffnessRatiosAsPlots()
+    {
+        var viewModel = new OpenCS.ViewModels.MomentCurvatureBiaxialResultVM(
+            new CScore.CalcResult
+            {
+                Status = "ok",
+                DataJson = """
+                {
+                  "has_mx": true,
+                  "has_my": true,
+                  "ea0": 100.0,
+                  "b0x": 200.0,
+                  "b0y": 400.0,
+                  "points": [
+                    {"n": 0.0, "mx": 1.0, "my": 2.0, "e0": 0.0, "ky": 0.0, "kz": 0.0, "converged": true},
+                    {"n": -10.0, "mx": -19.0, "my": -8.0, "e0": 0.1, "ky": 0.1, "kz": 0.05, "converged": true}
+                  ]
+                }
+                """
+            });
+
+        var zero = viewModel.Rows[0];
+        var point = viewModel.Rows[1];
+
+        Assert.Null(zero.NStiffnessRatio);
+        Assert.Null(zero.MxStiffnessRatio);
+        Assert.Null(zero.MyStiffnessRatio);
+        Assert.Equal(1.0, point.NStiffnessRatio!.Value, 1e-9);
+        Assert.Equal(1.0, point.MxStiffnessRatio!.Value, 1e-9);
+        Assert.Equal(0.5, point.MyStiffnessRatio!.Value, 1e-9);
+        Assert.Equal(new[] { 1.0 }, viewModel.NStiffnessRatio);
+        Assert.Equal(new[] { 1.0 }, viewModel.MxStiffnessRatio);
+        Assert.Equal(new[] { 0.5 }, viewModel.MyStiffnessRatio);
+    }
+
+    [Fact]
+    public void PointRows_LeaveRatiosEmptyWhenBaseOrPointIsUndefined()
+    {
+        var viewModel = new OpenCS.ViewModels.MomentCurvatureBiaxialResultVM(
+            new CScore.CalcResult
+            {
+                Status = "ok",
+                DataJson = """
+                {
+                  "has_mx": true,
+                  "has_my": true,
+                  "ea0": 0.0,
+                  "b0x": 0.0,
+                  "b0y": 0.0,
+                  "points": [
+                    {"n": 0.0, "mx": 1.0, "my": 2.0, "e0": 0.0, "ky": 0.0, "kz": 0.0, "converged": true},
+                    {"n": 10.0, "mx": 21.0, "my": 12.0, "e0": 0.1, "ky": 0.1, "kz": 0.05, "converged": true},
+                    {"n": 20.0, "mx": 41.0, "my": 22.0, "e0": 0.2, "ky": 0.2, "kz": 0.1, "converged": false}
+                  ]
+                }
+                """
+            });
+
+        Assert.All(viewModel.Rows, row =>
+        {
+            Assert.Null(row.NStiffnessRatio);
+            Assert.Null(row.MxStiffnessRatio);
+            Assert.Null(row.MyStiffnessRatio);
+        });
+        Assert.Empty(viewModel.NStiffnessRatio);
+        Assert.Empty(viewModel.MxStiffnessRatio);
+        Assert.Empty(viewModel.MyStiffnessRatio);
+    }
 }

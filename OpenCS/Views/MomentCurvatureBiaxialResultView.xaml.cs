@@ -103,7 +103,9 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
                 Loc.S("MomentCurvature_ColSegment"), Loc.S("MomentCurvature_ColN"),
                 Loc.S("MomentCurvature_ColMx"), Loc.S("MomentCurvature_ColMy"),
                 Loc.S("MomentCurvature_ColE0"), Loc.S("MomentCurvature_CsvColKy"),
-                Loc.S("MomentCurvature_CsvColKz"), Loc.S("MomentCurvature_ColConverged"),
+                Loc.S("MomentCurvature_CsvColKz"), Loc.S("MomentCurvature_CsvColNStiffnessRatio"),
+                Loc.S("MomentCurvature_CsvColMxStiffnessRatio"), Loc.S("MomentCurvature_CsvColMyStiffnessRatio"),
+                Loc.S("MomentCurvature_ColConverged"),
                 Loc.S("MomentCurvature_CsvColPsiActive"), Loc.S("MomentCurvature_ColNonPhysical")
             ];
             using var writer = new StreamWriter(dialog.FileName, false,

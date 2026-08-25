@@ -228,13 +228,24 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
                 foreach (var p in points.EnumerateArray())
                 {
                     var row = MomentCurvatureBiaxialPointRow.Parse(p);
-                    Rows.Add(row);
                     if (index == 0 && row.Converged &&
                         Math.Abs(row.Ky) <= 1e-12 && Math.Abs(row.Kz) <= 1e-12)
                     {
                         mx0 = row.Mx;
                         my0 = row.My;
                     }
+
+                    if (row.Converged && index > 0)
+                    {
+                        if (ea0 != 0.0 && Math.Abs(row.E0) > 1e-12)
+                            row.NStiffnessRatio = Math.Abs((row.N / row.E0) / ea0);
+                        if (HasMx && b0x != 0.0 && Math.Abs(row.Ky) > 1e-12)
+                            row.MxStiffnessRatio = Math.Abs(((row.Mx - mx0) / row.Ky) / b0x);
+                        if (HasMy && b0y != 0.0 && Math.Abs(row.Kz) > 1e-12)
+                            row.MyStiffnessRatio = Math.Abs(((row.My - my0) / row.Kz) / b0y);
+                    }
+                    Rows.Add(row);
+
                     if (row.Converged)
                     {
                         converged++;
@@ -254,20 +265,20 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
                             // Осевая серия базовой точки не имеет: параметр здесь ε0, а не
                             // кривизна, и в режиме постоянной N вычитание обнулило бы
                             // числитель (N ≡ N₀). Она остаётся отношением секущей N/ε0 к EA0.
-                            if (ea0 != 0.0 && Math.Abs(row.E0) > 1e-12)
+                            if (row.NStiffnessRatio is double nStiffnessRatio)
                             {
                                 nAxis.Add(Math.Abs(row.N));
-                                nRatio.Add(Math.Abs((row.N / row.E0) / ea0));
+                                nRatio.Add(nStiffnessRatio);
                             }
-                            if (HasMx && b0x != 0.0 && Math.Abs(row.Ky) > 1e-12)
+                            if (row.MxStiffnessRatio is double mxStiffnessRatio)
                             {
                                 mxAxis.Add(Math.Abs(row.Mx));
-                                mxRatio.Add(Math.Abs(((row.Mx - mx0) / row.Ky) / b0x));
+                                mxRatio.Add(mxStiffnessRatio);
                             }
-                            if (HasMy && b0y != 0.0 && Math.Abs(row.Kz) > 1e-12)
+                            if (row.MyStiffnessRatio is double myStiffnessRatio)
                             {
                                 myAxis.Add(Math.Abs(row.My));
-                                myRatio.Add(Math.Abs(((row.My - my0) / row.Kz) / b0y));
+                                myRatio.Add(myStiffnessRatio);
                             }
                         }
                     }
@@ -535,6 +546,9 @@ public sealed class MomentCurvatureBiaxialPointRow
     public bool Converged { get; init; }
     public bool PsiActive { get; init; }
     public bool NonPhysical { get; init; }
+    public double? NStiffnessRatio { get; internal set; }
+    public double? MxStiffnessRatio { get; internal set; }
+    public double? MyStiffnessRatio { get; internal set; }
 
     /// <summary>Локализованный статус превышения эталонного предельного усилия.</summary>
     public string LimitStatusText => NonPhysical

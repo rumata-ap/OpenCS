@@ -2528,10 +2528,16 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_ColMy">My, kN·m</system:String>
     <system:String x:Key="MomentCurvature_ColKy">κy, 1/m</system:String>
     <system:String x:Key="MomentCurvature_ColKz">κz, 1/m</system:String>
+    <system:String x:Key="MomentCurvature_ColNStiffnessRatio">EA/EA₀ reduction</system:String>
+    <system:String x:Key="MomentCurvature_ColMxStiffnessRatio">B/B₀x reduction (Mx)</system:String>
+    <system:String x:Key="MomentCurvature_ColMyStiffnessRatio">B/B₀y reduction (My)</system:String>
     <system:String x:Key="MomentCurvature_ColE0">e0</system:String>
     <system:String x:Key="MomentCurvature_ColPsiActive">ψs active</system:String>
     <system:String x:Key="MomentCurvature_CsvColKy">Ky, 1/m</system:String>
     <system:String x:Key="MomentCurvature_CsvColKz">Kz, 1/m</system:String>
+    <system:String x:Key="MomentCurvature_CsvColNStiffnessRatio">EA/EA0 reduction</system:String>
+    <system:String x:Key="MomentCurvature_CsvColMxStiffnessRatio">B/B0x reduction (Mx)</system:String>
+    <system:String x:Key="MomentCurvature_CsvColMyStiffnessRatio">B/B0y reduction (My)</system:String>
     <system:String x:Key="MomentCurvature_CsvColPsiActive">Psi_s active</system:String>
     <system:String x:Key="MomentCurvature_ColConverged">Converged</system:String>
     <system:String x:Key="MomentCurvature_ColLimitStatus">Ultimate force status</system:String>

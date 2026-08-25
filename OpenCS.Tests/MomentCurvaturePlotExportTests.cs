@@ -22,6 +22,31 @@ public sealed class MomentCurvaturePlotExportTests
         Assert.Equal(2, Count(resultView, "exportCsv: ExportPointsCsv"));
     }
 
+    [Fact]
+    public void CsvStiffnessHeaders_AreCompatibleWithWindows1251()
+    {
+        string root = FindWorkspaceRoot();
+        string ru = File.ReadAllText(Path.Combine(root, "OpenCS", "Resources", "Strings.ru-RU.xaml"));
+        string en = File.ReadAllText(Path.Combine(root, "OpenCS", "Resources", "Strings.en-US.xaml"));
+        string resultView = File.ReadAllText(Path.Combine(root, "OpenCS", "Views", "MomentCurvatureBiaxialResultView.xaml.cs"));
+
+        foreach (string key in new[]
+        {
+            "MomentCurvature_CsvColNStiffnessRatio",
+            "MomentCurvature_CsvColMxStiffnessRatio",
+            "MomentCurvature_CsvColMyStiffnessRatio"
+        })
+        {
+            Assert.Contains(key, ru);
+            Assert.Contains(key, en);
+            Assert.Contains($"Loc.S(\"{key}\")", resultView);
+        }
+
+        Assert.Contains("EA/EA0", ru);
+        Assert.Contains("B/B0x", ru);
+        Assert.Contains("B/B0y", ru);
+    }
+
     static int Count(string source, string value)
     {
         int count = 0;

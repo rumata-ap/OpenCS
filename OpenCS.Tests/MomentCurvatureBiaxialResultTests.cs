@@ -112,9 +112,18 @@ public sealed class MomentCurvatureBiaxialResultTests
         Assert.Contains("row.NonPhysical == faded", viewCode);
         Assert.Contains("MomentCurvature_ColLimitStatus", ru);
         Assert.Contains("MomentCurvature_NonPhysicalStatus", ru);
+        Assert.Contains("MomentCurvature_ColNStiffnessRatio", ru);
+        Assert.Contains("MomentCurvature_ColMxStiffnessRatio", ru);
+        Assert.Contains("MomentCurvature_ColMyStiffnessRatio", ru);
         Assert.Contains("Превышено предельное усилие", File.ReadAllText(ruPath));
         Assert.Contains("MomentCurvature_ColLimitStatus", en);
         Assert.Contains("MomentCurvature_NonPhysicalStatus", en);
+        Assert.Contains("MomentCurvature_ColNStiffnessRatio", en);
+        Assert.Contains("MomentCurvature_ColMxStiffnessRatio", en);
+        Assert.Contains("MomentCurvature_ColMyStiffnessRatio", en);
+        Assert.Contains("Binding=\"{Binding NStiffnessRatio", view);
+        Assert.Contains("Binding=\"{Binding MxStiffnessRatio", view);
+        Assert.Contains("Binding=\"{Binding MyStiffnessRatio", view);
     }
 
     static string FindWorkspaceRoot()

@@ -2531,10 +2531,16 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_ColMy">My, кН·м</system:String>
     <system:String x:Key="MomentCurvature_ColKy">κy, 1/м</system:String>
     <system:String x:Key="MomentCurvature_ColKz">κz, 1/м</system:String>
+    <system:String x:Key="MomentCurvature_ColNStiffnessRatio">Снижение EA/EA₀</system:String>
+    <system:String x:Key="MomentCurvature_ColMxStiffnessRatio">Снижение B/B₀x (Mx)</system:String>
+    <system:String x:Key="MomentCurvature_ColMyStiffnessRatio">Снижение B/B₀y (My)</system:String>
     <system:String x:Key="MomentCurvature_ColE0">e0</system:String>
     <system:String x:Key="MomentCurvature_ColPsiActive">ψs активно</system:String>
     <system:String x:Key="MomentCurvature_CsvColKy">Ky, 1/м</system:String>
     <system:String x:Key="MomentCurvature_CsvColKz">Kz, 1/м</system:String>
+    <system:String x:Key="MomentCurvature_CsvColNStiffnessRatio">Снижение EA/EA0</system:String>
+    <system:String x:Key="MomentCurvature_CsvColMxStiffnessRatio">Снижение B/B0x (Mx)</system:String>
+    <system:String x:Key="MomentCurvature_CsvColMyStiffnessRatio">Снижение B/B0y (My)</system:String>
     <system:String x:Key="MomentCurvature_CsvColPsiActive">Psi_s активно</system:String>
     <system:String x:Key="MomentCurvature_ColConverged">Сошлось</system:String>
     <system:String x:Key="MomentCurvature_ColLimitStatus">Статус предельного усилия</system:String>
