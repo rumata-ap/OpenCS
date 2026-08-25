@@ -239,6 +239,7 @@ namespace OpenCS.Views
          ShellWarmStartCb.IsChecked  = _calcSettings.ShellWarmStart;
          RebarDifferentialDiagramCb.IsChecked = _calcSettings.RebarDifferentialDiagram;
          ConsiderConcreteTensionUlsCb.IsChecked = _calcSettings.ConsiderConcreteTensionUls;
+         ElasticStiffnessWithoutRebarCb.IsChecked = _calcSettings.ElasticStiffnessWithoutRebar;
          PsiSMethodCombo.SelectedIndex = _calcSettings.CrackWidthPsiSMethod == "strain8232" ? 1 : 0;
          ShearStationStepBox.Text    = _calcSettings.ShearStationStep.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          ShearProjectionStepBox.Text = _calcSettings.ShearProjectionStep.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
@@ -341,6 +342,8 @@ namespace OpenCS.Views
          RebarDifferentialDiagramCb.Unchecked += (_, _) => _calcSettings.RebarDifferentialDiagram = false;
          ConsiderConcreteTensionUlsCb.Checked   += (_, _) => _calcSettings.ConsiderConcreteTensionUls = true;
          ConsiderConcreteTensionUlsCb.Unchecked += (_, _) => _calcSettings.ConsiderConcreteTensionUls = false;
+         ElasticStiffnessWithoutRebarCb.Checked   += (_, _) => _calcSettings.ElasticStiffnessWithoutRebar = true;
+         ElasticStiffnessWithoutRebarCb.Unchecked += (_, _) => _calcSettings.ElasticStiffnessWithoutRebar = false;
          PsiSMethodCombo.SelectionChanged += (_, _) =>
          {
             _calcSettings.CrackWidthPsiSMethod =

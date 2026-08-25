@@ -306,7 +306,12 @@ public class BiaxialCurvatureCurveSolverTests
                 .Select(fiber => pair.k.e0 + pair.k.ky * fiber.Y + pair.k.kz * fiber.X + fiber.Eps_p))
             .Max();
 
-        Assert.InRange(maxRebarStrain, chars.Ft / chars.E - 1e-6, chars.Ft / chars.E + 1e-6);
+        // Допуск относительный: точка текучести ищется бисекцией вдоль луча нагружения, и
+        // каждая проба — решение равновесия с допуском solverTol (по усилию, не по
+        // деформации). Поэтому граница ε = Ft/E воспроизводится с точностью решателя, а не
+        // машинной. 0.5% от Ft/E — заведомо меньше шага вспомогательных точек участка.
+        double yieldStrain = chars.Ft / chars.E;
+        Assert.InRange(maxRebarStrain, yieldStrain * 0.995, yieldStrain * 1.005);
     }
 
     [Fact]

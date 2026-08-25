@@ -214,6 +214,14 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
             var myAxis = new List<double>(); var myRatio = new List<double>();
             int converged = 0;
 
+            // Момент в точке κ=0. При N≠0 и несимметричном армировании кривая M(κ) НЕ
+            // проходит через начало координат: при нулевой кривизне сечение обжато
+            // равномерно, но стержни разных площадей дают ненулевой момент. Секущая
+            // жёсткость отсчитывается от этой точки — иначе отношение (M/κ)/B0 в начале
+            // кривой занижено на M₀/M и график сперва РАСТЁТ, вместо того чтобы начаться
+            // с базового значения и монотонно падать.
+            double mx0 = 0.0, my0 = 0.0;
+
             if (root.TryGetProperty("points", out var points) && points.ValueKind == JsonValueKind.Array)
             {
                 int index = 0;
@@ -221,6 +229,12 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
                 {
                     var row = MomentCurvatureBiaxialPointRow.Parse(p);
                     Rows.Add(row);
+                    if (index == 0 && row.Converged &&
+                        Math.Abs(row.Ky) <= 1e-12 && Math.Abs(row.Kz) <= 1e-12)
+                    {
+                        mx0 = row.Mx;
+                        my0 = row.My;
+                    }
                     if (row.Converged)
                     {
                         converged++;
@@ -237,6 +251,9 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
                         // секущая жёсткость там неопределена (0/0). См. спеку, решение 7.
                         if (index > 0)
                         {
+                            // Осевая серия базовой точки не имеет: параметр здесь ε0, а не
+                            // кривизна, и в режиме постоянной N вычитание обнулило бы
+                            // числитель (N ≡ N₀). Она остаётся отношением секущей N/ε0 к EA0.
                             if (ea0 != 0.0 && Math.Abs(row.E0) > 1e-12)
                             {
                                 nAxis.Add(Math.Abs(row.N));
@@ -245,12 +262,12 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
                             if (HasMx && b0x != 0.0 && Math.Abs(row.Ky) > 1e-12)
                             {
                                 mxAxis.Add(Math.Abs(row.Mx));
-                                mxRatio.Add(Math.Abs((row.Mx / row.Ky) / b0x));
+                                mxRatio.Add(Math.Abs(((row.Mx - mx0) / row.Ky) / b0x));
                             }
                             if (HasMy && b0y != 0.0 && Math.Abs(row.Kz) > 1e-12)
                             {
                                 myAxis.Add(Math.Abs(row.My));
-                                myRatio.Add(Math.Abs((row.My / row.Kz) / b0y));
+                                myRatio.Add(Math.Abs(((row.My - my0) / row.Kz) / b0y));
                             }
                         }
                     }
