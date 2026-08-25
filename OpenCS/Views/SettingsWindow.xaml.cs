@@ -240,6 +240,10 @@ namespace OpenCS.Views
          RebarDifferentialDiagramCb.IsChecked = _calcSettings.RebarDifferentialDiagram;
          ConsiderConcreteTensionUlsCb.IsChecked = _calcSettings.ConsiderConcreteTensionUls;
          PsiSMethodCombo.SelectedIndex = _calcSettings.CrackWidthPsiSMethod == "strain8232" ? 1 : 0;
+         ShearStationStepBox.Text    = _calcSettings.ShearStationStep.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         ShearProjectionStepBox.Text = _calcSettings.ShearProjectionStep.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         ShearMomentZoneBox.Text     = _calcSettings.ShearMomentZoneLength.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
+         ShearAnchorageFactorBox.Text = _calcSettings.ShearAnchorageFactor.ToString("G4", System.Globalization.CultureInfo.InvariantCulture);
          UpdateCalcSwatches();
       }
 
@@ -341,6 +345,27 @@ namespace OpenCS.Views
          {
             _calcSettings.CrackWidthPsiSMethod =
                (PsiSMethodCombo.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Tag as string ?? "stress8138";
+         };
+         // Шаги перебора и длина зоны допускают 0 («авто» / «2·h0» по норме), k — строго больше нуля.
+         ShearStationStepBox.TextChanged += (_, _) =>
+         {
+            if (Pars.ParseAny(ShearStationStepBox.Text, out var v) && v >= 0)
+               _calcSettings.ShearStationStep = v;
+         };
+         ShearProjectionStepBox.TextChanged += (_, _) =>
+         {
+            if (Pars.ParseAny(ShearProjectionStepBox.Text, out var v) && v >= 0)
+               _calcSettings.ShearProjectionStep = v;
+         };
+         ShearMomentZoneBox.TextChanged += (_, _) =>
+         {
+            if (Pars.ParseAny(ShearMomentZoneBox.Text, out var v) && v >= 0)
+               _calcSettings.ShearMomentZoneLength = v;
+         };
+         ShearAnchorageFactorBox.TextChanged += (_, _) =>
+         {
+            if (Pars.ParseAny(ShearAnchorageFactorBox.Text, out var v) && v > 0)
+               _calcSettings.ShearAnchorageFactor = v;
          };
       }
 

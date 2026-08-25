@@ -154,6 +154,9 @@
    <system:String x:Key="CalcSettingsConsiderConcreteTensionUls">Account for concrete tension in ULS (limit state 1) checks</system:String>
    <system:String x:Key="CalcSettingsConsiderConcreteTensionUlsTip">Affects limit-force and strain-plane search for CalcType C/CL — for both bar and plate sections. Does not affect SLS (N/NL). For plates, overrides the section page's "Concrete tension" flag only in this mode.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Batch Tasks</system:String>
+   <system:String x:Key="CalcSettingsShearInclinedGroup">Inclined Sections (SP 63, 8.1.32–8.1.35)</system:String>
+   <system:String x:Key="CalcSettingsShearMomentZoneTip">Support zone length for check (8.63); 0 — code value 2·h0 is used</system:String>
+   <system:String x:Key="CalcSettingsShearAnchorageTip">Longitudinal reinforcement engagement factor k; anchorage per 10.3.21–10.3.28 is not verified</system:String>
    <system:String x:Key="CalcSettingsSp20Group">SP20 combinations (default γf)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaG">G — permanent (unfav.)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaGFav">G — permanent (fav.)</system:String>
@@ -1401,6 +1404,10 @@
     <system:String x:Key="CalcTaskKind_shear_inclined_batch">Inclined sections (batch)</system:String>
 
     <system:String x:Key="ShearInclinedForceSource">Force source</system:String>
+    <system:String x:Key="ShearInclinedManualForces">Design section forces</system:String>
+    <system:String x:Key="ShearInclinedMomentsPair">Mx / My, kN·m</system:String>
+    <system:String x:Key="ShearInclinedShearPair">Vy / Vx, kN</system:String>
+    <system:String x:Key="ShearInclinedNeedShearForce">Enter shear force Vy or Vx — an inclined section cannot be checked without it.</system:String>
     <system:String x:Key="ShearInclinedSourceConstant">Constant forces</system:String>
     <system:String x:Key="ShearInclinedSourceUniform">Uniform load</system:String>
     <system:String x:Key="ShearInclinedSourceFem">FEM diagram</system:String>

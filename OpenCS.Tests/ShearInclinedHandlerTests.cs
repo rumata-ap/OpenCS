@@ -143,6 +143,186 @@ public sealed class ShearInclinedHandlerTests
     }
 
     [Fact]
+    public void Run_StationStepFromCalcSettings_MatchesSameStepSetInTask()
+    {
+        var handler = new ShearInclinedHandler();
+        var item = new LoadItem { Vy = 150.0, Mx = -120.0 };
+        var settings = CalcSettings.Default;
+        settings.ShearStationStep = 0.5;
+
+        var fromSettings = handler.Run(Task(Uniform() with { StationStep = null }),
+            ShearInclinedFixtures.Beam(), item, settings);
+        var fromTask = handler.Run(Task(Uniform() with { StationStep = 0.5 }),
+            ShearInclinedFixtures.Beam(), item, CalcSettings.Default);
+
+        Assert.Equal("ok", fromSettings.Status);
+        Assert.Equal(StationCount(fromTask), StationCount(fromSettings));
+    }
+
+    [Fact]
+    public void Run_StationStepSetInTask_OverridesCalcSettings()
+    {
+        // Сохранённые задачи содержат шаг в ParamsJson и должны считаться как прежде,
+        // независимо от появившейся позже глобальной настройки.
+        var handler = new ShearInclinedHandler();
+        var item = new LoadItem { Vy = 150.0, Mx = -120.0 };
+        var settings = CalcSettings.Default;
+        settings.ShearStationStep = 1.5;
+
+        var result = handler.Run(Task(Uniform() with { StationStep = 0.25 }),
+            ShearInclinedFixtures.Beam(), item, settings);
+        var reference = handler.Run(Task(Uniform() with { StationStep = 0.25 }),
+            ShearInclinedFixtures.Beam(), item, CalcSettings.Default);
+
+        Assert.Equal(StationCount(reference), StationCount(result));
+        Assert.True(StationCount(result) > 5);
+    }
+
+    [Fact]
+    public void Run_AnchorageFactorFromCalcSettings_AppearsInWarning()
+    {
+        var handler = new ShearInclinedHandler();
+        var settings = CalcSettings.Default;
+        settings.ShearAnchorageFactor = 0.75;
+
+        var result = handler.Run(Task(new ShearInclinedParams { AnchorageFactor = null }),
+            ShearInclinedFixtures.Beam(), new LoadItem { Vy = 150.0, Mx = -120.0 }, settings);
+
+        Assert.Contains(Warnings(result), w => w.Contains("k = 0,75") || w.Contains("k = 0.75"));
+    }
+
+    [Fact]
+    public void Run_AnchorageFactorSetInTask_OverridesCalcSettings()
+    {
+        var handler = new ShearInclinedHandler();
+        var settings = CalcSettings.Default;
+        settings.ShearAnchorageFactor = 0.75;
+
+        var result = handler.Run(Task(new ShearInclinedParams { AnchorageFactor = 1.0 }),
+            ShearInclinedFixtures.Beam(), new LoadItem { Vy = 150.0, Mx = -120.0 }, settings);
+
+        Assert.Contains(Warnings(result), w => w.Contains("k = 1,00") || w.Contains("k = 1.00"));
+    }
+
+    [Fact]
+    public void Parse_LegacyParamsJsonWithExplicitSteps_KeepsValues()
+    {
+        const string legacy = """
+            {"ForceSource":"uniform_load","StationStep":0.4,"ProjectionStep":0.02,
+             "MomentZoneLength":1.2,"AnchorageFactor":0.9}
+            """;
+
+        var parameters = ShearInclinedParams.Parse(legacy);
+
+        Assert.Equal(0.4, parameters.StationStep);
+        Assert.Equal(0.02, parameters.ProjectionStep);
+        Assert.Equal(1.2, parameters.MomentZoneLength);
+        Assert.Equal(0.9, parameters.AnchorageFactor);
+    }
+
+    [Fact]
+    public void Parse_ParamsJsonWithoutSteps_LeavesThemUnset()
+    {
+        var parameters = ShearInclinedParams.Parse("""{"ForceSource":"constant"}""");
+
+        Assert.Null(parameters.StationStep);
+        Assert.Null(parameters.ProjectionStep);
+        Assert.Null(parameters.MomentZoneLength);
+        Assert.Null(parameters.AnchorageFactor);
+    }
+
+    [Fact]
+    public void ManualForces_SurviveJsonRoundTrip()
+    {
+        var original = new ShearInclinedParams
+        {
+            ManualForces = new ShearManualForces
+            {
+                N = -250.0, Mx = -180.5, My = 12.0, Vy = 145.0, Vx = -30.0
+            }
+        };
+
+        var restored = ShearInclinedParams.Parse(original.ToJson());
+
+        Assert.NotNull(restored.ManualForces);
+        Assert.Equal(-250.0, restored.ManualForces!.N, 12);
+        Assert.Equal(-180.5, restored.ManualForces.Mx, 12);
+        Assert.Equal(12.0, restored.ManualForces.My, 12);
+        Assert.Equal(145.0, restored.ManualForces.Vy, 12);
+        Assert.Equal(-30.0, restored.ManualForces.Vx, 12);
+    }
+
+    [Fact]
+    public void ResolveSingleForces_ManualForces_ReturnsLoadItemWithShear()
+    {
+        var task = Task(new ShearInclinedParams
+        {
+            ManualForces = new ShearManualForces { N = -100.0, Mx = -120.0, Vy = 150.0, Vx = 20.0 }
+        });
+
+        var item = CalcTaskForceHelper.ResolveSingleForces(task, []);
+
+        Assert.NotNull(item);
+        Assert.Equal(150.0, item!.Vy, 12);
+        Assert.Equal(20.0, item.Vx, 12);
+        Assert.Equal(-120.0, item.Mx, 12);
+        Assert.Equal(-100.0, item.N, 12);
+    }
+
+    [Fact]
+    public void ResolveSingleForces_WithoutManualForces_ReturnsNullSoForceSetIsUsed()
+    {
+        // Задача, сохранённая до появления ручного ввода, ссылается на строку набора:
+        // разрешение усилий должно остаться за набором, а не подсунуть нули.
+        var task = Task(new ShearInclinedParams());
+
+        Assert.Null(CalcTaskForceHelper.ResolveSingleForces(task, []));
+    }
+
+    [Fact]
+    public void ResolveSingleForces_FemProfileWithoutManualForces_ReturnsEmptyItem()
+    {
+        // При источнике «профиль из FEM» ручные поля скрыты и не сохраняются,
+        // но задача всё равно должна запускаться — эпюру строит сам профиль.
+        var task = Task(new ShearInclinedParams { ForceSource = "fem_profile" });
+
+        var item = CalcTaskForceHelper.ResolveSingleForces(task, []);
+
+        Assert.NotNull(item);
+        Assert.Equal(0.0, item!.Vy, 12);
+    }
+
+    [Fact]
+    public void UsesManualForces_CoversSingleShearTaskOnly()
+    {
+        Assert.True(CalcTaskForceHelper.UsesManualForces(
+            new CalcTask { Kind = "shear_inclined" }));
+        Assert.False(CalcTaskForceHelper.UsesManualForces(
+            new CalcTask { Kind = "shear_inclined_batch" }));
+    }
+
+    [Fact]
+    public void Run_ManualForces_ProducesSameResultAsForceSetRow()
+    {
+        var handler = new ShearInclinedHandler();
+        var parameters = new ShearInclinedParams { ConstructiveRequirements103Confirmed = true };
+        var manual = parameters with
+        {
+            ManualForces = new ShearManualForces { Vy = 150.0, Mx = -120.0 }
+        };
+
+        var fromRow = handler.Run(Task(parameters), ShearInclinedFixtures.Beam(),
+            new LoadItem { Vy = 150.0, Mx = -120.0 }, CalcSettings.Default);
+        var fromManual = handler.Run(Task(manual), ShearInclinedFixtures.Beam(),
+            manual.ManualForces!.ToLoadItem(), CalcSettings.Default);
+
+        using var expected = JsonDocument.Parse(fromRow.DataJson);
+        using var actual = JsonDocument.Parse(fromManual.DataJson);
+        Assert.Equal(expected.RootElement.GetProperty("utilization").GetDouble(),
+                     actual.RootElement.GetProperty("utilization").GetDouble(), 12);
+    }
+
+    [Fact]
     public void TaskRunner_KnowsBothKinds()
     {
         Assert.Contains("shear_inclined", TaskRunner.KindList);
@@ -156,6 +336,21 @@ public sealed class ShearInclinedHandlerTests
         CalcType = CalcType.C,
         ParamsJson = parameters.ToJson()
     };
+
+    /// <summary>Профиль от равномерной нагрузки на участке 3 м — стоянок больше одной.</summary>
+    static ShearInclinedParams Uniform() => new()
+    {
+        ForceSource = "uniform_load",
+        DistributedLoad = 40.0,
+        DistanceToSupport = 3.0,
+        ConstructiveRequirements103Confirmed = true
+    };
+
+    static int StationCount(CalcResult result)
+    {
+        using var doc = JsonDocument.Parse(result.DataJson);
+        return doc.RootElement.GetProperty("stations").GetArrayLength();
+    }
 
     static List<string> Warnings(CalcResult result)
     {

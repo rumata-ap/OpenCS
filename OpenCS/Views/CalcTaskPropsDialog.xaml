@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:h="clr-namespace:OpenCS.Views.Helpers"
         Title="{DynamicResource CalcTaskDlgTitle}"
-        Width="480" SizeToContent="Height"
+        Width="480" MinWidth="480" MinHeight="320" SizeToContent="Height"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize">
+        ResizeMode="CanResize">
    <Window.Resources>
       <!-- Виртуализация для ComboBox с тысячами строк (наборы усилий РСУ) -->
       <Style x:Key="VirtualComboBox" TargetType="ComboBox">
@@ -30,6 +30,16 @@
    </Window.Resources>
    <Grid Margin="16">
       <Grid.RowDefinitions>
+         <RowDefinition Height="*"/>    <!-- прокручиваемые параметры -->
+         <RowDefinition Height="Auto"/> <!-- закреплённые кнопки -->
+      </Grid.RowDefinitions>
+
+      <!-- Высота окна ограничена рабочей областью экрана (см. code-behind),
+           поэтому длинные наборы параметров (кручение, η, пластины) прокручиваются. -->
+      <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled">
+      <Grid Margin="0,0,4,0">
+      <Grid.RowDefinitions>
          <RowDefinition Height="Auto"/> <!-- 0 Tag -->
          <RowDefinition Height="Auto"/> <!-- 1 Kind -->
          <RowDefinition Height="Auto"/> <!-- 2 Fire section -->
@@ -48,7 +58,6 @@
          <RowDefinition Height="Auto"/> <!-- 15 Torsion -->
          <RowDefinition Height="Auto"/> <!-- 16 Crack width -->
          <RowDefinition Height="Auto"/> <!-- 17 Total curvature -->
-         <RowDefinition Height="Auto"/> <!-- 18 OK/Cancel -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
          <ColumnDefinition Width="130"/>
@@ -235,14 +244,65 @@
                   <ComboBoxItem Tag="fem_profile"  Content="{DynamicResource ShearInclinedSourceFem}"/>
                </ComboBox>
 
+               <!-- Усилия расчётного сечения: заполняются выбранной выше строкой набора,
+                    после чего их можно править. При источнике «профиль из FEM» скрыты. -->
+               <GroupBox Header="{DynamicResource ShearInclinedManualForces}" Margin="0,8,0,0"
+                         Visibility="{Binding ShowShearManualForces,
+                                      Converter={StaticResource BoolToVisibility}}">
+                  <Grid Margin="4,2">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions>
+                        <RowDefinition Height="26"/>
+                        <RowDefinition Height="26"/>
+                        <RowDefinition Height="26"/>
+                     </Grid.RowDefinitions>
+                     <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
+                                VerticalAlignment="Center"/>
+                     <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,2"
+                              VerticalContentAlignment="Center"
+                              ToolTip="{DynamicResource CalcTaskForceN}"
+                              Text="{Binding ShearManualN, UpdateSourceTrigger=PropertyChanged}"/>
+
+                     <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource ShearInclinedMomentsPair}"
+                                VerticalAlignment="Center"/>
+                     <TextBox Grid.Row="1" Grid.Column="1" Margin="0,2,4,2"
+                              VerticalContentAlignment="Center"
+                              ToolTip="{DynamicResource CalcTaskForceMx}"
+                              Text="{Binding ShearManualMx, UpdateSourceTrigger=PropertyChanged}"/>
+                     <TextBox Grid.Row="1" Grid.Column="2" Margin="0,2"
+                              VerticalContentAlignment="Center"
+                              ToolTip="{DynamicResource CalcTaskForceMy}"
+                              Text="{Binding ShearManualMy, UpdateSourceTrigger=PropertyChanged}"/>
+
+                     <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource ShearInclinedShearPair}"
+                                VerticalAlignment="Center"/>
+                     <TextBox Grid.Row="2" Grid.Column="1" Margin="0,2,4,2"
+                              VerticalContentAlignment="Center"
+                              ToolTip="{DynamicResource ForceColVy}"
+                              Text="{Binding ShearManualVy, UpdateSourceTrigger=PropertyChanged}"/>
+                     <TextBox Grid.Row="2" Grid.Column="2" Margin="0,2"
+                              VerticalContentAlignment="Center"
+                              ToolTip="{DynamicResource ForceColVx}"
+                              Text="{Binding ShearManualVx, UpdateSourceTrigger=PropertyChanged}"/>
+                  </Grid>
+               </GroupBox>
+
                <TextBlock Text="{DynamicResource ShearInclinedElementKind}" Margin="0,8,0,2"/>
                <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding ShearElementKind}">
                   <ComboBoxItem Tag="bending_unstressed" Content="{DynamicResource ShearInclinedElementBending}"/>
                   <ComboBoxItem Tag="other"              Content="{DynamicResource ShearInclinedElementOther}"/>
                </ComboBox>
 
-               <TextBlock Text="{DynamicResource ShearInclinedDistributedLoad}" Margin="0,8,0,2"/>
-               <TextBox Text="{Binding ShearDistributedLoad, UpdateSourceTrigger=PropertyChanged}"/>
+               <!-- q нужна только источнику «равномерная нагрузка» -->
+               <StackPanel Visibility="{Binding ShowShearDistributedLoad,
+                                        Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource ShearInclinedDistributedLoad}" Margin="0,8,0,2"/>
+                  <TextBox Text="{Binding ShearDistributedLoad, UpdateSourceTrigger=PropertyChanged}"/>
+               </StackPanel>
 
                <TextBlock Text="{DynamicResource ShearInclinedDistanceToSupport}" Margin="0,8,0,2"/>
                <TextBox Text="{Binding ShearDistanceToSupport, UpdateSourceTrigger=PropertyChanged}"/>
@@ -259,20 +319,15 @@
                <CheckBox Content="{DynamicResource ShearInclinedSupportAtEnd}" Margin="0,4,0,0"
                          IsChecked="{Binding ShearSupportAtEnd}"/>
 
-               <TextBlock Text="{DynamicResource ShearInclinedStationStep}" Margin="0,8,0,2"/>
-               <TextBox Text="{Binding ShearStationStep, UpdateSourceTrigger=PropertyChanged}"
-                        ToolTip="{DynamicResource ShearInclinedStationStepHint}"/>
-               <TextBlock Text="{DynamicResource ShearInclinedStationStepHint}" FontSize="11" Foreground="Gray"/>
+               <!-- Шаг стоянок и шаг перебора проекции C — в настройках расчёта -->
 
-               <TextBlock Text="{DynamicResource ShearInclinedProjectionStep}" Margin="0,8,0,2"/>
-               <TextBox Text="{Binding ShearProjectionStep, UpdateSourceTrigger=PropertyChanged}"
-                        ToolTip="{DynamicResource ShearInclinedProjectionStepHint}"/>
-               <TextBlock Text="{DynamicResource ShearInclinedProjectionStepHint}" FontSize="11" Foreground="Gray"/>
-
-               <TextBlock Text="{DynamicResource ShearInclinedFemStep}" Margin="0,8,0,2"/>
-               <TextBox Text="{Binding ShearFemStepIndex, UpdateSourceTrigger=PropertyChanged}"
-                        ToolTip="{DynamicResource ShearInclinedFemStepHint}"/>
-               <TextBlock Text="{DynamicResource ShearInclinedFemStepHint}" FontSize="11" Foreground="Gray"/>
+               <!-- Шаг нелинейного расчёта нужен только источнику «профиль из FEM» -->
+               <StackPanel Visibility="{Binding ShowShearFemStep,
+                                        Converter={StaticResource BoolToVisibility}}">
+                  <TextBlock Text="{DynamicResource ShearInclinedFemStep}" Margin="0,8,0,2"/>
+                  <TextBox Text="{Binding ShearFemStepIndex, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="{DynamicResource ShearInclinedFemStepHint}"/>
+               </StackPanel>
 
                <TextBlock Text="{DynamicResource ShearInclinedPlanes}" Margin="0,8,0,2"/>
                <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding ShearPlanes}">
@@ -284,14 +339,10 @@
                <CheckBox Content="{DynamicResource ShearInclinedCheckMoment}" Margin="0,8,0,0"
                          IsChecked="{Binding ShearCheckMoment}"/>
 
-               <TextBlock Text="{DynamicResource ShearInclinedMomentZone}" Margin="0,8,0,2"/>
-               <TextBox Text="{Binding ShearMomentZoneLength, UpdateSourceTrigger=PropertyChanged}"/>
+               <!-- Длина приопорной зоны момента и коэффициент k — в настройках расчёта -->
 
                <TextBlock Text="{DynamicResource ShearInclinedBarCutoffs}" Margin="0,8,0,2"/>
                <TextBox Text="{Binding ShearBarCutoffsText, UpdateSourceTrigger=PropertyChanged}"/>
-
-               <TextBlock Text="{DynamicResource ShearInclinedAnchorageFactor}" Margin="0,8,0,2"/>
-               <TextBox Text="{Binding ShearAnchorageFactor, UpdateSourceTrigger=PropertyChanged}"/>
 
                <CheckBox Content="{DynamicResource ShearInclinedConstructiveConfirm}" Margin="0,8,0,0"
                          IsChecked="{Binding ShearConstructiveConfirmed}"/>
@@ -1142,8 +1193,11 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="18" Grid.Column="0" Grid.ColumnSpan="2"
-                  Orientation="Horizontal" HorizontalAlignment="Right">
+      </Grid>
+      </ScrollViewer>
+
+      <StackPanel Grid.Row="1"
+                  Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
          <Button Content="{DynamicResource OK}"
                  IsDefault="True"
                  Command="{Binding OkCommand}"

@@ -20,6 +20,10 @@ public partial class CalcTaskPropsDialog : Window
    public CalcTaskPropsDialog(AppViewModel app, CalcTask? existing = null, string? groupKey = null)
    {
       InitializeComponent();
+      // SizeToContent="Height" сам по себе не ограничен экраном: наборы параметров
+      // кручения, η и пластин выше рабочей области ноутбука. Ограничиваем высоту здесь,
+      // а не в XAML, — у разных машин разное разрешение.
+      MaxHeight = SystemParameters.WorkArea.Height * 0.9;
       DataContext = new CalcTaskPropsDlgVM(app, existing, this, groupKey);
    }
 
@@ -120,6 +124,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     int _torsionTriangulationIndex;
     int _torsionFemOrderIndex;
     bool torsionAutoConverge;
+   string shearForceSource = "constant";
+   string shearManualN = "0", shearManualMx = "0", shearManualMy = "0";
+   string shearManualVy = "0", shearManualVx = "0";
    string _forceItemFilter = "", _stage1ItemFilter = "", _stage2ItemFilter = "", _shellForceItemFilter = "";
    CancellationTokenSource? _torsionPreviewDebounceCts;
 
@@ -214,6 +221,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsLimitSingle));
            OnPropertyChanged(nameof(ShowForceItem));
            OnPropertyChanged(nameof(ShowManualForces));
+           OnPropertyChanged(nameof(ShowShearManualForces));
            OnPropertyChanged(nameof(ShowSolverMethod));
            OnPropertyChanged(nameof(IsTwoStage));
            OnPropertyChanged(nameof(IsTwoStageBatch));
@@ -306,6 +314,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(ShowForceItem));
            OnPropertyChanged(nameof(ShowStandardForce));
            OnPropertyChanged(nameof(ShowManualForces));
+           OnPropertyChanged(nameof(ShowShearManualForces));
            OnPropertyChanged(nameof(ShowSolverMethod));
            OnPropertyChanged(nameof(IsTwoStage));
            OnPropertyChanged(nameof(IsTwoStageBatch));
@@ -406,7 +415,42 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsShearInclinedBatch => Kind == "shear_inclined_batch";
 
    /// <summary>Источник усилий: "constant" | "uniform_load" | "fem_profile".</summary>
-   public string ShearForceSource { get; set; } = "constant";
+   public string ShearForceSource
+   {
+      get => shearForceSource;
+      set
+      {
+         shearForceSource = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowShearDistributedLoad));
+         OnPropertyChanged(nameof(ShowShearFemStep));
+         OnPropertyChanged(nameof(ShowShearManualForces));
+      }
+   }
+
+   /// <summary>Равномерная нагрузка q относится только к источнику «равномерная нагрузка».</summary>
+   public bool ShowShearDistributedLoad => ShearForceSource == "uniform_load";
+
+   /// <summary>Шаг нелинейного расчёта относится только к источнику «профиль из FEM».</summary>
+   public bool ShowShearFemStep => ShearForceSource == "fem_profile";
+
+   /// <summary>
+   /// Ручной ввод усилий: при источнике «профиль из FEM» эпюра берётся из результатов
+   /// расчёта схемы, поэтому введённые значения не участвовали бы в расчёте.
+   /// </summary>
+   public bool ShowShearManualForces => IsShearInclined && !IsShearInclinedBatch
+      && ShearForceSource != "fem_profile";
+
+   /// <summary>Продольная сила N расчётного сечения, кН.</summary>
+   public string ShearManualN { get => shearManualN; set { shearManualN = value; OnPropertyChanged(); } }
+   /// <summary>Изгибающий момент Mx расчётного сечения, кН·м.</summary>
+   public string ShearManualMx { get => shearManualMx; set { shearManualMx = value; OnPropertyChanged(); } }
+   /// <summary>Изгибающий момент My расчётного сечения, кН·м.</summary>
+   public string ShearManualMy { get => shearManualMy; set { shearManualMy = value; OnPropertyChanged(); } }
+   /// <summary>Поперечная сила Vy расчётного сечения, кН.</summary>
+   public string ShearManualVy { get => shearManualVy; set { shearManualVy = value; OnPropertyChanged(); } }
+   /// <summary>Поперечная сила Vx расчётного сечения, кН.</summary>
+   public string ShearManualVx { get => shearManualVx; set { shearManualVx = value; OnPropertyChanged(); } }
    /// <summary>Тип элемента для режима φn.</summary>
    public string ShearElementKind { get; set; } = "bending_unstressed";
    /// <summary>Равномерная нагрузка q, кН/м.</summary>
@@ -419,24 +463,20 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool ShearSupportAtStart { get; set; } = true;
    /// <summary>Конец участка является опорой.</summary>
    public bool ShearSupportAtEnd { get; set; } = true;
-   /// <summary>Шаг стоянок, м; 0 — авто.</summary>
-   public string ShearStationStep { get; set; } = "0";
-   /// <summary>Шаг перебора проекции C, м; 0 — авто.</summary>
-   public string ShearProjectionStep { get; set; } = "0";
+   // Шаг стоянок, шаг проекции C, длина приопорной зоны момента и коэффициент k
+   // задаются в глобальных настройках расчёта (CalcSettings), а не в постановке задачи.
    /// <summary>Индекс шага нелинейного расчёта FEM; пусто — последний сошедшийся.</summary>
    public string ShearFemStepIndex { get; set; } = "";
    /// <summary>Рассчитываемые плоскости.</summary>
    public string ShearPlanes { get; set; } = "both";
    /// <summary>Выполнять проверки по 8.1.35.</summary>
    public bool ShearCheckMoment { get; set; } = true;
-   /// <summary>Длина приопорной зоны проверки момента, м.</summary>
-   public string ShearMomentZoneLength { get; set; } = "0";
    /// <summary>Координаты обрывов арматуры, разделённые пробелами.</summary>
    public string ShearBarCutoffsText { get; set; } = "";
-   /// <summary>Коэффициент включения продольной арматуры k.</summary>
-   public string ShearAnchorageFactor { get; set; } = "1";
    /// <summary>Подтверждение требований 10.3; без него хомуты не учитываются.</summary>
    public bool ShearConstructiveConfirmed { get; set; }
+   /// <summary>Параметры открытой задачи — источник унаследованных шагов перебора и k.</summary>
+   ShearInclinedParams? _shearLegacySteps;
    public bool IsTorsionFem => Kind == "torsion_fem";
    public TorsionMeshPreviewVM TorsionMeshPreview { get; } = new();
    public bool IsCracking      => Kind == "cracking";
@@ -887,7 +927,19 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       get => selectedForceItem;
       set
       {
-         if (value != null && ShowManualForces)
+         if (value != null && ShowShearManualForces)
+         {
+            // Строка набора заполняет поля усилий; выбор сбрасывается, чтобы задача
+            // сохранилась с ручными усилиями и правки не были перекрыты набором.
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            ShearManualN  = value.N .ToString("G6", inv);
+            ShearManualMx = value.Mx.ToString("G6", inv);
+            ShearManualMy = value.My.ToString("G6", inv);
+            ShearManualVy = value.Vy.ToString("G6", inv);
+            ShearManualVx = value.Vx.ToString("G6", inv);
+            selectedForceItem = null;
+         }
+         else if (value != null && ShowManualForces)
          {
             // Выбранная строка используется только для заполнения полей; выбор сразу сбрасывается
             var inv = System.Globalization.CultureInfo.InvariantCulture;
@@ -1515,15 +1567,34 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               ShearSupportDirection = sip.SupportDirection;
               ShearSupportAtStart = sip.SupportAtStart;
               ShearSupportAtEnd = sip.SupportAtEnd;
-              ShearStationStep = sip.StationStep.ToString("G6", inv);
-              ShearProjectionStep = sip.ProjectionStep.ToString("G6", inv);
               ShearFemStepIndex = sip.FemStepIndex?.ToString(inv) ?? "";
               ShearPlanes = sip.Planes;
               ShearCheckMoment = sip.CheckMoment;
-              ShearMomentZoneLength = sip.MomentZoneLength.ToString("G6", inv);
               ShearBarCutoffsText = string.Join(' ', sip.BarCutoffs.Select(c => c.ToString("G6", inv)));
-              ShearAnchorageFactor = sip.AnchorageFactor.ToString("G6", inv);
               ShearConstructiveConfirmed = sip.ConstructiveRequirements103Confirmed;
+              if (sip.ManualForces is { } mf)
+              {
+                 ShearManualN  = mf.N .ToString("G6", inv);
+                 ShearManualMx = mf.Mx.ToString("G6", inv);
+                 ShearManualMy = mf.My.ToString("G6", inv);
+                 ShearManualVy = mf.Vy.ToString("G6", inv);
+                 ShearManualVx = mf.Vx.ToString("G6", inv);
+              }
+              else if (existing.ForceItemId != 0
+                       && ForceItems.FirstOrDefault(i => i.Id == existing.ForceItemId) is { } row)
+              {
+                 // Задача, сохранённая до появления ручного ввода: показываем усилия её строки,
+                 // чтобы их можно было поправить.
+                 ShearManualN  = row.N .ToString("G6", inv);
+                 ShearManualMx = row.Mx.ToString("G6", inv);
+                 ShearManualMy = row.My.ToString("G6", inv);
+                 ShearManualVy = row.Vy.ToString("G6", inv);
+                 ShearManualVx = row.Vx.ToString("G6", inv);
+              }
+              // StationStep/ProjectionStep/MomentZoneLength/AnchorageFactor не читаются в UI:
+              // сохранённые в старой задаче значения переносятся в новый ParamsJson как есть
+              // (см. BuildShearInclinedParams), новые задачи берут их из настроек расчёта.
+              _shearLegacySteps = sip;
           }
 
           NotifyTorsionForceProps();
@@ -2322,9 +2393,18 @@ public class CalcTaskPropsDlgVM : ViewModelBase
           return;
        }
 
-       if (!ShowManualForces && !IsLimitBatch && ShowForceItem && (SelectedForceSet == null || SelectedForceItem == null))
+       if (!ShowManualForces && !ShowShearManualForces && !IsShearInclinedBatch
+           && !IsLimitBatch && ShowForceItem && (SelectedForceSet == null || SelectedForceItem == null))
        {
           MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
+             MessageBoxButton.OK, MessageBoxImage.Warning);
+          return;
+       }
+
+       // Наклонное сечение без поперечной силы проверять нечего: расчёт даст пустой результат.
+       if (ShowShearManualForces && !BuildShearInclinedParams().ManualForces!.HasShearForce)
+       {
+          MessageBox.Show(Loc.S("ShearInclinedNeedShearForce"), Loc.S("Warning"),
              MessageBoxButton.OK, MessageBoxImage.Warning);
           return;
        }
@@ -2468,15 +2548,29 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          SupportDirection = ShearSupportDirection,
          SupportAtStart = ShearSupportAtStart,
          SupportAtEnd = ShearSupportAtEnd,
-         StationStep = Num(ShearStationStep),
-         ProjectionStep = Num(ShearProjectionStep),
          FemStepIndex = femStep,
          Planes = ShearPlanes,
          CheckMoment = ShearCheckMoment,
-         MomentZoneLength = Num(ShearMomentZoneLength),
          BarCutoffs = cutoffs,
-         AnchorageFactor = Num(ShearAnchorageFactor),
-         ConstructiveRequirements103Confirmed = ShearConstructiveConfirmed
+         ConstructiveRequirements103Confirmed = ShearConstructiveConfirmed,
+         // При источнике «профиль из FEM» усилия строятся по результатам расчёта схемы,
+         // поэтому ручные значения не сохраняются и не участвуют в расчёте.
+         ManualForces = ShowShearManualForces
+            ? new ShearManualForces
+              {
+                 N  = Num(ShearManualN),
+                 Mx = Num(ShearManualMx),
+                 My = Num(ShearManualMy),
+                 Vy = Num(ShearManualVy),
+                 Vx = Num(ShearManualVx)
+              }
+            : null,
+         // Задача, сохранённая до переноса этих параметров в настройки расчёта, сохраняет
+         // свои значения при пересохранении: правка соседнего поля не должна менять результат.
+         StationStep = _shearLegacySteps?.StationStep,
+         ProjectionStep = _shearLegacySteps?.ProjectionStep,
+         MomentZoneLength = _shearLegacySteps?.MomentZoneLength,
+         AnchorageFactor = _shearLegacySteps?.AnchorageFactor
       };
    }
 

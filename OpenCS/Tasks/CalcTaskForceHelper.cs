@@ -11,6 +11,7 @@ internal static class CalcTaskForceHelper
    internal static bool UsesManualForces(CalcTask task)
       => task.Kind == "strain_state" || task.Kind == "cracking" || task.Kind == "crack_width"
          || task.Kind == "total_curvature" || task.Kind == "moment_curvature_biaxial"
+         || task.Kind == "shear_inclined"
          || IsLimitSingleKind(task.Kind);
 
    /// <summary>Задачи, для которых не нужна строка стержневого набора усилий (batch / ParamsJson / оболочки / сталь).</summary>
@@ -54,6 +55,17 @@ internal static class CalcTaskForceHelper
 
       if (task.Kind == "moment_curvature_biaxial")
          return MomentCurvatureBiaxialTaskParams.Parse(task.ParamsJson).ToLoadItem();
+
+      // Наклонные сечения: усилия либо введены вручную, либо (в задачах, сохранённых
+      // до появления ручного ввода) берутся из строки набора — тогда null.
+      if (task.Kind == "shear_inclined")
+      {
+         var shear = ShearInclinedParams.Parse(task.ParamsJson);
+         if (shear.ManualForces is { } manual)
+            return manual.ToLoadItem();
+         // Профиль из FEM строит эпюру Q(s)/M(s) сам — строка усилий ему не нужна.
+         return shear.ForceSource == "fem_profile" ? new LoadItem() : null;
+      }
 
       try
       {

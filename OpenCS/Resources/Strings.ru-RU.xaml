@@ -155,6 +155,9 @@
    <system:String x:Key="CalcSettingsConsiderConcreteTensionUls">Учитывать работу бетона на растяжение при расчётах по 1-й ГПС</system:String>
    <system:String x:Key="CalcSettingsConsiderConcreteTensionUlsTip">Влияет на поиск предельных усилий и плоскости деформаций при CalcType C/CL — для стержневых и пластинчатых сечений. На 2-ю ГПС (N/NL) не влияет. Для пластин перекрывает флаг «Учёт растяжения бетона» страницы сечения только в этом режиме.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Пакетные задачи</system:String>
+   <system:String x:Key="CalcSettingsShearInclinedGroup">Наклонные сечения (СП 63, пп. 8.1.32–8.1.35)</system:String>
+   <system:String x:Key="CalcSettingsShearMomentZoneTip">Длина приопорной зоны для проверки по (8.63); 0 — принимается 2·h0 по норме</system:String>
+   <system:String x:Key="CalcSettingsShearAnchorageTip">Коэффициент включения продольной арматуры k; анкеровка по 10.3.21–10.3.28 расчётом не проверяется</system:String>
    <system:String x:Key="CalcSettingsSp20Group">Сочетания СП20 (γf по умолчанию)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaG">G — постоянная (неблаг.)</system:String>
    <system:String x:Key="CalcSettingsSp20GammaGFav">G — постоянная (благ.)</system:String>
@@ -1404,6 +1407,10 @@
     <system:String x:Key="CalcTaskKind_shear_inclined_batch">Наклонные сечения (набор)</system:String>
 
     <system:String x:Key="ShearInclinedForceSource">Источник усилий</system:String>
+    <system:String x:Key="ShearInclinedManualForces">Усилия расчётного сечения</system:String>
+    <system:String x:Key="ShearInclinedMomentsPair">Mx / My, кН·м</system:String>
+    <system:String x:Key="ShearInclinedShearPair">Vy / Vx, кН</system:String>
+    <system:String x:Key="ShearInclinedNeedShearForce">Задайте поперечную силу Vy или Vx — без неё наклонное сечение проверять не по чему.</system:String>
     <system:String x:Key="ShearInclinedSourceConstant">Постоянные усилия</system:String>
     <system:String x:Key="ShearInclinedSourceUniform">Равномерная нагрузка</system:String>
     <system:String x:Key="ShearInclinedSourceFem">Эпюра FEM</system:String>
