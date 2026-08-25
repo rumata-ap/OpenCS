@@ -136,6 +136,31 @@ namespace OpenCS.Utilites
       public CScore.PsiSMethod ResolvePsiSMethod()
          => CrackWidthPsiSMethod == "strain8232" ? CScore.PsiSMethod.Strain8232 : CScore.PsiSMethod.Stress8138;
 
+      // ── Наклонные сечения по СП 63.13330, пп. 8.1.32–8.1.35 ─────────────
+      // Численные параметры перебора и два нормативных умолчания: они одинаковы для всех
+      // задач и потому вынесены сюда, а не дублируются в параметрах каждой постановки.
+      // Сохранённые ранее задачи хранят свои значения в ParamsJson и продолжают считаться
+      // по ним (см. ShearInclinedParams — поля nullable).
+
+      /// <summary>Шаг стоянок вдоль элемента в расчёте наклонных сечений, м; 0 — авто.</summary>
+      [JsonPropertyName("shearStationStep")]
+      public double ShearStationStep { get; set; }
+
+      /// <summary>Шаг перебора проекции наклонного сечения C, м; 0 — авто (h0/100).</summary>
+      [JsonPropertyName("shearProjectionStep")]
+      public double ShearProjectionStep { get; set; }
+
+      /// <summary>Длина приопорной зоны проверки момента по (8.63), м; 0 — 2·h0 по норме.</summary>
+      [JsonPropertyName("shearMomentZoneLength")]
+      public double ShearMomentZoneLength { get; set; }
+
+      /// <summary>
+      /// Коэффициент включения продольной арматуры k в наклонном сечении.
+      /// Анкеровка по 10.3.21–10.3.28 расчётом не проверяется, значение задаёт пользователь.
+      /// </summary>
+      [JsonPropertyName("shearAnchorageFactor")]
+      public double ShearAnchorageFactor { get; set; } = 1.0;
+
       /// <summary>γf по умолчанию для постоянной нагрузки (G), неблагоприятно.</summary>
       [JsonPropertyName("sp20GammaFG")]
       public double Sp20GammaFPermanent { get; set; } = 1.1;
@@ -287,6 +312,10 @@ namespace OpenCS.Utilites
          RebarDifferentialDiagram = RebarDifferentialDiagram,
          ConsiderConcreteTensionUls = ConsiderConcreteTensionUls,
          CrackWidthPsiSMethod  = CrackWidthPsiSMethod,
+         ShearStationStep      = ShearStationStep,
+         ShearProjectionStep   = ShearProjectionStep,
+         ShearMomentZoneLength = ShearMomentZoneLength,
+         ShearAnchorageFactor  = ShearAnchorageFactor,
          Sp20GammaFPermanent      = Sp20GammaFPermanent,
          Sp20GammaFPermanentFav   = Sp20GammaFPermanentFav,
          Sp20GammaFLongTerm       = Sp20GammaFLongTerm,

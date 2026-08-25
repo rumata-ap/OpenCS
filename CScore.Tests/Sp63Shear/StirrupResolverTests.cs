@@ -55,7 +55,7 @@ public sealed class StirrupResolverTests
         var area = section.Areas[0];
         var second = Group(Rectangle(-0.06, -0.27, 0.06, 0.27), spacing: 0.30);
         second.MaterialId = 2;
-        area.ClosedStirrups.Add(second);
+        area.Stirrups.Add(second);
 
         var data = StirrupResolver.Resolve(section, ShearPlane.Vy, CalcType.C);
 
@@ -68,7 +68,7 @@ public sealed class StirrupResolverTests
     public void Resolve_NoStirrups_ReturnsZeroWithoutThrowing()
     {
         var section = SectionWithStirrup(Rectangle(-0.12, -0.27, 0.12, 0.27), spacing: 0.15);
-        section.Areas[0].ClosedStirrups.Clear();
+        section.Areas[0].Stirrups.Clear();
 
         var data = StirrupResolver.Resolve(section, ShearPlane.Vy, CalcType.C);
 
@@ -80,7 +80,7 @@ public sealed class StirrupResolverTests
     public void Resolve_UnknownStirrupMaterial_WarnsAndSkipsGroup()
     {
         var section = SectionWithStirrup(Rectangle(-0.12, -0.27, 0.12, 0.27), spacing: 0.15);
-        section.Areas[0].ClosedStirrups[0].MaterialId = 999;
+        section.Areas[0].Stirrups[0].MaterialId = 999;
 
         var data = StirrupResolver.Resolve(section, ShearPlane.Vy, CalcType.C);
 
@@ -93,17 +93,17 @@ public sealed class StirrupResolverTests
         (x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)
     ];
 
-    static ClosedStirrupGroup Group(List<(double X, double Y)> loop, double spacing)
+    static StirrupGroup Group(List<(double X, double Y)> loop, double spacing)
     {
         var xs = loop.Select(p => p.X).ToList();
         var ys = loop.Select(p => p.Y).ToList();
-        return new ClosedStirrupGroup
+        return new StirrupGroup
         {
             MaterialId = 2,
             SpacingM = spacing,
-            Loops =
+            Elements =
             [
-                new ClosedStirrupLoop
+                new StirrupElement
                 {
                     CenterlineContour = new Contour(xs, ys, "stirrup"),
                     BarAreaM2 = BarArea,
@@ -123,7 +123,7 @@ public sealed class StirrupResolverTests
 
         var group = Group(loop, spacing);
         group.MaterialId = steel.Id;
-        area.ClosedStirrups.Add(group);
+        area.Stirrups.Add(group);
 
         var section = new CrossSection();
         section.Areas.Add(area);

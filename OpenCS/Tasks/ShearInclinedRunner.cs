@@ -35,7 +35,7 @@ public static class ShearInclinedRunner
 
             foreach (var plane in Planes(parameters))
             {
-                var outcome = Evaluate(task, section, item, plane, parameters, ctx, warnings);
+                var outcome = Evaluate(task, section, item, plane, parameters, settings, ctx, warnings);
                 if (outcome is not null) outcomes.Add(outcome);
             }
 
@@ -48,7 +48,7 @@ public static class ShearInclinedRunner
                     + "поперечная арматура учтена в расчёте.");
             warnings.Add(
                 "Анкеровка по 10.3.21–10.3.28 не проверена; коэффициент включения арматуры "
-                + $"k = {parameters.AnchorageFactor:F2} задан пользователем.");
+                + $"k = {parameters.ResolveAnchorageFactor(settings):F2} задан пользователем.");
 
             return new CalcResult
             {
@@ -69,7 +69,8 @@ public static class ShearInclinedRunner
     /// <summary>Рассчитывает одну плоскость сдвига.</summary>
     public static ShearInclinedPlaneOutcome? Evaluate(
         CalcTask task, CrossSection section, LoadItem item, ShearPlane plane,
-        ShearInclinedParams parameters, TaskRunContext? ctx, List<string> warnings)
+        ShearInclinedParams parameters, CalcSettings settings,
+        TaskRunContext? ctx, List<string> warnings)
     {
         double pairedMoment = plane == ShearPlane.Vy ? item.Mx : item.My;
         var geometry = InclinedSectionGeometryPair.Resolve(section, plane, task.CalcType);
@@ -105,10 +106,10 @@ public static class ShearInclinedRunner
             Sw: stirrups.Sw,
             Ns: overrides?.Ns ?? defaults.Ns,
             Kind: parameters.ResolveElementKind(),
-            AnchorageFactor: parameters.AnchorageFactor,
-            StationStep: parameters.StationStep,
-            ProjectionStep: parameters.ProjectionStep,
-            MomentZoneLength: parameters.MomentZoneLength,
+            AnchorageFactor: parameters.ResolveAnchorageFactor(settings),
+            StationStep: parameters.ResolveStationStep(settings),
+            ProjectionStep: parameters.ResolveProjectionStep(settings),
+            MomentZoneLength: parameters.ResolveMomentZoneLength(settings),
             BarCutoffs: parameters.BarCutoffs,
             CheckMoment: parameters.CheckMoment,
             PhiNOverride: overrides?.PhiN,

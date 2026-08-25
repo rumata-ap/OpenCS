@@ -32,7 +32,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 54;
+      const int CurrentSchemaVersion = 55;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -306,14 +306,16 @@ namespace OpenCS.Utilites
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 area_id     INTEGER NOT NULL REFERENCES material_areas(id) ON DELETE CASCADE,
                 material_id INTEGER NOT NULL REFERENCES materials(id),
-                spacing_m   REAL NOT NULL
+                spacing_m   REAL NOT NULL,
+                offset_m    REAL
             );
             CREATE TABLE IF NOT EXISTS material_area_closed_stirrup_loops (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
                 group_id       INTEGER NOT NULL REFERENCES material_area_closed_stirrup_groups(id) ON DELETE CASCADE,
                 centerline_wkt TEXT NOT NULL,
                 bar_area_m2    REAL NOT NULL,
-                bar_diameter_m REAL NOT NULL
+                bar_diameter_m REAL NOT NULL,
+                source_json    TEXT
             );
             CREATE TABLE IF NOT EXISTS calc_tasks (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -627,6 +629,7 @@ namespace OpenCS.Utilites
                      if (i == 51) { MigrateV52(); continue; }
                      if (i == 52) { MigrateV53(); continue; }
                if (i == 53) { MigrateV54(); continue; }
+               if (i == 54) { MigrateV55(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1343,16 +1346,27 @@ namespace OpenCS.Utilites
              id INTEGER PRIMARY KEY AUTOINCREMENT,
              area_id INTEGER NOT NULL REFERENCES material_areas(id) ON DELETE CASCADE,
              material_id INTEGER NOT NULL REFERENCES materials(id),
-             spacing_m REAL NOT NULL
+             spacing_m REAL NOT NULL,
+             offset_m REAL
          );
          CREATE TABLE IF NOT EXISTS material_area_closed_stirrup_loops (
              id INTEGER PRIMARY KEY AUTOINCREMENT,
              group_id INTEGER NOT NULL REFERENCES material_area_closed_stirrup_groups(id) ON DELETE CASCADE,
              centerline_wkt TEXT NOT NULL,
              bar_area_m2 REAL NOT NULL,
-             bar_diameter_m REAL NOT NULL
+             bar_diameter_m REAL NOT NULL,
+             source_json TEXT
          );
          """);
+
+      /// <summary>Миграция v55: отступ группы и параметры построения элементов поперечного армирования.</summary>
+      void MigrateV55()
+      {
+         if (!ColumnExists("material_area_closed_stirrup_groups", "offset_m"))
+            MigExec("ALTER TABLE material_area_closed_stirrup_groups ADD COLUMN offset_m REAL");
+         if (!ColumnExists("material_area_closed_stirrup_loops", "source_json"))
+            MigExec("ALTER TABLE material_area_closed_stirrup_loops ADD COLUMN source_json TEXT");
+      }
 
       /// <summary>Миграция v24: plate_section_id в fem_members.</summary>
       void MigrateV24()

@@ -41,6 +41,7 @@ namespace OpenCS
       /// и удаления доменных объектов. Доступен внутри сборки для дочерних ViewModel.
       /// </summary>
       internal DatabaseService db = null!;
+      readonly string databasePath;
 
       /// <summary>
       /// Коллекция материалов типа «Бетон», отфильтрованная из <see cref="Materials"/>.
@@ -312,6 +313,9 @@ namespace OpenCS
 
       /// <summary>Группы арматурных стержней (Category == RebarGroup).</summary>
       public ObservableCollection<MaterialArea> RebarGroupsLive { get; set; } = [];
+
+      /// <summary>Области поперечного армирования проекта.</summary>
+      public ObservableCollection<MaterialArea> StirrupGroupsLive { get; private set; } = [];
 
       /// <summary>Простые фибровые сечения (не TwoStageSection).</summary>
       public ObservableCollection<CrossSection> FiberSectionsLive { get; } = [];
@@ -620,9 +624,12 @@ namespace OpenCS
          {
             currentMaterialArea = value;
             if (value != null)
-               CurrentPage = value.Category == AreaCategory.RebarGroup
-                  ? (System.Windows.Controls.UserControl)new Views.RebarGroupEditorPage(value, this)
-                  : new Views.MaterialAreaPage(value, this);
+               CurrentPage = value.Category switch
+               {
+                  AreaCategory.RebarGroup => new Views.RebarGroupEditorPage(value, this),
+                  AreaCategory.Stirrups => new Views.StirrupGroupPage(value, this),
+                  _ => new Views.MaterialAreaPage(value, this)
+               };
             OnPropertyChanged();
          }
       }
@@ -635,6 +642,9 @@ namespace OpenCS
 
       /// <summary>Команда создания новой группы арматурных стержней.</summary>
       public ICommand NewRebarGroupCommand { get; set; } = null!;
+
+      /// <summary>Команда создания новой группы поперечного армирования.</summary>
+      public ICommand NewStirrupGroupCommand { get; set; } = null!;
 
       /// <summary>Команда создания нового поперечного сечения.</summary>
       public ICommand NewCrossSectionCommand { get; set; } = null!;
@@ -712,6 +722,7 @@ namespace OpenCS
           Views.MaterialPage              => Loc.S("VT_Material"),
           Views.MaterialAreaPage          => Loc.S("VT_MaterialArea"),
           Views.RebarGroupEditorPage      => Loc.S("VT_RebarGroup"),
+          Views.StirrupGroupPage          => Loc.S("VT_StirrupGroup"),
           Views.CrossSectionPage          => Loc.S("VT_CrossSection"),
           Views.TwoStageSectionEditorPage => Loc.S("VT_TwoStageSection"),
           Views.PlateSectionPage          => Loc.S("VT_PlateSection"),
@@ -998,10 +1009,13 @@ namespace OpenCS
       /// </summary>
       /// <param name="logService">Сервис логирования, инжектируемый в ViewModel.</param>
       /// <param name="fileDialogService">Сервис файловых диалогов, инжектируемый в ViewModel.</param>
-       public AppViewModel(ILogService logService, IFileDialogService fileDialogService)
+       public AppViewModel(ILogService logService, IFileDialogService fileDialogService,
+                           string? databasePath = null)
        {
           LogService = logService;
           FileDialogService = fileDialogService;
+          this.databasePath = string.IsNullOrWhiteSpace(databasePath)
+             ? GetTempDbPath() : databasePath;
           SectionTreeItems = new System.Windows.Data.CompositeCollection
           {
               new System.Windows.Data.CollectionContainer { Collection = FiberSectionsLive },
@@ -1010,7 +1024,7 @@ namespace OpenCS
               new EquivalentSectionTreeGroup(EquivalentSectionsLive),
            };
 
-          db = new DatabaseService(GetTempDbPath());
+          db = new DatabaseService(this.databasePath);
           InitNewDatabase();
           LoadSettingsFromDb();
           InitializeCollections();
@@ -1025,7 +1039,7 @@ namespace OpenCS
       /// </summary>
       void InitNewDatabase()
       {
-         db.ReinitializeDatabase(GetTempDbPath());
+         db.ReinitializeDatabase(databasePath);
       }
 
       /// <summary>
@@ -1276,6 +1290,7 @@ namespace OpenCS
          NewAreaCommand            = new RelayCommand(_ => NewArea());
          DeleteMaterialAreaCommand = new RelayCommand(_ => DeleteMaterialArea());
          NewRebarGroupCommand      = new RelayCommand(_ => NewRebarGroup());
+         NewStirrupGroupCommand    = new RelayCommand(_ => NewStirrupGroup());
          NewBarForceSetCommand        = new RelayCommand(_ => NewBarForceSet());
          NewShellForceSetCommand      = new RelayCommand(_ => NewShellForceSet());
          SP20BarCombinationsCommand   = new RelayCommand(_ => OpenSP20CombinationsDialog("bar"));
@@ -2355,8 +2370,10 @@ namespace OpenCS
       {
          AreasLive       = new(MaterialAreas.Where(a => a.Category == AreaCategory.Region));
          RebarGroupsLive = new(MaterialAreas.Where(a => a.Category == AreaCategory.RebarGroup));
+         StirrupGroupsLive = new(MaterialAreas.Where(a => a.Category == AreaCategory.Stirrups));
          OnPropertyChanged(nameof(AreasLive));
          OnPropertyChanged(nameof(RebarGroupsLive));
+         OnPropertyChanged(nameof(StirrupGroupsLive));
       }
 
       public void RefreshSectionLiveCollections()
@@ -2421,6 +2438,16 @@ namespace OpenCS
             Category = AreaCategory.RebarGroup
          };
          CurrentPage = new Views.RebarGroupEditorPage(area, this);
+      }
+
+      void NewStirrupGroup()
+      {
+         var area = new MaterialArea
+         {
+            Tag = string.Format(Loc.S("StirrupTagFormat"), StirrupGroupsLive.Count + 1),
+            Category = AreaCategory.Stirrups
+         };
+         CurrentPage = new Views.StirrupGroupPage(area, this);
       }
 
       void DeleteMaterialArea()

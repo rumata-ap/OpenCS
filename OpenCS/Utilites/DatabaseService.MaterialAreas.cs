@@ -1,5 +1,6 @@
 using CScore;
 using Microsoft.Data.Sqlite;
+using System.Text.Json;
 
 namespace OpenCS.Utilites
 {
@@ -54,7 +55,7 @@ namespace OpenCS.Utilites
          }
          LoadPointFibersForAreas(MaterialAreas, conn);
          LoadMeshFibersForAreas(MaterialAreas, conn);
-         LoadClosedStirrupsForAreas(MaterialAreas, conn);
+         LoadStirrupsForAreas(MaterialAreas, conn);
       }
 
       void LoadPointFibersForAreas(IEnumerable<MaterialArea> areas, SqliteConnection conn)
@@ -89,33 +90,42 @@ namespace OpenCS.Utilites
          }
       }
 
-      void LoadClosedStirrupsForAreas(IEnumerable<MaterialArea> areas, SqliteConnection conn)
+      void LoadStirrupsForAreas(IEnumerable<MaterialArea> areas, SqliteConnection conn)
       {
          var byArea = areas.ToDictionary(a => a.Id);
          if (byArea.Count == 0) return;
-         var groups = new Dictionary<int, ClosedStirrupGroup>();
+         var groups = new Dictionary<int, StirrupGroup>();
          using var cmd = conn.CreateCommand();
-         cmd.CommandText = $"SELECT id,area_id,material_id,spacing_m FROM material_area_closed_stirrup_groups WHERE area_id IN ({string.Join(",", byArea.Keys)}) ORDER BY id";
+         cmd.CommandText = $"SELECT id,area_id,material_id,spacing_m,offset_m FROM material_area_closed_stirrup_groups WHERE area_id IN ({string.Join(",", byArea.Keys)}) ORDER BY id";
          using var reader = cmd.ExecuteReader();
          while (reader.Read())
          {
             if (!byArea.TryGetValue(reader.GetInt32(1), out var area)) continue;
-            var group = new ClosedStirrupGroup { Id = reader.GetInt32(0), MaterialId = reader.GetInt32(2), SpacingM = reader.GetDouble(3) };
-            area.ClosedStirrups.Add(group); groups[group.Id] = group;
+            var group = new StirrupGroup
+            {
+               Id = reader.GetInt32(0),
+               MaterialId = reader.GetInt32(2),
+               SpacingM = reader.GetDouble(3),
+               OffsetM = reader.IsDBNull(4) ? null : reader.GetDouble(4)
+            };
+            area.Stirrups.Add(group); groups[group.Id] = group;
          }
          if (groups.Count == 0) return;
          using var loopCmd = conn.CreateCommand();
-         loopCmd.CommandText = $"SELECT id,group_id,centerline_wkt,bar_area_m2,bar_diameter_m FROM material_area_closed_stirrup_loops WHERE group_id IN ({string.Join(",", groups.Keys)}) ORDER BY id";
+         loopCmd.CommandText = $"SELECT id,group_id,centerline_wkt,bar_area_m2,bar_diameter_m,source_json FROM material_area_closed_stirrup_loops WHERE group_id IN ({string.Join(",", groups.Keys)}) ORDER BY id";
          using var loopReader = loopCmd.ExecuteReader();
          while (loopReader.Read())
          {
             if (!groups.TryGetValue(loopReader.GetInt32(1), out var group)) continue;
-            group.Loops.Add(new ClosedStirrupLoop
+            group.Elements.Add(new StirrupElement
             {
                Id = loopReader.GetInt32(0),
                CenterlineContour = new Contour(loopReader.GetString(2), "stirrup"),
                BarAreaM2 = loopReader.GetDouble(3),
-               BarDiameterM = loopReader.GetDouble(4)
+               BarDiameterM = loopReader.GetDouble(4),
+               Source = loopReader.IsDBNull(5) || string.IsNullOrWhiteSpace(loopReader.GetString(5))
+                  ? null
+                  : JsonSerializer.Deserialize<StirrupElementSource>(loopReader.GetString(5), _jsonSettings)
             });
          }
       }
@@ -217,7 +227,7 @@ namespace OpenCS.Utilites
             if (isNew) area.Id = (int)(long)cmd.ExecuteScalar()!; else cmd.ExecuteNonQuery();
          }
          ReplacePointFibers(area, conn);
-         ReplaceClosedStirrups(area, conn);
+         ReplaceStirrups(area, conn);
          tx.Commit();
          if (isNew && !MaterialAreas.Contains(area)) MaterialAreas.Add(area);
       }
@@ -240,7 +250,7 @@ namespace OpenCS.Utilites
          }
       }
 
-      void ReplaceClosedStirrups(MaterialArea area, SqliteConnection conn)
+      void ReplaceStirrups(MaterialArea area, SqliteConnection conn)
       {
          using (var cmd = conn.CreateCommand())
          {
@@ -248,20 +258,26 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@id", area.Id);
             cmd.ExecuteNonQuery();
          }
-         foreach (var group in area.ClosedStirrups)
+         foreach (var group in area.Stirrups)
          {
+            if (area.Category == AreaCategory.Stirrups && area.MaterialId > 0)
+               group.MaterialId = area.MaterialId;
             group.ValidateFor(area);
             using var groupCmd = conn.CreateCommand();
-            groupCmd.CommandText = "INSERT INTO material_area_closed_stirrup_groups(area_id,material_id,spacing_m) VALUES(@a,@m,@s); SELECT last_insert_rowid();";
+            groupCmd.CommandText = "INSERT INTO material_area_closed_stirrup_groups(area_id,material_id,spacing_m,offset_m) VALUES(@a,@m,@s,@o); SELECT last_insert_rowid();";
             groupCmd.Parameters.AddWithValue("@a", area.Id); groupCmd.Parameters.AddWithValue("@m", group.MaterialId); groupCmd.Parameters.AddWithValue("@s", group.SpacingM);
+            groupCmd.Parameters.AddWithValue("@o", (object?)group.OffsetM ?? DBNull.Value);
             group.Id = (int)(long)groupCmd.ExecuteScalar()!;
-            foreach (var loop in group.Loops)
+            foreach (var element in group.Elements)
             {
                using var loopCmd = conn.CreateCommand();
-               loopCmd.CommandText = "INSERT INTO material_area_closed_stirrup_loops(group_id,centerline_wkt,bar_area_m2,bar_diameter_m) VALUES(@g,@w,@a,@d); SELECT last_insert_rowid();";
-               loopCmd.Parameters.AddWithValue("@g", group.Id); loopCmd.Parameters.AddWithValue("@w", loop.CenterlineContour.WKT);
-               loopCmd.Parameters.AddWithValue("@a", loop.BarAreaM2); loopCmd.Parameters.AddWithValue("@d", loop.BarDiameterM);
-               loop.Id = (int)(long)loopCmd.ExecuteScalar()!;
+               loopCmd.CommandText = "INSERT INTO material_area_closed_stirrup_loops(group_id,centerline_wkt,bar_area_m2,bar_diameter_m,source_json) VALUES(@g,@w,@a,@d,@src); SELECT last_insert_rowid();";
+               loopCmd.Parameters.AddWithValue("@g", group.Id); loopCmd.Parameters.AddWithValue("@w", element.CenterlineContour.WKT);
+               loopCmd.Parameters.AddWithValue("@a", element.BarAreaM2); loopCmd.Parameters.AddWithValue("@d", element.BarDiameterM);
+               loopCmd.Parameters.AddWithValue("@src", element.Source is null
+                  ? DBNull.Value
+                  : JsonSerializer.Serialize(element.Source, _jsonSettings));
+               element.Id = (int)(long)loopCmd.ExecuteScalar()!;
             }
          }
       }

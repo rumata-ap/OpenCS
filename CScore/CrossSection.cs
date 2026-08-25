@@ -44,7 +44,8 @@ namespace CScore
        public virtual IEnumerable<(MaterialArea area, Kurvature k)> EnumerateAreas(Kurvature baseK)
        {
           foreach (var area in Areas)
-             yield return (area, baseK);
+             if (MaterialArea.IsCalcActive(area))
+                yield return (area, baseK);
        }
 
       /// <summary>
@@ -129,6 +130,7 @@ namespace CScore
          var pr = new GeoProps();
          foreach (var area in areas)
          {
+            if (!MaterialArea.IsCalcActive(area)) continue;
             bool hasMeshFibers = area.Fibers.Any(f => f.TypeFiber != FiberType.point);
             if (!hasMeshFibers && area.Hull != null && area.Material != null)
             {
@@ -249,11 +251,11 @@ namespace CScore
                                             double ekbEtaMin = 0.05)
       {
          foreach (var area in Areas)
-            if (area.HostAreaId == null)
+            if (MaterialArea.IsCalcActive(area) && area.HostAreaId == null)
                area.ResolveAndBuildDiagramms(sp63EtaMin, pool, rebarDifferentialDiagram, ekbEtaMin);
 
          foreach (var area in Areas)
-            if (area.HostAreaId != null)
+            if (MaterialArea.IsCalcActive(area) && area.HostAreaId != null)
             {
                area.HostArea = Areas.Find(a => a.Id == area.HostAreaId);
                area.ResolveAndBuildDiagramms(sp63EtaMin, pool, rebarDifferentialDiagram, ekbEtaMin);

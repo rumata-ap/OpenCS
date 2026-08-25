@@ -20,7 +20,8 @@ public sealed class ShearInclinedParamsTests
         Assert.True(parameters.SupportAtStart);
         Assert.True(parameters.SupportAtEnd);
         Assert.False(parameters.ConstructiveRequirements103Confirmed);
-        Assert.Equal(1.0, parameters.AnchorageFactor, 12);
+        // k не задан в постановке — берётся из глобальных настроек расчёта.
+        Assert.Null(parameters.AnchorageFactor);
         Assert.Empty(parameters.BarCutoffs);
     }
 
@@ -61,7 +62,7 @@ public sealed class ShearInclinedParamsTests
         Assert.Equal(42.5, restored.DistributedLoad, 12);
         Assert.Equal(7, restored.FemStepIndex);
         Assert.Equal([1.5, 3.0], restored.BarCutoffs);
-        Assert.Equal(0.65, restored.AnchorageFactor, 12);
+        Assert.Equal(0.65, restored.AnchorageFactor!.Value, 12);
         Assert.True(restored.ConstructiveRequirements103Confirmed);
         Assert.True(restored.SupportAtStart);
         Assert.False(restored.SupportAtEnd);

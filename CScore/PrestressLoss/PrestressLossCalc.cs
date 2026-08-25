@@ -192,6 +192,7 @@ namespace CScore.PrestressLoss
                 double sumA = 0, sumAY = 0;
                 foreach (var area in section!.Areas)
                 {
+                    if (!MaterialArea.IsCalcActive(area)) continue;
                     double alpha = area.Category == AreaCategory.Region
                         ? 1.0 : (area.Material?.E ?? E_b) / E_b;
                     if (area.Category == AreaCategory.Region && area.Hull != null)
@@ -211,6 +212,7 @@ namespace CScore.PrestressLoss
                 if (sumA > 0) { y_c = sumAY / sumA; A_red = sumA; }
                 foreach (var area in section.Areas)
                 {
+                    if (!MaterialArea.IsCalcActive(area)) continue;
                     double alpha = area.Category == AreaCategory.Region
                         ? 1.0 : (area.Material?.E ?? E_b) / E_b;
                     if (area.Category == AreaCategory.Region && area.Hull != null)

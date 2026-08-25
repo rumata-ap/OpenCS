@@ -22,6 +22,9 @@ namespace CScore
       public IList<double> Y { get; set; } = [];
       public ContourType Type { get; set; } = ContourType.None;
 
+      /// <summary>Признак открытой полилинии, не являющейся замкнутым контуром.</summary>
+      public bool IsPolyline { get; set; }
+
       [JsonIgnore]
       public ObservableCollection<StressPoint> Points 
       { 
@@ -73,6 +76,28 @@ namespace CScore
          Points = XYsToPoints();
       }
 
+      /// <summary>Создаёт открытую полилинию минимум из двух вершин.</summary>
+      public static Contour Polyline(IEnumerable<double> xs, IEnumerable<double> ys, string tag)
+      {
+         var x = xs.ToList();
+         var y = ys.ToList();
+         if (x.Count != y.Count)
+            throw new ArgumentException("Длины массивов x и y должны совпадать.");
+         if (x.Count < 2)
+            throw new ArgumentException("Полилиния должна содержать минимум две вершины.");
+
+         var contour = new Contour
+         {
+            Tag = tag,
+            X = x,
+            Y = y,
+            IsPolyline = true
+         };
+         contour.SetWKT();
+         contour.Points = contour.XYsToPoints();
+         return contour;
+      }
+
       /// <summary>
       /// Создаёт контур из массивов координат (внешнее кольцо полигона WKT).
       /// Отверстия не извлекаются — используйте Region для этого.
@@ -80,9 +105,19 @@ namespace CScore
       public Contour(string wkt, string tag)
       {
          Tag = tag;
-         WktHelper.ParseWKTPolygon(wkt, out var ox, out var oy, out _, out _);
-         X = ox;
-         Y = oy;
+         if (WktHelper.IsLineString(wkt))
+         {
+            WktHelper.ParseWKTLineString(wkt, out var lx, out var ly);
+            X = lx;
+            Y = ly;
+            IsPolyline = true;
+         }
+         else
+         {
+            WktHelper.ParseWKTPolygon(wkt, out var ox, out var oy, out _, out _);
+            X = ox;
+            Y = oy;
+         }
          WKT = wkt;
          Points = XYsToPoints();
       }
@@ -96,7 +131,9 @@ namespace CScore
 
       public void SetWKT()
       {
-         WKT = WktHelper.PolygonToWKT(X, Y, null);
+         WKT = IsPolyline
+            ? WktHelper.LineStringToWKT(X, Y)
+            : WktHelper.PolygonToWKT(X, Y, null);
       }
 
       /// <summary>Допуск совпадения координат первой и последней вершин при проверке замыкания.</summary>
@@ -229,8 +266,8 @@ namespace CScore
       }
 
       /// <summary>
-      /// Создаёт копию контура для параллельного расчёта: клонирует Points (Eps/Sig обнуляются),
-      /// что пересчитывает X/Y. WKT и метаданные копируются.
+      /// Создаёт копию контура для параллельного расчёта: клонирует координаты и Points
+      /// (Eps/Sig обнуляются). WKT и метаданные копируются.
       /// </summary>
       public Contour CloneForCalc()
       {
@@ -239,7 +276,10 @@ namespace CScore
             Tag  = Tag,
             Type = Type,
             Num  = Num,
-            WKT  = WKT
+            WKT  = WKT,
+            IsPolyline = IsPolyline,
+            X = X.ToList(),
+            Y = Y.ToList()
          };
          c.Points = new ObservableCollection<StressPoint>(Points.Select(p => p.Clone()));
          return c;

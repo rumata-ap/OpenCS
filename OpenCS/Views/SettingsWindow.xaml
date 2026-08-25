@@ -392,6 +392,52 @@
                                 </Grid>
                             </StackPanel>
                         </GroupBox>
+                        <GroupBox Header="{DynamicResource CalcSettingsShearInclinedGroup}" Margin="0,0,0,10">
+                            <Grid Margin="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="160"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Height="28"/>
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Grid.Column="0"
+                                           Text="{DynamicResource ShearInclinedStationStep}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource ShearInclinedStationStepHint}"/>
+                                <TextBox Grid.Row="0" Grid.Column="1"
+                                         x:Name="ShearStationStepBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource ShearInclinedStationStepHint}"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0"
+                                           Text="{DynamicResource ShearInclinedProjectionStep}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource ShearInclinedProjectionStepHint}"/>
+                                <TextBox Grid.Row="1" Grid.Column="1"
+                                         x:Name="ShearProjectionStepBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource ShearInclinedProjectionStepHint}"/>
+                                <TextBlock Grid.Row="2" Grid.Column="0"
+                                           Text="{DynamicResource ShearInclinedMomentZone}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsShearMomentZoneTip}"/>
+                                <TextBox Grid.Row="2" Grid.Column="1"
+                                         x:Name="ShearMomentZoneBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsShearMomentZoneTip}"/>
+                                <TextBlock Grid.Row="3" Grid.Column="0"
+                                           Text="{DynamicResource ShearInclinedAnchorageFactor}"
+                                           VerticalAlignment="Center"
+                                           ToolTip="{DynamicResource CalcSettingsShearAnchorageTip}"/>
+                                <TextBox Grid.Row="3" Grid.Column="1"
+                                         x:Name="ShearAnchorageFactorBox"
+                                         VerticalContentAlignment="Center" Margin="0,2"
+                                         ToolTip="{DynamicResource CalcSettingsShearAnchorageTip}"/>
+                            </Grid>
+                        </GroupBox>
                         <GroupBox Header="{DynamicResource CalcSettingsBatchGroup}" Margin="0,0,0,10">
                             <StackPanel>
                                 <CheckBox x:Name="BatchParallelCb"

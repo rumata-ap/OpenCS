@@ -178,6 +178,7 @@ namespace CScore
       {
          foreach (var area in section.Areas)
          {
+            if (!MaterialArea.IsCalcActive(area)) continue;
             var ap = new GeoProps(area, propsType);
             A    += ap.A;    Sy   += ap.Sy;   Sx   += ap.Sx;
             Iy   += ap.Iy;   Ix   += ap.Ix;   Ixy  += ap.Ixy;

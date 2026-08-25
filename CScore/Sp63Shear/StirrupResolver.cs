@@ -25,12 +25,12 @@ public static class StirrupResolver
         var warnings = new List<string>();
 
         double qsw = 0.0, maxSpacing = 0.0, aswTotal = 0.0, rswReported = 0.0;
-        foreach (var area in section.Areas.Where(a => a.ClosedStirrups.Count > 0))
+        foreach (var area in section.Areas.Where(a => a.Stirrups.Count > 0))
         {
-            foreach (var group in area.ClosedStirrups)
+            foreach (var group in area.Stirrups)
             {
                 double rsw = ResolveRsw(section, group, calc, warnings);
-                double asw = group.Loops.Sum(loop => BranchArea(loop, plane));
+                double asw = group.Elements.Sum(element => BranchArea(element, plane));
                 if (rsw <= 0.0 || asw <= 0.0 || group.SpacingM <= 0.0) continue;
 
                 qsw += rsw * asw / group.SpacingM;
@@ -46,11 +46,14 @@ public static class StirrupResolver
         return new StirrupData(qsw, maxSpacing, rswReported, aswTotal, warnings);
     }
 
-    /// <summary>Приведённая площадь ветвей одной петли для заданной плоскости.</summary>
-    static double BranchArea(ClosedStirrupLoop loop, ShearPlane plane)
+    /// <summary>
+    /// Приведённая площадь ветвей элемента для заданной плоскости сдвига.
+    /// Вклад участка пропорционален проекции его длины на направление поперечной силы.
+    /// </summary>
+    public static double BranchArea(StirrupElement element, ShearPlane plane)
     {
-        var x = loop.CenterlineContour.X;
-        var y = loop.CenterlineContour.Y;
+        var x = element.CenterlineContour.X;
+        var y = element.CenterlineContour.Y;
         int count = Math.Min(x.Count, y.Count);
         double total = 0.0;
         for (int i = 0; i < count - 1; i++)
@@ -60,17 +63,21 @@ public static class StirrupResolver
             double length = Math.Sqrt(dx * dx + dy * dy);
             if (length < 1e-12) continue;
             double projection = plane == ShearPlane.Vy ? Math.Abs(dy) : Math.Abs(dx);
-            total += loop.BarAreaM2 * projection / length;
+            total += element.BarAreaM2 * projection / length;
         }
         return total;
     }
+
+    /// <summary>Возвращает вклад элемента сразу в обе плоскости сдвига.</summary>
+    public static (double Vy, double Vx) BranchAreas(StirrupElement element) =>
+        (BranchArea(element, ShearPlane.Vy), BranchArea(element, ShearPlane.Vx));
 
     /// <summary>
     /// Расчётное сопротивление поперечной арматуры по материалу группы.
     /// Прочность арматуры берётся из Ft: Ry в CScore заполняется только для стали по СП 16.
     /// </summary>
     static double ResolveRsw(
-        CrossSection section, ClosedStirrupGroup group, CalcType calc, List<string> warnings)
+        CrossSection section, StirrupGroup group, CalcType calc, List<string> warnings)
     {
         var material = section.Areas
             .Select(a => a.Material)
