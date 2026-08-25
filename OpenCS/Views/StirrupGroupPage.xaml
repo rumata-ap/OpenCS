@@ -1,0 +1,80 @@
+<UserControl x:Class="OpenCS.Views.StirrupGroupPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views.Helpers"
+             xmlns:vm="clr-namespace:OpenCS.ViewModels">
+   <Grid>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="260" MinWidth="210"/>
+         <ColumnDefinition Width="*" MinWidth="220"/>
+         <ColumnDefinition Width="360" MinWidth="280"/>
+      </Grid.ColumnDefinitions>
+      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+         <StackPanel Margin="8">
+            <TextBlock Text="{DynamicResource StirrupGroups}" FontWeight="Bold" Margin="0,0,0,8"/>
+            <TextBlock Text="{DynamicResource RgGroupTag}" Margin="0,0,0,2"/>
+            <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+            <TextBlock Text="{DynamicResource StirrupMaterial}" Margin="0,0,0,2"/>
+            <ComboBox ItemsSource="{Binding AvailableMaterials}" SelectedItem="{Binding SelectedMaterial}"
+                      DisplayMemberPath="Tag" Margin="0,0,0,6"/>
+            <TextBlock Text="{DynamicResource StirrupSpacing}" Margin="0,0,0,2"/>
+            <TextBox Text="{Binding SpacingM, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+            <TextBlock Text="{DynamicResource StirrupOffset}" Margin="0,0,0,2"/>
+            <TextBox Text="{Binding OffsetM, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"/>
+            <TextBlock Text="{DynamicResource StirrupAnchorArea}" Margin="0,0,0,2"/>
+            <ComboBox ItemsSource="{Binding AvailableAnchorAreas}" SelectedItem="{Binding SelectedAnchorArea}"
+                      DisplayMemberPath="Tag" Margin="0,0,0,8"/>
+
+            <GroupBox Header="{DynamicResource StirrupElements}" Margin="0,0,0,6">
+               <StackPanel Margin="5">
+                  <TextBlock Text="{DynamicResource StirrupDiameter}" Margin="0,0,0,2"/>
+                  <TextBox Text="{Binding Diameter, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+                  <TextBlock Text="{DynamicResource StirrupCutPosition}" Margin="0,0,0,2"/>
+                  <TextBox Text="{Binding CutPosition, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+                  <ComboBox SelectedValue="{Binding CutDirection}" SelectedValuePath="Tag" Margin="0,0,0,5">
+                     <ComboBoxItem Tag="Vertical" Content="{DynamicResource StirrupDirectionVertical}"/>
+                     <ComboBoxItem Tag="Horizontal" Content="{DynamicResource StirrupDirectionHorizontal}"/>
+                     <ComboBoxItem Tag="TwoPoints" Content="{DynamicResource StirrupDirectionTwoPoints}"/>
+                  </ComboBox>
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                     <TextBlock Text="{DynamicResource StirrupCopyDx}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                     <TextBox Text="{Binding CopyDx, UpdateSourceTrigger=PropertyChanged}" Width="52" Margin="0,0,5,0"/>
+                     <TextBlock Text="{DynamicResource StirrupCopyDy}" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                     <TextBox Text="{Binding CopyDy, UpdateSourceTrigger=PropertyChanged}" Width="52"/>
+                  </StackPanel>
+                  <DockPanel Margin="0,0,0,6">
+                     <TextBlock Text="{DynamicResource StirrupCopyCount}" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                     <TextBox Text="{Binding CopyCount, UpdateSourceTrigger=PropertyChanged}" Width="52"/>
+                  </DockPanel>
+                  <Button Content="{DynamicResource StirrupAddLoop}" Command="{Binding AddLoopCommand}" Margin="0,0,0,3"/>
+                  <Button Content="{DynamicResource StirrupAddCut}" Command="{Binding AddCutCommand}" Margin="0,0,0,3"/>
+                  <Button Content="{DynamicResource StirrupDuplicate}" Command="{Binding DuplicateCommand}" Margin="0,0,0,3"/>
+                  <Button Content="{DynamicResource StirrupRebuild}" Command="{Binding RebuildCommand}" Margin="0,0,0,3"/>
+                  <Button Content="{DynamicResource StirrupDelete}" Command="{Binding DeleteElementCommand}"/>
+               </StackPanel>
+            </GroupBox>
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"
+                       TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <Button Content="{DynamicResource Save}" Command="{Binding SaveCommand}" Margin="0,0,0,4"/>
+            <Button Content="{DynamicResource Cancel}" Command="{Binding CancelCommand}"/>
+         </StackPanel>
+      </ScrollViewer>
+
+      <Border Grid.Column="1" Margin="6" BorderBrush="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}"
+              BorderThickness="1">
+         <local:StirrupPreviewCanvas DataContext="{Binding}"/>
+      </Border>
+
+      <DataGrid Grid.Column="2" ItemsSource="{Binding Elements}" SelectedItem="{Binding SelectedElement}"
+                AutoGenerateColumns="False" CanUserAddRows="False" Margin="6" IsReadOnly="True">
+         <DataGrid.Columns>
+            <DataGridTextColumn Header="{DynamicResource StirrupIndex}" Binding="{Binding Index}" Width="35"/>
+            <DataGridTextColumn Header="{DynamicResource StirrupKind}" Binding="{Binding KindText}" Width="*"/>
+            <DataGridTextColumn Header="{DynamicResource StirrupDiameter}" Binding="{Binding DiameterMm, StringFormat=F0}" Width="70"/>
+            <DataGridTextColumn Header="{DynamicResource StirrupAswVy}" Binding="{Binding AswVy, StringFormat=F6}" Width="85"/>
+            <DataGridTextColumn Header="{DynamicResource StirrupAswVx}" Binding="{Binding AswVx, StringFormat=F6}" Width="85"/>
+            <DataGridTextColumn Header="{DynamicResource StirrupLength}" Binding="{Binding LengthM, StringFormat=F3}" Width="65"/>
+         </DataGrid.Columns>
+      </DataGrid>
+   </Grid>
+</UserControl>

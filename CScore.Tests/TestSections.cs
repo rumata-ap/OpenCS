@@ -269,6 +269,38 @@ internal static class TestSections
         return section;
     }
 
+    /// <summary>
+    /// Двухстадийное сечение: этап 1 — прямоугольник 0.3×0.5 с нижней арматурой,
+    /// этап 2 — полка 0.6×0.15 поверх него.
+    /// </summary>
+    public static TwoStageSection TwoStageRectWithFlange()
+    {
+        var stage1 = RectWithBottomRebar();
+        var concreteMaterial = TestMaterials.Concrete("B25");
+        var flange = new MaterialArea
+        {
+            Tag = "flange",
+            Category = AreaCategory.Region,
+            Material = concreteMaterial,
+            MaterialId = concreteMaterial.Id,
+            DiagrammType = DiagrammType.L2
+        };
+        flange.Hull = new Contour(
+            [-0.3, 0.3, 0.3, -0.3, -0.3],
+            [0.25, 0.25, 0.40, 0.40, 0.25], "flange");
+        flange.SetWKT();
+        flange.SliceXY(nx: 12, ny: 6);
+
+        var section = new TwoStageSection
+        {
+            Stage1 = stage1,
+            Areas = [flange],
+            Stage1Kurvature = new Kurvature { e0 = 0.0, ky = 0.0, kz = 0.0 }
+        };
+        section.ResolveAndBuildDiagramms(0.85, pool: null, rebarDifferentialDiagram: false);
+        return section;
+    }
+
     static MaterialChars Example47ConcreteChars(CalcType calc, bool longTerm) => longTerm
         ? new MaterialChars
         {

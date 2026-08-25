@@ -603,6 +603,32 @@
                      </TreeViewItem.ItemTemplate>
                   </TreeViewItem>
 
+                  <!-- Подузел: Хомуты (Stirrups) -->
+                  <TreeViewItem x:Name="StirrupGroupsNode" ItemsSource="{Binding StirrupGroupsLive}">
+                     <TreeViewItem.Header>
+                        <StackPanel Orientation="Horizontal" Margin="2">
+                           <Path Width="14" Height="14" Stretch="Uniform" Margin="0,0,4,0"
+                                 Fill="#10B981" Data="M2,2 H14 V14 H2 Z M4,4 V12 H12 V4 Z"/>
+                           <TextBlock Text="{DynamicResource StirrupGroups}"/>
+                        </StackPanel>
+                     </TreeViewItem.Header>
+                     <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                           <MenuItem Header="{DynamicResource NewStirrupGroup}"
+                                     Command="{Binding NewStirrupGroupCommand}"/>
+                           <MenuItem Header="{DynamicResource DeleteArea}"
+                                     Command="{Binding DeleteMaterialAreaCommand}"/>
+                        </ContextMenu>
+                     </TreeViewItem.ContextMenu>
+                     <TreeViewItem.ItemTemplate>
+                        <DataTemplate DataType="{x:Type core:MaterialArea}">
+                           <StackPanel Orientation="Horizontal" Margin="1">
+                              <TextBlock Text="{Binding Tag}" VerticalAlignment="Center"/>
+                           </StackPanel>
+                        </DataTemplate>
+                     </TreeViewItem.ItemTemplate>
+                  </TreeViewItem>
+
 
 
                </TreeViewItem>

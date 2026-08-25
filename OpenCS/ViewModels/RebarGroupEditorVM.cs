@@ -413,40 +413,10 @@ namespace OpenCS.ViewModels
 
         public void RecomputeCoverLine()
         {
-            int n = Edges.Count;
-            if (n < 3) { CoverLinePoints = []; return; }
-
-            var pts = new (double X, double Y)[n];
-            for (int i = 0; i < n; i++)
-            {
-                var ePrev = Edges[(i - 1 + n) % n];
-                var eCurr = Edges[i];
-
-                double q1x = ePrev.StartX + ePrev.Offset * ePrev.NormalX;
-                double q1y = ePrev.StartY + ePrev.Offset * ePrev.NormalY;
-                double d1x = ePrev.EndX - ePrev.StartX;
-                double d1y = ePrev.EndY - ePrev.StartY;
-
-                double q2x = eCurr.StartX + eCurr.Offset * eCurr.NormalX;
-                double q2y = eCurr.StartY + eCurr.Offset * eCurr.NormalY;
-                double d2x = eCurr.EndX - eCurr.StartX;
-                double d2y = eCurr.EndY - eCurr.StartY;
-
-                pts[i] = IntersectLines(q1x, q1y, d1x, d1y, q2x, q2y, d2x, d2y);
-            }
-            CoverLinePoints = pts;
-        }
-
-        /// <summary>Пересечение двух параметрических прямых: Q1+t*d1 и Q2+s*d2.</summary>
-        static (double X, double Y) IntersectLines(
-            double q1x, double q1y, double d1x, double d1y,
-            double q2x, double q2y, double d2x, double d2y)
-        {
-            double cross = d1x * d2y - d1y * d2x;
-            if (Math.Abs(cross) < 1e-12) return (q1x, q1y);
-            double dx = q2x - q1x, dy = q2y - q1y;
-            double t = (d2y * dx - d2x * dy) / cross;
-            return (q1x + t * d1x, q1y + t * d1y);
+            var edges = Edges.Select(edge => new OffsetEdge(
+                edge.StartX, edge.StartY, edge.EndX, edge.EndY,
+                edge.NormalX, edge.NormalY, edge.Offset)).ToList();
+            CoverLinePoints = ContourOffset.Offset(edges);
         }
 
         // ── Методы стержней ───────────────────────────────────────────────────

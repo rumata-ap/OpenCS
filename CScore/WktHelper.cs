@@ -46,6 +46,37 @@ namespace CScore
          return sb.ToString();
       }
 
+      /// <summary>Формирует WKT открытой полилинии по координатам вершин.</summary>
+      public static string LineStringToWKT(IList<double> xs, IList<double> ys)
+      {
+         if (xs.Count != ys.Count)
+            throw new ArgumentException("Длины массивов x и y должны совпадать.");
+         if (xs.Count < 2)
+            throw new ArgumentException("Полилиния должна содержать минимум две вершины.");
+
+         var parts = new List<string>(xs.Count);
+         for (int i = 0; i < xs.Count; i++)
+            parts.Add($"{xs[i].ToString(CultureInfo.InvariantCulture)} {ys[i].ToString(CultureInfo.InvariantCulture)}");
+         return $"LINESTRING ({string.Join(", ", parts)})";
+      }
+
+      /// <summary>Проверяет, что WKT описывает открытую полилинию.</summary>
+      public static bool IsLineString(string? wkt) =>
+         wkt != null && wkt.TrimStart().StartsWith("LINESTRING", StringComparison.OrdinalIgnoreCase);
+
+      /// <summary>Разбирает WKT открытой полилинии в массивы координат.</summary>
+      public static void ParseWKTLineString(string wkt, out List<double> xs, out List<double> ys)
+      {
+         xs = [];
+         ys = [];
+         if (!IsLineString(wkt)) return;
+
+         int open = wkt.IndexOf('(');
+         int close = wkt.LastIndexOf(')');
+         if (open < 0 || close <= open) return;
+         ParseCoordList(wkt[(open + 1)..close], xs, ys);
+      }
+
       public static void ParseWKTPolygon(string? wkt,
          out List<double> outerX, out List<double> outerY,
          out List<List<double>> holeXs, out List<List<double>> holeYs)

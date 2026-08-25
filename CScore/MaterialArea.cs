@@ -7,7 +7,7 @@ using CSTriangulation;
 namespace CScore
 {
    /// <summary>Категория материальной области: полигональная, группа стержней или одиночный стержень.</summary>
-   public enum AreaCategory { Region, RebarGroup }
+   public enum AreaCategory { Region, RebarGroup, Stirrups }
 
    /// <summary>Метод генерации сетки фибр.</summary>
    public enum MeshMethod { Grid, Ruppert, AdvancingFront }
@@ -22,6 +22,12 @@ namespace CScore
    [Serializable]
    public class MaterialArea
    {
+      /// <summary>
+      /// Определяет, участвует ли область в продольном расчёте НДС.
+      /// Области поперечного армирования учитываются только в расчёте наклонных сечений.
+      /// </summary>
+      public static bool IsCalcActive(MaterialArea area) => area.Category != AreaCategory.Stirrups;
+
       public int Id { get; set; }
       public int Num { get; set; }
       public string Tag { get; set; } = "";
@@ -48,8 +54,8 @@ namespace CScore
       /// </summary>
       public List<Fiber> Fibers { get; set; } = [];
 
-      /// <summary>Группы равномерно расположенных замкнутых хомутов полигональной области.</summary>
-      public List<ClosedStirrupGroup> ClosedStirrups { get; set; } = [];
+      /// <summary>Группы элементов поперечного армирования области.</summary>
+      public List<StirrupGroup> Stirrups { get; set; } = [];
 
       /// <summary>
       /// Диаграммы работы материала по видам расчёта.
@@ -346,7 +352,7 @@ namespace CScore
             Diagramms = new Dictionary<CalcType, Diagramm>(Diagramms),
             Contours = [.. Contours],
             Fibers = Fibers.Select(f => f.Clone()).ToList(),
-            ClosedStirrups = ClosedStirrups.Select(group => group.Clone(preserveId: false)).ToList()
+            Stirrups = Stirrups.Select(group => group.Clone(preserveId: false)).ToList()
          };
       }
 
@@ -383,7 +389,7 @@ namespace CScore
          Diagramms      = Diagramms,
          Contours       = Contours.Select(c => c.CloneForCalc()).ToList(),
          Fibers         = Fibers.Select(f => f.CloneForCalc()).ToList(),
-         ClosedStirrups = ClosedStirrups.Select(group => group.Clone(preserveId: true)).ToList()
+         Stirrups = Stirrups.Select(group => group.Clone(preserveId: true)).ToList()
       };
 
       /// <summary>

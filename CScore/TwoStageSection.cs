@@ -36,8 +36,10 @@ namespace CScore
        public override IEnumerable<(MaterialArea area, Kurvature k)> EnumerateAreas(Kurvature baseK)
        {
           Kurvature k1Total = baseK + Stage1Kurvature;
-          foreach (var a in Stage1.Areas) yield return (a, k1Total);
-          foreach (var a in Areas)        yield return (a, baseK);
+          foreach (var a in Stage1.Areas)
+             if (MaterialArea.IsCalcActive(a)) yield return (a, k1Total);
+          foreach (var a in Areas)
+             if (MaterialArea.IsCalcActive(a)) yield return (a, baseK);
        }
 
        public TwoStageSection() { }

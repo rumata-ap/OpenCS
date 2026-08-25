@@ -52,13 +52,13 @@ internal static class ShearInclinedFixtures
             [-0.15, 0.15, 0.15, -0.15, -0.15],
             [-0.30, -0.30, 0.30, 0.30, -0.30], "hull") { Type = ContourType.Hull });
         region.SetWKT();
-        region.ClosedStirrups.Add(new ClosedStirrupGroup
+        region.Stirrups.Add(new StirrupGroup
         {
             MaterialId = stirrupSteel.Id,
             SpacingM = 0.15,
-            Loops =
+            Elements =
             [
-                new ClosedStirrupLoop
+                new StirrupElement
                 {
                     CenterlineContour = new Contour(
                         [-0.12, 0.12, 0.12, -0.12, -0.12],
