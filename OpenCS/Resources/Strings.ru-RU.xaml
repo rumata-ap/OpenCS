@@ -1031,6 +1031,17 @@
    <system:String x:Key="LimitForceBatch_SummaryFormat">Всего: {0}, сошлось: {1}, не сошлось: {2}</system:String>
    <system:String x:Key="CalcTaskFireSection">Огневое сечение</system:String>
    <system:String x:Key="CalcTaskNeedFireSection">Не выбрано огневое сечение.</system:String>
+   <system:String x:Key="CalcTaskKind_fire_r_time">Собственный предел огнестойкости R</system:String>
+   <system:String x:Key="FireRTime_RMin">Предел огнестойкости R, мин</system:String>
+   <system:String x:Key="FireRTime_NotReached">Предел не достигнут за время теплового расчёта; нижняя граница — {0:F1} мин</system:String>
+   <system:String x:Key="FireRTime_FailedAtStart">Условие (8.1) не выполняется уже при начальной температуре</system:String>
+   <system:String x:Key="FireRTime_NonMonotone">Зависимость factor(t) немонотонна; предел зафиксирован по первому переходу</system:String>
+   <system:String x:Key="FireRTime_Refinement">Уточнение момента</system:String>
+   <system:String x:Key="FireRTime_RefinementLinear">линейная интерполяция между снимками {0:F1}–{1:F1} мин (инженерная оценка)</system:String>
+   <system:String x:Key="FireRTime_Unreliable">Снимки без сходимости решателя: {0}</system:String>
+   <system:String x:Key="FireRTime_ColTime">Время, мин</system:String>
+   <system:String x:Key="FireRTime_ColFactor">Коэффициент запаса</system:String>
+   <system:String x:Key="FireRTime_ColGoverning">Определяющий критерий</system:String>
    <system:String x:Key="FireThermalResultNotFound">Тепловой результат не найден. Сначала выполните тепловой расчёт огневого сечения.</system:String>
    <system:String x:Key="FireThermalResultOwnerMismatch">Указанный тепловой расчёт принадлежит другому огневому сечению.</system:String>
    <system:String x:Key="CalcTaskNeedFireThermalResult">У выбранного огневого сечения нет ни одного теплового расчёта. Выполните его перед созданием задачи.</system:String>

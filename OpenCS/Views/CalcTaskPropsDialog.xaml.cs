@@ -1332,6 +1332,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       // Огнестойкость
       new() { Id = "fire_r_check",             Label = Loc.S("CalcTaskKind_fire_r_check"),             GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
       new() { Id = "fire_r_check_batch",       Label = Loc.S("CalcTaskKind_fire_r_check_batch"),       GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
+      new() { Id = "fire_r_time",              Label = Loc.S("CalcTaskKind_fire_r_time"),              GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
       // Прочие
       new() { Id = "prestress_loss",           Label = Loc.S("CalcTaskKind_prestress_loss"),           GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "opensees_section_moment_curvature", Label = Loc.S("CalcTaskKind_opensees_section_moment_curvature"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },

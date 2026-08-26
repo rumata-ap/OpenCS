@@ -55,6 +55,14 @@ internal static class FireResultJson
         return v.GetDouble();
     }
 
+    /// <summary>Прочитать число, допускающее явное null в JSON.</summary>
+    public static double? DblOrNull(JsonElement el, string name)
+    {
+        if (!el.TryGetProperty(name, out var v) || v.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return null;
+        return v.ValueKind == JsonValueKind.Number ? v.GetDouble() : null;
+    }
+
     public static bool Bool(JsonElement el, string name, bool fallback = false)
     {
         if (!el.TryGetProperty(name, out var v))

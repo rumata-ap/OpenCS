@@ -14,6 +14,7 @@ namespace OpenCS.Tasks
          ["strain_state"]         = new StrainStateHandler(),
          ["fire_r_check"]         = new FireRCheckHandler(),
          ["fire_r_check_batch"]   = new FireRCheckBatchHandler(),
+         ["fire_r_time"]          = new FireRTimeHandler(),
          ["strain_state_batch"]   = new StrainStateBatchHandler(),
          ["two_stage_strain"]     = new TwoStageStrainHandler(),
          ["two_stage_strain_batch"] = new TwoStageStrainBatchHandler(),
