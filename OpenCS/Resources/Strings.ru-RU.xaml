@@ -838,6 +838,14 @@
    <system:String x:Key="FireSection_MeshStepOutOfRange">Шаг сетки {0:F3} м вне рекомендуемого диапазона 0,010–0,030 м (п. 6.2 СП 468).</system:String>
    <system:String x:Key="FireSection_RebarDiameterUnknown">У {0} стержней не определён диаметр — они исключены из проверки шага сетки.</system:String>
    <system:String x:Key="FireSection_Norm48Note">П. 4.8 СП 468: расчёт огнестойкости программными комплексами применим только после апробации результатов огневыми испытаниями в испытательном центре.</system:String>
+   <system:String x:Key="FireStale_Fire">изменены огневая кривая или длительность</system:String>
+   <system:String x:Key="FireStale_Bc">изменены граничные условия</system:String>
+   <system:String x:Key="FireStale_Mesh">изменены параметры сетки</system:String>
+   <system:String x:Key="FireStale_Time">изменены параметры интегрирования по времени</system:String>
+   <system:String x:Key="FireStale_Geometry">изменена геометрия сечения</system:String>
+   <system:String x:Key="FireStale_Rebars">изменена арматура</system:String>
+   <system:String x:Key="FireStale_Materials">изменены материалы или тип заполнителя</system:String>
+   <system:String x:Key="FireStale_Unknown">происхождение неизвестно</system:String>
 
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Метод</system:String>

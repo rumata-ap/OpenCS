@@ -835,6 +835,14 @@
    <system:String x:Key="FireSection_MeshStepOutOfRange">Mesh step {0:F3} m is outside the recommended range 0.010-0.030 m (SP 468 clause 6.2).</system:String>
    <system:String x:Key="FireSection_RebarDiameterUnknown">{0} bars have no diameter and were excluded from the mesh step check.</system:String>
    <system:String x:Key="FireSection_Norm48Note">SP 468 clause 4.8: fire resistance analysis by software is applicable only after the results have been validated by fire tests in a testing centre.</system:String>
+   <system:String x:Key="FireStale_Fire">fire curve or duration changed</system:String>
+   <system:String x:Key="FireStale_Bc">boundary conditions changed</system:String>
+   <system:String x:Key="FireStale_Mesh">mesh parameters changed</system:String>
+   <system:String x:Key="FireStale_Time">time integration parameters changed</system:String>
+   <system:String x:Key="FireStale_Geometry">section geometry changed</system:String>
+   <system:String x:Key="FireStale_Rebars">reinforcement changed</system:String>
+   <system:String x:Key="FireStale_Materials">materials or aggregate type changed</system:String>
+   <system:String x:Key="FireStale_Unknown">origin unknown</system:String>
 
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Method</system:String>

@@ -31,6 +31,8 @@ FireRebarClassResolverTests.RunAll();
 
 FireMeshStepValidatorTests.RunAll();
 
+FireInputSnapshotTests.RunAll();
+
 FireMeshBuilderTests.RunAll();
 
 FireThermalServiceTests.RunAll();
