@@ -316,8 +316,10 @@ namespace OpenCS.Views
             if (_model.Id == 0)
                _app.db.SaveFireSection(_model);
 
-            var result = FireThermalService.Run(_model, section, ResolveAggregateType(section));
-            int resultId = _app.db.SaveFireThermalResult(_model.Id, result);
+            string aggregate = ResolveAggregateType(section);
+            var input = FireThermalInputSnapshot.Build(_model, section, aggregate);
+            var result = FireThermalService.Run(_model, section, aggregate);
+            int resultId = _app.db.SaveFireThermalResult(_model.Id, result, input.Json, input.Hash);
             RefreshThermalResult();
             LastRunInfo = string.Format(Loc.S("FireSection_RunOk"), resultId);
             _app.LogService.Info(string.Format(Loc.S("FireSection_RunOkLog"), _model.Tag, resultId));

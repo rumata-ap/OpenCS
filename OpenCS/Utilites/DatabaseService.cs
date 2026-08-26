@@ -2828,22 +2828,99 @@ namespace OpenCS.Utilites
          if (existing != null) FireSections.Remove(existing);
       }
 
+      /// <summary>Строка истории тепловых расчётов огневого сечения.</summary>
+      /// <param name="Id">Идентификатор результата.</param>
+      /// <param name="FireSectionId">Огневое сечение, которому принадлежит результат.</param>
+      /// <param name="Created">Дата и время расчёта.</param>
+      /// <param name="InputHash">Хеш снимка входных данных; null для строк до миграции v56.</param>
+      /// <param name="SnapshotCount">Число температурных снимков; null для строк до миграции v56.</param>
+      /// <param name="DurationMin">Длительность пожара, мин; null для строк до миграции v56.</param>
+      public sealed record FireThermalResultInfo(
+         int Id, int FireSectionId, string Created,
+         string? InputHash, int? SnapshotCount, double? DurationMin);
+
       /// <summary>
-      /// Сохраняет результат огневого теплового расчёта в таблицу BLOB и возвращает id записи.
+      /// Сохранить результат теплового расчёта вместе со снимком входных данных.
+      /// Снимок нужен, чтобы позже определить, не устарел ли результат.
       /// </summary>
-      public int SaveFireThermalResult(int fireSectionId, FireThermalResult result)
+      public int SaveFireThermalResult(
+         int fireSectionId, FireThermalResult result, string inputJson, string inputHash)
       {
          byte[] blob = FireThermalBlobCodec.Pack(result);
          using var cmd = _connection.CreateCommand();
          cmd.CommandText = """
-            INSERT INTO fire_thermal_results (fire_section_id, created, blob)
-            VALUES (@sid, @created, @blob);
+            INSERT INTO fire_thermal_results
+               (fire_section_id, created, blob, input_json, input_hash, snapshot_count, duration_min)
+            VALUES (@sid, @created, @blob, @ij, @ih, @sc, @dm);
             SELECT last_insert_rowid();
-         """;
+            """;
          cmd.Parameters.AddWithValue("@sid", fireSectionId);
-         cmd.Parameters.AddWithValue("@created", DateTime.UtcNow.ToString("O"));
+         cmd.Parameters.AddWithValue("@created", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
          cmd.Parameters.AddWithValue("@blob", blob);
-         return (int)(long)cmd.ExecuteScalar()!;
+         cmd.Parameters.AddWithValue("@ij", inputJson ?? "");
+         cmd.Parameters.AddWithValue("@ih", inputHash ?? "");
+         cmd.Parameters.AddWithValue("@sc", result.Snapshots.Length);
+         cmd.Parameters.AddWithValue("@dm", result.FireDurationMin);
+         return Convert.ToInt32(cmd.ExecuteScalar());
+      }
+
+      /// <summary>История тепловых расчётов огневого сечения, новые первыми.</summary>
+      public IReadOnlyList<FireThermalResultInfo> ListFireThermalResults(int fireSectionId)
+      {
+         var list = new List<FireThermalResultInfo>();
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = """
+            SELECT id, fire_section_id, created, input_hash, snapshot_count, duration_min
+            FROM fire_thermal_results
+            WHERE fire_section_id=@sid
+            ORDER BY id DESC
+            """;
+         cmd.Parameters.AddWithValue("@sid", fireSectionId);
+         using var r = cmd.ExecuteReader();
+         while (r.Read())
+         {
+            list.Add(new FireThermalResultInfo(
+               r.GetInt32(0),
+               r.GetInt32(1),
+               r.IsDBNull(2) ? "" : r.GetString(2),
+               r.IsDBNull(3) || r.GetString(3).Length == 0 ? null : r.GetString(3),
+               r.IsDBNull(4) ? null : r.GetInt32(4),
+               r.IsDBNull(5) ? null : r.GetDouble(5)));
+         }
+         return list;
+      }
+
+      /// <summary>Удалить один результат теплового расчёта.</summary>
+      public void DeleteFireThermalResult(int id)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "DELETE FROM fire_thermal_results WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", id);
+         cmd.ExecuteNonQuery();
+      }
+
+      /// <summary>
+      /// Огневое сечение, которому принадлежит результат, либо null, если результата нет.
+      /// Нужен для защиты от ссылки задачи на чужой тепловой расчёт: сам
+      /// <see cref="FireThermalResult"/> идентификатора сечения не несёт.
+      /// </summary>
+      public int? GetFireThermalResultOwner(int resultId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT fire_section_id FROM fire_thermal_results WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", resultId);
+         object? value = cmd.ExecuteScalar();
+         return value is null or DBNull ? null : Convert.ToInt32(value);
+      }
+
+      /// <summary>Снимок входных данных результата, либо null для строк до миграции v56.</summary>
+      public string? GetFireThermalResultInputJson(int resultId)
+      {
+         using var cmd = _connection.CreateCommand();
+         cmd.CommandText = "SELECT input_json FROM fire_thermal_results WHERE id=@id";
+         cmd.Parameters.AddWithValue("@id", resultId);
+         object? value = cmd.ExecuteScalar();
+         return value is null or DBNull ? null : value.ToString();
       }
 
       /// <summary>
