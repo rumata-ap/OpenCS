@@ -48,6 +48,8 @@ FireRCheckTests.RunAll();
 
 FireMvpVsFiberTests.RunAll();
 
+FireRTimeTests.RunAll();
+
 FireRParityTests.RunAll();
 
 CustomDiagramTests.RunAll();
