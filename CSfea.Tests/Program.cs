@@ -29,6 +29,8 @@ Sp468TablesTests.RunAll();
 
 FireRebarClassResolverTests.RunAll();
 
+FireMeshStepValidatorTests.RunAll();
+
 FireMeshBuilderTests.RunAll();
 
 FireThermalServiceTests.RunAll();

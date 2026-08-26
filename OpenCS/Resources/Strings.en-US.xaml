@@ -831,6 +831,10 @@
    <system:String x:Key="FireSection_RunOk">Thermal analysis completed. Result ID: {0}</system:String>
    <system:String x:Key="FireSection_RunOkLog">Fire analysis '{0}' completed, result #{1}.</system:String>
    <system:String x:Key="FireSection_RunError">Fire analysis error: {0}</system:String>
+   <system:String x:Key="FireSection_MeshStepBelowRebarDiameter">Mesh step {0:F3} m does not exceed the largest rebar diameter {1:F3} m. SP 468 clause 6.2 requires the step to exceed the diameter — the run was cancelled.</system:String>
+   <system:String x:Key="FireSection_MeshStepOutOfRange">Mesh step {0:F3} m is outside the recommended range 0.010-0.030 m (SP 468 clause 6.2).</system:String>
+   <system:String x:Key="FireSection_RebarDiameterUnknown">{0} bars have no diameter and were excluded from the mesh step check.</system:String>
+   <system:String x:Key="FireSection_Norm48Note">SP 468 clause 4.8: fire resistance analysis by software is applicable only after the results have been validated by fire tests in a testing centre.</system:String>
 
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Method</system:String>

@@ -834,6 +834,10 @@
    <system:String x:Key="FireSection_RunOk">Тепловой расчёт выполнен. ID результата: {0}</system:String>
    <system:String x:Key="FireSection_RunOkLog">Огневой расчёт '{0}' выполнен, результат #{1}.</system:String>
    <system:String x:Key="FireSection_RunError">Ошибка огневого расчёта: {0}</system:String>
+   <system:String x:Key="FireSection_MeshStepBelowRebarDiameter">Шаг сетки {0:F3} м не больше максимального диаметра арматуры {1:F3} м. По п. 6.2 СП 468 шаг обязан превышать диаметр — расчёт не выполнен.</system:String>
+   <system:String x:Key="FireSection_MeshStepOutOfRange">Шаг сетки {0:F3} м вне рекомендуемого диапазона 0,010–0,030 м (п. 6.2 СП 468).</system:String>
+   <system:String x:Key="FireSection_RebarDiameterUnknown">У {0} стержней не определён диаметр — они исключены из проверки шага сетки.</system:String>
+   <system:String x:Key="FireSection_Norm48Note">П. 4.8 СП 468: расчёт огнестойкости программными комплексами применим только после апробации результатов огневыми испытаниями в испытательном центре.</system:String>
 
    <!-- Mesh generation -->
    <system:String x:Key="MeshMethod">Метод</system:String>

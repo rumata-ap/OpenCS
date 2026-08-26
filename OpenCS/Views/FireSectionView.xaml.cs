@@ -293,6 +293,24 @@ namespace OpenCS.Views
             return;
          }
 
+         var meshCheck = FireMeshStepValidator.Check(section, _model.MeshStepM);
+         if (meshCheck.UnknownDiameterCount > 0)
+            _app.LogService.Warning(string.Format(
+               Loc.S("FireSection_RebarDiameterUnknown"), meshCheck.UnknownDiameterCount));
+
+         if (meshCheck.BlocksRun)
+         {
+            string msg = string.Format(Loc.S("FireSection_MeshStepBelowRebarDiameter"),
+               _model.MeshStepM, meshCheck.MaxRebarDiameterM);
+            LastRunInfo = msg;
+            _app.LogService.Error(msg);
+            return;
+         }
+
+         if (meshCheck.OutOfRecommendedRange)
+            _app.LogService.Warning(string.Format(
+               Loc.S("FireSection_MeshStepOutOfRange"), _model.MeshStepM));
+
          try
          {
             if (_model.Id == 0)
