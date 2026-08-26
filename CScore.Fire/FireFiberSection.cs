@@ -39,6 +39,9 @@ public sealed class FireFiberSection : ILimitSection
     /// <summary>Исходное механическое сечение (для Guess и контурных лимитов).</summary>
     public CrossSection SourceSection { get; }
 
+    /// <summary>Тип заполнителя бетона из результата теплового расчёта.</summary>
+    public string AggregateType => _thermal.AggregateType;
+
     /// <summary>Середина ребра границы с типом fire и его длина.</summary>
     public readonly record struct FireEdgeMidpoint(double X, double Y, double Length);
 

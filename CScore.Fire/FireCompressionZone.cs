@@ -24,6 +24,9 @@ public sealed record FireCompressionZoneResult(
 /// </summary>
 public static class FireCompressionZone
 {
+    /// <summary>Число паскалей в килопаскале.</summary>
+    public const double PaPerKpa = 1_000.0;
+
     /// <summary>Количество итераций бисекции равновесия бетонной зоны.</summary>
     public const int EquilibriumIterations = 60;
 
@@ -45,6 +48,17 @@ public static class FireCompressionZone
 
         double epsSEl = gammaSt * rsMPa / (gammaStE * esMPa);
         return 0.8 / (1.0 + epsSEl / epsB2);
+    }
+
+    /// <summary>Вычисляет ξ_R непосредственно по упругой деформации арматуры.</summary>
+    /// <param name="epsSel">Упругая деформация растянутой арматуры.</param>
+    /// <param name="epsB2">Предельная деформация сжатого бетона ε_b2.</param>
+    public static double XiRFromStrain(double epsSel, double epsB2)
+    {
+        if (!double.IsFinite(epsSel) || epsSel < 0.0)
+            throw new ArgumentOutOfRangeException(nameof(epsSel));
+        RequirePositive(epsB2, nameof(epsB2));
+        return 0.8 / (1.0 + epsSel / epsB2);
     }
 
     /// <summary>
@@ -178,7 +192,7 @@ public static class FireCompressionZone
     public static double ConcreteStrengthNPerM2(MaterialChars chars)
     {
         ArgumentNullException.ThrowIfNull(chars);
-        return Math.Abs(chars.Fc) * 1_000.0;
+        return Math.Abs(chars.Fc) * PaPerKpa;
     }
 
     static void RequirePositive(double value, string name)
