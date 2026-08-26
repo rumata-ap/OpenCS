@@ -1127,6 +1127,15 @@
    <system:String x:Key="FireResult_AggregateType">Aggregate type</system:String>
    <system:String x:Key="FireResult_AggregateSilicate">Silicate</system:String>
    <system:String x:Key="FireResult_AggregateCarbonate">Carbonate</system:String>
+   <system:String x:Key="FireThermal_History">Completed thermal analyses</system:String>
+   <system:String x:Key="FireThermal_HistoryCreated">Date</system:String>
+   <system:String x:Key="FireThermal_HistorySnapshots">Snapshots</system:String>
+   <system:String x:Key="FireThermal_HistoryDuration">Duration, min</system:String>
+   <system:String x:Key="FireThermal_HistoryState">State</system:String>
+   <system:String x:Key="FireThermal_StateCurrent">current</system:String>
+   <system:String x:Key="FireThermal_StateStale">parameters changed: {0}</system:String>
+   <system:String x:Key="FireThermal_Delete">Delete analysis</system:String>
+   <system:String x:Key="FireThermal_Running">Thermal analysis in progress...</system:String>
    <system:String x:Key="FireSection_TabParameters">Parameters</system:String>
    <system:String x:Key="FireSection_TabThermalResult">Thermal result</system:String>
    <system:String x:Key="FireSection_PreviewTitle">Section</system:String>

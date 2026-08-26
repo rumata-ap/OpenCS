@@ -1130,6 +1130,15 @@
    <system:String x:Key="FireResult_AggregateType">Тип заполнителя</system:String>
    <system:String x:Key="FireResult_AggregateSilicate">Силикатный</system:String>
    <system:String x:Key="FireResult_AggregateCarbonate">Карбонатный</system:String>
+   <system:String x:Key="FireThermal_History">Выполненные тепловые расчёты</system:String>
+   <system:String x:Key="FireThermal_HistoryCreated">Дата</system:String>
+   <system:String x:Key="FireThermal_HistorySnapshots">Снимков</system:String>
+   <system:String x:Key="FireThermal_HistoryDuration">Длительность, мин</system:String>
+   <system:String x:Key="FireThermal_HistoryState">Состояние</system:String>
+   <system:String x:Key="FireThermal_StateCurrent">актуален</system:String>
+   <system:String x:Key="FireThermal_StateStale">параметры изменились: {0}</system:String>
+   <system:String x:Key="FireThermal_Delete">Удалить расчёт</system:String>
+   <system:String x:Key="FireThermal_Running">Идёт тепловой расчёт…</system:String>
    <system:String x:Key="FireSection_TabParameters">Параметры</system:String>
    <system:String x:Key="FireSection_TabThermalResult">Тепловой результат</system:String>
    <system:String x:Key="FireSection_PreviewTitle">Сечение</system:String>

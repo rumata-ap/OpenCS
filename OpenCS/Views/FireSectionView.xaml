@@ -144,6 +144,32 @@
          </Grid>
       </TabItem>
 
-      <TabItem x:Name="thermalResultTab" Header="{DynamicResource FireSection_TabThermalResult}"/>
+      <TabItem x:Name="thermalResultTab" Header="{DynamicResource FireSection_TabThermalResult}">
+         <Grid>
+            <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <GroupBox Grid.Row="0" Header="{DynamicResource FireThermal_History}" Margin="0,0,0,8">
+               <DockPanel>
+                  <Button DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="0,4,0,0"
+                          Content="{DynamicResource FireThermal_Delete}"
+                          Command="{Binding DeleteThermalCommand}"/>
+                  <DataGrid ItemsSource="{Binding History.Rows}"
+                            SelectedItem="{Binding SelectedHistoryRow}"
+                            AutoGenerateColumns="False" IsReadOnly="True"
+                            CanUserAddRows="False" MaxHeight="160">
+                     <DataGrid.Columns>
+                        <DataGridTextColumn Header="{DynamicResource FireThermal_HistoryCreated}" Binding="{Binding CreatedText}"/>
+                        <DataGridTextColumn Header="{DynamicResource FireThermal_HistorySnapshots}" Binding="{Binding SnapshotsText}"/>
+                        <DataGridTextColumn Header="{DynamicResource FireThermal_HistoryDuration}" Binding="{Binding DurationText}"/>
+                        <DataGridTextColumn Header="{DynamicResource FireThermal_HistoryState}" Binding="{Binding StateText}" Width="*"/>
+                     </DataGrid.Columns>
+                  </DataGrid>
+               </DockPanel>
+            </GroupBox>
+            <ContentControl x:Name="thermalResultHost" Grid.Row="1"/>
+         </Grid>
+      </TabItem>
    </TabControl>
 </UserControl>
