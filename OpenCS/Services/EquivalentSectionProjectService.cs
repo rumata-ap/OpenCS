@@ -1,4 +1,4 @@
-using CScore;
+﻿using CScore;
 using CScore.Fem;
 using CScore.Planar;
 using CScore.PlateRebar;
@@ -219,7 +219,8 @@ public sealed class EquivalentSectionProjectService
         if (concreteDiagram == null)
             return MissingSource($"Диаграмма бетона для CalcType={calc} не построена.");
 
-        var rebarDiagram = rebar.GetDiagramms(DiagrammType.L2)?[calc];
+        var rebarDiagram = rebar.GetDiagramms(
+            DiagrammCompatibility.Coerce(rebar.Type, DiagrammType.L2))?[calc];
         if (rebarDiagram == null)
             return MissingSource($"Диаграмма арматуры для CalcType={calc} не построена.");
 
@@ -236,7 +237,8 @@ public sealed class EquivalentSectionProjectService
                         "equivalent_section_missing_layer_material",
                         $"Материал арматурного слоя Id={layer.MaterialId} не найден."));
                 else
-                    layerDiagrams[i] = layerMaterial.GetDiagramms(DiagrammType.L2)?[calc];
+                    layerDiagrams[i] = layerMaterial.GetDiagramms(
+                        DiagrammCompatibility.Coerce(layerMaterial.Type, DiagrammType.L2))?[calc];
             }
         }
 

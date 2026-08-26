@@ -200,7 +200,14 @@ namespace CScore
          if (Material.Type == MatType.Custom && pool != null)
             own = Material.ResolveCustomDiagramms(pool) ?? [];
          else
+         {
+            // Область могла быть создана раньше материала (или редактором, который тип
+            // диаграммы не спрашивает) — тогда здесь остаётся дефолтный L2. Для материала,
+            // не поддерживающего такую диаграмму (напр. арматура A600…A1000 с условным
+            // пределом текучести), приводим тип к допустимому вместо ArgumentException.
+            DiagrammType = DiagrammCompatibility.Coerce(Material.Type, DiagrammType);
             own = Material.GetDiagramms(DiagrammType, sp63EtaMin, ekbEtaMin) ?? [];
+         }
 
          if (rebarDifferentialDiagram && HostArea != null && HostArea.Diagramms.Count > 0)
          {

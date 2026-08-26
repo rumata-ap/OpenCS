@@ -95,31 +95,31 @@ namespace OpenCS.Views
           mvm.CurrentDiagram = diagram;
       }
 
+      /// <summary>
+      /// Список диаграмм, доступных для типа материала. Набор берётся из
+      /// <see cref="DiagrammCompatibility"/> (единый источник правды), здесь только подписи.
+      /// </summary>
       static List<DiagramSelectWindow.TypeOption> GetAvailableDiagramTypes(MatType matType)
       {
          var list = new List<DiagramSelectWindow.TypeOption>();
-         switch (matType)
-         {
-             case MatType.Concrete:
-                list.Add(new(DiagrammType.L2,   Loc.S("DiagL2_Concrete")));
-                list.Add(new(DiagrammType.L3,   Loc.S("DiagL3_Concrete")));
-                list.Add(new(DiagrammType.SP63, Loc.S("DiagSP63")));
-                list.Add(new(DiagrammType.EKB,  Loc.S("DiagEKB")));
-                list.Add(new(DiagrammType.SP35, Loc.S("DiagSP35")));
-                break;
-             case MatType.ReSteelF:
-                list.Add(new(DiagrammType.L2, Loc.S("DiagL2_ReSteelF")));
-                break;
-             case MatType.ReSteelU:
-                list.Add(new(DiagrammType.L3, Loc.S("DiagL3_ReSteelU")));
-                break;
-             case MatType.Steel:
-                list.Add(new(DiagrammType.L2,   Loc.S("DiagL2_Steel")));
-                list.Add(new(DiagrammType.SP16, Loc.S("DiagSP16_Steel")));
-                break;
-         }
+         foreach (var type in DiagrammCompatibility.Allowed(matType))
+            list.Add(new(type, DiagramTypeLabel(matType, type)));
          return list;
       }
+
+      static string DiagramTypeLabel(MatType matType, DiagrammType type) => (matType, type) switch
+      {
+         (MatType.Concrete, DiagrammType.L2)   => Loc.S("DiagL2_Concrete"),
+         (MatType.Concrete, DiagrammType.L3)   => Loc.S("DiagL3_Concrete"),
+         (MatType.Concrete, DiagrammType.SP63) => Loc.S("DiagSP63"),
+         (MatType.Concrete, DiagrammType.EKB)  => Loc.S("DiagEKB"),
+         (MatType.Concrete, DiagrammType.SP35) => Loc.S("DiagSP35"),
+         (MatType.ReSteelF, DiagrammType.L2)   => Loc.S("DiagL2_ReSteelF"),
+         (MatType.ReSteelU, DiagrammType.L3)   => Loc.S("DiagL3_ReSteelU"),
+         (MatType.Steel,    DiagrammType.L2)   => Loc.S("DiagL2_Steel"),
+         (MatType.Steel,    DiagrammType.SP16) => Loc.S("DiagSP16_Steel"),
+         _                                     => type.ToString()
+      };
 
       void EditParentMaterial_Click(object sender, RoutedEventArgs e)
       {
