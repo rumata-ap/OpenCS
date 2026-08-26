@@ -3,19 +3,19 @@ using CScore;
 namespace OpenCS.Tasks;
 
 /// <summary>Разрешение усилий для расчётной задачи (набор / ParamsJson).</summary>
-internal static class CalcTaskForceHelper
+public static class CalcTaskForceHelper
 {
    internal static bool IsLimitSingleKind(string kind)
       => kind is "limit_force" or "limit_moment" or "limit_axial";
 
-   internal static bool UsesManualForces(CalcTask task)
+   public static bool UsesManualForces(CalcTask task)
       => task.Kind == "strain_state" || task.Kind == "cracking" || task.Kind == "crack_width"
          || task.Kind == "total_curvature" || task.Kind == "moment_curvature_biaxial"
          || task.Kind == "shear_inclined"
          || IsLimitSingleKind(task.Kind);
 
    /// <summary>Задачи, для которых не нужна строка стержневого набора усилий (batch / ParamsJson / оболочки / сталь).</summary>
-   internal static bool UsesDummyForceItem(CalcTask task) => task.Kind switch
+   public static bool UsesDummyForceItem(CalcTask task) => task.Kind switch
    {
       "strain_state_batch" or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
          or "two_stage_strain" or "two_stage_strain_batch"
@@ -32,7 +32,8 @@ internal static class CalcTaskForceHelper
           or "steel_tension_bending" or "steel_shear"
           or "steel_torsion" or "steel_constructive"
           or "torsion_bem" or "torsion_fem"
-         or "cracking_batch" or "crack_width_batch" or "total_curvature_batch" => true,
+         or "cracking_batch" or "crack_width_batch" or "total_curvature_batch"
+         or "fire_r_check_batch" or "fire_thermal_curvature" => true,
       "opensees_section_interaction_n_mx_my" => true,
       _ => false
    };
@@ -81,7 +82,7 @@ internal static class CalcTaskForceHelper
    /// Строка набора усилий для задач с UsesDummyForceItem (сталь, кручение и т.д.).
    /// Если ForceItemId задан — подставляет T/N/M из набора, иначе пустой LoadItem.
    /// </summary>
-   internal static LoadItem ResolveOptionalForceItem(CalcTask task, IEnumerable<ForceSet> forceSets)
+   public static LoadItem ResolveOptionalForceItem(CalcTask task, IEnumerable<ForceSet> forceSets)
    {
       if (task.ForceItemId != 0)
       {
