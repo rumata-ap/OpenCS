@@ -111,4 +111,19 @@ public class DiagrammCompatibilityTests
         Assert.Equal(DiagrammType.L2, area.DiagrammType);
         Assert.All(area.Diagramms.Values, d => Assert.Equal(DiagrammType.L2, d.Type));
     }
+
+    /// <summary>
+    /// <see cref="MaterialArea.SetMaterial"/> тоже приводит тип диаграммы к допустимому:
+    /// вызвать его с L2 для арматуры A1000 раньше означало ArgumentException.
+    /// </summary>
+    [Fact]
+    public void SetMaterial_ReSteelUWithL2_CoercedToL3()
+    {
+        var area = new MaterialArea { Id = 1, Tag = "A1000", Category = AreaCategory.RebarGroup };
+
+        area.SetMaterial(Rebar(MatType.ReSteelU), DiagrammType.L2);
+
+        Assert.Equal(DiagrammType.L3, area.DiagrammType);
+        Assert.All(area.Diagramms.Values, d => Assert.Equal(DiagrammType.L3, d.Type));
+    }
 }
