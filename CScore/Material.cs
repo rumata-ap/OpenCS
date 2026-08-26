@@ -65,6 +65,12 @@ namespace CScore
       /// <summary>Тип заполнителя бетона для огнестойкости: silicate, carbonate, lightweight.</summary>
       public string AggregateType { get; set; } = "silicate";
 
+      /// <summary>
+      /// Группа класса арматуры для огнестойкости по таблице 5.6 СП 468.
+      /// Пустая строка — определять автоматически по <see cref="Tag"/> и числовому классу.
+      /// </summary>
+      public string FireRebarClass { get; set; } = "";
+
       /// <summary>Базовый тип поведения σ(ε) для Custom-материала (определяет логику ветвления Ic/It).</summary>
       public MatType BaseType { get; set; } = MatType.None;
 

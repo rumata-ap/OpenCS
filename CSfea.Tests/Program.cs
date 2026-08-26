@@ -27,6 +27,8 @@ FireCurvesTests.RunAll();
 
 Sp468TablesTests.RunAll();
 
+FireRebarClassResolverTests.RunAll();
+
 FireMeshBuilderTests.RunAll();
 
 FireThermalServiceTests.RunAll();
