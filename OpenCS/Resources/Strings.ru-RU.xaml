@@ -294,6 +294,15 @@
    <system:String x:Key="Material_AggregateType_Silicate">Силикатный</system:String>
    <system:String x:Key="Material_AggregateType_Carbonate">Карбонатный</system:String>
    <system:String x:Key="Material_AggregateType_Lightweight">Лёгкий</system:String>
+   <system:String x:Key="Material_FireRebarClass">Класс для огнестойкости</system:String>
+   <system:String x:Key="Material_FireRebarClass_Auto">Определять автоматически</system:String>
+   <system:String x:Key="Material_FireRebarClass_A240A500">А240, А300, А400, А500</system:String>
+   <system:String x:Key="Material_FireRebarClass_A600A1000">А600, А800, А1000</system:String>
+   <system:String x:Key="Material_FireRebarClass_WireRope">Проволочная В500, Вр1200–Вр1500, канатная К1400, К1500</system:String>
+   <system:String x:Key="Material_FireRebarClass_A500C25G2S">А500С марки 25Г2С горячекатаная</system:String>
+   <system:String x:Key="Material_FireRebarClass_A600C18G2SF">А600С марки 18Г2СФ т/м упрочнённая</system:String>
+   <system:String x:Key="Material_FireRebarClass_A500CSt3Gps">А500С марки Ст3Гпс т/м упрочнённая</system:String>
+   <system:String x:Key="Material_FireRebarClass_B500CSt3Gps">В500С марки Ст3Гпс холоднодеформированная</system:String>
    <system:String x:Key="BuildDiagram">Построить диаграмму</system:String>
    <system:String x:Key="EditMaterial">Редактировать материал</system:String>
 

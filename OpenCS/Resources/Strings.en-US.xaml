@@ -291,6 +291,15 @@
    <system:String x:Key="Material_AggregateType_Silicate">Silicate</system:String>
    <system:String x:Key="Material_AggregateType_Carbonate">Carbonate</system:String>
    <system:String x:Key="Material_AggregateType_Lightweight">Lightweight</system:String>
+   <system:String x:Key="Material_FireRebarClass">Fire resistance class</system:String>
+   <system:String x:Key="Material_FireRebarClass_Auto">Detect automatically</system:String>
+   <system:String x:Key="Material_FireRebarClass_A240A500">A240, A300, A400, A500</system:String>
+   <system:String x:Key="Material_FireRebarClass_A600A1000">A600, A800, A1000</system:String>
+   <system:String x:Key="Material_FireRebarClass_WireRope">Wire B500, Bp1200-Bp1500, strand K1400, K1500</system:String>
+   <system:String x:Key="Material_FireRebarClass_A500C25G2S">A500C grade 25G2S hot-rolled</system:String>
+   <system:String x:Key="Material_FireRebarClass_A600C18G2SF">A600C grade 18G2SF thermomechanically treated</system:String>
+   <system:String x:Key="Material_FireRebarClass_A500CSt3Gps">A500C grade St3Gps thermomechanically treated</system:String>
+   <system:String x:Key="Material_FireRebarClass_B500CSt3Gps">B500C grade St3Gps cold-worked</system:String>
    <system:String x:Key="BuildDiagram">Build Diagram</system:String>
    <system:String x:Key="EditMaterial">Edit Material</system:String>
 

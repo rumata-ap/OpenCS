@@ -269,6 +269,7 @@ namespace OpenCS.ViewModels
             material.Type = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsConcrete));
+            OnPropertyChanged(nameof(IsRebar));
             OnPropertyChanged(nameof(IsCustom));
          }
       }
@@ -291,6 +292,9 @@ namespace OpenCS.ViewModels
       /// </summary>
       public bool IsConcrete => material.Type == MatType.Concrete;
 
+      /// <summary>Материал является арматурой или сталью — для видимости огневых полей.</summary>
+      public bool IsRebar => material.Type is MatType.ReSteelF or MatType.ReSteelU or MatType.Steel;
+
       /// <summary>
       /// Тип заполнителя бетона для огнестойкости: silicate, carbonate, lightweight.
       /// </summary>
@@ -298,6 +302,13 @@ namespace OpenCS.ViewModels
       {
          get => material.AggregateType;
          set { material.AggregateType = value; OnPropertyChanged(); }
+      }
+
+      /// <summary>Группа класса арматуры для огнестойкости; пустая строка — автоопределение.</summary>
+      public string FireRebarClass
+      {
+         get => material.FireRebarClass;
+         set { material.FireRebarClass = value ?? ""; OnPropertyChanged(); }
       }
 
       /// <summary>
