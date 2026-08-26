@@ -32,7 +32,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 55;
+      const int CurrentSchemaVersion = 56;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -115,7 +115,8 @@ namespace OpenCS.Utilites
                 chars_json TEXT NOT NULL DEFAULT '[]',
                 aggregate_type TEXT NOT NULL DEFAULT 'silicate',
                 base_type INTEGER NOT NULL DEFAULT 0,
-                custom_diagram_ids TEXT NOT NULL DEFAULT '{}'
+                custom_diagram_ids TEXT NOT NULL DEFAULT '{}',
+                fire_rebar_class TEXT NOT NULL DEFAULT ''
             );
             CREATE TABLE IF NOT EXISTS contours (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -373,7 +374,11 @@ namespace OpenCS.Utilites
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 fire_section_id INTEGER NOT NULL REFERENCES fire_sections(id) ON DELETE CASCADE,
                 created TEXT NOT NULL DEFAULT '',
-                blob BLOB NOT NULL
+                blob BLOB NOT NULL,
+                input_json TEXT,
+                input_hash TEXT,
+                snapshot_count INTEGER,
+                duration_min REAL
             );
             CREATE TABLE IF NOT EXISTS fem_schemas (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -630,6 +635,7 @@ namespace OpenCS.Utilites
                      if (i == 52) { MigrateV53(); continue; }
                if (i == 53) { MigrateV54(); continue; }
                if (i == 54) { MigrateV55(); continue; }
+               if (i == 55) { MigrateV56(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1368,6 +1374,24 @@ namespace OpenCS.Utilites
             MigExec("ALTER TABLE material_area_closed_stirrup_loops ADD COLUMN source_json TEXT");
       }
 
+      /// <summary>
+      /// Миграция v56: класс арматуры для огнестойкости и снимок входных данных
+      /// теплового расчёта (СП 468 с Изм. № 1).
+      /// </summary>
+      void MigrateV56()
+      {
+         if (!ColumnExists("materials", "fire_rebar_class"))
+            MigExec("ALTER TABLE materials ADD COLUMN fire_rebar_class TEXT NOT NULL DEFAULT ''");
+         if (!ColumnExists("fire_thermal_results", "input_json"))
+            MigExec("ALTER TABLE fire_thermal_results ADD COLUMN input_json TEXT");
+         if (!ColumnExists("fire_thermal_results", "input_hash"))
+            MigExec("ALTER TABLE fire_thermal_results ADD COLUMN input_hash TEXT");
+         if (!ColumnExists("fire_thermal_results", "snapshot_count"))
+            MigExec("ALTER TABLE fire_thermal_results ADD COLUMN snapshot_count INTEGER");
+         if (!ColumnExists("fire_thermal_results", "duration_min"))
+            MigExec("ALTER TABLE fire_thermal_results ADD COLUMN duration_min REAL");
+      }
+
       /// <summary>Миграция v24: plate_section_id в fem_members.</summary>
       void MigrateV24()
       {
@@ -1575,7 +1599,7 @@ namespace OpenCS.Utilites
       void LoadMaterials()
       {
          var cmd = _connection.CreateCommand();
-         cmd.CommandText = "SELECT id, type, tag, description, e, chars_json, aggregate_type, base_type, custom_diagram_ids FROM materials ORDER BY id";
+         cmd.CommandText = "SELECT id, type, tag, description, e, chars_json, aggregate_type, base_type, custom_diagram_ids, fire_rebar_class FROM materials ORDER BY id";
          using var reader = cmd.ExecuteReader();
          while (reader.Read())
          {
@@ -1587,7 +1611,8 @@ namespace OpenCS.Utilites
                Description = reader.GetString(3),
                E = reader.GetDouble(4),
                AggregateType    = reader.IsDBNull(6) ? "silicate" : reader.GetString(6),
-               BaseType         = reader.IsDBNull(7) ? MatType.None : (MatType)reader.GetInt32(7)
+               BaseType         = reader.IsDBNull(7) ? MatType.None : (MatType)reader.GetInt32(7),
+               FireRebarClass   = reader.IsDBNull(9) ? "" : reader.GetString(9)
             };
             var customIdsJson = reader.IsDBNull(8) ? "{}" : reader.GetString(8);
             var customIds     = JsonSerializer.Deserialize<Dictionary<CalcType, int>>(customIdsJson, _jsonSettings);
@@ -1854,14 +1879,14 @@ namespace OpenCS.Utilites
          var cmd = _connection.CreateCommand();
          if (m.Id == 0)
          {
-            cmd.CommandText = @"INSERT INTO materials (type, tag, description, e, chars_json, aggregate_type, base_type, custom_diagram_ids)
-                               VALUES ($type, $tag, $desc, $e, $chars, $agg, $bt, $cdi);
+            cmd.CommandText = @"INSERT INTO materials (type, tag, description, e, chars_json, aggregate_type, base_type, custom_diagram_ids, fire_rebar_class)
+                               VALUES ($type, $tag, $desc, $e, $chars, $agg, $bt, $cdi, $frc);
                                SELECT last_insert_rowid();";
          }
          else
          {
             cmd.CommandText = @"UPDATE materials SET type=$type, tag=$tag, description=$desc, e=$e, chars_json=$chars,
-                               aggregate_type=$agg, base_type=$bt, custom_diagram_ids=$cdi
+                               aggregate_type=$agg, base_type=$bt, custom_diagram_ids=$cdi, fire_rebar_class=$frc
                                WHERE id=$id";
             cmd.Parameters.AddWithValue("$id", m.Id);
          }
@@ -1873,6 +1898,7 @@ namespace OpenCS.Utilites
          cmd.Parameters.AddWithValue("$agg", string.IsNullOrWhiteSpace(m.AggregateType) ? "silicate" : m.AggregateType);
          cmd.Parameters.AddWithValue("$bt",  (int)m.BaseType);
          cmd.Parameters.AddWithValue("$cdi", JsonSerializer.Serialize(m.CustomDiagramIds, _jsonSettings));
+         cmd.Parameters.AddWithValue("$frc", m.FireRebarClass ?? "");
          if (m.Id == 0)
             m.Id = Convert.ToInt32(cmd.ExecuteScalar());
          else
