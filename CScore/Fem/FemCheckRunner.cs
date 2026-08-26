@@ -308,7 +308,10 @@ public static class FemCheckRunner
             ?? concreteMat.GetDiagramms(DiagrammType.L3)?[diagCalcType]
             ?? throw new InvalidOperationException("Диаграмма бетона не построена");
 
-        var rDiag = rebarMat.GetDiagramms(DiagrammType.L2)?[diagCalcType]
+        // Для арматуры с условным пределом текучести двухлинейной диаграммы не существует —
+        // тип приводится к допустимому (L3), см. DiagrammCompatibility.
+        var rDiag = rebarMat.GetDiagramms(
+                DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[diagCalcType]
             ?? throw new InvalidOperationException("Диаграмма арматуры не построена");
 
         var solver = new ShellStrainSolver(section, cDiag, rDiag);
@@ -507,7 +510,8 @@ public static class FemCheckRunner
                 var cDiagNl = concreteMat.GetDiagramms(concreteDiagType)?[CalcType.N]
                     ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N]
                     ?? throw new InvalidOperationException("Диаграмма бетона N не построена (NL-набор)");
-                var rDiagNl = rebarMat.GetDiagramms(DiagrammType.L2)?[CalcType.N]
+                var rDiagNl = rebarMat.GetDiagramms(
+                        DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N]
                     ?? throw new InvalidOperationException("Диаграмма арматуры N не построена (NL-набор)");
 
                 var solverNl = new ShellStrainSolver(section, cDiagNl, rDiagNl);
@@ -549,7 +553,8 @@ public static class FemCheckRunner
                     var cDiagVirt = concreteMat.GetDiagramms(concreteDiagType)?[CalcType.N]
                         ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N]
                         ?? throw new InvalidOperationException("Диаграмма бетона N не построена (virtual NL)");
-                    var rDiagVirt = rebarMat.GetDiagramms(DiagrammType.L2)?[CalcType.N]
+                    var rDiagVirt = rebarMat.GetDiagramms(
+                            DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N]
                         ?? throw new InvalidOperationException("Диаграмма арматуры N не построена (virtual NL)");
 
                     var solverVirt = new ShellStrainSolver(section, cDiagVirt, rDiagVirt);

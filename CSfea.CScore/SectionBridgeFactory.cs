@@ -45,7 +45,10 @@ public static class SectionBridgeFactory
 
         var cDiag = concrete.GetDiagramms(concreteDiagramType)?[calc]
                     ?? throw new InvalidOperationException("Диаграмма бетона не построена.");
-        var rDiag = rebar.GetDiagramms(rebarDiagramType)?[calc]
+        // Запрошенный тип диаграммы арматуры приводится к допустимому для материала:
+        // для арматуры с условным пределом текучести двухлинейной диаграммы не существует.
+        var rDiag = rebar.GetDiagramms(
+                        DiagrammCompatibility.Coerce(rebar.Type, rebarDiagramType))?[calc]
                     ?? throw new InvalidOperationException("Диаграмма арматуры не построена.");
 
         Diagramm?[]? layerDiags = null;
@@ -56,7 +59,8 @@ public static class SectionBridgeFactory
             {
                 var layer = section.RebarLayers[i];
                 if (layer.MaterialId > 0 && materials.TryGetValue(layer.MaterialId, out var lm))
-                    layerDiags[i] = lm.GetDiagramms(rebarDiagramType)?[calc];
+                    layerDiags[i] = lm.GetDiagramms(
+                        DiagrammCompatibility.Coerce(lm.Type, rebarDiagramType))?[calc];
             }
         }
 

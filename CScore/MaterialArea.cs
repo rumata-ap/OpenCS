@@ -160,13 +160,18 @@ namespace CScore
       }
 
       /// <summary>Назначает материал и строит диаграммы.</summary>
+      /// <remarks>
+      /// Тип диаграммы приводится к допустимому для материала
+      /// (<see cref="DiagrammCompatibility.Coerce"/>): напр. для арматуры с условным
+      /// пределом текучести двухлинейной диаграммы не существует.
+      /// </remarks>
       /// <param name="sp63EtaMin">Нижняя граница нисходящей ветви SP63 (по умолчанию 0.85).</param>
       public void SetMaterial(Material material, DiagrammType diagrammType, double sp63EtaMin = 0.85)
       {
          Material = material;
          MaterialId = material.Id;
-         DiagrammType = diagrammType;
-         Diagramms = material.GetDiagramms(diagrammType, sp63EtaMin)!;
+         DiagrammType = DiagrammCompatibility.Coerce(material.Type, diagrammType);
+         Diagramms = material.GetDiagramms(DiagrammType, sp63EtaMin)!;
       }
 
       /// <summary>

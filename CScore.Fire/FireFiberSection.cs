@@ -244,7 +244,10 @@ public sealed class FireFiberSection : ILimitSection
             areaDiagrams.TryGetValue(calc, out var fromArea))
             return fromArea;
 
-        var fromMaterial = material.GetDiagramms(DiagrammType.L2);
+        // Фолбэк, когда у области нет собственных диаграмм: тип приводится к допустимому
+        // для материала (арматура с условным пределом текучести — только L3).
+        var fromMaterial = material.GetDiagramms(
+            DiagrammCompatibility.Coerce(material.Type, DiagrammType.L2));
         if (fromMaterial is not null && fromMaterial.TryGetValue(calc, out var diagram))
             return diagram;
 

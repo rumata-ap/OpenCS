@@ -41,7 +41,10 @@ public static class ShellLayeredCheck
             ?? concreteMat.GetDiagramms(DiagrammType.L3)?[diagCalcType]
             ?? throw new InvalidOperationException("Диаграмма бетона не построена");
 
-        var rDiag = rebarMat.GetDiagramms(DiagrammType.L2)?[diagCalcType]
+        // Для арматуры с условным пределом текучести двухлинейной диаграммы не существует —
+        // тип приводится к допустимому (L3), см. DiagrammCompatibility.
+        var rDiag = rebarMat.GetDiagramms(
+                DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[diagCalcType]
             ?? throw new InvalidOperationException("Диаграмма арматуры не построена");
 
         var solver = new ShellStrainSolver(section, cDiag, rDiag, tensionOverride: tensionOverride);
