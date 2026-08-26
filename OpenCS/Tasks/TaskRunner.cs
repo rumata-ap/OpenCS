@@ -15,6 +15,7 @@ namespace OpenCS.Tasks
          ["fire_r_check"]         = new FireRCheckHandler(),
          ["fire_r_check_batch"]   = new FireRCheckBatchHandler(),
          ["fire_r_time"]          = new FireRTimeHandler(),
+         ["fire_thermal_curvature"] = new FireThermalCurvatureHandler(),
          ["strain_state_batch"]   = new StrainStateBatchHandler(),
          ["two_stage_strain"]     = new TwoStageStrainHandler(),
          ["two_stage_strain_batch"] = new TwoStageStrainBatchHandler(),

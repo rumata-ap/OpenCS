@@ -36,6 +36,8 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                throw new InvalidOperationException(Loc.S(reference.ErrorKey));
 
             FireThermalResult thermal = ctx.Database.LoadFireThermalResult(reference.ResultId);
+            if (thermal.MeshInfo.Mesh.Elements.Any(e => e.Length != 3))
+                throw new FireCalculationException("FireThermal_T6MechanicalUnsupported");
             int? thermalId = reference.ResultId;
 
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx?.Database?.Diagrams,
@@ -101,6 +103,8 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
         }
         catch (Exception ex)
         {
+            string error = ex is FireCalculationException fireError
+                ? Loc.S(fireError.ErrorKey) : ex.Message;
             return new CalcResult
             {
                 TaskId = task.Id,
@@ -108,7 +112,7 @@ public sealed class FireRCheckBatchHandler : ITaskHandler
                 TaskTag = task.Tag,
                 Created = created,
                 Status = "error",
-                DataJson = JsonSerializer.Serialize(new { error = ex.Message })
+                DataJson = JsonSerializer.Serialize(new { error })
             };
         }
     }

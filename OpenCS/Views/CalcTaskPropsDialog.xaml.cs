@@ -62,6 +62,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     DatabaseService.FireThermalResultInfo? _selectedFireThermalResult;
     FireSnapshotOption? _selectedFireSnapshot;
     FireRCheckParams _fireParams = new();
+    string fireNormalizedLimit = "120";
+    bool fireTensionAtHeatedFace = true;
     CalcType selectedCalcType = CalcType.C;
     string manualN = "0";
     string manualMx = "0";
@@ -221,6 +223,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsFireKind));
            OnPropertyChanged(nameof(IsFireBatchKind));
            OnPropertyChanged(nameof(IsFireNoForceKind));
+           OnPropertyChanged(nameof(ShowFireCurvatureFields));
            OnPropertyChanged(nameof(ShowFireSnapshot));
            OnPropertyChanged(nameof(IsStrainBatch));
            OnPropertyChanged(nameof(IsLimitBatch));
@@ -316,6 +319,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsFireKind));
            OnPropertyChanged(nameof(IsFireBatchKind));
            OnPropertyChanged(nameof(IsFireNoForceKind));
+           OnPropertyChanged(nameof(ShowFireCurvatureFields));
            OnPropertyChanged(nameof(ShowFireSnapshot));
            OnPropertyChanged(nameof(IsStrainBatch));
            OnPropertyChanged(nameof(IsLimitBatch));
@@ -392,6 +396,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     public bool IsFireKind         => FireTaskParamsBuilder.IsFireKind(Kind);
     public bool IsFireBatchKind    => Kind == "fire_r_check_batch";
    public bool IsFireNoForceKind  => Kind == "fire_thermal_curvature";
+   /// <summary>Показывать параметры задачи температурной кривизны.</summary>
+   public bool ShowFireCurvatureFields => Kind == "fire_thermal_curvature";
    /// <summary>Показывать выбор момента времени для огневой задачи.</summary>
    public bool ShowFireSnapshot => IsFireKind && Kind != "fire_r_time";
    public bool IsStrainBatch => Kind == "strain_state_batch" || Kind == "strength_ndm_batch";
@@ -566,6 +572,20 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            ReloadFireThermalResults();
         }
     }
+
+   /// <summary>Нормируемый предел огнестойкости для задачи температурной кривизны, мин.</summary>
+   public string FireNormalizedLimit
+   {
+      get => fireNormalizedLimit;
+      set { fireNormalizedLimit = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Признак расположения растянутой арматуры у нагреваемой грани.</summary>
+   public bool FireTensionAtHeatedFace
+   {
+      get => fireTensionAtHeatedFace;
+      set { fireTensionAtHeatedFace = value; OnPropertyChanged(); }
+   }
 
    /// <summary>Тепловые расчёты выбранного огневого сечения.</summary>
    public ObservableCollection<DatabaseService.FireThermalResultInfo> FireThermalResults { get; } = [];
@@ -1333,6 +1353,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "fire_r_check",             Label = Loc.S("CalcTaskKind_fire_r_check"),             GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
       new() { Id = "fire_r_check_batch",       Label = Loc.S("CalcTaskKind_fire_r_check_batch"),       GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
       new() { Id = "fire_r_time",              Label = Loc.S("CalcTaskKind_fire_r_time"),              GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
+      new() { Id = "fire_thermal_curvature",   Label = Loc.S("CalcTaskKind_fire_thermal_curvature"),   GroupKey = "fire",  Group = Loc.S("CalcTaskGroupFire") },
       // Прочие
       new() { Id = "prestress_loss",           Label = Loc.S("CalcTaskKind_prestress_loss"),           GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "opensees_section_moment_curvature", Label = Loc.S("CalcTaskKind_opensees_section_moment_curvature"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
@@ -1430,6 +1451,15 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          }
 
          _fireParams = FireTaskParamsBuilder.Parse(existing.Kind, existing.ParamsJson);
+         if (existing.Kind == "fire_thermal_curvature")
+         {
+            var cp = FireThermalCurvatureParams.Parse(existing.ParamsJson);
+            _fireParams.FireSectionId = cp.FireSectionId;
+            _fireParams.ThermalResultId = cp.ThermalResultId;
+            _fireParams.SnapshotIndex = cp.SnapshotIndex;
+            FireNormalizedLimit = cp.NormalizedLimitMin.ToString("G6", System.Globalization.CultureInfo.InvariantCulture);
+            FireTensionAtHeatedFace = cp.TensionRebarAtHeatedFace;
+         }
          if (_fireParams.FireSectionId > 0)
             SelectedFireSection = FireSections.FirstOrDefault(f => f.Id == _fireParams.FireSectionId);
 
@@ -2537,7 +2567,23 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        }
 
        string paramsJson = "{}";
-       if (IsFireKind && SelectedFireSection != null)
+       if (Kind == "fire_thermal_curvature" && SelectedFireSection != null)
+       {
+          var invFire = System.Globalization.CultureInfo.InvariantCulture;
+          double normalizedLimit = double.TryParse(FireNormalizedLimit,
+             System.Globalization.NumberStyles.Float, invFire, out var limit) && limit > 0.0
+             ? limit : 120.0;
+          paramsJson = new FireThermalCurvatureParams
+          {
+             FireSectionId = SelectedFireSection.Id,
+             ThermalResultId = _fireParams.ThermalResultId,
+             SnapshotIndex = _fireParams.SnapshotIndex,
+             NormalizedLimitMin = normalizedLimit,
+             TensionRebarAtHeatedFace = FireTensionAtHeatedFace,
+             CompressionZoneMethod = "auto"
+          }.ToJson();
+       }
+       else if (IsFireKind && SelectedFireSection != null)
        {
           paramsJson = FireTaskParamsBuilder.Build(
              Kind,

@@ -120,11 +120,11 @@ public static class FireThermalCurvature
         var (tensionRebars, bothFaces) = SelectTensionRebars(
             fiber, profile, input.TensionRebarAtHeatedFace);
         if (tensionRebars.Count == 0)
-            throw new InvalidOperationException("Не найдена арматура растянутой зоны.");
+            throw new FireCalculationException("FireThermal_NoTensionRebar");
 
         double asTotal = tensionRebars.Sum(r => Math.Max(0.0, r.Area));
         if (asTotal <= 0.0)
-            throw new InvalidOperationException("Площадь арматуры растянутой зоны не определена.");
+            throw new FireCalculationException("FireThermal_NoTensionRebar");
 
         double tRebar = tensionRebars.Sum(r => r.Temperature * Math.Max(0.0, r.Area)) / asTotal;
         double h0 = ComputeH0(fiber, profile, tensionRebars);

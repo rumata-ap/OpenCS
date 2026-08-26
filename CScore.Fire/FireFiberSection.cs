@@ -104,7 +104,7 @@ public sealed class FireFiberSection : ILimitSection
         ArgumentNullException.ThrowIfNull(thermal);
         ArgumentNullException.ThrowIfNull(section);
         if (thermal.MeshInfo?.Mesh is null)
-            throw new InvalidOperationException("В FireThermalResult отсутствует MeshInfo.Mesh.");
+            throw new FireCalculationException("FireThermal_MeshMissing");
 
         int resolvedSnapshot = ResolveSnapshotIndex(thermal, snapshotIndex);
         var mesh = thermal.MeshInfo.Mesh;
@@ -118,7 +118,7 @@ public sealed class FireFiberSection : ILimitSection
         {
             var tri = mesh.Elements[e];
             if (tri.Length != 3)
-                throw new InvalidOperationException($"Элемент #{e} тепловой сетки не является T3.");
+                throw new FireCalculationException("FireThermal_T6MechanicalUnsupported");
 
             double x1 = mesh.X[tri[0]];
             double y1 = mesh.Y[tri[0]];
@@ -346,7 +346,7 @@ public sealed class FireFiberSection : ILimitSection
     private static int ResolveSnapshotIndex(FireThermalResult thermal, int idx)
     {
         if (thermal.Snapshots.Length == 0)
-            throw new InvalidOperationException("В FireThermalResult нет температурных снапшотов.");
+            throw new FireCalculationException("FireThermal_EmptySnapshot");
 
         int resolved = idx < 0 ? thermal.Snapshots.Length - 1 : idx;
         if (resolved < 0 || resolved >= thermal.Snapshots.Length)

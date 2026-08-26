@@ -62,7 +62,7 @@ namespace OpenCS.Views
             return;
         }
 
-        if (task?.Kind is "fire_r_check" or "fire_r_check_batch" or "fire_r_time"
+        if (task?.Kind is "fire_r_check" or "fire_r_check_batch" or "fire_r_time" or "fire_thermal_curvature"
             or "strain_state_batch" or "two_stage_strain_batch"
             or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"
             or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch"
@@ -76,6 +76,7 @@ namespace OpenCS.Views
             {
                 "fire_r_check_batch"   => new FireRCheckBatchResultView(result, app, task),
                 "fire_r_time"          => new FireRTimeResultView(result, app, task),
+                "fire_thermal_curvature" => new FireThermalCurvatureResultView(result, app, task),
                 "strain_state_batch" or "two_stage_strain_batch"
                                        => new StrainStateBatchResultView(result, app, task),
                 "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"

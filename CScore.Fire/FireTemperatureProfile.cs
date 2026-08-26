@@ -107,7 +107,7 @@ public static class FireTemperatureProfile
          cy += c.Area * c.Cy;
       }
       if (totalArea <= 0.0)
-         throw new InvalidOperationException("В огневом сечении нет бетонных элементов.");
+         throw new FireCalculationException("FireCurvature_ConcreteUndefined");
       cx /= totalArea;
       cy /= totalArea;
 
@@ -125,7 +125,7 @@ public static class FireTemperatureProfile
 
       double height = sMax - sMin;
       if (height <= 0.0)
-         throw new InvalidOperationException("Высота сечения вдоль оси приведения равна нулю.");
+         throw new FireCalculationException("FireCurvature_H0Undefined");
 
       int bandCount = Math.Max(MinBands, (int)Math.Ceiling(height / meshStepM));
       var sumT = new double[bandCount];
@@ -213,7 +213,7 @@ public static class FireTemperatureProfile
    {
       int n = values.Length;
       int firstKnown = Array.FindIndex(values, v => !double.IsNaN(v));
-      if (firstKnown < 0) throw new InvalidOperationException("Профиль температуры пуст.");
+      if (firstKnown < 0) throw new FireCalculationException("FireThermal_EmptyTemperatureProfile");
 
       for (int i = 0; i < firstKnown; i++) values[i] = values[firstKnown];
 

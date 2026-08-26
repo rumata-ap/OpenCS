@@ -60,6 +60,7 @@
          <RowDefinition Height="Auto"/> <!-- 17 Torsion -->
          <RowDefinition Height="Auto"/> <!-- 18 Crack width -->
          <RowDefinition Height="Auto"/> <!-- 19 Total curvature -->
+         <RowDefinition Height="Auto"/> <!-- 20 Fire thermal curvature -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
          <ColumnDefinition Width="130"/>
@@ -182,6 +183,24 @@
                  SelectedItem="{Binding SelectedFireSnapshot}"
                  DisplayMemberPath="Text"
                  Visibility="{Binding ShowFireSnapshot, Converter={StaticResource BoolToVisibility}}"/>
+
+      <Grid Grid.Row="20" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,0,0,8"
+            Visibility="{Binding ShowFireCurvatureFields, Converter={StaticResource BoolToVisibility}}">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="130"/>
+            <ColumnDefinition Width="*"/>
+         </Grid.ColumnDefinitions>
+         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+         </Grid.RowDefinitions>
+         <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource CalcTaskFireNormalizedLimit}"
+                    VerticalAlignment="Center" Margin="0,0,8,8"/>
+         <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding FireNormalizedLimit, UpdateSourceTrigger=PropertyChanged}"
+                  Margin="0,0,0,8"/>
+         <CheckBox Grid.Row="1" Grid.Column="1" Content="{DynamicResource CalcTaskFireTensionAtHeatedFace}"
+                   IsChecked="{Binding FireTensionAtHeatedFace}" Margin="0,0,0,8"/>
+      </Grid>
 
       <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsOpenSeesSpatialInteraction, Converter={StaticResource BoolToVisibility}}">

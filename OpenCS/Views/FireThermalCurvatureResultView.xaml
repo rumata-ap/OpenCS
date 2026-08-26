@@ -1,0 +1,117 @@
+<UserControl x:Class="OpenCS.Views.FireThermalCurvatureResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:OpenCS.Views">
+   <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="12">
+         <TextBlock Text="{DynamicResource FireCurvature_Title}" FontSize="16" FontWeight="Bold"
+                    Margin="0,0,0,8"/>
+
+         <Border Background="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"
+                 Padding="8" Margin="0,0,0,8"
+                 Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding ErrorText}" Foreground="DarkRed" TextWrapping="Wrap"/>
+         </Border>
+
+         <GroupBox Header="{DynamicResource FireCurvature_Summary}" Padding="8" Margin="0,0,0,8"
+                   Visibility="{Binding HasError, Converter={StaticResource InverseBoolToVisibility}}">
+            <Grid>
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="250"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="250"/>
+                  <ColumnDefinition Width="*"/>
+               </Grid.ColumnDefinitions>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+               </Grid.RowDefinitions>
+
+               <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource FireCurvature_ChiT}" Foreground="Gray"/>
+               <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ChiText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource FireCurvature_EpsT}" Foreground="Gray"/>
+               <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding EpsText}" FontFamily="Consolas"/>
+
+               <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource FireCurvature_D}" Foreground="Gray"/>
+               <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="1" Grid.Column="2" Text="{DynamicResource FireCurvature_XtMethod}" Foreground="Gray"/>
+               <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding XtMethodText}" TextWrapping="Wrap"/>
+
+               <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource FireCurvature_THot}" Foreground="Gray"/>
+               <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding THotText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="2" Grid.Column="2" Text="{DynamicResource FireCurvature_TCold}" Foreground="Gray"/>
+               <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding TColdText}" FontFamily="Consolas"/>
+
+               <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource FireCurvature_TRebar}" Foreground="Gray"/>
+               <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding TRebarText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="3" Grid.Column="2" Text="{DynamicResource FireCurvature_H0}" Foreground="Gray"/>
+               <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding H0Text}" FontFamily="Consolas"/>
+
+               <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource FireCurvature_Xt}" Foreground="Gray"/>
+               <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding XtText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="4" Grid.Column="2" Text="{DynamicResource FireCurvature_XiR}" Foreground="Gray"/>
+               <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding XiRText}" FontFamily="Consolas"/>
+
+               <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource FireCurvature_Z}" Foreground="Gray"/>
+               <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding ZText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="5" Grid.Column="2" Text="{DynamicResource FireCurvature_ZSimplified}" Foreground="Gray"/>
+               <TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding ZSimplifiedText}" FontFamily="Consolas"/>
+
+               <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource FireCurvature_Phi1}" Foreground="Gray"/>
+               <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Phi1Text}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="6" Grid.Column="2" Text="{DynamicResource FireCurvature_Height}" Foreground="Gray"/>
+               <TextBlock Grid.Row="6" Grid.Column="3" Text="{Binding HeightText}" FontFamily="Consolas"/>
+
+               <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource FireCurvature_As}" Foreground="Gray"/>
+               <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding AsText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="7" Grid.Column="2" Text="{DynamicResource FireCurvature_Est}" Foreground="Gray"/>
+               <TextBlock Grid.Row="7" Grid.Column="3" Text="{Binding EstText}" FontFamily="Consolas"/>
+
+               <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource FireCurvature_ProfileQuality}" Foreground="Gray"/>
+               <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding ProfileQualityText}" FontFamily="Consolas"/>
+               <TextBlock Grid.Row="8" Grid.Column="2" Text="{DynamicResource FireCurvature_Axis}" Foreground="Gray"/>
+               <TextBlock Grid.Row="8" Grid.Column="3" Text="{Binding AxisText}" FontFamily="Consolas"/>
+            </Grid>
+         </GroupBox>
+
+         <GroupBox Header="{DynamicResource FireCurvature_Warnings}" Padding="8" Margin="0,0,0,8"
+                   Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVisibility}}">
+            <ItemsControl ItemsSource="{Binding Warnings}">
+               <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                     <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,3" Foreground="DarkOrange"/>
+                  </DataTemplate>
+               </ItemsControl.ItemTemplate>
+            </ItemsControl>
+         </GroupBox>
+
+         <GroupBox Header="{DynamicResource FireCurvature_RebarDetails}" Padding="8" Margin="0,0,0,8"
+                   Visibility="{Binding HasRebarRows, Converter={StaticResource BoolToVisibility}}">
+            <DataGrid ItemsSource="{Binding RebarRows}" AutoGenerateColumns="False"
+                      IsReadOnly="True" CanUserAddRows="False" MaxHeight="180">
+               <DataGrid.Columns>
+                  <DataGridTextColumn Header="{DynamicResource FireCurvature_RebarClass}" Binding="{Binding ClassText}" Width="*"/>
+                  <DataGridTextColumn Header="{DynamicResource FireCurvature_RebarTemperature}" Binding="{Binding TemperatureText}" Width="130"/>
+                  <DataGridTextColumn Header="{DynamicResource FireCurvature_RebarArea}" Binding="{Binding AreaText}" Width="120"/>
+                  <DataGridTextColumn Header="{DynamicResource FireCurvature_RebarGamma}" Binding="{Binding GammaText}" Width="120"/>
+               </DataGrid.Columns>
+            </DataGrid>
+         </GroupBox>
+
+         <GroupBox Header="{DynamicResource FireCurvature_Profile}" Padding="4"
+                   Visibility="{Binding HasProfileChart, Converter={StaticResource BoolToVisibility}}">
+            <Grid Height="260">
+               <local:FireChartView DataContext="{Binding ProfileChart}"/>
+            </Grid>
+         </GroupBox>
+      </StackPanel>
+   </ScrollViewer>
+</UserControl>
