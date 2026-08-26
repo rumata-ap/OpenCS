@@ -59,6 +59,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     ForceSet? selectedForceSet;
     LoadItem? selectedForceItem;
     FireSectionDef? selectedFireSection;
+    FireRCheckParams _fireParams = new();
     CalcType selectedCalcType = CalcType.C;
     string manualN = "0";
     string manualMx = "0";
@@ -216,6 +217,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               Kind = value.Id;
            OnPropertyChanged();
            OnPropertyChanged(nameof(IsFireKind));
+           OnPropertyChanged(nameof(IsFireBatchKind));
+           OnPropertyChanged(nameof(IsFireNoForceKind));
            OnPropertyChanged(nameof(IsStrainBatch));
            OnPropertyChanged(nameof(IsLimitBatch));
            OnPropertyChanged(nameof(IsLimitSingle));
@@ -308,6 +311,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             OnPropertyChanged();
             OnPropertyChanged(nameof(SelectedKind));
            OnPropertyChanged(nameof(IsFireKind));
+           OnPropertyChanged(nameof(IsFireBatchKind));
+           OnPropertyChanged(nameof(IsFireNoForceKind));
            OnPropertyChanged(nameof(IsStrainBatch));
            OnPropertyChanged(nameof(IsLimitBatch));
            OnPropertyChanged(nameof(IsLimitSingle));
@@ -380,7 +385,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
         }
      }
 
-    public bool IsFireKind    => Kind.StartsWith("fire_", StringComparison.Ordinal);
+    public bool IsFireKind         => FireTaskParamsBuilder.IsFireKind(Kind);
+    public bool IsFireBatchKind    => Kind == "fire_r_check_batch";
+    public bool IsFireNoForceKind  => Kind == "fire_thermal_curvature";
    public bool IsStrainBatch => Kind == "strain_state_batch" || Kind == "strength_ndm_batch";
    public bool IsLimitBatch  => Kind is "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch";
    public bool IsLimitKind   => Kind.StartsWith("limit_", StringComparison.Ordinal);
@@ -489,14 +496,15 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsTotalCurvatureAny   => IsTotalCurvature || IsTotalCurvatureBatch;
    public bool IsMomentCurvatureBiaxial => Kind == "moment_curvature_biaxial";
    public bool IsOpenSeesSpatialInteraction => Kind == "opensees_section_interaction_n_mx_my";
-   public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
+   public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireBatchKind && !IsFireNoForceKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
       && !IsOpenSeesSpatialInteraction
       && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch
       && !IsShearInclinedBatch;
    public bool ShowSolverMethod => IsLimitKind;
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
-   public bool ShowStandardForce => !IsTwoStage && !IsPlatePanel && !IsPrestressLoss && !IsOpenSeesSpatialInteraction;
+   public bool ShowStandardForce => !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
+      && !IsOpenSeesSpatialInteraction && !IsFireNoForceKind;
 
    void FilterSections()
    {
@@ -1342,9 +1350,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             SelectedForceItem = null;
          }
 
-         var p = FireRCheckParams.Parse(existing.ParamsJson);
-         if (p.FireSectionId > 0)
-            SelectedFireSection = FireSections.FirstOrDefault(f => f.Id == p.FireSectionId);
+         _fireParams = FireTaskParamsBuilder.Parse(existing.Kind, existing.ParamsJson);
+         if (_fireParams.FireSectionId > 0)
+            SelectedFireSection = FireSections.FirstOrDefault(f => f.Id == _fireParams.FireSectionId);
 
          if ((existing.Kind == "strain_state" || IsLimitSingleKind(existing.Kind) || existing.Kind == "cracking")
              && !string.IsNullOrWhiteSpace(existing.ParamsJson) && existing.ParamsJson != "{}")
@@ -2377,6 +2385,19 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             return;
          }
           SelectedSection = _allSections.FirstOrDefault(s => s.Id == SelectedFireSection.SectionId);
+
+         if (FireTaskParamsBuilder.NeedsForceSet(Kind) && SelectedForceSet == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+         if (FireTaskParamsBuilder.NeedsForceItem(Kind) && SelectedForceItem == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
        }
 
        if (SelectedSection == null)
@@ -2433,12 +2454,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        string paramsJson = "{}";
        if (IsFireKind && SelectedFireSection != null)
        {
-          paramsJson = JsonSerializer.Serialize(new FireRCheckParams
-          {
-             FireSectionId = SelectedFireSection.Id,
-             Method = "fiber",
-             SnapshotIndex = -1
-          });
+          paramsJson = FireTaskParamsBuilder.Build(
+             Kind,
+             SelectedFireSection.Id,
+             _fireParams.ThermalResultId,
+             _fireParams.SnapshotIndex,
+             _fireParams.Method);
        }
        else if (ShowManualForces)
        {

@@ -1010,6 +1010,7 @@
    <system:String x:Key="LimitForceBatch_SummaryFormat">Всего: {0}, сошлось: {1}, не сошлось: {2}</system:String>
    <system:String x:Key="CalcTaskFireSection">Огневое сечение</system:String>
    <system:String x:Key="CalcTaskNeedFireSection">Не выбрано огневое сечение.</system:String>
+   <system:String x:Key="CalcTaskFireForcesHint">Нормативные нагрузки по п. 8.4 СП 468: основное сочетание из постоянных и временных длительных, без кратковременных; крановые — без динамической составляющей; особое сочетание не рассматривается.</system:String>
    <system:String x:Key="CalcTaskForceN">N, кН</system:String>
    <system:String x:Key="CalcTaskForceMx">Mx, кН·м</system:String>
    <system:String x:Key="CalcTaskForceMy">My, кН·м</system:String>

@@ -122,12 +122,16 @@
       <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource CalcTaskForceSet}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
                  Visibility="{Binding ShowStandardForce, Converter={StaticResource BoolToVisibility}}"/>
-      <ComboBox  Grid.Row="4" Grid.Column="1"
-                 ItemsSource="{Binding ForceSets}"
-                 SelectedItem="{Binding SelectedForceSet}"
-                 DisplayMemberPath="Tag"
-                 Margin="0,0,0,8"
-                 Visibility="{Binding ShowStandardForce, Converter={StaticResource BoolToVisibility}}"/>
+      <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,0,0,8">
+         <ComboBox ItemsSource="{Binding ForceSets}"
+                   SelectedItem="{Binding SelectedForceSet}"
+                   DisplayMemberPath="Tag"
+                   Visibility="{Binding ShowStandardForce, Converter={StaticResource BoolToVisibility}}"/>
+         <TextBlock MaxWidth="320" TextWrapping="Wrap"
+                    Foreground="Gray" Margin="8,4,0,0"
+                    Text="{DynamicResource CalcTaskFireForcesHint}"
+                    Visibility="{Binding IsFireKind, Converter={StaticResource BoolToVisibility}}"/>
+      </StackPanel>
 
       <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource CalcTaskForceItem}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
