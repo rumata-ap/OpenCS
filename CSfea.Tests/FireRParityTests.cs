@@ -51,8 +51,9 @@ public static class FireRParityTests
         CompareDouble(testName, "gamma_bt_min", GetDouble(check.Details, "gamma_bt_min"), exp.GammaBtMin, absTol: 0.02, relTol: 0.02);
         CompareDouble(testName, "gamma_bt_avg", GetDouble(check.Details, "gamma_bt_avg"), exp.GammaBtAvg, absTol: 0.02, relTol: 0.02);
         CompareDouble(testName, "gamma_bt_max", GetDouble(check.Details, "gamma_bt_max"), exp.GammaBtMax, absTol: 0.02, relTol: 0.02);
-        CompareDouble(testName, "gamma_st_c_min", GetDouble(check.Details, "gamma_st_c_min"), exp.GammaStCMin, absTol: 0.02, relTol: 0.02);
-        CompareDouble(testName, "gamma_st_t_min", GetDouble(check.Details, "gamma_st_t_min"), exp.GammaStTMin, absTol: 0.02, relTol: 0.02);
+        // Эталон пересчитан 2026-08-26: единый γ_st по таблице 5.6 СП 468
+        // с Изм. № 1; старые поля C/T поддерживаются для старой фикстуры.
+        CompareDouble(testName, "gamma_st_min", GetDouble(check.Details, "gamma_st_min"), exp.GammaStMin, absTol: 0.02, relTol: 0.02);
 
         bool passedOk = check.Passed == exp.Passed;
         TestHarness.Check($"{testName}_passed", passedOk,
@@ -482,6 +483,12 @@ public static class FireRParityTests
 
         [JsonPropertyName("gamma_st_t_min")]
         public double GammaStTMin { get; set; }
+
+        [JsonPropertyName("gamma_st_min")]
+        public double? GammaStMinFromFixture { get; set; }
+
+        public double GammaStMin => GammaStMinFromFixture
+            ?? Math.Min(GammaStCMin, GammaStTMin);
 
         [JsonPropertyName("n_concrete_elements")]
         public int NConcreteElements { get; set; }

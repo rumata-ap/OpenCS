@@ -33,8 +33,9 @@ FireMeshBuilderTests.RunAll();
 
 FireThermalServiceTests.RunAll();
 
-// TODO(torsion-t6): временно отключено — отсутствует tools/fire-parity/fixtures/rectangle_200x400_5min_3sided.json
-// в репозитории (не связано с задачей T6), падает с FileNotFoundException и блокирует весь прогон.
+// TODO(fire-parity): отключено — нет фикстура tools/fire-parity/fixtures/rectangle_200x400_5min_3sided.json.
+// После восстановления фикстура эталоны придётся пересчитать: с 2026-08-26 действуют
+// таблицы 5.1/5.6 СП 468 с Изм. № 1 и исключение растянутого бетона по п. 8.42.
 // FireParityTests.RunAll();
 
 FireFiberSectionTests.RunAll();
