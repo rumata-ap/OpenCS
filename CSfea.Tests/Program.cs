@@ -52,6 +52,8 @@ FireRTimeTests.RunAll();
 
 FireTemperatureProfileTests.RunAll();
 
+FireCompressionZoneTests.RunAll();
+
 FireRParityTests.RunAll();
 
 CustomDiagramTests.RunAll();

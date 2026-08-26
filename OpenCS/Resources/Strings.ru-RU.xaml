@@ -156,6 +156,14 @@
    <system:String x:Key="CalcSettingsElasticStiffnessWithoutRebar">Базовая упругая жёсткость без учёта арматуры</system:String>
    <system:String x:Key="CalcSettingsElasticStiffnessWithoutRebarTip">База (EA, EI), на которую нормируются коэффициенты снижения жёсткости в задаче «кривизна-момент». При включении база считается по упругому бетонному сечению без арматуры — так она совпадает с линейными жёсткостями стержня в упругом МКЭ, и коэффициенты можно переносить в МКЭ-модель напрямую. При выключении база — приведённое сечение бетон + арматура.</system:String>
    <system:String x:Key="CalcSettingsConsiderConcreteTensionUlsTip">Влияет на поиск предельных усилий и плоскости деформаций при CalcType C/CL — для стержневых и пластинчатых сечений. На 2-ю ГПС (N/NL) не влияет. Для пластин перекрывает флаг «Учёт растяжения бетона» страницы сечения только в этом режиме.</system:String>
+   <system:String x:Key="CalcSettingsFireCompressionZoneMethod">Высота сжатой зоны при расчёте температурной кривизны</system:String>
+   <system:String x:Key="CalcSettingsFireCompressionZoneMethodTip">Формула (8.11) СП 468 применима к прямоугольным, тавровым и двутавровым сечениям; для произвольного контура используется равновесие огневого фибрового сечения. В режиме «Автоматически» сначала пробуется (8.11).</system:String>
+   <system:String x:Key="CalcSettingsFireCompressionZone_Auto">Автоматически</system:String>
+   <system:String x:Key="CalcSettingsFireCompressionZone_Formula">По формуле (8.11) СП 468</system:String>
+   <system:String x:Key="CalcSettingsFireCompressionZone_Fiber">Из равновесия фибрового сечения</system:String>
+   <system:String x:Key="FireCurvature_WidthUndefined">Ширина ребра сечения не определена — формула (8.11) неприменима.</system:String>
+   <system:String x:Key="FireCurvature_H0Undefined">Рабочая высота сечения не определена.</system:String>
+   <system:String x:Key="FireCurvature_ConcreteUndefined">В огневом фибровом сечении не определён бетон.</system:String>
    <system:String x:Key="CalcSettingsBatchGroup">Пакетные задачи</system:String>
    <system:String x:Key="CalcSettingsShearInclinedGroup">Наклонные сечения (СП 63, пп. 8.1.32–8.1.35)</system:String>
    <system:String x:Key="CalcSettingsShearMomentZoneTip">Длина приопорной зоны для проверки по (8.63); 0 — принимается 2·h0 по норме</system:String>

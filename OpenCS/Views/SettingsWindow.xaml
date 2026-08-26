@@ -380,6 +380,24 @@
                                 <Grid Margin="4,2,4,6">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="220"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0"
+                                               Text="{DynamicResource CalcSettingsFireCompressionZoneMethod}"
+                                               VerticalAlignment="Center"
+                                               ToolTip="{DynamicResource CalcSettingsFireCompressionZoneMethodTip}"/>
+                                    <ComboBox Grid.Column="1"
+                                              x:Name="FireCompressionZoneMethodCombo"
+                                              VerticalContentAlignment="Center"
+                                              ToolTip="{DynamicResource CalcSettingsFireCompressionZoneMethodTip}">
+                                        <ComboBoxItem Tag="auto" Content="{DynamicResource CalcSettingsFireCompressionZone_Auto}"/>
+                                        <ComboBoxItem Tag="sp468_8_11" Content="{DynamicResource CalcSettingsFireCompressionZone_Formula}"/>
+                                        <ComboBoxItem Tag="fiber_equilibrium" Content="{DynamicResource CalcSettingsFireCompressionZone_Fiber}"/>
+                                    </ComboBox>
+                                </Grid>
+                                <Grid Margin="4,2,4,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="180"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0"

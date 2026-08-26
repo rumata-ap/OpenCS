@@ -116,6 +116,13 @@ namespace OpenCS.Utilites
       public bool ConsiderConcreteTensionUls { get; set; } = false;
 
       /// <summary>
+      /// Метод определения высоты сжатой зоны при расчёте температурной кривизны:
+      /// "auto", "sp468_8_11" или "fiber_equilibrium".
+      /// </summary>
+      [JsonPropertyName("fireCompressionZoneMethod")]
+      public string FireCompressionZoneMethod { get; set; } = "auto";
+
+      /// <summary>
       /// База упругой жёсткости (EA, EI), на которую нормируются коэффициенты снижения
       /// жёсткости в задаче «кривизна-момент». При true — только упругое бетонное сечение,
       /// без арматуры: так база совпадает с линейными жёсткостями стержня в упругом МКЭ,
@@ -321,6 +328,7 @@ namespace OpenCS.Utilites
          SmoothColormap        = SmoothColormap,
          RebarDifferentialDiagram = RebarDifferentialDiagram,
          ConsiderConcreteTensionUls = ConsiderConcreteTensionUls,
+         FireCompressionZoneMethod = FireCompressionZoneMethod,
          ElasticStiffnessWithoutRebar = ElasticStiffnessWithoutRebar,
          CrackWidthPsiSMethod  = CrackWidthPsiSMethod,
          ShearStationStep      = ShearStationStep,
