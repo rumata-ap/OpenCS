@@ -1,4 +1,6 @@
 using CScore;
+using CScore.Fire.Entities;
+using CSfea.Thermal;
 
 namespace CScore.Fire;
 
@@ -36,6 +38,35 @@ public sealed class FireFiberSection : ILimitSection
 
     /// <summary>Исходное механическое сечение (для Guess и контурных лимитов).</summary>
     public CrossSection SourceSection { get; }
+
+    /// <summary>Середина ребра границы с типом fire и его длина.</summary>
+    public readonly record struct FireEdgeMidpoint(double X, double Y, double Length);
+
+    /// <summary>Середины огневых рёбер для определения направления нагрева.</summary>
+    /// <param name="def">Параметры огневого сечения для восстановления типов ГУ.</param>
+    public IEnumerable<FireEdgeMidpoint> FireBoundaryMidpoints(FireSectionDef? def = null)
+    {
+        var mesh = _thermal.MeshInfo.Mesh;
+        if (def is null)
+        {
+            // Вызов без def сохраняется для диагностических клиентов старой версии;
+            // без описания ГУ типы рёбер неизвестны, поэтому используем все рёбра.
+            foreach (var edge in _thermal.MeshInfo.BoundaryEdges)
+                yield return Midpoint(mesh, edge.NodeA, edge.NodeB);
+            yield break;
+        }
+
+        foreach (var edge in FireBoundaryMapper.MapEdges(def, _thermal.MeshInfo, _thermal.FireCurve))
+            yield return Midpoint(mesh, edge.NodeA, edge.NodeB);
+    }
+
+    static FireEdgeMidpoint Midpoint(HeatMesh mesh, int nodeA, int nodeB)
+    {
+        double x1 = mesh.X[nodeA], y1 = mesh.Y[nodeA];
+        double x2 = mesh.X[nodeB], y2 = mesh.Y[nodeB];
+        double len = Math.Sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+        return new FireEdgeMidpoint(0.5 * (x1 + x2), 0.5 * (y1 + y2), len);
+    }
 
     private FireFiberSection(
         FireThermalResult thermal,

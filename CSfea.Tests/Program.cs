@@ -50,6 +50,8 @@ FireMvpVsFiberTests.RunAll();
 
 FireRTimeTests.RunAll();
 
+FireTemperatureProfileTests.RunAll();
+
 FireRParityTests.RunAll();
 
 CustomDiagramTests.RunAll();
