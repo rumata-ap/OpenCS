@@ -150,6 +150,31 @@ namespace CScore
       /// Вычисляет геометрические характеристики материальной области
       /// суммированием по всем волокнам (полигональным и точечным).
       /// </summary>
+      /// <summary>
+      /// Характеристики области по ЗАДАННОМУ модулю упругости — без учёта текущих секущих
+      /// модулей волокон. Нужно там, где характеристики должны быть свойством сечения, а не
+      /// его напряжённого состояния (упругая жёсткость, приведённый центр для преднапряжения).
+      /// </summary>
+      /// <param name="area">Область сечения.</param>
+      /// <param name="e">Модуль упругости материала области.</param>
+      public GeoProps(MaterialArea area, double e)
+      {
+         foreach (var f in area.Fibers)
+         {
+            double a   = f.Area;
+            double sy  = f.Area * f.X;
+            double sx  = f.Area * f.Y;
+            double iy  = sy * f.X;
+            double ix  = sx * f.Y;
+            double ixy = a * f.X * f.Y;
+            A    += a;    Sy   += sy;   Sx   += sx;
+            Iy   += iy;   Ix   += ix;   Ixy  += ixy;
+            EA   += a * e;   ESy  += sy * e;  ESx  += sx * e;
+            EIy  += iy * e;  EIx  += ix * e;  EIxy += ixy * e;
+         }
+         if (EA > 0) Centroid = new XY(ESy / EA, ESx / EA);
+      }
+
       public GeoProps(MaterialArea area, GeoPropsType propsType = GeoPropsType.First)
       {
          double E;

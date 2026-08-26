@@ -93,7 +93,7 @@ namespace OpenCS.Tasks
 
             var k      = solver.Solve(nTarget, mxTarget, myTarget);
             var result = section.Integral(k, task.CalcType, ten);
-            var prestress = section.PrestressActions();
+            var prestress = section.PrestressActions(null, task.CalcType, ten);
 
             var data = new
             {

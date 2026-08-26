@@ -41,6 +41,22 @@ public sealed class PrestressGroupActions
 
     /// <summary>Эффективные действия по SigSp·GammaSp.</summary>
     public PrestressAction Effective { get; init; } = new();
+
+    /// <summary>
+    /// Фактические действия — по напряжению, которое даёт диаграмма материала при
+    /// начальной деформации ε_p. Именно они входят в расчёт сечения; от номинальных
+    /// отличаются, когда σ_sp·γ_sp выходит за линейный участок диаграммы.
+    /// </summary>
+    public PrestressAction Actual { get; init; } = new();
+
+    /// <summary>Фактическое напряжение по диаграмме при ε_p, МПа (по модулю).</summary>
+    public double SigActual { get; init; }
+
+    /// <summary>Расчётное сопротивление арматуры группы Ft, МПа.</summary>
+    public double SigLimit { get; init; }
+
+    /// <summary>σ_sp·γ_sp задано выше расчётного сопротивления материала.</summary>
+    public bool ExceedsStrength { get; init; }
 }
 
 /// <summary>Интегральный результат действий всех преднапряжённых групп.</summary>
@@ -58,8 +74,14 @@ public sealed class PrestressActionsResult
     /// <summary>Суммарные эффективные действия по SigSp·GammaSp.</summary>
     public PrestressAction Effective { get; init; } = new();
 
+    /// <summary>Суммарные фактические действия по диаграммам материалов при ε_p.</summary>
+    public PrestressAction Actual { get; init; } = new();
+
     /// <summary>Есть ли в результате хотя бы одна преднапряжённая группа.</summary>
     public bool HasPrestressedGroups => Groups.Count > 0;
+
+    /// <summary>Есть ли группа, у которой σ_sp·γ_sp выше расчётного сопротивления.</summary>
+    public bool HasGroupsAboveStrength => Groups.Any(group => group.ExceedsStrength);
 }
 
 /// <summary>JSON-представление точки отсчёта с единицами в именах полей.</summary>
@@ -122,6 +144,18 @@ public sealed class PrestressActionsJsonGroup
 
     /// <summary>Эффективные действия группы.</summary>
     [JsonPropertyName("effective")] public PrestressActionsJsonVector Effective { get; init; } = new();
+
+    /// <summary>Фактические действия группы по диаграмме при ε_p.</summary>
+    [JsonPropertyName("actual")] public PrestressActionsJsonVector Actual { get; init; } = new();
+
+    /// <summary>Фактическое напряжение по диаграмме при ε_p, МПа.</summary>
+    [JsonPropertyName("sigActual_MPa")] public double SigActual { get; init; }
+
+    /// <summary>Расчётное сопротивление материала группы, МПа.</summary>
+    [JsonPropertyName("sigLimit_MPa")] public double SigLimit { get; init; }
+
+    /// <summary>Признак σ_sp·γ_sp выше расчётного сопротивления.</summary>
+    [JsonPropertyName("exceedsStrength")] public bool ExceedsStrength { get; init; }
 }
 
 /// <summary>Стабильное JSON-представление результата действий преднапряжения.</summary>
@@ -136,6 +170,12 @@ public sealed class PrestressActionsJsonModel
     /// <summary>Суммарные эффективные действия.</summary>
     [JsonPropertyName("effective")] public PrestressActionsJsonVector Effective { get; init; } = new();
 
+    /// <summary>Суммарные фактические действия по диаграммам при ε_p.</summary>
+    [JsonPropertyName("actual")] public PrestressActionsJsonVector Actual { get; init; } = new();
+
+    /// <summary>Есть ли группа с σ_sp·γ_sp выше расчётного сопротивления.</summary>
+    [JsonPropertyName("hasGroupsAboveStrength")] public bool HasGroupsAboveStrength { get; init; }
+
     /// <summary>Результаты по группам.</summary>
     [JsonPropertyName("groups")] public IReadOnlyList<PrestressActionsJsonGroup> Groups { get; init; } = [];
 
@@ -149,6 +189,8 @@ public sealed class PrestressActionsJsonModel
         },
         Nominal = PrestressActionsJsonVector.From(source.Nominal),
         Effective = PrestressActionsJsonVector.From(source.Effective),
+        Actual = PrestressActionsJsonVector.From(source.Actual),
+        HasGroupsAboveStrength = source.HasGroupsAboveStrength,
         Groups = source.Groups.Select(group => new PrestressActionsJsonGroup
         {
             AreaId = group.AreaId,
@@ -160,6 +202,10 @@ public sealed class PrestressActionsJsonModel
             GammaSp = group.GammaSp,
             Nominal = PrestressActionsJsonVector.From(group.Nominal),
             Effective = PrestressActionsJsonVector.From(group.Effective),
+            Actual = PrestressActionsJsonVector.From(group.Actual),
+            SigActual = group.SigActual,
+            SigLimit = group.SigLimit,
+            ExceedsStrength = group.ExceedsStrength,
         }).ToArray(),
     };
 }
@@ -168,7 +214,8 @@ public sealed class PrestressActionsJsonModel
 internal static class PrestressActionsCalculator
 {
     /// <summary>Вычисляет действия по группам точечных фибр.</summary>
-    public static PrestressActionsResult Calculate(CrossSection section, XY? referencePoint)
+    public static PrestressActionsResult Calculate(CrossSection section, XY? referencePoint,
+                                                   CalcType calc, bool ten, bool ca)
     {
         var groupData = section.Areas
             .Where(area => area.Category == AreaCategory.RebarGroup && area.SigSp != 0)
@@ -184,7 +231,10 @@ internal static class PrestressActionsCalculator
         }
         else
         {
-            var props = new GeoProps(section);
+            // Упругий приведённый центр: он не зависит от текущего НДС сечения.
+            // Секущие модули волокон (GeoProps по Fiber.E) после расчёта дают «плавающую»
+            // точку отсчёта, из-за чего моменты преднапряжения менялись бы от нагрузки.
+            var props = section.ElasticGeoProps();
             if (props.Centroid == null || props.EA <= 0)
             {
                 if (groupData.Length > 0)
@@ -199,13 +249,14 @@ internal static class PrestressActionsCalculator
             }
         }
 
-        var groups = groupData.Select(data => BuildGroupActions(data, reference)).ToArray();
+        var groups = groupData.Select(data => BuildGroupActions(data, reference, calc, ten, ca)).ToArray();
         return new PrestressActionsResult
         {
             ReferencePoint = reference,
             Groups = groups,
             Nominal = Sum(groups.Select(group => group.Nominal)),
             Effective = Sum(groups.Select(group => group.Effective)),
+            Actual = Sum(groups.Select(group => group.Actual)),
         };
     }
 
@@ -218,16 +269,24 @@ internal static class PrestressActionsCalculator
 
         return new GroupData(
             area,
+            fibers,
             areaM2,
             fibers.Sum(fiber => fiber.Area * fiber.X) / areaM2,
             fibers.Sum(fiber => fiber.Area * fiber.Y) / areaM2);
     }
 
-    static PrestressGroupActions BuildGroupActions(GroupData data, XY reference)
+    static PrestressGroupActions BuildGroupActions(GroupData data, XY reference,
+                                                   CalcType calc, bool ten, bool ca)
     {
-        double nominalN = data.Area.SigSp * 1000.0 * data.AreaM2;
+        // Знак: натянутая арматура ОБЖИМАЕТ сечение, а по конвенции OpenCS (N = ∫σ·dA)
+        // сжатие отрицательно. Поэтому действие преднапряжения на сечение — со знаком «минус».
+        double nominalN = -data.Area.SigSp * 1000.0 * data.AreaM2;
         double effectiveN = nominalN * data.Area.GammaSp;
         var centroid = new XY(data.X, data.Y);
+
+        double actualN = -ActualForce(data, calc, ten, ca);
+        double sigLimitMPa = StrengthLimitMPa(data.Area, calc);
+        double sigSpEffective = Math.Abs(data.Area.SigSp * data.Area.GammaSp);
 
         return new PrestressGroupActions
         {
@@ -237,19 +296,60 @@ internal static class PrestressActionsCalculator
             Centroid = centroid,
             SigSp = data.Area.SigSp,
             GammaSp = data.Area.GammaSp,
-            Nominal = new PrestressAction
-            {
-                N = nominalN,
-                Mx = nominalN * (data.Y - reference.Y),
-                My = nominalN * (data.X - reference.X),
-            },
-            Effective = new PrestressAction
-            {
-                N = effectiveN,
-                Mx = effectiveN * (data.Y - reference.Y),
-                My = effectiveN * (data.X - reference.X),
-            },
+            Nominal = ActionAt(nominalN, data, reference),
+            Effective = ActionAt(effectiveN, data, reference),
+            Actual = ActualAction(data, reference, calc, ten, ca),
+            SigActual = data.AreaM2 > 0 ? Math.Abs(actualN) / data.AreaM2 / 1000.0 : 0.0,
+            SigLimit = sigLimitMPa,
+            ExceedsStrength = sigLimitMPa > 0 && sigSpEffective > sigLimitMPa + 1e-9,
         };
+    }
+
+    /// <summary>Действия сосредоточенной силы <paramref name="n"/> в центре группы.</summary>
+    static PrestressAction ActionAt(double n, GroupData data, XY reference) => new()
+    {
+        N = n,
+        Mx = n * (data.Y - reference.Y),
+        My = n * (data.X - reference.X),
+    };
+
+    /// <summary>
+    /// Фактические действия: по каждому волокну берётся напряжение диаграммы при его ε_p,
+    /// поэтому нелинейность диаграммы (σ_sp выше линейного участка) учитывается честно.
+    /// </summary>
+    static PrestressAction ActualAction(GroupData data, XY reference, CalcType calc, bool ten, bool ca)
+    {
+        double n = 0, mx = 0, my = 0;
+        foreach (var fiber in data.Fibers)
+        {
+            double force = -FiberForce(data.Area, fiber, calc, ten, ca);
+            n += force;
+            mx += force * (fiber.Y - reference.Y);
+            my += force * (fiber.X - reference.X);
+        }
+        return new PrestressAction { N = n, Mx = mx, My = my };
+    }
+
+    static double ActualForce(GroupData data, CalcType calc, bool ten, bool ca)
+        => data.Fibers.Sum(fiber => FiberForce(data.Area, fiber, calc, ten, ca));
+
+    /// <summary>Усилие волокна от начальной деформации ε_p по диаграмме области, кН.</summary>
+    static double FiberForce(MaterialArea area, Fiber fiber, CalcType calc, bool ten, bool ca)
+    {
+        if (fiber.Eps_p == 0) return 0.0;
+
+        double sigKpa = area.Diagramms.TryGetValue(calc, out var diagram)
+            ? diagram.SigValue(fiber.Eps_p, ten, ca)
+            : (area.Material?.E ?? 0.0) * fiber.Eps_p;
+
+        return sigKpa * fiber.Area;
+    }
+
+    /// <summary>Расчётное сопротивление материала группы для данного случая, МПа.</summary>
+    static double StrengthLimitMPa(MaterialArea area, CalcType calc)
+    {
+        var chars = area.Material?.GetChars(calc);
+        return chars == null ? 0.0 : Math.Abs(chars.Ft) / 1000.0;
     }
 
     static PrestressAction Sum(IEnumerable<PrestressAction> actions) => new()
@@ -259,5 +359,5 @@ internal static class PrestressActionsCalculator
         My = actions.Sum(action => action.My),
     };
 
-    sealed record GroupData(MaterialArea Area, double AreaM2, double X, double Y);
+    sealed record GroupData(MaterialArea Area, IReadOnlyList<Fiber> Fibers, double AreaM2, double X, double Y);
 }

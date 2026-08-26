@@ -1178,6 +1178,9 @@
    <system:String x:Key="ResultPrestressArea">Площадь</system:String>
    <system:String x:Key="ResultPrestressSigma">σ_sp</system:String>
    <system:String x:Key="ResultPrestressGroup">Группа</system:String>
+   <system:String x:Key="ResultPrestressActual">Фактическое действие</system:String>
+   <system:String x:Key="ResultPrestressSigActual">σ факт.</system:String>
+   <system:String x:Key="ResultPrestressAboveStrength">σ_sp·γ_sp = {0:0.#} МПа выше расчётного сопротивления {1:0.#} МПа: в расчёт входит напряжение по диаграмме — {2:0.#} МПа.</system:String>
    <system:String x:Key="ResultEtaHeader">Влияние прогиба (η, п. 8.1.15 СП63.13330)</system:String>
    <system:String x:Key="ResultEtaMode">Режим</system:String>
    <system:String x:Key="ResultEtaModeFormula">Буквальный (формула)</system:String>

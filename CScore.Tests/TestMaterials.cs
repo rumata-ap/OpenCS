@@ -45,8 +45,46 @@ internal static class TestMaterials
         return m;
     }
 
+    /// <summary>
+    /// Напрягаемая арматура A1000 (условный предел текучести, ReSteelU) — числа из
+    /// OpenCS/DataSource/Арматура стальная_*.csv. Нужна для тестов преднапряжения:
+    /// у такой арматуры диаграмма криволинейная уже до Ft, поэтому σ_sp/E и σ(ε_sp)
+    /// расходятся.
+    /// </summary>
+    public static Material PrestressedRebar(string tag = "A1000")
+    {
+        var m = new Material
+        {
+            Id = _nextId++,
+            Tag = tag,
+            Type = MatType.ReSteelU,
+            E = 200_000_000.0, // кПа
+        };
+        m.C = PrestressedRebarChars(CalcType.C, fc: -870000, ft: 870000);
+        m.CL = PrestressedRebarChars(CalcType.CL, fc: -870000, ft: 870000);
+        m.N = PrestressedRebarChars(CalcType.N, fc: -1000000, ft: 1000000);
+        m.NL = PrestressedRebarChars(CalcType.NL, fc: -1000000, ft: 1000000);
+        return m;
+    }
+
+    static MaterialChars PrestressedRebarChars(CalcType calc, double fc, double ft) => new()
+    {
+        Type = MatType.ReSteelU,
+        TypeCalc = calc,
+        Fc = fc,
+        Ft = ft,
+        E = 200_000_000.0,
+        Ec0 = -0.00635,
+        Ec1 = -0.003915,
+        Ec2 = -0.0035,
+        Et0 = 0.00635,
+        Et1 = 0.003915,
+        Et2 = 0.015,
+    };
+
     static MaterialChars ConcreteChars(CalcType calc, double fc, double ft, double e,
-        double ec1Red = -0.0015, double ec2 = -0.0035, double et1Red = 0.00008, double et2 = 0.00015) => new()
+        double ec1Red = -0.0015, double ec2 = -0.0035, double et1Red = 0.00008, double et2 = 0.00015,
+        double ec0 = -0.002, double ec1 = -0.00029, double et0 = 0.0001, double et1 = 0.000021) => new()
     {
         Type = MatType.Concrete,
         TypeCalc = calc,
@@ -57,6 +95,12 @@ internal static class TestMaterials
         Ec2 = ec2,
         Et1Red = et1Red,
         Et2 = et2,
+        // Нужны трёхлинейной диаграмме (D3L); двухлинейная их не использует, поэтому
+        // существующие L2-тесты от их появления не меняются.
+        Ec0 = ec0,
+        Ec1 = ec1,
+        Et0 = et0,
+        Et1 = et1,
     };
 
     static MaterialChars RebarChars(double fc, double ft) => new()

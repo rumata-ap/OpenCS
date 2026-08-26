@@ -29,8 +29,10 @@ namespace CScore
        /// </summary>
        /// <param name="referencePoint">Явная точка отсчёта моментов; null — центр GeoProps.</param>
        /// <returns>Результат действий по группам и их интегральные суммы.</returns>
-       public virtual PrestressActionsResult PrestressActions(XY? referencePoint = null) =>
-          PrestressActionsCalculator.Calculate(this, referencePoint);
+       public virtual PrestressActionsResult PrestressActions(XY? referencePoint = null,
+                                                             CalcType calc = CalcType.C,
+                                                             bool ten = true, bool ca = true) =>
+          PrestressActionsCalculator.Calculate(this, referencePoint, calc, ten, ca);
 
        /// <summary>
        /// Перечисляет пары (область, эффективная плоскость деформаций) при базовой кривизне
@@ -142,9 +144,43 @@ namespace CScore
       /// Для областей без сеточных фибр использует геометрию контура Hull,
       /// чтобы не занижать жёсткость сечения.
       /// </summary>
+      /// <summary>
+      /// Упругие приведённые характеристики сечения — по модулям материалов, БЕЗ влияния
+      /// текущего напряжённо-деформированного состояния (в отличие от <see cref="GeoProps"/>
+      /// по секущим модулям волокон).
+      /// </summary>
+      public virtual GeoProps ElasticGeoProps() => ElasticProps(Areas);
+
       public virtual Kurvature Guess(Load load)
       {
-         return GuessFromProps(ElasticProps(Areas), load);
+         return GuessFromProps(ElasticProps(Areas), load - PrestressElasticLoad(Areas));
+      }
+
+      /// <summary>
+      /// Упругие усилия, которые дают начальные деформации <see cref="Fiber.Eps_p"/>
+      /// (предварительное натяжение) при нулевой плоскости деформаций:
+      /// N = Σ E·A·ε_p, Mx = Σ E·A·ε_p·y, My = Σ E·A·ε_p·x.
+      /// Начальное приближение должно искать плоскость для НАГРУЗКИ ЗА ВЫЧЕТОМ этих
+      /// усилий: иначе для преднапряжённого сечения старт промахивается на всю силу
+      /// обжатия, и недемпфированный Ньютон уходит в предельный цикл.
+      /// </summary>
+      protected static Load PrestressElasticLoad(IEnumerable<MaterialArea> areas)
+      {
+         double n = 0, mx = 0, my = 0;
+         foreach (var area in areas)
+         {
+            if (!MaterialArea.IsCalcActive(area) || area.Material == null) continue;
+            double e = area.Material.E;
+            foreach (var f in area.Fibers)
+            {
+               if (f.Eps_p == 0) continue;
+               double p = e * f.Area * f.Eps_p;
+               n  += p;
+               mx += p * f.Y;
+               my += p * f.X;
+            }
+         }
+         return new Load { N = n, Mx = mx, My = my };
       }
 
       /// <summary>
@@ -169,8 +205,10 @@ namespace CScore
                foreach (var hole in area.Holes)
                   pr = pr - new GeoProps(hole, E);
             }
-            // Фибровый вклад (арматурные точки, сгенерированная сетка)
-            pr = pr + new GeoProps(area);
+            // Фибровый вклад (арматурные точки, сгенерированная сетка) — строго по модулю
+            // материала: секущие модули волокон зависят от последнего расчёта, а упругие
+            // характеристики обязаны быть свойством самого сечения.
+            pr = pr + new GeoProps(area, area.Material?.E ?? 0.0);
          }
          return pr;
       }
@@ -310,7 +348,7 @@ namespace CScore
                                    bool computeStiffness = true, double fdStep = 1e-7)
       {
          var f0 = Integral(k, calc, ten, ca);
-         var prestress = PrestressActions();
+         var prestress = PrestressActions(null, calc, ten, ca);
          if (!computeStiffness)
             return new SectionResult
             {

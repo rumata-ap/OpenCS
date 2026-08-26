@@ -53,8 +53,15 @@ namespace CScore
        /// </summary>
        public override Kurvature Guess(Load load)
        {
-          var pr = ElasticProps(Stage1.Areas.Concat(Areas));
-          return GuessFromProps(pr, load);
+          var all = Stage1.Areas.Concat(Areas).ToList();
+          var pr = ElasticProps(all);
+          return GuessFromProps(pr, load - PrestressElasticLoad(all));
+       }
+
+       /// <inheritdoc/>
+       public override GeoProps ElasticGeoProps()
+       {
+          return ElasticProps(Stage1.Areas.Concat(Areas));
        }
 
       // SetEps и Integral НЕ переопределяются: базовая реализация CrossSection

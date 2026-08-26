@@ -1178,6 +1178,9 @@
    <system:String x:Key="ResultPrestressArea">Area</system:String>
    <system:String x:Key="ResultPrestressSigma">σ_sp</system:String>
    <system:String x:Key="ResultPrestressGroup">Group</system:String>
+   <system:String x:Key="ResultPrestressActual">Actual action</system:String>
+   <system:String x:Key="ResultPrestressSigActual">σ actual</system:String>
+   <system:String x:Key="ResultPrestressAboveStrength">σ_sp·γ_sp = {0:0.#} MPa exceeds the design strength {1:0.#} MPa: the analysis uses the diagram stress of {2:0.#} MPa.</system:String>
    <system:String x:Key="ResultEtaHeader">Deflection influence (η, cl. 8.1.15 SP63.13330)</system:String>
    <system:String x:Key="ResultEtaMode">Mode</system:String>
    <system:String x:Key="ResultEtaModeFormula">Literal (formula)</system:String>

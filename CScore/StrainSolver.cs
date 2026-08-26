@@ -22,6 +22,20 @@ namespace CScore
       readonly bool         _central;
       readonly Func<Kurvature, Load> _evaluate;
 
+      /// <summary>Максимум половинных делений шага на одной итерации (λ до ~1e-9).</summary>
+      const int MaxBacktracks = 30;
+
+      /// <summary>
+      /// Предельная деформация волокна, за которую не выпускается пробный шаг.
+      /// Заведомо больше предельных деформаций любых диаграмм (ε_t2 арматуры ≈ 0.025),
+      /// но не даёт Ньютону улететь туда, где ВСЕ волокна выключены: там отклик почти
+      /// постоянен, невязка формально «улучшается», а якобиан вырождается в ноль.
+      /// </summary>
+      const double EpsBound = 0.05;
+
+      double _yExtent = -1.0;
+      double _xExtent = -1.0;
+
       public StrainSolver(CrossSection section, CalcType calc = CalcType.C,
                           bool ten = true, bool ca = true,
                           double tol = 0.5, int maxIter = 60, double h = 1e-7,
@@ -51,10 +65,16 @@ namespace CScore
       /// </param>
       public Kurvature Solve(double nTarget, double mxTarget, double myTarget, Kurvature? initialGuess = null)
       {
-         Kurvature k = initialGuess ?? _section.Guess(new Load { N = nTarget, Mx = mxTarget, My = myTarget });
+         var target = new Load { N = nTarget, Mx = mxTarget, My = myTarget };
+         Kurvature k = initialGuess ?? _section.Guess(target);
          if (!double.IsFinite(k.e0)) k.e0 = 0;
          if (!double.IsFinite(k.ky)) k.ky = 0;
          if (!double.IsFinite(k.kz)) k.kz = 0;
+
+         // Один откат к штатной упругой оценке: спасает от заведомо плохого стартового
+         // приближения (плоскость в зоне, где все волокна выключены — якобиан там нулевой,
+         // а невязка почти не зависит от кривизны).
+         bool elasticRestartUsed = initialGuess == null;
 
          for (int iter = 0; iter < _maxIter; iter++)
          {
@@ -97,14 +117,107 @@ namespace CScore
             // Решение 3×3 системы J·Δk = r методом Гаусса
             double[] rhs = [r0, r1, r2];
             if (!GaussSolve(J, rhs, out double[] dk))
-               break; // сингулярная матрица — выходим
+            {
+               // Вырожденный якобиан: вне диаграмм отклик не зависит от плоскости.
+               if (TryElasticRestart(ref k, target, ref elasticRestartUsed)) continue;
+               break;
+            }
 
-            k.e0 -= dk[0];
-            k.ky -= dk[1];
-            k.kz -= dk[2];
+            if (!TryDampedStep(k, dk, nTarget, mxTarget, myTarget, Residual, out k))
+            {
+               // Ни одна доля шага не уменьшает невязку.
+               if (TryElasticRestart(ref k, target, ref elasticRestartUsed)) continue;
+               break;
+            }
          }
 
          return k;
+      }
+
+      /// <summary>
+      /// Возврат к штатному упругому приближению <see cref="CrossSection.Guess"/>, если
+      /// итерации застряли (вырожденный якобиан или шаг, не уменьшающий невязку).
+      /// Выполняется не более одного раза за решение и только тогда, когда старт был задан
+      /// извне — иначе перезапуск привёл бы в ту же точку.
+      /// </summary>
+      bool TryElasticRestart(ref Kurvature k, Load target, ref bool used)
+      {
+         if (used) return false;
+         used = true;
+         k = _section.Guess(target);
+         if (!double.IsFinite(k.e0)) k.e0 = 0;
+         if (!double.IsFinite(k.ky)) k.ky = 0;
+         if (!double.IsFinite(k.kz)) k.kz = 0;
+         return true;
+      }
+
+      /// <summary>
+      /// Шаг Ньютона с демпфированием (backtracking): пробует полный шаг, затем
+      /// половинные доли, и принимает первую, которая уменьшает норму невязки.
+      /// Без этого чистый Ньютон на сильно нелинейной диаграмме (или при плохом
+      /// начальном приближении) перелетает решение и входит в предельный цикл.
+      /// </summary>
+      /// <returns>false, если ни одна доля шага не улучшила невязку.</returns>
+      bool TryDampedStep(Kurvature k, double[] dk,
+                         double nTarget, double mxTarget, double myTarget,
+                         double residual, out Kurvature next)
+      {
+         double lambda = StepLimit(dk);
+         for (int attempt = 0; attempt < MaxBacktracks; attempt++)
+         {
+            var trial = new Kurvature
+            {
+               e0 = k.e0 - lambda * dk[0],
+               ky = k.ky - lambda * dk[1],
+               kz = k.kz - lambda * dk[2],
+            };
+
+            if (double.IsFinite(trial.e0) && double.IsFinite(trial.ky) && double.IsFinite(trial.kz))
+            {
+               var f = _evaluate(trial);
+               double d0 = f.N - nTarget, d1 = f.Mx - mxTarget, d2 = f.My - myTarget;
+               double trialResidual = Math.Sqrt(d0 * d0 + d1 * d1 + d2 * d2);
+               if (double.IsFinite(trialResidual) && trialResidual < residual)
+               {
+                  next = trial;
+                  return true;
+               }
+            }
+
+            lambda *= 0.5;
+         }
+
+         next = k;
+         return false;
+      }
+
+      /// <summary>
+      /// Начальная доля шага λ₀: полный шаг, если он не выводит крайнее волокно
+      /// сечения за <see cref="EpsBound"/>, иначе — доля, которая укладывается в границу.
+      /// </summary>
+      double StepLimit(double[] dk)
+      {
+         EnsureExtents();
+         double span = Math.Abs(dk[0]) + Math.Abs(dk[1]) * _yExtent + Math.Abs(dk[2]) * _xExtent;
+         if (!double.IsFinite(span) || span <= EpsBound) return 1.0;
+         return EpsBound / span;
+      }
+
+      /// <summary>Габариты сечения от начала координат — для оценки деформации крайнего волокна.</summary>
+      void EnsureExtents()
+      {
+         if (_yExtent >= 0.0) return;
+         try
+         {
+            var (minX, maxX, minY, maxY) = _section.SectionBoundingBox();
+            _xExtent = Math.Max(Math.Abs(minX), Math.Abs(maxX));
+            _yExtent = Math.Max(Math.Abs(minY), Math.Abs(maxY));
+         }
+         catch (InvalidOperationException)
+         {
+            _xExtent = 0.0;
+            _yExtent = 0.0;
+         }
       }
 
       // Метод Гаусса с выбором ведущего элемента. Возвращает false при сингулярности.

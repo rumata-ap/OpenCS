@@ -301,6 +301,132 @@ internal static class TestSections
         return section;
     }
 
+    /// <summary>
+    /// Прямоугольник 0.3×0.5 (B25) с напрягаемой арматурой РОВНО в приведённом центре
+    /// тяжести (y = 0, x = ±0.1). Обжатие получается центральным: упругий отклик на
+    /// преднапряжение — чистое e0 = −P/EA без кривизны, что даёт детерминированное
+    /// ожидание для начального приближения <see cref="CrossSection.Guess"/>.
+    /// </summary>
+    public static CrossSection RectWithCentralPrestressedRebar(double sigSp = 500.0)
+    {
+        var concreteMaterial = TestMaterials.Concrete("B25");
+        var rebarMaterial = TestMaterials.Rebar("A500");
+
+        double h = 0.5, b = 0.3;
+        double y0 = -h / 2.0, y1 = h / 2.0, x0 = -b / 2.0, x1 = b / 2.0;
+
+        var concrete = new MaterialArea
+        {
+            Id = 1,
+            Tag = "concrete",
+            Category = AreaCategory.Region,
+            Material = concreteMaterial,
+            MaterialId = concreteMaterial.Id,
+            DiagrammType = DiagrammType.L2,
+            Hull = new Contour([x0, x1, x1, x0, x0], [y0, y0, y1, y1, y0], "outer"),
+        };
+        concrete.SetWKT();
+        concrete.SliceXY(nx: 12, ny: 20);
+
+        var strands = new MaterialArea
+        {
+            Id = 2,
+            Tag = "strands",
+            Category = AreaCategory.RebarGroup,
+            Material = rebarMaterial,
+            MaterialId = rebarMaterial.Id,
+            DiagrammType = DiagrammType.L2,
+            SigSp = sigSp,
+            GammaSp = 1.0,
+            Fibers =
+            [
+                Fiber.CreatePoint(0.02, -0.1, 0.0),
+                Fiber.CreatePoint(0.02, 0.1, 0.0),
+            ],
+        };
+
+        var section = new CrossSection { Id = 1, Tag = "central prestress", Areas = [concrete, strands] };
+        section.ResolveAndBuildDiagramms(0.85, pool: null, rebarDifferentialDiagram: false);
+        return section;
+    }
+
+    /// <summary>
+    /// Прямоугольник 0.3×0.5 (B25, L3) с ненапрягаемой арматурой сверху и снизу и
+    /// ЭКСЦЕНТРИЧНОЙ напрягаемой арматурой A1000 понизу (σ_sp = 900 МПа) — повторяет
+    /// сечение из проекта пользователя, на котором решатель НДС расходился: начальное
+    /// приближение промахивается на всю силу обжатия (≈500 кН и ≈110 кН·м).
+    /// </summary>
+    public static CrossSection RectWithEccentricPrestressedRebar(double sigSp = 900.0)
+    {
+        var concreteMaterial = TestMaterials.Concrete("B25");
+        var rebarMaterial = TestMaterials.Rebar("A500");
+        var strandMaterial = TestMaterials.PrestressedRebar("A1000");
+
+        double h = 0.5, b = 0.3;
+        double y0 = -h / 2.0, y1 = h / 2.0, x0 = -b / 2.0, x1 = b / 2.0;
+
+        var concrete = new MaterialArea
+        {
+            Id = 1,
+            Tag = "concrete",
+            Category = AreaCategory.Region,
+            Material = concreteMaterial,
+            MaterialId = concreteMaterial.Id,
+            DiagrammType = DiagrammType.L3,
+            Hull = new Contour([x0, x1, x1, x0, x0], [y0, y0, y1, y1, y0], "outer"),
+        };
+        concrete.SetWKT();
+        concrete.SliceXY(nx: 12, ny: 20);
+
+        var rebar = new MaterialArea
+        {
+            Id = 2,
+            Tag = "rebar",
+            Category = AreaCategory.RebarGroup,
+            Material = rebarMaterial,
+            MaterialId = rebarMaterial.Id,
+            DiagrammType = DiagrammType.L2,
+            HostArea = concrete,
+            HostAreaId = concrete.Id,
+            Fibers =
+            [
+                Fiber.CreatePoint(0.016, -0.12, 0.22),
+                Fiber.CreatePoint(0.016, 0.0, 0.22),
+                Fiber.CreatePoint(0.016, 0.12, 0.22),
+                Fiber.CreatePoint(0.02, -0.12, -0.22),
+                Fiber.CreatePoint(0.02, 0.12, -0.22),
+            ],
+        };
+
+        var strands = new MaterialArea
+        {
+            Id = 3,
+            Tag = "strands",
+            Category = AreaCategory.RebarGroup,
+            Material = strandMaterial,
+            MaterialId = strandMaterial.Id,
+            DiagrammType = DiagrammType.L3,
+            HostArea = concrete,
+            HostAreaId = concrete.Id,
+            SigSp = sigSp,
+            GammaSp = 1.0,
+            Fibers =
+            [
+                Fiber.CreatePoint(0.02, -0.04, -0.22),
+                Fiber.CreatePoint(0.02, 0.04, -0.22),
+            ],
+        };
+
+        var section = new CrossSection
+        {
+            Id = 2,
+            Tag = "rect 300x500 ps",
+            Areas = [concrete, rebar, strands],
+        };
+        section.ResolveAndBuildDiagramms(0.85, pool: null, rebarDifferentialDiagram: true);
+        return section;
+    }
+
     static MaterialChars Example47ConcreteChars(CalcType calc, bool longTerm) => longTerm
         ? new MaterialChars
         {

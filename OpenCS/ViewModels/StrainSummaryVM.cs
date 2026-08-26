@@ -37,6 +37,11 @@ namespace OpenCS.ViewModels
         public string PrestressEffectiveNText { get; private set; } = "—";
         public string PrestressEffectiveMxText { get; private set; } = "—";
         public string PrestressEffectiveMyText { get; private set; } = "—";
+        public string PrestressActualNText { get; private set; } = "—";
+        public string PrestressActualMxText { get; private set; } = "—";
+        public string PrestressActualMyText { get; private set; } = "—";
+        public bool HasPrestressAboveStrength { get; private set; }
+        public string PrestressAboveStrengthText { get; private set; } = "";
         public ObservableCollection<PrestressRow> PrestressRows { get; } = [];
 
         // ── Влияние прогиба (η, п. 8.1.15 СП63.13330) ──────────────────
@@ -99,7 +104,8 @@ namespace OpenCS.ViewModels
         public string RebarAreaNote    { get; }
 
         public record RebarRow(int Num, string X, string Y, string Eps, string Sigma);
-        public record PrestressRow(string Tag, string Area, string Sigma, string Nominal, string Effective);
+        public record PrestressRow(string Tag, string Area, string Sigma, string Nominal, string Effective,
+                                   string Actual, string SigmaActual);
 
         public StrainSummaryVM(CalcResult result, CrossSection section, CalcType calcType, CalcSettings? settings = null, bool ten = true)
         {
@@ -308,6 +314,17 @@ namespace OpenCS.ViewModels
                 PrestressEffectiveMyText = FormatForce(effective, "My_kNm", "кН·м");
             }
 
+            if (prestress.TryGetProperty("actual", out var actual))
+            {
+                PrestressActualNText = FormatForce(actual, "N_kN", "кН");
+                PrestressActualMxText = FormatForce(actual, "Mx_kNm", "кН·м");
+                PrestressActualMyText = FormatForce(actual, "My_kNm", "кН·м");
+            }
+
+            HasPrestressAboveStrength =
+                prestress.TryGetProperty("hasGroupsAboveStrength", out var aboveStrength) &&
+                aboveStrength.ValueKind == JsonValueKind.True;
+
             foreach (var group in groups.EnumerateArray())
             {
                 string tag = group.TryGetProperty("tag", out var tagEl) ? tagEl.GetString() ?? "" : "";
@@ -316,12 +333,26 @@ namespace OpenCS.ViewModels
                 group.TryGetProperty("nominal", out var groupNominal);
                 group.TryGetProperty("effective", out var groupEffective);
 
+                group.TryGetProperty("actual", out var groupActual);
+                double sigmaActual = ReadDouble(group, "sigActual_MPa");
+                double sigmaLimit = ReadDouble(group, "sigLimit_MPa");
+                bool exceeds = group.TryGetProperty("exceedsStrength", out var exceedsEl) &&
+                               exceedsEl.ValueKind == JsonValueKind.True;
+                if (exceeds && PrestressAboveStrengthText.Length == 0)
+                    PrestressAboveStrengthText = string.Format(
+                        Loc.S("ResultPrestressAboveStrength"),
+                        Math.Abs(sigma * ReadFiniteDouble(group, "gammaSp", 1.0)),
+                        sigmaLimit,
+                        sigmaActual);
+
                 PrestressRows.Add(new PrestressRow(
                     tag,
                     $"{area:0.000000} м²",
                     $"{sigma:+0.0;-0.0} МПа",
                     FormatVector(groupNominal),
-                    FormatVector(groupEffective)));
+                    FormatVector(groupEffective),
+                    FormatVector(groupActual),
+                    $"{sigmaActual:0.0} МПа"));
             }
         }
 
