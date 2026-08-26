@@ -1031,6 +1031,12 @@
    <system:String x:Key="LimitForceBatch_SummaryFormat">Всего: {0}, сошлось: {1}, не сошлось: {2}</system:String>
    <system:String x:Key="CalcTaskFireSection">Огневое сечение</system:String>
    <system:String x:Key="CalcTaskNeedFireSection">Не выбрано огневое сечение.</system:String>
+   <system:String x:Key="FireThermalResultNotFound">Тепловой результат не найден. Сначала выполните тепловой расчёт огневого сечения.</system:String>
+   <system:String x:Key="FireThermalResultOwnerMismatch">Указанный тепловой расчёт принадлежит другому огневому сечению.</system:String>
+   <system:String x:Key="CalcTaskNeedFireThermalResult">У выбранного огневого сечения нет ни одного теплового расчёта. Выполните его перед созданием задачи.</system:String>
+   <system:String x:Key="CalcTaskFireThermalResult">Тепловой расчёт</system:String>
+   <system:String x:Key="CalcTaskFireSnapshot">Момент времени, мин</system:String>
+   <system:String x:Key="CalcTaskFireSnapshotEnd">конец пожара</system:String>
    <system:String x:Key="CalcTaskFireForcesHint">Нормативные нагрузки по п. 8.4 СП 468: основное сочетание из постоянных и временных длительных, без кратковременных; крановые — без динамической составляющей; особое сочетание не рассматривается.</system:String>
    <system:String x:Key="CalcTaskForceN">N, кН</system:String>
    <system:String x:Key="CalcTaskForceMx">Mx, кН·м</system:String>

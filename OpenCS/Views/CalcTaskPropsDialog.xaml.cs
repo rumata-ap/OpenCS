@@ -59,6 +59,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     ForceSet? selectedForceSet;
     LoadItem? selectedForceItem;
     FireSectionDef? selectedFireSection;
+    DatabaseService.FireThermalResultInfo? _selectedFireThermalResult;
+    FireSnapshotOption? _selectedFireSnapshot;
     FireRCheckParams _fireParams = new();
     CalcType selectedCalcType = CalcType.C;
     string manualN = "0";
@@ -219,6 +221,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsFireKind));
            OnPropertyChanged(nameof(IsFireBatchKind));
            OnPropertyChanged(nameof(IsFireNoForceKind));
+           OnPropertyChanged(nameof(ShowFireSnapshot));
            OnPropertyChanged(nameof(IsStrainBatch));
            OnPropertyChanged(nameof(IsLimitBatch));
            OnPropertyChanged(nameof(IsLimitSingle));
@@ -313,6 +316,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsFireKind));
            OnPropertyChanged(nameof(IsFireBatchKind));
            OnPropertyChanged(nameof(IsFireNoForceKind));
+           OnPropertyChanged(nameof(ShowFireSnapshot));
            OnPropertyChanged(nameof(IsStrainBatch));
            OnPropertyChanged(nameof(IsLimitBatch));
            OnPropertyChanged(nameof(IsLimitSingle));
@@ -387,7 +391,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
     public bool IsFireKind         => FireTaskParamsBuilder.IsFireKind(Kind);
     public bool IsFireBatchKind    => Kind == "fire_r_check_batch";
-    public bool IsFireNoForceKind  => Kind == "fire_thermal_curvature";
+   public bool IsFireNoForceKind  => Kind == "fire_thermal_curvature";
+   /// <summary>Показывать выбор момента времени для огневой задачи.</summary>
+   public bool ShowFireSnapshot => IsFireKind && Kind != "fire_r_time";
    public bool IsStrainBatch => Kind == "strain_state_batch" || Kind == "strength_ndm_batch";
    public bool IsLimitBatch  => Kind is "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch";
    public bool IsLimitKind   => Kind.StartsWith("limit_", StringComparison.Ordinal);
@@ -557,8 +563,80 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            if (value != null)
               SelectedSection = _allSections.FirstOrDefault(s => s.Id == value.SectionId);
            OnPropertyChanged();
+           ReloadFireThermalResults();
         }
     }
+
+   /// <summary>Тепловые расчёты выбранного огневого сечения.</summary>
+   public ObservableCollection<DatabaseService.FireThermalResultInfo> FireThermalResults { get; } = [];
+
+   /// <summary>Выбранный тепловой расчёт огневой задачи.</summary>
+   public DatabaseService.FireThermalResultInfo? SelectedFireThermalResult
+   {
+      get => _selectedFireThermalResult;
+      set
+      {
+         _selectedFireThermalResult = value;
+         _fireParams.ThermalResultId = value?.Id ?? 0;
+         OnPropertyChanged();
+         ReloadFireSnapshots();
+      }
+   }
+
+   /// <summary>Моменты времени выбранного теплового расчёта.</summary>
+   public ObservableCollection<FireSnapshotOption> FireSnapshots { get; } = [];
+
+   /// <summary>Выбранный снимок температурного поля.</summary>
+   public FireSnapshotOption? SelectedFireSnapshot
+   {
+      get => _selectedFireSnapshot;
+      set
+      {
+         _selectedFireSnapshot = value;
+         _fireParams.SnapshotIndex = value?.Index ?? -1;
+         OnPropertyChanged();
+      }
+   }
+
+   /// <summary>Вариант момента времени температурного поля.</summary>
+   public sealed record FireSnapshotOption(int Index, string Text);
+
+   void ReloadFireThermalResults()
+   {
+      FireThermalResults.Clear();
+      if (SelectedFireSection is null)
+      {
+         SelectedFireThermalResult = null;
+         return;
+      }
+
+      foreach (var info in _app.db.ListFireThermalResults(SelectedFireSection.Id))
+         FireThermalResults.Add(info);
+
+      SelectedFireThermalResult =
+         FireThermalResults.FirstOrDefault(r => r.Id == _fireParams.ThermalResultId)
+         ?? FireThermalResults.FirstOrDefault();
+   }
+
+   void ReloadFireSnapshots()
+   {
+      FireSnapshots.Clear();
+      FireSnapshots.Add(new FireSnapshotOption(-1, Loc.S("CalcTaskFireSnapshotEnd")));
+
+      var info = SelectedFireThermalResult;
+      if (info?.SnapshotCount is int count and > 0 && info.DurationMin is double duration)
+      {
+         for (int i = 0; i < count; i++)
+         {
+            double minutes = count > 1 ? duration * i / (count - 1) : duration;
+            FireSnapshots.Add(new FireSnapshotOption(i,
+               minutes.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)));
+         }
+      }
+
+      SelectedFireSnapshot = FireSnapshots.FirstOrDefault(o => o.Index == _fireParams.SnapshotIndex)
+                          ?? FireSnapshots[0];
+   }
 
    public ObservableCollection<PlateSection> ShellSimplSections { get; }
    public PlateSection? SelectedShellSimplSection
@@ -2378,6 +2456,12 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
       if (IsFireKind)
       {
+         if (FireThermalResults.Count == 0)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedFireThermalResult"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
          if (SelectedFireSection == null)
          {
             MessageBox.Show(Loc.S("CalcTaskNeedFireSection"), Loc.S("Warning"),

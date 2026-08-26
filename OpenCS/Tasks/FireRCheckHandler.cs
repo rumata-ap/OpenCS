@@ -51,15 +51,12 @@ public sealed class FireRCheckHandler : ITaskHandler
             if (fireDef is null)
                 throw new InvalidOperationException($"Огневое сечение id={p.FireSectionId} не найдено.");
 
-            FireThermalResult thermal = p.ThermalResultId > 0
-                ? ctx.Database.LoadFireThermalResult(p.ThermalResultId)
-                : ctx.Database.LoadLatestFireThermalResult(p.FireSectionId)
-                  ?? throw new InvalidOperationException(
-                      "Тепловой результат не найден. Сначала выполните тепловой расчёт.");
+            var reference = FireThermalReference.Resolve(ctx.Database, p.FireSectionId, p.ThermalResultId);
+            if (reference.ErrorKey is not null)
+               throw new InvalidOperationException(Loc.S(reference.ErrorKey));
 
-            int? thermalId = p.ThermalResultId > 0
-                ? p.ThermalResultId
-                : ctx.Database.GetLatestFireThermalResultId(p.FireSectionId);
+            FireThermalResult thermal = ctx.Database.LoadFireThermalResult(reference.ResultId);
+            int? thermalId = reference.ResultId;
 
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin, pool: ctx?.Database?.Diagrams,
                rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
@@ -84,6 +81,8 @@ public sealed class FireRCheckHandler : ITaskHandler
                 passed = check.Passed,
                 margin = Math.Round(check.Margin, 6),
                 critical_time_min = check.CriticalTimeMin,
+                thermal_result_id = reference.ResultId,
+                legacy_thermal_reference = reference.IsLegacyFallback,
                 details = check.Details
             };
 

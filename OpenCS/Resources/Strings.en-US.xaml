@@ -1028,6 +1028,12 @@
    <system:String x:Key="LimitForceBatch_SummaryFormat">Total: {0}, converged: {1}, failed: {2}</system:String>
    <system:String x:Key="CalcTaskFireSection">Fire section</system:String>
    <system:String x:Key="CalcTaskNeedFireSection">No fire section selected.</system:String>
+   <system:String x:Key="FireThermalResultNotFound">Thermal result not found. Run the thermal analysis of the fire section first.</system:String>
+   <system:String x:Key="FireThermalResultOwnerMismatch">The referenced thermal analysis belongs to a different fire section.</system:String>
+   <system:String x:Key="CalcTaskNeedFireThermalResult">The selected fire section has no thermal analysis. Run one before creating the task.</system:String>
+   <system:String x:Key="CalcTaskFireThermalResult">Thermal analysis</system:String>
+   <system:String x:Key="CalcTaskFireSnapshot">Time, min</system:String>
+   <system:String x:Key="CalcTaskFireSnapshotEnd">end of fire</system:String>
    <system:String x:Key="CalcTaskFireForcesHint">Standard loads per SP 468 clause 8.4: basic combination of permanent and long-term loads, short-term loads excluded; crane loads without the dynamic component; accidental combination is not considered.</system:String>
    <system:String x:Key="CalcTaskForceN">N, kN</system:String>
    <system:String x:Key="CalcTaskForceMx">Mx, kN·m</system:String>

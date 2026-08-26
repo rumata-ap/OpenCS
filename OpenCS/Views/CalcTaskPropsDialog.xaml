@@ -46,18 +46,20 @@
          <RowDefinition Height="Auto"/> <!-- 3 Section -->
          <RowDefinition Height="Auto"/> <!-- 4 Force set -->
          <RowDefinition Height="Auto"/> <!-- 5 Force item -->
-         <RowDefinition Height="Auto"/> <!-- 6 N -->
-         <RowDefinition Height="Auto"/> <!-- 7 Mx -->
-         <RowDefinition Height="Auto"/> <!-- 8 My -->
-         <RowDefinition Height="Auto"/> <!-- 9 CalcType -->
-         <RowDefinition Height="Auto"/> <!-- 10 Solver -->
-         <RowDefinition Height="Auto"/> <!-- 11 Limit/two-stage/... -->
-         <RowDefinition Height="Auto"/> <!-- 12 Shell simpl -->
-         <RowDefinition Height="Auto"/> <!-- 13 Steel -->
-         <RowDefinition Height="Auto"/> <!-- 14 Eta -->
-         <RowDefinition Height="Auto"/> <!-- 15 Torsion -->
-         <RowDefinition Height="Auto"/> <!-- 16 Crack width -->
-         <RowDefinition Height="Auto"/> <!-- 17 Total curvature -->
+         <RowDefinition Height="Auto"/> <!-- 6 Thermal result -->
+         <RowDefinition Height="Auto"/> <!-- 7 Snapshot -->
+         <RowDefinition Height="Auto"/> <!-- 8 N -->
+         <RowDefinition Height="Auto"/> <!-- 9 Mx -->
+         <RowDefinition Height="Auto"/> <!-- 10 My -->
+         <RowDefinition Height="Auto"/> <!-- 11 CalcType -->
+         <RowDefinition Height="Auto"/> <!-- 12 Solver -->
+         <RowDefinition Height="Auto"/> <!-- 13 Limit/two-stage/... -->
+         <RowDefinition Height="Auto"/> <!-- 14 Shell simpl -->
+         <RowDefinition Height="Auto"/> <!-- 15 Steel -->
+         <RowDefinition Height="Auto"/> <!-- 16 Eta -->
+         <RowDefinition Height="Auto"/> <!-- 17 Torsion -->
+         <RowDefinition Height="Auto"/> <!-- 18 Crack width -->
+         <RowDefinition Height="Auto"/> <!-- 19 Total curvature -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
          <ColumnDefinition Width="130"/>
@@ -163,7 +165,25 @@
                    DisplayMemberPath="Label"/>
       </StackPanel>
 
-      <StackPanel Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
+      <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource CalcTaskFireThermalResult}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding IsFireKind, Converter={StaticResource BoolToVisibility}}"/>
+      <ComboBox  Grid.Row="6" Grid.Column="1" Margin="0,0,0,8"
+                 ItemsSource="{Binding FireThermalResults}"
+                 SelectedItem="{Binding SelectedFireThermalResult}"
+                 DisplayMemberPath="Created"
+                 Visibility="{Binding IsFireKind, Converter={StaticResource BoolToVisibility}}"/>
+
+      <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource CalcTaskFireSnapshot}"
+                 VerticalAlignment="Center" Margin="0,0,8,8"
+                 Visibility="{Binding ShowFireSnapshot, Converter={StaticResource BoolToVisibility}}"/>
+      <ComboBox  Grid.Row="7" Grid.Column="1" Margin="0,0,0,8"
+                 ItemsSource="{Binding FireSnapshots}"
+                 SelectedItem="{Binding SelectedFireSnapshot}"
+                 DisplayMemberPath="Text"
+                 Visibility="{Binding ShowFireSnapshot, Converter={StaticResource BoolToVisibility}}"/>
+
+      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsOpenSeesSpatialInteraction, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource OpenSeesSpatialParamsHeader}" Margin="0,8,0,0">
             <Grid Margin="4">
@@ -237,7 +257,7 @@
       </StackPanel>
 
       <!-- Параметры расчёта наклонных сечений по СП 63.13330 -->
-      <StackPanel Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsShearInclined, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource CalcTaskKind_shear_inclined}" Margin="0,8,0,0">
             <StackPanel Margin="4">
@@ -356,48 +376,48 @@
          </GroupBox>
       </StackPanel>
 
-      <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
+      <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
                  Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
-      <TextBox   Grid.Row="6" Grid.Column="1"
+      <TextBox   Grid.Row="8" Grid.Column="1"
                  Text="{Binding ManualN, UpdateSourceTrigger=PropertyChanged}"
                  Margin="0,0,0,8"
                  Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
 
-      <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource CalcTaskForceMx}"
+      <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource CalcTaskForceMx}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
                  Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
-      <TextBox   Grid.Row="7" Grid.Column="1"
+      <TextBox   Grid.Row="9" Grid.Column="1"
                  Text="{Binding ManualMx, UpdateSourceTrigger=PropertyChanged}"
                  Margin="0,0,0,8"
                  Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
 
-      <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource CalcTaskForceMy}"
+      <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource CalcTaskForceMy}"
                  VerticalAlignment="Center" Margin="0,0,8,8"
                  Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
-      <TextBox   Grid.Row="8" Grid.Column="1"
+      <TextBox   Grid.Row="10" Grid.Column="1"
                  Text="{Binding ManualMy, UpdateSourceTrigger=PropertyChanged}"
                  Margin="0,0,0,8"
                  Visibility="{Binding ShowManualForces, Converter={StaticResource BoolToVisibility}}"/>
 
-      <TextBlock Grid.Row="9" Grid.Column="0" Text="{DynamicResource CalcType}"
+      <TextBlock Grid.Row="11" Grid.Column="0" Text="{DynamicResource CalcType}"
                  VerticalAlignment="Center" Margin="0,0,8,0"/>
-      <ComboBox  Grid.Row="9" Grid.Column="1"
+      <ComboBox  Grid.Row="11" Grid.Column="1"
                   ItemsSource="{Binding FilteredCalcTypes}"
                   SelectedItem="{Binding SelectedCalcType}"
                  Margin="0,0,0,0"/>
 
-      <TextBlock Grid.Row="10" Grid.Column="0" Text="{DynamicResource LimitForce_SolverMethod}"
+      <TextBlock Grid.Row="12" Grid.Column="0" Text="{DynamicResource LimitForce_SolverMethod}"
                  VerticalAlignment="Center" Margin="0,8,8,8"
                  Visibility="{Binding ShowSolverMethod, Converter={StaticResource BoolToVisibility}}"/>
-      <ComboBox  Grid.Row="10" Grid.Column="1"
+      <ComboBox  Grid.Row="12" Grid.Column="1"
                  ItemsSource="{Binding SolverMethods}"
                  SelectedItem="{Binding SelectedSolver}"
                  DisplayMemberPath="Label"
                  Margin="0,8,0,8"
                  Visibility="{Binding ShowSolverMethod, Converter={StaticResource BoolToVisibility}}"/>
 
-      <StackPanel Grid.Row="11" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsTwoStage, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource CalcTask_Stage1Force}" Margin="0,8,0,0">
             <StackPanel Margin="4">
@@ -533,7 +553,7 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="12" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsPlatePanel, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource CalcTaskPlatePanelHeader}" Margin="0,8,0,0">
             <StackPanel Margin="4">
@@ -640,7 +660,7 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="15" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsSteelCheck, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource SteelCheckParamsHeader}" Margin="0,8,0,0">
             <Grid Margin="4">
@@ -692,7 +712,7 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="14" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="16" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding SupportsEta, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource EtaParamsHeader}" Margin="0,8,0,0">
             <StackPanel Margin="4">
@@ -803,7 +823,7 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="15" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="17" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsTorsion, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource TorsionParamsHeader}" Margin="0,8,0,0">
             <Grid Margin="4">
@@ -1050,7 +1070,7 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="16" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="18" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsCrackWidthAny, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource CrackWidthParamsHeader}" Margin="0,8,0,0">
             <StackPanel Margin="4">
@@ -1143,7 +1163,7 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="17" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="19" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsTotalCurvatureAny, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource TotalCurvatureParamsHeader}" Margin="0,8,0,0">
             <StackPanel Margin="4">
@@ -1172,7 +1192,7 @@
          </GroupBox>
       </StackPanel>
 
-      <StackPanel Grid.Row="17" Grid.Column="0" Grid.ColumnSpan="2"
+      <StackPanel Grid.Row="19" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsMomentCurvatureBiaxial, Converter={StaticResource BoolToVisibility}}">
          <GroupBox Header="{DynamicResource CalcTaskKind_moment_curvature_biaxial}" Margin="0,8,0,0">
             <StackPanel Margin="4">
