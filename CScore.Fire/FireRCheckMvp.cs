@@ -25,7 +25,7 @@ public static class FireRCheckMvp
 
         string aggregate = thermal.AggregateType;
         double gammaBt = FireRCheckGamma.EffectiveConcreteGamma(thermal, aggregate, snapshotIndex);
-        double gammaSt = FireRCheckGamma.EffectiveRebarGammaMin(thermal, snapshotIndex);
+        double gammaSt = FireRCheckGamma.EffectiveRebarGammaMin(thermal, section, snapshotIndex);
 
         CrossSection reduced = FireMaterialReducer.CreateReduced(section, gammaBt, gammaSt);
         reduced.ResolveAndBuildDiagramms();
@@ -42,10 +42,16 @@ public static class FireRCheckMvp
             n, mx, my,
             fireDef,
             thermalResultId,
+            section,
             extra: new Dictionary<string, object?>
             {
                 ["gamma_bt"] = gammaBt,
-                ["gamma_st_min"] = gammaSt
+                ["gamma_st_min"] = gammaSt,
+                ["non_normative"] = true,
+                ["non_normative_reason"] =
+                    "Глобальная редукция по представительной температуре; растянутый бетон "
+                  + "не исключается по п. 8.42. Путь диагностический, для нормативного расчёта "
+                  + "использовать method=fiber."
             });
 
         if (res.StrainPlane is Kurvature sp)

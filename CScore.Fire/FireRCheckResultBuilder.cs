@@ -16,6 +16,7 @@ internal static class FireRCheckResultBuilder
         double my,
         FireSectionDef? fireDef,
         int? thermalResultId,
+        CrossSection? section,
         IReadOnlyDictionary<string, object?>? extra = null)
     {
         int idx = snapshotIndex < 0 ? thermal.Snapshots.Length - 1 : snapshotIndex;
@@ -33,6 +34,10 @@ internal static class FireRCheckResultBuilder
         var details = new Dictionary<string, object?>
         {
             ["method"] = method,
+            ["norm_edition"] = "SP468-2019/izm1",
+            ["norm_note_4_8"] =
+                "П. 4.8 СП 468: расчёт огнестойкости программными комплексами применим "
+              + "только после апробации результатов огневыми испытаниями в испытательном центре.",
             ["thermal_result_id"] = thermalResultId,
             ["aggregate_type"] = thermal.AggregateType,
             ["snapshot_index"] = snapshotIndex,
@@ -76,6 +81,9 @@ internal static class FireRCheckResultBuilder
             details["fire_section_name"] = fireDef.Tag;
         }
 
+        if (section is not null)
+            AppendApplicability(details, section, thermal);
+
         return new FireCheckResult
         {
             Criterion = "R",
@@ -91,5 +99,59 @@ internal static class FireRCheckResultBuilder
         result.Details["N_result"] = forces.N;
         result.Details["Mx_result"] = forces.Mx;
         result.Details["My_result"] = forces.My;
+    }
+
+    /// <summary>
+    /// Границы применимости по пп. 5.8 и 5.2 СП 468: класс бетона не выше В55,
+    /// распознанный тип заполнителя, распознанный класс арматуры.
+    /// </summary>
+    static void AppendApplicability(
+        Dictionary<string, object?> details,
+        CrossSection section,
+        FireThermalResult thermal)
+    {
+        foreach (var area in section.Areas)
+        {
+            var mat = area.Material;
+            if (mat is null || mat.Type != MatType.Concrete)
+                continue;
+
+            double cls = mat.MaterialChars.Count > 0 ? mat.MaterialChars[0].Class : 0.0;
+            if (cls > 55.0)
+            {
+                details["unsupported_concrete_class"] = cls;
+                details["unsupported_concrete_reason"] =
+                    "П. 5.8 СП 468: таблицы 5.1–5.4 распространяются на бетон класса не выше В55. "
+                  + "Для более высоких классов коэффициенты определяются экспериментально.";
+            }
+            break;
+        }
+
+        string aggregate = thermal.AggregateType?.Trim().ToLowerInvariant() ?? "";
+        if (aggregate is not ("silicate" or "carbonate" or "lightweight"))
+        {
+            details["aggregate_fallback"] = "silicate";
+            details["aggregate_raw"] = thermal.AggregateType;
+        }
+
+        var fallbackClasses = new List<string>();
+        foreach (var area in section.Areas)
+        {
+            var mat = area.Material;
+            if (mat is null)
+                continue;
+            if (mat.Type is not (MatType.ReSteelF or MatType.ReSteelU or MatType.Steel))
+                continue;
+
+            var resolution = FireRebarClassResolver.Resolve(mat);
+            if (resolution.IsFallback)
+                fallbackClasses.Add(mat.Tag);
+        }
+
+        if (fallbackClasses.Count > 0)
+        {
+            details["rebar_class_fallback"] = true;
+            details["rebar_class_fallback_materials"] = fallbackClasses;
+        }
     }
 }

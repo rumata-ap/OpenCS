@@ -43,6 +43,7 @@ public static class FireRCheckFiber
             n, mx, my,
             fireDef,
             thermalResultId,
+            section,
             extra: new Dictionary<string, object?>
             {
                 ["gamma_bt_avg"] = gammaBt.Count > 0 ? gammaBt.Average() : 1.0,
@@ -50,7 +51,16 @@ public static class FireRCheckFiber
                 ["gamma_bt_max"] = gammaBt.Count > 0 ? gammaBt.Max() : 1.0,
                 ["gamma_st_min"] = gammaSt.Count > 0 ? gammaSt.Min() : 1.0,
                 ["n_concrete_elements"] = fiber.ConcreteElements.Count,
-                ["n_rebar_elements"] = fiber.RebarElements.Count
+                ["n_rebar_elements"] = fiber.RebarElements.Count,
+                ["rebar_classes"] = fiber.RebarElements
+                    .GroupBy(e => new { e.ClassGroup, e.ClassSource })
+                    .Select(g => new
+                    {
+                        group = g.Key.ClassGroup.ToString(),
+                        source = g.Key.ClassSource,
+                        count = g.Count()
+                    })
+                    .ToList()
             });
 
         if (res.StrainPlane is Kurvature sp)

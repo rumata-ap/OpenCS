@@ -41,6 +41,8 @@ FireFiberSectionTests.RunAll();
 
 FireRCheckTests.RunAll();
 
+FireMvpVsFiberTests.RunAll();
+
 FireRParityTests.RunAll();
 
 CustomDiagramTests.RunAll();

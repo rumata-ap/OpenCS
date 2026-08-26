@@ -1,3 +1,5 @@
+using CScore;
+
 namespace CScore.Fire;
 
 /// <summary>Расчёт представительных коэффициентов γ для MVP R-проверки.</summary>
@@ -34,33 +36,26 @@ public static class FireRCheckGamma
         return FireMaterials.GammaBt("", aggregateType, tRep);
     }
 
-    /// <summary>Минимальный γ_st по арматурным стержням (консервативно для MVP).</summary>
+    /// <summary>
+    /// Минимальный γ_st по стержням сечения — консервативная свёртка для
+    /// диагностического MVP-пути. Класс арматуры разрешается для каждого стержня
+    /// отдельно: в одном сечении могут стоять разные классы.
+    /// </summary>
     public static double EffectiveRebarGammaMin(
         FireThermalResult thermal,
-        int snapshotIndex = -1,
-        string stressState = "compression")
+        CrossSection section,
+        int snapshotIndex = -1)
     {
+        ArgumentNullException.ThrowIfNull(section);
+
         int idx = ResolveSnapshotIndex(thermal, snapshotIndex);
-        var gammas = new List<double>();
-        foreach (var loc in thermal.MeshInfo.Rebars)
-        {
-            double t = ResolveRebarTemperature(thermal, loc.Id, idx);
-            gammas.Add(FireMaterials.GammaSt("", t, stressState));
-        }
+        var fiber = FireFiberSection.FromThermalResult(thermal, section, idx);
 
-        return gammas.Count == 0 ? 1.0 : gammas.Min();
-    }
+        double min = 1.0;
+        foreach (var r in fiber.RebarElements)
+            min = Math.Min(min, r.GammaSt);
 
-    static double ResolveRebarTemperature(FireThermalResult thermal, int rebarId, int snapshot)
-    {
-        if (thermal.RebarTemperatureHistory.TryGetValue(rebarId, out var hist) &&
-            snapshot >= 0 && snapshot < hist.Length)
-            return hist[snapshot];
-
-        if (thermal.RebarMaxTemperatures.TryGetValue(rebarId, out double maxT))
-            return maxT;
-
-        return 20.0;
+        return min;
     }
 
     static int ResolveSnapshotIndex(FireThermalResult thermal, int idx)

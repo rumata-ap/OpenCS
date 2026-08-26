@@ -38,7 +38,7 @@ public static class Sp468MaterialsTests
         CheckAbs("GammaBt silicate @400C", FireMaterials.GammaBt("B25", "silicate", 400.0), 0.75, 1e-9);
         CheckAbs(
             "GammaSt compression @400C",
-            FireMaterials.GammaSt("A500", 400.0, "compression"),
+            FireMaterials.GammaSt(FireRebarClass.A240A500, 400.0),
             0.85,
             1e-9);
     }

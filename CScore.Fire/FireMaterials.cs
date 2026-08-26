@@ -19,9 +19,4 @@ public static class FireMaterials
    /// <summary>γ_st(T) по таблице 5.6 СП 468, единый для растяжения и сжатия.</summary>
    public static double GammaSt(FireRebarClass group, double T) => Sp468Tables.GammaSt(group, T);
 
-   // Совместимый overload необходим только до Task 7; правило его удаления задано
-   // в разделе «Поправки по результатам ревью».
-   [Obsolete("Диагностический MVP должен передавать класс арматуры; окончательно удалить в Task 7.")]
-   public static double GammaSt(string _, double T, string __ = "compression")
-      => Sp468Tables.GammaSt(FireRebarClass.A240A500, T);
 }
