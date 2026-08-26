@@ -1,4 +1,4 @@
-using CScore;
+﻿using CScore;
 using CScore.Fire;
 using OpenCS.Utilites;
 using CSfea.Thermal;
@@ -231,7 +231,7 @@ internal static class FireMeshPlotBuilder
 
     static Diagramm GetDiagram(Material mat, CalcType calc)
     {
-        var d = mat.GetDiagramms(DiagrammType.L2);
+        var d = mat.GetDiagramms(DiagrammCompatibility.Coerce(mat.Type, DiagrammType.L2));
         if (d != null && d.TryGetValue(calc, out var dg)) return dg;
         throw new InvalidOperationException($"Диаграмма {mat.Tag} не найдена.");
     }

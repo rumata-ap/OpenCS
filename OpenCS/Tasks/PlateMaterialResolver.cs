@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using CScore;
@@ -7,7 +7,8 @@ namespace OpenCS.Tasks;
 
 /// <summary>
 /// Резолвинг материалов плитного сечения в диаграммы для заданного CalcType.
-/// Бетон — SP63, арматура — L2 (как в CScoreBridge.SectionBridgeFactory).
+/// Бетон — SP63, арматура — L2 (как в CScoreBridge.SectionBridgeFactory);
+/// для арматуры с условным пределом текучести L2 не существует — берётся L3.
 /// </summary>
 public static class PlateMaterialResolver
 {
@@ -23,7 +24,7 @@ public static class PlateMaterialResolver
 
         var cDiag = concrete.GetDiagramms(section.ConcreteDiagramType)?[calc]
             ?? throw new InvalidOperationException("Диаграмма бетона не построена.");
-        var rDiag = rebar.GetDiagramms(DiagrammType.L2)?[calc]
+        var rDiag = rebar.GetDiagramms(DiagrammCompatibility.Coerce(rebar.Type, DiagrammType.L2))?[calc]
             ?? throw new InvalidOperationException("Диаграмма арматуры не построена.");
 
         var layerDiags = new Diagramm?[section.RebarLayers.Count];
@@ -33,7 +34,9 @@ public static class PlateMaterialResolver
             if (layer.MaterialId > 0)
             {
                 var lm = matList.FirstOrDefault(m => m.Id == layer.MaterialId);
-                if (lm != null) layerDiags[i] = lm.GetDiagramms(DiagrammType.L2)?[calc];
+                if (lm != null)
+                    layerDiags[i] = lm.GetDiagramms(
+                        DiagrammCompatibility.Coerce(lm.Type, DiagrammType.L2))?[calc];
             }
         }
         return (cDiag, rDiag, layerDiags, concrete.E);

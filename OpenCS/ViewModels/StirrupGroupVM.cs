@@ -315,6 +315,10 @@ public sealed class StirrupGroupVM : ViewModelBase
         {
             EditedArea.Material = SelectedMaterial;
             EditedArea.MaterialId = SelectedMaterial.Id;
+            // Тип диаграммы редактор хомутов не спрашивает — определяем по материалу
+            // (для ReSteelU двухлинейной диаграммы не существует).
+            EditedArea.DiagrammType =
+                DiagrammCompatibility.Coerce(SelectedMaterial.Type, EditedArea.DiagrammType);
         }
 
         _group.MaterialId = EditedArea.MaterialId;

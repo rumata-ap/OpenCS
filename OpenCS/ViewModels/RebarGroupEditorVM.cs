@@ -577,6 +577,10 @@ namespace OpenCS.ViewModels
             area.HostAreaId = _selectedRegion?.Id;
             area.Material   = _selectedMaterial;
             area.MaterialId = _selectedMaterial?.Id ?? 0;
+            // Тип диаграммы редактор групп не спрашивает: для арматуры он однозначно
+            // определяется материалом (физический предел текучести — L2, условный — L3).
+            if (_selectedMaterial != null)
+                area.DiagrammType = DiagrammCompatibility.Coerce(_selectedMaterial.Type, area.DiagrammType);
             area.PropagateEps_p();
             area.Fibers.Clear();
             foreach (var b in Bars)

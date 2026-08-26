@@ -230,4 +230,69 @@ namespace CScore
    /// EKB — по Единым каталогам, SP35 — по СП 35.
    /// </summary>
     public enum DiagrammType { L2, L3, EKB, SP63, SP35, SP16, Custom }
+
+   /// <summary>
+   /// Совместимость типа диаграммы и типа материала — единственный источник правды
+   /// о том, какие диаграммы <see cref="MaterialChars"/> умеет строить для материала.
+   /// Соответствует набору исключений «Диаграмма и материал не совместимы»
+   /// в <see cref="MaterialChars"/>.
+   /// </summary>
+   public static class DiagrammCompatibility
+   {
+      static readonly DiagrammType[] ConcreteTypes =
+         [DiagrammType.L2, DiagrammType.L3, DiagrammType.SP63, DiagrammType.EKB, DiagrammType.SP35];
+      static readonly DiagrammType[] ReSteelFTypes = [DiagrammType.L2];
+      static readonly DiagrammType[] ReSteelUTypes = [DiagrammType.L3];
+      static readonly DiagrammType[] SteelTypes = [DiagrammType.L2, DiagrammType.SP16];
+      static readonly DiagrammType[] NoTypes = [];
+
+      /// <summary>Типы диаграмм, допустимые для указанного типа материала.</summary>
+      /// <remarks>
+      /// Для <see cref="MatType.Custom"/> список пуст — диаграммы берутся из пула проекта,
+      /// а не строятся по характеристикам.
+      /// </remarks>
+      public static IReadOnlyList<DiagrammType> Allowed(MatType matType) => matType switch
+      {
+         MatType.Concrete => ConcreteTypes,
+         MatType.ReSteelF => ReSteelFTypes,
+         MatType.ReSteelU => ReSteelUTypes,
+         MatType.Steel    => SteelTypes,
+         _                => NoTypes
+      };
+
+      /// <summary>
+      /// Тип диаграммы по умолчанию для материала: бетон — трёхлинейная,
+      /// арматура с условным пределом текучести — трёхлинейная,
+      /// остальная арматура и сталь — двухлинейная.
+      /// </summary>
+      public static DiagrammType Default(MatType matType) => matType switch
+      {
+         MatType.Concrete => DiagrammType.L3,
+         MatType.ReSteelU => DiagrammType.L3,
+         MatType.Custom   => DiagrammType.Custom,
+         _                => DiagrammType.L2
+      };
+
+      /// <summary>
+      /// true, если диаграмма указанного типа может быть построена для материала.
+      /// <see cref="DiagrammType.Custom"/> совместим с любым материалом
+      /// (диаграмма берётся из пула проекта).
+      /// </summary>
+      public static bool IsCompatible(MatType matType, DiagrammType diagrammType)
+      {
+         if (diagrammType == DiagrammType.Custom) return true;
+         if (matType == MatType.Custom) return true;
+         var allowed = Allowed(matType);
+         for (int i = 0; i < allowed.Count; i++)
+            if (allowed[i] == diagrammType) return true;
+         return false;
+      }
+
+      /// <summary>
+      /// Возвращает <paramref name="diagrammType"/>, если он допустим для материала,
+      /// иначе — тип по умолчанию (<see cref="Default"/>).
+      /// </summary>
+      public static DiagrammType Coerce(MatType matType, DiagrammType diagrammType) =>
+         IsCompatible(matType, diagrammType) ? diagrammType : Default(matType);
+   }
 }
