@@ -28,9 +28,16 @@ public sealed class FireRebarElement
     /// <summary>Температура стержня, °C.</summary>
     public double Temperature;
 
-    /// <summary>Температурный коэффициент арматуры при сжатии γ_st,c.</summary>
-    public double GammaStC = 1.0;
+    /// <summary>
+    /// Температурный коэффициент условий работы арматуры γ_st по таблице 5.6.
+    /// Единый для растяжения и сжатия: формулы (5.5) и (5.6) СП 468 применяют
+    /// один и тот же коэффициент к R_s и к R_sc.
+    /// </summary>
+    public double GammaSt = 1.0;
 
-    /// <summary>Температурный коэффициент арматуры при растяжении γ_st,t.</summary>
-    public double GammaStT = 1.0;
+    /// <summary>Разрешённая группа класса арматуры по таблице 5.6.</summary>
+    public FireRebarClass ClassGroup = FireRebarClass.A240A500;
+
+    /// <summary>Источник группы класса: explicit, tag, class или fallback.</summary>
+    public string ClassSource = "fallback";
 }

@@ -19,6 +19,9 @@ public sealed class FireFiberSection : ILimitSection
     /// <summary>Текущие арматурные волокна.</summary>
     public IReadOnlyList<FireRebarElement> RebarElements { get; }
 
+    /// <summary>true, если группа класса хотя бы одного стержня определена фолбэком.</summary>
+    public bool RebarClassFallback { get; private set; }
+
     /// <summary>Индекс текущего температурного снапшота.</summary>
     public int SnapshotIndex { get; private set; }
 
@@ -142,6 +145,7 @@ public sealed class FireFiberSection : ILimitSection
             }
 
             rebarMeta.Add(new RebarMeta(r.Id));
+            var resolution = FireRebarClassResolver.Resolve(mat);
             rebarElements.Add(new FireRebarElement
             {
                 RebarId = r.Id,
@@ -149,7 +153,9 @@ public sealed class FireFiberSection : ILimitSection
                 Y = r.Y,
                 Diameter = diameter,
                 Area = area,
-                Material = mat
+                Material = mat,
+                ClassGroup = resolution.Group,
+                ClassSource = resolution.Source
             });
         }
 
@@ -160,6 +166,7 @@ public sealed class FireFiberSection : ILimitSection
             rebarMeta,
             concreteElements,
             rebarElements);
+        fireSection.RebarClassFallback = rebarElements.Exists(e => e.ClassSource == "fallback");
         fireSection.SetSnapshot(resolvedSnapshot);
         return fireSection;
     }
@@ -181,7 +188,7 @@ public sealed class FireFiberSection : ILimitSection
             double t = (nodeT[meta.N1] + nodeT[meta.N2] + nodeT[meta.N3]) / 3.0;
             var c = (FireConcreteElement)ConcreteElements[i];
             c.Temperature = t;
-            c.GammaBt = FireMaterials.GammaBt("", _thermal.AggregateType, t);
+            c.GammaBt = Sp468Tables.GammaBt(_thermal.AggregateType, t);
         }
 
         for (int i = 0; i < RebarElements.Count; i++)
@@ -190,8 +197,7 @@ public sealed class FireFiberSection : ILimitSection
             double t = ResolveRebarTemperature(_thermal, rebarId, idx);
             var r = (FireRebarElement)RebarElements[i];
             r.Temperature = t;
-            r.GammaStC = FireMaterials.GammaSt("", t, "compression");
-            r.GammaStT = FireMaterials.GammaSt("", t, "tension");
+            r.GammaSt = Sp468Tables.GammaSt(r.ClassGroup, t);
         }
 
         SnapshotIndex = idx;
@@ -207,10 +213,9 @@ public sealed class FireFiberSection : ILimitSection
         foreach (var c in ConcreteElements)
         {
             double eps = k.e0 + k.ky * c.Cy + k.kz * c.Cx;
-            Diagramm d = ResolveDiagram(c.Material, calc);
-            double sigma = d.Sig(eps, out _) * c.GammaBt;
+            if (eps >= 0.0) continue;
 
-            double fi = sigma * c.Area;
+            double fi = ConcreteStress(c, eps, calc) * c.Area;
             n += fi;
             mx += fi * c.Cy;
             my += fi * c.Cx;
@@ -219,11 +224,7 @@ public sealed class FireFiberSection : ILimitSection
         foreach (var r in RebarElements)
         {
             double eps = k.e0 + k.ky * r.Y + k.kz * r.X;
-            Diagramm d = ResolveDiagram(r.Material, calc);
-            double gamma = eps < 0.0 ? r.GammaStC : r.GammaStT;
-            double sigma = d.Sig(eps, out _) * gamma;
-
-            double fi = sigma * r.Area;
+            double fi = RebarStress(r, eps, calc) * r.Area;
             n += fi;
             mx += fi * r.Y;
             my += fi * r.X;
@@ -237,6 +238,14 @@ public sealed class FireFiberSection : ILimitSection
             My = my
         };
     }
+
+    /// <summary>Напряжение в бетонном волокне с учётом γ_bt.</summary>
+    public double ConcreteStress(FireConcreteElement c, double eps, CalcType calc)
+        => ResolveDiagram(c.Material, calc).Sig(eps, out _) * c.GammaBt;
+
+    /// <summary>Напряжение в арматурном волокне с учётом γ_st.</summary>
+    public double RebarStress(FireRebarElement r, double eps, CalcType calc)
+        => ResolveDiagram(r.Material, calc).Sig(eps, out _) * r.GammaSt;
 
     private Diagramm ResolveDiagram(Material material, CalcType calc)
     {

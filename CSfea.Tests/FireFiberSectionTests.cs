@@ -13,6 +13,9 @@ public static class FireFiberSectionTests
     {
         TestHarness.Section("FireFiberSection: редукция интеграла по температуре");
         Integral_DecreasesAtHighTemperature();
+        TensileConcrete_DoesNotContribute();
+        RebarGamma_IsSingleValueRegardlessOfSign();
+        RebarClass_IsResolvedIntoElement();
     }
 
     private static void Integral_DecreasesAtHighTemperature()
@@ -37,6 +40,54 @@ public static class FireFiberSectionTests
             "FireFiberSection_ReducedAxialForce",
             reduced,
             $"|N20|={Math.Abs(cold.N):F6}, |N400|={Math.Abs(hot.N):F6}");
+    }
+
+    static void TensileConcrete_DoesNotContribute()
+    {
+        var (section, thermal) = FireRCheckTests.BuildFixtureForTests();
+        var fiber = FireFiberSection.FromThermalResult(thermal, section, snapshotIndex: 0);
+
+        var k = new Kurvature { e0 = 0.0005, ky = -0.01, kz = 0.0 };
+        Load full = fiber.Integral(k, CalcType.C);
+
+        double n = 0.0;
+        foreach (var c in fiber.ConcreteElements)
+        {
+            double eps = k.e0 + k.ky * c.Cy + k.kz * c.Cx;
+            if (eps >= 0.0) continue;
+            n += fiber.ConcreteStress(c, eps, CalcType.C) * c.Area;
+        }
+        foreach (var r in fiber.RebarElements)
+        {
+            double eps = k.e0 + k.ky * r.Y + k.kz * r.X;
+            n += fiber.RebarStress(r, eps, CalcType.C) * r.Area;
+        }
+
+        TestHarness.CheckRel("FireFiberSection_TensileConcreteExcluded", full.N, n, 1e-9);
+    }
+
+    static void RebarGamma_IsSingleValueRegardlessOfSign()
+    {
+        var (section, thermal) = FireRCheckTests.BuildFixtureForTests();
+        var fiber = FireFiberSection.FromThermalResult(thermal, section, snapshotIndex: 1);
+
+        var r = fiber.RebarElements[0];
+        double expected = Sp468Tables.GammaSt(r.ClassGroup, r.Temperature);
+
+        TestHarness.Check("FireFiberSection_SingleGammaSt",
+            Math.Abs(r.GammaSt - expected) < 1e-12,
+            $"gammaSt={r.GammaSt:F4}, expected={expected:F4}, T={r.Temperature:F1}");
+    }
+
+    static void RebarClass_IsResolvedIntoElement()
+    {
+        var (section, thermal) = FireRCheckTests.BuildFixtureForTests();
+        var fiber = FireFiberSection.FromThermalResult(thermal, section, snapshotIndex: 0);
+
+        var r = fiber.RebarElements[0];
+        TestHarness.Check("FireFiberSection_ClassResolved",
+            !string.IsNullOrEmpty(r.ClassSource),
+            $"group={r.ClassGroup}, source={r.ClassSource}, fallback={fiber.RebarClassFallback}");
     }
 
     private static FireThermalResult CreateThermalResult()

@@ -17,7 +17,7 @@ public static class FireRCheckTests
 
     private static void Fiber_ReturnsFiniteFactor()
     {
-        var (section, thermal) = BuildFixture();
+        var (section, thermal) = BuildFixtureForTests();
         var check = FireRCheckFiber.Run(thermal, section, n: -0.5, mx: 0, my: 0, snapshotIndex: 0);
         bool ok = double.IsFinite(check.Margin) && check.Details.ContainsKey("factor");
         TestHarness.Check("FireRCheckFiber_FiniteFactor", ok,
@@ -26,7 +26,7 @@ public static class FireRCheckTests
 
     private static void Mvp_ReturnsFiniteFactor()
     {
-        var (section, thermal) = BuildFixture();
+        var (section, thermal) = BuildFixtureForTests();
         var check = FireRCheckMvp.Run(thermal, section, n: -0.5, mx: 0, my: 0, snapshotIndex: 0);
         bool ok = double.IsFinite(check.Margin) && check.Details.ContainsKey("gamma_bt");
         TestHarness.Check("FireRCheckMvp_FiniteFactor", ok,
@@ -35,14 +35,14 @@ public static class FireRCheckTests
 
     private static void Fiber_HotSnapshotHasReducedGamma()
     {
-        var (section, thermal) = BuildFixture();
+        var (section, thermal) = BuildFixtureForTests();
         var fiber = FireFiberSection.FromThermalResult(thermal, section, snapshotIndex: 1);
         double minGamma = fiber.ConcreteElements.Min(e => e.GammaBt);
         TestHarness.Check("FireRCheckFiber_HotGammaReduced", minGamma < 0.99,
             $"minGammaBt={minGamma:F4}");
     }
 
-    private static (CrossSection Section, FireThermalResult Thermal) BuildFixture()
+    internal static (CrossSection Section, FireThermalResult Thermal) BuildFixtureForTests()
     {
         CrossSection section = FireFiberSectionTests.CreateSectionForTests();
         FireThermalResult thermal = CreateThermalResult();

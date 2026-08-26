@@ -33,8 +33,7 @@ public static class FireRCheckFiber
         LimitForceResult res = solver.AllFactor(n, mx, my);
 
         var gammaBt = fiber.ConcreteElements.Select(e => e.GammaBt).ToList();
-        var gammaStC = fiber.RebarElements.Select(e => e.GammaStC).ToList();
-        var gammaStT = fiber.RebarElements.Select(e => e.GammaStT).ToList();
+        var gammaSt = fiber.RebarElements.Select(e => e.GammaSt).ToList();
 
         var check = FireRCheckResultBuilder.Build(
             res,
@@ -49,8 +48,7 @@ public static class FireRCheckFiber
                 ["gamma_bt_avg"] = gammaBt.Count > 0 ? gammaBt.Average() : 1.0,
                 ["gamma_bt_min"] = gammaBt.Count > 0 ? gammaBt.Min() : 1.0,
                 ["gamma_bt_max"] = gammaBt.Count > 0 ? gammaBt.Max() : 1.0,
-                ["gamma_st_c_min"] = gammaStC.Count > 0 ? gammaStC.Min() : 1.0,
-                ["gamma_st_t_min"] = gammaStT.Count > 0 ? gammaStT.Min() : 1.0,
+                ["gamma_st_min"] = gammaSt.Count > 0 ? gammaSt.Min() : 1.0,
                 ["n_concrete_elements"] = fiber.ConcreteElements.Count,
                 ["n_rebar_elements"] = fiber.RebarElements.Count
             });

@@ -25,7 +25,7 @@ internal static class FireMeshPlotBuilder
             fiber.SetSnapshot(snap);
             return BuildScalarFromMesh(thermal, fiber.ConcreteElements, fiber.RebarElements,
                 c => c.GammaBt,
-                r => Math.Min(r.GammaStC, r.GammaStT),
+                r => r.GammaSt,
                 v => string.Format(CultureInfo.InvariantCulture, "γ = {0:F4}", v));
         }, initialSnapshot);
 
@@ -197,8 +197,7 @@ internal static class FireMeshPlotBuilder
         {
             double eps = k.e0 + k.ky * r.Y + k.kz * r.X;
             var d = GetDiagram(r.Material, calc);
-            double gamma = eps < 0 ? r.GammaStC : r.GammaStT;
-            double sig = d.Sig(eps, out _) * gamma / 1000.0;
+            double sig = d.Sig(eps, out _) * r.GammaSt / 1000.0;
             pts.Add(new FirePointDraw(Mm(r.X, r.Y), Math.Max(1.5, r.Diameter * 500), sig,
                 string.Format(CultureInfo.InvariantCulture, "#{0}: σ = {1:+0.0;-0.0} МПа", r.RebarId, sig)));
         }
