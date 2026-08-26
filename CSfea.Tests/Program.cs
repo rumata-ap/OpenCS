@@ -25,6 +25,8 @@ EquivalentBeamAnalogyE2ETests.RunAll();
 
 FireCurvesTests.RunAll();
 
+Sp468TablesTests.RunAll();
+
 FireMeshBuilderTests.RunAll();
 
 FireThermalServiceTests.RunAll();
