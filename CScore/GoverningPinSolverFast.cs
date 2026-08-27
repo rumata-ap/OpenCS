@@ -24,7 +24,7 @@ public sealed class GoverningPinSolverFast
     readonly double _hDiff;
     readonly int _maxIter;
     readonly (double X, double Y)[] _contourPts;
-    readonly (double X, double Y, double EpsLimit)[] _rebarPoints;
+    readonly (double X, double Y, double EpsLimit, double EpsP)[] _rebarPoints;
     readonly double _epsCuLimit;
     readonly double _yRef, _xRef;
 
@@ -48,7 +48,7 @@ public sealed class GoverningPinSolverFast
         _rebarPoints = section.Areas
             .Where(a => a.Material?.Type is MatType.ReSteelF or MatType.ReSteelU)
             .SelectMany(a => a.Fibers.Where(f => f.TypeFiber == FiberType.point)
-                .Select(f => (f.X, f.Y, EpsLimit: RebarUltimateStrain(a, calc))))
+                .Select(f => (f.X, f.Y, EpsLimit: RebarUltimateStrain(a, calc), EpsP: f.Eps_p)))
             .ToArray();
 
         var allPts = _contourPts.Select(p => (p.X, p.Y))
@@ -134,7 +134,8 @@ public sealed class GoverningPinSolverFast
     (double N, double Mx, double My) ForcesAt(Kurvature k, IReadOnlyDictionary<Fiber, double>? epsCrc)
     {
         var raw = _section.Integral(k, _calc, ten: _ten, ca: true);
-        var load = epsCrc == null ? raw : Curvature8232.ApplyPsiCorrection(_section, k, raw, epsCrc, _calc);
+        var load = epsCrc == null ? raw : Curvature8232.ApplyPsiCorrection(
+            _section, k, raw, epsCrc, _calc, requireCurrentPlaneStrain: true);
         return (load.N, load.Mx, load.My);
     }
 
@@ -151,9 +152,23 @@ public sealed class GoverningPinSolverFast
         }
         foreach (var r in _rebarPoints)
         {
+            // Деформация от плоскости — БЕЗ преднапряжения (совпадает с классификацией ψs,
+            // см. Curvature8232.ApplyPsiCorrection); ранжирование и предел — с ним: реальный
+            // разрыв стержня наступает при ПОЛНОЙ деформации εs+εp = EpsSu, поэтому ratio
+            // считается по (eps+EpsP)/EpsSu, как в LimitForceSolverFast.BuildResult/Gov, а не
+            // по одной лишь eps — иначе преднапряжённый стержень кажется дальше от предела,
+            // чем есть на самом деле.
             double eps = at.e0 + at.ky * r.Y + at.kz * r.X;
-            double ratio = r.EpsLimit > 0 ? eps / r.EpsLimit : 0.0;
-            if (ratio > bestRatio) { bestRatio = ratio; best = (r.X, r.Y, r.EpsLimit, "rebar"); }
+            double ratio = r.EpsLimit > 0 ? (eps + r.EpsP) / r.EpsLimit : 0.0;
+            if (ratio > bestRatio)
+            {
+                // Пин задаёт ПЛОСКОСТНУЮ деформацию (epsPin ниже — тоже плоскостная, см.
+                // Solve), поэтому предел для неё — остаток бюджета εs,su − εp: при
+                // targetUtilization=1.0 плоскостная деформация + εp достигнет ровно EpsSu, а не
+                // перелетит его на величину преднапряжения (как было до фикса).
+                bestRatio = ratio;
+                best = (r.X, r.Y, Math.Max(r.EpsLimit - r.EpsP, 0.0), "rebar");
+            }
         }
         if (best.EpsLimit == 0.0)
             throw new InvalidOperationException("GoverningPinSolverFast: не удалось определить governing-точку.");
@@ -174,7 +189,9 @@ public sealed class GoverningPinSolverFast
     {
         Func<Kurvature, Load>? evaluate = epsCrc == null
             ? null
-            : k => Curvature8232.ApplyPsiCorrection(_section, k, _section.Integral(k, _calc, _ten, true), epsCrc, _calc);
+            : k => Curvature8232.ApplyPsiCorrection(
+                _section, k, _section.Integral(k, _calc, _ten, true), epsCrc, _calc,
+                requireCurrentPlaneStrain: true);
 
         (Kurvature plane, double epsAtPin, bool ok) EvalAtK(double k)
         {
