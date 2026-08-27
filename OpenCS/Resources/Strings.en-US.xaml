@@ -2643,6 +2643,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_NModeProportional">N proportional to ray</system:String>
     <system:String x:Key="MomentCurvature_StatusOk">Converged</system:String>
     <system:String x:Key="MomentCurvature_StatusPartial">Partial (see points)</system:String>
+    <system:String x:Key="MomentCurvature_CrackedAtZeroLoad">Section is cracked under prestress alone: there is no pre-cracking stage, and the cracking point shown belongs to the opposite face</system:String>
     <system:String x:Key="MomentCurvature_ConvergedCountLabel">Converged points</system:String>
     <system:String x:Key="MomentCurvature_TabCurvatureX">Curvature-moment, X</system:String>
     <system:String x:Key="MomentCurvature_TabCurvatureY">Curvature-moment, Y</system:String>

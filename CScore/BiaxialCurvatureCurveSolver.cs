@@ -67,6 +67,14 @@ public sealed class BiaxialCurvatureCurveResult
     public double B0x { get; set; }
     public double B0y { get; set; }
 
+    /// <summary>
+    /// true, если крайняя растягивающая деформация бетона превышает предел уже в состоянии
+    /// без внешнего момента (точка "0") — сечение треснуло от одного обжатия. Участка "1"
+    /// у такого сечения нет, а найденная точка трещинообразования относится к
+    /// противоположной грани и физического смысла не имеет.
+    /// </summary>
+    public bool CrackedAtZeroLoad { get; set; }
+
     /// <summary>"ok" | "partial" | "error" — см. спеку, раздел "Технические примечания".</summary>
     public string Status { get; set; } = "error";
 }
@@ -166,36 +174,47 @@ public sealed class BiaxialCurvatureCurveSolver
         }
         catch (InvalidOperationException) { ultTen = null; }
 
-        // Точка "0" (t=0, Ky=Kz=0) — чисто осевое равновесие (Ky=Kz=0 фиксированы, не через
-        // пин-Ньютон — пин с epsPin=0 при ненулевом целевом моменте в общем случае не имеет
-        // решения, т.к. при нулевой деформации в экстремальной точке сечение либо всё
-        // растянуто, либо всё сжато, что несовместимо с произвольным (Mx,My)). Решается
-        // одномерно: e0 из N(e0)=N_target при Ky=Kz=0. N_target = N0 (Constant) или 0.0
+        // Точка "0" (t=0) — состояние БЕЗ внешнего момента: равновесие (N_target, 0, 0) при
+        // полностью свободной плоскости деформаций. N_target = N0 (Constant) или 0.0
         // (Proportional, т.к. в этом режиме t=0 соответствует λ=0).
+        //
+        // Прежняя реализация фиксировала Ky=Kz=0 и решала одномерно только N(e0)=N_target.
+        // Для преднапряжённого сечения это НЕ точка "без нагрузки": нулевая кривизна там
+        // удерживается внешним моментом, равным моменту обжатия, и Integral() честно
+        // возвращает его как Mx≠0 (преднапряжение входит в модель собственной деформацией
+        // Fiber.Eps_p, поэтому Mx из Integral — это уже ВНЕШНИЙ момент). Кривая стартовала
+        // из точки с большим ненулевым моментом, которая вдобавок не лежала на луче
+        // нагружения (My=0 при заданном My0≠0).
         double zeroTargetN = nMode == CurvatureNMode.Constant ? N0 : 0.0;
-        CurvatureEquilibriumResult zeroEq;
-        try
-        {
-            zeroEq = CurvatureEquilibrium8232.Solve(
-                e0 => _section.Integral(new Kurvature { e0 = e0, ky = 0, kz = 0 }, _calcCrc, ten: true, ca: true),
-                targetN: zeroTargetN, tolerance: _solverTol, maxIterations: 100);
-        }
-        catch (InvalidOperationException)
+        var zeroPoint = SolveFreeStatePoint(zeroTargetN, out bool zeroPointIsFallback);
+        if (zeroPoint == null)
         {
             result.Status = "error";
             return result;
         }
-        if (!zeroEq.Converged)
-        {
-            result.Status = "error";
-            return result;
-        }
-        var zeroPoint = new BiaxialCurveScanPoint
-        {
-            N = zeroEq.Load.N, Mx = zeroEq.Load.Mx, My = zeroEq.Load.My,
-            E0 = zeroEq.E0, Ky = 0.0, Kz = 0.0, T = 0.0, Segment = 1, Converged = true
-        };
         result.Points.Add(zeroPoint);
+
+        // Точка "0", полученная fallback-ветвью, физически неверна (см. SolveFreeStatePoint):
+        // кривая стартует не из состояния без момента. Результат в целом остаётся полезным
+        // (трещинообразование, текучесть, предел считаются), но «ok» ему уже не полагается.
+        bool degradedStart = zeroPointIsFallback;
+
+        // Сечение, треснувшее от одного обжатия: крайняя растягивающая деформация уже в
+        // состоянии без внешнего момента превышает предел бетона на растяжение. Участка "1"
+        // (до трещины) у такого сечения нет, а точка трещинообразования, которую всё равно
+        // найдёт пин-решатель, относится к ПРОТИВОПОЛОЖНОЙ грани и физического смысла не
+        // имеет. Расчёт не прерываем (нужны точки текучести и предела), но помечаем.
+        //
+        // Когда точка "0" получена fallback-ветвью (Ky=Kz=0), проверять по ней нельзя: там
+        // выгиб от обжатия подавлен, и растяжения на грани нет по построению. Для этого
+        // случая берём УПРУГУЮ плоскость свободного состояния — она считается в замкнутом
+        // виде и от сходимости Ньютона не зависит. Ровно эта ситуация и возникает у
+        // треснувшего от обжатия сечения: полный Ньютон там расходится, потому что бетон
+        // уже на нисходящей ветви диаграммы растяжения.
+        var zeroPlaneForCheck = zeroPointIsFallback
+            ? _section.Guess(new Load { N = zeroTargetN, Mx = 0.0, My = 0.0 })
+            : new Kurvature { e0 = zeroPoint.E0, ky = zeroPoint.Ky, kz = zeroPoint.Kz };
+        result.CrackedAtZeroLoad = tensionCracker.MaxTensionStrain(zeroPlaneForCheck) >= tensionLimit;
 
         if (ultTen is { Converged: true, StrainPlane: Kurvature ultTenPlane } &&
             tensionCracker.MaxTensionStrain(ultTenPlane) < tensionLimit)
@@ -220,14 +239,15 @@ public sealed class BiaxialCurvatureCurveSolver
             result.Ultimate = single;
             result.UltimateReference = single;
 
-            double epsCompressAtZero = ExtremeContourConcreteStrain(new Kurvature { e0 = zeroPoint.E0, ky = 0, kz = 0 });
+            double epsCompressAtZero = ExtremeContourConcreteStrain(
+                new Kurvature { e0 = zeroPoint.E0, ky = zeroPoint.Ky, kz = zeroPoint.Kz });
             double epsCompressAtUlt = ExtremeContourConcreteStrain(ultTenPlane);
             var compressionPinNoCrack = new CompressionPinSolverFast(_section, _calcCrc, ten: true,
                 hDiff: _solverH, newtonMaxIter: _solverMaxIter);
             result.Points.AddRange(BuildCompressionSweep(
                 compressionPinNoCrack, N0, Mx0, My0, nMode, zeroPoint, epsCompressAtZero, epsCompressAtUlt, single));
             MarkNonPhysicalPoints(result);
-            result.Status = "ok";
+            result.Status = degradedStart ? "partial" : "ok";
             return result;
         }
 
@@ -251,8 +271,7 @@ public sealed class BiaxialCurvatureCurveSolver
             T = crackT, Segment = 1, Converged = true
         };
         result.Cracking = crackPoint;
-        result.Points.AddRange(BuildTensionSweep(tensionPin, N0, Mx0, My0, nMode,
-            epsPinFrom: 0.0, epsPinTo: tensionLimit, crackPoint));
+        result.Points.AddRange(BuildTensionSweep(zeroPoint, crackPoint));
         _cancellationToken.ThrowIfCancellationRequested();
 
         // Точка 2 — прямое равновесие на векторе усилий точки 1, ten=false, без ψs, без поиска.
@@ -370,8 +389,54 @@ public sealed class BiaxialCurvatureCurveSolver
         result.Ultimate = ultimatePoint;
         MarkNonPhysicalPoints(result);
 
-        result.Status = result.Ultimate is { Converged: true } ? "ok" : "partial";
+        result.Status = result.Ultimate is { Converged: true } && !degradedStart ? "ok" : "partial";
         return result;
+    }
+
+    /// <summary>
+    /// Точка "0" — равновесие при внешнем моменте, равном нулю: <c>Integral(plane) =
+    /// (targetN, 0, 0)</c> при свободной плоскости деформаций. Для преднапряжённого сечения
+    /// кривизна здесь НЕ нулевая (выгиб от обжатия) — это и есть физическое состояние
+    /// "без нагрузки".
+    /// </summary>
+    /// <remarks>
+    /// Fallback на прежнее осевое равновесие при Ky=Kz=0 нужен для сечений, у которых
+    /// обжатие уже загнало бетон на нисходящую ветвь диаграммы растяжения: там Ньютон по
+    /// трём переменным расходится. Точка при этом остаётся нефизичной, но кривая строится.
+    /// </remarks>
+    BiaxialCurveScanPoint? SolveFreeStatePoint(double targetN, out bool usedFallback)
+    {
+        usedFallback = false;
+        var freeSolver = new StrainSolver(_section, _calcCrc, ten: true, ca: true,
+            tol: _solverTol, maxIter: _solverMaxIter, h: _solverH, centralJacobian: _centralJacobian);
+        var plane = freeSolver.Solve(targetN, 0.0, 0.0);
+        if (freeSolver.Converged)
+        {
+            var load = _section.Integral(plane, _calcCrc, ten: true, ca: true);
+            return new BiaxialCurveScanPoint
+            {
+                N = load.N, Mx = load.Mx, My = load.My,
+                E0 = plane.e0, Ky = plane.ky, Kz = plane.kz,
+                T = 0.0, Segment = 1, Converged = true
+            };
+        }
+
+        usedFallback = true;
+        CurvatureEquilibriumResult axial;
+        try
+        {
+            axial = CurvatureEquilibrium8232.Solve(
+                e0 => _section.Integral(new Kurvature { e0 = e0, ky = 0, kz = 0 }, _calcCrc, ten: true, ca: true),
+                targetN: targetN, tolerance: _solverTol, maxIterations: 100);
+        }
+        catch (InvalidOperationException) { return null; }
+        if (!axial.Converged) return null;
+
+        return new BiaxialCurveScanPoint
+        {
+            N = axial.Load.N, Mx = axial.Load.Mx, My = axial.Load.My,
+            E0 = axial.E0, Ky = 0.0, Kz = 0.0, T = 0.0, Segment = 1, Converged = true
+        };
     }
 
     /// <summary>
@@ -434,18 +499,24 @@ public sealed class BiaxialCurvatureCurveSolver
     /// участок пропорциональным. Интерполяция N корректна для обоих режимов: при постоянной
     /// N концы равны, при пропорциональной — N уже промасштабирована в самих концах.
     /// </summary>
+    /// <param name="ten">Учитывать работу бетона на растяжение: `false` — посттрещинная
+    /// модель уч. "3"/"4", `true` — ДОтрещинная модель уч. "1".</param>
+    /// <param name="calc">Тип расчёта диаграмм; `null` — <see cref="_calcService"/>.</param>
     BiaxialCurveScanPoint? SolveMomentPathPoint(
         BiaxialCurveScanPoint start, BiaxialCurveScanPoint endpoint, double fraction,
-        IReadOnlyDictionary<Fiber, double>? epsCrc, int segment, Kurvature seed)
+        IReadOnlyDictionary<Fiber, double>? epsCrc, int segment, Kurvature seed,
+        bool ten = false, CalcType? calc = null)
     {
+        var calcType = calc ?? _calcService;
+
         Load Evaluate(Kurvature k)
         {
-            var raw = _section.Integral(k, _calcService, ten: false, ca: true);
+            var raw = _section.Integral(k, calcType, ten: ten, ca: true);
             return epsCrc == null ? raw : Curvature8232.ApplyPsiCorrection(
-                _section, k, raw, epsCrc, _calcService, requireCurrentPlaneStrain: true);
+                _section, k, raw, epsCrc, calcType, requireCurrentPlaneStrain: true);
         }
 
-        var solver = new StrainSolver(_section, _calcService, ten: false, ca: true,
+        var solver = new StrainSolver(_section, calcType, ten: ten, ca: true,
             tol: _solverTol, maxIter: _solverMaxIter, h: _solverH,
             centralJacobian: _centralJacobian, evaluate: epsCrc == null ? null : Evaluate);
 
@@ -487,66 +558,167 @@ public sealed class BiaxialCurvatureCurveSolver
     List<BiaxialCurveScanPoint> BuildMomentPathSweep(
         BiaxialCurveScanPoint start, BiaxialCurveScanPoint endpoint,
         IReadOnlyDictionary<Fiber, double>? epsCrc, int segment,
-        BiaxialCurveScanPoint flagReference, bool usePsi)
+        BiaxialCurveScanPoint flagReference, bool usePsi) =>
+        BuildPathSweep(start, endpoint, epsCrc, segment, flagReference, usePsi);
+
+    /// <summary>
+    /// Общая развёртка участка вдоль луча нагружения `start` -> `endpoint`. ByMoment ставит
+    /// точки по доле вектора усилий, ByCurvature — равномерно по ЗНАКОВОЙ проекции кривизны
+    /// на хорду участка (см. <see cref="SolvePointAtCurvature"/>).
+    /// </summary>
+    List<BiaxialCurveScanPoint> BuildPathSweep(
+        BiaxialCurveScanPoint start, BiaxialCurveScanPoint endpoint,
+        IReadOnlyDictionary<Fiber, double>? epsCrc, int segment,
+        BiaxialCurveScanPoint? flagReference, bool usePsi,
+        bool ten = false, CalcType? calc = null)
     {
         var points = new List<BiaxialCurveScanPoint>(_auxPointsPerSegment);
-        var seed = SeedOf(start);
-        double kappaFrom = Magnitude(start.Ky, start.Kz);
-        double kappaTo = Magnitude(endpoint.Ky, endpoint.Kz);
+        double chordY = endpoint.Ky - start.Ky;
+        double chordZ = endpoint.Kz - start.Kz;
+        double chord = Magnitude(chordY, chordZ);
 
-        for (int i = 1; i <= _auxPointsPerSegment; i++)
+        if (_stepMode == CurveStepMode.ByCurvature && chord > 1e-12)
         {
-            BiaxialCurveScanPoint? point;
-            if (_stepMode == CurveStepMode.ByCurvature && kappaTo > kappaFrom)
+            foreach (var point in BuildCurvatureSpacedPoints(
+                         start, endpoint, epsCrc, segment, ten, calc,
+                         chordY / chord, chordZ / chord, chord))
+                points.Add(Flag(point));
+        }
+        else
+        {
+            var seed = SeedOf(start);
+            for (int i = 1; i <= _auxPointsPerSegment; i++)
             {
-                double targetKappa = kappaFrom + (kappaTo - kappaFrom) * StepFraction(i, segment);
-                point = SolvePointAtCurvature(start, endpoint, targetKappa, epsCrc, segment, seed);
+                var point = SolveMomentPathPoint(start, endpoint, StepFraction(i, segment),
+                    epsCrc, segment, seed, ten, calc);
+                if (point != null)
+                {
+                    seed = SeedOf(point);
+                    points.Add(Flag(point));
+                }
+                _cancellationToken.ThrowIfCancellationRequested();
             }
-            else
-            {
-                point = SolveMomentPathPoint(start, endpoint, StepFraction(i, segment),
-                    epsCrc, segment, seed);
-            }
-
-            if (point != null)
-            {
-                seed = SeedOf(point);
-                points.Add(FlagNonPhysical(point, flagReference, usePsi));
-            }
-            _cancellationToken.ThrowIfCancellationRequested();
         }
 
-        points.Add(FlagNonPhysical(endpoint, flagReference, usePsi));
+        points.Add(Flag(endpoint));
         return points;
+
+        BiaxialCurveScanPoint Flag(BiaxialCurveScanPoint p) =>
+            flagReference == null ? p : FlagNonPhysical(p, flagReference, usePsi);
     }
 
     static double Magnitude(double a, double b) => Math.Sqrt(a * a + b * b);
 
     /// <summary>
-    /// Точка луча с заданным модулем кривизны: доля пути подбирается бисекцией, поэтому
-    /// точка остаётся на луче — в отличие от прежней интерполяции самой плоскости кривизны,
-    /// которая давала равномерный шаг ценой ухода момента с луча.
+    /// Вспомогательные точки участка, равномерные по ЗНАКОВОЙ проекции кривизны на хорду
+    /// участка: <c>proj(κ) = (κ − κ_start)·d̂</c>, где <c>d̂</c> — орт хорды
+    /// <c>κ_end − κ_start</c>. Все точки остаются на луче нагружения, потому что параметром
+    /// служит доля пути, а не сама плоскость.
     /// </summary>
-    BiaxialCurveScanPoint? SolvePointAtCurvature(
-        BiaxialCurveScanPoint start, BiaxialCurveScanPoint endpoint, double targetKappa,
-        IReadOnlyDictionary<Fiber, double>? epsCrc, int segment, Kurvature seed)
+    /// <remarks>
+    /// Прежний параметр — модуль |κ| — у преднапряжённого сечения немонотонен: кривизна по
+    /// ходу нагружения проходит через ноль и меняет знак. Проекция на хорду монотонна по
+    /// построению, а при неизменном знаке кривизны совпадает с прежним параметром с
+    /// точностью до сдвига.
+    ///
+    /// Доля пути под каждую цель ищется НЕ независимой бисекцией от начала участка: на
+    /// сильно нелинейном уч. "4" Ньютон из плоскости начала расходится уже около середины
+    /// пути, первая же проба бисекции отсекала весь верхний диапазон, и все вспомогательные
+    /// точки вырождались в одну (численно воспроизведено). Поэтому сначала выполняется
+    /// проход по лучу с продолжением — каждая следующая доля решается из предыдущего
+    /// решения, — и уже по его результатам выбираются и уточняются точки под цели.
+    /// </remarks>
+    List<BiaxialCurveScanPoint> BuildCurvatureSpacedPoints(
+        BiaxialCurveScanPoint start, BiaxialCurveScanPoint endpoint,
+        IReadOnlyDictionary<Fiber, double>? epsCrc, int segment, bool ten, CalcType? calc,
+        double uy, double uz, double chord)
     {
-        double lo = 0.0, hi = 1.0;
-        BiaxialCurveScanPoint? best = null;
+        double Projection(BiaxialCurveScanPoint p) =>
+            (p.Ky - start.Ky) * uy + (p.Kz - start.Kz) * uz;
 
-        for (int iteration = 0; iteration < 40; iteration++)
+        // 1. Проход по лучу с продолжением: каждая следующая доля решается из предыдущего
+        //    решения. Даёт и готовые точки-кандидаты, и ПРИБЛИЖЕНИЯ для уточнения — Ньютон
+        //    на сильно нелинейном участке из плоскости начала расходится уже около середины
+        //    пути, и без приближений бисекция упиралась в эту границу, сводя все
+        //    вспомогательные точки участка в одну.
+        int steps = Math.Max(16, 4 * (_auxPointsPerSegment + 1));
+        var marchFractions = new List<double>(steps);
+        var marchPoints = new List<BiaxialCurveScanPoint>(steps);
+        var seed = SeedOf(start);
+        double lastProjection = 0.0;
+        for (int j = 1; j <= steps; j++)
         {
-            double fraction = 0.5 * (lo + hi);
-            var point = SolveMomentPathPoint(start, endpoint, fraction, epsCrc, segment, seed);
-            if (point == null) { hi = fraction; continue; }
+            double fraction = (double)j / steps;
+            var point = SolveMomentPathPoint(start, endpoint, fraction, epsCrc, segment, seed, ten, calc);
+            if (point != null)
+            {
+                seed = SeedOf(point);
 
-            best = point;
-            double kappa = Magnitude(point.Ky, point.Kz);
-            if (Math.Abs(kappa - targetKappa) <= 1e-4 * targetKappa) break;
-            if (kappa > targetKappa) hi = fraction; else lo = fraction;
+                // Сразу за Mcrc жёсткость обваливается, и Ньютон в этой зоне изредка сходится
+                // в посторонний корень: проекция «откатывается» назад. Такие решения годятся
+                // как приближение для следующего шага, но кандидатами быть не должны — иначе
+                // выбор по цели даёт неупорядоченные вспомогательные точки.
+                double projection = Projection(point);
+                if (projection > lastProjection)
+                {
+                    lastProjection = projection;
+                    marchFractions.Add(fraction);
+                    marchPoints.Add(point);
+                }
+            }
+            _cancellationToken.ThrowIfCancellationRequested();
         }
 
-        return best;
+        // Приближение для доли пути — плоскость ближайшей по доле точки марша.
+        Kurvature SeedNear(double fraction)
+        {
+            var nearestPlane = SeedOf(start);
+            double nearestDistance = fraction;
+            for (int j = 0; j < marchFractions.Count; j++)
+            {
+                double distance = Math.Abs(marchFractions[j] - fraction);
+                if (distance < nearestDistance) { nearestDistance = distance; nearestPlane = SeedOf(marchPoints[j]); }
+            }
+            return nearestPlane;
+        }
+
+        // 2. Под каждую цель берётся ближайшая точка марша, а затем — уточнение бисекцией по
+        //    доле пути. Точка марша выступает гарантированным запасным вариантом: если проба
+        //    бисекции не сошлась, результат всё равно останется решением НА пути, а не
+        //    пропущенной точкой.
+        var result = new List<BiaxialCurveScanPoint>(_auxPointsPerSegment);
+        double tolerance = 1e-4 * chord;
+        for (int i = 1; i <= _auxPointsPerSegment; i++)
+        {
+            double target = chord * StepFraction(i, segment);
+
+            BiaxialCurveScanPoint? best = null;
+            double bestError = double.MaxValue;
+            for (int j = 0; j < marchPoints.Count; j++)
+            {
+                double error = Math.Abs(Projection(marchPoints[j]) - target);
+                if (error < bestError) { bestError = error; best = marchPoints[j]; }
+            }
+
+            double lo = 0.0, hi = 1.0;
+            for (int iteration = 0; iteration < 40 && bestError > tolerance; iteration++)
+            {
+                double fraction = 0.5 * (lo + hi);
+                var point = SolveMomentPathPoint(start, endpoint, fraction, epsCrc, segment,
+                    SeedNear(fraction), ten, calc);
+                if (point == null) { hi = fraction; continue; }
+
+                double projection = Projection(point);
+                double error = Math.Abs(projection - target);
+                if (error < bestError) { bestError = error; best = point; }
+                if (projection > target) hi = fraction; else lo = fraction;
+            }
+
+            if (best != null) result.Add(best);
+            _cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -720,61 +892,30 @@ public sealed class BiaxialCurvatureCurveSolver
     }
 
     /// <summary>
-    /// Строит уч. "1" (0 → конечная точка `endpoint`) равномерной развёрткой параметра между
-    /// начальной точкой (epsPin=0 у растянутого пина) и конечной. В ByMoment — прямые
-    /// `StrainSolver.Solve` на целевых векторах момента, интерполированных от 0 до `endpoint`
-    /// (уч. "1" физически начинается в нуле — для уч. "3"/"4", начинающихся НЕ с нуля, такая
-    /// же формула была бы ошибочной, см. Task 8, там начало интерполируется явно).
+    /// Строит уч. "1" — от состояния без внешнего момента (`start`, точка "0") до точки
+    /// трещинообразования (`endpoint`) — той же развёрткой по лучу нагружения, что и уч.
+    /// "3"/"4", но по ДОтрещинной модели (`ten: true`, <see cref="_calcCrc"/>).
     /// </summary>
+    /// <remarks>
+    /// Прежняя реализация в режиме ByCurvature гнала <c>epsPin</c> растянутого пина от 0 до
+    /// предела растяжения бетона. Для преднапряжённого сечения <c>epsPin = 0</c> — не
+    /// разгруженное состояние, а отображение "epsPin -> состояние" вообще неоднозначно:
+    /// деформация крайнего волокна по мере роста |M| сначала падает, потом растёт. Развёртка
+    /// молча теряла начало кривой (численно: первая её точка приходилась на |Mx| = 57 при
+    /// Mcrc = 96, т.е. пропадал участок от нуля до 57 кН*м). Пин-решатель остаётся нужен
+    /// только для поиска самой точки трещинообразования, где epsPin = TensionLimit задан
+    /// однозначно.
+    /// </remarks>
     List<BiaxialCurveScanPoint> BuildTensionSweep(
-        TensionPinSolverFast solver, double N0, double Mx0, double My0, CurvatureNMode nMode,
-        double epsPinFrom, double epsPinTo, BiaxialCurveScanPoint endpoint)
+        BiaxialCurveScanPoint start, BiaxialCurveScanPoint endpoint)
     {
-        var points = new List<BiaxialCurveScanPoint>(_auxPointsPerSegment);
-        if (_stepMode == CurveStepMode.ByMoment)
-        {
-            // Один StrainSolver на весь участок (не по одному на итерацию).
-            var solverS = new StrainSolver(_section, _calcCrc, ten: true, ca: true, tol: _solverTol, maxIter: _solverMaxIter, h: _solverH, centralJacobian: _centralJacobian);
-            for (int i = 1; i <= _auxPointsPerSegment; i++)
-            {
-                double frac = (double)i / (_auxPointsPerSegment + 1);
-                double mxT = frac * endpoint.Mx, myT = frac * endpoint.My;
-                double nT = nMode == CurvatureNMode.Constant ? N0 : frac * N0;
-                var plane = solverS.Solve(nT, mxT, myT);
-                if (!solverS.Converged) continue;
-                var load = _section.Integral(plane, _calcCrc, ten: true, ca: true);
-                points.Add(new BiaxialCurveScanPoint
-                {
-                    N = load.N, Mx = load.Mx, My = load.My,
-                    E0 = plane.e0, Ky = plane.ky, Kz = plane.kz,
-                    T = frac * endpoint.T, Segment = 1, Converged = true
-                });
-                _cancellationToken.ThrowIfCancellationRequested();
-            }
-            points.Add(endpoint);
-            return points;
-        }
+        var points = BuildPathSweep(start, endpoint, epsCrc: null, segment: 1,
+            flagReference: null, usePsi: false, ten: true, calc: _calcCrc);
 
-        // ByCurvature: развёртка epsPin от нулевой деформации до предельной растягивающей
-        // деформации бетона. E0 конечной точки не является деформацией растянутого пина.
-        double dNdk = nMode == CurvatureNMode.Constant ? 0.0 : N0;
-        Kurvature? seed = null;
-        for (int i = 1; i <= _auxPointsPerSegment; i++)
-        {
-            double frac = (double)i / (_auxPointsPerSegment + 1);
-            double epsPin = epsPinFrom + frac * (epsPinTo - epsPinFrom);
-            var point = solver.Solve(epsPin, N0, Mx0, My0, dNdk, seed);
-            if (!point.Converged) continue;
-            seed = point.Plane;
-            points.Add(new BiaxialCurveScanPoint
-            {
-                N = point.Load.N, Mx = point.Load.Mx, My = point.Load.My,
-                E0 = point.Plane.e0, Ky = point.Plane.ky, Kz = point.Plane.kz,
-                T = frac * endpoint.T, Segment = 1, Converged = true
-            });
-            _cancellationToken.ThrowIfCancellationRequested();
-        }
-        points.Add(endpoint);
+        // T вспомогательных точек уч. "1" измеряется в единицах endpoint.T (модуль кривизны
+        // или λ), а BuildPathSweep возвращает в этом поле долю пути.
+        for (int i = 0; i < points.Count - 1; i++)
+            points[i].T *= endpoint.T;
         return points;
     }
 

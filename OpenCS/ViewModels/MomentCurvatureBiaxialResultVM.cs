@@ -129,6 +129,14 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
     public double[] MyStiffnessAxis { get; private set; } = [];
     public double[] MyStiffnessRatio { get; private set; } = [];
 
+    /// <summary>
+    /// Сечение треснуло от одного обжатия: крайняя растягивающая деформация превышает предел
+    /// уже в состоянии без внешнего момента. Участка «до трещины» у такого сечения нет, а
+    /// показанная точка трещинообразования относится к противоположной грани.
+    /// </summary>
+    public bool CrackedAtZeroLoad { get; private set; }
+    public string CrackedAtZeroLoadText => Loc.S("MomentCurvature_CrackedAtZeroLoad");
+
     public MomentCurvatureBiaxialPointRow? Cracking { get; private set; }
     public MomentCurvatureBiaxialPointRow? CrackTransition { get; private set; }
     public MomentCurvatureBiaxialPointRow? Yield { get; private set; }
@@ -195,6 +203,8 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
             HasMx = root.TryGetProperty("has_mx", out var hasMx) && hasMx.GetBoolean();
             HasMy = root.TryGetProperty("has_my", out var hasMy) && hasMy.GetBoolean();
             UsePsi = root.TryGetProperty("use_psi", out var usePsi) && usePsi.GetBoolean();
+            CrackedAtZeroLoad = root.TryGetProperty("cracked_at_zero_load", out var crackedAtZero)
+                && crackedAtZero.ValueKind == JsonValueKind.True;
             string nMode = root.TryGetProperty("n_mode", out var nm) ? nm.GetString() ?? "constant" : "constant";
             NModeText = nMode == "proportional"
                 ? Loc.S("MomentCurvature_NModeProportional")
@@ -214,13 +224,14 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
             var myAxis = new List<double>(); var myRatio = new List<double>();
             int converged = 0;
 
-            // Момент в точке κ=0. При N≠0 и несимметричном армировании кривая M(κ) НЕ
-            // проходит через начало координат: при нулевой кривизне сечение обжато
-            // равномерно, но стержни разных площадей дают ненулевой момент. Секущая
-            // жёсткость отсчитывается от этой точки — иначе отношение (M/κ)/B0 в начале
-            // кривой занижено на M₀/M и график сперва РАСТЁТ, вместо того чтобы начаться
-            // с базового значения и монотонно падать.
-            double mx0 = 0.0, my0 = 0.0;
+            // Базовая точка секущей жёсткости — первая точка кривой, т.е. состояние без
+            // внешнего момента. Кривая M(κ) в общем случае НЕ проходит через начало
+            // координат: у преднапряжённого сечения там ненулевая кривизна (выгиб от
+            // обжатия), у сечения с несимметричным армированием при N≠0 — ненулевой момент.
+            // Секущая жёсткость считается как приращение от этой точки по ОБЕИМ осям:
+            // (M−M₀)/(κ−κ₀). Иначе отношение в начале кривой искажено, и график сперва
+            // РАСТЁТ, вместо того чтобы начаться с базового значения и монотонно падать.
+            double mx0 = 0.0, my0 = 0.0, ky0 = 0.0, kz0 = 0.0;
 
             if (root.TryGetProperty("points", out var points) && points.ValueKind == JsonValueKind.Array)
             {
@@ -228,30 +239,32 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
                 foreach (var p in points.EnumerateArray())
                 {
                     var row = MomentCurvatureBiaxialPointRow.Parse(p);
-                    if (index == 0 && row.Converged &&
-                        Math.Abs(row.Ky) <= 1e-12 && Math.Abs(row.Kz) <= 1e-12)
+                    if (index == 0 && row.Converged)
                     {
                         mx0 = row.Mx;
                         my0 = row.My;
+                        ky0 = row.Ky;
+                        kz0 = row.Kz;
                     }
 
                     if (row.Converged && index > 0)
                     {
                         if (ea0 != 0.0 && Math.Abs(row.E0) > 1e-12)
                             row.NStiffnessRatio = Math.Abs((row.N / row.E0) / ea0);
-                        if (HasMx && b0x != 0.0 && Math.Abs(row.Ky) > 1e-12)
-                            row.MxStiffnessRatio = Math.Abs(((row.Mx - mx0) / row.Ky) / b0x);
-                        if (HasMy && b0y != 0.0 && Math.Abs(row.Kz) > 1e-12)
-                            row.MyStiffnessRatio = Math.Abs(((row.My - my0) / row.Kz) / b0y);
+                        if (HasMx && b0x != 0.0 && Math.Abs(row.Ky - ky0) > 1e-12)
+                            row.MxStiffnessRatio = Math.Abs(((row.Mx - mx0) / (row.Ky - ky0)) / b0x);
+                        if (HasMy && b0y != 0.0 && Math.Abs(row.Kz - kz0) > 1e-12)
+                            row.MyStiffnessRatio = Math.Abs(((row.My - my0) / (row.Kz - kz0)) / b0y);
                     }
                     Rows.Add(row);
 
                     if (row.Converged)
                     {
                         converged++;
-                        // Графики строятся по модулю — направление луча момента/кривизны
-                        // задаётся знаком входной нагрузки и само по себе не информативно,
-                        // пользователь ожидает вид |κ|-|M| независимо от знака Mx0/My0.
+                        // Направление луча момента/кривизны задаётся знаком входной нагрузки
+                        // и само по себе не информативно, поэтому кривая разворачивается в
+                        // положительный квадрант — но ЗНАКОВОЙ проекцией, а не модулем
+                        // (см. AxisSign ниже).
                         // Участок 2 — вспомогательная пересчётная петля. При включённом ψs
                         // она не является частью основной кривой (Example 47: петля показана
                         // отдельно, а основная ψs-ветвь продолжается от Mcrc).
@@ -272,12 +285,12 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
                             }
                             if (row.MxStiffnessRatio is double mxStiffnessRatio)
                             {
-                                mxAxis.Add(Math.Abs(row.Mx));
+                                mxAxis.Add(row.Mx); // знак снимается ниже, вместе с кривыми
                                 mxRatio.Add(mxStiffnessRatio);
                             }
                             if (row.MyStiffnessRatio is double myStiffnessRatio)
                             {
-                                myAxis.Add(Math.Abs(row.My));
+                                myAxis.Add(row.My);
                                 myRatio.Add(myStiffnessRatio);
                             }
                         }
@@ -291,19 +304,26 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
             Yield = TryParseControlPoint(root, "yield_point");
             Ultimate = TryParseControlPoint(root, "ultimate");
 
+            // Знак берётся из ПОСЛЕДНЕЙ точки серии (предельное состояние) и применяется ко
+            // всей серии целиком, поэтому переход кривизны через ноль сохраняется как есть.
+            double mxSign = AxisSign(mxRows.Count > 0 ? mxRows[^1].Mx : 1.0);
+            double kySign = AxisSign(mxRows.Count > 0 ? mxRows[^1].Ky : 1.0);
+            double mySign = AxisSign(myRows.Count > 0 ? myRows[^1].My : 1.0);
+            double kzSign = AxisSign(myRows.Count > 0 ? myRows[^1].Kz : 1.0);
+
             (CurvatureYSeries, MomentXSeries, CurvatureYSeriesFaded, MomentXSeriesFaded) =
-                SplitByNonPhysical(mxRows, r => r.NonPhysical, r => Math.Abs(r.Ky), r => Math.Abs(r.Mx));
+                SplitByNonPhysical(mxRows, r => r.NonPhysical, r => kySign * r.Ky, r => mxSign * r.Mx);
             (CurvatureZSeries, MomentYSeries, CurvatureZSeriesFaded, MomentYSeriesFaded) =
-                SplitByNonPhysical(myRows, r => r.NonPhysical, r => Math.Abs(r.Kz), r => Math.Abs(r.My));
+                SplitByNonPhysical(myRows, r => r.NonPhysical, r => kzSign * r.Kz, r => mySign * r.My);
             (CurvatureYSeriesParts, CurvatureYSeriesFadedParts) =
-                SplitByNonPhysicalRuns(mxRows, r => r.NonPhysical, r => Math.Abs(r.Ky), r => Math.Abs(r.Mx));
+                SplitByNonPhysicalRuns(mxRows, r => r.NonPhysical, r => kySign * r.Ky, r => mxSign * r.Mx);
             (CurvatureZSeriesParts, CurvatureZSeriesFadedParts) =
-                SplitByNonPhysicalRuns(myRows, r => r.NonPhysical, r => Math.Abs(r.Kz), r => Math.Abs(r.My));
+                SplitByNonPhysicalRuns(myRows, r => r.NonPhysical, r => kzSign * r.Kz, r => mySign * r.My);
             NStiffnessAxis = nAxis.ToArray();
             NStiffnessRatio = nRatio.ToArray();
-            MxStiffnessAxis = mxAxis.ToArray();
+            MxStiffnessAxis = mxAxis.ConvertAll(v => mxSign * v).ToArray();
             MxStiffnessRatio = mxRatio.ToArray();
-            MyStiffnessAxis = myAxis.ToArray();
+            MyStiffnessAxis = myAxis.ConvertAll(v => mySign * v).ToArray();
             MyStiffnessRatio = myRatio.ToArray();
             ConvergedCount = converged;
 
@@ -449,6 +469,14 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
         _section.SetEps(k, _calcType, true, true);
         return option.Fiber.Eps + option.Fiber.Eps_p;
     }
+
+    /// <summary>
+    /// Общий множитель, разворачивающий серию в положительный квадрант. Берётся один на всю
+    /// серию (по её предельной точке), а не поэлементно как <c>Math.Abs</c>: у
+    /// преднапряжённого сечения кривизна по ходу нагружения проходит через ноль и меняет
+    /// знак, и поэлементный модуль складывал кривую пополам, создавая ложный излом.
+    /// </summary>
+    static double AxisSign(double reference) => reference < 0.0 ? -1.0 : 1.0;
 
     static (double[] x, double[] y, double[] xFaded, double[] yFaded) SplitByNonPhysical<T>(
         List<T> rows, Func<T, bool> nonPhysical,

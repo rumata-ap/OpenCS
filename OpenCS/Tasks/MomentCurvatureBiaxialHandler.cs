@@ -90,6 +90,7 @@ internal static class MomentCurvatureBiaxialJson
         b0x = Math.Round(result.B0x, 4),
         b0y = Math.Round(result.B0y, 4),
         status = result.Status,
+        cracked_at_zero_load = result.CrackedAtZeroLoad,
         cracking = PointJson(result.Cracking),
         crack_transition = PointJson(result.CrackTransitionPoint),
         yield_point = PointJson(result.Yield),

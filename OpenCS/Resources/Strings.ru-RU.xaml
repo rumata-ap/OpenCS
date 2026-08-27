@@ -2643,6 +2643,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_NModeProportional">N пропорционально лучу</system:String>
     <system:String x:Key="MomentCurvature_StatusOk">Сошлось</system:String>
     <system:String x:Key="MomentCurvature_StatusPartial">Частично (см. точки)</system:String>
+    <system:String x:Key="MomentCurvature_CrackedAtZeroLoad">Сечение треснуло от одного обжатия: участка «до трещины» нет, показанная точка трещинообразования относится к противоположной грани</system:String>
     <system:String x:Key="MomentCurvature_ConvergedCountLabel">Сошлось точек</system:String>
     <system:String x:Key="MomentCurvature_TabCurvatureX">Кривизна-момент, X</system:String>
     <system:String x:Key="MomentCurvature_TabCurvatureY">Кривизна-момент, Y</system:String>
