@@ -31,7 +31,7 @@ public sealed class FireFiberSection : ILimitSection
     public IEnumerable<(double X, double Y)> ContourVertices => _limitAdapter.ContourVertices;
 
     /// <inheritdoc/>
-    public IEnumerable<(double X, double Y, double EpsSu)> RebarPoints => _limitAdapter.RebarPoints;
+    public IEnumerable<(double X, double Y, double EpsSu, double EpsP)> RebarPoints => _limitAdapter.RebarPoints;
 
     /// <inheritdoc/>
     public double EpsCu => _limitAdapter.EpsCu;

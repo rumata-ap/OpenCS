@@ -21,11 +21,18 @@ internal static class TestMaterials
             Type = MatType.Concrete,
             E = 30_000_000.0, // кПа
         };
-        m.C = ConcreteChars(CalcType.C, fc: -14500, ft: 1050, e: 30_000_000);
-        m.CL = ConcreteChars(CalcType.CL, fc: -13050, ft: 1050, e: 30_000_000);
-        m.N = ConcreteChars(CalcType.N, fc: -18500, ft: 1550, e: 30_000_000);
-        m.NL = ConcreteChars(CalcType.NL, fc: -18500, ft: 1550, e: 17_857_142.86,
-            ec1Red: -0.0024, ec2: -0.0042, et1Red: 0.00019, et2: 0.00027);
+        // Через список, а не через m.C/m.CL/...: сеттеры одиночных свойств заполняют только
+        // внутренний словарь, а Material.C читает список materialChars — иначе он остаётся
+        // пустым, m.C возвращает null, и потребители (CrossSectionLimitAdapter.ResolveChars)
+        // молча уходят на резервные ветки вместо характеристик материала.
+        m.MaterialChars =
+        [
+            ConcreteChars(CalcType.C, fc: -14500, ft: 1050, e: 30_000_000),
+            ConcreteChars(CalcType.CL, fc: -13050, ft: 1050, e: 30_000_000),
+            ConcreteChars(CalcType.N, fc: -18500, ft: 1550, e: 30_000_000),
+            ConcreteChars(CalcType.NL, fc: -18500, ft: 1550, e: 17_857_142.86,
+                ec1Red: -0.0024, ec2: -0.0042, et1Red: 0.00019, et2: 0.00027),
+        ];
         return m;
     }
 
@@ -38,10 +45,13 @@ internal static class TestMaterials
             Type = MatType.ReSteelF,
             E = 200_000_000.0, // кПа
         };
-        m.C = RebarChars(fc: -435000, ft: 435000);
-        m.CL = RebarChars(fc: -435000, ft: 435000);
-        m.N = RebarChars(fc: -500000, ft: 500000);
-        m.NL = RebarChars(fc: -500000, ft: 500000);
+        m.MaterialChars =
+        [
+            RebarChars(CalcType.C, fc: -435000, ft: 435000),
+            RebarChars(CalcType.CL, fc: -435000, ft: 435000),
+            RebarChars(CalcType.N, fc: -500000, ft: 500000),
+            RebarChars(CalcType.NL, fc: -500000, ft: 500000),
+        ];
         return m;
     }
 
@@ -51,7 +61,7 @@ internal static class TestMaterials
     /// у такой арматуры диаграмма криволинейная уже до Ft, поэтому σ_sp/E и σ(ε_sp)
     /// расходятся.
     /// </summary>
-    public static Material PrestressedRebar(string tag = "A1000")
+    public static Material PrestressedRebar(string tag = "A1000", double epsSu = 0.015)
     {
         var m = new Material
         {
@@ -60,14 +70,17 @@ internal static class TestMaterials
             Type = MatType.ReSteelU,
             E = 200_000_000.0, // кПа
         };
-        m.C = PrestressedRebarChars(CalcType.C, fc: -870000, ft: 870000);
-        m.CL = PrestressedRebarChars(CalcType.CL, fc: -870000, ft: 870000);
-        m.N = PrestressedRebarChars(CalcType.N, fc: -1000000, ft: 1000000);
-        m.NL = PrestressedRebarChars(CalcType.NL, fc: -1000000, ft: 1000000);
+        m.MaterialChars =
+        [
+            PrestressedRebarChars(CalcType.C, fc: -870000, ft: 870000, et2: epsSu),
+            PrestressedRebarChars(CalcType.CL, fc: -870000, ft: 870000, et2: epsSu),
+            PrestressedRebarChars(CalcType.N, fc: -1000000, ft: 1000000, et2: epsSu),
+            PrestressedRebarChars(CalcType.NL, fc: -1000000, ft: 1000000, et2: epsSu),
+        ];
         return m;
     }
 
-    static MaterialChars PrestressedRebarChars(CalcType calc, double fc, double ft) => new()
+    static MaterialChars PrestressedRebarChars(CalcType calc, double fc, double ft, double et2 = 0.015) => new()
     {
         Type = MatType.ReSteelU,
         TypeCalc = calc,
@@ -79,7 +92,7 @@ internal static class TestMaterials
         Ec2 = -0.0035,
         Et0 = 0.00635,
         Et1 = 0.003915,
-        Et2 = 0.015,
+        Et2 = et2,
     };
 
     static MaterialChars ConcreteChars(CalcType calc, double fc, double ft, double e,
@@ -103,9 +116,10 @@ internal static class TestMaterials
         Et1 = et1,
     };
 
-    static MaterialChars RebarChars(double fc, double ft) => new()
+    static MaterialChars RebarChars(CalcType calc, double fc, double ft) => new()
     {
         Type = MatType.ReSteelF,
+        TypeCalc = calc,
         Fc = fc,
         Ft = ft,
         E = 200_000_000.0,

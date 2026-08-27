@@ -356,11 +356,11 @@ internal static class TestSections
     /// сечение из проекта пользователя, на котором решатель НДС расходился: начальное
     /// приближение промахивается на всю силу обжатия (≈500 кН и ≈110 кН·м).
     /// </summary>
-    public static CrossSection RectWithEccentricPrestressedRebar(double sigSp = 900.0)
+    public static CrossSection RectWithEccentricPrestressedRebar(double sigSp = 900.0, double strandEpsSu = 0.015)
     {
         var concreteMaterial = TestMaterials.Concrete("B25");
         var rebarMaterial = TestMaterials.Rebar("A500");
-        var strandMaterial = TestMaterials.PrestressedRebar("A1000");
+        var strandMaterial = TestMaterials.PrestressedRebar("A1000", strandEpsSu);
 
         double h = 0.5, b = 0.3;
         double y0 = -h / 2.0, y1 = h / 2.0, x0 = -b / 2.0, x1 = b / 2.0;

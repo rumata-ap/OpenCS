@@ -12,7 +12,7 @@ public sealed class CrossSectionLimitAdapter : ILimitSection
    public IEnumerable<(double X, double Y)> ContourVertices { get; }
 
    /// <inheritdoc/>
-   public IEnumerable<(double X, double Y, double EpsSu)> RebarPoints { get; }
+   public IEnumerable<(double X, double Y, double EpsSu, double EpsP)> RebarPoints { get; }
 
    /// <inheritdoc/>
    public double EpsCu { get; }
@@ -45,16 +45,16 @@ public sealed class CrossSectionLimitAdapter : ILimitSection
       return pts;
    }
 
-   static IEnumerable<(double X, double Y, double EpsSu)> CollectRebarPoints(CrossSection section, CalcType calc)
+   static IEnumerable<(double X, double Y, double EpsSu, double EpsP)> CollectRebarPoints(CrossSection section, CalcType calc)
    {
-      var res = new List<(double X, double Y, double EpsSu)>();
+      var res = new List<(double X, double Y, double EpsSu, double EpsP)>();
       foreach (var area in section.Areas)
       {
+         // ε_su — по материалу СВОЕЙ области: у арматуры с физическим пределом текучести и с
+         // условным она разная, общий максимум по сечению недопустим.
+         double epsSu = ResolveRebarEpsSu(area, calc);
          foreach (var f in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
-         {
-            double epsSu = ResolveRebarEpsSu(area, calc);
-            res.Add((f.X, f.Y, epsSu));
-         }
+            res.Add((f.X, f.Y, epsSu, f.Eps_p));
       }
       return res;
    }

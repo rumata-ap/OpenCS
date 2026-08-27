@@ -233,10 +233,19 @@ public sealed class LimitForceSolver : ILimitForceSolver
          epsContourMin = _section.ContourVertices.Any()
             ? _section.ContourVertices.Min(p => Eps(sp, p.X, p.Y))
             : 0.0;
-         if (_section.RebarPoints.Any())
+         // Пара (ε_s,max; ε_su) должна относиться к ОДНОМУ стержню — самому нагруженному по
+         // использованию ε/ε_su. Независимые максимумы смешали бы деформацию одного стержня
+         // с пределом другого (у ReSteelF ε_su = 0.025, у ReSteelU — 0.015).
+         var governingBar = _section.RebarPoints
+            .Where(p => p.EpsSu > 0)
+            .Select(p => (Full: Eps(sp, p.X, p.Y) + p.EpsP, p.EpsSu))
+            .OrderByDescending(t => t.Full / t.EpsSu)
+            .FirstOrDefault();
+
+         if (governingBar.EpsSu > 0)
          {
-            epsRebarMax = _section.RebarPoints.Max(p => Eps(sp, p.X, p.Y));
-            epsSu = _section.RebarPoints.Max(p => p.EpsSu);
+            epsRebarMax = governingBar.Full;
+            epsSu = governingBar.EpsSu;
          }
       }
 
@@ -295,7 +304,8 @@ public sealed class LimitForceSolver : ILimitForceSolver
 
       foreach (var rb in _section.RebarPoints)
       {
-         if (Eps(k, rb.X, rb.Y) > rb.EpsSu)
+         // Полная деформация стержня: плоскость + начальное натяжение.
+         if (Eps(k, rb.X, rb.Y) + rb.EpsP > rb.EpsSu)
             return false;
       }
 

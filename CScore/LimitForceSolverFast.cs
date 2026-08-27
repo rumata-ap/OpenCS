@@ -24,7 +24,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
    readonly bool _ten;
 
    readonly List<(double X, double Y)> _contourPts;
-   readonly List<(double X, double Y, double EpsSu)> _rebarLimits;
+   readonly List<(double X, double Y, double EpsSu, double EpsP)> _rebarLimits;
    readonly LimitSectionStrainSolver _strainSolver;
    readonly double _epsCu;
    readonly double _yRef;
@@ -126,7 +126,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
 
       foreach (var rb in _rebarLimits)
       {
-         if (Eps(sp, rb.X, rb.Y) > rb.EpsSu)
+         if (Eps(sp, rb.X, rb.Y) + rb.EpsP > rb.EpsSu)
             return null;
       }
 
@@ -146,6 +146,55 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
          DebugTrace?.Invoke("SolveCompression: TryEstimateCompressionStart failed");
          return null;
       }
+
+      // Пин выбран по упругому приближению при k = 1, а искомая точка лежит при k = k_lim.
+      // Немасштабируемые вместе с нагрузкой начальные деформации (преднапряжение ε_p,
+      // температурная эпюра) могут перевернуть знак эффективного момента между k = 1 и
+      // k = k_lim, и тогда пин попадает на грань, которая в предельном состоянии растянута.
+      // Ньютон при этом сходится точно, но к недопустимому корню (ε крайнего волокна ≪ ε_cu).
+      // Лечится перепином на фактически самую сжатую вершину найденной плоскости — по той же
+      // схеме, что перепин на управляющий стержень в RebarPhase.
+      var triedPins = new List<(double X, double Y)> { (xA, yA) };
+      for (int repin = 0; ; repin++)
+      {
+         var attempt = TryCompressionFromPin(n, mx, my, nFn, mxFn, myFn, dNdk, dMxdk, dMydk,
+            xA, yA, kx0, ky0, k0, ref innerIters, out Kurvature? overstrained);
+
+         if (attempt is not null)
+            return attempt;
+
+         if (repin >= MaxContourRepin || overstrained is not { } plane)
+            return null;
+
+         if (!TryRepinOnContour(plane, guess, triedPins, dNdk, dMxdk, dMydk,
+               ref xA, ref yA, ref kx0, ref ky0, ref k0))
+         {
+            DebugTrace?.Invoke("SolveCompression: repin failed");
+            return null;
+         }
+
+         DebugTrace?.Invoke($"SolveCompression: repin #{repin + 1} → pin=({xA:G4},{yA:G4}) k0={k0:G6}");
+      }
+   }
+
+   /// <summary>Сколько раз бетонный пин разрешено переставить на другую вершину контура.</summary>
+   const int MaxContourRepin = 2;
+
+   /// <summary>
+   /// Одна попытка бетонной фазы с ЗАДАННЫМ пином (<paramref name="xA"/>, <paramref name="yA"/>).
+   /// Возвращает null, если попытка не удалась; <paramref name="overstrained"/> при этом содержит
+   /// найденную плоскость, только если причина отказа — превышение ε_cu вне пин-вершины
+   /// (единственный случай, который лечится перепином).
+   /// </summary>
+   LimitForceResult? TryCompressionFromPin(
+      double n, double mx, double my,
+      Func<double, double> nFn, Func<double, double> mxFn, Func<double, double> myFn,
+      double dNdk, double dMxdk, double dMydk,
+      double xA, double yA, double kx0, double ky0, double k0,
+      ref int innerIters,
+      out Kurvature? overstrained)
+   {
+      overstrained = null;
 
       int nDrivers = (Math.Abs(dNdk) > 1e-30 ? 1 : 0)
                    + (Math.Abs(dMxdk) > 1e-30 ? 1 : 0)
@@ -218,6 +267,14 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
          double res = Math.Sqrt(Math.Pow(f.N - nT, 2) + Math.Pow(f.Mx - mxT, 2) + Math.Pow(f.My - myT, 2));
          double epsMin = _contourPts.Min(p => Eps(spFinal, p.X, p.Y));
          DebugTrace?.Invoke($"SolveCompression: IsValidSolution failed k={k:G6} res={res:G6} resTol={ResidualTol(k, nFn, mxFn, myFn):G6} epsMin={epsMin:G6} epsCu={_epsCu:G6}");
+
+         // Равновесие выполнено, но крайнее волокно перегружено — значит пин стоит не на той
+         // вершине. Отдать плоскость наверх для перепина; во всех прочих случаях (не сошлось
+         // равновесие, вырожденный k) перепин не поможет.
+         if (res <= ResidualTol(k, nFn, mxFn, myFn) && k > 0 && double.IsFinite(k)
+             && epsMin < _epsCu - Math.Max(1e-5, Math.Abs(_epsCu) * 0.02))
+            overstrained = spFinal;
+
          return null;
       }
 
@@ -457,7 +514,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
 
       foreach (var rb in _rebarLimits)
       {
-         if (Eps(sp, rb.X, rb.Y) > rb.EpsSu + 1e-6)
+         if (Eps(sp, rb.X, rb.Y) + rb.EpsP > rb.EpsSu + 1e-6)
             return false;
       }
 
@@ -502,6 +559,40 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       return true;
    }
 
+   /// <summary>
+   /// Переставляет бетонный пин на фактически самую сжатую вершину плоскости
+   /// <paramref name="plane"/> и строит для неё новый старт Ньютона: кривизны масштабируются
+   /// так, чтобы ε в новой вершине равнялась ε_cu (<see cref="TryPinFromPlane"/>), а k₀
+   /// берётся проекцией усилий этой плоскости на направление нагружения — тем же способом,
+   /// что и в упругом старте. Вершины, уже опробованные ранее, отклоняются: иначе перепин
+   /// может зациклиться между двумя гранями.
+   /// </summary>
+   bool TryRepinOnContour(
+      Kurvature plane, Kurvature fallback, List<(double X, double Y)> triedPins,
+      double dNdk, double dMxdk, double dMydk,
+      ref double xA, ref double yA, ref double kx0, ref double ky0, ref double k0)
+   {
+      double denom = dNdk * dNdk + dMxdk * dMxdk + dMydk * dMydk;
+      if (denom <= 1e-30)
+         return false;
+
+      if (!TryPinFromPlane(plane, fallback,
+            out double nxA, out double nyA, out double nkx0, out double nky0))
+         return false;
+
+      if (triedPins.Any(p => Math.Abs(p.X - nxA) < 1e-12 && Math.Abs(p.Y - nyA) < 1e-12))
+         return false;
+
+      var f = Forces(MakeSp(nkx0, nky0, nxA, nyA, _epsCu));
+      double nk0 = (f.N * dNdk + f.Mx * dMxdk + f.My * dMydk) / denom;
+      if (!(nk0 > 0) || !double.IsFinite(nk0))
+         return false;
+
+      triedPins.Add((nxA, nyA));
+      xA = nxA; yA = nyA; kx0 = nkx0; ky0 = nky0; k0 = nk0;
+      return true;
+   }
+
    bool IsValidAxial(LimitForceResult res, Func<double, double> nFn, Func<double, double> mxFn, Func<double, double> myFn)
    {
       if (res.StrainPlane is not Kurvature sp)
@@ -532,7 +623,7 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
 
       foreach (var rb in _rebarLimits)
       {
-         if (Eps(sp, rb.X, rb.Y) > rb.EpsSu + Math.Max(1e-5, Math.Abs(rb.EpsSu) * 0.02))
+         if (Eps(sp, rb.X, rb.Y) + rb.EpsP > rb.EpsSu + Math.Max(1e-5, Math.Abs(rb.EpsSu) * 0.02))
             return false;
       }
 
@@ -555,12 +646,15 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
          return null;
 
       var best = _rebarLimits
-         .Select(rb => (rb, ratio: Eps(guess, rb.X, rb.Y) / rb.EpsSu))
+         .Select(rb => (rb, ratio: (Eps(guess, rb.X, rb.Y) + rb.EpsP) / rb.EpsSu))
          .OrderByDescending(x => x.ratio)
          .First();
 
+      // PinnedEquilibriumNewton закрепляет деформацию ПЛОСКОСТИ, а предел задан для полной
+      // деформации стержня — поэтому пиновать надо ε_su − ε_p.
+      double epsPin = best.rb.EpsSu - best.rb.EpsP;
       double k0 = 1.0;
-      var pinned2 = PinnedEquilibriumNewton.Solve(Forces, best.rb.X, best.rb.Y, best.rb.EpsSu, guess.kz, guess.ky, k0,
+      var pinned2 = PinnedEquilibriumNewton.Solve(Forces, best.rb.X, best.rb.Y, epsPin, guess.kz, guess.ky, k0,
          nFn, mxFn, myFn, dNdk, dMxdk, dMydk, _yRef, _xRef, _hDiff, _maxIter, _relTol);
       var (kx, ky, k, nIter, conv, sp) = (pinned2.Kx, pinned2.Ky, pinned2.K, pinned2.Iterations, pinned2.Converged, pinned2.Plane);
 
@@ -576,13 +670,15 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       Func<double, double> nFn, Func<double, double> mxFn, Func<double, double> myFn,
       double dNdk, double dMxdk, double dMydk)
    {
-      (double X, double Y, double EpsSu)? Gov(Kurvature plane)
+      (double X, double Y, double EpsSu, double EpsP)? Gov(Kurvature plane)
       {
-         (double X, double Y, double EpsSu)? best = null;
+         (double X, double Y, double EpsSu, double EpsP)? best = null;
          double bestRatio = 0;
          foreach (var rb in _rebarLimits)
          {
-            double epsR = Eps(plane, rb.X, rb.Y);
+            // Полная деформация стержня против ЕГО собственного ε_su (у арматуры с физическим
+            // и с условным пределом текучести пределы разные).
+            double epsR = Eps(plane, rb.X, rb.Y) + rb.EpsP;
             if (epsR > rb.EpsSu)
             {
                double ratio = epsR / rb.EpsSu;
@@ -606,12 +702,14 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
 
       for (int outer = 0; outer < 3; outer++)
       {
-         var (xR, yR, epsSu) = gov.Value;
+         var (xR, yR, epsSu, epsP) = gov.Value;
+         // Целевая деформация ПЛОСКОСТИ в стержне: полная должна упереться в ε_su.
+         double epsPin = epsSu - epsP;
          double epsR = Eps(spCur, xR, yR);
-         double lam = Math.Abs(epsR) > 1e-15 ? epsSu / epsR : 0.5;
+         double lam = Math.Abs(epsR) > 1e-15 ? epsPin / epsR : 0.5;
          lam = Math.Clamp(lam, 0.01, 2.0);
 
-         var res = PinnedEquilibriumNewton.Solve(Forces, xR, yR, epsSu, kxCur * lam, kyCur * lam, Math.Max(kCur * lam, 1e-3),
+         var res = PinnedEquilibriumNewton.Solve(Forces, xR, yR, epsPin, kxCur * lam, kyCur * lam, Math.Max(kCur * lam, 1e-3),
             nFn, mxFn, myFn, dNdk, dMxdk, dMydk, _yRef, _xRef, _hDiff, _maxIter, _relTol);
          totalIter += res.Iterations;
          if (!res.Converged)
@@ -880,12 +978,17 @@ public sealed class LimitForceSolverFast : ILimitForceSolver
       string governing)
    {
       double epsContourMin = _contourPts.Min(p => Eps(sp, p.X, p.Y));
-      double? epsRebarMax = _rebarLimits.Count > 0
-         ? _rebarLimits.Max(p => Eps(sp, p.X, p.Y))
-         : null;
-      double? epsSu = _rebarLimits.Count > 0
-         ? _rebarLimits.Max(p => p.EpsSu)
-         : null;
+      // Пара (ε_s,max; ε_su) — от ОДНОГО, самого нагруженного по ε/ε_su стержня: независимые
+      // максимумы смешали бы деформацию одного стержня с пределом другого (ReSteelF 0.025 /
+      // ReSteelU 0.015). Деформация — полная, с учётом преднапряжения.
+      var governingBar = _rebarLimits
+         .Where(p => p.EpsSu > 0)
+         .Select(p => (Full: Eps(sp, p.X, p.Y) + p.EpsP, p.EpsSu))
+         .OrderByDescending(t => t.Full / t.EpsSu)
+         .FirstOrDefault();
+
+      double? epsRebarMax = governingBar.EpsSu > 0 ? governingBar.Full : null;
+      double? epsSu = governingBar.EpsSu > 0 ? governingBar.EpsSu : null;
 
       return new LimitForceResult
       {
