@@ -158,7 +158,14 @@ static class LimitForceTaskHelper
       }
 
       var parameters = LimitForceParams.Parse(task.ParamsJson);
-      var data = BuildData(res, item, parameters, k, nRes, mxRes, myRes);
+
+      // Исходное обжатие, вошедшее в расчёт: оно не масштабируется коэффициентом k и от
+      // найденной предельной точки не зависит. Нужно в сводке, чтобы было видно и само
+      // наличие преднапряжения, и предупреждение σ_sp·γ_sp > Ft (см. StrainSummaryVM).
+      var prestress = section.PrestressActions(null, task.CalcType,
+         settings.ResolveConcreteTension(task.CalcType));
+
+      var data = BuildData(res, item, parameters, k, nRes, mxRes, myRes, prestress);
 
       return new CalcResult
       {
@@ -173,7 +180,7 @@ static class LimitForceTaskHelper
 
    static object BuildData(
       LimitForceResult res, LoadItem item, LimitForceParams parameters, Kurvature k,
-      double nRes, double mxRes, double myRes)
+      double nRes, double mxRes, double myRes, PrestressActionsResult prestress)
    {
       return new
       {
@@ -200,6 +207,7 @@ static class LimitForceTaskHelper
          N_result          = Math.Round(nRes, 4),
          Mx_result         = Math.Round(mxRes, 4),
          My_result         = Math.Round(myRes, 4),
+         prestress         = PrestressActionsJsonModel.From(prestress),
          eta               = BuildEtaJson(res.Eta, parameters.EtaIterative,
             parameters.EtaSlendernessThreshold ?? CScore.Sp63.EccentricityAmplifier.SlendernessThreshold,
             res.MxLimit, res.MyLimit),
