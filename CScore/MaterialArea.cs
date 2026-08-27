@@ -177,11 +177,21 @@ namespace CScore
       /// <summary>
       /// Вычисляет ε_sp = SigSp · GammaSp / E_s и записывает в <see cref="Fiber.Eps_p"/>
       /// для всех точечных фибр. Вызывать после разрешения <see cref="Material"/>.
+      /// При SigSp = 0 начальные деформации ОБНУЛЯЮТСЯ: метод вызывается из сеттеров
+      /// редактора арматурной группы, а Eps_p сохраняется в БД — без сброса снятие
+      /// преднапряжения не доходит ни до расчёта, ни до файла проекта.
       /// </summary>
       public void PropagateEps_p()
       {
-         if (SigSp == 0.0 || Material == null) return;
-         double eps_p = SigSp * 1000.0 * GammaSp / Material.E;  // SigSp [МПа] → [кПа] ×1000; E в кПа
+         // Материал не разрешён (при загрузке из БД фибры с eps_p приходят раньше, чем
+         // проставляется Material) — вычислить ε_p нечем, загруженное значение сохраняем.
+         if (SigSp != 0.0 && (Material == null || !(Material.E > 0.0) || !double.IsFinite(Material.E)))
+            return;
+
+         double eps_p = SigSp == 0.0
+            ? 0.0
+            : SigSp * 1000.0 * GammaSp / Material!.E;  // SigSp [МПа] → [кПа] ×1000; E в кПа
+
          foreach (var f in Fibers.Where(f => f.TypeFiber == FiberType.point))
             f.Eps_p = eps_p;
       }
