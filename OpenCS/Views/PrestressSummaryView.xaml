@@ -1,0 +1,69 @@
+<UserControl x:Class="OpenCS.Views.PrestressSummaryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+   <GroupBox Header="{DynamicResource ResultPrestress}"
+             Margin="0,0,0,6" Padding="8,4"
+             Visibility="{Binding HasPrestress, Converter={StaticResource BoolToVisibility}}">
+      <StackPanel>
+         <Grid Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+               <ColumnDefinition Width="130"/>
+               <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{DynamicResource ResultPrestressReference}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Column="1" Text="{Binding PrestressReferenceText}" FontFamily="Consolas" Margin="0,1"/>
+         </Grid>
+         <Grid>
+            <Grid.ColumnDefinitions>
+               <ColumnDefinition Width="60"/>
+               <ColumnDefinition Width="150"/>
+               <ColumnDefinition Width="150"/>
+               <ColumnDefinition Width="150"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+               <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="{DynamicResource ResultPrestressNominal}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource ResultPrestressEffective}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="0" Grid.Column="3" Text="{DynamicResource ResultPrestressActual}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource ResultPrestressN}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PrestressNominalNText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding PrestressEffectiveNText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding PrestressActualNText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource ResultPrestressMx}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PrestressNominalMxText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding PrestressEffectiveMxText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding PrestressActualMxText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource ResultPrestressMy}" Foreground="Gray" Margin="0,1"/>
+            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding PrestressNominalMyText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding PrestressEffectiveMyText}" FontFamily="Consolas" Margin="0,1"/>
+            <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding PrestressActualMyText}" FontFamily="Consolas" Margin="0,1"/>
+         </Grid>
+
+         <DataGrid ItemsSource="{Binding PrestressRows}"
+                   AutoGenerateColumns="False" IsReadOnly="True"
+                   CanUserAddRows="False" CanUserDeleteRows="False"
+                   HeadersVisibility="Column" SelectionMode="Single"
+                   Margin="0,6,0,0">
+            <DataGrid.Columns>
+               <DataGridTextColumn Header="{DynamicResource ResultPrestressGroup}" Binding="{Binding Tag}" Width="*"/>
+               <DataGridTextColumn Header="{DynamicResource ResultPrestressArea}" Binding="{Binding Area}" Width="100"/>
+               <DataGridTextColumn Header="{DynamicResource ResultPrestressSigma}" Binding="{Binding Sigma}" Width="90"/>
+               <DataGridTextColumn Header="{DynamicResource ResultPrestressNominal}" Binding="{Binding Nominal}" Width="220"/>
+               <DataGridTextColumn Header="{DynamicResource ResultPrestressEffective}" Binding="{Binding Effective}" Width="220"/>
+               <DataGridTextColumn Header="{DynamicResource ResultPrestressActual}" Binding="{Binding Actual}" Width="220"/>
+               <DataGridTextColumn Header="{DynamicResource ResultPrestressSigActual}" Binding="{Binding SigmaActual}" Width="110"/>
+            </DataGrid.Columns>
+         </DataGrid>
+
+         <TextBlock Text="{Binding PrestressAboveStrengthText}"
+                    Visibility="{Binding HasPrestressAboveStrength, Converter={StaticResource BoolToVisibility}}"
+                    Foreground="#C05000" TextWrapping="Wrap" Margin="0,6,0,0"/>
+      </StackPanel>
+   </GroupBox>
+</UserControl>

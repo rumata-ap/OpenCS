@@ -30,6 +30,8 @@ public sealed class CrackingHandler : ITaskHandler
             var solver = new CrackingSolver(section, calcCrc);
             var res = solver.CrackingMoment(item.N, dmx, dmy);
             double mcrc = Math.Sqrt(res.Mx * res.Mx + res.My * res.My);
+            var prestress = PrestressActionsJsonModel.From(section.PrestressActions(
+                null, calcCrc, settings.ResolveConcreteTension(calcCrc)));
 
             var data = new
             {
@@ -43,7 +45,8 @@ public sealed class CrackingHandler : ITaskHandler
                 e0 = res.StrainPlane.HasValue ? Math.Round(res.StrainPlane.Value.e0, 8) : (double?)null,
                 ky = res.StrainPlane.HasValue ? Math.Round(res.StrainPlane.Value.ky, 8) : (double?)null,
                 kz = res.StrainPlane.HasValue ? Math.Round(res.StrainPlane.Value.kz, 8) : (double?)null,
-                plane_converged = res.StrainPlane.HasValue
+                plane_converged = res.StrainPlane.HasValue,
+                prestress
             };
 
             return new CalcResult

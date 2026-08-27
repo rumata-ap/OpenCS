@@ -1173,6 +1173,9 @@
    <system:String x:Key="ResultForces">Forces: target → result</system:String>
    <system:String x:Key="ResultPrestress">Prestress</system:String>
    <system:String x:Key="ResultPrestressReference">Moment reference</system:String>
+   <system:String x:Key="ResultPrestressN">N_sp</system:String>
+   <system:String x:Key="ResultPrestressMx">Mx_sp</system:String>
+   <system:String x:Key="ResultPrestressMy">My_sp</system:String>
    <system:String x:Key="ResultPrestressNominal">Nominal action</system:String>
    <system:String x:Key="ResultPrestressEffective">Effective action</system:String>
    <system:String x:Key="ResultPrestressArea">Area</system:String>

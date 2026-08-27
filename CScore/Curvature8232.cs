@@ -20,6 +20,23 @@ public static class Curvature8232
         return Math.Clamp(1.0 / (1.0 + 0.8 * epsCrc / eps), 0.0, 1.0);
     }
 
+    /// <summary>Вычисляет ψs по деформациям плоскости для напрягаемой арматуры.
+    /// Знак деформации в момент образования трещины не исключает стержень.</summary>
+    public static double PsiSFromPlaneStrains(double epsCrc, double eps)
+    {
+        if (!double.IsFinite(epsCrc) || !double.IsFinite(eps) || eps <= 0.0)
+            return 1.0;
+
+        return Math.Clamp(1.0 / (1.0 + 0.8 * Math.Abs(epsCrc) / eps), 0.0, 1.0);
+    }
+
+    /// <summary>Вычисляет ψs для текущей плоскости после достижения текущей деформацией
+    /// модуля деформации в момент образования трещины.</summary>
+    public static double PsiSForCurrentPlane(double epsCrc, double eps)
+    {
+        return PsiSFromPlaneStrains(epsCrc, eps);
+    }
+
     /// <summary>Возвращает напряжение арматуры после поправки σ/ψs.</summary>
     /// <param name="diagramStress">Напряжение по диаграмме материала.</param>
     /// <param name="psiS">Коэффициент ψs по п. 8.2.32.</param>
@@ -67,7 +84,8 @@ public static class Curvature8232
     /// </remarks>
     public static Load ApplyPsiCorrection(
         CrossSection section, Kurvature k, Load baseLoad,
-        IReadOnlyDictionary<Fiber, double> epsCrcByFiber, CalcType calc)
+        IReadOnlyDictionary<Fiber, double> epsCrcByFiber, CalcType calc,
+        bool requireCurrentPlaneStrain = false)
     {
         ArgumentNullException.ThrowIfNull(section);
         ArgumentNullException.ThrowIfNull(epsCrcByFiber);
@@ -89,11 +107,26 @@ public static class Curvature8232
                     !epsCrcByFiber.TryGetValue(fiber, out var epsCrc))
                     continue;
 
-                double eps = fiber.Eps + fiber.Eps_p;
-                if (eps <= 0.0)
+                // Зону растяжения и ψs определяем по плоскости от внешней нагрузки.
+                // Полную деформацию сохраняем только для обращения к диаграмме: начальная
+                // деформация не должна включать сжатый по плоскости стержень в ψs, но должна
+                // оставаться в его фактическом напряжении.
+                double eps = fiber.Eps;
+                double epsFull = eps + fiber.Eps_p;
+                if (requireCurrentPlaneStrain && fiber.Eps_p != 0.0
+                    ? eps <= 0.0
+                    : epsFull <= 0.0)
                     continue;
 
-                double psi = PsiS(epsCrc, eps);
+                double psi;
+                if (requireCurrentPlaneStrain && fiber.Eps_p != 0.0)
+                {
+                    psi = PsiSForCurrentPlane(epsCrc, eps);
+                }
+                else
+                {
+                    psi = PsiS(epsCrc, epsFull);
+                }
                 if (psi <= 0.0 || psi >= 1.0 - 1e-12)
                     continue;
 
@@ -105,7 +138,7 @@ public static class Curvature8232
                     // εs,crc = εs/ψs — деформация стержня В ТРЕЩИНЕ; σ снимается с диаграммы,
                     // поэтому за площадкой текучести поправка сама собой затухает.
                     // dεs,crc/dεs = 1, значит касательный модуль переносится без масштаба.
-                    sigCrc = dgr.Sig(eps * scale, out e2Crc);
+                    sigCrc = dgr.Sig(epsFull * scale, out e2Crc);
                 }
                 else
                 {
@@ -120,7 +153,7 @@ public static class Curvature8232
 
                 fiber.Sig = sigCrc;
                 fiber.E2 = e2Crc;
-                fiber.E = sigCrc / eps;
+                fiber.E = Math.Abs(epsFull) > 1e-20 ? sigCrc / epsFull : 0.0;
                 fiber.N += addN;
                 fiber.Mx += addMx;
                 fiber.My += addMy;

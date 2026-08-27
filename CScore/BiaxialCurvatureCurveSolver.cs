@@ -441,7 +441,8 @@ public sealed class BiaxialCurvatureCurveSolver
         Load Evaluate(Kurvature k)
         {
             var raw = _section.Integral(k, _calcService, ten: false, ca: true);
-            return epsCrc == null ? raw : Curvature8232.ApplyPsiCorrection(_section, k, raw, epsCrc, _calcService);
+            return epsCrc == null ? raw : Curvature8232.ApplyPsiCorrection(
+                _section, k, raw, epsCrc, _calcService, requireCurrentPlaneStrain: true);
         }
 
         var solver = new StrainSolver(_section, _calcService, ten: false, ca: true,
@@ -575,7 +576,8 @@ public sealed class BiaxialCurvatureCurveSolver
         {
             var k = new Kurvature { e0 = e0, ky = ky, kz = kz };
             var raw = _section.Integral(k, calcType, ten: ten, ca: true);
-            return epsCrc == null ? raw : Curvature8232.ApplyPsiCorrection(_section, k, raw, epsCrc, calcType);
+            return epsCrc == null ? raw : Curvature8232.ApplyPsiCorrection(
+                _section, k, raw, epsCrc, calcType, requireCurrentPlaneStrain: true);
         }
 
         CurvatureEquilibriumResult equilibrium;
@@ -672,7 +674,7 @@ public sealed class BiaxialCurvatureCurveSolver
             foreach (var fiber in area.Fibers)
             {
                 if (fiber.TypeFiber != FiberType.point) continue;
-                map[fiber] = ka.e0 + ka.ky * fiber.Y + ka.kz * fiber.X + fiber.Eps_p;
+                map[fiber] = ka.e0 + ka.ky * fiber.Y + ka.kz * fiber.X;
             }
         }
         return map;

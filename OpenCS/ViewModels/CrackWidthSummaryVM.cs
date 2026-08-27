@@ -27,6 +27,7 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
     public string MyTotalText { get; } = "—";
 
     public CrackingMomentPartVM CrackingPart { get; }
+    public PrestressSummaryVM Prestress { get; private set; } = new();
 
     public bool Cracked { get; }
     public string AcrcLongText { get; } = "—";
@@ -140,6 +141,7 @@ public sealed class CrackWidthSummaryVM : ViewModelBase
 
         var doc = JsonDocument.Parse(result.DataJson);
         var root = doc.RootElement;
+        Prestress = PrestressSummaryVM.Parse(root);
 
         Cracked = root.TryGetProperty("cracked", out var cr) && cr.GetBoolean();
         PassedLong = root.TryGetProperty("passed_long", out var pl) && pl.GetBoolean();

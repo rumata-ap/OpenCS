@@ -298,6 +298,32 @@ public class CrackWidthSolverTests
         Assert.True(res.PsiS <= 1.0);
     }
 
+    [Fact]
+    public void Compute_PrestressIsExcludedFromCrackWidthRebarStrainAndStress()
+    {
+        var section = TestSections.RectWithEccentricPrestressedRebar();
+        var mcrcResult = new CrackingSolver(section, CalcType.N).CrackingMoment(-500.0, -100.0, 25.0);
+        Assert.True(mcrcResult.Converged);
+        var solver = new CrackWidthSolver(section);
+
+        var res = solver.Compute(N: -500.0,
+            mxLong: mcrcResult.Mx * 1.2, mxTotal: mcrcResult.Mx * 1.2,
+            myLong: mcrcResult.My * 1.2, myTotal: mcrcResult.My * 1.2);
+
+        Assert.True(res.Cracked, $"Mcrc={res.Mcrc:G8}, crc={res.CrcConverged}, plane={res.PlaneLong.HasValue}");
+        Assert.True(res.PlaneLong.HasValue);
+        var entry = res.AcrcByRebar.Single(e => Math.Abs(e.X - 0.04) < 1e-9 && Math.Abs(e.Y + 0.22) < 1e-9);
+        var plane = res.PlaneLong!.Value;
+        double epsPlane = plane.e0 + plane.ky * entry.Y + plane.kz * entry.X;
+
+        Assert.Contains(section.Areas.Single(area => area.SigSp != 0.0).Fibers, f => f.Eps_p > 0.0);
+        Assert.Equal(epsPlane, entry.Eps, 12);
+
+        var strand = section.Areas.Single(area => area.SigSp != 0.0);
+        var diagram = strand.Material!.GetDiagramms(strand.DiagrammType, 0.85)![CalcType.N];
+        Assert.Equal(diagram.Sig(epsPlane, out _), entry.SigmaKPa, 6);
+    }
+
     // Инженерное уточнение сверх буквы нормы (актуально при косом изгибе, где стержни в
     // растянутой зоне напряжены существенно неравномерно): As_tens/ds_eq считаются не
     // "в лоб" (полная площадь любого стержня с eps>0), а с весом σi/σ_max — вклад слабо

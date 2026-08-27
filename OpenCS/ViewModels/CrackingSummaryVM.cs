@@ -17,6 +17,7 @@ public sealed class CrackingSummaryVM : ViewModelBase
     public bool PlaneConverged { get; }
 
     public CrackingMomentPartVM CrackingPart { get; }
+    public PrestressSummaryVM Prestress { get; private set; } = new();
 
     public CrackingSummaryVM(CalcResult result)
     {
@@ -40,6 +41,7 @@ public sealed class CrackingSummaryVM : ViewModelBase
 
         var doc = JsonDocument.Parse(result.DataJson);
         var root = doc.RootElement;
+        Prestress = PrestressSummaryVM.Parse(root);
 
         bool converged = root.TryGetProperty("converged", out var cv) && cv.GetBoolean();
         PlaneConverged = root.TryGetProperty("plane_converged", out var pc) && pc.GetBoolean();

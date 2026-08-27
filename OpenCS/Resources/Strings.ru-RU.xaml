@@ -1173,6 +1173,9 @@
    <system:String x:Key="ResultForces">Усилия: задано → найдено</system:String>
    <system:String x:Key="ResultPrestress">Преднапряжение</system:String>
    <system:String x:Key="ResultPrestressReference">Центр моментов</system:String>
+   <system:String x:Key="ResultPrestressN">N_sp</system:String>
+   <system:String x:Key="ResultPrestressMx">Mx_sp</system:String>
+   <system:String x:Key="ResultPrestressMy">My_sp</system:String>
    <system:String x:Key="ResultPrestressNominal">Номинальное действие</system:String>
    <system:String x:Key="ResultPrestressEffective">Эффективное действие</system:String>
    <system:String x:Key="ResultPrestressArea">Площадь</system:String>

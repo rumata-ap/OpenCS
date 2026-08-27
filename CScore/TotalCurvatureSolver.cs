@@ -207,20 +207,30 @@ public sealed class TotalCurvatureSolver
     {
         const bool ten = false;
         const bool ca = true;
-        StrainSolver NewSolver() => new(_section, calc, ten, ca,
+        StrainSolver NewSolver(bool currentPlaneRule) => new(_section, calc, ten, ca,
             tol: _solverTol, maxIter: _solverMaxIter, h: _solverH,
             centralJacobian: _centralJacobian,
             evaluate: k => Curvature8232.ApplyPsiCorrection(
-                _section, k, _section.Integral(k, calc, ten, ca), epsCrc, calc));
+                _section, k, _section.Integral(k, calc, ten, ca), epsCrc, calc,
+                requireCurrentPlaneStrain: currentPlaneRule));
 
-        var solver = NewSolver();
+        var solver = NewSolver(currentPlaneRule: true);
         var plane = solver.Solve(n, mx, my, seed);
         if (!solver.Converged)
         {
             // Seed предыдущей стадии может лежать на площадке текучести арматуры в трещине,
             // где dM/dκ ≈ 0 и якобиан вырожден — недемпфированный Ньютон улетает. Повторная
             // попытка из упругой оценки для ЭТОЙ цели сходится в тот же корень.
-            solver = NewSolver();
+            solver = NewSolver(currentPlaneRule: true);
+            plane = solver.Solve(n, mx, my,
+                FiniteGuess(_section.Guess(new Load { N = n, Mx = mx, My = my })));
+        }
+        if (!solver.Converged)
+        {
+            // Для отдельных старых расчётных схем новая классификация по внешней плоскости
+            // может не иметь устойчивого численного корня. Сохраняем расчётную совместимость
+            // через прежнюю поправку; итоговый ψs всё равно формируется по внешней плоскости.
+            solver = NewSolver(currentPlaneRule: false);
             plane = solver.Solve(n, mx, my,
                 FiniteGuess(_section.Guess(new Load { N = n, Mx = mx, My = my })));
         }
@@ -252,13 +262,18 @@ public sealed class TotalCurvatureSolver
                 if (fiber.TypeFiber != FiberType.point)
                     continue;
 
-                double eps = plane.e0 + plane.ky * fiber.Y + plane.kz * fiber.X + fiber.Eps_p;
+                double eps = plane.e0 + plane.ky * fiber.Y + plane.kz * fiber.X;
                 double epsCrc = 0.0;
+                bool isPrestressed = Math.Abs(fiber.Eps_p) > 1e-20;
                 bool applicable = eps > 0.0
                     && epsCrcByFiber.TryGetValue(fiber, out epsCrc)
                     && double.IsFinite(epsCrc)
-                    && epsCrc > 0.0;
-                double psi = applicable ? Curvature8232.PsiS(epsCrc, eps) : 1.0;
+                    && (isPrestressed || epsCrc > 0.0);
+                double psi = applicable
+                    ? isPrestressed
+                        ? Curvature8232.PsiSForCurrentPlane(epsCrc, eps)
+                        : Curvature8232.PsiS(epsCrc, eps)
+                    : 1.0;
 
                 result.Add(new CurvatureRebarPsi
                 {
@@ -303,7 +318,7 @@ public sealed class TotalCurvatureSolver
             {
                 if (fiber.TypeFiber != FiberType.point)
                     continue;
-                map[fiber] = ka.e0 + ka.ky * fiber.Y + ka.kz * fiber.X + fiber.Eps_p;
+                map[fiber] = ka.e0 + ka.ky * fiber.Y + ka.kz * fiber.X;
             }
         }
         return map;

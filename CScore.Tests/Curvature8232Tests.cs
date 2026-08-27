@@ -17,11 +17,20 @@ public sealed class Curvature8232Tests
     }
 
     [Fact]
-    public void PsiS_DoesNotReduceCompressionOrUnstrainedBar()
+    public void PsiS_RejectsNegativeCrackStrainOnlyForOrdinaryFormula()
     {
         Assert.Equal(1.0, Curvature8232.PsiS(0.00010, 0.0));
         Assert.Equal(1.0, Curvature8232.PsiS(0.00010, -0.00050));
         Assert.Equal(1.0, Curvature8232.PsiS(-0.00010, 0.00050));
+        Assert.Equal(1.0 / 2.6,
+            Curvature8232.PsiSForCurrentPlane(-0.00100, 0.00050), 12);
+    }
+
+    [Fact]
+    public void PsiSFromPlaneStrains_UsesMagnitudeForPrestressedBar()
+    {
+        Assert.Equal(1.0 / 1.16,
+            Curvature8232.PsiSFromPlaneStrains(-0.00010, 0.00050), 12);
     }
 
     [Fact]

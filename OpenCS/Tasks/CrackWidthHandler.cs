@@ -133,6 +133,8 @@ public sealed class CrackWidthHandler : ITaskHandler
             }
 
             var calcCrc = task.CalcType is CalcType.N or CalcType.NL ? task.CalcType : CalcType.N;
+            var prestress = PrestressActionsJsonModel.From(section.PrestressActions(
+                null, calcCrc, settings.ResolveConcreteTension(calcCrc)));
             var solver = new CrackWidthSolver(section,
                 calcCrc: calcCrc, calcService: CalcType.N,
                 calcServiceLong: p.LongPartUseNL ? CalcType.NL : (CalcType?)null,
@@ -193,7 +195,8 @@ public sealed class CrackWidthHandler : ITaskHandler
                     psi_s2 = Math.Round(e.PsiS2, 4),
                     acrc_short_mm = Math.Round(e.AcrcShortMm, 4)
                 }).ToArray(),
-                eta = etaData
+                eta = etaData,
+                prestress
             };
 
             return new CalcResult

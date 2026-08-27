@@ -314,8 +314,38 @@ public class TotalCurvatureSolverTests
             .Compute(0.0, -50.0, 0.0, -60.0, 0.0);
 
         Assert.True(plain.AllConverged);
-        Assert.True(prestressed.AllConverged);
+        Assert.True(prestressed.AllConverged,
+            $"crc={prestressed.CrcConverged}, stage1={prestressed.Stage1?.Converged}, " +
+            $"stage2={prestressed.Stage2?.Converged}, stage3={prestressed.Stage3?.Converged}");
         Assert.NotEqual(plain.KyFull, prestressed.KyFull, 6);
+    }
+
+    [Fact]
+    public void Compute_PsiUsesPlaneStrainForEveryCurrentlyTensionedRebar()
+    {
+        var section = TestSections.RectWithEccentricPrestressedRebar();
+        var result = new TotalCurvatureSolver(section,
+                solverTol: 0.5, solverMaxIter: 80, solverH: 1e-7)
+            .Compute(N: -500.0,
+                mxLong: -170.0, myLong: 42.5,
+                mxTotal: -200.0, myTotal: 50.0);
+
+        Assert.True(result.AllConverged);
+        Assert.NotNull(result.Stage1);
+
+        var tensionedStrand = result.Stage1.PsiSByRebar.Single(value =>
+            Math.Abs(value.X - 0.04) < 1e-12
+            && Math.Abs(value.Y + 0.22) < 1e-12);
+
+        Assert.True(tensionedStrand.Applicable);
+        Assert.True(tensionedStrand.PsiS > 0.0 && tensionedStrand.PsiS < 1.0);
+
+        var compressedStrand = result.Stage1.PsiSByRebar.Single(value =>
+            Math.Abs(value.X + 0.04) < 1e-12
+            && Math.Abs(value.Y + 0.22) < 1e-12);
+
+        Assert.False(compressedStrand.Applicable);
+        Assert.Equal(1.0, compressedStrand.PsiS);
     }
 
     [Fact]

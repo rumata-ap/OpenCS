@@ -88,16 +88,34 @@ public class Curvature8232ApplyPsiCorrectionTests
     }
 
     [Fact]
-    public void ApplyPsiCorrection_UsesFullStrainIncludingEpsP()
+    public void ApplyPsiCorrection_CompressedPlaneWithPrestress_IsLeftUntouched()
     {
-        var fiber = MakeFiber(0.08, 0.0004, 0.0004, 90_000, 70_000_000, 112_500_000, 0.0001);
+        var fiber = MakeFiber(0.08, -0.0002, 0.0004, 90_000, 70_000_000, 112_500_000, 0.0001);
         var corrected = Curvature8232.ApplyPsiCorrection(
             SectionWithFibers(fiber), new Kurvature(),
             new Load { N = 9.0, Mx = 0.72 },
-            new Dictionary<Fiber, double> { [fiber] = 0.0010 }, CalcType.N);
+            new Dictionary<Fiber, double> { [fiber] = 0.0010 }, CalcType.N,
+            requireCurrentPlaneStrain: true);
 
-        Assert.Equal(18.0, corrected.N, 6);
-        Assert.Equal(1.44, corrected.Mx, 6);
+        Assert.Equal(9.0, corrected.N, 6);
+        Assert.Equal(0.72, corrected.Mx, 6);
+        Assert.Equal(90_000.0, fiber.Sig, 3);
+    }
+
+    [Fact]
+    public void ApplyPsiCorrection_TensionedPlaneWithNegativeCrackStrain_UsesPlaneStrainMagnitude()
+    {
+        var fiber = MakeFiber(0.08, 0.0004, 0.0045, 90_000, 70_000_000, 112_500_000, 0.0001);
+        var corrected = Curvature8232.ApplyPsiCorrection(
+            SectionWithFibers(fiber), new Kurvature(),
+            new Load { N = 9.0, Mx = 0.72 },
+            new Dictionary<Fiber, double> { [fiber] = -0.0001 }, CalcType.N,
+            requireCurrentPlaneStrain: true);
+
+        // ψs = 1 / (1 + 0.8 · |εs,crc| / εs) = 1/1.2.
+        Assert.Equal(10.8, corrected.N, 6);
+        Assert.Equal(0.864, corrected.Mx, 6);
+        Assert.Equal(108_000.0, fiber.Sig, 3);
     }
 
     [Fact]

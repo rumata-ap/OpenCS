@@ -17,6 +17,7 @@ public sealed class TotalCurvatureSummaryVM : ViewModelBase
     public Brush StatusBrush { get; } = Brushes.Gray;
     public bool HasError { get; }
     public string ErrorText { get; } = "";
+    public PrestressSummaryVM Prestress { get; private set; } = new();
 
     public string NText { get; } = Loc.S("TotalCurvature_Empty");
     public string MxLongText { get; } = Loc.S("TotalCurvature_Empty");
@@ -92,6 +93,7 @@ public sealed class TotalCurvatureSummaryVM : ViewModelBase
         try
         {
             var root = JsonDocument.Parse(result.DataJson).RootElement;
+            Prestress = PrestressSummaryVM.Parse(root);
             Cracked = root.TryGetProperty("cracked", out var cracked) && cracked.GetBoolean();
             AllConverged = root.TryGetProperty("all_converged", out var converged)
                 && converged.GetBoolean();

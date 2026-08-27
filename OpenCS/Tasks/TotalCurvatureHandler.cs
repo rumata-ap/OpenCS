@@ -40,6 +40,8 @@ public sealed class TotalCurvatureHandler : ITaskHandler
                 solverH: settings.NewtonDeltaH,
                 centralJacobian: settings.NewtonJacobian == "central");
             var result = solver.Compute(nTotal, mxLong, myLong, mxTotal, myTotal);
+            var prestress = PrestressActionsJsonModel.From(section.PrestressActions(
+                null, calcCrc, settings.ResolveConcreteTension(calcCrc)));
 
             return new CalcResult
             {
@@ -49,7 +51,7 @@ public sealed class TotalCurvatureHandler : ITaskHandler
                 Created = created,
                 Status = result.AllConverged ? "ok" : "error",
                 DataJson = JsonSerializer.Serialize(
-                    TotalCurvatureJson.Build(nTotal, mxLong, myLong, mxTotal, myTotal, result))
+                    TotalCurvatureJson.Build(nTotal, mxLong, myLong, mxTotal, myTotal, result, prestress))
             };
         }
         catch (Exception ex)
@@ -80,7 +82,8 @@ public sealed class TotalCurvatureHandler : ITaskHandler
 internal static class TotalCurvatureJson
 {
     public static object Build(double n, double mxLong, double myLong,
-        double mxTotal, double myTotal, TotalCurvatureResult result) => new
+        double mxTotal, double myTotal, TotalCurvatureResult result,
+        PrestressActionsJsonModel prestress) => new
     {
         N = Math.Round(n, 4),
         Mx_long = Math.Round(mxLong, 4),
@@ -98,7 +101,8 @@ internal static class TotalCurvatureJson
         ky_full = Math.Round(result.KyFull, 8),
         kz_full = Math.Round(result.KzFull, 8),
         k_full = Math.Round(result.KFull, 8),
-        all_converged = result.AllConverged
+        all_converged = result.AllConverged,
+        prestress
     };
 
     static object? Stage(CurvatureStageResult? stage) => stage == null ? null : new

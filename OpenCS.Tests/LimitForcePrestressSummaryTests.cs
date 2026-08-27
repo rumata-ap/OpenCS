@@ -52,6 +52,48 @@ public sealed class LimitForcePrestressSummaryTests
         Assert.Empty(doc.RootElement.GetProperty("prestress").GetProperty("groups").EnumerateArray());
     }
 
+    [Fact]
+    public void Cracking_WritesPrestressBlock()
+    {
+        var result = new CrackingHandler().Run(
+            new CalcTask { Id = 2, Kind = "cracking", Tag = "Mcrc", CalcType = CalcType.N },
+            PrestressedBeam(), new LoadItem { N = -500.0, Mx = -100.0, My = 25.0 },
+            CalcSettings.Default);
+
+        Assert.NotEqual("error", result.Status);
+        Assert.Equal(1, PrestressGroupCount(result.DataJson));
+    }
+
+    [Fact]
+    public void CrackWidth_WritesPrestressBlock()
+    {
+        var result = new CrackWidthHandler().Run(
+            new CalcTask { Id = 3, Kind = "crack_width", Tag = "acrc", CalcType = CalcType.N, ParamsJson = "{}" },
+            PrestressedBeam(), new LoadItem { N = -500.0, Mx = -100.0, My = 25.0 },
+            CalcSettings.Default);
+
+        Assert.NotEqual("error", result.Status);
+        Assert.Equal(1, PrestressGroupCount(result.DataJson));
+    }
+
+    [Fact]
+    public void TotalCurvature_WritesPrestressBlock()
+    {
+        var result = new TotalCurvatureHandler().Run(
+            new CalcTask { Id = 4, Kind = "total_curvature", Tag = "кривизна", CalcType = CalcType.N, ParamsJson = "{}" },
+            PrestressedBeam(), new LoadItem { N = -500.0, Mx = -100.0, My = 25.0 },
+            CalcSettings.Default);
+
+        Assert.NotEqual("error", result.Status);
+        Assert.Equal(1, PrestressGroupCount(result.DataJson));
+    }
+
+    static int PrestressGroupCount(string dataJson)
+    {
+        using var document = JsonDocument.Parse(dataJson);
+        return document.RootElement.GetProperty("prestress").GetProperty("groups").GetArrayLength();
+    }
+
     static CalcTask Task() => new()
     {
         Id = 1,

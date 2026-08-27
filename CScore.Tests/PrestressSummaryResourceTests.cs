@@ -11,6 +11,9 @@ public class PrestressSummaryResourceTests
     /// <summary>Ключи, которые обязаны быть в обоих словарях.</summary>
     static readonly string[] RequiredKeys =
     [
+        "ResultPrestressN",
+        "ResultPrestressMx",
+        "ResultPrestressMy",
         "ResultPrestressActual",
         "ResultPrestressSigActual",
         "ResultPrestressAboveStrength",
@@ -20,6 +23,9 @@ public class PrestressSummaryResourceTests
     /// форматируется во вьюмодели через Loc.S, поэтому в XAML его нет).</summary>
     static readonly string[] MarkupKeys =
     [
+        "ResultPrestressN",
+        "ResultPrestressMx",
+        "ResultPrestressMy",
         "ResultPrestressActual",
         "ResultPrestressSigActual",
     ];
@@ -36,9 +42,9 @@ public class PrestressSummaryResourceTests
     }
 
     [Fact]
-    public void SummaryBody_UsesPrestressActualResources()
+    public void PrestressSummaryView_UsesPrestressActualResources()
     {
-        string xaml = File.ReadAllText(Find(Path.Combine("OpenCS", "Views", "StrainSummaryBody.xaml")));
+        string xaml = File.ReadAllText(Find(Path.Combine("OpenCS", "Views", "PrestressSummaryView.xaml")));
 
         foreach (string key in MarkupKeys)
             Assert.Contains($"DynamicResource {key}", xaml);
