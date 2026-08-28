@@ -59,19 +59,22 @@ public sealed class GoverningPinSolverFast
 
     /// <summary>
     /// Целевая доля использования (1.0 = точка 4/предел, соответствует существующим критериям
-    /// <see cref="LimitForceSolverFast"/>). Для точки 3 (текучесть) вызывающая сторона
-    /// пересчитывает "долю использования" ОТНОСИТЕЛЬНО деформации текучести Ry/E конкретного
-    /// governing-стержня — см. <see cref="BiaxialCurvatureCurveSolver"/> использование. N
-    /// зависит от <paramref name="dNdk"/> — та же конвенция, что и в
+    /// <see cref="LimitForceSolverFast"/>). Считается от ПОЛНОЙ деформации governing-точки: у
+    /// преднапряжённого стержня это εs,plane+εp относительно εs,su, поэтому пин (он задаёт
+    /// ПЛОСКОСТНУЮ деформацию) нацеливается на <c>εs,su·μ − εp</c>. Следствие: у преднапряжённой
+    /// арматуры доли μ &lt; εp/εs,su соответствуют разгрузке за ноль внешней нагрузки и на луче
+    /// нагружения недостижимы. N зависит от <paramref name="dNdk"/> — та же конвенция, что и в
     /// <see cref="TensionPinSolverFast.Solve"/> (Constant N: 0.0; Proportional N: <paramref
-    /// name="n"/>).
+    /// name="n"/>). Сегодня вызывается только с μ=1.0 (точка 4, см.
+    /// <c>BiaxialCurvatureCurveSolver.BuildUltimatePoint</c>): точка 3 (текучесть) ищется
+    /// независимой бисекцией по лучу нагружения, а не через этот параметр.
     /// </summary>
     public GoverningPinResult Solve(
         double targetUtilization, double n, double mx, double my, double dNdk,
         Kurvature seed, IReadOnlyDictionary<Fiber, double>? epsCrc)
     {
-        var (xA, yA, epsLimit, governing) = FindGoverningPin(seed);
-        double epsPin = epsLimit * targetUtilization;
+        var (xA, yA, epsLimit, epsP, governing) = FindGoverningPin(seed);
+        double epsPin = epsLimit * targetUtilization - epsP;
         Func<double, double> nFn = Math.Abs(dNdk) > 1e-30 ? (k => k * n) : (_ => n);
 
         for (int outer = 0; outer < 3; outer++)
@@ -113,7 +116,7 @@ public sealed class GoverningPinSolverFast
             if (!pinned.Converged)
                 return SolveFallback(n, mx, my, dNdk, xA, yA, epsPin, seed, epsCrc, governing);
 
-            var (newXA, newYA, newEpsLimit, newGoverning) = FindGoverningPin(pinned.Plane);
+            var (newXA, newYA, newEpsLimit, newEpsP, newGoverning) = FindGoverningPin(pinned.Plane);
             bool samePin = Math.Abs(newXA - xA) < 1e-9 && Math.Abs(newYA - yA) < 1e-9;
             if (newGoverning == governing && samePin)
             {
@@ -123,8 +126,8 @@ public sealed class GoverningPinSolverFast
                     true, UsedFallback: false, governing);
             }
 
-            xA = newXA; yA = newYA; epsLimit = newEpsLimit; governing = newGoverning;
-            epsPin = epsLimit * targetUtilization;
+            xA = newXA; yA = newYA; epsLimit = newEpsLimit; epsP = newEpsP; governing = newGoverning;
+            epsPin = epsLimit * targetUtilization - epsP;
             seed = pinned.Plane;
         }
 
@@ -139,39 +142,51 @@ public sealed class GoverningPinSolverFast
         return (load.N, load.Mx, load.My);
     }
 
-    (double X, double Y, double EpsLimit, string Governing) FindGoverningPin(Kurvature at)
+    /// <summary>
+    /// Ищет управляющую точку. <c>EpsLimit</c> возвращается ПОЛНЫЙ (материальный предел), а
+    /// преднапряжение отдаётся отдельным полем <c>EpsP</c> — вычитание делает <see cref="Solve"/>
+    /// уже после умножения на μ (см. его док).
+    /// </summary>
+    (double X, double Y, double EpsLimit, double EpsP, string Governing) FindGoverningPin(Kurvature at)
     {
         double bestRatio = double.NegativeInfinity;
-        (double X, double Y, double EpsLimit, string Governing) best = default;
+        (double X, double Y, double EpsLimit, double EpsP, string Governing) best = default;
 
         foreach (var p in _contourPts)
         {
             double eps = at.e0 + at.ky * p.Y + at.kz * p.X;
             double ratio = eps / _epsCuLimit; // оба отрицательны при сжатии — ratio положителен
-            if (ratio > bestRatio) { bestRatio = ratio; best = (p.X, p.Y, _epsCuLimit, "concrete"); }
+            if (ratio > bestRatio) { bestRatio = ratio; best = (p.X, p.Y, _epsCuLimit, 0.0, "concrete"); }
         }
         foreach (var r in _rebarPoints)
         {
             // Деформация от плоскости — БЕЗ преднапряжения (совпадает с классификацией ψs,
             // см. Curvature8232.ApplyPsiCorrection); ранжирование и предел — с ним: реальный
             // разрыв стержня наступает при ПОЛНОЙ деформации εs+εp = EpsSu, поэтому ratio
-            // считается по (eps+EpsP)/EpsSu, как в LimitForceSolverFast.BuildResult/Gov, а не
+            // считается по (eps+EpsP)/EpsSu, как в LimitForceSolverFast.SolveTension, а не
             // по одной лишь eps — иначе преднапряжённый стержень кажется дальше от предела,
-            // чем есть на самом деле.
+            // чем есть на самом деле. Полного паритета с LimitForceSolverFast тут нет: там
+            // арматура ранжируется только между собой (SolveTension), а бетон идёт отдельным
+            // SolveCompression; здесь оба в одном сравнении, поэтому при заметном εp/εs,su
+            // (напр. 0,30 у пряди A1000 с σsp=900 МПа) governing на первой итерации смещается
+            // на "rebar" там, где без учёта εp был бы "concrete". Итог от этого не меняется
+            // (перепин доводит до правильной точки), но итераций тратится больше.
             double eps = at.e0 + at.ky * r.Y + at.kz * r.X;
             double ratio = r.EpsLimit > 0 ? (eps + r.EpsP) / r.EpsLimit : 0.0;
             if (ratio > bestRatio)
             {
-                // Пин задаёт ПЛОСКОСТНУЮ деформацию (epsPin ниже — тоже плоскостная, см.
-                // Solve), поэтому предел для неё — остаток бюджета εs,su − εp: при
-                // targetUtilization=1.0 плоскостная деформация + εp достигнет ровно EpsSu, а не
-                // перелетит его на величину преднапряжения (как было до фикса).
                 bestRatio = ratio;
-                best = (r.X, r.Y, Math.Max(r.EpsLimit - r.EpsP, 0.0), "rebar");
+                best = (r.X, r.Y, r.EpsLimit, r.EpsP, "rebar");
             }
         }
-        if (best.EpsLimit == 0.0)
+        if (best.Governing == null)
             throw new InvalidOperationException("GoverningPinSolverFast: не удалось определить governing-точку.");
+        // Только для арматуры: у бетонного пина EpsLimit отрицателен (деформация сжатия), а
+        // EpsP там тождественно 0 — сравнение бюджета для него не имеет смысла.
+        if (best.Governing == "rebar" && best.EpsP >= best.EpsLimit)
+            throw new InvalidOperationException(
+                $"GoverningPinSolverFast: преднапряжение governing-точки (εp={best.EpsP}) не оставляет " +
+                $"бюджета деформации до её предела (εsu={best.EpsLimit}) — сечение исчерпано одним обжатием.");
         return best;
     }
 

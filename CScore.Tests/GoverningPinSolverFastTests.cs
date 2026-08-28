@@ -139,4 +139,47 @@ public class GoverningPinSolverFastTests
         Assert.True(result.Converged, $"UsedFallback={result.UsedFallback}, Governing={result.Governing}");
         Assert.Equal("rebar", result.Governing);
     }
+
+    /// <summary>
+    /// Регрессия: <c>targetUtilization</c> — доля использования от ПОЛНОЙ деформации стержня
+    /// (εs,plane+εp), а не от остатка бюджета εs,su−εp. Решатель пинует плоскостную деформацию,
+    /// поэтому пересчёт цели обязан быть <c>epsPin = EpsSu·μ − EpsP</c>, а не
+    /// <c>(EpsSu−EpsP)·μ</c>: второе даёт правильный ответ ТОЛЬКО при μ=1 (единственный режим,
+    /// которым решатель вызывается сегодня), а при μ&lt;1 завышает полную деформацию на
+    /// <c>εp·(1−μ)</c>. Сечение — TestSections.RectWithEccentricPrestressedRebar() (прядь A1000
+    /// Et2=0.015, SigSp=900 МПа → Eps_p=0.0045, т.е. 30% предела); N=400/Mx=-100/My=0 — та же
+    /// нагрузка, на которой прядь заведомо является governing-точкой (см.
+    /// BiaxialCurvatureCurveSolverTests.Compute_UltimatePoint_PrestressedRebarGoverning_*).
+    /// </summary>
+    [Fact]
+    public void Solve_PrestressedRebarGoverning_UtilizationCountsFullStrain()
+    {
+        var section = TestSections.RectWithEccentricPrestressedRebar();
+        var solver = new GoverningPinSolverFast(section, CalcType.N, ten: false);
+
+        const double Et2 = 0.015;   // A1000, предел прочности пряди
+        const double Mu = 0.5;
+
+        // Прогрев μ малыми шагами — представительная схема вызова (см. комментарий выше).
+        // Начинать прогрев с μ→0 для преднапряжённой пряди нельзя: μ отсчитывается от ПОЛНОЙ
+        // деформации, поэтому μ = εp/εsu = 0.30 соответствует нулевой внешней нагрузке, а
+        // меньшие μ — разгрузке за ноль (на луче нагружения недостижимы).
+        Kurvature cur = section.Guess(new Load { N = 400.0, Mx = -100.0, My = 0.0 });
+        GoverningPinResult result = default;
+        foreach (double mu in new[] { 0.40, 0.45, Mu })
+        {
+            result = solver.Solve(mu, n: 400.0, mx: -100.0, my: 0.0, dNdk: 0.0, cur, epsCrc: null);
+            Assert.True(result.Converged, $"mu={mu}: не сошлось, UsedFallback={result.UsedFallback}");
+            cur = result.Plane;
+        }
+
+        Assert.Equal("rebar", result.Governing);
+
+        var strands = section.Areas.Single(a => a.Tag == "strands");
+        var strand = strands.Fibers.Single(f => f.X < 0.0);
+        section.Integral(result.Plane, CalcType.N, ten: false, ca: true);
+        double totalStrain = strand.Eps + strand.Eps_p;
+
+        Assert.Equal(Et2 * Mu, totalStrain, 6);
+    }
 }

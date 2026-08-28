@@ -776,29 +776,6 @@ public sealed class BiaxialCurvatureCurveSolver
         };
     }
 
-    /// <summary>Доля использования точки 4 (по определению 1.0) относительно governing критерия
-    /// точки 4, ПЕРЕСЧИТАННАЯ в "доля использования по Ft/E у governing-стержня арматуры" — если
-    /// governing точки 4 сама арматура, это совпадает с 1.0 не всегда (Ft/E меньше EpsSu), поэтому
-    /// доля для точки 3 вычисляется независимо, через прямую проверку деформации governing-стержня
-    /// НА ПЛОСКОСТИ точки 4: если она уже превышает Ft/E, значит текучесть наступает раньше точки 4
-    /// (обычный случай), доля = Ft/E / eps_у_governing_на_плоскости_точки4.</summary>
-    double ResolveYieldUtilizationAtUltimate(Kurvature at, double yieldStrain)
-    {
-        double maxRebarStrainAtUltimate = 0.0;
-        foreach (var (area, ka) in _section.EnumerateAreas(at))
-        {
-            if (area.Material?.Type is not (MatType.ReSteelF or MatType.ReSteelU)) continue;
-            foreach (var fiber in area.Fibers)
-            {
-                if (fiber.TypeFiber != FiberType.point) continue;
-                double eps = ka.e0 + ka.ky * fiber.Y + ka.kz * fiber.X + fiber.Eps_p;
-                if (eps > maxRebarStrainAtUltimate) maxRebarStrainAtUltimate = eps;
-            }
-        }
-        if (maxRebarStrainAtUltimate <= yieldStrain) return -1.0; // текучесть не наступает
-        return yieldStrain / maxRebarStrainAtUltimate;
-    }
-
     BiaxialCurveScanPoint BuildUltimatePoint(
         GoverningPinSolverFast solver, double n, double mx, double my, double dNdk, Kurvature seed,
         IReadOnlyDictionary<Fiber, double>? epsCrc, BiaxialCurveScanPoint reference)
