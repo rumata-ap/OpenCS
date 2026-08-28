@@ -2643,7 +2643,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_NModeProportional">N пропорционально лучу</system:String>
     <system:String x:Key="MomentCurvature_StatusOk">Сошлось</system:String>
     <system:String x:Key="MomentCurvature_StatusPartial">Частично (см. точки)</system:String>
-    <system:String x:Key="MomentCurvature_CrackedAtZeroLoad">Сечение треснуло от одного обжатия: участка «до трещины» нет, показанная точка трещинообразования относится к противоположной грани</system:String>
+    <system:String x:Key="MomentCurvature_CrackedAtZeroLoad">Грань, растянутая обжатием, треснула ещё до приложения нагрузки. Момент образования трещины показан для грани, растянутой внешней нагрузкой</system:String>
     <system:String x:Key="MomentCurvature_ConvergedCountLabel">Сошлось точек</system:String>
     <system:String x:Key="MomentCurvature_TabCurvatureX">Кривизна-момент, X</system:String>
     <system:String x:Key="MomentCurvature_TabCurvatureY">Кривизна-момент, Y</system:String>
@@ -2679,6 +2679,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_PlotStiffnessXTitle">Mx — коэффициент к начальной жёсткости</system:String>
     <system:String x:Key="MomentCurvature_PlotStiffnessYTitle">My — коэффициент к начальной жёсткости</system:String>
     <system:String x:Key="MomentCurvature_AxisCurvature">κ, 1/м</system:String>
+    <system:String x:Key="MomentCurvature_AxisMomentTotal">M = √(Mx²+My²), кН·м</system:String>
     <system:String x:Key="MomentCurvature_AxisMomentX">Mx, кН·м</system:String>
     <system:String x:Key="MomentCurvature_AxisMomentY">My, кН·м</system:String>
     <system:String x:Key="MomentCurvature_AxisN">N, кН</system:String>
@@ -2692,12 +2693,15 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_TabRebarStress">Напряжения арматуры</system:String>
     <system:String x:Key="MomentCurvature_RebarDefaultTag">Арматура</system:String>
     <system:String x:Key="MomentCurvature_RebarPickerHeader">Стержни</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStrainTotalTitle">Деформация арматуры — полный момент</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStressTotalTitle">Напряжение арматуры — полный момент</system:String>
     <system:String x:Key="MomentCurvature_PlotRebarStrainXTitle">Деформация арматуры — момент Mx</system:String>
     <system:String x:Key="MomentCurvature_PlotRebarStrainYTitle">Деформация арматуры — момент My</system:String>
     <system:String x:Key="MomentCurvature_PlotRebarStressXTitle">Напряжение арматуры — момент Mx</system:String>
     <system:String x:Key="MomentCurvature_PlotRebarStressYTitle">Напряжение арматуры — момент My</system:String>
     <system:String x:Key="MomentCurvature_AxisRebarStrain">εs</system:String>
     <system:String x:Key="MomentCurvature_AxisRebarStress">σs, МПа</system:String>
+    <system:String x:Key="MomentCurvature_SubTabTotal">Полный момент</system:String>
     <system:String x:Key="MomentCurvature_SubTabMx">Mx</system:String>
     <system:String x:Key="MomentCurvature_SubTabMy">My</system:String>
     <system:String x:Key="MomentCurvature_Yes">Да</system:String>

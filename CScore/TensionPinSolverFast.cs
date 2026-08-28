@@ -20,17 +20,28 @@ public sealed class TensionPinSolverFast
     readonly int _maxIter;
     readonly double _solverTol;
     readonly (double X, double Y)[] _contourPts;
+    readonly (double X, double Y)[] _pinCandidates;
+    readonly Func<double, double, bool>? _tensionZone;
     readonly double _yRef, _xRef;
 
+    /// <param name="tensionZone">
+    /// Предикат «эту точку контура растягивает внешняя нагрузка». Пин выбирается только среди
+    /// таких точек: у сильно обжатого сечения выгиб от преднапряжения растягивает
+    /// противоположную грань сильнее, чем нагрузка — свою, и пин садился бы на неё, давая
+    /// «момент трещинообразования» там, где нагрузка на самом деле разгружает. <c>null</c> или
+    /// предикат, не оставивший ни одной точки, — поведение прежнее (весь контур).
+    /// </param>
     public TensionPinSolverFast(
         CrossSection section, CalcType calc = CalcType.N,
-        double solverTol = 0.5, int newtonMaxIter = 60, double hDiff = 1e-6)
+        double solverTol = 0.5, int newtonMaxIter = 60, double hDiff = 1e-6,
+        Func<double, double, bool>? tensionZone = null)
     {
         _section = section ?? throw new ArgumentNullException(nameof(section));
         _calc = calc;
         _hDiff = hDiff;
         _maxIter = newtonMaxIter;
         _solverTol = solverTol;
+        _tensionZone = tensionZone;
 
         _contourPts = section.Areas
             .Where(IsConcreteArea)
@@ -39,6 +50,11 @@ public sealed class TensionPinSolverFast
             .ToArray();
         if (_contourPts.Length == 0)
             throw new InvalidOperationException("TensionPinSolverFast: нет бетонного контура.");
+
+        var candidates = tensionZone == null
+            ? _contourPts
+            : _contourPts.Where(p => tensionZone(p.X, p.Y)).ToArray();
+        _pinCandidates = candidates.Length > 0 ? candidates : _contourPts;
 
         _yRef = Math.Max(_contourPts.Max(p => Math.Abs(p.Y)), 1e-12);
         _xRef = Math.Max(_contourPts.Max(p => Math.Abs(p.X)), 1e-12);
@@ -55,10 +71,10 @@ public sealed class TensionPinSolverFast
     public PinPointResult Solve(double epsPin, double n, double mx, double my, double dNdk, Kurvature? seed)
     {
         var elasticGuess = seed ?? _section.Guess(new Load { N = n, Mx = mx, My = my });
-        var strains = _contourPts.Select(p => elasticGuess.e0 + elasticGuess.ky * p.Y + elasticGuess.kz * p.X).ToArray();
+        var strains = _pinCandidates.Select(p => elasticGuess.e0 + elasticGuess.ky * p.Y + elasticGuess.kz * p.X).ToArray();
         double maxEps = strains.Max();
         int iMax = Array.IndexOf(strains, maxEps);
-        (double xA, double yA) = _contourPts[iMax];
+        (double xA, double yA) = _pinCandidates[iMax];
 
         double kx0 = elasticGuess.kz, ky0 = elasticGuess.ky;
         double k0 = 1.0;
@@ -94,7 +110,9 @@ public sealed class TensionPinSolverFast
 
     PinPointResult SolveFallback(double epsPin, double n, double mx, double my)
     {
-        var legacy = new CrackingSolver(_section, _calc, epsTensionLimit: epsPin, solverTol: _solverTol);
+        // allowPinSolver: false — иначе бисекция позвала бы этот же решатель обратно.
+        var legacy = new CrackingSolver(_section, _calc, epsTensionLimit: epsPin, solverTol: _solverTol,
+            tensionZone: _tensionZone, allowPinSolver: false);
         var res = legacy.CrackingMoment(n, mx, my);
         if (!res.Converged || res.StrainPlane is not Kurvature plane)
             return new PinPointResult(default, default, false, UsedFallback: true);

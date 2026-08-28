@@ -153,9 +153,19 @@ public sealed class BiaxialCurvatureCurveSolver
 
         (result.Ea0, result.B0x, result.B0y) = ComputeElasticStiffness();
 
+        // Зона догружения — точки, которые РАСТЯГИВАЕТ внешняя нагрузка. Нужна как для поиска
+        // точки трещинообразования, так и для предпроверки "предел раньше трещины": у сильно
+        // обжатого сечения выгиб от преднапряжения растягивает противоположную грань, и она
+        // может треснуть ещё до приложения нагрузки. Без этого фильтра критерий (максимум
+        // растяжения по всему контуру) садился на уже треснувшую грань, и трещинообразованием
+        // объявлялся момент, при котором нагрузка ВОЗВРАЩАЕТ её деформацию к пределу.
+        var loadedTensionZone = CrackingSolver.LoadedTensionZone(
+            _section, N0, Mx0, My0, nAtZeroMoment: nMode == CurvatureNMode.Constant ? N0 : 0.0);
+
         // Предпроверка "предел раньше трещины" (ten=true LimitForceSolverFast) — точный
         // event-solve, см. спеку "Обнаружение нет трещины / предел раньше трещины".
-        var tensionCracker = new CrackingSolver(_section, _calcCrc, solverTol: _solverTol, solverMaxIter: _solverMaxIter, solverH: _solverH);
+        var tensionCracker = new CrackingSolver(_section, _calcCrc, solverTol: _solverTol, solverMaxIter: _solverMaxIter, solverH: _solverH,
+            tensionZone: loadedTensionZone);
         double tensionLimit;
         try { tensionLimit = tensionCracker.TensionLimit(); }
         catch (InvalidOperationException)
@@ -216,6 +226,11 @@ public sealed class BiaxialCurvatureCurveSolver
             : new Kurvature { e0 = zeroPoint.E0, ky = zeroPoint.Ky, kz = zeroPoint.Kz };
         result.CrackedAtZeroLoad = tensionCracker.MaxTensionStrain(zeroPlaneForCheck) >= tensionLimit;
 
+        // Предпроверка идёт по ВСЕМУ контуру, не по зоне догружения: у сечения с трещиной от
+        // обжатия предельная плоскость модели ten=true — это исчерпание уже при Mx≈0 (грань,
+        // растянутая обжатием, стоит на нисходящей ветви диаграммы растяжения). По зоне
+        // догружения растяжения там ещё нет, и ветка «предел раньше трещины» срабатывала бы
+        // ложно, обрывая расчёт одной точкой.
         if (ultTen is { Converged: true, StrainPlane: Kurvature ultTenPlane } &&
             tensionCracker.MaxTensionStrain(ultTenPlane) < tensionLimit)
         {
@@ -252,7 +267,8 @@ public sealed class BiaxialCurvatureCurveSolver
         }
 
         // Обычный путь: точка 1 через развёртку растянутого пина.
-        var tensionPin = new TensionPinSolverFast(_section, _calcCrc, solverTol: _solverTol, newtonMaxIter: _solverMaxIter, hDiff: _solverH);
+        var tensionPin = new TensionPinSolverFast(_section, _calcCrc, solverTol: _solverTol, newtonMaxIter: _solverMaxIter, hDiff: _solverH,
+            tensionZone: loadedTensionZone);
         double dNdkCrack = nMode == CurvatureNMode.Constant ? 0.0 : N0;
         var crack = tensionPin.Solve(tensionLimit, N0, Mx0, My0, dNdkCrack, seed: null);
         if (!crack.Converged)

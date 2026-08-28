@@ -681,6 +681,104 @@ public class BiaxialCurvatureCurveSolverTests
                 $"кривизна пошла назад на индексе {i}: {curvature[i - 1]} -> {curvature[i]}");
     }
 
+    /// <summary>
+    /// Регрессия: у сильно обжатого сечения выгиб от преднапряжения растягивает ПРОТИВОПОЛОЖНУЮ
+    /// грань, и она трескается ещё до приложения внешней нагрузки. Критерий трещинообразования
+    /// брал максимум растягивающей деформации по всему контуру, поэтому пин садился на эту,
+    /// уже треснувшую, грань, и «моментом трещинообразования» объявлялся момент, при котором
+    /// внешняя нагрузка ВОЗВРАЩАЕТ её деформацию к пределу (на реальной задаче с σsp = 900 МПа:
+    /// −14,0 вместо −178). Момент образования трещины от внешней нагрузки при этом не
+    /// вычислялся вовсе. Трещина от обжатия к тому времени давно закрыта (та же задача:
+    /// верхняя грань переходит в сжатие уже при Mx = −97,5), поэтому искать надо в зоне,
+    /// которую внешняя нагрузка РАСТЯГИВАЕТ.
+    /// </summary>
+    [Fact]
+    public void Compute_TopCrackedByPrestress_FindsCrackingOnTheLoadedFace()
+    {
+        var section = TestSections.RectWithEccentricPrestressedRebar(sigSp: 1200.0);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 6, stepMode: CurveStepMode.ByMoment,
+            solverTol: 0.1, solverMaxIter: 25, centralJacobian: false);
+
+        var result = solver.Compute(-100.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.NotNull(result.Cracking);
+        Assert.True(result.CrackedAtZeroLoad,
+            "фикстура не воспроизводит разбираемый случай: грань от обжатия не треснула");
+
+        double limit = new CrackingSolver(section, CalcType.N).TensionLimit();
+        var plane = new Kurvature
+        {
+            e0 = result.Cracking!.E0, ky = result.Cracking.Ky, kz = result.Cracking.Kz
+        };
+        var hull = section.Areas.First(a => a.Hull != null).Hull!;
+
+        // Предел достигается на грани, которую растягивает ВНЕШНЯЯ нагрузка (Mx < 0 → y < 0).
+        var atLimit = Enumerable.Range(0, hull.X.Count)
+            .Select(i => (X: hull.X[i], Y: hull.Y[i]))
+            .Where(p => plane.e0 + plane.ky * p.Y + plane.kz * p.X >= limit - 1e-9)
+            .ToList();
+
+        Assert.NotEmpty(atLimit);
+        Assert.All(atLimit, p => Assert.True(p.Y < 0.0,
+            $"предел растяжения достигнут на грани y={p.Y}, а нагрузка растягивает y<0; " +
+            $"Mx точки трещинообразования = {result.Cracking.Mx:F3}"));
+    }
+
+    /// <summary>
+    /// Обратная сторона предыдущего теста: при умеренном обжатии противоположная грань не
+    /// трескается, и точка трещинообразования обязана остаться прежней.
+    /// </summary>
+    [Fact]
+    public void Compute_ModeratePrestress_CrackingPointUnchanged()
+    {
+        var section = TestSections.RectWithEccentricPrestressedRebar(sigSp: 300.0);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 6, stepMode: CurveStepMode.ByMoment,
+            solverTol: 0.1, solverMaxIter: 25, centralJacobian: false);
+
+        var result = solver.Compute(-100.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.False(result.CrackedAtZeroLoad);
+        Assert.NotNull(result.Cracking);
+        Assert.Equal(-96.06, result.Cracking!.Mx, 1);
+    }
+
+    /// <summary>
+    /// Регрессия: сразу за трещинообразованием функция M(κ) с ψs-коррекцией имеет СКАЧОК — на
+    /// диапазоне моментов сразу за Mcrc равновесия нет ни при каком приближении (проверено на
+    /// реальной задаче из test_prj.db: Mx от −149 до −195 недостижимы даже при 300 итерациях
+    /// с центральным якобианом). Рядом с рабочей ветвью при этом остаётся дотрещинная, на
+    /// которой Ньютон охотно сходится. Марш по лучу такие решения отбрасывал, а уточняющая
+    /// бисекция — нет, и они попадали в кривую: на реальной задаче точка при Mx = −174,6
+    /// получала кривизну −0,000515 при −0,000603 в точке трещинообразования, то есть момент
+    /// вырос, а кривизна пошла назад. На графике снижения жёсткости это давало выброс
+    /// B/B₀ > 1 у ТРЕСНУВШЕГО сечения.
+    /// </summary>
+    [Fact]
+    public void Compute_Segment4_DoesNotFallBackToThePreCrackBranch()
+    {
+        // N = −800 при sigSp = 600 — комбинация, на которой фикстура воспроизводит тот же
+        // разрыв со статусом "ok" (при sigSp = 900 сечение уходит в вырожденный "partial",
+        // который проверяется отдельно).
+        var section = TestSections.RectWithEccentricPrestressedRebar(sigSp: 600.0);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 20, stepMode: CurveStepMode.ByMoment,
+            solverTol: 0.1, solverMaxIter: 25, centralJacobian: false);
+
+        var result = solver.Compute(-800.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+
+        var segment4 = result.Points.Where(p => p.Segment == 4 && p.Converged).ToList();
+        Assert.True(segment4.Count >= 8, $"точек уч. 4: {segment4.Count}");
+
+        double Magnitude(BiaxialCurveScanPoint p) => Math.Sqrt(p.Ky * p.Ky + p.Kz * p.Kz);
+        for (int i = 1; i < segment4.Count; i++)
+            Assert.True(Magnitude(segment4[i]) >= Magnitude(segment4[i - 1]) - 1e-12,
+                $"кривизна уч. 4 пошла назад на индексе {i}: " +
+                $"Mx {segment4[i - 1].Mx:F3} -> {segment4[i].Mx:F3}, " +
+                $"|k| {Magnitude(segment4[i - 1]):G6} -> {Magnitude(segment4[i]):G6}");
+    }
+
     [Fact]
     public void Compute_PrestressedSection_ByCurvatureDoesNotCollapseSegment4()
     {
