@@ -122,6 +122,24 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
     public IReadOnlyList<MomentCurvaturePlotSeries> CurvatureZSeriesParts { get; private set; } = [];
     public IReadOnlyList<MomentCurvaturePlotSeries> CurvatureZSeriesFadedParts { get; private set; } = [];
 
+    /// <summary>
+    /// Множители разворота серий в положительный квадрант — по одному на ось, взятые из
+    /// предельной точки (см. <see cref="AxisSign"/>). Публикуются, чтобы маркеры точек и
+    /// контрольных точек во View строились в ТОЙ ЖЕ системе координат, что и линия кривой:
+    /// на преднапряжённом сечении кривизна меняет знак по ходу нагружения, и <c>Math.Abs</c>
+    /// отражал начало кривой в соседний квадрант отдельной «гроздью» маркеров.
+    /// </summary>
+    public double MxAxisSign { get; private set; } = 1.0;
+    public double KyAxisSign { get; private set; } = 1.0;
+    public double MyAxisSign { get; private set; } = 1.0;
+    public double KzAxisSign { get; private set; } = 1.0;
+
+    /// <summary>Координаты точки в системе графика «кривизна — момент» (X — кривизна).</summary>
+    public (double X, double Y) PlotPoint(MomentCurvatureBiaxialPointRow row, bool useMx) =>
+        useMx
+            ? (KyAxisSign * row.Ky, MxAxisSign * row.Mx)
+            : (KzAxisSign * row.Kz, MyAxisSign * row.My);
+
     public double[] NStiffnessAxis { get; private set; } = [];
     public double[] NStiffnessRatio { get; private set; } = [];
     public double[] MxStiffnessAxis { get; private set; } = [];
@@ -310,6 +328,8 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
             double kySign = AxisSign(mxRows.Count > 0 ? mxRows[^1].Ky : 1.0);
             double mySign = AxisSign(myRows.Count > 0 ? myRows[^1].My : 1.0);
             double kzSign = AxisSign(myRows.Count > 0 ? myRows[^1].Kz : 1.0);
+            MxAxisSign = mxSign; KyAxisSign = kySign;
+            MyAxisSign = mySign; KzAxisSign = kzSign;
 
             (CurvatureYSeries, MomentXSeries, CurvatureYSeriesFaded, MomentXSeriesFaded) =
                 SplitByNonPhysical(mxRows, r => r.NonPhysical, r => kySign * r.Ky, r => mxSign * r.Mx);

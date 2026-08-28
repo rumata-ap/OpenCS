@@ -131,13 +131,13 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
             _curvatureXPlot.SetYLabel(Loc.S("MomentCurvature_AxisMomentX"));
             AddPlotSeries(_curvatureXPlot, _viewModel.CurvatureYSeriesParts, "#2F5597");
             AddPlotSeries(_curvatureXPlot, _viewModel.CurvatureYSeriesFadedParts, NonPhysicalColor);
-            AddPointMarkers(_curvatureXPlot, mainRows, p => p.Ky, p => p.Mx, "#2F5597", NonPhysicalColor, 9);
-            AddPointMarkers(_curvatureXPlot, auxiliaryRows, p => p.Ky, p => p.Mx, "#2F5597", NonPhysicalColor, 6);
-            AddControlMarker(_curvatureXPlot, _viewModel.Cracking, p => p.Ky, p => p.Mx, "#ED7D31", 9);
+            AddPointMarkers(_curvatureXPlot, mainRows, useMx: true, "#2F5597", NonPhysicalColor, 9);
+            AddPointMarkers(_curvatureXPlot, auxiliaryRows, useMx: true, "#2F5597", NonPhysicalColor, 6);
+            AddControlMarker(_curvatureXPlot, _viewModel.Cracking, useMx: true, "#ED7D31", 9);
             if (!_viewModel.UsePsi)
-                AddControlMarker(_curvatureXPlot, _viewModel.CrackTransition, p => p.Ky, p => p.Mx, "#ED7D31", 9);
-            AddControlMarker(_curvatureXPlot, _viewModel.Yield, p => p.Ky, p => p.Mx, "#FFC000", 9);
-            AddControlMarker(_curvatureXPlot, _viewModel.Ultimate, p => p.Ky, p => p.Mx, "#C00000", 9);
+                AddControlMarker(_curvatureXPlot, _viewModel.CrackTransition, useMx: true, "#ED7D31", 9);
+            AddControlMarker(_curvatureXPlot, _viewModel.Yield, useMx: true, "#FFC000", 9);
+            AddControlMarker(_curvatureXPlot, _viewModel.Ultimate, useMx: true, "#C00000", 9);
             _curvatureXPlot.Refresh();
         }
 
@@ -149,13 +149,13 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
             _curvatureYPlot.SetYLabel(Loc.S("MomentCurvature_AxisMomentY"));
             AddPlotSeries(_curvatureYPlot, _viewModel.CurvatureZSeriesParts, "#548235");
             AddPlotSeries(_curvatureYPlot, _viewModel.CurvatureZSeriesFadedParts, NonPhysicalColor);
-            AddPointMarkers(_curvatureYPlot, mainRows, p => p.Kz, p => p.My, "#548235", NonPhysicalColor, 9);
-            AddPointMarkers(_curvatureYPlot, auxiliaryRows, p => p.Kz, p => p.My, "#548235", NonPhysicalColor, 6);
-            AddControlMarker(_curvatureYPlot, _viewModel.Cracking, p => p.Kz, p => p.My, "#ED7D31", 9);
+            AddPointMarkers(_curvatureYPlot, mainRows, useMx: false, "#548235", NonPhysicalColor, 9);
+            AddPointMarkers(_curvatureYPlot, auxiliaryRows, useMx: false, "#548235", NonPhysicalColor, 6);
+            AddControlMarker(_curvatureYPlot, _viewModel.Cracking, useMx: false, "#ED7D31", 9);
             if (!_viewModel.UsePsi)
-                AddControlMarker(_curvatureYPlot, _viewModel.CrackTransition, p => p.Kz, p => p.My, "#ED7D31", 9);
-            AddControlMarker(_curvatureYPlot, _viewModel.Yield, p => p.Kz, p => p.My, "#FFC000", 9);
-            AddControlMarker(_curvatureYPlot, _viewModel.Ultimate, p => p.Kz, p => p.My, "#C00000", 9);
+                AddControlMarker(_curvatureYPlot, _viewModel.CrackTransition, useMx: false, "#ED7D31", 9);
+            AddControlMarker(_curvatureYPlot, _viewModel.Yield, useMx: false, "#FFC000", 9);
+            AddControlMarker(_curvatureYPlot, _viewModel.Ultimate, useMx: false, "#C00000", 9);
             _curvatureYPlot.Refresh();
         }
 
@@ -284,11 +284,14 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
         return (main, auxiliary);
     }
 
-    static void AddPointMarkers(
+    // Маркеры строятся ТОЙ ЖЕ знаковой проекцией, что и линия кривой
+    // (MomentCurvatureBiaxialResultVM.PlotPoint), а не по модулю: на преднапряжённом сечении
+    // кривизна меняет знак по ходу нагружения, и Math.Abs отражал начало кривой в соседний
+    // квадрант — маркеры повисали отдельной «гроздью» рядом с линией.
+    void AddPointMarkers(
         WpfPlotService plot,
         IEnumerable<MomentCurvatureBiaxialPointRow> rows,
-        Func<MomentCurvatureBiaxialPointRow, double> x,
-        Func<MomentCurvatureBiaxialPointRow, double> y,
+        bool useMx,
         string color,
         string fadedColor,
         float size)
@@ -301,19 +304,19 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
             var points = rows.Where(row => row.NonPhysical == faded).ToList();
             if (points.Count == 0) return;
             plot.AddMarkers(
-                points.Select(row => Math.Abs(x(row))).ToArray(),
-                points.Select(row => Math.Abs(y(row))).ToArray(),
+                points.Select(row => _viewModel.PlotPoint(row, useMx).X).ToArray(),
+                points.Select(row => _viewModel.PlotPoint(row, useMx).Y).ToArray(),
                 markerSize: size, color: brush);
         }
     }
 
-    static void AddControlMarker(
-        WpfPlotService plot, MomentCurvatureBiaxialPointRow? point,
-        Func<MomentCurvatureBiaxialPointRow, double> curvature, Func<MomentCurvatureBiaxialPointRow, double> moment,
+    void AddControlMarker(
+        WpfPlotService plot, MomentCurvatureBiaxialPointRow? point, bool useMx,
         string color, float markerSize)
     {
         if (point == null) return;
-        plot.AddMarkers([Math.Abs(curvature(point))], [Math.Abs(moment(point))], markerSize: markerSize,
+        var (x, y) = _viewModel.PlotPoint(point, useMx);
+        plot.AddMarkers([x], [y], markerSize: markerSize,
             color: point.NonPhysical ? NonPhysicalColor : color);
     }
 }
