@@ -28,6 +28,18 @@ public enum RebarStressMode
 }
 
 /// <summary>Пункт выпадающего списка выбора <see cref="RebarStressMode"/>.</summary>
+/// <summary>
+/// Что откладывается по оси момента на графиках арматуры. <see cref="Total"/> — модуль
+/// результирующего момента √(Mx²+My²); при одноосном изгибе совпадает с соответствующей
+/// компонентой.
+/// </summary>
+public enum RebarMomentAxis
+{
+    Total,
+    Mx,
+    My
+}
+
 public sealed record RebarStressModeOption(RebarStressMode Mode, string Label)
 {
     public override string ToString() => Label;
@@ -401,7 +413,7 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
 
     /// <summary>Строит траекторию деформации/напряжения выбранного стержня по уже посчитанным
     /// точкам кривой (E0/Ky/Kz) — солвер и JSON-контракт задачи не меняются.</summary>
-    public RebarSeriesResult? BuildRebarSeries(RebarOption option, bool useMx)
+    public RebarSeriesResult? BuildRebarSeries(RebarOption option, RebarMomentAxis axis)
     {
         if (_section == null) return null;
 
@@ -416,7 +428,7 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
             var value = EvaluateRebar(option, row, epsCrc, mode);
             points.Add(new RebarSeriesPoint
             {
-                MomentAbs = Math.Abs(useMx ? row.Mx : row.My),
+                MomentAbs = MomentOnAxis(row, axis),
                 Eps = value.Eps,
                 SigmaMPa = value.SigmaMPa,
                 NonPhysical = row.NonPhysical
@@ -436,12 +448,20 @@ public sealed class MomentCurvatureBiaxialResultVM : ViewModelBase
 
     /// <summary>Деформация/напряжение выбранного стержня в одной контрольной точке (трещина/текучесть/предел).</summary>
     public (double momentAbs, double eps, double sigmaMPa)? RebarValueAt(
-        RebarOption option, MomentCurvatureBiaxialPointRow? point, bool useMx)
+        RebarOption option, MomentCurvatureBiaxialPointRow? point, RebarMomentAxis axis)
     {
         if (_section == null || point == null) return null;
         var (eps, sigmaMPa) = EvaluateRebar(option, point, EpsCrcFor(option), SelectedRebarStressMode.Mode);
-        return (Math.Abs(useMx ? point.Mx : point.My), eps, sigmaMPa);
+        return (MomentOnAxis(point, axis), eps, sigmaMPa);
     }
+
+    /// <summary>Значение по оси момента для выбранной подвкладки графика арматуры.</summary>
+    static double MomentOnAxis(MomentCurvatureBiaxialPointRow row, RebarMomentAxis axis) => axis switch
+    {
+        RebarMomentAxis.Mx => Math.Abs(row.Mx),
+        RebarMomentAxis.My => Math.Abs(row.My),
+        _ => Math.Sqrt(row.Mx * row.Mx + row.My * row.My)
+    };
 
     /// <summary>
     /// Деформация и напряжение стержня в одной точке кривой согласно выбранному режиму.

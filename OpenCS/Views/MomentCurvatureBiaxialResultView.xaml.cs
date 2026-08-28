@@ -20,6 +20,8 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
     readonly WpfPlotService _stiffnessNPlot;
     readonly WpfPlotService _stiffnessMxPlot;
     readonly WpfPlotService _stiffnessMyPlot;
+    readonly WpfPlotService _rebarStrainTotalPlot;
+    readonly WpfPlotService _rebarStressTotalPlot;
     readonly WpfPlotService _rebarStrainMxPlot;
     readonly WpfPlotService _rebarStrainMyPlot;
     readonly WpfPlotService _rebarStressMxPlot;
@@ -39,6 +41,8 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
         _stiffnessNPlot = new WpfPlotService(StiffnessNPlot);
         _stiffnessMxPlot = new WpfPlotService(StiffnessMxPlot);
         _stiffnessMyPlot = new WpfPlotService(StiffnessMyPlot);
+        _rebarStrainTotalPlot = new WpfPlotService(RebarStrainTotalPlot);
+        _rebarStressTotalPlot = new WpfPlotService(RebarStressTotalPlot);
         _rebarStrainMxPlot = new WpfPlotService(RebarStrainMxPlot);
         _rebarStrainMyPlot = new WpfPlotService(RebarStrainMyPlot);
         _rebarStressMxPlot = new WpfPlotService(RebarStressMxPlot);
@@ -52,6 +56,8 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
         _stiffnessNPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
         _stiffnessMxPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
         _stiffnessMyPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+        _rebarStrainTotalPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
+        _rebarStressTotalPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
         _rebarStrainMxPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
         _rebarStrainMyPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
         _rebarStressMxPlot.SetOriginReferenceAxesVisibility(showXAxis: false, showYAxis: false);
@@ -79,6 +85,8 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
         StiffnessNPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_stiffness_n.png");
         StiffnessMxPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_stiffness_mx.png");
         StiffnessMyPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_stiffness_my.png");
+        RebarStrainTotalPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_rebar_strain_total.png");
+        RebarStressTotalPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_rebar_stress_total.png");
         RebarStrainMxPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_rebar_strain_mx.png");
         RebarStrainMyPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_rebar_strain_my.png");
         RebarStressMxPlot.ConfigureExportMenu($"{_viewModel.TaskTag}_rebar_stress_mx.png");
@@ -191,28 +199,35 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
 
         var selected = _viewModel.RebarOptions.Where(o => o.IsSelected).ToList();
 
+        RedrawRebarPlot(_rebarStrainTotalPlot, selected, RebarMomentAxis.Total, useStress: false,
+            title: Loc.S("MomentCurvature_PlotRebarStrainTotalTitle"), xLabel: Loc.S("MomentCurvature_AxisRebarStrain"),
+            yLabel: Loc.S("MomentCurvature_AxisMomentTotal"));
+        RedrawRebarPlot(_rebarStressTotalPlot, selected, RebarMomentAxis.Total, useStress: true,
+            title: Loc.S("MomentCurvature_PlotRebarStressTotalTitle"), xLabel: Loc.S("MomentCurvature_AxisRebarStress"),
+            yLabel: Loc.S("MomentCurvature_AxisMomentTotal"));
+
         if (_viewModel.HasMx)
         {
-            RedrawRebarPlot(_rebarStrainMxPlot, selected, useMx: true, useStress: false,
+            RedrawRebarPlot(_rebarStrainMxPlot, selected, RebarMomentAxis.Mx, useStress: false,
                 title: Loc.S("MomentCurvature_PlotRebarStrainXTitle"), xLabel: Loc.S("MomentCurvature_AxisRebarStrain"),
                 yLabel: Loc.S("MomentCurvature_AxisMomentX"));
-            RedrawRebarPlot(_rebarStressMxPlot, selected, useMx: true, useStress: true,
+            RedrawRebarPlot(_rebarStressMxPlot, selected, RebarMomentAxis.Mx, useStress: true,
                 title: Loc.S("MomentCurvature_PlotRebarStressXTitle"), xLabel: Loc.S("MomentCurvature_AxisRebarStress"),
                 yLabel: Loc.S("MomentCurvature_AxisMomentX"));
         }
 
         if (_viewModel.HasMy)
         {
-            RedrawRebarPlot(_rebarStrainMyPlot, selected, useMx: false, useStress: false,
+            RedrawRebarPlot(_rebarStrainMyPlot, selected, RebarMomentAxis.My, useStress: false,
                 title: Loc.S("MomentCurvature_PlotRebarStrainYTitle"), xLabel: Loc.S("MomentCurvature_AxisRebarStrain"),
                 yLabel: Loc.S("MomentCurvature_AxisMomentY"));
-            RedrawRebarPlot(_rebarStressMyPlot, selected, useMx: false, useStress: true,
+            RedrawRebarPlot(_rebarStressMyPlot, selected, RebarMomentAxis.My, useStress: true,
                 title: Loc.S("MomentCurvature_PlotRebarStressYTitle"), xLabel: Loc.S("MomentCurvature_AxisRebarStress"),
                 yLabel: Loc.S("MomentCurvature_AxisMomentY"));
         }
     }
 
-    void RedrawRebarPlot(WpfPlotService plot, List<RebarOption> selected, bool useMx, bool useStress,
+    void RedrawRebarPlot(WpfPlotService plot, List<RebarOption> selected, RebarMomentAxis axis, bool useStress,
         string title, string xLabel, string yLabel)
     {
         plot.Clear();
@@ -222,7 +237,7 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
 
         foreach (var option in selected)
         {
-            var series = _viewModel.BuildRebarSeries(option, useMx);
+            var series = _viewModel.BuildRebarSeries(option, axis);
             if (series == null) continue;
 
             string color = ((System.Windows.Media.SolidColorBrush)option.ColorBrush).Color.ToString();
@@ -236,11 +251,11 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
             if (fadedMoment.Length > 1)
                 plot.AddScatter(fadedValue, fadedMoment, color: NonPhysicalColor);
 
-            AddRebarControlMarker(plot, option, _viewModel.Cracking, useMx, useStress, color);
+            AddRebarControlMarker(plot, option, _viewModel.Cracking, axis, useStress, color);
             if (!_viewModel.UsePsi)
-                AddRebarControlMarker(plot, option, _viewModel.CrackTransition, useMx, useStress, color);
-            AddRebarControlMarker(plot, option, _viewModel.Yield, useMx, useStress, color);
-            AddRebarControlMarker(plot, option, _viewModel.Ultimate, useMx, useStress, color);
+                AddRebarControlMarker(plot, option, _viewModel.CrackTransition, axis, useStress, color);
+            AddRebarControlMarker(plot, option, _viewModel.Yield, axis, useStress, color);
+            AddRebarControlMarker(plot, option, _viewModel.Ultimate, axis, useStress, color);
         }
 
         plot.Refresh();
@@ -255,9 +270,9 @@ public partial class MomentCurvatureBiaxialResultView : UserControl
     }
 
     void AddRebarControlMarker(WpfPlotService plot, RebarOption option, MomentCurvatureBiaxialPointRow? point,
-        bool useMx, bool useStress, string color)
+        RebarMomentAxis axis, bool useStress, string color)
     {
-        var value = _viewModel.RebarValueAt(option, point, useMx);
+        var value = _viewModel.RebarValueAt(option, point, axis);
         if (value == null) return;
         double x = useStress ? value.Value.sigmaMPa : value.Value.eps;
         plot.AddMarkers([x], [value.Value.momentAbs], markerSize: 7,

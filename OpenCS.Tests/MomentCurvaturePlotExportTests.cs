@@ -18,7 +18,9 @@ public sealed class MomentCurvaturePlotExportTests
         Assert.Contains("MomentCurvature_CsvColKy", resultView);
         Assert.Contains("MomentCurvature_CsvColKz", resultView);
         Assert.Contains("MomentCurvature_CsvColPsiActive", resultView);
-        Assert.Equal(9, Count(resultView, ".ConfigureExportMenu("));
+        // 11 = 2 кривизна-момент + 3 жёсткости + 6 арматуры (деформации и напряжения
+        // × полный момент / Mx / My).
+        Assert.Equal(11, Count(resultView, ".ConfigureExportMenu("));
         Assert.Equal(2, Count(resultView, "exportCsv: ExportPointsCsv"));
     }
 

@@ -75,13 +75,13 @@ public sealed class MomentCurvatureRebarStressModeTests
     static double[] Sigma(MomentCurvatureBiaxialResultVM vm, RebarStressMode mode)
     {
         vm.SelectedRebarStressMode = vm.RebarStressModes.First(m => m.Mode == mode);
-        return vm.BuildRebarSeries(vm.RebarOptions[0], useMx: true)!.Sigma;
+        return vm.BuildRebarSeries(vm.RebarOptions[0], RebarMomentAxis.Mx)!.Sigma;
     }
 
     static double[] Strain(MomentCurvatureBiaxialResultVM vm, RebarStressMode mode)
     {
         vm.SelectedRebarStressMode = vm.RebarStressModes.First(m => m.Mode == mode);
-        return vm.BuildRebarSeries(vm.RebarOptions[0], useMx: true)!.Eps;
+        return vm.BuildRebarSeries(vm.RebarOptions[0], RebarMomentAxis.Mx)!.Eps;
     }
 
     [Fact]
