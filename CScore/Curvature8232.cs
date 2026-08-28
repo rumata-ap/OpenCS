@@ -138,7 +138,7 @@ public static class Curvature8232
                     // εs,crc = εs/ψs — деформация стержня В ТРЕЩИНЕ; σ снимается с диаграммы,
                     // поэтому за площадкой текучести поправка сама собой затухает.
                     // dεs,crc/dεs = 1, значит касательный модуль переносится без масштаба.
-                    sigCrc = dgr.Sig(epsFull * scale, out e2Crc);
+                    sigCrc = dgr.Sig(fiber.Eps_p + eps * scale, out e2Crc);
                 }
                 else
                 {

@@ -51,11 +51,15 @@ public sealed class MomentCurvatureStiffnessSecantTests
         Assert.All(viewModel.MyStiffnessRatio, r => Assert.Equal(1.0, r, 1e-9));
     }
 
+    /// <summary>
+    /// База секущей — ПЕРВАЯ точка кривой, а не точка κ=0. У преднапряжённого сечения начало
+    /// кривой лежит в состоянии без внешнего момента при НЕнулевой кривизне (выгиб от обжатия),
+    /// поэтому признак «κ≈0» как маркер базовой точки не работает. Приращение берётся по обеим
+    /// осям: (−20−(−10))/(−0,25−(−0,10)) = 66,67 при B0x = 100.
+    /// </summary>
     [Fact]
-    public void StiffnessRatio_UsesNoOffsetWhenFirstPointIsNotAtZeroCurvature()
+    public void StiffnessRatio_MeasuresIncrementFromTheFirstCurvePoint()
     {
-        // Результат без точки κ=0 в начале (например, ветвь «предел раньше трещины»):
-        // вычитать нечего, поведение прежнее — отношение полного момента к кривизне.
         var viewModel = new OpenCS.ViewModels.MomentCurvatureBiaxialResultVM(
             new CScore.CalcResult
             {
@@ -67,6 +71,34 @@ public sealed class MomentCurvatureStiffnessSecantTests
                   "b0x": 100.0,
                   "points": [
                     {"mx": -10.0, "my": 0.0, "ky": -0.10, "kz": 0.0, "segment": 1, "converged": true},
+                    {"mx": -20.0, "my": 0.0, "ky": -0.25, "kz": 0.0, "segment": 1, "converged": true}
+                  ]
+                }
+                """
+            });
+
+        Assert.Single(viewModel.MxStiffnessRatio);
+        Assert.Equal(2.0 / 3.0, viewModel.MxStiffnessRatio[0], 1e-9);
+    }
+
+    /// <summary>
+    /// Первая точка не сошлась — базы нет, вычитать нечего: отношение считается от нуля, как
+    /// и раньше. (−20/−0,25)/100 = 0,8.
+    /// </summary>
+    [Fact]
+    public void StiffnessRatio_FallsBackToZeroBaseWhenFirstPointDidNotConverge()
+    {
+        var viewModel = new OpenCS.ViewModels.MomentCurvatureBiaxialResultVM(
+            new CScore.CalcResult
+            {
+                Status = "partial",
+                DataJson = """
+                {
+                  "has_mx": true,
+                  "has_my": false,
+                  "b0x": 100.0,
+                  "points": [
+                    {"mx": -10.0, "my": 0.0, "ky": -0.10, "kz": 0.0, "segment": 1, "converged": false},
                     {"mx": -20.0, "my": 0.0, "ky": -0.25, "kz": 0.0, "segment": 1, "converged": true}
                   ]
                 }

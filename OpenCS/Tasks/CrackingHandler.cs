@@ -27,7 +27,11 @@ public sealed class CrackingHandler : ITaskHandler
             double dmy = mag > 1e-12 ? item.My / mag : 0.0;
 
             var calcCrc = task.CalcType is CalcType.N or CalcType.NL ? task.CalcType : CalcType.N;
-            var solver = new CrackingSolver(section, calcCrc);
+            // Трещину ищем только на грани, растянутой внешней нагрузкой: у сильно обжатого
+            // сечения противоположная грань может треснуть от одного обжатия, и без фильтра
+            // Mcrc относился бы к ней (см. CrackingSolver.LoadedTensionZone).
+            var solver = new CrackingSolver(section, calcCrc,
+                tensionZone: CrackingSolver.LoadedTensionZone(section, item.N, dmx, dmy, nAtZeroMoment: item.N));
             var res = solver.CrackingMoment(item.N, dmx, dmy);
             double mcrc = Math.Sqrt(res.Mx * res.Mx + res.My * res.My);
             var prestress = PrestressActionsJsonModel.From(section.PrestressActions(

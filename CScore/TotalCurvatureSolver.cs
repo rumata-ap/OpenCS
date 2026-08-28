@@ -111,10 +111,17 @@ public sealed class TotalCurvatureSolver
         double N, double mxLong, double myLong, double mxTotal, double myTotal)
     {
         var direction = MomentDirection(mxLong, myLong, mxTotal, myTotal);
+        // Критерий трещинообразования — только по грани, которую растягивает внешняя нагрузка:
+        // у сильно обжатого сечения выгиб от преднапряжения растягивает противоположную грань,
+        // и она может треснуть ещё до приложения нагрузки. Без фильтра моментом
+        // трещинообразования оказался бы момент, при котором нагрузка ВОЗВРАЩАЕТ деформацию той,
+        // уже треснувшей, грани к пределу. N по ходу нагружения здесь постоянна.
         var crcSolver = new CrackingSolver(_section, _calcCrc,
             solverTol: _solverTol,
             solverMaxIter: _solverMaxIter,
-            solverH: _solverH);
+            solverH: _solverH,
+            tensionZone: CrackingSolver.LoadedTensionZone(
+                _section, N, direction.mx, direction.my, nAtZeroMoment: N));
         var crcRes = crcSolver.CrackingMoment(N, direction.mx, direction.my);
 
         var result = new TotalCurvatureResult

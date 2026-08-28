@@ -22,6 +22,9 @@
                <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" FontWeight="SemiBold" VerticalAlignment="Center"/>
             </StackPanel>
             <TextBlock Text="{Binding CreatedText}" Foreground="Gray" Margin="0,2,0,0"/>
+            <TextBlock Text="{Binding CrackedAtZeroLoadText}" Foreground="DarkOrange"
+                       TextWrapping="Wrap" Margin="0,4,0,0"
+                       Visibility="{Binding CrackedAtZeroLoad, Converter={StaticResource BoolToVisibility}}"/>
          </StackPanel>
 
          <Border Grid.Column="1" Width="160" BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}" BorderThickness="1" Padding="10,8" Margin="6,0,0,0">
@@ -95,6 +98,9 @@
                   </ListBox>
                </DockPanel>
                <TabControl Grid.Column="1" TabStripPlacement="Bottom">
+                  <TabItem Header="{DynamicResource MomentCurvature_SubTabTotal}">
+                     <h:PlotCanvas x:Name="RebarStrainTotalPlot"/>
+                  </TabItem>
                   <TabItem Header="{DynamicResource MomentCurvature_SubTabMx}"
                             Visibility="{Binding HasMx, Converter={StaticResource BoolToVisibility}}">
                      <h:PlotCanvas x:Name="RebarStrainMxPlot"/>
@@ -137,6 +143,9 @@
                   </ListBox>
                </DockPanel>
                <TabControl Grid.Column="1" TabStripPlacement="Bottom">
+                  <TabItem Header="{DynamicResource MomentCurvature_SubTabTotal}">
+                     <h:PlotCanvas x:Name="RebarStressTotalPlot"/>
+                  </TabItem>
                   <TabItem Header="{DynamicResource MomentCurvature_SubTabMx}"
                             Visibility="{Binding HasMx, Converter={StaticResource BoolToVisibility}}">
                      <h:PlotCanvas x:Name="RebarStressMxPlot"/>

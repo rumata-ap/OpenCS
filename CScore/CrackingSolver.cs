@@ -69,7 +69,14 @@ public sealed class CrackingSolver
     readonly double _solverH;
     readonly double _bisectTol;
     readonly int _bisectMaxIter;
+    readonly Func<double, double, bool>? _tensionZone;
+    readonly bool _allowPinSolver;
 
+    /// <param name="allowPinSolver">
+    /// Искать момент трещинообразования быстрым Ньютоном (<see cref="TensionPinSolverFast"/>),
+    /// оставляя бисекцию по масштабу момента запасным путём. <c>false</c> передаёт сам
+    /// пин-решатель, когда обращается сюда за своим fallback — иначе получилась бы рекурсия.
+    /// </param>
     public CrackingSolver(
         CrossSection section,
         CalcType calcCrc = CalcType.N,
@@ -78,7 +85,9 @@ public sealed class CrackingSolver
         int solverMaxIter = 60,
         double solverH = 1e-7,
         double bisectTol = 1e-6,
-        int bisectMaxIter = 60)
+        int bisectMaxIter = 60,
+        Func<double, double, bool>? tensionZone = null,
+        bool allowPinSolver = true)
     {
         _section = section ?? throw new ArgumentNullException(nameof(section));
         _calcCrc = calcCrc;
@@ -88,6 +97,28 @@ public sealed class CrackingSolver
         _solverH = solverH;
         _bisectTol = bisectTol;
         _bisectMaxIter = bisectMaxIter;
+        _tensionZone = tensionZone;
+        _allowPinSolver = allowPinSolver;
+    }
+
+    /// <summary>
+    /// Предикат «эту точку сечения растягивает внешняя нагрузка» — по знаку приращения
+    /// деформации при переходе от состояния без момента к полной нагрузке. Оценка упругая
+    /// (разность двух <see cref="CrossSection.Guess"/>), и этого достаточно: нужен только ЗНАК
+    /// приращения, а он от нелинейности материала не зависит — луч нагружения один и тот же.
+    /// </summary>
+    /// <param name="nAtZeroMoment">Продольная сила в состоянии без момента: та же, что и под
+    /// нагрузкой, когда N по ходу нагружения постоянна, и 0 — когда растёт пропорционально.</param>
+    public static Func<double, double, bool> LoadedTensionZone(
+        CrossSection section, double n, double mx, double my, double nAtZeroMoment)
+    {
+        ArgumentNullException.ThrowIfNull(section);
+        var loaded = section.Guess(new Load { N = n, Mx = mx, My = my });
+        var free = section.Guess(new Load { N = nAtZeroMoment, Mx = 0.0, My = 0.0 });
+        double de0 = loaded.e0 - free.e0;
+        double dky = loaded.ky - free.ky;
+        double dkz = loaded.kz - free.kz;
+        return (x, y) => de0 + dky * y + dkz * x > 0.0;
     }
 
     /// <summary>Предельная растягивающая деформация бетона (п. Г.1 СП63.13330), из диаграммы <see cref="_calcCrc"/>.</summary>
@@ -108,11 +139,29 @@ public sealed class CrackingSolver
             "в сечении нет бетонной MaterialArea с построенной диаграммой для заданного CalcType.");
     }
 
-    /// <summary>Максимальная растягивающая деформация бетона по контуру при заданной плоскости.</summary>
-    public double MaxTensionStrain(Kurvature k)
+    /// <summary>Максимальная растягивающая деформация бетона по ВСЕМУ контуру при заданной
+    /// плоскости — без учёта зоны догружения (см. <see cref="MaxTensionStrainInLoadedZone"/>).</summary>
+    public double MaxTensionStrain(Kurvature k) => MaxTensionStrain(k, zone: null);
+
+    /// <summary>
+    /// То же, но только по точкам контура, которые РАСТЯГИВАЕТ внешняя нагрузка (предикат
+    /// <c>tensionZone</c> конструктора). У сильно обжатого сечения выгиб от преднапряжения
+    /// растягивает противоположную грань, и она может треснуть ещё до приложения нагрузки;
+    /// брать её максимум как критерий трещинообразования нельзя — внешняя нагрузка эту грань
+    /// разгружает, и «моментом трещинообразования» оказался бы момент возврата уже
+    /// существующей трещины к пределу. Если предикат не задан или не оставил ни одной точки
+    /// (нагрузка ничего не растягивает), поведение прежнее — максимум по всему контуру.
+    /// </summary>
+    public double MaxTensionStrainInLoadedZone(Kurvature k)
     {
-        double max = 0.0;
-        bool found = false;
+        if (_tensionZone == null) return MaxTensionStrain(k, zone: null);
+        double inZone = MaxTensionStrain(k, _tensionZone);
+        return double.IsNegativeInfinity(inZone) ? MaxTensionStrain(k, zone: null) : inZone;
+    }
+
+    double MaxTensionStrain(Kurvature k, Func<double, double, bool>? zone)
+    {
+        double max = double.NegativeInfinity;
         foreach (var area in _section.Areas)
         {
             if (!IsConcreteArea(area)) continue;
@@ -121,12 +170,12 @@ public sealed class CrackingSolver
             var ys = area.Hull.Y;
             for (int i = 0; i < xs.Count; i++)
             {
+                if (zone != null && !zone(xs[i], ys[i])) continue;
                 double eps = k.e0 + k.ky * ys[i] + k.kz * xs[i];
-                if (!found) { max = eps; found = true; }
-                else if (eps > max) max = eps;
+                if (eps > max) max = eps;
             }
         }
-        return max;
+        return zone == null && double.IsNegativeInfinity(max) ? 0.0 : max;
     }
 
     (Kurvature? plane, double epsMax, bool ok) Evaluate(double n, double mx, double my)
@@ -135,7 +184,7 @@ public sealed class CrackingSolver
             tol: _solverTol, maxIter: _solverMaxIter, h: _solverH);
         var k = solver.Solve(n, mx, my);
         if (!solver.Converged) return (null, 0.0, false);
-        return (k, MaxTensionStrain(k), true);
+        return (k, MaxTensionStrainInLoadedZone(k), true);
     }
 
     /// <summary>
@@ -156,15 +205,29 @@ public sealed class CrackingSolver
         double epsLimit = TensionLimit();
 
         var (plane0, eps0, ok0) = Evaluate(N, 0.0, 0.0);
-        if (!ok0)
-            return new CrackingSolverResult { Mx = 0, My = 0, N = N, Converged = false };
 
-        if (eps0 >= epsLimit)
+        // Сечение уже треснуло в зоне догружения при нулевом моменте — законный ответ, момент
+        // трещинообразования равен нулю. Если само это состояние не сошлось (сильное обжатие:
+        // бетон на нисходящей ветви растяжения), расчёт не обрывается — ниже есть путь, не
+        // требующий прохода через нулевой момент.
+        if (ok0 && eps0 >= epsLimit)
             return new CrackingSolverResult
             {
                 Mx = 0, My = 0, N = N, Converged = true,
                 StrainPlane = plane0, EpsMaxTension = eps0
             };
+
+        // Основной путь — быстрый Ньютон с пином на управляющей точке: он ставит условие
+        // «деформация в этой точке равна пределу» напрямую и не зависит от того, сходится ли
+        // дотрещинная модель во всех промежуточных точках диапазона моментов.
+        if (_allowPinSolver)
+        {
+            var fast = TrySolveByPin(N, Mx, My, epsLimit);
+            if (fast != null) return fast;
+        }
+
+        if (!ok0)
+            return new CrackingSolverResult { Mx = 0, My = 0, N = N, Converged = false };
 
         double a = 0.0, b = 1.0;
         bool foundUpper = false;
@@ -201,12 +264,13 @@ public sealed class CrackingSolver
         }
 
         double k = 0.5 * (a + b);
-        // Для дискретного волоконного сечения последняя бетонная фибра может
-        // перейти через Et2 скачком: между двумя соседними состояниями нет
-        // плоскости с epsMax ровно равной epsLimit. Узкий интервал бисекции
-        // уже является достаточным свидетельством найденной границы.
-        bool converged = Math.Abs(bestEps - epsLimit) <= _bisectTol * 10.0 ||
-                         Math.Abs(b - a) <= _bisectTol * 10.0;
+        // Достоверность результата — по невязке ДЕФОРМАЦИИ, а не по ширине интервала.
+        // Прежде узкий интервал сам по себе считался свидетельством найденной границы, но он
+        // схлопывается и когда пробы просто не сходятся: правило «не сошлось → предел уже
+        // превышен → b = mid» сжимает интервал вниз, и ответом становился почти нулевой момент
+        // при плоскости, где грань вообще сжата (воспроизведено при σsp = 1000 МПа:
+        // Mx = −1,99 при деформации −5,0e-4 и пределе +1,5e-4).
+        bool converged = Math.Abs(bestEps - epsLimit) <= _bisectTol * 10.0;
 
         return new CrackingSolverResult
         {
@@ -217,6 +281,45 @@ public sealed class CrackingSolver
             Iterations = iter,
             StrainPlane = bestPlane,
             EpsMaxTension = bestEps
+        };
+    }
+
+    /// <summary>
+    /// Быстрый Ньютон: пин на управляющей точке контура с целевой деформацией
+    /// <paramref name="epsLimit"/>. Возвращает <c>null</c>, если решателя нет чем запустить
+    /// (сечение без бетонного контура), он не сошёлся или сошёлся не туда — тогда вызывающая
+    /// сторона идёт прежним путём, бисекцией по масштабу момента.
+    /// </summary>
+    CrackingSolverResult? TrySolveByPin(double n, double mx, double my, double epsLimit)
+    {
+        TensionPinSolverFast pin;
+        try
+        {
+            pin = new TensionPinSolverFast(_section, _calcCrc,
+                solverTol: _solverTol, newtonMaxIter: _solverMaxIter, hDiff: _solverH,
+                tensionZone: _tensionZone);
+        }
+        catch (InvalidOperationException)
+        {
+            return null; // нет бетонного контура — пиновать нечего
+        }
+
+        var res = pin.Solve(epsLimit, n, mx, my, dNdk: 0.0, seed: null);
+        if (!res.Converged) return null;
+
+        // Пин мог сойтись к плоскости, где предел достигнут вне зоны догружения (или не достигнут
+        // вовсе) — принимаем ответ только по фактической деформации в зоне.
+        double eps = MaxTensionStrainInLoadedZone(res.Plane);
+        if (!double.IsFinite(eps) || Math.Abs(eps - epsLimit) > _bisectTol * 10.0) return null;
+
+        return new CrackingSolverResult
+        {
+            Mx = res.Load.Mx,
+            My = res.Load.My,
+            N = n,
+            Converged = true,
+            StrainPlane = res.Plane,
+            EpsMaxTension = eps
         };
     }
 
@@ -376,7 +479,7 @@ public sealed class CrackingSolver
         }
         if (!eq.Converged) return (default, 0.0, false);
         var plane = new Kurvature { e0 = eq.E0, ky = ky, kz = kz };
-        return (plane, MaxTensionStrain(plane), true);
+        return (plane, MaxTensionStrainInLoadedZone(plane), true);
     }
 
     (Kurvature? plane, double epsMax, bool ok) EvaluateAtLoadFactor(
@@ -386,7 +489,7 @@ public sealed class CrackingSolver
             tol: _solverTol, maxIter: _solverMaxIter, h: _solverH);
         var plane = solver.Solve(lambda * N0, lambda * Mx0, lambda * My0, seed);
         if (!solver.Converged) return (null, 0.0, false);
-        return (plane, MaxTensionStrain(plane), true);
+        return (plane, MaxTensionStrainInLoadedZone(plane), true);
     }
 
     static bool IsConcreteArea(MaterialArea area) =>

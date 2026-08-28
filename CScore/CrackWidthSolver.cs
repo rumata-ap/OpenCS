@@ -636,9 +636,14 @@ public sealed class CrackWidthSolver
         double mxTot = mxTotal ?? mxLong;
         double myTot = myTotal ?? myLong;
 
-        var crcSolver = new CrackingSolver(_section, _calcCrc, solverTol: 0.5);
         double mxDir = Math.Abs(mxLong) > 1e-12 ? mxLong : (Math.Abs(mxTot) > 1e-12 ? mxTot : 1.0);
         double myDir = Math.Abs(mxLong) > 1e-12 || Math.Abs(myLong) > 1e-12 ? myLong : myTot;
+
+        // Трещинообразование ищется только по грани, растянутой внешней нагрузкой: у сильно
+        // обжатого сечения противоположная грань может треснуть от одного обжатия, и без
+        // фильтра Mcrc относился бы к ней (см. CrackingSolver.LoadedTensionZone).
+        var crcSolver = new CrackingSolver(_section, _calcCrc, solverTol: 0.5,
+            tensionZone: CrackingSolver.LoadedTensionZone(_section, N, mxDir, myDir, nAtZeroMoment: N));
 
         var crcRes = crcSolver.CrackingMoment(N, mxDir, myDir);
         double mcrc = Math.Sqrt(crcRes.Mx * crcRes.Mx + crcRes.My * crcRes.My);

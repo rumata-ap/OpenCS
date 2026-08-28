@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using CScore;
 using Xunit;
@@ -455,5 +457,365 @@ public class BiaxialCurvatureCurveSolverTests
         bool hasNorm = Regex.IsMatch(
             src, @"Sqrt\s*\(\s*Mx\s*\*\s*Mx\s*\+\s*My\s*\*\s*My\s*\)", RegexOptions.IgnoreCase);
         Assert.False(hasNorm, "BiaxialCurvatureCurveSolver.cs не должен содержать sqrt(Mx²+My²) — см. спеку.");
+    }
+
+    /// <summary>
+    /// Регрессия: точку "4" (предел несущей способности) считает <see cref="GoverningPinSolverFast"/>
+    /// (вызывается из <c>BuildUltimatePoint</c>). До фикса он вызывал
+    /// <see cref="Curvature8232.ApplyPsiCorrection"/> без <c>requireCurrentPlaneStrain: true</c> —
+    /// в отличие от остальных вызовов внутри самого <see cref="BiaxialCurvatureCurveSolver"/>
+    /// (SolveMomentPathPoint/SolveCurvaturePathPoint), уже исправленных ранее. Из-за этого зону
+    /// растяжения и ψs для точки 4 классифицировали по ПОЛНОЙ деформации арматуры (εs+εp), а не
+    /// по деформации от текущей плоскости — преднапряжённый стержень, сжатый по плоскости
+    /// деформаций, мог всё равно попасть под ψs-коррекцию только из-за начального напряжения.
+    /// Сечение — TestSections.RectWithEccentricPrestressedRebar(), 1:1 воспроизводящее реальное
+    /// "rect 300×500 ps" (300×500, 5×A500 + 2×A1000 SigSp=900 у x=±0.04,y=-0.22) из
+    /// C:\Users\ponomarev\Downloads\test_prj.db (там же — реальная задача moment_curvature_biaxial
+    /// этого сечения: N=-100, Mx=-100, My=20, UsePsi=true). N/Mx/My здесь подобраны (в пределах
+    /// того же сечения и направления косого изгиба) так, чтобы именно В ТОЧКЕ 4 одна из
+    /// симметричных по X преднапряжённых прядей оказалась сжата по плоскости деформаций —
+    /// на исходном луче реальной задачи такого расхождения знака в точке 4 не возникает, и его
+    /// нужно усилить компрессией/наклоном луча, чтобы тест бил точно в классификацию зоны.
+    /// </summary>
+    [Fact]
+    public void Compute_UltimatePoint_PsiIgnoresPrestrainForZoneClassification()
+    {
+        var section = TestSections.RectWithEccentricPrestressedRebar();
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N);
+
+        var result = solver.Compute(-1200.0, -100.0, 62.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.NotNull(result.Ultimate);
+        Assert.True(result.Ultimate!.Converged);
+        Assert.NotNull(result.CrackTransitionPoint);
+
+        var strands = section.Areas.Single(a => a.Tag == "strands");
+        var strandA = strands.Fibers.Single(f => f.X < 0.0); // x = -0.04
+        var strandB = strands.Fibers.Single(f => f.X > 0.0); // x = +0.04
+
+        // εs,crc для точки 4 строится по плоскости точки 2 (crack transition) — так же, как
+        // приватный BiaxialCurvatureCurveSolver.EpsCrcByFiber.
+        var transitionPlane = new Kurvature
+        {
+            e0 = result.CrackTransitionPoint!.E0,
+            ky = result.CrackTransitionPoint.Ky,
+            kz = result.CrackTransitionPoint.Kz
+        };
+        var epsCrc = new Dictionary<Fiber, double>(ReferenceEqualityComparer.Instance);
+        foreach (var (area, ka) in section.EnumerateAreas(transitionPlane))
+        {
+            if (area.Material?.Type is not (MatType.ReSteelF or MatType.ReSteelU)) continue;
+            foreach (var fiber in area.Fibers)
+            {
+                if (fiber.TypeFiber != FiberType.point) continue;
+                epsCrc[fiber] = ka.e0 + ka.ky * fiber.Y + ka.kz * fiber.X;
+            }
+        }
+
+        var ultimatePlane = new Kurvature
+        {
+            e0 = result.Ultimate.E0, ky = result.Ultimate.Ky, kz = result.Ultimate.Kz
+        };
+
+        var raw = section.Integral(ultimatePlane, CalcType.N, ten: false, ca: true);
+        double epsA = strandA.Eps, epsB = strandB.Eps;
+
+        // Хотя бы одна из прядей должна быть сжата по плоскости деформаций точки 4 — иначе тест
+        // ничего не проверяет (обе прядки при этом положительно напряжены преднапряжением).
+        Assert.True(epsA <= 0.0 || epsB <= 0.0,
+            $"epsA={epsA}, epsB={epsB} — ожидалась хотя бы одна сжатая по плоскости прядь");
+
+        var fixedLoad = Curvature8232.ApplyPsiCorrection(
+            section, ultimatePlane, raw, epsCrc, CalcType.N, requireCurrentPlaneStrain: true);
+
+        // Пересчитываем "сырое" состояние заново (ApplyPsiCorrection мутировал фибры) и
+        // применяем СТАРУЮ (до фикса) формулу — классификация по ПОЛНОЙ деформации (εs+εp).
+        var raw2 = section.Integral(ultimatePlane, CalcType.N, ten: false, ca: true);
+        var oldLoad = Curvature8232.ApplyPsiCorrection(section, ultimatePlane, raw2, epsCrc, CalcType.N);
+
+        // Актуальная точка 4 диаграммы (посчитанная внутри BuildUltimatePoint→GoverningPinSolverFast)
+        // обязана совпадать именно с "плоскостной" формулой, а не со старой "по полной деформации".
+        Assert.Equal(fixedLoad.Mx, result.Ultimate.Mx, 3);
+        Assert.Equal(fixedLoad.My, result.Ultimate.My, 3);
+        Assert.Equal(fixedLoad.N, result.Ultimate.N, 2);
+        Assert.NotEqual(oldLoad.Mx, result.Ultimate.Mx, 3);
+    }
+
+    /// <summary>
+    /// Регрессия: <see cref="GoverningPinSolverFast"/> строил <c>_rebarPoints</c> и
+    /// ранжировал/таргетировал governing-пин арматуры БЕЗ учёта <c>Eps_p</c>. Когда governing-
+    /// точкой точки 4 оказывается преднапряжённый стержень, пин нацеливал ПЛОСКОСТНУЮ
+    /// деформацию прямо на его предельную деформацию EpsSu (материал, без поправки на εp) —
+    /// в результате фактическая ПОЛНАЯ деформация стержня (εs,plane+εp) в "предельной" точке
+    /// превышала его реальный предел прочности на разрыв. Решатель при этом формально сходился
+    /// (status="ok", Converged=true, без NaN/исключений) — то есть диаграмма молча показывала
+    /// несущую способность выше реальной: стержень физически уже разорван, а точка помечена
+    /// как достижимая. Сечение — TestSections.RectWithEccentricPrestressedRebar() (реальное
+    /// "rect 300×500 ps", прядь A1000 Et2=0.015, SigSp=900 МПа → Eps_p=0.0045). N=400 (растяжение),
+    /// Mx=-100, My=0 подобраны так, чтобы именно преднапряжённая прядь стала governing-точкой
+    /// (бетон её не опережает — см. диагностику: до фикса εs,total=0.0195 при Et2=0.015).
+    /// </summary>
+    [Fact]
+    public void Compute_UltimatePoint_PrestressedRebarGoverning_DoesNotExceedRuptureStrain()
+    {
+        var section = TestSections.RectWithEccentricPrestressedRebar();
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N);
+
+        var result = solver.Compute(400.0, -100.0, 0.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.NotNull(result.Ultimate);
+        Assert.True(result.Ultimate!.Converged);
+
+        var strands = section.Areas.Single(a => a.Tag == "strands");
+        var strandA = strands.Fibers.Single(f => f.X < 0.0);
+
+        var ultimatePlane = new Kurvature
+        {
+            e0 = result.Ultimate.E0, ky = result.Ultimate.Ky, kz = result.Ultimate.Kz
+        };
+        section.Integral(ultimatePlane, CalcType.N, ten: false, ca: true);
+        double totalStrain = strandA.Eps + strandA.Eps_p;
+
+        const double Et2 = 0.015; // A1000, TestMaterials.PrestressedRebar (strandEpsSu по умолчанию)
+        Assert.True(totalStrain <= Et2 + 1e-9,
+            $"полная деформация преднапряжённой пряди {totalStrain} превышает её предельную {Et2} — " +
+            "стержень уже разорван в 'предельной' точке диаграммы");
+        // Прядь действительно governing (иначе тест ничего не проверяет): полная деформация
+        // упирается РОВНО в её предел, а не в произвольно меньшее значение.
+        Assert.Equal(Et2, totalStrain, 6);
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Преднапряжение: начало кривой и параметризация участков (2026-08-27).
+    // Преднапряжение входит в модель собственной деформацией Fiber.Eps_p, поэтому Mx из
+    // Integral() — это уже ВНЕШНИЙ момент. Точка t=0 обязана быть состоянием с нулевым
+    // внешним моментом, а не состоянием с принудительно нулевой кривизной.
+    // ---------------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(CurveStepMode.ByCurvature)]
+    [InlineData(CurveStepMode.ByMoment)]
+    public void Compute_PrestressedSection_StartsAtZeroExternalMoment(CurveStepMode mode)
+    {
+        var section = TestSections.RectWithEccentricPrestressedRebar(sigSp: 300.0);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 6, stepMode: mode);
+
+        var result = solver.Compute(-100.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.NotEmpty(result.Points);
+        var startPoint = result.Points[0];
+
+        // Момент в начале кривой — нулевой (прежняя реализация давала здесь момент обжатия,
+        // около -40 кН*м на этой фикстуре, и вдобавок My=0 при заданном My0=20).
+        Assert.True(Math.Abs(startPoint.Mx) < 0.5,
+            $"кривая стартует с ненулевого внешнего момента Mx={startPoint.Mx}");
+        Assert.True(Math.Abs(startPoint.My) < 0.5,
+            $"кривая стартует с ненулевого внешнего момента My={startPoint.My}");
+
+        // ...а кривизна — НЕ нулевая: это выгиб от обжатия, настоящая величина.
+        Assert.True(Math.Abs(startPoint.Ky) > 1e-5,
+            $"у преднапряжённого сечения выгиб от обжатия потерян: ky={startPoint.Ky}");
+    }
+
+    [Fact]
+    public void Compute_SectionWithoutPrestress_StartPointKeepsZeroCurvature()
+    {
+        // Контроль отсутствия регрессии: без преднапряжения свободное состояние совпадает с
+        // прежней точкой Ky=Kz=0 (с точностью до несимметрии армирования).
+        var section = TestSections.RectWithEccentricPrestressedRebar(sigSp: 0.0);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 6, stepMode: CurveStepMode.ByMoment);
+
+        var result = solver.Compute(-100.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+
+        var startPoint = result.Points[0];
+        Assert.True(Math.Abs(startPoint.Ky) < 1e-5, $"ky={startPoint.Ky}");
+        Assert.True(Math.Abs(startPoint.Kz) < 1e-5, $"kz={startPoint.Kz}");
+        Assert.True(Math.Abs(startPoint.Mx) < 0.5, $"Mx={startPoint.Mx}");
+    }
+
+    [Theory]
+    [InlineData(CurveStepMode.ByCurvature)]
+    [InlineData(CurveStepMode.ByMoment)]
+    public void Compute_PrestressedSection_MomentGrowsMonotonicallyAlongCurve(CurveStepMode mode)
+    {
+        // Прежняя развёртка уч. "1" по epsPin растянутого пина стартовала не с разгруженного
+        // состояния: её первая точка приходилась на |Mx| ~ 57 при Mcrc ~ 96, т.е. начало
+        // кривой пропадало, а на графике оставался ход "назад" от точки-якоря.
+        var section = TestSections.RectWithEccentricPrestressedRebar(sigSp: 300.0);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 6, stepMode: mode);
+
+        var result = solver.Compute(-100.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+        var moments = result.Points.Where(p => p.Converged).Select(p => -p.Mx).ToList();
+
+        // Допуск — не «ноль», а порядок невязки решателя: соседние точки штатно расходятся
+        // на доли сотой кН*м. Проверяется отсутствие ХОДА НАЗАД, а не точное равенство.
+        Assert.True(moments.Count >= 8);
+        for (int i = 1; i < moments.Count; i++)
+            Assert.True(moments[i] >= moments[i - 1] - 1e-2,
+                $"момент пошёл назад на индексе {i}: {moments[i - 1]} -> {moments[i]}");
+    }
+
+    [Theory]
+    [InlineData(CurveStepMode.ByCurvature)]
+    [InlineData(CurveStepMode.ByMoment)]
+    public void Compute_PrestressedSection_CurvatureChangesSignAndStaysMonotonic(CurveStepMode mode)
+    {
+        // Кривизна преднапряжённого сечения по ходу нагружения проходит через ноль. Кривая
+        // обязана оставаться монотонной по ЗНАКОВОЙ кривизне — это то, что ломал Math.Abs
+        // в отрисовке и бисекция по |k| в расстановке точек.
+        var section = TestSections.RectWithEccentricPrestressedRebar(sigSp: 300.0);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 6, stepMode: mode);
+
+        var result = solver.Compute(-100.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+        var curvature = result.Points.Where(p => p.Converged).Select(p => p.Ky).ToList();
+
+        Assert.True(curvature.Count >= 8);
+        Assert.True(curvature.Max() > 0.0 && curvature.Min() < 0.0,
+            "кривизна не меняет знак — фикстура не проверяет разбираемый случай");
+        for (int i = 1; i < curvature.Count; i++)
+            Assert.True(curvature[i] <= curvature[i - 1] + 1e-8,
+                $"кривизна пошла назад на индексе {i}: {curvature[i - 1]} -> {curvature[i]}");
+    }
+
+    /// <summary>
+    /// Регрессия: у сильно обжатого сечения выгиб от преднапряжения растягивает ПРОТИВОПОЛОЖНУЮ
+    /// грань, и она трескается ещё до приложения внешней нагрузки. Критерий трещинообразования
+    /// брал максимум растягивающей деформации по всему контуру, поэтому пин садился на эту,
+    /// уже треснувшую, грань, и «моментом трещинообразования» объявлялся момент, при котором
+    /// внешняя нагрузка ВОЗВРАЩАЕТ её деформацию к пределу (на реальной задаче с σsp = 900 МПа:
+    /// −14,0 вместо −178). Момент образования трещины от внешней нагрузки при этом не
+    /// вычислялся вовсе. Трещина от обжатия к тому времени давно закрыта (та же задача:
+    /// верхняя грань переходит в сжатие уже при Mx = −97,5), поэтому искать надо в зоне,
+    /// которую внешняя нагрузка РАСТЯГИВАЕТ.
+    /// </summary>
+    [Fact]
+    public void Compute_TopCrackedByPrestress_FindsCrackingOnTheLoadedFace()
+    {
+        var section = TestSections.RectWithEccentricPrestressedRebar(sigSp: 1200.0);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 6, stepMode: CurveStepMode.ByMoment,
+            solverTol: 0.1, solverMaxIter: 25, centralJacobian: false);
+
+        var result = solver.Compute(-100.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.NotNull(result.Cracking);
+        Assert.True(result.CrackedAtZeroLoad,
+            "фикстура не воспроизводит разбираемый случай: грань от обжатия не треснула");
+
+        double limit = new CrackingSolver(section, CalcType.N).TensionLimit();
+        var plane = new Kurvature
+        {
+            e0 = result.Cracking!.E0, ky = result.Cracking.Ky, kz = result.Cracking.Kz
+        };
+        var hull = section.Areas.First(a => a.Hull != null).Hull!;
+
+        // Предел достигается на грани, которую растягивает ВНЕШНЯЯ нагрузка (Mx < 0 → y < 0).
+        var atLimit = Enumerable.Range(0, hull.X.Count)
+            .Select(i => (X: hull.X[i], Y: hull.Y[i]))
+            .Where(p => plane.e0 + plane.ky * p.Y + plane.kz * p.X >= limit - 1e-9)
+            .ToList();
+
+        Assert.NotEmpty(atLimit);
+        Assert.All(atLimit, p => Assert.True(p.Y < 0.0,
+            $"предел растяжения достигнут на грани y={p.Y}, а нагрузка растягивает y<0; " +
+            $"Mx точки трещинообразования = {result.Cracking.Mx:F3}"));
+    }
+
+    /// <summary>
+    /// Обратная сторона предыдущего теста: при умеренном обжатии противоположная грань не
+    /// трескается, и точка трещинообразования обязана остаться прежней.
+    /// </summary>
+    [Fact]
+    public void Compute_ModeratePrestress_CrackingPointUnchanged()
+    {
+        var section = TestSections.RectWithEccentricPrestressedRebar(sigSp: 300.0);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 6, stepMode: CurveStepMode.ByMoment,
+            solverTol: 0.1, solverMaxIter: 25, centralJacobian: false);
+
+        var result = solver.Compute(-100.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.False(result.CrackedAtZeroLoad);
+        Assert.NotNull(result.Cracking);
+        Assert.Equal(-96.06, result.Cracking!.Mx, 1);
+    }
+
+    /// <summary>
+    /// Регрессия: сразу за трещинообразованием функция M(κ) с ψs-коррекцией имеет СКАЧОК — на
+    /// диапазоне моментов сразу за Mcrc равновесия нет ни при каком приближении (проверено на
+    /// реальной задаче из test_prj.db: Mx от −149 до −195 недостижимы даже при 300 итерациях
+    /// с центральным якобианом). Рядом с рабочей ветвью при этом остаётся дотрещинная, на
+    /// которой Ньютон охотно сходится. Марш по лучу такие решения отбрасывал, а уточняющая
+    /// бисекция — нет, и они попадали в кривую: на реальной задаче точка при Mx = −174,6
+    /// получала кривизну −0,000515 при −0,000603 в точке трещинообразования, то есть момент
+    /// вырос, а кривизна пошла назад. На графике снижения жёсткости это давало выброс
+    /// B/B₀ > 1 у ТРЕСНУВШЕГО сечения.
+    /// </summary>
+    [Fact]
+    public void Compute_Segment4_DoesNotFallBackToThePreCrackBranch()
+    {
+        // N = −800 при sigSp = 600 — комбинация, на которой фикстура воспроизводит тот же
+        // разрыв со статусом "ok" (при sigSp = 900 сечение уходит в вырожденный "partial",
+        // который проверяется отдельно).
+        var section = TestSections.RectWithEccentricPrestressedRebar(sigSp: 600.0);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 20, stepMode: CurveStepMode.ByMoment,
+            solverTol: 0.1, solverMaxIter: 25, centralJacobian: false);
+
+        var result = solver.Compute(-800.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+
+        var segment4 = result.Points.Where(p => p.Segment == 4 && p.Converged).ToList();
+        Assert.True(segment4.Count >= 8, $"точек уч. 4: {segment4.Count}");
+
+        double Magnitude(BiaxialCurveScanPoint p) => Math.Sqrt(p.Ky * p.Ky + p.Kz * p.Kz);
+        for (int i = 1; i < segment4.Count; i++)
+            Assert.True(Magnitude(segment4[i]) >= Magnitude(segment4[i - 1]) - 1e-12,
+                $"кривизна уч. 4 пошла назад на индексе {i}: " +
+                $"Mx {segment4[i - 1].Mx:F3} -> {segment4[i].Mx:F3}, " +
+                $"|k| {Magnitude(segment4[i - 1]):G6} -> {Magnitude(segment4[i]):G6}");
+    }
+
+    [Fact]
+    public void Compute_PrestressedSection_ByCurvatureDoesNotCollapseSegment4()
+    {
+        // Бисекция по |k| вырождалась, когда кривизна меняет знак ИЛИ когда Ньютон из
+        // плоскости начала участка перестаёт сходиться: все вспомогательные точки уч. "4"
+        // сходились в одну (численно воспроизведено при sigSp=900).
+        var section = TestSections.RectWithEccentricPrestressedRebar(sigSp: 900.0);
+        var solver = new BiaxialCurvatureCurveSolver(section, calcCrc: CalcType.N, calcService: CalcType.N,
+            auxPointsPerSegment: 6, stepMode: CurveStepMode.ByCurvature);
+
+        var result = solver.Compute(-100.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+        var segment4 = result.Points.Where(p => p.Segment == 4 && p.Converged).ToList();
+
+        Assert.True(segment4.Count >= 4);
+        int distinct = segment4.Select(p => Math.Round(p.Ky, 8)).Distinct().Count();
+        Assert.True(distinct == segment4.Count,
+            $"уч. 4 выродился: {segment4.Count} точек, различных всего {distinct}");
+    }
+
+    [Fact]
+    public void Compute_SectionCrackedByPrestressAlone_IsReported()
+    {
+        // Сечение, у которого выгиб от обжатия сам по себе раскрывает трещину: участка
+        // "до трещины" нет, а найденная точка трещинообразования относится к
+        // противоположной грани. Расчёт не прерывается, но результат помечается.
+        var cracked = TestSections.RectWithEccentricPrestressedRebar(sigSp: 1200.0);
+        var crackedResult = new BiaxialCurvatureCurveSolver(cracked, calcCrc: CalcType.N, calcService: CalcType.N,
+                auxPointsPerSegment: 6, stepMode: CurveStepMode.ByMoment)
+            .Compute(-100.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.True(crackedResult.CrackedAtZeroLoad);
+
+        var normal = TestSections.RectWithEccentricPrestressedRebar(sigSp: 300.0);
+        var normalResult = new BiaxialCurvatureCurveSolver(normal, calcCrc: CalcType.N, calcService: CalcType.N,
+                auxPointsPerSegment: 6, stepMode: CurveStepMode.ByMoment)
+            .Compute(-100.0, -100.0, 20.0, CurvatureNMode.Constant, usePsi: true);
+
+        Assert.False(normalResult.CrackedAtZeroLoad);
     }
 }

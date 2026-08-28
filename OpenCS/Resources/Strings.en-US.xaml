@@ -2643,6 +2643,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_NModeProportional">N proportional to ray</system:String>
     <system:String x:Key="MomentCurvature_StatusOk">Converged</system:String>
     <system:String x:Key="MomentCurvature_StatusPartial">Partial (see points)</system:String>
+    <system:String x:Key="MomentCurvature_CrackedAtZeroLoad">The face put in tension by prestress is already cracked before any load is applied. The cracking moment shown is for the face that the external load puts in tension</system:String>
     <system:String x:Key="MomentCurvature_ConvergedCountLabel">Converged points</system:String>
     <system:String x:Key="MomentCurvature_TabCurvatureX">Curvature-moment, X</system:String>
     <system:String x:Key="MomentCurvature_TabCurvatureY">Curvature-moment, Y</system:String>
@@ -2678,6 +2679,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_PlotStiffnessXTitle">Mx — ratio to initial stiffness</system:String>
     <system:String x:Key="MomentCurvature_PlotStiffnessYTitle">My — ratio to initial stiffness</system:String>
     <system:String x:Key="MomentCurvature_AxisCurvature">κ, 1/m</system:String>
+    <system:String x:Key="MomentCurvature_AxisMomentTotal">M = √(Mx²+My²), kN·m</system:String>
     <system:String x:Key="MomentCurvature_AxisMomentX">Mx, kN·m</system:String>
     <system:String x:Key="MomentCurvature_AxisMomentY">My, kN·m</system:String>
     <system:String x:Key="MomentCurvature_AxisN">N, kN</system:String>
@@ -2691,12 +2693,15 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="MomentCurvature_TabRebarStress">Rebar stress</system:String>
     <system:String x:Key="MomentCurvature_RebarDefaultTag">Rebar</system:String>
     <system:String x:Key="MomentCurvature_RebarPickerHeader">Bars</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStrainTotalTitle">Rebar strain — total moment</system:String>
+    <system:String x:Key="MomentCurvature_PlotRebarStressTotalTitle">Rebar stress — total moment</system:String>
     <system:String x:Key="MomentCurvature_PlotRebarStrainXTitle">Rebar strain — moment Mx</system:String>
     <system:String x:Key="MomentCurvature_PlotRebarStrainYTitle">Rebar strain — moment My</system:String>
     <system:String x:Key="MomentCurvature_PlotRebarStressXTitle">Rebar stress — moment Mx</system:String>
     <system:String x:Key="MomentCurvature_PlotRebarStressYTitle">Rebar stress — moment My</system:String>
     <system:String x:Key="MomentCurvature_AxisRebarStrain">εs</system:String>
     <system:String x:Key="MomentCurvature_AxisRebarStress">σs, MPa</system:String>
+    <system:String x:Key="MomentCurvature_SubTabTotal">Total moment</system:String>
     <system:String x:Key="MomentCurvature_SubTabMx">Mx</system:String>
     <system:String x:Key="MomentCurvature_SubTabMy">My</system:String>
     <system:String x:Key="MomentCurvature_Yes">Yes</system:String>
