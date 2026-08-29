@@ -10,16 +10,32 @@ namespace OpenCS.ViewModels
 
         public int Index { get; set; }
 
+        /// <summary>Координата X центра стержня в метрах.</summary>
         public double X
         {
             get => _x;
-            set { _x = value; OnPropertyChanged(); }
+            set { _x = value; OnPropertyChanged(nameof(X)); OnPropertyChanged(nameof(XMm)); }
         }
 
+        /// <summary>Координата X центра стержня в миллиметрах для отображения в UI.</summary>
+        public double XMm
+        {
+            get => _x * 1000;
+            set => X = value / 1000;
+        }
+
+        /// <summary>Координата Y центра стержня в метрах.</summary>
         public double Y
         {
             get => _y;
-            set { _y = value; OnPropertyChanged(); }
+            set { _y = value; OnPropertyChanged(nameof(Y)); OnPropertyChanged(nameof(YMm)); }
+        }
+
+        /// <summary>Координата Y центра стержня в миллиметрах для отображения в UI.</summary>
+        public double YMm
+        {
+            get => _y * 1000;
+            set => Y = value / 1000;
         }
 
         /// <summary>Диаметр в метрах.</summary>

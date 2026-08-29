@@ -902,20 +902,41 @@
    <system:String x:Key="RgCircleSetLabel">Набор окружностей</system:String>
    <system:String x:Key="RgImportFromSet">Импортировать</system:String>
    <system:String x:Key="RgReference">Опора</system:String>
-   <system:String x:Key="RgCoverOffset">Отступ</system:String>
-   <system:String x:Key="RgOffsetStep">Шаг</system:String>
+   <system:String x:Key="RgCoverOffset">Защитный слой, мм</system:String>
+   <system:String x:Key="RgOffsetStep">Шаг изменения, мм</system:String>
    <system:String x:Key="RgResetOffsets">Сбросить все</system:String>
    <system:String x:Key="RgBarDiameter">Ø</system:String>
    <system:String x:Key="RgBarDiameterUnit">мм</system:String>
    <system:String x:Key="RgFillN">N</system:String>
    <system:String x:Key="RgFillStraight">По прямой</system:String>
    <system:String x:Key="RgFillArc">По дуге</system:String>
-   <system:String x:Key="RgFillArcR">R, м</system:String>
+   <system:String x:Key="RgFillArcR">Радиус дуги, мм</system:String>
    <system:String x:Key="RgFillMode">Режим заполнения</system:String>
-   <system:String x:Key="RgEdgesTable">Рёбра</system:String>
+   <system:String x:Key="RgEdgesTable">Линия защитного слоя</system:String>
    <system:String x:Key="RgBarsTable">Стержни</system:String>
    <system:String x:Key="RgGroupTag">Тег группы</system:String>
    <system:String x:Key="RgMaterial">Материал</system:String>
+
+   <system:String x:Key="RgCoverOffsetHelp">Расстояние от исходного контура до линии размещения стержней.</system:String>
+   <system:String x:Key="RgOffsetStepHelp">Изменение отступа кнопками «+»/«−» и ручкой ребра.</system:String>
+   <system:String x:Key="RgFillArcRHelp">Радиус траектории при заполнении между двумя стержнями по дуге.</system:String>
+   <system:String x:Key="RgEdgesTableHelp">Отступ задаётся от соответствующего исходного ребра.</system:String>
+   <system:String x:Key="RgBarsTableHelp">X и Y — координаты центра стержня в общей системе координат сечения.</system:String>
+   <system:String x:Key="RgNumberHeader">№</system:String>
+   <system:String x:Key="RgEdgeOffsetHeader">Отступ, мм</system:String>
+   <system:String x:Key="RgEdgeActionsHeader">Изменить</system:String>
+   <system:String x:Key="RgBarXHeader">X, мм</system:String>
+   <system:String x:Key="RgBarYHeader">Y, мм</system:String>
+   <system:String x:Key="RgBarDiameterHeader">Ø, мм</system:String>
+   <system:String x:Key="RgBarDeleteHeader">Удалить</system:String>
+   <system:String x:Key="RgIncreaseOffsetSymbol">+</system:String>
+   <system:String x:Key="RgDecreaseOffsetSymbol">−</system:String>
+   <system:String x:Key="RgDeleteBarSymbol">×</system:String>
+   <system:String x:Key="RgIncreaseOffsetToolTip">Увеличить отступ</system:String>
+   <system:String x:Key="RgDecreaseOffsetToolTip">Уменьшить отступ</system:String>
+   <system:String x:Key="RgDeleteBarToolTip">Удалить стержень</system:String>
+   <system:String x:Key="RgTranslate">Сдвиг</system:String>
+   <system:String x:Key="RgProperties">Свойства</system:String>
 
    <!-- CirclesView -->
    <system:String x:Key="R_m">R, м</system:String>

@@ -53,7 +53,6 @@ namespace OpenCS.ViewModels
             ResetAllOffsetsCommand= new RelayCommand(_ => ResetAllOffsets());
             FillBetweenCommand    = new RelayCommand(o => { if (o is ValueTuple<BarItem,BarItem> fb) FillBetween(fb.Item1, fb.Item2); });
             SaveCommand           = new RelayCommand(_ => Save());
-            CancelCommand         = new RelayCommand(_ => App.CurrentPage = null!);
             TranslateCommand      = new RelayCommand(_ => Translate());
             ShowPropertiesCommand = new RelayCommand(_ => ShowProperties());
             ImportFromCircleSetCommand = new RelayCommand(_ => ImportFromCircleSet());
@@ -187,13 +186,37 @@ namespace OpenCS.ViewModels
         public double GlobalOffset
         {
             get => _globalOffset;
-            set { _globalOffset = value; OnPropertyChanged(); }
+            set
+            {
+                _globalOffset = value;
+                OnPropertyChanged(nameof(GlobalOffset));
+                OnPropertyChanged(nameof(GlobalOffsetMm));
+            }
+        }
+
+        /// <summary>Защитный слой в миллиметрах для отображения в UI.</summary>
+        public double GlobalOffsetMm
+        {
+            get => _globalOffset * 1000;
+            set => GlobalOffset = value / 1000;
         }
 
         public double OffsetStep
         {
             get => _offsetStep;
-            set { _offsetStep = value; OnPropertyChanged(); }
+            set
+            {
+                _offsetStep = value;
+                OnPropertyChanged(nameof(OffsetStep));
+                OnPropertyChanged(nameof(OffsetStepMm));
+            }
+        }
+
+        /// <summary>Шаг изменения отступа в миллиметрах для отображения в UI.</summary>
+        public double OffsetStepMm
+        {
+            get => _offsetStep * 1000;
+            set => OffsetStep = value / 1000;
         }
 
         public ObservableCollection<EdgeItem> Edges { get; }
@@ -251,7 +274,19 @@ namespace OpenCS.ViewModels
         public double FillArcRadius
         {
             get => _fillArcRadius;
-            set { _fillArcRadius = value; OnPropertyChanged(); }
+            set
+            {
+                _fillArcRadius = value;
+                OnPropertyChanged(nameof(FillArcRadius));
+                OnPropertyChanged(nameof(FillArcRadiusMm));
+            }
+        }
+
+        /// <summary>Радиус дуги в миллиметрах для отображения в UI.</summary>
+        public double FillArcRadiusMm
+        {
+            get => _fillArcRadius * 1000;
+            set => FillArcRadius = value / 1000;
         }
 
         // ── Трансформация ────────────────────────────────────────────────────
@@ -308,7 +343,6 @@ namespace OpenCS.ViewModels
         public ICommand ResetAllOffsetsCommand { get; }
         public ICommand FillBetweenCommand     { get; }
         public ICommand SaveCommand            { get; }
-        public ICommand CancelCommand          { get; }
         public ICommand TranslateCommand       { get; }
         public ICommand ShowPropertiesCommand  { get; }
         public ICommand ImportFromCircleSetCommand { get; }
@@ -402,7 +436,7 @@ namespace OpenCS.ViewModels
         /// <summary>
         /// Единая точка пересчёта линии защитного слоя при изменении отступа любого
         /// ребра — не важно, каким путём (перетаскивание ручки, кнопки +/− или прямой
-        /// ввод значения в таблице рёбер, у которой TextBox привязан к EdgeItem.Offset
+        /// ввод значения в таблице рёбер, у которой TextBox привязан к EdgeItem.OffsetMm
         /// напрямую, в обход команд VM).
         /// </summary>
         void OnEdgeOffsetChanged(object? sender, PropertyChangedEventArgs e)

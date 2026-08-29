@@ -10,7 +10,7 @@
          <ColumnDefinition Width="4"/>
          <ColumnDefinition Width="*"   MinWidth="100"/>
          <ColumnDefinition Width="4"/>
-         <ColumnDefinition Width="220" MinWidth="160"/>
+         <ColumnDefinition Width="280" MinWidth="265"/>
       </Grid.ColumnDefinitions>
 
       <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
@@ -19,8 +19,19 @@
                     Background="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"/>
 
       <!-- Левая панель -->
-      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
-         <StackPanel Margin="6">
+         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="6">
+
+            <!-- Тег и кнопки -->
+            <TextBlock Text="{DynamicResource RgGroupTag}" Margin="0,0,0,2"/>
+            <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="0,0,0,4"/>
+            <Button Content="{DynamicResource Save}"
+                    Command="{Binding SaveCommand}"
+                    HorizontalAlignment="Stretch"
+                    Margin="0,0,0,6" Padding="8,3"/>
+
+            <Separator Margin="0,0,0,6"/>
 
             <!-- Стратегия -->
             <GroupBox Header="{DynamicResource RgStrategyGroup}" Margin="0,0,0,6">
@@ -69,16 +80,20 @@
             <!-- Линия защитного слоя (скрыта при Bare) -->
             <StackPanel Visibility="{Binding HasReference, Converter={StaticResource BoolToVisibility}}"
                         Margin="0,0,0,6">
-               <DockPanel Margin="0,0,0,2">
-                  <TextBlock Text="{DynamicResource RgCoverOffset}" Width="60" VerticalAlignment="Center"/>
-                  <TextBlock Text="м" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                  <TextBox Text="{Binding GlobalOffset, StringFormat='{}{0:F3}', UpdateSourceTrigger=LostFocus}"/>
-               </DockPanel>
-               <DockPanel Margin="0,0,0,2">
-                  <TextBlock Text="{DynamicResource RgOffsetStep}" Width="60" VerticalAlignment="Center"/>
-                  <TextBlock Text="м" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                  <TextBox Text="{Binding OffsetStep, StringFormat='{}{0:F3}', UpdateSourceTrigger=LostFocus}"/>
-               </DockPanel>
+               <StackPanel Margin="0,0,0,4">
+                  <TextBlock Text="{DynamicResource RgCoverOffset}" Margin="0,0,0,2"/>
+                  <TextBox Text="{Binding GlobalOffsetMm, StringFormat='{}{0:F1}',
+                                          UpdateSourceTrigger=LostFocus}"/>
+                  <TextBlock Text="{DynamicResource RgCoverOffsetHelp}"
+                             TextWrapping="Wrap" FontSize="11" Margin="0,2,0,0"/>
+               </StackPanel>
+               <StackPanel Margin="0,0,0,4">
+                  <TextBlock Text="{DynamicResource RgOffsetStep}" Margin="0,0,0,2"/>
+                  <TextBox Text="{Binding OffsetStepMm, StringFormat='{}{0:F1}',
+                                          UpdateSourceTrigger=LostFocus}"/>
+                  <TextBlock Text="{DynamicResource RgOffsetStepHelp}"
+                             TextWrapping="Wrap" FontSize="11" Margin="0,2,0,0"/>
+               </StackPanel>
                <Button Content="{DynamicResource RgResetOffsets}"
                        Command="{Binding ResetAllOffsetsCommand}"
                        Padding="4,2"/>
@@ -87,14 +102,14 @@
             <Separator Margin="0,0,0,6"/>
 
             <!-- Диаметр активного стержня -->
-            <DockPanel Margin="0,0,0,6">
-               <TextBlock Text="{DynamicResource RgBarDiameter}"
-                          VerticalAlignment="Center" Margin="0,0,4,0"/>
-               <TextBlock Text="{DynamicResource RgBarDiameterUnit}"
-                          DockPanel.Dock="Right" VerticalAlignment="Center" Margin="4,0,0,0"/>
-               <TextBox Text="{Binding ActiveDiameterMm, StringFormat='{}{0:F0}',
+               <DockPanel Margin="0,0,0,6">
+                  <TextBlock Text="{DynamicResource RgBarDiameter}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBlock Text="{DynamicResource RgBarDiameterUnit}"
+                             DockPanel.Dock="Right" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                  <TextBox Text="{Binding ActiveDiameterMm, StringFormat='{}{0:F1}',
                                UpdateSourceTrigger=PropertyChanged}"/>
-            </DockPanel>
+               </DockPanel>
 
             <Separator Margin="0,0,0,6"/>
 
@@ -113,13 +128,15 @@
                   <RadioButton Content="{DynamicResource RgFillArc}"
                                IsChecked="{Binding FillUseArc}"
                                Margin="0,0,0,2"/>
-                  <DockPanel Visibility="{Binding FillUseArc, Converter={StaticResource BoolToVisibility}}"
-                             Margin="0,0,0,4">
+                  <StackPanel Visibility="{Binding FillUseArc, Converter={StaticResource BoolToVisibility}}"
+                              Margin="0,0,0,4">
                      <TextBlock Text="{DynamicResource RgFillArcR}"
-                                VerticalAlignment="Center" Margin="0,0,4,0"/>
-                     <TextBox Text="{Binding FillArcRadius, StringFormat='{}{0:F3}',
+                                Margin="0,0,0,2"/>
+                     <TextBox Text="{Binding FillArcRadiusMm, StringFormat='{}{0:F1}',
                                     UpdateSourceTrigger=PropertyChanged}"/>
-                  </DockPanel>
+                     <TextBlock Text="{DynamicResource RgFillArcRHelp}"
+                                TextWrapping="Wrap" FontSize="11" Margin="0,2,0,0"/>
+                  </StackPanel>
                   <ToggleButton Content="{DynamicResource RgFillMode}"
                                 IsChecked="{Binding FillMode}"
                                 Padding="4,2"/>
@@ -154,26 +171,11 @@
                </StackPanel>
             </GroupBox>
 
-            <!-- Тег -->
-            <TextBlock Text="{DynamicResource RgGroupTag}" Margin="0,0,0,2"/>
-            <TextBox Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}"
-                     Margin="0,0,0,8"/>
-
-            <!-- Кнопки -->
-            <Button Content="{DynamicResource Save}"
-                    Command="{Binding SaveCommand}"
-                    Margin="0,0,0,4" Padding="4,3"/>
-            <Button Content="{DynamicResource Cancel}"
-                    Command="{Binding CancelCommand}"
-                    Margin="0,0,0,6" Padding="4,3"/>
-
-            <Separator Margin="0,0,0,6"/>
-
             <StackPanel Orientation="Horizontal">
-               <Button Content="Сдвиг"
+               <Button Content="{DynamicResource RgTranslate}"
                        Command="{Binding TranslateCommand}"
                        Padding="8,3" Margin="0,0,6,0"/>
-               <Button Content="Свойства"
+               <Button Content="{DynamicResource RgProperties}"
                        Command="{Binding ShowPropertiesCommand}"
                        Padding="8,3"/>
             </StackPanel>
@@ -196,57 +198,135 @@
                    Header="{DynamicResource RgEdgesTable}"
                    Margin="4,4,4,2"
                    Visibility="{Binding HasReference, Converter={StaticResource BoolToVisibility}}">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-               <ItemsControl ItemsSource="{Binding Edges}">
-                  <ItemsControl.ItemTemplate>
-                     <DataTemplate DataType="{x:Type vm:EdgeItem}">
-                        <DockPanel Margin="2">
-                           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                              <Button Content="+" Width="20" Height="20" Padding="0"
-                                      Click="EdgePlus_Click" Tag="{Binding}"/>
-                              <Button Content="−" Width="20" Height="20" Padding="0"
-                                      Click="EdgeMinus_Click" Tag="{Binding}"/>
-                           </StackPanel>
-                           <TextBlock Text="{Binding Index}" Width="18"
-                                      VerticalAlignment="Center"/>
-                           <TextBox Text="{Binding Offset, StringFormat='{}{0:F3}',
-                                          UpdateSourceTrigger=LostFocus}"
-                                    VerticalAlignment="Center"/>
-                        </DockPanel>
-                     </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-               </ItemsControl>
-            </ScrollViewer>
+            <Grid>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+               </Grid.RowDefinitions>
+               <TextBlock Grid.Row="0" Text="{DynamicResource RgEdgesTableHelp}"
+                          TextWrapping="Wrap" Margin="4,2,4,4"/>
+               <Grid Grid.Row="1" Margin="2,0,2,2">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="28"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="56"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="{DynamicResource RgNumberHeader}"
+                             TextAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="{DynamicResource RgEdgeOffsetHeader}"
+                             TextAlignment="Center"/>
+               </Grid>
+               <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                  <ItemsControl ItemsSource="{Binding Edges}">
+                     <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:EdgeItem}">
+                           <Grid Margin="2">
+                              <Grid.ColumnDefinitions>
+                                 <ColumnDefinition Width="28"/>
+                                 <ColumnDefinition Width="*"/>
+                                 <ColumnDefinition Width="56"/>
+                              </Grid.ColumnDefinitions>
+                              <TextBlock Grid.Column="0" Text="{Binding Index}"
+                                         VerticalAlignment="Center" TextAlignment="Center"/>
+                              <TextBox Grid.Column="1"
+                                       Text="{Binding OffsetMm, StringFormat='{}{0:F1}',
+                                                      UpdateSourceTrigger=LostFocus}"
+                                       GotKeyboardFocus="EdgeOffset_GotKeyboardFocus"
+                                       LostKeyboardFocus="EdgeOffset_LostKeyboardFocus"
+                                       VerticalAlignment="Center" Margin="1,0"/>
+                              <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                          HorizontalAlignment="Center">
+                                 <Button Content="{DynamicResource RgIncreaseOffsetSymbol}"
+                                         ToolTip="{DynamicResource RgIncreaseOffsetToolTip}"
+                                         Width="24" Height="20" Padding="0"
+                                         Click="EdgePlus_Click" Tag="{Binding}"/>
+                                 <Button Content="{DynamicResource RgDecreaseOffsetSymbol}"
+                                         ToolTip="{DynamicResource RgDecreaseOffsetToolTip}"
+                                         Width="24" Height="20" Padding="0"
+                                         Click="EdgeMinus_Click" Tag="{Binding}"/>
+                              </StackPanel>
+                           </Grid>
+                        </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+               </ScrollViewer>
+            </Grid>
          </GroupBox>
 
          <!-- Таблица стержней -->
          <GroupBox Grid.Row="1" Header="{DynamicResource RgBarsTable}" Margin="4,2,4,4">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-               <ItemsControl ItemsSource="{Binding Bars}">
-                  <ItemsControl.ItemTemplate>
-                     <DataTemplate DataType="{x:Type vm:BarItem}">
-                        <DockPanel Margin="1">
-                           <Button DockPanel.Dock="Right" Content="×" Width="18" Height="18"
-                                   Padding="0"
-                                   Command="{Binding DataContext.DeleteBarCommand,
-                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                   CommandParameter="{Binding}"/>
-                           <TextBlock Text="{Binding Index}" Width="16"
-                                      VerticalAlignment="Center"/>
-                           <TextBox Text="{Binding X, StringFormat='{}{0:F3}',
-                                          UpdateSourceTrigger=LostFocus}"
-                                    Width="46" Margin="1,0"/>
-                           <TextBox Text="{Binding Y, StringFormat='{}{0:F3}',
-                                          UpdateSourceTrigger=LostFocus}"
-                                    Width="46" Margin="1,0"/>
-                           <TextBox Text="{Binding DiameterMm, StringFormat='{}{0:F0}',
-                                          UpdateSourceTrigger=LostFocus}"
-                                    Width="32" Margin="1,0"/>
-                        </DockPanel>
-                     </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-               </ItemsControl>
-            </ScrollViewer>
+            <Grid>
+               <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="*"/>
+               </Grid.RowDefinitions>
+               <TextBlock Grid.Row="0" Text="{DynamicResource RgBarsTableHelp}"
+                          TextWrapping="Wrap" Margin="4,2,4,4"/>
+               <Grid Grid.Row="1" Margin="1,0,1,2">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="28"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="40"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="{DynamicResource RgNumberHeader}"
+                             TextAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="{DynamicResource RgBarXHeader}"
+                             TextAlignment="Center"/>
+                  <TextBlock Grid.Column="2" Text="{DynamicResource RgBarYHeader}"
+                             TextAlignment="Center"/>
+                  <TextBlock Grid.Column="3" Text="{DynamicResource RgBarDiameterHeader}"
+                             TextAlignment="Center"/>
+               </Grid>
+               <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                  <ItemsControl ItemsSource="{Binding Bars}">
+                     <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:BarItem}">
+                           <Grid Margin="1">
+                              <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="28"/>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="*"/>
+                              <ColumnDefinition Width="40"/>
+                              </Grid.ColumnDefinitions>
+                              <TextBlock Grid.Column="0" Text="{Binding Index}"
+                                         VerticalAlignment="Center" TextAlignment="Center"/>
+                              <TextBox Grid.Column="1"
+                                       Text="{Binding XMm, StringFormat='{}{0:F1}',
+                                                      UpdateSourceTrigger=LostFocus}"
+                                       GotKeyboardFocus="BarField_GotKeyboardFocus"
+                                       LostKeyboardFocus="BarField_LostKeyboardFocus"
+                                       Margin="1,0"/>
+                              <TextBox Grid.Column="2"
+                                       Text="{Binding YMm, StringFormat='{}{0:F1}',
+                                                      UpdateSourceTrigger=LostFocus}"
+                                       GotKeyboardFocus="BarField_GotKeyboardFocus"
+                                       LostKeyboardFocus="BarField_LostKeyboardFocus"
+                                       Margin="1,0"/>
+                              <TextBox Grid.Column="3"
+                                       Text="{Binding DiameterMm, StringFormat='{}{0:F1}',
+                                                      UpdateSourceTrigger=LostFocus}"
+                                       GotKeyboardFocus="BarField_GotKeyboardFocus"
+                                       LostKeyboardFocus="BarField_LostKeyboardFocus"
+                                       Margin="1,0"/>
+                              <Button Grid.Column="4"
+                                      Content="{DynamicResource RgDeleteBarSymbol}"
+                                      ToolTip="{DynamicResource RgDeleteBarToolTip}"
+                                      Width="24" Height="18" Padding="0"
+                                      HorizontalAlignment="Center"
+                                      Command="{Binding DataContext.DeleteBarCommand,
+                                         RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      CommandParameter="{Binding}"/>
+                           </Grid>
+                        </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+               </ScrollViewer>
+            </Grid>
          </GroupBox>
 
       </Grid>

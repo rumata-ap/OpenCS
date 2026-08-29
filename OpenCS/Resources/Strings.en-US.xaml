@@ -902,20 +902,41 @@
    <system:String x:Key="RgCircleSetLabel">Circle set</system:String>
    <system:String x:Key="RgImportFromSet">Import</system:String>
    <system:String x:Key="RgReference">Reference</system:String>
-   <system:String x:Key="RgCoverOffset">Cover</system:String>
-   <system:String x:Key="RgOffsetStep">Step</system:String>
+   <system:String x:Key="RgCoverOffset">Cover, mm</system:String>
+   <system:String x:Key="RgOffsetStep">Offset step, mm</system:String>
    <system:String x:Key="RgResetOffsets">Reset all</system:String>
    <system:String x:Key="RgBarDiameter">Ø</system:String>
    <system:String x:Key="RgBarDiameterUnit">mm</system:String>
    <system:String x:Key="RgFillN">N</system:String>
    <system:String x:Key="RgFillStraight">Straight</system:String>
    <system:String x:Key="RgFillArc">By arc</system:String>
-   <system:String x:Key="RgFillArcR">R, m</system:String>
+   <system:String x:Key="RgFillArcR">Arc radius, mm</system:String>
    <system:String x:Key="RgFillMode">Fill mode</system:String>
-   <system:String x:Key="RgEdgesTable">Edges</system:String>
+   <system:String x:Key="RgEdgesTable">Cover line</system:String>
    <system:String x:Key="RgBarsTable">Bars</system:String>
    <system:String x:Key="RgGroupTag">Group tag</system:String>
    <system:String x:Key="RgMaterial">Material</system:String>
+
+   <system:String x:Key="RgCoverOffsetHelp">Distance from the original contour to the bar placement line.</system:String>
+   <system:String x:Key="RgOffsetStepHelp">Offset change made by the “+”/“−” buttons and the edge handle.</system:String>
+   <system:String x:Key="RgFillArcRHelp">Radius of the path used to fill between two bars along an arc.</system:String>
+   <system:String x:Key="RgEdgesTableHelp">The offset is measured from the corresponding original edge.</system:String>
+   <system:String x:Key="RgBarsTableHelp">X and Y are the bar-center coordinates in the section coordinate system.</system:String>
+   <system:String x:Key="RgNumberHeader">#</system:String>
+   <system:String x:Key="RgEdgeOffsetHeader">Offset, mm</system:String>
+   <system:String x:Key="RgEdgeActionsHeader">Adjust</system:String>
+   <system:String x:Key="RgBarXHeader">X, mm</system:String>
+   <system:String x:Key="RgBarYHeader">Y, mm</system:String>
+   <system:String x:Key="RgBarDiameterHeader">Ø, mm</system:String>
+   <system:String x:Key="RgBarDeleteHeader">Delete</system:String>
+   <system:String x:Key="RgIncreaseOffsetSymbol">+</system:String>
+   <system:String x:Key="RgDecreaseOffsetSymbol">−</system:String>
+   <system:String x:Key="RgDeleteBarSymbol">×</system:String>
+   <system:String x:Key="RgIncreaseOffsetToolTip">Increase offset</system:String>
+   <system:String x:Key="RgDecreaseOffsetToolTip">Decrease offset</system:String>
+   <system:String x:Key="RgDeleteBarToolTip">Delete bar</system:String>
+   <system:String x:Key="RgTranslate">Translate</system:String>
+   <system:String x:Key="RgProperties">Properties</system:String>
 
    <!-- CirclesView -->
    <system:String x:Key="R_m">R, m</system:String>

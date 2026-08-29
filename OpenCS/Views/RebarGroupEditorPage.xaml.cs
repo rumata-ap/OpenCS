@@ -42,6 +42,28 @@ namespace OpenCS.Views
                 _vm.AdjustEdgeCommand.Execute((edge, -_vm.OffsetStep));
         }
 
+        void EdgeOffset_GotKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+        {
+            if (sender is TextBox { DataContext: EdgeItem edge })
+                Canvas.SetFocusedEdge(edge);
+        }
+
+        void EdgeOffset_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+        {
+            Canvas.SetFocusedEdge(null);
+        }
+
+        void BarField_GotKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+        {
+            if (sender is TextBox { DataContext: BarItem bar })
+                Canvas.SetFocusedBar(bar);
+        }
+
+        void BarField_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+        {
+            Canvas.SetFocusedBar(null);
+        }
+
         public void RefreshPlotSettings()
         {
             Canvas.InvalidateVisual();

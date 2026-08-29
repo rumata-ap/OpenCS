@@ -1,5 +1,6 @@
 using CScore;
 using OpenCS.Converters;
+using OpenCS.ViewModels;
 using OpenCS.Views;
 
 using System.Windows.Media;
@@ -10,6 +11,44 @@ namespace OpenCS.Tests;
 
 public class RebarGroupCanvasVisualStyleTests
 {
+    [Theory]
+    [InlineData(nameof(BarItem.X))]
+    [InlineData(nameof(BarItem.Y))]
+    [InlineData(nameof(BarItem.Diameter))]
+    [InlineData(nameof(BarItem.IsSelected))]
+    [InlineData(nameof(BarItem.XMm))]
+    [InlineData(nameof(BarItem.YMm))]
+    [InlineData(nameof(BarItem.DiameterMm))]
+    public void IsBarVisualPropertyChanged_RecognizesBarVisualProperties(string propertyName)
+    {
+        Assert.True(RebarGroupCanvas.IsBarVisualPropertyChanged(propertyName));
+    }
+
+    [Fact]
+    public void IsBarVisualPropertyChanged_IgnoresNonVisualProperties()
+    {
+        Assert.False(RebarGroupCanvas.IsBarVisualPropertyChanged(nameof(BarItem.Index)));
+        Assert.False(RebarGroupCanvas.IsBarVisualPropertyChanged(null));
+    }
+
+    [Fact]
+    public void GetCoverSegmentIndex_ReturnsFocusedEdgeIndex()
+    {
+        var edges = new[] { new EdgeItem(), new EdgeItem(), new EdgeItem() };
+
+        Assert.Equal(1, RebarGroupCanvas.GetCoverSegmentIndex(edges, 3, edges[1]));
+    }
+
+    [Fact]
+    public void GetCoverSegmentIndex_ReturnsMinusOneForInvalidGeometryOrUnknownEdge()
+    {
+        var edges = new[] { new EdgeItem(), new EdgeItem(), new EdgeItem() };
+
+        Assert.Equal(-1, RebarGroupCanvas.GetCoverSegmentIndex(edges, 2, edges[1]));
+        Assert.Equal(-1, RebarGroupCanvas.GetCoverSegmentIndex(edges, 3, new EdgeItem()));
+        Assert.Equal(-1, RebarGroupCanvas.GetCoverSegmentIndex(edges, 3, null));
+    }
+
     [Fact]
     public void ResolveBarVisualStyle_UsesDifferentMaterialColors()
     {

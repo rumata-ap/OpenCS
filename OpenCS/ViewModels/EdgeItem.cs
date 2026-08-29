@@ -13,7 +13,19 @@ namespace OpenCS.ViewModels
         public double Offset
         {
             get => _offset;
-            set { _offset = value < 0 ? 0 : value; OnPropertyChanged(); }
+            set
+            {
+                _offset = value < 0 ? 0 : value;
+                OnPropertyChanged(nameof(Offset));
+                OnPropertyChanged(nameof(OffsetMm));
+            }
+        }
+
+        /// <summary>Отступ от опорного ребра в миллиметрах для отображения в UI.</summary>
+        public double OffsetMm
+        {
+            get => _offset * 1000;
+            set => Offset = value / 1000;
         }
 
         // Геометрия опорного ребра (задаётся при инициализации, не меняется)

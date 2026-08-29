@@ -4,6 +4,7 @@ using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
 using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows;
@@ -19,6 +20,7 @@ namespace OpenCS.Views
     public class RebarGroupCanvas : FrameworkElement
     {
         RebarGroupEditorVM? _vm;
+        readonly HashSet<BarItem> _observedBars = [];
 
         // Координатный трансформ: model → screen
         double _scale   = 200;  // px/м
@@ -35,9 +37,13 @@ namespace OpenCS.Views
 
         // Hover
         EdgeItem? _hoverEdge;
+        EdgeItem? _focusedEdge;
+        BarItem? _focusedBar;
 
         static readonly Pen   _refPen       = new(Brushes.LightGray, 1.5);
         static readonly Pen   _coverPen     = new(new SolidColorBrush(Color.FromRgb(59, 130, 246)), 1.5) { DashStyle = DashStyles.Dash };
+        static readonly Pen   _coverFocusPen = new(Brushes.OrangeRed, 3.0);
+        static readonly Pen   _barFocusPen  = new(Brushes.OrangeRed, 2.5);
         static readonly Pen   _barPen       = new(new SolidColorBrush(Color.FromRgb(153, 27, 27)), 1.0);
         static readonly Pen   _noMatPen     = new(new SolidColorBrush(Color.FromRgb(156, 163, 175)), 1.0);
         static readonly Pen   _prestressPen = new(Brushes.Black, 1.0);
@@ -64,11 +70,41 @@ namespace OpenCS.Views
 
         public void SetVM(RebarGroupEditorVM vm)
         {
+            if (_vm != null)
+            {
+                _vm.PropertyChanged -= OnVmPropertyChanged;
+                _vm.Bars.CollectionChanged  -= OnCollectionChanged;
+                _vm.Edges.CollectionChanged -= OnCollectionChanged;
+                foreach (var bar in _observedBars)
+                    bar.PropertyChanged -= OnBarPropertyChanged;
+                _observedBars.Clear();
+            }
+
+            _focusedEdge = null;
+            _focusedBar = null;
             _vm = vm;
             vm.PropertyChanged += OnVmPropertyChanged;
             vm.Bars.CollectionChanged  += OnCollectionChanged;
             vm.Edges.CollectionChanged += OnCollectionChanged;
+            foreach (var bar in vm.Bars)
+                ObserveBar(bar);
             FitToView();
+        }
+
+        /// <summary>Задаёт ребро, соответствующее активному полю отступа.</summary>
+        internal void SetFocusedEdge(EdgeItem? edge)
+        {
+            if (ReferenceEquals(_focusedEdge, edge)) return;
+            _focusedEdge = edge;
+            InvalidateVisual();
+        }
+
+        /// <summary>Задаёт стержень, соответствующий активному полю строки таблицы.</summary>
+        internal void SetFocusedBar(BarItem? bar)
+        {
+            if (ReferenceEquals(_focusedBar, bar)) return;
+            _focusedBar = bar;
+            InvalidateVisual();
         }
 
         internal readonly record struct BarVisualStyle(
@@ -100,7 +136,73 @@ namespace OpenCS.Views
         }
 
         void OnCollectionChanged(object? s, NotifyCollectionChangedEventArgs e)
-            => Dispatcher.Invoke(InvalidateVisual);
+        {
+            if (_vm is { } vm && ReferenceEquals(s, vm.Bars))
+            {
+                if (_focusedBar != null && !vm.Bars.Contains(_focusedBar))
+                    _focusedBar = null;
+
+                if (e.Action == NotifyCollectionChangedAction.Reset)
+                {
+                    foreach (var bar in new List<BarItem>(_observedBars))
+                        UnobserveBar(bar);
+                    foreach (var bar in vm.Bars)
+                        ObserveBar(bar);
+                }
+                else
+                {
+                    if (e.OldItems != null)
+                        foreach (BarItem bar in e.OldItems)
+                            UnobserveBar(bar);
+                    if (e.NewItems != null)
+                        foreach (BarItem bar in e.NewItems)
+                            ObserveBar(bar);
+                }
+            }
+
+            Dispatcher.Invoke(InvalidateVisual);
+        }
+
+        void ObserveBar(BarItem bar)
+        {
+            if (_observedBars.Add(bar))
+                bar.PropertyChanged += OnBarPropertyChanged;
+        }
+
+        void UnobserveBar(BarItem bar)
+        {
+            if (_observedBars.Remove(bar))
+                bar.PropertyChanged -= OnBarPropertyChanged;
+        }
+
+        internal static bool IsBarVisualPropertyChanged(string? propertyName)
+            => propertyName is nameof(BarItem.X)
+                               or nameof(BarItem.Y)
+                               or nameof(BarItem.Diameter)
+                               or nameof(BarItem.IsSelected)
+                               or nameof(BarItem.XMm)
+                               or nameof(BarItem.YMm)
+                               or nameof(BarItem.DiameterMm);
+
+        /// <summary>Возвращает индекс сегмента линии защитного слоя для сфокусированного ребра.</summary>
+        internal static int GetCoverSegmentIndex(
+            IReadOnlyList<EdgeItem> edges, int coverPointCount, EdgeItem? edge)
+        {
+            if (edge == null || coverPointCount < 3 || coverPointCount != edges.Count)
+                return -1;
+
+            for (int i = 0; i < edges.Count; i++)
+                if (ReferenceEquals(edges[i], edge))
+                    return i;
+
+            return -1;
+        }
+
+        void OnBarPropertyChanged(object? s, PropertyChangedEventArgs e)
+        {
+            if (IsBarVisualPropertyChanged(e.PropertyName))
+                Dispatcher.Invoke(InvalidateVisual);
+        }
 
         // ── Рендеринг ────────────────────────────────────────────────────────
 
@@ -122,12 +224,25 @@ namespace OpenCS.Views
             // Линия защитного слоя (синяя пунктир)
             DrawPolyline(dc, _coverPen, _vm.CoverLinePoints, closed: true);
 
+            // Сегмент линии защитного слоя, соответствующий активному полю отступа
+            int focusedIndex = GetCoverSegmentIndex(
+                _vm.Edges, _vm.CoverLinePoints.Count, _focusedEdge);
+            if (focusedIndex >= 0)
+            {
+                var from = _vm.CoverLinePoints[focusedIndex];
+                var to = _vm.CoverLinePoints[(focusedIndex + 1) % _vm.CoverLinePoints.Count];
+                dc.DrawLine(_coverFocusPen,
+                    ToScreen(from.X, from.Y), ToScreen(to.X, to.Y));
+            }
+
             // Ручки рёбер (алмазы на серединах рёбер)
             foreach (var edge in _vm.Edges)
             {
                 var (hx, hy) = edge.HandlePoint;
                 var sp = ToScreen(hx, hy);
-                DrawDiamond(dc, sp, edge == _hoverEdge ? _handleHover : _handleNormal);
+                var handleBrush = edge == _focusedEdge ? Brushes.OrangeRed :
+                                  edge == _hoverEdge ? _handleHover : _handleNormal;
+                DrawDiamond(dc, sp, handleBrush);
             }
 
             // Стержни
@@ -142,6 +257,12 @@ namespace OpenCS.Views
                     dc.DrawEllipse(null, _prestressPen, sp, r * 1.25, r * 1.25);
 
                 dc.DrawEllipse(style.Fill, style.InnerPen, sp, r, r);
+
+                if (bar == _focusedBar)
+                {
+                    double focusRadius = Math.Max(r + 4, r * 1.4);
+                    dc.DrawEllipse(null, _barFocusPen, sp, focusRadius, focusRadius);
+                }
             }
         }
 
