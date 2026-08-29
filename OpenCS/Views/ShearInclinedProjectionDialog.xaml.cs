@@ -1,18 +1,42 @@
 using System.Windows;
-using CScore.Sp63Shear;
+using System.Windows.Controls;
+using OpenCS.ViewModels;
+using OpenCS.Views.Helpers;
 
 namespace OpenCS.Views;
 
 /// <summary>Диалог с диаграммой несущей способности по длине проекции наклонного сечения.</summary>
 public partial class ShearInclinedProjectionDialog : Window
 {
-    /// <summary>Создаёт диалог по готовой кривой.</summary>
-    /// <param name="curve">Точки кривой по проекции.</param>
-    /// <param name="criticalC">Критическая длина проекции, м.</param>
-    public ShearInclinedProjectionDialog(IReadOnlyList<ProjectionPoint> curve, double criticalC)
+    /// <summary>Создаёт диалог с диаграммами по обеим плоскостям сдвига.</summary>
+    /// <param name="charts">Подготовленные данные диаграмм по плоскостям.</param>
+    public ShearInclinedProjectionDialog(
+        IReadOnlyList<ShearInclinedProjectionChartVM> charts)
     {
+        ArgumentNullException.ThrowIfNull(charts);
         InitializeComponent();
-        ProjectionCanvas.Curve = curve;
-        ProjectionCanvas.CriticalC = criticalC;
+
+        Configure(VyCanvas, VyNoData, charts.FirstOrDefault(c => c.Plane == "vy"));
+        Configure(VxCanvas, VxNoData, charts.FirstOrDefault(c => c.Plane == "vx"));
+    }
+
+    /// <summary>Настраивает один холст либо показывает сообщение об отсутствии данных.</summary>
+    static void Configure(
+        ShearInclinedProjectionCanvas canvas,
+        TextBlock noData,
+        ShearInclinedProjectionChartVM? chart)
+    {
+        if (chart is not null && chart.HasCurve)
+        {
+            canvas.Curve = chart.Curve;
+            canvas.CriticalC = chart.CriticalC;
+            canvas.Visibility = Visibility.Visible;
+            noData.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            canvas.Visibility = Visibility.Collapsed;
+            noData.Visibility = Visibility.Visible;
+        }
     }
 }

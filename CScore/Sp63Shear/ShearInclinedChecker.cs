@@ -149,9 +149,10 @@ public static class ShearInclinedChecker
         foreach (double c in Projections(stationInput, profile, station, dir))
         {
             var model = new InclinedSectionModel(station, dir, c);
-            double qb = ShearFormulas.ConcreteShear(stationInput, c, phi.Value);
-            double qsw = ShearFormulas.StirrupShear(stationInput, c, phi.Value, out _);
-            points.Add(new ProjectionPoint(c, qb, qsw, qb + qsw, model.AppliedShear(profile)));
+            double applied = model.AppliedShear(profile);
+            double qb = ShearFormulas.ConcreteShear(stationInput, c, phi.Value, applied);
+            double qsw = ShearFormulas.StirrupShear(stationInput, c, phi.Value, out _, applied);
+            points.Add(new ProjectionPoint(c, qb, qsw, qb + qsw, applied));
         }
         return points;
     }
@@ -185,9 +186,9 @@ public static class ShearInclinedChecker
         foreach (double c in projections)
         {
             var model = new InclinedSectionModel(station, direction, c);
-            double qb = ShearFormulas.ConcreteShear(input, c, phiN);
-            double qsw = ShearFormulas.StirrupShear(input, c, phiN, out string? localNote);
             double applied = model.AppliedShear(profile);
+            double qb = ShearFormulas.ConcreteShear(input, c, phiN, applied);
+            double qsw = ShearFormulas.StirrupShear(input, c, phiN, out string? localNote, applied);
             double capacity = qb + qsw;
             double ratio = capacity > 0.0 ? applied / capacity : double.PositiveInfinity;
 
@@ -243,7 +244,7 @@ public static class ShearInclinedChecker
             ? profile.SupportDistanceAt(station, direction)
             : 0.0;
         double qbMin = ShearFormulas.MinConcreteShear(input, phi.Value, d);
-        double qswMin = ShearFormulas.MinStirrupShear(input, d, out string? note);
+        double qswMin = ShearFormulas.MinStirrupShear(input, d, out string? note, applied, phi.Value);
         if (note is not null) AddOnce(warnings, note);
 
         return new CheckDetail

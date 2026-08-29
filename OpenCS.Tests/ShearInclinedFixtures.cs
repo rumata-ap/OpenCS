@@ -30,7 +30,8 @@ internal static class ShearInclinedFixtures
         };
         stirrupSteel.C = new MaterialChars(CalcType.C)
         {
-            Type = MatType.ReSteelF, Fc = -215_000.0, Ft = 215_000.0, E = 200_000_000.0
+            Type = MatType.ReSteelF, Class = 240.0,
+            Fc = -215_000.0, Ft = 215_000.0, E = 200_000_000.0
         };
 
         var rebarSteel = new Material

@@ -82,8 +82,16 @@ public static class ShearInclinedRunner
 
         // Ручное Rsw пересчитывает qsw пропорционально, если сам qsw не задан явно.
         double qsw = stirrups.Qsw;
-        if (overrides?.Rsw is double manualRsw && stirrups.Rsw > 0.0)
+        if (overrides?.Rsw is double requestedRsw && stirrups.Rsw > 0.0)
+        {
+            double manualRsw = StirrupResolver.LimitRsw(requestedRsw);
+            if (Math.Abs(requestedRsw) > StirrupResolver.MaxRsw)
+                AddOnce(warnings,
+                    $"Заданное Rsw = {Math.Abs(requestedRsw) / 1000.0:G} МПа превышает "
+                    + $"максимум {StirrupResolver.MaxRsw / 1000.0:G} МПа по табл. 6.15 — "
+                    + $"принято {manualRsw / 1000.0:G} МПа.");
             qsw *= manualRsw / stirrups.Rsw;
+        }
         qsw = overrides?.Qsw ?? qsw;
 
         // П. 8.1.33 учитывает поперечную арматуру только при соблюдении требований 10.3.

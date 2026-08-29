@@ -18,9 +18,35 @@ public sealed class StirrupResolverTests
         var data = StirrupResolver.Resolve(section, ShearPlane.Vy, CalcType.C);
 
         Assert.Equal(2.0 * BarArea, data.Asw, 12);
-        Assert.Equal(0.8 * Rs, data.Rsw, 6);
-        Assert.Equal(0.8 * Rs * 2.0 * BarArea / 0.15, data.Qsw, 6);
+        Assert.Equal(300_000.0, data.Rsw, 6);
+        Assert.Equal(300_000.0 * 2.0 * BarArea / 0.15, data.Qsw, 6);
         Assert.Equal(0.15, data.Sw, 12);
+    }
+
+    [Theory]
+    [InlineData(240.0, 170_000.0)]
+    [InlineData(400.0, 280_000.0)]
+    [InlineData(500.0, 300_000.0)]
+    public void Resolve_UsesTable615ByRebarClass(double materialClass, double expectedRsw)
+    {
+        var section = SectionWithStirrup(
+            Rectangle(-0.12, -0.27, 0.12, 0.27), spacing: 0.15, materialClass: materialClass);
+
+        var data = StirrupResolver.Resolve(section, ShearPlane.Vy, CalcType.C);
+
+        Assert.Equal(expectedRsw, data.Rsw, 6);
+    }
+
+    [Fact]
+    public void Resolve_UnknownClass_IsCappedAtTable615Maximum()
+    {
+        var section = SectionWithStirrup(
+            Rectangle(-0.12, -0.27, 0.12, 0.27), spacing: 0.15, materialClass: 600.0);
+
+        var data = StirrupResolver.Resolve(section, ShearPlane.Vy, CalcType.C);
+
+        Assert.Equal(300_000.0, data.Rsw, 6);
+        Assert.Contains(data.Warnings, w => w.Contains("табл. 6.15"));
     }
 
     [Fact]
@@ -59,7 +85,8 @@ public sealed class StirrupResolverTests
 
         var data = StirrupResolver.Resolve(section, ShearPlane.Vy, CalcType.C);
 
-        double expected = 0.8 * Rs * 2.0 * BarArea / 0.15 + 0.8 * Rs * 2.0 * BarArea / 0.30;
+        double expected = 300_000.0 * 2.0 * BarArea / 0.15
+                        + 300_000.0 * 2.0 * BarArea / 0.30;
         Assert.Equal(expected, data.Qsw, 6);
         Assert.Equal(0.30, data.Sw, 12);
     }
@@ -113,10 +140,11 @@ public sealed class StirrupResolverTests
         };
     }
 
-    static CrossSection SectionWithStirrup(List<(double X, double Y)> loop, double spacing)
+    static CrossSection SectionWithStirrup(
+        List<(double X, double Y)> loop, double spacing, double materialClass = 500.0)
     {
         var concrete = Sp63ShearFixtures.Concrete(1, 11_500.0, 900.0);
-        var steel = Sp63ShearFixtures.Rebar(2, Rs);
+        var steel = Sp63ShearFixtures.Rebar(2, Rs, materialClass);
 
         var area = Sp63ShearFixtures.ConcreteRegion(concrete,
             [(-0.15, -0.30), (0.15, -0.30), (0.15, 0.30), (-0.15, 0.30)]);

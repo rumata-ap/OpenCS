@@ -56,6 +56,29 @@ public sealed class ShearInclinedHandlerTests
     }
 
     [Fact]
+    public void Run_ManualRsw_IsCappedAtTable615Maximum()
+    {
+        var handler = new ShearInclinedHandler();
+        var parameters = new ShearInclinedParams
+        {
+            Planes = "vy",
+            ConstructiveRequirements103Confirmed = true,
+            OverridesVy = new ShearInclinedOverrides { Rsw = 500_000.0 }
+        };
+
+        var result = handler.Run(Task(parameters), ShearInclinedFixtures.Beam(),
+            new LoadItem { Vy = 150.0, Mx = -120.0 }, CalcSettings.Default);
+
+        using var doc = JsonDocument.Parse(result.DataJson);
+        double qsw = doc.RootElement.GetProperty("inputs").GetProperty("vy")
+            .GetProperty("qsw").GetDouble();
+        double expected = 300_000.0 * 2.0 * 0.0000503 / 0.15;
+
+        Assert.Equal(expected, qsw, 9);
+        Assert.Contains(Warnings(result), w => w.Contains("300 МПа"));
+    }
+
+    [Fact]
     public void Run_WithoutConstructiveConfirmation_ExcludesStirrupsFromCapacity()
     {
         var handler = new ShearInclinedHandler();

@@ -220,6 +220,7 @@ namespace OpenCS.ViewModels
                });
 
          CrossSectionPlotBuilder.AddRebarElements(elements, _model);
+         CrossSectionPlotBuilder.AddStirrupElements(elements, _model);
 
          PlotElements = elements;
          OnPropertyChanged(nameof(PlotElements));

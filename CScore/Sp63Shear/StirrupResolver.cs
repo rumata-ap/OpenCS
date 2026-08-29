@@ -15,8 +15,11 @@ public sealed record StirrupData(
 /// </summary>
 public static class StirrupResolver
 {
-    /// <summary>Коэффициент перехода от Rs к Rsw по табл. 6.15 СП 63.13330.</summary>
-    public const double RswFactor = 0.8;
+    /// <summary>Максимальное расчётное сопротивление поперечной арматуры по табл. 6.15, кПа.</summary>
+    public const double MaxRsw = 300_000.0;
+
+    /// <summary>Ограничивает ручное значение Rsw нормативным максимумом, кПа.</summary>
+    public static double LimitRsw(double value) => Math.Min(Math.Abs(value), MaxRsw);
 
     /// <summary>Вычисляет qsw, sw и Rsw по всем группам хомутов сечения.</summary>
     public static StirrupData Resolve(CrossSection section, ShearPlane plane, CalcType calc)
@@ -72,10 +75,7 @@ public static class StirrupResolver
     public static (double Vy, double Vx) BranchAreas(StirrupElement element) =>
         (BranchArea(element, ShearPlane.Vy), BranchArea(element, ShearPlane.Vx));
 
-    /// <summary>
-    /// Расчётное сопротивление поперечной арматуры по материалу группы.
-    /// Прочность арматуры берётся из Ft: Ry в CScore заполняется только для стали по СП 16.
-    /// </summary>
+    /// <summary>Расчётное сопротивление поперечной арматуры по табл. 6.15 СП 63.13330.</summary>
     static double ResolveRsw(
         CrossSection section, StirrupGroup group, CalcType calc, List<string> warnings)
     {
@@ -89,6 +89,22 @@ public static class StirrupResolver
                 $"Материал поперечной арматуры id={group.MaterialId} не найден — группа не учтена.");
             return 0.0;
         }
-        return RswFactor * Math.Abs(chars.Ft);
+        int materialClass = (int)Math.Round(chars.Class);
+        double rsw = materialClass switch
+        {
+            240 => 170_000.0,
+            400 => 280_000.0,
+            500 => 300_000.0,
+            _ => LimitRsw(chars.Ft)
+        };
+
+        if (materialClass is not (240 or 400 or 500))
+        {
+            warnings.Add(
+                $"Для класса арматуры {chars.Class:G} нет отдельного значения в табл. 6.15 — "
+                + $"Rsw ограничено значением {MaxRsw / 1000.0:G} МПа.");
+        }
+
+        return rsw;
     }
 }

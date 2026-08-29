@@ -59,7 +59,11 @@ namespace OpenCS.ViewModels
          set { _selectedArea = value; OnPropertyChanged(); }
       }
 
-      public IReadOnlyList<PlotElement> PlotElements { get; private set; } = [];
+      /// <summary>Полные данные preview, включая единые границы всех элементов.</summary>
+      public CrossSectionPlotData PlotData { get; private set; } =
+         new([], -0.1, 0.1, -0.1, 0.1);
+
+      public IReadOnlyList<PlotElement> PlotElements => PlotData.Elements;
 
       public ICommand AddToStage1Command { get; }
       public ICommand AddToStage2Command { get; }
@@ -75,7 +79,8 @@ namespace OpenCS.ViewModels
 
       public void RefreshPlot()
       {
-         PlotElements = CrossSectionPlotBuilder.Build(_model).Elements;
+         PlotData = CrossSectionPlotBuilder.Build(_model);
+         OnPropertyChanged(nameof(PlotData));
          OnPropertyChanged(nameof(PlotElements));
       }
 

@@ -21,22 +21,15 @@ public partial class ShearInclinedResultView : UserControl
         EtaCanvas.Stations = vm.Stations;
     }
 
-    /// <summary>Открывает диаграмму по проекции для выбранной или худшей стоянки.</summary>
+    /// <summary>Открывает диаграммы по проекции отдельно для каждой плоскости.</summary>
     void ShowProjection_Click(object sender, RoutedEventArgs e)
     {
-        if (DataContext is not ShearInclinedResultVM vm || vm.Stations.Count == 0) return;
+        if (DataContext is not ShearInclinedResultVM vm) return;
 
-        var station = StationsGrid.SelectedItem as ShearInclinedStationVM
-                      ?? vm.Stations
-                          .Where(s => double.IsFinite(s.Eta))
-                          .OrderByDescending(s => s.Eta)
-                          .FirstOrDefault()
-                      ?? vm.Stations[0];
+        var charts = vm.BuildProjectionCharts();
+        if (charts.Count == 0) return;
 
-        var curve = vm.BuildProjectionCurve(station);
-        if (curve.Count == 0) return;
-
-        new ShearInclinedProjectionDialog(curve, station.CriticalC)
+        new ShearInclinedProjectionDialog(charts)
         {
             Owner = Window.GetWindow(this)
         }.ShowDialog();

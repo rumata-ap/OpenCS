@@ -119,6 +119,48 @@ public class CrossSectionPlotBuilderTests
         Assert.NotNull(circles[0].Fill);
     }
 
+    [Fact]
+    public void Build_Stirrups_IncludesClosedLoopAndOpenCutAndBounds()
+    {
+        var area = new MaterialArea
+        {
+            Category = AreaCategory.Stirrups,
+            Stirrups =
+            [
+                new StirrupGroup
+                {
+                    Elements =
+                    [
+                        new StirrupElement
+                        {
+                            CenterlineContour = Rectangle(-0.2, -0.3, 0.2, 0.3),
+                            BarAreaM2 = 0.00005,
+                            BarDiameterM = 0.008
+                        },
+                        new StirrupElement
+                        {
+                            CenterlineContour = Contour.Polyline(
+                                [-0.6, 0.7], [-0.4, 0.8], "cut"),
+                            BarAreaM2 = 0.00005,
+                            BarDiameterM = 0.008
+                        }
+                    ]
+                }
+            ]
+        };
+
+        var data = CrossSectionPlotBuilder.Build(new CrossSection { Areas = [area] });
+        var stirrups = data.Elements.OfType<ScatterElement>().ToArray();
+
+        Assert.Equal(2, stirrups.Length);
+        Assert.Equal(5, stirrups[0].Xs.Length);
+        Assert.Equal(2, stirrups[1].Xs.Length);
+        Assert.Equal(-0.6, data.XMin);
+        Assert.Equal(0.7, data.XMax);
+        Assert.Equal(-0.4, data.YMin);
+        Assert.Equal(0.8, data.YMax);
+    }
+
     static Contour Rectangle(double xMin, double yMin, double xMax, double yMax)
         => new(
             [xMin, xMax, xMax, xMin, xMin],

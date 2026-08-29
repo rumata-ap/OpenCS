@@ -41,6 +41,46 @@ public sealed class ShearInclinedResultVMTests
     }
     """;
 
+    const string BothPlanesJson = """
+    {
+      "sectionTag": "Б-1",
+      "forceLabel": "оп. A",
+      "calcType": "C",
+      "elementKind": "bending_unstressed",
+      "forceSource": "constant",
+      "direction": 0,
+      "inputs": {
+        "vy": { "b": 0.3, "h0": 0.55, "qsw": 291.6, "sw": 0.15, "ns": 535.9,
+                "rb": 14500, "rbt": 1050, "autoB": 0.3, "autoH0": 0.55 },
+        "vx": { "b": 0.5, "h0": 0.35, "qsw": 291.6, "sw": 0.10, "ns": 535.9,
+                "rb": 14500, "rbt": 1050, "autoB": 0.5, "autoH0": 0.35 }
+      },
+      "profile": {
+        "vy": { "kind": "constant", "q0": 150.0, "m0": -120.0, "n0": 0.0, "supportDistance": 0.0 },
+        "vx": { "kind": "constant", "q0": 60.0, "m0": 0.0, "n0": 0.0, "supportDistance": 0.0 }
+      },
+      "details": [],
+      "stations": [
+        { "plane": "vy", "s": 0.0, "n": 0.0, "phiN": 1.0,
+          "tensionOnPositiveSide": false, "q": 150.0,
+          "cCrit": 0.70, "qb": 130.0, "qsw": 100.0, "eta": 0.40,
+          "mApplied": 50.0, "cCritMoment": 0.55, "ms": 100.0, "msw": 20.0, "etaM": 0.2 },
+        { "plane": "vy", "s": 1.0, "n": 0.0, "phiN": 1.0,
+          "tensionOnPositiveSide": false, "q": 160.0,
+          "cCrit": 0.72, "qb": 130.0, "qsw": 100.0, "eta": 0.80,
+          "mApplied": 50.0, "cCritMoment": 0.55, "ms": 100.0, "msw": 20.0, "etaM": 0.2 },
+        { "plane": "vx", "s": 0.0, "n": 0.0, "phiN": 1.0,
+          "tensionOnPositiveSide": false, "q": 60.0,
+          "cCrit": 0.44, "qb": 80.0, "qsw": 0.0, "eta": 0.60,
+          "mApplied": 0.0, "cCritMoment": 0.22, "ms": 80.0, "msw": 0.0, "etaM": 0.1 }
+      ],
+      "warnings": [],
+      "utilization": 0.80,
+      "utilizationStatus": "ok",
+      "utilizationExact": 0.80
+    }
+    """;
+
     [Fact]
     public void Constructor_ParsesHeaderAndUtilization()
     {
@@ -49,6 +89,20 @@ public sealed class ShearInclinedResultVMTests
         Assert.Equal("Б-1", vm.SectionTag);
         Assert.Equal(0.577, vm.Utilization, 6);
         Assert.Equal(0.577, vm.UtilizationExact, 6);
+    }
+
+    [Fact]
+    public void BuildProjectionCharts_SelectsWorstStationIndependentlyForVyAndVx()
+    {
+        var vm = new ShearInclinedResultVM(BothPlanesJson);
+
+        var charts = vm.BuildProjectionCharts();
+
+        Assert.Equal(new[] { "vy", "vx" }, charts.Select(c => c.Plane));
+        Assert.Equal(0.80, charts[0].Station.Eta, 6);
+        Assert.Equal(0.60, charts[1].Station.Eta, 6);
+        Assert.NotEmpty(charts[0].Curve);
+        Assert.NotEmpty(charts[1].Curve);
     }
 
     [Fact]

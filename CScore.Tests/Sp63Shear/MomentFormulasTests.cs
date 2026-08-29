@@ -43,6 +43,17 @@ public sealed class MomentFormulasTests
     }
 
     [Fact]
+    public void StirrupMoment_DoesNotApplyNonNormativeHalfDepthCutoff()
+    {
+        var input = Input(sw: 0.4);
+        double c = 1.5 * H0;
+
+        double msw = MomentFormulas.StirrupMoment(input, projectionC: c);
+
+        Assert.Equal(0.5 * 200.0 * c * c, msw, 9);
+    }
+
+    [Fact]
     public void IsInZone_NearSupport_IsTrue()
     {
         var profile = new UniformLoadProfile(120.0, 0.0, 0.0, 30.0, supportDistance: 6.0);
@@ -77,8 +88,9 @@ public sealed class MomentFormulasTests
         Assert.True(MomentCheckZones.IsInZone(0.0, Input(), profile));
     }
 
-    static ShearInclinedInput Input(double anchorage = 1.0, double[]? cutoffs = null) => new(
-        B: 0.30, H0: H0, Rb: 14_500.0, Rbt: 1_050.0, Qsw: 200.0, Sw: 0.15, Ns: 435.0,
+    static ShearInclinedInput Input(
+        double anchorage = 1.0, double[]? cutoffs = null, double sw = 0.15) => new(
+        B: 0.30, H0: H0, Rb: 14_500.0, Rbt: 1_050.0, Qsw: 200.0, Sw: sw, Ns: 435.0,
         Kind: ElementKind.BendingUnstressed, AnchorageFactor: anchorage,
         StationStep: 0.0, ProjectionStep: 0.0,
         MomentZoneLength: 0.0, BarCutoffs: cutoffs ?? [], CheckMoment: true, PhiNOverride: null);

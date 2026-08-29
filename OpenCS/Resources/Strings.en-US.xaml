@@ -1603,6 +1603,9 @@
     <system:String x:Key="ShearInclinedStationsTitle">Stations along the member</system:String>
     <system:String x:Key="ShearInclinedEtaChartTitle">Utilization along the member</system:String>
     <system:String x:Key="ShearInclinedProjectionChartTitle">Capacity vs projection C</system:String>
+    <system:String x:Key="ShearInclinedProjectionVyTitle">Vy plane</system:String>
+    <system:String x:Key="ShearInclinedProjectionVxTitle">Vx plane</system:String>
+    <system:String x:Key="ShearInclinedProjectionNoData">No data available for the chart.</system:String>
     <system:String x:Key="ShearInclinedShowProjection">Projection C chart</system:String>
     <system:String x:Key="ShearInclinedExactUtilization">Utilization by exact checks</system:String>
     <system:String x:Key="ShearInclinedColumnS">s, m</system:String>

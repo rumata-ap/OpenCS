@@ -1603,6 +1603,9 @@
     <system:String x:Key="ShearInclinedStationsTitle">Стоянки вдоль элемента</system:String>
     <system:String x:Key="ShearInclinedEtaChartTitle">Коэффициент использования по длине</system:String>
     <system:String x:Key="ShearInclinedProjectionChartTitle">Несущая способность по длине проекции C</system:String>
+    <system:String x:Key="ShearInclinedProjectionVyTitle">Плоскость Vy</system:String>
+    <system:String x:Key="ShearInclinedProjectionVxTitle">Плоскость Vx</system:String>
+    <system:String x:Key="ShearInclinedProjectionNoData">Нет данных для построения диаграммы.</system:String>
     <system:String x:Key="ShearInclinedShowProjection">Диаграмма по проекции C</system:String>
     <system:String x:Key="ShearInclinedExactUtilization">Коэффициент по точным проверкам</system:String>
     <system:String x:Key="ShearInclinedColumnS">s, м</system:String>

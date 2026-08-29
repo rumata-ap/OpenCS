@@ -157,6 +157,17 @@ public sealed class StirrupGroupVM : ViewModelBase
         set { _diameterM = value; OnPropertyChanged(); }
     }
 
+    /// <summary>Диаметр нового стержня, мм; внутри модели хранится в метрах.</summary>
+    public double DiameterMm
+    {
+        get => _diameterM * 1000.0;
+        set
+        {
+            Diameter = value / 1000.0;
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>Смещение копии по X, м.</summary>
     public double CopyDx { get => _copyDx; set { _copyDx = value; OnPropertyChanged(); } }
 

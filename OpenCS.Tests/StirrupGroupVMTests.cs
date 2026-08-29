@@ -82,6 +82,19 @@ public sealed class StirrupGroupVMTests(StirrupGroupVMFixture fixture)
         Assert.Equal(before, vm.Elements[0].LengthM, 12);
     }
 
+    [Fact]
+    public void DiameterMm_ConvertsToMetersForGeometryBuilder()
+    {
+        var vm = NewVM();
+        var property = typeof(StirrupGroupVM).GetProperty("DiameterMm");
+
+        Assert.NotNull(property);
+        property!.SetValue(vm, 12.5);
+
+        Assert.Equal(0.0125, vm.Diameter, 12);
+        Assert.Equal(12.5, (double)property.GetValue(vm)!, 12);
+    }
+
     StirrupGroupVM NewVM()
     {
         var app = fixture.App;

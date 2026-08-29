@@ -69,6 +69,7 @@ public static class CrossSectionPlotBuilder
                 });
 
         AddRebarElements(elements, area);
+        AddStirrupElements(elements, area);
     }
 
     /// <summary>Добавляет точечную арматуру с цветом материала и признаком преднапряжения.</summary>
@@ -99,6 +100,28 @@ public static class CrossSectionPlotBuilder
                 Stroke = Brushes.DarkRed,
                 StrokeThickness = 0.5
             });
+        }
+    }
+
+    /// <summary>Добавляет центровые линии хомутов и открытых срезов.</summary>
+    internal static void AddStirrupElements(List<PlotElement> elements, MaterialArea area)
+    {
+        foreach (var group in area.Stirrups)
+        {
+            foreach (var stirrup in group.Elements)
+            {
+                var contour = stirrup.CenterlineContour;
+                int count = Math.Min(contour.X.Count, contour.Y.Count);
+                if (count < 2) continue;
+
+                elements.Add(new ScatterElement
+                {
+                    Xs = contour.X.Take(count).ToArray(),
+                    Ys = contour.Y.Take(count).ToArray(),
+                    Stroke = Brushes.DarkRed,
+                    StrokeThickness = 2
+                });
+            }
         }
     }
 

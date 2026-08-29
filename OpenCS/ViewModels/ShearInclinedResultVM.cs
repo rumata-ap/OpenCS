@@ -106,6 +106,19 @@ public sealed class ShearInclinedStationVM
     public string TensionSideText => TensionOnPositiveSide ? "+" : "−";
 }
 
+/// <summary>Данные одной диаграммы несущей способности по проекции C.</summary>
+public sealed record ShearInclinedProjectionChartVM(
+    string Plane,
+    ShearInclinedStationVM Station,
+    IReadOnlyList<ProjectionPoint> Curve)
+{
+    /// <summary>Критическая проекция выбранной плоскости, м.</summary>
+    public double CriticalC => Station.CriticalC;
+
+    /// <summary>Есть ли точки для отрисовки кривой.</summary>
+    public bool HasCurve => Curve.Count >= 2;
+}
+
 /// <summary>ViewModel отчёта по расчёту наклонных сечений.</summary>
 public sealed class ShearInclinedResultVM
 {
@@ -260,6 +273,24 @@ public sealed class ShearInclinedResultVM
     /// <summary>Рабочая высота плоскости, м.</summary>
     public double WorkingDepth(string plane) =>
         _inputs.TryGetValue(plane, out var data) ? data.H0 : 0.0;
+
+    /// <summary>Строит отдельную диаграмму по проекции C для каждой плоскости.</summary>
+    public IReadOnlyList<ShearInclinedProjectionChartVM> BuildProjectionCharts()
+    {
+        return Stations
+            .Where(station => station.Plane is "vy" or "vx")
+            .GroupBy(station => station.Plane, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group.Key.Equals("vy", StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .Select(group => group
+                .Where(station => double.IsFinite(station.Eta))
+                .OrderByDescending(station => station.Eta)
+                .Select(station => new ShearInclinedProjectionChartVM(
+                    group.Key.ToLowerInvariant(), station, BuildProjectionCurve(station)))
+                .FirstOrDefault())
+            .Where(chart => chart is not null)
+            .Cast<ShearInclinedProjectionChartVM>()
+            .ToList();
+    }
 
     /// <summary>
     /// Строит кривую несущей способности по проекции для выбранной стоянки.

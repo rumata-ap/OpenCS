@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:helpers="clr-namespace:OpenCS.Views.Helpers"
         Title="{DynamicResource ShearInclinedProjectionChartTitle}"
-        Width="680" Height="420" WindowStartupLocation="CenterOwner">
+        Width="700" Height="760" WindowStartupLocation="CenterOwner">
     <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -14,9 +14,35 @@
         <TextBlock Grid.Row="0" Text="{DynamicResource ShearInclinedProjectionChartTitle}"
                    FontWeight="SemiBold" Margin="0,0,0,8"/>
 
-        <Border Grid.Row="1" BorderBrush="#D5DDE5" BorderThickness="1" CornerRadius="4">
-            <helpers:ShearInclinedProjectionCanvas x:Name="ProjectionCanvas" Background="White"/>
-        </Border>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource ShearInclinedProjectionVyTitle}"
+                           FontWeight="SemiBold" Margin="0,0,0,4"/>
+                <Border BorderBrush="#D5DDE5" BorderThickness="1" CornerRadius="4"
+                        Height="300" Margin="0,0,0,12">
+                    <Grid Background="White">
+                        <helpers:ShearInclinedProjectionCanvas x:Name="VyCanvas" Background="White"/>
+                        <TextBlock x:Name="VyNoData"
+                                   Text="{DynamicResource ShearInclinedProjectionNoData}"
+                                   Visibility="Collapsed" HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" Foreground="#777"/>
+                    </Grid>
+                </Border>
+
+                <TextBlock Text="{DynamicResource ShearInclinedProjectionVxTitle}"
+                           FontWeight="SemiBold" Margin="0,0,0,4"/>
+                <Border BorderBrush="#D5DDE5" BorderThickness="1" CornerRadius="4"
+                        Height="300">
+                    <Grid Background="White">
+                        <helpers:ShearInclinedProjectionCanvas x:Name="VxCanvas" Background="White"/>
+                        <TextBlock x:Name="VxNoData"
+                                   Text="{DynamicResource ShearInclinedProjectionNoData}"
+                                   Visibility="Collapsed" HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" Foreground="#777"/>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
             <Border Width="12" Height="3" Background="SteelBlue" VerticalAlignment="Center"/>

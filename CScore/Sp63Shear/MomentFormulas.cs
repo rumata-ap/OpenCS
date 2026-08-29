@@ -18,7 +18,7 @@ public static class MomentFormulas
     public static double StirrupMoment(ShearInclinedInput input, double projectionC)
     {
         ArgumentNullException.ThrowIfNull(input);
-        if (input.Qsw <= 0.0 || input.Sw > 0.5 * input.H0) return 0.0;
+        if (input.Qsw <= 0.0) return 0.0;
         return 0.5 * input.Qsw * projectionC * projectionC;
     }
 
@@ -26,7 +26,7 @@ public static class MomentFormulas
     public static double SimplifiedStirrupMoment(ShearInclinedInput input)
     {
         ArgumentNullException.ThrowIfNull(input);
-        if (input.Qsw <= 0.0 || input.Sw > 0.5 * input.H0) return 0.0;
+        if (input.Qsw <= 0.0) return 0.0;
         return 0.5 * input.Qsw * input.H0 * input.H0;
     }
 }

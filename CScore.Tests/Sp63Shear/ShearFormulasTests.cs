@@ -45,6 +45,26 @@ public sealed class ShearFormulasTests
     }
 
     [Fact]
+    public void ConcreteShear_SmallQsw_UsesSpecialFormulaForConcrete()
+    {
+        var input = Input(qsw: 50.0, sw: 0.15);
+        double qb = ShearFormulas.ConcreteShear(
+            input, projectionC: H0, phiN: 1.0, appliedShear: 150.0);
+
+        Assert.Equal(4.0 * 1.5 * H0 * 50.0, qb, 6);
+    }
+
+    [Fact]
+    public void ConcreteShear_SmallQswWithExcessiveSpacing_UsesMainFormula()
+    {
+        var input = Input(qsw: 50.0, sw: 0.30);
+        double qb = ShearFormulas.ConcreteShear(
+            input, projectionC: H0, phiN: 1.0, appliedShear: 400.0);
+
+        Assert.Equal(1.5 * Rbt * B * H0, qb, 6);
+    }
+
+    [Fact]
     public void ConcreteShear_SmallProjection_IsCappedByUpperLimit()
     {
         double qb = ShearFormulas.ConcreteShear(Input(), projectionC: 0.1 * H0, phiN: 1.0);
@@ -72,31 +92,44 @@ public sealed class ShearFormulasTests
     public void StirrupShear_SufficientQsw_UsesFormula858()
     {
         var input = Input(qsw: 200.0, sw: 0.15);   // 0,25·Rbt·b = 78,75 кН/м — условие выполнено
-        double qsw = ShearFormulas.StirrupShear(input, projectionC: H0, phiN: 1.0, out string? note);
+        double qsw = ShearFormulas.StirrupShear(
+            input, projectionC: H0, phiN: 1.0, out string? note, appliedShear: 150.0);
 
         Assert.Equal(0.75 * 200.0 * H0, qsw, 6);
         Assert.Null(note);
     }
 
     [Fact]
-    public void StirrupShear_SmallQsw_UsesSquareRootFormula()
+    public void StirrupShear_SmallQsw_StillUsesFormula858()
     {
         var input = Input(qsw: 50.0, sw: 0.15);    // 50 < 0,25·Rbt·b = 78,75 кН/м
-        double qsw = ShearFormulas.StirrupShear(input, projectionC: H0, phiN: 1.0, out string? note);
+        double qsw = ShearFormulas.StirrupShear(
+            input, projectionC: H0, phiN: 1.0, out string? note, appliedShear: 150.0);
 
-        double expected = Math.Sqrt(1.5 * 0.75 * Rbt * B * 50.0) * H0;
-        Assert.Equal(expected, qsw, 6);
-        Assert.NotNull(note);
+        Assert.Equal(0.75 * 50.0 * H0, qsw, 6);
+        Assert.Contains("Qb", note);
     }
 
     [Fact]
-    public void StirrupShear_SpacingAboveHalfWorkingDepth_IsZero()
+    public void StirrupShear_SpacingWithinNormativeLimit_IsIncluded()
     {
-        var input = Input(qsw: 200.0, sw: 0.30);   // 0,30 > 0,5·0,55 = 0,275
-        double qsw = ShearFormulas.StirrupShear(input, projectionC: H0, phiN: 1.0, out string? note);
+        var input = Input(qsw: 200.0, sw: 0.30);   // smax = 0,635 м при Q = 150 кН
+        double qsw = ShearFormulas.StirrupShear(
+            input, projectionC: H0, phiN: 1.0, out string? note, appliedShear: 150.0);
+
+        Assert.Equal(0.75 * 200.0 * H0, qsw, 6);
+        Assert.Null(note);
+    }
+
+    [Fact]
+    public void StirrupShear_SpacingAboveNormativeLimit_IsZero()
+    {
+        var input = Input(qsw: 200.0, sw: 0.30);   // smax = 0,238 м при Q = 400 кН
+        double qsw = ShearFormulas.StirrupShear(
+            input, projectionC: H0, phiN: 1.0, out string? note, appliedShear: 400.0);
 
         Assert.Equal(0.0, qsw, 12);
-        Assert.NotNull(note);
+        Assert.Contains("s_w,max", note);
     }
 
     [Fact]
@@ -117,12 +150,12 @@ public sealed class ShearFormulasTests
     }
 
     [Fact]
-    public void MinConcreteShear_CloseToSupport_IsScaledByDistanceRatio()
+    public void MinConcreteShear_CloseToSupport_IsIncreasedAndCapped()
     {
         double d = 0.5 * H0;
         double value = ShearFormulas.MinConcreteShear(Input(), phiN: 1.0, supportDistance: d);
 
-        Assert.Equal(0.5 * Rbt * B * H0 * (d / H0), value, 6);
+        Assert.Equal(2.5 * Rbt * B * H0, value, 6);
     }
 
     [Fact]
@@ -130,16 +163,26 @@ public sealed class ShearFormulasTests
     {
         var input = Input(qsw: 200.0, sw: 0.15);
         double d = 0.5 * H0;
-        double value = ShearFormulas.MinStirrupShear(input, supportDistance: d, out string? note);
+        double value = ShearFormulas.MinStirrupShear(
+            input, supportDistance: d, out string? note, appliedShear: 200.0);
 
-        Assert.Equal(0.75 * 200.0 * H0 * (d / H0), value, 6);
+        Assert.Equal(200.0 * H0 * (d / H0), value, 6);
         Assert.Null(note);
+    }
+
+    [Fact]
+    public void MinStirrupShear_AppliesPhiNToWholeRightSideOf861()
+    {
+        double value = ShearFormulas.MinStirrupShear(
+            Input(), supportDistance: 2.0, out _, appliedShear: 150.0, phiN: 1.4);
+
+        Assert.Equal(1.4 * 200.0 * H0, value, 6);
     }
 
     [Fact]
     public void MinStirrupShear_WeakStirrups_IsZeroWithNote()
     {
-        // 50 < 0,25·Rbt·b = 78,75 кН/м — формула с корнем допустима только для (8.56)
+        // 50 < 0,25·Rbt·b = 78,75 кН/м — специальная формула меняет только Qb в (8.56)
         var input = Input(qsw: 50.0, sw: 0.15);
         double value = ShearFormulas.MinStirrupShear(input, supportDistance: 2.0, out string? note);
 
@@ -148,13 +191,14 @@ public sealed class ShearFormulasTests
     }
 
     [Fact]
-    public void MinStirrupShear_SpacingAboveHalfWorkingDepth_IsZeroWithNote()
+    public void MinStirrupShear_SpacingAboveNormativeLimit_IsZeroWithNote()
     {
         var input = Input(qsw: 200.0, sw: 0.30);
-        double value = ShearFormulas.MinStirrupShear(input, supportDistance: 2.0, out string? note);
+        double value = ShearFormulas.MinStirrupShear(
+            input, supportDistance: 2.0, out string? note, appliedShear: 400.0);
 
         Assert.Equal(0.0, value, 12);
-        Assert.NotNull(note);
+        Assert.Contains("s_w,max", note);
     }
 
     static ShearInclinedInput Input(double qsw = 200.0, double sw = 0.15) => new(

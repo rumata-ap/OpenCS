@@ -37,7 +37,7 @@ internal static class Sp63ShearFixtures
     }
 
     /// <summary>Создаёт арматурный материал с заданным Rs (Ft), кПа.</summary>
-    public static Material Rebar(int id, double rs = RsA500)
+    public static Material Rebar(int id, double rs = RsA500, double materialClass = 500.0)
     {
         var material = new Material
         {
@@ -49,6 +49,7 @@ internal static class Sp63ShearFixtures
         material.C = new MaterialChars(CalcType.C)
         {
             Type = MatType.ReSteelU,
+            Class = materialClass,
             Fc = -rs,
             Ft = rs,
             E = 200_000_000.0,
