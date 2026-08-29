@@ -3,6 +3,7 @@ using OpenCS.Converters;
 using OpenCS.Utilites;
 using OpenCS.Views;
 using OpenCS.Views.Dialogs;
+using OpenCS.Views.Helpers;
 
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -218,12 +219,7 @@ namespace OpenCS.ViewModels
                   Fill = Brushes.White, Stroke = Brushes.Gray, StrokeThickness = 1
                });
 
-         foreach (var f in _model.Fibers.Where(f => f.TypeFiber == FiberType.point))
-            elements.Add(new CircleElement
-            {
-               X = f.X, Y = f.Y, Radius = f.Diameter / 2,
-               Fill = Brushes.OrangeRed, Stroke = Brushes.DarkRed, StrokeThickness = 0.5
-            });
+         CrossSectionPlotBuilder.AddRebarElements(elements, _model);
 
          PlotElements = elements;
          OnPropertyChanged(nameof(PlotElements));

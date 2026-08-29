@@ -1,3 +1,5 @@
+using CScore;
+using OpenCS.Converters;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
 
@@ -38,7 +40,7 @@ namespace OpenCS.Views
         static readonly Pen   _coverPen     = new(new SolidColorBrush(Color.FromRgb(59, 130, 246)), 1.5) { DashStyle = DashStyles.Dash };
         static readonly Pen   _barPen       = new(new SolidColorBrush(Color.FromRgb(153, 27, 27)), 1.0);
         static readonly Pen   _noMatPen     = new(new SolidColorBrush(Color.FromRgb(156, 163, 175)), 1.0);
-        static readonly Brush _barFill      = new SolidColorBrush(Color.FromRgb(249, 115, 22));
+        static readonly Pen   _prestressPen = new(Brushes.Black, 1.0);
         static readonly Brush _noMatFill    = new SolidColorBrush(Color.FromRgb(209, 213, 219));
         static readonly Brush _selFill      = new SolidColorBrush(Color.FromRgb(37, 99, 235));
         static readonly Brush _fill1Fill    = new SolidColorBrush(Color.FromRgb(14, 165, 233));
@@ -48,7 +50,6 @@ namespace OpenCS.Views
         static RebarGroupCanvas()
         {
             // Заморозить кисти для производительности
-            ((SolidColorBrush)_barFill).Freeze();
             ((SolidColorBrush)_noMatFill).Freeze();
             ((SolidColorBrush)_selFill).Freeze();
             ((SolidColorBrush)_fill1Fill).Freeze();
@@ -70,12 +71,31 @@ namespace OpenCS.Views
             FitToView();
         }
 
+        internal readonly record struct BarVisualStyle(
+            Brush Fill,
+            Pen InnerPen,
+            bool ShowPrestressContour);
+
+        /// <summary>Определяет вид стержня по материалу, преднапряжению и состоянию выбора.</summary>
+        internal static BarVisualStyle ResolveBarVisualStyle(
+            Material? material, double sigSp, bool isSelected, bool isFillStart)
+        {
+            bool hasMaterial = material != null;
+            Brush fill = isSelected ? _selFill :
+                         isFillStart ? _fill1Fill :
+                         hasMaterial ? MatTypeToBrushConverter.GetBrush(material!.Type) : _noMatFill;
+            Pen innerPen = (isSelected || isFillStart || hasMaterial) ? _barPen : _noMatPen;
+            bool showPrestressContour = double.IsFinite(sigSp) && Math.Abs(sigSp) > 1e-12;
+            return new BarVisualStyle(fill, innerPen, showPrestressContour);
+        }
+
         void OnVmPropertyChanged(object? s, PropertyChangedEventArgs e)
         {
             if (e.PropertyName is nameof(RebarGroupEditorVM.CoverLinePoints)
                                or nameof(RebarGroupEditorVM.ReferencePoints)
                                or nameof(RebarGroupEditorVM.FillMode)
-                               or nameof(RebarGroupEditorVM.SelectedMaterial))
+                               or nameof(RebarGroupEditorVM.SelectedMaterial)
+                               or nameof(RebarGroupEditorVM.SigSp))
                 Dispatcher.Invoke(InvalidateVisual);
         }
 
@@ -111,16 +131,17 @@ namespace OpenCS.Views
             }
 
             // Стержни
-            bool hasMat = _vm.SelectedMaterial != null;
             foreach (var bar in _vm.Bars)
             {
                 var sp = ToScreen(bar.X, bar.Y);
                 double r = Math.Max(4, bar.Diameter / 2 * _scale);
-                Brush fill = bar.IsSelected ? _selFill :
-                             bar == _fillBar1 ? _fill1Fill :
-                             hasMat ? _barFill : _noMatFill;
-                Pen pen = (bar.IsSelected || bar == _fillBar1 || hasMat) ? _barPen : _noMatPen;
-                dc.DrawEllipse(fill, pen, sp, r, r);
+                var style = ResolveBarVisualStyle(
+                    _vm.SelectedMaterial, _vm.SigSp, bar.IsSelected, bar == _fillBar1);
+
+                if (style.ShowPrestressContour)
+                    dc.DrawEllipse(null, _prestressPen, sp, r * 1.25, r * 1.25);
+
+                dc.DrawEllipse(style.Fill, style.InnerPen, sp, r, r);
             }
         }
 

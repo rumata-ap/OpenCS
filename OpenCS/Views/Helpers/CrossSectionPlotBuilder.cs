@@ -68,16 +68,38 @@ public static class CrossSectionPlotBuilder
                     StrokeThickness = 1
                 });
 
+        AddRebarElements(elements, area);
+    }
+
+    /// <summary>Добавляет точечную арматуру с цветом материала и признаком преднапряжения.</summary>
+    internal static void AddRebarElements(List<PlotElement> elements, MaterialArea area)
+    {
+        var materialBrush = MatTypeToBrushConverter.GetBrush(area.Material?.Type ?? MatType.None);
+        bool hasPrestress = double.IsFinite(area.SigSp) && Math.Abs(area.SigSp) > 1e-12;
+
         foreach (var fiber in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
+        {
+            if (hasPrestress)
+                elements.Add(new CircleElement
+                {
+                    X = fiber.X,
+                    Y = fiber.Y,
+                    Radius = fiber.Diameter / 2 * 1.25,
+                    Fill = null,
+                    Stroke = Brushes.Black,
+                    StrokeThickness = 1
+                });
+
             elements.Add(new CircleElement
             {
                 X = fiber.X,
                 Y = fiber.Y,
                 Radius = fiber.Diameter / 2,
-                Fill = Brushes.OrangeRed,
+                Fill = materialBrush,
                 Stroke = Brushes.DarkRed,
                 StrokeThickness = 0.5
             });
+        }
     }
 
     static (double XMin, double XMax, double YMin, double YMax) FindBounds(
