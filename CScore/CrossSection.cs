@@ -129,6 +129,48 @@ namespace CScore
          return new Load { Calc = calc, N = N, Mx = Mx, My = My };
       }
 
+      /// <summary>
+      /// Вычисляет секущую матрицу жёсткости текущего состояния деформаций.
+      /// Полигональные области без сетки интегрируются по контуру, сеточные и точечные
+      /// области — по фактическим волокнам. Контурные и точечные вклады объединяются без
+      /// двойного учёта сетки.
+      /// </summary>
+      public virtual SectionStateStiffness CalculateSecantStiffness(
+         Kurvature k, CalcType calc = CalcType.C, bool ten = true, bool ca = true)
+      {
+         SecantStiffnessMatrix matrix = SecantStiffnessMatrix.Zero;
+         bool hasContour = false;
+         bool hasFiber = false;
+
+         foreach (var (area, ka) in EnumerateAreas(k))
+         {
+            bool hasMeshFibers = area.Fibers.Any(f => f.TypeFiber != FiberType.point);
+            bool useContour = !hasMeshFibers && area.Hull != null && area.Diagramms.ContainsKey(calc);
+
+            if (useContour)
+            {
+               matrix += area.ContourSecantStiffness(ka, calc, ten, ca);
+               hasContour = true;
+            }
+
+            area.SetEps(ka, calc, ten, ca);
+            foreach (var fiber in area.Fibers)
+            {
+               if (useContour && fiber.TypeFiber != FiberType.point) continue;
+               matrix += SecantStiffnessMatrix.FromContributions(
+                  fiber.Area, fiber.X, fiber.Y, fiber.E);
+               hasFiber = true;
+            }
+         }
+
+         string source = hasContour && hasFiber
+            ? "mixed"
+            : hasContour ? "contour"
+            : hasFiber ? "fiber"
+            : "none";
+         return new SectionStateStiffness(matrix, source);
+      }
+
       /// <summary>Интеграл + геометрические характеристики.</summary>
       public virtual Load Integral(Kurvature k, out GeoProps props,
                                     CalcType calc = CalcType.C,

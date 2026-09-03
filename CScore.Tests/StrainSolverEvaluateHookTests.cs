@@ -91,4 +91,33 @@ public class StrainSolverEvaluateHookTests
         Assert.True(evaluateCalls > 0);
         Assert.Equal(5.0, realLoad.N, 1);
     }
+
+    [Fact]
+    public void EvaluateJacobian_UsesConfiguredEvaluateAndColumnOrder()
+    {
+        var section = BuildThreePointSection();
+        var solver = new StrainSolver(section, h: 1e-6, centralJacobian: true,
+            evaluate: k => new Load
+            {
+                N = 2.0 * k.e0 + 3.0 * k.ky + 5.0 * k.kz,
+                Mx = 7.0 * k.e0 + 11.0 * k.ky + 13.0 * k.kz,
+                My = 17.0 * k.e0 + 19.0 * k.ky + 23.0 * k.kz
+            });
+
+        var jacobian = solver.EvaluateJacobian(new Kurvature { e0 = 0.3, ky = -0.2, kz = 0.1 });
+
+        Assert.Equal(["N", "Mx", "My"], jacobian.Rows);
+        Assert.Equal(["e0", "ky", "kz"], jacobian.Columns);
+        Assert.Equal("central", jacobian.Scheme);
+        Assert.Equal(1e-6, jacobian.Step, 12);
+        Assert.Equal(2.0, jacobian[0, 0], 8);
+        Assert.Equal(3.0, jacobian[0, 1], 8);
+        Assert.Equal(5.0, jacobian[0, 2], 8);
+        Assert.Equal(7.0, jacobian[1, 0], 8);
+        Assert.Equal(11.0, jacobian[1, 1], 8);
+        Assert.Equal(13.0, jacobian[1, 2], 8);
+        Assert.Equal(17.0, jacobian[2, 0], 8);
+        Assert.Equal(19.0, jacobian[2, 1], 8);
+        Assert.Equal(23.0, jacobian[2, 2], 8);
+    }
 }

@@ -132,9 +132,82 @@ namespace CScore
          return (-sumN, -sumMx, -sumMy);
       }
 
+      /// <summary>
+      /// Вычисляет шесть взвешенных интегралов функции по области:
+      /// A0 = ∫f, Ax = ∫x·f, Ay = ∫y·f, Axx = ∫x²·f, Axy = ∫xy·f, Ayy = ∫y²·f.
+      /// </summary>
+      public (double A0, double Ax, double Ay, double Axx, double Axy, double Ayy)
+         IntegrateMonomials(Func<double, double, double> function,
+                            double[]? critEps = null,
+                            Func<double, double, double>? epsFunc = null)
+      {
+         double sumA0 = 0.0, sumAx = 0.0, sumAy = 0.0;
+         double sumAxx = 0.0, sumAxy = 0.0, sumAyy = 0.0;
+
+         var allContours = new List<IReadOnlyList<(double X, double Y)>>(_holes.Count + 1);
+         allContours.Add(_outer);
+         allContours.AddRange(_holes);
+
+         var (glPts, glWts) = GlTable[_outerN];
+         foreach (var contour in allContours)
+         {
+            int n = contour.Count;
+            for (int i = 0; i < n; i++)
+            {
+               var (x0, y0) = contour[i];
+               var (x1, y1) = contour[(i + 1) % n];
+               double dx = x1 - x0;
+               if (dx == 0.0) continue;
+
+               var edgeTs = EdgeBreakpointsT(x0, y0, x1, y1, epsFunc, critEps);
+               var bpts = new double[edgeTs.Count + 2];
+               bpts[0] = 0.0;
+               for (int j = 0; j < edgeTs.Count; j++) bpts[j + 1] = edgeTs[j];
+               bpts[^1] = 1.0;
+
+               for (int s = 0; s < bpts.Length - 1; s++)
+               {
+                  double ta = bpts[s], tb = bpts[s + 1];
+                  if (ta == tb) continue;
+                  double half = 0.5 * (tb - ta);
+                  double mid = 0.5 * (ta + tb);
+
+                  for (int j = 0; j < glPts.Length; j++)
+                  {
+                     double t = mid + half * glPts[j];
+                     double x = x0 + t * dx;
+                     double y = y0 + t * (y1 - y0);
+                     double q0 = MakeQWeighted(x, y, function, 0, critEps, epsFunc);
+                     double q1 = MakeQWeighted(x, y, function, 1, critEps, epsFunc);
+                     double q2 = MakeQWeighted(x, y, function, 2, critEps, epsFunc);
+                     double w = glWts[j] * half * dx;
+
+                     sumA0 += w * q0;
+                     sumAx += w * x * q0;
+                     sumAy += w * q1;
+                     sumAxx += w * x * x * q0;
+                     sumAxy += w * x * q1;
+                     sumAyy += w * q2;
+                  }
+               }
+            }
+         }
+
+         return (-sumA0, -sumAx, -sumAy, -sumAxx, -sumAxy, -sumAyy);
+      }
+
       // ---------------------------------------------------------------
       // Антипроизводные Q
       // ---------------------------------------------------------------
+
+      private double MakeQWeighted(double x, double y,
+         Func<double, double, double> function, int yPower,
+         double[]? critEps, Func<double, double, double>? epsFunc)
+      {
+         if (y == 0.0) return 0.0;
+         double[] breakpoints = InnerBreakpoints(x, y, epsFunc, critEps);
+         return GaussPiecewise(t => Math.Pow(t, yPower) * function(x, t), breakpoints, _innerN);
+      }
 
       /// <summary>Q_N(x,y) = ∫₀ʸ σ(x,t) dt</summary>
       private double MakeQ_N(double x, double y,
