@@ -98,6 +98,35 @@ namespace OpenCS.Tasks
             var jacobian = solver.EvaluateJacobian(k);
             section.SetEps(k, task.CalcType, ten);
             var extrema = CalculateExtrema(section);
+            var rebar = section.EnumerateAreas(k)
+               .SelectMany(pair => pair.area.Fibers
+                  .Where(fiber => fiber.TypeFiber == FiberType.point)
+                  .Select(fiber => new
+                  {
+                     group = pair.area.Tag,
+                     material = pair.area.Material?.Tag ?? "",
+                     x_mm = SafeRound(fiber.X * 1000.0, 6),
+                     y_mm = SafeRound(fiber.Y * 1000.0, 6),
+                     diameter_mm = SafeRound(fiber.Diameter * 1000.0, 6),
+                     area_mm2 = SafeRound(fiber.Area * 1e6, 6),
+                     eps = SafeRound(fiber.Eps, 12),
+                     sigma_mpa = SafeRound(fiber.Sig / 1000.0, 6),
+                     e_sec_mpa = SafeRound(fiber.E / 1000.0, 6)
+                  }))
+               .Select((fiber, index) => new
+               {
+                  num = index + 1,
+                  fiber.group,
+                  fiber.material,
+                  fiber.x_mm,
+                  fiber.y_mm,
+                  fiber.diameter_mm,
+                  fiber.area_mm2,
+                  fiber.eps,
+                  fiber.sigma_mpa,
+                  fiber.e_sec_mpa
+               })
+               .ToArray();
 
             var data = new
             {
@@ -150,6 +179,14 @@ namespace OpenCS.Tasks
                   eps_s_min = SafeRound(extrema.SteelMin, 12),
                   eps_s_max = SafeRound(extrema.SteelMax, 12)
                },
+               section = new
+               {
+                  id = section.Id,
+                  num = section.Num,
+                  tag = section.Tag,
+                  description = section.Description ?? ""
+               },
+               rebar,
                prestress  = PrestressActionsJsonModel.From(prestress),
                eta        = etaData
             };

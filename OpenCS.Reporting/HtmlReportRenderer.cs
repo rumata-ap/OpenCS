@@ -60,7 +60,14 @@ public sealed class HtmlReportRenderer
             case ReportImage image:
                 html.AppendLine("<figure class=\"report-image\">");
                 if (image.Svg.TrimStart().StartsWith("<svg", StringComparison.OrdinalIgnoreCase))
-                    html.AppendLine(image.Svg);
+                {
+                    var (width, height) = SvgDimensions(image.Svg);
+                    string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(image.Svg));
+                    string alt = string.IsNullOrWhiteSpace(image.Name) ? "report.svg" : image.Name + ".svg";
+                    html.Append("<img src=\"data:image/svg+xml;base64,").Append(encoded)
+                        .Append("\" alt=\"").Append(E(alt)).Append("\" width=\"")
+                        .Append(width).Append("\" height=\"").Append(height).AppendLine("\"/>");
+                }
                 else
                     html.Append("<pre>").Append(E(image.Svg)).AppendLine("</pre>");
                 html.Append("<figcaption>").Append(E(image.Name)).AppendLine("</figcaption></figure>");
@@ -73,6 +80,64 @@ public sealed class HtmlReportRenderer
                 break;
         }
     }
+
+    static (string Width, string Height) SvgDimensions(string svg)
+    {
+        string? width = Attribute(svg, "width");
+        string? height = Attribute(svg, "height");
+        string? viewBox = Attribute(svg, "viewBox") ?? Attribute(svg, "viewbox");
+        var view = viewBox?.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
+        if (!IsDimension(width) && view is { Length: 4 } &&
+            double.TryParse(view[2], System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double vw) && vw > 0)
+            width = Number(vw);
+        if (!IsDimension(height) && view is { Length: 4 } &&
+            double.TryParse(view[3], System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double vh) && vh > 0)
+            height = Number(vh);
+
+        return (IsDimension(width) ? Number(width!) : "900",
+            IsDimension(height) ? Number(height!) : "650");
+    }
+
+    static string? Attribute(string svg, string name)
+    {
+        int start = svg.IndexOf("<svg", StringComparison.OrdinalIgnoreCase);
+        int end = start >= 0 ? svg.IndexOf('>', start) : -1;
+        if (start < 0 || end < 0) return null;
+        string opening = svg[start..end];
+        int nameStart = opening.IndexOf(name, StringComparison.OrdinalIgnoreCase);
+        if (nameStart < 0) return null;
+        int equals = opening.IndexOf('=', nameStart + name.Length);
+        if (equals < 0) return null;
+        int valueStart = equals + 1;
+        while (valueStart < opening.Length && char.IsWhiteSpace(opening[valueStart])) valueStart++;
+        if (valueStart >= opening.Length) return null;
+        char quote = opening[valueStart];
+        if (quote is not ('\"' or '\'')) return null;
+        int valueEnd = opening.IndexOf(quote, valueStart + 1);
+        return valueEnd > valueStart ? opening[(valueStart + 1)..valueEnd] : null;
+    }
+
+    static bool IsDimension(string? value)
+        => !string.IsNullOrWhiteSpace(value) &&
+           double.TryParse(value.TrimEnd('p', 'x', 'P', 'X'),
+               System.Globalization.NumberStyles.Float,
+               System.Globalization.CultureInfo.InvariantCulture, out var result) &&
+           result > 0;
+
+    static string Number(string value)
+    {
+        string numeric = value.TrimEnd('p', 'x', 'P', 'X');
+        return double.TryParse(numeric, System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var result)
+            ? result.ToString("G8", System.Globalization.CultureInfo.InvariantCulture)
+            : value;
+    }
+
+    static string Number(double value)
+        => value.ToString("G8", System.Globalization.CultureInfo.InvariantCulture);
 
     static void RenderTable(StringBuilder html, ReportTable table)
     {
@@ -107,7 +172,7 @@ public sealed class HtmlReportRenderer
         .formula { margin:13px 0; padding:11px 14px; border-left:4px solid var(--accent); background:var(--soft); page-break-inside:avoid; }
         .formula-ref { float:right; color:var(--muted); font-weight:600; } .formula-expression { font:16px Georgia, serif; margin-bottom:7px; }
         .formula-substitution { color:#475569; } .formula-result { margin-top:4px; color:#075985; font-weight:700; }
-        .report-image { margin:18px 0; text-align:center; page-break-inside:avoid; } .report-image svg { max-width:100%; height:auto; max-height:115mm; }
+        .report-image { margin:18px 0; text-align:center; page-break-inside:avoid; } .report-image img { max-width:100%; height:auto; max-height:115mm; }
         figcaption { color:var(--muted); font-size:12px; margin-top:4px; } .warning { padding:10px 12px; border:1px solid #f2c36b; background:#fff7df; color:#7c4a03; margin:12px 0; }
         .page-break { break-before:page; page-break-before:always; }
         @media print { body { background:white; } .report { margin:0; box-shadow:none; } }

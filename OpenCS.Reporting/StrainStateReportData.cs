@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CScore;
 
 namespace OpenCS.Reporting;
 
@@ -51,6 +52,22 @@ public sealed class StrainStateReportData
     [JsonPropertyName("extrema")]
     public StrainStateExtremaData Extrema { get; set; } = new();
 
+    /// <summary>Данные о точечных фибрах арматуры, сохранённые в результате.</summary>
+    [JsonPropertyName("rebar")]
+    public List<StrainStateRebarData> Rebar { get; set; } = [];
+
+    /// <summary>Идентификация поперечного сечения, сохранённая вместе с результатом.</summary>
+    [JsonPropertyName("section")]
+    public StrainStateSectionData? Section { get; set; }
+
+    /// <summary>Данные поправки прогиба η из расчёта.</summary>
+    [JsonPropertyName("eta")]
+    public StrainStateEtaData? Eta { get; set; }
+
+    /// <summary>Действия преднапряжения из расчёта.</summary>
+    [JsonPropertyName("prestress")]
+    public PrestressActionsJsonModel? Prestress { get; set; }
+
     /// <summary>Разбирает JSON результата. Дополнительные поля старых результатов игнорируются.</summary>
     public static StrainStateReportData Parse(string json)
     {
@@ -58,6 +75,91 @@ public sealed class StrainStateReportData
         return JsonSerializer.Deserialize<StrainStateReportData>(json)
             ?? throw new JsonException("Пустой результат strain_state.");
     }
+}
+
+/// <summary>Результат по одному точечному стержню арматуры в JSON отчёта.</summary>
+public sealed class StrainStateRebarData
+{
+    /// <summary>Номер стержня.</summary>
+    [JsonPropertyName("num")] public int Num { get; set; }
+    /// <summary>Координата X, мм.</summary>
+    [JsonPropertyName("x_mm")] public double Xmm { get; set; }
+    /// <summary>Координата Y, мм.</summary>
+    [JsonPropertyName("y_mm")] public double Ymm { get; set; }
+    /// <summary>Полная деформация.</summary>
+    [JsonPropertyName("eps")] public double Eps { get; set; }
+    /// <summary>Напряжение, МПа.</summary>
+    [JsonPropertyName("sigma_mpa")] public double SigmaMpa { get; set; }
+    /// <summary>Секущий модуль стержня, МПа.</summary>
+    [JsonPropertyName("e_sec_mpa")] public double SecantModulusMpa { get; set; }
+    /// <summary>Площадь стержня, мм².</summary>
+    [JsonPropertyName("area_mm2")] public double AreaMm2 { get; set; }
+    /// <summary>Диаметр стержня, мм.</summary>
+    [JsonPropertyName("diameter_mm")] public double DiameterMm { get; set; }
+    /// <summary>Метка группы.</summary>
+    [JsonPropertyName("group")] public string Group { get; set; } = "";
+    /// <summary>Материал стержня.</summary>
+    [JsonPropertyName("material")] public string Material { get; set; } = "";
+}
+
+/// <summary>Сохранённая в JSON идентификация сечения для автономного отчёта.</summary>
+public sealed class StrainStateSectionData
+{
+    /// <summary>Идентификатор сечения в базе данных.</summary>
+    [JsonPropertyName("id")] public int Id { get; set; }
+    /// <summary>Порядковый номер сечения.</summary>
+    [JsonPropertyName("num")] public int Num { get; set; }
+    /// <summary>Метка сечения.</summary>
+    [JsonPropertyName("tag")] public string Tag { get; set; } = "";
+    /// <summary>Описание сечения.</summary>
+    [JsonPropertyName("description")] public string Description { get; set; } = "";
+}
+
+/// <summary>JSON-данные поправки прогиба η по двум направлениям.</summary>
+public sealed class StrainStateEtaData
+{
+    /// <summary>Режим вычисления.</summary>
+    [JsonPropertyName("mode")] public string Mode { get; set; } = "";
+    /// <summary>Исходный момент Mx, кН·м.</summary>
+    [JsonPropertyName("mxOriginal")] public double MxOriginal { get; set; }
+    /// <summary>Исходный момент My, кН·м.</summary>
+    [JsonPropertyName("myOriginal")] public double MyOriginal { get; set; }
+    /// <summary>Гибкость l0x/hx.</summary>
+    [JsonPropertyName("slendernessX")] public double? SlendernessX { get; set; }
+    /// <summary>Гибкость l0y/hy.</summary>
+    [JsonPropertyName("slendernessY")] public double? SlendernessY { get; set; }
+    /// <summary>Поправка ηx.</summary>
+    [JsonPropertyName("etaX")] public double EtaX { get; set; } = 1.0;
+    /// <summary>Поправка ηy.</summary>
+    [JsonPropertyName("etaY")] public double EtaY { get; set; } = 1.0;
+    /// <summary>Длина l0x, м.</summary>
+    [JsonPropertyName("l0x")] public double L0x { get; set; }
+    /// <summary>Размер hx, м.</summary>
+    [JsonPropertyName("hx")] public double Hx { get; set; }
+    /// <summary>Длина l0y, м.</summary>
+    [JsonPropertyName("l0y")] public double L0y { get; set; }
+    /// <summary>Размер hy, м.</summary>
+    [JsonPropertyName("hy")] public double Hy { get; set; }
+    /// <summary>Критическая сила Ncrx, кН.</summary>
+    [JsonPropertyName("ncrX")] public double? NcrX { get; set; }
+    /// <summary>Критическая сила Ncry, кН.</summary>
+    [JsonPropertyName("ncrY")] public double? NcrY { get; set; }
+    /// <summary>Изгибающий эффект Dx, кН·м².</summary>
+    [JsonPropertyName("dX")] public double? DX { get; set; }
+    /// <summary>Изгибающий эффект Dy, кН·м².</summary>
+    [JsonPropertyName("dY")] public double? DY { get; set; }
+    /// <summary>Признак гибкости по X.</summary>
+    [JsonPropertyName("slenderX")] public bool SlenderX { get; set; }
+    /// <summary>Признак гибкости по Y.</summary>
+    [JsonPropertyName("slenderY")] public bool SlenderY { get; set; }
+    /// <summary>Признак устойчивого решения по X.</summary>
+    [JsonPropertyName("stableX")] public bool StableX { get; set; } = true;
+    /// <summary>Признак устойчивого решения по Y.</summary>
+    [JsonPropertyName("stableY")] public bool StableY { get; set; } = true;
+    /// <summary>История итераций ηx.</summary>
+    [JsonPropertyName("etaHistoryX")] public double[] EtaHistoryX { get; set; } = [];
+    /// <summary>История итераций ηy.</summary>
+    [JsonPropertyName("etaHistoryY")] public double[] EtaHistoryY { get; set; } = [];
 }
 
 /// <summary>Данные матрицы D по СП 63.</summary>

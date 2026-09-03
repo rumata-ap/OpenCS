@@ -54,7 +54,8 @@ public sealed class CalcpadCliRunner
         Directory.CreateDirectory(workDirectory);
         string inputPath = Path.Combine(workDirectory, "report.cpd");
         string generatedPath = Path.Combine(workDirectory, "report" + extension);
-        await File.WriteAllTextAsync(inputPath, new CalcpadWorksheetBuilder().Build(document), cancellationToken);
+        await File.WriteAllTextAsync(inputPath,
+            new CalcpadWorksheetBuilder().Build(document, forDocx: extension == ".docx"), cancellationToken);
 
         try
         {

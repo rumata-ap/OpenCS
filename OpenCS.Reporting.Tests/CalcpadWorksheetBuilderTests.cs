@@ -16,5 +16,20 @@ public sealed class CalcpadWorksheetBuilderTests
         Assert.Contains("(8.42)", cpd);
         Assert.Contains("D11", cpd);
         Assert.DoesNotContain("\nD11 =", cpd);
+        Assert.Contains("'<div class=\"formula\">'", cpd);
+        Assert.Contains("'<div class=\"formula-ref\">(8.42)</div>'", cpd);
+    }
+
+    [Fact]
+    public void WorksheetBuilder_UsesDocxCompatibleSvgMimeOnlyForDocx()
+    {
+        var document = new ReportDocument("Отчёт")
+            .Add(new ReportImage("Карта", "<svg width=\"10\" height=\"10\"></svg>"));
+
+        string docxCpd = new CalcpadWorksheetBuilder().Build(document, forDocx: true);
+        string pdfCpd = new CalcpadWorksheetBuilder().Build(document, forDocx: false);
+
+        Assert.Contains("data:image/svg;base64,", docxCpd);
+        Assert.Contains("data:image/svg+xml;base64,", pdfCpd);
     }
 }

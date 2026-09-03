@@ -18,6 +18,7 @@ namespace OpenCS.Views
         readonly CalcResult _result;
         readonly AppViewModel _app;
         readonly CalcTask? _task;
+        readonly CrossSection? _section;
         SectionPlotVM? _stressPlot;
         SectionPlotVM? _strainPlot;
 
@@ -163,6 +164,7 @@ namespace OpenCS.Views
         var section = task != null
             ? app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId)
             : null;
+        _section = section;
 
         if (section == null || task == null)
         {
@@ -224,6 +226,7 @@ namespace OpenCS.Views
             var document = new StrainStateReportProvider().Build(new ReportContext(
                 _task,
                 _result,
+                _section,
                 new Dictionary<string, string>
                 {
                     ["stress"] = svgExporter.Render(_stressPlot, Loc.S("ReportStressMapTitle")),
