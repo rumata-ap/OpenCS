@@ -13,6 +13,9 @@
 # Git worktrees (local)
 .worktrees/
 
+# Локальные временные файлы
+tmp/
+
 # SQLite database (рабочий файл, не коммитится)
 dbapp.db
 
