@@ -22,7 +22,7 @@ public sealed class CalcpadWorksheetBuilder
         string body = NormalizeForCalcpad(html[bodyStart..bodyEnd], forDocx);
         var worksheet = new StringBuilder();
         worksheet.AppendLine("'<!-- OpenCS report: values were calculated by OpenCS; CalcpadCE performs presentation export only. -->");
-        worksheet.AppendLine("'<style>body{font-family:Segoe UI,Arial,sans-serif} table{width:100%;border-collapse:collapse} th,td{border:1px solid #d9e1ea;padding:5px 7px;text-align:left} th{background:#eaf2f9} .formula{margin:10px 0;padding:8px 12px;border-left:3px solid #1769aa;background:#f5f8fb}</style>");
+        worksheet.AppendLine("'<style>body{font-family:Segoe UI,Arial,sans-serif} table{width:100%;max-width:100%;table-layout:fixed;border-collapse:collapse} th,td{border:1px solid #d9e1ea;padding:5px 7px;text-align:left;overflow-wrap:anywhere;word-break:break-word;white-space:normal;font-size:10pt} th{background:#eaf2f9} .report-table.compact{font-size:9pt} img{max-width:100%;height:auto;display:block;margin:auto} .formula{margin:10px 0;padding:8px 12px;border-left:3px solid #1769aa;background:#f5f8fb}</style>");
         foreach (string line in body.Split('\n'))
         {
             string safeLine = line.TrimEnd('\r').Replace("'", "&apos;", StringComparison.Ordinal);

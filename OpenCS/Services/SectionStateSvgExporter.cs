@@ -40,6 +40,7 @@ public sealed class SectionStateSvgExporter
            .Append(F(Width)).Append(' ').Append(F(Height)).Append("\" role=\"img\">");
         svg.Append("<title>").Append(E(title)).AppendLine("</title>");
         svg.AppendLine("<rect width=\"100%\" height=\"100%\" fill=\"white\"/>");
+        DrawAxes(svg, Map, minX, maxX, minY, maxY);
 
         foreach (var fiber in plot.ConcreteFibers)
         {
@@ -74,7 +75,6 @@ public sealed class SectionStateSvgExporter
                .AppendLine("\" stroke=\"#334155\" stroke-width=\"2\" stroke-dasharray=\"8 5\"/>");
         }
 
-        DrawAxes(svg, Map, minX, maxX, minY, maxY);
         DrawLegend(svg, plot, maxAbs, title);
         svg.AppendLine("</svg>");
         return svg.ToString();
@@ -113,6 +113,40 @@ public sealed class SectionStateSvgExporter
     static void DrawAxes(StringBuilder svg, Func<Point, Point> map,
         double minX, double maxX, double minY, double maxY)
     {
+        double xStep = NiceStep((maxX - minX) / 5.0);
+        double yStep = NiceStep((maxY - minY) / 5.0);
+        Point bottomLeft = map(new Point(minX, minY));
+        Point bottomRight = map(new Point(maxX, minY));
+        Point topLeft = map(new Point(minX, maxY));
+
+        svg.Append("<g data-axis=\"x\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"10\" fill=\"#475569\">");
+        for (double x = FloorToStep(minX, xStep); x <= maxX + xStep * 0.5; x += xStep)
+        {
+            if (x < minX - xStep * 0.01) continue;
+            Point point = map(new Point(x, minY));
+            svg.Append("<line x1=\"").Append(F(point.X)).Append("\" y1=\"").Append(F(topLeft.Y))
+                .Append("\" x2=\"").Append(F(point.X)).Append("\" y2=\"").Append(F(bottomLeft.Y))
+                .AppendLine("\" stroke=\"#e2e8f0\" stroke-width=\"0.8\"/>");
+            svg.Append("<text data-tick-label=\"x\" x=\"").Append(F(point.X)).Append("\" y=\"")
+                .Append(F(bottomLeft.Y + 16)).Append("\" text-anchor=\"middle\">")
+                .Append(FormatTick(x, xStep)).AppendLine("</text>");
+        }
+        svg.AppendLine("</g>");
+
+        svg.Append("<g data-axis=\"y\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"10\" fill=\"#475569\">");
+        for (double y = FloorToStep(minY, yStep); y <= maxY + yStep * 0.5; y += yStep)
+        {
+            if (y < minY - yStep * 0.01) continue;
+            Point point = map(new Point(minX, y));
+            svg.Append("<line x1=\"").Append(F(bottomLeft.X)).Append("\" y1=\"").Append(F(point.Y))
+                .Append("\" x2=\"").Append(F(bottomRight.X)).Append("\" y2=\"").Append(F(point.Y))
+                .AppendLine("\" stroke=\"#e2e8f0\" stroke-width=\"0.8\"/>");
+            svg.Append("<text data-tick-label=\"y\" x=\"").Append(F(bottomLeft.X - 7)).Append("\" y=\"")
+                .Append(F(point.Y + 3)).Append("\" text-anchor=\"end\">")
+                .Append(FormatTick(y, yStep)).AppendLine("</text>");
+        }
+        svg.AppendLine("</g>");
+
         if (minY <= 0 && maxY >= 0)
         {
             Point left = map(new Point(minX, 0)), right = map(new Point(maxX, 0));
@@ -127,6 +161,31 @@ public sealed class SectionStateSvgExporter
                .Append("\" x2=\"").Append(F(top.X)).Append("\" y2=\"").Append(F(top.Y))
                .AppendLine("\" stroke=\"#94a3b8\" stroke-width=\"1\"/>");
         }
+
+        double centerY = (topLeft.Y + bottomLeft.Y) / 2.0;
+        svg.Append("<g font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"12\" fill=\"#334155\">")
+            .Append("<text data-axis-title=\"x\" x=\"").Append(F((bottomLeft.X + bottomRight.X) / 2.0))
+            .Append("\" y=\"").Append(F(bottomLeft.Y + 35)).AppendLine("\" text-anchor=\"middle\">x, мм</text>")
+            .Append("<text data-axis-title=\"y\" x=\"18\" y=\"").Append(F(centerY))
+            .Append("\" text-anchor=\"middle\" transform=\"rotate(-90 18 ").Append(F(centerY))
+            .AppendLine(")\">y, мм</text></g>");
+    }
+
+    static double NiceStep(double raw)
+    {
+        if (!double.IsFinite(raw) || raw <= 1e-15) return 1;
+        double magnitude = Math.Pow(10, Math.Floor(Math.Log10(raw)));
+        double normalized = raw / magnitude;
+        double nice = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+        return nice * magnitude;
+    }
+
+    static double FloorToStep(double value, double step) => Math.Floor(value / step + 1e-10) * step;
+
+    static string FormatTick(double value, double step)
+    {
+        if (Math.Abs(value) < step * 1e-8) value = 0;
+        return value.ToString("G4", CultureInfo.InvariantCulture);
     }
 
     static void DrawLegend(StringBuilder svg, SectionPlotVM plot, double maxAbs, string title)

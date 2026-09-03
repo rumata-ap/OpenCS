@@ -22,6 +22,10 @@ public sealed class CalcpadCliIntegrationTests
                 .Add(new ReportHeading(1, "Проверка CalcpadCE"))
                 .Add(new ReportFormula("(8.42)", "D11 = Σ(E·A·y²)", "D11 = 123", "123 кН·м²"));
 
+            document.Add(new ReportTable(
+                ["Группа", "A, м²", "x, м", "y, м", "σ фактическое, МПа", "σ предел, МПа"],
+                [["Группа с длинным названием", "0.0004", "0.12", "-0.18", "850", "1000"]]));
+
             document.Add(new ReportImage("Карта деформаций", "<svg width=\"900\" height=\"650\"><rect width=\"900\" height=\"650\" fill=\"white\"/></svg>"));
 
             var service = new ReportExportService(
@@ -41,14 +45,17 @@ public sealed class CalcpadCliIntegrationTests
             Assert.NotNull(documentXml);
             using var reader = new StreamReader(documentXml!.Open());
             var xml = await reader.ReadToEndAsync();
-            Assert.Contains("cx=\"8572500\"", xml);
-            Assert.Contains("cy=\"6191250\"", xml);
+            Assert.Contains("cx=\"5905500\"", xml);
+            Assert.Contains("cy=\"4267200\"", xml);
+            Assert.DoesNotContain("cx=\"8572500\"", xml);
             Assert.DoesNotContain("cx=\"0\"", xml);
             Assert.DoesNotContain("cy=\"0\"", xml);
+
         }
         finally
         {
             try { Directory.Delete(workDirectory, recursive: true); } catch { }
         }
     }
+
 }

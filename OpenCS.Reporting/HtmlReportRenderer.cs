@@ -6,6 +6,10 @@ namespace OpenCS.Reporting;
 /// <summary>Автономный HTML-рендерер отчёта для просмотра в браузере и fallback-экспорта.</summary>
 public sealed class HtmlReportRenderer
 {
+    // 620 px помещаются в рабочую ширину страницы A4 Word/PDF с запасом.
+    // SVG остаётся векторным, поэтому уменьшение HTML-размера не ухудшает качество.
+    const double MaxImageWidth = 620;
+
     /// <summary>Преобразует нейтральный документ в самодостаточный HTML5.</summary>
     public string Render(ReportDocument document)
     {
@@ -97,8 +101,16 @@ public sealed class HtmlReportRenderer
                 System.Globalization.CultureInfo.InvariantCulture, out double vh) && vh > 0)
             height = Number(vh);
 
-        return (IsDimension(width) ? Number(width!) : "900",
-            IsDimension(height) ? Number(height!) : "650");
+        double actualWidth = ParseDimension(width) ?? 900;
+        double actualHeight = ParseDimension(height) ?? 650;
+        if (actualWidth > MaxImageWidth)
+        {
+            actualHeight *= MaxImageWidth / actualWidth;
+            actualWidth = MaxImageWidth;
+        }
+
+        return (Number(Math.Max(1, Math.Round(actualWidth))),
+            Number(Math.Max(1, Math.Round(actualHeight))));
     }
 
     static string? Attribute(string svg, string name)
@@ -121,11 +133,16 @@ public sealed class HtmlReportRenderer
     }
 
     static bool IsDimension(string? value)
+        => ParseDimension(value) is > 0;
+
+    static double? ParseDimension(string? value)
         => !string.IsNullOrWhiteSpace(value) &&
            double.TryParse(value.TrimEnd('p', 'x', 'P', 'X'),
                System.Globalization.NumberStyles.Float,
                System.Globalization.CultureInfo.InvariantCulture, out var result) &&
-           result > 0;
+           result > 0
+            ? result
+            : null;
 
     static string Number(string value)
     {
@@ -141,7 +158,8 @@ public sealed class HtmlReportRenderer
 
     static void RenderTable(StringBuilder html, ReportTable table)
     {
-        html.AppendLine("<table><thead><tr>");
+        string cssClass = table.Headers.Count >= 6 ? "report-table compact" : "report-table";
+        html.Append("<table class=\"").Append(cssClass).AppendLine("\"><thead><tr>");
         foreach (var header in table.Headers)
             html.Append("<th>").Append(E(header)).AppendLine("</th>");
         html.AppendLine("</tr></thead><tbody>");
@@ -166,13 +184,14 @@ public sealed class HtmlReportRenderer
         h1,h2,h3,h4 { color:#16324f; line-height:1.2; margin:1.4em 0 .55em; }
         h1 { margin-top:0; font-size:25px; } h2 { font-size:20px; } h3 { font-size:16px; }
         .report-meta { color:var(--muted); font-size:12px; }
-        p { margin:8px 0 12px; } table { width:100%; border-collapse:collapse; margin:12px 0 20px; page-break-inside:avoid; }
-        th,td { border:1px solid var(--line); padding:7px 9px; text-align:left; vertical-align:top; }
+        p { margin:8px 0 12px; } table { width:100%; max-width:100%; table-layout:fixed; border-collapse:collapse; margin:12px 0 20px; page-break-inside:avoid; }
+        th,td { border:1px solid var(--line); padding:7px 9px; text-align:left; vertical-align:top; overflow-wrap:anywhere; word-break:break-word; white-space:normal; }
+        .report-table.compact { font-size:11px; } .key-values { table-layout:auto; }
         thead th { background:#eaf2f9; color:#16324f; } .key-values th { width:34%; background:var(--soft); }
         .formula { margin:13px 0; padding:11px 14px; border-left:4px solid var(--accent); background:var(--soft); page-break-inside:avoid; }
         .formula-ref { float:right; color:var(--muted); font-weight:600; } .formula-expression { font:16px Georgia, serif; margin-bottom:7px; }
         .formula-substitution { color:#475569; } .formula-result { margin-top:4px; color:#075985; font-weight:700; }
-        .report-image { margin:18px 0; text-align:center; page-break-inside:avoid; } .report-image img { max-width:100%; height:auto; max-height:115mm; }
+        .report-image { max-width:100%; margin:18px 0; text-align:center; page-break-inside:avoid; overflow:hidden; } .report-image img { display:block; max-width:100%; height:auto; max-height:115mm; margin:0 auto; }
         figcaption { color:var(--muted); font-size:12px; margin-top:4px; } .warning { padding:10px 12px; border:1px solid #f2c36b; background:#fff7df; color:#7c4a03; margin:12px 0; }
         .page-break { break-before:page; page-break-before:always; }
         @media print { body { background:white; } .report { margin:0; box-shadow:none; } }

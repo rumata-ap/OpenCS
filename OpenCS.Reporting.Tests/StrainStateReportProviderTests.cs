@@ -79,9 +79,13 @@ public sealed class StrainStateReportProviderTests
         Assert.Contains("Влияние прогиба", headings);
         Assert.Contains("Преднапряжение", headings);
         Assert.Contains("Арматура", headings);
-        var rebarTable = document.Blocks.OfType<ReportTable>()
-            .Single(table => table.Headers.Contains("№"));
-        Assert.Equal(2, rebarTable.Rows.Count);
+        var rebarTables = document.Blocks.OfType<ReportTable>()
+            .Where(table => table.Headers.Contains("№"))
+            .ToList();
+        Assert.Equal(2, rebarTables.Count);
+        Assert.Contains(rebarTables, table => table.Headers.Contains("x, мм"));
+        Assert.Contains(rebarTables, table => table.Headers.Contains("ε"));
+        Assert.All(rebarTables, table => Assert.Equal(2, table.Rows.Count));
     }
 
     [Fact]
@@ -185,6 +189,10 @@ public sealed class StrainStateReportProviderTests
             x.Headers.Any(header => header.Contains("диаграмм", StringComparison.OrdinalIgnoreCase)));
         Assert.Contains(document.Blocks.OfType<ReportImage>(), x => x.Name.Contains("Геометрия"));
         Assert.Contains(document.Blocks.OfType<ReportImage>(), x => x.Name.Contains("σ(ε)"));
+        Assert.Equal(2, document.Blocks.OfType<ReportTable>()
+            .Count(x => x.Headers.Contains("Категория") || x.Headers.Contains("Фибры")));
+        Assert.All(document.Blocks.OfType<ReportTable>(), table =>
+            Assert.InRange(table.Headers.Count, 1, 6));
     }
 
     static Material CreateMaterial(int id, string tag, MatType type)

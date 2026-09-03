@@ -238,14 +238,22 @@ public sealed class StrainStateReportProvider : IReportProvider
             document.Add(new ReportHeading(1, "Арматура"))
                 .Add(new ReportParagraph("Координаты и размеры стержней — мм; площадь — мм²; ε — безразмерная; σ и Eсек — МПа."))
                 .Add(new ReportTable(
-                    ["№", "Группа", "x, мм", "y, мм", "d, мм", "A, мм²", "ε", "σ, МПа", "Eсек, МПа"],
+                    ["№", "Группа", "Материал", "x, мм", "y, мм", "d, мм"],
                     rebar.Select(row => (IReadOnlyList<string>)
                     [
                         row.Num.ToString(CultureInfo.InvariantCulture),
                         row.Group,
+                        row.Material,
                         F(row.Xmm),
                         F(row.Ymm),
-                        F(row.DiameterMm),
+                        F(row.DiameterMm)
+                    ]).ToList()))
+                .Add(new ReportTable(
+                    ["№", "Группа", "A, мм²", "ε", "σ, МПа", "Eсек, МПа"],
+                    rebar.Select(row => (IReadOnlyList<string>)
+                    [
+                        row.Num.ToString(CultureInfo.InvariantCulture),
+                        row.Group,
                         F(row.AreaMm2),
                         F(row.Eps),
                         F(row.SigmaMpa),
@@ -260,29 +268,33 @@ public sealed class StrainStateReportProvider : IReportProvider
         }
 
         var areas = section.EnumerateAreas(k).Select(pair => pair.area).ToList();
+        var geometryRows = areas.Select((area, index) =>
+        {
+            var props = AreaProps(area);
+            return (IReadOnlyList<string>)[
+                (index + 1).ToString(CultureInfo.InvariantCulture),
+                area.Tag,
+                area.Category.ToString(),
+                area.Material?.Tag ?? "не задан",
+                area.HostArea?.Tag ?? (area.HostAreaId?.ToString(CultureInfo.InvariantCulture) ?? "—"),
+                F(props.A),
+                F(props.Centroid?.X ?? 0),
+                F(props.Centroid?.Y ?? 0),
+                area.Contours.Count.ToString(CultureInfo.InvariantCulture),
+                area.Fibers.Count.ToString(CultureInfo.InvariantCulture)
+            ];
+        }).ToList();
+
         document.Add(new ReportHeading(1, "Геометрия сечения"))
             .Add(new ReportParagraph("Контуры и координаты приведены в метрах; диаметры и координаты точечной арматуры в таблице — в миллиметрах."))
             .Add(new ReportImage("Геометрия сечения и его частей",
                 new CrossSectionReportSvgRenderer().Render(section)))
             .Add(new ReportTable(
-                ["№", "Часть", "Категория", "Материал", "Бетон-носитель", "A, м²", "xc, м", "yc, м", "Контуры", "Фибры"],
-                areas.Select((area, index) =>
-                {
-                    var props = AreaProps(area);
-                    return (IReadOnlyList<string>)
-                    [
-                        (index + 1).ToString(CultureInfo.InvariantCulture),
-                        area.Tag,
-                        area.Category.ToString(),
-                        area.Material?.Tag ?? "не задан",
-                        area.HostArea?.Tag ?? (area.HostAreaId?.ToString(CultureInfo.InvariantCulture) ?? "—"),
-                        F(props.A),
-                        F(props.Centroid?.X ?? 0),
-                        F(props.Centroid?.Y ?? 0),
-                        area.Contours.Count.ToString(CultureInfo.InvariantCulture),
-                        area.Fibers.Count.ToString(CultureInfo.InvariantCulture)
-                    ];
-                }).ToList()));
+                ["№", "Часть", "Категория", "Материал", "Бетон-носитель"],
+                geometryRows.Select(row => (IReadOnlyList<string>)[row[0], row[1], row[2], row[3], row[4]]).ToList()))
+            .Add(new ReportTable(
+                ["№", "A, м²", "xc, м", "yc, м", "Контуры", "Фибры"],
+                geometryRows.Select(row => (IReadOnlyList<string>)[row[0], row[5], row[6], row[7], row[8], row[9]]).ToList()));
 
         var materialRows = new List<IReadOnlyList<string>>();
         var diagrams = new List<(string Title, Diagramm Diagram)>();
@@ -307,8 +319,11 @@ public sealed class StrainStateReportProvider : IReportProvider
         document.Add(new ReportHeading(1, "Материалы и диаграммы"))
             .Add(new ReportParagraph("Напряжения на графиках приведены в МПа, деформации ε — безразмерные. Для арматуры, расположенной в бетоне, отображается фактическая разностная диаграмма σст − σб."))
             .Add(new ReportTable(
-                ["Часть сечения", "Материал", "Тип", "Тип диаграммы", "Используемая диаграмма", "Вид расчёта"],
-                materialRows));
+                ["Часть", "Материал", "Тип", "Вид расчёта"],
+                materialRows.Select(row => (IReadOnlyList<string>)[row[0], row[1], row[2], row[5]]).ToList()))
+            .Add(new ReportTable(
+                ["Часть", "Диаграмма", "Фактическая диаграмма"],
+                materialRows.Select(row => (IReadOnlyList<string>)[row[0], row[3], row[4]]).ToList()));
 
         var materials = areas.Select(area => area.Material)
             .Where(material => material != null)
@@ -316,9 +331,8 @@ public sealed class StrainStateReportProvider : IReportProvider
             .Cast<Material>()
             .ToList();
         if (materials.Count > 0)
-            document.Add(new ReportTable(
-                ["Материал", "Тип", "E, МПа", "Fc, МПа", "Ft, МПа", "Ry, МПа", "Ru, МПа"],
-                materials.Select(material =>
+        {
+            var characteristicRows = materials.Select(material =>
                 {
                     var chars = material.GetChars(context.Task.CalcType);
                     return (IReadOnlyList<string>)
@@ -331,7 +345,14 @@ public sealed class StrainStateReportProvider : IReportProvider
                         F((chars?.Ry ?? 0) / 1000.0),
                         F((chars?.Ru ?? 0) / 1000.0)
                     ];
-                }).ToList()));
+                }).ToList();
+            document.Add(new ReportTable(
+                ["Материал", "Тип", "E, МПа", "Fc, МПа", "Ft, МПа"],
+                characteristicRows.Select(row => (IReadOnlyList<string>)[row[0], row[1], row[2], row[3], row[4]]).ToList()))
+                .Add(new ReportTable(
+                    ["Материал", "Ry, МПа", "Ru, МПа"],
+                    characteristicRows.Select(row => (IReadOnlyList<string>)[row[0], row[5], row[6]]).ToList()));
+        }
 
         foreach (var (diagramTitle, diagram) in diagrams)
             document.Add(new ReportImage($"Диаграмма σ(ε): {diagramTitle}",
@@ -344,10 +365,16 @@ public sealed class StrainStateReportProvider : IReportProvider
         document.Add(new ReportHeading(1, "Влияние прогиба"))
             .Add(new ReportParagraph($"Режим: {ValueOrDash(eta.Mode)}; исходные моменты: Mx = {Moment(eta.MxOriginal)}, My = {Moment(eta.MyOriginal)}."))
             .Add(new ReportTable(
-                ["Направление", "l0, м", "h, м", "l0/h", "D, кН·м²", "Ncr, кН", "η", "Статус"],
+                ["Направление", "l0, м", "h, м", "l0/h"],
                 [
-                    (IReadOnlyList<string>)["X", F(eta.L0x), F(eta.Hx), F(eta.SlendernessX ?? 0), F(eta.DX ?? 0), F(eta.NcrX ?? 0), F(eta.EtaX), eta.StableX ? "устойчиво" : "неустойчиво"],
-                    (IReadOnlyList<string>)["Y", F(eta.L0y), F(eta.Hy), F(eta.SlendernessY ?? 0), F(eta.DY ?? 0), F(eta.NcrY ?? 0), F(eta.EtaY), eta.StableY ? "устойчиво" : "неустойчиво"]
+                    (IReadOnlyList<string>)["X", F(eta.L0x), F(eta.Hx), F(eta.SlendernessX ?? 0)],
+                    (IReadOnlyList<string>)["Y", F(eta.L0y), F(eta.Hy), F(eta.SlendernessY ?? 0)]
+                ]))
+            .Add(new ReportTable(
+                ["Направление", "D, кН·м²", "Ncr, кН", "η", "Статус"],
+                [
+                    (IReadOnlyList<string>)["X", F(eta.DX ?? 0), F(eta.NcrX ?? 0), F(eta.EtaX), eta.StableX ? "устойчиво" : "неустойчиво"],
+                    (IReadOnlyList<string>)["Y", F(eta.DY ?? 0), F(eta.NcrY ?? 0), F(eta.EtaY), eta.StableY ? "устойчиво" : "неустойчиво"]
                 ]));
         if (eta.EtaHistoryX.Length > 0 || eta.EtaHistoryY.Length > 0)
             document.Add(new ReportParagraph($"История η: X — {string.Join(" → ", eta.EtaHistoryX.Select(F))}; Y — {string.Join(" → ", eta.EtaHistoryY.Select(F))}."));
@@ -356,6 +383,18 @@ public sealed class StrainStateReportProvider : IReportProvider
     static void AddPrestress(ReportDocument document, PrestressActionsJsonModel? prestress)
     {
         if (prestress == null || prestress.Groups.Count == 0) return;
+        var groupRows = prestress.Groups.Select(group => (IReadOnlyList<string>)
+            [
+                group.Tag,
+                F(group.AreaM2),
+                Dimension(group.X),
+                Dimension(group.Y),
+                F(group.SigSp),
+                F(group.GammaSp),
+                F(group.SigActual),
+                F(group.SigLimit)
+            ]).ToList();
+
         document.Add(new ReportHeading(1, "Преднапряжение"))
             .Add(new ReportParagraph($"Точка отсчёта моментов: x = {Dimension(prestress.Reference.X)}, y = {Dimension(prestress.Reference.Y)}. Все действия: N — кН, Mx/My — кН·м."))
             .Add(new ReportTable(
@@ -366,18 +405,11 @@ public sealed class StrainStateReportProvider : IReportProvider
                     (IReadOnlyList<string>)["Фактическое", Force(prestress.Actual.N), Moment(prestress.Actual.Mx), Moment(prestress.Actual.My)]
                 ]))
             .Add(new ReportTable(
-                ["Группа", "A, м²", "x, м", "y, м", "σsp, МПа", "γsp", "σ фактическое, МПа", "σ предел, МПа"],
-                prestress.Groups.Select(group => (IReadOnlyList<string>)
-                [
-                    group.Tag,
-                    F(group.AreaM2),
-                    Dimension(group.X),
-                    Dimension(group.Y),
-                    F(group.SigSp),
-                    F(group.GammaSp),
-                    F(group.SigActual),
-                    F(group.SigLimit)
-                ]).ToList()));
+                ["Группа", "A, м²", "x, м", "y, м"],
+                groupRows.Select(row => (IReadOnlyList<string>)[row[0], row[1], row[2], row[3]]).ToList()))
+            .Add(new ReportTable(
+                ["Группа", "σsp, МПа", "γsp", "σфакт., МПа", "σпредел, МПа"],
+                groupRows.Select(row => (IReadOnlyList<string>)[row[0], row[4], row[5], row[6], row[7]]).ToList()));
         if (prestress.HasGroupsAboveStrength)
             document.Add(new ReportWarning("Для одной или нескольких групп преднапряжения заданное напряжение превышает расчётное сопротивление."));
     }
@@ -426,7 +458,7 @@ public sealed class StrainStateReportProvider : IReportProvider
                 double eps = fiber.Eps;
                 double sigmaMpa = fiber.Sig / 1000.0;
                 double eMpa = fiber.E > 0 ? fiber.E / 1000.0 : 0;
-                rows.Add(new ReportRebarRow(number++, area.Tag,
+                rows.Add(new ReportRebarRow(number++, area.Tag, area.Material?.Tag ?? "не задан",
                     fiber.X * 1000.0, fiber.Y * 1000.0, fiber.Diameter * 1000.0,
                     fiber.Area * 1e6, eps, sigmaMpa, eMpa));
             }
@@ -435,7 +467,7 @@ public sealed class StrainStateReportProvider : IReportProvider
     }
 
     static ReportRebarRow ToReportRebar(StrainStateRebarData row)
-        => new(row.Num, row.Group, row.Xmm, row.Ymm, row.DiameterMm, row.AreaMm2,
+        => new(row.Num, row.Group, row.Material, row.Xmm, row.Ymm, row.DiameterMm, row.AreaMm2,
             row.Eps, row.SigmaMpa,
             Math.Abs(row.Eps) > 1e-20 ? Math.Abs(row.SigmaMpa / row.Eps) : 0);
 
@@ -451,7 +483,7 @@ public sealed class StrainStateReportProvider : IReportProvider
         return new GeoProps(area);
     }
 
-    sealed record ReportRebarRow(int Num, string Group, double Xmm, double Ymm,
+    sealed record ReportRebarRow(int Num, string Group, string Material, double Xmm, double Ymm,
         double DiameterMm, double AreaMm2, double Eps, double SigmaMpa,
         double SecantModulusMpa);
 

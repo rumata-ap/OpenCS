@@ -32,4 +32,21 @@ public sealed class CalcpadWorksheetBuilderTests
         Assert.Contains("data:image/svg;base64,", docxCpd);
         Assert.Contains("data:image/svg+xml;base64,", pdfCpd);
     }
+
+    [Fact]
+    public void WorksheetBuilder_ConstrainsTablesAndImagesForPageExport()
+    {
+        var document = new ReportDocument("Отчёт")
+            .Add(new ReportTable(
+                ["№", "Группа", "Материал", "x, мм", "y, мм", "d, мм"],
+                [["1", "Нижняя", "A500", "120", "-180", "16"]]))
+            .Add(new ReportImage("Карта", "<svg width=\"900\" height=\"650\"></svg>"));
+
+        string cpd = new CalcpadWorksheetBuilder().Build(document, forDocx: true);
+
+        Assert.Contains("table-layout:fixed", cpd);
+        Assert.Contains("overflow-wrap:anywhere", cpd);
+        Assert.Contains("width=\"620\"", cpd);
+        Assert.Contains("height=\"448\"", cpd);
+    }
 }

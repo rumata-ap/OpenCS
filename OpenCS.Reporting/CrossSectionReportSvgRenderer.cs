@@ -38,6 +38,7 @@ public sealed class CrossSectionReportSvgRenderer
         svg.Append("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"900\" height=\"650\" viewBox=\"0 0 900 650\" role=\"img\">");
         svg.Append("<title>").Append(E(title)).AppendLine("</title>");
         svg.AppendLine("<rect width=\"100%\" height=\"100%\" fill=\"white\"/>");
+        DrawAxes(svg, Map, minX, maxX, minY, maxY);
 
         int areaIndex = 0;
         foreach (var area in areas)
@@ -76,7 +77,6 @@ public sealed class CrossSectionReportSvgRenderer
             }
         }
 
-        DrawAxes(svg, Map, minX, maxX, minY, maxY);
         svg.Append("<g font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"12\" fill=\"#334155\">")
             .Append("<text x=\"18\" y=\"28\" font-size=\"16\" font-weight=\"600\">")
             .Append(E(title)).AppendLine("</text>")
@@ -130,6 +130,40 @@ public sealed class CrossSectionReportSvgRenderer
     static void DrawAxes(StringBuilder svg, Func<double, double, (double X, double Y)> map,
         double minX, double maxX, double minY, double maxY)
     {
+        double xStep = NiceStep((maxX - minX) / 5.0);
+        double yStep = NiceStep((maxY - minY) / 5.0);
+        var bottomLeft = map(minX, minY);
+        var bottomRight = map(maxX, minY);
+        var topLeft = map(minX, maxY);
+
+        svg.Append("<g data-axis=\"x\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"10\" fill=\"#475569\">");
+        for (double x = FloorToStep(minX, xStep); x <= maxX + xStep * 0.5; x += xStep)
+        {
+            if (x < minX - xStep * 0.01) continue;
+            var point = map(x, minY);
+            svg.Append("<line x1=\"").Append(F(point.X)).Append("\" y1=\"").Append(F(topLeft.Y))
+                .Append("\" x2=\"").Append(F(point.X)).Append("\" y2=\"").Append(F(bottomLeft.Y))
+                .AppendLine("\" stroke=\"#e2e8f0\" stroke-width=\"0.8\"/>");
+            svg.Append("<text data-tick-label=\"x\" x=\"").Append(F(point.X)).Append("\" y=\"")
+                .Append(F(bottomLeft.Y + 16)).Append("\" text-anchor=\"middle\">")
+                .Append(FormatTick(x, xStep)).AppendLine("</text>");
+        }
+        svg.AppendLine("</g>");
+
+        svg.Append("<g data-axis=\"y\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"10\" fill=\"#475569\">");
+        for (double y = FloorToStep(minY, yStep); y <= maxY + yStep * 0.5; y += yStep)
+        {
+            if (y < minY - yStep * 0.01) continue;
+            var point = map(minX, y);
+            svg.Append("<line x1=\"").Append(F(bottomLeft.X)).Append("\" y1=\"").Append(F(point.Y))
+                .Append("\" x2=\"").Append(F(bottomRight.X)).Append("\" y2=\"").Append(F(point.Y))
+                .AppendLine("\" stroke=\"#e2e8f0\" stroke-width=\"0.8\"/>");
+            svg.Append("<text data-tick-label=\"y\" x=\"").Append(F(bottomLeft.X - 7)).Append("\" y=\"")
+                .Append(F(point.Y + 3)).Append("\" text-anchor=\"end\">")
+                .Append(FormatTick(y, yStep)).AppendLine("</text>");
+        }
+        svg.AppendLine("</g>");
+
         if (minY <= 0 && maxY >= 0)
         {
             var a = map(minX, 0); var b = map(maxX, 0);
@@ -144,6 +178,31 @@ public sealed class CrossSectionReportSvgRenderer
                 .Append("\" x2=\"").Append(F(b.X)).Append("\" y2=\"").Append(F(b.Y))
                 .AppendLine("\" stroke=\"#94a3b8\" stroke-width=\"1\"/>");
         }
+
+        double centerY = (topLeft.Y + bottomLeft.Y) / 2.0;
+        svg.Append("<g font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"12\" fill=\"#334155\">")
+            .Append("<text data-axis-title=\"x\" x=\"").Append(F((bottomLeft.X + bottomRight.X) / 2.0))
+            .Append("\" y=\"").Append(F(bottomLeft.Y + 35)).AppendLine("\" text-anchor=\"middle\">x, м</text>")
+            .Append("<text data-axis-title=\"y\" x=\"18\" y=\"").Append(F(centerY))
+            .Append("\" text-anchor=\"middle\" transform=\"rotate(-90 18 ").Append(F(centerY))
+            .AppendLine(")\">y, м</text></g>");
+    }
+
+    static double NiceStep(double raw)
+    {
+        if (!double.IsFinite(raw) || raw <= 1e-15) return 1;
+        double magnitude = Math.Pow(10, Math.Floor(Math.Log10(raw)));
+        double normalized = raw / magnitude;
+        double nice = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+        return nice * magnitude;
+    }
+
+    static double FloorToStep(double value, double step) => Math.Floor(value / step + 1e-10) * step;
+
+    static string FormatTick(double value, double step)
+    {
+        if (Math.Abs(value) < step * 1e-8) value = 0;
+        return value.ToString("G4", CultureInfo.InvariantCulture);
     }
 
     static string Fill(MatType type) => type switch

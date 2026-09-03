@@ -42,6 +42,7 @@ public sealed class MaterialDiagramSvgRenderer
         svg.Append("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"900\" height=\"520\" viewBox=\"0 0 900 520\" role=\"img\">");
         svg.Append("<title>").Append(E(title)).AppendLine("</title><rect width=\"100%\" height=\"100%\" fill=\"white\"/>");
         var origin = Map(0, 0);
+        DrawTicks(svg, Map, minX, maxX, minY, maxY);
         svg.Append("<line x1=\"").Append(F(PaddingLeft)).Append("\" y1=\"").Append(F(origin.Y))
             .Append("\" x2=\"").Append(F(Width - PaddingRight)).Append("\" y2=\"").Append(F(origin.Y))
             .AppendLine("\" stroke=\"#94a3b8\" stroke-width=\"1\"/>");
@@ -55,14 +56,55 @@ public sealed class MaterialDiagramSvgRenderer
         svg.Append("<g font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"12\" fill=\"#334155\">")
             .Append("<text x=\"18\" y=\"26\" font-size=\"16\" font-weight=\"600\">")
             .Append(E(title)).AppendLine("</text>")
-            .Append("<text x=\"").Append(F(Width - 145)).Append("\" y=\"").Append(F(origin.Y - 8)).AppendLine("\">ε</text>")
-            .Append("<text x=\"").Append(F(origin.X + 8)).Append("\" y=\"28\">σ, МПа</text>")
-            .Append("<text x=\"").Append(F(PaddingLeft + 8)).Append("\" y=\"").Append(F(Height - 22)).AppendLine("\">ε — безразмерная</text>")
+            .Append("<text data-axis-title=\"x\" x=\"").Append(F(PaddingLeft + plotWidth / 2))
+            .Append("\" y=\"").Append(F(Height - 10)).AppendLine("\" text-anchor=\"middle\">ε, безразмерная</text>")
+            .Append("<text data-axis-title=\"y\" x=\"18\" y=\"").Append(F(PaddingTop + plotHeight / 2))
+            .Append("\" text-anchor=\"middle\" transform=\"rotate(-90 18 ").Append(F(PaddingTop + plotHeight / 2))
+            .AppendLine(")\">σ, МПа</text>")
             .Append("<line x1=\"720\" y1=\"28\" x2=\"745\" y2=\"28\" stroke=\"#2563eb\" stroke-width=\"2.2\"/>")
             .Append("<text x=\"752\" y=\"32\">сжатие</text>")
             .Append("<line x1=\"720\" y1=\"48\" x2=\"745\" y2=\"48\" stroke=\"#dc2626\" stroke-width=\"2.2\"/>")
             .AppendLine("<text x=\"752\" y=\"52\">растяжение</text></g></svg>");
         return svg.ToString();
+    }
+
+    static void DrawTicks(StringBuilder svg, Func<double, double, (double X, double Y)> map,
+        double minX, double maxX, double minY, double maxY)
+    {
+        double xStep = NiceStep((maxX - minX) / 5.0);
+        double yStep = NiceStep((maxY - minY) / 5.0);
+        double xBottom = map(0, minY).Y;
+        double xTop = map(0, maxY).Y;
+        double yLeft = map(minX, 0).X;
+        double yRight = map(maxX, 0).X;
+
+        svg.Append("<g data-axis=\"x\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"10\" fill=\"#475569\">");
+        for (double x = FloorToStep(minX, xStep); x <= maxX + xStep * 0.5; x += xStep)
+        {
+            if (x < minX - xStep * 0.01) continue;
+            var point = map(x, minY);
+            svg.Append("<line x1=\"").Append(F(point.X)).Append("\" y1=\"").Append(F(xTop))
+                .Append("\" x2=\"").Append(F(point.X)).Append("\" y2=\"").Append(F(xBottom))
+                .AppendLine("\" stroke=\"#e2e8f0\" stroke-width=\"0.8\"/>");
+            svg.Append("<text data-tick-label=\"x\" x=\"").Append(F(point.X)).Append("\" y=\"")
+                .Append(F(xBottom + 16)).Append("\" text-anchor=\"middle\">")
+                .Append(FormatTick(x, xStep)).AppendLine("</text>");
+        }
+        svg.AppendLine("</g>");
+
+        svg.Append("<g data-axis=\"y\" font-family=\"Segoe UI,Arial,sans-serif\" font-size=\"10\" fill=\"#475569\">");
+        for (double y = FloorToStep(minY, yStep); y <= maxY + yStep * 0.5; y += yStep)
+        {
+            if (y < minY - yStep * 0.01) continue;
+            var point = map(minX, y);
+            svg.Append("<line x1=\"").Append(F(yLeft)).Append("\" y1=\"").Append(F(point.Y))
+                .Append("\" x2=\"").Append(F(yRight)).Append("\" y2=\"").Append(F(point.Y))
+                .AppendLine("\" stroke=\"#e2e8f0\" stroke-width=\"0.8\"/>");
+            svg.Append("<text data-tick-label=\"y\" x=\"").Append(F(yLeft - 7)).Append("\" y=\"")
+                .Append(F(point.Y + 3)).Append("\" text-anchor=\"end\">")
+                .Append(FormatTick(y, yStep)).AppendLine("</text>");
+        }
+        svg.AppendLine("</g>");
     }
 
     static List<(double X, double Y)> Sample(ISpline spline)
@@ -100,6 +142,23 @@ public sealed class MaterialDiagramSvgRenderer
         if (max - min >= 1e-15) return (min, max);
         double half = Math.Max(fallback, Math.Abs(min) + Math.Abs(max) + fallback) / 2.0;
         return (-half, half);
+    }
+
+    static double NiceStep(double raw)
+    {
+        if (!double.IsFinite(raw) || raw <= 1e-15) return 1;
+        double magnitude = Math.Pow(10, Math.Floor(Math.Log10(raw)));
+        double normalized = raw / magnitude;
+        double nice = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+        return nice * magnitude;
+    }
+
+    static double FloorToStep(double value, double step) => Math.Floor(value / step + 1e-10) * step;
+
+    static string FormatTick(double value, double step)
+    {
+        if (Math.Abs(value) < step * 1e-8) value = 0;
+        return value.ToString("G4", CultureInfo.InvariantCulture);
     }
 
     static string F(double value) => value.ToString("G8", CultureInfo.InvariantCulture);
