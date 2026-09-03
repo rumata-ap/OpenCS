@@ -1,6 +1,10 @@
-﻿using CScore;
+using CScore;
+using OpenCS.Reporting;
 using OpenCS.Services;
+using OpenCS.Utilites;
 using OpenCS.ViewModels;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Windows;
@@ -11,10 +15,19 @@ namespace OpenCS.Views
     public partial class CalcResultView : UserControl
     {
         SectionCutWindowService? _cutWindow;
+        readonly CalcResult _result;
+        readonly AppViewModel _app;
+        readonly CalcTask? _task;
+        readonly CrossSection? _section;
+        SectionPlotVM? _stressPlot;
+        SectionPlotVM? _strainPlot;
 
     public CalcResultView(CalcResult result, AppViewModel app)
     {
         var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
+        _result = result;
+        _app = app;
+        _task = task;
 
         if (task?.Kind == "opensees_section_moment_curvature")
         {
@@ -145,126 +158,173 @@ namespace OpenCS.Views
         }
 
         InitializeComponent();
+        ReportButton.Visibility = task?.Kind == "strain_state"
+            ? Visibility.Visible : Visibility.Collapsed;
 
-            var section = task != null
-                ? app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId)
-                : null;
+        var section = task != null
+            ? app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId)
+            : null;
+        _section = section;
 
-            if (section == null || task == null)
-            {
-                // Fallback: только сводка без графиков
-                SummaryView.DataContext = new FallbackSummaryVM(result);
-                Tabs.Items.RemoveAt(2);
-                Tabs.Items.RemoveAt(1);
-                return;
-            }
-
-            // Подготовить сечение: диаграммы + SetEps по плоскости из результата
-            section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
-                pool: app.Diagrams,
-                rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
-
-            var k = ParseKurvature(result.DataJson);
-            var settings = app.CalcSettings;
-            bool ten = settings.ResolveConcreteTension(task.CalcType);
-            section.SetEps(k, task.CalcType, ten);
-
-            SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, settings, ten);
-            var stressVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings, ten);
-            var strainVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings, ten);
-
-            var cutVm = new SectionCutVM(section, k, task.CalcType, app.FileDialogService, ten)
-            {
-                WindowTitleSuffix = $"{task.Tag} — {section.Tag}"
-            };
-            stressVm.CutVM = cutVm;
-            strainVm.CutVM = cutVm;
-
-            StressView.DataContext = stressVm;
-            StrainView.DataContext = strainVm;
-
-            _cutWindow = new SectionCutWindowService(settings);
-            _cutWindow.Bind(cutVm, SectionPlotMode.Stress);
-            Tabs.SelectionChanged += OnTabSelectionChanged;
-            Unloaded += (_, _) => _cutWindow?.Dispose();
-        }
-
-        void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+        if (section == null || task == null)
         {
-            if (Tabs.SelectedIndex == 1) _cutWindow?.UpdatePlotMode(SectionPlotMode.Stress);
-            else if (Tabs.SelectedIndex == 2) _cutWindow?.UpdatePlotMode(SectionPlotMode.Strain);
+            // Fallback: только сводка без графиков
+            ReportButton.Visibility = Visibility.Collapsed;
+            SummaryView.DataContext = new FallbackSummaryVM(result);
+            Tabs.Items.RemoveAt(2);
+            Tabs.Items.RemoveAt(1);
+            return;
         }
 
-        static Kurvature ParseKurvature(string dataJson)
+        // Подготовить сечение: диаграммы + SetEps по плоскости из результата
+        section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
+            pool: app.Diagrams,
+            rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram, ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
+
+        var k = ParseKurvature(result.DataJson);
+        var settings = app.CalcSettings;
+        bool ten = settings.ResolveConcreteTension(task.CalcType);
+        section.SetEps(k, task.CalcType, ten);
+
+        SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, settings, ten);
+        var stressVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings, ten);
+        var strainVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings, ten);
+        _stressPlot = stressVm;
+        _strainPlot = strainVm;
+
+        var cutVm = new SectionCutVM(section, k, task.CalcType, app.FileDialogService, ten)
         {
-            try
-            {
-                if (string.IsNullOrEmpty(dataJson)) return new Kurvature();
-                var doc  = JsonDocument.Parse(dataJson);
-                var root = doc.RootElement;
-                return new Kurvature
-                {
-                    e0 = root.TryGetProperty("e0", out var v) ? v.GetDouble() : 0,
-                    ky = root.TryGetProperty("ky", out v)     ? v.GetDouble() : 0,
-                    kz = root.TryGetProperty("kz", out v)     ? v.GetDouble() : 0,
-                };
-            }
-            catch { return new Kurvature(); } // защита от повреждённого JSON
-        }
+            WindowTitleSuffix = $"{task.Tag} — {section.Tag}"
+        };
+        stressVm.CutVM = cutVm;
+        strainVm.CutVM = cutVm;
+
+        StressView.DataContext = stressVm;
+        StrainView.DataContext = strainVm;
+
+        _cutWindow = new SectionCutWindowService(settings);
+        _cutWindow.Bind(cutVm, SectionPlotMode.Stress);
+        Tabs.SelectionChanged += OnTabSelectionChanged;
+        Unloaded += (_, _) => _cutWindow?.Dispose();
     }
 
-    /// <summary>Минимальный VM для случая когда сечение не найдено.</summary>
-    class FallbackSummaryVM
+    async void OnExportReportClick(object sender, RoutedEventArgs e)
     {
-        public string TaskTag     { get; }
-        public string CreatedText { get; }
-        public string StatusText  { get; }
-        public System.Windows.Media.Brush StatusBrush { get; }
-        public string Eps0Text  => "—";
-        public string KyText    => "—";
-        public string KzText    => "—";
-        public string NText     => "—";
-        public string MxText    => "—";
-        public string MyText    => "—";
-        public bool   EtaEnabled => false;
-        public string EtaModeText     => "—";
-        public string MxOriginalText  => "—";
-        public string MyOriginalText  => "—";
-        public string L0xText => "—"; public string HxText => "—";
-        public string SlendernessXText => "—"; public string DxText => "—"; public string NcrXText => "—";
-        public string EtaXText  => "—";
-        public string L0yText => "—"; public string HyText => "—";
-        public string SlendernessYText => "—"; public string DyText => "—"; public string NcrYText => "—";
-        public string EtaYText  => "—";
-        public bool   EtaUnstable => false;
-        public bool   EtaExtrapolationFailed => false;
-        public bool   ShowEtaTrajectory => false;
-        public string EtaXTrajectoryText => "—";
-        public string EtaYTrajectoryText => "—";
-        public bool   HasExtremes    => false;
-        public string EpsMinText     => "—";
-        public string EpsMaxText     => "—";
-        public bool   HasStiffness   => false;
-        public string XcText  => "—"; public string YcText  => "—";
-        public string EAText  => "—"; public string EIy0Text => "—";
-        public string EIz0Text => "—"; public string EIycText => "—";
-        public string EIzcText => "—";
-        public string EAelText => "—"; public string EIyelText => "—";
-        public string EIzelText => "—";
-        public string PhiEAText => "—"; public string PhiEIyText => "—";
-        public string PhiEIzText => "—";
-        public bool   HasRebar => false;
-        public System.Collections.ObjectModel.ObservableCollection<StrainSummaryVM.RebarRow>
-            RebarRows { get; } = [];
-        public string IterationsText => "—";
-        public string ResidualText   => "—";
+        if (_task?.Kind != "strain_state" || _stressPlot == null || _strainPlot == null)
+            return;
 
-        public FallbackSummaryVM(CalcResult r)
+        var outputPath = _app.FileDialogService.SaveFile(
+            Loc.S("ReportExportFileFilter"),
+            Loc.S("ReportExportDefaultExtension"),
+            Loc.S("ReportExportDialogTitle"));
+        if (string.IsNullOrWhiteSpace(outputPath))
+            return;
+
+        try
         {
-            TaskTag     = r.TaskTag;
-            CreatedText = r.Created;
-            StatusText  = r.Status;
-            StatusBrush = System.Windows.Media.Brushes.Gray;
+            var svgExporter = new SectionStateSvgExporter();
+            var document = new StrainStateReportProvider().Build(new ReportContext(
+                _task,
+                _result,
+                _section,
+                new Dictionary<string, string>
+                {
+                    ["stress"] = svgExporter.Render(_stressPlot, Loc.S("ReportStressMapTitle")),
+                    ["strain"] = svgExporter.Render(_strainPlot, Loc.S("ReportStrainMapTitle"))
+                }));
+
+            await new ReportExportService().ExportAsync(document, outputPath);
+            MessageBox.Show(Loc.S("ReportExportSuccess"), Loc.S("ReportExportInfo"),
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (FileNotFoundException)
+        {
+            MessageBox.Show(Loc.S("ReportCalcpadMissing"), Loc.S("ReportExportWarning"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(string.Format(Loc.S("ReportExportError"), ex.Message), Loc.S("ReportExportErrorTitle"),
+                MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
+
+    void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (Tabs.SelectedIndex == 1) _cutWindow?.UpdatePlotMode(SectionPlotMode.Stress);
+        else if (Tabs.SelectedIndex == 2) _cutWindow?.UpdatePlotMode(SectionPlotMode.Strain);
+    }
+
+    static Kurvature ParseKurvature(string dataJson)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(dataJson)) return new Kurvature();
+            var doc  = JsonDocument.Parse(dataJson);
+            var root = doc.RootElement;
+            return new Kurvature
+            {
+                e0 = root.TryGetProperty("e0", out var v) ? v.GetDouble() : 0,
+                ky = root.TryGetProperty("ky", out v)     ? v.GetDouble() : 0,
+                kz = root.TryGetProperty("kz", out v)     ? v.GetDouble() : 0,
+            };
+        }
+        catch { return new Kurvature(); } // защита от повреждённого JSON
+    }
+}
+
+/// <summary>Минимальный VM для случая когда сечение не найдено.</summary>
+class FallbackSummaryVM
+{
+    public string TaskTag     { get; }
+    public string CreatedText { get; }
+    public string StatusText  { get; }
+    public System.Windows.Media.Brush StatusBrush { get; }
+    public string Eps0Text  => "—";
+    public string KyText    => "—";
+    public string KzText    => "—";
+    public string NText     => "—";
+    public string MxText    => "—";
+    public string MyText    => "—";
+    public bool   EtaEnabled => false;
+    public string EtaModeText     => "—";
+    public string MxOriginalText  => "—";
+    public string MyOriginalText  => "—";
+    public string L0xText => "—"; public string HxText => "—";
+    public string SlendernessXText => "—"; public string DxText => "—"; public string NcrXText => "—";
+    public string EtaXText  => "—";
+    public string L0yText => "—"; public string HyText => "—";
+    public string SlendernessYText => "—"; public string DyText => "—"; public string NcrYText => "—";
+    public string EtaYText  => "—";
+    public bool   EtaUnstable => false;
+    public bool   EtaExtrapolationFailed => false;
+    public bool   ShowEtaTrajectory => false;
+    public string EtaXTrajectoryText => "—";
+    public string EtaYTrajectoryText => "—";
+    public bool   HasExtremes    => false;
+    public string EpsMinText     => "—";
+    public string EpsMaxText     => "—";
+    public bool   HasStiffness   => false;
+    public string XcText  => "—"; public string YcText  => "—";
+    public string EAText  => "—"; public string EIy0Text => "—";
+    public string EIz0Text => "—"; public string EIycText => "—";
+    public string EIzcText => "—";
+    public string EAelText => "—"; public string EIyelText => "—";
+    public string EIzelText => "—";
+    public string PhiEAText => "—"; public string PhiEIyText => "—";
+    public string PhiEIzText => "—";
+    public bool   HasRebar => false;
+    public System.Collections.ObjectModel.ObservableCollection<StrainSummaryVM.RebarRow>
+        RebarRows { get; } = [];
+    public string IterationsText => "—";
+    public string ResidualText   => "—";
+
+    public FallbackSummaryVM(CalcResult r)
+    {
+        TaskTag     = r.TaskTag;
+        CreatedText = r.Created;
+        StatusText  = r.Status;
+        StatusBrush = System.Windows.Media.Brushes.Gray;
+    }
+}
 }

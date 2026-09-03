@@ -415,6 +415,50 @@ namespace CScore
       };
 
       /// <summary>
+      /// Вычисляет вклад полигональной части области в секущую матрицу жёсткости
+      /// через интегрирование по контуру. Точечные фибры здесь не учитываются.
+      /// </summary>
+      public SecantStiffnessMatrix ContourSecantStiffness(
+         Kurvature k, CalcType calc, bool ten = true, bool ca = true)
+      {
+         var dgr = Diagramms[calc];
+         Func<double, double, double> epsFunc = (x, y) => k.e0 + k.ky * y + k.kz * x;
+         Func<double, double, double> eSec = (x, y) =>
+            SecantModulus(dgr, epsFunc(x, y), ten, ca);
+         double[] critEps = dgr.GetCriticalStrains();
+
+         var outer = Hull!.X.Take(Hull.X.Count - 1)
+                           .Zip(Hull.Y.Take(Hull.Y.Count - 1), (x, y) => (X: x, Y: y))
+                           .ToList();
+         IReadOnlyList<IReadOnlyList<(double X, double Y)>> holes =
+            Holes.Select(h => (IReadOnlyList<(double X, double Y)>)
+                    h.X.Take(h.X.Count - 1)
+                     .Zip(h.Y.Take(h.Y.Count - 1), (x, y) => (X: x, Y: y))
+                     .ToList())
+                 .ToList();
+
+         var gi = new GreenIntegrator(outer, holes);
+         var moments = gi.IntegrateMonomials(eSec, critEps, epsFunc);
+         return SecantStiffnessMatrix.FromWeightedIntegrals(
+            moments.A0, moments.Ax, moments.Ay,
+            moments.Axx, moments.Axy, moments.Ayy);
+      }
+
+      static double SecantModulus(Diagramm diagramm, double eps, bool ten, bool ca)
+      {
+         if (!double.IsFinite(eps)) return 0.0;
+         if (Math.Abs(eps) > 1e-20)
+            return diagramm.SigValue(eps, ten, ca) / eps;
+
+         double probe = eps < 0.0 ? -1e-12 : 1e-12;
+         double tangent;
+         double sigma = diagramm.Sig(probe, out tangent, ten, ca);
+         return Math.Abs(probe) > 0.0 && Math.Abs(sigma) > 1e-20
+            ? sigma / probe
+            : tangent;
+      }
+
+      /// <summary>
       /// Вычисляет (N, Mx, My) методом теоремы Грина по контуру области.
       /// Mx = ∬σ·y dA, My = ∬σ·x dA.
       /// Точечные фибры (арматура) не учитываются — только полигональная часть.

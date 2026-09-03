@@ -89,30 +89,8 @@ namespace CScore
             if (Residual < _tol) { Converged = true; break; }
 
             // Числовой Якобиан 3×3 (центральные разности)
-            double[,] J = new double[3, 3];
-            var axes = new[]
-            {
-               new Kurvature { e0 = _h },
-               new Kurvature { ky = _h },
-               new Kurvature { kz = _h },
-            };
-            for (int j = 0; j < 3; j++)
-            {
-               var fp = _evaluate(k + axes[j]);
-               if (_central)
-               {
-                  var fm = _evaluate(k - axes[j]);
-                  J[0, j] = (fp.N  - fm.N)  / (2 * _h);
-                  J[1, j] = (fp.Mx - fm.Mx) / (2 * _h);
-                  J[2, j] = (fp.My - fm.My) / (2 * _h);
-               }
-               else
-               {
-                  J[0, j] = (fp.N  - f0.N)  / _h;
-                  J[1, j] = (fp.Mx - f0.Mx) / _h;
-                  J[2, j] = (fp.My - f0.My) / _h;
-               }
-            }
+            var jacobian = EvaluateJacobian(k, f0);
+            double[,] J = jacobian.ToArray();
 
             // Решение 3×3 системы J·Δk = r методом Гаусса
             double[] rhs = [r0, r1, r2];
@@ -132,6 +110,47 @@ namespace CScore
          }
 
          return k;
+      }
+
+      /// <summary>
+      /// Вычисляет якобиан функции равновесия в заданной плоскости деформаций.
+      /// Строки имеют порядок [N, Mx, My], столбцы — [e0, ky, kz].
+      /// Используются те же функция оценки, шаг и схема разностей, что и в Solve.
+      /// </summary>
+      public NewtonJacobian EvaluateJacobian(Kurvature k)
+      {
+         return EvaluateJacobian(k, _evaluate(k));
+      }
+
+      NewtonJacobian EvaluateJacobian(Kurvature k, Load f0)
+      {
+         double[,] values = new double[3, 3];
+         var axes = new[]
+         {
+            new Kurvature { e0 = _h },
+            new Kurvature { ky = _h },
+            new Kurvature { kz = _h },
+         };
+
+         for (int column = 0; column < 3; column++)
+         {
+            var fp = _evaluate(k + axes[column]);
+            if (_central)
+            {
+               var fm = _evaluate(k - axes[column]);
+               values[0, column] = (fp.N  - fm.N)  / (2 * _h);
+               values[1, column] = (fp.Mx - fm.Mx) / (2 * _h);
+               values[2, column] = (fp.My - fm.My) / (2 * _h);
+            }
+            else
+            {
+               values[0, column] = (fp.N  - f0.N)  / _h;
+               values[1, column] = (fp.Mx - f0.Mx) / _h;
+               values[2, column] = (fp.My - f0.My) / _h;
+            }
+         }
+
+         return new NewtonJacobian(values, _h, _central);
       }
 
       /// <summary>

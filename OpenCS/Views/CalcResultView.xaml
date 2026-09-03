@@ -3,15 +3,29 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:OpenCS.Views">
 
-   <TabControl x:Name="Tabs">
-      <TabItem Header="{DynamicResource ResultTabSummary}">
-         <local:StrainSummaryView x:Name="SummaryView"/>
-      </TabItem>
-      <TabItem Header="{DynamicResource ResultTabStress}">
-         <local:SectionPlotView x:Name="StressView"/>
-      </TabItem>
-      <TabItem Header="{DynamicResource ResultTabStrain}">
-         <local:SectionPlotView x:Name="StrainView"/>
-      </TabItem>
-   </TabControl>
+   <Grid>
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="8,6,8,4">
+         <Button x:Name="ReportButton"
+                 Content="{DynamicResource ReportExportButton}"
+                 Padding="14,5"
+                 Click="OnExportReportClick"/>
+      </StackPanel>
+
+      <TabControl x:Name="Tabs" Grid.Row="1">
+         <TabItem Header="{DynamicResource ResultTabSummary}">
+            <local:StrainSummaryView x:Name="SummaryView"/>
+         </TabItem>
+         <TabItem Header="{DynamicResource ResultTabStress}">
+            <local:SectionPlotView x:Name="StressView"/>
+         </TabItem>
+         <TabItem Header="{DynamicResource ResultTabStrain}">
+            <local:SectionPlotView x:Name="StrainView"/>
+         </TabItem>
+      </TabControl>
+   </Grid>
 </UserControl>
