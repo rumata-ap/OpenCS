@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <CalcpadCEProject>$(MSBuildThisFileDirectory)..\ThirdParty\CalcpadCE\Calcpad.Cli\Calcpad.Cli.csproj</CalcpadCEProject>
+    <CalcpadCEPublishDir Condition="'$(PublishDir)' != ''">$(PublishDir)Reporting\CalcpadCE</CalcpadCEPublishDir>
+    <CalcpadCEPublishDir Condition="'$(PublishDir)' == ''">$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\publish\Reporting\CalcpadCE</CalcpadCEPublishDir>
+  </PropertyGroup>
+
+  <Target Name="PublishCalcpadCESidecar"
+          AfterTargets="Publish"
+          Condition="'$(PublishCalcpadCE)' != 'false' and Exists('$(CalcpadCEProject)')">
+    <Exec Command="dotnet publish &quot;$(CalcpadCEProject)&quot; --configuration &quot;$(Configuration)&quot; --runtime win-x64 --self-contained true --output &quot;$(CalcpadCEPublishDir)&quot; -p:PublishSingleFile=true -p:PublishTrimmed=false" />
+  </Target>
+</Project>

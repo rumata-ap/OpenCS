@@ -2766,4 +2766,16 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StirrupErrorNoSelection">Не выбран элемент.</system:String>
     <system:String x:Key="StirrupErrorBuild">Не удалось построить элемент.</system:String>
     <system:String x:Key="StirrupTagFormat">Хомуты {0}</system:String>
+    <system:String x:Key="ReportExportButton">Сформировать отчёт</system:String>
+    <system:String x:Key="ReportExportDialogTitle">Сохранить отчёт расчёта</system:String>
+    <system:String x:Key="ReportExportFileFilter">Отчёт HTML (*.html)|*.html|Документ Word (*.docx)|*.docx|PDF (*.pdf)|*.pdf</system:String>
+    <system:String x:Key="ReportExportDefaultExtension">.html</system:String>
+    <system:String x:Key="ReportExportSuccess">Отчёт сохранён.</system:String>
+    <system:String x:Key="ReportExportError">Не удалось сформировать отчёт: {0}</system:String>
+    <system:String x:Key="ReportExportInfo">Информация</system:String>
+    <system:String x:Key="ReportExportWarning">Предупреждение</system:String>
+    <system:String x:Key="ReportExportErrorTitle">Ошибка</system:String>
+    <system:String x:Key="ReportCalcpadMissing">CalcpadCE не найден в опубликованной сборке. HTML можно сохранить без него.</system:String>
+    <system:String x:Key="ReportStressMapTitle">Карта напряжений σ</system:String>
+    <system:String x:Key="ReportStrainMapTitle">Карта деформаций ε</system:String>
   </ResourceDictionary>

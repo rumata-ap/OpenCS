@@ -94,6 +94,10 @@ namespace OpenCS.Tasks
             var k      = solver.Solve(nTarget, mxTarget, myTarget);
             var result = section.Integral(k, task.CalcType, ten);
             var prestress = section.PrestressActions(null, task.CalcType, ten);
+            var stiffness = section.CalculateSecantStiffness(k, task.CalcType, ten);
+            var jacobian = solver.EvaluateJacobian(k);
+            section.SetEps(k, task.CalcType, ten);
+            var extrema = CalculateExtrema(section);
 
             var data = new
             {
@@ -109,6 +113,43 @@ namespace OpenCS.Tasks
                N_result   = Math.Round(result.N,  4),
                Mx_result  = Math.Round(result.Mx, 4),
                My_result  = Math.Round(result.My, 4),
+               formula_version = "SP63.13330.2021/8.1",
+               stiffness = new
+               {
+                  source = stiffness.Source,
+                  d11 = SafeRound(stiffness.Matrix.D11),
+                  d12 = SafeRound(stiffness.Matrix.D12),
+                  d13 = SafeRound(stiffness.Matrix.D13),
+                  d21 = SafeRound(stiffness.Matrix.D21),
+                  d22 = SafeRound(stiffness.Matrix.D22),
+                  d23 = SafeRound(stiffness.Matrix.D23),
+                  d31 = SafeRound(stiffness.Matrix.D31),
+                  d32 = SafeRound(stiffness.Matrix.D32),
+                  d33 = SafeRound(stiffness.Matrix.D33)
+               },
+               jacobian = new
+               {
+                  rows = jacobian.Rows,
+                  columns = jacobian.Columns,
+                  scheme = jacobian.Scheme,
+                  h = SafeRound(jacobian.Step, 12),
+                  values = jacobian.Values
+                     .Select(row => row.Select(value => SafeRound(value, 12)).ToArray())
+                     .ToArray()
+               },
+               equilibrium = new
+               {
+                  n = SafeRound(result.N),
+                  mx = SafeRound(result.Mx),
+                  my = SafeRound(result.My)
+               },
+               extrema = new
+               {
+                  eps_b_min = SafeRound(extrema.ConcreteMin, 12),
+                  eps_b_max = SafeRound(extrema.ConcreteMax, 12),
+                  eps_s_min = SafeRound(extrema.SteelMin, 12),
+                  eps_s_max = SafeRound(extrema.SteelMax, 12)
+               },
                prestress  = PrestressActionsJsonModel.From(prestress),
                eta        = etaData
             };
@@ -137,5 +178,31 @@ namespace OpenCS.Tasks
             };
          }
       }
+
+      static (double ConcreteMin, double ConcreteMax, double SteelMin, double SteelMax)
+         CalculateExtrema(CrossSection section)
+      {
+         var concrete = new List<double>();
+         var steel = new List<double>();
+         foreach (var area in section.Areas)
+         {
+            if (!MaterialArea.IsCalcActive(area)) continue;
+            var values = area.Fibers.Select(f => f.Eps + f.Eps_p);
+            if (area.Hull != null)
+               values = values.Concat(area.Hull.Points.Select(p => p.Eps + p.Eps_p));
+
+            var target = area.Material?.Type == MatType.Concrete ? concrete : steel;
+            target.AddRange(values.Where(double.IsFinite));
+         }
+
+         return (
+            concrete.Count > 0 ? concrete.Min() : 0.0,
+            concrete.Count > 0 ? concrete.Max() : 0.0,
+            steel.Count > 0 ? steel.Min() : 0.0,
+            steel.Count > 0 ? steel.Max() : 0.0);
+      }
+
+      static double SafeRound(double value, int digits = 8)
+         => double.IsFinite(value) ? Math.Round(value, digits) : 0.0;
    }
 }
