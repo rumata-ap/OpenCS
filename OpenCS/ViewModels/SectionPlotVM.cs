@@ -47,7 +47,8 @@ namespace OpenCS.ViewModels
         string Tooltip,
         double Sigma,      // σ [МПа], всегда
         double Eps,        // деформация, всегда
-        double AreaMm2);   // площадь стержня [мм²]
+        double AreaMm2,    // площадь стержня [мм²]
+        string Group);     // тег области-группы (для сопоставления с таблицей арматуры отчёта)
 
     /// <summary>Полоса дискретной цветовой шкалы для колорбара.</summary>
     public record ColorBand(System.Windows.Media.Brush Brush, string Label);
@@ -344,7 +345,7 @@ namespace OpenCS.ViewModels
                     rebar.Add(new RebarDrawData(
                         new Point(f.X * 1000, f.Y * 1000),
                         f.Diameter / 2.0 * 1000,
-                        val, tip, rSigMpa, f.Eps, rAreaMm2));
+                        val, tip, rSigMpa, f.Eps, rAreaMm2, area.Tag));
                     // Центр тяжести НДС
                     double centroidSigMpa = effectiveRebarStressKpa?.Invoke(f) / 1000.0 ?? rSigMpa;
                     double centroidEps = effectiveRebarStrain?.Invoke(f) ?? fiberEps;

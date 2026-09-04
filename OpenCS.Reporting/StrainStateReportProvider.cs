@@ -101,62 +101,69 @@ public sealed class StrainStateReportProvider : IReportProvider
             .Add(new ReportHeading(1, "Плоскость деформаций"))
             .Add(new ReportFormula(
                 "(8.29)",
-                "ε_bi = ε₀ + ky·y_bi + kz·x_bi",
-                $"ε₀ = {F(data.E0)}; ky = {Curvature(data.Ky)}; kz = {Curvature(data.Kz)}",
-                $"бетон: εmin = {F(data.Extrema.ConcreteMin)}, εmax = {F(data.Extrema.ConcreteMax)}"))
+                $"{Sub("ε", "bi")} = {Sub("ε", "0")} + {Sub("κ", "y")}·{Sub("y", "bi")} + {Sub("κ", "z")}·{Sub("x", "bi")}",
+                $"{Sub("ε", "0")} = {F(data.E0)}; {Sub("κ", "y")} = {Curvature(data.Ky)}; {Sub("κ", "z")} = {Curvature(data.Kz)}",
+                $"бетон: {Sub("ε", "min")} = {F(data.Extrema.ConcreteMin)}, {Sub("ε", "max")} = {F(data.Extrema.ConcreteMax)}"))
             .Add(new ReportFormula(
                 "(8.30)",
-                "ε_si = ε₀ + ky·y_si + kz·x_si",
-                $"ε₀ = {F(data.E0)}; ky = {Curvature(data.Ky)}; kz = {Curvature(data.Kz)}",
-                $"арматура: εmin = {F(data.Extrema.SteelMin)}, εmax = {F(data.Extrema.SteelMax)}"))
+                $"{Sub("ε", "si")} = {Sub("ε", "0")} + {Sub("κ", "y")}·{Sub("y", "si")} + {Sub("κ", "z")}·{Sub("x", "si")}",
+                $"{Sub("ε", "0")} = {F(data.E0)}; {Sub("κ", "y")} = {Curvature(data.Ky)}; {Sub("κ", "z")} = {Curvature(data.Kz)}",
+                $"арматура: {Sub("ε", "min")} = {F(data.Extrema.SteelMin)}, {Sub("ε", "max")} = {F(data.Extrema.SteelMax)}"))
             .Add(new ReportFormula(
-                "(8.31)", "σ_bi = E_b·ν_b·ε_bi",
+                "(8.31)", $"{Sub("σ", "bi")} = {Sub("E", "b")}·{Sub("ν", "b")}·{Sub("ε", "bi")}",
                 "напряжение бетона определяется диаграммой σ(ε)",
                 "учтено в интеграле равновесия"))
             .Add(new ReportFormula(
-                "(8.32)", "σ_si = E_s·ν_s·ε_si",
+                "(8.32)", $"{Sub("σ", "si")} = {Sub("E", "s")}·{Sub("ν", "s")}·{Sub("ε", "si")}",
                 "напряжение арматуры определяется диаграммой σ(ε)",
                 "учтено в интеграле равновесия"))
             .Add(new ReportFormula(
-                "(8.35)–(8.36)", "ν_b = σ_b/(E_b·ε_b);  ν_s = σ_s/(E_s·ε_s)",
+                "(8.35)–(8.36)",
+                $"{Sub("ν", "b")} = {Sub("σ", "b")}/({Sub("E", "b")}·{Sub("ε", "b")});  {Sub("ν", "s")} = {Sub("σ", "s")}/({Sub("E", "s")}·{Sub("ε", "s")})",
                 "коэффициенты определяются текущим участком диаграммы",
                 "использованы текущие секущие модули"))
             .Add(new ReportFormula(
-                "(8.37)–(8.38)", "ε_b,min ≤ ε_bi ≤ ε_b,max;  ε_s,min ≤ ε_si ≤ ε_s,max",
+                "(8.37)–(8.38)",
+                $"{Sub("ε", "b,min")} ≤ {Sub("ε", "bi")} ≤ {Sub("ε", "b,max")};  {Sub("ε", "s,min")} ≤ {Sub("ε", "si")} ≤ {Sub("ε", "s,max")}",
                 "предельные деформации задаются характеристиками материалов",
                 "проверка выполняется по диаграммам материалов"));
 
         document
             .Add(new ReportHeading(1, "Проверка равновесия"))
             .Add(new ReportFormula(
-                "(8.26)", "Mx = Σ(σ_b·A_b·y_b) + Σ(σ_s·A_s·y_s)",
-                $"Mx = {F(data.ResultMx)}",
-                $"Mx = {F(data.Equilibrium.Mx)} кН·м"))
+                "(8.26)",
+                $"{Sub("M", "x")} = Σ({Sub("σ", "b")}·{Sub("A", "b")}·{Sub("y", "b")}) + Σ({Sub("σ", "s")}·{Sub("A", "s")}·{Sub("y", "s")})",
+                $"{Sub("M", "x")} = {F(data.ResultMx)}",
+                $"{Sub("M", "x")} = {F(data.Equilibrium.Mx)} кН·м"))
             .Add(new ReportFormula(
-                "(8.27)", "My = Σ(σ_b·A_b·x_b) + Σ(σ_s·A_s·x_s)",
-                $"My = {F(data.ResultMy)}",
-                $"My = {F(data.Equilibrium.My)} кН·м"))
+                "(8.27)",
+                $"{Sub("M", "y")} = Σ({Sub("σ", "b")}·{Sub("A", "b")}·{Sub("x", "b")}) + Σ({Sub("σ", "s")}·{Sub("A", "s")}·{Sub("x", "s")})",
+                $"{Sub("M", "y")} = {F(data.ResultMy)}",
+                $"{Sub("M", "y")} = {F(data.Equilibrium.My)} кН·м"))
             .Add(new ReportFormula(
-                "(8.28)", "N = Σ(σ_b·A_b) + Σ(σ_s·A_s)",
+                "(8.28)", $"N = Σ({Sub("σ", "b")}·{Sub("A", "b")}) + Σ({Sub("σ", "s")}·{Sub("A", "s")})",
                 $"N = {F(data.ResultN)}",
                 $"N = {F(data.Equilibrium.N)} кН"));
 
         var d = data.Stiffness;
         document
             .Add(new ReportHeading(1, "Матрица жёсткости по СП 63"))
-            .Add(new ReportParagraph($"Источник интегрирования: {d.Source}. Порядок матрицы: [Mx, My, N] × [ky, kz, ε₀]."))
-            .Add(new ReportParagraph("Размерности D: D11, D12, D22 — кН·м²; D13, D23 — кН·м; D33 — кН. Поэтому произведения D·[ky, kz, ε₀] дают соответственно [кН·м, кН·м, кН]."))
+            .Add(new ReportParagraph($"Источник интегрирования: {d.Source}. Порядок матрицы: [Mx, My, N] × [κy, κz, ε₀]."))
+            .Add(new ReportParagraph("Размерности D: D11, D12, D22 — кН·м²; D13, D23 — кН·м; D33 — кН. Поэтому произведения D·[κy, κz, ε₀] дают соответственно [кН·м, кН·м, кН]."))
             .Add(new ReportFormula(
-                "(8.39)", "Mx = D11·ky + D12·kz + D13·ε₀",
-                $"Mx = {F(d.D11)}·ky + {F(d.D12)}·kz + {F(d.D13)}·ε₀",
-                $"Mx = {F(data.Equilibrium.Mx)} кН·м"))
+                "(8.39)",
+                $"{Sub("M", "x")} = {Sub("D", "11")}·{Sub("κ", "y")} + {Sub("D", "12")}·{Sub("κ", "z")} + {Sub("D", "13")}·{Sub("ε", "0")}",
+                $"{Sub("M", "x")} = {F(d.D11)}·{Sub("κ", "y")} + {F(d.D12)}·{Sub("κ", "z")} + {F(d.D13)}·{Sub("ε", "0")}",
+                $"{Sub("M", "x")} = {F(data.Equilibrium.Mx)} кН·м"))
             .Add(new ReportFormula(
-                "(8.40)", "My = D12·ky + D22·kz + D23·ε₀",
-                $"My = {F(d.D12)}·ky + {F(d.D22)}·kz + {F(d.D23)}·ε₀",
-                $"My = {F(data.Equilibrium.My)} кН·м"))
+                "(8.40)",
+                $"{Sub("M", "y")} = {Sub("D", "12")}·{Sub("κ", "y")} + {Sub("D", "22")}·{Sub("κ", "z")} + {Sub("D", "23")}·{Sub("ε", "0")}",
+                $"{Sub("M", "y")} = {F(d.D12)}·{Sub("κ", "y")} + {F(d.D22)}·{Sub("κ", "z")} + {F(d.D23)}·{Sub("ε", "0")}",
+                $"{Sub("M", "y")} = {F(data.Equilibrium.My)} кН·м"))
             .Add(new ReportFormula(
-                "(8.41)", "N = D13·ky + D23·kz + D33·ε₀",
-                $"N = {F(d.D13)}·ky + {F(d.D23)}·kz + {F(d.D33)}·ε₀",
+                "(8.41)",
+                $"N = {Sub("D", "13")}·{Sub("κ", "y")} + {Sub("D", "23")}·{Sub("κ", "z")} + {Sub("D", "33")}·{Sub("ε", "0")}",
+                $"N = {F(d.D13)}·{Sub("κ", "y")} + {F(d.D23)}·{Sub("κ", "z")} + {F(d.D33)}·{Sub("ε", "0")}",
                 $"N = {F(data.Equilibrium.N)} кН"))
             .Add(new ReportTable(
                 ["Элемент", "Формула СП 63", "Результат"],
@@ -169,31 +176,37 @@ public sealed class StrainStateReportProvider : IReportProvider
                     (IReadOnlyList<string>)["D33", "Σ(E_bν_bA_b) + Σ(E_sν_sA_s)", F(d.D33)]
                 ]))
             .Add(new ReportFormula(
-                "(8.42)", "D11 = Σ(E_bν_bA_by_b²) + Σ(E_sν_sA_sy_s²)",
-                $"источник: {d.Source}", $"D11 = {F(d.D11)}"))
+                "(8.42)",
+                $"{Sub("D", "11")} = Σ({Sub("E", "b")}{Sub("ν", "b")}{Sub("A", "b")}{Sup(Sub("y", "b"), "2")}) + Σ({Sub("E", "s")}{Sub("ν", "s")}{Sub("A", "s")}{Sup(Sub("y", "s"), "2")})",
+                $"источник: {d.Source}", $"{Sub("D", "11")} = {F(d.D11)}"))
             .Add(new ReportFormula(
-                "(8.43)", "D12 = Σ(E_bν_bA_bx_by) + Σ(E_sν_sA_sx_sy)",
-                $"источник: {d.Source}", $"D12 = {F(d.D12)}"))
+                "(8.43)",
+                $"{Sub("D", "12")} = Σ({Sub("E", "b")}{Sub("ν", "b")}{Sub("A", "b")}{Sub("x", "b")}{Sub("y", "b")}) + Σ({Sub("E", "s")}{Sub("ν", "s")}{Sub("A", "s")}{Sub("x", "s")}{Sub("y", "s")})",
+                $"источник: {d.Source}", $"{Sub("D", "12")} = {F(d.D12)}"))
             .Add(new ReportFormula(
-                "(8.44)", "D13 = Σ(E_bν_bA_by) + Σ(E_sν_sA_sy)",
-                $"источник: {d.Source}", $"D13 = {F(d.D13)}"))
+                "(8.44)",
+                $"{Sub("D", "13")} = Σ({Sub("E", "b")}{Sub("ν", "b")}{Sub("A", "b")}{Sub("y", "b")}) + Σ({Sub("E", "s")}{Sub("ν", "s")}{Sub("A", "s")}{Sub("y", "s")})",
+                $"источник: {d.Source}", $"{Sub("D", "13")} = {F(d.D13)}"))
             .Add(new ReportFormula(
-                "(8.45)", "D22 = Σ(E_bν_bA_bx²) + Σ(E_sν_sA_sx²)",
-                $"источник: {d.Source}", $"D22 = {F(d.D22)}"))
+                "(8.45)",
+                $"{Sub("D", "22")} = Σ({Sub("E", "b")}{Sub("ν", "b")}{Sub("A", "b")}{Sup(Sub("x", "b"), "2")}) + Σ({Sub("E", "s")}{Sub("ν", "s")}{Sub("A", "s")}{Sup(Sub("x", "s"), "2")})",
+                $"источник: {d.Source}", $"{Sub("D", "22")} = {F(d.D22)}"))
             .Add(new ReportFormula(
-                "(8.46)", "D23 = Σ(E_bν_bA_bx) + Σ(E_sν_sA_sx)",
-                $"источник: {d.Source}", $"D23 = {F(d.D23)}"))
+                "(8.46)",
+                $"{Sub("D", "23")} = Σ({Sub("E", "b")}{Sub("ν", "b")}{Sub("A", "b")}{Sub("x", "b")}) + Σ({Sub("E", "s")}{Sub("ν", "s")}{Sub("A", "s")}{Sub("x", "s")})",
+                $"источник: {d.Source}", $"{Sub("D", "23")} = {F(d.D23)}"))
             .Add(new ReportFormula(
-                "(8.47)", "D33 = Σ(E_bν_bA_b) + Σ(E_sν_sA_s)",
-                $"источник: {d.Source}", $"D33 = {F(d.D33)}"));
+                "(8.47)",
+                $"{Sub("D", "33")} = Σ({Sub("E", "b")}{Sub("ν", "b")}{Sub("A", "b")}) + Σ({Sub("E", "s")}{Sub("ν", "s")}{Sub("A", "s")})",
+                $"источник: {d.Source}", $"{Sub("D", "33")} = {F(d.D33)}"));
 
         var j = data.Jacobian;
         document
             .Add(new ReportHeading(1, "Якобиан Ньютона"))
             .Add(new ReportParagraph($"Строки: [{string.Join(", ", j.Rows)}]; столбцы: [{string.Join(", ", j.Columns)}]; схема: {j.Scheme}; h = {F(j.Step)}."))
-            .Add(new ReportParagraph("Размерности якобиана: строки N — кН, Mx/My — кН·м; столбцы ε₀ — безразмерный, ky/kz — 1/м. Размерность каждой производной определяется парой строки и столбца."))
+            .Add(new ReportParagraph("Размерности якобиана: строки N — кН, Mx/My — кН·м; столбцы ε₀ — безразмерный, κy/κz — 1/м. Размерность каждой производной определяется парой строки и столбца."))
             .Add(new ReportTable(
-                ["", "e0", "ky", "kz"],
+                ["", "ε₀", "κy", "κz"],
                 JacobianRows(j)));
 
         AddExtendedSummary(document, context, data, new Kurvature
@@ -220,7 +233,7 @@ public sealed class StrainStateReportProvider : IReportProvider
         document.Add(new ReportHeading(1, "Сводка результата"))
             .Add(new ReportKeyValueTable(
             [
-                ("Плоскость деформаций", $"ε₀ = {F(data.E0)}; ky = {Curvature(data.Ky)}; kz = {Curvature(data.Kz)}"),
+                ("Плоскость деформаций", $"ε₀ = {F(data.E0)}; κy = {Curvature(data.Ky)}; κz = {Curvature(data.Kz)}"),
                 ("Бетон, εmin…εmax", $"{F(data.Extrema.ConcreteMin)} … {F(data.Extrema.ConcreteMax)}"),
                 ("Арматура, εmin…εmax", $"{F(data.Extrema.SteelMin)} … {F(data.Extrema.SteelMax)}"),
                 ("Сходимость", $"{data.Iterations} итераций; невязка {Force(data.Residual)}"),
@@ -514,4 +527,12 @@ public sealed class StrainStateReportProvider : IReportProvider
     static string Curvature(double value) => $"{F(value)} 1/м";
     static string Dimension(double value) => $"{F(value)} м";
     static string ValueOrDash(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value;
+
+    // Математическая нотация формул СП 63: греческие буквы + настоящие HTML-индексы
+    // (не подчёркивание). ReportFormula.Formula/Substitution/Result рендерятся как
+    // доверенный HTML (см. HtmlReportRenderer) — обёрнуты в <p>, а не <div>, потому что
+    // CalcpadCE's DOCX-конвертер иначе разбивает строку со смешанным инлайн-содержимым
+    // на отдельные абзацы на каждой границе тега (проверено эмпирически через CalcpadCE CLI).
+    static string Sub(string symbol, string sub) => $"{symbol}<sub>{sub}</sub>";
+    static string Sup(string symbol, string sup) => $"{symbol}<sup>{sup}</sup>";
 }

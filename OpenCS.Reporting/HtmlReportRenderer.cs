@@ -54,11 +54,17 @@ public sealed class HtmlReportRenderer
                 RenderTable(html, table);
                 break;
             case ReportFormula formula:
+                // Formula/Substitution/Result содержат доверенную HTML-разметку (<sub>/<sup> для
+                // индексов и степеней СП 63), собранную поставщиком отчёта, — не экранируются.
+                // Обёртка каждой строки — <p>, а не <div>: CalcpadCE's DOCX-конвертер разбивает
+                // <div> со смешанным инлайн-содержимым (текст + <sub>/<sup>) на отдельные <w:p>
+                // на каждой границе тега (формула расползается на десятки строк в Word), а для
+                // <p> корректно собирает один <w:p> с несколькими <w:r> — проверено эмпирически.
                 html.AppendLine("<section class=\"formula\">");
-                html.Append("<div class=\"formula-ref\">").Append(E(formula.Reference)).AppendLine("</div>");
-                html.Append("<div class=\"formula-expression\">").Append(E(formula.Formula)).AppendLine("</div>");
-                html.Append("<div class=\"formula-substitution\">").Append(E(formula.Substitution)).AppendLine("</div>");
-                html.Append("<div class=\"formula-result\">").Append(E(formula.Result)).AppendLine("</div>");
+                html.Append("<p class=\"formula-ref\">").Append(E(formula.Reference)).AppendLine("</p>");
+                html.Append("<p class=\"formula-expression\">").Append(formula.Formula).AppendLine("</p>");
+                html.Append("<p class=\"formula-substitution\">").Append(formula.Substitution).AppendLine("</p>");
+                html.Append("<p class=\"formula-result\">").Append(formula.Result).AppendLine("</p>");
                 html.AppendLine("</section>");
                 break;
             case ReportImage image:
@@ -189,8 +195,10 @@ public sealed class HtmlReportRenderer
         .report-table.compact { font-size:11px; } .key-values { table-layout:auto; }
         thead th { background:#eaf2f9; color:#16324f; } .key-values th { width:34%; background:var(--soft); }
         .formula { margin:13px 0; padding:11px 14px; border-left:4px solid var(--accent); background:var(--soft); page-break-inside:avoid; }
-        .formula-ref { float:right; color:var(--muted); font-weight:600; } .formula-expression { font:16px Georgia, serif; margin-bottom:7px; }
-        .formula-substitution { color:#475569; } .formula-result { margin-top:4px; color:#075985; font-weight:700; }
+        .formula-ref { float:right; margin:0; color:var(--muted); font-weight:600; } .formula-expression { font:16px Georgia, serif; margin:0 0 7px; }
+        .formula-expression sub, .formula-substitution sub, .formula-result sub,
+        .formula-expression sup, .formula-substitution sup, .formula-result sup { font-size:.72em; }
+        .formula-substitution { margin:0; color:#475569; } .formula-result { margin:4px 0 0; color:#075985; font-weight:700; }
         .report-image { max-width:100%; margin:18px 0; text-align:center; page-break-inside:avoid; overflow:hidden; } .report-image img { display:block; max-width:100%; height:auto; max-height:115mm; margin:0 auto; }
         figcaption { color:var(--muted); font-size:12px; margin-top:4px; } .warning { padding:10px 12px; border:1px solid #f2c36b; background:#fff7df; color:#7c4a03; margin:12px 0; }
         .page-break { break-before:page; page-break-before:always; }

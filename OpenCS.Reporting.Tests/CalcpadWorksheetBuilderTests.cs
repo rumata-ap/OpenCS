@@ -17,7 +17,7 @@ public sealed class CalcpadWorksheetBuilderTests
         Assert.Contains("D11", cpd);
         Assert.DoesNotContain("\nD11 =", cpd);
         Assert.Contains("'<div class=\"formula\">'", cpd);
-        Assert.Contains("'<div class=\"formula-ref\">(8.42)</div>'", cpd);
+        Assert.Contains("'<p class=\"formula-ref\">(8.42)</p>'", cpd);
     }
 
     [Fact]
