@@ -41,6 +41,19 @@ namespace OpenCS
       /// и удаления доменных объектов. Доступен внутри сборки для дочерних ViewModel.
       /// </summary>
       internal DatabaseService db = null!;
+
+      /// <summary>
+      /// Реестр поставщиков отчётов. Новый тип отчёта добавляется реализацией
+      /// <see cref="OpenCS.Reporting.IReportProvider"/> и включением его в этот список.
+      /// </summary>
+      public OpenCS.Reporting.ReportProviderRegistry ReportProviders { get; } =
+         new([new OpenCS.Reporting.StrainStateReportProvider()]);
+
+      /// <summary>
+      /// Движок документирования уровня приложения: печать PDF и растеризация SVG для DOCX.
+      /// Освобождается асинхронно при закрытии главного окна.
+      /// </summary>
+      public OpenCS.Services.WebView2ReportRenderer WebRenderer { get; } = new();
       readonly string databasePath;
 
       /// <summary>

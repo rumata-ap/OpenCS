@@ -255,12 +255,48 @@ namespace OpenCS
           vm.LogService.Info(Loc.S("AllDiagramsDeleted"));
       }
 
+      bool closeAfterRendererDispose;
+      bool allowFinalClose;
+
       void Window_Closing(object sender, CancelEventArgs e)
       {
-         if (!vm.ConfirmSaveIfNeeded())
+         // Финальный проход после освобождения движка документирования — пропускаем.
+         if (allowFinalClose)
+            return;
+
+         // Повторный вход во время асинхронного teardown — только отменяем событие.
+         if (closeAfterRendererDispose)
+         {
             e.Cancel = true;
-         else
-            vm.db.Dispose();
+            return;
+         }
+
+         if (!vm.ConfirmSaveIfNeeded())
+         {
+            e.Cancel = true;
+            return;
+         }
+
+         e.Cancel = true;
+         closeAfterRendererDispose = true;
+         _ = FinishCloseAsync();
+      }
+
+      async Task FinishCloseAsync()
+      {
+         try
+         {
+            try { await vm.WebRenderer.DisposeAsync(); }
+            catch (Exception ex) { vm.LogService.Error($"Ошибка освобождения движка отчётов: {ex.Message}"); }
+
+            try { vm.db.Dispose(); }
+            catch (Exception ex) { vm.LogService.Error($"Ошибка освобождения базы данных: {ex.Message}"); }
+         }
+         finally
+         {
+            allowFinalClose = true;
+            Close();
+         }
       }
 
       void CopyLogEntry_Click(object sender, RoutedEventArgs e)
