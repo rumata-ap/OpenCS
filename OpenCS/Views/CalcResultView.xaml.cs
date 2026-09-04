@@ -223,7 +223,7 @@ namespace OpenCS.Views
         try
         {
             var svgExporter = new SectionStateSvgExporter();
-            var document = new StrainStateReportProvider().Build(new ReportContext(
+            var document = _app.ReportProviders.Resolve(_task).Build(new ReportContext(
                 _task,
                 _result,
                 _section,
@@ -233,14 +233,37 @@ namespace OpenCS.Views
                     ["strain"] = svgExporter.Render(_strainPlot, Loc.S("ReportStrainMapTitle"))
                 }));
 
-            await new ReportExportService().ExportAsync(document, outputPath);
+            var service = new ReportExportService(
+                pdfConverter: _app.WebRenderer,
+                svgRasterizer: _app.WebRenderer);
+            await service.ExportAsync(document, outputPath);
+
             MessageBox.Show(Loc.S("ReportExportSuccess"), Loc.S("ReportExportInfo"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
-        catch (FileNotFoundException)
+        catch (ReportRenderingUnavailableException ex)
         {
-            MessageBox.Show(Loc.S("ReportCalcpadMissing"), Loc.S("ReportExportWarning"),
+            // Локализованный текст собирается здесь, в WPF-слое: portable-библиотека
+            // отдаёт только Reason и технический debugMessage для лога.
+            _app.LogService.Error($"Отчёт: {ex.Reason} — {ex.Message}");
+
+            string message = ex.Reason switch
+            {
+                ReportRenderingFailureReason.RuntimeMissing =>
+                    string.Format(Loc.S("ReportWebView2Missing"), ex.RuntimeDownloadUrl),
+                ReportRenderingFailureReason.TimedOut => Loc.S("ReportExportTimedOut"),
+                _ => Loc.S("ReportExportFailed")
+            };
+            MessageBox.Show(message, Loc.S("ReportExportWarning"),
                 MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch (OperationCanceledException)
+        {
+            // Внутренняя отмена при закрытии приложения — не ошибка экспорта, молча выходим.
+        }
+        catch (ObjectDisposedException)
+        {
+            // Движок уже освобождён закрывающимся окном — экспорт больше не актуален.
         }
         catch (Exception ex)
         {

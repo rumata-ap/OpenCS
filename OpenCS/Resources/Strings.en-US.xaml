@@ -2768,14 +2768,16 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="StirrupTagFormat">Stirrups {0}</system:String>
     <system:String x:Key="ReportExportButton">Generate report</system:String>
     <system:String x:Key="ReportExportDialogTitle">Save calculation report</system:String>
-    <system:String x:Key="ReportExportFileFilter">HTML report (*.html)|*.html|Word document (*.docx)|*.docx|PDF (*.pdf)|*.pdf</system:String>
+    <system:String x:Key="ReportExportFileFilter">HTML report (*.html)|*.html;*.htm|Markdown (*.md)|*.md|Word document (*.docx)|*.docx|PDF (*.pdf)|*.pdf</system:String>
     <system:String x:Key="ReportExportDefaultExtension">.html</system:String>
     <system:String x:Key="ReportExportSuccess">Report saved.</system:String>
     <system:String x:Key="ReportExportError">Could not generate report: {0}</system:String>
     <system:String x:Key="ReportExportInfo">Information</system:String>
     <system:String x:Key="ReportExportWarning">Warning</system:String>
     <system:String x:Key="ReportExportErrorTitle">Error</system:String>
-    <system:String x:Key="ReportCalcpadMissing">CalcpadCE was not found in the published build. HTML can be saved without it.</system:String>
+    <system:String x:Key="ReportWebView2Missing">Exporting to PDF, and to DOCX with section-state maps, requires the Microsoft Edge WebView2 runtime. Install it here: {0}. HTML and Markdown are always available.</system:String>
+    <system:String x:Key="ReportExportTimedOut">Report rendering did not finish in time. Please try the export again.</system:String>
+    <system:String x:Key="ReportExportFailed">The report could not be produced in the selected format. HTML and Markdown are always available.</system:String>
     <system:String x:Key="ReportStressMapTitle">Stress map σ</system:String>
     <system:String x:Key="ReportStrainMapTitle">Strain map ε</system:String>
   </ResourceDictionary>
