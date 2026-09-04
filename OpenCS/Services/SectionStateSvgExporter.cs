@@ -194,7 +194,7 @@ public sealed class SectionStateSvgExporter
         double calloutY = y + 30;
         if (plot.MaxComprData is { } maxCompr)
         {
-            DrawCallout(svg, colX, calloutY, "Макс. сжатие бетона",
+            DrawCallout(svg, colX, calloutY, "max в осн. материале",
             [
                 $"x = {G4(maxCompr.Pt.X)} мм",
                 $"y = {G4(maxCompr.Pt.Y)} мм",
@@ -207,8 +207,9 @@ public sealed class SectionStateSvgExporter
         if (maxTensionIndex >= 0)
         {
             var rebar = plot.RebarFibers[maxTensionIndex];
-            DrawCallout(svg, colX, calloutY, $"Макс. растяжение арматуры №{maxTensionIndex + 1}",
+            DrawCallout(svg, colX, calloutY, "max в арматуре",
             [
+                $"стержень: №{maxTensionIndex + 1}",
                 $"группа: {rebar.Group}",
                 $"x = {G4(rebar.Center.X)} мм",
                 $"y = {G4(rebar.Center.Y)} мм",
