@@ -442,6 +442,5 @@
     </Compile>
   </ItemGroup>
 
-  <Import Project="CalcpadCE.targets" Condition="Exists('CalcpadCE.targets')" />
 
 </Project>

@@ -23,7 +23,7 @@ public sealed class WebView2ReportRenderer : IHtmlToPdfConverter, ISvgRasterizer
     static readonly TimeSpan OperationTimeout = TimeSpan.FromSeconds(60);
 
     readonly string? _userDataFolder;
-    readonly Dispatcher _dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+    readonly Dispatcher _dispatcher;
     readonly SemaphoreSlim _gate = new(1, 1);
     readonly CancellationTokenSource _lifetime = new();
     readonly TaskCompletionSource _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -39,7 +39,26 @@ public sealed class WebView2ReportRenderer : IHtmlToPdfConverter, ISvgRasterizer
     /// <param name="userDataFolder">Изолированный каталог данных WebView2. В приложении —
     /// <c>null</c> (каталог по умолчанию); в тестах обязателен уникальный временный путь,
     /// иначе блокировки конфликтуют с работающим приложением и параллельными тестами.</param>
-    public WebView2ReportRenderer(string? userDataFolder = null) => _userDataFolder = userDataFolder;
+    /// <param name="dispatcher">UI-поток, на котором живёт скрытое окно. <c>null</c> —
+    /// диспетчер приложения, а если он недоступен или его поток уже мёртв — текущий.</param>
+    public WebView2ReportRenderer(string? userDataFolder = null, Dispatcher? dispatcher = null)
+    {
+        _userDataFolder = userDataFolder;
+        _dispatcher = dispatcher ?? ResolveDispatcher();
+    }
+
+    // Application.Current живёт до конца процесса, но его Dispatcher может принадлежать
+    // уже завершившемуся потоку (так бывает в тестовом хосте, где Application создаётся
+    // во временном STA-потоке). Операция, отправленная такому диспетчеру, не выполнится
+    // никогда — поэтому поток проверяется на живость.
+    static Dispatcher ResolveDispatcher()
+    {
+        var application = Application.Current?.Dispatcher;
+        return application is { HasShutdownStarted: false, HasShutdownFinished: false }
+               && application.Thread.IsAlive
+            ? application
+            : Dispatcher.CurrentDispatcher;
+    }
 
     /// <inheritdoc/>
     public async Task ConvertAsync(string html, string outputPdfPath, CancellationToken ct = default)

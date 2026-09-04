@@ -488,11 +488,9 @@ public sealed class StrainStateReportProvider : IReportProvider
     static string Dimension(double value) => $"{F(value)} м";
     static string ValueOrDash(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value;
 
-    // Математическая нотация формул СП 63: греческие буквы + настоящие HTML-индексы
-    // (не подчёркивание). ReportFormula.Formula/Substitution/Result рендерятся как
-    // доверенный HTML (см. HtmlReportRenderer) — обёрнуты в <p>, а не <div>, потому что
-    // CalcpadCE's DOCX-конвертер иначе разбивает строку со смешанным инлайн-содержимым
-    // на отдельные абзацы на каждой границе тега (проверено эмпирически через CalcpadCE CLI).
+    // Математическая нотация формул СП 63: греческие буквы + настоящие индексы вместо
+    // подчёркиваний. Разметка полей ReportFormula ограничена контрактом FormulaMarkup —
+    // ровно <sub> и <sup>; любой другой тег даёт FormatException во всех четырёх форматах.
     static string Sub(string symbol, string sub) => $"{symbol}<sub>{sub}</sub>";
     static string Sup(string symbol, string sup) => $"{symbol}<sup>{sup}</sup>";
 }

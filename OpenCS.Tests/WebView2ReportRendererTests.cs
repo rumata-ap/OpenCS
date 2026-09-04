@@ -22,7 +22,9 @@ public sealed class WebView2ReportRendererTests : IDisposable
     {
         string folder = Path.Combine(Path.GetTempPath(), "opencs-wv2-test-" + Guid.NewGuid().ToString("N"));
         _userDataFolders.Add(folder);
-        return new WebView2ReportRenderer(folder);
+        // Диспетчер задаётся явно: другой тест мог создать Application во временном
+        // STA-потоке, и Application.Current.Dispatcher указывал бы на мёртвый поток.
+        return new WebView2ReportRenderer(folder, Dispatcher.CurrentDispatcher);
     }
 
     public void Dispose()
