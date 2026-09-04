@@ -590,6 +590,8 @@ namespace OpenCS
       public ICommand DeleteCalcTaskCommand { get; set; } = null!;
       /// <summary>Команда удаления всех результатов задачи (параметр CalcTask).</summary>
       public ICommand DeleteCalcResultsCommand { get; set; } = null!;
+      /// <summary>Команда экспорта отчёта по результату strain_state (параметр CalcResult).</summary>
+      public ICommand ExportCalcResultReportCommand { get; set; } = null!;
 
       /// <summary>Поднимается при изменении свойств существующей задачи (не добавлении/удалении).</summary>
       public event Action? CalcTaskModified;
@@ -1329,6 +1331,9 @@ namespace OpenCS
          EditCalcTaskCommand   = new RelayCommand(p => EditCalcTask(p as CalcTask),   p => p is CalcTask);
          DeleteCalcTaskCommand = new RelayCommand(p => DeleteCalcTask(p as CalcTask), p => p is CalcTask);
          DeleteCalcResultsCommand = new RelayCommand(p => DeleteCalcResults(p as CalcTask), p => p is CalcTask);
+         ExportCalcResultReportCommand = new RelayCommand(
+            p => _ = StrainStateReportExporter.ExportAsync(this, p as CalcResult),
+            p => p is CalcResult { TaskKind: "strain_state" });
           ImportContoursFromDxfCommand = new RelayCommand(_ => ImportContoursFromDxf());
           ImportAcadRegionsCommand     = new RelayCommand(_ => ImportAcadRegions());
           ImportAcadRebarGroupsCommand = new RelayCommand(_ => ImportAcadRebarGroups());

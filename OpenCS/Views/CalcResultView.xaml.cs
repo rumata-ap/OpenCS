@@ -1,13 +1,10 @@
 using CScore;
-using OpenCS.Reporting;
 using OpenCS.Services;
 using OpenCS.Utilites;
 using OpenCS.ViewModels;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Windows;
 using System.Windows.Controls;
 
 namespace OpenCS.Views
@@ -15,19 +12,10 @@ namespace OpenCS.Views
     public partial class CalcResultView : UserControl
     {
         SectionCutWindowService? _cutWindow;
-        readonly CalcResult _result;
-        readonly AppViewModel _app;
-        readonly CalcTask? _task;
-        readonly CrossSection? _section;
-        SectionPlotVM? _stressPlot;
-        SectionPlotVM? _strainPlot;
 
     public CalcResultView(CalcResult result, AppViewModel app)
     {
         var task = app.CalcTasks.FirstOrDefault(t => t.Id == result.TaskId);
-        _result = result;
-        _app = app;
-        _task = task;
 
         if (task?.Kind == "opensees_section_moment_curvature")
         {
@@ -158,18 +146,14 @@ namespace OpenCS.Views
         }
 
         InitializeComponent();
-        ReportButton.Visibility = task?.Kind == "strain_state"
-            ? Visibility.Visible : Visibility.Collapsed;
 
         var section = task != null
             ? app.CrossSections.FirstOrDefault(s => s.Id == task.SectionId)
             : null;
-        _section = section;
 
         if (section == null || task == null)
         {
             // Fallback: только сводка без графиков
-            ReportButton.Visibility = Visibility.Collapsed;
             SummaryView.DataContext = new FallbackSummaryVM(result);
             Tabs.Items.RemoveAt(2);
             Tabs.Items.RemoveAt(1);
@@ -189,8 +173,6 @@ namespace OpenCS.Views
         SummaryView.DataContext = new StrainSummaryVM(result, section, task.CalcType, settings, ten);
         var stressVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Stress, settings, ten);
         var strainVm = new SectionPlotVM(section, k, task.CalcType, SectionPlotMode.Strain, settings, ten);
-        _stressPlot = stressVm;
-        _strainPlot = strainVm;
 
         var cutVm = new SectionCutVM(section, k, task.CalcType, app.FileDialogService, ten)
         {
@@ -208,77 +190,13 @@ namespace OpenCS.Views
         Unloaded += (_, _) => _cutWindow?.Dispose();
     }
 
-    async void OnExportReportClick(object sender, RoutedEventArgs e)
-    {
-        if (_task?.Kind != "strain_state" || _stressPlot == null || _strainPlot == null)
-            return;
-
-        var outputPath = _app.FileDialogService.SaveFile(
-            Loc.S("ReportExportFileFilter"),
-            Loc.S("ReportExportDefaultExtension"),
-            Loc.S("ReportExportDialogTitle"));
-        if (string.IsNullOrWhiteSpace(outputPath))
-            return;
-
-        try
-        {
-            var svgExporter = new SectionStateSvgExporter();
-            var document = _app.ReportProviders.Resolve(_task).Build(new ReportContext(
-                _task,
-                _result,
-                _section,
-                new Dictionary<string, string>
-                {
-                    ["stress"] = svgExporter.Render(_stressPlot, Loc.S("ReportStressMapTitle")),
-                    ["strain"] = svgExporter.Render(_strainPlot, Loc.S("ReportStrainMapTitle"))
-                }));
-
-            var service = new ReportExportService(
-                pdfConverter: _app.WebRenderer,
-                svgRasterizer: _app.WebRenderer);
-            await service.ExportAsync(document, outputPath);
-
-            MessageBox.Show(Loc.S("ReportExportSuccess"), Loc.S("ReportExportInfo"),
-                MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        catch (ReportRenderingUnavailableException ex)
-        {
-            // Локализованный текст собирается здесь, в WPF-слое: portable-библиотека
-            // отдаёт только Reason и технический debugMessage для лога.
-            _app.LogService.Error($"Отчёт: {ex.Reason} — {ex.Message}");
-
-            string message = ex.Reason switch
-            {
-                ReportRenderingFailureReason.RuntimeMissing =>
-                    string.Format(Loc.S("ReportWebView2Missing"), ex.RuntimeDownloadUrl),
-                ReportRenderingFailureReason.TimedOut => Loc.S("ReportExportTimedOut"),
-                _ => Loc.S("ReportExportFailed")
-            };
-            MessageBox.Show(message, Loc.S("ReportExportWarning"),
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        catch (OperationCanceledException)
-        {
-            // Внутренняя отмена при закрытии приложения — не ошибка экспорта, молча выходим.
-        }
-        catch (ObjectDisposedException)
-        {
-            // Движок уже освобождён закрывающимся окном — экспорт больше не актуален.
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(string.Format(Loc.S("ReportExportError"), ex.Message), Loc.S("ReportExportErrorTitle"),
-                MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
-
     void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (Tabs.SelectedIndex == 1) _cutWindow?.UpdatePlotMode(SectionPlotMode.Stress);
         else if (Tabs.SelectedIndex == 2) _cutWindow?.UpdatePlotMode(SectionPlotMode.Strain);
     }
 
-    static Kurvature ParseKurvature(string dataJson)
+    internal static Kurvature ParseKurvature(string dataJson)
     {
         try
         {

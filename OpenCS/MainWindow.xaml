@@ -1043,7 +1043,30 @@
                         </StackPanel>
                      </HierarchicalDataTemplate>
                      <DataTemplate DataType="{x:Type core:CalcResult}">
-                        <StackPanel Orientation="Horizontal">
+                        <StackPanel Orientation="Horizontal"
+                                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                           <StackPanel.ContextMenu>
+                              <ContextMenu>
+                                 <MenuItem Header="{DynamicResource ReportExportButton}"
+                                           Command="{Binding PlacementTarget.Tag.ExportCalcResultReportCommand,
+                                                     RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           CommandParameter="{Binding PlacementTarget.DataContext,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                    <MenuItem.Style>
+                                       <Style TargetType="MenuItem">
+                                          <Setter Property="Visibility" Value="Collapsed"/>
+                                          <Style.Triggers>
+                                             <DataTrigger Binding="{Binding PlacementTarget.DataContext.TaskKind,
+                                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                          Value="strain_state">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                             </DataTrigger>
+                                          </Style.Triggers>
+                                       </Style>
+                                    </MenuItem.Style>
+                                 </MenuItem>
+                              </ContextMenu>
+                           </StackPanel.ContextMenu>
                            <TextBlock Text="{Binding Created}" Foreground="Gray" Margin="0,0,6,0"/>
                            <TextBlock Text="{Binding Status}">
                               <TextBlock.Style>
