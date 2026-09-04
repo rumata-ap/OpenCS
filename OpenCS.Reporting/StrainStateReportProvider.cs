@@ -78,7 +78,7 @@ public sealed class StrainStateReportProvider : IReportProvider
                 ("Вид расчёта", task.CalcType.ToString()),
                 ("Статус результата", context.Result.Status),
                 ("Единицы", "координаты и размеры — м; координаты арматуры — мм; площади — м²; ε — безразмерная; κ — 1/м; σ и E — МПа; N — кН; M — кН·м; D — кН·м²/кН"),
-            ]))
+            ], "Параметр", "Значение"))
             .Add(new ReportParagraph("Все числовые результаты ниже приведены с единицами: силы — кН, моменты — кН·м, координаты — м, напряжения и модули — МПа, кривизны — 1/м."))
             .Add(new ReportHeading(1, "Исходные данные"))
             .Add(new ReportKeyValueTable(
@@ -90,7 +90,7 @@ public sealed class StrainStateReportProvider : IReportProvider
                 ("Итерации Ньютона", data.Iterations.ToString(CultureInfo.InvariantCulture)),
                 ("Невязка, кН", Force(data.Residual)),
                 ("Версия формул", data.FormulaVersion)
-            ]))
+            ], "Параметр", "Значение"))
             .Add(new ReportTable(
                 ["Величина", "Целевое значение", "Результат"],
                 [
@@ -237,7 +237,7 @@ public sealed class StrainStateReportProvider : IReportProvider
                 ("Бетон, εmin…εmax", $"{F(data.Extrema.ConcreteMin)} … {F(data.Extrema.ConcreteMax)}"),
                 ("Арматура, εmin…εmax", $"{F(data.Extrema.SteelMin)} … {F(data.Extrema.SteelMax)}"),
                 ("Сходимость", $"{data.Iterations} итераций; невязка {Force(data.Residual)}"),
-            ]));
+            ], "Параметр", "Значение"));
 
         AddEta(document, data.Eta);
         AddPrestress(document, data.Prestress);

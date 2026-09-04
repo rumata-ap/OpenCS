@@ -11,8 +11,11 @@ public sealed record ReportHeading(int Level, string Text) : ReportBlock;
 /// <summary>Абзац обычного текста.</summary>
 public sealed record ReportParagraph(string Text) : ReportBlock;
 
-/// <summary>Таблица ключ-значение.</summary>
-public sealed record ReportKeyValueTable(IReadOnlyList<(string Key, string Value)> Rows) : ReportBlock;
+/// <summary>Таблица «ключ-значение»; подписи колонок задаёт провайдер, не рендерер.</summary>
+public sealed record ReportKeyValueTable(
+    IReadOnlyList<(string Key, string Value)> Rows,
+    string KeyHeader,
+    string ValueHeader) : ReportBlock;
 
 /// <summary>Таблица с заголовками столбцов.</summary>
 public sealed record ReportTable(

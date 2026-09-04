@@ -18,7 +18,7 @@ public sealed class HtmlReportRenderer
         html.AppendLine(Css);
         html.AppendLine("</style></head><body><main class=\"report\">");
         html.Append("<header class=\"report-header\"><h1>").Append(E(document.Title));
-        html.AppendLine("</h1><div class=\"report-meta\">OpenCS · расчётное обоснование</div></header>");
+        html.AppendLine("</h1></header>");
 
         foreach (var block in document.Blocks)
             RenderBlock(html, block);
@@ -40,7 +40,10 @@ public sealed class HtmlReportRenderer
                 html.Append("<p>").Append(E(paragraph.Text)).AppendLine("</p>");
                 break;
             case ReportKeyValueTable table:
-                html.AppendLine("<table class=\"key-values\"><tbody>");
+                html.AppendLine("<table class=\"key-values\">");
+                html.Append("<thead><tr><th>").Append(E(table.KeyHeader))
+                    .Append("</th><th>").Append(E(table.ValueHeader)).AppendLine("</th></tr></thead>");
+                html.AppendLine("<tbody>");
                 foreach (var (key, value) in table.Rows)
                     html.Append("<tr><th>").Append(E(key)).Append("</th><td>")
                         .Append(E(value)).AppendLine("</td></tr>");
@@ -50,17 +53,15 @@ public sealed class HtmlReportRenderer
                 RenderTable(html, table);
                 break;
             case ReportFormula formula:
-                // Formula/Substitution/Result содержат доверенную HTML-разметку (<sub>/<sup> для
-                // индексов и степеней СП 63), собранную поставщиком отчёта, — не экранируются.
-                // Обёртка каждой строки — <p>, а не <div>: CalcpadCE's DOCX-конвертер разбивает
-                // <div> со смешанным инлайн-содержимым (текст + <sub>/<sup>) на отдельные <w:p>
-                // на каждой границе тега (формула расползается на десятки строк в Word), а для
-                // <p> корректно собирает один <w:p> с несколькими <w:r> — проверено эмпирически.
+                // Formula/Substitution/Result проходят через FormulaMarkup: разрешены ровно
+                // <sub>/<sup>, остальной текст экранируется посегментно (Inline).
+                // Каждая строка формулы — отдельный <p>: блок печатается в PDF как единый
+                // абзац с инлайн-индексами, а не рассыпается на строки-контейнеры.
                 html.AppendLine("<section class=\"formula\">");
                 html.Append("<p class=\"formula-ref\">").Append(E(formula.Reference)).AppendLine("</p>");
-                html.Append("<p class=\"formula-expression\">").Append(formula.Formula).AppendLine("</p>");
-                html.Append("<p class=\"formula-substitution\">").Append(formula.Substitution).AppendLine("</p>");
-                html.Append("<p class=\"formula-result\">").Append(formula.Result).AppendLine("</p>");
+                html.Append("<p class=\"formula-expression\">").Append(Inline(formula.Formula)).AppendLine("</p>");
+                html.Append("<p class=\"formula-substitution\">").Append(Inline(formula.Substitution)).AppendLine("</p>");
+                html.Append("<p class=\"formula-result\">").Append(Inline(formula.Result)).AppendLine("</p>");
                 html.AppendLine("</section>");
                 break;
             case ReportImage image:
@@ -86,6 +87,26 @@ public sealed class HtmlReportRenderer
                 html.AppendLine("<div class=\"page-break\"></div>");
                 break;
         }
+    }
+
+    // Пересобирает inline-разметку формулы из проверенных сегментов: HTML больше не
+    // доверяет строке провайдера целиком, каждый Plain-сегмент экранируется отдельно.
+    static string Inline(string? value)
+    {
+        var html = new StringBuilder();
+        foreach (var segment in FormulaMarkup.Parse(value))
+        {
+            switch (segment.Kind)
+            {
+                case FormulaSegmentKind.Subscript:
+                    html.Append("<sub>").Append(E(segment.Text)).Append("</sub>"); break;
+                case FormulaSegmentKind.Superscript:
+                    html.Append("<sup>").Append(E(segment.Text)).Append("</sup>"); break;
+                default:
+                    html.Append(E(segment.Text)); break;
+            }
+        }
+        return html.ToString();
     }
 
     static string Number(double value)
@@ -131,6 +152,6 @@ public sealed class HtmlReportRenderer
         .report-image { max-width:100%; margin:18px 0; text-align:center; page-break-inside:avoid; overflow:hidden; } .report-image img { display:block; max-width:100%; height:auto; max-height:115mm; margin:0 auto; }
         figcaption { color:var(--muted); font-size:12px; margin-top:4px; } .warning { padding:10px 12px; border:1px solid #f2c36b; background:#fff7df; color:#7c4a03; margin:12px 0; }
         .page-break { break-before:page; page-break-before:always; }
-        @media print { body { background:white; } .report { margin:0; box-shadow:none; } }
+        @media print { body { background:white; } .report { margin:0; box-shadow:none; } @page { size:A4; margin:0; } }
         """;
 }

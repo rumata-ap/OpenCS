@@ -57,4 +57,51 @@ public sealed class ReportDocumentTests
         Assert.Contains("data-tick-label", svg);
         Assert.Contains(">0</text>", svg);
     }
+
+    [Fact]
+    public void Html_KeyValueTable_HasSynthesizedHeaderRow()
+    {
+        var document = new ReportDocument("Отчёт")
+            .Add(new ReportKeyValueTable([("Задача", "1")], "Параметр", "Значение"));
+
+        string html = new HtmlReportRenderer().Render(document);
+
+        Assert.Contains("<thead><tr><th>Параметр</th><th>Значение</th></tr></thead>", html);
+        Assert.Contains("<tbody>", html);
+    }
+
+    [Fact]
+    public void Html_Formula_RebuildsMarkupAndEscapesPlainSegments()
+    {
+        var document = new ReportDocument("Отчёт")
+            .Add(new ReportFormula("СП 63 (8.1)", "A & B<sub>b</sub>", "1 < 2", "ok"));
+
+        string html = new HtmlReportRenderer().Render(document);
+
+        Assert.Contains("A &amp; B<sub>b</sub>", html);
+        Assert.Contains("1 &lt; 2", html);
+    }
+
+    [Fact]
+    public void Html_Formula_ThrowsOnForeignTag()
+    {
+        var document = new ReportDocument("Отчёт")
+            .Add(new ReportFormula("ref", "<b>x</b>", "", ""));
+
+        Assert.Throws<FormatException>(() => new HtmlReportRenderer().Render(document));
+    }
+
+    [Fact]
+    public void Html_PrintCss_DeclaresA4Page()
+    {
+        string html = new HtmlReportRenderer().Render(new ReportDocument("Отчёт"));
+        Assert.Contains("@page { size:A4; margin:0; }", html);
+    }
+
+    [Fact]
+    public void Html_Header_HasNoStaticBrandingLine()
+    {
+        string html = new HtmlReportRenderer().Render(new ReportDocument("Отчёт"));
+        Assert.DoesNotContain("расчётное обоснование", html);
+    }
 }
