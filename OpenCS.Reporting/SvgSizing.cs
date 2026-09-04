@@ -38,6 +38,25 @@ public static class SvgSizing
             "Не удалось определить размеры SVG: нет валидных width/height и нет валидного viewBox.");
     }
 
+    /// <summary>Уменьшает размер до <see cref="MaxWidth"/> с сохранением пропорций.
+    /// Изображения уже́ этой ширины не увеличиваются.</summary>
+    public static Size ScaleToMaxWidth(Size size)
+    {
+        if (!double.IsFinite(size.Width) || !double.IsFinite(size.Height) ||
+            size.Width <= 0 || size.Height <= 0)
+            throw new FormatException("Размер SVG должен быть конечным положительным числом.");
+
+        if (size.Width <= MaxWidth) return size;
+        double factor = MaxWidth / size.Width;
+        return new Size(MaxWidth, size.Height * factor);
+    }
+
+    /// <summary>Дешёвая эвристика диспетчеризации: строка начинается с тега <c>&lt;svg</c>.
+    /// XML не валидируется — валидность размеров проверяет <see cref="Resolve"/>.</summary>
+    public static bool LooksLikeSvg(string? content)
+        => content is not null &&
+           content.TrimStart().StartsWith("<svg", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Записывает в корневой тег вычисленные <c>width</c>/<c>height</c> в px,
     /// заменяя (а не дублируя) существующие атрибуты.</summary>
     public static string EnsureExplicitDimensions(string svg)

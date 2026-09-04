@@ -87,4 +87,29 @@ public sealed class SvgSizingTests
         Assert.Contains("width=\"10px\"", result);
         Assert.EndsWith("/>", result);
     }
+
+    [Fact]
+    public void ScaleToMaxWidth_DoesNotEnlargeSmallImages()
+    {
+        var size = SvgSizing.ScaleToMaxWidth(new SvgSizing.Size(300, 200));
+        Assert.Equal(300, size.Width);
+        Assert.Equal(200, size.Height);
+    }
+
+    [Fact]
+    public void ScaleToMaxWidth_KeepsAspectRatio()
+    {
+        var size = SvgSizing.ScaleToMaxWidth(new SvgSizing.Size(900, 650));
+        Assert.Equal(SvgSizing.MaxWidth, size.Width);
+        Assert.Equal(650.0 * SvgSizing.MaxWidth / 900.0, size.Height, 6);
+    }
+
+    [Theory]
+    [InlineData("<svg viewBox=\"0 0 1 1\"/>", true)]
+    [InlineData("   \n<SVG viewBox=\"0 0 1 1\"/>", true)]
+    [InlineData("<html><svg/></html>", false)]
+    [InlineData("не svg", false)]
+    [InlineData(null, false)]
+    public void LooksLikeSvg_IsCheapPrefixHeuristic(string? content, bool expected)
+        => Assert.Equal(expected, SvgSizing.LooksLikeSvg(content));
 }

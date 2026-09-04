@@ -6,10 +6,6 @@ namespace OpenCS.Reporting;
 /// <summary>Автономный HTML-рендерер отчёта для просмотра в браузере и fallback-экспорта.</summary>
 public sealed class HtmlReportRenderer
 {
-    // 620 px помещаются в рабочую ширину страницы A4 Word/PDF с запасом.
-    // SVG остаётся векторным, поэтому уменьшение HTML-размера не ухудшает качество.
-    const double MaxImageWidth = 620;
-
     /// <summary>Преобразует нейтральный документ в самодостаточный HTML5.</summary>
     public string Render(ReportDocument document)
     {
@@ -69,14 +65,15 @@ public sealed class HtmlReportRenderer
                 break;
             case ReportImage image:
                 html.AppendLine("<figure class=\"report-image\">");
-                if (image.Svg.TrimStart().StartsWith("<svg", StringComparison.OrdinalIgnoreCase))
+                if (SvgSizing.LooksLikeSvg(image.Svg))
                 {
-                    var (width, height) = SvgDimensions(image.Svg);
+                    var size = SvgSizing.ScaleToMaxWidth(SvgSizing.Resolve(image.Svg));
                     string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(image.Svg));
                     string alt = string.IsNullOrWhiteSpace(image.Name) ? "report.svg" : image.Name + ".svg";
                     html.Append("<img src=\"data:image/svg+xml;base64,").Append(encoded)
                         .Append("\" alt=\"").Append(E(alt)).Append("\" width=\"")
-                        .Append(width).Append("\" height=\"").Append(height).AppendLine("\"/>");
+                        .Append(Number(Math.Max(1, Math.Round(size.Width)))).Append("\" height=\"")
+                        .Append(Number(Math.Max(1, Math.Round(size.Height)))).AppendLine("\"/>");
                 }
                 else
                     html.Append("<pre>").Append(E(image.Svg)).AppendLine("</pre>");
@@ -89,74 +86,6 @@ public sealed class HtmlReportRenderer
                 html.AppendLine("<div class=\"page-break\"></div>");
                 break;
         }
-    }
-
-    static (string Width, string Height) SvgDimensions(string svg)
-    {
-        string? width = Attribute(svg, "width");
-        string? height = Attribute(svg, "height");
-        string? viewBox = Attribute(svg, "viewBox") ?? Attribute(svg, "viewbox");
-        var view = viewBox?.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-
-        if (!IsDimension(width) && view is { Length: 4 } &&
-            double.TryParse(view[2], System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out double vw) && vw > 0)
-            width = Number(vw);
-        if (!IsDimension(height) && view is { Length: 4 } &&
-            double.TryParse(view[3], System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out double vh) && vh > 0)
-            height = Number(vh);
-
-        double actualWidth = ParseDimension(width) ?? 900;
-        double actualHeight = ParseDimension(height) ?? 650;
-        if (actualWidth > MaxImageWidth)
-        {
-            actualHeight *= MaxImageWidth / actualWidth;
-            actualWidth = MaxImageWidth;
-        }
-
-        return (Number(Math.Max(1, Math.Round(actualWidth))),
-            Number(Math.Max(1, Math.Round(actualHeight))));
-    }
-
-    static string? Attribute(string svg, string name)
-    {
-        int start = svg.IndexOf("<svg", StringComparison.OrdinalIgnoreCase);
-        int end = start >= 0 ? svg.IndexOf('>', start) : -1;
-        if (start < 0 || end < 0) return null;
-        string opening = svg[start..end];
-        int nameStart = opening.IndexOf(name, StringComparison.OrdinalIgnoreCase);
-        if (nameStart < 0) return null;
-        int equals = opening.IndexOf('=', nameStart + name.Length);
-        if (equals < 0) return null;
-        int valueStart = equals + 1;
-        while (valueStart < opening.Length && char.IsWhiteSpace(opening[valueStart])) valueStart++;
-        if (valueStart >= opening.Length) return null;
-        char quote = opening[valueStart];
-        if (quote is not ('\"' or '\'')) return null;
-        int valueEnd = opening.IndexOf(quote, valueStart + 1);
-        return valueEnd > valueStart ? opening[(valueStart + 1)..valueEnd] : null;
-    }
-
-    static bool IsDimension(string? value)
-        => ParseDimension(value) is > 0;
-
-    static double? ParseDimension(string? value)
-        => !string.IsNullOrWhiteSpace(value) &&
-           double.TryParse(value.TrimEnd('p', 'x', 'P', 'X'),
-               System.Globalization.NumberStyles.Float,
-               System.Globalization.CultureInfo.InvariantCulture, out var result) &&
-           result > 0
-            ? result
-            : null;
-
-    static string Number(string value)
-    {
-        string numeric = value.TrimEnd('p', 'x', 'P', 'X');
-        return double.TryParse(numeric, System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture, out var result)
-            ? result.ToString("G8", System.Globalization.CultureInfo.InvariantCulture)
-            : value;
     }
 
     static string Number(double value)
