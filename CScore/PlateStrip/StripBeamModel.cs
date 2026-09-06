@@ -33,7 +33,8 @@ public static class StripBeamModel
         double lengthM,
         IReadOnlyList<double> stationFractions,
         StripBeamSupportScheme scheme,
-        StripLoadSet loads)
+        StripLoadSet loads,
+        KnownEndActions? endActions = null)
     {
         ArgumentNullException.ThrowIfNull(sectionTangent);
         ArgumentNullException.ThrowIfNull(stationFractions);
@@ -79,6 +80,23 @@ public static class StripBeamModel
                 for (int j = 0; j < StripBeamElement.DofPerElement; j++)
                     k[offset + i, offset + j] += elementStiffness[e][i, j];
             }
+        }
+
+        if (endActions != null)
+        {
+            if (!endActions.IsFinite)
+                throw new ArgumentException("Концевые усилия должны быть конечными.", nameof(endActions));
+
+            // KnownEndActions заданы как значения эпюры на концах. Внутренний резултант в
+            // станции 0 равен −g₁ (нормаль сечения противоположна), поэтому узловое действие
+            // на первом узле берётся с обратным знаком, а на последнем — с прямым.
+            int last = (nodeCount - 1) * StripBeamElement.DofPerNode;
+            f[0] += -endActions.StartN;
+            f[3] += -endActions.StartMy;
+            f[4] += -endActions.StartMz;
+            f[last] += endActions.EndN;
+            f[last + 3] += endActions.EndMy;
+            f[last + 4] += endActions.EndMz;
         }
 
         var isFixed = BuildConstraintMask(scheme, nodeCount);
