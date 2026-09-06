@@ -40,6 +40,17 @@ public sealed class ReportExportAcceptanceTests : IDisposable
         }
         """;
 
+    const string LimitMomentDataJson = """
+        {"solver_method":"fast","converged":true,"iterations":9,"newton_iterations":9,
+         "factor":1.545731,"utilization":0.646943,"governing":"concrete",
+         "N_target":0,"Mx_target":-50,"My_target":0,
+         "N_limit":0,"Mx_limit":-77.2865,"My_limit":0,
+         "e0":0.00985834,"ky":-0.08905561,"kz":0,
+         "eps_contour_min":-0.0035,"eps_cu":-0.0035,
+         "eps_rebar_max":0.01947635,"eps_su":0.025,
+         "N_result":0,"Mx_result":-77.2865,"My_result":0,"eta":null}
+        """;
+
     static ReportDocument BuildDocument()
     {
         // "|" в теге проверяет экранирование ячеек GFM в Markdown-ветке.
@@ -66,6 +77,33 @@ public sealed class ReportExportAcceptanceTests : IDisposable
             }));
     }
 
+    static ReportDocument BuildLimitMomentDocument()
+    {
+        var task = new CalcTask { Id = 438, Kind = "limit_moment", Tag = "Балка 18", CalcType = CalcType.C };
+        var result = new CalcResult
+        {
+            TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+            Status = "ok", DataJson = LimitMomentDataJson
+        };
+        var section = ReportFixtures.BuildBeam();
+        var provider = new LimitForceReportProvider();
+        var registry = new ReportProviderRegistry([provider]);
+        Assert.True(registry.TryResolve(task, out var resolved));
+
+        var images = new Dictionary<string, string>();
+        var svgExporter = new SectionStateSvgExporter();
+        foreach (var request in resolved.DescribeImages(task, result))
+        {
+            section.SetEps(request.Plane, request.Calc, ten: false);
+            var mode = request.Mode == ReportImageMode.Stress
+                ? SectionPlotMode.Stress
+                : SectionPlotMode.Strain;
+            var plot = new SectionPlotVM(section, request.Plane, request.Calc, mode);
+            images[request.Key] = svgExporter.Render(plot, request.Title);
+        }
+        return resolved.Build(new ReportContext(task, result, section, images));
+    }
+
     [Fact]
     public async Task Export_HtmlAndMarkdown_WorkWithoutWebView2()
     {
@@ -86,6 +124,25 @@ public sealed class ReportExportAcceptanceTests : IDisposable
         Assert.Contains("Колонна \\| ось А", mdText);
         Assert.Contains("![", mdText);
         Assert.DoesNotContain("\r\n\r\n\r\n", mdText);
+    }
+
+    [Fact]
+    public async Task Export_LimitMoment_HtmlAndMarkdown_WorkWithoutWebView2()
+    {
+        var document = BuildLimitMomentDocument();
+        var service = new ReportExportService();
+        string html = Path.Combine(_dir, "limit-moment.html");
+        string md = Path.Combine(_dir, "limit-moment.md");
+        await service.ExportAsync(document, html);
+        await service.ExportAsync(document, md);
+
+        string htmlText = await File.ReadAllTextAsync(html);
+        Assert.Contains("77.2865", htmlText);
+        Assert.Contains("data:image/svg+xml;base64,", htmlText);
+        Assert.Contains("исчерпание по бетону сжатой зоны", htmlText);
+        string mdText = await File.ReadAllTextAsync(md);
+        Assert.Contains("77.2865", mdText);
+        Assert.Contains("![", mdText);
     }
 
     [SkippableFact]
@@ -151,5 +208,60 @@ public sealed class ReportExportAcceptanceTests : IDisposable
         byte[] pdfBytes = File.ReadAllBytes(pdf);
         Assert.Equal("%PDF-", System.Text.Encoding.ASCII.GetString(pdfBytes, 0, 5));
         Assert.True(pdfBytes.Length > 10_000, "PDF подозрительно мал — вероятно, карты не отрисовались.");
+    }
+
+    [SkippableFact]
+    public void Export_LimitMoment_DocxAndPdf_ProduceValidFiles()
+    {
+        string docx = Path.Combine(_dir, "limit-moment.docx");
+        string pdf = Path.Combine(_dir, "limit-moment.pdf");
+        Exception? error = null;
+
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var pump = Dispatcher.CurrentDispatcher;
+                SynchronizationContext.SetSynchronizationContext(
+                    new DispatcherSynchronizationContext(pump));
+                async Task RunAsync()
+                {
+                    await using var renderer = new WebView2ReportRenderer(
+                        Path.Combine(_dir, "limit-moment-wv2-user-data"), pump);
+                    var service = new ReportExportService(
+                        pdfConverter: renderer, svgRasterizer: renderer);
+                    var document = BuildLimitMomentDocument();
+                    await service.ExportAsync(document, docx);
+                    await service.ExportAsync(document, pdf);
+                }
+                _ = RunAsync().ContinueWith(t =>
+                {
+                    if (t.IsFaulted) error = t.Exception?.GetBaseException();
+                    pump.InvokeShutdown();
+                }, TaskScheduler.FromCurrentSynchronizationContext());
+                Dispatcher.Run();
+            }
+            catch (Exception ex) { error = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        if (!thread.Join(TimeSpan.FromMinutes(2)))
+            throw new TimeoutException("Экспорт limit_moment DOCX/PDF не завершился за 2 минуты.");
+
+        Skip.If((error as ReportRenderingUnavailableException)?.Reason
+                == ReportRenderingFailureReason.RuntimeMissing,
+            "WebView2 Runtime не установлен на этой машине.");
+        Assert.Null(error);
+
+        byte[] docxBytes = File.ReadAllBytes(docx);
+        Assert.Equal([0x50, 0x4B], docxBytes.Take(2).ToArray());
+        using (var package = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Open(docx, false))
+        {
+            Assert.True(package.MainDocumentPart!.ImageParts.Count() >= 2);
+            Assert.Contains("77.2865", package.MainDocumentPart!.Document!.InnerText);
+        }
+        byte[] pdfBytes = File.ReadAllBytes(pdf);
+        Assert.Equal("%PDF-", System.Text.Encoding.ASCII.GetString(pdfBytes, 0, 5));
+        Assert.True(pdfBytes.Length > 10_000, "PDF limit_moment подозрительно мал.");
     }
 }

@@ -90,7 +90,6 @@ public sealed class CrackingReportProvider : IReportProvider
 
         if (context.Images.TryGetValue("strain", out var strain))
             document.Add(new ReportImage("Карта деформаций ε в момент образования трещины", strain));
-        SectionReportSections.Eta(document, null);
         if (context.Section is { } section)
         {
             var plane = new Kurvature { e0 = data.E0 ?? 0, ky = data.Ky ?? 0, kz = data.Kz ?? 0 };
