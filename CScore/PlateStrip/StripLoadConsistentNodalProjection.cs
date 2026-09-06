@@ -22,9 +22,23 @@ public sealed record StripLoadProjectionResult(
 
 /// <summary>Переносит StripLoadSet на явно заданную дискретизацию балочных элементов через
 /// consistent nodal load lumping (Эйлер–Бернулли). См.
-/// docs/superpowers/specs/2026-08-13-plate-strip-loads-design.md.</summary>
+/// docs/superpowers/specs/2026-08-13-plate-strip-loads-design.md и расширение Среза 6
+/// (участок + линейный закон, знаковая конвенция My) в
+/// docs/superpowers/specs/2026-09-06-plate-strip-equivalent-beam-load-recovery-design.md.
+///
+/// Знаковая конвенция: My1/My2 — правые моменты вокруг оси y (та же тройка, что в
+/// TotalMomentCheck: момент силы Fz на позиции x равен −x·Fz). Она следует из кинематики
+/// StripKinematicEmbedding/ShellStrainState (ε_x = ε₀ + κy·z ⇒ κy = −w″ ⇒ θy = −w′), поэтому
+/// вклад распределённой/сосредоточенной поперечной нагрузки в моментные DOF берётся с обратным
+/// знаком к учебному вектору 2D-балки в конвенции θ = +w′. Mz1/Mz2 — правые моменты вокруг z
+/// (θz = +v′), их знак с учебным вектором совпадает.</summary>
 public static class StripLoadConsistentNodalProjection
 {
+    // Трёхточечная квадратура Гаусса–Лежандра на [-1,1]: точна до 5-й степени, а произведение
+    // эрмитовой кубики на линейную интенсивность имеет степень 4.
+    static readonly double[] GaussXi = [-0.7745966692414834, 0.0, 0.7745966692414834];
+    static readonly double[] GaussWeights = [5.0 / 9.0, 8.0 / 9.0, 5.0 / 9.0];
+
     public static StripLoadProjectionResult Project(
         StripLoadSet loads,
         double lengthM,
@@ -35,6 +49,13 @@ public static class StripLoadConsistentNodalProjection
         ArgumentNullException.ThrowIfNull(stationFractions);
 
         var diagnostics = new List<FemValidationDiagnostic>();
+        if (!(lengthM > 0.0) || !double.IsFinite(lengthM))
+        {
+            diagnostics.Add(new("plate_strip_load_invalid_length",
+                "Длина полосы должна быть конечной и положительной."));
+            return new(false, diagnostics, [], [], []);
+        }
+
         if (!IsValidStationList(stationFractions))
         {
             diagnostics.Add(new("plate_strip_load_invalid_stations",
@@ -65,7 +86,7 @@ public static class StripLoadConsistentNodalProjection
                 continue;
             }
 
-            if (load.Kind == StripLoadKind.DistributedUniform)
+            if (load.IsDistributed)
                 AccumulateDistributed(load, lengthM, stationFractions, elements);
             else
                 AccumulatePoint(load, lengthM, stationFractions, elements);
@@ -99,19 +120,89 @@ public static class StripLoadConsistentNodalProjection
     static void AccumulateDistributed(
         StripLoad load, double lengthM, IReadOnlyList<double> stations, StripElementNodalLoad[] elements)
     {
+        // Полное перекрытие элемента постоянной нагрузкой считается замкнутыми формулами, а не
+        // квадратурой: это сохраняет арифметику Среза 4 бит в бит (см. спеку Среза 6,
+        // «Побитовая регрессия Среза 4»). Частичное перекрытие и линейный закон — квадратурой.
+        const double coverTolerance = 1e-12;
+
         for (int i = 0; i < elements.Length; i++)
         {
-            double le = (stations[i + 1] - stations[i]) * lengthM;
-            double n = load.QxKnM * le / 2.0;
-            double vy = load.QyKnM * le / 2.0;
-            double mz = load.QyKnM * le * le / 12.0;
-            double vz = load.QzKnM * le / 2.0;
-            double my = load.QzKnM * le * le / 12.0;
+            double elementStart = stations[i];
+            double elementEnd = stations[i + 1];
+            double from = Math.Max(load.StationStartFraction, elementStart);
+            double to = Math.Min(load.StationEndFraction, elementEnd);
+            if (to - from <= 0.0)
+                continue;
 
-            elements[i] += new StripElementNodalLoad(
-                n, vy, vz, my, mz,
-                n, vy, vz, -my, -mz);
+            double le = (elementEnd - elementStart) * lengthM;
+
+            if (load.Kind == StripLoadKind.DistributedUniform &&
+                from <= elementStart + coverTolerance && to >= elementEnd - coverTolerance)
+            {
+                elements[i] += FullyCoveredUniform(load, le);
+                continue;
+            }
+
+            elements[i] += IntegrateSegment(load, lengthM, elementStart, le, from, to);
         }
+    }
+
+    static StripElementNodalLoad FullyCoveredUniform(StripLoad load, double le)
+    {
+        double n = load.QxKnM * le / 2.0;
+        double vy = load.QyKnM * le / 2.0;
+        double mz = load.QyKnM * le * le / 12.0;
+        double vz = load.QzKnM * le / 2.0;
+        double my = load.QzKnM * le * le / 12.0;
+
+        return new StripElementNodalLoad(
+            n, vy, vz, -my, mz,
+            n, vy, vz, my, -mz);
+    }
+
+    /// <summary>Интегрирует ∫ Nᵀ·q(s) ds по фактическому пересечению участка нагрузки с
+    /// элементом: линейные функции формы для продольной компоненты, эрмитовы — для изгибных.</summary>
+    static StripElementNodalLoad IntegrateSegment(
+        StripLoad load, double lengthM, double elementStart, double le, double from, double to)
+    {
+        double x1 = (from - elementStart) * lengthM;
+        double x2 = (to - elementStart) * lengthM;
+        double half = (x2 - x1) / 2.0;
+        double mid = (x1 + x2) / 2.0;
+
+        double n1 = 0.0, n2 = 0.0;
+        double vy1 = 0.0, mz1 = 0.0, vy2 = 0.0, mz2 = 0.0;
+        double vz1 = 0.0, my1 = 0.0, vz2 = 0.0, my2 = 0.0;
+
+        for (int g = 0; g < GaussXi.Length; g++)
+        {
+            double x = mid + half * GaussXi[g];
+            double weight = GaussWeights[g] * half;
+            var (qx, qy, qz) = load.IntensityAt(elementStart + x / lengthM);
+
+            double xi = x / le;
+            double xi2 = xi * xi;
+            double xi3 = xi2 * xi;
+            double h1 = 1.0 - 3.0 * xi2 + 2.0 * xi3;
+            double h2 = le * (xi - 2.0 * xi2 + xi3);
+            double h3 = 3.0 * xi2 - 2.0 * xi3;
+            double h4 = le * (xi3 - xi2);
+
+            n1 += weight * (1.0 - xi) * qx;
+            n2 += weight * xi * qx;
+
+            vy1 += weight * h1 * qy;
+            mz1 += weight * h2 * qy;
+            vy2 += weight * h3 * qy;
+            mz2 += weight * h4 * qy;
+
+            vz1 += weight * h1 * qz;
+            my1 -= weight * h2 * qz;   // θy = −w′ (см. знаковую конвенцию в XML-doc класса)
+            vz2 += weight * h3 * qz;
+            my2 -= weight * h4 * qz;
+        }
+
+        return new StripElementNodalLoad(n1, vy1, vz1, my1, mz1, n2, vy2, vz2, my2, mz2);
     }
 
     static void AccumulatePoint(
@@ -126,9 +217,9 @@ public static class StripLoadConsistentNodalProjection
         double n2 = load.PxKn * a / le;
 
         double vz1 = load.PzKn * b * b * (le + 2 * a) / (le * le * le);
-        double my1 = load.PzKn * a * b * b / (le * le);
+        double my1 = -load.PzKn * a * b * b / (le * le);   // θy = −w′, см. XML-doc класса
         double vz2 = load.PzKn * a * a * (le + 2 * b) / (le * le * le);
-        double my2 = -load.PzKn * a * a * b / (le * le);
+        double my2 = load.PzKn * a * a * b / (le * le);
 
         double vy1 = load.PyKn * b * b * (le + 2 * a) / (le * le * le);
         double mz1 = load.PyKn * a * b * b / (le * le);

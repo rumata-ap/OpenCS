@@ -54,9 +54,9 @@ public sealed class StripLoadConsistentNodalProjectionTests
         Assert.True(result.IsCalculable);
         var e = result.Elements[0];
         Assert.Equal(-9.0, e.Vz1, 9);   // Qz*L/2 = -3*6/2
-        Assert.Equal(-9.0, e.My1, 9);   // Qz*L^2/12 = -3*36/12
+        Assert.Equal(9.0, e.My1, 9);    // -Qz*L^2/12 (θy = −w′, правый момент вокруг y)
         Assert.Equal(-9.0, e.Vz2, 9);
-        Assert.Equal(9.0, e.My2, 9);    // -Qz*L^2/12
+        Assert.Equal(-9.0, e.My2, 9);   // +Qz*L^2/12
         Assert.Equal(0.0, e.N1, 9);
         Assert.Equal(0.0, e.Vy1, 9);
         Assert.Equal(0.0, e.Mz1, 9);
@@ -122,8 +122,31 @@ public sealed class StripLoadConsistentNodalProjectionTests
         var e = result.Elements[0];
         Assert.Equal(-4.0, e.Vz1, 9);  // P/2
         Assert.Equal(-4.0, e.Vz2, 9);
-        Assert.Equal(-6.0, e.My1, 9);  // P*L/8 = -8*6/8
-        Assert.Equal(6.0, e.My2, 9);
+        Assert.Equal(6.0, e.My1, 9);   // -P*L/8 (θy = −w′, правый момент вокруг y)
+        Assert.Equal(-6.0, e.My2, 9);
+    }
+
+    [Fact]
+    public void Project_PointTransverseLoad_InsideElement_TotalMomentMatchesRightHandedResultant()
+    {
+        // Единственный случай, где знак My-компонент виден в итоговой проверке: точечная Pz
+        // строго внутри элемента (при a=b и у равномерной нагрузки ΣMy = 0 и знак не проявляется).
+        var load = new StripLoad
+        {
+            Kind = StripLoadKind.Point,
+            SourceTag = "pz-quarter",
+            StationFraction = 0.25,
+            PzKn = -8.0
+        };
+
+        double lengthM = 6.0;
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([load]), lengthM, [0.0, 1.0]);
+
+        Assert.True(result.IsCalculable);
+        Assert.Equal(load.PzKn, result.TotalForceCheck[2], 9);
+        // M = r×F: My = -x·Fz = -(0.25*6)*(-8) = 12
+        Assert.Equal(-0.25 * lengthM * load.PzKn, result.TotalMomentCheck[1], 9);
     }
 
     [Fact]
@@ -223,6 +246,166 @@ public sealed class StripLoadConsistentNodalProjectionTests
         Assert.False(result.IsCalculable);
         Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_produces_torque");
         Assert.Equal(0.0, result.Elements[0].Vz1, 9); // нагрузка с недопустимым Mx не лумпится
+    }
+
+    [Fact]
+    public void Project_InvalidLength_ReturnsDiagnostic()
+    {
+        foreach (double bad in new[] { 0.0, -1.0, double.NaN, double.PositiveInfinity })
+        {
+            var result = StripLoadConsistentNodalProjection.Project(
+                new StripLoadSet([]), bad, [0.0, 1.0]);
+
+            Assert.False(result.IsCalculable);
+            Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_invalid_length");
+        }
+    }
+
+    [Fact]
+    public void Project_LinearLoadOverWholeElement_MatchesClosedFormNodalLoads()
+    {
+        // Классические consistent nodal loads для линейной нагрузки (q1 в начале, q2 в конце):
+        //   f_w1 = L(7q1+3q2)/20,  f_θ1 = L²(3q1+2q2)/60,
+        //   f_w2 = L(3q1+7q2)/20,  f_θ2 = -L²(2q1+3q2)/60,
+        // где θ = +w′; в конвенции My (θy = −w′) моментные компоненты берутся с обратным знаком.
+        var load = new StripLoad
+        {
+            Kind = StripLoadKind.DistributedLinear,
+            SourceTag = "linear",
+            StationStartFraction = 0.0,
+            StationEndFraction = 1.0,
+            QzKnM = 2.0,
+            QzEndKnM = 8.0
+        };
+
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([load]), 3.0, [0.0, 1.0]);
+
+        Assert.True(result.IsCalculable);
+        var e = result.Elements[0];
+        Assert.Equal(5.7, e.Vz1, 9);
+        Assert.Equal(-3.3, e.My1, 9);
+        Assert.Equal(9.3, e.Vz2, 9);
+        Assert.Equal(4.2, e.My2, 9);
+    }
+
+    [Fact]
+    public void Project_PartialUniformLoadInsideElement_MatchesExactIntegrals()
+    {
+        // q на [0, L/2] одного элемента. Точные интегралы функций формы по половине элемента:
+        //   ∫H1 = 13L/32, ∫H2 = 11L²/192, ∫H3 = 3L/32, ∫H4 = -5L²/192,
+        //   ∫(1-ξ) = 3L/8,  ∫ξ = L/8.
+        const double q = 6.0;
+        const double lengthM = 4.0;
+        var load = new StripLoad
+        {
+            Kind = StripLoadKind.DistributedUniform,
+            SourceTag = "half",
+            StationStartFraction = 0.0,
+            StationEndFraction = 0.5,
+            QxKnM = q,
+            QyKnM = q,
+            QzKnM = q
+        };
+
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([load]), lengthM, [0.0, 1.0]);
+
+        Assert.True(result.IsCalculable);
+        var e = result.Elements[0];
+        double l2 = lengthM * lengthM;
+
+        Assert.Equal(q * 3.0 * lengthM / 8.0, e.N1, 9);
+        Assert.Equal(q * lengthM / 8.0, e.N2, 9);
+
+        Assert.Equal(q * 13.0 * lengthM / 32.0, e.Vy1, 9);
+        Assert.Equal(q * 11.0 * l2 / 192.0, e.Mz1, 9);
+        Assert.Equal(q * 3.0 * lengthM / 32.0, e.Vy2, 9);
+        Assert.Equal(-q * 5.0 * l2 / 192.0, e.Mz2, 9);
+
+        Assert.Equal(q * 13.0 * lengthM / 32.0, e.Vz1, 9);
+        Assert.Equal(-q * 11.0 * l2 / 192.0, e.My1, 9);
+        Assert.Equal(q * 3.0 * lengthM / 32.0, e.Vz2, 9);
+        Assert.Equal(q * 5.0 * l2 / 192.0, e.My2, 9);
+    }
+
+    [Fact]
+    public void Project_LoadCrossingElementBoundary_SplitsSymmetrically()
+    {
+        var load = new StripLoad
+        {
+            Kind = StripLoadKind.DistributedUniform,
+            SourceTag = "middle-half",
+            StationStartFraction = 0.25,
+            StationEndFraction = 0.75,
+            QzKnM = -4.0
+        };
+
+        double lengthM = 8.0;
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([load]), lengthM, [0.0, 0.5, 1.0]);
+
+        Assert.True(result.IsCalculable);
+        var left = result.Elements[0];
+        var right = result.Elements[1];
+
+        // Нагрузка симметрична относительно середины пролёта: элементы зеркальны.
+        Assert.Equal(left.Vz1, right.Vz2, 9);
+        Assert.Equal(left.Vz2, right.Vz1, 9);
+        Assert.Equal(left.My1, -right.My2, 9);
+        Assert.Equal(left.My2, -right.My1, 9);
+
+        Assert.Equal(load.QzKnM * 0.5 * lengthM, result.TotalForceCheck[2], 9);
+        Assert.Equal(-0.5 * lengthM * load.QzKnM * 0.5 * lengthM, result.TotalMomentCheck[1], 9);
+    }
+
+    [Fact]
+    public void Project_LoadEntirelyInsideOneElement_LeavesOtherElementsUntouched()
+    {
+        var load = new StripLoad
+        {
+            Kind = StripLoadKind.DistributedUniform,
+            SourceTag = "inner",
+            StationStartFraction = 0.55,
+            StationEndFraction = 0.7,
+            QzKnM = -2.0
+        };
+
+        double lengthM = 10.0;
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([load]), lengthM, [0.0, 0.5, 0.75, 1.0]);
+
+        Assert.True(result.IsCalculable);
+        Assert.Equal(0.0, result.Elements[0].Vz1, 12);
+        Assert.Equal(0.0, result.Elements[0].Vz2, 12);
+        Assert.Equal(0.0, result.Elements[2].Vz1, 12);
+        Assert.Equal(0.0, result.Elements[2].Vz2, 12);
+        Assert.Equal(load.QzKnM * 0.15 * lengthM, result.TotalForceCheck[2], 9);
+    }
+
+    [Fact]
+    public void Project_LinearLoad_IrregularStations_TotalsMatchAnalyticIntegral()
+    {
+        var load = new StripLoad
+        {
+            Kind = StripLoadKind.DistributedLinear,
+            SourceTag = "linear-irregular",
+            StationStartFraction = 0.0,
+            StationEndFraction = 1.0,
+            QzKnM = -1.0,
+            QzEndKnM = -5.0
+        };
+
+        double lengthM = 5.0;
+        var result = StripLoadConsistentNodalProjection.Project(
+            new StripLoadSet([load]), lengthM, [0.0, 0.1, 0.35, 0.36, 0.8, 1.0]);
+
+        Assert.True(result.IsCalculable);
+        // ∫q dx = L(q1+q2)/2
+        Assert.Equal(lengthM * (load.QzKnM + load.QzEndKnM) / 2.0, result.TotalForceCheck[2], 9);
+        // My = -∫x·q(x) dx = -L²(q1/6 + q2/3)
+        double expectedMy = -lengthM * lengthM * (load.QzKnM / 6.0 + load.QzEndKnM / 3.0);
+        Assert.Equal(expectedMy, result.TotalMomentCheck[1], 9);
     }
 
     [Fact]
