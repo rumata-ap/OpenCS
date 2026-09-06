@@ -66,7 +66,8 @@ public sealed class StrainStateReportProviderTests
             }));
 
         var headings = document.Blocks.OfType<ReportHeading>().Select(x => x.Text).ToList();
-        var formulas = document.Blocks.OfType<ReportFormula>().Select(x => x.Reference).ToList();
+        var formulaBlocks = document.Blocks.OfType<ReportFormula>().ToList();
+        var formulas = formulaBlocks.Select(x => x.Reference).ToList();
 
         Assert.Contains("Исходные данные", headings);
         Assert.Contains("Плоскость деформаций", headings);
@@ -75,6 +76,10 @@ public sealed class StrainStateReportProviderTests
         Assert.Contains("(8.26)", formulas);
         Assert.Contains("(8.42)", formulas);
         Assert.Contains("(8.47)", formulas);
+        var formulaByReference = formulaBlocks.ToDictionary(x => x.Reference);
+        Assert.Contains("D<sub>22</sub>", formulaByReference["(8.43)"].Formula);
+        Assert.Contains("D<sub>12</sub>", formulaByReference["(8.44)"].Formula);
+        Assert.Contains("D<sub>13</sub>", formulaByReference["(8.45)"].Formula);
         Assert.Equal(2, document.Blocks.OfType<ReportImage>().Count());
         Assert.Contains("Влияние прогиба", headings);
         Assert.Contains("Преднапряжение", headings);

@@ -141,16 +141,16 @@ public sealed class StrainStateReportProvider : IReportProvider
                 $"источник: {d.Source}", $"{Sub("D", "11")} = {F(d.D11)}"))
             .Add(new ReportFormula(
                 "(8.43)",
+                $"{Sub("D", "22")} = Σ({Sub("E", "b")}{Sub("ν", "b")}{Sub("A", "b")}{Sup(Sub("x", "b"), "2")}) + Σ({Sub("E", "s")}{Sub("ν", "s")}{Sub("A", "s")}{Sup(Sub("x", "s"), "2")})",
+                $"источник: {d.Source}", $"{Sub("D", "22")} = {F(d.D22)}"))
+            .Add(new ReportFormula(
+                "(8.44)",
                 $"{Sub("D", "12")} = Σ({Sub("E", "b")}{Sub("ν", "b")}{Sub("A", "b")}{Sub("x", "b")}{Sub("y", "b")}) + Σ({Sub("E", "s")}{Sub("ν", "s")}{Sub("A", "s")}{Sub("x", "s")}{Sub("y", "s")})",
                 $"источник: {d.Source}", $"{Sub("D", "12")} = {F(d.D12)}"))
             .Add(new ReportFormula(
-                "(8.44)",
+                "(8.45)",
                 $"{Sub("D", "13")} = Σ({Sub("E", "b")}{Sub("ν", "b")}{Sub("A", "b")}{Sub("y", "b")}) + Σ({Sub("E", "s")}{Sub("ν", "s")}{Sub("A", "s")}{Sub("y", "s")})",
                 $"источник: {d.Source}", $"{Sub("D", "13")} = {F(d.D13)}"))
-            .Add(new ReportFormula(
-                "(8.45)",
-                $"{Sub("D", "22")} = Σ({Sub("E", "b")}{Sub("ν", "b")}{Sub("A", "b")}{Sup(Sub("x", "b"), "2")}) + Σ({Sub("E", "s")}{Sub("ν", "s")}{Sub("A", "s")}{Sup(Sub("x", "s"), "2")})",
-                $"источник: {d.Source}", $"{Sub("D", "22")} = {F(d.D22)}"))
             .Add(new ReportFormula(
                 "(8.46)",
                 $"{Sub("D", "23")} = Σ({Sub("E", "b")}{Sub("ν", "b")}{Sub("A", "b")}{Sub("x", "b")}) + Σ({Sub("E", "s")}{Sub("ν", "s")}{Sub("A", "s")}{Sub("x", "s")})",
