@@ -14,11 +14,13 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
     <PackageReference Include="Xunit.SkippableFact" Version="1.5.85" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\OpenCS\OpenCS.csproj" />
     <ProjectReference Include="..\CScore\CScore.csproj" />
+    <ProjectReference Include="..\OpenCS.Reporting\OpenCS.Reporting.csproj" />
   </ItemGroup>
 
   <ItemGroup>
