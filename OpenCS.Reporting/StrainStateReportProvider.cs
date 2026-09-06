@@ -13,6 +13,9 @@ public sealed class StrainStateReportProvider : IReportProvider
     public IReadOnlyCollection<string> SupportedKinds => [TaskKind];
 
     /// <inheritdoc/>
+    public bool CanHandle(CalcTask task) => SupportedKinds.Contains(task.Kind, StringComparer.Ordinal);
+
+    /// <inheritdoc/>
     public IReadOnlyList<ReportImageRequest> DescribeImages(CalcTask task, CalcResult result)
     {
         ArgumentNullException.ThrowIfNull(task);
