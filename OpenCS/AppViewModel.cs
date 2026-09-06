@@ -49,7 +49,10 @@ namespace OpenCS
       public OpenCS.Reporting.ReportProviderRegistry ReportProviders { get; } =
          new([
             new OpenCS.Reporting.StrainStateReportProvider(),
-            new OpenCS.Reporting.LimitForceReportProvider()
+            new OpenCS.Reporting.LimitForceReportProvider(),
+            new OpenCS.Reporting.CrackingReportProvider(),
+            new OpenCS.Reporting.CrackWidthReportProvider(),
+            new OpenCS.Reporting.TotalCurvatureReportProvider()
          ]);
 
       /// <summary>
