@@ -35,9 +35,20 @@ public sealed class ReportContext
 /// <summary>Общий контракт поставщика отчёта для отдельного типа расчётной задачи.</summary>
 public interface IReportProvider
 {
+    /// <summary>Основной вид расчётной задачи, обслуживаемый поставщиком.</summary>
+    string TaskKind { get; }
+
+    /// <summary>Все виды задач, обслуживаемые поставщиком. Для обычного поставщика
+    /// содержит один элемент; агрегирующий поставщик может содержать несколько.</summary>
+    IReadOnlyCollection<string> SupportedKinds { get; }
+
     /// <summary>Проверяет, поддерживает ли поставщик тип задачи.</summary>
-    bool CanHandle(CalcTask task);
+    bool CanHandle(CalcTask task)
+        => SupportedKinds.Contains(task.Kind, StringComparer.Ordinal);
 
     /// <summary>Строит нейтральный документ отчёта.</summary>
     ReportDocument Build(ReportContext context);
+
+    /// <summary>Иллюстрации, ожидаемые поставщиком в <see cref="ReportContext.Images"/>.</summary>
+    IReadOnlyList<ReportImageRequest> DescribeImages(CalcTask task, CalcResult result) => [];
 }
