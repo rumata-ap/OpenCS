@@ -47,7 +47,10 @@ namespace OpenCS
       /// <see cref="OpenCS.Reporting.IReportProvider"/> и включением его в этот список.
       /// </summary>
       public OpenCS.Reporting.ReportProviderRegistry ReportProviders { get; } =
-         new([new OpenCS.Reporting.StrainStateReportProvider()]);
+         new([
+            new OpenCS.Reporting.StrainStateReportProvider(),
+            new OpenCS.Reporting.LimitForceReportProvider()
+         ]);
 
       /// <summary>
       /// Движок документирования уровня приложения: печать PDF и растеризация SVG для DOCX.

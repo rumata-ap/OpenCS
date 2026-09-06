@@ -145,7 +145,7 @@ public sealed class ReportExportAcceptanceTests : IDisposable
                 Assert.True(stream.Length > 2_000,
                     "Растеризованная карта подозрительно мала — вероятно, отрисовалась пустой.");
             }
-            Assert.Contains("Колонна | ось А", package.MainDocumentPart.Document.InnerText);
+            Assert.Contains("Колонна | ось А", package.MainDocumentPart!.Document!.InnerText);
         }
 
         byte[] pdfBytes = File.ReadAllBytes(pdf);

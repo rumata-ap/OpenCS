@@ -15,6 +15,8 @@
              <ResourceDictionary Source="Resources/Strings.ru-RU.xaml"/>
          </ResourceDictionary.MergedDictionaries>
 
+         <conv:ReportSupportedConverter x:Key="ReportSupportedConverter"/>
+
          <DataTemplate DataType="{x:Type core:Fiber}">
             <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
                <Image Source="/Images/volokno--32.png"/>

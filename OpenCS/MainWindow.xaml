@@ -1050,20 +1050,11 @@
                                  <MenuItem Header="{DynamicResource ReportExportButton}"
                                            Command="{Binding PlacementTarget.Tag.ExportCalcResultReportCommand,
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                           CommandParameter="{Binding PlacementTarget.DataContext,
-                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                    <MenuItem.Style>
-                                       <Style TargetType="MenuItem">
-                                          <Setter Property="Visibility" Value="Collapsed"/>
-                                          <Style.Triggers>
-                                             <DataTrigger Binding="{Binding PlacementTarget.DataContext.TaskKind,
-                                                                    RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                          Value="strain_state">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                             </DataTrigger>
-                                          </Style.Triggers>
-                                       </Style>
-                                    </MenuItem.Style>
+                                 CommandParameter="{Binding PlacementTarget.DataContext,
+                                                             RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                           Visibility="{Binding PlacementTarget.DataContext.TaskKind,
+                                                                RelativeSource={RelativeSource AncestorType=ContextMenu},
+                                                                Converter={StaticResource ReportSupportedConverter}}">
                                  </MenuItem>
                               </ContextMenu>
                            </StackPanel.ContextMenu>
