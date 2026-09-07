@@ -78,14 +78,31 @@ namespace OpenCS.OpenSees.CScore.Fragments
                 return result;
             }
 
-            var loadMapping = PlanarLoadMapper.Map(request.Region, snapshot, request.Loads);
+            // Перегрузка с регионом дополнительно валидирует boundary contract снимка; она
+            // нужна только когда среди нагрузок есть краевые. Для поверхностных и точечных
+            // достаточно системы координат — иначе регион без размеченных BoundarySegments
+            // отвергал бы совершенно корректную поверхностную нагрузку.
+            bool hasBoundaryLoads = request.Loads.Any(l => l.Kind == PlanarLoadKind.Boundary);
+            var loadMapping = hasBoundaryLoads
+                ? PlanarLoadMapper.Map(request.Region, snapshot, request.Loads)
+                : PlanarLoadMapper.Map(request.Region.Frame, snapshot, request.Loads);
             if (!loadMapping.IsCalculable)
             {
                 result.BoundaryDiagnostics = loadMapping.Diagnostics.Select(d => d.Message).ToList();
                 return result;
             }
 
-            var nodalLoads = PlanarLoadOpenSeesAdapter.Map(loadMapping, built.NodeIndexToTag);
+            // Единицы: PlanarLoad задаётся в кН (как StripLoad доменной части), OpenSees
+            // работает в СИ. Конверсия зеркальна той, что ShellResultantRotation делает на
+            // выходе; без неё расчёт шёл бы с нагрузкой, заниженной ровно в 1000 раз, а
+            // сверка shell/beam разъезжалась бы на тот же множитель.
+            const double kilonewtonToNewton = 1000.0;
+            var nodalLoads = PlanarLoadOpenSeesAdapter.Map(loadMapping, built.NodeIndexToTag)
+                .Select(load => new ShellNodalLoad(
+                    load.NodeTag,
+                    load.Fx * kilonewtonToNewton, load.Fy * kilonewtonToNewton, load.Fz * kilonewtonToNewton,
+                    load.Mx * kilonewtonToNewton, load.My * kilonewtonToNewton, load.Mz * kilonewtonToNewton))
+                .ToList();
             var nodes = ApplySupports(built.Model.Nodes, request);
 
             var model = built.Model with
@@ -148,6 +165,9 @@ namespace OpenCS.OpenSees.CScore.Fragments
                 : 0.0;
 
             var beam = RunBeam(request, domainDiagnostics);
+            // Диагностики самого решателя обязаны дойти до результата: без них «не сошлось»
+            // возвращалось бы без единого объяснения.
+            if (beam is not null) domainDiagnostics.AddRange(beam.Diagnostics);
             result.DomainDiagnostics = domainDiagnostics;
             result.BeamIsCalculable = beam?.IsCalculable ?? false;
             if (beam is null || !beam.IsCalculable)
