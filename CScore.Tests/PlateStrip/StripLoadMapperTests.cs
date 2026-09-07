@@ -55,7 +55,7 @@ public sealed class StripLoadMapperTests
     }
 
     [Fact]
-    public void Map_BoundaryKind_ReturnsUnsupportedDiagnostic()
+    public void Map_BoundaryKind_WithoutInterface_ReportsMissingInterface()
     {
         var load = new PlanarLoad
         {
@@ -67,9 +67,11 @@ public sealed class StripLoadMapperTests
 
         var result = StripLoadMapper.Map(Frame3D.Identity, Analogy(), load);
 
+        // Срез 7 снял заглушку Среза 4: краевая нагрузка теперь переносится, но только через
+        // объявленный StripBoundaryInterface — без него это ошибка, а не «тип не поддержан».
         Assert.False(result.IsCalculable);
         Assert.Null(result.Load);
-        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_load_kind_unsupported");
+        Assert.Contains(result.Diagnostics, d => d.Code == "plate_strip_boundary_interface_missing");
     }
 
     [Fact]

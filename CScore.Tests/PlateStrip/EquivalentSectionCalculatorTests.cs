@@ -120,6 +120,18 @@ public sealed class EquivalentSectionCalculatorTests
         Assert.Equal(2.0, weights.Sum(), 9);
     }
 
+    [Fact]
+    public void ConstitutiveIntegration_ResultFingerprint_IsBitwiseUnchangedAfterSrez7Refactor()
+    {
+        // Эталон снят с кода ДО выноса тела Integrate в NonlinearStripSection (Срез 7).
+        // Любое изменение арифметики линейной сборки Срезов 2–6 обязано уронить этот тест.
+        var result = Build(ReductionPolicy.ConstitutiveIntegration);
+
+        Assert.Equal(
+            "9A4EDBD59563D1C1B0411EBF996CE2EE331F312DEC51A08F78449BD39B728ABE",
+            result.Section!.ResultFingerprint);
+    }
+
     static EquivalentSectionBuildResult Build(ReductionPolicy policy)
     {
         var source = Source();

@@ -109,32 +109,14 @@ public static class EquivalentSectionCalculator
         return result;
     }
 
+    /// <summary>Линейная сборка: та же интеграция BᵀHB по ширине, что и в нелинейном режиме,
+    /// но в нулевом состоянии. Тело вынесено в NonlinearStripSection (Срез 7), где состояние
+    /// стало параметром; здесь оно фиксировано нулём, поэтому результат Срезов 2–6 не изменился.</summary>
     static double[,] Integrate(IReadOnlyList<IPlateSectionResponse> sources, double width, int pointCount,
                                out List<FemValidationDiagnostic> diagnostics)
     {
         diagnostics = [];
-        var embedding = new StripKinematicEmbedding(width);
-        var result = new double[3, 3];
-        var (vs, weights) = WidthGaussPoints(width, pointCount);
-        for (int g = 0; g < vs.Length; g++)
-        {
-            double v = vs[g];
-            double weight = weights[g];
-            var b = embedding.Matrix(v);
-            var shellState = embedding.Map(BeamStrainState.Zero, v);
-            var tangent = sources[g].Tangent(shellState);
-            var h = PlateSectionResponseMath.BuildH(tangent.A, tangent.B, tangent.D);
-            for (int a = 0; a < 3; a++)
-            for (int c = 0; c < 3; c++)
-            {
-                double value = 0.0;
-                for (int i = 0; i < 6; i++)
-                for (int j = 0; j < 6; j++)
-                    value += b[i, a] * h[i, j] * b[j, c];
-                result[a, c] += weight * value;
-            }
-        }
-        return result;
+        return NonlinearStripSection.IntegrateTangent(sources, width, pointCount, BeamStrainState.Zero);
     }
 
     static (double[] Points, double[] Weights) GaussLegendre(int n)
