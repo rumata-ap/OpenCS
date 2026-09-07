@@ -59,7 +59,7 @@ public sealed class PlateStripAnalogyIntegrationTests
             // Защита от схлопывания в заглушку.
             Assert.True(result.BeamMaxDeflectionM > 0.0);
             Assert.True(result.ShellMaxDeflectionM > 0.0);
-            Assert.NotEqual(result.BeamMaxDeflectionM, 0.004);
+            Assert.NotEqual(0.004, result.BeamMaxDeflectionM);
         }
         finally
         {
