@@ -42,11 +42,13 @@ public record ShearManualForces
     public double Vy { get; init; }
     /// <summary>Поперечная сила Vx, кН.</summary>
     public double Vx { get; init; }
+    /// <summary>Крутящий момент T, кН·м.</summary>
+    public double T { get; init; }
 
     /// <summary>Строка усилий для расчёта.</summary>
     public CScore.LoadItem ToLoadItem() => new()
     {
-        N = N, Mx = Mx, My = My, Vy = Vy, Vx = Vx
+        N = N, Mx = Mx, My = My, Vy = Vy, Vx = Vx, T = T
     };
 
     /// <summary>Задана ли хотя бы одна поперечная сила — без неё расчёт наклонных сечений пуст.</summary>
@@ -59,6 +61,15 @@ public record ShearManualForces
 /// </summary>
 public record ShearInclinedParams
 {
+    /// <summary>Режим области применимости: standard_auto, standard_equivalent или research.</summary>
+    public string ApplicabilityMode { get; init; } = Sp63ShearApplicabilityMode.StandardAuto;
+
+    /// <summary>Пользователь подтвердил ответственность за эквивалентное сечение.</summary>
+    public bool EquivalentSectionConfirmed { get; init; }
+
+    /// <summary>Пояснение пользователя к принятому эквивалентному сечению.</summary>
+    public string EquivalentSectionNote { get; init; } = "";
+
     /// <summary>Источник усилий: "constant" | "uniform_load" | "fem_profile".</summary>
     public string ForceSource { get; init; } = "constant";
 
@@ -144,9 +155,18 @@ public record ShearInclinedParams
     {
         if (string.IsNullOrWhiteSpace(json) || json.Trim() == "{}")
             return new ShearInclinedParams();
-        return JsonSerializer.Deserialize<ShearInclinedParams>(json, JsonOpts)
+        var parameters = JsonSerializer.Deserialize<ShearInclinedParams>(json, JsonOpts)
             ?? new ShearInclinedParams();
+        return parameters with
+        {
+            ApplicabilityMode = Sp63ShearApplicability.NormalizeMode(parameters.ApplicabilityMode),
+            EquivalentSectionNote = parameters.EquivalentSectionNote?.Trim() ?? ""
+        };
     }
+
+    /// <summary>Нормализованный режим области применимости.</summary>
+    public string ResolveApplicabilityMode() =>
+        Sp63ShearApplicability.NormalizeMode(ApplicabilityMode);
 
     /// <summary>Знак направления к опоре: +1, −1 или 0 для автоматического перебора.</summary>
     public int DirectionSign() => SupportDirection switch

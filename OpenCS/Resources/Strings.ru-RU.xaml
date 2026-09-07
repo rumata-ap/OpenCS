@@ -1592,6 +1592,20 @@
     <system:String x:Key="ShearInclinedConstructiveConfirm">Конструктивные требования 10.3 соблюдены</system:String>
     <system:String x:Key="ShearInclinedConstructiveHint">Без подтверждения хомуты в расчёт не включаются (qsw = 0)</system:String>
     <system:String x:Key="ShearInclinedOverrides">Переопределения расчётных величин</system:String>
+    <system:String x:Key="ShearInclinedApplicabilityMode">Режим применимости</system:String>
+    <system:String x:Key="ShearInclinedApplicabilityAuto">Нормативный: авто для прямоугольника</system:String>
+    <system:String x:Key="ShearInclinedApplicabilityEquivalent">Нормативный: эквивалентное сечение</system:String>
+    <system:String x:Key="ShearInclinedApplicabilityResearch">Исследовательская оценка без нормативного вердикта</system:String>
+    <system:String x:Key="ShearInclinedApplicabilityHint">При Vy+Vx или кручении нормативный вердикт этой проверки недоступен.</system:String>
+    <system:String x:Key="ShearInclinedEquivalentConfirm">Подтверждаю принятие эквивалентного сечения</system:String>
+    <system:String x:Key="ShearInclinedEquivalentNote">Пояснение к эквивалентному сечению</system:String>
+    <system:String x:Key="ShearInclinedWidthB">b, м (Vy | Vx)</system:String>
+    <system:String x:Key="ShearInclinedWidthVyHint">Расчётная ширина b для плоскости Vy, м</system:String>
+    <system:String x:Key="ShearInclinedWidthVxHint">Расчётная ширина b для плоскости Vx, м</system:String>
+    <system:String x:Key="ShearInclinedTorsion">T, кН·м</system:String>
+    <system:String x:Key="ShearInclinedTorsionHint">Крутящий момент; при T ≠ 0 требуется отдельная пространственная модель</system:String>
+    <system:String x:Key="ShearInclinedNotApplicable">Нормативный вердикт недоступен</system:String>
+    <system:String x:Key="ShearInclinedResearch">Исследовательская оценка</system:String>
 
     <system:String x:Key="ShearInclinedGroupStrip">Полоса между наклонными сечениями (8.1.32)</system:String>
     <system:String x:Key="ShearInclinedGroupShear">Наклонное сечение на действие поперечной силы (8.1.33)</system:String>

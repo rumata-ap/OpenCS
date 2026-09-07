@@ -34,10 +34,10 @@ public static class ShearInclinedProfileFactory
 
         return parameters.ForceSource switch
         {
-            "uniform_load" => BuildUniform(parameters, q, m, item.N),
+            "uniform_load" => BuildUniform(parameters, q, m, item.N, item.T),
             "fem_profile" => BuildFem(parameters, plane, forceSet, database),
             _ => new ProfileBuildResult(
-                new ConstantProfile(q, m, item.N, parameters.DistanceToSupport), null, [])
+                new ConstantProfile(q, m, item.N, parameters.DistanceToSupport, item.T), null, [])
         };
     }
 
@@ -47,7 +47,7 @@ public static class ShearInclinedProfileFactory
 
     /// <summary>Профиль при равномерно распределённой нагрузке.</summary>
     static ProfileBuildResult BuildUniform(
-        ShearInclinedParams parameters, double q, double m, double n)
+        ShearInclinedParams parameters, double q, double m, double n, double t)
     {
         if (parameters.DistanceToSupport <= 0.0)
             return new ProfileBuildResult(null,
@@ -60,7 +60,7 @@ public static class ShearInclinedProfileFactory
         return new ProfileBuildResult(
             new UniformLoadProfile(
                 q, m, n, parameters.DistributedLoad, parameters.DistanceToSupport,
-                parameters.SupportAtStart, parameters.SupportAtEnd),
+                parameters.SupportAtStart, parameters.SupportAtEnd, t),
             null, []);
     }
 
@@ -134,7 +134,7 @@ public static class ShearInclinedProfileFactory
             var loadItem = row.ToLoadItem(samples.Count + 1);
             double q = plane == ShearPlane.Vy ? loadItem.Vy : loadItem.Vx;
             double m = plane == ShearPlane.Vy ? loadItem.Mx : loadItem.My;
-            samples.Add(new ForceSample(row.PositionS, q, m, loadItem.N));
+            samples.Add(new ForceSample(row.PositionS, q, m, loadItem.N, loadItem.T));
         }
 
         var warnings = new List<string>();

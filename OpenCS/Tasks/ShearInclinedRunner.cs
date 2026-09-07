@@ -30,11 +30,26 @@ public static class ShearInclinedRunner
         try
         {
             var parameters = ShearInclinedParams.Parse(task.ParamsJson);
+            if (!section.Areas.Any(area => area.Category == AreaCategory.Region &&
+                                           area.Material?.Type == MatType.Concrete))
+                throw new InvalidOperationException(
+                    "В сечении нет бетонной области — расчёт наклонных сечений невозможен.");
             var outcomes = new List<ShearInclinedPlaneOutcome>();
             var warnings = new List<string>();
+            var forceSet = ctx?.Database?.ForceSets.FirstOrDefault(fs => fs.Id == task.ForceSetId);
 
-            foreach (var plane in Planes(parameters))
+            var planes = Planes(parameters)
+                .Where(plane => Math.Abs(ShearOf(item, plane)) > Sp63ShearApplicability.ForceZeroTolerance)
+                .ToList();
+            if (planes.Count == 0) planes = Planes(parameters).ToList();
+
+            foreach (var plane in planes)
             {
+                var applicability = Qualify(section, item, plane, parameters, forceSet, ctx?.Database);
+                if (!applicability.HasNormativeVerdict &&
+                    applicability.EffectiveMode != Sp63ShearApplicabilityMode.Research)
+                    return NotApplicable(task, section, item, parameters, created, applicability);
+
                 var outcome = Evaluate(task, section, item, plane, parameters, settings, ctx, warnings);
                 if (outcome is not null) outcomes.Add(outcome);
             }
@@ -135,6 +150,48 @@ public static class ShearInclinedRunner
             input, build.Profile, geometry, parameters.DirectionSign());
         return new ShearInclinedPlaneOutcome(plane, result, input, geometry, build.Profile);
     }
+
+    /// <summary>Проверяет границы нормативного применения до запуска формул СП.</summary>
+    static Sp63ShearApplicabilityResult Qualify(
+        CrossSection section, LoadItem item, ShearPlane plane, ShearInclinedParams parameters,
+        ForceSet? forceSet, DatabaseService? database)
+    {
+        var overrides = plane == ShearPlane.Vy ? parameters.OverridesVy : parameters.OverridesVx;
+        var profileBuild = ShearInclinedProfileFactory.Build(parameters, item, plane, forceSet, database);
+        double torsion = profileBuild.Profile is null
+            ? Math.Abs(item.T)
+            : profileBuild.Profile.MaxAbsT(profileBuild.Profile.StationRange.Min,
+                                           profileBuild.Profile.StationRange.Max);
+        double orthogonalShear = OrthogonalShearOf(item, plane);
+        // В FEM-профиле LoadItem служит только точкой входа и может содержать нули.
+        // Вторую поперечную силу следует брать из той же эпюры, иначе пространственная
+        // комбинация могла бы ошибочно получить нормативный вердикт.
+        if (parameters.ForceSource == "fem_profile")
+        {
+            var otherPlane = plane == ShearPlane.Vy ? ShearPlane.Vx : ShearPlane.Vy;
+            var other = ShearInclinedProfileFactory.Build(
+                parameters, item, otherPlane, forceSet, database).Profile;
+            if (other is not null)
+                orthogonalShear = other.MaxAbsQ(other.StationRange.Min, other.StationRange.Max);
+        }
+        var rectangle = RectangularShearSectionClassifier.Classify(section);
+        var result = Sp63ShearApplicability.Evaluate(new Sp63ShearApplicabilityInput(
+            parameters.ApplicabilityMode, rectangle.IsSupported, overrides?.B,
+            parameters.EquivalentSectionConfirmed, orthogonalShear, torsion,
+            overrides?.PhiN is not null));
+
+        if (!rectangle.IsSupported && result.EffectiveMode == Sp63ShearApplicabilityMode.StandardAuto)
+            return result with { Reasons = result.Reasons.Concat(rectangle.Reasons).Distinct().ToList() };
+        return result;
+    }
+
+    /// <summary>Поперечная сила выбранной плоскости.</summary>
+    static double ShearOf(LoadItem item, ShearPlane plane) =>
+        plane == ShearPlane.Vy ? item.Vy : item.Vx;
+
+    /// <summary>Поперечная сила перпендикулярной плоскости.</summary>
+    static double OrthogonalShearOf(LoadItem item, ShearPlane plane) =>
+        plane == ShearPlane.Vy ? item.Vx : item.Vy;
 
     /// <summary>Добавляет оговорку, если её ещё нет в списке.</summary>
     static void AddOnce(List<string> warnings, string message)
@@ -255,6 +312,15 @@ public static class ShearInclinedRunner
             elementKind = parameters.ElementKind,
             forceSource = parameters.ForceSource,
             direction = parameters.DirectionSign(),
+            applicability = new
+            {
+                requestedMode = parameters.ApplicabilityMode,
+                effectiveMode = parameters.ResolveApplicabilityMode(),
+                status = parameters.ResolveApplicabilityMode() == Sp63ShearApplicabilityMode.Research
+                    ? "research" : "ok",
+                hasNormativeVerdict = parameters.ResolveApplicabilityMode() != Sp63ShearApplicabilityMode.Research,
+                reasons = Array.Empty<string>()
+            },
             inputs,
             profile = profiles,
             details,
@@ -293,7 +359,7 @@ public static class ShearInclinedRunner
                 supportAtEnd = parameters.SupportAtEnd,
                 length = sampled.Length,
                 samples = sampled.Samples
-                    .Select(sample => new { s = sample.S, q = sample.Q, m = sample.M, n = sample.N })
+                    .Select(sample => new { s = sample.S, q = sample.Q, m = sample.M, n = sample.N, t = sample.T })
                     .ToList()
             };
 
@@ -304,6 +370,7 @@ public static class ShearInclinedRunner
                 q0 = q,
                 m0 = m,
                 n0 = item.N,
+                t0 = item.T,
                 load = parameters.DistributedLoad,
                 supportDistance = parameters.DistanceToSupport,
                 supportAtStart = parameters.SupportAtStart,
@@ -316,9 +383,47 @@ public static class ShearInclinedRunner
             q0 = q,
             m0 = m,
             n0 = item.N,
+            t0 = item.T,
             supportDistance = parameters.DistanceToSupport
         };
     }
+
+    /// <summary>Формирует результат без нормативного вердикта, не подставляя фиктивный коэффициент.</summary>
+    static CalcResult NotApplicable(
+        CalcTask task, CrossSection section, LoadItem item, ShearInclinedParams parameters,
+        string created, Sp63ShearApplicabilityResult applicability) => new()
+    {
+        TaskId = task.Id,
+        TaskKind = task.Kind,
+        TaskTag = task.Tag,
+        Created = created,
+        Status = "ok",
+        DataJson = JsonSerializer.Serialize(new
+        {
+            sectionTag = section.Tag,
+            forceLabel = item.Label,
+            calcType = task.CalcType.ToString(),
+            elementKind = parameters.ElementKind,
+            forceSource = parameters.ForceSource,
+            direction = parameters.DirectionSign(),
+            applicability = new
+            {
+                requestedMode = applicability.RequestedMode,
+                effectiveMode = applicability.EffectiveMode,
+                status = applicability.Status,
+                hasNormativeVerdict = applicability.HasNormativeVerdict,
+                reasons = applicability.Reasons
+            },
+            inputs = new { },
+            profile = new { },
+            details = Array.Empty<object>(),
+            stations = Array.Empty<object>(),
+            warnings = applicability.Reasons,
+            utilization = (double?)null,
+            utilizationStatus = "not_applicable",
+            utilizationExact = (double?)null
+        })
+    };
 
     /// <summary>Результат с ошибкой.</summary>
     static CalcResult Error(CalcTask task, string created, string message) => new()

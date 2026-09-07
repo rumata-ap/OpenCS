@@ -15,6 +15,9 @@ public interface IForceProfile
     /// <summary>Продольная сила в сечении с координатой s, кН (сжатие — «минус»).</summary>
     double N(double s);
 
+    /// <summary>Крутящий момент в сечении с координатой s, кН·м.</summary>
+    double T(double s);
+
     /// <summary>Длина области определения профиля, м.</summary>
     double Length { get; }
 
@@ -40,4 +43,7 @@ public interface IForceProfile
     /// Порядок концов отрезка значения не имеет.
     /// </summary>
     double MaxAbsQ(double from, double to);
+
+    /// <summary>Наибольший по модулю крутящий момент на отрезке [from; to], кН·м.</summary>
+    double MaxAbsT(double from, double to);
 }

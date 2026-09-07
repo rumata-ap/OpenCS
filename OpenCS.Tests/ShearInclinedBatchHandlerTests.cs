@@ -73,6 +73,36 @@ public sealed class ShearInclinedBatchHandlerTests
         finally { TryDelete(path); }
     }
 
+    [Fact]
+    public void Run_RowOutsideApplicability_MarksRowAndAggregateAsNotApplicable()
+    {
+        string path = TempPath();
+        try
+        {
+            using var database = new DatabaseService(path);
+            database.ForceSets.Add(new ForceSet
+            {
+                Id = 5, Kind = "bar", Tag = "РСУ-1",
+                Items = [new LoadItem { Num = 1, Label = "пространственное", Vy = 200.0, Vx = 50.0, Mx = -120.0 }]
+            });
+            var task = new CalcTask
+            {
+                Id = 1, Kind = "shear_inclined_batch", CalcType = CalcType.C, ForceSetId = 5,
+                ParamsJson = new ShearInclinedParams { Planes = "vy" }.ToJson()
+            };
+
+            var result = new ShearInclinedBatchHandler().Run(task, ShearInclinedFixtures.Beam(),
+                new LoadItem(), CalcSettings.Default, new TaskRunContext { Database = database });
+
+            using var doc = JsonDocument.Parse(result.DataJson);
+            Assert.Equal("not_applicable", doc.RootElement.GetProperty("utilizationStatus").GetString());
+            var row = doc.RootElement.GetProperty("rows")[0];
+            Assert.Equal("not_applicable", row.GetProperty("status").GetString());
+            Assert.Equal(JsonValueKind.Null, row.GetProperty("utilization").ValueKind);
+        }
+        finally { TryDelete(path); }
+    }
+
     static string TempPath() =>
         Path.Combine(Path.GetTempPath(), $"opencs-shear-batch-{Guid.NewGuid():N}.db");
 

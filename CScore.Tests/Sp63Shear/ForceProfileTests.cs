@@ -102,4 +102,18 @@ public sealed class ForceProfileTests
 
         Assert.Equal(120.0, profile.MaxAbsQ(0.0, 8.0), 9);
     }
+
+    [Fact]
+    public void ForceProfile_ExposesTorsionAndItsIntervalMaximum()
+    {
+        IForceProfile profile = new ConstantProfile(q: 0.0, m: 0.0, n: 0.0, supportDistance: 0.0);
+
+        var torsion = typeof(IForceProfile).GetMethod("T");
+        var maximum = typeof(IForceProfile).GetMethod("MaxAbsT");
+
+        Assert.NotNull(torsion);
+        Assert.NotNull(maximum);
+        Assert.Equal(0.0, (double)torsion!.Invoke(profile, [1.0])!, 12);
+        Assert.Equal(0.0, (double)maximum!.Invoke(profile, [0.0, 1.0])!, 12);
+    }
 }

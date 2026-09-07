@@ -5,7 +5,8 @@ namespace CScore.Sp63Shear;
 /// <param name="Q">Поперечная сила, кН.</param>
 /// <param name="M">Изгибающий момент, кН·м.</param>
 /// <param name="N">Продольная сила, кН.</param>
-public readonly record struct ForceSample(double S, double Q, double M, double N);
+/// <param name="T">Крутящий момент, кН·м.</param>
+public readonly record struct ForceSample(double S, double Q, double M, double N, double T = 0.0);
 
 /// <summary>
 /// Профиль усилий по табличной эпюре (результат МКЭ). Поперечная и продольная силы
@@ -50,7 +51,8 @@ public sealed class SampledProfile : IForceProfile
 
         foreach (var sample in samples)
             if (!double.IsFinite(sample.S) || !double.IsFinite(sample.Q) ||
-                !double.IsFinite(sample.M) || !double.IsFinite(sample.N))
+                !double.IsFinite(sample.M) || !double.IsFinite(sample.N) ||
+                !double.IsFinite(sample.T))
                 throw new ArgumentException(
                     "Эпюра содержит нечисловую координату или усилие.", nameof(samples));
 
@@ -134,6 +136,16 @@ public sealed class SampledProfile : IForceProfile
         return _samples[index].N + t * (_samples[index + 1].N - _samples[index].N);
     }
 
+    /// <summary>Крутящий момент, интерполированный линейно, кН·м.</summary>
+    public double T(double s)
+    {
+        double jump = JumpT(s);
+        if (!double.IsNaN(jump)) return jump;
+
+        var (index, t) = Locate(s);
+        return _samples[index].T + t * (_samples[index + 1].T - _samples[index].T);
+    }
+
     /// <summary>Изгибающий момент, восстановленный эрмитовой интерполяцией, кН·м.</summary>
     public double M(double s)
     {
@@ -166,6 +178,18 @@ public sealed class SampledProfile : IForceProfile
         return max;
     }
 
+    /// <summary>Наибольшее по модулю T на отрезке: концы плюс все узлы внутри него.</summary>
+    public double MaxAbsT(double from, double to)
+    {
+        double lo = Math.Min(from, to);
+        double hi = Math.Max(from, to);
+        double max = Math.Max(Math.Abs(T(lo)), Math.Abs(T(hi)));
+        foreach (var sample in _samples)
+            if (sample.S > lo && sample.S < hi)
+                max = Math.Max(max, Math.Abs(sample.T));
+        return max;
+    }
+
     /// <summary>Расстояние от стоянки до опоры в заданном направлении, м.</summary>
     public double SupportDistanceAt(double station, int direction) =>
         direction >= 0
@@ -183,6 +207,17 @@ public sealed class SampledProfile : IForceProfile
                 return Math.Abs(_samples[i].Q) >= Math.Abs(_samples[i + 1].Q)
                     ? _samples[i].Q
                     : _samples[i + 1].Q;
+        return double.NaN;
+    }
+
+    /// <summary>Большее по модулю T, если в координате задан скачок; иначе NaN.</summary>
+    double JumpT(double s)
+    {
+        for (int i = 0; i + 1 < _samples.Count; i++)
+            if (_samples[i].S == s && _samples[i + 1].S == s)
+                return Math.Abs(_samples[i].T) >= Math.Abs(_samples[i + 1].T)
+                    ? _samples[i].T
+                    : _samples[i + 1].T;
         return double.NaN;
     }
 

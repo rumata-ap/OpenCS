@@ -145,13 +145,67 @@ public sealed class ShearInclinedHandlerTests
         var handler = new ShearInclinedHandler();
 
         var result = handler.Run(Task(new ShearInclinedParams { Planes = "vy" }),
-            ShearInclinedFixtures.Beam(), new LoadItem { Vy = 150.0, Vx = 90.0, Mx = -120.0 },
+            ShearInclinedFixtures.Beam(), new LoadItem { Vy = 150.0, Vx = 0.0, Mx = -120.0 },
             CalcSettings.Default);
 
         using var doc = JsonDocument.Parse(result.DataJson);
         var inputs = doc.RootElement.GetProperty("inputs");
         Assert.True(inputs.TryGetProperty("vy", out _));
         Assert.False(inputs.TryGetProperty("vx", out _));
+    }
+
+    [Fact]
+    public void Run_StandardModeWithOrthogonalShear_ReturnsNotApplicableInsteadOfNormativeUtilization()
+    {
+        var handler = new ShearInclinedHandler();
+
+        var result = handler.Run(Task(new ShearInclinedParams { Planes = "vy" }),
+            ShearInclinedFixtures.Beam(),
+            new LoadItem { Vy = 150.0, Vx = 90.0, Mx = -120.0 }, CalcSettings.Default);
+
+        Assert.Equal("ok", result.Status);
+        using var doc = JsonDocument.Parse(result.DataJson);
+        Assert.Equal("not_applicable", doc.RootElement.GetProperty("utilizationStatus").GetString());
+        Assert.Equal(JsonValueKind.Null, doc.RootElement.GetProperty("utilization").ValueKind);
+        Assert.Contains(doc.RootElement.GetProperty("warnings").EnumerateArray()
+            .Select(w => w.GetString() ?? ""), warning => warning.Contains("двух плоскостях"));
+    }
+
+    [Fact]
+    public void Run_EquivalentModeWithManualWidth_AllowsNonRectangularSectionAfterConfirmation()
+    {
+        var handler = new ShearInclinedHandler();
+        var parameters = new ShearInclinedParams
+        {
+            Planes = "vy",
+            ApplicabilityMode = "standard_equivalent",
+            EquivalentSectionConfirmed = true,
+            OverridesVy = new ShearInclinedOverrides { B = 0.30 },
+            ConstructiveRequirements103Confirmed = true
+        };
+
+        var result = handler.Run(Task(parameters), ShearInclinedFixtures.Beam(),
+            new LoadItem { Vy = 150.0, Mx = -120.0 }, CalcSettings.Default);
+
+        using var doc = JsonDocument.Parse(result.DataJson);
+        Assert.Equal("ok", doc.RootElement.GetProperty("utilizationStatus").GetString());
+        Assert.Equal("standard_equivalent", doc.RootElement.GetProperty("applicability")
+            .GetProperty("effectiveMode").GetString());
+    }
+
+    [Fact]
+    public void Run_StandardModeWithTorsion_ReturnsNotApplicable()
+    {
+        var handler = new ShearInclinedHandler();
+
+        var result = handler.Run(Task(new ShearInclinedParams { Planes = "vy" }),
+            ShearInclinedFixtures.Beam(),
+            new LoadItem { Vy = 150.0, Mx = -120.0, T = 25.0 }, CalcSettings.Default);
+
+        using var doc = JsonDocument.Parse(result.DataJson);
+        Assert.Equal("not_applicable", doc.RootElement.GetProperty("utilizationStatus").GetString());
+        Assert.Contains(doc.RootElement.GetProperty("warnings").EnumerateArray()
+            .Select(w => w.GetString() ?? ""), warning => warning.Contains("Кручение"));
     }
 
     [Fact]

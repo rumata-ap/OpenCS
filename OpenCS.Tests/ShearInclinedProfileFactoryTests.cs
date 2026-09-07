@@ -11,7 +11,7 @@ public sealed class ShearInclinedProfileFactoryTests
     [Fact]
     public void Build_ConstantSource_UsesLoadItemValues()
     {
-        var item = new LoadItem { N = -60.0, Mx = -140.0, Vy = 180.0 };
+        var item = new LoadItem { N = -60.0, Mx = -140.0, Vy = 180.0, T = 25.0 };
         var parameters = new ShearInclinedParams { ForceSource = "constant" };
 
         var result = ShearInclinedProfileFactory.Build(parameters, item, ShearPlane.Vy, null, null);
@@ -20,6 +20,7 @@ public sealed class ShearInclinedProfileFactoryTests
         Assert.Equal(180.0, result.Profile!.Q(0.0), 9);
         Assert.Equal(-140.0, result.Profile.M(0.0), 9);
         Assert.Equal(-60.0, result.Profile.N(0.0), 9);
+        Assert.Equal(25.0, result.Profile.T(0.0), 9);
     }
 
     [Fact]
@@ -37,7 +38,7 @@ public sealed class ShearInclinedProfileFactoryTests
     [Fact]
     public void Build_UniformLoad_UsesDistributedLoadAndSpan()
     {
-        var item = new LoadItem { Vy = 120.0, Mx = 0.0 };
+        var item = new LoadItem { Vy = 120.0, Mx = 0.0, T = -18.0 };
         var parameters = new ShearInclinedParams
         {
             ForceSource = "uniform_load",
@@ -49,6 +50,7 @@ public sealed class ShearInclinedProfileFactoryTests
 
         Assert.Equal(60.0, result.Profile!.Q(2.0), 9);
         Assert.Equal(4.0, result.Profile.Length, 9);
+        Assert.Equal(-18.0, result.Profile.T(2.0), 9);
     }
 
     [Fact]

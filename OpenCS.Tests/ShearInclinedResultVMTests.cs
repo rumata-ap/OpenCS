@@ -7,6 +7,26 @@ namespace OpenCS.Tests;
 /// <summary>Разбор результата задачи наклонных сечений во ViewModel отчёта.</summary>
 public sealed class ShearInclinedResultVMTests
 {
+    [Fact]
+    public void Constructor_NotApplicableResult_ShowsCautionsWithoutInventingUtilization()
+    {
+        const string json = """
+        {
+          "sectionTag": "Б-1", "forceLabel": "РСУ-1", "direction": 0,
+          "applicability": { "status": "not_applicable" },
+          "inputs": {}, "profile": {}, "details": [], "stations": [],
+          "warnings": [ "Кручение требует отдельной модели." ],
+          "utilization": null, "utilizationExact": null
+        }
+        """;
+
+        var vm = new ShearInclinedResultVM(json);
+
+        Assert.Equal("not_applicable", vm.ApplicabilityStatus);
+        Assert.Empty(vm.Groups);
+        Assert.Contains(vm.Cautions, caution => caution.Contains("Кручение"));
+    }
+
     const string Json = """
     {
       "sectionTag": "Б-1",

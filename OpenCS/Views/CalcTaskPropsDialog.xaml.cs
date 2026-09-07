@@ -130,8 +130,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     int _torsionFemOrderIndex;
     bool torsionAutoConverge;
    string shearForceSource = "constant";
-   string shearManualN = "0", shearManualMx = "0", shearManualMy = "0";
+   string shearApplicabilityMode = "standard_auto";
+   string shearManualN = "0", shearManualMx = "0", shearManualMy = "0", shearManualT = "0";
    string shearManualVy = "0", shearManualVx = "0";
+   string shearOverrideVyB = "", shearOverrideVxB = "";
    string _forceItemFilter = "", _stage1ItemFilter = "", _stage2ItemFilter = "", _shellForceItemFilter = "";
    CancellationTokenSource? _torsionPreviewDebounceCts;
 
@@ -470,6 +472,32 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ShearManualVy { get => shearManualVy; set { shearManualVy = value; OnPropertyChanged(); } }
    /// <summary>Поперечная сила Vx расчётного сечения, кН.</summary>
    public string ShearManualVx { get => shearManualVx; set { shearManualVx = value; OnPropertyChanged(); } }
+   /// <summary>Крутящий момент T расчётного сечения, кН·м.</summary>
+   public string ShearManualT { get => shearManualT; set { shearManualT = value; OnPropertyChanged(); } }
+   /// <summary>Режим области применимости нормативной проверки.</summary>
+   public string ShearApplicabilityMode
+   {
+      get => shearApplicabilityMode;
+      set
+      {
+         shearApplicabilityMode = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowShearEquivalentDetails));
+         OnPropertyChanged(nameof(ShowShearManualWidth));
+      }
+   }
+   /// <summary>Показывать подтверждение и пояснение эквивалентного сечения.</summary>
+   public bool ShowShearEquivalentDetails => ShearApplicabilityMode == "standard_equivalent";
+   /// <summary>Показывать ручную ширину только вне автоматического нормативного режима.</summary>
+   public bool ShowShearManualWidth => ShearApplicabilityMode != "standard_auto";
+   /// <summary>Подтверждение принятого эквивалентного сечения.</summary>
+   public bool ShearEquivalentConfirmed { get; set; }
+   /// <summary>Пояснение к эквивалентному сечению.</summary>
+   public string ShearEquivalentNote { get; set; } = "";
+   /// <summary>Ручная расчётная ширина для плоскости Vy, м.</summary>
+   public string ShearOverrideVyB { get => shearOverrideVyB; set { shearOverrideVyB = value; OnPropertyChanged(); } }
+   /// <summary>Ручная расчётная ширина для плоскости Vx, м.</summary>
+   public string ShearOverrideVxB { get => shearOverrideVxB; set { shearOverrideVxB = value; OnPropertyChanged(); } }
    /// <summary>Тип элемента для режима φn.</summary>
    public string ShearElementKind { get; set; } = "bending_unstressed";
    /// <summary>Равномерная нагрузка q, кН/м.</summary>
@@ -1678,6 +1706,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               var sip = ShearInclinedParams.Parse(existing.ParamsJson);
               var inv = System.Globalization.CultureInfo.InvariantCulture;
               ShearForceSource = sip.ForceSource;
+              ShearApplicabilityMode = sip.ResolveApplicabilityMode();
+              ShearEquivalentConfirmed = sip.EquivalentSectionConfirmed;
+              ShearEquivalentNote = sip.EquivalentSectionNote;
+              ShearOverrideVyB = sip.OverridesVy?.B?.ToString("G6", inv) ?? "";
+              ShearOverrideVxB = sip.OverridesVx?.B?.ToString("G6", inv) ?? "";
               ShearElementKind = sip.ElementKind;
               ShearDistributedLoad = sip.DistributedLoad.ToString("G6", inv);
               ShearDistanceToSupport = sip.DistanceToSupport.ToString("G6", inv);
@@ -1696,6 +1729,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                  ShearManualMy = mf.My.ToString("G6", inv);
                  ShearManualVy = mf.Vy.ToString("G6", inv);
                  ShearManualVx = mf.Vx.ToString("G6", inv);
+                 ShearManualT  = mf.T .ToString("G6", inv);
               }
               else if (existing.ForceItemId != 0
                        && ForceItems.FirstOrDefault(i => i.Id == existing.ForceItemId) is { } row)
@@ -1707,6 +1741,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                  ShearManualMy = row.My.ToString("G6", inv);
                  ShearManualVy = row.Vy.ToString("G6", inv);
                  ShearManualVx = row.Vx.ToString("G6", inv);
+                 ShearManualT  = row.T .ToString("G6", inv);
               }
               // StationStep/ProjectionStep/MomentZoneLength/AnchorageFactor не читаются в UI:
               // сохранённые в старой задаче значения переносятся в новый ParamsJson как есть
@@ -2691,8 +2726,15 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          ? (int)stepValue
          : null;
 
+      double? NullableNum(string text) =>
+         string.IsNullOrWhiteSpace(text) ? null
+         : double.TryParse(text, style, inv, out var value) ? value : null;
+
       return new ShearInclinedParams
       {
+         ApplicabilityMode = ShearApplicabilityMode,
+         EquivalentSectionConfirmed = ShearEquivalentConfirmed,
+         EquivalentSectionNote = ShearEquivalentNote ?? "",
          ForceSource = ShearForceSource,
          ElementKind = ShearElementKind,
          DistributedLoad = Num(ShearDistributedLoad),
@@ -2714,9 +2756,18 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                  Mx = Num(ShearManualMx),
                  My = Num(ShearManualMy),
                  Vy = Num(ShearManualVy),
-                 Vx = Num(ShearManualVx)
+                 Vx = Num(ShearManualVx),
+                 T = Num(ShearManualT)
               }
             : null,
+         // Диалог пока редактирует только b; остальные старые переопределения нельзя
+         // потерять при открытии и повторном сохранении задачи.
+         OverridesVy = NullableNum(ShearOverrideVyB) is double vyB
+            ? (_shearLegacySteps?.OverridesVy ?? new ShearInclinedOverrides()) with { B = vyB }
+            : _shearLegacySteps?.OverridesVy,
+         OverridesVx = NullableNum(ShearOverrideVxB) is double vxB
+            ? (_shearLegacySteps?.OverridesVx ?? new ShearInclinedOverrides()) with { B = vxB }
+            : _shearLegacySteps?.OverridesVx,
          // Задача, сохранённая до переноса этих параметров в настройки расчёта, сохраняет
          // свои значения при пересохранении: правка соседнего поля не должна менять результат.
          StationStep = _shearLegacySteps?.StationStep,

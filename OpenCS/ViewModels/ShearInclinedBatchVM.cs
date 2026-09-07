@@ -36,6 +36,7 @@ public sealed class ShearInclinedBatchRowVM
     {
         "ok" => Loc.S("ShearInclinedPassed"),
         "failed" => Loc.S("ShearInclinedFailed"),
+        "not_applicable" => Loc.S("ShearInclinedNotApplicable"),
         _ => "—"
     };
 
@@ -65,6 +66,8 @@ public sealed class ShearInclinedBatchVM
 
         SectionTag = root.GetProperty("sectionTag").GetString() ?? "";
         ForceSetTag = root.TryGetProperty("forceSetTag", out var tag) ? tag.GetString() ?? "" : "";
+        UtilizationStatus = root.TryGetProperty("utilizationStatus", out var utilizationStatus)
+            ? utilizationStatus.GetString() ?? "ok" : "ok";
         Utilization = Number(root, "utilization", double.PositiveInfinity);
 
         foreach (var row in root.GetProperty("rows").EnumerateArray())
@@ -79,7 +82,7 @@ public sealed class ShearInclinedBatchVM
                 // null при status = error — «нет значения»; null при failed — нулевая
                 // несущая способность, то есть +∞
                 Utilization = Number(row, "utilization",
-                    status == "error" ? double.NaN : double.PositiveInfinity),
+                    status is "error" or "not_applicable" ? double.NaN : double.PositiveInfinity),
                 WorstFormula = row.GetProperty("worstFormula").GetString() ?? "",
                 Status = status
             });
@@ -103,20 +106,26 @@ public sealed class ShearInclinedBatchVM
     public double Utilization { get; }
     /// <summary>Текст ошибки, если задача завершилась неуспешно.</summary>
     public string ErrorText { get; } = "";
+    /// <summary>Статус области применимости сводного коэффициента.</summary>
+    public string UtilizationStatus { get; } = "ok";
     /// <summary>Строки сводки.</summary>
     public List<ShearInclinedBatchRowVM> Rows { get; } = [];
     /// <summary>Оговорки расчёта.</summary>
     public IReadOnlyList<string> Cautions => _cautions;
 
     /// <summary>Итоговый вердикт по набору.</summary>
-    public string VerdictText => !double.IsFinite(Utilization)
+    public string VerdictText => UtilizationStatus == "not_applicable"
+        ? Loc.S("ShearInclinedNotApplicable")
+        : !double.IsFinite(Utilization)
         ? $"{Loc.S("ShearInclinedFailed")} — ∞"
         : Utilization <= 1.0
             ? $"{Loc.S("ShearInclinedPassed")} — {Utilization:F3}"
             : $"{Loc.S("ShearInclinedFailed")} — {Utilization:F3}";
 
     /// <summary>Цвет итогового вердикта.</summary>
-    public Brush VerdictBrush => double.IsFinite(Utilization) && Utilization <= 1.0
+    public Brush VerdictBrush => UtilizationStatus == "not_applicable"
+        ? Brushes.DarkOrange
+        : double.IsFinite(Utilization) && Utilization <= 1.0
         ? Brushes.Green
         : Brushes.Red;
 

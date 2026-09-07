@@ -151,6 +151,9 @@ public sealed class ShearInclinedResultVM
 
         SectionTag = root.GetProperty("sectionTag").GetString() ?? "";
         ForceLabel = root.TryGetProperty("forceLabel", out var label) ? label.GetString() ?? "" : "";
+        ApplicabilityStatus = root.TryGetProperty("applicability", out var applicability) &&
+            applicability.TryGetProperty("status", out var applicabilityStatus)
+            ? applicabilityStatus.GetString() ?? "ok" : "ok";
         // null в utilization — нулевая несущая способность
         Utilization = Number(root, "utilization", double.PositiveInfinity);
         UtilizationExact = Number(root, "utilizationExact", double.PositiveInfinity);
@@ -221,7 +224,11 @@ public sealed class ShearInclinedResultVM
                 plane.Value.GetProperty("rbt").GetDouble());
 
         InputsSummary = FormatInputs(root.GetProperty("inputs"));
-        VerdictText = !double.IsFinite(Utilization)
+        VerdictText = ApplicabilityStatus == "not_applicable"
+            ? Loc.S("ShearInclinedNotApplicable")
+            : ApplicabilityStatus == "research"
+                ? Loc.S("ShearInclinedResearch")
+            : !double.IsFinite(Utilization)
             ? $"{Loc.S("ShearInclinedFailed")} — ∞"
             : Utilization <= 1.0
                 ? $"{Loc.S("ShearInclinedPassed")} — {Utilization:F3}"
@@ -240,6 +247,8 @@ public sealed class ShearInclinedResultVM
     public string SectionTag { get; } = "";
     /// <summary>Метка строки усилий.</summary>
     public string ForceLabel { get; } = "";
+    /// <summary>Статус области применимости: ok, research или not_applicable.</summary>
+    public string ApplicabilityStatus { get; } = "ok";
     /// <summary>Наибольший коэффициент использования, включая упрощённые условия.</summary>
     public double Utilization { get; }
     /// <summary>Коэффициент использования только по точным проверкам (8.55), (8.56), (8.63).</summary>
@@ -261,7 +270,11 @@ public sealed class ShearInclinedResultVM
         : $"{Loc.S("ShearInclinedExactUtilization")}: ∞";
 
     /// <summary>Цвет итогового вердикта.</summary>
-    public Brush VerdictBrush => double.IsFinite(Utilization) && Utilization <= 1.0
+    public Brush VerdictBrush => ApplicabilityStatus == "not_applicable"
+        ? Brushes.DarkOrange
+        : ApplicabilityStatus == "research"
+            ? Brushes.SteelBlue
+        : double.IsFinite(Utilization) && Utilization <= 1.0
         ? Brushes.Green
         : Brushes.Red;
 
@@ -335,7 +348,8 @@ public sealed class ShearInclinedResultVM
             var samples = data.GetProperty("samples").EnumerateArray()
                 .Select(s => new ForceSample(
                     s.GetProperty("s").GetDouble(), s.GetProperty("q").GetDouble(),
-                    s.GetProperty("m").GetDouble(), s.GetProperty("n").GetDouble()))
+                    s.GetProperty("m").GetDouble(), s.GetProperty("n").GetDouble(),
+                    Number(s, "t", 0.0)))
                 .ToList();
             if (samples.Count < 2) return null;
             return new SampledProfile(
@@ -347,15 +361,16 @@ public sealed class ShearInclinedResultVM
         double q0 = data.GetProperty("q0").GetDouble();
         double m0 = data.GetProperty("m0").GetDouble();
         double n0 = data.GetProperty("n0").GetDouble();
+        double t0 = Number(data, "t0", 0.0);
         double supportDistance = data.GetProperty("supportDistance").GetDouble();
 
         if (kind == "uniform_load")
             return new UniformLoadProfile(
                 q0, m0, n0, data.GetProperty("load").GetDouble(), supportDistance,
                 data.GetProperty("supportAtStart").GetBoolean(),
-                data.GetProperty("supportAtEnd").GetBoolean());
+                data.GetProperty("supportAtEnd").GetBoolean(), t0);
 
-        return new ConstantProfile(q0, m0, n0, supportDistance);
+        return new ConstantProfile(q0, m0, n0, supportDistance, t0);
     }
 
     /// <summary>Добавляет группу проверок, отобранных по номеру формулы.</summary>

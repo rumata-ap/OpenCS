@@ -8,7 +8,8 @@ namespace CScore.Sp63Shear;
 /// <param name="m">Изгибающий момент, кН·м.</param>
 /// <param name="n">Продольная сила, кН.</param>
 /// <param name="supportDistance">Расстояние до опоры, м; 0 — не задано.</param>
-public sealed class ConstantProfile(double q, double m, double n, double supportDistance)
+/// <param name="t">Крутящий момент, кН·м.</param>
+public sealed class ConstantProfile(double q, double m, double n, double supportDistance, double t = 0.0)
     : IForceProfile
 {
     /// <summary>Поперечная сила, кН.</summary>
@@ -19,6 +20,9 @@ public sealed class ConstantProfile(double q, double m, double n, double support
 
     /// <summary>Продольная сила, кН.</summary>
     public double N(double s) => n;
+
+    /// <summary>Крутящий момент, кН·м.</summary>
+    public double T(double s) => t;
 
     /// <summary>Длина области определения, м.</summary>
     public double Length => 0.0;
@@ -34,4 +38,7 @@ public sealed class ConstantProfile(double q, double m, double n, double support
 
     /// <summary>Поперечная сила постоянна — максимум равен её модулю.</summary>
     public double MaxAbsQ(double from, double to) => Math.Abs(q);
+
+    /// <summary>Крутящий момент постоянен — максимум равен его модулю.</summary>
+    public double MaxAbsT(double from, double to) => Math.Abs(t);
 }

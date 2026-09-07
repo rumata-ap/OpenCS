@@ -1592,6 +1592,20 @@
     <system:String x:Key="ShearInclinedConstructiveConfirm">Detailing rules of 10.3 are satisfied</system:String>
     <system:String x:Key="ShearInclinedConstructiveHint">Without confirmation stirrups are excluded (qsw = 0)</system:String>
     <system:String x:Key="ShearInclinedOverrides">Manual overrides</system:String>
+    <system:String x:Key="ShearInclinedApplicabilityMode">Applicability mode</system:String>
+    <system:String x:Key="ShearInclinedApplicabilityAuto">Code check: automatic rectangle</system:String>
+    <system:String x:Key="ShearInclinedApplicabilityEquivalent">Code check: equivalent section</system:String>
+    <system:String x:Key="ShearInclinedApplicabilityResearch">Research estimate without a code verdict</system:String>
+    <system:String x:Key="ShearInclinedApplicabilityHint">This check cannot provide a code verdict with Vy+Vx or torsion.</system:String>
+    <system:String x:Key="ShearInclinedEquivalentConfirm">I confirm the adopted equivalent section</system:String>
+    <system:String x:Key="ShearInclinedEquivalentNote">Equivalent-section note</system:String>
+    <system:String x:Key="ShearInclinedWidthB">b, m (Vy | Vx)</system:String>
+    <system:String x:Key="ShearInclinedWidthVyHint">Design width b for the Vy plane, m</system:String>
+    <system:String x:Key="ShearInclinedWidthVxHint">Design width b for the Vx plane, m</system:String>
+    <system:String x:Key="ShearInclinedTorsion">T, kN·m</system:String>
+    <system:String x:Key="ShearInclinedTorsionHint">Torsion; a separate spatial model is required when T ≠ 0</system:String>
+    <system:String x:Key="ShearInclinedNotApplicable">No code verdict is available</system:String>
+    <system:String x:Key="ShearInclinedResearch">Research estimate</system:String>
 
     <system:String x:Key="ShearInclinedGroupStrip">Strip between inclined sections (8.1.32)</system:String>
     <system:String x:Key="ShearInclinedGroupShear">Inclined section under shear force (8.1.33)</system:String>

@@ -14,9 +14,10 @@ namespace CScore.Sp63Shear;
 /// <param name="supportDistance">Длина участка до второй опоры, м.</param>
 /// <param name="supportAtStart">Начало участка является опорой.</param>
 /// <param name="supportAtEnd">Конец участка является опорой.</param>
+/// <param name="t0">Крутящий момент, принятый постоянным по длине, кН·м.</param>
 public sealed class UniformLoadProfile(
     double q0, double m0, double n0, double distributedLoad, double supportDistance,
-    bool supportAtStart = true, bool supportAtEnd = true)
+    bool supportAtStart = true, bool supportAtEnd = true, double t0 = 0.0)
     : IForceProfile
 {
     /// <summary>Поперечная сила в сечении s, кН.</summary>
@@ -27,6 +28,9 @@ public sealed class UniformLoadProfile(
 
     /// <summary>Продольная сила, принятая постоянной по длине, кН.</summary>
     public double N(double s) => n0;
+
+    /// <summary>Крутящий момент, принятый постоянным по длине, кН·м.</summary>
+    public double T(double s) => t0;
 
     /// <summary>Длина области определения, м.</summary>
     public double Length => supportDistance > 0.0 ? supportDistance : 0.0;
@@ -50,4 +54,7 @@ public sealed class UniformLoadProfile(
     /// <summary>Максимум |Q| на отрезке: Q(s) линейна, поэтому достигается на его конце.</summary>
     public double MaxAbsQ(double from, double to) =>
         Math.Max(Math.Abs(Q(from)), Math.Abs(Q(to)));
+
+    /// <summary>Крутящий момент постоянен — максимум равен его модулю.</summary>
+    public double MaxAbsT(double from, double to) => Math.Abs(t0);
 }

@@ -125,8 +125,9 @@ public sealed record InclinedSectionGeometry(
         double b = ChordWidthScanner.MinWidth(concrete, plane,
             compressedEdge, tensionOnPositive ? compressedEdge + h0 : compressedEdge - h0);
         if (b <= 0.0)
-            throw new InvalidOperationException(
-                "Не удалось определить расчётную ширину сечения — проверьте геометрию бетонной области.");
+            warnings.Add(
+                "Автоматическое сканирование не определило положительную расчётную ширину b; "
+                + "задайте b вручную либо используйте другую геометрию сечения.");
 
         double ab = concrete.Sum(a => Math.Abs(a.Hull is null ? 0.0
             : WktHelper.PolygonArea(a.Hull.X, a.Hull.Y))

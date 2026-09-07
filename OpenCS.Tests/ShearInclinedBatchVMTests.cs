@@ -60,6 +60,19 @@ public sealed class ShearInclinedBatchVMTests
     }
 
     [Fact]
+    public void Row_NotApplicableStatus_ShowsDashAndExplainsStatus()
+    {
+        string json = Json.Replace(
+            "\"utilization\": 0.62, \"status\": \"ok\"",
+            "\"utilization\": null, \"status\": \"not_applicable\"");
+
+        var vm = new ShearInclinedBatchVM(json);
+
+        Assert.True(double.IsNaN(vm.Rows[1].Utilization));
+        Assert.Equal("—", vm.Rows[1].UtilizationText);
+    }
+
+    [Fact]
     public void Constructor_ExposesCautions()
     {
         var vm = new ShearInclinedBatchVM(Json);

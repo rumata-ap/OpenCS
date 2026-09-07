@@ -26,6 +26,7 @@ public class ShearInclinedBatchHandler : ITaskHandler
             var warnings = new HashSet<string>();
             double worst = 0.0;
             bool zeroCapacity = false;
+            bool notApplicable = false;
 
             foreach (var row in forceSet.Items.OrderBy(i => i.Num))
             {
@@ -52,6 +53,27 @@ public class ShearInclinedBatchHandler : ITaskHandler
                 }
 
                 // null означает нулевую несущую способность — это отказ, а не «нет значения»
+                string utilizationStatus = root.TryGetProperty("utilizationStatus", out var statusValue)
+                    ? statusValue.GetString() ?? "ok" : "ok";
+                if (utilizationStatus == "not_applicable")
+                {
+                    notApplicable = true;
+                    foreach (var warning in root.GetProperty("warnings").EnumerateArray())
+                        if (warning.GetString() is { } text) warnings.Add(text);
+                    rows.Add(new
+                    {
+                        num = row.Num,
+                        label = row.Label,
+                        vy = row.Vy,
+                        vx = row.Vx,
+                        utilization = (double?)null,
+                        status = "not_applicable",
+                        worstFormula = "",
+                        error = ""
+                    });
+                    continue;
+                }
+
                 var utilizationValue = root.GetProperty("utilization");
                 double? utilization = utilizationValue.ValueKind == JsonValueKind.Number
                     ? utilizationValue.GetDouble()
@@ -93,8 +115,11 @@ public class ShearInclinedBatchHandler : ITaskHandler
                 {
                     sectionTag = section.Tag,
                     forceSetTag = forceSet.Tag,
-                    utilization = zeroCapacity ? (double?)null : worst,
-                    utilizationStatus = zeroCapacity ? "no_capacity" : "ok",
+                    utilization = notApplicable || zeroCapacity ? (double?)null : worst,
+                    // Нормативный итог пакета недоступен, если хотя бы одна строка вышла
+                    // за область применимости. При этом строки не теряются из сводки.
+                    utilizationStatus = notApplicable ? "not_applicable"
+                        : zeroCapacity ? "no_capacity" : "ok",
                     rows,
                     warnings = warnings.ToList()
                 })

@@ -287,6 +287,39 @@
                   <ComboBoxItem Tag="fem_profile"  Content="{DynamicResource ShearInclinedSourceFem}"/>
                </ComboBox>
 
+               <TextBlock Text="{DynamicResource ShearInclinedApplicabilityMode}" Margin="0,8,0,2"/>
+               <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding ShearApplicabilityMode}">
+                  <ComboBoxItem Tag="standard_auto" Content="{DynamicResource ShearInclinedApplicabilityAuto}"/>
+                  <ComboBoxItem Tag="standard_equivalent" Content="{DynamicResource ShearInclinedApplicabilityEquivalent}"/>
+                  <ComboBoxItem Tag="research" Content="{DynamicResource ShearInclinedApplicabilityResearch}"/>
+               </ComboBox>
+               <TextBlock Text="{DynamicResource ShearInclinedApplicabilityHint}"
+                          FontSize="11" Foreground="Gray" TextWrapping="Wrap"/>
+               <StackPanel Visibility="{Binding ShowShearEquivalentDetails,
+                                        Converter={StaticResource BoolToVisibility}}">
+                  <CheckBox Content="{DynamicResource ShearInclinedEquivalentConfirm}" Margin="0,6,0,0"
+                            IsChecked="{Binding ShearEquivalentConfirmed}"/>
+                  <TextBlock Text="{DynamicResource ShearInclinedEquivalentNote}" Margin="0,4,0,2"/>
+                  <TextBox Text="{Binding ShearEquivalentNote, UpdateSourceTrigger=PropertyChanged}"/>
+               </StackPanel>
+
+               <GroupBox Header="{DynamicResource ShearInclinedOverrides}" Margin="0,8,0,0"
+                         Visibility="{Binding ShowShearManualWidth,
+                                      Converter={StaticResource BoolToVisibility}}">
+                  <Grid Margin="4,2">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                     </Grid.ColumnDefinitions>
+                     <TextBlock Grid.Column="0" Text="{DynamicResource ShearInclinedWidthB}" VerticalAlignment="Center"/>
+                     <TextBox Grid.Column="1" Margin="0,2,4,2" ToolTip="{DynamicResource ShearInclinedWidthVyHint}"
+                              Text="{Binding ShearOverrideVyB, UpdateSourceTrigger=PropertyChanged}"/>
+                     <TextBox Grid.Column="2" Margin="0,2" ToolTip="{DynamicResource ShearInclinedWidthVxHint}"
+                              Text="{Binding ShearOverrideVxB, UpdateSourceTrigger=PropertyChanged}"/>
+                  </Grid>
+               </GroupBox>
+
                <!-- Усилия расчётного сечения: заполняются выбранной выше строкой набора,
                     после чего их можно править. При источнике «профиль из FEM» скрыты. -->
                <GroupBox Header="{DynamicResource ShearInclinedManualForces}" Margin="0,8,0,0"
@@ -299,6 +332,7 @@
                         <ColumnDefinition Width="*"/>
                      </Grid.ColumnDefinitions>
                      <Grid.RowDefinitions>
+                        <RowDefinition Height="26"/>
                         <RowDefinition Height="26"/>
                         <RowDefinition Height="26"/>
                         <RowDefinition Height="26"/>
@@ -331,6 +365,13 @@
                               VerticalContentAlignment="Center"
                               ToolTip="{DynamicResource ForceColVx}"
                               Text="{Binding ShearManualVx, UpdateSourceTrigger=PropertyChanged}"/>
+
+                     <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource ShearInclinedTorsion}"
+                                VerticalAlignment="Center"/>
+                     <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,2"
+                              VerticalContentAlignment="Center"
+                              ToolTip="{DynamicResource ShearInclinedTorsionHint}"
+                              Text="{Binding ShearManualT, UpdateSourceTrigger=PropertyChanged}"/>
                   </Grid>
                </GroupBox>
 

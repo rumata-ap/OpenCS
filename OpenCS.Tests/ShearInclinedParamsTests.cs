@@ -20,6 +20,7 @@ public sealed class ShearInclinedParamsTests
         Assert.True(parameters.SupportAtStart);
         Assert.True(parameters.SupportAtEnd);
         Assert.False(parameters.ConstructiveRequirements103Confirmed);
+        Assert.Equal(Sp63ShearApplicabilityMode.StandardAuto, parameters.ApplicabilityMode);
         // k не задан в постановке — берётся из глобальных настроек расчёта.
         Assert.Null(parameters.AnchorageFactor);
         Assert.Empty(parameters.BarCutoffs);
@@ -52,6 +53,10 @@ public sealed class ShearInclinedParamsTests
             AnchorageFactor = 0.65,
             SupportAtEnd = false,
             ConstructiveRequirements103Confirmed = true,
+            ApplicabilityMode = Sp63ShearApplicabilityMode.StandardEquivalent,
+            EquivalentSectionConfirmed = true,
+            EquivalentSectionNote = "Приведено к стенке тавра.",
+            ManualForces = new ShearManualForces { T = 12.5 },
             OverridesVy = new ShearInclinedOverrides { B = 0.25, H0 = 0.5, PhiN = 1.2 }
         };
 
@@ -64,6 +69,10 @@ public sealed class ShearInclinedParamsTests
         Assert.Equal([1.5, 3.0], restored.BarCutoffs);
         Assert.Equal(0.65, restored.AnchorageFactor!.Value, 12);
         Assert.True(restored.ConstructiveRequirements103Confirmed);
+        Assert.Equal(Sp63ShearApplicabilityMode.StandardEquivalent, restored.ApplicabilityMode);
+        Assert.True(restored.EquivalentSectionConfirmed);
+        Assert.Equal("Приведено к стенке тавра.", restored.EquivalentSectionNote);
+        Assert.Equal(12.5, restored.ManualForces!.T, 12);
         Assert.True(restored.SupportAtStart);
         Assert.False(restored.SupportAtEnd);
         Assert.Equal(0.25, restored.OverridesVy!.B!.Value, 12);
