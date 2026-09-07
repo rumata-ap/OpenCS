@@ -15,6 +15,22 @@ public sealed record ShellReplacementManifest(
     IReadOnlyList<PlanarPoint2D> ReplacedRegionPolygon,
     IReadOnlyList<string> StripLoadSourceTags)
 {
+    /// <summary>Заменяемая часть коридора при CoupledWithExplicitPartition (Срез 7); пусто при
+    /// остальных политиках. Задано init-свойством, а не позиционным параметром: манифест —
+    /// позиционный record, и добавление в список сломало бы арность Deconstruct и порядок
+    /// существующих with-инициализаторов.</summary>
+    public IReadOnlyList<PlanarPoint2D> PartitionPolygon { get; init; } = [];
+
+    /// <summary>Идентификаторы StripBoundaryInterface, покрывающих границу разбиения.</summary>
+    public IReadOnlyList<string> BoundaryInterfaceIds { get; init; } = [];
+
+    /// <summary>Полигон, на который эта запись претендует при проверке жёсткости: для частичной
+    /// замены — разбиение, иначе — весь коридор.</summary>
+    public IReadOnlyList<PlanarPoint2D> ClaimedPolygon =>
+        Policy == ShellReplacementPolicy.CoupledWithExplicitPartition
+            ? PartitionPolygon
+            : ReplacedRegionPolygon;
+
     /// <summary>Единственное место, где собирается StripLoadSourceTags ("правило переноса
     /// нагрузки" родительской спеки) — теги всех StripLoad, реально попавших в StripLoadSet этой
     /// полосы через StripLoadMapper (Срез 4).</summary>
