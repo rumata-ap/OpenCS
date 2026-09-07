@@ -1,6 +1,3 @@
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 using CScore.Fem;
 
 namespace CScore.PlateStrip;
@@ -139,29 +136,16 @@ public sealed class PlateSectionTangentSnapshot : IPlateSectionResponse
         Math.Abs(resultants.Nxy) > tolerance || Math.Abs(resultants.Mx) > tolerance ||
         Math.Abs(resultants.My) > tolerance || Math.Abs(resultants.Mxy) > tolerance;
 
+    /// <summary>Отпечаток замороженного источника: общие для PlateSection части плюс снятые
+    /// блоки касательной (они у этого источника константны и потому входят во вход).</summary>
     static string BuildFingerprint(PlateSection section, Diagramm concrete, Diagramm rebar,
                                    IReadOnlyList<Diagramm?>? layerDiagrams, PlateShellTangentResult tangent)
     {
-        var parts = new List<string>
-        {
-            $"section:{section.Id}:{section.Tag}:{section.H.ToString("G17", CultureInfo.InvariantCulture)}",
-            $"layers:{section.NLayers}:{section.TensionConcrete}:{section.SofteningModel}:{section.PlateModel}",
-            $"materials:{section.ConcreteMaterialId}:{section.RebarMaterialId}",
-            $"diagrams:{concrete.Id}:{rebar.Id}"
-        };
-        if (layerDiagrams != null)
-            parts.Add("layer-diagrams:" + string.Join(",", layerDiagrams.Select(d => d?.Id ?? 0)));
-        AddMatrix(parts, tangent.A, "A");
-        AddMatrix(parts, tangent.B, "B");
-        AddMatrix(parts, tangent.D, "D");
-        AddMatrix(parts, tangent.As, "As");
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("|", parts))));
-    }
-
-    static void AddMatrix(List<string> parts, double[,] matrix, string name)
-    {
-        for (int i = 0; i < matrix.GetLength(0); i++)
-        for (int j = 0; j < matrix.GetLength(1); j++)
-            parts.Add($"{name}:{i}:{j}:{matrix[i, j].ToString("G17", CultureInfo.InvariantCulture)}");
+        var parts = PlateSectionSourceFingerprint.BaseParts(section, concrete, rebar, layerDiagrams);
+        PlateSectionSourceFingerprint.AddMatrix(parts, tangent.A, "A");
+        PlateSectionSourceFingerprint.AddMatrix(parts, tangent.B, "B");
+        PlateSectionSourceFingerprint.AddMatrix(parts, tangent.D, "D");
+        PlateSectionSourceFingerprint.AddMatrix(parts, tangent.As, "As");
+        return PlateSectionSourceFingerprint.Hash(parts);
     }
 }
