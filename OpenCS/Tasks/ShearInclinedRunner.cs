@@ -331,9 +331,8 @@ public static class ShearInclinedRunner
             // отказы по искусственному числу.
             utilization = zeroCapacity ? (double?)null : utilization,
             utilizationStatus = zeroCapacity ? "no_capacity" : "ok",
-            // Отдельно — коэффициент по точным проверкам (8.55), (8.56), (8.63):
-            // упрощённые условия часто оказываются жёстче, и без этого числа непонятно,
-            // чем определён вердикт.
+            // Дублирующее поле для совместимости ранее сохранённых результатов:
+            // итоговый коэффициент также определяется только точными проверками.
             utilizationExact = zeroCapacity ? (double?)null : utilizationExact
         });
     }

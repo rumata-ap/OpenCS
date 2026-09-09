@@ -31,7 +31,7 @@ public static class PhiNCalculator
         double nu = compression
             ? geometry.Rb / (geometry.Eb0 * geometry.Eb)
             : geometry.Rbt / (geometry.Ebt0 * geometry.Eb);
-        double aRed = geometry.Ab * nu + geometry.AsTotal;
+        double aRed = geometry.Ab + geometry.Es / geometry.Eb / nu * geometry.AsTotal;
         if (aRed <= 0.0 || !double.IsFinite(aRed))
             return new PhiNResult(1.0, false,
                 "φn = 1: не удалось вычислить приведённую площадь сечения.");

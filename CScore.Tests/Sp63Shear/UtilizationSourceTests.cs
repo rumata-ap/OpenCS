@@ -4,21 +4,21 @@ using Xunit;
 namespace CScore.Tests.Sp63Shear;
 
 /// <summary>
-/// Итоговый коэффициент использования против коэффициента по точным проверкам.
-/// Упрощённые условия (8.60) и (8.63′) дают нижнюю оценку несущей способности и
-/// нередко жёстче точного расчёта — вердикт по ним идёт в запас, но должен быть отличим.
+/// Итоговый коэффициент использования и справочные упрощённые проверки.
+/// Упрощённые условия (8.60) и (8.63′) не определяют нормативный вердикт,
+/// если выполнен полный расчёт по точным формулам.
 /// </summary>
 public sealed class UtilizationSourceTests
 {
     [Fact]
-    public void UtilizationExact_IgnoresSimplifiedConditions()
+    public void Utilization_IgnoresSimplifiedConditions()
     {
         var input = new ShearInclinedInput(
             B: 0.30, H0: 0.55, Rb: 14_500.0, Rbt: 1_050.0,
             Qsw: 115.4, Sw: 0.15, Ns: 535.9,
             Kind: ElementKind.BendingUnstressed, AnchorageFactor: 1.0,
             StationStep: 0.0, ProjectionStep: 0.0,
-            MomentZoneLength: 0.0, BarCutoffs: [], CheckMoment: true, PhiNOverride: null);
+            MomentZoneLength: 0.0, BarCutoffs: [], CheckMoment: false, PhiNOverride: null);
         var geometry = new InclinedSectionGeometryPair(Side(true), Side(false));
         var profile = new ConstantProfile(q: 150.0, m: -120.0, n: 0.0, supportDistance: 0.0);
 
@@ -28,8 +28,8 @@ public sealed class UtilizationSourceTests
         double exact = result.Details.Single(d => d.Formula == "8.56").Ratio;
 
         Assert.True(simplified > exact);                       // упрощённое условие жёстче
-        Assert.Equal(result.Utilization, simplified, 9);        // вердикт — по нему, в запас
-        Assert.True(result.UtilizationExact < result.Utilization);
+        Assert.Equal(exact, result.Utilization, 9);             // вердикт — только по точным формулам
+        Assert.Equal(result.Utilization, result.UtilizationExact, 9);
         Assert.Equal(0.825, exact, 3);                          // диапазон перебора 0…3h0
     }
 

@@ -249,7 +249,7 @@ public sealed class ShearInclinedResultVM
     public string ForceLabel { get; } = "";
     /// <summary>Статус области применимости: ok, research или not_applicable.</summary>
     public string ApplicabilityStatus { get; } = "ok";
-    /// <summary>Наибольший коэффициент использования, включая упрощённые условия.</summary>
+    /// <summary>Наибольший коэффициент использования по точным нормативным проверкам.</summary>
     public double Utilization { get; }
     /// <summary>Коэффициент использования только по точным проверкам (8.55), (8.56), (8.63).</summary>
     public double UtilizationExact { get; }

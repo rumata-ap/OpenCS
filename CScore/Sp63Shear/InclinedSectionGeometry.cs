@@ -18,16 +18,21 @@ namespace CScore.Sp63Shear;
 /// <param name="Plane">Плоскость сдвига.</param>
 /// <param name="TensionOnPositiveSide">Растянута грань с положительной координатой.</param>
 /// <param name="Warnings">Оговорки, подлежащие выводу в отчёт.</param>
+/// <param name="Es">Средневзвешенный модуль упругости продольной арматуры, кПа.</param>
 public sealed record InclinedSectionGeometry(
     double B, double H0, double Ns, double As, double Rb, double Rbt,
     double Ab, double AsTotal, double Eb, double Eb0, double Ebt0,
-    ShearPlane Plane, bool TensionOnPositiveSide, IReadOnlyList<string> Warnings)
+    ShearPlane Plane, bool TensionOnPositiveSide, IReadOnlyList<string> Warnings,
+    double Es = 200_000_000.0)
 {
     /// <summary>Значение εb0 по умолчанию, если в характеристиках материала оно не задано.</summary>
     public const double DefaultEb0 = 0.002;
 
     /// <summary>Значение εbt0 по умолчанию, если в характеристиках материала оно не задано.</summary>
     public const double DefaultEbt0 = 0.0001;
+
+    /// <summary>Модуль упругости арматуры по умолчанию, кПа.</summary>
+    public const double DefaultEs = 200_000_000.0;
 
     /// <summary>Извлекает расчётные характеристики сечения для заданной плоскости сдвига.</summary>
     /// <param name="section">Железобетонное сечение.</param>
@@ -133,9 +138,14 @@ public sealed record InclinedSectionGeometry(
             : WktHelper.PolygonArea(a.Hull.X, a.Hull.Y))
             - a.Holes.Sum(h => Math.Abs(WktHelper.PolygonArea(h.X, h.Y))));
 
+        double asTotal = bars.Sum(pair => pair.Fiber.Area);
+        double es = asTotal > 0.0
+            ? bars.Sum(pair => pair.Chars!.E * pair.Fiber.Area) / asTotal
+            : DefaultEs;
+
         return new InclinedSectionGeometry(
-            b, h0, ns, asTension, rb, rbt, ab, bars.Sum(pair => pair.Fiber.Area),
-            eb, eb0, ebt0, plane, tensionOnPositive, warnings);
+            b, h0, ns, asTension, rb, rbt, ab, asTotal,
+            eb, eb0, ebt0, plane, tensionOnPositive, warnings, es);
     }
 
     /// <summary>Предельная деформация: основное значение, запасное либо величина по умолчанию.</summary>

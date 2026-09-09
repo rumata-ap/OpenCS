@@ -17,7 +17,7 @@ public sealed class PhiNCalculatorTests
     }
 
     [Fact]
-    public void Compute_CompressionForOtherElement_IncreasesCapacity()
+    public void Compute_CompressionForOtherElement_UsesNormativeReducedArea()
     {
         // Сила подобрана так, чтобы отсечка 2,25 не срабатывала и проверялась сама формула:
         // при N = 800 кН φn = 2,559 и результат определялся бы отсечкой.
@@ -25,7 +25,7 @@ public sealed class PhiNCalculatorTests
         var result = PhiNCalculator.Compute(ElementKind.Other, -300.0, geometry);
 
         double nuB = geometry.Rb / (geometry.Eb0 * geometry.Eb);
-        double aRed = geometry.Ab * nuB + geometry.AsTotal;
+        double aRed = geometry.Ab + geometry.Es / geometry.Eb / nuB * geometry.AsTotal;
         double expected = 1.0 + 300.0 / aRed / geometry.Rb;
 
         Assert.True(expected < PhiNCalculator.MaxCompression);

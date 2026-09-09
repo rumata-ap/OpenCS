@@ -18,6 +18,7 @@ public sealed class InclinedSectionGeometryTests
         Assert.False(geom.TensionOnPositiveSide);
         Assert.Equal(0.30, geom.B, 9);
         Assert.Equal(0.55, geom.H0, 9);          // от сжатой грани y = +0,30 до y = −0,25
+        Assert.Equal(200_000_000.0, geom.Es, 6);
     }
 
     [Fact]
