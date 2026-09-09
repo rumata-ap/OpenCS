@@ -33,7 +33,7 @@ public static class ShearFormulas
         ShearInclinedInput input, double projectionC, double phiN, double? appliedShear = null)
     {
         ArgumentNullException.ThrowIfNull(input);
-        if (projectionC <= 0.0) return 0.0;
+        if (projectionC < 0.0) return 0.0;
 
         double baseValue = input.Rbt * input.B * input.H0;
         double numerator = PhiB2 * baseValue * input.H0;
@@ -41,7 +41,9 @@ public static class ShearFormulas
         if (input.Qsw > 0.0 && input.Qsw < threshold && StirrupsMeetSpacing(input, appliedShear))
             numerator = 4.0 * PhiB2 * input.H0 * input.H0 * input.Qsw;
 
-        double value = numerator / projectionC;
+        // При C = 0 используется предельное значение формулы при C → 0;
+        // после ограничения это верхняя граница 2,5·Rbt·b·h0.
+        double value = projectionC == 0.0 ? double.PositiveInfinity : numerator / projectionC;
         double clamped = Math.Clamp(value, 0.5 * baseValue, 2.5 * baseValue);
         return phiN * clamped;
     }

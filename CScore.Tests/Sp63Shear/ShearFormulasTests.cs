@@ -73,6 +73,14 @@ public sealed class ShearFormulasTests
     }
 
     [Fact]
+    public void ConcreteShear_ZeroProjection_UsesUpperCapacityLimit()
+    {
+        double qb = ShearFormulas.ConcreteShear(Input(), projectionC: 0.0, phiN: 1.0);
+
+        Assert.Equal(2.5 * Rbt * B * H0, qb, 6);
+    }
+
+    [Fact]
     public void ConcreteShear_LargeProjection_IsCappedByLowerLimit()
     {
         double qb = ShearFormulas.ConcreteShear(Input(), projectionC: 10.0 * H0, phiN: 1.0);

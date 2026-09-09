@@ -14,8 +14,8 @@ public sealed class ShearInclinedCheckerTests
     [Fact]
     public void Check_ConstantProfile_WithStirrups_CriticalProjectionMatchesAnalyticalOptimum()
     {
-        // Бетонная проекция начинается с 0,6h0, а эффективная длина хомутов
-        // на участке 0,6h0…h0 принимается равной h0.
+        // Бетонная и хомутовая составляющие перебираются от C = 0;
+        // для хомутов вклад растёт до C = 2h0.
         var input = Input(qsw: 400.0);
         var profile = new ConstantProfile(q: 150.0, m: 0.0, n: 0.0, supportDistance: 0.0);
 
@@ -68,7 +68,7 @@ public sealed class ShearInclinedCheckerTests
     public void Check_UniformLoad_ScansAllStationsAndReportsWorst()
     {
         // Q убывает от опоры, поэтому худшей будет ближайшая к опоре стоянка, для которой
-        // При наличии хомутов проекция ещё помещается до опоры, то есть s ≥ h0.
+        // Перебор начинается прямо у опоры, поэтому первой проверяется стоянка s = 0.
         var input = Input(qsw: 400.0);
         var profile = new UniformLoadProfile(
             q0: 300.0, m0: 0.0, n0: 0.0, distributedLoad: 40.0, supportDistance: 5.0);
@@ -78,13 +78,11 @@ public sealed class ShearInclinedCheckerTests
         Assert.True(result.Stations.Count > 5);
         var worst = result.Details.Single(d => d.Formula == "8.56");
         double worstStation = worst.Variables["s"];
-        Assert.True(worstStation >= 0.6 * H0 - 1e-9);
+        Assert.True(worstStation >= 0.0 - 1e-9);
         double firstChecked = result.Stations.Where(s => !double.IsNaN(s.Eta)).Min(s => s.S);
-        Assert.Equal(0.5, firstChecked, 6);
+        Assert.Equal(0.0, firstChecked, 6);
         Assert.True(worstStation >= firstChecked - 1e-9);
-        // Стоянки ближе 0,6h0 к опоре исключены из (8.56), но попадают в (8.60)
-        Assert.All(result.Stations.Where(s => s.S < 0.6 * H0 - 1e-9),
-            s => Assert.True(double.IsNaN(s.Eta)));
+        Assert.False(double.IsNaN(result.Stations.First(s => Math.Abs(s.S) < 1e-9).Eta));
     }
 
     [Fact]
@@ -99,15 +97,15 @@ public sealed class ShearInclinedCheckerTests
     }
 
     [Fact]
-    public void ProjectionCurve_CoversSeparatedConcreteAndStirrupRanges()
+    public void ProjectionCurve_ScansFromZeroToThreeWorkingDepths()
     {
         var curve = ShearInclinedChecker.ProjectionCurve(
             Input(qsw: 400.0), new ConstantProfile(150.0, 0.0, 0.0, 0.0),
             Geometry(), station: 0.0, direction: -1);
 
-        Assert.Equal(0.6 * H0, curve[0].C, 6);
+        Assert.Equal(0.0, curve[0].C, 6);
         Assert.Equal(3.0 * H0, curve[^1].C, 6);
-        Assert.Equal(0.75 * 400.0 * H0, curve[0].Qsw, 6);
+        Assert.Equal(0.0, curve[0].Qsw, 6);
         Assert.Equal(0.75 * 400.0 * 2.0 * H0, curve[^1].Qsw, 6);
         Assert.Equal(0.75 * 400.0 * H0,
             curve.First(point => Math.Abs(point.C - H0) < 1e-9).Qsw, 6);
@@ -123,7 +121,7 @@ public sealed class ShearInclinedCheckerTests
             Input(qsw: 0.0), new ConstantProfile(150.0, 0.0, 0.0, 0.0),
             Geometry(), station: 0.0, direction: -1);
 
-        Assert.Equal(0.6 * H0, curve[0].C, 6);
+        Assert.Equal(0.0, curve[0].C, 6);
         Assert.Equal(3.0 * H0, curve[^1].C, 6);
         Assert.All(curve, point => Assert.Equal(0.0, point.Qsw, 12));
     }
@@ -182,7 +180,7 @@ public sealed class ShearInclinedCheckerTests
         var result = ShearInclinedChecker.Check(input, profile, pair, direction: -1);
 
         // Qb ∝ h0²: при растянутом верхе (h0 = 0,40) он меньше, чем при растянутом низе.
-        // Стоянки, для которых (8.56) не выполнялась (ближе 0,6h0 к опоре), пропускаются.
+        // Полный перебор проекций выполняется и для стоянок у опоры.
         double bottom = result.Stations
             .First(s => !s.TensionOnPositiveSide && !double.IsNaN(s.Qb)).Qb;
         double top = result.Stations
@@ -191,9 +189,9 @@ public sealed class ShearInclinedCheckerTests
     }
 
     [Fact]
-    public void Check_StationCloserToSupportThanConcreteMinimum_SkipsFullShearCheck()
+    public void Check_StationAtSupportSide_IncludesZeroProjectionInFullShearCheck()
     {
-        // Стоянка в 0,2 м от опоры: наклонное сечение с C ≥ 0,6h0 = 0,33 м не помещается
+        // Стоянка в 0,2 м от опоры: перебор допускает C от 0 до доступной длины.
         var input = Input(qsw: 400.0) with { StationStep = 0.2 };
         var profile = new UniformLoadProfile(
             q0: 300.0, m0: 0.0, n0: 0.0, distributedLoad: 40.0, supportDistance: 5.0);
@@ -201,9 +199,8 @@ public sealed class ShearInclinedCheckerTests
         var result = ShearInclinedChecker.Check(input, profile, Geometry(), direction: -1);
         var near = result.Stations.First(s => Math.Abs(s.S - 0.2) < 1e-9);
 
-        Assert.True(double.IsNaN(near.Eta));                    // (8.56) не выполнялась
-        Assert.True(double.IsNaN(near.CriticalC));
-        Assert.Contains(result.Warnings, w => w.Contains("опор", StringComparison.OrdinalIgnoreCase));
+        Assert.False(double.IsNaN(near.Eta));
+        Assert.Equal(0.0, near.CriticalC, 6);
         Assert.Contains(result.Details, d => d.Formula == "8.60");   // приопорная проверка осталась
     }
 

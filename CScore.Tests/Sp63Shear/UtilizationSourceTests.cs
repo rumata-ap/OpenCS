@@ -30,7 +30,7 @@ public sealed class UtilizationSourceTests
         Assert.True(simplified > exact);                       // упрощённое условие жёстче
         Assert.Equal(result.Utilization, simplified, 9);        // вердикт — по нему, в запас
         Assert.True(result.UtilizationExact < result.Utilization);
-        Assert.Equal(0.825, exact, 3);                          // расширенный бетонный диапазон до 3h0
+        Assert.Equal(0.825, exact, 3);                          // диапазон перебора 0…3h0
     }
 
     static InclinedSectionGeometry Side(bool tensionOnPositive) => new(
