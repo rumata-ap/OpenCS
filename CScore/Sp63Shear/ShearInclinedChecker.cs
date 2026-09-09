@@ -7,6 +7,11 @@ namespace CScore.Sp63Shear;
 /// </summary>
 public static class ShearInclinedChecker
 {
+    const double ConcreteProjectionMinFactor = 0.6;
+    const double ConcreteProjectionMaxFactor = 3.0;
+    const double StirrupProjectionMinFactor = 1.0;
+    const double StirrupProjectionMaxFactor = 2.0;
+
     /// <summary>Итог перебора проекций по поперечной силе для одной стоянки.</summary>
     readonly record struct ShearOutcome(
         CheckDetail Detail, double Applied, double Qb, double Qsw, double CriticalC, string? Note);
@@ -55,24 +60,25 @@ public static class ShearInclinedChecker
             if (Math.Abs(m) <= InclinedSectionGeometryPair.MomentEpsilon && geometry.SidesDiffer)
                 zeroMoment = true;
 
-            var projections = Projections(stationInput, profile, station, direction).ToList();
-            if (projections.Count == 0) skippedNearSupport = true;
+            var shearProjections = ShearProjections(stationInput, profile, station, direction).ToList();
+            var momentProjections = MomentProjections(stationInput, profile, station, direction).ToList();
+            if (shearProjections.Count == 0) skippedNearSupport = true;
 
             double appliedAtStation = profile.MaxAbsQ(station, station);
             var stripDetail = StripDetail(stationInput, appliedAtStation, phi, station);
             var minDetail = MinShearDetail(
                 stationInput, profile, station, direction, appliedAtStation, phi, warnings);
 
-            ShearOutcome? shearOutcome = projections.Count > 0
-                ? WorstShear(stationInput, profile, projections, station, direction, phi.Value)
+            ShearOutcome? shearOutcome = shearProjections.Count > 0
+                ? WorstShear(stationInput, profile, shearProjections, station, direction, phi.Value)
                 : null;
 
             MomentOutcome? momentOutcome = null;
             CheckDetail? momentMinDetail = null;
-            if (input.CheckMoment && stationInput.Ns > 0.0 && projections.Count > 0 &&
+            if (input.CheckMoment && stationInput.Ns > 0.0 && momentProjections.Count > 0 &&
                 MomentCheckZones.IsInZone(station, stationInput, profile))
             {
-                momentOutcome = WorstMoment(stationInput, profile, projections, station, direction);
+                momentOutcome = WorstMoment(stationInput, profile, momentProjections, station, direction);
                 momentMinDetail = SimplifiedMoment(stationInput, profile, station, direction);
             }
 
@@ -108,7 +114,7 @@ public static class ShearInclinedChecker
                 "В части стоянок момент нулевой — принята сторона с меньшей рабочей высотой.");
         if (skippedNearSupport)
             AddOnce(warnings,
-                "Для стоянок ближе h0 к опоре наклонное сечение до опоры не помещается: "
+                "Для стоянок ближе 0,6h0 к опоре наклонное сечение до опоры не помещается: "
                 + "проверка (8.56) для них не выполнялась, действует приопорное условие (8.60).");
 
         var details = new List<CheckDetail>();
@@ -146,12 +152,15 @@ public static class ShearInclinedChecker
         var phi = ResolvePhiN(stationInput, profile.N(station), side);
         var points = new List<ProjectionPoint>();
 
-        foreach (double c in Projections(stationInput, profile, station, dir))
+        foreach (double c in ShearProjections(stationInput, profile, station, dir))
         {
             var model = new InclinedSectionModel(station, dir, c);
             double applied = model.AppliedShear(profile);
             double qb = ShearFormulas.ConcreteShear(stationInput, c, phi.Value, applied);
-            double qsw = ShearFormulas.StirrupShear(stationInput, c, phi.Value, out _, applied);
+            double stirrupC = StirrupProjection(c, stationInput.H0);
+            double qsw = stirrupC > 0.0
+                ? ShearFormulas.StirrupShear(stationInput, stirrupC, phi.Value, out _, applied)
+                : 0.0;
             points.Add(new ProjectionPoint(c, qb, qsw, qb + qsw, applied));
         }
         return points;
@@ -188,7 +197,11 @@ public static class ShearInclinedChecker
             var model = new InclinedSectionModel(station, direction, c);
             double applied = model.AppliedShear(profile);
             double qb = ShearFormulas.ConcreteShear(input, c, phiN, applied);
-            double qsw = ShearFormulas.StirrupShear(input, c, phiN, out string? localNote, applied);
+            string? localNote = null;
+            double stirrupC = StirrupProjection(c, input.H0);
+            double qsw = stirrupC > 0.0
+                ? ShearFormulas.StirrupShear(input, stirrupC, phiN, out localNote, applied)
+                : 0.0;
             double capacity = qb + qsw;
             double ratio = capacity > 0.0 ? applied / capacity : double.PositiveInfinity;
 
@@ -339,15 +352,28 @@ public static class ShearInclinedChecker
     }
 
     /// <summary>
-    /// Длины проекции наклонного сечения для одной стоянки. Пустая последовательность
-    /// означает, что до опоры меньше h0 и наклонное сечение построить нельзя:
-    /// для такой стоянки остаются (8.55) и приопорное условие (8.60) с поправкой d/h0.
+    /// Длины проекции наклонного сечения для одной стоянки. Диапазон для бетонной
+    /// составляющей задаётся от 0,6·h0 до 3·h0; эффективная проекция хомутов
+    /// ограничивается диапазоном h0…2·h0 по п. 8.1.33.
     /// </summary>
+    static IEnumerable<double> ShearProjections(
+        ShearInclinedInput input, IForceProfile profile, double station, int direction) =>
+        Projections(input, profile, station, direction,
+            ConcreteProjectionMinFactor, ConcreteProjectionMaxFactor);
+
+    /// <summary>Длины проекции для проверки наклонного сечения по моменту из п. 8.1.35.</summary>
+    static IEnumerable<double> MomentProjections(
+        ShearInclinedInput input, IForceProfile profile, double station, int direction) =>
+        Projections(input, profile, station, direction,
+            StirrupProjectionMinFactor, StirrupProjectionMaxFactor);
+
+    /// <summary>Строит диапазон проекций с ограничением по расстоянию до опоры.</summary>
     static IEnumerable<double> Projections(
-        ShearInclinedInput input, IForceProfile profile, double station, int direction)
+        ShearInclinedInput input, IForceProfile profile, double station, int direction,
+        double minFactor, double maxFactor)
     {
-        double min = input.H0;
-        double max = 2.0 * input.H0;
+        double min = minFactor * input.H0;
+        double max = maxFactor * input.H0;
 
         if (profile.HasSupport(direction))
         {
@@ -359,6 +385,14 @@ public static class ShearInclinedChecker
         double step = input.ProjectionStepOrAuto();
         for (double c = min; c <= max + 1e-12; c += step)
             yield return Math.Min(c, max);
+    }
+
+    /// <summary>Проверяет нормативный диапазон проекции для вклада хомутов.</summary>
+    static double StirrupProjection(double projectionC, double h0)
+    {
+        double min = StirrupProjectionMinFactor * h0;
+        if (projectionC < min - 1e-12) return 0.0;
+        return Math.Min(projectionC, StirrupProjectionMaxFactor * h0);
     }
 
     /// <summary>Возвращает более опасную из двух проверок.</summary>
