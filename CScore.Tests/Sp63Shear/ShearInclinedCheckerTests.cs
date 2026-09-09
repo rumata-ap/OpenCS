@@ -12,18 +12,21 @@ public sealed class ShearInclinedCheckerTests
     const double Rbt = 1_050.0;
 
     [Fact]
-    public void Check_ConstantProfile_ConcreteOnlyRangeEndsAtWorkingDepth()
+    public void Check_ConstantProfile_WithStirrups_CriticalProjectionMatchesAnalyticalOptimum()
     {
-        // При C < h0 хомуты не учитываются, поэтому худшей становится последняя
-        // точка бетонного диапазона перед h0.
+        // Бетонная проекция начинается с 0,6h0, а эффективная длина хомутов
+        // на участке 0,6h0…h0 принимается равной h0.
         var input = Input(qsw: 400.0);
         var profile = new ConstantProfile(q: 150.0, m: 0.0, n: 0.0, supportDistance: 0.0);
 
         var result = ShearInclinedChecker.Check(input, profile, Geometry(), direction: -1);
 
+        double analytical = H0 * Math.Sqrt(
+            ShearFormulas.PhiB2 * Rbt * B / (ShearFormulas.PhiSw * 400.0));
         var detail = result.Details.Single(d => d.Formula == "8.56");
 
-        Assert.InRange(detail.Variables["C"], H0 - 2.0 * input.ProjectionStepOrAuto(), H0);
+        Assert.InRange(detail.Variables["C"], analytical - 2.0 * input.ProjectionStepOrAuto(),
+                                              analytical + 2.0 * input.ProjectionStepOrAuto());
     }
 
     [Fact]
@@ -65,7 +68,7 @@ public sealed class ShearInclinedCheckerTests
     public void Check_UniformLoad_ScansAllStationsAndReportsWorst()
     {
         // Q убывает от опоры, поэтому худшей будет ближайшая к опоре стоянка, для которой
-        // бетонная проекция ещё помещается до опоры, то есть s ≥ 0,6h0.
+        // При наличии хомутов проекция ещё помещается до опоры, то есть s ≥ h0.
         var input = Input(qsw: 400.0);
         var profile = new UniformLoadProfile(
             q0: 300.0, m0: 0.0, n0: 0.0, distributedLoad: 40.0, supportDistance: 5.0);
@@ -104,13 +107,25 @@ public sealed class ShearInclinedCheckerTests
 
         Assert.Equal(0.6 * H0, curve[0].C, 6);
         Assert.Equal(3.0 * H0, curve[^1].C, 6);
-        Assert.Equal(0.0, curve[0].Qsw, 12);
+        Assert.Equal(0.75 * 400.0 * H0, curve[0].Qsw, 6);
         Assert.Equal(0.75 * 400.0 * 2.0 * H0, curve[^1].Qsw, 6);
         Assert.Equal(0.75 * 400.0 * H0,
             curve.First(point => Math.Abs(point.C - H0) < 1e-9).Qsw, 6);
         Assert.Equal(0.75 * 400.0 * 2.0 * H0,
             curve.First(point => Math.Abs(point.C - 2.0 * H0) < 1e-9).Qsw, 6);
         Assert.True(curve[^1].Qb < curve[0].Qb);
+    }
+
+    [Fact]
+    public void ProjectionCurve_WithoutStirrups_StartsAtConcreteMinimum()
+    {
+        var curve = ShearInclinedChecker.ProjectionCurve(
+            Input(qsw: 0.0), new ConstantProfile(150.0, 0.0, 0.0, 0.0),
+            Geometry(), station: 0.0, direction: -1);
+
+        Assert.Equal(0.6 * H0, curve[0].C, 6);
+        Assert.Equal(3.0 * H0, curve[^1].C, 6);
+        Assert.All(curve, point => Assert.Equal(0.0, point.Qsw, 12));
     }
 
     [Fact]

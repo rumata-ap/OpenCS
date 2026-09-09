@@ -352,9 +352,9 @@ public static class ShearInclinedChecker
     }
 
     /// <summary>
-    /// Длины проекции наклонного сечения для одной стоянки. Диапазон для бетонной
-    /// составляющей задаётся от 0,6·h0 до 3·h0; эффективная проекция хомутов
-    /// ограничивается диапазоном h0…2·h0 по п. 8.1.33.
+    /// Длины проекции наклонного сечения для одной стоянки. Бетонный диапазон
+    /// задаётся от 0,6·h0 до 3·h0. Эффективная проекция хомутов на всём этом
+    /// диапазоне ограничивается снизу h0 и сверху 2·h0 по п. 8.1.33.
     /// </summary>
     static IEnumerable<double> ShearProjections(
         ShearInclinedInput input, IForceProfile profile, double station, int direction) =>
@@ -391,8 +391,8 @@ public static class ShearInclinedChecker
     static double StirrupProjection(double projectionC, double h0)
     {
         double min = StirrupProjectionMinFactor * h0;
-        if (projectionC < min - 1e-12) return 0.0;
-        return Math.Min(projectionC, StirrupProjectionMaxFactor * h0);
+        double max = StirrupProjectionMaxFactor * h0;
+        return Math.Min(Math.Max(projectionC, min), max);
     }
 
     /// <summary>Возвращает более опасную из двух проверок.</summary>
