@@ -4,6 +4,7 @@ using System.Windows.Input;
 using CScore;
 using CScore.Fem;
 using CScore.Fem.Editing;
+using CScore.Submodel;
 using OpenCS.Services;
 using OpenCS.Utilites;
 
@@ -310,6 +311,19 @@ public sealed class FemSchemaEditorVM : ViewModelBase
 
     IReadOnlyList<FemValidationDiagnostic> _diagnostics = [];
     public IReadOnlyList<FemValidationDiagnostic> Diagnostics { get => _diagnostics; private set { _diagnostics = value; OnPropertyChanged(); } }
+
+    StraightBeamChainAnalysis? _chainAnalysis;
+    /// <summary>Результат проверки выделенной прямой цепочки, отдельно от диагностики схемы.</summary>
+    public StraightBeamChainAnalysis? ChainAnalysis { get => _chainAnalysis; private set { _chainAnalysis = value; OnPropertyChanged(); OnPropertyChanged(nameof(ChainVerdictText)); } }
+    public string ChainVerdictText => ChainAnalysis?.Verdict.ToString() ?? "";
+
+    /// <summary>Загружает снимок сетки и анализирует выбранные стержневые элементы.</summary>
+    public void AnalyzeStraightChain() => AnalyzeStraightChain(_db.GetFemMeshElements(Session.Schema.Id), _db.GetFemMeshNodes(Session.Schema.Id), Session.Members.ToList());
+    public void AnalyzeStraightChain(IReadOnlyList<FemElement> elements, IReadOnlyList<FemMeshNode> nodes, IReadOnlyList<FemMember> members)
+    {
+        var adapted = MeshBeamSegmentAdapter.Build(Selection.SelectedElemTags.ToList(), elements, nodes, members);
+        ChainAnalysis = StraightBeamAnalyzer.Analyze(adapted.Segments, adapted.Environment, ChainTolerances.Default, adapted.PreferredDirection, new FemLocalAxisFrameProvider(), adapted.Diagnostics);
+    }
 
     double? _defaultTargetMeshLengthM;
     public double? DefaultTargetMeshLengthM
