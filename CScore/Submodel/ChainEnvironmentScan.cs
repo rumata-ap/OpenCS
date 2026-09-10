@@ -27,6 +27,11 @@ public static class ChainEnvironmentScan
 
         foreach (var element in environment)
         {
+            if (element.Kind == EnvironmentElementKind.Shell)
+            {
+                ScanShell(element, nodes, tolerances, startAttachments, endAttachments, diagnostics);
+                continue;
+            }
             if (element.Kind != EnvironmentElementKind.Beam) continue;
             var matches = new List<(int NodeIndex, PlanarVector3 Point, double Distance)>();
             foreach (var point in element.NodePoints)
@@ -86,5 +91,30 @@ public static class ChainEnvironmentScan
         if (lengthSq <= 0.0) return (point - a).Length;
         var t = Math.Clamp((point - a).Dot(ab) / lengthSq, 0.0, 1.0);
         return (point - (a + ab * t)).Length;
+    }
+
+    static void ScanShell(EnvironmentElement element, IReadOnlyList<ChainNode> nodes, ResolvedTolerances tolerances,
+        List<EndAttachment> starts, List<EndAttachment> ends, List<FemValidationDiagnostic> diagnostics)
+    {
+        var warped = false; var degenerate = false;
+        for (var i = 0; i < nodes.Count; i++)
+        {
+            switch (ShellContactGeometry.Classify(element.NodePoints, nodes[i].Point, tolerances))
+            {
+                case ShellContactKind.None: continue;
+                case ShellContactKind.Degenerate:
+                    if (!degenerate) diagnostics.Add(new("chain_shell_degenerate", $"Оболочечный элемент {element.SourceKey} вырожден — контакт с ним не анализируется.", false, [element.SourceKey]));
+                    degenerate = true; return;
+                case ShellContactKind.Warped:
+                    if (!warped) diagnostics.Add(new("chain_shell_warped", $"Оболочечный элемент {element.SourceKey} неплоский — проверены только вершины и рёбра.", false, [element.SourceKey]));
+                    warped = true; continue;
+                case ShellContactKind.Vertex when nodes[i].IsEnd:
+                    var start = i == 0; (start ? starts : ends).Add(new(element.SourceKey, EnvironmentElementKind.Shell, start, nodes[i].Point, 0)); continue;
+                case ShellContactKind.Vertex:
+                    diagnostics.Add(new("chain_internal_attachment", $"Оболочечный элемент {element.SourceKey} примыкает к внутреннему узлу цепочки.", true, [element.SourceKey])); continue;
+                default:
+                    diagnostics.Add(new("chain_shell_edge_contact", $"Конец цепочки попадает на ребро или внутрь грани элемента {element.SourceKey} мимо его узлов — такая постановка не поддерживается.", true, [element.SourceKey])); continue;
+            }
+        }
     }
 }
