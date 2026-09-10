@@ -96,6 +96,63 @@ public sealed class FemSchemaDeleteCascadeTests
     }
 }
 
+public sealed class SubmodelExtractionDeleteTests
+{
+    [Fact]
+    public void DeleteFemSchema_ChildSubmodel_RemovesRootAndMappings()
+    {
+        var path = TempDatabasePath();
+        try
+        {
+            using var db = new DatabaseService(path);
+            var seed = StraightBeamSubmodelPersistenceTests.CreateSeed(db);
+            var extraction = db.CreateStraightBeamSubmodel(seed.Request);
+
+            db.DeleteFemSchema(db.FemSchemas.Single(x => x.Id == extraction.SubmodelSchemaId));
+
+            Assert.Equal(0, CountWhere(path, "submodel_extractions", "id", extraction.Id));
+            Assert.Equal(0, CountWhere(path, "submodel_extraction_nodes", "extraction_id", extraction.Id));
+            Assert.Equal(0, CountWhere(path, "submodel_extraction_segments", "extraction_id", extraction.Id));
+        }
+        finally { DeleteDatabase(path); }
+    }
+
+    [Fact]
+    public void DeleteFemSchema_ParentWithExtraction_ThrowsBeforeDelete()
+    {
+        var path = TempDatabasePath();
+        try
+        {
+            using var db = new DatabaseService(path);
+            var seed = StraightBeamSubmodelPersistenceTests.CreateSeed(db);
+            _ = db.CreateStraightBeamSubmodel(seed.Request);
+
+            Assert.Throws<InvalidOperationException>(() => db.DeleteFemSchema(seed.Schema));
+
+            Assert.NotEmpty(db.GetFemMeshNodes(seed.Schema.Id));
+            Assert.NotNull(db.GetFemAnalysis(seed.Analysis.Id));
+        }
+        finally { DeleteDatabase(path); }
+    }
+
+    static int CountWhere(string path, string table, string column, int value)
+    {
+        using var connection = new SqliteConnection($"Data Source={path};Pooling=False");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT COUNT(*) FROM {table} WHERE {column} = {value}";
+        return (int)(long)command.ExecuteScalar()!;
+    }
+
+    static string TempDatabasePath() =>
+        Path.Combine(Path.GetTempPath(), $"opencs-submodel-delete-{Guid.NewGuid():N}.db");
+
+    static void DeleteDatabase(string path)
+    {
+        if (File.Exists(path)) File.Delete(path);
+    }
+}
+
 public sealed class ForceSetDeleteCascadeTests
 {
     [Fact]

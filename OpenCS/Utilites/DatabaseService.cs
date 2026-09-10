@@ -5321,79 +5321,7 @@ namespace OpenCS.Utilites
                deleteCmd.ExecuteNonQuery();
             }
 
-            using (var nodeCmd = _connection.CreateCommand())
-            {
-               nodeCmd.CommandText = """
-                  INSERT INTO fem_mesh_nodes
-                     (schema_id, node_tag, x, y, z, source_node_tag, source_member_tag)
-                  VALUES (@sid, @tag, @x, @y, @z, @source_node_tag, @source_member_tag);
-                  SELECT last_insert_rowid();
-               """;
-               nodeCmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
-               nodeCmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
-               nodeCmd.Parameters.Add("@x", Microsoft.Data.Sqlite.SqliteType.Real);
-               nodeCmd.Parameters.Add("@y", Microsoft.Data.Sqlite.SqliteType.Real);
-               nodeCmd.Parameters.Add("@z", Microsoft.Data.Sqlite.SqliteType.Real);
-               nodeCmd.Parameters.Add("@source_node_tag", Microsoft.Data.Sqlite.SqliteType.Text);
-               nodeCmd.Parameters.Add("@source_member_tag", Microsoft.Data.Sqlite.SqliteType.Text);
-
-               foreach (var node in nodes)
-               {
-                  nodeCmd.Parameters["@sid"].Value = schemaId;
-                  nodeCmd.Parameters["@tag"].Value = node.NodeTag;
-                  nodeCmd.Parameters["@x"].Value = node.X;
-                  nodeCmd.Parameters["@y"].Value = node.Y;
-                  nodeCmd.Parameters["@z"].Value = node.Z;
-                  nodeCmd.Parameters["@source_node_tag"].Value = (object?)node.SourceNodeTag ?? DBNull.Value;
-                  nodeCmd.Parameters["@source_member_tag"].Value = (object?)node.SourceMemberTag ?? DBNull.Value;
-                  node.Id = (int)(long)nodeCmd.ExecuteScalar()!;
-                  node.SchemaId = schemaId;
-               }
-            }
-
-            using (var elementCmd = _connection.CreateCommand())
-            {
-               elementCmd.CommandText = """
-                  INSERT INTO fem_elements
-                     (schema_id, elem_tag, node_ids_json, source_member_tag, cross_section_id,
-                      gj_strategy, gj_manual_value, gj_torsion_task_id, elem_type, section_tag,
-                      material_tag, thickness_m)
-                  VALUES (@sid, @tag, @node_ids, @source_member_tag, @cross_section_id,
-                          @gj_strategy, @gj_manual_value, @gj_torsion_task_id, @elem_type,
-                          @section_tag, @material_tag, @thickness_m);
-                  SELECT last_insert_rowid();
-               """;
-               elementCmd.Parameters.Add("@sid", Microsoft.Data.Sqlite.SqliteType.Integer);
-               elementCmd.Parameters.Add("@tag", Microsoft.Data.Sqlite.SqliteType.Text);
-               elementCmd.Parameters.Add("@node_ids", Microsoft.Data.Sqlite.SqliteType.Text);
-               elementCmd.Parameters.Add("@source_member_tag", Microsoft.Data.Sqlite.SqliteType.Text);
-               elementCmd.Parameters.Add("@cross_section_id", Microsoft.Data.Sqlite.SqliteType.Integer);
-               elementCmd.Parameters.Add("@gj_strategy", Microsoft.Data.Sqlite.SqliteType.Text);
-               elementCmd.Parameters.Add("@gj_manual_value", Microsoft.Data.Sqlite.SqliteType.Real);
-               elementCmd.Parameters.Add("@gj_torsion_task_id", Microsoft.Data.Sqlite.SqliteType.Integer);
-               elementCmd.Parameters.Add("@elem_type", Microsoft.Data.Sqlite.SqliteType.Text);
-               elementCmd.Parameters.Add("@section_tag", Microsoft.Data.Sqlite.SqliteType.Text);
-               elementCmd.Parameters.Add("@material_tag", Microsoft.Data.Sqlite.SqliteType.Text);
-               elementCmd.Parameters.Add("@thickness_m", Microsoft.Data.Sqlite.SqliteType.Real);
-
-               foreach (var element in elements)
-               {
-                  elementCmd.Parameters["@sid"].Value = schemaId;
-                  elementCmd.Parameters["@tag"].Value = element.ElemTag;
-                  elementCmd.Parameters["@node_ids"].Value = element.NodeIdsJson;
-                  elementCmd.Parameters["@source_member_tag"].Value = (object?)element.SourceMemberTag ?? DBNull.Value;
-                  elementCmd.Parameters["@cross_section_id"].Value = (object?)element.CrossSectionId ?? DBNull.Value;
-                  elementCmd.Parameters["@gj_strategy"].Value = element.GjStrategy;
-                  elementCmd.Parameters["@gj_manual_value"].Value = (object?)element.GjManualValue ?? DBNull.Value;
-                  elementCmd.Parameters["@gj_torsion_task_id"].Value = (object?)element.GjTorsionTaskId ?? DBNull.Value;
-                  elementCmd.Parameters["@elem_type"].Value = element.ElemType;
-                  elementCmd.Parameters["@section_tag"].Value = (object?)element.SectionTag ?? DBNull.Value;
-                  elementCmd.Parameters["@material_tag"].Value = (object?)element.MaterialTag ?? DBNull.Value;
-                  elementCmd.Parameters["@thickness_m"].Value = (object?)element.ThicknessM ?? DBNull.Value;
-                  element.Id = (int)(long)elementCmd.ExecuteScalar()!;
-                  element.SchemaId = schemaId;
-               }
-            }
+            InsertFemMeshSnapshot(schemaId, nodes, elements);
 
             tx.Commit();
          }
@@ -5412,6 +5340,13 @@ namespace OpenCS.Utilites
          using var tx = _connection.BeginTransaction();
          try
          {
+            using (var parentSchema = _connection.CreateCommand())
+            {
+               parentSchema.CommandText = "SELECT EXISTS(SELECT 1 FROM fem_schemas WHERE id=@id)";
+               parentSchema.Parameters.AddWithValue("@id", request.ParentSchemaId);
+               if (Convert.ToInt64(parentSchema.ExecuteScalar()) == 0)
+                  throw new InvalidOperationException("submodel_persistence_parent_schema_missing");
+            }
             var analysis = GetFemAnalysis(request.ParentAnalysisId);
             if (analysis is null || analysis.SchemaId != request.ParentSchemaId)
                throw new InvalidOperationException("submodel_persistence_parent_analysis_invalid");
@@ -5430,7 +5365,7 @@ namespace OpenCS.Utilites
                command.Parameters.AddWithValue("@created", schema.Created);
                schema.Id = (int)(long)command.ExecuteScalar()!;
             }
-            InsertSubmodelMesh(schema.Id, request.Draft.MeshNodes, request.Draft.MeshElements);
+            InsertFemMeshSnapshot(schema.Id, request.Draft.MeshNodes, request.Draft.MeshElements);
 
             int extractionId;
             using (var command = _connection.CreateCommand())
@@ -5469,7 +5404,8 @@ namespace OpenCS.Utilites
          catch { tx.Rollback(); throw; }
       }
 
-      void InsertSubmodelMesh(int schemaId, IReadOnlyList<CScore.Fem.FemMeshNode> nodes, IReadOnlyList<CScore.Fem.FemElement> elements)
+      /// <summary>Вставляет mesh-слепок в уже открытую транзакцию без удаления прежних строк.</summary>
+      void InsertFemMeshSnapshot(int schemaId, IReadOnlyList<CScore.Fem.FemMeshNode> nodes, IReadOnlyList<CScore.Fem.FemElement> elements)
       {
          foreach (var node in nodes)
          {
@@ -5488,6 +5424,17 @@ namespace OpenCS.Utilites
          if (draft.MeshNodes.Select(x => x.NodeTag).Distinct(StringComparer.Ordinal).Count() != draft.MeshNodes.Count ||
              draft.MeshElements.Select(x => x.ElemTag).Distinct(StringComparer.Ordinal).Count() != draft.MeshElements.Count)
             throw new InvalidOperationException("submodel_persistence_mesh_tags_duplicate");
+
+         var nodeTags = draft.MeshNodes.Select(x => x.NodeTag).ToHashSet(StringComparer.Ordinal);
+         foreach (var element in draft.MeshElements)
+         {
+            int[]? elementNodeTags;
+            try { elementNodeTags = JsonSerializer.Deserialize<int[]>(element.NodeIdsJson, _jsonSettings); }
+            catch (JsonException) { throw new InvalidOperationException("submodel_persistence_mesh_nodes_invalid"); }
+            if (elementNodeTags is null || elementNodeTags.Length != 2 ||
+                elementNodeTags.Any(x => !nodeTags.Contains(x.ToString())))
+               throw new InvalidOperationException("submodel_persistence_mesh_nodes_invalid");
+         }
       }
 
       /// <summary>Возвращает provenance извлечения по идентификатору дочерней схемы.</summary>
@@ -5495,9 +5442,17 @@ namespace OpenCS.Utilites
       {
          using var command = _connection.CreateCommand();
          command.CommandText = "SELECT id,parent_schema_id,submodel_schema_id,parent_analysis_id,parent_result_id,load_expression_json,reference_scale,tolerances_json,metrics_json,diagnostics_json FROM submodel_extractions WHERE submodel_schema_id=@id";
-         command.Parameters.AddWithValue("@id", schemaId); using var reader = command.ExecuteReader();
-         if (!reader.Read()) return null;
-         var id = reader.GetInt32(0);
+         command.Parameters.AddWithValue("@id", schemaId);
+         int id, parentSchemaId, submodelSchemaId, parentAnalysisId, parentResultId;
+         string loadExpressionJson, tolerancesJson, metricsJson, diagnosticsJson;
+         double referenceScale;
+         using (var reader = command.ExecuteReader())
+         {
+            if (!reader.Read()) return null;
+            id = reader.GetInt32(0); parentSchemaId = reader.GetInt32(1); submodelSchemaId = reader.GetInt32(2);
+            parentAnalysisId = reader.GetInt32(3); parentResultId = reader.GetInt32(4); loadExpressionJson = reader.GetString(5);
+            referenceScale = reader.GetDouble(6); tolerancesJson = reader.GetString(7); metricsJson = reader.GetString(8); diagnosticsJson = reader.GetString(9);
+         }
          var nodes = new List<SubmodelExtractionNode>(); var segments = new List<SubmodelExtractionSegment>();
          using (var n = _connection.CreateCommand())
          {
@@ -5509,7 +5464,7 @@ namespace OpenCS.Utilites
             s.CommandText = "SELECT id,ordinal,submodel_element_id,submodel_element_tag,parent_element_id,parent_element_tag,source_member_tag,is_reversed,start_station_m,end_station_m,length_m,angle_to_axis_deg,beta_deg,beta_source FROM submodel_extraction_segments WHERE extraction_id=@id ORDER BY ordinal"; s.Parameters.AddWithValue("@id", id); using var r = s.ExecuteReader();
             while (r.Read()) segments.Add(new(r.GetInt32(0), r.GetInt32(1), r.GetInt32(2), r.GetString(3), r.GetInt32(4), r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6), r.GetInt32(7) != 0, r.GetDouble(8), r.GetDouble(9), r.GetDouble(10), r.GetDouble(11), r.GetDouble(12), Enum.Parse<BetaSource>(r.GetString(13))));
          }
-         return new SubmodelExtraction { Id=id, ParentSchemaId=reader.GetInt32(1), SubmodelSchemaId=reader.GetInt32(2), ParentAnalysisId=reader.GetInt32(3), ParentResultId=reader.GetInt32(4), LoadExpressionJson=reader.GetString(5), ReferenceScale=reader.GetDouble(6), Tolerances=JsonSerializer.Deserialize<ResolvedTolerances>(reader.GetString(7),_jsonSettings)!, Metrics=JsonSerializer.Deserialize<ChainMetrics>(reader.GetString(8),_jsonSettings)!, Diagnostics=JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(reader.GetString(9),_jsonSettings)??[], Nodes=nodes, Segments=segments };
+         return new SubmodelExtraction { Id=id, ParentSchemaId=parentSchemaId, SubmodelSchemaId=submodelSchemaId, ParentAnalysisId=parentAnalysisId, ParentResultId=parentResultId, LoadExpressionJson=loadExpressionJson, ReferenceScale=referenceScale, Tolerances=JsonSerializer.Deserialize<ResolvedTolerances>(tolerancesJson,_jsonSettings)!, Metrics=JsonSerializer.Deserialize<ChainMetrics>(metricsJson,_jsonSettings)!, Diagnostics=JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(diagnosticsJson,_jsonSettings)??[], Nodes=nodes, Segments=segments };
       }
 
       /// <summary>Возвращает сохранённые узлы mesh-слепка FEM-схемы.</summary>
