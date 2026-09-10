@@ -166,15 +166,27 @@ namespace OpenCS.Services
         {
             double lengthMm = Distance(args.Result.Start, args.Result.End) * 1000.0;
             if (lengthMm < 1e-6) lengthMm = 1;
-            CollectValueRange(args.Result, args.Mode, args.EpsCu, out double vMin, out double vMax, out _);
+            CollectValueRange(args.Result, args.Mode, args.EpsCu, out double vMin, out double vMax, out double vAbsMax);
             const double w = 900, h = 520, padL = 58, padR = 56, padT = 40, padB = 48;
             double plotW = w - padL - padR, plotH = h - padT - padB;
             bool horizontal = args.Horizontal;
             double sAxis = horizontal ? plotW : plotH;
             double vAxis = horizontal ? plotH : plotW;
             double scaleS = sAxis * 0.9 / lengthMm;
-            double vRange = Math.Max(vMax - vMin, 1e-9);
-            double scaleV = vAxis * 0.9 / vRange;
+            // ToScreen всегда кладёт value=0 в центр plot-области (BaseScreenV0), поэтому
+            // на каждую сторону от нуля доступна лишь половина vAxis*0.9 — масштаб обязан
+            // исходить из наибольшего ПО МОДУЛЮ значения (vAbsMax), а не из полного размаха
+            // vMax-vMin. При несимметричном диапазоне (типично для деформаций/напряжений
+            // бетона — сжатие и растяжение разного порядка) масштаб по размаху давал кривую,
+            // вылезающую за границу сетки на стороне с большим |значением|.
+            double scaleV = vAxis * 0.9 / (2.0 * Math.Max(vAbsMax, 1e-9));
+            // BaseScreenS кладёт начало отрезка (S=0) ровно на границу plot-области
+            // (SOriginFrac=0 в SectionCutViewTransform), а весь оставшийся от масштаба 0.9
+            // запас (10% от sAxis) достаётся только дальнему концу — рисунок вплотную
+            // прилегал к верхней (для вертикального разреза) или левой (для
+            // горизонтального) сетке, наезжая на её подписи. Распределяем запас поровну
+            // через Pan, чтобы с обеих сторон вдоль разреза был одинаковый зазор от сетки.
+            double sMargin = sAxis * 0.05;
             return new SectionCutViewTransform
             {
                 CanvasWidth = w,
@@ -183,8 +195,8 @@ namespace OpenCS.Services
                 PlotOy = padT,
                 PlotW = plotW,
                 PlotH = plotH,
-                PanX = 0,
-                PanY = 0,
+                PanX = horizontal ? sMargin : 0,
+                PanY = horizontal ? 0 : sMargin,
                 ScaleS = scaleS,
                 ScaleV = scaleV,
                 LengthMm = lengthMm,
