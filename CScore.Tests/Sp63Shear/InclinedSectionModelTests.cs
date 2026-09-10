@@ -34,9 +34,10 @@ public sealed class InclinedSectionModelTests
     }
 
     [Fact]
-    public void AppliedShear_TakesMaximumAbsoluteValueInInterval()
+    public void AppliedShear_TakesValueAtStation_ForwardDirection()
     {
-        // Q убывает от 90 (s = 1) до 60 (s = 2): максимум по интервалу равен 90
+        // По п. 8.1.33 Q определяется статически по одну сторону от сечения — т.е. в самой
+        // стоянке (Station), а не как максимум по отрезку [Station; Point0]: Q(1)=90.
         var profile = new UniformLoadProfile(
             q0: 120.0, m0: 0.0, n0: 0.0, distributedLoad: 30.0, supportDistance: 4.0);
         var model = new InclinedSectionModel(Station: 1.0, Direction: +1, ProjectionC: 1.0);
@@ -45,20 +46,29 @@ public sealed class InclinedSectionModelTests
     }
 
     [Fact]
-    public void AppliedShear_BackwardDirection_ScansTowardsPoint0()
+    public void AppliedShear_BackwardDirection_UsesStationNotPoint0()
     {
-        // Направление −1 от s = 2: интервал [1; 2], максимум Q = 90 в s = 1
+        // Station=2 (Q=60), Point0=1 (Q=90, ближе к опоре). До исправления H-03 бралось
+        // MaxAbsQ по всему интервалу — 90, что при переборе C вырождало приложенную силу в
+        // константу ≈ опорной реакции независимо от C (см. заметку памяти о находке по
+        // Пособию Краковского). По п. 8.1.33 Q берётся в самой проверяемой стоянке — 60.
         var profile = new UniformLoadProfile(
             q0: 120.0, m0: 0.0, n0: 0.0, distributedLoad: 30.0, supportDistance: 4.0);
         var model = new InclinedSectionModel(Station: 2.0, Direction: -1, ProjectionC: 1.0);
 
-        Assert.Equal(90.0, model.AppliedShear(profile), 9);
+        Assert.Equal(60.0, model.AppliedShear(profile), 9);
     }
 
     [Fact]
-    public void AppliedShear_FindsPeakAtInteriorNode_NotOnProbeGrid()
+    public void AppliedShear_IgnoresInteriorPeakBetweenStationAndPoint0()
     {
-        // Пик 150 кН в узле s = 0,5 — сетка из 41 пробы его пропускала (H-02)
+        // Пик 150 кН в узле s=0,5 (между Station=0 и Point0=1) не должен влиять на
+        // приложенную силу — она берётся статически в Station=0, т.е. Q(0)=40. Способность
+        // самого профиля точно находить внутренний пик отдельно проверяется в
+        // SampledProfileTests.MaxAbsQ_TakesInteriorNodeExactly — здесь важно, что
+        // AppliedShear теперь его сознательно игнорирует (см. п. 8.1.33: «наиболее опасное
+        // загружение» — это про выбор варианта загружения, а не про максимум по точкам
+        // одного и того же загружения внутри проекции C).
         var samples = new List<ForceSample>
         {
             new(0.0, 40.0, 0.0, 0.0),
@@ -68,7 +78,7 @@ public sealed class InclinedSectionModelTests
         var profile = new SampledProfile(samples, 0.0, 1.0);
         var model = new InclinedSectionModel(Station: 0.0, Direction: +1, ProjectionC: 1.0);
 
-        Assert.Equal(150.0, model.AppliedShear(profile), 6);
+        Assert.Equal(40.0, model.AppliedShear(profile), 6);
     }
 
     [Fact]

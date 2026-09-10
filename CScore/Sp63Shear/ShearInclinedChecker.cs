@@ -7,7 +7,10 @@ namespace CScore.Sp63Shear;
 /// </summary>
 public static class ShearInclinedChecker
 {
-    const double ConcreteProjectionMinFactor = 0.0;
+    // Границы 0,6h0…3h0 — из отсечек Qb по (8.57): Qb ≤ 2,5·Rbt·b·h0 даёт Cmin=φb2/2,5·h0=0,6h0,
+    // Qb ≥ 0,5·Rbt·b·h0 даёт Cmax=φb2/0,5·h0=3,0h0 (см. спецификацию
+    // docs/superpowers/specs/2026-09-09-sp63-shear-projection-ranges-design.md).
+    const double ConcreteProjectionMinFactor = 0.6;
     const double ConcreteProjectionMaxFactor = 3.0;
     const double StirrupProjectionMinFactor = 1.0;
     const double StirrupProjectionMaxFactor = 2.0;
@@ -44,7 +47,7 @@ public static class ShearInclinedChecker
 
         CheckDetail? strip = null, shear = null, shearMin = null, moment = null, momentMin = null;
         bool usedPositive = false, usedNegative = false;
-        bool zeroMoment = false;
+        bool zeroMoment = false, skippedNearSupport = false;
 
         foreach (double station in Stations(input, profile))
         {
@@ -62,6 +65,8 @@ public static class ShearInclinedChecker
 
             var shearProjections = ShearProjections(stationInput, profile, station, direction).ToList();
             var momentProjections = MomentProjections(stationInput, profile, station, direction).ToList();
+            if (shearProjections.Count == 0) skippedNearSupport = true;
+
             double appliedAtStation = profile.MaxAbsQ(station, station);
             var stripDetail = StripDetail(stationInput, appliedAtStation, phi, station);
             var minDetail = MinShearDetail(
@@ -110,6 +115,11 @@ public static class ShearInclinedChecker
         if (zeroMoment)
             AddOnce(warnings,
                 "В части стоянок момент нулевой — принята сторона с меньшей рабочей высотой.");
+        if (skippedNearSupport)
+            AddOnce(warnings,
+                "Для стоянок ближе 0,6h0 к опоре наклонное сечение до опоры не помещается: "
+                + "проверка (8.56) для них не выполнялась, действует приопорное условие (8.60).");
+
         var details = new List<CheckDetail>();
         if (strip is not null) details.Add(strip);
         if (shear is not null) details.Add(shear);
@@ -346,8 +356,8 @@ public static class ShearInclinedChecker
 
     /// <summary>
     /// Длины проекции наклонного сечения для одной стоянки. Бетонный диапазон
-    /// составляющие перебираются от 0 до 3·h0; эффективная длина хомутов
-    /// ограничивается сверху 2·h0 по п. 8.1.33.
+    /// задаётся от 0,6·h0 до 3·h0. Эффективная проекция хомутов на всём этом
+    /// диапазоне ограничивается снизу h0 и сверху 2·h0 по п. 8.1.33.
     /// </summary>
     static IEnumerable<double> ShearProjections(
         ShearInclinedInput input, IForceProfile profile, double station, int direction) =>
@@ -380,11 +390,12 @@ public static class ShearInclinedChecker
             yield return Math.Min(c, max);
     }
 
-    /// <summary>Рассчитывает эффективную проекцию хомутов для поперечной силы.</summary>
+    /// <summary>Проверяет нормативный диапазон проекции для вклада хомутов.</summary>
     static double StirrupProjection(double projectionC, double h0)
     {
+        double min = StirrupProjectionMinFactor * h0;
         double max = StirrupProjectionMaxFactor * h0;
-        return Math.Min(Math.Max(projectionC, 0.0), max);
+        return Math.Min(Math.Max(projectionC, min), max);
     }
 
     /// <summary>Возвращает более опасную из двух проверок.</summary>
