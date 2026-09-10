@@ -3,7 +3,11 @@ using System.Text.Json;
 namespace CScore.Fem;
 
 /// <summary>Диагностическое сообщение проверки канонической FEM-модели.</summary>
-public sealed record FemValidationDiagnostic(string Code, string Message, bool IsError = true);
+/// <param name="SourceKeys">Теги объектов, участвовавших в диагностике. Существующие вызовы
+/// new("code", "msg") продолжают работать; шаблон вкладки диагностики использует только
+/// Message и IsError, поэтому UI не меняется.</param>
+public sealed record FemValidationDiagnostic(
+    string Code, string Message, bool IsError = true, IReadOnlyList<string>? SourceKeys = null);
 
 /// <summary>Проверяет ссылки, идентификаторы и числовую корректность FEM-контрактов.</summary>
 public static class FemCanonicalValidator

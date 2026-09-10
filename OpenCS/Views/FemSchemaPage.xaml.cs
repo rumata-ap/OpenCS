@@ -13,6 +13,7 @@ namespace OpenCS.Views;
 
 public partial class FemSchemaPage : UserControl
 {
+    void OnAnalyzeStraightChain(object sender, RoutedEventArgs e) => _editorVm.AnalyzeStraightChain();
     readonly FemSchemaEditorVM _editorVm;
     readonly Fem3DVM _fem3d;
     readonly AppViewModel _app;

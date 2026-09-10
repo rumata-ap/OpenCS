@@ -131,7 +131,15 @@
 
         <!-- Вкладка проверки схемы -->
         <TabItem Header="{DynamicResource FemDiagnosticsTab}">
-            <ListBox ItemsSource="{Binding Diagnostics}" Margin="16">
+            <StackPanel Margin="16">
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <Button Content="{DynamicResource FemAnalyzeStraightChain}" Click="OnAnalyzeStraightChain" Padding="12,4"/>
+                    <TextBlock Text="{Binding ChainVerdictText}" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+            <ListBox ItemsSource="{Binding ChainAnalysis.Diagnostics}" Margin="0,0,0,8">
+                <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="{Binding IsError, Converter={StaticResource DiagnosticColorConverter}}"/></DataTemplate></ListBox.ItemTemplate>
+            </ListBox>
+            <ListBox ItemsSource="{Binding Diagnostics}">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding Message}" TextWrapping="Wrap"
@@ -139,6 +147,7 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
+            </StackPanel>
         </TabItem>
     </TabControl>
 </UserControl>
