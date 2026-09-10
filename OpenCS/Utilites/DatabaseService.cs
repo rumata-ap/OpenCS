@@ -4,6 +4,7 @@ using CScore.Fire.Entities;
 using CScore.PlateRebar;
 using CScore.PlateStrip;
 using CScore.Planar.Fragments;
+using CScore.Submodel;
 using CSmath;
 
 using Microsoft.Data.Sqlite;
@@ -32,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 56;
+      const int CurrentSchemaVersion = 57;
 
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
@@ -566,6 +567,7 @@ namespace OpenCS.Utilites
             );";
          cmd.ExecuteNonQuery();
 
+         EnsureSubmodelExtractionTables();
          MigrateV50();
 
          // Для новых БД сразу выставляем текущую версию, чтобы Migrate() не гнал старые миграции
@@ -636,6 +638,7 @@ namespace OpenCS.Utilites
                if (i == 53) { MigrateV54(); continue; }
                if (i == 54) { MigrateV55(); continue; }
                if (i == 55) { MigrateV56(); continue; }
+               if (i == 56) { MigrateV57(); continue; }
             }
 
             var updCmd = _connection.CreateCommand();
@@ -1391,6 +1394,55 @@ namespace OpenCS.Utilites
          if (!ColumnExists("fire_thermal_results", "duration_min"))
             MigExec("ALTER TABLE fire_thermal_results ADD COLUMN duration_min REAL");
       }
+
+      /// <summary>Миграция v57: извлечённые прямые стержневые субмодели и их provenance.</summary>
+      void MigrateV57() => EnsureSubmodelExtractionTables();
+
+      /// <summary>Создаёт таблицы извлечения субмодели и её неизменяемого provenance.</summary>
+      void EnsureSubmodelExtractionTables() => MigExec("""
+         CREATE TABLE IF NOT EXISTS submodel_extractions (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             parent_schema_id INTEGER NOT NULL REFERENCES fem_schemas(id),
+             submodel_schema_id INTEGER NOT NULL UNIQUE REFERENCES fem_schemas(id),
+             parent_analysis_id INTEGER NOT NULL REFERENCES fem_analyses(id),
+             parent_result_id INTEGER NOT NULL REFERENCES calc_results(id),
+             load_expression_json TEXT NOT NULL DEFAULT '{}',
+             reference_scale REAL NOT NULL DEFAULT 1.0,
+             tolerances_json TEXT NOT NULL DEFAULT '{}',
+             metrics_json TEXT NOT NULL DEFAULT '{}',
+             diagnostics_json TEXT NOT NULL DEFAULT '[]',
+             created TEXT NOT NULL DEFAULT ''
+         );
+         CREATE TABLE IF NOT EXISTS submodel_extraction_nodes (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             extraction_id INTEGER NOT NULL REFERENCES submodel_extractions(id),
+             submodel_node_id INTEGER NOT NULL REFERENCES fem_mesh_nodes(id),
+             submodel_node_tag TEXT NOT NULL,
+             parent_node_id INTEGER NOT NULL,
+             parent_node_tag TEXT NOT NULL,
+             x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL,
+             source_node_tag TEXT, source_member_tag TEXT,
+             UNIQUE(extraction_id, submodel_node_id)
+         );
+         CREATE TABLE IF NOT EXISTS submodel_extraction_segments (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             extraction_id INTEGER NOT NULL REFERENCES submodel_extractions(id),
+             ordinal INTEGER NOT NULL,
+             submodel_element_id INTEGER NOT NULL REFERENCES fem_elements(id),
+             submodel_element_tag TEXT NOT NULL,
+             parent_element_id INTEGER NOT NULL,
+             parent_element_tag TEXT NOT NULL,
+             source_member_tag TEXT,
+             is_reversed INTEGER NOT NULL,
+             start_station_m REAL NOT NULL, end_station_m REAL NOT NULL,
+             length_m REAL NOT NULL, angle_to_axis_deg REAL NOT NULL,
+             beta_deg REAL NOT NULL, beta_source TEXT NOT NULL,
+             UNIQUE(extraction_id, ordinal),
+             UNIQUE(extraction_id, submodel_element_id)
+         );
+         CREATE INDEX IF NOT EXISTS idx_submodel_extractions_parent
+             ON submodel_extractions(parent_schema_id);
+         """);
 
       /// <summary>Миграция v24: plate_section_id в fem_members.</summary>
       void MigrateV24()
@@ -3510,6 +3562,13 @@ namespace OpenCS.Utilites
          using var tx = _connection.BeginTransaction();
          try
          {
+            using (var guard = _connection.CreateCommand())
+            {
+               guard.CommandText = "SELECT EXISTS(SELECT 1 FROM submodel_extractions WHERE parent_schema_id=@id)";
+               guard.Parameters.AddWithValue("@id", schema.Id);
+               if (Convert.ToInt64(guard.ExecuteScalar()) != 0)
+                  throw new InvalidOperationException("Нельзя удалить родительскую FEM-схему, пока существуют извлечённые субмодели.");
+            }
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = """
                DELETE FROM fem_checks            WHERE schema_id=@id;
@@ -3519,6 +3578,11 @@ namespace OpenCS.Utilites
                DELETE FROM fem_member_loads       WHERE schema_id=@id;
                DELETE FROM fem_load_cases         WHERE schema_id=@id;
                DELETE FROM fem_member_groups      WHERE schema_id=@id;
+               DELETE FROM submodel_extraction_nodes
+                 WHERE extraction_id IN (SELECT id FROM submodel_extractions WHERE submodel_schema_id=@id);
+               DELETE FROM submodel_extraction_segments
+                 WHERE extraction_id IN (SELECT id FROM submodel_extractions WHERE submodel_schema_id=@id);
+               DELETE FROM submodel_extractions   WHERE submodel_schema_id=@id;
                DELETE FROM fem_elements           WHERE schema_id=@id;
                DELETE FROM fem_mesh_nodes         WHERE schema_id=@id;
                DELETE FROM fem_members            WHERE schema_id=@id;
@@ -5338,6 +5402,114 @@ namespace OpenCS.Utilites
             tx.Rollback();
             throw;
          }
+      }
+
+      /// <summary>Создаёт автономную схему прямой цепочки вместе с её provenance.</summary>
+      public SubmodelExtraction CreateStraightBeamSubmodel(StraightBeamSubmodelRequest request)
+      {
+         ArgumentException.ThrowIfNullOrWhiteSpace(request.SubmodelTag);
+         ArgumentNullException.ThrowIfNull(request.Draft);
+         using var tx = _connection.BeginTransaction();
+         try
+         {
+            var analysis = GetFemAnalysis(request.ParentAnalysisId);
+            if (analysis is null || analysis.SchemaId != request.ParentSchemaId)
+               throw new InvalidOperationException("submodel_persistence_parent_analysis_invalid");
+            if (analysis.ResultId != request.ExpectedParentResultId || GetCalcResultById(request.ExpectedParentResultId) is null)
+               throw new InvalidOperationException("submodel_persistence_parent_result_stale");
+            if (request.Draft.ParentSchemaId != request.ParentSchemaId)
+               throw new InvalidOperationException("submodel_persistence_draft_parent_mismatch");
+            ValidateSubmodelDraft(request.Draft);
+
+            var schema = new CScore.Fem.FemSchema { Tag = request.SubmodelTag, SourceType = "submodel" };
+            using (var command = _connection.CreateCommand())
+            {
+               command.CommandText = "INSERT INTO fem_schemas (tag, source_type, created) VALUES (@tag,@source,@created); SELECT last_insert_rowid();";
+               command.Parameters.AddWithValue("@tag", schema.Tag);
+               command.Parameters.AddWithValue("@source", schema.SourceType);
+               command.Parameters.AddWithValue("@created", schema.Created);
+               schema.Id = (int)(long)command.ExecuteScalar()!;
+            }
+            InsertSubmodelMesh(schema.Id, request.Draft.MeshNodes, request.Draft.MeshElements);
+
+            int extractionId;
+            using (var command = _connection.CreateCommand())
+            {
+               command.CommandText = """
+                  INSERT INTO submodel_extractions (parent_schema_id,submodel_schema_id,parent_analysis_id,parent_result_id,load_expression_json,reference_scale,tolerances_json,metrics_json,diagnostics_json,created)
+                  VALUES (@parent,@submodel,@analysis,@result,@load,1.0,@tolerances,@metrics,@diagnostics,@created);
+                  SELECT last_insert_rowid();
+                  """;
+               command.Parameters.AddWithValue("@parent", request.ParentSchemaId); command.Parameters.AddWithValue("@submodel", schema.Id);
+               command.Parameters.AddWithValue("@analysis", analysis.Id); command.Parameters.AddWithValue("@result", request.ExpectedParentResultId);
+               command.Parameters.AddWithValue("@load", analysis.LoadExpressionJson); command.Parameters.AddWithValue("@tolerances", JsonSerializer.Serialize(request.Draft.Tolerances, _jsonSettings));
+               command.Parameters.AddWithValue("@metrics", JsonSerializer.Serialize(request.Draft.Metrics, _jsonSettings)); command.Parameters.AddWithValue("@diagnostics", JsonSerializer.Serialize(request.Draft.Diagnostics, _jsonSettings));
+               command.Parameters.AddWithValue("@created", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")); extractionId = (int)(long)command.ExecuteScalar()!;
+            }
+            var nodes = request.Draft.MeshNodes.ToDictionary(x => x.NodeTag, StringComparer.Ordinal);
+            var elements = request.Draft.MeshElements.ToDictionary(x => x.ElemTag, StringComparer.Ordinal);
+            foreach (var mapping in request.Draft.Nodes)
+            {
+               var node = nodes[mapping.SubmodelNode.NodeTag];
+               using var command = _connection.CreateCommand();
+               command.CommandText = "INSERT INTO submodel_extraction_nodes (extraction_id,submodel_node_id,submodel_node_tag,parent_node_id,parent_node_tag,x,y,z,source_node_tag,source_member_tag) VALUES (@e,@sid,@stag,@pid,@ptag,@x,@y,@z,@snt,@smt)";
+               command.Parameters.AddWithValue("@e", extractionId); command.Parameters.AddWithValue("@sid", node.Id); command.Parameters.AddWithValue("@stag", node.NodeTag); command.Parameters.AddWithValue("@pid", mapping.ParentNodeId); command.Parameters.AddWithValue("@ptag", mapping.ParentNodeTag);
+               command.Parameters.AddWithValue("@x", node.X); command.Parameters.AddWithValue("@y", node.Y); command.Parameters.AddWithValue("@z", node.Z); command.Parameters.AddWithValue("@snt", (object?)mapping.SourceNodeTag ?? DBNull.Value); command.Parameters.AddWithValue("@smt", (object?)mapping.SourceMemberTag ?? DBNull.Value); command.ExecuteNonQuery();
+            }
+            foreach (var mapping in request.Draft.Segments)
+            {
+               var element = elements[mapping.SubmodelElement.ElemTag];
+               using var command = _connection.CreateCommand();
+               command.CommandText = "INSERT INTO submodel_extraction_segments (extraction_id,ordinal,submodel_element_id,submodel_element_tag,parent_element_id,parent_element_tag,source_member_tag,is_reversed,start_station_m,end_station_m,length_m,angle_to_axis_deg,beta_deg,beta_source) VALUES (@e,@o,@sid,@stag,@pid,@ptag,@smt,@r,@start,@end,@length,@angle,@beta,@source)";
+               command.Parameters.AddWithValue("@e", extractionId); command.Parameters.AddWithValue("@o", mapping.Ordinal); command.Parameters.AddWithValue("@sid", element.Id); command.Parameters.AddWithValue("@stag", element.ElemTag); command.Parameters.AddWithValue("@pid", mapping.ParentElementId); command.Parameters.AddWithValue("@ptag", mapping.ParentElementTag); command.Parameters.AddWithValue("@smt", (object?)mapping.SourceMemberTag ?? DBNull.Value); command.Parameters.AddWithValue("@r", mapping.IsReversed ? 1 : 0); command.Parameters.AddWithValue("@start", mapping.StartStationM); command.Parameters.AddWithValue("@end", mapping.EndStationM); command.Parameters.AddWithValue("@length", mapping.LengthM); command.Parameters.AddWithValue("@angle", mapping.AngleToAxisDeg); command.Parameters.AddWithValue("@beta", mapping.BetaDeg); command.Parameters.AddWithValue("@source", mapping.BetaSource.ToString()); command.ExecuteNonQuery();
+            }
+            tx.Commit(); FemSchemas.Add(schema);
+            return GetSubmodelExtractionBySubmodelSchema(schema.Id)!;
+         }
+         catch { tx.Rollback(); throw; }
+      }
+
+      void InsertSubmodelMesh(int schemaId, IReadOnlyList<CScore.Fem.FemMeshNode> nodes, IReadOnlyList<CScore.Fem.FemElement> elements)
+      {
+         foreach (var node in nodes)
+         {
+            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_mesh_nodes (schema_id,node_tag,x,y,z,source_node_tag,source_member_tag) VALUES (@sid,@tag,@x,@y,@z,@snt,@smt); SELECT last_insert_rowid();";
+            command.Parameters.AddWithValue("@sid", schemaId); command.Parameters.AddWithValue("@tag", node.NodeTag); command.Parameters.AddWithValue("@x", node.X); command.Parameters.AddWithValue("@y", node.Y); command.Parameters.AddWithValue("@z", node.Z); command.Parameters.AddWithValue("@snt", (object?)node.SourceNodeTag ?? DBNull.Value); command.Parameters.AddWithValue("@smt", (object?)node.SourceMemberTag ?? DBNull.Value); node.Id = (int)(long)command.ExecuteScalar()!; node.SchemaId = schemaId;
+         }
+         foreach (var element in elements)
+         {
+            using var command = _connection.CreateCommand(); command.CommandText = "INSERT INTO fem_elements (schema_id,elem_tag,node_ids_json,source_member_tag,cross_section_id,gj_strategy,gj_manual_value,gj_torsion_task_id,elem_type,section_tag,material_tag,thickness_m) VALUES (@sid,@tag,@nodes,@smt,@section,@gj,@gjvalue,@task,@type,@sectiontag,@material,@thickness); SELECT last_insert_rowid();";
+            command.Parameters.AddWithValue("@sid", schemaId); command.Parameters.AddWithValue("@tag", element.ElemTag); command.Parameters.AddWithValue("@nodes", element.NodeIdsJson); command.Parameters.AddWithValue("@smt", (object?)element.SourceMemberTag ?? DBNull.Value); command.Parameters.AddWithValue("@section", (object?)element.CrossSectionId ?? DBNull.Value); command.Parameters.AddWithValue("@gj", element.GjStrategy); command.Parameters.AddWithValue("@gjvalue", (object?)element.GjManualValue ?? DBNull.Value); command.Parameters.AddWithValue("@task", (object?)element.GjTorsionTaskId ?? DBNull.Value); command.Parameters.AddWithValue("@type", element.ElemType); command.Parameters.AddWithValue("@sectiontag", (object?)element.SectionTag ?? DBNull.Value); command.Parameters.AddWithValue("@material", (object?)element.MaterialTag ?? DBNull.Value); command.Parameters.AddWithValue("@thickness", (object?)element.ThicknessM ?? DBNull.Value); element.Id = (int)(long)command.ExecuteScalar()!; element.SchemaId = schemaId;
+         }
+      }
+
+      static void ValidateSubmodelDraft(SubmodelExtractionDraft draft)
+      {
+         if (draft.MeshNodes.Select(x => x.NodeTag).Distinct(StringComparer.Ordinal).Count() != draft.MeshNodes.Count ||
+             draft.MeshElements.Select(x => x.ElemTag).Distinct(StringComparer.Ordinal).Count() != draft.MeshElements.Count)
+            throw new InvalidOperationException("submodel_persistence_mesh_tags_duplicate");
+      }
+
+      /// <summary>Возвращает provenance извлечения по идентификатору дочерней схемы.</summary>
+      public SubmodelExtraction? GetSubmodelExtractionBySubmodelSchema(int schemaId)
+      {
+         using var command = _connection.CreateCommand();
+         command.CommandText = "SELECT id,parent_schema_id,submodel_schema_id,parent_analysis_id,parent_result_id,load_expression_json,reference_scale,tolerances_json,metrics_json,diagnostics_json FROM submodel_extractions WHERE submodel_schema_id=@id";
+         command.Parameters.AddWithValue("@id", schemaId); using var reader = command.ExecuteReader();
+         if (!reader.Read()) return null;
+         var id = reader.GetInt32(0);
+         var nodes = new List<SubmodelExtractionNode>(); var segments = new List<SubmodelExtractionSegment>();
+         using (var n = _connection.CreateCommand())
+         {
+            n.CommandText = "SELECT id,submodel_node_id,submodel_node_tag,parent_node_id,parent_node_tag,x,y,z,source_node_tag,source_member_tag FROM submodel_extraction_nodes WHERE extraction_id=@id ORDER BY id"; n.Parameters.AddWithValue("@id", id); using var r = n.ExecuteReader();
+            while (r.Read()) nodes.Add(new(r.GetInt32(0), r.GetInt32(1), r.GetString(2), r.GetInt32(3), r.GetString(4), r.GetDouble(5), r.GetDouble(6), r.GetDouble(7), r.IsDBNull(8) ? null : r.GetString(8), r.IsDBNull(9) ? null : r.GetString(9)));
+         }
+         using (var s = _connection.CreateCommand())
+         {
+            s.CommandText = "SELECT id,ordinal,submodel_element_id,submodel_element_tag,parent_element_id,parent_element_tag,source_member_tag,is_reversed,start_station_m,end_station_m,length_m,angle_to_axis_deg,beta_deg,beta_source FROM submodel_extraction_segments WHERE extraction_id=@id ORDER BY ordinal"; s.Parameters.AddWithValue("@id", id); using var r = s.ExecuteReader();
+            while (r.Read()) segments.Add(new(r.GetInt32(0), r.GetInt32(1), r.GetInt32(2), r.GetString(3), r.GetInt32(4), r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6), r.GetInt32(7) != 0, r.GetDouble(8), r.GetDouble(9), r.GetDouble(10), r.GetDouble(11), r.GetDouble(12), Enum.Parse<BetaSource>(r.GetString(13))));
+         }
+         return new SubmodelExtraction { Id=id, ParentSchemaId=reader.GetInt32(1), SubmodelSchemaId=reader.GetInt32(2), ParentAnalysisId=reader.GetInt32(3), ParentResultId=reader.GetInt32(4), LoadExpressionJson=reader.GetString(5), ReferenceScale=reader.GetDouble(6), Tolerances=JsonSerializer.Deserialize<ResolvedTolerances>(reader.GetString(7),_jsonSettings)!, Metrics=JsonSerializer.Deserialize<ChainMetrics>(reader.GetString(8),_jsonSettings)!, Diagnostics=JsonSerializer.Deserialize<List<CScore.Fem.FemValidationDiagnostic>>(reader.GetString(9),_jsonSettings)??[], Nodes=nodes, Segments=segments };
       }
 
       /// <summary>Возвращает сохранённые узлы mesh-слепка FEM-схемы.</summary>

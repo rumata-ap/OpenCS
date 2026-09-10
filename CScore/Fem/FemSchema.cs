@@ -8,7 +8,7 @@ public class FemSchema
 {
     public int    Id         { get; set; }
     public string Tag        { get; set; } = "";
-    /// <summary>Источник схемы: "lira" | "robot" | "rfem" | "opensees" | "internal"</summary>
+    /// <summary>Источник схемы: "lira" | "robot" | "rfem" | "opensees" | "internal" | "submodel"</summary>
     public string SourceType { get; set; } = "internal";
     public string Created    { get; set; } = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
