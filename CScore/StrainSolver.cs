@@ -96,9 +96,29 @@ namespace CScore
             double[] rhs = [r0, r1, r2];
             if (!GaussSolve(J, rhs, out double[] dk))
             {
-               // Вырожденный якобиан: вне диаграмм отклик не зависит от плоскости.
+               // Вырожденный якобиан: вне диаграмм отклик не зависит от плоскости —
+               // либо целая строка/столбец нулевые (например, при растяжении с
+               // ten:false и арматуре без разноса по этой оси, где My тождественно
+               // 0 при любом kz; см. находку по IV.Е.1.8). Упругий рестарт тут
+               // бесполезен, если вырожденность присуща самой упругой точке — он
+               // просто вернёт нас туда же. Вместо обрыва — маленький шаг по
+               // направлению невязки (тот же приём, что и в GreenSectionPy
+               // _strain_solver_impl.solve_biaxial): невырожденные компоненты
+               // невязки продолжают сходиться на следующих итерациях, а
+               // вырожденная компонента (её невязка обычно точно 0) не двигается.
                if (TryElasticRestart(ref k, target, ref elasticRestartUsed)) continue;
-               break;
+
+               const double degenerateFallbackStep = 1e-6;
+               var fallback = new Kurvature
+               {
+                  e0 = k.e0 - degenerateFallbackStep * r0,
+                  ky = k.ky - degenerateFallbackStep * r1,
+                  kz = k.kz - degenerateFallbackStep * r2,
+               };
+               if (!double.IsFinite(fallback.e0) || !double.IsFinite(fallback.ky) || !double.IsFinite(fallback.kz))
+                  break;
+               k = fallback;
+               continue;
             }
 
             if (!TryDampedStep(k, dk, nTarget, mxTarget, myTarget, Residual, out k))

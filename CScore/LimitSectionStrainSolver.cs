@@ -78,7 +78,28 @@ public sealed class LimitSectionStrainSolver
 
          double[] rhs = [r0, r1, r2];
          if (!GaussSolve(j, rhs, out double[] dk))
-            break;
+         {
+            // Вырожденный якобиан: как правило, целая строка/столбец нулевые
+            // (например, при растяжении без ten и арматуре без разноса по
+            // этой оси — My тождественно 0 при любом kz, см. находку по
+            // IV.Е.1.8). Раньше это сразу обрывало итерации и возвращало k
+            // прямо в стартовой (вырожденной) точке. Вместо обрыва — маленький
+            // шаг по направлению невязки (тот же приём, что и в GreenSectionPy
+            // _strain_solver_impl.solve_biaxial): невырожденные компоненты
+            // невязки продолжают сходиться на следующих итерациях, а
+            // вырожденная компонента (её невязка обычно точно 0) не двигается.
+            const double degenerateFallbackStep = 1e-6;
+            var fallback = new Kurvature
+            {
+               e0 = k.e0 - degenerateFallbackStep * r0,
+               ky = k.ky - degenerateFallbackStep * r1,
+               kz = k.kz - degenerateFallbackStep * r2,
+            };
+            if (!double.IsFinite(fallback.e0) || !double.IsFinite(fallback.ky) || !double.IsFinite(fallback.kz))
+               break;
+            k = fallback;
+            continue;
+         }
 
          k.e0 -= dk[0];
          k.ky -= dk[1];
