@@ -68,7 +68,8 @@ public static class Sp63RebarLayoutAnalyzer
                     return Failure("invalid_rebar_area", "Sp63Normal_InvalidRebarArea", "8.1.8");
 
                 double coordinate = axis == Sp63NormalAxis.Mx ? fiber.Y : fiber.X;
-                bars.Add(new BarData(fiber.X, fiber.Y, fiber.Area, coordinate, rs, rsc));
+                bars.Add(new BarData(fiber.X, fiber.Y, fiber.Area, fiber.Diameter,
+                    coordinate, rs, rsc));
             }
         }
 
@@ -159,12 +160,12 @@ public static class Sp63RebarLayoutAnalyzer
 
     static bool IsPositiveFinite(double value) => double.IsFinite(value) && value > 0;
 
-    sealed record BarData(double X, double Y, double Area, double Coordinate,
-        double Rs, double Rsc);
+    sealed record BarData(double X, double Y, double Area, double Diameter,
+        double Coordinate, double Rs, double Rsc);
 
     sealed class LayerData
     {
-        readonly List<(double X, double Y, double Area)> bars = [];
+        readonly List<(double X, double Y, double Area, double Diameter)> bars = [];
 
         public LayerData(BarData bar)
         {
@@ -172,21 +173,21 @@ public static class Sp63RebarLayoutAnalyzer
             Area = bar.Area;
             Rs = bar.Rs;
             Rsc = bar.Rsc;
-            bars.Add((bar.X, bar.Y, bar.Area));
+            bars.Add((bar.X, bar.Y, bar.Area, bar.Diameter));
         }
 
         public double Coordinate { get; private set; }
         public double Area { get; private set; }
         public double Rs { get; }
         public double Rsc { get; }
-        public IReadOnlyList<(double X, double Y, double Area)> Bars => bars;
+        public IReadOnlyList<(double X, double Y, double Area, double Diameter)> Bars => bars;
 
         public void Add(BarData bar)
         {
             double oldArea = Area;
             Area += bar.Area;
             Coordinate = (Coordinate * oldArea + bar.Coordinate * bar.Area) / Area;
-            bars.Add((bar.X, bar.Y, bar.Area));
+            bars.Add((bar.X, bar.Y, bar.Area, bar.Diameter));
         }
     }
 }

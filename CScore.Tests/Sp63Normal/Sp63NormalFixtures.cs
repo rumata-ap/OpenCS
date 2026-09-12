@@ -95,7 +95,7 @@ internal static class Sp63NormalFixtures
 
     /// <summary>Добавляет точечный стержень продольной арматуры.</summary>
     public static void AddBar(CrossSection section, double x, double y,
-        double area, Material rebar, double sigSp = 0.0)
+        double area, Material rebar, double sigSp = 0.0, double diameter = 0.016)
     {
         var group = new MaterialArea
         {
@@ -109,7 +109,8 @@ internal static class Sp63NormalFixtures
             TypeFiber = FiberType.point,
             X = x,
             Y = y,
-            Area = area
+            Area = area,
+            Diameter = diameter
         });
         section.Areas.Add(group);
     }
@@ -117,17 +118,17 @@ internal static class Sp63NormalFixtures
     /// <summary>Создаёт прямоугольник с двумя симметричными слоями арматуры.</summary>
     public static CrossSection TwoLayerRectangle(double width, double height,
         double tensionArea, double compressionArea, double sigSp = 0.0,
-        bool useDifferentRebar = false)
+        bool useDifferentRebar = false, double diameter = 0.016)
     {
         var section = Rectangle(width, height);
         AddBar(section, -width / 4, -height / 2 + 0.05, tensionArea,
-            Rebar(2), sigSp);
+            Rebar(2), sigSp, diameter);
         AddBar(section, width / 4, -height / 2 + 0.05, tensionArea,
-            useDifferentRebar ? Rebar(3, rs: 400_000.0) : Rebar(2), sigSp);
+            useDifferentRebar ? Rebar(3, rs: 400_000.0) : Rebar(2), sigSp, diameter);
         AddBar(section, -width / 4, height / 2 - 0.05, compressionArea,
-            Rebar(2), sigSp);
+            Rebar(2), sigSp, diameter);
         AddBar(section, width / 4, height / 2 - 0.05, compressionArea,
-            Rebar(2), sigSp);
+            Rebar(2), sigSp, diameter);
         return section;
     }
 

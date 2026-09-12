@@ -39,6 +39,36 @@ public sealed class Sp63NormalCheckerTests
         Assert.Equal(Sp63NormalStatus.NotApplicable, result.Status);
         Assert.Contains(result.ApplicabilityMessages,
             message => message.Code == "biaxial_load");
+        Assert.Contains(result.InformationalMessages,
+            message => message.Code == "suggest_ndm");
+    }
+
+    [Fact]
+    public void MissingConcreteResistance_DoesNotSuggestNdm()
+    {
+        // Отсутствие сопротивления бетона - проблема исходных данных, а не сложности
+        // геометрии или арматуры, которую решает переход к НДМ.
+        var concreteNoChars = new Material
+            { Id = 1, Tag = "B-none", Type = MatType.Concrete, E = 30_000_000.0 };
+        var section = new CrossSection { Tag = "test" };
+        section.Areas.Add(Sp63NormalFixtures.ConcreteRegion(concreteNoChars,
+        [
+            (-0.15, -0.30), (0.15, -0.30), (0.15, 0.30), (-0.15, 0.30)
+        ]));
+        var steel = Sp63NormalFixtures.Rebar(2);
+        Sp63NormalFixtures.AddBar(section, -0.075, -0.25, 0.0010, steel);
+        Sp63NormalFixtures.AddBar(section, 0.075, -0.25, 0.0010, steel);
+        Sp63NormalFixtures.AddBar(section, -0.075, 0.25, 0.0010, steel);
+        Sp63NormalFixtures.AddBar(section, 0.075, 0.25, 0.0010, steel);
+
+        var result = Sp63NormalChecker.Check(section, new LoadItem { N = 0.0, Mx = -20.0 },
+            CalcType.C, Sp63NormalFixtures.MemberOptions());
+
+        Assert.Equal(Sp63NormalStatus.NotApplicable, result.Status);
+        Assert.Contains(result.ApplicabilityMessages,
+            message => message.Code == "missing_concrete_resistance");
+        Assert.DoesNotContain(result.InformationalMessages,
+            message => message.Code == "suggest_ndm");
     }
 
     [Fact]
@@ -152,8 +182,10 @@ public sealed class Sp63NormalCheckerTests
         var result = Check(new LoadItem { N = 0.0, Mx = -20.0 });
 
         Assert.NotEmpty(result.ConstructiveChecks);
-        Assert.All(result.ConstructiveChecks,
-            detail => Assert.Equal("10.3.6", detail.NormReference));
+        Assert.All(result.ConstructiveChecks, detail => Assert.Contains(
+            detail.NormReference, new[] { "10.3.6", "10.3.2", "10.3.9" }));
+        Assert.Contains(result.ConstructiveChecks,
+            detail => detail.NormReference == "10.3.2");
     }
 
     [Fact]

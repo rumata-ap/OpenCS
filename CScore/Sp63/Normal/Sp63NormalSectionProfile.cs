@@ -11,7 +11,7 @@ public sealed record Sp63NormalRebarLayer(
     double Area,
     double Rs,
     double Rsc,
-    IReadOnlyList<(double X, double Y, double Area)> Bars);
+    IReadOnlyList<(double X, double Y, double Area, double Diameter)> Bars);
 
 /// <summary>Профиль прямоугольного сечения для одноосной проверки.</summary>
 /// <param name="B">Размер сечения поперёк плоскости изгиба, м.</param>

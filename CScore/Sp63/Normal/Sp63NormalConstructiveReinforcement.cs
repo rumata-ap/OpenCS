@@ -16,6 +16,12 @@ public static class Sp63NormalConstructiveReinforcement
     const double MuMinLowPercent = 0.1;
     const double MuMinHighPercent = 0.25;
 
+    // п. 10.3.2: защитный слой не менее диаметра стержня и не менее 10 мм.
+    const double MinCoverAbsolute = 0.010;
+
+    // п. 10.3.9: не менее двух растянутых стержней при ширине элемента более 150 мм.
+    const double MinWidthForTwoTensionBars = 0.150;
+
     // Для арматуры, равномерной по контуру, и для центрально-растянутых элементов
     // норма требует удвоенное значение, отнесённое к полной площади сечения бетона.
     const double MuMinCentralTensionPercent = 2.0 * MuMinLowPercent;
@@ -68,6 +74,90 @@ public static class Sp63NormalConstructiveReinforcement
         }
 
         return (details, notes);
+    }
+
+    /// <summary>
+    /// Вычисляет справочные геометрические проверки раздела 10.3 для прямоугольного
+    /// профиля: частичная проверка защитного слоя по диаметру стержня (п. 10.3.2 —
+    /// без учёта таблицы условий эксплуатации, которая в OpenCS пока не выбирается)
+    /// и минимальное число растянутых стержней при широком сечении (п. 10.3.9).
+    /// Не входит в <see cref="Sp63NormalResult.StrengthPassed"/>.
+    /// </summary>
+    public static (List<CheckDetail> Details, List<Sp63NormalMessage> Notes) CheckCoverAndSpacing(
+        Sp63NormalSectionProfile profile)
+    {
+        var details = new List<CheckDetail>();
+        var notes = new List<Sp63NormalMessage>();
+
+        AddCoverCheck(details, notes, "Sp63Normal_MinCoverTension",
+            profile.TensionLayer, profile.Height - profile.H0);
+        if (profile.CompressionLayer.Area > AreaTolerance)
+            AddCoverCheck(details, notes, "Sp63Normal_MinCoverCompression",
+                profile.CompressionLayer, profile.APrime);
+
+        AddTensionBarCountCheck(details, profile);
+
+        return (details, notes);
+    }
+
+    static void AddCoverCheck(List<CheckDetail> details, List<Sp63NormalMessage> notes,
+        string descriptionKey, Sp63NormalRebarLayer layer, double edgeToCenterDistance)
+    {
+        if (layer.Area <= AreaTolerance) return;
+
+        double maxDiameter = layer.Bars.Count > 0
+            ? layer.Bars.Max(bar => bar.Diameter)
+            : 0.0;
+        if (!(maxDiameter > 0))
+        {
+            notes.Add(new Sp63NormalMessage(
+                "cover_bar_diameter_unknown",
+                Sp63NormalMessageKind.Information,
+                "10.3.2",
+                "Sp63Normal_CoverBarDiameterUnknown"));
+            return;
+        }
+
+        double requiredCover = Math.Max(maxDiameter, MinCoverAbsolute);
+        double actualCover = edgeToCenterDistance - maxDiameter / 2.0;
+        details.Add(new CheckDetail
+        {
+            Formula = "10.3.2",
+            Description = descriptionKey,
+            NormReference = "10.3.2",
+            Applied = requiredCover,
+            Allowable = actualCover,
+            Variables = new Dictionary<string, double>
+            {
+                ["requiredCover"] = requiredCover,
+                ["actualCover"] = actualCover,
+                ["maxDiameter"] = maxDiameter
+            }
+        });
+    }
+
+    static void AddTensionBarCountCheck(List<CheckDetail> details,
+        Sp63NormalSectionProfile profile)
+    {
+        if (profile.TensionLayer.Area <= AreaTolerance) return;
+        if (profile.B <= MinWidthForTwoTensionBars) return;
+
+        int count = profile.TensionLayer.Bars.Count;
+        if (count == 0) return;
+
+        details.Add(new CheckDetail
+        {
+            Formula = "10.3.9",
+            Description = "Sp63Normal_MinTensionBarCount",
+            NormReference = "10.3.9",
+            Applied = 2.0,
+            Allowable = count,
+            Variables = new Dictionary<string, double>
+            {
+                ["tensionBarCount"] = count,
+                ["b"] = profile.B
+            }
+        });
     }
 
     static double? CompressionMuMinPercent(Sp63MemberContext memberContext, double height)

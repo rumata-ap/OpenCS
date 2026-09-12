@@ -1597,8 +1597,8 @@
     <system:String x:Key="Sp63NormalAllowableColumn">Allowable</system:String>
     <system:String x:Key="Sp63NormalRatioColumn">Ratio</system:String>
     <system:String x:Key="Sp63NormalResultColumn">Result</system:String>
-    <system:String x:Key="Sp63NormalMuMinColumn">μs,min, %</system:String>
-    <system:String x:Key="Sp63NormalMuActualColumn">μs, %</system:String>
+    <system:String x:Key="Sp63NormalMuMinColumn">Required</system:String>
+    <system:String x:Key="Sp63NormalMuActualColumn">Actual</system:String>
     <system:String x:Key="Sp63NormalCheckPassed">passed</system:String>
     <system:String x:Key="Sp63NormalCheckNotPassed">not passed</system:String>
     <system:String x:Key="Sp63NormalVerdictInvalidInput">Invalid input data</system:String>
@@ -1666,6 +1666,11 @@
     <system:String x:Key="Sp63Normal_MinReinforcementCompression">Minimum reinforcement ratio, compression reinforcement: μs,min ≤ μs</system:String>
     <system:String x:Key="Sp63Normal_MinReinforcementCentralTension">Minimum reinforcement ratio for central tension (all reinforcement over full concrete section): μs,min ≤ μs</system:String>
     <system:String x:Key="Sp63Normal_MinReinforcementSlendernessUnknown">Minimum reinforcement ratio per cl. 10.3.6 was not checked: effective length l₀ is not specified.</system:String>
+    <system:String x:Key="Sp63Normal_MinCoverTension">Concrete cover of tension reinforcement, partial cl. 10.3.2 (at least the bar diameter and at least 10 mm; Table 10.1 exposure-condition values are not checked)</system:String>
+    <system:String x:Key="Sp63Normal_MinCoverCompression">Concrete cover of compression reinforcement, partial cl. 10.3.2 (at least the bar diameter and at least 10 mm; Table 10.1 exposure-condition values are not checked)</system:String>
+    <system:String x:Key="Sp63Normal_CoverBarDiameterUnknown">Bar diameter for the layer is not set — the cl. 10.3.2 cover check was not performed.</system:String>
+    <system:String x:Key="Sp63Normal_MinTensionBarCount">Number of longitudinal tension bars when section width exceeds 150 mm, cl. 10.3.9</system:String>
+    <system:String x:Key="Sp63Normal_SuggestNdm">For holes, multiple concrete regions, biaxial bending, and complex reinforcement, use the deformation-model (NDM) check.</system:String>
 
     <system:String x:Key="ShearInclinedForceSource">Force source</system:String>
     <system:String x:Key="ShearInclinedManualForces">Design section forces</system:String>

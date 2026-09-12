@@ -1597,8 +1597,8 @@
     <system:String x:Key="Sp63NormalAllowableColumn">Допустимое</system:String>
     <system:String x:Key="Sp63NormalRatioColumn">Коэфф.</system:String>
     <system:String x:Key="Sp63NormalResultColumn">Результат</system:String>
-    <system:String x:Key="Sp63NormalMuMinColumn">μs,min, %</system:String>
-    <system:String x:Key="Sp63NormalMuActualColumn">μs, %</system:String>
+    <system:String x:Key="Sp63NormalMuMinColumn">Требуется</system:String>
+    <system:String x:Key="Sp63NormalMuActualColumn">Факт.</system:String>
     <system:String x:Key="Sp63NormalCheckPassed">пройдено</system:String>
     <system:String x:Key="Sp63NormalCheckNotPassed">не пройдено</system:String>
     <system:String x:Key="Sp63NormalVerdictInvalidInput">Ошибка исходных данных</system:String>
@@ -1666,6 +1666,11 @@
     <system:String x:Key="Sp63Normal_MinReinforcementCompression">Минимальный процент армирования, сжатая арматура: μs,min ≤ μs</system:String>
     <system:String x:Key="Sp63Normal_MinReinforcementCentralTension">Минимальный процент армирования при центральном растяжении (вся арматура к полному сечению бетона): μs,min ≤ μs</system:String>
     <system:String x:Key="Sp63Normal_MinReinforcementSlendernessUnknown">Минимальный процент армирования по п. 10.3.6 не проверен: не задана расчётная длина l₀.</system:String>
+    <system:String x:Key="Sp63Normal_MinCoverTension">Защитный слой растянутой арматуры, частично п. 10.3.2 (не менее диаметра стержня и не менее 10 мм; таблица 10.1 по условиям эксплуатации не проверяется)</system:String>
+    <system:String x:Key="Sp63Normal_MinCoverCompression">Защитный слой сжатой арматуры, частично п. 10.3.2 (не менее диаметра стержня и не менее 10 мм; таблица 10.1 по условиям эксплуатации не проверяется)</system:String>
+    <system:String x:Key="Sp63Normal_CoverBarDiameterUnknown">Диаметр стержней слоя не задан — проверка защитного слоя по п. 10.3.2 не выполнена.</system:String>
+    <system:String x:Key="Sp63Normal_MinTensionBarCount">Число продольных растянутых стержней при ширине сечения более 150 мм, п. 10.3.9</system:String>
+    <system:String x:Key="Sp63Normal_SuggestNdm">Для отверстий, нескольких бетонных областей, двуосного изгиба и сложной арматуры используйте расчёт по деформационной модели (НДМ).</system:String>
 
     <system:String x:Key="ShearInclinedForceSource">Источник усилий</system:String>
     <system:String x:Key="ShearInclinedManualForces">Усилия расчётного сечения</system:String>

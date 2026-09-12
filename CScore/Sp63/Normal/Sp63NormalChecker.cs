@@ -9,6 +9,18 @@ public static class Sp63NormalChecker
     const double MomentTolerance = 1e-9;
     const double RebarAreaTolerance = 1e-9;
 
+    // Коды сообщений о неприменимости, для которых стоит явно предложить переход
+    // к НДМ: отверстия/несколько бетонных областей, двуосный изгиб, сложная арматура.
+    static readonly HashSet<string> NdmSuggestionCodes =
+    [
+        "unsupported_geometry",
+        "biaxial_load",
+        "mixed_rebar_resistance",
+        "insufficient_rebar_layers",
+        "non_point_rebar",
+        "prestressed_rebar"
+    ];
+
     /// <summary>
     /// Выполняет одноосную проверку прямоугольного железобетонного сечения.
     /// </summary>
@@ -460,15 +472,20 @@ public static class Sp63NormalChecker
     {
         var (constructiveChecks, constructiveNotes) =
             Sp63NormalConstructiveReinforcement.Check(branch, profile, memberContext);
+        var (coverChecks, coverNotes) =
+            Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(profile);
+        var allConstructiveChecks = new List<CheckDetail>(constructiveChecks);
+        allConstructiveChecks.AddRange(coverChecks);
         var allInformational = new List<Sp63NormalMessage>(informational);
         allInformational.AddRange(constructiveNotes);
+        allInformational.AddRange(coverNotes);
         return new()
         {
             Status = Sp63NormalStatus.Calculated,
             StrengthPassed = details.All(detail => detail.Passed),
             Branch = branch,
             StrengthDetails = details,
-            ConstructiveChecks = constructiveChecks,
+            ConstructiveChecks = allConstructiveChecks,
             Variables = variables,
             InformationalMessages = allInformational
         };
@@ -483,21 +500,26 @@ public static class Sp63NormalChecker
             [Message(code, Sp63NormalMessageKind.Applicability, reference, text)]
         };
 
-    static Sp63NormalResult NotApplicable(string code, string text, string reference) =>
-        new()
+    static Sp63NormalResult NotApplicable(string code, string text, string reference)
+    {
+        var messages = new List<Sp63NormalMessage>
+            { Message(code, Sp63NormalMessageKind.Applicability, reference, text) };
+        return new()
         {
             Status = Sp63NormalStatus.NotApplicable,
             Branch = "not_applicable",
-            ApplicabilityMessages =
-            [Message(code, Sp63NormalMessageKind.Applicability, reference, text)]
+            ApplicabilityMessages = messages,
+            InformationalMessages = SuggestNdmIfNeeded(messages)
         };
+    }
 
     static Sp63NormalResult NotApplicable(Sp63NormalMessage message) =>
         new()
         {
             Status = Sp63NormalStatus.NotApplicable,
             Branch = "not_applicable",
-            ApplicabilityMessages = [message]
+            ApplicabilityMessages = [message],
+            InformationalMessages = SuggestNdmIfNeeded([message])
         };
 
     static Sp63NormalResult NotApplicable(IReadOnlyList<Sp63NormalMessage> messages) =>
@@ -505,8 +527,20 @@ public static class Sp63NormalChecker
         {
             Status = Sp63NormalStatus.NotApplicable,
             Branch = "not_applicable",
-            ApplicabilityMessages = messages.ToList()
+            ApplicabilityMessages = messages.ToList(),
+            InformationalMessages = SuggestNdmIfNeeded(messages)
         };
+
+    /// <summary>
+    /// Явное предложение перейти к НДМ для случаев, где упрощённый режим заведомо
+    /// не покрывает геометрию или арматуру (отверстия, несколько бетонных областей,
+    /// двуосный изгиб, сложная арматура) — см. Этап 2 дорожной карты СП 63.
+    /// </summary>
+    static List<Sp63NormalMessage> SuggestNdmIfNeeded(IReadOnlyList<Sp63NormalMessage> messages) =>
+        messages.Any(message => NdmSuggestionCodes.Contains(message.Code))
+            ? [Message("suggest_ndm", Sp63NormalMessageKind.Information, "8.1",
+                "Sp63Normal_SuggestNdm")]
+            : [];
 
     static Sp63NormalMessage Message(string code, Sp63NormalMessageKind kind,
         string reference, string text) => new(code, kind, reference, text);
