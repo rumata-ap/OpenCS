@@ -1556,6 +1556,35 @@
     <system:String x:Key="CalcTaskKind_shear_inclined">Inclined sections</system:String>
     <system:String x:Key="CalcTaskKind_shear_inclined_batch">Inclined sections (batch)</system:String>
 
+    <!-- Simplified normal-section check per SP 63.13330 -->
+    <system:String x:Key="CalcTaskKind_sp63_normal">Normal section (simplified check)</system:String>
+    <system:String x:Key="Sp63NormalGroupTitle">Normal section per SP 63.13330</system:String>
+    <system:String x:Key="Sp63NormalShape">Section shape</system:String>
+    <system:String x:Key="Sp63NormalShapeRectangular">Solid rectangular</system:String>
+    <system:String x:Key="Sp63NormalAxis">Bending plane</system:String>
+    <system:String x:Key="Sp63NormalAxisMx">Mx (height along Y)</system:String>
+    <system:String x:Key="Sp63NormalAxisMy">My (height along X)</system:String>
+    <system:String x:Key="Sp63NormalStructuralScheme">Structural scheme</system:String>
+    <system:String x:Key="Sp63NormalStaticallyDeterminate">Statically determinate</system:String>
+    <system:String x:Key="Sp63NormalStaticallyIndeterminate">Statically indeterminate</system:String>
+    <system:String x:Key="Sp63NormalElementLength">Member length L, m</system:String>
+    <system:String x:Key="Sp63NormalEffectiveLength">Effective length l₀, m</system:String>
+    <system:String x:Key="Sp63NormalStabilityMode">Stability mode</system:String>
+    <system:String x:Key="Sp63NormalMemberMode">Member: account for η</system:String>
+    <system:String x:Key="Sp63NormalSectionOnlyExplicit">Section only: without η</system:String>
+    <system:String x:Key="Sp63NormalPsi">Long-term moment share ψ</system:String>
+    <system:String x:Key="Sp63NormalSlendernessThreshold">Slenderness limit l₀/h</system:String>
+    <system:String x:Key="Sp63NormalUseManualForces">Enter N, Mx and My manually</system:String>
+    <system:String x:Key="Sp63NormalInputsHint">The check is uniaxial: a nonzero moment in the other plane is reported as not applicable. In “Section only” mode, η is not calculated and the result is informational.</system:String>
+    <system:String x:Key="Sp63NormalInvalidTaskParams">Check the normal-section numeric parameters: lengths must be positive and ψ must be finite.</system:String>
+    <system:String x:Key="CalcResultNotApplicable">No code verdict is available</system:String>
+    <system:String x:Key="Sp63NormalVerdictPassed">PASSED</system:String>
+    <system:String x:Key="Sp63NormalVerdictNotPassed">NOT PASSED</system:String>
+    <system:String x:Key="Sp63NormalVerdictUnavailable">No code verdict is available</system:String>
+    <system:String x:Key="Sp63NormalApplicabilityTitle">Applicability</system:String>
+    <system:String x:Key="Sp63NormalInformationTitle">Information</system:String>
+    <system:String x:Key="Sp63NormalStrengthTitle">Strength check</system:String>
+
     <system:String x:Key="ShearInclinedForceSource">Force source</system:String>
     <system:String x:Key="ShearInclinedManualForces">Design section forces</system:String>
     <system:String x:Key="ShearInclinedMomentsPair">Mx / My, kN·m</system:String>

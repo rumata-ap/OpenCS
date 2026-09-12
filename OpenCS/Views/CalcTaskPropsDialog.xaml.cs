@@ -8,6 +8,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using CScore;
 using CScore.Fire.Entities;
+using CScore.Sp63.Normal;
 using CSfea.Torsion;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
@@ -68,6 +69,19 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string manualN = "0";
     string manualMx = "0";
     string manualMy = "0";
+   // Упрощённая проверка нормального сечения по СП 63
+   string sp63NormalShapeKind = "rectangular";
+   string sp63NormalAxis = "Mx";
+   string sp63NormalStructuralScheme = "statically_indeterminate";
+   string sp63NormalElementLength = "6";
+   string sp63NormalEffectiveLengthL0 = "6";
+   string sp63NormalStabilityMode = "member";
+   string sp63NormalPsi = "0";
+   string sp63NormalSlendernessThreshold = "14";
+   bool sp63NormalUseManualForces;
+   string sp63NormalManualN = "0";
+   string sp63NormalManualMx = "0";
+   string sp63NormalManualMy = "0";
     string openSeesSpatialAngleStep = "45";
     string openSeesSpatialAdditionalSlices = "2";
      string openSeesCurvatureStep = "0.0005";
@@ -142,6 +156,125 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string ManualN  { get => manualN;  set { manualN  = value; OnPropertyChanged(); } }
    public string ManualMx { get => manualMx; set { manualMx = value; OnPropertyChanged(); } }
    public string ManualMy { get => manualMy; set { manualMy = value; OnPropertyChanged(); } }
+
+   /// <summary>Задача упрощённой проверки нормального сечения по СП 63.</summary>
+   public bool IsSp63Normal => Kind == "sp63_normal";
+
+   /// <summary>Показывать параметры упрощённой проверки нормального сечения.</summary>
+   public bool ShowSp63NormalFields => IsSp63Normal;
+
+   /// <summary>Идентификатор единственной поддержанной формы сечения.</summary>
+   public string Sp63NormalShapeKind
+   {
+      get => sp63NormalShapeKind;
+      set { sp63NormalShapeKind = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Плоскость одноосной проверки: Mx или My.</summary>
+   public string Sp63NormalAxis
+   {
+      get => sp63NormalAxis;
+      set { sp63NormalAxis = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Схема элемента для выбора сочетания эксцентриситетов.</summary>
+   public string Sp63NormalStructuralScheme
+   {
+      get => sp63NormalStructuralScheme;
+      set { sp63NormalStructuralScheme = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Длина элемента или расстояние между закреплениями, м.</summary>
+   public string Sp63NormalElementLength
+   {
+      get => sp63NormalElementLength;
+      set { sp63NormalElementLength = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Расчётная длина элемента l0, м.</summary>
+   public string Sp63NormalEffectiveLengthL0
+   {
+      get => sp63NormalEffectiveLengthL0;
+      set { sp63NormalEffectiveLengthL0 = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Режим проверки устойчивости.</summary>
+   public string Sp63NormalStabilityMode
+   {
+      get => sp63NormalStabilityMode;
+      set
+      {
+         sp63NormalStabilityMode = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(Sp63NormalMemberMode));
+      }
+   }
+
+   /// <summary>Выполнять проверку как элемента с учётом η.</summary>
+   public bool Sp63NormalMemberMode => Sp63NormalStabilityMode == "member";
+
+   /// <summary>Относительная длительная составляющая момента ψ.</summary>
+   public string Sp63NormalPsi
+   {
+      get => sp63NormalPsi;
+      set { sp63NormalPsi = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Порог гибкости l0/h.</summary>
+   public string Sp63NormalSlendernessThreshold
+   {
+      get => sp63NormalSlendernessThreshold;
+      set { sp63NormalSlendernessThreshold = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Использовать ручные N, Mx и My вместо строки набора.</summary>
+   public bool Sp63NormalUseManualForces
+   {
+      get => sp63NormalUseManualForces;
+      set
+      {
+         if (value && !sp63NormalUseManualForces && SelectedForceItem is { } item)
+         {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            Sp63NormalManualN = item.N.ToString("G6", inv);
+            Sp63NormalManualMx = item.Mx.ToString("G6", inv);
+            Sp63NormalManualMy = item.My.ToString("G6", inv);
+         }
+         sp63NormalUseManualForces = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowSp63NormalForceSet));
+         OnPropertyChanged(nameof(ShowSp63NormalManualForces));
+         OnPropertyChanged(nameof(ShowStandardForce));
+         OnPropertyChanged(nameof(ShowForceItem));
+      }
+   }
+
+   /// <summary>Показывать выбор строки набора усилий для нормальной проверки.</summary>
+   public bool ShowSp63NormalForceSet => IsSp63Normal && !Sp63NormalUseManualForces;
+
+   /// <summary>Показывать ручные усилия нормальной проверки.</summary>
+   public bool ShowSp63NormalManualForces => IsSp63Normal && Sp63NormalUseManualForces;
+
+   /// <summary>Ручная продольная сила, кН.</summary>
+   public string Sp63NormalManualN
+   {
+      get => sp63NormalManualN;
+      set { sp63NormalManualN = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Ручной момент Mx, кН·м.</summary>
+   public string Sp63NormalManualMx
+   {
+      get => sp63NormalManualMx;
+      set { sp63NormalManualMx = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Ручной момент My, кН·м.</summary>
+   public string Sp63NormalManualMy
+   {
+      get => sp63NormalManualMy;
+      set { sp63NormalManualMy = value; OnPropertyChanged(); }
+   }
 
    public bool IsStrainState => Kind == "strain_state";
 
@@ -230,6 +363,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsStrainBatch));
            OnPropertyChanged(nameof(IsLimitBatch));
            OnPropertyChanged(nameof(IsLimitSingle));
+           OnPropertyChanged(nameof(IsSp63Normal));
+           OnPropertyChanged(nameof(ShowSp63NormalFields));
+           OnPropertyChanged(nameof(ShowSp63NormalForceSet));
+           OnPropertyChanged(nameof(ShowSp63NormalManualForces));
            OnPropertyChanged(nameof(ShowForceItem));
            OnPropertyChanged(nameof(ShowManualForces));
            OnPropertyChanged(nameof(ShowShearManualForces));
@@ -326,6 +463,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsStrainBatch));
            OnPropertyChanged(nameof(IsLimitBatch));
            OnPropertyChanged(nameof(IsLimitSingle));
+           OnPropertyChanged(nameof(IsSp63Normal));
+           OnPropertyChanged(nameof(ShowSp63NormalFields));
+           OnPropertyChanged(nameof(ShowSp63NormalForceSet));
+           OnPropertyChanged(nameof(ShowSp63NormalManualForces));
            OnPropertyChanged(nameof(ShowForceItem));
            OnPropertyChanged(nameof(ShowStandardForce));
            OnPropertyChanged(nameof(ShowManualForces));
@@ -539,12 +680,14 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool ShowForceItem => !IsStrainBatch && !IsLimitBatch && !IsFireBatchKind && !IsFireNoForceKind && !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
       && !IsOpenSeesSpatialInteraction
       && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch
-      && !IsShearInclinedBatch;
+      && !IsShearInclinedBatch
+      && (!IsSp63Normal || !Sp63NormalUseManualForces);
    public bool ShowSolverMethod => IsLimitKind;
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
    public bool ShowStandardForce => !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
-      && !IsOpenSeesSpatialInteraction && !IsFireNoForceKind;
+      && !IsOpenSeesSpatialInteraction && !IsFireNoForceKind
+      && (!IsSp63Normal || !Sp63NormalUseManualForces);
 
    void FilterSections()
    {
@@ -1360,8 +1503,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        new() { Id = "steel_shear",              Label = Loc.S("CalcTaskKind_steel_shear"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_torsion",            Label = Loc.S("CalcTaskKind_steel_torsion"),            GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_constructive",       Label = Loc.S("CalcTaskKind_steel_constructive"),       GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
-       new() { Id = "shear_inclined",           Label = Loc.S("CalcTaskKind_shear_inclined"),           GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
-       new() { Id = "shear_inclined_batch",     Label = Loc.S("CalcTaskKind_shear_inclined_batch"),     GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "shear_inclined",           Label = Loc.S("CalcTaskKind_shear_inclined"),           GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "shear_inclined_batch",     Label = Loc.S("CalcTaskKind_shear_inclined_batch"),     GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "sp63_normal",              Label = Loc.S("CalcTaskKind_sp63_normal"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       // Прочее
       new() { Id = "moment_curvature_biaxial", Label = Loc.S("CalcTaskKind_moment_curvature_biaxial"), GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
       new() { Id = "torsion_bem",              Label = Loc.S("CalcTaskKind_torsion_bem"),              GroupKey = "other", Group = Loc.S("CalcTaskGroupOther") },
@@ -1749,6 +1893,29 @@ public class CalcTaskPropsDlgVM : ViewModelBase
               _shearLegacySteps = sip;
           }
 
+          if (existing.Kind == "sp63_normal"
+              && !string.IsNullOrWhiteSpace(existing.ParamsJson)
+              && existing.ParamsJson != "{}")
+          {
+             var snp = Sp63NormalTaskParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             Sp63NormalShapeKind = snp.ShapeKind;
+             Sp63NormalAxis = snp.Axis;
+             Sp63NormalStructuralScheme = snp.StructuralScheme;
+             Sp63NormalElementLength = snp.ElementLengthOrRestraintDistance?.ToString("G6", inv) ?? "";
+             Sp63NormalEffectiveLengthL0 = snp.EffectiveLengthL0?.ToString("G6", inv) ?? "";
+             Sp63NormalStabilityMode = snp.StabilityMode;
+             Sp63NormalPsi = snp.Psi.ToString("G6", inv);
+             Sp63NormalSlendernessThreshold = snp.SlendernessThreshold.ToString("G6", inv);
+             Sp63NormalUseManualForces = snp.UseManualForces;
+             if (snp.UseManualForces)
+             {
+                if (snp.N.HasValue)  Sp63NormalManualN  = snp.N.Value.ToString("G6", inv);
+                if (snp.Mx.HasValue) Sp63NormalManualMx = snp.Mx.Value.ToString("G6", inv);
+                if (snp.My.HasValue) Sp63NormalManualMy = snp.My.Value.ToString("G6", inv);
+             }
+          }
+
           NotifyTorsionForceProps();
           RefreshTorsionLmin();
        }
@@ -1861,12 +2028,30 @@ public class CalcTaskPropsDlgVM : ViewModelBase
        return new StageForce { Mode = "manual", N = Parse(n), Mx = Parse(mx), My = Parse(my) };
     }
 
-    static StageForce BuildStageForce(ForceSet set, LoadItem? item, bool allowSet)
-    {
-       if (item == null && allowSet)
-          return new StageForce { Mode = "set", ForceSetId = set.Id };
-       return new StageForce { Mode = "item", ForceSetId = set.Id, ForceItemId = item?.Id ?? 0 };
-    }
+   static StageForce BuildStageForce(ForceSet set, LoadItem? item, bool allowSet)
+   {
+      if (item == null && allowSet)
+         return new StageForce { Mode = "set", ForceSetId = set.Id };
+      return new StageForce { Mode = "item", ForceSetId = set.Id, ForceItemId = item?.Id ?? 0 };
+   }
+
+   /// <summary>Разбирает число из поля нормальной проверки с поддержкой русской запятой.</summary>
+   static bool TryParseSp63NormalNumber(string text, bool optional, bool positive, out double? value)
+   {
+      value = null;
+      string raw = (text ?? "").Trim();
+      if (raw.Length == 0)
+         return optional;
+
+      if (!double.TryParse(raw.Replace(',', '.'), System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out double parsed)
+          || !double.IsFinite(parsed)
+          || (positive && parsed <= 0))
+         return false;
+
+      value = parsed;
+      return true;
+   }
 
    void Commit()
    {
@@ -1935,6 +2120,78 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             MessageBox.Show(Loc.S("OpenSeesSpatialInvalidParams"), Loc.S("Warning"),
                MessageBoxButton.OK, MessageBoxImage.Warning);
          }
+         return;
+      }
+
+      if (IsSp63Normal)
+      {
+         if (SelectedSection == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         if (!Sp63NormalUseManualForces
+             && (SelectedForceSet == null || SelectedForceItem == null))
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         if (!TryParseSp63NormalNumber(Sp63NormalElementLength, optional: true, positive: true,
+                out var elementLength)
+             || !TryParseSp63NormalNumber(Sp63NormalEffectiveLengthL0, optional: true, positive: true,
+                out var effectiveLengthL0)
+             || !TryParseSp63NormalNumber(Sp63NormalPsi, optional: false, positive: false,
+                out var psi)
+             || !TryParseSp63NormalNumber(Sp63NormalSlendernessThreshold, optional: false, positive: true,
+                out var slendernessThreshold))
+         {
+            MessageBox.Show(Loc.S("Sp63NormalInvalidTaskParams"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         double? n = null, mx = null, my = null;
+         if (Sp63NormalUseManualForces
+             && (!TryParseSp63NormalNumber(Sp63NormalManualN, optional: false, positive: false, out n)
+                 || !TryParseSp63NormalNumber(Sp63NormalManualMx, optional: false, positive: false, out mx)
+                 || !TryParseSp63NormalNumber(Sp63NormalManualMy, optional: false, positive: false, out my)))
+         {
+            MessageBox.Show(Loc.S("Sp63NormalInvalidTaskParams"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         var normalParams = new Sp63NormalTaskParams
+         {
+            ShapeKind = Sp63NormalShapeKind,
+            Axis = Sp63NormalAxis,
+            StructuralScheme = Sp63NormalStructuralScheme,
+            ElementLengthOrRestraintDistance = elementLength,
+            EffectiveLengthL0 = effectiveLengthL0,
+            StabilityMode = Sp63NormalStabilityMode,
+            Psi = psi!.Value,
+            SlendernessThreshold = slendernessThreshold!.Value,
+            UseManualForces = Sp63NormalUseManualForces,
+            N = n,
+            Mx = mx,
+            My = my
+         };
+
+         Result = new CalcTask
+         {
+            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Kind = Kind,
+            SectionId = SelectedSection.Id,
+            ForceSetId = Sp63NormalUseManualForces ? 0 : SelectedForceSet!.Id,
+            ForceItemId = Sp63NormalUseManualForces ? 0 : SelectedForceItem!.Id,
+            CalcType = SelectedCalcType,
+            ParamsJson = normalParams.ToJson()
+         };
+         _window.DialogResult = true;
          return;
       }
 

@@ -1556,6 +1556,35 @@
     <system:String x:Key="CalcTaskKind_shear_inclined">Наклонные сечения</system:String>
     <system:String x:Key="CalcTaskKind_shear_inclined_batch">Наклонные сечения (набор)</system:String>
 
+    <!-- Упрощённая проверка нормального сечения по СП 63.13330 -->
+    <system:String x:Key="CalcTaskKind_sp63_normal">Нормальное сечение (упрощённая проверка)</system:String>
+    <system:String x:Key="Sp63NormalGroupTitle">Нормальное сечение по СП 63.13330</system:String>
+    <system:String x:Key="Sp63NormalShape">Форма сечения</system:String>
+    <system:String x:Key="Sp63NormalShapeRectangular">Прямоугольное сплошное</system:String>
+    <system:String x:Key="Sp63NormalAxis">Плоскость изгиба</system:String>
+    <system:String x:Key="Sp63NormalAxisMx">Mx (высота по Y)</system:String>
+    <system:String x:Key="Sp63NormalAxisMy">My (высота по X)</system:String>
+    <system:String x:Key="Sp63NormalStructuralScheme">Статическая схема</system:String>
+    <system:String x:Key="Sp63NormalStaticallyDeterminate">Статически определимая</system:String>
+    <system:String x:Key="Sp63NormalStaticallyIndeterminate">Статически неопределимая</system:String>
+    <system:String x:Key="Sp63NormalElementLength">Длина элемента L, м</system:String>
+    <system:String x:Key="Sp63NormalEffectiveLength">Расчётная длина l₀, м</system:String>
+    <system:String x:Key="Sp63NormalStabilityMode">Режим устойчивости</system:String>
+    <system:String x:Key="Sp63NormalMemberMode">Элемент: учитывать η</system:String>
+    <system:String x:Key="Sp63NormalSectionOnlyExplicit">Только сечение: без η</system:String>
+    <system:String x:Key="Sp63NormalPsi">Длительная доля момента ψ</system:String>
+    <system:String x:Key="Sp63NormalSlendernessThreshold">Порог гибкости l₀/h</system:String>
+    <system:String x:Key="Sp63NormalUseManualForces">Ввести N, Mx и My вручную</system:String>
+    <system:String x:Key="Sp63NormalInputsHint">Проверка одноосная: ненулевой момент в другой плоскости будет отмечен как неприменимый. При выборе режима «Только сечение» коэффициент η не рассчитывается и результат имеет справочный характер.</system:String>
+    <system:String x:Key="Sp63NormalInvalidTaskParams">Проверьте числовые параметры нормального сечения: длины должны быть положительными, ψ — конечным числом.</system:String>
+    <system:String x:Key="CalcResultNotApplicable">Нормативный вердикт недоступен</system:String>
+    <system:String x:Key="Sp63NormalVerdictPassed">ПРОЙДЕНО</system:String>
+    <system:String x:Key="Sp63NormalVerdictNotPassed">НЕ ПРОЙДЕНО</system:String>
+    <system:String x:Key="Sp63NormalVerdictUnavailable">Нормативный вердикт недоступен</system:String>
+    <system:String x:Key="Sp63NormalApplicabilityTitle">Область применимости</system:String>
+    <system:String x:Key="Sp63NormalInformationTitle">Справочная информация</system:String>
+    <system:String x:Key="Sp63NormalStrengthTitle">Проверка прочности</system:String>
+
     <system:String x:Key="ShearInclinedForceSource">Источник усилий</system:String>
     <system:String x:Key="ShearInclinedManualForces">Усилия расчётного сечения</system:String>
     <system:String x:Key="ShearInclinedMomentsPair">Mx / My, кН·м</system:String>

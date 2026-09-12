@@ -61,6 +61,7 @@
          <RowDefinition Height="Auto"/> <!-- 18 Crack width -->
          <RowDefinition Height="Auto"/> <!-- 19 Total curvature -->
          <RowDefinition Height="Auto"/> <!-- 20 Fire thermal curvature -->
+         <RowDefinition Height="Auto"/> <!-- 21 SP63 normal section -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
          <ColumnDefinition Width="130"/>
@@ -201,6 +202,114 @@
          <CheckBox Grid.Row="1" Grid.Column="1" Content="{DynamicResource CalcTaskFireTensionAtHeatedFace}"
                    IsChecked="{Binding FireTensionAtHeatedFace}" Margin="0,0,0,8"/>
       </Grid>
+
+      <!-- Параметры упрощённой проверки нормального сечения по СП 63.13330 -->
+      <StackPanel Grid.Row="21" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding ShowSp63NormalFields, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource Sp63NormalGroupTitle}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <Grid>
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="170"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Sp63NormalShape}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <ComboBox Grid.Row="0" Grid.Column="1" SelectedValuePath="Tag"
+                            SelectedValue="{Binding Sp63NormalShapeKind}" Margin="0,0,0,4">
+                     <ComboBoxItem Tag="rectangular" Content="{DynamicResource Sp63NormalShapeRectangular}"/>
+                  </ComboBox>
+
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Sp63NormalAxis}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <ComboBox Grid.Row="1" Grid.Column="1" SelectedValuePath="Tag"
+                            SelectedValue="{Binding Sp63NormalAxis}" Margin="0,0,0,4">
+                     <ComboBoxItem Tag="Mx" Content="{DynamicResource Sp63NormalAxisMx}"/>
+                     <ComboBoxItem Tag="My" Content="{DynamicResource Sp63NormalAxisMy}"/>
+                  </ComboBox>
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Sp63NormalStructuralScheme}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <ComboBox Grid.Row="2" Grid.Column="1" SelectedValuePath="Tag"
+                            SelectedValue="{Binding Sp63NormalStructuralScheme}" Margin="0,0,0,4">
+                     <ComboBoxItem Tag="statically_determinate" Content="{DynamicResource Sp63NormalStaticallyDeterminate}"/>
+                     <ComboBoxItem Tag="statically_indeterminate" Content="{DynamicResource Sp63NormalStaticallyIndeterminate}"/>
+                  </ComboBox>
+
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Sp63NormalElementLength}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox Grid.Row="3" Grid.Column="1"
+                           Text="{Binding Sp63NormalElementLength, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
+
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource Sp63NormalEffectiveLength}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox Grid.Row="4" Grid.Column="1"
+                           Text="{Binding Sp63NormalEffectiveLengthL0, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
+
+                  <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource Sp63NormalStabilityMode}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <ComboBox Grid.Row="5" Grid.Column="1" SelectedValuePath="Tag"
+                            SelectedValue="{Binding Sp63NormalStabilityMode}" Margin="0,0,0,4">
+                     <ComboBoxItem Tag="member" Content="{DynamicResource Sp63NormalMemberMode}"/>
+                     <ComboBoxItem Tag="section_only_explicit" Content="{DynamicResource Sp63NormalSectionOnlyExplicit}"/>
+                  </ComboBox>
+
+                  <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource Sp63NormalPsi}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox Grid.Row="6" Grid.Column="1"
+                           Text="{Binding Sp63NormalPsi, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
+
+                  <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource Sp63NormalSlendernessThreshold}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox Grid.Row="7" Grid.Column="1"
+                           Text="{Binding Sp63NormalSlendernessThreshold, UpdateSourceTrigger=PropertyChanged}"/>
+               </Grid>
+
+               <TextBlock Text="{DynamicResource Sp63NormalInputsHint}"
+                          FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="0,6,0,0"/>
+
+               <CheckBox Content="{DynamicResource Sp63NormalUseManualForces}"
+                         IsChecked="{Binding Sp63NormalUseManualForces}"
+                         Margin="0,8,0,0"/>
+               <Grid Visibility="{Binding ShowSp63NormalManualForces, Converter={StaticResource BoolToVisibility}}"
+                     Margin="0,4,0,0">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox Grid.Column="1" Text="{Binding Sp63NormalManualN, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,8,0"/>
+                  <TextBlock Grid.Column="2" Text="{DynamicResource CalcTaskForceMx}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox Grid.Column="3" Text="{Binding Sp63NormalManualMx, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,8,0"/>
+                  <TextBlock Grid.Column="4" Text="{DynamicResource CalcTaskForceMy}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox Grid.Column="5" Text="{Binding Sp63NormalManualMy, UpdateSourceTrigger=PropertyChanged}"/>
+               </Grid>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
 
       <StackPanel Grid.Row="13" Grid.Column="0" Grid.ColumnSpan="2"
                   Visibility="{Binding IsOpenSeesSpatialInteraction, Converter={StaticResource BoolToVisibility}}">
