@@ -300,6 +300,52 @@ public static class Sp63NormalChecker
         if (!IsFinitePositive(x))
             return NotApplicable("invalid_compression_zone", "Sp63Normal_InvalidCompressionZone", "8.1.10");
 
+        EccentricityAmplifier.EtaResult? etaResult = null;
+        if (context.StabilityMode == Sp63NormalStabilityMode.Member)
+        {
+            var split = section.SplitStiffnessByMaterial();
+            double eiConcrete = options.Axis == Sp63NormalAxis.Mx
+                ? split.EIxConcrete
+                : split.EIyConcrete;
+            double eiRebar = options.Axis == Sp63NormalAxis.Mx
+                ? split.EIxRebar
+                : split.EIyRebar;
+            double m0 = tensionDirection * n * e0;
+            etaResult = EccentricityAmplifier.AmplifyFormula(
+                n: -n,
+                m0: m0,
+                l0: context.EffectiveLengthL0!.Value,
+                h: profile.Height,
+                eiConcrete: eiConcrete,
+                eiRebar: eiRebar,
+                psi: context.Psi,
+                slendernessThreshold: context.SlendernessThreshold);
+            if (!etaResult.Value.Stable)
+            {
+                var stabilityVariables = CommonVariables(-n, moment,
+                    tensionDirection, profile, material, x, x / profile.H0, xiR);
+                stabilityVariables["ea"] = ea;
+                stabilityVariables["e0Static"] = e0Static;
+                stabilityVariables["e0"] = e0;
+                stabilityVariables["eta"] = double.IsFinite(etaResult.Value.Eta)
+                    ? etaResult.Value.Eta
+                    : 0.0;
+                stabilityVariables["etaNcr"] = etaResult.Value.Ncr;
+                stabilityVariables["etaMEff"] = etaResult.Value.MEff;
+                var stabilityDetail = Detail("(8.15)", "Sp63Normal_StabilityCheck",
+                    "8.1.15", n, etaResult.Value.Ncr, stabilityVariables);
+                var unstable = Calculated("compression", [stabilityDetail],
+                    stabilityVariables, [new Sp63NormalMessage(
+                        "unstable_element",
+                        Sp63NormalMessageKind.Warning,
+                        "8.1.15",
+                        "Sp63Normal_UnstableElement")]);
+                unstable.StrengthPassed = false;
+                unstable.Eta = etaResult;
+                return unstable;
+            }
+        }
+
         double xi = x / profile.H0;
         double allowable = Sp63NormalFormulas.BendingMoment(
             material.Rb,
@@ -309,7 +355,8 @@ public static class Sp63NormalChecker
             profile.CompressionLayer.Rsc,
             profile.CompressionLayer.Area,
             profile.APrime);
-        double e = Sp63NormalFormulas.CompressionE(1.0, e0,
+        double eta = etaResult?.Eta ?? 1.0;
+        double e = Sp63NormalFormulas.CompressionE(eta, e0,
             profile.H0, profile.APrime);
         var variables = CommonVariables(-n, moment, tensionDirection, profile,
             material, x, xi, xiR);
@@ -319,7 +366,10 @@ public static class Sp63NormalChecker
         variables["e"] = e;
         variables["compressionXLow"] = xLow;
         variables["compressionXBranchHighXi"] = xiLow > xiR ? 1.0 : 0.0;
-        variables["eta"] = 1.0;
+        variables["eta"] = eta;
+        variables["etaMEff"] = etaResult?.MEff ?? tensionDirection * n * e0;
+        if (etaResult is { } etaValue && double.IsFinite(etaValue.Ncr))
+            variables["etaNcr"] = etaValue.Ncr;
         var informational = XiMessage(xi, xiR);
         informational.Add(new Sp63NormalMessage(
             "accidental_eccentricity",
@@ -335,7 +385,9 @@ public static class Sp63NormalChecker
 
         var detail = Detail("(8.10)", "Sp63Normal_CompressionCheck", "8.1.10",
             n * e, allowable, variables);
-        return Calculated("compression", [detail], variables, informational);
+        var result = Calculated("compression", [detail], variables, informational);
+        result.Eta = etaResult;
+        return result;
     }
 
     static bool TryBuildProfile(CrossSection section, Sp63NormalAxis axis,
