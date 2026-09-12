@@ -62,6 +62,7 @@
          <RowDefinition Height="Auto"/> <!-- 19 Total curvature -->
          <RowDefinition Height="Auto"/> <!-- 20 Fire thermal curvature -->
          <RowDefinition Height="Auto"/> <!-- 21 SP63 normal section -->
+         <RowDefinition Height="Auto"/> <!-- 22 SP63 crack width -->
       </Grid.RowDefinitions>
       <Grid.ColumnDefinitions>
          <ColumnDefinition Width="130"/>
@@ -306,6 +307,81 @@
                   <TextBlock Grid.Column="4" Text="{DynamicResource CalcTaskForceMy}"
                              VerticalAlignment="Center" Margin="0,0,4,0"/>
                   <TextBox Grid.Column="5" Text="{Binding Sp63NormalManualMy, UpdateSourceTrigger=PropertyChanged}"/>
+               </Grid>
+            </StackPanel>
+         </GroupBox>
+      </StackPanel>
+
+      <!-- Параметры упрощённой проверки ширины раскрытия трещин по СП 63.13330 -->
+      <StackPanel Grid.Row="22" Grid.Column="0" Grid.ColumnSpan="2"
+                  Visibility="{Binding ShowSp63CrackWidthFields, Converter={StaticResource BoolToVisibility}}">
+         <GroupBox Header="{DynamicResource Sp63CrackWidthGroupTitle}" Margin="0,8,0,0">
+            <StackPanel Margin="4">
+               <Grid>
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="170"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Sp63NormalAxis}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <ComboBox Grid.Row="0" Grid.Column="1" SelectedValuePath="Tag"
+                            SelectedValue="{Binding Sp63CrackWidthAxis}" Margin="0,0,0,4">
+                     <ComboBoxItem Tag="Mx" Content="{DynamicResource Sp63NormalAxisMx}"/>
+                     <ComboBoxItem Tag="My" Content="{DynamicResource Sp63NormalAxisMy}"/>
+                  </ComboBox>
+
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthPhi1}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox Grid.Row="1" Grid.Column="1"
+                           Text="{Binding Sp63CrackWidthPhi1, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthPhi2}"
+                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                  <TextBox Grid.Row="2" Grid.Column="1"
+                           Text="{Binding Sp63CrackWidthPhi2, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,0,4"/>
+
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Sp63CrackWidthAcrcLim}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox Grid.Row="3" Grid.Column="1"
+                           Text="{Binding Sp63CrackWidthAcrcLimMm, UpdateSourceTrigger=PropertyChanged}"/>
+               </Grid>
+
+               <TextBlock Text="{DynamicResource Sp63CrackWidthInputsHint}"
+                          FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="0,6,0,0"/>
+
+               <CheckBox Content="{DynamicResource Sp63NormalUseManualForces}"
+                         IsChecked="{Binding Sp63CrackWidthUseManualForces}"
+                         Margin="0,8,0,0"/>
+               <Grid Visibility="{Binding ShowSp63CrackWidthManualForces, Converter={StaticResource BoolToVisibility}}"
+                     Margin="0,4,0,0">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                     <ColumnDefinition Width="60"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="{DynamicResource CalcTaskForceN}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox Grid.Column="1" Text="{Binding Sp63CrackWidthManualN, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,8,0"/>
+                  <TextBlock Grid.Column="2" Text="{DynamicResource CalcTaskForceMx}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox Grid.Column="3" Text="{Binding Sp63CrackWidthManualMx, UpdateSourceTrigger=PropertyChanged}"
+                           Margin="0,0,8,0"/>
+                  <TextBlock Grid.Column="4" Text="{DynamicResource CalcTaskForceMy}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"/>
+                  <TextBox Grid.Column="5" Text="{Binding Sp63CrackWidthManualMy, UpdateSourceTrigger=PropertyChanged}"/>
                </Grid>
             </StackPanel>
          </GroupBox>

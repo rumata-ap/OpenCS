@@ -1351,6 +1351,7 @@
     <system:String x:Key="CalcTaskKind_cracking_batch">Момент трещинообразования (весь набор)</system:String>
     <system:String x:Key="CalcTaskKind_crack_width">Ширина раскрытия трещин</system:String>
     <system:String x:Key="CalcTaskKind_crack_width_batch">Ширина раскрытия трещин (весь набор)</system:String>
+    <system:String x:Key="CalcTaskKind_sp63_crack_width">Ширина раскрытия трещин (упрощённая проверка)</system:String>
     <system:String x:Key="CalcTaskKind_shell_strain_state">Плоскость деформаций пластины</system:String>
     <system:String x:Key="CalcTaskKind_shell_strain_state_batch">Плоскость деформаций пластины (набор)</system:String>
     <system:String x:Key="CalcTaskKind_shell_layered_uls">Пластина: прочность (слоистая модель)</system:String>
@@ -1671,6 +1672,38 @@
     <system:String x:Key="Sp63Normal_CoverBarDiameterUnknown">Диаметр стержней слоя не задан — проверка защитного слоя по п. 10.3.2 не выполнена.</system:String>
     <system:String x:Key="Sp63Normal_MinTensionBarCount">Число продольных растянутых стержней при ширине сечения более 150 мм, п. 10.3.9</system:String>
     <system:String x:Key="Sp63Normal_SuggestNdm">Для отверстий, нескольких бетонных областей, двуосного изгиба и сложной арматуры используйте расчёт по деформационной модели (НДМ).</system:String>
+
+    <system:String x:Key="Sp63CrackWidthGroupTitle">Ширина раскрытия трещин по СП 63.13330</system:String>
+    <system:String x:Key="Sp63CrackWidthPhi1">φ1 (длительность нагрузки)</system:String>
+    <system:String x:Key="Sp63CrackWidthPhi2">φ2 (профиль арматуры)</system:String>
+    <system:String x:Key="Sp63CrackWidthAcrcLim">acrc,lim, мм</system:String>
+    <system:String x:Key="Sp63CrackWidthInputsHint">Проверка одноосная и требует ненулевого момента: ненулевой момент в другой плоскости или нулевой момент (центральное растяжение/сжатие) будут отмечены как неприменимые — используйте расчёт по деформационной модели (задача «Ширина раскрытия трещин»). φ1 = 1,0 для непродолжительного действия нагрузки, φ1 = 1,4 для продолжительного; φ2 = 0,5 для арматуры периодического профиля, φ2 = 0,8 для гладкой.</system:String>
+    <system:String x:Key="Sp63CrackWidthInvalidTaskParams">Проверьте числовые параметры: φ1, φ2 и acrc,lim должны быть положительными конечными числами.</system:String>
+    <system:String x:Key="Sp63CrackWidthStrengthTitle">Проверка ширины раскрытия трещин</system:String>
+    <system:String x:Key="Sp63CrackWidthAcrcColumn">acrc, мм</system:String>
+    <system:String x:Key="Sp63CrackWidthAcrcLimColumn">acrc,lim, мм</system:String>
+    <system:String x:Key="Sp63CrackWidthVerdictPassed">ПРОЙДЕНО</system:String>
+    <system:String x:Key="Sp63CrackWidthVerdictNotPassed">НЕ ПРОЙДЕНО</system:String>
+    <system:String x:Key="Sp63CrackWidthBranchCracked">Трещины образуются</system:String>
+    <system:String x:Key="Sp63CrackWidthBranchNotCracked">Трещины не образуются</system:String>
+    <system:String x:Key="Sp63CrackWidthContextFormat">{0}; φ1 = {1}; φ2 = {2}; acrc,lim = {3} мм</system:String>
+
+    <system:String x:Key="Sp63CrackWidth_InvalidInput">Параметры задачи не соответствуют поддержанному контракту.</system:String>
+    <system:String x:Key="Sp63CrackWidth_HandlerError">Не удалось выполнить упрощённую проверку ширины раскрытия трещин.</system:String>
+    <system:String x:Key="Sp63CrackWidth_InvalidResultJson">Данные результата повреждены или имеют неизвестный формат.</system:String>
+    <system:String x:Key="Sp63CrackWidth_ShapeNotSupported">Выбранная форма сечения пока не поддерживается.</system:String>
+    <system:String x:Key="Sp63CrackWidth_InvalidAxis">Выбрана неизвестная плоскость изгиба.</system:String>
+    <system:String x:Key="Sp63CrackWidth_NonFiniteLoad">Усилия должны быть конечными числами.</system:String>
+    <system:String x:Key="Sp63CrackWidth_InvalidPhi">Коэффициенты φ1 и φ2 должны быть положительными конечными числами.</system:String>
+    <system:String x:Key="Sp63CrackWidth_InvalidAcrcLimit">Предельная ширина раскрытия трещин должна быть положительной.</system:String>
+    <system:String x:Key="Sp63CrackWidth_BiaxialLoad">Упрощённая проверка одноосная; ненулевой момент в другой плоскости требует деформационной модели.</system:String>
+    <system:String x:Key="Sp63CrackWidth_ZeroMoment">Упрощённый путь построен для изгиба/внецентренного нагружения с ненулевым моментом; центральное растяжение/сжатие им не покрывается.</system:String>
+    <system:String x:Key="Sp63CrackWidth_MissingConcreteChars">Для бетона не заданы характеристики Eb, Rb,ser, Rbt,ser.</system:String>
+    <system:String x:Key="Sp63CrackWidth_MissingRebarChars">Для арматуры не заданы модуль упругости Es и Rs,ser.</system:String>
+    <system:String x:Key="Sp63CrackWidth_AcrcCheck">Ширина раскрытия трещин: acrc ≤ acrc,lim</system:String>
+    <system:String x:Key="Sp63CrackWidth_NeutralAxisNote">Нейтральная ось приведённого сечения с трещиной (п. 8.2.28) не зависит от M/N — только от геометрии и модульного отношения.</system:String>
+    <system:String x:Key="Sp63CrackWidth_NotCracked">M ≤ Mcrc — трещины не образуются, acrc = 0.</system:String>
+    <system:String x:Key="Sp63CrackWidth_SuggestFullModel">Для двуосного изгиба, центрального растяжения/сжатия и других случаев вне упрощённого пути используйте расчёт по деформационной модели (задача «Ширина раскрытия трещин»).</system:String>
 
     <system:String x:Key="ShearInclinedForceSource">Источник усилий</system:String>
     <system:String x:Key="ShearInclinedManualForces">Усилия расчётного сечения</system:String>

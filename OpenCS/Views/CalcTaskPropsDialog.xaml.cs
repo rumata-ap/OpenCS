@@ -9,6 +9,7 @@ using System.Windows.Input;
 using CScore;
 using CScore.Fire.Entities;
 using CScore.Sp63.Normal;
+using CScore.Sp63.CrackWidth;
 using CSfea.Torsion;
 using OpenCS.Tasks;
 using OpenCS.Utilites;
@@ -82,6 +83,16 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    string sp63NormalManualN = "0";
    string sp63NormalManualMx = "0";
    string sp63NormalManualMy = "0";
+   // Упрощённая проверка ширины раскрытия трещин по СП 63
+   string sp63CrackWidthShapeKind = "rectangular";
+   string sp63CrackWidthAxis = "Mx";
+   string sp63CrackWidthPhi1 = "1";
+   string sp63CrackWidthPhi2 = "0.5";
+   string sp63CrackWidthAcrcLimMm = "0.3";
+   bool sp63CrackWidthUseManualForces;
+   string sp63CrackWidthManualN = "0";
+   string sp63CrackWidthManualMx = "0";
+   string sp63CrackWidthManualMy = "0";
     string openSeesSpatialAngleStep = "45";
     string openSeesSpatialAdditionalSlices = "2";
      string openSeesCurvatureStep = "0.0005";
@@ -276,6 +287,96 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       set { sp63NormalManualMy = value; OnPropertyChanged(); }
    }
 
+   /// <summary>Задача упрощённой проверки ширины раскрытия трещин по СП 63.</summary>
+   public bool IsSp63CrackWidth => Kind == "sp63_crack_width";
+
+   /// <summary>Показывать параметры упрощённой проверки ширины раскрытия трещин.</summary>
+   public bool ShowSp63CrackWidthFields => IsSp63CrackWidth;
+
+   /// <summary>Идентификатор единственной поддержанной формы сечения.</summary>
+   public string Sp63CrackWidthShapeKind
+   {
+      get => sp63CrackWidthShapeKind;
+      set { sp63CrackWidthShapeKind = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Плоскость одноосной проверки: Mx или My.</summary>
+   public string Sp63CrackWidthAxis
+   {
+      get => sp63CrackWidthAxis;
+      set { sp63CrackWidthAxis = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Коэффициент длительности действия нагрузки φ1 (п. 8.2.10).</summary>
+   public string Sp63CrackWidthPhi1
+   {
+      get => sp63CrackWidthPhi1;
+      set { sp63CrackWidthPhi1 = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Коэффициент профиля арматуры φ2 (п. 8.2.10).</summary>
+   public string Sp63CrackWidthPhi2
+   {
+      get => sp63CrackWidthPhi2;
+      set { sp63CrackWidthPhi2 = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Предельно допустимая ширина раскрытия трещин, мм.</summary>
+   public string Sp63CrackWidthAcrcLimMm
+   {
+      get => sp63CrackWidthAcrcLimMm;
+      set { sp63CrackWidthAcrcLimMm = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Использовать ручные N, Mx и My вместо строки набора.</summary>
+   public bool Sp63CrackWidthUseManualForces
+   {
+      get => sp63CrackWidthUseManualForces;
+      set
+      {
+         if (value && !sp63CrackWidthUseManualForces && SelectedForceItem is { } item)
+         {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            Sp63CrackWidthManualN = item.N.ToString("G6", inv);
+            Sp63CrackWidthManualMx = item.Mx.ToString("G6", inv);
+            Sp63CrackWidthManualMy = item.My.ToString("G6", inv);
+         }
+         sp63CrackWidthUseManualForces = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowSp63CrackWidthForceSet));
+         OnPropertyChanged(nameof(ShowSp63CrackWidthManualForces));
+         OnPropertyChanged(nameof(ShowStandardForce));
+         OnPropertyChanged(nameof(ShowForceItem));
+      }
+   }
+
+   /// <summary>Показывать выбор строки набора усилий для проверки трещиностойкости.</summary>
+   public bool ShowSp63CrackWidthForceSet => IsSp63CrackWidth && !Sp63CrackWidthUseManualForces;
+
+   /// <summary>Показывать ручные усилия проверки трещиностойкости.</summary>
+   public bool ShowSp63CrackWidthManualForces => IsSp63CrackWidth && Sp63CrackWidthUseManualForces;
+
+   /// <summary>Ручная продольная сила, кН.</summary>
+   public string Sp63CrackWidthManualN
+   {
+      get => sp63CrackWidthManualN;
+      set { sp63CrackWidthManualN = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Ручной момент Mx, кН·м.</summary>
+   public string Sp63CrackWidthManualMx
+   {
+      get => sp63CrackWidthManualMx;
+      set { sp63CrackWidthManualMx = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Ручной момент My, кН·м.</summary>
+   public string Sp63CrackWidthManualMy
+   {
+      get => sp63CrackWidthManualMy;
+      set { sp63CrackWidthManualMy = value; OnPropertyChanged(); }
+   }
+
    public bool IsStrainState => Kind == "strain_state";
 
    /// <summary>
@@ -367,6 +468,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(ShowSp63NormalFields));
            OnPropertyChanged(nameof(ShowSp63NormalForceSet));
            OnPropertyChanged(nameof(ShowSp63NormalManualForces));
+           OnPropertyChanged(nameof(IsSp63CrackWidth));
+           OnPropertyChanged(nameof(ShowSp63CrackWidthFields));
+           OnPropertyChanged(nameof(ShowSp63CrackWidthForceSet));
+           OnPropertyChanged(nameof(ShowSp63CrackWidthManualForces));
            OnPropertyChanged(nameof(ShowForceItem));
            OnPropertyChanged(nameof(ShowManualForces));
            OnPropertyChanged(nameof(ShowShearManualForces));
@@ -467,6 +572,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(ShowSp63NormalFields));
            OnPropertyChanged(nameof(ShowSp63NormalForceSet));
            OnPropertyChanged(nameof(ShowSp63NormalManualForces));
+           OnPropertyChanged(nameof(IsSp63CrackWidth));
+           OnPropertyChanged(nameof(ShowSp63CrackWidthFields));
+           OnPropertyChanged(nameof(ShowSp63CrackWidthForceSet));
+           OnPropertyChanged(nameof(ShowSp63CrackWidthManualForces));
            OnPropertyChanged(nameof(ShowForceItem));
            OnPropertyChanged(nameof(ShowStandardForce));
            OnPropertyChanged(nameof(ShowManualForces));
@@ -681,13 +790,15 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       && !IsOpenSeesSpatialInteraction
       && !IsCrackingBatch && !IsCrackWidthBatch && !IsTotalCurvatureBatch
       && !IsShearInclinedBatch
-      && (!IsSp63Normal || !Sp63NormalUseManualForces);
+      && (!IsSp63Normal || !Sp63NormalUseManualForces)
+      && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces);
    public bool ShowSolverMethod => IsLimitKind;
 
    /// <summary>Показывать стандартный одиночный выбор набора усилий (скрыт для two-stage и потерь).</summary>
    public bool ShowStandardForce => !IsTwoStage && !IsPlatePanel && !IsPrestressLoss
       && !IsOpenSeesSpatialInteraction && !IsFireNoForceKind
-      && (!IsSp63Normal || !Sp63NormalUseManualForces);
+      && (!IsSp63Normal || !Sp63NormalUseManualForces)
+      && (!IsSp63CrackWidth || !Sp63CrackWidthUseManualForces);
 
    void FilterSections()
    {
@@ -1519,6 +1630,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "cracking_batch",     Label = Loc.S("CalcTaskKind_cracking_batch"),     GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "crack_width",        Label = Loc.S("CalcTaskKind_crack_width"),        GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "crack_width_batch",  Label = Loc.S("CalcTaskKind_crack_width_batch"),  GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "sp63_crack_width",   Label = Loc.S("CalcTaskKind_sp63_crack_width"),   GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "total_curvature",       Label = Loc.S("CalcTaskKind_total_curvature"),       GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       new() { Id = "total_curvature_batch", Label = Loc.S("CalcTaskKind_total_curvature_batch"), GroupKey = "sls", Group = Loc.S("CalcTaskGroupSls") },
       // Огнестойкость
@@ -1916,6 +2028,26 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              }
           }
 
+          if (existing.Kind == "sp63_crack_width"
+              && !string.IsNullOrWhiteSpace(existing.ParamsJson)
+              && existing.ParamsJson != "{}")
+          {
+             var scwp = Sp63CrackWidthTaskParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             Sp63CrackWidthShapeKind = scwp.ShapeKind;
+             Sp63CrackWidthAxis = scwp.Axis;
+             Sp63CrackWidthPhi1 = scwp.Phi1.ToString("G6", inv);
+             Sp63CrackWidthPhi2 = scwp.Phi2.ToString("G6", inv);
+             Sp63CrackWidthAcrcLimMm = scwp.AcrcLimMm.ToString("G6", inv);
+             Sp63CrackWidthUseManualForces = scwp.UseManualForces;
+             if (scwp.UseManualForces)
+             {
+                if (scwp.N.HasValue)  Sp63CrackWidthManualN  = scwp.N.Value.ToString("G6", inv);
+                if (scwp.Mx.HasValue) Sp63CrackWidthManualMx = scwp.Mx.Value.ToString("G6", inv);
+                if (scwp.My.HasValue) Sp63CrackWidthManualMy = scwp.My.Value.ToString("G6", inv);
+             }
+          }
+
           NotifyTorsionForceProps();
           RefreshTorsionLmin();
        }
@@ -2190,6 +2322,73 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             ForceItemId = Sp63NormalUseManualForces ? 0 : SelectedForceItem!.Id,
             CalcType = SelectedCalcType,
             ParamsJson = normalParams.ToJson()
+         };
+         _window.DialogResult = true;
+         return;
+      }
+
+      if (IsSp63CrackWidth)
+      {
+         if (SelectedSection == null)
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         if (!Sp63CrackWidthUseManualForces
+             && (SelectedForceSet == null || SelectedForceItem == null))
+         {
+            MessageBox.Show(Loc.S("CalcTaskNeedForceItem"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         if (!TryParseSp63NormalNumber(Sp63CrackWidthPhi1, optional: false, positive: true,
+                out var phi1)
+             || !TryParseSp63NormalNumber(Sp63CrackWidthPhi2, optional: false, positive: true,
+                out var phi2)
+             || !TryParseSp63NormalNumber(Sp63CrackWidthAcrcLimMm, optional: false, positive: true,
+                out var acrcLimMm))
+         {
+            MessageBox.Show(Loc.S("Sp63CrackWidthInvalidTaskParams"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         double? n = null, mx = null, my = null;
+         if (Sp63CrackWidthUseManualForces
+             && (!TryParseSp63NormalNumber(Sp63CrackWidthManualN, optional: false, positive: false, out n)
+                 || !TryParseSp63NormalNumber(Sp63CrackWidthManualMx, optional: false, positive: false, out mx)
+                 || !TryParseSp63NormalNumber(Sp63CrackWidthManualMy, optional: false, positive: false, out my)))
+         {
+            MessageBox.Show(Loc.S("Sp63CrackWidthInvalidTaskParams"), Loc.S("Warning"),
+               MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+         }
+
+         var crackWidthParams = new Sp63CrackWidthTaskParams
+         {
+            ShapeKind = Sp63CrackWidthShapeKind,
+            Axis = Sp63CrackWidthAxis,
+            Phi1 = phi1!.Value,
+            Phi2 = phi2!.Value,
+            AcrcLimMm = acrcLimMm!.Value,
+            UseManualForces = Sp63CrackWidthUseManualForces,
+            N = n,
+            Mx = mx,
+            My = my
+         };
+
+         Result = new CalcTask
+         {
+            Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+            Kind = Kind,
+            SectionId = SelectedSection.Id,
+            ForceSetId = Sp63CrackWidthUseManualForces ? 0 : SelectedForceSet!.Id,
+            ForceItemId = Sp63CrackWidthUseManualForces ? 0 : SelectedForceItem!.Id,
+            CalcType = SelectedCalcType,
+            ParamsJson = crackWidthParams.ToJson()
          };
          _window.DialogResult = true;
          return;

@@ -1351,6 +1351,7 @@
     <system:String x:Key="CalcTaskKind_cracking_batch">Cracking moment (whole set)</system:String>
     <system:String x:Key="CalcTaskKind_crack_width">Crack width</system:String>
     <system:String x:Key="CalcTaskKind_crack_width_batch">Crack width (whole set)</system:String>
+    <system:String x:Key="CalcTaskKind_sp63_crack_width">Crack width (simplified check)</system:String>
     <system:String x:Key="CalcTaskKind_shell_strain_state">Plate strain plane</system:String>
     <system:String x:Key="CalcTaskKind_shell_strain_state_batch">Plate strain plane (batch)</system:String>
     <system:String x:Key="CalcTaskKind_shell_layered_uls">Plate: strength (layered)</system:String>
@@ -1671,6 +1672,38 @@
     <system:String x:Key="Sp63Normal_CoverBarDiameterUnknown">Bar diameter for the layer is not set — the cl. 10.3.2 cover check was not performed.</system:String>
     <system:String x:Key="Sp63Normal_MinTensionBarCount">Number of longitudinal tension bars when section width exceeds 150 mm, cl. 10.3.9</system:String>
     <system:String x:Key="Sp63Normal_SuggestNdm">For holes, multiple concrete regions, biaxial bending, and complex reinforcement, use the deformation-model (NDM) check.</system:String>
+
+    <system:String x:Key="Sp63CrackWidthGroupTitle">Crack width per SP 63.13330</system:String>
+    <system:String x:Key="Sp63CrackWidthPhi1">φ1 (load duration)</system:String>
+    <system:String x:Key="Sp63CrackWidthPhi2">φ2 (rebar profile)</system:String>
+    <system:String x:Key="Sp63CrackWidthAcrcLim">acrc,lim, mm</system:String>
+    <system:String x:Key="Sp63CrackWidthInputsHint">The check is uniaxial and requires a nonzero moment: a nonzero moment in the other plane, or a zero moment (central tension/compression), will be flagged as not applicable — use the deformation-model check (the "Crack width" task) instead. φ1 = 1.0 for short-term load action, φ1 = 1.4 for long-term; φ2 = 0.5 for ribbed rebar, φ2 = 0.8 for smooth.</system:String>
+    <system:String x:Key="Sp63CrackWidthInvalidTaskParams">Check the numeric parameters: φ1, φ2 and acrc,lim must be positive finite numbers.</system:String>
+    <system:String x:Key="Sp63CrackWidthStrengthTitle">Crack width check</system:String>
+    <system:String x:Key="Sp63CrackWidthAcrcColumn">acrc, mm</system:String>
+    <system:String x:Key="Sp63CrackWidthAcrcLimColumn">acrc,lim, mm</system:String>
+    <system:String x:Key="Sp63CrackWidthVerdictPassed">PASSED</system:String>
+    <system:String x:Key="Sp63CrackWidthVerdictNotPassed">NOT PASSED</system:String>
+    <system:String x:Key="Sp63CrackWidthBranchCracked">Cracks form</system:String>
+    <system:String x:Key="Sp63CrackWidthBranchNotCracked">No cracks form</system:String>
+    <system:String x:Key="Sp63CrackWidthContextFormat">{0}; φ1 = {1}; φ2 = {2}; acrc,lim = {3} mm</system:String>
+
+    <system:String x:Key="Sp63CrackWidth_InvalidInput">Task parameters do not match the supported contract.</system:String>
+    <system:String x:Key="Sp63CrackWidth_HandlerError">Failed to run the simplified crack width check.</system:String>
+    <system:String x:Key="Sp63CrackWidth_InvalidResultJson">Result data is corrupted or has an unknown format.</system:String>
+    <system:String x:Key="Sp63CrackWidth_ShapeNotSupported">The selected section shape is not yet supported.</system:String>
+    <system:String x:Key="Sp63CrackWidth_InvalidAxis">An unknown bending plane was selected.</system:String>
+    <system:String x:Key="Sp63CrackWidth_NonFiniteLoad">Loads must be finite numbers.</system:String>
+    <system:String x:Key="Sp63CrackWidth_InvalidPhi">Coefficients φ1 and φ2 must be positive finite numbers.</system:String>
+    <system:String x:Key="Sp63CrackWidth_InvalidAcrcLimit">The crack width limit must be positive.</system:String>
+    <system:String x:Key="Sp63CrackWidth_BiaxialLoad">The simplified check is uniaxial; a nonzero moment in the other plane requires the deformation model.</system:String>
+    <system:String x:Key="Sp63CrackWidth_ZeroMoment">The simplified path is built for bending/eccentric loading with a nonzero moment; central tension/compression is not covered.</system:String>
+    <system:String x:Key="Sp63CrackWidth_MissingConcreteChars">Concrete is missing Eb, Rb,ser, Rbt,ser characteristics.</system:String>
+    <system:String x:Key="Sp63CrackWidth_MissingRebarChars">Rebar is missing the elastic modulus Es and Rs,ser.</system:String>
+    <system:String x:Key="Sp63CrackWidth_AcrcCheck">Crack width: acrc ≤ acrc,lim</system:String>
+    <system:String x:Key="Sp63CrackWidth_NeutralAxisNote">The neutral axis of the cracked transformed section (8.2.28) does not depend on M/N — only on geometry and the modular ratio.</system:String>
+    <system:String x:Key="Sp63CrackWidth_NotCracked">M ≤ Mcrc — no cracks form, acrc = 0.</system:String>
+    <system:String x:Key="Sp63CrackWidth_SuggestFullModel">For biaxial bending, central tension/compression, and other cases outside the simplified path, use the deformation-model check (the "Crack width" task).</system:String>
 
     <system:String x:Key="ShearInclinedForceSource">Force source</system:String>
     <system:String x:Key="ShearInclinedManualForces">Design section forces</system:String>

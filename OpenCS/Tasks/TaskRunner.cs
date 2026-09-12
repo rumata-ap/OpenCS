@@ -63,6 +63,7 @@ namespace OpenCS.Tasks
          ["shear_inclined"]       = new ShearInclinedHandler(),
          ["shear_inclined_batch"] = new ShearInclinedBatchHandler(),
          ["sp63_normal"]           = new Sp63NormalHandler(),
+         ["sp63_crack_width"]      = new Sp63CrackWidthHandler(),
        };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>

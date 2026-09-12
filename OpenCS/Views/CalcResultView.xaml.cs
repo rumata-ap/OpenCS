@@ -69,6 +69,12 @@ namespace OpenCS.Views
             return;
         }
 
+        if (task?.Kind == "sp63_crack_width")
+        {
+            Content = new Sp63CrackWidthResultView(result, task, app);
+            return;
+        }
+
         if (task?.Kind is "fire_r_check" or "fire_r_check_batch" or "fire_r_time" or "fire_thermal_curvature"
             or "strain_state_batch" or "two_stage_strain_batch"
             or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"

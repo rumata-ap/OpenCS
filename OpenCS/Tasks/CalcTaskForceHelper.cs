@@ -1,5 +1,6 @@
 using CScore;
 using CScore.Sp63.Normal;
+using CScore.Sp63.CrackWidth;
 
 namespace OpenCS.Tasks;
 
@@ -13,7 +14,7 @@ public static class CalcTaskForceHelper
       => task.Kind == "strain_state" || task.Kind == "cracking" || task.Kind == "crack_width"
          || task.Kind == "total_curvature" || task.Kind == "moment_curvature_biaxial"
          || task.Kind == "shear_inclined"
-         || task.Kind == "sp63_normal"
+         || task.Kind == "sp63_normal" || task.Kind == "sp63_crack_width"
          || IsLimitSingleKind(task.Kind);
 
    /// <summary>Задачи, для которых не нужна строка стержневого набора усилий (batch / ParamsJson / оболочки / сталь).</summary>
@@ -77,6 +78,12 @@ public static class CalcTaskForceHelper
       {
          var normal = Sp63NormalTaskParams.Parse(task.ParamsJson);
          return normal.UseManualForces ? normal.ToLoadItem() : null;
+      }
+
+      if (task.Kind == "sp63_crack_width")
+      {
+         var crackWidth = Sp63CrackWidthTaskParams.Parse(task.ParamsJson);
+         return crackWidth.UseManualForces ? crackWidth.ToLoadItem() : null;
       }
 
       try

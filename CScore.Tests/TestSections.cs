@@ -210,7 +210,7 @@ internal static class TestSections
     /// <c>BiaxialCurvatureCurveSolverTests</c>; вынесено сюда для переиспользования новыми
     /// тестами пин-решателей (см. план 2026-08-19-biaxial-curve-pin-solvers.md, Task 2 Step 1a).
     /// </summary>
-    public static CrossSection Example47()
+    public static CrossSection Example47(int nx = 24, int ny = 12)
     {
         const double Height = 0.300;
         const double Width = 1.150;
@@ -237,7 +237,7 @@ internal static class TestSections
             DiagrammType = DiagrammType.L3, Hull = new Contour(x, y, "hull")
         };
         concrete.SetWKT();
-        concrete.SliceXY(nx: 24, ny: 12);
+        concrete.SliceXY(nx: nx, ny: ny);
 
         var steelMaterial = new Material
         {
