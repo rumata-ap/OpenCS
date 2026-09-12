@@ -1584,6 +1584,81 @@
     <system:String x:Key="Sp63NormalApplicabilityTitle">Область применимости</system:String>
     <system:String x:Key="Sp63NormalInformationTitle">Справочная информация</system:String>
     <system:String x:Key="Sp63NormalStrengthTitle">Проверка прочности</system:String>
+    <system:String x:Key="Sp63NormalVariablesTitle">Использованные переменные</system:String>
+    <system:String x:Key="Sp63NormalTaskLabel">Задача</system:String>
+    <system:String x:Key="Sp63NormalSectionLabel">Сечение</system:String>
+    <system:String x:Key="Sp63NormalCreatedLabel">Расчёт выполнен</system:String>
+    <system:String x:Key="Sp63NormalContextTitle">Параметры проверки</system:String>
+    <system:String x:Key="Sp63NormalForcesTitle">Исходные усилия</system:String>
+    <system:String x:Key="Sp63NormalFormulaColumn">Формула</system:String>
+    <system:String x:Key="Sp63NormalDescriptionColumn">Проверка</system:String>
+    <system:String x:Key="Sp63NormalAppliedColumn">Приложенное</system:String>
+    <system:String x:Key="Sp63NormalAllowableColumn">Допустимое</system:String>
+    <system:String x:Key="Sp63NormalRatioColumn">Коэфф.</system:String>
+    <system:String x:Key="Sp63NormalResultColumn">Результат</system:String>
+    <system:String x:Key="Sp63NormalCheckPassed">пройдено</system:String>
+    <system:String x:Key="Sp63NormalCheckNotPassed">не пройдено</system:String>
+    <system:String x:Key="Sp63NormalVerdictInvalidInput">Ошибка исходных данных</system:String>
+    <system:String x:Key="Sp63NormalBranchCompression">Внецентренное сжатие</system:String>
+    <system:String x:Key="Sp63NormalBranchBending">Изгиб</system:String>
+    <system:String x:Key="Sp63NormalBranchCentralTension">Центральное растяжение</system:String>
+    <system:String x:Key="Sp63NormalBranchEccentricTensionBetween">Внецентренное растяжение: между равнодействующими</system:String>
+    <system:String x:Key="Sp63NormalBranchEccentricTensionOutside">Внецентренное растяжение: за пределами равнодействующих</system:String>
+    <system:String x:Key="Sp63NormalBranchNotApplicable">Нормативная проверка недоступна</system:String>
+    <system:String x:Key="Sp63NormalBranchInvalidInput">Ошибка исходных данных</system:String>
+    <system:String x:Key="Sp63NormalBranchUnknown">Ветвь не определена</system:String>
+    <system:String x:Key="Sp63NormalNoTask">Задача без метки</system:String>
+    <system:String x:Key="Sp63NormalNoSection">Сечение не найдено</system:String>
+    <system:String x:Key="Sp63NormalNoForceData">Исходные усилия недоступны</system:String>
+    <system:String x:Key="Sp63NormalNoTaskContext">Параметры задачи недоступны</system:String>
+    <system:String x:Key="Sp63NormalNotSpecified">не задано</system:String>
+    <system:String x:Key="Sp63NormalForcesFormat">N = {0} кН; Mx = {1} кН·м; My = {2} кН·м</system:String>
+    <system:String x:Key="Sp63NormalContextFormat">{0}; {1}; {2}; L = {3} м; l₀ = {4} м; {5}; ψ = {6}; l₀/h = {7}</system:String>
+    <system:String x:Key="Sp63NormalVariableFormat">{0} = {1}</system:String>
+    <system:String x:Key="Sp63NormalVariableSeparator">; </system:String>
+    <system:String x:Key="Sp63NormalNotANumber">не число</system:String>
+    <system:String x:Key="Sp63NormalPositiveInfinity">+∞</system:String>
+    <system:String x:Key="Sp63NormalNegativeInfinity">−∞</system:String>
+
+    <!-- Сообщения результата упрощённой проверки нормального сечения -->
+    <system:String x:Key="Sp63Normal_InvalidInput">Параметры задачи не соответствуют поддержанному контракту.</system:String>
+    <system:String x:Key="Sp63Normal_HandlerError">Не удалось выполнить упрощённую проверку нормального сечения.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidResultJson">Данные результата повреждены или имеют неизвестный формат.</system:String>
+    <system:String x:Key="Sp63Normal_GeometryNotSupported">Формульная проверка доступна только для сплошного прямоугольного сечения без отверстий.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidTensionDirection">Не удалось определить сторону растяжения по направлению момента.</system:String>
+    <system:String x:Key="Sp63Normal_MissingConcreteResistance">Для бетона не задано расчётное сопротивление сжатию.</system:String>
+    <system:String x:Key="Sp63Normal_PrestressedRebar">Предварительно напряжённая арматура не входит в упрощённый формульный режим.</system:String>
+    <system:String x:Key="Sp63Normal_MissingRebarMaterial">Для арматуры не задан материал.</system:String>
+    <system:String x:Key="Sp63Normal_NonPointRebar">Упрощённый режим учитывает только точечные стержни.</system:String>
+    <system:String x:Key="Sp63Normal_MissingRebarResistance">Для арматуры не заданы расчётные сопротивления.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidRebarArea">Площадь стержня должна быть положительной.</system:String>
+    <system:String x:Key="Sp63Normal_MissingRebar">В сечении не найдена продольная арматура.</system:String>
+    <system:String x:Key="Sp63Normal_MixedRebarResistance">Сопротивления крайних слоёв арматуры должны совпадать.</system:String>
+    <system:String x:Key="Sp63Normal_InsufficientRebarLayers">Для проверки нужны минимум два уровня продольной арматуры.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidRebarGeometry">Геометрия слоя арматуры не позволяет построить профиль.</system:String>
+    <system:String x:Key="Sp63Normal_ShapeNotSupported">Выбранная форма сечения пока не поддерживается.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidAxis">Выбрана неизвестная плоскость изгиба.</system:String>
+    <system:String x:Key="Sp63Normal_NonFiniteLoad">Усилия должны быть конечными числами.</system:String>
+    <system:String x:Key="Sp63Normal_BiaxialLoad">Упрощённая проверка одноосная; ненулевой момент в другой плоскости требует НДМ.</system:String>
+    <system:String x:Key="Sp63Normal_ZeroLoad">Нулевая комбинация N, Mx и My не образует проверяемого загружения.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidCompressionZone">Не удалось определить допустимую сжатую зону.</system:String>
+    <system:String x:Key="Sp63Normal_NonpositiveCapacity">Несущая способность получилась неположительной.</system:String>
+    <system:String x:Key="Sp63Normal_CentralTensionCheck">Центральное растяжение: N ≤ Rs·As</system:String>
+    <system:String x:Key="Sp63Normal_BendingCheck">Изгиб: M ≤ Mᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_SymmetricBendingCheck">Изгиб симметричного армирования: M ≤ Mᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_EccentricTensionCheck">Внецентренное растяжение: N·e ≤ Mᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_EccentricTensionPrimeCheck">Внецентренное растяжение: N·e′ ≤ M′ᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_CompressionCheck">Внецентренное сжатие: N·e ≤ Mᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_StabilityCheck">Проверка устойчивости: N ≤ Ncr</system:String>
+    <system:String x:Key="Sp63Normal_CompressionZoneRatio">Относительная высота сжатой зоны ξ = x/h₀</system:String>
+    <system:String x:Key="Sp63Normal_AccidentalEccentricity">Учтён случайный эксцентриситет ea = max(L/600, h/30, 10 мм)</system:String>
+    <system:String x:Key="Sp63Normal_SymmetricBranch">Применена ветвь симметричного армирования по п. 8.1.9.</system:String>
+    <system:String x:Key="Sp63Normal_StabilityExcludedExplicitly">Влияние прогиба η явно исключено режимом «Только сечение».</system:String>
+    <system:String x:Key="Sp63Normal_UnstableElement">Расчётная устойчивость элемента не обеспечена или коэффициент η не определён.</system:String>
+    <system:String x:Key="Sp63Normal_MissingAccidentalEccentricityLength">Для сжатия в режиме элемента укажите длину L.</system:String>
+    <system:String x:Key="Sp63Normal_MissingEffectiveLength">Для расчёта η укажите расчётную длину l₀.</system:String>
+    <system:String x:Key="Sp63Normal_MissingConcreteStrain">Для бетона не задана предельная деформация сжатия.</system:String>
+    <system:String x:Key="Sp63Normal_MissingRebarModulus">Для арматуры не задан модуль упругости.</system:String>
 
     <system:String x:Key="ShearInclinedForceSource">Источник усилий</system:String>
     <system:String x:Key="ShearInclinedManualForces">Усилия расчётного сечения</system:String>

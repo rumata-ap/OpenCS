@@ -1584,6 +1584,81 @@
     <system:String x:Key="Sp63NormalApplicabilityTitle">Applicability</system:String>
     <system:String x:Key="Sp63NormalInformationTitle">Information</system:String>
     <system:String x:Key="Sp63NormalStrengthTitle">Strength check</system:String>
+    <system:String x:Key="Sp63NormalVariablesTitle">Variables used</system:String>
+    <system:String x:Key="Sp63NormalTaskLabel">Task</system:String>
+    <system:String x:Key="Sp63NormalSectionLabel">Section</system:String>
+    <system:String x:Key="Sp63NormalCreatedLabel">Calculated</system:String>
+    <system:String x:Key="Sp63NormalContextTitle">Check parameters</system:String>
+    <system:String x:Key="Sp63NormalForcesTitle">Input forces</system:String>
+    <system:String x:Key="Sp63NormalFormulaColumn">Formula</system:String>
+    <system:String x:Key="Sp63NormalDescriptionColumn">Check</system:String>
+    <system:String x:Key="Sp63NormalAppliedColumn">Applied</system:String>
+    <system:String x:Key="Sp63NormalAllowableColumn">Allowable</system:String>
+    <system:String x:Key="Sp63NormalRatioColumn">Ratio</system:String>
+    <system:String x:Key="Sp63NormalResultColumn">Result</system:String>
+    <system:String x:Key="Sp63NormalCheckPassed">passed</system:String>
+    <system:String x:Key="Sp63NormalCheckNotPassed">not passed</system:String>
+    <system:String x:Key="Sp63NormalVerdictInvalidInput">Invalid input data</system:String>
+    <system:String x:Key="Sp63NormalBranchCompression">Eccentric compression</system:String>
+    <system:String x:Key="Sp63NormalBranchBending">Bending</system:String>
+    <system:String x:Key="Sp63NormalBranchCentralTension">Central tension</system:String>
+    <system:String x:Key="Sp63NormalBranchEccentricTensionBetween">Eccentric tension: between resultants</system:String>
+    <system:String x:Key="Sp63NormalBranchEccentricTensionOutside">Eccentric tension: outside resultants</system:String>
+    <system:String x:Key="Sp63NormalBranchNotApplicable">Code check is not available</system:String>
+    <system:String x:Key="Sp63NormalBranchInvalidInput">Invalid input data</system:String>
+    <system:String x:Key="Sp63NormalBranchUnknown">Branch is not defined</system:String>
+    <system:String x:Key="Sp63NormalNoTask">Task without a label</system:String>
+    <system:String x:Key="Sp63NormalNoSection">Section not found</system:String>
+    <system:String x:Key="Sp63NormalNoForceData">Input forces are unavailable</system:String>
+    <system:String x:Key="Sp63NormalNoTaskContext">Task parameters are unavailable</system:String>
+    <system:String x:Key="Sp63NormalNotSpecified">not specified</system:String>
+    <system:String x:Key="Sp63NormalForcesFormat">N = {0} kN; Mx = {1} kN·m; My = {2} kN·m</system:String>
+    <system:String x:Key="Sp63NormalContextFormat">{0}; {1}; {2}; L = {3} m; l₀ = {4} m; {5}; ψ = {6}; l₀/h = {7}</system:String>
+    <system:String x:Key="Sp63NormalVariableFormat">{0} = {1}</system:String>
+    <system:String x:Key="Sp63NormalVariableSeparator">; </system:String>
+    <system:String x:Key="Sp63NormalNotANumber">not a number</system:String>
+    <system:String x:Key="Sp63NormalPositiveInfinity">+∞</system:String>
+    <system:String x:Key="Sp63NormalNegativeInfinity">−∞</system:String>
+
+    <!-- Simplified normal-section result messages -->
+    <system:String x:Key="Sp63Normal_InvalidInput">Task parameters do not match the supported contract.</system:String>
+    <system:String x:Key="Sp63Normal_HandlerError">The simplified normal-section check could not be completed.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidResultJson">Result data is damaged or has an unknown format.</system:String>
+    <system:String x:Key="Sp63Normal_GeometryNotSupported">The formula check supports only a solid rectangular section without holes.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidTensionDirection">The tension face could not be determined from the moment direction.</system:String>
+    <system:String x:Key="Sp63Normal_MissingConcreteResistance">The concrete design compressive resistance is missing.</system:String>
+    <system:String x:Key="Sp63Normal_PrestressedRebar">Prestressed reinforcement is outside the simplified formula mode.</system:String>
+    <system:String x:Key="Sp63Normal_MissingRebarMaterial">The reinforcement material is missing.</system:String>
+    <system:String x:Key="Sp63Normal_NonPointRebar">The simplified mode supports point reinforcement bars only.</system:String>
+    <system:String x:Key="Sp63Normal_MissingRebarResistance">Reinforcement design resistances are missing.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidRebarArea">The bar area must be positive.</system:String>
+    <system:String x:Key="Sp63Normal_MissingRebar">Longitudinal reinforcement was not found in the section.</system:String>
+    <system:String x:Key="Sp63Normal_MixedRebarResistance">The resistances of the outer reinforcement layers must match.</system:String>
+    <system:String x:Key="Sp63Normal_InsufficientRebarLayers">At least two longitudinal reinforcement levels are required.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidRebarGeometry">The reinforcement layer geometry cannot form a profile.</system:String>
+    <system:String x:Key="Sp63Normal_ShapeNotSupported">The selected section shape is not supported yet.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidAxis">The bending plane is unknown.</system:String>
+    <system:String x:Key="Sp63Normal_NonFiniteLoad">Forces must be finite numbers.</system:String>
+    <system:String x:Key="Sp63Normal_BiaxialLoad">The simplified check is uniaxial; a nonzero moment in the other plane requires NDM.</system:String>
+    <system:String x:Key="Sp63Normal_ZeroLoad">A zero N, Mx and My combination does not form a checkable loading.</system:String>
+    <system:String x:Key="Sp63Normal_InvalidCompressionZone">A valid compression zone could not be determined.</system:String>
+    <system:String x:Key="Sp63Normal_NonpositiveCapacity">The calculated resistance is not positive.</system:String>
+    <system:String x:Key="Sp63Normal_CentralTensionCheck">Central tension: N ≤ Rs·As</system:String>
+    <system:String x:Key="Sp63Normal_BendingCheck">Bending: M ≤ Mᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_SymmetricBendingCheck">Symmetric reinforcement bending: M ≤ Mᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_EccentricTensionCheck">Eccentric tension: N·e ≤ Mᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_EccentricTensionPrimeCheck">Eccentric tension: N·e′ ≤ M′ᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_CompressionCheck">Eccentric compression: N·e ≤ Mᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_StabilityCheck">Stability check: N ≤ Ncr</system:String>
+    <system:String x:Key="Sp63Normal_CompressionZoneRatio">Relative compression-zone height ξ = x/h₀</system:String>
+    <system:String x:Key="Sp63Normal_AccidentalEccentricity">Accidental eccentricity ea = max(L/600, h/30, 10 mm) included</system:String>
+    <system:String x:Key="Sp63Normal_SymmetricBranch">The symmetric-reinforcement branch per cl. 8.1.9 was applied.</system:String>
+    <system:String x:Key="Sp63Normal_StabilityExcludedExplicitly">Deflection influence η was explicitly excluded by “Section only” mode.</system:String>
+    <system:String x:Key="Sp63Normal_UnstableElement">Member stability is not ensured or η could not be determined.</system:String>
+    <system:String x:Key="Sp63Normal_MissingAccidentalEccentricityLength">Specify member length L for compression.</system:String>
+    <system:String x:Key="Sp63Normal_MissingEffectiveLength">Specify effective length l₀ to calculate η.</system:String>
+    <system:String x:Key="Sp63Normal_MissingConcreteStrain">The concrete ultimate compression strain is missing.</system:String>
+    <system:String x:Key="Sp63Normal_MissingRebarModulus">The reinforcement modulus of elasticity is missing.</system:String>
 
     <system:String x:Key="ShearInclinedForceSource">Force source</system:String>
     <system:String x:Key="ShearInclinedManualForces">Design section forces</system:String>

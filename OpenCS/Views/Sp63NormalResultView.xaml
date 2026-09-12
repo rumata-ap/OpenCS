@@ -1,0 +1,168 @@
+<UserControl x:Class="OpenCS.Views.Sp63NormalResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+   <Grid Margin="16">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <Grid Grid.Row="0" Margin="0,0,0,8">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+         </Grid.ColumnDefinitions>
+         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+         </Grid.RowDefinitions>
+         <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Sp63NormalTaskLabel}"
+                    FontWeight="SemiBold" Margin="0,0,8,2"/>
+         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding TaskTag}" FontSize="16" FontWeight="Bold"/>
+         <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Sp63NormalSectionLabel}"
+                    Foreground="Gray" Margin="0,0,8,2"/>
+         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SectionTag}" Foreground="Gray"/>
+         <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Sp63NormalCreatedLabel}"
+                    Foreground="Gray" Margin="0,0,8,0"/>
+         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CreatedText}" Foreground="Gray"/>
+      </Grid>
+
+      <Border Grid.Row="1" Padding="8,6" Margin="0,0,0,4" CornerRadius="4"
+              Background="#F0F4F8" BorderBrush="#D5DDE5" BorderThickness="1">
+         <StackPanel>
+            <TextBlock Text="{DynamicResource Sp63NormalContextTitle}" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding ContextSummary}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+         </StackPanel>
+      </Border>
+
+      <Border Grid.Row="2" Padding="8,6" Margin="0,0,0,8" CornerRadius="4"
+              Background="#FFF8F0" BorderBrush="#E8D5C0" BorderThickness="1">
+         <StackPanel>
+            <TextBlock Text="{DynamicResource Sp63NormalForcesTitle}" FontWeight="SemiBold"/>
+            <TextBlock Text="{Binding ForcesSummary}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+         </StackPanel>
+      </Border>
+
+      <Border Grid.Row="3" Padding="12,8" Margin="0,0,0,8" CornerRadius="4"
+              Background="{Binding VerdictBackground}">
+         <StackPanel>
+            <TextBlock Text="{Binding VerdictText}" HorizontalAlignment="Center"
+                       FontWeight="Bold" FontSize="14" Foreground="{Binding VerdictBrush}"/>
+            <TextBlock Text="{Binding BranchText}" HorizontalAlignment="Center"
+                       Foreground="{Binding VerdictBrush}" Margin="0,2,0,0"/>
+         </StackPanel>
+      </Border>
+
+      <ScrollViewer Grid.Row="4" Grid.RowSpan="3" VerticalScrollBarVisibility="Auto">
+         <StackPanel>
+            <GroupBox Header="{DynamicResource Sp63NormalStrengthTitle}" Margin="0,0,0,8"
+                      Visibility="{Binding StrengthVisibility}">
+               <StackPanel Margin="4">
+                  <Grid Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="100"/>
+                     </Grid.ColumnDefinitions>
+                     <TextBlock Grid.Column="0" Text="{DynamicResource Sp63NormalFormulaColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="1" Text="{DynamicResource Sp63NormalDescriptionColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="2" Text="{DynamicResource Sp63NormalAppliedColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="3" Text="{DynamicResource Sp63NormalAllowableColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="4" Text="{DynamicResource Sp63NormalRatioColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="5" Text="{DynamicResource Sp63NormalResultColumn}" FontWeight="SemiBold"/>
+                  </Grid>
+                  <ItemsControl ItemsSource="{Binding StrengthRows}">
+                     <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                           <Border Padding="4" Margin="0,0,0,4" BorderBrush="#E0E0E0" BorderThickness="1">
+                              <StackPanel>
+                                 <Grid>
+                                    <Grid.ColumnDefinitions>
+                                       <ColumnDefinition Width="70"/>
+                                       <ColumnDefinition Width="*"/>
+                                       <ColumnDefinition Width="100"/>
+                                       <ColumnDefinition Width="100"/>
+                                       <ColumnDefinition Width="90"/>
+                                       <ColumnDefinition Width="100"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Formula}" FontWeight="Bold"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Description}" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding AppliedText}"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding AllowableText}"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding RatioText}"/>
+                                    <TextBlock Grid.Column="5" Text="{Binding PassedText}" Foreground="{Binding PassedBrush}" FontWeight="Bold"/>
+                                 </Grid>
+                                 <TextBlock Text="{Binding NormReference}" Foreground="Gray" FontSize="11" Margin="70,2,0,0"/>
+                                 <TextBlock Text="{Binding VariablesText}" Foreground="DarkSlateBlue" FontSize="11"
+                                            TextWrapping="Wrap" Margin="70,2,0,0"/>
+                              </StackPanel>
+                           </Border>
+                        </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+               </StackPanel>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource Sp63NormalApplicabilityTitle}" Margin="0,0,0,8"
+                      Visibility="{Binding ApplicabilityVisibility}">
+               <ItemsControl ItemsSource="{Binding ApplicabilityRows}" Margin="4">
+                  <ItemsControl.ItemTemplate>
+                     <DataTemplate>
+                        <Border Padding="4" Margin="0,0,0,4" BorderBrush="#E8D5C0" BorderThickness="1">
+                           <StackPanel>
+                              <TextBlock Text="{Binding Text}" TextWrapping="Wrap"/>
+                              <TextBlock Text="{Binding NormReference}" Foreground="Gray" FontSize="11" Margin="0,2,0,0"/>
+                              <TextBlock Text="{Binding Code}" Foreground="Gray" FontSize="10" Margin="0,2,0,0"/>
+                           </StackPanel>
+                        </Border>
+                     </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+               </ItemsControl>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource Sp63NormalInformationTitle}" Margin="0,0,0,8"
+                      Visibility="{Binding InformationVisibility}">
+               <ItemsControl ItemsSource="{Binding InformationRows}" Margin="4">
+                  <ItemsControl.ItemTemplate>
+                     <DataTemplate>
+                        <Border Padding="4" Margin="0,0,0,4" BorderBrush="#D5DDE5" BorderThickness="1">
+                           <StackPanel>
+                              <TextBlock Text="{Binding Text}" TextWrapping="Wrap"/>
+                              <TextBlock Text="{Binding NormReference}" Foreground="Gray" FontSize="11" Margin="0,2,0,0"/>
+                           </StackPanel>
+                        </Border>
+                     </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+               </ItemsControl>
+            </GroupBox>
+
+            <GroupBox Header="{DynamicResource Sp63NormalVariablesTitle}"
+                      Visibility="{Binding VariablesVisibility}">
+               <ItemsControl ItemsSource="{Binding VariableRows}" Margin="4">
+                  <ItemsControl.ItemTemplate>
+                     <DataTemplate>
+                        <Grid Margin="0,0,0,2">
+                           <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="220"/>
+                              <ColumnDefinition Width="*"/>
+                           </Grid.ColumnDefinitions>
+                           <TextBlock Grid.Column="0" Text="{Binding Name}"/>
+                           <TextBlock Grid.Column="1" Text="{Binding ValueText}"/>
+                        </Grid>
+                     </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+               </ItemsControl>
+            </GroupBox>
+         </StackPanel>
+      </ScrollViewer>
+   </Grid>
+</UserControl>
