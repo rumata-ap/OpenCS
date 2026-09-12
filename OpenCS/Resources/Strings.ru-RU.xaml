@@ -1584,6 +1584,7 @@
     <system:String x:Key="Sp63NormalApplicabilityTitle">Область применимости</system:String>
     <system:String x:Key="Sp63NormalInformationTitle">Справочная информация</system:String>
     <system:String x:Key="Sp63NormalStrengthTitle">Проверка прочности</system:String>
+    <system:String x:Key="Sp63NormalConstructiveTitle">Конструктивные требования (раздел 10)</system:String>
     <system:String x:Key="Sp63NormalVariablesTitle">Использованные переменные</system:String>
     <system:String x:Key="Sp63NormalTaskLabel">Задача</system:String>
     <system:String x:Key="Sp63NormalSectionLabel">Сечение</system:String>
@@ -1596,6 +1597,8 @@
     <system:String x:Key="Sp63NormalAllowableColumn">Допустимое</system:String>
     <system:String x:Key="Sp63NormalRatioColumn">Коэфф.</system:String>
     <system:String x:Key="Sp63NormalResultColumn">Результат</system:String>
+    <system:String x:Key="Sp63NormalMuMinColumn">μs,min, %</system:String>
+    <system:String x:Key="Sp63NormalMuActualColumn">μs, %</system:String>
     <system:String x:Key="Sp63NormalCheckPassed">пройдено</system:String>
     <system:String x:Key="Sp63NormalCheckNotPassed">не пройдено</system:String>
     <system:String x:Key="Sp63NormalVerdictInvalidInput">Ошибка исходных данных</system:String>
@@ -1659,6 +1662,10 @@
     <system:String x:Key="Sp63Normal_MissingEffectiveLength">Для расчёта η укажите расчётную длину l₀.</system:String>
     <system:String x:Key="Sp63Normal_MissingConcreteStrain">Для бетона не задана предельная деформация сжатия.</system:String>
     <system:String x:Key="Sp63Normal_MissingRebarModulus">Для арматуры не задан модуль упругости.</system:String>
+    <system:String x:Key="Sp63Normal_MinReinforcementTension">Минимальный процент армирования, растянутая арматура: μs,min ≤ μs</system:String>
+    <system:String x:Key="Sp63Normal_MinReinforcementCompression">Минимальный процент армирования, сжатая арматура: μs,min ≤ μs</system:String>
+    <system:String x:Key="Sp63Normal_MinReinforcementCentralTension">Минимальный процент армирования при центральном растяжении (вся арматура к полному сечению бетона): μs,min ≤ μs</system:String>
+    <system:String x:Key="Sp63Normal_MinReinforcementSlendernessUnknown">Минимальный процент армирования по п. 10.3.6 не проверен: не задана расчётная длина l₀.</system:String>
 
     <system:String x:Key="ShearInclinedForceSource">Источник усилий</system:String>
     <system:String x:Key="ShearInclinedManualForces">Усилия расчётного сечения</system:String>

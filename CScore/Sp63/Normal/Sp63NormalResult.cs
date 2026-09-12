@@ -17,6 +17,12 @@ public sealed class Sp63NormalResult
     /// <summary>Числовые условия, непосредственно входящие в вердикт прочности.</summary>
     public List<CheckDetail> StrengthDetails { get; set; } = [];
 
+    /// <summary>
+    /// Справочные проверки минимального армирования по п. 10.3.6 (раздел 10 СП 63).
+    /// Не входят в <see cref="StrengthPassed"/>.
+    /// </summary>
+    public List<CheckDetail> ConstructiveChecks { get; set; } = [];
+
     /// <summary>Причины неприменимости формульного режима.</summary>
     public List<Sp63NormalMessage> ApplicabilityMessages { get; set; } = [];
 

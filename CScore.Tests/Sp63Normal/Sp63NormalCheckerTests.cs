@@ -147,6 +147,31 @@ public sealed class Sp63NormalCheckerTests
     }
 
     [Fact]
+    public void Bending_PopulatesConstructiveChecks_WithoutAffectingStrengthPassed()
+    {
+        var result = Check(new LoadItem { N = 0.0, Mx = -20.0 });
+
+        Assert.NotEmpty(result.ConstructiveChecks);
+        Assert.All(result.ConstructiveChecks,
+            detail => Assert.Equal("10.3.6", detail.NormReference));
+    }
+
+    [Fact]
+    public void Compression_BelowMinReinforcement_FailsConstructiveCheck_ButNotStrength()
+    {
+        // Символическая арматура почти нулевой площади: несущую способность даёт
+        // в основном бетон, поэтому прочность может пройти, а 10.3.6 - нет.
+        var section = Sp63NormalFixtures.TwoLayerRectangle(0.30, 0.60,
+            tensionArea: 1e-7, compressionArea: 1e-7);
+        var result = Sp63NormalChecker.Check(section,
+            new LoadItem { N = -50.0, Mx = -2.0 }, CalcType.C,
+            Sp63NormalFixtures.MemberOptions());
+
+        Assert.Equal(Sp63NormalStatus.Calculated, result.Status);
+        Assert.Contains(result.ConstructiveChecks, detail => !detail.Passed);
+    }
+
+    [Fact]
     public void SymmetricBranch_UsesXOverTwo_WhenCompressionSteelExcludedXIsSmall()
     {
         var section = Sp63NormalFixtures.TwoLayerRectangle(0.30, 0.60,

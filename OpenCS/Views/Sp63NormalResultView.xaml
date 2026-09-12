@@ -112,6 +112,55 @@
                </StackPanel>
             </GroupBox>
 
+            <GroupBox Header="{DynamicResource Sp63NormalConstructiveTitle}" Margin="0,0,0,8"
+                      Visibility="{Binding ConstructiveVisibility}">
+               <StackPanel Margin="4">
+                  <Grid Margin="0,0,0,4">
+                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="70"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="100"/>
+                     </Grid.ColumnDefinitions>
+                     <TextBlock Grid.Column="0" Text="{DynamicResource Sp63NormalFormulaColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="1" Text="{DynamicResource Sp63NormalDescriptionColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="2" Text="{DynamicResource Sp63NormalMuMinColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="3" Text="{DynamicResource Sp63NormalMuActualColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="4" Text="{DynamicResource Sp63NormalRatioColumn}" FontWeight="SemiBold"/>
+                     <TextBlock Grid.Column="5" Text="{DynamicResource Sp63NormalResultColumn}" FontWeight="SemiBold"/>
+                  </Grid>
+                  <ItemsControl ItemsSource="{Binding ConstructiveRows}">
+                     <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                           <Border Padding="4" Margin="0,0,0,4" BorderBrush="#E0E0E0" BorderThickness="1">
+                              <StackPanel>
+                                 <Grid>
+                                    <Grid.ColumnDefinitions>
+                                       <ColumnDefinition Width="70"/>
+                                       <ColumnDefinition Width="*"/>
+                                       <ColumnDefinition Width="100"/>
+                                       <ColumnDefinition Width="100"/>
+                                       <ColumnDefinition Width="90"/>
+                                       <ColumnDefinition Width="100"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Formula}" FontWeight="Bold"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Description}" TextWrapping="Wrap"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding AppliedText}"/>
+                                    <TextBlock Grid.Column="3" Text="{Binding AllowableText}"/>
+                                    <TextBlock Grid.Column="4" Text="{Binding RatioText}"/>
+                                    <TextBlock Grid.Column="5" Text="{Binding PassedText}" Foreground="{Binding PassedBrush}" FontWeight="Bold"/>
+                                 </Grid>
+                                 <TextBlock Text="{Binding NormReference}" Foreground="Gray" FontSize="11" Margin="70,2,0,0"/>
+                              </StackPanel>
+                           </Border>
+                        </DataTemplate>
+                     </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+               </StackPanel>
+            </GroupBox>
+
             <GroupBox Header="{DynamicResource Sp63NormalApplicabilityTitle}" Margin="0,0,0,8"
                       Visibility="{Binding ApplicabilityVisibility}">
                <ItemsControl ItemsSource="{Binding ApplicabilityRows}" Margin="4">

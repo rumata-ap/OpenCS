@@ -1584,6 +1584,7 @@
     <system:String x:Key="Sp63NormalApplicabilityTitle">Applicability</system:String>
     <system:String x:Key="Sp63NormalInformationTitle">Information</system:String>
     <system:String x:Key="Sp63NormalStrengthTitle">Strength check</system:String>
+    <system:String x:Key="Sp63NormalConstructiveTitle">Constructive requirements (section 10)</system:String>
     <system:String x:Key="Sp63NormalVariablesTitle">Variables used</system:String>
     <system:String x:Key="Sp63NormalTaskLabel">Task</system:String>
     <system:String x:Key="Sp63NormalSectionLabel">Section</system:String>
@@ -1596,6 +1597,8 @@
     <system:String x:Key="Sp63NormalAllowableColumn">Allowable</system:String>
     <system:String x:Key="Sp63NormalRatioColumn">Ratio</system:String>
     <system:String x:Key="Sp63NormalResultColumn">Result</system:String>
+    <system:String x:Key="Sp63NormalMuMinColumn">μs,min, %</system:String>
+    <system:String x:Key="Sp63NormalMuActualColumn">μs, %</system:String>
     <system:String x:Key="Sp63NormalCheckPassed">passed</system:String>
     <system:String x:Key="Sp63NormalCheckNotPassed">not passed</system:String>
     <system:String x:Key="Sp63NormalVerdictInvalidInput">Invalid input data</system:String>
@@ -1659,6 +1662,10 @@
     <system:String x:Key="Sp63Normal_MissingEffectiveLength">Specify effective length l₀ to calculate η.</system:String>
     <system:String x:Key="Sp63Normal_MissingConcreteStrain">The concrete ultimate compression strain is missing.</system:String>
     <system:String x:Key="Sp63Normal_MissingRebarModulus">The reinforcement modulus of elasticity is missing.</system:String>
+    <system:String x:Key="Sp63Normal_MinReinforcementTension">Minimum reinforcement ratio, tension reinforcement: μs,min ≤ μs</system:String>
+    <system:String x:Key="Sp63Normal_MinReinforcementCompression">Minimum reinforcement ratio, compression reinforcement: μs,min ≤ μs</system:String>
+    <system:String x:Key="Sp63Normal_MinReinforcementCentralTension">Minimum reinforcement ratio for central tension (all reinforcement over full concrete section): μs,min ≤ μs</system:String>
+    <system:String x:Key="Sp63Normal_MinReinforcementSlendernessUnknown">Minimum reinforcement ratio per cl. 10.3.6 was not checked: effective length l₀ is not specified.</system:String>
 
     <system:String x:Key="ShearInclinedForceSource">Force source</system:String>
     <system:String x:Key="ShearInclinedManualForces">Design section forces</system:String>
