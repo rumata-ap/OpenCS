@@ -259,6 +259,21 @@ namespace CScore
             return Math.Max(0.0, Math.Min(xm, h0));
         }
 
+        /// <summary>
+        /// П. 8.2.16, ф. (8.134): напряжение в растянутой арматуре сечения с трещиной
+        /// от совместного действия M и N (N со знаком: "+" — растяжение), с приведением
+        /// к сечению с трещиной (aRedCrc/iRedCrc — площадь/момент инерции приведённого
+        /// сечения по сжатой зоне бетона и арматуре, см. вызывающий код).
+        /// </summary>
+        internal static double ComputeSigmaSCrackedSection(
+            double M, double N, double h0, double xm,
+            double aRedCrc, double iRedCrc, double alpha, double rsSer)
+        {
+            if (iRedCrc < 1e-15 || aRedCrc < 1e-15) return 0.0;
+            double sigma = alpha * (M * (h0 - xm) / iRedCrc + N / aRedCrc);
+            return Math.Clamp(sigma, 0.0, rsSer);
+        }
+
         internal static void FullSectionProps(double h, double h0, double aPrime,
             double As_t, double As_c, double alphaFull,
             out double A_red, out double I_red)
@@ -337,46 +352,30 @@ namespace CScore
             r.Mcrc = mcrc;
             r.Cracked = M_des > mcrc;
 
-            double xmM = NeutralAxis(h0, a_prime, As_t, As_c, alpha);
-            double xm = xmM;
-            if (Math.Abs(M_des) > 1e-9 && Math.Abs(N_des) > 1e-6)
-            {
-                double corr = I_red * N_des / (A_red * M_des);
-                xm = Math.Max(0.0, Math.Min(xmM - corr, h0));
-            }
+            // Нейтральная ось приведённого сечения с трещиной (п. 8.2.28) не зависит
+            // от M/N — только от геометрии и модульного отношения (упругая теория).
+            double xm = NeutralAxis(h0, a_prime, As_t, As_c, alpha);
             r.Xm = xm;
             double zs = h0 - xm / 3.0;
             r.Zs = zs;
 
-            double sigma_s = 0;
-            if (zs > 1e-9)
-            {
-                double AsTot = As_t + (As_c > 0 ? As_c : As_t);
-                sigma_s = M_des / (zs * As_t) + N_des / AsTot;
-                if (sigma_s > Rs_ser) sigma_s = Rs_ser;
-                if (sigma_s < 0) sigma_s = 0;
-            }
+            // Приведённые площадь/момент инерции сечения С ТРЕЩИНОЙ (сжатая зона бетона
+            // + арматура, п. 8.2.16), в отличие от A_red/I_red выше — тех же величин БЕЗ
+            // трещины, используемых только для Mcrc (п. 8.2.11-8.2.12).
+            double aRedCrc = xm + alpha * (As_t + As_c);
+            double iRedCrc = xm * xm * xm / 3.0
+                + alpha * As_t * (h0 - xm) * (h0 - xm)
+                + alpha * As_c * (xm - a_prime) * (xm - a_prime);
+
+            // П. 8.2.16, ф. (8.134): σs = [M·(h0-yc)/Ired ± N/Ared]·αs1, yc = xm.
+            // Знак "плюс" при растягивающей N (здесь N_des уже несёт знак: + растяжение).
+            // При N=0 совпадает с допускаемой ф. (8.132) σs = M/(zs·As).
+            double sigma_s = ComputeSigmaSCrackedSection(M_des, N_des, h0, xm, aRedCrc, iRedCrc, alpha, Rs_ser);
             r.Sigma_s_MPa = sigma_s / 1000.0;
 
-            double sigma_s_crc = sigma_s;
-            if (r.Cracked && mcrc > 1e-9)
-            {
-                double xmCrc = xmM;
-                if (Math.Abs(mcrc) > 1e-9 && Math.Abs(N_des) > 1e-6)
-                {
-                    double corrCrc = I_red * N_des / (A_red * mcrc);
-                    xmCrc = Math.Max(0.0, Math.Min(xmM - corrCrc, h0));
-                }
-                double zsCrc = h0 - xmCrc / 3.0;
-                if (zsCrc > 1e-9)
-                {
-                    double AsTot = As_t + (As_c > 0 ? As_c : As_t);
-                    double sc = mcrc / (zsCrc * As_t) + N_des / AsTot;
-                    if (sc > Rs_ser) sc = Rs_ser;
-                    if (sc < 0) sc = 0;
-                    sigma_s_crc = sc;
-                }
-            }
+            double sigma_s_crc = r.Cracked && mcrc > 1e-9
+                ? ComputeSigmaSCrackedSection(mcrc, N_des, h0, xm, aRedCrc, iRedCrc, alpha, Rs_ser)
+                : sigma_s;
 
             double psi_s = 1.0;
             if (r.Cracked && sigma_s > 1e-3)
