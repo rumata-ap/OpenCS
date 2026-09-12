@@ -52,7 +52,8 @@ namespace OpenCS
             new OpenCS.Reporting.LimitForceReportProvider(),
             new OpenCS.Reporting.CrackingReportProvider(),
             new OpenCS.Reporting.CrackWidthReportProvider(),
-            new OpenCS.Reporting.TotalCurvatureReportProvider()
+            new OpenCS.Reporting.TotalCurvatureReportProvider(),
+            new OpenCS.Reporting.Sp63NormalReportProvider()
          ]);
 
       /// <summary>
