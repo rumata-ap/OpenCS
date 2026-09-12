@@ -271,6 +271,7 @@ namespace CScore
       {
          var area = new MaterialArea
          {
+            Category = AreaCategory.RebarGroup,
             Material = steelMaterial,
             MaterialId = steelMaterial.Id,
             DiagrammType = steelDiagrammType,
