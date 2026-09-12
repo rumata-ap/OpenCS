@@ -55,6 +55,7 @@ public static class CalcTaskExecutor
                 "not_converged" => "CalcResultNotConverged",
                 "partial" => "CalcResultPartial",
                 "not_passed" => "CalcResultNotPassed",
+                "not_applicable" => "CalcResultNotApplicable",
                 _ => "CalcResultError"
             };
             string done = string.Format(Loc.S(statusKey), task.Tag);

@@ -62,6 +62,7 @@ namespace OpenCS.Tasks
          ["opensees_section_interaction_n_mx_my"] = new OpenSeesSpatialInteractionHandler(),
          ["shear_inclined"]       = new ShearInclinedHandler(),
          ["shear_inclined_batch"] = new ShearInclinedBatchHandler(),
+         ["sp63_normal"]           = new Sp63NormalHandler(),
        };
 
       /// <summary>Выполняет задачу. Никогда не бросает — ошибки в CalcResult.Status.</summary>

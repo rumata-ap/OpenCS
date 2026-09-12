@@ -15,6 +15,7 @@ public static class CalcResultLogHelper
         {
             "error" => LogLevel.Error,
             "not_converged" or "partial" => LogLevel.Warning,
+            "not_applicable" => LogLevel.Info,
             _ => LogLevel.Info
         };
     }

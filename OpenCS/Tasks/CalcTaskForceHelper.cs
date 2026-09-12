@@ -1,4 +1,5 @@
 using CScore;
+using CScore.Sp63.Normal;
 
 namespace OpenCS.Tasks;
 
@@ -12,6 +13,7 @@ public static class CalcTaskForceHelper
       => task.Kind == "strain_state" || task.Kind == "cracking" || task.Kind == "crack_width"
          || task.Kind == "total_curvature" || task.Kind == "moment_curvature_biaxial"
          || task.Kind == "shear_inclined"
+         || task.Kind == "sp63_normal"
          || IsLimitSingleKind(task.Kind);
 
    /// <summary>Задачи, для которых не нужна строка стержневого набора усилий (batch / ParamsJson / оболочки / сталь).</summary>
@@ -66,6 +68,15 @@ public static class CalcTaskForceHelper
             return manual.ToLoadItem();
          // Профиль из FEM строит эпюру Q(s)/M(s) сам — строка усилий ему не нужна.
          return shear.ForceSource == "fem_profile" ? new LoadItem() : null;
+      }
+
+      // Нормальные сечения: ручные усилия хранятся в собственном контракте задачи.
+      // Ветка расположена до общего LimitForceParams.Parse, чтобы JSON не терялся
+      // в catch-all при отсутствии строки force-set.
+      if (task.Kind == "sp63_normal")
+      {
+         var normal = Sp63NormalTaskParams.Parse(task.ParamsJson);
+         return normal.UseManualForces ? normal.ToLoadItem() : null;
       }
 
       try
