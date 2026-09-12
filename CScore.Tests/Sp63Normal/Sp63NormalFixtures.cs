@@ -95,13 +95,14 @@ internal static class Sp63NormalFixtures
 
     /// <summary>Добавляет точечный стержень продольной арматуры.</summary>
     public static void AddBar(CrossSection section, double x, double y,
-        double area, Material rebar)
+        double area, Material rebar, double sigSp = 0.0)
     {
         var group = new MaterialArea
         {
             Category = AreaCategory.RebarGroup,
             Material = rebar,
-            MaterialId = rebar.Id
+            MaterialId = rebar.Id,
+            SigSp = sigSp
         };
         group.Fibers.Add(new Fiber
         {
@@ -112,4 +113,32 @@ internal static class Sp63NormalFixtures
         });
         section.Areas.Add(group);
     }
+
+    /// <summary>Создаёт прямоугольник с двумя симметричными слоями арматуры.</summary>
+    public static CrossSection TwoLayerRectangle(double width, double height,
+        double tensionArea, double compressionArea, double sigSp = 0.0,
+        bool useDifferentRebar = false)
+    {
+        var section = Rectangle(width, height);
+        AddBar(section, -width / 4, -height / 2 + 0.05, tensionArea,
+            Rebar(2), sigSp);
+        AddBar(section, width / 4, -height / 2 + 0.05, tensionArea,
+            useDifferentRebar ? Rebar(3, rs: 400_000.0) : Rebar(2), sigSp);
+        AddBar(section, -width / 4, height / 2 - 0.05, compressionArea,
+            Rebar(2), sigSp);
+        AddBar(section, width / 4, height / 2 - 0.05, compressionArea,
+            Rebar(2), sigSp);
+        return section;
+    }
+
+    /// <summary>Создаёт контекст элемента для тестов нормального расчёта.</summary>
+    public static CScore.Sp63.Normal.Sp63NormalOptions MemberOptions() => new(
+        CScore.Sp63.Normal.Sp63NormalShapeKind.Rectangular,
+        CScore.Sp63.Normal.Sp63NormalAxis.Mx,
+        new CScore.Sp63.Normal.Sp63MemberContext(
+            6.0,
+            CScore.Sp63.Normal.Sp63StructuralScheme.StaticallyIndeterminate,
+            4.2,
+            CScore.Sp63.Normal.Sp63NormalStabilityMode.Member,
+            1.0));
 }
