@@ -132,6 +132,55 @@ internal static class Sp63NormalFixtures
         return section;
     }
 
+    /// <summary>Создаёт тавровое сечение с двумя слоями арматуры (по два стержня в слое).</summary>
+    public static CrossSection Tee(double webWidth, double height, double flangeWidth,
+        double flangeThickness, bool flangeOnTop, double tensionY, double compressionY,
+        double tensionArea, double compressionArea, bool rotateForMy = false,
+        double sigSp = 0.0, double rb = 14_500.0)
+    {
+        double halfWeb = webWidth / 2;
+        var section = new CrossSection { Tag = "tee" };
+        section.Areas.Add(ConcreteRegion(Concrete(rb: rb), TeeVertices(webWidth, height,
+            flangeWidth, flangeThickness, flangeOnTop, rotateForMy)));
+        var steel = Rebar(2);
+        AddLayer(section, halfWeb / 2, tensionY, tensionArea / 2.0, steel, sigSp,
+            rotateForMy);
+        AddLayer(section, halfWeb / 2, compressionY, compressionArea / 2.0, steel,
+            sigSp, rotateForMy);
+        return section;
+    }
+
+    static (double X, double Y)[] TeeVertices(double webWidth, double height,
+        double flangeWidth, double flangeThickness, bool flangeOnTop, bool rotateForMy)
+    {
+        double xf = flangeWidth / 2, xw = webWidth / 2;
+        double y0 = -height / 2, y1 = height / 2;
+        double yf = flangeOnTop ? y1 - flangeThickness : y0 + flangeThickness;
+        (double X, double Y)[] vertices = flangeOnTop
+            ? [(-xf, y1), (xf, y1), (xf, yf), (xw, yf),
+               (xw, y0), (-xw, y0), (-xw, yf), (-xf, yf)]
+            : [(-xf, y0), (xf, y0), (xf, yf), (xw, yf),
+               (xw, y1), (-xw, y1), (-xw, yf), (-xf, yf)];
+        return rotateForMy
+            ? vertices.Select(vertex => (vertex.Y, vertex.X)).ToArray()
+            : vertices;
+    }
+
+    static void AddLayer(CrossSection section, double halfWidth, double heightCoordinate,
+        double area, Material steel, double sigSp, bool rotateForMy)
+    {
+        if (rotateForMy)
+        {
+            AddBar(section, heightCoordinate, -halfWidth, area, steel, sigSp);
+            AddBar(section, heightCoordinate, halfWidth, area, steel, sigSp);
+        }
+        else
+        {
+            AddBar(section, -halfWidth, heightCoordinate, area, steel, sigSp);
+            AddBar(section, halfWidth, heightCoordinate, area, steel, sigSp);
+        }
+    }
+
     /// <summary>Создаёт контекст элемента для тестов нормального расчёта.</summary>
     public static CScore.Sp63.Normal.Sp63NormalOptions MemberOptions() => new(
         CScore.Sp63.Normal.Sp63NormalShapeKind.Rectangular,

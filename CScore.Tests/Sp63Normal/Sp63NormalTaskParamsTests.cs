@@ -68,4 +68,53 @@ public sealed class Sp63NormalTaskParamsTests
         Assert.Empty(result.StrengthDetails);
         Assert.Single(result.ApplicabilityMessages);
     }
+
+    [Fact]
+    public void TeeShapeKind_IsAccepted()
+    {
+        var parameters = new Sp63NormalTaskParams { ShapeKind = "tee" };
+
+        Assert.True(parameters.TryToOptions(out var options, out var errorCode), errorCode);
+        Assert.Equal(Sp63NormalShapeKind.Tee, options.ShapeKind);
+    }
+
+    [Fact]
+    public void UnknownShapeKind_IsInvalidInput()
+    {
+        var parameters = new Sp63NormalTaskParams { ShapeKind = "i-section" };
+
+        Assert.False(parameters.TryToOptions(out _, out var errorCode));
+        Assert.Equal("invalid_shape_kind", errorCode);
+    }
+
+    [Fact]
+    public void NumericShapeKind_IsInvalidInput()
+    {
+        var parameters = new Sp63NormalTaskParams { ShapeKind = "1" };
+
+        Assert.False(parameters.TryToOptions(out _, out var errorCode));
+        Assert.Equal("invalid_shape_kind", errorCode);
+    }
+
+    [Fact]
+    public void SpanLength_RoundTripsAndAcceptsNull()
+    {
+        var source = new Sp63NormalTaskParams { ShapeKind = "tee", SpanLength = 6.3 };
+        var parsed = Sp63NormalTaskParams.Parse(source.ToJson());
+
+        Assert.Equal(6.3, parsed.SpanLength);
+        Assert.True(parsed.TryToOptions(out _, out _));
+
+        var withoutSpan = new Sp63NormalTaskParams { ShapeKind = "tee", SpanLength = null };
+        Assert.True(withoutSpan.TryToOptions(out _, out _));
+    }
+
+    [Fact]
+    public void NonPositiveSpanLength_IsInvalidInput()
+    {
+        var parameters = new Sp63NormalTaskParams { ShapeKind = "tee", SpanLength = 0.0 };
+
+        Assert.False(parameters.TryToOptions(out _, out var errorCode));
+        Assert.Equal("invalid_length", errorCode);
+    }
 }

@@ -115,4 +115,56 @@ public sealed class Sp63NormalTaskIntegrationTests
             if (File.Exists(path)) File.Delete(path);
         }
     }
+
+    [Fact]
+    public void TeeTask_SurvivesSaveAndReloadThroughGsdb()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-sp63-tee-{Guid.NewGuid():N}.db");
+        try
+        {
+            var parameters = new Sp63NormalTaskParams
+            {
+                ShapeKind = "tee",
+                Axis = "Mx",
+                StructuralScheme = "statically_indeterminate",
+                ElementLengthOrRestraintDistance = 6.0,
+                EffectiveLengthL0 = 4.2,
+                StabilityMode = "member",
+                Psi = 1.0,
+                SlendernessThreshold = 14.0,
+                SpanLength = 6.3,
+                UseManualForces = true,
+                N = 0.0,
+                Mx = -24.0
+            };
+
+            int taskId;
+            using (var db = new DatabaseService(path))
+            {
+                var task = new CalcTask
+                {
+                    Tag = "Балка Б-1",
+                    Kind = "sp63_normal",
+                    CalcType = CalcType.C,
+                    ParamsJson = parameters.ToJson()
+                };
+                db.SaveCalcTask(task);
+                taskId = task.Id;
+            }
+
+            using var reopened = new DatabaseService(path);
+            reopened.LoadAll();
+            var loaded = Assert.Single(reopened.CalcTasks, t => t.Id == taskId);
+            var loadedParams = Sp63NormalTaskParams.Parse(loaded.ParamsJson);
+
+            Assert.Equal("tee", loadedParams.ShapeKind);
+            Assert.Equal(6.3, loadedParams.SpanLength);
+            Assert.True(loadedParams.TryToOptions(out var options, out var errorCode), errorCode);
+            Assert.Equal(Sp63NormalShapeKind.Tee, options.ShapeKind);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
 }

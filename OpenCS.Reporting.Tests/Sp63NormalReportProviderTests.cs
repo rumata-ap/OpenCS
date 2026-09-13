@@ -32,6 +32,35 @@ public sealed class Sp63NormalReportProviderTests
          "InformationalMessages":[],"Variables":{}}
         """;
 
+    const string TeeCalculatedJson = """
+        {"Status":2,"StrengthPassed":true,"Branch":"bending",
+         "StrengthDetails":[
+            {"Formula":"(8.8)","Description":"Sp63Normal_TeeBendingCheck","NormReference":"8.1.11",
+             "Applied":1000.0,"Allowable":4741.5,"Variables":{"x":0.3,"hasCompressionFlange":1.0}}],
+         "ConstructiveChecks":[],"ApplicabilityMessages":[],"InformationalMessages":[],
+         "Variables":{"bw":0.4,"h":0.8,"x":0.3}}
+        """;
+
+    const string TeeUnsupportedJson = """
+        {"Status":1,"StrengthPassed":null,"Branch":"not_applicable",
+         "StrengthDetails":[],"ConstructiveChecks":[],
+         "ApplicabilityMessages":[
+            {"Code":"unsupported_load_case_for_tee","Kind":0,"NormReference":"8.1.11",
+             "Text":"Sp63Normal_UnsupportedLoadCaseForTee"}],
+         "InformationalMessages":[
+            {"Code":"suggest_ndm","Kind":1,"NormReference":"8.1","Text":"Sp63Normal_SuggestNdm"}],
+         "Variables":{}}
+        """;
+
+    const string TeeMissingSpanJson = """
+        {"Status":1,"StrengthPassed":null,"Branch":"not_applicable",
+         "StrengthDetails":[],"ConstructiveChecks":[],
+         "ApplicabilityMessages":[
+            {"Code":"missing_span_length","Kind":0,"NormReference":"8.1.11",
+             "Text":"Sp63Normal_MissingSpanLength"}],
+         "InformationalMessages":[],"Variables":{}}
+        """;
+
     static CalcTask MakeTask(string paramsJson = "{}") => new()
     {
         Id = 12,
@@ -100,5 +129,45 @@ public sealed class Sp63NormalReportProviderTests
         var registry = new ReportProviderRegistry([new Sp63NormalReportProvider()]);
         Assert.Contains("sp63_normal", registry.SupportedKinds);
         Assert.True(registry.TryResolve(new CalcTask { Kind = "sp63_normal" }, out _));
+    }
+
+    [Fact]
+    public void Provider_BuildsTeeInputRows_AndLocalizesMessages()
+    {
+        var task = MakeTask("""{"ShapeKind":"tee","Axis":"Mx","StructuralScheme":"statically_indeterminate","StabilityMode":"member","Psi":0.5,"SlendernessThreshold":14,"SpanLength":6.3}""");
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = TeeCalculatedJson };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+
+        var kvTables = document.Blocks.OfType<ReportKeyValueTable>().ToList();
+        Assert.Contains(kvTables, t => t.Rows.Any(r => r.Key == "Форма сечения" && r.Value == "тавр/двутавр"));
+        Assert.Contains(kvTables, t => t.Rows.Any(r => r.Key == "Пролёт элемента l, м" && r.Value.Contains("6.3")));
+        var allCells = document.Blocks.OfType<ReportTable>().SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.DoesNotContain(allCells, c => c.Contains("Sp63Normal_"));
+        Assert.Contains(allCells, c => c.Contains("Изгиб тавра"));
+    }
+
+    [Fact]
+    public void Provider_WarnsForUnsupportedLoadCaseTee_WithNdmHint()
+    {
+        var task = MakeTask("""{"ShapeKind":"tee","Axis":"Mx"}""");
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = TeeUnsupportedJson };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+
+        var allCells = document.Blocks.OfType<ReportTable>().SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.Contains(allCells, c => c.Contains("чистого изгиба") || c.Contains("НДМ"));
+    }
+
+    [Fact]
+    public void Provider_ShowsMissingSpanLengthReason()
+    {
+        var task = MakeTask("""{"ShapeKind":"tee","Axis":"Mx"}""");
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = TeeMissingSpanJson };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+
+        var allCells = document.Blocks.OfType<ReportTable>().SelectMany(t => t.Rows).SelectMany(r => r).ToList();
+        Assert.Contains(allCells, c => c.Contains("8.1.11") || c.Contains("пролёт"));
     }
 }

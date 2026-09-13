@@ -223,6 +223,7 @@
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
                      <RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
 
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Sp63NormalShape}"
@@ -230,6 +231,7 @@
                   <ComboBox Grid.Row="0" Grid.Column="1" SelectedValuePath="Tag"
                             SelectedValue="{Binding Sp63NormalShapeKind}" Margin="0,0,0,4">
                      <ComboBoxItem Tag="rectangular" Content="{DynamicResource Sp63NormalShapeRectangular}"/>
+                     <ComboBoxItem Tag="tee" Content="{DynamicResource Sp63NormalShapeTee}"/>
                   </ComboBox>
 
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Sp63NormalAxis}"
@@ -278,6 +280,13 @@
                              VerticalAlignment="Center" Margin="0,0,4,0"/>
                   <TextBox Grid.Row="7" Grid.Column="1"
                            Text="{Binding Sp63NormalSlendernessThreshold, UpdateSourceTrigger=PropertyChanged}"/>
+
+                  <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource Sp63NormalSpanLength}"
+                             VerticalAlignment="Center" Margin="0,0,4,0"
+                             Visibility="{Binding ShowSp63NormalSpanLength, Converter={StaticResource BoolToVisibility}}"/>
+                  <TextBox Grid.Row="8" Grid.Column="1"
+                           Text="{Binding Sp63NormalSpanLength, UpdateSourceTrigger=PropertyChanged}"
+                           Visibility="{Binding ShowSp63NormalSpanLength, Converter={StaticResource BoolToVisibility}}"/>
                </Grid>
 
                <TextBlock Text="{DynamicResource Sp63NormalInputsHint}"

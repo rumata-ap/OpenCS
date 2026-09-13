@@ -41,7 +41,8 @@ public sealed class Sp63NormalHandler : ITaskHandler
                 return MakeResult(task, created, invalid);
             }
 
-            var domain = Sp63NormalChecker.Check(section, item, task.CalcType, options);
+            var domain = Sp63NormalChecker.Check(section, item, task.CalcType, options,
+                parameters.SpanLength);
             return MakeResult(task, created, domain);
         }
         catch (Exception ex)

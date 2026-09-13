@@ -4,7 +4,10 @@ namespace CScore.Sp63.Normal;
 public enum Sp63NormalShapeKind
 {
     /// <summary>Сплошное осевое прямоугольное сечение.</summary>
-    Rectangular
+    Rectangular,
+
+    /// <summary>Тавровое или двутавровое сечение из осевых полос.</summary>
+    Tee
 }
 
 /// <summary>Ось изгиба одноосной проверки.</summary>

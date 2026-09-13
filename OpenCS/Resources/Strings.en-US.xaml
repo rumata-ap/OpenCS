@@ -1562,6 +1562,14 @@
     <system:String x:Key="Sp63NormalGroupTitle">Normal section per SP 63.13330</system:String>
     <system:String x:Key="Sp63NormalShape">Section shape</system:String>
     <system:String x:Key="Sp63NormalShapeRectangular">Solid rectangular</system:String>
+    <system:String x:Key="Sp63NormalShapeTee">Tee/I-section (flange and web)</system:String>
+    <system:String x:Key="Sp63NormalSpanLength">Member span l, m</system:String>
+    <system:String x:Key="Sp63Normal_NotATeeShape">The contour is a rectangle: select "Solid rectangular".</system:String>
+    <system:String x:Key="Sp63Normal_TeeGeometryNotSupported">The tee formula check supports only an axis-aligned contour of two or three strips without holes.</system:String>
+    <system:String x:Key="Sp63Normal_UnsupportedLoadCaseForTee">The simplified tee check covers pure bending only; eccentric compression/tension requires the nonlinear deformation model.</system:String>
+    <system:String x:Key="Sp63Normal_MissingSpanLength">Specify the member span l to account for flange overhangs per 8.1.11.</system:String>
+    <system:String x:Key="Sp63Normal_TeeBendingCheck">Tee/I-section bending: M ≤ Mult</system:String>
+    <system:String x:Key="Sp63Normal_TeeSymmetricBendingCheck">Tee/I-section bending (symmetric reinforcement): M ≤ Mult</system:String>
     <system:String x:Key="Sp63NormalAxis">Bending plane</system:String>
     <system:String x:Key="Sp63NormalAxisMx">Mx (height along Y)</system:String>
     <system:String x:Key="Sp63NormalAxisMy">My (height along X)</system:String>

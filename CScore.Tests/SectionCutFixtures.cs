@@ -83,6 +83,80 @@ internal static class SectionCutFixtures
         return new CrossSection { Tag = "reinforced-rect", Areas = [area, rebar] };
     }
 
+    /// <summary>
+    /// Тавр/двутавр с настраиваемыми полками и 4 стержнями Ø25.
+    /// Толщина полки 0 означает отсутствие полки с этой стороны.
+    /// </summary>
+    public static CrossSection BuildReinforcedTee(double webWidth, double height,
+        double topWidth, double topThickness, double bottomWidth,
+        double bottomThickness, int nx = 21, int ny = 21, bool rotateForMy = false)
+    {
+        var concrete = BuildConcreteMaterial();
+        double xw = webWidth / 2;
+        double y0 = -height / 2, y1 = height / 2;
+        double yb = bottomThickness > 0 ? y0 + bottomThickness : y0;
+        double yt = topThickness > 0 ? y1 - topThickness : y1;
+        double xb = bottomThickness > 0 ? bottomWidth / 2 : xw;
+        double xt = topThickness > 0 ? topWidth / 2 : xw;
+        var vertices = new List<(double X, double Y)>
+        {
+            (-xb, y0), (xb, y0)
+        };
+        if (bottomThickness > 0) vertices.Add((xb, yb));
+        if (bottomThickness > 0)
+            vertices.Add((xw, yb));
+        if (topThickness > 0)
+        {
+            vertices.Add((xw, yt));
+            vertices.Add((xt, yt));
+            vertices.Add((xt, y1));
+            vertices.Add((-xt, y1));
+            vertices.Add((-xt, yt));
+            vertices.Add((-xw, yt));
+        }
+        else
+        {
+            vertices.Add((xw, y1));
+            vertices.Add((-xw, y1));
+        }
+        vertices.Add((-xw, yb));
+        if (bottomThickness > 0) vertices.Add((-xb, yb));
+
+        if (rotateForMy)
+            vertices = vertices.Select(vertex => (vertex.Y, vertex.X)).ToList();
+
+        var hull = new Contour(
+            vertices.Select(vertex => vertex.X).Append(vertices[0].X).ToArray(),
+            vertices.Select(vertex => vertex.Y).Append(vertices[0].Y).ToArray(),
+            "tee")
+        { Type = ContourType.Hull };
+
+        var area = new MaterialArea
+        {
+            Id = 1, Tag = "tee", Category = AreaCategory.Region,
+            Material = concrete, MaterialId = concrete.Id,
+            DiagrammType = DiagrammType.L2, Contours = [hull], NX = nx, NY = ny
+        };
+        area.Hull = hull;
+        area.ResolveAndBuildDiagramms();
+        area.SliceXY(nx, ny);
+
+        var steel = BuildSteelMaterial();
+        double cover = 0.05, dia = 0.025;
+        double rx = webWidth / 2 - cover, ry = height / 2 - cover;
+        var barPoints = new[]
+        {
+            (X: -rx, Y: -ry), (X: rx, Y: -ry),
+            (X: rx, Y: ry), (X: -rx, Y: ry),
+        };
+        var bars = barPoints.Select(point => Fiber.CreatePoint(dia,
+            rotateForMy ? point.Y : point.X,
+            rotateForMy ? point.X : point.Y)).ToArray();
+        var rebar = MaterialArea.CreateRebarArea(bars, steel, DiagrammType.L2, area);
+
+        return new CrossSection { Tag = "reinforced-tee", Areas = [area, rebar] };
+    }
+
     /// <summary>Прямоугольное кольцо (outer hull + прямоугольная дыра в центре).</summary>
     public static CrossSection BuildHollowRectangle(double outerSize, double innerSize)
     {

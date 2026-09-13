@@ -5,41 +5,40 @@ namespace CScore.Sp63.Normal;
 /// <summary>Проверяет прямоугольное нормальное сечение по формулам СП 63.</summary>
 public static class Sp63NormalChecker
 {
-    const double ForceTolerance = 1e-9;
-    const double MomentTolerance = 1e-9;
-    const double RebarAreaTolerance = 1e-9;
-
     // Коды сообщений о неприменимости, для которых стоит явно предложить переход
     // к НДМ: отверстия/несколько бетонных областей, двуосный изгиб, сложная арматура.
-    static readonly HashSet<string> NdmSuggestionCodes =
+    internal static readonly HashSet<string> NdmSuggestionCodes =
     [
         "unsupported_geometry",
         "biaxial_load",
         "mixed_rebar_resistance",
         "insufficient_rebar_layers",
         "non_point_rebar",
-        "prestressed_rebar"
+        "prestressed_rebar",
+        "unsupported_load_case_for_tee"
     ];
 
     /// <summary>
-    /// Выполняет одноосную проверку прямоугольного железобетонного сечения.
+    /// Выполняет одноосную проверку прямоугольного или таврового железобетонного сечения.
     /// </summary>
     /// <param name="section">Расчётное сечение.</param>
     /// <param name="load">Нормальная сила и моменты в конвенции OpenCS.</param>
     /// <param name="calc">Вид расчёта для разрешения характеристик материалов.</param>
     /// <param name="options">Типизированные настройки формульного режима.</param>
+    /// <param name="spanLength">Пролёт для определения эффективной ширины сжатой полки тавра.</param>
     public static Sp63NormalResult Check(
         CrossSection section,
         LoadItem load,
         CalcType calc,
-        Sp63NormalOptions options)
+        Sp63NormalOptions options,
+        double? spanLength = null)
     {
         ArgumentNullException.ThrowIfNull(section);
         ArgumentNullException.ThrowIfNull(load);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(options.MemberContext);
 
-        if (options.ShapeKind != Sp63NormalShapeKind.Rectangular)
+        if (options.ShapeKind is not (Sp63NormalShapeKind.Rectangular or Sp63NormalShapeKind.Tee))
             return NotApplicable("unsupported_shape", "Sp63Normal_ShapeNotSupported", "8.1");
         if (!Enum.IsDefined(options.Axis))
             return InvalidInput("invalid_axis", "Sp63Normal_InvalidAxis", "8.1");
@@ -48,18 +47,21 @@ public static class Sp63NormalChecker
 
         double moment = options.Axis == Sp63NormalAxis.Mx ? load.Mx : load.My;
         double otherMoment = options.Axis == Sp63NormalAxis.Mx ? load.My : load.Mx;
-        if (Math.Abs(otherMoment) > MomentTolerance)
+        if (Math.Abs(otherMoment) > Sp63NormalTolerances.Moment)
             return NotApplicable("biaxial_load", "Sp63Normal_BiaxialLoad", "8.1");
 
-        if (load.N < -ForceTolerance)
+        if (options.ShapeKind == Sp63NormalShapeKind.Tee)
+            return Sp63TeeNormalChecker.Check(section, load, calc, options, spanLength);
+
+        if (load.N < -Sp63NormalTolerances.Force)
             return CheckCompression(section, load.N, moment, calc, options);
-        if (load.N > ForceTolerance)
+        if (load.N > Sp63NormalTolerances.Force)
         {
-            if (Math.Abs(moment) <= MomentTolerance)
+            if (Math.Abs(moment) <= Sp63NormalTolerances.Moment)
                 return CheckCentralTension(section, load.N, calc, options);
             return CheckEccentricTension(section, load.N, moment, calc, options);
         }
-        if (Math.Abs(moment) > MomentTolerance)
+        if (Math.Abs(moment) > Sp63NormalTolerances.Moment)
             return CheckBending(section, moment, calc, options);
 
         return NotApplicable("zero_load", "Sp63Normal_ZeroLoad", "8.1");
@@ -72,8 +74,9 @@ public static class Sp63NormalChecker
         if (!TryBuildProfile(section, options.Axis, calc, tensionDirection,
                 out var profile, out var messages))
             return NotApplicable(messages);
-        if (!TryResolveMaterialValues(section, calc, profile!, out var material,
-                out var materialMessage))
+        if (!Sp63NormalMaterialResolver.TryResolve(section, calc,
+                profile!.TensionLayer.Rs, profile.CompressionLayer.Rsc,
+                out var material, out var materialMessage))
             return NotApplicable(materialMessage!);
 
         double x = Sp63NormalFormulas.BendingX(
@@ -83,12 +86,12 @@ public static class Sp63NormalChecker
             profile.CompressionLayer.Area,
             material.Rb,
             profile.B);
-        if (!double.IsFinite(x) || x < -ForceTolerance)
+        if (!double.IsFinite(x) || x < -Sp63NormalTolerances.Force)
             return NotApplicable("invalid_compression_zone", "Sp63Normal_InvalidCompressionZone", "8.1.8");
 
         double xiR = Sp63NormalFormulas.XiR(material.Rs, material.Es, material.EpsilonB2);
         double xi = Math.Max(0.0, x) / profile.H0;
-        bool symmetricBranch = x <= 2.0 * profile.APrime + ForceTolerance;
+        bool symmetricBranch = x <= 2.0 * profile.APrime + Sp63NormalTolerances.Force;
         double allowable = symmetricBranch
             ? Sp63NormalFormulas.SymmetricMoment(
                 material.Rs,
@@ -111,7 +114,7 @@ public static class Sp63NormalChecker
         var variables = CommonVariables(loadN: 0.0, moment, tensionDirection,
             profile, material, x, xi, xiR);
         variables["compressionRebarExcluded"] =
-            profile.CompressionLayer.Area <= RebarAreaTolerance ? 1.0 : 0.0;
+            profile.CompressionLayer.Area <= Sp63NormalTolerances.RebarArea ? 1.0 : 0.0;
         var informational = XiMessage(xi, xiR);
         if (symmetricBranch)
         {
@@ -146,8 +149,9 @@ public static class Sp63NormalChecker
         if (!TryBuildProfile(section, options.Axis, calc, -1,
                 out var profile, out var messages))
             return NotApplicable(messages);
-        if (!TryResolveMaterialValues(section, calc, profile!, out var material,
-                out var materialMessage))
+        if (!Sp63NormalMaterialResolver.TryResolve(section, calc,
+                profile!.TensionLayer.Rs, profile.CompressionLayer.Rsc,
+                out var material, out var materialMessage))
             return NotApplicable(materialMessage!);
 
         double allowable = Sp63NormalFormulas.CentralTensionCapacity(
@@ -175,13 +179,14 @@ public static class Sp63NormalChecker
         if (!TryBuildProfile(section, options.Axis, calc, tensionDirection,
                 out var profile, out var messages))
             return NotApplicable(messages);
-        if (!TryResolveMaterialValues(section, calc, profile!, out var material,
-                out var materialMessage))
+        if (!Sp63NormalMaterialResolver.TryResolve(section, calc,
+                profile!.TensionLayer.Rs, profile.CompressionLayer.Rsc,
+                out var material, out var materialMessage))
             return NotApplicable(materialMessage!);
 
         double lineCoordinate = profile!.Height / 2.0 + Math.Abs(moment) / n;
-        bool between = lineCoordinate >= profile.APrime - MomentTolerance &&
-                       lineCoordinate <= profile.H0 + MomentTolerance;
+        bool between = lineCoordinate >= profile.APrime - Sp63NormalTolerances.Moment &&
+                       lineCoordinate <= profile.H0 + Sp63NormalTolerances.Moment;
         double xiR = Sp63NormalFormulas.XiR(material.Rs, material.Es, material.EpsilonB2);
         var variables = CommonVariables(n, moment, tensionDirection, profile,
             material, x: 0.0, xi: 0.0, xiR);
@@ -251,7 +256,7 @@ public static class Sp63NormalChecker
             return NotApplicable("missing_effective_length",
                 "Sp63Normal_MissingEffectiveLength", "8.1.15");
 
-        var directions = Math.Abs(moment) > MomentTolerance
+        var directions = Math.Abs(moment) > Sp63NormalTolerances.Moment
             ? [Math.Sign(moment)]
             : new[] { -1, 1 };
         Sp63NormalResult? worst = null;
@@ -276,8 +281,9 @@ public static class Sp63NormalChecker
         if (!TryBuildProfile(section, options.Axis, calc, tensionDirection,
                 out var profile, out var messages))
             return NotApplicable(messages);
-        if (!TryResolveMaterialValues(section, calc, profile!, out var material,
-                out var materialMessage))
+        if (!Sp63NormalMaterialResolver.TryResolve(section, calc,
+                profile!.TensionLayer.Rs, profile.CompressionLayer.Rsc,
+                out var material, out var materialMessage))
             return NotApplicable(materialMessage!);
 
         var context = options.MemberContext;
@@ -416,44 +422,6 @@ public static class Sp63NormalChecker
         return profile is not null;
     }
 
-    static bool TryResolveMaterialValues(CrossSection section, CalcType calc,
-        Sp63NormalSectionProfile profile, out MaterialValues values,
-        out Sp63NormalMessage? message)
-    {
-        var concrete = section.Areas.FirstOrDefault(area =>
-            area.Category == AreaCategory.Region &&
-            area.Material?.Type == MatType.Concrete);
-        var rebar = section.Areas.FirstOrDefault(area =>
-            area.Category == AreaCategory.RebarGroup && area.Material != null);
-        var concreteChars = concrete?.Material?.GetChars(calc);
-        var rebarChars = rebar?.Material?.GetChars(calc);
-        double rb = Math.Abs(concreteChars?.Fc ?? 0.0);
-        double es = rebarChars?.E ?? 0.0;
-        double epsilonB2 = Math.Abs(concreteChars?.Ec2 ?? 0.0);
-        if (!IsFinitePositive(rb))
-            return FailureValues("missing_concrete_resistance",
-                "Sp63Normal_MissingConcreteResistance", "8.1.8", out values, out message);
-        if (!IsFinitePositive(es))
-            return FailureValues("missing_rebar_modulus",
-                "Sp63Normal_MissingRebarModulus", "8.1.8", out values, out message);
-        if (!IsFinitePositive(epsilonB2))
-            return FailureValues("missing_concrete_strain",
-                "Sp63Normal_MissingConcreteStrain", "8.1.8", out values, out message);
-
-        values = new MaterialValues(rb, profile.TensionLayer.Rs,
-            profile.CompressionLayer.Rsc, es, epsilonB2);
-        message = null;
-        return true;
-    }
-
-    static bool FailureValues(string code, string text, string reference,
-        out MaterialValues values, out Sp63NormalMessage? message)
-    {
-        values = default;
-        message = Message(code, Sp63NormalMessageKind.Applicability, reference, text);
-        return false;
-    }
-
     static CheckDetail Detail(string formula, string description, string reference,
         double applied, double allowable, Dictionary<string, double> variables) =>
         new()
@@ -468,6 +436,25 @@ public static class Sp63NormalChecker
 
     static Sp63NormalResult Calculated(string branch, List<CheckDetail> details,
         Dictionary<string, double> variables, List<Sp63NormalMessage> informational,
+        List<CheckDetail> constructiveChecks, List<Sp63NormalMessage> constructiveNotes)
+    {
+        var allInformational = new List<Sp63NormalMessage>(informational);
+        allInformational.AddRange(constructiveNotes);
+        return new()
+        {
+            Status = Sp63NormalStatus.Calculated,
+            StrengthPassed = details.All(detail => detail.Passed),
+            Branch = branch,
+            StrengthDetails = details,
+            ConstructiveChecks = constructiveChecks,
+            Variables = variables,
+            InformationalMessages = allInformational
+        };
+    }
+
+    /// <summary>Собирает конструктивные проверки прямоугольного профиля и вызывает основную сборку.</summary>
+    static Sp63NormalResult Calculated(string branch, List<CheckDetail> details,
+        Dictionary<string, double> variables, List<Sp63NormalMessage> informational,
         Sp63NormalSectionProfile profile, Sp63MemberContext memberContext)
     {
         var (constructiveChecks, constructiveNotes) =
@@ -476,19 +463,10 @@ public static class Sp63NormalChecker
             Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(profile);
         var allConstructiveChecks = new List<CheckDetail>(constructiveChecks);
         allConstructiveChecks.AddRange(coverChecks);
-        var allInformational = new List<Sp63NormalMessage>(informational);
-        allInformational.AddRange(constructiveNotes);
-        allInformational.AddRange(coverNotes);
-        return new()
-        {
-            Status = Sp63NormalStatus.Calculated,
-            StrengthPassed = details.All(detail => detail.Passed),
-            Branch = branch,
-            StrengthDetails = details,
-            ConstructiveChecks = allConstructiveChecks,
-            Variables = variables,
-            InformationalMessages = allInformational
-        };
+        var allNotes = new List<Sp63NormalMessage>(constructiveNotes);
+        allNotes.AddRange(coverNotes);
+        return Calculated(branch, details, variables, informational,
+            allConstructiveChecks, allNotes);
     }
 
     static Sp63NormalResult InvalidInput(string code, string text, string reference) =>
@@ -536,7 +514,7 @@ public static class Sp63NormalChecker
     /// не покрывает геометрию или арматуру (отверстия, несколько бетонных областей,
     /// двуосный изгиб, сложная арматура) — см. Этап 2 дорожной карты СП 63.
     /// </summary>
-    static List<Sp63NormalMessage> SuggestNdmIfNeeded(IReadOnlyList<Sp63NormalMessage> messages) =>
+    internal static List<Sp63NormalMessage> SuggestNdmIfNeeded(IReadOnlyList<Sp63NormalMessage> messages) =>
         messages.Any(message => NdmSuggestionCodes.Contains(message.Code))
             ? [Message("suggest_ndm", Sp63NormalMessageKind.Information, "8.1",
                 "Sp63Normal_SuggestNdm")]
@@ -552,7 +530,8 @@ public static class Sp63NormalChecker
     ];
 
     static Dictionary<string, double> CommonVariables(double loadN, double moment,
-        int tensionDirection, Sp63NormalSectionProfile profile, MaterialValues material,
+        int tensionDirection, Sp63NormalSectionProfile profile,
+        Sp63NormalMaterialResolver.MaterialValues material,
         double x, double xi, double xiR) => new()
         {
             ["N"] = loadN,
@@ -578,6 +557,4 @@ public static class Sp63NormalChecker
 
     static bool IsFinitePositive(double value) => double.IsFinite(value) && value > 0;
 
-    readonly record struct MaterialValues(double Rb, double Rs, double Rsc,
-        double Es, double EpsilonB2);
 }

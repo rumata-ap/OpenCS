@@ -6,7 +6,7 @@ namespace CScore.Sp63.Normal;
 public static class Sp63RebarLayoutAnalyzer
 {
     /// <summary>Допуск объединения стержней в один уровень, м.</summary>
-    public const double LayerTolerance = 1e-6;
+    public const double LayerTolerance = Sp63RebarBarCollector.LayerTolerance;
 
     /// <summary>
     /// Анализирует точечные стержни, выбирая крайние слои относительно направления растяжения.
@@ -41,49 +41,9 @@ public static class Sp63RebarLayoutAnalyzer
         if (concreteChars is null || !IsPositiveFinite(Math.Abs(concreteChars.Fc)))
             return Failure("missing_concrete_resistance", "Sp63Normal_MissingConcreteResistance", "8.1.8");
 
-        var rebarAreas = section.Areas
-            .Where(area => area.Category == AreaCategory.RebarGroup)
-            .ToList();
-        if (rebarAreas.Any(area => area.SigSp != 0.0))
-            return Failure("prestressed_rebar", "Sp63Normal_PrestressedRebar", "9.2");
-
-        var bars = new List<BarData>();
-        foreach (var area in rebarAreas)
-        {
-            if (area.Material is null)
-                return Failure("missing_rebar_material", "Sp63Normal_MissingRebarMaterial", "8.1.8");
-            if (area.Fibers.Any(fiber => fiber.TypeFiber != FiberType.point))
-                return Failure("non_point_rebar", "Sp63Normal_NonPointRebar", "8.1.8");
-
-            var chars = area.Material.GetChars(calc);
-            if (chars is null || !IsPositiveFinite(Math.Abs(chars.Ft)) ||
-                !IsPositiveFinite(Math.Abs(chars.Fc)))
-                return Failure("missing_rebar_resistance", "Sp63Normal_MissingRebarResistance", "8.1.8");
-
-            double rs = Math.Abs(chars.Ft);
-            double rsc = Math.Abs(chars.Fc);
-            foreach (var fiber in area.Fibers)
-            {
-                if (!IsPositiveFinite(fiber.Area))
-                    return Failure("invalid_rebar_area", "Sp63Normal_InvalidRebarArea", "8.1.8");
-
-                double coordinate = axis == Sp63NormalAxis.Mx ? fiber.Y : fiber.X;
-                bars.Add(new BarData(fiber.X, fiber.Y, fiber.Area, fiber.Diameter,
-                    coordinate, rs, rsc));
-            }
-        }
-
-        if (bars.Count == 0)
-            return Failure("missing_rebar", "Sp63Normal_MissingRebar", "8.1.8");
-
-        var reference = bars[0];
-        if (bars.Any(bar => !NearlyEqual(bar.Rs, reference.Rs) ||
-                            !NearlyEqual(bar.Rsc, reference.Rsc)))
-            return Failure("mixed_rebar_resistance", "Sp63Normal_MixedRebarResistance", "8.1.8");
-
-        var layers = GroupLayers(bars);
-        if (layers.Count < 2)
-            return Failure("insufficient_rebar_layers", "Sp63Normal_InsufficientRebarLayers", "8.1.8");
+        if (!Sp63RebarBarCollector.TryCollect(section, axis, calc, out var layers,
+                out var rebarMessage))
+            return new Sp63NormalProfileAnalysis(null, [rebarMessage!]);
 
         var minLayer = layers[0];
         var maxLayer = layers[^1];
@@ -103,7 +63,7 @@ public static class Sp63RebarLayoutAnalyzer
             !IsPositiveFinite(h0) || !IsPositiveFinite(aPrime))
             return Failure("invalid_rebar_geometry", "Sp63Normal_InvalidRebarGeometry", "8.1.8");
 
-        double totalArea = bars.Sum(bar => bar.Area);
+        double totalArea = layers.Sum(layer => layer.Area);
         double tensionResistance = tension.Rs * tension.Area;
         double compressionResistance = compression.Rsc * compression.Area;
         double maxResistance = Math.Max(tensionResistance, compressionResistance);
@@ -132,62 +92,9 @@ public static class Sp63RebarLayoutAnalyzer
         return new Sp63NormalProfileAnalysis(profile, []);
     }
 
-    static List<LayerData> GroupLayers(List<BarData> bars)
-    {
-        var layers = new List<LayerData>();
-        foreach (var bar in bars.OrderBy(bar => bar.Coordinate))
-        {
-            var layer = layers.LastOrDefault(existing =>
-                Math.Abs(existing.Coordinate - bar.Coordinate) <= LayerTolerance);
-            if (layer is null)
-            {
-                layers.Add(new LayerData(bar));
-                continue;
-            }
-
-            layer.Add(bar);
-        }
-
-        return layers;
-    }
-
     static Sp63NormalProfileAnalysis Failure(string code, string text, string reference) =>
         new(null, [new Sp63NormalMessage(code,
             Sp63NormalMessageKind.Applicability, reference, text)]);
 
-    static bool NearlyEqual(double left, double right) =>
-        Math.Abs(left - right) <= LayerTolerance * Math.Max(1.0, Math.Max(Math.Abs(left), Math.Abs(right)));
-
     static bool IsPositiveFinite(double value) => double.IsFinite(value) && value > 0;
-
-    sealed record BarData(double X, double Y, double Area, double Diameter,
-        double Coordinate, double Rs, double Rsc);
-
-    sealed class LayerData
-    {
-        readonly List<(double X, double Y, double Area, double Diameter)> bars = [];
-
-        public LayerData(BarData bar)
-        {
-            Coordinate = bar.Coordinate;
-            Area = bar.Area;
-            Rs = bar.Rs;
-            Rsc = bar.Rsc;
-            bars.Add((bar.X, bar.Y, bar.Area, bar.Diameter));
-        }
-
-        public double Coordinate { get; private set; }
-        public double Area { get; private set; }
-        public double Rs { get; }
-        public double Rsc { get; }
-        public IReadOnlyList<(double X, double Y, double Area, double Diameter)> Bars => bars;
-
-        public void Add(BarData bar)
-        {
-            double oldArea = Area;
-            Area += bar.Area;
-            Coordinate = (Coordinate * oldArea + bar.Coordinate * bar.Area) / Area;
-            bars.Add((bar.X, bar.Y, bar.Area, bar.Diameter));
-        }
-    }
 }

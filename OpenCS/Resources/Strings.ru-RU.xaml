@@ -1562,6 +1562,14 @@
     <system:String x:Key="Sp63NormalGroupTitle">Нормальное сечение по СП 63.13330</system:String>
     <system:String x:Key="Sp63NormalShape">Форма сечения</system:String>
     <system:String x:Key="Sp63NormalShapeRectangular">Прямоугольное сплошное</system:String>
+    <system:String x:Key="Sp63NormalShapeTee">Тавровое/двутавровое (полка и стенка)</system:String>
+    <system:String x:Key="Sp63NormalSpanLength">Пролёт элемента l, м</system:String>
+    <system:String x:Key="Sp63Normal_NotATeeShape">Контур является прямоугольником: выберите форму «Прямоугольное сплошное».</system:String>
+    <system:String x:Key="Sp63Normal_TeeGeometryNotSupported">Формульная проверка тавра поддерживает только осевой контур из двух или трёх полос без отверстий.</system:String>
+    <system:String x:Key="Sp63Normal_UnsupportedLoadCaseForTee">Упрощённая проверка тавра реализована только для чистого изгиба; внецентренное сжатие и растяжение требуют НДМ.</system:String>
+    <system:String x:Key="Sp63Normal_MissingSpanLength">Для учёта свесов полки по п. 8.1.11 укажите пролёт элемента l.</system:String>
+    <system:String x:Key="Sp63Normal_TeeBendingCheck">Изгиб тавра/двутавра: M ≤ Mᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_TeeSymmetricBendingCheck">Изгиб тавра/двутавра (симметричное армирование): M ≤ Mᵤₗₜ</system:String>
     <system:String x:Key="Sp63NormalAxis">Плоскость изгиба</system:String>
     <system:String x:Key="Sp63NormalAxisMx">Mx (высота по Y)</system:String>
     <system:String x:Key="Sp63NormalAxisMy">My (высота по X)</system:String>

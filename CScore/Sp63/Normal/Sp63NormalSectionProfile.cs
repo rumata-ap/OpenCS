@@ -51,3 +51,35 @@ public sealed record Sp63NormalSectionClassification(
 public sealed record Sp63NormalProfileAnalysis(
     Sp63NormalSectionProfile? Profile,
     IReadOnlyList<Sp63NormalMessage> Messages);
+
+/// <summary>Профиль таврового/двутаврового сечения для одноосной проверки.</summary>
+/// <param name="Bw">Ширина стенки, м.</param>
+/// <param name="H">Полная высота сечения, м.</param>
+/// <param name="H0">Рабочая высота от сжатой грани, м.</param>
+/// <param name="APrime">Расстояние от сжатой грани до сжатой арматуры, м.</param>
+/// <param name="TensionLayer">Эффективный растянутый слой.</param>
+/// <param name="CompressionLayer">Эффективный сжатый слой.</param>
+/// <param name="TotalRebarArea">Суммарная площадь точечной арматуры, м².</param>
+/// <param name="CompressionFlangeActualWidth">Фактическая ширина сжатой полки, м (0 — полки нет).</param>
+/// <param name="CompressionFlangeThickness">Толщина сжатой полки, м (0 — полки нет).</param>
+/// <param name="IsSymmetric">Сходятся ли сопротивления двух крайних слоёв.</param>
+/// <param name="SymmetryRelativeDifference">Относительное различие сопротивлений.</param>
+public sealed record Sp63TeeSectionProfile(
+    double Bw,
+    double H,
+    double H0,
+    double APrime,
+    Sp63NormalRebarLayer TensionLayer,
+    Sp63NormalRebarLayer CompressionLayer,
+    double TotalRebarArea,
+    double CompressionFlangeActualWidth,
+    double CompressionFlangeThickness,
+    bool IsSymmetric,
+    double SymmetryRelativeDifference);
+
+/// <summary>Результат извлечения профиля арматуры таврового сечения.</summary>
+/// <param name="Profile">Профиль или <see langword="null"/>.</param>
+/// <param name="Messages">Причины, по которым профиль недоступен.</param>
+public sealed record Sp63TeeProfileAnalysis(
+    Sp63TeeSectionProfile? Profile,
+    IReadOnlyList<Sp63NormalMessage> Messages);

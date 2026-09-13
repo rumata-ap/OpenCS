@@ -72,6 +72,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
     string manualMy = "0";
    // Упрощённая проверка нормального сечения по СП 63
    string sp63NormalShapeKind = "rectangular";
+   string sp63NormalSpanLength = "";
    string sp63NormalAxis = "Mx";
    string sp63NormalStructuralScheme = "statically_indeterminate";
    string sp63NormalElementLength = "6";
@@ -178,8 +179,23 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string Sp63NormalShapeKind
    {
       get => sp63NormalShapeKind;
-      set { sp63NormalShapeKind = value; OnPropertyChanged(); }
+      set
+      {
+         sp63NormalShapeKind = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(ShowSp63NormalSpanLength));
+      }
    }
+
+   /// <summary>Пролёт элемента l для учёта свесов полки тавра, м.</summary>
+   public string Sp63NormalSpanLength
+   {
+      get => sp63NormalSpanLength;
+      set { sp63NormalSpanLength = value; OnPropertyChanged(); }
+   }
+
+   /// <summary>Показывать поле пролёта для таврового/двутаврового сечения.</summary>
+   public bool ShowSp63NormalSpanLength => IsSp63Normal && Sp63NormalShapeKind == "tee";
 
    /// <summary>Плоскость одноосной проверки: Mx или My.</summary>
    public string Sp63NormalAxis
@@ -466,6 +482,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsLimitSingle));
            OnPropertyChanged(nameof(IsSp63Normal));
            OnPropertyChanged(nameof(ShowSp63NormalFields));
+           OnPropertyChanged(nameof(ShowSp63NormalSpanLength));
            OnPropertyChanged(nameof(ShowSp63NormalForceSet));
            OnPropertyChanged(nameof(ShowSp63NormalManualForces));
            OnPropertyChanged(nameof(IsSp63CrackWidth));
@@ -570,6 +587,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsLimitSingle));
            OnPropertyChanged(nameof(IsSp63Normal));
            OnPropertyChanged(nameof(ShowSp63NormalFields));
+           OnPropertyChanged(nameof(ShowSp63NormalSpanLength));
            OnPropertyChanged(nameof(ShowSp63NormalForceSet));
            OnPropertyChanged(nameof(ShowSp63NormalManualForces));
            OnPropertyChanged(nameof(IsSp63CrackWidth));
@@ -2016,6 +2034,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              Sp63NormalStructuralScheme = snp.StructuralScheme;
              Sp63NormalElementLength = snp.ElementLengthOrRestraintDistance?.ToString("G6", inv) ?? "";
              Sp63NormalEffectiveLengthL0 = snp.EffectiveLengthL0?.ToString("G6", inv) ?? "";
+             Sp63NormalSpanLength = snp.SpanLength?.ToString("G6", inv) ?? "";
              Sp63NormalStabilityMode = snp.StabilityMode;
              Sp63NormalPsi = snp.Psi.ToString("G6", inv);
              Sp63NormalSlendernessThreshold = snp.SlendernessThreshold.ToString("G6", inv);
@@ -2276,6 +2295,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                 out var elementLength)
              || !TryParseSp63NormalNumber(Sp63NormalEffectiveLengthL0, optional: true, positive: true,
                 out var effectiveLengthL0)
+             || !TryParseSp63NormalNumber(Sp63NormalSpanLength, optional: true, positive: true,
+                out var spanLength)
              || !TryParseSp63NormalNumber(Sp63NormalPsi, optional: false, positive: false,
                 out var psi)
              || !TryParseSp63NormalNumber(Sp63NormalSlendernessThreshold, optional: false, positive: true,
@@ -2304,6 +2325,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
             StructuralScheme = Sp63NormalStructuralScheme,
             ElementLengthOrRestraintDistance = elementLength,
             EffectiveLengthL0 = effectiveLengthL0,
+            SpanLength = spanLength,
             StabilityMode = Sp63NormalStabilityMode,
             Psi = psi!.Value,
             SlendernessThreshold = slendernessThreshold!.Value,

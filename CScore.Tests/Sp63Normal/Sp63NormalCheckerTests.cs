@@ -8,6 +8,28 @@ namespace CScore.Tests.Sp63Normal;
 public sealed class Sp63NormalCheckerTests
 {
     [Fact]
+    public void SharedTolerances_PreserveExistingContract()
+    {
+        Assert.Equal(1e-9, Sp63NormalTolerances.Force);
+        Assert.Equal(1e-9, Sp63NormalTolerances.Moment);
+        Assert.Equal(1e-9, Sp63NormalTolerances.RebarArea);
+    }
+
+    [Fact]
+    public void MaterialResolver_UsesResistancesProvidedByProfile()
+    {
+        var section = Sp63NormalFixtures.TwoLayerRectangle(0.30, 0.60,
+            tensionArea: 0.0010, compressionArea: 0.0010);
+
+        Assert.True(Sp63NormalMaterialResolver.TryResolve(section, CalcType.C,
+            tensionRs: 410_000.0, compressionRsc: 390_000.0,
+            out var values, out var message), message?.Code);
+        Assert.Equal(410_000.0, values.Rs);
+        Assert.Equal(390_000.0, values.Rsc);
+        Assert.Equal(20_000.0, values.Rb);
+    }
+
+    [Fact]
     public void PositiveMx_UsesYPositiveSideAsTensionSide()
     {
         var result = Check(new LoadItem { N = 0.0, Mx = 20.0, My = 0.0 });

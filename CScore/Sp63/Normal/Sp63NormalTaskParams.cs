@@ -21,6 +21,9 @@ public sealed class Sp63NormalTaskParams
     /// <summary>Расчётная длина для проверки устойчивости, м.</summary>
     public double? EffectiveLengthL0 { get; set; }
 
+    /// <summary>Пролёт элемента l для учёта свесов полки по п. 8.1.11, м.</summary>
+    public double? SpanLength { get; set; }
+
     /// <summary>Режим устойчивости: member или section_only_explicit.</summary>
     public string StabilityMode { get; set; } = "member";
 
@@ -72,7 +75,9 @@ public sealed class Sp63NormalTaskParams
         errorCode = "";
 
         if (!Enum.TryParse<Sp63NormalShapeKind>(ShapeKind, true, out var shapeKind) ||
-            !string.Equals(ShapeKind, "rectangular", StringComparison.OrdinalIgnoreCase))
+            shapeKind is not (Sp63NormalShapeKind.Rectangular or Sp63NormalShapeKind.Tee) ||
+            (!string.Equals(ShapeKind, "rectangular", StringComparison.OrdinalIgnoreCase) &&
+             !string.Equals(ShapeKind, "tee", StringComparison.OrdinalIgnoreCase)))
             return Invalid("invalid_shape_kind", out errorCode);
 
         if (!Enum.TryParse<Sp63NormalAxis>(Axis, true, out var axis))
@@ -98,7 +103,8 @@ public sealed class Sp63NormalTaskParams
             return Invalid("invalid_stability_mode", out errorCode);
 
         if (!IsOptionalPositive(ElementLengthOrRestraintDistance) ||
-            !IsOptionalPositive(EffectiveLengthL0))
+            !IsOptionalPositive(EffectiveLengthL0) ||
+            !IsOptionalPositive(SpanLength))
             return Invalid("invalid_length", out errorCode);
         if (!double.IsFinite(Psi) || !double.IsFinite(SlendernessThreshold) ||
             SlendernessThreshold <= 0)

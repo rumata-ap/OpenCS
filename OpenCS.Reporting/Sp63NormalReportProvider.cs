@@ -37,22 +37,32 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         SectionReportSections.Identification(document, context,
             "N — кН; M — кН·м; линейные размеры — м или мм по контексту показателя; безразмерные величины — как есть");
 
+        string shapeText = parameters.ShapeKind switch
+        {
+            "rectangular" => "прямоугольник",
+            "tee" => "тавр/двутавр",
+            _ => parameters.ShapeKind
+        };
+        var inputRows = new List<(string, string)>
+        {
+            ("Форма сечения", shapeText),
+            ("Ось изгиба", parameters.Axis),
+            ("Схема статической определимости", LocalizeScheme(parameters.StructuralScheme)),
+            ("Режим устойчивости", LocalizeStabilityMode(parameters.StabilityMode)),
+            ("Длина элемента / расстояние между закреплениями L, м", F(parameters.ElementLengthOrRestraintDistance)),
+            ("Расчётная длина l0, м", F(parameters.EffectiveLengthL0)),
+            ("ψ (доля длительного момента)", F(parameters.Psi)),
+            ("Порог гибкости l0/h", F(parameters.SlendernessThreshold)),
+            ("Ручные усилия", parameters.UseManualForces
+                ? $"да: N = {F(parameters.N)} кН, Mx = {F(parameters.Mx)} кН·м, My = {F(parameters.My)} кН·м"
+                : "нет, используется набор усилий задачи")
+        };
+        if (string.Equals(parameters.ShapeKind, "tee", StringComparison.OrdinalIgnoreCase))
+            inputRows.Insert(4, ("Пролёт элемента l, м", F(parameters.SpanLength)));
+
         document
             .Add(new ReportHeading(1, "Исходные данные"))
-            .Add(new ReportKeyValueTable(
-            [
-                ("Форма сечения", parameters.ShapeKind == "rectangular" ? "прямоугольник" : parameters.ShapeKind),
-                ("Ось изгиба", parameters.Axis),
-                ("Схема статической определимости", LocalizeScheme(parameters.StructuralScheme)),
-                ("Режим устойчивости", LocalizeStabilityMode(parameters.StabilityMode)),
-                ("Длина элемента / расстояние между закреплениями L, м", F(parameters.ElementLengthOrRestraintDistance)),
-                ("Расчётная длина l0, м", F(parameters.EffectiveLengthL0)),
-                ("ψ (доля длительного момента)", F(parameters.Psi)),
-                ("Порог гибкости l0/h", F(parameters.SlendernessThreshold)),
-                ("Ручные усилия", parameters.UseManualForces
-                    ? $"да: N = {F(parameters.N)} кН, Mx = {F(parameters.Mx)} кН·м, My = {F(parameters.My)} кН·м"
-                    : "нет, используется набор усилий задачи")
-            ], "Параметр", "Значение"))
+            .Add(new ReportKeyValueTable(inputRows, "Параметр", "Значение"))
             .Add(new ReportHeading(1, "Вердикт"))
             .Add(new ReportKeyValueTable(
             [
@@ -239,6 +249,12 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Normal_MixedRebarResistance"] = "Сопротивления крайних слоёв арматуры должны совпадать.",
         ["Sp63Normal_InsufficientRebarLayers"] = "Для проверки нужны минимум два уровня продольной арматуры.",
         ["Sp63Normal_InvalidRebarGeometry"] = "Геометрия слоя арматуры не позволяет построить профиль.",
+        ["Sp63Normal_NotATeeShape"] = "Контур является прямоугольником: выберите форму «Прямоугольное сплошное».",
+        ["Sp63Normal_TeeGeometryNotSupported"] = "Формульная проверка тавра поддерживает только осевой контур из двух или трёх полос без отверстий.",
+        ["Sp63Normal_UnsupportedLoadCaseForTee"] = "Упрощённая проверка тавра реализована только для чистого изгиба; внецентренное сжатие и растяжение требуют НДМ.",
+        ["Sp63Normal_MissingSpanLength"] = "Для учёта свесов полки по п. 8.1.11 укажите пролёт элемента l.",
+        ["Sp63Normal_TeeBendingCheck"] = "Изгиб тавра/двутавра: M ≤ Mult",
+        ["Sp63Normal_TeeSymmetricBendingCheck"] = "Изгиб тавра/двутавра (симметричное армирование): M ≤ Mult",
         ["Sp63Normal_ShapeNotSupported"] = "Выбранная форма сечения пока не поддерживается.",
         ["Sp63Normal_InvalidAxis"] = "Выбрана неизвестная плоскость изгиба.",
         ["Sp63Normal_NonFiniteLoad"] = "Усилия должны быть конечными числами.",
