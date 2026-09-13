@@ -57,7 +57,8 @@ public static class Sp63CrackWidthChecker
             return NotApplicable("zero_moment", "Sp63CrackWidth_ZeroMoment", "8.2");
 
         int tensionDirection = Math.Sign(moment);
-        var analysis = Sp63RebarLayoutAnalyzer.Analyze(section, options.Axis, calc, tensionDirection);
+        var analysis = Sp63RebarLayoutAnalyzer.Analyze(section, options.Axis, calc,
+            tensionDirection, requireAtLeastTwoLayers: true);
         if (analysis.Profile is null)
             return NotApplicable(analysis.Messages);
         var profile = analysis.Profile;

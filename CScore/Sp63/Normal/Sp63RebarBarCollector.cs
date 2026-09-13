@@ -19,7 +19,7 @@ internal static class Sp63RebarBarCollector
     /// <summary>Собирает и группирует точечные стержни по уровням.</summary>
     public static bool TryCollect(CrossSection section, Sp63NormalAxis axis,
         CalcType calc, out List<Sp63CollectedLayer> layers,
-        out Sp63NormalMessage? message)
+        out Sp63NormalMessage? message, bool requireAtLeastTwoLayers = false)
     {
         layers = [];
         message = null;
@@ -69,6 +69,9 @@ internal static class Sp63RebarBarCollector
                 "8.1.8", out message);
 
         layers = GroupLayers(bars);
+        if (requireAtLeastTwoLayers && layers.Count < 2)
+            return Failure("insufficient_rebar_layers", "Sp63Normal_InsufficientRebarLayers",
+                "8.1.8", out message);
         return true;
     }
 

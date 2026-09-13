@@ -15,11 +15,13 @@ public static class Sp63RebarLayoutAnalyzer
     /// <param name="axis">Ось изгиба.</param>
     /// <param name="calc">Вид расчёта для характеристик материалов.</param>
     /// <param name="tensionDirection">Направление растяжения: +1 по положительной оси, -1 по отрицательной.</param>
+    /// <param name="requireAtLeastTwoLayers">Требовать отдельные растянутый и сжатый слои.</param>
     public static Sp63NormalProfileAnalysis Analyze(
         CrossSection section,
         Sp63NormalAxis axis,
         CalcType calc,
-        int tensionDirection)
+        int tensionDirection,
+        bool requireAtLeastTwoLayers = false)
     {
         ArgumentNullException.ThrowIfNull(section);
         if (tensionDirection is not (1 or -1))
@@ -42,7 +44,7 @@ public static class Sp63RebarLayoutAnalyzer
             return Failure("missing_concrete_resistance", "Sp63Normal_MissingConcreteResistance", "8.1.8");
 
         if (!Sp63RebarBarCollector.TryCollect(section, axis, calc, out var layers,
-                out var rebarMessage))
+                out var rebarMessage, requireAtLeastTwoLayers))
             return new Sp63NormalProfileAnalysis(null, [rebarMessage!]);
 
         var minLayer = layers[0];
