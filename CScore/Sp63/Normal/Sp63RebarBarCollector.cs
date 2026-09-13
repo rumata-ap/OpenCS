@@ -69,9 +69,6 @@ internal static class Sp63RebarBarCollector
                 "8.1.8", out message);
 
         layers = GroupLayers(bars);
-        if (layers.Count < 2)
-            return Failure("insufficient_rebar_layers",
-                "Sp63Normal_InsufficientRebarLayers", "8.1.8", out message);
         return true;
     }
 

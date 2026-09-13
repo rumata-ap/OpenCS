@@ -2,7 +2,7 @@ using CScore.Sp63;
 
 namespace CScore.Sp63.Normal;
 
-/// <summary>Извлекает два эффективных слоя точечной арматуры по выбранной оси.</summary>
+/// <summary>Извлекает крайние эффективные слои точечной арматуры по выбранной оси.</summary>
 public static class Sp63RebarLayoutAnalyzer
 {
     /// <summary>Допуск объединения стержней в один уровень, м.</summary>
@@ -48,6 +48,7 @@ public static class Sp63RebarLayoutAnalyzer
         var minLayer = layers[0];
         var maxLayer = layers[^1];
         var tension = tensionDirection > 0 ? maxLayer : minLayer;
+        bool hasCompressionLayer = layers.Count > 1;
         var compression = tensionDirection > 0 ? minLayer : maxLayer;
         var rect = geometry.Geometry!;
 
@@ -58,14 +59,18 @@ public static class Sp63RebarLayoutAnalyzer
             : (axis == Sp63NormalAxis.Mx ? rect.MaxY : rect.MaxX);
 
         double h0 = Math.Abs(compressionFace - tension.Coordinate);
-        double aPrime = Math.Abs(compressionFace - compression.Coordinate);
+        double aPrime = hasCompressionLayer
+            ? Math.Abs(compressionFace - compression.Coordinate)
+            : 0.0;
         if (!IsPositiveFinite(width) || !IsPositiveFinite(height) ||
-            !IsPositiveFinite(h0) || !IsPositiveFinite(aPrime))
+            !IsPositiveFinite(h0) || !IsNonNegativeFinite(aPrime))
             return Failure("invalid_rebar_geometry", "Sp63Normal_InvalidRebarGeometry", "8.1.8");
 
         double totalArea = layers.Sum(layer => layer.Area);
         double tensionResistance = tension.Rs * tension.Area;
-        double compressionResistance = compression.Rsc * compression.Area;
+        double compressionResistance = hasCompressionLayer
+            ? compression.Rsc * compression.Area
+            : 0.0;
         double maxResistance = Math.Max(tensionResistance, compressionResistance);
         double relativeDifference = maxResistance > 0
             ? Math.Abs(tensionResistance - compressionResistance) / maxResistance
@@ -75,9 +80,11 @@ public static class Sp63RebarLayoutAnalyzer
 
         var tensionLayer = new Sp63NormalRebarLayer(
             tension.Coordinate, tension.Area, tension.Rs, tension.Rsc, tension.Bars);
-        var compressionLayer = new Sp63NormalRebarLayer(
-            compression.Coordinate, compression.Area, compression.Rs, compression.Rsc,
-            compression.Bars);
+        var compressionLayer = hasCompressionLayer
+            ? new Sp63NormalRebarLayer(compression.Coordinate, compression.Area,
+                compression.Rs, compression.Rsc, compression.Bars)
+            : new Sp63NormalRebarLayer(compressionFace, 0.0,
+                tension.Rs, tension.Rsc, []);
         var profile = new Sp63NormalSectionProfile(
             width,
             height,
@@ -97,4 +104,6 @@ public static class Sp63RebarLayoutAnalyzer
             Sp63NormalMessageKind.Applicability, reference, text)]);
 
     static bool IsPositiveFinite(double value) => double.IsFinite(value) && value > 0;
+
+    static bool IsNonNegativeFinite(double value) => double.IsFinite(value) && value >= 0;
 }

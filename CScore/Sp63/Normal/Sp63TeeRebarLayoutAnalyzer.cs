@@ -44,20 +44,25 @@ public static class Sp63TeeRebarLayoutAnalyzer
         var minLayer = layers[0];
         var maxLayer = layers[^1];
         var tension = tensionDirection > 0 ? maxLayer : minLayer;
+        bool hasCompressionLayer = layers.Count > 1;
         var compression = tensionDirection > 0 ? minLayer : maxLayer;
 
         double compressionFace = tensionDirection > 0
             ? tee.HeightCoordMin : tee.HeightCoordMax;
         double h0 = Math.Abs(compressionFace - tension.Coordinate);
-        double aPrime = Math.Abs(compressionFace - compression.Coordinate);
+        double aPrime = hasCompressionLayer
+            ? Math.Abs(compressionFace - compression.Coordinate)
+            : 0.0;
         if (!IsPositiveFinite(tee.Bw) || !IsPositiveFinite(tee.H) ||
-            !IsPositiveFinite(h0) || !IsPositiveFinite(aPrime))
+            !IsPositiveFinite(h0) || !IsNonNegativeFinite(aPrime))
             return new(null, [Failure("invalid_rebar_geometry",
                 "Sp63Normal_InvalidRebarGeometry", "8.1.8")]);
 
         double totalArea = layers.Sum(layer => layer.Area);
         double tensionResistance = tension.Rs * tension.Area;
-        double compressionResistance = compression.Rsc * compression.Area;
+        double compressionResistance = hasCompressionLayer
+            ? compression.Rsc * compression.Area
+            : 0.0;
         double maxResistance = Math.Max(tensionResistance, compressionResistance);
         double relativeDifference = maxResistance > 0
             ? Math.Abs(tensionResistance - compressionResistance) / maxResistance
@@ -70,8 +75,11 @@ public static class Sp63TeeRebarLayoutAnalyzer
 
         var tensionLayer = new Sp63NormalRebarLayer(tension.Coordinate,
             tension.Area, tension.Rs, tension.Rsc, tension.Bars);
-        var compressionLayer = new Sp63NormalRebarLayer(compression.Coordinate,
-            compression.Area, compression.Rs, compression.Rsc, compression.Bars);
+        var compressionLayer = hasCompressionLayer
+            ? new Sp63NormalRebarLayer(compression.Coordinate, compression.Area,
+                compression.Rs, compression.Rsc, compression.Bars)
+            : new Sp63NormalRebarLayer(compressionFace, 0.0,
+                tension.Rs, tension.Rsc, []);
         var profile = new Sp63TeeSectionProfile(tee.Bw, tee.H, h0, aPrime,
             tensionLayer, compressionLayer, totalArea,
             compressionFlangeWidth, compressionFlangeThickness,
@@ -84,4 +92,6 @@ public static class Sp63TeeRebarLayoutAnalyzer
         new(code, Sp63NormalMessageKind.Applicability, reference, text);
 
     static bool IsPositiveFinite(double value) => double.IsFinite(value) && value > 0;
+
+    static bool IsNonNegativeFinite(double value) => double.IsFinite(value) && value >= 0;
 }
