@@ -1046,7 +1046,7 @@
    <system:String x:Key="CalcTaskNeedForceSet">Не выбран набор усилий.</system:String>
    <system:String x:Key="LimitForce_BlockTitle">Предельное нагружение</system:String>
    <system:String x:Key="LimitForce_Factor">Коэффициент запаса k</system:String>
-   <system:String x:Key="LimitForce_Utilization">Коэффициент использования η</system:String>
+   <system:String x:Key="LimitForce_Utilization">Коэффициент использования Кисп</system:String>
    <system:String x:Key="LimitForce_Governing">Управляющий критерий</system:String>
    <system:String x:Key="LimitForce_SolverMethod">Метод решения</system:String>
    <system:String x:Key="LimitForce_BisectSteps">Шагов бисекции</system:String>
@@ -1303,7 +1303,7 @@
    <system:String x:Key="FireRCheck_LimitLoading">Предельное нагружение</system:String>
    <system:String x:Key="FireRCheck_Factor">Коэффициент запаса k</system:String>
    <system:String x:Key="FireRCheck_Margin">Запас (k − 1)</system:String>
-   <system:String x:Key="FireRCheck_Utilization">Коэффициент использования η</system:String>
+   <system:String x:Key="FireRCheck_Utilization">Коэффициент использования Кисп</system:String>
    <system:String x:Key="FireRCheck_Governing">Управляющий критерий</system:String>
    <system:String x:Key="FireRCheck_NLimit">N предельное, кН</system:String>
    <system:String x:Key="FireRCheck_MxLimit">Mx предельное, кН·м</system:String>
