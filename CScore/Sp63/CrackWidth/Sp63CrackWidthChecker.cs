@@ -88,7 +88,7 @@ public static class Sp63CrackWidthChecker
         var strip = ShellSimplSolver.ComputeStripSls(
             mDes, nDes, profile.Height, profile.H0, profile.APrime,
             asT, asC, ds, concreteChars, rebarChars, options.Phi1, options.Phi2, options.AcrcLimMm,
-            options.SigmaSCrc);
+            options.SigmaSCrc, options.WplGamma);
 
         bool limitPassed = strip.Acrc_mm <= options.AcrcLimMm + 1e-9;
         var variables = new Dictionary<string, double>

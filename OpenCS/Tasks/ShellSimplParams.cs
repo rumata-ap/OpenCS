@@ -26,6 +26,22 @@ public sealed class ShellSimplParams
     public string SigmaSCrcMethod { get; set; } = "stress";
 
     /// <summary>Разобранное значение <see cref="SigmaSCrcMethod"/>; при неизвестном — по умолчанию.</summary>
+    /// <summary>
+    /// Источник коэффициента пластичности γ в Wpl = γ·Wred: "sp63" (по умолчанию),
+    /// "snip" (1,75) или "radaykin" (по степени армирования).
+    /// </summary>
+    [JsonPropertyName("wpl_gamma")]
+    public string WplGammaMethod { get; set; } = "sp63";
+
+    /// <summary>Разобранное значение <see cref="WplGammaMethod"/>.</summary>
+    [JsonIgnore]
+    public CScore.WplGammaMethod WplGamma => (WplGammaMethod?.Trim().ToLowerInvariant()) switch
+    {
+        "snip" => CScore.WplGammaMethod.Snip2030184,
+        "radaykin" => CScore.WplGammaMethod.Radaykin2018,
+        _ => CScore.WplGammaMethod.Sp63,
+    };
+
     [JsonIgnore]
     public CScore.SigmaSCrcMethod SigmaSCrc =>
         string.Equals(SigmaSCrcMethod?.Trim(), "moment", System.StringComparison.OrdinalIgnoreCase)

@@ -333,7 +333,7 @@ public static class FemCheckRunner
             return RunLayeredSlsCheck(section, shell, result.StrainState, cChSls, rChSls,
                                       calcType, pParams.Phi2, pParams.AcrcLimMm,
                                       concreteMat, rebarMat, concreteDiagType, nlShell, ltFraction,
-                                      pParams.SigmaSCrc);
+                                      pParams.SigmaSCrc, pParams.WplGamma);
         }
 
         // ── ULS: деформационная проверка п. 8.1.30 делегирует в ShellLayeredCheck ──
@@ -355,7 +355,8 @@ public static class FemCheckRunner
         MaterialChars    rCh,
         double           phi1,
         double           phi2,
-        SigmaSCrcMethod  sigmaSCrcMethod)
+        SigmaSCrcMethod  sigmaSCrcMethod,
+        WplGammaMethod   wplGamma)
     {
         double Eb     = cCh.E;
         double Rb_ser = Math.Abs(cCh.Fc);
@@ -383,7 +384,7 @@ public static class FemCheckRunner
                     layer.Asx,
                     layer.DiameterX > 1e-9 ? layer.DiameterX : 0.012,
                     Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha,
-                    phi1, phi2, sigmaSCrcMethod);
+                    phi1, phi2, sigmaSCrcMethod, wplGamma);
                 if (acrcX > bestAcrc) { bestAcrc = acrcX; bestDir = "п.8.2.15 x"; }
             }
 
@@ -397,7 +398,7 @@ public static class FemCheckRunner
                     layer.Asy,
                     layer.DiameterY > 1e-9 ? layer.DiameterY : 0.012,
                     Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha,
-                    phi1, phi2, sigmaSCrcMethod);
+                    phi1, phi2, sigmaSCrcMethod, wplGamma);
                 if (acrcY > bestAcrc) { bestAcrc = acrcY; bestDir = "п.8.2.15 y"; }
             }
         }
@@ -424,7 +425,8 @@ public static class FemCheckRunner
         double Rbt, double Rb_ser, double Es, double Rs_ser,
         double Eb_red, double alphaFull, double alpha,
         double phi1, double phi2,
-        SigmaSCrcMethod sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137)
+        SigmaSCrcMethod sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137,
+        WplGammaMethod wplGamma = WplGammaMethod.Sp63)
     {
         if (eps_s <= 0.0) return 0.0;
 
@@ -438,7 +440,9 @@ public static class FemCheckRunner
         double ycFull = S_red / A_red;
         double yt     = h - ycFull;
         double Wred   = I_red / yt;
-        double Wpl    = 1.3 * Wred;
+        // Коэффициент пластичности задаётся параметрами задачи; полоса считается на 1 м,
+        // поэтому b = 1.
+        double Wpl    = ShellSimplSolver.ResolveWplGamma(wplGamma, As_t, 1.0, h) * Wred;
         double ex     = Wred / A_red;
 
         // Момент трещинообразования (п. 8.2.11)
@@ -503,7 +507,8 @@ public static class FemCheckRunner
         DiagrammType     concreteDiagType,
         ShellLoadItem?   nlShell,
         double           ltFraction = 0.0,
-        SigmaSCrcMethod  sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137)
+        SigmaSCrcMethod  sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137,
+        WplGammaMethod   wplGamma = WplGammaMethod.Sp63)
     {
         string suffix = "";
         double acrcMax;
@@ -512,12 +517,12 @@ public static class FemCheckRunner
         if (calcType == CalcType.NL)
         {
             // Только acrc1 (продолжительное раскрытие)
-            (acrcMax, acrcDir) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod);
+            (acrcMax, acrcDir) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
         }
         else // CalcType.N → непродолжительное, п. 8.2.7
         {
             // acrc2: N-набор, φ1 = 1.0
-            var (acrc2, dir2) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod);
+            var (acrc2, dir2) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
 
             if (nlShell != null)
             {
@@ -540,9 +545,9 @@ public static class FemCheckRunner
                 var stNl = resNl.Converged ? resNl.StrainState : st;
 
                 // acrc1: NL-набор, φ1 = 1.4
-                var (acrc1, dir1) = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod);
+                var (acrc1, dir1) = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
                 // acrc3: NL-набор, φ1 = 1.0
-                var (acrc3, _)   = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod);
+                var (acrc3, _)   = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
 
                 // п. 8.2.7: acrc_непрод = acrc1 + acrc2 − acrc3
                 acrcMax = acrc1 + acrc2 - acrc3;
@@ -580,8 +585,8 @@ public static class FemCheckRunner
                     suffix = resVirt.Converged ? $" (NL=N×{ltFraction:G})" : $" (NL=N×{ltFraction:G}, нет сход.)";
                     var stVirt = resVirt.Converged ? resVirt.StrainState : st;
 
-                    var (acrc1, dir1) = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod);
-                    var (acrc3, _)    = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod);
+                    var (acrc1, dir1) = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
+                    var (acrc3, _)    = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
 
                     acrcMax = acrc1 + acrc2 - acrc3;
                     acrcDir = dir1.Length > 0 ? dir1 : dir2;

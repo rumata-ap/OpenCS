@@ -26,6 +26,29 @@ namespace CScore
         CrackingMoment8138
     }
 
+    /// <summary>
+    /// Источник коэффициента пластичности γ в упругопластическом моменте сопротивления
+    /// Wpl = γ·Wred (момент образования трещин, п. 8.2.11).
+    /// </summary>
+    public enum WplGammaMethod
+    {
+        /// <summary>СП 63.13330, прямоугольное сечение: γ = 1,3. Значение по умолчанию.</summary>
+        Sp63,
+
+        /// <summary>
+        /// СНиП 2.03.01-84*: γ = 1,75 (формула Гвоздева-Дмитриева). Отвечает предпосылкам
+        /// прямоугольной эпюры растянутой зоны при Ebt = Eb.
+        /// </summary>
+        Snip2030184,
+
+        /// <summary>
+        /// Радайкин О.В., 2018: γ = 1,6 + 1/(100·√μs), μs = As/(b·h) — эмпирическая
+        /// зависимость от степени армирования, калиброванная по опытам Пирадова, Ватагина и
+        /// Тошина. Область применения, заявленная автором, — бетоны В15…В35.
+        /// </summary>
+        Radaykin2018
+    }
+
     public class ShellSimplStripResult
     {
         public string Name { get; set; } = "";
@@ -41,6 +64,8 @@ namespace CScore
         public double Sigma_s_MPa { get; set; }
         /// <summary>σs,crc — напряжение в арматуре сразу после образования трещины, МПа (п. 8.2.18).</summary>
         public double Sigma_s_crc_MPa { get; set; }
+        /// <summary>Коэффициент пластичности γ, принятый в Wpl = γ·Wred.</summary>
+        public double Gamma { get; set; }
         public double Mcrc { get; set; }
         public bool Cracked { get; set; }
         public double Psi_s { get; set; }
@@ -75,7 +100,8 @@ namespace CScore
             double AcrcLimMm = 0.3,
             double Phi1 = 1.0,
             double Phi2 = 0.5,
-            SigmaSCrcMethod SigmaSCrc = SigmaSCrcMethod.ReleasedConcrete8137
+            SigmaSCrcMethod SigmaSCrc = SigmaSCrcMethod.ReleasedConcrete8137,
+            WplGammaMethod WplGamma = WplGammaMethod.Sp63
         );
 
         public sealed record SolveResult(
@@ -126,13 +152,13 @@ namespace CScore
                 if (isSls)
                 {
                     waStrips.Add(MakeStripSls("x, верх", Mx_top, Nxr, h, h - ct, cb,
-                        As_x_top, As_x_bot, ds_x, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc));
+                        As_x_top, As_x_bot, ds_x, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
                     waStrips.Add(MakeStripSls("x, низ", Mx_bot, Nxr, h, h - cb, ct,
-                        As_x_bot, As_x_top, ds_x, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc));
+                        As_x_bot, As_x_top, ds_x, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
                     waStrips.Add(MakeStripSls("y, верх", My_top, Nyr, h, h - ct, cb,
-                        As_y_top, As_y_bot, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc));
+                        As_y_top, As_y_bot, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
                     waStrips.Add(MakeStripSls("y, низ", My_bot, Nyr, h, h - cb, ct,
-                        As_y_bot, As_y_top, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc));
+                        As_y_bot, As_y_top, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
                 }
                 else
                 {
@@ -161,7 +187,7 @@ namespace CScore
                         As_x_top, As_y_top, As_x_bot, As_y_bot,
                         ds_x, ds_y,
                         concreteChars, rebarChars,
-                        isSls, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc));
+                        isSls, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
                 }
 
                 if (isSls)
@@ -300,6 +326,25 @@ namespace CScore
         }
 
         /// <summary>
+        /// Коэффициент пластичности γ для Wpl = γ·Wred по выбранному источнику.
+        /// μs считается по полной высоте сечения (As/(b·h)) — так он определён в источнике
+        /// формулы Radaykin2018.
+        /// </summary>
+        internal static double ResolveWplGamma(WplGammaMethod method, double asT, double b, double h)
+        {
+            switch (method)
+            {
+                case WplGammaMethod.Snip2030184:
+                    return 1.75;
+                case WplGammaMethod.Radaykin2018:
+                    double mu = b > 1e-15 && h > 1e-15 ? asT / (b * h) : 0.0;
+                    return mu > 1e-12 ? 1.6 + 1.0 / (100.0 * Math.Sqrt(mu)) : 1.75;
+                default:
+                    return 1.3;
+            }
+        }
+
+        /// <summary>
         /// П. 8.2.18, ф. (8.137): σs,crc — напряжение в растянутой арматуре в сечении с
         /// трещиной сразу после её образования, посчитанное ПО НАПРЯЖЕНИЯМ, а не через
         /// отношение моментов (8.138).
@@ -347,10 +392,10 @@ namespace CScore
             double As_t, double As_c, double ds,
             MaterialChars concrete, MaterialChars rebar,
             double phi1, double phi2, double acrcLimMm,
-            SigmaSCrcMethod sigmaSCrcMethod)
+            SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma)
         {
             var r = ComputeStripSls(M_des, N_des, h, h0, aPrime, As_t, As_c, ds,
-                concrete, rebar, phi1, phi2, acrcLimMm, sigmaSCrcMethod);
+                concrete, rebar, phi1, phi2, acrcLimMm, sigmaSCrcMethod, wplGamma);
             r.Name = name;
             return r;
         }
@@ -370,7 +415,8 @@ namespace CScore
             double As_t, double As_c, double ds,
             MaterialChars concrete, MaterialChars rebar,
             double phi1, double phi2, double acrcLimMm,
-            SigmaSCrcMethod sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137)
+            SigmaSCrcMethod sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137,
+            WplGammaMethod wplGamma = WplGammaMethod.Sp63)
         {
             bool noRebar = As_t < 1e-12;
             var r = new ShellSimplStripResult
@@ -398,7 +444,9 @@ namespace CScore
             double ycFull = S_red / A_red;
             double yt = h - ycFull;
             double Wred = I_red / yt;
-            double Wpl = 1.3 * Wred;
+            double gamma = ResolveWplGamma(wplGamma, As_t, b, h);
+            r.Gamma = gamma;
+            double Wpl = gamma * Wred;
             double ex = Wred / A_red;
 
             double mcrc = Rbt * Wpl - N_des * ex;
@@ -639,7 +687,7 @@ namespace CScore
             double ds_x, double ds_y,
             MaterialChars concreteChars, MaterialChars rebarChars,
             bool isSls, double phi1, double phi2, double acrcLimMm,
-            SigmaSCrcMethod sigmaSCrcMethod)
+            SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma)
         {
             double alpha = alphaDeg * Math.PI / 180.0;
             double c = Math.Cos(alpha), s = Math.Sin(alpha);
@@ -660,9 +708,9 @@ namespace CScore
             {
                 strip = top
                     ? ComputeStripSls(Math.Abs(M_n), N_n, h, h - ct, cb,
-                        As_n_top, As_n_bot, ds_top, concreteChars, rebarChars, phi1, phi2, acrcLimMm, sigmaSCrcMethod)
+                        As_n_top, As_n_bot, ds_top, concreteChars, rebarChars, phi1, phi2, acrcLimMm, sigmaSCrcMethod, wplGamma)
                     : ComputeStripSls(Math.Abs(M_n), N_n, h, h - cb, ct,
-                        As_n_bot, As_n_top, ds_bot, concreteChars, rebarChars, phi1, phi2, acrcLimMm, sigmaSCrcMethod);
+                        As_n_bot, As_n_top, ds_bot, concreteChars, rebarChars, phi1, phi2, acrcLimMm, sigmaSCrcMethod, wplGamma);
             }
             else
             {

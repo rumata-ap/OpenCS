@@ -27,6 +27,8 @@ public record PlateCheckParams
     public double Phi2      { get; init; } = 0.5;
     /// <summary>Способ получения σs,crc в ψs (п. 8.2.18): по напряжениям или через Mcrc.</summary>
     public SigmaSCrcMethod SigmaSCrc { get; init; } = SigmaSCrcMethod.ReleasedConcrete8137;
+    /// <summary>Источник коэффициента пластичности γ в Wpl = γ·Wred (п. 8.2.11).</summary>
+    public WplGammaMethod WplGamma { get; init; } = WplGammaMethod.Sp63;
 
     /// <summary>
     /// Режим вычисления φ1:

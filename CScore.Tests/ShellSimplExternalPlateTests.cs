@@ -92,13 +92,46 @@ public class ShellSimplExternalPlateTests
     const string Sls = "shell_simpl_capri_sls";
 
     static ShellSimplSolver.SolveResult Capri(double[] ext, string kind, double phi1 = 1.0,
-        SigmaSCrcMethod sigmaSCrc = SigmaSCrcMethod.ReleasedConcrete8137)
+        SigmaSCrcMethod sigmaSCrc = SigmaSCrcMethod.ReleasedConcrete8137,
+        WplGammaMethod wplGamma = WplGammaMethod.Sp63)
     {
         var (mx, my, mxy) = ToOpenCs(ext);
         return ShellSimplSolver.Solve(
-            new ShellSimplSolver.SolveParams(0, 0, 0, mx, my, mxy, kind, StepDeg, 0.3, phi1, 0.5, sigmaSCrc),
+            new ShellSimplSolver.SolveParams(0, 0, 0, mx, my, mxy, kind, StepDeg, 0.3, phi1, 0.5,
+                sigmaSCrc, wplGamma),
             Fixture.Section(), Fixture.Concrete(), Fixture.Rebar(),
             kind == Uls ? CalcType.C : CalcType.N);
+    }
+
+    // Георгий Апхадзе сообщил, что в своей таблице принял Wpl = 1,75·Wred (СНиП 2.03.01-84*),
+    // а не нормативные 1,3 СП 63. Полное воспроизведение его цепочки — это γ = 1,75 плюс
+    // замыкание ψs через момент, ф. (8.138).
+    static (double Long, double Short) CrackWidthsWith(SigmaSCrcMethod m, WplGammaMethod g)
+    {
+        var full10 = Capri(ExtShort, Sls, 1.0, m, g).CapriDirs!;
+        var long10 = Capri(ExtLong, Sls, 1.0, m, g).CapriDirs!;
+        var long14 = Capri(ExtLong, Sls, 1.4, m, g).CapriDirs!;
+
+        double aLong = 0, aShort = 0;
+        for (int i = 0; i < full10.Count; i++)
+        {
+            if (full10[i].Strip.NoRebar || full10[i].Top) continue;
+            double l = long14[i].Strip.Acrc_mm;
+            double sh = full10[i].Strip.Acrc_mm - long10[i].Strip.Acrc_mm + l;
+            if (l > aLong) aLong = l;
+            if (sh > aShort) aShort = sh;
+        }
+        return (aLong, aShort);
+    }
+
+    [Fact]
+    public void ExternalCrackWidths_AreReproducedExactly_WithGamma175AndMomentRoute()
+    {
+        var (aLong, aShort) = CrackWidthsWith(
+            SigmaSCrcMethod.CrackingMoment8138, WplGammaMethod.Snip2030184);
+
+        Assert.Equal(0.260, aLong, 3);
+        Assert.Equal(0.329, aShort, 3);
     }
 
     // ψs = 1 − 0,8·σs,crc/σs (п. 8.2.18) замыкается двумя способами. По напряжениям, ф. (8.137),

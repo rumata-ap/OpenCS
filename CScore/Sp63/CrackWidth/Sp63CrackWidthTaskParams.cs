@@ -27,6 +27,12 @@ public sealed class Sp63CrackWidthTaskParams
     /// </summary>
     public string SigmaSCrcMethod { get; set; } = "stress";
 
+    /// <summary>
+    /// Источник коэффициента пластичности γ в Wpl = γ·Wred: "sp63" — 1,3 (по умолчанию);
+    /// "snip" — 1,75 по СНиП 2.03.01-84*; "radaykin" — по степени армирования.
+    /// </summary>
+    public string WplGamma { get; set; } = "sp63";
+
     /// <summary>Использовать ручные значения N, Mx и My.</summary>
     public bool UseManualForces { get; set; }
 
@@ -80,8 +86,11 @@ public sealed class Sp63CrackWidthTaskParams
         if (!TryParseSigmaSCrcMethod(SigmaSCrcMethod, out var sigmaSCrc))
             return Invalid("invalid_sigma_s_crc_method", out errorCode);
 
+        if (!TryParseWplGamma(WplGamma, out var wplGamma))
+            return Invalid("invalid_wpl_gamma", out errorCode);
+
         options = new Sp63CrackWidthOptions(Sp63NormalShapeKind.Rectangular, axis, Phi1, Phi2,
-            AcrcLimMm, sigmaSCrc);
+            AcrcLimMm, sigmaSCrc, wplGamma);
         return true;
     }
 
@@ -94,6 +103,20 @@ public sealed class Sp63CrackWidthTaskParams
         {
             case "stress": method = CScore.SigmaSCrcMethod.ReleasedConcrete8137; return true;
             case "moment": method = CScore.SigmaSCrcMethod.CrackingMoment8138; return true;
+            default: return false;
+        }
+    }
+
+    /// <summary>Разбирает идентификатор источника γ из JSON-контракта.</summary>
+    public static bool TryParseWplGamma(string? value, out CScore.WplGammaMethod method)
+    {
+        method = CScore.WplGammaMethod.Sp63;
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "sp63": method = CScore.WplGammaMethod.Sp63; return true;
+            case "snip": method = CScore.WplGammaMethod.Snip2030184; return true;
+            case "radaykin": method = CScore.WplGammaMethod.Radaykin2018; return true;
             default: return false;
         }
     }
