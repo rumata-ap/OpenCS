@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.Data.Sqlite;
 using OpenCS.Utilites;
 using Xunit;
@@ -41,8 +42,29 @@ public sealed class FireSchemaV56Tests
 
             Assert.True(HasColumn(path, "materials", "fire_rebar_class"));
             Assert.True(HasColumn(path, "fire_thermal_results", "input_hash"));
-            Assert.Equal("56", ReadSchemaVersion(path));
+            Assert.Equal(DatabaseService.SchemaVersion.ToString(), ReadSchemaVersion(path));
             Assert.Equal(1, CountRows(path, "materials"));
+        }
+        finally
+        {
+            Delete(path);
+        }
+    }
+
+    // Цепочка миграций должна покрывать каждую версию без пропусков: пропущенный шаг
+    // не мешает проставить итоговую версию схемы, поэтому база молча остаётся без таблиц,
+    // которые этот шаг создаёт (так был потерян переход 49 → 50).
+    [Fact]
+    public void MigrationChain_HasStepForEveryVersion()
+    {
+        string path = TempDbPath();
+        try
+        {
+            using var db = new DatabaseService(path);
+            var versions = db.MigrationStepVersions;
+
+            for (int i = 22; i < DatabaseService.SchemaVersion; i++)
+                Assert.True(versions.Contains(i), $"нет шага миграции с версии {i} на {i + 1}");
         }
         finally
         {
@@ -60,7 +82,7 @@ public sealed class FireSchemaV56Tests
             using (var db1 = new DatabaseService(path)) { }
             using (var db2 = new DatabaseService(path)) { }
 
-            Assert.Equal("56", ReadSchemaVersion(path));
+            Assert.Equal(DatabaseService.SchemaVersion.ToString(), ReadSchemaVersion(path));
         }
         finally
         {

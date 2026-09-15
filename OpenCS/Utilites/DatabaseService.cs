@@ -35,6 +35,57 @@ namespace OpenCS.Utilites
 
       const int CurrentSchemaVersion = 57;
 
+      /// <summary>
+      /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
+      /// Таблица, а не цепочка if: пропущенный шаг ловится тестом полноты
+      /// (<see cref="MigrationStepVersions"/>), а не оставляет базу без таблиц молча.
+      /// </summary>
+      Dictionary<int, Action> MigrationSteps() => new()
+      {
+         [22] = MigrateV23,
+         [23] = MigrateV24,
+         [24] = MigrateV25,
+         [25] = MigrateV26,
+         [26] = MigrateV27,
+         [27] = MigrateV28,
+         [28] = MigrateV29,
+         [29] = MigrateV30,
+         [30] = MigrateV31,
+         [31] = MigrateV32,
+         [32] = MigrateV33,
+         [33] = MigrateV34,
+         [34] = MigrateV35,
+         [35] = MigrateV36,
+         [36] = MigrateV37,
+         [37] = MigrateV38,
+         [38] = MigrateV39,
+         [39] = MigrateV40,
+         [40] = MigrateV41,
+         [41] = MigrateV42,
+         [42] = MigrateV43,
+         [43] = MigrateV44,
+         [44] = MigrateV45,
+         [45] = MigrateV46,
+         [46] = MigrateV47,
+         [47] = MigrateV48,
+         [48] = MigrateV49,
+         [49] = MigrateV50,
+         [50] = MigrateV51,
+         [51] = MigrateV52,
+         [52] = MigrateV53,
+         [53] = MigrateV54,
+         [54] = MigrateV55,
+         [55] = MigrateV56,
+         [56] = MigrateV57,
+      };
+
+      /// <summary>Текущая версия схемы БД.</summary>
+      public static int SchemaVersion => CurrentSchemaVersion;
+
+      /// <summary>Версии, для которых определён шаг миграции — для проверки полноты цепочки.</summary>
+      public IReadOnlyCollection<int> MigrationStepVersions => MigrationSteps().Keys;
+
+
       // Миграции v1-v22 удалены — проект всегда стартует от EnsureCreated (v25).
       // Оставлены только v23-v25 как C#-методы ниже.
       static readonly string[] Migrations = [  // пустой — fallback не используется
@@ -603,42 +654,10 @@ namespace OpenCS.Utilites
          using var tx = _connection.BeginTransaction();
          try
          {
+            var steps = MigrationSteps();
             for (int i = version; i < CurrentSchemaVersion; i++)
             {
-               if (i == 22) { MigrateV23(); continue; }
-               if (i == 23) { MigrateV24(); continue; }
-               if (i == 24) { MigrateV25(); continue; }
-               if (i == 25) { MigrateV26(); continue; }
-               if (i == 26) { MigrateV27(); continue; }
-               if (i == 27) { MigrateV28(); continue; }
-               if (i == 28) { MigrateV29(); continue; }
-               if (i == 29) { MigrateV30(); continue; }
-               if (i == 30) { MigrateV31(); continue; }
-               if (i == 31) { MigrateV32(); continue; }
-               if (i == 32) { MigrateV33(); continue; }
-               if (i == 33) { MigrateV34(); continue; }
-               if (i == 34) { MigrateV35(); continue; }
-               if (i == 35) { MigrateV36(); continue; }
-               if (i == 36) { MigrateV37(); continue; }
-               if (i == 37) { MigrateV38(); continue; }
-               if (i == 38) { MigrateV39(); continue; }
-               if (i == 39) { MigrateV40(); continue; }
-               if (i == 40) { MigrateV41(); continue; }
-               if (i == 41) { MigrateV42(); continue; }
-                if (i == 42) { MigrateV43(); continue; }
-                 if (i == 43) { MigrateV44(); continue; }
-                 if (i == 44) { MigrateV45(); continue; }
-                   if (i == 45) { MigrateV46(); continue; }
-                   if (i == 46) { MigrateV47(); continue; }
-                    if (i == 47) { MigrateV48(); continue; }
-                    if (i == 48) { MigrateV49(); continue; }
-                     if (i == 50) { MigrateV51(); continue; }
-                     if (i == 51) { MigrateV52(); continue; }
-                     if (i == 52) { MigrateV53(); continue; }
-               if (i == 53) { MigrateV54(); continue; }
-               if (i == 54) { MigrateV55(); continue; }
-               if (i == 55) { MigrateV56(); continue; }
-               if (i == 56) { MigrateV57(); continue; }
+               if (steps.TryGetValue(i, out var step)) step();
             }
 
             var updCmd = _connection.CreateCommand();
