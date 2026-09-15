@@ -14,6 +14,13 @@ namespace CScore.Tests;
 //
 // Выводы дополнительно сверяются со слоистой моделью (ShellLayeredCheck): она работает с полным
 // тензором через НДС по толщине, без перебора направлений, и поэтому независима от формулы проекции.
+//
+// SLS-значения здесь получены при способе σs,crc по умолчанию — по напряжениям, ф. (8.137):
+// σs,crc = Rbt,ser·(Abt + αs·As)/As. Альтернатива SigmaSCrcMethod.CrackingMoment8138 (ф. 8.138)
+// сводит отношение к Mcrc/M и опирается на формульный Mcrc = Rbt,ser·1,3·Wred; этот Wpl занижен,
+// поэтому там ψs выше, а acrc — БОЛЬШЕ, то есть погрешность моментного варианта идёт в запас
+// (проверено в ShellSimplExternalPlateTests.SigmaSCrcMethod_MomentVariantIsConservative — там
+// процент армирования выше и ф. (8.137) не упирается в нормативную границу σs,crc ≤ σs).
 public class ShellSimplCapriDirectionTests
 {
     const double StepDeg = 5.0;
@@ -87,9 +94,11 @@ public class ShellSimplCapriDirectionTests
     const string Uls = "shell_simpl_capri_uls";
     const string Sls = "shell_simpl_capri_sls";
 
-    static ShellSimplSolver.SolveResult Capri(double[] f, string kind) =>
+    static ShellSimplSolver.SolveResult Capri(double[] f, string kind,
+        SigmaSCrcMethod sigmaSCrc = SigmaSCrcMethod.ReleasedConcrete8137) =>
         ShellSimplSolver.Solve(
-            new ShellSimplSolver.SolveParams(f[0], f[1], f[2], f[3], f[4], f[5], kind, StepDeg, 0.3, 1.0, 0.5),
+            new ShellSimplSolver.SolveParams(f[0], f[1], f[2], f[3], f[4], f[5], kind, StepDeg, 0.3, 1.0, 0.5,
+                sigmaSCrc),
             Fixture.Section(), Fixture.Concrete(), Fixture.Rebar(),
             kind == Uls ? CalcType.C : CalcType.N);
 
@@ -141,10 +150,24 @@ public class ShellSimplCapriDirectionTests
 
         var slsPlus = Capri(CaseB, Sls);
         var slsMinus = Capri(MirrorShear(CaseB), Sls);
-        Assert.Equal(35.0, slsPlus.CriticalTop!.Alpha_deg);
-        Assert.Equal(145.0, slsMinus.CriticalTop!.Alpha_deg);
-        Assert.InRange(slsPlus.CriticalTop!.Strip.Acrc_mm, 0.0531, 0.0541);
+        Assert.Equal(30.0, slsPlus.CriticalTop!.Alpha_deg);
+        Assert.Equal(150.0, slsMinus.CriticalTop!.Alpha_deg);
+        Assert.InRange(slsPlus.CriticalTop!.Strip.Acrc_mm, 0.0366, 0.0376);
         Assert.Equal(slsPlus.CriticalTop!.Strip.Acrc_mm, slsMinus.CriticalTop!.Strip.Acrc_mm, 9);
+    }
+
+    // Нижняя граница ψs = 0,2 нормативная: она получается из σs,crc ≤ σs, то есть из того,
+    // что напряжение сразу после образования трещины не может превысить напряжение от
+    // рассматриваемой нагрузки. На слабоармированных сечениях формула (8.137) упирается в эту
+    // границу — скачок нормативный, искусственного «пола» в коде нет.
+    [Fact]
+    public void PsiS_LowerBound_IsNormativeAndReachedOnLightlyReinforcedStrip()
+    {
+        var crit = Capri(CaseB, Sls).CriticalTop!.Strip;
+
+        Assert.True(crit.Cracked);
+        Assert.Equal(crit.Sigma_s_MPa, crit.Sigma_s_crc_MPa, 9);
+        Assert.Equal(0.2, crit.Psi_s, 9);
     }
 
     // ── Проверка 2: независимая формула с «−» совпадает с проекцией OpenCS ──────────────────────
@@ -181,7 +204,7 @@ public class ShellSimplCapriDirectionTests
 
         var sls = Capri(MirrorShear(CaseB), Sls);
         Assert.True(sls.CriticalTop!.Strip.Cracked);
-        Assert.InRange(sls.CriticalTop!.Strip.Acrc_mm, 0.0531, 0.0541);
+        Assert.InRange(sls.CriticalTop!.Strip.Acrc_mm, 0.0366, 0.0376);
         Assert.Equal(0.0, MaxOverRange(sls, Sls, top: true, maxAlphaDeg: 90.0)); // трещина не найдена вовсе
     }
 
@@ -197,8 +220,8 @@ public class ShellSimplCapriDirectionTests
 
         double slsBoth = Capri(CaseB, Sls).CriticalTop!.Strip.Acrc_mm;
         double slsOnlyMxy = Capri(With(CaseB, 5, -CaseB[5]), Sls).CriticalTop!.Strip.Acrc_mm;
-        Assert.InRange(slsBoth, 0.0531, 0.0541);
-        Assert.InRange(slsOnlyMxy, 0.0480, 0.0490);
+        Assert.InRange(slsBoth, 0.0366, 0.0376);
+        Assert.InRange(slsOnlyMxy, 0.0359, 0.0369);
     }
 
     // ── Проверка 5: Mx и My разных знаков — перебор сам проверяет обе грани ─────────────────────
@@ -208,15 +231,15 @@ public class ShellSimplCapriDirectionTests
     {
         var uls = Capri(CaseC, Uls);
         Assert.Equal(15.0, uls.CriticalTop!.Alpha_deg);
-        Assert.InRange(uls.CriticalTop!.Strip.Eta, 0.7841, 0.7851);
+        Assert.InRange(uls.CriticalTop!.Strip.Eta, 0.6796, 0.6806);
         Assert.Equal(105.0, uls.CriticalBot!.Alpha_deg);
-        Assert.InRange(uls.CriticalBot!.Strip.Eta, 0.4066, 0.4076);
+        Assert.InRange(uls.CriticalBot!.Strip.Eta, 0.3524, 0.3534);
 
         var sls = Capri(CaseD, Sls);
         Assert.Equal(15.0, sls.CriticalTop!.Alpha_deg);
-        Assert.InRange(sls.CriticalTop!.Strip.Acrc_mm, 0.0705, 0.0715);
+        Assert.InRange(sls.CriticalTop!.Strip.Acrc_mm, 0.0399, 0.0409);
         Assert.Equal(105.0, sls.CriticalBot!.Alpha_deg);
-        Assert.InRange(sls.CriticalBot!.Strip.Acrc_mm, 0.0474, 0.0484);
+        Assert.InRange(sls.CriticalBot!.Strip.Acrc_mm, 0.0353, 0.0363);
     }
 
     // ── Проверка 6: обнуление «разгружающего» момента идёт в запас для своей грани ─────────────

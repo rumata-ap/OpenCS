@@ -34,9 +34,11 @@ public enum Sp63CrackWidthMessageKind
 /// <param name="Phi1">Коэффициент длительности действия нагрузки, п. 8.2.10.</param>
 /// <param name="Phi2">Коэффициент профиля продольной арматуры, п. 8.2.10.</param>
 /// <param name="AcrcLimMm">Предельно допустимая ширина раскрытия трещин, мм.</param>
+/// <param name="SigmaSCrc">Способ получения σs,crc в ψs, п. 8.2.18.</param>
 public sealed record Sp63CrackWidthOptions(
     Sp63NormalShapeKind ShapeKind,
     Sp63NormalAxis Axis,
     double Phi1,
     double Phi2,
-    double AcrcLimMm);
+    double AcrcLimMm,
+    SigmaSCrcMethod SigmaSCrc = SigmaSCrcMethod.ReleasedConcrete8137);

@@ -4,6 +4,28 @@ using System.Linq;
 
 namespace CScore
 {
+    /// <summary>
+    /// Способ получения σs,crc в формуле ψs = 1 − 0,8·σs,crc/σs (п. 8.2.18) для упрощённых
+    /// (формульных) проверок раскрытия трещин — плитных и стержневых.
+    /// </summary>
+    public enum SigmaSCrcMethod
+    {
+        /// <summary>
+        /// Ф. (8.137), по напряжениям: σs,crc — приращение напряжения в арматуре от сброса
+        /// растянутого бетона рабочей зоны при образовании трещины. Не зависит от точности
+        /// формульного Mcrc. Значение по умолчанию.
+        /// </summary>
+        ReleasedConcrete8137,
+
+        /// <summary>
+        /// Ф. (8.138), через момент: σs,crc получается подстановкой Mcrc в ту же упругую
+        /// модель сечения с трещиной, поэтому отношение вырождается в Mcrc/M. Точность ψs
+        /// целиком определяется точностью Mcrc = Rbt,ser·1,3·Wred; этот Wpl занижен, поэтому
+        /// ψs завышается, а acrc получается больше — погрешность идёт в запас.
+        /// </summary>
+        CrackingMoment8138
+    }
+
     public class ShellSimplStripResult
     {
         public string Name { get; set; } = "";
@@ -17,6 +39,8 @@ namespace CScore
         public double Xm { get; set; }
         public double Zs { get; set; }
         public double Sigma_s_MPa { get; set; }
+        /// <summary>σs,crc — напряжение в арматуре сразу после образования трещины, МПа (п. 8.2.18).</summary>
+        public double Sigma_s_crc_MPa { get; set; }
         public double Mcrc { get; set; }
         public bool Cracked { get; set; }
         public double Psi_s { get; set; }
@@ -50,7 +74,8 @@ namespace CScore
             double StepDeg = 10.0,
             double AcrcLimMm = 0.3,
             double Phi1 = 1.0,
-            double Phi2 = 0.5
+            double Phi2 = 0.5,
+            SigmaSCrcMethod SigmaSCrc = SigmaSCrcMethod.ReleasedConcrete8137
         );
 
         public sealed record SolveResult(
@@ -101,13 +126,13 @@ namespace CScore
                 if (isSls)
                 {
                     waStrips.Add(MakeStripSls("x, верх", Mx_top, Nxr, h, h - ct, cb,
-                        As_x_top, As_x_bot, ds_x, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm));
+                        As_x_top, As_x_bot, ds_x, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc));
                     waStrips.Add(MakeStripSls("x, низ", Mx_bot, Nxr, h, h - cb, ct,
-                        As_x_bot, As_x_top, ds_x, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm));
+                        As_x_bot, As_x_top, ds_x, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc));
                     waStrips.Add(MakeStripSls("y, верх", My_top, Nyr, h, h - ct, cb,
-                        As_y_top, As_y_bot, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm));
+                        As_y_top, As_y_bot, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc));
                     waStrips.Add(MakeStripSls("y, низ", My_bot, Nyr, h, h - cb, ct,
-                        As_y_bot, As_y_top, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm));
+                        As_y_bot, As_y_top, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc));
                 }
                 else
                 {
@@ -136,7 +161,7 @@ namespace CScore
                         As_x_top, As_y_top, As_x_bot, As_y_bot,
                         ds_x, ds_y,
                         concreteChars, rebarChars,
-                        isSls, p.Phi1, p.Phi2, p.AcrcLimMm));
+                        isSls, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc));
                 }
 
                 if (isSls)
@@ -274,6 +299,33 @@ namespace CScore
             return Math.Clamp(sigma, 0.0, rsSer);
         }
 
+        /// <summary>
+        /// П. 8.2.18, ф. (8.137): σs,crc — напряжение в растянутой арматуре в сечении с
+        /// трещиной сразу после её образования, посчитанное ПО НАПРЯЖЕНИЯМ, а не через
+        /// отношение моментов (8.138).
+        ///
+        /// В момент образования трещины растянутый бетон рабочей зоны Abt перестаёт нести
+        /// усилие Rbt,ser·Abt, и оно целиком переходит в арматуру. Приращение напряжения с
+        /// учётом упругого перераспределения (смещения нейтральной оси) даёт
+        ///     σs,crc = Rbt,ser/ρs · (1 + αs·ρs),   ρs = As_t/Abt,   αs = Es/Eb,
+        /// то есть σs,crc = Rbt,ser·(Abt + αs·As_t)/As_t. Модуль бетона берётся начальный
+        /// (Eb), а не приведённый Eb,red: перераспределение при образовании трещины —
+        /// мгновенное, ползучесть в нём не участвует.
+        ///
+        /// Вариант (8.138) σs,crc/σs = Mcrc/M в упрощённом пути вырождается: σs,crc,
+        /// полученное подстановкой Mcrc в ту же упругую модель сечения с трещиной, даёт
+        /// ровно отношение моментов, и точность ψs целиком определяется точностью
+        /// формульного Mcrc = Rbt,ser·1,3·Wred. Этот Wpl заведомо занижен (см. тест примера
+        /// 47), из-за чего ψs завышался, а acrc уходила в запас на 15-25%.
+        /// </summary>
+        internal static double SigmaSCrcFromReleasedConcrete(
+            double rbt, double abt, double asT, double alphaFull, double sigmaS)
+        {
+            if (asT < 1e-15 || abt < 1e-15 || rbt <= 0.0) return 0.0;
+            double sigma = rbt * (abt + alphaFull * asT) / asT;
+            return Math.Clamp(sigma, 0.0, Math.Max(0.0, sigmaS));
+        }
+
         internal static void FullSectionProps(double h, double h0, double aPrime,
             double As_t, double As_c, double alphaFull,
             out double A_red, out double I_red)
@@ -294,10 +346,11 @@ namespace CScore
             double M_des, double N_des, double h, double h0, double aPrime,
             double As_t, double As_c, double ds,
             MaterialChars concrete, MaterialChars rebar,
-            double phi1, double phi2, double acrcLimMm)
+            double phi1, double phi2, double acrcLimMm,
+            SigmaSCrcMethod sigmaSCrcMethod)
         {
             var r = ComputeStripSls(M_des, N_des, h, h0, aPrime, As_t, As_c, ds,
-                concrete, rebar, phi1, phi2, acrcLimMm);
+                concrete, rebar, phi1, phi2, acrcLimMm, sigmaSCrcMethod);
             r.Name = name;
             return r;
         }
@@ -316,7 +369,8 @@ namespace CScore
             double M_des, double N_des, double h, double h0, double a_prime,
             double As_t, double As_c, double ds,
             MaterialChars concrete, MaterialChars rebar,
-            double phi1, double phi2, double acrcLimMm)
+            double phi1, double phi2, double acrcLimMm,
+            SigmaSCrcMethod sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137)
         {
             bool noRebar = As_t < 1e-12;
             var r = new ShellSimplStripResult
@@ -373,9 +427,30 @@ namespace CScore
             double sigma_s = ComputeSigmaSCrackedSection(M_des, N_des, h0, xm, aRedCrc, iRedCrc, alpha, Rs_ser);
             r.Sigma_s_MPa = sigma_s / 1000.0;
 
-            double sigma_s_crc = r.Cracked && mcrc > 1e-9
-                ? ComputeSigmaSCrackedSection(mcrc, N_des, h0, xm, aRedCrc, iRedCrc, alpha, Rs_ser)
-                : sigma_s;
+            // П. 8.2.17: высота растянутой зоны для Abt берётся ПО РАСЧЁТУ МОМЕНТА
+            // ОБРАЗОВАНИЯ ТРЕЩИН, то есть по нейтральной оси приведённого сечения БЕЗ
+            // трещины (ycFull), а не по оси сечения с трещиной xm. Ограничения нормы —
+            // 2a ≤ xt ≤ 0,5·h0 (так же, как в ComputeAbt деформационного решателя).
+            double a_tens = h - h0;
+            double xtCrc = Math.Max(0.0, yt);   // yt = h − ycFull, ось сечения БЕЗ трещины
+            double h_bt = Math.Min(Math.Max(xtCrc, 2.0 * a_tens), h0 / 2.0);
+            double Abt = b * h_bt;
+            double lsRaw = 0.5 * Abt / As_t * ds;
+            double lsMin = Math.Max(10.0 * ds, 0.10);
+            double lsMax = Math.Min(40.0 * ds, 0.40);
+            double ls_m = Math.Max(lsMin, Math.Min(lsRaw, lsMax));
+            r.Ls_m = ls_m;
+
+            double sigma_s_crc = sigma_s;
+            if (r.Cracked)
+            {
+                sigma_s_crc = sigmaSCrcMethod == SigmaSCrcMethod.CrackingMoment8138
+                    ? (mcrc > 1e-9
+                        ? ComputeSigmaSCrackedSection(mcrc, N_des, h0, xm, aRedCrc, iRedCrc, alpha, Rs_ser)
+                        : 0.0)
+                    : SigmaSCrcFromReleasedConcrete(Rbt, Abt, As_t, alphaFull, sigma_s);
+            }
+            r.Sigma_s_crc_MPa = sigma_s_crc / 1000.0;
 
             double psi_s = 1.0;
             if (r.Cracked && sigma_s > 1e-3)
@@ -385,16 +460,6 @@ namespace CScore
                 if (psi_s > 1.0) psi_s = 1.0;
             }
             r.Psi_s = psi_s;
-
-            double a_tens = h - h0;
-            double xtFull = Math.Max(0.0, h - xm);
-            double h_bt = Math.Min(Math.Max(xtFull, 2.0 * a_tens), h0 / 2.0);
-            double Abt = b * h_bt;
-            double lsRaw = 0.5 * Abt / As_t * ds;
-            double lsMin = Math.Max(10.0 * ds, 0.10);
-            double lsMax = Math.Min(40.0 * ds, 0.40);
-            double ls_m = Math.Max(lsMin, Math.Min(lsRaw, lsMax));
-            r.Ls_m = ls_m;
 
             double phi3 = N_des > 1e-3 ? 1.2 : 1.0;
 
@@ -470,9 +535,28 @@ namespace CScore
             {
                 x = (Rs * As_t - Rsc * As_c) / (Rb * b);
                 x = Math.Max(0.0, Math.Min(x, xi_r * h0));
-                m_ult = Rb * b * x * (h0 - 0.5 * x) + Rsc * As_c * arm;
+
+                // П. 8.1.9: при x ≤ 2a' сжатая арматура не дорабатывает до Rsc, и ф. (8.5)
+                // занижает плечо внутренней пары (равнодействующая сжатия уезжает к грани).
+                // В этом случае норма переходит на ф. (8.9) — момент относительно
+                // равнодействующей сжатой зоны бетона при исключённой сжатой арматуре.
+                // Та же трактовка, что в формульной проверке нормального сечения
+                // (Sp63NormalChecker), формула переиспользуется, а не дублируется.
+                if (x <= 2.0 * a_prime)
+                {
+                    double xNoCompression = Rs * As_t / (Rb * b);
+                    m_ult = Sp63.Normal.Sp63NormalFormulas.SymmetricMoment(
+                        Rs, As_t, h0, a_prime, xNoCompression, compressionRebarWasExcluded: true);
+                    // Отчётная высота сжатой зоны — та, что отвечает принятому равновесию.
+                    x = Math.Min(xNoCompression, h0);
+                    caseStr = "Изгиб, x ≤ 2a′, M ≤ M_ult (§8.1.9)";
+                }
+                else
+                {
+                    m_ult = Rb * b * x * (h0 - 0.5 * x) + Rsc * As_c * arm;
+                    caseStr = "Изгиб, M ≤ M_ult (§8.1.8)";
+                }
                 demand = M_des;
-                caseStr = "Изгиб, M ≤ M_ult (§8.1.9)";
             }
             else
             {
@@ -554,7 +638,8 @@ namespace CScore
             double As_x_top, double As_y_top, double As_x_bot, double As_y_bot,
             double ds_x, double ds_y,
             MaterialChars concreteChars, MaterialChars rebarChars,
-            bool isSls, double phi1, double phi2, double acrcLimMm)
+            bool isSls, double phi1, double phi2, double acrcLimMm,
+            SigmaSCrcMethod sigmaSCrcMethod)
         {
             double alpha = alphaDeg * Math.PI / 180.0;
             double c = Math.Cos(alpha), s = Math.Sin(alpha);
@@ -575,9 +660,9 @@ namespace CScore
             {
                 strip = top
                     ? ComputeStripSls(Math.Abs(M_n), N_n, h, h - ct, cb,
-                        As_n_top, As_n_bot, ds_top, concreteChars, rebarChars, phi1, phi2, acrcLimMm)
+                        As_n_top, As_n_bot, ds_top, concreteChars, rebarChars, phi1, phi2, acrcLimMm, sigmaSCrcMethod)
                     : ComputeStripSls(Math.Abs(M_n), N_n, h, h - cb, ct,
-                        As_n_bot, As_n_top, ds_bot, concreteChars, rebarChars, phi1, phi2, acrcLimMm);
+                        As_n_bot, As_n_top, ds_bot, concreteChars, rebarChars, phi1, phi2, acrcLimMm, sigmaSCrcMethod);
             }
             else
             {

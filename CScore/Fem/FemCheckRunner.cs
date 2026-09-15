@@ -332,7 +332,8 @@ public static class FemCheckRunner
 
             return RunLayeredSlsCheck(section, shell, result.StrainState, cChSls, rChSls,
                                       calcType, pParams.Phi2, pParams.AcrcLimMm,
-                                      concreteMat, rebarMat, concreteDiagType, nlShell, ltFraction);
+                                      concreteMat, rebarMat, concreteDiagType, nlShell, ltFraction,
+                                      pParams.SigmaSCrc);
         }
 
         // ── ULS: деформационная проверка п. 8.1.30 делегирует в ShellLayeredCheck ──
@@ -353,7 +354,8 @@ public static class FemCheckRunner
         MaterialChars    cCh,
         MaterialChars    rCh,
         double           phi1,
-        double           phi2)
+        double           phi2,
+        SigmaSCrcMethod  sigmaSCrcMethod)
     {
         double Eb     = cCh.E;
         double Rb_ser = Math.Abs(cCh.Fc);
@@ -381,7 +383,7 @@ public static class FemCheckRunner
                     layer.Asx,
                     layer.DiameterX > 1e-9 ? layer.DiameterX : 0.012,
                     Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha,
-                    phi1, phi2);
+                    phi1, phi2, sigmaSCrcMethod);
                 if (acrcX > bestAcrc) { bestAcrc = acrcX; bestDir = "п.8.2.15 x"; }
             }
 
@@ -395,7 +397,7 @@ public static class FemCheckRunner
                     layer.Asy,
                     layer.DiameterY > 1e-9 ? layer.DiameterY : 0.012,
                     Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha,
-                    phi1, phi2);
+                    phi1, phi2, sigmaSCrcMethod);
                 if (acrcY > bestAcrc) { bestAcrc = acrcY; bestDir = "п.8.2.15 y"; }
             }
         }
@@ -421,7 +423,8 @@ public static class FemCheckRunner
         double As_t, double ds,
         double Rbt, double Rb_ser, double Es, double Rs_ser,
         double Eb_red, double alphaFull, double alpha,
-        double phi1, double phi2)
+        double phi1, double phi2,
+        SigmaSCrcMethod sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137)
     {
         if (eps_s <= 0.0) return 0.0;
 
@@ -443,24 +446,35 @@ public static class FemCheckRunner
 
         if (M_des <= mcrc) return 0.0;
 
-        // ψs — коэффициент неравномерности деформаций (п. 8.2.18)
-        double xm_crc  = ShellSimplSolver.NeutralAxis(h0, aPrime, As_t, 0.0, alpha);
-        double zs_crc  = h0 - xm_crc / 3.0;
-        double sigma_s_crc = 0.0;
-        if (zs_crc > 1e-9)
-            sigma_s_crc = Math.Min(Math.Max(0.0, mcrc / (zs_crc * As_t)), Rs_ser);
-
-        double psi_s = sigma_s > 1e-3
-            ? Math.Clamp(1.0 - 0.8 * sigma_s_crc / sigma_s, 0.1, 1.0)
-            : 1.0;
-
-        // Нейтральная ось при расчётном моменте (п. 8.2.17)
-        double xm  = ShellSimplSolver.NeutralAxis(h0, aPrime, As_t, 0.0, alpha);
-        double h_bt = Math.Min(Math.Max(h - xm, 2.0 * aPrime), h0 / 2.0);
+        // Площадь растянутого бетона (п. 8.2.17): высота растянутой зоны берётся по расчёту
+        // МОМЕНТА ОБРАЗОВАНИЯ ТРЕЩИН, то есть по нейтральной оси приведённого сечения без
+        // трещины (yt = h − ycFull), с ограничениями 2a ≤ xt ≤ 0,5·h0.
+        double h_bt = Math.Min(Math.Max(yt, 2.0 * aPrime), h0 / 2.0);
         double ls_raw = 0.5 * h_bt / As_t * ds;
         double ls_min = Math.Max(10.0 * ds, 0.10);
         double ls_max = Math.Min(40.0 * ds, 0.40);
         double ls_m   = Math.Clamp(ls_raw, ls_min, ls_max);
+
+        // ψs — коэффициент неравномерности деформаций (п. 8.2.18); способ получения σs,crc
+        // задаётся параметрами задачи, см. SigmaSCrcMethod.
+        double sigma_s_crc;
+        if (sigmaSCrcMethod == SigmaSCrcMethod.CrackingMoment8138)
+        {
+            double xm_crc = ShellSimplSolver.NeutralAxis(h0, aPrime, As_t, 0.0, alpha);
+            double zs_crc = h0 - xm_crc / 3.0;
+            sigma_s_crc = zs_crc > 1e-9
+                ? Math.Min(Math.Max(0.0, mcrc / (zs_crc * As_t)), Rs_ser)
+                : 0.0;
+        }
+        else
+        {
+            sigma_s_crc = ShellSimplSolver.SigmaSCrcFromReleasedConcrete(
+                Rbt, h_bt, As_t, alphaFull, sigma_s);
+        }
+
+        double psi_s = sigma_s > 1e-3
+            ? Math.Clamp(1.0 - 0.8 * sigma_s_crc / sigma_s, 0.1, 1.0)
+            : 1.0;
 
         // φ3 — вид нагружения (п. 8.2.15): 1.2 при наличии сжимающей осевой силы
         double phi3 = N_des > 1e-3 ? 1.2 : 1.0;
@@ -488,7 +502,8 @@ public static class FemCheckRunner
         Material         rebarMat,
         DiagrammType     concreteDiagType,
         ShellLoadItem?   nlShell,
-        double           ltFraction = 0.0)
+        double           ltFraction = 0.0,
+        SigmaSCrcMethod  sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137)
     {
         string suffix = "";
         double acrcMax;
@@ -497,12 +512,12 @@ public static class FemCheckRunner
         if (calcType == CalcType.NL)
         {
             // Только acrc1 (продолжительное раскрытие)
-            (acrcMax, acrcDir) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.4, phi2);
+            (acrcMax, acrcDir) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod);
         }
         else // CalcType.N → непродолжительное, п. 8.2.7
         {
             // acrc2: N-набор, φ1 = 1.0
-            var (acrc2, dir2) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.0, phi2);
+            var (acrc2, dir2) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod);
 
             if (nlShell != null)
             {
@@ -525,9 +540,9 @@ public static class FemCheckRunner
                 var stNl = resNl.Converged ? resNl.StrainState : st;
 
                 // acrc1: NL-набор, φ1 = 1.4
-                var (acrc1, dir1) = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.4, phi2);
+                var (acrc1, dir1) = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod);
                 // acrc3: NL-набор, φ1 = 1.0
-                var (acrc3, _)   = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.0, phi2);
+                var (acrc3, _)   = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod);
 
                 // п. 8.2.7: acrc_непрод = acrc1 + acrc2 − acrc3
                 acrcMax = acrc1 + acrc2 - acrc3;
@@ -565,8 +580,8 @@ public static class FemCheckRunner
                     suffix = resVirt.Converged ? $" (NL=N×{ltFraction:G})" : $" (NL=N×{ltFraction:G}, нет сход.)";
                     var stVirt = resVirt.Converged ? resVirt.StrainState : st;
 
-                    var (acrc1, dir1) = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.4, phi2);
-                    var (acrc3, _)    = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.0, phi2);
+                    var (acrc1, dir1) = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod);
+                    var (acrc3, _)    = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod);
 
                     acrcMax = acrc1 + acrc2 - acrc3;
                     acrcDir = dir1.Length > 0 ? dir1 : dir2;

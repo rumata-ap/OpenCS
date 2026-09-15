@@ -21,6 +21,12 @@ public sealed class Sp63CrackWidthTaskParams
     /// <summary>Предельно допустимая ширина раскрытия трещин, мм.</summary>
     public double AcrcLimMm { get; set; } = 0.3;
 
+    /// <summary>
+    /// Способ получения σs,crc в формуле ψs (п. 8.2.18): "stress" — по напряжениям,
+    /// ф. (8.137) (по умолчанию); "moment" — через Mcrc, ф. (8.138).
+    /// </summary>
+    public string SigmaSCrcMethod { get; set; } = "stress";
+
     /// <summary>Использовать ручные значения N, Mx и My.</summary>
     public bool UseManualForces { get; set; }
 
@@ -71,8 +77,25 @@ public sealed class Sp63CrackWidthTaskParams
         if (!double.IsFinite(AcrcLimMm) || AcrcLimMm <= 0)
             return Invalid("invalid_acrc_limit", out errorCode);
 
-        options = new Sp63CrackWidthOptions(Sp63NormalShapeKind.Rectangular, axis, Phi1, Phi2, AcrcLimMm);
+        if (!TryParseSigmaSCrcMethod(SigmaSCrcMethod, out var sigmaSCrc))
+            return Invalid("invalid_sigma_s_crc_method", out errorCode);
+
+        options = new Sp63CrackWidthOptions(Sp63NormalShapeKind.Rectangular, axis, Phi1, Phi2,
+            AcrcLimMm, sigmaSCrc);
         return true;
+    }
+
+    /// <summary>Разбирает идентификатор способа получения σs,crc из JSON-контракта.</summary>
+    public static bool TryParseSigmaSCrcMethod(string? value, out CScore.SigmaSCrcMethod method)
+    {
+        method = CScore.SigmaSCrcMethod.ReleasedConcrete8137;
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        switch (value.Trim().ToLowerInvariant())
+        {
+            case "stress": method = CScore.SigmaSCrcMethod.ReleasedConcrete8137; return true;
+            case "moment": method = CScore.SigmaSCrcMethod.CrackingMoment8138; return true;
+            default: return false;
+        }
     }
 
     /// <summary>Создаёт строку нагрузки из ручных полей задачи.</summary>

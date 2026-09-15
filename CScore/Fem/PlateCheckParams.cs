@@ -25,6 +25,8 @@ public record PlateCheckParams
     public double Phi1      { get; init; } = 1.0;
     /// <summary>φ2 — коэффициент профиля арматуры (0.5 — периодический, 0.8 — гладкий).</summary>
     public double Phi2      { get; init; } = 0.5;
+    /// <summary>Способ получения σs,crc в ψs (п. 8.2.18): по напряжениям или через Mcrc.</summary>
+    public SigmaSCrcMethod SigmaSCrc { get; init; } = SigmaSCrcMethod.ReleasedConcrete8137;
 
     /// <summary>
     /// Режим вычисления φ1:

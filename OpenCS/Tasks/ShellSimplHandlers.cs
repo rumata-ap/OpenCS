@@ -38,7 +38,7 @@ public abstract class ShellSimplHandlerBase : ITaskHandler
             var p = ShellSimplParams.Parse(task.ParamsJson);
             var sp = new ShellSimplSolver.SolveParams(
                 p.Nx, p.Ny, p.Nxy, p.Mx, p.My, p.Mxy,
-                KindId, p.StepDeg, p.AcrcLimMm, p.Phi1, p.Phi2
+                KindId, p.StepDeg, p.AcrcLimMm, p.Phi1, p.Phi2, p.SigmaSCrc
             );
 
             var result = ShellSimplSolver.Solve(sp, plateSection, concreteMat, rebarMat, task.CalcType);
@@ -125,7 +125,7 @@ public abstract class ShellSimplBatchHandlerBase : ITaskHandler
                 var (nx, ny, nxy) = sp.AutoStressToForce ? si.ResolveN(plateSection.H) : (si.Nx, si.Ny, si.Nxy);
                 var solveParams = new ShellSimplSolver.SolveParams(
                     nx, ny, nxy, si.Mx, si.My, si.Mxy,
-                    KindId, sp.StepDeg, sp.AcrcLimMm, sp.Phi1, sp.Phi2
+                    KindId, sp.StepDeg, sp.AcrcLimMm, sp.Phi1, sp.Phi2, sp.SigmaSCrc
                 );
                 var result = ShellSimplSolver.Solve(
                     solveParams, plateSection, concreteMat, rebarMat, task.CalcType);

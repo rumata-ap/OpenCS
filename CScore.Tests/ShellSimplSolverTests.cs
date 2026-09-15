@@ -118,6 +118,8 @@ public class ShellSimplSolverTests
         Assert.True(r.Cracked);
         // Книга: σs = 331.2 МПа. Допуск ±25% — разные (но оба нормативно допустимые) методы.
         Assert.InRange(r.Sigma_s_MPa, 331.2 * 0.75, 331.2 * 1.25);
+        // Ширина раскрытия закреплена: ψs здесь замыкается по напряжениям (ф. 8.137).
+        Assert.Equal(0.3177, r.Acrc_mm, 4);
     }
 
     [Fact]
