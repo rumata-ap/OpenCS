@@ -1356,6 +1356,14 @@
     <system:String x:Key="CalcTaskKind_shell_strain_state_batch">Плоскость деформаций пластины (набор)</system:String>
     <system:String x:Key="CalcTaskKind_shell_layered_uls">Пластина: прочность (слоистая модель)</system:String>
     <system:String x:Key="CalcTaskKind_shell_layered_uls_batch">Пластина: прочность слоистая (набор)</system:String>
+    <system:String x:Key="ShellLayeredSlsFaceTop">верх</system:String>
+    <system:String x:Key="ShellLayeredSlsFaceBottom">низ</system:String>
+    <system:String x:Key="ShellLayeredSlsNoCracks">0 (нет трещин)</system:String>
+    <system:String x:Key="ShellLayeredSlsNoConvergence">Нет сходимости НДС</system:String>
+    <system:String x:Key="ShellLayeredSlsVerdictPassed">acrc = {0:F3} мм ≤ acrc,lim = {1:F3} мм — условие выполнено; Кисп = {2}; определяющая полоса: {3}</system:String>
+    <system:String x:Key="ShellLayeredSlsVerdictNotPassed">acrc = {0:F3} мм &gt; acrc,lim = {1:F3} мм — условие не выполнено; Кисп = {2}; определяющая полоса: {3}</system:String>
+    <system:String x:Key="CalcTaskKind_shell_layered_sls">Пластина: трещины (слоистая модель)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_layered_sls_batch">Пластина: трещины слоистая (набор)</system:String>
     <system:String x:Key="CalcTaskKind_prestress_loss">Потери преднапряжения (СП 63 гл. 9.1)</system:String>
     <system:String x:Key="PrestressLossDialogTitle">Параметры потерь преднапряжения</system:String>
     <system:String x:Key="PrestressLossParamsBtn">Параметры потерь…</system:String>
@@ -1500,6 +1508,30 @@
     <system:String x:Key="ShellSimplAcrcLim">acrc,lim, мм</system:String>
     <system:String x:Key="ShellSimplPhi1">φ1 (длит.: 1.0/1.4)</system:String>
     <system:String x:Key="ShellSimplPhi2">φ2 (профиль: 0.5/0.8)</system:String>
+    <system:String x:Key="ShellLayeredSlsTaskLabel">Задача</system:String>
+    <system:String x:Key="ShellLayeredSlsSectionLabel">Сечение</system:String>
+    <system:String x:Key="ShellLayeredSlsCreatedLabel">Дата</system:String>
+    <system:String x:Key="ShellLayeredSlsLayerColumn">Слой</system:String>
+    <system:String x:Key="ShellLayeredSlsFaceColumn">Грань</system:String>
+    <system:String x:Key="ShellLayeredSlsDirectionColumn">Направл.</system:String>
+    <system:String x:Key="ShellLayeredSlsMcrcColumn">Mcrc, кН·м/м</system:String>
+    <system:String x:Key="ShellLayeredSlsSigmaSColumn">σs, МПа</system:String>
+    <system:String x:Key="ShellLayeredSlsSigmaSCrcColumn">σs,crc, МПа</system:String>
+    <system:String x:Key="ShellLayeredSlsPsiSColumn">ψs</system:String>
+    <system:String x:Key="ShellLayeredSlsLsColumn">ls, м</system:String>
+    <system:String x:Key="ShellLayeredSlsAcrcColumn">acrc, мм</system:String>
+    <system:String x:Key="ShellLayeredSlsAngleColumn">Угол трещины, °</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchNumColumn">№</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchLabelColumn">Метка</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusColumn">Статус</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchAcrcColumn">acrc, мм</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchAngleColumn">Угол, °</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchDirFaceColumn">Направл./грань</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusOk">Выполнено</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusNotPassed">Не выполнено</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusNotConverged">Нет сходимости</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusPartial">Частично</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusError">Ошибка</system:String>
 
     <!-- Steel check per СП 16.13330.2017 -->
     <system:String x:Key="CalcTaskKind_steel_check">Проверка по СП 16 (сталь)</system:String>

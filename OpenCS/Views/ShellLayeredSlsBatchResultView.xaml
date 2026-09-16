@@ -1,0 +1,44 @@
+<UserControl x:Class="OpenCS.Views.ShellLayeredSlsBatchResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+   <Grid Margin="16">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+      <Grid Grid.Row="0" Margin="0,0,0,8">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/>
+            <ColumnDefinition Width="90"/><ColumnDefinition Width="100"/><ColumnDefinition Width="110"/>
+         </Grid.ColumnDefinitions>
+         <TextBlock Grid.Column="0" Text="{DynamicResource ShellLayeredSlsBatchNumColumn}" FontWeight="SemiBold"/>
+         <TextBlock Grid.Column="1" Text="{DynamicResource ShellLayeredSlsBatchLabelColumn}" FontWeight="SemiBold"/>
+         <TextBlock Grid.Column="2" Text="{DynamicResource ShellLayeredSlsBatchStatusColumn}" FontWeight="SemiBold"/>
+         <TextBlock Grid.Column="3" Text="{DynamicResource ShellLayeredSlsBatchAcrcColumn}" FontWeight="SemiBold"/>
+         <TextBlock Grid.Column="4" Text="{DynamicResource ShellLayeredSlsBatchAngleColumn}" FontWeight="SemiBold"/>
+         <TextBlock Grid.Column="5" Text="{DynamicResource ShellLayeredSlsBatchDirFaceColumn}" FontWeight="SemiBold"/>
+      </Grid>
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+         <ItemsControl ItemsSource="{Binding Rows}">
+            <ItemsControl.ItemTemplate>
+               <DataTemplate>
+                  <Border Padding="4" Margin="0,0,0,2" BorderBrush="#E0E0E0" BorderThickness="1">
+                     <Grid>
+                        <Grid.ColumnDefinitions>
+                           <ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="90"/>
+                           <ColumnDefinition Width="90"/><ColumnDefinition Width="100"/><ColumnDefinition Width="110"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding Num}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Label}"/>
+                        <TextBlock Grid.Column="2" Text="{Binding StatusText}"/>
+                        <TextBlock Grid.Column="3" Text="{Binding AcrcText}"/>
+                        <TextBlock Grid.Column="4" Text="{Binding AngleText}"/>
+                        <TextBlock Grid.Column="5" Text="{Binding DirectionFaceText}"/>
+                     </Grid>
+                  </Border>
+               </DataTemplate>
+            </ItemsControl.ItemTemplate>
+         </ItemsControl>
+      </ScrollViewer>
+   </Grid>
+</UserControl>

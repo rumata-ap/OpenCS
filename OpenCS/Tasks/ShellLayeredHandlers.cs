@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text.Json;
 using CScore;
+using CScore.Fem;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
@@ -176,6 +177,245 @@ public sealed class ShellLayeredUlsBatchHandler : ITaskHandler
                 rows,
             };
 
+            return new CalcResult
+            {
+                TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+                Created = created, Status = allOk ? "ok" : "partial",
+                DataJson = JsonSerializer.Serialize(data),
+            };
+        }
+        catch (Exception ex)
+        {
+            return new CalcResult
+            {
+                TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+                Created = created, Status = "error",
+                DataJson = JsonSerializer.Serialize(new { error = ex.Message }),
+            };
+        }
+    }
+}
+
+/// <summary>Данные результата shell_layered_sls в DataJson — полная картина трещин
+/// (все полосы), не только победившая.</summary>
+public sealed class ShellLayeredSlsResultData
+{
+    public List<ShellCrackStripResult> Strips { get; set; } = [];
+    /// <summary>Индекс победившей записи в Strips; -1, если ни одна не растрескалась.</summary>
+    public int GoverningIndex { get; set; } = -1;
+    public double AcrcMaxMm { get; set; }
+    public double AcrcLimMm { get; set; }
+    public double Utilization { get; set; }
+    public bool Passed { get; set; }
+    public bool Converged { get; set; } = true;
+    /// <summary>Общие числовые переменные результата для отчёта.</summary>
+    public Dictionary<string, double> Variables { get; set; } = [];
+}
+
+/// <summary>
+/// Задача «Ширина раскрытия трещин слоистой пластины» (SLS): одно состояние усилий,
+/// полная картина трещин (все армслои × X/Y). Без комбинации длительного/
+/// непродолжительного раскрытия (п. 8.2.7) — φ1 задаётся вручную.
+/// </summary>
+public sealed class ShellLayeredSlsHandler : ITaskHandler
+{
+    public string Kind => "shell_layered_sls";
+
+    public CalcResult Run(CalcTask task, CrossSection section, LoadItem item,
+        CalcSettings settings, TaskRunContext? ctx = null)
+    {
+        var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        try
+        {
+            if (ctx?.Database is null)
+                throw new InvalidOperationException("Требуется контекст с DatabaseService.");
+
+            var plate = ctx.Database.PlateSections.FirstOrDefault(s => s.Id == task.SectionId)
+                ?? throw new InvalidOperationException($"Плитное сечение id={task.SectionId} не найдено.");
+            var concreteMat = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.ConcreteMaterialId)
+                ?? throw new InvalidOperationException($"Материал бетона id={plate.ConcreteMaterialId} не найден.");
+            var rebarMat = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.RebarMaterialId)
+                ?? throw new InvalidOperationException($"Материал арматуры id={plate.RebarMaterialId} не найден.");
+
+            var p = ShellLayeredSlsParams.Parse(task.ParamsJson);
+            var shell = new ShellLoadItem
+            {
+                Nx = p.Nx, Ny = p.Ny, Nxy = p.Nxy,
+                Mx = p.Mx, My = p.My, Mxy = p.Mxy,
+            };
+
+            // П. 6.1.26: диаграмма всегда CalcType.N, независимо от task.CalcType.
+            var cDiag = concreteMat.GetDiagramms(plate.ConcreteDiagramType)?[CalcType.N]
+                ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N]
+                ?? throw new InvalidOperationException("Диаграмма бетона не построена.");
+            var rDiag = rebarMat.GetDiagramms(
+                    DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N]
+                ?? throw new InvalidOperationException("Диаграмма арматуры не построена.");
+
+            var solver = new ShellStrainSolver(plate, cDiag, rDiag);
+            double[] target = [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy];
+            var solveResult = solver.Solve(target);
+
+            if (!solveResult.Converged)
+            {
+                return new CalcResult
+                {
+                    TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+                    Created = created, Status = "not_converged",
+                    DataJson = JsonSerializer.Serialize(new ShellLayeredSlsResultData { Converged = false }),
+                };
+            }
+
+            // Материальные характеристики также всегда CalcType.N (п. 6.1.26).
+            var cCh = concreteMat.GetChars(CalcType.N);
+            if (cCh == null)
+                throw new InvalidOperationException("Характеристики бетона CalcType.N не найдены.");
+            var rCh = rebarMat.GetChars(CalcType.N);
+            if (rCh == null)
+                throw new InvalidOperationException("Характеристики арматуры CalcType.N не найдены.");
+
+            var strips = ShellLayeredCrackWidth.ComputeAll(
+                plate, shell, solveResult.StrainState, cCh, rCh,
+                p.Phi1, p.Phi2, p.SigmaSCrc, p.WplGamma).ToList();
+            var governing = strips.Where(s => s.Cracked).OrderByDescending(s => s.AcrcMm).FirstOrDefault();
+            int governingIndex = governing != null ? strips.IndexOf(governing) : -1;
+            double acrcMax = governing?.AcrcMm ?? 0.0;
+            double utilization = p.AcrcLimMm > 1e-12 ? acrcMax / p.AcrcLimMm : 0.0;
+            bool passed = utilization <= 1.0;
+
+            var data = new ShellLayeredSlsResultData
+            {
+                Strips = strips,
+                GoverningIndex = governingIndex,
+                AcrcMaxMm = acrcMax,
+                AcrcLimMm = p.AcrcLimMm,
+                Utilization = utilization,
+                Passed = passed,
+                Converged = true,
+                Variables = new Dictionary<string, double>
+                {
+                    ["phi1"] = p.Phi1,
+                    ["phi2"] = p.Phi2,
+                    ["acrc_lim_mm"] = p.AcrcLimMm,
+                    ["acrc_max_mm"] = acrcMax,
+                    ["utilization"] = utilization,
+                },
+            };
+
+            return new CalcResult
+            {
+                TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+                Created = created, Status = passed ? "ok" : "not_passed",
+                DataJson = JsonSerializer.Serialize(data),
+            };
+        }
+        catch (Exception ex)
+        {
+            return new CalcResult
+            {
+                TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+                Created = created, Status = "error",
+                DataJson = JsonSerializer.Serialize(new { error = ex.Message }),
+            };
+        }
+    }
+}
+
+/// <summary>Задача «Ширина раскрытия трещин слоистой пластины» (SLS), по набору усилий.
+/// На строку — только победившая полоса (ComputeWorst), чтобы не раздувать DataJson.</summary>
+public sealed class ShellLayeredSlsBatchHandler : ITaskHandler
+{
+    public string Kind => "shell_layered_sls_batch";
+
+    public CalcResult Run(CalcTask task, CrossSection section, LoadItem item,
+        CalcSettings settings, TaskRunContext? ctx = null)
+    {
+        var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        try
+        {
+            if (ctx?.Database is null)
+                throw new InvalidOperationException("Требуется контекст с DatabaseService.");
+
+            var plate = ctx.Database.PlateSections.FirstOrDefault(s => s.Id == task.SectionId)
+                ?? throw new InvalidOperationException($"Плитное сечение id={task.SectionId} не найдено.");
+            var concreteMat = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.ConcreteMaterialId)
+                ?? throw new InvalidOperationException($"Материал бетона id={plate.ConcreteMaterialId} не найден.");
+            var rebarMat = ctx.Database.Materials.FirstOrDefault(m => m.Id == plate.RebarMaterialId)
+                ?? throw new InvalidOperationException($"Материал арматуры id={plate.RebarMaterialId} не найден.");
+            var forceSet = ctx.Database.ForceSets.FirstOrDefault(fs => fs.Id == task.ForceSetId)
+                ?? throw new InvalidOperationException($"Набор усилий id={task.ForceSetId} не найден.");
+            if (forceSet.ShellItems.Count == 0)
+                throw new InvalidOperationException($"Набор усилий «{forceSet.Tag}» не содержит строк для пластин.");
+
+            var p = ShellLayeredSlsParams.Parse(task.ParamsJson);
+            var cCh = concreteMat.GetChars(CalcType.N)
+                ?? throw new InvalidOperationException("Характеристики бетона CalcType.N не найдены.");
+            var rCh = rebarMat.GetChars(CalcType.N)
+                ?? throw new InvalidOperationException("Характеристики арматуры CalcType.N не найдены.");
+            var cDiag = concreteMat.GetDiagramms(plate.ConcreteDiagramType)?[CalcType.N]
+                ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N]
+                ?? throw new InvalidOperationException("Диаграмма бетона не построена.");
+            var rDiag = rebarMat.GetDiagramms(
+                    DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N]
+                ?? throw new InvalidOperationException("Диаграмма арматуры не построена.");
+
+            var rows = new List<object>(forceSet.ShellItems.Count);
+            int okCount = 0;
+            foreach (var si in forceSet.ShellItems)
+            {
+                var (nx, ny, nxy) = p.AutoStressToForce
+                    ? si.ResolveN(plate.H)
+                    : (si.Nx, si.Ny, si.Nxy);
+                var shell = new ShellLoadItem
+                {
+                    Num = si.Num, Label = si.Label,
+                    Nx = nx, Ny = ny, Nxy = nxy,
+                    Mx = si.Mx, My = si.My, Mxy = si.Mxy,
+                };
+
+                var solver = new ShellStrainSolver(plate, cDiag, rDiag);
+                double[] target = [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy];
+                var solveResult = solver.Solve(target);
+                string rowStatus;
+                double? acrcMm = null;
+                double? angle = null;
+                string direction = "";
+                string face = "";
+
+                if (!solveResult.Converged)
+                {
+                    rowStatus = "not_converged";
+                }
+                else
+                {
+                    var worst = ShellLayeredCrackWidth.ComputeWorst(
+                        plate, shell, solveResult.StrainState, cCh, rCh,
+                        p.Phi1, p.Phi2, p.SigmaSCrc, p.WplGamma);
+                    acrcMm = worst?.AcrcMm ?? 0.0;
+                    angle = worst?.CrackAngleDeg;
+                    direction = worst?.Direction ?? "";
+                    face = worst is null ? "" : (worst.IsTop ? "верх" : "низ");
+                    bool passed = p.AcrcLimMm > 1e-12
+                        ? acrcMm.Value / p.AcrcLimMm <= 1.0
+                        : true;
+                    rowStatus = passed ? "ok" : "not_passed";
+                }
+
+                if (rowStatus == "ok") okCount++;
+                rows.Add(new
+                {
+                    num = si.Num,
+                    label = si.Label,
+                    status = rowStatus,
+                    acrc_mm = acrcMm,
+                    crack_angle_deg = angle,
+                    direction,
+                    face,
+                });
+            }
+
+            bool allOk = okCount == rows.Count;
+            var data = new { all_ok = allOk, ok_count = okCount, total = rows.Count, rows };
             return new CalcResult
             {
                 TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,

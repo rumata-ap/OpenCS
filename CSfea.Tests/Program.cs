@@ -130,6 +130,13 @@ FemCheckRunnerTests.RunLayeredSlsThreeComponent();
 FemCheckRunnerTests.RunLayeredSlsLtFraction();
 FemCheckRunnerTests.RunMultiAcceptsSingleElementTarget();
 
+ShellLayeredCrackWidthTests.RunAngleBendingX();
+ShellLayeredCrackWidthTests.RunAngleBendingY();
+ShellLayeredCrackWidthTests.RunAngleTorsion();
+ShellLayeredCrackWidthTests.RunMcrcAlwaysPopulated();
+ShellLayeredCrackWidthTests.RunComputeWorstMatchesComputeAll();
+ShellLayeredCrackWidthTests.RunEmptyRebarLayers();
+
 FemInfraTests.RunAll();
 
 LiraCsvSchemaParserTests.RunAll();

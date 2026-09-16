@@ -135,7 +135,7 @@ public static class FemCheckRunnerTests
         double phi1 = 1.0, phi2 = 0.5, phi3 = 1.0;
         double acrcRef = phi1 * phi2 * phi3 * psi_s * (sigma_s / Es) * ls_m * 1000.0;
 
-        double acrcActual = FemCheckRunner.ComputeAcrcStrip(
+        double acrcActual = ShellLayeredCrackWidth.ComputeAcrcStrip(
             eps_s: eps_s_ref,
             M_des: M, N_des: N,
             h: h, h0: h0, aPrime: aP,
@@ -165,13 +165,13 @@ public static class FemCheckRunnerTests
         double alpha     = Es / Eb_red;
         double phi2 = 0.5;
 
-        double acrc1 = FemCheckRunner.ComputeAcrcStrip(
+        double acrc1 = ShellLayeredCrackWidth.ComputeAcrcStrip(
             eps_s, M, N, h, h0, aP, As_t, ds,
             Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha, phi1: 1.4, phi2);
-        double acrc2 = FemCheckRunner.ComputeAcrcStrip(
+        double acrc2 = ShellLayeredCrackWidth.ComputeAcrcStrip(
             eps_s, M, N, h, h0, aP, As_t, ds,
             Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha, phi1: 1.0, phi2);
-        double acrc3 = FemCheckRunner.ComputeAcrcStrip(
+        double acrc3 = ShellLayeredCrackWidth.ComputeAcrcStrip(
             eps_s, M, N, h, h0, aP, As_t, ds,
             Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha, phi1: 1.0, phi2);
 
@@ -186,7 +186,7 @@ public static class FemCheckRunnerTests
         Console.WriteLine($"    acrc1={acrc1:F4} мм, acrc2={acrc2:F4} мм, acrcSum={acrcSum:F4} мм");
 
         // При сжатии (eps_s <= 0) → acrc = 0
-        double acrcNeg = FemCheckRunner.ComputeAcrcStrip(
+        double acrcNeg = ShellLayeredCrackWidth.ComputeAcrcStrip(
             eps_s: -0.001, M, N, h, h0, aP, As_t, ds,
             Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha, phi1: 1.0, phi2);
         TestHarness.CheckRel("acrc при сжатии == 0", acrcNeg, 0.0, 0.001);
@@ -208,13 +208,13 @@ public static class FemCheckRunnerTests
         double phi2 = 0.5;
 
         // LtFraction=0 → только acrc2 (phi1=1.0)
-        double acrc2 = FemCheckRunner.ComputeAcrcStrip(
+        double acrc2 = ShellLayeredCrackWidth.ComputeAcrcStrip(
             eps_s, M, N, h, h0, aP, As_t, ds,
             Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha, phi1: 1.0, phi2);
 
         // LtFraction=1.0 → virtualNl == N → acrc3 == acrc2
         // acrc1(phi1=1.4) + acrc2 - acrc3(=acrc2) = acrc1
-        double acrc1 = FemCheckRunner.ComputeAcrcStrip(
+        double acrc1 = ShellLayeredCrackWidth.ComputeAcrcStrip(
             eps_s, M, N, h, h0, aP, As_t, ds,
             Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha, phi1: 1.4, phi2);
         double acrc3 = acrc2; // virtualNl == N → phi1=1.0 → same as acrc2

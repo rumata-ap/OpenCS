@@ -11,23 +11,33 @@ public sealed class ReportContext
     public CalcResult Result { get; }
     /// <summary>Сечение, использованное расчётной задачей; нужно для геометрии и материалов.</summary>
     public CrossSection? Section { get; }
+    /// <summary>Плитное сечение, использованное оболочечной расчётной задачей.</summary>
+    public PlateSection? PlateSection { get; }
     /// <summary>Встроенные SVG по именам, например stress и strain.</summary>
     public IReadOnlyDictionary<string, string> Images { get; }
 
     /// <summary>Создаёт контекст отчёта.</summary>
     public ReportContext(CalcTask task, CalcResult result,
         IReadOnlyDictionary<string, string>? images = null)
-        : this(task, result, null, images)
+        : this(task, result, null, null, images)
     {
     }
 
     /// <summary>Создаёт контекст с моделью сечения и встроенными иллюстрациями.</summary>
     public ReportContext(CalcTask task, CalcResult result, CrossSection? section,
         IReadOnlyDictionary<string, string>? images = null)
+        : this(task, result, section, null, images)
+    {
+    }
+
+    /// <summary>Создаёт контекст для стержневого или плитного сечения.</summary>
+    public ReportContext(CalcTask task, CalcResult result, CrossSection? section,
+        PlateSection? plateSection, IReadOnlyDictionary<string, string>? images = null)
     {
         Task = task;
         Result = result;
         Section = section;
+        PlateSection = plateSection;
         Images = images ?? new Dictionary<string, string>();
     }
 }

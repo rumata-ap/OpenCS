@@ -1,0 +1,96 @@
+using System.Text.Json;
+using CScore;
+using OpenCS.Tasks;
+using OpenCS.Utilites;
+using Xunit;
+
+namespace OpenCS.Tests;
+
+public sealed class ShellLayeredSlsBatchHandlerTests
+{
+    static string TempPath() => Path.Combine(Path.GetTempPath(), $"shell_layered_sls_batch_{Guid.NewGuid():N}.db");
+    static void TryDelete(string path) { try { File.Delete(path); } catch { } }
+
+    static (Material concrete, Material rebar) MakeMaterials()
+    {
+        MaterialChars Concrete(CalcType calc) => new(calc)
+        {
+            Type = MatType.Concrete, E = 32_500_000.0, Fc = -22_000.0, Ft = 1_750.0,
+            Ec0 = -0.002, Ec1 = -0.6 * 22_000.0 / 32_500_000.0, Ec2 = -0.0035,
+            Ec1Red = -0.0015, Et0 = 1_750.0 / 32_500_000.0,
+            Et1 = 0.6 * 1_750.0 / 32_500_000.0, Et2 = 0.00015, Et1Red = 0.00008,
+        };
+        MaterialChars Rebar(CalcType calc) => new(calc)
+        {
+            Type = MatType.ReSteelF, E = 200_000_000.0, Fc = -500_000.0,
+            Ft = 500_000.0, Ry = 500_000.0, Ru = 500_000.0,
+            Ec2 = -0.025, Et2 = 0.025, Ec1Red = -0.0025, Et1Red = 0.0025,
+        };
+        var concrete = new Material { Id = 1, Num = 1, Type = MatType.Concrete };
+        concrete.MaterialChars = [Concrete(CalcType.C), Concrete(CalcType.CL), Concrete(CalcType.N), Concrete(CalcType.NL)];
+        var rebar = new Material { Id = 2, Num = 2, Type = MatType.ReSteelF };
+        rebar.MaterialChars = [Rebar(CalcType.C), Rebar(CalcType.CL), Rebar(CalcType.N), Rebar(CalcType.NL)];
+        return (concrete, rebar);
+    }
+
+    [Fact]
+    public void Run_ProducesRowPerShellItem()
+    {
+        string path = TempPath();
+        try
+        {
+            using var database = new DatabaseService(path);
+            var (concrete, rebar) = MakeMaterials();
+            database.Materials.Add(concrete);
+            database.Materials.Add(rebar);
+
+            var section = new PlateSection { Id = 7, H = 0.200, ConcreteMaterialId = 1, RebarMaterialId = 2 };
+            section.RebarLayers.Add(new PlateRebarLayer
+            {
+                Name = "верх", Asx = 0.001, Zsx = 0.0875, Asy = 0.001, Zsy = 0.0875, InputMode = "direct",
+            });
+            database.PlateSections.Add(section);
+
+            var forceSet = new ForceSet
+            {
+                Id = 9, Kind = "shell", Tag = "РСН-1",
+                ShellItems =
+                [
+                    new ShellLoadItem { Num = 1, Label = "т.1", Mx = 50.0, My = 10.0 },
+                    new ShellLoadItem { Num = 2, Label = "т.2", Mx = 5.0, My = 2.0 },
+                ],
+            };
+            database.ForceSets.Add(forceSet);
+
+            var task = new CalcTask
+            {
+                Id = 1, Kind = "shell_layered_sls_batch", CalcType = CalcType.C,
+                SectionId = section.Id, ForceSetId = forceSet.Id,
+                ParamsJson = new ShellLayeredSlsParams { Phi1 = 1.0, Phi2 = 0.5, AcrcLimMm = 0.3 }.ToJson(),
+            };
+
+            var result = new ShellLayeredSlsBatchHandler().Run(
+                task, null!, new LoadItem(), CalcSettings.Default,
+                new TaskRunContext { Database = database });
+
+            Assert.True(result.Status is "ok" or "partial", $"status={result.Status}, data={result.DataJson}");
+            using var doc = JsonDocument.Parse(result.DataJson);
+            var rows = doc.RootElement.GetProperty("rows").EnumerateArray().ToList();
+            Assert.Equal(2, rows.Count);
+            Assert.Equal("т.1", rows[0].GetProperty("label").GetString());
+            Assert.Equal(1, rows[0].GetProperty("num").GetInt32());
+        }
+        finally { TryDelete(path); }
+    }
+
+    [Fact]
+    public void Run_WithoutDatabase_ReturnsError()
+    {
+        var handler = new ShellLayeredSlsBatchHandler();
+        var task = new CalcTask { Id = 1, Kind = "shell_layered_sls_batch", CalcType = CalcType.C };
+
+        var result = handler.Run(task, null!, new LoadItem(), CalcSettings.Default);
+
+        Assert.Equal("error", result.Status);
+    }
+}

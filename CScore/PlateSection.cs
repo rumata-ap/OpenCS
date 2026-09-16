@@ -636,7 +636,7 @@ namespace CScore
 
       // ── Преобразование деформаций/напряжений (Мор) ────────────────────────
 
-      static void PrincipalStrains2D(double ex, double ey, double gxy,
+      internal static void PrincipalStrains2D(double ex, double ey, double gxy,
          out double eps1, out double eps2, out double theta)
       {
          double avg  = 0.5 * (ex + ey);

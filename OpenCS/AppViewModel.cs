@@ -54,7 +54,8 @@ namespace OpenCS
             new OpenCS.Reporting.CrackWidthReportProvider(),
             new OpenCS.Reporting.TotalCurvatureReportProvider(),
             new OpenCS.Reporting.Sp63NormalReportProvider(),
-            new OpenCS.Reporting.Sp63CrackWidthReportProvider()
+            new OpenCS.Reporting.Sp63CrackWidthReportProvider(),
+            new OpenCS.Reporting.ShellLayeredCrackWidthReportProvider()
          ]);
 
       /// <summary>

@@ -28,6 +28,7 @@ public static class CalcTaskForceHelper
          or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch"
          or "shell_strain_state" or "shell_strain_state_batch"
          or "shell_layered_uls" or "shell_layered_uls_batch"
+         or "shell_layered_sls" or "shell_layered_sls_batch"
          or "strength_ndm_batch" or "prestress_loss"
           or "steel_check"
           or "steel_central_compression" or "steel_central_tension"

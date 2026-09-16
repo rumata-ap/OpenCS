@@ -1,0 +1,81 @@
+<UserControl x:Class="OpenCS.Views.ShellLayeredSlsResultView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+   <Grid Margin="16">
+      <Grid.RowDefinitions>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <Grid Grid.Row="0" Margin="0,0,0,8">
+         <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+         </Grid.ColumnDefinitions>
+         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+         </Grid.RowDefinitions>
+         <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource ShellLayeredSlsTaskLabel}" FontWeight="SemiBold" Margin="0,0,8,2"/>
+         <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding TaskTag}" FontSize="16" FontWeight="Bold"/>
+         <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource ShellLayeredSlsSectionLabel}" Foreground="Gray" Margin="0,0,8,2"/>
+         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SectionTag}" Foreground="Gray"/>
+         <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource ShellLayeredSlsCreatedLabel}" Foreground="Gray" Margin="0,0,8,0"/>
+         <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CreatedText}" Foreground="Gray"/>
+      </Grid>
+
+      <Border Grid.Row="1" Padding="12,8" Margin="0,0,0,8" CornerRadius="4" Background="{Binding VerdictBackground}">
+         <TextBlock Text="{Binding VerdictText}" HorizontalAlignment="Center"
+                    FontWeight="Bold" FontSize="14" Foreground="{Binding VerdictBrush}" TextWrapping="Wrap"/>
+      </Border>
+
+      <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+         <StackPanel>
+            <Grid Margin="0,0,0,4">
+               <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="90"/><ColumnDefinition Width="70"/><ColumnDefinition Width="90"/>
+                  <ColumnDefinition Width="90"/><ColumnDefinition Width="90"/><ColumnDefinition Width="90"/>
+                  <ColumnDefinition Width="70"/><ColumnDefinition Width="80"/><ColumnDefinition Width="90"/><ColumnDefinition Width="100"/>
+               </Grid.ColumnDefinitions>
+               <TextBlock Grid.Column="0" Text="{DynamicResource ShellLayeredSlsLayerColumn}" FontWeight="SemiBold"/>
+               <TextBlock Grid.Column="1" Text="{DynamicResource ShellLayeredSlsFaceColumn}" FontWeight="SemiBold"/>
+               <TextBlock Grid.Column="2" Text="{DynamicResource ShellLayeredSlsDirectionColumn}" FontWeight="SemiBold"/>
+               <TextBlock Grid.Column="3" Text="{DynamicResource ShellLayeredSlsMcrcColumn}" FontWeight="SemiBold"/>
+               <TextBlock Grid.Column="4" Text="{DynamicResource ShellLayeredSlsSigmaSColumn}" FontWeight="SemiBold"/>
+               <TextBlock Grid.Column="5" Text="{DynamicResource ShellLayeredSlsSigmaSCrcColumn}" FontWeight="SemiBold"/>
+               <TextBlock Grid.Column="6" Text="{DynamicResource ShellLayeredSlsPsiSColumn}" FontWeight="SemiBold"/>
+               <TextBlock Grid.Column="7" Text="{DynamicResource ShellLayeredSlsLsColumn}" FontWeight="SemiBold"/>
+               <TextBlock Grid.Column="8" Text="{DynamicResource ShellLayeredSlsAcrcColumn}" FontWeight="SemiBold"/>
+               <TextBlock Grid.Column="9" Text="{DynamicResource ShellLayeredSlsAngleColumn}" FontWeight="SemiBold"/>
+            </Grid>
+            <ItemsControl ItemsSource="{Binding Rows}">
+               <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                     <Border Padding="4" Margin="0,0,0,2" BorderBrush="#E0E0E0" BorderThickness="1">
+                        <Grid>
+                           <Grid.ColumnDefinitions>
+                              <ColumnDefinition Width="90"/><ColumnDefinition Width="70"/><ColumnDefinition Width="90"/>
+                              <ColumnDefinition Width="90"/><ColumnDefinition Width="90"/><ColumnDefinition Width="90"/>
+                              <ColumnDefinition Width="70"/><ColumnDefinition Width="80"/><ColumnDefinition Width="90"/><ColumnDefinition Width="100"/>
+                           </Grid.ColumnDefinitions>
+                           <TextBlock Grid.Column="0" Text="{Binding LayerText}"/>
+                           <TextBlock Grid.Column="1" Text="{Binding FaceText}"/>
+                           <TextBlock Grid.Column="2" Text="{Binding DirectionText}"/>
+                           <TextBlock Grid.Column="3" Text="{Binding McrcText}"/>
+                           <TextBlock Grid.Column="4" Text="{Binding SigmaSText}"/>
+                           <TextBlock Grid.Column="5" Text="{Binding SigmaSCrcText}"/>
+                           <TextBlock Grid.Column="6" Text="{Binding PsiSText}"/>
+                           <TextBlock Grid.Column="7" Text="{Binding LsText}"/>
+                           <TextBlock Grid.Column="8" Text="{Binding AcrcText}" FontWeight="Bold"/>
+                           <TextBlock Grid.Column="9" Text="{Binding AngleText}"/>
+                        </Grid>
+                     </Border>
+                  </DataTemplate>
+               </ItemsControl.ItemTemplate>
+            </ItemsControl>
+         </StackPanel>
+      </ScrollViewer>
+   </Grid>
+</UserControl>

@@ -82,6 +82,7 @@ namespace OpenCS.Views
             or "limit_force_batch" or "limit_moment_batch" or "limit_axial_batch"
             or "shell_strain_state_batch"
             or "shell_layered_uls_batch"
+            or "shell_layered_sls_batch"
             or "strength_ndm_batch"
             or "cracking_batch" or "crack_width_batch" or "total_curvature_batch")
         {
@@ -97,6 +98,7 @@ namespace OpenCS.Views
                 "strength_ndm_batch"   => new StrengthNDMBatchResultView(result, app, task),
                 "shell_strain_state_batch" => new ShellStrainBatchResultView(result, app, task),
                 "shell_layered_uls_batch"  => new ShellStrainBatchResultView(result, app, task),
+                "shell_layered_sls_batch"  => new ShellLayeredSlsBatchResultView(result, app, task),
                 "cracking_batch"       => new CrackingBatchResultView(result, app, task),
                 "crack_width_batch"    => new CrackWidthBatchResultView(result, app, task),
                 "total_curvature_batch" => new TotalCurvatureBatchResultView(result, app, task),
@@ -129,6 +131,12 @@ namespace OpenCS.Views
         if (task != null && (task.Kind == "shell_strain_state" || task.Kind == "shell_layered_uls"))
         {
             Content = new ShellStrainResultView(result, app, task);
+            return;
+        }
+
+        if (task?.Kind == "shell_layered_sls")
+        {
+            Content = new ShellLayeredSlsResultView(result, app, task);
             return;
         }
 

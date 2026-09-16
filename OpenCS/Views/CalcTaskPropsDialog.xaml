@@ -893,22 +893,22 @@
                            Visibility="{Binding IsShellSimplCapri, Converter={StaticResource BoolToVisibility}}"/>
                   <TextBlock Text="{DynamicResource ShellSimplAcrcLim}" VerticalAlignment="Center"
                              Margin="0,0,4,0"
-                             Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+                             Visibility="{Binding ShowSlsCrackParams, Converter={StaticResource BoolToVisibility}}"/>
                   <TextBox Text="{Binding ShellSimplAcrcLim, UpdateSourceTrigger=PropertyChanged}"
                            Width="50" Margin="0,0,12,0"
-                           Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+                           Visibility="{Binding ShowSlsCrackParams, Converter={StaticResource BoolToVisibility}}"/>
                   <TextBlock Text="{DynamicResource ShellSimplPhi1}" VerticalAlignment="Center"
                              Margin="0,0,4,0"
-                             Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+                             Visibility="{Binding ShowSlsCrackParams, Converter={StaticResource BoolToVisibility}}"/>
                   <TextBox Text="{Binding ShellSimplPhi1, UpdateSourceTrigger=PropertyChanged}"
                            Width="50" Margin="0,0,12,0"
-                           Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+                           Visibility="{Binding ShowSlsCrackParams, Converter={StaticResource BoolToVisibility}}"/>
                   <TextBlock Text="{DynamicResource ShellSimplPhi2}" VerticalAlignment="Center"
                              Margin="0,0,4,0"
-                             Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+                             Visibility="{Binding ShowSlsCrackParams, Converter={StaticResource BoolToVisibility}}"/>
                   <TextBox Text="{Binding ShellSimplPhi2, UpdateSourceTrigger=PropertyChanged}"
                            Width="50" Margin="0,0,0,0"
-                           Visibility="{Binding IsShellSimplSls, Converter={StaticResource BoolToVisibility}}"/>
+                           Visibility="{Binding ShowSlsCrackParams, Converter={StaticResource BoolToVisibility}}"/>
                </StackPanel>
             </StackPanel>
          </GroupBox>

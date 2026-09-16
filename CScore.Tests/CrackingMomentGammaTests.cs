@@ -144,7 +144,7 @@ public class CrackingMomentGammaTests
         const double epsS = 282.051e3 / 200_000_000.0;   // σs = 282,05 МПа
 
         double Acrc(SigmaSCrcMethod sigma, WplGammaMethod gamma) =>
-            CScore.Fem.FemCheckRunner.ComputeAcrcStrip(
+            CScore.Fem.ShellLayeredCrackWidth.ComputeAcrcStrip(
                 eps_s: epsS, M_des: M, N_des: 0.0,
                 h: H, h0: H0, aPrime: APrime, As_t: AsBot, ds: Ds,
                 Rbt: 1_550.0, Rb_ser: 18_500.0, Es: 200_000_000.0, Rs_ser: 500_000.0,

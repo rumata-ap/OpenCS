@@ -99,6 +99,28 @@ public static class CalcTaskExecutor
         section = null!;
         fi = null;
 
+        // Оболочечные задачи используют PlateSection и не должны проходить
+        // через реестр стержневых CrossSection.
+        if (ct.Kind is "shell_simpl_wa_sls" or "shell_simpl_wa_uls"
+            or "shell_simpl_capri_sls" or "shell_simpl_capri_uls"
+            or "shell_simpl_wa_sls_batch" or "shell_simpl_wa_uls_batch"
+            or "shell_simpl_capri_sls_batch" or "shell_simpl_capri_uls_batch"
+            or "shell_strain_state" or "shell_strain_state_batch"
+            or "shell_layered_uls" or "shell_layered_uls_batch"
+            or "shell_layered_sls" or "shell_layered_sls_batch")
+        {
+            var plate = app.PlateSections.FirstOrDefault(s => s.Id == ct.SectionId);
+            if (plate == null)
+            {
+                MessageBox.Show(Loc.S("CalcTaskSectionNotFound"), Loc.S("Error"),
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+
+            fi = CalcTaskForceHelper.ResolveOptionalForceItem(ct, app.BarForceSets);
+            return true;
+        }
+
         var sec = app.CrossSections.FirstOrDefault(s => s.Id == ct.SectionId);
         if (sec == null)
         {

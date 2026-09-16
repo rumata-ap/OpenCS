@@ -1356,6 +1356,14 @@
     <system:String x:Key="CalcTaskKind_shell_strain_state_batch">Plate strain plane (batch)</system:String>
     <system:String x:Key="CalcTaskKind_shell_layered_uls">Plate: strength (layered)</system:String>
     <system:String x:Key="CalcTaskKind_shell_layered_uls_batch">Plate: strength layered (batch)</system:String>
+    <system:String x:Key="ShellLayeredSlsFaceTop">top</system:String>
+    <system:String x:Key="ShellLayeredSlsFaceBottom">bottom</system:String>
+    <system:String x:Key="ShellLayeredSlsNoCracks">0 (no cracks)</system:String>
+    <system:String x:Key="ShellLayeredSlsNoConvergence">Strain state did not converge</system:String>
+    <system:String x:Key="ShellLayeredSlsVerdictPassed">acrc = {0:F3} mm ≤ acrc,lim = {1:F3} mm — check passed; utilization = {2}; governing strip: {3}</system:String>
+    <system:String x:Key="ShellLayeredSlsVerdictNotPassed">acrc = {0:F3} mm &gt; acrc,lim = {1:F3} mm — check not passed; utilization = {2}; governing strip: {3}</system:String>
+    <system:String x:Key="CalcTaskKind_shell_layered_sls">Plate: cracks (layered)</system:String>
+    <system:String x:Key="CalcTaskKind_shell_layered_sls_batch">Plate: cracks layered (batch)</system:String>
     <system:String x:Key="CalcTaskKind_prestress_loss">Prestress Losses (SP 63 ch. 9.1)</system:String>
     <system:String x:Key="PrestressLossDialogTitle">Prestress Loss Parameters</system:String>
     <system:String x:Key="PrestressLossParamsBtn">Loss Parameters…</system:String>
@@ -1500,6 +1508,30 @@
     <system:String x:Key="ShellSimplAcrcLim">acrc,lim, mm</system:String>
     <system:String x:Key="ShellSimplPhi1">φ1 (long-term: 1.0/1.4)</system:String>
     <system:String x:Key="ShellSimplPhi2">φ2 (profile: 0.5/0.8)</system:String>
+    <system:String x:Key="ShellLayeredSlsTaskLabel">Task</system:String>
+    <system:String x:Key="ShellLayeredSlsSectionLabel">Section</system:String>
+    <system:String x:Key="ShellLayeredSlsCreatedLabel">Created</system:String>
+    <system:String x:Key="ShellLayeredSlsLayerColumn">Layer</system:String>
+    <system:String x:Key="ShellLayeredSlsFaceColumn">Face</system:String>
+    <system:String x:Key="ShellLayeredSlsDirectionColumn">Direction</system:String>
+    <system:String x:Key="ShellLayeredSlsMcrcColumn">Mcrc, kN·m/m</system:String>
+    <system:String x:Key="ShellLayeredSlsSigmaSColumn">σs, MPa</system:String>
+    <system:String x:Key="ShellLayeredSlsSigmaSCrcColumn">σs,crc, MPa</system:String>
+    <system:String x:Key="ShellLayeredSlsPsiSColumn">ψs</system:String>
+    <system:String x:Key="ShellLayeredSlsLsColumn">ls, m</system:String>
+    <system:String x:Key="ShellLayeredSlsAcrcColumn">acrc, mm</system:String>
+    <system:String x:Key="ShellLayeredSlsAngleColumn">Crack angle, °</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchNumColumn">#</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchLabelColumn">Label</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusColumn">Status</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchAcrcColumn">acrc, mm</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchAngleColumn">Angle, °</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchDirFaceColumn">Dir./face</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusOk">Completed</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusNotPassed">Not passed</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusNotConverged">No convergence</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusPartial">Partial</system:String>
+    <system:String x:Key="ShellLayeredSlsBatchStatusError">Error</system:String>
 
     <!-- Steel check per СП 16.13330.2017 -->
     <system:String x:Key="CalcTaskKind_steel_check">Steel check per SP 16</system:String>

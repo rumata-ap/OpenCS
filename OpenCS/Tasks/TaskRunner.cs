@@ -38,6 +38,8 @@ namespace OpenCS.Tasks
           ["shell_strain_state_batch"]    = new ShellStrainBatchHandler(),
           ["shell_layered_uls"]          = new ShellLayeredUlsHandler(),
           ["shell_layered_uls_batch"]    = new ShellLayeredUlsBatchHandler(),
+          ["shell_layered_sls"]          = new ShellLayeredSlsHandler(),
+          ["shell_layered_sls_batch"]    = new ShellLayeredSlsBatchHandler(),
           ["prestress_loss"]              = new PrestressLossHandler(),
           ["steel_check"]                 = new SteelCheckHandler(),
           ["steel_central_compression"]   = new SteelCentralCompressionHandler(),

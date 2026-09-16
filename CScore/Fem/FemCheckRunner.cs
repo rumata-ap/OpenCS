@@ -343,151 +343,6 @@ public static class FemCheckRunner
     }
 
     /// <summary>
-    /// Вычисляет максимальную ширину раскрытия трещин (мм) по п. 8.2.15–8.2.18 СП 63
-    /// для заданного деформационного состояния пластины.
-    /// Перебирает все арматурные слои и оба направления (X, Y).
-    /// </summary>
-    static (double acrcMm, string dir) ComputeAcrcForShell(
-        PlateSection     section,
-        ShellLoadItem    shell,
-        ShellStrainState st,
-        MaterialChars    cCh,
-        MaterialChars    rCh,
-        double           phi1,
-        double           phi2,
-        SigmaSCrcMethod  sigmaSCrcMethod,
-        WplGammaMethod   wplGamma)
-    {
-        double Eb     = cCh.E;
-        double Rb_ser = Math.Abs(cCh.Fc);
-        double Rbt    = cCh.Ft;
-        double Es     = rCh.E;
-        double Rs_ser = Math.Abs(rCh.Ft);
-
-        double Eb_red    = Rb_ser / 0.0015;
-        double alphaFull = Es / Eb;
-        double alpha     = Es / Eb_red;
-
-        double H       = section.H;
-        double bestAcrc = 0.0;
-        string bestDir  = "";
-
-        foreach (var layer in section.RebarLayers)
-        {
-            // ── Направление X ─────────────────────────────────────────────────
-            if (layer.Asx > 1e-14)
-            {
-                double acrcX = ComputeAcrcStrip(
-                    st.EpsX(layer.Zsx),
-                    shell.Mx, shell.Nx,
-                    H, H / 2.0 + Math.Abs(layer.Zsx), H / 2.0 - Math.Abs(layer.Zsx),
-                    layer.Asx,
-                    layer.DiameterX > 1e-9 ? layer.DiameterX : 0.012,
-                    Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha,
-                    phi1, phi2, sigmaSCrcMethod, wplGamma);
-                if (acrcX > bestAcrc) { bestAcrc = acrcX; bestDir = "п.8.2.15 x"; }
-            }
-
-            // ── Направление Y ─────────────────────────────────────────────────
-            if (layer.Asy > 1e-14)
-            {
-                double acrcY = ComputeAcrcStrip(
-                    st.EpsY(layer.Zsy),
-                    shell.My, shell.Ny,
-                    H, H / 2.0 + Math.Abs(layer.Zsy), H / 2.0 - Math.Abs(layer.Zsy),
-                    layer.Asy,
-                    layer.DiameterY > 1e-9 ? layer.DiameterY : 0.012,
-                    Rbt, Rb_ser, Es, Rs_ser, Eb_red, alphaFull, alpha,
-                    phi1, phi2, sigmaSCrcMethod, wplGamma);
-                if (acrcY > bestAcrc) { bestAcrc = acrcY; bestDir = "п.8.2.15 y"; }
-            }
-        }
-
-        return (bestAcrc, bestDir);
-    }
-
-    /// <summary>
-    /// Формулы п. 8.2.15–8.2.18 СП 63 для одной полосы (X или Y).
-    /// </summary>
-    /// <param name="eps_s">Деформация в арматуре (из ShellStrainState).</param>
-    /// <param name="M_des">Расчётный момент полосы (кН·м/м).</param>
-    /// <param name="N_des">Расчётная продольная сила полосы (кН/м).</param>
-    /// <param name="h">Полная толщина пластины (м).</param>
-    /// <param name="h0">Рабочая высота (от сжатой грани до растянутой арматуры, м).</param>
-    /// <param name="aPrime">Защитный слой сжатой грани (м).</param>
-    /// <param name="As_t">Площадь растянутой арматуры (м²/м).</param>
-    /// <param name="ds">Диаметр арматуры (м).</param>
-    internal static double ComputeAcrcStrip(
-        double eps_s,
-        double M_des, double N_des,
-        double h, double h0, double aPrime,
-        double As_t, double ds,
-        double Rbt, double Rb_ser, double Es, double Rs_ser,
-        double Eb_red, double alphaFull, double alpha,
-        double phi1, double phi2,
-        SigmaSCrcMethod sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137,
-        WplGammaMethod wplGamma = WplGammaMethod.Sp63)
-    {
-        if (eps_s <= 0.0) return 0.0;
-
-        double sigma_s = Math.Min(Es * eps_s, Rs_ser);
-        if (sigma_s < 1e-3) return 0.0;
-
-        // Приведённое сечение (As_c = 0)
-        ShellSimplSolver.FullSectionProps(h, h0, aPrime, As_t, 0.0, alphaFull,
-            out double A_red, out double I_red);
-        double S_red  = h * h / 2.0 + alphaFull * As_t * h0;
-        double ycFull = S_red / A_red;
-        double yt     = h - ycFull;
-        double Wred   = I_red / yt;
-        // Коэффициент пластичности задаётся параметрами задачи; полоса считается на 1 м,
-        // поэтому b = 1.
-        double Wpl    = ShellSimplSolver.ResolveWplGamma(wplGamma, As_t, 1.0, h) * Wred;
-        double ex     = Wred / A_red;
-
-        // Момент трещинообразования (п. 8.2.11)
-        double mcrc = Math.Max(0.0, Rbt * Wpl - N_des * ex);
-
-        if (M_des <= mcrc) return 0.0;
-
-        // Площадь растянутого бетона (п. 8.2.17): высота растянутой зоны берётся по расчёту
-        // МОМЕНТА ОБРАЗОВАНИЯ ТРЕЩИН, то есть по нейтральной оси приведённого сечения без
-        // трещины (yt = h − ycFull), с ограничениями 2a ≤ xt ≤ 0,5·h0.
-        double h_bt = Math.Min(Math.Max(yt, 2.0 * aPrime), h0 / 2.0);
-        double ls_raw = 0.5 * h_bt / As_t * ds;
-        double ls_min = Math.Max(10.0 * ds, 0.10);
-        double ls_max = Math.Min(40.0 * ds, 0.40);
-        double ls_m   = Math.Clamp(ls_raw, ls_min, ls_max);
-
-        // ψs — коэффициент неравномерности деформаций (п. 8.2.18); способ получения σs,crc
-        // задаётся параметрами задачи, см. SigmaSCrcMethod.
-        double sigma_s_crc;
-        if (sigmaSCrcMethod == SigmaSCrcMethod.CrackingMoment8138)
-        {
-            double xm_crc = ShellSimplSolver.NeutralAxis(h0, aPrime, As_t, 0.0, alpha);
-            double zs_crc = h0 - xm_crc / 3.0;
-            sigma_s_crc = zs_crc > 1e-9
-                ? Math.Min(Math.Max(0.0, mcrc / (zs_crc * As_t)), Rs_ser)
-                : 0.0;
-        }
-        else
-        {
-            sigma_s_crc = ShellSimplSolver.SigmaSCrcFromReleasedConcrete(
-                Rbt, h_bt, As_t, alphaFull, sigma_s);
-        }
-
-        double psi_s = sigma_s > 1e-3
-            ? Math.Clamp(1.0 - 0.8 * sigma_s_crc / sigma_s, 0.1, 1.0)
-            : 1.0;
-
-        // φ3 — вид нагружения (п. 8.2.15): 1.2 при наличии сжимающей осевой силы
-        double phi3 = N_des > 1e-3 ? 1.2 : 1.0;
-
-        double acrc_m = phi1 * phi2 * phi3 * psi_s * (sigma_s / Es) * ls_m;
-        return acrc_m * 1000.0;
-    }
-
-    /// <summary>
     /// Расчёт ширины раскрытия трещин по п. 8.2.15–8.2.18 СП 63
     /// для слоистой модели пластины (shell_layered).
     /// CalcType.N → непродолжительное раскрытие (acrc1 + acrc2 − acrc3, п. 8.2.7).
@@ -517,12 +372,16 @@ public static class FemCheckRunner
         if (calcType == CalcType.NL)
         {
             // Только acrc1 (продолжительное раскрытие)
-            (acrcMax, acrcDir) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
+            var stripMax = ShellLayeredCrackWidth.ComputeWorst(section, shell, st, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
+            acrcMax = stripMax?.AcrcMm ?? 0.0;
+            acrcDir = stripMax is { AcrcMm: > 0.0 } ? $"п.8.2.15 {stripMax.Direction}" : "";
         }
         else // CalcType.N → непродолжительное, п. 8.2.7
         {
             // acrc2: N-набор, φ1 = 1.0
-            var (acrc2, dir2) = ComputeAcrcForShell(section, shell, st, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
+            var strip2 = ShellLayeredCrackWidth.ComputeWorst(section, shell, st, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
+            double acrc2 = strip2?.AcrcMm ?? 0.0;
+            string dir2 = strip2 is { AcrcMm: > 0.0 } ? $"п.8.2.15 {strip2.Direction}" : "";
 
             if (nlShell != null)
             {
@@ -545,9 +404,12 @@ public static class FemCheckRunner
                 var stNl = resNl.Converged ? resNl.StrainState : st;
 
                 // acrc1: NL-набор, φ1 = 1.4
-                var (acrc1, dir1) = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
+                var strip1 = ShellLayeredCrackWidth.ComputeWorst(section, nlShell, stNl, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
+                double acrc1 = strip1?.AcrcMm ?? 0.0;
+                string dir1 = strip1 is { AcrcMm: > 0.0 } ? $"п.8.2.15 {strip1.Direction}" : "";
                 // acrc3: NL-набор, φ1 = 1.0
-                var (acrc3, _)   = ComputeAcrcForShell(section, nlShell, stNl, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
+                var strip3 = ShellLayeredCrackWidth.ComputeWorst(section, nlShell, stNl, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
+                double acrc3 = strip3?.AcrcMm ?? 0.0;
 
                 // п. 8.2.7: acrc_непрод = acrc1 + acrc2 − acrc3
                 acrcMax = acrc1 + acrc2 - acrc3;
@@ -585,8 +447,11 @@ public static class FemCheckRunner
                     suffix = resVirt.Converged ? $" (NL=N×{ltFraction:G})" : $" (NL=N×{ltFraction:G}, нет сход.)";
                     var stVirt = resVirt.Converged ? resVirt.StrainState : st;
 
-                    var (acrc1, dir1) = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
-                    var (acrc3, _)    = ComputeAcrcForShell(section, virtualNl, stVirt, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
+                    var strip1 = ShellLayeredCrackWidth.ComputeWorst(section, virtualNl, stVirt, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
+                    double acrc1 = strip1?.AcrcMm ?? 0.0;
+                    string dir1 = strip1 is { AcrcMm: > 0.0 } ? $"п.8.2.15 {strip1.Direction}" : "";
+                    var strip3 = ShellLayeredCrackWidth.ComputeWorst(section, virtualNl, stVirt, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
+                    double acrc3 = strip3?.AcrcMm ?? 0.0;
 
                     acrcMax = acrc1 + acrc2 - acrc3;
                     acrcDir = dir1.Length > 0 ? dir1 : dir2;

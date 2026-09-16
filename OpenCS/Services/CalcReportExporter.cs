@@ -19,9 +19,12 @@ static class CalcReportExporter
         if (task == null || !app.ReportProviders.TryResolve(task, out var provider)) return;
 
         var section = app.CrossSections.FirstOrDefault(candidate => candidate.Id == task.SectionId);
-        if (section == null) return;
+        var plateSection = task.Kind == "shell_layered_sls"
+            ? app.PlateSections.FirstOrDefault(candidate => candidate.Id == task.SectionId)
+            : null;
+        if (section == null && plateSection == null) return;
 
-        section.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
+        section?.ResolveAndBuildDiagramms(app.CalcSettings.Sp63DescEtaMin,
             pool: app.Diagrams,
             rebarDifferentialDiagram: app.CalcSettings.RebarDifferentialDiagram,
             ekbEtaMin: app.CalcSettings.EkbDescEtaMin);
@@ -39,6 +42,7 @@ static class CalcReportExporter
             var images = new Dictionary<string, string>();
             foreach (var request in provider.DescribeImages(task, result))
             {
+                if (section == null) continue;
                 bool ten = settings.ResolveConcreteTension(request.Calc);
                 section.SetEps(request.Plane, request.Calc, ten);
                 var mode = request.Mode == ReportImageMode.Stress
@@ -49,7 +53,7 @@ static class CalcReportExporter
                 images[request.Key] = svgExporter.Render(plot, request.Title);
             }
 
-            var document = provider.Build(new ReportContext(task, result, section, images));
+            var document = provider.Build(new ReportContext(task, result, section, plateSection, images));
             var service = new ReportExportService(
                 pdfConverter: app.WebRenderer,
                 svgRasterizer: app.WebRenderer);

@@ -11,8 +11,10 @@ public static class SectionReportSections
         string unitsNote)
     {
         string sectionId = context.Section?.Id.ToString(CultureInfo.InvariantCulture)
+            ?? context.PlateSection?.Id.ToString(CultureInfo.InvariantCulture)
             ?? "не загружено";
-        string sectionTag = context.Section?.Tag ?? "модель сечения не передана";
+        string sectionTag = context.Section?.Tag ?? context.PlateSection?.Tag
+            ?? "модель сечения не передана";
         return document
             .Add(new ReportHeading(1, "Идентификация и единицы"))
             .Add(new ReportKeyValueTable(

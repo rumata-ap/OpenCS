@@ -503,6 +503,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsShellStrainBatch));
            OnPropertyChanged(nameof(IsShellLayered));
            OnPropertyChanged(nameof(IsShellLayeredBatch));
+           OnPropertyChanged(nameof(IsShellLayeredUls));
+           OnPropertyChanged(nameof(IsShellLayeredSls));
+           OnPropertyChanged(nameof(IsShellLayeredUlsBatch));
+           OnPropertyChanged(nameof(IsShellLayeredSlsBatch));
+           OnPropertyChanged(nameof(ShowSlsCrackParams));
            OnPropertyChanged(nameof(IsPlatePanel));
            OnPropertyChanged(nameof(IsPlateBatch));
            OnPropertyChanged(nameof(FilteredCalcTypes));
@@ -609,6 +614,11 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsShellStrainBatch));
            OnPropertyChanged(nameof(IsShellLayered));
            OnPropertyChanged(nameof(IsShellLayeredBatch));
+           OnPropertyChanged(nameof(IsShellLayeredUls));
+           OnPropertyChanged(nameof(IsShellLayeredSls));
+           OnPropertyChanged(nameof(IsShellLayeredUlsBatch));
+           OnPropertyChanged(nameof(IsShellLayeredSlsBatch));
+           OnPropertyChanged(nameof(ShowSlsCrackParams));
            OnPropertyChanged(nameof(IsPlatePanel));
            OnPropertyChanged(nameof(IsPlateBatch));
            OnPropertyChanged(nameof(FilteredCalcTypes));
@@ -681,8 +691,13 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public bool IsShellSimplBatch => IsShellSimpl && Kind.EndsWith("_batch", StringComparison.Ordinal);
    public bool IsShellStrain      => Kind is "shell_strain_state" or "shell_strain_state_batch";
    public bool IsShellStrainBatch => Kind == "shell_strain_state_batch";
-   public bool IsShellLayered      => Kind is "shell_layered_uls" or "shell_layered_uls_batch";
-   public bool IsShellLayeredBatch => Kind == "shell_layered_uls_batch";
+   public bool IsShellLayeredUls      => Kind is "shell_layered_uls" or "shell_layered_uls_batch";
+   public bool IsShellLayeredSls      => Kind is "shell_layered_sls" or "shell_layered_sls_batch";
+   public bool IsShellLayered         => IsShellLayeredUls || IsShellLayeredSls;
+   public bool IsShellLayeredUlsBatch => Kind == "shell_layered_uls_batch";
+   public bool IsShellLayeredSlsBatch => Kind == "shell_layered_sls_batch";
+   public bool IsShellLayeredBatch    => IsShellLayeredUlsBatch || IsShellLayeredSlsBatch;
+   public bool ShowSlsCrackParams  => IsShellSimplSls || IsShellLayeredSls;
    /// <summary>Панель пластины (выбор PlateSection + усилия) — для simpl, strain и layered.</summary>
    public bool IsPlatePanel => IsShellSimpl || IsShellStrain || IsShellLayered;
    /// <summary>Пакетный режим плитной задачи (simpl, strain или layered).</summary>
@@ -1623,6 +1638,8 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       new() { Id = "shell_simpl_capri_uls_batch", Label = Loc.S("CalcTaskKind_shell_simpl_capri_uls_batch"), GroupKey = "uls", Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_layered_uls",       Label = Loc.S("CalcTaskKind_shell_layered_uls"),       GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
       new() { Id = "shell_layered_uls_batch", Label = Loc.S("CalcTaskKind_shell_layered_uls_batch"), GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
+      new() { Id = "shell_layered_sls",       Label = Loc.S("CalcTaskKind_shell_layered_sls"),       GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
+      new() { Id = "shell_layered_sls_batch", Label = Loc.S("CalcTaskKind_shell_layered_sls_batch"), GroupKey = "sls",   Group = Loc.S("CalcTaskGroupSls") },
        new() { Id = "steel_check",              Label = Loc.S("CalcTaskKind_steel_check"),              GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_central_compression",Label = Loc.S("CalcTaskKind_steel_central_compression"),GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
        new() { Id = "steel_central_tension",    Label = Loc.S("CalcTaskKind_steel_central_tension"),    GroupKey = "uls",   Group = Loc.S("CalcTaskGroupUls") },
@@ -1692,7 +1709,9 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                    ? [CalcType.N, CalcType.NL]
                    : [CalcType.C, CalcType.CL];
            if (IsShellLayered)
-               return [CalcType.C, CalcType.CL];
+               return IsShellLayeredSls
+                   ? [CalcType.N, CalcType.NL]
+                   : [CalcType.C, CalcType.CL];
            if (IsCracking || IsCrackingBatch || IsCrackWidthAny || IsTotalCurvatureAny)
                return [CalcType.N, CalcType.NL];
            return CalcTypes;
@@ -1873,6 +1892,25 @@ public class CalcTaskPropsDlgVM : ViewModelBase
              ShellSimplMx  = sp.Mx.ToString("G6", inv);
              ShellSimplMy  = sp.My.ToString("G6", inv);
              ShellSimplMxy = sp.Mxy.ToString("G6", inv);
+             SelectedShellSimplSection = ShellSimplSections.FirstOrDefault(s => s.Id == existing.SectionId);
+             if (existing.ForceSetId != 0)
+                 SelectedShellForceSet = ShellForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
+          }
+
+          if (existing.Kind is "shell_layered_sls" or "shell_layered_sls_batch")
+          {
+             var sp = ShellLayeredSlsParams.Parse(existing.ParamsJson);
+             var inv = System.Globalization.CultureInfo.InvariantCulture;
+             ShellSimplNx  = sp.Nx.ToString("G6", inv);
+             ShellSimplNy  = sp.Ny.ToString("G6", inv);
+             ShellSimplNxy = sp.Nxy.ToString("G6", inv);
+             ShellSimplMx  = sp.Mx.ToString("G6", inv);
+             ShellSimplMy  = sp.My.ToString("G6", inv);
+             ShellSimplMxy = sp.Mxy.ToString("G6", inv);
+             ShellSimplAcrcLim = sp.AcrcLimMm.ToString("G6", inv);
+             ShellSimplPhi1 = sp.Phi1.ToString("G6", inv);
+             ShellSimplPhi2 = sp.Phi2.ToString("G6", inv);
+             AutoStressToForce = sp.AutoStressToForce;
              SelectedShellSimplSection = ShellSimplSections.FirstOrDefault(s => s.Id == existing.SectionId);
              if (existing.ForceSetId != 0)
                  SelectedShellForceSet = ShellForceSets.FirstOrDefault(fs => fs.Id == existing.ForceSetId);
@@ -2545,6 +2583,71 @@ public class CalcTaskPropsDlgVM : ViewModelBase
                   Nx = snx, Ny = sny, Nxy = snxy, Mx = smx, My = smy, Mxy = smxy,
                   AutoStressToForce = AutoStressToForce
               })
+          };
+          _window.DialogResult = true;
+          return;
+      }
+
+      if (IsShellLayeredSls)
+      {
+          if (SelectedShellSimplSection == null)
+          {
+             MessageBox.Show(Loc.S("CalcTaskNeedSection"), Loc.S("Warning"),
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+             return;
+          }
+
+          var inv = System.Globalization.CultureInfo.InvariantCulture;
+          double nx  = double.TryParse(ShellSimplNx,  System.Globalization.NumberStyles.Float, inv, out var nxv)  ? nxv : 0;
+          double ny  = double.TryParse(ShellSimplNy,  System.Globalization.NumberStyles.Float, inv, out var nyv)  ? nyv : 0;
+          double nxy = double.TryParse(ShellSimplNxy, System.Globalization.NumberStyles.Float, inv, out var nxyv) ? nxyv : 0;
+          double mx  = double.TryParse(ShellSimplMx,  System.Globalization.NumberStyles.Float, inv, out var mxv)  ? mxv : 0;
+          double my  = double.TryParse(ShellSimplMy,  System.Globalization.NumberStyles.Float, inv, out var myv)  ? myv : 0;
+          double mxy = double.TryParse(ShellSimplMxy, System.Globalization.NumberStyles.Float, inv, out var mxyv) ? mxyv : 0;
+          double acrcLim = double.TryParse(ShellSimplAcrcLim, System.Globalization.NumberStyles.Float, inv, out var alv) ? alv : 0.3;
+          double phi1 = double.TryParse(ShellSimplPhi1, System.Globalization.NumberStyles.Float, inv, out var p1v) ? p1v : 1.0;
+          double phi2 = double.TryParse(ShellSimplPhi2, System.Globalization.NumberStyles.Float, inv, out var p2v) ? p2v : 0.5;
+
+          if (IsShellLayeredBatch)
+          {
+              if (SelectedShellForceSet == null)
+              {
+                  MessageBox.Show(Loc.S("CalcTaskNeedForceSet"), Loc.S("Warning"),
+                     MessageBoxButton.OK, MessageBoxImage.Warning);
+                  return;
+              }
+              Result = new CalcTask
+              {
+                  Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+                  Kind = Kind,
+                  SectionId = SelectedShellSimplSection.Id,
+                  ForceSetId = SelectedShellForceSet.Id,
+                  ForceItemId = 0,
+                  CalcType = SelectedCalcType,
+                  ParamsJson = new ShellLayeredSlsParams
+                  {
+                      AcrcLimMm = acrcLim, Phi1 = phi1, Phi2 = phi2,
+                      AutoStressToForce = AutoStressToForce
+                  }.ToJson()
+              };
+              _window.DialogResult = true;
+              return;
+          }
+
+          Result = new CalcTask
+          {
+              Tag = string.IsNullOrWhiteSpace(Tag) ? $"Задача {_app.CalcTasks.Count + 1}" : Tag,
+              Kind = Kind,
+              SectionId = SelectedShellSimplSection.Id,
+              ForceSetId = 0,
+              ForceItemId = 0,
+              CalcType = SelectedCalcType,
+              ParamsJson = new ShellLayeredSlsParams
+              {
+                  Nx = nx, Ny = ny, Nxy = nxy, Mx = mx, My = my, Mxy = mxy,
+                  AcrcLimMm = acrcLim, Phi1 = phi1, Phi2 = phi2,
+                  AutoStressToForce = AutoStressToForce
+              }.ToJson()
           };
           _window.DialogResult = true;
           return;
