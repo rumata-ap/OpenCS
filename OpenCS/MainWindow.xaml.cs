@@ -81,6 +81,21 @@ namespace OpenCS
          vm.DelMaterialCommand.Execute(null);
       }
 
+      private void ExportAbaqusCdp_Click(object sender, RoutedEventArgs e)
+      {
+         if (sender is not MenuItem menuItem || menuItem.CommandParameter is not Material material)
+            return;
+
+         if (material.Type != MatType.Concrete)
+         {
+            MessageBox.Show(this, Loc.S("AbaqusCdpNotConcrete"),
+               Loc.S("AbaqusCdpExportTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+         }
+
+         new AbaqusCdpExportWindow(material) { Owner = this }.ShowDialog();
+      }
+
       private void structureTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
       {
          if (e.NewValue is Material materialItem)

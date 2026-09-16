@@ -41,6 +41,8 @@
                            <Image Source="/Images/delete--32.png"/>
                         </MenuItem.Icon>
                      </MenuItem>
+                     <MenuItem Header="{DynamicResource ExportAbaqusCdp}"
+                               Click="ExportAbaqusCdp_Click" CommandParameter="{Binding}" />
                   </ContextMenu>
                </StackPanel.ContextMenu>
             </StackPanel>
