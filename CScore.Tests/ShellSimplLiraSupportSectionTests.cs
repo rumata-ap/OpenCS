@@ -93,9 +93,15 @@ public class ShellSimplLiraSupportSectionTests
     }
 
     // РСУ из отчёта Лиры (photo_103), кН·м/м. Знак — см. заголовочный комментарий.
-    static readonly (double Mx, double My, double Mxy) Uls1A1   = (61.5367, 25.9279, 11.3110);  // А1, прочность
-    static readonly (double Mx, double My, double Mxy) Sls1A2   = (40.1327, 16.9095, 7.3767);   // А2, полное норм.
-    static readonly (double Mx, double My, double Mxy) Sls2B2   = (52.9528, 22.3112, 9.7332);   // В2, длительное норм.
+    //
+    // Назначение А2/В2 — по официальной легенде самой Лиры (не по первоначальной подписи
+    // Георгия Апхадзе в переписке, которая перепутала их местами): «В — сочетания, учитывающие
+    // ВСЕ загружения» (полное/непродолжительное), «А — сочетания, учитывающие загружения,
+    // которые обладают длительностью» (длительное/продолжительное). Переменные названы по
+    // роли в формуле, со ссылкой на исходную строку РСУ в комментарии.
+    static readonly (double Mx, double My, double Mxy) Uls1A1  = (61.5367, 25.9279, 11.3110);  // А1, прочность
+    static readonly (double Mx, double My, double Mxy) SlsFull  = (52.9528, 22.3112, 9.7332);   // В2 — полное (все загружения)
+    static readonly (double Mx, double My, double Mxy) SlsLong  = (40.1327, 16.9095, 7.3767);   // А2 — длительное
 
     const string Uls = "shell_simpl_wa_uls";
     const string UlsCapri = "shell_simpl_capri_uls";
@@ -109,13 +115,13 @@ public class ShellSimplLiraSupportSectionTests
             Fixture.Section(), Fixture.Concrete(), Fixture.Rebar(),
             kind.EndsWith("uls") ? CalcType.C : CalcType.N);
 
-    // acrc,long = acrc(В2, φ1=1.4); acrc,short = acrc(А2,φ1=1.0) − acrc(В2,φ1=1.0) + acrc(В2,φ1=1.4)
+    // acrc,long = acrc(long, φ1=1.4); acrc,short = acrc(full,φ1=1.0) − acrc(long,φ1=1.0) + acrc(long,φ1=1.4)
     // (п. 8.2.5 СП 63), поэлементно по 4 полосам Вуда / по направлениям Капра-Мори.
     static (double Long, double Short) WaCrackWidths()
     {
-        var full10 = Simpl(Sls1A2, Sls, 1.0).WaStrips!;
-        var long10 = Simpl(Sls2B2, Sls, 1.0).WaStrips!;
-        var long14 = Simpl(Sls2B2, Sls, 1.4).WaStrips!;
+        var full10 = Simpl(SlsFull, Sls, 1.0).WaStrips!;
+        var long10 = Simpl(SlsLong, Sls, 1.0).WaStrips!;
+        var long14 = Simpl(SlsLong, Sls, 1.4).WaStrips!;
 
         double aLong = 0, aShort = 0;
         for (int i = 0; i < full10.Count; i++)
@@ -130,9 +136,9 @@ public class ShellSimplLiraSupportSectionTests
 
     static (double Long, double Short) CapriCrackWidths()
     {
-        var full10 = Simpl(Sls1A2, SlsCapri, 1.0).CapriDirs!;
-        var long10 = Simpl(Sls2B2, SlsCapri, 1.0).CapriDirs!;
-        var long14 = Simpl(Sls2B2, SlsCapri, 1.4).CapriDirs!;
+        var full10 = Simpl(SlsFull, SlsCapri, 1.0).CapriDirs!;
+        var long10 = Simpl(SlsLong, SlsCapri, 1.0).CapriDirs!;
+        var long14 = Simpl(SlsLong, SlsCapri, 1.4).CapriDirs!;
 
         double aLong = 0, aShort = 0;
         for (int i = 0; i < full10.Count; i++)
@@ -177,12 +183,12 @@ public class ShellSimplLiraSupportSectionTests
 
     static (double Long, double Short) LayeredCrackWidths()
     {
-        var stFull = LayeredState(Sls1A2, CalcType.N).StrainState;
-        var stLong = LayeredState(Sls2B2, CalcType.N).StrainState;
+        var stFull = LayeredState(SlsFull, CalcType.N).StrainState;
+        var stLong = LayeredState(SlsLong, CalcType.N).StrainState;
 
-        var full10 = LayeredCrackStrips(Sls1A2, stFull, 1.0);
-        var long10 = LayeredCrackStrips(Sls2B2, stLong, 1.0);
-        var long14 = LayeredCrackStrips(Sls2B2, stLong, 1.4);
+        var full10 = LayeredCrackStrips(SlsFull, stFull, 1.0);
+        var long10 = LayeredCrackStrips(SlsLong, stLong, 1.0);
+        var long14 = LayeredCrackStrips(SlsLong, stLong, 1.4);
 
         double aLong = 0, aShort = 0;
         for (int i = 0; i < full10.Count; i++)
@@ -288,12 +294,8 @@ public class ShellSimplLiraSupportSectionTests
 
     // ── Трещиностойкость (ПС2) ──────────────────────────────────────────────────
 
-    // В этом примере длительное сочетание В2 (52.95 кН·м/м) больше полного А2
-    // (40.13 кН·м/м) — Лира выбирает разные governing-сочетания для разных
-    // проверок (это заметил и сам Георгий: «трещины по Вуду 0,33 мм длительные,
-    // как самые высокие по коэф. использования»). При такой комбинации формула
-    // СП63 8.2.5 (acrc,short = acrc(А2,φ1=1) − acrc(В2,φ1=1) + acrc(В2,φ1=1.4))
-    // закономерно даёт acrc,short < acrc,long — длительная ширина governing.
+    // SlsFull (52.95 кН·м/м) больше SlsLong (40.13 кН·м/м) — обычное соотношение
+    // (полное сочетание включает кратковременную часть нагрузки сверх длительной).
 
     [Fact]
     public void WoodArmer_CrackWidths_ClosetoLira()
@@ -361,11 +363,11 @@ public class ShellSimplLiraSupportSectionTests
         Row("Layered acrc_short", layShort);
 
         sb.AppendLine();
-        sb.AppendLine("=== Промежуточные величины критической полосы (длительное В2, φ1=1,4) ===");
+        sb.AppendLine("=== Промежуточные величины критической полосы (длительное, φ1=1,4) ===");
 
         // Вуд-Армер: критическая из 4 полос (x/верх, x/низ, y/верх, y/низ).
         {
-            var strips = Simpl(Sls2B2, Sls, 1.4).WaStrips!;
+            var strips = Simpl(SlsLong, Sls, 1.4).WaStrips!;
             var c = strips.MaxBy(s => s.Acrc_mm)!;
             sb.AppendLine($"WA[{c.Name}]: M_des={c.M_des:F4} h0={c.H0:F4} Mcrc={c.Mcrc:F4} cracked={c.Cracked} " +
                           $"xm={c.Xm:F5} zs={c.Zs:F5} sigma_s={c.Sigma_s_MPa:F3} sigma_s_crc={c.Sigma_s_crc_MPa:F3} " +
@@ -374,7 +376,7 @@ public class ShellSimplLiraSupportSectionTests
 
         // Капра-Мори: критическое направление из перебора по α.
         {
-            var dirs = Simpl(Sls2B2, SlsCapri, 1.4).CapriDirs!;
+            var dirs = Simpl(SlsLong, SlsCapri, 1.4).CapriDirs!;
             var c = dirs.Where(d => !d.Strip.NoRebar).MaxBy(d => d.Strip.Acrc_mm)!;
             sb.AppendLine($"Capri[alpha={c.Alpha_deg:F2} top={c.Top}]: M_n={c.M_n:F4} h0={c.Strip.H0:F4} " +
                           $"Mcrc={c.Strip.Mcrc:F4} cracked={c.Strip.Cracked} xm={c.Strip.Xm:F5} zs={c.Strip.Zs:F5} " +
@@ -384,8 +386,8 @@ public class ShellSimplLiraSupportSectionTests
 
         // Слоистая модель: критическая полоса (слой × направление x|y) из ComputeAll.
         {
-            var stLong = LayeredState(Sls2B2, CalcType.N).StrainState;
-            var strips = LayeredCrackStrips(Sls2B2, stLong, 1.4);
+            var stLong = LayeredState(SlsLong, CalcType.N).StrainState;
+            var strips = LayeredCrackStrips(SlsLong, stLong, 1.4);
             var c = strips.MaxBy(s => s.AcrcMm)!;
             sb.AppendLine($"Layered[{c.LayerName}/{c.Direction}, z={c.Z:F4}]: M_des={c.MDes:F4} " +
                           $"Mcrc={c.Mcrc:F4} cracked={c.Cracked} sigma_s={c.SigmaS / 1000.0:F3} " +
