@@ -117,3 +117,33 @@ public sealed record Sp63CircularGeometry(
 public sealed record Sp63CircularGeometryClassification(
     Sp63CircularGeometry? Geometry,
     IReadOnlyList<Sp63NormalMessage> Messages);
+
+/// <summary>Профиль равномерной полярной раскладки продольной арматуры.</summary>
+/// <param name="BarCount">Число стержней.</param>
+/// <param name="TotalArea">As,tot, м².</param>
+/// <param name="RadiusRs">rs — среднее расстояние центров стержней до центра раскладки, м.</param>
+/// <param name="Rs">Сопротивление растяжению, кПа.</param>
+/// <param name="Rsc">Сопротивление сжатию, кПа.</param>
+/// <param name="AreaDeviation">max|Aᵢ − Ā|/Ā.</param>
+/// <param name="RadiusDeviation">max|ρᵢ − rs|/rs.</param>
+/// <param name="AngularStepDeviation">max|Δθᵢ − 2π/n|/(2π/n).</param>
+/// <param name="CenterOffset">|c_bars − c_concrete|/rs.</param>
+/// <param name="Bars">Исходные стержни.</param>
+public sealed record Sp63CircularRebarProfile(
+    int BarCount,
+    double TotalArea,
+    double RadiusRs,
+    double Rs,
+    double Rsc,
+    double AreaDeviation,
+    double RadiusDeviation,
+    double AngularStepDeviation,
+    double CenterOffset,
+    IReadOnlyList<(double X, double Y, double Area, double Diameter)> Bars);
+
+/// <summary>Результат анализа полярной раскладки.</summary>
+/// <param name="Profile">Профиль или <see langword="null"/>.</param>
+/// <param name="Messages">Причины неприменимости.</param>
+public sealed record Sp63CircularProfileAnalysis(
+    Sp63CircularRebarProfile? Profile,
+    IReadOnlyList<Sp63NormalMessage> Messages);
