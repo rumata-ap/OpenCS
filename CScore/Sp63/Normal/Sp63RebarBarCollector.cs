@@ -22,6 +22,27 @@ internal static class Sp63RebarBarCollector
         out Sp63NormalMessage? message, bool requireAtLeastTwoLayers = false)
     {
         layers = [];
+        if (!TryCollectBars(section, calc, out var bars, out message))
+            return false;
+
+        var withCoordinates = bars
+            .Select(bar => bar with { Coordinate = axis == Sp63NormalAxis.Mx ? bar.Y : bar.X })
+            .ToList();
+        layers = GroupLayers(withCoordinates);
+        if (requireAtLeastTwoLayers && layers.Count < 2)
+            return Failure("insufficient_rebar_layers", "Sp63Normal_InsufficientRebarLayers",
+                "8.1.8", out message);
+        return true;
+    }
+
+    /// <summary>
+    /// Собирает точечные стержни без привязки к оси изгиба (Coordinate = 0) и
+    /// проверяет общие условия: без преднапряжения, точечные волокна, единые Rs/Rsc.
+    /// </summary>
+    public static bool TryCollectBars(CrossSection section, CalcType calc,
+        out List<Sp63CollectedBar> bars, out Sp63NormalMessage? message)
+    {
+        bars = [];
         message = null;
         var rebarAreas = section.Areas
             .Where(area => area.Category == AreaCategory.RebarGroup)
@@ -30,7 +51,6 @@ internal static class Sp63RebarBarCollector
             return Failure("prestressed_rebar", "Sp63Normal_PrestressedRebar", "9.2",
                 out message);
 
-        var bars = new List<Sp63CollectedBar>();
         foreach (var area in rebarAreas)
         {
             if (area.Material is null)
@@ -53,9 +73,8 @@ internal static class Sp63RebarBarCollector
                 if (!IsPositiveFinite(fiber.Area))
                     return Failure("invalid_rebar_area", "Sp63Normal_InvalidRebarArea",
                         "8.1.8", out message);
-                double coordinate = axis == Sp63NormalAxis.Mx ? fiber.Y : fiber.X;
                 bars.Add(new Sp63CollectedBar(fiber.X, fiber.Y, fiber.Area, fiber.Diameter,
-                    coordinate, rs, rsc));
+                    0.0, rs, rsc));
             }
         }
 
@@ -66,11 +85,6 @@ internal static class Sp63RebarBarCollector
         if (bars.Any(bar => !NearlyEqual(bar.Rs, reference.Rs) ||
                             !NearlyEqual(bar.Rsc, reference.Rsc)))
             return Failure("mixed_rebar_resistance", "Sp63Normal_MixedRebarResistance",
-                "8.1.8", out message);
-
-        layers = GroupLayers(bars);
-        if (requireAtLeastTwoLayers && layers.Count < 2)
-            return Failure("insufficient_rebar_layers", "Sp63Normal_InsufficientRebarLayers",
                 "8.1.8", out message);
         return true;
     }
