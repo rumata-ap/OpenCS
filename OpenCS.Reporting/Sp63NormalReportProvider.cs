@@ -37,16 +37,19 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         SectionReportSections.Identification(document, context,
             "N — кН; M — кН·м; линейные размеры — м или мм по контексту показателя; безразмерные величины — как есть");
 
+        bool roundShape = parameters.ShapeKind is "circular" or "annular";
         string shapeText = parameters.ShapeKind switch
         {
             "rectangular" => "прямоугольник",
             "tee" => "тавр/двутавр",
+            "circular" => "круглое сплошное",
+            "annular" => "кольцевое",
             _ => parameters.ShapeKind
         };
         var inputRows = new List<(string, string)>
         {
             ("Форма сечения", shapeText),
-            ("Ось изгиба", parameters.Axis),
+            ("Ось изгиба", roundShape ? "не используется (результирующий момент)" : parameters.Axis),
             ("Схема статической определимости", LocalizeScheme(parameters.StructuralScheme)),
             ("Режим устойчивости", LocalizeStabilityMode(parameters.StabilityMode)),
             ("Длина элемента / расстояние между закреплениями L, м", F(parameters.ElementLengthOrRestraintDistance)),
@@ -207,6 +210,10 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         "central_tension" => "центральное растяжение",
         "eccentric_tension_between" => "внецентренное растяжение, сила между арматурой",
         "eccentric_tension_outside" => "внецентренное растяжение, сила за пределами арматуры",
+        "circular_bending" => "круглое сечение, изгиб",
+        "circular_compression" => "круглое сечение, внецентренное сжатие",
+        "annular_bending" => "кольцевое сечение, изгиб",
+        "annular_compression" => "кольцевое сечение, внецентренное сжатие",
         "not_applicable" => "формульная проверка неприменима",
         "invalid_input" => "исходные данные не прошли валидацию",
         _ when !string.IsNullOrWhiteSpace(branch) => branch,
@@ -286,6 +293,26 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Normal_MinCoverCompression"] = "Защитный слой сжатой арматуры, частично п. 10.3.2 (не менее диаметра стержня и не менее 10 мм; таблица 10.1 по условиям эксплуатации не проверяется)",
         ["Sp63Normal_CoverBarDiameterUnknown"] = "Диаметр стержней слоя не задан — проверка защитного слоя по п. 10.3.2 не выполнена.",
         ["Sp63Normal_MinTensionBarCount"] = "Число продольных растянутых стержней при ширине сечения более 150 мм, п. 10.3.9",
-        ["Sp63Normal_SuggestNdm"] = "Для отверстий, нескольких бетонных областей, двуосного изгиба и сложной арматуры используйте расчёт по деформационной модели (НДМ)."
+        ["Sp63Normal_SuggestNdm"] = "Для отверстий, нескольких бетонных областей, двуосного изгиба и сложной арматуры используйте расчёт по деформационной модели (НДМ).",
+        ["Sp63Normal_CircularCheck"] = "Круглое сечение: M ≤ Mult",
+        ["Sp63Normal_AnnularCheck"] = "Кольцевое сечение: M ≤ Mult",
+        ["Sp63Normal_CircularSingleConcreteRegion"] = "Для круглого и кольцевого сечений по приложению Д нужна ровно одна бетонная область.",
+        ["Sp63Normal_CircularHasHole"] = "Для формы «Круглое сплошное» бетонная область не должна иметь отверстий; для полого сечения выберите «Кольцевое».",
+        ["Sp63Normal_AnnularHoleCount"] = "Для формы «Кольцевое» бетонная область должна иметь ровно одно отверстие.",
+        ["Sp63Normal_NotCircularContour"] = "Контур не распознан как окружность: отклонение вершин по радиусу или площади многоугольника от круга превышает 1 %. Увеличьте число сегментов аппроксимации.",
+        ["Sp63Normal_AnnularNotConcentric"] = "Отверстие кольца смещено относительно центра наружного контура более чем на 1 % наружного радиуса.",
+        ["Sp63Normal_AnnularRadiusRatio"] = "Отношение r₁/r₂ меньше 0,5: по примечанию 3 приложения Д расчёт выполняется по общим правилам 8.1 (НДМ).",
+        ["Sp63Normal_CircularTensionNotSupported"] = "Приложение Д относится к сжатым элементам; при растягивающей продольной силе используйте НДМ.",
+        ["Sp63Normal_CircularInsufficientBars"] = "Формулы приложения Д применимы при числе продольных стержней не менее 7.",
+        ["Sp63Normal_CircularRebarNotCentered"] = "Центр окружности стержней не совпадает с центром бетонного сечения (допуск 2 % rs).",
+        ["Sp63Normal_CircularRebarUnequalAreas"] = "Площади продольных стержней различаются более чем на 1 %: раскладка неравномерная.",
+        ["Sp63Normal_CircularRebarNotOnCircle"] = "Стержни не лежат на одной окружности: отклонение радиуса более 2 %.",
+        ["Sp63Normal_CircularRebarNonUniform"] = "Угловой шаг стержней отличается от равномерного более чем на 5 %.",
+        ["Sp63Normal_CircularRebarClassAboveA400"] = "По п. Д.2 класс арматуры круглого сечения должен быть не выше А400: расчётное сопротивление Rs (характеристики C) превышает 350 МПа.",
+        ["Sp63Normal_CircularRebarClassByRs"] = "Условие «класс арматуры не выше А400» проверено косвенно: Rs по характеристикам C не превышает 350 МПа.",
+        ["Sp63Normal_AppendixDRecommended"] = "Расчёт выполнен по рекомендуемому приложению Д СП 63.13330.2018.",
+        ["Sp63Normal_AppendixDPureBendingExtension"] = "Приложение Д предназначено для внецентренно сжатых колонн; расчёт при N = 0 — расширение OpenCS.",
+        ["Sp63Normal_ResultantMomentUsed"] = "Mx и My сведены к результирующему моменту M₀ = √(Mx² + My²): сечение и армирование осесимметричны.",
+        ["Sp63Normal_CompressionExceedsSectionCapacity"] = "Продольная сжимающая сила превышает несущую способность сечения: условие прочности не выполняется."
     };
 }

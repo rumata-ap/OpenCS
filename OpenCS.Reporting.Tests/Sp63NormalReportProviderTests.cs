@@ -170,4 +170,100 @@ public sealed class Sp63NormalReportProviderTests
         var allCells = document.Blocks.OfType<ReportTable>().SelectMany(t => t.Rows).SelectMany(r => r).ToList();
         Assert.Contains(allCells, c => c.Contains("8.1.11") || c.Contains("пролёт"));
     }
+
+    const string CircularCalculatedJson = """
+        {"Status":2,"StrengthPassed":false,"Branch":"circular_compression",
+         "StrengthDetails":[
+            {"Formula":"(Д.6)","Description":"Sp63Normal_CircularCheck","NormReference":"Д.2",
+             "Applied":120.0,"Allowable":0.0,"Variables":{"conditionD7":0.0,"phi":0.0}}],
+         "ConstructiveChecks":[],"ApplicabilityMessages":[],
+         "InformationalMessages":[
+            {"Code":"appendix_d_recommended","Kind":1,"NormReference":"Д","Text":"Sp63Normal_AppendixDRecommended"},
+            {"Code":"resultant_moment_used","Kind":1,"NormReference":"Д","Text":"Sp63Normal_ResultantMomentUsed"},
+            {"Code":"circular_rebar_class_by_rs","Kind":1,"NormReference":"Д.2","Text":"Sp63Normal_CircularRebarClassByRs"},
+            {"Code":"appendix_d_pure_bending_extension","Kind":1,"NormReference":"Д","Text":"Sp63Normal_AppendixDPureBendingExtension"},
+            {"Code":"compression_exceeds_section_capacity","Kind":2,"NormReference":"Д.2","Text":"Sp63Normal_CompressionExceedsSectionCapacity"}],
+         "Variables":{"M0":100.0,"M":120.0}}
+        """;
+
+    const string AnnularCalculatedJson = """
+        {"Status":2,"StrengthPassed":true,"Branch":"annular_bending",
+         "StrengthDetails":[
+            {"Formula":"(Д.3)","Description":"Sp63Normal_AnnularCheck","NormReference":"Д.1",
+             "Applied":50.0,"Allowable":138.6,"Variables":{"annularBranch":2.0}}],
+         "ConstructiveChecks":[],"ApplicabilityMessages":[],"InformationalMessages":[],
+         "Variables":{"M0":50.0,"M":50.0}}
+        """;
+
+    const string CircularNotApplicableJson = """
+        {"Status":1,"StrengthPassed":null,"Branch":"not_applicable",
+         "StrengthDetails":[],"ConstructiveChecks":[],
+         "ApplicabilityMessages":[
+            {"Code":"unsupported_geometry","Kind":0,"NormReference":"Д.2","Text":"Sp63Normal_CircularSingleConcreteRegion"},
+            {"Code":"unsupported_geometry","Kind":0,"NormReference":"Д.2","Text":"Sp63Normal_CircularHasHole"},
+            {"Code":"unsupported_geometry","Kind":0,"NormReference":"Д.1","Text":"Sp63Normal_AnnularHoleCount"},
+            {"Code":"unsupported_geometry","Kind":0,"NormReference":"Д.2","Text":"Sp63Normal_NotCircularContour"},
+            {"Code":"unsupported_geometry","Kind":0,"NormReference":"Д.1","Text":"Sp63Normal_AnnularNotConcentric"},
+            {"Code":"annular_radius_ratio","Kind":0,"NormReference":"Д, примечание 3","Text":"Sp63Normal_AnnularRadiusRatio"},
+            {"Code":"circular_tension_not_supported","Kind":0,"NormReference":"Д","Text":"Sp63Normal_CircularTensionNotSupported"},
+            {"Code":"circular_insufficient_bars","Kind":0,"NormReference":"Д, примечание 1","Text":"Sp63Normal_CircularInsufficientBars"},
+            {"Code":"circular_rebar_not_centered","Kind":0,"NormReference":"Д","Text":"Sp63Normal_CircularRebarNotCentered"},
+            {"Code":"circular_rebar_unequal_areas","Kind":0,"NormReference":"Д","Text":"Sp63Normal_CircularRebarUnequalAreas"},
+            {"Code":"circular_rebar_not_on_circle","Kind":0,"NormReference":"Д","Text":"Sp63Normal_CircularRebarNotOnCircle"},
+            {"Code":"circular_rebar_non_uniform","Kind":0,"NormReference":"Д","Text":"Sp63Normal_CircularRebarNonUniform"},
+            {"Code":"circular_rebar_class_above_a400","Kind":0,"NormReference":"Д.2","Text":"Sp63Normal_CircularRebarClassAboveA400"}],
+         "InformationalMessages":[
+            {"Code":"suggest_ndm","Kind":1,"NormReference":"8.1","Text":"Sp63Normal_SuggestNdm"}],
+         "Variables":{}}
+        """;
+
+    static List<string> AllText(ReportDocument document) =>
+        document.Blocks.OfType<ReportTable>().SelectMany(t => t.Rows).SelectMany(r => r)
+            .Concat(document.Blocks.OfType<ReportKeyValueTable>()
+                .SelectMany(t => t.Rows).SelectMany(r => new[] { r.Key, r.Value }))
+            .ToList();
+
+    static string KeyValue(ReportDocument document, string key) =>
+        document.Blocks.OfType<ReportKeyValueTable>().SelectMany(t => t.Rows)
+            .First(r => r.Key == key).Value;
+
+    [Fact]
+    public void Provider_BuildsCircularReport_WithLocalizedShapeAxisBranchAndMessages()
+    {
+        var task = MakeTask("""{"ShapeKind":"circular","Axis":"Mx","StructuralScheme":"statically_indeterminate","StabilityMode":"member","Psi":0.5,"SlendernessThreshold":14}""");
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = CircularCalculatedJson };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+
+        Assert.Equal("круглое сплошное", KeyValue(document, "Форма сечения"));
+        Assert.Equal("не используется (результирующий момент)", KeyValue(document, "Ось изгиба"));
+        Assert.Equal("круглое сечение, внецентренное сжатие", KeyValue(document, "Нормативная ветвь"));
+        Assert.DoesNotContain(AllText(document), c => c.Contains("Sp63Normal_"));
+        Assert.Contains(AllText(document), c => c.Contains("Круглое сечение: M ≤ Mult"));
+        _ = new HtmlReportRenderer().Render(document);
+    }
+
+    [Fact]
+    public void Provider_BuildsAnnularReport()
+    {
+        var task = MakeTask("""{"ShapeKind":"annular","Axis":"My"}""");
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = AnnularCalculatedJson };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+
+        Assert.Equal("кольцевое", KeyValue(document, "Форма сечения"));
+        Assert.Equal("кольцевое сечение, изгиб", KeyValue(document, "Нормативная ветвь"));
+        Assert.DoesNotContain(AllText(document), c => c.Contains("Sp63Normal_"));
+    }
+
+    [Fact]
+    public void Provider_LocalizesAllCircularApplicabilityTexts()
+    {
+        var task = MakeTask("""{"ShapeKind":"circular"}""");
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = CircularNotApplicableJson };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+
+        Assert.DoesNotContain(AllText(document), c => c.Contains("Sp63Normal_"));
+    }
 }
