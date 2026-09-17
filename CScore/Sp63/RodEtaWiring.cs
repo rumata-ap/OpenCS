@@ -29,8 +29,34 @@ namespace CScore.Sp63
             /// <summary>Радиус инерции бетонного сечения брутто в этой плоскости изгиба, м.</summary>
             public double I { get; init; }
 
+            /// <summary>
+            /// true — бетонных контуров в сечении не нашлось (или I/A неположительно),
+            /// поэтому радиус инерции принят по габариту как h/√12. Это приближение:
+            /// гибкость l0/i считается по нему, и признак выносится наружу.
+            /// </summary>
+            public bool RadiusFromBoundingBox { get; init; }
+
             /// <summary>Последовательность η по проходам режима B (см. <see cref="EccentricityAmplifier.EtaResult.EtaHistory"/>).</summary>
             public double[] EtaHistory { get; init; } = Array.Empty<double>();
+        }
+
+        /// <summary>
+        /// Радиусы инерции бетонного сечения брутто в плоскостях изгиба Mx/My (м).
+        /// Если бетонных контуров нет (или момент инерции неположителен), радиусы
+        /// оцениваются по габариту как для прямоугольника (h/√12), а
+        /// <c>FromBoundingBox</c> получает true — это приближение, которое выводится
+        /// пользователю (JSON-поле radiusFallbackX/Y и предупреждение в отчёте).
+        /// </summary>
+        /// <param name="section">Сечение.</param>
+        /// <param name="hx">Габарит в плоскости изгиба Mx (размер по Y), м.</param>
+        /// <param name="hy">Габарит в плоскости изгиба My (размер по X), м.</param>
+        public static (double Ix, double Iy, bool FromBoundingBox) ResolveRadii(
+            CrossSection section, double hx, double hy)
+        {
+            var gyration = ConcreteRadiusOfGyration.Compute(section);
+            if (gyration is { } g) return (g.RadiusX, g.RadiusY, false);
+
+            return (hx / Math.Sqrt(12.0), hy / Math.Sqrt(12.0), true);
         }
 
         /// <summary>Результат усиления моментов по обеим осям.</summary>
@@ -54,10 +80,9 @@ namespace CScore.Sp63
             double hy = maxX - minX; // высота в плоскости изгиба My (варьируется по X)
 
             // Гибкость по п. 8.1.2 — l0/i по бетонному сечению брутто; если бетонных
-            // контуров нет, радиус инерции оценивается по габариту как для прямоугольника.
-            var gyration = ConcreteRadiusOfGyration.Compute(section);
-            double ix = gyration?.RadiusX ?? hx / Math.Sqrt(12.0);
-            double iy = gyration?.RadiusY ?? hy / Math.Sqrt(12.0);
+            // контуров нет, радиус инерции оценивается по габариту как для прямоугольника
+            // (см. ResolveRadii): признак подмены уходит в AxisDiagnostics.
+            var (ix, iy, radiusFallback) = ResolveRadii(section, hx, hy);
 
             double mxEff, myEff;
             EccentricityAmplifier.EtaResult exResult, eyResult;
@@ -95,9 +120,11 @@ namespace CScore.Sp63
 
             return new Result(mxEff, myEff,
                 new AxisDiagnostics(exResult.Eta, exResult.Ncr, exResult.D, l0x, hx, exResult.Slender, exResult.Stable,
-                    exResult.Iterations, exResult.ExtrapolationFailed) { EtaHistory = exResult.EtaHistory, I = ix },
+                    exResult.Iterations, exResult.ExtrapolationFailed)
+                { EtaHistory = exResult.EtaHistory, I = ix, RadiusFromBoundingBox = radiusFallback },
                 new AxisDiagnostics(eyResult.Eta, eyResult.Ncr, eyResult.D, l0y, hy, eyResult.Slender, eyResult.Stable,
-                    eyResult.Iterations, eyResult.ExtrapolationFailed) { EtaHistory = eyResult.EtaHistory, I = iy });
+                    eyResult.Iterations, eyResult.ExtrapolationFailed)
+                { EtaHistory = eyResult.EtaHistory, I = iy, RadiusFromBoundingBox = radiusFallback });
         }
     }
 }

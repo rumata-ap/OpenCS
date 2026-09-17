@@ -237,6 +237,7 @@ static class LimitForceTaskHelper
          l0x = StrainStateJsonHelper.FiniteRounded(eta.X.L0, 4),
          hx  = StrainStateJsonHelper.FiniteRounded(eta.X.H,  4),
          ix  = StrainStateJsonHelper.FiniteRounded(eta.X.I, 4),
+         radiusFallbackX = eta.X.RadiusFromBoundingBox,
          slendernessX = eta.X.I > 1e-9
             ? StrainStateJsonHelper.FiniteRounded(eta.X.L0 / eta.X.I, 2)
             : (double?)null,
@@ -250,6 +251,7 @@ static class LimitForceTaskHelper
          l0y = StrainStateJsonHelper.FiniteRounded(eta.Y.L0, 4),
          hy  = StrainStateJsonHelper.FiniteRounded(eta.Y.H,  4),
          iy  = StrainStateJsonHelper.FiniteRounded(eta.Y.I, 4),
+         radiusFallbackY = eta.Y.RadiusFromBoundingBox,
          slendernessY = eta.Y.I > 1e-9
             ? StrainStateJsonHelper.FiniteRounded(eta.Y.L0 / eta.Y.I, 2)
             : (double?)null,

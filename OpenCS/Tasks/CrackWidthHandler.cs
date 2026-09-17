@@ -108,6 +108,7 @@ public sealed class CrackWidthHandler : ITaskHandler
                     l0x = StrainStateJsonHelper.FiniteRounded(wiring.X.L0, 4),
                     hx = StrainStateJsonHelper.FiniteRounded(wiring.X.H, 4),
                     ix  = StrainStateJsonHelper.FiniteRounded(wiring.X.I, 4),
+                    radiusFallbackX = wiring.X.RadiusFromBoundingBox,
                     slendernessX = wiring.X.I > 1e-9
                         ? StrainStateJsonHelper.FiniteRounded(wiring.X.L0 / wiring.X.I, 2)
                         : (double?)null,
@@ -121,6 +122,7 @@ public sealed class CrackWidthHandler : ITaskHandler
                     l0y = StrainStateJsonHelper.FiniteRounded(wiring.Y.L0, 4),
                     hy = StrainStateJsonHelper.FiniteRounded(wiring.Y.H, 4),
                     iy  = StrainStateJsonHelper.FiniteRounded(wiring.Y.I, 4),
+                    radiusFallbackY = wiring.Y.RadiusFromBoundingBox,
                     slendernessY = wiring.Y.I > 1e-9
                         ? StrainStateJsonHelper.FiniteRounded(wiring.Y.L0 / wiring.Y.I, 2)
                         : (double?)null,

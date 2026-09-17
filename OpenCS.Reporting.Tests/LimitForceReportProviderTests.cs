@@ -25,9 +25,11 @@ public sealed class LimitForceReportProviderTests
          "e0":0,"ky":0,"kz":0,"eps_contour_min":-0.0035,"eps_cu":-0.0035,
          "eps_rebar_max":0.015,"eps_su":0.015,"N_result":4,"Mx_result":5,"My_result":6,
          "eta":{"mode":"iterative","slendernessThreshold":14,"mxOriginal":2,"myOriginal":3,
-         "mxLongOriginal":1,"myLongOriginal":1.5,"l0x":4,"hx":0.3,"slendernessX":13.33,
+         "mxLongOriginal":1,"myLongOriginal":1.5,"l0x":4,"hx":0.3,"ix":0.173,"radiusFallbackX":false,
+         "slendernessX":13.33,
          "dX":1.1,"etaX":1.05,"ncrX":80,"slenderX":false,"stableX":true,
-         "extrapolationFailedX":false,"etaHistoryX":[1,1.05],"l0y":5,"hy":0.25,
+         "extrapolationFailedX":false,"etaHistoryX":[1,1.05],"l0y":5,"hy":0.25,"iy":0.0866,
+         "radiusFallbackY":true,
          "slendernessY":20,"dY":2.2,"etaY":1.12,"ncrY":70,"slenderY":true,"stableY":true,
          "extrapolationFailedY":false,"etaHistoryY":[1,1.12]}}
         """;
@@ -51,6 +53,10 @@ public sealed class LimitForceReportProviderTests
         var eta = LimitForceReportData.Parse(EtaJson).Eta;
         Assert.NotNull(eta);
         Assert.Equal(14, eta!.SlendernessThreshold);
+        Assert.Equal(0.173, eta.Ix);
+        Assert.Equal(0.0866, eta.Iy);
+        Assert.False(eta.RadiusFallbackX);
+        Assert.True(eta.RadiusFallbackY);
         Assert.Equal(1.05, eta.EtaX);
         Assert.Equal(1.12, eta.EtaY);
         Assert.Equal(2, eta.EtaHistoryX.Length);

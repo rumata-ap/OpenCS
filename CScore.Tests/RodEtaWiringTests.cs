@@ -39,6 +39,8 @@ public class RodEtaWiringTests
         Assert.Equal(0.3, result.Y.H, precision: 6); // высота в плоскости My — размер по X
         Assert.Equal(0.6 / Math.Sqrt(12.0), result.X.I, precision: 6); // радиус инерции бетона брутто
         Assert.Equal(0.3 / Math.Sqrt(12.0), result.Y.I, precision: 6);
+        Assert.False(result.X.RadiusFromBoundingBox, "бетонные контуры есть — подмена радиусом по габариту не нужна");
+        Assert.False(result.Y.RadiusFromBoundingBox);
         Assert.True(result.X.D > 0, $"Dx={result.X.D}");
         Assert.True(result.Y.D > 0, $"Dy={result.Y.D}");
     }
@@ -93,6 +95,30 @@ public class RodEtaWiringTests
         Assert.False(result.Y.Slender);
         Assert.Equal(80, result.MxEff);
         Assert.Equal(40, result.MyEff);
+    }
+
+    [Fact]
+    public void ResolveRadii_UsesConcreteContours_WhenPresent()
+    {
+        var section = SectionCutFixtures.BuildReinforcedRectangle(0.3, 0.6);
+
+        var (ix, iy, fromBoundingBox) = RodEtaWiring.ResolveRadii(section, hx: 0.6, hy: 0.3);
+
+        Assert.False(fromBoundingBox);
+        Assert.Equal(0.6 / Math.Sqrt(12.0), ix, 12);
+        Assert.Equal(0.3 / Math.Sqrt(12.0), iy, 12);
+    }
+
+    [Fact]
+    public void ResolveRadii_FallsBackToBoundingBox_WhenSectionHasNoConcrete()
+    {
+        // Бетонных контуров нет — радиус инерции оценивается по габариту, и это
+        // приближение явно помечается флагом (radiusFallbackX/Y в JSON результата).
+        var (ix, iy, fromBoundingBox) = RodEtaWiring.ResolveRadii(new CrossSection(), hx: 0.6, hy: 0.3);
+
+        Assert.True(fromBoundingBox);
+        Assert.Equal(0.6 / Math.Sqrt(12.0), ix, 12);
+        Assert.Equal(0.3 / Math.Sqrt(12.0), iy, 12);
     }
 
     [Fact]

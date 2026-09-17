@@ -1217,6 +1217,7 @@
    <system:String x:Key="ResultEtaInstable">INSTABILITY (|N| ≥ Ncr)</system:String>
    <system:String x:Key="ResultEtaInstabilityWarning">Warning: on one axis the axial force exceeds the conditional critical force Ncr — stability is not ensured.</system:String>
    <system:String x:Key="ResultEtaExtrapolationNote">Aitken extrapolation did not converge (diverging/oscillating sequence) — the last η approximation was used without acceleration.</system:String>
+   <system:String x:Key="ResultEtaRadiusFallback">The radius of gyration of the concrete section could not be determined (no concrete regions with a contour were found) — it was taken from the bounding box as h/√12, so the l₀/i slenderness and coefficient η are approximate.</system:String>
    <system:String x:Key="ResultEtaExtrapolationShort">extrapolation did not converge, last pass used</system:String>
    <system:String x:Key="ResultEtaTrajectoryX">ηx trajectory</system:String>
    <system:String x:Key="ResultEtaTrajectoryY">ηy trajectory</system:String>
@@ -1560,6 +1561,7 @@
     <system:String x:Key="EtaAutoPsiCrackHint">For crack width, ψ = |M_long/M_total| is taken automatically from the long-term load mode (ψ fields are hidden).</system:String>
     <system:String x:Key="EtaSlendernessThresholdLabel">Slenderness l₀/i</system:String>
     <system:String x:Key="EtaSlendernessThresholdHint">Slenderness l₀/i (i — radius of gyration of the gross concrete section) above which the η correction applies. Defaults to 14 (cl. 8.1.2 SP63.13330) — can be refined for a specific structure.</system:String>
+    <system:String x:Key="EtaSlendernessThresholdCustomHint">The limit is set manually and differs from 14. It is specified in l₀/i units (i — radius of gyration of the gross concrete section): in projects saved before the switch to l₀/i it meant l₀/h — check the value before calculating.</system:String>
     <system:String x:Key="EtaNeedL0">To account for deflection influence (η), specify element length L (&gt; 0) and, if needed, coefficients μx/μy (&gt; 0).</system:String>
     <system:String x:Key="EtaInvalidThreshold">The slenderness limit l₀/i must be a positive number.</system:String>
 

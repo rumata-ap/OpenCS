@@ -1049,6 +1049,10 @@
                               Margin="0,0,0,4"/>
                   </Grid>
 
+                  <TextBlock Text="{DynamicResource EtaSlendernessThresholdCustomHint}" TextWrapping="Wrap"
+                             Margin="0,0,0,8" Opacity="0.85"
+                             Visibility="{Binding IsEtaThresholdCustom, Converter={StaticResource BoolToVisibility}}"/>
+
                   <TextBlock Text="{DynamicResource EtaAutoPsiCrackHint}"
                              TextWrapping="Wrap" Margin="0,0,0,8" Opacity="0.85"
                              Visibility="{Binding ShowEtaAutoPsiHint, Converter={StaticResource BoolToVisibility}}"/>

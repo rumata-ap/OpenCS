@@ -50,6 +50,7 @@ namespace OpenCS.ViewModels
         public string EtaYText { get; }
         public bool   EtaUnstable { get; }
         public bool   EtaExtrapolationFailed { get; }
+        public bool   EtaRadiusFallback { get; }
         public bool   ShowEtaTrajectory { get; }
         public string EtaXTrajectoryText { get; }
         public string EtaYTrajectoryText { get; }
@@ -183,6 +184,11 @@ namespace OpenCS.ViewModels
                 EtaUnstable = (slenderX && !stableX) || (slenderY && !stableY);
                 EtaExtrapolationFailed = mode == "iterative" && ((slenderX && extrapFailedX) || (slenderY && extrapFailedY));
 
+                // Бетонных контуров не нашлось — радиус инерции взят по габариту
+                bool radiusFallbackX = etaEl.TryGetProperty("radiusFallbackX", out var rfxEl) && rfxEl.GetBoolean();
+                bool radiusFallbackY = etaEl.TryGetProperty("radiusFallbackY", out var rfyEl) && rfyEl.GetBoolean();
+                EtaRadiusFallback = radiusFallbackX || radiusFallbackY;
+
                 // Траектория итераций (режим B) — история η по проходам + результат экстраполяции Эйткена
                 double[] historyX = ReadDoubleArray(etaEl, "etaHistoryX");
                 double[] historyY = ReadDoubleArray(etaEl, "etaHistoryY");
@@ -196,6 +202,7 @@ namespace OpenCS.ViewModels
                 L0xText = HxText = SlendernessXText = DxText = NcrXText = EtaXText = "—";
                 L0yText = HyText = SlendernessYText = DyText = NcrYText = EtaYText = "—";
                 EtaUnstable = EtaExtrapolationFailed = ShowEtaTrajectory = false;
+                EtaRadiusFallback = false;
                 EtaXTrajectoryText = EtaYTrajectoryText = "—";
             }
 

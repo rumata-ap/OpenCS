@@ -227,14 +227,14 @@ public static class SectionReportSections
     {
         ArgumentNullException.ThrowIfNull(document);
         if (eta == null) return document;
-        return document
+        document
             .Add(new ReportHeading(1, "Влияние прогиба"))
             .Add(new ReportParagraph($"Режим: {ValueOrDash(eta.Mode)}; исходные моменты: Mx = {Moment(eta.MxOriginal)}, My = {Moment(eta.MyOriginal)}."))
             .Add(new ReportTable(
-                ["Направление", "l0, м", "h, м", "l0/i"],
+                ["Направление", "l0, м", "i, м", "l0/i"],
                 [
-                    (IReadOnlyList<string>)["X", DimensionValue(eta.L0x), DimensionValue(eta.Hx), ValueOrDash(eta.SlendernessX)],
-                    (IReadOnlyList<string>)["Y", DimensionValue(eta.L0y), DimensionValue(eta.Hy), ValueOrDash(eta.SlendernessY)]
+                    (IReadOnlyList<string>)["X", DimensionValue(eta.L0x), DimensionValue(eta.Ix), ValueOrDash(eta.SlendernessX)],
+                    (IReadOnlyList<string>)["Y", DimensionValue(eta.L0y), DimensionValue(eta.Iy), ValueOrDash(eta.SlendernessY)]
                 ]))
             .Add(new ReportTable(
                 ["Направление", "D, кН·м²", "Ncr, кН", "η", "Статус"],
@@ -242,6 +242,9 @@ public static class SectionReportSections
                     (IReadOnlyList<string>)["X", ValueOrDash(eta.DX), ValueOrDash(eta.NcrX), ValueOrDash(eta.EtaX), eta.StableX ? "устойчиво" : "неустойчиво"],
                     (IReadOnlyList<string>)["Y", ValueOrDash(eta.DY), ValueOrDash(eta.NcrY), ValueOrDash(eta.EtaY), eta.StableY ? "устойчиво" : "неустойчиво"]
                 ]));
+        if (eta.RadiusFallbackX || eta.RadiusFallbackY)
+            document.Add(new ReportWarning("Радиус инерции бетонного сечения не определён (в сечении не найдены бетонные области с контуром) — он принят по габариту как h/√12, поэтому гибкость l0/i и коэффициент η имеют приближённый характер."));
+        return document;
     }
 
     /// <summary>Добавляет предупреждение, когда живая модель сечения недоступна.</summary>

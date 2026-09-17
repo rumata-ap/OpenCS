@@ -1217,6 +1217,7 @@
    <system:String x:Key="ResultEtaInstable">ПОТЕРЯ УСТОЙЧИВОСТИ (|N| ≥ Ncr)</system:String>
    <system:String x:Key="ResultEtaInstabilityWarning">Внимание: по одной из осей продольная сила превышает условную критическую силу Ncr — устойчивость элемента не обеспечена.</system:String>
    <system:String x:Key="ResultEtaExtrapolationNote">Экстраполяция Эйткена не сошлась (расходящаяся/осциллирующая последовательность) — использовано последнее приближение η без ускорения.</system:String>
+   <system:String x:Key="ResultEtaRadiusFallback">Радиус инерции бетонного сечения не определён (в сечении не найдены бетонные области с контуром) — принят по габариту как h/√12, поэтому гибкость l₀/i и коэффициент η имеют приближённый характер.</system:String>
    <system:String x:Key="ResultEtaExtrapolationShort">экстраполяция не сошлась, использован последний проход</system:String>
    <system:String x:Key="ResultEtaTrajectoryX">Траектория ηx</system:String>
    <system:String x:Key="ResultEtaTrajectoryY">Траектория ηy</system:String>
@@ -1560,6 +1561,7 @@
     <system:String x:Key="EtaAutoPsiCrackHint">Для ширины трещин ψ = |M_long/M_total| берётся автоматически из режима длительной нагрузки (поля ψ скрыты).</system:String>
     <system:String x:Key="EtaSlendernessThresholdLabel">Гибкость l₀/i</system:String>
     <system:String x:Key="EtaSlendernessThresholdHint">Гибкость l₀/i (i — радиус инерции бетонного сечения брутто), выше которой применяется поправка η. По умолчанию 14 (п. 8.1.2 СП63.13330) — можно уточнить под конкретную конструкцию.</system:String>
+    <system:String x:Key="EtaSlendernessThresholdCustomHint">Порог задан вручную и отличается от 14. Значение задаётся в единицах l₀/i (i — радиус инерции бетонного сечения брутто): в проектах, сохранённых до перехода на l₀/i, оно означало l₀/h — проверьте значение перед расчётом.</system:String>
     <system:String x:Key="EtaNeedL0">Для учёта влияния прогиба (η) укажите длину элемента L (&gt; 0) и, при необходимости, коэффициенты μx/μy (&gt; 0).</system:String>
     <system:String x:Key="EtaInvalidThreshold">Предельная гибкость l₀/i должна быть положительным числом.</system:String>
 

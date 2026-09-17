@@ -443,7 +443,26 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    public string EtaMuY  { get => etaMuY;  set { etaMuY  = value; OnPropertyChanged(); } }
    public string EtaPsiX { get => etaPsiX; set { etaPsiX = value; OnPropertyChanged(); } }
    public string EtaPsiY { get => etaPsiY; set { etaPsiY = value; OnPropertyChanged(); } }
-   public string EtaSlendernessThreshold { get => etaSlendernessThreshold; set { etaSlendernessThreshold = value; OnPropertyChanged(); } }
+   public string EtaSlendernessThreshold
+   {
+      get => etaSlendernessThreshold;
+      set
+      {
+         etaSlendernessThreshold = value;
+         OnPropertyChanged();
+         OnPropertyChanged(nameof(IsEtaThresholdCustom));
+      }
+   }
+
+   /// <summary>
+   /// true — порог гибкости задан вручную и отличается от нормативного 14 (единицы l0/i).
+   /// Показывает предупреждение: значение трактуется как l0/i, поэтому в проектах,
+   /// сохранённых до перевода условия п. 8.1.2 на l0/i, его нужно проверить.
+   /// </summary>
+   public bool IsEtaThresholdCustom =>
+      double.TryParse(etaSlendernessThreshold, System.Globalization.NumberStyles.Float,
+         System.Globalization.CultureInfo.InvariantCulture, out var threshold)
+      && Math.Abs(threshold - CScore.Sp63.EccentricityAmplifier.SlendernessThreshold) > 1e-9;
 
    /// <summary>Показывать блок η целиком — для strain_state и strain_state_batch при включённой галке.</summary>
    public bool ShowEtaFields => SupportsEta && EtaEnabled;

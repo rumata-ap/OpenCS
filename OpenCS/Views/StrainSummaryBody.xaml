@@ -143,6 +143,9 @@
             <TextBlock Text="{DynamicResource ResultEtaExtrapolationNote}" TextWrapping="Wrap"
                        Foreground="DarkOrange" FontStyle="Italic" Margin="0,4,0,0"
                        Visibility="{Binding EtaExtrapolationFailed, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Text="{DynamicResource ResultEtaRadiusFallback}" TextWrapping="Wrap"
+                       Foreground="DarkOrange" FontStyle="Italic" Margin="0,4,0,0"
+                       Visibility="{Binding EtaRadiusFallback, Converter={StaticResource BoolToVisibility}}"/>
          </StackPanel>
       </GroupBox>
 

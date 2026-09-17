@@ -54,6 +54,33 @@ public sealed class SectionReportSectionsTests
         Assert.Equal("1.12", table.Rows[1][3]);
     }
 
+    [Fact]
+    public void Eta_PrintsRadiusOfGyration_AndWarnsOnBoundingBoxFallback()
+    {
+        var eta = new EtaReportData
+        {
+            L0x = 4.0, Ix = 0.173, SlendernessX = 23.1, RadiusFallbackX = true,
+            L0y = 5.0, Iy = 0.0866, SlendernessY = 57.7
+        };
+
+        var document = SectionReportSections.Eta(new ReportDocument("eta"), eta);
+        var table = Assert.Single(document.Blocks.OfType<ReportTable>(), x => x.Headers.Contains("i, м"));
+
+        Assert.Equal("0.173", table.Rows[0][2]);
+        Assert.Equal("0.0866", table.Rows[1][2]);
+        Assert.Contains(document.Blocks, block => block is ReportWarning);
+    }
+
+    [Fact]
+    public void Eta_DoesNotWarn_WhenRadiusComesFromConcreteContours()
+    {
+        var eta = new EtaReportData { L0x = 4.0, Ix = 0.173, SlendernessX = 23.1 };
+
+        var document = SectionReportSections.Eta(new ReportDocument("eta"), eta);
+
+        Assert.DoesNotContain(document.Blocks, block => block is ReportWarning);
+    }
+
     static CrossSection CreateSection()
     {
         var concrete = new MaterialArea

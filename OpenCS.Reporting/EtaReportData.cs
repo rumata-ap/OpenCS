@@ -24,8 +24,12 @@ public sealed class EtaReportData
 
     /// <summary>Расчётная длина l0x, м.</summary>
     [JsonPropertyName("l0x")] public double? L0x { get; set; }
-    /// <summary>Размер hx, м.</summary>
+    /// <summary>Размер hx, м (используется только в δe = e0/hx).</summary>
     [JsonPropertyName("hx")] public double? Hx { get; set; }
+    /// <summary>Радиус инерции бетонного сечения брутто по X, м.</summary>
+    [JsonPropertyName("ix")] public double? Ix { get; set; }
+    /// <summary>Радиус инерции по X принят по габариту (бетонные контуры не найдены).</summary>
+    [JsonPropertyName("radiusFallbackX")] public bool RadiusFallbackX { get; set; }
     /// <summary>Гибкость l0x/ix (ix — радиус инерции бетонного сечения брутто).</summary>
     [JsonPropertyName("slendernessX")] public double? SlendernessX { get; set; }
     /// <summary>Изгибающий эффект Dx, кН·м².</summary>
@@ -45,8 +49,12 @@ public sealed class EtaReportData
 
     /// <summary>Расчётная длина l0y, м.</summary>
     [JsonPropertyName("l0y")] public double? L0y { get; set; }
-    /// <summary>Размер hy, м.</summary>
+    /// <summary>Размер hy, м (используется только в δe = e0/hy).</summary>
     [JsonPropertyName("hy")] public double? Hy { get; set; }
+    /// <summary>Радиус инерции бетонного сечения брутто по Y, м.</summary>
+    [JsonPropertyName("iy")] public double? Iy { get; set; }
+    /// <summary>Радиус инерции по Y принят по габариту (бетонные контуры не найдены).</summary>
+    [JsonPropertyName("radiusFallbackY")] public bool RadiusFallbackY { get; set; }
     /// <summary>Гибкость l0y/iy (iy — радиус инерции бетонного сечения брутто).</summary>
     [JsonPropertyName("slendernessY")] public double? SlendernessY { get; set; }
     /// <summary>Изгибающий эффект Dy, кН·м².</summary>
