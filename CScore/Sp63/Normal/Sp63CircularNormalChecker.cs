@@ -37,6 +37,8 @@ public static class Sp63CircularNormalChecker
         double m0 = Math.Sqrt(load.Mx * load.Mx + load.My * load.My);
         if (!compression && m0 <= Sp63NormalTolerances.Moment)
             return NotApplicable("zero_load", "Sp63Normal_ZeroLoad", "8.1");
+        // Данные элемента проверяются до геометрии — тот же порядок, что у прямоугольника
+        // (Sp63NormalChecker.CheckCompression): недостающий ввод задачи сообщается первым.
         if (compression && context.ElementLengthOrRestraintDistance is not > 0)
             return NotApplicable("missing_accidental_eccentricity_length",
                 "Sp63Normal_MissingAccidentalEccentricityLength", "8.1.7");
@@ -67,6 +69,8 @@ public static class Sp63CircularNormalChecker
                     "Sp63Normal_CircularRebarClassAboveA400", "Д.2");
         }
 
+        // Общий резолвер требует также Es арматуры и εb2 бетона, хотя формулы Д.1–Д.9 их
+        // не используют; оставлено ради единого контракта материалов с прямоугольником.
         if (!Sp63NormalMaterialResolver.TryResolve(section, calc, rebar.Rs, rebar.Rsc,
                 out var material, out var materialMessage))
             return NotApplicable([materialMessage!]);
