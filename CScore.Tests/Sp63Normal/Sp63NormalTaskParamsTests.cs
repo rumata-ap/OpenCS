@@ -109,6 +109,40 @@ public sealed class Sp63NormalTaskParamsTests
         Assert.True(withoutSpan.TryToOptions(out _, out _));
     }
 
+    [Theory]
+    [InlineData("circular", Sp63NormalShapeKind.Circular)]
+    [InlineData("Annular", Sp63NormalShapeKind.Annular)]
+    public void RoundShapeKinds_AreAccepted(string shape, Sp63NormalShapeKind expected)
+    {
+        var parameters = new Sp63NormalTaskParams { ShapeKind = shape };
+
+        Assert.True(parameters.TryToOptions(out var options, out var errorCode), errorCode);
+        Assert.Equal(expected, options.ShapeKind);
+    }
+
+    [Theory]
+    [InlineData("2")]
+    [InlineData("3")]
+    [InlineData(null)]
+    public void NumericOrMissingShapeKind_IsInvalidInput(string? shape)
+    {
+        var parameters = new Sp63NormalTaskParams { ShapeKind = shape! };
+
+        Assert.False(parameters.TryToOptions(out _, out var errorCode));
+        Assert.Equal("invalid_shape_kind", errorCode);
+    }
+
+    [Theory]
+    [InlineData("circular")]
+    [InlineData("annular")]
+    [InlineData("rectangular")]
+    public void StaleSpanLength_IsIgnoredForNonTeeShapes(string shape)
+    {
+        var parameters = new Sp63NormalTaskParams { ShapeKind = shape, SpanLength = -1.0 };
+
+        Assert.True(parameters.TryToOptions(out _, out var errorCode), errorCode);
+    }
+
     [Fact]
     public void NonPositiveSpanLength_IsInvalidInput()
     {

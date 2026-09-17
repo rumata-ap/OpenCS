@@ -167,4 +167,59 @@ public sealed class Sp63NormalTaskIntegrationTests
             if (File.Exists(path)) File.Delete(path);
         }
     }
+
+    [Theory]
+    [InlineData("circular", Sp63NormalShapeKind.Circular)]
+    [InlineData("annular", Sp63NormalShapeKind.Annular)]
+    public void RoundTask_SurvivesSaveAndReloadThroughGsdb(string shape,
+        Sp63NormalShapeKind expected)
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-sp63-{shape}-{Guid.NewGuid():N}.db");
+        try
+        {
+            var parameters = new Sp63NormalTaskParams
+            {
+                ShapeKind = shape,
+                Axis = "Mx",
+                StructuralScheme = "statically_indeterminate",
+                ElementLengthOrRestraintDistance = 6.0,
+                EffectiveLengthL0 = 4.2,
+                StabilityMode = "member",
+                Psi = 1.0,
+                SlendernessThreshold = 14.0,
+                UseManualForces = true,
+                N = -800.0,
+                Mx = 30.0,
+                My = -20.0
+            };
+
+            int taskId;
+            using (var db = new DatabaseService(path))
+            {
+                var task = new CalcTask
+                {
+                    Tag = "Колонна К-1",
+                    Kind = "sp63_normal",
+                    CalcType = CalcType.C,
+                    ParamsJson = parameters.ToJson()
+                };
+                db.SaveCalcTask(task);
+                taskId = task.Id;
+            }
+
+            using var reopened = new DatabaseService(path);
+            reopened.LoadAll();
+            var loaded = Assert.Single(reopened.CalcTasks, t => t.Id == taskId);
+            var loadedParams = Sp63NormalTaskParams.Parse(loaded.ParamsJson);
+
+            Assert.Equal(shape, loadedParams.ShapeKind);
+            Assert.Equal(-20.0, loadedParams.My);
+            Assert.True(loadedParams.TryToOptions(out var options, out var errorCode), errorCode);
+            Assert.Equal(expected, options.ShapeKind);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
 }

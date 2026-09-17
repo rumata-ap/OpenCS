@@ -6,7 +6,10 @@ namespace CScore.Sp63.Normal;
 /// <summary>JSON-контракт параметров задачи упрощённой проверки нормального сечения.</summary>
 public sealed class Sp63NormalTaskParams
 {
-    /// <summary>Идентификатор формы: rectangular.</summary>
+    static readonly HashSet<string> SupportedShapeKinds =
+        new(StringComparer.OrdinalIgnoreCase) { "rectangular", "tee", "circular", "annular" };
+
+    /// <summary>Идентификатор формы: rectangular, tee, circular или annular.</summary>
     public string ShapeKind { get; set; } = "rectangular";
 
     /// <summary>Идентификатор оси: Mx или My.</summary>
@@ -74,10 +77,9 @@ public sealed class Sp63NormalTaskParams
         options = null!;
         errorCode = "";
 
-        if (!Enum.TryParse<Sp63NormalShapeKind>(ShapeKind, true, out var shapeKind) ||
-            shapeKind is not (Sp63NormalShapeKind.Rectangular or Sp63NormalShapeKind.Tee) ||
-            (!string.Equals(ShapeKind, "rectangular", StringComparison.OrdinalIgnoreCase) &&
-             !string.Equals(ShapeKind, "tee", StringComparison.OrdinalIgnoreCase)))
+        // Явный набор строк защищает от числовых значений enum ("0", "2" и т. п.).
+        if (ShapeKind is null || !SupportedShapeKinds.Contains(ShapeKind) ||
+            !Enum.TryParse<Sp63NormalShapeKind>(ShapeKind, true, out var shapeKind))
             return Invalid("invalid_shape_kind", out errorCode);
 
         if (!Enum.TryParse<Sp63NormalAxis>(Axis, true, out var axis))
@@ -102,9 +104,10 @@ public sealed class Sp63NormalTaskParams
         else
             return Invalid("invalid_stability_mode", out errorCode);
 
+        // SpanLength нужен только тавру; устаревшее значение после смены формы игнорируется.
         if (!IsOptionalPositive(ElementLengthOrRestraintDistance) ||
             !IsOptionalPositive(EffectiveLengthL0) ||
-            !IsOptionalPositive(SpanLength))
+            (shapeKind == Sp63NormalShapeKind.Tee && !IsOptionalPositive(SpanLength)))
             return Invalid("invalid_length", out errorCode);
         if (!double.IsFinite(Psi) || !double.IsFinite(SlendernessThreshold) ||
             SlendernessThreshold <= 0)
