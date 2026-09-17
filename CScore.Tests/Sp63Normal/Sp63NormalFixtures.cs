@@ -181,6 +181,67 @@ internal static class Sp63NormalFixtures
         }
     }
 
+    /// <summary>Вершины правильного многоугольника, вписанного в окружность (scaleY ≠ 1 — эллипс).</summary>
+    public static (double X, double Y)[] CircleVertices(double radius, int segments,
+        double centerX = 0.0, double centerY = 0.0, double scaleY = 1.0) =>
+        Enumerable.Range(0, segments).Select(i =>
+        {
+            double angle = 2.0 * Math.PI * i / segments;
+            return (centerX + radius * Math.Cos(angle),
+                    centerY + radius * scaleY * Math.Sin(angle));
+        }).ToArray();
+
+    /// <summary>Сплошной круг без арматуры.</summary>
+    public static CrossSection CircleSection(double radius, int segments = 32,
+        double scaleY = 1.0, Material? concrete = null)
+    {
+        var section = new CrossSection { Tag = "circle" };
+        section.Areas.Add(ConcreteRegion(concrete ?? Concrete(rb: 14_500.0),
+            CircleVertices(radius, segments, scaleY: scaleY)));
+        return section;
+    }
+
+    /// <summary>Кольцо без арматуры; holeOffsetX смещает отверстие.</summary>
+    public static CrossSection RingSection(double outerRadius, double innerRadius,
+        int segments = 32, double holeOffsetX = 0.0, int holeSegments = 0)
+    {
+        var section = new CrossSection { Tag = "ring" };
+        var area = ConcreteRegion(Concrete(rb: 14_500.0),
+            CircleVertices(outerRadius, segments));
+        var hole = CircleVertices(innerRadius, holeSegments > 0 ? holeSegments : segments,
+            centerX: holeOffsetX);
+        area.Contours.Add(new Contour(
+            hole.Select(v => v.X).Append(hole[0].X).ToList(),
+            hole.Select(v => v.Y).Append(hole[0].Y).ToList(),
+            "hole")
+        { Type = ContourType.Hole });
+        area.SetWKT();
+        section.Areas.Add(area);
+        return section;
+    }
+
+    /// <summary>
+    /// Стержни по окружности. Возмущения задаются по индексу стержня:
+    /// angleShiftFraction — доля номинального углового шага, areaFactor/radiusFactor — множители.
+    /// </summary>
+    public static void AddPolarBars(CrossSection section, int count, double radius,
+        double barArea, Material rebar, double centerX = 0.0, double centerY = 0.0,
+        Func<int, double>? angleShiftFraction = null, Func<int, double>? areaFactor = null,
+        Func<int, double>? radiusFactor = null, double sigSp = 0.0,
+        Func<int, Material>? materialByIndex = null)
+    {
+        double step = 2.0 * Math.PI / count;
+        for (int i = 0; i < count; i++)
+        {
+            double angle = step * (i + (angleShiftFraction?.Invoke(i) ?? 0.0));
+            double r = radius * (radiusFactor?.Invoke(i) ?? 1.0);
+            double area = barArea * (areaFactor?.Invoke(i) ?? 1.0);
+            AddBar(section, centerX + r * Math.Cos(angle), centerY + r * Math.Sin(angle),
+                area, materialByIndex?.Invoke(i) ?? rebar, sigSp,
+                Math.Sqrt(4.0 * area / Math.PI));
+        }
+    }
+
     /// <summary>Создаёт контекст элемента для тестов нормального расчёта.</summary>
     public static CScore.Sp63.Normal.Sp63NormalOptions MemberOptions() => new(
         CScore.Sp63.Normal.Sp63NormalShapeKind.Rectangular,

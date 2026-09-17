@@ -83,3 +83,37 @@ public sealed record Sp63TeeSectionProfile(
 public sealed record Sp63TeeProfileAnalysis(
     Sp63TeeSectionProfile? Profile,
     IReadOnlyList<Sp63NormalMessage> Messages);
+
+/// <summary>Распознанная геометрия круглого или кольцевого сечения.</summary>
+/// <param name="CenterX">X центра (центроид внешнего контура), м.</param>
+/// <param name="CenterY">Y центра, м.</param>
+/// <param name="OuterRadius">r₂ = √(A_hull/π) — эквивалентный по площади внешний радиус, м.</param>
+/// <param name="InnerRadius">r₁ = √(A_hole/π); 0 для круга, м.</param>
+/// <param name="Area">A = A_hull − A_hole, м².</param>
+/// <param name="OuterMeanVertexRadius">ρ̄ внешнего контура (только метрика допуска), м.</param>
+/// <param name="OuterRadialDeviation">max|ρᵢ − ρ̄|/ρ̄ внешнего контура.</param>
+/// <param name="OuterAreaDeviation">|A_hull − πρ̄²|/(πρ̄²).</param>
+/// <param name="InnerMeanVertexRadius">ρ̄ отверстия; 0 для круга, м.</param>
+/// <param name="InnerRadialDeviation">Радиальное отклонение отверстия; 0 для круга.</param>
+/// <param name="InnerAreaDeviation">Площадное отклонение отверстия; 0 для круга.</param>
+/// <param name="CenterOffset">|c_hole − c_hull|/r₂; 0 для круга.</param>
+public sealed record Sp63CircularGeometry(
+    double CenterX,
+    double CenterY,
+    double OuterRadius,
+    double InnerRadius,
+    double Area,
+    double OuterMeanVertexRadius,
+    double OuterRadialDeviation,
+    double OuterAreaDeviation,
+    double InnerMeanVertexRadius,
+    double InnerRadialDeviation,
+    double InnerAreaDeviation,
+    double CenterOffset);
+
+/// <summary>Результат распознавания круглой/кольцевой геометрии.</summary>
+/// <param name="Geometry">Геометрия или <see langword="null"/>.</param>
+/// <param name="Messages">Причины неприменимости.</param>
+public sealed record Sp63CircularGeometryClassification(
+    Sp63CircularGeometry? Geometry,
+    IReadOnlyList<Sp63NormalMessage> Messages);

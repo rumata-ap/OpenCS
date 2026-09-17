@@ -94,7 +94,7 @@ public static class Sp63RectangularGeometryPolicy
     }
 
     /// <summary>Возвращает вершины без повторяющейся замыкающей точки.</summary>
-    static List<(double X, double Y)> DistinctContourVertices(Contour contour)
+    internal static List<(double X, double Y)> DistinctContourVertices(Contour contour)
     {
         int count = Math.Min(contour.X.Count, contour.Y.Count);
         var vertices = new List<(double X, double Y)>();

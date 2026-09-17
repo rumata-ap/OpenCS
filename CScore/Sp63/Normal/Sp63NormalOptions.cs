@@ -7,7 +7,13 @@ public enum Sp63NormalShapeKind
     Rectangular,
 
     /// <summary>Тавровое или двутавровое сечение из осевых полос.</summary>
-    Tee
+    Tee,
+
+    /// <summary>Сплошное круглое сечение (приложение Д, п. Д.2).</summary>
+    Circular,
+
+    /// <summary>Кольцевое сечение (приложение Д, п. Д.1).</summary>
+    Annular
 }
 
 /// <summary>Ось изгиба одноосной проверки.</summary>
