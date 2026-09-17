@@ -15,7 +15,15 @@ public static class Sp63NormalChecker
         "insufficient_rebar_layers",
         "non_point_rebar",
         "prestressed_rebar",
-        "unsupported_load_case_for_tee"
+        "unsupported_load_case_for_tee",
+        "annular_radius_ratio",
+        "circular_tension_not_supported",
+        "circular_insufficient_bars",
+        "circular_rebar_not_centered",
+        "circular_rebar_unequal_areas",
+        "circular_rebar_not_on_circle",
+        "circular_rebar_non_uniform",
+        "circular_rebar_class_above_a400"
     ];
 
     /// <summary>
@@ -37,6 +45,10 @@ public static class Sp63NormalChecker
         ArgumentNullException.ThrowIfNull(load);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(options.MemberContext);
+
+        // Круг и кольцо осесимметричны: диспетчеризация до общей проверки biaxial_load.
+        if (options.ShapeKind is Sp63NormalShapeKind.Circular or Sp63NormalShapeKind.Annular)
+            return Sp63CircularNormalChecker.Check(section, load, calc, options);
 
         if (options.ShapeKind is not (Sp63NormalShapeKind.Rectangular or Sp63NormalShapeKind.Tee))
             return NotApplicable("unsupported_shape", "Sp63Normal_ShapeNotSupported", "8.1");
