@@ -175,7 +175,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
    /// <summary>Показывать параметры упрощённой проверки нормального сечения.</summary>
    public bool ShowSp63NormalFields => IsSp63Normal;
 
-   /// <summary>Идентификатор единственной поддержанной формы сечения.</summary>
+   /// <summary>Идентификатор формы: rectangular, tee, circular или annular.</summary>
    public string Sp63NormalShapeKind
    {
       get => sp63NormalShapeKind;
@@ -184,6 +184,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
          sp63NormalShapeKind = value;
          OnPropertyChanged();
          OnPropertyChanged(nameof(ShowSp63NormalSpanLength));
+         OnPropertyChanged(nameof(ShowSp63NormalAxis));
       }
    }
 
@@ -196,6 +197,10 @@ public class CalcTaskPropsDlgVM : ViewModelBase
 
    /// <summary>Показывать поле пролёта для таврового/двутаврового сечения.</summary>
    public bool ShowSp63NormalSpanLength => IsSp63Normal && Sp63NormalShapeKind == "tee";
+
+   /// <summary>Показывать выбор оси: для круглых форм используется результирующий момент.</summary>
+   public bool ShowSp63NormalAxis => IsSp63Normal &&
+      Sp63NormalShapeKind is not ("circular" or "annular");
 
    /// <summary>Плоскость одноосной проверки: Mx или My.</summary>
    public string Sp63NormalAxis
@@ -483,6 +488,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsSp63Normal));
            OnPropertyChanged(nameof(ShowSp63NormalFields));
            OnPropertyChanged(nameof(ShowSp63NormalSpanLength));
+           OnPropertyChanged(nameof(ShowSp63NormalAxis));
            OnPropertyChanged(nameof(ShowSp63NormalForceSet));
            OnPropertyChanged(nameof(ShowSp63NormalManualForces));
            OnPropertyChanged(nameof(IsSp63CrackWidth));
@@ -593,6 +599,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
            OnPropertyChanged(nameof(IsSp63Normal));
            OnPropertyChanged(nameof(ShowSp63NormalFields));
            OnPropertyChanged(nameof(ShowSp63NormalSpanLength));
+           OnPropertyChanged(nameof(ShowSp63NormalAxis));
            OnPropertyChanged(nameof(ShowSp63NormalForceSet));
            OnPropertyChanged(nameof(ShowSp63NormalManualForces));
            OnPropertyChanged(nameof(IsSp63CrackWidth));

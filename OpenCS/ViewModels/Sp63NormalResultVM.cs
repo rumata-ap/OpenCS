@@ -239,13 +239,27 @@ public sealed class Sp63NormalResultVM
       return text.Length > 0 ? text : message.Code;
    }
 
-   static string LocalizeBranch(string branch) => branch switch
+   /// <summary>Локализованное название формы сечения; неизвестный код возвращается как есть.</summary>
+   internal static string LocalizeShape(string shapeKind) => shapeKind switch
+   {
+      "rectangular" => Loc.S("Sp63NormalShapeRectangular"),
+      "tee" => Loc.S("Sp63NormalShapeTee"),
+      "circular" => Loc.S("Sp63NormalShapeCircular"),
+      "annular" => Loc.S("Sp63NormalShapeAnnular"),
+      _ => shapeKind
+   };
+
+   internal static string LocalizeBranch(string branch) => branch switch
    {
       "compression" => Loc.S("Sp63NormalBranchCompression"),
       "bending" => Loc.S("Sp63NormalBranchBending"),
       "central_tension" => Loc.S("Sp63NormalBranchCentralTension"),
       "eccentric_tension_between" => Loc.S("Sp63NormalBranchEccentricTensionBetween"),
       "eccentric_tension_outside" => Loc.S("Sp63NormalBranchEccentricTensionOutside"),
+      "circular_bending" => Loc.S("Sp63NormalBranchCircularBending"),
+      "circular_compression" => Loc.S("Sp63NormalBranchCircularCompression"),
+      "annular_bending" => Loc.S("Sp63NormalBranchAnnularBending"),
+      "annular_compression" => Loc.S("Sp63NormalBranchAnnularCompression"),
       "not_applicable" => Loc.S("Sp63NormalBranchNotApplicable"),
       "invalid_input" => Loc.S("Sp63NormalBranchInvalidInput"),
       _ when !string.IsNullOrWhiteSpace(branch) => branch,
@@ -275,10 +289,10 @@ public sealed class Sp63NormalResultVM
          return Loc.S("Sp63NormalNoTaskContext");
 
       var p = Sp63NormalTaskParams.Parse(task.ParamsJson);
-      string shape = p.ShapeKind == "rectangular"
-         ? Loc.S("Sp63NormalShapeRectangular") : p.ShapeKind;
-      string axis = p.Axis == "My"
-         ? Loc.S("Sp63NormalAxisMy") : Loc.S("Sp63NormalAxisMx");
+      string shape = LocalizeShape(p.ShapeKind);
+      string axis = p.ShapeKind is "circular" or "annular"
+         ? Loc.S("Sp63NormalAxisResultant")
+         : p.Axis == "My" ? Loc.S("Sp63NormalAxisMy") : Loc.S("Sp63NormalAxisMx");
       string scheme = p.StructuralScheme == "statically_determinate"
          ? Loc.S("Sp63NormalStaticallyDeterminate")
          : Loc.S("Sp63NormalStaticallyIndeterminate");

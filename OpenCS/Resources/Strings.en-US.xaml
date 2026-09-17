@@ -1595,6 +1595,9 @@
     <system:String x:Key="Sp63NormalShape">Section shape</system:String>
     <system:String x:Key="Sp63NormalShapeRectangular">Solid rectangular</system:String>
     <system:String x:Key="Sp63NormalShapeTee">Tee/I-section (flange and web)</system:String>
+    <system:String x:Key="Sp63NormalShapeCircular">Solid circular (Appendix D)</system:String>
+    <system:String x:Key="Sp63NormalShapeAnnular">Annular (Appendix D)</system:String>
+    <system:String x:Key="Sp63NormalAxisResultant">resultant moment M₀ = √(Mx² + My²)</system:String>
     <system:String x:Key="Sp63NormalSpanLength">Member span l, m</system:String>
     <system:String x:Key="Sp63Normal_NotATeeShape">The contour is a rectangle: select "Solid rectangular".</system:String>
     <system:String x:Key="Sp63Normal_TeeGeometryNotSupported">The tee formula check supports only an axis-aligned contour of two or three strips without holes.</system:String>
@@ -1616,7 +1619,7 @@
     <system:String x:Key="Sp63NormalPsi">Long-term moment share ψ</system:String>
     <system:String x:Key="Sp63NormalSlendernessThreshold">Slenderness limit l₀/h</system:String>
     <system:String x:Key="Sp63NormalUseManualForces">Enter N, Mx and My manually</system:String>
-    <system:String x:Key="Sp63NormalInputsHint">The check is uniaxial: a nonzero moment in the other plane is reported as not applicable. In “Section only” mode, η is not calculated and the result is informational.</system:String>
+    <system:String x:Key="Sp63NormalInputsHint">For rectangular and tee sections the check is uniaxial: a nonzero moment in the other plane is reported as not applicable. Circular and annular sections use the resultant moment M₀ = √(Mx² + My²). In “Section only” mode, η is not calculated and the result is informational.</system:String>
     <system:String x:Key="Sp63NormalInvalidTaskParams">Check the normal-section numeric parameters: lengths must be positive and ψ must be finite.</system:String>
     <system:String x:Key="CalcResultNotApplicable">No code verdict is available</system:String>
     <system:String x:Key="Sp63NormalVerdictPassed">PASSED</system:String>
@@ -1645,6 +1648,10 @@
     <system:String x:Key="Sp63NormalVerdictInvalidInput">Invalid input data</system:String>
     <system:String x:Key="Sp63NormalBranchCompression">Eccentric compression</system:String>
     <system:String x:Key="Sp63NormalBranchBending">Bending</system:String>
+    <system:String x:Key="Sp63NormalBranchCircularBending">Circular section, bending</system:String>
+    <system:String x:Key="Sp63NormalBranchCircularCompression">Circular section, eccentric compression</system:String>
+    <system:String x:Key="Sp63NormalBranchAnnularBending">Annular section, bending</system:String>
+    <system:String x:Key="Sp63NormalBranchAnnularCompression">Annular section, eccentric compression</system:String>
     <system:String x:Key="Sp63NormalBranchCentralTension">Central tension</system:String>
     <system:String x:Key="Sp63NormalBranchEccentricTensionBetween">Eccentric tension: between resultants</system:String>
     <system:String x:Key="Sp63NormalBranchEccentricTensionOutside">Eccentric tension: outside resultants</system:String>
@@ -1712,6 +1719,26 @@
     <system:String x:Key="Sp63Normal_CoverBarDiameterUnknown">Bar diameter for the layer is not set — the cl. 10.3.2 cover check was not performed.</system:String>
     <system:String x:Key="Sp63Normal_MinTensionBarCount">Number of longitudinal tension bars when section width exceeds 150 mm, cl. 10.3.9</system:String>
     <system:String x:Key="Sp63Normal_SuggestNdm">For holes, multiple concrete regions, biaxial bending, and complex reinforcement, use the deformation-model (NDM) check.</system:String>
+    <system:String x:Key="Sp63Normal_CircularCheck">Circular section: M ≤ Mult</system:String>
+    <system:String x:Key="Sp63Normal_AnnularCheck">Annular section: M ≤ Mult</system:String>
+    <system:String x:Key="Sp63Normal_CircularSingleConcreteRegion">Circular and annular Appendix D checks require exactly one concrete region.</system:String>
+    <system:String x:Key="Sp63Normal_CircularHasHole">A solid circular section must not have holes; choose “Annular” for a hollow section.</system:String>
+    <system:String x:Key="Sp63Normal_AnnularHoleCount">An annular section must have exactly one hole.</system:String>
+    <system:String x:Key="Sp63Normal_NotCircularContour">The contour is not recognized as a circle: vertex radius or polygon area deviates from a circle by more than 1%. Increase the number of approximation segments.</system:String>
+    <system:String x:Key="Sp63Normal_AnnularNotConcentric">The hole is offset from the outer contour centre by more than 1% of the outer radius.</system:String>
+    <system:String x:Key="Sp63Normal_AnnularRadiusRatio">r₁/r₂ is below 0.5: per note 3 of Appendix D, use the general rules of 8.1 (nonlinear deformation model).</system:String>
+    <system:String x:Key="Sp63Normal_CircularTensionNotSupported">Appendix D covers compressed members; use the nonlinear deformation model for axial tension.</system:String>
+    <system:String x:Key="Sp63Normal_CircularInsufficientBars">Appendix D formulas require at least 7 longitudinal bars.</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarNotCentered">The bar circle centre does not coincide with the concrete section centre (tolerance 2% of rs).</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarUnequalAreas">Bar areas differ by more than 1%: the layout is not uniform.</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarNotOnCircle">Bars do not lie on one circle: radius deviation exceeds 2%.</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarNonUniform">The angular bar spacing deviates from uniform by more than 5%.</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarClassAboveA400">Per D.2, reinforcement of a circular section must not exceed class A400: design Rs (C characteristics) exceeds 350 MPa.</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarClassByRs">The “not above A400” condition is checked indirectly: Rs from C characteristics does not exceed 350 MPa.</system:String>
+    <system:String x:Key="Sp63Normal_AppendixDRecommended">Calculated per the recommended Appendix D of SP 63.13330.2018.</system:String>
+    <system:String x:Key="Sp63Normal_AppendixDPureBendingExtension">Appendix D is intended for eccentrically compressed columns; the N = 0 case is an OpenCS extension.</system:String>
+    <system:String x:Key="Sp63Normal_ResultantMomentUsed">Mx and My are combined into the resultant moment M₀ = √(Mx² + My²): the section and reinforcement are axisymmetric.</system:String>
+    <system:String x:Key="Sp63Normal_CompressionExceedsSectionCapacity">The axial compression exceeds the section capacity: the strength condition is not satisfied.</system:String>
 
     <system:String x:Key="Sp63CrackWidthGroupTitle">Crack width per SP 63.13330</system:String>
     <system:String x:Key="Sp63CrackWidthPhi1">φ1 (load duration)</system:String>

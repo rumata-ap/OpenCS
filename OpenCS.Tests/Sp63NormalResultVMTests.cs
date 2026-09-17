@@ -59,6 +59,48 @@ public sealed class Sp63NormalResultVMTests
       Assert.Equal("missing_localization_key", vm.ApplicabilityRows[0].Text);
    }
 
+   [Theory]
+   [InlineData("rectangular", "Sp63NormalShapeRectangular")]
+   [InlineData("tee", "Sp63NormalShapeTee")]
+   [InlineData("circular", "Sp63NormalShapeCircular")]
+   [InlineData("annular", "Sp63NormalShapeAnnular")]
+   public void LocalizeShape_UsesResourceKeys(string shape, string key) =>
+      Assert.Equal(Loc.S(key), Sp63NormalResultVM.LocalizeShape(shape));
+
+   [Theory]
+   [InlineData("circular_bending", "Sp63NormalBranchCircularBending")]
+   [InlineData("circular_compression", "Sp63NormalBranchCircularCompression")]
+   [InlineData("annular_bending", "Sp63NormalBranchAnnularBending")]
+   [InlineData("annular_compression", "Sp63NormalBranchAnnularCompression")]
+   public void LocalizeBranch_KnowsRoundBranches(string branch, string key) =>
+      Assert.Equal(Loc.S(key), Sp63NormalResultVM.LocalizeBranch(branch));
+
+   [Fact]
+   public void OverloadResultWithInfiniteRatio_IsParsed()
+   {
+      var options = new JsonSerializerOptions
+      {
+         NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals
+      };
+      var json = JsonSerializer.Serialize(new Sp63NormalResult
+      {
+         Status = Sp63NormalStatus.Calculated,
+         StrengthPassed = false,
+         Branch = "circular_compression",
+         StrengthDetails =
+         [new CScore.CheckDetail
+         {
+            Formula = "(Д.6)", Description = "Sp63Normal_CircularCheck",
+            NormReference = "Д.2", Applied = 10, Allowable = 0
+         }]
+      }, options);
+
+      var vm = new Sp63NormalResultVM(json);
+
+      Assert.Equal(Loc.S("Sp63NormalVerdictNotPassed"), vm.VerdictText);
+      Assert.Single(vm.StrengthRows);
+   }
+
    static Sp63NormalResultVM Create(Sp63NormalResult model) =>
       new(JsonSerializer.Serialize(model));
 }

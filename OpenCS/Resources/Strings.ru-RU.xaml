@@ -1595,6 +1595,9 @@
     <system:String x:Key="Sp63NormalShape">Форма сечения</system:String>
     <system:String x:Key="Sp63NormalShapeRectangular">Прямоугольное сплошное</system:String>
     <system:String x:Key="Sp63NormalShapeTee">Тавровое/двутавровое (полка и стенка)</system:String>
+    <system:String x:Key="Sp63NormalShapeCircular">Круглое сплошное (приложение Д)</system:String>
+    <system:String x:Key="Sp63NormalShapeAnnular">Кольцевое (приложение Д)</system:String>
+    <system:String x:Key="Sp63NormalAxisResultant">результирующий момент M₀ = √(Mx² + My²)</system:String>
     <system:String x:Key="Sp63NormalSpanLength">Пролёт элемента l, м</system:String>
     <system:String x:Key="Sp63Normal_NotATeeShape">Контур является прямоугольником: выберите форму «Прямоугольное сплошное».</system:String>
     <system:String x:Key="Sp63Normal_TeeGeometryNotSupported">Формульная проверка тавра поддерживает только осевой контур из двух или трёх полос без отверстий.</system:String>
@@ -1616,7 +1619,7 @@
     <system:String x:Key="Sp63NormalPsi">Длительная доля момента ψ</system:String>
     <system:String x:Key="Sp63NormalSlendernessThreshold">Порог гибкости l₀/h</system:String>
     <system:String x:Key="Sp63NormalUseManualForces">Ввести N, Mx и My вручную</system:String>
-    <system:String x:Key="Sp63NormalInputsHint">Проверка одноосная: ненулевой момент в другой плоскости будет отмечен как неприменимый. При выборе режима «Только сечение» коэффициент η не рассчитывается и результат имеет справочный характер.</system:String>
+    <system:String x:Key="Sp63NormalInputsHint">Для прямоугольного и таврового сечений проверка одноосная: ненулевой момент в другой плоскости будет отмечен как неприменимый. Для круглого и кольцевого сечений используется результирующий момент M₀ = √(Mx² + My²). При выборе режима «Только сечение» коэффициент η не рассчитывается и результат имеет справочный характер.</system:String>
     <system:String x:Key="Sp63NormalInvalidTaskParams">Проверьте числовые параметры нормального сечения: длины должны быть положительными, ψ — конечным числом.</system:String>
     <system:String x:Key="CalcResultNotApplicable">Нормативный вердикт недоступен</system:String>
     <system:String x:Key="Sp63NormalVerdictPassed">ПРОЙДЕНО</system:String>
@@ -1645,6 +1648,10 @@
     <system:String x:Key="Sp63NormalVerdictInvalidInput">Ошибка исходных данных</system:String>
     <system:String x:Key="Sp63NormalBranchCompression">Внецентренное сжатие</system:String>
     <system:String x:Key="Sp63NormalBranchBending">Изгиб</system:String>
+    <system:String x:Key="Sp63NormalBranchCircularBending">Круглое сечение, изгиб</system:String>
+    <system:String x:Key="Sp63NormalBranchCircularCompression">Круглое сечение, внецентренное сжатие</system:String>
+    <system:String x:Key="Sp63NormalBranchAnnularBending">Кольцевое сечение, изгиб</system:String>
+    <system:String x:Key="Sp63NormalBranchAnnularCompression">Кольцевое сечение, внецентренное сжатие</system:String>
     <system:String x:Key="Sp63NormalBranchCentralTension">Центральное растяжение</system:String>
     <system:String x:Key="Sp63NormalBranchEccentricTensionBetween">Внецентренное растяжение: между равнодействующими</system:String>
     <system:String x:Key="Sp63NormalBranchEccentricTensionOutside">Внецентренное растяжение: за пределами равнодействующих</system:String>
@@ -1712,6 +1719,26 @@
     <system:String x:Key="Sp63Normal_CoverBarDiameterUnknown">Диаметр стержней слоя не задан — проверка защитного слоя по п. 10.3.2 не выполнена.</system:String>
     <system:String x:Key="Sp63Normal_MinTensionBarCount">Число продольных растянутых стержней при ширине сечения более 150 мм, п. 10.3.9</system:String>
     <system:String x:Key="Sp63Normal_SuggestNdm">Для отверстий, нескольких бетонных областей, двуосного изгиба и сложной арматуры используйте расчёт по деформационной модели (НДМ).</system:String>
+    <system:String x:Key="Sp63Normal_CircularCheck">Круглое сечение: M ≤ Mᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_AnnularCheck">Кольцевое сечение: M ≤ Mᵤₗₜ</system:String>
+    <system:String x:Key="Sp63Normal_CircularSingleConcreteRegion">Для круглого и кольцевого сечений по приложению Д нужна ровно одна бетонная область.</system:String>
+    <system:String x:Key="Sp63Normal_CircularHasHole">Для формы «Круглое сплошное» бетонная область не должна иметь отверстий; для полого сечения выберите «Кольцевое».</system:String>
+    <system:String x:Key="Sp63Normal_AnnularHoleCount">Для формы «Кольцевое» бетонная область должна иметь ровно одно отверстие.</system:String>
+    <system:String x:Key="Sp63Normal_NotCircularContour">Контур не распознан как окружность: отклонение вершин по радиусу или площади многоугольника от круга превышает 1 %. Увеличьте число сегментов аппроксимации.</system:String>
+    <system:String x:Key="Sp63Normal_AnnularNotConcentric">Отверстие кольца смещено относительно центра наружного контура более чем на 1 % наружного радиуса.</system:String>
+    <system:String x:Key="Sp63Normal_AnnularRadiusRatio">Отношение r₁/r₂ меньше 0,5: по примечанию 3 приложения Д расчёт выполняется по общим правилам 8.1 (НДМ).</system:String>
+    <system:String x:Key="Sp63Normal_CircularTensionNotSupported">Приложение Д относится к сжатым элементам; при растягивающей продольной силе используйте НДМ.</system:String>
+    <system:String x:Key="Sp63Normal_CircularInsufficientBars">Формулы приложения Д применимы при числе продольных стержней не менее 7.</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarNotCentered">Центр окружности стержней не совпадает с центром бетонного сечения (допуск 2 % rs).</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarUnequalAreas">Площади продольных стержней различаются более чем на 1 %: раскладка неравномерная.</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarNotOnCircle">Стержни не лежат на одной окружности: отклонение радиуса более 2 %.</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarNonUniform">Угловой шаг стержней отличается от равномерного более чем на 5 %.</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarClassAboveA400">По п. Д.2 класс арматуры круглого сечения должен быть не выше А400: расчётное сопротивление Rs (характеристики C) превышает 350 МПа.</system:String>
+    <system:String x:Key="Sp63Normal_CircularRebarClassByRs">Условие «класс арматуры не выше А400» проверено косвенно: Rs по характеристикам C не превышает 350 МПа.</system:String>
+    <system:String x:Key="Sp63Normal_AppendixDRecommended">Расчёт выполнен по рекомендуемому приложению Д СП 63.13330.2018.</system:String>
+    <system:String x:Key="Sp63Normal_AppendixDPureBendingExtension">Приложение Д предназначено для внецентренно сжатых колонн; расчёт при N = 0 — расширение OpenCS.</system:String>
+    <system:String x:Key="Sp63Normal_ResultantMomentUsed">Mx и My сведены к результирующему моменту M₀ = √(Mx² + My²): сечение и армирование осесимметричны.</system:String>
+    <system:String x:Key="Sp63Normal_CompressionExceedsSectionCapacity">Продольная сжимающая сила превышает несущую способность сечения: условие прочности не выполняется.</system:String>
 
     <system:String x:Key="Sp63CrackWidthGroupTitle">Ширина раскрытия трещин по СП 63.13330</system:String>
     <system:String x:Key="Sp63CrackWidthPhi1">φ1 (длительность нагрузки)</system:String>

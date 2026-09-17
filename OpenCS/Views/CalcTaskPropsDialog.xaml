@@ -232,12 +232,16 @@
                             SelectedValue="{Binding Sp63NormalShapeKind}" Margin="0,0,0,4">
                      <ComboBoxItem Tag="rectangular" Content="{DynamicResource Sp63NormalShapeRectangular}"/>
                      <ComboBoxItem Tag="tee" Content="{DynamicResource Sp63NormalShapeTee}"/>
+                     <ComboBoxItem Tag="circular" Content="{DynamicResource Sp63NormalShapeCircular}"/>
+                     <ComboBoxItem Tag="annular" Content="{DynamicResource Sp63NormalShapeAnnular}"/>
                   </ComboBox>
 
                   <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Sp63NormalAxis}"
-                             VerticalAlignment="Center" Margin="0,0,4,4"/>
+                             VerticalAlignment="Center" Margin="0,0,4,4"
+                             Visibility="{Binding ShowSp63NormalAxis, Converter={StaticResource BoolToVisibility}}"/>
                   <ComboBox Grid.Row="1" Grid.Column="1" SelectedValuePath="Tag"
-                            SelectedValue="{Binding Sp63NormalAxis}" Margin="0,0,0,4">
+                            SelectedValue="{Binding Sp63NormalAxis}" Margin="0,0,0,4"
+                            Visibility="{Binding ShowSp63NormalAxis, Converter={StaticResource BoolToVisibility}}">
                      <ComboBoxItem Tag="Mx" Content="{DynamicResource Sp63NormalAxisMx}"/>
                      <ComboBoxItem Tag="My" Content="{DynamicResource Sp63NormalAxisMy}"/>
                   </ComboBox>
