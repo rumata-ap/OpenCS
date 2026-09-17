@@ -252,7 +252,7 @@ public class CalcTaskPropsDlgVM : ViewModelBase
       set { sp63NormalPsi = value; OnPropertyChanged(); }
    }
 
-   /// <summary>Порог гибкости l0/h.</summary>
+   /// <summary>Порог гибкости l0/i (п. 8.1.2).</summary>
    public string Sp63NormalSlendernessThreshold
    {
       get => sp63NormalSlendernessThreshold;

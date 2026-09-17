@@ -1547,7 +1547,7 @@
     <!-- Eta (буклинг) per СП63.13330 п.8.1.15 -->
     <system:String x:Key="EtaParamsHeader">Влияние прогиба (η, п. 8.1.15 СП63.13330)</system:String>
     <system:String x:Key="EtaEnabledLabel">Учитывать влияние прогиба (η)</system:String>
-    <system:String x:Key="EtaEnabledHint">Домножает момент на коэффициент η по п. 8.1.15 СП63.13330 при гибкости l0/h выше предельной (по умолчанию 14, п. 8.1.2) и сжимающей продольной силе.</system:String>
+    <system:String x:Key="EtaEnabledHint">Домножает момент на коэффициент η по п. 8.1.15 СП63.13330 при гибкости l0/i выше предельной (по умолчанию 14, п. 8.1.2) и сжимающей продольной силе.</system:String>
     <system:String x:Key="EtaIterativeLabel">Уточнённый (итерационный) расчёт</system:String>
     <system:String x:Key="EtaIterativeHint">Жёсткость D берётся из фактического решения НДС (3 прохода + экстраполяция Эйткена) вместо упрощённой формулы нормы.</system:String>
     <system:String x:Key="EtaLLabel">Длина элемента L, м</system:String>
@@ -1558,10 +1558,10 @@
     <system:String x:Key="EtaPsiyLabel">ψy</system:String>
     <system:String x:Key="EtaPsiHint">ψ = M1l/M1 — относительная доля момента от длительных нагрузок (0…1 и более); φl = 1+ψ, не более 2 (п. 8.1.15 СП63.13330).</system:String>
     <system:String x:Key="EtaAutoPsiCrackHint">Для ширины трещин ψ = |M_long/M_total| берётся автоматически из режима длительной нагрузки (поля ψ скрыты).</system:String>
-    <system:String x:Key="EtaSlendernessThresholdLabel">Гибкость l₀/h</system:String>
-    <system:String x:Key="EtaSlendernessThresholdHint">Гибкость, выше которой применяется поправка η. По умолчанию 14 (п. 8.1.2 СП63.13330) — можно уточнить под конкретную конструкцию.</system:String>
+    <system:String x:Key="EtaSlendernessThresholdLabel">Гибкость l₀/i</system:String>
+    <system:String x:Key="EtaSlendernessThresholdHint">Гибкость l₀/i (i — радиус инерции бетонного сечения брутто), выше которой применяется поправка η. По умолчанию 14 (п. 8.1.2 СП63.13330) — можно уточнить под конкретную конструкцию.</system:String>
     <system:String x:Key="EtaNeedL0">Для учёта влияния прогиба (η) укажите длину элемента L (&gt; 0) и, при необходимости, коэффициенты μx/μy (&gt; 0).</system:String>
-    <system:String x:Key="EtaInvalidThreshold">Предельная гибкость l₀/h должна быть положительным числом.</system:String>
+    <system:String x:Key="EtaInvalidThreshold">Предельная гибкость l₀/i должна быть положительным числом.</system:String>
 
     <system:String x:Key="SteelCheckUtilizationLabel">Коэффициент использования: </system:String>
     <system:String x:Key="SteelCheckStatusPassed">ПРОЙДЕНО</system:String>
@@ -1617,7 +1617,7 @@
     <system:String x:Key="Sp63NormalMemberMode">Элемент: учитывать η</system:String>
     <system:String x:Key="Sp63NormalSectionOnlyExplicit">Только сечение: без η</system:String>
     <system:String x:Key="Sp63NormalPsi">Длительная доля момента ψ</system:String>
-    <system:String x:Key="Sp63NormalSlendernessThreshold">Порог гибкости l₀/h</system:String>
+    <system:String x:Key="Sp63NormalSlendernessThreshold">Порог гибкости l₀/i</system:String>
     <system:String x:Key="Sp63NormalUseManualForces">Ввести N, Mx и My вручную</system:String>
     <system:String x:Key="Sp63NormalInputsHint">Для прямоугольного и таврового сечений проверка одноосная: ненулевой момент в другой плоскости будет отмечен как неприменимый. Для круглого и кольцевого сечений используется результирующий момент M₀ = √(Mx² + My²). При выборе режима «Только сечение» коэффициент η не рассчитывается и результат имеет справочный характер.</system:String>
     <system:String x:Key="Sp63NormalInvalidTaskParams">Проверьте числовые параметры нормального сечения: длины должны быть положительными, ψ — конечным числом.</system:String>
@@ -1664,7 +1664,7 @@
     <system:String x:Key="Sp63NormalNoTaskContext">Параметры задачи недоступны</system:String>
     <system:String x:Key="Sp63NormalNotSpecified">не задано</system:String>
     <system:String x:Key="Sp63NormalForcesFormat">N = {0} кН; Mx = {1} кН·м; My = {2} кН·м</system:String>
-    <system:String x:Key="Sp63NormalContextFormat">{0}; {1}; {2}; L = {3} м; l₀ = {4} м; {5}; ψ = {6}; l₀/h = {7}</system:String>
+    <system:String x:Key="Sp63NormalContextFormat">{0}; {1}; {2}; L = {3} м; l₀ = {4} м; {5}; ψ = {6}; l₀/i = {7}</system:String>
     <system:String x:Key="Sp63NormalVariableFormat">{0} = {1}</system:String>
     <system:String x:Key="Sp63NormalVariableSeparator">; </system:String>
     <system:String x:Key="Sp63NormalNotANumber">не число</system:String>

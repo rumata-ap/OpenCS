@@ -33,7 +33,7 @@ public sealed class Sp63NormalTaskParams
     /// <summary>Относительная длительная составляющая момента ψ.</summary>
     public double Psi { get; set; }
 
-    /// <summary>Порог гибкости l0/h.</summary>
+    /// <summary>Порог гибкости l0/i (п. 8.1.2).</summary>
     public double SlendernessThreshold { get; set; } = 14.0;
 
     /// <summary>Использовать ручные значения N, Mx и My.</summary>

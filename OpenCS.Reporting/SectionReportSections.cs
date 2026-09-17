@@ -231,7 +231,7 @@ public static class SectionReportSections
             .Add(new ReportHeading(1, "Влияние прогиба"))
             .Add(new ReportParagraph($"Режим: {ValueOrDash(eta.Mode)}; исходные моменты: Mx = {Moment(eta.MxOriginal)}, My = {Moment(eta.MyOriginal)}."))
             .Add(new ReportTable(
-                ["Направление", "l0, м", "h, м", "l0/h"],
+                ["Направление", "l0, м", "h, м", "l0/i"],
                 [
                     (IReadOnlyList<string>)["X", DimensionValue(eta.L0x), DimensionValue(eta.Hx), ValueOrDash(eta.SlendernessX)],
                     (IReadOnlyList<string>)["Y", DimensionValue(eta.L0y), DimensionValue(eta.Hy), ValueOrDash(eta.SlendernessY)]

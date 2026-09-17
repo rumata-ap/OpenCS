@@ -117,6 +117,8 @@ public static class Sp63CircularNormalChecker
                     m0: n * e0,
                     l0: context.EffectiveLengthL0!.Value,
                     h: d,
+                    // Круг/кольцо брутто: i = √(r₁² + r₂²)/2 (п. 8.1.2 — условие l0/i).
+                    i: RadiusOfGyration(geometry),
                     eiConcrete: Math.Min(split.EIxConcrete, split.EIyConcrete),
                     eiRebar: Math.Min(split.EIxRebar, split.EIyRebar),
                     psi: context.Psi,
@@ -203,6 +205,11 @@ public static class Sp63CircularNormalChecker
         var detail = Detail(formula, description, reference, moment, mult, variables);
         return Calculated(branch, detail, variables, informational, etaResult);
     }
+
+    /// <summary>Радиус инерции круга (r₁ = 0) или кольца по эквивалентным радиусам, м.</summary>
+    internal static double RadiusOfGyration(Sp63CircularGeometry geometry) =>
+        Math.Sqrt(geometry.InnerRadius * geometry.InnerRadius +
+                  geometry.OuterRadius * geometry.OuterRadius) / 2.0;
 
     /// <summary>Наибольшее |Ft| характеристик C среди материалов арматуры.</summary>
     static bool TryResolveClassRs(CrossSection section, out double rsClass)

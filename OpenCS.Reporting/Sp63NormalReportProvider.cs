@@ -55,7 +55,7 @@ public sealed class Sp63NormalReportProvider : IReportProvider
             ("Длина элемента / расстояние между закреплениями L, м", F(parameters.ElementLengthOrRestraintDistance)),
             ("Расчётная длина l0, м", F(parameters.EffectiveLengthL0)),
             ("ψ (доля длительного момента)", F(parameters.Psi)),
-            ("Порог гибкости l0/h", F(parameters.SlendernessThreshold)),
+            ("Порог гибкости l0/i", F(parameters.SlendernessThreshold)),
             ("Ручные усилия", parameters.UseManualForces
                 ? $"да: N = {F(parameters.N)} кН, Mx = {F(parameters.Mx)} кН·м, My = {F(parameters.My)} кН·м"
                 : "нет, используется набор усилий задачи")
@@ -148,7 +148,7 @@ public sealed class Sp63NormalReportProvider : IReportProvider
                 ("η", F(value.Eta)),
                 ("Ncr, кН", F(value.Ncr)),
                 ("D, кН·м²", F(value.D)),
-                ("Гибкость l0/h превышает порог", value.Slender ? "да" : "нет"),
+                ("Гибкость l0/i превышает порог", value.Slender ? "да" : "нет"),
                 ("Устойчивость обеспечена", value.Stable ? "да" : "нет"),
                 ("M после усиления M0·η, кН·м", F(value.MEff)),
                 ("Итераций решателя", value.Iterations.ToString()),

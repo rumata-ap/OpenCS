@@ -19,13 +19,16 @@ namespace CScore.Sp63
         /// <param name="D">Использованная жёсткость (по формуле — режим A, из решателя — режим B), кН·м².</param>
         /// <param name="L0">Расчётная длина, м (как задана пользователем).</param>
         /// <param name="H">Высота сечения в этой плоскости изгиба, м (авто — ограничивающий прямоугольник).</param>
-        /// <param name="Slender">Гибкость l0/h &gt; 14 (п. 8.1.2).</param>
+        /// <param name="Slender">Гибкость l0/i превышает порог (по умолчанию 14, п. 8.1.2).</param>
         /// <param name="Stable">false — потеря устойчивости.</param>
         public readonly record struct AxisDiagnostics(
             double Eta, double Ncr, double D, double L0, double H,
             bool Slender, bool Stable,
             int Iterations, bool ExtrapolationFailed)
         {
+            /// <summary>Радиус инерции бетонного сечения брутто в этой плоскости изгиба, м.</summary>
+            public double I { get; init; }
+
             /// <summary>Последовательность η по проходам режима B (см. <see cref="EccentricityAmplifier.EtaResult.EtaHistory"/>).</summary>
             public double[] EtaHistory { get; init; } = Array.Empty<double>();
         }
@@ -50,20 +53,26 @@ namespace CScore.Sp63
             double hx = maxY - minY; // высота в плоскости изгиба Mx (варьируется по Y)
             double hy = maxX - minX; // высота в плоскости изгиба My (варьируется по X)
 
+            // Гибкость по п. 8.1.2 — l0/i по бетонному сечению брутто; если бетонных
+            // контуров нет, радиус инерции оценивается по габариту как для прямоугольника.
+            var gyration = ConcreteRadiusOfGyration.Compute(section);
+            double ix = gyration?.RadiusX ?? hx / Math.Sqrt(12.0);
+            double iy = gyration?.RadiusY ?? hy / Math.Sqrt(12.0);
+
             double mxEff, myEff;
             EccentricityAmplifier.EtaResult exResult, eyResult;
 
             if (iterative)
             {
                 exResult = EccentricityAmplifier.AmplifyIterative(
-                    n, mx0, l0x, hx,
-                    mxTrial => jointSolve(mxTrial, my0).ky,
+                    n, mx0, l0x, h: hx, i: ix,
+                    solveCurvature: mxTrial => jointSolve(mxTrial, my0).ky,
                     passes: 3, slendernessThreshold: slendernessThreshold);
                 mxEff = exResult.MEff;
 
                 eyResult = EccentricityAmplifier.AmplifyIterative(
-                    n, my0, l0y, hy,
-                    myTrial => jointSolve(mxEff, myTrial).kz,
+                    n, my0, l0y, h: hy, i: iy,
+                    solveCurvature: myTrial => jointSolve(mxEff, myTrial).kz,
                     passes: 3, slendernessThreshold: slendernessThreshold);
                 myEff = eyResult.MEff;
             }
@@ -72,19 +81,23 @@ namespace CScore.Sp63
                 var split = section.SplitStiffnessByMaterial();
 
                 exResult = EccentricityAmplifier.AmplifyFormula(
-                    n, mx0, l0x, hx, split.EIxConcrete, split.EIxRebar, psiX, slendernessThreshold);
+                    n, mx0, l0x, h: hx, i: ix,
+                    eiConcrete: split.EIxConcrete, eiRebar: split.EIxRebar,
+                    psi: psiX, slendernessThreshold: slendernessThreshold);
                 mxEff = exResult.MEff;
 
                 eyResult = EccentricityAmplifier.AmplifyFormula(
-                    n, my0, l0y, hy, split.EIyConcrete, split.EIyRebar, psiY, slendernessThreshold);
+                    n, my0, l0y, h: hy, i: iy,
+                    eiConcrete: split.EIyConcrete, eiRebar: split.EIyRebar,
+                    psi: psiY, slendernessThreshold: slendernessThreshold);
                 myEff = eyResult.MEff;
             }
 
             return new Result(mxEff, myEff,
                 new AxisDiagnostics(exResult.Eta, exResult.Ncr, exResult.D, l0x, hx, exResult.Slender, exResult.Stable,
-                    exResult.Iterations, exResult.ExtrapolationFailed) { EtaHistory = exResult.EtaHistory },
+                    exResult.Iterations, exResult.ExtrapolationFailed) { EtaHistory = exResult.EtaHistory, I = ix },
                 new AxisDiagnostics(eyResult.Eta, eyResult.Ncr, eyResult.D, l0y, hy, eyResult.Slender, eyResult.Stable,
-                    eyResult.Iterations, eyResult.ExtrapolationFailed) { EtaHistory = eyResult.EtaHistory });
+                    eyResult.Iterations, eyResult.ExtrapolationFailed) { EtaHistory = eyResult.EtaHistory, I = iy });
         }
     }
 }

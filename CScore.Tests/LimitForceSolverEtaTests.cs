@@ -24,7 +24,7 @@ public class LimitForceSolverEtaTests
     [Fact]
     public void MomentFactor_EtaEnabled_ReducesRawMomentCapacity_ForSlenderColumn()
     {
-        // l0x/hx = 10/0.6 ≈ 16.7 > 14 — гибко, η должна применяться.
+        // l0x/ix = 10/(0,6/√12) = 57,7 > 14 — гибко (п. 8.1.2), η должна применяться.
         var section = SectionCutFixtures.BuildReinforcedRectangle(0.3, 0.6);
 
         var baseline = LimitForceSolver.ForCrossSection(section, CalcType.C)
@@ -48,14 +48,14 @@ public class LimitForceSolverEtaTests
     [Fact]
     public void MomentFactor_EtaEnabled_NotSlender_MatchesBaseline()
     {
-        // l0x/hx = 3/0.6 = 5 ≤ 14 — не гибко, η не применяется (η=1) и результат
-        // должен совпасть с обычным (безеta) поиском.
+        // l0x/ix = 1/0,173 = 5,8 и l0y/iy = 1/0,0866 = 11,5 ≤ 14 — не гибко (п. 8.1.2),
+        // η не применяется (η=1) и результат должен совпасть с обычным поиском без η.
         var section = SectionCutFixtures.BuildReinforcedRectangle(0.3, 0.6);
 
         var baseline = LimitForceSolver.ForCrossSection(section, CalcType.C)
             .MomentFactor(n: -800, mx: 10, my: 0);
 
-        var withEta = LimitForceSolver.ForCrossSection(section, CalcType.C, etaParams: FormulaEta(3))
+        var withEta = LimitForceSolver.ForCrossSection(section, CalcType.C, etaParams: FormulaEta(1))
             .MomentFactor(n: -800, mx: 10, my: 0);
 
         Assert.NotNull(withEta.Eta);

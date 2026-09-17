@@ -60,17 +60,20 @@ public class EccentricityAmplifierTests
         Assert.True(double.IsNaN(result));
     }
 
+    // Радиус инерции прямоугольника h = 0,3 м: i = h/√12 ≈ 0,0866 м.
+    static readonly double I = 0.3 / Math.Sqrt(12.0);
+
     [Fact]
     public void ShouldSkip_TrueWhenTension()
     {
-        Assert.True(EccentricityAmplifier.ShouldSkip(n: 100, l0: 6, h: 0.3, out _));
+        Assert.True(EccentricityAmplifier.ShouldSkip(n: 100, l0: 6, i: I, out _));
     }
 
     [Fact]
     public void ShouldSkip_TrueWhenNotSlender()
     {
-        // l0/h = 3/0.3 = 10 ≤ 14
-        bool skip = EccentricityAmplifier.ShouldSkip(n: -500, l0: 3, h: 0.3, out bool slender);
+        // l0/i = 1/0,0866 = 11,5 ≤ 14
+        bool skip = EccentricityAmplifier.ShouldSkip(n: -500, l0: 1, i: I, out bool slender);
         Assert.True(skip);
         Assert.False(slender);
     }
@@ -78,8 +81,19 @@ public class EccentricityAmplifierTests
     [Fact]
     public void ShouldSkip_FalseWhenCompressedAndSlender()
     {
-        // l0/h = 6/0.3 = 20 > 14
-        bool skip = EccentricityAmplifier.ShouldSkip(n: -500, l0: 6, h: 0.3, out bool slender);
+        // l0/i = 3/0,0866 = 34,6 > 14
+        bool skip = EccentricityAmplifier.ShouldSkip(n: -500, l0: 3, i: I, out bool slender);
+        Assert.False(skip);
+        Assert.True(slender);
+    }
+
+    [Fact]
+    public void ShouldSkip_UsesRadiusOfGyration_NotSectionHeight()
+    {
+        // п. 8.1.2: условие l0/i > 14. Для прямоугольника h = 0,3 м и l0 = 3 м
+        // l0/h = 10, но l0/i = 34,6 — поправка η требуется.
+        bool skip = EccentricityAmplifier.ShouldSkip(n: -500, l0: 3, i: I, out bool slender);
+        Assert.True(3.0 / 0.3 <= EccentricityAmplifier.SlendernessThreshold);
         Assert.False(skip);
         Assert.True(slender);
     }
@@ -87,9 +101,9 @@ public class EccentricityAmplifierTests
     [Fact]
     public void ShouldSkip_CustomThreshold_OverridesDefault14()
     {
-        // l0/h = 6/0.3 = 20 — гибко относительно нормативного порога 14, но НЕ
-        // относительно пользовательского порога 25.
-        bool skip = EccentricityAmplifier.ShouldSkip(n: -500, l0: 6, h: 0.3, out bool slender, threshold: 25);
+        // l0/i = 34,6 — гибко относительно нормативного порога 14, но НЕ
+        // относительно пользовательского порога 40.
+        bool skip = EccentricityAmplifier.ShouldSkip(n: -500, l0: 3, i: I, out bool slender, threshold: 40);
         Assert.True(skip);
         Assert.False(slender);
     }
@@ -98,11 +112,11 @@ public class EccentricityAmplifierTests
     public void AmplifyFormula_CustomThreshold_SkipsBelowRaisedLimit()
     {
         // Та же гибкая колонна, что и в AmplifyFormula_AmplifiesSlenderCompressedColumn
-        // (l0/h=20>14), но с пользовательским порогом 25 поправка не требуется.
+        // (l0/i=69>14), но с пользовательским порогом 80 поправка не требуется.
         var r = EccentricityAmplifier.AmplifyFormula(
-            n: -800, m0: 80, l0: 6, h: 0.3,
+            n: -800, m0: 80, l0: 6, h: 0.3, i: I,
             eiConcrete: 175_500, eiRebar: 24_544, psi: 0.5,
-            slendernessThreshold: 25);
+            slendernessThreshold: 80);
 
         Assert.False(r.Slender);
         Assert.Equal(1.0, r.Eta);
@@ -113,8 +127,8 @@ public class EccentricityAmplifierTests
     public void AmplifyIterative_CustomThreshold_SkipsBelowRaisedLimit()
     {
         var r = EccentricityAmplifier.AmplifyIterative(
-            n: -800, m0: 80, l0: 6, h: 0.3, solveCurvature: m => m / 200_000,
-            passes: 3, slendernessThreshold: 25);
+            n: -800, m0: 80, l0: 6, h: 0.3, i: I, solveCurvature: m => m / 200_000,
+            passes: 3, slendernessThreshold: 80);
 
         Assert.False(r.Slender);
         Assert.Equal(1.0, r.Eta);
@@ -125,7 +139,7 @@ public class EccentricityAmplifierTests
     public void AmplifyFormula_NoAmplification_WhenNotSlender()
     {
         var r = EccentricityAmplifier.AmplifyFormula(
-            n: -500, m0: 50, l0: 3, h: 0.3,
+            n: -500, m0: 50, l0: 1, h: 0.3, i: I,
             eiConcrete: 175_500, eiRebar: 24_544, psi: 1.0);
 
         Assert.Equal(1.0, r.Eta);
@@ -137,7 +151,7 @@ public class EccentricityAmplifierTests
     public void AmplifyFormula_NoAmplification_WhenTension()
     {
         var r = EccentricityAmplifier.AmplifyFormula(
-            n: 500, m0: 50, l0: 6, h: 0.3,
+            n: 500, m0: 50, l0: 6, h: 0.3, i: I,
             eiConcrete: 175_500, eiRebar: 24_544, psi: 1.0);
 
         Assert.Equal(1.0, r.Eta);
@@ -146,9 +160,9 @@ public class EccentricityAmplifierTests
     [Fact]
     public void AmplifyFormula_AmplifiesSlenderCompressedColumn()
     {
-        // Гибкая колонна: l0/h=6/0.3=20>14, N сжимающая, приличный эксцентриситет.
+        // Гибкая колонна: l0/i=6/0,0866=69>14, N сжимающая, приличный эксцентриситет.
         var r = EccentricityAmplifier.AmplifyFormula(
-            n: -800, m0: 80, l0: 6, h: 0.3,
+            n: -800, m0: 80, l0: 6, h: 0.3, i: I,
             eiConcrete: 175_500, eiRebar: 24_544, psi: 0.5);
 
         Assert.True(r.Slender);
@@ -162,7 +176,7 @@ public class EccentricityAmplifierTests
     {
         // Малая жёсткость → Ncr мал → |N|>=Ncr
         var r = EccentricityAmplifier.AmplifyFormula(
-            n: -800, m0: 80, l0: 6, h: 0.3,
+            n: -800, m0: 80, l0: 6, h: 0.3, i: I,
             eiConcrete: 100, eiRebar: 10, psi: 0.5);
 
         Assert.False(r.Stable);
@@ -180,7 +194,7 @@ public class EccentricityAmplifierTests
 
         double Solve(double mTrial) => mTrial / d0;
 
-        var r = EccentricityAmplifier.AmplifyIterative(n, m0, l0, h, Solve);
+        var r = EccentricityAmplifier.AmplifyIterative(n, m0, l0, h, I, Solve);
 
         double ncrExpected = EccentricityAmplifier.Ncr(d0, l0);
         double etaExpected = 1.0 / (1.0 - Math.Abs(n) / ncrExpected);
@@ -200,7 +214,7 @@ public class EccentricityAmplifierTests
     public void AmplifyIterative_NoAmplification_WhenNotSlender()
     {
         var r = EccentricityAmplifier.AmplifyIterative(
-            n: -500, m0: 50, l0: 3, h: 0.3, solveCurvature: m => m / 200_000);
+            n: -500, m0: 50, l0: 1, h: 0.3, i: I, solveCurvature: m => m / 200_000);
 
         Assert.Equal(1.0, r.Eta);
         Assert.Equal(0, r.Iterations);
@@ -210,7 +224,7 @@ public class EccentricityAmplifierTests
     public void AmplifyIterative_FlagsInstability_WhenNExceedsNcr()
     {
         var r = EccentricityAmplifier.AmplifyIterative(
-            n: -800, m0: 80, l0: 6, h: 0.3, solveCurvature: m => m / 50.0);
+            n: -800, m0: 80, l0: 6, h: 0.3, i: I, solveCurvature: m => m / 50.0);
 
         Assert.False(r.Stable);
     }
@@ -226,7 +240,7 @@ public class EccentricityAmplifierTests
         double Solve(double mTrial) => mTrial / stiffness[Math.Min(call++, stiffness.Length - 1)];
 
         var r = EccentricityAmplifier.AmplifyIterative(
-            n: -800, m0: 80, l0: 6, h: 0.3, Solve);
+            n: -800, m0: 80, l0: 6, h: 0.3, i: I, Solve);
 
         Assert.True(r.ExtrapolationFailed);
         Assert.Equal(3, r.EtaHistory.Length);

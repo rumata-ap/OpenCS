@@ -26,7 +26,7 @@ public sealed class EtaReportData
     [JsonPropertyName("l0x")] public double? L0x { get; set; }
     /// <summary>Размер hx, м.</summary>
     [JsonPropertyName("hx")] public double? Hx { get; set; }
-    /// <summary>Гибкость l0x/hx.</summary>
+    /// <summary>Гибкость l0x/ix (ix — радиус инерции бетонного сечения брутто).</summary>
     [JsonPropertyName("slendernessX")] public double? SlendernessX { get; set; }
     /// <summary>Изгибающий эффект Dx, кН·м².</summary>
     [JsonPropertyName("dX")] public double? DX { get; set; }
@@ -47,7 +47,7 @@ public sealed class EtaReportData
     [JsonPropertyName("l0y")] public double? L0y { get; set; }
     /// <summary>Размер hy, м.</summary>
     [JsonPropertyName("hy")] public double? Hy { get; set; }
-    /// <summary>Гибкость l0y/hy.</summary>
+    /// <summary>Гибкость l0y/iy (iy — радиус инерции бетонного сечения брутто).</summary>
     [JsonPropertyName("slendernessY")] public double? SlendernessY { get; set; }
     /// <summary>Изгибающий эффект Dy, кН·м².</summary>
     [JsonPropertyName("dY")] public double? DY { get; set; }

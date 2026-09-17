@@ -19,8 +19,8 @@ namespace CScore.Tests.Sp63Normal;
 /// 6⌀22 — не обеспечена.
 ///
 /// Принятые в сравнении допущения:
-/// — порог гибкости задан явно l0/D = 3,5, что для круга (i = D/4) равно условию
-///   l0/i &gt; 14 п. 8.1.2 (растр HTML-копии нормы); без η НДМ ошибочно «пропускает» 6⌀22;
+/// — гибкость проверяется по п. 8.1.2 как l0/i &gt; 14 с i = D/4 для круга (порог по
+///   умолчанию); l0/i = 40, поэтому η обязателен — без него НДМ «пропускает» 6⌀22;
 /// — ψ = M1l/M1 = (Ml + Nl·rs)/(M + N·rs) = 0,6946 — моменты относительно крайнего стержня;
 /// — ориентация шести стержней в пособии не указана — вердикт проверяется для двух
 ///   крайних ориентаций (стержни на оси, перпендикулярной плоскости изгиба, и на оси изгиба);
@@ -41,8 +41,6 @@ public sealed class Sp63CircularKrakovskyComparisonTests(ITestOutputHelper outpu
     const double BarCircleRadius = 0.165;
     const double Rb = 14_500.0;
     const double Rs = 350_000.0;
-    // Порог l0/D, эквивалентный l0/i > 14 для круга (i = D/4).
-    const double SlendernessThreshold = 3.5;
     const double KrakovskyCurvature = 0.01249;
     static readonly double Psi = (100.0 + 400.0 * BarCircleRadius) / (M + N * BarCircleRadius);
 
@@ -101,7 +99,7 @@ public sealed class Sp63CircularKrakovskyComparisonTests(ITestOutputHelper outpu
     static LimitForceParams EtaParams() => new()
     {
         EtaEnabled = true, EtaL = L0, EtaMuX = 1.0, EtaMuY = 1.0,
-        EtaPsiX = Psi, EtaPsiY = Psi, EtaSlendernessThreshold = SlendernessThreshold
+        EtaPsiX = Psi, EtaPsiY = Psi
     };
 
     /// <summary>η по п. 8.1.15 и расчётный момент M = η·N·e0 с учётом ea (п. 8.1.7).</summary>
@@ -111,9 +109,11 @@ public sealed class Sp63CircularKrakovskyComparisonTests(ITestOutputHelper outpu
         double e0 = Sp63MemberContext.EffectiveEccentricity(M / N, ea,
             Sp63StructuralScheme.StaticallyIndeterminate);
         var split = section.SplitStiffnessByMaterial();
-        var eta = EccentricityAmplifier.AmplifyFormula(-N, N * e0, L0, Diameter,
-            Math.Min(split.EIxConcrete, split.EIyConcrete),
-            Math.Min(split.EIxRebar, split.EIyRebar), Psi, SlendernessThreshold);
+        var eta = EccentricityAmplifier.AmplifyFormula(n: -N, m0: N * e0, l0: L0,
+            h: Diameter, i: Diameter / 4.0,
+            eiConcrete: Math.Min(split.EIxConcrete, split.EIyConcrete),
+            eiRebar: Math.Min(split.EIxRebar, split.EIyRebar), psi: Psi);
+        Assert.True(eta.Slender);
         Assert.True(eta.Stable);
         return (eta.Eta, eta.Eta * N * e0);
     }
@@ -180,7 +180,7 @@ public sealed class Sp63CircularKrakovskyComparisonTests(ITestOutputHelper outpu
         var section = Build(0.025, 0.0);
         var options = new Sp63NormalOptions(Sp63NormalShapeKind.Circular, Sp63NormalAxis.Mx,
             new Sp63MemberContext(L0, Sp63StructuralScheme.StaticallyIndeterminate, L0,
-                Sp63NormalStabilityMode.Member, Psi, SlendernessThreshold));
+                Sp63NormalStabilityMode.Member, Psi));
 
         var result = Sp63NormalChecker.Check(section, new LoadItem { N = -N, Mx = M },
             CalcType.C, options);

@@ -95,9 +95,9 @@
                <TextBlock Grid.Row="2" Grid.Column="3" Text="hy" Foreground="Gray" Margin="0,1"/>
                <TextBlock Grid.Row="2" Grid.Column="4" Text="{Binding HyText}" FontFamily="Consolas" Margin="12,1,0,1"/>
 
-               <TextBlock Grid.Row="3" Grid.Column="0" Text="l0x/hx" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="3" Grid.Column="0" Text="l0x/ix" Foreground="Gray" Margin="0,1"/>
                <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding SlendernessXText}" FontFamily="Consolas" Margin="12,1,0,1"/>
-               <TextBlock Grid.Row="3" Grid.Column="3" Text="l0y/hy" Foreground="Gray" Margin="0,1"/>
+               <TextBlock Grid.Row="3" Grid.Column="3" Text="l0y/iy" Foreground="Gray" Margin="0,1"/>
                <TextBlock Grid.Row="3" Grid.Column="4" Text="{Binding SlendernessYText}" FontFamily="Consolas" Margin="12,1,0,1"/>
 
                <TextBlock Grid.Row="4" Grid.Column="0" Text="Dx" Foreground="Gray" Margin="0,1"/>

@@ -348,6 +348,8 @@ public static class Sp63NormalChecker
                 m0: m0,
                 l0: context.EffectiveLengthL0!.Value,
                 h: profile.Height,
+                // Прямоугольник брутто: i = h/√12 (п. 8.1.2 — условие l0/i).
+                i: profile.Height / Math.Sqrt(12.0),
                 eiConcrete: eiConcrete,
                 eiRebar: eiRebar,
                 psi: context.Psi,

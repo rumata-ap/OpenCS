@@ -52,7 +52,7 @@ public sealed class LimitForceParams
    public double? EtaPsiY { get; set; }
 
    /// <summary>
-   /// Предельная гибкость l0/h, выше которой требуется поправка η (по умолчанию
+   /// Предельная гибкость l0/i, выше которой требуется поправка η (по умолчанию
    /// 14 — п. 8.1.2 СП63.13330; пользователь может уточнить значение).
    /// </summary>
    public double? EtaSlendernessThreshold { get; set; }

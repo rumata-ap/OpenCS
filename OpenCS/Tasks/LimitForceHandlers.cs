@@ -236,8 +236,9 @@ static class LimitForceTaskHelper
          myOriginal,
          l0x = StrainStateJsonHelper.FiniteRounded(eta.X.L0, 4),
          hx  = StrainStateJsonHelper.FiniteRounded(eta.X.H,  4),
-         slendernessX = eta.X.H > 1e-9
-            ? StrainStateJsonHelper.FiniteRounded(eta.X.L0 / eta.X.H, 2)
+         ix  = StrainStateJsonHelper.FiniteRounded(eta.X.I, 4),
+         slendernessX = eta.X.I > 1e-9
+            ? StrainStateJsonHelper.FiniteRounded(eta.X.L0 / eta.X.I, 2)
             : (double?)null,
          dX = StrainStateJsonHelper.FiniteRounded(eta.X.D, 2),
          etaX = StrainStateJsonHelper.FiniteRounded(eta.X.Eta, 6),
@@ -248,8 +249,9 @@ static class LimitForceTaskHelper
          etaHistoryX = StrainStateJsonHelper.FiniteRoundedArray(eta.X.EtaHistory, 6),
          l0y = StrainStateJsonHelper.FiniteRounded(eta.Y.L0, 4),
          hy  = StrainStateJsonHelper.FiniteRounded(eta.Y.H,  4),
-         slendernessY = eta.Y.H > 1e-9
-            ? StrainStateJsonHelper.FiniteRounded(eta.Y.L0 / eta.Y.H, 2)
+         iy  = StrainStateJsonHelper.FiniteRounded(eta.Y.I, 4),
+         slendernessY = eta.Y.I > 1e-9
+            ? StrainStateJsonHelper.FiniteRounded(eta.Y.L0 / eta.Y.I, 2)
             : (double?)null,
          dY = StrainStateJsonHelper.FiniteRounded(eta.Y.D, 2),
          etaY = StrainStateJsonHelper.FiniteRounded(eta.Y.Eta, 6),

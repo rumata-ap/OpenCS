@@ -72,9 +72,13 @@ public sealed class Sp63NormalEtaTests
             m0: -800.0 * e0,
             l0: 4.2,
             h: 0.60,
+            i: 0.60 / Math.Sqrt(12.0),
             eiConcrete: split.EIxConcrete,
             eiRebar: split.EIxRebar,
             psi: 1.0);
+        // l0/h = 7, но l0/i = 24,2 > 14 (п. 8.1.2) — поправка η должна вычисляться.
+        Assert.True(result.Eta.Value.Slender);
+        Assert.True(result.Eta.Value.Eta > 1.0);
         Assert.Equal(expected.Eta, result.Eta.Value.Eta, precision: 12);
         Assert.Equal(expected.Ncr, result.Eta.Value.Ncr, precision: 12);
         Assert.Equal(expected.D, result.Eta.Value.D, precision: 12);

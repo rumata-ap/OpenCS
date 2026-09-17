@@ -6,7 +6,7 @@ namespace CScore.Sp63.Normal;
 /// <param name="EffectiveLengthL0">Расчётная длина для устойчивости, м.</param>
 /// <param name="StabilityMode">Режим проверки устойчивости.</param>
 /// <param name="Psi">Относительная длительная составляющая момента ψ.</param>
-/// <param name="SlendernessThreshold">Порог гибкости l0/h.</param>
+/// <param name="SlendernessThreshold">Порог гибкости l0/i (п. 8.1.2).</param>
 public sealed record Sp63MemberContext(
     double? ElementLengthOrRestraintDistance,
     Sp63StructuralScheme StructuralScheme,

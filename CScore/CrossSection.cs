@@ -292,7 +292,7 @@ namespace CScore
       /// <summary>
       /// Ограничивающий прямоугольник сечения (по контурам областей и точечным
       /// фибрам арматуры). Нужен для автоматического определения высоты сечения
-      /// h в плоскости изгиба (п. 8.1.15: δe = e0/h, гейт гибкости l0/h).
+      /// h в плоскости изгиба (п. 8.1.15: δe = e0/h, гибкость проверяется по l0/i — см. ConcreteRadiusOfGyration).
       /// </summary>
       public (double minX, double maxX, double minY, double maxY) SectionBoundingBox()
       {

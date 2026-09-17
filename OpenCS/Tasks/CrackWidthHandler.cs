@@ -107,8 +107,9 @@ public sealed class CrackWidthHandler : ITaskHandler
                     myLongOriginal = myLongIn,
                     l0x = StrainStateJsonHelper.FiniteRounded(wiring.X.L0, 4),
                     hx = StrainStateJsonHelper.FiniteRounded(wiring.X.H, 4),
-                    slendernessX = wiring.X.H > 1e-9
-                        ? StrainStateJsonHelper.FiniteRounded(wiring.X.L0 / wiring.X.H, 2)
+                    ix  = StrainStateJsonHelper.FiniteRounded(wiring.X.I, 4),
+                    slendernessX = wiring.X.I > 1e-9
+                        ? StrainStateJsonHelper.FiniteRounded(wiring.X.L0 / wiring.X.I, 2)
                         : (double?)null,
                     dX = StrainStateJsonHelper.FiniteRounded(wiring.X.D, 2),
                     etaX = StrainStateJsonHelper.FiniteRounded(wiring.X.Eta, 6),
@@ -119,8 +120,9 @@ public sealed class CrackWidthHandler : ITaskHandler
                     etaHistoryX = StrainStateJsonHelper.FiniteRoundedArray(wiring.X.EtaHistory, 6),
                     l0y = StrainStateJsonHelper.FiniteRounded(wiring.Y.L0, 4),
                     hy = StrainStateJsonHelper.FiniteRounded(wiring.Y.H, 4),
-                    slendernessY = wiring.Y.H > 1e-9
-                        ? StrainStateJsonHelper.FiniteRounded(wiring.Y.L0 / wiring.Y.H, 2)
+                    iy  = StrainStateJsonHelper.FiniteRounded(wiring.Y.I, 4),
+                    slendernessY = wiring.Y.I > 1e-9
+                        ? StrainStateJsonHelper.FiniteRounded(wiring.Y.L0 / wiring.Y.I, 2)
                         : (double?)null,
                     dY = StrainStateJsonHelper.FiniteRounded(wiring.Y.D, 2),
                     etaY = StrainStateJsonHelper.FiniteRounded(wiring.Y.Eta, 6),

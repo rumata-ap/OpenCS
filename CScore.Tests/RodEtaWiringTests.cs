@@ -17,15 +17,16 @@ public class RodEtaWiringTests
             throw new InvalidOperationException("режим A не должен обращаться к решателю");
 
         // BuildReinforcedRectangle(0.3, 0.6): высота в плоскости Mx (по Y) = 0.6,
-        // высота в плоскости My (по X) = 0.3 — l0x/l0y подобраны так, чтобы
-        // гибкость превышала порог 14 по ОБЕИМ осям (l0x/0.6>14 и l0y/0.3>14).
+        // высота в плоскости My (по X) = 0.3; радиусы инерции бетона брутто
+        // ix = 0,6/√12 = 0,173 м, iy = 0,3/√12 = 0,0866 м — гибкость l0/i превышает
+        // порог 14 по ОБЕИМ осям (10/0,173 = 57,7 и 6/0,0866 = 69,3).
         var result = RodEtaWiring.Apply(
             section, n: -800, mx0: 80, my0: 40,
             l0x: 10, l0y: 6, psiX: 0.5, psiY: 0.5,
             iterative: false, jointSolve: Solve);
 
-        Assert.True(result.X.Slender, "l0x/hx=10/0.6≈16.7>14 должно считаться гибким");
-        Assert.True(result.Y.Slender, "l0y/hy=6/0.3=20>14 должно считаться гибким");
+        Assert.True(result.X.Slender, "l0x/ix=57,7>14 должно считаться гибким");
+        Assert.True(result.Y.Slender, "l0y/iy=69,3>14 должно считаться гибким");
         Assert.True(result.X.Eta > 1.0, $"ηx={result.X.Eta}");
         Assert.True(result.Y.Eta > 1.0, $"ηy={result.Y.Eta}");
         Assert.Equal(80 * result.X.Eta, result.MxEff, precision: 6);
@@ -36,6 +37,8 @@ public class RodEtaWiringTests
         Assert.Equal(6,  result.Y.L0);
         Assert.Equal(0.6, result.X.H, precision: 6); // высота в плоскости Mx — размер по Y
         Assert.Equal(0.3, result.Y.H, precision: 6); // высота в плоскости My — размер по X
+        Assert.Equal(0.6 / Math.Sqrt(12.0), result.X.I, precision: 6); // радиус инерции бетона брутто
+        Assert.Equal(0.3 / Math.Sqrt(12.0), result.Y.I, precision: 6);
         Assert.True(result.X.D > 0, $"Dx={result.X.D}");
         Assert.True(result.Y.D > 0, $"Dy={result.Y.D}");
     }
@@ -78,13 +81,13 @@ public class RodEtaWiringTests
     {
         var section = SectionCutFixtures.BuildReinforcedRectangle(0.3, 0.6);
 
-        // l0x/hx≈16.7 и l0y/hy=20 — гибко относительно нормативных 14, но не
-        // относительно пользовательского порога 25.
+        // l0x/ix = 57,7 и l0y/iy = 69,3 — гибко относительно нормативных 14, но не
+        // относительно пользовательского порога 80.
         var result = RodEtaWiring.Apply(
             section, n: -800, mx0: 80, my0: 40,
             l0x: 10, l0y: 6, psiX: 0.5, psiY: 0.5,
             iterative: false, jointSolve: (_, _) => new Kurvature(),
-            slendernessThreshold: 25);
+            slendernessThreshold: 80);
 
         Assert.False(result.X.Slender);
         Assert.False(result.Y.Slender);
@@ -97,9 +100,10 @@ public class RodEtaWiringTests
     {
         var section = SectionCutFixtures.BuildReinforcedRectangle(0.3, 0.6);
 
+        // l0x/ix = 1/0,173 = 5,8 и l0y/iy = 1/0,0866 = 11,5 — не гибко по п. 8.1.2.
         var result = RodEtaWiring.Apply(
             section, n: -500, mx0: 50, my0: 20,
-            l0x: 3, l0y: 3, psiX: 0.5, psiY: 0.5,
+            l0x: 1, l0y: 1, psiX: 0.5, psiY: 0.5,
             iterative: false, jointSolve: (_, _) => new Kurvature());
 
         Assert.Equal(50, result.MxEff);
@@ -107,7 +111,7 @@ public class RodEtaWiringTests
         Assert.False(result.X.Slender);
         Assert.False(result.Y.Slender);
         // L0/H остаются доступными даже когда поправка не применяется
-        Assert.Equal(3, result.X.L0);
+        Assert.Equal(1, result.X.L0);
         Assert.Equal(0.6, result.X.H, precision: 6);
     }
 }

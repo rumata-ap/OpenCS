@@ -16,14 +16,14 @@ namespace CScore.Sp63
         /// <summary>Коэффициент ks в формуле D = kb·Eb·I + ks·Es·Is (п. 8.1.15).</summary>
         public const double Ks = 0.7;
 
-        /// <summary>Порог гибкости l0/h, выше которого поправка требуется (п. 8.1.2).</summary>
+        /// <summary>Порог гибкости l0/i, выше которого поправка требуется (п. 8.1.2).</summary>
         public const double SlendernessThreshold = 14.0;
 
         /// <summary>Результат вычисления η для одной оси изгиба.</summary>
         /// <param name="Eta">Коэффициент η (1.0, если поправка не требуется).</param>
         /// <param name="Ncr">Условная критическая сила, кН.</param>
         /// <param name="D">Использованная жёсткость, кН·м².</param>
-        /// <param name="Slender">Гибкость l0/h превышает порог 14 (п. 8.1.2).</param>
+        /// <param name="Slender">Гибкость l0/i превышает порог (по умолчанию 14, п. 8.1.2).</param>
         /// <param name="Stable">false — потеря устойчивости (|N| ≥ Ncr).</param>
         /// <param name="MEff">Момент после усиления: M0·η.</param>
         /// <param name="Iterations">Число проходов решателя (0 для режима A).</param>
@@ -78,13 +78,14 @@ namespace CScore.Sp63
 
         /// <summary>
         /// true — поправку η можно не считать: либо N не сжимающая (конвенция
-        /// проекта: сжатие — отрицательное N), либо гибкость l0/h не превышает
+        /// проекта: сжатие — отрицательное N), либо гибкость l0/i не превышает
         /// <paramref name="threshold"/> (по умолчанию 14 — п. 8.1.2; допускается
-        /// уточнять пользователем).
+        /// уточнять пользователем). <paramref name="i"/> — радиус инерции бетонного
+        /// сечения брутто в плоскости изгиба.
         /// </summary>
-        public static bool ShouldSkip(double n, double l0, double h, out bool slender, double threshold = SlendernessThreshold)
+        public static bool ShouldSkip(double n, double l0, double i, out bool slender, double threshold = SlendernessThreshold)
         {
-            slender = l0 / h > threshold;
+            slender = l0 / i > threshold;
             return n >= -1e-9 || !slender;
         }
 
@@ -101,16 +102,18 @@ namespace CScore.Sp63
         /// <summary>
         /// Режим A (буквальный): D по формуле D = kb·Eb·I + ks·Es·Is, kb — из
         /// φl (длительность нагрузки) и δe (относительный эксцентриситет).
+        /// <paramref name="h"/> — высота сечения в плоскости изгиба (для δe = e0/h),
+        /// <paramref name="i"/> — радиус инерции бетонного сечения брутто (для l0/i).
         /// </summary>
         public static EtaResult AmplifyFormula(
-            double n, double m0, double l0, double h,
+            double n, double m0, double l0, double h, double i,
             double eiConcrete, double eiRebar, double psi,
             double slendernessThreshold = SlendernessThreshold)
         {
-            if (l0 <= 0 || h <= 0)
-                throw new ArgumentException("l0 и h должны быть положительны");
+            if (l0 <= 0 || h <= 0 || i <= 0)
+                throw new ArgumentException("l0, h и i должны быть положительны");
 
-            if (ShouldSkip(n, l0, h, out var slender, slendernessThreshold) || Math.Abs(m0) < 1e-9)
+            if (ShouldSkip(n, l0, i, out var slender, slendernessThreshold) || Math.Abs(m0) < 1e-9)
                 return new EtaResult(1.0, double.PositiveInfinity, double.NaN, slender, true, m0, 0, false);
 
             double phiL = PhiL(psi);
@@ -128,36 +131,37 @@ namespace CScore.Sp63
         /// решателем НДС: даёт кривизну κ при пробном моменте на этой оси).
         /// Выполняет <paramref name="passes"/> проходов, строит последовательность
         /// η, применяет экстраполяцию Эйткена и делает финальный проход при
-        /// уточнённом моменте.
+        /// уточнённом моменте. <paramref name="i"/> — радиус инерции бетонного
+        /// сечения брутто в плоскости изгиба (для условия l0/i).
         /// </summary>
         public static EtaResult AmplifyIterative(
-            double n, double m0, double l0, double h,
+            double n, double m0, double l0, double h, double i,
             Func<double, double> solveCurvature, int passes = 3,
             double slendernessThreshold = SlendernessThreshold)
         {
-            if (l0 <= 0 || h <= 0)
-                throw new ArgumentException("l0 и h должны быть положительны");
+            if (l0 <= 0 || h <= 0 || i <= 0)
+                throw new ArgumentException("l0, h и i должны быть положительны");
 
-            if (ShouldSkip(n, l0, h, out var slender, slendernessThreshold) || Math.Abs(m0) < 1e-9)
+            if (ShouldSkip(n, l0, i, out var slender, slendernessThreshold) || Math.Abs(m0) < 1e-9)
                 return new EtaResult(1.0, double.PositiveInfinity, double.NaN, slender, true, m0, 0, false);
 
             var etas = new double[passes];
             double mCurrent = m0;
-            for (int i = 0; i < passes; i++)
+            for (int pass = 0; pass < passes; pass++)
             {
                 double kappa = solveCurvature(mCurrent);
                 if (Math.Abs(kappa) < 1e-12)
-                    return new EtaResult(1.0, double.PositiveInfinity, double.NaN, slender, true, m0, i, false)
-                        { EtaHistory = etas[..i] };
+                    return new EtaResult(1.0, double.PositiveInfinity, double.NaN, slender, true, m0, pass, false)
+                        { EtaHistory = etas[..pass] };
 
                 double d = mCurrent / kappa;
                 double ncr = Ncr(d, l0);
                 if (Math.Abs(n) >= ncr)
-                    return new EtaResult(double.PositiveInfinity, ncr, d, slender, false, m0, i + 1, false)
-                        { EtaHistory = etas[..i] };
+                    return new EtaResult(double.PositiveInfinity, ncr, d, slender, false, m0, pass + 1, false)
+                        { EtaHistory = etas[..pass] };
 
-                etas[i] = 1.0 / (1.0 - Math.Abs(n) / ncr);
-                mCurrent = m0 * etas[i];
+                etas[pass] = 1.0 / (1.0 - Math.Abs(n) / ncr);
+                mCurrent = m0 * etas[pass];
             }
 
             double etaFinal = etas[passes - 1];

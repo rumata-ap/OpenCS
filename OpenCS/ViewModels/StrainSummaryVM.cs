@@ -281,7 +281,7 @@ namespace OpenCS.ViewModels
             return $"{eta:0.000}";
         }
 
-        /// <summary>Гибкость l0/h с пометкой, применяется ли поправка (порог задаётся пользователем, по умолчанию 14 — п. 8.1.2).</summary>
+        /// <summary>Гибкость l0/i с пометкой, применяется ли поправка (порог задаётся пользователем, по умолчанию 14 — п. 8.1.2).</summary>
         static string FormatSlenderness(double? ratio, bool slender, double threshold)
         {
             if (!ratio.HasValue) return "—";
