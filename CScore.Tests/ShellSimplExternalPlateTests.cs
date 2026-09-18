@@ -134,14 +134,17 @@ public class ShellSimplExternalPlateTests
         Assert.Equal(0.329, aShort, 3);
     }
 
-    // ψs = 1 − 0,8·σs,crc/σs (п. 8.2.18) замыкается двумя способами. По напряжениям, ф. (8.137),
-    // σs,crc — приращение от сброса растянутого бетона рабочей зоны. Через момент, ф. (8.138),
-    // σs,crc получается подстановкой Mcrc в ту же упругую модель сечения с трещиной, отчего
-    // отношение вырождается в Mcrc/M и наследует точность формульного Mcrc = Rbt,ser·1,3·Wred.
-    // Коэффициент Wpl = 1,3·Wred занижает момент образования трещин, поэтому моментный вариант
-    // даёт меньшую σs,crc, больший ψs и БОЛЬШУЮ ширину раскрытия: погрешность идёт в запас.
+    // ψs = 1 − 0,8·σs,crc/σs — ф. (8.137) п. 8.2.18. Сама σs,crc отдельной формулы в СП 63 не
+    // имеет: п. 8.2.18 определяет её как ту же σs по п. 8.2.16 при M = M_crc. Ф. (8.138)
+    // ψs = 1 − 0,8·M_crc/M — упрощение «для изгибаемых элементов», продольную силу не учитывающее.
+    //
+    // При N = 0 общее определение вырождается в (8.138) ТОЧНО: подстановка M = M_crc в линейную
+    // по моменту ф. (8.134) даёт σs,crc/σs = M_crc/M. Набор ExtLong — чистые моменты без
+    // мембранных усилий, поэтому оба способа обязаны совпасть до машинной точности.
+    // (До 18.09.2026 способ «по напряжениям» считал σs,crc вненормативной формулой сброса
+    // растянутого бетона, и способы расходились.)
     [Fact]
-    public void SigmaSCrcMethod_MomentVariantIsConservative()
+    public void SigmaSCrcMethods_CoincideWhenNoAxialForce()
     {
         var stress = Capri(ExtLong, Sls, 1.4, SigmaSCrcMethod.ReleasedConcrete8137).CapriDirs!;
         var moment = Capri(ExtLong, Sls, 1.4, SigmaSCrcMethod.CrackingMoment8138).CapriDirs!;
@@ -163,9 +166,9 @@ public class ShellSimplExternalPlateTests
             if (!s.Cracked || s.Sigma_s_crc_MPa >= s.Sigma_s_MPa - 1e-9) continue;
 
             compared++;
-            Assert.True(m.Sigma_s_crc_MPa < s.Sigma_s_crc_MPa);
-            Assert.True(m.Psi_s > s.Psi_s);
-            Assert.True(m.Acrc_mm > s.Acrc_mm);
+            Assert.Equal(s.Sigma_s_crc_MPa, m.Sigma_s_crc_MPa, 6);
+            Assert.Equal(s.Psi_s, m.Psi_s, 6);
+            Assert.Equal(s.Acrc_mm, m.Acrc_mm, 6);
         }
 
         Assert.True(compared > 0, "не нашлось направлений для сравнения способов σs,crc");

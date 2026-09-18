@@ -135,6 +135,7 @@ ShellLayeredCrackWidthTests.RunAngleBendingY();
 ShellLayeredCrackWidthTests.RunAngleTorsion();
 ShellLayeredCrackWidthTests.RunMcrcAlwaysPopulated();
 ShellLayeredCrackWidthTests.RunComputeWorstMatchesComputeAll();
+ShellLayeredCrackWidthTests.RunNegativeMomentCracks();
 ShellLayeredCrackWidthTests.RunEmptyRebarLayers();
 
 FemInfraTests.RunAll();

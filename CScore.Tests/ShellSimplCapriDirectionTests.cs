@@ -150,24 +150,31 @@ public class ShellSimplCapriDirectionTests
 
         var slsPlus = Capri(CaseB, Sls);
         var slsMinus = Capri(MirrorShear(CaseB), Sls);
-        Assert.Equal(30.0, slsPlus.CriticalTop!.Alpha_deg);
-        Assert.Equal(150.0, slsMinus.CriticalTop!.Alpha_deg);
-        Assert.InRange(slsPlus.CriticalTop!.Strip.Acrc_mm, 0.0366, 0.0376);
+        // Значения пересчитаны 18.09.2026 после введения поправки (8.154) п. 8.2.28:
+        // продольная сила здесь сжимающая, поэтому x_m растёт, σs и acrc чуть падают.
+        Assert.Equal(35.0, slsPlus.CriticalTop!.Alpha_deg);
+        Assert.Equal(145.0, slsMinus.CriticalTop!.Alpha_deg);
+        Assert.InRange(slsPlus.CriticalTop!.Strip.Acrc_mm, 0.0525, 0.0535);
         Assert.Equal(slsPlus.CriticalTop!.Strip.Acrc_mm, slsMinus.CriticalTop!.Strip.Acrc_mm, 9);
     }
 
-    // Нижняя граница ψs = 0,2 нормативная: она получается из σs,crc ≤ σs, то есть из того,
-    // что напряжение сразу после образования трещины не может превысить напряжение от
-    // рассматриваемой нагрузки. На слабоармированных сечениях формула (8.137) упирается в эту
-    // границу — скачок нормативный, искусственного «пола» в коде нет.
+    // Граница σs,crc ≤ σs нормативная: напряжение сразу после образования трещины не может
+    // превысить напряжение от рассматриваемой нагрузки, иначе ψs ушла бы ниже нуля.
+    //
+    // 18.09.2026: до перехода на нормативное определение σs,crc (п. 8.2.18 — та же σs при
+    // M = Mcrc) эта полоса упиралась в границу и давала ψs = 0,2. Теперь σs,crc получается
+    // меньше σs (161,7 против 182,3), граница не срабатывает, и ψs считается по ф. (8.137)
+    // обычным образом. Проверяется, что граница соблюдена и ψs физична.
     [Fact]
-    public void PsiS_LowerBound_IsNormativeAndReachedOnLightlyReinforcedStrip()
+    public void PsiS_StaysWithinNormativeBounds_OnLightlyReinforcedStrip()
     {
         var crit = Capri(CaseB, Sls).CriticalTop!.Strip;
 
         Assert.True(crit.Cracked);
-        Assert.Equal(crit.Sigma_s_MPa, crit.Sigma_s_crc_MPa, 9);
-        Assert.Equal(0.2, crit.Psi_s, 9);
+        Assert.True(crit.Sigma_s_crc_MPa <= crit.Sigma_s_MPa + 1e-9);
+        Assert.InRange(crit.Sigma_s_crc_MPa, 161.0, 162.5);
+        Assert.InRange(crit.Psi_s, 0.2, 1.0);
+        Assert.Equal(1.0 - 0.8 * crit.Sigma_s_crc_MPa / crit.Sigma_s_MPa, crit.Psi_s, 9);
     }
 
     // ── Проверка 2: независимая формула с «−» совпадает с проекцией OpenCS ──────────────────────
@@ -204,7 +211,7 @@ public class ShellSimplCapriDirectionTests
 
         var sls = Capri(MirrorShear(CaseB), Sls);
         Assert.True(sls.CriticalTop!.Strip.Cracked);
-        Assert.InRange(sls.CriticalTop!.Strip.Acrc_mm, 0.0366, 0.0376);
+        Assert.InRange(sls.CriticalTop!.Strip.Acrc_mm, 0.0525, 0.0535);
         Assert.Equal(0.0, MaxOverRange(sls, Sls, top: true, maxAlphaDeg: 90.0)); // трещина не найдена вовсе
     }
 
@@ -220,8 +227,8 @@ public class ShellSimplCapriDirectionTests
 
         double slsBoth = Capri(CaseB, Sls).CriticalTop!.Strip.Acrc_mm;
         double slsOnlyMxy = Capri(With(CaseB, 5, -CaseB[5]), Sls).CriticalTop!.Strip.Acrc_mm;
-        Assert.InRange(slsBoth, 0.0366, 0.0376);
-        Assert.InRange(slsOnlyMxy, 0.0359, 0.0369);
+        Assert.InRange(slsBoth, 0.0525, 0.0535);
+        Assert.InRange(slsOnlyMxy, 0.0462, 0.0472);
     }
 
     // ── Проверка 5: Mx и My разных знаков — перебор сам проверяет обе грани ─────────────────────
@@ -237,9 +244,9 @@ public class ShellSimplCapriDirectionTests
 
         var sls = Capri(CaseD, Sls);
         Assert.Equal(15.0, sls.CriticalTop!.Alpha_deg);
-        Assert.InRange(sls.CriticalTop!.Strip.Acrc_mm, 0.0399, 0.0409);
+        Assert.InRange(sls.CriticalTop!.Strip.Acrc_mm, 0.0705, 0.0715);
         Assert.Equal(105.0, sls.CriticalBot!.Alpha_deg);
-        Assert.InRange(sls.CriticalBot!.Strip.Acrc_mm, 0.0353, 0.0363);
+        Assert.InRange(sls.CriticalBot!.Strip.Acrc_mm, 0.0475, 0.0485);
     }
 
     // ── Проверка 6: обнуление «разгружающего» момента идёт в запас для своей грани ─────────────

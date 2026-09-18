@@ -27,7 +27,7 @@ public sealed class ShellCrackStripResult
     public double NDes { get; init; }
     /// <summary>Момент трещинообразования (п. 8.2.11), кН·м/м. Считается всегда, не зависит от eps_s.</summary>
     public double Mcrc { get; init; }
-    /// <summary>M_des &gt; Mcrc.</summary>
+    /// <summary>|M_des| &gt; Mcrc.</summary>
     public bool Cracked { get; init; }
     /// <summary>Напряжение в арматуре, кПа (единицы MaterialChars.E/Ft). 0, если не растрескалась
     /// или деформация арматуры не растягивающая.</summary>
@@ -59,10 +59,18 @@ public static class ShellLayeredCrackWidth
 {
     /// <summary>Полная картина: одна запись на каждый (слой × направление X|Y), где
     /// соответствующая площадь армирования &gt; 0. Не схлопывает в максимум.</summary>
+    /// <param name="solveAtCrackingState">Решатель НДС для состояния образования трещин.
+    /// П. 8.2.18 СП 63 определяет σs,crc как напряжение в арматуре «сразу после образования
+    /// нормальных трещин, определяемое по 8.2.16, принимая в соответствующих формулах значения
+    /// M = M_crc». Для слоистой модели это означает повторное решение той же задачи 6×6 при
+    /// моменте рассматриваемого направления, заменённом на M_crc: делегат принимает вектор
+    /// (Nx, Ny, Nxy, Mx, My, Mxy) и возвращает найденное НДС либо null, если сходимости нет.
+    /// Если делегат не передан, σs,crc считается формульно (см. ComputeStrip).</param>
     public static IReadOnlyList<ShellCrackStripResult> ComputeAll(
         PlateSection section, ShellLoadItem shell, ShellStrainState st,
         MaterialChars cCh, MaterialChars rCh, double phi1, double phi2,
-        SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma)
+        SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma,
+        Func<double[], ShellStrainState?>? solveAtCrackingState = null)
     {
         double RbSer = Math.Abs(cCh.Fc);
         double Rbt = cCh.Ft;
@@ -72,6 +80,25 @@ public static class ShellLayeredCrackWidth
         double alphaFull = Es / cCh.E;
         double alpha = Es / ebRed;
         double h = section.H;
+
+        // П. 8.2.18: σs,crc — та же задача при M = M_crc. Для слоистой модели это не формула,
+        // а повторное решение 6×6 с заменённым моментом рассматриваемого направления; знак
+        // момента сохраняется, потому что M_crc — беззнаковый порог.
+        Func<double, double>? SigmaSCrcSolver(bool alongX, double z)
+        {
+            if (solveAtCrackingState == null) return null;
+            return mcrc =>
+            {
+                double mSelf = alongX ? shell.Mx : shell.My;
+                double mCrcSigned = mSelf < 0.0 ? -mcrc : mcrc;
+                var stCrc = solveAtCrackingState(alongX
+                    ? [shell.Nx, shell.Ny, shell.Nxy, mCrcSigned, shell.My, shell.Mxy]
+                    : [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, mCrcSigned, shell.Mxy]);
+                if (stCrc == null) return double.NaN;       // нет сходимости — формульный запасной путь
+                double eps = alongX ? stCrc.EpsX(z) : stCrc.EpsY(z);
+                return eps > 0.0 ? Math.Min(Es * eps, RsSer) : 0.0;
+            };
+        }
 
         var results = new List<ShellCrackStripResult>();
         for (int layerIndex = 0; layerIndex < section.RebarLayers.Count; layerIndex++)
@@ -87,7 +114,8 @@ public static class ShellLayeredCrackWidth
                     layer.Asx, layer.DiameterX > 1e-9 ? layer.DiameterX : 0.012,
                     Rbt, RbSer, Es, RsSer, ebRed, alphaFull, alpha,
                     phi1, phi2, sigmaSCrcMethod, wplGamma,
-                    CrackAngleDeg(st.EpsX(z), st.EpsY(z), st.GammaXY(z))));
+                    CrackAngleDeg(st.EpsX(z), st.EpsY(z), st.GammaXY(z)),
+                    SigmaSCrcSolver(alongX: true, z)));
             }
 
             if (layer.Asy > 1e-14)
@@ -99,7 +127,8 @@ public static class ShellLayeredCrackWidth
                     layer.Asy, layer.DiameterY > 1e-9 ? layer.DiameterY : 0.012,
                     Rbt, RbSer, Es, RsSer, ebRed, alphaFull, alpha,
                     phi1, phi2, sigmaSCrcMethod, wplGamma,
-                    CrackAngleDeg(st.EpsX(z), st.EpsY(z), st.GammaXY(z))));
+                    CrackAngleDeg(st.EpsX(z), st.EpsY(z), st.GammaXY(z)),
+                    SigmaSCrcSolver(alongX: false, z)));
             }
         }
 
@@ -112,8 +141,10 @@ public static class ShellLayeredCrackWidth
     public static ShellCrackStripResult? ComputeWorst(
         PlateSection section, ShellLoadItem shell, ShellStrainState st,
         MaterialChars cCh, MaterialChars rCh, double phi1, double phi2,
-        SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma)
-        => ComputeAll(section, shell, st, cCh, rCh, phi1, phi2, sigmaSCrcMethod, wplGamma)
+        SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma,
+        Func<double[], ShellStrainState?>? solveAtCrackingState = null)
+        => ComputeAll(section, shell, st, cCh, rCh, phi1, phi2, sigmaSCrcMethod, wplGamma,
+                solveAtCrackingState)
             .Where(r => r.Cracked).MaxBy(r => r.AcrcMm);
 
     /// <summary>Угол трещины: перпендикулярна направлению главной деформации в точке (ex, ey, gxy).</summary>
@@ -130,7 +161,7 @@ public static class ShellLayeredCrackWidth
     /// <summary>
     /// Формулы п. 8.2.9–8.2.18 СП 63 для одной полосы. Mcrc/Cracked считаются ВСЕГДА
     /// (не зависят от eps_s); SigmaS/SigmaSCrc/PsiS/LsM/Phi3/AcrcMm остаются 0, когда
-    /// eps_s &lt;= 0, sigma_s &lt; 1e-3 кПа, либо M_des &lt;= Mcrc — те же условия, при которых
+    /// eps_s &lt;= 0, sigma_s &lt; 1e-3 кПа, либо |M_des| &lt;= Mcrc — те же условия, при которых
     /// сегодняшний ComputeAcrcStrip возвращает 0.0.
     /// </summary>
     static ShellCrackStripResult ComputeStrip(
@@ -142,7 +173,8 @@ public static class ShellLayeredCrackWidth
         double ebRed, double alphaFull, double alpha,
         double phi1, double phi2,
         SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma,
-        double crackAngleDeg)
+        double crackAngleDeg,
+        Func<double, double>? sigmaSCrcFromSolve = null)
     {
         ShellSimplSolver.FullSectionProps(h, h0, aPrime, asT, 0.0, alphaFull,
             out double aRed, out double iRed);
@@ -153,7 +185,10 @@ public static class ShellLayeredCrackWidth
         double wPl = ShellSimplSolver.ResolveWplGamma(wplGamma, asT, 1.0, h) * wRed;
         double ex = wRed / aRed;
         double mcrc = Math.Max(0.0, rbt * wPl - nDes * ex);
-        bool cracked = mDes > mcrc;
+        // mcrc — не имеющий знака порог (Math.Max(0.0, ...)); mDes может быть отрицательным
+        // (момент, растягивающий нижнюю грань). Сравнение без Abs пропускало трещины при
+        // любом отрицательном mDes независимо от его модуля.
+        bool cracked = Math.Abs(mDes) > mcrc;
 
         double sigmaS = 0.0;
         double sigmaSCrc = 0.0;
@@ -176,16 +211,19 @@ public static class ShellLayeredCrackWidth
 
                 if (sigmaSCrcMethod == SigmaSCrcMethod.CrackingMoment8138)
                 {
-                    double xmCrc = ShellSimplSolver.NeutralAxis(h0, aPrime, asT, 0.0, alpha);
-                    double zsCrc = h0 - xmCrc / 3.0;
-                    sigmaSCrc = zsCrc > 1e-9
-                        ? Math.Min(Math.Max(0.0, mcrc / (zsCrc * asT)), rsSer)
-                        : 0.0;
+                    // Ф. (8.138): ψs = 1 − 0,8·Mcrc/M, допускается для изгибаемых элементов.
+                    double ratio = Math.Abs(mDes) > 1e-9
+                        ? Math.Clamp(mcrc / Math.Abs(mDes), 0.0, 1.0) : 0.0;
+                    sigmaSCrc = sigmaS * ratio;
                 }
                 else
                 {
-                    sigmaSCrc = ShellSimplSolver.SigmaSCrcFromReleasedConcrete(
-                        rbt, hBt, asT, alphaFull, sigmaS);
+                    // Общее определение п. 8.2.18 — напряжение из решения НДС при M = Mcrc.
+                    double fromSolve = sigmaSCrcFromSolve?.Invoke(mcrc) ?? double.NaN;
+                    sigmaSCrc = double.IsNaN(fromSolve)
+                        ? ShellSimplSolver.SigmaSCrcFromReleasedConcrete(
+                            rbt, hBt, asT, alphaFull, sigmaS)     // запасной путь без решателя
+                        : Math.Min(fromSolve, sigmaS);
                 }
 
                 psiS = sigmaS > 1e-3

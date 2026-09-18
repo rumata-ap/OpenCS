@@ -251,7 +251,7 @@ public class Sp63CrackWidthCheckerTests
         // книги на ~21%; НДМ на том же примере даёт 0.132 мм, то есть формульный и
         // деформационный пути OpenCS сходятся между собой, а расходятся оба с табличной
         // методикой книги. Значение закреплено, чтобы изменение методики было видно явно.
-        Assert.Equal(0.1227, detail.Applied, 4);
+        Assert.Equal(0.1938, detail.Applied, 4);
         Assert.True(result.LimitPassed);
     }
 

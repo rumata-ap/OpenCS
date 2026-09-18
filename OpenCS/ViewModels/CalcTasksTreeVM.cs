@@ -33,11 +33,11 @@ class CalcTasksRootNode
     public CalcTasksRootNode(AppViewModel app)
     {
         _app   = app;
-        _nds   = new("nds",   Loc.S("CalcTaskGroupNds"));
-        _uls   = new("uls",   Loc.S("CalcTaskGroupUls"));
-        _sls   = new("sls",   Loc.S("CalcTaskGroupSls"));
-        _fire  = new("fire",  Loc.S("CalcTaskGroupFire"));
-        _other = new("other", Loc.S("CalcTaskGroupOther"));
+        _nds   = new(CalcTaskGroups.Nds,   Loc.S("CalcTaskGroupNds"));
+        _uls   = new(CalcTaskGroups.Uls,   Loc.S("CalcTaskGroupUls"));
+        _sls   = new(CalcTaskGroups.Sls,   Loc.S("CalcTaskGroupSls"));
+        _fire  = new(CalcTaskGroups.Fire,  Loc.S("CalcTaskGroupFire"));
+        _other = new(CalcTaskGroups.Other, Loc.S("CalcTaskGroupOther"));
         Groups = [_nds, _uls, _sls, _fire, _other];
 
         Rebuild();
@@ -50,7 +50,7 @@ class CalcTasksRootNode
     {
         foreach (var g in Groups) g.Tasks.Clear();
         foreach (var ct in _app.CalcTasks)
-            SubGroupFor(Classify(ct)).Tasks.Add(BuildVM(ct));
+            SubGroupFor(CalcTaskGroups.Classify(ct.Kind)).Tasks.Add(BuildVM(ct));
     }
 
     CalcTaskVM BuildVM(CalcTask ct)
@@ -80,41 +80,10 @@ class CalcTasksRootNode
 
     CalcTasksSubGroupNode SubGroupFor(string key) => key switch
     {
-        "nds"  => _nds,
-        "uls"  => _uls,
-        "sls"  => _sls,
-        "fire" => _fire,
-        _      => _other
-    };
-
-    static string Classify(CalcTask t) => t.Kind switch
-    {
-        "strain_state"
-            or "strain_state_batch"
-            or "two_stage_strain"
-            or "two_stage_strain_batch"
-            or "shell_strain_state"
-            or "shell_strain_state_batch"                             => "nds",
-        "limit_force"          or "limit_force_batch"
-            or "limit_moment"  or "limit_moment_batch"
-            or "limit_axial"   or "limit_axial_batch"
-            or "strength_ndm_batch"
-            or "shell_simpl_wa_uls"    or "shell_simpl_wa_uls_batch"
-            or "shell_simpl_capri_uls" or "shell_simpl_capri_uls_batch"
-            or "shell_layered_uls"     or "shell_layered_uls_batch"
-            or "steel_check"
-            or "steel_central_compression" or "steel_central_tension"
-            or "steel_bending" or "steel_compression_bending"
-            or "steel_tension_bending" or "steel_shear"
-            or "steel_torsion"
-            or "shear_inclined" or "shear_inclined_batch"             => "uls",
-        "shell_simpl_wa_sls"    or "shell_simpl_wa_sls_batch"
-            or "shell_simpl_capri_sls" or "shell_simpl_capri_sls_batch"
-            or "shell_layered_sls" or "shell_layered_sls_batch"
-            or "cracking" or "cracking_batch"
-            or "crack_width" or "crack_width_batch"
-            or "total_curvature" or "total_curvature_batch"              => "sls",
-        _ when t.Kind.StartsWith("fire_", StringComparison.Ordinal)  => "fire",
-        _                                                             => "other"
+        CalcTaskGroups.Nds  => _nds,
+        CalcTaskGroups.Uls  => _uls,
+        CalcTaskGroups.Sls  => _sls,
+        CalcTaskGroups.Fire => _fire,
+        _                   => _other
     };
 }

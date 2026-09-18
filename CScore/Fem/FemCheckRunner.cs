@@ -369,17 +369,32 @@ public static class FemCheckRunner
         double acrcMax;
         string acrcDir;
 
+        // П. 8.2.18: σs,crc — напряжение в арматуре сразу после образования трещин, то есть та же
+        // задача при M = M_crc. Для слоистой модели это повторное решение НДС, поэтому решателю
+        // передаётся способ его выполнить. Диаграммы — CalcType.N по п. 6.1.26 (см. RunLayeredCheck).
+        var cDiagCrc = concreteMat.GetDiagramms(concreteDiagType)?[CalcType.N]
+            ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N];
+        var rDiagCrc = rebarMat.GetDiagramms(
+            DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N];
+        Func<double[], ShellStrainState?>? solveAtCrc = null;
+        if (cDiagCrc != null && rDiagCrc != null)
+            solveAtCrc = target =>
+            {
+                var r = new ShellStrainSolver(section, cDiagCrc, rDiagCrc).Solve(target);
+                return r.Converged ? r.StrainState : null;
+            };
+
         if (calcType == CalcType.NL)
         {
             // Только acrc1 (продолжительное раскрытие)
-            var stripMax = ShellLayeredCrackWidth.ComputeWorst(section, shell, st, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
+            var stripMax = ShellLayeredCrackWidth.ComputeWorst(section, shell, st, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma, solveAtCrc);
             acrcMax = stripMax?.AcrcMm ?? 0.0;
             acrcDir = stripMax is { AcrcMm: > 0.0 } ? $"п.8.2.15 {stripMax.Direction}" : "";
         }
         else // CalcType.N → непродолжительное, п. 8.2.7
         {
             // acrc2: N-набор, φ1 = 1.0
-            var strip2 = ShellLayeredCrackWidth.ComputeWorst(section, shell, st, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
+            var strip2 = ShellLayeredCrackWidth.ComputeWorst(section, shell, st, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma, solveAtCrc);
             double acrc2 = strip2?.AcrcMm ?? 0.0;
             string dir2 = strip2 is { AcrcMm: > 0.0 } ? $"п.8.2.15 {strip2.Direction}" : "";
 
@@ -404,11 +419,11 @@ public static class FemCheckRunner
                 var stNl = resNl.Converged ? resNl.StrainState : st;
 
                 // acrc1: NL-набор, φ1 = 1.4
-                var strip1 = ShellLayeredCrackWidth.ComputeWorst(section, nlShell, stNl, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
+                var strip1 = ShellLayeredCrackWidth.ComputeWorst(section, nlShell, stNl, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma, solveAtCrc);
                 double acrc1 = strip1?.AcrcMm ?? 0.0;
                 string dir1 = strip1 is { AcrcMm: > 0.0 } ? $"п.8.2.15 {strip1.Direction}" : "";
                 // acrc3: NL-набор, φ1 = 1.0
-                var strip3 = ShellLayeredCrackWidth.ComputeWorst(section, nlShell, stNl, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
+                var strip3 = ShellLayeredCrackWidth.ComputeWorst(section, nlShell, stNl, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma, solveAtCrc);
                 double acrc3 = strip3?.AcrcMm ?? 0.0;
 
                 // п. 8.2.7: acrc_непрод = acrc1 + acrc2 − acrc3
@@ -447,10 +462,10 @@ public static class FemCheckRunner
                     suffix = resVirt.Converged ? $" (NL=N×{ltFraction:G})" : $" (NL=N×{ltFraction:G}, нет сход.)";
                     var stVirt = resVirt.Converged ? resVirt.StrainState : st;
 
-                    var strip1 = ShellLayeredCrackWidth.ComputeWorst(section, virtualNl, stVirt, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma);
+                    var strip1 = ShellLayeredCrackWidth.ComputeWorst(section, virtualNl, stVirt, cCh, rCh, phi1: 1.4, phi2, sigmaSCrcMethod, wplGamma, solveAtCrc);
                     double acrc1 = strip1?.AcrcMm ?? 0.0;
                     string dir1 = strip1 is { AcrcMm: > 0.0 } ? $"п.8.2.15 {strip1.Direction}" : "";
-                    var strip3 = ShellLayeredCrackWidth.ComputeWorst(section, virtualNl, stVirt, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma);
+                    var strip3 = ShellLayeredCrackWidth.ComputeWorst(section, virtualNl, stVirt, cCh, rCh, phi1: 1.0, phi2, sigmaSCrcMethod, wplGamma, solveAtCrc);
                     double acrc3 = strip3?.AcrcMm ?? 0.0;
 
                     acrcMax = acrc1 + acrc2 - acrc3;

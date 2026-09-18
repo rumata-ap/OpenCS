@@ -109,6 +109,24 @@ public static class ShellLayeredCrackWidthTests
             TestHarness.CheckRel("worst.AcrcMm == expected.AcrcMm", worst.AcrcMm, expected.AcrcMm, 0.0001);
     }
 
+    /// <summary>Отрицательный mDes (растяжение нижней грани) должен растрескиваться так же,
+    /// как и положительный той же величины — Cracked сравнивает |mDes| с Mcrc, не mDes напрямую
+    /// (баг: до фикса отрицательный момент никогда не считался растрескавшим сечение).</summary>
+    public static void RunNegativeMomentCracks()
+    {
+        TestHarness.Section("ShellLayeredCrackWidth: отрицательный момент тоже растрескивает");
+        var section = MakeSection(0.001, -0.0875, 0.0, 0.0);
+        var (c, r) = MakeChars();
+        var shell = new ShellLoadItem { Mx = -50.0 };
+        var st = new ShellStrainState(0, 0, 0, kx: -0.01, ky: 0, kxy: 0);
+
+        var strips = ShellLayeredCrackWidth.ComputeAll(section, shell, st, c, r, 1.0, 0.5,
+            SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63);
+
+        TestHarness.CheckRel("Cracked == true при отрицательном Mx", strips[0].Cracked ? 1 : 0, 1, 0.001);
+        TestHarness.Check("AcrcMm > 0", strips[0].AcrcMm > 0.0, $"AcrcMm={strips[0].AcrcMm}");
+    }
+
     /// <summary>Пустой RebarLayers → ComputeAll пуст, ComputeWorst == null.</summary>
     public static void RunEmptyRebarLayers()
     {
