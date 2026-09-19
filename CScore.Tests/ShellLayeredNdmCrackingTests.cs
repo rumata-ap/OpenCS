@@ -184,6 +184,62 @@ public class ShellLayeredNdmCrackingTests
             $"состояния до трещины {preCrack / 1000.0:F1} МПа");
     }
 
+    // П. 8.2.17: высота растянутой зоны для A_bt берётся ПО РАСЧЁТУ МОМЕНТА ОБРАЗОВАНИЯ
+    // ТРЕЩИН. Пока слоистая брала её геометрически — от нейтральной оси приведённого сечения
+    // без трещин (y_t = h − y_c), — величина от нагрузки не зависела вовсе: для симметричного
+    // сечения y_t = h/2 > h0/2, отсечка 0,5·h0 срабатывала при любой нагрузке, и A_bt был
+    // константой. Между тем состояние при M = M_crc известно, и растянутая зона в нём
+    // сжимающей силой уменьшается — вместе с ней и база ls, и ширина раскрытия.
+    [Fact]
+    public void LayeredStrip_TensionZoneForAbt_ComesFromCrackingState_NotGeometry()
+    {
+        // Армирование крупнее фикстуры (⌀20 шаг 100), чтобы база ls не упиралась в отсечки
+        // 10·ds ≤ ls ≤ 40·ds: иначе влияние A_bt на неё не увидеть.
+        const double asHeavy = 3140e-6, dsHeavy = 0.020;
+        PlateSection HeavySection() => new()
+        {
+            H = H, NLayers = 40, PlateModel = "layered", ConcreteDiagramType = DiagrammType.L3,
+            TensionConcrete = false,
+            RebarLayers =
+            [
+                new PlateRebarLayer { Name = "низ", InputMode = "direct", Asx = asHeavy, Asy = asHeavy,
+                    Zsx = -(H / 2 - Cover), Zsy = -(H / 2 - Cover), DiameterX = dsHeavy, DiameterY = dsHeavy },
+                new PlateRebarLayer { Name = "верх", InputMode = "direct", Asx = asHeavy, Asy = asHeavy,
+                    Zsx = H / 2 - Cover, Zsy = H / 2 - Cover, DiameterX = dsHeavy, DiameterY = dsHeavy },
+            ],
+        };
+
+        ShellCrackStripResult Strip(double nx)
+        {
+            var section = HeavySection();
+            var shell = new ShellLoadItem { Nx = nx, Ny = 0, Nxy = 0, Mx = 60.0, My = 0, Mxy = 0 };
+            var solver = new ShellCrackingSolver(section, CDiag(), RDiag());
+            var res = new ShellStrainSolver(section, CDiag(), RDiag())
+                .Solve([shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy]);
+            Assert.True(res.Converged, $"рабочее НДС не сошлось при N = {nx}");
+
+            return ShellLayeredCrackWidth.ComputeAll(
+                    section, shell, res.StrainState,
+                    Concrete().chars[CalcType.N], Rebar().chars[CalcType.N],
+                    phi1: 1.4, phi2: 0.5,
+                    SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63,
+                    (t, alongX) => solver.Solve(t, alongX))
+                .Single(s => s.Direction == "x" && s.IsTop);
+        }
+
+        // Высота растянутой зоны при M = M_crc: 0,1124 м без продольной силы и 0,0673 м при
+        // N = −600 кН/м. Первая упирается в отсечку 0,5·h0 = 0,0825, вторая — в 2a' = 0,07,
+        // и база трещин расходится: 0,263 против 0,223 м.
+        var free = Strip(0.0);
+        var pressed = Strip(-600.0);
+
+        Assert.True(free.Cracked && pressed.Cracked, "обе полосы обязаны трещать");
+        Assert.True(pressed.LsM < free.LsM,
+            $"обжатие не уменьшило базу трещин: {pressed.LsM:F4} против {free.LsM:F4} м");
+        Assert.True(pressed.AcrcMm < free.AcrcMm,
+            $"меньшая база не уменьшила раскрытие: {pressed.AcrcMm:F4} против {free.AcrcMm:F4} мм");
+    }
+
     // Сходимость на реальном двухосном сочетании: низ стены, сочетание 3 из сверки с
     // Апхадзе (Nx = +350, Ny = −900, Nxy = 50, Mx = 16,9, My = 40,1, Mxy = 7,4). Поиск с
     // включённой растянутой ветвью бетона здесь и ломался — решение не находилось ни при

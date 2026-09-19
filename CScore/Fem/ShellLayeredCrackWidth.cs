@@ -105,14 +105,22 @@ public static class ShellLayeredCrackWidth
         // остановился поиск. Null возвращается, когда пробника нет или он не сошёлся — тогда
         // ComputeStrip считает обе величины формульно; если не сошлось только решение сечения
         // с трещиной, M_crc остаётся деформационным, а σs,crc уходит на запасной путь.
-        Func<(double Mcrc, double? SigmaSCrc)?> NdmCracking(bool alongX, double z) => () =>
+        Func<(double Mcrc, double? SigmaSCrc, double? TensionZone)?> NdmCracking(bool alongX, double z) => () =>
         {
             var r = Probe(alongX);
             if (r == null) return null;
+
+            // П. 8.2.17: высоту растянутой зоны для A_bt берут ПО РАСЧЁТУ МОМЕНТА ОБРАЗОВАНИЯ
+            // ТРЕЩИН. Это ровно то состояние, на котором остановился поиск M_crc, — а не
+            // геометрия приведённого сечения, которая от нагрузки не зависит вовсе.
+            double? tensionZone = r.StrainState != null
+                ? TensionZoneHeight(r.StrainState, alongX, h)
+                : null;
+
             var cracked = r.CrackedStrainState;
-            if (cracked == null) return (r.Mcrc, (double?)null);
+            if (cracked == null) return (r.Mcrc, (double?)null, tensionZone);
             double eps = alongX ? cracked.EpsX(z) : cracked.EpsY(z);
-            return (r.Mcrc, eps > 0.0 ? Math.Min(Es * eps, RsSer) : 0.0);
+            return (r.Mcrc, eps > 0.0 ? Math.Min(Es * eps, RsSer) : 0.0, tensionZone);
         };
 
         var results = new List<ShellCrackStripResult>();
@@ -162,6 +170,22 @@ public static class ShellLayeredCrackWidth
                 crackingProbe)
             .Where(r => r.Cracked).MaxBy(r => r.AcrcMm);
 
+    /// <summary>
+    /// Высота растянутой зоны по направлению: расстояние от растянутой грани до точки, где
+    /// деформация обращается в ноль. Распределение по толщине линейное (гипотеза плоских
+    /// сечений), поэтому достаточно деформаций обеих граней.
+    /// </summary>
+    static double TensionZoneHeight(ShellStrainState st, bool alongX, double h)
+    {
+        double top = alongX ? st.EpsX(h / 2.0) : st.EpsY(h / 2.0);
+        double bot = alongX ? st.EpsX(-h / 2.0) : st.EpsY(-h / 2.0);
+        if (top <= 0.0 && bot <= 0.0) return 0.0;      // всё сечение сжато
+        if (top > 0.0 && bot > 0.0) return h;          // растянуто насквозь
+        double tens = Math.Max(top, bot);
+        double comp = Math.Min(top, bot);
+        return h * tens / (tens - comp);
+    }
+
     /// <summary>Угол трещины: перпендикулярна направлению главной деформации в точке (ex, ey, gxy).</summary>
     static double CrackAngleDeg(double ex, double ey, double gxy)
     {
@@ -189,7 +213,7 @@ public static class ShellLayeredCrackWidth
         double phi1, double phi2,
         SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma,
         double crackAngleDeg,
-        Func<(double Mcrc, double? SigmaSCrc)?>? ndmCracking = null)
+        Func<(double Mcrc, double? SigmaSCrc, double? TensionZone)?>? ndmCracking = null)
     {
         ShellSimplSolver.FullSectionProps(h, h0, aPrime, asT, 0.0, alphaFull,
             out double aRed, out double iRed);
@@ -224,7 +248,11 @@ public static class ShellLayeredCrackWidth
             if (sigma >= 1e-3)
             {
                 sigmaS = sigma;
-                double hBt = Math.Min(Math.Max(yt, 2.0 * aPrime), h0 / 2.0);
+                // П. 8.2.17: высота растянутой зоны — по расчёту момента образования трещин,
+                // с ограничениями 2a ≤ h_bt ≤ 0,5·h0. Из состояния при M = M_crc, когда оно
+                // найдено; иначе геометрически, от нейтральной оси сечения без трещин.
+                double xt = ndm?.TensionZone ?? yt;
+                double hBt = Math.Min(Math.Max(xt, 2.0 * aPrime), h0 / 2.0);
                 double lsRaw = 0.5 * hBt / asT * ds;
                 double lsMin = Math.Max(10.0 * ds, 0.10);
                 double lsMax = Math.Min(40.0 * ds, 0.40);
