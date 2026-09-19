@@ -42,8 +42,10 @@ public static class ParametricRcSectionFingerprint
     static string AreaKey(MaterialArea area)
     {
         var hull = area.Hull;
-        return hull is null ? $"{area.Category}|{area.MaterialId}|{area.HostAreaId}" :
-            $"{area.Category}|{area.MaterialId}|{area.HostAreaId}|{string.Join(';', hull.X.Zip(hull.Y, (x, y) => F(x) + ',' + F(y)))}";
+        string contour = hull is null ? "" : string.Join(';', hull.X.Zip(hull.Y, (x, y) => F(x) + ',' + F(y)));
+        string bars = string.Join(';', area.Fibers.Where(f => f.TypeFiber == FiberType.point)
+            .OrderBy(f => f.X).ThenBy(f => f.Y).Select(f => $"{F(f.X)},{F(f.Y)},{F(f.Area)},{F(f.Diameter)}"));
+        return $"{area.Category}|{area.MaterialId}|{area.HostAreaId}|{contour}|{bars}";
     }
 
     static string F(double value) => value.ToString("G17", CultureInfo.InvariantCulture);

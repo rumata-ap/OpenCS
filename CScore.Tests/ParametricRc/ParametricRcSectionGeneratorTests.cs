@@ -64,5 +64,31 @@ public sealed class ParametricRcSectionGeneratorTests
         var fiber = Assert.Single(layer.Fibers);
         Assert.Equal(0.0012, fiber.Area, 12);
         Assert.Equal(IdealizedRebarAxis.Mx, layer.IdealizedAxis);
+        Assert.Equal(result.Section.Areas[0].Id, layer.HostAreaId);
+    }
+
+    [Fact]
+    public void GenerateIdealizedLayerForMy_placesLayerOnXCoordinate()
+    {
+        var result = ParametricRcSectionGenerator.Generate(
+            ParametricRcSectionDefinition.Rectangle(0.30, 0.50) with
+            { LowerRebar = ParametricLongitudinalLayer.Idealized(0.0012, 0.020, -0.11, IdealizedRebarAxis.My) });
+
+        var fiber = Assert.Single(result.Section.Areas, a => a.RebarRepresentation == RebarRepresentation.IdealizedLayer).Fibers.Single();
+        Assert.Equal(-0.11, fiber.X, 12);
+        Assert.Equal(0, fiber.Y, 12);
+    }
+
+    [Fact]
+    public void GenerateCircle_rejectsCartesianLongitudinalLayer()
+    {
+        var result = ParametricRcSectionGenerator.Generate(
+            ParametricRcSectionDefinition.Circle(0.60) with
+            {
+                PolarRebar = new ParametricPolarRebar(7, 0.016, 0.24),
+                LowerRebar = ParametricLongitudinalLayer.Idealized(0.001, 0.016, -0.2, IdealizedRebarAxis.Mx)
+            });
+
+        Assert.NotEmpty(result.Diagnostics);
     }
 }

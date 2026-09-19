@@ -201,6 +201,10 @@ namespace OpenCS.Utilites
 
       public void SaveMaterialArea(MaterialArea area)
       {
+         // При создании параметрической арматуры бетонная область ещё может иметь Id=0.
+         // К моменту её сохранения область-носитель должна быть сохранена первой;
+         // синхронизируем persisted FK с объектной ссылкой, а не оставляем нулевой Id.
+         if (area.HostArea != null) area.HostAreaId = area.HostArea.Id;
          using var conn = new SqliteConnection($"Data Source={_dataSource}");
          conn.Open();
          using (var fkCmd = conn.CreateCommand())

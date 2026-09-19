@@ -50,9 +50,24 @@ public static class ParametricRcSectionGenerator
         }
         if (d.Shape is ParametricRcShape.Circle or ParametricRcShape.Annulus)
         {
+            if (d.UpperRebar?.Enabled == true || d.LowerRebar?.Enabled == true)
+                errors.Add("Для круга и кольца допускается только физическая равномерная полярная арматура.");
             var bars = d.PolarRebar;
             if (bars is null || bars.Count < 7 || !(bars.DiameterM > 0) || !(bars.RadiusM > 0))
                 errors.Add("Круг и кольцо требуют минимум семь физических стержней с положительными диаметром и радиусом.");
+            else if (bars.RadiusM + bars.DiameterM / 2 >= d.WidthM / 2 ||
+                     (d.Shape == ParametricRcShape.Annulus && bars.RadiusM - bars.DiameterM / 2 <= d.InnerDiameterM / 2))
+                errors.Add("Полярные стержни должны находиться в бетоне между наружной и внутренней гранями.");
+        }
+        else
+        {
+            foreach (var layer in new[] { d.UpperRebar, d.LowerRebar }.Where(x => x?.Enabled == true))
+            {
+                double half = layer!.DiameterM / 2;
+                double limit = layer.Axis == IdealizedRebarAxis.My ? d.WidthM / 2 : d.HeightM / 2;
+                if (Math.Abs(layer.CoordinateM) + half > limit)
+                    errors.Add("Продольный слой выходит за габариты бетонного сечения.");
+            }
         }
         return errors;
     }
@@ -79,11 +94,14 @@ public static class ParametricRcSectionGenerator
         var area = new MaterialArea
         {
             Tag = tag, Category = AreaCategory.RebarGroup, HostArea = concrete,
+            HostAreaId = concrete.Id,
             RebarRepresentation = layer.IsIdealized ? RebarRepresentation.IdealizedLayer : RebarRepresentation.PhysicalBars,
             IdealizedAxis = layer.Axis
         };
         if (layer.IsIdealized)
-            area.Fibers.Add(Bar(0, layer.CoordinateM, layer.AreaM2, layer.DiameterM));
+            area.Fibers.Add(layer.Axis == IdealizedRebarAxis.My
+                ? Bar(layer.CoordinateM, 0, layer.AreaM2, layer.DiameterM)
+                : Bar(0, layer.CoordinateM, layer.AreaM2, layer.DiameterM));
         else
         {
             double start = -width * 0.35, step = layer.Count == 1 ? 0 : width * 0.70 / (layer.Count - 1);
@@ -95,7 +113,7 @@ public static class ParametricRcSectionGenerator
 
     static void AddPolarRebar(CrossSection section, MaterialArea concrete, ParametricPolarRebar bars)
     {
-        var area = new MaterialArea { Tag = "Продольная арматура", Category = AreaCategory.RebarGroup, HostArea = concrete };
+        var area = new MaterialArea { Tag = "Продольная арматура", Category = AreaCategory.RebarGroup, HostArea = concrete, HostAreaId = concrete.Id };
         double a = Math.PI * bars.DiameterM * bars.DiameterM / 4.0;
         for (int i = 0; i < bars.Count; i++)
         {
