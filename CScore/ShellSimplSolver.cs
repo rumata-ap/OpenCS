@@ -377,6 +377,53 @@ namespace CScore
             return Math.Clamp(sigma, 0.0, Math.Max(0.0, sigmaS));
         }
 
+        /// <summary>
+        /// Напряжение в растянутой арматуре сечения с трещиной по п. 8.2.16 для ПРОИЗВОЛЬНОГО
+        /// момента. Отдельный метод, потому что п. 8.2.18 определяет σs,crc не своей формулой,
+        /// а как ту же σs с подстановкой M = M_crc: «...определяемое по 8.2.16, принимая в
+        /// соответствующих формулах значения M = M_crc». Значит обе величины обязаны считаться
+        /// одним путём, включая поправку (8.154) и вырождение при x_m ≤ 0.
+        /// </summary>
+        /// <param name="alpha">Коэффициент приведения αs1 = Es/Eb,red (п. 8.2.15).</param>
+        internal static double SigmaSByClause8216(
+            double m, double N_des, double h, double h0, double a_prime,
+            double As_t, double As_c, double alpha, double Rs_ser)
+        {
+            double xM = NeutralAxis(h0, a_prime, As_t, As_c, alpha);
+            FullSectionProps(h, h0, a_prime, As_t, As_c, alpha,
+                out double A_red_s1, out double I_red_s1);
+            double armSls = h0 - a_prime;
+
+            double x;
+            if (m > 1e-9) x = xM - I_red_s1 * N_des / (A_red_s1 * m);
+            else x = N_des > 1e-9 ? -1.0 : xM;    // чистое растяжение — сжатой зоны нет вовсе
+            if (x > h0) x = h0;
+
+            if (x > 1e-9)
+            {
+                // Приведённые площадь/момент инерции сечения С ТРЕЩИНОЙ (сжатая зона бетона
+                // + арматура, п. 8.2.16) — в отличие от тех же величин БЕЗ трещины, которые
+                // используются только для Mcrc (п. 8.2.11-8.2.12).
+                double aCrc = x + alpha * (As_t + As_c);
+                double iCrc = x * x * x / 3.0
+                    + alpha * As_t * (h0 - x) * (h0 - x)
+                    + alpha * As_c * (x - a_prime) * (x - a_prime);
+                // Ф. (8.134): σs = [M·(h0−yc)/Ired ± N/Ared]·αs1, yc = x.
+                return ComputeSigmaSCrackedSection(m, N_des, h0, x, aCrc, iCrc, alpha, Rs_ser);
+            }
+
+            // x_m ≤ 0: сжатой зоны нет, сечение растянуто насквозь. Предпосылка ф. (8.134)
+            // (упругое сечение со сжатой зоной бетона) не выполняется, и размазывание N по
+            // A_red,crc занижало бы σs в разы. Бетон выключается из работы, растяжение
+            // делят оба ряда арматуры — та же схема, что в п. 8.1.19а для прочности:
+            //     F_t + F_c = N;   F_t·z_t + F_c·z_c = M   (z — от центра тяжести сечения)
+            // откуда F_t = (M + N·(h/2 − a')) / (h0 − a').
+            // При M → 0 даёт σs = N/(As + A's) — точное значение для центрального растяжения.
+            double f = armSls > 1e-12 ? (m + N_des * (h / 2.0 - a_prime)) / armSls : 0.0;
+            double sg = As_t > 1e-14 ? f / As_t : 0.0;
+            return Math.Clamp(sg, 0.0, Rs_ser);
+        }
+
         internal static void FullSectionProps(double h, double h0, double aPrime,
             double As_t, double As_c, double alphaFull,
             out double A_red, out double I_red)
@@ -483,42 +530,8 @@ namespace CScore
                 out double A_red_s1, out double I_red_s1);
             double armSls = h0 - a_prime;
 
-            // Напряжение в растянутой арматуре по п. 8.2.16 для ПРОИЗВОЛЬНОГО момента.
-            // Вынесено в функцию, потому что п. 8.2.18 определяет σs,crc не отдельной формулой,
-            // а как ту же σs с подстановкой M = Mcrc: «...определяемое по 8.2.16, принимая в
-            // соответствующих формулах значения M = M_crc». Значит обе величины обязаны
-            // считаться одним путём, включая поправку (8.154) и вырождение при x_m ≤ 0.
-            double SigmaSAtMoment(double m)
-            {
-                double x;
-                if (m > 1e-9) x = xM - I_red_s1 * N_des / (A_red_s1 * m);
-                else x = N_des > 1e-9 ? -1.0 : xM;    // чистое растяжение — сжатой зоны нет вовсе
-                if (x > h0) x = h0;
-
-                if (x > 1e-9)
-                {
-                    // Приведённые площадь/момент инерции сечения С ТРЕЩИНОЙ (сжатая зона бетона
-                    // + арматура, п. 8.2.16) — в отличие от A_red/I_red выше, тех же величин БЕЗ
-                    // трещины, используемых только для Mcrc (п. 8.2.11-8.2.12).
-                    double aCrc = x + alpha * (As_t + As_c);
-                    double iCrc = x * x * x / 3.0
-                        + alpha * As_t * (h0 - x) * (h0 - x)
-                        + alpha * As_c * (x - a_prime) * (x - a_prime);
-                    // Ф. (8.134): σs = [M·(h0−yc)/Ired ± N/Ared]·αs1, yc = x.
-                    return ComputeSigmaSCrackedSection(m, N_des, h0, x, aCrc, iCrc, alpha, Rs_ser);
-                }
-
-                // x_m ≤ 0: сжатой зоны нет, сечение растянуто насквозь. Предпосылка ф. (8.134)
-                // (упругое сечение со сжатой зоной бетона) не выполняется, и размазывание N по
-                // A_red,crc занижало бы σs в разы. Бетон выключается из работы, растяжение
-                // делят оба ряда арматуры — та же схема, что в п. 8.1.19а для прочности:
-                //     F_t + F_c = N;   F_t·z_t + F_c·z_c = M   (z — от центра тяжести сечения)
-                // откуда F_t = (M + N·(h/2 − a')) / (h0 − a').
-                // При M → 0 даёт σs = N/(As + A's) — точное значение для центрального растяжения.
-                double f = armSls > 1e-12 ? (m + N_des * (h / 2.0 - a_prime)) / armSls : 0.0;
-                double sg = As_t > 1e-14 ? f / As_t : 0.0;
-                return Math.Clamp(sg, 0.0, Rs_ser);
-            }
+            double SigmaSAtMoment(double m) => SigmaSByClause8216(
+                m, N_des, h, h0, a_prime, As_t, As_c, alpha, Rs_ser);
 
             double xm;
             if (M_des > 1e-9) xm = xM - I_red_s1 * N_des / (A_red_s1 * M_des);

@@ -239,14 +239,15 @@ public static class ShellLayeredCrackWidth
                 }
                 else
                 {
-                    // Общее определение п. 8.2.18 — напряжение из решения НДС при M = Mcrc.
-                    // Без найденного состояния остаётся вненормативный запасной путь (сброс
-                    // растянутого бетона): он не требует решателя и сохраняет старое поведение
-                    // низкоуровневых вызовов.
+                    // Общее определение п. 8.2.18 — напряжение при M = Mcrc. Первый путь —
+                    // из решения НДС сечения с трещиной. Без него (низкоуровневые вызовы без
+                    // решателя, несошедшийся поиск) берётся та же величина по формулам
+                    // п. 8.2.16 — тем же расчётом, что и полосовая цепочка ShellSimplSolver,
+                    // а не вненормативной формулой сброса растянутого бетона.
                     sigmaSCrc = ndm?.SigmaSCrc is double fromNdm
                         ? Math.Min(fromNdm, sigmaS)
-                        : ShellSimplSolver.SigmaSCrcFromReleasedConcrete(
-                            rbt, hBt, asT, alphaFull, sigmaS);
+                        : Math.Min(ShellSimplSolver.SigmaSByClause8216(
+                            mcrc, nDes, h, h0, aPrime, asT, 0.0, alpha, rsSer), sigmaS);
                 }
 
                 psiS = sigmaS > 1e-3

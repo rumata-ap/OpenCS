@@ -161,18 +161,49 @@ public class CrackingMomentGammaTests
         double byMomentSnip = Acrc(SigmaSCrcMethod.CrackingMoment8138, WplGammaMethod.Snip2030184);
         Assert.True(byMomentSnip < byMomentSp63);
 
-        // По напряжениям γ не влияет вовсе.
-        Assert.Equal(Acrc(SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63),
-                     Acrc(SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Snip2030184), 9);
+        // 19.09.2026: γ влияет и по общему определению п. 8.2.18 — с тех пор, как σs,crc
+        // считается той же σs при M = M_crc (а M_crc формульного пути пропорционален γ).
+        // Раньше здесь стоял вненормативный сброс растянутого бетона, который M_crc не
+        // содержал вовсе, и равенство держалось.
+        Assert.True(Acrc(SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Snip2030184)
+                  < Acrc(SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63));
 
-        // 18.09.2026: цепочки разошлись намеренно. Полосовая (ShellSimplSolver) считает σs,crc
-        // по общему определению п. 8.2.18 — та же σs при M = M_crc, — и даёт 0,2945. Низкоуровневый
-        // вход ComputeAcrcStrip решателя НДС не получает, поэтому остаётся на формульном запасном
-        // пути (сброс растянутого бетона) и даёт 0,2567. В FemCheckRunner решатель подключён, там
-        // σs,crc нормативная; перевод самого ComputeAcrcStrip на формульную цепочку при M = M_crc
-        // пока не сделан.
         Assert.Equal(0.2945, Strip(WplGammaMethod.Sp63).Acrc_mm, 4);
-        Assert.Equal(0.2567, Acrc(SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63), 4);
+    }
+
+    // Низкоуровневый вход ComputeAcrcStrip решателя НДС не получает и остаётся на формульном
+    // пути — но путь этот обязан быть нормативным: σs,crc по общему определению п. 8.2.18
+    // (та же σs по 8.2.16 при M = M_crc), а не по вненормативной формуле сброса растянутого
+    // бетона. 18.09.2026 цепочки расходились: полосовая давала 0,2945, а эта — 0,2567.
+    //
+    // Сравнение ведётся при A's = 0: у ComputeAcrcStrip сжатой арматуры нет в сигнатуре вовсе,
+    // а полосовая её учитывает (в остальных проверках этого файла A's = 5,655 см²/м).
+    [Fact]
+    public void ComputeAcrcStrip_MatchesStripChain_OnSameInputData()
+    {
+        var stripNoCompression = ShellSimplSolver.ComputeStripSls(
+            M_des: M, N_des: 0.0, h: H, h0: H0, a_prime: APrime,
+            As_t: AsBot, As_c: 0.0, ds: Ds,
+            concrete: ConcreteN(), rebar: RebarN(),
+            phi1: 1.4, phi2: 0.5, acrcLimMm: 0.3,
+            sigmaSCrcMethod: SigmaSCrcMethod.ReleasedConcrete8137,
+            wplGamma: WplGammaMethod.Sp63);
+
+        // σs слоистая берёт из НДС, а полосовая считает сама по (8.134); чтобы сравнивались
+        // именно цепочки σs,crc → ψs → acrc, деформация задаётся из её же σs.
+        double epsS = stripNoCompression.Sigma_s_MPa * 1000.0 / 200_000_000.0;
+
+        double acrcLowLevel = CScore.Fem.ShellLayeredCrackWidth.ComputeAcrcStrip(
+            eps_s: epsS, M_des: M, N_des: 0.0,
+            h: H, h0: H0, aPrime: APrime, As_t: AsBot, ds: Ds,
+            Rbt: 1_550.0, Rb_ser: 18_500.0, Es: 200_000_000.0, Rs_ser: 500_000.0,
+            Eb_red: 18_500.0 / 0.0015, alphaFull: 200_000_000.0 / 30_000_000.0,
+            alpha: 200_000_000.0 / (18_500.0 / 0.0015),
+            phi1: 1.4, phi2: 0.5,
+            sigmaSCrcMethod: SigmaSCrcMethod.ReleasedConcrete8137,
+            wplGamma: WplGammaMethod.Sp63);
+
+        Assert.Equal(stripNoCompression.Acrc_mm, acrcLowLevel, 4);
     }
 
     [Fact]
