@@ -9,6 +9,12 @@ namespace CScore
    /// <summary>Категория материальной области: полигональная, группа стержней или одиночный стержень.</summary>
    public enum AreaCategory { Region, RebarGroup, Stirrups }
 
+   /// <summary>Способ представления продольной арматуры в области.</summary>
+   public enum RebarRepresentation { PhysicalBars = 0, IdealizedLayer = 1 }
+
+   /// <summary>Разрешённая плоскость изгиба расчётного слоя арматуры.</summary>
+   public enum IdealizedRebarAxis { Mx, My }
+
    /// <summary>Метод генерации сетки фибр.</summary>
    public enum MeshMethod { Grid, Ruppert, AdvancingFront }
 
@@ -91,6 +97,12 @@ namespace CScore
 
       /// <summary>Категория области: полигон, группа стержней или одиночный стержень.</summary>
       public AreaCategory Category { get; set; } = AreaCategory.Region;
+
+      /// <summary>Способ представления продольной арматуры.</summary>
+      public RebarRepresentation RebarRepresentation { get; set; } = RebarRepresentation.PhysicalBars;
+
+      /// <summary>Единственная допустимая ось изгиба расчётного слоя.</summary>
+      public IdealizedRebarAxis? IdealizedAxis { get; set; }
 
       /// <summary>Метод генерации сетки фибр.</summary>
       public MeshMethod MeshMethod { get; set; } = MeshMethod.Grid;
@@ -370,6 +382,9 @@ namespace CScore
             Material = Material,
             MaterialId = MaterialId,
             DiagrammType = DiagrammType,
+            Category = Category,
+            RebarRepresentation = RebarRepresentation,
+            IdealizedAxis = IdealizedAxis,
             HostArea = HostArea,
             HostAreaId = HostAreaId,
             Diagramms = new Dictionary<CalcType, Diagramm>(Diagramms),
@@ -398,6 +413,8 @@ namespace CScore
          PoolContourId  = PoolContourId,
          DiagrammType   = DiagrammType,
          Category       = Category,
+         RebarRepresentation = RebarRepresentation,
+         IdealizedAxis  = IdealizedAxis,
          MeshMethod     = MeshMethod,
          MeshMaxArea    = MeshMaxArea,
          MeshMinAngle   = MeshMinAngle,

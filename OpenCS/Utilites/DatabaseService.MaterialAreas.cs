@@ -17,7 +17,7 @@ namespace OpenCS.Utilites
             SELECT id, num, tag, description, material_id,
                    host_area_id, diagramm_type, nx, ny, wkt, category, pool_contour_id,
                    mesh_method, mesh_max_area, mesh_min_angle, mesh_max_edge_len, mesh_smooth_iter,
-                   sig_sp, gamma_sp
+                   sig_sp, gamma_sp, rebar_representation, idealized_axis
             FROM material_areas
             WHERE section_id IS NULL
             ORDER BY num
@@ -41,7 +41,9 @@ namespace OpenCS.Utilites
                MeshMaxEdgeLen = r.IsDBNull(15) ? 0.0 : r.GetDouble(15),
                MeshSmoothIter = r.IsDBNull(16) ? 5 : r.GetInt32(16),
                SigSp = r.IsDBNull(17) ? 0.0 : r.GetDouble(17),
-               GammaSp = r.IsDBNull(18) ? 1.0 : r.GetDouble(18)
+               GammaSp = r.IsDBNull(18) ? 1.0 : r.GetDouble(18),
+               RebarRepresentation = r.IsDBNull(19) ? RebarRepresentation.PhysicalBars : (RebarRepresentation)r.GetInt32(19),
+               IdealizedAxis = r.IsDBNull(20) ? null : Enum.TryParse<IdealizedRebarAxis>(r.GetString(20), true, out var axis) ? axis : null
             };
             if (area.WKT != null)
             {
@@ -211,11 +213,11 @@ namespace OpenCS.Utilites
          using (var cmd = conn.CreateCommand())
          {
             cmd.CommandText = isNew ? """
-               INSERT INTO material_areas (num,tag,description,material_id,host_area_id,diagramm_type,nx,ny,wkt,category,pool_contour_id,mesh_method,mesh_max_area,mesh_min_angle,mesh_max_edge_len,mesh_smooth_iter,sig_sp,gamma_sp)
-               VALUES (@num,@tag,@desc,@mid,@hid,@dtype,@nx,@ny,@wkt,@cat,@pcid,@mmethod,@mmaxarea,@mminangle,@mmaxedge,@msmoothiter,@sigsp,@gammasp);
+               INSERT INTO material_areas (num,tag,description,material_id,host_area_id,diagramm_type,nx,ny,wkt,category,pool_contour_id,mesh_method,mesh_max_area,mesh_min_angle,mesh_max_edge_len,mesh_smooth_iter,sig_sp,gamma_sp,rebar_representation,idealized_axis)
+               VALUES (@num,@tag,@desc,@mid,@hid,@dtype,@nx,@ny,@wkt,@cat,@pcid,@mmethod,@mmaxarea,@mminangle,@mmaxedge,@msmoothiter,@sigsp,@gammasp,@repr,@axis);
                SELECT last_insert_rowid();
             """ : """
-               UPDATE material_areas SET num=@num,tag=@tag,description=@desc,material_id=@mid,host_area_id=@hid,diagramm_type=@dtype,nx=@nx,ny=@ny,wkt=@wkt,category=@cat,pool_contour_id=@pcid,mesh_method=@mmethod,mesh_max_area=@mmaxarea,mesh_min_angle=@mminangle,mesh_max_edge_len=@mmaxedge,mesh_smooth_iter=@msmoothiter,sig_sp=@sigsp,gamma_sp=@gammasp WHERE id=@id;
+               UPDATE material_areas SET num=@num,tag=@tag,description=@desc,material_id=@mid,host_area_id=@hid,diagramm_type=@dtype,nx=@nx,ny=@ny,wkt=@wkt,category=@cat,pool_contour_id=@pcid,mesh_method=@mmethod,mesh_max_area=@mmaxarea,mesh_min_angle=@mminangle,mesh_max_edge_len=@mmaxedge,mesh_smooth_iter=@msmoothiter,sig_sp=@sigsp,gamma_sp=@gammasp,rebar_representation=@repr,idealized_axis=@axis WHERE id=@id;
             """;
             if (!isNew) cmd.Parameters.AddWithValue("@id", area.Id);
             cmd.Parameters.AddWithValue("@num", area.Num); cmd.Parameters.AddWithValue("@tag", area.Tag); cmd.Parameters.AddWithValue("@desc", (object?)area.Description ?? DBNull.Value);
@@ -224,6 +226,8 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@cat", area.Category.ToString().ToLowerInvariant()); cmd.Parameters.AddWithValue("@pcid", (object?)area.PoolContourId ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@mmethod", area.MeshMethod.ToString().ToLowerInvariant()); cmd.Parameters.AddWithValue("@mmaxarea", area.MeshMaxArea); cmd.Parameters.AddWithValue("@mminangle", area.MeshMinAngle);
             cmd.Parameters.AddWithValue("@mmaxedge", area.MeshMaxEdgeLen); cmd.Parameters.AddWithValue("@msmoothiter", area.MeshSmoothIter); cmd.Parameters.AddWithValue("@sigsp", area.SigSp); cmd.Parameters.AddWithValue("@gammasp", area.GammaSp);
+            cmd.Parameters.AddWithValue("@repr", (int)area.RebarRepresentation);
+            cmd.Parameters.AddWithValue("@axis", area.IdealizedAxis?.ToString() ?? (object)DBNull.Value);
             if (isNew) area.Id = (int)(long)cmd.ExecuteScalar()!; else cmd.ExecuteNonQuery();
          }
          ReplacePointFibers(area, conn);
