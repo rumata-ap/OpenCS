@@ -99,4 +99,47 @@ public sealed class ShellLayeredSlsHandlerTests
         }
         finally { TryDelete(path); }
     }
+
+    // П. 8.2.8/8.2.14: M_crc слоистой модели ищется по деформационной модели, а Wpl = γ·Wred
+    // остаётся лишь допускаемым упрощением. Признак того, что решатель подключён и к задаче
+    // (а не только к FemCheckRunner): выбор γ на результат не влияет.
+    [Fact]
+    public void Run_TakesCrackingMomentFromDeformationModel_IgnoringWplGamma()
+    {
+        double McrcWith(string gamma)
+        {
+            string path = TempPath();
+            try
+            {
+                using var database = new DatabaseService(path);
+                var (concrete, rebar) = MakeMaterials();
+                database.Materials.Add(concrete);
+                database.Materials.Add(rebar);
+                var section = MakeSection(concrete.Id, rebar.Id);
+                database.PlateSections.Add(section);
+
+                var task = new CalcTask
+                {
+                    Id = 1, Kind = "shell_layered_sls", CalcType = CalcType.C, SectionId = section.Id,
+                    ParamsJson = new ShellLayeredSlsParams
+                    {
+                        Mx = 50.0, My = 30.0, Phi1 = 1.0, Phi2 = 0.5, WplGammaMethod = gamma,
+                    }.ToJson(),
+                };
+
+                var result = new ShellLayeredSlsHandler().Run(
+                    task, null!, new LoadItem(), CalcSettings.Default,
+                    new TaskRunContext { Database = database });
+
+                Assert.True(result.Status is "ok" or "not_passed", $"status={result.Status}");
+                using var doc = JsonDocument.Parse(result.DataJson);
+                return doc.RootElement.GetProperty("Strips").EnumerateArray()
+                    .First(s => s.GetProperty("Direction").GetString() == "x")
+                    .GetProperty("Mcrc").GetDouble();
+            }
+            finally { TryDelete(path); }
+        }
+
+        Assert.Equal(McrcWith("sp63"), McrcWith("snip"), 6);
+    }
 }

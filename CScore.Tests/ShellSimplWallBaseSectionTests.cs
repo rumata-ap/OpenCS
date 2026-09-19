@@ -196,21 +196,17 @@ public class ShellSimplWallBaseSectionTests
         var rebarMat = Fixture.Rebar();
         var shell = new ShellLoadItem { Nx = f.Nx, Ny = f.Ny, Nxy = f.Nxy, Mx = f.Mx, My = f.My, Mxy = f.Mxy };
 
-        // П. 8.2.18: σs,crc — та же задача при M = Mcrc, поэтому решателю передаётся способ
-        // пересчитать НДС для состояния образования трещин.
+        // П. 8.2.14 — M_crc по деформационной модели, п. 8.2.18 — σs,crc в том же состоянии:
+        // и то и другое даёт один поиск ShellCrackingSolver.
         var cDiag = concreteMat.GetDiagramms(DiagrammType.L3)![CalcType.N];
         var rDiag = rebarMat.GetDiagramms(
             DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))![CalcType.N];
-        ShellStrainState? SolveAt(double[] target)
-        {
-            var res = new ShellStrainSolver(section, cDiag, rDiag)
-                .SolveRobust(target, concreteMat, rebarMat, CalcType.N);
-            return res.Converged ? res.StrainState : null;
-        }
+        var crackingSolver = new ShellCrackingSolver(section, cDiag, rDiag);
 
         return ShellLayeredCrackWidth.ComputeAll(
             section, shell, st, concreteMat.chars[CalcType.N], rebarMat.chars[CalcType.N],
-            phi1, 0.5, SigmaSCrcMethod.ReleasedConcrete8137, gamma, SolveAt);
+            phi1, 0.5, SigmaSCrcMethod.ReleasedConcrete8137, gamma,
+            (target, alongX) => crackingSolver.Solve(target, alongX));
     }
 
     static (double Long, double Short) LayeredCrackWidths(bool softening,
@@ -495,9 +491,11 @@ public class ShellSimplWallBaseSectionTests
             Nx = SlsLong.Nx, Ny = SlsLong.Ny, Nxy = SlsLong.Nxy,
             Mx = SlsLong.Mx, My = SlsLong.My, Mxy = SlsLong.Mxy
         };
+        var crackingSolver = new ShellCrackingSolver(section, cDiag, rDiag);
         var strips = ShellLayeredCrackWidth.ComputeAll(
             section, shell, st, concreteMat.chars[CalcType.N], rebarMat.chars[CalcType.N],
-            1.4, 0.5, SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63, SolveAt);
+            1.4, 0.5, SigmaSCrcMethod.ReleasedConcrete8137, WplGammaMethod.Sp63,
+            (target, alongX) => crackingSolver.Solve(target, alongX));
 
         var outer = strips.First(s => s.Direction == "x" && s.Z > 0);
         Assert.True(outer.Cracked);

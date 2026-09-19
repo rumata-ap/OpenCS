@@ -12,9 +12,15 @@ public sealed class ShellCrackingResult
 
     public bool Converged { get; init; }
 
-    /// <summary>НДС при M = M_crc. Именно это состояние нужно для σs,crc по п. 8.2.18,
-    /// поэтому один поиск закрывает обе величины. Null, если не сошлось.</summary>
+    /// <summary>НДС непосредственно ПЕРЕД образованием трещины: растянутый бетон ещё работает
+    /// и несёт почти всё усилие. Именно на нём останавливается поиск. Null, если не сошлось.</summary>
     public ShellStrainState? StrainState { get; init; }
+
+    /// <summary>НДС сечения С ТРЕЩИНОЙ при том же M = M_crc (растянутый бетон выключен,
+    /// п. 8.2.16). Именно отсюда берётся σs,crc: п. 8.2.18 определяет её как напряжение
+    /// «сразу ПОСЛЕ образования нормальных трещин», а не перед ним — до трещины арматура
+    /// напряжена слабо, усилие несёт бетон. Null, если это решение не сошлось.</summary>
+    public ShellStrainState? CrackedStrainState { get; init; }
 
     /// <summary>Максимальная растягивающая деформация бетона в найденном состоянии.</summary>
     public double MaxTensileStrain { get; init; }
@@ -24,6 +30,17 @@ public sealed class ShellCrackingResult
     /// <summary>Пояснение, когда Converged = false.</summary>
     public string Description { get; init; } = "";
 }
+
+/// <summary>
+/// Поиск состояния трещинообразования для одного направления: (усилия, направление) →
+/// (M_crc, НДС при M = M_crc). Один поиск закрывает обе величины, нужные слоистой модели
+/// (п. 8.2.14 и п. 8.2.18). Реализация по умолчанию — <see cref="ShellCrackingSolver.Solve"/>;
+/// параметром делегата она передаётся, чтобы CScore.Fem не зависел от того, откуда берутся
+/// диаграммы, и чтобы вызывающий мог кэшировать результат между наборами усилий.
+/// </summary>
+/// <param name="target6">Усилия (Nx, Ny, Nxy, Mx, My, Mxy).</param>
+/// <param name="alongX">true — момент Mx, false — My.</param>
+public delegate ShellCrackingResult? ShellCrackingProbe(double[] target6, bool alongX);
 
 /// <summary>
 /// Момент трещинообразования плитного (оболочечного) сечения по ДЕФОРМАЦИОННОЙ МОДЕЛИ,
@@ -98,18 +115,58 @@ public sealed class ShellCrackingSolver
         // растянутый бетон не работает вовсе и трещинообразование обнаружить нечем.
         var solver = new ShellStrainSolver(_section, _cDiag, _rDiag, tensionOverride: true);
 
+        // Сечение С ТРЕЩИНОЙ (п. 8.2.16) — для σs,crc по п. 8.2.18: растянутый бетон выключен
+        // независимо от TensionConcrete сечения.
+        var crackedSolver = new ShellStrainSolver(_section, _cDiag, _rDiag, tensionOverride: false);
+
+        // Поиск ведётся ОДНООСНО: усилия рассматриваемого направления (N и масштабируемый M),
+        // остальные четыре компоненты — нули. Причина не в удобстве, а в модели: растянутый
+        // бетон включается сразу на всё сечение, по обоим направлениям, и если по соседнему
+        // направлению бетон уже за ε_bt,ult (на реальных сочетаниях стен и плит это обычное
+        // дело), равновесия с целым растянутым бетоном не существует ни при каком M — поиск
+        // не сходился вовсе. Норма и определяет трещинообразование по направлению: п. 8.2.10
+        // и 8.2.14 говорят о моменте M рассматриваемого направления при своей N. Двухосность
+        // остаётся там, где она нужна и где решение устойчиво: в рабочем НДС и в сечении с
+        // трещиной при M = M_crc, откуда берётся σs,crc.
+        double[] Uniaxial(double magnitude)
+        {
+            var t = new double[6];
+            t[alongX ? 0 : 1] = target[alongX ? 0 : 1];
+            t[idx] = sign * magnitude;
+            return t;
+        }
+
+        // Последнее сошедшееся состояние — начальное приближение для следующей точки поиска.
+        // Отклик растянутого бетона у предела негладкий, и «холодный» упругий старт на нём
+        // разваливается (двухосное сочетание с растягивающей N не решалось вовсе); шаг же от
+        // соседней точки продолжает решение по параметру и сходится.
+        double[]? warm = null;
+
         (bool ok, double eps, ShellStrainState? st) At(double magnitude)
         {
             iterations++;
-            var t = (double[])target.Clone();
-            t[idx] = sign * magnitude;
-            var res = solver.Solve(t);
+            var t = Uniaxial(magnitude);
+            var res = solver.Solve(t, warm);
+            // Запасная стратегия — каскад с продолжением по λ (SolveRobust): им же пользуются
+            // вызывающие для рабочего НДС.
+            if (!res.Converged) res = solver.SolveRobust(t);
             if (!res.Converged) return (false, double.NaN, null);
             var s = res.StrainState;
+            warm = s.ToArray();
             double e = alongX
                 ? Math.Max(s.EpsX(h / 2.0), s.EpsX(-h / 2.0))
                 : Math.Max(s.EpsY(h / 2.0), s.EpsY(-h / 2.0));
             return (true, e, s);
+        }
+
+        /// <summary>НДС сечения с трещиной при найденном M_crc — источник σs,crc.</summary>
+        ShellStrainState? Cracked(double magnitude)
+        {
+            var t = (double[])target.Clone();
+            t[idx] = sign * magnitude;
+            var res = crackedSolver.Solve(t);
+            if (!res.Converged) res = crackedSolver.SolveRobust(t);
+            return res.Converged ? res.StrainState : null;
         }
 
         // Трещит ли сечение от одной продольной силы, без момента.
@@ -118,6 +175,7 @@ public sealed class ShellCrackingSolver
             return new ShellCrackingResult
             {
                 Mcrc = 0.0, Converged = true, StrainState = zero.st,
+                CrackedStrainState = Cracked(0.0),
                 MaxTensileStrain = zero.eps, Iterations = iterations,
                 Description = "сечение трещит от продольной силы"
             };
@@ -164,6 +222,7 @@ public sealed class ShellCrackingSolver
             Mcrc = lo,
             Converged = best != null,
             StrainState = best,
+            CrackedStrainState = best != null ? Cracked(lo) : null,
             MaxTensileStrain = bestEps,
             Iterations = iterations,
             Description = best == null ? "не удалось найти состояние до образования трещины" : ""

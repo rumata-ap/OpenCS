@@ -59,18 +59,18 @@ public static class ShellLayeredCrackWidth
 {
     /// <summary>Полная картина: одна запись на каждый (слой × направление X|Y), где
     /// соответствующая площадь армирования &gt; 0. Не схлопывает в максимум.</summary>
-    /// <param name="solveAtCrackingState">Решатель НДС для состояния образования трещин.
-    /// П. 8.2.18 СП 63 определяет σs,crc как напряжение в арматуре «сразу после образования
-    /// нормальных трещин, определяемое по 8.2.16, принимая в соответствующих формулах значения
-    /// M = M_crc». Для слоистой модели это означает повторное решение той же задачи 6×6 при
-    /// моменте рассматриваемого направления, заменённом на M_crc: делегат принимает вектор
-    /// (Nx, Ny, Nxy, Mx, My, Mxy) и возвращает найденное НДС либо null, если сходимости нет.
-    /// Если делегат не передан, σs,crc считается формульно (см. ComputeStrip).</param>
+    /// <param name="crackingProbe">Поиск состояния трещинообразования по деформационной модели.
+    /// П. 8.2.8 делает этот путь основным, п. 8.2.14 его описывает, а Wpl = γ·Wred остаётся
+    /// лишь допускаемым упрощением — слоистой модели нужен основной путь, иначе в неё
+    /// затягивается эмпирический γ. Один поиск даёт и M_crc, и НДС при M = M_crc, то есть
+    /// сразу и σs,crc по п. 8.2.18. Если пробник не передан или не сошёлся, обе величины
+    /// считаются формульно (см. ComputeStrip) — это запасной путь для вызовов, которым
+    /// решатель НДС недоступен.</param>
     public static IReadOnlyList<ShellCrackStripResult> ComputeAll(
         PlateSection section, ShellLoadItem shell, ShellStrainState st,
         MaterialChars cCh, MaterialChars rCh, double phi1, double phi2,
         SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma,
-        Func<double[], ShellStrainState?>? solveAtCrackingState = null)
+        ShellCrackingProbe? crackingProbe = null)
     {
         double RbSer = Math.Abs(cCh.Fc);
         double Rbt = cCh.Ft;
@@ -81,24 +81,39 @@ public static class ShellLayeredCrackWidth
         double alpha = Es / ebRed;
         double h = section.H;
 
-        // П. 8.2.18: σs,crc — та же задача при M = M_crc. Для слоистой модели это не формула,
-        // а повторное решение 6×6 с заменённым моментом рассматриваемого направления; знак
-        // момента сохраняется, потому что M_crc — беззнаковый порог.
-        Func<double, double>? SigmaSCrcSolver(bool alongX, double z)
+        // Состояние трещинообразования ищется РАЗ НА НАПРАВЛЕНИЕ: M_crc и НДС при M = M_crc
+        // от слоя не зависят (усилия одни и те же), а поиск стоит десятков решений 6×6.
+        // От слоя зависит лишь σs,crc — координатой z выбирается ряд арматуры в найденном НДС.
+        ShellCrackingResult?[] probed = new ShellCrackingResult?[2];
+        bool[] probeDone = new bool[2];
+        ShellCrackingResult? Probe(bool alongX)
         {
-            if (solveAtCrackingState == null) return null;
-            return mcrc =>
+            int i = alongX ? 0 : 1;
+            if (!probeDone[i])
             {
-                double mSelf = alongX ? shell.Mx : shell.My;
-                double mCrcSigned = mSelf < 0.0 ? -mcrc : mcrc;
-                var stCrc = solveAtCrackingState(alongX
-                    ? [shell.Nx, shell.Ny, shell.Nxy, mCrcSigned, shell.My, shell.Mxy]
-                    : [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, mCrcSigned, shell.Mxy]);
-                if (stCrc == null) return double.NaN;       // нет сходимости — формульный запасной путь
-                double eps = alongX ? stCrc.EpsX(z) : stCrc.EpsY(z);
-                return eps > 0.0 ? Math.Min(Es * eps, RsSer) : 0.0;
-            };
+                probeDone[i] = true;
+                probed[i] = crackingProbe?.Invoke(
+                    [shell.Nx, shell.Ny, shell.Nxy, shell.Mx, shell.My, shell.Mxy], alongX);
+            }
+            var r = probed[i];
+            return r is { Converged: true } ? r : null;
         }
+
+        // П. 8.2.14 — M_crc; п. 8.2.18 — σs,crc в ТОМ ЖЕ сечении при M = M_crc, но уже с
+        // трещиной (п. 8.2.16): напряжение определяется «сразу после образования трещин»,
+        // поэтому берётся состояние с выключённым растянутым бетоном, а не то, на котором
+        // остановился поиск. Null возвращается, когда пробника нет или он не сошёлся — тогда
+        // ComputeStrip считает обе величины формульно; если не сошлось только решение сечения
+        // с трещиной, M_crc остаётся деформационным, а σs,crc уходит на запасной путь.
+        Func<(double Mcrc, double? SigmaSCrc)?> NdmCracking(bool alongX, double z) => () =>
+        {
+            var r = Probe(alongX);
+            if (r == null) return null;
+            var cracked = r.CrackedStrainState;
+            if (cracked == null) return (r.Mcrc, (double?)null);
+            double eps = alongX ? cracked.EpsX(z) : cracked.EpsY(z);
+            return (r.Mcrc, eps > 0.0 ? Math.Min(Es * eps, RsSer) : 0.0);
+        };
 
         var results = new List<ShellCrackStripResult>();
         for (int layerIndex = 0; layerIndex < section.RebarLayers.Count; layerIndex++)
@@ -115,7 +130,7 @@ public static class ShellLayeredCrackWidth
                     Rbt, RbSer, Es, RsSer, ebRed, alphaFull, alpha,
                     phi1, phi2, sigmaSCrcMethod, wplGamma,
                     CrackAngleDeg(st.EpsX(z), st.EpsY(z), st.GammaXY(z)),
-                    SigmaSCrcSolver(alongX: true, z)));
+                    NdmCracking(alongX: true, z)));
             }
 
             if (layer.Asy > 1e-14)
@@ -128,7 +143,7 @@ public static class ShellLayeredCrackWidth
                     Rbt, RbSer, Es, RsSer, ebRed, alphaFull, alpha,
                     phi1, phi2, sigmaSCrcMethod, wplGamma,
                     CrackAngleDeg(st.EpsX(z), st.EpsY(z), st.GammaXY(z)),
-                    SigmaSCrcSolver(alongX: false, z)));
+                    NdmCracking(alongX: false, z)));
             }
         }
 
@@ -142,9 +157,9 @@ public static class ShellLayeredCrackWidth
         PlateSection section, ShellLoadItem shell, ShellStrainState st,
         MaterialChars cCh, MaterialChars rCh, double phi1, double phi2,
         SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma,
-        Func<double[], ShellStrainState?>? solveAtCrackingState = null)
+        ShellCrackingProbe? crackingProbe = null)
         => ComputeAll(section, shell, st, cCh, rCh, phi1, phi2, sigmaSCrcMethod, wplGamma,
-                solveAtCrackingState)
+                crackingProbe)
             .Where(r => r.Cracked).MaxBy(r => r.AcrcMm);
 
     /// <summary>Угол трещины: перпендикулярна направлению главной деформации в точке (ex, ey, gxy).</summary>
@@ -174,7 +189,7 @@ public static class ShellLayeredCrackWidth
         double phi1, double phi2,
         SigmaSCrcMethod sigmaSCrcMethod, WplGammaMethod wplGamma,
         double crackAngleDeg,
-        Func<double, double>? sigmaSCrcFromSolve = null)
+        Func<(double Mcrc, double? SigmaSCrc)?>? ndmCracking = null)
     {
         ShellSimplSolver.FullSectionProps(h, h0, aPrime, asT, 0.0, alphaFull,
             out double aRed, out double iRed);
@@ -184,7 +199,13 @@ public static class ShellLayeredCrackWidth
         double wRed = iRed / yt;
         double wPl = ShellSimplSolver.ResolveWplGamma(wplGamma, asT, 1.0, h) * wRed;
         double ex = wRed / aRed;
-        double mcrc = Math.Max(0.0, rbt * wPl - nDes * ex);
+
+        // П. 8.2.8: основной путь для M_crc — деформационная модель (п. 8.2.14), а Rbt·γ·Wred
+        // (п. 8.2.10–8.2.12) — лишь допускаемое упрощение. Слоистая модель идёт основным путём,
+        // когда состояние трещинообразования найдено; γ тогда в расчёт не входит вовсе.
+        // Тот же поиск даёт и σs,crc по п. 8.2.18 — напряжение в этой арматуре при M = M_crc.
+        var ndm = ndmCracking?.Invoke();
+        double mcrc = ndm?.Mcrc ?? Math.Max(0.0, rbt * wPl - nDes * ex);
         // mcrc — не имеющий знака порог (Math.Max(0.0, ...)); mDes может быть отрицательным
         // (момент, растягивающий нижнюю грань). Сравнение без Abs пропускало трещины при
         // любом отрицательном mDes независимо от его модуля.
@@ -219,11 +240,13 @@ public static class ShellLayeredCrackWidth
                 else
                 {
                     // Общее определение п. 8.2.18 — напряжение из решения НДС при M = Mcrc.
-                    double fromSolve = sigmaSCrcFromSolve?.Invoke(mcrc) ?? double.NaN;
-                    sigmaSCrc = double.IsNaN(fromSolve)
-                        ? ShellSimplSolver.SigmaSCrcFromReleasedConcrete(
-                            rbt, hBt, asT, alphaFull, sigmaS)     // запасной путь без решателя
-                        : Math.Min(fromSolve, sigmaS);
+                    // Без найденного состояния остаётся вненормативный запасной путь (сброс
+                    // растянутого бетона): он не требует решателя и сохраняет старое поведение
+                    // низкоуровневых вызовов.
+                    sigmaSCrc = ndm?.SigmaSCrc is double fromNdm
+                        ? Math.Min(fromNdm, sigmaS)
+                        : ShellSimplSolver.SigmaSCrcFromReleasedConcrete(
+                            rbt, hBt, asT, alphaFull, sigmaS);
                 }
 
                 psiS = sigmaS > 1e-3

@@ -369,20 +369,19 @@ public static class FemCheckRunner
         double acrcMax;
         string acrcDir;
 
-        // П. 8.2.18: σs,crc — напряжение в арматуре сразу после образования трещин, то есть та же
-        // задача при M = M_crc. Для слоистой модели это повторное решение НДС, поэтому решателю
-        // передаётся способ его выполнить. Диаграммы — CalcType.N по п. 6.1.26 (см. RunLayeredCheck).
+        // П. 8.2.8/8.2.14: M_crc слоистой модели — деформационный, а не Rbt·γ·Wred; п. 8.2.18:
+        // σs,crc — напряжение в арматуре в том же состоянии (M = M_crc). Обе величины даёт один
+        // поиск ShellCrackingSolver. Диаграммы — CalcType.N по п. 6.1.26 (см. RunLayeredCheck).
         var cDiagCrc = concreteMat.GetDiagramms(concreteDiagType)?[CalcType.N]
             ?? concreteMat.GetDiagramms(DiagrammType.L3)?[CalcType.N];
         var rDiagCrc = rebarMat.GetDiagramms(
             DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N];
-        Func<double[], ShellStrainState?>? solveAtCrc = null;
+        ShellCrackingProbe? solveAtCrc = null;
         if (cDiagCrc != null && rDiagCrc != null)
-            solveAtCrc = target =>
-            {
-                var r = new ShellStrainSolver(section, cDiagCrc, rDiagCrc).Solve(target);
-                return r.Converged ? r.StrainState : null;
-            };
+        {
+            var crackingSolver = new ShellCrackingSolver(section, cDiagCrc, rDiagCrc);
+            solveAtCrc = (target, alongX) => crackingSolver.Solve(target, alongX);
+        }
 
         if (calcType == CalcType.NL)
         {

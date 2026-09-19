@@ -274,9 +274,14 @@ public sealed class ShellLayeredSlsHandler : ITaskHandler
             if (rCh == null)
                 throw new InvalidOperationException("Характеристики арматуры CalcType.N не найдены.");
 
+            // П. 8.2.8/8.2.14 — M_crc по деформационной модели вместо Rbt·γ·Wred; п. 8.2.18 —
+            // σs,crc в том же сечении с трещиной при M = M_crc. Обе величины даёт один поиск.
+            var crackingSolver = new ShellCrackingSolver(plate, cDiag, rDiag);
+
             var strips = ShellLayeredCrackWidth.ComputeAll(
                 plate, shell, solveResult.StrainState, cCh, rCh,
-                p.Phi1, p.Phi2, p.SigmaSCrc, p.WplGamma).ToList();
+                p.Phi1, p.Phi2, p.SigmaSCrc, p.WplGamma,
+                (t, alongX) => crackingSolver.Solve(t, alongX)).ToList();
             var governing = strips.Where(s => s.Cracked).OrderByDescending(s => s.AcrcMm).FirstOrDefault();
             int governingIndex = governing != null ? strips.IndexOf(governing) : -1;
             double acrcMax = governing?.AcrcMm ?? 0.0;
@@ -359,6 +364,10 @@ public sealed class ShellLayeredSlsBatchHandler : ITaskHandler
                     DiagrammCompatibility.Coerce(rebarMat.Type, DiagrammType.L2))?[CalcType.N]
                 ?? throw new InvalidOperationException("Диаграмма арматуры не построена.");
 
+            // Один поиск состояния трещинообразования на сечение (см. одиночную задачу);
+            // сам решатель кэша не держит, но и не зависит от набора усилий.
+            var crackingSolver = new ShellCrackingSolver(plate, cDiag, rDiag);
+
             var rows = new List<object>(forceSet.ShellItems.Count);
             int okCount = 0;
             foreach (var si in forceSet.ShellItems)
@@ -390,7 +399,8 @@ public sealed class ShellLayeredSlsBatchHandler : ITaskHandler
                 {
                     var worst = ShellLayeredCrackWidth.ComputeWorst(
                         plate, shell, solveResult.StrainState, cCh, rCh,
-                        p.Phi1, p.Phi2, p.SigmaSCrc, p.WplGamma);
+                        p.Phi1, p.Phi2, p.SigmaSCrc, p.WplGamma,
+                        (t, alongX) => crackingSolver.Solve(t, alongX));
                     acrcMm = worst?.AcrcMm ?? 0.0;
                     angle = worst?.CrackAngleDeg;
                     direction = worst?.Direction ?? "";
