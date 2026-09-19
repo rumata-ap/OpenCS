@@ -3,140 +3,236 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:core="clr-namespace:CScore;assembly=CScore"
         xmlns:pr="clr-namespace:CScore.ParametricRc;assembly=CScore"
+        xmlns:preview="clr-namespace:OpenCS.Views.Helpers"
         Title="{DynamicResource ParametricRcDialogTitle}"
-        Width="560" Height="650" WindowStartupLocation="CenterOwner"
-        ResizeMode="CanResizeWithGrip">
+        Width="1180" Height="820" MinWidth="980" MinHeight="680"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip">
    <Grid Margin="12">
       <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+         <RowDefinition Height="*"/>
+         <RowDefinition Height="Auto"/>
       </Grid.RowDefinitions>
-      <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="465"/>
+         <ColumnDefinition Width="12"/>
+         <ColumnDefinition Width="*" MinWidth="410"/>
+      </Grid.ColumnDefinitions>
 
-      <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,10">
-         <TextBlock Text="{DynamicResource ParametricRcAxisNote}" TextWrapping="Wrap"/>
-         <TextBlock Text="{DynamicResource ParametricRcTeeApplicability}" TextWrapping="Wrap"
-                    Visibility="{Binding ShowTeeApplicability, Converter={StaticResource BoolToVisibility}}"/>
-         <TextBlock Text="{DynamicResource ParametricRcRoundApplicability}" TextWrapping="Wrap"
-                    Visibility="{Binding ShowRoundApplicability, Converter={StaticResource BoolToVisibility}}"/>
-      </StackPanel>
-      <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcShape}" VerticalAlignment="Center"/>
-      <ComboBox Grid.Row="1" Grid.Column="1" SelectedValue="{Binding Shape}" SelectedValuePath="Tag">
-         <ComboBoxItem Tag="{x:Static pr:ParametricRcShape.Rectangle}" Content="{DynamicResource ParametricRcShapeRectangle}"/>
-         <ComboBoxItem Tag="{x:Static pr:ParametricRcShape.Tee}" Content="{DynamicResource ParametricRcShapeTee}"/>
-         <ComboBoxItem Tag="{x:Static pr:ParametricRcShape.IBeam}" Content="{DynamicResource ParametricRcShapeIBeam}"/>
-         <ComboBoxItem Tag="{x:Static pr:ParametricRcShape.Circle}" Content="{DynamicResource ParametricRcShapeCircle}"/>
-         <ComboBoxItem Tag="{x:Static pr:ParametricRcShape.Annulus}" Content="{DynamicResource ParametricRcShapeAnnulus}"/>
-      </ComboBox>
+      <ScrollViewer Grid.Row="0" Grid.Column="0"
+                    VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+         <StackPanel>
+            <TextBlock Text="{DynamicResource ParametricRcAxisNote}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <TextBlock Text="{DynamicResource ParametricRcTeeApplicability}" TextWrapping="Wrap" Margin="0,0,0,5"
+                       Visibility="{Binding ShowTeeApplicability, Converter={StaticResource BoolToVisibility}}"/>
+            <TextBlock Text="{DynamicResource ParametricRcRoundApplicability}" TextWrapping="Wrap" Margin="0,0,0,5"
+                       Visibility="{Binding ShowRoundApplicability, Converter={StaticResource BoolToVisibility}}"/>
 
-      <TextBlock Grid.Row="2" Text="{DynamicResource ParametricRcWidthMm}" VerticalAlignment="Center"/>
-      <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding WidthMm, UpdateSourceTrigger=PropertyChanged}"/>
-      <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcHeightMm}" VerticalAlignment="Center"/>
-      <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding HeightMm, UpdateSourceTrigger=PropertyChanged}"/>
-      <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcWebMm}" VerticalAlignment="Center"
-                 Visibility="{Binding ShowWebFields, Converter={StaticResource BoolToVisibility}}"/>
-      <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding WebMm, UpdateSourceTrigger=PropertyChanged}"
-               Visibility="{Binding ShowWebFields, Converter={StaticResource BoolToVisibility}}"/>
-      <TextBlock Grid.Row="5" Text="{DynamicResource ParametricRcFlangeMm}" VerticalAlignment="Center"
-                 Visibility="{Binding ShowWebFields, Converter={StaticResource BoolToVisibility}}"/>
-      <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding FlangeMm, UpdateSourceTrigger=PropertyChanged}"
-               Visibility="{Binding ShowWebFields, Converter={StaticResource BoolToVisibility}}"/>
+            <GroupBox Header="{DynamicResource ParametricRcInitialData}" Margin="0,0,0,8">
+               <Grid Margin="8">
+                  <Grid.ColumnDefinitions>
+                     <ColumnDefinition Width="185"/>
+                     <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                     <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Text="{DynamicResource ParametricRcTag}" VerticalAlignment="Center" Margin="0,3,8,3"/>
+                  <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Tag, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcShape}" VerticalAlignment="Center" Margin="0,3,8,3"/>
+                  <ComboBox Grid.Row="1" Grid.Column="1" SelectedValue="{Binding Shape}" SelectedValuePath="Tag" Margin="0,2">
+                     <ComboBoxItem Tag="{x:Static pr:ParametricRcShape.Rectangle}" Content="{DynamicResource ParametricRcShapeRectangle}"/>
+                     <ComboBoxItem Tag="{x:Static pr:ParametricRcShape.Tee}" Content="{DynamicResource ParametricRcShapeTee}"/>
+                     <ComboBoxItem Tag="{x:Static pr:ParametricRcShape.IBeam}" Content="{DynamicResource ParametricRcShapeIBeam}"/>
+                     <ComboBoxItem Tag="{x:Static pr:ParametricRcShape.Circle}" Content="{DynamicResource ParametricRcShapeCircle}"/>
+                     <ComboBoxItem Tag="{x:Static pr:ParametricRcShape.Annulus}" Content="{DynamicResource ParametricRcShapeAnnulus}"/>
+                  </ComboBox>
+                  <TextBlock Grid.Row="2" Text="{DynamicResource ParametricRcConcreteMaterial}" VerticalAlignment="Center" Margin="0,3,8,3"/>
+                  <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding ConcreteMaterials}"
+                            DisplayMemberPath="Tag" SelectedValuePath="Id" SelectedValue="{Binding ConcreteMaterialId}" Margin="0,2"/>
+                  <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcWidthMm}" VerticalAlignment="Center" Margin="0,3,8,3"/>
+                  <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding WidthMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcHeightMm}" VerticalAlignment="Center" Margin="0,3,8,3"
+                             IsEnabled="{Binding IsHeightEnabled}"/>
+                  <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding HeightMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"
+                           IsEnabled="{Binding IsHeightEnabled}"/>
+                  <Grid Grid.Row="5" Grid.ColumnSpan="2" Visibility="{Binding ShowWebFields, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="185"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <TextBlock Text="{DynamicResource ParametricRcWebMm}" VerticalAlignment="Center" Margin="0,3,8,3"/>
+                     <TextBox Grid.Column="1" Text="{Binding WebMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </Grid>
+                  <Grid Grid.Row="6" Grid.ColumnSpan="2" Visibility="{Binding ShowWebFields, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="185"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <TextBlock Text="{DynamicResource ParametricRcFlangeMm}" VerticalAlignment="Center" Margin="0,3,8,3"/>
+                     <TextBox Grid.Column="1" Text="{Binding FlangeMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </Grid>
+                  <Grid Grid.Row="5" Grid.ColumnSpan="2" Visibility="{Binding ShowInnerDiameter, Converter={StaticResource BoolToVisibility}}">
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="185"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <TextBlock Text="{DynamicResource ParametricRcInnerDiameterMm}" VerticalAlignment="Center" Margin="0,3,8,3"/>
+                     <TextBox Grid.Column="1" Text="{Binding InnerDiameterMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,2"/>
+                  </Grid>
+               </Grid>
+            </GroupBox>
 
-      <TextBlock Grid.Row="6" Text="{DynamicResource ParametricRcInnerDiameterMm}" VerticalAlignment="Center"
-                 Visibility="{Binding ShowInnerDiameter, Converter={StaticResource BoolToVisibility}}"/>
-      <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding InnerDiameterMm, UpdateSourceTrigger=PropertyChanged}"
-               Visibility="{Binding ShowInnerDiameter, Converter={StaticResource BoolToVisibility}}"/>
+            <GroupBox Header="{DynamicResource ParametricRcLongitudinal}" Margin="0,0,0,8">
+               <StackPanel Margin="8">
+                  <Grid Margin="0,0,0,6">
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="185"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <TextBlock Text="{DynamicResource ParametricRcLongitudinalMaterial}" VerticalAlignment="Center" Margin="0,3,8,3" TextWrapping="Wrap"/>
+                     <ComboBox Grid.Column="1" ItemsSource="{Binding ReinforcementMaterials}"
+                               DisplayMemberPath="Tag" SelectedValuePath="Id" SelectedValue="{Binding LongitudinalMaterialId}" Margin="0,2"/>
+                  </Grid>
+                  <GroupBox Header="{DynamicResource ParametricRcLower}" Margin="0,0,0,6"
+                            Visibility="{Binding ShowLayerRebarFields, Converter={StaticResource BoolToVisibility}}">
+                     <StackPanel Margin="7">
+                        <CheckBox Content="{DynamicResource ParametricRcRebarEnabled}" IsChecked="{Binding LowerRebarEnabled}" Margin="0,0,0,5"/>
+                        <CheckBox Content="{DynamicResource ParametricRcRebarIdealized}" IsChecked="{Binding LowerRebarIdealized}" Margin="0,0,0,5"/>
+                        <Grid IsEnabled="{Binding LowerRebarEnabled}">
+                           <Grid.ColumnDefinitions><ColumnDefinition Width="115"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                           <TextBlock Grid.Row="0" Text="{DynamicResource ParametricRcRebarCount}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                           <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding LowerRebarCount, UpdateSourceTrigger=PropertyChanged}" Margin="0,1" IsEnabled="{Binding LowerRebarIdealized, Converter={StaticResource InverseBool}}"/>
+                           <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcRebarArea}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                           <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LowerRebarAreaMm2, UpdateSourceTrigger=PropertyChanged}" Margin="0,1" IsEnabled="{Binding LowerRebarIdealized}"/>
+                           <TextBlock Grid.Row="2" Text="{DynamicResource ParametricRcRebarDiameter}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                           <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding LowerRebarDiameterMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                           <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcLowerRebarOffset}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                           <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LowerRebarOffsetMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                           <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcRebarAxis}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                           <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding LowerRebarAxis}" SelectedValuePath="Tag" Margin="0,1">
+                              <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.Mx}" Content="{DynamicResource ParametricRcAxisMx}"/>
+                              <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.My}" Content="{DynamicResource ParametricRcAxisMy}"/>
+                           </ComboBox>
+                        </Grid>
+                     </StackPanel>
+                  </GroupBox>
+                  <GroupBox Header="{DynamicResource ParametricRcUpper}" Margin="0,0,0,6"
+                            Visibility="{Binding ShowLayerRebarFields, Converter={StaticResource BoolToVisibility}}">
+                     <StackPanel Margin="7">
+                        <CheckBox Content="{DynamicResource ParametricRcRebarEnabled}" IsChecked="{Binding UpperRebarEnabled}" Margin="0,0,0,5"/>
+                        <CheckBox Content="{DynamicResource ParametricRcRebarIdealized}" IsChecked="{Binding UpperRebarIdealized}" Margin="0,0,0,5"/>
+                        <Grid IsEnabled="{Binding UpperRebarEnabled}">
+                           <Grid.ColumnDefinitions><ColumnDefinition Width="115"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                           <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                           <TextBlock Grid.Row="0" Text="{DynamicResource ParametricRcRebarCount}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                           <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding UpperRebarCount, UpdateSourceTrigger=PropertyChanged}" Margin="0,1" IsEnabled="{Binding UpperRebarIdealized, Converter={StaticResource InverseBool}}"/>
+                           <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcRebarArea}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                           <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding UpperRebarAreaMm2, UpdateSourceTrigger=PropertyChanged}" Margin="0,1" IsEnabled="{Binding UpperRebarIdealized}"/>
+                           <TextBlock Grid.Row="2" Text="{DynamicResource ParametricRcRebarDiameter}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                           <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding UpperRebarDiameterMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                           <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcUpperRebarOffset}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                           <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding UpperRebarOffsetMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                           <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcRebarAxis}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                           <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding UpperRebarAxis}" SelectedValuePath="Tag" Margin="0,1">
+                              <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.Mx}" Content="{DynamicResource ParametricRcAxisMx}"/>
+                              <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.My}" Content="{DynamicResource ParametricRcAxisMy}"/>
+                           </ComboBox>
+                        </Grid>
+                     </StackPanel>
+                  </GroupBox>
+                  <GroupBox Header="{DynamicResource ParametricRcPolarRebar}"
+                            Visibility="{Binding ShowPolarFields, Converter={StaticResource BoolToVisibility}}">
+                     <Grid Margin="7">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="115"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="{DynamicResource ParametricRcPolarCount}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding PolarRebarCount, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                        <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcPolarDiameterRadius}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                           <TextBox Width="105" Text="{Binding PolarRebarDiameterMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1,6,1"/>
+                           <TextBox Width="105" Text="{Binding PolarRebarRadiusMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                        </StackPanel>
+                     </Grid>
+                  </GroupBox>
+               </StackPanel>
+            </GroupBox>
 
-      <GroupBox Grid.Row="7" Grid.ColumnSpan="2" Header="{DynamicResource ParametricRcLongitudinal}" Margin="0,10,0,10">
-         <Grid Margin="6">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Grid.Column="1" Text="{DynamicResource ParametricRcLower}"/>
-            <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource ParametricRcUpper}"/>
-            <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcRebarEnabled}"/>
-            <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding LowerRebarEnabled}"/>
-            <CheckBox Grid.Row="1" Grid.Column="2" IsChecked="{Binding UpperRebarEnabled}"/>
-            <TextBlock Grid.Row="2" Text="{DynamicResource ParametricRcRebarIdealized}"/>
-            <CheckBox Grid.Row="2" Grid.Column="1" IsChecked="{Binding LowerRebarIdealized}"/>
-            <CheckBox Grid.Row="2" Grid.Column="2" IsChecked="{Binding UpperRebarIdealized}"/>
-            <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcRebarCount}"/>
-            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding LowerRebarCount, UpdateSourceTrigger=PropertyChanged}"
-                     ToolTip="{DynamicResource ParametricRcRebarCountTip}"/>
-            <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding UpperRebarCount, UpdateSourceTrigger=PropertyChanged}"
-                     ToolTip="{DynamicResource ParametricRcRebarCountTip}"/>
-            <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcRebarArea}"/>
-            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding LowerRebarAreaMm2, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding UpperRebarAreaMm2, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBlock Grid.Row="5" Text="{DynamicResource ParametricRcRebarDiameter}"/>
-            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding LowerRebarDiameterMm, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBox Grid.Row="5" Grid.Column="2" Text="{Binding UpperRebarDiameterMm, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBlock Grid.Row="6" Text="{DynamicResource ParametricRcRebarCoordinate}"/>
-            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding LowerRebarCoordinateMm, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBox Grid.Row="6" Grid.Column="2" Text="{Binding UpperRebarCoordinateMm, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBlock Grid.Row="7" Text="{DynamicResource ParametricRcRebarAxis}"/>
-            <ComboBox Grid.Row="7" Grid.Column="1" SelectedValue="{Binding LowerRebarAxis}" SelectedValuePath="Tag">
-               <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.Mx}" Content="{DynamicResource ParametricRcAxisMx}"/>
-               <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.My}" Content="{DynamicResource ParametricRcAxisMy}"/>
-            </ComboBox>
-            <ComboBox Grid.Row="7" Grid.Column="2" SelectedValue="{Binding UpperRebarAxis}" SelectedValuePath="Tag">
-               <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.Mx}" Content="{DynamicResource ParametricRcAxisMx}"/>
-               <ComboBoxItem Tag="{x:Static core:IdealizedRebarAxis.My}" Content="{DynamicResource ParametricRcAxisMy}"/>
-            </ComboBox>
-            <TextBlock Grid.Row="8" Grid.ColumnSpan="3" Text="{DynamicResource ParametricRcPolarRebar}" Visibility="{Binding ShowPolarFields, Converter={StaticResource BoolToVisibility}}"/>
-            <TextBlock Grid.Row="9" Text="{DynamicResource ParametricRcPolarCount}" Visibility="{Binding ShowPolarFields, Converter={StaticResource BoolToVisibility}}"/>
-            <TextBox Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding PolarRebarCount, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowPolarFields, Converter={StaticResource BoolToVisibility}}"/>
-            <TextBlock Grid.Row="10" Text="{DynamicResource ParametricRcPolarDiameterRadius}" Visibility="{Binding ShowPolarFields, Converter={StaticResource BoolToVisibility}}"/>
-            <StackPanel Grid.Row="10" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Visibility="{Binding ShowPolarFields, Converter={StaticResource BoolToVisibility}}">
-               <TextBox Width="90" Text="{Binding PolarRebarDiameterMm, UpdateSourceTrigger=PropertyChanged}"/>
-               <TextBox Width="90" Margin="8,0,0,0" Text="{Binding PolarRebarRadiusMm, UpdateSourceTrigger=PropertyChanged}"/>
+            <GroupBox Header="{DynamicResource ParametricRcStirrups}" Margin="0,0,0,8">
+               <StackPanel Margin="8">
+                  <CheckBox Content="{DynamicResource ParametricRcUseStirrups}" IsChecked="{Binding StirrupsEnabled}"
+                            IsEnabled="{Binding CanUseStirrups}" Margin="0,0,0,6"/>
+                  <Grid>
+                     <Grid.Style>
+                        <Style TargetType="Grid">
+                           <Setter Property="Opacity" Value="1"/>
+                           <Style.Triggers>
+                              <DataTrigger Binding="{Binding IsStirrupFieldsEnabled}" Value="False">
+                                 <Setter Property="Opacity" Value="0.45"/>
+                              </DataTrigger>
+                           </Style.Triggers>
+                        </Style>
+                     </Grid.Style>
+                     <Grid.IsEnabled><Binding Path="IsStirrupFieldsEnabled"/></Grid.IsEnabled>
+                     <Grid.ColumnDefinitions><ColumnDefinition Width="185"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                     </Grid.RowDefinitions>
+                     <TextBlock Grid.Row="0" Text="{DynamicResource ParametricRcStirrupCount}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                     <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StirrupCount, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                     <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcStirrupDiameter}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StirrupDiameterMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                     <TextBlock Grid.Row="2" Text="{DynamicResource ParametricRcStirrupStep}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                     <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StirrupStepMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                     <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcStirrupCover}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                     <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StirrupCoverMm, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                     <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcStirrupZone}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                     <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding StirrupZone}" SelectedValuePath="Tag" Margin="0,1">
+                        <ComboBoxItem Tag="{x:Static pr:ParametricStirrupZone.Body}" Content="{DynamicResource ParametricRcZoneBody}"/>
+                        <ComboBoxItem Tag="{x:Static pr:ParametricStirrupZone.Flange}" Content="{DynamicResource ParametricRcZoneFlange}"/>
+                        <ComboBoxItem Tag="{x:Static pr:ParametricStirrupZone.TopFlange}" Content="{DynamicResource ParametricRcZoneTopFlange}"/>
+                        <ComboBoxItem Tag="{x:Static pr:ParametricStirrupZone.BottomFlange}" Content="{DynamicResource ParametricRcZoneBottomFlange}"/>
+                        <ComboBoxItem Tag="{x:Static pr:ParametricStirrupZone.Web}" Content="{DynamicResource ParametricRcZoneWeb}"/>
+                     </ComboBox>
+                     <TextBlock Grid.Row="5" Text="{DynamicResource ParametricRcStirrupDirection}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                     <ComboBox Grid.Row="5" Grid.Column="1" SelectedValue="{Binding StirrupDirection}" SelectedValuePath="Tag" Margin="0,1">
+                        <ComboBoxItem Tag="{x:Static pr:ParametricStirrupDirection.Vertical}" Content="{DynamicResource ParametricRcDirectionVertical}"/>
+                        <ComboBoxItem Tag="{x:Static pr:ParametricStirrupDirection.Horizontal}" Content="{DynamicResource ParametricRcDirectionHorizontal}"/>
+                     </ComboBox>
+                     <TextBlock Grid.Row="6" Text="{DynamicResource ParametricRcStirrupMaterial}" VerticalAlignment="Center" Margin="0,2,8,2" TextWrapping="Wrap"/>
+                     <ComboBox Grid.Row="6" Grid.Column="1" ItemsSource="{Binding ReinforcementMaterials}"
+                               DisplayMemberPath="Tag" SelectedValuePath="Id" SelectedValue="{Binding StirrupMaterialId}" Margin="0,1"/>
+                     <TextBlock Grid.Row="7" Text="{DynamicResource ParametricRcStirrupRsw}" VerticalAlignment="Center" Margin="0,2,8,2"/>
+                     <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding StirrupRswMpa, UpdateSourceTrigger=PropertyChanged}" Margin="0,1"/>
+                     <StackPanel Grid.Row="8" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBlock Text="{DynamicResource ParametricRcAsw}"/>
+                        <TextBlock Text="{Binding Asw, StringFormat={}{0:G6}}"/>
+                        <TextBlock Text="{DynamicResource ParametricRcQsw}" Margin="10,0,0,0"/>
+                        <TextBlock Text="{Binding Qsw, StringFormat={}{0:G6}}"/>
+                     </StackPanel>
+                  </Grid>
+                  <TextBlock Text="{Binding StirrupStepWarning}" Foreground="DarkOrange" TextWrapping="Wrap" Margin="0,5,0,0"/>
+               </StackPanel>
+            </GroupBox>
+         </StackPanel>
+      </ScrollViewer>
+
+      <Border Grid.Row="0" Grid.Column="2" BorderBrush="#C8D3D8" BorderThickness="1"
+              CornerRadius="4" Padding="10" Background="#FAFCFD">
+         <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+            <TextBlock Text="{DynamicResource ParametricRcPreview}" FontWeight="SemiBold" Margin="0,0,0,8"/>
+            <Border Grid.Row="1" Background="White" BorderBrush="#DDE5E8" BorderThickness="1" Padding="4">
+               <preview:ParametricRcPreviewControl/>
+            </Border>
+         </Grid>
+      </Border>
+
+      <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="#D4DDE1" BorderThickness="0,1,0,0"
+              Padding="0,10,0,0" Margin="0,10,0,0">
+         <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding DiagnosticsText}" Foreground="Firebrick" TextWrapping="Wrap"
+                       VerticalAlignment="Center" Margin="0,0,12,0" MaxHeight="52"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+               <Button Content="{DynamicResource Cancel}" IsCancel="True" Margin="4,0,0,0" Padding="18,6" MinWidth="92"/>
+               <Button Content="{DynamicResource Save}" IsDefault="True" Margin="8,0,0,0" Padding="18,6" MinWidth="92"
+                       IsEnabled="{Binding CanSave}" Click="Save_Click"/>
             </StackPanel>
          </Grid>
-      </GroupBox>
-
-      <GroupBox Grid.Row="8" Grid.ColumnSpan="2" Header="{DynamicResource ParametricRcStirrups}" Margin="0,10,0,10">
-         <Grid Margin="6">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="190"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-            <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Text="{DynamicResource ParametricRcStirrupCount}"/>
-            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding StirrupCount, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBlock Grid.Row="1" Text="{DynamicResource ParametricRcStirrupDiameter}"/>
-            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding StirrupDiameterMm, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBlock Grid.Row="2" Text="{DynamicResource ParametricRcStirrupStep}"/>
-            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding StirrupStepMm, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBlock Grid.Row="3" Text="{DynamicResource ParametricRcStirrupCover}"/>
-            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding StirrupCoverMm, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBlock Grid.Row="4" Text="{DynamicResource ParametricRcStirrupZone}"/>
-            <ComboBox Grid.Row="4" Grid.Column="1" SelectedValue="{Binding StirrupZone}" SelectedValuePath="Tag">
-               <ComboBoxItem Tag="{x:Static pr:ParametricStirrupZone.Body}" Content="{DynamicResource ParametricRcZoneBody}"/>
-               <ComboBoxItem Tag="{x:Static pr:ParametricStirrupZone.Flange}" Content="{DynamicResource ParametricRcZoneFlange}"/>
-               <ComboBoxItem Tag="{x:Static pr:ParametricStirrupZone.TopFlange}" Content="{DynamicResource ParametricRcZoneTopFlange}"/>
-               <ComboBoxItem Tag="{x:Static pr:ParametricStirrupZone.BottomFlange}" Content="{DynamicResource ParametricRcZoneBottomFlange}"/>
-               <ComboBoxItem Tag="{x:Static pr:ParametricStirrupZone.Web}" Content="{DynamicResource ParametricRcZoneWeb}"/>
-            </ComboBox>
-            <TextBlock Grid.Row="5" Text="{DynamicResource ParametricRcStirrupDirection}"/>
-            <ComboBox Grid.Row="5" Grid.Column="1" SelectedValue="{Binding StirrupDirection}" SelectedValuePath="Tag">
-               <ComboBoxItem Tag="{x:Static pr:ParametricStirrupDirection.Vertical}" Content="{DynamicResource ParametricRcDirectionVertical}"/>
-               <ComboBoxItem Tag="{x:Static pr:ParametricStirrupDirection.Horizontal}" Content="{DynamicResource ParametricRcDirectionHorizontal}"/>
-            </ComboBox>
-            <TextBlock Grid.Row="6" Text="{DynamicResource ParametricRcStirrupMaterial}"/>
-            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding StirrupMaterialId, UpdateSourceTrigger=PropertyChanged}"/>
-            <TextBlock Grid.Row="7" Text="{DynamicResource ParametricRcStirrupRsw}"/>
-            <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding StirrupRswMpa, UpdateSourceTrigger=PropertyChanged}"/>
-            <StackPanel Grid.Row="8" Grid.ColumnSpan="2" Orientation="Horizontal">
-               <TextBlock Text="{DynamicResource ParametricRcAsw}"/>
-               <TextBlock Text="{Binding Asw, StringFormat={}{0:G6}}"/>
-               <TextBlock Text="{DynamicResource ParametricRcQsw}" Margin="10,0,0,0"/>
-               <TextBlock Text="{Binding Qsw, StringFormat={}{0:G6}}"/>
-            </StackPanel>
-            <TextBlock Grid.Row="9" Grid.ColumnSpan="2" Text="{Binding StirrupStepWarning}" Foreground="DarkOrange" TextWrapping="Wrap"/>
-         </Grid>
-      </GroupBox>
-
-      <TextBlock Grid.Row="9" Grid.ColumnSpan="2" Text="{Binding Diagnostics, StringFormat={}{0}}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-      <StackPanel Grid.Row="10" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
-         <Button Content="{DynamicResource Cancel}" IsCancel="True" Margin="4" Padding="16,5"/>
-         <Button Content="{DynamicResource Save}" IsDefault="True" Margin="4" Padding="16,5" IsEnabled="{Binding CanSave}" Click="Save_Click"/>
-      </StackPanel>
+      </Border>
    </Grid>
 </Window>

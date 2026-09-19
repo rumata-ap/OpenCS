@@ -691,7 +691,20 @@
                                                      RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                               </ContextMenu>
                            </StackPanel.ContextMenu>
-                           <TextBlock Text="{DynamicResource ParametricRcSections}" FontWeight="Bold"/>
+                           <Viewbox Width="16" Height="16" Margin="0,0,4,0">
+                              <Canvas Width="16" Height="16">
+                                 <Path Fill="#A8BECA" Opacity="0.65"
+                                       Data="M0,0 H16 V7 H11 V14.5 H5 V7 H0 Z"/>
+                                 <Path Fill="Transparent" Stroke="#647F8C" StrokeThickness="0.8"
+                                       StrokeLineJoin="Miter"
+                                       Data="M0,0 H16 V7 H11 V14.5 H5 V7 H0 Z"/>
+                                 <Rectangle Width="11" Height="1.8" Canvas.Left="2.5" Canvas.Top="2.2"
+                                            Fill="#B91C1C"/>
+                                 <Ellipse Width="3.2" Height="3.2" Canvas.Left="6.4" Canvas.Top="10.4"
+                                          Fill="#B91C1C"/>
+                              </Canvas>
+                           </Viewbox>
+                           <TextBlock Text="{DynamicResource ParametricRcSections}"/>
                         </StackPanel>
                         <HierarchicalDataTemplate.ItemTemplate>
                            <HierarchicalDataTemplate DataType="{x:Type vm:ParametricCrossSectionTreeItem}"
@@ -714,48 +727,10 @@
                                                            RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                  CommandParameter="{Binding PlacementTarget.DataContext,
                                                            RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                       <MenuItem Header="{DynamicResource ParametricRcDetach}"
-                                                 Command="{Binding PlacementTarget.Tag.DetachParametricCrossSectionCommand,
-                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                 CommandParameter="{Binding PlacementTarget.DataContext,
-                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                     </ContextMenu>
                                  </StackPanel.ContextMenu>
                                  <TextBlock Text="{Binding Tag}"/>
                                  <TextBlock Text="{Binding Status, StringFormat='  [{0}]'}" Foreground="Gray"/>
-                              </StackPanel>
-                              <HierarchicalDataTemplate.ItemTemplate>
-                                 <DataTemplate DataType="{x:Type core:MaterialArea}">
-                                    <TextBlock Text="{Binding Tag}"/>
-                                 </DataTemplate>
-                              </HierarchicalDataTemplate.ItemTemplate>
-                           </HierarchicalDataTemplate>
-                        </HierarchicalDataTemplate.ItemTemplate>
-                     </HierarchicalDataTemplate>
-
-                     <HierarchicalDataTemplate DataType="{x:Type vm:ParametricCrossSectionSourceStatusGroup}"
-                                               ItemsSource="{Binding Items}">
-                        <TextBlock Text="{DynamicResource ParametricRcSourceStatus}"/>
-                           <HierarchicalDataTemplate.ItemTemplate>
-                              <HierarchicalDataTemplate DataType="{x:Type vm:ParametricCrossSectionTreeItem}"
-                                                     ItemsSource="{Binding Areas}">
-                              <StackPanel Orientation="Horizontal" Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
-                                 <StackPanel.ContextMenu>
-                                    <ContextMenu>
-                                       <MenuItem Header="{DynamicResource ParametricRcOpen}"
-                                                 Command="{Binding PlacementTarget.Tag.OpenParametricCrossSectionCommand,
-                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                 CommandParameter="{Binding PlacementTarget.DataContext,
-                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                       <MenuItem Header="{DynamicResource ParametricRcRestore}"
-                                                 Command="{Binding PlacementTarget.Tag.RestoreParametricCrossSectionCommand,
-                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                 CommandParameter="{Binding PlacementTarget.DataContext,
-                                                           RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                                    </ContextMenu>
-                                 </StackPanel.ContextMenu>
-                                 <TextBlock Text="{Binding Tag}"/>
-                                 <TextBlock Text="{Binding Status, StringFormat='  [{0}]'}" Foreground="DarkOrange"/>
                               </StackPanel>
                               <HierarchicalDataTemplate.ItemTemplate>
                                  <DataTemplate DataType="{x:Type core:MaterialArea}">

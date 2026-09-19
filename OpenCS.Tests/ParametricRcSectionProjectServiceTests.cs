@@ -40,6 +40,44 @@ public sealed class ParametricRcSectionProjectServiceTests
     }
 
     [Fact]
+    public void GenerateAndSaveAssignsSelectedMaterialsToGeneratedAreas()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-parametric-materials-{Guid.NewGuid():N}.db");
+        try
+        {
+            using var db = new DatabaseService(path);
+            var concrete = new Material { Tag = "B25", Type = MatType.Concrete };
+            var reinforcement = new Material { Tag = "A500C", Type = MatType.ReSteelF };
+            db.AddMaterial(concrete);
+            db.AddMaterial(reinforcement);
+
+            var definition = ParametricRcSectionDefinition.Rectangle(0.30, 0.50) with
+            {
+                ConcreteMaterialId = concrete.Id,
+                LongitudinalMaterialId = reinforcement.Id,
+                LowerRebar = ParametricLongitudinalLayer.Physical(2, 0.016, -0.21),
+                StirrupCuts =
+                [
+                    new(ParametricStirrupZone.Body, ParametricStirrupDirection.Vertical,
+                        2, 0.008, 0.20, 0.03, reinforcement.Id)
+                ]
+            };
+            var section = new CrossSection();
+
+            var result = new ParametricRcSectionProjectService(db).GenerateAndSave(section, definition);
+
+            Assert.Empty(result.Diagnostics);
+            Assert.Same(concrete, section.Areas.Single(a => a.Category == AreaCategory.Region).Material);
+            Assert.Same(reinforcement, section.Areas.Single(a => a.Category == AreaCategory.RebarGroup).Material);
+            Assert.Same(reinforcement, section.Areas.Single(a => a.Category == AreaCategory.Stirrups).Material);
+        }
+        finally
+        {
+            try { if (File.Exists(path)) File.Delete(path); } catch { }
+        }
+    }
+
+    [Fact]
     public void FutureDefinitionVersionRemainsVisibleWithoutDeserializationOrOverwrite()
     {
         string path = Path.Combine(Path.GetTempPath(), $"opencs-parametric-future-{Guid.NewGuid():N}.db");

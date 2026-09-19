@@ -35,7 +35,11 @@ public static class ParametricRcSectionGenerator
         if (errors.Count != 0)
             return new(new CrossSection { Tag = definition.Tag }, errors);
 
-        var concrete = new MaterialArea { Tag = "Бетон", Category = AreaCategory.Region };
+        var concrete = new MaterialArea
+        {
+            Tag = "Бетон", Category = AreaCategory.Region,
+            MaterialId = definition.ConcreteMaterialId
+        };
         var zones = BuildZones(definition);
         concrete.Hull = ClosedContour(OuterPoints(definition), "контур бетона", ContourType.Hull);
         if (definition.Shape == ParametricRcShape.Annulus)
@@ -44,11 +48,13 @@ public static class ParametricRcSectionGenerator
 
         var section = new CrossSection { Tag = definition.Tag, Areas = [concrete] };
         if (definition.Shape is ParametricRcShape.Circle or ParametricRcShape.Annulus)
-            AddPolarRebar(section, concrete, definition.PolarRebar!);
+            AddPolarRebar(section, concrete, definition.PolarRebar!, definition.LongitudinalMaterialId);
         else
         {
-            AddLayer(section, concrete, definition.LowerRebar, definition.WidthM, "Нижняя арматура");
-            AddLayer(section, concrete, definition.UpperRebar, definition.WidthM, "Верхняя арматура");
+            AddLayer(section, concrete, definition.LowerRebar, definition.WidthM,
+                "Нижняя арматура", definition.LongitudinalMaterialId);
+            AddLayer(section, concrete, definition.UpperRebar, definition.WidthM,
+                "Верхняя арматура", definition.LongitudinalMaterialId);
             AddStirrupCuts(section, definition);
         }
         return new(section, [])
@@ -138,12 +144,14 @@ public static class ParametricRcSectionGenerator
         return new Contour(points.Select(p => p.X), points.Select(p => p.Y), tag) { Type = type };
     }
 
-    static void AddLayer(CrossSection section, MaterialArea concrete, ParametricLongitudinalLayer? layer, double width, string tag)
+    static void AddLayer(CrossSection section, MaterialArea concrete, ParametricLongitudinalLayer? layer,
+        double width, string tag, int materialId)
     {
         if (layer?.Enabled != true) return;
         var area = new MaterialArea
         {
-            Tag = tag, Category = AreaCategory.RebarGroup, HostArea = concrete,
+            Tag = tag, Category = AreaCategory.RebarGroup, MaterialId = materialId,
+            HostArea = concrete,
             HostAreaId = concrete.Id,
             RebarRepresentation = layer.IsIdealized ? RebarRepresentation.IdealizedLayer : RebarRepresentation.PhysicalBars,
             IdealizedAxis = layer.Axis
@@ -161,9 +169,14 @@ public static class ParametricRcSectionGenerator
         section.Areas.Add(area);
     }
 
-    static void AddPolarRebar(CrossSection section, MaterialArea concrete, ParametricPolarRebar bars)
+    static void AddPolarRebar(CrossSection section, MaterialArea concrete,
+        ParametricPolarRebar bars, int materialId)
     {
-        var area = new MaterialArea { Tag = "Продольная арматура", Category = AreaCategory.RebarGroup, HostArea = concrete, HostAreaId = concrete.Id };
+        var area = new MaterialArea
+        {
+            Tag = "Продольная арматура", Category = AreaCategory.RebarGroup,
+            MaterialId = materialId, HostArea = concrete, HostAreaId = concrete.Id
+        };
         double a = Math.PI * bars.DiameterM * bars.DiameterM / 4.0;
         for (int i = 0; i < bars.Count; i++)
         {
@@ -171,6 +184,17 @@ public static class ParametricRcSectionGenerator
             area.Fibers.Add(Bar(bars.RadiusM * Math.Cos(angle), bars.RadiusM * Math.Sin(angle), a, bars.DiameterM));
         }
         section.Areas.Add(area);
+    }
+
+    /// <summary>
+    /// Возвращает геометрические зоны поперечной арматуры без проверки материалов
+    /// и пригодности сечения для сохранения или расчёта.
+    /// </summary>
+    public static IReadOnlyDictionary<ParametricStirrupZone, ParametricRcZone> GetStirrupZones(
+        ParametricRcSectionDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        return BuildZones(definition);
     }
 
     static Dictionary<ParametricStirrupZone, ParametricRcZone> BuildZones(

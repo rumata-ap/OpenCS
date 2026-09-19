@@ -36,6 +36,8 @@ public sealed class ParametricRcSectionProjectService(DatabaseService database)
 
         section.Tag = definition.Tag;
         section.Areas = result.Section.Areas;
+        foreach (var area in section.Areas)
+            area.Material = database.Materials.FirstOrDefault(material => material.Id == area.MaterialId);
         var json = JsonSerializer.Serialize(definition, JsonOptions);
         var record = new ParametricRcSectionRecord(
             section.Id, DefinitionVersion, GeneratorVersion, json,

@@ -54,6 +54,10 @@ public sealed record ParametricRcSectionDefinition(
     /// <summary>Версия JSON-контракта исходного описания.</summary>
     public const int CurrentVersion = 1;
 
+    /// <summary>Id материала бетона в проекте.</summary>
+    public int ConcreteMaterialId { get; init; }
+    /// <summary>Id материала продольной арматуры в проекте.</summary>
+    public int LongitudinalMaterialId { get; init; }
     /// <summary>Необязательные наборы открытых срезов поперечной арматуры.</summary>
     public IReadOnlyList<ParametricStirrupCutSet> StirrupCuts { get; init; } = [];
     /// <summary>Создаёт прямоугольное сечение.</summary>

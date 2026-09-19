@@ -1,4 +1,5 @@
 using CScore;
+using OpenCS;
 using OpenCS.Services;
 using OpenCS.ViewModels;
 using Xunit;
@@ -32,5 +33,28 @@ public sealed class ParametricCrossSectionTreeTests
 
         Assert.Same(items, group.Items);
         Assert.Empty(group.Items);
+    }
+
+    [Fact]
+    public void SectionTreeContainsOnlyVisibleParametricSectionGroup()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"opencs-tree-{Guid.NewGuid():N}.db");
+        var app = new AppViewModel(new LogService(), new NullFileDialogService(), path);
+        try
+        {
+            Assert.Single(app.SectionTreeItems.Cast<object>()
+                .OfType<ParametricCrossSectionTreeGroup>());
+            Assert.Equal(5, app.SectionTreeItems.Count);
+        }
+        finally
+        {
+            app.db.Dispose();
+            foreach (var suffix in new[] { "", "-wal", "-shm" })
+            {
+                try { File.Delete(path + suffix); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+        }
     }
 }
