@@ -11,7 +11,11 @@ public sealed record Sp63NormalRebarLayer(
     double Area,
     double Rs,
     double Rsc,
-    IReadOnlyList<(double X, double Y, double Area, double Diameter)> Bars);
+    IReadOnlyList<(double X, double Y, double Area, double Diameter)> Bars)
+{
+    /// <summary>Слой создан одним расчётным волокном, а не физическими стержнями.</summary>
+    public bool IsIdealized { get; init; }
+}
 
 /// <summary>Профиль прямоугольного сечения для одноосной проверки.</summary>
 /// <param name="B">Размер сечения поперёк плоскости изгиба, м.</param>

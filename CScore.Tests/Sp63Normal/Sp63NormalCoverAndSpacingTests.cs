@@ -101,6 +101,27 @@ public sealed class Sp63NormalCoverAndSpacingTests
             detail => detail.Description == "Sp63Normal_MinTensionBarCount");
     }
 
+    [Fact]
+    public void IdealizedLayerSkipsCoverAndBarCountButKeepsInformationNote()
+    {
+        var physical = Profile(h: 0.60, h0: 0.55, aPrime: 0.05,
+            tensionDiameter: 0.016, compressionDiameter: 0.016,
+            b: 0.30, tensionBarCount: 1);
+        var idealized = physical with
+        {
+            TensionLayer = physical.TensionLayer with { IsIdealized = true }
+        };
+
+        var (details, notes) = Sp63NormalConstructiveReinforcement.CheckCoverAndSpacing(idealized);
+
+        Assert.DoesNotContain(details, detail => detail.Description is
+            "Sp63Normal_MinCoverTension" or "Sp63Normal_MinTensionBarCount");
+        Assert.Contains(notes, note => note.Code == "idealized_rebar_layer");
+        var (percentage, _) = Sp63NormalConstructiveReinforcement.Check(
+            "bending", idealized, MemberContext());
+        Assert.Contains(percentage, detail => detail.Description == "Sp63Normal_MinReinforcementTension");
+    }
+
     static Sp63NormalSectionProfile Profile(double h, double h0, double aPrime,
         double tensionDiameter, double compressionDiameter,
         double b = 0.30, double tensionArea = 0.0020, double compressionArea = 0.0020,
@@ -131,4 +152,11 @@ public sealed class Sp63NormalCoverAndSpacingTests
             SymmetryRelativeDifference: 0.0,
             PrecomputedXWithoutCompressionRebar: 0.0);
     }
+
+    static Sp63MemberContext MemberContext() => new(
+        6.0,
+        Sp63StructuralScheme.StaticallyIndeterminate,
+        4.2,
+        Sp63NormalStabilityMode.Member,
+        1.0);
 }

@@ -1,7 +1,9 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using CScore;
+using CScore.ParametricRc;
 using CScore.Sp63.Normal;
 using OpenCS.Services;
 using OpenCS.Tasks;
@@ -49,6 +51,31 @@ public sealed class Sp63NormalTaskIntegrationTests
         var result = new CalcResult { Status = "not_applicable" };
 
         Assert.Equal(LogLevel.Info, CalcResultLogHelper.ResolveLevel(result));
+    }
+
+    [Fact]
+    public void IdealizedLayerWithOtherSp63AxisIsNotApplicableBeforeChecker()
+    {
+        var section = ParametricRcSectionGenerator.Generate(
+            ParametricRcSectionDefinition.Rectangle(0.30, 0.50) with
+            {
+                LowerRebar = ParametricLongitudinalLayer.Idealized(
+                    0.0012, 0.020, -0.21, IdealizedRebarAxis.Mx)
+            }).Section;
+        var parameters = new Sp63NormalTaskParams
+        {
+            ShapeKind = "rectangular", Axis = "My", UseManualForces = true,
+            N = -100, Mx = 0, My = 10
+        };
+        var task = new CalcTask { Id = 11, Kind = "sp63_normal", ParamsJson = parameters.ToJson() };
+
+        var result = new Sp63NormalHandler().Run(task, section,
+            new LoadItem { N = -100, My = 10 }, CalcSettings.Default);
+
+        Assert.Equal("not_applicable", result.Status);
+        Assert.Equal("idealized_rebar_axis_mismatch",
+            JsonDocument.Parse(result.DataJson).RootElement
+                .GetProperty("ApplicabilityMessages")[0].GetProperty("Code").GetString());
     }
 
     [Fact]

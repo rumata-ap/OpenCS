@@ -38,7 +38,13 @@ public sealed class StrainStateBatchVM : ViewModelBase
         string MxEffText,
         string MyEffText,
         string EtaXText,
-        string EtaYText);
+        string EtaYText)
+    {
+        /// <summary>Строка остановлена guard применимости и не запускала решатель.</summary>
+        public bool IsNotApplicable { get; init; }
+        /// <summary>Стабильный код причины неприменимости.</summary>
+        public string ReasonCode { get; init; } = "";
+    }
 
     public StrainStateBatchVM(CalcResult result, CrossSection? section = null, CalcSettings? settings = null)
     {
@@ -69,13 +75,15 @@ public sealed class StrainStateBatchVM : ViewModelBase
 
             int  total     = root.TryGetProperty("total",           out var t)  ? t.GetInt32()     : 0;
             int  converged = root.TryGetProperty("converged_count", out var c)  ? c.GetInt32()     : 0;
+            int  notApplicable = root.TryGetProperty("not_applicable_count", out var na)
+                ? na.GetInt32() : 0;
             bool allOk     = root.TryGetProperty("all_converged",   out var ac) && ac.GetBoolean();
 
             StatusBrush = allOk
                 ? new SolidColorBrush(Color.FromArgb(70, 80, 180, 80))
                 : Brushes.OrangeRed;
             SummaryText = string.Format(Loc.S("StrainStateBatch_SummaryFormat"),
-                total, converged, total - converged);
+                total, converged, total - converged - notApplicable, notApplicable);
 
             if (root.TryGetProperty("rows", out var rows) && rows.ValueKind == JsonValueKind.Array)
             {
@@ -85,7 +93,9 @@ public sealed class StrainStateBatchVM : ViewModelBase
                     idx++;
                     string st   = row.TryGetProperty("status", out var sv) ? sv.GetString() ?? "" : "";
                     bool   conv = st == "ok";
-                    int    iter = row.TryGetProperty("iterations", out var iv) ? iv.GetInt32() : 0;
+                    bool   notApp = st == "not_applicable";
+                    int    iter = row.TryGetProperty("iterations", out var iv) &&
+                                   iv.ValueKind == JsonValueKind.Number ? iv.GetInt32() : 0;
 
                     bool hasEta = row.TryGetProperty("eta", out var etaEl) && etaEl.ValueKind != JsonValueKind.Null;
                     string mxEffText = hasEta ? Num(row, "MxTarget", 4) : "—";
@@ -117,12 +127,18 @@ public sealed class StrainStateBatchVM : ViewModelBase
                         IterText:   iter.ToString(),
                         ResText:    Num(row, "residual", 3),
                         StatusText: conv ? Loc.S("StrainStateBatch_StatusOk")
+                                        : notApp ? Loc.S("StrainStateBatch_StatusNotApplicable")
                                         : Loc.S("StrainStateBatch_StatusNotConverged"),
                         IsConverged: conv,
                         MxEffText:  mxEffText,
                         MyEffText:  myEffText,
                         EtaXText:   etaXText,
-                        EtaYText:   etaYText));
+                        EtaYText:   etaYText)
+                    {
+                        IsNotApplicable = notApp,
+                        ReasonCode = row.TryGetProperty("reason_code", out var rc)
+                            ? rc.GetString() ?? "" : ""
+                    });
                 }
             }
         }

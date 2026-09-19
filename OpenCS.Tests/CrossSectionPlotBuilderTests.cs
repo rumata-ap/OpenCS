@@ -120,6 +120,23 @@ public class CrossSectionPlotBuilderTests
     }
 
     [Fact]
+    public void Build_IdealizedLayerUsesDistinctMarkerAndCallout()
+    {
+        var area = new MaterialArea
+        {
+            RebarRepresentation = RebarRepresentation.IdealizedLayer,
+            IdealizedAxis = IdealizedRebarAxis.My,
+            Fibers = [Fiber.CreatePoint(0.0012, 0.12, -0.08)]
+        };
+
+        var data = CrossSectionPlotBuilder.Build(new CrossSection { Areas = [area] });
+
+        Assert.Contains(data.Elements, element => element is MarkerElement);
+        Assert.Contains(data.Elements, element => element is TextElement text && !string.IsNullOrWhiteSpace(text.Text));
+        Assert.DoesNotContain(data.Elements, element => element is CircleElement);
+    }
+
+    [Fact]
     public void Build_Stirrups_IncludesClosedLoopAndOpenCutAndBounds()
     {
         var area = new MaterialArea

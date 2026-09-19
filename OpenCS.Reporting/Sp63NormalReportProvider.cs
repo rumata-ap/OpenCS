@@ -74,6 +74,8 @@ public sealed class Sp63NormalReportProvider : IReportProvider
                 ("Вердикт прочности", VerdictText(domain))
             ], "Параметр", "Значение"));
 
+        AddIdealizedRebarMarker(document, context.Section);
+
         AddCheckTable(document, "Числовые условия прочности",
             "Входят в итоговый вердикт StrengthPassed.", domain.StrengthDetails);
         AddCheckTable(document, "Конструктивные требования раздела 10 (справочно)",
@@ -100,6 +102,33 @@ public sealed class Sp63NormalReportProvider : IReportProvider
             document.Add(new ReportWarning("Исходные данные не прошли валидацию упрощённого режима СП 63."));
 
         return document;
+    }
+
+    static void AddIdealizedRebarMarker(ReportDocument document, CrossSection? section)
+    {
+        if (section is null) return;
+        var layers = section.Areas
+            .Where(a => a.RebarRepresentation == RebarRepresentation.IdealizedLayer)
+            .SelectMany(a => a.Fibers.Where(f => f.TypeFiber == FiberType.point)
+                .Select(f => new
+                {
+                    Area = f.Area,
+                    Diameter = f.Diameter,
+                    Axis = a.IdealizedAxis?.ToString() ?? "—",
+                    Coordinate = a.IdealizedAxis == IdealizedRebarAxis.My ? f.X : f.Y
+                }))
+            .ToList();
+        if (layers.Count == 0) return;
+
+        document
+            .Add(new ReportHeading(1, "Расчётные слои арматуры"))
+            .Add(new ReportParagraph(
+                "Расчётный слой — эквивалентная площадь As. Проверки 10.3.2 и 10.3.9 имеют информационный характер; процент армирования не отключён."))
+            .Add(new ReportTable(
+                ["As, м²", "φ, мм", "Координата, м", "Разрешённая ось"],
+                layers.Select(layer => (IReadOnlyList<string>)[
+                    F(layer.Area), F(layer.Diameter * 1000.0), F(layer.Coordinate), layer.Axis
+                ]).ToList()));
     }
 
     static void AddCheckTable(ReportDocument document, string heading, string note, List<CheckDetail> details)
@@ -266,6 +295,11 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Normal_InvalidAxis"] = "Выбрана неизвестная плоскость изгиба.",
         ["Sp63Normal_NonFiniteLoad"] = "Усилия должны быть конечными числами.",
         ["Sp63Normal_BiaxialLoad"] = "Упрощённая проверка одноосная; ненулевой момент в другой плоскости требует НДМ.",
+        ["Sp63Normal_IdealizedRebarLayer"] = "Для расчётного слоя проверки 10.3.2 и 10.3.9 имеют информационный характер; процент армирования сохраняется.",
+        ["Sp63Normal_IdealizedRebarAxisMismatch"] = "Ось расчётного слоя арматуры не совпадает с осью проверки.",
+        ["Sp63Normal_IdealizedRebarBiaxialLoad"] = "Расчётный слой допускает только одноосную нагрузку по своей оси.",
+        ["Sp63Normal_IdealizedRebarAxisInconsistent"] = "Расчётные слои имеют несовместимые оси изгиба.",
+        ["Sp63Normal_IdealizedRebarTaskNotSupported"] = "Выбранный вид задачи не поддерживает расчётный слой арматуры.",
         ["Sp63Normal_ZeroLoad"] = "Нулевая комбинация N, Mx и My не образует проверяемого загружения.",
         ["Sp63Normal_InvalidCompressionZone"] = "Не удалось определить допустимую сжатую зону.",
         ["Sp63Normal_NonpositiveCapacity"] = "Несущая способность получилась неположительной.",

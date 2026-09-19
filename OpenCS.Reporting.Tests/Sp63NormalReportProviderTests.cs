@@ -266,4 +266,41 @@ public sealed class Sp63NormalReportProviderTests
 
         Assert.DoesNotContain(AllText(document), c => c.Contains("Sp63Normal_"));
     }
+
+    [Fact]
+    public void Provider_MarksIdealizedLayerAsInformationalCalculationInput()
+    {
+        var task = MakeTask("""{"ShapeKind":"rectangular","Axis":"Mx"}""");
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = NotApplicableJson };
+        var section = new CrossSection
+        {
+            Areas =
+            [
+                new MaterialArea
+                {
+                    RebarRepresentation = RebarRepresentation.IdealizedLayer,
+                    IdealizedAxis = IdealizedRebarAxis.Mx,
+                    Fibers =
+                    [
+                        new Fiber(0, -0.21)
+                        {
+                            Area = 0.0012, Diameter = 0.020, TypeFiber = FiberType.point
+                        }
+                    ]
+                }
+            ]
+        };
+
+        var document = new Sp63NormalReportProvider().Build(
+            new ReportContext(task, result, section));
+
+        Assert.Contains(document.Blocks.OfType<ReportHeading>(),
+            heading => heading.Text == "Расчётные слои арматуры");
+        Assert.Contains(document.Blocks.OfType<ReportParagraph>(),
+            paragraph => paragraph.Text.Contains("информационный характер"));
+        var marker = Assert.Single(document.Blocks.OfType<ReportTable>(), table =>
+            table.Headers.Contains("As, м²"));
+        Assert.Contains(marker.Rows, row => row[0].Contains("0.0012"));
+        Assert.Contains(marker.Rows, row => row[3] == "Mx");
+    }
 }

@@ -33,7 +33,7 @@ namespace OpenCS.Utilites
          WriteIndented = false
       };
 
-      const int CurrentSchemaVersion = 57;
+      const int CurrentSchemaVersion = 58;
 
       /// <summary>
       /// Шаги миграции схемы: ключ — версия БД ДО шага, значение — переход к версии «ключ + 1».
@@ -77,6 +77,7 @@ namespace OpenCS.Utilites
          [54] = MigrateV55,
          [55] = MigrateV56,
          [56] = MigrateV57,
+         [57] = MigrateV58,
       };
 
       /// <summary>Текущая версия схемы БД.</summary>
@@ -334,7 +335,21 @@ namespace OpenCS.Utilites
                 mesh_max_edge_len REAL NOT NULL DEFAULT 0.0,
                 mesh_smooth_iter  INTEGER NOT NULL DEFAULT 5,
                 sig_sp            REAL    NOT NULL DEFAULT 0.0,
-                gamma_sp          REAL    NOT NULL DEFAULT 1.0
+                gamma_sp          REAL    NOT NULL DEFAULT 1.0,
+                rebar_representation INTEGER NOT NULL DEFAULT 0,
+                idealized_axis    TEXT
+            );
+            CREATE TABLE IF NOT EXISTS parametric_rc_sections (
+                section_id INTEGER PRIMARY KEY REFERENCES cross_sections(id) ON DELETE CASCADE,
+                definition_version INTEGER NOT NULL,
+                generator_version INTEGER NOT NULL,
+                definition_json TEXT NOT NULL,
+                generated_fingerprint TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS parametric_rc_generated_areas (
+                section_id INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+                area_id INTEGER NOT NULL REFERENCES material_areas(id),
+                PRIMARY KEY(section_id, area_id)
             );
             CREATE TABLE IF NOT EXISTS point_fibers (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1416,6 +1431,29 @@ namespace OpenCS.Utilites
 
       /// <summary>Миграция v57: извлечённые прямые стержневые субмодели и их provenance.</summary>
       void MigrateV57() => EnsureSubmodelExtractionTables();
+
+      /// <summary>Миграция v58: источник параметрического ЖБ-сечения и представление арматуры.</summary>
+      void MigrateV58()
+      {
+         if (!ColumnExists("material_areas", "rebar_representation"))
+            MigExec("ALTER TABLE material_areas ADD COLUMN rebar_representation INTEGER NOT NULL DEFAULT 0");
+         if (!ColumnExists("material_areas", "idealized_axis"))
+            MigExec("ALTER TABLE material_areas ADD COLUMN idealized_axis TEXT");
+         MigExec("""
+            CREATE TABLE IF NOT EXISTS parametric_rc_sections (
+               section_id INTEGER PRIMARY KEY REFERENCES cross_sections(id) ON DELETE CASCADE,
+               definition_version INTEGER NOT NULL,
+               generator_version INTEGER NOT NULL,
+               definition_json TEXT NOT NULL,
+               generated_fingerprint TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS parametric_rc_generated_areas (
+               section_id INTEGER NOT NULL REFERENCES cross_sections(id) ON DELETE CASCADE,
+               area_id INTEGER NOT NULL REFERENCES material_areas(id),
+               PRIMARY KEY(section_id, area_id)
+            );
+         """);
+      }
 
       /// <summary>Создаёт таблицы извлечения субмодели и её неизменяемого provenance.</summary>
       void EnsureSubmodelExtractionTables() => MigExec("""

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CScore;
+using CScore.ParametricRc;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks
@@ -73,6 +74,19 @@ namespace OpenCS.Tasks
                                    CalcSettings? settings = null, TaskRunContext? ctx = null)
       {
          settings ??= CalcSettings.Default;
+         var parametricRebarError = section is not null &&
+            ParametricRebarApplicability.HasIdealizedLayer(section) &&
+            !ParametricRebarApplicability.IsSupportedTaskKind(task.Kind)
+            ? "idealized_rebar_task_not_supported" : null;
+         if (parametricRebarError is not null)
+         {
+            return new CalcResult
+            {
+               TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+               Created = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+               Status = "not_applicable", DataJson = $"{{\"reason_code\":\"{parametricRebarError}\"}}"
+            };
+         }
          if (!Handlers.TryGetValue(task.Kind, out var handler))
          {
             return new CalcResult
@@ -85,7 +99,7 @@ namespace OpenCS.Tasks
                DataJson = $"{{\"error\":\"Unknown task kind: {task.Kind}\"}}"
             };
          }
-         return handler.Run(task, section, item, settings, ctx);
+         return handler.Run(task, section!, item, settings, ctx);
       }
 
       /// <summary>Список зарегистрированных видов задач.</summary>

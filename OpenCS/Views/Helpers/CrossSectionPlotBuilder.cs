@@ -1,5 +1,7 @@
 using CScore;
+using CScore.ParametricRc;
 using OpenCS.Converters;
+using OpenCS.Utilites;
 using OpenCS.Views;
 using System.Windows.Media;
 
@@ -80,6 +82,28 @@ public static class CrossSectionPlotBuilder
 
         foreach (var fiber in area.Fibers.Where(f => f.TypeFiber == FiberType.point))
         {
+            if (area.RebarRepresentation == RebarRepresentation.IdealizedLayer)
+            {
+                elements.Add(new MarkerElement
+                {
+                    Xs = [fiber.X],
+                    Ys = [fiber.Y],
+                    Fill = Brushes.DarkViolet,
+                    MarkerSize = Math.Max(8, fiber.Diameter * 2500),
+                    Label = "idealized_rebar_layer"
+                });
+                elements.Add(new TextElement
+                {
+                    X = fiber.X + Math.Max(fiber.Diameter, 0.002),
+                    Y = fiber.Y,
+                    Text = string.Format(
+                        Loc.S("ParametricRcIdealizedMarkerFormat"),
+                        fiber.Area, fiber.Diameter * 1000.0,
+                        Loc.S("ParametricRcIdealizedLayer"),
+                        area.IdealizedAxis?.ToString() ?? "—")
+                });
+                continue;
+            }
             if (hasPrestress)
                 elements.Add(new CircleElement
                 {

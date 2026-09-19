@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Text.Json;
 using CScore;
+using CScore.ParametricRc;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks
@@ -22,6 +23,13 @@ namespace OpenCS.Tasks
          var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
          try
          {
+            var applicability = ParametricRebarApplicability.Reject(section, task.Kind, item);
+            if (applicability is not null)
+               return new CalcResult
+               {
+                  TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag, Created = created,
+                  Status = "not_applicable", DataJson = JsonSerializer.Serialize(new { reason_code = applicability })
+               };
             section.ResolveAndBuildDiagramms(settings.Sp63DescEtaMin,
                 pool: ctx?.Database?.Diagrams,
                 rebarDifferentialDiagram: settings.RebarDifferentialDiagram, ekbEtaMin: settings.EkbDescEtaMin);
