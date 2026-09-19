@@ -203,6 +203,45 @@ public class ShellSimplEccentricTensionTests
         Assert.Equal(psiByMoment, s.Psi_s, 3);
     }
 
+    // ── Вторая грань при сквозном растяжении ───────────────────────────────────
+
+    // Пока есть сжатая зона, трещит только грань, растягиваемая моментом, и выбор её по знаку
+    // M_n верен. Но при x_m ≤ 0 растянуты ОБА ряда, и трещина по второй грани существует —
+    // причём если она армирована слабее, то именно она и решает.
+    //
+    // Асимметрия: верх ⌀12 шаг 100 (11,31 см²/м), низ 4,0 см²/м. M = 5, N = +350:
+    //   F_t (верх) = (M + N·(h/2 − a'))/arm = (5 + 22,75)/0,130 = 213,5 кН/м → σs = 188,8 МПа
+    //   F_c (низ)  = N − F_t = 136,5 кН/м   → σs = 136,5/4,0 см² = 341,3 МПа  ← решает
+    [Fact]
+    public void Sls_ThroughTension_SecondFaceGoverns_WhenReinforcedLess()
+    {
+        var capri = ShellSimplSolver.Solve(
+            new ShellSimplSolver.SolveParams(350.0, 0, 0, 5.0, 0, 0,
+                "shell_simpl_capri_sls", 0.5, 0.3, 1.0, 0.5),
+            Section(asTop: As12s100, asBot: 4.0e-4), Concrete(), Rebar(), CalcType.N);
+
+        var along = capri.CapriDirs!.First(d => Math.Abs(d.Alpha_deg) < 1e-9);
+
+        Assert.True(along.Strip.Cracked);
+        Assert.InRange(along.Strip.Sigma_s_MPa, 330.0, 350.0);
+    }
+
+    // Проверка того, что вторая грань не «перехватывает» управление там, где её нет: при
+    // наличии сжатой зоны (малая N, тот же момент) решает грань, растянутая моментом.
+    [Fact]
+    public void Sls_WithCompressionZone_MomentFaceStillGoverns()
+    {
+        var capri = ShellSimplSolver.Solve(
+            new ShellSimplSolver.SolveParams(0, 0, 0, 20.0, 0, 0,
+                "shell_simpl_capri_sls", 0.5, 0.3, 1.0, 0.5),
+            Section(asTop: As12s100, asBot: 4.0e-4), Concrete(), Rebar(), CalcType.N);
+
+        var along = capri.CapriDirs!.First(d => Math.Abs(d.Alpha_deg) < 1e-9);
+
+        Assert.True(along.Top, "при чистом изгибе с M > 0 решать обязана верхняя грань");
+        Assert.True(along.Strip.Xm > 0.0, $"сжатая зона обязана быть: x_m = {along.Strip.Xm:F4}");
+    }
+
     // Нижняя граница, не зависящая от модели сечения: при центральном растяжении всю силу
     // несут оба ряда арматуры, σs = N/(As + A's) = 350/(2·11,31 см²) = 154,7 МПа.
     [Fact]

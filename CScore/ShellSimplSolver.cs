@@ -385,9 +385,18 @@ namespace CScore
         /// одним путём, включая поправку (8.154) и вырождение при x_m ≤ 0.
         /// </summary>
         /// <param name="alpha">Коэффициент приведения αs1 = Es/Eb,red (п. 8.2.15).</param>
+        /// <param name="oppositeRow">
+        /// Считать напряжение во ВТОРОМ ряду — том, который момент не растягивает. Имеет смысл
+        /// только при сквозном растяжении (x_m ≤ 0): тогда растянуты оба ряда, и сила во втором
+        /// берётся из того же равновесия, F_второй = N − F_первый. Геометрия передаётся уже
+        /// переставленной (h0 и a' — от этого ряда), поэтому привязка ряда, растянутого
+        /// моментом, восстанавливается как h − h0. Если сжатая зона есть, второй ряд сжат и
+        /// напряжение равно нулю.
+        /// </param>
         internal static double SigmaSByClause8216(
             double m, double N_des, double h, double h0, double a_prime,
-            double As_t, double As_c, double alpha, double Rs_ser)
+            double As_t, double As_c, double alpha, double Rs_ser,
+            bool oppositeRow = false)
         {
             double xM = NeutralAxis(h0, a_prime, As_t, As_c, alpha);
             FullSectionProps(h, h0, a_prime, As_t, As_c, alpha,
@@ -401,6 +410,9 @@ namespace CScore
 
             if (x > 1e-9)
             {
+                // Сжатая зона есть — второй ряд сжат и трещины у его грани нет.
+                if (oppositeRow) return 0.0;
+
                 // Приведённые площадь/момент инерции сечения С ТРЕЩИНОЙ (сжатая зона бетона
                 // + арматура, п. 8.2.16) — в отличие от тех же величин БЕЗ трещины, которые
                 // используются только для Mcrc (п. 8.2.11-8.2.12).
@@ -419,7 +431,19 @@ namespace CScore
             //     F_t + F_c = N;   F_t·z_t + F_c·z_c = M   (z — от центра тяжести сечения)
             // откуда F_t = (M + N·(h/2 − a')) / (h0 − a').
             // При M → 0 даёт σs = N/(As + A's) — точное значение для центрального растяжения.
-            double f = armSls > 1e-12 ? (m + N_des * (h / 2.0 - a_prime)) / armSls : 0.0;
+            double f;
+            if (oppositeRow)
+            {
+                // Сила в ряду, растянутом моментом: его привязка — h − h0 этого вызова, потому
+                // что геометрия передана переставленной. Остаток равновесия N = F_t + F_c и
+                // даёт усилие во втором ряду.
+                double fMoment = armSls > 1e-12 ? (m + N_des * (h0 - h / 2.0)) / armSls : 0.0;
+                f = N_des - fMoment;
+            }
+            else
+            {
+                f = armSls > 1e-12 ? (m + N_des * (h / 2.0 - a_prime)) / armSls : 0.0;
+            }
             double sg = As_t > 1e-14 ? f / As_t : 0.0;
             return Math.Clamp(sg, 0.0, Rs_ser);
         }
@@ -463,13 +487,18 @@ namespace CScore
             return r;
         }
 
+        /// <param name="oppositeRow">Считать ряд, который момент НЕ растягивает: при сквозном
+        /// растяжении (x_m ≤ 0) он тоже растянут, и у его грани тоже есть трещина. Геометрия
+        /// передаётся переставленной (h0, a', As_t, ds — этого ряда). См.
+        /// <see cref="SigmaSByClause8216"/>.</param>
         internal static ShellSimplStripResult ComputeStripSls(
             double M_des, double N_des, double h, double h0, double a_prime,
             double As_t, double As_c, double ds,
             MaterialChars concrete, MaterialChars rebar,
             double phi1, double phi2, double acrcLimMm,
             SigmaSCrcMethod sigmaSCrcMethod = SigmaSCrcMethod.ReleasedConcrete8137,
-            WplGammaMethod wplGamma = WplGammaMethod.Sp63)
+            WplGammaMethod wplGamma = WplGammaMethod.Sp63,
+            bool oppositeRow = false)
         {
             bool noRebar = As_t < 1e-12;
             var r = new ShellSimplStripResult
@@ -531,7 +560,7 @@ namespace CScore
             double armSls = h0 - a_prime;
 
             double SigmaSAtMoment(double m) => SigmaSByClause8216(
-                m, N_des, h, h0, a_prime, As_t, As_c, alpha, Rs_ser);
+                m, N_des, h, h0, a_prime, As_t, As_c, alpha, Rs_ser, oppositeRow);
 
             double xm;
             if (M_des > 1e-9) xm = xM - I_red_s1 * N_des / (A_red_s1 * M_des);
@@ -808,6 +837,29 @@ namespace CScore
                         As_n_top, As_n_bot, ds_top, concreteChars, rebarChars, phi1, phi2, acrcLimMm, sigmaSCrcMethod, wplGamma)
                     : ComputeStripSls(Math.Abs(M_n), N_n, h, h - cb, ct,
                         As_n_bot, As_n_top, ds_bot, concreteChars, rebarChars, phi1, phi2, acrcLimMm, sigmaSCrcMethod, wplGamma);
+
+                // Пока есть сжатая зона, вторая грань сжата и не трещит — выбор по знаку M_n
+                // исчерпывающий. Но при x_m ≤ 0 сечение растянуто насквозь, оба ряда работают
+                // на растяжение (F_t + F_c = N), и трещина по второй грани существует. Если она
+                // армирована слабее, решает именно она: на стене с асимметричным армированием
+                // перебор площадок иначе целиком проходит по одной грани, а вторую не проверяет
+                // ни разу. Запись на угол остаётся ОДНА (порядок CapriDirs выровнен по индексу
+                // между прогонами), но берётся худшая из двух граней.
+                if (strip.Xm <= 0.0)
+                {
+                    var other = top
+                        ? ComputeStripSls(Math.Abs(M_n), N_n, h, h - cb, ct,
+                            As_n_bot, As_n_top, ds_bot, concreteChars, rebarChars, phi1, phi2, acrcLimMm,
+                            sigmaSCrcMethod, wplGamma, oppositeRow: true)
+                        : ComputeStripSls(Math.Abs(M_n), N_n, h, h - ct, cb,
+                            As_n_top, As_n_bot, ds_top, concreteChars, rebarChars, phi1, phi2, acrcLimMm,
+                            sigmaSCrcMethod, wplGamma, oppositeRow: true);
+                    if (other.Acrc_mm > strip.Acrc_mm)
+                    {
+                        strip = other;
+                        top = !top;
+                    }
+                }
             }
             else
             {
