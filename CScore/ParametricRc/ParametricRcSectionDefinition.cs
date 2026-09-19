@@ -3,6 +3,9 @@ namespace CScore.ParametricRc;
 /// <summary>Поддерживаемая параметрическая форма железобетонного сечения.</summary>
 public enum ParametricRcShape { Rectangle, Tee, IBeam, Circle, Annulus }
 
+/// <summary>Способ материализации продольной арматуры параметрического источника.</summary>
+public enum ParametricRebarMode { PhysicalBars, IdealizedLayer }
+
 /// <summary>Зона поперечной арматуры типовой формы.</summary>
 public enum ParametricStirrupZone { Body, Flange, TopFlange, BottomFlange, Web }
 
@@ -12,13 +15,22 @@ public enum ParametricStirrupDirection { Vertical, Horizontal }
 /// <summary>Один набор открытых срезов с собственным материалом и шагом.</summary>
 public sealed record ParametricStirrupCutSet(ParametricStirrupZone Zone,
     ParametricStirrupDirection Direction, int Count, double DiameterM,
-    double SpacingM, double CoverM, int MaterialId);
+    double SpacingM, double CoverM, int MaterialId)
+{
+    /// <summary>Шаг набора срезов; имя-псевдоним для API параметрического мастера.</summary>
+    public double StepM => SpacingM;
+}
 
 /// <summary>Продольный слой параметрического сечения.</summary>
 public sealed record ParametricLongitudinalLayer(
     bool Enabled, bool IsIdealized, int Count, double DiameterM, double CoordinateM,
     double AreaM2, IdealizedRebarAxis? Axis)
 {
+    /// <summary>Режим представления слоя в сформированной области.</summary>
+    public ParametricRebarMode Mode => IsIdealized
+        ? ParametricRebarMode.IdealizedLayer
+        : ParametricRebarMode.PhysicalBars;
+
     /// <summary>Создаёт ряд физических стержней.</summary>
     public static ParametricLongitudinalLayer Physical(int count, double diameterM, double coordinateM) =>
         new(true, false, count, diameterM, coordinateM, 0.0, null);
@@ -39,6 +51,9 @@ public sealed record ParametricRcSectionDefinition(
     ParametricLongitudinalLayer? UpperRebar, ParametricLongitudinalLayer? LowerRebar,
     ParametricPolarRebar? PolarRebar)
 {
+    /// <summary>Версия JSON-контракта исходного описания.</summary>
+    public const int CurrentVersion = 1;
+
     /// <summary>Необязательные наборы открытых срезов поперечной арматуры.</summary>
     public IReadOnlyList<ParametricStirrupCutSet> StirrupCuts { get; init; } = [];
     /// <summary>Создаёт прямоугольное сечение.</summary>

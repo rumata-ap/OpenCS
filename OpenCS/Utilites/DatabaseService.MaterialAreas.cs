@@ -201,10 +201,6 @@ namespace OpenCS.Utilites
 
       public void SaveMaterialArea(MaterialArea area)
       {
-         // При создании параметрической арматуры бетонная область ещё может иметь Id=0.
-         // К моменту её сохранения область-носитель должна быть сохранена первой;
-         // синхронизируем persisted FK с объектной ссылкой, а не оставляем нулевой Id.
-         if (area.HostArea != null) area.HostAreaId = area.HostArea.Id;
          using var conn = new SqliteConnection($"Data Source={_dataSource}");
          conn.Open();
          using (var fkCmd = conn.CreateCommand())
@@ -213,6 +209,25 @@ namespace OpenCS.Utilites
             fkCmd.ExecuteNonQuery();
          }
          using var tx = conn.BeginTransaction();
+         try
+         {
+            SaveMaterialAreaCore(area, conn);
+            tx.Commit();
+         }
+         catch
+         {
+            tx.Rollback();
+            throw;
+         }
+         if (area.Id != 0 && !MaterialAreas.Contains(area)) MaterialAreas.Add(area);
+      }
+
+      /// <summary>Сохраняет область в текущем соединении и внешней транзакции.</summary>
+      private void SaveMaterialAreaCore(MaterialArea area, SqliteConnection conn)
+      {
+         ArgumentNullException.ThrowIfNull(area);
+         ValidateStirrupCenterlines(area);
+         if (area.HostArea != null) area.HostAreaId = area.HostArea.Id;
          var isNew = area.Id == 0;
          using (var cmd = conn.CreateCommand())
          {
@@ -234,10 +249,10 @@ namespace OpenCS.Utilites
             cmd.Parameters.AddWithValue("@axis", area.IdealizedAxis?.ToString() ?? (object)DBNull.Value);
             if (isNew) area.Id = (int)(long)cmd.ExecuteScalar()!; else cmd.ExecuteNonQuery();
          }
+         if (area.Id == 0)
+            throw new InvalidOperationException("Материальная область не получила Id при сохранении.");
          ReplacePointFibers(area, conn);
          ReplaceStirrups(area, conn);
-         tx.Commit();
-         if (isNew && !MaterialAreas.Contains(area)) MaterialAreas.Add(area);
       }
 
       void ReplacePointFibers(MaterialArea area, SqliteConnection conn)
@@ -260,6 +275,7 @@ namespace OpenCS.Utilites
 
       void ReplaceStirrups(MaterialArea area, SqliteConnection conn)
       {
+         ValidateStirrupCenterlines(area);
          using (var cmd = conn.CreateCommand())
          {
             cmd.CommandText = "DELETE FROM material_area_closed_stirrup_groups WHERE area_id=@id";
@@ -288,6 +304,13 @@ namespace OpenCS.Utilites
                element.Id = (int)(long)loopCmd.ExecuteScalar()!;
             }
          }
+      }
+
+      static void ValidateStirrupCenterlines(MaterialArea area)
+      {
+         foreach (var element in area.Stirrups.SelectMany(g => g.Elements))
+            if (string.IsNullOrWhiteSpace(element.CenterlineContour.WKT))
+               throw new InvalidOperationException("Каждый срез поперечной арматуры должен иметь непустой centerline WKT.");
       }
    }
 }

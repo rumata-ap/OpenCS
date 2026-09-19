@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CScore;
+using CScore.ParametricRc;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks;
@@ -43,6 +44,10 @@ public sealed class StrainStateBatchHandler : ITaskHandler
             int total = items.Count;
             var rowResults  = new object[total];
             var convergedArr = new bool[total];
+            var applicability = items
+                .Select(fi => ParametricRebarApplicability.Evaluate(
+                    section, task.Kind, fi))
+                .ToArray();
             int done = 0;
 
             if (settings.BatchParallel && total > 1)
@@ -51,6 +56,12 @@ public sealed class StrainStateBatchHandler : ITaskHandler
                 {
                     if (ctx?.CancellationToken.IsCancellationRequested == true) { state.Stop(); return; }
                     var fi    = items[i];
+                    if (!applicability[i].IsApplicable)
+                    {
+                        rowResults[i] = BuildNotApplicableRow(fi, applicability[i].ReasonCode!);
+                        BatchProgress.Report(ctx, ref done, total);
+                        return;
+                    }
                     var clone = section.CloneForCalc();
                     var solver = new StrainSolver(clone, task.CalcType, ten: ten,
                         tol:     settings.NewtonTolerance,
@@ -73,6 +84,12 @@ public sealed class StrainStateBatchHandler : ITaskHandler
                 for (int i = 0; i < total; i++)
                 {
                     var fi     = items[i];
+                    if (!applicability[i].IsApplicable)
+                    {
+                        rowResults[i] = BuildNotApplicableRow(fi, applicability[i].ReasonCode!);
+                        BatchProgress.Report(ctx, ref done, total);
+                        continue;
+                    }
                     var solver = new StrainSolver(section, task.CalcType, ten: ten,
                         tol:     settings.NewtonTolerance,
                         maxIter: settings.NewtonMaxIter,
@@ -90,12 +107,18 @@ public sealed class StrainStateBatchHandler : ITaskHandler
             }
 
             int convergedCount = convergedArr.Count(c => c);
-            bool allConverged  = convergedCount == total;
+            int notApplicableCount = applicability.Count(a => !a.IsApplicable);
+            bool allConverged  = notApplicableCount == 0 && convergedCount == total;
+            string status = total > 0 && notApplicableCount == total
+                ? "not_applicable"
+                : notApplicableCount > 0 ? "partial"
+                : allConverged ? "ok" : "partial";
 
             var data = new
             {
                 all_converged   = allConverged,
                 converged_count = convergedCount,
+                not_applicable_count = notApplicableCount,
                 total,
                 rows = rowResults
             };
@@ -106,7 +129,7 @@ public sealed class StrainStateBatchHandler : ITaskHandler
                 TaskKind = task.Kind,
                 TaskTag  = task.Tag,
                 Created  = created,
-                Status   = allConverged ? "ok" : "partial",
+                Status   = status,
                 DataJson = JsonSerializer.Serialize(data)
             };
         }
@@ -141,6 +164,25 @@ public sealed class StrainStateBatchHandler : ITaskHandler
         residual   = Math.Round(solver.Residual, 6),
         status     = solver.Converged ? "ok" : "not_converged",
         eta
+    };
+
+    static object BuildNotApplicableRow(LoadItem fi, string reasonCode) => new
+    {
+        label = fi.Label,
+        num = fi.Num,
+        N = fi.N,
+        Mx = fi.Mx,
+        My = fi.My,
+        MxTarget = (double?)null,
+        MyTarget = (double?)null,
+        e0 = (double?)null,
+        ky = (double?)null,
+        kz = (double?)null,
+        iterations = (int?)null,
+        residual = (double?)null,
+        status = "not_applicable",
+        reason_code = reasonCode,
+        eta = (object?)null
     };
 
     /// <summary>

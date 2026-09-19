@@ -133,6 +133,8 @@ namespace OpenCS
 
       CrossSection? currentCrossSection;
       ObservableCollection<CrossSection> crossSectionsLive = [];
+      readonly ObservableCollection<ParametricCrossSectionTreeItem> parametricFiberSectionsLive = [];
+      readonly ObservableCollection<ParametricCrossSectionTreeItem> parametricSourceStatusLive = [];
       MaterialArea? currentMaterialArea;
        ForceSet? currentBarForceSet;
        ForceSet? currentShellForceSet;
@@ -341,6 +343,15 @@ namespace OpenCS
 
       /// <summary>Простые фибровые сечения (не TwoStageSection).</summary>
       public ObservableCollection<CrossSection> FiberSectionsLive { get; } = [];
+
+      /// <summary>Обычные и stale фибровые сечения для существующего дерева.</summary>
+      public ObservableCollection<CrossSection> OrdinaryFiberSectionsLive { get; } = [];
+
+      /// <summary>Поддержанные parameteric sources; фактический CrossSection остаётся общим.</summary>
+      public ObservableCollection<ParametricCrossSectionTreeItem> ParametricFiberSectionsLive => parametricFiberSectionsLive;
+
+      /// <summary>Будущие и повреждённые source-записи без автоматической перезаписи.</summary>
+      public ObservableCollection<ParametricCrossSectionTreeItem> ParametricSourceStatusLive => parametricSourceStatusLive;
 
       /// <summary>Двухстадийные сечения (TwoStageSection).</summary>
       public ObservableCollection<CrossSection> TwoStageSectionsLive { get; } = [];
@@ -672,6 +683,19 @@ namespace OpenCS
 
       /// <summary>Команда создания нового поперечного сечения.</summary>
       public ICommand NewCrossSectionCommand { get; set; } = null!;
+
+      /// <summary>Команда создания параметрического ЖБ-сечения.</summary>
+      public ICommand NewParametricCrossSectionCommand { get; set; } = null!;
+      /// <summary>Команда пересборки параметрического ЖБ-сечения.</summary>
+      public ICommand RebuildParametricCrossSectionCommand { get; set; } = null!;
+      /// <summary>Команда отсоединения параметрического source.</summary>
+      public ICommand DetachParametricCrossSectionCommand { get; set; } = null!;
+      /// <summary>Команда восстановления параметрического source.</summary>
+      public ICommand RestoreParametricCrossSectionCommand { get; set; } = null!;
+      /// <summary>Команда редактирования поддержанного параметрического source.</summary>
+      public ICommand EditParametricCrossSectionCommand { get; set; } = null!;
+      /// <summary>Команда открытия сформированного сечения без изменения source.</summary>
+      public ICommand OpenParametricCrossSectionCommand { get; set; } = null!;
 
       /// <summary>Команда редактирования выбранного поперечного сечения.</summary>
       public ICommand EditCrossSectionCommand { get; set; } = null!;
@@ -1043,6 +1067,8 @@ namespace OpenCS
           SectionTreeItems = new System.Windows.Data.CompositeCollection
           {
               new System.Windows.Data.CollectionContainer { Collection = FiberSectionsLive },
+              new ParametricCrossSectionTreeGroup(parametricFiberSectionsLive),
+              new ParametricCrossSectionSourceStatusGroup(parametricSourceStatusLive),
               new SectionTreeGroup(TwoStageSectionsLive),
               new PlateSectionTreeGroup(PlateSectionsLive),
               new EquivalentSectionTreeGroup(EquivalentSectionsLive),
@@ -1308,6 +1334,12 @@ namespace OpenCS
          OpenSettingsCommand = new RelayCommand(_ => new Views.SettingsWindow(this).ShowDialog());
          SetLanguageCommand = new RelayCommand(SetLanguage);
          NewCrossSectionCommand    = new RelayCommand(_ => NewCrossSection());
+         NewParametricCrossSectionCommand = new RelayCommand(_ => NewParametricCrossSection());
+         RebuildParametricCrossSectionCommand = new RelayCommand(p => RebuildParametricCrossSection(p as ParametricCrossSectionTreeItem));
+         DetachParametricCrossSectionCommand = new RelayCommand(p => DetachParametricCrossSection(p as ParametricCrossSectionTreeItem));
+         RestoreParametricCrossSectionCommand = new RelayCommand(p => RestoreParametricCrossSection(p as ParametricCrossSectionTreeItem));
+         EditParametricCrossSectionCommand = new RelayCommand(p => EditParametricCrossSection(p as ParametricCrossSectionTreeItem));
+         OpenParametricCrossSectionCommand = new RelayCommand(p => OpenParametricCrossSection(p as ParametricCrossSectionTreeItem));
          EditCrossSectionCommand   = new RelayCommand(_ => EditCrossSection());
          DeleteCrossSectionCommand = new RelayCommand(_ => DeleteCrossSection());
          NewTwoStageSectionCommand = new RelayCommand(_ => NewTwoStageSection());
@@ -2282,6 +2314,87 @@ namespace OpenCS
          CurrentPage = new Views.CrossSectionPage(this);
       }
 
+      void NewParametricCrossSection()
+      {
+         var vm = new ParametricRcSectionVM();
+         var dialog = new Views.Dialogs.ParametricRcSectionDialog(vm)
+         {
+            Owner = Application.Current?.MainWindow
+         };
+         if (dialog.ShowDialog() != true) return;
+
+         var section = new CrossSection
+         {
+            Num = CrossSections.Count > 0 ? CrossSections.Max(s => s.Num) + 1 : 1,
+            Tag = vm.BuildDefinition().Tag
+         };
+         var result = new ParametricRcSectionProjectService(db)
+            .GenerateAndSave(section, vm.BuildDefinition());
+         if (result.Diagnostics.Count != 0)
+         {
+            LogService.Error(string.Join("; ", result.Diagnostics));
+            return;
+         }
+         RefreshSectionLiveCollections();
+         CurrentCrossSection = section;
+         MarkDirty(SaveCategory.CrossSections);
+      }
+
+      void RebuildParametricCrossSection(ParametricCrossSectionTreeItem? item)
+      {
+         if (item is null) return;
+         if (MessageBox.Show(Loc.S("ParametricRcConfirmRebuild"),
+               Loc.S("ParametricRcDialogTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+         var state = new ParametricRcSectionProjectService(db).Restore(item.Section);
+         if (state.LoadStatus == ParametricRcDefinitionLoadStatus.Supported)
+         {
+            RefreshSectionLiveCollections();
+            CurrentCrossSection = item.Section;
+            MarkDirty(SaveCategory.CrossSections);
+         }
+      }
+
+      void RestoreParametricCrossSection(ParametricCrossSectionTreeItem? item)
+         => RebuildParametricCrossSection(item);
+
+      void OpenParametricCrossSection(ParametricCrossSectionTreeItem? item)
+      {
+         if (item is null) return;
+         CurrentCrossSection = item.Section;
+      }
+
+      void EditParametricCrossSection(ParametricCrossSectionTreeItem? item)
+      {
+         if (item is null) return;
+         var service = new ParametricRcSectionProjectService(db);
+         if (!service.TryGetDefinition(item.Section, out var definition)) return;
+         var vm = new ParametricRcSectionVM();
+         vm.LoadDefinition(definition);
+         var dialog = new Views.Dialogs.ParametricRcSectionDialog(vm)
+         {
+            Owner = Application.Current?.MainWindow
+         };
+         if (dialog.ShowDialog() != true) return;
+         var result = service.GenerateAndSave(item.Section, vm.BuildDefinition());
+         if (result.Diagnostics.Count != 0)
+         {
+            LogService.Error(string.Join("; ", result.Diagnostics));
+            return;
+         }
+         RefreshSectionLiveCollections();
+         CurrentCrossSection = item.Section;
+         MarkDirty(SaveCategory.CrossSections);
+      }
+
+      void DetachParametricCrossSection(ParametricCrossSectionTreeItem? item)
+      {
+         if (item is null) return;
+         new ParametricRcSectionProjectService(db).Detach(item.Section);
+         RefreshSectionLiveCollections();
+         MarkDirty(SaveCategory.CrossSections);
+      }
+
       void NewTwoStageSection()
       {
          currentCrossSection = null;
@@ -2408,7 +2521,23 @@ namespace OpenCS
       public void RefreshSectionLiveCollections()
       {
          FiberSectionsLive.Clear();
+         OrdinaryFiberSectionsLive.Clear();
+         parametricFiberSectionsLive.Clear();
+         parametricSourceStatusLive.Clear();
+         var parametricService = new ParametricRcSectionProjectService(db);
          foreach (var s in CrossSections.Where(s => s is not TwoStageSection))
+         {
+            var state = parametricService.GetState(s);
+            var item = new ParametricCrossSectionTreeItem(s, state);
+            if (state.LoadStatus == ParametricRcDefinitionLoadStatus.Supported && !state.IsStale)
+               parametricFiberSectionsLive.Add(item);
+            else if (state.LoadStatus is ParametricRcDefinitionLoadStatus.UnsupportedFutureVersion
+                     or ParametricRcDefinitionLoadStatus.InvalidJson)
+               parametricSourceStatusLive.Add(item);
+            else
+               OrdinaryFiberSectionsLive.Add(s);
+         }
+         foreach (var s in OrdinaryFiberSectionsLive)
             FiberSectionsLive.Add(s);
 
          TwoStageSectionsLive.Clear();

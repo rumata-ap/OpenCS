@@ -74,10 +74,12 @@ public static class Sp63TeeRebarLayoutAnalyzer
             ? tee.BottomFlangeWidth : tee.TopFlangeWidth;
 
         var tensionLayer = new Sp63NormalRebarLayer(tension.Coordinate,
-            tension.Area, tension.Rs, tension.Rsc, tension.Bars);
+            tension.Area, tension.Rs, tension.Rsc, tension.Bars)
+        { IsIdealized = tension.IsIdealized };
         var compressionLayer = hasCompressionLayer
             ? new Sp63NormalRebarLayer(compression.Coordinate, compression.Area,
                 compression.Rs, compression.Rsc, compression.Bars)
+            { IsIdealized = compression.IsIdealized }
             : new Sp63NormalRebarLayer(compressionFace, 0.0,
                 tension.Rs, tension.Rsc, []);
         var profile = new Sp63TeeSectionProfile(tee.Bw, tee.H, h0, aPrime,

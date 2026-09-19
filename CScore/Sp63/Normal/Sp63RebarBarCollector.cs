@@ -4,11 +4,12 @@ namespace CScore.Sp63.Normal;
 
 /// <summary>Собранный точечный стержень арматуры с сопротивлениями.</summary>
 internal sealed record Sp63CollectedBar(double X, double Y, double Area,
-    double Diameter, double Coordinate, double Rs, double Rsc);
+    double Diameter, double Coordinate, double Rs, double Rsc, bool IsIdealized);
 
 /// <summary>Уровень арматуры, объединяющий стержни с близкими координатами.</summary>
 internal sealed record Sp63CollectedLayer(double Coordinate, double Area, double Rs,
-    double Rsc, IReadOnlyList<(double X, double Y, double Area, double Diameter)> Bars);
+    double Rsc, IReadOnlyList<(double X, double Y, double Area, double Diameter)> Bars,
+    bool IsIdealized);
 
 /// <summary>Сбор и группировка точечной арматуры, общие для прямоугольного и таврового режимов.</summary>
 internal static class Sp63RebarBarCollector
@@ -74,7 +75,8 @@ internal static class Sp63RebarBarCollector
                     return Failure("invalid_rebar_area", "Sp63Normal_InvalidRebarArea",
                         "8.1.8", out message);
                 bars.Add(new Sp63CollectedBar(fiber.X, fiber.Y, fiber.Area, fiber.Diameter,
-                    0.0, rs, rsc));
+                    0.0, rs, rsc,
+                    area.RebarRepresentation == RebarRepresentation.IdealizedLayer));
             }
         }
 
@@ -99,7 +101,7 @@ internal static class Sp63RebarBarCollector
             if (index < 0)
             {
                 grouped.Add(new Sp63CollectedLayer(bar.Coordinate, bar.Area, bar.Rs,
-                    bar.Rsc, [(bar.X, bar.Y, bar.Area, bar.Diameter)]));
+                    bar.Rsc, [(bar.X, bar.Y, bar.Area, bar.Diameter)], bar.IsIdealized));
                 continue;
             }
 
@@ -113,7 +115,8 @@ internal static class Sp63RebarBarCollector
             {
                 Coordinate = coordinate,
                 Area = totalArea,
-                Bars = barsList
+                Bars = barsList,
+                IsIdealized = existingLayer.IsIdealized || bar.IsIdealized
             };
         }
 

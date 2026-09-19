@@ -74,8 +74,11 @@ namespace OpenCS.Tasks
                                    CalcSettings? settings = null, TaskRunContext? ctx = null)
       {
          settings ??= CalcSettings.Default;
-         var parametricRebarError = ParametricRebarApplicability.Reject(section, task.Kind, item);
-         if (parametricRebarError is not null && task.Kind is not ("strain_state" or "strain_state_batch" or "sp63_normal"))
+         var parametricRebarError = section is not null &&
+            ParametricRebarApplicability.HasIdealizedLayer(section) &&
+            !ParametricRebarApplicability.IsSupportedTaskKind(task.Kind)
+            ? "idealized_rebar_task_not_supported" : null;
+         if (parametricRebarError is not null)
          {
             return new CalcResult
             {
@@ -96,7 +99,7 @@ namespace OpenCS.Tasks
                DataJson = $"{{\"error\":\"Unknown task kind: {task.Kind}\"}}"
             };
          }
-         return handler.Run(task, section, item, settings, ctx);
+         return handler.Run(task, section!, item, settings, ctx);
       }
 
       /// <summary>Список зарегистрированных видов задач.</summary>

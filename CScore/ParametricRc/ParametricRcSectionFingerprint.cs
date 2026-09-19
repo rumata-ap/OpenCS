@@ -15,7 +15,7 @@ public static class ParametricRcSectionFingerprint
         var tokens = new List<string> { "parametric-rc", generatorVersion.ToString(CultureInfo.InvariantCulture) };
         foreach (var area in section.Areas.OrderBy(AreaKey, StringComparer.Ordinal))
         {
-            tokens.Add($"area|{area.Category}|{area.MaterialId}|{area.HostAreaId}|{area.PoolContourId}|{area.RebarRepresentation}|{area.IdealizedAxis}");
+            tokens.Add($"area|{area.Category}|{area.MaterialId}|host:{HostKey(area)}|pool:{PoolKey(area)}|{area.RebarRepresentation}|{area.IdealizedAxis}");
             foreach (var contour in area.Contours)
             {
                 tokens.Add($"contour|{contour.Type}|{contour.IsPolyline}");
@@ -41,11 +41,26 @@ public static class ParametricRcSectionFingerprint
 
     static string AreaKey(MaterialArea area)
     {
-        var hull = area.Hull;
-        string contour = hull is null ? "" : string.Join(';', hull.X.Zip(hull.Y, (x, y) => F(x) + ',' + F(y)));
+        string contour = string.Join('|', area.Contours.Select(c =>
+            $"{c.Type}:{c.IsPolyline}:{string.Join(';', c.X.Zip(c.Y, (x, y) => F(x) + ',' + F(y)))}"));
         string bars = string.Join(';', area.Fibers.Where(f => f.TypeFiber == FiberType.point)
             .OrderBy(f => f.X).ThenBy(f => f.Y).Select(f => $"{F(f.X)},{F(f.Y)},{F(f.Area)},{F(f.Diameter)}"));
-        return $"{area.Category}|{area.MaterialId}|{area.HostAreaId}|{contour}|{bars}";
+        string stirrups = string.Join('|', area.Stirrups
+            .OrderBy(g => g.MaterialId).ThenBy(g => g.SpacingM)
+            .Select(g => $"{g.MaterialId}:{F(g.SpacingM)}:{string.Join(';', g.Elements
+                .OrderBy(e => e.CenterlineContour.WKT, StringComparer.Ordinal)
+                .Select(e => e.CenterlineContour.WKT))}"));
+        return $"{area.Category}|{area.MaterialId}|{contour}|{bars}|{stirrups}|{area.RebarRepresentation}|{area.IdealizedAxis}";
+    }
+
+    static string HostKey(MaterialArea area) => area.HostArea is null ? "" : AreaKey(area.HostArea);
+
+    static string PoolKey(MaterialArea area)
+    {
+        var contour = area.PoolContour;
+        return contour is null
+            ? ""
+            : string.Join(';', contour.X.Zip(contour.Y, (x, y) => F(x) + ',' + F(y)));
     }
 
     static string F(double value) => value.ToString("G17", CultureInfo.InvariantCulture);

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CScore;
+using CScore.ParametricRc;
 using CScore.Sp63.Normal;
 using OpenCS.Utilites;
 
@@ -41,6 +42,24 @@ public sealed class Sp63NormalHandler : ITaskHandler
                 return MakeResult(task, created, invalid);
             }
 
+            var applicability = ParametricRebarApplicability.Evaluate(
+                section, task.Kind, item, options.Axis);
+            if (!applicability.IsApplicable)
+            {
+                var notApplicable = new Sp63NormalResult
+                {
+                    Status = Sp63NormalStatus.NotApplicable,
+                    Branch = "not_applicable",
+                    ApplicabilityMessages =
+                    [new Sp63NormalMessage(
+                        applicability.ReasonCode ?? "idealized_rebar_not_applicable",
+                        Sp63NormalMessageKind.Applicability,
+                        "параметрическая арматура",
+                        ApplicabilityText(applicability.Reason))]
+                };
+                return MakeResult(task, created, notApplicable);
+            }
+
             var domain = Sp63NormalChecker.Check(section, item, task.CalcType, options,
                 parameters.SpanLength);
             return MakeResult(task, created, domain);
@@ -78,4 +97,12 @@ public sealed class Sp63NormalHandler : ITaskHandler
             Status = Sp63NormalTaskStatusMapper.ToCalcResultStatus(domain),
             DataJson = JsonSerializer.Serialize(domain, JsonOptions)
         };
+
+    static string ApplicabilityText(ParametricRebarApplicabilityReason reason) => reason switch
+    {
+        ParametricRebarApplicabilityReason.AxisMismatch => "Sp63Normal_IdealizedRebarAxisMismatch",
+        ParametricRebarApplicabilityReason.BiaxialLoad => "Sp63Normal_IdealizedRebarBiaxialLoad",
+        ParametricRebarApplicabilityReason.InconsistentAxis => "Sp63Normal_IdealizedRebarAxisInconsistent",
+        _ => "Sp63Normal_IdealizedRebarTaskNotSupported"
+    };
 }

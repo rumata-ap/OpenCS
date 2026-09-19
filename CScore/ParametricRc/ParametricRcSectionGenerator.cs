@@ -1,7 +1,26 @@
 namespace CScore.ParametricRc;
 
+/// <summary>Точная зона типовой формы, использованная и для preview, и для срезов.</summary>
+public sealed record ParametricRcZone(
+    ParametricStirrupZone Kind,
+    IReadOnlyList<(double X, double Y)> Polygon,
+    double MinX, double MaxX, double MinY, double MaxY)
+{
+    /// <summary>Проверяет, что зона имеет непустой прямоугольник для срезов.</summary>
+    public bool IsUsable => MaxX > MinX && MaxY > MinY;
+}
+
 /// <summary>Результат материализации параметрического источника.</summary>
-public sealed record ParametricRcGenerationResult(CrossSection Section, IReadOnlyList<string> Diagnostics);
+public sealed record ParametricRcGenerationResult(
+    CrossSection Section, IReadOnlyList<string> Diagnostics)
+{
+    /// <summary>Точная карта зон, полученная из того же контура, что и бетон.</summary>
+    public IReadOnlyDictionary<ParametricStirrupZone, ParametricRcZone> ZoneMap { get; init; } =
+        new Dictionary<ParametricStirrupZone, ParametricRcZone>();
+
+    /// <summary>Области, созданные генератором и предназначенные для junction.</summary>
+    public IReadOnlyList<MaterialArea> GeneratedAreas { get; init; } = [];
+}
 
 /// <summary>Строит обычное волоконное сечение из параметров типовой формы.</summary>
 public static class ParametricRcSectionGenerator
@@ -17,6 +36,7 @@ public static class ParametricRcSectionGenerator
             return new(new CrossSection { Tag = definition.Tag }, errors);
 
         var concrete = new MaterialArea { Tag = "Бетон", Category = AreaCategory.Region };
+        var zones = BuildZones(definition);
         concrete.Hull = ClosedContour(OuterPoints(definition), "контур бетона", ContourType.Hull);
         if (definition.Shape == ParametricRcShape.Annulus)
             concrete.Contours.Add(ClosedContour(TemplatePoints.CirclePoints(definition.InnerDiameterM, CircleSegments), "отверстие", ContourType.Hole));
@@ -31,7 +51,11 @@ public static class ParametricRcSectionGenerator
             AddLayer(section, concrete, definition.UpperRebar, definition.WidthM, "Верхняя арматура");
             AddStirrupCuts(section, definition);
         }
-        return new(section, []);
+        return new(section, [])
+        {
+            ZoneMap = zones,
+            GeneratedAreas = section.Areas.ToArray()
+        };
     }
 
     static List<string> Validate(ParametricRcSectionDefinition d)
@@ -72,8 +96,28 @@ public static class ParametricRcSectionGenerator
         }
         foreach (var cut in d.StirrupCuts)
         {
-            if (cut.Count < 0 || (cut.Count > 0 && (!(cut.DiameterM > 0) || !(cut.SpacingM > 0) || cut.MaterialId <= 0 || cut.CoverM < 0)))
-                errors.Add("Включённый набор срезов требует число, материал, диаметр, шаг и защитный слой.");
+            if (cut.Count < 0)
+            {
+                errors.Add($"Зона {cut.Zone}, направление {cut.Direction}: число срезов не может быть отрицательным.");
+                continue;
+            }
+            if (cut.Count == 0) continue;
+            if (d.Shape is ParametricRcShape.Circle or ParametricRcShape.Annulus)
+            {
+                errors.Add($"Зона {cut.Zone}, направление {cut.Direction}: поперечная арматура для круга и кольца недоступна.");
+                continue;
+            }
+            if (!(cut.DiameterM > 0) || !(cut.SpacingM > 0) || cut.MaterialId <= 0 || !(cut.CoverM > 0))
+                errors.Add($"Зона {cut.Zone}, направление {cut.Direction}: нужны положительные диаметр, шаг и защитный слой, а также материал.");
+            if (BuildZones(d).TryGetValue(cut.Zone, out var zone))
+            {
+                double clearWidth = zone.MaxX - zone.MinX - 2 * cut.CoverM;
+                double clearHeight = zone.MaxY - zone.MinY - 2 * cut.CoverM;
+                if (clearWidth <= 0 || clearHeight <= 0)
+                    errors.Add($"Зона {cut.Zone}, направление {cut.Direction}: защитный слой оставляет непригодный clear rectangle.");
+            }
+            else
+                errors.Add($"Зона {cut.Zone}, направление {cut.Direction}: зона недоступна для формы {d.Shape}.");
         }
         return errors;
     }
@@ -129,13 +173,57 @@ public static class ParametricRcSectionGenerator
         section.Areas.Add(area);
     }
 
+    static Dictionary<ParametricStirrupZone, ParametricRcZone> BuildZones(
+        ParametricRcSectionDefinition definition)
+    {
+        var outer = OuterPoints(definition);
+        double minX = outer.Min(p => p.X), maxX = outer.Max(p => p.X);
+        double minY = outer.Min(p => p.Y), maxY = outer.Max(p => p.Y);
+        double webHalf = definition.WebThicknessM / 2.0;
+        var zones = new Dictionary<ParametricStirrupZone, ParametricRcZone>();
+
+        void Add(ParametricStirrupZone kind, double x0, double x1,
+            double y0, double y1)
+        {
+            var polygon = new List<(double X, double Y)>
+            {
+                (x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)
+            };
+            zones[kind] = new(kind, polygon, x0, x1, y0, y1);
+        }
+
+        switch (definition.Shape)
+        {
+            case ParametricRcShape.Rectangle:
+                Add(ParametricStirrupZone.Body, minX, maxX, minY, maxY);
+                break;
+            case ParametricRcShape.Tee:
+                Add(ParametricStirrupZone.Flange, minX, maxX,
+                    maxY - definition.FlangeThicknessM, maxY);
+                Add(ParametricStirrupZone.Web, -webHalf, webHalf,
+                    minY, maxY - definition.FlangeThicknessM);
+                break;
+            case ParametricRcShape.IBeam:
+                Add(ParametricStirrupZone.BottomFlange, minX, maxX,
+                    minY, minY + definition.FlangeThicknessM);
+                Add(ParametricStirrupZone.Web, -webHalf, webHalf,
+                    minY + definition.FlangeThicknessM,
+                    maxY - definition.FlangeThicknessM);
+                Add(ParametricStirrupZone.TopFlange, minX, maxX,
+                    maxY - definition.FlangeThicknessM, maxY);
+                break;
+        }
+        return zones;
+    }
+
     static void AddStirrupCuts(CrossSection section, ParametricRcSectionDefinition definition)
     {
+        var zones = BuildZones(definition);
         foreach (var set in definition.StirrupCuts.Where(x => x.Count > 0))
         {
-            if (!TryZone(definition, set.Zone, out var zone)) continue;
-            double minX = zone.minX + set.CoverM, maxX = zone.maxX - set.CoverM;
-            double minY = zone.minY + set.CoverM, maxY = zone.maxY - set.CoverM;
+            if (!zones.TryGetValue(set.Zone, out var zone) || !zone.IsUsable) continue;
+            double minX = zone.MinX + set.CoverM, maxX = zone.MaxX - set.CoverM;
+            double minY = zone.MinY + set.CoverM, maxY = zone.MaxY - set.CoverM;
             if (maxX <= minX || maxY <= minY) continue;
             var area = section.Areas.FirstOrDefault(a => a.Category == AreaCategory.Stirrups && a.MaterialId == set.MaterialId);
             if (area is null)
@@ -169,21 +257,6 @@ public static class ParametricRcSectionGenerator
             }
             area.Stirrups.Add(group);
         }
-    }
-
-    static bool TryZone(ParametricRcSectionDefinition d, ParametricStirrupZone zone,
-        out (double minX, double maxX, double minY, double maxY) value)
-    {
-        double hw = d.WidthM / 2, hh = d.HeightM / 2;
-        value = zone switch
-        {
-            ParametricStirrupZone.Body => (-hw, hw, -hh, hh),
-            ParametricStirrupZone.Web => (-d.WebThicknessM / 2, d.WebThicknessM / 2, -hh + d.FlangeThicknessM, hh - d.FlangeThicknessM),
-            ParametricStirrupZone.Flange or ParametricStirrupZone.TopFlange => (-hw, hw, hh - d.FlangeThicknessM, hh),
-            ParametricStirrupZone.BottomFlange => (-hw, hw, -hh, -hh + d.FlangeThicknessM),
-            _ => default
-        };
-        return value.maxX > value.minX && value.maxY > value.minY;
     }
 
     static Fiber Bar(double x, double y, double area, double diameter) => new(x, y)

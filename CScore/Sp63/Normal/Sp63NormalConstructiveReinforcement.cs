@@ -89,13 +89,27 @@ public static class Sp63NormalConstructiveReinforcement
         var details = new List<CheckDetail>();
         var notes = new List<Sp63NormalMessage>();
 
-        AddCoverCheck(details, notes, "Sp63Normal_MinCoverTension",
-            profile.TensionLayer, profile.Height - profile.H0);
-        if (profile.CompressionLayer.Area > AreaTolerance)
+        bool hasIdealized = profile.TensionLayer.IsIdealized ||
+            profile.CompressionLayer.IsIdealized;
+        if (hasIdealized)
+        {
+            notes.Add(new Sp63NormalMessage(
+                "idealized_rebar_layer",
+                Sp63NormalMessageKind.Information,
+                "10.3.2/10.3.9",
+                "Sp63Normal_IdealizedRebarLayer"));
+        }
+
+        if (!profile.TensionLayer.IsIdealized)
+            AddCoverCheck(details, notes, "Sp63Normal_MinCoverTension",
+                profile.TensionLayer, profile.Height - profile.H0);
+        if (profile.CompressionLayer.Area > AreaTolerance &&
+            !profile.CompressionLayer.IsIdealized)
             AddCoverCheck(details, notes, "Sp63Normal_MinCoverCompression",
                 profile.CompressionLayer, profile.APrime);
 
-        AddTensionBarCountCheck(details, profile);
+        if (!profile.TensionLayer.IsIdealized)
+            AddTensionBarCountCheck(details, profile);
 
         return (details, notes);
     }
