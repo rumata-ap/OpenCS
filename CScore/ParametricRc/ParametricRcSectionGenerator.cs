@@ -29,6 +29,7 @@ public static class ParametricRcSectionGenerator
         {
             AddLayer(section, concrete, definition.LowerRebar, definition.WidthM, "Нижняя арматура");
             AddLayer(section, concrete, definition.UpperRebar, definition.WidthM, "Верхняя арматура");
+            AddStirrupCuts(section, definition);
         }
         return new(section, []);
     }
@@ -68,6 +69,11 @@ public static class ParametricRcSectionGenerator
                 if (Math.Abs(layer.CoordinateM) + half > limit)
                     errors.Add("Продольный слой выходит за габариты бетонного сечения.");
             }
+        }
+        foreach (var cut in d.StirrupCuts)
+        {
+            if (cut.Count < 0 || (cut.Count > 0 && (!(cut.DiameterM > 0) || !(cut.SpacingM > 0) || cut.MaterialId <= 0 || cut.CoverM < 0)))
+                errors.Add("Включённый набор срезов требует число, материал, диаметр, шаг и защитный слой.");
         }
         return errors;
     }
@@ -121,6 +127,63 @@ public static class ParametricRcSectionGenerator
             area.Fibers.Add(Bar(bars.RadiusM * Math.Cos(angle), bars.RadiusM * Math.Sin(angle), a, bars.DiameterM));
         }
         section.Areas.Add(area);
+    }
+
+    static void AddStirrupCuts(CrossSection section, ParametricRcSectionDefinition definition)
+    {
+        foreach (var set in definition.StirrupCuts.Where(x => x.Count > 0))
+        {
+            if (!TryZone(definition, set.Zone, out var zone)) continue;
+            double minX = zone.minX + set.CoverM, maxX = zone.maxX - set.CoverM;
+            double minY = zone.minY + set.CoverM, maxY = zone.maxY - set.CoverM;
+            if (maxX <= minX || maxY <= minY) continue;
+            var area = section.Areas.FirstOrDefault(a => a.Category == AreaCategory.Stirrups && a.MaterialId == set.MaterialId);
+            if (area is null)
+            {
+                area = new MaterialArea { Tag = "Поперечная арматура", Category = AreaCategory.Stirrups, MaterialId = set.MaterialId };
+                section.Areas.Add(area);
+            }
+            var group = new StirrupGroup { MaterialId = set.MaterialId, SpacingM = set.SpacingM };
+            for (int i = 0; i < set.Count; i++)
+            {
+                double ratio = (i + 1.0) / (set.Count + 1.0);
+                double x0, y0, x1, y1;
+                if (set.Direction == ParametricStirrupDirection.Vertical)
+                {
+                    x0 = x1 = minX + ratio * (maxX - minX); y0 = minY; y1 = maxY;
+                }
+                else { x0 = minX; x1 = maxX; y0 = y1 = minY + ratio * (maxY - minY); }
+                group.Elements.Add(new StirrupElement
+                {
+                    CenterlineContour = Contour.Polyline([x0, x1], [y0, y1], "срез"),
+                    BarDiameterM = set.DiameterM,
+                    BarAreaM2 = Math.PI * set.DiameterM * set.DiameterM / 4.0,
+                    Source = new StirrupElementSource
+                    {
+                        Kind = StirrupElementKind.Cut,
+                        Direction = set.Direction == ParametricStirrupDirection.Vertical ? StirrupCutDirection.Vertical : StirrupCutDirection.Horizontal,
+                        Position = set.Direction == ParametricStirrupDirection.Vertical ? x0 : y0,
+                        OffsetM = set.CoverM
+                    }
+                });
+            }
+            area.Stirrups.Add(group);
+        }
+    }
+
+    static bool TryZone(ParametricRcSectionDefinition d, ParametricStirrupZone zone,
+        out (double minX, double maxX, double minY, double maxY) value)
+    {
+        double hw = d.WidthM / 2, hh = d.HeightM / 2;
+        value = zone switch
+        {
+            ParametricStirrupZone.Body => (-hw, hw, -hh, hh),
+            ParametricStirrupZone.Web => (-d.WebThicknessM / 2, d.WebThicknessM / 2, -hh + d.FlangeThicknessM, hh - d.FlangeThicknessM),
+            ParametricStirrupZone.Flange or ParametricStirrupZone.TopFlange => (-hw, hw, hh - d.FlangeThicknessM, hh),
+            ParametricStirrupZone.BottomFlange => (-hw, hw, -hh, -hh + d.FlangeThicknessM),
+            _ => default
+        };
+        return value.maxX > value.minX && value.maxY > value.minY;
     }
 
     static Fiber Bar(double x, double y, double area, double diameter) => new(x, y)

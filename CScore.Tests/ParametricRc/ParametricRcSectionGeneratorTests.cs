@@ -91,4 +91,27 @@ public sealed class ParametricRcSectionGeneratorTests
 
         Assert.NotEmpty(result.Diagnostics);
     }
+
+    [Fact]
+    public void GenerateRectangle_createsOpenTransverseCutsInSeparateStirrupArea()
+    {
+        var result = ParametricRcSectionGenerator.Generate(
+            ParametricRcSectionDefinition.Rectangle(0.30, 0.50) with
+            {
+                StirrupCuts = [new ParametricStirrupCutSet(ParametricStirrupZone.Body,
+                    ParametricStirrupDirection.Vertical, 2, 0.008, 0.20, 0.03, 17)]
+            });
+
+        Assert.Empty(result.Diagnostics);
+        var area = Assert.Single(result.Section.Areas, a => a.Category == AreaCategory.Stirrups);
+        Assert.Equal(17, area.MaterialId);
+        var group = Assert.Single(area.Stirrups);
+        Assert.Equal(2, group.Elements.Count);
+        Assert.All(group.Elements, e =>
+        {
+            Assert.True(e.CenterlineContour.IsPolyline);
+            Assert.False(string.IsNullOrWhiteSpace(e.CenterlineContour.WKT));
+            Assert.Equal(StirrupElementKind.Cut, e.Source!.Kind);
+        });
+    }
 }

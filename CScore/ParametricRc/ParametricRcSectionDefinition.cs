@@ -3,6 +3,17 @@ namespace CScore.ParametricRc;
 /// <summary>Поддерживаемая параметрическая форма железобетонного сечения.</summary>
 public enum ParametricRcShape { Rectangle, Tee, IBeam, Circle, Annulus }
 
+/// <summary>Зона поперечной арматуры типовой формы.</summary>
+public enum ParametricStirrupZone { Body, Flange, TopFlange, BottomFlange, Web }
+
+/// <summary>Ориентация открытого среза поперечной арматуры.</summary>
+public enum ParametricStirrupDirection { Vertical, Horizontal }
+
+/// <summary>Один набор открытых срезов с собственным материалом и шагом.</summary>
+public sealed record ParametricStirrupCutSet(ParametricStirrupZone Zone,
+    ParametricStirrupDirection Direction, int Count, double DiameterM,
+    double SpacingM, double CoverM, int MaterialId);
+
 /// <summary>Продольный слой параметрического сечения.</summary>
 public sealed record ParametricLongitudinalLayer(
     bool Enabled, bool IsIdealized, int Count, double DiameterM, double CoordinateM,
@@ -28,6 +39,8 @@ public sealed record ParametricRcSectionDefinition(
     ParametricLongitudinalLayer? UpperRebar, ParametricLongitudinalLayer? LowerRebar,
     ParametricPolarRebar? PolarRebar)
 {
+    /// <summary>Необязательные наборы открытых срезов поперечной арматуры.</summary>
+    public IReadOnlyList<ParametricStirrupCutSet> StirrupCuts { get; init; } = [];
     /// <summary>Создаёт прямоугольное сечение.</summary>
     public static ParametricRcSectionDefinition Rectangle(double widthM, double heightM) =>
         new(ParametricRcShape.Rectangle, widthM, heightM, 0, 0, 0, "Параметрическое сечение", null, null, null);

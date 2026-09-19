@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using CScore;
+using CScore.ParametricRc;
 using OpenCS.Utilites;
 
 namespace OpenCS.Tasks
@@ -73,6 +74,16 @@ namespace OpenCS.Tasks
                                    CalcSettings? settings = null, TaskRunContext? ctx = null)
       {
          settings ??= CalcSettings.Default;
+         var parametricRebarError = ParametricRebarApplicability.Reject(section, task.Kind, item);
+         if (parametricRebarError is not null && task.Kind is not ("strain_state" or "strain_state_batch" or "sp63_normal"))
+         {
+            return new CalcResult
+            {
+               TaskId = task.Id, TaskKind = task.Kind, TaskTag = task.Tag,
+               Created = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+               Status = "not_applicable", DataJson = $"{{\"reason_code\":\"{parametricRebarError}\"}}"
+            };
+         }
          if (!Handlers.TryGetValue(task.Kind, out var handler))
          {
             return new CalcResult
