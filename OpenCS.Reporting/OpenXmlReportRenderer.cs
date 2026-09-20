@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using A = DocumentFormat.OpenXml.Drawing;
 using DW = DocumentFormat.OpenXml.Drawing.Wordprocessing;
 using PIC = DocumentFormat.OpenXml.Drawing.Pictures;
+using OpenCS.Reporting.Formula;
 
 namespace OpenCS.Reporting;
 
@@ -70,6 +71,17 @@ public sealed class OpenXmlReportRenderer
                 body.AppendChild(FormulaParagraph(new Paragraph(FormulaRuns(formula.Formula))));
                 body.AppendChild(FormulaParagraph(new Paragraph(FormulaRuns(formula.Substitution))));
                 body.AppendChild(FormulaParagraph(new Paragraph(FormulaRuns(formula.Result))));
+                break;
+
+            case ReportCalculationStep step:
+                body.AppendChild(CalculationHeading(step));
+                body.AppendChild(MathParagraph(step.Formula));
+                body.AppendChild(MathParagraph(step.Substitution));
+                body.AppendChild(MathParagraph(step.Result, step.Unit));
+                if (!string.IsNullOrWhiteSpace(step.Note))
+                    body.AppendChild(new Paragraph(TextRun(step.Note)));
+                if (!string.IsNullOrWhiteSpace(step.StatusText))
+                    body.AppendChild(FormulaParagraph(new Paragraph(TextRun(step.StatusText))));
                 break;
 
             case ReportImage image when SvgSizing.LooksLikeSvg(image.Svg):
@@ -160,6 +172,26 @@ public sealed class OpenXmlReportRenderer
             }),
             new Shading { Val = ShadingPatternValues.Clear, Fill = "F5F8FB" });
         return paragraph;
+    }
+
+    static Paragraph CalculationHeading(ReportCalculationStep step)
+    {
+        string title = string.IsNullOrWhiteSpace(step.Reference)
+            ? step.Title
+            : $"{step.Title} ({step.Reference})";
+        return Heading(title, 3);
+    }
+
+    static Paragraph MathParagraph(ReportMathExpression expression, string? unit = null)
+    {
+        var paragraph = new Paragraph();
+        if (expression.SourceKind == MathSourceKind.Latex)
+            paragraph.AppendChild(MathOmmlRenderer.Render(expression.ToMathNode()));
+        else
+            paragraph.AppendChild(TextRun(expression.FallbackText ?? expression.Source));
+        if (!string.IsNullOrWhiteSpace(unit))
+            paragraph.AppendChild(TextRun($" {unit}"));
+        return FormulaParagraph(paragraph);
     }
 
     static Paragraph CaptionParagraph(string? name)

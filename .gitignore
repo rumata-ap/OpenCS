@@ -19,8 +19,10 @@ tmp/
 # SQLite database (рабочий файл, не коммитится)
 dbapp.db
 
-# Спеки и планы (синхронизируются через NAS, не коммитятся)
+# Спеки, планы и агентские инструкции (синхронизируются через NAS, не коммитятся)
 docs/
+AGENTS.md
+CLAUDE.md
 
 # dotenv files
 .env
@@ -503,15 +505,17 @@ $RECYCLE.BIN/
 *.swp
 
 # OpenCS-specific
-docs/
 .superpawers/
-# AGENTS.md / CLAUDE.md — tracked: памятка для агентов (в т.ч. работа с двух ПК) должна ехать через git
 
 # Временные файлы разработки
 _temp_*
 stderr.txt
 test_marshal/
 _torsion_quick_test/
+
+# Локальный тяжёлый комплект Pandoc/Typst для переносимой сборки
+ThirdParty/ReportTools/
+
 AppData/
 
 .worktrees/

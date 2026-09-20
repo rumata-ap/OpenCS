@@ -54,15 +54,11 @@ namespace OpenCS
             new OpenCS.Reporting.CrackWidthReportProvider(),
             new OpenCS.Reporting.TotalCurvatureReportProvider(),
             new OpenCS.Reporting.Sp63NormalReportProvider(),
+            new OpenCS.Reporting.ShearInclinedReportProvider(),
             new OpenCS.Reporting.Sp63CrackWidthReportProvider(),
             new OpenCS.Reporting.ShellLayeredCrackWidthReportProvider()
          ]);
 
-      /// <summary>
-      /// Движок документирования уровня приложения: печать PDF и растеризация SVG для DOCX.
-      /// Освобождается асинхронно при закрытии главного окна.
-      /// </summary>
-      public OpenCS.Services.WebView2ReportRenderer WebRenderer { get; } = new();
       readonly string databasePath;
 
       /// <summary>

@@ -24,7 +24,7 @@ public static class ShearInclinedRunner
     /// <summary>Выполняет расчёт и возвращает CalcResult; исключения кодируются статусом error.</summary>
     public static CalcResult Run(
         CalcTask task, CrossSection section, LoadItem item,
-        CalcSettings settings, TaskRunContext? ctx)
+        CalcSettings settings, TaskRunContext? ctx, bool includeTrace = true)
     {
         string created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         try
@@ -72,7 +72,8 @@ public static class ShearInclinedRunner
                 TaskTag = task.Tag,
                 Created = created,
                 Status = "ok",
-                DataJson = Serialize(task, section, item, parameters, outcomes, warnings)
+                DataJson = Serialize(task, section, item, parameters, outcomes, warnings,
+                    includeTrace)
             };
         }
         catch (Exception ex)
@@ -210,12 +211,14 @@ public static class ShearInclinedRunner
     /// <summary>Формирует JSON результата задачи.</summary>
     static string Serialize(
         CalcTask task, CrossSection section, LoadItem item, ShearInclinedParams parameters,
-        IReadOnlyList<ShearInclinedPlaneOutcome> outcomes, IReadOnlyList<string> warnings)
+        IReadOnlyList<ShearInclinedPlaneOutcome> outcomes, IReadOnlyList<string> warnings,
+        bool includeTrace)
     {
         var inputs = new Dictionary<string, object>();
         var profiles = new Dictionary<string, object>();
         var details = new List<object>();
         var stations = new List<object>();
+        var traceSteps = new List<object>();
         double utilization = 0.0;
         double utilizationExact = 0.0;
         bool zeroCapacity = false;
@@ -267,6 +270,10 @@ public static class ShearInclinedRunner
                 });
             }
 
+            if (includeTrace)
+                foreach (var step in outcome.Result.TraceSteps)
+                    traceSteps.Add(SerializeTraceStep(step));
+
             foreach (var station in outcome.Result.Stations)
                 stations.Add(new
                 {
@@ -306,6 +313,8 @@ public static class ShearInclinedRunner
 
         return JsonSerializer.Serialize(new
         {
+            traceVersion = 1,
+            traceSteps,
             sectionTag = section.Tag,
             forceLabel = item.Label,
             calcType = task.CalcType.ToString(),
@@ -336,6 +345,33 @@ public static class ShearInclinedRunner
             utilizationExact = zeroCapacity ? (double?)null : utilizationExact
         });
     }
+
+    /// <summary>Преобразует portable trace в стабильный JSON-контракт отчётов.</summary>
+    static object SerializeTraceStep(CScore.CalculationTrace.CalculationTraceStep step)
+        => new
+        {
+            stepId = step.StepId,
+            codeReference = step.CodeReference,
+            titleKey = step.TitleKey,
+            explanationKey = step.ExplanationKey,
+            formulaLatex = step.FormulaLatex,
+            substitutionLatexTemplate = step.SubstitutionLatexTemplate,
+            resultLatexTemplate = step.ResultLatexTemplate,
+            status = step.Status.ToString().ToLowerInvariant(),
+            plane = step.Plane,
+            formulaCode = step.FormulaCode,
+            stationIndex = step.StationIndex,
+            stationS = Nullable(step.StationS?.Value ?? double.NaN),
+            criticalC = Nullable(step.CriticalC?.Value ?? double.NaN),
+            values = step.Values.ToDictionary(
+                pair => pair.Key,
+                pair => new
+                {
+                    value = Nullable(pair.Value.Value),
+                    unit = pair.Value.Unit.ToString(),
+                    numberProfile = pair.Value.NumberProfile
+                })
+        };
 
     /// <summary>Конечное значение либо null — NaN в JSON недопустим.</summary>
     static double? Nullable(double value) => double.IsFinite(value) ? value : null;
@@ -404,6 +440,8 @@ public static class ShearInclinedRunner
             calcType = task.CalcType.ToString(),
             elementKind = parameters.ElementKind,
             forceSource = parameters.ForceSource,
+            traceVersion = 1,
+            traceSteps = Array.Empty<object>(),
             direction = parameters.DirectionSign(),
             applicability = new
             {
@@ -432,6 +470,11 @@ public static class ShearInclinedRunner
         TaskTag = task.Tag,
         Created = created,
         Status = "error",
-        DataJson = JsonSerializer.Serialize(new { error = message })
+        DataJson = JsonSerializer.Serialize(new
+        {
+            error = message,
+            traceVersion = 1,
+            traceSteps = Array.Empty<object>()
+        })
     };
 }

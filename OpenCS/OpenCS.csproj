@@ -8,7 +8,41 @@
     <UseWPF>true</UseWPF>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Images\OpenCS.ico</ApplicationIcon>
+    <!-- Большой автономный комплект копируется только в переносимую сборку. -->
+    <BundleTools Condition="'$(BundleTools)' == ''">false</BundleTools>
+    <ReportToolsSource Condition="'$(ReportToolsSource)' == ''">$(MSBuildProjectDirectory)\..\ThirdParty\ReportTools</ReportToolsSource>
   </PropertyGroup>
+
+  <Target Name="BundleReportTools" AfterTargets="Build" Condition="'$(BundleTools)' == 'true'">
+    <Error Condition="!Exists('$(ReportToolsSource)\pandoc.exe')"
+           Text="Не найден встроенный Pandoc: $(ReportToolsSource)\pandoc.exe" />
+    <Error Condition="!Exists('$(ReportToolsSource)\typst.exe')"
+           Text="Не найден встроенный Typst: $(ReportToolsSource)\typst.exe" />
+    <Error Condition="!Exists('$(ReportToolsSource)\manifest.json')"
+           Text="Не найден манифест комплекта отчётных инструментов: $(ReportToolsSource)\manifest.json" />
+    <Error Condition="!Exists('$(ReportToolsSource)\reference.docx')"
+           Text="Не найден шаблон Word комплекта отчётных инструментов: $(ReportToolsSource)\reference.docx" />
+    <Error Condition="!Exists('$(ReportToolsSource)\report.typ')"
+           Text="Не найден шаблон Typst комплекта отчётных инструментов: $(ReportToolsSource)\report.typ" />
+    <Error Condition="!Exists('$(ReportToolsSource)\report-filter.lua')"
+           Text="Не найден фильтр Pandoc комплекта отчётных инструментов: $(ReportToolsSource)\report-filter.lua" />
+    <Error Condition="!Exists('$(ReportToolsSource)\fonts\NotoSans-Regular.ttf') Or
+                      !Exists('$(ReportToolsSource)\fonts\NotoSans-Bold.ttf') Or
+                      !Exists('$(ReportToolsSource)\fonts\NotoSansMath-Regular.ttf') Or
+                      !Exists('$(ReportToolsSource)\fonts\OFL.txt')"
+           Text="Не найден полный комплект шрифтов отчётности: $(ReportToolsSource)\fonts" />
+    <Error Condition="!Exists('$(ReportToolsSource)\LICENSE-Pandoc.rtf') Or
+                      !Exists('$(ReportToolsSource)\COPYRIGHT-Pandoc.txt') Or
+                      !Exists('$(ReportToolsSource)\LICENSE-Typst.txt') Or
+                      !Exists('$(ReportToolsSource)\NOTICE-Typst.txt')"
+           Text="Не найден файл лицензии или NOTICE комплекта отчётных инструментов." />
+    <ItemGroup>
+      <ReportToolFiles Include="$(ReportToolsSource)\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ReportToolFiles)"
+          DestinationFiles="@(ReportToolFiles->'$(TargetDir)Tools\Pandoc\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 
   <ItemGroup>
     <None Remove="DataSource\Арматура стальная_C.csv" />
@@ -402,7 +436,6 @@
     <PackageReference Include="CsvHelper" Version="33.0.1" />
     <PackageReference Include="HelixToolkit.Wpf" Version="3.1.2" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.1" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
     <PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
     <PackageReference Include="netDxf" Version="2023.11.10" />
     <PackageReference Include="System.Drawing.Common" Version="9.0.0" />

@@ -1,4 +1,5 @@
 using CScore;
+using CScore.ParametricRc;
 
 namespace OpenCS.Reporting;
 
@@ -15,30 +16,38 @@ public sealed class ReportContext
     public PlateSection? PlateSection { get; }
     /// <summary>Встроенные SVG по именам, например stress и strain.</summary>
     public IReadOnlyDictionary<string, string> Images { get; }
+    /// <summary>Сохранённое параметрическое определение сечения, если оно совместимо.</summary>
+    public ParametricRcSectionDefinition? ParametricSection { get; }
+    /// <summary>Причина перехода на универсальную схему.</summary>
+    public string? ParametricSectionWarning { get; }
 
     /// <summary>Создаёт контекст отчёта.</summary>
     public ReportContext(CalcTask task, CalcResult result,
         IReadOnlyDictionary<string, string>? images = null)
-        : this(task, result, null, null, images)
+        : this(task, result, null, null, images, null, null)
     {
     }
 
     /// <summary>Создаёт контекст с моделью сечения и встроенными иллюстрациями.</summary>
     public ReportContext(CalcTask task, CalcResult result, CrossSection? section,
         IReadOnlyDictionary<string, string>? images = null)
-        : this(task, result, section, null, images)
+        : this(task, result, section, null, images, null, null)
     {
     }
 
     /// <summary>Создаёт контекст для стержневого или плитного сечения.</summary>
     public ReportContext(CalcTask task, CalcResult result, CrossSection? section,
-        PlateSection? plateSection, IReadOnlyDictionary<string, string>? images = null)
+        PlateSection? plateSection, IReadOnlyDictionary<string, string>? images = null,
+        ParametricRcSectionDefinition? parametricSection = null,
+        string? parametricSectionWarning = null)
     {
         Task = task;
         Result = result;
         Section = section;
         PlateSection = plateSection;
         Images = images ?? new Dictionary<string, string>();
+        ParametricSection = parametricSection;
+        ParametricSectionWarning = parametricSectionWarning;
     }
 }
 

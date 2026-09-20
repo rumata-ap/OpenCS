@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CScore;
+using CScore.CalculationTrace;
 using CScore.Sp63.Normal;
 
 namespace OpenCS.Reporting;
@@ -52,20 +53,24 @@ public sealed class Sp63NormalReportProvider : IReportProvider
             ("Ось изгиба", roundShape ? "не используется (результирующий момент)" : parameters.Axis),
             ("Схема статической определимости", LocalizeScheme(parameters.StructuralScheme)),
             ("Режим устойчивости", LocalizeStabilityMode(parameters.StabilityMode)),
-            ("Длина элемента / расстояние между закреплениями L, м", F(parameters.ElementLengthOrRestraintDistance)),
-            ("Расчётная длина l0, м", F(parameters.EffectiveLengthL0)),
-            ("ψ (доля длительного момента)", F(parameters.Psi)),
-            ("Порог гибкости l0/i", F(parameters.SlendernessThreshold)),
+            ("Длина элемента / расстояние между закреплениями L, м", F(parameters.ElementLengthOrRestraintDistance, ReportUnit.Meter)),
+            ("Расчётная длина l0, м", F(parameters.EffectiveLengthL0, ReportUnit.Meter)),
+            ("ψ (доля длительного момента)", F(parameters.Psi, ReportUnit.Unitless)),
+            ("Порог гибкости l0/i", F(parameters.SlendernessThreshold, ReportUnit.Unitless)),
             ("Ручные усилия", parameters.UseManualForces
-                ? $"да: N = {F(parameters.N)} кН, Mx = {F(parameters.Mx)} кН·м, My = {F(parameters.My)} кН·м"
+                ? $"да: N = {F(parameters.N, ReportUnit.Kilonewton)} кН, Mx = {F(parameters.Mx, ReportUnit.KilonewtonMeter)} кН·м, My = {F(parameters.My, ReportUnit.KilonewtonMeter)} кН·м"
                 : "нет, используется набор усилий задачи")
         };
         if (string.Equals(parameters.ShapeKind, "tee", StringComparison.OrdinalIgnoreCase))
-            inputRows.Insert(4, ("Пролёт элемента l, м", F(parameters.SpanLength)));
+            inputRows.Insert(4, ("Пролёт элемента l, м", F(parameters.SpanLength, ReportUnit.Meter)));
 
         document
             .Add(new ReportHeading(1, "Исходные данные"))
-            .Add(new ReportKeyValueTable(inputRows, "Параметр", "Значение"))
+            .Add(new ReportKeyValueTable(inputRows, "Параметр", "Значение"));
+
+        AddSectionDiagram(document, context, parameters, domain);
+
+        document
             .Add(new ReportHeading(1, "Вердикт"))
             .Add(new ReportKeyValueTable(
             [
@@ -75,6 +80,8 @@ public sealed class Sp63NormalReportProvider : IReportProvider
             ], "Параметр", "Значение"));
 
         AddIdealizedRebarMarker(document, context.Section);
+
+        AddTrace(document, domain);
 
         AddCheckTable(document, "Числовые условия прочности",
             "Входят в итоговый вердикт StrengthPassed.", domain.StrengthDetails);
@@ -127,7 +134,9 @@ public sealed class Sp63NormalReportProvider : IReportProvider
             .Add(new ReportTable(
                 ["As, м²", "φ, мм", "Координата, м", "Разрешённая ось"],
                 layers.Select(layer => (IReadOnlyList<string>)[
-                    F(layer.Area), F(layer.Diameter * 1000.0), F(layer.Coordinate), layer.Axis
+                    F(layer.Area, ReportUnit.SquareMeter),
+                    F(layer.Diameter * 1000.0, ReportUnit.Millimeter),
+                    F(layer.Coordinate, ReportUnit.Meter), layer.Axis
                 ]).ToList()));
     }
 
@@ -138,19 +147,176 @@ public sealed class Sp63NormalReportProvider : IReportProvider
             .Add(new ReportHeading(1, heading))
             .Add(new ReportParagraph(note))
             .Add(new ReportTable(
-                ["Формула", "Описание", "Пункт СП", "Applied", "Allowable", "Ratio", "Результат", "Переменные"],
+                ["Формула", "Описание", "Пункт СП", "Факт", "Допуск", "Кисп.", "Результат"],
                 details.Select(detail => (IReadOnlyList<string>)
                 [
                     detail.Formula,
                     LocalizeKey(detail.Description),
                     detail.NormReference,
-                    F(detail.Applied),
-                    F(detail.Allowable),
-                    F(detail.Ratio),
-                    detail.Passed ? "выполнено" : "не выполнено",
-                    FormatVariables(detail.Variables)
+                    F(detail.Applied, DetailUnit(detail)),
+                    F(detail.Allowable, DetailUnit(detail)),
+                    F(detail.Ratio, ReportUnit.Unitless),
+                    detail.Passed ? "выполнено" : "не выполнено"
                 ]).ToList()));
     }
+
+    static void AddSectionDiagram(ReportDocument document, ReportContext context,
+        Sp63NormalTaskParams parameters, Sp63NormalResult domain)
+    {
+        document.Add(new ReportHeading(1, "Схема поперечного сечения"));
+        if (context.Section is null)
+        {
+            document.Add(new ReportWarning("Модель сечения не передана: схема поперечного сечения недоступна."));
+            return;
+        }
+
+        bool circular = parameters.ShapeKind is "circular" or "annular";
+        ReportTensionSide side = circular
+            ? ReportTensionSide.NotApplicable
+            : domain.Variables.TryGetValue("tensionDirection", out var direction)
+                ? direction >= 0 ? ReportTensionSide.Positive : ReportTensionSide.Negative
+                : ReportTensionSide.Unknown;
+        var options = new ReportSectionDiagramOptions
+        {
+            Axis = circular ? null : parameters.Axis,
+            TensionSide = side,
+            A = Value(domain, "a") ?? DerivedTensionCover(domain),
+            APrime = Value(domain, "aPrime"),
+            H0 = Value(domain, "h0")
+        };
+        if (context.ParametricSection is { } definition)
+            document.Add(new ReportImage("Параметрическая схема сечения",
+                new ParametricRcSectionSvgRenderer().Render(definition, options)));
+        else
+        {
+            document.Add(new ReportImage("Универсальная схема сечения",
+                new CrossSectionReportSvgRenderer().Render(context.Section)));
+            if (!string.IsNullOrWhiteSpace(context.ParametricSectionWarning))
+                document.Add(new ReportWarning(context.ParametricSectionWarning));
+        }
+    }
+
+    static double? Value(Sp63NormalResult result, string key)
+        => result.Variables.TryGetValue(key, out var value) && double.IsFinite(value)
+            ? value : null;
+
+    static double? DerivedTensionCover(Sp63NormalResult result)
+    {
+        double? h = Value(result, "h");
+        double? h0 = Value(result, "h0");
+        return h is double height && h0 is double effectiveHeight && height >= effectiveHeight
+            ? height - effectiveHeight
+            : null;
+    }
+
+    static void AddTrace(ReportDocument document, Sp63NormalResult domain)
+    {
+        if (domain.TraceSteps.Count == 0) return;
+        document.Add(new ReportHeading(1, "Ход расчёта"));
+        foreach (var step in domain.TraceSteps)
+        {
+            document.Add(new ReportCalculationStep
+            {
+                StepId = step.StepId,
+                Reference = step.CodeReference ?? "",
+                Title = LocalizeKey(step.TitleKey ?? "") is { Length: > 0 } title
+                    ? title : "Расчётный шаг",
+                Formula = ReportMathExpression.Latex(step.FormulaLatex ?? ""),
+                Substitution = ReportMathExpression.Latex(
+                    Substitute(step.SubstitutionLatexTemplate, step.Values)),
+                Result = ReportMathExpression.Latex(
+                    NormalizeUtilizationLabel(Substitute(step.ResultLatexTemplate, step.Values))),
+                Unit = ResultUnit(step),
+                Status = MapStatus(step.Status),
+                StatusText = StatusText(step.Status)
+            });
+        }
+    }
+
+    static string Substitute(string? template,
+        IReadOnlyDictionary<string, TraceValue> values)
+    {
+        if (string.IsNullOrWhiteSpace(template)) return "";
+        return System.Text.RegularExpressions.Regex.Replace(template,
+            @"\{(?<name>[A-Za-z0-9_.-]+)\}", match =>
+            {
+                if (!values.TryGetValue(match.Groups["name"].Value, out var value) ||
+                    !double.IsFinite(value.Value))
+                    return ReportNumberFormatter.UndefinedPlaceholder;
+                return ReportNumberFormatter.Format(value.Value, MapUnit(value.Unit));
+        });
+    }
+
+    /// <summary>Заменяет старое обозначение коэффициента использования η в сохранённых результатах.
+    /// η оставляется только для поправки прогиба по п. 8.1.15.</summary>
+    static string NormalizeUtilizationLabel(string value)
+        => value.Replace(@"\eta", "Кисп", StringComparison.Ordinal)
+            .Replace("η", "Кисп", StringComparison.Ordinal);
+
+    static string ResultUnit(CalculationTraceStep step)
+    {
+        string template = step.ResultLatexTemplate ?? "";
+        string key = template.Contains("{ratio}", StringComparison.Ordinal)
+            ? "ratio"
+            : template.Contains("{xi}", StringComparison.Ordinal)
+                ? "xi"
+                : template.Contains("{x}", StringComparison.Ordinal)
+                    ? "x"
+                    : "allowable";
+        if (step.Values.TryGetValue(key, out var value))
+            return UnitText(value.Unit);
+        return "";
+    }
+
+    static ReportUnit MapUnit(CalculationUnit unit) => unit switch
+    {
+        CalculationUnit.Centimeter => ReportUnit.Centimeter,
+        CalculationUnit.Millimeter => ReportUnit.Millimeter,
+        CalculationUnit.Meter => ReportUnit.Meter,
+        CalculationUnit.Kilonewton => ReportUnit.Kilonewton,
+        CalculationUnit.KilonewtonMeter => ReportUnit.KilonewtonMeter,
+        CalculationUnit.Megapascal => ReportUnit.Megapascal,
+        CalculationUnit.Kilopascal => ReportUnit.Kilopascal,
+        CalculationUnit.SquareCentimeter => ReportUnit.SquareCentimeter,
+        CalculationUnit.SquareMeter => ReportUnit.SquareMeter,
+        CalculationUnit.Strain => ReportUnit.Strain,
+        CalculationUnit.Count => ReportUnit.Count,
+        _ => ReportUnit.Unitless
+    };
+
+    static string UnitText(CalculationUnit unit) => unit switch
+    {
+        CalculationUnit.Meter => "м",
+        CalculationUnit.Centimeter => "см",
+        CalculationUnit.Millimeter => "мм",
+        CalculationUnit.Kilonewton => "кН",
+        CalculationUnit.KilonewtonMeter => "кН·м",
+        CalculationUnit.Kilopascal => "кПа",
+        CalculationUnit.Megapascal => "МПа",
+        CalculationUnit.SquareMeter => "м²",
+        CalculationUnit.SquareCentimeter => "см²",
+        _ => ""
+    };
+
+    static ReportCalculationStatus MapStatus(CalculationTraceStatus status) => status switch
+    {
+        CalculationTraceStatus.Passed => ReportCalculationStatus.Passed,
+        CalculationTraceStatus.Failed => ReportCalculationStatus.Failed,
+        CalculationTraceStatus.NotApplicable => ReportCalculationStatus.NotApplicable,
+        CalculationTraceStatus.NoCapacity => ReportCalculationStatus.NoCapacity,
+        CalculationTraceStatus.Error => ReportCalculationStatus.Error,
+        _ => ReportCalculationStatus.Informational
+    };
+
+    static string StatusText(CalculationTraceStatus status) => status switch
+    {
+        CalculationTraceStatus.Passed => "выполнено",
+        CalculationTraceStatus.Failed => "не выполнено",
+        CalculationTraceStatus.NotApplicable => "не применяется",
+        CalculationTraceStatus.NoCapacity => "несущая способность не определена",
+        CalculationTraceStatus.Error => "ошибка",
+        _ => "справочно"
+    };
 
     static void AddMessageTable(ReportDocument document, string heading, List<Sp63NormalMessage> messages)
     {
@@ -174,16 +340,16 @@ public sealed class Sp63NormalReportProvider : IReportProvider
             .Add(new ReportHeading(1, "Влияние прогиба η (п. 8.1.15)"))
             .Add(new ReportKeyValueTable(
             [
-                ("η", F(value.Eta)),
-                ("Ncr, кН", F(value.Ncr)),
-                ("D, кН·м²", F(value.D)),
+                ("η", F(value.Eta, ReportUnit.Unitless)),
+                ("Ncr, кН", F(value.Ncr, ReportUnit.Kilonewton)),
+                ("D, кН·м²", F(value.D, ReportUnit.KilonewtonMeter)),
                 ("Гибкость l0/i превышает порог", value.Slender ? "да" : "нет"),
                 ("Устойчивость обеспечена", value.Stable ? "да" : "нет"),
-                ("M после усиления M0·η, кН·м", F(value.MEff)),
+                ("M после усиления M0·η, кН·м", F(value.MEff, ReportUnit.KilonewtonMeter)),
                 ("Итераций решателя", value.Iterations.ToString()),
                 ("Экстраполяция Эйткена не применена", value.ExtrapolationFailed ? "да" : "нет"),
                 ("История η по проходам", value.EtaHistory.Length == 0
-                    ? "—" : string.Join("; ", value.EtaHistory.Select(F)))
+                    ? "—" : string.Join("; ", value.EtaHistory.Select(item => F(item, ReportUnit.Unitless))))
             ], "Параметр", "Значение"));
         if (!value.Stable)
             document.Add(new ReportWarning("Расчётная устойчивость элемента не обеспечена (|N| ≥ Ncr)."));
@@ -200,6 +366,7 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         model.ApplicabilityMessages ??= [];
         model.InformationalMessages ??= [];
         model.Variables ??= [];
+        model.TraceSteps ??= [];
         return model;
     }
 
@@ -257,13 +424,15 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         return Texts.TryGetValue(key, out var text) ? text : key;
     }
 
-    static string FormatVariables(IReadOnlyDictionary<string, double> variables) =>
-        variables.Count == 0
-            ? ""
-            : string.Join("; ", variables.OrderBy(v => v.Key).Select(v => $"{v.Key} = {F(v.Value)}"));
+    static ReportUnit DetailUnit(CheckDetail detail)
+        => detail.Formula.Contains("M", StringComparison.OrdinalIgnoreCase)
+            ? ReportUnit.KilonewtonMeter : ReportUnit.Kilonewton;
 
-    static string F(double value) => SectionReportSections.F(value);
-    static string F(double? value) => SectionReportSections.F(value);
+    static string F(double value, ReportUnit unit = ReportUnit.Unitless)
+        => ReportNumberFormatter.Format(value, unit);
+
+    static string F(double? value, ReportUnit unit = ReportUnit.Unitless)
+        => value is double number ? F(number, unit) : ReportNumberFormatter.UndefinedPlaceholder;
 
     /// <summary>Русские тексты сообщений и описаний проверок; дублируют Resources/Strings.ru-RU.xaml,
     /// поскольку отчёт всегда печатается по-русски независимо от текущей локали UI и
@@ -311,6 +480,13 @@ public sealed class Sp63NormalReportProvider : IReportProvider
         ["Sp63Normal_CompressionCheck"] = "Внецентренное сжатие: N·e ≤ Mult",
         ["Sp63Normal_StabilityCheck"] = "Проверка устойчивости: N ≤ Ncr",
         ["Sp63Normal_CompressionZoneRatio"] = "Относительная высота сжатой зоны ξ = x/h0",
+        ["Sp63Normal_Trace_CompressionZone"] = "Высота сжатой зоны",
+        ["Sp63Normal_Trace_RelativeCompressionZone"] = "Относительная высота сжатой зоны",
+        ["Sp63Normal_Trace_LimitComparison"] = "Сравнение с предельной высотой сжатой зоны",
+        ["Sp63Normal_Trace_Capacity"] = "Предельный изгибающий момент",
+        ["Sp63Normal_Trace_Strength"] = "Условие прочности",
+        ["Sp63Normal_Trace_CentralTensionCapacity"] = "Предельная сила при центральном растяжении",
+        ["Sp63Normal_Trace_ResultantMoment"] = "Результирующий момент круглого/кольцевого сечения",
         ["Sp63Normal_AccidentalEccentricity"] = "Учтён случайный эксцентриситет ea = max(L/600, h/30, 10 мм)",
         ["Sp63Normal_SymmetricBranch"] = "Применена ветвь симметричного армирования по п. 8.1.9.",
         ["Sp63Normal_StabilityExcludedExplicitly"] = "Влияние прогиба η явно исключено режимом «Только сечение».",

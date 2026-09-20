@@ -1,10 +1,16 @@
+using CScore.CalculationTrace;
 using CScore.Sp63;
+using System.Text.Json.Serialization;
 
 namespace CScore.Sp63.Normal;
 
 /// <summary>Результат упрощённой проверки нормального сечения.</summary>
 public sealed class Sp63NormalResult
 {
+    /// <summary>Версия контракта структурированной трассировки в JSON результата.</summary>
+    [JsonPropertyName("traceVersion")]
+    public int TraceVersion { get; set; } = 1;
+
     /// <summary>Статус применимости и выполнения расчёта.</summary>
     public Sp63NormalStatus Status { get; set; }
 
@@ -31,6 +37,10 @@ public sealed class Sp63NormalResult
 
     /// <summary>Переменные расчёта для прозрачного результата.</summary>
     public Dictionary<string, double> Variables { get; set; } = [];
+
+    /// <summary>Структурированные шаги расчётной трассировки.</summary>
+    [JsonPropertyName("traceSteps")]
+    public List<CalculationTraceStep> TraceSteps { get; set; } = [];
 
     /// <summary>Результат существующей проверки коэффициента η.</summary>
     public EccentricityAmplifier.EtaResult? Eta { get; set; }

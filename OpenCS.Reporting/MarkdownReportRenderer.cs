@@ -49,6 +49,22 @@ public sealed class MarkdownReportRenderer
                 md.Append("> ").Append(Inline(formula.Substitution)).Append("\n>\n");
                 md.Append("> ").Append(Inline(formula.Result)).Append("\n\n");
                 break;
+            case ReportCalculationStep step:
+                md.Append("> **").Append(EscapeText(step.Title));
+                if (!string.IsNullOrWhiteSpace(step.Reference))
+                    md.Append(" (").Append(EscapeText(step.Reference)).Append(')');
+                md.Append("**\n>\n");
+                md.Append("> ").Append(RenderMath(step.Formula)).Append("\n>\n");
+                md.Append("> ").Append(RenderMath(step.Substitution)).Append("\n>\n");
+                md.Append("> ").Append(RenderMath(step.Result));
+                if (!string.IsNullOrWhiteSpace(step.Unit))
+                    md.Append(' ').Append(EscapeText(step.Unit));
+                if (!string.IsNullOrWhiteSpace(step.StatusText))
+                    md.Append(" — ").Append(EscapeText(step.StatusText));
+                md.Append("\n\n");
+                if (!string.IsNullOrWhiteSpace(step.Note))
+                    md.Append(EscapeText(step.Note)).Append("\n\n");
+                break;
 
             case ReportImage image:
                 if (SvgSizing.LooksLikeSvg(image.Svg))
@@ -115,6 +131,14 @@ public sealed class MarkdownReportRenderer
         }
         return md.ToString();
     }
+
+    static string RenderMath(ReportMathExpression expression)
+        => expression.SourceKind switch
+        {
+            MathSourceKind.Latex => "\\(" + expression.Source + "\\)",
+            MathSourceKind.InlineMarkup => Inline(expression.Source),
+            _ => EscapeText(expression.FallbackText ?? expression.Source)
+        };
 
     static string EscapeSegment(string text) => text
         .Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");

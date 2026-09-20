@@ -292,7 +292,8 @@ public static class Sp63CircularNormalChecker
             ConstructiveChecks = [],
             Variables = variables,
             InformationalMessages = informational,
-            Eta = eta
+            Eta = eta,
+            TraceSteps = Sp63NormalTraceBuilder.Build(branch, [detail], variables)
         };
 
     static Sp63NormalMessage Info(string code, string reference, string text) =>

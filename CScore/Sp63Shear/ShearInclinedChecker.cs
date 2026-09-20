@@ -136,7 +136,9 @@ public static class ShearInclinedChecker
             Plane = geometry.TensionNegative.Plane,
             Details = details,
             Stations = stations,
-            Warnings = warnings
+            Warnings = warnings,
+            TraceSteps = ShearInclinedTraceBuilder.Build(
+                geometry.TensionNegative.Plane, details, stations)
         };
     }
 

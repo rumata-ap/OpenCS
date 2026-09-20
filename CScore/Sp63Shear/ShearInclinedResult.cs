@@ -1,3 +1,5 @@
+using CScore.CalculationTrace;
+
 namespace CScore.Sp63Shear;
 
 /// <summary>Точка кривой несущей способности по длине проекции наклонного сечения.</summary>
@@ -46,6 +48,9 @@ public sealed class ShearInclinedResult
 
     /// <summary>Оговорки и предупреждения для отчёта.</summary>
     public required IReadOnlyList<string> Warnings { get; init; }
+
+    /// <summary>Структурированные шаги отчёта по критическим проверкам.</summary>
+    public IReadOnlyList<CalculationTraceStep> TraceSteps { get; init; } = [];
 
     /// <summary>
     /// Наибольший коэффициент использования по точным нормативным проверкам.

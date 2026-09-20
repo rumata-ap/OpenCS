@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using OpenCS.Reporting.Formula;
 
 namespace OpenCS.Reporting;
 
@@ -64,6 +65,26 @@ public sealed class HtmlReportRenderer
                 html.Append("<p class=\"formula-result\">").Append(Inline(formula.Result)).AppendLine("</p>");
                 html.AppendLine("</section>");
                 break;
+            case ReportCalculationStep step:
+                html.AppendLine("<section class=\"formula calculation-step\">");
+                html.Append("<h4 class=\"formula-title\">").Append(E(step.Title));
+                if (!string.IsNullOrWhiteSpace(step.Reference))
+                    html.Append(" <span class=\"formula-ref\">").Append(E(step.Reference)).Append("</span>");
+                html.AppendLine("</h4>");
+                html.Append("<p class=\"formula-expression\">").Append(RenderMath(step.Formula)).AppendLine("</p>");
+                html.Append("<p class=\"formula-substitution\">").Append(RenderMath(step.Substitution)).AppendLine("</p>");
+                html.Append("<p class=\"formula-result\">").Append(RenderMath(step.Result));
+                if (!string.IsNullOrWhiteSpace(step.Unit))
+                    html.Append(" ").Append(E(step.Unit));
+                html.AppendLine("</p>");
+                if (!string.IsNullOrWhiteSpace(step.Note))
+                    html.Append("<p class=\"formula-note\">").Append(E(step.Note)).AppendLine("</p>");
+                if (!string.IsNullOrWhiteSpace(step.StatusText))
+                    html.Append("<p class=\"formula-status status-")
+                        .Append(step.Status.ToString().ToLowerInvariant()).Append("\">")
+                        .Append(E(step.StatusText)).AppendLine("</p>");
+                html.AppendLine("</section>");
+                break;
             case ReportImage image:
                 html.AppendLine("<figure class=\"report-image\">");
                 if (SvgSizing.LooksLikeSvg(image.Svg))
@@ -109,6 +130,14 @@ public sealed class HtmlReportRenderer
         return html.ToString();
     }
 
+    static string RenderMath(ReportMathExpression expression)
+        => expression.SourceKind switch
+        {
+            MathSourceKind.Latex => MathHtmlRenderer.Render(expression.ToMathNode()),
+            MathSourceKind.InlineMarkup => Inline(expression.Source),
+            _ => E(expression.FallbackText ?? expression.Source)
+        };
+
     static string Number(double value)
         => value.ToString("G8", System.Globalization.CultureInfo.InvariantCulture);
 
@@ -145,10 +174,17 @@ public sealed class HtmlReportRenderer
         .report-table.compact { font-size:11px; } .key-values { table-layout:auto; }
         thead th { background:#eaf2f9; color:#16324f; } .key-values th { width:34%; background:var(--soft); }
         .formula { margin:13px 0; padding:11px 14px; border-left:4px solid var(--accent); background:var(--soft); page-break-inside:avoid; }
-        .formula-ref { float:right; margin:0; color:var(--muted); font-weight:600; } .formula-expression { font:16px Georgia, serif; margin:0 0 7px; }
+        .formula-ref { float:right; margin:0; color:var(--muted); font-weight:600; } .formula-title { margin:0 0 7px; font-size:14px; }
+        .formula-expression { font:16px Georgia, serif; margin:0 0 7px; }
         .formula-expression sub, .formula-substitution sub, .formula-result sub,
         .formula-expression sup, .formula-substitution sup, .formula-result sup { font-size:.72em; }
         .formula-substitution { margin:0; color:#475569; } .formula-result { margin:4px 0 0; color:#075985; font-weight:700; }
+        .formula-note { margin:5px 0 0; color:var(--muted); font-size:12px; } .formula-status { margin:5px 0 0; font-weight:600; }
+        .status-failed, .status-error { color:#b42318; } .status-passed { color:#16704a; }
+        .math-fraction { display:inline-flex; flex-direction:column; vertical-align:middle; text-align:center; line-height:1.05; margin:0 .15em; }
+        .math-numerator { border-bottom:1px solid currentColor; padding:0 .18em .08em; } .math-denominator { padding:.08em .18em 0; }
+        .math-radical { display:inline-flex; align-items:flex-start; } .math-radical > span { border-top:1px solid currentColor; padding-left:.08em; }
+        .math-script { display:inline-flex; align-items:flex-start; } .math-script sub, .math-script sup { line-height:1; }
         .report-image { max-width:100%; margin:18px 0; text-align:center; page-break-inside:avoid; overflow:hidden; } .report-image img { display:block; max-width:100%; height:auto; max-height:115mm; margin:0 auto; }
         figcaption { color:var(--muted); font-size:12px; margin-top:4px; } .warning { padding:10px 12px; border:1px solid #f2c36b; background:#fff7df; color:#7c4a03; margin:12px 0; }
         .page-break { break-before:page; page-break-before:always; }

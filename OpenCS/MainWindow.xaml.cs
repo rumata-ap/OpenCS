@@ -275,17 +275,17 @@ namespace OpenCS
           vm.LogService.Info(Loc.S("AllDiagramsDeleted"));
       }
 
-      bool closeAfterRendererDispose;
+      bool closeAfterCleanup;
       bool allowFinalClose;
 
       void Window_Closing(object sender, CancelEventArgs e)
       {
-         // Финальный проход после освобождения движка документирования — пропускаем.
+         // Финальный проход после освобождения ресурсов — пропускаем.
          if (allowFinalClose)
             return;
 
          // Повторный вход во время асинхронного teardown — только отменяем событие.
-         if (closeAfterRendererDispose)
+         if (closeAfterCleanup)
          {
             e.Cancel = true;
             return;
@@ -298,24 +298,22 @@ namespace OpenCS
          }
 
          e.Cancel = true;
-         closeAfterRendererDispose = true;
-         _ = FinishCloseAsync();
+         closeAfterCleanup = true;
+         FinishClose();
       }
 
-      async Task FinishCloseAsync()
+      void FinishClose()
       {
          try
          {
-            try { await vm.WebRenderer.DisposeAsync(); }
-            catch (Exception ex) { vm.LogService.Error($"Ошибка освобождения движка отчётов: {ex.Message}"); }
-
             try { vm.db.Dispose(); }
             catch (Exception ex) { vm.LogService.Error($"Ошибка освобождения базы данных: {ex.Message}"); }
          }
          finally
          {
             allowFinalClose = true;
-            Close();
+            // WPF запрещает повторный Close() до выхода из текущего Closing.
+            Dispatcher.BeginInvoke(new Action(Close));
          }
       }
 

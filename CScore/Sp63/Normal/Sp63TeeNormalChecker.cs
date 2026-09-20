@@ -170,6 +170,7 @@ public static class Sp63TeeNormalChecker
             StrengthDetails = [detail],
             ConstructiveChecks = [],
             Variables = variables,
+            TraceSteps = Sp63NormalTraceBuilder.Build("bending", [detail], variables),
             InformationalMessages = informational
         };
     }

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using CScore;
+using CScore.ParametricRc;
 using OpenCS.Reporting;
 using Xunit;
 
@@ -89,6 +90,37 @@ public sealed class Sp63NormalReportProviderTests
         Assert.Contains(kvTables, t => t.Rows.Any(r => r.Key == "η" && r.Value.Contains("1.12")));
         Assert.DoesNotContain(document.Blocks.OfType<ReportWarning>(), w => w.Text.Contains("неприменима"));
         _ = new HtmlReportRenderer().Render(document);
+    }
+
+    [Fact]
+    public void Provider_CheckTables_DoNotDuplicateVariablesColumn()
+    {
+        var task = MakeTask();
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = CalculatedJson };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(task, result));
+        string[] headings =
+        [
+            "Числовые условия прочности",
+            "Конструктивные требования раздела 10 (справочно)"
+        ];
+
+        foreach (string heading in headings)
+        {
+            int headingIndex = document.Blocks.IndexOf(
+                document.Blocks.OfType<ReportHeading>().First(item => item.Text == heading));
+            var table = document.Blocks.Skip(headingIndex + 1)
+                .OfType<ReportTable>().First();
+
+            Assert.DoesNotContain("Переменные", table.Headers);
+            Assert.Equal(
+                ["Формула", "Описание", "Пункт СП", "Факт", "Допуск", "Кисп.", "Результат"],
+                table.Headers);
+            Assert.All(table.Rows, row => Assert.Equal(table.Headers.Count, row.Count));
+        }
+
+        Assert.Contains(document.Blocks.OfType<ReportKeyValueTable>(), table =>
+            table.KeyHeader == "Переменная" && table.ValueHeader == "Значение");
     }
 
     [Fact]
@@ -302,5 +334,28 @@ public sealed class Sp63NormalReportProviderTests
             table.Headers.Contains("As, м²"));
         Assert.Contains(marker.Rows, row => row[0].Contains("0.0012"));
         Assert.Contains(marker.Rows, row => row[3] == "Mx");
+    }
+
+    [Fact]
+    public void Provider_UsesParametricSectionScheme_WhenSourceIsAvailable()
+    {
+        var task = MakeTask("""{"ShapeKind":"rectangular","Axis":"Mx"}""");
+        string json = CalculatedJson.Replace(
+            "\"Variables\":{\"N\":120.5,\"M\":45.2}",
+            "\"Variables\":{\"N\":120.5,\"M\":45.2,\"h\":0.6,\"h0\":0.55,\"aPrime\":0.05,\"tensionDirection\":1}");
+        var result = new CalcResult { TaskId = task.Id, TaskKind = task.Kind, DataJson = json };
+        var definition = ParametricRcSectionDefinition.Rectangle(0.30, 0.60) with
+        {
+            LowerRebar = ParametricLongitudinalLayer.Physical(3, 0.016, -0.25),
+            UpperRebar = ParametricLongitudinalLayer.Physical(2, 0.012, 0.25)
+        };
+
+        var document = new Sp63NormalReportProvider().Build(new ReportContext(
+            task, result, new CrossSection(), null, null, definition));
+
+        var image = Assert.Single(document.Blocks.OfType<ReportImage>());
+        Assert.Equal("Параметрическая схема сечения", image.Name);
+        Assert.Contains("a =", image.Svg);
+        Assert.Contains("class=\"rebar\"", image.Svg);
     }
 }

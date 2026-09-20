@@ -1,4 +1,5 @@
 using OpenCS.Reporting;
+using OpenCS.Reporting.Pandoc;
 using Xunit;
 
 namespace OpenCS.Reporting.Tests;
@@ -13,20 +14,38 @@ public sealed class ReportExportServiceTests : IDisposable
         try { Directory.Delete(_dir, true); } catch { }
     }
 
-    sealed class ThrowingPdfConverter : IHtmlToPdfConverter
+    sealed class ThrowingPandocExporter : IPandocReportExporter
     {
-        public Task ConvertAsync(string html, string outputPdfPath, CancellationToken ct = default)
+        public Task ExportAsync(ReportDocument document, string outputPath, CancellationToken ct = default)
         {
-            File.WriteAllText(outputPdfPath, "частично записанный PDF");
+            File.WriteAllText(outputPath, "частично записанный файл");
             throw new InvalidOperationException("сбой печати");
         }
     }
 
-    sealed class StubPdfConverter : IHtmlToPdfConverter
+    sealed class StubPandocExporter : IPandocReportExporter
     {
-        public Task ConvertAsync(string html, string outputPdfPath, CancellationToken ct = default)
+        readonly string _payload;
+
+        public StubPandocExporter(string payload = "stub") => _payload = payload;
+
+        public Task ExportAsync(ReportDocument document, string outputPath, CancellationToken ct = default)
         {
-            File.WriteAllText(outputPdfPath, "%PDF-1.7 stub");
+            ct.ThrowIfCancellationRequested();
+            File.WriteAllText(outputPath, _payload);
+            return Task.CompletedTask;
+        }
+    }
+
+    sealed class RecordingPandocExporter : IPandocReportExporter
+    {
+        public string? LastOutputPath { get; private set; }
+
+        public Task ExportAsync(ReportDocument document, string outputPath,
+            CancellationToken ct = default)
+        {
+            LastOutputPath = outputPath;
+            File.WriteAllText(outputPath, "stub");
             return Task.CompletedTask;
         }
     }
@@ -59,34 +78,53 @@ public sealed class ReportExportServiceTests : IDisposable
     public async Task Export_WritesDocx_WithoutRasterizer_WhenNoSvgImages()
     {
         string path = Path.Combine(_dir, "report.docx");
-        await new ReportExportService().ExportAsync(Document(), path);
+        await new ReportExportService(pandocExporter: new StubPandocExporter("PK stub"))
+            .ExportAsync(Document(), path);
 
         byte[] bytes = await File.ReadAllBytesAsync(path);
-        Assert.Equal([0x50, 0x4B], bytes.Take(2).ToArray());       // ZIP-сигнатура
+        Assert.Equal("PK stub", System.Text.Encoding.UTF8.GetString(bytes));
+    }
+
+    [Theory]
+    [InlineData(".odt")]
+    [InlineData(".rtf")]
+    public async Task Export_WritesAdditionalPandocFormat(string extension)
+    {
+        string path = Path.Combine(_dir, "report" + extension);
+        await new ReportExportService(pandocExporter: new StubPandocExporter("format stub"))
+            .ExportAsync(Document(), path);
+
+        Assert.Equal("format stub", await File.ReadAllTextAsync(path));
     }
 
     [Fact]
     public async Task Export_WritesPdf_ThroughConverter()
     {
         string path = Path.Combine(_dir, "report.pdf");
-        await new ReportExportService(pdfConverter: new StubPdfConverter())
+        await new ReportExportService(pandocExporter: new StubPandocExporter("%PDF-1.7 stub"))
             .ExportAsync(Document(), path);
 
         Assert.StartsWith("%PDF-", await File.ReadAllTextAsync(path));
     }
 
     [Fact]
-    public async Task Export_Pdf_WithoutConverter_Throws()
-        => await Assert.ThrowsAsync<InvalidOperationException>(
-            () => new ReportExportService().ExportAsync(Document(), Path.Combine(_dir, "r.pdf")));
+    public async Task Export_PandocReceivesTemporaryPathWithTargetExtension()
+    {
+        string path = Path.Combine(_dir, "report.pdf");
+        var exporter = new RecordingPandocExporter();
+
+        await new ReportExportService(pandocExporter: exporter).ExportAsync(Document(), path);
+
+        Assert.Equal(".pdf", Path.GetExtension(exporter.LastOutputPath));
+    }
 
     [Fact]
     public async Task Export_UnknownExtension_ThrowsAndCreatesNothing()
     {
         var ex = await Assert.ThrowsAsync<ArgumentException>(
-            () => new ReportExportService().ExportAsync(Document(), Path.Combine(_dir, "nope", "r.rtf")));
+            () => new ReportExportService().ExportAsync(Document(), Path.Combine(_dir, "nope", "r.xyz")));
 
-        Assert.Contains("Markdown", ex.Message);
+        Assert.Contains("ODT", ex.Message);
         Assert.False(Directory.Exists(Path.Combine(_dir, "nope")));
     }
 
@@ -97,7 +135,7 @@ public sealed class ReportExportServiceTests : IDisposable
         await File.WriteAllTextAsync(path, "прежний файл");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => new ReportExportService(pdfConverter: new ThrowingPdfConverter())
+            () => new ReportExportService(pandocExporter: new ThrowingPandocExporter())
                 .ExportAsync(Document(), path));
 
         Assert.Equal("прежний файл", await File.ReadAllTextAsync(path));
@@ -111,7 +149,7 @@ public sealed class ReportExportServiceTests : IDisposable
         await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            () => new ReportExportService(pdfConverter: new StubPdfConverter())
+            () => new ReportExportService(pandocExporter: new StubPandocExporter())
                 .ExportAsync(Document(), Path.Combine(_dir, "report.pdf"), cts.Token));
 
         Assert.Empty(Directory.GetFiles(_dir));

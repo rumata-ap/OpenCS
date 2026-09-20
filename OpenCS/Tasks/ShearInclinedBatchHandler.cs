@@ -31,7 +31,8 @@ public class ShearInclinedBatchHandler : ITaskHandler
             foreach (var row in forceSet.Items.OrderBy(i => i.Num))
             {
                 ctx!.CancellationToken.ThrowIfCancellationRequested();
-                var single = ShearInclinedRunner.Run(task, section, row, settings, ctx);
+                var single = ShearInclinedRunner.Run(task, section, row, settings, ctx,
+                    includeTrace: false);
 
                 using var doc = JsonDocument.Parse(single.DataJson);
                 var root = doc.RootElement;

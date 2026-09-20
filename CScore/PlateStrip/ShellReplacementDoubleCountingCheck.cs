@@ -9,7 +9,9 @@ public sealed record ShellReplacementCheckResult(
 
 /// <summary>Проверки двойного учёта между PlateStripBeamAnalogy и её shell-регионом источника —
 /// чисто доменные диагностики над уже существующими данными (геометрия полосы Среза 1,
-/// StripLoadSet Среза 4), без реальной сборки shell+beam (появится в Срезе 7). См.
+/// StripLoadSet Среза 4). Реальной сборки shell+beam здесь нет и не будет: сквозной прогон обеих
+/// моделей выполняет PlateStripAnalogyRunner в слое OpenSees (Срез 7), а домен остаётся без
+/// зависимости от решателя. См.
 /// docs/superpowers/specs/2026-08-13-plate-strip-shell-replacement-policy-design.md.</summary>
 public static class ShellReplacementDoubleCountingCheck
 {

@@ -462,6 +462,7 @@ public static class Sp63NormalChecker
             StrengthDetails = details,
             ConstructiveChecks = constructiveChecks,
             Variables = variables,
+            TraceSteps = Sp63NormalTraceBuilder.Build(branch, details, variables),
             InformationalMessages = allInformational
         };
     }
