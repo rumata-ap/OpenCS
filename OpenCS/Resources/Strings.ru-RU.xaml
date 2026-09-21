@@ -3107,7 +3107,7 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="ReportExportTimedOut">Формирование отчёта не завершилось за отведённое время. Попробуйте повторить экспорт.</system:String>
     <system:String x:Key="ReportExportFailed">Не удалось сформировать отчёт в выбранном формате. HTML и Markdown доступны всегда.</system:String>
     <system:String x:Key="FemAnalyzeStraightChain">Проверить прямую цепочку</system:String>
-    <system:String x:Key="ExportAbaqusCdp">Экспортировать бетонный CDP в Abaqus</system:String>
+    <system:String x:Key="ExportAbaqusCdp">Экспортировать материал в Abaqus</system:String>
     <system:String x:Key="AbaqusCdpExportTitle">Бетонный CDP для Abaqus</system:String>
     <system:String x:Key="AbaqusCdpCalculationType">Вид расчёта</system:String>
     <system:String x:Key="AbaqusCdpUnitProfile">Профиль единиц Abaqus</system:String>
@@ -3136,7 +3136,10 @@ R ({5} рад): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="AbaqusCdpClose">Закрыть</system:String>
     <system:String x:Key="AbaqusCdpInvalidInput">Проверьте параметры экспорта.</system:String>
     <system:String x:Key="AbaqusCdpCopyFailed">Не удалось записать текст в буфер обмена.</system:String>
-    <system:String x:Key="AbaqusCdpNotConcrete">Экспорт CDP доступен только для бетона.</system:String>
+    <system:String x:Key="AbaqusCdpNotConcrete">Экспорт в Abaqus доступен для бетона, стали и арматуры.</system:String>
+    <system:String x:Key="AbaqusSteelExportTitle">Сталь для Abaqus (*Elastic + *Plastic)</system:String>
+    <system:String x:Key="AbaqusSteelYieldPlateau">Площадка текучести (СП 16, прил. В)</system:String>
+    <system:String x:Key="AbaqusSteelSource">Источник: диаграмма OpenCS (СП 16 для стали, СП 63 для арматуры), истинные напряжения и пластические деформации; ветвь растяжения</system:String>
     <system:String x:Key="AbaqusCdpProfileMpaMmN">MPa – mm – N</system:String>
     <system:String x:Key="AbaqusCdpProfileKpaMKN">kPa – m – kN</system:String>
     <system:String x:Key="AbaqusCdpProfilePaMN">Pa – m – N</system:String>

@@ -64,10 +64,13 @@ public static class AbaqusCdpKeywordSerializer
     }
 
     /// <summary>Очищает имя материала до безопасного для keyword идентификатора.</summary>
-    public static string SanitizeMaterialName(string? name)
+    public static string SanitizeMaterialName(string? name) => SanitizeMaterialName(name, "Concrete-CDP");
+
+    /// <summary>Очищает имя материала; пустой результат заменяется на <paramref name="fallback"/>.</summary>
+    internal static string SanitizeMaterialName(string? name, string fallback)
     {
         if (string.IsNullOrWhiteSpace(name))
-            return "Concrete-CDP";
+            return fallback;
 
         var builder = new StringBuilder(name.Length);
         bool previousUnderscore = false;
@@ -90,10 +93,10 @@ public static class AbaqusCdpKeywordSerializer
         }
 
         string result = builder.ToString().Trim('_');
-        return result.Length == 0 ? "Concrete-CDP" : result;
+        return result.Length == 0 ? fallback : result;
     }
 
-    static string Format(double value) => value.ToString("G17", CultureInfo.InvariantCulture);
+    internal static string Format(double value) => value.ToString("G17", CultureInfo.InvariantCulture);
 
     static void AppendLine(StringBuilder builder, string value) => builder.Append(value).Append("\r\n");
 }

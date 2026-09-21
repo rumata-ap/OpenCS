@@ -3107,7 +3107,7 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="ReportExportTimedOut">Report rendering did not finish in time. Please try the export again.</system:String>
     <system:String x:Key="ReportExportFailed">The report could not be produced in the selected format. HTML and Markdown are always available.</system:String>
     <system:String x:Key="FemAnalyzeStraightChain">Check straight chain</system:String>
-    <system:String x:Key="ExportAbaqusCdp">Export concrete CDP to Abaqus</system:String>
+    <system:String x:Key="ExportAbaqusCdp">Export material to Abaqus</system:String>
     <system:String x:Key="AbaqusCdpExportTitle">Concrete CDP for Abaqus</system:String>
     <system:String x:Key="AbaqusCdpCalculationType">Calculation type</system:String>
     <system:String x:Key="AbaqusCdpUnitProfile">Abaqus unit profile</system:String>
@@ -3136,7 +3136,10 @@ R ({5} rad): Rx={6:G4}; Ry={7:G4}; Rz={8:G4}</system:String>
     <system:String x:Key="AbaqusCdpClose">Close</system:String>
     <system:String x:Key="AbaqusCdpInvalidInput">Check the export parameters.</system:String>
     <system:String x:Key="AbaqusCdpCopyFailed">Could not write text to the clipboard.</system:String>
-    <system:String x:Key="AbaqusCdpNotConcrete">CDP export is available for concrete only.</system:String>
+    <system:String x:Key="AbaqusCdpNotConcrete">Abaqus export is available for concrete, steel and reinforcement.</system:String>
+    <system:String x:Key="AbaqusSteelExportTitle">Steel for Abaqus (*Elastic + *Plastic)</system:String>
+    <system:String x:Key="AbaqusSteelYieldPlateau">Yield plateau (SP 16, App. B)</system:String>
+    <system:String x:Key="AbaqusSteelSource">Source: OpenCS diagram (SP 16 for steel, SP 63 for reinforcement), true stress and plastic strain; tension branch</system:String>
     <system:String x:Key="AbaqusCdpProfileMpaMmN">MPa – mm – N</system:String>
     <system:String x:Key="AbaqusCdpProfileKpaMKN">kPa – m – kN</system:String>
     <system:String x:Key="AbaqusCdpProfilePaMN">Pa – m – N</system:String>

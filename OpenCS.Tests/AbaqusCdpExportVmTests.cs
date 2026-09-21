@@ -84,6 +84,78 @@ public sealed class AbaqusCdpExportVmTests
 
     static double Parse(string value) => Pars.ParseAny(value, out double result) ? result : double.NaN;
 
+    [Fact]
+    public void SteelMaterial_SwitchesToPlasticExport()
+    {
+        var vm = new AbaqusCdpExportVM(CreateSteel(), new RecordingClipboard());
+
+        Assert.True(vm.IsSteel);
+        Assert.False(vm.IsConcrete);
+        Assert.True(vm.IsStructuralSteel);
+        Assert.Equal("0.3", vm.PoissonRatioText);
+        Assert.Equal(Loc.S("AbaqusSteelSource"), vm.SourceText);
+        Assert.Contains("*Plastic", vm.KeywordText);
+        Assert.DoesNotContain("*Concrete", vm.KeywordText);
+        Assert.Contains("[Plastic]", vm.TsvText);
+        Assert.NotEmpty(vm.WarningsText);
+        Assert.Empty(vm.ErrorText);
+    }
+
+    [Fact]
+    public void SteelMaterial_YieldPlateauToggleRebuildsTable()
+    {
+        var vm = new AbaqusCdpExportVM(CreateSteel(), new RecordingClipboard());
+        int withPlateau = PlasticRows(vm.KeywordText);
+
+        vm.HasYieldPlateau = false;
+
+        Assert.Equal(withPlateau - 1, PlasticRows(vm.KeywordText));
+    }
+
+    [Fact]
+    public void SteelMaterial_InvalidPoissonRatioShowsError()
+    {
+        var vm = new AbaqusCdpExportVM(CreateSteel(), new RecordingClipboard());
+
+        vm.PoissonRatioText = "0.5";
+
+        Assert.Empty(vm.KeywordText);
+        Assert.Empty(vm.WarningsText);
+        Assert.Equal(Loc.S("AbaqusCdpInvalidInput"), vm.ErrorText);
+    }
+
+    static int PlasticRows(string keyword) => keyword
+        .Split("\r\n", StringSplitOptions.RemoveEmptyEntries)
+        .SkipWhile(line => line != "*Plastic")
+        .Count() - 1;
+
+    /// <summary>С245 по СП 16.13330.2017 (Ry в кПа).</summary>
+    static Material CreateSteel()
+    {
+        var material = new Material { Tag = "C245", Type = MatType.Steel };
+        material.MaterialChars =
+        [
+            SteelChars(CalcType.C, 240_000, 360_000),
+            SteelChars(CalcType.CL, 240_000, 360_000),
+            SteelChars(CalcType.N, 245_000, 370_000),
+            SteelChars(CalcType.NL, 245_000, 370_000)
+        ];
+        return material;
+    }
+
+    static MaterialChars SteelChars(CalcType calcType, double ry, double ru) => new()
+    {
+        Type = MatType.Steel,
+        TypeCalc = calcType,
+        Fc = -ry,
+        Ft = ry,
+        Ry = ry,
+        Ru = ru,
+        E = 206_000_000,
+        Ec2 = -0.025,
+        Et2 = 0.025
+    };
+
     static Material CreateConcrete()
     {
         var material = new Material

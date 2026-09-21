@@ -25,7 +25,8 @@ public sealed class AbaqusCdpExportResourcesTests
         "AbaqusCdpNotConcrete", "AbaqusCdpProfileMpaMmN", "AbaqusCdpProfileKpaMKN",
         "AbaqusCdpProfilePaMN", "AbaqusCdpProfileCustom", "AbaqusCdpCustomStressScale",
         "AbaqusCdpCustomStressUnit", "AbaqusCdpCustomLengthUnit",
-        "AbaqusCdpCustomForceUnit", "AbaqusCdpCustomEnergyUnit"
+        "AbaqusCdpCustomForceUnit", "AbaqusCdpCustomEnergyUnit",
+        "AbaqusSteelExportTitle", "AbaqusSteelYieldPlateau", "AbaqusSteelSource"
     ];
 
     [Fact]
@@ -53,8 +54,10 @@ public sealed class AbaqusCdpExportResourcesTests
         string codeBehind = File.ReadAllText(Path.Combine(root, "OpenCS", "MainWindow.xaml.cs"));
 
         Assert.Contains("{DynamicResource AbaqusCdpExportTitle}", window);
-        Assert.Contains("{Binding KeywordText}", window);
-        Assert.Contains("{Binding TsvText}", window);
+        // TextBox.Text по умолчанию TwoWay: read-only свойства VM без Mode=OneWay роняют окно при показе.
+        Assert.Contains("{Binding KeywordText, Mode=OneWay}", window);
+        Assert.Contains("{Binding TsvText, Mode=OneWay}", window);
+        Assert.Contains("{Binding ElasticModulusText, Mode=OneWay}", window);
         Assert.Contains("{Binding CopyKeywordCommand}", window);
         Assert.Contains("{Binding CopyTsvCommand}", window);
         Assert.Contains("{DynamicResource", window);

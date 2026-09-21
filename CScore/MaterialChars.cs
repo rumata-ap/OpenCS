@@ -220,7 +220,8 @@ namespace CScore
          double Ry_kpa = Ry;
          double eps_y = Ry_kpa / E;
 
-         int group = Ry_kpa switch
+         // Пороги групп табл. В.9 заданы в МПа, характеристики OpenCS хранятся в кПа.
+         int group = (Ry_kpa / 1000.0) switch
          {
             <= 290 => 1,
             <= 390 => 2,
@@ -239,7 +240,7 @@ namespace CScore
             _ => (0.9, 0.9,   1.7, 18.0,  26.2, 1.16,   51.1, 1.10)
          };
 
-         var pos = new List<double[]>  // ε, σ (МПа)
+         var pos = new List<double[]>  // ε, σ (кПа)
          {
             new[] { 0.0,                      0.0 },
             new[] { eps_pl * eps_y,           sig_pl * Ry_kpa },
