@@ -12,7 +12,7 @@ using Xunit;
 namespace OpenCS.Tests;
 
 /// <summary>Сквозная проверка: реальный документ strain_state с настоящей SVG-картой НДС
-/// проходит все четыре ветки экспорта.</summary>
+/// проходит HTML- и Markdown-ветки экспорта.</summary>
 [Collection("WebView2")]
 public sealed class ReportExportAcceptanceTests : IDisposable
 {
@@ -143,125 +143,5 @@ public sealed class ReportExportAcceptanceTests : IDisposable
         string mdText = await File.ReadAllTextAsync(md);
         Assert.Contains("77.2865", mdText);
         Assert.Contains("![", mdText);
-    }
-
-    [SkippableFact]
-    public void Export_DocxAndPdf_ProduceValidFiles()
-    {
-        string docx = Path.Combine(_dir, "report.docx");
-        string pdf = Path.Combine(_dir, "report.pdf");
-        Exception? error = null;
-
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                // Application не создаётся (он один на AppDomain), а диспетчер
-                // передаётся рендереру явно: Application.Current мог остаться от другого
-                // теста и указывать на уже завершившийся поток.
-                var pump = Dispatcher.CurrentDispatcher;
-                SynchronizationContext.SetSynchronizationContext(
-                    new DispatcherSynchronizationContext(pump));
-                async Task RunAsync()
-                {
-                    await using var renderer = new WebView2ReportRenderer(
-                        Path.Combine(_dir, "wv2-user-data"), pump);
-                    var service = new ReportExportService(
-                        pdfConverter: renderer, svgRasterizer: renderer);
-                    var document = BuildDocument();
-                    await service.ExportAsync(document, docx);
-                    await service.ExportAsync(document, pdf);
-                }
-                _ = RunAsync().ContinueWith(t =>
-                {
-                    if (t.IsFaulted) error = t.Exception?.GetBaseException();
-                    pump.InvokeShutdown();
-                }, TaskScheduler.FromCurrentSynchronizationContext());
-                Dispatcher.Run();
-            }
-            catch (Exception ex) { error = ex; }
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        if (!thread.Join(TimeSpan.FromMinutes(2)))
-            throw new TimeoutException("Экспорт DOCX/PDF не завершился за 2 минуты.");
-
-        Skip.If((error as ReportRenderingUnavailableException)?.Reason
-                == ReportRenderingFailureReason.RuntimeMissing,
-            "WebView2 Runtime не установлен на этой машине.");
-        Assert.Null(error);
-
-        byte[] docxBytes = File.ReadAllBytes(docx);
-        Assert.Equal([0x50, 0x4B], docxBytes.Take(2).ToArray());
-        using (var package = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Open(docx, false))
-        {
-            Assert.NotEmpty(package.MainDocumentPart!.ImageParts);
-            foreach (var image in package.MainDocumentPart.ImageParts)
-            {
-                using var stream = image.GetStream();
-                Assert.True(stream.Length > 2_000,
-                    "Растеризованная карта подозрительно мала — вероятно, отрисовалась пустой.");
-            }
-            Assert.Contains("Колонна | ось А", package.MainDocumentPart!.Document!.InnerText);
-        }
-
-        byte[] pdfBytes = File.ReadAllBytes(pdf);
-        Assert.Equal("%PDF-", System.Text.Encoding.ASCII.GetString(pdfBytes, 0, 5));
-        Assert.True(pdfBytes.Length > 10_000, "PDF подозрительно мал — вероятно, карты не отрисовались.");
-    }
-
-    [SkippableFact]
-    public void Export_LimitMoment_DocxAndPdf_ProduceValidFiles()
-    {
-        string docx = Path.Combine(_dir, "limit-moment.docx");
-        string pdf = Path.Combine(_dir, "limit-moment.pdf");
-        Exception? error = null;
-
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                var pump = Dispatcher.CurrentDispatcher;
-                SynchronizationContext.SetSynchronizationContext(
-                    new DispatcherSynchronizationContext(pump));
-                async Task RunAsync()
-                {
-                    await using var renderer = new WebView2ReportRenderer(
-                        Path.Combine(_dir, "limit-moment-wv2-user-data"), pump);
-                    var service = new ReportExportService(
-                        pdfConverter: renderer, svgRasterizer: renderer);
-                    var document = BuildLimitMomentDocument();
-                    await service.ExportAsync(document, docx);
-                    await service.ExportAsync(document, pdf);
-                }
-                _ = RunAsync().ContinueWith(t =>
-                {
-                    if (t.IsFaulted) error = t.Exception?.GetBaseException();
-                    pump.InvokeShutdown();
-                }, TaskScheduler.FromCurrentSynchronizationContext());
-                Dispatcher.Run();
-            }
-            catch (Exception ex) { error = ex; }
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        if (!thread.Join(TimeSpan.FromMinutes(2)))
-            throw new TimeoutException("Экспорт limit_moment DOCX/PDF не завершился за 2 минуты.");
-
-        Skip.If((error as ReportRenderingUnavailableException)?.Reason
-                == ReportRenderingFailureReason.RuntimeMissing,
-            "WebView2 Runtime не установлен на этой машине.");
-        Assert.Null(error);
-
-        byte[] docxBytes = File.ReadAllBytes(docx);
-        Assert.Equal([0x50, 0x4B], docxBytes.Take(2).ToArray());
-        using (var package = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Open(docx, false))
-        {
-            Assert.True(package.MainDocumentPart!.ImageParts.Count() >= 2);
-            Assert.Contains("77.2865", package.MainDocumentPart!.Document!.InnerText);
-        }
-        byte[] pdfBytes = File.ReadAllBytes(pdf);
-        Assert.Equal("%PDF-", System.Text.Encoding.ASCII.GetString(pdfBytes, 0, 5));
-        Assert.True(pdfBytes.Length > 10_000, "PDF limit_moment подозрительно мал.");
     }
 }

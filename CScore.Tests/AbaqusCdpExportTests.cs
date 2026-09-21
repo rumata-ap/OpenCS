@@ -108,6 +108,31 @@ public sealed class AbaqusCdpExportTests
         Assert.All(points, point => Assert.InRange(point.Damage, 0.0, 0.999));
     }
 
+    [Theory]
+    [InlineData(0.05, CalcType.C)]
+    [InlineData(0.05, CalcType.NL)]
+    [InlineData(0.3, CalcType.N)]
+    [InlineData(0.7, CalcType.C)]
+    public void Compression_EndsAtEtaMinWithinSourceDiagram(double etaMin, CalcType calcType)
+    {
+        // Уровень ηmin·fc на исходной ЕКБ достигается с погрешностью округления;
+        // таблица должна закончиться на нём, а не экстраполироваться за пределы диаграммы.
+        var material = TestMaterials.Concrete();
+        var options = AbaqusCdpOptions.Default() with { CompressionEtaMin = etaMin, CalcType = calcType };
+        var points = AbaqusCdpCompressionBuilder.Build(material, options);
+
+        double fc = Math.Abs(material.GetChars(calcType)!.Fc) * options.UnitSystem.StressScaleFromOpenCsKpa;
+        var source = material.GetChars(calcType)!.DEKB(options.CompressionEtaMin).Ic;
+        double sourceMaxStrain = source.X.Zip(source.Y, (strain, stress) => (strain, stress))
+            .Where(point => point.stress != 0.0)
+            .Max(point => Math.Abs(point.strain));
+
+        Assert.Equal(options.CompressionEtaMin * fc, points[^1].Stress, 9);
+        Assert.True(points[^1].TotalStrain <= sourceMaxStrain * (1.0 + 1e-12),
+            $"Последняя точка {points[^1].TotalStrain} за пределами ЕКБ ({sourceMaxStrain}).");
+        Assert.Single(points, point => Math.Abs(point.Stress - options.CompressionEtaMin * fc) < 1e-9);
+    }
+
     [Fact]
     public void Tension_HasInitialPointAndFortyEqualCrackWidthIntervals()
     {
