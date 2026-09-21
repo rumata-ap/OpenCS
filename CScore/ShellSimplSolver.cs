@@ -152,29 +152,32 @@ namespace CScore
                 WaFace(p.Mx, p.My, p.Mxy, true, out double Mx_top, out double My_top);
                 WaFace(p.Mx, p.My, p.Mxy, false, out double Mx_bot, out double My_bot);
                 WaMembrane(p.Nx, p.Ny, p.Nxy, true, out double Nxr, out double Nyr);
+                double[] nxCands = WaMembraneCandidates(Nxr, p.Nx, p.Nxy);
+                double[] nyCands = WaMembraneCandidates(Nyr, p.Ny, p.Nxy);
 
                 waStrips = new List<ShellSimplStripResult>(4);
 
                 if (isSls)
                 {
-                    waStrips.Add(MakeStripSls("x, верх", Mx_top, Nxr, h, h - ct, cb,
+                    // Для трещин неблагоприятно наименьшее обжатие — первый кандидат.
+                    waStrips.Add(MakeStripSls("x, верх", Mx_top, nxCands[0], h, h - ct, cb,
                         As_x_top, As_x_bot, ds_x, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
-                    waStrips.Add(MakeStripSls("x, низ", Mx_bot, Nxr, h, h - cb, ct,
+                    waStrips.Add(MakeStripSls("x, низ", Mx_bot, nxCands[0], h, h - cb, ct,
                         As_x_bot, As_x_top, ds_x, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
-                    waStrips.Add(MakeStripSls("y, верх", My_top, Nyr, h, h - ct, cb,
+                    waStrips.Add(MakeStripSls("y, верх", My_top, nyCands[0], h, h - ct, cb,
                         As_y_top, As_y_bot, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
-                    waStrips.Add(MakeStripSls("y, низ", My_bot, Nyr, h, h - cb, ct,
+                    waStrips.Add(MakeStripSls("y, низ", My_bot, nyCands[0], h, h - cb, ct,
                         As_y_bot, As_y_top, ds_y, concreteChars, rebarChars, p.Phi1, p.Phi2, p.AcrcLimMm, p.SigmaSCrc, p.WplGamma));
                 }
                 else
                 {
-                    waStrips.Add(MakeStripUls("x, верх", Mx_top, Nxr, h, h - ct, cb,
+                    waStrips.Add(MakeStripUlsWorst("x, верх", Mx_top, nxCands, h, h - ct, cb,
                         As_x_top, As_x_bot, concreteChars, rebarChars));
-                    waStrips.Add(MakeStripUls("x, низ", Mx_bot, Nxr, h, h - cb, ct,
+                    waStrips.Add(MakeStripUlsWorst("x, низ", Mx_bot, nxCands, h, h - cb, ct,
                         As_x_bot, As_x_top, concreteChars, rebarChars));
-                    waStrips.Add(MakeStripUls("y, верх", My_top, Nyr, h, h - ct, cb,
+                    waStrips.Add(MakeStripUlsWorst("y, верх", My_top, nyCands, h, h - ct, cb,
                         As_y_top, As_y_bot, concreteChars, rebarChars));
-                    waStrips.Add(MakeStripUls("y, низ", My_bot, Nyr, h, h - cb, ct,
+                    waStrips.Add(MakeStripUlsWorst("y, низ", My_bot, nyCands, h, h - cb, ct,
                         As_y_bot, As_y_top, concreteChars, rebarChars));
                     etaMax = waStrips.Max(s => s.Eta);
                 }
@@ -303,6 +306,39 @@ namespace CScore
                 Nx_des = -Math.Max(0.0, Nxr);
                 Ny_des = -Math.Max(0.0, Nyr);
             }
+        }
+
+        /// <summary>
+        /// Расчётные мембранные усилия полосы Вуда-Армера (кН/м, "+" — растяжение).
+        /// Если правило Вуда даёт растяжение (<paramref name="nTensile"/> &gt; 0), кандидат один.
+        /// Если направление сжато (правило отбрасывает его как "арматура не нужна"), обжатие
+        /// НЕ обнуляется: сдвиг Nxy может как уменьшить, так и увеличить сжатие площадки,
+        /// поэтому возвращаются обе границы — [0] наименьшее обжатие min(0, N + |Nxy|)
+        /// (неблагоприятно для растянутой арматуры и трещин), [1] наибольшее N − |Nxy|
+        /// (неблагоприятно для сжатого бетона).
+        /// </summary>
+        internal static double[] WaMembraneCandidates(double nTensile, double n, double nxy)
+        {
+            if (nTensile > 0.0) return [nTensile];
+            double absNxy = Math.Abs(nxy);
+            double least = Math.Min(0.0, n + absNxy);
+            double most = Math.Min(0.0, n - absNxy);
+            return least == most ? [least] : [least, most];
+        }
+
+        /// <summary>Полоса ПС1 с худшим η из кандидатов мембранного усилия.</summary>
+        static ShellSimplStripResult MakeStripUlsWorst(string name,
+            double M_des, double[] nCands, double h, double h0, double aPrime,
+            double As_t, double As_c,
+            MaterialChars concrete, MaterialChars rebar)
+        {
+            ShellSimplStripResult? worst = null;
+            foreach (double n in nCands)
+            {
+                var r = MakeStripUls(name, M_des, n, h, h0, aPrime, As_t, As_c, concrete, rebar);
+                if (worst == null || r.Eta > worst.Eta) worst = r;
+            }
+            return worst!;
         }
 
         internal static double NeutralAxis(double h0, double aPrime,
