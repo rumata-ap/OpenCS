@@ -74,21 +74,15 @@ public static class AbaqusCdpCompressionBuilder
         for (int i = onsetRight; i <= peakIndex; i++)
             AddUnique(selected, sourcePoints[i]);
 
+        // ЕКБ строится с тем же ηmin, поэтому нисходящая ветвь сама доходит до ηmin·fc;
+        // уровень достигается с погрешностью округления, отсюда относительный допуск.
+        double targetStress = options.CompressionEtaMin * peakStress;
         int postPeakStart = Math.Max(peakIndex + 1, onsetRight);
         for (int i = postPeakStart; i < sourcePoints.Count; i++)
         {
             AddUnique(selected, sourcePoints[i]);
-            if (sourcePoints[i].Stress <= options.CompressionEtaMin * peakStress)
+            if (sourcePoints[i].Stress <= targetStress * (1.0 + 1e-9))
                 break;
-        }
-
-        double targetStress = options.CompressionEtaMin * peakStress;
-        if (selected[^1].Stress > targetStress && peakIndex + 1 < sourcePoints.Count)
-        {
-            var left = sourcePoints[Math.Max(peakIndex, 0)];
-            var right = sourcePoints[Math.Min(peakIndex + 1, sourcePoints.Count - 1)];
-            if (right.Stress < left.Stress)
-                AddUnique(selected, (InterpolateStrain(left, right, targetStress), targetStress));
         }
 
         var result = selected.Select((point, index) =>
