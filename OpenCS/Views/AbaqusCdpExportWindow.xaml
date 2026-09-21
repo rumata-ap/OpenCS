@@ -7,6 +7,12 @@
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <!-- Глобальный стиль TextBox (App.xaml) задаёт Height=22 и центрирование — для многострочного вывода отменяем. -->
+        <Style x:Key="OutputTextBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="Height" Value="Auto" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Top" />
+        </Style>
     </Window.Resources>
     <Grid Margin="10">
         <Grid.ColumnDefinitions>
@@ -134,12 +140,12 @@
 
         <TabControl Grid.Column="2" Grid.Row="0">
             <TabItem Header="{DynamicResource AbaqusCdpKeywordTab}">
-                <TextBox Text="{Binding KeywordText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
+                <TextBox Style="{StaticResource OutputTextBox}" Text="{Binding KeywordText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
                          TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto"
                          VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
             </TabItem>
             <TabItem Header="{DynamicResource AbaqusCdpTsvTab}">
-                <TextBox Text="{Binding TsvText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
+                <TextBox Style="{StaticResource OutputTextBox}" Text="{Binding TsvText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
                          TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto"
                          VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
             </TabItem>
