@@ -79,7 +79,7 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="{DynamicResource AbaqusCdpElasticModulus}" />
-                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ElasticModulusText}" IsReadOnly="True" />
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ElasticModulusText, Mode=OneWay}" IsReadOnly="True" />
                     <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding StressUnitText}" Margin="5,3,0,0" />
                     <TextBlock Grid.Row="1" Text="{DynamicResource AbaqusCdpPoissonRatio}" />
                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PoissonRatioText, UpdateSourceTrigger=PropertyChanged}" />
@@ -134,12 +134,12 @@
 
         <TabControl Grid.Column="2" Grid.Row="0">
             <TabItem Header="{DynamicResource AbaqusCdpKeywordTab}">
-                <TextBox Text="{Binding KeywordText}" IsReadOnly="True" AcceptsReturn="True"
+                <TextBox Text="{Binding KeywordText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
                          TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto"
                          VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
             </TabItem>
             <TabItem Header="{DynamicResource AbaqusCdpTsvTab}">
-                <TextBox Text="{Binding TsvText}" IsReadOnly="True" AcceptsReturn="True"
+                <TextBox Text="{Binding TsvText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
                          TextWrapping="NoWrap" HorizontalScrollBarVisibility="Auto"
                          VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
             </TabItem>
